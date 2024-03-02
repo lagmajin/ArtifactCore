@@ -13,5 +13,16 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Image">
+      <UniqueIdentifier>{dcb74a76-a9d8-412b-9da6-21bdad182052}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\ImageProcessing">
+      <UniqueIdentifier>{16500490-ef36-4d24-843d-50b424ec7908}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Image\FloatImage.hpp">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
