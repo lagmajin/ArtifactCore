@@ -19,9 +19,21 @@
     <Filter Include="ヘッダー ファイル\ImageProcessing">
       <UniqueIdentifier>{16500490-ef36-4d24-843d-50b424ec7908}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Asset">
+      <UniqueIdentifier>{3a9112ba-bff9-434c-8e9d-ff9c0b5dec48}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Codec">
+      <UniqueIdentifier>{6077b6a5-6d0a-4d88-8084-9a93bd7d86ca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Color">
+      <UniqueIdentifier>{457c2f11-9ad1-438b-8862-a1bcb1850f4a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Image\FloatImage.hpp">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="LOGImage.hpp">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
   </ItemGroup>
