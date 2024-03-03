@@ -3,7 +3,7 @@
 
 
 
-namespace ArtifactCore {
+namespace Artifact {
 
 
 

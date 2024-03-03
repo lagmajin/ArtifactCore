@@ -28,13 +28,37 @@
     <Filter Include="ヘッダー ファイル\Color">
       <UniqueIdentifier>{457c2f11-9ad1-438b-8862-a1bcb1850f4a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Color">
+      <UniqueIdentifier>{cfa94d34-6cdc-4389-abd6-4b1435855278}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Image">
+      <UniqueIdentifier>{726ff667-eb1c-45dd-a05a-50a05afefcc8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Asset">
+      <UniqueIdentifier>{e88e6b5a-f92b-4636-947a-dc8d40b5dbfd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\ImageProcessing">
+      <UniqueIdentifier>{c798c434-72ed-48b9-a184-4e4a66263c9d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Codec">
+      <UniqueIdentifier>{c5d0048e-3512-456d-a549-45f126c7e067}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Format">
+      <UniqueIdentifier>{4a983046-c26b-413d-bd5e-cddd286a004e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Generator">
+      <UniqueIdentifier>{3a86626d-b7bf-4179-9d6b-24ec4ef13cb3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Generator">
+      <UniqueIdentifier>{76daaacf-34eb-4371-863b-2cb0e46fe212}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Image\FloatImage.hpp">
-      <Filter>ヘッダー ファイル\Image</Filter>
+    <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
+      <Filter>ヘッダー ファイル\Generator</Filter>
     </ClInclude>
-    <ClInclude Include="LOGImage.hpp">
-      <Filter>ヘッダー ファイル\Image</Filter>
+    <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp">
+      <Filter>ヘッダー ファイル\Generator</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
