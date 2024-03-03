@@ -5,7 +5,9 @@
 
 namespace Artifact {
 
+ class AbstractGenerator {
 
+ };
 
 
 
