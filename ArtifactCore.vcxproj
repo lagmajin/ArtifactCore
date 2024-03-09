@@ -19,8 +19,26 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Color\Alpha.hpp" />
     <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp" />
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
+    <ClInclude Include="include\Image\BitmapImage.hpp" />
+    <ClInclude Include="include\Image\FloatImage.hpp" />
+    <ClInclude Include="include\Image\LOGImage.hpp" />
+    <ClInclude Include="include\Image\OpenEXR.hpp" />
+    <ClInclude Include="include\Image\PNGImage.hpp" />
+    <ClInclude Include="include\Knob\AbstractKnob.hpp" />
+    <ClInclude Include="include\Knob\KnobList.hpp" />
+    <ClInclude Include="include\Mesh\FBX.hpp" />
+    <ClInclude Include="include\Mesh\WavefrontObj.hpp" />
+    <ClInclude Include="include\Video\GStreamerDecoder.hpp" />
+    <ClInclude Include="include\Video\GStreamerEncoder.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />
+    <ClCompile Include="src\Image\BitmapImage.cpp" />
+    <ClCompile Include="src\Image\MeshEncoder.cpp" />
+    <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -74,6 +92,11 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)/build</OutDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -108,10 +131,12 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;opencv_world470d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

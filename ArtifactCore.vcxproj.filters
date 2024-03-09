@@ -52,6 +52,21 @@
     <Filter Include="ヘッダー ファイル\Generator">
       <UniqueIdentifier>{76daaacf-34eb-4371-863b-2cb0e46fe212}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Mesh">
+      <UniqueIdentifier>{9ceaa50d-cf5a-4556-bdd4-2f86c03ea434}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Mesh">
+      <UniqueIdentifier>{55e2f88a-e71f-49f9-80a6-333b58a04e20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Knob">
+      <UniqueIdentifier>{69573baf-95cc-4cd2-92db-75b2085944ac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Cache">
+      <UniqueIdentifier>{4e035de1-eb08-4fcc-b34b-1b37671c9388}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Render">
+      <UniqueIdentifier>{4561b96e-4a16-40be-a18d-92959afd4afc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -60,5 +75,55 @@
     <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp">
       <Filter>ヘッダー ファイル\Generator</Filter>
     </ClInclude>
+    <ClInclude Include="include\Video\GStreamerEncoder.hpp">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Video\GStreamerDecoder.hpp">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\FloatImage.hpp">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\LOGImage.hpp">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\PNGImage.hpp">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Mesh\WavefrontObj.hpp">
+      <Filter>ヘッダー ファイル\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Mesh\FBX.hpp">
+      <Filter>ヘッダー ファイル\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Knob\AbstractKnob.hpp">
+      <Filter>ヘッダー ファイル\Knob</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\BitmapImage.hpp">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Knob\KnobList.hpp">
+      <Filter>ヘッダー ファイル\Knob</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Color\Alpha.hpp">
+      <Filter>ヘッダー ファイル\Color</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\OpenEXR.hpp">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Mesh\WavefrontObj.cpp">
+      <Filter>ソース ファイル\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\BitmapImage.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\MeshEncoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
