@@ -67,6 +67,15 @@
     <Filter Include="ヘッダー ファイル\Render">
       <UniqueIdentifier>{4561b96e-4a16-40be-a18d-92959afd4afc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Script">
+      <UniqueIdentifier>{3b8fe800-793e-430a-ab7c-976640d77123}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Composition">
+      <UniqueIdentifier>{12ad6f73-f992-4a28-ae59-5ab8c93b174e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Rule">
+      <UniqueIdentifier>{9adf484d-6d82-40d1-938f-6076dea3533f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -110,6 +119,15 @@
     </ClInclude>
     <ClInclude Include="include\Image\OpenEXR.hpp">
       <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Script\CSharpScriptEngine.hpp">
+      <Filter>ヘッダー ファイル\Script</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Rule\NamingRule.hpp">
+      <Filter>ヘッダー ファイル\Rule</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Composition\CompositionBuffer2D.hpp">
+      <Filter>ヘッダー ファイル\Composition</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
