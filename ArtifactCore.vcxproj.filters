@@ -76,6 +76,9 @@
     <Filter Include="ヘッダー ファイル\Rule">
       <UniqueIdentifier>{9adf484d-6d82-40d1-938f-6076dea3533f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\File">
+      <UniqueIdentifier>{8720a8ca-4df1-49f8-ae97-bd2cc8a8ed6d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -129,6 +132,21 @@
     <ClInclude Include="include\Composition\CompositionBuffer2D.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
     </ClInclude>
+    <ClInclude Include="include\File\FileInfo.hpp">
+      <Filter>ヘッダー ファイル\File</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Asset\AssetMetaFile.hpp">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Asset\AbstractAssetFile.hpp">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Asset\AssetConverter.hpp">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Color\FloatColor.hpp">
+      <Filter>ヘッダー ファイル\Color</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
@@ -142,6 +160,9 @@
     </ClCompile>
     <ClCompile Include="src\Image\MeshEncoder.cpp">
       <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\FloatImage.cpp">
+      <Filter>ソース ファイル\Image</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -19,8 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Asset\AbstractAssetFile.hpp" />
+    <ClInclude Include="include\Asset\AssetConverter.hpp" />
+    <ClInclude Include="include\Asset\AssetMetaFile.hpp" />
     <ClInclude Include="include\Color\Alpha.hpp" />
+    <ClInclude Include="include\Color\FloatColor.hpp" />
     <ClInclude Include="include\Composition\CompositionBuffer2D.hpp" />
+    <ClInclude Include="include\File\FileInfo.hpp" />
     <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp" />
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
     <ClInclude Include="include\Image\BitmapImage.hpp" />
@@ -40,6 +45,7 @@
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />
+    <ClCompile Include="src\Image\FloatImage.cpp" />
     <ClCompile Include="src\Image\MeshEncoder.cpp" />
     <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
   </ItemGroup>
@@ -96,7 +102,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Qt\6.5.0\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)/build</OutDir>
   </PropertyGroup>
