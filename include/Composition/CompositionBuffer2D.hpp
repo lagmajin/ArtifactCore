@@ -1,6 +1,7 @@
 #pragma once
 
 
+#include <QtCore/QSize>
 
 
 namespace ArtifactCore {
@@ -16,11 +17,20 @@ namespace ArtifactCore {
 
  };
 
+ CompositionBuffer2D::CompositionBuffer2D()
+ {
+
+ }
 
 
 
 
 
 
+
+ CompositionBuffer2D::~CompositionBuffer2D()
+ {
+
+ }
 
 };

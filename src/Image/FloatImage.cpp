@@ -7,6 +7,24 @@
 
 
 namespace ArtifactCore {
+ 
+ class FloatImagePrivate {
+ private:
+
+ public:
+  FloatImagePrivate();
+  ~FloatImagePrivate();
+ };
+
+ FloatImagePrivate::FloatImagePrivate()
+ {
+
+ }
+
+ FloatImagePrivate::~FloatImagePrivate()
+ {
+
+ }
 
  FloatImage::FloatImage()
  {

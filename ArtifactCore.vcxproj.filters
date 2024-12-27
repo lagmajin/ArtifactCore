@@ -79,6 +79,18 @@
     <Filter Include="ヘッダー ファイル\File">
       <UniqueIdentifier>{8720a8ca-4df1-49f8-ae97-bd2cc8a8ed6d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Transform">
+      <UniqueIdentifier>{cbfae721-524e-4430-901b-9283294d7ec3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Transform">
+      <UniqueIdentifier>{98a04817-2353-478e-aa00-a89ce7d3a776}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Common">
+      <UniqueIdentifier>{4e826d6c-3063-4437-902c-203daa344558}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Video">
+      <UniqueIdentifier>{c2a3f5bb-ed6c-4418-a3ce-7963abd014a4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -147,6 +159,21 @@
     <ClInclude Include="include\Color\FloatColor.hpp">
       <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
+    <ClInclude Include="include\Transform\Transform.hpp">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Common\OperationgSystem.hpp">
+      <Filter>ヘッダー ファイル\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\RenderedImage.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Video\LibVLCDecoder.hpp">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClInclude>
+    <ClInclude Include="include\AbstractDecoder.hpp">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
@@ -163,6 +190,15 @@
     </ClCompile>
     <ClCompile Include="src\Image\FloatImage.cpp">
       <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Asset\AssetMetaFile.cpp">
+      <Filter>ソース ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Asset\AbstractAssetFile.cpp">
+      <Filter>ソース ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Video\LibVLCDecoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

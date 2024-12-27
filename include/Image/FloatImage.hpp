@@ -5,6 +5,7 @@
 
 #include <QtCore/QSize>
 
+#include "../Color/FloatColor.hpp"
 
 namespace ArtifactCore {
 

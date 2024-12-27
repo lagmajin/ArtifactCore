@@ -1,6 +1,7 @@
 #pragma once
 
 
+#include <QtGui/QImage>
 
 
 namespace ArtifactCore {
@@ -11,7 +12,8 @@ namespace ArtifactCore {
  private:
 
  public:
-
+  Bitmap();
+  ~Bitmap();
  };
 
 
