@@ -19,7 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\AbstractDecoder.hpp" />
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp" />
     <ClInclude Include="include\Asset\AssetConverter.hpp" />
     <ClInclude Include="include\Asset\AssetMetaFile.hpp" />
@@ -43,11 +42,14 @@
     <ClInclude Include="include\Rule\NamingRule.hpp" />
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp" />
     <ClInclude Include="include\Transform\Transform.hpp" />
+    <ClInclude Include="include\Video\AbstractDecoder.hpp" />
+    <ClInclude Include="include\Video\AbstractEncoder.hpp" />
     <ClInclude Include="include\Video\GStreamerDecoder.hpp" />
     <ClInclude Include="include\Video\GStreamerEncoder.hpp" />
     <ClInclude Include="include\Video\LibVLCDecoder.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\AbstractDecoder.cpp" />
     <ClCompile Include="src\Asset\AbstractAssetFile.cpp" />
     <ClCompile Include="src\Asset\AssetMetaFile.cpp" />
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />

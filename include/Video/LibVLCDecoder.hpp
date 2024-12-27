@@ -1,6 +1,6 @@
 #pragma once
 
-
+#include "AbstractDecoder.hpp"
 
 
 namespace ArtifactCore {
