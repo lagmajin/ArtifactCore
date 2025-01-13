@@ -5,12 +5,18 @@
 
 namespace ArtifactCore {
 
- class LibVLCDecoder {
+ class LibVLCDecoderPrivate;
+
+ class LibVLCDecoder:public AbstractDecoder {
  private:
 
  public:
   LibVLCDecoder();
   ~LibVLCDecoder();
+
+  void loadFromFile(const QFile& file) override;
+  void seekiAtTime();
+  void frameExtractAtSeek();
  };
 
 

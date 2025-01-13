@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp" />
     <ClInclude Include="include\Asset\AssetConverter.hpp" />
+    <ClInclude Include="include\Asset\AssetDatabase.hpp" />
     <ClInclude Include="include\Asset\AssetMetaFile.hpp" />
     <ClInclude Include="include\Color\Alpha.hpp" />
     <ClInclude Include="include\Color\FloatColor.hpp" />
@@ -30,13 +31,17 @@
     <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp" />
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
     <ClInclude Include="include\Image\BitmapImage.hpp" />
+    <ClInclude Include="include\Image\CvMatPaintEngine.hpp" />
     <ClInclude Include="include\Image\FloatImage.hpp" />
+    <ClInclude Include="include\Image\JPEGImage.hpp" />
     <ClInclude Include="include\Image\LOGImage.hpp" />
     <ClInclude Include="include\Image\OpenEXR.hpp" />
     <ClInclude Include="include\Image\PNGImage.hpp" />
     <ClInclude Include="include\Image\RenderedImage.hpp" />
     <ClInclude Include="include\Knob\AbstractKnob.hpp" />
     <ClInclude Include="include\Knob\KnobList.hpp" />
+    <ClInclude Include="include\Media\MediaFrame.hpp" />
+    <ClInclude Include="include\Media\MediaInfo.hpp" />
     <ClInclude Include="include\Mesh\FBX.hpp" />
     <ClInclude Include="include\Mesh\WavefrontObj.hpp" />
     <ClInclude Include="include\Rule\NamingRule.hpp" />
@@ -56,8 +61,13 @@
     <ClCompile Include="src\Image\BitmapImage.cpp" />
     <ClCompile Include="src\Image\FloatImage.cpp" />
     <ClCompile Include="src\Image\MeshEncoder.cpp" />
+    <ClCompile Include="src\Media\MediaFrame.cpp" />
     <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
+    <ClCompile Include="src\Video\AbstractEncoder.cpp" />
     <ClCompile Include="src\Video\LibVLCDecoder.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="include\Image\CvMatPaintDevice.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -81,9 +91,9 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -112,8 +122,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <LibraryPath>X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)/build</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -152,6 +162,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

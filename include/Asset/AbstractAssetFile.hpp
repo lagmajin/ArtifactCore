@@ -2,6 +2,7 @@
 
 #include <QtCore/QObject>
 
+#include "../File/FileInfo.hpp"
 
 namespace ArtifactCore {
 
@@ -13,6 +14,8 @@ namespace ArtifactCore {
  public:
   AbstractAssetFile();
   virtual ~AbstractAssetFile();
+ public slots:
+  
  };
 
 

@@ -91,6 +91,15 @@
     <Filter Include="ヘッダー ファイル\Video">
       <UniqueIdentifier>{c2a3f5bb-ed6c-4418-a3ce-7963abd014a4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Converter">
+      <UniqueIdentifier>{d91d1b2c-258d-4fee-a41a-338666f660b7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Media">
+      <UniqueIdentifier>{8c58e782-074f-4b5b-b6f2-c173376bac83}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Media">
+      <UniqueIdentifier>{e67be41c-61a7-4c32-9af2-02fa044e410e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -177,6 +186,21 @@
     <ClInclude Include="include\Video\AbstractEncoder.hpp">
       <Filter>ヘッダー ファイル\Codec</Filter>
     </ClInclude>
+    <ClInclude Include="include\Asset\AssetDatabase.hpp">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\JPEGImage.hpp">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Media\MediaInfo.hpp">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Media\MediaFrame.hpp">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\CvMatPaintEngine.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
@@ -206,5 +230,16 @@
     <ClCompile Include="src\AbstractDecoder.cpp">
       <Filter>ソース ファイル\Codec</Filter>
     </ClCompile>
+    <ClCompile Include="src\Video\AbstractEncoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Media\MediaFrame.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="include\Image\CvMatPaintDevice.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </None>
   </ItemGroup>
 </Project>
