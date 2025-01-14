@@ -199,7 +199,7 @@
       <Filter>ヘッダー ファイル\Media</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\CvMatPaintEngine.hpp">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -236,10 +236,16 @@
     <ClCompile Include="src\Media\MediaFrame.cpp">
       <Filter>ソース ファイル\Media</Filter>
     </ClCompile>
+    <ClCompile Include="include\Image\CvMatPaintDevice.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </None>
+    <None Include="src\Image\CvMatPaintEngine.cpp">
+      <Filter>ソース ファイル\Image</Filter>
     </None>
   </ItemGroup>
 </Project>
