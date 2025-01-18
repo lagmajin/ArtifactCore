@@ -100,6 +100,21 @@
     <Filter Include="ソース ファイル\Media">
       <UniqueIdentifier>{e67be41c-61a7-4c32-9af2-02fa044e410e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Composition">
+      <UniqueIdentifier>{8658e74c-c1a9-475a-a54c-a46d5beb4ffd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Layer">
+      <UniqueIdentifier>{895429db-9508-4919-9bc0-ffee21ab44b7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\ImageProcessing\Halide">
+      <UniqueIdentifier>{6207af97-e17d-4a0e-9876-05d59229a9d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Frame">
+      <UniqueIdentifier>{729d0fe1-3e60-4f7a-b85c-92ab170a4ccd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\NewFilter1">
+      <UniqueIdentifier>{14d38c51-e973-4b2e-acde-d02fc341476f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -201,6 +216,27 @@
     <ClInclude Include="include\Image\CvMatPaintEngine.hpp">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
+    <ClInclude Include="include\ImageProcessing\Blur.hpp">
+      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp">
+      <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ImageProcessing\Halide\HalideArithmetic.hpp">
+      <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp">
+      <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Frame\FrameRate.hpp">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Frame\FrameRange.hpp">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Transform\Rotation.hpp">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
@@ -239,6 +275,18 @@
     <ClCompile Include="include\Image\CvMatPaintDevice.cpp">
       <Filter>ソース ファイル\Image</Filter>
     </ClCompile>
+    <ClCompile Include="src\Composition\CompositionBuffer2D.cpp">
+      <Filter>ソース ファイル\Composition</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\Blur.cpp">
+      <Filter>ソース ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Transform\Rotation.cpp">
+      <Filter>ソース ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Transform\Transform.cpp">
+      <Filter>ソース ファイル\Transform</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -246,6 +294,15 @@
     </None>
     <None Include="src\Image\CvMatPaintEngine.cpp">
       <Filter>ソース ファイル\Image</Filter>
+    </None>
+    <None Include="include\ImageProcessing\AbstractImageProcessing.hpp">
+      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
+    </None>
+    <None Include="src\ImageProcessing\AbstractImageProcessing.cpp">
+      <Filter>ソース ファイル\ImageProcessing</Filter>
+    </None>
+    <None Include="src\Transform\Scale.cpp">
+      <Filter>ソース ファイル\Transform</Filter>
     </None>
   </ItemGroup>
 </Project>

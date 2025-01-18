@@ -28,7 +28,13 @@
     <ClInclude Include="include\Common\OperationgSystem.hpp" />
     <ClInclude Include="include\Composition\CompositionBuffer2D.hpp" />
     <ClInclude Include="include\File\FileInfo.hpp" />
+    <ClInclude Include="include\Frame\FrameRange.hpp" />
+    <ClInclude Include="include\Frame\FrameRate.hpp" />
     <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp" />
+    <ClInclude Include="include\ImageProcessing\Blur.hpp" />
+    <ClInclude Include="include\ImageProcessing\Halide\HalideArithmetic.hpp" />
+    <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp" />
+    <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp" />
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
     <ClInclude Include="include\Image\BitmapImage.hpp" />
     <ClInclude Include="include\Image\CvMatPaintEngine.hpp" />
@@ -46,6 +52,7 @@
     <ClInclude Include="include\Mesh\WavefrontObj.hpp" />
     <ClInclude Include="include\Rule\NamingRule.hpp" />
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp" />
+    <ClInclude Include="include\Transform\Rotation.hpp" />
     <ClInclude Include="include\Transform\Transform.hpp" />
     <ClInclude Include="include\Video\AbstractDecoder.hpp" />
     <ClInclude Include="include\Video\AbstractEncoder.hpp" />
@@ -59,17 +66,24 @@
     <ClCompile Include="src\Asset\AbstractAssetFile.cpp" />
     <ClCompile Include="src\Asset\AssetMetaFile.cpp" />
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />
+    <ClCompile Include="src\Composition\CompositionBuffer2D.cpp" />
+    <ClCompile Include="src\ImageProcessing\Blur.cpp" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />
     <ClCompile Include="src\Image\FloatImage.cpp" />
     <ClCompile Include="src\Image\MeshEncoder.cpp" />
     <ClCompile Include="src\Media\MediaFrame.cpp" />
     <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
+    <ClCompile Include="src\Transform\Rotation.cpp" />
+    <ClCompile Include="src\Transform\Transform.cpp" />
     <ClCompile Include="src\Video\AbstractEncoder.cpp" />
     <ClCompile Include="src\Video\LibVLCDecoder.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="include\ImageProcessing\AbstractImageProcessing.hpp" />
     <None Include="include\Image\CvMatPaintDevice.hpp" />
+    <None Include="src\ImageProcessing\AbstractImageProcessing.cpp" />
     <None Include="src\Image\CvMatPaintEngine.cpp" />
+    <None Include="src\Transform\Scale.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -124,9 +138,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
-    <LibraryPath>X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <LibraryPath>X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)/build</OutDir>
+    <IntDir>X:\temp/</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -165,12 +180,14 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DisableSpecificWarnings>4819;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceFileOutput>Enabled</ForceFileOutput>
+      <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
