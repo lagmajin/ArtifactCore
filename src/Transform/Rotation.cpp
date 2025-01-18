@@ -13,17 +13,27 @@ namespace ArtifactCore {
   ~RotatePrivate();
  };
 
- Rotate::Rotate()
+ RotatePrivate::RotatePrivate()
  {
 
  }
 
- Rotate::Rotate(const Rotate& other)
+ RotatePrivate::~RotatePrivate()
  {
 
  }
 
- Rotate::Rotate(Rotate&& other) noexcept
+ Rotate::Rotate() :pImpl_(new RotatePrivate)
+ {
+
+ }
+
+ Rotate::Rotate(const Rotate& other) :pImpl_(new RotatePrivate)
+ {
+
+ }
+
+ Rotate::Rotate(Rotate&& other) noexcept :pImpl_(new RotatePrivate)
  {
 
  }

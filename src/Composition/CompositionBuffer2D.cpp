@@ -5,7 +5,7 @@
 
 namespace ArtifactCore {
 
- class CompositionBufferPrivate {
+ class CompositionBuffer2DPrivate {
  private:
 
  public:
@@ -22,6 +22,11 @@ namespace ArtifactCore {
  }
 
  CompositionBuffer2D::~CompositionBuffer2D()
+ {
+
+ }
+
+ void CompositionBuffer2D::setEngine(eEngineBackend backend/*=Halide*/)
  {
 
  }

@@ -53,6 +53,7 @@
     <ClInclude Include="include\Rule\NamingRule.hpp" />
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp" />
     <ClInclude Include="include\Transform\Rotation.hpp" />
+    <ClInclude Include="include\Transform\Scale.hpp" />
     <ClInclude Include="include\Transform\Transform.hpp" />
     <ClInclude Include="include\Video\AbstractDecoder.hpp" />
     <ClInclude Include="include\Video\AbstractEncoder.hpp" />

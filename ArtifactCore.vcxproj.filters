@@ -112,7 +112,7 @@
     <Filter Include="ヘッダー ファイル\Frame">
       <UniqueIdentifier>{729d0fe1-3e60-4f7a-b85c-92ab170a4ccd}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ヘッダー ファイル\NewFilter1">
+    <Filter Include="ヘッダー ファイル\Channel">
       <UniqueIdentifier>{14d38c51-e973-4b2e-acde-d02fc341476f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -235,6 +235,9 @@
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClInclude>
     <ClInclude Include="include\Transform\Rotation.hpp">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Transform\Scale.hpp">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClInclude>
   </ItemGroup>

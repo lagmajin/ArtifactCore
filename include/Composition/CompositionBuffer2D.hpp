@@ -5,6 +5,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
 
+#include <QtCore/QScopedPointer>
 
 #include "../Image/FloatImage.hpp"
 
@@ -18,8 +19,13 @@ namespace ArtifactCore {
   float opacity = 1.0f;
  };
 
+ enum eEngineBackend {
+  OpenCV,
+  Halide,
 
- class CompositionBufferPrivate;
+};
+
+ class CompositionBuffer2DPrivate;
 
  class CompositionBuffer2D:public QObject {
   Q_OBJECT
@@ -28,7 +34,7 @@ namespace ArtifactCore {
  public:
   CompositionBuffer2D();
   ~CompositionBuffer2D();
-
+  void setEngine(eEngineBackend backend=Halide);
  signals:
   void compositingFinished(); 
   void compositingSucceeded(); 
