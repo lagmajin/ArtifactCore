@@ -240,6 +240,9 @@
     <ClInclude Include="include\Transform\Scale.hpp">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClInclude>
+    <ClInclude Include="include\Transform\AnchorPoint.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">

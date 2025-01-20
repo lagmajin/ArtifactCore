@@ -7,6 +7,9 @@
 
 #include <QtCore/QScopedPointer>
 
+
+
+
 #include "../Image/FloatImage.hpp"
 
 
@@ -27,7 +30,7 @@ namespace ArtifactCore {
 
  class CompositionBuffer2DPrivate;
 
- class CompositionBuffer2D:public QObject {
+ class __declspec(dllexport) CompositionBuffer2D:public QObject {
   Q_OBJECT
  private:
 
@@ -41,7 +44,8 @@ namespace ArtifactCore {
   void compositingFailed(QString reason); 
  public slots:
   void addLayer();
-
+  void clear();
+  void setClearColor(float=0.0f);
  };
 
 };

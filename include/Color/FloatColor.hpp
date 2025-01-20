@@ -3,6 +3,8 @@
 #include <tuple>
 #include <vector>
 
+#include <memory>
+
 
 namespace Artifact {
  class FloatRGBA;

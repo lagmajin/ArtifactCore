@@ -1,4 +1,5 @@
 
+#include <Halide.h>
 
 #include "../../include/Image/FloatImage.hpp"
 
