@@ -14,7 +14,7 @@ namespace ArtifactCore {
   CompositionBuffer2DPrivate(int width,int height);
   ~CompositionBuffer2DPrivate();
   void clear();
-  void setClearColor(float = 0.0f);
+  //void setClearColor(float = 0.0f);
  };
 
  CompositionBuffer2DPrivate::CompositionBuffer2DPrivate(int width, int height)
@@ -31,12 +31,8 @@ namespace ArtifactCore {
  {
 
  }
- void CompositionBuffer2DPrivate::setClearColor(float /*= 0.0f*/)
- {
 
- }
-
- CompositionBuffer2D::CompositionBuffer2D()
+ CompositionBuffer2D::CompositionBuffer2D(int width, int height):pImpl_(new CompositionBuffer2DPrivate(width,height))
  {
 
  }
@@ -56,7 +52,9 @@ namespace ArtifactCore {
 
  }
 
- void CompositionBuffer2D::setClearColor(float/*=0.0f*/)
+
+
+ void CompositionBuffer2D::setClearColor(const FloatRGBA rgba)
  {
 
  }

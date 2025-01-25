@@ -115,6 +115,9 @@
     <Filter Include="ヘッダー ファイル\Channel">
       <UniqueIdentifier>{14d38c51-e973-4b2e-acde-d02fc341476f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\third_party">
+      <UniqueIdentifier>{769554a5-e719-4c5c-81aa-414c5f9aff56}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -164,9 +167,6 @@
     </ClInclude>
     <ClInclude Include="include\Rule\NamingRule.hpp">
       <Filter>ヘッダー ファイル\Rule</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Composition\CompositionBuffer2D.hpp">
-      <Filter>ヘッダー ファイル\Composition</Filter>
     </ClInclude>
     <ClInclude Include="include\File\FileInfo.hpp">
       <Filter>ヘッダー ファイル\File</Filter>
@@ -243,6 +243,15 @@
     <ClInclude Include="include\Transform\AnchorPoint.hpp">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="include\Color\FloatRGBA.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="include\third_party\stb_image.h">
+      <Filter>ヘッダー ファイル\third_party</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Composition\AbstractCompositionBuffer.hpp">
+      <Filter>ヘッダー ファイル\Composition</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
@@ -293,6 +302,12 @@
     <ClCompile Include="src\Transform\Transform.cpp">
       <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
+    <ClCompile Include="src\Color\FloatColor.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Color\FloatRGBA.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -310,5 +325,10 @@
     <None Include="src\Transform\Scale.cpp">
       <Filter>ソース ファイル\Transform</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="include\Composition\CompositionBuffer2D.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </QtMoc>
   </ItemGroup>
 </Project>

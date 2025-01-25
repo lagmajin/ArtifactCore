@@ -11,6 +11,7 @@
 
 
 #include "../Image/FloatImage.hpp"
+#include "../Color/FloatRGBA.hpp"
 
 
 
@@ -33,9 +34,9 @@ namespace ArtifactCore {
  class __declspec(dllexport) CompositionBuffer2D:public QObject {
   Q_OBJECT
  private:
-
+  QScopedPointer<CompositionBuffer2DPrivate> pImpl_;
  public:
-  CompositionBuffer2D();
+  CompositionBuffer2D(int width,int height);
   ~CompositionBuffer2D();
   void setEngine(eEngineBackend backend=Halide);
  signals:
@@ -45,7 +46,7 @@ namespace ArtifactCore {
  public slots:
   void addLayer();
   void clear();
-  void setClearColor(float=0.0f);
+  void setClearColor(const FloatRGBA rgba);
  };
 
 };

@@ -28,6 +28,7 @@
     <ClInclude Include="include\Color\FloatRGBA.hpp" />
     <ClInclude Include="include\Common\OperationgSystem.hpp" />
     <QtMoc Include="include\Composition\CompositionBuffer2D.hpp" />
+    <ClInclude Include="include\Composition\AbstractCompositionBuffer.hpp" />
     <ClInclude Include="include\File\FileInfo.hpp" />
     <ClInclude Include="include\Frame\FrameRange.hpp" />
     <ClInclude Include="include\Frame\FrameRate.hpp" />
@@ -53,6 +54,7 @@
     <ClInclude Include="include\Mesh\WavefrontObj.hpp" />
     <ClInclude Include="include\Rule\NamingRule.hpp" />
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp" />
+    <ClInclude Include="include\third_party\stb_image.h" />
     <ClInclude Include="include\Transform\AnchorPoint.hpp" />
     <ClInclude Include="include\Transform\Rotation.hpp" />
     <ClInclude Include="include\Transform\Scale.hpp" />
@@ -69,6 +71,8 @@
     <ClCompile Include="src\Asset\AbstractAssetFile.cpp" />
     <ClCompile Include="src\Asset\AssetMetaFile.cpp" />
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />
+    <ClCompile Include="src\Color\FloatColor.cpp" />
+    <ClCompile Include="src\Color\FloatRGBA.cpp" />
     <ClCompile Include="src\Composition\CompositionBuffer2D.cpp" />
     <ClCompile Include="src\ImageProcessing\Blur.cpp" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />
@@ -159,7 +163,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
     <LibraryPath>X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)/build</OutDir>
+    <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App</OutDir>
     <IntDir>X:\temp/</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -209,6 +213,7 @@
       <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceFileOutput>Enabled</ForceFileOutput>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
+      <OutputFile>C:\Users\lagma\Desktop\Artifact\Artifact\lib\ArtifactCored.lib</OutputFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

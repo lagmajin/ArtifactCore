@@ -6,7 +6,7 @@
 #include <memory>
 
 
-namespace Artifact {
+namespace ArtifactCore {
  class FloatRGBA;
 
  class HSV;
@@ -17,8 +17,13 @@ namespace Artifact {
  class FloatColor {
  private:
   FloatColorPrivate* const	pColor_;
-
-
+ public:
+  void setRed(float red);
+  void setGreen(float green);
+  void setBlue(float blue);
+  void setAlpha(float alpha);
+  void setColor(float red, float green, float blue);
+  void setColor(float red, float green, float blue, float alpha);
  };
 
 
