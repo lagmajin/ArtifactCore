@@ -9,7 +9,7 @@ namespace ArtifactCore {
 
  class CompositionBuffer2DPrivate {
  private:
-
+  Halide::Buffer<float> b_;
  public:
   CompositionBuffer2DPrivate(int width,int height);
   ~CompositionBuffer2DPrivate();

@@ -48,6 +48,7 @@
     <ClInclude Include="include\Image\RenderedImage.hpp" />
     <ClInclude Include="include\Knob\AbstractKnob.hpp" />
     <ClInclude Include="include\Knob\KnobList.hpp" />
+    <ClInclude Include="include\Layer\Layer.hpp" />
     <ClInclude Include="include\Media\MediaFrame.hpp" />
     <ClInclude Include="include\Media\MediaInfo.hpp" />
     <ClInclude Include="include\Mesh\FBX.hpp" />
@@ -78,16 +79,22 @@
     <ClCompile Include="src\Image\BitmapImage.cpp" />
     <ClCompile Include="src\Image\FloatImage.cpp" />
     <ClCompile Include="src\Image\MeshEncoder.cpp" />
+    <ClCompile Include="src\Layer\Layer.cpp" />
     <ClCompile Include="src\Media\MediaFrame.cpp" />
     <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
     <ClCompile Include="src\Transform\Rotation.cpp" />
+    <ClCompile Include="src\Transform\Scale2D.cpp" />
     <ClCompile Include="src\Transform\Transform.cpp" />
     <ClCompile Include="src\Video\AbstractEncoder.cpp" />
     <ClCompile Include="src\Video\LibVLCDecoder.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp" />
     <None Include="include\ImageProcessing\AbstractImageProcessing.hpp" />
     <None Include="include\Image\CvMatPaintDevice.hpp" />
+    <None Include="include\third_party\Core" />
+    <None Include="include\Transform\Scale2D.hpp" />
+    <None Include="src\Composition\OpenCVCompositionBuffer2D.cpp" />
     <None Include="src\ImageProcessing\AbstractImageProcessing.cpp" />
     <None Include="src\Image\CvMatPaintEngine.cpp" />
     <None Include="src\Transform\Scale.cpp" />

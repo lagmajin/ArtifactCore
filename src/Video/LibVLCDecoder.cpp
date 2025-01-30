@@ -52,20 +52,36 @@ namespace ArtifactCore {
 		LibVlcInstancePtr instance_=nullptr;
 		MediaPtr  media_ = nullptr;
 		MediaPlayerPtr player_ = nullptr;
+
  public:
   bool initialize();
   void loadFromFile(const QFile& file);
   void seekiAtTime();
+
+  static void* lockCallback(void* opaque, void** p_pixels) {
+   
+   return nullptr;
+  }
+
+  static void unlockCallback(void* opaque, void* id, void* const* p_pixels) {
+  
+  }
+
+  static void displayCallback(void* opaque, void* id) {
+   
+  }
  };
 
  bool LibVLCDecoderPrivate::initialize()
  {
   auto instance= libvlc_new(0, nullptr);
-  
+  //libvlc_video_set_callbacks(player, &VLCDecoder::lockCallback, &VLCDecoder::unlockCallback, &VLCDecoder::displayCallback, this);
+
   if (instance)
   {
    instance_ = LibVlcInstancePtr(instance);
   
+
    return true;
   }
   
@@ -84,6 +100,8 @@ namespace ArtifactCore {
    if (media)
    {
 	media_ = MediaPtr(media);
+
+	libvlc_video_set_callbacks(player_.get(), lockCallback, unlockCallback, displayCallback, this);
   }
 
   }

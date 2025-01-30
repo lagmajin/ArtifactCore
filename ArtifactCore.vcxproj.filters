@@ -118,6 +118,12 @@
     <Filter Include="ヘッダー ファイル\third_party">
       <UniqueIdentifier>{769554a5-e719-4c5c-81aa-414c5f9aff56}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Frame">
+      <UniqueIdentifier>{3af90a02-3c61-48d7-826c-46ed7c78d58a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Layer">
+      <UniqueIdentifier>{b8d8951f-1dd1-45d1-af84-a529ca9f7d65}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -243,14 +249,17 @@
     <ClInclude Include="include\Transform\AnchorPoint.hpp">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="include\Color\FloatRGBA.hpp">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="include\third_party\stb_image.h">
       <Filter>ヘッダー ファイル\third_party</Filter>
     </ClInclude>
     <ClInclude Include="include\Composition\AbstractCompositionBuffer.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Layer\Layer.hpp">
+      <Filter>ヘッダー ファイル\Layer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Color\FloatRGBA.hpp">
+      <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -305,8 +314,14 @@
     <ClCompile Include="src\Color\FloatColor.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="src\Layer\Layer.cpp">
+      <Filter>ソース ファイル\Layer</Filter>
+    </ClCompile>
     <ClCompile Include="src\Color\FloatRGBA.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>ソース ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Transform\Scale2D.cpp">
+      <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -324,6 +339,18 @@
     </None>
     <None Include="src\Transform\Scale.cpp">
       <Filter>ソース ファイル\Transform</Filter>
+    </None>
+    <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp">
+      <Filter>ヘッダー ファイル\Composition</Filter>
+    </None>
+    <None Include="src\Composition\OpenCVCompositionBuffer2D.cpp">
+      <Filter>ソース ファイル\Composition</Filter>
+    </None>
+    <None Include="include\third_party\Core">
+      <Filter>ヘッダー ファイル\third_party</Filter>
+    </None>
+    <None Include="include\Transform\Scale2D.hpp">
+      <Filter>ヘッダー ファイル\Transform</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

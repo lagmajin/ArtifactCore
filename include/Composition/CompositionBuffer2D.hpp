@@ -1,6 +1,6 @@
 #pragma once
 
-
+#include <Halide.h>
 #include <QtCore/QSize>
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
