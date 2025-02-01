@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include <memory>
+//import std.core;
 
 #include <QtCore/QFile>
 

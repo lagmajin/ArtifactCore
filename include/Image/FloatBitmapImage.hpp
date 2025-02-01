@@ -2,12 +2,6 @@
 
 
 
-#include "../Image/FloatImage.hpp"
-
-
-
-
-
 
 namespace ArtifactCore {
 
@@ -18,4 +12,4 @@ namespace ArtifactCore {
 
 
 
-}
+};

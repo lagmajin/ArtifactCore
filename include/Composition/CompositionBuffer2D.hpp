@@ -1,6 +1,8 @@
 #pragma once
 
+#undef emit
 #include <Halide.h>
+
 #include <QtCore/QSize>
 #include <QtCore/QObject>
 #include <QtCore/QPoint>

@@ -55,6 +55,8 @@ namespace ArtifactCore {
  FloatRGBA::~FloatRGBA()
  {
 
+
+
  }
 
  void FloatRGBA::setRed(float r)

@@ -124,6 +124,9 @@
     <Filter Include="ソース ファイル\Layer">
       <UniqueIdentifier>{b8d8951f-1dd1-45d1-af84-a529ca9f7d65}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Audio">
+      <UniqueIdentifier>{afde49ff-67bc-4851-8d56-dccf33fbd28e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -261,6 +264,18 @@
     <ClInclude Include="include\Color\FloatRGBA.hpp">
       <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
+    <ClInclude Include="include\Transform\Transform2D.hpp">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Transform\AnchorPoint2D.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\FloatBitmapImage.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Frame\FramePosition.hpp">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
@@ -323,6 +338,21 @@
     <ClCompile Include="src\Transform\Scale2D.cpp">
       <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
+    <ClCompile Include="Image.cppm">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Channel\Channel.cppm">
+      <Filter>ヘッダー ファイル\Channel</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Channel\Codec.cppm">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Channel\Generator.cppm">
+      <Filter>ヘッダー ファイル\Generator</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Channel\OS.ixx">
+      <Filter>ヘッダー ファイル\Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -355,7 +385,7 @@
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="include\Composition\CompositionBuffer2D.hpp">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>ヘッダー ファイル\Composition</Filter>
     </QtMoc>
   </ItemGroup>
 </Project>

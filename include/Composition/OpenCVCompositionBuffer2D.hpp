@@ -1,5 +1,7 @@
 #pragma once
 
+import std;
+
 #include "AbstractCompositionBuffer.hpp"
 #include "../Image/FloatImage.hpp"
 
@@ -11,9 +13,9 @@ class OpenCVCompositionBuffer2D {
 private:
 
 public:
-	OpenCVCompositionBuffer2D();
+	OpenCVCompositionBuffer2D(int width,int height);
 	~OpenCVCompositionBuffer2D();
-	
+	void clear();
 
 };
 

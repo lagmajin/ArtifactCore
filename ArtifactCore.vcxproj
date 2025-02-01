@@ -30,6 +30,7 @@
     <QtMoc Include="include\Composition\CompositionBuffer2D.hpp" />
     <ClInclude Include="include\Composition\AbstractCompositionBuffer.hpp" />
     <ClInclude Include="include\File\FileInfo.hpp" />
+    <ClInclude Include="include\Frame\FramePosition.hpp" />
     <ClInclude Include="include\Frame\FrameRange.hpp" />
     <ClInclude Include="include\Frame\FrameRate.hpp" />
     <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp" />
@@ -40,6 +41,7 @@
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
     <ClInclude Include="include\Image\BitmapImage.hpp" />
     <ClInclude Include="include\Image\CvMatPaintEngine.hpp" />
+    <ClInclude Include="include\Image\FloatBitmapImage.hpp" />
     <ClInclude Include="include\Image\FloatImage.hpp" />
     <ClInclude Include="include\Image\JPEGImage.hpp" />
     <ClInclude Include="include\Image\LOGImage.hpp" />
@@ -57,9 +59,11 @@
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp" />
     <ClInclude Include="include\third_party\stb_image.h" />
     <ClInclude Include="include\Transform\AnchorPoint.hpp" />
+    <ClInclude Include="include\Transform\AnchorPoint2D.hpp" />
     <ClInclude Include="include\Transform\Rotation.hpp" />
     <ClInclude Include="include\Transform\Scale.hpp" />
     <ClInclude Include="include\Transform\Transform.hpp" />
+    <ClInclude Include="include\Transform\Transform2D.hpp" />
     <ClInclude Include="include\Video\AbstractDecoder.hpp" />
     <ClInclude Include="include\Video\AbstractEncoder.hpp" />
     <ClInclude Include="include\Video\GStreamerDecoder.hpp" />
@@ -67,6 +71,11 @@
     <ClInclude Include="include\Video\LibVLCDecoder.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Image.cppm" />
+    <ClCompile Include="include\Channel\Channel.cppm" />
+    <ClCompile Include="include\Channel\Codec.cppm" />
+    <ClCompile Include="include\Channel\Generator.cppm" />
+    <ClCompile Include="include\Channel\OS.ixx" />
     <ClCompile Include="include\Image\CvMatPaintDevice.cpp" />
     <ClCompile Include="src\AbstractDecoder.cpp" />
     <ClCompile Include="src\Asset\AbstractAssetFile.cpp" />
@@ -208,11 +217,17 @@
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>Default</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4819;</DisableSpecificWarnings>
+      <TranslateIncludes>true</TranslateIncludes>
+      <OpenMPSupport>true</OpenMPSupport>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <EnableModules>true</EnableModules>
+      <BuildStlModules>true</BuildStlModules>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
