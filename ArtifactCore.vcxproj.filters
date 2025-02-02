@@ -276,6 +276,15 @@
     <ClInclude Include="include\Frame\FramePosition.hpp">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClInclude>
+    <ClInclude Include="include\Image\Sarturation.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Transform\Rotate2D.hpp">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Transform\Position2D.hpp">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
@@ -352,6 +361,15 @@
     </ClCompile>
     <ClCompile Include="include\Channel\OS.ixx">
       <Filter>ヘッダー ファイル\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Transform.cppm">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Frame\Frame.cppm">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Transform\Transform2D.cpp">
+      <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

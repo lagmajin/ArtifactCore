@@ -5,6 +5,8 @@ import std;
 #include "AbstractCompositionBuffer.hpp"
 #include "../Image/FloatImage.hpp"
 
+
+
 namespace ArtifactCore {
 
 class OpenCVCompsitionBuffer2DPrivate;

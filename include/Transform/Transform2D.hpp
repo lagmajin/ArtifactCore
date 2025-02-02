@@ -11,7 +11,8 @@ namespace ArtifactCore {
  private:
 
  public:
-
+  Transform2D();
+  ~Transform2D();
  };
 
 

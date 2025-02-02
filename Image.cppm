@@ -1,3 +1,7 @@
 export module Image;
 
-//export void MyFunc();
+export class FloatImage {
+ FloatImage();
+ ~FloatImage();
+
+};

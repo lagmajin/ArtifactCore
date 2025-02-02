@@ -1,3 +1,4 @@
+
 #include "../../include/Composition/OpenCVCompositionBuffer2D.hpp"
 
 
@@ -12,6 +13,7 @@ namespace ArtifactCore {
 	public:
 		OpenCVCompsitionBuffer2DPrivate(int width,int height);
 		~OpenCVCompsitionBuffer2DPrivate();
+		FloatImage backgroundPass();
 		void clear();
 	};
 

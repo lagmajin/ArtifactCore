@@ -48,6 +48,7 @@
     <ClInclude Include="include\Image\OpenEXR.hpp" />
     <ClInclude Include="include\Image\PNGImage.hpp" />
     <ClInclude Include="include\Image\RenderedImage.hpp" />
+    <ClInclude Include="include\Image\Sarturation.hpp" />
     <ClInclude Include="include\Knob\AbstractKnob.hpp" />
     <ClInclude Include="include\Knob\KnobList.hpp" />
     <ClInclude Include="include\Layer\Layer.hpp" />
@@ -60,6 +61,8 @@
     <ClInclude Include="include\third_party\stb_image.h" />
     <ClInclude Include="include\Transform\AnchorPoint.hpp" />
     <ClInclude Include="include\Transform\AnchorPoint2D.hpp" />
+    <ClInclude Include="include\Transform\Position2D.hpp" />
+    <ClInclude Include="include\Transform\Rotate2D.hpp" />
     <ClInclude Include="include\Transform\Rotation.hpp" />
     <ClInclude Include="include\Transform\Scale.hpp" />
     <ClInclude Include="include\Transform\Transform.hpp" />
@@ -76,7 +79,9 @@
     <ClCompile Include="include\Channel\Codec.cppm" />
     <ClCompile Include="include\Channel\Generator.cppm" />
     <ClCompile Include="include\Channel\OS.ixx" />
+    <ClCompile Include="include\Frame\Frame.cppm" />
     <ClCompile Include="include\Image\CvMatPaintDevice.cpp" />
+    <ClCompile Include="include\Transform\Transform.cppm" />
     <ClCompile Include="src\AbstractDecoder.cpp" />
     <ClCompile Include="src\Asset\AbstractAssetFile.cpp" />
     <ClCompile Include="src\Asset\AssetMetaFile.cpp" />
@@ -94,6 +99,7 @@
     <ClCompile Include="src\Transform\Rotation.cpp" />
     <ClCompile Include="src\Transform\Scale2D.cpp" />
     <ClCompile Include="src\Transform\Transform.cpp" />
+    <ClCompile Include="src\Transform\Transform2D.cpp" />
     <ClCompile Include="src\Video\AbstractEncoder.cpp" />
     <ClCompile Include="src\Video\LibVLCDecoder.cpp" />
   </ItemGroup>

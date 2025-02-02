@@ -17,7 +17,7 @@ namespace ArtifactCore {
   //void setClearColor(float = 0.0f);
  };
 
- CompositionBuffer2DPrivate::CompositionBuffer2DPrivate(int width, int height)
+ CompositionBuffer2DPrivate::CompositionBuffer2DPrivate(int width, int height):b_(width,height)
  {
 
  }
