@@ -20,9 +20,9 @@ namespace ArtifactCore {
   {
    gst_init(nullptr, nullptr);
   }
-  GstElement* pipeline;
-  GstBus* bus;
-  GstMessage* msg;
+  GstElement* pipeline=nullptr;
+  GstBus* bus=nullptr;
+  GstMessage* msg=nullptr;
  }
 
  GStreamerDecoderPrivate::~GStreamerDecoderPrivate()

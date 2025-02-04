@@ -1,5 +1,5 @@
 
-
+module;
 #include <iostream>
 #include <string>
 #include <vector>
@@ -10,10 +10,15 @@
 
 #include <vlc/vlc.h>
 
-#include "../../include/Video/LibVLCDecoder.hpp"
+#include <QtCore/QFile>
 
+//#include "../../include/Video/LibVLCDecoder.hpp"
 
-namespace ArtifactCore {
+//import AbstractDecoder;
+
+module Codec;
+
+namespace ArtifactCore{
 
  static void* lock(void* opaque, void** planes) {
 
@@ -121,6 +126,7 @@ namespace ArtifactCore {
 
  }
 
+
  LibVLCDecoder::~LibVLCDecoder()
  {
 
@@ -128,13 +134,18 @@ namespace ArtifactCore {
 
  void LibVLCDecoder::loadFromFile(const QFile& file)
  {
-  throw std::logic_error("The method or operation is not implemented.");
+  //throw std::logic_error("The method or operation is not implemented.");
  }
 
  void LibVLCDecoder::seekiAtTime()
  {
 
  }
+
+
+
+
+
 
 };
 

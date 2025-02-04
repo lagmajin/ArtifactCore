@@ -1,19 +1,12 @@
-#include "../include/Video/AbstractDecoder.hpp"
+//#include "../include/Video/AbstractDecoder.ixx"
 
+//export module ArtifactCore.AbstractDecoder;
 
 
 namespace ArtifactCore {
 
 
 
- AbstractDecoder::AbstractDecoder()
- {
 
- }
-
- AbstractDecoder::~AbstractDecoder()
- {
-
- }
 
 }

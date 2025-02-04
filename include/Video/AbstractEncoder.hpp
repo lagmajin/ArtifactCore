@@ -1,7 +1,8 @@
-#pragma once
+module;
 
 
 
+export module AbstractEncoder;
 
 
 namespace ArtifactCore {

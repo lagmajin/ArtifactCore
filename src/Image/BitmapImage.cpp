@@ -1,4 +1,4 @@
-#include "../../include/Image/BitmapImage.hpp"
+//#include "../../include/Image/BitmapImage.hpp"
 
 namespace ArtifactCore {
 

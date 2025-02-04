@@ -127,6 +127,9 @@
     <Filter Include="ヘッダー ファイル\Audio">
       <UniqueIdentifier>{afde49ff-67bc-4851-8d56-dccf33fbd28e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Define">
+      <UniqueIdentifier>{6a668d61-770c-4aed-9d3c-1706f02e6c37}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -158,9 +161,6 @@
     </ClInclude>
     <ClInclude Include="include\Knob\AbstractKnob.hpp">
       <Filter>ヘッダー ファイル\Knob</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Image\BitmapImage.hpp">
-      <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
     <ClInclude Include="include\Knob\KnobList.hpp">
       <Filter>ヘッダー ファイル\Knob</Filter>
@@ -201,12 +201,6 @@
     <ClInclude Include="include\Image\RenderedImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="include\Video\LibVLCDecoder.hpp">
-      <Filter>ヘッダー ファイル\Codec</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Video\AbstractDecoder.hpp">
-      <Filter>ヘッダー ファイル\Codec</Filter>
-    </ClInclude>
     <ClInclude Include="include\Video\AbstractEncoder.hpp">
       <Filter>ヘッダー ファイル\Codec</Filter>
     </ClInclude>
@@ -240,17 +234,11 @@
     <ClInclude Include="include\Frame\FrameRate.hpp">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClInclude>
-    <ClInclude Include="include\Frame\FrameRange.hpp">
+    <ClInclude Include="include\Frame\FrameRange.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Transform\Rotation.hpp">
-      <Filter>ヘッダー ファイル\Transform</Filter>
     </ClInclude>
     <ClInclude Include="include\Transform\Scale.hpp">
       <Filter>ヘッダー ファイル\Transform</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Transform\AnchorPoint.hpp">
-      <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="include\third_party\stb_image.h">
       <Filter>ヘッダー ファイル\third_party</Filter>
@@ -258,32 +246,26 @@
     <ClInclude Include="include\Composition\AbstractCompositionBuffer.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
     </ClInclude>
-    <ClInclude Include="include\Layer\Layer.hpp">
+    <ClInclude Include="include\Layer\Layer2D.hpp">
       <Filter>ヘッダー ファイル\Layer</Filter>
     </ClInclude>
     <ClInclude Include="include\Color\FloatRGBA.hpp">
       <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
-    <ClInclude Include="include\Transform\Transform2D.hpp">
-      <Filter>ヘッダー ファイル\Transform</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Transform\AnchorPoint2D.hpp">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="include\Image\FloatBitmapImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="include\Frame\FramePosition.hpp">
+    <ClInclude Include="include\Frame\FramePosition.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\Sarturation.hpp">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="include\Transform\Rotate2D.hpp">
-      <Filter>ヘッダー ファイル\Transform</Filter>
-    </ClInclude>
     <ClInclude Include="include\Transform\Position2D.hpp">
       <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Define\DllExportMacro.hpp">
+      <Filter>ヘッダー ファイル\Define</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -338,7 +320,7 @@
     <ClCompile Include="src\Color\FloatColor.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\Layer\Layer.cpp">
+    <ClCompile Include="src\Layer\Layer2D.cpp">
       <Filter>ソース ファイル\Layer</Filter>
     </ClCompile>
     <ClCompile Include="src\Color\FloatRGBA.cpp">
@@ -347,29 +329,53 @@
     <ClCompile Include="src\Transform\Scale2D.cpp">
       <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="Image.cppm">
-      <Filter>ヘッダー ファイル\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Channel\Channel.cppm">
+    <ClCompile Include="include\Channel\Channel.ixx">
       <Filter>ヘッダー ファイル\Channel</Filter>
     </ClCompile>
-    <ClCompile Include="include\Channel\Codec.cppm">
+    <ClCompile Include="include\Channel\Codec.ixx">
       <Filter>ヘッダー ファイル\Codec</Filter>
     </ClCompile>
-    <ClCompile Include="include\Channel\Generator.cppm">
+    <ClCompile Include="include\Channel\Generator.ixx">
       <Filter>ヘッダー ファイル\Generator</Filter>
     </ClCompile>
     <ClCompile Include="include\Channel\OS.ixx">
       <Filter>ヘッダー ファイル\Common</Filter>
     </ClCompile>
-    <ClCompile Include="include\Transform\Transform.cppm">
-      <Filter>ヘッダー ファイル\Transform</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Frame\Frame.cppm">
+    <ClCompile Include="include\Frame\Frame.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClCompile>
+    <ClCompile Include="include\Image\BitmapImage.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Rotate2D.ixx">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\AbstractDecoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\LibVLCDecoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\AnchorPoint.ixx">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\AnchorPoint2D.ixx">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
     <ClCompile Include="src\Transform\Transform2D.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>ソース ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Transform2D.ixx">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Scale2D.ixx">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Rotation.hpp">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Transform\Scale.cpp">
+      <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -385,9 +391,6 @@
     <None Include="src\ImageProcessing\AbstractImageProcessing.cpp">
       <Filter>ソース ファイル\ImageProcessing</Filter>
     </None>
-    <None Include="src\Transform\Scale.cpp">
-      <Filter>ソース ファイル\Transform</Filter>
-    </None>
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
     </None>
@@ -396,9 +399,6 @@
     </None>
     <None Include="include\third_party\Core">
       <Filter>ヘッダー ファイル\third_party</Filter>
-    </None>
-    <None Include="include\Transform\Scale2D.hpp">
-      <Filter>ヘッダー ファイル\Transform</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

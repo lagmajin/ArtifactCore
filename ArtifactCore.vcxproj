@@ -29,9 +29,10 @@
     <ClInclude Include="include\Common\OperationgSystem.hpp" />
     <QtMoc Include="include\Composition\CompositionBuffer2D.hpp" />
     <ClInclude Include="include\Composition\AbstractCompositionBuffer.hpp" />
+    <ClInclude Include="include\Define\DllExportMacro.hpp" />
     <ClInclude Include="include\File\FileInfo.hpp" />
-    <ClInclude Include="include\Frame\FramePosition.hpp" />
-    <ClInclude Include="include\Frame\FrameRange.hpp" />
+    <ClInclude Include="include\Frame\FramePosition.ixx" />
+    <ClInclude Include="include\Frame\FrameRange.ixx" />
     <ClInclude Include="include\Frame\FrameRate.hpp" />
     <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp" />
     <ClInclude Include="include\ImageProcessing\Blur.hpp" />
@@ -39,7 +40,9 @@
     <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp" />
     <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp" />
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
-    <ClInclude Include="include\Image\BitmapImage.hpp" />
+    <ClCompile Include="include\Image\BitmapImage.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\Image\CvMatPaintEngine.hpp" />
     <ClInclude Include="include\Image\FloatBitmapImage.hpp" />
     <ClInclude Include="include\Image\FloatImage.hpp" />
@@ -51,7 +54,7 @@
     <ClInclude Include="include\Image\Sarturation.hpp" />
     <ClInclude Include="include\Knob\AbstractKnob.hpp" />
     <ClInclude Include="include\Knob\KnobList.hpp" />
-    <ClInclude Include="include\Layer\Layer.hpp" />
+    <ClInclude Include="include\Layer\Layer2D.hpp" />
     <ClInclude Include="include\Media\MediaFrame.hpp" />
     <ClInclude Include="include\Media\MediaInfo.hpp" />
     <ClInclude Include="include\Mesh\FBX.hpp" />
@@ -59,29 +62,36 @@
     <ClInclude Include="include\Rule\NamingRule.hpp" />
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp" />
     <ClInclude Include="include\third_party\stb_image.h" />
-    <ClInclude Include="include\Transform\AnchorPoint.hpp" />
-    <ClInclude Include="include\Transform\AnchorPoint2D.hpp" />
+    <ClCompile Include="include\Transform\AnchorPoint.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
+    <ClCompile Include="include\Transform\AnchorPoint2D.ixx" />
     <ClInclude Include="include\Transform\Position2D.hpp" />
-    <ClInclude Include="include\Transform\Rotate2D.hpp" />
-    <ClInclude Include="include\Transform\Rotation.hpp" />
+    <ClCompile Include="include\Transform\Rotate2D.ixx">
+      <FileType>Document</FileType>
+      <ScanSourceForModuleDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Rotation.hpp" />
     <ClInclude Include="include\Transform\Scale.hpp" />
     <ClInclude Include="include\Transform\Transform.hpp" />
-    <ClInclude Include="include\Transform\Transform2D.hpp" />
-    <ClInclude Include="include\Video\AbstractDecoder.hpp" />
+    <ClCompile Include="include\Transform\Transform2D.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\Video\AbstractEncoder.hpp" />
     <ClInclude Include="include\Video\GStreamerDecoder.hpp" />
     <ClInclude Include="include\Video\GStreamerEncoder.hpp" />
-    <ClInclude Include="include\Video\LibVLCDecoder.hpp" />
+    <ClCompile Include="include\Video\LibVLCDecoder.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Image.cppm" />
-    <ClCompile Include="include\Channel\Channel.cppm" />
-    <ClCompile Include="include\Channel\Codec.cppm" />
-    <ClCompile Include="include\Channel\Generator.cppm" />
+    <ClCompile Include="include\Channel\Channel.ixx" />
+    <ClCompile Include="include\Channel\Codec.ixx" />
+    <ClCompile Include="include\Channel\Generator.ixx" />
     <ClCompile Include="include\Channel\OS.ixx" />
-    <ClCompile Include="include\Frame\Frame.cppm" />
+    <ClCompile Include="include\Frame\Frame.ixx" />
     <ClCompile Include="include\Image\CvMatPaintDevice.cpp" />
-    <ClCompile Include="include\Transform\Transform.cppm" />
+    <ClCompile Include="include\Video\AbstractDecoder.ixx" />
     <ClCompile Include="src\AbstractDecoder.cpp" />
     <ClCompile Include="src\Asset\AbstractAssetFile.cpp" />
     <ClCompile Include="src\Asset\AssetMetaFile.cpp" />
@@ -93,7 +103,7 @@
     <ClCompile Include="src\Image\BitmapImage.cpp" />
     <ClCompile Include="src\Image\FloatImage.cpp" />
     <ClCompile Include="src\Image\MeshEncoder.cpp" />
-    <ClCompile Include="src\Layer\Layer.cpp" />
+    <ClCompile Include="src\Layer\Layer2D.cpp" />
     <ClCompile Include="src\Media\MediaFrame.cpp" />
     <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
     <ClCompile Include="src\Transform\Rotation.cpp" />
@@ -108,11 +118,13 @@
     <None Include="include\ImageProcessing\AbstractImageProcessing.hpp" />
     <None Include="include\Image\CvMatPaintDevice.hpp" />
     <None Include="include\third_party\Core" />
-    <None Include="include\Transform\Scale2D.hpp" />
+    <ClCompile Include="include\Transform\Scale2D.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <None Include="src\Composition\OpenCVCompositionBuffer2D.cpp" />
     <None Include="src\ImageProcessing\AbstractImageProcessing.cpp" />
     <None Include="src\Image\CvMatPaintEngine.cpp" />
-    <None Include="src\Transform\Scale.cpp" />
+    <ClCompile Include="src\Transform\Scale.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -185,8 +197,10 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
     <LibraryPath>X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
-    <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App</OutDir>
+    <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App\</OutDir>
     <IntDir>X:\temp/</IntDir>
+    <AllProjectBMIsArePublic>true</AllProjectBMIsArePublic>
+    <PublicModuleDirectories>C:\Users\lagma\Desktop\Artifact\ArtifactCore;$(PublicModuleDirectories)</PublicModuleDirectories>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -221,19 +235,22 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>Default</ConformanceMode>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;LIBRARY_DLL_EXPORT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4819;</DisableSpecificWarnings>
       <TranslateIncludes>true</TranslateIncludes>
       <OpenMPSupport>true</OpenMPSupport>
-      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <EnableModules>true</EnableModules>
       <BuildStlModules>true</BuildStlModules>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ModuleOutputFile>$(SolutionDir)ifc</ModuleOutputFile>
+      <ModuleDependenciesFile>$(IntDir)ifc</ModuleDependenciesFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -241,7 +258,6 @@
       <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceFileOutput>Enabled</ForceFileOutput>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
-      <OutputFile>C:\Users\lagma\Desktop\Artifact\Artifact\lib\ArtifactCored.lib</OutputFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

@@ -1,8 +1,11 @@
+module;
 #include <mutex>
 #include <shared_mutex>
-#include "../../include/Transform/Scale2D.hpp"
+//#include "../../include/Transform/Scale2D.hpp"
 
 
+#include <QtGui/QTransform>
+module Scale2D;
 
 
 namespace ArtifactCore {

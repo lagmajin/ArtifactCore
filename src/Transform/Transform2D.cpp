@@ -1,4 +1,88 @@
-#include "Transform2D.h"
+//#include "Transform/Transform2D.hpp"
+
+module;
+#include<QtGui/QTransform>
+
+module Transform2D;
+
+//import Transform;
+
+
+namespace ArtifactCore {
+
+
+ class Transform2DPrivate {
+ private:
+  
+  Scale2D scale2d_;
+
+ public:
+  Transform2DPrivate();
+  ~Transform2DPrivate();
+  //AnchorPoint2D anchorPoint2D() const;
+  Scale2D scale() const;
+  void setScale(const Scale2D& scale);
+
+  void setFromRandom();
+  QTransform toQTransform() const;
+ };
+
+ Transform2DPrivate::Transform2DPrivate()
+ {
+
+ }
+
+
+ Transform2DPrivate::~Transform2DPrivate()
+ {
+
+ }
 
 
 
+ void Transform2DPrivate::setScale(const Scale2D& scale)
+ {
+
+ }
+
+ void Transform2DPrivate::setFromRandom()
+ {
+
+ }
+
+ QTransform Transform2DPrivate::toQTransform() const
+ {
+
+  return QTransform();
+ }
+
+ Transform2D::Transform2D()
+ {
+
+ }
+
+ Transform2D::~Transform2D()
+ {
+
+ }
+ void Transform2D::setX(double x)
+ {
+
+ }
+
+ void Transform2D::setY(double y)
+ {
+
+ }
+
+ QTransform Transform2D::toQTransform() const
+ {
+  QTransform transform;
+
+  
+
+  return transform;
+
+ }
+
+};
