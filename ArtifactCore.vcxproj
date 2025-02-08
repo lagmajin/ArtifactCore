@@ -72,7 +72,9 @@
       <ScanSourceForModuleDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ScanSourceForModuleDependencies>
     </ClCompile>
     <ClCompile Include="include\Transform\Rotation.hpp" />
-    <ClInclude Include="include\Transform\Scale.hpp" />
+    <ClCompile Include="include\Transform\Scale.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\Transform\Transform.hpp" />
     <ClCompile Include="include\Transform\Transform2D.ixx">
       <FileType>CppHeader</FileType>
@@ -114,6 +116,7 @@
     <ClCompile Include="src\Video\LibVLCDecoder.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="include\Channel\DiskSizei.xx" />
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp" />
     <None Include="include\ImageProcessing\AbstractImageProcessing.hpp" />
     <None Include="include\Image\CvMatPaintDevice.hpp" />
@@ -154,6 +157,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -201,6 +205,7 @@
     <IntDir>X:\temp/</IntDir>
     <AllProjectBMIsArePublic>true</AllProjectBMIsArePublic>
     <PublicModuleDirectories>C:\Users\lagma\Desktop\Artifact\ArtifactCore;$(PublicModuleDirectories)</PublicModuleDirectories>
+    <AllProjectIncludesArePublic>true</AllProjectIncludesArePublic>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -251,10 +256,12 @@
       <CompileAs>CompileAsCpp</CompileAs>
       <ModuleOutputFile>$(SolutionDir)ifc</ModuleOutputFile>
       <ModuleDependenciesFile>$(IntDir)ifc</ModuleDependenciesFile>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
+      <ShowIncludes>false</ShowIncludes>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceFileOutput>Enabled</ForceFileOutput>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>

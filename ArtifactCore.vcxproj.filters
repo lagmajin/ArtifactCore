@@ -237,9 +237,6 @@
     <ClInclude Include="include\Frame\FrameRange.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClInclude>
-    <ClInclude Include="include\Transform\Scale.hpp">
-      <Filter>ヘッダー ファイル\Transform</Filter>
-    </ClInclude>
     <ClInclude Include="include\third_party\stb_image.h">
       <Filter>ヘッダー ファイル\third_party</Filter>
     </ClInclude>
@@ -377,6 +374,9 @@
     <ClCompile Include="src\Transform\Scale.cpp">
       <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
+    <ClCompile Include="include\Transform\Scale.ixx">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -399,6 +399,9 @@
     </None>
     <None Include="include\third_party\Core">
       <Filter>ヘッダー ファイル\third_party</Filter>
+    </None>
+    <None Include="include\Channel\DiskSizei.xx">
+      <Filter>ヘッダー ファイル\Common</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

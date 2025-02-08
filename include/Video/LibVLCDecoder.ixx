@@ -1,6 +1,4 @@
-#pragma once
-
-
+module;
 #include <memory>
 
 #include <QtCore/QFile>
