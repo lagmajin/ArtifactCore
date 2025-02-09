@@ -20,14 +20,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp" />
-    <ClInclude Include="include\Asset\AssetConverter.hpp" />
+    <ClCompile Include="include\Asset\AssetConverter.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\Asset\AssetDatabase.hpp" />
     <ClInclude Include="include\Asset\AssetMetaFile.hpp" />
     <ClInclude Include="include\Color\Alpha.hpp" />
     <ClCompile Include="include\Color\FloatColor.ixx" />
     <ClCompile Include="include\Color\FloatRGBA.ixx" />
     <ClInclude Include="include\Common\OperationgSystem.hpp" />
-    <QtMoc Include="include\Composition\CompositionBuffer2D.hpp" />
+    <ClInclude Include="include\Composition\CompositionBuffer2D.hpp" />
     <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.hpp" />
     <ClInclude Include="include\Define\DllExportMacro.hpp" />
     <ClInclude Include="include\File\FileInfo.hpp" />
@@ -54,7 +56,9 @@
     <ClInclude Include="include\Image\Sarturation.hpp" />
     <ClInclude Include="include\Knob\AbstractKnob.hpp" />
     <ClInclude Include="include\Knob\KnobList.hpp" />
-    <ClInclude Include="include\Layer\Layer2D.hpp" />
+    <ClCompile Include="include\Layer\Layer2D.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\Media\MediaFrame.hpp" />
     <ClInclude Include="include\Media\MediaInfo.hpp" />
     <ClInclude Include="include\Mesh\FBX.hpp" />
@@ -71,7 +75,7 @@
       <FileType>Document</FileType>
       <ScanSourceForModuleDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ScanSourceForModuleDependencies>
     </ClCompile>
-    <ClCompile Include="include\Transform\Rotation.hpp" />
+    <ClCompile Include="include\Transform\Rotate.ixx" />
     <ClCompile Include="include\Transform\Scale.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -79,7 +83,9 @@
     <ClCompile Include="include\Transform\Transform2D.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
-    <ClInclude Include="include\Video\AbstractEncoder.hpp" />
+    <ClCompile Include="include\Video\AbstractEncoder.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\Video\GStreamerDecoder.hpp" />
     <ClInclude Include="include\Video\GStreamerEncoder.hpp" />
     <ClCompile Include="include\Video\LibVLCDecoder.ixx">
@@ -108,7 +114,7 @@
     <ClCompile Include="src\Layer\Layer2D.cpp" />
     <ClCompile Include="src\Media\MediaFrame.cpp" />
     <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
-    <ClCompile Include="src\Transform\Rotation.cpp" />
+    <ClCompile Include="src\Transform\Rotate.cpp" />
     <ClCompile Include="src\Transform\Scale2D.cpp" />
     <ClCompile Include="src\Transform\Transform.cpp" />
     <ClCompile Include="src\Transform\Transform2D.cpp" />
@@ -128,6 +134,7 @@
     <None Include="src\ImageProcessing\AbstractImageProcessing.cpp" />
     <None Include="src\Image\CvMatPaintEngine.cpp" />
     <ClCompile Include="src\Transform\Scale.cpp" />
+    <None Include="src\Layer\Layer2DSetting.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -252,7 +259,7 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <EnableModules>true</EnableModules>
       <BuildStlModules>true</BuildStlModules>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
       <CompileAs>CompileAsCpp</CompileAs>
       <ModuleOutputFile>$(SolutionDir)ifc</ModuleOutputFile>
       <ModuleDependenciesFile>$(IntDir)ifc</ModuleDependenciesFile>

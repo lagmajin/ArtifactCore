@@ -1,4 +1,4 @@
-#pragma once
+module;
 
 export module FloatRGBA;
 
@@ -51,6 +51,7 @@ export namespace ArtifactCore {
   FloatRGBA& operator=(const FloatRGBA& rgba);
   FloatRGBA& operator=(FloatRGBA&& rgba);
  };
+
 
 
 };

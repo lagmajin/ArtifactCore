@@ -1,7 +1,7 @@
 
 
 module;
-
+#include <stdint.h>
 #include <QtGui/QtGui>
 
 export module Transform2D;

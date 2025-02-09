@@ -1,6 +1,7 @@
 //#include "Transform/Transform2D.hpp"
 
 module;
+#include <stdint.h>
 #include<QtGui/QTransform>
 
 module Transform2D;
@@ -39,6 +40,12 @@ namespace ArtifactCore {
  }
 
 
+
+ Scale2D Transform2DPrivate::scale() const
+ {
+
+  return scale2d_;
+ }
 
  void Transform2DPrivate::setScale(const Scale2D& scale)
  {

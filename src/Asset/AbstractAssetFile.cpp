@@ -1,10 +1,13 @@
 #include "../../include/Asset/AbstractAssetFile.hpp"
+#include <wobjectimpl.h>
 
 
 
 
 
 namespace ArtifactCore {
+
+ W_OBJECT_IMPL(AbstractAssetFile)
 
  class AbstractAssetFilePrivate{
  private:

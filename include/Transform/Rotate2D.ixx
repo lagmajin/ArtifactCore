@@ -1,15 +1,18 @@
 
-#pragma once
+//#pragma once
 
 
-#include "../Define/DllExportMacro.hpp"
+//#include "../Define/DllExportMacro.hpp"
 
-namespace ArtifactCore {
+
+export module Rotate2D;
+
+export namespace ArtifactCore {
 
  
  class RotatePrivate;
 
- class LIBRARY_DLL_API Rotate2D {
+ class  Rotate2D {
  private:
   //QScopedPointer<RotatePrivate> const  pImpl_;
  public:

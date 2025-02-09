@@ -183,9 +183,6 @@
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp">
       <Filter>ヘッダー ファイル\Asset</Filter>
     </ClInclude>
-    <ClInclude Include="include\Asset\AssetConverter.hpp">
-      <Filter>ヘッダー ファイル\Asset</Filter>
-    </ClInclude>
     <ClInclude Include="include\Transform\Transform.hpp">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClInclude>
@@ -194,9 +191,6 @@
     </ClInclude>
     <ClInclude Include="include\Image\RenderedImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Video\AbstractEncoder.hpp">
-      <Filter>ヘッダー ファイル\Codec</Filter>
     </ClInclude>
     <ClInclude Include="include\Asset\AssetDatabase.hpp">
       <Filter>ヘッダー ファイル\Asset</Filter>
@@ -237,9 +231,6 @@
     <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
     </ClInclude>
-    <ClInclude Include="include\Layer\Layer2D.hpp">
-      <Filter>ヘッダー ファイル\Layer</Filter>
-    </ClInclude>
     <ClInclude Include="include\Image\FloatBitmapImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -249,14 +240,17 @@
     <ClInclude Include="include\Image\Sarturation.hpp">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="include\Transform\Position2D.hpp">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="include\Define\DllExportMacro.hpp">
       <Filter>ヘッダー ファイル\Define</Filter>
     </ClInclude>
     <ClInclude Include="include\Color\Alpha.hpp">
       <Filter>ヘッダー ファイル\Color</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Transform\Position2D.hpp">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Composition\CompositionBuffer2D.hpp">
+      <Filter>ヘッダー ファイル\Composition</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -302,7 +296,7 @@
     <ClCompile Include="src\ImageProcessing\Blur.cpp">
       <Filter>ソース ファイル\ImageProcessing</Filter>
     </ClCompile>
-    <ClCompile Include="src\Transform\Rotation.cpp">
+    <ClCompile Include="src\Transform\Rotate.cpp">
       <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\Transform.cpp">
@@ -359,7 +353,7 @@
     <ClCompile Include="include\Transform\Scale2D.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="include\Transform\Rotation.hpp">
+    <ClCompile Include="include\Transform\Rotate.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\Scale.cpp">
@@ -376,6 +370,15 @@
     </ClCompile>
     <ClCompile Include="include\Color\FloatRGBA.ixx">
       <Filter>ヘッダー ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Asset\AssetConverter.ixx">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\AbstractEncoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Layer\Layer2D.ixx">
+      <Filter>ヘッダー ファイル\Layer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -403,10 +406,8 @@
     <None Include="include\Channel\DiskSize.ixx">
       <Filter>ヘッダー ファイル\Common</Filter>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="include\Composition\CompositionBuffer2D.hpp">
-      <Filter>ヘッダー ファイル\Composition</Filter>
-    </QtMoc>
+    <None Include="src\Layer\Layer2DSetting.cpp">
+      <Filter>ソース ファイル\Layer</Filter>
+    </None>
   </ItemGroup>
 </Project>

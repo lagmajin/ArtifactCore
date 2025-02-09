@@ -1,4 +1,5 @@
 module;
+#include <stdint.h>
 #include <mutex>
 #include <shared_mutex>
 //#include "../../include/Transform/Scale2D.hpp"
@@ -45,6 +46,11 @@ namespace ArtifactCore {
  QTransform Scale2DPrivate::toQTransform() const
  {
   return QTransform().scale(x_, y_);
+ }
+
+ Scale2D::Scale2D()
+ {
+
  }
 
  Scale2D::Scale2D(double x, double y)

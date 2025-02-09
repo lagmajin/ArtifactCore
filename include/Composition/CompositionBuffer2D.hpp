@@ -35,18 +35,18 @@ namespace ArtifactCore {
  class CompositionBuffer2DPrivate;
 
  class __declspec(dllexport) CompositionBuffer2D:public QObject {
-  Q_OBJECT
+  //Q_OBJECT
  private:
   QScopedPointer<CompositionBuffer2DPrivate> pImpl_;
  public:
   explicit CompositionBuffer2D(int width,int height);
   ~CompositionBuffer2D();
   void setEngine(eEngineBackend backend=Halide);
- signals:
+ //signals:
   void compositingFinished(); 
   void compositingSucceeded(); 
   void compositingFailed(QString reason); 
- public slots:
+ //public slots:
   void addLayer();
   void clear();
   void setClearColor(const FloatRGBA rgba);

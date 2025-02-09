@@ -1,4 +1,5 @@
-module;
+module; 
+#include <stdint.h>
 #include <memory>
 
 #include <QtCore/QFile>

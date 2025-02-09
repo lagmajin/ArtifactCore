@@ -1,5 +1,5 @@
 module;
-
+#include <stdint.h>
 #include <QtGui/QImage>
 
 #include <QtGui/QBitmap>

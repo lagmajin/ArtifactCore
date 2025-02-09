@@ -1,5 +1,7 @@
 module;
+
 #include <memory>
+#include <stdint.h>
 #include <QtGui/QTransform>
 
 #include "../Define/DllExportMacro.hpp"

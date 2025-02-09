@@ -40,6 +40,11 @@ namespace ArtifactCore {
  void FloatRGBAPrivate::setRGBA(float r, float g, float b /*= 0.0f*/, float a /*= 0.0f*/)
  {
 
+ } 
+ 
+ FloatRGBA::FloatRGBA()
+ {
+
  }
 
  FloatRGBA::FloatRGBA(const FloatRGBA& rgba)

@@ -30,10 +30,6 @@ export namespace ArtifactCore {
   void setColor(float red, float green, float blue, float alpha);
  };
 
- void FloatColor::setRed(float red)
- {
-
- }
 
 
 
