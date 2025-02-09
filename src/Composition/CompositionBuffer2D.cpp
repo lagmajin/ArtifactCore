@@ -3,7 +3,7 @@
 #include "../../include/Composition/CompositionBuffer2D.hpp"
 
 
-
+import FloatRGBA;
 
 namespace ArtifactCore {
 

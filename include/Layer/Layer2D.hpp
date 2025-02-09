@@ -11,10 +11,14 @@ namespace ArtifactCore {
 
  
 
- class LayerSettingPrivate;
+ class Layer2DSettingPrivate;
 
- class LayerSetting {
+ class Layer2DSetting {
+  
+ public:
 
+  QPoint position;
+  float opacity = 1.0f;
  };
 
 

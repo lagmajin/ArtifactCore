@@ -13,16 +13,17 @@
 
 
 #include "../Image/FloatImage.hpp"
-#include "../Color/FloatRGBA.hpp"
+//#include "../Color/FloatRGBA.hpp"
 
+#include <wobjectdefs.h>
 
+import FloatRGBA;
 
 namespace ArtifactCore {
 
 
  class LayerSetting {
-  QPoint position;
-  float opacity = 1.0f;
+
  };
 
  enum eEngineBackend {
@@ -38,7 +39,7 @@ namespace ArtifactCore {
  private:
   QScopedPointer<CompositionBuffer2DPrivate> pImpl_;
  public:
-  CompositionBuffer2D(int width,int height);
+  explicit CompositionBuffer2D(int width,int height);
   ~CompositionBuffer2D();
   void setEngine(eEngineBackend backend=Halide);
  signals:

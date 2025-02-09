@@ -6,8 +6,9 @@
 #include <QtCore/QList>
 #include <QtCore/QSize>
 
-#include "../Color/FloatRGBA.hpp"
-#include "../Color/FloatColor.hpp"
+//#include "../Color/FloatRGBA.hpp"
+
+import FloatColor;
 
 
 namespace ArtifactCore {

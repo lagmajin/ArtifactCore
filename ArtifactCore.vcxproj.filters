@@ -165,9 +165,6 @@
     <ClInclude Include="include\Knob\KnobList.hpp">
       <Filter>ヘッダー ファイル\Knob</Filter>
     </ClInclude>
-    <ClInclude Include="include\Color\Alpha.hpp">
-      <Filter>ヘッダー ファイル\Color</Filter>
-    </ClInclude>
     <ClInclude Include="include\Image\OpenEXR.hpp">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
@@ -188,9 +185,6 @@
     </ClInclude>
     <ClInclude Include="include\Asset\AssetConverter.hpp">
       <Filter>ヘッダー ファイル\Asset</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Color\FloatColor.hpp">
-      <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
     <ClInclude Include="include\Transform\Transform.hpp">
       <Filter>ヘッダー ファイル\Transform</Filter>
@@ -240,14 +234,11 @@
     <ClInclude Include="include\third_party\stb_image.h">
       <Filter>ヘッダー ファイル\third_party</Filter>
     </ClInclude>
-    <ClInclude Include="include\Composition\AbstractCompositionBuffer.hpp">
+    <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
     </ClInclude>
     <ClInclude Include="include\Layer\Layer2D.hpp">
       <Filter>ヘッダー ファイル\Layer</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Color\FloatRGBA.hpp">
-      <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\FloatBitmapImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
@@ -263,6 +254,9 @@
     </ClInclude>
     <ClInclude Include="include\Define\DllExportMacro.hpp">
       <Filter>ヘッダー ファイル\Define</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Color\Alpha.hpp">
+      <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -313,9 +307,6 @@
     </ClCompile>
     <ClCompile Include="src\Transform\Transform.cpp">
       <Filter>ソース ファイル\Transform</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Color\FloatColor.cpp">
-      <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="src\Layer\Layer2D.cpp">
       <Filter>ソース ファイル\Layer</Filter>
@@ -377,6 +368,15 @@
     <ClCompile Include="include\Transform\Scale.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
+    <ClCompile Include="include\Color\FloatColor.ixx">
+      <Filter>ヘッダー ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Color\FloatColor.cpp">
+      <Filter>ソース ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Color\FloatRGBA.ixx">
+      <Filter>ヘッダー ファイル\Color</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -400,7 +400,7 @@
     <None Include="include\third_party\Core">
       <Filter>ヘッダー ファイル\third_party</Filter>
     </None>
-    <None Include="include\Channel\DiskSizei.xx">
+    <None Include="include\Channel\DiskSize.ixx">
       <Filter>ヘッダー ファイル\Common</Filter>
     </None>
   </ItemGroup>

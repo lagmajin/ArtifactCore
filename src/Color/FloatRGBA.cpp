@@ -1,8 +1,8 @@
-#include "../../include/Color/FloatRGBA.hpp"
+//#include "../../include/Color/FloatRGBA.hpp"
 
 
 
-
+module FloatRGBA;
 
 namespace ArtifactCore {
 

@@ -24,11 +24,11 @@
     <ClInclude Include="include\Asset\AssetDatabase.hpp" />
     <ClInclude Include="include\Asset\AssetMetaFile.hpp" />
     <ClInclude Include="include\Color\Alpha.hpp" />
-    <ClInclude Include="include\Color\FloatColor.hpp" />
-    <ClInclude Include="include\Color\FloatRGBA.hpp" />
+    <ClCompile Include="include\Color\FloatColor.ixx" />
+    <ClCompile Include="include\Color\FloatRGBA.ixx" />
     <ClInclude Include="include\Common\OperationgSystem.hpp" />
     <QtMoc Include="include\Composition\CompositionBuffer2D.hpp" />
-    <ClInclude Include="include\Composition\AbstractCompositionBuffer.hpp" />
+    <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.hpp" />
     <ClInclude Include="include\Define\DllExportMacro.hpp" />
     <ClInclude Include="include\File\FileInfo.hpp" />
     <ClInclude Include="include\Frame\FramePosition.ixx" />
@@ -116,7 +116,7 @@
     <ClCompile Include="src\Video\LibVLCDecoder.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="include\Channel\DiskSizei.xx" />
+    <None Include="include\Channel\DiskSize.ixx" />
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp" />
     <None Include="include\ImageProcessing\AbstractImageProcessing.hpp" />
     <None Include="include\Image\CvMatPaintDevice.hpp" />
@@ -199,7 +199,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
     <LibraryPath>X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App\</OutDir>
     <IntDir>X:\temp/</IntDir>
