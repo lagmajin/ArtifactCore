@@ -10,6 +10,7 @@ export module Rotate;
 
 export namespace ArtifactCore {
 
+
  class RotatePrivate;
 
  class Rotate {
