@@ -6,7 +6,7 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module Image;
+export module BitmapImage;
 
 namespace ArtifactCore {
  

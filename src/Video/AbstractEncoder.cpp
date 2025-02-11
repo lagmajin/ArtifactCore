@@ -1,7 +1,7 @@
-module;
-#include <stdint.h>
+//module;
+//#include <stdint.h>
 
-module AbstractEncoder;
+import AbstractEncoder;
 
 
 namespace ArtifactCore {

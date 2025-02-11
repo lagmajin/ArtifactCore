@@ -1,12 +1,10 @@
-//#include "Transform/Transform2D.hpp"
-
-module;
 #include <stdint.h>
 #include<QtGui/QTransform>
 
-module Transform2D;
+import Transform2D;
 
-//import Transform;
+import Scale2D;
+
 
 
 namespace ArtifactCore {

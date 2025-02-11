@@ -28,7 +28,9 @@
     <ClInclude Include="include\Color\Alpha.hpp" />
     <ClCompile Include="include\Color\FloatColor.ixx" />
     <ClCompile Include="include\Color\FloatRGBA.ixx" />
-    <ClInclude Include="include\Common\OperationgSystem.hpp" />
+    <ClCompile Include="include\Common\OperationgSystem.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\Composition\CompositionBuffer2D.hpp" />
     <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.hpp" />
     <ClInclude Include="include\Define\DllExportMacro.hpp" />
@@ -60,12 +62,17 @@
       <FileType>CppHeader</FileType>
     </ClCompile>
     <ClInclude Include="include\Media\MediaFrame.hpp" />
-    <ClInclude Include="include\Media\MediaInfo.hpp" />
+    <ClCompile Include="include\Media\MediaInfo.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\Mesh\FBX.hpp" />
     <ClInclude Include="include\Mesh\WavefrontObj.hpp" />
     <ClInclude Include="include\Rule\NamingRule.hpp" />
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp" />
     <ClInclude Include="include\third_party\stb_image.h" />
+    <ClCompile Include="include\Media\MediaProbe.ixx" />
+    <ClCompile Include="include\Mesh\Mesh.ixx" />
+    <ClCompile Include="include\Platform\Platform.cppm" />
     <ClCompile Include="include\Transform\AnchorPoint.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -88,6 +95,8 @@
     </ClCompile>
     <ClInclude Include="include\Video\GStreamerDecoder.hpp" />
     <ClInclude Include="include\Video\GStreamerEncoder.hpp" />
+    <ClCompile Include="include\Video\EncoderSettings.ixx" />
+    <ClCompile Include="include\Video\FFMpegEncoder.ixx" />
     <ClCompile Include="include\Video\LibVLCDecoder.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -113,7 +122,10 @@
     <ClCompile Include="src\Image\MeshEncoder.cpp" />
     <ClCompile Include="src\Layer\Layer2D.cpp" />
     <ClCompile Include="src\Media\MediaFrame.cpp" />
+    <ClCompile Include="src\Media\MediaProbe.cpp" />
+    <ClCompile Include="src\Mesh\Mesh.cpp" />
     <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
+    <ClCompile Include="src\Platform\Platform.cpp" />
     <ClCompile Include="src\Transform\Rotate.cpp" />
     <ClCompile Include="src\Transform\Scale2D.cpp" />
     <ClCompile Include="src\Transform\Transform.cpp" />
@@ -134,7 +146,9 @@
     <None Include="src\ImageProcessing\AbstractImageProcessing.cpp" />
     <None Include="src\Image\CvMatPaintEngine.cpp" />
     <ClCompile Include="src\Transform\Scale.cpp" />
+    <None Include="src\Image\FFmpegEncoder.cpp" />
     <None Include="src\Layer\Layer2DSetting.cpp" />
+    <None Include="src\Media\MediaInfo.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -206,12 +220,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
-    <LibraryPath>X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>X:\ffmpeg2\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <LibraryPath>X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\ffmpeg2\lib;X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App\</OutDir>
     <IntDir>X:\temp/</IntDir>
     <AllProjectBMIsArePublic>true</AllProjectBMIsArePublic>
-    <PublicModuleDirectories>C:\Users\lagma\Desktop\Artifact\ArtifactCore;$(PublicModuleDirectories)</PublicModuleDirectories>
     <AllProjectIncludesArePublic>true</AllProjectIncludesArePublic>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -254,22 +267,21 @@
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4819;</DisableSpecificWarnings>
-      <TranslateIncludes>true</TranslateIncludes>
+      <TranslateIncludes>false</TranslateIncludes>
       <OpenMPSupport>true</OpenMPSupport>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
-      <EnableModules>true</EnableModules>
+      <EnableModules>false</EnableModules>
       <BuildStlModules>true</BuildStlModules>
-      <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <CompileAs>CompileAsCpp</CompileAs>
-      <ModuleOutputFile>$(SolutionDir)ifc</ModuleOutputFile>
-      <ModuleDependenciesFile>$(IntDir)ifc</ModuleDependenciesFile>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <CompileAs>CompileAsCppModule</CompileAs>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <ShowIncludes>false</ShowIncludes>
+      <ModuleOutputFile>X:\temp/</ModuleOutputFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;avcodec.lib;avformat.lib;avdevice.lib;avutil.lib;webp.lib;webpdecoder.lib;zlib.lib;cpuinfo.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceFileOutput>Enabled</ForceFileOutput>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
     </Link>

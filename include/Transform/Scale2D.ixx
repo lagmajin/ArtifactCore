@@ -6,8 +6,10 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
+//import std;
 export module Scale2D;
 //#include "../third_party/Eigen/Core"
+//import std;
 
 export namespace ArtifactCore {
 

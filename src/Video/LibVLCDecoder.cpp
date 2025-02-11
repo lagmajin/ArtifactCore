@@ -1,5 +1,5 @@
 
-module;
+//module;
 #include <iostream>
 #include <string>
 #include <vector>
@@ -16,7 +16,7 @@ module;
 
 //import AbstractDecoder;
 
-module Codec;
+import Codec;
 
 namespace ArtifactCore{
 

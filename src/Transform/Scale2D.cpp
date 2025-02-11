@@ -1,4 +1,4 @@
-module;
+//module;
 #include <stdint.h>
 #include <mutex>
 #include <shared_mutex>
@@ -6,8 +6,9 @@ module;
 
 
 #include <QtGui/QTransform>
-module Scale2D;
+import Scale2D;
 
+import std;
 
 namespace ArtifactCore {
  

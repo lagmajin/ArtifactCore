@@ -1,16 +1,3 @@
 
 
 
-
-
-
-namespace Artifact {
-
-
-
-
-
-
-
-
-}

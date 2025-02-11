@@ -6,8 +6,13 @@ export module DiskSize;
 
 
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
 
+ class DiskSizePrivate;
+
+ class DiskSize {
+
+ };
 
 }

@@ -1,8 +1,8 @@
-#pragma once
 
 
 
 
+export module Scale;
 
 
 namespace ArtifactCore {

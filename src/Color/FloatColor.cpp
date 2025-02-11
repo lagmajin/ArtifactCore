@@ -1,8 +1,4 @@
-module;
-
-
-
-module FloatColor;
+import FloatColor;
 
 namespace ArtifactCore {
 

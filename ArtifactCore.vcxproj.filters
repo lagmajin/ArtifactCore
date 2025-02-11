@@ -130,6 +130,15 @@
     <Filter Include="ヘッダー ファイル\Define">
       <UniqueIdentifier>{6a668d61-770c-4aed-9d3c-1706f02e6c37}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Rule">
+      <UniqueIdentifier>{ff64a0ca-6f89-4fd3-84f8-6a66ffb213ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Platform">
+      <UniqueIdentifier>{38636d84-fc97-4c2c-91e2-fb1b5f3373f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Platform">
+      <UniqueIdentifier>{0dbfbd31-f0b9-453a-b38d-216263ee2b94}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -186,9 +195,6 @@
     <ClInclude Include="include\Transform\Transform.hpp">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClInclude>
-    <ClInclude Include="include\Common\OperationgSystem.hpp">
-      <Filter>ヘッダー ファイル\Common</Filter>
-    </ClInclude>
     <ClInclude Include="include\Image\RenderedImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -197,9 +203,6 @@
     </ClInclude>
     <ClInclude Include="include\Image\JPEGImage.hpp">
       <Filter>ヘッダー ファイル\Image</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Media\MediaInfo.hpp">
-      <Filter>ヘッダー ファイル\Media</Filter>
     </ClInclude>
     <ClInclude Include="include\Media\MediaFrame.hpp">
       <Filter>ヘッダー ファイル\Media</Filter>
@@ -237,9 +240,6 @@
     <ClInclude Include="include\Frame\FramePosition.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClInclude>
-    <ClInclude Include="include\Image\Sarturation.hpp">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="include\Define\DllExportMacro.hpp">
       <Filter>ヘッダー ファイル\Define</Filter>
     </ClInclude>
@@ -251,6 +251,9 @@
     </ClInclude>
     <ClInclude Include="include\Composition\CompositionBuffer2D.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Image\Sarturation.hpp">
+      <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -380,6 +383,36 @@
     <ClCompile Include="include\Layer\Layer2D.ixx">
       <Filter>ヘッダー ファイル\Layer</Filter>
     </ClCompile>
+    <ClCompile Include="include\Video\FFMpegEncoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\EncoderSettings.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Common\OperationgSystem.ixx">
+      <Filter>ヘッダー ファイル\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Mesh\Mesh.ixx">
+      <Filter>ヘッダー ファイル\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Mesh\Mesh.cpp">
+      <Filter>ソース ファイル\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Media\MediaProbe.ixx">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Media\MediaProbe.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Media\MediaInfo.ixx">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Platform\Platform.cppm">
+      <Filter>ヘッダー ファイル\Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Platform\Platform.cpp">
+      <Filter>ソース ファイル\Platform</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -408,6 +441,12 @@
     </None>
     <None Include="src\Layer\Layer2DSetting.cpp">
       <Filter>ソース ファイル\Layer</Filter>
+    </None>
+    <None Include="src\Image\FFmpegEncoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </None>
+    <None Include="src\Media\MediaInfo.cpp">
+      <Filter>ソース ファイル\Media</Filter>
     </None>
   </ItemGroup>
 </Project>

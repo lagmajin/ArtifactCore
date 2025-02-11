@@ -1,7 +1,4 @@
-//#include "../../include/Transform/Rotation.hpp"
-module;
-
-module Rotate;
+import Rotate;
 
 namespace ArtifactCore {
 
