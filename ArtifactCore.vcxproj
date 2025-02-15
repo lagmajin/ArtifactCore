@@ -31,6 +31,7 @@
     <ClCompile Include="include\Common\OperationgSystem.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
+    <ClInclude Include="include\Color\Histgram.ixx" />
     <ClInclude Include="include\Composition\CompositionBuffer2D.hpp" />
     <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.hpp" />
     <ClInclude Include="include\Define\DllExportMacro.hpp" />
@@ -115,6 +116,7 @@
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />
     <ClCompile Include="src\Color\FloatColor.cpp" />
     <ClCompile Include="src\Color\FloatRGBA.cpp" />
+    <ClCompile Include="src\Color\Histgram.cpp" />
     <ClCompile Include="src\Composition\CompositionBuffer2D.cpp" />
     <ClCompile Include="src\ImageProcessing\Blur.cpp" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />
