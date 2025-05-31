@@ -38,13 +38,16 @@
     <ClInclude Include="include\File\FileInfo.hpp" />
     <ClInclude Include="include\Frame\FramePosition.ixx" />
     <ClInclude Include="include\Frame\FrameRange.ixx" />
-    <ClInclude Include="include\Frame\FrameRate.hpp" />
+    <ClCompile Include="include\FrameRenderer.ixx" />
+    <ClCompile Include="include\Frame\FrameOffset.ixx" />
+    <ClCompile Include="include\Frame\FrameRate.ixx" />
     <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp" />
     <ClInclude Include="include\ImageProcessing\Blur.hpp" />
     <ClInclude Include="include\ImageProcessing\Halide\HalideArithmetic.hpp" />
     <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp" />
     <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp" />
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx" />
     <ClCompile Include="include\Image\BitmapImage.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -82,6 +85,7 @@
     <ClCompile Include="include\Media\MediaProbe.ixx" />
     <ClCompile Include="include\Mesh\Mesh.ixx" />
     <ClCompile Include="include\Platform\Platform.cppm" />
+    <ClCompile Include="include\TestEncoder.ixx" />
     <ClCompile Include="include\Transform\AnchorPoint.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -126,6 +130,7 @@
     <ClCompile Include="src\Color\FloatRGBA.cpp" />
     <ClCompile Include="src\Color\Histgram.cpp" />
     <ClCompile Include="src\Composition\CompositionBuffer2D.cpp" />
+    <ClCompile Include="src\Frame\FrameRate.cpp" />
     <ClCompile Include="src\ImageProcessing\Blur.cpp" />
     <ClCompile Include="src\ImageProcessing\Edge.cpp" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />

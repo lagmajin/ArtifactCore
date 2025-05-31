@@ -1,11 +1,12 @@
-#pragma once
+module;
 
 
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
 
+export module FrameRate;
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
  enum class eFramerateStringFormat {
 
@@ -41,13 +42,13 @@ namespace ArtifactCore {
 
   void swap(Framerate& other) noexcept;
 
-  JsonObject toJson() const;
-  void setFromJson(const JsonObject& object);
-  void readFromJson(JsonObject& object) const;
-  void writeToJson(JsonObject& object) const;
+  QJsonObject toJson() const;
+  void setFromJson(const QJsonObject& object);
+  void readFromJson(QJsonObject& object) const;
+  void writeToJson(QJsonObject& object) const;
 
   Framerate& operator=(float rate);
-  Framerate& operator=(const PString& str);
+  Framerate& operator=(const QString& str);
   Framerate& operator=(const Framerate& framerate);
   Framerate& operator=(Framerate&& framerate) noexcept;
  };

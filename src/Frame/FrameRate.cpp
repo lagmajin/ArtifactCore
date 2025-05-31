@@ -1,0 +1,13 @@
+
+
+
+
+namespace ArtifactCore {
+
+ class FrameratePrivate {
+
+ };
+
+
+
+}

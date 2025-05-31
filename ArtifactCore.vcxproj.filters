@@ -231,9 +231,6 @@
     <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp">
       <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
     </ClInclude>
-    <ClInclude Include="include\Frame\FrameRate.hpp">
-      <Filter>ヘッダー ファイル\Frame</Filter>
-    </ClInclude>
     <ClInclude Include="include\Frame\FrameRange.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClInclude>
@@ -463,6 +460,24 @@
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Edge.cpp">
       <Filter>ソース ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Frame\FrameRate.ixx">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Frame\FrameRate.cpp">
+      <Filter>ソース ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Frame\FrameOffset.ixx">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="include\TestEncoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\FrameRenderer.ixx">
+      <Filter>ヘッダー ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\GAPI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
