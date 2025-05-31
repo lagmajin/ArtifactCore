@@ -3,7 +3,7 @@
 
 
 
-namespace Artifact {
+namespace ArtifactCore {
 
  class OpenExrPrivate;
 

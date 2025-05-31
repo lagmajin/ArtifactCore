@@ -1,4 +1,5 @@
-#include <gst/gst.h>
+//#include <gst/gst.h>
+//#include <gst/gst.h>
 
 
 #include "../../include/Video/GStreamerDecoder.hpp"
@@ -16,6 +17,7 @@ namespace ArtifactCore {
 
  GStreamerDecoderPrivate::GStreamerDecoderPrivate()
  {
+  /*
   if (!gst_is_initialized())
   {
    gst_init(nullptr, nullptr);
@@ -23,6 +25,8 @@ namespace ArtifactCore {
   GstElement* pipeline=nullptr;
   GstBus* bus=nullptr;
   GstMessage* msg=nullptr;
+ 
+ */
  }
 
  GStreamerDecoderPrivate::~GStreamerDecoderPrivate()

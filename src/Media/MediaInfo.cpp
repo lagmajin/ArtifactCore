@@ -1,5 +1,7 @@
 #include <mutex>
+#include <QSysInfo>
 
+#include <QtCore/QString>
 import MediaInfo;
 
 
@@ -9,10 +11,10 @@ namespace ArtifactCore {
 class MediaInfoPrivate {
 private:
 	QString name;
-	int width=0;
-	int height=0;
+	int width_=0;
+	int height_=0;
 
-	long long duration = 0;
+	long long duration_ = 0;
 public:
 	MediaInfoPrivate();
 	explicit MediaInfoPrivate(const QString& name,int width,int height,long long duration);
@@ -41,12 +43,12 @@ MediaInfoPrivate::~MediaInfoPrivate()
 
 int MediaInfoPrivate::width() const
 {
-	return 0;
+	return width_;
 }
 
 int MediaInfoPrivate::height() const
 {
-	return 0;
+	return height_;
 }
 
 long long MediaInfoPrivate::duration() const
@@ -69,6 +71,12 @@ MediaInfo::~MediaInfo()
 
 }
 
+
+int MediaInfo::width() const
+{
+
+	return 0;
+}
 
 
 

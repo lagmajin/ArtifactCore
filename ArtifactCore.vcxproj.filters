@@ -139,6 +139,18 @@
     <Filter Include="ソース ファイル\Platform">
       <UniqueIdentifier>{0dbfbd31-f0b9-453a-b38d-216263ee2b94}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\ImageWriter">
+      <UniqueIdentifier>{405245b7-cfe3-4c0c-ba36-e32f4b4c2165}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\ImageProcessing\GAPI">
+      <UniqueIdentifier>{f4721aa2-27f0-4b6d-ae9d-d71947ad8fa3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\ImageProcessing\GAPI">
+      <UniqueIdentifier>{491a9bc3-0033-422d-b4c5-7285e7f359f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\ImageProcessing\Halide">
+      <UniqueIdentifier>{9277dfaa-43f5-4b86-b090-fa7db456cb2f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -159,7 +171,7 @@
     <ClInclude Include="include\Image\LOGImage.hpp">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
-    <ClInclude Include="include\Image\PNGImage.hpp">
+    <ClInclude Include="include\Image\PNGImage.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
     <ClInclude Include="include\Mesh\WavefrontObj.hpp">
@@ -173,9 +185,6 @@
     </ClInclude>
     <ClInclude Include="include\Knob\KnobList.hpp">
       <Filter>ヘッダー ファイル\Knob</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Image\OpenEXR.hpp">
-      <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp">
       <Filter>ヘッダー ファイル\Script</Filter>
@@ -251,9 +260,6 @@
     </ClInclude>
     <ClInclude Include="include\Composition\CompositionBuffer2D.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Image\Sarturation.hpp">
-      <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
     <ClInclude Include="include\Color\Histgram.ixx">
       <Filter>ヘッダー ファイル\Color</Filter>
@@ -419,6 +425,45 @@
     <ClCompile Include="src\Color\Histgram.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="src\Media\MediaInfo.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\JPEGImage.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\YUV420Image.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\YUV420Image.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Layer\LayerInfomation.ixx">
+      <Filter>ヘッダー ファイル\Layer</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\Sarturation.ixx">
+      <Filter>ヘッダー ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\PNGImage.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\ImageF32x4.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\OpenEXR.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\AbstractImageProcessor.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\Blur\Blur.cpp">
+      <Filter>ソース ファイル\ImageProcessing\GAPI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\Blur\ImageF32x4.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\Edge.cpp">
+      <Filter>ソース ファイル\ImageProcessing</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -427,10 +472,7 @@
     <None Include="src\Image\CvMatPaintEngine.cpp">
       <Filter>ソース ファイル\Image</Filter>
     </None>
-    <None Include="include\ImageProcessing\AbstractImageProcessing.hpp">
-      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
-    </None>
-    <None Include="src\ImageProcessing\AbstractImageProcessing.cpp">
+    <None Include="src\ImageProcessing\AbstractImageProcessor.cpp">
       <Filter>ソース ファイル\ImageProcessing</Filter>
     </None>
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp">
@@ -450,9 +492,6 @@
     </None>
     <None Include="src\Image\FFmpegEncoder.cpp">
       <Filter>ソース ファイル\Codec</Filter>
-    </None>
-    <None Include="src\Media\MediaInfo.cpp">
-      <Filter>ソース ファイル\Media</Filter>
     </None>
   </ItemGroup>
 </Project>

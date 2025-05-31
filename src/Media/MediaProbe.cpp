@@ -48,7 +48,7 @@ namespace ArtifactCore {
 
   }
 
-
+  info_ = MediaInfo();
 
  }
 

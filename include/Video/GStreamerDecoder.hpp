@@ -1,6 +1,6 @@
 #pragma once
 
-import std;
+import std.core;
 
 namespace ArtifactCore {
 

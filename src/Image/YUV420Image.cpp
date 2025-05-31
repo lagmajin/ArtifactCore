@@ -1,4 +1,5 @@
-export module Channel;
+
+import YUV20Image;
 
 
 
@@ -15,4 +16,13 @@ namespace ArtifactCore {
 
 
 
-}
+
+
+
+
+
+
+
+
+
+};

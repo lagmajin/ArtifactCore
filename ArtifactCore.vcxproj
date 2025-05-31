@@ -53,13 +53,21 @@
     <ClInclude Include="include\Image\FloatImage.hpp" />
     <ClInclude Include="include\Image\JPEGImage.hpp" />
     <ClInclude Include="include\Image\LOGImage.hpp" />
-    <ClInclude Include="include\Image\OpenEXR.hpp" />
-    <ClInclude Include="include\Image\PNGImage.hpp" />
+    <ClCompile Include="include\Image\Blur\Blur.cpp" />
+    <ClCompile Include="include\Image\OpenEXR.ixx" />
+    <ClInclude Include="include\Image\PNGImage.ixx" />
     <ClInclude Include="include\Image\RenderedImage.hpp" />
-    <ClInclude Include="include\Image\Sarturation.hpp" />
+    <ClCompile Include="include\Image\ImageF32x4.ixx" />
+    <ClCompile Include="include\Image\Sarturation.ixx" />
+    <ClCompile Include="include\Image\YUV420Image.ixx">
+      <FileType>Document</FileType>
+    </ClCompile>
     <ClInclude Include="include\Knob\AbstractKnob.hpp" />
     <ClInclude Include="include\Knob\KnobList.hpp" />
     <ClCompile Include="include\Layer\Layer2D.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
+    <ClCompile Include="include\Layer\LayerInfomation.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
     <ClInclude Include="include\Media\MediaFrame.hpp" />
@@ -119,9 +127,14 @@
     <ClCompile Include="src\Color\Histgram.cpp" />
     <ClCompile Include="src\Composition\CompositionBuffer2D.cpp" />
     <ClCompile Include="src\ImageProcessing\Blur.cpp" />
+    <ClCompile Include="src\ImageProcessing\Edge.cpp" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />
+    <ClCompile Include="src\Image\Blur\ImageF32x4.cpp" />
     <ClCompile Include="src\Image\FloatImage.cpp" />
+    <ClCompile Include="src\Image\JPEGImage.cpp" />
     <ClCompile Include="src\Image\MeshEncoder.cpp" />
+    <ClCompile Include="src\Image\PNGImage.cpp" />
+    <ClCompile Include="src\Image\YUV420Image.cpp" />
     <ClCompile Include="src\Layer\Layer2D.cpp" />
     <ClCompile Include="src\Media\MediaFrame.cpp" />
     <ClCompile Include="src\Media\MediaProbe.cpp" />
@@ -138,26 +151,30 @@
   <ItemGroup>
     <None Include="include\Channel\DiskSize.ixx" />
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp" />
-    <None Include="include\ImageProcessing\AbstractImageProcessing.hpp" />
+    <ClCompile Include="include\ImageProcessing\AbstractImageProcessor.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <None Include="include\Image\CvMatPaintDevice.hpp" />
     <None Include="include\third_party\Core" />
     <ClCompile Include="include\Transform\Scale2D.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
     <None Include="src\Composition\OpenCVCompositionBuffer2D.cpp" />
-    <None Include="src\ImageProcessing\AbstractImageProcessing.cpp" />
+    <None Include="src\ImageProcessing\AbstractImageProcessor.cpp" />
     <None Include="src\Image\CvMatPaintEngine.cpp" />
     <ClCompile Include="src\Transform\Scale.cpp" />
     <None Include="src\Image\FFmpegEncoder.cpp" />
     <None Include="src\Layer\Layer2DSetting.cpp" />
-    <None Include="src\Media\MediaInfo.cpp" />
+    <ClCompile Include="src\Media\MediaInfo.cpp">
+      <FileType>Document</FileType>
+    </ClCompile>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{c9c6f040-1511-4b6d-8f5d-fe6c6237a268}</ProjectGuid>
     <RootNamespace>ArtifactCore</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
     <Keyword>QtVS_v304</Keyword>
     <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
   </PropertyGroup>
@@ -268,14 +285,14 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <DisableSpecificWarnings>4819;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4819;4828;</DisableSpecificWarnings>
       <TranslateIncludes>false</TranslateIncludes>
       <OpenMPSupport>true</OpenMPSupport>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
-      <EnableModules>false</EnableModules>
+      <EnableModules>true</EnableModules>
       <BuildStlModules>true</BuildStlModules>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <CompileAs>CompileAsCppModule</CompileAs>
+      <CompileAs>Default</CompileAs>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <ShowIncludes>false</ShowIncludes>
       <ModuleOutputFile>X:\temp/</ModuleOutputFile>
@@ -304,6 +321,15 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <ClCompile Condition="'$(CLANGCL)' != 'true'">
+      <AdditionalOptions>
+      </AdditionalOptions>
+    </ClCompile>
+    <ClCompile Condition="'$(CLANGCL)' == 'true'">
+      <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />

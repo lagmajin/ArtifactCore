@@ -2,6 +2,8 @@ module;
 
 #include <QtCore/QString>
 #include <QtCore/QJsonDocument>
+
+
 export module MediaInfo;
 
 
@@ -12,7 +14,7 @@ export namespace ArtifactCore {
 
  class MediaInfo {
  private:
-
+  MediaInfoPrivate* d_;
  public:
   MediaInfo();
   ~MediaInfo();
@@ -23,7 +25,6 @@ export namespace ArtifactCore {
   //void clear();
 
  };
-
 
 
 

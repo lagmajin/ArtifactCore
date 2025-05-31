@@ -1,5 +1,7 @@
 import FloatColor;
 
+import FloatRGBA;
+
 namespace ArtifactCore {
 
 
