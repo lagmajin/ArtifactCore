@@ -90,4 +90,8 @@ namespace ArtifactCore {
 
  }
 
+ void Transform2D::setTransform2D()
+ {
+
+ }
 };

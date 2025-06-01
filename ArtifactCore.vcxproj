@@ -47,6 +47,8 @@
     <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp" />
     <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp" />
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Affine.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfo.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx" />
     <ClCompile Include="include\Image\BitmapImage.ixx">
       <FileType>CppHeader</FileType>
@@ -57,6 +59,8 @@
     <ClInclude Include="include\Image\JPEGImage.hpp" />
     <ClInclude Include="include\Image\LOGImage.hpp" />
     <ClCompile Include="include\Image\Blur\Blur.cpp" />
+    <ClCompile Include="include\Image\ImageF32x4_RGBA.ixx" />
+    <ClCompile Include="include\Image\ImageF32x4_PreMulRGBA.ixx" />
     <ClCompile Include="include\Image\OpenEXR.ixx" />
     <ClInclude Include="include\Image\PNGImage.ixx" />
     <ClInclude Include="include\Image\RenderedImage.hpp" />
@@ -131,8 +135,11 @@
     <ClCompile Include="src\Color\Histgram.cpp" />
     <ClCompile Include="src\Composition\CompositionBuffer2D.cpp" />
     <ClCompile Include="src\Frame\FrameRate.cpp" />
+    <ClCompile Include="src\GPU\GPUInfo.cpp" />
     <ClCompile Include="src\ImageProcessing\Blur.cpp" />
     <ClCompile Include="src\ImageProcessing\Edge.cpp" />
+    <ClCompile Include="src\ImageProcessing\Filter.cpp" />
+    <ClCompile Include="src\ImageProcessing\ImageF32x1.ixx" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />
     <ClCompile Include="src\Image\Blur\ImageF32x4.cpp" />
     <ClCompile Include="src\Image\FloatImage.cpp" />

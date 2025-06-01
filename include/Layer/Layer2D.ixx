@@ -23,9 +23,12 @@ export namespace ArtifactCore {
 
 
  class Layer2D {
+ private:
+
  public:
   Layer2D();
   ~Layer2D();
+  ImageF32x4 transformedLayer();
  };
 
 

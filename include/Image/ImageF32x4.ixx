@@ -23,8 +23,15 @@ export namespace ArtifactCore {
 
  };
 
+ class ImageF32x4_RGBA {
+ private:
 
+ public:
 
+ };
 
+ class ImageF32x4_PreMulRGBA {
+
+ };
 
 }

@@ -151,6 +151,15 @@
     <Filter Include="ソース ファイル\ImageProcessing\Halide">
       <UniqueIdentifier>{9277dfaa-43f5-4b86-b090-fa7db456cb2f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Utility">
+      <UniqueIdentifier>{363d3253-b170-4b2b-9559-b2200b255b57}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\GPU">
+      <UniqueIdentifier>{9d3e77ee-5655-4e8d-b0c5-a943fb1b094a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\GPU">
+      <UniqueIdentifier>{f8dc6fb0-c1c2-449b-8436-74235812cece}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -478,6 +487,27 @@
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\GAPI</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Affine.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfo.ixx">
+      <Filter>ヘッダー ファイル\GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GPU\GPUInfo.cpp">
+      <Filter>ソース ファイル\GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\Filter.cpp">
+      <Filter>ソース ファイル\ImageProcessing\GAPI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\ImageF32x1.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\ImageF32x4_RGBA.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\ImageF32x4_PreMulRGBA.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
