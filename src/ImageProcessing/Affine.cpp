@@ -1,7 +1,4 @@
-module;
 
-
-export module JPEG;
 
 
 
@@ -17,4 +14,13 @@ namespace ArtifactCore {
 
 
 
-};
+
+
+
+
+
+
+
+
+
+}

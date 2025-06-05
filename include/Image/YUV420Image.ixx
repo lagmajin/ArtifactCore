@@ -1,5 +1,5 @@
 module;
-#include <stdint.h>
+//import std;
 #include <QtGui/QImage>
 
 #include <QtGui/QBitmap>
@@ -10,9 +10,10 @@ module;
 
 export module YUV20Image;
 
+import ImageF32x4_RGBA;
 
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
 
  export class YUV420Image {
@@ -25,6 +26,7 @@ namespace ArtifactCore {
  public:
 	YUV420Image();
    ~YUV420Image();
+   void fromImage32xRGBA(const ImageF32x4_RGBA);
  };
 
 

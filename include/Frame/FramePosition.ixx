@@ -1,6 +1,6 @@
 module;
 
-import std.core;
+
 
 export module FramePosition;
 

@@ -1,5 +1,5 @@
 module;
-#include <stdint.h>
+//import std;
 #include <QtGui/QImage>
 
 #include <QtGui/QBitmap>

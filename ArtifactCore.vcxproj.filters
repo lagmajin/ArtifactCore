@@ -160,6 +160,36 @@
     <Filter Include="ヘッダー ファイル\GPU">
       <UniqueIdentifier>{f8dc6fb0-c1c2-449b-8436-74235812cece}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\ImageProcessing\OpenCV">
+      <UniqueIdentifier>{95ed5fcb-1001-4197-bb71-a97d496e69ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\NewFilter2">
+      <UniqueIdentifier>{360a5071-f69e-4906-a8f1-ba9aa45ca6ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Linq">
+      <UniqueIdentifier>{0540b31a-5dc0-47a5-9d0b-299055803892}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Draw">
+      <UniqueIdentifier>{b3be87da-c266-4a84-b029-0a8b2393346c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\ImageProcessing\OpenCV">
+      <UniqueIdentifier>{d294f833-b22b-4a27-8cf3-410051d711b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Core">
+      <UniqueIdentifier>{a6774677-655e-40d8-a690-5701ab5a1c8b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\NewFilter3">
+      <UniqueIdentifier>{dcb563a3-b6b4-49b4-a666-005d5cfa09b9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Core">
+      <UniqueIdentifier>{dd8e7653-6d53-4e97-871d-450e8fc6b978}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\KeyFrame">
+      <UniqueIdentifier>{cc29bf9f-1adf-4198-8ba0-7aa573548df1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Image\Halide">
+      <UniqueIdentifier>{bbe3787e-729a-4815-bb30-0e3eda86e90c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -175,9 +205,6 @@
       <Filter>ヘッダー ファイル\Codec</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\FloatImage.hpp">
-      <Filter>ヘッダー ファイル\Image</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Image\LOGImage.hpp">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\PNGImage.ixx">
@@ -210,7 +237,7 @@
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp">
       <Filter>ヘッダー ファイル\Asset</Filter>
     </ClInclude>
-    <ClInclude Include="include\Transform\Transform.hpp">
+    <ClInclude Include="include\Transform\Transform.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\RenderedImage.hpp">
@@ -240,9 +267,6 @@
     <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp">
       <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
     </ClInclude>
-    <ClInclude Include="include\Frame\FrameRange.ixx">
-      <Filter>ヘッダー ファイル\Frame</Filter>
-    </ClInclude>
     <ClInclude Include="include\third_party\stb_image.h">
       <Filter>ヘッダー ファイル\third_party</Filter>
     </ClInclude>
@@ -251,9 +275,6 @@
     </ClInclude>
     <ClInclude Include="include\Image\FloatBitmapImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Frame\FramePosition.ixx">
-      <Filter>ヘッダー ファイル\Frame</Filter>
     </ClInclude>
     <ClInclude Include="include\Define\DllExportMacro.hpp">
       <Filter>ヘッダー ファイル\Define</Filter>
@@ -323,7 +344,7 @@
     <ClCompile Include="src\Layer\Layer2D.cpp">
       <Filter>ソース ファイル\Layer</Filter>
     </ClCompile>
-    <ClCompile Include="src\Color\FloatRGBA.cpp">
+    <ClCompile Include="src\Color\FloatRGBA.cppm">
       <Filter>ソース ファイル\Color</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\Scale2D.cpp">
@@ -434,12 +455,6 @@
     <ClCompile Include="src\Media\MediaInfo.cpp">
       <Filter>ソース ファイル\Media</Filter>
     </ClCompile>
-    <ClCompile Include="src\Image\JPEGImage.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\YUV420Image.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="include\Image\YUV420Image.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
@@ -464,16 +479,13 @@
     <ClCompile Include="include\Image\Blur\Blur.cpp">
       <Filter>ソース ファイル\ImageProcessing\GAPI</Filter>
     </ClCompile>
-    <ClCompile Include="src\Image\Blur\ImageF32x4.cpp">
-      <Filter>ソース ファイル\Image</Filter>
-    </ClCompile>
     <ClCompile Include="src\ImageProcessing\Edge.cpp">
       <Filter>ソース ファイル\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\FrameRate.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClCompile>
-    <ClCompile Include="src\Frame\FrameRate.cpp">
+    <ClCompile Include="src\Frame\FrameRate.cppm">
       <Filter>ソース ファイル\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\FrameOffset.ixx">
@@ -508,6 +520,96 @@
     </ClCompile>
     <ClCompile Include="include\Image\ImageF32x4_PreMulRGBA.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\Halide\Glow.cpp">
+      <Filter>ソース ファイル\ImageProcessing\Halide</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\Halide\Affin.cpp">
+      <Filter>ソース ファイル\ImageProcessing\Halide</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\Halide\Defines.ixx">
+      <Filter>ヘッダー ファイル\Define</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\ImageF32x4_RGBA.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\YUV420Image.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\Affine.cpp">
+      <Filter>ソース ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Common\Point2D.ixx">
+      <Filter>ヘッダー ファイル\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Generate\GenerateTestImage.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\Affine.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\JPEGImage.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\CppLinq.cppm">
+      <Filter>ヘッダー ファイル\Linq</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Common\Size.ixx">
+      <Filter>ヘッダー ファイル\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\Draw.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\Draw.cppm">
+      <Filter>ソース ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\ShapeVertex.cpp">
+      <Filter>ソース ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Core\ShapePath.ixx">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Core\ShapePoint.cppm">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Core\KeyFrame.cppm">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Frame\FrameTime.cppm">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Core\Time.cppm">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Core\Exports.hpp">
+      <Filter>ヘッダー ファイル\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\Glow.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\Glow.cppm">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Frame\FramePosition.ixx">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Frame\FrameRange.ixx">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\FilmGrain.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\CvUtils.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\FilmGrain.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\GAPI</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\LOGImage.hpp">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\Halide\HalideImageF32x4RGBA.ixx">
+      <Filter>ヘッダー ファイル\Image\Halide</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

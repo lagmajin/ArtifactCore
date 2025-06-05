@@ -1,12 +1,11 @@
-#pragma once
+module;
 
-
-
-
+export module AbstractImageProcessor;
 import ImageF32x4;
 
 
-namespace ArtifactCore {
+
+export namespace ArtifactCore {
 
 
 
@@ -16,6 +15,7 @@ private:
 public:
  AbstractImageProcessor();
  virtual ~AbstractImageProcessor() = default;
+ //virtual void process(ImageF32x4_RGBA& image) = 0;
 
 };
 

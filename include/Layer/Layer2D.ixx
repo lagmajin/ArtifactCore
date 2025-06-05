@@ -7,6 +7,9 @@ module;
 
 export module Layer2D;
 
+import ImageF32x4;
+import ImageF32x4_RGBA;
+
 export namespace ArtifactCore {
 
  
@@ -28,7 +31,7 @@ export namespace ArtifactCore {
  public:
   Layer2D();
   ~Layer2D();
-  ImageF32x4 transformedLayer();
+  ImageF32x4_RGBA transformedLayer();
  };
 
 

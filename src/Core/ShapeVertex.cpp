@@ -1,17 +1,9 @@
 
-module YUV20Image;
 
 
 
 
 namespace ArtifactCore {
-
-
-
-
-
-
-
 
 
 

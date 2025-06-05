@@ -36,8 +36,19 @@
     <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.hpp" />
     <ClInclude Include="include\Define\DllExportMacro.hpp" />
     <ClInclude Include="include\File\FileInfo.hpp" />
-    <ClInclude Include="include\Frame\FramePosition.ixx" />
-    <ClInclude Include="include\Frame\FrameRange.ixx" />
+    <ClCompile Include="include\Frame\FramePosition.ixx">
+      <FileType>Document</FileType>
+    </ClCompile>
+    <ClCompile Include="include\Frame\FrameRange.ixx">
+      <FileType>Document</FileType>
+    </ClCompile>
+    <ClCompile Include="include\Common\Point2D.ixx" />
+    <ClCompile Include="include\Common\Size.ixx" />
+    <ClCompile Include="include\Core\Exports.hpp" />
+    <ClCompile Include="include\Core\KeyFrame.cppm" />
+    <ClCompile Include="include\Core\ShapePath.ixx" />
+    <ClCompile Include="include\Core\ShapePoint.cppm" />
+    <ClCompile Include="include\Core\Time.cppm" />
     <ClCompile Include="include\FrameRenderer.ixx" />
     <ClCompile Include="include\Frame\FrameOffset.ixx" />
     <ClCompile Include="include\Frame\FrameRate.ixx" />
@@ -47,9 +58,15 @@
     <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp" />
     <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp" />
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
+    <ClCompile Include="include\Frame\FrameTime.cppm" />
+    <ClCompile Include="include\Generate\GenerateTestImage.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\CvUtils.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\Draw.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Affine.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\FilmGrain.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfo.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\Glow.ixx" />
     <ClCompile Include="include\Image\BitmapImage.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -57,7 +74,8 @@
     <ClInclude Include="include\Image\FloatBitmapImage.hpp" />
     <ClInclude Include="include\Image\FloatImage.hpp" />
     <ClInclude Include="include\Image\JPEGImage.hpp" />
-    <ClInclude Include="include\Image\LOGImage.hpp" />
+    <ClCompile Include="include\Image\Halide\HalideImageF32x4RGBA.ixx" />
+    <ClCompile Include="include\Image\LOGImage.hpp" />
     <ClCompile Include="include\Image\Blur\Blur.cpp" />
     <ClCompile Include="include\Image\ImageF32x4_RGBA.ixx" />
     <ClCompile Include="include\Image\ImageF32x4_PreMulRGBA.ixx" />
@@ -103,10 +121,11 @@
     <ClCompile Include="include\Transform\Scale.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
-    <ClInclude Include="include\Transform\Transform.hpp" />
+    <ClInclude Include="include\Transform\Transform.ixx" />
     <ClCompile Include="include\Transform\Transform2D.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
+    <ClCompile Include="include\Utils\CppLinq.cppm" />
     <ClCompile Include="include\Video\AbstractEncoder.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -131,18 +150,27 @@
     <ClCompile Include="src\Asset\AssetMetaFile.cpp" />
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />
     <ClCompile Include="src\Color\FloatColor.cpp" />
-    <ClCompile Include="src\Color\FloatRGBA.cpp" />
+    <ClCompile Include="src\Color\FloatRGBA.cppm" />
     <ClCompile Include="src\Color\Histgram.cpp" />
     <ClCompile Include="src\Composition\CompositionBuffer2D.cpp" />
-    <ClCompile Include="src\Frame\FrameRate.cpp" />
+    <ClCompile Include="src\Core\ShapeVertex.cpp" />
+    <ClCompile Include="src\Frame\FrameRate.cppm" />
     <ClCompile Include="src\GPU\GPUInfo.cpp" />
+    <ClCompile Include="src\ImageProcessing\Affine.cpp" />
     <ClCompile Include="src\ImageProcessing\Blur.cpp" />
     <ClCompile Include="src\ImageProcessing\Edge.cpp" />
     <ClCompile Include="src\ImageProcessing\Filter.cpp" />
+    <ClCompile Include="src\ImageProcessing\Halide\Affin.cpp" />
+    <ClCompile Include="src\ImageProcessing\Halide\Defines.ixx" />
+    <ClCompile Include="src\ImageProcessing\Halide\Glow.cpp" />
     <ClCompile Include="src\ImageProcessing\ImageF32x1.ixx" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\Affine.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\Draw.cppm" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\FilmGrain.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\Glow.cppm" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />
-    <ClCompile Include="src\Image\Blur\ImageF32x4.cpp" />
     <ClCompile Include="src\Image\FloatImage.cpp" />
+    <ClCompile Include="src\Image\ImageF32x4_RGBA.cpp" />
     <ClCompile Include="src\Image\JPEGImage.cpp" />
     <ClCompile Include="src\Image\MeshEncoder.cpp" />
     <ClCompile Include="src\Image\PNGImage.cpp" />
@@ -336,8 +364,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
     <ClCompile Condition="'$(CLANGCL)' != 'true'">
-      <AdditionalOptions>
-      </AdditionalOptions>
+      <AdditionalOptions>/Zc:__cplusplus</AdditionalOptions>
     </ClCompile>
     <ClCompile Condition="'$(CLANGCL)' == 'true'">
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>

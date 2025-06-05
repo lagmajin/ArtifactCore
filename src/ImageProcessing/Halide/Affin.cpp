@@ -1,6 +1,4 @@
-
-module YUV20Image;
-
+#include <Halide.h>
 
 
 
@@ -15,14 +13,5 @@ namespace ArtifactCore {
 
 
 
+}
 
-
-
-
-
-
-
-
-
-
-};

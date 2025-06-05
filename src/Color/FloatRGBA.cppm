@@ -1,9 +1,6 @@
 module;
 
-
-export module JPEG;
-
-
+module FloatRGBA;
 
 
 
@@ -13,8 +10,5 @@ namespace ArtifactCore {
 
 
 
-
-
-
-
 };
+

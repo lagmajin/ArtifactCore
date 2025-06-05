@@ -10,88 +10,46 @@ import Scale2D;
 namespace ArtifactCore {
 
 
- class Transform2DPrivate {
- private:
-  
-  Scale2D scale2d_;
+ struct Transform2D::Impl {
+  double x = 0;
+  double y = 0;
+  double scaleX = 1.0;
+  double scaleY = 1.0;
+  double rotation = 0; // radians or degrees?
+  QPointF anchor = QPointF(0.5, 0.5); // normalized anchor?
 
- public:
-  Transform2DPrivate();
-  ~Transform2DPrivate();
-  //AnchorPoint2D anchorPoint2D() const;
-  Scale2D scale() const;
-  void setScale(const Scale2D& scale);
-
-  void setFromRandom();
-  QTransform toQTransform() const;
+  QTransform toQTransform() const {
+   QTransform t;
+   t.translate(x, y);
+   t.translate(anchor.x(), anchor.y()); // anchor
+   t.rotate(rotation); // QTransform uses degrees
+   t.scale(scaleX, scaleY);
+   t.translate(-anchor.x(), -anchor.y()); // anchor back
+   return t;
+  }
  };
 
- Transform2DPrivate::Transform2DPrivate()
- {
-
- }
 
 
- Transform2DPrivate::~Transform2DPrivate()
- {
-
- }
-
-
-
- Scale2D Transform2DPrivate::scale() const
- {
-
-  return scale2d_;
- }
-
- void Transform2DPrivate::setScale(const Scale2D& scale)
- {
-
- }
-
- void Transform2DPrivate::setFromRandom()
- {
-
- }
-
- QTransform Transform2DPrivate::toQTransform() const
- {
-
-  return QTransform();
- }
 
  Transform2D::Transform2D()
- {
+  : impl_(std::make_unique<Impl>()) {
+ }
+ Transform2D::~Transform2D() = default;
 
+ float Transform2D::scaleX() const {
+  return static_cast<float>(impl_->scaleX);
  }
 
- Transform2D::~Transform2D()
- {
-
- }
- void Transform2D::setX(double x)
- {
-
+ float Transform2D::scaleY() const {
+  return static_cast<float>(impl_->scaleY);
  }
 
- void Transform2D::setY(double y)
- {
+ void Transform2D::setX(double x) { impl_->x = x; }
+ void Transform2D::setY(double y) { impl_->y = y; }
 
- }
 
- QTransform Transform2D::toQTransform() const
- {
-  QTransform transform;
-
-  
-
-  return transform;
-
- }
-
- void Transform2D::setTransform2D()
- {
-
+ QTransform Transform2D::toQTransform() const {
+  return impl_->toQTransform();
  }
 };
