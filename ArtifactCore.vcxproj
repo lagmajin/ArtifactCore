@@ -20,6 +20,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp" />
+    <ClCompile Include="include\Analyze\Analyze.ixx" />
+    <ClCompile Include="include\Analyze\Histgram.ixx" />
+    <ClCompile Include="include\Analyze\OptifalFlowResult.ixx" />
     <ClCompile Include="include\Asset\AssetConverter.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -60,6 +63,9 @@
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
     <ClCompile Include="include\Frame\FrameTime.cppm" />
     <ClCompile Include="include\Generate\GenerateTestImage.ixx" />
+    <ClCompile Include="include\ImageProcessing\Halide\HalideEffectManager.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\Affine.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\AntiAliasing.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\CvUtils.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Draw.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Affine.ixx" />
@@ -73,14 +79,18 @@
     <ClInclude Include="include\Image\CvMatPaintEngine.hpp" />
     <ClInclude Include="include\Image\FloatBitmapImage.hpp" />
     <ClInclude Include="include\Image\FloatImage.hpp" />
-    <ClInclude Include="include\Image\JPEGImage.hpp" />
+    <ClCompile Include="include\Image\JPEGImage.ixx">
+      <FileType>Document</FileType>
+    </ClCompile>
     <ClCompile Include="include\Image\Halide\HalideImageF32x4RGBA.ixx" />
-    <ClCompile Include="include\Image\LOGImage.hpp" />
+    <ClCompile Include="include\Image\LOGImage.ixx" />
     <ClCompile Include="include\Image\Blur\Blur.cpp" />
     <ClCompile Include="include\Image\ImageF32x4_RGBA.ixx" />
     <ClCompile Include="include\Image\ImageF32x4_PreMulRGBA.ixx" />
     <ClCompile Include="include\Image\OpenEXR.ixx" />
-    <ClInclude Include="include\Image\PNGImage.ixx" />
+    <ClCompile Include="include\Image\PNGImage.ixx">
+      <FileType>Document</FileType>
+    </ClCompile>
     <ClInclude Include="include\Image\RenderedImage.hpp" />
     <ClCompile Include="include\Image\ImageF32x4.ixx" />
     <ClCompile Include="include\Image\Sarturation.ixx" />
@@ -112,7 +122,7 @@
       <FileType>CppHeader</FileType>
     </ClCompile>
     <ClCompile Include="include\Transform\AnchorPoint2D.ixx" />
-    <ClInclude Include="include\Transform\Position2D.hpp" />
+    <ClCompile Include="include\Transform\Position2D.hpp" />
     <ClCompile Include="include\Transform\Rotate2D.ixx">
       <FileType>Document</FileType>
       <ScanSourceForModuleDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ScanSourceForModuleDependencies>
@@ -121,9 +131,12 @@
     <ClCompile Include="include\Transform\Scale.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
-    <ClInclude Include="include\Transform\Transform.ixx" />
+    <ClCompile Include="include\Transform\Transform.ixx">
+      <FileType>Document</FileType>
+    </ClCompile>
     <ClCompile Include="include\Transform\Transform2D.ixx">
       <FileType>CppHeader</FileType>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">/interface %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="include\Utils\CppLinq.cppm" />
     <ClCompile Include="include\Video\AbstractEncoder.ixx">
@@ -146,6 +159,12 @@
     <ClCompile Include="include\Image\CvMatPaintDevice.cpp" />
     <ClCompile Include="include\Video\AbstractDecoder.ixx" />
     <ClCompile Include="src\AbstractDecoder.cpp" />
+    <ClCompile Include="src\Analyze\Hisgram.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Analyze\OptifalFlowResult.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Asset\AbstractAssetFile.cpp" />
     <ClCompile Include="src\Asset\AssetMetaFile.cpp" />
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />
@@ -164,34 +183,48 @@
     <ClCompile Include="src\ImageProcessing\Halide\Defines.ixx" />
     <ClCompile Include="src\ImageProcessing\Halide\Glow.cpp" />
     <ClCompile Include="src\ImageProcessing\ImageF32x1.ixx" />
-    <ClCompile Include="src\ImageProcessing\OpenCV\Affine.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\Affine.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\Draw.cppm" />
     <ClCompile Include="src\ImageProcessing\OpenCV\FilmGrain.cpp" />
     <ClCompile Include="src\ImageProcessing\OpenCV\Glow.cppm" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />
     <ClCompile Include="src\Image\FloatImage.cpp" />
-    <ClCompile Include="src\Image\ImageF32x4_RGBA.cpp" />
+    <ClCompile Include="src\Image\Halide\HalideImageF32x4RGBA.cpp" />
+    <ClCompile Include="src\Image\ImageF32x4_RGBA.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Image\JPEGImage.cpp" />
     <ClCompile Include="src\Image\MeshEncoder.cpp" />
-    <ClCompile Include="src\Image\PNGImage.cpp" />
+    <ClCompile Include="src\Image\PNGImage.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Image\YUV420Image.cpp" />
-    <ClCompile Include="src\Layer\Layer2D.cpp" />
+    <ClCompile Include="src\Layer\Layer2D.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Media\MediaFrame.cpp" />
     <ClCompile Include="src\Media\MediaProbe.cpp" />
     <ClCompile Include="src\Mesh\Mesh.cpp" />
     <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
     <ClCompile Include="src\Platform\Platform.cpp" />
     <ClCompile Include="src\Transform\Rotate.cpp" />
-    <ClCompile Include="src\Transform\Scale2D.cpp" />
+    <ClCompile Include="src\Transform\Scale2D.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Transform\Transform.cpp" />
-    <ClCompile Include="src\Transform\Transform2D.cpp" />
+    <ClCompile Include="src\Transform\Transform2D.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Utils\WorkAround.cpp" />
     <ClCompile Include="src\Video\AbstractEncoder.cpp" />
     <ClCompile Include="src\Video\LibVLCDecoder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Channel\DiskSize.ixx" />
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp" />
-    <ClCompile Include="include\ImageProcessing\AbstractImageProcessor.ixx">
+    <ClCompile Include="include\ImageProcessing\AbstractImageEffect.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
     <None Include="include\Image\CvMatPaintDevice.hpp" />
@@ -200,7 +233,7 @@
       <FileType>CppHeader</FileType>
     </ClCompile>
     <None Include="src\Composition\OpenCVCompositionBuffer2D.cpp" />
-    <None Include="src\ImageProcessing\AbstractImageProcessor.cpp" />
+    <None Include="src\ImageProcessing\AbstractImageEffect.cpp" />
     <None Include="src\Image\CvMatPaintEngine.cpp" />
     <ClCompile Include="src\Transform\Scale.cpp" />
     <None Include="src\Image\FFmpegEncoder.cpp" />
@@ -332,7 +365,7 @@
       <EnableModules>true</EnableModules>
       <BuildStlModules>true</BuildStlModules>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <CompileAs>Default</CompileAs>
+      <CompileAs>CompileAsCppModule</CompileAs>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <ShowIncludes>false</ShowIncludes>
       <ModuleOutputFile>X:\temp/</ModuleOutputFile>
@@ -365,6 +398,7 @@
   <ItemDefinitionGroup>
     <ClCompile Condition="'$(CLANGCL)' != 'true'">
       <AdditionalOptions>/Zc:__cplusplus</AdditionalOptions>
+      <TreatWChar_tAsBuiltInType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</TreatWChar_tAsBuiltInType>
     </ClCompile>
     <ClCompile Condition="'$(CLANGCL)' == 'true'">
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>

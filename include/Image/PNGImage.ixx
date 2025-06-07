@@ -1,6 +1,6 @@
+module;
 
-
-export module PNGImage;
+export module Image:Png;
 
 
 

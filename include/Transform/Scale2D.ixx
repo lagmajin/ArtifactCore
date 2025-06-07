@@ -1,15 +1,14 @@
 module;
 
-#include <memory>
-#include <stdint.h>
+
 #include <QtGui/QTransform>
 
 #include "../Define/DllExportMacro.hpp"
 
-//import std;
-export module Scale2D;
-//#include "../third_party/Eigen/Core"
-//import std;
+
+
+export module Transform:Scale2D;
+import std;
 
 export namespace ArtifactCore {
 

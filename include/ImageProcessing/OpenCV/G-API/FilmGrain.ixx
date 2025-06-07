@@ -1,4 +1,4 @@
 module;
 
-export module FilmGrain;
+export module ImageProcessing:FilmGrain;
 

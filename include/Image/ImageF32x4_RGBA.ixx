@@ -29,6 +29,9 @@ export namespace ArtifactCore {
   int width() const;
   int height() const;
   void resize(int width,int height);
+
+  ImageF32x4_RGBA DeepCopy()  const;
+
   ImageF32x4_RGBA createMaskLike(const ImageF32x4_RGBA& src, const FloatRGBA& fillColor);
 
   ImageF32x4_RGBA& operator=(const ImageF32x4_RGBA& other);

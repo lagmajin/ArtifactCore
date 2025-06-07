@@ -1,4 +1,5 @@
-
+//module;
+//module Image:JPEG;
 
 
 

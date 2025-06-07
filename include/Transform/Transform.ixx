@@ -2,6 +2,7 @@ module;
 
 export module Transform;
 
+export import :Scale2D;
 
 
 

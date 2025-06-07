@@ -8,7 +8,8 @@ module;
 
 export module Transform2D;
 
-import Scale2D;
+
+//import Scale2D;
 
 export namespace ArtifactCore {
 

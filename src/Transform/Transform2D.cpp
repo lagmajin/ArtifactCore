@@ -1,9 +1,10 @@
+module;
 #include <stdint.h>
 #include<QtGui/QTransform>
 
-import Transform2D;
+module Transform2D;
 
-import Scale2D;
+//import Transform:Scale2D;
 
 
 

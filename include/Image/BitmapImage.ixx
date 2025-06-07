@@ -1,8 +1,8 @@
 module;
-//import std;
-#include <QtGui/QImage>
+// import <cstdint>;
+//#include <QtGui/QImage>
 
-#include <QtGui/QBitmap>
+//#include <QtGui/QBitmap>
 
 #include "../Define/DllExportMacro.hpp"
 

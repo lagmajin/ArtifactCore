@@ -13,9 +13,17 @@ export namespace ArtifactCore {
   cv::Scalar fillColor,
   float scale);
 
+
+
+
  void drawStar6(cv::Mat& img,
   cv::Scalar edgeColor,
   int edgeThickness = 1,
   cv::Scalar fillColor = cv::Scalar(-1, -1, -1, -1),
   float scale = 1.0f);
+
+
+
+
+
 }

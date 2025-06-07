@@ -190,6 +190,18 @@
     <Filter Include="ヘッダー ファイル\Image\Halide">
       <UniqueIdentifier>{bbe3787e-729a-4815-bb30-0e3eda86e90c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Image\Halide">
+      <UniqueIdentifier>{1e538eb9-2c2c-4f60-977d-278abd461d83}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Utils">
+      <UniqueIdentifier>{5f672dfe-0cac-4f26-98da-05cbebde1042}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Analyze">
+      <UniqueIdentifier>{4e8ac5fb-58f3-4bb2-9fb5-3409e311a3be}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Analyze">
+      <UniqueIdentifier>{cc6f9c4e-35be-499e-a4ba-fe1981784a3c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -205,9 +217,6 @@
       <Filter>ヘッダー ファイル\Codec</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\FloatImage.hpp">
-      <Filter>ヘッダー ファイル\Image</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Image\PNGImage.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
     <ClInclude Include="include\Mesh\WavefrontObj.hpp">
@@ -237,17 +246,11 @@
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp">
       <Filter>ヘッダー ファイル\Asset</Filter>
     </ClInclude>
-    <ClInclude Include="include\Transform\Transform.ixx">
-      <Filter>ヘッダー ファイル\Transform</Filter>
-    </ClInclude>
     <ClInclude Include="include\Image\RenderedImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="include\Asset\AssetDatabase.hpp">
       <Filter>ヘッダー ファイル\Asset</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Image\JPEGImage.hpp">
-      <Filter>ヘッダー ファイル\Image</Filter>
     </ClInclude>
     <ClInclude Include="include\Media\MediaFrame.hpp">
       <Filter>ヘッダー ファイル\Media</Filter>
@@ -281,9 +284,6 @@
     </ClInclude>
     <ClInclude Include="include\Color\Alpha.hpp">
       <Filter>ヘッダー ファイル\Color</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Transform\Position2D.hpp">
-      <Filter>ヘッダー ファイル\Transform</Filter>
     </ClInclude>
     <ClInclude Include="include\Composition\CompositionBuffer2D.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
@@ -383,9 +383,6 @@
     <ClCompile Include="include\Transform\AnchorPoint2D.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="src\Transform\Transform2D.cpp">
-      <Filter>ソース ファイル\Transform</Filter>
-    </ClCompile>
     <ClCompile Include="include\Transform\Transform2D.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
@@ -473,7 +470,7 @@
     <ClCompile Include="include\Image\OpenEXR.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
-    <ClCompile Include="include\ImageProcessing\AbstractImageProcessor.ixx">
+    <ClCompile Include="include\ImageProcessing\AbstractImageEffect.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Blur\Blur.cpp">
@@ -545,9 +542,6 @@
     <ClCompile Include="include\Generate\GenerateTestImage.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\Affine.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\Image\JPEGImage.cpp">
       <Filter>ソース ファイル\Image</Filter>
     </ClCompile>
@@ -605,11 +599,59 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\FilmGrain.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\GAPI</Filter>
     </ClCompile>
-    <ClCompile Include="include\Image\LOGImage.hpp">
+    <ClCompile Include="include\Image\LOGImage.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Halide\HalideImageF32x4RGBA.ixx">
       <Filter>ヘッダー ファイル\Image\Halide</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\AntiAliasing.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\Halide\HalideImageF32x4RGBA.cpp">
+      <Filter>ソース ファイル\Image\Halide</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\Halide\HalideEffectManager.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\Affine.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\JPEGImage.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\PNGImage.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Transform.ixx">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Position2D.hpp">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\Affine.cppm">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Transform\Transform2D.cpp">
+      <Filter>ソース ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\WorkAround.cpp">
+      <Filter>ソース ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Analyze\Histgram.ixx">
+      <Filter>ヘッダー ファイル\Analyze</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Analyze\Hisgram.cpp">
+      <Filter>ソース ファイル\Analyze</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Analyze\Analyze.ixx">
+      <Filter>ヘッダー ファイル\Analyze</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Analyze\OptifalFlowResult.ixx">
+      <Filter>ヘッダー ファイル\Analyze</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Analyze\OptifalFlowResult.cpp">
+      <Filter>ソース ファイル\Analyze</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -619,7 +661,7 @@
     <None Include="src\Image\CvMatPaintEngine.cpp">
       <Filter>ソース ファイル\Image</Filter>
     </None>
-    <None Include="src\ImageProcessing\AbstractImageProcessor.cpp">
+    <None Include="src\ImageProcessing\AbstractImageEffect.cpp">
       <Filter>ソース ファイル\ImageProcessing</Filter>
     </None>
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp">

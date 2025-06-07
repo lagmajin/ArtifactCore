@@ -1,6 +1,7 @@
-#pragma once
+module;
 
 
+export module Image:OpenEXR;
 
 
 namespace ArtifactCore {

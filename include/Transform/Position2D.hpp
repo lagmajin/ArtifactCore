@@ -1,6 +1,5 @@
-#pragma once
 
-#include <QtCore/QPoint>
+
 
 namespace ArtifactCore {
 

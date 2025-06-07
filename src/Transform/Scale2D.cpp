@@ -1,12 +1,14 @@
-//module;
-#include <stdint.h>
+module;
+
+
+
 #include <mutex>
 #include <shared_mutex>
-//#include "../../include/Transform/Scale2D.hpp"
 
 
 #include <QtGui/QTransform>
-import Scale2D;
+
+module Transform:Scale2D;
 
 import std;
 

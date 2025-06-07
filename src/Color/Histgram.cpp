@@ -1,9 +1,12 @@
-//#include "Histgram.h"
+
+
+//module Analyze:Histgram;
 
 
 
 
 namespace ArifactCore {
+
 
 
 
