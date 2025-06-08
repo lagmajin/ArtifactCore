@@ -22,13 +22,14 @@
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp" />
     <ClCompile Include="include\Analyze\Analyze.ixx" />
     <ClCompile Include="include\Analyze\Histgram.ixx" />
-    <ClCompile Include="include\Analyze\OptifalFlowResult.ixx" />
+    <ClCompile Include="include\Analyze\OpenCV\OptifalFlowResult.ixx" />
     <ClCompile Include="include\Asset\AssetConverter.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
     <ClInclude Include="include\Asset\AssetDatabase.hpp" />
     <ClInclude Include="include\Asset\AssetMetaFile.hpp" />
     <ClInclude Include="include\Color\Alpha.hpp" />
+    <ClCompile Include="include\Codec\MFEncoder.ixx" />
     <ClCompile Include="include\Color\FloatColor.ixx" />
     <ClCompile Include="include\Color\FloatRGBA.ixx" />
     <ClCompile Include="include\Common\OperationgSystem.ixx">
@@ -63,8 +64,10 @@
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp" />
     <ClCompile Include="include\Frame\FrameTime.cppm" />
     <ClCompile Include="include\Generate\GenerateTestImage.ixx" />
+    <ClCompile Include="include\ImageProcessing\ColorTransform\ColorTransform.ixx" />
+    <ClCompile Include="include\ImageProcessing\ColorTransform\ColorTransformCV.ixx" />
     <ClCompile Include="include\ImageProcessing\Halide\HalideEffectManager.ixx" />
-    <ClCompile Include="include\ImageProcessing\OpenCV\Affine.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\AffineCV.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\AntiAliasing.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\CvUtils.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Draw.ixx" />
@@ -73,12 +76,14 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfo.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Glow.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\Monochrome.ixx" />
     <ClCompile Include="include\Image\BitmapImage.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
     <ClInclude Include="include\Image\CvMatPaintEngine.hpp" />
     <ClInclude Include="include\Image\FloatBitmapImage.hpp" />
     <ClInclude Include="include\Image\FloatImage.hpp" />
+    <ClCompile Include="include\Image\Image.ixx" />
     <ClCompile Include="include\Image\JPEGImage.ixx">
       <FileType>Document</FileType>
     </ClCompile>
@@ -94,11 +99,13 @@
     <ClInclude Include="include\Image\RenderedImage.hpp" />
     <ClCompile Include="include\Image\ImageF32x4.ixx" />
     <ClCompile Include="include\Image\Sarturation.ixx" />
-    <ClCompile Include="include\Image\YUV420Image.ixx">
+    <ClCompile Include="include\Image\ImageYUV420.ixx">
       <FileType>Document</FileType>
     </ClCompile>
     <ClInclude Include="include\Knob\AbstractKnob.hpp" />
     <ClInclude Include="include\Knob\KnobList.hpp" />
+    <ClCompile Include="include\IO\Image\ImageWriter.ixx" />
+    <ClCompile Include="include\IO\IO.ixx" />
     <ClCompile Include="include\Layer\Layer2D.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -117,6 +124,9 @@
     <ClCompile Include="include\Media\MediaProbe.ixx" />
     <ClCompile Include="include\Mesh\Mesh.ixx" />
     <ClCompile Include="include\Platform\Platform.cppm" />
+    <ClCompile Include="include\Render\Render.ixx" />
+    <ClCompile Include="include\Render\RenderSettings.ixx" />
+    <ClCompile Include="include\Sound\SoundTrack.ixx" />
     <ClCompile Include="include\TestEncoder.ixx" />
     <ClCompile Include="include\Transform\AnchorPoint.ixx">
       <FileType>CppHeader</FileType>
@@ -162,12 +172,15 @@
     <ClCompile Include="src\Analyze\Hisgram.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Analyze\OptifalFlowResult.cpp">
+    <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Asset\AbstractAssetFile.cpp" />
     <ClCompile Include="src\Asset\AssetMetaFile.cpp" />
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />
+    <ClCompile Include="src\Codec\MFEncoder.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Color\FloatColor.cpp" />
     <ClCompile Include="src\Color\FloatRGBA.cppm" />
     <ClCompile Include="src\Color\Histgram.cpp" />
@@ -183,12 +196,15 @@
     <ClCompile Include="src\ImageProcessing\Halide\Defines.ixx" />
     <ClCompile Include="src\ImageProcessing\Halide\Glow.cpp" />
     <ClCompile Include="src\ImageProcessing\ImageF32x1.ixx" />
-    <ClCompile Include="src\ImageProcessing\OpenCV\Affine.cppm">
+    <ClCompile Include="src\ImageProcessing\OpenCV\AffineCV.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\Draw.cppm" />
     <ClCompile Include="src\ImageProcessing\OpenCV\FilmGrain.cpp" />
     <ClCompile Include="src\ImageProcessing\OpenCV\Glow.cppm" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\Monochrome.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Image\BitmapImage.cpp" />
     <ClCompile Include="src\Image\FloatImage.cpp" />
     <ClCompile Include="src\Image\Halide\HalideImageF32x4RGBA.cpp" />
@@ -200,7 +216,9 @@
     <ClCompile Include="src\Image\PNGImage.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Image\YUV420Image.cpp" />
+    <ClCompile Include="src\Image\ImageYUV420.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Layer\Layer2D.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -312,8 +330,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>X:\ffmpeg2\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
-    <LibraryPath>X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\ffmpeg2\lib;X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>X:\SDL2\include;X:\libsnd\include;X:\OpenImageIO\include;X:\ffmpeg2\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <LibraryPath>X:\SDL2\lib;X:\libsnd\lib;X:\OpenImageIO\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\ffmpeg2\lib;X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App\</OutDir>
     <IntDir>X:\temp/</IntDir>
     <AllProjectBMIsArePublic>true</AllProjectBMIsArePublic>
@@ -373,7 +391,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;avcodec.lib;avformat.lib;avdevice.lib;avutil.lib;webp.lib;webpdecoder.lib;zlib.lib;cpuinfo.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;avcodec.lib;avformat.lib;avdevice.lib;avutil.lib;webp.lib;webpdecoder.lib;zlib.lib;cpuinfo.lib;OpenImageIO.lib;Sndfile.lib;SDL2-static.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceFileOutput>Enabled</ForceFileOutput>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
     </Link>

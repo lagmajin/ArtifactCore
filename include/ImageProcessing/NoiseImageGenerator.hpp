@@ -1,11 +1,14 @@
-#pragma once
+module;
+
+
+export module Generator:Noise;
 
 
 
 
-namespace Artifact {
+export namespace Artifact {
 
-
+ 
 
 
 

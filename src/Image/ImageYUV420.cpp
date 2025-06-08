@@ -1,5 +1,5 @@
-
-module YUV20Image;
+module;
+module Image:ImageYUV420;
 
 
 

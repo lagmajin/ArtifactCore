@@ -139,9 +139,6 @@
     <Filter Include="ソース ファイル\Platform">
       <UniqueIdentifier>{0dbfbd31-f0b9-453a-b38d-216263ee2b94}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ヘッダー ファイル\ImageWriter">
-      <UniqueIdentifier>{405245b7-cfe3-4c0c-ba36-e32f4b4c2165}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ヘッダー ファイル\ImageProcessing\GAPI">
       <UniqueIdentifier>{f4721aa2-27f0-4b6d-ae9d-d71947ad8fa3}</UniqueIdentifier>
     </Filter>
@@ -162,9 +159,6 @@
     </Filter>
     <Filter Include="ヘッダー ファイル\ImageProcessing\OpenCV">
       <UniqueIdentifier>{95ed5fcb-1001-4197-bb71-a97d496e69ea}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ヘッダー ファイル\NewFilter2">
-      <UniqueIdentifier>{360a5071-f69e-4906-a8f1-ba9aa45ca6ea}</UniqueIdentifier>
     </Filter>
     <Filter Include="ヘッダー ファイル\Linq">
       <UniqueIdentifier>{0540b31a-5dc0-47a5-9d0b-299055803892}</UniqueIdentifier>
@@ -201,6 +195,21 @@
     </Filter>
     <Filter Include="ヘッダー ファイル\Analyze">
       <UniqueIdentifier>{cc6f9c4e-35be-499e-a4ba-fe1981784a3c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Analyze\OpenCV">
+      <UniqueIdentifier>{2ee62a63-b373-43ad-a316-e997cff78bfd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Analyze\OpenCV">
+      <UniqueIdentifier>{55f46a96-65bc-47c9-aa96-1523ba8a7b27}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\ImageProcessing\ColorTransform">
+      <UniqueIdentifier>{365d019a-0c17-4527-8460-9c4506ad3653}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\ImageIO">
+      <UniqueIdentifier>{405245b7-cfe3-4c0c-ba36-e32f4b4c2165}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Sound">
+      <UniqueIdentifier>{949168d0-d1ab-4c7d-ae70-9ad8dfcb7136}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -452,7 +461,7 @@
     <ClCompile Include="src\Media\MediaInfo.cpp">
       <Filter>ソース ファイル\Media</Filter>
     </ClCompile>
-    <ClCompile Include="include\Image\YUV420Image.ixx">
+    <ClCompile Include="include\Image\ImageYUV420.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\LayerInfomation.ixx">
@@ -530,7 +539,7 @@
     <ClCompile Include="src\Image\ImageF32x4_RGBA.cpp">
       <Filter>ソース ファイル\Image</Filter>
     </ClCompile>
-    <ClCompile Include="src\Image\YUV420Image.cpp">
+    <ClCompile Include="src\Image\ImageYUV420.cpp">
       <Filter>ソース ファイル\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Affine.cpp">
@@ -614,7 +623,7 @@
     <ClCompile Include="include\ImageProcessing\Halide\HalideEffectManager.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
     </ClCompile>
-    <ClCompile Include="include\ImageProcessing\OpenCV\Affine.ixx">
+    <ClCompile Include="include\ImageProcessing\OpenCV\AffineCV.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\JPEGImage.ixx">
@@ -629,7 +638,7 @@
     <ClCompile Include="include\Transform\Position2D.hpp">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\Affine.cppm">
+    <ClCompile Include="src\ImageProcessing\OpenCV\AffineCV.cppm">
       <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\Transform2D.cpp">
@@ -641,17 +650,53 @@
     <ClCompile Include="include\Analyze\Histgram.ixx">
       <Filter>ヘッダー ファイル\Analyze</Filter>
     </ClCompile>
-    <ClCompile Include="src\Analyze\Hisgram.cpp">
-      <Filter>ソース ファイル\Analyze</Filter>
-    </ClCompile>
     <ClCompile Include="include\Analyze\Analyze.ixx">
       <Filter>ヘッダー ファイル\Analyze</Filter>
     </ClCompile>
-    <ClCompile Include="include\Analyze\OptifalFlowResult.ixx">
+    <ClCompile Include="src\Analyze\Hisgram.cpp">
+      <Filter>ソース ファイル\Analyze\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cpp">
+      <Filter>ソース ファイル\Analyze\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Analyze\OpenCV\OptifalFlowResult.ixx">
       <Filter>ヘッダー ファイル\Analyze</Filter>
     </ClCompile>
-    <ClCompile Include="src\Analyze\OptifalFlowResult.cpp">
-      <Filter>ソース ファイル\Analyze</Filter>
+    <ClCompile Include="src\ImageProcessing\OpenCV\Monochrome.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\Monochrome.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\ColorTransform\ColorTransformCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\ColorTransform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\ColorTransform\ColorTransform.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\ColorTransform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\Image.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Render\RenderSettings.ixx">
+      <Filter>ヘッダー ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Render\Render.ixx">
+      <Filter>ヘッダー ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\Image\ImageWriter.ixx">
+      <Filter>ヘッダー ファイル\ImageIO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\IO.ixx">
+      <Filter>ヘッダー ファイル\ImageIO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Sound\SoundTrack.ixx">
+      <Filter>ヘッダー ファイル\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Codec\MFEncoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Codec\MFEncoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

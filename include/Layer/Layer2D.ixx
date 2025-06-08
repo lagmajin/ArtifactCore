@@ -10,7 +10,7 @@ export module Layer2D;
 import std;
 
 import ImageF32x4;
-import ImageF32x4_RGBA;
+import Image;
 
 import Transform2D;
 

@@ -1,7 +1,8 @@
 module;
 
 export module ImageProcessing;
-export import :AffineTransform;
+
+export import :Monochrome;
 import ImageF32x4;
 
 

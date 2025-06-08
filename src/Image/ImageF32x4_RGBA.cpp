@@ -1,6 +1,6 @@
 module;
 #include <opencv2/core.hpp>
-module ImageF32x4_RGBA;
+module Image:ImageF32x4_RGBA;
 
 
 
@@ -9,12 +9,11 @@ namespace ArtifactCore {
 
  struct ImageF32x4_RGBA::Impl {
   cv::Mat mat;
-  Impl() : mat(cv::Size(0, 0), CV_32FC4) {}
- };
 
- ImageF32x4_RGBA::ImageF32x4_RGBA()
-  : impl_(std::make_unique<Impl>()) {
- }
+  Impl() : mat(cv::Size(0, 0), CV_32FC4) {}
+
+  Impl(const Impl& other) : mat(other.mat.clone()) {} // ディープコピー
+ };
 
  ImageF32x4_RGBA::ImageF32x4_RGBA(const FloatRGBA& color)
  {
@@ -56,6 +55,15 @@ namespace ArtifactCore {
 	}
    }
    return *this;
+  }
+
+  ImageF32x4_RGBA ImageF32x4_RGBA::DeepCopy() const
+  {
+   ImageF32x4_RGBA copy;
+   if (impl_) {
+	copy.impl_ = std::make_unique<Impl>(*impl_); // Impl の clone 使用
+   }
+   return copy;
   }
 
  ImageF32x4_RGBA::~ImageF32x4_RGBA() = default;

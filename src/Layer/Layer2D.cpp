@@ -2,7 +2,7 @@ module;
 
 module Layer2D;
 
-import ImageF32x4_RGBA;
+import Image;
 
 
 namespace ArtifactCore {

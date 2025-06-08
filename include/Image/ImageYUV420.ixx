@@ -8,15 +8,17 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module YUV20Image;
 
-import ImageF32x4_RGBA;
+export module Image:ImageYUV420;
+
+
 
 
 export namespace ArtifactCore {
 
+ class ImageF32x4_RGBA;
 
- export class YUV420Image {
+ export class ImageYUV420 {
   private:
    int width_;
    int height_;
@@ -24,8 +26,8 @@ export namespace ArtifactCore {
    std::vector<uint8_t> u_plane_;
    std::vector<uint8_t> v_plane_;
  public:
-	YUV420Image();
-   ~YUV420Image();
+	ImageYUV420();
+   ~ImageYUV420();
    void fromImage32xRGBA(const ImageF32x4_RGBA);
  };
 

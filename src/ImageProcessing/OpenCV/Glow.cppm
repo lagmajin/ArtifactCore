@@ -40,7 +40,7 @@ export namespace ArtifactCore {
   }
 
   for (int i = 0; i < layerCount; ++i) {
-   float sigma = baseSigma * std::pow(sigmaGrowth, i);
+   float sigma =(float) baseSigma * std::pow(sigmaGrowth, i);
    float alpha = baseAlpha * std::pow(alphaFalloff, i);
 
    cv::Mat blurred;

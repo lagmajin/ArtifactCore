@@ -8,7 +8,7 @@ module;
 //#include <qt>
 
 
-export module ImageF32x4_RGBA;
+export module Image:ImageF32x4_RGBA;
 
 import Size;
 import FloatRGBA;
