@@ -1,6 +1,6 @@
+module;
 
-
-#include "../../include/Asset/AssetMetaFile.hpp"
+module Asset;
 
 
 

@@ -5,7 +5,7 @@ module;
 
 
 
-export module AbstractEncoder;
+export module Codec:AbstractEncoder;
 
 
 export namespace ArtifactCore {

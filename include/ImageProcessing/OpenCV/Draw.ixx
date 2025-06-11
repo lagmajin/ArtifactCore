@@ -13,8 +13,11 @@ export namespace ArtifactCore {
   cv::Scalar fillColor,
   float scale);
 
-
-
+  LIBRARY_DLL_API void drawStar5FloatCompatible(cv::Mat& img,
+   cv::Vec4f edgeColor,
+   int edgeThickness,
+   cv::Vec4f fillColor,
+   float scale);
 
  void drawStar6(cv::Mat& img,
   cv::Scalar edgeColor,

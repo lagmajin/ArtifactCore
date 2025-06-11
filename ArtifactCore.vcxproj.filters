@@ -205,11 +205,23 @@
     <Filter Include="ヘッダー ファイル\ImageProcessing\ColorTransform">
       <UniqueIdentifier>{365d019a-0c17-4527-8460-9c4506ad3653}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ヘッダー ファイル\ImageIO">
-      <UniqueIdentifier>{405245b7-cfe3-4c0c-ba36-e32f4b4c2165}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ヘッダー ファイル\Sound">
       <UniqueIdentifier>{949168d0-d1ab-4c7d-ae70-9ad8dfcb7136}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Test">
+      <UniqueIdentifier>{42f18a43-d606-4d6e-95d4-d1b2a806ff4e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\NewFilter1">
+      <UniqueIdentifier>{b5ea1150-b3d6-497f-b120-9e2e7b2455ed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\IO">
+      <UniqueIdentifier>{405245b7-cfe3-4c0c-ba36-e32f4b4c2165}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Image\OpenCV">
+      <UniqueIdentifier>{c88123f1-0c33-4104-bfa0-da430948cecf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Image\OpenCV">
+      <UniqueIdentifier>{926ce30f-4aa0-4e9a-8528-45a78003d47b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -248,9 +260,6 @@
     </ClInclude>
     <ClInclude Include="include\File\FileInfo.hpp">
       <Filter>ヘッダー ファイル\File</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Asset\AssetMetaFile.hpp">
-      <Filter>ヘッダー ファイル\Asset</Filter>
     </ClInclude>
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp">
       <Filter>ヘッダー ファイル\Asset</Filter>
@@ -449,7 +458,7 @@
     <ClCompile Include="include\Media\MediaInfo.ixx">
       <Filter>ヘッダー ファイル\Media</Filter>
     </ClCompile>
-    <ClCompile Include="include\Platform\Platform.cppm">
+    <ClCompile Include="include\Platform\Platform.ixx">
       <Filter>ヘッダー ファイル\Platform</Filter>
     </ClCompile>
     <ClCompile Include="src\Platform\Platform.cpp">
@@ -684,10 +693,10 @@
       <Filter>ヘッダー ファイル\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\ImageWriter.ixx">
-      <Filter>ヘッダー ファイル\ImageIO</Filter>
+      <Filter>ヘッダー ファイル\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\IO.ixx">
-      <Filter>ヘッダー ファイル\ImageIO</Filter>
+      <Filter>ヘッダー ファイル\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\Sound\SoundTrack.ixx">
       <Filter>ヘッダー ファイル\Sound</Filter>
@@ -698,6 +707,54 @@
     <ClCompile Include="src\Codec\MFEncoder.cpp">
       <Filter>ソース ファイル\Codec</Filter>
     </ClCompile>
+    <ClCompile Include="include\Platform\ShellUtils.ixx">
+      <Filter>ヘッダー ファイル\Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Platform\ShellUtils.cpp">
+      <Filter>ソース ファイル\Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\Halide\MonochromeHalide.cpp">
+      <Filter>ソース ファイル\ImageProcessing\Halide</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\Halide\MonochromeHalide.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\AbstractImageEffect.cpp">
+      <Filter>ソース ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\Noise.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\BloomCV.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\BloomCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\BlurGAPI.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\GAPI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\MergeCV.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\OpenCV\ImageTransformCV.cpp">
+      <Filter>ソース ファイル\Image\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\Transform\ImageTransformCV.ixx">
+      <Filter>ヘッダー ファイル\Image\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Asset\AssetMetaFile.ixx">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\Export\ImageExportOptions.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\ImageExports.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\ChromaKey.cpp">
+      <Filter>ソース ファイル\ImageProcessing</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -705,9 +762,6 @@
     </None>
     <None Include="src\Image\CvMatPaintEngine.cpp">
       <Filter>ソース ファイル\Image</Filter>
-    </None>
-    <None Include="src\ImageProcessing\AbstractImageEffect.cpp">
-      <Filter>ソース ファイル\ImageProcessing</Filter>
     </None>
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>

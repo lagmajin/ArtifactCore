@@ -3,6 +3,8 @@ module;
 export module ImageProcessing;
 
 export import :Monochrome;
+export import :Halide;
+//export import :ImageTransform;
 import ImageF32x4;
 
 

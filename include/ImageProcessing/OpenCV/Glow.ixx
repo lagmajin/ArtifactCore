@@ -1,4 +1,5 @@
 module;
+#include <random>
 #include <opencv2/opencv.hpp>
 #include "../../Define/DllExportMacro.hpp"
 export module Draw;
@@ -25,5 +26,14 @@ export namespace ArtifactCore {
   bool linearSpace = true           // ê¸å`êFãÛä‘Ç≈èàóù
  );
 
+ LIBRARY_DLL_API cv::Mat applyGlintGlow(const cv::Mat& src, float threshold_value, int blur_radius, float intensity);
+
+
+ LIBRARY_DLL_API void drawRandomDottedVerticalLine(cv::Mat& image, int x_center, int line_width,
+  long num_points_to_try, unsigned int seed,
+  const cv::Scalar& point_color, int point_size);
+
+
+ LIBRARY_DLL_API cv::Mat applyVerticalGlow(const cv::Mat& src, float threshold_value, int vertical_blur_radius, float intensity);
 
 }

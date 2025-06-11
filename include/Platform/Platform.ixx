@@ -1,5 +1,6 @@
+module;
 export module Platform;
-
+export import :ShellUtils;
 
 
 

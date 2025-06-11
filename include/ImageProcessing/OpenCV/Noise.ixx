@@ -1,4 +1,10 @@
-export module Frame;
+module;
+
+export module Noise;
+
+
+
+
 
 
 export namespace ArtifactCore {
@@ -7,4 +13,4 @@ export namespace ArtifactCore {
 
 
 
-};
+}

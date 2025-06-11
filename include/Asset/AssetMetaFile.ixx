@@ -1,7 +1,6 @@
-#pragma once
-//#include <stdint.h>
-#include <QtCore/QObject>
+module;
 
+export module Asset;
 
 namespace ArtifactCore {
 

@@ -3,7 +3,7 @@ module;
 #include <QtCore/QFile>
 
 
-export module EncoderSettings;
+export module Codec:EncoderSettings;
 
 
 export namespace ArtifactCore {
@@ -17,6 +17,11 @@ export namespace ArtifactCore {
   None
  };
 
+ enum class OutputMode {
+  VideoOnly,
+  AudioOnly,
+  VideoAndAudio
+ };
 
  class EncoderSettings {
  private:

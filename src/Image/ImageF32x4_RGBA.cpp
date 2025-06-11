@@ -24,7 +24,7 @@ namespace ArtifactCore {
  {
  
    // OpenCVはBGR(A)の順を使うが、ここではFloatRGBAがRGBAと仮定
-   cv::Vec4f color(rgba.r(), rgba.g(), rgba.b(), rgba.a()); // 要修正：順番次第では（r, g, b, a）→（b, g, r, a）
+   cv::Vec4f color(rgba.b(), rgba.g(), rgba.r(), rgba.a()); // 要修正：順番次第では（r, g, b, a）→（b, g, r, a）
    impl_->mat.setTo(color);
   
  }
@@ -64,6 +64,16 @@ namespace ArtifactCore {
 	copy.impl_ = std::make_unique<Impl>(*impl_); // Impl の clone 使用
    }
    return copy;
+  }
+
+  int ImageF32x4_RGBA::width() const
+  {
+   return 0;
+  }
+
+  int ImageF32x4_RGBA::height() const
+  {
+   return 0;
   }
 
  ImageF32x4_RGBA::~ImageF32x4_RGBA() = default;

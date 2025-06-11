@@ -8,7 +8,7 @@ export module Analyze:Histgram;
 
 
 
-export namespace ArtfactCore {
+export namespace ArtifactCore {
 
 
 

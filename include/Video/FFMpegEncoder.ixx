@@ -2,9 +2,9 @@ module;
 
 #include <QtCore/QFile>
 
-export module FFMpegEncoder;
+export module Encoder:FFMpegEncoder;
 
-import EncoderSettings;
+//import EncoderSettings;
 
 
 export namespace ArtifactCore {

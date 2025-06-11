@@ -1,4 +1,9 @@
 module;
-export module ImageWriter;
+export module IO:ImageWriter;
 
-export void MyFunc();
+
+
+export namespace ArtifactCore {
+
+
+}
