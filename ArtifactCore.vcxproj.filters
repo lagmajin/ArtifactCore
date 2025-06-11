@@ -695,9 +695,6 @@
     <ClCompile Include="include\IO\Image\ImageWriter.ixx">
       <Filter>ヘッダー ファイル\IO</Filter>
     </ClCompile>
-    <ClCompile Include="include\IO\IO.ixx">
-      <Filter>ヘッダー ファイル\IO</Filter>
-    </ClCompile>
     <ClCompile Include="include\Sound\SoundTrack.ixx">
       <Filter>ヘッダー ファイル\Sound</Filter>
     </ClCompile>
@@ -754,6 +751,24 @@
     </ClCompile>
     <ClCompile Include="src\Image\ChromaKey.cpp">
       <Filter>ソース ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\VignetCV.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\Posterize.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\VignetCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\IO.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\PosterizeCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\NegativeCV.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
