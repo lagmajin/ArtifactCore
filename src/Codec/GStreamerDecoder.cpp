@@ -1,8 +1,8 @@
-//#include <gst/gst.h>
-//#include <gst/gst.h>
+module;
+
+ module Codec:GStreamerDecoder;
 
 
-#include "../../include/Video/GStreamerDecoder.hpp"
 
 
 namespace ArtifactCore {

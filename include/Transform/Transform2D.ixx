@@ -13,6 +13,15 @@ export module Transform2D;
 
 export namespace ArtifactCore {
 
+ class Opacity {
+ private:
+
+ public:
+  Opacity();
+  ~Opacity();
+ };
+
+
  using namespace cv;
 
  class Transform2DPrivate;
@@ -34,6 +43,8 @@ export namespace ArtifactCore {
   void setTransform2D();
   void setScaleX(double x);
   void setScaleY(double y);
+  
+
   QTransform toQTransform() const;
 
   float rotation() const;

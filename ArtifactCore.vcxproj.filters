@@ -211,9 +211,6 @@
     <Filter Include="ヘッダー ファイル\Test">
       <UniqueIdentifier>{42f18a43-d606-4d6e-95d4-d1b2a806ff4e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ソース ファイル\NewFilter1">
-      <UniqueIdentifier>{b5ea1150-b3d6-497f-b120-9e2e7b2455ed}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ヘッダー ファイル\IO">
       <UniqueIdentifier>{405245b7-cfe3-4c0c-ba36-e32f4b4c2165}</UniqueIdentifier>
     </Filter>
@@ -223,6 +220,15 @@
     <Filter Include="ヘッダー ファイル\Image\OpenCV">
       <UniqueIdentifier>{926ce30f-4aa0-4e9a-8528-45a78003d47b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Physics">
+      <UniqueIdentifier>{006ad42b-a33a-4b5e-8d6e-1849d2ad15ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Physics">
+      <UniqueIdentifier>{88b8416f-a227-4b47-8420-dcd75d5a6992}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\File">
+      <UniqueIdentifier>{2858191d-9cc3-4d7d-803e-c47ab88cd314}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -231,10 +237,7 @@
     <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp">
       <Filter>ヘッダー ファイル\Generator</Filter>
     </ClInclude>
-    <ClInclude Include="include\Video\GStreamerEncoder.hpp">
-      <Filter>ヘッダー ファイル\Codec</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Video\GStreamerDecoder.hpp">
+    <ClInclude Include="include\Video\GStreamerEncoder.ixx">
       <Filter>ヘッダー ファイル\Codec</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\FloatImage.hpp">
@@ -257,9 +260,6 @@
     </ClInclude>
     <ClInclude Include="include\Rule\NamingRule.hpp">
       <Filter>ヘッダー ファイル\Rule</Filter>
-    </ClInclude>
-    <ClInclude Include="include\File\FileInfo.hpp">
-      <Filter>ヘッダー ファイル\File</Filter>
     </ClInclude>
     <ClInclude Include="include\Asset\AbstractAssetFile.hpp">
       <Filter>ヘッダー ファイル\Asset</Filter>
@@ -291,7 +291,7 @@
     <ClInclude Include="include\third_party\stb_image.h">
       <Filter>ヘッダー ファイル\third_party</Filter>
     </ClInclude>
-    <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.hpp">
+    <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.ixx">
       <Filter>ヘッダー ファイル\Composition</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\FloatBitmapImage.hpp">
@@ -769,6 +769,33 @@
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\NegativeCV.cpp">
       <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\NegativeCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\SepiaCV.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\SepiaCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Physics\2D\Physics2D.ixx">
+      <Filter>ヘッダー ファイル\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Test\Test.ixx">
+      <Filter>ヘッダー ファイル\Test</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\VHS_CV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\File\FileInfo.ixx">
+      <Filter>ヘッダー ファイル\File</Filter>
+    </ClCompile>
+    <ClCompile Include="src\File\FileInfo.cpp">
+      <Filter>ソース ファイル\File</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\GStreamerDecoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

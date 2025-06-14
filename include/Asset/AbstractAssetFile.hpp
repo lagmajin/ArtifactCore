@@ -3,7 +3,7 @@
 
 #include <QtCore/QObject>
 
-#include "../File/FileInfo.hpp"
+//#include "../File/FileInfo.hpp"
 
 #include <wobjectdefs.h>
 

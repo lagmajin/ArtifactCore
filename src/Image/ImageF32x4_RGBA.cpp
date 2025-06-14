@@ -1,8 +1,11 @@
 module;
-#include <opencv2/core.hpp>
+#include <opencv2/opencv.hpp>
+
+
+
+
+
 module Image:ImageF32x4_RGBA;
-
-
 
 
 namespace ArtifactCore {
@@ -74,6 +77,11 @@ namespace ArtifactCore {
   int ImageF32x4_RGBA::height() const
   {
    return 0;
+  }
+
+  cv::Mat ImageF32x4_RGBA::toCVMat()const
+  {
+   return impl_->mat;
   }
 
  ImageF32x4_RGBA::~ImageF32x4_RGBA() = default;

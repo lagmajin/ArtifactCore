@@ -53,4 +53,30 @@ namespace ArtifactCore {
  QTransform Transform2D::toQTransform() const {
   return impl_->toQTransform();
  }
+
+ void Transform2D::setScaleX(double x)
+ {
+
+ }
+
+ void Transform2D::setScaleY(double y)
+ {
+
+ }
+
+ float Transform2D::x() const
+ {
+  return 0;
+ }
+
+ float Transform2D::y() const
+ {
+  return 0;
+ }
+
+ float Transform2D::rotation() const
+ {
+  return 0;
+ }
+
 };

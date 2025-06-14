@@ -1,7 +1,8 @@
-#pragma once
+module;
 
 #include <QtCore/QFile>
 
+export module File:Info;
 
 
 namespace ArtifactCore {

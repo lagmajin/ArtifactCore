@@ -40,9 +40,12 @@
     </ClCompile>
     <ClInclude Include="include\Color\Histgram.ixx" />
     <ClInclude Include="include\Composition\CompositionBuffer2D.hpp" />
-    <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.hpp" />
+    <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.ixx" />
     <ClInclude Include="include\Define\DllExportMacro.hpp" />
-    <ClInclude Include="include\File\FileInfo.hpp" />
+    <ClCompile Include="include\File\FileInfo.ixx">
+      <FileType>Document</FileType>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Frame\FramePosition.ixx">
       <FileType>Document</FileType>
     </ClCompile>
@@ -83,8 +86,11 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Glow.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Monochrome.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\NegativeCV.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Noise.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\PosterizeCV.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\SepiaCV.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\VHS_CV.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\VignetCV.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -136,17 +142,21 @@
     <ClInclude Include="include\third_party\stb_image.h" />
     <ClCompile Include="include\Media\MediaProbe.ixx" />
     <ClCompile Include="include\Mesh\Mesh.ixx" />
+    <ClCompile Include="include\Physics\2D\Physics2D.ixx" />
     <ClCompile Include="include\Platform\Platform.ixx" />
     <ClCompile Include="include\Platform\ShellUtils.ixx" />
     <ClCompile Include="include\Render\Render.ixx" />
     <ClCompile Include="include\Render\RenderSettings.ixx" />
     <ClCompile Include="include\Sound\SoundTrack.ixx" />
     <ClCompile Include="include\TestEncoder.ixx" />
+    <ClCompile Include="include\Test\Test.ixx" />
     <ClCompile Include="include\Transform\AnchorPoint.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
     <ClCompile Include="include\Transform\AnchorPoint2D.ixx" />
-    <ClCompile Include="include\Transform\Position2D.hpp" />
+    <ClCompile Include="include\Transform\Position2D.hpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Transform\Rotate2D.ixx">
       <FileType>Document</FileType>
       <ScanSourceForModuleDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ScanSourceForModuleDependencies>
@@ -166,8 +176,10 @@
     <ClCompile Include="include\Video\AbstractEncoder.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
-    <ClInclude Include="include\Video\GStreamerDecoder.hpp" />
-    <ClInclude Include="include\Video\GStreamerEncoder.hpp" />
+    <ClCompile Include="include\Video\GStreamerDecoder.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
+    <ClInclude Include="include\Video\GStreamerEncoder.ixx" />
     <ClCompile Include="include\Video\EncoderSettings.ixx" />
     <ClCompile Include="include\Video\FFMpegEncoder.ixx" />
     <ClCompile Include="include\Video\LibVLCDecoder.ixx">
@@ -202,6 +214,7 @@
     <ClCompile Include="src\Color\Histgram.cpp" />
     <ClCompile Include="src\Composition\CompositionBuffer2D.cpp" />
     <ClCompile Include="src\Core\ShapeVertex.cpp" />
+    <ClCompile Include="src\File\FileInfo.cpp" />
     <ClCompile Include="src\Frame\FrameRate.cppm" />
     <ClCompile Include="src\GPU\GPUInfo.cpp" />
     <ClCompile Include="src\ImageProcessing\Affine.cpp" />
@@ -228,6 +241,7 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\Posterize.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\SepiaCV.cpp" />
     <ClCompile Include="src\ImageProcessing\OpenCV\VignetCV.cpp" />
     <ClCompile Include="src\Image\BitmapImage.cpp" />
     <ClCompile Include="src\Image\ChromaKey.cpp" />
@@ -365,8 +379,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;X:\OpenImageIO\include;X:\ffmpeg2\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
-    <LibraryPath>X:\SDL2\lib;X:\libsnd\lib;X:\OpenImageIO\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\ffmpeg2\lib;X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>X:\box2d\include;X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;X:\OpenImageIO\include;X:\ffmpeg2\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <LibraryPath>X:\box2d\lib;X:\SDL2\lib;X:\libsnd\lib;X:\OpenImageIO\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\ffmpeg2\lib;X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App\</OutDir>
     <IntDir>X:\temp/</IntDir>
     <AllProjectBMIsArePublic>true</AllProjectBMIsArePublic>
@@ -426,7 +440,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;Halide_GenGen.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;avcodec.lib;avformat.lib;avdevice.lib;avutil.lib;webp.lib;webpdecoder.lib;zlib.lib;cpuinfo.lib;OpenImageIO.lib;Sndfile.lib;SDL2-static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Halide.lib;Halide_GenGen.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;avcodec.lib;avformat.lib;avdevice.lib;avutil.lib;webp.lib;webpdecoder.lib;zlib.lib;cpuinfo.lib;OpenImageIO.lib;Sndfile.lib;SDL2-static.lib;box2d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceFileOutput>Enabled</ForceFileOutput>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
     </Link>

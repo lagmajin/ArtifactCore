@@ -1,3 +1,4 @@
+module;
 export module Float32x4Histogram;
 
 

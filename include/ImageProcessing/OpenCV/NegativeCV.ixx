@@ -1,6 +1,6 @@
 module;
 
-module ImageProcessing:NegativeCV;
+export module ImageProcessing:NegativeCV;
 
 
 

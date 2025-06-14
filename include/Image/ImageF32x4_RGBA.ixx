@@ -1,8 +1,10 @@
 module;
 
 #include <memory>
-#include <opencv2/core.hpp>
+#include <opencv2/opencv.hpp>
 #include "../Define/DllExportMacro.hpp"
+
+
 
 
 //#include <qt>
@@ -14,7 +16,10 @@ import Size;
 import FloatRGBA;
 
 
+
+
 export namespace ArtifactCore {
+
 
 
  LIBRARY_DLL_API class ImageF32x4_RGBA {
@@ -24,7 +29,7 @@ export namespace ArtifactCore {
   ~ImageF32x4_RGBA();
 
   // コピー返しにすることで、cv::Matのinclude不要
-  auto toCVMat() const -> class cv_Mat;
+  auto toCVMat() const -> class cv::Mat;
   void fill(const FloatRGBA& rgba);
   int width() const;
   int height() const;
