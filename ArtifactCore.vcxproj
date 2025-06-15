@@ -90,6 +90,7 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfo.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Glow.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\HalfTone.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Monochrome.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\NegativeCV.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Noise.ixx" />
@@ -125,8 +126,8 @@
     <ClCompile Include="include\Image\ImageYUV420.ixx">
       <FileType>Document</FileType>
     </ClCompile>
-    <ClInclude Include="include\Knob\AbstractKnob.hpp" />
-    <ClInclude Include="include\Knob\KnobList.hpp" />
+    <ClInclude Include="include\Knob\AbstractKnob.ixx" />
+    <ClInclude Include="include\Knob\KnobList.ixx" />
     <ClCompile Include="include\Image\Transform\ImageTransformCV.ixx" />
     <ClCompile Include="include\IO\Image\ImageWriter.ixx" />
     <ClCompile Include="include\IO\IO.ixx" />

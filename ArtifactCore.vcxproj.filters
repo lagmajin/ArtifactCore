@@ -246,10 +246,10 @@
     <ClInclude Include="include\Mesh\FBX.hpp">
       <Filter>ヘッダー ファイル\Mesh</Filter>
     </ClInclude>
-    <ClInclude Include="include\Knob\AbstractKnob.hpp">
+    <ClInclude Include="include\Knob\AbstractKnob.ixx">
       <Filter>ヘッダー ファイル\Knob</Filter>
     </ClInclude>
-    <ClInclude Include="include\Knob\KnobList.hpp">
+    <ClInclude Include="include\Knob\KnobList.ixx">
       <Filter>ヘッダー ファイル\Knob</Filter>
     </ClInclude>
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp">
@@ -799,6 +799,9 @@
     </ClCompile>
     <ClCompile Include="include\Asset\AssetDatabase.ixx">
       <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\HalfTone.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
