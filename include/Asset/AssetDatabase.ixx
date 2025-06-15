@@ -1,4 +1,6 @@
-#pragma once
+module;
+
+export module Asseet;
 
 
 

@@ -26,7 +26,9 @@
     <ClCompile Include="include\Asset\AssetConverter.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
-    <ClInclude Include="include\Asset\AssetDatabase.hpp" />
+    <ClCompile Include="include\Asset\AssetDatabase.ixx">
+      <FileType>Document</FileType>
+    </ClCompile>
     <ClCompile Include="include\Asset\AssetMetaFile.ixx">
       <FileType>Document</FileType>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -62,7 +64,10 @@
     <ClCompile Include="include\FrameRenderer.ixx" />
     <ClCompile Include="include\Frame\FrameOffset.ixx" />
     <ClCompile Include="include\Frame\FrameRate.ixx" />
-    <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp" />
+    <ClCompile Include="include\ImageProcessing\AbstractImageGenerator.ixx">
+      <FileType>Document</FileType>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClInclude Include="include\ImageProcessing\Blur.hpp" />
     <ClInclude Include="include\ImageProcessing\Halide\HalideArithmetic.hpp" />
     <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp" />
@@ -150,6 +155,7 @@
     <ClCompile Include="include\Sound\SoundTrack.ixx" />
     <ClCompile Include="include\TestEncoder.ixx" />
     <ClCompile Include="include\Test\Test.ixx" />
+    <ClCompile Include="include\Time\Duration.ixx" />
     <ClCompile Include="include\Transform\AnchorPoint.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>

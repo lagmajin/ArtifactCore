@@ -1,5 +1,6 @@
-#pragma once
+module;
 
+export module Generator:Image;
 
 
 

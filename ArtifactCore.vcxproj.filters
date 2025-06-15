@@ -172,9 +172,6 @@
     <Filter Include="ヘッダー ファイル\Core">
       <UniqueIdentifier>{a6774677-655e-40d8-a690-5701ab5a1c8b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ヘッダー ファイル\NewFilter3">
-      <UniqueIdentifier>{dcb563a3-b6b4-49b4-a666-005d5cfa09b9}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ソース ファイル\Core">
       <UniqueIdentifier>{dd8e7653-6d53-4e97-871d-450e8fc6b978}</UniqueIdentifier>
     </Filter>
@@ -229,12 +226,12 @@
     <Filter Include="ソース ファイル\File">
       <UniqueIdentifier>{2858191d-9cc3-4d7d-803e-c47ab88cd314}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Time">
+      <UniqueIdentifier>{38464287-270a-49a8-9e86-35fd71706d70}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
-      <Filter>ヘッダー ファイル\Generator</Filter>
-    </ClInclude>
-    <ClInclude Include="include\ImageProcessing\AbstractImageGenerator.hpp">
       <Filter>ヘッダー ファイル\Generator</Filter>
     </ClInclude>
     <ClInclude Include="include\Video\GStreamerEncoder.ixx">
@@ -266,9 +263,6 @@
     </ClInclude>
     <ClInclude Include="include\Image\RenderedImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Asset\AssetDatabase.hpp">
-      <Filter>ヘッダー ファイル\Asset</Filter>
     </ClInclude>
     <ClInclude Include="include\Media\MediaFrame.hpp">
       <Filter>ヘッダー ファイル\Media</Filter>
@@ -796,6 +790,15 @@
     </ClCompile>
     <ClCompile Include="include\Video\GStreamerDecoder.ixx">
       <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Time\Duration.ixx">
+      <Filter>ヘッダー ファイル\Time</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\AbstractImageGenerator.ixx">
+      <Filter>ヘッダー ファイル\Generator</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Asset\AssetDatabase.ixx">
+      <Filter>ヘッダー ファイル\Asset</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
