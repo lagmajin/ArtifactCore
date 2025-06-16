@@ -64,6 +64,9 @@
     <ClCompile Include="include\FrameRenderer.ixx" />
     <ClCompile Include="include\Frame\FrameOffset.ixx" />
     <ClCompile Include="include\Frame\FrameRate.ixx" />
+    <ClCompile Include="include\Geometry\Float3.ixx" />
+    <ClCompile Include="include\Geometry\MeshEdgeExtractor.ixx" />
+    <ClCompile Include="include\Geometry\Opacity.ixx" />
     <ClCompile Include="include\ImageProcessing\AbstractImageGenerator.ixx">
       <FileType>Document</FileType>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>

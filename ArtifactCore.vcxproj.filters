@@ -229,6 +229,12 @@
     <Filter Include="ヘッダー ファイル\Time">
       <UniqueIdentifier>{38464287-270a-49a8-9e86-35fd71706d70}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Geometry">
+      <UniqueIdentifier>{bca77fd1-3d86-44e0-87db-dd69435b17ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Math">
+      <UniqueIdentifier>{555f6cd0-af35-4d9d-9143-2e7e36d2e540}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -802,6 +808,15 @@
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\HalfTone.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\MeshEdgeExtractor.ixx">
+      <Filter>ヘッダー ファイル\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\Float3.ixx">
+      <Filter>ヘッダー ファイル\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\Opacity.ixx">
+      <Filter>ヘッダー ファイル\Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
