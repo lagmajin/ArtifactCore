@@ -10,7 +10,8 @@ namespace Artifact {
  private:
 
  public:
-
+  explicit KnobList();
+  ~KnobList();
  };
 
 

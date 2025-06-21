@@ -13,14 +13,6 @@ export module Transform2D;
 
 export namespace ArtifactCore {
 
- class Opacity {
- private:
-
- public:
-  Opacity();
-  ~Opacity();
- };
-
 
  using namespace cv;
 
@@ -52,6 +44,8 @@ export namespace ArtifactCore {
  };
 
  
+
+
 
 
 

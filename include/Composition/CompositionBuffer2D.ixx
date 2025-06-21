@@ -1,5 +1,4 @@
-#pragma once
-
+module;
 #undef emit
 #include <Halide.h>
 
@@ -13,9 +12,10 @@
 
 
 #include "../Image/FloatImage.hpp"
-//#include "../Color/FloatRGBA.hpp"
-
 #include <wobjectdefs.h>
+export module Composition:Buffer;
+
+
 
 import FloatRGBA;
 

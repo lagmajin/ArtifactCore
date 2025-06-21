@@ -1,4 +1,6 @@
-#pragma once
+module;
+
+export module Color;
 
 
 
@@ -17,7 +19,7 @@ namespace Artifact {
   ~Alpha();
   float alpha() const;
   void setAlpha(float alpha);
-  PString toString() const;
+  QString toString() const;
   void setZero();
 
   void swap(Alpha& other);

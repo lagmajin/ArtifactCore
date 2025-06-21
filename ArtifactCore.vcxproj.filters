@@ -148,9 +148,6 @@
     <Filter Include="ソース ファイル\ImageProcessing\Halide">
       <UniqueIdentifier>{9277dfaa-43f5-4b86-b090-fa7db456cb2f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ヘッダー ファイル\Utility">
-      <UniqueIdentifier>{363d3253-b170-4b2b-9559-b2200b255b57}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ソース ファイル\GPU">
       <UniqueIdentifier>{9d3e77ee-5655-4e8d-b0c5-a943fb1b094a}</UniqueIdentifier>
     </Filter>
@@ -235,6 +232,18 @@
     <Filter Include="ヘッダー ファイル\Math">
       <UniqueIdentifier>{555f6cd0-af35-4d9d-9143-2e7e36d2e540}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics">
+      <UniqueIdentifier>{ce849b34-fa91-4b6f-82ba-d2a9c956d344}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Script\hostfxr">
+      <UniqueIdentifier>{825a0dc5-ca08-44ef-96c9-d7aeb7c807c7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Script">
+      <UniqueIdentifier>{c8ff933a-ceca-4889-919d-bf8cc5c6e0a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Utils">
+      <UniqueIdentifier>{363d3253-b170-4b2b-9559-b2200b255b57}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -263,9 +272,6 @@
     </ClInclude>
     <ClInclude Include="include\Rule\NamingRule.hpp">
       <Filter>ヘッダー ファイル\Rule</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Asset\AbstractAssetFile.hpp">
-      <Filter>ヘッダー ファイル\Asset</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\RenderedImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
@@ -300,11 +306,8 @@
     <ClInclude Include="include\Define\DllExportMacro.hpp">
       <Filter>ヘッダー ファイル\Define</Filter>
     </ClInclude>
-    <ClInclude Include="include\Color\Alpha.hpp">
+    <ClInclude Include="include\Color\Alpha.ixx">
       <Filter>ヘッダー ファイル\Color</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Composition\CompositionBuffer2D.hpp">
-      <Filter>ヘッダー ファイル\Composition</Filter>
     </ClInclude>
     <ClInclude Include="include\Color\Histgram.ixx">
       <Filter>ヘッダー ファイル\Color</Filter>
@@ -817,6 +820,36 @@
     </ClCompile>
     <ClCompile Include="include\Geometry\Opacity.ixx">
       <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Camera.ixx">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Camera.cpp">
+      <Filter>ソース ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\Float4.ixx">
+      <Filter>ヘッダー ファイル\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\hostfxr.ixx">
+      <Filter>ヘッダー ファイル\Script\hostfxr</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Script.ixx">
+      <Filter>ヘッダー ファイル\Script</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\hostfxr.cppm">
+      <Filter>ソース ファイル\Script</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Platform\PlatformHint.ixx">
+      <Filter>ヘッダー ファイル\Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Asset\AbstractAssetFile.ixx">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Composition\CompositionBuffer2D.ixx">
+      <Filter>ヘッダー ファイル\Composition</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\WindowStyleCSS.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

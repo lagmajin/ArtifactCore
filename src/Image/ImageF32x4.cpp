@@ -16,6 +16,11 @@ namespace ArtifactCore {
  {
  }
 
+ ImageF32x4::ImageF32x4()
+ {
+
+ }
+
  ImageF32x4::~ImageF32x4() = default;
 
  int ImageF32x4::width() const {

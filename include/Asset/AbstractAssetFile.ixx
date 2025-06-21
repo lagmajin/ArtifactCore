@@ -1,16 +1,19 @@
-#pragma once
-//import std;
-
+module;
 #include <QtCore/QObject>
 
 //#include "../File/FileInfo.hpp"
 
 #include <wobjectdefs.h>
+export module Asset;
+//#pragma once
+//import std;
 
 
 
 
-namespace ArtifactCore {
+
+
+export namespace ArtifactCore {
 
  class AbstractAssetFilePrivate;
 

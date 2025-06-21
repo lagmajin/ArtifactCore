@@ -1,7 +1,10 @@
-#include "../../include/Asset/AbstractAssetFile.hpp"
+module;
+//#include "../../include/Asset/AbstractAssetFile.hpp"
+
 #include <wobjectimpl.h>
+//#include <wobjectimpl.h>
 
-
+module Asset;
 
 
 

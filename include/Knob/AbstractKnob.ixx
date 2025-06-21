@@ -9,7 +9,8 @@ namespace ArtifactCore {
  private:
 
  public:
-
+  AbstractKnob();
+  ~AbstractKnob();
  };
 
 

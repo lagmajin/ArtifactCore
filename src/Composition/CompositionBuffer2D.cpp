@@ -1,7 +1,6 @@
+module;
 
-
-#include "../../include/Composition/CompositionBuffer2D.hpp"
-
+module Composition:Buffer;
 
 import FloatRGBA;
 
@@ -9,7 +8,7 @@ namespace ArtifactCore {
 
  class CompositionBuffer2DPrivate {
  private:
-  Halide::Buffer<float> b_;
+  //Halide::Buffer<float> b_;
  public:
   CompositionBuffer2DPrivate(int width,int height);
   ~CompositionBuffer2DPrivate();
@@ -17,7 +16,7 @@ namespace ArtifactCore {
   //void setClearColor(float = 0.0f);
  };
 
- CompositionBuffer2DPrivate::CompositionBuffer2DPrivate(int width, int height):b_(width,height)
+ CompositionBuffer2DPrivate::CompositionBuffer2DPrivate(int width, int height)
  {
 
  }
