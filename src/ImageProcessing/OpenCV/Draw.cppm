@@ -88,7 +88,7 @@ export namespace ArtifactCore {
   // 外周5点（正五角形）
   std::vector<cv::Point> outer(5);
   for (int i = 0; i < 5; ++i) {
-   float angle = CV_2PI * i / 5 - CV_PI / 2;
+   float angle =(float) CV_2PI * i / 5 - CV_PI / 2;
    float x = std::cos(angle) * radius + center.x;
    float y = std::sin(angle) * radius + center.y;
    outer[i] = cv::Point(cvRound(x), cvRound(y));

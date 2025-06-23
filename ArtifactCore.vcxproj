@@ -73,6 +73,12 @@
     <ClCompile Include="include\Geometry\Float4.ixx" />
     <ClCompile Include="include\Geometry\MeshEdgeExtractor.ixx" />
     <ClCompile Include="include\Geometry\Opacity.ixx" />
+    <ClCompile Include="include\Graphics\GPUComputeContext.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Graphics.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\ImageProcessing\AbstractImageGenerator.ixx">
       <FileType>Document</FileType>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -96,9 +102,12 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Affine.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\BlurGAPI.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\FilmGrain.ixx" />
-    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfo.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfo.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Glow.ixx" />
+    <ClCompile Include="include\ImageProcessing\OpenCV\Grading\BrightnessContrast.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\HalfTone.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\Monochrome.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\NegativeCV.ixx" />
@@ -125,6 +134,7 @@
     <ClCompile Include="include\Image\Blur\Blur.cpp" />
     <ClCompile Include="include\Image\ImageF32x4_RGBA.ixx" />
     <ClCompile Include="include\Image\ImageF32x4_PreMulRGBA.ixx" />
+    <ClCompile Include="include\Image\MultiChannelImage.ixx" />
     <ClCompile Include="include\Image\OpenEXR.ixx" />
     <ClCompile Include="include\Image\PNGImage.ixx">
       <FileType>Document</FileType>
@@ -138,6 +148,9 @@
     <ClInclude Include="include\Knob\AbstractKnob.ixx" />
     <ClInclude Include="include\Knob\KnobList.ixx" />
     <ClCompile Include="include\Image\Transform\ImageTransformCV.ixx" />
+    <ClCompile Include="include\Image\VkImage.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\IO\Image\ImageWriter.ixx" />
     <ClCompile Include="include\IO\IO.ixx" />
     <ClCompile Include="include\Layer\Layer2D.ixx">
@@ -408,8 +421,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\include;X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;X:\OpenImageIO\include;X:\ffmpeg2\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\lib;X:\SDL2\lib;X:\libsnd\lib;X:\OpenImageIO\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\ffmpeg2\lib;X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>X:\Build\install\include;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\include;X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;X:\OpenImageIO\include;X:\ffmpeg2\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\Halide-19.0.0-x86-64-windows\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <LibraryPath>X:\Build\install\lib\DiligentCore\Debug;X:\Build\Graphics\GraphicsEngineVulkan\Debug;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\lib;X:\SDL2\lib;X:\libsnd\lib;X:\OpenImageIO\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\ffmpeg2\lib;X:\vlc-3.0.21\sdk\lib;X:\Halide-19.0.0-x86-64-windows\lib\Release;X:\opencv\build\x64\vc16\lib;X:\Halide-19.0.0-x86-32-windows\lib\Release;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App\</OutDir>
     <IntDir>X:\temp/</IntDir>
     <AllProjectBMIsArePublic>true</AllProjectBMIsArePublic>
@@ -449,12 +462,12 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;LIBRARY_DLL_EXPORT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;LIBRARY_DLL_EXPORT;PLATFORM_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <DisableSpecificWarnings>4819;4828;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4819;4828;5050;</DisableSpecificWarnings>
       <TranslateIncludes>false</TranslateIncludes>
       <OpenMPSupport>true</OpenMPSupport>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>

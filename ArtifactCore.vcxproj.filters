@@ -244,6 +244,12 @@
     <Filter Include="ヘッダー ファイル\Utils">
       <UniqueIdentifier>{363d3253-b170-4b2b-9559-b2200b255b57}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\ImageProcessing\Grading">
+      <UniqueIdentifier>{4d9b9b06-57e9-41b2-962f-778cf20723c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Image\Vulkan">
+      <UniqueIdentifier>{de72fe27-6316-4bdd-a54d-433f3dd153e5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -850,6 +856,21 @@
     </ClCompile>
     <ClCompile Include="include\Utils\WindowStyleCSS.ixx">
       <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\Grading\BrightnessContrast.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\Grading</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\GPUComputeContext.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Graphics.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\VkImage.ixx">
+      <Filter>ヘッダー ファイル\Image\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\MultiChannelImage.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
