@@ -250,6 +250,15 @@
     <Filter Include="ヘッダー ファイル\Image\Vulkan">
       <UniqueIdentifier>{de72fe27-6316-4bdd-a54d-433f3dd153e5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Graphics">
+      <UniqueIdentifier>{cd39b323-5805-4490-9b83-d2a5787e806b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Shader">
+      <UniqueIdentifier>{ee2b9b9d-e375-45b9-b8ca-ce32e7ff5a3f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Project">
+      <UniqueIdentifier>{59b5d57f-eacd-4d93-a48c-80dce4e8d7c8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -872,6 +881,21 @@
     <ClCompile Include="include\Image\MultiChannelImage.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
+    <ClCompile Include="src\Graphics\GPUComputeContext.cpp">
+      <Filter>ソース ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\TextureFactory.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\ImageF32x4_With_Cache.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\ImageF32x4_With_Cache.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\CompressQuality.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -898,5 +922,10 @@
     <None Include="src\Image\FFmpegEncoder.cpp">
       <Filter>ソース ファイル\Codec</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="include\Graphics\Shader\HLSL\GaussianBlur.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

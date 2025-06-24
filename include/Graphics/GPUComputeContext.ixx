@@ -7,29 +7,32 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h>
 export module Graphics:GPUcomputeContext;
+#pragma comment(lib,"DiligentCore.lib")
+#pragma comment(lib,"GraphicsEngineD3D12_64d.lib")
 
+#pragma comment(lib,"GraphicsEngineOpenGL_64d.lib")
 
+namespace Diligent {}//dummy
 
 export namespace ArtifactCore
 {
-
+ 
  using namespace Diligent;
 
+
+
  class GpuContext {
+ private:
+  struct Impl;
+  Impl* pImpl_;
  public:
   GpuContext();
   ~GpuContext();
-
-  void Initialize(); // Diligentの初期化
-
-  // アクセサ
-  Diligent::IRenderDevice* GetDevice() const { return pDevice_; }
-  Diligent::IDeviceContext* GetContext() const { return pContext_; }
-
+  void Initialize();
+  RefCntAutoPtr<IRenderDevice> D3D12RenderDevice();
+  RefCntAutoPtr<IShader> CompileShader(const char* shaderSource, SHADER_TYPE type, const char* entryPoint);
  private:
-  RefCntAutoPtr<Diligent::IRenderDevice> pDevice_;
-  RefCntAutoPtr<Diligent::IDeviceContext> pContext_;
-  RefCntAutoPtr<Diligent::ISwapChain> pSwapChain_; // 不使用ならnullptrでOK
+
  };
 
 

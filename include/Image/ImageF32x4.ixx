@@ -1,16 +1,17 @@
 module;
-#include <memory>
+//#include <memory>
 #ifdef USE_OPENCV
 #include <opencv2/opencv.hpp>
 #endif
+#include "../Define/DllExportMacro.hpp"
 export module ImageF32x4;
 
 
-
+import std;
 
 export namespace ArtifactCore {
 
- class ImageF32x4 {
+ class LIBRARY_DLL_API ImageF32x4 {
  private:
   struct Impl;
   std::unique_ptr<Impl> pimpl_;
@@ -24,8 +25,6 @@ export namespace ArtifactCore {
  };
 
 
- class ImageF32x4_PreMulRGBA {
 
- };
 
 }

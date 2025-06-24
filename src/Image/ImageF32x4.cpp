@@ -1,7 +1,7 @@
-
+module;
 #include <opencv2/opencv.hpp>
+module ImageF32x4;
 
-import ImageF32x4;
 
 namespace ArtifactCore {
 

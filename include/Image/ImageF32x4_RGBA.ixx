@@ -1,28 +1,21 @@
 module;
 
-#include <memory>
+
 #include <opencv2/opencv.hpp>
 #include "../Define/DllExportMacro.hpp"
 
-
-
-
-//#include <qt>
-
-
 export module Image:ImageF32x4_RGBA;
 
+import std;
 import Size;
 import FloatRGBA;
-
-
 
 
 export namespace ArtifactCore {
 
 
 
- LIBRARY_DLL_API class ImageF32x4_RGBA {
+  class LIBRARY_DLL_API ImageF32x4_RGBA {
  public:
   ImageF32x4_RGBA();
   explicit ImageF32x4_RGBA(const FloatRGBA& color);
@@ -43,8 +36,8 @@ export namespace ArtifactCore {
   ImageF32x4_RGBA(ImageF32x4_RGBA&&) noexcept = default;
   ImageF32x4_RGBA& operator=(ImageF32x4_RGBA&&) noexcept = default;
  private:
-  struct Impl;                // ★ これが必要！！
-  std::unique_ptr<Impl> impl_;
+  class Impl;
+  Impl* impl_;
  };
 
  // ダミーのcv::Matラッパー型を forward declare（export してない）
