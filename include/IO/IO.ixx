@@ -1,4 +1,4 @@
 export module IO;
-export import :ImageWriter;
+export import :ImageExporter;
 
 export void MyFunc();

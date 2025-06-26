@@ -4,6 +4,8 @@ module;
 #include <opencv2/opencv.hpp>
 #include "../Define/DllExportMacro.hpp"
 
+#include <QObject>
+
 export module Image:ImageF32x4_RGBA;
 
 import std;
@@ -15,10 +17,11 @@ export namespace ArtifactCore {
 
 
 
-  class LIBRARY_DLL_API ImageF32x4_RGBA {
+  class LIBRARY_DLL_API ImageF32x4_RGBA :public QObject{
  public:
   ImageF32x4_RGBA();
   explicit ImageF32x4_RGBA(const FloatRGBA& color);
+  ImageF32x4_RGBA(const ImageF32x4_RGBA& image);
   ~ImageF32x4_RGBA();
 
   // コピー返しにすることで、cv::Matのinclude不要

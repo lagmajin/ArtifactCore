@@ -1,12 +1,17 @@
 module;
 //#include <OpenImageIO/>
-export module IO:ImageWriter;
+export module IO:ImageExporter;
 
 namespace OIIO {};//dummy
 
 export namespace ArtifactCore {
 
  using namespace OIIO;
+
+ class ImageExporter
+ {
+	 
+ };
 
 
 

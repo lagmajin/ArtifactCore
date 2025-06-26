@@ -259,6 +259,18 @@
     <Filter Include="ヘッダー ファイル\Project">
       <UniqueIdentifier>{59b5d57f-eacd-4d93-a48c-80dce4e8d7c8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\IO">
+      <UniqueIdentifier>{d98e63e9-bae6-436e-9135-0c99fef66a36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\EnviromentVariable">
+      <UniqueIdentifier>{b1da1cb0-4e46-45dc-964c-e1921ed982f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\EnviromentVariable">
+      <UniqueIdentifier>{ce4af6aa-38d9-4f40-9a05-7d5267bede99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Environment">
+      <UniqueIdentifier>{a76494b6-bef4-4ba5-94e5-743f4e3130fe}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
@@ -710,7 +722,7 @@
     <ClCompile Include="include\Render\Render.ixx">
       <Filter>ヘッダー ファイル\Render</Filter>
     </ClCompile>
-    <ClCompile Include="include\IO\Image\ImageWriter.ixx">
+    <ClCompile Include="include\IO\Image\ImageExporter.ixx">
       <Filter>ヘッダー ファイル\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\Sound\SoundTrack.ixx">
@@ -895,6 +907,27 @@
     </ClCompile>
     <ClCompile Include="include\Image\CompressQuality.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\MeshImporter.ixx">
+      <Filter>ヘッダー ファイル\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Render\RenderableObject.ixx">
+      <Filter>ヘッダー ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Render\Material.ixx">
+      <Filter>ヘッダー ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IO\Image\ImageImporter.cpp">
+      <Filter>ソース ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IO\Image\ImageExporter.cpp">
+      <Filter>ソース ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\Image\ImageImporter.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\EnviromentVariable\EnvironmentVariable.ixx">
+      <Filter>ヘッダー ファイル\EnviromentVariable</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

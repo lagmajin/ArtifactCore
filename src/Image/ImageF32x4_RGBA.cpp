@@ -21,6 +21,11 @@ namespace ArtifactCore {
 
  }
 
+ ImageF32x4_RGBA::ImageF32x4_RGBA(const ImageF32x4_RGBA& image)
+ {
+
+ }
+
  void ImageF32x4_RGBA::fill(const FloatRGBA& rgba)
  {
  
