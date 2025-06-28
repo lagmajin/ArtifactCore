@@ -13,6 +13,7 @@ module;
 
 #include "../Image/FloatImage.hpp"
 #include <wobjectdefs.h>
+#include "../Define/DllExportMacro.hpp"
 export module Composition:Buffer;
 
 
@@ -34,7 +35,7 @@ namespace ArtifactCore {
 
  class CompositionBuffer2DPrivate;
 
- class __declspec(dllexport) CompositionBuffer2D:public QObject {
+ class LIBRARY_DLL_API CompositionBuffer2D:public QObject {
   //Q_OBJECT
  private:
   QScopedPointer<CompositionBuffer2DPrivate> pImpl_;

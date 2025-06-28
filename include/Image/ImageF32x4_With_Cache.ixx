@@ -2,6 +2,7 @@
 module;
 #include "../Define/DllExportMacro.hpp"
 #include <QObject>
+#include <wobjectdefs.h>
 export module Image:ImageF32x4_With_Cache;
 
 import std;
@@ -9,16 +10,25 @@ import Image;
 
 export namespace ArtifactCore
 {
+
  class LIBRARY_DLL_API ImageF32x4RGBAWithCache:public QObject{
+    W_OBJECT(ImageF32x4RGBAWithCache)
  private:
   class Impl;
-
+  Impl* impl_;
  public:
   ImageF32x4RGBAWithCache();
   explicit ImageF32x4RGBAWithCache(const ImageF32x4_RGBA& image);
- ~ImageF32x4RGBAWithCache();
+  ~ImageF32x4RGBAWithCache();
+  ImageF32x4_RGBA& image() const;
+
   void UpdateGpuTextureFromCpuData();
- 	void UpdateCpuDataFromGpuTexture();
+  void UpdateCpuDataFromGpuTexture();
+
+  int32_t width() const;
+  int32_t height() const;
+  bool IsGpuTextureValid() const;
+
 
  };
 

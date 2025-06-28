@@ -265,11 +265,17 @@
     <Filter Include="ヘッダー ファイル\EnviromentVariable">
       <UniqueIdentifier>{b1da1cb0-4e46-45dc-964c-e1921ed982f3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ソース ファイル\EnviromentVariable">
-      <UniqueIdentifier>{ce4af6aa-38d9-4f40-9a05-7d5267bede99}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ソース ファイル\Environment">
+    <Filter Include="ソース ファイル\EnvironmentVariable">
       <UniqueIdentifier>{a76494b6-bef4-4ba5-94e5-743f4e3130fe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\ImageProcessing\DirectCompute">
+      <UniqueIdentifier>{d86ffefc-f229-4bd1-bfb0-9ed10f35284f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\ImageProcessing\DirectCompute">
+      <UniqueIdentifier>{1b9e18d0-d758-4591-8f23-00c630e728ed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Track">
+      <UniqueIdentifier>{a58a7b8a-4562-4cf3-8a3d-3057173559c0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -926,8 +932,32 @@
     <ClCompile Include="include\IO\Image\ImageImporter.ixx">
       <Filter>ヘッダー ファイル\IO</Filter>
     </ClCompile>
-    <ClCompile Include="include\EnviromentVariable\EnvironmentVariable.ixx">
+    <ClCompile Include="src\EnvironmentVariable\EnvironmentVariable.cpp">
+      <Filter>ソース ファイル\EnvironmentVariable</Filter>
+    </ClCompile>
+    <ClCompile Include="include\EnvironmentVariable\EnvironmentVariable.ixx">
       <Filter>ヘッダー ファイル\EnviromentVariable</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\Halide\HalideTest.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\NegateCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\NegateCS.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\DirectCompute\NegateCS.cpp">
+      <Filter>ソース ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\AddBlockNoise.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\AddBlockNoise.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\LiftCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -955,9 +985,15 @@
     <None Include="src\Image\FFmpegEncoder.cpp">
       <Filter>ソース ファイル\Codec</Filter>
     </None>
+    <None Include="include\ImageProcessing\Halide\Lift.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="include\Graphics\Shader\HLSL\GaussianBlur.hlsl">
+    <FxCompile Include="include\Graphics\Shader\HLSL\FloatBGRAtoRGBA.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\Negate.hlsl">
       <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
     </FxCompile>
   </ItemGroup>

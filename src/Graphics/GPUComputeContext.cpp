@@ -57,14 +57,14 @@ namespace ArtifactCore
   }
  };
 
- GpuContext::GpuContext()
+ GpuContext::GpuContext():pImpl_(new Impl())
  {
 
  }
 
  GpuContext::~GpuContext()
  {
-
+  delete pImpl_;
  }
 
 
@@ -84,6 +84,11 @@ namespace ArtifactCore
  RefCntAutoPtr<IRenderDevice> GpuContext::D3D12RenderDevice()
  {
   return pImpl_->pD3D12Device;
+ }
+
+ Diligent::RefCntAutoPtr<IDeviceContext> GpuContext::D3D12DeviceContext()
+ {
+  return pImpl_->pD3D12Context;
  }
 
 }
