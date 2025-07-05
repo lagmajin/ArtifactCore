@@ -1,6 +1,6 @@
 module;
 
-export module FrameOffset;
+export module Frame:FrameOffset;
 
 
 export namespace FrameOffset {

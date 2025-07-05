@@ -4,7 +4,7 @@ module;
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
 
-export module FrameRate;
+export module Frame.FrameRate;
 
 export namespace ArtifactCore {
 
@@ -24,7 +24,7 @@ export namespace ArtifactCore {
 
  class Framerate {
  private:
-  FrameratePrivate* const	pFrameRate_;
+  //FrameratePrivate* const	pFrameRate_;
  public:
   Framerate();
   Framerate(float frameRate);

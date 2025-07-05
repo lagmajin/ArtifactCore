@@ -11,12 +11,30 @@ namespace ArtifactCore {
 
  class  ImageF32x4_RGBA::Impl
  {
-	 
+
+ public:
+  cv::Mat mat_;
+  int32_t width() const;
+  int32_t height() const;
+
  };
 
+ int32_t ImageF32x4_RGBA::Impl::width() const
+ {
+  return 0;
+ }
 
+ int32_t ImageF32x4_RGBA::Impl::height() const
+ {
+  return 0;
+ }
 
- ImageF32x4_RGBA::ImageF32x4_RGBA(const FloatRGBA& color)
+ ImageF32x4_RGBA::ImageF32x4_RGBA()
+ {
+
+ }
+
+ ImageF32x4_RGBA::ImageF32x4_RGBA(const FloatRGBA& color):impl_(new Impl())
  {
 
  }
@@ -80,6 +98,11 @@ namespace ArtifactCore {
   {
    //return impl_->mat;
    return cv::Mat();
+  }
+
+  void ImageF32x4_RGBA::fillAlpha(float alpha/*=1.0f*/)
+  {
+
   }
 
  ImageF32x4_RGBA::~ImageF32x4_RGBA() = default;

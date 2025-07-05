@@ -2,7 +2,7 @@ module;
 
 
 
-export module FramePosition;
+export module Frame:FramePosition;
 
 export namespace ArtifactCore {
 
@@ -16,7 +16,15 @@ export namespace ArtifactCore {
   ~FramePosition();
  };
 
+ FramePosition::FramePosition()
+ {
 
+ }
+
+ FramePosition::~FramePosition()
+ {
+
+ }
 
 
 };

@@ -3,7 +3,7 @@ module;
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
-module Image:ImageF32x4_With_Cache;
+module Image:ImageF32x4RGBAWithCache;
 
 import Image;
 

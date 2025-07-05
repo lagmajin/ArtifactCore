@@ -3,15 +3,17 @@ module;
 #include "../Define/DllExportMacro.hpp"
 #include <QObject>
 #include <wobjectdefs.h>
-export module Image:ImageF32x4_With_Cache;
+export module Image:ImageF32x4RGBAWithCache;
 
 import std;
-import Image;
+
 
 export namespace ArtifactCore
 {
+	class ImageF32x4_RGBA;
 
- class LIBRARY_DLL_API ImageF32x4RGBAWithCache:public QObject{
+
+class LIBRARY_DLL_API ImageF32x4RGBAWithCache:public QObject{
     W_OBJECT(ImageF32x4RGBAWithCache)
  private:
   class Impl;

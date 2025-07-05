@@ -1,4 +1,5 @@
 module;
+#include <QUuid>
 #include <DiligentCore/Platforms/interface/PlatformDefinitions.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
@@ -28,7 +29,12 @@ export namespace ArtifactCore
  
  using namespace Diligent;
 
+ struct DeviceResources
+ {
 
+  RefCntAutoPtr<Diligent::IRenderDevice>  pDevice;
+  RefCntAutoPtr<Diligent::IDeviceContext> pContext;
+ };
 
  class LIBRARY_DLL_API GpuContext {
  private:
@@ -40,6 +46,9 @@ export namespace ArtifactCore
   void Initialize();
   RefCntAutoPtr<IRenderDevice> D3D12RenderDevice();
   RefCntAutoPtr<IDeviceContext> D3D12DeviceContext();
+  DeviceResources D3D12DeviceResources();
+  DeviceResources VKDeviceResources();
+
   RefCntAutoPtr<IShader> CompileShader(const char* shaderSource, SHADER_TYPE type, const char* entryPoint);
  private:
 

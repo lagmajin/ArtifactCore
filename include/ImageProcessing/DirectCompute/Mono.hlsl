@@ -18,14 +18,15 @@ void main(uint3 ID : SV_DispatchThreadID) // 全体でのスレッドID
     // 入力カラーを読み込む (RGBA)
     float4 originalColor = InputTexture[ID.xy];
 
-    // ネガポジ反転を計算
-    // RGB成分を 1.0 から引く
-    // アルファ (A) 成分はそのまま
-    float4 invertedColor = float4(1.0 - originalColor.r,
-                                  1.0 - originalColor.g,
-                                  1.0 - originalColor.b,
-                                  originalColor.a);
+    // モノクローム変換を計算 (輝度に基づく)
+    // ITU-R BT.709 勧告に基づく加重平均 (一般的な輝度計算)
+   float luminance = originalColor.z * 0.2126 +
+                  originalColor.y * 0.7152 +
+                  originalColor.x * 0.0722;  
 
-    // 結果を出力テクスチャに書き込む
-     OutputTexture[ID.xy] = invertedColor;
+    // アルファ成分はそのまま
+    float4 monochromeColor = float4(luminance, luminance, luminance, originalColor.a);
+
+
+OutputTexture[ID.xy] = monochromeColor;
 }

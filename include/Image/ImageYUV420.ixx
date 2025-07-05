@@ -9,7 +9,7 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 
-export module Image:ImageYUV420;
+export module Image.ImageYUV420;
 
 
 
@@ -20,8 +20,9 @@ export namespace ArtifactCore {
 
  export class ImageYUV420 {
   private:
-   int width_;
-   int height_;
+   class Impl;
+   Impl* impl_;
+
    std::vector<uint8_t> y_plane_;
    std::vector<uint8_t> u_plane_;
    std::vector<uint8_t> v_plane_;

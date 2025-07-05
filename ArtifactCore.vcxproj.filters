@@ -279,7 +279,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.hpp">
+    <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
       <Filter>ヘッダー ファイル\Generator</Filter>
     </ClInclude>
     <ClInclude Include="include\Video\GStreamerEncoder.ixx">
@@ -308,9 +308,6 @@
     </ClInclude>
     <ClInclude Include="include\Image\RenderedImage.hpp">
       <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Media\MediaFrame.hpp">
-      <Filter>ヘッダー ファイル\Media</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\CvMatPaintEngine.hpp">
       <Filter>ヘッダー ファイル\Image</Filter>
@@ -959,6 +956,66 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\LiftCV.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
     </ClCompile>
+    <ClCompile Include="include\IO\Image\SearchImage.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\MonochromeCS.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\HLSL\GraphicsHelper.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\DirectCompute\MonochromeCS.cpp">
+      <Filter>ソース ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\GaussianBlurCS.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="GlowCS.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\DirectCompute\GlowCS.cpp">
+      <Filter>ソース ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Track\LayerTrack.ixx">
+      <Filter>ヘッダー ファイル\Track</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Media\Media.ixx">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Media\MediaFrame.ixx">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\Image\ImageExporterAsync.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Layer\LayerStrip.ixx">
+      <Filter>ヘッダー ファイル\Layer</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\SpectralGlowCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\OpenCV\SpectralGlowCV.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\GlitchCV.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\EdgeCV.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\ScopedTimer.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\Utils.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\GPUTextureCacheManager.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\GPUTextureCacheManager.cppm">
+      <Filter>ソース ファイル\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -988,12 +1045,33 @@
     <None Include="include\ImageProcessing\Halide\Lift.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
     </None>
+    <None Include="src\Layer\LayerStrip.cpp">
+      <Filter>ソース ファイル\Layer</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="include\Graphics\Shader\HLSL\FloatBGRAtoRGBA.hlsl">
       <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Negate.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="include\ImageProcessing\DirectCompute\Mono.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\RGBAChannelSwap.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\Glow.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\LuminanceExtractionBGRA.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="include\ImageProcessing\DirectCompute\Thresholding.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\Mask\EdgeMask.hlsl">
       <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
     </FxCompile>
   </ItemGroup>

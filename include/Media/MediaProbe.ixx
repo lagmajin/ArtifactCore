@@ -1,7 +1,7 @@
 module;
 #include <QtCore/QFile>
 
-export module MediaProbe;
+export module Media.MediaProbe;
 
 import MediaInfo;
 

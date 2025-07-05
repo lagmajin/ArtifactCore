@@ -3,8 +3,11 @@ module;
 
 #include <opencv2/opencv.hpp>
 #include "../Define/DllExportMacro.hpp"
-
+#include <QUuid>
 #include <QObject>
+
+#include <folly/concurrency/AtomicSharedPtr.h>
+
 
 export module Image:ImageF32x4_RGBA;
 
@@ -27,6 +30,7 @@ export namespace ArtifactCore {
   // コピー返しにすることで、cv::Matのinclude不要
   auto toCVMat() const -> class cv::Mat;
   void fill(const FloatRGBA& rgba);
+  void fillAlpha(float alpha=1.0f);
   int width() const;
   int height() const;
   void resize(int width,int height);
@@ -42,6 +46,8 @@ export namespace ArtifactCore {
   class Impl;
   Impl* impl_;
  };
+
+  //typedef std::shared_ptr<
 
  // ダミーのcv::Matラッパー型を forward declare（export してない）
  class cv_Mat;

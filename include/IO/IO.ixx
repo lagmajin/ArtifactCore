@@ -1,4 +1,5 @@
-export module IO;
-export import :ImageExporter;
+module;
 
-export void MyFunc();
+export module IO;
+export import IO.ImageExporter;
+

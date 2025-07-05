@@ -1,6 +1,8 @@
-#pragma once
+module;
 
-#include <memory>
+export module Media.MediaFrame;
+
+import std;
 
 
 namespace ArtifactCore {

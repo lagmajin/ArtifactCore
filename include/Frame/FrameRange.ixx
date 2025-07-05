@@ -10,7 +10,9 @@ export module FrameRange;
 
 namespace ArtifactCore {
 
- 
+ class FrameRange {
+
+ };
 
 
 

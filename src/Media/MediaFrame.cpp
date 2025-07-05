@@ -1,4 +1,8 @@
-#include "../../include/Media/MediaFrame.hpp"
+module;
+
+module Media.MediaFrame;
+
+//#include "../../include/Media/MediaFrame.hpp"
 
 
 
