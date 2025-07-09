@@ -1,3 +1,16 @@
-export module Material;
+export module Render.Material;
 
-export void MyFunc();
+export namespace ArtifactCore {
+
+
+
+
+
+
+
+
+
+
+
+
+};

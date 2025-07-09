@@ -1,6 +1,6 @@
 module;
 
-export module FrameRenderer;
+export module Render.FrameRenderer;
 
 
 export namespace ArtifactCore {

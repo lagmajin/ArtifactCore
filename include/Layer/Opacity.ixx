@@ -1,7 +1,9 @@
 module;
-export module Render;
+
+export module Core.Opacity;
 
 export namespace ArtifactCore {
+
 
 
 

@@ -1,5 +1,5 @@
 module;
-
+#include <QString>
 export module ShapePath;
 
 
@@ -10,7 +10,18 @@ export namespace ArtifactCore {
  private:
 
  public:
-  
+  ShapePath();
+  ~ShapePath();
  };
+
+ ShapePath::ShapePath()
+ {
+
+ }
+
+ ShapePath::~ShapePath()
+ {
+
+ }
 
 }

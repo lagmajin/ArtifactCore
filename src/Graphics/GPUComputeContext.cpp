@@ -45,11 +45,11 @@ namespace ArtifactCore
 
    //pD3D12Device->GetDeviceInfo().Features.
 
-   EngineVkCreateInfo engineVKCI;
+   //EngineVkCreateInfo engineVKCI;
 
-   auto pVKFactory = GetEngineFactoryVk();
+   //auto pVKFactory = GetEngineFactoryVk();
 
-   pVKFactory->CreateDeviceAndContextsVk(engineVKCI, &pVKRenderDevice, &pVKContext);
+   //pVKFactory->CreateDeviceAndContextsVk(engineVKCI, &pVKRenderDevice, &pVKContext);
 
 
    

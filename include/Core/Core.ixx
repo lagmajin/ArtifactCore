@@ -1,5 +1,7 @@
 module;
-export module Render;
+export module Core;
+
+export import Core.KeyFrame;
 
 export namespace ArtifactCore {
 

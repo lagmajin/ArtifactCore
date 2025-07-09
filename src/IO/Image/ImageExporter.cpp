@@ -1,6 +1,7 @@
 module;
 //#include <OpenImageIO/>
 
+#include <QDir>
 
 module IO.ImageExporter;
 

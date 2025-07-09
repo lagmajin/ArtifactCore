@@ -1,6 +1,9 @@
 ﻿module;
 #include <algorithm>
-export module Opacity;
+#include <QString>
+
+#include "..\Define\DllExportMacro.hpp"
+export module Core.Opacity;
 
 
 
@@ -9,7 +12,12 @@ export module Opacity;
 
 export namespace ArtifactCore
 {
- class Opacity {
+
+
+ class LIBRARY_DLL_API Opacity {
+ private:
+
+
   float value; // 0.0f (透明) 〜 1.0f (不透明)
  public:
   constexpr Opacity() noexcept : value(1.0f) {} // デフォルトは不透明

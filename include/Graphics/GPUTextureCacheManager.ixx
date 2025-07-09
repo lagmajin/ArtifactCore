@@ -1,12 +1,13 @@
 module;
 
 #include <QUuid>
+#include <QObject>
 export module Graphics.ImageCache;
 
 
 export namespace ArtifactCore {
 
- class GPUTextureManager {
+ class GPUTextureManager:public QObject {
  private:
 
  public:
@@ -17,6 +18,7 @@ export namespace ArtifactCore {
   GPUTextureManager& operator=(const GPUTextureManager&) = delete;
 
   QUuid createTexture();
+  void removeTexture();
 
   void clear();
  };

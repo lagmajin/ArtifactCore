@@ -6,7 +6,7 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module BitmapImage;
+export module Image.Bitmap;
 
 namespace ArtifactCore {
  
@@ -14,7 +14,8 @@ namespace ArtifactCore {
 
  class LIBRARY_DLL_API Bitmap {
  private:
-
+  class Impl;
+  Impl* impl;
  public:
   Bitmap();
   ~Bitmap();

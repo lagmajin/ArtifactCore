@@ -1,4 +1,6 @@
-//#include "../../include/Image/BitmapImage.hpp"
+module;
+
+module Image.Bitmap;
 
 namespace ArtifactCore {
 
@@ -10,5 +12,15 @@ namespace ArtifactCore {
 
 
 
+
+ Bitmap::Bitmap()
+ {
+
+ }
+
+ Bitmap::~Bitmap()
+ {
+
+ }
 
 }
