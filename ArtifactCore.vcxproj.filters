@@ -283,6 +283,9 @@
     <Filter Include="ヘッダー ファイル\Hash">
       <UniqueIdentifier>{2ff3a074-32ed-4f0f-a8f0-4bc65336a755}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Video">
+      <UniqueIdentifier>{3fe5345d-3c93-4102-87e9-86ec00ddb777}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1057,6 +1060,24 @@
     </ClCompile>
     <ClCompile Include="include\Asset\AsseetImporter.ixx">
       <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\FFMpegDecoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Video\FFMpegDecoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\PlaybackManager.ixx">
+      <Filter>ヘッダー ファイル\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\Video.ixx">
+      <Filter>ヘッダー ファイル\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Video\PlaybackManager.cpp">
+      <Filter>ソース ファイル\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\RawImage.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
