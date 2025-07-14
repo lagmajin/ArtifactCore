@@ -1,9 +1,16 @@
-module;
+ï»¿module;
+
+#include <QDebug>
+#include <QString>
+#include <QImage>
+extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h> 
-#include <QDebug>
-#include <QString>
+#include <libavutil/imgutils.h>
+
+}
+
 module Codec.FFMpegDecoder;
 
 import std;
@@ -24,17 +31,25 @@ namespace ArtifactCore {
   int              videoStreamIndex = 0;
   AVPacket* packet = nullptr;
   AVFrame* frame = nullptr;
-
+  SwsContext* swsCtx_ = nullptr;
  public:
+  ~Impl()
+  {
+   closeFile();
+  }
   bool openFile(const QString& path);
-  AVFrame* decodeNextVideoFrame();
+  QImage decodeNextVideoFrame();
   void closeFile();
+  void seekByFrameNumber(int64_t frameNumber);
+
+  // ã‚¿ã‚¤ãƒ ã‚¹ã‚¿ãƒ³ãƒ—ï¼ˆãƒŸãƒªç§’ï¼‰ã§ã‚·ãƒ¼ã‚¯
+  void seekByTimestamp(int64_t timestampMs);
  };
 
  bool FFMpegDecoder::Impl::openFile(const QString& path)
  {
   closeFile();
-  // 1. AVFormatContext‚ğ‰Šú‰»
+  // 1. AVFormatContextã‚’åˆæœŸåŒ–
   formatContext = avformat_alloc_context();
   if (!formatContext) {
    qWarning() << "FFmpegDecoder::Impl::openFile: Failed to allocate AVFormatContext.";
@@ -42,7 +57,7 @@ namespace ArtifactCore {
   }
 
   if (avformat_open_input(&formatContext, path.toUtf8().constData(), nullptr, nullptr) < 0) {
-   qWarning() << "FFmpegDecoder::Impl::openFile: Failed to open input file:" << path << av_strerror_string(AVERROR_EOF).c_str(); // ERROR_EOF‚Íƒtƒ@ƒCƒ‹‚ªŒ©‚Â‚©‚ç‚È‚¢‰Â”\«‚à
+   qWarning() << "FFmpegDecoder::Impl::openFile: Failed to open input file:" << path << av_strerror_string(AVERROR_EOF).c_str(); // ERROR_EOFã¯ãƒ•ã‚¡ã‚¤ãƒ«ãŒè¦‹ã¤ã‹ã‚‰ãªã„å¯èƒ½æ€§ã‚‚
    avformat_free_context(formatContext);
    formatContext = nullptr;
    return false;
@@ -72,7 +87,7 @@ namespace ArtifactCore {
    return false;
   }
 
-  // 5. ƒR[ƒfƒbƒN‚ğŒ©‚Â‚¯‚é
+  // 5. ã‚³ãƒ¼ãƒ‡ãƒƒã‚¯ã‚’è¦‹ã¤ã‘ã‚‹
   const AVCodec* codec = avcodec_find_decoder(codecParameters->codec_id);
   if (!codec) {
    qWarning() << "FFmpegDecoder::Impl::openFile: Codec not found for ID:" << codecParameters->codec_id;
@@ -81,7 +96,7 @@ namespace ArtifactCore {
    return false;
   }
 
-  // 6. ƒR[ƒfƒbƒNƒRƒ“ƒeƒLƒXƒg‚ğ‰Šú‰»
+  // 6. ã‚³ãƒ¼ãƒ‡ãƒƒã‚¯ã‚³ãƒ³ãƒ†ã‚­ã‚¹ãƒˆã‚’åˆæœŸåŒ–
   codecContext = avcodec_alloc_context3(codec);
   if (!codecContext) {
    qWarning() << "FFmpegDecoder::Impl::openFile: Failed to allocate AVCodecContext.";
@@ -90,7 +105,7 @@ namespace ArtifactCore {
    return false;
   }
 
-  // 7. ƒR[ƒfƒbƒNƒpƒ‰ƒ[ƒ^‚ğƒR[ƒfƒbƒNƒRƒ“ƒeƒLƒXƒg‚ÉƒRƒs[
+  // 7. ã‚³ãƒ¼ãƒ‡ãƒƒã‚¯ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’ã‚³ãƒ¼ãƒ‡ãƒƒã‚¯ã‚³ãƒ³ãƒ†ã‚­ã‚¹ãƒˆã«ã‚³ãƒ”ãƒ¼
   if (avcodec_parameters_to_context(codecContext, codecParameters) < 0) {
    qWarning() << "FFmpegDecoder::Impl::openFile: Failed to copy codec parameters to context.";
    avcodec_free_context(&codecContext);
@@ -100,7 +115,7 @@ namespace ArtifactCore {
    return false;
   }
 
-  // 8. ƒR[ƒfƒbƒN‚ğŠJ‚­
+  // 8. ã‚³ãƒ¼ãƒ‡ãƒƒã‚¯ã‚’é–‹ã
   if (avcodec_open2(codecContext, codec, nullptr) < 0) {
    qWarning() << "FFmpegDecoder::Impl::openFile: Failed to open codec.";
    avcodec_free_context(&codecContext);
@@ -110,7 +125,7 @@ namespace ArtifactCore {
    return false;
   }
 
-  // 9. ƒpƒPƒbƒg‚ÆƒtƒŒ[ƒ€‚ğŠ„‚è“–‚Ä
+  // 9. ãƒ‘ã‚±ãƒƒãƒˆã¨ãƒ•ãƒ¬ãƒ¼ãƒ ã‚’å‰²ã‚Šå½“ã¦
   packet = av_packet_alloc();
   if (!packet) {
    qWarning() << "FFmpegDecoder::Impl::openFile: Failed to allocate AVPacket.";
@@ -133,7 +148,7 @@ namespace ArtifactCore {
   }
 
   qDebug() << "FFmpegDecoder::Impl::openFile: Successfully opened file:" << path;
-  return true; // ³í‚É‰Šú‰»Š®—¹
+  return true; // æ­£å¸¸ã«åˆæœŸåŒ–å®Œäº†
 
 
  }
@@ -150,7 +165,7 @@ namespace ArtifactCore {
    frame = nullptr;
   }
   if (codecContext) {
-   avcodec_close(codecContext); // avcodec_free_context‚Í“à•”‚Åavcodec_close‚ğŒÄ‚Ô‚ªA–¾¦“I‚ÉB
+   //avcodec_close(codecContext); // avcodec_free_contextã¯å†…éƒ¨ã§avcodec_closeã‚’å‘¼ã¶ãŒã€æ˜ç¤ºçš„ã«ã€‚
    avcodec_free_context(&codecContext);
    codecContext = nullptr;
   }
@@ -160,6 +175,67 @@ namespace ArtifactCore {
   }
   videoStreamIndex = -1;
   qDebug() << "FFmpegDecoder::Impl::closeFile: Resources released.";
+ }
+
+ QImage FFMpegDecoder::Impl::decodeNextVideoFrame()
+ {
+  while (av_read_frame(formatContext, packet) >= 0) {
+   if (packet->stream_index == videoStreamIndex) {
+	avcodec_send_packet(codecContext, packet);
+	if (avcodec_receive_frame(codecContext, frame) == 0) {
+	 // RGBã¸å¤‰æ›
+	 uint8_t* dstData[4];
+	 int dstLinesize[4];
+	 QImage img(codecContext->width, codecContext->height, QImage::Format_RGB888);
+	 av_image_fill_arrays(dstData, dstLinesize, img.bits(), AV_PIX_FMT_RGB24, img.width(), img.height(), 1);
+	 sws_scale(swsCtx_, frame->data, frame->linesize, 0, codecContext->height, dstData, dstLinesize);
+	 av_packet_unref(packet);
+	 return img;
+	}
+   }
+   av_packet_unref(packet);
+  }
+  return QImage(); // å¤±æ•—
+ }
+
+ void FFMpegDecoder::Impl::seekByFrameNumber(int64_t frameNumber)
+ {
+  if (!formatContext || videoStreamIndex < 0)
+   return;
+
+  const AVStream* stream = formatContext->streams[videoStreamIndex];
+
+  // ãƒ•ãƒ¬ãƒ¼ãƒ ç•ªå· â†’ æ™‚é–“ï¼ˆptsï¼‰ã«å¤‰æ›
+  int64_t timestamp = av_rescale_q(frameNumber, AVRational{ 1, stream->r_frame_rate.num }, stream->time_base);
+
+  int ret = av_seek_frame(formatContext, videoStreamIndex, timestamp, AVSEEK_FLAG_BACKWARD);
+  if (ret < 0) {
+   qWarning() << "seekByFrameNumber: av_seek_frame failed.";
+   return;
+  }
+
+  avcodec_flush_buffers(codecContext);
+ }
+
+ void FFMpegDecoder::Impl::seekByTimestamp(int64_t timestampMs)
+ {
+  if (!formatContext || videoStreamIndex < 0)
+   return;
+
+  const AVRational timeBase = formatContext->streams[videoStreamIndex]->time_base;
+
+  // ãƒŸãƒªç§’ â†’ streamã®time_baseå˜ä½ã«å¤‰æ›ï¼ˆç§’å˜ä½ãªã‚‰ Ã—1000 / AV_TIME_BASEï¼‰
+  int64_t timestamp = av_rescale_q(timestampMs, AVRational{ 1, 1000 }, timeBase);
+
+  // ãƒ•ãƒ©ã‚°ï¼šè¿‘ãã®ã‚­ãƒ¼ãƒ•ãƒ¬ãƒ¼ãƒ ã¸
+  int ret = av_seek_frame(formatContext, videoStreamIndex, timestamp, AVSEEK_FLAG_BACKWARD);
+
+  if (ret < 0) {
+   qWarning() << "seekByTimestamp: av_seek_frame failed.";
+   return;
+  }
+
+  avcodec_flush_buffers(codecContext);
  }
 
 FFMpegDecoder::FFMpegDecoder() noexcept:impl_(new Impl())
@@ -175,7 +251,7 @@ FFMpegDecoder::~FFMpegDecoder()
 bool FFMpegDecoder::openFile(const QString& path)
 {
  if (!impl_) {
-  //impl_ = std::make_unique<Impl>(); // –œ‚ªˆêpimpl‚ªnullptr‚Ìê‡‚ÌÄ‰Šú‰»
+  //impl_ = std::make_unique<Impl>(); // ä¸‡ãŒä¸€pimplãŒnullptrã®å ´åˆã®å†åˆæœŸåŒ–
  }
  return impl_->openFile(path);
 
@@ -189,9 +265,8 @@ void FFMpegDecoder::closeFile()
  }
 }
 
-AVFrame* FFMpegDecoder::decodeNextVideoFrame()
+QImage FFMpegDecoder::decodeNextVideoFrame()
 {
- if (impl_) return nullptr;
  return impl_->decodeNextVideoFrame();
 }
 

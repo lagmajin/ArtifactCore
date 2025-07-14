@@ -1,6 +1,6 @@
-module;
+﻿module;
 
-export module Codec:GStreamerDecoder;
+export module Codec.GStreamerDecoder;
 
 import std;
 

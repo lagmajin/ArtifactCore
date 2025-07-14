@@ -1,9 +1,9 @@
-
+﻿
 module;
 #include "../Define/DllExportMacro.hpp"
 #include <QObject>
 #include <wobjectdefs.h>
-export module Image:ImageF32x4RGBAWithCache;
+export module Image.ImageF32x4RGBAWithCache;
 
 import std;
 

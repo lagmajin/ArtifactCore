@@ -1,8 +1,10 @@
-module;
+ï»¿module;
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <DiligentCore/Platforms/Basic/interface/DebugUtilities.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <opencv2/core/mat.hpp>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <QDebug>
 #include "QString"
 
 
@@ -42,13 +44,13 @@ export namespace ArtifactCore {
  }
 
  StateTransitionDesc CreateTransitionDescForCS(
-  Diligent::ITexture* pTexture, // ITexture ‚É“Á‰»
+  Diligent::ITexture* pTexture, // ITexture ã«ç‰¹åŒ–
   Diligent::RESOURCE_STATE NewState,
-  Diligent::RESOURCE_STATE OldState = Diligent::RESOURCE_STATE_UNKNOWN, // ƒfƒtƒHƒ‹ƒg‚ÅUNKNOWN‚©‚ç‘JˆÚ
+  Diligent::RESOURCE_STATE OldState = Diligent::RESOURCE_STATE_UNKNOWN, // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã§UNKNOWNã‹ã‚‰é·ç§»
   Diligent::STATE_TRANSITION_FLAGS TransitionFlags = Diligent::STATE_TRANSITION_FLAG_NONE
  )
  {
-  // NewState ‚Ìƒ`ƒFƒbƒNi‚æ‚èŒ˜˜S‚É‚·‚é‚È‚çj
+  // NewState ã®ãƒã‚§ãƒƒã‚¯ï¼ˆã‚ˆã‚Šå …ç‰¢ã«ã™ã‚‹ãªã‚‰ï¼‰
   VERIFY_EXPR(NewState == Diligent::RESOURCE_STATE_SHADER_RESOURCE ||
    NewState == Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
 
@@ -58,11 +60,11 @@ export namespace ArtifactCore {
   Desc.NewState = NewState;
   Desc.Flags = TransitionFlags;
 
-  // •K—v‚É‰‚¶‚ÄA“Á’è‚Ì CS ŠÖ˜Aƒtƒ‰ƒO‚ğ©“®“I‚É’Ç‰Á‚·‚é‚±‚Æ‚àŒŸ“¢‰Â”\B
-  // —á:
+  // å¿…è¦ã«å¿œã˜ã¦ã€ç‰¹å®šã® CS é–¢é€£ãƒ•ãƒ©ã‚°ã‚’è‡ªå‹•çš„ã«è¿½åŠ ã™ã‚‹ã“ã¨ã‚‚æ¤œè¨å¯èƒ½ã€‚
+  // ä¾‹:
   // if (NewState == Diligent::RESOURCE_STATE_SHADER_RESOURCE)
   // {
-  //     Desc.TransitionFlags |= Diligent::STATE_TRANSITION_FLAG_TRANSITION_SHADER_INPUT; // ‚±‚Ìƒtƒ‰ƒO‚ÍSRV‚Ö‚Ì‘JˆÚ‚É–ğ—§‚Â
+  //     Desc.TransitionFlags |= Diligent::STATE_TRANSITION_FLAG_TRANSITION_SHADER_INPUT; // ã“ã®ãƒ•ãƒ©ã‚°ã¯SRVã¸ã®é·ç§»æ™‚ã«å½¹ç«‹ã¤
   // }
 
   return Desc;
@@ -82,7 +84,7 @@ export namespace ArtifactCore {
   desc.MipLevels = 1;
   desc.Format = format;
   desc.Usage = USAGE_DEFAULT;
-  desc.BindFlags = BIND_SHADER_RESOURCE;  // “Ç‚İæ‚èê—p
+  desc.BindFlags = BIND_SHADER_RESOURCE;  // èª­ã¿å–ã‚Šå°‚ç”¨
   desc.CPUAccessFlags = CPU_ACCESS_NONE;
   desc.MiscFlags = Diligent::MISC_TEXTURE_FLAG_NONE;
 
@@ -102,7 +104,7 @@ export namespace ArtifactCore {
   desc.MipLevels = 1;
   desc.Format = format;
   desc.Usage = USAGE_DEFAULT;
-  desc.BindFlags = BIND_SHADER_RESOURCE;  // “Ç‚İæ‚èê—p
+  desc.BindFlags = BIND_SHADER_RESOURCE;  // èª­ã¿å–ã‚Šå°‚ç”¨
   desc.CPUAccessFlags = CPU_ACCESS_NONE;
   desc.MiscFlags = Diligent::MISC_TEXTURE_FLAG_NONE;
 
@@ -113,9 +115,9 @@ export namespace ArtifactCore {
  TextureDesc CreateCSOutputTextureDesc(
   Uint32                               Width,
   Uint32                               Height,
-  TEXTURE_FORMAT             Format =TEX_FORMAT_RGBA32_FLOAT, // ‚æ‚­g‚¤RGBA8‚ğƒfƒtƒHƒ‹ƒg‚É
-  Uint32                               MipLevels = 1, // CSo—Í‚Åƒ~ƒbƒvƒ}ƒbƒv‚Í’Êí•s—v
-  const char* Name = "CSOutputTexture" // ƒfƒtƒHƒ‹ƒg–¼
+  TEXTURE_FORMAT             Format =TEX_FORMAT_RGBA32_FLOAT, // ã‚ˆãä½¿ã†RGBA8ã‚’ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã«
+  Uint32                               MipLevels = 1, // CSå‡ºåŠ›ã§ãƒŸãƒƒãƒ—ãƒãƒƒãƒ—ã¯é€šå¸¸ä¸è¦
+  const char* Name = "CSOutputTexture" // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå
  )
  {
   TextureDesc TexDesc;
@@ -126,19 +128,19 @@ export namespace ArtifactCore {
   TexDesc.Height = Height;
   TexDesc.Format = Format;
   TexDesc.MipLevels = MipLevels;
-  TexDesc.ArraySize = 1; // 2DƒeƒNƒXƒ`ƒƒƒAƒŒƒC‚Å‚Í‚È‚¢
-  TexDesc.Usage = USAGE_DEFAULT; // GPU‚©‚ç‚Ì‚İƒAƒNƒZƒX
-  // CSo—Í‚Æ‚µ‚Ä•K{: BIND_UNORDERED_ACCESS (UAV)
-  // Œã‘±ˆ—‚ÅƒVƒF[ƒ_[“ü—Í‚Æ‚µ‚Äg‚¤‚½‚ß: BIND_SHADER_RESOURCE (SRV)
+  TexDesc.ArraySize = 1; // 2Dãƒ†ã‚¯ã‚¹ãƒãƒ£ã‚¢ãƒ¬ã‚¤ã§ã¯ãªã„
+  TexDesc.Usage = USAGE_DEFAULT; // GPUã‹ã‚‰ã®ã¿ã‚¢ã‚¯ã‚»ã‚¹
+  // CSå‡ºåŠ›ã¨ã—ã¦å¿…é ˆ: BIND_UNORDERED_ACCESS (UAV)
+  // å¾Œç¶šå‡¦ç†ã§ã‚·ã‚§ãƒ¼ãƒ€ãƒ¼å…¥åŠ›ã¨ã—ã¦ä½¿ã†ãŸã‚: BIND_SHADER_RESOURCE (SRV)
   TexDesc.BindFlags = Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE;
-  TexDesc.CPUAccessFlags = Diligent::CPU_ACCESS_NONE; // CPU‚©‚ç‚ÍƒAƒNƒZƒX‚µ‚È‚¢
-  TexDesc.SampleCount = 1; // ƒ}ƒ‹ƒ`ƒTƒ“ƒvƒŠƒ“ƒO‚È‚µ
-  TexDesc.MiscFlags = Diligent::MISC_TEXTURE_FLAG_NONE; // ‚»‚Ì‘¼‚Ìƒtƒ‰ƒO‚Í‚È‚µ
+  TexDesc.CPUAccessFlags = Diligent::CPU_ACCESS_NONE; // CPUã‹ã‚‰ã¯ã‚¢ã‚¯ã‚»ã‚¹ã—ãªã„
+  TexDesc.SampleCount = 1; // ãƒãƒ«ãƒã‚µãƒ³ãƒ—ãƒªãƒ³ã‚°ãªã—
+  TexDesc.MiscFlags = Diligent::MISC_TEXTURE_FLAG_NONE; // ãã®ä»–ã®ãƒ•ãƒ©ã‚°ã¯ãªã—
 
   return TexDesc;
  }
 
- RefCntAutoPtr<ITexture> CreateCSInputTexture(Uint32 Width,
+ RefCntAutoPtr<ITexture> CreateCSSRVInputTexture(Uint32 Width,
   Uint32 Height, 
   TEXTURE_FORMAT   Format = TEX_FORMAT_RGBA32_FLOAT,
   QString name=""
@@ -149,7 +151,7 @@ export namespace ArtifactCore {
   return RefCntAutoPtr<ITexture>(nullptr);
  }
 
- RefCntAutoPtr<ITexture> CreateCSInputTexture(Uint32 Width,
+ RefCntAutoPtr<ITexture> CreateCSSRVInputTexture(Uint32 Width,
   Uint32 Height,
   const QString name,
   TEXTURE_FORMAT   Format = TEX_FORMAT_RGBA32_FLOAT
@@ -162,21 +164,39 @@ export namespace ArtifactCore {
  }
 
 
- auto CreateCSInputTexture(cv::Mat& mat,
+ auto CreateSRVInputTexture(IRenderDevice* device, cv::Mat& mat,
   const QString& name,
   TEXTURE_FORMAT   Format = TEX_FORMAT_RGBA32_FLOAT
  )
  {
-  //auto desc=CreateCSInputTextureDesc(mat.rows, mat.cols, Format, name);
+  if (mat.channels() != 4 || mat.type() != CV_32FC4) {
+   qWarning() << "Expected CV_32FC4 format (RGBA32F)";
+   return RefCntAutoPtr<ITexture>(nullptr);
+  }
+  TextureDesc texDesc;
+  texDesc.Name = name.toUtf8().constData();
+  texDesc.Type = RESOURCE_DIM_TEX_2D;
+  texDesc.Width = mat.cols;
+  texDesc.Height = mat.rows;
+  texDesc.Format = Format;
+  texDesc.Usage = USAGE_IMMUTABLE; // èª­ã¿å–ã‚Šå°‚ç”¨
+  texDesc.BindFlags = BIND_SHADER_RESOURCE;
+  texDesc.MipLevels = 1;
+
 
   TextureData InitialData;
   TextureSubResData subResData;
 
-  subResData.Stride = static_cast<Diligent::Uint32>(mat.cols * sizeof(float) * 4);
+  subResData.Stride = static_cast<Uint32>(mat.step);
   subResData.pData = mat.data;
 
   InitialData.pSubResources = &subResData;
-  InitialData.NumSubresources = 1; // ƒ~ƒbƒvƒ}ƒbƒv‚ª‚È‚¢‚½‚ß1
+  InitialData.NumSubresources = 1; // ãƒŸãƒƒãƒ—ãƒãƒƒãƒ—ãŒãªã„ãŸã‚1
+
+  RefCntAutoPtr<ITexture> texture;
+  device->CreateTexture(texDesc, &InitialData, &texture);
+
+  if (!texture)
 
   return RefCntAutoPtr<ITexture>(nullptr);
  }

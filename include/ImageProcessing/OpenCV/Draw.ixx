@@ -1,4 +1,4 @@
-module;
+ï»¿module;
 #include <opencv2/opencv.hpp>
 #include "../../Define/DllExportMacro.hpp"
 export module Draw;
@@ -31,25 +31,25 @@ export namespace ArtifactCore {
 #include <cmath>
 #include <algorithm> // For std::min
 
- // ‰~ü—¦
+ // å††å‘¨ç‡
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
 /**
- * @brief Šp‚ğŠÛ‚ß‚½³ŒÜŠpŒ`‚ğ•`‰æ‚µAcv::Mat‚Æ‚µ‚Ä•Ô‚·ŠÖ”
+ * @brief è§’ã‚’ä¸¸ã‚ãŸæ­£äº”è§’å½¢ã‚’æç”»ã—ã€cv::Matã¨ã—ã¦è¿”ã™é–¢æ•°
  *
- * @param img_size ‰æ‘œ‚ÌƒTƒCƒY (cv::Size)
- * @param bg_color ‰æ‘œ‚Ì”wŒiF (cv::Scalar)
- * @param center ŒÜŠpŒ`‚Ì’†SÀ•W (cv::Point)
- * @param size ŒÜŠpŒ`‚ÌŠOÚ‰~‚Ì”¼Œa
- * @param radius Šp‚ğŠÛ‚ß‚é”¼Œa (ŠÛ‚ß‚ª‹­‚·‚¬‚é‚Æ—×Ú‚·‚éŠp‚Æd‚È‚é‰Â”\«‚ ‚è)
- * @param fill_color “h‚è‚Â‚Ô‚µ‚ÌF (cv::Scalar)B“h‚è‚Â‚Ô‚µ‚µ‚È‚¢ê‡‚Ícv::Scalar()‚ğg—p
- * @param line_color ˜gü‚ÌF (cv::Scalar)
- * @param thickness ˜gü‚Ì‘¾‚³ (“h‚è‚Â‚Ô‚µ‚Ì‚İ‚Ìê‡‚Í-1)
- * @return •`‰æ‚³‚ê‚½³ŒÜŠpŒ`‚ğŠÜ‚Şcv::MatƒIƒuƒWƒFƒNƒg
+ * @param img_size ç”»åƒã®ã‚µã‚¤ã‚º (cv::Size)
+ * @param bg_color ç”»åƒã®èƒŒæ™¯è‰² (cv::Scalar)
+ * @param center äº”è§’å½¢ã®ä¸­å¿ƒåº§æ¨™ (cv::Point)
+ * @param size äº”è§’å½¢ã®å¤–æ¥å††ã®åŠå¾„
+ * @param radius è§’ã‚’ä¸¸ã‚ã‚‹åŠå¾„ (ä¸¸ã‚ãŒå¼·ã™ãã‚‹ã¨éš£æ¥ã™ã‚‹è§’ã¨é‡ãªã‚‹å¯èƒ½æ€§ã‚ã‚Š)
+ * @param fill_color å¡—ã‚Šã¤ã¶ã—ã®è‰² (cv::Scalar)ã€‚å¡—ã‚Šã¤ã¶ã—ã—ãªã„å ´åˆã¯cv::Scalar()ã‚’ä½¿ç”¨
+ * @param line_color æ ç·šã®è‰² (cv::Scalar)
+ * @param thickness æ ç·šã®å¤ªã• (å¡—ã‚Šã¤ã¶ã—ã®ã¿ã®å ´åˆã¯-1)
+ * @return æç”»ã•ã‚ŒãŸæ­£äº”è§’å½¢ã‚’å«ã‚€cv::Matã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
  */
- cv::Mat drawFilledRoundedPentagon(cv::Size img_size, const cv::Scalar& bg_color,
+ LIBRARY_DLL_API cv::Mat drawFilledRoundedPentagon(cv::Size img_size, const cv::Scalar& bg_color,
   cv::Point center, int size, int radius,
   const cv::Scalar& fill_color, const cv::Scalar& line_color, int thickness);
 

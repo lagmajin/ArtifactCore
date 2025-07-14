@@ -1,6 +1,6 @@
-module;
+﻿module;
 
- module Codec:GStreamerDecoder;
+ module Codec.GStreamerDecoder;
 
 
 

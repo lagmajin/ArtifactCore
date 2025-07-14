@@ -11,7 +11,7 @@ extern "C" {
 module Media.MediaProbe;
 
 import Media.MediaProbe;
-import MediaInfo;
+import Media.Info;
 
 
 

@@ -1,29 +1,29 @@
-module;
+ï»¿module;
 #include <random>
 #include <opencv2/opencv.hpp>
 #include "../../Define/DllExportMacro.hpp"
-export module Draw;
+export module Glow;
 
 
 
 export namespace ArtifactCore {
 
  export LIBRARY_DLL_API void applySimpleGlow(
-  const cv::Mat& src,               // “ü—Í‰æ‘œiBGR or BGRAj
-  const cv::Mat& mask,              // ƒOƒ[‘ÎÛƒ}ƒXƒNiCV_8UC1 or emptyj
-  cv::Mat& dst,                     // o—Íæ
+  const cv::Mat& src,               // å…¥åŠ›ç”»åƒï¼ˆBGR or BGRAï¼‰
+  const cv::Mat& mask,              // ã‚°ãƒ­ãƒ¼å¯¾è±¡ãƒã‚¹ã‚¯ï¼ˆCV_8UC1 or emptyï¼‰
+  cv::Mat& dst,                     // å‡ºåŠ›å…ˆ
 
-  const cv::Scalar& glowColor,      // ƒOƒ[Fi—áF”’ / ”CˆÓFj
-  float glowGain = 1.0f,            // ‘S‘ÌƒOƒ[‹­“xŒW”
+  const cv::Scalar& glowColor,      // ã‚°ãƒ­ãƒ¼è‰²ï¼ˆä¾‹ï¼šç™½ / ä»»æ„è‰²ï¼‰
+  float glowGain = 1.0f,            // å…¨ä½“ã‚°ãƒ­ãƒ¼å¼·åº¦ä¿‚æ•°
 
-  int layerCount = 4,               // d‚Ë‚éƒŒƒCƒ„”i—áF4j
-  float baseSigma = 5.0f,           // Å‰‚Ìƒuƒ‰[”¼Œa
-  float sigmaGrowth = 1.8f,         // ƒuƒ‰[”¼Œa‚Ì‘‰Á”ä
-  float baseAlpha = 0.3f,           // Å‰‚Ì‡¬”ä—¦
-  float alphaFalloff = 0.6f,        // ‡¬”ä‚ÌŒ¸Šiw”“Ij
+  int layerCount = 4,               // é‡ã­ã‚‹ãƒ¬ã‚¤ãƒ¤æ•°ï¼ˆä¾‹ï¼š4ï¼‰
+  float baseSigma = 5.0f,           // æœ€åˆã®ãƒ–ãƒ©ãƒ¼åŠå¾„
+  float sigmaGrowth = 1.8f,         // ãƒ–ãƒ©ãƒ¼åŠå¾„ã®å¢—åŠ æ¯”
+  float baseAlpha = 0.3f,           // æœ€åˆã®åˆæˆæ¯”ç‡
+  float alphaFalloff = 0.6f,        // åˆæˆæ¯”ã®æ¸›è¡°ï¼ˆæŒ‡æ•°çš„ï¼‰
 
-  bool additiveBlend = true,        // ‡¬‚·‚é‚©”Û‚©isrc + glowj
-  bool linearSpace = true           // üŒ`F‹óŠÔ‚Åˆ—
+  bool additiveBlend = true,        // åˆæˆã™ã‚‹ã‹å¦ã‹ï¼ˆsrc + glowï¼‰
+  bool linearSpace = true           // ç·šå½¢è‰²ç©ºé–“ã§å‡¦ç†
  );
 
  LIBRARY_DLL_API cv::Mat applyGlintGlow(const cv::Mat& src, float threshold_value, int blur_radius, float intensity);

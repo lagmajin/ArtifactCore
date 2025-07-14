@@ -1,4 +1,4 @@
-
+﻿
 module;
 
 
@@ -9,7 +9,7 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <opencv2/core/mat.hpp>
-export module ImageProcessing:NegateCS;
+export module ImageProcessing.NegateCS;
 
 import std;
 import Image;

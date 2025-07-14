@@ -1,9 +1,9 @@
-module;
+ï»¿module;
 #include <wobjectimpl.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
-module Image:ImageF32x4RGBAWithCache;
+module Image.ImageF32x4RGBAWithCache;
 
 import Image;
 
@@ -25,7 +25,7 @@ namespace ArtifactCore
   ImageF32x4_RGBA m_cpuImage;
   Diligent::RefCntAutoPtr<ITexture> m_pGpuTexture;
   bool m_bCpuDataDirty = false;
-  // GPUƒf[ƒ^‚ª•ÏX‚³‚ê‚½‚±‚Æ‚ğ¦‚·ƒtƒ‰ƒOiCPU‚Ö‚Ì“¯Šú‚ª•K—vj
+  // GPUãƒ‡ãƒ¼ã‚¿ãŒå¤‰æ›´ã•ã‚ŒãŸã“ã¨ã‚’ç¤ºã™ãƒ•ãƒ©ã‚°ï¼ˆCPUã¸ã®åŒæœŸãŒå¿…è¦ï¼‰
   bool m_bGpuDataDirty = false;
   Diligent::Box m_cpuDirtyBox;
   const ImageF32x4_RGBA& GetCpuImage() const;
@@ -54,8 +54,8 @@ namespace ArtifactCore
 
  ImageF32x4_RGBA& ImageF32x4RGBAWithCache::Impl::GetCpuImageMutable()
  {
-  m_bCpuDataDirty = true; // ‰Â•ÏQÆ‚ğ•Ô‚·‚Ì‚ÅA•ÏX‚³‚ê‚½‚ÆŒ©‚È‚·
-  ResetDirtyBox(m_cpuDirtyBox); // ‘S‘Ì‚ªƒ_[ƒeƒB‚Æƒ}[ƒN
+  m_bCpuDataDirty = true; // å¯å¤‰å‚ç…§ã‚’è¿”ã™ã®ã§ã€å¤‰æ›´ã•ã‚ŒãŸã¨è¦‹ãªã™
+  ResetDirtyBox(m_cpuDirtyBox); // å…¨ä½“ãŒãƒ€ãƒ¼ãƒ†ã‚£ã¨ãƒãƒ¼ã‚¯
   return m_cpuImage;
  }
 
@@ -63,9 +63,9 @@ namespace ArtifactCore
  {
   if (m_bGpuDataDirty)
   {
-   //UpdateCpuDataFromGpuTexture(pContext); // pContext ‚ğ“n‚·
+   //UpdateCpuDataFromGpuTexture(pContext); // pContext ã‚’æ¸¡ã™
   }
-  // pContext ‚ğg‚Á‚Äó‘Ô‘JˆÚ‚ğs‚¤
+  // pContext ã‚’ä½¿ã£ã¦çŠ¶æ…‹é·ç§»ã‚’è¡Œã†
   //pContext->TransitionShaderResourceStates(m_pGpuTexture, Diligent::RESOURCE_STATE_SHADER_RESOURCE);
 
   if (m_pGpuTexture)
@@ -97,9 +97,9 @@ namespace ArtifactCore
   // Explicitly construct RefCntAutoPtr from the raw pointer returned by GetDefaultView()
   if (m_pGpuTexture)
   {
-   // GetDefaultView ‚ª ITextureView* ‚ğ•Ô‚·ê‡:
+   // GetDefaultView ãŒ ITextureView* ã‚’è¿”ã™å ´åˆ:
    ITextureView* pView = m_pGpuTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
-   return RefCntAutoPtr<ITextureView>(pView); // ¶ƒ|ƒCƒ“ƒ^‚ğRefCntAutoPtr‚Åƒ‰ƒbƒv
+   return RefCntAutoPtr<ITextureView>(pView); // ç”Ÿãƒã‚¤ãƒ³ã‚¿ã‚’RefCntAutoPtrã§ãƒ©ãƒƒãƒ—
   }
   else
   {

@@ -1,4 +1,4 @@
-module;
+ï»¿module;
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
@@ -7,7 +7,7 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/mat.hpp>
-module ImageProcessing:NegateCS;
+module ImageProcessing.NegateCS;
 
 import TextureFactory;
 
@@ -51,25 +51,25 @@ namespace ArtifactCore
 	  if (!file.open(QIODevice::ReadOnly))
 	  {
 	   qWarning() << "Failed to open CSO file:" << csoFilePath;
-	   return; // ƒtƒ@ƒCƒ‹‚ªŠJ‚¯‚È‚©‚Á‚½ê‡‚Íˆ—‚ğ’†’f
+	   return; // ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ãªã‹ã£ãŸå ´åˆã¯å‡¦ç†ã‚’ä¸­æ–­
 	  }
 
-	  QByteArray fileData = file.readAll(); // ƒtƒ@ƒCƒ‹‚Ì“à—e‚ğ‘S‚Ä“Ç‚İ‚Ş
+	  QByteArray fileData = file.readAll(); // ãƒ•ã‚¡ã‚¤ãƒ«ã®å†…å®¹ã‚’å…¨ã¦èª­ã¿è¾¼ã‚€
 	  file.close();
 
 	  if (fileData.isEmpty())
 	  {
 	   qWarning() << "CSO file is empty:" << csoFilePath;
-	   return; // ƒtƒ@ƒCƒ‹‚ª‹ó‚Ìê‡‚Íˆ—‚ğ’†’f
+	   return; // ãƒ•ã‚¡ã‚¤ãƒ«ãŒç©ºã®å ´åˆã¯å‡¦ç†ã‚’ä¸­æ–­
 	  }
 
 
 	  ShaderCreateInfo ShaderCI;
 	  ShaderCI.Desc.Name = "BGRA_To_RGBA_CS";
 	  ShaderCI.Desc.ShaderType = SHADER_TYPE_COMPUTE;
-	  ShaderCI.EntryPoint = "main"; // HLSL‚ÌƒoƒCƒgƒR[ƒh‚È‚Ì‚ÅƒGƒ“ƒgƒŠƒ|ƒCƒ“ƒg‚ğw’è
-	  ShaderCI.ByteCode     = fileData.constData(); // QByteArray ‚Ì¶ƒf[ƒ^ƒ|ƒCƒ“ƒ^‚ğæ“¾
-	  ShaderCI.ByteCodeSize = fileData.size();      // QByteArray ‚ÌƒTƒCƒY‚ğæ“¾
+	  ShaderCI.EntryPoint = "main"; // HLSLã®ãƒã‚¤ãƒˆã‚³ãƒ¼ãƒ‰ãªã®ã§ã‚¨ãƒ³ãƒˆãƒªãƒã‚¤ãƒ³ãƒˆã‚’æŒ‡å®š
+	  ShaderCI.ByteCode     = fileData.constData(); // QByteArray ã®ç”Ÿãƒ‡ãƒ¼ã‚¿ãƒã‚¤ãƒ³ã‚¿ã‚’å–å¾—
+	  ShaderCI.ByteCodeSize = fileData.size();      // QByteArray ã®ã‚µã‚¤ã‚ºã‚’å–å¾—
 	  ShaderCI.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
 
 	  
@@ -87,9 +87,9 @@ namespace ArtifactCore
 	 	//ASSERT_NE(pComputeShader, nullptr);
 	  ShaderResourceVariableDesc Vars[] =
 	  {
-	   // InputTexture ‚ÍƒVƒF[ƒ_[ƒŠƒ\[ƒXi“Ç‚İæ‚èê—pj‚È‚Ì‚Å BIND_SHADER_RESOURCE
-	   {SHADER_TYPE_COMPUTE, "InputTexture",  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}, // Static ‚Ü‚½‚Í Mutable/Dynamic
-	   // OutputTexture ‚Í‡˜•s’èƒAƒNƒZƒXƒrƒ…[i‘‚«‚İ—pj‚È‚Ì‚Å BIND_UNORDERED_ACCESS
+	   // InputTexture ã¯ã‚·ã‚§ãƒ¼ãƒ€ãƒ¼ãƒªã‚½ãƒ¼ã‚¹ï¼ˆèª­ã¿å–ã‚Šå°‚ç”¨ï¼‰ãªã®ã§ BIND_SHADER_RESOURCE
+	   {SHADER_TYPE_COMPUTE, "InputTexture",  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}, // Static ã¾ãŸã¯ Mutable/Dynamic
+	   // OutputTexture ã¯é †åºä¸å®šã‚¢ã‚¯ã‚»ã‚¹ãƒ“ãƒ¥ãƒ¼ï¼ˆæ›¸ãè¾¼ã¿ç”¨ï¼‰ãªã®ã§ BIND_UNORDERED_ACCESS
 	   {SHADER_TYPE_COMPUTE, "OutputTexture", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
 	  };
 
@@ -118,9 +118,9 @@ namespace ArtifactCore
 	  InputTexDesc.Name = "Input BGRA32F Texture";
 	  InputTexDesc.Width = static_cast<Diligent::Uint32>(mat.cols);
 	  InputTexDesc.Height = static_cast<Diligent::Uint32>(mat.rows);
-	  InputTexDesc.Type = Diligent::RESOURCE_DIM_TEX_2D; // 2DƒeƒNƒXƒ`ƒƒ
-	  InputTexDesc.ArraySize = 1; // ”z—ñ‚Å‚Í‚È‚¢
-	  InputTexDesc.MipLevels = 1; // ƒ~ƒbƒvƒ}ƒbƒv‚Í•s—v
+	  InputTexDesc.Type = Diligent::RESOURCE_DIM_TEX_2D; // 2Dãƒ†ã‚¯ã‚¹ãƒãƒ£
+	  InputTexDesc.ArraySize = 1; // é…åˆ—ã§ã¯ãªã„
+	  InputTexDesc.MipLevels = 1; // ãƒŸãƒƒãƒ—ãƒãƒƒãƒ—ã¯ä¸è¦
 	  InputTexDesc.SampleCount = 1;
 	  InputTexDesc.Format =TEX_FORMAT_RGBA32_FLOAT;
 	  InputTexDesc.BindFlags =BIND_SHADER_RESOURCE;
@@ -128,28 +128,28 @@ namespace ArtifactCore
 
 	  TextureData InitialData;
 	  TextureSubResData subResData;
-	  // ƒXƒgƒ‰ƒCƒh‚ÍA1s‚ ‚½‚è‚ÌƒoƒCƒg”‚Å‚·B
-	  // float32x4 ‚Í 4ƒoƒCƒg * 4ƒ`ƒƒƒlƒ‹ = 16ƒoƒCƒg ‚È‚Ì‚ÅA
-	  // inputMat.cols * 16 ‚Æ‚È‚è‚Ü‚·B
+	  // ã‚¹ãƒˆãƒ©ã‚¤ãƒ‰ã¯ã€1è¡Œã‚ãŸã‚Šã®ãƒã‚¤ãƒˆæ•°ã§ã™ã€‚
+	  // float32x4 ã¯ 4ãƒã‚¤ãƒˆ * 4ãƒãƒ£ãƒãƒ« = 16ãƒã‚¤ãƒˆ ãªã®ã§ã€
+	  // inputMat.cols * 16 ã¨ãªã‚Šã¾ã™ã€‚
 	  subResData.Stride = static_cast<Diligent::Uint32>(mat.cols * sizeof(float) * 4);
 	  subResData.pData = mat.data;
 
 	  InitialData.pSubResources = &subResData;
-	  InitialData.NumSubresources = 1; // ƒ~ƒbƒvƒ}ƒbƒv‚ª‚È‚¢‚½‚ß1
+	  InitialData.NumSubresources = 1; // ãƒŸãƒƒãƒ—ãƒãƒƒãƒ—ãŒãªã„ãŸã‚1
 
 	  //Diligent::ITexture* pTex = nullptr;
 	  RefCntAutoPtr<ITexture> m_pInputTexture;
-	  // ƒeƒNƒXƒ`ƒƒ‚Ìì¬
-	  // ƒGƒ‰[ƒ`ƒFƒbƒN‚à’Ç‰Á‚·‚é‚±‚Æ‚ğ‚¨Š©‚ß‚µ‚Ü‚·B
+	  // ãƒ†ã‚¯ã‚¹ãƒãƒ£ã®ä½œæˆ
+	  // ã‚¨ãƒ©ãƒ¼ãƒã‚§ãƒƒã‚¯ã‚‚è¿½åŠ ã™ã‚‹ã“ã¨ã‚’ãŠå‹§ã‚ã—ã¾ã™ã€‚
 	  pDevice->CreateTexture(InputTexDesc, &InitialData, &m_pInputTexture);
 
 
 	  RefCntAutoPtr<ITexture> m_pOutputTexture;
 
-	  TextureDesc OutputTexDesc = TextureDesc(); // “ü—Í‚Æ“¯‚¶ƒTƒCƒY‚Åì¬
+	  TextureDesc OutputTexDesc = TextureDesc(); // å…¥åŠ›ã¨åŒã˜ã‚µã‚¤ã‚ºã§ä½œæˆ
 	  OutputTexDesc.Name = "Output RGBA Texture";
-	  OutputTexDesc.Format = TEX_FORMAT_RGBA32_FLOAT; // o—Í‚ÍRGBA8
-	  OutputTexDesc.BindFlags = BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE; // UAV‚Æ‚µ‚ÄƒoƒCƒ“ƒh‰Â”\AŒã‚ÅƒVƒF[ƒ_[ƒŠƒ\[ƒX‚Æ‚µ‚Ä‚à“Ç‚ß‚é‚æ‚¤‚É
+	  OutputTexDesc.Format = TEX_FORMAT_RGBA32_FLOAT; // å‡ºåŠ›ã¯RGBA8
+	  OutputTexDesc.BindFlags = BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE; // UAVã¨ã—ã¦ãƒã‚¤ãƒ³ãƒ‰å¯èƒ½ã€å¾Œã§ã‚·ã‚§ãƒ¼ãƒ€ãƒ¼ãƒªã‚½ãƒ¼ã‚¹ã¨ã—ã¦ã‚‚èª­ã‚ã‚‹ã‚ˆã†ã«
 	  OutputTexDesc.Width = InputTexDesc.Width;
 	  OutputTexDesc.Height = InputTexDesc.Height;
 	  OutputTexDesc.Type = RESOURCE_DIM_TEX_2D;
@@ -173,7 +173,7 @@ namespace ArtifactCore
 	   return;
 	  }
 
-	  // g_OutputImage ‚É m_pOutputTexture ‚ÌƒfƒtƒHƒ‹ƒgUAV‚ğƒoƒCƒ“ƒh
+	  // g_OutputImage ã« m_pOutputTexture ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆUAVã‚’ãƒã‚¤ãƒ³ãƒ‰
 	  Diligent::IShaderResourceVariable* pOutputVar = m_pSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "OutputTexture");
 	  if (pOutputVar)
 	  {
@@ -194,7 +194,7 @@ namespace ArtifactCore
 	  const Uint32 ImageHeight = OutputTexDesc.Height;
 	  Attribs.ThreadGroupCountX = (ImageWidth + 8 - 1) / 8;
 	  Attribs.ThreadGroupCountY = (ImageHeight + 8 - 1) / 8;
-	  Attribs.ThreadGroupCountZ = 1; // 2D‰æ‘œˆ—‚È‚Ì‚Å Z ‚Í 1 ‚Ì‚Ü‚Ü
+	  Attribs.ThreadGroupCountZ = 1; // 2Dç”»åƒå‡¦ç†ãªã®ã§ Z ã¯ 1 ã®ã¾ã¾
 
 	  RefCntAutoPtr<IFence> m_pFence;
 
@@ -216,7 +216,7 @@ namespace ArtifactCore
 	  StagingTexDesc.Width = OutputTexDesc.Width;
 	  StagingTexDesc.Height = OutputTexDesc.Height;
 	  StagingTexDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
-	  StagingTexDesc.Format = OutputTexDesc.Format; // o—ÍƒeƒNƒXƒ`ƒƒ‚Æ“¯‚¶ƒtƒH[ƒ}ƒbƒg
+	  StagingTexDesc.Format = OutputTexDesc.Format; // å‡ºåŠ›ãƒ†ã‚¯ã‚¹ãƒãƒ£ã¨åŒã˜ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆ
 	  StagingTexDesc.Usage = Diligent::USAGE_STAGING;
 	  StagingTexDesc.BindFlags = Diligent::BIND_NONE;
 	  StagingTexDesc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
@@ -235,7 +235,7 @@ namespace ArtifactCore
 	  CopyAttribs.DstSlice = 0;
 	  CopyAttribs.DstX = 0;
 	  CopyAttribs.DstY = 0;
-	  CopyAttribs.DstZ = 0; // 2DƒeƒNƒXƒ`ƒƒ‚È‚Ì‚Å0
+	  CopyAttribs.DstZ = 0; // 2Dãƒ†ã‚¯ã‚¹ãƒãƒ£ãªã®ã§0
 
 	  Diligent::StateTransitionDesc Barriers[1];
 	  Barriers[0].pResource = m_pOutputTexture;
@@ -248,13 +248,13 @@ namespace ArtifactCore
 	  Barriers[0].ArraySliceCount = DILIGENT_REMAINING_ARRAY_SLICES;
 
 
-	  pContext->TransitionResourceStates(_countof(Barriers), // NumBarriers: ƒoƒŠƒA‚Ì” (Uint32)
+	  pContext->TransitionResourceStates(_countof(Barriers), // NumBarriers: ãƒãƒªã‚¢ã®æ•° (Uint32)
 	   Barriers);
 
 	  pContext->CopyTexture(CopyAttribs);
 
 
-	  pContext->Flush();       // ƒRƒ}ƒ“ƒh‚ğGPU‚É‘—M
+	  pContext->Flush();       // ã‚³ãƒãƒ³ãƒ‰ã‚’GPUã«é€ä¿¡
 	  pContext->FinishFrame();
 	  Diligent::MappedTextureSubresource MappedData;
 
@@ -338,7 +338,7 @@ namespace ArtifactCore
    if (fileInfo.fileName() == filename) {
 	fullPathToShader = fileInfo.absoluteFilePath();
 	qDebug() << "Found shader file at:" << fullPathToShader;
-	break; // Œ©‚Â‚©‚Á‚½‚çƒ‹[ƒv‚ğ”²‚¯‚é
+	break; // è¦‹ã¤ã‹ã£ãŸã‚‰ãƒ«ãƒ¼ãƒ—ã‚’æŠœã‘ã‚‹
    }
   }
 

@@ -1,8 +1,8 @@
-module;
+﻿module;
 
-#include <QtCore/QFile>
+#include <QFile>
 
-export module Encoder:FFMpegEncoder;
+export module Encoder.FFMpegEncoder;
 
 //import EncoderSettings;
 

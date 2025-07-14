@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
@@ -43,10 +43,13 @@ namespace ArtifactCore {
 
  void GlowCS::Process(cv::Mat& mat, bool flip/*=false*/)
  {
-  //auto inputDesc = CreateCSInputTextureDesc(mat.cols, mat.rows, TEX_FORMAT_RGBA32_FLOAT,"");
+  //auto inputDesc = CreateCSInputTextureDesc(mat.cols, mat.rows, TEX_FORMAT_RGBA32_FLOAT,"InputTexture");
 
-  //auto inputTexture= CreateCSInputTextureDesc(mat, "Input Texture",TEX_FORMAT_RGBA32_FLOAT);
+  
+
 
  }
+
+
 
 };

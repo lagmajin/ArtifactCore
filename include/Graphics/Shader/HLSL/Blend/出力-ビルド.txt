@@ -1,0 +1,8 @@
+﻿11:24 でビルドが開始されました...
+1>------ ビルド開始: プロジェクト: ArtifactCore, 構成: Debug x64 ------
+1>C:\Users\lagma\Desktop\Artifact\ArtifactCore\include\Graphics\Shader\HLSL\Blend\CS_BlendAdd.hlsl(1,1): error X3000: Illegal character in shader file
+1>
+1>compilation failed; no code produced
+1>プロジェクト "ArtifactCore.vcxproj" のビルドが終了しました -- 失敗。
+========== ビルド: 成功 0、失敗 1、最新の状態 0、スキップ 0 ==========
+=========== ビルド は 11:24 で完了し、00.357 秒 掛かりました ==========

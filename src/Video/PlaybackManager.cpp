@@ -1,7 +1,10 @@
-
+﻿module;
+#include <wobjectimpl.h>
 module Video.PlaybackManager;
 
 namespace ArtifactCore {
+
+ W_OBJECT_IMPL(PlaybackManager)
 
  class PlaybackManager::Impl {
  private:

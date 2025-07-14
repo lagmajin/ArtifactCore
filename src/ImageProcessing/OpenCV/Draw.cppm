@@ -1,4 +1,4 @@
-
+ï»¿
 
 module;
 #include <opencv2/opencv.hpp>
@@ -6,15 +6,15 @@ module;
 
 #include "../../../include/Define/DllExportMacro.hpp"
 
-export module Draw;
+module Draw;
 
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
- export LIBRARY_DLL_API void drawStar5(cv::Mat& img,
+ LIBRARY_DLL_API void drawStar5(cv::Mat& img,
   cv::Scalar edgeColor,
   int edgeThickness,
-  cv::Scalar /*fillColor –³‹*/,
+  cv::Scalar /*fillColor ç„¡è¦–*/,
   float scale)
  {
   if (img.empty() || scale <= 0.0f) return;
@@ -22,7 +22,7 @@ export namespace ArtifactCore {
   cv::Point2f center(img.cols / 2.0f, img.rows / 2.0f);
   float radius = std::min(img.cols, img.rows) * 0.5f * scale;
 
-  // ŠOü5“_‚ğæ“¾i³ŒÜŠpŒ`j
+  // å¤–å‘¨5ç‚¹ã‚’å–å¾—ï¼ˆæ­£äº”è§’å½¢ï¼‰
   std::vector<cv::Point> outer(5);
   for (int i = 0; i < 5; ++i) {
    float angle =(float) CV_2PI * i / 5 - CV_PI / 2;
@@ -31,7 +31,7 @@ export namespace ArtifactCore {
    outer[i] = cv::Point(cvRound(x), cvRound(y));
   }
 
-  // ¯Œ^‚ÉŒ‹‚Ô‡”Ô‚Åü‚ğ•`‚­iŒğ·‚·‚é‚æ‚¤‚Éj
+  // æ˜Ÿå‹ã«çµã¶é †ç•ªã§ç·šã‚’æãï¼ˆäº¤å·®ã™ã‚‹ã‚ˆã†ã«ï¼‰
   std::vector<int> starOrder = { 0, 2, 4, 1, 3, 0 };
   for (int i = 0; i < 5; ++i) {
    const cv::Point& p1 = outer[starOrder[i]];
@@ -50,7 +50,7 @@ export namespace ArtifactCore {
 	 cv::Point pt = it.pos() + cv::Point(dx, dy);
 	 if (pt.inside(cv::Rect(0, 0, img.cols, img.rows))) {
 	  cv::Vec4f& dst = img.at<cv::Vec4f>(pt);
-	  dst = color; // •K—v‚È‚çƒ¿ƒuƒŒƒ“ƒh‚â‰ÁZ‡¬‚É•ÏX‰Â
+	  dst = color; // å¿…è¦ãªã‚‰Î±ãƒ–ãƒ¬ãƒ³ãƒ‰ã‚„åŠ ç®—åˆæˆã«å¤‰æ›´å¯
 	 }
 	}
    }
@@ -60,12 +60,12 @@ export namespace ArtifactCore {
  void fillPoly32F(cv::Mat& img, const std::vector<cv::Point>& pts, cv::Vec4f fillColor) {
   if (img.type() != CV_32FC4) return;
 
-  // ƒ}ƒXƒNì¬
+  // ãƒã‚¹ã‚¯ä½œæˆ
   cv::Mat mask(img.size(), CV_8UC1, cv::Scalar(0));
   std::vector<std::vector<cv::Point>> pts_all{ pts };
   cv::fillPoly(mask, pts_all, 255, cv::LINE_AA);
 
-  // “h‚è‚Â‚Ô‚µiƒ}ƒXƒN‚³‚ê‚½•”•ª‚ğF‚Å–„‚ß‚éj
+  // å¡—ã‚Šã¤ã¶ã—ï¼ˆãƒã‚¹ã‚¯ã•ã‚ŒãŸéƒ¨åˆ†ã‚’è‰²ã§åŸ‹ã‚ã‚‹ï¼‰
   for (int y = 0; y < img.rows; ++y) {
    const uchar* mrow = mask.ptr<uchar>(y);
    cv::Vec4f* drow = img.ptr<cv::Vec4f>(y);
@@ -87,7 +87,7 @@ export namespace ArtifactCore {
   cv::Point2f center(img.cols / 2.0f, img.rows / 2.0f);
   float radius = std::min(img.cols, img.rows) * 0.5f * scale;
 
-  // ŠOü5“_i³ŒÜŠpŒ`j
+  // å¤–å‘¨5ç‚¹ï¼ˆæ­£äº”è§’å½¢ï¼‰
   std::vector<cv::Point> outer(5);
   for (int i = 0; i < 5; ++i) {
    float angle =(float) CV_2PI * i / 5 - CV_PI / 2;
@@ -96,17 +96,17 @@ export namespace ArtifactCore {
    outer[i] = cv::Point(cvRound(x), cvRound(y));
   }
 
-  // ¯Œ^i“h‚è‚Â‚Ô‚µ—pj‚Ì‡”Ô‚Å“à•”OŠpŒ`‚ğ\¬
+  // æ˜Ÿå‹ï¼ˆå¡—ã‚Šã¤ã¶ã—ç”¨ï¼‰ã®é †ç•ªã§å†…éƒ¨ä¸‰è§’å½¢ã‚’æ§‹æˆ
   std::vector<cv::Point> starFill(10);
   for (int i = 0; i < 5; ++i) {
    starFill[i * 2] = outer[i];
    starFill[i * 2 + 1] = outer[(i * 2 + 2) % 5];
   }
 
-  // ¯‚Ì“h‚è‚Â‚Ô‚µ
+  // æ˜Ÿã®å¡—ã‚Šã¤ã¶ã—
   fillPoly32F(img, starFill, fillColor);
 
-  // ¯Œ^‚Ì‡‚Éü‚ğˆø‚­
+  // æ˜Ÿå‹ã®é †ã«ç·šã‚’å¼•ã
   std::vector<int> starOrder = { 0, 2, 4, 1, 3, 0 };
   for (int i = 0; i < 5; ++i) {
    const cv::Point& p1 = outer[starOrder[i]];
@@ -117,14 +117,14 @@ export namespace ArtifactCore {
 
  LIBRARY_DLL_API cv::Mat drawFilledRoundedPentagon(cv::Size img_size, const cv::Scalar& bg_color, cv::Point center, int size, int radius, const cv::Scalar& fill_color, const cv::Scalar& line_color, int thickness)
  {
-  // V‚µ‚¢‰æ‘œ‚ğ”wŒiF‚Å‰Šú‰»
+  // æ–°ã—ã„ç”»åƒã‚’èƒŒæ™¯è‰²ã§åˆæœŸåŒ–
   cv::Mat img = cv::Mat::zeros(img_size, CV_8UC3);
   img = bg_color;
 
   std::vector<cv::Point> vertices;
-  // ³ŒÜŠpŒ`‚Ì’Êí‚Ì’¸“_‚ğŒvZ
+  // æ­£äº”è§’å½¢ã®é€šå¸¸ã®é ‚ç‚¹ã‚’è¨ˆç®—
   for (int i = 0; i < 5; ++i) {
-   // ’¸“_‚ğãŒü‚«‚©‚çŠJn (270“x = -90“x)
+   // é ‚ç‚¹ã‚’ä¸Šå‘ãã‹ã‚‰é–‹å§‹ (270åº¦ = -90åº¦)
    double angle_deg = 270.0 + i * 72.0;
    double angle_rad = angle_deg * M_PI / 180.0;
 
@@ -133,8 +133,8 @@ export namespace ArtifactCore {
    vertices.push_back(cv::Point(x, y));
   }
 
-  std::vector<cv::Point> polygonPoints; // ’¼ü•”•ª‚Ì“_‚ğŠi”[
-  std::vector<std::pair<cv::Point, double>> arcInfos; // ‰~ŒÊ‚Ì’†S‚ÆŠJnEI—¹Šp“x‚ğŠi”[ (ŠÈ—ª”Å)
+  std::vector<cv::Point> polygonPoints; // ç›´ç·šéƒ¨åˆ†ã®ç‚¹ã‚’æ ¼ç´
+  std::vector<std::pair<cv::Point, double>> arcInfos; // å††å¼§ã®ä¸­å¿ƒã¨é–‹å§‹ãƒ»çµ‚äº†è§’åº¦ã‚’æ ¼ç´ (ç°¡ç•¥ç‰ˆ)
 
   for (int i = 0; i < 5; ++i) {
    cv::Point currentVertex = vertices[i];
@@ -148,7 +148,7 @@ export namespace ArtifactCore {
    double normNext = std::sqrt(vecNext.x * vecNext.x + vecNext.y * vecNext.y);
 
    if (normPrev == 0 || normNext == 0) {
-	// ƒ[ƒŠ„‚è‰ñ”ğ
+	// ã‚¼ãƒ­å‰²ã‚Šå›é¿
 	continue;
    }
 
@@ -163,66 +163,66 @@ export namespace ArtifactCore {
    cv::Point point2_line = cv::Point(static_cast<int>(currentVertex.x + unitVecNext.x * segLenNext),
 	static_cast<int>(currentVertex.y + unitVecNext.y * segLenNext));
 
-   polygonPoints.push_back(point2_line); // ’¼ü‚ÌŠJn“_
+   polygonPoints.push_back(point2_line); // ç›´ç·šã®é–‹å§‹ç‚¹
 
-   // --- ‰~ŒÊ‚Ì’†S‚ÆŠp“x‚ÌŒvZiŠÈ—ª‰»”Åj ---
-   // ‚±‚±‚ª‚æ‚è•¡G‚ÈŠô‰½ŠwŒvZ‚ğ•K—v‚Æ‚·‚é•”•ª‚Å‚·B
-   // ³Šm‚ÈŠÛ‚ß‚É‚ÍAŠp‚Ì“ñ“™•ªü‚ğ—˜—p‚µ‚Ä‰~ŒÊ‚Ì’†S‚ğ‹‚ßA
-   // ‚»‚Ì’†S‚©‚çpoint1_line‚Æpoint2_line‚ª¬‚·Šp“x‚ğŒvZ‚·‚é•K—v‚ª‚ ‚è‚Ü‚·B
-   // —á‚Æ‚µ‚ÄA‹ß—“I‚È‰~ŒÊ‚Ìî•ñ‚ğŠi”[‚µ‚Ü‚·B
+   // --- å††å¼§ã®ä¸­å¿ƒã¨è§’åº¦ã®è¨ˆç®—ï¼ˆç°¡ç•¥åŒ–ç‰ˆï¼‰ ---
+   // ã“ã“ãŒã‚ˆã‚Šè¤‡é›‘ãªå¹¾ä½•å­¦è¨ˆç®—ã‚’å¿…è¦ã¨ã™ã‚‹éƒ¨åˆ†ã§ã™ã€‚
+   // æ­£ç¢ºãªä¸¸ã‚ã«ã¯ã€è§’ã®äºŒç­‰åˆ†ç·šã‚’åˆ©ç”¨ã—ã¦å††å¼§ã®ä¸­å¿ƒã‚’æ±‚ã‚ã€
+   // ãã®ä¸­å¿ƒã‹ã‚‰point1_lineã¨point2_lineãŒæˆã™è§’åº¦ã‚’è¨ˆç®—ã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚
+   // ä¾‹ã¨ã—ã¦ã€è¿‘ä¼¼çš„ãªå††å¼§ã®æƒ…å ±ã‚’æ ¼ç´ã—ã¾ã™ã€‚
 
-   // ‰¼‚Ì‰~ŒÊ‚Ì’†SiŠp‚Ì’¸“_‚É‹ß‚¢êŠj
+   // ä»®ã®å††å¼§ã®ä¸­å¿ƒï¼ˆè§’ã®é ‚ç‚¹ã«è¿‘ã„å ´æ‰€ï¼‰
    cv::Point arc_center_approx = currentVertex;
 
-   // point1_line‚Æpoint2_line‚ª‰~‚Ì’†S‚©‚ç‚È‚·Šp“x‚ğŒvZ
-   // atan2(y, x) ‚ÍƒxƒNƒgƒ‹(x,y)‚ÌŠp“x‚ğƒ‰ƒWƒAƒ“‚Å•Ô‚·
+   // point1_lineã¨point2_lineãŒå††ã®ä¸­å¿ƒã‹ã‚‰ãªã™è§’åº¦ã‚’è¨ˆç®—
+   // atan2(y, x) ã¯ãƒ™ã‚¯ãƒˆãƒ«(x,y)ã®è§’åº¦ã‚’ãƒ©ã‚¸ã‚¢ãƒ³ã§è¿”ã™
    double angle1 = std::atan2(point1_line.y - arc_center_approx.y, point1_line.x - arc_center_approx.x) * 180.0 / M_PI;
    double angle2 = std::atan2(point2_line.y - arc_center_approx.y, point2_line.x - arc_center_approx.x) * 180.0 / M_PI;
 
-   // Šp“x‚ª•‰‚É‚È‚éê‡‚ª‚ ‚é‚Ì‚Å’²®
+   // è§’åº¦ãŒè² ã«ãªã‚‹å ´åˆãŒã‚ã‚‹ã®ã§èª¿æ•´
    if (angle1 < 0) angle1 += 360;
    if (angle2 < 0) angle2 += 360;
 
-   // ‰~ŒÊ‚ğ•`‰æ‚·‚é‚½‚ß‚ÉAŠJnŠp“x‚ÆI—¹Šp“x‚ğ’²®
-   // ‚±‚ê‚Í”ñí‚É’Pƒ‚ÈÀ‘•‚Å‚ ‚èA³Šm‚ÈŠÛ‚ß‚Å‚Í‚È‚¢‰Â”\«‚ª‚ ‚è‚Ü‚·
+   // å††å¼§ã‚’æç”»ã™ã‚‹ãŸã‚ã«ã€é–‹å§‹è§’åº¦ã¨çµ‚äº†è§’åº¦ã‚’èª¿æ•´
+   // ã“ã‚Œã¯éå¸¸ã«å˜ç´”ãªå®Ÿè£…ã§ã‚ã‚Šã€æ­£ç¢ºãªä¸¸ã‚ã§ã¯ãªã„å¯èƒ½æ€§ãŒã‚ã‚Šã¾ã™
    double startAngle = angle2;
    double endAngle = angle1;
 
-   // •K—v‚É‰‚¶‚ÄŠp“x‚ğ³‹K‰» (0-360“x)
+   // å¿…è¦ã«å¿œã˜ã¦è§’åº¦ã‚’æ­£è¦åŒ– (0-360åº¦)
    if (startAngle > endAngle) {
-	std::swap(startAngle, endAngle); // ¬‚³‚¢•û‚ªŠJnŠp“x
+	std::swap(startAngle, endAngle); // å°ã•ã„æ–¹ãŒé–‹å§‹è§’åº¦
    }
-   // ‚à‚µ270“x‚©‚ç20“x‚Ì‚æ‚¤‚É‚Ü‚½‚®ê‡AendAngle‚É360“x‘«‚·‚È‚Ç‚Ìˆ—‚ª•K—v
-   // ‚±‚±‚Å‚Í’Pƒ‚ÈŠp“x”ÍˆÍ‚Åˆ—
+   // ã‚‚ã—270åº¦ã‹ã‚‰20åº¦ã®ã‚ˆã†ã«ã¾ãŸãå ´åˆã€endAngleã«360åº¦è¶³ã™ãªã©ã®å‡¦ç†ãŒå¿…è¦
+   // ã“ã“ã§ã¯å˜ç´”ãªè§’åº¦ç¯„å›²ã§å‡¦ç†
 
    arcInfos.push_back({ arc_center_approx, startAngle });
-   arcInfos.push_back({ arc_center_approx, endAngle }); // ƒ_ƒ~[‚Æ‚µ‚ÄI“_Šp“x‚à•Û‘¶
+   arcInfos.push_back({ arc_center_approx, endAngle }); // ãƒ€ãƒŸãƒ¼ã¨ã—ã¦çµ‚ç‚¹è§’åº¦ã‚‚ä¿å­˜
 
-   polygonPoints.push_back(point1_line); // ’¼ü‚ÌI—¹“_
+   polygonPoints.push_back(point1_line); // ç›´ç·šã®çµ‚äº†ç‚¹
   }
 
-  // “h‚è‚Â‚Ô‚µ‚Ìê‡Aƒ|ƒŠƒSƒ“‚Æ‰~ŒÊ‚ÅˆÍ‚Ü‚ê‚½—Ìˆæ‚ğ¶¬
-  // cv::fillPoly()‚ğg‚¤‚½‚ß‚Ì“_‚ÌƒŠƒXƒg‚ğ€”õ
+  // å¡—ã‚Šã¤ã¶ã—ã®å ´åˆã€ãƒãƒªã‚´ãƒ³ã¨å††å¼§ã§å›²ã¾ã‚ŒãŸé ˜åŸŸã‚’ç”Ÿæˆ
+  // cv::fillPoly()ã‚’ä½¿ã†ãŸã‚ã®ç‚¹ã®ãƒªã‚¹ãƒˆã‚’æº–å‚™
   std::vector<std::vector<cv::Point>> fill_pts(1);
   for (size_t i = 0; i < polygonPoints.size(); ++i) {
    fill_pts[0].push_back(polygonPoints[i]);
-   // ‚±‚±‚É‰~ŒÊ‚Ì“_‚ğ’Ç‰Á‚·‚é‚±‚Æ‚à‚Å‚«‚é‚ªA•¡G‚É‚È‚é‚½‚ß’¼ü‹ß—
+   // ã“ã“ã«å††å¼§ã®ç‚¹ã‚’è¿½åŠ ã™ã‚‹ã“ã¨ã‚‚ã§ãã‚‹ãŒã€è¤‡é›‘ã«ãªã‚‹ãŸã‚ç›´ç·šè¿‘ä¼¼
   }
 
-  if (fill_color[0] != 0 || fill_color[1] != 0 || fill_color[2] != 0 || fill_color[3] != 0) { // F‚ªİ’è‚³‚ê‚Ä‚¢‚ê‚Î“h‚è‚Â‚Ô‚µ
+  if (fill_color[0] != 0 || fill_color[1] != 0 || fill_color[2] != 0 || fill_color[3] != 0) { // è‰²ãŒè¨­å®šã•ã‚Œã¦ã„ã‚Œã°å¡—ã‚Šã¤ã¶ã—
    cv::fillPoly(img, fill_pts, fill_color, cv::LINE_AA);
   }
 
-  // ˜gü‚Ì•`‰æ
+  // æ ç·šã®æç”»
   if (thickness != -1) {
    for (size_t i = 0; i < polygonPoints.size(); ++i) {
 	cv::line(img, polygonPoints[i], polygonPoints[(i + 1) % polygonPoints.size()], line_color, thickness, cv::LINE_AA);
    }
 
-   // ‰~ŒÊ‚Ì•`‰æ (‚±‚ê‚ÍŠÈ—ª‰»‚³‚ê‚½‚à‚Ì‚ÅA³Šm‚ÈŠpŠÛ‚ß‚Å‚Í‚È‚¢‰Â”\«‚ª‚ ‚è‚Ü‚·)
-   // Še’¸“_‚É•`‰æ‚·‚é‰~ŒÊ‚ÍA–{—ˆ‚Ípoint1_line‚Æpoint2_line‚ÌŠÔ‚ğ•âŠÔ‚·‚é
+   // å††å¼§ã®æç”» (ã“ã‚Œã¯ç°¡ç•¥åŒ–ã•ã‚ŒãŸã‚‚ã®ã§ã€æ­£ç¢ºãªè§’ä¸¸ã‚ã§ã¯ãªã„å¯èƒ½æ€§ãŒã‚ã‚Šã¾ã™)
+   // å„é ‚ç‚¹ã«æç”»ã™ã‚‹å††å¼§ã¯ã€æœ¬æ¥ã¯point1_lineã¨point2_lineã®é–“ã‚’è£œé–“ã™ã‚‹
    for (int i = 0; i < 5; ++i) {
-	cv::Point arcCenter = vertices[i]; // ‚±‚±‚ğ³Šm‚ÉŒvZ‚·‚é•K—v‚ª‚ ‚é
+	cv::Point arcCenter = vertices[i]; // ã“ã“ã‚’æ­£ç¢ºã«è¨ˆç®—ã™ã‚‹å¿…è¦ãŒã‚ã‚‹
 	cv::ellipse(img, arcCenter, cv::Size(radius, radius), 0,
 	 arcInfos[i * 2].second, arcInfos[i * 2 + 1].second, line_color, thickness, cv::LINE_AA);
    }

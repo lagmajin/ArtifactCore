@@ -3,7 +3,7 @@ module;
 
 export module Media.MediaProbe;
 
-import MediaInfo;
+import Media.Info;
 
 export namespace ArtifactCore {
 

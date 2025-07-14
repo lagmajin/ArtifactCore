@@ -1,4 +1,4 @@
-module;
+ï»¿module;
 #include <opencv2/opencv.hpp>
 
 
@@ -16,17 +16,31 @@ namespace ArtifactCore {
   cv::Mat mat_;
   int32_t width() const;
   int32_t height() const;
-
+  Impl();
+  Impl(const FloatRGBA& rgba);
  };
 
  int32_t ImageF32x4_RGBA::Impl::width() const
  {
-  return 0;
+  return static_cast<int32_t>(mat_.cols);
  }
 
  int32_t ImageF32x4_RGBA::Impl::height() const
  {
-  return 0;
+  return static_cast<int32_t>(mat_.rows);
+ }
+
+ ImageF32x4_RGBA::Impl::Impl(const FloatRGBA& rgba)
+ {
+  
+  cv::Vec4f color(rgba.b(), rgba.g(), rgba.r(), rgba.a());  
+
+  mat_.setTo(color);
+ }
+
+ ImageF32x4_RGBA::Impl::Impl()
+ {
+
  }
 
  ImageF32x4_RGBA::ImageF32x4_RGBA()
@@ -39,7 +53,7 @@ namespace ArtifactCore {
 
  }
 
- ImageF32x4_RGBA::ImageF32x4_RGBA(const ImageF32x4_RGBA& image)
+ ImageF32x4_RGBA::ImageF32x4_RGBA(const ImageF32x4_RGBA& image) :impl_(new Impl())
  {
 
  }
@@ -47,8 +61,8 @@ namespace ArtifactCore {
  void ImageF32x4_RGBA::fill(const FloatRGBA& rgba)
  {
  
-   // OpenCV‚ÍBGR(A)‚Ì‡‚ğg‚¤‚ªA‚±‚±‚Å‚ÍFloatRGBA‚ªRGBA‚Æ‰¼’è
-   cv::Vec4f color(rgba.b(), rgba.g(), rgba.r(), rgba.a()); // —vC³F‡”ÔŸ‘æ‚Å‚Íir, g, b, aj¨ib, g, r, aj
+   // OpenCVã¯BGR(A)ã®é †ã‚’ä½¿ã†ãŒã€ã“ã“ã§ã¯FloatRGBAãŒRGBAã¨ä»®å®š
+   cv::Vec4f color(rgba.b(), rgba.g(), rgba.r(), rgba.a()); // è¦ä¿®æ­£ï¼šé †ç•ªæ¬¡ç¬¬ã§ã¯ï¼ˆr, g, b, aï¼‰â†’ï¼ˆb, g, r, aï¼‰
    //impl_->mat.setTo(color);
   
  }
@@ -62,8 +76,8 @@ namespace ArtifactCore {
   ImageF32x4_RGBA ImageF32x4_RGBA::createMaskLike(const ImageF32x4_RGBA& src, const FloatRGBA& fillColor /*= FloatRGBA*/)
   {
    ImageF32x4_RGBA mask;
-   mask = ImageF32x4_RGBA(); // ƒfƒtƒHƒ‹ƒgƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Å‰Šú‰»
-   mask.resize(src.width(), src.height()); // impl‚Ìresizeƒƒ\ƒbƒh‚ª‚ ‚ê‚Îg‚¤‘z’è
+   mask = ImageF32x4_RGBA(); // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã§åˆæœŸåŒ–
+   mask.resize(src.width(), src.height()); // implã®resizeãƒ¡ã‚½ãƒƒãƒ‰ãŒã‚ã‚Œã°ä½¿ã†æƒ³å®š
    mask.fill(fillColor);
    return mask;
   }
@@ -73,10 +87,10 @@ namespace ArtifactCore {
    if (this != &other) {
 
    	//if (other.impl_) {
-	 //impl_ = std::make_unique<Impl>(*other.impl_);  // š Impl ‚ÉƒRƒs[ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚ª•K—vI
+	 //impl_ = std::make_unique<Impl>(*other.impl_);  // â˜… Impl ã«ã‚³ãƒ”ãƒ¼ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ãŒå¿…è¦ï¼
 	//}
 	//else {
-	 //impl_.reset();  // nullptr ‚ğ‘ã“ü
+	 //impl_.reset();  // nullptr ã‚’ä»£å…¥
 	//}
    }
    return *this;
@@ -86,12 +100,12 @@ namespace ArtifactCore {
 
   int ImageF32x4_RGBA::width() const
   {
-   return 0;
+   return impl_->width();
   }
 
   int ImageF32x4_RGBA::height() const
   {
-   return 0;
+   return impl_->height();
   }
 
   cv::Mat ImageF32x4_RGBA::toCVMat()const
@@ -105,7 +119,11 @@ namespace ArtifactCore {
 
   }
 
- ImageF32x4_RGBA::~ImageF32x4_RGBA() = default;
+  ImageF32x4_RGBA::~ImageF32x4_RGBA()
+  {
+   delete impl_;
+  }
+ 
 
 
 

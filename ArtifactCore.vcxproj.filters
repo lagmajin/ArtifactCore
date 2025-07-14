@@ -286,6 +286,15 @@
     <Filter Include="ソース ファイル\Video">
       <UniqueIdentifier>{3fe5345d-3c93-4102-87e9-86ec00ddb777}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Test">
+      <UniqueIdentifier>{97426195-731c-43d1-8b54-6e49ddf12a9c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Shader\Blend">
+      <UniqueIdentifier>{170ba962-422c-476b-8c55-62ea54103a17}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Shader\Blur">
+      <UniqueIdentifier>{4a2e9048-4202-40fb-9564-aff57fe9baf2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1079,13 +1088,82 @@
     <ClCompile Include="include\Image\RawImage.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
+    <ClCompile Include="src\Video\MediaTimeStamp.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Media\MediaTimeStamp.ixx">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Artifact\include\Composition\CompositionSettings.ixx">
+      <Filter>ヘッダー ファイル\Composition</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Artifact\src\Composition\CompositionSettings.cpp">
+      <Filter>ソース ファイル\Composition</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Codec\FFmpegThumbnailExtractor.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Codec\FFmpegThumbnailExtractor.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Test\TestHelper.ixx">
+      <Filter>ヘッダー ファイル\Test</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\Audio.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioFrame.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioFrameToQAudioFormatConverter.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\FFmpegEncoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\RawImage.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\CvMatPaintEngine.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Layer\LayerStrip.cpp">
+      <Filter>ソース ファイル\Layer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Layer\Layer2DSetting.cpp">
+      <Filter>ソース ファイル\Layer</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\FenceTracker.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\DirectCompute\Blend2D_CS.cpp">
+      <Filter>ソース ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\Blend2D_CS.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\SinglePassShader.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\DirectCompute\SinglePassShader.cpp">
+      <Filter>ソース ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\String.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\ShaderID.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\GPUTaskHandle.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\GPUTexture.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
       <Filter>ヘッダー ファイル\Image</Filter>
-    </None>
-    <None Include="src\Image\CvMatPaintEngine.cpp">
-      <Filter>ソース ファイル\Image</Filter>
     </None>
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp">
       <Filter>ヘッダー ファイル\Composition</Filter>
@@ -1099,17 +1177,8 @@
     <None Include="include\Channel\DiskSize.ixx">
       <Filter>ヘッダー ファイル\Common</Filter>
     </None>
-    <None Include="src\Layer\Layer2DSetting.cpp">
-      <Filter>ソース ファイル\Layer</Filter>
-    </None>
-    <None Include="src\Image\FFmpegEncoder.cpp">
-      <Filter>ソース ファイル\Codec</Filter>
-    </None>
     <None Include="include\ImageProcessing\Halide\Lift.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
-    </None>
-    <None Include="src\Layer\LayerStrip.cpp">
-      <Filter>ソース ファイル\Layer</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -1136,6 +1205,24 @@
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Mask\EdgeMask.hlsl">
       <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendNormal.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Blend</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendAdd.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Blend</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendScreen.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Blend</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendOverlay.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Blend</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendSoftlight.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Blend</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\Blur\BoxBlur5x5.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Blur</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-module;
+ï»¿module;
 
 
 #include <opencv2/opencv.hpp>
@@ -26,8 +26,6 @@ export namespace ArtifactCore {
   explicit ImageF32x4_RGBA(const FloatRGBA& color);
   ImageF32x4_RGBA(const ImageF32x4_RGBA& image);
   ~ImageF32x4_RGBA();
-
-  // ƒRƒs[•Ô‚µ‚É‚·‚é‚±‚Æ‚ÅAcv::Mat‚Ìinclude•s—v
   auto toCVMat() const -> class cv::Mat;
   void fill(const FloatRGBA& rgba);
   void fillAlpha(float alpha=1.0f);
@@ -49,6 +47,6 @@ export namespace ArtifactCore {
 
   //typedef std::shared_ptr<
 
- // ƒ_ƒ~[‚Ìcv::Matƒ‰ƒbƒp[Œ^‚ð forward declareiexport ‚µ‚Ä‚È‚¢j
+ // ãƒ€ãƒŸãƒ¼ã®cv::Matãƒ©ãƒƒãƒ‘ãƒ¼åž‹ã‚’ forward declareï¼ˆexport ã—ã¦ãªã„ï¼‰
  class cv_Mat;
 }

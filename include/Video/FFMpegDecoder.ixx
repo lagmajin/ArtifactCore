@@ -1,4 +1,4 @@
-
+ï»¿
 
 module;
 #include "../Define/DllExportMacro.hpp"
@@ -6,31 +6,37 @@ module;
 #include <QString>
 #include <QImage>
 #include <QByteArray>
+
+extern "C" {
 #include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h> 
+}
 
 export module Codec.FFMpegDecoder;
+
 
 //struct AVFrame;
 export namespace ArtifactCore {
  enum class MediaType {
   Video,
   Audio,
-  EndOfFile, // ƒXƒgƒŠ[ƒ€‚ÌI’[
-  None       // ‰½‚à“¾‚ç‚ê‚È‚©‚Á‚½ê‡
+  EndOfFile, // ã‚¹ãƒˆãƒªãƒ¼ãƒ ã®çµ‚ç«¯
+  None       // ä½•ã‚‚å¾—ã‚‰ã‚Œãªã‹ã£ãŸå ´åˆ
  };
 
  struct MediaFrame {
   MediaType type = MediaType::None;
-  double    timestamp = 0.0; // ƒ^ƒCƒ€ƒXƒ^ƒ“ƒvi•bj
+  double    timestamp = 0.0; // ã‚¿ã‚¤ãƒ ã‚¹ã‚¿ãƒ³ãƒ—ï¼ˆç§’ï¼‰
 
-  // ƒrƒfƒIƒtƒŒ[ƒ€‚Ìê‡
+  // ãƒ“ãƒ‡ã‚ªãƒ•ãƒ¬ãƒ¼ãƒ ã®å ´åˆ
   QImage    videoImage;
 
-  // ƒI[ƒfƒBƒIƒtƒŒ[ƒ€‚Ìê‡
-  QByteArray audioSamples; // ¶‚ÌƒI[ƒfƒBƒIƒf[ƒ^ (—á: S16Œ`®)
+  // ã‚ªãƒ¼ãƒ‡ã‚£ã‚ªãƒ•ãƒ¬ãƒ¼ãƒ ã®å ´åˆ
+  QByteArray audioSamples; // ç”Ÿã®ã‚ªãƒ¼ãƒ‡ã‚£ã‚ªãƒ‡ãƒ¼ã‚¿ (ä¾‹: S16å½¢å¼)
   int       audioChannels = 0;
   int       audioSampleRate = 0;
-  // •K—v‚É‰‚¶‚ÄAƒI[ƒfƒBƒI‚ÌƒTƒ“ƒvƒ‹ƒtƒH[ƒ}ƒbƒg (AV_SAMPLE_FMT_S16‚È‚Ç) ‚à’Ç‰Á
+  // å¿…è¦ã«å¿œã˜ã¦ã€ã‚ªãƒ¼ãƒ‡ã‚£ã‚ªã®ã‚µãƒ³ãƒ—ãƒ«ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆ (AV_SAMPLE_FMT_S16ãªã©) ã‚‚è¿½åŠ 
  };
 
  
@@ -47,7 +53,7 @@ export namespace ArtifactCore {
 
   void closeFile();
 
-  AVFrame* decodeNextVideoFrame();
+  QImage decodeNextVideoFrame();
 
  };
 

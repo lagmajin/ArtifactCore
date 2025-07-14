@@ -1,16 +1,16 @@
-module;
+ï»¿module;
 #include <opencv2/opencv.hpp>
 #include <random>
 #include "../../../include/Define/DllExportMacro.hpp"
 
 
-export module Glow;
+module Glow;
 
 import Image;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
- export LIBRARY_DLL_API void applySimpleGlow(
+ LIBRARY_DLL_API void applySimpleGlow(
   const cv::Mat& src,
   const cv::Mat& mask,
   cv::Mat& dst,
@@ -32,7 +32,7 @@ export namespace ArtifactCore {
   cv::Mat srcFloat;
   src.convertTo(srcFloat, CV_32FC3, linearSpace ? 1.0 / 255.0 : 1.0);
 
-  // ƒ}ƒXƒNˆ—
+  // ãƒã‚¹ã‚¯å‡¦ç†
   cv::Mat maskGray;
   if (!mask.empty()) {
    if (mask.channels() == 1)
@@ -49,7 +49,7 @@ export namespace ArtifactCore {
    cv::Mat blurred;
    cv::GaussianBlur(srcFloat, blurred, cv::Size(), sigma, sigma);
 
-   // F’²•â³iglowColorj
+   // è‰²èª¿è£œæ­£ï¼ˆglowColorï¼‰
    cv::Mat colored = blurred.clone();
    for (int y = 0; y < colored.rows; ++y) {
 	cv::Vec3f* row = colored.ptr<cv::Vec3f>(y);
@@ -60,7 +60,7 @@ export namespace ArtifactCore {
 	}
    }
 
-   // ƒ}ƒXƒN“K—p
+   // ãƒã‚¹ã‚¯é©ç”¨
    if (!maskGray.empty()) {
 	for (int y = 0; y < colored.rows; ++y) {
 	 cv::Vec3f* row = colored.ptr<cv::Vec3f>(y);
@@ -71,7 +71,7 @@ export namespace ArtifactCore {
 	}
    }
 
-   // ƒAƒ‹ƒtƒ@‡¬
+   // ã‚¢ãƒ«ãƒ•ã‚¡åˆæˆ
    glowAccum += colored * alpha;
   }
 
@@ -105,27 +105,27 @@ export namespace ArtifactCore {
   cv::Mat rgb_src;
   cv::Mat alpha_src;
 
-  // 1. RGBA‚©‚çRGB‚ÆƒAƒ‹ƒtƒ@ƒ`ƒƒƒ“ƒlƒ‹‚ğ•ª—£
-  // OCV 4.xˆÈ~‚Å‚Ísplit()‚ªŒø—¦“I
+  // 1. RGBAã‹ã‚‰RGBã¨ã‚¢ãƒ«ãƒ•ã‚¡ãƒãƒ£ãƒ³ãƒãƒ«ã‚’åˆ†é›¢
+  // OCV 4.xä»¥é™ã§ã¯split()ãŒåŠ¹ç‡çš„
   std::vector<cv::Mat> channels;
   cv::split(src, channels);
   rgb_src = channels[0]; // B
-  cv::merge(std::vector<cv::Mat>{channels[0], channels[1], channels[2]}, rgb_src); // BGR‚Æ‚µ‚ÄŒ‹‡
+  cv::merge(std::vector<cv::Mat>{channels[0], channels[1], channels[2]}, rgb_src); // BGRã¨ã—ã¦çµåˆ
 
-  alpha_src = channels[3]; // ƒAƒ‹ƒtƒ@ƒ`ƒƒƒ“ƒlƒ‹
+  alpha_src = channels[3]; // ã‚¢ãƒ«ãƒ•ã‚¡ãƒãƒ£ãƒ³ãƒãƒ«
 
-  // 2. ‹P“x‚Ì’Šo (RGB‰æ‘œ‚ğƒOƒŒ[ƒXƒP[ƒ‹‚É•ÏŠ·‚µA‚µ‚«‚¢’lˆ—)
-  // ‹P“xŒvZ: L = 0.2126 * R + 0.7152 * G + 0.0722 * B (Rec.709)
-  // OpenCV‚ÌcvtColor(BGR2GRAY)‚à‹P“xŒvZ‚ğg‚¢‚Ü‚·‚ªAfloat‚È‚Ì‚Å’ˆÓ
+  // 2. è¼åº¦ã®æŠ½å‡º (RGBç”»åƒã‚’ã‚°ãƒ¬ãƒ¼ã‚¹ã‚±ãƒ¼ãƒ«ã«å¤‰æ›ã—ã€ã—ãã„å€¤å‡¦ç†)
+  // è¼åº¦è¨ˆç®—: L = 0.2126 * R + 0.7152 * G + 0.0722 * B (Rec.709)
+  // OpenCVã®cvtColor(BGR2GRAY)ã‚‚è¼åº¦è¨ˆç®—ã‚’ä½¿ã„ã¾ã™ãŒã€floatãªã®ã§æ³¨æ„
   cv::Mat luminance_float;
-  // BGR‚ğ’¼ÚƒOƒŒ[ƒXƒP[ƒ‹‚É•ÏŠ· (floatŒ^‚ğˆÛ)
+  // BGRã‚’ç›´æ¥ã‚°ãƒ¬ãƒ¼ã‚¹ã‚±ãƒ¼ãƒ«ã«å¤‰æ› (floatå‹ã‚’ç¶­æŒ)
   cv::cvtColor(rgb_src, luminance_float, cv::COLOR_BGR2GRAY);
 
-  // ‚µ‚«‚¢’lˆ— (w’è‚³‚ê‚½è‡’l‚æ‚è–¾‚é‚¢•”•ª‚ğ’Šo)
-  // THRESH_BINARY ‚Íè‡’l‚æ‚è¬‚³‚¢’l‚ğ0‚ÉA‘å‚«‚¢’l‚ğmaxval(‚±‚±‚Å‚Í1.0)‚É‚·‚é
+  // ã—ãã„å€¤å‡¦ç† (æŒ‡å®šã•ã‚ŒãŸé–¾å€¤ã‚ˆã‚Šæ˜ã‚‹ã„éƒ¨åˆ†ã‚’æŠ½å‡º)
+  // THRESH_BINARY ã¯é–¾å€¤ã‚ˆã‚Šå°ã•ã„å€¤ã‚’0ã«ã€å¤§ãã„å€¤ã‚’maxval(ã“ã“ã§ã¯1.0)ã«ã™ã‚‹
   cv::threshold(luminance_float, bright_areas, threshold_value, 1.0, cv::THRESH_BINARY);
 
-  // bright_areas‚ğRGBƒ`ƒƒƒ“ƒlƒ‹‚É•¡»‚µ‚ÄAŒ³‚Ì‰æ‘œ‚Ì–¾‚é‚¢•”•ª‚¾‚¯‚ğ’Šo
+  // bright_areasã‚’RGBãƒãƒ£ãƒ³ãƒãƒ«ã«è¤‡è£½ã—ã¦ã€å…ƒã®ç”»åƒã®æ˜ã‚‹ã„éƒ¨åˆ†ã ã‘ã‚’æŠ½å‡º
   std::vector<cv::Mat> bright_channels(3);
   bright_channels[0] = bright_areas.mul(channels[0]); // B
   bright_channels[1] = bright_areas.mul(channels[1]); // G
@@ -134,24 +134,24 @@ export namespace ArtifactCore {
   cv::merge(bright_channels, bright_rgb_extract);
 
 
-  // 3. ‚Ú‚©‚µ (ƒKƒEƒX‚Ú‚©‚µ‚ğ“K—p)
-  // ƒJ[ƒlƒ‹ƒTƒCƒY‚ÍŠï”‚Å‚ ‚é•K—v‚ª‚ ‚é
+  // 3. ã¼ã‹ã— (ã‚¬ã‚¦ã‚¹ã¼ã‹ã—ã‚’é©ç”¨)
+  // ã‚«ãƒ¼ãƒãƒ«ã‚µã‚¤ã‚ºã¯å¥‡æ•°ã§ã‚ã‚‹å¿…è¦ãŒã‚ã‚‹
   int kernel_size = blur_radius * 2 + 1;
-  if (kernel_size < 1) kernel_size = 1; // Å¬1
+  if (kernel_size < 1) kernel_size = 1; // æœ€å°1
 
   cv::GaussianBlur(bright_rgb_extract, glow_map, cv::Size(kernel_size, kernel_size), 0);
 
-  // 4. ‡¬ (Œ³‚Ì‰æ‘œ‚É‚Ú‚©‚µ‚½‰æ‘œ‚ğ‰ÁZ)
-  // AddWeighted ‚ÍƒAƒ‹ƒtƒ@ƒuƒŒƒ“ƒh‚¾‚ªA‚±‚±‚Å‚Í’¼Ú‰ÁZ‚Æ‚µ‚Äg‚¤
+  // 4. åˆæˆ (å…ƒã®ç”»åƒã«ã¼ã‹ã—ãŸç”»åƒã‚’åŠ ç®—)
+  // AddWeighted ã¯ã‚¢ãƒ«ãƒ•ã‚¡ãƒ–ãƒ¬ãƒ³ãƒ‰ã ãŒã€ã“ã“ã§ã¯ç›´æ¥åŠ ç®—ã¨ã—ã¦ä½¿ã†
   // output = src1 * alpha + src2 * beta + gamma;
   // glow_map * intensity + src
   cv::Mat output_rgb;
   cv::addWeighted(rgb_src, 1.0, glow_map, intensity, 0.0, output_rgb);
 
-  // ÅI“I‚Èo—Í‰æ‘œ‚ğBGRA‚ÅÄŒ‹‡
+  // æœ€çµ‚çš„ãªå‡ºåŠ›ç”»åƒã‚’BGRAã§å†çµåˆ
   std::vector<cv::Mat> output_channels(4);
-  cv::split(output_rgb, output_channels); // BGR‚ğB,G,R‚É•ª—£
-  output_channels[3] = alpha_src; // Œ³‚ÌƒAƒ‹ƒtƒ@ƒ`ƒƒƒ“ƒlƒ‹‚ğÄ—˜—p
+  cv::split(output_rgb, output_channels); // BGRã‚’B,G,Rã«åˆ†é›¢
+  output_channels[3] = alpha_src; // å…ƒã®ã‚¢ãƒ«ãƒ•ã‚¡ãƒãƒ£ãƒ³ãƒãƒ«ã‚’å†åˆ©ç”¨
 
   cv::Mat final_output;
   cv::merge(output_channels, final_output);
@@ -166,24 +166,24 @@ export namespace ArtifactCore {
   int width = image.cols;
   int height = image.rows;
 
-  // 1. cƒ‰ƒCƒ“‚Ì‹P“xƒ}ƒbƒviŠm—¦ƒ}ƒbƒvj‚ğ¶¬
-  cv::Mat prob_map = cv::Mat::zeros(height, width, CV_32FC1); // floatŒ^ƒOƒŒ[ƒXƒP[ƒ‹
+  // 1. ç¸¦ãƒ©ã‚¤ãƒ³ã®è¼åº¦ãƒãƒƒãƒ—ï¼ˆç¢ºç‡ãƒãƒƒãƒ—ï¼‰ã‚’ç”Ÿæˆ
+  cv::Mat prob_map = cv::Mat::zeros(height, width, CV_32FC1); // floatå‹ã‚°ãƒ¬ãƒ¼ã‚¹ã‚±ãƒ¼ãƒ«
 
-  // ƒ‰ƒCƒ“‚Ì’†S‚©‚ç—£‚ê‚é‚Ù‚ÇŠm—¦‚ª’á‚­‚È‚é‚æ‚¤‚ÉƒOƒ‰ƒf[ƒVƒ‡ƒ“‚ğì¬
+  // ãƒ©ã‚¤ãƒ³ã®ä¸­å¿ƒã‹ã‚‰é›¢ã‚Œã‚‹ã»ã©ç¢ºç‡ãŒä½ããªã‚‹ã‚ˆã†ã«ã‚°ãƒ©ãƒ‡ãƒ¼ã‚·ãƒ§ãƒ³ã‚’ä½œæˆ
   for (int x = 0; x < width; ++x) {
    float dist_from_center = std::abs(x - x_center);
    if (dist_from_center < line_width / 2.0) {
-	// ƒ‰ƒCƒ“‚Ì’†S‚É‹ß‚¢‚Ù‚ÇŠm—¦‚ğ‚‚­‚·‚é
-	// ƒKƒEƒXŠÖ”‚âüŒ`Œ¸Š‚È‚Ç‚ÅŒ`ó‚ğ’²®
-	prob_map.col(x).setTo(1.0f - (dist_from_center / (line_width / 2.0)) * 0.8f); // üŒ`Œ¸Š‚Ì—á
+	// ãƒ©ã‚¤ãƒ³ã®ä¸­å¿ƒã«è¿‘ã„ã»ã©ç¢ºç‡ã‚’é«˜ãã™ã‚‹
+	// ã‚¬ã‚¦ã‚¹é–¢æ•°ã‚„ç·šå½¢æ¸›è¡°ãªã©ã§å½¢çŠ¶ã‚’èª¿æ•´
+	prob_map.col(x).setTo(1.0f - (dist_from_center / (line_width / 2.0)) * 0.8f); // ç·šå½¢æ¸›è¡°ã®ä¾‹
    }
    else {
-	prob_map.col(x).setTo(0.0f); // ƒ‰ƒCƒ“‚Ì”ÍˆÍŠO‚Í0
+	prob_map.col(x).setTo(0.0f); // ãƒ©ã‚¤ãƒ³ã®ç¯„å›²å¤–ã¯0
    }
   }
-  // ­‚µ‚Ú‚©‚µ‚ÄŠŠ‚ç‚©‚É‚·‚é (ƒIƒvƒVƒ‡ƒ“)
+  // å°‘ã—ã¼ã‹ã—ã¦æ»‘ã‚‰ã‹ã«ã™ã‚‹ (ã‚ªãƒ—ã‚·ãƒ§ãƒ³)
   cv::GaussianBlur(prob_map, prob_map, cv::Size(3, 3), 0);
-  // Šm—¦‚ğ0.0-1.0‚É³‹K‰» (setTo‚ÅÅ‘å1.0‚É‚È‚é‚æ‚¤‚Éİ’è‚µ‚Ä‚¢‚ê‚Î•s—v‚Èê‡‚à)
+  // ç¢ºç‡ã‚’0.0-1.0ã«æ­£è¦åŒ– (setToã§æœ€å¤§1.0ã«ãªã‚‹ã‚ˆã†ã«è¨­å®šã—ã¦ã„ã‚Œã°ä¸è¦ãªå ´åˆã‚‚)
   double minVal, maxVal;
   cv::minMaxLoc(prob_map, &minVal, &maxVal);
   if (maxVal > 0) {
@@ -191,14 +191,14 @@ export namespace ArtifactCore {
   }
 
 
-  // 2. ÄŒ»«‚Ì‚ ‚é—”ƒWƒFƒlƒŒ[ƒ^‚Ì‰Šú‰»
+  // 2. å†ç¾æ€§ã®ã‚ã‚‹ä¹±æ•°ã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿ã®åˆæœŸåŒ–
   std::mt19937 gen(seed);
   std::uniform_real_distribution<> dis(0.0, 1.0);
 
-  // 3. “_¶¬‚Æ•`‰æ
+  // 3. ç‚¹ç”Ÿæˆã¨æç”»
   long points_drawn = 0;
   for (long i = 0; i < num_points_to_try; ++i) {
-   // ƒ‰ƒ“ƒ_ƒ€‚ÈÀ•W‚ğ‘I‘ğ
+   // ãƒ©ãƒ³ãƒ€ãƒ ãªåº§æ¨™ã‚’é¸æŠ
    int x = static_cast<int>(dis(gen) * width);
    int y = static_cast<int>(dis(gen) * height);
 
@@ -216,89 +216,89 @@ export namespace ArtifactCore {
 
  LIBRARY_DLL_API  cv::Mat applyVerticalGlow(const cv::Mat& src, float threshold_value, int vertical_blur_radius, float intensity)
  {
-  cv::Mat processed_src = src; // ‚Ü‚¸‚Í“ü—Í‰æ‘œ‚ğ‚»‚Ì‚Ü‚Üg—p
+  cv::Mat processed_src = src; // ã¾ãšã¯å…¥åŠ›ç”»åƒã‚’ãã®ã¾ã¾ä½¿ç”¨
 
-  // “ü—Í‰æ‘œ‚ªCV_32FC4‚Å‚È‚¢ê‡A•ÏŠ·‚ğ‚İ‚é
+  // å…¥åŠ›ç”»åƒãŒCV_32FC4ã§ãªã„å ´åˆã€å¤‰æ›ã‚’è©¦ã¿ã‚‹
   if (src.empty() || src.channels() != 4 || src.depth() != CV_32F) {
    std::cerr << "Input image is not CV_32FC4. Attempting conversion..." << std::endl;
-   processed_src = convertToFloat32RGBA(src); // ƒwƒ‹ƒp[ŠÖ”‚Å•ÏŠ·
+   processed_src = convertToFloat32RGBA(src); // ãƒ˜ãƒ«ãƒ‘ãƒ¼é–¢æ•°ã§å¤‰æ›
    if (processed_src.empty()) {
-	// •ÏŠ·‚É¸”s‚µ‚½ê‡
+	// å¤‰æ›ã«å¤±æ•—ã—ãŸå ´åˆ
 	std::cerr << "Failed to convert input image to CV_32FC4. Aborting." << std::endl;
 	return cv::Mat();
    }
   }
 
-  // ‚±‚±‚©‚çAˆÈ~‚Ìˆ—‚Å‚Í `processed_src` ‚ğg—p‚·‚é
-  // `processed_src` ‚Íí‚É CV_32FC4 ‚Å‚ ‚é‚±‚Æ‚ª•ÛØ‚³‚ê‚é
+  // ã“ã“ã‹ã‚‰ã€ä»¥é™ã®å‡¦ç†ã§ã¯ `processed_src` ã‚’ä½¿ç”¨ã™ã‚‹
+  // `processed_src` ã¯å¸¸ã« CV_32FC4 ã§ã‚ã‚‹ã“ã¨ãŒä¿è¨¼ã•ã‚Œã‚‹
   cv::Mat glow_map;
   cv::Mat bright_areas;
-  cv::Mat rgb_src;   // ‚±‚ê‚ÍBGR‡‚É‚È‚é
+  cv::Mat rgb_src;   // ã“ã‚Œã¯BGRé †ã«ãªã‚‹
   cv::Mat alpha_src;
 
-  // 1. BGRA‚©‚çBGR‚ÆƒAƒ‹ƒtƒ@ƒ`ƒƒƒ“ƒlƒ‹‚ğ•ª—£
+  // 1. BGRAã‹ã‚‰BGRã¨ã‚¢ãƒ«ãƒ•ã‚¡ãƒãƒ£ãƒ³ãƒãƒ«ã‚’åˆ†é›¢
   std::vector<cv::Mat> channels;
-  cv::split(processed_src, channels); // processed_src ‚ª BGRA (B, G, R, A) ‚Ì‡‚Å‚ ‚ê‚Î
+  cv::split(processed_src, channels); // processed_src ãŒ BGRA (B, G, R, A) ã®é †ã§ã‚ã‚Œã°
   // channels[0]=B, channels[1]=G, channels[2]=R, channels[3]=A
 
-  // BGR‚Æ‚µ‚ÄŒ‹‡ichannels[0], channels[1], channels[2] ‚Í B, G, Rj
-  cv::merge(std::vector<cv::Mat>{channels[0], channels[1], channels[2]}, rgb_src); // ‚±‚ê‚Å rgb_src ‚Í BGR‡‚É‚È‚é
-  alpha_src = channels[3]; // ƒAƒ‹ƒtƒ@ƒ`ƒƒƒ“ƒlƒ‹
+  // BGRã¨ã—ã¦çµåˆï¼ˆchannels[0], channels[1], channels[2] ã¯ B, G, Rï¼‰
+  cv::merge(std::vector<cv::Mat>{channels[0], channels[1], channels[2]}, rgb_src); // ã“ã‚Œã§ rgb_src ã¯ BGRé †ã«ãªã‚‹
+  alpha_src = channels[3]; // ã‚¢ãƒ«ãƒ•ã‚¡ãƒãƒ£ãƒ³ãƒãƒ«
 
-  // 2. ‹P“x‚Ì’Šo (BGR‰æ‘œ‚ğƒOƒŒ[ƒXƒP[ƒ‹‚É•ÏŠ·‚µA‚µ‚«‚¢’lˆ—)
+  // 2. è¼åº¦ã®æŠ½å‡º (BGRç”»åƒã‚’ã‚°ãƒ¬ãƒ¼ã‚¹ã‚±ãƒ¼ãƒ«ã«å¤‰æ›ã—ã€ã—ãã„å€¤å‡¦ç†)
   cv::Mat luminance_float;
-  // ‚±‚±‚ÍŒ³X COLOR_BGR2GRAY ‚È‚Ì‚ÅC³•s—v (rgb_src ‚Í BGR‡)
+  // ã“ã“ã¯å…ƒã€… COLOR_BGR2GRAY ãªã®ã§ä¿®æ­£ä¸è¦ (rgb_src ã¯ BGRé †)
   cv::cvtColor(rgb_src, luminance_float, cv::COLOR_BGR2GRAY);
 
   cv::threshold(luminance_float, bright_areas, threshold_value, 1.0, cv::THRESH_BINARY);
 
   std::vector<cv::Mat> bright_channels(3);
-  // bright_areas ‚Í1ƒ`ƒƒƒ“ƒlƒ‹Achannels[0] (B), channels[1] (G), channels[2] (R) ‚à‚»‚ê‚¼‚ê1ƒ`ƒƒƒ“ƒlƒ‹
-  bright_channels[0] = bright_areas.mul(channels[0]); // Bƒ`ƒƒƒ“ƒlƒ‹‚É“K—p
-  bright_channels[1] = bright_areas.mul(channels[1]); // Gƒ`ƒƒƒ“ƒlƒ‹‚É“K—p
-  bright_channels[2] = bright_areas.mul(channels[2]); // Rƒ`ƒƒƒ“ƒlƒ‹‚É“K—p
+  // bright_areas ã¯1ãƒãƒ£ãƒ³ãƒãƒ«ã€channels[0] (B), channels[1] (G), channels[2] (R) ã‚‚ãã‚Œãã‚Œ1ãƒãƒ£ãƒ³ãƒãƒ«
+  bright_channels[0] = bright_areas.mul(channels[0]); // Bãƒãƒ£ãƒ³ãƒãƒ«ã«é©ç”¨
+  bright_channels[1] = bright_areas.mul(channels[1]); // Gãƒãƒ£ãƒ³ãƒãƒ«ã«é©ç”¨
+  bright_channels[2] = bright_areas.mul(channels[2]); // Rãƒãƒ£ãƒ³ãƒãƒ«ã«é©ç”¨
   cv::Mat bright_rgb_extract;
-  cv::merge(bright_channels, bright_rgb_extract); // bright_rgb_extract ‚à BGR‡
+  cv::merge(bright_channels, bright_rgb_extract); // bright_rgb_extract ã‚‚ BGRé †
 
-  // 3. c•ûŒü‚Ì‚İ‚Ì‚Ú‚©‚µ (Gaussian Blur with asymmetric kernel)
+  // 3. ç¸¦æ–¹å‘ã®ã¿ã®ã¼ã‹ã— (Gaussian Blur with asymmetric kernel)
   int kernel_size_y = vertical_blur_radius * 2 + 1;
   if (kernel_size_y < 1) kernel_size_y = 1;
 
-  int kernel_size_x = vertical_blur_radius * 2 + 1; // c‚Æ“¯‚¶ƒƒWƒbƒN‚ÅŒvZ
+  int kernel_size_x = vertical_blur_radius * 2 + 1; // ç¸¦ã¨åŒã˜ãƒ­ã‚¸ãƒƒã‚¯ã§è¨ˆç®—
   if (kernel_size_x < 1) kernel_size_x = 1;
 
   cv::Mat glow_map_vertical;
   cv::Mat glow_map_horizontal;
 
-  cv::GaussianBlur(bright_rgb_extract, glow_map_vertical, cv::Size(1, kernel_size_y), 0); // bright_rgb_extract ‚Í BGR‡
+  cv::GaussianBlur(bright_rgb_extract, glow_map_vertical, cv::Size(1, kernel_size_y), 0); // bright_rgb_extract ã¯ BGRé †
 
   cv::GaussianBlur(bright_rgb_extract, glow_map_horizontal, cv::Size(kernel_size_x, 1), 0);
 
-  cv::addWeighted(glow_map_vertical, 1.0, glow_map_horizontal, 1.0, 0.0, glow_map); // ’Pƒ‚É‰ÁZ
+  cv::addWeighted(glow_map_vertical, 1.0, glow_map_horizontal, 1.0, 0.0, glow_map); // å˜ç´”ã«åŠ ç®—
 
-  // 4. ‡¬ (Œ³‚Ì‰æ‘œ‚É‚Ú‚©‚µ‚½‰æ‘œ‚ğ‰ÁZ)
+  // 4. åˆæˆ (å…ƒã®ç”»åƒã«ã¼ã‹ã—ãŸç”»åƒã‚’åŠ ç®—)
   cv::Mat output_rgb;
-  cv::addWeighted(rgb_src, 1.0,glow_map, intensity, 0.0, output_rgb); // rgb_src ‚Í BGR‡Aglow_map ‚à BGR‡
+  cv::addWeighted(rgb_src, 1.0,glow_map, intensity, 0.0, output_rgb); // rgb_src ã¯ BGRé †ã€glow_map ã‚‚ BGRé †
 
 
 
-  // ÅI“I‚Èo—Í‰æ‘œ‚ğBGRA‚ÅÄŒ‹‡
-  std::vector<cv::Mat> output_channels_to_merge; // V‚µ‚¢ƒxƒNƒgƒ‹‚ğ’è‹`
+  // æœ€çµ‚çš„ãªå‡ºåŠ›ç”»åƒã‚’BGRAã§å†çµåˆ
+  std::vector<cv::Mat> output_channels_to_merge; // æ–°ã—ã„ãƒ™ã‚¯ãƒˆãƒ«ã‚’å®šç¾©
 
-  // output_rgb ‚Í BGR‡‚Ì3ƒ`ƒƒƒ“ƒlƒ‹‰æ‘œ‚È‚Ì‚ÅA‚»‚ê‚ğ•ªŠ„
+  // output_rgb ã¯ BGRé †ã®3ãƒãƒ£ãƒ³ãƒãƒ«ç”»åƒãªã®ã§ã€ãã‚Œã‚’åˆ†å‰²
   std::vector<cv::Mat> bgr_channels_from_output;
-  cv::split(output_rgb, bgr_channels_from_output); // output_rgb‚ğBGR‚Ì3ƒ`ƒƒƒ“ƒlƒ‹‚É•ªŠ„
+  cv::split(output_rgb, bgr_channels_from_output); // output_rgbã‚’BGRã®3ãƒãƒ£ãƒ³ãƒãƒ«ã«åˆ†å‰²
 
-  // •ªŠ„‚µ‚½B, G, Rƒ`ƒƒƒ“ƒlƒ‹‚ğV‚µ‚¢ƒxƒNƒgƒ‹‚É’Ç‰Á
-  output_channels_to_merge.push_back(bgr_channels_from_output[0]); // Bƒ`ƒƒƒ“ƒlƒ‹
-  output_channels_to_merge.push_back(bgr_channels_from_output[1]); // Gƒ`ƒƒƒ“ƒlƒ‹
-  output_channels_to_merge.push_back(bgr_channels_from_output[2]); // Rƒ`ƒƒƒ“ƒlƒ‹
+  // åˆ†å‰²ã—ãŸB, G, Rãƒãƒ£ãƒ³ãƒãƒ«ã‚’æ–°ã—ã„ãƒ™ã‚¯ãƒˆãƒ«ã«è¿½åŠ 
+  output_channels_to_merge.push_back(bgr_channels_from_output[0]); // Bãƒãƒ£ãƒ³ãƒãƒ«
+  output_channels_to_merge.push_back(bgr_channels_from_output[1]); // Gãƒãƒ£ãƒ³ãƒãƒ«
+  output_channels_to_merge.push_back(bgr_channels_from_output[2]); // Rãƒãƒ£ãƒ³ãƒãƒ«
 
-  // ÅŒã‚ÉƒAƒ‹ƒtƒ@ƒ`ƒƒƒ“ƒlƒ‹‚ğ’Ç‰Á
-  output_channels_to_merge.push_back(alpha_src); // Œ³‚ÌƒAƒ‹ƒtƒ@ƒ`ƒƒƒ“ƒlƒ‹‚ğÄ—˜—p
+  // æœ€å¾Œã«ã‚¢ãƒ«ãƒ•ã‚¡ãƒãƒ£ãƒ³ãƒãƒ«ã‚’è¿½åŠ 
+  output_channels_to_merge.push_back(alpha_src); // å…ƒã®ã‚¢ãƒ«ãƒ•ã‚¡ãƒãƒ£ãƒ³ãƒãƒ«ã‚’å†åˆ©ç”¨
 
   cv::Mat final_output;
-  // output_channels_to_merge ‚ğg‚Á‚ÄBGRA‚Æ‚µ‚ÄŒ‹‡
+  // output_channels_to_merge ã‚’ä½¿ã£ã¦BGRAã¨ã—ã¦çµåˆ
   cv::merge(output_channels_to_merge, final_output);
 
   return final_output;

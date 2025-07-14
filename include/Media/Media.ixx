@@ -1,4 +1,15 @@
-module;
+﻿module;
 export module Media;
 
-export void MyFunc();
+export namespace ArtifactCore {
+
+
+
+
+
+
+
+
+
+
+};

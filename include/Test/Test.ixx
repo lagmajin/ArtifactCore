@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QStandardPaths>
 #include <QDir>
@@ -7,7 +7,7 @@ module;
 
 export module Test;
 
-
+export import Test.Helper;
 
 export namespace ArtifactCore {
 

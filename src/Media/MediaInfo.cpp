@@ -1,74 +1,69 @@
+﻿module;
 #include <mutex>
 #include <QSysInfo>
 
-#include <QtCore/QString>
-import MediaInfo;
+#include <QString>
+#include <QDateTime>
 
+module Media.Info;
 
 
 namespace ArtifactCore {
 
-class MediaInfoPrivate {
+class MediaInfo::Impl {
 private:
 	QString name;
 	int width_=0;
 	int height_=0;
 
 	long long duration_ = 0;
+	QString title;
+	QString codecName;
+
 public:
-	MediaInfoPrivate();
-	explicit MediaInfoPrivate(const QString& name,int width,int height,long long duration);
-	~MediaInfoPrivate();
+	Impl();
+	explicit Impl(const QString& name,int width,int height,long long duration);
+	~Impl();
 	int width() const;
 	int height() const;
 	long long duration() const;
 	void clear();
 };
 
-MediaInfoPrivate::MediaInfoPrivate()
-{
 
-}
-
-
-MediaInfoPrivate::MediaInfoPrivate(const QString& name, int width, int height, long long duration)
-{
-
-}
-
-MediaInfoPrivate::~MediaInfoPrivate()
-{
-
-}
-
-int MediaInfoPrivate::width() const
+int MediaInfo::Impl::width() const
 {
 	return width_;
 }
 
-int MediaInfoPrivate::height() const
+int MediaInfo::Impl::height() const
 {
 	return height_;
 }
 
-long long MediaInfoPrivate::duration() const
+long long MediaInfo::Impl::duration() const
 {
 	return 0;
 }
 
-void MediaInfoPrivate::clear()
+MediaInfo::Impl::Impl()
 {
 
 }
 
-MediaInfo::MediaInfo()
+void MediaInfo::Impl::clear()
+{
+
+}
+
+MediaInfo::MediaInfo():impl_(new Impl())
 {
 
 }
 
 MediaInfo::~MediaInfo()
 {
-
+ delete impl_;
 }
 
 
@@ -78,7 +73,82 @@ int MediaInfo::width() const
 	return 0;
 }
 
+QString MediaInfo::title() const
+{
 
+ return QString();
+}
 
+QString MediaInfo::codecName() const
+{
+ return QString();
+}
+
+class MediaInfoBuilder::Impl {
+private:
+
+public:
+ Impl();
+ ~Impl();
+ int32_t width_ = 0;
+ int32_t height_ = 0;
+ int32_t br_ = 0;
+ QString title_;
+ int64_t duration_ = 0;
+ QDateTime creationTime_;
+};
+
+MediaInfoBuilder::Impl::Impl()
+{
+
+}
+
+MediaInfoBuilder::Impl::~Impl()
+{
+
+}
+
+MediaInfoBuilder& MediaInfoBuilder::setCreationTime(const QDateTime& dt)
+{
+ impl_->creationTime_ = dt;
+ return *this;
+}
+
+MediaInfoBuilder& MediaInfoBuilder::setWidth(int w)
+{
+ impl_->width_;
+ return *this;
+}
+
+MediaInfoBuilder& MediaInfoBuilder::setHeight(int h)
+{
+ impl_->height_;
+ return *this;
+}
+
+MediaInfoBuilder& MediaInfoBuilder::setTitle(const QString& title)
+{
+ impl_->title_ = title;
+ return *this;
+}
+
+MediaInfoBuilder& MediaInfoBuilder::setBitrate(int br)
+{
+ impl_->br_ = br;
+ return *this;
+}
+
+MediaInfoBuilder& MediaInfoBuilder::setDuration(int64_t duration)
+{
+ impl_->duration_ = duration;
+ return *this;
+}
+
+MediaInfo MediaInfoBuilder::build() const
+{
+ MediaInfo info;
+
+ return info;
+}
 
 };
