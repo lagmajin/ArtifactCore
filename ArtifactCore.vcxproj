@@ -68,11 +68,17 @@
     <ClCompile Include="include\Media\MediaTimeStamp.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\RenderWorker.ixx" />
+    <ClCompile Include="include\Render\RenderJobModel.ixx" />
+    <ClCompile Include="include\Render\RendererQueueManager.ixx" />
     <ClCompile Include="include\Test\TestHelper.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Utils\String.ixx" />
     <ClCompile Include="src\Codec\FFmpegThumbnailExtractor.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\GPUTexture.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\Blend2D_CS.cpp">
@@ -81,6 +87,13 @@
     <ClCompile Include="src\ImageProcessing\DirectCompute\SinglePassShader.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Render\RendererQueueManager.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Render\RenderJobModel.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Render\RenderWorker.cpp" />
     <ClCompile Include="src\Video\MediaTimeStamp.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>

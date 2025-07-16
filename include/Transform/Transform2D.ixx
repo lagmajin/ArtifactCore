@@ -1,4 +1,4 @@
-
+﻿
 
 module;
 #include <stdint.h>
@@ -8,22 +8,23 @@ module;
 
 export module Transform2D;
 
-
-//import Scale2D;
+namespace cv {};//dummy
 
 export namespace ArtifactCore {
 
 
  using namespace cv;
 
- class Transform2DPrivate;
+
 
  class Transform2D {
  private:
   struct Impl;
-  std::unique_ptr<Impl> impl_;
+  Impl* impl_;
+  //std::unique_ptr<Impl> impl_2;
  public:
   Transform2D();
+  Transform2D(const Transform2D& other);
   ~Transform2D();
   
   float x() const;
@@ -40,7 +41,7 @@ export namespace ArtifactCore {
   QTransform toQTransform() const;
 
   float rotation() const;
-  Point2f anchor() const;
+  //Point2f anchor() const;
  };
 
  

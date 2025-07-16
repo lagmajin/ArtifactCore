@@ -1,6 +1,8 @@
 ﻿module;
 export module ImageProcessing.Shader;
 
+import std;
+
 export namespace ArtifactCore {
 
  class SinglePassShader {
@@ -10,6 +12,9 @@ export namespace ArtifactCore {
  public:
   SinglePassShader();
   ~SinglePassShader();
+  void dispatch();
+  void dispatchBlend();
+  void batchDispatch();
  };
 
 

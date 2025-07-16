@@ -1,4 +1,4 @@
-module;
+ï»¿module;
 #include <opencv2/opencv.hpp>
 
 module ImageProcessing:AffineTransform;
@@ -11,19 +11,19 @@ namespace ArtifactCore {
 
  void Affine2DCV(const cv::Mat mat, Transform2D transform2D,cv::Mat dsc)
  {
-  cv::Mat rotMat = cv::getRotationMatrix2D(transform2D.anchor(), transform2D.rotation(), 1.0);
+ // cv::Mat rotMat = cv::getRotationMatrix2D(transform2D.anchor(), transform2D.rotation(), 1.0);
  
-  rotMat.at<double>(0, 0) *= transform2D.scaleX();
-  rotMat.at<double>(0, 1) *= transform2D.scaleX();
-  rotMat.at<double>(1, 0) *= transform2D.scaleY();
-  rotMat.at<double>(1, 1) *= transform2D.scaleY();
+ // rotMat.at<double>(0, 0) *= transform2D.scaleX();
+ // rotMat.at<double>(0, 1) *= transform2D.scaleX();
+  //rotMat.at<double>(1, 0) *= transform2D.scaleY();
+ // rotMat.at<double>(1, 1) *= transform2D.scaleY();
 
-  //•½sˆÚ“®‚ğ”½‰fi‰ñ“]EƒXƒP[ƒ‹Œã‚ÉÅIˆÊ’u‚É‡‚í‚¹‚éj
- rotMat.at<double>(0, 2) += transform2D.x();
-  rotMat.at<double>(1, 2) += transform2D.y();
+  //å¹³è¡Œç§»å‹•ã‚’åæ˜ ï¼ˆå›è»¢ãƒ»ã‚¹ã‚±ãƒ¼ãƒ«å¾Œã«æœ€çµ‚ä½ç½®ã«åˆã‚ã›ã‚‹ï¼‰
+ //rotMat.at<double>(0, 2) += transform2D.x();
+ // rotMat.at<double>(1, 2) += transform2D.y();
 
-  //ƒAƒtƒBƒ“•ÏŠ·‚ÌÀs
-  cv::warpAffine(mat, dsc, rotMat, mat.size(), cv::INTER_LINEAR, cv::BORDER_REFLECT);
+  //ã‚¢ãƒ•ã‚£ãƒ³å¤‰æ›ã®å®Ÿè¡Œ
+  //cv::warpAffine(mat, dsc, rotMat, mat.size(), cv::INTER_LINEAR, cv::BORDER_REFLECT);
  
  }
 

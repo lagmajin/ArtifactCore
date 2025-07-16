@@ -1,11 +1,10 @@
-module;
+ï»¿module;
 #include <QString>
 
 
 export module Render:RenderSettings;
 
 
-export void MyFunc();
 
 
 
@@ -20,11 +19,11 @@ export namespace ArtifactCore
 
 
  struct RenderSettings {
-  OutputMode mode = OutputMode::Video; // ƒƒCƒ“o—Íƒ‚[ƒh
-  bool exportAudioSeparately = false;  // ‰¹º‚ğ•Êo—Í‚·‚é‚©
+  OutputMode mode = OutputMode::Video; // ãƒ¡ã‚¤ãƒ³å‡ºåŠ›ãƒ¢ãƒ¼ãƒ‰
+  bool exportAudioSeparately = false;  // éŸ³å£°ã‚’åˆ¥å‡ºåŠ›ã™ã‚‹ã‹
   QString inputPath;
   QString outputVideoPath;
-  QString outputAudioPath;             // exportAudioSeparately=true ‚Ì‚Æ‚«—LŒø
+  QString outputAudioPath;             // exportAudioSeparately=true ã®ã¨ãæœ‰åŠ¹
 
  };
 

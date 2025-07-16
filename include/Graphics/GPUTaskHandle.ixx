@@ -14,7 +14,7 @@ export namespace ArtifactCore {
 
   // このタスクの結果として生成されたGPUTextureを取得
   // ※ 注意: タスクが完了していない場合、結果は未定義か、待機するか、エラーを発生させる実装
-  GPUTexture GetResultTexture() const;
+  //GPUTexture GetResultTexture() const;
 
  private:
   // 内部的なGPUフェンス、イベント、関連するコマンドリストや結果リソースへのポインタなど

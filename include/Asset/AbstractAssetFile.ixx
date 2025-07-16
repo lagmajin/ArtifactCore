@@ -1,14 +1,10 @@
-module;
+﻿module;
 #include <QFile>
 #include <QtCore/QObject>
 
 
 #include <wobjectdefs.h>
 export module Asset;
-//#pragma once
-
-//import std;
-
 
 
 

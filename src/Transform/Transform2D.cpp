@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <stdint.h>
 #include<QtGui/QTransform>
 
@@ -31,19 +31,28 @@ namespace ArtifactCore {
  };
 
 
-
-
  Transform2D::Transform2D()
-  : impl_(std::make_unique<Impl>()) {
+  : impl_(new Impl())
+ {
+
  }
- Transform2D::~Transform2D() = default;
+
+ Transform2D::Transform2D(const Transform2D& other) : impl_(new Impl())
+ {
+
+ }
+
+ Transform2D::~Transform2D()
+ {
+  delete impl_;
+ }
 
  float Transform2D::scaleX() const {
-  return static_cast<float>(impl_->scaleX);
+  return impl_->scaleX;
  }
 
  float Transform2D::scaleY() const {
-  return static_cast<float>(impl_->scaleY);
+  return impl_->scaleY;
  }
 
  void Transform2D::setX(double x) { impl_->x = x; }
@@ -66,12 +75,12 @@ namespace ArtifactCore {
 
  float Transform2D::x() const
  {
-  return 0;
+  return impl_->x;
  }
 
  float Transform2D::y() const
  {
-  return 0;
+  return impl_->y;
  }
 
  float Transform2D::rotation() const

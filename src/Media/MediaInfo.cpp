@@ -17,8 +17,8 @@ private:
 	int height_=0;
 
 	long long duration_ = 0;
-	QString title;
-	QString codecName;
+	QString title_;
+	QString codecName_;
 
 public:
 	Impl();
@@ -27,6 +27,9 @@ public:
 	int width() const;
 	int height() const;
 	long long duration() const;
+	QString titleName() const;
+	QString codecName() const;
+	
 	void clear();
 };
 
@@ -43,7 +46,7 @@ int MediaInfo::Impl::height() const
 
 long long MediaInfo::Impl::duration() const
 {
-	return 0;
+	return duration_;
 }
 
 MediaInfo::Impl::Impl()
@@ -54,6 +57,21 @@ MediaInfo::Impl::Impl()
 void MediaInfo::Impl::clear()
 {
 
+}
+
+MediaInfo::Impl::~Impl()
+{
+
+}
+
+QString MediaInfo::Impl::titleName() const
+{
+ return title_;
+}
+
+QString MediaInfo::Impl::codecName() const
+{
+ return codecName_;
 }
 
 MediaInfo::MediaInfo():impl_(new Impl())
@@ -70,7 +88,7 @@ MediaInfo::~MediaInfo()
 int MediaInfo::width() const
 {
 
-	return 0;
+	return impl_->width();
 }
 
 QString MediaInfo::title() const
