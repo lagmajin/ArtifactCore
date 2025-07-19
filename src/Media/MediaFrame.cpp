@@ -1,5 +1,5 @@
-module;
-
+﻿module;
+#include <QString>
 module Media.MediaFrame;
 
 //#include "../../include/Media/MediaFrame.hpp"

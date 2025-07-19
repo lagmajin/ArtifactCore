@@ -1007,7 +1007,7 @@
     <ClCompile Include="include\Media\MediaFrame.ixx">
       <Filter>ヘッダー ファイル\Media</Filter>
     </ClCompile>
-    <ClCompile Include="include\IO\Image\ImageExporterAsync.ixx">
+    <ClCompile Include="include\IO\Image\AsyncImageExporter.ixx">
       <Filter>ヘッダー ファイル\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\LayerStrip.ixx">
@@ -1183,6 +1183,12 @@
     </ClCompile>
     <ClCompile Include="src\Render\RendererQueueManager.cpp">
       <Filter>ソース ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\Image\AsyncImageWriterManager.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IO\Image\AsyncImageWriterManager.cpp">
+      <Filter>ソース ファイル\IO</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -6,6 +6,8 @@ export module Render.Queue.Manager;
 
 import std;
 
+import Render.JobModel;
+
 
 export namespace ArtifactCore {
 
@@ -13,7 +15,7 @@ export namespace ArtifactCore {
  private:
   class Impl;
   Impl* impl_;
-  RendererQueueManager(QObject* parent = nullptr);
+  explicit RendererQueueManager(QObject* parent = nullptr);
   //~RendererQueueManager();
   RendererQueueManager(const RendererQueueManager&) = delete;
   RendererQueueManager& operator=(const RendererQueueManager&) = delete;
@@ -21,12 +23,25 @@ export namespace ArtifactCore {
  public:
   //explicit RendererQueueManager(QObject* parent=nullptr);
   ~RendererQueueManager();
-  //RenderJobModel* model();
-  static RendererQueueManager& instance(); // シングルトンインスタンス取得
+  RenderJobModel* model();
+  static RendererQueueManager& instance();
+  
+  void startRendering();
+  void startRenderingAllQueue();
+  void addRendering();
+  void clearRenderQueue();
+  bool isRenderNow() const;
+#ifdef _DEBUG
+  void testRendering();
+#elif
+  void testRendering() {};
+#endif
+ };
+
 
  };
 
  
 
-}
+
 

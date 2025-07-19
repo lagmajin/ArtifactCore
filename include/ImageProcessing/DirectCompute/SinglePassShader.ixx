@@ -12,6 +12,7 @@ export namespace ArtifactCore {
  public:
   SinglePassShader();
   ~SinglePassShader();
+  void addEffect();
   void dispatch();
   void dispatchBlend();
   void batchDispatch();

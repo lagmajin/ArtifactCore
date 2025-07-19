@@ -1,8 +1,11 @@
-module;
+ï»¿module;
 #include <QVector>
 #include <QString>
 
+
 export module Image.Raw;
+
+import std;
 
 export namespace ArtifactCore {
 
@@ -10,10 +13,10 @@ export namespace ArtifactCore {
   int width = 0;
   int height = 0;
   int channels = 0;
-  QString pixelType; // std::string ‚©‚ç QString ‚Ö•ÏX
+  QString pixelType; // std::string ã‹ã‚‰ QString ã¸å¤‰æ›´
 
-  // ¶‚ÌƒsƒNƒZƒ‹ƒf[ƒ^Bstd::vector<uint8_t> ‚©‚ç QVector<quint8> ‚Ö•ÏX
-  QVector<quint8> data; // quint8 ‚Í Qt ‚Ì unsigned char
+  // ç”Ÿã®ãƒ”ã‚¯ã‚»ãƒ«ãƒ‡ãƒ¼ã‚¿ã€‚std::vector<uint8_t> ã‹ã‚‰ QVector<quint8> ã¸å¤‰æ›´
+  QVector<quint8> data; // quint8 ã¯ Qt ã® unsigned char
 
   RawImage() = default;
   ~RawImage() = default;
@@ -24,9 +27,10 @@ export namespace ArtifactCore {
 
   bool isValid() const;
 
-  // getPixelTypeSizeInBytes() ‚Ì–ß‚è’l‚ğ size_t ‚©‚ç int ‚É•ÏX (Qt ‚ÌŠµ—á‚É‡‚í‚¹‚é‚½‚ß)
+  // getPixelTypeSizeInBytes() ã®æˆ»ã‚Šå€¤ã‚’ size_t ã‹ã‚‰ int ã«å¤‰æ›´ (Qt ã®æ…£ä¾‹ã«åˆã‚ã›ã‚‹ãŸã‚)
   int getPixelTypeSizeInBytes() const;
  };
 
+ typedef std::shared_ptr<RawImage> sptrRawImage;
 
 };

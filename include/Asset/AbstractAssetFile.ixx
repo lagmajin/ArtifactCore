@@ -23,7 +23,8 @@ export namespace ArtifactCore {
   AbstractAssetFile();
   AbstractAssetFile(const QFile& file);
   virtual ~AbstractAssetFile();
-
+  bool exist() const;
+  bool notExist() const;
  //public slots:
   
  };
