@@ -65,8 +65,9 @@
     <ClCompile Include="include\Image\RawImage.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\IO\Image\AbstractImageExporter.ixx" />
     <ClCompile Include="include\IO\Image\AsyncImageWriterManager.ixx" />
-    <ClCompile Include="include\IO\Image\Image\AbstractImageExporter.ixx" />
+    <ClCompile Include="include\IO\Image\Image\ImageExporterStb.ixx" />
     <ClCompile Include="include\IO\Image\Image\OIIOMemoryIOManager.ixx" />
     <ClCompile Include="include\IO\Image\Image\OIIOMemoryProxyFactory.ixx" />
     <ClCompile Include="include\Media\MediaTimeStamp.ixx">

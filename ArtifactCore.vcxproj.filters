@@ -1190,13 +1190,16 @@
     <ClCompile Include="src\IO\Image\AsyncImageWriterManager.cpp">
       <Filter>ソース ファイル\IO</Filter>
     </ClCompile>
-    <ClCompile Include="include\IO\Image\Image\AbstractImageExporter.ixx">
-      <Filter>ヘッダー ファイル\IO</Filter>
-    </ClCompile>
     <ClCompile Include="include\IO\Image\Image\OIIOMemoryIOManager.ixx">
       <Filter>ヘッダー ファイル\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\Image\OIIOMemoryProxyFactory.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\Image\Image\ImageExporterStb.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\Image\AbstractImageExporter.ixx">
       <Filter>ヘッダー ファイル\IO</Filter>
     </ClCompile>
   </ItemGroup>
