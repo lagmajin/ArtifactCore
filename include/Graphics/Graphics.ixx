@@ -1,10 +1,12 @@
-module;
+﻿module;
 export module Graphics;
 
 export import :GPUcomputeContext;
 export import :GraphicsHelper;
 
 export import Graphics.ImageCache;
+export import Graphics.Helper.PSO;
+export import Graphics.Shader.Basics;
 
 export namespace ArtifactCore
 {

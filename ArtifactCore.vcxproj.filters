@@ -298,6 +298,15 @@
     <Filter Include="ソース ファイル\Render">
       <UniqueIdentifier>{19ec966e-638f-4fea-8645-188c19f15a36}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Shader\Pixel">
+      <UniqueIdentifier>{f3259412-c562-4bbc-9f78-f3a4e45c279e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Shader\Vertex">
+      <UniqueIdentifier>{56222533-6c39-4333-986c-ed754e20e6f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Graphics\Shader">
+      <UniqueIdentifier>{b9a78df8-5a4f-46eb-a021-13668c6e37d0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -992,9 +1001,6 @@
     <ClCompile Include="include\ImageProcessing\DirectCompute\GaussianBlurCS.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
-    <ClCompile Include="GlowCS.ixx">
-      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
-    </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\GlowCS.cpp">
       <Filter>ソース ファイル\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
@@ -1190,17 +1196,47 @@
     <ClCompile Include="src\IO\Image\AsyncImageWriterManager.cpp">
       <Filter>ソース ファイル\IO</Filter>
     </ClCompile>
-    <ClCompile Include="include\IO\Image\Image\OIIOMemoryIOManager.ixx">
-      <Filter>ヘッダー ファイル\IO</Filter>
-    </ClCompile>
-    <ClCompile Include="include\IO\Image\Image\OIIOMemoryProxyFactory.ixx">
-      <Filter>ヘッダー ファイル\IO</Filter>
-    </ClCompile>
-    <ClCompile Include="include\IO\Image\Image\ImageExporterStb.ixx">
-      <Filter>ヘッダー ファイル\IO</Filter>
-    </ClCompile>
     <ClCompile Include="include\IO\Image\AbstractImageExporter.ixx">
       <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\2DPSOHelper.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\Image\ImageExporterStb.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\Image\OIIOMemoryProxyFactory.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\Image\OIIOMemoryIOManager.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\IO\asio_async_file_writer.ixx">
+      <Filter>ヘッダー ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IO\asio_async_file_writer.cpp">
+      <Filter>ソース ファイル\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\Id.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\Id.cpp">
+      <Filter>ソース ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\GlowCS.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\HLSL\BasicShaders.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Pixel</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\Vertex\BasicVertexShader.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Vertex</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\ShaderCreationHelper.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Shader\BasicShader.cpp">
+      <Filter>ソース ファイル\Graphics\Shader</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1265,6 +1301,9 @@
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Blur\BoxBlur5x5.hlsl">
       <Filter>ヘッダー ファイル\Graphics\Shader\Blur</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\Pixel\Basic2DImagePS.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Pixel</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>
