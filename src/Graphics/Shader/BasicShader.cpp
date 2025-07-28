@@ -29,6 +29,7 @@ const QByteArray g_qsBasic2DVS= R"(
 cbuffer Constants : register(b0)
 {
     float4x4 ModelMatrix;      // オブジェクトの移動、回転、スケール
+    float4x4 ViewMatrix;
     float4x4 ProjectionMatrix; // ワールド空間からクリップ空間への変換
 };
 
@@ -50,12 +51,11 @@ PSInput main(VSInput Input)
 
     float4 pos = float4(Input.Position.xy, 0.0f, 1.0f); // 2D位置を4Dに拡張
 
-    // モデル行列を適用してワールド空間での位置を計算
     float4 worldPos = mul(ModelMatrix, pos);
+    float4 viewPos  = mul(ViewMatrix, worldPos);
+    Out.Position    = mul(ProjectionMatrix, viewPos);
 
-    // プロジェクション行列を適用してクリップ空間での位置を計算
-    Out.Position = mul(ProjectionMatrix, worldPos);
-Out.TexCoord = Input.TexCoord;
+    Out.TexCoord = Input.TexCoord;
     return Out;
 }
 )";
