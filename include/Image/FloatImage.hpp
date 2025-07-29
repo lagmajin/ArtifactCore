@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -8,7 +8,7 @@
 
 //#include "../Color/FloatRGBA.hpp"
 
-import FloatColor;
+import Color.Float;
 
 
 namespace ArtifactCore {

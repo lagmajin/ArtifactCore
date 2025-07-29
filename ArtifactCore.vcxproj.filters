@@ -1238,6 +1238,24 @@
     <ClCompile Include="src\Graphics\Shader\BasicShader.cpp">
       <Filter>ソース ファイル\Graphics\Shader</Filter>
     </ClCompile>
+    <ClCompile Include="include\Graphics\GLMHelper.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\Shader.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\Position2D.ixx">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Shader\BasicVertexShader.cpp">
+      <Filter>ソース ファイル\Graphics\Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Shader\BasicGeometryShader.cpp">
+      <Filter>ソース ファイル\Graphics\Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\BasicGeometryShader.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
