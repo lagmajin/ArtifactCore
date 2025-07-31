@@ -1,8 +1,8 @@
-module;
+﻿module;
 #include<type_traits>
 #include <opencv2/core/types.hpp>
 #include <QPointF>
-export module Point2D;
+export module Core.Point2D;
 
 
 
@@ -22,4 +22,16 @@ export namespace ArtifactCore {
 
  inline float getX(const QPointF& p) { return static_cast<float>(p.x()); }
  inline float getY(const QPointF& p) { return static_cast<float>(p.y()); }
+
+ class Point2DF{
+ private:
+  class Impl;
+  Impl* impl_;
+ public:
+  Point2DF();
+  ~Point2DF();
+
+ };
+
+
 }

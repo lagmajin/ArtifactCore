@@ -307,6 +307,9 @@
     <Filter Include="ソース ファイル\Graphics\Shader">
       <UniqueIdentifier>{b9a78df8-5a4f-46eb-a021-13668c6e37d0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Common">
+      <UniqueIdentifier>{9fa5c6d1-433a-40ac-a71a-d58c05659a3c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -473,10 +476,10 @@
     <ClCompile Include="include\Transform\Rotate.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="src\Transform\Scale.cpp">
+    <ClCompile Include="src\Transform\ZoomScale.cpp">
       <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="include\Transform\Scale.ixx">
+    <ClCompile Include="include\Transform\ZoomScale.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\FloatColor.ixx">
@@ -616,9 +619,6 @@
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Affine.cpp">
       <Filter>ソース ファイル\ImageProcessing</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Common\Point2D.ixx">
-      <Filter>ヘッダー ファイル\Common</Filter>
     </ClCompile>
     <ClCompile Include="include\Generate\GenerateTestImage.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
@@ -1244,9 +1244,6 @@
     <ClCompile Include="include\Graphics\Shader\Shader.ixx">
       <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
     </ClCompile>
-    <ClCompile Include="include\Transform\Position2D.ixx">
-      <Filter>ヘッダー ファイル\Core</Filter>
-    </ClCompile>
     <ClCompile Include="src\Graphics\Shader\BasicVertexShader.cpp">
       <Filter>ソース ファイル\Graphics\Shader</Filter>
     </ClCompile>
@@ -1255,6 +1252,27 @@
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\BasicGeometryShader.ixx">
       <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Common\Common.ixx">
+      <Filter>ヘッダー ファイル\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Common\Point2D.cpp">
+      <Filter>ソース ファイル\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Position2D.cpp">
+      <Filter>ソース ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Core\Position2D.ixx">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Core\Point2D.ixx">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Core\UniformScale.ixx">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\UniformScale.cpp">
+      <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
