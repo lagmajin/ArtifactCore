@@ -6,10 +6,11 @@ namespace ArtifactCore
  class UniformScale::Impl
  {
  private:
-
+  float scale_ = 1.0f;
  public:
   Impl();
   ~Impl();
+  float scale() const;
  };
 
  UniformScale::Impl::Impl()
@@ -22,14 +23,14 @@ namespace ArtifactCore
 
  }
 
- UniformScale::UniformScale()
+ UniformScale::UniformScale():impl_(new Impl())
  {
 
  }
 
  UniformScale::~UniformScale()
  {
-
+  delete impl_;
  }
 
 };

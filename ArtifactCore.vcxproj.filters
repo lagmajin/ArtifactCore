@@ -310,6 +310,9 @@
     <Filter Include="ソース ファイル\Common">
       <UniqueIdentifier>{9fa5c6d1-433a-40ac-a71a-d58c05659a3c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\CBuffer">
+      <UniqueIdentifier>{17480cfe-81b5-403c-b2ae-dd05100caeb6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1273,6 +1276,18 @@
     </ClCompile>
     <ClCompile Include="src\Core\UniformScale.cpp">
       <Filter>ソース ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\CBuffer\Constants.ixx">
+      <Filter>ヘッダー ファイル\Graphics\CBuffer</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Color\LabColor.ixx">
+      <Filter>ヘッダー ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Color\Color.ixx">
+      <Filter>ヘッダー ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Color\LabColor.cpp">
+      <Filter>ソース ファイル\Color</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

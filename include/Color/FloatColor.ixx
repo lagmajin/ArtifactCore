@@ -13,6 +13,20 @@ export namespace ArtifactCore {
  class HSV;
  class XYZ;
 
+ enum class NamedColor
+ {
+  Red,
+  Green,
+  Blue,
+  White,
+  Black,
+  Yellow,
+  Cyan,
+  Magenta,
+  Orange,
+  Transparent,
+  // 必要に応じて追加
+ };
 
  class LIBRARY_DLL_API FloatColor {
  private:
