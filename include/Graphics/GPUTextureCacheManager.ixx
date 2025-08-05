@@ -1,7 +1,10 @@
-module;
+﻿module;
 
 #include <QUuid>
+#include <QImage>
 #include <QObject>
+
+
 export module Graphics.ImageCache;
 
 
@@ -9,7 +12,8 @@ export namespace ArtifactCore {
 
  class GPUTextureManager:public QObject {
  private:
-
+  class Impl;
+  
  public:
   GPUTextureManager();
   

@@ -4,64 +4,66 @@ module Color.Lab;
 
 namespace ArtifactCore
 {
-	class LabColor::Impl
-	{
-	private:
-	 float L_;
-	 float a_;
-	 float b_;
-	public:
-	 Impl();
-	 ~Impl();
-	 float L() const;
-	 float a() const;
-	 float b() const;
-	 void setL(float L);
-	 void setA(float a);
-	 void setB(float b);
-	};
 
-	LabColor::Impl::Impl() : L_(0.0f), a_(0.0f), b_(0.0f) 
-	{
 
-	}
+ class LabColor::Impl
+ {
+ private:
+  float L_;
+  float a_;
+  float b_;
+ public:
+  Impl();
+  ~Impl();
+  float L() const;
+  float a() const;
+  float b() const;
+  void setL(float L);
+  void setA(float a);
+  void setB(float b);
+ };
 
-	LabColor::Impl::~Impl()
-	{
+ LabColor::Impl::Impl() : L_(0.0f), a_(0.0f), b_(0.0f)
+ {
 
-	}
+ }
 
-	float LabColor::Impl::L() const
-	{
-	 return L_;
-	}
+ LabColor::Impl::~Impl()
+ {
 
-	float LabColor::Impl::a() const
-	{
-	 return a_;
-	}
+ }
 
-	float LabColor::Impl::b() const
-	{
-	 return b_;
-	}
+ float LabColor::Impl::L() const
+ {
+  return L_;
+ }
 
-	void LabColor::Impl::setL(float L)
-	{
+ float LabColor::Impl::a() const
+ {
+  return a_;
+ }
 
-	}
+ float LabColor::Impl::b() const
+ {
+  return b_;
+ }
 
-	void LabColor::Impl::setA(float a)
-	{
+ void LabColor::Impl::setL(float L)
+ {
 
-	}
+ }
 
-	void LabColor::Impl::setB(float b)
-	{
+ void LabColor::Impl::setA(float a)
+ {
 
-	}
+ }
 
- LabColor::LabColor():impl_(new Impl())
+ void LabColor::Impl::setB(float b)
+ {
+
+ }
+
+ LabColor::LabColor() :impl_(new Impl())
  {
 
  }
@@ -78,7 +80,7 @@ namespace ArtifactCore
 
  void LabColor::setA(float a)
  {
-  
+
  }
 
  void LabColor::setB(float b)

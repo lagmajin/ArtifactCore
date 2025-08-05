@@ -3,6 +3,8 @@
 
 module Color.Float;
 import FloatRGBA;
+
+
 namespace ArtifactCore {
 
 class FloatColor::Impl{
@@ -58,6 +60,11 @@ float FloatColor::blue() const
 {
  return impl_->b;
 }
+static bool approximatelyEqual(float a, float b, float epsilon = 1e-5f) {
+ return std::fabs(a - b) < epsilon;
+}
+
+
 
 };
 

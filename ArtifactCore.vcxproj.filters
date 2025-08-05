@@ -313,6 +313,9 @@
     <Filter Include="ヘッダー ファイル\Graphics\CBuffer">
       <UniqueIdentifier>{17480cfe-81b5-403c-b2ae-dd05100caeb6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Knob">
+      <UniqueIdentifier>{1b7fc3cd-8334-4340-ba65-1aaf75f3edfe}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -329,12 +332,6 @@
     </ClInclude>
     <ClInclude Include="include\Mesh\FBX.hpp">
       <Filter>ヘッダー ファイル\Mesh</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Knob\AbstractKnob.ixx">
-      <Filter>ヘッダー ファイル\Knob</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Knob\KnobList.ixx">
-      <Filter>ヘッダー ファイル\Knob</Filter>
     </ClInclude>
     <ClInclude Include="include\Script\CSharpScriptEngine.hpp">
       <Filter>ヘッダー ファイル\Script</Filter>
@@ -1288,6 +1285,21 @@
     </ClCompile>
     <ClCompile Include="src\Color\LabColor.cpp">
       <Filter>ソース ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Knob\AbstractKnob.cpp">
+      <Filter>ソース ファイル\Knob</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Knob\Knob.ixx">
+      <Filter>ヘッダー ファイル\Knob</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Knob\KnobList.ixx">
+      <Filter>ヘッダー ファイル\Knob</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Knob\AbstractKnob.ixx">
+      <Filter>ヘッダー ファイル\Knob</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\GraphicsEngineType.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

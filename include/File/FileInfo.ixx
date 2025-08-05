@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QtCore/QFile>
 
@@ -16,7 +16,8 @@ namespace ArtifactCore {
 
  class FileInfo {
  private:
-
+  class Impl;
+  Impl* impl_;
  public:
   FileInfo();
   ~FileInfo();

@@ -12,10 +12,10 @@ export namespace ArtifactCore {
 
  extern LIBRARY_DLL_API const QByteArray g_qsBasic2DVS;
 
- extern LIBRARY_DLL_API const QByteArray g_qsSolidColorPS;
+ extern LIBRARY_DLL_API const QByteArray g_qsSolidColorPS2;
 
  extern LIBRARY_DLL_API const QByteArray g_SolidColorPS;
 
-
+ extern LIBRARY_DLL_API const QByteArray g_qsSolidColorPS;
 
 };

@@ -39,6 +39,7 @@ export namespace ArtifactCore {
   float red() const;
   float green() const;
   float blue() const;
+  float alpha() const;
   void setRed(float red);
   void setGreen(float green);
   void setBlue(float blue);
@@ -47,8 +48,6 @@ export namespace ArtifactCore {
   void setColor(float red, float green, float blue, float alpha);
 
  };
-
-
 
 
 };

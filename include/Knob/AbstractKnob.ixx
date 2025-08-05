@@ -1,5 +1,5 @@
-module;
-export module Knob;
+﻿module;
+export module Knob.Abstract;
 
 
 
@@ -12,10 +12,5 @@ namespace ArtifactCore {
   AbstractKnob();
   ~AbstractKnob();
  };
-
-
-
-
-
 
 };

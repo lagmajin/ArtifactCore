@@ -5,6 +5,8 @@
 #include <boost/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>  
 #include <boost/uuid/uuid_generators.hpp>
+
+#include "../Define/DllExportMacro.hpp"
     
 export module Utils.Id;
 
@@ -12,7 +14,7 @@ import std;
 
 namespace ArtifactCore{
 
- class Id {
+ LIBRARY_DLL_API class Id {
  public:
   // デフォルトコンストラクタ：ランダムなUUIDを生成
   Id();
@@ -20,19 +22,14 @@ namespace ArtifactCore{
   // QStringからのコンストラクタ
   // 無効な文字列が与えられた場合、nil UUIDを設定します
   explicit Id(const QString& s);
-
   // boost::uuids::uuid からのコンストラクタ
   explicit Id(const boost::uuids::uuid& u); // 実装をcppファイルに移動
-
   // コピーコンストラクタ
   Id(const Id& other);
-
   // ムーブコンストラクタ
   Id(Id&& other) noexcept;
-
   // デストラクタ
   ~Id();
-
   // コピー代入演算子
   Id& operator=(const Id& other);
 
