@@ -12,37 +12,22 @@ export module Utils.Id;
 
 import std;
 
-namespace ArtifactCore{
+export namespace ArtifactCore{
 
- LIBRARY_DLL_API class Id {
+class  LIBRARY_DLL_API Id {
  public:
-  // デフォルトコンストラクタ：ランダムなUUIDを生成
   Id();
-
-  // QStringからのコンストラクタ
-  // 無効な文字列が与えられた場合、nil UUIDを設定します
   explicit Id(const QString& s);
-  // boost::uuids::uuid からのコンストラクタ
-  explicit Id(const boost::uuids::uuid& u); // 実装をcppファイルに移動
-  // コピーコンストラクタ
+  explicit Id(const boost::uuids::uuid& u);
   Id(const Id& other);
-  // ムーブコンストラクタ
   Id(Id&& other) noexcept;
-  // デストラクタ
   ~Id();
-  // コピー代入演算子
+
   Id& operator=(const Id& other);
 
-  // ムーブ代入演算子
   Id& operator=(Id&& other) noexcept;
-
-  // UUIDのQString表現を取得
   QString toString() const;
-
-  // UUIDが空（nil）であるかチェック
   bool isNil() const;
-
-  // 内部のboost::uuids::uuidオブジェクトを取得（必要に応じて）
   const boost::uuids::uuid& getUuid() const;
 
   // 比較演算子

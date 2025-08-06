@@ -316,6 +316,15 @@
     <Filter Include="ソース ファイル\Knob">
       <UniqueIdentifier>{1b7fc3cd-8334-4340-ba65-1aaf75f3edfe}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Command">
+      <UniqueIdentifier>{93cf0db2-19bc-43a4-b762-e3afd60e9a80}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Utils">
+      <UniqueIdentifier>{9fc92a98-c316-4f0e-88db-a37b10bb74f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Audio">
+      <UniqueIdentifier>{ce237cbb-9b20-4c99-ab0f-80ffe659c7ca}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1300,6 +1309,15 @@
     </ClCompile>
     <ClCompile Include="include\Graphics\GraphicsEngineType.ixx">
       <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Utils\Func.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioRasterizer.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\AudioRasterizer.cpp">
+      <Filter>ソース ファイル\Audio</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
