@@ -1,6 +1,6 @@
 ﻿module;
 #include <QVector>
-
+#include <QImage>
 export module Audio.Rasterizer;
 
 import std;
@@ -21,19 +21,6 @@ export namespace ArtifactCore
  public:
 
 
-  };
-
-};;
-
-
-
-
-
-
-
-
-
-
-
+ };
 
 };
