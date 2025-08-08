@@ -325,6 +325,15 @@
     <Filter Include="ソース ファイル\Audio">
       <UniqueIdentifier>{ce237cbb-9b20-4c99-ab0f-80ffe659c7ca}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Preview">
+      <UniqueIdentifier>{7772fc74-af63-4fec-b954-600f7b5fa6be}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Preview">
+      <UniqueIdentifier>{a2aa4c18-5701-4fc7-928f-8ccce97a592c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Shader\Compute">
+      <UniqueIdentifier>{4ced6449-249c-422a-b499-dbf84c5babd4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1318,6 +1327,24 @@
     </ClCompile>
     <ClCompile Include="src\Audio\AudioRasterizer.cpp">
       <Filter>ソース ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Preview\PreviewSettings.ixx">
+      <Filter>ヘッダー ファイル\Preview</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Preview\PreviewSettings.cpp">
+      <Filter>ソース ファイル\Preview</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\Compute\Compute.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Compute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\LayerBlendCS_PSO_Helper.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Layer\LayerBlend.ixx">
+      <Filter>ヘッダー ファイル\Layer</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Layer\LayerMatte.ixx">
+      <Filter>ヘッダー ファイル\Layer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

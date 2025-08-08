@@ -1,7 +1,8 @@
-module;
+﻿module;
 #include <QObject>
 #include <wobjectdefs.h>
 
+#include <QJsonObject>
 export module EnvironmentVariable;
 
 

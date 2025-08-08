@@ -1,7 +1,7 @@
-module;
+ï»¿module;
 #include <QSettings>
-#include <QCoreApplication> // QApplication::arguments() ‚Ì‚½‚ß‚É•K—v
-#include <QProcessEnvironment> // OSŠÂ‹«•Ï”‚Ì‚½‚ß
+#include <QCoreApplication> // QApplication::arguments() ã®ãŸã‚ã«å¿…è¦
+#include <QProcessEnvironment> // OSç’°å¢ƒå¤‰æ•°ã®ãŸã‚
 #include <QRegularExpressionMatch>
 #include <QSet> 
 #include <wobjectimpl.h>
@@ -15,15 +15,31 @@ namespace ArtifactCore
 
  class EnvironmentVariableManager::Impl {
  private:
-
+  QMap<QString, QVariant> vars;
 
  public:
   void loadFromOS();
+  void setVariable(const QString& name, const QVariant& value);
+  QVariant getVariable(const QString& name) const;
  };
 
  void EnvironmentVariableManager::Impl::loadFromOS()
  {
+  QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 
+  for (const QString& key : env.keys()) {
+   vars[key] = env.value(key);
+  }
+ }
+
+ void EnvironmentVariableManager::Impl::setVariable(const QString& name, const QVariant& value)
+ {
+  vars[name] = value;
+ }
+
+ QVariant EnvironmentVariableManager::Impl::getVariable(const QString& name) const
+ {
+  return vars.value(name);
  }
 
  EnvironmentVariableManager::~EnvironmentVariableManager()
