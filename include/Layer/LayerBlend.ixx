@@ -4,7 +4,7 @@ export module Layer.Blend;
 export namespace ArtifactCore
 {
  enum class LAYER_BLEND_TYPE {
-  BLEND_NORMAL,
+  BLEND_NORMAL=0,
   BLEND_MULTIPLY,
   BLEND_SCREEN,
   BLEND_OVERLAY,
@@ -20,8 +20,10 @@ export namespace ArtifactCore
   BLEND_SATURATION,
   BLEND_COLOR,
   BLEND_LUMINOSITY,
-  // Add more if needed
+  
  };
+
+
 
 
 

@@ -42,7 +42,7 @@ export namespace ArtifactCore {
   return PSOCreateInfo;
  }
 
- GraphicsPipelineStateCreateInfo LIBRARY_DLL_API createLinePSOHelper()
+ GraphicsPipelineStateCreateInfo LIBRARY_DLL_API createDrawLinePSOHelper()
  {
   GraphicsPipelineStateCreateInfo PSOCreateInfo;
   PSOCreateInfo.PSODesc.Name = "Line PSO";
@@ -73,7 +73,36 @@ export namespace ArtifactCore {
   return PSOCreateInfo;
  }
 
+ GraphicsPipelineStateCreateInfo LIBRARY_DLL_API createDrawSolidColorPSOHelper()
+ {
+  GraphicsPipelineStateCreateInfo PSOCreateInfo;
+  PSOCreateInfo.PSODesc.Name = "Line PSO";
+  PSOCreateInfo.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
 
+  auto& GPC = PSOCreateInfo.GraphicsPipeline;
+
+  GPC.NumRenderTargets = 1;
+  GPC.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
+  GPC.DSVFormat = TEX_FORMAT_UNKNOWN;
+
+  GPC.PrimitiveTopology = PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+  GPC.RasterizerDesc.FillMode = FILL_MODE_SOLID;
+  GPC.RasterizerDesc.CullMode = CULL_MODE_NONE;
+  GPC.RasterizerDesc.AntialiasedLineEnable = false; // DXでは無意味だけど形式上残す
+  GPC.RasterizerDesc.ScissorEnable = false;
+
+  GPC.DepthStencilDesc.DepthEnable = false;
+  GPC.DepthStencilDesc.DepthWriteEnable = false;
+  GPC.DepthStencilDesc.StencilEnable = false;
+
+  // 必要に応じて線を半透明にするなら以下を有効に
+  //GPC.BlendDesc.RenderTargets[0].BlendEnable = true;
+
+  PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+
+  return PSOCreateInfo;
+ }
 
 
 };

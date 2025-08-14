@@ -18,7 +18,10 @@ export namespace ArtifactCore
   float4x4 ProjectionMatrix;
  };
 
-
+ struct CBSolidColor
+ {
+  float color[4]; // RGBAなど。float32x4に対応
+ };
 
  struct Vertex
  {
@@ -32,6 +35,9 @@ export namespace ArtifactCore
   float4 color;
 	 
  };
+
+
+
 
 
 };

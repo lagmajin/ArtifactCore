@@ -3,7 +3,7 @@
 
 module ImageProcessing:AffineTransform;
 
-import Transform2D;
+import Transform._2D;
 
 namespace ArtifactCore {
 

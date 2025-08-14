@@ -1,4 +1,6 @@
 ﻿module;
+#include <array>
+#include <magic_enum/magic_enum.hpp>
 
 export module Layer.Matte;
 

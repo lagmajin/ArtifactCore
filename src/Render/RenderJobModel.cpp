@@ -30,8 +30,12 @@ namespace ArtifactCore {
    case 0:
 	return QString("レンダリング"); // 0列目のヘッダ
    case 1:
-	return QString("コメント");   // 1列目のヘッダ
-   default:
+	return QString("ステータス");   // 1列目のヘッダ
+   case 2:
+	return QString("開始");
+   case 3:
+	return QString("レンダリング時間");
+   	default:
 	break;
    }
   }
@@ -47,6 +51,11 @@ namespace ArtifactCore {
  {
   return 0;
  }
- 
+
+ int RenderJobModel::columnCount(const QModelIndex& parent /*= QModelIndex()*/) const
+ {
+  return 3;
+ }
+
 
 };

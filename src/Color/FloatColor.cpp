@@ -1,8 +1,11 @@
 ﻿module;
 
-
+#include <qnamespace.h>
 module Color.Float;
 import FloatRGBA;
+
+import std;
+
 
 
 namespace ArtifactCore {
@@ -30,7 +33,12 @@ FloatColor::FloatColor() : impl_(new Impl) {}
 
 FloatColor::FloatColor(FloatColor&& other) noexcept : impl_(other.impl_)
 {
- other.impl_ = nullptr;
+ //other.impl_ = nullptr;
+}
+
+FloatColor::FloatColor(const FloatColor& other) : impl_(other.impl_)
+{
+ //other.impl_ = nullptr;
 }
 
 FloatColor::~FloatColor() { delete impl_; }
@@ -55,11 +63,42 @@ float FloatColor::red() const
 {
  return impl_->r;
 }
+float FloatColor::green() const
+{
+ return impl_->g;
+}
 
 float FloatColor::blue() const
 {
  return impl_->b;
 }
+
+float FloatColor::r() const
+{
+ return red();
+}
+
+float FloatColor::g() const
+{
+ return green();
+}
+
+float FloatColor::b() const
+{
+ return blue();
+}
+
+FloatColor& FloatColor::operator=(const FloatColor& other)
+{
+
+ return *this;
+}
+
+FloatColor& FloatColor::operator=(FloatColor&& other) noexcept
+{
+ return *this;
+}
+
 static bool approximatelyEqual(float a, float b, float epsilon = 1e-5f) {
  return std::fabs(a - b) < epsilon;
 }

@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 #include <OpenImageIO/imageio.h>
@@ -11,7 +11,8 @@ export namespace ArtifactCore
 
  class ImageImporter {
  private:
-
+  class Impl;
+  Impl* impl_;
  public:
   ImageImporter();
   ~ImageImporter();

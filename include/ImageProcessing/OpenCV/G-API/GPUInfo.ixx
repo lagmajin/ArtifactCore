@@ -9,7 +9,7 @@ export module GPUInfo;
 
 
 export namespace ArtifactCore {
-
+ /*
  class VulkanGPUInfo {
  public:
   VulkanGPUInfo();
@@ -31,6 +31,11 @@ export namespace ArtifactCore {
   //VkInstance instance = VK_NULL_HANDLE;
   std::vector<GPU> gpus;
  };
+
+ */
+
+
+
 
 
 }

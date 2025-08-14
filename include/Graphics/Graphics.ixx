@@ -9,6 +9,7 @@ export import Graphics.Helper.PSO;
 export import Graphics.Helpler.GLM;
 export import Graphics.Shader.Basics;
 export import Graphics.CBuffer.Constants;
+export import Graphics.CBuffer.Constants.Helper;
 
 export namespace ArtifactCore
 {

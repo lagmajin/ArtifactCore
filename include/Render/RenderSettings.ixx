@@ -4,7 +4,7 @@
 
 export module Render.Settings;
 
-
+import Log;
 
 
 
@@ -16,13 +16,26 @@ export namespace ArtifactCore
   ImageSequence,
   AudioOnly
  };
+
+
  struct RenderProcessSettings {
   bool useMultiCore = true;
+  bool multiFrameRendering = true;
   int maxThreads = 0; // 0で自動
   bool enableGPUAcceleration = true;
   // ... その他、ロギングレベル、エラー継続など
  };
 
+
+ struct RenderAudioSettings {
+  int sampleRate = 48000;
+  int bitDepth = 24;
+  int channels = 2;
+  QString codec = "WAV";
+  bool enableAudio = true;
+  bool exportSeparately = false;
+  QString outputPath;
+ };
 
  struct RenderSettings {
   OutputMode mode = OutputMode::Video; // メイン出力モード

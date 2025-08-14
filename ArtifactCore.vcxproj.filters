@@ -334,6 +334,15 @@
     <Filter Include="ヘッダー ファイル\Graphics\Shader\Compute">
       <UniqueIdentifier>{4ced6449-249c-422a-b499-dbf84c5babd4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Thread">
+      <UniqueIdentifier>{eef65b6f-07eb-4ad0-b186-ebb7da9696a7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Log">
+      <UniqueIdentifier>{f353ec22-0e03-4e1a-846b-861037f9a060}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Time">
+      <UniqueIdentifier>{7dc60d50-81d3-4cef-81c2-3e7d59307dce}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -770,7 +779,7 @@
     <ClCompile Include="include\Render\RenderSettings.ixx">
       <Filter>ヘッダー ファイル\Render</Filter>
     </ClCompile>
-    <ClCompile Include="include\Render\Render.ixx">
+    <ClCompile Include="include\Render\RenderModule.ixx">
       <Filter>ヘッダー ファイル\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\ImageExporter.ixx">
@@ -1345,6 +1354,72 @@
     </ClCompile>
     <ClCompile Include="include\Layer\LayerMatte.ixx">
       <Filter>ヘッダー ファイル\Layer</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Thread\ThreadHelper.ixx">
+      <Filter>ヘッダー ファイル\Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\Compute\LayerBlendComputeShader.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Compute</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Transform\TransformHelper.cpp">
+      <Filter>ソース ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\RotationTurns.ixx">
+      <Filter>ヘッダー ファイル\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Math\RotationTurns.cpp">
+      <Filter>ソース ファイル\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\FFmpegAudioEncoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Video\FFMpegAudioEncoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioFormat.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Math\Math.ixx">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioRenderer.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\AudioRenderer.cpp">
+      <Filter>ソース ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\TransformHelper.ixx">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Log\LogLevel.ixx">
+      <Filter>ヘッダー ファイル\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Log\LogModule.ixx">
+      <Filter>ヘッダー ファイル\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Time\RealTime.ixx">
+      <Filter>ヘッダー ファイル\Time</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Time\RealTime.cpp">
+      <Filter>ソース ファイル\Time</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\StringLike.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Sound\SoundType.ixx">
+      <Filter>ヘッダー ファイル\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Render\RenderStatics.ixx">
+      <Filter>ヘッダー ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Render\RenderStatics.cpp">
+      <Filter>ソース ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\CBuffer\CBufferHelper.ixx">
+      <Filter>ヘッダー ファイル\Graphics\CBuffer</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\ShaderLibrary.ixx">
+      <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

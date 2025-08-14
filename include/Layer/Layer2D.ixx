@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 //#include "../third_party/Eigen/Core"
 //#include "../third_party/Eigen/Dense"
@@ -12,7 +12,7 @@ import std;
 import ImageF32x4;
 import Image;
 
-import Transform2D;
+import Transform;
 
 export namespace ArtifactCore {
 

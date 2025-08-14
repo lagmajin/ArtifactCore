@@ -3,8 +3,11 @@
 #include <QtGui/QtGui>
 
 #include <opencv2/opencv.hpp>
+#include "../Define/DllExportMacro.hpp"
 
-export module Transform2D;
+export module Transform._2D;
+
+
 
 namespace cv {};//dummy
 
@@ -15,7 +18,7 @@ export namespace ArtifactCore {
 
 
 
- class Transform2D {
+  class LIBRARY_DLL_API Transform2D {
  private:
   struct Impl;
   Impl* impl_;
@@ -29,13 +32,22 @@ export namespace ArtifactCore {
   float y() const;
   float scaleX() const;
   float scaleY() const;
-  void setX(double x);
-  void setY(double y);
-  void setTransform2D();
-  void setScaleX(double x);
-  void setScaleY(double y);
-  
+  void setX(float x);
 
+  void setY(float y);
+  float anchorPointX() const;
+  float anchorPointY() const;
+
+  void setScaleX(float x);
+  void setScaleY(float y);
+
+  void setAnchorPointX(float x);
+  void setAnchorPointY(float y);
+
+  void setInitialScaleX(float x);
+  void setInitialScaleY(float y);
+  void setInitialScale(float x,float y);
+  void setTransform2D();
   QTransform toQTransform() const;
 
   float rotation() const;

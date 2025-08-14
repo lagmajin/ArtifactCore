@@ -9,7 +9,11 @@
 
 export module IO.Async.ImageWriterManager;
 
+import std;
+
 import Image;
+
+
 
 export namespace ArtifactCore {
 
@@ -24,10 +28,17 @@ export namespace ArtifactCore {
  public:
   AsyncImageWriterManager();
   ~AsyncImageWriterManager();
-  void enqueueWriter(const QString& filepath,sptrRawImage image);
+  void enqueueWriter(const QString& filepath,RawImagePtr image);
   bool hasRenderQueue() const;
+
  };
 
+ typedef std::shared_ptr<AsyncImageWriterManager> AsyncImageWriteManagerPtr;
+
+	AsyncImageWriteManagerPtr makeImageWriterManager()
+ {
+  return std::make_shared<AsyncImageWriterManager>();
+ }
 
 };
 

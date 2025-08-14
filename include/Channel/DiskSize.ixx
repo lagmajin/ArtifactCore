@@ -1,15 +1,15 @@
-module;
+﻿module;
 
 #include <filesystem>
 
-export module DiskSize;
+export module Disk.Size;
 
 
 
 export namespace ArtifactCore {
 
 
- class DiskSizePrivate;
+ 
 
  class DiskSize {
 

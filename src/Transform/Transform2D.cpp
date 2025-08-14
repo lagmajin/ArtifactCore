@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include<QtGui/QTransform>
 
-module Transform2D;
+module Transform._2D;
 
 //import Transform:Scale2D;
 
@@ -12,22 +12,18 @@ namespace ArtifactCore {
 
 
  struct Transform2D::Impl {
-  double x = 0;
-  double y = 0;
-  double scaleX = 1.0;
-  double scaleY = 1.0;
-  double rotation = 0; // radians or degrees?
-  QPointF anchor = QPointF(0.5, 0.5); // normalized anchor?
+  float x = 0;
+  float y = 0;
+  float initialX = 1.0f;
+  float initialY = 1.0f;
+  float scaleX = 1.0;
+  float scaleY = 1.0;
 
-  QTransform toQTransform() const {
-   QTransform t;
-   t.translate(x, y);
-   t.translate(anchor.x(), anchor.y()); // anchor
-   t.rotate(rotation); // QTransform uses degrees
-   t.scale(scaleX, scaleY);
-   t.translate(-anchor.x(), -anchor.y()); // anchor back
-   return t;
-  }
+  float rotation = 0; // radians or degrees?
+
+  float anchorPointX = 0.0f;
+  float anchorPointY = 0.0f;
+
  };
 
 
@@ -55,20 +51,23 @@ namespace ArtifactCore {
   return impl_->scaleY;
  }
 
- void Transform2D::setX(double x) { impl_->x = x; }
- void Transform2D::setY(double y) { impl_->y = y; }
-
-
- QTransform Transform2D::toQTransform() const {
-  return impl_->toQTransform();
+ void Transform2D::setX(float x)
+ {
+	 impl_->x = x;
  }
 
- void Transform2D::setScaleX(double x)
+
+ void Transform2D::setY(float y)
+ {
+  impl_->y = y;
+ }
+
+ void Transform2D::setScaleX(float x)
  {
 
  }
 
- void Transform2D::setScaleY(double y)
+ void Transform2D::setScaleY(float y)
  {
 
  }
@@ -86,6 +85,41 @@ namespace ArtifactCore {
  float Transform2D::rotation() const
  {
   return 0;
+ }
+
+ void Transform2D::setInitialScaleX(float x)
+ {
+
+ }
+
+ void Transform2D::setInitialScaleY(float y)
+ {
+
+ }
+
+ void Transform2D::setInitialScale(float x, float y)
+ {
+
+ }
+
+ void Transform2D::setAnchorPointX(float x)
+ {
+
+ }
+
+ void Transform2D::setAnchorPointY(float y)
+ {
+
+ }
+
+ float Transform2D::anchorPointX() const
+ {
+  return 0.0f;
+ }
+
+ float Transform2D::anchorPointY() const
+ {
+  return 0.0f;
  }
 
 };

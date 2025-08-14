@@ -1,18 +1,3 @@
-﻿module;
-#include <QByteArray>
+﻿module ;
 
 export module Compute;
-
-export namespace ArtifactCore
-{
-
-
-
-
-
-
-
-
-
-
-}

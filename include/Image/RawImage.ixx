@@ -2,6 +2,8 @@
 #include <QVector>
 #include <QString>
 
+#include <Opencv2/opencv.hpp>
+
 
 export module Image.Raw;
 
@@ -31,6 +33,6 @@ export namespace ArtifactCore {
   int getPixelTypeSizeInBytes() const;
  };
 
- typedef std::shared_ptr<RawImage> sptrRawImage;
+ typedef std::shared_ptr<RawImage> RawImagePtr;
 
 };

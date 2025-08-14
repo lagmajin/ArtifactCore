@@ -13,11 +13,11 @@ namespace ArtifactCore {
   std::vector<std::jthread> workers_; // C++20 jthreadで管理を容易に
   std::atomic<bool> stop_processing_{ false };
   //boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
-  void performImageWrite(std::string filepath_str, sptrRawImage image);
+  void performImageWrite(std::string filepath_str, RawImagePtr image);
  public:
   Impl(size_t num_threads = std::thread::hardware_concurrency());
   ~Impl();
-  void enqueueImageWrite(const QString& filepath, sptrRawImage image);
+  void enqueueImageWrite(const QString& filepath, RawImagePtr image);
  };
 
 
@@ -30,7 +30,7 @@ namespace ArtifactCore {
  {
 
  }
- void AsyncImageWriterManager::Impl::enqueueImageWrite(const QString& filepath, sptrRawImage image)
+ void AsyncImageWriterManager::Impl::enqueueImageWrite(const QString& filepath, RawImagePtr image)
  {
   if (stop_processing_.load()) {
    // マネージャーがシャットダウン中の場合のエラーをログに記録するか、処理します。
@@ -53,7 +53,7 @@ namespace ArtifactCore {
 
 
 
- void AsyncImageWriterManager::enqueueWriter(const QString& filepath, sptrRawImage image)
+ void AsyncImageWriterManager::enqueueWriter(const QString& filepath, RawImagePtr image)
  {
 
  }
