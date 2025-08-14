@@ -28,9 +28,9 @@ namespace ArtifactCore {
   if (orientation == Qt::Horizontal) {
    switch (section) {
    case 0:
-	return QString("レンダリング"); // 0列目のヘッダ
+	return QString("■レンダリング"); // 0列目のヘッダ
    case 1:
-	return QString("ステータス");   // 1列目のヘッダ
+	return QString("■ステータス");   // 1列目のヘッダ
    case 2:
 	return QString("開始");
    case 3:
