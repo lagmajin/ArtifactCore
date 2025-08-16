@@ -905,9 +905,6 @@
     <ClCompile Include="include\Geometry\Float3.ixx">
       <Filter>ヘッダー ファイル\Math</Filter>
     </ClCompile>
-    <ClCompile Include="include\Geometry\Opacity.ixx">
-      <Filter>ヘッダー ファイル\Core</Filter>
-    </ClCompile>
     <ClCompile Include="include\Transform\Camera.ixx">
       <Filter>ヘッダー ファイル\Core</Filter>
     </ClCompile>
@@ -1420,6 +1417,9 @@
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\ShaderLibrary.ixx">
       <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Opacity.cpp">
+      <Filter>ヘッダー ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

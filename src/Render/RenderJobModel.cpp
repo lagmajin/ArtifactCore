@@ -1,12 +1,45 @@
 ﻿module;
 
 #include <QString>
+//#include <QHeaderView>
 #include <QAbstractItemModel>
 
 module Render.JobModel;
 
 
 namespace ArtifactCore {
+ class RenderJobHeaderView::Impl
+ {
+ private:
+
+ public:
+  Impl();
+  ~Impl();
+ };
+ RenderJobHeaderView::Impl::Impl()
+ {
+
+ }
+
+ RenderJobHeaderView::Impl::~Impl()
+ {
+
+ }
+
+ RenderJobHeaderView::RenderJobHeaderView(Qt::Orientation orientation, QWidget* parent/*=nullptr*/) :QHeaderView(orientation,parent)
+ {
+
+ }
+
+ RenderJobHeaderView::~RenderJobHeaderView()
+ {
+
+ }
+
+ void RenderJobHeaderView::paintSection(QPainter* painter, const QRect& rect, int logicalIndex) const
+ {
+
+ }
 
  RenderJobModel::RenderJobModel(QObject* parent) :QAbstractItemModel(parent)
  {
@@ -19,6 +52,7 @@ namespace ArtifactCore {
  }
 
  
+
 
  QVariant RenderJobModel::headerData(int section, Qt::Orientation orientation, int role /*= Qt::DisplayRole*/) const
  {

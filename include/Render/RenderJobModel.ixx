@@ -23,8 +23,10 @@ export namespace ArtifactCore {
  private:
   class Impl;
   Impl* impl_;
+ protected:
+	void paintSection(QPainter* painter, const QRect& rect, int logicalIndex) const override;
  public:
-  explicit RenderJobHeaderView(QWidget*parent=nullptr);
+  explicit RenderJobHeaderView(Qt::Orientation orientation,QWidget*parent=nullptr);
   ~RenderJobHeaderView();
 
  };
@@ -33,6 +35,8 @@ export namespace ArtifactCore {
  private:
   class Impl;
   Impl* impl_;
+ protected:
+	
  public:
   RenderJobModel(QObject* parent = nullptr);
   ~RenderJobModel();
