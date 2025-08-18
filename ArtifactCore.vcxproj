@@ -133,6 +133,7 @@
     <ClCompile Include="include\Utils\Id.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Utils\Path.ixx" />
     <ClCompile Include="include\Utils\String.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>

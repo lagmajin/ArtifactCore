@@ -1419,7 +1419,10 @@
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Opacity.cpp">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>ソース ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\Path.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
