@@ -3,7 +3,7 @@
 module Core.Scale2D;
 
 
-
+import std;
 
 
 namespace ArtifactCore {
@@ -15,13 +15,13 @@ private:
 public:
  Impl();
  ~Impl();
- float scale = 1.0f;
+ float scale_ = 1.0f;
 
  void ZoomIn(float factor);
 
  void ZoomOut(float factor);
 
- float GetScale() const;
+ float scale() const;
 };
 
 ZoomScale2D::Impl::Impl()
@@ -36,20 +36,25 @@ ZoomScale2D::Impl::~Impl()
 
 void ZoomScale2D::Impl::ZoomIn(float factor)
 {
- scale *= factor;
+ scale_ *= factor;
 }
 
 void ZoomScale2D::Impl::ZoomOut(float factor)
 {
- scale /= factor;
+ scale_ /= factor;
 }
 
-float ZoomScale2D::Impl::GetScale() const
+float ZoomScale2D::Impl::scale() const
 {
- return scale;
+ return scale_;
 }
 
  ZoomScale2D::ZoomScale2D():impl_(new Impl())
+ {
+
+ }
+
+ ZoomScale2D::ZoomScale2D(const ZoomScale2D& scale) :impl_(new Impl())
  {
 
  }
@@ -69,9 +74,9 @@ float ZoomScale2D::Impl::GetScale() const
   impl_->ZoomOut(factor);
  }
 
- float ZoomScale2D::GetScale() const
+ float ZoomScale2D::scale() const
  {
-  return impl_->GetScale();
+  return impl_->scale();
  }
 
 };

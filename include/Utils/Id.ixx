@@ -2,6 +2,9 @@
 #include <QDebug>
 #include <QString>
 #include <QByteArray> 
+#include <wobjectdefs.h>
+
+
 #include <boost/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>  
 #include <boost/uuid/uuid_generators.hpp>
@@ -39,7 +42,6 @@ class  LIBRARY_DLL_API Id {
   class Impl;// 実装クラスへの生ポインタ
   Impl* impl_;
  };
-
 
 
 

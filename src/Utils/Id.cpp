@@ -66,12 +66,12 @@ namespace ArtifactCore {
  // コピー代入演算子
  Id& Id::operator=(const Id& other) {
   if (this != &other) {
+   Impl* tmp = new Impl(other.impl_->value_);
    delete impl_;
-   impl_ = new Impl(other.impl_->value_);
+   impl_ = tmp;
   }
   return *this;
  }
-
  // ムーブ代入演算子
  Id& Id::operator=(Id&& other) noexcept {
   if (this != &other) {
@@ -109,5 +109,7 @@ namespace ArtifactCore {
  bool Id::operator<(const Id& other) const {
   return impl_->value_ < other.impl_->value_;
  }
+
+
 
 };
