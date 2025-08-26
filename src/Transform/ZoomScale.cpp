@@ -1,6 +1,6 @@
 ﻿module;
 
-module Core.Scale2D;
+module Core.Scale.Zoom;
 
 
 import std;

@@ -2,7 +2,7 @@
 
 #include "../Define/DllExportMacro.hpp"
 
-export module Core.Scale2D;
+export module Core.Scale.Zoom;
 
 
 namespace ArtifactCore {
