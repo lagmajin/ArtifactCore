@@ -16,6 +16,7 @@ export module hostfxr;
 
 
 
+
 export namespace ArtifactCore
 {
    class LIBRARY_DLL_API DotnetRuntimeHost {

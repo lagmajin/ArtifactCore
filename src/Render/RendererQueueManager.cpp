@@ -8,8 +8,10 @@ module Render.Queue.Manager;
 
 import Render.Settings;
 import Render.JobModel;
+import Render.Queue.Manager;
 
- namespace ArtifactCore {
+
+namespace ArtifactCore {
 
   class RendererQueueManager::Impl{
   private:

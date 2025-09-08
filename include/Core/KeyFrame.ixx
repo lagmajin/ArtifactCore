@@ -1,13 +1,16 @@
-module;
+﻿module;
+
 #include <QString>
+
+#include "../Define/DllExportMacro.hpp"
 export module Core.KeyFrame;
 
-
+import std;
 
 export namespace Artifact {
 
  //keyframe class
- class KeyFrame
+ LIBRARY_DLL_API class KeyFrame
  {
  private:
   class Impl;
@@ -15,8 +18,9 @@ export namespace Artifact {
  public:
   KeyFrame();
   ~KeyFrame();
-
-
+  void setTime(float t);
+  float time() const;
+  void setValue(const std::any& v);
 
  };
 

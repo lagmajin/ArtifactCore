@@ -11,7 +11,7 @@ export namespace ArtifactCore {
 
  extern LIBRARY_DLL_API const QByteArray lineShaderVSText;
 
-
+ extern LIBRARY_DLL_API const QByteArray g_qsBasic2DVS;
 
 
 

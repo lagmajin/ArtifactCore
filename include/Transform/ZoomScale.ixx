@@ -5,7 +5,7 @@
 export module Core.Scale.Zoom;
 
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
  class LIBRARY_DLL_API ZoomScale2D {
  private:

@@ -3,6 +3,11 @@
 #include <thread>
 #include <future>
 #include <functional>
+
+#include <QString>
+
+#include "../Define/DllExportMacro.hpp"
+
 export module Thread.Helper;
 
 export namespace ArtifactCore
@@ -50,7 +55,7 @@ export namespace ArtifactCore
   }
  }
 
-
+ LIBRARY_DLL_API void setCurrentThreadName(const QString& name);
 
 
 }

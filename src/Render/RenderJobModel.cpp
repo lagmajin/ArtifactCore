@@ -69,6 +69,10 @@ namespace ArtifactCore {
 	return QString("開始");
    case 3:
 	return QString("レンダリング時間");
+   case 4:
+	return QString("コメント");
+   case 5:
+	return QString("通知");
    	default:
 	break;
    }
@@ -88,7 +92,7 @@ namespace ArtifactCore {
 
  int RenderJobModel::columnCount(const QModelIndex& parent /*= QModelIndex()*/) const
  {
-  return 3;
+  return 5;
  }
 
 

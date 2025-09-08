@@ -343,6 +343,15 @@
     <Filter Include="ソース ファイル\Time">
       <UniqueIdentifier>{7dc60d50-81d3-4cef-81c2-3e7d59307dce}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Thread">
+      <UniqueIdentifier>{55309539-fb23-4959-a60f-c299ec9d9a6a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Event">
+      <UniqueIdentifier>{11b11e55-8a92-4012-ade8-cc2e9bd4804b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Event">
+      <UniqueIdentifier>{68cdae66-9f6f-4e9a-ad4f-275a6cb6fbe2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1423,6 +1432,15 @@
     </ClCompile>
     <ClCompile Include="include\Utils\Path.ixx">
       <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Thread\ThreadHelper.cpp">
+      <Filter>ソース ファイル\Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Event\EventBus.ixx">
+      <Filter>ヘッダー ファイル\Event</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Event\EventBus.cpp">
+      <Filter>ソース ファイル\Event</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
