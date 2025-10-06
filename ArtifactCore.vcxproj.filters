@@ -1424,9 +1424,6 @@
     <ClCompile Include="include\Graphics\CBuffer\CBufferHelper.ixx">
       <Filter>ヘッダー ファイル\Graphics\CBuffer</Filter>
     </ClCompile>
-    <ClCompile Include="include\Graphics\Shader\ShaderLibrary.ixx">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\Core\Opacity.cpp">
       <Filter>ソース ファイル\Core</Filter>
     </ClCompile>
@@ -1441,6 +1438,30 @@
     </ClCompile>
     <ClCompile Include="src\Event\EventBus.cpp">
       <Filter>ソース ファイル\Event</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\AutoContrast.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\ShaderLibrary.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\OpenCV\AutoGamma.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\AutoContrast.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\AutoGamma.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\Sepia.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\DirectCompute</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\DirectCompute\ThreeWayColorCorrection.ixx">
+      <Filter>ヘッダー ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ImageProcessing\DirectCompute\ThreeWayColorCorrection.cpp">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1461,6 +1482,12 @@
     </None>
     <None Include="include\ImageProcessing\Halide\Lift.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing\Halide</Filter>
+    </None>
+    <None Include="src\ImageProcessing\OpenCV\AutoContrast.cppm">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </None>
+    <None Include="src\ImageProcessing\OpenCV\AutoGamma.cppm">
+      <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

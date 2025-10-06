@@ -1,4 +1,5 @@
-module;
+﻿module;
+#include <QString>
 
 export module Color;
 

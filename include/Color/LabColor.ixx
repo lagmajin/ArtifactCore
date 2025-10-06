@@ -4,6 +4,8 @@ export module Color.Lab;
 
 export namespace ArtifactCore
 {
+
+
   class LIBRARY_DLL_API LabColor
  {
  private:
@@ -17,6 +19,7 @@ export namespace ArtifactCore
   void setA(float a);
   void setB(float b);
 
+  LabColor& operator=(const LabColor& other);
  };
 
 

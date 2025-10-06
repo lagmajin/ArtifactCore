@@ -12,6 +12,7 @@ export namespace ArtifactCore
   Impl* impl_;
  public:
   PreviewSettings();
+  PreviewSettings(const PreviewSettings& other);
   ~PreviewSettings();
  };
 
