@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 module Frame.FrameRate;
 
@@ -6,8 +6,12 @@ module Frame.FrameRate;
 
 namespace ArtifactCore {
 
- class FrameratePrivate {
+ class Framerate::Impl {
+ private:
 
+ public:
+  Impl();
+  ~Impl();
  };
 
 
@@ -34,6 +38,41 @@ namespace ArtifactCore {
  }
 
  Framerate::~Framerate()
+ {
+
+ }
+
+ void Framerate::setFramerate(float frame /*= 30.0f*/)
+ {
+
+ }
+
+ void Framerate::speedUp(float frame /*= 1.0f*/)
+ {
+
+ }
+
+ void Framerate::speedDown(float frame /*= 1.0f*/)
+ {
+
+ }
+
+ void Framerate::setFromJson(const QJsonObject& object)
+ {
+
+ }
+
+ void Framerate::readFromJson(QJsonObject& object) const
+ {
+
+ }
+
+ void Framerate::writeToJson(QJsonObject& object) const
+ {
+
+ }
+
+ void Framerate::setFromString(const QString& framerate)
  {
 
  }

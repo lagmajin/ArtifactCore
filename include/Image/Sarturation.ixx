@@ -1,16 +1,21 @@
-#pragma once
+﻿module;
+
+export module Color.Saturation;
 
 
 
+export namespace ArtifactCore {
 
+ class Saturation
+ {
+ private:
+  class Impl;
+  Impl* impl_;
 
-namespace ArtifactCore {
-
-
-
-
-
-
+ public:
+  Saturation();
+  ~Saturation();
+ };
 
 };
 

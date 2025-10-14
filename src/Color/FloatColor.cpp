@@ -16,6 +16,11 @@ private:
 public:
  Impl();
  ~Impl();
+ float sumRGB() const;
+ float sumRGBA() const;
+
+ float averageRGB() const;
+ float averageRGBA() const;
  float r = 0.f, g = 0.f, b = 0.f, a = 1.f;
 };
 
@@ -97,6 +102,11 @@ FloatColor& FloatColor::operator=(const FloatColor& other)
 FloatColor& FloatColor::operator=(FloatColor&& other) noexcept
 {
  return *this;
+}
+
+void FloatColor::clamp()
+{
+
 }
 
 static bool approximatelyEqual(float a, float b, float epsilon = 1e-5f) {

@@ -352,6 +352,15 @@
     <Filter Include="ソース ファイル\Event">
       <UniqueIdentifier>{68cdae66-9f6f-4e9a-ad4f-275a6cb6fbe2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\UI">
+      <UniqueIdentifier>{af226e3f-9b21-4bcc-b315-1cc799f00734}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\FileSystem">
+      <UniqueIdentifier>{6d39679c-1fc9-4eaa-a040-b68d022a29c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Filesystem">
+      <UniqueIdentifier>{fbf461fc-be0e-42fc-bf93-6c2df5fd914c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1462,6 +1471,21 @@
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\ThreeWayColorCorrection.cpp">
       <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\UI\TransformControls.ixx">
+      <Filter>ヘッダー ファイル\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="include\UI\GizmoMode.ixx">
+      <Filter>ヘッダー ファイル\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="include\FileSystem\DirectoryBuilder.ixx">
+      <Filter>ヘッダー ファイル\FileSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\ImageInterface.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Color\Sarturation.cpp">
+      <Filter>ソース ファイル\Color</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

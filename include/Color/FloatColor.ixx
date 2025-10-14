@@ -47,12 +47,21 @@ export namespace ArtifactCore {
   float g() const;
   float b() const;
   float a() const;
-  void setRed(float red);
+
+
+  float sumRGB() const;
+  float sumRGBA() const;
+
+  float averageRGB() const;
+  float averageRGBA() const;
+
+ 	void setRed(float red);
   void setGreen(float green);
   void setBlue(float blue);
   void setAlpha(float alpha);
   void setColor(float red, float green, float blue);
   void setColor(float red, float green, float blue, float alpha);
+  void clamp();
 
   FloatColor& operator=(const FloatColor& other); // コピー代入演算子
   FloatColor& operator=(FloatColor&& other) noexcept;

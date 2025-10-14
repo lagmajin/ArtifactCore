@@ -2,6 +2,8 @@
 #include "../Define/DllExportMacro.hpp"
 export module Color.Lab;
 
+import Color.Float;
+
 export namespace ArtifactCore
 {
 
@@ -15,10 +17,14 @@ export namespace ArtifactCore
   LabColor();
   LabColor(const LabColor& color);
   ~LabColor();
+  float L() const;
+  float a() const;
+  float b() const;
   void setL(float L);
   void setA(float a);
   void setB(float b);
-
+  float luminance() const;          // L値をそのまま使用
+  float deltaE(const LabColor& other) const;
   LabColor& operator=(const LabColor& other);
  };
 

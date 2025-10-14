@@ -1,4 +1,4 @@
-module;
+﻿module;
 // import <cstdint>;
 //#include <QtGui/QImage>
 
@@ -10,7 +10,7 @@ export module Image.Bitmap;
 
 namespace ArtifactCore {
  
- class BitmapPrivate;
+ 
 
  class LIBRARY_DLL_API Bitmap {
  private:

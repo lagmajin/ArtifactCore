@@ -1,8 +1,10 @@
-module;
+﻿module;
 
 //#include <vulkan/vulkan.h>
 #include <vector>
 #include <string>
+
+#include <QString>
 
 export module GPUInfo;
 
@@ -34,7 +36,23 @@ export namespace ArtifactCore {
 
  */
 
+ class GPUInfo
+ {
+ private:
+  class Impl;
+  Impl* impl_;
+ public:
+  GPUInfo();
+  ~GPUInfo();
+  QString vendor() const;
 
+  QString renderer() const;
+
+  QString memory() const {
+   // OpenGLでは標準で取得できない場合が多いので、VulkanやDirectXで取得可能
+   return "UnknownMemory";
+  }
+ };
 
 
 

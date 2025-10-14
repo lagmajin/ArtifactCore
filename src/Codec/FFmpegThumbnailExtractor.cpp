@@ -157,4 +157,15 @@ namespace ArtifactCore {
   return impl_->extractThumbnailInternal(videoFilePath);
  }
 
+ QImage FFmpegThumbnailExtractor::extractThumbnailAtTimestamp(const QString& videoPath, qint64 timestampMs)
+ {
+
+  return QImage();
+ }
+
+ QImage FFmpegThumbnailExtractor::extractEmbeddedThumbnail(const QString& videoPath)
+ {
+  return QImage();
+ }
+
 };

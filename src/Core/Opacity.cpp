@@ -23,9 +23,16 @@ namespace ArtifactCore
 
  }
 
+ Opacity::Opacity(const Opacity& other) :impl_(new Impl())
+ {
+
+ }
+
  Opacity::~Opacity()
  {
 delete impl_;
  }
+
+
 
 };

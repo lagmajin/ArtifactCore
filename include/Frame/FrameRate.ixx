@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 
 #include <QtCore/QString>
@@ -20,11 +20,12 @@ export namespace ArtifactCore {
  };
 
 
- class FrameratePrivate;
+
 
  class Framerate {
  private:
-  //FrameratePrivate* const	pFrameRate_;
+  class Impl;
+  Impl* impl_;
  public:
   Framerate();
   Framerate(float frameRate);
@@ -46,6 +47,9 @@ export namespace ArtifactCore {
   void setFromJson(const QJsonObject& object);
   void readFromJson(QJsonObject& object) const;
   void writeToJson(QJsonObject& object) const;
+
+  QString toDisplayString(bool includeDropframe = true) const; // UI向け表示
+  static Framerate fromJsonStatic(const QJsonObject& obj);
 
   Framerate& operator=(float rate);
   Framerate& operator=(const QString& str);
