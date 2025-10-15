@@ -152,6 +152,7 @@
     </ClCompile>
     <ClCompile Include="include\Utils\StringLike.ixx" />
     <ClCompile Include="include\Video\FFmpegAudioEncoder.ixx" />
+    <ClCompile Include="NetworkRPCServer.ixx" />
     <ClCompile Include="src\Audio\AudioRasterizer.cpp" />
     <ClCompile Include="src\Audio\AudioRenderer.cpp" />
     <ClCompile Include="src\Codec\FFmpegThumbnailExtractor.cpp">
@@ -191,6 +192,7 @@
     </ClCompile>
     <ClCompile Include="src\Knob\AbstractKnob.cpp" />
     <ClCompile Include="src\Math\RotationTurns.cpp" />
+    <ClCompile Include="src\Network\NetworkRPCServer.cpp" />
     <ClCompile Include="src\Preview\PreviewSettings.cpp" />
     <ClCompile Include="src\Render\RendererQueueManager.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>

@@ -1,5 +1,6 @@
 ﻿module;
 #include <QByteArray>
+#include "../../../include/Define/DllExportMacro.hpp"
 
 //#include <../ArtifactWidgets/include/Define/DllExportMacro.hpp>
 
@@ -8,7 +9,7 @@ module Graphics.Shader.Basics;
 
 namespace ArtifactCore {
 
- const QByteArray g_qsBasic2DImagePS = R"(
+ LIBRARY_DLL_API const QByteArray g_qsBasicSprite2DImagePS = R"(
 struct PS_INPUT
 {
     float4 Position : SV_POSITION;
@@ -28,7 +29,7 @@ float4 main(PS_INPUT input) : SV_TARGET
 
 
 
-const QByteArray g_qsSolidColorPS2 = R"(
+ LIBRARY_DLL_API const QByteArray   g_qsSolidColorPS2 = R"(
 
 struct PS_INPUT
 {
@@ -44,7 +45,7 @@ float4 main(PS_INPUT input) : SV_TARGET
 }
 )";
 
-const QByteArray g_qsSolidColorPS = R"(
+ LIBRARY_DLL_API const QByteArray g_qsSolidColorPS = R"(
 
 cbuffer ColorBuffer : register(b0)
 {

@@ -17,6 +17,7 @@ export namespace ArtifactCore
   ~CompressQuality();
   QString toQString() const;
 
+  
  };
 
 

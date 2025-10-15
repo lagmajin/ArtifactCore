@@ -4,31 +4,36 @@ module Color.Saturation;
 
 namespace ArtifactCore
 {
- class Sarturation::Impl
+ class Saturation::Impl
  {
+
+ public:
   Impl();
   ~Impl();
+  float value_{ 0.0f };
  };
 
- Sarturation::Impl::Impl()
+ Saturation::Impl::Impl()
  {
 
  }
 
- Sarturation::Impl::~Impl()
+ Saturation::Impl::~Impl()
  {
 
  }
-
-
-
 
  Saturation::~Saturation()
  {
-
+  delete impl_;
  }
 
- Saturation::Saturation()
+ Saturation::Saturation() :impl_(new Impl())
+ {
+  
+ }
+
+ void Saturation::setSaturation(float s)
  {
 
  }

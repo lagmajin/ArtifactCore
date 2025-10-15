@@ -361,6 +361,12 @@
     <Filter Include="ソース ファイル\Filesystem">
       <UniqueIdentifier>{fbf461fc-be0e-42fc-bf93-6c2df5fd914c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Network">
+      <UniqueIdentifier>{fc1aef36-1a98-4446-bad0-cb67b8c9e576}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Network">
+      <UniqueIdentifier>{6159ae99-f8be-4acc-b80d-6c17837dd9b0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1486,6 +1492,12 @@
     </ClCompile>
     <ClCompile Include="src\Color\Sarturation.cpp">
       <Filter>ソース ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkRPCServer.ixx">
+      <Filter>ヘッダー ファイル\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Network\NetworkRPCServer.cpp">
+      <Filter>ソース ファイル\Network</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

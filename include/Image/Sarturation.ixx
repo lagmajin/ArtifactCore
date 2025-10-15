@@ -15,6 +15,9 @@ export namespace ArtifactCore {
  public:
   Saturation();
   ~Saturation();
+  float saturation() const;
+  void setSaturation(float s); // 0..1 にクランプ
+  
  };
 
 };

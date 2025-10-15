@@ -8,7 +8,7 @@ import std;
 
 export namespace ArtifactCore {
 
- extern LIBRARY_DLL_API const QByteArray g_qsBasic2DImagePS;
+ extern LIBRARY_DLL_API const QByteArray g_qsBasicSprite2DImagePS;
 
  
 
