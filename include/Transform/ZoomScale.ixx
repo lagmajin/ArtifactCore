@@ -18,8 +18,7 @@ export namespace ArtifactCore {
   void ZoomIn(float factor);
   void ZoomOut(float factor);
   float scale() const;
-
-
+  ZoomScale2D& operator=(const ZoomScale2D& other);
  };
 
 

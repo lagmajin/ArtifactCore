@@ -1,9 +1,10 @@
 ﻿module;
-#include <QByteArray>
-export module Audio.Frame;
 extern "C" {
 #include <libavutil\samplefmt.h>
 }
+#include <QByteArray>
+export module Audio.Frame;
+
 
 import std;
 

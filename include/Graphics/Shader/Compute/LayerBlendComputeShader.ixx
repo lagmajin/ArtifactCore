@@ -94,12 +94,36 @@ void main(uint3 id : SV_DispatchThreadID)
 
 )";
 
+ LIBRARY_DLL_API const QByteArray normalBlendShaderText_New = R"(
+
+Texture2D<float4> LayerA : register(t0);
+Texture2D<float4> LayerB : register(t1);
+RWTexture2D<float4> OutImage : register(u0);
+
+[numthreads(8, 8, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    float4 a = LayerA[id.xy];
+    float4 b = LayerB[id.xy];
+
+    // 標準的なアルファブレンド (A over B)
+    float alpha = a.a;
+    float4 result = a * alpha + b * (1.0 - alpha);
+
+    OutImage[id.xy] = result;
+}
+
+)";
 
 
- const std::map<LAYER_BLEND_TYPE, QByteArray> BlendShaders = {
+	
+
+ LIBRARY_DLL_API const std::map<LAYER_BLEND_TYPE, QByteArray> BlendShaders = {
   {LAYER_BLEND_TYPE::BLEND_NORMAL, normalBlendShaderText},
   {LAYER_BLEND_TYPE::BLEND_MULTIPLY, mulBlendShaderText},
   {LAYER_BLEND_TYPE::BLEND_SCREEN, screenBlendShaderText},
+  {LAYER_BLEND_TYPE::BLEND_ADD,addBlendShaderText },
+ 	
   // 他のブレンドタイプに対応するシェーダもここに追加
  };
 

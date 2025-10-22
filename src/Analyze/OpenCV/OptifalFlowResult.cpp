@@ -1,4 +1,4 @@
-module ;
+ï»¿module ;
 
 #include <opencv2/opencv.hpp>
 module Analyze:OpticalFlow;
@@ -7,6 +7,12 @@ import std;
 
 namespace ArtifactCore {
 
+class OpticalFlowResult::Impl
+{
+private:
+
+public:
+};
 
 
  cv::Mat OpticalFlowResult::getMagnitudeMask(float threshold) const
@@ -37,7 +43,7 @@ namespace ArtifactCore {
    for (int x = 0; x < flow.cols; x++) {
 	cv::Point2f f = flow.at<cv::Point2f>(y, x);
 	float angle = std::atan2(f.y, f.x); // -pi..pi
-	if (cv::norm(f) < 1e-3) continue;   // “®‚«‚È‚µ‚ÍœŠO
+	if (cv::norm(f) < 1e-3) continue;   // å‹•ããªã—ã¯é™¤å¤–
 	int bin = static_cast<int>((angle + CV_PI) / (2 * CV_PI) * bins) % bins;
 	hist[bin]++;
    }
@@ -54,8 +60,8 @@ namespace ArtifactCore {
 	float mag = (float)cv::norm(f);
 	float angle = std::atan2(f.y, f.x);
 
-	// F‘Š(H)‚Í•ûŒüAÊ“x(S)‚ÍÅ‘å’lA–¾“x(V)‚Í‘å‚«‚³
-	uchar H = static_cast<uchar>((angle + CV_PI) * 180 / CV_PI); // 0..360“x‚ğ0..180‚ÉƒXƒP[ƒ‹
+	// è‰²ç›¸(H)ã¯æ–¹å‘ã€å½©åº¦(S)ã¯æœ€å¤§å€¤ã€æ˜åº¦(V)ã¯å¤§ãã•
+	uchar H = static_cast<uchar>((angle + CV_PI) * 180 / CV_PI); // 0..360åº¦ã‚’0..180ã«ã‚¹ã‚±ãƒ¼ãƒ«
 	uchar S = 255;
 	uchar V =(uchar) std::min(255.0f, mag * 10);
 

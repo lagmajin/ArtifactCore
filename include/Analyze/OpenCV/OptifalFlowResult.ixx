@@ -1,4 +1,4 @@
-module;
+п»їmodule;
 
 #include "../../Define/DllExportMacro.hpp"
 
@@ -13,23 +13,25 @@ export module Analyze:OpticalFlow;
 
 export namespace ArtifactCore {
 
- LIBRARY_DLL_API class OpticalFlowResult {
+  class LIBRARY_DLL_API OpticalFlowResult {
  private:
-  cv::Mat flow; // CV_32FC2 ‚М“®‚«ѓxѓNѓgѓ‹ѓ}ѓbѓv
+  cv::Mat flow; // CV_32FC2 гЃ®е‹•гЃЌгѓ™г‚Їгѓ€гѓ«гѓћгѓѓгѓ—
 
+  class Impl;
+  Impl* impl_;
  public:
   OpticalFlowResult(const cv::Mat& flow_) : flow(flow_) {}
 
-  // •Ѕ‹П“®‚«ѓxѓNѓgѓ‹‚рЊvЋZ
+  // е№іеќ‡е‹•гЃЌгѓ™г‚Їгѓ€гѓ«г‚’иЁ€з®—
   cv::Point2f getAverageFlow() const;
 
-  // “®‚«‚М‘е‚«‚і‚Ми‡’l€ИЏг‚М‰ж‘f‚рѓ}ѓXѓN‚Е•Ф‚·
+  // е‹•гЃЌгЃ®е¤§гЃЌгЃ•гЃ®й–ѕеЂ¤д»ҐдёЉгЃ®з”»зґ г‚’гѓћг‚№г‚ЇгЃ§иї”гЃ™
   cv::Mat getMagnitudeMask(float threshold) const;
 
-  // •ыЊьѓqѓXѓgѓOѓ‰ѓЂЃi8•ыЊьЃj
+  // ж–№еђ‘гѓ’г‚№гѓ€г‚°гѓ©гѓ пј€8ж–№еђ‘пј‰
   std::vector<int> getDirectionHistogram(int bins = 8) const;
 
-  // “®‚«ѓxѓNѓgѓ‹‚рђF‚Е‰ВЋ‹‰»‚µ‚Ѕ‰ж‘њ‚рЌмђ¬
+  // е‹•гЃЌгѓ™г‚Їгѓ€гѓ«г‚’и‰ІгЃ§еЏЇи¦–еЊ–гЃ—гЃџз”»еѓЏг‚’дЅњж€ђ
   cv::Mat visualizeFlow() const;
  };
 

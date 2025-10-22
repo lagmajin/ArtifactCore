@@ -36,7 +36,17 @@ export namespace ArtifactCore
 	 
  };
 
+ struct RectVertex
+ {
+  float2 position; // XY座標（スクリーン座標 or NDC）
+  float4 color;    // RGBA
+ };
 
+ // 定数バッファ用（オプション、全体色指定用）
+ struct CBRect
+ {
+  float4 color;    // 矩形の共通色
+ };
 
 
 

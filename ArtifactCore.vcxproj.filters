@@ -367,6 +367,15 @@
     <Filter Include="ソース ファイル\Network">
       <UniqueIdentifier>{6159ae99-f8be-4acc-b80d-6c17837dd9b0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Tool">
+      <UniqueIdentifier>{018c51ad-11d4-4459-92b9-16fdd4c5db2f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Resource">
+      <UniqueIdentifier>{674f3015-d9c1-42fd-9cfe-42642d6979d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Log">
+      <UniqueIdentifier>{8573fcc1-6da7-40b1-ad6a-1da4ba72164f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1498,6 +1507,36 @@
     </ClCompile>
     <ClCompile Include="src\Network\NetworkRPCServer.cpp">
       <Filter>ソース ファイル\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Render\RendererQueue.ixx">
+      <Filter>ヘッダー ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Render\RendererQueue.cpp">
+      <Filter>ソース ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Render\RendererQueueSetting.ixx">
+      <Filter>ヘッダー ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Render\RendererQueueSetting.cpp">
+      <Filter>ソース ファイル\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\ShaderSet.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\GPUInfo.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Tool\ToolMode.ixx">
+      <Filter>ヘッダー ファイル\Tool</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Resource\PSOAndSRB.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Log\Log.cpp">
+      <Filter>ソース ファイル\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Log\Log.ixx">
+      <Filter>ヘッダー ファイル\Log</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -54,9 +54,9 @@ float ZoomScale2D::Impl::scale() const
 
  }
 
- ZoomScale2D::ZoomScale2D(const ZoomScale2D& scale) :impl_(new Impl())
+ ZoomScale2D::ZoomScale2D(const ZoomScale2D& other)
+  : impl_(new Impl(*other.impl_)) // Implのコピーコンストラクタを利用
  {
-
  }
 
  ZoomScale2D::~ZoomScale2D()
@@ -77,6 +77,13 @@ float ZoomScale2D::Impl::scale() const
  float ZoomScale2D::scale() const
  {
   return impl_->scale();
+ }
+
+ ArtifactCore::ZoomScale2D& ZoomScale2D::operator=(const ZoomScale2D& other)
+ {
+  if (this != &other)
+   *impl_ = *other.impl_;
+  return *this;
  }
 
 };

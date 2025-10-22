@@ -199,6 +199,9 @@ export namespace ArtifactCore {
   if (!texture)
 
   return RefCntAutoPtr<ITexture>(nullptr);
+
+
+  
  }
  
  auto CreateCSOutputTexture()

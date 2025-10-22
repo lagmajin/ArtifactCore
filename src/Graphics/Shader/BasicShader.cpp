@@ -4,7 +4,7 @@
 
 //#include <../ArtifactWidgets/include/Define/DllExportMacro.hpp>
 
-module Graphics.Shader.Basics;
+module Graphics.Shader.HLSL.Basics.Pixel;
 
 
 namespace ArtifactCore {

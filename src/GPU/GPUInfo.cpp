@@ -9,33 +9,16 @@ module;
 #include <dxgi.h>
 #include <wrl/client.h>
 #include <QString>
-module GPUInfo;
+module Graphics.GPU.Info;
 
 #pragma comment(lib, "dxgi.lib")
 
 namespace ArtifactCore {
  using Microsoft::WRL::ComPtr;
-class GPUInfo::Impl
-{
-private:
+	
 
-public:
- QOffscreenSurface surface_;
- QOpenGLContext context_;
-};
-
-
-
- GPUInfo::GPUInfo()
- {
-
- }
-
- GPUInfo::~GPUInfo()
- {
-
- }
-
+	
+ /*
  QString GPUInfo::vendor() const
  {
   const GLubyte* v = glGetString(GL_VENDOR);
@@ -47,5 +30,5 @@ public:
   const GLubyte* r = glGetString(GL_RENDERER);
   return r ? QString(reinterpret_cast<const char*>(r)) : "UnknownRenderer";
  }
-
+ */
 }

@@ -10,7 +10,7 @@ import std;
 export namespace Artifact {
 
  //keyframe class
- LIBRARY_DLL_API class KeyFrame
+ class  LIBRARY_DLL_API KeyFrame
  {
  private:
   class Impl;

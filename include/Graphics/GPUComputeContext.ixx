@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QUuid>
 #include <DiligentCore/Platforms/interface/PlatformDefinitions.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
@@ -7,6 +7,8 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h>
 #include "../Define/DllExportMacro.hpp"
 export module Graphics:GPUcomputeContext;
+import Graphics.GPU.Info;
+
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"d3dcompiler.lib")
 #pragma comment(lib,"dxguid.lib")
@@ -48,7 +50,8 @@ export namespace ArtifactCore
   RefCntAutoPtr<IDeviceContext> D3D12DeviceContext();
   DeviceResources D3D12DeviceResources();
   DeviceResources VKDeviceResources();
-
+  GPUInfo info() const;
+  
   RefCntAutoPtr<IShader> CompileShader(const char* shaderSource, SHADER_TYPE type, const char* entryPoint);
  private:
 

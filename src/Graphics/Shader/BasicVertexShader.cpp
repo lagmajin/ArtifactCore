@@ -2,7 +2,7 @@
 #include <QString>
 #include <QByteArray>
 #include "../../../include/Define/DllExportMacro.hpp"
-module Graphics.Shader.Basics.Vertex;
+module Graphics.Shader.HLSL.Basics.Vertex;
 
 
 
@@ -75,7 +75,33 @@ PSInput main(VSInput Input)
 }
 )";
 
+ LIBRARY_DLL_API const QByteArray drawSolidRectVSText= R"(
+struct VSInput
+{
+    float2 pos : ATTRIB0;
+};
 
+struct PSInput
+{
+    float4 pos : SV_POSITION;
+};
+
+cbuffer TransformCB : register(b0)
+{
+    float2 offset; // x, y 位置
+    float2 scale;  // 幅・高さ
+};
+
+PSInput main(VSInput input)
+{
+    PSInput output;
+    float2 position = input.pos * scale + offset;
+    output.pos = float4(position, 0.0f, 1.0f);
+    return output;
+}
+
+
+)";
 
 
 

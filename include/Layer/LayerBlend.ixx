@@ -5,6 +5,7 @@ export namespace ArtifactCore
 {
  enum class LAYER_BLEND_TYPE {
   BLEND_NORMAL=0,
+  BLEND_ADD,
   BLEND_MULTIPLY,
   BLEND_SCREEN,
   BLEND_OVERLAY,
