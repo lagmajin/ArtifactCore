@@ -34,7 +34,7 @@ float4 main(PS_INPUT input) : SV_TARGET
 struct PS_INPUT
 {
     float4 Position : SV_POSITION;
-    float2 TexCoord : TEXCOORD0; // 使わないが、VSからの出力に合わせて定義
+    //float2 TexCoord : TEXCOORD0; // 使わないが、VSからの出力に合わせて定義
 };
 //Texture2D g_texture : register(t0);
 //SamplerState g_sampler : register(s0);
@@ -45,7 +45,7 @@ float4 main(PS_INPUT input) : SV_TARGET
 }
 )";
 
- LIBRARY_DLL_API const QByteArray g_qsSolidColorPS = R"(
+ LIBRARY_DLL_API const QByteArray g_qsSolidColorPSSource = R"(
 
 cbuffer ColorBuffer : register(b0)
 {
@@ -55,7 +55,7 @@ cbuffer ColorBuffer : register(b0)
 struct PS_INPUT
 {
     float4 Position : SV_POSITION;
-    float2 TexCoord : TEXCOORD0; // VSに合わせて存在させてるだけ
+    //float2 TexCoord : TEXCOORD0; // VSに合わせて存在させてるだけ
 };
 
 float4 main(PS_INPUT input) : SV_TARGET

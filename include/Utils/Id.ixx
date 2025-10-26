@@ -44,7 +44,15 @@ class  LIBRARY_DLL_API Id {
  };
 
 
+class LIBRARY_DLL_API CompositionID : public Id {
+public:
+ using Id::Id; // Idのコンストラクタを継承
+};
 
+class LIBRARY_DLL_API LayerID : public Id {
+public:
+ using Id::Id;
+};
 
 
 };

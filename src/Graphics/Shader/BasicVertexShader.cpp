@@ -75,7 +75,7 @@ PSInput main(VSInput Input)
 }
 )";
 
- LIBRARY_DLL_API const QByteArray drawSolidRectVSText= R"(
+ LIBRARY_DLL_API const QByteArray drawSolidRectVSSource= R"(
 struct VSInput
 {
     float2 pos : ATTRIB0;
