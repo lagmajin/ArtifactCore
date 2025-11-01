@@ -6,7 +6,7 @@
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h>
 #include "../Define/DllExportMacro.hpp"
-export module Graphics:GPUcomputeContext;
+export module Graphics.GPUcomputeContext;
 import Graphics.GPU.Info;
 
 #pragma comment(lib,"d3d12.lib")

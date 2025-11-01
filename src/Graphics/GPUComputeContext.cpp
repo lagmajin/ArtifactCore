@@ -14,7 +14,7 @@
 #include <QSysInfo>
 #include <QOperatingSystemVersion>
 #include <QUuid>
-module Graphics:GPUcomputeContext;
+module Graphics.GPUcomputeContext;
 
 
 namespace Diligent {}//dummy

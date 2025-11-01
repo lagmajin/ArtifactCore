@@ -656,7 +656,7 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Affine.ixx">
       <Filter>ヘッダー ファイル\ImageProcessing</Filter>
     </ClCompile>
-    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfo.ixx">
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfoOld.ixx">
       <Filter>ヘッダー ファイル\GPU</Filter>
     </ClCompile>
     <ClCompile Include="src\GPU\GPUInfo.cpp">
@@ -1139,9 +1139,6 @@
     <ClCompile Include="include\Utils\HashValue.ixx">
       <Filter>ヘッダー ファイル\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utils\HashValue.cpp">
-      <Filter>ソース ファイル\Utils</Filter>
-    </ClCompile>
     <ClCompile Include="include\Asset\ImageAsset.ixx">
       <Filter>ヘッダー ファイル\Asset</Filter>
     </ClCompile>
@@ -1555,6 +1552,21 @@
     </ClCompile>
     <ClCompile Include="include\Font\FreeFont.ixx">
       <Filter>ヘッダー ファイル\Font</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Core\CoreModule.ixx">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Texture\TextureManager.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Texture</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\HashValue.cpp">
+      <Filter>ソース ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioVolume.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\AudioVolume.cpp">
+      <Filter>ソース ファイル\Audio</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

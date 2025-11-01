@@ -30,7 +30,7 @@ export namespace ArtifactCore
   float2 position; // 頂点の2D位置 (x, y)
   float2 texCoord; // テクスチャ座標 (u, v)
  };
-
+#pragma pack(push,1)
  struct LineVertex
  {
   float2 position; // 画面またはワールド空間のXY座標

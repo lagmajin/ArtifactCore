@@ -12,8 +12,20 @@ class OpticalFlowResult::Impl
 private:
 
 public:
+ Impl();
+ ~Impl();
+ cv::Mat flow;
 };
 
+OpticalFlowResult::Impl::Impl()
+{
+
+}
+
+OpticalFlowResult::Impl::~Impl()
+{
+
+}
 
  cv::Mat OpticalFlowResult::getMagnitudeMask(float threshold) const
  {
@@ -72,5 +84,16 @@ public:
   cv::cvtColor(hsv, bgr, cv::COLOR_HSV2BGR);
   return bgr;
  }
+
+ OpticalFlowResult::OpticalFlowResult(const cv::Mat& flow_) :impl_(new Impl()),flow(flow_)
+ {
+
+ }
+
+ OpticalFlowResult::~OpticalFlowResult()
+ {
+  delete impl_;
+ }
+
 
 }

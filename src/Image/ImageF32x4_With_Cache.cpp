@@ -117,6 +117,16 @@ namespace ArtifactCore
 
  }
 
+ void ImageF32x4RGBAWithCache::Impl::ResetDirtyBox(Diligent::Box& box)
+ {
+
+ }
+
+ void ImageF32x4RGBAWithCache::Impl::UnionDirtyBox(Diligent::Box& currentBox, int x, int y, uint32_t width, uint32_t height)
+ {
+
+ }
+
 ImageF32x4RGBAWithCache::ImageF32x4RGBAWithCache():impl_(new Impl())
  {
 

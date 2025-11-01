@@ -20,8 +20,8 @@ export namespace ArtifactCore {
   class Impl;
   Impl* impl_;
  public:
-  OpticalFlowResult(const cv::Mat& flow_) : flow(flow_) {}
-
+  OpticalFlowResult(const cv::Mat& flow_);
+  ~OpticalFlowResult();
   // 平均動きベクトルを計算
   cv::Point2f getAverageFlow() const;
 

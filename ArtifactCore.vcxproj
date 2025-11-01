@@ -50,12 +50,14 @@
     <ClCompile Include="include\Audio\AudioFrameToQAudioFormatConverter.ixx" />
     <ClCompile Include="include\Audio\AudioRasterizer.ixx" />
     <ClCompile Include="include\Audio\AudioRenderer.ixx" />
+    <ClCompile Include="include\Audio\AudioVolume.ixx" />
     <ClCompile Include="include\Codec\FFmpegThumbnailExtractor.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Color\Color.ixx" />
     <ClCompile Include="include\Color\LabColor.ixx" />
     <ClCompile Include="include\Common\Common.ixx" />
+    <ClCompile Include="include\Core\CoreModule.ixx" />
     <ClCompile Include="include\Core\Point2D.ixx" />
     <ClCompile Include="include\Core\Position2D.ixx" />
     <ClCompile Include="include\Core\UniformScale.ixx">
@@ -72,7 +74,9 @@
     <ClCompile Include="include\Graphics\CBuffer\Constants.ixx" />
     <ClCompile Include="include\Graphics\FenceTracker.ixx" />
     <ClCompile Include="include\Graphics\GLMHelper.ixx" />
-    <ClCompile Include="include\Graphics\GPUInfo.ixx" />
+    <ClCompile Include="include\Graphics\GPUInfo.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Graphics\GPUTaskHandle.ixx" />
     <ClCompile Include="include\Graphics\GPUTexture.ixx" />
     <ClCompile Include="include\Graphics\GraphicsEngineType.ixx" />
@@ -95,6 +99,7 @@
     <ClCompile Include="include\Graphics\Shader\Vertex\BasicVertexShader.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Graphics\Texture\TextureManager.ixx" />
     <ClCompile Include="include\Graphics\Utils\Func.ixx" />
     <ClCompile Include="include\Graphics\VertexBuffer\VertexBufferixx.ixx" />
     <ClCompile Include="include\ImageProcessing\DirectCompute\AutoContrast.ixx" />
@@ -164,6 +169,7 @@
     <ClCompile Include="NetworkRPCServer.ixx" />
     <ClCompile Include="src\Audio\AudioRasterizer.cpp" />
     <ClCompile Include="src\Audio\AudioRenderer.cpp" />
+    <ClCompile Include="src\Audio\AudioVolume.cpp" />
     <ClCompile Include="src\Codec\FFmpegThumbnailExtractor.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -327,7 +333,7 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Affine.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\BlurGAPI.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\FilmGrain.ixx" />
-    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfo.ixx">
+    <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfoOld.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx" />
@@ -1046,7 +1052,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <DisableSpecificWarnings>4819;4828;5050;4267;4244;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4819;4828;5050;4267;4244;5202</DisableSpecificWarnings>
       <TranslateIncludes>false</TranslateIncludes>
       <OpenMPSupport>true</OpenMPSupport>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>

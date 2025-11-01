@@ -43,6 +43,16 @@ namespace ArtifactCore
 
  }
 
+ FFMpegAudioEncoder::Impl::Impl()
+ {
+
+ }
+
+ FFMpegAudioEncoder::Impl::~Impl()
+ {
+
+ }
+
  FFMpegAudioEncoder::FFMpegAudioEncoder() : impl_(new Impl())
  {
 
@@ -50,7 +60,7 @@ namespace ArtifactCore
 
  FFMpegAudioEncoder::~FFMpegAudioEncoder()
  {
-
+  delete impl_;
  }
 
 }

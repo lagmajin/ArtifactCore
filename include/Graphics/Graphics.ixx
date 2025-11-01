@@ -1,7 +1,7 @@
 ﻿module;
 export module Graphics;
 
-export import :GPUcomputeContext;
+export import Graphics.GPUcomputeContext;
 export import :GraphicsHelper;
 
 export import Graphics.Resource.PSOAndSRB;
@@ -14,6 +14,7 @@ export import Graphics.CBuffer.Constants.Helper;
 
 export import Graphics.Shader.HLSL.Basics.Vertex;
 export import Graphics.Shader.HLSL.Basics.Pixel;
+export import Graphics.GPU.Info;
 
 export namespace ArtifactCore
 {

@@ -5,6 +5,7 @@
 #include <QVector2D>
 #include <glm/glm.hpp>
 #include "../Define/DllExportMacro.hpp"
+#include "../ArtifactWidgets/include/Define/DllExportMacro.hpp"
 export module Core.Point2D;
 
 import std;
@@ -29,7 +30,7 @@ export namespace ArtifactCore {
 
 
 
- class Point2DF{
+ class LIBRARY_DLL_API Point2DF{
  private:
   class Impl;
   Impl* impl_;
