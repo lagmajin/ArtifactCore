@@ -1,7 +1,7 @@
-module;
+﻿module;
 export module Frame;
 
-export import :FramePosition;
+export import Frame.Position;
 export import :FrameOffset;
 
 export namespace ArtifactCore {

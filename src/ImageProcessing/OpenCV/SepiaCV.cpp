@@ -1,8 +1,8 @@
-module;
+module ;
 #include <opencv2/opencv.hpp>
 
 
-module ImageProcessing:Sepia;
+module ImageProcessing.Sepia;
 
 
 

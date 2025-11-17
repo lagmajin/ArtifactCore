@@ -55,4 +55,21 @@ public:
 };
 
 
+inline uint qHash(const Id& key, uint seed = 0) noexcept
+{
+ const auto& uuid = key.getUuid();
+ uint64_t data64[2];
+ static_assert(sizeof(uuid.data) == 16, "UUID must be 16 bytes");
+ std::memcpy(data64, uuid.data, 16);
+
+ uint h1 = static_cast<uint>(data64[0] ^ (data64[0] >> 32));
+ uint h2 = static_cast<uint>(data64[1] ^ (data64[1] >> 32));
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+ return qHashMulti(seed, h1, h2);
+#else
+ return qHash(h1 ^ h2 ^ seed);
+#endif
+}
+
 };

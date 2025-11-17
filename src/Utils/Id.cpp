@@ -20,6 +20,8 @@ namespace ArtifactCore {
   boost::uuids::uuid value_;
  };
 
+
+
  // Id::Impl のデフォルトコンストラクタ - ランダムUUIDを生成
  Id::Impl::Impl() : value_(boost::uuids::random_generator()()) {}
 

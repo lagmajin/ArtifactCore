@@ -7,8 +7,19 @@ export module Core.KeyFrame;
 
 import std;
 
-export namespace Artifact {
+import Frame.Position;
 
+export namespace ArtifactCore {
+
+ struct KeyFrame {
+  FramePosition frame;  // int frame番号やフレーム単位の小数も扱える
+  std::any value;       // または std::variant<float, Vec2, ...>
+ };
+
+
+
+
+ /*
  //keyframe class
  class  LIBRARY_DLL_API KeyFrame
  {
@@ -17,13 +28,15 @@ export namespace Artifact {
   Impl* impl_;
  public:
   KeyFrame();
+  KeyFrame(const KeyFrame& frame);
   ~KeyFrame();
-  void setTime(float t);
   float time() const;
+  void setTime(float t);
+
   void setValue(const std::any& v);
 
  };
-
+ */
 
 
 

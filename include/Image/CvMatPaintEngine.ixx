@@ -1,6 +1,7 @@
-#pragma once
+module ;
+#include <QPaintEngine>
+export module Image.CvMatPaintEngine;
 
-#include <QtGui/QPaintEngine>
 
 namespace ArtifactCore {
 

@@ -1,5 +1,6 @@
-#include "../../include/Image/CvMatPaintEngine.hpp"
-
+module ;
+#include <QPaintEngine>
+module Image.CvMatPaintEngine;
 
 namespace ArtifactCore {
 

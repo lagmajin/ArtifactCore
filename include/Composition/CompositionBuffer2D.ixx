@@ -1,4 +1,4 @@
-module;
+module ;
 #undef emit
 #include <Halide.h>
 
@@ -14,7 +14,7 @@ module;
 #include "../Image/FloatImage.hpp"
 #include <wobjectdefs.h>
 #include "../Define/DllExportMacro.hpp"
-export module Composition:Buffer;
+export module Composition.Buffer;
 
 
 

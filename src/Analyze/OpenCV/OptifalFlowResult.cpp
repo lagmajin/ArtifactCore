@@ -1,7 +1,7 @@
 ﻿module ;
 
 #include <opencv2/opencv.hpp>
-module Analyze:OpticalFlow;
+module Analyze.OpticalFlow;
 
 import std;
 

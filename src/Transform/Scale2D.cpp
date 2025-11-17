@@ -8,7 +8,7 @@ module;
 
 #include <QtGui/QTransform>
 
-module Transform:Scale2D;
+module Transform.Scale2D;
 
 import std;
 

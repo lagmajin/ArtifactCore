@@ -7,7 +7,7 @@ module;
 
 
 
-export module Transform:Scale2D;
+export module Transform.Scale2D;
 import std;
 
 export namespace ArtifactCore {

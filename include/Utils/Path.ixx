@@ -5,7 +5,7 @@
 #include <QDir>
 
 export module Utils.Path;
-
+import Utils.String.Like;
 
 export namespace ArtifactCore
 {
@@ -40,7 +40,15 @@ export namespace ArtifactCore
   return dir.filePath(fileName);
  }
 
+ class Path {
+ private:
+  class Impl;
+  Impl* impl_;
+ public:
+  Path();
 
+  ~Path();
+ };
 
 
 

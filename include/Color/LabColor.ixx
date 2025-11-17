@@ -15,6 +15,7 @@ export namespace ArtifactCore
   Impl* impl_;
  public:
   LabColor();
+  LabColor(float L, float a, float b);
   LabColor(const LabColor& color);
   ~LabColor();
   float L() const;

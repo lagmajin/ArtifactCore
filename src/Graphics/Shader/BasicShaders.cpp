@@ -1,12 +1,12 @@
-﻿module;
+﻿module ;
 #include <QByteArray>
-#include "../../../include/Define/DllExportMacro.hpp"
+
 
 //#include <../ArtifactWidgets/include/Define/DllExportMacro.hpp>
 
 module Graphics.Shader.HLSL.Basics.Pixel;
 
-
+#include "../../../include/Define/DllExportMacro.hpp"
 namespace ArtifactCore {
 
  LIBRARY_DLL_API const QByteArray g_qsBasicSprite2DImagePS = R"(

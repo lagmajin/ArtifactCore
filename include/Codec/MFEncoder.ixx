@@ -7,7 +7,7 @@ module;
 
 #include <QString>
 
-export module Codec:MFEncoder;
+export module Codec.MFEncoder;
 
 import std;
 

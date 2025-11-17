@@ -10,7 +10,7 @@ module;
 #ifdef _WIN32
 #include <windows.h>
 #endif
-module Platform:ShellUtils;
+module Platform.ShellUtils;
 
 namespace ArtifactCore {
 

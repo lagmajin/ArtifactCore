@@ -15,7 +15,10 @@ namespace ArtifactCore
 
 
 
+ AudioRenderer::AudioRenderer()
+ {
 
+ }
 
 
 
@@ -26,9 +29,6 @@ namespace ArtifactCore
 
  }
 
- AudioRenderer::AudioRenderer()
- {
 
- }
 
 };

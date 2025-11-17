@@ -1,8 +1,8 @@
-﻿module;
+﻿module ;
 #include <opencv2/opencv.hpp>
 
 
-module Image:ImageF32x4_RGBA;
+module Image.ImageF32x4_RGBA;
 
 import std;
 import FloatRGBA;

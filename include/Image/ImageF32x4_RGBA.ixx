@@ -9,7 +9,7 @@
 #include <folly/concurrency/AtomicSharedPtr.h>
 
 
-export module Image:ImageF32x4_RGBA;
+export module Image.ImageF32x4_RGBA;
 
 import std;
 import Size;

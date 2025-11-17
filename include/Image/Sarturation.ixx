@@ -1,11 +1,14 @@
 ﻿module;
+#include <QString>
 
 export module Color.Saturation;
 
-
+import std;
 
 export namespace ArtifactCore {
 
+	
+	
  class Saturation
  {
  private:

@@ -1,7 +1,7 @@
 //module;
 //#include <stdint.h>
 
-module Codec:AbstractEncoder;
+module Codec.AbstractEncoder;
 
 
 namespace ArtifactCore {

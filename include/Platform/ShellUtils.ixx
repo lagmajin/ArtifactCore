@@ -1,7 +1,7 @@
 module;
 
 
-export module Platform:ShellUtils;
+export module Platform.ShellUtils;
 
 
 import <QString>; 

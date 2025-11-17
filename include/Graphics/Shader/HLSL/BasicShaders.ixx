@@ -1,9 +1,9 @@
-﻿module;
+﻿module ;
 #include <QString>
 #include <QByteArray>
-#include "../../../Define/DllExportMacro.hpp"
-export module Graphics.Shader.HLSL.Basics.Pixel;
 
+export module Graphics.Shader.HLSL.Basics.Pixel;
+#include "../../../Define/DllExportMacro.hpp"
 import std;
 
 export namespace ArtifactCore {

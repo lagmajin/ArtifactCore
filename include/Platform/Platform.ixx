@@ -1,6 +1,6 @@
 module;
 export module Platform;
-export import :ShellUtils;
+export import Platform.ShellUtils;
 export import :Hint;
 
 

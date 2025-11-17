@@ -7,9 +7,11 @@ export module Render.Queue.Manager;
 import std;
 
 import Render.JobModel;
-
+import RendererQueueSetting;
 
 export namespace ArtifactCore {
+
+ //using namespace ArtifactCore;
 
  class LIBRARY_DLL_API RendererQueueManager:public QObject {
  private:

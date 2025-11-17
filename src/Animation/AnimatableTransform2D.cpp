@@ -1,13 +1,10 @@
-#pragma once
+module;
 
 
-
-
+module Animation.Transform2D;
 
 
 namespace ArtifactCore {
-
-
 
 
 

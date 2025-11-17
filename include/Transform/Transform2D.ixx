@@ -18,7 +18,7 @@ export namespace ArtifactCore {
 
 
 
-  class LIBRARY_DLL_API Transform2D {
+ class LIBRARY_DLL_API Transform2D {
  private:
   struct Impl;
   Impl* impl_;
@@ -27,7 +27,7 @@ export namespace ArtifactCore {
   Transform2D();
   Transform2D(const Transform2D& other);
   ~Transform2D();
-  
+
   float x() const;
   float y() const;
   float scaleX() const;
@@ -46,7 +46,7 @@ export namespace ArtifactCore {
 
   void setInitialScaleX(float x);
   void setInitialScaleY(float y);
-  void setInitialScale(float x,float y);
+  void setInitialScale(float x, float y);
   void setTransform2D();
   QTransform toQTransform() const;
 
@@ -54,7 +54,7 @@ export namespace ArtifactCore {
   //Point2f anchor() const;
  };
 
- 
+
 
 
 

@@ -1,6 +1,8 @@
-﻿module;
+﻿module ;
 
 module Color.Saturation;
+
+import std;
 
 namespace ArtifactCore
 {

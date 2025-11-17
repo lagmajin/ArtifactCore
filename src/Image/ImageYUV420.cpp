@@ -1,4 +1,4 @@
-﻿module;
+﻿module ;
 #include <QImage>
 module Image.ImageYUV420;
 

@@ -1,0 +1,19 @@
+cmake_minimum_required(VERSION 3.21)
+project(ArtifactCore LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
+find_package(Qt6 REQUIRED COMPONENTS Core)
+
+add_library(ArtifactCore
+    src/Main.cpp
+    src/InputOperator.cpp
+    include/ArtifactCore/InputOperator.h
+)
+
+target_link_libraries(ArtifactCore PRIVATE Qt6::Core)
+target_include_directories(ArtifactCore PUBLIC include)

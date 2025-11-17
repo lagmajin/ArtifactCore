@@ -1,6 +1,6 @@
 module;
 
-module Composition:Buffer;
+module Composition.Buffer;
 
 import FloatRGBA;
 

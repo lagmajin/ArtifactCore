@@ -1,10 +1,11 @@
-﻿module;
+﻿module ;
+#define QT_NO_KEYWORDS
 #include <QString>
 #include <QByteArray>
-#include "../../../include/Define/DllExportMacro.hpp"
+
 module Graphics.Shader.HLSL.Basics.Vertex;
 
-
+#include "../../../include/Define/DllExportMacro.hpp"
 
 namespace ArtifactCore
 {

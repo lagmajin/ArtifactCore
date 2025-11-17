@@ -1,4 +1,4 @@
-﻿module;
+﻿module ;
 #include <QByteArray>
 module Graphics.Shader.HLSL.Geometry;
 

@@ -1,10 +1,11 @@
-module;
+module ;
+#include <windows.h>
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mfreadwrite.h>
 
 
-module Codec:MFEncoder;
+module Codec.MFEncoder;
 
 import std;
 

@@ -34,6 +34,7 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   FloatColor();
+  FloatColor(float r,float g,float b,float a);
   ~FloatColor();
   FloatColor(const FloatColor& other);
   FloatColor(FloatColor&& color) noexcept;

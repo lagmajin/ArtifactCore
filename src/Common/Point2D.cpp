@@ -1,4 +1,5 @@
-﻿module;
+﻿module ;
+#define QT_NO_KEYWORDS
 #include <QPointF>
 #include <QVector2D>
 module Core.Point2D;
@@ -45,4 +46,4 @@ namespace ArtifactCore
   return 0.0f;
  }
 
-}
+};

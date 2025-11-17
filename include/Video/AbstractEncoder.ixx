@@ -1,11 +1,11 @@
 
-module;
+module ;
 #include <stdint.h>
 #include <QtCore/QFile>
 
 
 
-export module Codec:AbstractEncoder;
+export module Codec.AbstractEncoder;
 
 
 export namespace ArtifactCore {

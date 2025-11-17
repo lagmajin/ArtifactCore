@@ -1,1 +1,2 @@
-export module ImageProcessing:Sepia;
+module ;
+export module ImageProcessing.Sepia;

@@ -5,7 +5,7 @@
 #include <opencv2/opencv.hpp>
 
 
-export module Analyze:OpticalFlow;
+export module Analyze.OpticalFlow;
 
 
 
