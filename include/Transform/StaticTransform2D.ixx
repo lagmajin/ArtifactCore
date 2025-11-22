@@ -7,7 +7,7 @@
 
 export module Transform._2D;
 
-
+import std;
 
 namespace cv {};//dummy
 
@@ -18,15 +18,15 @@ export namespace ArtifactCore {
 
 
 
- class LIBRARY_DLL_API Transform2D {
+ class LIBRARY_DLL_API StaticTransform2D {
  private:
   struct Impl;
   Impl* impl_;
   //std::unique_ptr<Impl> impl_2;
  public:
-  Transform2D();
-  Transform2D(const Transform2D& other);
-  ~Transform2D();
+  StaticTransform2D();
+  StaticTransform2D(const StaticTransform2D& other);
+  ~StaticTransform2D();
 
   float x() const;
   float y() const;

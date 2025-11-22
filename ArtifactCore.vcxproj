@@ -26,6 +26,7 @@
     </ClCompile>
     <ClCompile Include="include\Animation\Animatable.ixx" />
     <ClCompile Include="include\Animation\AnimatableTransform2D.ixx" />
+    <ClCompile Include="include\Animation\AnimatableTransform3D.ixx" />
     <ClCompile Include="include\Animation\AnimatableValue.ixx" />
     <ClCompile Include="include\Asset\AbstractAssetFile.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -42,10 +43,12 @@
     <ClCompile Include="include\Asset\AssetDatabase.ixx">
       <FileType>Document</FileType>
     </ClCompile>
+    <ClCompile Include="include\Asset\AssetImportSetting.ixx" />
     <ClCompile Include="include\Asset\AssetMetaFile.ixx">
       <FileType>Document</FileType>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Asset\AssetType.ixx" />
     <ClCompile Include="include\Audio\AudioModule.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -138,6 +141,7 @@
     <ClCompile Include="include\Knob\Knob.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Layer\Layer2D.ixx" />
     <ClCompile Include="include\Layer\LayerBlend.ixx" />
     <ClCompile Include="include\Layer\LayerMatte.ixx" />
     <ClCompile Include="include\Log\Log.ixx" />
@@ -155,6 +159,14 @@
     <ClCompile Include="include\Render\RendererQueueManager.ixx" />
     <ClCompile Include="include\Render\RendererQueue.ixx" />
     <ClCompile Include="include\Render\RenderStatics.ixx" />
+    <ClCompile Include="include\Script\Engine\BuiltinScriptVM.ixx" />
+    <ClCompile Include="include\Script\Engine\Enviroment\EnvironmentManager.ixx" />
+    <ClCompile Include="include\Script\Engine\Func\BuiltinManager.ixx" />
+    <ClCompile Include="include\Script\Engine\Func\ExprIntrinsics.ixx" />
+    <ClCompile Include="include\Script\Engine\Syntax\ASTNode.ixx" />
+    <ClCompile Include="include\Script\Engine\Syntax\Evaluator.ixx" />
+    <ClCompile Include="include\Script\Engine\Value\Lexer.ixx" />
+    <ClCompile Include="include\Script\Engine\Value\Value.ixx" />
     <ClCompile Include="include\Sound\SoundType.ixx" />
     <ClCompile Include="include\Test\TestHelper.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -180,6 +192,8 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\UI\ViewportOperator.ixx" />
+    <ClCompile Include="include\Utils\AssetManager.ixx" />
+    <ClCompile Include="include\Utils\FileLike.ixx" />
     <ClCompile Include="include\Utils\Id.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -191,10 +205,16 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Utils\StringLike.ixx" />
+    <ClCompile Include="include\Utils\UniString.ixx" />
     <ClCompile Include="include\Utils\VectorLike.ixx" />
     <ClCompile Include="include\Video\FFmpegAudioEncoder.ixx" />
     <ClCompile Include="NetworkRPCServer.ixx" />
     <ClCompile Include="src\Animation\AnimatableTransform2D.cpp" />
+    <ClCompile Include="src\Animation\AnimatableTransform3D.cpp" />
+    <ClCompile Include="src\Animation\TransformModule.ixx" />
+    <ClCompile Include="src\Asset\AssetManager.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Audio\AudioRasterizer.cpp" />
     <ClCompile Include="src\Audio\AudioRenderer.cpp" />
     <ClCompile Include="src\Audio\AudioVolume.cpp" />
@@ -259,6 +279,12 @@
     <ClCompile Include="src\Render\RenderWorker.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Script\Engine\Enviroment\EnvironmentManager.cpp" />
+    <ClCompile Include="src\Script\Engine\Func\BuiltinManager.cpp" />
+    <ClCompile Include="src\Script\Engine\Func\ExprIntrinsics.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Script\Engine\Syntax\ASTNode.cppm" />
     <ClCompile Include="src\Thread\ThreadHelper.cpp" />
     <ClCompile Include="src\Time\RealTime.cpp" />
     <ClCompile Include="src\Time\TimeCode.cpp" />
@@ -275,6 +301,7 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Utils\Path.cpp" />
+    <ClCompile Include="src\Utils\UniString.cpp" />
     <ClCompile Include="src\Video\MediaTimeStamp.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -465,9 +492,6 @@
     <ClCompile Include="include\IO\IO.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\Layer\Layer2D.ixx">
-      <FileType>CppHeader</FileType>
-    </ClCompile>
     <ClCompile Include="include\Layer\LayerInfomation.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -531,11 +555,11 @@
     <ClCompile Include="include\Transform\ZoomScale.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
-    <ClCompile Include="include\Transform\Transform.ixx">
+    <ClCompile Include="include\Transform\StaticTransform3D.ixx">
       <FileType>Document</FileType>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\Transform\Transform2D.ixx">
+    <ClCompile Include="include\Transform\StaticTransform2D.ixx">
       <FileType>CppHeader</FileType>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">/interface %(AdditionalOptions)</AdditionalOptions>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -593,10 +617,10 @@
     <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Asset\AbstractAssetFile.cpp">
+    <ClCompile Include="src\Asset\AbstractAssetFile.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Asset\AssetMetaFile.cpp">
+    <ClCompile Include="src\Asset\AssetMetaFile.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
@@ -772,8 +796,8 @@
     <ClCompile Include="src\Transform\Scale2D.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Transform\Transform.cpp" />
-    <ClCompile Include="src\Transform\Transform2D.cppm">
+    <ClCompile Include="src\Transform\StaticTransform3D.cpp" />
+    <ClCompile Include="src\Transform\StaticTransform2D.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Utils\HashValue.cpp">

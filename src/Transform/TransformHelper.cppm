@@ -18,7 +18,7 @@ namespace ArtifactCore
   return result;
  }
 
- LIBRARY_DLL_API glm::f32mat4 toTransform2D(const Transform2D& t)
+ LIBRARY_DLL_API glm::f32mat4 toTransform2D(const StaticTransform2D& t)
  {
   glm::f32mat4 result(1.0f);
   result = glm::translate(result, glm::vec3(-t.anchorPointX(), -t.anchorPointY(), 0.0f));

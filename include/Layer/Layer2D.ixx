@@ -36,7 +36,7 @@ export namespace ArtifactCore {
  public:
   Layer2D();
   ~Layer2D();
-  Transform2D transform2D() const;
+  StaticTransform2D transform2D() const;
   ImageF32x4_RGBA transformedLayer();
  };
 

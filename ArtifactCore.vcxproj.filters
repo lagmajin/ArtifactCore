@@ -43,9 +43,6 @@
     <Filter Include="ソース ファイル\Codec">
       <UniqueIdentifier>{c5d0048e-3512-456d-a549-45f126c7e067}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ソース ファイル\Format">
-      <UniqueIdentifier>{4a983046-c26b-413d-bd5e-cddd286a004e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ソース ファイル\Generator">
       <UniqueIdentifier>{3a86626d-b7bf-4179-9d6b-24ec4ef13cb3}</UniqueIdentifier>
     </Filter>
@@ -403,6 +400,33 @@
     <Filter Include="ヘッダー ファイル\Animation">
       <UniqueIdentifier>{2b66b0c2-3eac-4c6d-baa2-98b94d64b64c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Frame\Format">
+      <UniqueIdentifier>{4a983046-c26b-413d-bd5e-cddd286a004e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Script\Engine">
+      <UniqueIdentifier>{2844deb0-2d12-4ff9-929d-e896c99fe1c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Script\Engine">
+      <UniqueIdentifier>{c005cff4-c6b8-4f1b-8531-fdf18dbc8cb4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Script\Engine\Func">
+      <UniqueIdentifier>{607177b7-8887-4725-b1f8-0748188d8abb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Script\Engine\Value">
+      <UniqueIdentifier>{6add6141-cf82-4e28-9c46-abc9941ce93f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Script\Engine\Enviroment">
+      <UniqueIdentifier>{b55f4900-9316-4f02-b003-ae4da6f96856}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Script\Engine\Func">
+      <UniqueIdentifier>{c803cdb1-49f4-4573-a389-f2c6cf718117}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Script\Engine\Lexer">
+      <UniqueIdentifier>{9312bc86-fcc1-42c7-9e33-a32efc8a9dcd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Script\Engine\Lexer">
+      <UniqueIdentifier>{b0e2b6fa-fae1-420d-96c7-e453bf4312f1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -473,10 +497,10 @@
     <ClCompile Include="src\Image\FloatImage.cpp">
       <Filter>ソース ファイル\Image</Filter>
     </ClCompile>
-    <ClCompile Include="src\Asset\AssetMetaFile.cpp">
+    <ClCompile Include="src\Asset\AssetMetaFile.cppm">
       <Filter>ソース ファイル\Asset</Filter>
     </ClCompile>
-    <ClCompile Include="src\Asset\AbstractAssetFile.cpp">
+    <ClCompile Include="src\Asset\AbstractAssetFile.cppm">
       <Filter>ソース ファイル\Asset</Filter>
     </ClCompile>
     <ClCompile Include="src\Video\LibVLCDecoder.cpp">
@@ -503,7 +527,7 @@
     <ClCompile Include="src\Transform\Rotate.cpp">
       <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="src\Transform\Transform.cpp">
+    <ClCompile Include="src\Transform\StaticTransform3D.cpp">
       <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\Layer\Layer2D.cpp">
@@ -548,7 +572,7 @@
     <ClCompile Include="include\Transform\AnchorPoint2D.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="include\Transform\Transform2D.ixx">
+    <ClCompile Include="include\Transform\StaticTransform2D.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\Scale2D.ixx">
@@ -577,9 +601,6 @@
     </ClCompile>
     <ClCompile Include="include\Video\AbstractEncoder.ixx">
       <Filter>ヘッダー ファイル\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Layer\Layer2D.ixx">
-      <Filter>ヘッダー ファイル\Layer</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\FFMpegEncoder.ixx">
       <Filter>ヘッダー ファイル\Codec</Filter>
@@ -785,7 +806,7 @@
     <ClCompile Include="include\Image\PNGImage.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
-    <ClCompile Include="include\Transform\Transform.ixx">
+    <ClCompile Include="include\Transform\StaticTransform3D.ixx">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\Position2D.hpp">
@@ -794,7 +815,7 @@
     <ClCompile Include="src\ImageProcessing\OpenCV\AffineCV.cppm">
       <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
     </ClCompile>
-    <ClCompile Include="src\Transform\Transform2D.cppm">
+    <ClCompile Include="src\Transform\StaticTransform2D.cppm">
       <Filter>ソース ファイル\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\WorkAround.cpp">
@@ -1684,6 +1705,75 @@
     </ClCompile>
     <ClCompile Include="src\Animation\AnimatableTransform2D.cpp">
       <Filter>ソース ファイル\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Animation\AnimatableTransform3D.ixx">
+      <Filter>ヘッダー ファイル\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Animation\AnimatableTransform3D.cpp">
+      <Filter>ソース ファイル\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Animation\TransformModule.ixx">
+      <Filter>ヘッダー ファイル\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\UniString.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\UniString.cpp">
+      <Filter>ソース ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Asset\AssetType.ixx">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Asset\AssetImportSetting.ixx">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\FileLike.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\AssetManager.ixx">
+      <Filter>ヘッダー ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Asset\AssetManager.cppm">
+      <Filter>ソース ファイル\Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Engine\Syntax\ASTNode.ixx">
+      <Filter>ヘッダー ファイル\Script\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Layer\Layer2D.ixx">
+      <Filter>ヘッダー ファイル\Layer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\Engine\Syntax\ASTNode.cppm">
+      <Filter>ソース ファイル\Script\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Engine\Syntax\Evaluator.ixx">
+      <Filter>ヘッダー ファイル\Script\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Engine\Func\ExprIntrinsics.ixx">
+      <Filter>ヘッダー ファイル\Script\Engine\Func</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Engine\Func\BuiltinManager.ixx">
+      <Filter>ヘッダー ファイル\Script\Engine\Func</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Engine\Enviroment\EnvironmentManager.ixx">
+      <Filter>ヘッダー ファイル\Script\Engine\Enviroment</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Engine\Value\Lexer.ixx">
+      <Filter>ヘッダー ファイル\Script\Engine\Lexer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\Engine\Enviroment\EnvironmentManager.cpp">
+      <Filter>ソース ファイル\Script\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\Engine\Func\ExprIntrinsics.cppm">
+      <Filter>ソース ファイル\Script\Engine\Func</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\Engine\Func\BuiltinManager.cpp">
+      <Filter>ソース ファイル\Script\Engine\Func</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Engine\Value\Value.ixx">
+      <Filter>ヘッダー ファイル\Script\Engine\Value</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Engine\BuiltinScriptVM.ixx">
+      <Filter>ヘッダー ファイル\Script\Engine</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

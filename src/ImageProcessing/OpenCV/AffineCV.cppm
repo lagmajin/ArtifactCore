@@ -9,7 +9,7 @@ namespace ArtifactCore {
 
  using namespace cv;
 
- void Affine2DCV(const cv::Mat mat, Transform2D transform2D,cv::Mat dsc)
+ void Affine2DCV(const cv::Mat mat, StaticTransform2D transform2D,cv::Mat dsc)
  {
  // cv::Mat rotMat = cv::getRotationMatrix2D(transform2D.anchor(), transform2D.rotation(), 1.0);
  

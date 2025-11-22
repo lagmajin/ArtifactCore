@@ -1,5 +1,5 @@
 module;
-
+#include "../Define/DllExportMacro.hpp"
 
 export module Layer.State;
 
@@ -23,6 +23,8 @@ export namespace ArtifactCore {
 
   bool isSolo() const;
   void toggleSolo();
+  bool isAdjustmentLayer() const;
+  void setAdjustmentLayer(bool b=true);
  };
 
 

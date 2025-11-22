@@ -98,4 +98,15 @@ FramePosition FramePosition::operator-(int64_t frames) const
   return impl_->frame - other.impl_->frame;
  }
 
+ bool FramePosition::operator==(const FramePosition&) const
+ {
+
+  return false;
+ }
+
+ bool FramePosition::operator!=(const FramePosition&) const
+ {
+  return false;
+ }
+
 };

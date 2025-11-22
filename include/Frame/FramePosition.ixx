@@ -1,7 +1,5 @@
 ﻿module;
-
-
-
+#include <QString>
 export module Frame.Position;
 
 import std;

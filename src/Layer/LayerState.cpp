@@ -62,7 +62,7 @@ namespace ArtifactCore {
 
  void LayerState::setLocked(bool l)
  {
-
+  impl_->locked_ = l;
  }
 
  bool LayerState::isSolo() const
@@ -73,6 +73,21 @@ namespace ArtifactCore {
  void LayerState::toggleSolo()
  {
 
+ }
+ 
+ bool LayerState::isAdjustmentLayer() const
+ {
+  return impl_->adjustment_;
+ }
+
+ void LayerState::setAdjustmentLayer(bool b/*=true*/)
+ {
+  impl_->adjustment_ = b;
+ }
+
+ bool LayerState::isLocked() const
+ {
+  return impl_->locked_;
  }
 
 

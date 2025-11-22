@@ -1,16 +1,24 @@
 ﻿module;
 #include <QFile>
+#include <QString>
 #include <QtCore/QObject>
 
 
 #include <wobjectdefs.h>
-export module Asset;
 
+#include "../Define/DllExportMacro.hpp"
+export module Asset.File;
 
-
+//import String.like;
+import Utils.Id;
 
 
 export namespace ArtifactCore {
+
+ class LIBRARY_DLL_API AssetID : public Id {
+ public:
+  using Id::Id;
+ };
 
  class AbstractAssetFilePrivate;
 
@@ -25,6 +33,22 @@ export namespace ArtifactCore {
   virtual ~AbstractAssetFile();
   bool exist() const;
   bool notExist() const;
+  AssetID assetID() const;
+  void setAssetID(const AssetID& assetID);
+
+  void setMetaValue();
+
+  void addDependency();
+  bool isDirty() const;
+  void markDirty();
+  void clearDirty();
+
+
+  bool isLoaded() const;
+  bool load();
+  void unload();
+
+
  //public slots:
   
  };
