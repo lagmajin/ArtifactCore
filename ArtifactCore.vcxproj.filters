@@ -427,6 +427,9 @@
     <Filter Include="ソース ファイル\Script\Engine\Lexer">
       <UniqueIdentifier>{b0e2b6fa-fae1-420d-96c7-e453bf4312f1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\VST">
+      <UniqueIdentifier>{6d27308a-9037-4988-aa82-41bc98124414}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1774,6 +1777,24 @@
     </ClCompile>
     <ClCompile Include="include\Script\Engine\BuiltinScriptVM.ixx">
       <Filter>ヘッダー ファイル\Script\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Preview\PreviewQuality.ixx">
+      <Filter>ヘッダー ファイル\Preview</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\Tag.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\Tag.cpp">
+      <Filter>ソース ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Utils\StringConvertor.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="include\VST\VSTHost.ixx">
+      <Filter>ヘッダー ファイル\VST</Filter>
+    </ClCompile>
+    <ClCompile Include="include\VST\VSTEffect.ixx">
+      <Filter>ヘッダー ファイル\VST</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

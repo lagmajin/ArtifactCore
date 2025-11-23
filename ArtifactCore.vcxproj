@@ -152,6 +152,7 @@
     <ClCompile Include="include\Media\MediaTimeStamp.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Preview\PreviewQuality.ixx" />
     <ClCompile Include="include\Preview\PreviewSettings.ixx" />
     <ClCompile Include="include\RenderWorker.ixx" />
     <ClCompile Include="include\Render\RendererQueueSetting.ixx" />
@@ -204,10 +205,14 @@
     <ClCompile Include="include\Utils\String.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Utils\StringConvertor.ixx" />
     <ClCompile Include="include\Utils\StringLike.ixx" />
+    <ClCompile Include="include\Utils\Tag.ixx" />
     <ClCompile Include="include\Utils\UniString.ixx" />
     <ClCompile Include="include\Utils\VectorLike.ixx" />
     <ClCompile Include="include\Video\FFmpegAudioEncoder.ixx" />
+    <ClCompile Include="include\VST\VSTEffect.ixx" />
+    <ClCompile Include="include\VST\VSTHost.ixx" />
     <ClCompile Include="NetworkRPCServer.ixx" />
     <ClCompile Include="src\Animation\AnimatableTransform2D.cpp" />
     <ClCompile Include="src\Animation\AnimatableTransform3D.cpp" />
@@ -301,6 +306,7 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Utils\Path.cpp" />
+    <ClCompile Include="src\Utils\Tag.cpp" />
     <ClCompile Include="src\Utils\UniString.cpp" />
     <ClCompile Include="src\Video\MediaTimeStamp.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>

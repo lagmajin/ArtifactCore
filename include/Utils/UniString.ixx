@@ -1,6 +1,6 @@
 module;
 #include <QString>
-export module UniString;
+export module Utils.UniString;
 
 import std;
 
@@ -16,6 +16,7 @@ export namespace ArtifactCore {
   ~UniString();
 
   std::u16string toStdU16String() const;
+  std::u32string toStdU32String() const;
 
   QString toQString() const;
   void setQString(const QString& str);

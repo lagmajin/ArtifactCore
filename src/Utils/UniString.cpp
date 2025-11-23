@@ -2,8 +2,10 @@ module;
 
 #include <QString>
 
-module UniString;
+module Utils.UniString;
 
+import std;
+import Utils.Convertor.String;
 
 namespace ArtifactCore {
 
@@ -15,6 +17,8 @@ namespace ArtifactCore {
   Impl(const Impl& other);
   ~Impl();
   QString str_;
+  std::u16string toStdU16String() const;
+  std::u32string toStdU32String() const;
  };
 
  UniString::Impl::Impl()
@@ -30,6 +34,11 @@ namespace ArtifactCore {
  UniString::Impl::~Impl()
  {
 
+ }
+
+ std::u16string UniString::Impl::toStdU16String() const
+ {
+  return std::u16string();
  }
 
  UniString::UniString() :impl_(new Impl())
@@ -69,7 +78,12 @@ namespace ArtifactCore {
 
  std::u16string UniString::toStdU16String() const
  {
-  return std::u16string();
+  return impl_->toStdU16String();
+ }
+
+ std::u32string UniString::toStdU32String() const
+ {
+  return std::u32string();
  }
 
 };
