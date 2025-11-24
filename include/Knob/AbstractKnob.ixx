@@ -5,7 +5,7 @@ export module Knob.Abstract;
 
 namespace ArtifactCore {
 
- class AbstractKnob {
+ class AbstractKnob final {
  private:
 
  public:

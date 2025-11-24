@@ -1,5 +1,5 @@
 ﻿module;
-
+#include <QString>
 module Time.Code;
 
 import std;
@@ -65,6 +65,16 @@ namespace ArtifactCore {
  {
 
   return std::string();
+ }
+
+ TimeCode& TimeCode::operator=(TimeCode&&) noexcept
+ {
+  return *this;
+ }
+
+ QString TimeCode::toString() const
+ {
+  return QString();
  }
 
 }

@@ -1598,7 +1598,7 @@
     <ClCompile Include="include\Audio\AudioVolume.ixx">
       <Filter>ヘッダー ファイル\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="src\Audio\AudioVolume.cpp">
+    <ClCompile Include="src\Audio\AudioVolume.cppm">
       <Filter>ソース ファイル\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\InputOperatorManager.ixx">
@@ -1721,7 +1721,7 @@
     <ClCompile Include="include\Utils\UniString.ixx">
       <Filter>ヘッダー ファイル\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utils\UniString.cpp">
+    <ClCompile Include="src\Utils\UniString.cppm">
       <Filter>ソース ファイル\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\AssetType.ixx">
@@ -1795,6 +1795,18 @@
     </ClCompile>
     <ClCompile Include="include\VST\VSTEffect.ixx">
       <Filter>ヘッダー ファイル\VST</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioBus.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\AudioBus.cppm">
+      <Filter>ソース ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Preview\PreviewQuality.cpp">
+      <Filter>ソース ファイル\Preview</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\ShaderCompileTask.ixx">
+      <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

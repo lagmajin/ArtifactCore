@@ -22,7 +22,7 @@ export namespace ArtifactCore {
 
 
 
- class Framerate {
+ class Framerate final {
  private:
   class Impl;
   Impl* impl_;

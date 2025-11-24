@@ -12,13 +12,13 @@ namespace ArtifactCore
  private:
  
  public:
-  Impl();
+  explicit Impl(float volume=1.0f);
   ~Impl();
   float volume = 1.0f;
   bool muted = false;
  };
 
- AudioVolume::Impl::Impl()
+ AudioVolume::Impl::Impl(float volume/*=1.0f*/)
  {
 
  }
@@ -38,6 +38,16 @@ namespace ArtifactCore
 
  }
 
+ AudioVolume::AudioVolume(AudioVolume&& other) noexcept :impl_(new Impl())
+ {
+
+ }
+
+ AudioVolume::AudioVolume(float volume) :impl_(new Impl())
+ {
+
+ }
+
  AudioVolume::~AudioVolume()
  {
   delete impl_;
@@ -53,11 +63,16 @@ namespace ArtifactCore
   impl_->volume = std::clamp(v, 0.0f, 1.0f);
  }
 
-
-AudioVolume& AudioVolume::operator=(const AudioVolume& volume)
+ AudioVolume& AudioVolume::operator=(const AudioVolume& volume)
  {
 
+  return *this;
+ }
+AudioVolume& AudioVolume::operator=(AudioVolume&& other) noexcept
+ {
  return *this;
  }
+
+
 
 };

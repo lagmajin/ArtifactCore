@@ -1,5 +1,7 @@
 ﻿module;
 #include <QString>
+
+#include "../Define/DllExportMacro.hpp"
 export module Frame.Position;
 
 import std;
@@ -10,7 +12,7 @@ export namespace ArtifactCore {
 
  
 
- class FramePosition {
+ class LIBRARY_DLL_API FramePosition final {
  private:
   class Impl;
   Impl* impl_;

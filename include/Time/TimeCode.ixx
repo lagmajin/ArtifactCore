@@ -9,7 +9,7 @@ import std;
 
 export namespace ArtifactCore {
 
- class LIBRARY_DLL_API TimeCode {
+ class LIBRARY_DLL_API TimeCode final {
  private:
   class Impl;
   Impl* impl_;

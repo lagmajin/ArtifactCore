@@ -8,7 +8,7 @@ import Utils.String.Like;
 
 export namespace ArtifactCore {
 
- class Tag {
+ class Tag final{
  private:
   class Impl;
   Impl* impl_;
@@ -17,7 +17,16 @@ export namespace ArtifactCore {
   Tag(const UniString& name);
   ~Tag();
 
+  template<StringLike S>
+  void setName(const S& name);
+  void setName(const UniString& name);
+
  };
 
+ template<StringLike S>
+ void ArtifactCore::Tag::setName(const S& v)
+ {
+
+ }
 
 }

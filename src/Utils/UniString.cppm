@@ -86,4 +86,21 @@ namespace ArtifactCore {
   return std::u32string();
  }
 
+ UniString::operator QString() const
+ {
+  return impl_->str_;
+ }
+
+ UniString::operator std::u16string() const
+ {
+  return std::u16string();
+ }
+
+ size_t UniString::length() const
+ {
+  return impl_->str_.length();
+ }
+
+
+
 };
