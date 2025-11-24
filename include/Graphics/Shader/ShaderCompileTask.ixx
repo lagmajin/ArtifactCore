@@ -1,7 +1,7 @@
 
 module ;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>
-export module Graphics.Shader.Compile;
+export module Graphics.Shader.Compile.Task;
 
 
 export namespace ArtifactCore {

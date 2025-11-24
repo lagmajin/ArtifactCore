@@ -45,6 +45,19 @@ float4 main(PS_INPUT input) : SV_TARGET
 }
 )";
 
+ LIBRARY_DLL_API const QByteArray drawOutlineRectPSSource = R"(
+struct PSInput
+{
+    float4 pos : SV_POSITION;
+    float4 color : COLOR0;
+};
+
+float4 main(PSInput input) : SV_TARGET
+{
+    return input.color;
+}
+)";
+
  LIBRARY_DLL_API const QByteArray g_qsSolidColorPSSource = R"(
 
 cbuffer ColorBuffer : register(b0)

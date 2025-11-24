@@ -3,7 +3,7 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module Utils.UniString;
+export module Utils.String.UniString;
 
 import std;
 

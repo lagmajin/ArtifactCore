@@ -13,8 +13,9 @@ class ZoomScale2D::Impl
 private:
 
 public:
- Impl();
- ~Impl();
+ Impl() = default;
+ Impl(const Impl&) = default;
+ Impl& operator=(const Impl&) = default;
  float scale_ = 1.0f;
 
  void ZoomIn(float factor);
@@ -23,16 +24,6 @@ public:
 
  float scale() const;
 };
-
-ZoomScale2D::Impl::Impl()
-{
-
-}
-
-ZoomScale2D::Impl::~Impl()
-{
-
-}
 
 void ZoomScale2D::Impl::ZoomIn(float factor)
 {
@@ -62,6 +53,7 @@ float ZoomScale2D::Impl::scale() const
  ZoomScale2D::~ZoomScale2D()
  {
   delete impl_;
+  impl_ = nullptr;
  }
 
  void ZoomScale2D::ZoomIn(float factor)
@@ -79,10 +71,20 @@ float ZoomScale2D::Impl::scale() const
   return impl_->scale();
  }
 
- ArtifactCore::ZoomScale2D& ZoomScale2D::operator=(const ZoomScale2D& other)
+ ZoomScale2D& ZoomScale2D::operator=(const ZoomScale2D& other)
  {
   if (this != &other)
    *impl_ = *other.impl_;
+  return *this;
+ }
+
+ZoomScale2D& ZoomScale2D::operator=(ZoomScale2D&& other) noexcept
+ {
+  if (this != &other) {
+   delete impl_;
+   impl_ = other.impl_;
+   other.impl_ = nullptr;
+  }
   return *this;
  }
 

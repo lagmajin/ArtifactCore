@@ -2,7 +2,7 @@ module;
 
 #include <QString>
 
-module Utils.UniString;
+module Utils.String.UniString;
 
 import std;
 import Utils.Convertor.String;

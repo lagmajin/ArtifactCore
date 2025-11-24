@@ -3,7 +3,7 @@ module;
 export module Utils.Tag;
 
 import std;
-import Utils.UniString;
+import Utils.String.UniString;
 import Utils.String.Like;
 
 export namespace ArtifactCore {
@@ -14,13 +14,17 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   Tag();
+  Tag(const Tag& other);
+  Tag(Tag&& other) noexcept;
   Tag(const UniString& name);
   ~Tag();
+  UniString name() const;
 
   template<StringLike S>
   void setName(const S& name);
   void setName(const UniString& name);
-
+  Tag& operator=(const Tag& other);
+  Tag& operator=(Tag&& other) noexcept;
  };
 
  template<StringLike S>

@@ -24,7 +24,18 @@ export namespace ArtifactCore
  };
 #pragma pack(push,1)
  struct CBSolidTransform { float2 offset; float2 scale; };
-	
+#pragma pack(pop)
+
+#pragma pack(push,1)
+ struct CBSolidTransform2D
+ {
+  float2 offset;      // 左上原点の位置（ピクセル単位）
+  float2 scale;       // 幅・高さ（ピクセル単位）
+  float2 screenSize;  // スワップチェーン幅・高さ
+ };
+#pragma pack(pop)
+
+
  struct Vertex
  {
   float2 position; // 頂点の2D位置 (x, y)
