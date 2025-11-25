@@ -1,4 +1,5 @@
-export module FrameTime;
+module;
+export module Frame.Time;
 
 
 
@@ -7,6 +8,9 @@ export namespace ArtifactCore {
  class Time;
 
  class FrameTime {
+ private:
+  class Impl;
+  Impl* impl_;
  public:
   explicit FrameTime(int frame = 0);
 
@@ -23,8 +27,7 @@ export namespace ArtifactCore {
   bool operator==(const FrameTime& other) const;
   bool operator<(const FrameTime& other) const;
 
- private:
-  int frame_;
+
  };
 
 

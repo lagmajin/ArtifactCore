@@ -1,6 +1,6 @@
 ﻿module;
 #include <QString>
-#include "..\ArtifactWidgets\include\Define\DllExportMacro.hpp"
+#include "..\Define\DllExportMacro.hpp"
 export module Widgets.Utils.CSS;
 
 export namespace ArtifactCore

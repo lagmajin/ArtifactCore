@@ -1,7 +1,8 @@
 ﻿module;
 #include <QString>
 #include <QByteArray>
-#include "..\ArtifactWidgets\include\Define\DllExportMacro.hpp"
+
+#include "..\..\..\Define\DllExportMacro.hpp"
 
 export module Graphics.Shader.HLSL.Basics.Vertex;
 

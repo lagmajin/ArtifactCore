@@ -1,4 +1,8 @@
+
+
 module;
+
+#include "../../../Define/DllExportMacro.hpp"
 export module Script.Engine.Value;
 
 import std;
@@ -21,7 +25,7 @@ export namespace ArtifactCore {
  using FunctionCallback = std::function<std::shared_ptr<Value>(const ValueArray&)>;
 
  // Value クラス
- struct Value {
+ struct LIBRARY_DLL_API Value {
   ValueType type;
 
   // 値の本体は variant で管理

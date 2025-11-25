@@ -249,9 +249,11 @@
     <ClCompile Include="src\Core\Position2D.cpp" />
     <ClCompile Include="src\Core\UniformScale.cpp" />
     <ClCompile Include="src\Event\EventBus.cpp" />
+    <ClCompile Include="src\Frame\FrameOffset.cpp" />
     <ClCompile Include="src\Frame\FramePosition.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Frame\FrameTime.cpp" />
     <ClCompile Include="src\Graphics\GPUTexture.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -294,6 +296,7 @@
     <ClCompile Include="src\Render\RenderWorker.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Script\Engine\BultinScriptVM\BuiltinScriptVM.cpp" />
     <ClCompile Include="src\Script\Engine\Context\ScriptContext.cpp" />
     <ClCompile Include="src\Script\Engine\Enviroment\EnvironmentManager.cpp" />
     <ClCompile Include="src\Script\Engine\Func\BuiltinManager.cpp" />
@@ -400,7 +403,7 @@
     <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp" />
     <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp" />
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx" />
-    <ClCompile Include="include\Frame\FrameTime.cppm" />
+    <ClCompile Include="include\Frame\FrameTime.ixx" />
     <ClCompile Include="include\Generate\GenerateTestImage.ixx" />
     <ClCompile Include="include\ImageProcessing\ColorTransform\ColorTransform.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -1196,6 +1199,7 @@
     <ClCompile Condition="'$(CLANGCL)' != 'true'">
       <AdditionalOptions>/Zc:__cplusplus</AdditionalOptions>
       <TreatWChar_tAsBuiltInType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</TreatWChar_tAsBuiltInType>
+      <UseMSVC Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</UseMSVC>
     </ClCompile>
     <ClCompile Condition="'$(CLANGCL)' == 'true'">
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>

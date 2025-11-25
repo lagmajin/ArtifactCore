@@ -755,7 +755,7 @@
     <ClCompile Include="include\Core\KeyFrame.ixx">
       <Filter>ヘッダー ファイル\Core</Filter>
     </ClCompile>
-    <ClCompile Include="include\Frame\FrameTime.cppm">
+    <ClCompile Include="include\Frame\FrameTime.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\Time.cppm">
@@ -1818,6 +1818,15 @@
       <Filter>ヘッダー ファイル\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="src\Script\Engine\Context\ScriptContext.cpp">
+      <Filter>ソース ファイル\Script</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Frame\FrameTime.cpp">
+      <Filter>ソース ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Frame\FrameOffset.cpp">
+      <Filter>ソース ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\Engine\BultinScriptVM\BuiltinScriptVM.cpp">
       <Filter>ソース ファイル\Script</Filter>
     </ClCompile>
   </ItemGroup>

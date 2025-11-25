@@ -88,4 +88,10 @@ ZoomScale2D& ZoomScale2D::operator=(ZoomScale2D&& other) noexcept
   return *this;
  }
 
+ZoomScale2D& ZoomScale2D::operator+=(float delta)
+{
+ impl_->ZoomIn(delta); // 既存の掛け算ルールに沿う
+ return *this;
+}
+
 };

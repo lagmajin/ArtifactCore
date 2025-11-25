@@ -9,4 +9,14 @@ namespace ArtifactCore {
 
  
 
+ ScriptContext::ScriptContext()
+ {
+
+ }
+
+ ScriptContext::~ScriptContext()
+ {
+
+ }
+
 };

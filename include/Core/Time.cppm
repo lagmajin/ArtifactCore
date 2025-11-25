@@ -3,7 +3,7 @@ module;
 export module Time;
 
 
-import  FrameTime;
+import  Frame.Time;
 
 namespace ArtifactCore {
 

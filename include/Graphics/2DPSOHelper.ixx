@@ -2,7 +2,8 @@
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h> 
-#include "../ArtifactWidgets/include/Define/DllExportMacro.hpp"
+#include "../Define/DllExportMacro.hpp"
+
 
 
 export module Graphics.Helper.PSO;
