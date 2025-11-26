@@ -1829,6 +1829,9 @@
     <ClCompile Include="src\Script\Engine\BultinScriptVM\BuiltinScriptVM.cpp">
       <Filter>ソース ファイル\Script</Filter>
     </ClCompile>
+    <ClCompile Include="include\Utils\NameGenerator.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

@@ -203,6 +203,7 @@
     </ClCompile>
     <ClCompile Include="include\Utils\ImageInfoLike.ixx" />
     <ClCompile Include="include\Utils\MultipleTag.ixx" />
+    <ClCompile Include="include\Utils\NameGenerator.ixx" />
     <ClCompile Include="include\Utils\NumericLike.ixx" />
     <ClCompile Include="include\Utils\Path.ixx" />
     <ClCompile Include="include\Utils\SizeLike.ixx" />
