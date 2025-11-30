@@ -6,7 +6,7 @@ export module Layer.State;
 
 export namespace ArtifactCore {
 
- class LayerState {
+ class LIBRARY_DLL_API LayerState {
  private:
   class Impl;
   Impl* impl_;

@@ -254,6 +254,7 @@
     <ClCompile Include="src\Frame\FramePosition.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Frame\FrameRange.cpp" />
     <ClCompile Include="src\Frame\FrameTime.cpp" />
     <ClCompile Include="src\Graphics\GPUTexture.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
@@ -321,6 +322,7 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Utils\MulitpleTag.cpp" />
+    <ClCompile Include="src\Utils\NameGenerator.cpp" />
     <ClCompile Include="src\Utils\Path.cpp" />
     <ClCompile Include="src\Utils\Tag.cpp" />
     <ClCompile Include="src\Utils\UniString.cppm">

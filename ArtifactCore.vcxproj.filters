@@ -1832,6 +1832,12 @@
     <ClCompile Include="include\Utils\NameGenerator.ixx">
       <Filter>ヘッダー ファイル\Utils</Filter>
     </ClCompile>
+    <ClCompile Include="src\Utils\NameGenerator.cpp">
+      <Filter>ソース ファイル\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Frame\FrameRange.cpp">
+      <Filter>ソース ファイル\Frame</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
