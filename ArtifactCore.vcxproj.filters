@@ -1838,6 +1838,12 @@
     <ClCompile Include="src\Frame\FrameRange.cpp">
       <Filter>ソース ファイル\Frame</Filter>
     </ClCompile>
+    <ClCompile Include="include\Math\Rotation.ixx">
+      <Filter>ヘッダー ファイル\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Math\Rotation.cppm">
+      <Filter>ソース ファイル\Math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

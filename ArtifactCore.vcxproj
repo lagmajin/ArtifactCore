@@ -151,6 +151,7 @@
     <ClCompile Include="include\Log\LogModule.ixx" />
     <ClCompile Include="include\Math\InterpolatorFactory.ixx" />
     <ClCompile Include="include\Math\Math.ixx" />
+    <ClCompile Include="include\Math\Rotation.ixx" />
     <ClCompile Include="include\Media\MediaTimeStamp.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -282,6 +283,9 @@
     </ClCompile>
     <ClCompile Include="src\Knob\AbstractKnob.cpp" />
     <ClCompile Include="src\Log\Log.cpp" />
+    <ClCompile Include="src\Math\Rotation.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Math\RotationTurns.cpp" />
     <ClCompile Include="src\Network\NetworkRPCServer.cpp" />
     <ClCompile Include="src\Preview\PreviewQuality.cpp" />

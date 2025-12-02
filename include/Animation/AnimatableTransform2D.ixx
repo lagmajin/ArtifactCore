@@ -12,6 +12,13 @@ export namespace ArtifactCore {
   Impl* impl_;
 
  public:
+  enum class Element {
+   Position,
+   Rotation,
+   Scale,
+   Count  // óvëfêîóp
+  };
+
   void setPosition(float x, float y);
 
   // Rotation
@@ -19,6 +26,8 @@ export namespace ArtifactCore {
 
   // Scale
   void setScale(float sx, float sy);
+  size_t size() const;
+ 	
  };
 
 
