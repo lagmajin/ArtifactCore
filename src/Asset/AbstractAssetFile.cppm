@@ -73,6 +73,11 @@ void AbstractAssetFile::clearDirty()
 
 }
 
+bool AbstractAssetFile::load()
+{
+ return true;
+}
+
 void AbstractAssetFile::unload()
 {
 

@@ -19,11 +19,10 @@ export namespace ArtifactCore {
  public:
   using Id::Id;
  };
+	
 
- class AbstractAssetFilePrivate;
-
- class AbstractAssetFile :public QObject{
- W_OBJECT(AbstractAssetFile)
+ class AbstractAssetFile :public QObject {
+  W_OBJECT(AbstractAssetFile)
  private:
   class Impl;
   Impl* impl_;
@@ -49,10 +48,12 @@ export namespace ArtifactCore {
   void unload();
 
 
- //public slots:
-  
+  //public slots:
+
  };
 
 
 
-}
+};
+
+W_REGISTER_ARGTYPE(ArtifactCore::AssetID)
