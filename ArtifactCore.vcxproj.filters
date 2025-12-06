@@ -430,6 +430,9 @@
     <Filter Include="ヘッダー ファイル\VST">
       <UniqueIdentifier>{6d27308a-9037-4988-aa82-41bc98124414}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Icon">
+      <UniqueIdentifier>{91ea3f5d-a305-40fd-84f3-7c8ab52166b2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1843,6 +1846,9 @@
     </ClCompile>
     <ClCompile Include="src\Math\Rotation.cppm">
       <Filter>ソース ファイル\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Icon\SvgToIcon.ixx">
+      <Filter>ヘッダー ファイル\Icon</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

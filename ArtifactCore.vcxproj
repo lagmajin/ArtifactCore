@@ -118,6 +118,7 @@
     <ClCompile Include="include\Graphics\Texture\TextureManager.ixx" />
     <ClCompile Include="include\Graphics\Utils\Func.ixx" />
     <ClCompile Include="include\Graphics\VertexBuffer\VertexBufferixx.ixx" />
+    <ClCompile Include="include\Icon\SvgToIcon.ixx" />
     <ClCompile Include="include\ImageProcessing\DirectCompute\AutoContrast.ixx" />
     <ClCompile Include="include\ImageProcessing\DirectCompute\AutoGamma.ixx" />
     <ClCompile Include="include\ImageProcessing\DirectCompute\Blend2D_CS.ixx">
@@ -1116,7 +1117,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>X:\Build\install\include;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\include;X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include\QtMultimedia;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <IncludePath>X:\Qt\6.7.2\msvc2019_64\include\QtSvg;X:\Build\install\include;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\include;X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include\QtMultimedia;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
     <LibraryPath>X:\Build\install\lib\DiligentCore\Debug;X:\Build\Graphics\GraphicsEngineVulkan\Debug;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;X:\box2d\lib;X:\SDL2\lib;X:\libsnd\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\vlc-3.0.21\sdk\lib;X:\opencv\build\x64\vc16\lib;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App\</OutDir>
     <IntDir>X:\temp/</IntDir>
