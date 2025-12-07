@@ -1,5 +1,5 @@
 ﻿module;
-
+#include <QColor>
 #include <qnamespace.h>
 module Color.Float;
 import FloatRGBA;

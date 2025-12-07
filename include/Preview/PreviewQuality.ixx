@@ -5,7 +5,7 @@ export module Preview.Quality;
 
 export namespace ArtifactCore {
 
- class PreviewQuality final{
+ class LIBRARY_DLL_API PreviewQuality final{
  private:
   class Impl;
   Impl* impl_;

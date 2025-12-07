@@ -8,7 +8,7 @@ import FloatRGBA;
 
 export namespace ArtifactCore {
 
- class FloatRGBA;
+ //class FloatRGBA;
 
  class HSV;
  class XYZ;
