@@ -1850,6 +1850,9 @@
     <ClCompile Include="include\Icon\SvgToIcon.ixx">
       <Filter>ヘッダー ファイル\Icon</Filter>
     </ClCompile>
+    <ClCompile Include="include\Platform\SystemUsage.ixx">
+      <Filter>ヘッダー ファイル\Platform</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
