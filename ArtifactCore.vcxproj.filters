@@ -433,6 +433,9 @@
     <Filter Include="ヘッダー ファイル\Icon">
       <UniqueIdentifier>{91ea3f5d-a305-40fd-84f3-7c8ab52166b2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Particle">
+      <UniqueIdentifier>{b7cf5b34-976c-4068-a421-229d17990472}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1852,6 +1855,18 @@
     </ClCompile>
     <ClCompile Include="include\Platform\SystemUsage.ixx">
       <Filter>ヘッダー ファイル\Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Particle\Particle.ixx">
+      <Filter>ヘッダー ファイル\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Particle\Wind.ixx">
+      <Filter>ヘッダー ファイル\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Particle\Gravity.ixx">
+      <Filter>ヘッダー ファイル\Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Particle\Drug.ixx">
+      <Filter>ヘッダー ファイル\Particle</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

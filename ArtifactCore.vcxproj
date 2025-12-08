@@ -156,6 +156,10 @@
     <ClCompile Include="include\Media\MediaTimeStamp.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Particle\Drug.ixx" />
+    <ClCompile Include="include\Particle\Gravity.ixx" />
+    <ClCompile Include="include\Particle\Particle.ixx" />
+    <ClCompile Include="include\Particle\Wind.ixx" />
     <ClCompile Include="include\Platform\SystemUsage.ixx" />
     <ClCompile Include="include\Preview\PreviewQuality.ixx" />
     <ClCompile Include="include\Preview\PreviewSettings.ixx" />
