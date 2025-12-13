@@ -1868,6 +1868,12 @@
     <ClCompile Include="include\Particle\Drug.ixx">
       <Filter>ヘッダー ファイル\Particle</Filter>
     </ClCompile>
+    <ClCompile Include="Vector2D.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Vector3D.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

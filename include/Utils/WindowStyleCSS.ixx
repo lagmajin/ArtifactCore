@@ -98,6 +98,7 @@ export namespace ArtifactCore
 
         /* 全体的な背景色 */
         QMainWindow, QWidget, QDialog {
+            border: 1px solid %6;
             background-color: %2;
             border: none;
         }

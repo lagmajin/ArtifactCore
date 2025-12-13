@@ -39,7 +39,10 @@ export namespace ArtifactCore {
 
   void addSafe(const Ptr& obj, const Id& id, const TypeKey& type)
   {
-
+   std::lock_guard lock(mtx_);
+   list_.append(obj);
+   byId_.insert(id, obj);
+   byType_.insert(type, obj);
   }
 
   // ID検索
@@ -49,6 +52,7 @@ export namespace ArtifactCore {
 
   // 型検索
   QList<Ptr> findByType(const TypeKey& type) const {
+   std::lock_guard lock(mtx_);
    return byType_.values(type);
   }
 

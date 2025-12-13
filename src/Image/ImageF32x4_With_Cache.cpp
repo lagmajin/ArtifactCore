@@ -5,9 +5,10 @@
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 module Image.ImageF32x4RGBAWithCache;
 
-import Image;
+import std;
+import Image.ImageF32x4_RGBA;
 
-namespace Diligent{}//dummy
+namespace Diligent {}//dummy
 
 namespace ArtifactCore
 {
@@ -15,7 +16,7 @@ namespace ArtifactCore
 
  W_OBJECT_IMPL(ImageF32x4RGBAWithCache)
 
-	class ImageF32x4RGBAWithCache::Impl
+  class ImageF32x4RGBAWithCache::Impl
  {
  private:
   void CreateGpuTextureInternal(RefCntAutoPtr<IRenderDevice> pDevice, uint32_t width, uint32_t height);
@@ -127,15 +128,15 @@ namespace ArtifactCore
 
  }
 
-ImageF32x4RGBAWithCache::ImageF32x4RGBAWithCache():impl_(new Impl())
+ ImageF32x4RGBAWithCache::ImageF32x4RGBAWithCache() :impl_(new Impl())
  {
 
  }
 
-ImageF32x4RGBAWithCache::ImageF32x4RGBAWithCache(const ImageF32x4_RGBA& image) :impl_(new Impl())
-{
+ ImageF32x4RGBAWithCache::ImageF32x4RGBAWithCache(const ImageF32x4_RGBA& image) :impl_(new Impl())
+ {
 
-}
+ }
 
  ImageF32x4RGBAWithCache::~ImageF32x4RGBAWithCache()
  {

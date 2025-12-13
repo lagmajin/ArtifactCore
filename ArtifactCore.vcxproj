@@ -344,6 +344,8 @@
     <ClCompile Include="src\Video\PlaybackManager.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="Vector2D.ixx" />
+    <ClCompile Include="Vector3D.ixx" />
     <ClInclude Include="include\Color\Alpha.ixx" />
     <ClCompile Include="include\Asset\ImageAsset.ixx" />
     <ClCompile Include="include\Codec\MFEncoder.ixx" />

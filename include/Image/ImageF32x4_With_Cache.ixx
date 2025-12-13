@@ -6,7 +6,7 @@ module;
 export module Image.ImageF32x4RGBAWithCache;
 
 import std;
-
+import Image.ImageF32x4_RGBA;
 
 export namespace ArtifactCore
 {
@@ -34,7 +34,7 @@ class LIBRARY_DLL_API ImageF32x4RGBAWithCache:public QObject{
 
  };
 
-
+typedef std::shared_ptr<ImageF32x4RGBAWithCache> ImageF32x4RGBAWithCache;
 
 
 

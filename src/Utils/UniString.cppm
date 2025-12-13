@@ -41,12 +41,22 @@ namespace ArtifactCore {
   return std::u16string();
  }
 
+ std::u32string UniString::Impl::toStdU32String() const
+ {
+  return std::u32string();
+ }
+
  UniString::UniString() :impl_(new Impl())
  {
 
  }
 
  UniString::UniString(const UniString& other) :impl_(new Impl())
+ {
+
+ }
+
+ UniString::UniString(const QString& str) :impl_(new Impl())
  {
 
  }
@@ -58,21 +68,24 @@ namespace ArtifactCore {
 
  QString UniString::toQString() const
  {
-  return QString();
+  return impl_->str_;
  }
 
  void UniString::setQString(const QString& str)
  {
-
+  impl_->str_ = str;
  }
 
  UniString& UniString::operator=(const UniString& other)
  {
+  impl_->str_ = other.toQString();
+ 	
   return *this;
  }
 
  UniString& UniString::operator=(UniString&& other) noexcept
  {
+  impl_->str_ = other.toQString();
   return *this;
  }
 
@@ -83,7 +96,7 @@ namespace ArtifactCore {
 
  std::u32string UniString::toStdU32String() const
  {
-  return std::u32string();
+  return impl_->toStdU32String();
  }
 
  UniString::operator QString() const
@@ -93,7 +106,7 @@ namespace ArtifactCore {
 
  UniString::operator std::u16string() const
  {
-  return std::u16string();
+  return impl_->toStdU16String();
  }
 
  size_t UniString::length() const
