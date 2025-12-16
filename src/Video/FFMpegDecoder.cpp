@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QString>
 #include <QImage>
+#include <opencv2/opencv.hpp>
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -179,23 +180,49 @@ namespace ArtifactCore {
 
  QImage FFMpegDecoder::Impl::decodeNextVideoFrame()
  {
-  while (av_read_frame(formatContext, packet) >= 0) {
-   if (packet->stream_index == videoStreamIndex) {
-	avcodec_send_packet(codecContext, packet);
-	if (avcodec_receive_frame(codecContext, frame) == 0) {
-	 // RGBへ変換
-	 uint8_t* dstData[4];
-	 int dstLinesize[4];
-	 QImage img(codecContext->width, codecContext->height, QImage::Format_RGB888);
-	 av_image_fill_arrays(dstData, dstLinesize, img.bits(), AV_PIX_FMT_RGB24, img.width(), img.height(), 1);
-	 sws_scale(swsCtx_, frame->data, frame->linesize, 0, codecContext->height, dstData, dstLinesize);
-	 av_packet_unref(packet);
-	 return img;
-	}
+  while (true) {
+   int ret = avcodec_receive_frame(codecContext, frame);
+   if (ret == 0) {
+	QImage img(codecContext->width,
+	 codecContext->height,
+	 QImage::Format_RGB888);
+
+	uint8_t* dst[4];
+	int dstLinesize[4];
+	av_image_fill_arrays(
+	 dst, dstLinesize,
+	 img.bits(),
+	 AV_PIX_FMT_RGB24,
+	 img.width(),
+	 img.height(),
+	 1);
+
+	sws_scale(
+	 swsCtx_,
+	 frame->data,
+	 frame->linesize,
+	 0,
+	 codecContext->height,
+	 dst,
+	 dstLinesize);
+
+	return img;
    }
+
+   if (ret != AVERROR(EAGAIN))
+	break;
+
+   // packet が必要
+   if (av_read_frame(formatContext, packet) < 0)
+	break;
+
+   if (packet->stream_index == videoStreamIndex)
+	avcodec_send_packet(codecContext, packet);
+
    av_packet_unref(packet);
   }
-  return QImage(); // 失敗
+
+  return QImage();
  }
 
  void FFMpegDecoder::Impl::seekByFrameNumber(int64_t frameNumber)
@@ -219,19 +246,20 @@ namespace ArtifactCore {
 
  void FFMpegDecoder::Impl::seekByTimestamp(int64_t timestampMs)
  {
-  if (!formatContext || videoStreamIndex < 0)
+  if (!formatContext || !codecContext || videoStreamIndex < 0)
    return;
 
-  const AVRational timeBase = formatContext->streams[videoStreamIndex]->time_base;
+  AVStream* stream = formatContext->streams[videoStreamIndex];
+  AVRational tb = stream->time_base;
 
-  // ミリ秒 → streamのtime_base単位に変換（秒単位なら ×1000 / AV_TIME_BASE）
-  int64_t timestamp = av_rescale_q(timestampMs, AVRational{ 1, 1000 }, timeBase);
+  int64_t ts = av_rescale_q(timestampMs, AVRational{ 1,1000 }, tb);
 
-  // フラグ：近くのキーフレームへ
-  int ret = av_seek_frame(formatContext, videoStreamIndex, timestamp, AVSEEK_FLAG_BACKWARD);
+  int flags = AVSEEK_FLAG_ANY;
+  // フレーム精度を上げたいなら
+  // flags |= AVSEEK_FLAG_ANY;
 
-  if (ret < 0) {
-   qWarning() << "seekByTimestamp: av_seek_frame failed.";
+  if (av_seek_frame(formatContext, videoStreamIndex, ts, flags) < 0) {
+   qWarning() << "av_seek_frame failed";
    return;
   }
 
@@ -245,7 +273,7 @@ FFMpegDecoder::FFMpegDecoder() noexcept:impl_(new Impl())
 
 FFMpegDecoder::~FFMpegDecoder()
 {
-
+ delete impl_;
 }
 
 bool FFMpegDecoder::openFile(const QString& path)

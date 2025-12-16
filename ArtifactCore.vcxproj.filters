@@ -436,6 +436,9 @@
     <Filter Include="ヘッダー ファイル\Particle">
       <UniqueIdentifier>{b7cf5b34-976c-4068-a421-229d17990472}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Format">
+      <UniqueIdentifier>{ffa9633e-dff4-483a-bb36-7b875c1bbaed}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1873,6 +1876,12 @@
     </ClCompile>
     <ClCompile Include="Vector3D.ixx">
       <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Codec\FFMpegAudioDecoder.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Codec\FFMpegAudioDecoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

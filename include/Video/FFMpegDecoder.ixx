@@ -1,6 +1,4 @@
-﻿
-
-module;
+﻿module;
 #include "../Define/DllExportMacro.hpp"
 
 #include <QString>
@@ -14,7 +12,10 @@ extern "C" {
 }
 
 export module Codec.FFMpegDecoder;
-
+struct DecodedFrame {
+ QImage image;
+ int64_t pts; // stream time_base
+};
 
 //struct AVFrame;
 export namespace ArtifactCore {
@@ -47,13 +48,10 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   FFMpegDecoder() noexcept;
-
   ~FFMpegDecoder();
   bool openFile(const QString& path);
-
   void closeFile();
-
-  QImage decodeNextVideoFrame();
+ 	QImage decodeNextVideoFrame();
 
  };
 

@@ -33,6 +33,7 @@ export namespace ArtifactCore {
   static FramePosition min();
   static FramePosition max();
 
+  FramePosition& operator=(int64_t frame) noexcept;
   FramePosition& operator=(const FramePosition& other);
   FramePosition& operator=(FramePosition&& other) noexcept;
 

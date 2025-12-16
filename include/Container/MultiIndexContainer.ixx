@@ -66,6 +66,10 @@ export namespace ArtifactCore {
     byType_.remove(typeid(*obj), obj);
    }
   }
+  auto begin() { return list_.begin(); }
+  auto end() { return list_.end(); }
+  auto begin() const { return list_.begin(); }
+  auto end() const { return list_.end(); }
  };
 
  

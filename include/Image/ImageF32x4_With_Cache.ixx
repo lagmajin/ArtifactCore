@@ -34,7 +34,7 @@ class LIBRARY_DLL_API ImageF32x4RGBAWithCache:public QObject{
 
  };
 
-typedef std::shared_ptr<ImageF32x4RGBAWithCache> ImageF32x4RGBAWithCache;
+typedef std::shared_ptr<ImageF32x4RGBAWithCache> ImageF32x4RGBAWithCachePtr;
 
 
 
