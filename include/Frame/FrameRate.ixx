@@ -4,7 +4,7 @@
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
 
-export module Frame.FrameRate;
+export module Frame.Rate;
 
 export namespace ArtifactCore {
 
@@ -22,26 +22,26 @@ export namespace ArtifactCore {
 
 
 
- class Framerate final {
+ class FrameRate final {
  private:
   class Impl;
   Impl* impl_;
  public:
-  Framerate();
-  Framerate(float frameRate);
-  Framerate(const QString& str);
-  Framerate(const Framerate& frameRate);
-  Framerate(Framerate&& framerate)noexcept;
-  virtual ~Framerate();
+  FrameRate();
+  FrameRate(float frameRate);
+  FrameRate(const QString& str);
+  FrameRate(const FrameRate& frameRate);
+  FrameRate(FrameRate&& framerate)noexcept;
+  virtual ~FrameRate();
   float framerate() const;
-  void setFramerate(float frame = 30.0f);
+  void setFrameRate(float frame = 30.0f);
   QString toString() const;
   void setFromString(const QString& framerate);
   bool hasDropframe() const;
   void speedUp(float frame = 1.0f);
   void speedDown(float frame = 1.0f);
 
-  void swap(Framerate& other) noexcept;
+  void swap(FrameRate& other) noexcept;
 
   QJsonObject toJson() const;
   void setFromJson(const QJsonObject& object);
@@ -49,16 +49,16 @@ export namespace ArtifactCore {
   void writeToJson(QJsonObject& object) const;
 
   QString toDisplayString(bool includeDropframe = true) const; // UI向け表示
-  static Framerate fromJsonStatic(const QJsonObject& obj);
+  static FrameRate fromJsonStatic(const QJsonObject& obj);
 
-  Framerate& operator=(float rate);
-  Framerate& operator=(const QString& str);
-  Framerate& operator=(const Framerate& framerate);
-  Framerate& operator=(Framerate&& framerate) noexcept;
+  FrameRate& operator=(float rate);
+  FrameRate& operator=(const QString& str);
+  FrameRate& operator=(const FrameRate& framerate);
+  FrameRate& operator=(FrameRate&& framerate) noexcept;
  };
 
- bool operator==(const Framerate& framerate1, const Framerate& framerate2);
- bool operator!=(const Framerate& framerate1, const Framerate& framerate2);
+ bool operator==(const FrameRate& framerate1, const FrameRate& framerate2);
+ bool operator!=(const FrameRate& framerate1, const FrameRate& framerate2);
 
 
  class FrameRateOffsetPrivate;

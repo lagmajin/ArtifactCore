@@ -1,12 +1,12 @@
 ﻿module;
 
-module Frame.FrameRate;
+module Frame.Rate;
 
 
 
 namespace ArtifactCore {
 
- class Framerate::Impl {
+ class FrameRate::Impl {
  private:
 
  public:
@@ -16,88 +16,98 @@ namespace ArtifactCore {
 
 
 
- Framerate::Framerate()
+ FrameRate::FrameRate()
  {
 
  }
 
- Framerate::Framerate(float frameRate)
+ FrameRate::FrameRate(float frameRate)
  {
 
  }
 
- Framerate::Framerate(const QString& str)
+ FrameRate::FrameRate(const QString& str)
  {
 
  }
 
 
- Framerate::Framerate(const Framerate& frameRate)
+ FrameRate::FrameRate(const FrameRate& frameRate)
  {
 
  }
 
- Framerate::Framerate(Framerate&& framerate) noexcept
+ FrameRate::FrameRate(FrameRate&& framerate) noexcept
  {
 
  }
 
- Framerate::~Framerate()
+ FrameRate::~FrameRate()
  {
 
  }
 
- void Framerate::setFramerate(float frame /*= 30.0f*/)
+ void FrameRate::setFrameRate(float frame /*= 30.0f*/)
  {
 
  }
 
- void Framerate::speedUp(float frame /*= 1.0f*/)
+ void FrameRate::speedUp(float frame /*= 1.0f*/)
  {
 
  }
 
- void Framerate::speedDown(float frame /*= 1.0f*/)
+ void FrameRate::speedDown(float frame /*= 1.0f*/)
  {
 
  }
 
- void Framerate::setFromJson(const QJsonObject& object)
+ void FrameRate::setFromJson(const QJsonObject& object)
  {
 
  }
 
- void Framerate::readFromJson(QJsonObject& object) const
+ void FrameRate::readFromJson(QJsonObject& object) const
  {
 
  }
 
- void Framerate::writeToJson(QJsonObject& object) const
+ void FrameRate::writeToJson(QJsonObject& object) const
  {
 
  }
 
- void Framerate::setFromString(const QString& framerate)
+ void FrameRate::setFromString(const QString& framerate)
  {
 
  }
 
- Framerate& Framerate::operator=(float rate)
- {
-  return *this;
- }
-
- Framerate& Framerate::operator=(const QString& str)
+ FrameRate& FrameRate::operator=(float rate)
  {
   return *this;
  }
 
- bool operator==(const Framerate& framerate1, const Framerate& framerate2)
+ FrameRate& FrameRate::operator=(const QString& str)
+ {
+  return *this;
+ }
+
+ FrameRate& FrameRate::operator=(const FrameRate& framerate)
+ {
+  return *this;
+ }
+
+ FrameRate& FrameRate::operator=(FrameRate&& framerate) noexcept
+ {
+  return *this;
+ }
+
+ bool operator==(const FrameRate& framerate1, const FrameRate& framerate2)
  {
   return true;
  }
 
- bool operator!=(const Framerate& framerate1, const Framerate& framerate2)
+ bool operator!=(const FrameRate& framerate1, const FrameRate& framerate2)
  {
   return !(framerate1 == framerate2);
  }

@@ -10,7 +10,7 @@ export module Frame.Range;
 
 
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
  class LIBRARY_DLL_API FrameRange {
  private:
