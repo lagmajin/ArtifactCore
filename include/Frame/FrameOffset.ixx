@@ -1,12 +1,20 @@
 module;
 
-export module Frame:FrameOffset;
+export module Frame.Offset;
 
 
-export namespace FrameOffset {
+export namespace ArtifactCore {
+
+ class FrameOffset
+ {
+ private:
+  class Impl;
+  Impl* impl_;
+ public:
+  FrameOffset();
+  ~FrameOffset();
+ };
 
 
 
-
-
-}
+};

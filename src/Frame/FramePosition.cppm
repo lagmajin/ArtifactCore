@@ -109,4 +109,9 @@ FramePosition FramePosition::operator-(int64_t frames) const
   return false;
  }
 
+ bool FramePosition::operator<(const FramePosition&) const
+ {
+  return false;
+ }
+
 };

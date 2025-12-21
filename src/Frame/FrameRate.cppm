@@ -8,48 +8,53 @@ namespace ArtifactCore {
 
  class FrameRate::Impl {
  private:
-
+  
  public:
   Impl();
   ~Impl();
+  float frameRate_ = 0.0f;
  };
 
-
-
- FrameRate::FrameRate()
- {
-
- }
-
- FrameRate::FrameRate(float frameRate)
- {
-
- }
-
- FrameRate::FrameRate(const QString& str)
+ FrameRate::Impl::Impl()
  {
 
  }
 
 
- FrameRate::FrameRate(const FrameRate& frameRate)
+ FrameRate::FrameRate():impl_(new Impl)
  {
 
  }
 
- FrameRate::FrameRate(FrameRate&& framerate) noexcept
+ FrameRate::FrameRate(float frameRate) :impl_(new Impl)
+ {
+
+ }
+
+ FrameRate::FrameRate(const QString& str) :impl_(new Impl)
+ {
+
+ }
+
+
+ FrameRate::FrameRate(const FrameRate& frameRate) :impl_(new Impl)
+ {
+
+ }
+
+ FrameRate::FrameRate(FrameRate&& framerate) noexcept :impl_(new Impl)
  {
 
  }
 
  FrameRate::~FrameRate()
  {
-
+  delete impl_;
  }
 
  void FrameRate::setFrameRate(float frame /*= 30.0f*/)
  {
-
+     impl_->frameRate_ = frame;
  }
 
  void FrameRate::speedUp(float frame /*= 1.0f*/)
