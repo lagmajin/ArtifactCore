@@ -8,7 +8,7 @@ module;
 module Asset.File;
 import std;
 import Utils.Id;
-
+import Utils.String.UniString;
 
 namespace ArtifactCore {
 
@@ -17,13 +17,21 @@ namespace ArtifactCore {
 
   class  AbstractAssetFile::Impl {
   private:
-   
+
   public:
    Impl();
+   explicit Impl(const UniString& str);
    ~Impl();
+   UniString path;
+   AssetID id;
  };
 
  AbstractAssetFile::Impl::Impl()
+ {
+
+ }
+
+ AbstractAssetFile::Impl::Impl(const UniString& str)
  {
 
  }
@@ -43,6 +51,11 @@ namespace ArtifactCore {
 
  }
 
+ AbstractAssetFile::AbstractAssetFile(const UniString& path) :impl_(new Impl(path))
+ {
+
+ }
+
  AbstractAssetFile::~AbstractAssetFile()
  {
   delete impl_;
@@ -58,29 +71,49 @@ namespace ArtifactCore {
   return !exist();
  }
 
-AssetID AbstractAssetFile::assetID() const
+ AssetID AbstractAssetFile::assetID() const
  {
- return AssetID();
+  return AssetID();
  }
 
-void AbstractAssetFile::markDirty()
-{
+ void AbstractAssetFile::markDirty()
+ {
 
-}
+ }
 
-void AbstractAssetFile::clearDirty()
-{
+ void AbstractAssetFile::clearDirty()
+ {
 
-}
+ }
 
-bool AbstractAssetFile::load()
-{
- return true;
-}
+ bool AbstractAssetFile::load()
+ {
+  return true;
+ }
 
-void AbstractAssetFile::unload()
-{
+ void AbstractAssetFile::unload()
+ {
 
-}
+ }
+
+ bool AbstractAssetFile::isLoaded() const
+ {
+  return false;
+ }
+
+ void AbstractAssetFile::setAssetID(const AssetID& assetID)
+ {
+
+ }
+
+ bool AbstractAssetFile::isDirty() const
+ {
+  return true;
+ }
+
+ UniString AbstractAssetFile::filePath() const
+ {
+  return impl_->path;
+ }
 
 };

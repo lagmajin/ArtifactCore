@@ -9,11 +9,13 @@ import Utils.Convertor.String;
 
 namespace ArtifactCore {
 
- class UniString::Impl{
+ class UniString::Impl {
  private:
-  
+
  public:
-  Impl(); 
+  Impl();
+  Impl(const std::u16string& u16);
+  Impl(const UniString& other);
   Impl(const Impl& other);
   ~Impl();
   QString str_;
@@ -31,6 +33,16 @@ namespace ArtifactCore {
 
  }
 
+ UniString::Impl::Impl(const UniString& other):str_(other.impl_->str_)
+ {
+
+ }
+
+ UniString::Impl::Impl(const std::u16string& u16)
+ {
+
+ }
+	
  UniString::Impl::~Impl()
  {
 
@@ -38,12 +50,16 @@ namespace ArtifactCore {
 
  std::u16string UniString::Impl::toStdU16String() const
  {
-  return std::u16string();
+  auto result = std::u16string();
+
+  return result;
  }
 
  std::u32string UniString::Impl::toStdU32String() const
  {
-  return std::u32string();
+  auto result = std::u32string();
+
+  return result;
  }
 
  UniString::UniString() :impl_(new Impl())
@@ -51,12 +67,17 @@ namespace ArtifactCore {
 
  }
 
- UniString::UniString(const UniString& other) :impl_(new Impl())
+ UniString::UniString(const UniString& other) :impl_(new Impl(other))
  {
 
  }
 
  UniString::UniString(const QString& str) :impl_(new Impl())
+ {
+
+ }
+
+ UniString::UniString(const std::u16string& u16) :impl_(new Impl())
  {
 
  }
@@ -79,7 +100,7 @@ namespace ArtifactCore {
  UniString& UniString::operator=(const UniString& other)
  {
   impl_->str_ = other.toQString();
- 	
+
   return *this;
  }
 

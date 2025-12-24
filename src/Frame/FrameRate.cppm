@@ -20,6 +20,10 @@ namespace ArtifactCore {
 
  }
 
+ FrameRate::Impl::~Impl()
+ {
+
+ }
 
  FrameRate::FrameRate():impl_(new Impl)
  {
@@ -107,9 +111,25 @@ namespace ArtifactCore {
   return *this;
  }
 
+ UniString FrameRate::toString() const
+ {
+  return UniString();
+ }
+
+ float FrameRate::framerate() const
+ {
+  return impl_->frameRate_;
+ }
+
+UniString FrameRate::toDisplayString(bool includeDropframe /*= true*/) const
+ {
+
+ return UniString();
+ }
+
  bool operator==(const FrameRate& framerate1, const FrameRate& framerate2)
  {
-  return true;
+  return framerate1.framerate() == framerate2.framerate();
  }
 
  bool operator!=(const FrameRate& framerate1, const FrameRate& framerate2)

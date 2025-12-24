@@ -2,16 +2,15 @@
 #include <QFile>
 #include <QString>
 #include <QtCore/QObject>
-
-
 #include <wobjectdefs.h>
-
 #include "../Define/DllExportMacro.hpp"
 export module Asset.File;
 
 //import String.like;
+import std;
 import Utils.Id;
-
+import Utils.String.UniString;
+import Container.MultiIndex;
 
 export namespace ArtifactCore {
 
@@ -19,7 +18,7 @@ export namespace ArtifactCore {
  public:
   using Id::Id;
  };
-	
+
 
  class AbstractAssetFile :public QObject {
   W_OBJECT(AbstractAssetFile)
@@ -29,11 +28,13 @@ export namespace ArtifactCore {
  public:
   AbstractAssetFile();
   AbstractAssetFile(const QFile& file);
+  AbstractAssetFile(const UniString& path);
   virtual ~AbstractAssetFile();
   bool exist() const;
   bool notExist() const;
   AssetID assetID() const;
   void setAssetID(const AssetID& assetID);
+
 
   void setMetaValue();
 
@@ -46,13 +47,14 @@ export namespace ArtifactCore {
   bool isLoaded() const;
   bool load();
   void unload();
-
+  UniString filePath() const;
 
   //public slots:
 
  };
 
-
+ typedef std::shared_ptr<AbstractAssetFile>  AbstractAssetFilePtr;
+ typedef MultiIndexContainer<AbstractAssetFilePtr, AssetID> AssetMultiIndexContainer;
 
 };
 

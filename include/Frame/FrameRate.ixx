@@ -6,6 +6,9 @@
 
 export module Frame.Rate;
 
+import std;
+import Utils.String.UniString;
+
 export namespace ArtifactCore {
 
  enum class eFramerateStringFormat {
@@ -19,9 +22,7 @@ export namespace ArtifactCore {
   fps60_0,
  };
 
-
-
-
+	
  class FrameRate final {
  private:
   class Impl;
@@ -35,7 +36,7 @@ export namespace ArtifactCore {
   virtual ~FrameRate();
   float framerate() const;
   void setFrameRate(float frame = 30.0f);
-  QString toString() const;
+  UniString toString() const;
   void setFromString(const QString& framerate);
   bool hasDropframe() const;
   void speedUp(float frame = 1.0f);
@@ -48,7 +49,7 @@ export namespace ArtifactCore {
   void readFromJson(QJsonObject& object) const;
   void writeToJson(QJsonObject& object) const;
 
-  QString toDisplayString(bool includeDropframe = true) const; // UI向け表示
+  UniString toDisplayString(bool includeDropframe = true) const; // UI向け表示
   static FrameRate fromJsonStatic(const QJsonObject& obj);
 
   FrameRate& operator=(float rate);
