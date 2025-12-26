@@ -1883,6 +1883,9 @@
     <ClCompile Include="src\Codec\FFMpegAudioDecoder.cpp">
       <Filter>ソース ファイル\Codec</Filter>
     </ClCompile>
+    <ClCompile Include="..\Artifact\include\Audio\AudioSegment.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

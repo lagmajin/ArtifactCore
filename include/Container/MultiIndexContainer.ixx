@@ -44,7 +44,19 @@ export namespace ArtifactCore {
    byId_.insert(id, obj);
    byType_.insert(type, obj);
   }
-
+  void addSafe(const Ptr& obj, const Id& id) {
+   std::lock_guard lock(mtx_);
+   auto type = std::type_index(typeid(typename Ptr::element_type));
+   list_.append(obj);
+   byId_.insert(id, obj);
+   byType_.insert(type, obj);
+  }
+ 	
+ 	
+  template <typename T>
+  void addTyped(const Ptr& obj, const Id& id) {
+   add(obj, id, typeid(T));
+  }
   // ID検索
   Ptr findById(const Id& id) const {
    return byId_.value(id);

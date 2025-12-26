@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\Artifact\include\Audio\AudioSegment.ixx" />
     <ClCompile Include="..\Artifact\include\Composition\CompositionSettings.ixx" />
     <ClCompile Include="..\Artifact\src\Composition\CompositionSettings.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
