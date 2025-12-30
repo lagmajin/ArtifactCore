@@ -14,7 +14,8 @@ export namespace ArtifactCore {
  class LIBRARY_DLL_API ImageF32x4 {
  private:
   struct Impl;
-  std::unique_ptr<Impl> pimpl_;
+  Impl* impl_;
+  //std::unique_ptr<Impl> pimpl_;
  public:
   ImageF32x4();
   ImageF32x4(int width, int height);

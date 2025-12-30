@@ -40,7 +40,7 @@ export namespace ArtifactCore {
   // 必要に応じて、オーディオのサンプルフォーマット (AV_SAMPLE_FMT_S16など) も追加
  };
 
- 
+
 
  class LIBRARY_DLL_API FFMpegDecoder {
  private:
@@ -51,10 +51,14 @@ export namespace ArtifactCore {
   ~FFMpegDecoder();
   bool openFile(const QString& path);
   void closeFile();
- 	QImage decodeNextVideoFrame();
-
+  QImage decodeNextVideoFrame();
+  void flush();
  };
 
+ void FFMpegDecoder::flush()
+ {
+
+ }
 
 
 

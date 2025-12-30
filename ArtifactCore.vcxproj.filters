@@ -439,6 +439,9 @@
     <Filter Include="ヘッダー ファイル\Format">
       <UniqueIdentifier>{ffa9633e-dff4-483a-bb36-7b875c1bbaed}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Geometory">
+      <UniqueIdentifier>{f96d0218-168d-4a6e-a603-6a1ee8a03c87}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -617,7 +620,7 @@
     <ClCompile Include="include\Video\FFMpegEncoder.ixx">
       <Filter>ヘッダー ファイル\Codec</Filter>
     </ClCompile>
-    <ClCompile Include="include\Video\EncoderSettings.ixx">
+    <ClCompile Include="include\Video\EncoderSetting.ixx">
       <Filter>ヘッダー ファイル\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Common\OperationgSystem.ixx">
@@ -1187,11 +1190,8 @@
     <ClCompile Include="include\Asset\AsseetImporter.ixx">
       <Filter>ヘッダー ファイル\Asset</Filter>
     </ClCompile>
-    <ClCompile Include="include\Video\FFMpegDecoder.ixx">
+    <ClCompile Include="include\Video\FFMpegVideoDecoder.ixx">
       <Filter>ヘッダー ファイル\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Video\FFMpegDecoder.cpp">
-      <Filter>ソース ファイル\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\PlaybackManager.ixx">
       <Filter>ヘッダー ファイル\Video</Filter>
@@ -1871,12 +1871,6 @@
     <ClCompile Include="include\Particle\Drug.ixx">
       <Filter>ヘッダー ファイル\Particle</Filter>
     </ClCompile>
-    <ClCompile Include="Vector2D.ixx">
-      <Filter>ヘッダー ファイル\Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Vector3D.ixx">
-      <Filter>ヘッダー ファイル\Graphics</Filter>
-    </ClCompile>
     <ClCompile Include="include\Codec\FFMpegAudioDecoder.ixx">
       <Filter>ヘッダー ファイル\Codec</Filter>
     </ClCompile>
@@ -1885,6 +1879,66 @@
     </ClCompile>
     <ClCompile Include="..\Artifact\include\Audio\AudioSegment.ixx">
       <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioMixer.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioPanner.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\AudioPanner.cpp">
+      <Filter>ソース ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\AudioMixer.cpp">
+      <Filter>ソース ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\AudioDownMixer.cpp">
+      <Filter>ソース ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioDownMixer.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioRingBuffer.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\AudioRingBuffer.cpp">
+      <Filter>ソース ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioBackend.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioProvider.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\CalcSafeArea.ixx">
+      <Filter>ヘッダー ファイル\Geometory</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\CalcGrid.ixx">
+      <Filter>ヘッダー ファイル\Geometory</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioBufferQueue.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Codec\DecoderPoolManager.ixx">
+      <Filter>ヘッダー ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Codec\EncoderSetting.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Codec\FFMpegVideoDecoder.cpp">
+      <Filter>ソース ファイル\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Vector3D.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\Vector2D.ixx">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\SimpleWav.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\SimpleWav.cpp">
+      <Filter>ソース ファイル\Audio</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

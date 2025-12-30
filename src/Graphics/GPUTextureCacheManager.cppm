@@ -1,5 +1,5 @@
-module;
-
+﻿module;
+#include <QList>
 #include <QUuid>
 module Graphics.ImageCache;
 

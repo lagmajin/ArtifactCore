@@ -1,9 +1,10 @@
-module;
+﻿module;
 
 
 
 #include <memory>
 #include <Qtcore/QObject>
+#include <QVector>
 export module Mesh;
 
 

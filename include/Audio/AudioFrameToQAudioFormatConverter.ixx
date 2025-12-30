@@ -1,5 +1,5 @@
 ﻿module;
-#include <QAudioFormat>
+#include <QtMultiMedia/QAudioFormat>
 
 export module Audio.Converter.Qt;
 

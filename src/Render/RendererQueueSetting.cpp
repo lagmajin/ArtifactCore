@@ -13,11 +13,17 @@ namespace ArtifactCore
  {
  private:
   QString name_;
+  UniString outputDirectory_;
+
  public:
   Impl();
   ~Impl();
   QString rendererQueueName() const;
   void setRendererQueueName(const QString& name);
+  UniString outputDirectory() const;
+  void setOutputDirectory(const UniString& dir);
+
+
  };
 
  RendererQueueSetting::Impl::Impl()
@@ -38,6 +44,17 @@ namespace ArtifactCore
  QString RendererQueueSetting::Impl::rendererQueueName() const
  {
   return name_;
+ }
+
+ UniString RendererQueueSetting::Impl::outputDirectory() const
+ {
+
+  return outputDirectory_;
+ }
+
+ void RendererQueueSetting::Impl::setOutputDirectory(const UniString& dir)
+ {
+  outputDirectory_ = dir;
  }
 
  RendererQueueSetting::RendererQueueSetting():impl_(new Impl())
@@ -66,4 +83,19 @@ namespace ArtifactCore
   impl_->setRendererQueueName(name);
 
  }
+
+ UniString RendererQueueSetting::outputDirectory() const
+ {
+
+  return impl_->outputDirectory();
+ }
+
+ void RendererQueueSetting::setOutputDirectory(const UniString& dir)
+ {
+  impl_->setOutputDirectory(dir);
+ }
+
+
+
+
 };

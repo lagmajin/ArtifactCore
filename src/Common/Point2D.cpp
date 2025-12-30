@@ -1,5 +1,6 @@
 ﻿module ;
 #define QT_NO_KEYWORDS
+#include <QList>
 #include <QPointF>
 #include <QVector2D>
 module Core.Point2D;

@@ -6,7 +6,7 @@ module;
 #include <string>
 
 #include <QString>
-
+#include "../Define/DllExportMacro.hpp"
 export module Codec.MFEncoder;
 
 import std;
@@ -33,7 +33,7 @@ export namespace ArtifactCore {
  };
 
 
- class MfEncoderEnumerator {
+ class LIBRARY_DLL_API MfEncoderEnumerator {
  public:
   struct EncoderInfo {
    std::wstring friendlyName;

@@ -2,7 +2,7 @@
 
 #include <QImage>
 #include <QDebug>
-module Codec.Thubnail.FFmpeg;
+module Codec.Thumbnail.FFmpeg;
 
 import std;
 import Media.Info;
@@ -31,6 +31,8 @@ namespace ArtifactCore {
  public:
   
   QImage extractThumbnailInternal(const QString& videoFullPath);
+  QImage extractThumbnailFromTimeStamp();
+  ThumbnailExtractorResult extractThumbnail(const UniString& videoFullPath);
  };
 
  QImage FFmpegThumbnailExtractor::Impl::extractThumbnailInternal(const QString& videoFullPath)
@@ -138,8 +140,40 @@ namespace ArtifactCore {
   return image;
  }
 
+ ThumbnailExtractorResult FFmpegThumbnailExtractor::Impl::extractThumbnail(const UniString& videoFullPath)
+ {
+    ThumbnailExtractorResult result;
+	AVFormatContext* fmtCtx = nullptr;
+	AVCodecContext* codecCtx = nullptr;
+	AVFrame* frame = nullptr;
+	AVStream* stream = nullptr;
+	AVPacket* packet = nullptr;
+	SwsContext* swsCtx = nullptr;
+	int videoStreamIndex = -1;
+	QImage image;
+	if (avformat_open_input(&fmtCtx, videoFullPath.toQString().toUtf8().constData(), nullptr, nullptr) != 0) {
+	 qWarning() << "Failed to open file.";
+	 result.message = ThumbnailExtractorMessage::FileNotFound;
+	 return result;
+	}
+
+	if (avformat_find_stream_info(fmtCtx, nullptr) < 0) {
+	 qWarning() << "Failed to get stream info.";
+	 result.message = ThumbnailExtractorMessage::NoVideoStream;
+	 return result;
+	}
 
 
+
+   cleanup:
+	if (swsCtx) sws_freeContext(swsCtx);
+	if (packet) av_packet_free(&packet);
+	if (frame) av_frame_free(&frame);
+	if (codecCtx) avcodec_free_context(&codecCtx);
+	if (fmtCtx) avformat_close_input(&fmtCtx);
+
+	return result;
+ }
 
  FFmpegThumbnailExtractor::FFmpegThumbnailExtractor():impl_(new Impl())
  {
@@ -151,7 +185,7 @@ namespace ArtifactCore {
   delete impl_;
  }
 
- QImage FFmpegThumbnailExtractor::extractThumbnail(const QString& videoFilePath)
+ QImage FFmpegThumbnailExtractor::extractThumbnailOld(const QString& videoFilePath)
  {
 
   return impl_->extractThumbnailInternal(videoFilePath);
@@ -166,6 +200,12 @@ namespace ArtifactCore {
  QImage FFmpegThumbnailExtractor::extractEmbeddedThumbnail(const QString& videoPath)
  {
   return QImage();
+ }
+
+ThumbnailExtractorResult FFmpegThumbnailExtractor::extractThumbnail(const UniString& str)
+ {
+
+ return   impl_->extractThumbnail(str);
  }
 
 };

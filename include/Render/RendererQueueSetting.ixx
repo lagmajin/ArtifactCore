@@ -6,6 +6,7 @@ export module RendererQueueSetting;
 
 import Utils;
 
+import Utils.String.UniString;
 
 export namespace ArtifactCore
 {
@@ -26,7 +27,8 @@ export namespace ArtifactCore
   QString queueName() const;
   template<StringLike T>
   void setRendererQueueName(const T& name);
-  
+  UniString outputDirectory() const;
+  void setOutputDirectory(const UniString& dir);
 
  };
 

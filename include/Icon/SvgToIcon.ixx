@@ -1,7 +1,7 @@
 module;
 #include <QIcon>
 #include <QPixmap>
-#include <QSvgRenderer>
+#include <QtSVG/QSvgRenderer>
 #include <QPainter>
 
 #include "../Define/DllExportMacro.hpp"

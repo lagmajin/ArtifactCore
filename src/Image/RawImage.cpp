@@ -1,5 +1,5 @@
 ﻿module;
-
+#include <QList>
 module Image.Raw;
 import std;
 

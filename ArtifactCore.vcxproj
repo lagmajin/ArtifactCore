@@ -50,6 +50,10 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Asset\AssetType.ixx" />
+    <ClCompile Include="include\Audio\AudioBackend.ixx" />
+    <ClCompile Include="include\Audio\AudioBufferQueue.ixx" />
+    <ClCompile Include="include\Audio\AudioDownMixer.ixx" />
+    <ClCompile Include="include\Audio\AudioMixer.ixx" />
     <ClCompile Include="include\Audio\AudioModule.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -58,11 +62,16 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioFrameToQAudioFormatConverter.ixx" />
+    <ClCompile Include="include\Audio\AudioPanner.ixx" />
+    <ClCompile Include="include\Audio\AudioProvider.ixx" />
     <ClCompile Include="include\Audio\AudioRasterizer.ixx" />
     <ClCompile Include="include\Audio\AudioRenderer.ixx" />
+    <ClCompile Include="include\Audio\AudioRingBuffer.ixx" />
     <ClCompile Include="include\Audio\AudioVolume.ixx" />
     <ClCompile Include="include\Audio\AudioWriter.ixx" />
     <ClCompile Include="include\Audio\AudioBus.ixx" />
+    <ClCompile Include="include\Audio\SimpleWav.ixx" />
+    <ClCompile Include="include\Codec\DecoderPoolManager.ixx" />
     <ClCompile Include="include\Codec\FFMpegAudioDecoder.ixx" />
     <ClCompile Include="include\Codec\FFmpegThumbnailExtractor.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -83,6 +92,8 @@
     <ClCompile Include="include\Event\EventBus.ixx" />
     <ClCompile Include="include\FileSystem\DirectoryBuilder.ixx" />
     <ClCompile Include="include\Font\FreeFont.ixx" />
+    <ClCompile Include="include\Geometry\CalcGrid.ixx" />
+    <ClCompile Include="include\Geometry\CalcSafeArea.ixx" />
     <ClCompile Include="include\Geometry\RotationTurns.ixx" />
     <ClCompile Include="include\Graphics\2DPSOHelper.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -119,6 +130,8 @@
     </ClCompile>
     <ClCompile Include="include\Graphics\Texture\TextureManager.ixx" />
     <ClCompile Include="include\Graphics\Utils\Func.ixx" />
+    <ClCompile Include="include\Graphics\Vector2D.ixx" />
+    <ClCompile Include="include\Graphics\Vector3D.ixx" />
     <ClCompile Include="include\Graphics\VertexBuffer\VertexBufferixx.ixx" />
     <ClCompile Include="include\Icon\SvgToIcon.ixx" />
     <ClCompile Include="include\ImageProcessing\DirectCompute\AutoContrast.ixx" />
@@ -237,15 +250,24 @@
     <ClCompile Include="src\Audio\AudioBus.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Audio\AudioDownMixer.cpp" />
+    <ClCompile Include="src\Audio\AudioMixer.cpp" />
+    <ClCompile Include="src\Audio\AudioPanner.cpp" />
     <ClCompile Include="src\Audio\AudioRasterizer.cpp" />
     <ClCompile Include="src\Audio\AudioRenderer.cpp" />
+    <ClCompile Include="src\Audio\AudioRingBuffer.cpp" />
     <ClCompile Include="src\Audio\AudioVolume.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Audio\SimpleWav.cpp" />
+    <ClCompile Include="src\Codec\EncoderSetting.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Codec\FFMpegAudioDecoder.cpp" />
     <ClCompile Include="src\Codec\FFmpegThumbnailExtractor.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Codec\FFMpegVideoDecoder.cpp" />
     <ClCompile Include="src\Color\LabColor.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -347,8 +369,6 @@
     <ClCompile Include="src\Video\PlaybackManager.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="Vector2D.ixx" />
-    <ClCompile Include="Vector3D.ixx" />
     <ClInclude Include="include\Color\Alpha.ixx" />
     <ClCompile Include="include\Asset\ImageAsset.ixx" />
     <ClCompile Include="include\Codec\MFEncoder.ixx" />
@@ -619,14 +639,16 @@
     <ClCompile Include="include\Video\AbstractEncoder.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
-    <ClCompile Include="include\Video\FFMpegDecoder.ixx">
+    <ClCompile Include="include\Video\FFMpegVideoDecoder.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Video\GStreamerDecoder.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClInclude Include="include\Video\GStreamerEncoder.ixx" />
-    <ClCompile Include="include\Video\EncoderSettings.ixx" />
+    <ClCompile Include="include\Video\EncoderSetting.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Video\FFMpegEncoder.ixx" />
     <ClCompile Include="include\Video\LibVLCDecoder.ixx">
       <FileType>CppHeader</FileType>
@@ -1049,9 +1071,6 @@
     <ClCompile Include="src\Layer\LayerStrip.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Video\FFMpegDecoder.cpp">
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
-    </ClCompile>
     <ClCompile Include="src\Video\FFMpegAudioEncoder.cpp" />
     <None Include="src\ImageProcessing\OpenCV\AutoContrastCV.cppm" />
     <None Include="src\ImageProcessing\OpenCV\AutoGammaCV.cppm" />
@@ -1063,7 +1082,7 @@
     <RootNamespace>ArtifactCore</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
     <Keyword>QtVS_v304</Keyword>
-    <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
+    <!--<QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>-->
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -1095,31 +1114,37 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <Import Project="$(QtMsBuild)\qt_defaults.props" Condition="Exists('$(QtMsBuild)\qt_defaults.props')" />
+  <!--<Import Project="$(QtMsBuild)\qt_defaults.props" Condition="Exists('$(QtMsBuild)\qt_defaults.props')" />-->
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <QtInstall>6.7.2_msvc2019_64</QtInstall>
+    <QtInstall>tools_Qt6</QtInstall>
+    <QtModules>core;gui;network;axcontainer;concurrent;help;multimedia;multimediawidgets</QtModules>
+    <QtPlugin>true</QtPlugin>
+    <QtDeploy>true</QtDeploy>
   </PropertyGroup>
-  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
-  <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') OR !Exists('$(QtMsBuild)\Qt.props')">
-    <Message Importance="High" Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />
-  </Target>
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <QtInstall>tools_Qt6</QtInstall>
+    <QtModules>core;gui;network;axcontainer;concurrent;help;multimedia;multimediawidgets</QtModules>
+    <QtBuildConfig>debug</QtBuildConfig>
+    <QtPlugin>true</QtPlugin>
+    <QtDeploy>true</QtDeploy>
+  </PropertyGroup>
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$(QtMsBuild)\Qt.props" />
+    <!--<Import Project="$(QtMsBuild)\Qt.props" />-->
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$(QtMsBuild)\Qt.props" />
+    <!--<Import Project="$(QtMsBuild)\Qt.props" />-->
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$(QtMsBuild)\Qt.props" />
+    <!--<Import Project="$(QtMsBuild)\Qt.props" />-->
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -1127,8 +1152,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>X:\Qt\6.7.2\msvc2019_64\include\QtSvg;X:\Build\install\include;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\include;X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\vlc-3.0.21\sdk\include;X:\Qt\6.7.2\msvc2019_64\include\QtMultimedia;X:\Qt\6.7.2\msvc2019_64\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
-    <LibraryPath>X:\Build\install\lib\DiligentCore\Debug;X:\Build\Graphics\GraphicsEngineVulkan\Debug;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;X:\box2d\lib;X:\SDL2\lib;X:\libsnd\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\vlc-3.0.21\sdk\lib;X:\opencv\build\x64\vc16\lib;X:\Qt\6.7.2\msvc2019_64\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>X:\vcpkg\installed\x64-windows\include\Qt6\QtGui;X:\vcpkg\installed\x64-windows\include\Qt6\QtCore;X:\vcpkg\installed\x64-windows\include\Qt6;X:\Build\install\include;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\include;X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\vlc-3.0.21\sdk\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
+    <LibraryPath>X:\Build\install\lib\DiligentCore\Debug;X:\Build\Graphics\GraphicsEngineVulkan\Debug;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;X:\box2d\lib;X:\SDL2\lib;X:\libsnd\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\vlc-3.0.21\sdk\lib;X:\opencv\build\x64\vc16\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
     <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App\</OutDir>
     <IntDir>X:\temp/</IntDir>
     <AllProjectBMIsArePublic>true</AllProjectBMIsArePublic>
@@ -1182,7 +1207,7 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <EnableModules>true</EnableModules>
       <BuildStlModules>true</BuildStlModules>
-      <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
       <CompileAs>Default</CompileAs>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <ShowIncludes>false</ShowIncludes>
@@ -1215,9 +1240,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
     <ClCompile Condition="'$(CLANGCL)' != 'true'">
-      <AdditionalOptions>/Zc:__cplusplus</AdditionalOptions>
+      <AdditionalOptions>/Zc:__cplusplus /utf-8</AdditionalOptions>
       <TreatWChar_tAsBuiltInType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</TreatWChar_tAsBuiltInType>
       <UseMSVC Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</UseMSVC>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
     </ClCompile>
     <ClCompile Condition="'$(CLANGCL)' == 'true'">
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
