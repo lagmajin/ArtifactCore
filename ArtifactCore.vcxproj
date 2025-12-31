@@ -198,6 +198,7 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Thread\ThreadHelper.ixx" />
+    <ClCompile Include="include\Time\RationalTime.ixx" />
     <ClCompile Include="include\Time\RealTime.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -342,6 +343,7 @@
     </ClCompile>
     <ClCompile Include="src\Script\Engine\Syntax\ASTNode.cppm" />
     <ClCompile Include="src\Thread\ThreadHelper.cpp" />
+    <ClCompile Include="src\Time\RationalTime.cpp" />
     <ClCompile Include="src\Time\RealTime.cpp" />
     <ClCompile Include="src\Time\TimeCode.cpp" />
     <ClCompile Include="src\Transform\TransformHelper.cppm">

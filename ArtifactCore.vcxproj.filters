@@ -1940,6 +1940,12 @@
     <ClCompile Include="src\Audio\SimpleWav.cpp">
       <Filter>ソース ファイル\Audio</Filter>
     </ClCompile>
+    <ClCompile Include="include\Time\RationalTime.ixx">
+      <Filter>ヘッダー ファイル\Time</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Time\RationalTime.cpp">
+      <Filter>ソース ファイル\Time</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
