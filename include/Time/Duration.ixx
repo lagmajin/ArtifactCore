@@ -2,16 +2,14 @@ module;
 #include <QString>
 export module Duration;
 
-
-
-
-
 export namespace ArtifactCore {
 
  class DurationPrivate;
 
  class  Duration {
  private:
+  class Impl;
+  Impl* impl_;
   DurationPrivate* const	pDuration_;
  public:
   Duration();

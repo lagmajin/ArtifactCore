@@ -52,7 +52,10 @@ export namespace ArtifactCore {
    byType_.insert(type, obj);
   }
  	
- 	
+ bool containsId(const Id& id) const {
+   return byId_.contains(id);
+ }
+
   template <typename T>
   void addTyped(const Ptr& obj, const Id& id) {
    add(obj, id, typeid(T));
@@ -78,6 +81,13 @@ export namespace ArtifactCore {
     byType_.remove(typeid(*obj), obj);
    }
   }
+
+  void clear() {
+   list_.clear();
+   byId_.clear();
+   byType_.clear();
+  }
+
   auto begin() { return list_.begin(); }
   auto end() { return list_.end(); }
   auto begin() const { return list_.begin(); }

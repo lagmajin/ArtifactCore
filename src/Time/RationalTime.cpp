@@ -1,36 +1,39 @@
 module;
 
-module RationalTime;
+module Time.Rational;
 
+import std;
 
 namespace ArtifactCore {
 
- class RationalTime::impl {
+ class RationalTime::Impl {
  private:
-
+  int64_t value;
+  int64_t scale;
  public:
-  Impl();
+  Impl(); 
   ~Impl();
  };
 
- RationalTime::impl::Impl()
+ RationalTime::Impl::Impl()
  {
 
  }
 
- RationalTime::impl::~Impl()
+ RationalTime::Impl::~Impl()
  {
 
  }
 
- RationalTime::RationalTime()
+ RationalTime::RationalTime():impl_(new Impl())
  {
 
  }
 
  RationalTime::~RationalTime()
  {
-
+  delete impl_;
+  
  }
 
 };

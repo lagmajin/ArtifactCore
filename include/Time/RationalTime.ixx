@@ -1,7 +1,7 @@
 module;
 #include <QTime>
 #include "../Define/DllExportMacro.hpp"
-export module RationalTime;
+export module Time.Rational;
 
 import std;
 
@@ -13,7 +13,9 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   RationalTime();
+  RationalTime(int64_t value,int64_t scale);
   ~RationalTime();
+
  };
 
 

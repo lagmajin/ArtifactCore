@@ -1946,6 +1946,12 @@
     <ClCompile Include="src\Time\RationalTime.cpp">
       <Filter>ソース ファイル\Time</Filter>
     </ClCompile>
+    <ClCompile Include="include\Core\AspectRatio.ixx">
+      <Filter>ヘッダー ファイル\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\AspectRatio.cpp">
+      <Filter>ソース ファイル\Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
