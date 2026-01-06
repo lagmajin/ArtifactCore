@@ -1952,6 +1952,15 @@
     <ClCompile Include="src\Core\AspectRatio.cpp">
       <Filter>ソース ファイル\Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\Time\Duration.cpp">
+      <Filter>ソース ファイル\Time</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Time\TimeCodeRange.cpp">
+      <Filter>ソース ファイル\Time</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Time\TimeCodeRange.ixx">
+      <Filter>ヘッダー ファイル\Time</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

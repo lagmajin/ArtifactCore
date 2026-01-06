@@ -16,6 +16,12 @@ export namespace ArtifactCore
  public:
   AnimatableTransform3D();
   ~AnimatableTransform3D();
+  void setPosition(float x, float y);
+  // Rotation
+  void setRotation(float degrees);
+  // Scale
+  void setScale(float sx, float sy);
+  size_t size() const;
  };
 
  };

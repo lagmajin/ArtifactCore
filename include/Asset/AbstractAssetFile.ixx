@@ -20,7 +20,7 @@ export namespace ArtifactCore {
  };
 
 
- class AbstractAssetFile :public QObject {
+ class LIBRARY_DLL_API AbstractAssetFile :public QObject {
   W_OBJECT(AbstractAssetFile)
  private:
   class Impl;

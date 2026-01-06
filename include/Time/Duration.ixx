@@ -10,7 +10,7 @@ export namespace ArtifactCore {
  private:
   class Impl;
   Impl* impl_;
-  DurationPrivate* const	pDuration_;
+  //DurationPrivate* const	pDuration_;
  public:
   Duration();
   //explicit Duration(const Time& time);

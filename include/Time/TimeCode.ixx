@@ -6,6 +6,7 @@ module;
 export module Time.Code;
 
 import std;
+import Utils.String.UniString;
 
 export namespace ArtifactCore {
 
@@ -38,7 +39,7 @@ export namespace ArtifactCore {
   std::string toStdString() const;
   QString toString() const;
 
-
+  void setFromQString(const QString& str);
  };
 
 

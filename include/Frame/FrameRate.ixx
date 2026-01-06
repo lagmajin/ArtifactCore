@@ -3,6 +3,7 @@
 
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
+#include "../Define/DllExportMacro.hpp"
 
 export module Frame.Rate;
 
@@ -23,7 +24,7 @@ export namespace ArtifactCore {
  };
 
 	
- class FrameRate final {
+ class LIBRARY_DLL_API FrameRate final {
  private:
   class Impl;
   Impl* impl_;

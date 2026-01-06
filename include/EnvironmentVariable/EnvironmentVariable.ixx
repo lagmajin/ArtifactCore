@@ -1,14 +1,17 @@
-﻿module;
+﻿// ReSharper disable All
+module;
 #include <QObject>
 #include <wobjectdefs.h>
 
 #include <QJsonObject>
+
+#include "../Define/DllExportMacro.hpp"
 export module EnvironmentVariable;
 
 
 export namespace ArtifactCore {
 
- class EnvironmentVariableManager :public QObject{
+ class LIBRARY_DLL_API EnvironmentVariableManager :public QObject{
 	W_OBJECT(EnvironmentVariableManager)
  private:
   class Impl;
