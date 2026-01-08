@@ -25,7 +25,7 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
       <TranslateIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</TranslateIncludes>
     </ClCompile>
-    <ClCompile Include="include\Animation\Animatable.ixx" />
+    <ClCompile Include="include\Animation\Animatable%28deprecated%29.ixx" />
     <ClCompile Include="include\Animation\AnimatableTransform2D.ixx" />
     <ClCompile Include="include\Animation\AnimatableTransform3D.ixx" />
     <ClCompile Include="include\Animation\AnimatableValue.ixx" />
@@ -176,6 +176,7 @@
     <ClCompile Include="include\Particle\Gravity.ixx" />
     <ClCompile Include="include\Particle\Particle.ixx" />
     <ClCompile Include="include\Particle\Wind.ixx" />
+    <ClCompile Include="include\Platform\ProcessHelperWin.ixx" />
     <ClCompile Include="include\Platform\SystemUsage.ixx" />
     <ClCompile Include="include\Preview\PreviewQuality.ixx" />
     <ClCompile Include="include\Preview\PreviewSettings.ixx" />
@@ -325,6 +326,7 @@
     </ClCompile>
     <ClCompile Include="src\Math\RotationTurns.cpp" />
     <ClCompile Include="src\Network\NetworkRPCServer.cpp" />
+    <ClCompile Include="src\Platform\ProcessHelperWin.cpp" />
     <ClCompile Include="src\Preview\PreviewQuality.cpp" />
     <ClCompile Include="src\Preview\PreviewSettings.cpp" />
     <ClCompile Include="src\Render\RendererQueueManager.cpp">
@@ -972,6 +974,7 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)\Shader\ImageProcessing\%(Filename).cso</ObjectFileOutput>
     </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\MotionVector\MotionVector.hlsl" />
     <FxCompile Include="include\Graphics\Shader\HLSL\Negate.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.1</ShaderModel>
@@ -1017,6 +1020,7 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.6</ShaderModel>
     </FxCompile>
+    <FxCompile Include="src\Platform\FSR1.fx" />
     <None Include="include\Channel\DiskSize.ixx" />
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp" />
     <ClCompile Include="include\ImageProcessing\AbstractImageEffect.ixx">

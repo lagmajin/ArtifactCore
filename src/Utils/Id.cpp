@@ -19,9 +19,7 @@ namespace ArtifactCore {
 
   boost::uuids::uuid value_;
  };
-
-
-
+	
  // Id::Impl のデフォルトコンストラクタ - ランダムUUIDを生成
  Id::Impl::Impl() : value_(boost::uuids::random_generator()()) {}
 
@@ -112,6 +110,19 @@ namespace ArtifactCore {
   return impl_->value_ < other.impl_->value_;
  }
 
+ bool Id::operator!() const
+ {
+  return isNil();
+ }
 
+ Id::operator bool() const
+ {
+  return !isNil();
+ }
+
+ void Id::clear()
+ {
+
+ }
 
 };

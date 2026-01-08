@@ -442,6 +442,12 @@
     <Filter Include="ヘッダー ファイル\Geometory">
       <UniqueIdentifier>{f96d0218-168d-4a6e-a603-6a1ee8a03c87}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Shader\Fx">
+      <UniqueIdentifier>{e7c6004a-7a44-48d2-8050-14e31e4624ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Shader\HLSL">
+      <UniqueIdentifier>{6febfd84-a0f5-40d5-a231-66d5c43824d0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1682,7 +1688,7 @@
     <ClCompile Include="src\Frame\FramePosition.cppm">
       <Filter>ソース ファイル\Frame</Filter>
     </ClCompile>
-    <ClCompile Include="include\Animation\Animatable.ixx">
+    <ClCompile Include="include\Animation\Animatable%28deprecated%29.ixx">
       <Filter>ヘッダー ファイル\Animation</Filter>
     </ClCompile>
     <ClCompile Include="include\Math\InterpolatorFactory.ixx">
@@ -1961,6 +1967,12 @@
     <ClCompile Include="include\Time\TimeCodeRange.ixx">
       <Filter>ヘッダー ファイル\Time</Filter>
     </ClCompile>
+    <ClCompile Include="include\Platform\ProcessHelperWin.ixx">
+      <Filter>ヘッダー ファイル\Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Platform\ProcessHelperWin.cpp">
+      <Filter>ソース ファイル\Platform</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -2042,6 +2054,12 @@
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\Vertex\HLSL\VertexShader.hlsl">
       <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="src\Platform\FSR1.fx">
+      <Filter>ヘッダー ファイル\Graphics\Shader\Fx</Filter>
+    </FxCompile>
+    <FxCompile Include="include\Graphics\Shader\HLSL\MotionVector\MotionVector.hlsl">
+      <Filter>ヘッダー ファイル\Graphics\Shader\HLSL</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

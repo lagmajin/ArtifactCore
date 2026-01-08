@@ -25,14 +25,18 @@ class  LIBRARY_DLL_API Id {
   Id(const Id& other);
   Id(Id&& other) noexcept;
   ~Id();
-
+  void clear();
+	
   Id& operator=(const Id& other);
 
   Id& operator=(Id&& other) noexcept;
   QString toString() const;
   bool isNil() const;
   const boost::uuids::uuid& getUuid() const;
+  explicit operator bool() const;
 
+  // !演算子もオーバーロードしておくと、より直感的
+  bool operator!() const;
   // 比較演算子
   bool operator==(const Id& other) const;
   bool operator!=(const Id& other) const;

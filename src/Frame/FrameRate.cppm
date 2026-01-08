@@ -127,6 +127,16 @@ UniString FrameRate::toDisplayString(bool includeDropframe /*= true*/) const
  return UniString();
  }
 
+bool FrameRate::hasDropframe() const
+{
+ return false;
+}
+
+void FrameRate::swap(FrameRate& other) noexcept
+{
+
+}
+
  bool operator==(const FrameRate& framerate1, const FrameRate& framerate2)
  {
   return framerate1.framerate() == framerate2.framerate();

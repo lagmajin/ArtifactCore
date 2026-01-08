@@ -11,6 +11,7 @@ namespace ArtifactCore {
  public:
   Impl();
   ~Impl();
+  Scale scale = Scale::Full;
  };
 
  PreviewQuality::Impl::Impl()
@@ -22,31 +23,45 @@ namespace ArtifactCore {
  {
 
  }
-
- 
- PreviewQuality::PreviewQuality()
+	
+ PreviewQuality::PreviewQuality():impl_(new Impl)
  {
 
  }
 
- PreviewQuality::PreviewQuality(const PreviewQuality& other)
+ PreviewQuality::PreviewQuality(const PreviewQuality& other) :impl_(new Impl)
+ {
+
+ }
+
+ PreviewQuality::PreviewQuality(Scale scale) :impl_(new Impl)
  {
 
  }
 
  PreviewQuality::~PreviewQuality()
  {
+  delete impl_;
+ }
+
+ PreviewQuality::Scale PreviewQuality::quality() const
+ {
+  return impl_->scale;
+ }
+
+ void PreviewQuality::setQuality(Scale scale)
+ {
 
  }
 
  bool PreviewQuality::operator==(const PreviewQuality& o) const
  {
-  return true;
+  return impl_->scale == o.impl_->scale;
  }
 
  bool PreviewQuality::operator!=(const PreviewQuality& o) const
  {
-  return false;
+  return !((*this) == o);
  }
 
 };

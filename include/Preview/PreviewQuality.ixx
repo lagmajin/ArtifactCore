@@ -25,9 +25,12 @@ export namespace ArtifactCore {
   };
 
   PreviewQuality();
+  explicit PreviewQuality(Scale scale);
   PreviewQuality(const PreviewQuality& other);
   ~PreviewQuality();
-
+  Scale quality() const;
+  void setQuality(Scale scale);
+ 	
   bool operator==(const PreviewQuality& o) const;
   bool operator!=(const PreviewQuality& o) const;
  };

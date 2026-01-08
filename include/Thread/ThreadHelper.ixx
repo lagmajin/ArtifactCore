@@ -56,6 +56,7 @@ export namespace ArtifactCore
  }
 
  LIBRARY_DLL_API void setCurrentThreadName(const QString& name);
-
+ LIBRARY_DLL_API void setThreadPriorityHigh();
+	
 
 }
