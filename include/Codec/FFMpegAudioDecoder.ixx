@@ -1,8 +1,9 @@
-
-module;
+module ;
+#include "../Define/DllExportMacro.hpp"
+#include <QList>
 #include <QString>
 
-#include "../Define/DllExportMacro.hpp"
+
 export module Media.Encoder.FFMpegAudioDecoder;
 
 import std;

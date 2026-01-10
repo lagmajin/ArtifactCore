@@ -234,13 +234,16 @@
     <ClCompile Include="include\Utils\NameGenerator.ixx" />
     <ClCompile Include="include\Utils\NumericLike.ixx" />
     <ClCompile Include="include\Utils\Path.ixx" />
+    <ClCompile Include="include\Utils\PointLike.ixx" />
     <ClCompile Include="include\Utils\SizeLike.ixx" />
     <ClCompile Include="include\Utils\String.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Utils\StringConvertor.ixx" />
     <ClCompile Include="include\Utils\StringLike.ixx" />
-    <ClCompile Include="include\Utils\Tag.ixx" />
+    <ClCompile Include="include\Utils\Tag.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Utils\UniString.ixx" />
     <ClCompile Include="include\Utils\VectorLike.ixx" />
     <ClCompile Include="include\Video\FFmpegAudioEncoder.ixx" />
@@ -974,7 +977,9 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)\Shader\ImageProcessing\%(Filename).cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="include\Graphics\Shader\HLSL\MotionVector\MotionVector.hlsl" />
+    <FxCompile Include="include\Graphics\Shader\HLSL\MotionVector\MotionVector.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Negate.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.1</ShaderModel>
@@ -1020,7 +1025,9 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.6</ShaderModel>
     </FxCompile>
-    <FxCompile Include="src\Platform\FSR1.fx" />
+    <FxCompile Include="src\Platform\FSR1.fx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <None Include="include\Channel\DiskSize.ixx" />
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp" />
     <ClCompile Include="include\ImageProcessing\AbstractImageEffect.ixx">
@@ -1214,7 +1221,7 @@
       <LanguageStandard>stdcpp23</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <DisableSpecificWarnings>4819;4828;5050;4267;4244;5202;4251</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4819;4828;5050;4267;4244;5202;4251;5050</DisableSpecificWarnings>
       <TranslateIncludes>false</TranslateIncludes>
       <OpenMPSupport>true</OpenMPSupport>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>

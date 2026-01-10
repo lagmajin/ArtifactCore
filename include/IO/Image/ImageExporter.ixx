@@ -2,27 +2,47 @@ module;
 //#include <OpenImageIO/>
 
 #include <QDir>
-#include <QString>
 #include <QObject>
+#include <QFuture>
+#include <wobjectdefs.h>
+
+#include "../../Define/DllExportMacro.hpp"
 export module IO.ImageExporter;
 
 import Image;
+import Image.ExportOptions;
 
-namespace OIIO {};//dummy
+//namespace OIIO {};//dummy
 
 export namespace ArtifactCore {
 
- using namespace OIIO;
+ //using namespace OIIO;
 
- class ImageExporter
+ struct ImageExportResult {
+  bool success = false;
+  //std::vector<unsigned char> data; // メモリ書き出し時のバイナリ
+  std::string error_message;      // OIIOからのエラー詳細
+  size_t byte_size = 0;           // 書き出されたサイズ
+
+  // 成功か失敗かをサクッと判定するためのヘルパー
+  explicit operator bool() const { return success; }
+ };
+	
+ class LIBRARY_DLL_API ImageExporter:public QObject
  {
+ 	W_OBJECT(ImageExporter)
  private:
-
-
+  class Impl;
+  Impl* impl_;
  public:
-  ImageExporter();
+  explicit ImageExporter(QObject*parent=nullptr);
   ~ImageExporter();
   bool write();
+   
+ 	ImageExportResult testWrite();
+  ImageExportResult testWrite2();
+ 	
+ public/*signals*/:
  };
 
 

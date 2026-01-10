@@ -1,4 +1,5 @@
 module;
+
 #include <QString>
 export module Utils.Tag;
 

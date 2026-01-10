@@ -12,6 +12,9 @@ namespace ArtifactCore
  	
  public:
   bool isZVisible = false;
+  float initial_x=0;
+  float initial_y = 0;
+ 	
   AnimatableValueT<float> x_;
   AnimatableValueT<float> y_;
   AnimatableValueT<float> z_;
@@ -41,6 +44,21 @@ namespace ArtifactCore
  AnimatableTransform3D::~AnimatableTransform3D()
  {
   delete impl_;
+ }
+
+ void AnimatableTransform3D::setInitalAngle(const RationalTime& time, float angle/*=0*/)
+ {
+
+ }
+
+ void AnimatableTransform3D::setInitialScale(const RationalTime& time, float xs, float ys)
+ {
+
+ }
+
+ void AnimatableTransform3D::setInitialPosition(const RationalTime& time, float px, float py)
+ {
+
  }
 
 };

@@ -1973,6 +1973,9 @@
     <ClCompile Include="src\Platform\ProcessHelperWin.cpp">
       <Filter>ソース ファイル\Platform</Filter>
     </ClCompile>
+    <ClCompile Include="include\Utils\PointLike.ixx">
+      <Filter>ヘッダー ファイル\Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

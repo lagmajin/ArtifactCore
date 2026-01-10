@@ -3,7 +3,7 @@ module;
 #include <QString>
 #include <OpenImageIO/imageio.h> // OIIO
 #include <OpenImageIO/typedesc.h> // O
-export module Image:ImageExports;
+export module Image.ExportOptions;
 
 
 

@@ -1,5 +1,5 @@
 module;
-
+#include <QString>
 export module Media.MediaFrame;
 
 import std;

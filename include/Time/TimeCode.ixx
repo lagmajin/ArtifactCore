@@ -1,5 +1,5 @@
-﻿
-module;
+﻿module;
+#include <QDir>
 #include <QString>
 #include "../Define/DllExportMacro.hpp"
 //#include <opencv2/core/cvdef.h>

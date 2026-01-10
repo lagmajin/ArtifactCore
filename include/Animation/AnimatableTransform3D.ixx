@@ -21,12 +21,13 @@ export namespace ArtifactCore
  public:
   AnimatableTransform3D();
   ~AnimatableTransform3D();
-  void setInitialScale(float xs,float ys);
- 	
+  void setInitialScale(const RationalTime& time,float xs,float ys);
+  void setInitalAngle(const RationalTime& time,float angle=0);
   void setUserScale(const RationalTime& time,float xs,float ys);
+  void setInitialPosition(const RationalTime& time,float px,float py);
   void setPosition(const RationalTime& time,float x, float y);
   void setRotation(const RationalTime& time,float degrees);
-  void setScale(float sx, float sy);
+ 	
   size_t size() const;
  };
 
