@@ -3,6 +3,7 @@ module;
 module Animation.Transform3D;
 import std;
 import Animation.Value;
+import Graphics.CBuffer.Constants;
 
 namespace ArtifactCore
 {

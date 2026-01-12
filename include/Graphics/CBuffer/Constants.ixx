@@ -8,7 +8,7 @@ export namespace ArtifactCore
 
  struct ViewMatrix
  {
-	 
+
  };
 
  struct Constants
@@ -46,9 +46,9 @@ export namespace ArtifactCore
  {
   float2 position; // 画面またはワールド空間のXY座標
   float4 color;
-	 
+
  };
-	
+
 #pragma pack(push,1)
  struct RectVertex
  {
@@ -62,7 +62,12 @@ export namespace ArtifactCore
   float4 color;    // 矩形の共通色
  };
 
-	
+#pragma pack(push,1)
+ struct DrawSpriteConstants
+ {
+  float4x4 transform;
+
+ };
 
 
 };
