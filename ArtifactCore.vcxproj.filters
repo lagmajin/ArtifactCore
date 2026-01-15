@@ -1976,6 +1976,15 @@
     <ClCompile Include="include\Utils\PointLike.ixx">
       <Filter>ヘッダー ファイル\Utils</Filter>
     </ClCompile>
+    <ClCompile Include="include\Image\ImageUtils.ixx">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="include\File\FileTypeDetector.ixx">
+      <Filter>ヘッダー ファイル\File</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Graphics\CBuffer\PixelShaderConstants.ixx">
+      <Filter>ヘッダー ファイル\Graphics\CBuffer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

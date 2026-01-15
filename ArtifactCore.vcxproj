@@ -92,6 +92,7 @@
     </ClCompile>
     <ClCompile Include="include\Event\EventBus.ixx" />
     <ClCompile Include="include\FileSystem\DirectoryBuilder.ixx" />
+    <ClCompile Include="include\File\FileTypeDetector.ixx" />
     <ClCompile Include="include\Font\FreeFont.ixx" />
     <ClCompile Include="include\Geometry\CalcGrid.ixx" />
     <ClCompile Include="include\Geometry\CalcSafeArea.ixx" />
@@ -101,6 +102,7 @@
     </ClCompile>
     <ClCompile Include="include\Graphics\CBuffer\CBufferHelper.ixx" />
     <ClCompile Include="include\Graphics\CBuffer\Constants.ixx" />
+    <ClCompile Include="include\Graphics\CBuffer\PixelShaderConstants.ixx" />
     <ClCompile Include="include\Graphics\FenceTracker.ixx" />
     <ClCompile Include="include\Graphics\GLMHelper.ixx" />
     <ClCompile Include="include\Graphics\GPUInfo.ixx">
@@ -148,6 +150,7 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\AutoContrastCV.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\AutoGammaCV.ixx" />
     <ClCompile Include="include\Image\ImageInterface.ixx" />
+    <ClCompile Include="include\Image\ImageUtils.ixx" />
     <ClCompile Include="include\Image\RawImage.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>

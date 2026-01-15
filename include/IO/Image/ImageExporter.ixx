@@ -10,6 +10,7 @@ module;
 export module IO.ImageExporter;
 
 import Image;
+import Image.Utils;
 import Image.ExportOptions;
 
 //namespace OIIO {};//dummy
@@ -27,21 +28,35 @@ export namespace ArtifactCore {
   // 成功か失敗かをサクッと判定するためのヘルパー
   explicit operator bool() const { return success; }
  };
-	
- class LIBRARY_DLL_API ImageExporter:public QObject
+
+struct ImageExporterSubmitResult {
+ enum class Status {
+  Accepted,
+  Rejected,
+  ImmediateError
+ };
+  
+ Status status;
+ operator bool() const { return status == Status::Accepted; }
+};
+
+ class LIBRARY_DLL_API ImageExporter :public QObject
  {
- 	W_OBJECT(ImageExporter)
+  W_OBJECT(ImageExporter)
  private:
   class Impl;
   Impl* impl_;
  public:
-  explicit ImageExporter(QObject*parent=nullptr);
+  explicit ImageExporter(QObject* parent = nullptr);
   ~ImageExporter();
-  bool write();
-   
- 	ImageExportResult testWrite();
+  ImageExporterSubmitResult writeAsync(const QImage& image,const ImageExportOptions& options);
+   bool write();
+
+  ImageExportResult testWrite();
   ImageExportResult testWrite2();
- 	
+   
+  
+
  public/*signals*/:
  };
 

@@ -1,6 +1,6 @@
 ﻿module;
 #include <DiligentCore/Common/interface/BasicMath.hpp>
-export module Graphics.CBuffer.Constants;
+export module Graphics.CBuffer.Constants.VertexShader;
 
 export namespace ArtifactCore
 {
@@ -18,10 +18,7 @@ export namespace ArtifactCore
   float4x4 ProjectionMatrix;
  };
 
- struct CBSolidColor
- {
-  float color[4]; // RGBAなど。float32x4に対応
- };
+
 #pragma pack(push,1)
  struct CBSolidTransform { float2 offset; float2 scale; };
 #pragma pack(pop)
@@ -56,11 +53,6 @@ export namespace ArtifactCore
   float4 color;    // RGBA
  };
 
- // 定数バッファ用（オプション、全体色指定用）
- struct CBFillRectColor
- {
-  float4 color;    // 矩形の共通色
- };
 
 #pragma pack(push,1)
  struct DrawSpriteConstants
@@ -69,5 +61,9 @@ export namespace ArtifactCore
 
  };
 
+ struct SpriteVertex {
+  float2 pos; // 座標 (x, y)
+  float2 uv;  // テクスチャ座標 (u, v)
+ };
 
 };
