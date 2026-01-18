@@ -135,6 +135,35 @@ namespace ArtifactCore {
   return impl_->str_.length();
  }
 
+ // Comparison operators implementation
+ bool UniString::operator==(const UniString& other) const
+ {
+  return impl_->str_ == other.impl_->str_;
+ }
 
+ bool UniString::operator!=(const UniString& other) const
+ {
+  return impl_->str_ != other.impl_->str_;
+ }
+
+ bool UniString::operator<(const UniString& other) const
+ {
+  return impl_->str_ < other.impl_->str_;
+ }
+
+ bool UniString::operator<=(const UniString& other) const
+ {
+  return impl_->str_ <= other.impl_->str_;
+ }
+
+ bool UniString::operator>(const UniString& other) const
+ {
+  return impl_->str_ > other.impl_->str_;
+ }
+
+ bool UniString::operator>=(const UniString& other) const
+ {
+  return impl_->str_ >= other.impl_->str_;
+ }
 
 };

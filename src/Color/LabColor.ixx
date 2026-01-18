@@ -9,7 +9,7 @@ export namespace ArtifactCore
 {
 
 
-  class LIBRARY_DLL_API LabColor
+ class LIBRARY_DLL_API LabColor
  {
  private:
   class Impl;
@@ -28,18 +28,18 @@ export namespace ArtifactCore
   float luminance() const;          // L値をそのまま使用
   float deltaE(const LabColor& other) const;
   LabColor& operator=(const LabColor& other);
+
   bool operator==(const LabColor& other) const;
   bool operator!=(const LabColor& other) const;
+
+  // FloatColorとの相互変換
   FloatColor toFloatColor() const;
   static LabColor fromFloatColor(const FloatColor& color);
+
+  // UniStringでのシリアライズ/デシリアライズ
   UniString toString() const;
   static LabColor fromString(const UniString& str);
  };
-
-
-
-
-
 
 
 };

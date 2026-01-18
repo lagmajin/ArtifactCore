@@ -15,6 +15,7 @@ export namespace ArtifactCore
  {
   RefCntAutoPtr<IShader> VS;
   RefCntAutoPtr<IShader> PS;
+  RefCntAutoPtr<IShader> MS;
 
   bool IsValid() const { return VS && PS; }
  };

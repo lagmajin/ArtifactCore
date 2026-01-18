@@ -1,7 +1,8 @@
 ﻿module;
 #include <QString>
-export module Graphics.GPU.Info;
 #include <boost/mpl/aux_/na_fwd.hpp>
+export module Graphics.GPU.Info;
+
 
 export namespace ArtifactCore
 {

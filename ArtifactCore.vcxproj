@@ -52,6 +52,9 @@
     <ClCompile Include="include\Asset\AssetType.ixx" />
     <ClCompile Include="include\Audio\AudioBackend.ixx" />
     <ClCompile Include="include\Audio\AudioBufferQueue.ixx" />
+    <ClCompile Include="include\Audio\AudioDecibels.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Audio\AudioDownMixer.ixx" />
     <ClCompile Include="include\Audio\AudioMixer.ixx" />
     <ClCompile Include="include\Audio\AudioModule.ixx">
@@ -67,7 +70,9 @@
     <ClCompile Include="include\Audio\AudioRasterizer.ixx" />
     <ClCompile Include="include\Audio\AudioRenderer.ixx" />
     <ClCompile Include="include\Audio\AudioRingBuffer.ixx" />
-    <ClCompile Include="include\Audio\AudioVolume.ixx" />
+    <ClCompile Include="include\Audio\AudioVolume.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Audio\AudioWriter.ixx" />
     <ClCompile Include="include\Audio\AudioBus.ixx" />
     <ClCompile Include="include\Audio\SimpleWav.ixx" />
@@ -78,6 +83,7 @@
     </ClCompile>
     <ClCompile Include="include\Color\Color.ixx" />
     <ClCompile Include="include\Color\LabColor.ixx" />
+    <ClCompile Include="include\Color\XYZColor.ixx" />
     <ClCompile Include="include\Command\CommandModule.ixx" />
     <ClCompile Include="include\Command\LambdaCommand.ixx" />
     <ClCompile Include="include\Common\Common.ixx" />
@@ -92,7 +98,9 @@
     </ClCompile>
     <ClCompile Include="include\Event\EventBus.ixx" />
     <ClCompile Include="include\FileSystem\DirectoryBuilder.ixx" />
-    <ClCompile Include="include\File\FileTypeDetector.ixx" />
+    <ClCompile Include="include\File\FileTypeDetector.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Font\FreeFont.ixx" />
     <ClCompile Include="include\Geometry\CalcGrid.ixx" />
     <ClCompile Include="include\Geometry\CalcSafeArea.ixx" />
@@ -149,6 +157,7 @@
     <ClCompile Include="include\ImageProcessing\DirectCompute\ThreeWayColorCorrection.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\AutoContrastCV.ixx" />
     <ClCompile Include="include\ImageProcessing\OpenCV\AutoGammaCV.ixx" />
+    <ClCompile Include="include\Image\Helper\ImageFormatHelper.ixx" />
     <ClCompile Include="include\Image\ImageInterface.ixx" />
     <ClCompile Include="include\Image\ImageUtils.ixx" />
     <ClCompile Include="include\Image\RawImage.ixx">
@@ -160,9 +169,7 @@
     <ClCompile Include="include\IO\Image\ImageExporterStb.ixx" />
     <ClCompile Include="include\IO\Image\OIIOMemoryIOManager.ixx" />
     <ClCompile Include="include\IO\Image\OIIOMemoryProxyFactory.ixx" />
-    <ClCompile Include="include\Knob\Knob.ixx">
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
-    </ClCompile>
+    <ClCompile Include="include\Knob\AbstractKnob.ixx" />
     <ClCompile Include="include\Layer\Layer2D.ixx" />
     <ClCompile Include="include\Layer\LayerBlend.ixx" />
     <ClCompile Include="include\Layer\LayerMatte.ixx" />
@@ -262,6 +269,9 @@
     <ClCompile Include="src\Audio\AudioBus.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Audio\AudioDecibels.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Audio\AudioDownMixer.cpp" />
     <ClCompile Include="src\Audio\AudioMixer.cpp" />
     <ClCompile Include="src\Audio\AudioPanner.cpp" />
@@ -286,6 +296,9 @@
     <ClCompile Include="src\Color\Sarturation.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Color\XYZColor.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Command\LambdaCommand.cpp" />
     <ClCompile Include="src\Common\Point2D.cpp" />
     <ClCompile Include="src\Core\AspectRatio.cpp" />
@@ -295,6 +308,9 @@
     <ClCompile Include="src\Core\Position2D.cpp" />
     <ClCompile Include="src\Core\UniformScale.cpp" />
     <ClCompile Include="src\Event\EventBus.cpp" />
+    <ClCompile Include="src\File\FileTypeDetector.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Frame\FrameOffset.cpp" />
     <ClCompile Include="src\Frame\FramePosition.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
@@ -542,14 +558,6 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Image\ImageYUV420.ixx">
-      <FileType>Document</FileType>
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
-    </ClCompile>
-    <ClCompile Include="include\Knob\AbstractKnob.ixx">
-      <FileType>Document</FileType>
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
-    </ClCompile>
-    <ClCompile Include="include\Knob\KnobList.ixx">
       <FileType>Document</FileType>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -1221,7 +1229,7 @@
       <SDLCheck>false</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;LIBRARY_DLL_EXPORT;PLATFORM_WIN32;_GUARDOVERFLOW_CRT_ALLOCATORS=1;GLOG_NO_ABBREVIATED_SEVERITIES;GLOG_USE_GLOG_EXPORT;_CRT_SECURE_NO_WARNINGS;_SILENCE_CXX23_ALIGNED_STORAGE_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp23</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4819;4828;5050;4267;4244;5202;4251;5050</DisableSpecificWarnings>

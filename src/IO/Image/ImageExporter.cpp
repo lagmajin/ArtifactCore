@@ -1,5 +1,7 @@
 module;
 #define DISABLE_TIFF
+#include <tbb/tbb.h>
+#include <QDebug>
 #include <QImage>
 #include <OpenImageIo/imageio.h>
 #include <OpenImageIO/filesystem.h>
@@ -9,23 +11,78 @@ module;
 
 module IO.ImageExporter;
 
+import Utils.String.UniString;
+import Image.Format.Helper;
 
 namespace ArtifactCore
 {
  using namespace OIIO;
+ using namespace ArtifactCore;
 
 W_OBJECT_IMPL(ImageExporter)
 
  class ImageExporter::Impl
  {
+private:
+ tbb::task_group m_tasks;
+ std::atomic<bool> m_isAborting{ false };
  public:
   Impl();
-  //~Impl();
+  ~Impl();
+  void abort();
+  void submit(std::function<void()> job);
+  void doExport(const QImage& image, const ImageExportOptions& options);
  };
 
  ImageExporter::Impl::Impl()
  {
 
+ }
+
+ ImageExporter::Impl::~Impl()
+ {
+  m_tasks.cancel();
+  m_tasks.wait();
+ }
+
+ void ImageExporter::Impl::abort()
+ {
+  m_isAborting = true;
+  m_tasks.cancel();
+ }
+
+ void ImageExporter::Impl::submit(std::function<void()> job)
+ {
+  if (m_isAborting.load(std::memory_order_relaxed)) return;
+
+  m_tasks.run([this, task = std::move(job)]() {
+   if (m_isAborting.load(std::memory_order_relaxed)) return;
+
+   try {
+	task();
+   }
+   catch (const std::exception& e) {
+	// ここでログ出力、またはエラーシグナルを emit する
+	// Q_EMIT q_ptr->errorOccurred(QString::fromStdString(e.what()));
+	qCritical() << "TBB Task Error:" << e.what();
+   }
+   catch (...) {
+	qCritical() << "TBB Task Error: Unknown exception";
+   }
+   });
+ }
+
+ void ImageExporter::Impl::doExport(const QImage& image, const ImageExportOptions& options)
+ {
+  const int width = image.width();
+  const int height = image.height();
+   
+  auto imageFormat = mapQtFormatToOIIO(image.format());
+   
+   
+   
+   
+  //auto out = ImageOutput::create(filename);
  }
 
  ImageExporter::ImageExporter(QObject* parent/*=nullptr*/) :QObject(parent), impl_(new Impl)
@@ -39,12 +96,6 @@ W_OBJECT_IMPL(ImageExporter)
   delete impl_;
  }
 
- bool ImageExporter::write()
- {
-
-
-  return true;
- }
 
  ImageExportResult ImageExporter::testWrite()
  {
@@ -151,11 +202,29 @@ W_OBJECT_IMPL(ImageExporter)
 
  ImageExporterSubmitResult ImageExporter::writeAsync(const QImage& image, const ImageExportOptions& options)
  {
-  ImageExporterSubmitResult result;
+  //ImageExporterSubmitResult result;
 
   ImageSpec spec(image.width(), image.height(), 4, TypeDesc::UINT8);
 
+  auto promise = std::make_shared<std::promise<ImageExportResult>>();
+  ImageExporterSubmitResult result;
+  result.future = promise->get_future();
+   
+  impl_->submit([this, image, options, promise]() {
+   ImageExportResult res;
+   try {
+	// 実際の書き出し処理
+	//this->doExport(image, options);
+	res.success = true;
+   }
+   catch (const std::exception& e) {
+	res.success = false;
+	//res.errorMessage = e.what();
+   }
 
+   // 3. 値をセット（これで future.get() が解除される）
+   promise->set_value(res);
+   });
 
   return result;
  }

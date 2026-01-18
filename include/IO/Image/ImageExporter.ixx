@@ -36,6 +36,8 @@ struct ImageExporterSubmitResult {
   ImmediateError
  };
   
+ std::future<ImageExportResult>  future;
+  
  Status status;
  operator bool() const { return status == Status::Accepted; }
 };
@@ -50,7 +52,6 @@ struct ImageExporterSubmitResult {
   explicit ImageExporter(QObject* parent = nullptr);
   ~ImageExporter();
   ImageExporterSubmitResult writeAsync(const QImage& image,const ImageExportOptions& options);
-   bool write();
 
   ImageExportResult testWrite();
   ImageExportResult testWrite2();

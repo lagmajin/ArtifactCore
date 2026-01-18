@@ -19,34 +19,50 @@ export namespace ArtifactCore {
   using Id::Id;
  };
 
+ class LIBRARY_DLL_API AssetMeta {
+ private:
+  std::map<UniString, UniString> data;
+ public:
+  void setValue(const UniString& key, const UniString& value);
+  UniString getValue(const UniString& key) const;
+  bool hasKey(const UniString& key) const;
+  void removeKey(const UniString& key);
+  std::vector<UniString> keys() const;
+ };
 
  class LIBRARY_DLL_API AbstractAssetFile :public QObject {
   W_OBJECT(AbstractAssetFile)
  private:
   class Impl;
   Impl* impl_;
+ protected:
+  virtual bool _load(); // Protected virtual with default implementation
+  virtual void _unload(); // Protected virtual with default implementation
  public:
   AbstractAssetFile();
   AbstractAssetFile(const QFile& file);
   AbstractAssetFile(const UniString& path);
+  AbstractAssetFile(const AbstractAssetFile&) = delete; // QObject はコピー不可
+  AbstractAssetFile& operator=(const AbstractAssetFile&) = delete;
   virtual ~AbstractAssetFile();
   bool exist() const;
   bool notExist() const;
   AssetID assetID() const;
   void setAssetID(const AssetID& assetID);
 
+  AssetMeta& meta();
+  const AssetMeta& meta() const;
 
-  void setMetaValue();
+  void addDependency(const AssetID& dependency);
+  std::vector<AssetID> getDependencies() const;
 
-  void addDependency();
   bool isDirty() const;
   void markDirty();
   void clearDirty();
 
-
   bool isLoaded() const;
-  bool load();
-  void unload();
+  bool load(); // Public, calls _load
+  void unload(); // Public, calls _unload
   UniString filePath() const;
 
   //public slots:

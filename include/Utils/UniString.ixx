@@ -29,6 +29,14 @@ export namespace ArtifactCore {
   void setQString(const QString& str);
   UniString& operator=(const UniString& other);
   UniString& operator=(UniString&& other) noexcept;
+
+  // Comparison operators for lexicographical ordering
+  bool operator==(const UniString& other) const;
+  bool operator!=(const UniString& other) const;
+  bool operator<(const UniString& other) const;
+  bool operator<=(const UniString& other) const;
+  bool operator>(const UniString& other) const;
+  bool operator>=(const UniString& other) const;
  };
 
 

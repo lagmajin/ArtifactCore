@@ -448,6 +448,9 @@
     <Filter Include="ヘッダー ファイル\Graphics\Shader\HLSL">
       <UniqueIdentifier>{6febfd84-a0f5-40d5-a231-66d5c43824d0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Image\Helper">
+      <UniqueIdentifier>{b8f1fcdd-520b-45fb-a67d-00cddb8c9206}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -1403,15 +1406,6 @@
     <ClCompile Include="src\Knob\AbstractKnob.cpp">
       <Filter>ソース ファイル\Knob</Filter>
     </ClCompile>
-    <ClCompile Include="include\Knob\Knob.ixx">
-      <Filter>ヘッダー ファイル\Knob</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Knob\KnobList.ixx">
-      <Filter>ヘッダー ファイル\Knob</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Knob\AbstractKnob.ixx">
-      <Filter>ヘッダー ファイル\Knob</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\GraphicsEngineType.ixx">
       <Filter>ヘッダー ファイル\Graphics</Filter>
     </ClCompile>
@@ -1979,11 +1973,32 @@
     <ClCompile Include="include\Image\ImageUtils.ixx">
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
-    <ClCompile Include="include\File\FileTypeDetector.ixx">
-      <Filter>ヘッダー ファイル\File</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\CBuffer\PixelShaderConstants.ixx">
       <Filter>ヘッダー ファイル\Graphics\CBuffer</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Image\Helper\ImageFormatHelper.ixx">
+      <Filter>ヘッダー ファイル\Image\Helper</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio\AudioDecibels.cppm">
+      <Filter>ソース ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Audio\AudioDecibels.ixx">
+      <Filter>ヘッダー ファイル\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Color\XYZColor.cppm">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Color\XYZColor.ixx">
+      <Filter>ヘッダー ファイル\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="include\File\FileTypeDetector.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\File\FileTypeDetector.cppm">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Knob\AbstractKnob.ixx">
+      <Filter>ヘッダー ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
