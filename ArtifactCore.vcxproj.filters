@@ -501,9 +501,6 @@
     <ClInclude Include="include\Color\Alpha.ixx">
       <Filter>ヘッダー ファイル\Color</Filter>
     </ClInclude>
-    <ClInclude Include="include\Color\Histgram.ixx">
-      <Filter>ヘッダー ファイル\Color</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
@@ -1999,6 +1996,9 @@
     </ClCompile>
     <ClCompile Include="include\Knob\AbstractKnob.ixx">
       <Filter>ヘッダー ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Analyze\Histgram.cppm">
+      <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

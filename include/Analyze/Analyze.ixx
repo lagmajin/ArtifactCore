@@ -1,6 +1,6 @@
 export module Analyze;
 
-export import :Histgram;
+export import Analyze.Histgram;
 export import Analyze.OpticalFlow;
 
 

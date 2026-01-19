@@ -260,6 +260,7 @@
     <ClCompile Include="include\VST\VSTEffect.ixx" />
     <ClCompile Include="include\VST\VSTHost.ixx" />
     <ClCompile Include="NetworkRPCServer.ixx" />
+    <ClCompile Include="src\Analyze\Histgram.cppm" />
     <ClCompile Include="src\Animation\AnimatableTransform2D.cpp" />
     <ClCompile Include="src\Animation\AnimatableTransform3D.cpp" />
     <ClCompile Include="src\Animation\TransformModule.ixx" />
@@ -412,7 +413,6 @@
     <ClCompile Include="include\Common\OperationgSystem.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
-    <ClInclude Include="include\Color\Histgram.ixx" />
     <ClCompile Include="include\Composition\CompositionBuffer2D.ixx">
       <FileType>Document</FileType>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
