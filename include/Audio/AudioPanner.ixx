@@ -3,6 +3,7 @@ module;
 export module Audio.Panner;
 
 import std;
+import Audio.Segment;
 
 export namespace ArtifactCore {
  
@@ -26,7 +27,9 @@ export namespace ArtifactCore {
   ~AudioPanner();
 
   void setMode(PanningMode mode);
- };
+  PanningMode getMode() const;
 
- 
-};
+  PanningGain calculateGain(float azimuth, float elevation = 0.0f) const;
+  void applyPanning(AudioSegment& segment, const PanningGain& gain);
+ };
+}

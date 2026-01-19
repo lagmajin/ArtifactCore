@@ -82,6 +82,12 @@ namespace ArtifactCore {
 
  }
 
+ UniString::UniString(const std::string& str) :impl_(new Impl())
+ {
+  // Convert std::string to QString
+  impl_->str_ = QString::fromStdString(str);
+ }
+
  UniString::~UniString()
  {
   delete impl_;
@@ -128,6 +134,11 @@ namespace ArtifactCore {
  UniString::operator std::u16string() const
  {
   return impl_->toStdU16String();
+ }
+
+ UniString::operator std::string() const
+ {
+  return std::string(toStdU16String().begin(), toStdU16String().end());
  }
 
  size_t UniString::length() const

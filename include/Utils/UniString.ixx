@@ -17,6 +17,7 @@ export namespace ArtifactCore {
   UniString();
   UniString(const UniString& other);
   UniString(const std::u16string& u16);
+  UniString(const std::string& str);
   UniString(const QString& str);
   ~UniString();
   size_t length() const;
@@ -24,6 +25,7 @@ export namespace ArtifactCore {
   std::u32string toStdU32String() const;
   operator QString() const;
   operator std::u16string() const;
+  operator std::string() const;
   QString toQString() const;
   
   void setQString(const QString& str);
