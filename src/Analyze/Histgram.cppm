@@ -1,7 +1,9 @@
-module Analyze.Histgram;
-
+module;
 #include <opencv2/opencv.hpp>
 #include <vector>
+module Analyze.Histgram;
+
+
 
 import std;
 

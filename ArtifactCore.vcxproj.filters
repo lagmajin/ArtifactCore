@@ -653,9 +653,6 @@
     <ClCompile Include="src\Platform\Platform.cpp">
       <Filter>ソース ファイル\Platform</Filter>
     </ClCompile>
-    <ClCompile Include="src\Color\Histgram.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\Media\MediaInfo.cpp">
       <Filter>ソース ファイル\Media</Filter>
     </ClCompile>
@@ -791,9 +788,6 @@
     <ClCompile Include="include\Frame\FramePosition.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
     </ClCompile>
-    <ClCompile Include="include\Frame\FrameRange.ixx">
-      <Filter>ヘッダー ファイル\Frame</Filter>
-    </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\FilmGrain.cpp">
       <Filter>ソース ファイル\ImageProcessing\OpenCV</Filter>
     </ClCompile>
@@ -847,9 +841,6 @@
     </ClCompile>
     <ClCompile Include="include\Analyze\Analyze.ixx">
       <Filter>ヘッダー ファイル\Analyze</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Analyze\Hisgram.cpp">
-      <Filter>ソース ファイル\Analyze\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cpp">
       <Filter>ソース ファイル\Analyze\OpenCV</Filter>
@@ -1808,9 +1799,6 @@
     <ClCompile Include="src\Audio\AudioBus.cppm">
       <Filter>ソース ファイル\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="src\Preview\PreviewQuality.cpp">
-      <Filter>ソース ファイル\Preview</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\Shader\ShaderCompileTask.ixx">
       <Filter>ヘッダー ファイル\Graphics\Shader</Filter>
     </ClCompile>
@@ -1840,9 +1828,6 @@
     </ClCompile>
     <ClCompile Include="src\Utils\NameGenerator.cpp">
       <Filter>ソース ファイル\Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Frame\FrameRange.cpp">
-      <Filter>ソース ファイル\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\Math\Rotation.ixx">
       <Filter>ヘッダー ファイル\Math</Filter>
@@ -2000,6 +1985,27 @@
     <ClCompile Include="src\Analyze\Histgram.cppm">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="src\Preview\PreviewQuality.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Playback\PlaybackClock.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Playback\PlaybackClock.cppm">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Codec\MFFrameExtractor.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Codec\MFFrameExtractor.cppm">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Frame\FrameRange.ixx">
+      <Filter>ヘッダー ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Frame\FrameRange.cpp">
+      <Filter>ソース ファイル\Frame</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -2032,6 +2038,10 @@
     <None Include="src\Audio\AudioWriter.cppm">
       <Filter>ソース ファイル\Audio</Filter>
     </None>
+    <None Include="docs\PlaybackClock_Usage.md" />
+    <None Include="docs\TimelineClock_Architecture.md" />
+    <None Include="docs\MFFrameExtractor_Usage.md" />
+    <None Include="docs\FrameRange_Usage.md" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="include\Graphics\Shader\HLSL\FloatBGRAtoRGBA.hlsl">

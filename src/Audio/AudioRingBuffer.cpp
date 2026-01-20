@@ -1,4 +1,6 @@
 module;
+#include <QList>
+#include <QMutex>
 #include <QMutexLocker>
 module Audio.RingBuffer;
 
@@ -13,7 +15,7 @@ namespace ArtifactCore {
   size_t readIndex_ = 0;
   size_t writeIndex_ = 0;
   size_t size_ = 0;
-  QMutex mutex_;
+  mutable QMutex mutex_;
 
  public:
   Impl(size_t capacity = 1024) : capacity_(capacity), buffer_(capacity) {}

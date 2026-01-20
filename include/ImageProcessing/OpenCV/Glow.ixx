@@ -8,7 +8,7 @@ export module Glow;
 
 export namespace ArtifactCore {
 
- export LIBRARY_DLL_API void applySimpleGlow(
+ LIBRARY_DLL_API void applySimpleGlow(
   const cv::Mat& src,               // 入力画像（BGR or BGRA）
   const cv::Mat& mask,              // グロー対象マスク（CV_8UC1 or empty）
   cv::Mat& dst,                     // 出力先
