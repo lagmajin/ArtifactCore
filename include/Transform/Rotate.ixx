@@ -15,7 +15,7 @@ export namespace ArtifactCore {
 
  class Rotate {
  private:
- QScopedPointer<RotatePrivate> const  pImpl_;
+ //QScopedPointer<RotatePrivate> const  pImpl_;
  public:
   Rotate();
   Rotate(const Rotate& other);

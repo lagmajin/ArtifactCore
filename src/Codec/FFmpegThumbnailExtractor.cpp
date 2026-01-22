@@ -2,10 +2,6 @@
 
 #include <QImage>
 #include <QDebug>
-module Codec.Thumbnail.FFmpeg;
-
-import std;
-import Media.Info;
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -15,6 +11,12 @@ extern "C" {
 #include <libavutil/time.h> // av_usleep など
 
 }
+module Codec.Thumbnail.FFmpeg;
+
+import std;
+import Media.Info;
+
+
 
 
 #pragma comment(lib, "avcodec.lib")

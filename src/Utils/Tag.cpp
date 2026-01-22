@@ -1,6 +1,6 @@
 module;
-
-
+#define QT_NO_KEYWORDS
+#include <QString>
 module Utils.Tag;
 
 

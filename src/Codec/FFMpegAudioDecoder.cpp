@@ -7,7 +7,7 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 #include <QVector>
-module Media.Encoder.FFMpegAudioDecoder;
+module Media.Encoder.FFmpegAudioDecoder;
 
 import std;
 import Utils.String.UniString;
@@ -17,7 +17,7 @@ import Audio.BufferQueue;
 
 namespace ArtifactCore
 {
- class FFMpegAudioDecoder::Impl {
+ class FFmpegAudioDecoder::Impl {
  private:
 
   AVFormatContext* fmtCtx_ = nullptr;
@@ -42,12 +42,12 @@ namespace ArtifactCore
   bool isSameFile(const UniString& path);
  };
 
- FFMpegAudioDecoder::Impl::Impl()
+ FFmpegAudioDecoder::Impl::Impl()
  {
 
  }
 
- bool FFMpegAudioDecoder::Impl::openFile(const QString& path)
+ bool FFmpegAudioDecoder::Impl::openFile(const QString& path)
  {
   closeFile();
   if (avformat_open_input(&fmtCtx_, path.toUtf8().constData(), nullptr, nullptr) != 0)
@@ -77,7 +77,7 @@ namespace ArtifactCore
   return true;
  }
 
- void FFMpegAudioDecoder::Impl::closeFile()
+ void FFmpegAudioDecoder::Impl::closeFile()
  {
 
   if (codecCtx_) {
@@ -91,7 +91,7 @@ namespace ArtifactCore
   audioStreamIndex_ = -1;
  }
 
- void FFMpegAudioDecoder::Impl::seek(double seconds) {
+ void FFmpegAudioDecoder::Impl::seek(double seconds) {
   if (!fmtCtx_ || audioStreamIndex_ < 0) return;
 
   AVRational tb = fmtCtx_->streams[audioStreamIndex_]->time_base;
@@ -108,7 +108,7 @@ namespace ArtifactCore
   }
  }
 
- void FFMpegAudioDecoder::Impl::setupResampler()
+ void FFmpegAudioDecoder::Impl::setupResampler()
  {
   swr_alloc_set_opts2(&swrCtx_,
    &codecCtx_->ch_layout, AV_SAMPLE_FMT_FLTP, codecCtx_->sample_rate, // 出力 (Planar Float)
@@ -117,7 +117,7 @@ namespace ArtifactCore
   swr_init(swrCtx_);
  }
 
- bool FFMpegAudioDecoder::Impl::decodeNextFrame(AudioBufferQueue& queue)
+ bool FFmpegAudioDecoder::Impl::decodeNextFrame(AudioBufferQueue& queue)
  {// 1. パケットの読み込み
   if (av_read_frame(fmtCtx_, pkt_) < 0) return false; // 終端
 
@@ -161,7 +161,7 @@ namespace ArtifactCore
   return true;
  }
 
- FFMpegAudioDecoder::Impl::~Impl()
+ FFmpegAudioDecoder::Impl::~Impl()
  {
   closeFile(); // コーデックとコンテキストを閉じる
   if (pkt_) av_packet_free(&pkt_);
@@ -169,7 +169,7 @@ namespace ArtifactCore
   if (swrCtx_) swr_free(&swrCtx_);
  }
 
- void FFMpegAudioDecoder::Impl::flush()
+ void FFmpegAudioDecoder::Impl::flush()
  {
   if (codecCtx_) {
    avcodec_flush_buffers(codecCtx_);
@@ -181,55 +181,55 @@ namespace ArtifactCore
   seekTargetSeconds_ = -1.0;
  }
 
- bool FFMpegAudioDecoder::Impl::isSameFile(const QString& path)
+ bool FFmpegAudioDecoder::Impl::isSameFile(const QString& path)
  {
   if (!fmtCtx_ || !fmtCtx_->url) return false;
   // FFmpeg内部のパスと、渡されたパスを比較
   return QString::fromUtf8(fmtCtx_->url) == path;
  }
 
- bool FFMpegAudioDecoder::Impl::isSameFile(const UniString& path)
+ bool FFmpegAudioDecoder::Impl::isSameFile(const UniString& path)
  {
 
   return true;
  }
 
- FFMpegAudioDecoder::FFMpegAudioDecoder() :impl_(new Impl())
+ FFmpegAudioDecoder::FFmpegAudioDecoder() :impl_(new Impl())
  {
 
  }
 
- FFMpegAudioDecoder::~FFMpegAudioDecoder()
+ FFmpegAudioDecoder::~FFmpegAudioDecoder()
  {
   delete impl_;
  }
 
- bool FFMpegAudioDecoder::openFile(const QString& path)
+ bool FFmpegAudioDecoder::openFile(const QString& path)
  {
   return impl_->openFile(path);
  }
 
- void FFMpegAudioDecoder::closeFile()
+ void FFmpegAudioDecoder::closeFile()
  {
   impl_->closeFile();
  }
 
- void FFMpegAudioDecoder::seek(double seek)
+ void FFmpegAudioDecoder::seek(double seek)
  {
 
  }
 
- void FFMpegAudioDecoder::fillCacheAsync(double start, double end)
+ void FFmpegAudioDecoder::fillCacheAsync(double start, double end)
  {
 
  }
 
- void FFMpegAudioDecoder::flush()
+ void FFmpegAudioDecoder::flush()
  {
-  impl_->flush();
+  //impl_->flush();
  }
 
- bool FFMpegAudioDecoder::isSameFile(const UniString& path) const
+ bool FFmpegAudioDecoder::isSameFile(const UniString& path) const
  {
   return impl_->isSameFile(path);
  }

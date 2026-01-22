@@ -7,12 +7,12 @@ extern "C" {
 
 }
 
-module Media.Encoder.FFMpegAudioEncoder;
+module Media.Encoder.FFmpegAudioEncoder;
 
 
 namespace ArtifactCore
 {
- class FFMpegAudioEncoder::Impl
+ class FFmpegAudioEncoder::Impl
  {
  public:
   Impl();
@@ -33,32 +33,32 @@ namespace ArtifactCore
   AVPacket* pkt = nullptr;
  };
 
- void FFMpegAudioEncoder::Impl::openEncoder()
+ void FFmpegAudioEncoder::Impl::openEncoder()
  {
 
  }
 
- void FFMpegAudioEncoder::Impl::closeEncoder()
+ void FFmpegAudioEncoder::Impl::closeEncoder()
  {
 
  }
 
- FFMpegAudioEncoder::Impl::Impl()
+ FFmpegAudioEncoder::Impl::Impl()
  {
 
  }
 
- FFMpegAudioEncoder::Impl::~Impl()
+ FFmpegAudioEncoder::Impl::~Impl()
  {
 
  }
 
- FFMpegAudioEncoder::FFMpegAudioEncoder() : impl_(new Impl())
+ FFmpegAudioEncoder::FFmpegAudioEncoder() : impl_(new Impl())
  {
 
  }
 
- FFMpegAudioEncoder::~FFMpegAudioEncoder()
+ FFmpegAudioEncoder::~FFmpegAudioEncoder()
  {
   delete impl_;
  }

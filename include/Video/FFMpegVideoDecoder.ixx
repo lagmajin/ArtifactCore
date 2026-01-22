@@ -5,13 +5,7 @@
 #include <QImage>
 #include <QByteArray>
 
-extern "C" {
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libswscale/swscale.h> 
-}
-
-export module Codec.FFMpegDecoder;
+export module Codec.FFmpegVideoDecoder;
 struct DecodedFrame {
  QImage image;
  int64_t pts; // stream time_base
@@ -42,20 +36,20 @@ export namespace ArtifactCore {
 
 
 
- class LIBRARY_DLL_API FFMpegDecoder {
+ class LIBRARY_DLL_API FFmpegDecoder {
  private:
   class Impl;
   Impl* impl_;
  public:
-  FFMpegDecoder() noexcept;
-  ~FFMpegDecoder();
+  FFmpegDecoder() noexcept;
+  ~FFmpegDecoder();
   bool openFile(const QString& path);
   void closeFile();
   QImage decodeNextVideoFrame();
   void flush();
  };
 
- void FFMpegDecoder::flush()
+ void FFmpegDecoder::flush()
  {
 
  }

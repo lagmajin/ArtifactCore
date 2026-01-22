@@ -4,7 +4,7 @@ module ;
 #include <QString>
 
 
-export module Media.Encoder.FFMpegAudioDecoder;
+export module Media.Encoder.FFmpegAudioDecoder;
 
 import std;
 import Utils.Size.Like;
@@ -13,14 +13,14 @@ import Utils.String.UniString;
 export namespace ArtifactCore
 {
 
- class LIBRARY_DLL_API FFMpegAudioDecoder
+ class LIBRARY_DLL_API FFmpegAudioDecoder
  {
  private:
   class Impl;
   Impl* impl_;
  public:
-  FFMpegAudioDecoder();
-  ~FFMpegAudioDecoder();
+  FFmpegAudioDecoder();
+  ~FFmpegAudioDecoder();
   bool openFile(const QString& path);
   void closeFile();
   void seek(double seek);

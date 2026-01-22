@@ -1,7 +1,7 @@
 ﻿module;
 
 
-export module Media.Encoder.FFMpegAudioEncoder;
+export module Media.Encoder.FFmpegAudioEncoder;
 
 
 
@@ -32,14 +32,14 @@ export namespace ArtifactCore
 
 
 
- class FFMpegAudioEncoder
+class FFmpegAudioEncoder
  {
  private:
   class Impl;
   Impl* impl_;
  public:
-  FFMpegAudioEncoder();
-  ~FFMpegAudioEncoder();
+  FFmpegAudioEncoder();
+  ~FFmpegAudioEncoder();
  };
 
 

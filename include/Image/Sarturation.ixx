@@ -1,4 +1,5 @@
 ﻿module;
+#define QT_NO_KEYWORDS
 #include <QString>
 
 export module Color.Saturation;

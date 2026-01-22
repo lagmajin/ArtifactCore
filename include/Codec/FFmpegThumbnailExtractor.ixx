@@ -31,7 +31,7 @@ export namespace ArtifactCore {
   class Impl;
   Impl* impl_;
   FFmpegThumbnailExtractor(FFmpegThumbnailExtractor&&) noexcept;
-  FFmpegThumbnailExtractor& operator=(FFmpegThumbnailExtractor&&) noexcept;
+  FFmpegThumbnailExtractor& operator=(FFmpegThumbnailExtractor&&) noexcept=default;
  public:
   FFmpegThumbnailExtractor();
   ~FFmpegThumbnailExtractor();

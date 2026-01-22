@@ -6,7 +6,9 @@ module ;
 
 
 module Codec.MFEncoder;
-
+#pragma comment(lib, "mfuuid.lib")
+#pragma comment(lib, "mfplat.lib")
+#pragma comment(lib, "mf.lib")
 import std;
 
 namespace ArtifactCore {

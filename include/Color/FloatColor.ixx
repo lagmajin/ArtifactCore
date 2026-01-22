@@ -56,7 +56,7 @@ export namespace ArtifactCore {
   float averageRGB() const;
   float averageRGBA() const;
 
- 	void setRed(float red);
+  void setRed(float red);
   void setGreen(float green);
   void setBlue(float blue);
   void setAlpha(float alpha);

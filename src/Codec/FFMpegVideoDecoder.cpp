@@ -12,7 +12,7 @@ extern "C" {
 
 }
 
-module Codec.FFMpegDecoder;
+module Codec.FFmpegVideoDecoder;
 
 import std;
 
@@ -25,7 +25,7 @@ namespace ArtifactCore {
   return std::string(errbuf);
  }
 
- class FFMpegDecoder::Impl {
+ class FFmpegDecoder::Impl {
  private:
   AVFormatContext* formatContext = nullptr;
   AVCodecContext* codecContext = nullptr;
@@ -47,7 +47,7 @@ namespace ArtifactCore {
   void seekByTimestamp(int64_t timestampMs);
  };
 
- bool FFMpegDecoder::Impl::openFile(const QString& path)
+ bool FFmpegDecoder::Impl::openFile(const QString& path)
  {
   closeFile();
   // 1. AVFormatContextを初期化
@@ -155,7 +155,7 @@ namespace ArtifactCore {
  }
 
 
- void FFMpegDecoder::Impl::closeFile()
+ void FFmpegDecoder::Impl::closeFile()
  {
   if (packet) {
    av_packet_free(&packet);
@@ -178,7 +178,7 @@ namespace ArtifactCore {
   qDebug() << "FFmpegDecoder::Impl::closeFile: Resources released.";
  }
 
- QImage FFMpegDecoder::Impl::decodeNextVideoFrame()
+ QImage FFmpegDecoder::Impl::decodeNextVideoFrame()
  {
   while (true) {
    int ret = avcodec_receive_frame(codecContext, frame);
@@ -225,7 +225,7 @@ namespace ArtifactCore {
   return QImage();
  }
 
- void FFMpegDecoder::Impl::seekByFrameNumber(int64_t frameNumber)
+ void FFmpegDecoder::Impl::seekByFrameNumber(int64_t frameNumber)
  {
   if (!formatContext || videoStreamIndex < 0)
    return;
@@ -244,7 +244,7 @@ namespace ArtifactCore {
   avcodec_flush_buffers(codecContext);
  }
 
- void FFMpegDecoder::Impl::seekByTimestamp(int64_t timestampMs)
+ void FFmpegDecoder::Impl::seekByTimestamp(int64_t timestampMs)
  {
   if (!formatContext || !codecContext || videoStreamIndex < 0)
    return;
@@ -266,17 +266,17 @@ namespace ArtifactCore {
   avcodec_flush_buffers(codecContext);
  }
 
-FFMpegDecoder::FFMpegDecoder() noexcept:impl_(new Impl())
+ FFmpegDecoder::FFmpegDecoder() noexcept:impl_(new Impl())
 {
 
 }
 
-FFMpegDecoder::~FFMpegDecoder()
+ FFmpegDecoder::~FFmpegDecoder()
 {
  delete impl_;
 }
 
-bool FFMpegDecoder::openFile(const QString& path)
+ bool FFmpegDecoder::openFile(const QString& path)
 {
  if (!impl_) {
   //impl_ = std::make_unique<Impl>(); // 万が一pimplがnullptrの場合の再初期化
@@ -286,14 +286,14 @@ bool FFMpegDecoder::openFile(const QString& path)
 
 }
 
-void FFMpegDecoder::closeFile()
+ void FFmpegDecoder::closeFile()
 {
  if (impl_) {
   impl_->closeFile();
  }
 }
 
-QImage FFMpegDecoder::decodeNextVideoFrame()
+ QImage FFmpegDecoder::decodeNextVideoFrame()
 {
  return impl_->decodeNextVideoFrame();
 }

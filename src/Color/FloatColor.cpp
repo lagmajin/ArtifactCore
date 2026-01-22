@@ -2,7 +2,7 @@
 #include <QColor>
 #include <qnamespace.h>
 module Color.Float;
-import FloatRGBA;
+//import FloatRGBA;
 
 import std;
 
@@ -156,7 +156,26 @@ void FloatColor::clamp()
 
 }
 
+float FloatColor::averageRGB() const
+{
+ return 0;
+}
 
+float FloatColor::sumRGB() const
+{
+ return 0;
+}
+
+float FloatColor::sumRGBA() const
+{
+ return 0;
+}
+
+float FloatColor::averageRGBA() const
+{
+ return 0;
+
+}
 
 static bool approximatelyEqual(float a, float b, float epsilon = 1e-5f) {
  return std::fabs(a - b) < epsilon;

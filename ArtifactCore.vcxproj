@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -79,22 +79,29 @@
     <ClCompile Include="include\Audio\AudioBus.ixx" />
     <ClCompile Include="include\Audio\SimpleWav.ixx" />
     <ClCompile Include="include\Codec\DecoderPoolManager.ixx" />
-    <ClCompile Include="include\Codec\FFMpegAudioDecoder.ixx" />
+    <ClCompile Include="include\Codec\FFMpegAudioDecoder.ixx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="include\Codec\FFmpegThumbnailExtractor.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="include\Codec\MFFrameExtractor.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Color\Color.ixx" />
-    <ClCompile Include="include\Color\LabColor.ixx" />
+    <ClCompile Include="include\Color\LabColor.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Color\XYZColor.ixx" />
     <ClCompile Include="include\Command\CommandModule.ixx" />
     <ClCompile Include="include\Command\LambdaCommand.ixx" />
     <ClCompile Include="include\Common\Common.ixx" />
     <ClCompile Include="include\Container\ContainerModule.ixx" />
     <ClCompile Include="include\Container\MultiIndexContainer.ixx" />
-    <ClCompile Include="include\Core\AspectRatio.ixx" />
+    <ClCompile Include="include\Core\AspectRatio.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Core\CoreModule.ixx" />
     <ClCompile Include="include\Core\Point2D.ixx" />
     <ClCompile Include="include\Core\Position2D.ixx" />
@@ -169,7 +176,9 @@
     <ClCompile Include="include\Image\RawImage.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\IO\asio_async_file_writer.ixx" />
+    <ClCompile Include="include\IO\asio_async_file_writer.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\IO\Image\AbstractImageExporter.ixx" />
     <ClCompile Include="include\IO\Image\AsyncImageWriterManager.ixx" />
     <ClCompile Include="include\IO\Image\ImageExporterStb.ixx" />
@@ -179,7 +188,9 @@
     <ClCompile Include="include\Layer\Layer2D.ixx" />
     <ClCompile Include="include\Layer\LayerBlend.ixx" />
     <ClCompile Include="include\Layer\LayerMatte.ixx" />
-    <ClCompile Include="include\Log\Log.ixx" />
+    <ClCompile Include="include\Log\Log.ixx">
+      <DeploymentContent>false</DeploymentContent>
+    </ClCompile>
     <ClCompile Include="include\Log\LogLevel.ixx" />
     <ClCompile Include="include\Log\LogModule.ixx" />
     <ClCompile Include="include\Math\InterpolatorFactory.ixx" />
@@ -196,6 +207,7 @@
     <ClCompile Include="include\Platform\SystemUsage.ixx" />
     <ClCompile Include="include\Playback\PlaybackClock.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="include\Preview\PreviewQuality.ixx" />
     <ClCompile Include="include\Preview\PreviewSettings.ixx" />
@@ -263,9 +275,13 @@
     <ClCompile Include="include\Utils\Tag.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\Utils\UniString.ixx" />
+    <ClCompile Include="include\Utils\UniString.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Utils\VectorLike.ixx" />
-    <ClCompile Include="include\Video\FFmpegAudioEncoder.ixx" />
+    <ClCompile Include="include\Video\FFmpegAudioEncoder.ixx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="include\VST\VSTEffect.ixx" />
     <ClCompile Include="include\VST\VSTHost.ixx" />
     <ClCompile Include="NetworkRPCServer.ixx" />
@@ -297,11 +313,16 @@
     <ClCompile Include="src\Codec\EncoderSetting.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Codec\FFMpegAudioDecoder.cpp" />
+    <ClCompile Include="src\Codec\FFMpegAudioDecoder.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="src\Codec\FFmpegThumbnailExtractor.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="src\Codec\FFMpegVideoDecoder.cpp" />
+    <ClCompile Include="src\Codec\FFMpegVideoDecoder.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="src\Codec\MFFrameExtractor.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -316,7 +337,9 @@
     </ClCompile>
     <ClCompile Include="src\Command\LambdaCommand.cpp" />
     <ClCompile Include="src\Common\Point2D.cpp" />
-    <ClCompile Include="src\Core\AspectRatio.cpp" />
+    <ClCompile Include="src\Core\AspectRatio.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Core\Opacity.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -350,6 +373,7 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\ThreeWayColorCorrection.cpp" />
+    <ClCompile Include="src\Image\ImageF32x4.cpp" />
     <ClCompile Include="src\IO\asio_async_file_writer.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -357,6 +381,8 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Knob\AbstractKnob.cpp" />
+    <ClCompile Include="src\Knob\Knob.ixx" />
+    <ClCompile Include="src\Knob\KnobList.ixx" />
     <ClCompile Include="src\Log\Log.cpp" />
     <ClCompile Include="src\Math\Rotation.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
@@ -366,6 +392,8 @@
     <ClCompile Include="src\Platform\ProcessHelperWin.cpp" />
     <ClCompile Include="src\Playback\PlaybackClock.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+      <ScanSourceForModuleDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ScanSourceForModuleDependencies>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="src\Preview\PreviewQuality.cpp" />
     <ClCompile Include="src\Preview\PreviewSettings.cpp" />
@@ -421,7 +449,9 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClInclude Include="include\Color\Alpha.ixx" />
-    <ClCompile Include="include\Asset\ImageAsset.ixx" />
+    <ClCompile Include="include\Asset\ImageAsset.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Codec\MFEncoder.ixx" />
     <ClCompile Include="include\Color\FloatColor.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -454,7 +484,6 @@
     </ClCompile>
     <ClCompile Include="include\Core\ShapePath.ixx" />
     <ClCompile Include="include\Core\ShapePoint.cppm" />
-    <ClCompile Include="include\Core\Time.cppm" />
     <ClCompile Include="include\FrameRenderer.ixx" />
     <ClCompile Include="include\Frame\FrameOffset.ixx" />
     <ClCompile Include="include\Frame\FrameRate.ixx">
@@ -643,9 +672,6 @@
     </ClCompile>
     <ClCompile Include="include\Transform\AnchorPoint2D.ixx" />
     <ClCompile Include="include\Transform\Camera.ixx" />
-    <ClCompile Include="include\Transform\Position2D.hpp">
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
-    </ClCompile>
     <ClCompile Include="include\Transform\Rotate2D.ixx">
       <FileType>Document</FileType>
       <ScanSourceForModuleDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ScanSourceForModuleDependencies>
@@ -663,7 +689,9 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">/interface %(AdditionalOptions)</AdditionalOptions>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\Utils\CppLinq.cppm" />
+    <ClCompile Include="include\Utils\CppLinq.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Utils\HashValue.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -679,6 +707,7 @@
     </ClCompile>
     <ClCompile Include="include\Video\FFMpegVideoDecoder.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="include\Video\GStreamerDecoder.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -687,7 +716,9 @@
     <ClCompile Include="include\Video\EncoderSetting.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\Video\FFMpegEncoder.ixx" />
+    <ClCompile Include="include\Video\FFMpegEncoder.ixx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="include\Video\LibVLCDecoder.ixx">
       <FileType>CppHeader</FileType>
     </ClCompile>
@@ -938,6 +969,7 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendScreen.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
@@ -1099,6 +1131,7 @@
     <ClCompile Include="src\Transform\ZoomScale.cpp" />
     <ClCompile Include="src\Image\FFmpegEncoder.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="src\Image\RawImage.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
@@ -1113,7 +1146,9 @@
     <ClCompile Include="src\Layer\LayerStrip.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Video\FFMpegAudioEncoder.cpp" />
+    <ClCompile Include="src\Video\FFMpegAudioEncoder.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <None Include="src\ImageProcessing\OpenCV\AutoContrastCV.cppm" />
     <None Include="src\ImageProcessing\OpenCV\AutoGammaCV.cppm" />
   </ItemGroup>
@@ -1141,12 +1176,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
-    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
     <EnableUnitySupport>false</EnableUnitySupport>
+    <VCToolsVersion>
+    </VCToolsVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -1200,6 +1236,7 @@
     <IntDir>X:\temp/</IntDir>
     <AllProjectBMIsArePublic>true</AllProjectBMIsArePublic>
     <AllProjectIncludesArePublic>true</AllProjectIncludesArePublic>
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgApplocalDeps>false</VcpkgApplocalDeps>
@@ -1238,14 +1275,14 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;LIBRARY_DLL_EXPORT;PLATFORM_WIN32;_GUARDOVERFLOW_CRT_ALLOCATORS=1;GLOG_NO_ABBREVIATED_SEVERITIES;GLOG_USE_GLOG_EXPORT;_CRT_SECURE_NO_WARNINGS;_SILENCE_CXX23_ALIGNED_STORAGE_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;PLATFORM_WIN32;_GUARDOVERFLOW_CRT_ALLOCATORS=1;GLOG_NO_ABBREVIATED_SEVERITIES;GLOG_USE_GLOG_EXPORT;_CRT_SECURE_NO_WARNINGS;_SILENCE_CXX23_ALIGNED_STORAGE_DEPRECATION_WARNING;LIBRARY_DLL_MODE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <DisableSpecificWarnings>4819;4828;5050;4267;4244;5202;4251;5050</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4819;4828;5050;4267;4244;5202;4251;5050;5260</DisableSpecificWarnings>
       <TranslateIncludes>false</TranslateIncludes>
-      <OpenMPSupport>true</OpenMPSupport>
+      <OpenMPSupport>false</OpenMPSupport>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <EnableModules>true</EnableModules>
       <BuildStlModules>true</BuildStlModules>
@@ -1258,7 +1295,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Networkd.lib;Qt6Widgetsd.lib;Qt6Testd.lib;Qt6Concurrentd.lib;opencv_world4110d.lib;libvlc.lib;libvlccore.lib;webp.lib;webpdecoder.lib;zlib.lib;cpuinfo.lib;Sndfile.lib;SDL2-static.lib;box2d.lib;vulkan-1.lib;avformat.lib;avcodec.lib;avutil.lib;swscale.lib;ws2_32.lib;mf.lib;mfreadwrite.lib;mfplat.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Opencv_world4110d.lib;libvlc.lib;libvlccore.lib;webp.lib;webpdecoder.lib;cpuinfo.lib;Sndfile.lib;SDL2-static.lib;box2d.lib;vulkan-1.lib;avformat.lib;avcodec.lib;avutil.lib;swscale.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceFileOutput>Enabled</ForceFileOutput>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
     </Link>
@@ -1290,6 +1327,12 @@
     <ClCompile Condition="'$(CLANGCL)' == 'true'">
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ProjectReference>
+      <LinkLibraryDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkLibraryDependencies>
+    </ProjectReference>
+    <Lib>
+      <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkTimeCodeGeneration>
+    </Lib>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />

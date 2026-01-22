@@ -5,7 +5,7 @@ module;
 #include <QMutexLocker>
 #include <QString>
 
-module Timeline.Clock;
+module Playback.Clock;
 
 import std;
 import Frame.Rate;
@@ -13,7 +13,7 @@ import Frame.Position;
 
 namespace ArtifactCore {
 
- class TimelineClock::Impl {
+ class PlaybackClock::Impl {
  public:
   mutable QMutex mutex_;
   
@@ -171,34 +171,60 @@ namespace ArtifactCore {
   }
  };
 
- TimelineClock::TimelineClock() : impl_(new Impl()) {}
+ PlaybackClock::PlaybackClock() : impl_(new Impl()) {}
 
- TimelineClock::TimelineClock(const FrameRate& frameRate) : impl_(new Impl()) {
+ PlaybackClock::PlaybackClock(const FrameRate& frameRate) : impl_(new Impl()) {
   impl_->frameRate_ = frameRate;
  }
 
- TimelineClock::TimelineClock(const TimelineClock& other) 
-  : impl_(new Impl(*other.impl_)) {}
+ PlaybackClock::PlaybackClock(const PlaybackClock& other)
+  : impl_(new Impl()) {
+  // Lock the source impl while copying to avoid data race
+  if (other.impl_) {
+    QMutexLocker otherLocker(&other.impl_->mutex_);
+    *impl_ = *other.impl_;
+  }
+ }
 
- TimelineClock::TimelineClock(TimelineClock&& other) noexcept 
+ PlaybackClock::PlaybackClock(PlaybackClock&& other) noexcept 
   : impl_(other.impl_) {
   other.impl_ = nullptr;
  }
 
- TimelineClock::~TimelineClock() {
+ PlaybackClock::~PlaybackClock() {
   delete impl_;
  }
 
- TimelineClock& TimelineClock::operator=(const TimelineClock& other) {
-  if (this != &other) {
-   QMutexLocker locker(&impl_->mutex_);
-   QMutexLocker otherLocker(&other.impl_->mutex_);
-   *impl_ = *other.impl_;
+ PlaybackClock& PlaybackClock::operator=(const PlaybackClock& other) {
+  if (this == &other) return *this;
+
+  // Ensure both impl_ pointers are valid
+  if (!impl_) impl_ = new Impl();
+
+  Impl* a = impl_;
+  Impl* b = other.impl_;
+  if (!b) {
+    // nothing to copy from
+    return *this;
   }
+
+  // Acquire mutexes in address order to avoid deadlock
+  if (a < b) {
+    QMutexLocker lockerA(&a->mutex_);
+    QMutexLocker lockerB(&b->mutex_);
+    *a = *b;
+  } else if (a > b) {
+    QMutexLocker lockerB(&b->mutex_);
+    QMutexLocker lockerA(&a->mutex_);
+    *a = *b;
+  } else {
+    // same impl instance
+  }
+
   return *this;
  }
 
- TimelineClock& TimelineClock::operator=(TimelineClock&& other) noexcept {
+ PlaybackClock& PlaybackClock::operator=(PlaybackClock&& other) noexcept {
   if (this != &other) {
    delete impl_;
    impl_ = other.impl_;
@@ -207,7 +233,7 @@ namespace ArtifactCore {
   return *this;
  }
 
- void TimelineClock::start() {
+void PlaybackClock::start() {
   QMutexLocker locker(&impl_->mutex_);
   impl_->state_ = PlaybackState::Playing;
   impl_->startTime_ = std::chrono::high_resolution_clock::now();
@@ -216,7 +242,7 @@ namespace ArtifactCore {
   impl_->lastFrameNumber_ = -1;
  }
 
- void TimelineClock::pause() {
+void PlaybackClock::pause() {
   QMutexLocker locker(&impl_->mutex_);
   if (impl_->state_ == PlaybackState::Playing) {
    impl_->state_ = PlaybackState::Paused;
@@ -224,7 +250,7 @@ namespace ArtifactCore {
   }
  }
 
- void TimelineClock::stop() {
+void PlaybackClock::stop() {
   QMutexLocker locker(&impl_->mutex_);
   impl_->state_ = PlaybackState::Stopped;
   impl_->currentFrame_ = impl_->startFrame_;
@@ -232,7 +258,7 @@ namespace ArtifactCore {
   impl_->lastFrameNumber_ = -1;
  }
 
- void TimelineClock::resume() {
+void PlaybackClock::resume() {
   QMutexLocker locker(&impl_->mutex_);
   if (impl_->state_ == PlaybackState::Paused) {
    auto now = std::chrono::high_resolution_clock::now();
@@ -244,47 +270,47 @@ namespace ArtifactCore {
   }
  }
 
- PlaybackState TimelineClock::state() const {
+PlaybackState PlaybackClock::state() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->state_;
  }
 
- bool TimelineClock::isPlaying() const {
+bool PlaybackClock::isPlaying() const {
   return state() == PlaybackState::Playing;
  }
 
- bool TimelineClock::isPaused() const {
+bool PlaybackClock::isPaused() const {
   return state() == PlaybackState::Paused;
  }
 
- bool TimelineClock::isStopped() const {
+bool PlaybackClock::isStopped() const {
   return state() == PlaybackState::Stopped;
  }
 
- std::chrono::microseconds TimelineClock::elapsedTime() const {
+std::chrono::microseconds PlaybackClock::elapsedTime() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->calculateElapsedTime();
  }
 
- std::chrono::milliseconds TimelineClock::elapsedTimeMs() const {
+std::chrono::milliseconds PlaybackClock::elapsedTimeMs() const {
   return std::chrono::duration_cast<std::chrono::milliseconds>(elapsedTime());
  }
 
- double TimelineClock::elapsedSeconds() const {
+double PlaybackClock::elapsedSeconds() const {
   return elapsedTime().count() / 1000000.0;
  }
 
- int64_t TimelineClock::currentFrame() const {
+int64_t PlaybackClock::currentFrame() const {
   QMutexLocker locker(&impl_->mutex_);
   const_cast<Impl*>(impl_)->updateCurrentFrame();
   return impl_->currentFrame_;
  }
 
- FramePosition TimelineClock::currentPosition() const {
+FramePosition PlaybackClock::currentPosition() const {
   return FramePosition(currentFrame());
  }
 
- void TimelineClock::setFrame(int64_t frame) {
+void PlaybackClock::setFrame(int64_t frame) {
   QMutexLocker locker(&impl_->mutex_);
   impl_->currentFrame_ = frame;
   impl_->startFrame_ = frame;
@@ -299,25 +325,25 @@ namespace ArtifactCore {
   }
  }
 
- void TimelineClock::setPosition(const FramePosition& position) {
+void PlaybackClock::setPosition(const FramePosition& position) {
   setFrame(position.framePosition());
  }
 
- void TimelineClock::setFrameRate(const FrameRate& frameRate) {
+void PlaybackClock::setFrameRate(const FrameRate& frameRate) {
   QMutexLocker locker(&impl_->mutex_);
   impl_->frameRate_ = frameRate;
  }
 
- FrameRate TimelineClock::frameRate() const {
+FrameRate PlaybackClock::frameRate() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->frameRate_;
  }
 
- double TimelineClock::framesPerSecond() const {
+double PlaybackClock::framesPerSecond() const {
   return frameRate().framerate();
  }
 
- void TimelineClock::setPlaybackSpeed(double speed) {
+void PlaybackClock::setPlaybackSpeed(double speed) {
   QMutexLocker locker(&impl_->mutex_);
   
   // ���݂̃t���[���ʒu��ێ�
@@ -338,43 +364,43 @@ namespace ArtifactCore {
   }
  }
 
- double TimelineClock::playbackSpeed() const {
+double PlaybackClock::playbackSpeed() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->playbackSpeed_;
  }
 
- bool TimelineClock::isReversePlaying() const {
+bool PlaybackClock::isReversePlaying() const {
   return playbackSpeed() < 0.0;
  }
 
- void TimelineClock::setLoopRange(int64_t startFrame, int64_t endFrame) {
+void PlaybackClock::setLoopRange(int64_t startFrame, int64_t endFrame) {
   QMutexLocker locker(&impl_->mutex_);
   impl_->looping_ = true;
   impl_->loopStart_ = startFrame;
   impl_->loopEnd_ = endFrame;
  }
 
- void TimelineClock::clearLoopRange() {
+void PlaybackClock::clearLoopRange() {
   QMutexLocker locker(&impl_->mutex_);
   impl_->looping_ = false;
  }
 
- bool TimelineClock::isLooping() const {
+bool PlaybackClock::isLooping() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->looping_;
  }
 
- int64_t TimelineClock::loopStartFrame() const {
+int64_t PlaybackClock::loopStartFrame() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->loopStart_;
  }
 
- int64_t TimelineClock::loopEndFrame() const {
+int64_t PlaybackClock::loopEndFrame() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->loopEnd_;
  }
 
- void TimelineClock::syncToAudioClock(std::chrono::microseconds audioTime) {
+void PlaybackClock::syncToAudioClock(std::chrono::microseconds audioTime) {
   QMutexLocker locker(&impl_->mutex_);
   
   if (!impl_->audioSyncEnabled_) return;
@@ -391,43 +417,43 @@ namespace ArtifactCore {
   }
  }
 
- void TimelineClock::setAudioSyncEnabled(bool enabled) {
+void PlaybackClock::setAudioSyncEnabled(bool enabled) {
   QMutexLocker locker(&impl_->mutex_);
   impl_->audioSyncEnabled_ = enabled;
  }
 
- bool TimelineClock::isAudioSyncEnabled() const {
+bool PlaybackClock::isAudioSyncEnabled() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->audioSyncEnabled_;
  }
 
- std::chrono::microseconds TimelineClock::audioOffset() const {
+std::chrono::microseconds PlaybackClock::audioOffset() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->audioOffset_;
  }
 
- void TimelineClock::setDropFrameDetectionEnabled(bool enabled) {
+void PlaybackClock::setDropFrameDetectionEnabled(bool enabled) {
   QMutexLocker locker(&impl_->mutex_);
   impl_->dropFrameDetectionEnabled_ = enabled;
  }
 
- bool TimelineClock::isDropFrameDetectionEnabled() const {
+bool PlaybackClock::isDropFrameDetectionEnabled() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->dropFrameDetectionEnabled_;
  }
 
- int64_t TimelineClock::droppedFrameCount() const {
+int64_t PlaybackClock::droppedFrameCount() const {
   QMutexLocker locker(&impl_->mutex_);
   return impl_->droppedFrameCount_;
  }
 
- void TimelineClock::resetDroppedFrameCount() {
+void PlaybackClock::resetDroppedFrameCount() {
   QMutexLocker locker(&impl_->mutex_);
   impl_->droppedFrameCount_ = 0;
   impl_->lastFrameNumber_ = -1;
  }
 
- QString TimelineClock::timecode() const {
+QString PlaybackClock::timecode() const {
   int64_t frame = currentFrame();
   double fps = framesPerSecond();
   
@@ -445,7 +471,7 @@ namespace ArtifactCore {
    .arg(frames, 2, 10, QChar('0'));
  }
 
- QString TimelineClock::timecodeWithSubframe() const {
+QString PlaybackClock::timecodeWithSubframe() const {
   int64_t frame = currentFrame();
   double fps = framesPerSecond();
   
@@ -458,7 +484,7 @@ namespace ArtifactCore {
   return timecode() + QString(".%1").arg(subframeInt, 2, 10, QChar('0'));
  }
 
- std::chrono::microseconds TimelineClock::deltaTime() {
+std::chrono::microseconds PlaybackClock::deltaTime() {
   QMutexLocker locker(&impl_->mutex_);
   
   auto now = std::chrono::high_resolution_clock::now();
@@ -471,7 +497,7 @@ namespace ArtifactCore {
   return std::chrono::microseconds(static_cast<int64_t>(delta.count() * impl_->playbackSpeed_));
  }
 
- void TimelineClock::reset() {
+void PlaybackClock::reset() {
   QMutexLocker locker(&impl_->mutex_);
   impl_->state_ = PlaybackState::Stopped;
   impl_->currentFrame_ = impl_->startFrame_;
@@ -481,7 +507,7 @@ namespace ArtifactCore {
   impl_->lastFrameNumber_ = -1;
  }
 
- QString TimelineClock::statistics() const {
+QString PlaybackClock::statistics() const {
   QMutexLocker locker(&impl_->mutex_);
   
   QString stats;

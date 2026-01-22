@@ -746,7 +746,7 @@
     <ClCompile Include="src\Image\JPEGImage.cpp">
       <Filter>ソース ファイル\Image</Filter>
     </ClCompile>
-    <ClCompile Include="include\Utils\CppLinq.cppm">
+    <ClCompile Include="include\Utils\CppLinq.ixx">
       <Filter>ヘッダー ファイル\Linq</Filter>
     </ClCompile>
     <ClCompile Include="include\Common\Size.ixx">
@@ -772,9 +772,6 @@
     </ClCompile>
     <ClCompile Include="include\Frame\FrameTime.ixx">
       <Filter>ヘッダー ファイル\Frame</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Core\Time.cppm">
-      <Filter>ヘッダー ファイル\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\Exports.hpp">
       <Filter>ヘッダー ファイル\Common</Filter>
@@ -822,9 +819,6 @@
       <Filter>ヘッダー ファイル\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\StaticTransform3D.ixx">
-      <Filter>ヘッダー ファイル\Transform</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Transform\Position2D.hpp">
       <Filter>ヘッダー ファイル\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\AffineCV.cppm">
@@ -1988,9 +1982,6 @@
     <ClCompile Include="src\Preview\PreviewQuality.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="include\Playback\PlaybackClock.ixx">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\Playback\PlaybackClock.cppm">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -2005,6 +1996,18 @@
     </ClCompile>
     <ClCompile Include="src\Frame\FrameRange.cpp">
       <Filter>ソース ファイル\Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Playback\PlaybackClock.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Image\ImageF32x4.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Knob\KnobList.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Knob\Knob.ixx">
+      <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

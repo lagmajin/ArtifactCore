@@ -2,8 +2,11 @@
 
 
 
-#ifdef LIBRARY_DLL_EXPORT
+#if( LIBRARY_DLL_MODE==1)
+
 #define LIBRARY_DLL_API __declspec(dllexport)
-#else
+#elif( LIBRARY_DLL_MODE==2)
 #define LIBRARY_DLL_API __declspec(dllimport)
+#else
+#define LIBRARY_DLL_API 
 #endif

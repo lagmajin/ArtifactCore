@@ -1,9 +1,8 @@
+module;
 
-
-import std;
 
 export module CppLinq;
-
+import std;
 export namespace ArtifactCore {
 
  template <std::ranges::input_range R, typename Pred>

@@ -8,7 +8,9 @@ namespace ArtifactCore {
  struct ImageF32x4::Impl {
   cv::Mat mat;
 
+  Impl() : mat() {}
   Impl(int w, int h) : mat(h, w, CV_32FC4, cv::Scalar(0, 0, 0, 0)) {}
+  ~Impl() = default;
  };
 
  ImageF32x4::ImageF32x4(int width, int height)

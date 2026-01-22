@@ -17,13 +17,21 @@ namespace ArtifactCore {
    : doFunc_(std::move(doFunc)), undoFunc_(std::move(undoFunc))
   {
   }
-  ~Impl();
+  ~Impl() = default;
 
   std::function<void()> doFunc_;
   std::function<void()> undoFunc_;
   bool firstTime = true;
  };
 
+
+ LambdaCommand::LambdaCommand(std::function<void()> doFunc,
+  std::function<void()> undoFunc,
+  const QString& text,
+  QUndoCommand* parent)
+  : QUndoCommand(text, parent), impl_(new Impl(std::move(doFunc), std::move(undoFunc)))
+ {
+ }
 
  LambdaCommand::~LambdaCommand()
  {

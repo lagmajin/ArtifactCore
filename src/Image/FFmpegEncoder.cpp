@@ -8,14 +8,14 @@ extern "C" {
 }
 
 #include <QFile>
-module Encoder.FFMpegEncoder;
+module Encoder.FFmpegEncoder;
 
 
 
 
 
-namespace ArtifactCore {
- class FFMpegEncoder::Impl {
+ namespace ArtifactCore {
+ class FFmpegEncoder::Impl {
  public:
   Impl() {
 
@@ -75,15 +75,17 @@ namespace ArtifactCore {
   int audioFrameIndex = 0;
  };
 
- FFMpegEncoder::FFMpegEncoder() : impl(std::make_unique<Impl>())
+ FFmpegEncoder::FFmpegEncoder() : impl_(new Impl())
  {
 
  }
- FFMpegEncoder::~FFMpegEncoder() = default;
+
+ FFmpegEncoder::~FFmpegEncoder() {
+   delete impl_;
+ }
 
 
-
- void FFMpegEncoder::open(const QFile& file)
+ void FFmpegEncoder::open(const QFile& file)
  {
    //impl->open(file);
 
@@ -91,12 +93,12 @@ namespace ArtifactCore {
  }
 
 
- void FFMpegEncoder::close()
+ void FFmpegEncoder::close()
  {
 
  }
 
- void FFMpegEncoder::addImage(const ImageF32x4_RGBA& image)
+ void FFmpegEncoder::addImage(const ImageF32x4_RGBA& image)
  {
 
  }
