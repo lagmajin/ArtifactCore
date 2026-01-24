@@ -6,6 +6,9 @@
 #include <QByteArray>
 
 export module Codec.FFmpegVideoDecoder;
+
+import std;
+
 struct DecodedFrame {
  QImage image;
  int64_t pts; // stream time_base

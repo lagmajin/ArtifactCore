@@ -45,6 +45,7 @@ namespace ArtifactCore {
 
   // タイムスタンプ（ミリ秒）でシーク
   void seekByTimestamp(int64_t timestampMs);
+  void flush();
  };
 
  bool FFmpegDecoder::Impl::openFile(const QString& path)
@@ -148,6 +149,23 @@ namespace ArtifactCore {
    return false;
   }
 
+  // SwsContext を初期化
+  swsCtx_ = sws_getContext(codecContext->width, codecContext->height, codecContext->pix_fmt,
+                           codecContext->width, codecContext->height, AV_PIX_FMT_RGB24,
+                           SWS_BILINEAR, nullptr, nullptr, nullptr);
+  if (!swsCtx_) {
+   qWarning() << "FFmpegDecoder::Impl::openFile: Failed to initialize SwsContext.";
+   av_frame_free(&frame);
+   frame = nullptr;
+   av_packet_free(&packet);
+   packet = nullptr;
+   avcodec_free_context(&codecContext);
+   codecContext = nullptr;
+   avformat_close_input(&formatContext);
+   formatContext = nullptr;
+   return false;
+  }
+
   qDebug() << "FFmpegDecoder::Impl::openFile: Successfully opened file:" << path;
   return true; // 正常に初期化完了
 
@@ -164,6 +182,10 @@ namespace ArtifactCore {
   if (frame) {
    av_frame_free(&frame);
    frame = nullptr;
+  }
+  if (swsCtx_) {
+   sws_freeContext(swsCtx_);
+   swsCtx_ = nullptr;
   }
   if (codecContext) {
    //avcodec_close(codecContext); // avcodec_free_contextは内部でavcodec_closeを呼ぶが、明示的に。
@@ -266,6 +288,13 @@ namespace ArtifactCore {
   avcodec_flush_buffers(codecContext);
  }
 
+ void FFmpegDecoder::Impl::flush()
+ {
+  if (codecContext) {
+   avcodec_flush_buffers(codecContext);
+  }
+ }
+
  FFmpegDecoder::FFmpegDecoder() noexcept:impl_(new Impl())
 {
 
@@ -296,6 +325,13 @@ namespace ArtifactCore {
  QImage FFmpegDecoder::decodeNextVideoFrame()
 {
  return impl_->decodeNextVideoFrame();
+}
+
+ void FFmpegDecoder::flush()
+{
+ if (impl_) {
+  impl_->flush();
+ }
 }
 
 };
