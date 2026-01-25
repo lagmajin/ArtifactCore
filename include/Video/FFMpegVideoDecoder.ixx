@@ -39,20 +39,20 @@ export namespace ArtifactCore {
 
 
 
- class LIBRARY_DLL_API FFmpegDecoder {
+ class LIBRARY_DLL_API FFmpegVideoDecoder {
  private:
   class Impl;
   Impl* impl_;
  public:
-  FFmpegDecoder() noexcept;
-  ~FFmpegDecoder();
+  FFmpegVideoDecoder() noexcept;
+  ~FFmpegVideoDecoder();
   bool openFile(const QString& path);
   void closeFile();
   QImage decodeNextVideoFrame();
   void flush();
  };
 
- void FFmpegDecoder::flush()
+ void FFmpegVideoDecoder::flush()
  {
 
  }
