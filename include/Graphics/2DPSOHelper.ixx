@@ -105,5 +105,16 @@ export namespace ArtifactCore {
   return PSOCreateInfo;
  }
 
+ GraphicsPipelineStateCreateInfo LIBRARY_DLL_API createDrawSpritePSOHelper()
+ {
+  GraphicsPipelineStateCreateInfo PSOCreateInfo;
+  PSOCreateInfo.PSODesc.Name = "Background PSO";
+  PSOCreateInfo.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
+  auto& GPC = PSOCreateInfo.GraphicsPipeline;
+  GPC.NumRenderTargets = 1;
+  GPC.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
+  
+  return PSOCreateInfo;
+ }
 
 };

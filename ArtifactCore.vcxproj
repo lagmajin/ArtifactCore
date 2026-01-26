@@ -145,6 +145,7 @@
     <ClCompile Include="include\Graphics\Shader\HLSL\BasicShaders.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Graphics\Shader\HLSL\GradientShader.ixx" />
     <ClCompile Include="include\Graphics\Shader\Shader.ixx" />
     <ClCompile Include="include\Graphics\Shader\ShaderCompileTask.ixx" />
     <ClCompile Include="include\Graphics\Shader\ShaderLibrary.ixx" />
