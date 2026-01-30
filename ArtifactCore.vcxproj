@@ -371,7 +371,7 @@
     <ClCompile Include="src\File\FileTypeDetector.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Frame\FrameOffset.cpp" />
+    <ClCompile Include="src\Frame\FrameOffset.cppm" />
     <ClCompile Include="src\Frame\FramePosition.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
