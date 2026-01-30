@@ -1,2096 +1,2099 @@
-ï»¿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="ãƒªã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«">
+    <Filter Include="ƒŠƒ\[ƒX ƒtƒ@ƒCƒ‹">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image">
       <UniqueIdentifier>{dcb74a76-a9d8-412b-9da6-21bdad182052}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing">
       <UniqueIdentifier>{16500490-ef36-4d24-843d-50b424ec7908}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset">
       <UniqueIdentifier>{3a9112ba-bff9-434c-8e9d-ff9c0b5dec48}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec">
       <UniqueIdentifier>{6077b6a5-6d0a-4d88-8084-9a93bd7d86ca}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Color">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Color">
       <UniqueIdentifier>{457c2f11-9ad1-438b-8862-a1bcb1850f4a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Color">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Color">
       <UniqueIdentifier>{cfa94d34-6cdc-4389-abd6-4b1435855278}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image">
       <UniqueIdentifier>{726ff667-eb1c-45dd-a05a-50a05afefcc8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Asset">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Asset">
       <UniqueIdentifier>{e88e6b5a-f92b-4636-947a-dc8d40b5dbfd}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing">
       <UniqueIdentifier>{c798c434-72ed-48b9-a184-4e4a66263c9d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec">
       <UniqueIdentifier>{c5d0048e-3512-456d-a549-45f126c7e067}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Generator">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Generator">
       <UniqueIdentifier>{3a86626d-b7bf-4179-9d6b-24ec4ef13cb3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Generator">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Generator">
       <UniqueIdentifier>{76daaacf-34eb-4371-863b-2cb0e46fe212}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Mesh">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Mesh">
       <UniqueIdentifier>{9ceaa50d-cf5a-4556-bdd4-2f86c03ea434}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Mesh">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Mesh">
       <UniqueIdentifier>{55e2f88a-e71f-49f9-80a6-333b58a04e20}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Knob">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Knob">
       <UniqueIdentifier>{69573baf-95cc-4cd2-92db-75b2085944ac}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Cache">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Cache">
       <UniqueIdentifier>{4e035de1-eb08-4fcc-b34b-1b37671c9388}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render">
       <UniqueIdentifier>{4561b96e-4a16-40be-a18d-92959afd4afc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script">
       <UniqueIdentifier>{3b8fe800-793e-430a-ab7c-976640d77123}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Composition">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Composition">
       <UniqueIdentifier>{12ad6f73-f992-4a28-ae59-5ab8c93b174e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Rule">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Rule">
       <UniqueIdentifier>{9adf484d-6d82-40d1-938f-6076dea3533f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\File">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\File">
       <UniqueIdentifier>{8720a8ca-4df1-49f8-ae97-bd2cc8a8ed6d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform">
       <UniqueIdentifier>{cbfae721-524e-4430-901b-9283294d7ec3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Transform">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Transform">
       <UniqueIdentifier>{98a04817-2353-478e-aa00-a89ce7d3a776}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Common">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Common">
       <UniqueIdentifier>{4e826d6c-3063-4437-902c-203daa344558}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Video">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Video">
       <UniqueIdentifier>{c2a3f5bb-ed6c-4418-a3ce-7963abd014a4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Converter">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Converter">
       <UniqueIdentifier>{d91d1b2c-258d-4fee-a41a-338666f660b7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Media">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Media">
       <UniqueIdentifier>{8c58e782-074f-4b5b-b6f2-c173376bac83}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Media">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Media">
       <UniqueIdentifier>{e67be41c-61a7-4c32-9af2-02fa044e410e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Composition">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Composition">
       <UniqueIdentifier>{8658e74c-c1a9-475a-a54c-a46d5beb4ffd}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Layer">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Layer">
       <UniqueIdentifier>{895429db-9508-4919-9bc0-ffee21ab44b7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Halide">
       <UniqueIdentifier>{6207af97-e17d-4a0e-9876-05d59229a9d9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Frame">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Frame">
       <UniqueIdentifier>{729d0fe1-3e60-4f7a-b85c-92ab170a4ccd}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Channel">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Channel">
       <UniqueIdentifier>{14d38c51-e973-4b2e-acde-d02fc341476f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\third_party">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\third_party">
       <UniqueIdentifier>{769554a5-e719-4c5c-81aa-414c5f9aff56}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Frame">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Frame">
       <UniqueIdentifier>{3af90a02-3c61-48d7-826c-46ed7c78d58a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Layer">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Layer">
       <UniqueIdentifier>{b8d8951f-1dd1-45d1-af84-a529ca9f7d65}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio">
       <UniqueIdentifier>{afde49ff-67bc-4851-8d56-dccf33fbd28e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Define">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Define">
       <UniqueIdentifier>{6a668d61-770c-4aed-9d3c-1706f02e6c37}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Rule">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Rule">
       <UniqueIdentifier>{ff64a0ca-6f89-4fd3-84f8-6a66ffb213ba}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Platform">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Platform">
       <UniqueIdentifier>{38636d84-fc97-4c2c-91e2-fb1b5f3373f8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Platform">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Platform">
       <UniqueIdentifier>{0dbfbd31-f0b9-453a-b38d-216263ee2b94}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\GAPI">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\GAPI">
       <UniqueIdentifier>{f4721aa2-27f0-4b6d-ae9d-d71947ad8fa3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\GAPI">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\GAPI">
       <UniqueIdentifier>{491a9bc3-0033-422d-b4c5-7285e7f359f9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\Halide">
       <UniqueIdentifier>{9277dfaa-43f5-4b86-b090-fa7db456cb2f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\GPU">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\GPU">
       <UniqueIdentifier>{9d3e77ee-5655-4e8d-b0c5-a943fb1b094a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\GPU">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\GPU">
       <UniqueIdentifier>{f8dc6fb0-c1c2-449b-8436-74235812cece}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV">
       <UniqueIdentifier>{95ed5fcb-1001-4197-bb71-a97d496e69ea}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Linq">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Linq">
       <UniqueIdentifier>{0540b31a-5dc0-47a5-9d0b-299055803892}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Draw">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Draw">
       <UniqueIdentifier>{b3be87da-c266-4a84-b029-0a8b2393346c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV">
       <UniqueIdentifier>{d294f833-b22b-4a27-8cf3-410051d711b1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core">
       <UniqueIdentifier>{a6774677-655e-40d8-a690-5701ab5a1c8b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Core">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Core">
       <UniqueIdentifier>{dd8e7653-6d53-4e97-871d-450e8fc6b978}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\KeyFrame">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\KeyFrame">
       <UniqueIdentifier>{cc29bf9f-1adf-4198-8ba0-7aa573548df1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image\Halide">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image\Halide">
       <UniqueIdentifier>{bbe3787e-729a-4815-bb30-0e3eda86e90c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image\Halide">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image\Halide">
       <UniqueIdentifier>{1e538eb9-2c2c-4f60-977d-278abd461d83}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Utils">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Utils">
       <UniqueIdentifier>{5f672dfe-0cac-4f26-98da-05cbebde1042}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Analyze">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Analyze">
       <UniqueIdentifier>{4e8ac5fb-58f3-4bb2-9fb5-3409e311a3be}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Analyze">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Analyze">
       <UniqueIdentifier>{cc6f9c4e-35be-499e-a4ba-fe1981784a3c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Analyze\OpenCV">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Analyze\OpenCV">
       <UniqueIdentifier>{2ee62a63-b373-43ad-a316-e997cff78bfd}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Analyze\OpenCV">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Analyze\OpenCV">
       <UniqueIdentifier>{55f46a96-65bc-47c9-aa96-1523ba8a7b27}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\ColorTransform">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\ColorTransform">
       <UniqueIdentifier>{365d019a-0c17-4527-8460-9c4506ad3653}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Sound">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Sound">
       <UniqueIdentifier>{949168d0-d1ab-4c7d-ae70-9ad8dfcb7136}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Test">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Test">
       <UniqueIdentifier>{42f18a43-d606-4d6e-95d4-d1b2a806ff4e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO">
       <UniqueIdentifier>{405245b7-cfe3-4c0c-ba36-e32f4b4c2165}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image\OpenCV">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image\OpenCV">
       <UniqueIdentifier>{c88123f1-0c33-4104-bfa0-da430948cecf}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image\OpenCV">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image\OpenCV">
       <UniqueIdentifier>{926ce30f-4aa0-4e9a-8528-45a78003d47b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Physics">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Physics">
       <UniqueIdentifier>{006ad42b-a33a-4b5e-8d6e-1849d2ad15ea}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Physics">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Physics">
       <UniqueIdentifier>{88b8416f-a227-4b47-8420-dcd75d5a6992}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\File">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\File">
       <UniqueIdentifier>{2858191d-9cc3-4d7d-803e-c47ab88cd314}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Time">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Time">
       <UniqueIdentifier>{38464287-270a-49a8-9e86-35fd71706d70}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Geometry">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Geometry">
       <UniqueIdentifier>{bca77fd1-3d86-44e0-87db-dd69435b17ea}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Math">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Math">
       <UniqueIdentifier>{555f6cd0-af35-4d9d-9143-2e7e36d2e540}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics">
       <UniqueIdentifier>{ce849b34-fa91-4b6f-82ba-d2a9c956d344}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\hostfxr">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\hostfxr">
       <UniqueIdentifier>{825a0dc5-ca08-44ef-96c9-d7aeb7c807c7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script">
       <UniqueIdentifier>{c8ff933a-ceca-4889-919d-bf8cc5c6e0a6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils">
       <UniqueIdentifier>{363d3253-b170-4b2b-9559-b2200b255b57}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Grading">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Grading">
       <UniqueIdentifier>{4d9b9b06-57e9-41b2-962f-778cf20723c4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image\Vulkan">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image\Vulkan">
       <UniqueIdentifier>{de72fe27-6316-4bdd-a54d-433f3dd153e5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics">
       <UniqueIdentifier>{cd39b323-5805-4490-9b83-d2a5787e806b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader">
       <UniqueIdentifier>{ee2b9b9d-e375-45b9-b8ca-ce32e7ff5a3f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Project">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Project">
       <UniqueIdentifier>{59b5d57f-eacd-4d93-a48c-80dce4e8d7c8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\IO">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\IO">
       <UniqueIdentifier>{d98e63e9-bae6-436e-9135-0c99fef66a36}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\EnviromentVariable">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\EnviromentVariable">
       <UniqueIdentifier>{b1da1cb0-4e46-45dc-964c-e1921ed982f3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\EnvironmentVariable">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\EnvironmentVariable">
       <UniqueIdentifier>{a76494b6-bef4-4ba5-94e5-743f4e3130fe}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute">
       <UniqueIdentifier>{d86ffefc-f229-4bd1-bfb0-9ed10f35284f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute">
       <UniqueIdentifier>{1b9e18d0-d758-4591-8f23-00c630e728ed}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Track">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Track">
       <UniqueIdentifier>{a58a7b8a-4562-4cf3-8a3d-3057173559c0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Math">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Math">
       <UniqueIdentifier>{3089cf78-6c66-443f-9fbf-6cef7144d0a1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Hash">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Hash">
       <UniqueIdentifier>{2ff3a074-32ed-4f0f-a8f0-4bc65336a755}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Video">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Video">
       <UniqueIdentifier>{3fe5345d-3c93-4102-87e9-86ec00ddb777}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Test">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Test">
       <UniqueIdentifier>{97426195-731c-43d1-8b54-6e49ddf12a9c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Blend">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Blend">
       <UniqueIdentifier>{170ba962-422c-476b-8c55-62ea54103a17}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Blur">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Blur">
       <UniqueIdentifier>{4a2e9048-4202-40fb-9564-aff57fe9baf2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Render">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Render">
       <UniqueIdentifier>{19ec966e-638f-4fea-8645-188c19f15a36}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Pixel">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Pixel">
       <UniqueIdentifier>{f3259412-c562-4bbc-9f78-f3a4e45c279e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Vertex">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Vertex">
       <UniqueIdentifier>{56222533-6c39-4333-986c-ed754e20e6f5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics\Shader">
       <UniqueIdentifier>{b9a78df8-5a4f-46eb-a021-13668c6e37d0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Common">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Common">
       <UniqueIdentifier>{9fa5c6d1-433a-40ac-a71a-d58c05659a3c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\CBuffer">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\CBuffer">
       <UniqueIdentifier>{17480cfe-81b5-403c-b2ae-dd05100caeb6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Knob">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Knob">
       <UniqueIdentifier>{1b7fc3cd-8334-4340-ba65-1aaf75f3edfe}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Command">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Command">
       <UniqueIdentifier>{93cf0db2-19bc-43a4-b762-e3afd60e9a80}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Utils">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Utils">
       <UniqueIdentifier>{9fc92a98-c316-4f0e-88db-a37b10bb74f9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio">
       <UniqueIdentifier>{ce237cbb-9b20-4c99-ab0f-80ffe659c7ca}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Preview">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Preview">
       <UniqueIdentifier>{7772fc74-af63-4fec-b954-600f7b5fa6be}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Preview">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Preview">
       <UniqueIdentifier>{a2aa4c18-5701-4fc7-928f-8ccce97a592c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Compute">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Compute">
       <UniqueIdentifier>{4ced6449-249c-422a-b499-dbf84c5babd4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Thread">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Thread">
       <UniqueIdentifier>{eef65b6f-07eb-4ad0-b186-ebb7da9696a7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Log">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Log">
       <UniqueIdentifier>{f353ec22-0e03-4e1a-846b-861037f9a060}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Time">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Time">
       <UniqueIdentifier>{7dc60d50-81d3-4cef-81c2-3e7d59307dce}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Thread">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Thread">
       <UniqueIdentifier>{55309539-fb23-4959-a60f-c299ec9d9a6a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Event">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Event">
       <UniqueIdentifier>{11b11e55-8a92-4012-ade8-cc2e9bd4804b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Event">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Event">
       <UniqueIdentifier>{68cdae66-9f6f-4e9a-ad4f-275a6cb6fbe2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\UI">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\UI">
       <UniqueIdentifier>{af226e3f-9b21-4bcc-b315-1cc799f00734}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\FileSystem">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\FileSystem">
       <UniqueIdentifier>{6d39679c-1fc9-4eaa-a040-b68d022a29c9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Filesystem">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Filesystem">
       <UniqueIdentifier>{fbf461fc-be0e-42fc-bf93-6c2df5fd914c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Network">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Network">
       <UniqueIdentifier>{fc1aef36-1a98-4446-bad0-cb67b8c9e576}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Network">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Network">
       <UniqueIdentifier>{6159ae99-f8be-4acc-b80d-6c17837dd9b0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Tool">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Tool">
       <UniqueIdentifier>{018c51ad-11d4-4459-92b9-16fdd4c5db2f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Resource">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Resource">
       <UniqueIdentifier>{674f3015-d9c1-42fd-9cfe-42642d6979d6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Log">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Log">
       <UniqueIdentifier>{8573fcc1-6da7-40b1-ad6a-1da4ba72164f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Font">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Font">
       <UniqueIdentifier>{dca9c7c9-eedc-4627-a374-9c8446064a7f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Input">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Input">
       <UniqueIdentifier>{08a92ea2-3d66-4ffa-83bf-9e00288117b7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Texture">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Texture">
       <UniqueIdentifier>{1e4dd861-dec1-4947-a3a8-7edba04389a2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\UI">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\UI">
       <UniqueIdentifier>{c887c1e6-eab9-4567-8e26-55c7d5cc6c85}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Texture">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics\Texture">
       <UniqueIdentifier>{1be66da0-452f-4b38-95f0-4f02263aee61}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Container">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Container">
       <UniqueIdentifier>{e543ea65-4335-45a6-9e59-4ed00de2393b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Command">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Command">
       <UniqueIdentifier>{43959553-e86e-4612-af2e-a427cc2879d0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Animation">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Animation">
       <UniqueIdentifier>{391697da-4995-492f-a377-95eabd77e70a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Animation">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Animation">
       <UniqueIdentifier>{2b66b0c2-3eac-4c6d-baa2-98b94d64b64c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Frame\Format">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Frame\Format">
       <UniqueIdentifier>{4a983046-c26b-413d-bd5e-cddd286a004e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine">
       <UniqueIdentifier>{2844deb0-2d12-4ff9-929d-e896c99fe1c0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script\Engine">
       <UniqueIdentifier>{c005cff4-c6b8-4f1b-8531-fdf18dbc8cb4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Func">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine\Func">
       <UniqueIdentifier>{607177b7-8887-4725-b1f8-0748188d8abb}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Value">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine\Value">
       <UniqueIdentifier>{6add6141-cf82-4e28-9c46-abc9941ce93f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Enviroment">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine\Enviroment">
       <UniqueIdentifier>{b55f4900-9316-4f02-b003-ae4da6f96856}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Func">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script\Engine\Func">
       <UniqueIdentifier>{c803cdb1-49f4-4573-a389-f2c6cf718117}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Lexer">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine\Lexer">
       <UniqueIdentifier>{9312bc86-fcc1-42c7-9e33-a32efc8a9dcd}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Lexer">
+    <Filter Include="ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script\Engine\Lexer">
       <UniqueIdentifier>{b0e2b6fa-fae1-420d-96c7-e453bf4312f1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\VST">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\VST">
       <UniqueIdentifier>{6d27308a-9037-4988-aa82-41bc98124414}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Icon">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Icon">
       <UniqueIdentifier>{91ea3f5d-a305-40fd-84f3-7c8ab52166b2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Particle">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Particle">
       <UniqueIdentifier>{b7cf5b34-976c-4068-a421-229d17990472}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Format">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Format">
       <UniqueIdentifier>{ffa9633e-dff4-483a-bb36-7b875c1bbaed}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Geometory">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Geometory">
       <UniqueIdentifier>{f96d0218-168d-4a6e-a603-6a1ee8a03c87}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Fx">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Fx">
       <UniqueIdentifier>{e7c6004a-7a44-48d2-8050-14e31e4624ba}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\HLSL">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\HLSL">
       <UniqueIdentifier>{6febfd84-a0f5-40d5-a231-66d5c43824d0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image\Helper">
+    <Filter Include="ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image\Helper">
       <UniqueIdentifier>{b8f1fcdd-520b-45fb-a67d-00cddb8c9206}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Generator</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Generator</Filter>
     </ClInclude>
     <ClInclude Include="include\Video\GStreamerEncoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\FloatImage.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClInclude>
     <ClInclude Include="include\Mesh\WavefrontObj.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Mesh</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Mesh</Filter>
     </ClInclude>
     <ClInclude Include="include\Mesh\FBX.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Mesh</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Mesh</Filter>
     </ClInclude>
     <ClInclude Include="include\Rule\NamingRule.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Rule</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Rule</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\RenderedImage.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹</Filter>
     </ClInclude>
     <ClInclude Include="include\ImageProcessing\Blur.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClInclude>
     <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </ClInclude>
     <ClInclude Include="include\ImageProcessing\Halide\HalideArithmetic.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </ClInclude>
     <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </ClInclude>
     <ClInclude Include="include\third_party\stb_image.h">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\third_party</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\third_party</Filter>
     </ClInclude>
     <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Composition</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Composition</Filter>
     </ClInclude>
     <ClInclude Include="include\Image\FloatBitmapImage.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹</Filter>
     </ClInclude>
     <ClInclude Include="include\Define\DllExportMacro.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Define</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Define</Filter>
     </ClInclude>
     <ClInclude Include="include\Color\Alpha.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Mesh\WavefrontObj.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Mesh</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Mesh</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\BitmapImage.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\MeshEncoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\FloatImage.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Asset\AssetMetaFile.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="src\Asset\AbstractAssetFile.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="src\Video\LibVLCDecoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\AbstractDecoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Video\AbstractEncoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Media\MediaFrame.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Media</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\CvMatPaintDevice.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Composition\CompositionBuffer2D.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Composition</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Composition</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Blur.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\Rotate.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\StaticTransform3D.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\Layer\Layer2D.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="src\Color\FloatRGBA.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\Scale2D.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Channel\Channel.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Channel</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Channel</Filter>
     </ClCompile>
     <ClCompile Include="include\Channel\Codec.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Channel\Generator.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Generator</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Generator</Filter>
     </ClCompile>
     <ClCompile Include="include\Channel\OS.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Common</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Common</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\Frame.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\BitmapImage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\Rotate2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\AbstractDecoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\LibVLCDecoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\AnchorPoint.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\AnchorPoint2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\StaticTransform2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\Scale2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\Rotate.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\ZoomScale.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\ZoomScale.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\FloatColor.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="src\Color\FloatColor.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\FloatRGBA.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\AssetConverter.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\AbstractEncoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\FFMpegEncoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\EncoderSetting.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Common\OperationgSystem.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Common</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Common</Filter>
     </ClCompile>
     <ClCompile Include="include\Mesh\Mesh.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Mesh</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Mesh</Filter>
     </ClCompile>
     <ClCompile Include="src\Mesh\Mesh.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Mesh</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Mesh</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaProbe.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Media</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Media</Filter>
     </ClCompile>
     <ClCompile Include="src\Media\MediaProbe.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Media</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaInfo.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Media</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Platform\Platform.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Platform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Platform</Filter>
     </ClCompile>
     <ClCompile Include="src\Platform\Platform.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Platform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Platform</Filter>
     </ClCompile>
     <ClCompile Include="src\Media\MediaInfo.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Media</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\ImageYUV420.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\LayerInfomation.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Sarturation.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\PNGImage.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\ImageF32x4.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\OpenEXR.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\AbstractImageEffect.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Blur\BlurGAPI.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\GAPI</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\GAPI</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Edge.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\FrameRate.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="src\Frame\FrameRate.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\FrameOffset.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\TestEncoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\FrameRenderer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\GAPI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\GAPI</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Affine.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfoOld.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\GPU</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\GPU</Filter>
     </ClCompile>
     <ClCompile Include="src\GPU\GPUInfo.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\GPU</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\GPU</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Filter.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\GAPI</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\GAPI</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\ImageF32x1.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\ImageF32x4_RGBA.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\ImageF32x4_PreMulRGBA.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Halide\Glow.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Halide\Affin.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Halide\Defines.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Define</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Define</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\ImageF32x4_RGBA.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\ImageYUV420.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Affine.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\Generate\GenerateTestImage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\JPEGImage.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\CppLinq.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Linq</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Linq</Filter>
     </ClCompile>
     <ClCompile Include="include\Common\Size.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Common</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Common</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\Draw.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\Draw.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\ShapeVertex.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\ShapePath.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\ShapePoint.cppm">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\KeyFrame.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\FrameTime.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\Exports.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Common</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Common</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\Glow.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\Glow.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\FramePosition.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\FilmGrain.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\CvUtils.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\FilmGrain.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\GAPI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\GAPI</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\LOGImage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Halide\HalideImageF32x4RGBA.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image\Halide</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image\Halide</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\AntiAliasing.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\Halide\HalideImageF32x4RGBA.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image\Halide</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image\Halide</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\Halide\HalideEffectManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\AffineCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\JPEGImage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\PNGImage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\StaticTransform3D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\AffineCV.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\StaticTransform2D.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\WorkAround.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Analyze\Histgram.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Analyze</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Analyze</Filter>
     </ClCompile>
     <ClCompile Include="include\Analyze\Analyze.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Analyze</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Analyze</Filter>
     </ClCompile>
     <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Analyze\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Analyze\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\Analyze\OpenCV\OptifalFlowResult.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Analyze</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Analyze</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\Monochrome.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\Monochrome.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\ColorTransform\ColorTransformCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\ColorTransform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\ColorTransform</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\ColorTransform\ColorTransform.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\ColorTransform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\ColorTransform</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Image.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RenderSettings.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RenderModule.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\ImageExporter.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\Sound\SoundTrack.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Sound</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Sound</Filter>
     </ClCompile>
     <ClCompile Include="include\Codec\MFEncoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Codec\MFEncoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Platform\ShellUtils.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Platform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Platform</Filter>
     </ClCompile>
     <ClCompile Include="src\Platform\ShellUtils.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Platform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Platform</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Halide\MonochromeHalide.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\Halide\MonochromeHalide.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\AbstractImageEffect.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\Noise.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\BloomCV.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\BloomCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\BlurGAPI.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\GAPI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\GAPI</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\MergeCV.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\OpenCV\ImageTransformCV.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Transform\ImageTransformCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\AssetMetaFile.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Export\ImageExportOptions.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\ImageExports.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\ChromaKey.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\VignetCV.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\Posterize.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\VignetCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\IO.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\PosterizeCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\NegativeCV.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\NegativeCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\SepiaCV.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\SepiaCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\Physics\2D\Physics2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Physics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Physics</Filter>
     </ClCompile>
     <ClCompile Include="include\Test\Test.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Test</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Test</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\VHS_CV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\File\FileInfo.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\File</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\File</Filter>
     </ClCompile>
     <ClCompile Include="src\File\FileInfo.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\File</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\File</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\GStreamerDecoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Time\Duration.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Time</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Time</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\AbstractImageGenerator.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Generator</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Generator</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\AssetDatabase.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\HalfTone.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\Geometry\MeshEdgeExtractor.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Geometry</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Geometry</Filter>
     </ClCompile>
     <ClCompile Include="include\Geometry\Float3.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Math</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Math</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\Camera.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Camera.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Geometry\Float4.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Math</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Math</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\hostfxr.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\hostfxr</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\hostfxr</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Script.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script</Filter>
     </ClCompile>
     <ClCompile Include="src\Script\hostfxr.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script</Filter>
     </ClCompile>
     <ClCompile Include="include\Platform\PlatformHint.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Platform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Platform</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\AbstractAssetFile.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="include\Composition\CompositionBuffer2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Composition</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Composition</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\WindowStyleCSS.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\Grading\BrightnessContrast.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Grading</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Grading</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\GPUComputeContext.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Graphics.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\VkImage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image\Vulkan</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image\Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\MultiChannelImage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Graphics\GPUComputeContext.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\TextureFactory.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\ImageF32x4_With_Cache.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\ImageF32x4_With_Cache.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\CompressQuality.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Geometry\MeshImporter.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Geometry</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Geometry</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RenderableObject.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\Material.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="src\IO\Image\ImageImporter.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="src\IO\Image\ImageExporter.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\ImageImporter.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="src\EnvironmentVariable\EnvironmentVariable.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\EnvironmentVariable</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\EnvironmentVariable</Filter>
     </ClCompile>
     <ClCompile Include="include\EnvironmentVariable\EnvironmentVariable.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\EnviromentVariable</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\EnviromentVariable</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\Halide\HalideTest.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\NegateCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\NegateCS.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\NegateCS.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\AddBlockNoise.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\AddBlockNoise.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\LiftCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\SearchImage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\MonochromeCS.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\HLSL\GraphicsHelper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\MonochromeCS.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\GaussianBlurCS.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\GlowCS.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\Track\LayerTrack.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Track</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Track</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\Media.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Media</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaFrame.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Media</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\AsyncImageExporter.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\LayerStrip.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\SpectralGlowCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\SpectralGlowCV.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\GlitchCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\ScopedTimer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\Utils.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\GPUTextureCacheManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\Graphics\GPUTextureCacheManager.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\LayerState.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="src\Layer\LayerState.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\Opacity.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\Core.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\KeyFrame.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Geometry\Interpolate.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Math</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Math</Filter>
     </ClCompile>
     <ClCompile Include="src\Math\Interpolate.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Math</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Math</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\EdgeCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\CompressQuality.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\HashValue.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\ImageAsset.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\AsseetImporter.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\FFMpegVideoDecoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\PlaybackManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Video</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Video</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\Video.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Video</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Video</Filter>
     </ClCompile>
     <ClCompile Include="src\Video\PlaybackManager.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Video</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Video</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\RawImage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Video\MediaTimeStamp.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Media</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaTimeStamp.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Media</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Media</Filter>
     </ClCompile>
     <ClCompile Include="..\Artifact\include\Composition\CompositionSettings.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Composition</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Composition</Filter>
     </ClCompile>
     <ClCompile Include="..\Artifact\src\Composition\CompositionSettings.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Composition</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Composition</Filter>
     </ClCompile>
     <ClCompile Include="include\Codec\FFmpegThumbnailExtractor.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Codec\FFmpegThumbnailExtractor.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Test\TestHelper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Test</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Test</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioModule.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioFrame.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioFrameToQAudioFormatConverter.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\FFmpegEncoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\RawImage.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\CvMatPaintEngine.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Layer\LayerStrip.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="src\Layer\Layer2DSetting.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\FenceTracker.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\Blend2D_CS.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\Blend2D_CS.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\SinglePassShader.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\SinglePassShader.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\String.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\ShaderID.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\GPUTaskHandle.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\GPUTexture.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\Graphics\GPUTexture.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\RenderWorker.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="src\Render\RenderWorker.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RenderJobModel.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="src\Render\RenderJobModel.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RendererQueueManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="src\Render\RendererQueueManager.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\AsyncImageWriterManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="src\IO\Image\AsyncImageWriterManager.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\AbstractImageExporter.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\2DPSOHelper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\ImageExporterStb.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\OIIOMemoryProxyFactory.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\OIIOMemoryIOManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\asio_async_file_writer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="src\IO\asio_async_file_writer.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\IO</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\Id.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\Id.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\GlowCS.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\HLSL\BasicShaders.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Pixel</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Pixel</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\Vertex\BasicVertexShader.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Vertex</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Vertex</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\ShaderCreationHelper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\Graphics\Shader\BasicShaders.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\GLMHelper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\Shader.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="src\Graphics\Shader\BasicVertexShader.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="src\Graphics\Shader\BasicGeometryShader.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\BasicGeometryShader.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="include\Common\Common.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Common</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Common</Filter>
     </ClCompile>
     <ClCompile Include="src\Common\Point2D.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Common</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Common</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Position2D.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\Position2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\Point2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\UniformScale.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\UniformScale.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\CBuffer\Constants.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\CBuffer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\CBuffer</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\LabColor.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\Color.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="src\Color\LabColor.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\GraphicsEngineType.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Utils\Func.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioRasterizer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioRasterizer.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Preview\PreviewSettings.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Preview</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Preview</Filter>
     </ClCompile>
     <ClCompile Include="src\Preview\PreviewSettings.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Preview</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Preview</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\Compute\Compute.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Compute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Compute</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\LayerBlendCS_PSO_Helper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\LayerBlend.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\LayerMatte.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="include\Thread\ThreadHelper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Thread</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Thread</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\Compute\LayerBlendComputeShader.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Compute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Compute</Filter>
     </ClCompile>
     <ClCompile Include="src\Transform\TransformHelper.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Geometry\RotationTurns.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Math</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Math</Filter>
     </ClCompile>
-    <ClCompile Include="src\Math\RotationTurns.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Math</Filter>
+    <ClCompile Include="src\Math\RotationTurns.cppm">
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Math</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\FFmpegAudioEncoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Video\FFMpegAudioEncoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioFormat.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Math\Math.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioRenderer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioRenderer.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\TransformHelper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Log\LogLevel.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Log</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Log</Filter>
     </ClCompile>
     <ClCompile Include="include\Log\LogModule.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Log</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Log</Filter>
     </ClCompile>
     <ClCompile Include="include\Time\RealTime.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Time</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Time</Filter>
     </ClCompile>
     <ClCompile Include="src\Time\RealTime.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Time</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Time</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\StringLike.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Sound\SoundType.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Sound</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Sound</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RenderStatics.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="src\Render\RenderStatics.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\CBuffer\CBufferHelper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\CBuffer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\CBuffer</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\Opacity.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\Path.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Thread\ThreadHelper.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Thread</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Thread</Filter>
     </ClCompile>
     <ClCompile Include="include\Event\EventBus.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Event</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Event</Filter>
     </ClCompile>
     <ClCompile Include="src\Event\EventBus.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Event</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Event</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\AutoContrastCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\ShaderLibrary.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\AutoGammaCV.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\AutoContrast.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\AutoGamma.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\Sepia.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\DirectCompute</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\ThreeWayColorCorrection.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\DirectCompute\ThreeWayColorCorrection.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\TransformControls.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\GizmoMode.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\FileSystem\DirectoryBuilder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\FileSystem</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\FileSystem</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\ImageInterface.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="src\Color\Sarturation.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="NetworkRPCServer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Network</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Network</Filter>
     </ClCompile>
     <ClCompile Include="src\Network\NetworkRPCServer.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Network</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Network</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RendererQueue.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="src\Render\RendererQueue.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RendererQueueSetting.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="src\Render\RendererQueueSetting.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Render</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\ShaderSet.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\GPUInfo.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Tool\ToolMode.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Tool</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Tool</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Resource\PSOAndSRB.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Resource</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Resource</Filter>
     </ClCompile>
     <ClCompile Include="src\Log\Log.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Log</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Log</Filter>
     </ClCompile>
     <ClCompile Include="include\Log\Log.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Log</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Log</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\VertexBuffer\VertexBufferixx.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Vertex</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Vertex</Filter>
     </ClCompile>
     <ClCompile Include="include\Font\FreeFont.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Font</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Font</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\CoreModule.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Texture\TextureManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Texture</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Texture</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\HashValue.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioVolume.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioVolume.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\InputOperatorManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\InputOperator.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\InputOperator.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\DragOperator.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\RotateOperator.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\ScaleOperator.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\SelectOperator.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\InputOperatorManager.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\RotateOperator.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\Context.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\InputEvent.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\KeyMap.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\ViewportOperator.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\ViewportOperator.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\UI</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\UI</Filter>
     </ClCompile>
     <ClCompile Include="src\Graphics\Texture\TextureManager.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Texture</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Graphics\Texture</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioWriter.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\ImageInfoLike.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Container\ContainerModule.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Container</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Container</Filter>
     </ClCompile>
     <ClCompile Include="include\Container\MultiIndexContainer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Container</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Container</Filter>
     </ClCompile>
     <ClCompile Include="include\Command\CommandModule.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Command</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Command</Filter>
     </ClCompile>
     <ClCompile Include="include\Command\LambdaCommand.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Command</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Command</Filter>
     </ClCompile>
     <ClCompile Include="src\Command\LambdaCommand.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Command</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Command</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\Path.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Frame\FramePosition.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\Animation\Animatable%28deprecated%29.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Animation</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Animation</Filter>
     </ClCompile>
     <ClCompile Include="include\Math\InterpolatorFactory.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Math</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Math</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\VectorLike.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\NumericLike.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Time\TimeCode.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Time</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Time</Filter>
     </ClCompile>
     <ClCompile Include="src\Time\TimeCode.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Time</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Time</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\CvMatPaintEngine.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\CSharpScriptEngine.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\SizeLike.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Animation\AnimatableTransform2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Animation</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Animation</Filter>
     </ClCompile>
     <ClCompile Include="include\Animation\AnimatableValue.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Animation</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Animation</Filter>
     </ClCompile>
     <ClCompile Include="src\Animation\AnimatableTransform2D.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Animation</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Animation</Filter>
     </ClCompile>
     <ClCompile Include="include\Animation\AnimatableTransform3D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Animation</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Animation</Filter>
     </ClCompile>
     <ClCompile Include="src\Animation\AnimatableTransform3D.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Animation</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Animation</Filter>
     </ClCompile>
     <ClCompile Include="src\Animation\TransformModule.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Transform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\UniString.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\UniString.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\AssetType.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\AssetImportSetting.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\FileLike.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\AssetManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="src\Asset\AssetManager.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Asset</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Asset</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Syntax\ASTNode.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\Layer2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Layer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Layer</Filter>
     </ClCompile>
     <ClCompile Include="src\Script\Engine\Syntax\ASTNode.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Syntax\Evaluator.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Func\ExprIntrinsics.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Func</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine\Func</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Func\BuiltinManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Func</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine\Func</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Enviroment\EnvironmentManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Enviroment</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine\Enviroment</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Value\Lexer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Lexer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine\Lexer</Filter>
     </ClCompile>
     <ClCompile Include="src\Script\Engine\Enviroment\EnvironmentManager.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="src\Script\Engine\Func\ExprIntrinsics.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Func</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script\Engine\Func</Filter>
     </ClCompile>
     <ClCompile Include="src\Script\Engine\Func\BuiltinManager.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Func</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script\Engine\Func</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Value\Value.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine\Value</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine\Value</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\BuiltinScriptVM.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="include\Preview\PreviewQuality.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Preview</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Preview</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\Tag.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\Tag.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\StringConvertor.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\VST\VSTHost.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\VST</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\VST</Filter>
     </ClCompile>
     <ClCompile Include="include\VST\VSTEffect.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\VST</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\VST</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioBus.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioBus.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\ShaderCompileTask.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\MultipleTag.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\MulitpleTag.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Context\ScriptContext.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Script\Engine</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="src\Script\Engine\Context\ScriptContext.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script</Filter>
     </ClCompile>
     <ClCompile Include="src\Frame\FrameTime.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="src\Frame\FrameOffset.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="src\Script\Engine\BultinScriptVM\BuiltinScriptVM.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Script</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Script</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\NameGenerator.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\NameGenerator.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Math\Rotation.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Math</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Math</Filter>
     </ClCompile>
     <ClCompile Include="src\Math\Rotation.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Math</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Math</Filter>
     </ClCompile>
     <ClCompile Include="include\Icon\SvgToIcon.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Icon</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Icon</Filter>
     </ClCompile>
     <ClCompile Include="include\Platform\SystemUsage.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Platform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Platform</Filter>
     </ClCompile>
     <ClCompile Include="include\Particle\Particle.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Particle</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Particle</Filter>
     </ClCompile>
     <ClCompile Include="include\Particle\Wind.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Particle</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Particle</Filter>
     </ClCompile>
     <ClCompile Include="include\Particle\Gravity.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Particle</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Particle</Filter>
     </ClCompile>
     <ClCompile Include="include\Particle\Drug.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Particle</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Particle</Filter>
     </ClCompile>
     <ClCompile Include="include\Codec\FFMpegAudioDecoder.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Codec\FFMpegAudioDecoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="..\Artifact\include\Audio\AudioSegment.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioMixer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioPanner.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioPanner.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioMixer.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioDownMixer.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioDownMixer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioRingBuffer.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioRingBuffer.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioBackend.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioProvider.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Geometry\CalcSafeArea.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Geometory</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Geometory</Filter>
     </ClCompile>
     <ClCompile Include="include\Geometry\CalcGrid.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Geometory</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Geometory</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioBufferQueue.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Codec\DecoderPoolManager.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Codec\EncoderSetting.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="src\Codec\FFMpegVideoDecoder.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Codec</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Vector3D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Vector2D.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\SimpleWav.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\SimpleWav.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Time\RationalTime.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Time</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Time</Filter>
     </ClCompile>
     <ClCompile Include="src\Time\RationalTime.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Time</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Time</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\AspectRatio.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Core\AspectRatio.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Core</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\Time\Duration.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Time</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Time</Filter>
     </ClCompile>
     <ClCompile Include="include\Time\TimeCodeRange.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Time</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Time</Filter>
     </ClCompile>
     <ClCompile Include="include\Platform\ProcessHelperWin.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Platform</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Platform</Filter>
     </ClCompile>
     <ClCompile Include="src\Platform\ProcessHelperWin.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Platform</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Platform</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\PointLike.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\ImageUtils.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\CBuffer\PixelShaderConstants.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\CBuffer</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\CBuffer</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Helper\ImageFormatHelper.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image\Helper</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image\Helper</Filter>
     </ClCompile>
     <ClCompile Include="src\Audio\AudioDecibels.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioDecibels.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Audio</Filter>
     </ClCompile>
     <ClCompile Include="src\Color\XYZColor.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\XYZColor.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Color</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Color</Filter>
     </ClCompile>
     <ClCompile Include="include\File\FileTypeDetector.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\File\FileTypeDetector.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Property\AbstractProperty.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Analyze\Histgram.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Preview\PreviewQuality.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Playback\PlaybackClock.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Codec\MFFrameExtractor.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Codec\MFFrameExtractor.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\FrameRange.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="src\Frame\FrameRange.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Frame</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\Playback\PlaybackClock.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\ImageF32x4.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Knob\KnobList.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Knob\Knob.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaPlaybackController.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaEditorController.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaReader.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaAudioDecoder.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaSource.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Media\MediaSource.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Media\MediaReader.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaImageFrameDecoder.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Media\MediaImageFrameDecoder.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Media\MediaAudioDecoder.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Media\MediaPlaybackController.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Media\MediaEditorController.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\HLSL\GradientShader.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Time\TimeCodeRange.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Property\AbstractProperty.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Property\PropertyGroup.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="src\Property\PropertyGroup.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaMetaData.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\LUT.ixx">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Math\RotationTurns.cppm">
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Image</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Image</Filter>
     </None>
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Composition</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Composition</Filter>
     </None>
     <None Include="src\Composition\OpenCVCompositionBuffer2D.cpp">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Composition</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Composition</Filter>
     </None>
     <None Include="include\third_party\Core">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\third_party</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\third_party</Filter>
     </None>
     <None Include="include\Channel\DiskSize.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Common</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Common</Filter>
     </None>
     <None Include="include\ImageProcessing\Halide\Lift.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\Halide</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\ImageProcessing\Halide</Filter>
     </None>
     <None Include="src\ImageProcessing\OpenCV\AutoContrastCV.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </None>
     <None Include="src\ImageProcessing\OpenCV\AutoGammaCV.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\ImageProcessing\OpenCV</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\ImageProcessing\OpenCV</Filter>
     </None>
     <None Include="include\Utils\JsonLike.ixx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Utils</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Utils</Filter>
     </None>
     <None Include="src\Audio\AudioWriter.cppm">
-      <Filter>ã‚½ãƒ¼ã‚¹ ãƒ•ã‚¡ã‚¤ãƒ«\Audio</Filter>
+      <Filter>ƒ\[ƒX ƒtƒ@ƒCƒ‹\Audio</Filter>
     </None>
     <None Include="docs\PlaybackClock_Usage.md" />
     <None Include="docs\TimelineClock_Architecture.md" />
@@ -2099,58 +2102,58 @@
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="include\Graphics\Shader\HLSL\FloatBGRAtoRGBA.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Negate.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="include\ImageProcessing\DirectCompute\Mono.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\RGBAChannelSwap.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Glow.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\LuminanceExtractionBGRA.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="include\ImageProcessing\DirectCompute\Thresholding.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Mask\EdgeMask.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendNormal.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Blend</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Blend</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendAdd.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Blend</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Blend</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendScreen.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Blend</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Blend</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendOverlay.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Blend</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Blend</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Blend\CS_BlendSoftlight.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Blend</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Blend</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\Blur\BoxBlur5x5.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Blur</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Blur</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\Pixel\Basic2DImagePS.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Pixel</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Pixel</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\Vertex\HLSL\VertexShader.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader</Filter>
     </FxCompile>
     <FxCompile Include="src\Platform\FSR1.fx">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\Fx</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\Fx</Filter>
     </FxCompile>
     <FxCompile Include="include\Graphics\Shader\HLSL\MotionVector\MotionVector.hlsl">
-      <Filter>ãƒ˜ãƒƒãƒ€ãƒ¼ ãƒ•ã‚¡ã‚¤ãƒ«\Graphics\Shader\HLSL</Filter>
+      <Filter>ƒwƒbƒ_[ ƒtƒ@ƒCƒ‹\Graphics\Shader\HLSL</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

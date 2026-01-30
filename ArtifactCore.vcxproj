@@ -411,7 +411,7 @@
     <ClCompile Include="src\Math\Rotation.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Math\RotationTurns.cpp" />
+    <ClCompile Include="src\Math\RotationTurns.cppm"><CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs></ClCompile>
     <ClCompile Include="src\Media\MediaAudioDecoder.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
