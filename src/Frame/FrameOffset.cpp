@@ -4,6 +4,8 @@ module;
 module  Frame.Offset;
 
 import Frame.Rate;
+import Time.Rational;
+import Time.Code;
 
 namespace ArtifactCore
 {
@@ -26,12 +28,41 @@ namespace ArtifactCore
 
  FrameOffset::FrameOffset(int offset) : impl_(new Impl(offset))
  {
+ }
 
+ FrameOffset::FrameOffset(const FrameOffset& other) : impl_(new Impl(other.value()))
+ {
+ }
+
+ FrameOffset::FrameOffset(FrameOffset&& other) noexcept : impl_(other.impl_)
+ {
+  other.impl_ = nullptr;
  }
 
  FrameOffset::~FrameOffset()
  {
-  delete impl_;
+  if (impl_) {
+   delete impl_;
+   impl_ = nullptr;
+  }
+ }
+
+ FrameOffset& FrameOffset::operator=(const FrameOffset& other)
+ {
+  if (this != &other) {
+   impl_->setValue(other.value());
+  }
+  return *this;
+ }
+
+ FrameOffset& FrameOffset::operator=(FrameOffset&& other) noexcept
+ {
+  if (this != &other) {
+   delete impl_;
+   impl_ = other.impl_;
+   other.impl_ = nullptr;
+  }
+  return *this;
  }
 
  int FrameOffset::value() const
@@ -64,6 +95,17 @@ namespace ArtifactCore
   return FrameOffset(value() - frames);
  }
 
+ FrameOffset FrameOffset::operator*(int multiplier) const
+ {
+  return FrameOffset(value() * multiplier);
+ }
+
+ FrameOffset FrameOffset::operator/(int divisor) const
+ {
+  if (divisor == 0) return FrameOffset(0);
+  return FrameOffset(value() / divisor);
+ }
+
  FrameOffset& FrameOffset::operator+=(const FrameOffset& other)
  {
   setValue(value() + other.value());
@@ -86,6 +128,25 @@ namespace ArtifactCore
  {
   setValue(value() - frames);
   return *this;
+ }
+
+ FrameOffset& FrameOffset::operator*=(int multiplier)
+ {
+  setValue(value() * multiplier);
+  return *this;
+ }
+
+ FrameOffset& FrameOffset::operator/=(int divisor)
+ {
+  if (divisor != 0) {
+   setValue(value() / divisor);
+  }
+  return *this;
+ }
+
+ FrameOffset FrameOffset::operator-() const
+ {
+  return FrameOffset(-value());
  }
 
  bool FrameOffset::operator==(const FrameOffset& other) const
@@ -123,9 +184,24 @@ namespace ArtifactCore
   return value() == 0;
  }
 
+ bool FrameOffset::isPositive() const
+ {
+  return value() > 0;
+ }
+
+ bool FrameOffset::isNegative() const
+ {
+  return value() < 0;
+ }
+
  FrameOffset FrameOffset::abs() const
  {
   return FrameOffset(std::abs(value()));
+ }
+
+ FrameOffset FrameOffset::negate() const
+ {
+  return FrameOffset(-value());
  }
 
  std::string FrameOffset::toString() const
@@ -152,6 +228,33 @@ namespace ArtifactCore
  {
   int frames = static_cast<int>(seconds * rate.framerate());
   return FrameOffset(frames);
+ }
+
+ RationalTime FrameOffset::toRationalTime(const FrameRate& rate) const
+ {
+  int64_t scale = static_cast<int64_t>(rate.framerate());
+  if (scale <= 0) scale = 30;
+  return RationalTime(static_cast<int64_t>(value()), scale);
+ }
+
+ FrameOffset FrameOffset::fromRationalTime(const RationalTime& rt, const FrameRate& rate)
+ {
+  int64_t fps = static_cast<int64_t>(rate.framerate());
+  if (fps <= 0) fps = 30;
+  int64_t frames = rt.rescaledTo(fps);
+  return FrameOffset(static_cast<int>(frames));
+ }
+
+ TimeCode FrameOffset::applyToTimeCode(const TimeCode& tc) const
+ {
+  int newFrame = tc.frame() + value();
+  if (newFrame < 0) newFrame = 0;
+  return TimeCode(newFrame, tc.fps());
+ }
+
+ FrameOffset FrameOffset::between(const TimeCode& from, const TimeCode& to)
+ {
+  return FrameOffset(to.frame() - from.frame());
  }
 
 };

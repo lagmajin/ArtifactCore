@@ -21,6 +21,14 @@ namespace ArtifactCore {
   Impl(const FloatRGBA& rgba, int width = 1, int height = 1); // Add size parameters
   Impl(const Impl& other); // Copy constructor
   Impl& operator=(const Impl& other); // Copy assignment
+  
+  // ピクセルアクセス
+  FloatRGBA getPixel(int x, int y) const;
+  void setPixel(int x, int y, const FloatRGBA& color);
+  
+  // 画像情報
+  bool isEmpty() const;
+  size_t totalPixels() const;
  };
 
  int32_t ImageF32x4_RGBA::Impl::width() const
@@ -31,6 +39,33 @@ namespace ArtifactCore {
  int32_t ImageF32x4_RGBA::Impl::height() const
  {
   return static_cast<int32_t>(mat_.rows);
+ }
+
+ bool ImageF32x4_RGBA::Impl::isEmpty() const
+ {
+  return mat_.empty();
+ }
+
+ size_t ImageF32x4_RGBA::Impl::totalPixels() const
+ {
+  return static_cast<size_t>(mat_.rows * mat_.cols);
+ }
+
+ FloatRGBA ImageF32x4_RGBA::Impl::getPixel(int x, int y) const
+ {
+  if (x < 0 || x >= mat_.cols || y < 0 || y >= mat_.rows) {
+   return FloatRGBA(); // 範囲外は透明を返す
+  }
+  
+  cv::Vec4f pixel = mat_.at<cv::Vec4f>(y, x);
+  return FloatRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
+ }
+
+ void ImageF32x4_RGBA::Impl::setPixel(int x, int y, const FloatRGBA& color)
+ {
+  if (x >= 0 && x < mat_.cols && y >= 0 && y < mat_.rows) {
+   mat_.at<cv::Vec4f>(y, x) = cv::Vec4f(color.r(), color.g(), color.b(), color.a());
+  }
  }
 
  ImageF32x4_RGBA::Impl::Impl(const FloatRGBA& rgba, int width, int height)
@@ -144,6 +179,93 @@ namespace ArtifactCore {
    ImageF32x4_RGBA copy;
    copy.impl_->mat_ = impl_->mat_.clone();
    return copy;
+  }
+
+  // ピクセルアクセス
+  FloatRGBA ImageF32x4_RGBA::getPixel(int x, int y) const
+  {
+   return impl_->getPixel(x, y);
+  }
+
+  void ImageF32x4_RGBA::setPixel(int x, int y, const FloatRGBA& color)
+  {
+   impl_->setPixel(x, y, color);
+  }
+
+  // 画像変換
+  void ImageF32x4_RGBA::flipHorizontal()
+  {
+   cv::flip(impl_->mat_, impl_->mat_, 1);
+  }
+
+  void ImageF32x4_RGBA::flipVertical()
+  {
+   cv::flip(impl_->mat_, impl_->mat_, 0);
+  }
+
+  ImageF32x4_RGBA ImageF32x4_RGBA::crop(int x, int y, int cropWidth, int cropHeight) const
+  {
+   ImageF32x4_RGBA result;
+   
+   // 範囲チェック
+   if (x < 0 || y < 0 || x + cropWidth > width() || y + cropHeight > height()) {
+    return result; // 空の画像を返す
+   }
+   
+   cv::Rect roi(x, y, cropWidth, cropHeight);
+   result.impl_->mat_ = impl_->mat_(roi).clone();
+   
+   return result;
+  }
+
+  // ブレンディング
+  void ImageF32x4_RGBA::alphaBlend(const ImageF32x4_RGBA& overlay, float opacity)
+  {
+   if (impl_->mat_.size() != overlay.impl_->mat_.size()) {
+    return; // サイズが異なる場合は何もしない
+   }
+   
+   cv::Mat result;
+   
+   // アルファチャンネルを取得
+   std::vector<cv::Mat> bgChannels, fgChannels;
+   cv::split(impl_->mat_, bgChannels);
+   cv::split(overlay.impl_->mat_, fgChannels);
+   
+   if (bgChannels.size() < 4 || fgChannels.size() < 4) {
+    return;
+   }
+   
+   // アルファブレンディングの計算
+   cv::Mat alpha = fgChannels[3] * opacity;
+   cv::Mat invAlpha = 1.0f - alpha;
+   
+   std::vector<cv::Mat> outChannels(4);
+   for (int i = 0; i < 3; ++i) {
+    outChannels[i] = fgChannels[i].mul(alpha) + bgChannels[i].mul(invAlpha);
+   }
+   
+   // アルファチャンネルの合成（MatExprを明示的にMatに変換）
+   cv::Mat alphaBlended;
+   cv::Mat temp1 = fgChannels[3] * opacity;
+   cv::Mat temp2 = bgChannels[3].mul(fgChannels[3]) * opacity;
+   alphaBlended = bgChannels[3] + temp1 - temp2;
+   outChannels[3] = alphaBlended;
+   
+   cv::merge(outChannels, impl_->mat_);
+  }
+
+  ImageF32x4_RGBA ImageF32x4_RGBA::blend(const ImageF32x4_RGBA& other, float weight) const
+  {
+   ImageF32x4_RGBA result;
+   
+   if (impl_->mat_.size() != other.impl_->mat_.size()) {
+    return *this; // サイズが異なる場合は自分を返す
+   }
+   
+   cv::addWeighted(impl_->mat_, 1.0f - weight, other.impl_->mat_, weight, 0.0, result.impl_->mat_);
+   
+   return result;
   }
 
 };

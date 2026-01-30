@@ -7,6 +7,7 @@ export module Time.Code;
 
 import std;
 import Utils.String.UniString;
+import Time.Rational;
 
 export namespace ArtifactCore {
 
@@ -40,6 +41,14 @@ export namespace ArtifactCore {
   QString toString() const;
 
   void setFromQString(const QString& str);
+
+  // ---- RationalTime連携 ----
+  // TimeCodeをRationalTimeに変換（フレーム精度を保持）
+  RationalTime toRationalTime() const;
+  // RationalTimeからTimeCodeを生成
+  static TimeCode fromRationalTime(const RationalTime& rt, double fps);
+  // RationalTimeで時間を設定
+  void setFromRationalTime(const RationalTime& rt);
  };
 
 

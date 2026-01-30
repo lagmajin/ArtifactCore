@@ -1,8 +1,9 @@
-ï»¿module;
+module;
 
 #include <algorithm>
 #include <cmath>
 #include <QVariant>
+#include <QColor>
 
 module Knob.Abstract;
 
@@ -10,10 +11,10 @@ import Time.Rational;
 
 namespace ArtifactCore {
 
-class AbstractKnob::Impl {
+class AbstractProperty::Impl {
 public:
     QString m_name;
-    KnobType m_type;
+    PropertyType m_type;
     QVariant m_value;
     QVariant m_defaultValue;
     QVariant m_minValue;
@@ -24,7 +25,7 @@ public:
 
     Impl()
         : m_name("Knob")
-        , m_type(KnobType::Float)
+        , m_type(PropertyType::Float)
         , m_value(0.0)
         , m_defaultValue(0.0)
         , m_minValue(0.0)
@@ -35,64 +36,64 @@ public:
     }
 };
 
-AbstractKnob::AbstractKnob()
+AbstractProperty::AbstractProperty()
     : pImpl(new Impl())
 {
 }
 
-AbstractKnob::~AbstractKnob()
+AbstractProperty::~AbstractProperty()
 {
     delete pImpl;
 }
 
-QString AbstractKnob::getName() const
+QString AbstractProperty::getName() const
 {
     return pImpl->m_name;
 }
 
-KnobType AbstractKnob::getType() const
+PropertyType AbstractProperty::getType() const
 {
     return pImpl->m_type;
 }
 
-QVariant AbstractKnob::getValue() const
+QVariant AbstractProperty::getValue() const
 {
     return pImpl->m_value;
 }
 
-QVariant AbstractKnob::getDefaultValue() const
+QVariant AbstractProperty::getDefaultValue() const
 {
     return pImpl->m_defaultValue;
 }
 
-QVariant AbstractKnob::getMinValue() const
+QVariant AbstractProperty::getMinValue() const
 {
     return pImpl->m_minValue;
 }
 
-QVariant AbstractKnob::getMaxValue() const
+QVariant AbstractProperty::getMaxValue() const
 {
     return pImpl->m_maxValue;
 }
 
-bool AbstractKnob::isAnimatable() const
+bool AbstractProperty::isAnimatable() const
 {
     return pImpl->m_isAnimatable;
 }
 
-QColor AbstractKnob::getColorValue() const
+QColor AbstractProperty::getColorValue() const
 {
     return pImpl->m_colorValue;
 }
 
-void AbstractKnob::setName(const QString& name)
+void AbstractProperty::setName(const QString& name)
 {
     if (pImpl->m_name != name) {
         pImpl->m_name = name;
     }
 }
 
-void AbstractKnob::setType(KnobType type)
+void AbstractProperty::setType(PropertyType type)
 {
     if (pImpl->m_type != type) {
         pImpl->m_type = type;
@@ -100,7 +101,7 @@ void AbstractKnob::setType(KnobType type)
     }
 }
 
-void AbstractKnob::setValue(const QVariant& value)
+void AbstractProperty::setValue(const QVariant& value)
 {
     if (pImpl->m_value != value) {
         pImpl->m_value = value;
@@ -108,24 +109,24 @@ void AbstractKnob::setValue(const QVariant& value)
     }
 }
 
-void AbstractKnob::setDefaultValue(const QVariant& value)
+void AbstractProperty::setDefaultValue(const QVariant& value)
 {
     pImpl->m_defaultValue = value;
 }
 
-void AbstractKnob::setMinValue(const QVariant& value)
+void AbstractProperty::setMinValue(const QVariant& value)
 {
     pImpl->m_minValue = value;
     clampValue();
 }
 
-void AbstractKnob::setMaxValue(const QVariant& value)
+void AbstractProperty::setMaxValue(const QVariant& value)
 {
     pImpl->m_maxValue = value;
     clampValue();
 }
 
-void AbstractKnob::setAnimatable(bool animatable)
+void AbstractProperty::setAnimatable(bool animatable)
 {
     pImpl->m_isAnimatable = animatable;
     if (!animatable) {
@@ -133,7 +134,7 @@ void AbstractKnob::setAnimatable(bool animatable)
     }
 }
 
-void AbstractKnob::setColorValue(const QColor& color)
+void AbstractProperty::setColorValue(const QColor& color)
 {
     if (pImpl->m_colorValue != color) {
         pImpl->m_colorValue = color;
@@ -141,7 +142,7 @@ void AbstractKnob::setColorValue(const QColor& color)
     }
 }
 
-void AbstractKnob::addKeyFrame(const RationalTime& time, const QVariant& value)
+void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value)
 {
     if (!pImpl->m_isAnimatable) return;
 
@@ -157,7 +158,7 @@ void AbstractKnob::addKeyFrame(const RationalTime& time, const QVariant& value)
     }
 }
 
-void AbstractKnob::removeKeyFrame(const RationalTime& time)
+void AbstractProperty::removeKeyFrame(const RationalTime& time)
 {
     auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
                           [&time](const KeyFrame& kf) { return kf.time == time; });
@@ -167,23 +168,23 @@ void AbstractKnob::removeKeyFrame(const RationalTime& time)
     }
 }
 
-void AbstractKnob::clearKeyFrames()
+void AbstractProperty::clearKeyFrames()
 {
     pImpl->m_keyFrames.clear();
 }
 
-std::vector<KeyFrame> AbstractKnob::getKeyFrames() const
+std::vector<KeyFrame> AbstractProperty::getKeyFrames() const
 {
     return pImpl->m_keyFrames;
 }
 
-bool AbstractKnob::hasKeyFrameAt(const RationalTime& time) const
+bool AbstractProperty::hasKeyFrameAt(const RationalTime& time) const
 {
     return std::any_of(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
                       [&time](const KeyFrame& kf) { return kf.time == time; });
 }
 
-QVariant AbstractKnob::interpolateValue(const RationalTime& time) const
+QVariant AbstractProperty::interpolateValue(const RationalTime& time) const
 {
     if (pImpl->m_keyFrames.empty()) {
         return pImpl->m_value;
@@ -208,7 +209,7 @@ QVariant AbstractKnob::interpolateValue(const RationalTime& time) const
     const KeyFrame& kf1 = *prev;
     const KeyFrame& kf2 = *it;
 
-    // è£œé–“ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ t ã‚’è¨ˆç®—ï¼ˆ0.0 ï½ž 1.0ï¼‰
+    // •âŠÔƒpƒ‰ƒ[ƒ^ t ‚ðŒvŽZi0.0 ` 1.0j
     double duration = (kf2.time - kf1.time).toSeconds();
     if (duration == 0.0) {
         return kf2.value;
@@ -218,11 +219,11 @@ QVariant AbstractKnob::interpolateValue(const RationalTime& time) const
     double t = elapsed / duration;
     t = std::clamp(t, 0.0, 1.0);
 
-    if (pImpl->m_type == KnobType::Float) {
+    if (pImpl->m_type == PropertyType::Float) {
         double v1 = kf1.value.toDouble();
         double v2 = kf2.value.toDouble();
         return QVariant(v1 + (v2 - v1) * t);
-    } else if (pImpl->m_type == KnobType::Integer) {
+    } else if (pImpl->m_type == PropertyType::Integer) {
         int v1 = kf1.value.toInt();
         int v2 = kf2.value.toInt();
         return QVariant(static_cast<int>(v1 + (v2 - v1) * t));
@@ -231,14 +232,14 @@ QVariant AbstractKnob::interpolateValue(const RationalTime& time) const
     return pImpl->m_value;
 }
 
-void AbstractKnob::clampValue()
+void AbstractProperty::clampValue()
 {
-    if (pImpl->m_type == KnobType::Float) {
+    if (pImpl->m_type == PropertyType::Float) {
         double val = pImpl->m_value.toDouble();
         double minVal = pImpl->m_minValue.toDouble();
         double maxVal = pImpl->m_maxValue.toDouble();
         pImpl->m_value = QVariant(std::clamp(val, minVal, maxVal));
-    } else if (pImpl->m_type == KnobType::Integer) {
+    } else if (pImpl->m_type == PropertyType::Integer) {
         int val = pImpl->m_value.toInt();
         int minVal = pImpl->m_minValue.toInt();
         int maxVal = pImpl->m_maxValue.toInt();
@@ -246,12 +247,12 @@ void AbstractKnob::clampValue()
     }
 }
 
-bool AbstractKnob::isValueInRange(const QVariant& value) const
+bool AbstractProperty::isValueInRange(const QVariant& value) const
 {
-    if (pImpl->m_type == KnobType::Float) {
+    if (pImpl->m_type == PropertyType::Float) {
         double val = value.toDouble();
         return val >= pImpl->m_minValue.toDouble() && val <= pImpl->m_maxValue.toDouble();
-    } else if (pImpl->m_type == KnobType::Integer) {
+    } else if (pImpl->m_type == PropertyType::Integer) {
         int val = value.toInt();
         return val >= pImpl->m_minValue.toInt() && val <= pImpl->m_maxValue.toInt();
     }

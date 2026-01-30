@@ -4,6 +4,7 @@ module;
 #include <QImage>
 export module Codec.Thumbnail.FFmpeg;
 
+import std;
 import Utils.String.UniString;
 
 export namespace ArtifactCore {

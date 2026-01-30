@@ -1385,9 +1385,6 @@
     <ClCompile Include="src\Color\LabColor.cppm">
       <Filter>ソース ファイル\Color</Filter>
     </ClCompile>
-    <ClCompile Include="src\Knob\AbstractKnob.cpp">
-      <Filter>ソース ファイル\Knob</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\GraphicsEngineType.ixx">
       <Filter>ヘッダー ファイル\Graphics</Filter>
     </ClCompile>
@@ -1931,9 +1928,6 @@
     <ClCompile Include="src\Time\Duration.cpp">
       <Filter>ソース ファイル\Time</Filter>
     </ClCompile>
-    <ClCompile Include="src\Time\TimeCodeRange.cpp">
-      <Filter>ソース ファイル\Time</Filter>
-    </ClCompile>
     <ClCompile Include="include\Time\TimeCodeRange.ixx">
       <Filter>ヘッダー ファイル\Time</Filter>
     </ClCompile>
@@ -1973,7 +1967,7 @@
     <ClCompile Include="src\File\FileTypeDetector.cppm">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="include\Knob\AbstractKnob.ixx">
+    <ClCompile Include="include\Property\AbstractProperty.ixx">
       <Filter>ヘッダー ファイル</Filter>
     </ClCompile>
     <ClCompile Include="src\Analyze\Histgram.cppm">
@@ -2046,6 +2040,24 @@
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\HLSL\GradientShader.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Time\TimeCodeRange.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Property\AbstractProperty.cppm">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Property\PropertyGroup.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Property\PropertyGroup.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Media\MediaMetaData.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Color\LUT.ixx">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>

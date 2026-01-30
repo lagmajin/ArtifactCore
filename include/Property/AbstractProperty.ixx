@@ -4,15 +4,20 @@
 #include <QVariant>
 #include <QColor>
 #include <vector>
-
+#include "../Define/DllExportMacro.hpp"
 export module Knob.Abstract;
 
 import std;
+import Color.Float;
+import Utils.String.UniString;
 import Time.Rational;
+
+import Math.Interpolate;
+
 
 export namespace ArtifactCore {
 
-enum class KnobType {
+enum class PropertyType {
     Float,
     Integer,
     Boolean,
@@ -25,18 +30,18 @@ struct KeyFrame {
     QVariant value;
 };
 
-class AbstractKnob {
+class LIBRARY_DLL_API AbstractProperty {
 private:
     class Impl;
     Impl* pImpl;
 
 public:
-    AbstractKnob();
-    ~AbstractKnob();
+    AbstractProperty();
+    ~AbstractProperty();
 
     // Getters
     QString getName() const;
-    KnobType getType() const;
+    PropertyType getType() const;
     QVariant getValue() const;
     QVariant getDefaultValue() const;
     QVariant getMinValue() const;
@@ -46,7 +51,7 @@ public:
 
     // Setters
     void setName(const QString& name);
-    void setType(KnobType type);
+    void setType(PropertyType type);
     void setValue(const QVariant& value);
     void setDefaultValue(const QVariant& value);
     void setMinValue(const QVariant& value);

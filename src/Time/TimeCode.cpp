@@ -4,6 +4,7 @@
 module Time.Code;
 
 import std;
+import Time.Rational;
 
 namespace ArtifactCore {
 
@@ -38,35 +39,39 @@ namespace ArtifactCore {
 
  }
 
- TimeCode::TimeCode(int frame, double fps) :impl_(new Impl())
+ TimeCode::TimeCode(int frame, double fps) : impl_(new Impl())
  {
-
+  impl_->totalFrames = frame;
+  impl_->fps = fps > 0.0 ? fps : 30.0;
  }
 
- TimeCode::TimeCode(int h, int m, int s, int f, double fps) :impl_(new Impl())
+ TimeCode::TimeCode(int h, int m, int s, int f, double fps) : impl_(new Impl())
  {
-  impl_->fps = fps;
-  //impl_->fromHMSF(h, m, s, f);
+  impl_->fps = fps > 0.0 ? fps : 30.0;
+  impl_->fromHMSF(h, m, s, f);
  }
 
- TimeCode::TimeCode(TimeCode&& other) noexcept : impl_(std::move(other.impl_))
+ TimeCode::TimeCode(TimeCode&& other) noexcept : impl_(other.impl_)
  {
-
+  other.impl_ = nullptr;
  }
 
  TimeCode::~TimeCode()
  {
-  delete impl_;
+  if (impl_) {
+   delete impl_;
+   impl_ = nullptr;
+  }
  }
 
  void TimeCode::setByFrame(int frame)
  {
-
+  impl_->totalFrames = frame;
  }
 
  void TimeCode::setByHMSF(int h, int m, int s, int f)
  {
-
+  impl_->fromHMSF(h, m, s, f);
  }
 
  void TimeCode::toHMSF(int& h, int& m, int& s, int& f) const
@@ -84,18 +89,33 @@ namespace ArtifactCore {
 
  std::string TimeCode::toStdString() const
  {
-
-  return std::string();
+  int h, m, s, f;
+  toHMSF(h, m, s, f);
+  // HH:MM:SS:FF 形式
+  char buf[16];
+  std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d:%02d", h, m, s, f);
+  return std::string(buf);
  }
 
- TimeCode& TimeCode::operator=(TimeCode&&) noexcept
+ TimeCode& TimeCode::operator=(TimeCode&& other) noexcept
  {
+  if (this != &other) {
+   delete impl_;
+   impl_ = other.impl_;
+   other.impl_ = nullptr;
+  }
   return *this;
  }
 
  QString TimeCode::toString() const
  {
-  return QString();
+  int h, m, s, f;
+  toHMSF(h, m, s, f);
+  return QString("%1:%2:%3:%4")
+   .arg(h, 2, 10, QChar('0'))
+   .arg(m, 2, 10, QChar('0'))
+   .arg(s, 2, 10, QChar('0'))
+   .arg(f, 2, 10, QChar('0'));
  }
 
  void TimeCode::setFromQString(const QString& str)
@@ -130,6 +150,37 @@ namespace ArtifactCore {
  int TimeCode::frame() const
  {
   return impl_->totalFrames;
+ }
+
+ double TimeCode::toSeconds() const
+ {
+  if (impl_->fps <= 0.0) return 0.0;
+  return static_cast<double>(impl_->totalFrames) / impl_->fps;
+ }
+
+ RationalTime TimeCode::toRationalTime() const
+ {
+  // fpsをscaleとして使用し、フレーム単位の精度を保持
+  // 例: 30fpsで10フレーム -> RationalTime(10, 30) = 1/3秒
+  int64_t scale = static_cast<int64_t>(impl_->fps);
+  if (scale <= 0) scale = 30; // フォールバック
+  return RationalTime(static_cast<int64_t>(impl_->totalFrames), scale);
+ }
+
+ TimeCode TimeCode::fromRationalTime(const RationalTime& rt, double fps)
+ {
+  if (fps <= 0.0) fps = 30.0;
+  // RationalTimeを指定のfpsにリスケールしてフレーム数を取得
+  int64_t frameCount = rt.rescaledTo(static_cast<int64_t>(fps));
+  return TimeCode(static_cast<int>(frameCount), fps);
+ }
+
+ void TimeCode::setFromRationalTime(const RationalTime& rt)
+ {
+  // 現在のfpsを保持したままフレーム数を更新
+  int64_t scale = static_cast<int64_t>(impl_->fps);
+  if (scale <= 0) scale = 30;
+  impl_->totalFrames = static_cast<int>(rt.rescaledTo(scale));
  }
 
 };
