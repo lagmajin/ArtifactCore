@@ -252,11 +252,15 @@
     <ClCompile Include="include\Script\Engine\Syntax\Evaluator.ixx" />
     <ClCompile Include="include\Script\Engine\Value\Lexer.ixx" />
     <ClCompile Include="include\Script\Engine\Value\Value.ixx" />
-    <ClCompile Include="include\Script\Expression\ExpressionEvaluator.ixx" />
+    <ClCompile Include="include\Script\Expression\ExpressionEvaluator.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Script\Expression\ExpressionParser.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\Script\Expression\ExpressionValue.ixx" />
+    <ClCompile Include="include\Script\Expression\ExpressionValue.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Sound\SoundType.ixx" />
     <ClCompile Include="include\Test\TestHelper.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -473,9 +477,15 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Script\Engine\Syntax\ASTNode.cppm" />
-    <ClCompile Include="src\Script\Expression\ExpressionEvaluator.cppm" />
-    <ClCompile Include="src\Script\Expression\ExpressionParser.cppm" />
-    <ClCompile Include="src\Script\Expression\ExpressionValue.cppm" />
+    <ClCompile Include="src\Script\Expression\ExpressionEvaluator.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Script\Expression\ExpressionParser.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Script\Expression\ExpressionValue.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Thread\ThreadHelper.cpp" />
     <ClCompile Include="src\Time\Duration.cpp" />
     <ClCompile Include="src\Time\RationalTime.cpp" />

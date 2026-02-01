@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="�\�[�X �t�@�C��\Script\Engine\Func">
-      <UniqueIdentifier>{c803cdb1-49f4-4573-a389-f2c6cf718117}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Script\Engine\Lexer">
-      <UniqueIdentifier>{b0e2b6fa-fae1-420d-96c7-e453bf4312f1}</UniqueIdentifier>
-    </Filter>
     <Filter Include="include">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
@@ -1164,12 +1158,6 @@
     <ClCompile Include="include\Script\Engine\Value\Lexer.ixx">
       <Filter>include\Script\Engine\Lexer</Filter>
     </ClCompile>
-    <ClCompile Include="src\Script\Engine\Func\ExprIntrinsics.cppm">
-      <Filter>�\�[�X �t�@�C��\Script\Engine\Func</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Script\Engine\Func\BuiltinManager.cpp">
-      <Filter>�\�[�X �t�@�C��\Script\Engine\Func</Filter>
-    </ClCompile>
     <ClCompile Include="include\Script\Engine\Value\Value.ixx">
       <Filter>include\Script\Engine\Value</Filter>
     </ClCompile>
@@ -1510,6 +1498,8 @@
     <ClCompile Include="src\Script\Expression\ExpressionEvaluator.cppm" />
     <ClCompile Include="docs\ExpressionEngine_Usage.cpp" />
     <ClCompile Include="docs\MultiLanguageSyntax_Examples.cpp" />
+    <ClCompile Include="src\Script\Engine\Func\BuiltinManager.cpp" />
+    <ClCompile Include="src\Script\Engine\Func\ExprIntrinsics.cppm" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

@@ -1,4 +1,9 @@
 module;
+#include <cctype>
+#include <algorithm>
+#include <map>
+#include <string>
+#include <vector>
 
 module Script.Expression.Parser;
 
@@ -32,6 +37,27 @@ ExprNodeType ExprNode::type() const {
 
 void ExprNode::setType(ExprNodeType type) {
     impl_->type_ = type;
+}
+
+std::size_t ExprNode::childCount() const {
+    return impl_->children_.size();
+}
+
+std::shared_ptr<ExprNode> ExprNode::child(std::size_t index) const {
+    if (index < impl_->children_.size()) return impl_->children_[index];
+    return nullptr;
+}
+
+std::string ExprNode::operatorSymbol() const {
+    return impl_->operatorSymbol_;
+}
+
+double ExprNode::numberValue() const {
+    return impl_->numberValue_;
+}
+
+std::string ExprNode::stringValue() const {
+    return impl_->stringValue_;
 }
 
 // Token types for lexer
@@ -302,7 +328,7 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePythonIfElse() {
         
         // Build conditional node: condition, trueExpr, falseExpr
         auto node = std::make_shared<ExprNode>(ExprNodeType::Conditional);
-        node->impl_->children_ = {conditionExpr, valueExpr, elseExpr};
+        node->setChildren({conditionExpr, valueExpr, elseExpr});
         return node;
     }
     
@@ -317,14 +343,10 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseTernary() {
     // JS-style: condition ? true_val : false_val
     if (match(TokenType::Question)) {
         auto trueExpr = parseExpression();
-        if (!match(TokenType::Colon)) {
-            error_ = "Expected ':' in ternary operator";
-            return nullptr;
-        }
+        if (!match(TokenType::Colon)) { error_ = "Expected ':' in ternary operator"; return nullptr; }
         auto falseExpr = parseExpression();
-        
         auto node = std::make_shared<ExprNode>(ExprNodeType::Conditional);
-        node->impl_->children_ = {expr, trueExpr, falseExpr};
+        node->setChildren({expr, trueExpr, falseExpr});
         return node;
     }
     
@@ -339,8 +361,8 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseLogicalOr() {
            (currentToken().type == TokenType::Identifier && currentToken().value == "or" && (advance(), true))) {
         auto right = parseLogicalAnd();
         auto node = std::make_shared<ExprNode>(ExprNodeType::BinaryOp);
-        node->impl_->operatorSymbol_ = "||";
-        node->impl_->children_ = {left, right};
+        node->setOperatorSymbol("||");
+        node->setChildren({left, right});
         left = node;
     }
     
@@ -355,8 +377,8 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseLogicalAnd() {
            (currentToken().type == TokenType::Identifier && currentToken().value == "and" && (advance(), true))) {
         auto right = parseComparison();
         auto node = std::make_shared<ExprNode>(ExprNodeType::BinaryOp);
-        node->impl_->operatorSymbol_ = "&&";
-        node->impl_->children_ = {left, right};
+        node->setOperatorSymbol("&&");
+        node->setChildren({left, right});
         left = node;
     }
     
@@ -374,8 +396,8 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseComparison() {
             advance();
             auto right = parseAddSub();
             auto node = std::make_shared<ExprNode>(ExprNodeType::BinaryOp);
-            node->impl_->operatorSymbol_ = op.value;
-            node->impl_->children_ = {left, right};
+            node->setOperatorSymbol(op.value);
+            node->setChildren({left, right});
             left = node;
         } else {
             break;
@@ -391,9 +413,9 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseAddSub() {
     while (match(TokenType::Plus) || match(TokenType::Minus)) {
         Token op = tokens_[currentToken_ - 1];
         auto right = parseMulDiv();
-        auto node = std::make_shared<ExprNode>(ExprNodeType::BinaryOp);
-        node->impl_->operatorSymbol_ = op.value;
-        node->impl_->children_ = {left, right};
+            auto node = std::make_shared<ExprNode>(ExprNodeType::BinaryOp);
+            node->setOperatorSymbol(op.value);
+            node->setChildren({left, right});
         left = node;
     }
     
@@ -406,9 +428,9 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseMulDiv() {
     while (match(TokenType::Star) || match(TokenType::Slash) || match(TokenType::DoubleSlash)) {
         Token op = tokens_[currentToken_ - 1];
         auto right = parsePower();
-        auto node = std::make_shared<ExprNode>(ExprNodeType::BinaryOp);
-        node->impl_->operatorSymbol_ = op.value;
-        node->impl_->children_ = {left, right};
+            auto node = std::make_shared<ExprNode>(ExprNodeType::BinaryOp);
+            node->setOperatorSymbol(op.value);
+            node->setChildren({left, right});
         left = node;
     }
     
@@ -422,8 +444,8 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePower() {
     if (match(TokenType::DoubleStar)) {
         auto right = parsePower();  // Recursive for right-associativity
         auto node = std::make_shared<ExprNode>(ExprNodeType::BinaryOp);
-        node->impl_->operatorSymbol_ = "**";
-        node->impl_->children_ = {left, right};
+        node->setOperatorSymbol("**");
+        node->setChildren({left, right});
         return node;
     }
     
@@ -434,9 +456,9 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseUnary() {
     if (match(TokenType::Minus) || match(TokenType::Not)) {
         Token op = tokens_[currentToken_ - 1];
         auto expr = parseUnary();
-        auto node = std::make_shared<ExprNode>(ExprNodeType::UnaryOp);
-        node->impl_->operatorSymbol_ = op.value;
-        node->impl_->children_ = {expr};
+            auto node = std::make_shared<ExprNode>(ExprNodeType::UnaryOp);
+        node->setOperatorSymbol(op.value);
+        node->setChildren({expr});
         return node;
     }
     
@@ -447,14 +469,14 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
     // Number
     if (match(TokenType::Number)) {
         auto node = std::make_shared<ExprNode>(ExprNodeType::Number);
-        node->impl_->numberValue_ = std::stod(tokens_[currentToken_ - 1].value);
+        node->setNumberValue(std::stod(tokens_[currentToken_ - 1].value));
         return node;
     }
     
     // String
     if (match(TokenType::String)) {
         auto node = std::make_shared<ExprNode>(ExprNodeType::String);
-        node->impl_->stringValue_ = tokens_[currentToken_ - 1].value;
+        node->setStringValue(tokens_[currentToken_ - 1].value);
         return node;
     }
     
@@ -483,7 +505,7 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
                 return nullptr;
             }
             auto node = std::make_shared<ExprNode>(ExprNodeType::Vector);
-            node->impl_->children_ = elements;
+            node->setChildren(elements);
             return node;
         }
         
@@ -507,15 +529,15 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
                 return nullptr;
             }
             auto varNode = std::make_shared<ExprNode>(ExprNodeType::Variable);
-            varNode->impl_->stringValue_ = name;
+            varNode->setStringValue(name);
             auto node = std::make_shared<ExprNode>(ExprNodeType::ArrayAccess);
-            node->impl_->children_ = {varNode, index};
+            node->setChildren({varNode, index});
             return node;
         }
         
         // Variable
         auto node = std::make_shared<ExprNode>(ExprNodeType::Variable);
-        node->impl_->stringValue_ = name;
+        node->setStringValue(name);
         return node;
     }
     
@@ -538,7 +560,7 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseArrayLiteral() {
     }
     
     auto node = std::make_shared<ExprNode>(ExprNodeType::ArrayLiteral);
-    node->impl_->children_ = elements;
+    node->setChildren(elements);
     return node;
 }
 
@@ -557,8 +579,8 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseFunctionCall(const std::s
     }
     
     auto node = std::make_shared<ExprNode>(ExprNodeType::FunctionCall);
-    node->impl_->stringValue_ = funcName;
-    node->impl_->children_ = args;
+    node->setStringValue(funcName);
+    node->setChildren(args);
     return node;
 }
 

@@ -43,6 +43,18 @@ public:
     
     ExprNodeType type() const;
     void setType(ExprNodeType type);
+    // setters for builder (parser)
+    void setChildren(const std::vector<std::shared_ptr<ExprNode>>& children);
+    void setOperatorSymbol(const std::string& op);
+    void setNumberValue(double v);
+    void setStringValue(const std::string& s);
+    
+    // Accessors for AST inspection (usable by other modules)
+    std::size_t childCount() const;
+    std::shared_ptr<ExprNode> child(std::size_t index) const;
+    std::string operatorSymbol() const;
+    double numberValue() const;
+    std::string stringValue() const;
 };
 
 // Parser for expression syntax

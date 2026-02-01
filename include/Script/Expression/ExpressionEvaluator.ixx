@@ -42,6 +42,14 @@ public:
     // Error handling
     std::string getError() const;
     bool hasError() const;
+
+    // Cancellation support
+    void requestCancel();
+    void clearCancel();
+
+    // Variable snapshot (for temporary injection)
+    std::map<std::string, ExpressionValue> getVariablesCopy() const;
+    void setVariables(const std::map<std::string, ExpressionValue>& vars);
 };
 
 // Standard built-in functions (AE-style)

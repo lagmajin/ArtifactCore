@@ -17,9 +17,17 @@ public:
     std::map<std::string, BuiltinFunction> functions_;
     ExpressionParser parser_;
     std::string error_;
+    std::atomic<bool> cancelRequested_ = false;
     
     ExpressionValue evaluateNode(const std::shared_ptr<ExprNode>& node);
 };
+
+// Helper to merge variables
+static std::map<std::string, ExpressionValue> mergeVariables(const std::map<std::string, ExpressionValue>& a, const std::map<std::string, ExpressionValue>& b) {
+    auto out = a;
+    for (const auto& kv : b) out[kv.first] = kv.second;
+    return out;
+}
 
 ExpressionValue ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode>& node) {
     if (!node) {
@@ -28,27 +36,28 @@ ExpressionValue ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<Ex
     }
     
     // Access impl_ directly since we're in the implementation
-    auto* impl = node->impl_;
+    // access node impl via public API
+    // Note: we use the ExprNode public accessors to avoid depending on Impl type
     
     switch (node->type()) {
     case ExprNodeType::Number:
-        return ExpressionValue(impl->numberValue_);
+        return ExpressionValue(node->numberValue());
         
     case ExprNodeType::String:
-        return ExpressionValue(impl->stringValue_);
+        return ExpressionValue(node->stringValue());
         
     case ExprNodeType::Variable: {
-        auto it = variables_.find(impl->stringValue_);
-        if (it != variables_.end()) {
-            return it->second;
-        }
-        error_ = "Undefined variable: " + impl->stringValue_;
+        auto name = node->stringValue();
+        auto it = variables_.find(name);
+        if (it != variables_.end()) return it->second;
+        error_ = "Undefined variable: " + name;
         return ExpressionValue();
     }
     
     case ExprNodeType::Vector: {
         std::vector<double> components;
-        for (const auto& child : impl->children_) {
+        for (size_t i = 0; i < node->childCount(); ++i) {
+            auto child = node->child(i);
             auto val = evaluateNode(child);
             components.push_back(val.asNumber());
         }
@@ -60,108 +69,82 @@ ExpressionValue ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<Ex
     
     case ExprNodeType::ArrayLiteral: {
         std::vector<ExpressionValue> elements;
-        for (const auto& child : impl->children_) {
-            elements.push_back(evaluateNode(child));
+        for (size_t i = 0; i < node->childCount(); ++i) {
+            elements.push_back(evaluateNode(node->child(i)));
         }
         return ExpressionValue(elements);
     }
     
     case ExprNodeType::ArrayAccess: {
-        if (impl->children_.size() < 2) {
+        if (node->childCount() < 2) {
             error_ = "Invalid array access";
             return ExpressionValue();
         }
-        auto array = evaluateNode(impl->children_[0]);
-        auto index = evaluateNode(impl->children_[1]);
+        auto array = evaluateNode(node->child(0));
+        auto index = evaluateNode(node->child(1));
         size_t idx = static_cast<size_t>(index.asNumber());
         return array.at(idx);
     }
     
     case ExprNodeType::BinaryOp: {
-        if (impl->children_.size() < 2) {
+        if (node->childCount() < 2) {
             error_ = "Binary operator requires two operands";
             return ExpressionValue();
         }
-        auto left = evaluateNode(impl->children_[0]);
-        auto right = evaluateNode(impl->children_[1]);
-        
-        if (impl->operatorSymbol_ == "+") return left + right;
-        if (impl->operatorSymbol_ == "-") return left - right;
-        if (impl->operatorSymbol_ == "*") return left * right;
-        if (impl->operatorSymbol_ == "/") return left / right;
-        if (impl->operatorSymbol_ == "**") {
-            // Power operator
-            return ExpressionValue(std::pow(left.asNumber(), right.asNumber()));
-        }
-        if (impl->operatorSymbol_ == "//") {
-            // Integer division
+        auto left = evaluateNode(node->child(0));
+        auto right = evaluateNode(node->child(1));
+        auto op = node->operatorSymbol();
+        if (op == "+") return left + right;
+        if (op == "-") return left - right;
+        if (op == "*") return left * right;
+        if (op == "/") return left / right;
+        if (op == "**") return ExpressionValue(std::pow(left.asNumber(), right.asNumber()));
+        if (op == "//") {
             double divisor = right.asNumber();
-            if (divisor != 0.0) {
-                return ExpressionValue(std::floor(left.asNumber() / divisor));
-            }
+            if (divisor != 0.0) return ExpressionValue(std::floor(left.asNumber() / divisor));
             return ExpressionValue();
         }
-        if (impl->operatorSymbol_ == "==") return ExpressionValue(left == right ? 1.0 : 0.0);
-        if (impl->operatorSymbol_ == "!=") return ExpressionValue(left != right ? 1.0 : 0.0);
-        if (impl->operatorSymbol_ == "<") return ExpressionValue(left < right ? 1.0 : 0.0);
-        if (impl->operatorSymbol_ == "<=") return ExpressionValue(left <= right ? 1.0 : 0.0);
-        if (impl->operatorSymbol_ == ">") return ExpressionValue(left > right ? 1.0 : 0.0);
-        if (impl->operatorSymbol_ == ">=") return ExpressionValue(left >= right ? 1.0 : 0.0);
-        if (impl->operatorSymbol_ == "&&" || impl->operatorSymbol_ == "and") {
-            return ExpressionValue((left.asNumber() != 0.0 && right.asNumber() != 0.0) ? 1.0 : 0.0);
-        }
-        if (impl->operatorSymbol_ == "||" || impl->operatorSymbol_ == "or") {
-            return ExpressionValue((left.asNumber() != 0.0 || right.asNumber() != 0.0) ? 1.0 : 0.0);
-        }
+        if (op == "==") return ExpressionValue(left == right ? 1.0 : 0.0);
+        if (op == "!=") return ExpressionValue(left != right ? 1.0 : 0.0);
+        if (op == "<") return ExpressionValue(left < right ? 1.0 : 0.0);
+        if (op == "<=") return ExpressionValue(left <= right ? 1.0 : 0.0);
+        if (op == ">") return ExpressionValue(left > right ? 1.0 : 0.0);
+        if (op == ">=") return ExpressionValue(left >= right ? 1.0 : 0.0);
+        if (op == "&&" || op == "and") return ExpressionValue((left.asNumber() != 0.0 && right.asNumber() != 0.0) ? 1.0 : 0.0);
+        if (op == "||" || op == "or") return ExpressionValue((left.asNumber() != 0.0 || right.asNumber() != 0.0) ? 1.0 : 0.0);
         
-        error_ = "Unknown binary operator: " + impl->operatorSymbol_;
+        error_ = std::string("Unknown binary operator: ") + op;
         return ExpressionValue();
     }
     
     case ExprNodeType::UnaryOp: {
-        if (impl->children_.empty()) {
+        if (node->childCount() == 0) {
             error_ = "Unary operator requires one operand";
             return ExpressionValue();
         }
-        auto operand = evaluateNode(impl->children_[0]);
+        auto operand = evaluateNode(node->child(0));
+        auto opu = node->operatorSymbol();
+        if (opu == "-") return ExpressionValue(-operand.asNumber());
+        if (opu == "!" || opu == "not") return ExpressionValue(operand.asNumber() == 0.0 ? 1.0 : 0.0);
         
-        if (impl->operatorSymbol_ == "-") {
-            return ExpressionValue(-operand.asNumber());
-        }
-        if (impl->operatorSymbol_ == "!" || impl->operatorSymbol_ == "not") {
-            return ExpressionValue(operand.asNumber() == 0.0 ? 1.0 : 0.0);
-        }
-        
-        error_ = "Unknown unary operator: " + impl->operatorSymbol_;
+        error_ = std::string("Unknown unary operator: ") + opu;
         return ExpressionValue();
     }
     
     case ExprNodeType::FunctionCall: {
-        auto it = functions_.find(impl->stringValue_);
-        if (it == functions_.end()) {
-            error_ = "Undefined function: " + impl->stringValue_;
-            return ExpressionValue();
-        }
-        
+        auto fname = node->stringValue();
+        auto it = functions_.find(fname);
+        if (it == functions_.end()) { error_ = "Undefined function: " + fname; return ExpressionValue(); }
         std::vector<ExpressionValue> args;
-        for (const auto& child : impl->children_) {
-            args.push_back(evaluateNode(child));
-        }
-        
+        for (size_t i = 0; i < node->childCount(); ++i) args.push_back(evaluateNode(node->child(i)));
         return it->second(args);
     }
     
     case ExprNodeType::Conditional: {
-        if (impl->children_.size() < 3) {
-            error_ = "Ternary operator requires three operands";
-            return ExpressionValue();
-        }
-        auto condition = evaluateNode(impl->children_[0]);
-        if (condition.asNumber() != 0.0) {
-            return evaluateNode(impl->children_[1]);
-        } else {
-            return evaluateNode(impl->children_[2]);
-        }
+        if (node->childCount() < 3) { error_ = "Ternary operator requires three operands"; return ExpressionValue(); }
+        auto condition = evaluateNode(node->child(0));
+        if (condition.asNumber() != 0.0) return evaluateNode(node->child(1));
+        return evaluateNode(node->child(2));
     }
     
     default:
@@ -189,11 +172,29 @@ ExpressionValue ExpressionEvaluator::evaluate(const std::string& expression) {
 }
 
 ExpressionValue ExpressionEvaluator::evaluateAST(const std::shared_ptr<ExprNode>& node) {
+    impl_->error_.clear();
+    impl_->cancelRequested_ = false;
     return impl_->evaluateNode(node);
 }
 
 void ExpressionEvaluator::setVariable(const std::string& name, const ExpressionValue& value) {
     impl_->variables_[name] = value;
+}
+
+std::map<std::string, ExpressionValue> ExpressionEvaluator::getVariablesCopy() const {
+    return impl_->variables_;
+}
+
+void ExpressionEvaluator::setVariables(const std::map<std::string, ExpressionValue>& vars) {
+    impl_->variables_ = vars;
+}
+
+void ExpressionEvaluator::requestCancel() {
+    impl_->cancelRequested_ = true;
+}
+
+void ExpressionEvaluator::clearCancel() {
+    impl_->cancelRequested_ = false;
 }
 
 ExpressionValue ExpressionEvaluator::getVariable(const std::string& name) const {
