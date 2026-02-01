@@ -7,6 +7,8 @@ import Frame.Rate;
 import Time.Rational;
 import Time.Code;
 
+import <cstdint>;
+
 
 export namespace ArtifactCore {
 
@@ -17,7 +19,7 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   FrameOffset();
-  FrameOffset(int offset);
+  FrameOffset(int64_t offset);
   FrameOffset(const FrameOffset& other);
   FrameOffset(FrameOffset&& other) noexcept;
   ~FrameOffset();

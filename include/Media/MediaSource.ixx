@@ -24,6 +24,7 @@ public:
     bool open(const QString& url);
     bool seek(int64_t timestampMs);
     void close();
+    bool isOpen() const { return formatContext_ != nullptr; }
 
     AVFormatContext* getFormatContext() const { return formatContext_; }
     const QString& getUrl() const { return url_; }

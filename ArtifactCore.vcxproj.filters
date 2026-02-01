@@ -1,165 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="�\�[�X �t�@�C��\Color">
-      <UniqueIdentifier>{cfa94d34-6cdc-4389-abd6-4b1435855278}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Image">
-      <UniqueIdentifier>{726ff667-eb1c-45dd-a05a-50a05afefcc8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Asset">
-      <UniqueIdentifier>{e88e6b5a-f92b-4636-947a-dc8d40b5dbfd}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\ImageProcessing">
-      <UniqueIdentifier>{c798c434-72ed-48b9-a184-4e4a66263c9d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Codec">
-      <UniqueIdentifier>{c5d0048e-3512-456d-a549-45f126c7e067}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Generator">
-      <UniqueIdentifier>{3a86626d-b7bf-4179-9d6b-24ec4ef13cb3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Mesh">
-      <UniqueIdentifier>{55e2f88a-e71f-49f9-80a6-333b58a04e20}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Transform">
-      <UniqueIdentifier>{98a04817-2353-478e-aa00-a89ce7d3a776}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Media">
-      <UniqueIdentifier>{e67be41c-61a7-4c32-9af2-02fa044e410e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Composition">
-      <UniqueIdentifier>{8658e74c-c1a9-475a-a54c-a46d5beb4ffd}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Frame">
-      <UniqueIdentifier>{3af90a02-3c61-48d7-826c-46ed7c78d58a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Layer">
-      <UniqueIdentifier>{b8d8951f-1dd1-45d1-af84-a529ca9f7d65}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Rule">
-      <UniqueIdentifier>{ff64a0ca-6f89-4fd3-84f8-6a66ffb213ba}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Platform">
-      <UniqueIdentifier>{0dbfbd31-f0b9-453a-b38d-216263ee2b94}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\ImageProcessing\GAPI">
-      <UniqueIdentifier>{491a9bc3-0033-422d-b4c5-7285e7f359f9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\ImageProcessing\Halide">
-      <UniqueIdentifier>{9277dfaa-43f5-4b86-b090-fa7db456cb2f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\GPU">
-      <UniqueIdentifier>{9d3e77ee-5655-4e8d-b0c5-a943fb1b094a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Draw">
-      <UniqueIdentifier>{b3be87da-c266-4a84-b029-0a8b2393346c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\ImageProcessing\OpenCV">
-      <UniqueIdentifier>{d294f833-b22b-4a27-8cf3-410051d711b1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Core">
-      <UniqueIdentifier>{dd8e7653-6d53-4e97-871d-450e8fc6b978}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Image\Halide">
-      <UniqueIdentifier>{1e538eb9-2c2c-4f60-977d-278abd461d83}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Utils">
-      <UniqueIdentifier>{5f672dfe-0cac-4f26-98da-05cbebde1042}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Analyze">
-      <UniqueIdentifier>{4e8ac5fb-58f3-4bb2-9fb5-3409e311a3be}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Analyze\OpenCV">
-      <UniqueIdentifier>{2ee62a63-b373-43ad-a316-e997cff78bfd}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Image\OpenCV">
-      <UniqueIdentifier>{c88123f1-0c33-4104-bfa0-da430948cecf}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Physics">
-      <UniqueIdentifier>{88b8416f-a227-4b47-8420-dcd75d5a6992}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\File">
-      <UniqueIdentifier>{2858191d-9cc3-4d7d-803e-c47ab88cd314}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Script">
-      <UniqueIdentifier>{c8ff933a-ceca-4889-919d-bf8cc5c6e0a6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Graphics">
-      <UniqueIdentifier>{cd39b323-5805-4490-9b83-d2a5787e806b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\IO">
-      <UniqueIdentifier>{d98e63e9-bae6-436e-9135-0c99fef66a36}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\EnvironmentVariable">
-      <UniqueIdentifier>{a76494b6-bef4-4ba5-94e5-743f4e3130fe}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\ImageProcessing\DirectCompute">
-      <UniqueIdentifier>{1b9e18d0-d758-4591-8f23-00c630e728ed}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Math">
-      <UniqueIdentifier>{3089cf78-6c66-443f-9fbf-6cef7144d0a1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Video">
-      <UniqueIdentifier>{3fe5345d-3c93-4102-87e9-86ec00ddb777}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Test">
-      <UniqueIdentifier>{97426195-731c-43d1-8b54-6e49ddf12a9c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Render">
-      <UniqueIdentifier>{19ec966e-638f-4fea-8645-188c19f15a36}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Graphics\Shader">
-      <UniqueIdentifier>{b9a78df8-5a4f-46eb-a021-13668c6e37d0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Common">
-      <UniqueIdentifier>{9fa5c6d1-433a-40ac-a71a-d58c05659a3c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Knob">
-      <UniqueIdentifier>{1b7fc3cd-8334-4340-ba65-1aaf75f3edfe}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Audio">
-      <UniqueIdentifier>{ce237cbb-9b20-4c99-ab0f-80ffe659c7ca}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Preview">
-      <UniqueIdentifier>{a2aa4c18-5701-4fc7-928f-8ccce97a592c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Time">
-      <UniqueIdentifier>{7dc60d50-81d3-4cef-81c2-3e7d59307dce}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Thread">
-      <UniqueIdentifier>{55309539-fb23-4959-a60f-c299ec9d9a6a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Event">
-      <UniqueIdentifier>{68cdae66-9f6f-4e9a-ad4f-275a6cb6fbe2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Filesystem">
-      <UniqueIdentifier>{fbf461fc-be0e-42fc-bf93-6c2df5fd914c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Network">
-      <UniqueIdentifier>{6159ae99-f8be-4acc-b80d-6c17837dd9b0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Log">
-      <UniqueIdentifier>{8573fcc1-6da7-40b1-ad6a-1da4ba72164f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\UI">
-      <UniqueIdentifier>{c887c1e6-eab9-4567-8e26-55c7d5cc6c85}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Graphics\Texture">
-      <UniqueIdentifier>{1be66da0-452f-4b38-95f0-4f02263aee61}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Command">
-      <UniqueIdentifier>{43959553-e86e-4612-af2e-a427cc2879d0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Animation">
-      <UniqueIdentifier>{391697da-4995-492f-a377-95eabd77e70a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Frame\Format">
-      <UniqueIdentifier>{4a983046-c26b-413d-bd5e-cddd286a004e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="�\�[�X �t�@�C��\Script\Engine">
-      <UniqueIdentifier>{c005cff4-c6b8-4f1b-8531-fdf18dbc8cb4}</UniqueIdentifier>
-    </Filter>
     <Filter Include="�\�[�X �t�@�C��\Script\Engine\Func">
       <UniqueIdentifier>{c803cdb1-49f4-4573-a389-f2c6cf718117}</UniqueIdentifier>
     </Filter>
@@ -495,63 +336,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Codec\GStreamerDecoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Mesh\WavefrontObj.cpp">
-      <Filter>�\�[�X �t�@�C��\Mesh</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\BitmapImage.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\MeshEncoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\FloatImage.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Asset\AssetMetaFile.cppm">
-      <Filter>�\�[�X �t�@�C��\Asset</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Asset\AbstractAssetFile.cppm">
-      <Filter>�\�[�X �t�@�C��\Asset</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Video\LibVLCDecoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\AbstractDecoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Video\AbstractEncoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Media\MediaFrame.cpp">
-      <Filter>�\�[�X �t�@�C��\Media</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Image\CvMatPaintDevice.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Composition\CompositionBuffer2D.cpp">
-      <Filter>�\�[�X �t�@�C��\Composition</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\Blur.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Transform\Rotate.cpp">
-      <Filter>�\�[�X �t�@�C��\Transform</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Transform\StaticTransform3D.cpp">
-      <Filter>�\�[�X �t�@�C��\Transform</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Layer\Layer2D.cpp">
-      <Filter>�\�[�X �t�@�C��\Layer</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Color\FloatRGBA.cppm">
-      <Filter>�\�[�X �t�@�C��\Color</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Transform\Scale2D.cpp">
-      <Filter>�\�[�X �t�@�C��\Transform</Filter>
-    </ClCompile>
     <ClCompile Include="include\Channel\Channel.ixx">
       <Filter>include\Channel</Filter>
     </ClCompile>
@@ -594,17 +378,11 @@
     <ClCompile Include="include\Transform\Rotate.ixx">
       <Filter>include\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="src\Transform\ZoomScale.cpp">
-      <Filter>�\�[�X �t�@�C��\Transform</Filter>
-    </ClCompile>
     <ClCompile Include="include\Transform\ZoomScale.ixx">
       <Filter>include\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\FloatColor.ixx">
       <Filter>include\Color</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Color\FloatColor.cpp">
-      <Filter>�\�[�X �t�@�C��\Color</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\FloatRGBA.ixx">
       <Filter>include\Color</Filter>
@@ -627,26 +405,14 @@
     <ClCompile Include="include\Mesh\Mesh.ixx">
       <Filter>include\Mesh</Filter>
     </ClCompile>
-    <ClCompile Include="src\Mesh\Mesh.cpp">
-      <Filter>�\�[�X �t�@�C��\Mesh</Filter>
-    </ClCompile>
     <ClCompile Include="include\Media\MediaProbe.ixx">
       <Filter>include\Media</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Media\MediaProbe.cpp">
-      <Filter>�\�[�X �t�@�C��\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaInfo.ixx">
       <Filter>include\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Platform\Platform.ixx">
       <Filter>include\Platform</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Platform\Platform.cpp">
-      <Filter>�\�[�X �t�@�C��\Platform</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Media\MediaInfo.cpp">
-      <Filter>�\�[�X �t�@�C��\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\ImageYUV420.ixx">
       <Filter>include\Image</Filter>
@@ -657,9 +423,6 @@
     <ClCompile Include="include\Image\Sarturation.ixx">
       <Filter>include\Color</Filter>
     </ClCompile>
-    <ClCompile Include="src\Image\PNGImage.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
-    </ClCompile>
     <ClCompile Include="include\Image\ImageF32x4.ixx">
       <Filter>include\Image</Filter>
     </ClCompile>
@@ -669,17 +432,8 @@
     <ClCompile Include="include\ImageProcessing\AbstractImageEffect.ixx">
       <Filter>include\ImageProcessing</Filter>
     </ClCompile>
-    <ClCompile Include="include\Image\Blur\BlurGAPI.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\GAPI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\Edge.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing</Filter>
-    </ClCompile>
     <ClCompile Include="include\Frame\FrameRate.ixx">
       <Filter>include\Frame</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Frame\FrameRate.cppm">
-      <Filter>�\�[�X �t�@�C��\Frame</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\FrameOffset.ixx">
       <Filter>include\Frame</Filter>
@@ -699,12 +453,6 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\GPUInfoOld.ixx">
       <Filter>include\GPU</Filter>
     </ClCompile>
-    <ClCompile Include="src\GPU\GPUInfo.cpp">
-      <Filter>�\�[�X �t�@�C��\GPU</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\Filter.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\GAPI</Filter>
-    </ClCompile>
     <ClCompile Include="src\ImageProcessing\ImageF32x1.ixx">
       <Filter>include\Image</Filter>
     </ClCompile>
@@ -714,29 +462,11 @@
     <ClCompile Include="include\Image\ImageF32x4_PreMulRGBA.ixx">
       <Filter>include\Image</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\Halide\Glow.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\Halide</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\Halide\Affin.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\Halide</Filter>
-    </ClCompile>
     <ClCompile Include="src\ImageProcessing\Halide\Defines.ixx">
       <Filter>include\Define</Filter>
     </ClCompile>
-    <ClCompile Include="src\Image\ImageF32x4_RGBA.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\ImageYUV420.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\Affine.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing</Filter>
-    </ClCompile>
     <ClCompile Include="include\Generate\GenerateTestImage.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\JPEGImage.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\CppLinq.ixx">
       <Filter>include\Linq</Filter>
@@ -746,12 +476,6 @@
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\Draw.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\Draw.cppm">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\ShapeVertex.cpp">
-      <Filter>�\�[�X �t�@�C��\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\ShapePath.ixx">
       <Filter>include\Core</Filter>
@@ -771,14 +495,8 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\Glow.ixx">
       <Filter>include\ImageProcessing</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\Glow.cppm">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
     <ClCompile Include="include\Frame\FramePosition.ixx">
       <Filter>include\Frame</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\FilmGrain.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\CvUtils.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
@@ -795,9 +513,6 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\AntiAliasing.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
     </ClCompile>
-    <ClCompile Include="src\Image\Halide\HalideImageF32x4RGBA.cpp">
-      <Filter>�\�[�X �t�@�C��\Image\Halide</Filter>
-    </ClCompile>
     <ClCompile Include="include\ImageProcessing\Halide\HalideEffectManager.ixx">
       <Filter>include\ImageProcessing\Halide</Filter>
     </ClCompile>
@@ -813,29 +528,14 @@
     <ClCompile Include="include\Transform\StaticTransform3D.ixx">
       <Filter>include\Transform</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\AffineCV.cppm">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Transform\StaticTransform2D.cppm">
-      <Filter>�\�[�X �t�@�C��\Transform</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Utils\WorkAround.cpp">
-      <Filter>�\�[�X �t�@�C��\Utils</Filter>
-    </ClCompile>
     <ClCompile Include="include\Analyze\Histgram.ixx">
       <Filter>include\Analyze</Filter>
     </ClCompile>
     <ClCompile Include="include\Analyze\Analyze.ixx">
       <Filter>include\Analyze</Filter>
     </ClCompile>
-    <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cpp">
-      <Filter>�\�[�X �t�@�C��\Analyze\OpenCV</Filter>
-    </ClCompile>
     <ClCompile Include="include\Analyze\OpenCV\OptifalFlowResult.ixx">
       <Filter>include\Analyze</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\Monochrome.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\Monochrome.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
@@ -864,41 +564,20 @@
     <ClCompile Include="include\Codec\MFEncoder.ixx">
       <Filter>include\Codec</Filter>
     </ClCompile>
-    <ClCompile Include="src\Codec\MFEncoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
     <ClCompile Include="include\Platform\ShellUtils.ixx">
       <Filter>include\Platform</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Platform\ShellUtils.cpp">
-      <Filter>�\�[�X �t�@�C��\Platform</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\Halide\MonochromeHalide.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\Halide</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\Halide\MonochromeHalide.ixx">
       <Filter>include\ImageProcessing\Halide</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\AbstractImageEffect.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing</Filter>
-    </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\Noise.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\BloomCV.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\BloomCV.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\BlurGAPI.ixx">
       <Filter>include\ImageProcessing\GAPI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\MergeCV.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\OpenCV\ImageTransformCV.cpp">
-      <Filter>�\�[�X �t�@�C��\Image\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\Transform\ImageTransformCV.ixx">
       <Filter>include\Image\OpenCV</Filter>
@@ -909,18 +588,6 @@
     <ClCompile Include="include\Image\Export\ImageExportOptions.ixx">
       <Filter>include\Image</Filter>
     </ClCompile>
-    <ClCompile Include="src\Image\ImageExports.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\ChromaKey.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\VignetCV.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\Posterize.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\VignetCV.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
     </ClCompile>
@@ -930,14 +597,8 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\PosterizeCV.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\NegativeCV.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\NegativeCV.ixx">
       <Filter>include\ImageProcessing</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\SepiaCV.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\SepiaCV.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
@@ -953,9 +614,6 @@
     </ClCompile>
     <ClCompile Include="include\File\FileInfo.ixx">
       <Filter>include\File</Filter>
-    </ClCompile>
-    <ClCompile Include="src\File\FileInfo.cpp">
-      <Filter>�\�[�X �t�@�C��\File</Filter>
     </ClCompile>
     <ClCompile Include="include\Video\GStreamerDecoder.ixx">
       <Filter>include\Codec</Filter>
@@ -981,9 +639,6 @@
     <ClCompile Include="include\Transform\Camera.ixx">
       <Filter>include\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\Camera.cpp">
-      <Filter>�\�[�X �t�@�C��\Core</Filter>
-    </ClCompile>
     <ClCompile Include="include\Geometry\Float4.ixx">
       <Filter>include\Math</Filter>
     </ClCompile>
@@ -992,9 +647,6 @@
     </ClCompile>
     <ClCompile Include="include\Script\Script.ixx">
       <Filter>include\Script</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Script\hostfxr.cppm">
-      <Filter>�\�[�X �t�@�C��\Script</Filter>
     </ClCompile>
     <ClCompile Include="include\Platform\PlatformHint.ixx">
       <Filter>include\Platform</Filter>
@@ -1023,17 +675,11 @@
     <ClCompile Include="include\Image\MultiChannelImage.ixx">
       <Filter>include\Image</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\GPUComputeContext.cpp">
-      <Filter>�\�[�X �t�@�C��\Graphics</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\TextureFactory.ixx">
       <Filter>include\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\ImageF32x4_With_Cache.ixx">
       <Filter>include\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\ImageF32x4_With_Cache.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\CompressQuality.ixx">
       <Filter>include\Image</Filter>
@@ -1047,17 +693,8 @@
     <ClCompile Include="include\Render\Material.ixx">
       <Filter>include\Render</Filter>
     </ClCompile>
-    <ClCompile Include="src\IO\Image\ImageImporter.cpp">
-      <Filter>�\�[�X �t�@�C��\IO</Filter>
-    </ClCompile>
-    <ClCompile Include="src\IO\Image\ImageExporter.cpp">
-      <Filter>�\�[�X �t�@�C��\IO</Filter>
-    </ClCompile>
     <ClCompile Include="include\IO\Image\ImageImporter.ixx">
       <Filter>include\IO</Filter>
-    </ClCompile>
-    <ClCompile Include="src\EnvironmentVariable\EnvironmentVariable.cpp">
-      <Filter>�\�[�X �t�@�C��\EnvironmentVariable</Filter>
     </ClCompile>
     <ClCompile Include="include\EnvironmentVariable\EnvironmentVariable.ixx">
       <Filter>include\EnviromentVariable</Filter>
@@ -1071,14 +708,8 @@
     <ClCompile Include="include\ImageProcessing\DirectCompute\NegateCS.ixx">
       <Filter>include\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\DirectCompute\NegateCS.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\DirectCompute</Filter>
-    </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\AddBlockNoise.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\AddBlockNoise.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\LiftCV.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
@@ -1092,14 +723,8 @@
     <ClCompile Include="include\Graphics\Shader\HLSL\GraphicsHelper.ixx">
       <Filter>include\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\DirectCompute\MonochromeCS.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\DirectCompute</Filter>
-    </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\GaussianBlurCS.ixx">
       <Filter>include\ImageProcessing\DirectCompute</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\DirectCompute\GlowCS.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\Track\LayerTrack.ixx">
       <Filter>include\Track</Filter>
@@ -1119,9 +744,6 @@
     <ClCompile Include="include\ImageProcessing\OpenCV\SpectralGlowCV.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\OpenCV\SpectralGlowCV.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\GlitchCV.ixx">
       <Filter>include\ImageProcessing</Filter>
     </ClCompile>
@@ -1134,14 +756,8 @@
     <ClCompile Include="include\Graphics\GPUTextureCacheManager.ixx">
       <Filter>include\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\GPUTextureCacheManager.cppm">
-      <Filter>�\�[�X �t�@�C��\Graphics</Filter>
-    </ClCompile>
     <ClCompile Include="include\Layer\LayerState.ixx">
       <Filter>include\Layer</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Layer\LayerState.cpp">
-      <Filter>�\�[�X �t�@�C��\Layer</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\Opacity.ixx">
       <Filter>include\Layer</Filter>
@@ -1149,20 +765,11 @@
     <ClCompile Include="include\Core\Core.ixx">
       <Filter>include\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\KeyFrame.cpp">
-      <Filter>�\�[�X �t�@�C��\Core</Filter>
-    </ClCompile>
     <ClCompile Include="include\Geometry\Interpolate.ixx">
       <Filter>include\Math</Filter>
     </ClCompile>
-    <ClCompile Include="src\Math\Interpolate.cpp">
-      <Filter>�\�[�X �t�@�C��\Math</Filter>
-    </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\EdgeCV.ixx">
       <Filter>include\ImageProcessing</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\CompressQuality.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\HashValue.ixx">
       <Filter>include\Utils</Filter>
@@ -1182,14 +789,8 @@
     <ClCompile Include="include\Video\Video.ixx">
       <Filter>include\Video</Filter>
     </ClCompile>
-    <ClCompile Include="src\Video\PlaybackManager.cpp">
-      <Filter>�\�[�X �t�@�C��\Video</Filter>
-    </ClCompile>
     <ClCompile Include="include\Image\RawImage.ixx">
       <Filter>include\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Video\MediaTimeStamp.cpp">
-      <Filter>�\�[�X �t�@�C��\Media</Filter>
     </ClCompile>
     <ClCompile Include="include\Media\MediaTimeStamp.ixx">
       <Filter>include\Media</Filter>
@@ -1197,14 +798,8 @@
     <ClCompile Include="..\Artifact\include\Composition\CompositionSettings.ixx">
       <Filter>include\Composition</Filter>
     </ClCompile>
-    <ClCompile Include="..\Artifact\src\Composition\CompositionSettings.cpp">
-      <Filter>�\�[�X �t�@�C��\Composition</Filter>
-    </ClCompile>
     <ClCompile Include="include\Codec\FFmpegThumbnailExtractor.ixx">
       <Filter>include\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Codec\FFmpegThumbnailExtractor.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Test\TestHelper.ixx">
       <Filter>include\Test</Filter>
@@ -1218,35 +813,14 @@
     <ClCompile Include="include\Audio\AudioFrameToQAudioFormatConverter.ixx">
       <Filter>include\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="src\Image\FFmpegEncoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\RawImage.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Image\CvMatPaintEngine.cpp">
-      <Filter>�\�[�X �t�@�C��\Image</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Layer\LayerStrip.cpp">
-      <Filter>�\�[�X �t�@�C��\Layer</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Layer\Layer2DSetting.cpp">
-      <Filter>�\�[�X �t�@�C��\Layer</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\FenceTracker.ixx">
       <Filter>include\Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\DirectCompute\Blend2D_CS.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\Blend2D_CS.ixx">
       <Filter>include\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\SinglePassShader.ixx">
       <Filter>include\ImageProcessing\DirectCompute</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ImageProcessing\DirectCompute\SinglePassShader.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\DirectCompute</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\String.ixx">
       <Filter>include\Utils</Filter>
@@ -1260,32 +834,17 @@
     <ClCompile Include="include\Graphics\GPUTexture.ixx">
       <Filter>include\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\GPUTexture.cpp">
-      <Filter>�\�[�X �t�@�C��\Graphics</Filter>
-    </ClCompile>
     <ClCompile Include="include\RenderWorker.ixx">
       <Filter>include\Render</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Render\RenderWorker.cpp">
-      <Filter>�\�[�X �t�@�C��\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RenderJobModel.ixx">
       <Filter>include\Render</Filter>
     </ClCompile>
-    <ClCompile Include="src\Render\RenderJobModel.cpp">
-      <Filter>�\�[�X �t�@�C��\Render</Filter>
-    </ClCompile>
     <ClCompile Include="include\Render\RendererQueueManager.ixx">
       <Filter>include\Render</Filter>
     </ClCompile>
-    <ClCompile Include="src\Render\RendererQueueManager.cpp">
-      <Filter>�\�[�X �t�@�C��\Render</Filter>
-    </ClCompile>
     <ClCompile Include="include\IO\Image\AsyncImageWriterManager.ixx">
       <Filter>include\IO</Filter>
-    </ClCompile>
-    <ClCompile Include="src\IO\Image\AsyncImageWriterManager.cpp">
-      <Filter>�\�[�X �t�@�C��\IO</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\AbstractImageExporter.ixx">
       <Filter>include\IO</Filter>
@@ -1305,14 +864,8 @@
     <ClCompile Include="include\IO\asio_async_file_writer.ixx">
       <Filter>include\IO</Filter>
     </ClCompile>
-    <ClCompile Include="src\IO\asio_async_file_writer.cpp">
-      <Filter>�\�[�X �t�@�C��\IO</Filter>
-    </ClCompile>
     <ClCompile Include="include\Utils\Id.ixx">
       <Filter>include\Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Utils\Id.cpp">
-      <Filter>�\�[�X �t�@�C��\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\DirectCompute\GlowCS.ixx">
       <Filter>include\ImageProcessing</Filter>
@@ -1326,32 +879,17 @@
     <ClCompile Include="include\Graphics\ShaderCreationHelper.ixx">
       <Filter>include\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\Shader\BasicShaders.cpp">
-      <Filter>�\�[�X �t�@�C��\Graphics\Shader</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\GLMHelper.ixx">
       <Filter>include\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\Shader.ixx">
       <Filter>include\Graphics\Shader</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\Shader\BasicVertexShader.cpp">
-      <Filter>�\�[�X �t�@�C��\Graphics\Shader</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Graphics\Shader\BasicGeometryShader.cpp">
-      <Filter>�\�[�X �t�@�C��\Graphics\Shader</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\Shader\BasicGeometryShader.ixx">
       <Filter>include\Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="include\Common\Common.ixx">
       <Filter>include\Common</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Common\Point2D.cpp">
-      <Filter>�\�[�X �t�@�C��\Common</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\Position2D.cpp">
-      <Filter>�\�[�X �t�@�C��\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\Position2D.ixx">
       <Filter>include\Core</Filter>
@@ -1362,9 +900,6 @@
     <ClCompile Include="include\Core\UniformScale.ixx">
       <Filter>include\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\Core\UniformScale.cpp">
-      <Filter>�\�[�X �t�@�C��\Transform</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\CBuffer\Constants.ixx">
       <Filter>include\Graphics\CBuffer</Filter>
     </ClCompile>
@@ -1373,9 +908,6 @@
     </ClCompile>
     <ClCompile Include="include\Color\Color.ixx">
       <Filter>include\Color</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Color\LabColor.cppm">
-      <Filter>�\�[�X �t�@�C��\Color</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\GraphicsEngineType.ixx">
       <Filter>include\Graphics</Filter>
@@ -1386,14 +918,8 @@
     <ClCompile Include="include\Audio\AudioRasterizer.ixx">
       <Filter>include\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="src\Audio\AudioRasterizer.cpp">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
-    </ClCompile>
     <ClCompile Include="include\Preview\PreviewSettings.ixx">
       <Filter>include\Preview</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Preview\PreviewSettings.cpp">
-      <Filter>�\�[�X �t�@�C��\Preview</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\Compute\Compute.ixx">
       <Filter>include\Graphics\Shader\Compute</Filter>
@@ -1413,20 +939,11 @@
     <ClCompile Include="include\Graphics\Shader\Compute\LayerBlendComputeShader.ixx">
       <Filter>include\Graphics\Shader\Compute</Filter>
     </ClCompile>
-    <ClCompile Include="src\Transform\TransformHelper.cppm">
-      <Filter>�\�[�X �t�@�C��\Transform</Filter>
-    </ClCompile>
     <ClCompile Include="include\Geometry\RotationTurns.ixx">
       <Filter>include\Math</Filter>
     </ClCompile>
-    <ClCompile Include="src\Math\RotationTurns.cppm">
-      <Filter>�\�[�X �t�@�C��\Math</Filter>
-    </ClCompile>
     <ClCompile Include="include\Video\FFmpegAudioEncoder.ixx">
       <Filter>include\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Video\FFMpegAudioEncoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioFormat.ixx">
       <Filter>include\Audio</Filter>
@@ -1436,9 +953,6 @@
     </ClCompile>
     <ClCompile Include="include\Audio\AudioRenderer.ixx">
       <Filter>include\Audio</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Audio\AudioRenderer.cpp">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\TransformHelper.ixx">
       <Filter>include</Filter>
@@ -1452,9 +966,6 @@
     <ClCompile Include="include\Time\RealTime.ixx">
       <Filter>include\Time</Filter>
     </ClCompile>
-    <ClCompile Include="src\Time\RealTime.cpp">
-      <Filter>�\�[�X �t�@�C��\Time</Filter>
-    </ClCompile>
     <ClCompile Include="include\Utils\StringLike.ixx">
       <Filter>include\Utils</Filter>
     </ClCompile>
@@ -1464,26 +975,14 @@
     <ClCompile Include="include\Render\RenderStatics.ixx">
       <Filter>include\Render</Filter>
     </ClCompile>
-    <ClCompile Include="src\Render\RenderStatics.cpp">
-      <Filter>�\�[�X �t�@�C��\Render</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\CBuffer\CBufferHelper.ixx">
       <Filter>include\Graphics\CBuffer</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\Opacity.cpp">
-      <Filter>�\�[�X �t�@�C��\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\Path.ixx">
       <Filter>include\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="src\Thread\ThreadHelper.cpp">
-      <Filter>�\�[�X �t�@�C��\Thread</Filter>
-    </ClCompile>
     <ClCompile Include="include\Event\EventBus.ixx">
       <Filter>include\Event</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Event\EventBus.cpp">
-      <Filter>�\�[�X �t�@�C��\Event</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\AutoContrastCV.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
@@ -1506,9 +1005,6 @@
     <ClCompile Include="include\ImageProcessing\DirectCompute\ThreeWayColorCorrection.ixx">
       <Filter>include\ImageProcessing\OpenCV</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageProcessing\DirectCompute\ThreeWayColorCorrection.cpp">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </ClCompile>
     <ClCompile Include="include\UI\TransformControls.ixx">
       <Filter>include\UI</Filter>
     </ClCompile>
@@ -1521,26 +1017,14 @@
     <ClCompile Include="include\Image\ImageInterface.ixx">
       <Filter>include\Image</Filter>
     </ClCompile>
-    <ClCompile Include="src\Color\Sarturation.cppm">
-      <Filter>�\�[�X �t�@�C��\Color</Filter>
-    </ClCompile>
     <ClCompile Include="NetworkRPCServer.ixx">
       <Filter>include\Network</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Network\NetworkRPCServer.cpp">
-      <Filter>�\�[�X �t�@�C��\Network</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RendererQueue.ixx">
       <Filter>include\Render</Filter>
     </ClCompile>
-    <ClCompile Include="src\Render\RendererQueue.cpp">
-      <Filter>�\�[�X �t�@�C��\Render</Filter>
-    </ClCompile>
     <ClCompile Include="include\Render\RendererQueueSetting.ixx">
       <Filter>include\Render</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Render\RendererQueueSetting.cpp">
-      <Filter>�\�[�X �t�@�C��\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\ShaderSet.ixx">
       <Filter>include\Graphics\Shader</Filter>
@@ -1553,9 +1037,6 @@
     </ClCompile>
     <ClCompile Include="include\Graphics\Resource\PSOAndSRB.ixx">
       <Filter>include\Graphics\Resource</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Log\Log.cpp">
-      <Filter>�\�[�X �t�@�C��\Log</Filter>
     </ClCompile>
     <ClCompile Include="include\Log\Log.ixx">
       <Filter>include\Log</Filter>
@@ -1572,23 +1053,14 @@
     <ClCompile Include="include\Graphics\Texture\TextureManager.ixx">
       <Filter>include\Graphics\Texture</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utils\HashValue.cpp">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
-    </ClCompile>
     <ClCompile Include="include\Audio\AudioVolume.ixx">
       <Filter>include\Audio</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Audio\AudioVolume.cppm">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\InputOperatorManager.ixx">
       <Filter>include\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\InputOperator.ixx">
       <Filter>include\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI\InputOperator.cpp">
-      <Filter>�\�[�X �t�@�C��\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\Context.ixx">
       <Filter>include\UI</Filter>
@@ -1599,14 +1071,8 @@
     <ClCompile Include="include\UI\KeyMap.ixx">
       <Filter>include\UI</Filter>
     </ClCompile>
-    <ClCompile Include="src\UI\ViewportOperator.cpp">
-      <Filter>�\�[�X �t�@�C��\UI</Filter>
-    </ClCompile>
     <ClCompile Include="include\UI\ViewportOperator.ixx">
       <Filter>include\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Graphics\Texture\TextureManager.cpp">
-      <Filter>�\�[�X �t�@�C��\Graphics\Texture</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioWriter.ixx">
       <Filter>include\Audio</Filter>
@@ -1626,15 +1092,6 @@
     <ClCompile Include="include\Command\LambdaCommand.ixx">
       <Filter>include\Command</Filter>
     </ClCompile>
-    <ClCompile Include="src\Command\LambdaCommand.cpp">
-      <Filter>�\�[�X �t�@�C��\Command</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Utils\Path.cpp">
-      <Filter>�\�[�X �t�@�C��\Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Frame\FramePosition.cppm">
-      <Filter>�\�[�X �t�@�C��\Frame</Filter>
-    </ClCompile>
     <ClCompile Include="include\Animation\Animatable%28deprecated%29.ixx">
       <Filter>include\Animation</Filter>
     </ClCompile>
@@ -1649,9 +1106,6 @@
     </ClCompile>
     <ClCompile Include="include\Time\TimeCode.ixx">
       <Filter>include\Time</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Time\TimeCode.cpp">
-      <Filter>�\�[�X �t�@�C��\Time</Filter>
     </ClCompile>
     <ClCompile Include="include\Image\CvMatPaintEngine.ixx">
       <Filter>include\Image</Filter>
@@ -1668,23 +1122,14 @@
     <ClCompile Include="include\Animation\AnimatableValue.ixx">
       <Filter>include\Animation</Filter>
     </ClCompile>
-    <ClCompile Include="src\Animation\AnimatableTransform2D.cpp">
-      <Filter>�\�[�X �t�@�C��\Animation</Filter>
-    </ClCompile>
     <ClCompile Include="include\Animation\AnimatableTransform3D.ixx">
       <Filter>include\Animation</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Animation\AnimatableTransform3D.cpp">
-      <Filter>�\�[�X �t�@�C��\Animation</Filter>
     </ClCompile>
     <ClCompile Include="src\Animation\TransformModule.ixx">
       <Filter>include\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\UniString.ixx">
       <Filter>include\Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Utils\UniString.cppm">
-      <Filter>�\�[�X �t�@�C��\Utils</Filter>
     </ClCompile>
     <ClCompile Include="include\Asset\AssetType.ixx">
       <Filter>include\Asset</Filter>
@@ -1698,17 +1143,11 @@
     <ClCompile Include="include\Utils\AssetManager.ixx">
       <Filter>include\Asset</Filter>
     </ClCompile>
-    <ClCompile Include="src\Asset\AssetManager.cppm">
-      <Filter>�\�[�X �t�@�C��\Asset</Filter>
-    </ClCompile>
     <ClCompile Include="include\Script\Engine\Syntax\ASTNode.ixx">
       <Filter>include\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="include\Layer\Layer2D.ixx">
       <Filter>include\Layer</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Script\Engine\Syntax\ASTNode.cppm">
-      <Filter>�\�[�X �t�@�C��\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Syntax\Evaluator.ixx">
       <Filter>include\Script\Engine</Filter>
@@ -1724,9 +1163,6 @@
     </ClCompile>
     <ClCompile Include="include\Script\Engine\Value\Lexer.ixx">
       <Filter>include\Script\Engine\Lexer</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Script\Engine\Enviroment\EnvironmentManager.cpp">
-      <Filter>�\�[�X �t�@�C��\Script\Engine</Filter>
     </ClCompile>
     <ClCompile Include="src\Script\Engine\Func\ExprIntrinsics.cppm">
       <Filter>�\�[�X �t�@�C��\Script\Engine\Func</Filter>
@@ -1746,9 +1182,6 @@
     <ClCompile Include="include\Utils\Tag.ixx">
       <Filter>include\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utils\Tag.cpp">
-      <Filter>�\�[�X �t�@�C��\Utils</Filter>
-    </ClCompile>
     <ClCompile Include="include\Utils\StringConvertor.ixx">
       <Filter>include\Utils</Filter>
     </ClCompile>
@@ -1761,44 +1194,20 @@
     <ClCompile Include="include\Audio\AudioBus.ixx">
       <Filter>include\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="src\Audio\AudioBus.cppm">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\Shader\ShaderCompileTask.ixx">
       <Filter>include\Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\MultipleTag.ixx">
       <Filter>include\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utils\MulitpleTag.cpp">
-      <Filter>�\�[�X �t�@�C��\Utils</Filter>
-    </ClCompile>
     <ClCompile Include="include\Script\Engine\Context\ScriptContext.ixx">
       <Filter>include\Script\Engine</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Script\Engine\Context\ScriptContext.cpp">
-      <Filter>�\�[�X �t�@�C��\Script</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Frame\FrameTime.cpp">
-      <Filter>�\�[�X �t�@�C��\Frame</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Frame\FrameOffset.cppm">
-      <Filter>�\�[�X �t�@�C��\Frame</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Script\Engine\BultinScriptVM\BuiltinScriptVM.cpp">
-      <Filter>�\�[�X �t�@�C��\Script</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\NameGenerator.ixx">
       <Filter>include\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utils\NameGenerator.cpp">
-      <Filter>�\�[�X �t�@�C��\Utils</Filter>
-    </ClCompile>
     <ClCompile Include="include\Math\Rotation.ixx">
       <Filter>include\Math</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Math\Rotation.cppm">
-      <Filter>�\�[�X �t�@�C��\Math</Filter>
     </ClCompile>
     <ClCompile Include="include\Icon\SvgToIcon.ixx">
       <Filter>include\Icon</Filter>
@@ -1821,9 +1230,6 @@
     <ClCompile Include="include\Codec\FFMpegAudioDecoder.ixx">
       <Filter>include\Codec</Filter>
     </ClCompile>
-    <ClCompile Include="src\Codec\FFMpegAudioDecoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
     <ClCompile Include="..\Artifact\include\Audio\AudioSegment.ixx">
       <Filter>include\Audio</Filter>
     </ClCompile>
@@ -1833,23 +1239,11 @@
     <ClCompile Include="include\Audio\AudioPanner.ixx">
       <Filter>include\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="src\Audio\AudioPanner.cpp">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Audio\AudioMixer.cpp">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Audio\AudioDownMixer.cpp">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
-    </ClCompile>
     <ClCompile Include="include\Audio\AudioDownMixer.ixx">
       <Filter>include\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioRingBuffer.ixx">
       <Filter>include\Audio</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Audio\AudioRingBuffer.cpp">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioBackend.ixx">
       <Filter>include\Audio</Filter>
@@ -1866,12 +1260,6 @@
     <ClCompile Include="include\Codec\DecoderPoolManager.ixx">
       <Filter>include\Codec</Filter>
     </ClCompile>
-    <ClCompile Include="src\Codec\EncoderSetting.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Codec\FFMpegVideoDecoder.cpp">
-      <Filter>�\�[�X �t�@�C��\Codec</Filter>
-    </ClCompile>
     <ClCompile Include="include\Graphics\Vector3D.ixx">
       <Filter>include\Graphics</Filter>
     </ClCompile>
@@ -1881,32 +1269,17 @@
     <ClCompile Include="include\Audio\SimpleWav.ixx">
       <Filter>include\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="src\Audio\SimpleWav.cpp">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
-    </ClCompile>
     <ClCompile Include="include\Time\RationalTime.ixx">
       <Filter>include\Time</Filter>
     </ClCompile>
-    <ClCompile Include="src\Time\RationalTime.cpp">
-      <Filter>�\�[�X �t�@�C��\Time</Filter>
-    </ClCompile>
     <ClCompile Include="include\Core\AspectRatio.ixx">
       <Filter>include\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Core\AspectRatio.cpp">
-      <Filter>�\�[�X �t�@�C��\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Time\Duration.cpp">
-      <Filter>�\�[�X �t�@�C��\Time</Filter>
     </ClCompile>
     <ClCompile Include="include\Time\TimeCodeRange.ixx">
       <Filter>include\Time</Filter>
     </ClCompile>
     <ClCompile Include="include\Platform\ProcessHelperWin.ixx">
       <Filter>include\Platform</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Platform\ProcessHelperWin.cpp">
-      <Filter>�\�[�X �t�@�C��\Platform</Filter>
     </ClCompile>
     <ClCompile Include="include\Utils\PointLike.ixx">
       <Filter>include\Utils</Filter>
@@ -1920,9 +1293,6 @@
     <ClCompile Include="include\Image\Helper\ImageFormatHelper.ixx">
       <Filter>include\Image\Helper</Filter>
     </ClCompile>
-    <ClCompile Include="src\Audio\AudioDecibels.cppm">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
-    </ClCompile>
     <ClCompile Include="include\Audio\AudioDecibels.ixx">
       <Filter>include\Audio</Filter>
     </ClCompile>
@@ -1934,12 +1304,6 @@
     </ClCompile>
     <ClCompile Include="include\Frame\FrameRange.ixx">
       <Filter>include\Frame</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Frame\FrameRange.cpp">
-      <Filter>�\�[�X �t�@�C��\Frame</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Math\RotationTurns.cppm">
-      <Filter>�\�[�X �t�@�C��</Filter>
     </ClCompile>
     <ClCompile Include="include\Audio\AudioBufferQueue.ixx" />
     <ClCompile Include="include\Codec\MFFrameExtractor.ixx" />
@@ -1967,10 +1331,8 @@
     <ClCompile Include="src\Property\AbstractProperty.cppm" />
     <ClCompile Include="src\Knob\Knob.ixx" />
     <ClCompile Include="src\Knob\KnobList.ixx" />
-    <ClCompile Include="src\Media\MediaAudioDecoder.cppm" />
     <ClCompile Include="src\Media\MediaEditorController.cppm" />
     <ClCompile Include="src\Media\MediaImageFrameDecoder.cppm" />
-    <ClCompile Include="src\Media\MediaPlaybackController.cppm" />
     <ClCompile Include="src\Media\MediaReader.cppm" />
     <ClCompile Include="src\Media\MediaSource.cppm" />
     <ClCompile Include="src\Playback\PlaybackClock.cppm" />
@@ -1979,6 +1341,175 @@
     <ClCompile Include="src\Time\TimeCodeRange.cpp" />
     <ClCompile Include="src\UI\InputOperatorManager.cppm" />
     <ClCompile Include="src\UI\RotateOperator.cpp" />
+    <ClCompile Include="..\Artifact\src\Composition\CompositionSettings.cpp" />
+    <ClCompile Include="src\Animation\AnimatableTransform2D.cpp" />
+    <ClCompile Include="src\Animation\AnimatableTransform3D.cpp" />
+    <ClCompile Include="src\Asset\AssetManager.cppm" />
+    <ClCompile Include="src\Audio\AudioBus.cppm" />
+    <ClCompile Include="src\Audio\AudioDecibels.cppm" />
+    <ClCompile Include="src\Audio\AudioDownMixer.cpp" />
+    <ClCompile Include="src\Audio\AudioMixer.cpp" />
+    <ClCompile Include="src\Audio\AudioPanner.cpp" />
+    <ClCompile Include="src\Audio\AudioRasterizer.cpp" />
+    <ClCompile Include="src\Audio\AudioRenderer.cpp" />
+    <ClCompile Include="src\Audio\AudioRingBuffer.cpp" />
+    <ClCompile Include="src\Audio\AudioVolume.cppm" />
+    <ClCompile Include="src\Audio\SimpleWav.cpp" />
+    <ClCompile Include="src\Codec\EncoderSetting.cpp" />
+    <ClCompile Include="src\Codec\FFMpegAudioDecoder.cpp" />
+    <ClCompile Include="src\Codec\FFmpegThumbnailExtractor.cpp" />
+    <ClCompile Include="src\Codec\FFMpegVideoDecoder.cpp" />
+    <ClCompile Include="src\Color\LabColor.cppm" />
+    <ClCompile Include="src\Color\Sarturation.cppm" />
+    <ClCompile Include="src\Command\LambdaCommand.cpp" />
+    <ClCompile Include="src\Common\Point2D.cpp" />
+    <ClCompile Include="src\Core\AspectRatio.cpp" />
+    <ClCompile Include="src\Core\Opacity.cpp" />
+    <ClCompile Include="src\Core\Position2D.cpp" />
+    <ClCompile Include="src\Core\UniformScale.cpp" />
+    <ClCompile Include="src\Event\EventBus.cpp" />
+    <ClCompile Include="src\Frame\FramePosition.cppm" />
+    <ClCompile Include="src\Frame\FrameRange.cpp" />
+    <ClCompile Include="src\Frame\FrameTime.cpp" />
+    <ClCompile Include="src\Graphics\GPUTexture.cpp" />
+    <ClCompile Include="src\IO\asio_async_file_writer.cpp" />
+    <ClCompile Include="src\IO\Image\AsyncImageWriterManager.cpp" />
+    <ClCompile Include="src\Log\Log.cpp" />
+    <ClCompile Include="src\Math\Rotation.cppm" />
+    <ClCompile Include="src\Math\RotationTurns.cppm" />
+    <ClCompile Include="src\Network\NetworkRPCServer.cpp" />
+    <ClCompile Include="src\Platform\ProcessHelperWin.cpp" />
+    <ClCompile Include="src\Preview\PreviewSettings.cpp" />
+    <ClCompile Include="src\Render\RendererQueueManager.cpp" />
+    <ClCompile Include="src\Render\RendererQueueSetting.cpp" />
+    <ClCompile Include="src\Render\RenderJobModel.cpp" />
+    <ClCompile Include="src\Render\RendererQueue.cpp" />
+    <ClCompile Include="src\Render\RenderStatics.cpp" />
+    <ClCompile Include="src\Render\RenderWorker.cpp" />
+    <ClCompile Include="src\Script\Engine\BultinScriptVM\BuiltinScriptVM.cpp" />
+    <ClCompile Include="src\Script\Engine\Context\ScriptContext.cpp" />
+    <ClCompile Include="src\Thread\ThreadHelper.cpp" />
+    <ClCompile Include="src\Time\Duration.cpp" />
+    <ClCompile Include="src\Time\RationalTime.cpp" />
+    <ClCompile Include="src\Time\RealTime.cpp" />
+    <ClCompile Include="src\Time\TimeCode.cpp" />
+    <ClCompile Include="src\Transform\TransformHelper.cppm" />
+    <ClCompile Include="src\UI\InputOperator.cpp" />
+    <ClCompile Include="src\UI\ViewportOperator.cpp" />
+    <ClCompile Include="src\Utils\Id.cpp" />
+    <ClCompile Include="src\Utils\MulitpleTag.cpp" />
+    <ClCompile Include="src\Utils\NameGenerator.cpp" />
+    <ClCompile Include="src\Utils\Path.cpp" />
+    <ClCompile Include="src\Utils\Tag.cpp" />
+    <ClCompile Include="src\Utils\UniString.cppm" />
+    <ClCompile Include="src\Video\MediaTimeStamp.cpp" />
+    <ClCompile Include="src\Video\PlaybackManager.cpp" />
+    <ClCompile Include="include\Image\CvMatPaintDevice.cpp" />
+    <ClCompile Include="src\AbstractDecoder.cpp" />
+    <ClCompile Include="src\Asset\AbstractAssetFile.cppm" />
+    <ClCompile Include="src\Asset\AssetMetaFile.cppm" />
+    <ClCompile Include="src\Codec\GStreamerDecoder.cpp" />
+    <ClCompile Include="src\Codec\MFEncoder.cpp" />
+    <ClCompile Include="src\Color\FloatColor.cpp" />
+    <ClCompile Include="src\Color\FloatRGBA.cppm" />
+    <ClCompile Include="src\Composition\CompositionBuffer2D.cpp" />
+    <ClCompile Include="src\Core\Camera.cpp" />
+    <ClCompile Include="src\Core\KeyFrame.cpp" />
+    <ClCompile Include="src\Core\ShapeVertex.cpp" />
+    <ClCompile Include="src\EnvironmentVariable\EnvironmentVariable.cpp" />
+    <ClCompile Include="src\File\FileInfo.cpp" />
+    <ClCompile Include="src\Frame\FrameRate.cppm" />
+    <ClCompile Include="src\GPU\GPUInfo.cpp" />
+    <ClCompile Include="src\Graphics\GPUComputeContext.cpp" />
+    <ClCompile Include="src\ImageProcessing\Affine.cpp" />
+    <ClCompile Include="src\ImageProcessing\Blur.cpp" />
+    <ClCompile Include="src\ImageProcessing\Edge.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\Draw.cppm" />
+    <ClCompile Include="src\Image\BitmapImage.cpp" />
+    <ClCompile Include="src\Image\ChromaKey.cpp" />
+    <ClCompile Include="src\Image\CompressQuality.cpp" />
+    <ClCompile Include="src\Image\FloatImage.cpp" />
+    <ClCompile Include="src\Image\ImageExports.cpp" />
+    <ClCompile Include="src\Image\ImageF32x4_RGBA.cpp" />
+    <ClCompile Include="src\Image\ImageF32x4_With_Cache.cpp" />
+    <ClCompile Include="src\Image\JPEGImage.cpp" />
+    <ClCompile Include="src\Image\MeshEncoder.cpp" />
+    <ClCompile Include="src\Image\PNGImage.cpp" />
+    <ClCompile Include="src\Image\ImageYUV420.cpp" />
+    <ClCompile Include="src\IO\Image\ImageExporter.cpp" />
+    <ClCompile Include="src\IO\Image\ImageImporter.cpp" />
+    <ClCompile Include="src\Layer\Layer2D.cpp" />
+    <ClCompile Include="src\Layer\LayerState.cpp" />
+    <ClCompile Include="src\Math\Interpolate.cpp" />
+    <ClCompile Include="src\Media\MediaFrame.cpp" />
+    <ClCompile Include="src\Media\MediaProbe.cpp" />
+    <ClCompile Include="src\Mesh\Mesh.cpp" />
+    <ClCompile Include="src\Mesh\WavefrontObj.cpp" />
+    <ClCompile Include="src\Platform\Platform.cpp" />
+    <ClCompile Include="src\Platform\ShellUtils.cpp" />
+    <ClCompile Include="src\Script\hostfxr.cppm" />
+    <ClCompile Include="src\Transform\Rotate.cpp" />
+    <ClCompile Include="src\Transform\Scale2D.cpp" />
+    <ClCompile Include="src\Transform\StaticTransform3D.cpp" />
+    <ClCompile Include="src\Transform\StaticTransform2D.cppm" />
+    <ClCompile Include="src\Utils\HashValue.cpp" />
+    <ClCompile Include="src\Utils\WorkAround.cpp" />
+    <ClCompile Include="src\Video\AbstractEncoder.cpp" />
+    <ClCompile Include="src\Video\LibVLCDecoder.cpp" />
+    <ClCompile Include="src\ImageProcessing\AbstractImageEffect.cpp" />
+    <ClCompile Include="src\Graphics\GPUTextureCacheManager.cppm" />
+    <ClCompile Include="src\Image\CvMatPaintEngine.cpp" />
+    <ClCompile Include="src\Transform\ZoomScale.cpp" />
+    <ClCompile Include="src\Image\FFmpegEncoder.cpp" />
+    <ClCompile Include="src\Image\RawImage.cpp" />
+    <ClCompile Include="src\Layer\Layer2DSetting.cpp" />
+    <ClCompile Include="src\Media\MediaInfo.cpp" />
+    <ClCompile Include="src\Layer\LayerStrip.cpp" />
+    <ClCompile Include="src\Video\FFMpegAudioEncoder.cpp" />
+    <ClCompile Include="src\Frame\FrameOffset.cppm" />
+    <ClCompile Include="src\Media\MediaAudioDecoder.cppm" />
+    <ClCompile Include="src\Media\MediaPlaybackController.cppm" />
+    <ClCompile Include="src\Graphics\Shader\BasicGeometryShader.cpp" />
+    <ClCompile Include="src\Graphics\Shader\BasicShaders.cpp" />
+    <ClCompile Include="src\Graphics\Shader\BasicVertexShader.cpp" />
+    <ClCompile Include="src\Graphics\Texture\TextureManager.cpp" />
+    <ClCompile Include="src\ImageProcessing\DirectCompute\Blend2D_CS.cpp" />
+    <ClCompile Include="src\ImageProcessing\DirectCompute\SinglePassShader.cpp" />
+    <ClCompile Include="src\ImageProcessing\DirectCompute\ThreeWayColorCorrection.cpp" />
+    <ClCompile Include="src\Math\RotationTurns.cppm" />
+    <ClCompile Include="src\Script\Engine\Enviroment\EnvironmentManager.cpp" />
+    <ClCompile Include="src\Script\Engine\Syntax\ASTNode.cppm" />
+    <ClCompile Include="include\Image\Blur\BlurGAPI.cpp" />
+    <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cpp" />
+    <ClCompile Include="src\ImageProcessing\DirectCompute\GlowCS.cpp" />
+    <ClCompile Include="src\ImageProcessing\DirectCompute\MonochromeCS.cpp" />
+    <ClCompile Include="src\ImageProcessing\DirectCompute\NegateCS.cpp" />
+    <ClCompile Include="src\ImageProcessing\Filter.cpp" />
+    <ClCompile Include="src\ImageProcessing\Halide\Affin.cpp" />
+    <ClCompile Include="src\ImageProcessing\Halide\Glow.cpp" />
+    <ClCompile Include="src\ImageProcessing\Halide\MonochromeHalide.cpp" />
+    <ClCompile Include="src\ImageProcessing\NegativeCV.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\AddBlockNoise.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\AffineCV.cppm" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\BloomCV.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\FilmGrain.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\Glow.cppm" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\MergeCV.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\Monochrome.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\Posterize.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\SepiaCV.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\VignetCV.cpp" />
+    <ClCompile Include="src\Image\Halide\HalideImageF32x4RGBA.cpp" />
+    <ClCompile Include="src\Image\OpenCV\ImageTransformCV.cpp" />
+    <ClCompile Include="src\ImageProcessing\OpenCV\SpectralGlowCV.cpp" />
+    <ClCompile Include="include\Script\Expression\ExpressionValue.ixx" />
+    <ClCompile Include="src\Script\Expression\ExpressionValue.cppm" />
+    <ClCompile Include="include\Script\Expression\ExpressionParser.ixx" />
+    <ClCompile Include="include\Script\Expression\ExpressionEvaluator.ixx" />
+    <ClCompile Include="src\Script\Expression\ExpressionParser.cppm" />
+    <ClCompile Include="src\Script\Expression\ExpressionEvaluator.cppm" />
+    <ClCompile Include="docs\ExpressionEngine_Usage.cpp" />
+    <ClCompile Include="docs\MultiLanguageSyntax_Examples.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
@@ -1986,9 +1517,6 @@
     </None>
     <None Include="include\Composition\OpenCVCompositionBuffer2D.hpp">
       <Filter>include\Composition</Filter>
-    </None>
-    <None Include="src\Composition\OpenCVCompositionBuffer2D.cpp">
-      <Filter>�\�[�X �t�@�C��\Composition</Filter>
     </None>
     <None Include="include\third_party\Core">
       <Filter>include\third_party</Filter>
@@ -1999,22 +1527,17 @@
     <None Include="include\ImageProcessing\Halide\Lift.ixx">
       <Filter>include\ImageProcessing\Halide</Filter>
     </None>
-    <None Include="src\ImageProcessing\OpenCV\AutoContrastCV.cppm">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </None>
-    <None Include="src\ImageProcessing\OpenCV\AutoGammaCV.cppm">
-      <Filter>�\�[�X �t�@�C��\ImageProcessing\OpenCV</Filter>
-    </None>
     <None Include="include\Utils\JsonLike.ixx">
       <Filter>include\Utils</Filter>
-    </None>
-    <None Include="src\Audio\AudioWriter.cppm">
-      <Filter>�\�[�X �t�@�C��\Audio</Filter>
     </None>
     <None Include="docs\PlaybackClock_Usage.md" />
     <None Include="docs\TimelineClock_Architecture.md" />
     <None Include="docs\MFFrameExtractor_Usage.md" />
     <None Include="docs\FrameRange_Usage.md" />
+    <None Include="src\Audio\AudioWriter.cppm" />
+    <None Include="src\Composition\OpenCVCompositionBuffer2D.cpp" />
+    <None Include="src\ImageProcessing\OpenCV\AutoContrastCV.cppm" />
+    <None Include="src\ImageProcessing\OpenCV\AutoGammaCV.cppm" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="include\Graphics\Shader\HLSL\FloatBGRAtoRGBA.hlsl">

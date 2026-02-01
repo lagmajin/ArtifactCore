@@ -7,18 +7,22 @@ import Frame.Rate;
 import Time.Rational;
 import Time.Code;
 
+import <cstdint>;
+
 namespace ArtifactCore
 {
+
  class FrameOffset::Impl
  {
  private:
-  int offset_ = 0;
+  int64_t offset_ = 0;
  public:
-  Impl(int offset = 0) : offset_(offset) {}
+  Impl(int64_t offset = 0) : offset_(offset) {}
   ~Impl() {}
 
-  int value() const { return offset_; }
-  void setValue(int offset) { offset_ = offset; }
+  int64_t value() const { return offset_; }
+  int64_t offsetValue() const { return offset_; }
+  void setValue(int64_t offset) { offset_ = offset; }
  };
 
  FrameOffset::FrameOffset() : impl_(new Impl())
@@ -26,22 +30,14 @@ namespace ArtifactCore
 
  }
 
- FrameOffset::FrameOffset(int offset) : impl_(new Impl(offset))
+ FrameOffset::FrameOffset(int64_t offset) : impl_(new Impl(offset))
  {
- }
-
- FrameOffset::FrameOffset(const FrameOffset& other) : impl_(new Impl(other.value()))
- {
- }
-
- FrameOffset::FrameOffset(FrameOffset&& other) noexcept : impl_(other.impl_)
- {
-  other.impl_ = nullptr;
  }
 
  FrameOffset::~FrameOffset()
  {
-  if (impl_) {
+  if (impl_) 
+  {
    delete impl_;
    impl_ = nullptr;
   }
