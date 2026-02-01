@@ -174,6 +174,50 @@ namespace ArtifactCore {
    delete impl_;
   }
 
+  void ImageF32x4_RGBA::setFromCVMat(const cv::Mat& mat)
+  {
+    if (mat.empty()) return;
+
+    cv::Mat tmp;
+    // Convert various types to CV_32FC4 (RGBA float)
+    if (mat.type() == CV_8UC1) {
+      cv::cvtColor(mat, tmp, cv::COLOR_GRAY2RGBA);
+      tmp.convertTo(tmp, CV_32F, 1.0/255.0);
+    } else if (mat.type() == CV_8UC3) {
+      cv::cvtColor(mat, tmp, cv::COLOR_BGR2RGBA);
+      tmp.convertTo(tmp, CV_32F, 1.0/255.0);
+    } else if (mat.type() == CV_8UC4) {
+      mat.convertTo(tmp, CV_32F, 1.0/255.0);
+    } else if (mat.type() == CV_16UC1) {
+      cv::Mat f;
+      mat.convertTo(f, CV_32F, 1.0/65535.0);
+      cv::cvtColor(f, tmp, cv::COLOR_GRAY2RGBA);
+    } else if (mat.type() == CV_16UC3) {
+      cv::Mat f;
+      mat.convertTo(f, CV_32F, 1.0/65535.0);
+      cv::cvtColor(f, tmp, cv::COLOR_BGR2RGBA);
+    } else if (mat.type() == CV_32FC3) {
+      cv::cvtColor(mat, tmp, cv::COLOR_BGR2RGBA);
+    } else if (mat.type() == CV_32FC4) {
+      tmp = mat.clone();
+    } else {
+      // Fallback: convert to RGBA 8-bit then to float
+      cv::Mat bgr8;
+      mat.convertTo(bgr8, CV_8U, 255.0);
+      cv::cvtColor(bgr8, tmp, cv::COLOR_BGR2RGBA);
+      tmp.convertTo(tmp, CV_32F, 1.0/255.0);
+    }
+
+    // Ensure tmp is CV_32FC4
+    if (tmp.type() != CV_32FC4) {
+      tmp.convertTo(tmp, CV_32F);
+      if (tmp.channels() == 1) cv::cvtColor(tmp, tmp, cv::COLOR_GRAY2RGBA);
+      else if (tmp.channels() == 3) cv::cvtColor(tmp, tmp, cv::COLOR_BGR2RGBA);
+    }
+
+    impl_->mat_ = tmp.clone();
+  }
+
   ImageF32x4_RGBA ImageF32x4_RGBA::DeepCopy() const
   {
    ImageF32x4_RGBA copy;

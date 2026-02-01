@@ -47,6 +47,8 @@ export namespace ArtifactCore {
   void flipHorizontal();
   void flipVertical();
   ImageF32x4_RGBA crop(int x, int y, int width, int height) const;
+  // Set from an existing OpenCV Mat (various types supported)
+  void setFromCVMat(const cv::Mat& mat);
   
   // ブレンディング
   void alphaBlend(const ImageF32x4_RGBA& overlay, float opacity = 1.0f);
