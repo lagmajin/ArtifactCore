@@ -199,7 +199,9 @@ namespace ArtifactCore {
     } else if (mat.type() == CV_32FC3) {
       cv::cvtColor(mat, tmp, cv::COLOR_BGR2RGBA);
     } else if (mat.type() == CV_32FC4) {
-      tmp = mat.clone();
+      // zero-copy: directly take ownership of the provided float RGBA mat
+      impl_->mat_ = mat; // shares the underlying buffer (refcounted)
+      return;
     } else {
       // Fallback: convert to RGBA 8-bit then to float
       cv::Mat bgr8;
@@ -210,12 +212,14 @@ namespace ArtifactCore {
 
     // Ensure tmp is CV_32FC4
     if (tmp.type() != CV_32FC4) {
-      tmp.convertTo(tmp, CV_32F);
-      if (tmp.channels() == 1) cv::cvtColor(tmp, tmp, cv::COLOR_GRAY2RGBA);
-      else if (tmp.channels() == 3) cv::cvtColor(tmp, tmp, cv::COLOR_BGR2RGBA);
+      cv::Mat conv;
+      tmp.convertTo(conv, CV_32F);
+      if (conv.channels() == 1) cv::cvtColor(conv, conv, cv::COLOR_GRAY2RGBA);
+      else if (conv.channels() == 3) cv::cvtColor(conv, conv, cv::COLOR_BGR2RGBA);
+      impl_->mat_ = conv; // move converted mat
+    } else {
+      impl_->mat_ = tmp; // assign without extra clone
     }
-
-    impl_->mat_ = tmp.clone();
   }
 
   ImageF32x4_RGBA ImageF32x4_RGBA::DeepCopy() const
