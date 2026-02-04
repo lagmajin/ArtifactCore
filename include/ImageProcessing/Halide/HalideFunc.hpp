@@ -1,11 +1,12 @@
 #pragma once
 
 
-#include <Halide.h>
+//#include <Halide.h>
 
 
 namespace ArtifactCore {
 
+ /*
  using namespace Halide;
 
  Func add_images(Func img1, Func img2, std::string name = "added") 
@@ -19,6 +20,6 @@ namespace ArtifactCore {
 
  }
 
-
+ */
 
 };
