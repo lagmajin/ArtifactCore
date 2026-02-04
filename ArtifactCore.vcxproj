@@ -188,6 +188,9 @@
     <ClCompile Include="include\IO\Image\ImageExporterStb.ixx" />
     <ClCompile Include="include\IO\Image\OIIOMemoryIOManager.ixx" />
     <ClCompile Include="include\IO\Image\OIIOMemoryProxyFactory.ixx" />
+    <ClCompile Include="include\Material\Material.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Media\MediaMetaData.ixx" />
     <ClCompile Include="include\Property\AbstractProperty.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -291,6 +294,9 @@
     </ClCompile>
     <ClCompile Include="include\UI\ViewportOperator.ixx" />
     <ClCompile Include="include\Utils\AssetManager.ixx" />
+    <ClCompile Include="include\Utils\ExplorerUtils.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Utils\FileLike.ixx" />
     <ClCompile Include="include\Utils\Id.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
@@ -392,6 +398,9 @@
     </ClCompile>
     <ClCompile Include="src\Frame\FrameRange.cpp" />
     <ClCompile Include="src\Frame\FrameTime.cpp" />
+    <ClCompile Include="src\Geometry\MeshImporter.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Graphics\GPUTexture.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -415,6 +424,9 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\IO\Image\AsyncImageWriterManager.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
+    <ClCompile Include="src\Material\Material.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Media\MediaAudioDecoder.cppm">
@@ -501,6 +513,9 @@
     </ClCompile>
     <ClCompile Include="src\UI\RotateOperator.cpp" />
     <ClCompile Include="src\UI\ViewportOperator.cpp" />
+    <ClCompile Include="src\Utils\ExplorerUtils.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Utils\Id.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -553,7 +568,7 @@
     </ClCompile>
     <ClCompile Include="include\Core\ShapePath.ixx" />
     <ClCompile Include="include\Core\ShapePoint.cppm" />
-    <ClCompile Include="include\FrameRenderer.ixx" />
+    <ClCompile Include="include\Render\FrameRenderer.ixx" />
     <ClCompile Include="include\Frame\FrameOffset.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -583,9 +598,15 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClInclude Include="include\ImageProcessing\Blur.hpp" />
-    <ClInclude Include="include\ImageProcessing\Halide\HalideArithmetic.hpp" />
-    <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp" />
-    <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp" />
+    <ClInclude Include="include\ImageProcessing\Halide\HalideArithmetic.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="include\ImageProcessing\Halide\HalideFunc.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="include\ImageProcessing\Halide\HalideMerge.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx" />
     <ClCompile Include="include\Frame\FrameTime.ixx" />
     <ClCompile Include="include\Generate\GenerateTestImage.ixx" />
@@ -600,8 +621,12 @@
     <ClCompile Include="include\ImageProcessing\DirectCompute\NegateCS.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\ImageProcessing\Halide\HalideEffectManager.ixx" />
-    <ClCompile Include="include\ImageProcessing\Halide\MonochromeHalide.ixx" />
+    <ClCompile Include="include\ImageProcessing\Halide\HalideEffectManager.ixx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="include\ImageProcessing\Halide\MonochromeHalide.ixx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\AddBlockNoise.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -651,7 +676,9 @@
     <ClCompile Include="include\Image\JPEGImage.ixx">
       <FileType>Document</FileType>
     </ClCompile>
-    <ClCompile Include="include\Image\Halide\HalideImageF32x4RGBA.ixx" />
+    <ClCompile Include="include\Image\Halide\HalideImageF32x4RGBA.ixx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="include\Image\LOGImage.ixx" />
     <ClCompile Include="include\Image\Blur\BlurGAPI.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
@@ -720,7 +747,6 @@
     <ClCompile Include="include\Platform\Platform.ixx" />
     <ClCompile Include="include\Platform\PlatformHint.ixx" />
     <ClCompile Include="include\Platform\ShellUtils.ixx" />
-    <ClCompile Include="include\Render\Material.ixx" />
     <ClCompile Include="include\Render\RenderModule.ixx" />
     <ClCompile Include="include\Render\RenderableObject.ixx" />
     <ClCompile Include="include\Render\RenderSettings.ixx" />
@@ -885,6 +911,7 @@
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\Halide\MonochromeHalide.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\ImageF32x1.ixx" />
     <ClCompile Include="src\ImageProcessing\NegativeCV.cpp">
@@ -933,7 +960,9 @@
     <ClCompile Include="src\Image\FloatImage.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Image\Halide\HalideImageF32x4RGBA.cpp" />
+    <ClCompile Include="src\Image\Halide\HalideImageF32x4RGBA.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="src\Image\ImageExports.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
@@ -946,7 +975,7 @@
     <ClCompile Include="src\Image\JPEGImage.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Image\MeshEncoder.cpp">
+    <ClCompile Include="src\Geometry\MeshEncoder.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
     <ClCompile Include="src\Image\OpenCV\ImageTransformCV.cpp">
@@ -1172,6 +1201,7 @@
     <ClCompile Include="include\ImageProcessing\Halide\HalideTest.ixx">
       <FileType>Document</FileType>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="include\Graphics\Shader\Compute\LayerBlendComputeShader.ixx">
       <FileType>Document</FileType>

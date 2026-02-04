@@ -3,7 +3,7 @@
 export module ImageProcessing;
 
 export import :Monochrome;
-export import :Halide;
+//export import :Halide;
 export import ImageProcessing.NegateCS;
 //export import :ImageTransform;
 import ImageF32x4;

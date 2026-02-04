@@ -1,6 +1,6 @@
 module ;
 #undef emit
-#include <Halide.h>
+//#include <Halide.h>
 
 #include <QtCore/QSize>
 #include <QtCore/QObject>

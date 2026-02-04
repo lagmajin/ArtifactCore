@@ -435,7 +435,7 @@
     <ClCompile Include="include\TestEncoder.ixx">
       <Filter>include\Codec</Filter>
     </ClCompile>
-    <ClCompile Include="include\FrameRenderer.ixx">
+    <ClCompile Include="include\Render\FrameRenderer.ixx">
       <Filter>include\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\G-API\Merge.ixx">
@@ -682,9 +682,6 @@
       <Filter>include\Geometry</Filter>
     </ClCompile>
     <ClCompile Include="include\Render\RenderableObject.ixx">
-      <Filter>include\Render</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Render\Material.ixx">
       <Filter>include\Render</Filter>
     </ClCompile>
     <ClCompile Include="include\IO\Image\ImageImporter.ixx">
@@ -1421,7 +1418,7 @@
     <ClCompile Include="src\Image\ImageF32x4_RGBA.cpp" />
     <ClCompile Include="src\Image\ImageF32x4_With_Cache.cpp" />
     <ClCompile Include="src\Image\JPEGImage.cpp" />
-    <ClCompile Include="src\Image\MeshEncoder.cpp" />
+    <ClCompile Include="src\Geometry\MeshEncoder.cpp" />
     <ClCompile Include="src\Image\PNGImage.cpp" />
     <ClCompile Include="src\Image\ImageYUV420.cpp" />
     <ClCompile Include="src\IO\Image\ImageExporter.cpp" />
@@ -1500,6 +1497,11 @@
     <ClCompile Include="docs\MultiLanguageSyntax_Examples.cpp" />
     <ClCompile Include="src\Script\Engine\Func\BuiltinManager.cpp" />
     <ClCompile Include="src\Script\Engine\Func\ExprIntrinsics.cppm" />
+    <ClCompile Include="src\Geometry\MeshImporter.cppm" />
+    <ClCompile Include="include\Material\Material.ixx" />
+    <ClCompile Include="src\Material\Material.cppm" />
+    <ClCompile Include="include\Utils\ExplorerUtils.ixx" />
+    <ClCompile Include="src\Utils\ExplorerUtils.cppm" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

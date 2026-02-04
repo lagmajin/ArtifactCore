@@ -1,4 +1,6 @@
 ﻿module;
+#include <QString>
+#include <QObject>
 #include <wobjectimpl.h>
 module Video.PlaybackManager;
 
