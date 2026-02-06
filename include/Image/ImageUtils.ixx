@@ -4,9 +4,25 @@ module;
 export module Image.Utils;
 
 import Image.ExportOptions;
+import Image.ImageF32x4RGBAWithCache;
 
 export namespace ArtifactCore {
  using namespace OIIO;
+
+ // Utility function to create a shared_ptr of ImageF32x4RGBAWithCache
+ // Use ImageF32x4RGBAWithCachePtr typedef for cleaner code
+ inline ImageF32x4RGBAWithCachePtr createImageCache() {
+  return std::make_shared<ImageF32x4RGBAWithCache>();
+ }
+ 
+ inline ImageF32x4RGBAWithCachePtr createImageCache(const ImageF32x4_RGBA& image) {
+  return std::make_shared<ImageF32x4RGBAWithCache>(image);
+ }
+ 
+ inline ImageF32x4RGBAWithCachePtr deepCopyImageCache(const ImageF32x4RGBAWithCachePtr& src) {
+  if (!src) return nullptr;
+  return std::make_shared<ImageF32x4RGBAWithCache>(src->DeepCopy());
+ }
 
  ImageSpec createSpec(const QImage& image, const ImageExportOptions& opt) {
   // 1. 解像度とチャンネル数の設定 (QImageは基本4ch)

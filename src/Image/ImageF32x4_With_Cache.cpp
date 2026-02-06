@@ -135,22 +135,66 @@ namespace ArtifactCore
 
  ImageF32x4RGBAWithCache::ImageF32x4RGBAWithCache(const ImageF32x4_RGBA& image) :impl_(new Impl())
  {
+  impl_->m_cpuImage = image;
+ }
 
+ ImageF32x4RGBAWithCache::ImageF32x4RGBAWithCache(const ImageF32x4RGBAWithCache& other) : impl_(new Impl())
+ {
+  impl_->m_cpuImage = other.impl_->m_cpuImage.DeepCopy();
+  impl_->m_bCpuDataDirty = other.impl_->m_bCpuDataDirty;
+  impl_->m_bGpuDataDirty = false; // GPU texture is not copied
+  // Note: GPU texture is not deep copied, only CPU data
  }
 
  ImageF32x4RGBAWithCache::~ImageF32x4RGBAWithCache()
  {
   delete impl_;
  }
+ 
+ ImageF32x4RGBAWithCache ImageF32x4RGBAWithCache::DeepCopy() const
+ {
+  return ImageF32x4RGBAWithCache(*this);
+ }
+ 
+ ImageF32x4RGBAWithCache& ImageF32x4RGBAWithCache::operator=(const ImageF32x4RGBAWithCache& other)
+ {
+  if (this != &other) {
+    impl_->m_cpuImage = other.impl_->m_cpuImage.DeepCopy();
+    impl_->m_bCpuDataDirty = other.impl_->m_bCpuDataDirty;
+    impl_->m_bGpuDataDirty = false; // GPU texture is not copied
+    // Note: GPU texture is not copied, only CPU data
+  }
+  return *this;
+ }
 
  void ImageF32x4RGBAWithCache::UpdateGpuTextureFromCpuData()
  {
-
+  impl_->UpdateGpuTextureFromCpuData();
  }
 
  void ImageF32x4RGBAWithCache::UpdateCpuDataFromGpuTexture()
  {
-
+  impl_->UpdateCpuDataFromGpuTexture();
+ }
+ 
+ ImageF32x4_RGBA& ImageF32x4RGBAWithCache::image() const
+ {
+  return impl_->m_cpuImage;
+ }
+ 
+ int32_t ImageF32x4RGBAWithCache::width() const
+ {
+  return impl_->m_cpuImage.width();
+ }
+ 
+ int32_t ImageF32x4RGBAWithCache::height() const
+ {
+  return impl_->m_cpuImage.height();
+ }
+ 
+ bool ImageF32x4RGBAWithCache::IsGpuTextureValid() const
+ {
+  return impl_->m_pGpuTexture != nullptr;
  }
 
 };
