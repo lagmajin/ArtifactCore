@@ -8,7 +8,7 @@ import std;
 import Animation.Value;
 import Animation.Transform2D;
 import Time.Rational;
-
+import Property.Abstract;
 
 export namespace ArtifactCore
 {
@@ -29,6 +29,12 @@ export namespace ArtifactCore
   void setRotation(const RationalTime& time,float degrees);
  	
   size_t size() const;
+
+  float positionX() const;
+  float positionY() const;
+  float rotation() const;
+  float scaleX() const;
+  float scaleY() const;
  };
 
  };

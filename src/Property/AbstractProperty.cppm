@@ -5,7 +5,7 @@ module;
 #include <QVariant>
 #include <QColor>
 
-module Knob.Abstract;
+module Property.Abstract;
 
 import Time.Rational;
 

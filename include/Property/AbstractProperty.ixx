@@ -5,7 +5,7 @@
 #include <QColor>
 #include <vector>
 #include "../Define/DllExportMacro.hpp"
-export module Knob.Abstract;
+export module Property.Abstract;
 
 import std;
 import Color.Float;

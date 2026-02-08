@@ -195,7 +195,9 @@
     <ClCompile Include="include\Property\AbstractProperty.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\Property\PropertyGroup.ixx" />
+    <ClCompile Include="include\Property\PropertyGroup.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Layer\Layer2D.ixx" />
     <ClCompile Include="include\Layer\LayerBlend.ixx" />
     <ClCompile Include="include\Layer\LayerMatte.ixx" />
@@ -1383,7 +1385,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4819;4828;5050;4267;4244;5202;4251;5050;5260</DisableSpecificWarnings>
       <TranslateIncludes>false</TranslateIncludes>
-      <OpenMPSupport>false</OpenMPSupport>
+      <OpenMPSupport>true</OpenMPSupport>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <EnableModules>true</EnableModules>
       <BuildStlModules>true</BuildStlModules>

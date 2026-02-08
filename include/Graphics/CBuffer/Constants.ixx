@@ -57,13 +57,10 @@ export namespace ArtifactCore
 #pragma pack(push,1)
  struct DrawSpriteConstants
  {
-  float4x4 transform;
+  float4x4 ProjectionMatrix;
+  float4x4 ViewMatrix;
 
  };
 
- struct SpriteVertex {
-  float2 pos; // 座標 (x, y)
-  float2 uv;  // テクスチャ座標 (u, v)
- };
 
 };
