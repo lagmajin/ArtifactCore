@@ -1383,7 +1383,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <DisableSpecificWarnings>4819;4828;5050;4267;4244;5202;4251;5050;5260</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4819;4828;5050;4267;4244;5202;4251;5050;5260;4251</DisableSpecificWarnings>
       <TranslateIncludes>false</TranslateIncludes>
       <OpenMPSupport>true</OpenMPSupport>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>

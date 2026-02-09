@@ -10,11 +10,30 @@ import Math.Interpolate;
 
 export namespace ArtifactCore {
 
- template<typename T>
- struct KeyFrameT {
-  FramePosition frame;
-  T value;
- };
+// ヘルパー関数：線形補間の係数計算
+inline float calculateT(const FramePosition& start, const FramePosition& end, const FramePosition& current) {
+ std::int64_t startFrame = start.framePosition();
+ std::int64_t endFrame = end.framePosition();
+ std::int64_t currentFrame = current.framePosition();
+  
+ if (endFrame <= startFrame) return 0.0f;
+  
+ float range = static_cast<float>(endFrame - startFrame);
+ float offset = static_cast<float>(currentFrame - startFrame);
+ return offset / range;
+}
+
+// ヘルパー関数：線形補間（lerp）
+template<typename T>
+inline T mix(const T& a, const T& b, float t) {
+ return static_cast<T>(a + (b - a) * t);
+}
+
+template<typename T>
+struct KeyFrameT {
+ FramePosition frame;
+ T value;
+};
 
 
  // =========================
