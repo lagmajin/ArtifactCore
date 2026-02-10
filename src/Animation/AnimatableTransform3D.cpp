@@ -5,6 +5,7 @@ module;
 module Animation.Transform3D;
 import std;
 import Animation.Value;
+import Math.Interpolate;
 //import Graphics.CBuffer.Constants;
 
 namespace ArtifactCore
@@ -243,6 +244,222 @@ float4x4 AnimatableTransform3D::getMatrixAt(const RationalTime& time) const
   matrix = translationMatrix * rotationMatrix * scaleMatrix;
   
   return matrix;
+}
+
+// ============================================
+// キーフレーム管理機能の実装
+// ============================================
+
+// Position キーフレーム管理
+bool AnimatableTransform3D::hasPositionKeyFrameAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->x_.hasKeyFrameAt(frame) || impl_->y_.hasKeyFrameAt(frame);
+}
+
+void AnimatableTransform3D::removePositionKeyFrameAt(const RationalTime& time)
+{
+  FramePosition frame(time.rescaledTo(24));
+  impl_->x_.removeKeyFrameAt(frame);
+  impl_->y_.removeKeyFrameAt(frame);
+}
+
+void AnimatableTransform3D::clearPositionKeyFrames()
+{
+  impl_->x_.clearKeyFrames();
+  impl_->y_.clearKeyFrames();
+}
+
+size_t AnimatableTransform3D::getPositionKeyFrameCount() const
+{
+  // X と Y のキーフレーム数の最大値を返す（通常は同じはず）
+  return std::max(impl_->x_.getKeyFrameCount(), impl_->y_.getKeyFrameCount());
+}
+
+std::vector<RationalTime> AnimatableTransform3D::getPositionKeyFrameTimes() const
+{
+  std::set<int64_t> frameSet;
+  
+  // X のキーフレーム時刻を追加
+  for (const auto& kf : impl_->x_.getKeyFrames()) {
+    frameSet.insert(kf.frame.framePosition());
+  }
+  
+  // Y のキーフレーム時刻を追加
+  for (const auto& kf : impl_->y_.getKeyFrames()) {
+    frameSet.insert(kf.frame.framePosition());
+  }
+  
+  // RationalTime に変換
+  std::vector<RationalTime> times;
+  for (int64_t framePos : frameSet) {
+    times.push_back(RationalTime(framePos, 24));
+  }
+  
+  return times;
+}
+
+void AnimatableTransform3D::movePositionKeyFrame(const RationalTime& from, const RationalTime& to)
+{
+  FramePosition fromFrame(from.rescaledTo(24));
+  FramePosition toFrame(to.rescaledTo(24));
+  impl_->x_.moveKeyFrame(fromFrame, toFrame);
+  impl_->y_.moveKeyFrame(fromFrame, toFrame);
+}
+
+void AnimatableTransform3D::moveRotationKeyFrame(const RationalTime& from, const RationalTime& to)
+{
+  FramePosition fromFrame(from.rescaledTo(24));
+  FramePosition toFrame(to.rescaledTo(24));
+  impl_->rotation_.moveKeyFrame(fromFrame, toFrame);
+}
+
+void AnimatableTransform3D::moveScaleKeyFrame(const RationalTime& from, const RationalTime& to)
+{
+  FramePosition fromFrame(from.rescaledTo(24));
+  FramePosition toFrame(to.rescaledTo(24));
+  impl_->scaleX_.moveKeyFrame(fromFrame, toFrame);
+  impl_->scaleY_.moveKeyFrame(fromFrame, toFrame);
+}
+
+void AnimatableTransform3D::setPositionKeyFrameInterpolationAt(const RationalTime& time, InterpolationType interpolation)
+{
+  FramePosition frame(time.rescaledTo(24));
+  impl_->x_.setKeyFrameInterpolationAt(frame, interpolation);
+  impl_->y_.setKeyFrameInterpolationAt(frame, interpolation);
+}
+
+void AnimatableTransform3D::setRotationKeyFrameInterpolationAt(const RationalTime& time, InterpolationType interpolation)
+{
+  FramePosition frame(time.rescaledTo(24));
+  impl_->rotation_.setKeyFrameInterpolationAt(frame, interpolation);
+}
+
+void AnimatableTransform3D::setScaleKeyFrameInterpolationAt(const RationalTime& time, InterpolationType interpolation)
+{
+  FramePosition frame(time.rescaledTo(24));
+  impl_->scaleX_.setKeyFrameInterpolationAt(frame, interpolation);
+  impl_->scaleY_.setKeyFrameInterpolationAt(frame, interpolation);
+}
+
+InterpolationType AnimatableTransform3D::positionKeyFrameInterpolationAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  if (impl_->x_.hasKeyFrameAt(frame)) {
+    return impl_->x_.getKeyFrameInterpolationAt(frame);
+  }
+  if (impl_->y_.hasKeyFrameAt(frame)) {
+    return impl_->y_.getKeyFrameInterpolationAt(frame);
+  }
+  return InterpolationType::Linear;
+}
+
+InterpolationType AnimatableTransform3D::rotationKeyFrameInterpolationAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->rotation_.getKeyFrameInterpolationAt(frame);
+}
+
+InterpolationType AnimatableTransform3D::scaleKeyFrameInterpolationAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  if (impl_->scaleX_.hasKeyFrameAt(frame)) {
+    return impl_->scaleX_.getKeyFrameInterpolationAt(frame);
+  }
+  if (impl_->scaleY_.hasKeyFrameAt(frame)) {
+    return impl_->scaleY_.getKeyFrameInterpolationAt(frame);
+  }
+  return InterpolationType::Linear;
+}
+
+// Rotation キーフレーム管理
+bool AnimatableTransform3D::hasRotationKeyFrameAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->rotation_.hasKeyFrameAt(frame);
+}
+
+void AnimatableTransform3D::removeRotationKeyFrameAt(const RationalTime& time)
+{
+  FramePosition frame(time.rescaledTo(24));
+  impl_->rotation_.removeKeyFrameAt(frame);
+}
+
+void AnimatableTransform3D::clearRotationKeyFrames()
+{
+  impl_->rotation_.clearKeyFrames();
+}
+
+size_t AnimatableTransform3D::getRotationKeyFrameCount() const
+{
+  return impl_->rotation_.getKeyFrameCount();
+}
+
+std::vector<RationalTime> AnimatableTransform3D::getRotationKeyFrameTimes() const
+{
+  std::vector<RationalTime> times;
+  
+  for (const auto& kf : impl_->rotation_.getKeyFrames()) {
+    times.push_back(RationalTime(kf.frame.framePosition(), 24));
+  }
+  
+  return times;
+}
+
+// Scale キーフレーム管理
+bool AnimatableTransform3D::hasScaleKeyFrameAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->scaleX_.hasKeyFrameAt(frame) || impl_->scaleY_.hasKeyFrameAt(frame);
+}
+
+void AnimatableTransform3D::removeScaleKeyFrameAt(const RationalTime& time)
+{
+  FramePosition frame(time.rescaledTo(24));
+  impl_->scaleX_.removeKeyFrameAt(frame);
+  impl_->scaleY_.removeKeyFrameAt(frame);
+}
+
+void AnimatableTransform3D::clearScaleKeyFrames()
+{
+  impl_->scaleX_.clearKeyFrames();
+  impl_->scaleY_.clearKeyFrames();
+}
+
+size_t AnimatableTransform3D::getScaleKeyFrameCount() const
+{
+  return std::max(impl_->scaleX_.getKeyFrameCount(), impl_->scaleY_.getKeyFrameCount());
+}
+
+std::vector<RationalTime> AnimatableTransform3D::getScaleKeyFrameTimes() const
+{
+  std::set<int64_t> frameSet;
+  
+  // ScaleX のキーフレーム時刻を追加
+  for (const auto& kf : impl_->scaleX_.getKeyFrames()) {
+    frameSet.insert(kf.frame.framePosition());
+  }
+  
+  // ScaleY のキーフレーム時刻を追加
+  for (const auto& kf : impl_->scaleY_.getKeyFrames()) {
+    frameSet.insert(kf.frame.framePosition());
+  }
+  
+  // RationalTime に変換
+  std::vector<RationalTime> times;
+  for (int64_t framePos : frameSet) {
+    times.push_back(RationalTime(framePos, 24));
+  }
+  
+  return times;
+}
+
+// すべてクリア
+void AnimatableTransform3D::clearAllKeyFrames()
+{
+  clearPositionKeyFrames();
+  clearRotationKeyFrames();
+  clearScaleKeyFrames();
 }
 
 };

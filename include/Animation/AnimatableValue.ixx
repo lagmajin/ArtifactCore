@@ -33,6 +33,7 @@ template<typename T>
 struct KeyFrameT {
  FramePosition frame;
  T value;
+ InterpolationType interpolation = InterpolationType::Linear;
 };
 
 
@@ -85,6 +86,67 @@ struct KeyFrameT {
 	[](auto& a, auto& b) { return a.frame < b.frame; });
   }
 
+  // ============================================
+  // キーフレーム管理機能
+  // ============================================
+  
+  // 指定フレームにキーフレームが存在するか
+  bool hasKeyFrameAt(const FramePosition& frame) const {
+   auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
+    [&frame](const auto& kf) { return kf.frame == frame; });
+   return it != keyframes_.end();
+  }
+  
+  // 指定フレームのキーフレームを削除
+  void removeKeyFrameAt(const FramePosition& frame) {
+   auto it = std::remove_if(keyframes_.begin(), keyframes_.end(),
+    [&frame](const auto& kf) { return kf.frame == frame; });
+   keyframes_.erase(it, keyframes_.end());
+  }
+
+  bool moveKeyFrame(const FramePosition& from, const FramePosition& to) {
+   if (from == to) return hasKeyFrameAt(from);
+
+   auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
+    [&from](const auto& kf) { return kf.frame == from; });
+   if (it == keyframes_.end()) return false;
+
+   removeKeyFrameAt(to);
+   it->frame = to;
+   std::sort(keyframes_.begin(), keyframes_.end(),
+    [](auto& a, auto& b) { return a.frame < b.frame; });
+   return true;
+  }
+
+  bool setKeyFrameInterpolationAt(const FramePosition& frame, InterpolationType interpolation) {
+   auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
+    [&frame](const auto& kf) { return kf.frame == frame; });
+   if (it == keyframes_.end()) return false;
+   it->interpolation = interpolation;
+   return true;
+  }
+
+  InterpolationType getKeyFrameInterpolationAt(const FramePosition& frame) const {
+   auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
+    [&frame](const auto& kf) { return kf.frame == frame; });
+   if (it == keyframes_.end()) return InterpolationType::Linear;
+   return it->interpolation;
+  }
+  
+  // すべてのキーフレームをクリア
+  void clearKeyFrames() {
+   keyframes_.clear();
+  }
+  
+  // キーフレーム数を取得
+  size_t getKeyFrameCount() const {
+   return keyframes_.size();
+  }
+  
+  // すべてのキーフレームを取得（読み取り専用）
+  const std::vector<KeyFrameT<T>>& getKeyFrames() const {
+   return keyframes_;
+  }
 
   
  };

@@ -9,11 +9,13 @@ import std;
 import Animation.Value;
 import Animation.Transform2D;
 import Time.Rational;
+import Math.Interpolate;
 import Property.Abstract;
 
 export namespace ArtifactCore
 {
  using namespace Diligent;
+
 
  class LIBRARY_DLL_API AnimatableTransform3D
  {
@@ -53,6 +55,36 @@ export namespace ArtifactCore
   
   // 指定時刻のアニメーション補間値から行列を生成
   float4x4 getMatrixAt(const RationalTime& time) const;
+  
+  // ============================================
+  // キーフレーム管理機能（UI/エディタ用）
+  // ============================================
+  
+  // 指定時刻にキーフレームが存在するか
+  bool hasPositionKeyFrameAt(const RationalTime& time) const;
+  bool hasRotationKeyFrameAt(const RationalTime& time) const;
+  bool hasScaleKeyFrameAt(const RationalTime& time) const;
+  
+  // 指定時刻のキーフレームを削除
+  void removePositionKeyFrameAt(const RationalTime& time);
+  void removeRotationKeyFrameAt(const RationalTime& time);
+  void removeScaleKeyFrameAt(const RationalTime& time);
+  
+  // すべてのキーフレームをクリア
+  void clearPositionKeyFrames();
+  void clearRotationKeyFrames();
+  void clearScaleKeyFrames();
+  void clearAllKeyFrames();
+  
+  // キーフレーム数を取得
+  size_t getPositionKeyFrameCount() const;
+  size_t getRotationKeyFrameCount() const;
+  size_t getScaleKeyFrameCount() const;
+  
+  // すべてのキーフレーム時刻を取得（ソート済み）
+  std::vector<RationalTime> getPositionKeyFrameTimes() const;
+  std::vector<RationalTime> getRotationKeyFrameTimes() const;
+  std::vector<RationalTime> getScaleKeyFrameTimes() const;
  };
 
  };

@@ -1502,6 +1502,10 @@
     <ClCompile Include="src\Material\Material.cppm" />
     <ClCompile Include="include\Utils\ExplorerUtils.ixx" />
     <ClCompile Include="src\Utils\ExplorerUtils.cppm" />
+    <ClCompile Include="src\Graphics\PSOCache.cppm" />
+    <ClCompile Include="include\Graphics\PSOCache.ixx">
+      <Filter>include\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
