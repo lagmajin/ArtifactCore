@@ -18,6 +18,9 @@ export namespace ArtifactCore {
   UniString(const UniString& other);
   UniString(const std::u16string& u16);
   UniString(const std::string& str);
+  UniString(const char* str);
+  UniString(const char16_t* str);
+  UniString(const char32_t* str);
   UniString(const QString& str);
   ~UniString();
   size_t length() const;

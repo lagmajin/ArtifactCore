@@ -34,7 +34,11 @@ export namespace ArtifactCore {
   // 幅・高さ系を何でも吸収するコンストラクタ
   template<HasWidthHeightLike T>
   Size_2D(const T& other) {
-   if constexpr (requires { other.width; other.height; }) {
+   if constexpr (std::is_same_v<T, QSize>) {
+    width = other.width();
+    height = other.height();
+   }
+   else if constexpr (requires { other.width; other.height; }) {
 	width = other.width;
 	height = other.height;
    }
@@ -77,6 +81,12 @@ export namespace ArtifactCore {
  };
 
  };
+
+
+
+
+
+
 
 
 

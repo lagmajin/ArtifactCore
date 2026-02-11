@@ -21,6 +21,10 @@ export namespace ArtifactCore {
    : r_(r), g_(g), b_(b), a_(a) {
   }
 
+  // コピー・ムーブコンストラクタ
+  FloatRGBA(const FloatRGBA&) = default;
+  FloatRGBA(FloatRGBA&&) = default;
+
   // アクセッサ
   float r() const { return r_; }
   float g() const { return g_; }

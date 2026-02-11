@@ -14,12 +14,12 @@ using namespace Diligent;
 class AnimatableTransform3D::Impl
 {
 private:
-   
+
 public:
   bool isZVisible = false;
   float initial_x = 0;
   float initial_y = 0;
-  
+
   // アニメーション対応の値
   AnimatableValueT<float> x_;
   AnimatableValueT<float> y_;
@@ -30,13 +30,15 @@ public:
   AnimatableValueT<float> anchorX_;
   AnimatableValueT<float> anchorY_;
   AnimatableValueT<float> anchorZ_;
-  
+
   // 現在値（キャッシュ）
   float positionX_ = 0.0f;
   float positionY_ = 0.0f;
+  float positionZ_ = 0.0f;
   float currentRotation_ = 0.0f;
   float currentScaleX_ = 1.0f;
   float currentScaleY_ = 1.0f;
+
   Impl();
   ~Impl();
 
@@ -80,6 +82,8 @@ void AnimatableTransform3D::setInitialPosition(const RationalTime& time, float p
 {
   impl_->positionX_ = px;
   impl_->positionY_ = py;
+  impl_->x_.setCurrent(px);
+  impl_->y_.setCurrent(py);
 }
 
 void AnimatableTransform3D::setPosition(const RationalTime& time, float x, float y)
@@ -90,6 +94,21 @@ void AnimatableTransform3D::setPosition(const RationalTime& time, float x, float
   impl_->y_.addKeyFrame(frame, y);
   impl_->positionX_ = x;
   impl_->positionY_ = y;
+}
+
+void AnimatableTransform3D::setPositionZ(const RationalTime& time, float z)
+{
+  FramePosition frame(time.rescaledTo(24));
+  impl_->z_.addKeyFrame(frame, z);
+  impl_->positionZ_ = z;
+}
+
+void AnimatableTransform3D::setAnchor(const RationalTime& time, float x, float y, float z)
+{
+  FramePosition frame(time.rescaledTo(24));
+  impl_->anchorX_.addKeyFrame(frame, x);
+  impl_->anchorY_.addKeyFrame(frame, y);
+  impl_->anchorZ_.addKeyFrame(frame, z);
 }
 
 void AnimatableTransform3D::setRotation(const RationalTime& time, float degrees)
@@ -109,6 +128,11 @@ float AnimatableTransform3D::positionY() const
   return impl_->positionY_;
 }
 
+float AnimatableTransform3D::positionZ() const
+{
+  return impl_->positionZ_;
+}
+
 float AnimatableTransform3D::rotation() const
 {
   return impl_->currentRotation_;
@@ -122,6 +146,21 @@ float AnimatableTransform3D::scaleX() const
 float AnimatableTransform3D::scaleY() const
 {
   return impl_->currentScaleY_;
+}
+
+float AnimatableTransform3D::anchorX() const
+{
+  return impl_->anchorX_.current();
+}
+
+float AnimatableTransform3D::anchorY() const
+{
+  return impl_->anchorY_.current();
+}
+
+float AnimatableTransform3D::anchorZ() const
+{
+  return impl_->anchorZ_.current();
 }
 
 // ============================================
@@ -151,6 +190,12 @@ float AnimatableTransform3D::positionYAt(const RationalTime& time) const
   return impl_->y_.at(frame);
 }
 
+float AnimatableTransform3D::positionZAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->z_.at(frame);
+}
+
 float AnimatableTransform3D::rotationAt(const RationalTime& time) const
 {
   FramePosition frame(time.rescaledTo(24));
@@ -167,6 +212,24 @@ float AnimatableTransform3D::scaleYAt(const RationalTime& time) const
 {
   FramePosition frame(time.rescaledTo(24));
   return impl_->scaleY_.at(frame);
+}
+
+float AnimatableTransform3D::anchorXAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->anchorX_.at(frame);
+}
+
+float AnimatableTransform3D::anchorYAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->anchorY_.at(frame);
+}
+
+float AnimatableTransform3D::anchorZAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->anchorZ_.at(frame);
 }
 
 void AnimatableTransform3D::setUserScale(const RationalTime& time, float xs, float ys)
@@ -204,6 +267,30 @@ float4x4 AnimatableTransform3D::getMatrix() const
   matrix = translationMatrix * rotationMatrix * scaleMatrix;
   
   return matrix;
+}
+
+float4x4 AnimatableTransform3D::getAllMatrix() const
+{
+  float4x4 scaleMatrix = float4x4::Scale(impl_->currentScaleX_, impl_->currentScaleY_, 1.0f);
+
+  float radians = impl_->currentRotation_ * 3.14159265358979323846f / 180.0f;
+  float cosR = std::cos(radians);
+  float sinR = std::sin(radians);
+
+  float4x4 rotationMatrix = float4x4::Identity();
+  rotationMatrix.m00 = cosR;
+  rotationMatrix.m01 = -sinR;
+  rotationMatrix.m10 = sinR;
+  rotationMatrix.m11 = cosR;
+
+  float ax = impl_->anchorX_.current();
+  float ay = impl_->anchorY_.current();
+  float az = impl_->anchorZ_.current();
+
+  float4x4 anchorMatrix = float4x4::Translation(-ax, -ay, -az);
+  float4x4 translationMatrix = float4x4::Translation(impl_->positionX_, impl_->positionY_, impl_->positionZ_);
+
+  return translationMatrix * rotationMatrix * scaleMatrix * anchorMatrix;
 }
 
 // ============================================
@@ -244,6 +331,38 @@ float4x4 AnimatableTransform3D::getMatrixAt(const RationalTime& time) const
   matrix = translationMatrix * rotationMatrix * scaleMatrix;
   
   return matrix;
+}
+
+float4x4 AnimatableTransform3D::getAllMatrixAt(const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+
+  float px = impl_->x_.at(frame);
+  float py = impl_->y_.at(frame);
+  float pz = impl_->z_.at(frame);
+  float rot = impl_->rotation_.at(frame);
+  float sx = impl_->scaleX_.at(frame);
+  float sy = impl_->scaleY_.at(frame);
+  float ax = impl_->anchorX_.at(frame);
+  float ay = impl_->anchorY_.at(frame);
+  float az = impl_->anchorZ_.at(frame);
+
+  float4x4 scaleMatrix = float4x4::Scale(sx, sy, 1.0f);
+
+  float radians = rot * 3.14159265358979323846f / 180.0f;
+  float cosR = std::cos(radians);
+  float sinR = std::sin(radians);
+
+  float4x4 rotationMatrix = float4x4::Identity();
+  rotationMatrix.m00 = cosR;
+  rotationMatrix.m01 = -sinR;
+  rotationMatrix.m10 = sinR;
+  rotationMatrix.m11 = cosR;
+
+  float4x4 anchorMatrix = float4x4::Translation(-ax, -ay, -az);
+  float4x4 translationMatrix = float4x4::Translation(px, py, pz);
+
+  return translationMatrix * rotationMatrix * scaleMatrix * anchorMatrix;
 }
 
 // ============================================
@@ -297,79 +416,6 @@ std::vector<RationalTime> AnimatableTransform3D::getPositionKeyFrameTimes() cons
   }
   
   return times;
-}
-
-void AnimatableTransform3D::movePositionKeyFrame(const RationalTime& from, const RationalTime& to)
-{
-  FramePosition fromFrame(from.rescaledTo(24));
-  FramePosition toFrame(to.rescaledTo(24));
-  impl_->x_.moveKeyFrame(fromFrame, toFrame);
-  impl_->y_.moveKeyFrame(fromFrame, toFrame);
-}
-
-void AnimatableTransform3D::moveRotationKeyFrame(const RationalTime& from, const RationalTime& to)
-{
-  FramePosition fromFrame(from.rescaledTo(24));
-  FramePosition toFrame(to.rescaledTo(24));
-  impl_->rotation_.moveKeyFrame(fromFrame, toFrame);
-}
-
-void AnimatableTransform3D::moveScaleKeyFrame(const RationalTime& from, const RationalTime& to)
-{
-  FramePosition fromFrame(from.rescaledTo(24));
-  FramePosition toFrame(to.rescaledTo(24));
-  impl_->scaleX_.moveKeyFrame(fromFrame, toFrame);
-  impl_->scaleY_.moveKeyFrame(fromFrame, toFrame);
-}
-
-void AnimatableTransform3D::setPositionKeyFrameInterpolationAt(const RationalTime& time, InterpolationType interpolation)
-{
-  FramePosition frame(time.rescaledTo(24));
-  impl_->x_.setKeyFrameInterpolationAt(frame, interpolation);
-  impl_->y_.setKeyFrameInterpolationAt(frame, interpolation);
-}
-
-void AnimatableTransform3D::setRotationKeyFrameInterpolationAt(const RationalTime& time, InterpolationType interpolation)
-{
-  FramePosition frame(time.rescaledTo(24));
-  impl_->rotation_.setKeyFrameInterpolationAt(frame, interpolation);
-}
-
-void AnimatableTransform3D::setScaleKeyFrameInterpolationAt(const RationalTime& time, InterpolationType interpolation)
-{
-  FramePosition frame(time.rescaledTo(24));
-  impl_->scaleX_.setKeyFrameInterpolationAt(frame, interpolation);
-  impl_->scaleY_.setKeyFrameInterpolationAt(frame, interpolation);
-}
-
-InterpolationType AnimatableTransform3D::positionKeyFrameInterpolationAt(const RationalTime& time) const
-{
-  FramePosition frame(time.rescaledTo(24));
-  if (impl_->x_.hasKeyFrameAt(frame)) {
-    return impl_->x_.getKeyFrameInterpolationAt(frame);
-  }
-  if (impl_->y_.hasKeyFrameAt(frame)) {
-    return impl_->y_.getKeyFrameInterpolationAt(frame);
-  }
-  return InterpolationType::Linear;
-}
-
-InterpolationType AnimatableTransform3D::rotationKeyFrameInterpolationAt(const RationalTime& time) const
-{
-  FramePosition frame(time.rescaledTo(24));
-  return impl_->rotation_.getKeyFrameInterpolationAt(frame);
-}
-
-InterpolationType AnimatableTransform3D::scaleKeyFrameInterpolationAt(const RationalTime& time) const
-{
-  FramePosition frame(time.rescaledTo(24));
-  if (impl_->scaleX_.hasKeyFrameAt(frame)) {
-    return impl_->scaleX_.getKeyFrameInterpolationAt(frame);
-  }
-  if (impl_->scaleY_.hasKeyFrameAt(frame)) {
-    return impl_->scaleY_.getKeyFrameInterpolationAt(frame);
-  }
-  return InterpolationType::Linear;
 }
 
 // Rotation キーフレーム管理

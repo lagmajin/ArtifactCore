@@ -88,6 +88,24 @@ namespace ArtifactCore {
   impl_->str_ = QString::fromStdString(str);
  }
 
+ UniString::UniString(const char* str) :impl_(new Impl())
+ {
+  // Convert const char* to QString (assuming UTF-8)
+  impl_->str_ = QString::fromUtf8(str);
+ }
+
+ UniString::UniString(const char16_t* str) :impl_(new Impl())
+ {
+  // Convert const char16_t* to QString
+  impl_->str_ = QString::fromUtf16(str);
+ }
+
+ UniString::UniString(const char32_t* str) :impl_(new Impl())
+ {
+  // Convert const char32_t* to QString (UCS-4)
+  impl_->str_ = QString::fromUcs4(str);
+ }
+
  UniString::~UniString()
  {
   delete impl_;
