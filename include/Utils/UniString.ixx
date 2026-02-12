@@ -30,10 +30,13 @@ export namespace ArtifactCore {
   operator std::u16string() const;
   operator std::string() const;
   QString toQString() const;
-  
+
   void setQString(const QString& str);
   UniString& operator=(const UniString& other);
   UniString& operator=(UniString&& other) noexcept;
+
+  // Static factory method
+  static UniString fromQString(const QString& str);
 
   // Comparison operators for lexicographical ordering
   bool operator==(const UniString& other) const;

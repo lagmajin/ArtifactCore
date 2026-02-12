@@ -195,4 +195,10 @@ namespace ArtifactCore {
   return impl_->str_ >= other.impl_->str_;
  }
 
+ // Static factory method implementation
+ UniString UniString::fromQString(const QString& str)
+ {
+  return UniString(str);
+ }
+
 };

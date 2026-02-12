@@ -1423,7 +1423,6 @@
     <ClCompile Include="src\Image\ImageYUV420.cpp" />
     <ClCompile Include="src\IO\Image\ImageExporter.cpp" />
     <ClCompile Include="src\IO\Image\ImageImporter.cpp" />
-    <ClCompile Include="src\Layer\Layer2D.cpp" />
     <ClCompile Include="src\Layer\LayerState.cpp" />
     <ClCompile Include="src\Math\Interpolate.cpp" />
     <ClCompile Include="src\Media\MediaFrame.cpp" />
@@ -1506,6 +1505,7 @@
     <ClCompile Include="include\Graphics\PSOCache.ixx">
       <Filter>include\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="src\Layer\Layer2D.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">
