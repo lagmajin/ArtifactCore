@@ -40,7 +40,7 @@ namespace ArtifactCore {
 
  UniString::Impl::Impl(const std::u16string& u16)
  {
-
+  str_ = QString::fromStdU16String(u16);
  }
 	
  UniString::Impl::~Impl()
@@ -74,12 +74,12 @@ namespace ArtifactCore {
 
  UniString::UniString(const QString& str) :impl_(new Impl())
  {
-
+  impl_->str_ = str;
  }
 
  UniString::UniString(const std::u16string& u16) :impl_(new Impl())
  {
-
+  impl_->str_ = QString::fromStdU16String(u16);
  }
 
  UniString::UniString(const std::string& str) :impl_(new Impl())
