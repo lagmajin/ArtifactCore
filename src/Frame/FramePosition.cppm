@@ -71,6 +71,20 @@ FramePosition& FramePosition::operator=(FramePosition&& other) noexcept
  return *this;
  }
 
+FramePosition& FramePosition::operator=(int64_t frame) noexcept {
+    impl_->frame = frame;
+    return *this;
+}
+
+bool FramePosition::isValid() const {
+    // A negative frame is used as an invalid sentinel in this codebase
+    return impl_ && impl_->frame >= 0;
+}
+
+bool FramePosition::isNegative() const {
+    return impl_ && impl_->frame < 0;
+}
+
  FramePosition FramePosition::operator+(int64_t frames) const
  {
   return FramePosition(impl_->frame + frames);

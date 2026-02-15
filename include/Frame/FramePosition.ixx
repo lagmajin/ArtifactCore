@@ -1,5 +1,6 @@
 ﻿module;
 #include <QString>
+#include <wobjectdefs.h>
 
 #include "../Define/DllExportMacro.hpp"
 export module Frame.Position;
@@ -43,6 +44,10 @@ export namespace ArtifactCore {
   FramePosition& operator-=(int64_t frames);
 
   int64_t operator-(const FramePosition& other) const;
+
+ public: // Verdigris registration for usage in signals/slots
+  // Register this type name so W_REGISTER_ARGTYPE can be applied where needed
+  // (no-op here, kept to satisfy header parsing)
 
   // 比較
   bool operator==(const FramePosition&) const;
