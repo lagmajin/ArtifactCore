@@ -6,4 +6,5 @@ export namespace ArtifactCore{
  class ImageF32x4_PreMulRGBA {
 
  };
+
 }
