@@ -22,19 +22,24 @@ export namespace ArtifactCore {
   private:
    class Impl;
    Impl* impl_;
-
-   //std::vector<uint8_t> y_plane_;
-   //std::vector<uint8_t> u_plane_;
-   //std::vector<uint8_t> v_plane_;
- public:
-	ImageYUV420();
-    ImageYUV420(const QImage& image);
+  public:
+   ImageYUV420();
+   ImageYUV420(const QImage& image);
    ~ImageYUV420();
-   static ImageYUV420 fromImage32xRGBA(const ImageF32x4_RGBA);
 
-   static ImageYUV420 fromQImage(const QImage& image);
+   // Create from an ImageF32x4_RGBA (straight RGBA)
+   static ImageYUV420 fromImage32xRGBA(const ImageF32x4_RGBA& rgba);
+
+   // Convert back to ImageF32x4_RGBA
+   ImageF32x4_RGBA toImage32xRGBA() const;
+
+   // Create from raw Y/U/V planes (U/V may be subsampled H/2 x W/2)
+   static ImageYUV420 fromPlanes(const cv::Mat& yPlane, const cv::Mat& uPlane, const cv::Mat& vPlane);
+
+   // Access raw planes
+   cv::Mat yPlane() const;
+   cv::Mat uPlane() const;
+   cv::Mat vPlane() const;
  };
-
-
 
 }
