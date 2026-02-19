@@ -3,6 +3,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QKeySequence>
 #include <QDebug>
 #include <wobjectimpl.h>
 
@@ -167,7 +168,7 @@ public:
     std::map<QString, QString> categories_;
 };
 
-W_OBJECT_IMPL(ActionManager)
+//W_OBJECT_IMPL(ActionManager)
 
 ActionManager* ActionManager::instance() {
     static ActionManager manager;
@@ -473,7 +474,7 @@ public:
     Impl() {}
 };
 
-W_OBJECT_IMPL(InputOperator)
+//W_OBJECT_IMPL(InputOperator)
 
 InputOperator::InputOperator(QObject* parent)
     : QObject(parent)

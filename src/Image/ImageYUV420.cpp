@@ -6,7 +6,7 @@ module Image.ImageYUV420;
 import std;
 import Image.ImageF32x4_RGBA;
 import FloatRGBA;
-//import <opencv2/opencv.hpp>;
+
 
 namespace ArtifactCore {
 

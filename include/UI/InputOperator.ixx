@@ -2,6 +2,7 @@
 #include <QObject>
 #include <QString>
 #include <QKeySequence>
+#include <QVariant>
 #include <functional>
 #include <map>
 #include <vector>
@@ -11,8 +12,6 @@ export module Input.Operator;
 
 import std;
 import InputEvent;
-
-W_REGISTER_ARGTYPE(ArtifactCore::InputEvent)
 
 export namespace ArtifactCore
 {
@@ -108,13 +107,12 @@ public:
     
     // Convert to human-readable string
     QString toString() const;
-    
-signals:
+
     void activated() W_SIGNAL(activated);
     void bindingChanged() W_SIGNAL(bindingChanged);
 };
 
-W_REGISTER_ARGTYPE(InputBinding*)
+// W_REGISTER_ARGTYPE must be outside 'export namespace' to avoid creating ArtifactCore::w_internal
 
 /**
  * @brief Action that can be triggered by shortcuts
@@ -169,13 +167,12 @@ public:
     
     std::function<bool(const QVariantMap&)>& confirmCallback() { return confirmCallback_; }
     void setConfirmCallback(const std::function<bool(const QVariantMap&)>& cb) { confirmCallback_ = cb; }
-    
-signals:
+
     void triggered(const QVariantMap& params) W_SIGNAL(triggered, params);
     void actionChanged() W_SIGNAL(actionChanged);
 };
 
-W_REGISTER_ARGTYPE(Action*)
+// W_REGISTER_ARGTYPE for Action* moved outside namespace
 
 /**
  * @brief Manager for all actions - similar to Blender's operator system
@@ -187,8 +184,11 @@ private:
     Impl* impl_;
     
 public:
-    W_SINGLETON(ActionManager)
-    
+    static ActionManager* instance() {
+        static ActionManager s;
+        return &s;
+    }
+
     explicit ActionManager(QObject* parent = nullptr);
     ~ActionManager();
     
@@ -212,8 +212,7 @@ public:
                         const QString& name,
                         const QString& description,
                         std::function<void()> callback);
-    
-signals:
+
     void actionRegistered(Action* action) W_SIGNAL(actionRegistered, action);
     void actionUnregistered(const QString& id) W_SIGNAL(actionUnregistered, id);
     void actionExecuted(const QString& id, const QVariantMap& params) W_SIGNAL(actionExecuted, id, params);
@@ -271,14 +270,13 @@ public:
     
     // Check if key is mapped
     bool isKeyMapped(int key, InputEvent::Modifiers mods) const;
-    
-signals:
+
     void bindingAdded(InputBinding* binding) W_SIGNAL(bindingAdded, binding);
     void bindingRemoved(InputBinding* binding) W_SIGNAL(bindingRemoved, binding);
     void keyMapChanged() W_SIGNAL(keyMapChanged);
 };
 
-W_REGISTER_ARGTYPE(KeyMap*)
+// W_REGISTER_ARGTYPE for KeyMap* moved outside namespace
 
 /**
  * @brief Input operator - processes input events and triggers actions
@@ -329,8 +327,7 @@ public:
     
     // Debug
     QString dumpKeyMaps() const;
-    
-signals:
+
     void keyPressed(int key, InputEvent::Modifiers mods) W_SIGNAL(keyPressed, key, mods);
     void keyReleased(int key, InputEvent::Modifiers mods) W_SIGNAL(keyReleased, key, mods);
     void actionExecuted(const QString& actionId) W_SIGNAL(actionExecuted, actionId);
@@ -340,3 +337,10 @@ signals:
 };
 
 } // namespace ArtifactCore
+
+// All W_REGISTER_ARGTYPE calls must be at global scope (outside export namespace)
+// to avoid creating ArtifactCore::w_internal which shadows ::w_internal
+W_REGISTER_ARGTYPE(ArtifactCore::InputEvent)
+W_REGISTER_ARGTYPE(ArtifactCore::InputBinding*)
+W_REGISTER_ARGTYPE(ArtifactCore::Action*)
+W_REGISTER_ARGTYPE(ArtifactCore::KeyMap*)
