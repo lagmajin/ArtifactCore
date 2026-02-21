@@ -260,8 +260,9 @@ void ActionManager::executeAction(const QString& id, const QVariantMap& params) 
 
 bool ActionManager::confirmAction(const QString& id, const QVariantMap& params) {
     auto* action = getAction(id);
-    if (action && action->confirmCallback_) {
-        return action->confirmCallback_(params);
+    if (action) {
+        auto& cb = action->confirmCallback();
+        if (cb) return cb(params);
     }
     return true;
 }
@@ -289,7 +290,7 @@ public:
     std::map<std::pair<int, int>, InputBinding*> keyBindings_;  // (key, mods) -> binding
 };
 
-W_OBJECT_IMPL(KeyMap)
+//W_OBJECT_IMPL(KeyMap)
 
 KeyMap::KeyMap(const QString& name, QObject* parent)
     : QObject(parent)
@@ -539,7 +540,7 @@ void InputOperator::setActiveContext(const QString& ctx) {
 }
 
 bool InputOperator::processKeyEvent(const InputEvent& event) {
-    if (!enabled_) {
+    if (!impl_->enabled_) {
         return false;
     }
     
@@ -553,7 +554,7 @@ bool InputOperator::processKeyEvent(const InputEvent& event) {
 }
 
 bool InputOperator::processKeyPress(int key, InputEvent::Modifiers modifiers) {
-    if (!enabled_) {
+    if (!impl_->enabled_) {
         return false;
     }
     
@@ -585,7 +586,7 @@ bool InputOperator::processKeyPress(int key, InputEvent::Modifiers modifiers) {
 }
 
 bool InputOperator::processKeyRelease(int key, InputEvent::Modifiers modifiers) {
-    if (!enabled_) {
+    if (!impl_->enabled_) {
         return false;
     }
     
