@@ -278,6 +278,9 @@
     <Filter Include="include\Geometory">
       <UniqueIdentifier>{f96d0218-168d-4a6e-a603-6a1ee8a03c87}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{adac8e53-6b01-47c2-821e-95804de22786}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">

@@ -10,8 +10,8 @@ export namespace ArtifactCore
  private:
 
  public:
-  ImageInterface();
-  ~ImageInterface();
+  ImageInterface() {}
+  ~ImageInterface() {}
 
   virtual int width() const = 0;
   virtual int height() const = 0;

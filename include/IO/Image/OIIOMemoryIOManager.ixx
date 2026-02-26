@@ -1,4 +1,5 @@
 ﻿module;
+#include <cstring>
 #include <OpenImageIO/imageio.h>
 #include <OpenImageIO/filesystem.h>
 #include <vector>
@@ -137,7 +138,16 @@ export namespace ArtifactCore {
 
   size_t read(void* buf, size_t size) override
   {
-   return 0;
+   if (!buf)
+       return 0;
+   if (m_pos < 0)
+       return 0;
+   const size_t available = (m_pos >= static_cast<int64_t>(m_buffer.size())) ? 0u : static_cast<size_t>(m_buffer.size() - static_cast<size_t>(m_pos));
+   const size_t toRead = std::min(available, size);
+   if (toRead > 0)
+       std::memcpy(buf, m_buffer.data() + static_cast<size_t>(m_pos), toRead);
+   m_pos += static_cast<int64_t>(toRead);
+   return toRead;
   }
 
 
@@ -152,19 +162,31 @@ export namespace ArtifactCore {
    if (offset + size > m_buffer.size()) {
 	m_buffer.resize(static_cast<size_t>(offset + size));
    }
-   std::memcpy(m_buffer.data() + offset, buf, size);
+   std::memcpy(m_buffer.data() + static_cast<size_t>(offset), buf, size);
+   return size;
   }
 
 
   size_t size() const override
   {
-   throw std::logic_error("The method or operation is not implemented.");
+   return m_buffer.size();
   }
 
 
   size_t pread(void* buf, size_t size, int64_t offset) override
   {
-   return 0;
+   if (!buf)
+       return 0;
+   if (offset < 0)
+       return 0;
+   const size_t start = static_cast<size_t>(offset);
+   if (start >= m_buffer.size())
+       return 0;
+   const size_t available = m_buffer.size() - start;
+   const size_t toRead = std::min(available, size);
+   if (toRead > 0)
+       std::memcpy(buf, m_buffer.data() + start, toRead);
+   return toRead;
   }
 
  };
