@@ -1448,6 +1448,7 @@
     </ProjectReference>
     <Lib>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkTimeCodeGeneration>
+      <IgnoreSpecificDefaultLibraries Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Qt6AxServerd.lib</IgnoreSpecificDefaultLibraries>
     </Lib>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
