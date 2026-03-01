@@ -59,6 +59,15 @@ public:
     void setAnimatable(bool animatable);
     void setColorValue(const QColor& color);
 
+    /// @brief 表示優先度を設定する。
+    /// 値が小さいほど高優先度（先頭に近い位置に表示される）。
+    /// デフォルトは 0。
+    /// @param priority 表示優先度（負の値も可）
+    void setDisplayPriority(int priority);
+
+    /// @brief 表示優先度を返す。
+    int displayPriority() const;
+
     // KeyFrame operations
     void addKeyFrame(const RationalTime& time, const QVariant& value);
     void removeKeyFrame(const RationalTime& time);

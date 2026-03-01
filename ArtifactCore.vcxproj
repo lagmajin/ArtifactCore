@@ -206,9 +206,14 @@
     <ClCompile Include="include\Layer\LayerMatte.ixx" />
     <ClCompile Include="include\Log\Log.ixx">
       <DeploymentContent>false</DeploymentContent>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\Log\LogLevel.ixx" />
-    <ClCompile Include="include\Log\LogModule.ixx" />
+    <ClCompile Include="include\Log\LogLevel.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
+    <ClCompile Include="include\Log\LogModule.ixx">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="include\Math\InterpolatorFactory.ixx" />
     <ClCompile Include="include\Math\Math.ixx" />
     <ClCompile Include="include\Math\Rotation.ixx" />

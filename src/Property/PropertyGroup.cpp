@@ -75,4 +75,19 @@ std::vector<AbstractPropertyPtr> PropertyGroup::allProperties() const {
   return impl_->properties_;
 }
 
+std::vector<AbstractPropertyPtr> PropertyGroup::sortedProperties() const {
+  auto sorted = impl_->properties_;
+  std::stable_sort(sorted.begin(), sorted.end(),
+      [](const AbstractPropertyPtr& a, const AbstractPropertyPtr& b) {
+        return a->displayPriority() < b->displayPriority();
+      });
+  return sorted;
+}
+
+void PropertyGroup::addPropertyWithPriority(const AbstractPropertyPtr& property, int priority) {
+  if (!property) return;
+  property->setDisplayPriority(priority);
+  addProperty(property);
+}
+
 } // namespace ArtifactCore

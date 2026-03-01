@@ -26,7 +26,19 @@ public:
   bool removeProperty(const QString& propertyName);
   AbstractPropertyPtr findProperty(const QString& propertyName) const;
   size_t propertyCount() const;
+
+  /// @brief 全プロパティを追加順に返す。
   std::vector<AbstractPropertyPtr> allProperties() const;
+
+  /// @brief 全プロパティを displayPriority の昇順（小さい値が先頭）でソートして返す。
+  /// 表示用にUI側から呼び出すことを想定。
+  std::vector<AbstractPropertyPtr> sortedProperties() const;
+
+  /// @brief 優先度を指定してプロパティを追加する便利メソッド。
+  /// addProperty(プロパティ) + setDisplayPriority() のショートカット。
+  /// @param property 追加するプロパティ
+  /// @param priority  表示優先度（小さい値が先頭）
+  void addPropertyWithPriority(const AbstractPropertyPtr& property, int priority);
 
 private:
   class Impl;
