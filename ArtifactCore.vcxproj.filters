@@ -275,8 +275,17 @@
     <Filter Include="include\Format">
       <UniqueIdentifier>{ffa9633e-dff4-483a-bb36-7b875c1bbaed}</UniqueIdentifier>
     </Filter>
-    <Filter Include="include\Geometory">
+    <Filter Include="include\Geometry">
       <UniqueIdentifier>{f96d0218-168d-4a6e-a603-6a1ee8a03c87}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\Property">
+      <UniqueIdentifier>{e7d8f9a0-b1c2-d3e4-f5a6-b7c8d9e0f1a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Property">
+      <UniqueIdentifier>{e7d8f9a0-b1c2-d3e4-f5a6-b7c8d9e0f1a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Utils">
+      <UniqueIdentifier>{e7d8f9a0-b1c2-d3e4-f5a6-b7c8d9e0f1a5}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{adac8e53-6b01-47c2-821e-95804de22786}</UniqueIdentifier>
@@ -618,6 +627,9 @@
     <ClCompile Include="include\File\FileInfo.ixx">
       <Filter>include\File</Filter>
     </ClCompile>
+    <ClCompile Include="include\Utils\AssetFingerprint.ixx">
+      <Filter>include\Utils</Filter>
+    </ClCompile>
     <ClCompile Include="include\Video\GStreamerDecoder.ixx">
       <Filter>include\Codec</Filter>
     </ClCompile>
@@ -769,6 +781,12 @@
       <Filter>include\Math</Filter>
     </ClCompile>
     <ClCompile Include="include\Geometry\BezierCalculator.ixx">
+      <Filter>include\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\BezierPathSampler.ixx">
+      <Filter>include\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Geometry\LayerBoundsCalculator.ixx">
       <Filter>include\Geometry</Filter>
     </ClCompile>
     <ClCompile Include="include\Color\ColorLuminance.ixx">
@@ -1306,7 +1324,10 @@
       <Filter>include\Color</Filter>
     </ClCompile>
     <ClCompile Include="include\Property\AbstractProperty.ixx">
-      <Filter>include</Filter>
+      <Filter>include\Property</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Property\PropertyLinkManager.ixx">
+      <Filter>include\Property</Filter>
     </ClCompile>
     <ClCompile Include="include\Frame\FrameRange.ixx">
       <Filter>include\Frame</Filter>
@@ -1317,7 +1338,9 @@
     <ClCompile Include="include\File\FileTypeDetector.ixx" />
     <ClCompile Include="include\Graphics\Shader\HLSL\GradientShader.ixx" />
     <ClCompile Include="include\Media\MediaMetaData.ixx" />
-    <ClCompile Include="include\Property\PropertyGroup.ixx" />
+    <ClCompile Include="include\Property\PropertyGroup.ixx">
+      <Filter>include\Property</Filter>
+    </ClCompile>
     <ClCompile Include="include\Media\MediaAudioDecoder.ixx" />
     <ClCompile Include="include\Media\MediaEditorController.ixx" />
     <ClCompile Include="include\Media\MediaImageFrameDecoder.ixx" />
@@ -1451,6 +1474,18 @@
     </ClCompile>
     <ClCompile Include="src\Color\ColorHarmonizer.cppm">
       <Filter>src\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Property\PropertyLinkManager.cppm">
+      <Filter>src\Property</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\AssetFingerprint.cppm">
+      <Filter>src\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Geometry\BezierPathSampler.cppm">
+      <Filter>src\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Geometry\LayerBoundsCalculator.cppm">
+      <Filter>src\Geometry</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\PNGImage.cpp" />
     <ClCompile Include="src\Image\ImageYUV420.cpp" />
