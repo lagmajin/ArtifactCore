@@ -278,6 +278,9 @@
     <Filter Include="include\Geometry">
       <UniqueIdentifier>{f96d0218-168d-4a6e-a603-6a1ee8a03c87}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Math">
+      <UniqueIdentifier>{e7d8f9a0-b1c2-d3e4-f5a6-b7c8d9e0f1a6}</UniqueIdentifier>
+    </Filter>
     <Filter Include="include\Property">
       <UniqueIdentifier>{e7d8f9a0-b1c2-d3e4-f5a6-b7c8d9e0f1a3}</UniqueIdentifier>
     </Filter>
@@ -1341,6 +1344,9 @@
     <ClCompile Include="include\Property\PropertyGroup.ixx">
       <Filter>include\Property</Filter>
     </ClCompile>
+    <ClCompile Include="include\Math\NoiseGenerator.ixx">
+      <Filter>include\Math</Filter>
+    </ClCompile>
     <ClCompile Include="include\Media\MediaAudioDecoder.ixx" />
     <ClCompile Include="include\Media\MediaEditorController.ixx" />
     <ClCompile Include="include\Media\MediaImageFrameDecoder.ixx" />
@@ -1406,6 +1412,9 @@
     <ClCompile Include="src\Log\Log.cpp" />
     <ClCompile Include="src\Math\Rotation.cppm" />
     <ClCompile Include="src\Math\RotationTurns.cppm" />
+    <ClCompile Include="src\Math\NoiseGenerator.cppm">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="src\Network\NetworkRPCServer.cpp" />
     <ClCompile Include="src\Platform\ProcessHelperWin.cpp" />
     <ClCompile Include="src\Preview\PreviewSettings.cpp" />
@@ -1486,6 +1495,9 @@
     </ClCompile>
     <ClCompile Include="src\Geometry\LayerBoundsCalculator.cppm">
       <Filter>src\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Math\NoiseGenerator.cppm">
+      <Filter>src\Math</Filter>
     </ClCompile>
     <ClCompile Include="src\Image\PNGImage.cpp" />
     <ClCompile Include="src\Image\ImageYUV420.cpp" />

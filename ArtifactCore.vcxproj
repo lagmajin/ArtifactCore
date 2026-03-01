@@ -219,6 +219,9 @@
     </ClCompile>
     <ClCompile Include="include\Math\InterpolatorFactory.ixx" />
     <ClCompile Include="include\Math\Math.ixx" />
+    <ClCompile Include="include\Math\NoiseGenerator.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Math\Rotation.ixx" />
     <ClCompile Include="include\Media\MediaAudioDecoder.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
