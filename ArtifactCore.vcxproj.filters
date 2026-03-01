@@ -281,6 +281,12 @@
     <Filter Include="src">
       <UniqueIdentifier>{adac8e53-6b01-47c2-821e-95804de22786}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Color">
+      <UniqueIdentifier>{e7d8f9a0-b1c2-d3e4-f5a6-b7c8d9e0f1a2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Geometry">
+      <UniqueIdentifier>{b1c2d3e4-f5a6-a7b8-c9d0-e1f2a3b4c5d6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
@@ -764,6 +770,15 @@
     </ClCompile>
     <ClCompile Include="include\Geometry\BezierCalculator.ixx">
       <Filter>include\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Color\ColorLuminance.ixx">
+      <Filter>include\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Color\ColorConversion.ixx">
+      <Filter>include\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Color\ColorHarmonizer.ixx">
+      <Filter>include\Color</Filter>
     </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\EdgeCV.ixx">
       <Filter>include\ImageProcessing</Filter>
@@ -1425,7 +1440,18 @@
     <ClCompile Include="src\Image\ImageF32x4_With_Cache.cpp" />
     <ClCompile Include="src\Image\JPEGImage.cpp" />
     <ClCompile Include="src\Geometry\MeshEncoder.cpp" />
-    <ClCompile Include="src\Geometry\BezierCalculator.cppm" />
+    <ClCompile Include="src\Geometry\BezierCalculator.cppm">
+      <Filter>src\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Color\ColorLuminance.cppm">
+      <Filter>src\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Color\ColorConversion.cppm">
+      <Filter>src\Color</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Color\ColorHarmonizer.cppm">
+      <Filter>src\Color</Filter>
+    </ClCompile>
     <ClCompile Include="src\Image\PNGImage.cpp" />
     <ClCompile Include="src\Image\ImageYUV420.cpp" />
     <ClCompile Include="src\IO\Image\ImageExporter.cpp" />
