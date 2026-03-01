@@ -762,6 +762,9 @@
     <ClCompile Include="include\Geometry\Interpolate.ixx">
       <Filter>include\Math</Filter>
     </ClCompile>
+    <ClCompile Include="include\Geometry\BezierCalculator.ixx">
+      <Filter>include\Geometry</Filter>
+    </ClCompile>
     <ClCompile Include="include\ImageProcessing\OpenCV\EdgeCV.ixx">
       <Filter>include\ImageProcessing</Filter>
     </ClCompile>
@@ -1422,6 +1425,7 @@
     <ClCompile Include="src\Image\ImageF32x4_With_Cache.cpp" />
     <ClCompile Include="src\Image\JPEGImage.cpp" />
     <ClCompile Include="src\Geometry\MeshEncoder.cpp" />
+    <ClCompile Include="src\Geometry\BezierCalculator.cppm" />
     <ClCompile Include="src\Image\PNGImage.cpp" />
     <ClCompile Include="src\Image\ImageYUV420.cpp" />
     <ClCompile Include="src\IO\Image\ImageExporter.cpp" />
