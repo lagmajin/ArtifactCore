@@ -1,49 +1,69 @@
 module;
 
 #include <cmath>
-#include <algorithm>
-#include <vector>
+#include <QList>
 
 module Color.Harmonizer;
 
 import std;
+import Color.Float;
 import Color.Conversion;
 
 namespace ArtifactCore {
 
-std::array<float, 3> ColorHarmonizer::getComplementary(float r, float g, float b) {
-    auto hsv = ColorConversion::RGBToHSV(r, g, b);
-    hsv.h = std::fmod(hsv.h + 180.0f, 360.0f);
-    return ColorConversion::HSVToRGB(hsv);
+static FloatColor fromHueShifted(const FloatColor& baseColor, qreal hueShiftDegrees) {
+    auto hsv = ColorConversion::RGBToHSV(baseColor.r(), baseColor.g(), baseColor.b());
+    hsv.h = std::fmod(hsv.h + hueShiftDegrees + 360.0f, 360.0f);
+    auto rgb = ColorConversion::HSVToRGB(hsv);
+    return FloatColor(rgb[0], rgb[1], rgb[2], baseColor.a());
 }
 
-std::vector<std::array<float, 3>> ColorHarmonizer::getAnalogous(float r, float g, float b, float angle) {
-    auto hsv = ColorConversion::RGBToHSV(r, g, b);
-    auto h1 = hsv; h1.h = std::fmod(h1.h + angle + 360.0f, 360.0f);
-    auto h2 = hsv; h2.h = std::fmod(h2.h - angle + 360.0f, 360.0f);
-    return { ColorConversion::HSVToRGB(h1), ColorConversion::HSVToRGB(h2) };
+FloatColor ColorHarmonizer::getComplementary(const FloatColor& color) {
+    return fromHueShifted(color, 180.0f);
 }
 
-std::vector<std::array<float, 3>> ColorHarmonizer::getTriadic(float r, float g, float b) {
-    auto hsv = ColorConversion::RGBToHSV(r, g, b);
-    auto h1 = hsv; h1.h = std::fmod(h1.h + 120.0f, 360.0f);
-    auto h2 = hsv; h2.h = std::fmod(h2.h + 240.0f, 360.0f);
-    return { ColorConversion::HSVToRGB(h1), ColorConversion::HSVToRGB(h2) };
+QList<FloatColor> ColorHarmonizer::getAnalogous(const FloatColor& color, float angle) {
+    return {
+        fromHueShifted(color, angle),
+        fromHueShifted(color, -angle)
+    };
 }
 
-std::vector<std::array<float, 3>> ColorHarmonizer::getSplitComplementary(float r, float g, float b, float offsetAngle) {
-    auto hsv = ColorConversion::RGBToHSV(r, g, b);
-    auto h1 = hsv; h1.h = std::fmod(h1.h + 180.0f - offsetAngle + 360.0f, 360.0f);
-    auto h2 = hsv; h2.h = std::fmod(h2.h + 180.0f + offsetAngle + 360.0f, 360.0f);
-    return { ColorConversion::HSVToRGB(h1), ColorConversion::HSVToRGB(h2) };
+QList<FloatColor> ColorHarmonizer::getTriadic(const FloatColor& color) {
+    return {
+        fromHueShifted(color, 120.0f),
+        fromHueShifted(color, 240.0f)
+    };
 }
 
-std::vector<std::array<float, 3>> ColorHarmonizer::getTetradic(float r, float g, float b) {
-    auto hsv = ColorConversion::RGBToHSV(r, g, b);
-    auto h1 = hsv; h1.h = std::fmod(h1.h + 90.0f, 360.0f);
-    auto h2 = hsv; h2.h = std::fmod(h2.h + 180.0f, 360.0f);
-    auto h3 = hsv; h3.h = std::fmod(h3.h + 270.0f, 360.0f);
-    return { ColorConversion::HSVToRGB(h1), ColorConversion::HSVToRGB(h2), ColorConversion::HSVToRGB(h3) };
+QList<FloatColor> ColorHarmonizer::getSplitComplementary(const FloatColor& color, float offsetAngle) {
+    return {
+        fromHueShifted(color, 180.0f - offsetAngle),
+        fromHueShifted(color, 180.0f + offsetAngle)
+    };
+}
+
+QList<FloatColor> ColorHarmonizer::getTetradic(const FloatColor& color) {
+    return {
+        fromHueShifted(color, 90.0f),
+        fromHueShifted(color, 180.0f),
+        fromHueShifted(color, 270.0f)
+    };
+}
+
+QList<FloatColor> ColorHarmonizer::getMonochromatic(const FloatColor& color, int count) {
+    QList<FloatColor> result;
+    auto hsv = ColorConversion::RGBToHSV(color.r(), color.g(), color.b());
+    
+    // Varying the Value (Lightness)
+    float step = 1.0f / (count + 1.0f);
+    for (int i = 1; i <= count; ++i) {
+        auto hsvTemp = hsv;
+        hsvTemp.v = std::fmod(hsv.v + step * i, 1.0f);
+        auto rgb = ColorConversion::HSVToRGB(hsvTemp);
+        result.append(FloatColor(rgb[0], rgb[1], rgb[2], color.a()));
+    }
+    return result;
 }
 
 } // namespace ArtifactCore
