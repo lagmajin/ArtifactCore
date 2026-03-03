@@ -308,14 +308,17 @@
     <Filter Include="src\ImageProcessing\OpenCV">
       <UniqueIdentifier>{8C9EB1D8-6AD6-49EA-A71B-D95E2E2EA4AF}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Script">
+      <UniqueIdentifier>{F6F77577-1355-4F31-8BAE-4689938152B4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\Script\Python">
+      <UniqueIdentifier>{7C347DB6-42C5-4470-A05E-957BA78B1675}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Script\Python">
+      <UniqueIdentifier>{7D668C66-4577-49AA-B193-184142721C82}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\ImageProcessing\NoiseImageGenerator.ixx">
-      <Filter>include\Generator</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Video\GStreamerEncoder.ixx">
-      <Filter>include\Codec</Filter>
-    </ClInclude>
     <ClInclude Include="include\Image\FloatImage.hpp">
       <Filter>include\Image</Filter>
     </ClInclude>
@@ -346,18 +349,24 @@
     <ClInclude Include="include\third_party\stb_image.h">
       <Filter>include\third_party</Filter>
     </ClInclude>
-    <ClInclude Include="include\Composition\AbstractCompositionBuffer2D.ixx">
-      <Filter>include\Composition</Filter>
-    </ClInclude>
     <ClInclude Include="include\Image\FloatBitmapImage.hpp">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="include\Define\DllExportMacro.hpp">
       <Filter>include\Define</Filter>
     </ClInclude>
-    <ClInclude Include="include\Color\Alpha.ixx">
+    <ClCompile Include="include\ImageProcessing\NoiseImageGenerator.ixx">
+      <Filter>include\Generator</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Video\GStreamerEncoder.ixx">
+      <Filter>include\Codec</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Composition\AbstractCompositionBuffer2D.ixx">
+      <Filter>include\Composition</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Color\Alpha.ixx">
       <Filter>include\Color</Filter>
-    </ClInclude>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="include\Channel\Channel.ixx">
@@ -1621,6 +1630,20 @@
     </ClCompile>
     <ClCompile Include="src\ImageProcessing\OpenCV\LiftCV.cpp">
       <Filter>src\ImageProcessing\OpenCV</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Python\PythonEngine.ixx">
+      <CompileAs>CompileAsCppModule</CompileAs>
+      <Filter>include\Script\Python</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\Python\PythonEngine.cpp">
+      <Filter>src\Script\Python</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Script\Python\CorePythonAPI.ixx">
+      <CompileAs>CompileAsCppModule</CompileAs>
+      <Filter>include\Script\Python</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\Python\CorePythonAPI.cpp">
+      <Filter>src\Script\Python</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
