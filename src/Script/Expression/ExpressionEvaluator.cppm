@@ -8,6 +8,7 @@ module Script.Expression.Evaluator;
 import std;
 import Script.Expression.Value;
 import Script.Expression.Parser;
+import Math.Noise;
 
 namespace ArtifactCore {
 
@@ -430,15 +431,18 @@ ExpressionValue Random(const std::vector<ExpressionValue>& args) {
 }
 
 ExpressionValue Noise(const std::vector<ExpressionValue>& args) {
-    // Simplified noise (use proper Perlin/Simplex noise in production)
     if (args.empty()) return ExpressionValue();
     double x = args[0].asNumber();
     double y = args.size() > 1 ? args[1].asNumber() : 0.0;
     double z = args.size() > 2 ? args[2].asNumber() : 0.0;
     
-    // Simple pseudo-random based on position
-    double n = std::sin(x * 12.9898 + y * 78.233 + z * 45.164) * 43758.5453;
-    return ExpressionValue(n - std::floor(n));
+    // Use actual Perlin noise from NoiseGenerator
+    float val = NoiseGenerator::perlin(
+        static_cast<float>(x),
+        static_cast<float>(y),
+        static_cast<float>(z));
+    // Remap from [-1,1] to [0,1]
+    return ExpressionValue(static_cast<double>(val) * 0.5 + 0.5);
 }
 
 ExpressionValue Sum(const std::vector<ExpressionValue>& args) {
