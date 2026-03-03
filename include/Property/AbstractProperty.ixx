@@ -39,6 +39,12 @@ public:
     AbstractProperty();
     ~AbstractProperty();
 
+    // Copy/Move - declarations only (impl in .cppm)
+    AbstractProperty(const AbstractProperty& other);
+    AbstractProperty& operator=(const AbstractProperty& other);
+    AbstractProperty(AbstractProperty&& other) noexcept;
+    AbstractProperty& operator=(AbstractProperty&& other) noexcept;
+
     // Getters
     QString getName() const;
     PropertyType getType() const;

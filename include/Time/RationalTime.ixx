@@ -28,8 +28,12 @@ export namespace ArtifactCore {
   RationalTime operator-(const RationalTime& other) const;
   bool operator<(const RationalTime& other) const;
   bool operator>(const RationalTime& other) const;
+  bool operator<=(const RationalTime& other) const;
+  bool operator>=(const RationalTime& other) const;
   bool operator==(const RationalTime& other) const;
   bool operator!=(const RationalTime& other) const;
+  // 値をdouble（秒単位）に変換
+  double toDouble() const;
   // --- ユーティリティ ---
   // 秒から生成 (内部で適切なscaleを自動設定、例: 100000等)
   static RationalTime fromSeconds(double seconds);

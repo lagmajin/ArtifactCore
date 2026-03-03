@@ -28,7 +28,6 @@ public:
     std::vector<KeyFrame> m_keyFrames;
 };
 
-// -----------------------------------------------------------------------
 // Constructor / Destructor
 // -----------------------------------------------------------------------
 AbstractProperty::AbstractProperty()
@@ -36,6 +35,32 @@ AbstractProperty::AbstractProperty()
 
 AbstractProperty::~AbstractProperty() {
     delete pImpl;
+}
+
+// Copy/Move constructors
+AbstractProperty::AbstractProperty(const AbstractProperty& other)
+    : pImpl(new Impl(*other.pImpl)) {}
+
+AbstractProperty& AbstractProperty::operator=(const AbstractProperty& other) {
+    if (this != &other) {
+        delete pImpl;
+        pImpl = new Impl(*other.pImpl);
+    }
+    return *this;
+}
+
+AbstractProperty::AbstractProperty(AbstractProperty&& other) noexcept
+    : pImpl(other.pImpl) {
+    other.pImpl = nullptr;
+}
+
+AbstractProperty& AbstractProperty::operator=(AbstractProperty&& other) noexcept {
+    if (this != &other) {
+        delete pImpl;
+        pImpl = other.pImpl;
+        other.pImpl = nullptr;
+    }
+    return *this;
 }
 
 // -----------------------------------------------------------------------

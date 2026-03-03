@@ -72,6 +72,12 @@ export namespace ArtifactCore {
   }
  };
 
+ // Generic linear interpolation function (LERP)
+ export template<typename T>
+ T lerp(const T& start, const T& end, double alpha) {
+  return start + (end - start) * alpha;
+ }
+
  // EaseIn補間
  struct EaseIn {
   template<typename T>

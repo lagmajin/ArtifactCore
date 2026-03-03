@@ -94,6 +94,12 @@ namespace ArtifactCore {
   return static_cast<double>(impl_->value_) / static_cast<double>(impl_->scale_);
  }
 
+ double RationalTime::toDouble() const
+ {
+  // toDouble() returns the same value as toSeconds() (time in seconds as double)
+  return toSeconds();
+ }
+
  int64_t RationalTime::rescaledTo(int64_t newScale) const
  {
   if (impl_->scale_ == 0 || newScale == 0) return 0;
@@ -137,6 +143,16 @@ namespace ArtifactCore {
  bool RationalTime::operator>(const RationalTime& other) const
  {
   return other < *this;
+ }
+
+ bool RationalTime::operator<=(const RationalTime& other) const
+ {
+  return *this < other || *this == other;
+ }
+
+ bool RationalTime::operator>=(const RationalTime& other) const
+ {
+  return *this > other || *this == other;
  }
 
  bool RationalTime::operator==(const RationalTime& other) const
