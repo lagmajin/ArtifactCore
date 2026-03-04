@@ -177,6 +177,12 @@
     <ClCompile Include="include\Common\Common.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Common\ThreadPool.ixx">
+      <CompileAs>CompileAsCppModule</CompileAs>
+    </ClCompile>
+    <ClCompile Include="include\Common\Parallel.ixx">
+      <CompileAs>CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Container\ContainerModule.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
