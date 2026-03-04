@@ -1,9 +1,9 @@
 module;
-export module ASTNode;
+module ASTNode;
 
 import std;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
 
 

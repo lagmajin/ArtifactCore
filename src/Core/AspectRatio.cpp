@@ -35,7 +35,9 @@ namespace ArtifactCore {
 
  void AspectRatio::simplify()
  {
+  if (impl_->w_ == 0 || impl_->h_ == 0) return;
   int common = std::gcd(impl_->w_, impl_->h_);
+  if (common == 0) return;
   impl_->w_ /= common;
   impl_->h_ /= common;
  }
@@ -50,7 +52,12 @@ namespace ArtifactCore {
   return static_cast<double>(impl_->w_) / impl_->h_;
  }
 
- AspectRatio::AspectRatio(int width, int height) : impl_(new Impl())
+ AspectRatio::AspectRatio() : impl_(new Impl())
+ {
+
+ }
+
+ AspectRatio::AspectRatio(int width, int height) : impl_(new Impl(width, height))
  {
   simplify();
  }

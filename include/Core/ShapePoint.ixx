@@ -1,7 +1,7 @@
 module;
 #include <cmath>
 #include <utility>
-export module ShapeVertex;
+module ShapeVertex;
 
 
 

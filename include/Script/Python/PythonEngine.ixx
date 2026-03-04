@@ -1,5 +1,6 @@
 module;
-#include "../../../Define/DllExportMacro.hpp"
+#include "../../Define/DllExportMacro.hpp"
+#include <cstdint>
 export module Script.Python.Engine;
 
 import std;

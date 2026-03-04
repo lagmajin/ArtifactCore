@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -47,6 +47,9 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Analyze\Analyze.ixx">
+      <CompileAs>CompileAsCppModule</CompileAs>
+    </ClCompile>
+    <ClCompile Include="include\Analyze\SmartPaletteAnalyzer.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Analyze\Histgram.ixx">
@@ -160,6 +163,15 @@
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Command\LambdaCommand.ixx">
+      <CompileAs>CompileAsCppModule</CompileAs>
+    </ClCompile>
+    <ClCompile Include="include\Command\SerializableCommand.ixx">
+      <CompileAs>CompileAsCppModule</CompileAs>
+    </ClCompile>
+    <ClCompile Include="include\Command\CommonCommands.ixx">
+      <CompileAs>CompileAsCppModule</CompileAs>
+    </ClCompile>
+    <ClCompile Include="include\Command\EditSession.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Common\Common.ixx">
@@ -442,6 +454,9 @@
     <ClCompile Include="include\Platform\ProcessHelperWin.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
+    <ClCompile Include="include\Platform\Power.ixx">
+      <CompileAs>CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Platform\SystemUsage.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
@@ -639,6 +654,7 @@
     <ClCompile Include="src\Analyze\Histgram.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
     </ClCompile>
+    <ClCompile Include="src\Analyze\SmartPaletteAnalyzer.cpp" />
     <ClCompile Include="src\Animation\AnimatableTransform2D.cpp" />
     <ClCompile Include="src\Animation\AnimatableTransform3D.cpp" />
     <ClCompile Include="src\Animation\TransformModule.ixx">
@@ -780,6 +796,7 @@
     </ClCompile>
     <ClCompile Include="src\Network\NetworkRPCServer.cpp" />
     <ClCompile Include="src\Platform\ProcessHelperWin.cpp" />
+    <ClCompile Include="src\Platform\Power.cpp" />
     <ClCompile Include="src\Playback\PlaybackClock.cppm">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
       <ScanSourceForModuleDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ScanSourceForModuleDependencies>
@@ -912,8 +929,9 @@
     <ClCompile Include="include\Core\ShapePath.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="include\Core\ShapePoint.cppm">
+    <ClCompile Include="include\Core\ShapePoint.ixx">
       <CompileAs>CompileAsCpp</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Render\FrameRenderer.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
@@ -1337,7 +1355,9 @@
     <ClCompile Include="include\Script\Python\CorePythonAPI.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
-    <ClCompile Include="src\Script\Python\CorePythonAPI.cpp" />
+    <ClCompile Include="src\Script\Python\CorePythonAPI.cpp">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="include\Color\Alpha.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>

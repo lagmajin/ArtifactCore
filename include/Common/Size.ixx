@@ -30,6 +30,7 @@ export namespace ArtifactCore {
   int height = 0;
 
   Size_2D() = default;
+  Size_2D(int w, int h) : width(w), height(h) {}
 
   // 幅・高さ系を何でも吸収するコンストラクタ
   template<HasWidthHeightLike T>

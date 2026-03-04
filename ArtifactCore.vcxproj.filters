@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="include">
@@ -513,7 +513,7 @@
     <ClCompile Include="include\Core\ShapePath.ixx">
       <Filter>include\Core</Filter>
     </ClCompile>
-    <ClCompile Include="include\Core\ShapePoint.cppm">
+    <ClCompile Include="include\Core\ShapePoint.ixx">
       <Filter>include\Core</Filter>
     </ClCompile>
     <ClCompile Include="include\Core\KeyFrame.ixx">
@@ -1296,12 +1296,6 @@
     <ClCompile Include="include\Audio\AudioProvider.ixx">
       <Filter>include\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="include\Geometry\CalcSafeArea.ixx">
-      <Filter>include\Geometory</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Geometry\CalcGrid.ixx">
-      <Filter>include\Geometory</Filter>
-    </ClCompile>
     <ClCompile Include="include\Codec\DecoderPoolManager.ixx">
       <Filter>include\Codec</Filter>
     </ClCompile>
@@ -1430,9 +1424,6 @@
     <ClCompile Include="src\Log\Log.cpp" />
     <ClCompile Include="src\Math\Rotation.cppm" />
     <ClCompile Include="src\Math\RotationTurns.cppm" />
-    <ClCompile Include="src\Math\NoiseGenerator.cppm">
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCpp</CompileAs>
-    </ClCompile>
     <ClCompile Include="src\Network\NetworkRPCServer.cpp" />
     <ClCompile Include="src\Platform\ProcessHelperWin.cpp" />
     <ClCompile Include="src\Preview\PreviewSettings.cpp" />
@@ -1645,6 +1636,8 @@
     <ClCompile Include="src\Script\Python\CorePythonAPI.cpp">
       <Filter>src\Script\Python</Filter>
     </ClCompile>
+    <ClCompile Include="include\Geometry\CalcGrid.ixx" />
+    <ClCompile Include="include\Geometry\CalcSafeArea.ixx" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

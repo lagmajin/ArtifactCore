@@ -18,7 +18,7 @@ export namespace ArtifactCore {
 
 
  public:
-  AspectRatio() = default;
+  AspectRatio();
   AspectRatio(int width, int height);
   ~AspectRatio();
   // •‚“®¬”“_”i1.777...j‚ğ•Ô‚·

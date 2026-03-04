@@ -11,7 +11,7 @@ namespace ArtifactCore {
 void CorePythonAPI::registerAll() {
     auto& py = PythonEngine::instance();
     // Pre-create the artifact.core submodules
-    py.execute(R"(
+    py.execute(R"PYCODE(
 import sys
 if 'artifact' not in sys.modules:
     class _ArtifactStub: pass
@@ -30,7 +30,7 @@ class _CoreModule:
 
 sys.modules['artifact'].core = _CoreModule()
 sys.modules['artifact.core'] = sys.modules['artifact'].core
-)");
+)PYCODE");
 
     registerMathAPI();
     registerColorAPI();
@@ -40,7 +40,7 @@ sys.modules['artifact.core'] = sys.modules['artifact'].core
 
 void CorePythonAPI::registerMathAPI() {
     auto& py = PythonEngine::instance();
-    std::string code = R"(
+    std::string code = R"PYCODE(
 import artifact.core
 import math
 
@@ -71,13 +71,13 @@ artifact.core.math.smoothstep = _smoothstep
 artifact.core.math.length = _length
 artifact.core.math.normalize = _normalize
 artifact.core.math.distance = _distance
-)";
+)PYCODE";
     py.execute(code);
 }
 
 void CorePythonAPI::registerColorAPI() {
     auto& py = PythonEngine::instance();
-    std::string code = R"(
+    std::string code = R"PYCODE(
 import artifact.core
 import colorsys
 
@@ -98,13 +98,13 @@ def _hex_to_rgb(hex_str):
 artifact.core.color.hsv_to_rgb = _hsv_to_rgb
 artifact.core.color.rgb_to_hsv = _rgb_to_hsv
 artifact.core.color.hex_to_rgb = _hex_to_rgb
-)";
+)PYCODE";
     py.execute(code);
 }
 
 void CorePythonAPI::registerDSPAPI() {
     auto& py = PythonEngine::instance();
-    std::string code = R"(
+    std::string code = R"PYCODE(
 import artifact.core
 import math
 
@@ -129,13 +129,13 @@ artifact.core.dsp.db_to_linear = _db_to_linear
 artifact.core.dsp.linear_to_db = _linear_to_db
 artifact.core.dsp.midi_to_hz = _midi_to_hz
 artifact.core.dsp.hz_to_midi = _hz_to_midi
-)";
+)PYCODE";
     py.execute(code);
 }
 
 void CorePythonAPI::registerSystemAPI() {
     auto& py = PythonEngine::instance();
-    std::string code = R"(
+    std::string code = R"PYCODE(
 import artifact.core
 import os
 import sys
@@ -154,7 +154,7 @@ def _resolve_path(path):
 artifact.core.system.get_engine_version = _get_engine_version
 artifact.core.system.get_platform = _get_platform
 artifact.core.system.resolve_path = _resolve_path
-)";
+)PYCODE";
     py.execute(code);
 }
 
