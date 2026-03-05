@@ -1,24 +1,24 @@
 ﻿module;
+#define QT_NO_KEYWORDS
 #include <QObject>
 #include <QCoreApplication>
 //#include <folly/th>
-
+#include <tbb/tbb.h>
 //#include <absl/container/>
 module Render.Queue.Manager;
 
 import Render.Settings;
 import Render.JobModel;
-import Render.Queue.Manager;
 import Utils.Id;
 import std;
 import Log;
-#include <tbb/tbb.h>
+
 
 
 namespace ArtifactCore {
 
   class RendererQueueManager::Impl{
-  private:
+  public:
 
     std::unique_ptr<RenderJobModel> jobModel;
     std::atomic_bool isRendering{ false };
@@ -32,8 +32,8 @@ namespace ArtifactCore {
     void startRenderingAllQueue();
     RenderJobModel* model() const { return jobModel.get(); }
 #ifdef _DEBUG
-   void testREndering();
-#elif
+   void testRendering();
+#else
    void testRendering() {};
 #endif
   };
@@ -134,7 +134,7 @@ namespace ArtifactCore {
     impl_->jobModel->clearJobs();
    }
 
-   void RendererQueueManager::addJob(const Id& compositionId, const QString& name)
+   void RendererQueueManager::addJob(const ArtifactCore::Id& compositionId, const QString& name)
    {
     impl_->jobModel->addJob(compositionId, name);
    }

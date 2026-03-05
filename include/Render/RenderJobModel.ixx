@@ -6,6 +6,7 @@
 
 export module Render.JobModel;
 
+import Utils.Id;
 
 export namespace ArtifactCore {
 
@@ -24,7 +25,7 @@ export namespace ArtifactCore {
   RenderJob();
   ~RenderJob();
 
-  Id compositionId;
+  ArtifactCore::Id compositionId;
   QString compositionName;
   RenderJobStatus status = RenderJobStatus::Queued;
   float progress = 0.0f; // 0.0 to 1.0
@@ -65,7 +66,7 @@ export namespace ArtifactCore {
   QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
    
   // Job Management
-  void addJob(const Id& compositionId, const QString& name);
+  void addJob(const ArtifactCore::Id& compositionId, const QString& name);
   void removeJob(int row);
   void clearJobs();
   RenderJob* jobAt(int row);

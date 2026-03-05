@@ -8,6 +8,7 @@ import std;
 
 import Render.JobModel;
 import RendererQueueSetting;
+import Utils.Id;
 
 export namespace ArtifactCore {
 
@@ -30,12 +31,12 @@ export namespace ArtifactCore {
   
   void startRendering();
   void startRenderingAllQueue();
-  void addJob(const Id& compositionId, const QString& name);
+  void addJob(const ArtifactCore::Id& compositionId, const QString& name);
   void clearRenderQueue();
   bool isRenderNow() const;
 #ifdef _DEBUG
   void testRendering();
-#elif
+#else
   void testRendering() {};
 #endif
  };

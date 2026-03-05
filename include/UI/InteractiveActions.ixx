@@ -2,11 +2,12 @@ module;
 #include <QVariant>
 #include <QString>
 #include <QJsonObject>
+#include <QPointF>
+#include <memory>
 #include <wobjectdefs.h>
 
 export module UI.InteractiveActions;
 
-import std;
 import Input.Operator;
 import InputEvent;
 import Property.Abstract;
@@ -87,18 +88,18 @@ class AssetToLayerAction : public InteractiveAction {
     W_OBJECT(AssetToLayerAction)
 private:
     Id assetId_;
-    float2 previewPos_;
+    QPointF previewPos_;
     bool isTimelineDrop_ = false;
 
 public:
     AssetToLayerAction(const Id& assetId) : assetId_(assetId) {}
 
     void begin(const InputEvent& event) override {
-        previewPos_ = { (float)event.position.x(), (float)event.position.y() };
+        previewPos_ = QPointF(event.position.x(), event.position.y());
     }
 
     void update(const InputEvent& event) override {
-        previewPos_ = { (float)event.position.x(), (float)event.position.y() };
+        previewPos_ = QPointF(event.position.x(), event.position.y());
         // UI can query this previewPos_ to draw a ghost image
     }
 
@@ -115,7 +116,7 @@ public:
         // Nothing to revert if not committed
     }
     
-    float2 previewPos() const { return previewPos_; }
+    QPointF previewPos() const { return previewPos_; }
 };
 
 }
