@@ -412,8 +412,11 @@
       <Filter>include\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\ZoomScale.ixx">
-      <Filter>include\Transform</Filter>
-    </ClCompile>
+       <Filter>include\Transform</Filter>
+     </ClCompile>
+     <ClCompile Include="include\Transform\ViewportTransformer.ixx">
+       <Filter>include\Transform</Filter>
+     </ClCompile>
     <ClCompile Include="include\Color\FloatColor.ixx">
       <Filter>include\Color</Filter>
     </ClCompile>
@@ -1068,6 +1071,9 @@
     <ClCompile Include="include\Image\ImageInterface.ixx">
       <Filter>include\Image</Filter>
     </ClCompile>
+    <ClCompile Include="include\Command\EditSessionManager.ixx">
+       <Filter>include\Network</Filter>
+     </ClCompile>
     <ClCompile Include="NetworkRPCServer.ixx">
       <Filter>include\Network</Filter>
     </ClCompile>
@@ -1111,8 +1117,17 @@
       <Filter>include\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\InputOperator.ixx">
-      <Filter>include\UI</Filter>
-    </ClCompile>
+       <Filter>include\UI</Filter>
+     </ClCompile>
+     <ClCompile Include="include\UI\InteractiveActions.ixx">
+       <Filter>include\UI</Filter>
+     </ClCompile>
+     <ClCompile Include="include\UI\StandardActions.ixx">
+        <Filter>include\UI</Filter>
+      </ClCompile>
+      <ClCompile Include="include\UI\SelectionManager.ixx">
+        <Filter>include\UI</Filter>
+      </ClCompile>
     <ClCompile Include="include\UI\Context.ixx">
       <Filter>include\UI</Filter>
     </ClCompile>
@@ -1530,6 +1545,7 @@
     <ClCompile Include="src\Graphics\GPUTextureCacheManager.cppm" />
     <ClCompile Include="src\Image\CvMatPaintEngine.cpp" />
     <ClCompile Include="src\Transform\ZoomScale.cpp" />
+    <ClCompile Include="src\Transform\ViewportTransformer.cpp" />
     <ClCompile Include="src\Image\FFmpegEncoder.cpp" />
     <ClCompile Include="src\Image\RawImage.cpp" />
     <ClCompile Include="src\Layer\Layer2DSetting.cpp" />

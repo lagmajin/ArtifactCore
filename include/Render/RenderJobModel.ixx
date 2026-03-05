@@ -9,13 +9,28 @@ export module Render.JobModel;
 
 export namespace ArtifactCore {
 
- class RenderJob
- {
- private:
+  enum class RenderJobStatus {
+    Queued,
+    Rendering,
+    Done,
+    Error,
+    Canceled,
+    Paused
+  };
 
+ class LIBRARY_DLL_API RenderJob
+ {
  public:
   RenderJob();
   ~RenderJob();
+
+  Id compositionId;
+  QString compositionName;
+  RenderJobStatus status = RenderJobStatus::Queued;
+  float progress = 0.0f; // 0.0 to 1.0
+  QString outputPath;
+  QString statusMessage;
+  // ... future: startTime, endTime
  };
 
  class RenderJobHeaderView :public QHeaderView
@@ -48,12 +63,18 @@ export namespace ArtifactCore {
 
 
   QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+   
+  // Job Management
+  void addJob(const Id& compositionId, const QString& name);
+  void removeJob(int row);
+  void clearJobs();
+  RenderJob* jobAt(int row);
 
-  void addJob();
+  void setJobProgress(int row, float progress);
+  void setJobStatus(int row, RenderJobStatus status);
  };
 
 
 
 
 };
-

@@ -196,6 +196,7 @@ Action* ActionManager::registerAction(const QString& id,
     
     auto* action = new Action(id, this);
     action->setName(name);
+    action->setLabel(name); // Default to name
     action->setDescription(description);
     action->setCategory(category);
     
@@ -471,7 +472,8 @@ public:
     bool inChord_ = false;
     std::vector<int> chordKeys_;
     int chordTimeout_ = 1000;  // ms
-    
+    InteractiveAction* activeAction_ = nullptr;
+ 
     Impl() {}
 };
 
@@ -615,7 +617,44 @@ bool InputOperator::isEnabled() const {
 void InputOperator::setEnabled(bool enabled) {
     impl_->enabled_ = enabled;
 }
-
+ 
+bool InputOperator::processMouseEvent(const InputEvent& event) {
+    if (!impl_->enabled_) return false;
+    
+    if (impl_->activeAction_) {
+        if (event.type == InputEvent::Type::MouseMove) {
+            impl_->activeAction_->update(event);
+            return true;
+        } else if (event.type == InputEvent::Type::MouseUp) {
+            impl_->activeAction_->end(event);
+            impl_->activeAction_ = nullptr; // Note: Owner should delete/manage
+            return true;
+        }
+    }
+    
+    // Fall-through logic (Selection, Click, Start interacting) could go here.
+    return false;
+}
+ 
+void InputOperator::startInteractiveAction(InteractiveAction* action, const InputEvent& event) {
+    if (!action) return;
+    
+    cancelInteractiveAction();
+    impl_->activeAction_ = action;
+    impl_->activeAction_->begin(event);
+}
+ 
+InteractiveAction* InputOperator::activeInteractiveAction() const {
+    return impl_->activeAction_;
+}
+ 
+void InputOperator::cancelInteractiveAction() {
+    if (impl_->activeAction_) {
+        impl_->activeAction_->cancel();
+        impl_->activeAction_ = nullptr;
+    }
+}
+ 
 QString InputOperator::dumpKeyMaps() const {
     QString result;
     QTextStream stream(&result);

@@ -111,6 +111,23 @@ public:
     void activated() W_SIGNAL(activated);
     void bindingChanged() W_SIGNAL(bindingChanged);
 };
+ 
+/**
+ * @brief Represents an interactive UI operation (drag, handle adjust, etc.)
+ * 
+ * Supports:
+ * - Transactional updates (Undo/Redo)
+ * - Modal execution (traps input until done)
+ */
+class InteractiveAction : public QObject {
+    W_OBJECT(InteractiveAction)
+public:
+    virtual ~InteractiveAction() = default;
+    virtual void begin(const InputEvent& event) = 0;
+    virtual void update(const InputEvent& event) = 0;
+    virtual void end(const InputEvent& event) = 0;
+    virtual void cancel() = 0;
+};
 
 // W_REGISTER_ARGTYPE must be outside 'export namespace' to avoid creating ArtifactCore::w_internal
 
@@ -127,6 +144,9 @@ class Action : public QObject {
 private:
     QString id_;
     QString name_;
+    QString label_;
+    QString iconName_;
+    QString shortcutText_; // Display only
     QString description_;
     QString category_;
     
@@ -151,6 +171,15 @@ public:
     
     QString category() const { return category_; }
     void setCategory(const QString& cat) { category_ = cat; }
+    
+    QString label() const { return label_.isEmpty() ? name_ : label_; }
+    void setLabel(const QString& label) { label_ = label; }
+
+    QString iconName() const { return iconName_; }
+    void setIconName(const QString& icon) { iconName_ = icon; }
+
+    QString shortcutText() const { return shortcutText_; }
+    void setShortcutText(const QString& text) { shortcutText_ = text; }
     
     // Properties map
     QVariant property(const QString& key) const;
@@ -313,6 +342,14 @@ public:
     bool processKeyEvent(const InputEvent& event);
     bool processKeyPress(int key, InputEvent::Modifiers modifiers);
     bool processKeyRelease(int key, InputEvent::Modifiers modifiers);
+    
+    // Mouse Event processing
+    bool processMouseEvent(const InputEvent& event);
+    
+    // Modal interaction (Grab/Move/Scale/Drag)
+    void startInteractiveAction(InteractiveAction* action, const InputEvent& event);
+    InteractiveAction* activeInteractiveAction() const;
+    void cancelInteractiveAction();
     
     // Chord handling
     bool isInChord() const;

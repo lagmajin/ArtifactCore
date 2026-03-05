@@ -30,7 +30,7 @@ export namespace ArtifactCore {
   
   void startRendering();
   void startRenderingAllQueue();
-  void addRendering();
+  void addJob(const Id& compositionId, const QString& name);
   void clearRenderQueue();
   bool isRenderNow() const;
 #ifdef _DEBUG

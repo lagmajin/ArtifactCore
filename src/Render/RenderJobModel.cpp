@@ -8,6 +8,13 @@ module Render.JobModel;
 
 
 namespace ArtifactCore {
+  RenderJob::RenderJob() = default;
+  RenderJob::~RenderJob() = default;
+
+  class RenderJobModel::Impl {
+  public:
+    std::vector<std::unique_ptr<RenderJob>> jobs;
+  };
  class RenderJobHeaderView::Impl
  {
  private:
@@ -41,15 +48,8 @@ namespace ArtifactCore {
 
  }
 
- RenderJobModel::RenderJobModel(QObject* parent) :QAbstractItemModel(parent)
- {
-
- }
-
- RenderJobModel::~RenderJobModel()
- {
-
- }
+  RenderJobModel::RenderJobModel(QObject* parent) : QAbstractItemModel(parent), impl_(new Impl()) {}
+  RenderJobModel::~RenderJobModel() { delete impl_; }
 
  
 
@@ -60,40 +60,97 @@ namespace ArtifactCore {
    return QVariant();
 
   if (orientation == Qt::Horizontal) {
-   switch (section) {
-   case 0:
-	return QString("■レンダリング"); // 0列目のヘッダ
-   case 1:
-	return QString("■ステータス");   // 1列目のヘッダ
-   case 2:
-	return QString("開始");
-   case 3:
-	return QString("レンダリング時間");
-   case 4:
-	return QString("コメント");
-   case 5:
-	return QString("通知");
-   	default:
-	break;
+    switch (section) {
+    case 0: return QString("Composition");
+    case 1: return QString("Status");
+    case 2: return QString("Progress");
+    case 3: return QString("Output Path");
+    default: return QVariant();
+    }
    }
+   return QVariant();
   }
-  // 垂直ヘッダ（行番号など）が必要な場合はここに実装
-  // if (orientation == Qt::Vertical) {
-  //     return section + 1; // 1から始まる行番号
-  // }
 
-  return QVariant();
- }
+  int RenderJobModel::rowCount(const QModelIndex& parent) const {
+    if (parent.isValid()) return 0;
+    return (int)impl_->jobs.size();
+  }
 
- int RenderJobModel::rowCount(const QModelIndex& parent /*= QModelIndex()*/) const
- {
-  return 0;
- }
+  int RenderJobModel::columnCount(const QModelIndex& parent) const {
+    return 4;
+  }
 
- int RenderJobModel::columnCount(const QModelIndex& parent /*= QModelIndex()*/) const
- {
-  return 5;
- }
+  QVariant RenderJobModel::data(const QModelIndex& index, int role) const {
+    if (!index.isValid() || index.row() >= (int)impl_->jobs.size()) return QVariant();
+    
+    if (role == Qt::DisplayRole) {
+      const auto& job = impl_->jobs[index.row()];
+      switch (index.column()) {
+        case 0: return job->compositionName;
+        case 1: {
+          switch (job->status) {
+            case RenderJobStatus::Queued: return "Queued";
+            case RenderJobStatus::Rendering: return "Rendering";
+            case RenderJobStatus::Done: return "Done";
+            case RenderJobStatus::Error: return "Error";
+            case RenderJobStatus::Canceled: return "Canceled";
+            case RenderJobStatus::Paused: return "Paused";
+            default: return "Unknown";
+          }
+        }
+        case 2: return QString("%1%").arg((int)(job->progress * 100));
+        case 3: return job->outputPath;
+        default: break;
+      }
+    }
+    return QVariant();
+  }
+
+  QModelIndex RenderJobModel::index(int row, int column, const QModelIndex& parent) const {
+    if (!hasIndex(row, column, parent)) return QModelIndex();
+    return createIndex(row, column, (void*)nullptr);
+  }
+
+  QModelIndex RenderJobModel::parent(const QModelIndex& child) const { return QModelIndex(); }
+
+  void RenderJobModel::addJob(const Id& compositionId, const QString& name) {
+    beginInsertRows(QModelIndex(), (int)impl_->jobs.size(), (int)impl_->jobs.size());
+    auto job = std::make_unique<RenderJob>();
+    job->compositionId = compositionId;
+    job->compositionName = name;
+    impl_->jobs.push_back(std::move(job));
+    endInsertRows();
+  }
+
+  void RenderJobModel::removeJob(int row) {
+    if (row < 0 || row >= (int)impl_->jobs.size()) return;
+    beginRemoveRows(QModelIndex(), row, row);
+    impl_->jobs.erase(impl_->jobs.begin() + row);
+    endRemoveRows();
+  }
+
+  void RenderJobModel::clearJobs() {
+    beginResetModel();
+    impl_->jobs.clear();
+    endResetModel();
+  }
+
+  RenderJob* RenderJobModel::jobAt(int row) {
+    if (row < 0 || row >= (int)impl_->jobs.size()) return nullptr;
+    return impl_->jobs[row].get();
+  }
+
+  void RenderJobModel::setJobProgress(int row, float progress) {
+    if (row < 0 || row >= (int)impl_->jobs.size()) return;
+    impl_->jobs[row]->progress = progress;
+    emit dataChanged(index(row, 2), index(row, 2), {Qt::DisplayRole});
+  }
+
+  void RenderJobModel::setJobStatus(int row, RenderJobStatus status) {
+    if (row < 0 || row >= (int)impl_->jobs.size()) return;
+    impl_->jobs[row]->status = status;
+    emit dataChanged(index(row, 1), index(row, 1), {Qt::DisplayRole});
+  }
 
 
 };
