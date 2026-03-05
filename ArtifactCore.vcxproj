@@ -2015,7 +2015,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
     <ClCompile Condition="'$(CLANGCL)' != 'true'">
-      <AdditionalOptions>/Zc:__cplusplus /utf-8</AdditionalOptions>
+      <AdditionalOptions>/Zc:__cplusplus  /source-charset:utf-8 /execution-charset:utf-8</AdditionalOptions>
       <TreatWChar_tAsBuiltInType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</TreatWChar_tAsBuiltInType>
       <UseMSVC Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</UseMSVC>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />

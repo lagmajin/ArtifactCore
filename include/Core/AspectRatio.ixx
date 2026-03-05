@@ -1,5 +1,5 @@
 module;
-#define QT_NO_KEYWORDS
+//#define QT_NO_KEYWORDS
 #include <QList>
 #include <QString>
 

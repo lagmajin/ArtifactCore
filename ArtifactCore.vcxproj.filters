@@ -1505,9 +1505,6 @@
     <ClCompile Include="src\Geometry\LayerBoundsCalculator.cppm">
       <Filter>src\Geometry</Filter>
     </ClCompile>
-    <ClCompile Include="src\Math\NoiseGenerator.cppm">
-      <Filter>src\Math</Filter>
-    </ClCompile>
     <ClCompile Include="src\Image\PNGImage.cpp" />
     <ClCompile Include="src\Image\ImageYUV420.cpp" />
     <ClCompile Include="src\IO\Image\ImageExporter.cpp" />
@@ -1638,6 +1635,15 @@
     </ClCompile>
     <ClCompile Include="include\Geometry\CalcGrid.ixx" />
     <ClCompile Include="include\Geometry\CalcSafeArea.ixx" />
+    <ClCompile Include="include\Analyze\SmartPaletteAnalyzer.ixx" />
+    <ClCompile Include="include\Command\SerializableCommand.ixx" />
+    <ClCompile Include="include\Command\CommonCommands.ixx" />
+    <ClCompile Include="include\Command\EditSession.ixx" />
+    <ClCompile Include="include\Common\ThreadPool.ixx" />
+    <ClCompile Include="include\Common\Parallel.ixx" />
+    <ClCompile Include="include\Platform\Power.ixx" />
+    <ClCompile Include="src\Analyze\SmartPaletteAnalyzer.cpp" />
+    <ClCompile Include="src\Platform\Power.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

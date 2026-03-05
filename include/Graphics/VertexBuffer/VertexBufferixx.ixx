@@ -18,4 +18,11 @@ export namespace ArtifactCore
         float2 uv;
         float4 color;
     };
+ 
+    struct DotLineVertex
+    {
+        float2 position;
+        float4 color;
+        float  dist;
+    };
 }

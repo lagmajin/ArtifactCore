@@ -7,9 +7,9 @@ import std;
 import Utils.String.UniString;
 import Utils.String.Like;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
- class Tag final{
+ export class Tag final {
  private:
   class Impl;
   Impl* impl_;
@@ -34,4 +34,4 @@ export namespace ArtifactCore {
 
  }
 
-}
+};
