@@ -98,9 +98,92 @@ namespace ArtifactCore {
         return QVector<int>();
     }
 
+    // スキニング用のウェイト構造体 (最大4ボーン)
+    struct BoneWeight {
+        int boneIndices[4] = {0, 0, 0, 0};
+        float weights[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    };
+
     std::shared_ptr<Mesh> Mesh::createSubdivided(int level) const {
-        // スタブ実装
-        return std::make_shared<Mesh>(*this);
+        if (level <= 0 || impl_->polygons.empty()) return std::make_shared<Mesh>(*this);
+
+        auto subdivided = std::make_shared<Mesh>();
+        auto posAttr = impl_->vertexAttrs.get<QVector3D>("position");
+        auto normAttr = impl_->vertexAttrs.get<QVector3D>("normal");
+        if (!posAttr) return subdivided;
+
+        auto newPosAttr = subdivided->vertexAttributes().add<QVector3D>("position");
+        auto newNormAttr = subdivided->vertexAttributes().add<QVector3D>("normal");
+
+        int originalVertexCount = impl_->vertexAttrs.elementCount();
+        int faceCount = impl_->polygons.size();
+        
+        // 元の頂点をコピー
+        subdivided->setVertexCount(originalVertexCount);
+        for (int i = 0; i < originalVertexCount; ++i) {
+            (*newPosAttr)[i] = (*posAttr)[i];
+            if (normAttr) (*newNormAttr)[i] = (*normAttr)[i];
+        }
+
+        // 簡易 Catmull-Clark (Linear Subdivision): 各ポリゴンをN個の四角形に分割
+        // 1. 各面の中点 (Face Point) を計算して追加
+        QVector<int> facePointIndices;
+        facePointIndices.resize(faceCount);
+        for (int i = 0; i < faceCount; ++i) {
+            const auto& poly = impl_->polygons[i];
+            QVector3D faceCenter(0, 0, 0);
+            QVector3D faceNormal(0, 0, 0);
+            for (int vIdx : poly) {
+                faceCenter += (*posAttr)[vIdx];
+                if (normAttr) faceNormal += (*normAttr)[vIdx];
+            }
+            faceCenter /= std::max(1, poly.size());
+            if (normAttr) faceNormal.normalize();
+
+            int fpIdx = subdivided->vertexCount();
+            subdivided->setVertexCount(fpIdx + 1);
+            (*newPosAttr)[fpIdx] = faceCenter;
+            if (normAttr) (*newNormAttr)[fpIdx] = faceNormal;
+            facePointIndices[i] = fpIdx;
+        }
+
+        // 2. 新しいポリゴン(Quad)を構築
+        for (int i = 0; i < faceCount; ++i) {
+            const auto& poly = impl_->polygons[i];
+            int fpIdx = facePointIndices[i];
+            int n = poly.size();
+
+            for (int j = 0; j < n; ++j) {
+                int v0 = poly[j];
+                int v1 = poly[(j + 1) % n];
+                int v_prev = poly[(j - 1 + n) % n];
+
+                // エッジの中点 (簡易版: 共有エッジを考慮せず独自に生成)
+                QVector3D edgeCenter1 = ((*posAttr)[v0] + (*posAttr)[v1]) * 0.5f;
+                QVector3D edgeCenter2 = ((*posAttr)[v0] + (*posAttr)[v_prev]) * 0.5f;
+
+                int epIdx1 = subdivided->vertexCount();
+                subdivided->setVertexCount(epIdx1 + 2);
+                (*newPosAttr)[epIdx1] = edgeCenter1;
+                (*newPosAttr)[epIdx1 + 1] = edgeCenter2;
+
+                if (normAttr) {
+                    (*newNormAttr)[epIdx1] = ((*normAttr)[v0] + (*normAttr)[v1]).normalized();
+                    (*newNormAttr)[epIdx1 + 1] = ((*normAttr)[v0] + (*normAttr)[v_prev]).normalized();
+                }
+
+                // 新しい四角形: [元の頂点, 次のエッジ中点, 面の中点, 前のエッジ中点]
+                subdivided->addPolygon({v0, epIdx1, fpIdx, epIdx1 + 1});
+            }
+        }
+
+        // レベルが2以上の場合は再帰的に分割
+        if (level > 1) {
+            return subdivided->createSubdivided(level - 1);
+        }
+        
+        subdivided->updateBounds();
+        return subdivided;
     }
 
     Mesh::RenderData Mesh::generateRenderData() const {
@@ -143,7 +226,45 @@ namespace ArtifactCore {
     }
 
     void Mesh::applySkinning(const QVector<QMatrix4x4>& boneMatrices) {
-        // スタブ実装
+        auto posAttr = impl_->vertexAttrs.get<QVector3D>("position");
+        auto normAttr = impl_->vertexAttrs.get<QVector3D>("normal");
+        // "boneWeights" アトリビュートを検索
+        auto weightAttr = impl_->vertexAttrs.get<BoneWeight>("boneWeights");
+
+        if (!posAttr || !weightAttr || boneMatrices.isEmpty()) return;
+
+        // Linear Blend Skinning (LBS) の評価
+        for (int i = 0; i < impl_->vertexAttrs.elementCount(); ++i) {
+            const auto& bw = (*weightAttr)[i];
+            QVector3D originalPos = (*posAttr)[i];
+            QVector3D originalNorm = normAttr ? (*normAttr)[i] : QVector3D(0,1,0);
+
+            QVector3D skinnedPos(0, 0, 0);
+            QVector3D skinnedNorm(0, 0, 0);
+
+            float totalWeight = 0.0f;
+
+            for (int j = 0; j < 4; ++j) {
+                float w = bw.weights[j];
+                if (w > 0.0f) {
+                    int bIdx = bw.boneIndices[j];
+                    if (bIdx >= 0 && bIdx < boneMatrices.size()) {
+                        const QMatrix4x4& mat = boneMatrices[bIdx];
+                        skinnedPos += mat.map(originalPos) * w;
+                        // 法線は回転成分のみを適用
+                        skinnedNorm += mat.mapVector(originalNorm) * w;
+                        totalWeight += w;
+                    }
+                }
+            }
+
+            if (totalWeight > 0.0f) {
+                (*posAttr)[i] = skinnedPos;
+                if (normAttr) (*normAttr)[i] = skinnedNorm.normalized();
+            }
+        }
+        
+        updateBounds();
     }
 
     void Mesh::updateBounds() {
