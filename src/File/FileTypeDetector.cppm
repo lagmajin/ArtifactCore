@@ -46,6 +46,8 @@ namespace ArtifactCore {
     return FileType::Document;
   } else if (suffix == "zip" || suffix == "rar" || suffix == "7z" || suffix == "tar" || suffix == "gz") {
     return FileType::Archive;
+  } else if (suffix == "obj" || suffix == "fbx" || suffix == "gltf" || suffix == "glb" || suffix == "stl") {
+    return FileType::Model3D;
   } else {
     return FileType::Unknown;
   }
@@ -108,6 +110,10 @@ namespace ArtifactCore {
   // PDF
   if (header.startsWith("%PDF")) {
     return FileType::Document;
+  }
+  // GLB (Binary glTF)
+  if (header.startsWith("glTF")) {
+    return FileType::Model3D;
   }
   // Text (simple check for ASCII)
   bool isText = true;

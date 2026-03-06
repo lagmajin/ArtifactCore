@@ -1,14 +1,17 @@
-﻿module;
+module;
 
-// 全てのインクルードをグローバルモジュールフラグメント内に
 #include <memory>
 #include <QString>
 #include <QVector>
+#include <QVariant>
+#include <QHash>
 #include <QVector3D>
 #include <QVector2D>
 #include <QVector4D>
 #include <QMatrix4x4>
 #include <QtCore/QObject>
+#include <typeindex>
+#include <unordered_map>
 #include "../Define/DllExportMacro.hpp"
 
 export module Mesh;
@@ -17,137 +20,147 @@ import std;
 
 export namespace ArtifactCore {
 
-// 頂点属性
-struct Vertex {
-    QVector3D position;
-    QVector3D normal;
-    QVector2D uv;
-    QVector3D tangent;
-    QVector3D bitangent;
-    QVector4D color;
-    QVector4D boneWeights;  // スキニング用
-    QVector<int> boneIndices;  // 最大4本のボーン
-};
+    // ─────────────────────────────────────────────────────────
+    // 動的アトリビュートシステム (MayaのBlindDataやAttributeに相当)
+    // 頂点、エッジ、フェースに対して、任意の型のデータを動的に追加・取得できる
+    // ─────────────────────────────────────────────────────────
+    class MeshAttributeBase {
+    public:
+        virtual ~MeshAttributeBase() = default;
+        virtual std::type_index type() const = 0;
+        virtual int size() const = 0;
+        virtual void resize(int newSize) = 0;
+    };
 
-// サブメッシュ（マテリアルグループ）
-struct SubMesh {
-    QString name;
-    int materialIndex;
-    int startIndex;
-    int indexCount;
-};
+    template<typename T>
+    class MeshAttribute : public MeshAttributeBase {
+    private:
+        QVector<T> data_;
+    public:
+        std::type_index type() const override { return typeid(T); }
+        int size() const override { return data_.size(); }
+        void resize(int newSize) override { data_.resize(newSize); }
+        
+        T& operator[](int index) { return data_[index]; }
+        const T& operator[](int index) const { return data_[index]; }
+        QVector<T>& data() { return data_; }
+    };
 
-// ボーン情報
-struct Bone {
-    QString name;
-    QMatrix4x4 offsetMatrix;
-    int parentIndex;
-};
+    // ─────────────────────────────────────────────────────────
+    // 要素（コンポーネント）ごとのアトリビュートコンテナ
+    // ─────────────────────────────────────────────────────────
+    class AttributeContainer {
+    private:
+        std::unordered_map<std::string, std::shared_ptr<MeshAttributeBase>> attributes_;
+        int elementCount_ = 0;
+    public:
+        void setElementCount(int count) {
+            elementCount_ = count;
+            for (auto& pair : attributes_) {
+                pair.second->resize(count);
+            }
+        }
+        int elementCount() const { return elementCount_; }
 
-// モーフターゲット/ブレンドシェイプ
-struct MorphTarget {
-    QString name;
-    QVector<QVector3D> deltaPositions;
-    QVector<QVector3D> deltaNormals;
-};
+        template<typename T>
+        std::shared_ptr<MeshAttribute<T>> add(const std::string& name) {
+            auto attr = std::make_shared<MeshAttribute<T>>();
+            attr->resize(elementCount_);
+            attributes_[name] = attr;
+            return attr;
+        }
 
-// バウンディング情報
-struct BoundingBox {
-    QVector3D min;
-    QVector3D max;
-};
+        template<typename T>
+        std::shared_ptr<MeshAttribute<T>> get(const std::string& name) const {
+            auto it = attributes_.find(name);
+            if (it != attributes_.end() && it->second->type() == typeid(T)) {
+                return std::static_pointer_cast<MeshAttribute<T>>(it->second);
+            }
+            return nullptr;
+        }
 
-struct BoundingSphere {
-    QVector3D center;
-    float radius;
-};
+        bool has(const std::string& name) const { return attributes_.count(name) > 0; }
+        std::vector<std::string> attributeNames() const {
+            std::vector<std::string> names;
+            for (const auto& pair : attributes_) names.push_back(pair.first);
+            return names;
+        }
+    };
 
- class LIBRARY_DLL_API Mesh {
- private:
-  class Impl;
-  Impl* impl_;
- public:
-  Mesh();
-  Mesh(const Mesh& other);
-  Mesh(Mesh&& other) noexcept;
-  ~Mesh();
+    // ─────────────────────────────────────────────────────────
+    // プロ向け DDC メッシュクラス (N-gon & アトリビュート対応)
+    // ─────────────────────────────────────────────────────────
+    class LIBRARY_DLL_API Mesh {
+    private:
+        class Impl;
+        Impl* impl_;
 
-  Mesh& operator=(const Mesh& other);
-  Mesh& operator=(Mesh&& other) noexcept;
+    public:
+        Mesh();
+        Mesh(const Mesh& other);
+        Mesh(Mesh&& other) noexcept;
+        ~Mesh();
 
-  // 基本データアクセス
-  void setVertices(const QVector<Vertex>& vertices);
-  QVector<Vertex> vertices() const;
-  void setIndices(const QVector<unsigned int>& indices);
-  QVector<unsigned int> indices() const;
+        Mesh& operator=(const Mesh& other);
+        Mesh& operator=(Mesh&& other) noexcept;
 
-  // サブメッシュ管理
-  void addSubMesh(const SubMesh& subMesh);
-  void removeSubMesh(int index);
-  QVector<SubMesh> subMeshes() const;
-  int subMeshCount() const;
+        // 1. トポロジー構築 (N-gon対応)
+        // Mayaのように、頂点のリストと、それらを結ぶ「面（ポリゴン）」のリストで構成
+        void setVertexCount(int count);
+        int vertexCount() const;
 
-  // ボーン/スキニング
-  void setBones(const QVector<Bone>& bones);
-  QVector<Bone> bones() const;
-  void setSkinning(bool enabled);
-  bool hasSkinning() const;
+        // 面を追加 (3角形、4角形、N角形すべてを許容)
+        // 戻り値は追加されたFaceのインデックス
+        int addPolygon(const QVector<int>& vertexIndices);
+        int polygonCount() const;
 
-  // モーフターゲット
-  void addMorphTarget(const MorphTarget& target);
-  void removeMorphTarget(int index);
-  QVector<MorphTarget> morphTargets() const;
-  void setMorphWeight(int index, float weight);
-  float morphWeight(int index) const;
+        // 2. 動的アトリビュートへのアクセス
+        // 固定の Vertex 構造体ではなく、名前でデータにアクセスする
+        // 例: mesh.vertexAttributes().get<QVector3D>("position");
+        AttributeContainer& vertexAttributes();
+        const AttributeContainer& vertexAttributes() const;
 
-  // バウンディング情報
-  BoundingBox boundingBox() const;
-  BoundingSphere boundingSphere() const;
-  void updateBounds();
+        AttributeContainer& faceAttributes();
+        const AttributeContainer& faceAttributes() const;
 
-  // トポロジー情報
-  int vertexCount() const;
-  int triangleCount() const;
-  int edgeCount() const;
+        // Face-Vertex (面を構成する頂点ごと) のアトリビュート。Mayaの「UV」などはここに入る
+        AttributeContainer& faceVertexAttributes();
+        const AttributeContainer& faceVertexAttributes() const;
 
-  // メッシュ操作
-  void recalculateNormals(bool smooth = true);
-  void recalculateTangents();
-  void optimize();  // 頂点キャッシュ最適化
-  void weld(float threshold = 0.001f);  // 重複頂点の結合
-  void subdivide(int level = 1);  // 細分化
-  void simplify(float targetReduction);  // ポリゴン削減
+        // 3. 高度なトポロジー参照 (Half-Edge相当のクエリ)
+        // ある頂点に接続しているすべての面を取得する
+        QVector<int> getConnectedPolygons(int vertexIndex) const;
+        // ある面に含まれる頂点インデックスを取得する
+        QVector<int> getPolygonVertices(int polygonIndex) const;
 
-  // UV操作
-  void generateUVs();  // 自動UV展開
-  void normalizeUVs();  // UV正規化
+        // 4. サブディビジョンと非破壊モディファイアの基盤
+        // サブディビジョンサーフェス（Catmull-Clark等）を適用した新しいメッシュを生成
+        std::shared_ptr<Mesh> createSubdivided(int level) const;
+        
+        // レンダリング用（GPU用）に、すべてを三角形に分割したフラットな配列を生成する
+        struct RenderData {
+            QVector<QVector3D> positions;
+            QVector<QVector3D> normals;
+            QVector<QVector2D> uvs;
+            QVector<unsigned int> indices;
+        };
+        RenderData generateRenderData() const;
 
-  // メッシュ変換
-  void transform(const QMatrix4x4& matrix);
-  void translate(const QVector3D& offset);
-  void rotate(const QVector3D& axis, float angle);
-  void scale(const QVector3D& scale);
+        // 5. ボーン/モーフ (Deformer)
+        // デフォーマは動的アトリビュート "boneWeights", "blendShape_X" などとして表現可能
+        void applySkinning(const QVector<QMatrix4x4>& boneMatrices);
 
-  // メッシュ生成ヘルパー
-  static Mesh createPlane(float width, float height, int segmentsX = 1, int segmentsY = 1);
-  static Mesh createCube(float size = 1.0f);
-  static Mesh createSphere(float radius = 1.0f, int segments = 32);
-  static Mesh createCylinder(float radius = 1.0f, float height = 2.0f, int segments = 32);
-  static Mesh createCone(float radius = 1.0f, float height = 2.0f, int segments = 32);
-  static Mesh createTorus(float majorRadius = 1.0f, float minorRadius = 0.25f, int majorSegments = 32, int minorSegments = 16);
+        // バウンディング
+        void updateBounds();
+        QVector3D boundingBoxMin() const;
+        QVector3D boundingBoxMax() const;
 
-  // ファイルI/O
-  bool loadFromFile(const QString& filePath);
-  bool saveToFile(const QString& filePath) const;
+        // ファイルI/O (Assimp等との連携)
+        bool loadFromFile(const QString& filePath);
+        bool saveToFile(const QString& filePath) const;
 
-  // メッシュ情報
-  bool isEmpty() const;
-  bool isValid() const;
-  void clear();
-
-  // デバッグ/検証
-  bool validate() const;  // メッシュの整合性チェック
-  QString statistics() const;  // 統計情報
- };
+        void clear();
+        bool isValid() const;
+    };
 
 }

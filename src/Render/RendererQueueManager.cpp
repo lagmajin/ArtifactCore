@@ -23,6 +23,7 @@ namespace ArtifactCore {
     std::unique_ptr<RenderJobModel> jobModel;
     std::atomic_bool isRendering{ false };
     tbb::task_group renderTasks;
+    RenderFrameFunc renderFrameFunc;
 
     Impl() : jobModel(std::make_unique<RenderJobModel>()) {}
     ~Impl() { isRendering = false; renderTasks.wait(); }
@@ -38,6 +39,10 @@ namespace ArtifactCore {
 #endif
   };
 
+  void RendererQueueManager::setRenderFrameFunc(RenderFrameFunc func) {
+    impl_->renderFrameFunc = func;
+  }
+
   RenderSettings RendererQueueManager::Impl::makeDefaultSettings() const
   {
    RenderSettings settings;
@@ -48,6 +53,7 @@ namespace ArtifactCore {
   void RendererQueueManager::Impl::processQueue()
   {
     auto& manager = RendererQueueManager::instance();
+    auto& pool = ThreadPool::globalInstance();
     int jobCount = jobModel->rowCount();
     
     for (int i = 0; i < jobCount; ++i) {
@@ -58,30 +64,34 @@ namespace ArtifactCore {
 
         jobModel->setJobStatus(i, RenderJobStatus::Rendering);
         
-        // --- REAL RENDERING LOOP ---
-        // In AE, this renders individual frames of the composition
+        // ジョブの設定を取得（本来はRenderSettingsから取得）
         int totalFrames = 300; // Mock: 10s at 30fps
+        std::atomic<int> completedFrames{0};
+
+        // 各フレームを並列にエンキュー
         for (int frame = 0; frame < totalFrames; ++frame) {
             if (!isRendering) break;
-            
-            // 1. Set Composition Time
-            // 2. Perform Offscreen Render
-            // 3. Save to disk (e.g., job->outputPath)
-            
-            // Simulate work
-            std::this_thread::sleep_for(std::chrono::milliseconds(33)); // ~30fps 
-            
-            jobModel->setJobProgress(i, (float)frame / (float)totalFrames);
+
+            pool.enqueueTask([this, i, frame, totalFrames, &completedFrames, job]() {
+                if (!isRendering) return;
+                
+                // --- ACTUAL RENDERING CALL ---
+                if (renderFrameFunc) {
+                    renderFrameFunc(job->compositionId, frame, job->outputPath);
+                }
+                
+                int current = ++completedFrames;
+                jobModel->setJobProgress(i, (float)current / (float)totalFrames);
+                
+                if (current == totalFrames) {
+                    jobModel->setJobStatus(i, RenderJobStatus::Done);
+                }
+            });
         }
         
-        if (isRendering) {
-            jobModel->setJobStatus(i, RenderJobStatus::Done);
-            jobModel->setJobProgress(i, 1.0f);
-        } else {
-            jobModel->setJobStatus(i, RenderJobStatus::Canceled);
-        }
+        // 全フレームの完了を待機（または次のジョブへ）
+        // pool.waitAll(); // ジョブごとに待機する場合
     }
-    isRendering = false;
   }
 
   // This method is now inlined in the class definition.

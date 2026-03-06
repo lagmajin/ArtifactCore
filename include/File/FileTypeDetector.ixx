@@ -17,7 +17,8 @@ export namespace ArtifactCore {
   Text,
   Binary,
   Document,
-  Archive
+  Archive,
+  Model3D
  };
 
  class FileTypeDetector {
