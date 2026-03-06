@@ -14,6 +14,7 @@ namespace ArtifactCore {
  class Id::Impl {
  public:
   Impl(); // デフォルトコンストラクタ (ランダムUUID生成)
+  Impl(bool is_nil); // Nil UUID生成
   explicit Impl(const QString& s); // QStringからのコンストラクタ (パース)
   Impl(const boost::uuids::uuid& uuid_val); // UUID値からのコンストラクタ
 
@@ -22,6 +23,8 @@ namespace ArtifactCore {
 	
  // Id::Impl のデフォルトコンストラクタ - ランダムUUIDを生成
  Id::Impl::Impl() : value_(boost::uuids::random_generator()()) {}
+
+  Id::Impl::Impl(bool is_nil) : value_(boost::uuids::nil_uuid()) {}
 
  // Id::Impl のQStringからのコンストラクタ - UUID文字列をパース
  Id::Impl::Impl(const QString& s) {
@@ -43,6 +46,13 @@ namespace ArtifactCore {
 
  // デフォルトコンストラクタ：ランダムなUUIDを生成
  Id::Id() : impl_(new Impl()) {}
+
+  Id Id::Nil() {
+      Id id;
+      delete id.impl_;
+      id.impl_ = new Impl(true);
+      return id;
+  }
 
  // QStringからのコンストラクタ
  Id::Id(const QString& s) : impl_(new Impl(s)) {}

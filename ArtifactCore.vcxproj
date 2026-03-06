@@ -486,10 +486,12 @@
       <CompileAs>CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="include\Render\RenderJobModel.ixx">
-      <CompileAs>CompileAsCppModule</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">/interface %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="include\Render\RendererQueueManager.ixx">
-      <CompileAs>CompileAsCppModule</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">/interface %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="include\Render\RendererQueue.ixx">
       <CompileAs>CompileAsCppModule</CompileAs>

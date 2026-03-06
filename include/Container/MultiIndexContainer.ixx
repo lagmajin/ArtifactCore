@@ -37,13 +37,48 @@ export namespace ArtifactCore {
    byType_.insert(type, obj);
   }
 
-  void addSafe(const Ptr& obj, const Id& id, const TypeKey& type)
-  {
-   std::lock_guard lock(mtx_);
-   list_.append(obj);
-   byId_.insert(id, obj);
-   byType_.insert(type, obj);
-  }
+   void addSafe(const Ptr& obj, const Id& id, const TypeKey& type)
+   {
+    std::lock_guard lock(mtx_);
+    list_.append(obj);
+    byId_.insert(id, obj);
+    byType_.insert(type, obj);
+   }
+
+   // 挿入
+   void insertAt(int index, const Ptr& obj, const Id& id, const TypeKey& type) {
+    list_.insert(index, obj);
+    byId_.insert(id, obj);
+    byType_.insert(type, obj);
+   }
+
+   void insertAtSafe(int index, const Ptr& obj, const Id& id, const TypeKey& type) {
+    std::lock_guard lock(mtx_);
+    list_.insert(index, obj);
+    byId_.insert(id, obj);
+    byType_.insert(type, obj);
+   }
+
+   // 移動
+   void move(int from, int to) {
+    if (from == to) return;
+    list_.move(from, to);
+   }
+
+   void moveSafe(int from, int to) {
+    std::lock_guard lock(mtx_);
+    if (from == to) return;
+    list_.move(from, to);
+   }
+
+   int indexOf(const Ptr& obj) const {
+    return list_.indexOf(obj);
+   }
+
+   int indexOfSafe(const Ptr& obj) const {
+    std::lock_guard lock(mtx_);
+    return list_.indexOf(obj);
+   }
   void addSafe(const Ptr& obj, const Id& id) {
    std::lock_guard lock(mtx_);
    auto type = std::type_index(typeid(typename Ptr::element_type));

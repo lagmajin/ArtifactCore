@@ -20,6 +20,7 @@ export namespace ArtifactCore{
 class  LIBRARY_DLL_API Id {
  public:
   Id();
+  static Id Nil();
   explicit Id(const QString& s);
   explicit Id(const boost::uuids::uuid& u);
   Id(const Id& other);
@@ -51,11 +52,15 @@ class  LIBRARY_DLL_API Id {
 class LIBRARY_DLL_API CompositionID : public Id {
 public:
  using Id::Id; // Idのコンストラクタを継承
+ CompositionID() = default;
+ CompositionID(const Id& other) : Id(other) {}
 };
 
 class LIBRARY_DLL_API LayerID : public Id {
 public:
  using Id::Id;
+ LayerID() = default;
+ LayerID(const Id& other) : Id(other) {}
 };
 
 
