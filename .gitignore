@@ -361,3 +361,18 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Extra Artifact Specifics
+*.ifc
+*.lib
+*.dll
+*.exp
+*.obj
+*.pdb
+*.cso
+/temp/
+**/temp/
+*.ifc.dt.d.json
+*.module.json.command
+*.tlog
+*.VC.db

@@ -25,19 +25,22 @@ export namespace ArtifactCore
  public:
   AnimatableTransform3D();
   ~AnimatableTransform3D();
-  void setInitialScale(const RationalTime& time,float xs,float ys);
-  void setInitalAngle(const RationalTime& time,float angle=0);
-  void setUserScale(const RationalTime& time,float xs,float ys);
-  void setInitialPosition(const RationalTime& time,float px,float py);
-  void setPosition(const RationalTime& time,float x, float y);
+  void setInitialPosition(const RationalTime& time, float px, float py);
+  void setInitialScale(const RationalTime& time, float xs, float ys);
+  void setInitialRotation(const RationalTime& time, float angle);
+
+  // Legacy alias
+  void setInitalAngle(const RationalTime& time, float angle) { setInitialRotation(time, angle); }
+
+  void setPosition(const RationalTime& time, float x, float y);
   void setPositionZ(const RationalTime& time, float z);
   void setAnchor(const RationalTime& time, float x, float y, float z = 0.0f);
-  void setRotation(const RationalTime& time,float degrees);
-  void setScale(const RationalTime& time,float xs,float ys);
- 	
+  void setRotation(const RationalTime& time, float degrees);
+  void setScale(const RationalTime& time, float xs, float ys);
+
   size_t size() const;
 
-  // Œ»İ’l‚Ìæ“¾iÅŒã‚Éİ’è‚³‚ê‚½’lj
+  // Returns combined (Baseline + Offset) values for current time
   float positionX() const;
   float positionY() const;
   float positionZ() const;
@@ -47,8 +50,8 @@ export namespace ArtifactCore
   float anchorX() const;
   float anchorY() const;
   float anchorZ() const;
-  
-  // w’è‚ÌƒAƒjƒ[ƒVƒ‡ƒ“•âŠÔ’l‚ğæ“¾iUI—pj
+
+  // Returns combined (Baseline + Offset) values at specific time
   float positionXAt(const RationalTime& time) const;
   float positionYAt(const RationalTime& time) const;
   float positionZAt(const RationalTime& time) const;
@@ -58,42 +61,39 @@ export namespace ArtifactCore
   float anchorXAt(const RationalTime& time) const;
   float anchorYAt(const RationalTime& time) const;
   float anchorZAt(const RationalTime& time) const;
-  
-  // 4x4•ÏŠ·s—ñ‚Ìæ“¾iƒŒƒ“ƒ_ƒŠƒ“ƒO—pj
-  // Œ»İ’l‚©‚çs—ñ‚ğ¶¬
+
+  // Returns the final world matrix (Baseline * Offset)
   float4x4 getMatrix() const;
   float4x4 getAllMatrix() const;
-  
-  // w’è‚ÌƒAƒjƒ[ƒVƒ‡ƒ“•âŠÔ’l‚©‚çs—ñ‚ğ¶¬
   float4x4 getMatrixAt(const RationalTime& time) const;
   float4x4 getAllMatrixAt(const RationalTime& time) const;
   
   // ============================================
-  // ƒL[ƒtƒŒ[ƒ€ŠÇ—‹@”\iUI/ƒGƒfƒBƒ^—pj
+  // ï¿½Lï¿½[ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ç—ï¿½ï¿½@ï¿½\ï¿½iUI/ï¿½Gï¿½fï¿½Bï¿½^ï¿½pï¿½j
   // ============================================
   
-  // w’è‚ÉƒL[ƒtƒŒ[ƒ€‚ª‘¶İ‚·‚é‚©
+  // ï¿½wï¿½èï¿½ï¿½ï¿½ÉƒLï¿½[ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½İ‚ï¿½ï¿½é‚©
   bool hasPositionKeyFrameAt(const RationalTime& time) const;
   bool hasRotationKeyFrameAt(const RationalTime& time) const;
   bool hasScaleKeyFrameAt(const RationalTime& time) const;
   
-  // w’è‚ÌƒL[ƒtƒŒ[ƒ€‚ğíœ
+  // ï¿½wï¿½èï¿½ï¿½ï¿½ÌƒLï¿½[ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½íœ
   void removePositionKeyFrameAt(const RationalTime& time);
   void removeRotationKeyFrameAt(const RationalTime& time);
   void removeScaleKeyFrameAt(const RationalTime& time);
   
-  // ‚·‚×‚Ä‚ÌƒL[ƒtƒŒ[ƒ€‚ğƒNƒŠƒA
+  // ï¿½ï¿½ï¿½×‚Ä‚ÌƒLï¿½[ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½A
   void clearPositionKeyFrames();
   void clearRotationKeyFrames();
   void clearScaleKeyFrames();
   void clearAllKeyFrames();
   
-  // ƒL[ƒtƒŒ[ƒ€”‚ğæ“¾
+  // ï¿½Lï¿½[ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ“¾
   size_t getPositionKeyFrameCount() const;
   size_t getRotationKeyFrameCount() const;
   size_t getScaleKeyFrameCount() const;
   
-  // ‚·‚×‚Ä‚ÌƒL[ƒtƒŒ[ƒ€‚ğæ“¾iƒ\[ƒgÏ‚İj
+  // ï¿½ï¿½ï¿½×‚Ä‚ÌƒLï¿½[ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ“¾ï¿½iï¿½\ï¿½[ï¿½gï¿½Ï‚İj
   std::vector<RationalTime> getPositionKeyFrameTimes() const;
   std::vector<RationalTime> getRotationKeyFrameTimes() const;
   std::vector<RationalTime> getScaleKeyFrameTimes() const;
