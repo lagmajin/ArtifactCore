@@ -20,7 +20,7 @@ set(CORE_MODULES "")
 set(CORE_IMPL "")
 
 # モジュール重複チェック用の追跡変数
-# _PROVIDED_MODULE_<MODNAME> にパスを保存する
+set(_PROVIDED_MODULES "")
 
 foreach(file_path ${POTENTIAL_SOURCES})
     # 除外ディレクトリ・ファイルのチェック
@@ -29,38 +29,32 @@ foreach(file_path ${POTENTIAL_SOURCES})
        file_path MATCHES "/Halide/" OR
        file_path MATCHES "hostfxr" OR
        file_path MATCHES "\\.bak$" OR
-       file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers") # vcpkgのvulkanと衝突するため除外
+       file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
         continue()
     endif()
 
-    # ファイルの内容を確認してモジュールの種類を判定
-    file(READ "${file_path}" content LIMIT 1024)
+    # ファイルの内容を確認してモジュールの種類を判定 (判定サイズを拡大)
+    file(READ "${file_path}" content LIMIT 2048)
     
-    # 1. モジュールインターフェース (export module M; または export module M:P;)
-    if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
+    # 1. モジュールインターフェース (export module M;)
+    # 2. モジュールパーティション実装 (module M:P;) 
+    # ※これら両方が CXX_MODULES ファイルセットに必須
+    if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)" OR
+       content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)")
+        
         set(mod_name "${CMAKE_MATCH_1}")
         
-        if(DEFINED "_PROVIDED_MODULE_${mod_name}")
-            list(APPEND CORE_IMPL "${file_path}") 
-        else()
-            set("_PROVIDED_MODULE_${mod_name}" "${file_path}")
+        # 重複チェック (同一モジュール名を提供するファイルが複数あると Ninja が止まる)
+        list(FIND _PROVIDED_MODULES "${mod_name}" _mod_idx)
+        if(_mod_idx EQUAL -1)
             list(APPEND CORE_MODULES "${file_path}")
-        endif()
-
-    # 2. モジュールパーティション実装 (module M:P;)
-    # ※パーティション実装も CXX_MODULES ファイルセットに含める必要がある (CMake 3.28+ / Ninja)
-    elseif(content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
-        set(mod_name "${CMAKE_MATCH_1}")
-        
-        if(DEFINED "_PROVIDED_MODULE_${mod_name}")
+            list(APPEND _PROVIDED_MODULES "${mod_name}")
+        else()
+            message(STATUS "Note: Skipping duplicate module provider for '${mod_name}': ${file_path}")
             list(APPEND CORE_IMPL "${file_path}")
-        else()
-            set("_PROVIDED_MODULE_${mod_name}" "${file_path}")
-            list(APPEND CORE_MODULES "${file_path}")
         endif()
-
-    # 3. 通常のモジュール実装 (module M;) または非モジュールファイル
     else()
+        # 通常のモジュール実装 (module M;) または非モジュールファイル
         string(LENGTH "${content}" content_len)
         if(content_len GREATER 0)
             list(APPEND CORE_IMPL "${file_path}")
@@ -108,19 +102,15 @@ target_link_libraries(ArtifactCore PUBLIC ${OpenCV_LIBS})
 find_package(SDL2 REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC SDL2::SDL2)
 
-# Boost (Asio, UUID, Iostreams)
 find_package(Boost REQUIRED COMPONENTS system iostreams)
 target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system Boost::iostreams)
 
-# Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC Vulkan::Vulkan)
 
-# TBB
 find_package(TBB REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
 
-# OpenImageIO
 find_package(OpenImageIO REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC OpenImageIO::OpenImageIO)
 
