@@ -82,7 +82,8 @@ endif()
 add_library(ArtifactCore STATIC)
 
 target_sources(ArtifactCore
-    PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES} ${CORE_IMPL}
+    PRIVATE ${CORE_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
 )
 
 target_include_directories(ArtifactCore
