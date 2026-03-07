@@ -1,12 +1,7 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.30)
 project(ArtifactCore)
 
 set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Enable 'import std;' support (CMake 3.30+)
-set(CMAKE_CXX_MODULE_STD ON)
 
 # ---------------------------------------------------------------------------
 # ソース収集とモジュール分類
