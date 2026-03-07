@@ -81,9 +81,9 @@ endif()
 # ---------------------------------------------------------------------------
 add_library(ArtifactCore STATIC)
 
+# すべてのファイルを CXX_MODULES に登録し、Ninja に依存関係をスキャンさせる
 target_sources(ArtifactCore
-    PRIVATE ${CORE_IMPL}
-    PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
+    PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES} ${CORE_IMPL}
 )
 
 target_include_directories(ArtifactCore
