@@ -41,8 +41,7 @@ foreach(file_path ${POTENTIAL_SOURCES})
         set(mod_name "${CMAKE_MATCH_1}")
         
         if(DEFINED "_PROVIDED_MODULE_${mod_name}")
-            message(STATUS "Skipping duplicate interface for module '${mod_name}': ${file_path} (Already provided by ${_PROVIDED_MODULE_${mod_name}})")
-            list(APPEND CORE_IMPL "${file_path}") # 重複は通常ソース扱い（コンパイルエラーになる可能性が高いが、CMakeの停止は防げる）
+            list(APPEND CORE_IMPL "${file_path}") 
         else()
             set("_PROVIDED_MODULE_${mod_name}" "${file_path}")
             list(APPEND CORE_MODULES "${file_path}")
@@ -50,11 +49,10 @@ foreach(file_path ${POTENTIAL_SOURCES})
 
     # 2. モジュールパーティション実装 (module M:P;)
     # ※パーティション実装も CXX_MODULES ファイルセットに含める必要がある (CMake 3.28+ / Ninja)
-    elseif(content MATCHES "[^export][ \t\r\n]*module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._]+)[ \t\r\n]*;")
+    elseif(content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
         set(mod_name "${CMAKE_MATCH_1}")
         
         if(DEFINED "_PROVIDED_MODULE_${mod_name}")
-            message(STATUS "Skipping duplicate partition for module '${mod_name}': ${file_path}")
             list(APPEND CORE_IMPL "${file_path}")
         else()
             set("_PROVIDED_MODULE_${mod_name}" "${file_path}")
