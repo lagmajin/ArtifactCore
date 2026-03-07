@@ -1,4 +1,4 @@
-module;
+module ;
 
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
@@ -50,8 +50,8 @@ export namespace ArtifactCore {
  class FrameOffset;
  class FrameRate;
 
- // t[͈͂\NX
- // ҏWɂ^CC͈̔́A[NGAAC[̎ԂȂǂ\
+ // t[͈͂ NX
+ // ҏWɂ^CC͈̔́A[NGAAC[̎ԂȂǂ
  class LIBRARY_DLL_API FrameRange {
  private:
   class Impl;

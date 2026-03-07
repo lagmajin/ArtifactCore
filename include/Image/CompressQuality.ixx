@@ -1,5 +1,5 @@
-﻿
 module;
+﻿
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
 export module CompressQuality;

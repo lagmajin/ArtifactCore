@@ -1,6 +1,8 @@
 module;
 
 #include "../Define/DllExportMacro.hpp"
+#include <wobjectdefs.h>
+#include <QObject>
 
 #include <iostream>
 #include <vector>
@@ -114,12 +116,13 @@ struct HDRMetadata
     int whitePointX = 15635;   // 0.15635 in 0.00002 units
     int whitePointY = 16450;   // 0.16450
     int maxLuminance = 1000000; // 1000 nits
-    int minLuminance = 1;       // 0.0001 nits
+    int masteringMinLuminance = 1;       // 0.0001 nits
 };
 
 // カラーマネージャー
-class LIBRARY_DLL_API ColorManager
+class LIBRARY_DLL_API ColorManager : public QObject
 {
+    W_OBJECT(ColorManager)
 public:
     static ColorManager& instance();
 

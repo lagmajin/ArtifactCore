@@ -42,6 +42,7 @@ import Utils.String.Like;
 import Utils.String.UniString;
 import Audio.Segment;
 import Audio.Panner;
+import Audio.Effect;
 
 export namespace ArtifactCore {
 
@@ -73,6 +74,12 @@ export namespace ArtifactCore {
 
 		void setSolo(bool solo);
 		bool isSolo() const;
+
+		// Effect Rack (FX Slot)
+		void addEffect(std::shared_ptr<AudioEffect> effect);
+		void removeEffect(int index);
+		int getEffectCount() const;
+		std::shared_ptr<AudioEffect> getEffect(int index) const;
 
 		// Process audio buffer in-place
 		void process(AudioSegment& segment);

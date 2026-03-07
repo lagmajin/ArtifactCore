@@ -1,5 +1,5 @@
-﻿// ReSharper disable All
-module;
+module ;
+// ReSharper disable All
 #include <QObject>
 #include <wobjectdefs.h>
 

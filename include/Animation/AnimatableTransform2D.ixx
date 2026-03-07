@@ -1,3 +1,4 @@
+module ;
 #include <iostream>
 #include <vector>
 #include <string>
@@ -31,7 +32,6 @@
 #include <numeric>
 #include <regex>
 #include <random>
-module ;
 export module Animation.Transform2D;
 
 

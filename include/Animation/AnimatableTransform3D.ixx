@@ -1,3 +1,4 @@
+module ;
 #include <mfidl.h>
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include "../Define/DllExportMacro.hpp"
@@ -34,7 +35,6 @@
 #include <numeric>
 #include <regex>
 #include <random>
-module ;
 
 export module Animation.Transform3D;
 

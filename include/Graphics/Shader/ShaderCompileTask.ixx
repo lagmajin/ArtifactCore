@@ -1,6 +1,6 @@
 
-#include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>
 module ;
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>
 export module Graphics.Shader.Compile.Task;
 
 

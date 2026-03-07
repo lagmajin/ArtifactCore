@@ -1,13 +1,11 @@
 module;
-
+#include <cstdint>
 
 module  Frame.Offset;
 
 import Frame.Rate;
 import Time.Rational;
 import Time.Code;
-
-import <cstdint>;
 
 namespace ArtifactCore
 {

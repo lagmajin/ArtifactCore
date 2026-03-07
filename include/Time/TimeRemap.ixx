@@ -35,6 +35,9 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QObject>
+#include <QVector>
+#include <QPair>
 export module Time.TimeRemap;
 
 
@@ -42,11 +45,6 @@ export module Time.TimeRemap;
 
 import Frame.Rate;
 import Frame.Position;
-
-// Qt classes for compatibility
-import <QObject>;
-import <QVector>;
-import <QPair>;
 
 export namespace ArtifactCore {
 

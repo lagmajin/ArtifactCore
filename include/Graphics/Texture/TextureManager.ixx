@@ -1,5 +1,5 @@
-﻿
 module;
+﻿
 #include <QSizeF>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>

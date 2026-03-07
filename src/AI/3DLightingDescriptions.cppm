@@ -37,7 +37,7 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-export module Core.AI.3DLightingDescriptions;
+export module Core.AI.Lighting3DDescriptions;
 
 
 

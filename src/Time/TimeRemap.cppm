@@ -40,9 +40,6 @@ module Time.TimeRemap;
 
 import Frame.Rate;
 
-import <cmath>;
-import <algorithm>;
-
 namespace ArtifactCore {
 
 // ==================== TimeRemapProcessor ====================

@@ -56,6 +56,8 @@ namespace ArtifactCore {
 		PanningMode panningMode_ = PanningMode::EqualPower;
 		bool mute_ = false;
 		bool solo_ = false;
+		
+		std::vector<std::shared_ptr<AudioEffect>> effects_;
 
 		std::vector<MeterState> meters_; // std::vector from 
 
@@ -140,10 +142,42 @@ namespace ArtifactCore {
 		return impl_->solo_;
 	}
 
+	void AudioBus::addEffect(std::shared_ptr<AudioEffect> effect)
+	{
+		impl_->effects_.push_back(effect);
+	}
+
+	void AudioBus::removeEffect(int index)
+	{
+		if (index >= 0 && index < impl_->effects_.size()) {
+			impl_->effects_.erase(impl_->effects_.begin() + index);
+		}
+	}
+
+	int AudioBus::getEffectCount() const
+	{
+		return static_cast<int>(impl_->effects_.size());
+	}
+
+	std::shared_ptr<AudioEffect> AudioBus::getEffect(int index) const
+	{
+		if (index >= 0 && index < impl_->effects_.size()) {
+			return impl_->effects_[index];
+		}
+		return nullptr;
+	}
+
 	void AudioBus::process(AudioSegment& segment)
 	{
-		// Update meter size if channels changed
-		int channels = segment.channelData.size();
+		// 1. Apply FX Rack FIRST (Pre-fader)
+		for (auto& effect : impl_->effects_) {
+			if (!effect->isBypassed()) {
+				effect->process(segment);
+			}
+		}
+
+		// 2. Apply Volume and Pan (Post-fader)
+		int channels = segment.channelCount();
 		if (impl_->meters_.size() != channels) {
 			impl_->meters_.resize(channels);
 		}

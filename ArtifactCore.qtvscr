@@ -1,0 +1,416 @@
+<FlowDocument xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" FontFamily="Segoe UI" FontSize="12">
+  <FlowDocument.Tag><![CDATA[{
+  "timestamp": "2025-01-20 19:11:22",
+  "files": {
+    "C:\\Users\\lagma\\Desktop\\Artifact\\ArtifactCore\\ArtifactCore.vcxproj": {
+      "before": "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",
+      "after": "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"
+    }
+  }
+}]]></FlowDocument.Tag>
+  <Section Margin="0,24" TextAlignment="Center">
+    <Paragraph FontSize="24" FontWeight="Bold" Margin="12,0">
+      <LineBreak />
+      <Span Foreground="Gray">Qt Visual Studio Tools</Span>
+    </Paragraph>
+    <Paragraph FontSize="42" Margin="12,0" FontWeight="Bold">
+      <Span TextDecorations="Underline">Project Format Conversion</Span>
+    </Paragraph>
+    <Paragraph Margin="12,8" FontSize="18">
+      <Span>Report generated on 2025-01-20 19:11:22</Span>
+    </Paragraph>
+  </Section>
+  <Section>
+    <Paragraph FontSize="32" FontWeight="Bold" Margin="12,0">
+      <Span>Files</Span>
+    </Paragraph>
+    <Paragraph Margin="24,12,0,0">
+      <Span FontFamily="Consolas" FontSize="14" Background="WhiteSmoke"><![CDATA[C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj]]></Span>
+      <LineBreak />
+      <Hyperlink NavigateUri="file://C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj?before">[Before]</Hyperlink>
+      <Hyperlink NavigateUri="file://C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj?after">[After]</Hyperlink>
+      <Hyperlink NavigateUri="file://C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj?diff&amp;before&amp;after">
+                        [Diff before/after]
+                    </Hyperlink>
+      <Hyperlink NavigateUri="file://C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj?diff&amp;before&amp;current">
+                        [Diff before/current]
+                    </Hyperlink>
+      <Hyperlink NavigateUri="file://C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj?diff&amp;after&amp;current">
+                        [Diff after/current]
+                    </Hyperlink>
+      <LineBreak />
+    </Paragraph>
+  </Section>
+  <Section>
+    <Paragraph FontSize="32" FontWeight="Bold" Margin="12,0">
+      <Span>Changes</Span>
+    </Paragraph>
+    <Paragraph FontSize="20" FontWeight="Bold" Margin="12">
+      <Span><![CDATA[🡺 Enabling multi-processor compilation]]></Span>
+    </Paragraph>
+    <Table CellSpacing="0" BorderBrush="Gray" BorderThickness="0.5">
+      <Table.Columns>
+        <TableColumn />
+        <TableColumn />
+      </Table.Columns>
+      <TableRowGroup>
+        <TableRow Background="Orange">
+          <TableCell ColumnSpan="2" BorderThickness="0.5" BorderBrush="Gray">
+            <Paragraph Margin="10,5" FontWeight="Bold">
+              <Span><![CDATA[C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[      <MultiProcessorCompilation>true</MultiProcessorCompilation>]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[      <MultiProcessorCompilation>true</MultiProcessorCompilation>]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[      <MultiProcessorCompilation>true</MultiProcessorCompilation>]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+      </TableRowGroup>
+    </Table>
+    <Paragraph FontSize="20" FontWeight="Bold" Margin="12">
+      <Span><![CDATA[🡺 Project format version]]></Span>
+    </Paragraph>
+    <Table CellSpacing="0" BorderBrush="Gray" BorderThickness="0.5">
+      <Table.Columns>
+        <TableColumn />
+        <TableColumn />
+      </Table.Columns>
+      <TableRowGroup>
+        <TableRow Background="Orange">
+          <TableCell ColumnSpan="2" BorderThickness="0.5" BorderBrush="Gray">
+            <Paragraph Margin="10,5" FontWeight="Bold">
+              <Span><![CDATA[C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[    <Keyword>QtVS_v304</Keyword>]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+      </TableRowGroup>
+    </Table>
+    <Paragraph FontSize="20" FontWeight="Bold" Margin="12">
+      <Span><![CDATA[🡺 Fallback for QTMSBUILD environment variable]]></Span>
+    </Paragraph>
+    <Table CellSpacing="0" BorderBrush="Gray" BorderThickness="0.5">
+      <Table.Columns>
+        <TableColumn />
+        <TableColumn />
+      </Table.Columns>
+      <TableRowGroup>
+        <TableRow Background="Orange">
+          <TableCell ColumnSpan="2" BorderThickness="0.5" BorderBrush="Gray">
+            <Paragraph Margin="10,5" FontWeight="Bold">
+              <Span><![CDATA[C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[    <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+      </TableRowGroup>
+    </Table>
+    <Paragraph FontSize="20" FontWeight="Bold" Margin="12">
+      <Span><![CDATA[🡺 Default Qt properties]]></Span>
+    </Paragraph>
+    <Table CellSpacing="0" BorderBrush="Gray" BorderThickness="0.5">
+      <Table.Columns>
+        <TableColumn />
+        <TableColumn />
+      </Table.Columns>
+      <TableRowGroup>
+        <TableRow Background="Orange">
+          <TableCell ColumnSpan="2" BorderThickness="0.5" BorderBrush="Gray">
+            <Paragraph Margin="10,5" FontWeight="Bold">
+              <Span><![CDATA[C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[  <Import Project="$(QtMsBuild)\qt_defaults.props" Condition="Exists('$(QtMsBuild)\qt_defaults.props')" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+      </TableRowGroup>
+    </Table>
+    <Paragraph FontSize="20" FontWeight="Bold" Margin="12">
+      <Span><![CDATA[🡺 Qt build settings]]></Span>
+    </Paragraph>
+    <Table CellSpacing="0" BorderBrush="Gray" BorderThickness="0.5">
+      <Table.Columns>
+        <TableColumn />
+        <TableColumn />
+      </Table.Columns>
+      <TableRowGroup>
+        <TableRow Background="Orange">
+          <TableCell ColumnSpan="2" BorderThickness="0.5" BorderBrush="Gray">
+            <Paragraph Margin="10,5" FontWeight="Bold">
+              <Span><![CDATA[C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+      </TableRowGroup>
+    </Table>
+    <Paragraph FontSize="20" FontWeight="Bold" Margin="12">
+      <Span><![CDATA[🡺 Warn if Qt/MSBuild is not found]]></Span>
+    </Paragraph>
+    <Table CellSpacing="0" BorderBrush="Gray" BorderThickness="0.5">
+      <Table.Columns>
+        <TableColumn />
+        <TableColumn />
+      </Table.Columns>
+      <TableRowGroup>
+        <TableRow Background="Orange">
+          <TableCell ColumnSpan="2" BorderThickness="0.5" BorderBrush="Gray">
+            <Paragraph Margin="10,5" FontWeight="Bold">
+              <Span><![CDATA[C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[  <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') OR !Exists('$(QtMsBuild)\Qt.props')">]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[    <Message Importance="High" Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[  </Target>]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+      </TableRowGroup>
+    </Table>
+    <Paragraph FontSize="20" FontWeight="Bold" Margin="12">
+      <Span><![CDATA[🡺 Qt property sheet]]></Span>
+    </Paragraph>
+    <Table CellSpacing="0" BorderBrush="Gray" BorderThickness="0.5">
+      <Table.Columns>
+        <TableColumn />
+        <TableColumn />
+      </Table.Columns>
+      <TableRowGroup>
+        <TableRow Background="Orange">
+          <TableCell ColumnSpan="2" BorderThickness="0.5" BorderBrush="Gray">
+            <Paragraph Margin="10,5" FontWeight="Bold">
+              <Span><![CDATA[C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[    <Import Project="$(QtMsBuild)\Qt.props" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[    <Import Project="$(QtMsBuild)\Qt.props" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[    <Import Project="$(QtMsBuild)\Qt.props" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[    <Import Project="$(QtMsBuild)\Qt.props" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+      </TableRowGroup>
+    </Table>
+    <Paragraph FontSize="20" FontWeight="Bold" Margin="12">
+      <Span><![CDATA[🡺 Qt targets]]></Span>
+    </Paragraph>
+    <Table CellSpacing="0" BorderBrush="Gray" BorderThickness="0.5">
+      <Table.Columns>
+        <TableColumn />
+        <TableColumn />
+      </Table.Columns>
+      <TableRowGroup>
+        <TableRow Background="Orange">
+          <TableCell ColumnSpan="2" BorderThickness="0.5" BorderBrush="Gray">
+            <Paragraph Margin="10,5" FontWeight="Bold">
+              <Span><![CDATA[C:\Users\lagma\Desktop\Artifact\ArtifactCore\ArtifactCore.vcxproj]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell ColumnSpan="2" Background="WhiteSmoke" BorderBrush="Gray" BorderThickness="0.5" />
+        </TableRow>
+        <TableRow>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0" />
+          </TableCell>
+          <TableCell BorderThickness="0, 0, 0.5, 0" BorderBrush="Gray">
+            <Paragraph FontFamily="Consolas" Margin="4, 0">
+              <Span Background="LightGreen"><![CDATA[  <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />]]></Span>
+            </Paragraph>
+          </TableCell>
+        </TableRow>
+      </TableRowGroup>
+    </Table>
+  </Section>
+  <Section>
+    <Paragraph />
+  </Section>
+</FlowDocument>
+<!--KpuehlD8Rh579sKrq47aHoatm4ut7GuxSA3fM2lp/aU=-->

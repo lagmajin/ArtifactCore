@@ -1,6 +1,7 @@
-﻿module;
+module;
 #include <QString>
 #include <wobjectdefs.h>
+#include <cstdint>
 
 #include "../Define/DllExportMacro.hpp"
 #include <iostream>
@@ -41,8 +42,6 @@ export module Frame.Position;
 
 
 
-
-import <cstdint>;
 
 export namespace ArtifactCore {
 

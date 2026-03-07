@@ -33,6 +33,7 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <cstdint>
 export module Frame.Offset;
 
 
@@ -41,8 +42,6 @@ export module Frame.Offset;
 import Frame.Rate;
 import Time.Rational;
 import Time.Code;
-
-import <cstdint>;
 
 
 export namespace ArtifactCore {

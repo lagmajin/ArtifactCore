@@ -1,5 +1,5 @@
-#include <QPaintEngine>
 module ;
+#include <QPaintEngine>
 export module Image.CvMatPaintEngine;
 
 

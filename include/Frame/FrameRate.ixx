@@ -1,5 +1,5 @@
-﻿// ReSharper disable All
 module;
+﻿// ReSharper disable All
 
 
 #include <QtCore/QString>

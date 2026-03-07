@@ -1,7 +1,7 @@
+module ;
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
 #include <QSize>
-module ;
 
 
 export module Preview.Quality;

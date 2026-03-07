@@ -30,21 +30,26 @@ foreach(file_path ${POTENTIAL_SOURCES})
     endif()
 
     # ファイルの内容を確認してモジュールの種類を判定
-    file(READ "${file_path}" raw_content LIMIT 4096)
+    # 以前の 4096 バイト制限では、大量の include の後に export module がある場合に
+    # 検出に失敗することがあったため、制限を 32KB に拡大します。
+    file(READ "${file_path}" raw_content LIMIT 32768)
     
     # コメントを除去して誤判定を防ぐ
+    # ※ CMake の REGEX REPLACE は最短一致ではないため、注意が必要ですが、
+    #    ここでは大まかな判定用なので許容します。
     string(REGEX REPLACE "//[^\n]*" "" content "${raw_content}")
+    # 改行を含むコメントも大まかに除去
     string(REGEX REPLACE "/\\*.*\\*/" "" content "${content}")
 
     set(is_mod_interface_or_partition FALSE)
     set(found_mod_name "")
 
     # 1. インターフェース判定: export module M;
+    # より柔軟な正規表現を使用します（セミコロンの前の空白を許容）
     if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
         set(is_mod_interface_or_partition TRUE)
         set(found_mod_name "${CMAKE_MATCH_1}")
     # 2. パーティション判定: module M:P; (コロンを含む)
-    # ※通常のモジュール実装 (module M;) はコロンを含まないため、ここにはマッチしない
     elseif(content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
         set(is_mod_interface_or_partition TRUE)
         set(found_mod_name "${CMAKE_MATCH_1}")
@@ -56,9 +61,11 @@ foreach(file_path ${POTENTIAL_SOURCES})
         if(_mod_idx EQUAL -1)
             list(APPEND CORE_MODULES "${file_path}")
             list(APPEND _PROVIDED_MODULES "${found_mod_name}")
+            # message(STATUS "Module detected: ${found_mod_name} (${file_path})")
         else()
-            # 重複している場合は通常の実装として扱う（ビルドエラーにはなるが、Ninja の地図生成は通る）
+            # 重複している場合は通常の実装として扱う
             list(APPEND CORE_IMPL "${file_path}")
+            message(WARNING "Duplicate module name detected: ${found_mod_name} in ${file_path} (already provided by other file)")
         endif()
     else()
         # 通常のソースファイル (module M; または非モジュール)
@@ -73,6 +80,12 @@ endforeach()
 # ターゲット定義
 # ---------------------------------------------------------------------------
 add_library(ArtifactCore STATIC)
+
+set_target_properties(ArtifactCore PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_MODULE_STD ON
+)
 
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}

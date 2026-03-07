@@ -1,6 +1,7 @@
 module;
 
 #include <QString>
+#include <QRegularExpression>
 #include <QImage>
 #include <QColor>
 #include <QVector3D>

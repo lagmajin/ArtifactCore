@@ -34,12 +34,8 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <cstdint>
 module Frame.Position;
-
-
-
-
-import <cstdint>;
 
 namespace ArtifactCore {
 

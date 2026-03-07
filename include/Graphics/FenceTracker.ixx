@@ -1,9 +1,10 @@
-﻿
+module ;
 
-module;
+#include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Fence.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+
 export module Graphics.Fence.Tracker;
 
 namespace Diligent{}
@@ -48,12 +49,5 @@ export namespace ArtifactCore {
   // フェンスの現在値取得（デバッグ用）
   Uint64 CurrentValue() const { return currentValue_; }
  };
-
-
-
-
-
-
-
 
 };

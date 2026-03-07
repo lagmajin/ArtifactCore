@@ -1,5 +1,5 @@
-﻿
 module;
+﻿
 #include <QByteArray>
 
 export module Audio;

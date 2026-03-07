@@ -1,0 +1,19 @@
+
+
+
+
+
+namespace ArtifactCore {
+
+
+
+ void allocConsle()
+ {
+
+ }
+
+
+
+
+
+}

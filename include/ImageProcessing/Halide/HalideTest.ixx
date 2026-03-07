@@ -1,4 +1,5 @@
 
+module ;
 #include <Halide.h>
 #include <opencv2/opencv.hpp>
 #include "../../Define/DllExportMacro.hpp"
@@ -35,7 +36,6 @@
 #include <numeric>
 #include <regex>
 #include <random>
-module ;
 
 export module HalideTest;
 

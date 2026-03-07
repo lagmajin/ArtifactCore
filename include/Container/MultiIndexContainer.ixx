@@ -2,6 +2,7 @@
 #include <QHash>
 #include <QMultiHash>
 #include <QVector>
+#include <typeindex>
 
 #include <iostream>
 #include <vector>
