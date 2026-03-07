@@ -131,6 +131,10 @@ target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system)
 find_package(Vulkan REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC Vulkan::Vulkan)
 
+# TBB
+find_package(TBB REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
+
 if(MSVC)
     target_compile_definitions(ArtifactCore PRIVATE 
         PLATFORM_WIN32
