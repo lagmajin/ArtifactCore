@@ -123,9 +123,9 @@ if(LibVLC_FOUND)
     target_link_libraries(ArtifactCore PUBLIC LibVLC::LibVLC)
 endif()
 
-# Boost (Asio, UUID)
-find_package(Boost REQUIRED COMPONENTS system)
-target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system)
+# Boost (Asio, UUID, Iostreams)
+find_package(Boost REQUIRED COMPONENTS system iostreams)
+target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system Boost::iostreams)
 
 # Vulkan
 find_package(Vulkan REQUIRED)
@@ -142,6 +142,10 @@ target_link_libraries(ArtifactCore PUBLIC OpenImageIO::OpenImageIO)
 # GLM
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC glm::glm)
+
+# stb
+find_package(stb CONFIG REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC stb::stb)
 
 if(MSVC)
     target_compile_definitions(ArtifactCore PRIVATE 
