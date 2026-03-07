@@ -135,6 +135,10 @@ target_link_libraries(ArtifactCore PUBLIC Vulkan::Vulkan)
 find_package(TBB REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
 
+# OpenImageIO
+find_package(OpenImageIO REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC OpenImageIO::OpenImageIO)
+
 if(MSVC)
     target_compile_definitions(ArtifactCore PRIVATE 
         PLATFORM_WIN32
