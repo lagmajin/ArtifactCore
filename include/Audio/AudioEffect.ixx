@@ -7,7 +7,6 @@ module;
 export module Audio.Effect;
 
 import Audio.Segment;
-import std;
 
 export namespace ArtifactCore {
 
@@ -23,8 +22,10 @@ public:
     
     /**
      * @brief 音声処理の実行 (インプレース)
+     * @param segment 処理対象のメインバッファ
+     * @param sideChain サイドチェーン参照用バッファ (任意)
      */
-    virtual void process(AudioSegment& segment) = 0;
+    virtual void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) = 0;
 
     virtual void setBypass(bool bypass) { bypass_ = bypass; }
     virtual bool isBypassed() const { return bypass_; }

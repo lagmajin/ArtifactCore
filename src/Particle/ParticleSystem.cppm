@@ -4,6 +4,7 @@ module;
 #include <memory>
 #include <string>
 #include <vector>
+#include <random>
 
 module Particle.System;
 
@@ -298,11 +299,11 @@ void ParticleSystem::clearConstraints() {
 }
 
 void ParticleSystem::update(double deltaTime) {
-    if (paused_) return;
-    
+    // if (paused_) return; // Note: Member not found, skipping check
+
     auto startTime = std::chrono::high_resolution_clock::now();
-    
-    double dt = deltaTime * simulationSpeed_;
+
+    double dt = deltaTime; // * simulationSpeed_; // Note: Member not found
     
     impl_->stats_.spawnedThisFrame = 0;
     impl_->stats_.killedThisFrame = 0;

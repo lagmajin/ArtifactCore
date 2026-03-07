@@ -6,8 +6,6 @@ import :ImageProcessing;
 
 namespace ArtifactCore {
 
-    struct HalftoneParams { float dotSize; float angle; float contrast; bool colorMode; float cmykAngles[4]; };
-
 cv::Mat halftoneEffect(const cv::Mat& input, const HalftoneParams& params) {
     if (input.empty()) return input;
 

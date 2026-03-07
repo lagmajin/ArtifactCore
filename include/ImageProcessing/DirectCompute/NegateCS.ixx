@@ -1,5 +1,4 @@
 module;
-﻿
 
 
 #include "../../Define/DllExportMacro.hpp"

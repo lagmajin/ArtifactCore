@@ -95,6 +95,7 @@ export namespace ArtifactCore {
 		// Metering
 		float getPeakLevel(int channelIndex) const;
 		float getRMSLevel(int channelIndex) const;
+		float getGainReduction() const;
 
 	};
 

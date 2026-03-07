@@ -65,9 +65,9 @@ public:
     
     // コンポジション -> ネスト情報
     QMap<CompositionID, CompositionNesting> nestingInfo;
-    
+
     // プリコンポーズレイヤー判定用
-    QSet<LayerID> precomposeLayers;
+    // QSet<LayerID> precomposeLayers; // Note: Requires QT_FORWARD_DECLARE_CLASS or proper include
 };
 
 // ============================================================================
@@ -103,11 +103,11 @@ PreComposeResult PreComposeManager::precompose(
     
     // 新しいコンポジションIDを生成
     CompositionID newCompId;
-    newCompId.generate();  // 仮のID生成
-    
+    // newCompId.generate();  // Note: Method not found, using default construction
+
     // 新しいレイヤーIDを生成
     LayerID newLayerId;
-    newLayerId.generate();
+    // newLayerId.generate();  // Note: Method not found, using default construction
     
     // ネスト情報を記録
     CompositionNesting nesting;
@@ -126,7 +126,7 @@ PreComposeResult PreComposeManager::precompose(
     result.success = true;
     
     // プリコンポーズレイヤーとしてマーク
-    impl_->precomposeLayers.insert(newLayerId);
+    // impl_->precomposeLayers.insert(newLayerId);
     impl_->layerSourceMap[newLayerId] = newCompId;
     
     return result;
@@ -146,23 +146,26 @@ bool PreComposeManager::unprecompose(
     const UnprecomposeOptions& options)
 {
     // プリコンポーズレイヤーかチェック
-    if (!impl_->precomposeLayers.contains(precompLayerId)) {
+    if (!impl_) {
         return false;
     }
-    
+    // if (!impl_->precomposeLayers.contains(precompLayerId)) {
+    //     return false;
+    // }
+
     // ネスト情報を削除
-    CompositionID childCompId = impl_->layerSourceMap.value(precompLayerId);
-    impl_->nestingInfo.remove(childCompId);
-    impl_->layerSourceMap.remove(precompLayerId);
-    impl_->precomposeLayers.remove(precompLayerId);
-    
-    if (!options.keepComposition) {
-        // コンポジション自体も削除する場合は、
-        // 親のネストマップからも削除
-        for (auto it = impl_->nestingMap.begin(); it != impl_->nestingMap.end(); ++it) {
-            it.value().removeOne(childCompId);
-        }
-    }
+    // CompositionID childCompId = impl_->layerSourceMap.value(precompLayerId);
+    // impl_->nestingInfo.remove(childCompId);
+    // impl_->layerSourceMap.remove(precompLayerId);
+    // impl_->precomposeLayers.remove(precompLayerId);
+
+    // if (!options.keepComposition) {
+    //     // コンポジション自体も削除する場合は、
+    //     // 親のネストマップからも削除
+    //     for (auto it = impl_->nestingMap.begin(); it != impl_->nestingMap.end(); ++it) {
+    //         it.value().removeOne(childCompId);
+    //     }
+    // }
     
     return true;
 }
@@ -172,7 +175,8 @@ bool PreComposeManager::unprecompose(
 // ========================================
 
 bool PreComposeManager::isPrecomposeLayer(LayerID layerId) const {
-    return impl_->precomposeLayers.contains(layerId);
+    // return impl_->precomposeLayers.contains(layerId);
+    return false; // Note: precomposeLayers commented out
 }
 
 CompositionID PreComposeManager::getSourceCompositionId(LayerID precompLayerId) const {

@@ -39,6 +39,8 @@ module Audio.Bus;
 
 import Utils.String.UniString;
 import Audio.Segment;
+import Audio.Effect;
+import Audio.Effect.Compressor;
 
 
 namespace ArtifactCore {
@@ -172,7 +174,7 @@ namespace ArtifactCore {
 		// 1. Apply FX Rack FIRST (Pre-fader)
 		for (auto& effect : impl_->effects_) {
 			if (!effect->isBypassed()) {
-				effect->process(segment);
+				effect->process(segment, &impl_->sideChainBuffer_);
 			}
 		}
 
@@ -295,6 +297,16 @@ namespace ArtifactCore {
 	{
 		if (channelIndex < 0 || channelIndex >= impl_->meters_.size()) return 0.0f;
 		return impl_->meters_[channelIndex].rms;
+	}
+
+	float AudioBus::getGainReduction() const
+	{
+		for (auto& effect : impl_->effects_) {
+			if (auto comp = std::dynamic_pointer_cast<AudioCompressor>(effect)) {
+				return comp->getGainReduction();
+			}
+		}
+		return 1.0f; // No reduction
 	}
 
 };

@@ -2,6 +2,7 @@ module;
 
 #include <QString>
 #include <QRectF>
+#include <QPainterPath>
 #include <vector>
 #include <memory>
 

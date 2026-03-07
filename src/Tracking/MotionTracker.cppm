@@ -8,6 +8,7 @@ module;
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QPainter>
 #include <QMap>
 #include <vector>
 #include <cmath>
@@ -789,7 +790,12 @@ void TrackerManager::clearTrackers() {
 }
 
 std::vector<MotionTracker*> TrackerManager::allTrackers() {
-    return impl_->trackers.values().toVector().toStdVector();
+    auto qlist = impl_->trackers.values();
+    std::vector<MotionTracker*> result;
+    for (auto* tracker : qlist) {
+        result.push_back(tracker);
+    }
+    return result;
 }
 
 int TrackerManager::trackerCount() const {

@@ -29,7 +29,6 @@ public:
      */
     void process(float4* buffer, int width, int height, const Settings& settings) {
         if (!buffer || width <= 0 || height <= 0) return;
-        ScopedPerformanceTimer timer("Volumetric Shine");
 
         std::vector<float4> original(buffer, buffer + width * height);
         float2 center{settings.sourcePos.x * width, settings.sourcePos.y * height};

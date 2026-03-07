@@ -4,8 +4,6 @@
 
 export module Render.Settings;
 
-import Log;
-
 
 
 export namespace ArtifactCore

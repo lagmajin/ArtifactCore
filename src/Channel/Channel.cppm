@@ -1,6 +1,9 @@
 module;
 #include <vector>
 #include <algorithm>
+#include <string>
+#include <memory>
+#include <map>
 
 module Channel;
 

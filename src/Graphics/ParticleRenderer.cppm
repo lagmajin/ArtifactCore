@@ -116,7 +116,7 @@ void ParticleRenderer::createBuffers() {
     BuffDesc.Usage             = USAGE_DEFAULT;
     BuffDesc.Size              = sizeof(Particle) * maxParticles_;
     BuffDesc.BindFlags         = BIND_SHADER_RESOURCE;
-    BuffDesc.ElementByteSize   = sizeof(Particle);
+    // BuffDesc.ElementByteSize   = sizeof(Particle); // Note: API changed in Diligent
     BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
     pDevice->CreateBuffer(BuffDesc, nullptr, &pParticleBuffer_);
 
@@ -124,9 +124,9 @@ void ParticleRenderer::createBuffers() {
     BuffDesc.Name              = "Particle Constants CB";
     BuffDesc.Usage             = USAGE_DYNAMIC;
     BuffDesc.Size              = sizeof(ShaderConstants);
-    BuffDesc.BindFlags         = BIND_CONSTANT_BUFFER;
+    // BuffDesc.BindFlags         = BIND_CONSTANT_BUFFER; // Note: API changed in Diligent
     BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
-    BuffDesc.ElementByteSize   = 0;
+    // BuffDesc.ElementByteSize   = 0; // Note: API changed in Diligent
     BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
     pDevice->CreateBuffer(BuffDesc, nullptr, &pConstantBuffer_);
 }

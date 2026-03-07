@@ -30,7 +30,6 @@ public:
      */
     void process(float4* buffer, int width, int height, const Settings& settings) {
         if (!buffer || width <= 0 || height <= 0) return;
-        ScopedPerformanceTimer timer("Film Halation");
 
         std::vector<float4> source(buffer, buffer + width * height);
         

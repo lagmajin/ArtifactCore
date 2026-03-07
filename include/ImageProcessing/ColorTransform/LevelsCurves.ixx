@@ -51,6 +51,15 @@ export namespace ArtifactCore {
 // Levels（レベル補正）
 // ============================================================================
 
+/// チャンネル別レベル補正設定（再帰を避けるための基本設定）
+struct ChannelLevelsSettings {
+    double inputBlack = 0.0;
+    double inputWhite = 255.0;
+    double inputGamma = 1.0;
+    double outputBlack = 0.0;
+    double outputWhite = 255.0;
+};
+
 /// レベル補正設定
 struct LevelsSettings {
     // 入力レベル
@@ -64,9 +73,9 @@ struct LevelsSettings {
     
     // チャンネルごとの設定（オプション）
     bool perChannel = false;     ///< チャンネルごとの調整を有効
-    LevelsSettings red;
-    LevelsSettings green;
-    LevelsSettings blue;
+    ChannelLevelsSettings red;
+    ChannelLevelsSettings green;
+    ChannelLevelsSettings blue;
     
     /// リセット
     void reset() {

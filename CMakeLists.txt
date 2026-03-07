@@ -100,7 +100,6 @@ target_include_directories(ArtifactCore
         "${CMAKE_CURRENT_SOURCE_DIR}/include/Image"
         "${CMAKE_CURRENT_SOURCE_DIR}/../Artifact/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/verdigris/src"
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../libs/DiligentEngine"
         "${CMAKE_CURRENT_SOURCE_DIR}/../libs/DiligentEngine/DiligentCore"

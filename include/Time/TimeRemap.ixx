@@ -147,7 +147,7 @@ private:
     QVector<TimeRemapKeyframe> keyframes_;
     double sourceDuration_ = 10.0;  // Default 10 seconds
     int sourceFrameCount_ = 300;    // Default 30fps * 10s
-    FrameRate frameRate_ = FrameRate(30, 1);
+    FrameRate frameRate_{30.0f}; // Note: FrameRate takes float, not 2 args
     FrameBlendMode blendMode_ = FrameBlendMode::None;
     float blendAmount_ = 0.5f;
 };

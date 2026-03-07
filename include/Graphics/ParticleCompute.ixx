@@ -11,7 +11,6 @@ export module Graphics.ParticleCompute;
 
 import Particle;
 import Graphics.GPUcomputeContext;
-import std;
 
 export namespace ArtifactCore {
 
@@ -42,6 +41,11 @@ public:
     void uploadParticles(const std::vector<Particle>& particles, size_t count);
 
     /**
+     * @brief オーディオデータの供給 (スペクトラムデータ)
+     */
+    void setAudioData(const std::vector<float>& spectrum);
+
+    /**
      * @brief 描画用レンダラーにバッファを渡すために取得
      */
     IBuffer* getParticleBuffer() { return pParticleBuffer_; }
@@ -53,6 +57,7 @@ private:
     RefCntAutoPtr<IShaderResourceBinding> pUpdateSRB_;
     
     RefCntAutoPtr<IBuffer>                pParticleBuffer_;
+    RefCntAutoPtr<IBuffer>                pAudioSpectrumBuffer_; // 128-512 bins
     RefCntAutoPtr<IBuffer>                pConstantBuffer_;
 
     size_t maxParticles_ = 0;
@@ -62,6 +67,8 @@ private:
         float time;
         uint32_t maxParticles;
         float noiseStrength;
+        float audioIntensity; // 全体的な音の強さ
+        float _padding[3];
     };
     SimulationConstants constants_;
 

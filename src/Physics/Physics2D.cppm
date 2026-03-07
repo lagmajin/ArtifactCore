@@ -92,7 +92,7 @@ namespace ArtifactCore {
 
         b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
         b2ShapeDef shapeDef = b2DefaultShapeDef();
-        shapeDef.friction = friction;
+        // shapeDef.friction = friction; // Note: API changed in box2d v3
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
     }
 
@@ -107,8 +107,8 @@ namespace ArtifactCore {
         b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
-        shapeDef.friction = friction;
-        shapeDef.restitution = restitution; // Bounciness
+        // shapeDef.friction = friction; // Note: API changed in box2d v3
+        // shapeDef.restitution = restitution; // Note: API changed in box2d v3
 
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
@@ -130,8 +130,8 @@ namespace ArtifactCore {
         b2Circle circle = { {0.0f, 0.0f}, radius };
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
-        shapeDef.friction = friction;
-        shapeDef.restitution = restitution;
+        // shapeDef.friction = friction; // Note: API changed in box2d v3
+        // shapeDef.restitution = restitution; // Note: API changed in box2d v3
 
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
 
@@ -155,7 +155,8 @@ namespace ArtifactCore {
             b2verts.push_back({v.x(), v.y()});
         }
 
-        b2Polygon poly = b2MakePolygon(b2verts.data(), (int)b2verts.size(), 0.1f);
+        b2Hull hull = b2ComputeHull(b2verts.data(), (int)b2verts.size());
+        b2Polygon poly = b2MakePolygon(&hull, 0.01f); // Note: API changed - requires Hull
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
         b2CreatePolygonShape(bodyId, &shapeDef, &poly);

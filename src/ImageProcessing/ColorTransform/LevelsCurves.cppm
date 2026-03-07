@@ -97,7 +97,7 @@ LevelsSettings LevelsSettings::darken() {
 
 LevelsSettings LevelsSettings::autoLevels(const QImage& image) {
     auto histogram = LevelsEffect::calculateHistogram(image);
-    return calculateAutoLevels(histogram);
+    return LevelsEffect::calculateAutoLevels(histogram);
 }
 
 // ============================================================================

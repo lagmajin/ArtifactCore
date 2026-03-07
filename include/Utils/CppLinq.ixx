@@ -8,6 +8,7 @@ module;
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
+#include <ranges>
 #include <memory>
 #include <algorithm>
 #include <cmath>

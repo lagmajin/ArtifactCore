@@ -434,12 +434,13 @@ public:
             QVector2D bPos = body->position();
             float3 diff = {p.position.x - bPos.x(), p.position.y - bPos.y(), 0.0f};
             float distSq = diff.x*diff.x + diff.y*diff.y;
-            
+
             // 例：半径1.0の仮の当たり判定
             float radius = 1.0f; 
             if (distSq < radius * radius) {
                 float dist = std::sqrt(distSq);
-                float3 normal = diff / (dist + 0.0001f);
+                float normal_len = dist + 0.0001f;
+                float3 normal = {diff.x / normal_len, diff.y / normal_len, 0.0f};
                 
                 // 反射ベクトル
                 float dot = p.velocity.x * normal.x + p.velocity.y * normal.y;
@@ -459,19 +460,24 @@ private:
     Physics2D* physics_;
     float bounciness_ = 0.5f;
 };
+
+// ============================================================================
+// Emission Config - パーティクル発生設定
+// ============================================================================
+struct EmissionConfig {
     int rate = 10;              // 1秒あたりの生成数
     int burstCount = 0;         // 一度に生成する数
     float burstInterval = 0.0f; // バースト間隔
-    
+
     float lifetimeMin = 1.0f;
     float lifetimeMax = 2.0f;
-    
+
     float speedMin = 1.0f;
     float speedMax = 2.0f;
-    
+
     float sizeMin = 1.0f;
     float sizeMax = 1.0f;
-    
+
     float4 colorStart{1.0f, 1.0f, 1.0f, 1.0f};
     float4 colorEnd{1.0f, 1.0f, 1.0f, 0.0f};
     

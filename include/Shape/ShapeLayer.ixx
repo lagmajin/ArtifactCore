@@ -48,6 +48,8 @@ import Shape.Path;
 import Shape.Group;
 
 export namespace ArtifactCore {
+    // Forward declaration workaround for Point2DValue
+    class Point2DValue;
 
 /// シェイプレイヤー
 /// 

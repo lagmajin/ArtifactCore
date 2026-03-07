@@ -7,8 +7,6 @@ module;
 
 export module Channel;
 
-import std;
-
 export namespace ArtifactCore {
 
 /**

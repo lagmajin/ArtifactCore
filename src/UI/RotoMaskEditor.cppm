@@ -5,6 +5,7 @@ module;
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPen>
 #include <QBrush>
 #include <QCursor>

@@ -1,5 +1,7 @@
 module;
 #include <cstdint>
+#include <cstdlib>
+#include <string>
 
 module  Frame.Offset;
 

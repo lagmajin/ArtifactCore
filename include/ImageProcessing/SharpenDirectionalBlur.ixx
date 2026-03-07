@@ -1,5 +1,7 @@
 module;
 
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <QString>
 #include <QImage>
 #include <QPointF>
