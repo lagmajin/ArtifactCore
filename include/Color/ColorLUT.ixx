@@ -62,7 +62,7 @@ struct LUTSize {
 enum class LUTFormat {
     Cube,       ///< .cube ファイル（Adobe IRIDAS/Blackmagic）
     Csp,        ///< .csp ファイル（Cinespace）
-    3dl,        ///< .3dl ファイル（Autodesk）
+    _3dl,       ///< .3dl ファイル（Autodesk）
     Mga,        ///< .mga ファイル（Pandora）
     Look,       ///< .look ファイル（DaVinci Resolve）
     PNG,        ///< PNG画像（HaldCLUT）
