@@ -5,29 +5,26 @@ module;
 export module Audio.BufferQueue;
 
 import std;
-import  Audio.Segment;
+import Audio.Segment;
 
 export namespace ArtifactCore {
 
-
-
  class AudioBufferQueue {
  private:
-  QList<AudioSegment> queue; // AudioSegmentのリスト
+  QList<AudioSegment> queue; 
   mutable QMutex mutex;
   QWaitCondition notEmpty;
   const int maxSegments = 100;
  public:
-  AudioBufferQueue();
-  ~AudioBufferQueue();
+  AudioBufferQueue() = default;
+  ~AudioBufferQueue() = default;
 
   void push(const AudioSegment& segment) {
    QMutexLocker locker(&mutex);
-   queue.append(segment); // QVectorの共有により高速
+   queue.append(segment); 
    notEmpty.wakeOne();
   }
 
-  // 再生スレッドが呼ぶ
   bool pop(AudioSegment& outSegment) {
    QMutexLocker locker(&mutex);
    if (queue.isEmpty()) return false;
@@ -37,7 +34,7 @@ export namespace ArtifactCore {
 
   void clear() {
    QMutexLocker locker(&mutex);
-   queue.clear(); // シーク時に必須
+   queue.clear();
   }
 
  };
