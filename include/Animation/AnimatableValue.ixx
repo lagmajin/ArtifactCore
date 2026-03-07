@@ -82,7 +82,7 @@ struct KeyFrameT {
            lastCachedIndex_++;
            const auto& kfNext2 = keyframes_[lastCachedIndex_ + 1];
            float t = calculateT(kfNext.frame, kfNext2.frame, frame);
-           return mix(kfNext.value, kfNext2.frame, t); // Note: mix args adjusted below
+           return mix(kfNext.value, kfNext2.value, t); // Fixed: should be value, not frame
        }
    }
 

@@ -412,11 +412,11 @@
       <Filter>include\Transform</Filter>
     </ClCompile>
     <ClCompile Include="include\Transform\ZoomScale.ixx">
-       <Filter>include\Transform</Filter>
-     </ClCompile>
-     <ClCompile Include="include\Transform\ViewportTransformer.ixx">
-       <Filter>include\Transform</Filter>
-     </ClCompile>
+      <Filter>include\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Transform\ViewportTransformer.ixx">
+      <Filter>include\Transform</Filter>
+    </ClCompile>
     <ClCompile Include="include\Color\FloatColor.ixx">
       <Filter>include\Color</Filter>
     </ClCompile>
@@ -1072,8 +1072,8 @@
       <Filter>include\Image</Filter>
     </ClCompile>
     <ClCompile Include="include\Command\EditSessionManager.ixx">
-       <Filter>include\Network</Filter>
-     </ClCompile>
+      <Filter>include\Network</Filter>
+    </ClCompile>
     <ClCompile Include="NetworkRPCServer.ixx">
       <Filter>include\Network</Filter>
     </ClCompile>
@@ -1117,17 +1117,17 @@
       <Filter>include\UI</Filter>
     </ClCompile>
     <ClCompile Include="include\UI\InputOperator.ixx">
-       <Filter>include\UI</Filter>
-     </ClCompile>
-     <ClCompile Include="include\UI\InteractiveActions.ixx">
-       <Filter>include\UI</Filter>
-     </ClCompile>
-     <ClCompile Include="include\UI\StandardActions.ixx">
-        <Filter>include\UI</Filter>
-      </ClCompile>
-      <ClCompile Include="include\UI\SelectionManager.ixx">
-        <Filter>include\UI</Filter>
-      </ClCompile>
+      <Filter>include\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="include\UI\InteractiveActions.ixx">
+      <Filter>include\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="include\UI\StandardActions.ixx">
+      <Filter>include\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="include\UI\SelectionManager.ixx">
+      <Filter>include\UI</Filter>
+    </ClCompile>
     <ClCompile Include="include\UI\Context.ixx">
       <Filter>include\UI</Filter>
     </ClCompile>
@@ -1566,7 +1566,6 @@
     <ClCompile Include="src\Script\Engine\Enviroment\EnvironmentManager.cpp" />
     <ClCompile Include="src\Script\Engine\Syntax\ASTNode.cppm" />
     <ClCompile Include="include\Image\Blur\BlurGAPI.cpp" />
-    <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cpp" />
     <ClCompile Include="src\ImageProcessing\DirectCompute\GlowCS.cpp" />
     <ClCompile Include="src\ImageProcessing\DirectCompute\MonochromeCS.cpp" />
     <ClCompile Include="src\ImageProcessing\DirectCompute\NegateCS.cpp" />
@@ -1660,6 +1659,7 @@
     <ClCompile Include="include\Platform\Power.ixx" />
     <ClCompile Include="src\Analyze\SmartPaletteAnalyzer.cpp" />
     <ClCompile Include="src\Platform\Power.cpp" />
+    <ClCompile Include="src\Analyze\OpenCV\OptifalFlowResult.cppm" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\Image\CvMatPaintDevice.hpp">

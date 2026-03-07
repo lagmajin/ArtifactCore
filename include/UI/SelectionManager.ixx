@@ -3,6 +3,7 @@ module;
 #include <vector>
 #include <QString>
 #include <wobjectdefs.h>
+#include <wobjectimpl.h>
 #include "../Define/DllExportMacro.hpp"
 
 export module UI.SelectionManager;
@@ -63,5 +64,7 @@ public:
     void layerSelectionChanged(const std::vector<Id>& ids) W_SIGNAL(layerSelectionChanged, ids);
     void assetSelectionChanged(const std::vector<Id>& ids) W_SIGNAL(assetSelectionChanged, ids);
 };
+
+W_OBJECT_IMPL(SelectionManager)
 
 }

@@ -5,6 +5,8 @@ module Image:ImageProcessing;
 
 namespace ArtifactCore {
 
+    struct HalftoneParams { float dotSize; float angle; float contrast; bool colorMode; float cmykAngles[4]; };
+
 cv::Mat halftoneEffect(const cv::Mat& input, const HalftoneParams& params) {
     if (input.empty()) return input;
 
@@ -18,7 +20,7 @@ cv::Mat halftoneEffect(const cv::Mat& input, const HalftoneParams& params) {
 
     cv::Mat result = cv::Mat::ones(src.size(), src.type());
     float dotRadius = params.dotSize * 0.5f;
-    int step = std::max(1, static_cast<int>(params.dotSize));
+    int step = std::max<int>(1, static_cast<int>(params.dotSize));
 
     if (!params.colorMode || src.channels() < 3) {
         // Monochrome halftone

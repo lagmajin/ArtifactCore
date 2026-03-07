@@ -10,6 +10,7 @@ module Render.Queue.Manager;
 import Render.Settings;
 import Render.JobModel;
 import Utils.Id;
+import Core.ThreadPool;
 import std;
 import Log;
 

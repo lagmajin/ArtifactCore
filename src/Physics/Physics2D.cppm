@@ -12,15 +12,19 @@ namespace ArtifactCore {
     class Physics2D::Impl {
     public:
         b2Vec2 gravity;
-        std::unique_ptr<b2World> world;
+        b2WorldId worldId;
         std::vector<std::shared_ptr<RigidBody2D>> bodies;
 
-        Impl() : gravity(0.0f, -9.8f) {
-            world = std::make_unique<b2World>(gravity);
+        Impl() : gravity{0.0f, -9.8f} {
+            b2WorldDef worldDef = b2DefaultWorldDef();
+            worldDef.gravity = gravity;
+            worldId = b2CreateWorld(&worldDef);
         }
 
         ~Impl() {
-            world.reset();
+            if (b2World_IsValid(worldId)) {
+                b2DestroyWorld(worldId);
+            }
         }
     };
 
@@ -31,81 +35,73 @@ namespace ArtifactCore {
     }
 
     void Physics2D::setGravity(float gx, float gy) {
-        impl_->gravity.Set(gx, gy);
-        if (impl_->world) {
-            impl_->world->SetGravity(impl_->gravity);
+        impl_->gravity = {gx, gy};
+        if (b2World_IsValid(impl_->worldId)) {
+            b2World_SetGravity(impl_->worldId, impl_->gravity);
         }
     }
 
-    void Physics2D::step(float deltaTime, int velocityIterations, int positionIterations) {
-        if (impl_->world && deltaTime > 0.0f) {
-            impl_->world->Step(deltaTime, velocityIterations, positionIterations);
+    void Physics2D::step(float deltaTime, int subStepCount) {
+        if (b2World_IsValid(impl_->worldId) && deltaTime > 0.0f) {
+            b2World_Step(impl_->worldId, deltaTime, subStepCount);
         }
     }
 
     void Physics2D::addStaticBox(float x, float y, float width, float height, float friction) {
-        if (!impl_->world) return;
+        if (!b2World_IsValid(impl_->worldId)) return;
 
-        b2BodyDef groundBodyDef;
-        groundBodyDef.position.Set(x, y);
-        b2Body* groundBody = impl_->world->CreateBody(&groundBodyDef);
+        b2BodyDef bodyDef = b2DefaultBodyDef();
+        bodyDef.position = {x, y};
+        bodyDef.type = b2_staticBody;
+        b2BodyId bodyId = b2CreateBody(impl_->worldId, &bodyDef);
 
-        b2PolygonShape groundBox;
-        groundBox.SetAsBox(width / 2.0f, height / 2.0f);
-
-        b2FixtureDef fixtureDef;
-        fixtureDef.shape = &groundBox;
-        fixtureDef.friction = friction;
-        groundBody->CreateFixture(&fixtureDef);
+        b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
+        b2ShapeDef shapeDef = b2DefaultShapeDef();
+        shapeDef.friction = friction;
+        b2CreatePolygonShape(bodyId, &shapeDef, &box);
     }
 
     std::shared_ptr<RigidBody2D> Physics2D::addDynamicBox(float x, float y, float width, float height, float density, float friction, float restitution) {
-        if (!impl_->world) return nullptr;
+        if (!b2World_IsValid(impl_->worldId)) return nullptr;
 
-        b2BodyDef bodyDef;
+        b2BodyDef bodyDef = b2DefaultBodyDef();
         bodyDef.type = b2_dynamicBody;
-        bodyDef.position.Set(x, y);
-        b2Body* body = impl_->world->CreateBody(&bodyDef);
+        bodyDef.position = {x, y};
+        b2BodyId bodyId = b2CreateBody(impl_->worldId, &bodyDef);
 
-        b2PolygonShape dynamicBox;
-        dynamicBox.SetAsBox(width / 2.0f, height / 2.0f);
+        b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
+        b2ShapeDef shapeDef = b2DefaultShapeDef();
+        shapeDef.density = density;
+        shapeDef.friction = friction;
+        shapeDef.restitution = restitution; // Bounciness
 
-        b2FixtureDef fixtureDef;
-        fixtureDef.shape = &dynamicBox;
-        fixtureDef.density = density;
-        fixtureDef.friction = friction;
-        fixtureDef.restitution = restitution; // Bounciness
-
-        body->CreateFixture(&fixtureDef);
+        b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
         auto rb = std::make_shared<RigidBody2D>();
-        rb->body = body;
+        rb->bodyId = bodyId;
         impl_->bodies.push_back(rb);
         
         return rb;
     }
 
     std::shared_ptr<RigidBody2D> Physics2D::addDynamicCircle(float x, float y, float radius, float density, float friction, float restitution) {
-        if (!impl_->world) return nullptr;
+        if (!b2World_IsValid(impl_->worldId)) return nullptr;
 
-        b2BodyDef bodyDef;
+        b2BodyDef bodyDef = b2DefaultBodyDef();
         bodyDef.type = b2_dynamicBody;
-        bodyDef.position.Set(x, y);
-        b2Body* body = impl_->world->CreateBody(&bodyDef);
+        bodyDef.position = {x, y};
+        b2BodyId bodyId = b2CreateBody(impl_->worldId, &bodyDef);
 
-        b2CircleShape dynamicCircle;
-        dynamicCircle.m_radius = radius;
+        b2Circle circle = { {0.0f, 0.0f}, radius };
+        b2ShapeDef shapeDef = b2DefaultShapeDef();
+        shapeDef.density = density;
+        shapeDef.friction = friction;
+        shapeDef.restitution = restitution;
 
-        b2FixtureDef fixtureDef;
-        fixtureDef.shape = &dynamicCircle;
-        fixtureDef.density = density;
-        fixtureDef.friction = friction;
-        fixtureDef.restitution = restitution;
-
-        body->CreateFixture(&fixtureDef);
+        b2CreateCircleShape(bodyId, &shapeDef, &circle);
 
         auto rb = std::make_shared<RigidBody2D>();
-        rb->body = body;
+        rb->bodyId = bodyId;
         impl_->bodies.push_back(rb);
         
         return rb;
@@ -113,7 +109,12 @@ namespace ArtifactCore {
 
     void Physics2D::clear() {
         impl_->bodies.clear();
-        impl_->world = std::make_unique<b2World>(impl_->gravity);
+        if (b2World_IsValid(impl_->worldId)) {
+            b2DestroyWorld(impl_->worldId);
+        }
+        b2WorldDef worldDef = b2DefaultWorldDef();
+        worldDef.gravity = impl_->gravity;
+        impl_->worldId = b2CreateWorld(&worldDef);
     }
 
     std::vector<std::shared_ptr<RigidBody2D>> Physics2D::getBodies() const {

@@ -99,7 +99,7 @@ void AnimatableTransform3D::setPositionZ(const RationalTime& time, float z)
 {
   FramePosition frame(time.rescaledTo(24));
   impl_->z_.addKeyFrame(frame, z);
-  impl_->positionZ_ = z;
+  impl_->currentZ_ = z;
 }
 
 void AnimatableTransform3D::setAnchor(const RationalTime& time, float x, float y, float z)
@@ -119,17 +119,17 @@ void AnimatableTransform3D::setRotation(const RationalTime& time, float degrees)
 
 float AnimatableTransform3D::positionX() const
 {
-  return impl_->positionX_;
+  return impl_->currentX_;
 }
 
 float AnimatableTransform3D::positionY() const
 {
-  return impl_->positionY_;
+  return impl_->currentY_;
 }
 
 float AnimatableTransform3D::positionZ() const
 {
-  return impl_->positionZ_;
+  return impl_->currentZ_;
 }
 
 float AnimatableTransform3D::rotation() const
@@ -231,12 +231,6 @@ float AnimatableTransform3D::anchorZAt(const RationalTime& time) const
   return impl_->anchorZ_.at(frame);
 }
 
-void AnimatableTransform3D::setUserScale(const RationalTime& time, float xs, float ys)
-{
-  // setScale �Ɠ�������
-  setScale(time, xs, ys);
-}
-
 // ============================================
 // 4x4�ϊ��s��̐����i���ݒl����j
 // ============================================
@@ -259,10 +253,10 @@ float4x4 AnimatableTransform3D::getMatrix() const
   rotationMatrix.m10 = sinR;
   rotationMatrix.m11 = cosR;
   
-  // 3. ���s�ړ��s��
-  float4x4 translationMatrix = float4x4::Translation(impl_->positionX_, impl_->positionY_, 0.0f);
+  // 3. sړs
+  float4x4 translationMatrix = float4x4::Translation(impl_->currentX_, impl_->currentY_, 0.0f);
   
-  // 4. �s��������FTranslation * Rotation * Scale
+  // 4. sFTranslation * Rotation * Scale
   matrix = translationMatrix * rotationMatrix * scaleMatrix;
   
   return matrix;
@@ -287,7 +281,7 @@ float4x4 AnimatableTransform3D::getAllMatrix() const
   float az = impl_->anchorZ_.current();
 
   float4x4 anchorMatrix = float4x4::Translation(-ax, -ay, -az);
-  float4x4 translationMatrix = float4x4::Translation(impl_->positionX_, impl_->positionY_, impl_->positionZ_);
+  float4x4 translationMatrix = float4x4::Translation(impl_->currentX_, impl_->currentY_, impl_->currentZ_);
 
   return translationMatrix * rotationMatrix * scaleMatrix * anchorMatrix;
 }
@@ -323,10 +317,10 @@ float4x4 AnimatableTransform3D::getMatrixAt(const RationalTime& time) const
   rotationMatrix.m10 = sinR;
   rotationMatrix.m11 = cosR;
   
-  // 3. ���s�ړ��s��
+  // 3. s�r�s��
   float4x4 translationMatrix = float4x4::Translation(px, py, 0.0f);
   
-  // 4. �s��������FTranslation * Rotation * Scale
+  // 4. s����Translation * Rotation * Scale
   matrix = translationMatrix * rotationMatrix * scaleMatrix;
   
   return matrix;
@@ -517,4 +511,4 @@ void AnimatableTransform3D::clearAllKeyFrames()
   clearScaleKeyFrames();
 }
 
-};
+}
