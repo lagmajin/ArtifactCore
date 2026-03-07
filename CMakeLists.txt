@@ -20,8 +20,26 @@ set(CORE_MODULES "")
 set(CORE_IMPL "")
 set(_PROVIDED_MODULES "")
 
+# Ninja がエラーを吐いたファイル群を確実にモジュールとして扱うためのリスト
+set(FORCED_MODULE_FILES
+    "src/Image/OpenCV/ImageTransformCV.ixx"
+    "src/ImageProcessing/NegativeCV.ixx"
+    "src/ImageProcessing/NoiseImageGenerator.cppm"
+    "src/ImageProcessing/OpenCV/AffineCV.cppm"
+    "src/ImageProcessing/OpenCV/AntiAliasing.ixx"
+    "src/ImageProcessing/OpenCV/HalfTone.ixx"
+    "src/ImageProcessing/OpenCV/Monochrome.ixx"
+    "src/ImageProcessing/OpenCV/Posterize.ixx"
+    "src/ImageProcessing/OpenCV/VignetCV.ixx"
+    "src/Audio/AudioVolume.cppm"
+    "src/Audio/AudioWriter.cppm"
+    "src/ColorCollection/ColorGrading.cppm"
+    "src/Time/TimeRemap.cppm"
+    "src/Video/Stabilizer.cppm"
+)
+
 foreach(file_path ${POTENTIAL_SOURCES})
-    # 除外ディレクトリ・ファイルのチェック
+    # 除外チェック
     if(file_path MATCHES "stashed_broken_modules" OR 
        file_path MATCHES "disabled_modules" OR
        file_path MATCHES "/Halide/" OR
@@ -31,38 +49,50 @@ foreach(file_path ${POTENTIAL_SOURCES})
         continue()
     endif()
 
+    # 強制リストに含まれているかチェック
+    set(is_forced FALSE)
+    foreach(forced_file ${FORCED_MODULE_FILES})
+        if(file_path MATCHES "${forced_file}$")
+            set(is_forced TRUE)
+            break()
+        endif()
+    endforeach()
+
+    if(is_forced)
+        list(APPEND CORE_MODULES "${file_path}")
+        continue()
+    endif()
+
     # ファイルの内容を確認してモジュールの種類を判定
-    file(READ "${file_path}" content LIMIT 4096)
+    file(READ "${file_path}" raw_content LIMIT 4096)
     
+    # コメントを除去して誤判定を防ぐ
+    string(REGEX REPLACE "//[^\n]*" "" content "${raw_content}")
+    string(REGEX REPLACE "/\\*.*\\*/" "" content "${content}")
+
     set(is_mod_interface_or_partition FALSE)
     set(found_mod_name "")
 
     # 1. インターフェース判定: export module M;
-    if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)")
+    if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
         set(is_mod_interface_or_partition TRUE)
         set(found_mod_name "${CMAKE_MATCH_1}")
-    # 2. 実装またはパーティション判定: module M; or module M:P;
-    # ※ global module fragment (module;) は [ \t\r\n]+ により除外される
-    elseif(content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._:]+)")
+    # 2. パーティション判定: module M:P; (コロンを含む)
+    elseif(content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
+        set(is_mod_interface_or_partition TRUE)
         set(found_mod_name "${CMAKE_MATCH_1}")
-        # パーティション実装 (module M:P;) はコロンを含むため interface 扱いとして CXX_MODULES に含める
-        if(found_mod_name MATCHES ":")
-            set(is_mod_interface_or_partition TRUE)
-        endif()
     endif()
 
     if(is_mod_interface_or_partition)
-        # 重複チェック (同一モジュール名を提供するファイルが複数あると Ninja が止まる)
+        # 重複チェック
         list(FIND _PROVIDED_MODULES "${found_mod_name}" _mod_idx)
         if(_mod_idx EQUAL -1)
             list(APPEND CORE_MODULES "${file_path}")
             list(APPEND _PROVIDED_MODULES "${found_mod_name}")
         else()
-            # 重複している場合は通常の実装として扱う（ビルドエラーにはなるが、Ninja の地図生成は通る）
             list(APPEND CORE_IMPL "${file_path}")
         endif()
     else()
-        # 通常のソースファイル
         string(LENGTH "${content}" content_len)
         if(content_len GREATER 0)
             list(APPEND CORE_IMPL "${file_path}")
@@ -110,19 +140,15 @@ target_link_libraries(ArtifactCore PUBLIC ${OpenCV_LIBS})
 find_package(SDL2 REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC SDL2::SDL2)
 
-# Boost (Asio, UUID, Iostreams)
 find_package(Boost REQUIRED COMPONENTS system iostreams)
 target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system Boost::iostreams)
 
-# Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC Vulkan::Vulkan)
 
-# TBB
 find_package(TBB REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
 
-# OpenImageIO
 find_package(OpenImageIO REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC OpenImageIO::OpenImageIO)
 
