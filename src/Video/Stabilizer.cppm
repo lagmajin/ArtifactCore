@@ -12,7 +12,7 @@ module;
 #include <QtGui/QImage>
 #include <QtGui/QColor>
 #include <QtGui/QRgb>
-#include <QtCore/QMatrix3x3>
+#include <QtGui/QMatrix3x3>
 
 export module Video.Stabilizer;
 

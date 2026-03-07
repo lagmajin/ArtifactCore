@@ -2,8 +2,7 @@
 
 import std;
 
-#include "AbstractCompositionBuffer.hpp"
-#include "../Image/FloatImage.hpp"
+#include "FloatImage.hpp"
 
 
 
