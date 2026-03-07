@@ -10,8 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ---------------------------------------------------------------------------
 # 外部依存パス (強制的に現在の環境に合わせる)
 # ---------------------------------------------------------------------------
-set(VCPKG_ROOT        "C:/vcpkg"                               CACHE PATH "" FORCE)
-set(VCPKG_INSTALLED   "${VCPKG_ROOT}/installed/x64-windows"    CACHE PATH "" FORCE)
+# Removed explicit vcpkg paths, using manifest mode instead.
 
 # ---------------------------------------------------------------------------
 # ソース収集
@@ -83,8 +82,7 @@ endif()
 add_library(ArtifactCore STATIC)
 
 target_sources(ArtifactCore
-    PRIVATE ${CORE_IMPL}
-    PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
+    PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES} ${CORE_IMPL}
 )
 
 target_include_directories(ArtifactCore
@@ -96,11 +94,6 @@ target_include_directories(ArtifactCore
         "${CMAKE_CURRENT_SOURCE_DIR}/../Artifact/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
         "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/verdigris/src"
-        # Qt のインクルードパスを明示的に追加
-        "${VCPKG_INSTALLED}/include/Qt6"
-        "${VCPKG_INSTALLED}/include/Qt6/QtCore"
-        "${VCPKG_INSTALLED}/include/Qt6/QtGui"
-        "${VCPKG_INSTALLED}/include/Qt6/QtWidgets"
     PRIVATE
         # Diligent の親ディレクトリ（libs/DiligentEngine）を追加
         "${CMAKE_CURRENT_SOURCE_DIR}/../libs/DiligentEngine"
@@ -114,26 +107,23 @@ target_include_directories(ArtifactCore
 # ---------------------------------------------------------------------------
 # 外部ライブラリ探索 (Qt6, OpenCV, SDL2, Boost, Vulkan, etc.)
 # ---------------------------------------------------------------------------
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets HINTS "${VCPKG_INSTALLED}/share/Qt6")
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets)
 
-find_package(OpenCV REQUIRED HINTS "${OPENCV_BUILD_DIR}")
+find_package(OpenCV REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC ${OpenCV_LIBS})
 
-find_package(SDL2 REQUIRED HINTS "${VCPKG_INSTALLED}/share/sdl2")
+find_package(SDL2 REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC SDL2::SDL2)
 
 # LibVLC
-find_package(LibVLC QUIET HINTS "${VLC_DIR}" "${VCPKG_INSTALLED}/share/libvlc")
+find_package(LibVLC QUIET)
 if(LibVLC_FOUND)
     target_link_libraries(ArtifactCore PUBLIC LibVLC::LibVLC)
-else()
-    # vcpkg の標準的な include パスをフォールバックとして追加
-    target_include_directories(ArtifactCore PRIVATE "${VCPKG_INSTALLED}/include")
 endif()
 
 # Boost (Asio, UUID)
-find_package(Boost REQUIRED COMPONENTS system HINTS "${VCPKG_INSTALLED}/share/boost")
+find_package(Boost REQUIRED COMPONENTS system)
 target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system)
 
 # Vulkan
