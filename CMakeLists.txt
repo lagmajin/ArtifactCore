@@ -28,7 +28,7 @@ file(GLOB_RECURSE CORE_MODULES CONFIGURE_DEPENDS
     "include/*.cppm"
 )
 
-# src/ にあるが「インターフェース」として機能しているファイルを CORE_MODULES に移動
+# src/ にあるが「モジュールの一部（インターフェース/パーティション）」として機能しているファイルを CORE_MODULES に追加
 set(SRC_INTERFACES
     "src/Audio/AudioVolume.ixx"
     "src/Audio/AudioWriter.cppm"
@@ -38,7 +38,16 @@ set(SRC_INTERFACES
     "src/Knob/Knob.ixx"
     "src/Time/TimeRemap.cppm"
     "src/Video/Stabilizer.cppm"
-    "src/AbstractDecoder.cppm"
+    "src/Animation/TransformModule.ixx"
+    "src/Image/OpenCV/ImageTransformCV.ixx"
+    "src/ImageProcessing/NegativeCV.ixx"
+    "src/ImageProcessing/NoiseImageGenerator.cppm"
+    "src/ImageProcessing/OpenCV/AffineCV.cppm"
+    "src/ImageProcessing/OpenCV/AntiAliasing.ixx"
+    "src/ImageProcessing/OpenCV/HalfTone.ixx"
+    "src/ImageProcessing/OpenCV/Monochrome.ixx"
+    "src/ImageProcessing/OpenCV/Posterize.ixx"
+    "src/ImageProcessing/OpenCV/VignetCV.ixx"
     "NetworkRPCServer.ixx"
 )
 
@@ -56,9 +65,7 @@ set(GHOST_FILES
     "include/Layer/LayerInfomation.ixx"
     "include/Transform/AnchorPoint.ixx"
     "include/Video/AbstractDecoder3.ixx"
-    # その他、エラーが出たファイル
-    "include/AI/Describable.ixx" # さきほど export module に修正したが念のため
-    "include/Core/ShapePoint.ixx"
+    "src/AbstractDecoder.cppm"
 )
 
 foreach(ghost ${GHOST_FILES})
@@ -69,6 +76,12 @@ foreach(ghost ${GHOST_FILES})
         list(APPEND CORE_IMPL ${full_path})
     endif()
 endforeach()
+
+# AI/Describable.ixx と Core/ShapePoint.ixx は export module 化したのでモジュールリストに含める
+list(APPEND CORE_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/Describable.ixx")
+list(APPEND CORE_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ShapePoint.ixx")
+list(REMOVE_ITEM CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/Describable.ixx")
+list(REMOVE_ITEM CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ShapePoint.ixx")
 
 # 使っていない Halide 関連ファイルを除外
 file(GLOB_RECURSE HALIDE_FILES "src/ImageProcessing/Halide/*.cpp" "src/ImageProcessing/Halide/*.cppm")
