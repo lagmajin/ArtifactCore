@@ -2,8 +2,6 @@ module;
 
 #include <QDebug>
 
-module MediaEditorController;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ module MediaEditorController;
 #include <numeric>
 #include <regex>
 #include <random>
+module MediaEditorController;
+
 
 
 

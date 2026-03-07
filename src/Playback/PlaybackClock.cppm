@@ -5,8 +5,6 @@ module;
 #include <QMutexLocker>
 #include <QString>
 
-module Playback.Clock;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ module Playback.Clock;
 #include <numeric>
 #include <regex>
 #include <random>
+module Playback.Clock;
+
 
 
 

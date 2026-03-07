@@ -3,8 +3,6 @@
 #include <QVector>
 #include <qminmax.h>
 
-export module Utils.String;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Utils.String;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Utils.String;
+
 
 
 

@@ -8,8 +8,6 @@ module;
 #include <QString>
 #include <QFile>
 
-module Codec.MFFrameExtractor;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -43,6 +41,8 @@ module Codec.MFFrameExtractor;
 #include <numeric>
 #include <regex>
 #include <random>
+module Codec.MFFrameExtractor;
+
 
 
 

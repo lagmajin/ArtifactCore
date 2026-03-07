@@ -5,8 +5,6 @@
 #include <opencv2/opencv.hpp>
 #include "../Define/DllExportMacro.hpp"
 
-export module Transform._2D;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Transform._2D;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Transform._2D;
+
 
 
 

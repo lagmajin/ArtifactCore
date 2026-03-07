@@ -3,8 +3,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
 
-export module Utils.Fingerprint;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Utils.Fingerprint;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Utils.Fingerprint;
+
 
 
 

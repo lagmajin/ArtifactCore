@@ -2,8 +2,6 @@ module;
 #include <cmath>
 #include <algorithm>
 #include <array>
-module Analyze.Histogram;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ module Analyze.Histogram;
 #include <numeric>
 #include <regex>
 #include <random>
+module Analyze.Histogram;
+
 
 
 

@@ -2,8 +2,6 @@
 #include <QRegularExpression>
 #include <QString>
 
-module Color.Lab;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ module Color.Lab;
 #include <numeric>
 #include <regex>
 #include <random>
+module Color.Lab;
+
 
 
 

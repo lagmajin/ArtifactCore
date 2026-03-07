@@ -3,8 +3,6 @@
 module;
 
 #include "../../../Define/DllExportMacro.hpp"
-export module Script.Engine.Value;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Script.Engine.Value;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Script.Engine.Value;
+
 
 
 

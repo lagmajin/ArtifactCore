@@ -2,8 +2,6 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module Color.Luminance;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Color.Luminance;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Color.Luminance;
+
 
 
 

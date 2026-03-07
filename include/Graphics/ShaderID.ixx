@@ -1,6 +1,4 @@
 ﻿module;
-export module Graphics.ShaderID;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,8 @@ export module Graphics.ShaderID;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Graphics.ShaderID;
+
 
 
 

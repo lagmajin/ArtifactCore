@@ -1,7 +1,5 @@
 ﻿module;
 
-export module Codec.GStreamerDecoder;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Codec.GStreamerDecoder;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Codec.GStreamerDecoder;
+
 
 
 

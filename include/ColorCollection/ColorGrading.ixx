@@ -2,8 +2,6 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module ColorCollection.ColorGrading;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module ColorCollection.ColorGrading;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ColorCollection.ColorGrading;
+
 
 
 

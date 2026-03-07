@@ -1,7 +1,5 @@
 module;
 
-export module FloatRGBA;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module FloatRGBA;
 #include <numeric>
 #include <regex>
 #include <random>
+export module FloatRGBA;
+
 
 
 

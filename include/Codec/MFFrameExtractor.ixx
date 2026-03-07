@@ -9,8 +9,6 @@ module;
 #include <QString>
 #include "../Define/DllExportMacro.hpp"
 
-export module Codec.MFFrameExtractor;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -44,6 +42,8 @@ export module Codec.MFFrameExtractor;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Codec.MFFrameExtractor;
+
 
 
 

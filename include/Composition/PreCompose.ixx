@@ -4,8 +4,6 @@ module;
 #include <QVector>
 #include <memory>
 
-export module Composition.PreCompose;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module Composition.PreCompose;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Composition.PreCompose;
+
 
 
 

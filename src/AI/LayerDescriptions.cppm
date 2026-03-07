@@ -4,8 +4,6 @@ module;
 #include <QVector3D>
 #include <QColor>
 
-module Core.AI.LayerDescriptions;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ module Core.AI.LayerDescriptions;
 #include <numeric>
 #include <regex>
 #include <random>
+module Core.AI.LayerDescriptions;
+
 
 
 

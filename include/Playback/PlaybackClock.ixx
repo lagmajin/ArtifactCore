@@ -6,8 +6,6 @@ module;
 #include <QString>
 #include "../Define/DllExportMacro.hpp"
 
-export module Playback.Clock;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Playback.Clock;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Playback.Clock;
+
 
 
 

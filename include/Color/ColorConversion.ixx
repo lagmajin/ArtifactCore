@@ -2,8 +2,6 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module Color.Conversion;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Color.Conversion;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Color.Conversion;
+
 
 
 

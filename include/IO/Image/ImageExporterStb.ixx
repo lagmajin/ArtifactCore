@@ -3,8 +3,6 @@
 #include <stb_image_write.h>
 
 #include <QVector>
-export module IO.Image.Stb;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module IO.Image.Stb;
 #include <numeric>
 #include <regex>
 #include <random>
+export module IO.Image.Stb;
+
 
 
 

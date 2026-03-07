@@ -1,6 +1,4 @@
 ﻿module;
-export module ImageProcessing.Shader;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,8 @@ export module ImageProcessing.Shader;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ImageProcessing.Shader;
+
 
 
 

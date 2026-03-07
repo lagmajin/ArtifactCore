@@ -2,8 +2,6 @@ module;
 #include <cmath>
 #include <algorithm>
 #include <array>
-module Color.AutoMatch;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ module Color.AutoMatch;
 #include <numeric>
 #include <regex>
 #include <random>
+module Color.AutoMatch;
+
 
 
 

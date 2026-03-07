@@ -5,8 +5,6 @@ module;
 #include <vector>
 #include <memory>
 
-export module Shape.Group;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Shape.Group;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Shape.Group;
+
 
 
 

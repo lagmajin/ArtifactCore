@@ -6,8 +6,6 @@ module;
 #include <QRectF>
 #include <vector>
 
-export module Shape.Types;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Shape.Types;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Shape.Types;
+
 
 
 

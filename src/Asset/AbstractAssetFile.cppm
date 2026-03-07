@@ -5,8 +5,6 @@ module;
 #include <wobjectimpl.h>
 //#include <wobjectimpl.h>
 
-module Asset.File;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ module Asset.File;
 #include <numeric>
 #include <regex>
 #include <random>
+module Asset.File;
+
 
 
 import Utils.Id;

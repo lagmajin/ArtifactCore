@@ -1,8 +1,6 @@
 module;
 #include <QVector>
 #include <QString>
-export module Codec.Encoder.Setting;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Codec.Encoder.Setting;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Codec.Encoder.Setting;
+
 
 
 

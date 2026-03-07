@@ -3,8 +3,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 #include <array>
 
-export module Analyze.Histogram;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Analyze.Histogram;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Analyze.Histogram;
+
 
 
 

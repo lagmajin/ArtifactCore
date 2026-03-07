@@ -2,8 +2,6 @@ module;
 #include <QString>
 #include <QByteArray>
 
-export module File.TypeDetector;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module File.TypeDetector;
 #include <numeric>
 #include <regex>
 #include <random>
+export module File.TypeDetector;
+
 
 
 

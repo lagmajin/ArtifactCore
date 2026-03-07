@@ -5,8 +5,6 @@ module;
 #include <vector>
 #include <mutex>
 
-export module ArtifactCore.Utils.PerformanceProfiler;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module ArtifactCore.Utils.PerformanceProfiler;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ArtifactCore.Utils.PerformanceProfiler;
+
 
 
 

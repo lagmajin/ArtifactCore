@@ -1,7 +1,5 @@
 ﻿module ;
 
-module Color.Saturation;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ module Color.Saturation;
 #include <numeric>
 #include <regex>
 #include <random>
+module Color.Saturation;
+
 
 
 

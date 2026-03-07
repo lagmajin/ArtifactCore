@@ -6,8 +6,6 @@ module;
 #include <numeric>
 #include <random>
 
-module Math.Noise;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ module Math.Noise;
 #include <numeric>
 #include <regex>
 #include <random>
+module Math.Noise;
+
 
 
 

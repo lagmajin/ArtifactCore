@@ -7,8 +7,6 @@ module;
 
 #include <QString>
 #include "../Define/DllExportMacro.hpp"
-export module Codec.MFEncoder;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -42,6 +40,8 @@ export module Codec.MFEncoder;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Codec.MFEncoder;
+
 
 
 

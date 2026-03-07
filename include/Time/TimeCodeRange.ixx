@@ -1,7 +1,5 @@
 module;
 #include "../Define/DllExportMacro.hpp"
-export module TimeCodeRange;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module TimeCodeRange;
 #include <numeric>
 #include <regex>
 #include <random>
+export module TimeCodeRange;
+
 
 
 

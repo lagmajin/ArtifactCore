@@ -1,11 +1,6 @@
-module ;
 #include "../Define/DllExportMacro.hpp"
 #include <QList>
 #include <QString>
-
-
-export module Media.Encoder.FFmpegAudioDecoder;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +34,11 @@ export module Media.Encoder.FFmpegAudioDecoder;
 #include <numeric>
 #include <regex>
 #include <random>
+module ;
+
+
+export module Media.Encoder.FFmpegAudioDecoder;
+
 
 
 

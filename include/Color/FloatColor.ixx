@@ -1,8 +1,6 @@
 ﻿module;
 #include <glm/glm.hpp>
 #include "../Define/DllExportMacro.hpp"
-export module Color.Float;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Color.Float;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Color.Float;
+
 
 
 

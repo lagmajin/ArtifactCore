@@ -8,8 +8,6 @@ module;
 #include <algorithm>
 #include <vector>
 
-module ImageProcessing.ColorTransform.LevelsCurves;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -43,6 +41,8 @@ module ImageProcessing.ColorTransform.LevelsCurves;
 #include <numeric>
 #include <regex>
 #include <random>
+module ImageProcessing.ColorTransform.LevelsCurves;
+
 
 
 

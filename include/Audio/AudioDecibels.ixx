@@ -1,8 +1,6 @@
 module;
 #include "../Define/DllExportMacro.hpp"
 
-export module Audio.Decibels;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Audio.Decibels;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Audio.Decibels;
+
 
 
 

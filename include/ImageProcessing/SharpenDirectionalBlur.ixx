@@ -4,8 +4,6 @@ module;
 #include <QImage>
 #include <QPointF>
 
-export module ImageProcessing.SharpenDirectionalBlur;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module ImageProcessing.SharpenDirectionalBlur;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ImageProcessing.SharpenDirectionalBlur;
+
 
 
 

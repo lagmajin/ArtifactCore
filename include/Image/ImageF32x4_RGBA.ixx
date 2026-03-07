@@ -9,8 +9,6 @@
 //#include <folly/concurrency/AtomicSharedPtr.h>
 
 
-export module Image.ImageF32x4_RGBA;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -44,6 +42,8 @@ export module Image.ImageF32x4_RGBA;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Image.ImageF32x4_RGBA;
+
 
 
 

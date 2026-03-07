@@ -6,8 +6,6 @@ module;
 #include <QtCore/QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
-export module Frame.Rate;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Frame.Rate;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Frame.Rate;
+
 
 
 

@@ -2,8 +2,6 @@ module;
 #include <QFile>
 #include <QFileInfo>
 #include <QByteArray>
-module File.TypeDetector;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ module File.TypeDetector;
 #include <numeric>
 #include <regex>
 #include <random>
+module File.TypeDetector;
+
 
 
 

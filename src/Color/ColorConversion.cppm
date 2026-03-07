@@ -3,8 +3,6 @@ module;
 #include <cmath>
 #include <algorithm>
 
-module Color.Conversion;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ module Color.Conversion;
 #include <numeric>
 #include <regex>
 #include <random>
+module Color.Conversion;
+
 
 
 

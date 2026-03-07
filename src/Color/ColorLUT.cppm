@@ -12,8 +12,6 @@ module;
 #include <cmath>
 #include <algorithm>
 
-module Color.LUT;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -47,6 +45,8 @@ module Color.LUT;
 #include <numeric>
 #include <regex>
 #include <random>
+module Color.LUT;
+
 
 
 

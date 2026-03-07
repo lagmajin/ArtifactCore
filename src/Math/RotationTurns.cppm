@@ -1,8 +1,6 @@
 module;
 #include <cmath>
 
-module Math.RotationTurns;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ module Math.RotationTurns;
 #include <numeric>
 #include <regex>
 #include <random>
+module Math.RotationTurns;
+
 
 
 

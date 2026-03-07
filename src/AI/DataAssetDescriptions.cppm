@@ -4,8 +4,6 @@ module;
 #include <QVector3D>
 #include <QColor>
 
-module Core.AI.DataAssetDescriptions;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ module Core.AI.DataAssetDescriptions;
 #include <numeric>
 #include <regex>
 #include <random>
+module Core.AI.DataAssetDescriptions;
+
 
 
 

@@ -1,8 +1,6 @@
 module;
 #include <QVariant>
 #include <QString>
-export module Script.Builtin.Manager;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Script.Builtin.Manager;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Script.Builtin.Manager;
+
 
 
 

@@ -6,8 +6,6 @@ module;
 #include <QVector>
 #include <vector>
 
-export module ImageProcessing.ColorTransform.LevelsCurves;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module ImageProcessing.ColorTransform.LevelsCurves;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ImageProcessing.ColorTransform.LevelsCurves;
+
 
 
 

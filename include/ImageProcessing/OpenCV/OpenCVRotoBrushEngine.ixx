@@ -3,8 +3,6 @@ module;
 #include <memory>
 #include <opencv2/opencv.hpp>
 
-export module ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine;
+
 
 
 

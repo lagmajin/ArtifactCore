@@ -1,7 +1,5 @@
 module;
 
-module Script.Expression.Value;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ module Script.Expression.Value;
 #include <numeric>
 #include <regex>
 #include <random>
+module Script.Expression.Value;
+
 
 
 

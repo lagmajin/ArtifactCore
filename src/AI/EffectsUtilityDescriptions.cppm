@@ -4,8 +4,6 @@ module;
 #include <QVector3D>
 #include <QColor>
 
-module Core.AI.EffectsUtilityDescriptions;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ module Core.AI.EffectsUtilityDescriptions;
 #include <numeric>
 #include <regex>
 #include <random>
+module Core.AI.EffectsUtilityDescriptions;
+
 
 
 

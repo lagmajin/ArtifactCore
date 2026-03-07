@@ -4,8 +4,6 @@ module;
 #include <cstdint>
 #include <algorithm>
 
-export module Audio.DSP.DelayLine;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module Audio.DSP.DelayLine;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Audio.DSP.DelayLine;
+
 
 
 

@@ -7,8 +7,6 @@ module;
 #include <vector>
 #include <algorithm>
 
-module ImageProcessing.SharpenDirectionalBlur;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -42,6 +40,8 @@ module ImageProcessing.SharpenDirectionalBlur;
 #include <numeric>
 #include <regex>
 #include <random>
+module ImageProcessing.SharpenDirectionalBlur;
+
 
 
 

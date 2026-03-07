@@ -8,8 +8,6 @@ module;
 #include <chrono>
 #include <string>
 
-export module Particle.System;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -43,6 +41,8 @@ export module Particle.System;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Particle.System;
+
 
 
 import Particle;

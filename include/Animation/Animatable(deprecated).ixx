@@ -1,6 +1,4 @@
 ﻿module;
-export module Animation.Animatable;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,8 @@ export module Animation.Animatable;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Animation.Animatable;
+
 
 
 

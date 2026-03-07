@@ -3,8 +3,6 @@
 
 
 #include "../../../Define/DllExportMacro.hpp"
-export module Graphics.Shader.Compute.HLSL.Blend;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Graphics.Shader.Compute.HLSL.Blend;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Graphics.Shader.Compute.HLSL.Blend;
+
 
 
 import Layer.Blend;

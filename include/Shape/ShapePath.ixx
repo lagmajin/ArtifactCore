@@ -6,8 +6,6 @@ module;
 #include <QPainterPath>
 #include <vector>
 
-export module Shape.Path;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Shape.Path;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Shape.Path;
+
 
 
 

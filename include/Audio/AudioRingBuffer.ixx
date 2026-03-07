@@ -4,8 +4,6 @@ module;
 #include <QWaitCondition>
 #include <QVector>
 #include "../Define/DllExportMacro.hpp"
-export module Audio.RingBuffer;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module Audio.RingBuffer;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Audio.RingBuffer;
+
 
 
 

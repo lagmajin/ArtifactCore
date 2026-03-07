@@ -4,8 +4,6 @@ module;
 #include <opencv2/opencv.hpp>
 #endif
 #include "../Define/DllExportMacro.hpp"
-export module ImageF32x4;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module ImageF32x4;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ImageF32x4;
+
 
 
 

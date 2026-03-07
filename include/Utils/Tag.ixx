@@ -1,8 +1,6 @@
 module;
 #define QT_NO_KEYWORDS
 #include <QString>
-export module Utils.Tag;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Utils.Tag;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Utils.Tag;
+
 
 
 

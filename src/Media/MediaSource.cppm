@@ -8,8 +8,6 @@ extern "C" {
 #include <libavutil/error.h>
 }
 
-module MediaSource;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -43,6 +41,8 @@ module MediaSource;
 #include <numeric>
 #include <regex>
 #include <random>
+module MediaSource;
+
 
 
 

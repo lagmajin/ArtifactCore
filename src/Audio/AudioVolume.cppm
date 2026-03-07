@@ -3,8 +3,6 @@
 #include <cmath>
 #include <QString>
 
-module Audio.Volume;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ module Audio.Volume;
 #include <numeric>
 #include <regex>
 #include <random>
+module Audio.Volume;
+
 
 
 

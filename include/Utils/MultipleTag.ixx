@@ -4,8 +4,6 @@ module;
 #include <QSet>
 #include "../Define/DllExportMacro.hpp"
 
-export module Utils.MultipleTag;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module Utils.MultipleTag;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Utils.MultipleTag;
+
 
 
 

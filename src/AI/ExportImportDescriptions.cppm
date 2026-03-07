@@ -4,8 +4,6 @@ module;
 #include <QVector3D>
 #include <QColor>
 
-module Core.AI.ExportImportDescriptions;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ module Core.AI.ExportImportDescriptions;
 #include <numeric>
 #include <regex>
 #include <random>
+module Core.AI.ExportImportDescriptions;
+
 
 
 

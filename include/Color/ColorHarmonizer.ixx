@@ -3,8 +3,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 #include <QList>
 
-export module Color.Harmonizer;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Color.Harmonizer;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Color.Harmonizer;
+
 
 
 

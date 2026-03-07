@@ -3,8 +3,6 @@ module;
 #include <cmath>
 #include <random>
 
-module Script.Expression.Evaluator;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ module Script.Expression.Evaluator;
 #include <numeric>
 #include <regex>
 #include <random>
+module Script.Expression.Evaluator;
+
 
 
 

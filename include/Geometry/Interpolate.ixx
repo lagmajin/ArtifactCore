@@ -1,7 +1,5 @@
 ﻿module;
 
-export module Math.Interpolate;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Math.Interpolate;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Math.Interpolate;
+
 
 
 

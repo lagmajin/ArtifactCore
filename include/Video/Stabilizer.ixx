@@ -12,8 +12,6 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module Video.Stabilizer;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -47,6 +45,8 @@ export module Video.Stabilizer;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Video.Stabilizer;
+
 
 
 

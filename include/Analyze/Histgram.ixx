@@ -3,8 +3,6 @@ module;
 #include <vector>
 #include <iostream>
 
-export module Analyze.Histgram;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Analyze.Histgram;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Analyze.Histgram;
+
 
 
 

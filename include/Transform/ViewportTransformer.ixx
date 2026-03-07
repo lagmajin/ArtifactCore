@@ -2,8 +2,6 @@ module;
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include "../Define/DllExportMacro.hpp"
 
-export module Core.Transform.Viewport;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Core.Transform.Viewport;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Core.Transform.Viewport;
+
 
 
 

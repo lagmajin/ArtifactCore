@@ -1,8 +1,6 @@
 ﻿module;
 #include <QSize>
 
-export module Size;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Size;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Size;
+
 
 
 

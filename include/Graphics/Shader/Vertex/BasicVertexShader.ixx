@@ -4,8 +4,6 @@
 
 #include "..\..\..\Define\DllExportMacro.hpp"
 
-export module Graphics.Shader.HLSL.Basics.Vertex;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module Graphics.Shader.HLSL.Basics.Vertex;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Graphics.Shader.HLSL.Basics.Vertex;
+
 
 
 

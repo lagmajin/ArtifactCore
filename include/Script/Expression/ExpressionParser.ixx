@@ -1,7 +1,5 @@
 module;
 
-export module Script.Expression.Parser;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Script.Expression.Parser;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Script.Expression.Parser;
+
 
 
 

@@ -15,8 +15,6 @@ extern "C" {
 #include <libavutil/channel_layout.h>
 }
 
-module MediaAudioDecoder;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -50,6 +48,8 @@ module MediaAudioDecoder;
 #include <numeric>
 #include <regex>
 #include <random>
+module MediaAudioDecoder;
+
 
 
 

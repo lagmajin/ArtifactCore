@@ -5,8 +5,6 @@
 #include <Opencv2/opencv.hpp>
 
 
-export module Image.Raw;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Image.Raw;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Image.Raw;
+
 
 
 

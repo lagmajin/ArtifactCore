@@ -3,8 +3,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 #include <QObject>
 #include <wobjectdefs.h>
-export module Image.ImageF32x4RGBAWithCache;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Image.ImageF32x4RGBAWithCache;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Image.ImageF32x4RGBAWithCache;
+
 
 
 

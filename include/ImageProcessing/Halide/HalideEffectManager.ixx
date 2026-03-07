@@ -1,7 +1,5 @@
 module;
 
-export module Halide;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Halide;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Halide;
+
 
 
 

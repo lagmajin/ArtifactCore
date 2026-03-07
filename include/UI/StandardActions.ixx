@@ -3,8 +3,6 @@ module;
 #include <QString>
 #include <QDebug>
 
-export module UI.StandardActions;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module UI.StandardActions;
 #include <numeric>
 #include <regex>
 #include <random>
+export module UI.StandardActions;
+
 
 
 

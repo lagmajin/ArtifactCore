@@ -1,7 +1,5 @@
 module;
 
-export module Animation.Value;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Animation.Value;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Animation.Value;
+
 
 
 

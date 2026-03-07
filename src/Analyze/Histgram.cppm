@@ -1,8 +1,6 @@
 module;
 #include <opencv2/opencv.hpp>
 #include <vector>
-module Analyze.Histgram;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ module Analyze.Histgram;
 #include <numeric>
 #include <regex>
 #include <random>
+module Analyze.Histgram;
+
 
 
 

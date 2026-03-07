@@ -9,8 +9,6 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <opencv2/core/mat.hpp>
-export module ImageProcessing.NegateCS;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -44,6 +42,8 @@ export module ImageProcessing.NegateCS;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ImageProcessing.NegateCS;
+
 
 
 

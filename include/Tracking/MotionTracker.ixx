@@ -6,8 +6,6 @@ module;
 #include <QImage>
 #include <vector>
 
-export module Tracking.MotionTracker;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Tracking.MotionTracker;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Tracking.MotionTracker;
+
 
 
 

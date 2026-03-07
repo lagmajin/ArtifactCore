@@ -3,8 +3,6 @@ module;
 #include <QString>
 #include "../Define/DllExportMacro.hpp"
 
-export module Core.AspectRatio;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Core.AspectRatio;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Core.AspectRatio;
+
 
 
 

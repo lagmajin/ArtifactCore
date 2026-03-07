@@ -1,7 +1,5 @@
 module;
 
-module ColorCollection.ColorGrading;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ module ColorCollection.ColorGrading;
 #include <numeric>
 #include <regex>
 #include <random>
+module ColorCollection.ColorGrading;
+
 
 
 

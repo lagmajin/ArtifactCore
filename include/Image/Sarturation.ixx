@@ -2,8 +2,6 @@
 #define QT_NO_KEYWORDS
 #include <QString>
 
-export module Color.Saturation;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Color.Saturation;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Color.Saturation;
+
 
 
 

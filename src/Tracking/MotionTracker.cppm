@@ -14,8 +14,6 @@ module;
 #include <algorithm>
 #include <functional>
 
-module Tracking.MotionTracker;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -49,6 +47,8 @@ module Tracking.MotionTracker;
 #include <numeric>
 #include <regex>
 #include <random>
+module Tracking.MotionTracker;
+
 
 
 

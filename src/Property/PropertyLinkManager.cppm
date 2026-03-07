@@ -4,8 +4,6 @@ module;
 #include <QVariant>
 #include <QColor>
 
-module Property.LinkManager;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ module Property.LinkManager;
 #include <numeric>
 #include <regex>
 #include <random>
+module Property.LinkManager;
+
 
 
 

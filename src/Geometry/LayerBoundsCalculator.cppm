@@ -7,8 +7,6 @@ module;
 #include <cmath>
 #include <algorithm>
 
-module Geometry.LayerBounds;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -42,6 +40,8 @@ module Geometry.LayerBounds;
 #include <numeric>
 #include <regex>
 #include <random>
+module Geometry.LayerBounds;
+
 
 
 

@@ -5,8 +5,6 @@ module;
 #include <QImage>
 #include <memory>
 
-export module Shape.Layer;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Shape.Layer;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Shape.Layer;
+
 
 
 

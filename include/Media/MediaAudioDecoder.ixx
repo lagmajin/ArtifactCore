@@ -9,8 +9,6 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
-export module MediaAudioDecoder;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -44,6 +42,8 @@ export module MediaAudioDecoder;
 #include <numeric>
 #include <regex>
 #include <random>
+export module MediaAudioDecoder;
+
 
 
 

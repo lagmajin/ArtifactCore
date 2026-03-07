@@ -2,8 +2,6 @@
 module;
 #include "../Define/DllExportMacro.hpp"
 #include <QImage>
-export module Codec.Thumbnail.FFmpeg;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Codec.Thumbnail.FFmpeg;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Codec.Thumbnail.FFmpeg;
+
 
 
 

@@ -2,8 +2,6 @@ module;
 #include <QList>
 #include <QMutex>
 #include <QWaitCondition>
-export module Audio.BufferQueue;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Audio.BufferQueue;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Audio.BufferQueue;
+
 
 
 

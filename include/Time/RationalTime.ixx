@@ -1,8 +1,6 @@
 module;
 #include <QTime>
 #include "../Define/DllExportMacro.hpp"
-export module Time.Rational;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Time.Rational;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Time.Rational;
+
 
 
 

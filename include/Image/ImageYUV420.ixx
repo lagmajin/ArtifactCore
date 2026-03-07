@@ -9,8 +9,6 @@
 #include "../Define/DllExportMacro.hpp"
 
 
-export module Image.ImageYUV420;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -44,6 +42,8 @@ export module Image.ImageYUV420;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Image.ImageYUV420;
+
 
 
 

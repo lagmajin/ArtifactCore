@@ -8,8 +8,6 @@ module;
 #include <array>
 #include <memory>
 
-export module Color.LUT;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -43,6 +41,8 @@ export module Color.LUT;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Color.LUT;
+
 
 
 

@@ -5,8 +5,6 @@
 #include <QImage>
 #include <QByteArray>
 
-export module Codec.FFmpegVideoDecoder;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Codec.FFmpegVideoDecoder;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Codec.FFmpegVideoDecoder;
+
 
 
 

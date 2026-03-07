@@ -1,8 +1,6 @@
 
 module;
 #include <cstdint>
-export module Layer.LayerStrip;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Layer.LayerStrip;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Layer.LayerStrip;
+
 
 
 

@@ -1,8 +1,6 @@
 module;
 //#include <assimp/>
 #include <memory>
-export module MeshImporter;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module MeshImporter;
 #include <numeric>
 #include <regex>
 #include <random>
+export module MeshImporter;
+
 
 
 

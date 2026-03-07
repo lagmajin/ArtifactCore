@@ -1,8 +1,6 @@
 ﻿module;
 #include "../Define/DllExportMacro.hpp"
 
-export module Math.RotationTurns;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Math.RotationTurns;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Math.RotationTurns;
+
 
 
 

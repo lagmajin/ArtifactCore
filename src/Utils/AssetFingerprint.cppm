@@ -4,8 +4,6 @@ module;
 #include <QCryptographicHash>
 #include <QFileInfo>
 
-module Utils.Fingerprint;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ module Utils.Fingerprint;
 #include <numeric>
 #include <regex>
 #include <random>
+module Utils.Fingerprint;
+
 
 
 

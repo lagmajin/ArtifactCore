@@ -5,8 +5,6 @@ module;
 #include <memory>
 #include "../Define/DllExportMacro.hpp"
 
-export module Property.Group;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Property.Group;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Property.Group;
+
 
 
 

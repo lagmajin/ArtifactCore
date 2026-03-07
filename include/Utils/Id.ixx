@@ -11,8 +11,6 @@
 
 #include "../Define/DllExportMacro.hpp"
     
-export module Utils.Id;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -46,6 +44,8 @@ export module Utils.Id;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Utils.Id;
+
 
 
 

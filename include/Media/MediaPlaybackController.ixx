@@ -4,8 +4,6 @@ module;
 #include <QImage>
 #include <QByteArray>
 
-export module MediaPlaybackController;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module MediaPlaybackController;
 #include <numeric>
 #include <regex>
 #include <random>
+export module MediaPlaybackController;
+
 
 
 import MediaSource;

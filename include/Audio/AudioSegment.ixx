@@ -2,8 +2,6 @@
 #include <QtGlobal>
 #include <QList>
 #include <QVector>
-export module Audio.Segment;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Audio.Segment;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Audio.Segment;
+
 
 
 

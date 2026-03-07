@@ -1,19 +1,19 @@
+#include <QtCore/QSize>
+#include <QtCore/QObject>
+#include <QtCore/QPoint>
+#include <QtCore/QScopedPointer>
+#include "../Image/FloatImage.hpp"
+#include <wobjectdefs.h>
+#include "../Define/DllExportMacro.hpp"
 module ;
 #undef emit
 //#include <Halide.h>
 
-#include <QtCore/QSize>
-#include <QtCore/QObject>
-#include <QtCore/QPoint>
-
-#include <QtCore/QScopedPointer>
 
 
 
 
-#include "../Image/FloatImage.hpp"
-#include <wobjectdefs.h>
-#include "../Define/DllExportMacro.hpp"
+
 export module Composition.Buffer;
 
 

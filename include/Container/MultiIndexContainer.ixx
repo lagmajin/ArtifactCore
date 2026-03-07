@@ -3,8 +3,6 @@
 #include <QMultiHash>
 #include <QVector>
 
-export module Container.MultiIndex;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Container.MultiIndex;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Container.MultiIndex;
+
 
 
 

@@ -2,8 +2,6 @@ module;
 #include <opencv2/opencv.hpp>
 #include "../../Define/DllExportMacro.hpp"
 
-export module ImageProcessing.SpectralGlow;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module ImageProcessing.SpectralGlow;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ImageProcessing.SpectralGlow;
+
 
 
 

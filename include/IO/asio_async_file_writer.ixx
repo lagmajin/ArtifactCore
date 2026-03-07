@@ -6,8 +6,6 @@
 #include <QObject>
 #include <QVector>
 #include <QByteArray>
-export module asio_async_file_writer;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module asio_async_file_writer;
 #include <numeric>
 #include <regex>
 #include <random>
+export module asio_async_file_writer;
+
 
 
 

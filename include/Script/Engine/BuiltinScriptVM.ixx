@@ -1,6 +1,4 @@
 module;
-export module Script.Engine.BuiltinVM;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,8 @@ export module Script.Engine.BuiltinVM;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Script.Engine.BuiltinVM;
+
 
 
 

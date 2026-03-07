@@ -7,8 +7,6 @@
 #include <boost/asio.hpp>
 //#include <boost/>
 
-export module IO.Async.ImageWriterManager;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -42,6 +40,8 @@ export module IO.Async.ImageWriterManager;
 #include <numeric>
 #include <regex>
 #include <random>
+export module IO.Async.ImageWriterManager;
+
 
 
 

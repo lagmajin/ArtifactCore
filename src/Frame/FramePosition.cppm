@@ -1,8 +1,6 @@
 ﻿module;
 
 
-module Frame.Position;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ module Frame.Position;
 #include <numeric>
 #include <regex>
 #include <random>
+module Frame.Position;
+
 
 
 

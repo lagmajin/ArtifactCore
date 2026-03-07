@@ -1,6 +1,4 @@
 ﻿module;
-export module RenderQueue;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,8 @@ export module RenderQueue;
 #include <numeric>
 #include <regex>
 #include <random>
+export module RenderQueue;
+
 
 
 

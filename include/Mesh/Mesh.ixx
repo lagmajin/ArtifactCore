@@ -14,8 +14,6 @@ module;
 #include <unordered_map>
 #include "../Define/DllExportMacro.hpp"
 
-export module Mesh;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -49,6 +47,8 @@ export module Mesh;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Mesh;
+
 
 
 

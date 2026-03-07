@@ -1,8 +1,6 @@
 module;
 #include <QVector>
 #include <QString>
-export module Utils.Convertor.String;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Utils.Convertor.String;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Utils.Convertor.String;
+
 
 
 

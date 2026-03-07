@@ -1,8 +1,6 @@
 module;
 #include <cmath>
 #include <algorithm>
-module GenerateTestImage;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ module GenerateTestImage;
 #include <numeric>
 #include <regex>
 #include <random>
+module GenerateTestImage;
+
 
 
 

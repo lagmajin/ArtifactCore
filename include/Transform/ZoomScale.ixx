@@ -2,8 +2,6 @@
 
 #include "../Define/DllExportMacro.hpp"
 
-export module Core.Scale.Zoom;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Core.Scale.Zoom;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Core.Scale.Zoom;
+
 
 
 

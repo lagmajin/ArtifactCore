@@ -6,8 +6,6 @@
 #include <glm/vec3.hpp>
 
 #include <opencv2/core.hpp>
-export module Vector.Like;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Vector.Like;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Vector.Like;
+
 
 
 

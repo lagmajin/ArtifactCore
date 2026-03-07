@@ -6,8 +6,6 @@ module;
 #include <wobjectimpl.h>
 #include "../Define/DllExportMacro.hpp"
 
-export module UI.SelectionManager;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module UI.SelectionManager;
 #include <numeric>
 #include <regex>
 #include <random>
+export module UI.SelectionManager;
+
 
 
 

@@ -6,8 +6,6 @@ module;
 #include <QStringList>
 #include <QMap>
 
-export module Media.MetaData;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Media.MetaData;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Media.MetaData;
+
 
 
 

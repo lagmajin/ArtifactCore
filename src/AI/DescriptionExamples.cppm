@@ -2,8 +2,6 @@ module;
 #include <QString>
 #include <QStringList>
 
-module Core.AI.DescriptionExamples;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ module Core.AI.DescriptionExamples;
 #include <numeric>
 #include <regex>
 #include <random>
+module Core.AI.DescriptionExamples;
+
 
 
 

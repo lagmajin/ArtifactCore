@@ -6,8 +6,6 @@
 #include <glm/glm.hpp>
 #include "../Define/DllExportMacro.hpp"
 #include "../ArtifactWidgets/include/Define/DllExportMacro.hpp"
-export module Core.Point2D;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Core.Point2D;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Core.Point2D;
+
 
 
 

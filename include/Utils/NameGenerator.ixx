@@ -1,7 +1,4 @@
-module ;
 #include "../Define/DllExportMacro.hpp"
-export module Utils.NameGenerator;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +32,9 @@ export module Utils.NameGenerator;
 #include <numeric>
 #include <regex>
 #include <random>
+module ;
+export module Utils.NameGenerator;
+
 
 
 

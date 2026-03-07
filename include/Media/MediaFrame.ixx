@@ -1,7 +1,5 @@
 module;
 #include <QString>
-export module Media.MediaFrame;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Media.MediaFrame;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Media.MediaFrame;
+
 
 
 

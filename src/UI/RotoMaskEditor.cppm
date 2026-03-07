@@ -12,8 +12,6 @@ module;
 #include <vector>
 #include <cmath>
 
-module Core.UI.RotoMaskEditor;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -47,6 +45,8 @@ module Core.UI.RotoMaskEditor;
 #include <numeric>
 #include <regex>
 #include <random>
+module Core.UI.RotoMaskEditor;
+
 
 
 

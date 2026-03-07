@@ -4,8 +4,6 @@
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 
 
-export module Graphics.CBuffer.Constants.Helper;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module Graphics.CBuffer.Constants.Helper;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Graphics.CBuffer.Constants.Helper;
+
 
 
 

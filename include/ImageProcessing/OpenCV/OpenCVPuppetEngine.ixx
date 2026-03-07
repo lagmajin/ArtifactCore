@@ -4,8 +4,6 @@ module;
 #include <string>
 #include <opencv2/opencv.hpp>
 
-export module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
+
 
 
 

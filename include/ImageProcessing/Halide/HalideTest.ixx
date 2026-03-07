@@ -1,11 +1,7 @@
 
-module ;
 #include <Halide.h>
 #include <opencv2/opencv.hpp>
 #include "../../Define/DllExportMacro.hpp"
-
-export module HalideTest;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +35,10 @@ export module HalideTest;
 #include <numeric>
 #include <regex>
 #include <random>
+module ;
+
+export module HalideTest;
+
 
 
 

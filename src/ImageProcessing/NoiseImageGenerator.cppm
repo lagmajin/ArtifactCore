@@ -1,8 +1,6 @@
 module;
 #include <cmath>
 #include <algorithm>
-module Generator;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ module Generator;
 #include <numeric>
 #include <regex>
 #include <random>
+module Generator;
+
 
 import :Noise;
 

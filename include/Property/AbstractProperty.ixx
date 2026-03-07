@@ -5,8 +5,6 @@
 #include <QColor>
 #include <vector>
 #include "../Define/DllExportMacro.hpp"
-export module Property.Abstract;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Property.Abstract;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Property.Abstract;
+
 
 
 

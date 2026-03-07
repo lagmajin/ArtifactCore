@@ -3,8 +3,6 @@ extern "C" {
 #include <libavutil\samplefmt.h>
 }
 #include <QByteArray>
-export module Audio.Frame;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Audio.Frame;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Audio.Frame;
+
 
 
 

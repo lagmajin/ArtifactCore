@@ -5,8 +5,6 @@ module;
 #include <QColor>
 #include <QEasingCurve>
 
-module Core.AI.AnimationUIDescriptions;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ module Core.AI.AnimationUIDescriptions;
 #include <numeric>
 #include <regex>
 #include <random>
+module Core.AI.AnimationUIDescriptions;
+
 
 
 

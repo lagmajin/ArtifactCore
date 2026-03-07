@@ -1,6 +1,4 @@
 module;
-export module Audio.Bus;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,8 @@ export module Audio.Bus;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Audio.Bus;
+
 
 
 
@@ -72,6 +72,14 @@ export namespace ArtifactCore {
 
 		// Process audio buffer in-place
 		void process(AudioSegment& segment);
+
+		// Routing integration
+		void clearInput(int frameCount, int sampleRate);
+		void addInput(const AudioSegment& input, float localGain = 1.0f);
+		void addSideChain(const AudioSegment& input, float localGain = 1.0f);
+		
+		AudioSegment& getOutputBuffer();
+		const AudioSegment& getSideChainBuffer() const;
 
 		// Metering
 		float getPeakLevel(int channelIndex) const;

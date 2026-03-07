@@ -5,8 +5,6 @@ module;
 #include <QMap>
 #include <memory>
 
-module Composition.PreCompose;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ module Composition.PreCompose;
 #include <numeric>
 #include <regex>
 #include <random>
+module Composition.PreCompose;
+
 
 
 

@@ -4,8 +4,6 @@
 #include <QtCore/QObject>
 #include <wobjectdefs.h>
 #include "../Define/DllExportMacro.hpp"
-export module Asset.File;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module Asset.File;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Asset.File;
+
 
 
 //import String.like;

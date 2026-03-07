@@ -11,8 +11,6 @@ module;
 #include <vector>
 #include <functional>
 
-export module Core.UI.RotoMaskEditor;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -46,6 +44,8 @@ export module Core.UI.RotoMaskEditor;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Core.UI.RotoMaskEditor;
+
 
 
 

@@ -1,6 +1,4 @@
 ﻿module;
-export module Numeric.Like;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,8 @@ export module Numeric.Like;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Numeric.Like;
+
 
 
 

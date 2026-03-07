@@ -3,8 +3,6 @@
 #include <wobjectdefs.h>
 
 #include "../Define/DllExportMacro.hpp"
-export module Frame.Position;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Frame.Position;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Frame.Position;
+
 
 
 

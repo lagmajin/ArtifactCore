@@ -2,8 +2,6 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module GenerateTestImage;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module GenerateTestImage;
 #include <numeric>
 #include <regex>
 #include <random>
+export module GenerateTestImage;
+
 
 
 

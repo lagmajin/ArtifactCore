@@ -15,8 +15,6 @@ extern "C" {
 
 }
 
-module MediaPlaybackController;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -50,6 +48,8 @@ module MediaPlaybackController;
 #include <numeric>
 #include <regex>
 #include <random>
+module MediaPlaybackController;
+
 
 
 

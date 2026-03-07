@@ -5,8 +5,6 @@ module;
 #include <vector>
 #include "../Define/DllExportMacro.hpp"
 
-export module Frame.Range;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Frame.Range;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Frame.Range;
+
 
 
 

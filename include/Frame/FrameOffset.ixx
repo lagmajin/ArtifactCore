@@ -1,7 +1,5 @@
 module;
 
-export module Frame.Offset;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Frame.Offset;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Frame.Offset;
+
 
 
 

@@ -5,8 +5,6 @@ module;
 #include <cmath>
 #include <algorithm>
 
-module Math.Bezier.Sampler;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ module Math.Bezier.Sampler;
 #include <numeric>
 #include <regex>
 #include <random>
+module Math.Bezier.Sampler;
+
 
 
 

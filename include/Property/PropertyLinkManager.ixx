@@ -6,8 +6,6 @@ module;
 #include <QVariant>
 #include "../Define/DllExportMacro.hpp"
 
-export module Property.LinkManager;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Property.LinkManager;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Property.LinkManager;
+
 
 
 

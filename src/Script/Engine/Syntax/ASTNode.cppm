@@ -1,6 +1,4 @@
 module;
-module ASTNode;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,8 @@ module ASTNode;
 #include <numeric>
 #include <regex>
 #include <random>
+module ASTNode;
+
 
 
 

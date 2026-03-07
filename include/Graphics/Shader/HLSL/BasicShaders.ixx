@@ -2,8 +2,6 @@
 #include <QString>
 #include <QByteArray>
 
-export module Graphics.Shader.HLSL.Basics.Pixel;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,8 +35,10 @@ export module Graphics.Shader.HLSL.Basics.Pixel;
 #include <numeric>
 #include <regex>
 #include <random>
-
 #include "../../../Define/DllExportMacro.hpp"
+export module Graphics.Shader.HLSL.Basics.Pixel;
+
+
 
 
 export namespace ArtifactCore {

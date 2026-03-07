@@ -1,7 +1,5 @@
 module;
 #include "../Define/DllExportMacro.hpp"
-export module Color.XYZ;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Color.XYZ;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Color.XYZ;
+
 
 
 

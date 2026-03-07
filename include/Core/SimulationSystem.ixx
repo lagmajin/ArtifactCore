@@ -2,8 +2,6 @@ module;
 #include <memory>
 #include <string>
 
-export module ArtifactCore.Core.Simulation;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module ArtifactCore.Core.Simulation;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ArtifactCore.Core.Simulation;
+
 
 
 

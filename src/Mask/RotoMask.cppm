@@ -9,8 +9,6 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module Core.Mask.RotoMask;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -44,6 +42,8 @@ module Core.Mask.RotoMask;
 #include <numeric>
 #include <regex>
 #include <random>
+module Core.Mask.RotoMask;
+
 
 
 

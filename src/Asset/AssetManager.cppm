@@ -1,7 +1,5 @@
 module;
 #include <QFileSystemWatcher>
-module Asset.Manager;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ module Asset.Manager;
 #include <numeric>
 #include <regex>
 #include <random>
+module Asset.Manager;
+
 
 
 

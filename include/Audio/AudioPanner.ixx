@@ -1,7 +1,5 @@
 module;
 #include "../Define/DllExportMacro.hpp"
-export module Audio.Panner;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Audio.Panner;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Audio.Panner;
+
 
 
 

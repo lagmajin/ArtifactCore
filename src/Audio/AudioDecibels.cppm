@@ -4,8 +4,6 @@ module;
 #include <cmath>
 #include <format>
 
-module Audio.Decibels;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ module Audio.Decibels;
 #include <numeric>
 #include <regex>
 #include <random>
+module Audio.Decibels;
+
 
 
 

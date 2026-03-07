@@ -7,8 +7,6 @@ module;
 #include <QMatrix4x4>
 #include "../../Define/DllExportMacro.hpp"
 
-export module Physics2D;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -42,6 +40,8 @@ export module Physics2D;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Physics2D;
+
 
 
 

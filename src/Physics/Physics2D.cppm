@@ -3,8 +3,6 @@ module;
 #include <vector>
 #include <memory>
 
-module Physics2D;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ module Physics2D;
 #include <numeric>
 #include <regex>
 #include <random>
+module Physics2D;
+
 
 
 

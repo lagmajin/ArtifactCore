@@ -8,8 +8,6 @@
 #include <vector>
 #include <wobjectdefs.h>
 
-export module Input.Operator;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -43,6 +41,8 @@ export module Input.Operator;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Input.Operator;
+
 
 
 

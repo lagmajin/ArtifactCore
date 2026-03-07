@@ -5,8 +5,6 @@ module;
 #include <random>
 #include <algorithm>
 
-export module ArtifactCore.Crowd.Boids;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module ArtifactCore.Crowd.Boids;
 #include <numeric>
 #include <regex>
 #include <random>
+export module ArtifactCore.Crowd.Boids;
+
 
 
 

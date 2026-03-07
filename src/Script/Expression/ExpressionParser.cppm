@@ -5,8 +5,6 @@ module;
 #include <string>
 #include <vector>
 
-module Script.Expression.Parser;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ module Script.Expression.Parser;
 #include <numeric>
 #include <regex>
 #include <random>
+module Script.Expression.Parser;
+
 
 
 

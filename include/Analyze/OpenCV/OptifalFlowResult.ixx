@@ -3,8 +3,6 @@ module;
 #include <opencv2/opencv.hpp>
 #include <vector>
 
-export module Analyze.OpticalFlow;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Analyze.OpticalFlow;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Analyze.OpticalFlow;
+
 
 
 

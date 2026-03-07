@@ -5,8 +5,6 @@ module;
 #include <QRectF>
 #include "../Define/DllExportMacro.hpp"
 
-export module Geometry.LayerBounds;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Geometry.LayerBounds;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Geometry.LayerBounds;
+
 
 
 

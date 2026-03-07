@@ -3,8 +3,6 @@ module;
 #include <cmath>
 #include <QList>
 
-module Color.Harmonizer;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ module Color.Harmonizer;
 #include <numeric>
 #include <regex>
 #include <random>
+module Color.Harmonizer;
+
 
 
 

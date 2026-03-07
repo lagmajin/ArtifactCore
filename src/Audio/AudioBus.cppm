@@ -1,8 +1,6 @@
 module;
 #include <QVector>
 
-module Audio.Bus;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ module Audio.Bus;
 #include <numeric>
 #include <regex>
 #include <random>
+module Audio.Bus;
+
 
 import Utils.String.UniString;
 import Audio.Segment;
@@ -63,6 +63,9 @@ namespace ArtifactCore {
 			if (volumeDb_ <= -144.0f) return 0.0f;
 			return std::pow(10.0f, volumeDb_ / 20.0f);
 		}
+
+		AudioSegment mainBuffer_;
+		AudioSegment sideChainBuffer_;
 	};
 
 
@@ -183,6 +186,61 @@ namespace ArtifactCore {
 			impl_->meters_[c].peak = peak;
 			impl_->meters_[c].rms = (samples > 0) ? std::sqrt(sumSq / samples) : 0.0f;
 		}
+	}
+
+	void AudioBus::clearInput(int frameCount, int sampleRate)
+	{
+		// Stereo by default
+		if (impl_->mainBuffer_.channelCount() != 2) impl_->mainBuffer_.channelData.resize(2);
+		if (impl_->sideChainBuffer_.channelCount() != 2) impl_->sideChainBuffer_.channelData.resize(2);
+
+		impl_->mainBuffer_.sampleRate = sampleRate;
+		impl_->sideChainBuffer_.sampleRate = sampleRate;
+
+		for (int c = 0; c < 2; ++c) {
+			impl_->mainBuffer_.channelData[c].resize(frameCount);
+			impl_->mainBuffer_.channelData[c].fill(0.0f);
+			impl_->sideChainBuffer_.channelData[c].resize(frameCount);
+			impl_->sideChainBuffer_.channelData[c].fill(0.0f);
+		}
+	}
+
+	void AudioBus::addInput(const AudioSegment& input, float localGain)
+	{
+		int channels = std::min((int)input.channelData.size(), (int)impl_->mainBuffer_.channelData.size());
+		int frames = std::min(input.frameCount(), impl_->mainBuffer_.frameCount());
+		
+		for (int c = 0; c < channels; ++c) {
+			const float* src = input.channelData[c].constData();
+			float* dst = impl_->mainBuffer_.channelData[c].data();
+			for (int i = 0; i < frames; ++i) {
+				dst[i] += src[i] * localGain;
+			}
+		}
+	}
+
+	void AudioBus::addSideChain(const AudioSegment& input, float localGain)
+	{
+		int channels = std::min((int)input.channelData.size(), (int)impl_->sideChainBuffer_.channelData.size());
+		int frames = std::min(input.frameCount(), impl_->sideChainBuffer_.frameCount());
+
+		for (int c = 0; c < channels; ++c) {
+			const float* src = input.channelData[c].constData();
+			float* dst = impl_->sideChainBuffer_.channelData[c].data();
+			for (int i = 0; i < frames; ++i) {
+				dst[i] += src[i] * localGain;
+			}
+		}
+	}
+
+	AudioSegment& AudioBus::getOutputBuffer()
+	{
+		return impl_->mainBuffer_;
+	}
+
+	const AudioSegment& AudioBus::getSideChainBuffer() const
+	{
+		return impl_->sideChainBuffer_;
 	}
 
 	float AudioBus::getPeakLevel(int channelIndex) const

@@ -9,8 +9,6 @@ extern "C" {
 #include <libavutil/imgutils.h>
 }
 
-module MediaImageFrameDecoder;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -44,6 +42,8 @@ module MediaImageFrameDecoder;
 #include <numeric>
 #include <regex>
 #include <random>
+module MediaImageFrameDecoder;
+
 
 
 

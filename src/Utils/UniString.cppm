@@ -2,8 +2,6 @@ module;
 
 #include <QString>
 
-module Utils.String.UniString;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ module Utils.String.UniString;
 #include <numeric>
 #include <regex>
 #include <random>
+module Utils.String.UniString;
+
 
 
 

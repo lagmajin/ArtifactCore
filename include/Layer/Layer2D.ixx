@@ -5,8 +5,6 @@
 
 #include <stdint.h>
 
-export module Layer2D;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ export module Layer2D;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Layer2D;
+
 
 
 

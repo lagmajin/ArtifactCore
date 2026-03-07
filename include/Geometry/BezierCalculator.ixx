@@ -3,8 +3,6 @@ module;
 #include <QPointF>
 #include <QVector>
 
-export module Math.Bezier;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Math.Bezier;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Math.Bezier;
+
 
 
 

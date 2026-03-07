@@ -1,8 +1,6 @@
 module;
 #include "../../Define/DllExportMacro.hpp"
 #include <cstdint>
-export module Script.Python.Engine;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Script.Python.Engine;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Script.Python.Engine;
+
 
 
 

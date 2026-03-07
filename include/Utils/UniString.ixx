@@ -3,8 +3,6 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module Utils.String.UniString;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Utils.String.UniString;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Utils.String.UniString;
+
 
 
 

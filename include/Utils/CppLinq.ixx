@@ -1,8 +1,6 @@
 module;
 
 
-export module CppLinq;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module CppLinq;
 #include <numeric>
 #include <regex>
 #include <random>
+export module CppLinq;
+
 
 
 export namespace ArtifactCore {

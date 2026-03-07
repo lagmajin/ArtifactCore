@@ -12,8 +12,6 @@ extern "C" {
 
 }
 
-module MediaReader;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -47,6 +45,8 @@ module MediaReader;
 #include <numeric>
 #include <regex>
 #include <random>
+module MediaReader;
+
 
 
 

@@ -5,8 +5,6 @@ module;
 #include <QVariant>
 #include <QColor>
 
-module Property.Abstract;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -40,6 +38,8 @@ module Property.Abstract;
 #include <numeric>
 #include <regex>
 #include <random>
+module Property.Abstract;
+
 
 
 

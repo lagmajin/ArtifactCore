@@ -1,6 +1,10 @@
 ﻿module;
 #include <opencv2/opencv.hpp>
 #include "../../Define/DllExportMacro.hpp"
+#include <opencv2/opencv.hpp>
+#include <vector>
+#include <cmath>
+#include <algorithm> // For std::min
 export module Draw;
 
 
@@ -26,10 +30,6 @@ export namespace ArtifactCore {
   float scale = 1.0f);
 
 
-#include <opencv2/opencv.hpp>
-#include <vector>
-#include <cmath>
-#include <algorithm> // For std::min
 
  // 円周率
 #ifndef M_PI

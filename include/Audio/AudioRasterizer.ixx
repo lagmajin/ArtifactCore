@@ -1,8 +1,6 @@
 ﻿module;
 #include <QVector>
 #include <QImage>
-export module Audio.Rasterizer;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -36,6 +34,8 @@ export module Audio.Rasterizer;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Audio.Rasterizer;
+
 
 
 

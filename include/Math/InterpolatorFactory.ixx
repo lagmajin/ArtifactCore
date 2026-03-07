@@ -1,7 +1,5 @@
 ﻿module;
 #include <QVector3D>
-export module Interpolate.Factory;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Interpolate.Factory;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Interpolate.Factory;
+
 
 
 

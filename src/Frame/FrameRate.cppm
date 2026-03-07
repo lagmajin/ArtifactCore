@@ -1,7 +1,5 @@
 ﻿module;
 #include <QList>
-module Frame.Rate;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ module Frame.Rate;
 #include <numeric>
 #include <regex>
 #include <random>
+module Frame.Rate;
+
 
 
 

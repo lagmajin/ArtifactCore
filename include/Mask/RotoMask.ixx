@@ -6,8 +6,6 @@ module;
 #include <vector>
 #include <functional>
 
-export module Core.Mask.RotoMask;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +39,8 @@ export module Core.Mask.RotoMask;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Core.Mask.RotoMask;
+
 
 
 

@@ -2,8 +2,6 @@
 
 #include <QObject>
 #include "../Define/DllExportMacro.hpp"
-export module Render.Queue.Manager;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Render.Queue.Manager;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Render.Queue.Manager;
+
 
 
 

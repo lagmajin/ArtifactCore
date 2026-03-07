@@ -14,8 +14,6 @@ module;
 #include <QtGui/QRgb>
 #include <QtGui/QMatrix3x3>
 
-module Video.Stabilizer;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -49,6 +47,8 @@ module Video.Stabilizer;
 #include <numeric>
 #include <regex>
 #include <random>
+module Video.Stabilizer;
+
 
 
 

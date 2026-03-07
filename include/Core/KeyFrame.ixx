@@ -4,8 +4,6 @@
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 
 #include "../Define/DllExportMacro.hpp"
-export module Core.KeyFrame;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,6 +37,8 @@ export module Core.KeyFrame;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Core.KeyFrame;
+
 
 
 

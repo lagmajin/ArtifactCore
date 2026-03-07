@@ -1,5 +1,3 @@
-export module Artifact.ShaderNode.Core;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -33,6 +31,8 @@ export module Artifact.ShaderNode.Core;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Artifact.ShaderNode.Core;
+
 
 
 

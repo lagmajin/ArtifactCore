@@ -1,6 +1,4 @@
 module;
-export module Evaluator;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,8 @@ export module Evaluator;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Evaluator;
+
 
 
 

@@ -7,8 +7,6 @@ module;
 
 
 
-export module Transform.Scale2D;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -42,6 +40,8 @@ export module Transform.Scale2D;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Transform.Scale2D;
+
 
 
 

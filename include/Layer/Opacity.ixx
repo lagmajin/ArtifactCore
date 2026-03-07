@@ -1,7 +1,5 @@
 ﻿module;
 
-export module Core.Opacity;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,6 +33,8 @@ export module Core.Opacity;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Core.Opacity;
+
 
 
 

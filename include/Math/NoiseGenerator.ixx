@@ -2,8 +2,6 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
-export module Math.Noise;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -37,6 +35,8 @@ export module Math.Noise;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Math.Noise;
+
 
 
 

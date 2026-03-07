@@ -3,8 +3,6 @@
 #include <QString>
 #include "../Define/DllExportMacro.hpp"
 //#include <opencv2/core/cvdef.h>
-export module Time.Code;
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -38,6 +36,8 @@ export module Time.Code;
 #include <numeric>
 #include <regex>
 #include <random>
+export module Time.Code;
+
 
 
 
