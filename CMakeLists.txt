@@ -139,6 +139,10 @@ target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
 find_package(OpenImageIO REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC OpenImageIO::OpenImageIO)
 
+# GLM
+find_package(glm CONFIG REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC glm::glm)
+
 if(MSVC)
     target_compile_definitions(ArtifactCore PRIVATE 
         PLATFORM_WIN32
