@@ -14,7 +14,7 @@ module;
 #include <QtGui/QRgb>
 #include <QtGui/QMatrix3x3>
 
-export module Video.Stabilizer;
+module Video.Stabilizer;
 
 import std;
 import Frame.Position;

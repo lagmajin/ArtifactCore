@@ -1,6 +1,6 @@
 ﻿module;
 
-export module AutoContrast;
+export module ImageProcessing.AutoContrast.CS;
 
 export namespace ArtifactCore
 {

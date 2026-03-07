@@ -1,6 +1,6 @@
 module;
 
-export module ColorCollection.ColorGrading;
+module ColorCollection.ColorGrading;
 
 import std;
 import Color.ColorSpace;

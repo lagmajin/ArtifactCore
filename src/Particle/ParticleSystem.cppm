@@ -139,6 +139,7 @@ public:
     std::vector<std::shared_ptr<ParticleEmitter>> emitters_;
     std::vector<std::shared_ptr<ForceField>> forceFields_;
     std::vector<std::shared_ptr<ParticleCollider>> colliders_;
+    std::vector<std::shared_ptr<ParticleConstraint>> constraints_;
     
     size_t maxParticles_ = 100000;
     double simulationSpeed_ = 1.0;
@@ -213,6 +214,14 @@ void ParticleSystem::removeCollider(const std::string& id) {
 void ParticleSystem::clearColliders() { impl_->colliders_.clear(); }
 size_t ParticleSystem::colliderCount() const { return impl_->colliders_.size(); }
 
+void ParticleSystem::addConstraint(std::shared_ptr<ParticleConstraint> constraint) {
+    impl_->constraints_.push_back(constraint);
+}
+
+void ParticleSystem::clearConstraints() {
+    impl_->constraints_.clear();
+}
+
 void ParticleSystem::update(double deltaTime) {
     if (paused_) return;
     
@@ -278,17 +287,44 @@ void ParticleSystem::update(double deltaTime) {
         for (auto& collider : impl_->colliders_) {
             collider->collide(p, dt);
         }
+    }
+    
+    // 拘束の解決（流体・パーティクル間衝突など）
+    if (!impl_->constraints_.empty()) {
+        // 現在のアクティブなパーティクルを取得して解決
+        std::vector<Particle> activeParticles;
+        std::vector<size_t> indices;
+        for (size_t i = 0; i < impl_->pool_.size(); ++i) {
+            if (!isFree[i]) {
+                activeParticles.push_back(impl_->pool_[i]);
+                indices.push_back(i);
+            }
+        }
+        
+        for (auto& constraint : impl_->constraints_) {
+            constraint->resolve(activeParticles, dt);
+        }
+        
+        // 解決した値をプールに戻す
+        for (size_t k = 0; k < activeParticles.size(); ++k) {
+            impl_->pool_[indices[k]] = activeParticles[k];
+        }
+    }
+    
+    // 更新ループの最後で色などを適用
+    for (size_t i = 0; i < impl_->pool_.size(); ++i) {
+        if (isFree[i]) continue;
+        Particle& p = impl_->pool_[i];
         
         // Update opacity based on lifetime
         float lifeRatio = p.age / p.lifetime;
         p.opacity = 1.0f - lifeRatio;
         
-        // Interpolate color
-        float t = lifeRatio;
-        p.color.x = config_.colorStart.x + (config_.colorEnd.x - config_.colorStart.x) * t;
-        p.color.y = config_.colorStart.y + (config_.colorEnd.y - config_.colorStart.y) * t;
-        p.color.z = config_.colorStart.z + (config_.colorEnd.z - config_.colorStart.z) * t;
-        p.color.w = config_.colorStart.w + (config_.colorEnd.w - config_.colorStart.w) * t;
+        // Interpolate color (Configuration based)
+        p.color.x = config_.colorStart.x + (config_.colorEnd.x - config_.colorStart.x) * lifeRatio;
+        p.color.y = config_.colorStart.y + (config_.colorEnd.y - config_.colorStart.y) * lifeRatio;
+        p.color.z = config_.colorStart.z + (config_.colorEnd.z - config_.colorStart.z) * lifeRatio;
+        p.color.w = config_.colorStart.w + (config_.colorEnd.w - config_.colorStart.w) * lifeRatio;
     }
     
     auto endTime = std::chrono::high_resolution_clock::now();
@@ -328,5 +364,48 @@ void ParticleSystem::setPaused(bool paused) { impl_->paused_ = paused; }
 bool ParticleSystem::isPaused() const { return impl_->paused_; }
 
 ParticleSystem::Statistics ParticleSystem::getStatistics() const { return impl_->stats_; }
+
+// ============================================================================
+// FluidConstraint Implementation (Simple PBD Fluid)
+// ============================================================================
+void FluidConstraint::resolve(std::vector<Particle>& particles, double dt) {
+    if (particles.size() < 2) return;
+    
+    float rSq = radius_ * radius_;
+    
+    // 非常にシンプルな近接排斥（擬似流体）
+    // 本来は密度計算が必要だが、ここではパフォーマンス重視で排斥のみ
+    for (size_t i = 0; i < particles.size(); ++i) {
+        for (size_t j = i + 1; j < particles.size(); ++j) {
+            float3 diff{
+                particles[i].position.x - particles[j].position.x,
+                particles[i].position.y - particles[j].position.y,
+                particles[i].position.z - particles[j].position.z
+            };
+            
+            float distSq = diff.x*diff.x + diff.y*diff.y + diff.z*diff.z;
+            if (distSq > 0.0001f && distSq < rSq) {
+                float dist = std::sqrt(distSq);
+                float overlap = radius_ - dist;
+                
+                // 押し出しベクトル
+                float factor = (overlap / dist) * 0.5f;
+                float3 push{ diff.x * factor, diff.y * factor, diff.z * factor };
+                
+                particles[i].position.x += push.x;
+                particles[i].position.y += push.y;
+                particles[i].position.z += push.z;
+                
+                particles[j].position.x -= push.x;
+                particles[j].position.y -= push.y;
+                particles[j].position.z -= push.z;
+                
+                // 速度の減衰（粘性）
+                particles[i].velocity.x *= 0.99f;
+                particles[j].velocity.x *= 0.99f;
+            }
+        }
+    }
+}
 
 } // namespace ArtifactCore

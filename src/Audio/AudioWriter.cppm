@@ -1,7 +1,7 @@
 ﻿module;
 
 
-export module Audio.Render.Writer;
+module Audio.Render.Writer;
 
 
 namespace ArtifactCore {

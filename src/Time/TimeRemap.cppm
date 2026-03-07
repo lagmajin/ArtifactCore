@@ -1,6 +1,6 @@
 module;
 
-export module Time.TimeRemap;
+module Time.TimeRemap;
 
 import std;
 import Frame.Rate;

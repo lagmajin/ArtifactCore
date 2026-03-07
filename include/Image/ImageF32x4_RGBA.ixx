@@ -6,7 +6,7 @@
 #include <QUuid>
 #include <QObject>
 
-#include <folly/concurrency/AtomicSharedPtr.h>
+//#include <folly/concurrency/AtomicSharedPtr.h>
 
 
 export module Image.ImageF32x4_RGBA;

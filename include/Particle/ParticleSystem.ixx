@@ -77,7 +77,8 @@ public:
         Turbulence,
         Vortex,
         Attractor,
-        Drag
+        Drag,
+        Audio
     };
 
     ForceField(Type type) : type_(type) {}
@@ -235,7 +236,7 @@ private:
 class LIBRARY_DLL_API DragForce : public ForceField {
 public:
     DragForce() : ForceField(Type::Drag) {}
-    
+
     void apply(Particle& p, double dt) override {
         float factor = 1.0f - drag_ * static_cast<float>(dt);
         factor = std::max(0.0f, factor);
@@ -249,6 +250,53 @@ public:
 
 private:
     float drag_ = 0.1f;
+};
+
+// ============================================================================
+// Audio Force - オーディオ解析に反応する力
+// ============================================================================
+class LIBRARY_DLL_API AudioForce : public ForceField {
+public:
+    enum class Target { RMS, Peak, Low, Mid, High };
+
+    AudioForce() : ForceField(Type::Audio) {}
+
+    void apply(Particle& p, double dt) override {
+        float strength = audioValue_ * multiplier_ * static_cast<float>(dt);
+        p.velocity.x += direction_.x * strength;
+        p.velocity.y += direction_.y * strength;
+        p.velocity.z += direction_.z * strength;
+    }
+
+    void setAudioValue(float val) { audioValue_ = val; }
+    void setDirection(float x, float y, float z) { direction_ = {x, y, z}; }
+    void setMultiplier(float m) { multiplier_ = m; }
+
+private:
+    float audioValue_ = 0.0f;
+    float3 direction_{0.0f, 1.0f, 0.0f};
+    float multiplier_ = 10.0f;
+};
+
+// ============================================================================
+// Particle Constraint - パーティクル間の相互作用（流体・衝突）
+// ============================================================================
+class LIBRARY_DLL_API ParticleConstraint {
+public:
+    virtual ~ParticleConstraint() = default;
+    virtual void resolve(std::vector<Particle>& particles, double dt) = 0;
+};
+
+class LIBRARY_DLL_API FluidConstraint : public ParticleConstraint {
+public:
+    FluidConstraint(float radius = 0.5f, float density = 1.0f) 
+        : radius_(radius), targetDensity_(density) {}
+
+    void resolve(std::vector<Particle>& particles, double dt) override;
+
+private:
+    float radius_;
+    float targetDensity_;
 };
 
 // ============================================================================
@@ -490,6 +538,10 @@ public:
     void clearColliders();
     size_t colliderCount() const;
 
+    // 拘束管理
+    void addConstraint(std::shared_ptr<ParticleConstraint> constraint);
+    void clearConstraints();
+
     // シミュレーション
     void update(double deltaTime);
     void reset();
@@ -522,6 +574,7 @@ public:
 private:
     class Impl;
     Impl* impl_;
+    EmissionConfig config_;
 };
 
 } // namespace ArtifactCore
