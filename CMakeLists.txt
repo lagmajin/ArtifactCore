@@ -15,10 +15,63 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ---------------------------------------------------------------------------
 # ソース収集
 # ---------------------------------------------------------------------------
-file(GLOB_RECURSE CORE_IMPL CONFIGURE_DEPENDS "src/*.cpp")
+# 実装ファイル (.cpp および src 内の .cppm/.ixx)
+file(GLOB_RECURSE CORE_IMPL CONFIGURE_DEPENDS 
+    "src/*.cpp" 
+    "src/*.cppm" 
+    "src/*.ixx"
+)
+
+# モジュールインターフェース (.ixx)
+file(GLOB_RECURSE CORE_MODULES CONFIGURE_DEPENDS 
+    "include/*.ixx" 
+    "include/*.cppm"
+)
+
+# src/ にあるが「インターフェース」として機能しているファイルを CORE_MODULES に移動
+set(SRC_INTERFACES
+    "src/Audio/AudioVolume.ixx"
+    "src/Audio/AudioWriter.cppm"
+    "src/ColorCollection/ColorGrading.cppm"
+    "src/ImageProcessing/Halide/Defines.ixx"
+    "src/ImageProcessing/ImageF32x1.ixx"
+    "src/Knob/Knob.ixx"
+    "src/Time/TimeRemap.cppm"
+    "src/Video/Stabilizer.cppm"
+    "src/AbstractDecoder.cppm"
+    "NetworkRPCServer.ixx"
+)
+
+foreach(iface ${SRC_INTERFACES})
+    set(full_path "${CMAKE_CURRENT_SOURCE_DIR}/${iface}")
+    if(EXISTS ${full_path})
+        list(APPEND CORE_MODULES ${full_path})
+        list(REMOVE_ITEM CORE_IMPL ${full_path})
+    endif()
+endforeach()
+
+# 中身が空またはモジュール宣言がない「幽霊ファイル」をインターフェースから除外
+# (これらは CXX_MODULES に入れるとビルドエラーになる)
+set(GHOST_FILES
+    "include/Layer/LayerInfomation.ixx"
+    "include/Transform/AnchorPoint.ixx"
+    "include/Video/AbstractDecoder3.ixx"
+    # その他、エラーが出たファイル
+    "include/AI/Describable.ixx" # さきほど export module に修正したが念のため
+    "include/Core/ShapePoint.ixx"
+)
+
+foreach(ghost ${GHOST_FILES})
+    set(full_path "${CMAKE_CURRENT_SOURCE_DIR}/${ghost}")
+    list(REMOVE_ITEM CORE_MODULES ${full_path})
+    # もし中身があるなら PRIVATE 扱いにする
+    if(EXISTS ${full_path})
+        list(APPEND CORE_IMPL ${full_path})
+    endif()
+endforeach()
 
 # 使っていない Halide 関連ファイルを除外
-file(GLOB_RECURSE HALIDE_FILES "src/ImageProcessing/Halide/*.cpp")
+file(GLOB_RECURSE HALIDE_FILES "src/ImageProcessing/Halide/*.cpp" "src/ImageProcessing/Halide/*.cppm")
 if(HALIDE_FILES)
     list(REMOVE_ITEM CORE_IMPL ${HALIDE_FILES})
 endif()
@@ -39,8 +92,6 @@ file(GLOB_RECURSE GAPI_FILES
 if(GAPI_FILES)
     list(REMOVE_ITEM CORE_IMPL ${GAPI_FILES})
 endif()
-
-file(GLOB_RECURSE CORE_MODULES CONFIGURE_DEPENDS "include/*.ixx" "src/*.ixx" "src/*.cppm")
 
 # 使っていない Halide 関連のモジュールを除外
 file(GLOB_RECURSE HALIDE_MODULES 
@@ -77,9 +128,9 @@ endif()
 # ---------------------------------------------------------------------------
 add_library(ArtifactCore STATIC)
 
-# すべてのファイルを CXX_MODULES に登録し、Ninja に依存関係をスキャンさせる
 target_sources(ArtifactCore
-    PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES} ${CORE_IMPL}
+    PRIVATE ${CORE_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
 )
 
 target_include_directories(ArtifactCore
