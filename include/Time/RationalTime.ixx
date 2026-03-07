@@ -3,7 +3,42 @@ module;
 #include "../Define/DllExportMacro.hpp"
 export module Time.Rational;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 
 export namespace ArtifactCore {
 
@@ -20,10 +55,10 @@ export namespace ArtifactCore {
   int64_t value() const;
   int64_t scale() const;
   double toSeconds() const;
-  // w’è‚µ‚½ƒXƒP[ƒ‹ifps‚È‚Çj‚É•ÏŠ·‚µ‚½Û‚Ìvalue‚ğ•Ô‚·
+  // wè‚µXP[ifpsÈ‚ÇjÉ•ÏŠÛ‚valueÔ‚
   int64_t rescaledTo(int64_t newScale) const;
 
-  // --- ‰‰ZqƒI[ƒo[ƒ[ƒh (ŠÔ‚ÌŒvZ‚É•K{) ---
+  // --- ZqI[o[[h (Ô‚ÌŒvZÉ•K{) ---
   RationalTime operator+(const RationalTime& other) const;
   RationalTime operator-(const RationalTime& other) const;
   bool operator<(const RationalTime& other) const;
@@ -32,10 +67,10 @@ export namespace ArtifactCore {
   bool operator>=(const RationalTime& other) const;
   bool operator==(const RationalTime& other) const;
   bool operator!=(const RationalTime& other) const;
-  // ’l‚ğdoublei•b’PˆÊj‚É•ÏŠ·
+  // ldoubleibPÊjÉ•ÏŠ
   double toDouble() const;
-  // --- ƒ†[ƒeƒBƒŠƒeƒB ---
-  // •b‚©‚ç¶¬ (“à•”‚Å“KØ‚Èscale‚ğ©“®İ’èA—á: 100000“™)
+  // --- [eBeB ---
+  // bç¶ (Å“KØ‚scaleİ’A: 100000)
   static RationalTime fromSeconds(double seconds);
  };
 

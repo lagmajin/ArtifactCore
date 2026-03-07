@@ -8,7 +8,42 @@ module;
 
 export module Playback.Clock;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 import Frame.Rate;
 import Frame.Position;
 
@@ -20,9 +55,9 @@ enum class PlaybackState {
     Paused
 };
 
-// ‚¸“xÄ¶ƒNƒƒbƒN
-// ’ˆÓ: UIXV‚É‚ÍSignal/Slot‚ğg‚í‚¸A’èŠúƒ|[ƒŠƒ“ƒO‚ğ„§
-// Signal/Slot‚ÍƒLƒ…[ƒCƒ“ƒO’x‰„‚É‚æ‚è‚¸“x‚ª¸‚í‚ê‚é‚½‚ß
+// xÄNbN
+// : UIXVÉ‚Signal/Slotgí‚¸A|[Oğ„
+// Signal/SlotÍƒL[COxÉ‚è‚xé‚½
 class LIBRARY_DLL_API PlaybackClock {
 public:
     class Impl;
@@ -37,69 +72,69 @@ public:
     PlaybackClock& operator=(const PlaybackClock& other);
     PlaybackClock& operator=(PlaybackClock&& other) noexcept;
 
-    // Šî–{§Œä
+    // {
     void start();
     void pause();
     void stop();
     void resume();
 
-    // ó‘Ôæ“¾
+    // Ôæ“¾
     PlaybackState state() const;
     bool isPlaying() const;
     bool isPaused() const;
     bool isStopped() const;
 
-    // ŠÔæ“¾
-    std::chrono::microseconds elapsedTime() const;  // ƒ}ƒCƒNƒ•b¸“x
+    // Ôæ“¾
+    std::chrono::microseconds elapsedTime() const;  // }CNbx
     std::chrono::milliseconds elapsedTimeMs() const;
     double elapsedSeconds() const;
 
-    // ƒtƒŒ[ƒ€ˆÊ’u
+    // t[Ê’u
     std::int64_t currentFrame() const;
     FramePosition currentPosition() const;
     void setFrame(std::int64_t frame);
     void setPosition(const FramePosition& position);
 
-    // ƒtƒŒ[ƒ€ƒŒ[ƒg
+    // t[[g
     void setFrameRate(const FrameRate& frameRate);
     FrameRate frameRate() const;
     double framesPerSecond() const;
 
-    // Ä¶‘¬“x§Œä
-    void setPlaybackSpeed(double speed);  // 1.0 = ’Êí, 0.5 = ”¼‘¬, 2.0 = ”{‘¬, -1.0 = ‹tÄ¶
+    // Äx
+    void setPlaybackSpeed(double speed);  // 1.0 = Ê, 0.5 = , 2.0 = {, -1.0 = tÄ
     double playbackSpeed() const;
     bool isReversePlaying() const;
 
-    // ƒ‹[ƒv§Œä
+    // [v
     void setLoopRange(std::int64_t startFrame, std::int64_t endFrame);
     void clearLoopRange();
     bool isLooping() const;
     std::int64_t loopStartFrame() const;
     std::int64_t loopEndFrame() const;
 
-    // ƒI[ƒfƒBƒI“¯Šú
+    // I[fBI
     void syncToAudioClock(std::chrono::microseconds audioTime);
     void setAudioSyncEnabled(bool enabled);
     bool isAudioSyncEnabled() const;
     std::chrono::microseconds audioOffset() const;
 
-    // ƒhƒƒbƒvƒtƒŒ[ƒ€ŒŸo
+    // hbvt[o
     void setDropFrameDetectionEnabled(bool enabled);
     bool isDropFrameDetectionEnabled() const;
     std::int64_t droppedFrameCount() const;
     void resetDroppedFrameCount();
 
-    // ƒ^ƒCƒ€ƒR[ƒh
+    // ^CR[h
     QString timecode() const;  // HH:MM:SS:FF
     QString timecodeWithSubframe() const;  // HH:MM:SS:FF.sf
 
-    // ƒfƒ‹ƒ^ƒ^ƒCƒ€i‘O‰ñ‚ÌXV‚©‚ç‚ÌŒo‰ßŠÔj
+    // f^^CiOÌXVÌŒoßÔj
     std::chrono::microseconds deltaTime();
 
-    // ƒŠƒZƒbƒg
+    // Zbg
     void reset();
 
-    // ƒfƒoƒbƒO
+    // fobO
     QString statistics() const;
 };
 

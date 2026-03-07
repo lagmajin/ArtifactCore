@@ -2,7 +2,42 @@ module;
 
 export module FloatRGBA;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 
 export namespace ArtifactCore {
 
@@ -15,17 +50,17 @@ export namespace ArtifactCore {
   float r_, g_, b_, a_;
 
  public:
-  // ƒRƒ“ƒXƒgƒ‰ƒNƒ^
+  // RXgN^
   constexpr FloatRGBA() : r_(0), g_(0), b_(0), a_(0) {}
   constexpr FloatRGBA(float r, float g, float b, float a = 1.0f)
    : r_(r), g_(g), b_(b), a_(a) {
   }
 
-  // ƒRƒs[Eƒ€[ƒuƒRƒ“ƒXƒgƒ‰ƒNƒ^
+  // Rs[E[uRXgN^
   FloatRGBA(const FloatRGBA&) = default;
   FloatRGBA(FloatRGBA&&) = default;
 
-  // ƒAƒNƒZƒbƒT
+  // ANZbT
   float r() const { return r_; }
   float g() const { return g_; }
   float b() const { return b_; }
@@ -34,13 +69,13 @@ export namespace ArtifactCore {
   void setRed(float r) { r_ = r; }
   void setGreen(float g) { g_ = g; }
   void setBlue(float b) { b_ = b; }
-  void setAlpha(float a) { a_ = a; }  // © fix: Apha ¨ Alpha
+  void setAlpha(float a) { a_ = a; }  //  fix: Apha  Alpha
 
   void setRGBA(float r, float g, float b = 0.0f, float a = 0.0f) {
    r_ = r; g_ = g; b_ = b; a_ = a;
   }
 
-  // “Yš‰‰Zqi—v”ÍˆÍƒ`ƒFƒbƒNj
+  // YZqivÍˆÍƒ`FbNj
   float& operator[](int index) {
    if (index < 0 || index > 3) throw std::out_of_range("FloatRGBA index");
    return (&r_)[index];
@@ -51,7 +86,7 @@ export namespace ArtifactCore {
    return (&r_)[index];
   }
 
-  // Zp‰‰Zq
+  // ZpZq
   FloatRGBA operator+(const FloatRGBA& rhs) const {
    return FloatRGBA(r_ + rhs.r_, g_ + rhs.g_, b_ + rhs.b_, a_ + rhs.a_);
   }
@@ -60,18 +95,18 @@ export namespace ArtifactCore {
    return FloatRGBA(r_ * scalar, g_ * scalar, b_ * scalar, a_ * scalar);
   }
 
-  // ‘ã“ü‰‰Zq
+  // Zq
   FloatRGBA& operator=(const FloatRGBA&) = default;
   FloatRGBA& operator=(FloatRGBA&&) = default;
 
-  // •ÏŠ·‰‰Zq
-  operator FloatColor() const; // À‘•‚Í•Ê“r
+  // ÏŠZq
+  operator FloatColor() const; // Í•Ê“r
 
-  // ƒ†[ƒeƒBƒŠƒeƒB
+  // [eBeB
   void setFromFloatColor(const FloatColor& color);
-  void setFromRandom(); // ƒ‰ƒ“ƒ_ƒ€’l‚Å‰Šú‰»
+  void setFromRandom(); // _lÅ
 
-  // ƒXƒƒbƒv
+  // Xbv
   void swap(FloatRGBA& other) noexcept {
    std::swap(r_, other.r_);
    std::swap(g_, other.g_);

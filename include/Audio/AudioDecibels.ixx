@@ -3,7 +3,42 @@ module;
 
 export module Audio.Decibels;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 import Utils.String.UniString;
 
 export namespace ArtifactCore
@@ -19,35 +54,35 @@ export namespace ArtifactCore
   static constexpr float MAX_DB = 20.0f;
 
  public:
-  // ƒRƒ“ƒXƒgƒ‰ƒNƒ^/ƒfƒXƒgƒ‰ƒNƒ^
+  // RXgN^/fXgN^
   AudioDecibels();
   explicit AudioDecibels(float dB);
   AudioDecibels(const AudioDecibels& other);
   AudioDecibels(AudioDecibels&& other) noexcept;
   ~AudioDecibels();
 
-  // ƒQƒbƒ^[/ƒZƒbƒ^[
+  // Qb^[/Zb^[
   float decibels() const;
   void setDecibels(float dB);
 
-  // AudioVolume‚Æ‚Ì‘ŠŒİ•ÏŠ·
+  // AudioVolumeÆ‚Ì‘İ•ÏŠ
   float toLinearValue() const;
   static AudioDecibels fromLinearValue(float linear);
 
-  // •âŠÔiƒtƒF[ƒh—pj
+  // ÔitF[hpj
   AudioDecibels interpolate(const AudioDecibels& target, float t) const;
   static AudioDecibels linearFade(const AudioDecibels& from, const AudioDecibels& to, float t);
 
-  // ƒoƒŠƒf[ƒVƒ‡ƒ“
+  // of[V
   bool isValid() const;
   bool isMute() const;
-  bool isSilent() const;  // -40dBˆÈ‰º
+  bool isSilent() const;  // -40dBÈ‰
   bool isNormalized() const;  // 0dB
   void clamp();
 
-  // ƒvƒŠƒZƒbƒg
+  // vZbg
   enum class Preset {
-    Mute,          // -‡ dB
+    Mute,          // - dB
     VeryQuiet,     // -40 dB
     Quiet,         // -20 dB
     Normal,        // 0 dB
@@ -59,11 +94,11 @@ export namespace ArtifactCore
   static AudioDecibels createPreset(Preset preset);
   static UniString getPresetName(Preset preset);
 
-  // ƒVƒŠƒAƒ‰ƒCƒY
+  // VACY
   UniString serialize() const;
   static AudioDecibels deserialize(const UniString& data);
 
-  // ”äŠriƒGƒvƒVƒƒ“l—¶j
+  // riGvVlj
   bool equals(const AudioDecibels& other) const;
   bool operator==(const AudioDecibels& other) const;
   bool operator!=(const AudioDecibels& other) const;
@@ -72,7 +107,7 @@ export namespace ArtifactCore
   bool operator>(const AudioDecibels& other) const;
   bool operator>=(const AudioDecibels& other) const;
 
-  // ‰‰ZqiƒfƒVƒxƒ‹ŒvZ—pj
+  // ZqifVxvZpj
   AudioDecibels operator+(float dB) const;
   AudioDecibels operator-(float dB) const;
   AudioDecibels operator*(float scalar) const;
@@ -83,7 +118,7 @@ export namespace ArtifactCore
   AudioDecibels& operator*=(float scalar);
   AudioDecibels& operator/=(float scalar);
 
-  // ‘ã“ü‰‰Zq
+  // Zq
   AudioDecibels& operator=(const AudioDecibels& other);
   AudioDecibels& operator=(AudioDecibels&& other) noexcept;
  };

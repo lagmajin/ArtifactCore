@@ -11,12 +11,47 @@ extern "C" {
 
 export module MediaAudioDecoder;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 import Utils.String.UniString;
 
 export namespace ArtifactCore {
 
- // ƒI[ƒfƒBƒIƒTƒ“ƒvƒ‹ƒtƒH[ƒ}ƒbƒg
+ // I[fBITvtH[}bg
  enum class AudioSampleFormat {
   Unknown,
   Int16,          // 16-bit signed integer
@@ -29,43 +64,43 @@ export namespace ArtifactCore {
   DoublePlanar    // 64-bit double (planar)
  };
 
- // ƒI[ƒfƒBƒIî•ñ
+ // I[fBI
  struct AudioInfo {
-  int sampleRate = 0;              // ƒTƒ“ƒvƒ‹ƒŒ[ƒgiHzj
-  int channels = 0;                // ƒ`ƒƒƒ“ƒlƒ‹”
-  int64_t channelLayout = 0;       // ƒ`ƒƒƒ“ƒlƒ‹ƒŒƒCƒAƒEƒg
+  int sampleRate = 0;              // Tv[giHzj
+  int channels = 0;                // `l
+  int64_t channelLayout = 0;       // `lCAEg
   AudioSampleFormat format = AudioSampleFormat::Unknown;
-  UniString codecName;             // ƒR[ƒfƒbƒN–¼
-  int bitrate = 0;                 // ƒrƒbƒgƒŒ[ƒgibpsj
-  int bitsPerSample = 0;           // ƒTƒ“ƒvƒ‹‚ ‚½‚è‚Ìƒrƒbƒg”
-  int64_t totalSamples = 0;        // ‘ƒTƒ“ƒvƒ‹”
-  double duration = 0.0;           // ƒfƒ…ƒŒ[ƒVƒ‡ƒ“i•bj
+  UniString codecName;             // R[fbN
+  int bitrate = 0;                 // rbg[gibpsj
+  int bitsPerSample = 0;           // TvÌƒrbg
+  int64_t totalSamples = 0;        // Tv
+  double duration = 0.0;           // f[Vibj
  };
 
- // ƒfƒR[ƒhŒ‹‰Ê
+ // fR[h
  struct AudioDecodeResult {
   bool success = false;
-  QByteArray data;                 // ƒfƒR[ƒh‚³‚ê‚½PCMƒf[ƒ^
-  int samplesDecoded = 0;          // ƒfƒR[ƒh‚³‚ê‚½ƒTƒ“ƒvƒ‹”
-  int64_t timestamp = 0;           // ƒ^ƒCƒ€ƒXƒ^ƒ“ƒviƒ}ƒCƒNƒ•bj
+  QByteArray data;                 // fR[hê‚½PCMf[^
+  int samplesDecoded = 0;          // fR[hê‚½Tv
+  int64_t timestamp = 0;           // ^CX^vi}CNbj
   UniString errorMessage;
  };
 
- // ƒŠƒTƒ“ƒvƒŠƒ“ƒOİ’è
+ // TvOİ’
  struct ResamplingConfig {
-  int targetSampleRate = 0;        // –Ú•WƒTƒ“ƒvƒ‹ƒŒ[ƒgi0=•ÏŠ·‚µ‚È‚¢j
-  int targetChannels = 0;          // –Ú•Wƒ`ƒƒƒ“ƒlƒ‹”i0=•ÏŠ·‚µ‚È‚¢j
+  int targetSampleRate = 0;        // Ú•WTv[gi0=ÏŠÈ‚j
+  int targetChannels = 0;          // Ú•W`li0=ÏŠÈ‚j
   AudioSampleFormat targetFormat = AudioSampleFormat::Unknown;
   int64_t targetChannelLayout = 0;
  };
 
- // ƒfƒR[ƒ_[“Œvî•ñ
+ // fR[_[v
  struct DecoderStatistics {
   int64_t framesDecoded = 0;
   int64_t samplesDecoded = 0;
   int64_t bytesDecoded = 0;
-  double totalDecodeTime = 0.0;    // •b
-  double averageDecodeTime = 0.0;  // ƒtƒŒ[ƒ€‚ ‚½‚èiƒ~ƒŠ•bj
+  double totalDecodeTime = 0.0;    // b
+  double averageDecodeTime = 0.0;  // t[i~bj
   int errors = 0;
  };
 
@@ -78,134 +113,134 @@ export namespace ArtifactCore {
   MediaAudioDecoder();
   ~MediaAudioDecoder();
 
-  // ƒRƒs[/ƒ€[ƒu
+  // Rs[/[u
   MediaAudioDecoder(const MediaAudioDecoder&) = delete;
   MediaAudioDecoder& operator=(const MediaAudioDecoder&) = delete;
   MediaAudioDecoder(MediaAudioDecoder&&) noexcept;
   MediaAudioDecoder& operator=(MediaAudioDecoder&&) noexcept;
 
-  // ---- ‰Šú‰» ----
+  // ----  ----
 
-  // ƒR[ƒfƒbƒNƒpƒ‰ƒ[ƒ^‚©‚ç‰Šú‰»
+  // R[fbNp[^ç‰
   bool initialize(AVCodecParameters* codecParams);
   
-  // ƒR[ƒfƒbƒNƒRƒ“ƒeƒLƒXƒg‚©‚ç‰Šú‰»
+  // R[fbNReLXgç‰
   bool initialize(AVCodecContext* codecContext);
   
-  // ƒR[ƒfƒbƒN–¼‚©‚ç‰Šú‰»
+  // R[fbNç‰
   bool initializeByCodecName(const UniString& codecName);
   
-  // ƒŠƒZƒbƒgiÄ‰Šú‰»j
+  // ZbgiÄj
   void reset();
   
-  // ‰Šú‰»Ï‚İ‚©
+  // Ï‚İ‚
   bool isInitialized() const;
 
-  // ---- ƒfƒR[ƒh ----
+  // ---- fR[h ----
 
-  // ƒpƒPƒbƒg‚ğƒfƒR[ƒh
+  // pPbgfR[h
   QByteArray decodeFrame(AVPacket* packet);
   
-  // ƒpƒPƒbƒg‚ğƒfƒR[ƒhiÚ×‚ÈŒ‹‰Êj
+  // pPbgfR[hiÚ×‚ÈŒÊj
   AudioDecodeResult decodeFrameDetailed(AVPacket* packet);
   
-  // •¡”ƒpƒPƒbƒg‚ğƒfƒR[ƒh
+  // pPbgfR[h
   std::vector<QByteArray> decodeFrames(const std::vector<AVPacket*>& packets);
   
-  // ƒoƒbƒtƒ@‚ğƒtƒ‰ƒbƒVƒ…
+  // obt@tbV
   void flush();
   
-  // ƒoƒbƒtƒ@‚Éc‚Á‚Ä‚¢‚éƒtƒŒ[ƒ€‚ğæ“¾
+  // obt@ÉcÄ‚t[æ“¾
   QByteArray flushAndGetRemaining();
 
-  // ---- ƒŠƒTƒ“ƒvƒŠƒ“ƒO ----
+  // ---- TvO ----
 
-  // ƒŠƒTƒ“ƒvƒŠƒ“ƒO‚ğ—LŒø‰»
+  // TvOL
   bool enableResampling(const ResamplingConfig& config);
   
-  // ƒŠƒTƒ“ƒvƒŠƒ“ƒO‚ğ–³Œø‰»
+  // TvOğ–³Œ
   void disableResampling();
   
-  // ƒŠƒTƒ“ƒvƒŠƒ“ƒO‚ª—LŒø‚©
+  // TvOL
   bool isResamplingEnabled() const;
   
-  // Œ»İ‚ÌƒŠƒTƒ“ƒvƒŠƒ“ƒOİ’è
+  // İ‚ÌƒTvOİ’
   ResamplingConfig getResamplingConfig() const;
 
-  // ---- ƒI[ƒfƒBƒIî•ñ ----
+  // ---- I[fBI ----
 
-  // ƒI[ƒfƒBƒIî•ñ‚ğæ“¾
+  // I[fBIæ“¾
   AudioInfo getAudioInfo() const;
   
-  // ƒTƒ“ƒvƒ‹ƒŒ[ƒg
+  // Tv[g
   int getSampleRate() const;
   
-  // ƒ`ƒƒƒ“ƒlƒ‹”
+  // `l
   int getChannels() const;
   
-  // ƒ`ƒƒƒ“ƒlƒ‹ƒŒƒCƒAƒEƒg
+  // `lCAEg
   int64_t getChannelLayout() const;
   
-  // ƒTƒ“ƒvƒ‹ƒtƒH[ƒ}ƒbƒg
+  // TvtH[}bg
   AudioSampleFormat getSampleFormat() const;
   
-  // ƒR[ƒfƒbƒN–¼
+  // R[fbN
   UniString getCodecName() const;
   
-  // ƒrƒbƒgƒŒ[ƒg
+  // rbg[g
   int getBitrate() const;
 
-  // ---- “Œvî•ñ ----
+  // ---- v ----
 
-  // “Œvî•ñ‚ğæ“¾
+  // væ“¾
   DecoderStatistics getStatistics() const;
   
-  // “Œvî•ñ‚ğƒŠƒZƒbƒg
+  // vZbg
   void resetStatistics();
   
-  // ƒfƒR[ƒhÏ‚İƒtƒŒ[ƒ€”
+  // fR[hÏ‚İƒt[
   int64_t getDecodedFrameCount() const;
   
-  // ƒfƒR[ƒhÏ‚İƒTƒ“ƒvƒ‹”
+  // fR[hÏ‚İƒTv
   int64_t getDecodedSampleCount() const;
 
-  // ---- ƒGƒ‰[ƒnƒ“ƒhƒŠƒ“ƒO ----
+  // ---- G[nhO ----
 
-  // ÅŒã‚ÌƒGƒ‰[ƒƒbƒZ[ƒW
+  // ÅŒÌƒG[bZ[W
   UniString getLastError() const;
   
-  // ƒGƒ‰[‚ª‚ ‚é‚©
+  // G[é‚©
   bool hasError() const;
   
-  // ƒGƒ‰[‚ğƒNƒŠƒA
+  // G[NA
   void clearError();
 
-  // ---- ƒ†[ƒeƒBƒŠƒeƒB ----
+  // ---- [eBeB ----
 
-  // ƒTƒ“ƒvƒ‹ƒtƒH[ƒ}ƒbƒg‚ğ•¶š—ñ‚É•ÏŠ·
+  // TvtH[}bgğ•¶É•ÏŠ
   static UniString sampleFormatToString(AudioSampleFormat format);
   
-  // AVSampleFormat‚©‚çAudioSampleFormat‚É•ÏŠ·
+  // AVSampleFormatAudioSampleFormatÉ•ÏŠ
   static AudioSampleFormat fromAVSampleFormat(AVSampleFormat avFormat);
   
-  // AudioSampleFormat‚©‚çAVSampleFormat‚É•ÏŠ·
+  // AudioSampleFormatAVSampleFormatÉ•ÏŠ
   static AVSampleFormat toAVSampleFormat(AudioSampleFormat format);
   
-  // ƒ`ƒƒƒ“ƒlƒ‹ƒŒƒCƒAƒEƒg‚ğ•¶š—ñ‚É•ÏŠ·
+  // `lCAEgğ•¶É•ÏŠ
   static UniString channelLayoutToString(int64_t layout);
   
-  // ƒTƒ“ƒvƒ‹”‚©‚çƒoƒCƒg”‚ğŒvZ
+  // TvoCgvZ
   static int64_t samplesToBytes(int64_t samples, int channels, AudioSampleFormat format);
   
-  // ƒoƒCƒg”‚©‚çƒTƒ“ƒvƒ‹”‚ğŒvZ
+  // oCgTvvZ
   static int64_t bytesToSamples(int64_t bytes, int channels, AudioSampleFormat format);
 
-  // ---- FFmpeg’¼ÚƒAƒNƒZƒXiã‹‰ÒŒü‚¯j ----
+  // ---- FFmpegÚƒANZXiã‹‰ÒŒj ----
 
-  // “à•”‚ÌAVCodecContext‚ğæ“¾
+  // AVCodecContextæ“¾
   AVCodecContext* getCodecContext() const;
   
-  // “à•”‚ÌSwrContext‚ğæ“¾
+  // SwrContextæ“¾
   SwrContext* getSwrContext() const;
  };
 

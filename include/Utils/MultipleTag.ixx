@@ -6,7 +6,42 @@ module;
 
 export module Utils.MultipleTag;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 
 export namespace ArtifactCore {
 
@@ -23,38 +58,38 @@ export namespace ArtifactCore {
   MultipleTag& operator=(const MultipleTag& other);
   MultipleTag& operator=(MultipleTag&& other) noexcept;
 
-  // ƒ^ƒO‚Ì’Ç‰ÁEíœ
+  // ^OÌ’Ç‰Eíœ
   void addTag(const QString& tag);
   void addTags(const QStringList& tags);
   void removeTag(const QString& tag);
   void removeTags(const QStringList& tags);
   void clear();
 
-  // ƒ^ƒO‚ÌŒŸõEƒ`ƒFƒbƒN
+  // ^OÌŒE`FbN
   bool hasTag(const QString& tag) const;
   bool hasAnyTag(const QStringList& tags) const;
   bool hasAllTags(const QStringList& tags) const;
   int count() const;
   bool isEmpty() const;
 
-  // ƒ^ƒO‚Ìæ“¾
+  // ^OÌæ“¾
   QStringList tags() const;
   QStringList sortedTags() const;
 
-  // ƒtƒBƒ‹ƒ^ƒŠƒ“ƒO
+  // tB^O
   QStringList filterByPrefix(const QString& prefix) const;
   QStringList filterByPattern(const QString& pattern) const;
 
-  // W‡‰‰Z
-  MultipleTag unite(const MultipleTag& other) const;      // ˜aW‡
-  MultipleTag intersect(const MultipleTag& other) const;  // ÏW‡
-  MultipleTag subtract(const MultipleTag& other) const;   // ·W‡
+  // WZ
+  MultipleTag unite(const MultipleTag& other) const;      // aW
+  MultipleTag intersect(const MultipleTag& other) const;  // ÏW
+  MultipleTag subtract(const MultipleTag& other) const;   // W
 
-  // ƒ†[ƒeƒBƒŠƒeƒB
+  // [eBeB
   QString toString(const QString& separator = ", ") const;
   void fromString(const QString& str, const QString& separator = ",");
 
-  // ”äŠr
+  // r
   bool operator==(const MultipleTag& other) const;
   bool operator!=(const MultipleTag& other) const;
  };

@@ -2,20 +2,55 @@ module;
 #include "../Define/DllExportMacro.hpp"
 export module Audio.Panner;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 import Audio.Segment;
 
 export namespace ArtifactCore {
  
  export enum class PanningMode {
-  StereoBalance, // ƒVƒ“ƒvƒ‹‚È¶‰Eƒoƒ‰ƒ“ƒX
-  VBAP,          // Vector Base Amplitude Panning (‘½ƒ`ƒƒƒ“ƒlƒ‹—p)
-  Ambisonics,    // ‘S“V‹…‰¹‹¿—p
-  Binaural       // ƒwƒbƒhƒtƒHƒ“—p—§‘Ì‰¹‹¿
+  StereoBalance, // VvÈEoX
+  VBAP,          // Vector Base Amplitude Panning (`lp)
+  Ambisonics,    // SVp
+  Binaural       // wbhtHpÌ‰
  };
  
  export struct PanningGain {
-  std::vector<float> channelGains; // 0.0 ~ 1.0 ‚ÌƒŠƒXƒg
+  std::vector<float> channelGains; // 0.0 ~ 1.0 ÌƒXg
  };
 
  class AudioPanner {

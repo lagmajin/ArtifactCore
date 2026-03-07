@@ -6,7 +6,42 @@ module;
 
 module Audio.Decibels;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 import Utils.String.UniString;
 
 namespace ArtifactCore
@@ -24,7 +59,7 @@ class AudioDecibels::Impl
   ~Impl() = default;
  };
 
- // --- コンストラクタ/デストラクタ ---
+ // --- RXgN^/fXgN^ ---
  AudioDecibels::AudioDecibels() 
    : impl_(new Impl())
  {
@@ -51,7 +86,7 @@ class AudioDecibels::Impl
    delete impl_;
  }
 
- // --- ゲッター/セッター ---
+ // --- Qb^[/Zb^[ ---
  float AudioDecibels::decibels() const
  {
    return impl_->dB;
@@ -79,7 +114,7 @@ AudioDecibels AudioDecibels::fromLinearValue(float linear)
   return AudioDecibels(dB);
 }
 
- // --- 補間 ---
+ // ---  ---
  AudioDecibels AudioDecibels::interpolate(const AudioDecibels& target, float t) const
  {
    t = std::clamp(t, 0.0f, 1.0f);
@@ -92,7 +127,7 @@ AudioDecibels AudioDecibels::fromLinearValue(float linear)
    return from.interpolate(to, t);
  }
 
- // --- バリデーション ---
+ // --- of[V ---
  bool AudioDecibels::isValid() const
  {
    return impl_->dB >= MIN_DB && impl_->dB <= MAX_DB;
@@ -118,7 +153,7 @@ AudioDecibels AudioDecibels::fromLinearValue(float linear)
    impl_->dB = std::clamp(impl_->dB, MIN_DB, MAX_DB);
  }
 
- // --- プリセット ---
+ // --- vZbg ---
  AudioDecibels AudioDecibels::createPreset(Preset preset)
  {
    switch (preset) {
@@ -145,7 +180,7 @@ AudioDecibels AudioDecibels::fromLinearValue(float linear)
  {
    switch (preset) {
    case Preset::Mute:
-     return UniString(QString("Mute (-∞ dB)"));
+     return UniString(QString("Mute (- dB)"));
    case Preset::VeryQuiet:
      return UniString(QString("Very Quiet (-40 dB)"));
    case Preset::Quiet:
@@ -163,7 +198,7 @@ AudioDecibels AudioDecibels::fromLinearValue(float linear)
    }
  }
 
- // --- シリアライズ ---
+ // --- VACY ---
  UniString AudioDecibels::serialize() const
  {
    std::string json = std::format(R"({{"dB":{}}})", impl_->dB);
@@ -172,13 +207,13 @@ AudioDecibels AudioDecibels::fromLinearValue(float linear)
 
  AudioDecibels AudioDecibels::deserialize(const UniString& data)
  {
-   // 簡易JSON パーサー
+   // ﾈ�JSON p[T[
    float dB = 0.0f;
-   // 正規表現などでパースする
+   // K\ﾈどでパ[X
    return AudioDecibels(dB);
  }
 
- // --- 比較（エプシロン考慮） ---
+ // --- riGvVlj ---
  bool AudioDecibels::equals(const AudioDecibels& other) const
  {
    return std::abs(impl_->dB - other.impl_->dB) < EPSILON;
@@ -214,7 +249,7 @@ AudioDecibels AudioDecibels::fromLinearValue(float linear)
    return impl_->dB >= other.impl_->dB - EPSILON;
  }
 
- // --- 演算子（デシベル計算用） ---
+ // --- ZqifVxvZpj ---
  AudioDecibels AudioDecibels::operator+(float dB) const
  {
    return AudioDecibels(impl_->dB + dB);
@@ -264,7 +299,7 @@ AudioDecibels AudioDecibels::fromLinearValue(float linear)
    return *this;
  }
 
- // --- 代入演算子 ---
+ // --- Zq ---
  AudioDecibels& AudioDecibels::operator=(const AudioDecibels& other)
  {
    if (this != &other) {

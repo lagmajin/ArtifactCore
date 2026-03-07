@@ -3,12 +3,47 @@ module;
 #include <QString>
 export module Utils.Convertor.String;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 
 export namespace ArtifactCore {
 
  inline std::string toStdString(const QString& qstr) {
-  QByteArray utf8 = qstr.toUtf8(); // Qt ë§Ç≈UTF-8ïœä∑
+  QByteArray utf8 = qstr.toUtf8(); // Qt UTF-8œä
   return std::string(utf8.constData(), utf8.size());
  }
 
@@ -22,7 +57,7 @@ export namespace ArtifactCore {
  }
 
  inline std::u32string toStdU32String(const QString& qstr) {
-  // Qt Ç™ UCS-4 Çê∂ê¨ Å® Ç¬Ç‹ÇË UTF-32-safe
+  // Qt  UCS-4 ê∂ê  ¬Ç‹Ç UTF-32-safe
   QVector<uint> ucs4 = qstr.toUcs4();
 
   std::u32string out;

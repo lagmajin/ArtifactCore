@@ -2,7 +2,42 @@ module;
 
 export module Frame.Offset;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 import Frame.Rate;
 import Time.Rational;
 import Time.Code;
@@ -69,11 +104,11 @@ export namespace ArtifactCore {
   double toTimeSeconds(const FrameRate& rate) const;
   static FrameOffset fromTimeSeconds(double seconds, const FrameRate& rate);
 
-  // RationalTime ˜AŒg
+  // RationalTime Ag
   RationalTime toRationalTime(const FrameRate& rate) const;
   static FrameOffset fromRationalTime(const RationalTime& rt, const FrameRate& rate);
 
-  // TimeCode ˜AŒg
+  // TimeCode Ag
   TimeCode applyToTimeCode(const TimeCode& tc) const;
   static FrameOffset between(const TimeCode& from, const TimeCode& to);
  };

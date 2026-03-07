@@ -74,13 +74,6 @@ endforeach()
 # ---------------------------------------------------------------------------
 add_library(ArtifactCore STATIC)
 
-# C++23 と標準ライブラリモジュールを有効化
-set_target_properties(ArtifactCore PROPERTIES
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED ON
-    CXX_MODULE_STD ON
-)
-
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}

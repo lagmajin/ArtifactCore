@@ -5,7 +5,42 @@ module;
 #include "../../../Define/DllExportMacro.hpp"
 export module Script.Engine.Value;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 
 export namespace ArtifactCore {
 
@@ -20,15 +55,15 @@ export namespace ArtifactCore {
  // Forward declaration
  struct Value;
 
- // îzóÒå^ÇÕ Value Ç shared_ptr Ç≈éùÇ¬
+ // z^ Value  shared_ptr ≈é
  using ValueArray = std::vector<std::shared_ptr<Value>>;
  using FunctionCallback = std::function<std::shared_ptr<Value>(const ValueArray&)>;
 
- // Value ÉNÉâÉX
+ // Value NX
  struct LIBRARY_DLL_API Value {
   ValueType type;
 
-  // ílÇÃñ{ëÃÇÕ variant Ç≈ä«óù
+  // lÃñ{ÃÇ variant ≈ä«ó
   std::variant<
    std::monostate, // Null
    double,         // Number
@@ -43,14 +78,14 @@ export namespace ArtifactCore {
   explicit Value(const ValueArray& arr) : type(ValueType::Array), data(arr) {}
   explicit Value(const FunctionCallback& func) : type(ValueType::Function), data(func) {}
 
-  // å^É`ÉFÉbÉN
+  // ^`FbN
   bool isNull() const { return type == ValueType::Null; }
   bool isNumber() const { return type == ValueType::Number; }
   bool isString() const { return type == ValueType::String; }
   bool isArray() const { return type == ValueType::Array; }
   bool isFunction() const { return type == ValueType::Function; }
 
-  // íléÊìæÅiå^à¿ëSÇ…Åj
+  // lÊìæi^S…Åj
   double asNumber() const { return std::get<double>(data); }
   const std::string& asString() const { return std::get<std::string>(data); }
   const ValueArray& asArray() const { return std::get<ValueArray>(data); }

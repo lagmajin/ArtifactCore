@@ -2,7 +2,42 @@ module;
 
 
 export module CppLinq;
-import std;
+
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
 export namespace ArtifactCore {
 
  template <std::ranges::input_range R, typename Pred>
@@ -13,7 +48,7 @@ export namespace ArtifactCore {
   return false;
  }
 
- // All: ‚·‚×‚ÄğŒ‚ğ–‚½‚·‚©
+ // All: ×‚Äğ–‚
  template <std::ranges::input_range R, typename Pred>
  bool All(const R& range, Pred pred) {
   for (auto&& v : range) {
@@ -22,7 +57,7 @@ export namespace ArtifactCore {
   return true;
  }
 
- // FirstOrDefault: ğŒ‚ğ–‚½‚·Å‰‚Ì—v‘fB‚È‚¯‚ê‚Î std::nullopt
+ // FirstOrDefault: ğ–‚ÅÌ—vfBÈ‚ std::nullopt
  template <std::ranges::input_range R, typename Pred>
  auto FirstOrDefault(const R& range, Pred pred) -> std::optional<std::ranges::range_value_t<R>> {
   for (auto&& v : range) {
@@ -31,13 +66,13 @@ export namespace ArtifactCore {
   return std::nullopt;
  }
 
- // Where: filter ‚ÌƒGƒCƒŠƒAƒXiranges::views::filter ‚»‚Ì‚Ü‚Üj
+ // Where: filter ÌƒGCAXiranges::views::filter Ì‚Ü‚Üj
  template <std::ranges::input_range R, typename Pred>
  auto Where(const R& range, Pred pred) {
   return range | std::views::filter(pred);
  }
 
- // Select: map ‚ÌƒGƒCƒŠƒAƒXiranges::views::transform ‚»‚Ì‚Ü‚Üj
+ // Select: map ÌƒGCAXiranges::views::transform Ì‚Ü‚Üj
  template <std::ranges::input_range R, typename Func>
  auto Select(const R& range, Func func) {
   return range | std::views::transform(func);

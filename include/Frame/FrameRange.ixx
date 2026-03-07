@@ -7,7 +7,42 @@ module;
 
 export module Frame.Range;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 
 export namespace ArtifactCore {
 
@@ -15,15 +50,15 @@ export namespace ArtifactCore {
  class FrameOffset;
  class FrameRate;
 
- // ƒtƒŒ[ƒ€”ÍˆÍ‚ğ•\‚·ƒNƒ‰ƒX
- // “®‰æ•ÒW‚É‚¨‚¯‚éƒ^ƒCƒ€ƒ‰ƒCƒ“ã‚Ì”ÍˆÍAƒ[ƒNƒGƒŠƒAAƒŒƒCƒ„[‚Ì‘±ŠÔ‚È‚Ç‚ğ•\Œ»
+ // t[ÍˆÍ‚\NX
+ // ÒWÉ‚^CCÌ”ÍˆÍA[NGAAC[ÌÔ‚È‚Ç‚\
  class LIBRARY_DLL_API FrameRange {
  private:
   class Impl;
   Impl* impl_;
   
  public:
-  // ƒRƒ“ƒXƒgƒ‰ƒNƒ^
+  // RXgN^
   FrameRange();
   FrameRange(int64_t start, int64_t end);
   FrameRange(const FramePosition& start, const FramePosition& end);
@@ -31,67 +66,67 @@ export namespace ArtifactCore {
   FrameRange(FrameRange&& other) noexcept;
   ~FrameRange();
 
-  // ‘ã“ü‰‰Zq
+  // Zq
   FrameRange& operator=(const FrameRange& other);
   FrameRange& operator=(FrameRange&& other) noexcept;
 
-  // ”ÍˆÍİ’è
+  // ÍˆÍİ’
   void setStart(int64_t start);
   void setEnd(int64_t end);
   void setRange(int64_t start, int64_t end);
-  void setDuration(int64_t duration);  // ŠJn“_‚Í•Ï‚¦‚¸‚É’·‚³‚ğİ’è
+  void setDuration(int64_t duration);  // Jn_Í•Ï‚É’İ’
 
-  // ”ÍˆÍæ“¾
+  // ÍˆÍæ“¾
   int64_t start() const;
   int64_t end() const;
-  int64_t duration() const;  // length() ‚ÌƒGƒCƒŠƒAƒX
+  int64_t duration() const;  // length() ÌƒGCAX
   int64_t length() const;
   
   FramePosition startPosition() const;
   FramePosition endPosition() const;
 
-  // ŒŸØ
+  // 
   bool isValid() const;  // start <= end
   bool isEmpty() const;  // start == end
   bool isInfinite() const;
 
-  // ”ÍˆÍƒ`ƒFƒbƒN
+  // ÍˆÍƒ`FbN
   bool contains(int64_t frame) const;
   bool contains(const FramePosition& position) const;
-  bool contains(const FrameRange& other) const;  // Š®‘S‚É•ïŠÜ‚·‚é‚©
+  bool contains(const FrameRange& other) const;  // SÉ•Ü‚é‚©
   
-  bool overlaps(const FrameRange& other) const;  // d‚È‚è‚ª‚ ‚é‚©
-  bool touches(const FrameRange& other) const;   // ÚG‚µ‚Ä‚¢‚é‚©id‚È‚è‚Ü‚½‚Í—×Új
+  bool overlaps(const FrameRange& other) const;  // dÈ‚è‚ªé‚©
+  bool touches(const FrameRange& other) const;   // ÚGÄ‚é‚©idÈ‚Ü‚Í—×Új
 
-  // ”ÍˆÍ‘€ì
-  void expand(int64_t frames);  // —¼’[‚ğŠg’£
+  // ÍˆÍ‘
+  void expand(int64_t frames);  // [g
   void expandStart(int64_t frames);
   void expandEnd(int64_t frames);
   
-  void shrink(int64_t frames);  // —¼’[‚ğk¬
+  void shrink(int64_t frames);  // [k
   void shrinkStart(int64_t frames);
   void shrinkEnd(int64_t frames);
   
-  void shift(int64_t frames);  // ”ÍˆÍ‘S‘Ì‚ğˆÚ“®
+  void shift(int64_t frames);  // ÍˆÍ‘SÌ‚Ú“
   void shift(const FrameOffset& offset);
   
-  FrameRange shifted(int64_t frames) const;  // ˆÚ“®‚µ‚½ƒRƒs[‚ğ•Ô‚·
-  FrameRange expanded(int64_t frames) const;  // Šg’£‚µ‚½ƒRƒs[‚ğ•Ô‚·
-  FrameRange shrinked(int64_t frames) const;  // k¬‚µ‚½ƒRƒs[‚ğ•Ô‚·
+  FrameRange shifted(int64_t frames) const;  // Ú“Rs[Ô‚
+  FrameRange expanded(int64_t frames) const;  // gRs[Ô‚
+  FrameRange shrinked(int64_t frames) const;  // kRs[Ô‚
 
-  // ”ÍˆÍ‰‰Z
-  FrameRange united(const FrameRange& other) const;      // ˜aW‡i—¼•û‚ğŠÜ‚Ş”ÍˆÍj
-  FrameRange intersected(const FrameRange& other) const; // ÏW‡id‚È‚è•”•ªj
-  bool intersects(const FrameRange& other, FrameRange& result) const;  // ÏW‡‚ª‘¶İ‚·‚é‚©
+  // ÍˆÍ‰Z
+  FrameRange united(const FrameRange& other) const;      // aWiÜ‚Ş”ÍˆÍj
+  FrameRange intersected(const FrameRange& other) const; // ÏWidÈ‚è•”j
+  bool intersects(const FrameRange& other, FrameRange& result) const;  // ÏWİ‚é‚©
 
-  // ƒNƒŠƒbƒsƒ“ƒO
-  void clip(const FrameRange& bounds);  // w’è”ÍˆÍ“à‚É§ŒÀ
+  // NbsO
+  void clip(const FrameRange& bounds);  // wÍˆÍ“É
   FrameRange clipped(const FrameRange& bounds) const;
   
-  int64_t clampFrame(int64_t frame) const;  // ƒtƒŒ[ƒ€‚ğ”ÍˆÍ“à‚ÉŠÛ‚ß‚é
+  int64_t clampFrame(int64_t frame) const;  // t[ÍˆÍ“ÉŠÛ‚ß‚
   FramePosition clampPosition(const FramePosition& position) const;
 
-  // ƒCƒeƒŒ[ƒVƒ‡ƒ“
+  // Ce[V
   class Iterator {
   private:
    int64_t current_;
@@ -106,45 +141,45 @@ export namespace ArtifactCore {
   Iterator beginIterator() const;
   Iterator endIterator() const;
 
-  // ƒ†[ƒeƒBƒŠƒeƒB
-  FrameRange normalized() const;  // start > end ‚Ìê‡A“ü‚ê‘Ö‚¦‚Ä³‹K‰»
+  // [eBeB
+  FrameRange normalized() const;  // start > end Ìê‡AÖ‚ÄK
   void normalize();
 
-  std::vector<int64_t> frames() const;  // ”ÍˆÍ“à‚Ì‘SƒtƒŒ[ƒ€”Ô†‚ğæ“¾
-  std::vector<int64_t> uniformSample(int count) const;  // ‹Ï“™‚ÉƒTƒ“ƒvƒŠƒ“ƒO
+  std::vector<int64_t> frames() const;  // ÍˆÍ“Ì‘St[Ôæ“¾
+  std::vector<int64_t> uniformSample(int count) const;  // Ï“ÉƒTvO
 
-  // ŠÔ•ÏŠ·
+  // Ô•ÏŠ
   double durationSeconds(double fps) const;
   double durationSeconds(const FrameRate& rate) const;
   
   QString toTimecode(double fps) const;  // "00:00:10:00" - "00:00:20:00"
   QString toTimecode(const FrameRate& rate) const;
 
-  // ƒVƒŠƒAƒ‰ƒCƒY
+  // VACY
   QJsonObject toJson() const;
   static FrameRange fromJson(const QJsonObject& json);
   
-  QString toString() const;  // "[100, 200]" Œ`®
+  QString toString() const;  // "[100, 200]" `
   static FrameRange fromString(const QString& str);
 
-  // ”äŠr‰‰Zq
+  // rZq
   bool operator==(const FrameRange& other) const;
   bool operator!=(const FrameRange& other) const;
-  bool operator<(const FrameRange& other) const;   // start ‚Å”äŠr
+  bool operator<(const FrameRange& other) const;   // start Å”r
   bool operator<=(const FrameRange& other) const;
   bool operator>(const FrameRange& other) const;
   bool operator>=(const FrameRange& other) const;
 
-  // “Áê‚È”ÍˆÍ
-  static FrameRange invalid();     // –³Œø‚È”ÍˆÍ
-  static FrameRange infinite();    // –³ŒÀ”ÍˆÍ
-  static FrameRange zero();        // ’·‚³0‚Ì”ÍˆÍ
+  // È”Íˆ
+  static FrameRange invalid();     // È”Íˆ
+  static FrameRange infinite();    // Íˆ
+  static FrameRange zero();        // 0Ì”Íˆ
   static FrameRange fromDuration(int64_t start, int64_t duration);
  };
 
- // ƒGƒCƒŠƒAƒX
- using WorkArea = FrameRange;      // ƒ^ƒCƒ€ƒ‰ƒCƒ“‚Ìƒ[ƒNƒGƒŠƒA
- using PlaybackRange = FrameRange; // Ä¶”ÍˆÍ
- using LayerRange = FrameRange;    // ƒŒƒCƒ„[‚Ì‘±ŠÔ
+ // GCAX
+ using WorkArea = FrameRange;      // ^CCÌƒ[NGA
+ using PlaybackRange = FrameRange; // ÄÍˆ
+ using LayerRange = FrameRange;    // C[Ì
 
 };

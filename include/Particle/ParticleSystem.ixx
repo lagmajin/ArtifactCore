@@ -10,11 +10,47 @@ module;
 
 export module Particle.System;
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
 import Particle;
 import Mesh;
 import Physics.Fluid;
+import Physics2D;
 import Audio.Analyze;
-import std;
+
 
 export namespace ArtifactCore {
 
@@ -84,7 +120,8 @@ public:
         Drag,
         Audio,
         Field,  // 汎用フィールド
-        Fluid   // 流体フィールド
+        Fluid,  // 流体フィールド
+        Physics // 物理衝突フィールド
     };
 
     enum class FalloffType {
@@ -382,7 +419,46 @@ private:
     float strength_ = 1.0f;
 };
 // ============================================================================
-struct EmissionConfig {
+// Physics Collider Field - パーティクルが剛体に衝突する基盤
+// ============================================================================
+class LIBRARY_DLL_API PhysicsColliderField : public ForceField {
+public:
+    PhysicsColliderField(Physics2D* physics) : ForceField(Type::Physics), physics_(physics) {}
+
+    void apply(Particle& p, double dt) override {
+        if (!physics_) return;
+        
+        // 簡易的な衝突：各剛体との距離をチェック
+        // ※ 本来は空間分割(Quadtree等)が必要
+        for (auto& body : physics_->getBodies()) {
+            QVector2D bPos = body->position();
+            float3 diff = {p.position.x - bPos.x(), p.position.y - bPos.y(), 0.0f};
+            float distSq = diff.x*diff.x + diff.y*diff.y;
+            
+            // 例：半径1.0の仮の当たり判定
+            float radius = 1.0f; 
+            if (distSq < radius * radius) {
+                float dist = std::sqrt(distSq);
+                float3 normal = diff / (dist + 0.0001f);
+                
+                // 反射ベクトル
+                float dot = p.velocity.x * normal.x + p.velocity.y * normal.y;
+                p.velocity.x -= 2.0f * dot * normal.x * bounciness_;
+                p.velocity.y -= 2.0f * dot * normal.y * bounciness_;
+                
+                // めり込み防止
+                p.position.x += normal.x * (radius - dist);
+                p.position.y += normal.y * (radius - dist);
+            }
+        }
+    }
+
+    void setBounciness(float b) { bounciness_ = b; }
+
+private:
+    Physics2D* physics_;
+    float bounciness_ = 0.5f;
+};
     int rate = 10;              // 1秒あたりの生成数
     int burstCount = 0;         // 一度に生成する数
     float burstInterval = 0.0f; // バースト間隔

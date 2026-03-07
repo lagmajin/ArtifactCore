@@ -17,7 +17,42 @@ extern "C" {
 
 module MediaPlaybackController;
 
-import std;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+
+
+
 
 namespace ArtifactCore {
 
@@ -112,7 +147,7 @@ namespace ArtifactCore {
 
   void notifyEndOfMedia() {
    if (isLooping_) {
-    // ƒ‹[ƒvÄ¶‚Ìê‡‚ÍÅ‰‚É–ß‚é
+    // [vÄÌê‡ÍÅÉ–ß‚
     if (mediaSource_) {
      mediaSource_->seek(loopStartMs_);
     }
@@ -346,8 +381,8 @@ namespace ArtifactCore {
   if (!impl_ || !impl_->videoDecoder_) {
    return QImage();
   }
-  // Œ»İˆÊ’u‚ÌƒtƒŒ[ƒ€‚ğæ“¾iÄ¶ˆÊ’u‚ği‚ß‚È‚¢j
-  // ÀÛ‚ÌÀ‘•‚Å‚ÍŒ»İ‚ÌƒtƒŒ[ƒ€‚ğƒLƒƒƒbƒVƒ…‚·‚é•K—v‚ª‚ ‚é
+  // İˆÊ’uÌƒt[æ“¾iÄÊ’uiß‚È‚j
+  // Û‚ÌÅ‚ÍŒİ‚Ìƒt[LbVKv
   return QImage();
  }
 
@@ -486,7 +521,7 @@ namespace ArtifactCore {
  }
 
  double MediaPlaybackController::getBufferingProgress() const {
-  // ƒoƒbƒtƒ@ƒŠƒ“ƒOi’»‚ÌÀ‘•‚ÍMediaReader‚ÉˆË‘¶
+  // obt@OiÌMediaReaderÉˆË‘
   return 100.0;
  }
 
