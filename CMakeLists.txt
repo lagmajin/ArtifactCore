@@ -59,30 +59,6 @@ foreach(iface ${SRC_INTERFACES})
     endif()
 endforeach()
 
-# 中身が空またはモジュール宣言がない「幽霊ファイル」をインターフェースから除外
-# (これらは CXX_MODULES に入れるとビルドエラーになる)
-set(GHOST_FILES
-    "include/Layer/LayerInfomation.ixx"
-    "include/Transform/AnchorPoint.ixx"
-    "include/Video/AbstractDecoder3.ixx"
-    "src/AbstractDecoder.cppm"
-)
-
-foreach(ghost ${GHOST_FILES})
-    set(full_path "${CMAKE_CURRENT_SOURCE_DIR}/${ghost}")
-    list(REMOVE_ITEM CORE_MODULES ${full_path})
-    # もし中身があるなら PRIVATE 扱いにする
-    if(EXISTS ${full_path})
-        list(APPEND CORE_IMPL ${full_path})
-    endif()
-endforeach()
-
-# AI/Describable.ixx と Core/ShapePoint.ixx は export module 化したのでモジュールリストに含める
-list(APPEND CORE_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/Describable.ixx")
-list(APPEND CORE_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ShapePoint.ixx")
-list(REMOVE_ITEM CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/Describable.ixx")
-list(REMOVE_ITEM CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ShapePoint.ixx")
-
 # 使っていない Halide 関連ファイルを除外
 file(GLOB_RECURSE HALIDE_FILES "src/ImageProcessing/Halide/*.cpp" "src/ImageProcessing/Halide/*.cppm")
 if(HALIDE_FILES)
