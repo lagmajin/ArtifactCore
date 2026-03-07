@@ -1,7 +1,5 @@
 ﻿module;
-extern "C" {
-#include <libavutil\samplefmt.h>
-}
+#include <libavutil/samplefmt.h>
 #include <QByteArray>
 #include <iostream>
 #include <vector>
