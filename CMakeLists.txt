@@ -147,6 +147,10 @@ target_link_libraries(ArtifactCore PUBLIC glm::glm)
 find_package(Stb REQUIRED)
 target_include_directories(ArtifactCore PUBLIC ${Stb_INCLUDE_DIR})
 
+# assimp
+find_package(assimp REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC assimp::assimp)
+
 if(MSVC)
     target_compile_definitions(ArtifactCore PRIVATE 
         PLATFORM_WIN32
