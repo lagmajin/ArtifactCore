@@ -23,11 +23,7 @@ if(HALIDE_FILES)
     list(REMOVE_ITEM CORE_IMPL ${HALIDE_FILES})
 endif()
 
-# 使っていない VLC 関連ファイルを除外 (SDK不足のため)
-file(GLOB_RECURSE VLC_FILES "src/Video/LibVLCDecoder.cpp")
-if(VLC_FILES)
-    list(REMOVE_ITEM CORE_IMPL ${VLC_FILES})
-endif()
+# VLC 関連ファイルは stashed_broken_modules に移動済み
 
 # 使っていない hostfxr 関連ファイルを除外 (coreclr_delegates.h不足のため)
 file(GLOB_RECURSE HOSTFXR_FILES "src/Script/hostfxr.cpp")
@@ -116,12 +112,6 @@ target_link_libraries(ArtifactCore PUBLIC ${OpenCV_LIBS})
 
 find_package(SDL2 REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC SDL2::SDL2)
-
-# LibVLC
-find_package(LibVLC QUIET)
-if(LibVLC_FOUND)
-    target_link_libraries(ArtifactCore PUBLIC LibVLC::LibVLC)
-endif()
 
 # Boost (Asio, UUID, Iostreams)
 find_package(Boost REQUIRED COMPONENTS system iostreams)
