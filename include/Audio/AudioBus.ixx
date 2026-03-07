@@ -41,6 +41,7 @@ import Utils.Id;
 import Utils.String.Like;
 import Utils.String.UniString;
 import Audio.Segment;
+import Audio.Panner;
 
 export namespace ArtifactCore {
 
@@ -63,6 +64,9 @@ export namespace ArtifactCore {
 		// Pan: -1.0 (Left) to 1.0 (Right)
 		void setPan(float pan);
 		float getPan() const;
+
+		void setPanningMode(PanningMode mode);
+		PanningMode getPanningMode() const;
 
 		void setMute(bool mute);
 		bool isMute() const;

@@ -37,7 +37,7 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-module Core.AI.ImageMathDescriptions;
+export module Core.AI.ImageMathDescriptions;
 
 
 

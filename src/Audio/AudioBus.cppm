@@ -53,6 +53,7 @@ namespace ArtifactCore {
 		UniString name_;
 		float volumeDb_ = 0.0f;
 		float pan_ = 0.0f;
+		PanningMode panningMode_ = PanningMode::EqualPower;
 		bool mute_ = false;
 		bool solo_ = false;
 
@@ -109,6 +110,16 @@ namespace ArtifactCore {
 		return impl_->pan_;
 	}
 
+	void AudioBus::setPanningMode(PanningMode mode)
+	{
+		impl_->panningMode_ = mode;
+	}
+
+	PanningMode AudioBus::getPanningMode() const
+	{
+		return impl_->panningMode_;
+	}
+
 	void AudioBus::setMute(bool mute)
 	{
 		impl_->mute_ = mute;
@@ -147,26 +158,23 @@ namespace ArtifactCore {
 
 		float linearGain = impl_->getLinearGain();
 		
-		// Calculate Pan Gains (Constant Power)
-		float leftPanGain = 1.0f;
-		float rightPanGain = 1.0f;
-		bool applyPan = (channels == 2);
-
-		if (applyPan) {
-			double pi = 3.14159265358979323846;
-			double angle = (impl_->pan_ + 1.0) * pi / 4.0;
-			leftPanGain = static_cast<float>(std::cos(angle));
-			rightPanGain = static_cast<float>(std::sin(angle));
+		// チャンネルゲインの算出
+		std::vector<float> channelGains(channels, 1.0f);
+		if (channels == 2) {
+			if (impl_->panningMode_ == PanningMode::EqualPower) {
+				auto pg = AudioPanner::calculateConstantPowerGains(impl_->pan_);
+				channelGains = pg.channelGains;
+			} else {
+				// Linear Balance
+				channelGains[0] = (impl_->pan_ <= 0.0f) ? 1.0f : (1.0f - impl_->pan_);
+				channelGains[1] = (impl_->pan_ >= 0.0f) ? 1.0f : (1.0f + impl_->pan_);
+			}
 		}
 
 		int samples = (channels > 0) ? segment.channelData[0].size() : 0;
 
 		for (int c = 0; c < channels; ++c) {
-			float channelGain = linearGain;
-			if (applyPan) {
-				if (c == 0) channelGain *= leftPanGain;
-				if (c == 1) channelGain *= rightPanGain;
-			}
+			float channelGain = linearGain * (c < channelGains.size() ? channelGains[c] : 1.0f);
 
 			float* data = segment.channelData[c].data();
 			float peak = 0.0f;

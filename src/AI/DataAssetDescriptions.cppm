@@ -37,7 +37,7 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-module Core.AI.DataAssetDescriptions;
+export module Core.AI.DataAssetDescriptions;
 
 
 

@@ -37,7 +37,7 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-module Core.AI.MoreDescriptions;
+export module Core.AI.MoreDescriptions;
 
 
 
@@ -200,7 +200,7 @@ public:
             {"windDirection", loc("Wind direction vector", "風の方向ベクトル", "风向向量"), "QVector3D", "(1, 0, 0)"},
             {"windStrength", loc("Wind force magnitude", "風力の大きさ", "风力大小"), "float", "50.0"},
             {"turbulence", loc("Random variation amount", "ランダム変動量", "随机变化量"), "float", "10.0"}
-        );
+        };
     }
     
     QStringList relatedClasses() const override {

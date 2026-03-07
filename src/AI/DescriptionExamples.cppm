@@ -35,7 +35,7 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-module Core.AI.DescriptionExamples;
+export module Core.AI.DescriptionExamples;
 
 
 

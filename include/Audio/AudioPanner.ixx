@@ -43,21 +43,23 @@ import Audio.Segment;
 export namespace ArtifactCore {
  
  export enum class PanningMode {
-  StereoBalance, // VvȍEoX
-  VBAP,          // Vector Base Amplitude Panning (`lp)
-  Ambisonics,    // SVp
-  Binaural       // wbhtHp̉
+  StereoBalance, // シンプルなバランス (Linear)
+  EqualPower,    // 定電力パンニング (Center での音量低下を防ぐ)
+  VBAP,          // Vector Base Amplitude Panning (多チャンネル)
+  Ambisonics,    // 全天球
+  Binaural       // バイノーラル (HRTF)
  };
  
  export struct PanningGain {
-  std::vector<float> channelGains; // 0.0 ~ 1.0 ̃Xg
+  std::vector<float> channelGains; // 0.0 ~ 1.0 のリスト
  };
 
- class AudioPanner {
+ class LIBRARY_DLL_API AudioPanner {
  private:
   class Impl;
   Impl* impl_;
  public:
+  static PanningGain calculateConstantPowerGains(float pan); // pan: -1.0 to 1.0
   AudioPanner();
   ~AudioPanner();
 

@@ -37,7 +37,7 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-module Core.AI.TransitionsGeneratorDescriptions;
+export module Core.AI.TransitionsGeneratorDescriptions;
 
 
 
