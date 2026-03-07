@@ -141,6 +141,10 @@ target_include_directories(ArtifactCore PUBLIC ${Stb_INCLUDE_DIR})
 find_package(assimp REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC assimp::assimp)
 
+# EnTT
+find_package(EnTT CONFIG REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC EnTT::EnTT)
+
 if(MSVC)
     target_compile_definitions(ArtifactCore PRIVATE 
         PLATFORM_WIN32
