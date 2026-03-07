@@ -1,6 +1,6 @@
 ﻿module;
 
-module AutoGamma;
+module ImageProcessing.AutoGamma.CV;
 
 
 namespace ArtifactCore
