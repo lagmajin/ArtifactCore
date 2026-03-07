@@ -9,7 +9,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ソース収集とモジュール分類
 # ---------------------------------------------------------------------------
 
-# 全てのソース候補を収集
 file(GLOB_RECURSE POTENTIAL_SOURCES CONFIGURE_DEPENDS 
     "src/*.cpp" "src/*.cppm" "src/*.ixx"
     "include/*.ixx" "include/*.cppm"
@@ -20,8 +19,9 @@ set(CORE_MODULES "")
 set(CORE_IMPL "")
 set(_PROVIDED_MODULES "")
 
-# Ninja がエラーを吐いたファイル群を確実にモジュールとして扱うためのリスト
-set(FORCED_MODULE_FILES
+# パーティション実装（module M:P;）は CXX_MODULES に含める必要がある
+# 以下のファイルは Ninja が明示的に提供モジュールとしてスキャンしたもの
+set(PARTITION_FILES
     "src/Image/OpenCV/ImageTransformCV.ixx"
     "src/ImageProcessing/NegativeCV.ixx"
     "src/ImageProcessing/NoiseImageGenerator.cppm"
@@ -31,11 +31,6 @@ set(FORCED_MODULE_FILES
     "src/ImageProcessing/OpenCV/Monochrome.ixx"
     "src/ImageProcessing/OpenCV/Posterize.ixx"
     "src/ImageProcessing/OpenCV/VignetCV.ixx"
-    "src/Audio/AudioVolume.cppm"
-    "src/Audio/AudioWriter.cppm"
-    "src/ColorCollection/ColorGrading.cppm"
-    "src/Time/TimeRemap.cppm"
-    "src/Video/Stabilizer.cppm"
 )
 
 foreach(file_path ${POTENTIAL_SOURCES})
@@ -49,51 +44,32 @@ foreach(file_path ${POTENTIAL_SOURCES})
         continue()
     endif()
 
-    # 強制リストに含まれているかチェック
-    set(is_forced FALSE)
-    foreach(forced_file ${FORCED_MODULE_FILES})
-        if(file_path MATCHES "${forced_file}$")
-            set(is_forced TRUE)
+    set(is_interface_or_partition FALSE)
+    
+    # 1. パーティションリストにあるかチェック
+    foreach(p_file ${PARTITION_FILES})
+        if(file_path MATCHES "${p_file}$")
+            set(is_interface_or_partition TRUE)
             break()
         endif()
     endforeach()
 
-    if(is_forced)
-        list(APPEND CORE_MODULES "${file_path}")
-        continue()
-    endif()
+    # 2. ファイル内容で判定（export module ... または module ...:...）
+    if(NOT is_interface_or_partition)
+        file(READ "${file_path}" raw_content LIMIT 2048)
+        string(REGEX REPLACE "//[^\n]*" "" content "${raw_content}")
+        string(REGEX REPLACE "/\\*.*\\*/" "" content "${content}")
 
-    # ファイルの内容を確認してモジュールの種類を判定
-    file(READ "${file_path}" raw_content LIMIT 4096)
-    
-    # コメントを除去して誤判定を防ぐ
-    string(REGEX REPLACE "//[^\n]*" "" content "${raw_content}")
-    string(REGEX REPLACE "/\\*.*\\*/" "" content "${content}")
-
-    set(is_mod_interface_or_partition FALSE)
-    set(found_mod_name "")
-
-    # 1. インターフェース判定: export module M;
-    if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
-        set(is_mod_interface_or_partition TRUE)
-        set(found_mod_name "${CMAKE_MATCH_1}")
-    # 2. パーティション判定: module M:P; (コロンを含む)
-    elseif(content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
-        set(is_mod_interface_or_partition TRUE)
-        set(found_mod_name "${CMAKE_MATCH_1}")
-    endif()
-
-    if(is_mod_interface_or_partition)
-        # 重複チェック
-        list(FIND _PROVIDED_MODULES "${found_mod_name}" _mod_idx)
-        if(_mod_idx EQUAL -1)
-            list(APPEND CORE_MODULES "${file_path}")
-            list(APPEND _PROVIDED_MODULES "${found_mod_name}")
-        else()
-            list(APPEND CORE_IMPL "${file_path}")
+        if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;" OR
+           content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
+            set(is_interface_or_partition TRUE)
         endif()
+    endif()
+
+    if(is_interface_or_partition)
+        list(APPEND CORE_MODULES "${file_path}")
     else()
-        string(LENGTH "${content}" content_len)
+        string(LENGTH "${raw_content}" content_len)
         if(content_len GREATER 0)
             list(APPEND CORE_IMPL "${file_path}")
         endif()
