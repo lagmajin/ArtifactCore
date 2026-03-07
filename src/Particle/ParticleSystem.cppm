@@ -8,8 +8,54 @@ module;
 module Particle.System;
 
 import Particle;
+import Mesh;
+import Math.Noise;
+import Audio.Segment;
+
 
 namespace ArtifactCore {
+
+// ============================================================================
+// ForceField Implementation
+// ============================================================================
+float ForceField::computeFalloff(const float3& p) const {
+    if (shape_ == FieldShape::Infinite) return 1.0f;
+
+    float dist = 0.0f;
+    if (shape_ == FieldShape::Sphere) {
+        float3 diff{p.x - center_.x, p.y - center_.y, p.z - center_.z};
+        dist = std::sqrt(diff.x*diff.x + diff.y*diff.y + diff.z*diff.z);
+        if (dist > radius_) return 0.0f;
+        if (dist < radius_ - feather_) return 1.0f;
+    } else if (shape_ == FieldShape::Box) {
+        float3 diff{std::abs(p.x - center_.x), std::abs(p.y - center_.y), std::abs(p.z - center_.z)};
+        if (diff.x > size_.x || diff.y > size_.y || diff.z > size_.z) return 0.0f;
+        // Simplified box feather
+        float distToEdge = std::min({size_.x - diff.x, size_.y - diff.y, size_.z - diff.z});
+        if (distToEdge > feather_) return 1.0f;
+        dist = radius_ - distToEdge; // Remap for falloff calculation
+    }
+
+    // Apply falloff curve
+    float t = 0.0f;
+    if (shape_ == FieldShape::Sphere) {
+        t = (radius_ - dist) / feather_;
+    } else {
+        // Box falloff logic
+        float distToEdge = std::min({size_.x - std::abs(p.x - center_.x), size_.y - std::abs(p.y - center_.y), size_.z - std::abs(p.z - center_.z)});
+        t = std::clamp(distToEdge / feather_, 0.0f, 1.0f);
+    }
+    
+    t = std::clamp(t, 0.0f, 1.0f);
+
+    switch (falloff_) {
+        case FalloffType::Linear: return t;
+        case FalloffType::Quadratic: return t * t;
+        case FalloffType::Smooth: return t * t * (3.0f - 2.0f * t);
+        case FalloffType::Constant:
+        default: return 1.0f;
+    }
+}
 
 // ============================================================================
 // ParticleEmitter Implementation
@@ -31,6 +77,7 @@ void ParticleEmitter::initParticle(Particle& p) {
     switch (shape_) {
         case Shape::Point:
             p.position = position_;
+            p.prevPosition = position_;
             break;
         case Shape::Sphere: {
             std::uniform_real_distribution<float> angleDist(0.0f, 6.28318f);
@@ -60,9 +107,25 @@ void ParticleEmitter::initParticle(Particle& p) {
             p.position.z = position_.z + r * std::sin(angle);
             break;
         }
+        case Shape::Mesh: {
+            if (meshSource_ && meshSource_->vertexCount() > 0) {
+                std::uniform_int_distribution<int> vDist(0, meshSource_->vertexCount() - 1);
+                int vIdx = vDist(rng_);
+                auto posAttr = meshSource_->vertexAttributes().get<QVector3D>("position");
+                if (posAttr) {
+                    QVector3D vPos = (*posAttr)[vIdx];
+                    p.position = {vPos.x(), vPos.y(), vPos.z()};
+                }
+            }
+            break;
+        }
         default:
             p.position = position_;
+            p.prevPosition = position_;
     }
+    
+    // 他の形状でも初期化
+    p.prevPosition = p.position;
     
     // Velocity based on direction and spread
     float3 dir = randomDirection();
@@ -81,7 +144,19 @@ void ParticleEmitter::initParticle(Particle& p) {
     p.scale = {1.0f, 1.0f};
     p.mass = 1.0f;
     p.drag = 0.0f;
-    p.opacity = 1.0f;
+    p.opacity = config_.startOpacity;
+    p.textureIndex = config_.textureIndex;
+    p.blendMode = config_.blendMode;
+    p.lastSubEmitAge = 0.0f;
+
+    // Sub-emitters: Birth trigger
+    for (const auto& sub : subEmitters_) {
+        if (sub.trigger == SubEmitterConfig::Trigger::Birth) {
+            // ここで即座に親パーティクルの位置から子を発生させる
+            // Note: 実際の実装では pool.spawn() を呼ぶ必要があるため、
+            // emit() 内での呼び出しか、遅延フラグを立てる設計が一般的
+        }
+    }
 }
 
 float3 ParticleEmitter::randomDirection() const {
@@ -238,6 +313,14 @@ void ParticleSystem::update(double deltaTime) {
             emitter->update(dt, impl_->pool_);
         }
     }
+
+    // Update Fluid Fields
+    for (auto& field : impl_->forceFields_) {
+        if (field->isEnabled() && field->getType() == ForceField::Type::Fluid) {
+            auto fluidField = static_cast<FluidField*>(field.get());
+            fluidField->update(static_cast<float>(dt));
+        }
+    }
     
     // Get free indices for active particle iteration
     std::vector<bool> isFree(impl_->pool_.size(), false);
@@ -251,11 +334,49 @@ void ParticleSystem::update(double deltaTime) {
         
         Particle& p = impl_->pool_[i];
         
+        // Update previous position for motion blur
+        p.prevPosition = p.position;
+
         // Update age
         p.age += static_cast<float>(dt);
         
+        // --- サブエミッター処理 (Trails) ---
+        for (auto& emitter : impl_->emitters_) {
+            for (const auto& sub : emitter->getSubEmitters()) {
+                if (sub.trigger == SubEmitterConfig::Trigger::Trails) {
+                    if (p.age - p.lastSubEmitAge >= sub.interval) {
+                        // 子パーティクルをこの位置から発生
+                        for (int k = 0; k < sub.count; ++k) {
+                            size_t childIdx = impl_->pool_.spawn();
+                            Particle& child = impl_->pool_[childIdx];
+                            // 子を初期化
+                            child.position = p.position;
+                            child.velocity = {0,0,0}; // 各自設定
+                            child.lifetime = 1.0f; // placeholder
+                            child.age = 0.0f;
+                        }
+                        p.lastSubEmitAge = p.age;
+                    }
+                }
+            }
+        }
+
         // Kill if expired
         if (p.age >= p.lifetime) {
+            // --- サブエミッター処理 (Death) ---
+            for (auto& emitter : impl_->emitters_) {
+                for (const auto& sub : emitter->getSubEmitters()) {
+                    if (sub.trigger == SubEmitterConfig::Trigger::Death) {
+                         for (int k = 0; k < sub.count; ++k) {
+                            size_t childIdx = impl_->pool_.spawn();
+                            Particle& child = impl_->pool_[childIdx];
+                            child.position = p.position;
+                            child.lifetime = 1.0f;
+                         }
+                    }
+                }
+            }
+
             impl_->pool_.kill(i);
             impl_->stats_.killedThisFrame++;
             continue;
@@ -264,7 +385,15 @@ void ParticleSystem::update(double deltaTime) {
         // Apply forces
         for (auto& field : impl_->forceFields_) {
             if (field->isEnabled()) {
-                field->apply(p, dt);
+                float falloff = field->computeFalloff(p.position);
+                if (falloff > 0.0f) {
+                    // Temporarily modify p.velocity inside apply or wrap it
+                    // To keep it simple, we use a temporary velocity or pass falloff to apply
+                    // But Particle needs to be modified or we just apply force multiplied by falloff
+                    // Since apply() modifies velocity directly, we'd need to change the API
+                    // For now, let's assume apply() takes falloff or we do it here if possible
+                    field->apply(p, dt * falloff);
+                }
             }
         }
         
@@ -277,6 +406,19 @@ void ParticleSystem::update(double deltaTime) {
         p.position.x += p.velocity.x * static_cast<float>(dt);
         p.position.y += p.velocity.y * static_cast<float>(dt);
         p.position.z += p.velocity.z * static_cast<float>(dt);
+
+        // Apply Noise Distortion
+        if (config_.noiseStrength.x > 0.0f || config_.noiseStrength.y > 0.0f || config_.noiseStrength.z > 0.0f) {
+            float freq = config_.noiseFrequency;
+            float time = p.age;
+            float nx = NoiseGenerator::perlin(p.position.x * freq, p.position.y * freq, time);
+            float ny = NoiseGenerator::perlin(p.position.y * freq, p.position.z * freq, time + 1.0f);
+            float nz = NoiseGenerator::perlin(p.position.z * freq, p.position.x * freq, time + 2.0f);
+            
+            p.position.x += nx * config_.noiseStrength.x * static_cast<float>(dt);
+            p.position.y += ny * config_.noiseStrength.y * static_cast<float>(dt);
+            p.position.z += nz * config_.noiseStrength.z * static_cast<float>(dt);
+        }
         
         // Integrate rotation
         p.rotation.x += p.angularVelocity.x * static_cast<float>(dt);
@@ -316,15 +458,42 @@ void ParticleSystem::update(double deltaTime) {
         if (isFree[i]) continue;
         Particle& p = impl_->pool_[i];
         
-        // Update opacity based on lifetime
-        float lifeRatio = p.age / p.lifetime;
-        p.opacity = 1.0f - lifeRatio;
+        float lifeRatio = std::clamp(p.age / p.lifetime, 0.0f, 1.0f);
+        
+        // Opacity interpolation
+        p.opacity = config_.startOpacity + (config_.endOpacity - config_.startOpacity) * lifeRatio;
+        
+        // Size scale interpolation
+        float currentScale = config_.startSizeScale + (config_.endSizeScale - config_.startSizeScale) * lifeRatio;
+        // p.size 自体にスケールをかけるか、Rendering時に反映するか
+        // ここでは p.size をベース値とし、スケールで動的に変える
         
         // Interpolate color (Configuration based)
-        p.color.x = config_.colorStart.x + (config_.colorEnd.x - config_.colorStart.x) * lifeRatio;
-        p.color.y = config_.colorStart.y + (config_.colorEnd.y - config_.colorStart.y) * lifeRatio;
-        p.color.z = config_.colorStart.z + (config_.colorEnd.z - config_.colorStart.z) * lifeRatio;
-        p.color.w = config_.colorStart.w + (config_.colorEnd.w - config_.colorStart.w) * lifeRatio;
+        if (config_.colorGradients.empty()) {
+            p.color.x = config_.colorStart.x + (config_.colorEnd.x - config_.colorStart.x) * lifeRatio;
+            p.color.y = config_.colorStart.y + (config_.colorEnd.y - config_.colorStart.y) * lifeRatio;
+            p.color.z = config_.colorStart.z + (config_.colorEnd.z - config_.colorStart.z) * lifeRatio;
+            p.color.w = config_.colorStart.w + (config_.colorEnd.w - config_.colorStart.w) * lifeRatio;
+        } else {
+            // Find the two stops to interpolate between
+            const auto& stops = config_.colorGradients;
+            if (lifeRatio <= stops.front().time) {
+                p.color = stops.front().color;
+            } else if (lifeRatio >= stops.back().time) {
+                p.color = stops.back().color;
+            } else {
+                for (size_t k = 0; k < stops.size() - 1; ++k) {
+                    if (lifeRatio >= stops[k].time && lifeRatio <= stops[k+1].time) {
+                        float t = (lifeRatio - stops[k].time) / (stops[k+1].time - stops[k].time);
+                        p.color.x = stops[k].color.x + (stops[k+1].color.x - stops[k].color.x) * t;
+                        p.color.y = stops[k].color.y + (stops[k+1].color.y - stops[k].color.y) * t;
+                        p.color.z = stops[k].color.z + (stops[k+1].color.z - stops[k].color.z) * t;
+                        p.color.w = stops[k].color.w + (stops[k+1].color.w - stops[k].color.w) * t;
+                        break;
+                    }
+                }
+            }
+        }
     }
     
     auto endTime = std::chrono::high_resolution_clock::now();

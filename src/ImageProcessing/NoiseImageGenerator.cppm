@@ -1,7 +1,8 @@
 module;
 #include <cmath>
 #include <algorithm>
-module Generator:Noise;
+module Generator;
+import :Noise;
 
 import std;
 import Math.Noise;

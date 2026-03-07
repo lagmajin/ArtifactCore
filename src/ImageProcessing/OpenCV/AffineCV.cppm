@@ -1,7 +1,8 @@
 ﻿module;
 #include <opencv2/opencv.hpp>
 
-module ImageProcessing:AffineTransform;
+module ImageProcessing;
+import :AffineTransform;
 
 import Transform._2D;
 

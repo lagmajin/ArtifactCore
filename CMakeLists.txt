@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ソース収集とモジュール分類
 # ---------------------------------------------------------------------------
 
+# 全てのソース候補を収集
 file(GLOB_RECURSE POTENTIAL_SOURCES CONFIGURE_DEPENDS 
     "src/*.cpp" "src/*.cppm" "src/*.ixx"
     "include/*.ixx" "include/*.cppm"
@@ -18,20 +19,6 @@ file(GLOB_RECURSE POTENTIAL_SOURCES CONFIGURE_DEPENDS
 set(CORE_MODULES "")
 set(CORE_IMPL "")
 set(_PROVIDED_MODULES "")
-
-# パーティション実装（module M:P;）は CXX_MODULES に含める必要がある
-# 以下のファイルは Ninja が明示的に提供モジュールとしてスキャンしたもの
-set(PARTITION_FILES
-    "src/Image/OpenCV/ImageTransformCV.ixx"
-    "src/ImageProcessing/NegativeCV.ixx"
-    "src/ImageProcessing/NoiseImageGenerator.cppm"
-    "src/ImageProcessing/OpenCV/AffineCV.cppm"
-    "src/ImageProcessing/OpenCV/AntiAliasing.ixx"
-    "src/ImageProcessing/OpenCV/HalfTone.ixx"
-    "src/ImageProcessing/OpenCV/Monochrome.ixx"
-    "src/ImageProcessing/OpenCV/Posterize.ixx"
-    "src/ImageProcessing/OpenCV/VignetCV.ixx"
-)
 
 foreach(file_path ${POTENTIAL_SOURCES})
     # 除外チェック
@@ -44,31 +31,39 @@ foreach(file_path ${POTENTIAL_SOURCES})
         continue()
     endif()
 
-    set(is_interface_or_partition FALSE)
+    # ファイルの内容を確認してモジュールの種類を判定
+    file(READ "${file_path}" raw_content LIMIT 4096)
     
-    # 1. パーティションリストにあるかチェック
-    foreach(p_file ${PARTITION_FILES})
-        if(file_path MATCHES "${p_file}$")
-            set(is_interface_or_partition TRUE)
-            break()
-        endif()
-    endforeach()
+    # コメントを除去して誤判定を防ぐ
+    string(REGEX REPLACE "//[^\n]*" "" content "${raw_content}")
+    string(REGEX REPLACE "/\\*.*\\*/" "" content "${content}")
 
-    # 2. ファイル内容で判定（export module ... または module ...:...）
-    if(NOT is_interface_or_partition)
-        file(READ "${file_path}" raw_content LIMIT 2048)
-        string(REGEX REPLACE "//[^\n]*" "" content "${raw_content}")
-        string(REGEX REPLACE "/\\*.*\\*/" "" content "${content}")
+    set(is_mod_interface_or_partition FALSE)
+    set(found_mod_name "")
 
-        if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;" OR
-           content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
-            set(is_interface_or_partition TRUE)
-        endif()
+    # 1. インターフェース判定: export module M;
+    if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
+        set(is_mod_interface_or_partition TRUE)
+        set(found_mod_name "${CMAKE_MATCH_1}")
+    # 2. パーティション判定: module M:P; (コロンを含む)
+    # ※通常のモジュール実装 (module M;) はコロンを含まないため、ここにはマッチしない
+    elseif(content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
+        set(is_mod_interface_or_partition TRUE)
+        set(found_mod_name "${CMAKE_MATCH_1}")
     endif()
 
-    if(is_interface_or_partition)
-        list(APPEND CORE_MODULES "${file_path}")
+    if(is_mod_interface_or_partition)
+        # 重複チェック (同一モジュール名を提供するファイルが複数あると Ninja が止まる)
+        list(FIND _PROVIDED_MODULES "${found_mod_name}" _mod_idx)
+        if(_mod_idx EQUAL -1)
+            list(APPEND CORE_MODULES "${file_path}")
+            list(APPEND _PROVIDED_MODULES "${found_mod_name}")
+        else()
+            # 重複している場合は通常の実装として扱う（ビルドエラーにはなるが、Ninja の地図生成は通る）
+            list(APPEND CORE_IMPL "${file_path}")
+        endif()
     else()
+        # 通常のソースファイル (module M; または非モジュール)
         string(LENGTH "${raw_content}" content_len)
         if(content_len GREATER 0)
             list(APPEND CORE_IMPL "${file_path}")
@@ -116,15 +111,19 @@ target_link_libraries(ArtifactCore PUBLIC ${OpenCV_LIBS})
 find_package(SDL2 REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC SDL2::SDL2)
 
+# Boost (Asio, UUID, Iostreams)
 find_package(Boost REQUIRED COMPONENTS system iostreams)
 target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system Boost::iostreams)
 
+# Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC Vulkan::Vulkan)
 
+# TBB
 find_package(TBB REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
 
+# OpenImageIO
 find_package(OpenImageIO REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC OpenImageIO::OpenImageIO)
 

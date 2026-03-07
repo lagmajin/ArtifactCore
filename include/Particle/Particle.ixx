@@ -25,6 +25,7 @@ export namespace ArtifactCore
   float lifetime = 0.0f;
 
   float3 position{ 0.0f, 0.0f, 0.0f };
+  float3 prevPosition{ 0.0f, 0.0f, 0.0f };
   float3 velocity{ 0.0f, 0.0f, 0.0f };
   float3 acceleration{ 0.0f, 0.0f, 0.0f };
   float3 rotation{ 0.0f, 0.0f, 0.0f };
@@ -39,6 +40,13 @@ export namespace ArtifactCore
   float4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
   float4 custom0{ 0.0f, 0.0f, 0.0f, 0.0f };
   float4 custom1{ 0.0f, 0.0f, 0.0f, 0.0f };
+
+  // Rendering properties
+  int textureIndex = -1;
+  int blendMode = 0; // 0: Alpha, 1: Additive, 2: Screen, 3: Multiply
+
+  // Sub-emitter tracking
+  float lastSubEmitAge = 0.0f;
  };
 
 

@@ -11,6 +11,10 @@ module;
 export module Particle.System;
 
 import Particle;
+import Mesh;
+import Physics.Fluid;
+import Audio.Analyze;
+import std;
 
 export namespace ArtifactCore {
 
@@ -78,7 +82,22 @@ public:
         Vortex,
         Attractor,
         Drag,
-        Audio
+        Audio,
+        Field,  // 汎用フィールド
+        Fluid   // 流体フィールド
+    };
+
+    enum class FalloffType {
+        Constant,
+        Linear,
+        Quadratic,
+        Smooth
+    };
+
+    enum class FieldShape {
+        Infinite,
+        Sphere,
+        Box
     };
 
     ForceField(Type type) : type_(type) {}
@@ -86,6 +105,9 @@ public:
 
     virtual void apply(Particle& particle, double deltaTime) = 0;
     
+    // 空間減衰の計算
+    float computeFalloff(const float3& p) const;
+
     Type getType() const { return type_; }
     const std::string& getId() const { return id_; }
     void setId(const std::string& id) { id_ = id; }
@@ -93,10 +115,23 @@ public:
     bool isEnabled() const { return enabled_; }
     void setEnabled(bool enabled) { enabled_ = enabled; }
 
+    // フィールド形状設定
+    void setShape(FieldShape shape) { shape_ = shape; }
+    void setFalloff(FalloffType type) { falloff_ = type; }
+    void setSphere(float radius, float feather) { shape_ = FieldShape::Sphere; radius_ = radius; feather_ = feather; }
+    void setBox(float3 size, float feather) { shape_ = FieldShape::Box; size_ = size; feather_ = feather; }
+
 protected:
     Type type_;
     std::string id_;
     bool enabled_ = true;
+
+    FieldShape shape_ = FieldShape::Infinite;
+    FalloffType falloff_ = FalloffType::Constant;
+    float3 center_{0, 0, 0};
+    float3 size_{1, 1, 1};
+    float radius_ = 1.0f;
+    float feather_ = 0.1f;
 };
 
 // ============================================================================
@@ -300,7 +335,52 @@ private:
 };
 
 // ============================================================================
-// Particle Emitter - エミッター基底
+// Fluid Field - 2D流体による力の適用
+// ============================================================================
+class LIBRARY_DLL_API FluidField : public ForceField {
+public:
+    FluidField(int width, int height) : ForceField(Type::Fluid), solver_(width, height) {}
+
+    void apply(Particle& p, double dt) override {
+        // パーティクルの位置をグリッド座標に変換
+        float fx = (p.position.x - center_.x + size_.x * 0.5f) / size_.x * solver_.width();
+        float fy = (p.position.y - center_.y + size_.y * 0.5f) / size_.y * solver_.height();
+        
+        int ix = static_cast<int>(fx);
+        int iy = static_cast<int>(fy);
+        
+        float vx, vy;
+        solver_.getVelocity(ix, iy, vx, vy);
+        
+        p.velocity.x += vx * strength_ * static_cast<float>(dt);
+        p.velocity.y += vy * strength_ * static_cast<float>(dt);
+    }
+
+    void update(float dt) { solver_.update(dt); }
+    FluidSolver2D& getSolver() { return solver_; }
+    
+    void setStrength(float s) { strength_ = s; }
+
+    // Audio Injection
+    void injectAudioFrequency(const AudioAnalyzer::AnalysisResult& audio, float dt) {
+        // Sample: Use Low/Mid/High intensities to inject fluid bursts
+        // Low: Center bottom burst
+        if (audio.lowIntensity > 0.5f) {
+            solver_.addDensity(solver_.width()/2, solver_.height()-2, audio.lowIntensity * 5.0f);
+            solver_.addVelocity(solver_.width()/2, solver_.height()-2, 0, -audio.lowIntensity * 10.0f);
+        }
+        // High: Random bursts
+        if (audio.highIntensity > 0.3f) {
+            int rx = rand() % solver_.width();
+            int ry = rand() % solver_.height();
+            solver_.addDensity(rx, ry, audio.highIntensity * 2.0f);
+        }
+    }
+
+private:
+    FluidSolver2D solver_;
+    float strength_ = 1.0f;
+};
 // ============================================================================
 struct EmissionConfig {
     int rate = 10;              // 1秒あたりの生成数
@@ -321,6 +401,46 @@ struct EmissionConfig {
     
     float3 direction{0.0f, 1.0f, 0.0f};
     float spreadAngle = 0.0f;   // ラジアン
+
+    // Visual Settings
+    int textureIndex = -1;
+    int blendMode = 0;
+    float startOpacity = 1.0f;
+    float endOpacity = 0.0f;
+    float startSizeScale = 1.0f;
+    float endSizeScale = 1.0f;
+
+    // Noise Distortion
+    float3 noiseStrength{0.0f, 0.0f, 0.0f};
+    float noiseFrequency = 1.0f;
+    int noiseOctaves = 1;
+
+    // Color Gradients
+    struct ColorStop {
+        float time; // 0.0 - 1.0
+        float4 color;
+    };
+    std::vector<ColorStop> colorGradients;
+
+    // Motion Blur
+    struct MotionBlurConfig {
+        bool enabled = false;
+        float shutterAngle = 180.0f; // 0-360
+        int samples = 8;
+        float intensity = 1.0f;
+        float velocityStretch = 1.0f; // 速度に応じた伸び
+    } motionBlur;
+};
+
+struct SubEmitterConfig {
+    EmissionConfig config;
+    enum class Trigger {
+        Birth,
+        Death,
+        Trails  // 定期的な発生（軌跡）
+    } trigger = Trigger::Trails;
+    float interval = 0.1f; // Trails時の発生間隔
+    int count = 1;         // トリガー時の発生数
 };
 
 class LIBRARY_DLL_API ParticleEmitter {
@@ -331,7 +451,9 @@ public:
         Box,
         Cone,
         Circle,
-        Line
+        Line,
+        Mesh,   // 3Dモデルから発生
+        Layer   // 画像レイヤーから発生
     };
 
     ParticleEmitter();
@@ -355,6 +477,15 @@ public:
     const std::string& getId() const { return id_; }
     void setId(const std::string& id) { id_ = id; }
 
+    void addSubEmitter(const SubEmitterConfig& sub) { subEmitters_.push_back(sub); }
+    void clearSubEmitters() { subEmitters_.clear(); }
+    const std::vector<SubEmitterConfig>& getSubEmitters() const { return subEmitters_; }
+
+    // ジオメトリ・レイヤーソース
+    void setMeshSource(std::shared_ptr<Mesh> mesh) { meshSource_ = mesh; }
+    void setLayerSource(void* texture) { layerSource_ = texture; } // placeholder
+    void setColorInheritance(float amount) { colorInheritance_ = amount; }
+
 protected:
     virtual void initParticle(Particle& p);
     float3 randomDirection() const;
@@ -365,6 +496,13 @@ protected:
     std::string id_;
     bool enabled_ = true;
     
+    std::vector<SubEmitterConfig> subEmitters_;
+    
+    // Geometry sources
+    std::shared_ptr<Mesh> meshSource_;
+    void* layerSource_ = nullptr;
+    float colorInheritance_ = 0.0f;
+
     double accumulator_ = 0.0;
     mutable std::mt19937 rng_{std::random_device{}()};
 };
