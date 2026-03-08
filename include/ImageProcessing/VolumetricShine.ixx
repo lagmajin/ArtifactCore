@@ -6,6 +6,7 @@ module;
 export module ArtifactCore.ImageProcessing.VolumetricShine;
 
 import Particle; // For float2, float3, float4 definitions
+import ArtifactCore.Utils.PerformanceProfiler;
 
 namespace ArtifactCore {
 
@@ -29,6 +30,7 @@ public:
      */
     void process(float4* buffer, int width, int height, const Settings& settings) {
         if (!buffer || width <= 0 || height <= 0) return;
+        ScopedPerformanceTimer timer("Volumetric Shine");
 
         std::vector<float4> original(buffer, buffer + width * height);
         float2 center{settings.sourcePos.x * width, settings.sourcePos.y * height};

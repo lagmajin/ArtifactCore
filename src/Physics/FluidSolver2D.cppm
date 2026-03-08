@@ -2,6 +2,8 @@ module;
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
 
 module Physics.Fluid;
 
@@ -72,12 +74,52 @@ void FluidSolver2D::setBoundary(int b, std::vector<float>& x) {
     x[IX(width_ - 1, height_ - 1)] = 0.5f * (x[IX(width_ - 2, height_ - 1)] + x[IX(width_ - 1, height_ - 2)]);
 }
 
+int FluidSolver2D::computeSolverIterations() const {
+    if (!adaptiveIterations_) {
+        return solverIterations_;
+    }
+
+    if (size_ < highResThresholdCells_) {
+        return solverIterations_;
+    }
+
+    const int extra = std::max(1, size_ / highResThresholdCells_);
+    return std::min(maxAdaptiveIterations_, solverIterations_ + extra * 4);
+}
+
+bool FluidSolver2D::useParallelPath() const {
+    return parallelEnabled_ && size_ >= parallelThresholdCells_;
+}
+
 void FluidSolver2D::linSolve(int b, std::vector<float>& x, const std::vector<float>& x0, float a, float c) {
     float cRecip = 1.0f / c;
-    for (int k = 0; k < 20; ++k) { // 20 iterations for Gauss-Seidel
+    const int iterations = computeSolverIterations();
+
+    if (useParallelPath()) {
+        // Red-black Gauss-Seidel keeps convergence behavior while enabling safe row-parallel updates.
+        for (int k = 0; k < iterations; ++k) {
+            for (int parity = 0; parity < 2; ++parity) {
+                tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+                    [&](const tbb::blocked_range<int>& rows) {
+                        for (int j = rows.begin(); j < rows.end(); ++j) {
+                            int iStart = 1 + ((j + parity) & 1);
+                            for (int i = iStart; i < width_ - 1; i += 2) {
+                                x[IX(i, j)] = (x0[IX(i, j)] +
+                                    a * (x[IX(i + 1, j)] + x[IX(i - 1, j)] + x[IX(i, j + 1)] + x[IX(i, j - 1)])) * cRecip;
+                            }
+                        }
+                    });
+            }
+            setBoundary(b, x);
+        }
+        return;
+    }
+
+    for (int k = 0; k < iterations; ++k) {
         for (int j = 1; j < height_ - 1; ++j) {
             for (int i = 1; i < width_ - 1; ++i) {
-                x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i+1, j)] + x[IX(i-1, j)] + x[IX(i, j+1)] + x[IX(i, j-1)])) * cRecip;
+                x[IX(i, j)] = (x0[IX(i, j)] +
+                    a * (x[IX(i + 1, j)] + x[IX(i - 1, j)] + x[IX(i, j + 1)] + x[IX(i, j - 1)])) * cRecip;
             }
         }
         setBoundary(b, x);
@@ -90,20 +132,45 @@ void FluidSolver2D::diffuse(int b, std::vector<float>& x, const std::vector<floa
 }
 
 void FluidSolver2D::project(std::vector<float>& vx, std::vector<float>& vy, std::vector<float>& p, std::vector<float>& div) {
-    for (int j = 1; j < height_ - 1; ++j) {
-        for (int i = 1; i < width_ - 1; ++i) {
-            div[IX(i, j)] = -0.5f * (vx[IX(i+1, j)] - vx[IX(i-1, j)] + vy[IX(i, j+1)] - vy[IX(i, j-1)]) / std::sqrt(width_ * height_);
-            p[IX(i, j)] = 0;
+    const float invScale = 1.0f / std::sqrt(static_cast<float>(width_ * height_));
+    if (useParallelPath()) {
+        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+            [&](const tbb::blocked_range<int>& rows) {
+                for (int j = rows.begin(); j < rows.end(); ++j) {
+                    for (int i = 1; i < width_ - 1; ++i) {
+                        div[IX(i, j)] = -0.5f * (vx[IX(i + 1, j)] - vx[IX(i - 1, j)] + vy[IX(i, j + 1)] - vy[IX(i, j - 1)]) * invScale;
+                        p[IX(i, j)] = 0.0f;
+                    }
+                }
+            });
+    } else {
+        for (int j = 1; j < height_ - 1; ++j) {
+            for (int i = 1; i < width_ - 1; ++i) {
+                div[IX(i, j)] = -0.5f * (vx[IX(i + 1, j)] - vx[IX(i - 1, j)] + vy[IX(i, j + 1)] - vy[IX(i, j - 1)]) * invScale;
+                p[IX(i, j)] = 0.0f;
+            }
         }
     }
     setBoundary(0, div);
     setBoundary(0, p);
     linSolve(0, p, div, 1, 4);
 
-    for (int j = 1; j < height_ - 1; ++j) {
-        for (int i = 1; i < width_ - 1; ++i) {
-            vx[IX(i, j)] -= 0.5f * (p[IX(i+1, j)] - p[IX(i-1, j)]) * width_;
-            vy[IX(i, j)] -= 0.5f * (p[IX(i, j+1)] - p[IX(i, j-1)]) * height_;
+    if (useParallelPath()) {
+        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+            [&](const tbb::blocked_range<int>& rows) {
+                for (int j = rows.begin(); j < rows.end(); ++j) {
+                    for (int i = 1; i < width_ - 1; ++i) {
+                        vx[IX(i, j)] -= 0.5f * (p[IX(i + 1, j)] - p[IX(i - 1, j)]) * width_;
+                        vy[IX(i, j)] -= 0.5f * (p[IX(i, j + 1)] - p[IX(i, j - 1)]) * height_;
+                    }
+                }
+            });
+    } else {
+        for (int j = 1; j < height_ - 1; ++j) {
+            for (int i = 1; i < width_ - 1; ++i) {
+                vx[IX(i, j)] -= 0.5f * (p[IX(i + 1, j)] - p[IX(i - 1, j)]) * width_;
+                vy[IX(i, j)] -= 0.5f * (p[IX(i, j + 1)] - p[IX(i, j - 1)]) * height_;
+            }
         }
     }
     setBoundary(1, vx);
@@ -114,73 +181,107 @@ void FluidSolver2D::vorticityConfinement(std::vector<float>& vx, std::vector<flo
     if (vorticityStrength_ <= 0.0f) return;
 
     // 1. Calculate Curl (Vorticity)
-    for (int j = 1; j < height_ - 1; ++j) {
-        for (int i = 1; i < width_ - 1; ++i) {
-            float dv_dx = (vy[IX(i + 1, j)] - vy[IX(i - 1, j)]) * 0.5f;
-            float du_dy = (vx[IX(i, j + 1)] - vx[IX(i, j - 1)]) * 0.5f;
-            curl_[IX(i, j)] = std::abs(dv_dx - du_dy);
+    if (useParallelPath()) {
+        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+            [&](const tbb::blocked_range<int>& rows) {
+                for (int j = rows.begin(); j < rows.end(); ++j) {
+                    for (int i = 1; i < width_ - 1; ++i) {
+                        float dv_dx = (vy[IX(i + 1, j)] - vy[IX(i - 1, j)]) * 0.5f;
+                        float du_dy = (vx[IX(i, j + 1)] - vx[IX(i, j - 1)]) * 0.5f;
+                        curl_[IX(i, j)] = std::abs(dv_dx - du_dy);
+                    }
+                }
+            });
+    } else {
+        for (int j = 1; j < height_ - 1; ++j) {
+            for (int i = 1; i < width_ - 1; ++i) {
+                float dv_dx = (vy[IX(i + 1, j)] - vy[IX(i - 1, j)]) * 0.5f;
+                float du_dy = (vx[IX(i, j + 1)] - vx[IX(i, j - 1)]) * 0.5f;
+                curl_[IX(i, j)] = std::abs(dv_dx - du_dy);
+            }
         }
     }
 
     // 2. Apply confinement force
-    for (int j = 2; j < height_ - 2; ++j) {
-        for (int i = 2; i < width_ - 2; ++i) {
-            // Find gradient of the magnitude of vorticity
-            float dx = (curl_[IX(i + 1, j)] - curl_[IX(i - 1, j)]) * 0.5f;
-            float dy = (curl_[IX(i, j + 1)] - curl_[IX(i, j - 1)]) * 0.5f;
-
-            float len = std::sqrt(dx * dx + dy * dy) + 1e-5f;
-            dx /= len;
-            dy /= len;
-
-            float v = curl_[IX(i, j)];
-
-            // Force is perpendicular to the gradient
-            vx[IX(i, j)] += dy * v * vorticityStrength_ * dt;
-            vy[IX(i, j)] -= dx * v * vorticityStrength_ * dt;
+    if (useParallelPath()) {
+        tbb::parallel_for(tbb::blocked_range<int>(2, height_ - 2),
+            [&](const tbb::blocked_range<int>& rows) {
+                for (int j = rows.begin(); j < rows.end(); ++j) {
+                    for (int i = 2; i < width_ - 2; ++i) {
+                        float dx = (curl_[IX(i + 1, j)] - curl_[IX(i - 1, j)]) * 0.5f;
+                        float dy = (curl_[IX(i, j + 1)] - curl_[IX(i, j - 1)]) * 0.5f;
+                        float len = std::sqrt(dx * dx + dy * dy) + 1e-5f;
+                        dx /= len;
+                        dy /= len;
+                        float v = curl_[IX(i, j)];
+                        vx[IX(i, j)] += dy * v * vorticityStrength_ * dt;
+                        vy[IX(i, j)] -= dx * v * vorticityStrength_ * dt;
+                    }
+                }
+            });
+    } else {
+        for (int j = 2; j < height_ - 2; ++j) {
+            for (int i = 2; i < width_ - 2; ++i) {
+                float dx = (curl_[IX(i + 1, j)] - curl_[IX(i - 1, j)]) * 0.5f;
+                float dy = (curl_[IX(i, j + 1)] - curl_[IX(i, j - 1)]) * 0.5f;
+                float len = std::sqrt(dx * dx + dy * dy) + 1e-5f;
+                dx /= len;
+                dy /= len;
+                float v = curl_[IX(i, j)];
+                vx[IX(i, j)] += dy * v * vorticityStrength_ * dt;
+                vy[IX(i, j)] -= dx * v * vorticityStrength_ * dt;
+            }
         }
     }
 }
 
 void FluidSolver2D::advect(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& vx, const std::vector<float>& vy, float dt) {
-    float i0, i1, j0, j1;
     float dtx = dt * (width_ - 2);
     float dty = dt * (height_ - 2);
-    float s0, s1, t0, t1;
-    float tmp1, tmp2, x, y;
 
     float NfloatW = width_ - 2;
     float NfloatH = height_ - 2;
 
-    for (int j = 1; j < height_ - 1; ++j) {
-        for (int i = 1; i < width_ - 1; ++i) {
-            tmp1 = dtx * vx[IX(i, j)];
-            tmp2 = dty * vy[IX(i, j)];
-            x = i - tmp1;
-            y = j - tmp2;
+    const auto advectRows = [&](int rowBegin, int rowEnd) {
+        for (int j = rowBegin; j < rowEnd; ++j) {
+            for (int i = 1; i < width_ - 1; ++i) {
+                float tmp1 = dtx * vx[IX(i, j)];
+                float tmp2 = dty * vy[IX(i, j)];
+                float x = i - tmp1;
+                float y = j - tmp2;
 
-            if (x < 0.5f) x = 0.5f;
-            if (x > NfloatW + 0.5f) x = NfloatW + 0.5f;
-            i0 = std::floor(x);
-            i1 = i0 + 1.0f;
-            if (y < 0.5f) y = 0.5f;
-            if (y > NfloatH + 0.5f) y = NfloatH + 0.5f;
-            j0 = std::floor(y);
-            j1 = j0 + 1.0f;
+                if (x < 0.5f) x = 0.5f;
+                if (x > NfloatW + 0.5f) x = NfloatW + 0.5f;
+                float i0 = std::floor(x);
+                float i1 = i0 + 1.0f;
+                if (y < 0.5f) y = 0.5f;
+                if (y > NfloatH + 0.5f) y = NfloatH + 0.5f;
+                float j0 = std::floor(y);
+                float j1 = j0 + 1.0f;
 
-            s1 = x - i0;
-            s0 = 1.0f - s1;
-            t1 = y - j0;
-            t0 = 1.0f - t1;
+                float s1 = x - i0;
+                float s0 = 1.0f - s1;
+                float t1 = y - j0;
+                float t0 = 1.0f - t1;
 
-            int i0i = static_cast<int>(i0);
-            int i1i = static_cast<int>(i1);
-            int j0i = static_cast<int>(j0);
-            int j1i = static_cast<int>(j1);
+                int i0i = static_cast<int>(i0);
+                int i1i = static_cast<int>(i1);
+                int j0i = static_cast<int>(j0);
+                int j1i = static_cast<int>(j1);
 
-            d[IX(i, j)] = s0 * (t0 * d0[IX(i0i, j0i)] + t1 * d0[IX(i0i, j1i)]) +
-                          s1 * (t0 * d0[IX(i1i, j0i)] + t1 * d0[IX(i1i, j1i)]);
+                d[IX(i, j)] = s0 * (t0 * d0[IX(i0i, j0i)] + t1 * d0[IX(i0i, j1i)]) +
+                              s1 * (t0 * d0[IX(i1i, j0i)] + t1 * d0[IX(i1i, j1i)]);
+            }
         }
+    };
+
+    if (useParallelPath()) {
+        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+            [&](const tbb::blocked_range<int>& rows) {
+                advectRows(rows.begin(), rows.end());
+            });
+    } else {
+        advectRows(1, height_ - 1);
     }
     setBoundary(b, d);
 }
