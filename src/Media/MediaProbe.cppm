@@ -1,13 +1,10 @@
 module;
-
 #include <QtCore/QFile>
-extern "C" {
-
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
-}
+
 module Media.MediaProbe;
 
 import Media.MediaProbe;
@@ -50,7 +47,7 @@ namespace ArtifactCore {
  void MediaProbePrivate::open(const QFile& file)
  {
   if (avformat_open_input(&formatContext, file.fileName().toUtf8().constData(), nullptr, nullptr) != 0) {
-   //return false; // ƒtƒ@ƒCƒ‹‚ğŠJ‚¯‚È‚¢ê‡
+   //return false; // ÂƒtÂƒ@ÂƒCÂƒÂ‹Â‚Ã°ÂŠJÂ‚Â¯Â‚ÃˆÂ‚Â¢ÂÃªÂÂ‡
   }
   if (avformat_find_stream_info(formatContext, nullptr) < 0) {
 

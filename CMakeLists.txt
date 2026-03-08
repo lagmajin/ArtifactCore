@@ -25,6 +25,14 @@ foreach(file_path ${POTENTIAL_SOURCES})
        file_path MATCHES "/Halide/" OR
        file_path MATCHES "hostfxr" OR
        file_path MATCHES "\\.bak$" OR
+       file_path MATCHES "src/Graphics/Effect/HalftoneEffect\\.cppm" OR
+       file_path MATCHES "src/Graphics/Effect/MirrorEffect\\.cppm" OR
+       file_path MATCHES "src/Graphics/Effect/KaleidoscopeEffect\\.cppm" OR
+       file_path MATCHES "src/Graphics/Effect/CreativeEffectFactory\\.cppm" OR
+       file_path MATCHES "src/Graphics/Effect/OldTVEffect\\.cppm" OR
+       file_path MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
+       file_path MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
+       file_path MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
        file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
         continue()
     endif()
@@ -86,6 +94,10 @@ set_target_properties(ArtifactCore PROPERTIES
     CXX_STANDARD_REQUIRED ON
     CXX_MODULE_STD ON
 )
+
+if(MSVC)
+    target_compile_options(ArtifactCore PRIVATE /WX-)
+endif()
 
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}
@@ -151,6 +163,29 @@ target_link_libraries(ArtifactCore PUBLIC EnTT::EnTT)
 
 find_package(magic_enum CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC magic_enum::magic_enum)
+
+# FFmpeg
+find_package(ffmpeg REQUIRED)
+if(ffmpeg_FOUND)
+    target_include_directories(ArtifactCore PUBLIC ${FFMPEG_INCLUDE_DIR})
+    target_link_libraries(ArtifactCore PUBLIC 
+        ${FFMPEG_AVCODEC_LIBRARY}
+        ${FFMPEG_AVFORMAT_LIBRARY}
+        ${FFMPEG_AVUTIL_LIBRARY}
+        ${FFMPEG_SWSCALE_LIBRARY}
+        ${FFMPEG_SWRESAMPLE_LIBRARY}
+    )
+else()
+    # Fallback for manual specification
+    target_link_libraries(ArtifactCore PUBLIC
+        "${VCPKG_INSTALLED}/lib/avcodec.lib"
+        "${VCPKG_INSTALLED}/lib/avformat.lib"
+        "${VCPKG_INSTALLED}/lib/avutil.lib"
+        "${VCPKG_INSTALLED}/lib/swscale.lib"
+        "${VCPKG_INSTALLED}/lib/swresample.lib"
+    )
+    target_include_directories(ArtifactCore PUBLIC "${VCPKG_INSTALLED}/include")
+endif()
 
 if(MSVC)
     target_compile_definitions(ArtifactCore PRIVATE 

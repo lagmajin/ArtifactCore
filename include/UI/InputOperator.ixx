@@ -248,14 +248,10 @@ private:
     Impl* impl_;
     
 public:
-    static ActionManager* instance() {
-        static ActionManager s;
-        return &s;
-    }
-
+    static ActionManager* instance();
     explicit ActionManager(QObject* parent = nullptr);
     ~ActionManager();
-    
+
     // Action registration
     Action* registerAction(const QString& id, 
                           const QString& name,

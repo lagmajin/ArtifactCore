@@ -1,8 +1,7 @@
 module;
 #include <opencv2/opencv.hpp>
 #include <cmath>
-module Image;
-import :ImageProcessing;
+module Image:ImageProcessing;
 
 namespace ArtifactCore {
 

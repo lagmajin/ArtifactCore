@@ -12,10 +12,10 @@ export namespace ArtifactCore
   float3<float> target;
   float3<float> up;
 
-  float fovY;     // 垂直方向FOV（度）
-  float aspect;   // アスペクト比
-  float nearZ;    // ニアクリップ
-  float farZ;     // ファークリップ
+  float fovY;     // vertical field of view in degrees
+  float aspect;   // projection aspect ratio
+  float nearZ;    // near clipping plane
+  float farZ;     // far clipping plane
 
  public:
   explicit Camera();

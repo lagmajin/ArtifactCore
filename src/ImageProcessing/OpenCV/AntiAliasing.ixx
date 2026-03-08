@@ -2,8 +2,7 @@ module;
 #include <opencv2/opencv.hpp>
 #include <random>
 #include <cmath>
-module ImageProcessing;
-import :AntiAliasing;
+module ImageProcessing:AntiAliasing;
 
 namespace ArtifactCore {
 

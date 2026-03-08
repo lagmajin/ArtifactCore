@@ -14,13 +14,13 @@ export namespace ArtifactCore {
  public:
   virtual ~AudioBackend() = default;
 
-  // ‰Šú‰»‚ÆŠJnE’â~
+  // Connection lifecycle
   virtual bool open(const QAudioDevice& device, const QAudioFormat& format) = 0;
   virtual void close() = 0;
   virtual void start(AudioCallback callback) = 0;
   virtual void stop() = 0;
 
-  // ó‘Ôæ“¾
+  // Query helpers
   virtual bool isActive() const = 0;
   virtual QAudioFormat currentFormat() const = 0;
   virtual QString backendName() const = 0;

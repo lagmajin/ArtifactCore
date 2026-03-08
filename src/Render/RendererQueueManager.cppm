@@ -47,8 +47,6 @@ import Render.JobModel;
 import Utils.Id;
 import Core.ThreadPool;
 
-import Log;
-
 
 
 namespace ArtifactCore {

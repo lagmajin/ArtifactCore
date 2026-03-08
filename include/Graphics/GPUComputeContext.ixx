@@ -9,19 +9,19 @@
 export module Graphics.GPUcomputeContext;
 import Graphics.GPU.Info;
 
-#pragma comment(lib,"d3d12.lib")
-#pragma comment(lib,"d3dcompiler.lib")
-#pragma comment(lib,"dxguid.lib")
-#pragma comment(lib,"dxgi.lib")
-#pragma comment(lib,"DiligentCore.lib")
-#pragma comment(lib,"GraphicsEngineD3D12_64d.lib")
-#pragma comment(lib,"Archiver_64d.lib")
-#pragma comment(lib,"spirv-cross-cored.lib")
-#pragma comment(lib,"GraphicsEngineOpenGL_64d.lib")
-#pragma comment(lib,"MachineIndependentd.lib")
-#pragma comment(lib,"GenericCodeGend.lib")
-#pragma comment(lib,"spirv-cross-cored.lib")
-#pragma comment(lib,"SPIRVd.lib")
+// #pragma comment(lib,"d3d12.lib")
+// #pragma comment(lib,"d3dcompiler.lib")
+// #pragma comment(lib,"dxguid.lib")
+// #pragma comment(lib,"dxgi.lib")
+// #pragma comment(lib,"DiligentCore.lib")
+// #pragma comment(lib,"GraphicsEngineD3D12_64d.lib")
+// #pragma comment(lib,"Archiver_64d.lib")
+// #pragma comment(lib,"spirv-cross-cored.lib")
+// #pragma comment(lib,"GraphicsEngineOpenGL_64d.lib")
+// #pragma comment(lib,"MachineIndependentd.lib")
+// #pragma comment(lib,"GenericCodeGend.lib")
+// #pragma comment(lib,"spirv-cross-cored.lib")
+// #pragma comment(lib,"SPIRVd.lib")
 
 
 namespace Diligent {}//dummy

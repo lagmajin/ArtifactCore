@@ -169,8 +169,6 @@ void VideoStabilizer::updateFeatureTracks(const QVector<int>& matches, const QVe
     }
 }
 */
-    }
-}
 
 void VideoStabilizer::estimateFrameMotions() {
     motions_.clear();
@@ -413,8 +411,11 @@ QImage VideoStabilizer::transformImage(
     
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            QVector3D inputPt(x - outputSize.width() / 2.0, y - outputSize.height() / 2.0, 1);
-            QVector3D transformed = transform * inputPt;
+            QVector3D inputPt(x - outputSize.width() / 2.0f, y - outputSize.height() / 2.0f, 1.0f);
+            QVector3D transformed(
+                transform(0, 0) * inputPt.x() + transform(0, 1) * inputPt.y() + transform(0, 2) * inputPt.z(),
+                transform(1, 0) * inputPt.x() + transform(1, 1) * inputPt.y() + transform(1, 2) * inputPt.z(),
+                transform(2, 0) * inputPt.x() + transform(2, 1) * inputPt.y() + transform(2, 2) * inputPt.z());
             transformed += QVector3D(image.width() / 2.0, image.height() / 2.0, 0);
             
             double srcX = transformed.x();
