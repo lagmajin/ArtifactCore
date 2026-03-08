@@ -95,7 +95,7 @@ set_target_properties(ArtifactCore PROPERTIES
     CXX_MODULE_STD ON
 )
 
-if(MSVC)
+if(ARTIFACT_FRONTEND_MSVC)
     target_compile_options(ArtifactCore PRIVATE /WX-)
 endif()
 
@@ -187,7 +187,7 @@ else()
     target_include_directories(ArtifactCore PUBLIC "${VCPKG_INSTALLED}/include")
 endif()
 
-if(MSVC)
+if(ARTIFACT_FRONTEND_MSVC)
     target_compile_definitions(ArtifactCore PRIVATE 
         PLATFORM_WIN32
         _GUARDOVERFLOW_CRT_ALLOCATORS=1
