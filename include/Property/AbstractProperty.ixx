@@ -65,6 +65,17 @@ struct KeyFrame {
     QVariant value;
 };
 
+struct PropertyMetadata {
+    QString displayLabel;
+    QString unit;
+    QString tooltip;
+    QVariant hardMin;
+    QVariant hardMax;
+    QVariant softMin;
+    QVariant softMax;
+    QVariant step;
+};
+
 class LIBRARY_DLL_API AbstractProperty {
 private:
     class Impl;
@@ -89,6 +100,7 @@ public:
     QVariant getMaxValue() const;
     bool isAnimatable() const;
     QColor getColorValue() const;
+    PropertyMetadata metadata() const;
 
     // Setters
     void setName(const QString& name);
@@ -99,6 +111,13 @@ public:
     void setMaxValue(const QVariant& value);
     void setAnimatable(bool animatable);
     void setColorValue(const QColor& color);
+    void setMetadata(const PropertyMetadata& metadata);
+    void setDisplayLabel(const QString& label);
+    void setUnit(const QString& unit);
+    void setTooltip(const QString& tooltip);
+    void setStep(const QVariant& step);
+    void setHardRange(const QVariant& minValue, const QVariant& maxValue);
+    void setSoftRange(const QVariant& minValue, const QVariant& maxValue);
 
     /// @brief 表示優先度を設定する。
     /// 値が小さいほど高優先度（先頭に近い位置に表示される）。

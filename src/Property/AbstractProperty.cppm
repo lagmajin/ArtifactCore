@@ -59,6 +59,7 @@ public:
     QVariant      m_maxValue;
     bool          m_animatable     = false;
     int           m_displayPriority = 0;          ///< 表示優先度（小さい値が先頭）
+    PropertyMetadata m_metadata;
 
     std::vector<KeyFrame> m_keyFrames;
 };
@@ -133,6 +134,10 @@ QColor AbstractProperty::getColorValue() const {
     return pImpl->m_value.value<QColor>();
 }
 
+PropertyMetadata AbstractProperty::metadata() const {
+    return pImpl->m_metadata;
+}
+
 // -----------------------------------------------------------------------
 // Setters
 // -----------------------------------------------------------------------
@@ -170,6 +175,36 @@ void AbstractProperty::setAnimatable(bool animatable) {
 
 void AbstractProperty::setColorValue(const QColor& color) {
     pImpl->m_value = QVariant::fromValue(color);
+}
+
+void AbstractProperty::setMetadata(const PropertyMetadata& metadata) {
+    pImpl->m_metadata = metadata;
+}
+
+void AbstractProperty::setDisplayLabel(const QString& label) {
+    pImpl->m_metadata.displayLabel = label;
+}
+
+void AbstractProperty::setUnit(const QString& unit) {
+    pImpl->m_metadata.unit = unit;
+}
+
+void AbstractProperty::setTooltip(const QString& tooltip) {
+    pImpl->m_metadata.tooltip = tooltip;
+}
+
+void AbstractProperty::setStep(const QVariant& step) {
+    pImpl->m_metadata.step = step;
+}
+
+void AbstractProperty::setHardRange(const QVariant& minValue, const QVariant& maxValue) {
+    pImpl->m_metadata.hardMin = minValue;
+    pImpl->m_metadata.hardMax = maxValue;
+}
+
+void AbstractProperty::setSoftRange(const QVariant& minValue, const QVariant& maxValue) {
+    pImpl->m_metadata.softMin = minValue;
+    pImpl->m_metadata.softMax = maxValue;
 }
 
 // -----------------------------------------------------------------------

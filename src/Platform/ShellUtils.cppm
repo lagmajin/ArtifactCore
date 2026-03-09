@@ -40,7 +40,7 @@ namespace ArtifactCore {
   }
   QProcess::startDetached("open", args);
 
-#else  // Linux (freedesktopŒn)
+#else  // Linux (freedesktopç³»)
   QString folderPath = highlight ? info.absoluteFilePath() : info.absolutePath();
   QUrl url = QUrl::fromLocalFile(folderPath);
   QDesktopServices::openUrl(url);
