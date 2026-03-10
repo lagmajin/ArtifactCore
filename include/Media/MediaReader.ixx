@@ -40,6 +40,9 @@ public:
     explicit MediaReader(MediaSource* source);
     ~MediaReader();
 
+    MediaReader(const MediaReader&) = delete;
+    MediaReader& operator=(const MediaReader&) = delete;
+
     void start();
     void pause();
     void stop();

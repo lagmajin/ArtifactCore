@@ -72,6 +72,18 @@ export namespace ArtifactCore {
    return channelData.isEmpty() ? 0 : channelData[0].size();
   }
 
+  void setFrameCount(int frames) {
+    for (auto& ch : channelData) ch.resize(frames);
+  }
+
+  void clear() {
+    channelData.clear();
+  }
+
+  void zero() {
+    for (auto& ch : channelData) ch.fill(0.0f);
+  }
+
   // チャンネル数を取得
   int channelCount() const {
    return channelData.size();

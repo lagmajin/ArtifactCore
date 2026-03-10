@@ -42,6 +42,7 @@ module Image.ImageF32x4_RGBA;
 
 
 import FloatRGBA;
+import CvUtils;
 
 namespace ArtifactCore {
 
@@ -154,6 +155,19 @@ namespace ArtifactCore {
   impl_->mat_.setTo(color);
  }
 
+ bool ImageF32x4_RGBA::load(const QString& path)
+ {
+  QImage img(path);
+  if (img.isNull()) return false;
+  setFromCVMat(CvUtils::qImageToCvMat(img));
+  return true;
+ }
+
+ bool ImageF32x4_RGBA::save(const QString& path) const
+ {
+  return toQImage().save(path);
+ }
+
  void ImageF32x4_RGBA::resize(int width, int height)
  {
   cv::Mat resized;
@@ -192,6 +206,11 @@ namespace ArtifactCore {
   cv::Mat ImageF32x4_RGBA::toCVMat()const
   {
    return impl_->mat_;
+  }
+
+  QImage ImageF32x4_RGBA::toQImage() const
+  {
+   return CvUtils::cvMatToQImage(impl_->mat_);
   }
 
   void ImageF32x4_RGBA::fillAlpha(float alpha/*=1.0f*/)

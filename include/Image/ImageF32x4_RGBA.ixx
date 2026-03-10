@@ -1,6 +1,5 @@
 ﻿module;
-
-
+#include <QImage>
 #include <opencv2/opencv.hpp>
 #include "../Define/DllExportMacro.hpp"
 #include <QUuid>
@@ -65,7 +64,10 @@ export namespace ArtifactCore {
   
   // 基本操作
   auto toCVMat() const -> class cv::Mat;
+  QImage toQImage() const;
   void fill(const FloatRGBA& rgba);
+  bool load(const QString& path);
+  bool save(const QString& path) const;
   void fillAlpha(float alpha=1.0f);
   void resize(int width,int height);
 

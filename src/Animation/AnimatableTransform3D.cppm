@@ -51,12 +51,10 @@ class AnimatableTransform3D::Impl
 public:
   bool isZVisible = false;
 
-  // Baseline (Initial values set via Layout)
   float initialX_ = 0, initialY_ = 0, initialZ_ = 0;
   float initialScaleX_ = 1, initialScaleY_ = 1;
   float initialRotation_ = 0;
 
-  // Animation Offset (Keyframes)
   AnimatableValueT<float> x_;
   AnimatableValueT<float> y_;
   AnimatableValueT<float> z_;
@@ -67,7 +65,6 @@ public:
   AnimatableValueT<float> anchorY_;
   AnimatableValueT<float> anchorZ_;
 
-  // Current calculated values (for cache/UI preview)
   float currentX_ = 0.0f;
   float currentY_ = 0.0f;
   float currentZ_ = 0.0f;
@@ -75,19 +72,12 @@ public:
   float currentScaleX_ = 1.0f;
   float currentScaleY_ = 1.0f;
 
-  Impl();
-  ~Impl();
+  Impl() = default;
+  ~Impl() = default;
+  Impl(const Impl& other) = default;
+  Impl& operator=(const Impl& other) = default;
 };
 
- AnimatableTransform3D::Impl::Impl()
- {
-
- }
-
- AnimatableTransform3D::Impl::~Impl()
- {
-
- }
 
  AnimatableTransform3D::AnimatableTransform3D() :impl_(new Impl())
  {
@@ -97,6 +87,26 @@ public:
  AnimatableTransform3D::~AnimatableTransform3D()
  {
   delete impl_;
+ }
+
+ AnimatableTransform3D::AnimatableTransform3D(const AnimatableTransform3D& other) : impl_(new Impl(*other.impl_)) {}
+ AnimatableTransform3D& AnimatableTransform3D::operator=(const AnimatableTransform3D& other) {
+  if (this != &other) {
+   *impl_ = *other.impl_;
+  }
+  return *this;
+ }
+
+ AnimatableTransform3D::AnimatableTransform3D(AnimatableTransform3D&& other) noexcept : impl_(other.impl_) {
+  other.impl_ = nullptr;
+ }
+ AnimatableTransform3D& AnimatableTransform3D::operator=(AnimatableTransform3D&& other) noexcept {
+  if (this != &other) {
+   delete impl_;
+   impl_ = other.impl_;
+   other.impl_ = nullptr;
+  }
+  return *this;
  }
 
 void AnimatableTransform3D::setInitalAngle(const RationalTime& time, float angle/*=0*/)

@@ -1,108 +1,57 @@
 module;
 #define QT_NO_KEYWORDS
 #include <QString>
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
-#include <memory>
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <optional>
-#include <utility>
-#include <array>
-#include <mutex>
-#include <thread>
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
-#include <variant>
-#include <any>
-#include <atomic>
-#include <condition_variable>
-#include <queue>
-#include <deque>
-#include <list>
-#include <tuple>
-#include <numeric>
-#include <regex>
-#include <random>
+
 module Utils.Tag;
-
-
-
-
 
 import Utils.String.UniString;
 
 namespace ArtifactCore {
 
- class Tag::Impl {
- private:
-
- public:
-  Impl();
-  ~Impl();
-  UniString name;
- };
-
- Tag::Impl::Impl()
- {
-
- }
-
- Tag::Impl::~Impl()
- {
-
- }
-
- Tag::Tag() :impl_(new Impl())
- {
-
- }
-
- Tag::Tag(const UniString& name) :impl_(new Impl())
- {
-
- }
-
- Tag::Tag(const Tag& other) :impl_(new Impl())
- {
-
- }
-
- Tag::Tag(Tag&& other) noexcept :impl_(new Impl())
- {
-
- }
-
- Tag::~Tag()
- {
-  delete impl_;
- }
- 
-
- void Tag::setName(const UniString& name)
- {
-
- }
-
-Tag& Tag::operator=(const Tag& other)
- {
-
- return *this;
- }
-
-Tag& Tag::operator=(Tag&& other) noexcept
- {
- return *this;
- }
-
+class Tag::Impl {
+public:
+    UniString name;
+    Impl() = default;
+    Impl(const UniString& n) : name(n) {}
 };
+
+Tag::Tag() : impl_(new Impl()) {}
+
+Tag::Tag(const UniString& name) : impl_(new Impl(name)) {}
+
+Tag::Tag(const Tag& other) : impl_(new Impl(other.impl_->name)) {}
+
+Tag::Tag(Tag&& other) noexcept : impl_(other.impl_) {
+    other.impl_ = nullptr;
+}
+
+Tag::~Tag() {
+    delete impl_;
+}
+
+void Tag::setName(const UniString& name) {
+    if (impl_) impl_->name = name;
+}
+
+UniString Tag::name() const {
+    return impl_ ? impl_->name : UniString();
+}
+
+Tag& Tag::operator=(const Tag& other) {
+    if (this != &other) {
+        if (impl_) impl_->name = other.impl_->name;
+        else impl_ = new Impl(other.impl_->name);
+    }
+    return *this;
+}
+
+Tag& Tag::operator=(Tag&& other) noexcept {
+    if (this != &other) {
+        delete impl_;
+        impl_ = other.impl_;
+        other.impl_ = nullptr;
+    }
+    return *this;
+}
+
+} // namespace ArtifactCore

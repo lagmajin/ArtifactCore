@@ -55,7 +55,21 @@ namespace ArtifactCore
 
  FFmpegAudioEncoder::FFmpegAudioEncoder() : impl_(new Impl())
  {
+ }
 
+ FFmpegAudioEncoder::FFmpegAudioEncoder(FFmpegAudioEncoder&& other) noexcept : impl_(other.impl_)
+ {
+  other.impl_ = nullptr;
+ }
+
+ FFmpegAudioEncoder& FFmpegAudioEncoder::operator=(FFmpegAudioEncoder&& other) noexcept
+ {
+  if (this != &other) {
+   delete impl_;
+   impl_ = other.impl_;
+   other.impl_ = nullptr;
+  }
+  return *this;
  }
 
  FFmpegAudioEncoder::~FFmpegAudioEncoder()

@@ -81,6 +81,10 @@ export namespace ArtifactCore {
  public:
   FFmpegVideoDecoder() noexcept;
   ~FFmpegVideoDecoder();
+
+  FFmpegVideoDecoder(const FFmpegVideoDecoder&) = delete;
+  FFmpegVideoDecoder& operator=(const FFmpegVideoDecoder&) = delete;
+
   bool openFile(const QString& path);
   void closeFile();
   QImage decodeNextVideoFrame();

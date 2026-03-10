@@ -5,6 +5,7 @@ module;
 #include <QSettings>
 
 export module UI.Layout.State;
+import Core.FastSettingsStore;
 
 export namespace ArtifactCore
 {
@@ -25,5 +26,7 @@ export namespace ArtifactCore
 
   void saveToSettings(QSettings& settings, const QString& prefix) const;
   static UiLayoutState loadFromSettings(QSettings& settings, const QString& prefix);
+  void saveToStore(FastSettingsStore& store, const QString& prefix) const;
+  static UiLayoutState loadFromStore(FastSettingsStore& store, const QString& prefix);
  };
 }

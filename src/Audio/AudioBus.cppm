@@ -39,6 +39,7 @@ module Audio.Bus;
 
 import Utils.String.UniString;
 import Audio.Segment;
+import Audio.DownMixer;
 import Audio.Effect;
 import Audio.Effect.Compressor;
 
@@ -53,6 +54,7 @@ namespace ArtifactCore {
 	class AudioBus::Impl {
 	public:
 		UniString name_;
+		AudioChannelLayout layout_ = AudioChannelLayout::Stereo;
 		float volumeDb_ = 0.0f;
 		float pan_ = 0.0f;
 		PanningMode panningMode_ = PanningMode::EqualPower;
@@ -71,6 +73,12 @@ namespace ArtifactCore {
 
 		AudioSegment mainBuffer_;
 		AudioSegment sideChainBuffer_;
+		mutable std::unique_ptr<AudioDownMixer> downMixer_;
+
+		AudioDownMixer& getDownMixer() const {
+			if (!downMixer_) downMixer_ = std::make_unique<AudioDownMixer>();
+			return *downMixer_;
+		}
 	};
 
 
@@ -92,6 +100,16 @@ namespace ArtifactCore {
 	UniString AudioBus::getName() const
 	{
 		return impl_->name_;
+	}
+
+	void AudioBus::setLayout(AudioChannelLayout layout)
+	{
+		impl_->layout_ = layout;
+	}
+
+	AudioChannelLayout AudioBus::getLayout() const
+	{
+		return impl_->layout_;
 	}
 
 	void AudioBus::setVolume(float db)
@@ -234,14 +252,25 @@ namespace ArtifactCore {
 
 	void AudioBus::clearInput(int frameCount, int sampleRate)
 	{
-		// Stereo by default
-		if (impl_->mainBuffer_.channelCount() != 2) impl_->mainBuffer_.channelData.resize(2);
-		if (impl_->sideChainBuffer_.channelCount() != 2) impl_->sideChainBuffer_.channelData.resize(2);
+		int chCount = 2; // Default
+		switch (impl_->layout_) {
+			case AudioChannelLayout::Mono: chCount = 1; break;
+			case AudioChannelLayout::Stereo: chCount = 2; break;
+			case AudioChannelLayout::Surround51: chCount = 6; break;
+			case AudioChannelLayout::Surround71: chCount = 8; break;
+			case AudioChannelLayout::Custom10ch: chCount = 10; break;
+			default: chCount = 2; break;
+		}
+
+		if (impl_->mainBuffer_.channelCount() != chCount) impl_->mainBuffer_.channelData.resize(chCount);
+		if (impl_->sideChainBuffer_.channelCount() != chCount) impl_->sideChainBuffer_.channelData.resize(chCount);
 
 		impl_->mainBuffer_.sampleRate = sampleRate;
+		impl_->mainBuffer_.layout = impl_->layout_;
 		impl_->sideChainBuffer_.sampleRate = sampleRate;
+		impl_->sideChainBuffer_.layout = impl_->layout_;
 
-		for (int c = 0; c < 2; ++c) {
+		for (int c = 0; c < chCount; ++c) {
 			impl_->mainBuffer_.channelData[c].resize(frameCount);
 			impl_->mainBuffer_.channelData[c].fill(0.0f);
 			impl_->sideChainBuffer_.channelData[c].resize(frameCount);
@@ -251,11 +280,21 @@ namespace ArtifactCore {
 
 	void AudioBus::addInput(const AudioSegment& input, float localGain)
 	{
-		int channels = std::min((int)input.channelData.size(), (int)impl_->mainBuffer_.channelData.size());
-		int frames = std::min(input.frameCount(), impl_->mainBuffer_.frameCount());
+		const AudioSegment* source = &input;
+		AudioSegment downmixed;
+
+		// Perform downmixing if layout differs from target bus
+		if (input.layout != impl_->layout_) {
+			impl_->getDownMixer().setTargetLayout(impl_->layout_);
+			downmixed = impl_->getDownMixer().process(input);
+			source = &downmixed;
+		}
+
+		int channels = std::min((int)source->channelData.size(), (int)impl_->mainBuffer_.channelData.size());
+		int frames = std::min(source->frameCount(), impl_->mainBuffer_.frameCount());
 		
 		for (int c = 0; c < channels; ++c) {
-			const float* src = input.channelData[c].constData();
+			const float* src = source->channelData[c].constData();
 			float* dst = impl_->mainBuffer_.channelData[c].data();
 			for (int i = 0; i < frames; ++i) {
 				dst[i] += src[i] * localGain;
@@ -265,11 +304,20 @@ namespace ArtifactCore {
 
 	void AudioBus::addSideChain(const AudioSegment& input, float localGain)
 	{
-		int channels = std::min((int)input.channelData.size(), (int)impl_->sideChainBuffer_.channelData.size());
-		int frames = std::min(input.frameCount(), impl_->sideChainBuffer_.frameCount());
+		const AudioSegment* source = &input;
+		AudioSegment downmixed;
+
+		if (input.layout != impl_->layout_) {
+			impl_->getDownMixer().setTargetLayout(impl_->layout_);
+			downmixed = impl_->getDownMixer().process(input);
+			source = &downmixed;
+		}
+
+		int channels = std::min((int)source->channelData.size(), (int)impl_->sideChainBuffer_.channelData.size());
+		int frames = std::min(source->frameCount(), impl_->sideChainBuffer_.frameCount());
 
 		for (int c = 0; c < channels; ++c) {
-			const float* src = input.channelData[c].constData();
+			const float* src = source->channelData[c].constData();
 			float* dst = impl_->sideChainBuffer_.channelData[c].data();
 			for (int i = 0; i < frames; ++i) {
 				dst[i] += src[i] * localGain;

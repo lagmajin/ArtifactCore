@@ -33,6 +33,7 @@ foreach(file_path ${POTENTIAL_SOURCES})
        file_path MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
+       file_path MATCHES "include/Asset/AsseetImporter\\.ixx" OR
        file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
         continue()
     endif()
@@ -71,9 +72,9 @@ foreach(file_path ${POTENTIAL_SOURCES})
             list(APPEND _PROVIDED_MODULES "${found_mod_name}")
             # message(STATUS "Module detected: ${found_mod_name} (${file_path})")
         else()
-            # 重複している場合は通常の実装として扱う
-            list(APPEND CORE_IMPL "${file_path}")
-            message(WARNING "Duplicate module name detected: ${found_mod_name} in ${file_path} (already provided by other file)")
+            # 重複モジュールを通常ソースに落とすと
+            # 「provides module but not in FILE_SET CXX_MODULES」を誘発するため除外する
+            message(WARNING "Duplicate module name detected: ${found_mod_name} in ${file_path} (skipped)")
         endif()
     else()
         # 通常のソースファイル (module M; または非モジュール)

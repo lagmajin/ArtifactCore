@@ -51,6 +51,10 @@ private:
 public:
     MeshImporter();
     ~MeshImporter();
+
+    MeshImporter(const MeshImporter&) = delete;
+    MeshImporter& operator=(const MeshImporter&) = delete;
+
     // t@CMesh𐶐
     std::shared_ptr<Mesh> importMeshFromFile(const UniString& path);
 };

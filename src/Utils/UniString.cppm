@@ -165,7 +165,11 @@ namespace ArtifactCore {
 
  UniString& UniString::operator=(UniString&& other) noexcept
  {
-  impl_->str_ = other.toQString();
+  if (this != &other) {
+   delete impl_;
+   impl_ = other.impl_;
+   other.impl_ = nullptr;
+  }
   return *this;
  }
 

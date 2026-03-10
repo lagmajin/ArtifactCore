@@ -99,6 +99,11 @@ float FloatColor::Impl::sumRGB() const
  return r_ + g_ + b_;
 }
 
+float FloatColor::Impl::sumRGBA() const
+{
+ return r_ + g_ + b_ + a_;
+}
+
 
 
 FloatColor::FloatColor() : impl_(new Impl) {}
@@ -110,26 +115,33 @@ FloatColor::FloatColor(float r, float g, float b, float a):impl_(new Impl(r,g,b,
 
 FloatColor::FloatColor(FloatColor&& other) noexcept : impl_(other.impl_)
 {
- //other.impl_ = nullptr;
+ other.impl_ = nullptr;
 }
 
-FloatColor::FloatColor(const FloatColor& other) : impl_(other.impl_)
+FloatColor::FloatColor(const FloatColor& other) : impl_(new Impl())
 {
- //other.impl_ = nullptr;
+ if (other.impl_) {
+  impl_->r_ = other.impl_->r_;
+  impl_->g_ = other.impl_->g_;
+  impl_->b_ = other.impl_->b_;
+  impl_->a_ = other.impl_->a_;
+ }
 }
 
 FloatColor::~FloatColor() { delete impl_; }
 
-void FloatColor::setRed(float red) { impl_->r_ = red; }
-void FloatColor::setGreen(float green) { impl_->g_ = green; }
-void FloatColor::setBlue(float blue) { impl_->b_ = blue; }
-void FloatColor::setAlpha(float alpha) { impl_->a_ = alpha; }
+void FloatColor::setRed(float red) { if (!impl_) impl_ = new Impl(); impl_->r_ = red; }
+void FloatColor::setGreen(float green) { if (!impl_) impl_ = new Impl(); impl_->g_ = green; }
+void FloatColor::setBlue(float blue) { if (!impl_) impl_ = new Impl(); impl_->b_ = blue; }
+void FloatColor::setAlpha(float alpha) { if (!impl_) impl_ = new Impl(); impl_->a_ = alpha; }
 void FloatColor::setColor(float red, float green, float blue) {
+ if (!impl_) impl_ = new Impl();
  impl_->r_ = red;
  impl_->g_ = green;
  impl_->b_ = blue;
 }
 void FloatColor::setColor(float red, float green, float blue, float alpha) {
+ if (!impl_) impl_ = new Impl();
  impl_->r_ = red;
  impl_->g_ = green;
  impl_->b_ = blue;
@@ -138,20 +150,24 @@ void FloatColor::setColor(float red, float green, float blue, float alpha) {
 
 float FloatColor::red() const
 {
+ if (!impl_) return 0.0f;
  return impl_->r_;
 }
 float FloatColor::green() const
 {
+ if (!impl_) return 0.0f;
  return impl_->g_;
 }
 
 float FloatColor::blue() const
 {
+ if (!impl_) return 0.0f;
  return impl_->b_;
 }
 
 float FloatColor::alpha() const
 {
+ if (!impl_) return 1.0f;
  return impl_->a_;
 }
 
@@ -177,38 +193,78 @@ float FloatColor::a() const
 
 FloatColor& FloatColor::operator=(const FloatColor& other)
 {
-
+ if (this == &other) {
+  return *this;
+ }
+ if (!impl_) {
+  impl_ = new Impl();
+ }
+ if (other.impl_) {
+  impl_->r_ = other.impl_->r_;
+  impl_->g_ = other.impl_->g_;
+  impl_->b_ = other.impl_->b_;
+  impl_->a_ = other.impl_->a_;
+ } else {
+  impl_->r_ = 0.0f;
+  impl_->g_ = 0.0f;
+  impl_->b_ = 0.0f;
+  impl_->a_ = 1.0f;
+ }
  return *this;
 }
 
 FloatColor& FloatColor::operator=(FloatColor&& other) noexcept
 {
+ if (this == &other) {
+  return *this;
+ }
+ delete impl_;
+ impl_ = other.impl_;
+ other.impl_ = nullptr;
  return *this;
 }
 
 void FloatColor::clamp()
 {
-
+ if (!impl_) {
+  return;
+ }
+ impl_->r_ = std::clamp(impl_->r_, 0.0f, 1.0f);
+ impl_->g_ = std::clamp(impl_->g_, 0.0f, 1.0f);
+ impl_->b_ = std::clamp(impl_->b_, 0.0f, 1.0f);
+ impl_->a_ = std::clamp(impl_->a_, 0.0f, 1.0f);
 }
 
 float FloatColor::averageRGB() const
 {
- return 0;
+ if (!impl_) {
+  return 0.0f;
+ }
+ return impl_->averageRGB();
 }
 
 float FloatColor::sumRGB() const
 {
- return 0;
+ if (!impl_) {
+  return 0.0f;
+ }
+ return impl_->sumRGB();
 }
 
 float FloatColor::sumRGBA() const
 {
- return 0;
+ if (!impl_) {
+  return 0.0f;
+ }
+ return impl_->sumRGBA();
 }
 
 float FloatColor::averageRGBA() const
 {
- return 0;
+ if (!impl_) {
+  return 0.0f;
+ }
+ return impl_->averageRGBA();
 
 }
 

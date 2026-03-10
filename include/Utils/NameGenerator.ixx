@@ -56,6 +56,10 @@ export namespace ArtifactCore
  public:
   PatternNameGenerator(const std::string& pattern, int zeroPad = 0);
   ~PatternNameGenerator();
+
+  PatternNameGenerator(const PatternNameGenerator&) = delete;
+  PatternNameGenerator& operator=(const PatternNameGenerator&) = delete;
+
   std::string Generate(const std::string& baseName);
 
   void Release(const std::string& name);

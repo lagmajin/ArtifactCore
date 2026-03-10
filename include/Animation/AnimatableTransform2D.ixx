@@ -34,12 +34,7 @@ module ;
 #include <random>
 export module Animation.Transform2D;
 
-
-
-
 import Animation.Value;
-
-
 
 export namespace ArtifactCore {
 
@@ -49,25 +44,25 @@ export namespace ArtifactCore {
   Impl* impl_;
 
  public:
+  AnimatableTransform2D();
+  ~AnimatableTransform2D();
+
+  AnimatableTransform2D(const AnimatableTransform2D& other);
+  AnimatableTransform2D& operator=(const AnimatableTransform2D& other);
+  AnimatableTransform2D(AnimatableTransform2D&& other) noexcept;
+  AnimatableTransform2D& operator=(AnimatableTransform2D&& other) noexcept;
+
   enum class Element {
    Position,
    Rotation,
    Scale,
-   Count  // vfp
+   Count
   };
 
   void setPosition(float x, float y);
-
-  // Rotation
   void setRotation(float degrees);
-
-  // Scale
   void setScale(float sx, float sy);
   size_t size() const;
- 	
  };
-
-
-
 
 };

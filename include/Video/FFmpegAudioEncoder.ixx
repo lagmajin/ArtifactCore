@@ -40,6 +40,12 @@ class FFmpegAudioEncoder
  public:
   FFmpegAudioEncoder();
   ~FFmpegAudioEncoder();
+
+  FFmpegAudioEncoder(const FFmpegAudioEncoder&) = delete;
+  FFmpegAudioEncoder& operator=(const FFmpegAudioEncoder&) = delete;
+ 
+  FFmpegAudioEncoder(FFmpegAudioEncoder&& other) noexcept;
+  FFmpegAudioEncoder& operator=(FFmpegAudioEncoder&& other) noexcept;
  };
 
 

@@ -6,6 +6,7 @@ module;
 #include <QSettings>
 
 module UI.Layout.State;
+import Core.FastSettingsStore;
 
 namespace ArtifactCore
 {
@@ -49,6 +50,24 @@ namespace ArtifactCore
   s.version = settings.value(prefix + "/version", 1).toInt();
   s.geometry = settings.value(prefix + "/geometry", QByteArray()).toByteArray();
   s.state = settings.value(prefix + "/state", QByteArray()).toByteArray();
+  return s;
+ }
+
+ void UiLayoutState::saveToStore(FastSettingsStore& store, const QString& prefix) const
+ {
+  store.setValue(prefix + "/layoutKey", layoutKey);
+  store.setValue(prefix + "/version", version);
+  store.setValue(prefix + "/geometry", geometry);
+  store.setValue(prefix + "/state", state);
+ }
+
+ UiLayoutState UiLayoutState::loadFromStore(FastSettingsStore& store, const QString& prefix)
+ {
+  UiLayoutState s;
+  s.layoutKey = store.value(prefix + "/layoutKey", QString()).toString();
+  s.version = store.value(prefix + "/version", 1).toInt();
+  s.geometry = store.value(prefix + "/geometry", QByteArray()).toByteArray();
+  s.state = store.value(prefix + "/state", QByteArray()).toByteArray();
   return s;
  }
 }

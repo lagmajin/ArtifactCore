@@ -52,6 +52,10 @@ using AbstractPropertyPtr = std::shared_ptr<AbstractProperty>;
 class LIBRARY_DLL_API PropertyGroup {
 public:
   explicit PropertyGroup(QString name = QString{});
+  PropertyGroup(const PropertyGroup& other);
+  PropertyGroup(PropertyGroup&& other) noexcept;
+  PropertyGroup& operator=(const PropertyGroup& other);
+  PropertyGroup& operator=(PropertyGroup&& other) noexcept;
   ~PropertyGroup();
 
   QString name() const;

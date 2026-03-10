@@ -58,6 +58,9 @@ export namespace ArtifactCore {
 		void setName(const UniString& name);
 		UniString getName() const;
 
+		void setLayout(AudioChannelLayout layout);
+		AudioChannelLayout getLayout() const;
+
 		// Volume in Decibels
 		void setVolume(float db);
 		float getVolume() const;

@@ -143,7 +143,7 @@ namespace ArtifactCore {
 
   RendererQueueManager::~RendererQueueManager()
   {
-
+   delete impl_;
   }
  
   RendererQueueManager& RendererQueueManager::instance()

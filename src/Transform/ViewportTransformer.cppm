@@ -75,6 +75,20 @@ namespace ArtifactCore {
     };
 
     ViewportTransformer::ViewportTransformer() : impl_(new Impl()) {}
+
+    ViewportTransformer::ViewportTransformer(ViewportTransformer&& other) noexcept : impl_(other.impl_) {
+        other.impl_ = nullptr;
+    }
+
+    ViewportTransformer& ViewportTransformer::operator=(ViewportTransformer&& other) noexcept {
+        if (this != &other) {
+            delete impl_;
+            impl_ = other.impl_;
+            other.impl_ = nullptr;
+        }
+        return *this;
+    }
+
     ViewportTransformer::~ViewportTransformer() { delete impl_; }
 
     void ViewportTransformer::SetViewportSize(float w, float h) { impl_->viewportSize = {w, h}; }

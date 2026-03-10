@@ -54,6 +54,12 @@ export namespace ArtifactCore {
         ViewportTransformer();
         ~ViewportTransformer();
 
+        ViewportTransformer(const ViewportTransformer&) = delete;
+        ViewportTransformer& operator=(const ViewportTransformer&) = delete;
+
+        ViewportTransformer(ViewportTransformer&& other) noexcept;
+        ViewportTransformer& operator=(ViewportTransformer&& other) noexcept;
+
         // 状態設定
         void SetViewportSize(float w, float h);
         void SetCanvasSize(float w, float h);

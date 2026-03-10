@@ -48,6 +48,8 @@ import ImageF32x4;
 import Image;
 
 import Transform;
+import Layer.Blend;
+import Layer.Matte;
 
 export namespace ArtifactCore {
 
@@ -61,6 +63,8 @@ export namespace ArtifactCore {
 
   //QPoint position;
   float opacity = 1.0f;
+  BlendMode blendMode = BlendMode::Normal;
+  MatteMode matteMode = MatteMode::None;
  };
 
 

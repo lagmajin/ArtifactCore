@@ -56,8 +56,48 @@ public:
 PropertyGroup::PropertyGroup(QString name)
     : impl_(new Impl(this)), name_(std::move(name)) {}
 
+PropertyGroup::PropertyGroup(const PropertyGroup& other)
+    : impl_(new Impl(this)), name_(other.name_) {
+  impl_->properties_ = other.impl_ ? other.impl_->properties_ : std::vector<AbstractPropertyPtr>{};
+}
+
+PropertyGroup::PropertyGroup(PropertyGroup&& other) noexcept
+    : impl_(other.impl_), name_(std::move(other.name_)) {
+  if (impl_) {
+    impl_->owner_ = this;
+  }
+  other.impl_ = nullptr;
+}
+
+PropertyGroup& PropertyGroup::operator=(const PropertyGroup& other) {
+  if (this == &other) {
+    return *this;
+  }
+  name_ = other.name_;
+  if (!impl_) {
+    impl_ = new Impl(this);
+  }
+  impl_->properties_ = other.impl_ ? other.impl_->properties_ : std::vector<AbstractPropertyPtr>{};
+  return *this;
+}
+
+PropertyGroup& PropertyGroup::operator=(PropertyGroup&& other) noexcept {
+  if (this == &other) {
+    return *this;
+  }
+  delete impl_;
+  impl_ = other.impl_;
+  name_ = std::move(other.name_);
+  if (impl_) {
+    impl_->owner_ = this;
+  }
+  other.impl_ = nullptr;
+  return *this;
+}
+
 PropertyGroup::~PropertyGroup() {
   delete impl_;
+  impl_ = nullptr;
 }
 
 QString PropertyGroup::name() const {
