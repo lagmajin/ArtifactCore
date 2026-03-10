@@ -40,15 +40,11 @@ module ;
 #include <random>
 export module Frame.Range;
 
-
-
-
+import Frame.Position;
+import Frame.Offset;
+import Frame.Rate;
 
 export namespace ArtifactCore {
-
- class FramePosition;
- class FrameOffset;
- class FrameRate;
 
  // t[͈͂ NX
  // ҏWɂ^CC͈̔́A[NGAAC[̎ԂȂǂ

@@ -45,9 +45,6 @@ import Image.ImageF32x4_RGBA;
 
 export namespace ArtifactCore
 {
-	class ImageF32x4_RGBA;
-
-
 class LIBRARY_DLL_API ImageF32x4RGBAWithCache:public QObject{
 W_OBJECT(ImageF32x4RGBAWithCache)
 private:
