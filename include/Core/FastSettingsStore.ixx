@@ -29,6 +29,9 @@ export namespace ArtifactCore
 
   bool contains(const QString& key) const;
   QVariant value(const QString& key, const QVariant& defaultValue = QVariant()) const;
+  bool valueBool(const QString& key, bool defaultValue = false) const;
+  qlonglong valueInt64(const QString& key, qlonglong defaultValue = 0) const;
+  QString valueString(const QString& key, const QString& defaultValue = QString()) const;
   void setValue(const QString& key, const QVariant& value);
   void remove(const QString& key);
   void clear();
@@ -39,6 +42,9 @@ export namespace ArtifactCore
   void beginBatch();
   void endBatch(bool forceSync = true);
   void setAutoSyncThreshold(int operations);
+  int autoSyncThreshold() const;
+  bool isDirty() const;
+  int pendingOperations() const;
   bool sync();
  };
 }

@@ -189,14 +189,55 @@ namespace ArtifactCore
   return impl_->cache_.contains(key);
  }
 
- QVariant FastSettingsStore::value(const QString& key, const QVariant& defaultValue) const
- {
+QVariant FastSettingsStore::value(const QString& key, const QVariant& defaultValue) const
+{
   if (!impl_) {
     return defaultValue;
   }
   std::shared_lock lock(impl_->mutex_);
   return impl_->cache_.value(key, defaultValue);
- }
+}
+
+bool FastSettingsStore::valueBool(const QString& key, bool defaultValue) const
+{
+  if (!impl_) {
+    return defaultValue;
+  }
+  std::shared_lock lock(impl_->mutex_);
+  const auto it = impl_->cache_.constFind(key);
+  if (it == impl_->cache_.constEnd()) {
+    return defaultValue;
+  }
+  return it.value().toBool();
+}
+
+qlonglong FastSettingsStore::valueInt64(const QString& key, qlonglong defaultValue) const
+{
+  if (!impl_) {
+    return defaultValue;
+  }
+  std::shared_lock lock(impl_->mutex_);
+  const auto it = impl_->cache_.constFind(key);
+  if (it == impl_->cache_.constEnd()) {
+    return defaultValue;
+  }
+  bool ok = false;
+  const qlonglong v = it.value().toLongLong(&ok);
+  return ok ? v : defaultValue;
+}
+
+QString FastSettingsStore::valueString(const QString& key, const QString& defaultValue) const
+{
+  if (!impl_) {
+    return defaultValue;
+  }
+  std::shared_lock lock(impl_->mutex_);
+  const auto it = impl_->cache_.constFind(key);
+  if (it == impl_->cache_.constEnd()) {
+    return defaultValue;
+  }
+  return it.value().toString();
+}
 
  void FastSettingsStore::setValue(const QString& key, const QVariant& value)
  {
@@ -287,14 +328,41 @@ namespace ArtifactCore
   }
  }
 
- void FastSettingsStore::setAutoSyncThreshold(int operations)
- {
+void FastSettingsStore::setAutoSyncThreshold(int operations)
+{
   if (!impl_) {
     return;
   }
   std::unique_lock lock(impl_->mutex_);
   impl_->autoSyncThreshold_ = std::max(1, operations);
- }
+}
+
+int FastSettingsStore::autoSyncThreshold() const
+{
+  if (!impl_) {
+    return 0;
+  }
+  std::shared_lock lock(impl_->mutex_);
+  return impl_->autoSyncThreshold_;
+}
+
+bool FastSettingsStore::isDirty() const
+{
+  if (!impl_) {
+    return false;
+  }
+  std::shared_lock lock(impl_->mutex_);
+  return impl_->dirty_;
+}
+
+int FastSettingsStore::pendingOperations() const
+{
+  if (!impl_) {
+    return 0;
+  }
+  std::shared_lock lock(impl_->mutex_);
+  return impl_->pendingOps_;
+}
 
  bool FastSettingsStore::sync()
  {
