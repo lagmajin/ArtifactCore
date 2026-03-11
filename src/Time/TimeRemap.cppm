@@ -1,5 +1,7 @@
 module;
 
+#include <compare>
+
 module Time.TimeRemap;
 
 import std;
