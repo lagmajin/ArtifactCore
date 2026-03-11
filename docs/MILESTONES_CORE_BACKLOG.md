@@ -82,6 +82,15 @@
 
 ## Layer / Composition Core
 
+### C-TXT-1 Text Style Foundation
+- `TextStyle`
+- `ParagraphStyle`
+- alignment / tracking / leading の共通化
+
+### C-TXT-2 Text Layer Integration
+- `ArtifactTextLayer` への style 適用
+- property / serialization の受け皿
+
 ### C-LYR-1 Layer Serialization Cleanup
 - layer JSON 保存
 - type name / class name
