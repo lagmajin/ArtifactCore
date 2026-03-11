@@ -1,30 +1,22 @@
 ﻿module;
 
-
 module Utils.Path;
-
-
 
 namespace ArtifactCore {
 
-
  class Path::Impl {
- private:
-
  public:
-  Impl();
-  ~Impl();
+  Impl() = default;
+  ~Impl() = default;
  };
 
+ Path::Path() : impl_(new Impl())
+ {
+ }
 
  Path::~Path()
  {
-
- }
-
- Path::Path()
- {
-
+  delete impl_;
  }
 
 };

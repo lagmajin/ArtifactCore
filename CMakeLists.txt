@@ -192,6 +192,8 @@ if(ARTIFACT_FRONTEND_MSVC)
     target_compile_definitions(ArtifactCore PRIVATE 
         PLATFORM_WIN32
         _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
         _UNICODE
         UNICODE
         GLOG_USE_GLOG_EXPORT

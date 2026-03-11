@@ -153,11 +153,11 @@ void main(uint3 id : SV_DispatchThreadID)
 
 	
 
- LIBRARY_DLL_API const std::map<LAYER_BLEND_TYPE, QByteArray> BlendShaders = {
-  {LAYER_BLEND_TYPE::BLEND_NORMAL, normalBlendShaderText},
-  {LAYER_BLEND_TYPE::BLEND_MULTIPLY, mulBlendShaderText},
-  {LAYER_BLEND_TYPE::BLEND_SCREEN, screenBlendShaderText},
-  {LAYER_BLEND_TYPE::BLEND_ADD,addBlendShaderText },
+ LIBRARY_DLL_API const std::map<BlendMode, QByteArray> BlendShaders = {
+  {BlendMode::Normal, normalBlendShaderText},
+  {BlendMode::Multiply, mulBlendShaderText},
+  {BlendMode::Screen, screenBlendShaderText},
+  {BlendMode::Add, addBlendShaderText },
  	
   // 他のブレンドタイプに対応するシェーダもここに追加
  };

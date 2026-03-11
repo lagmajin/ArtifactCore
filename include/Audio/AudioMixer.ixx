@@ -1,14 +1,11 @@
 module;
 #include "../Define/DllExportMacro.hpp"
-#include <vector>
-#include <memory>
-#include <string>
-#include <map>
 
 export module Audio.Mixer;
 
 import Audio.Bus;
 import Audio.Segment;
+import std;
 
 export namespace ArtifactCore {
 

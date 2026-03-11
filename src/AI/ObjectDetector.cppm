@@ -60,8 +60,8 @@ QVariant ObjectDetector::invokeMethod(const QString& name, const QVariantList& a
     return QVariant();
 }
 
-// Register for AI discovery
-REGISTER_DESCRIBABLE(ObjectDetector);
+// Register for AI discovery (macros are not imported through C++ modules).
+static AutoRegisterDescribable<ObjectDetector> _reg_ObjectDetector("ObjectDetector");
 
 QList<Detection> ObjectDetector::detect(const ImageF32x4_RGBA& image) {
     if (image.isEmpty()) return {};

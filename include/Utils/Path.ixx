@@ -48,6 +48,8 @@ export namespace ArtifactCore
   Path();
 
   ~Path();
+  Path(const Path&) = delete;
+  Path& operator=(const Path&) = delete;
  };
 
 

@@ -194,26 +194,29 @@ namespace ArtifactCore {
   return result;
  }
 
- MultipleTag MultipleTag::unite(const MultipleTag& other) const
- {
-  MultipleTag result;
-  result.impl_->tags_ = impl_->tags_.unite(other.impl_->tags_);
-  return result;
- }
+  MultipleTag MultipleTag::unite(const MultipleTag& other) const
+  {
+   MultipleTag result;
+   result.impl_->tags_ = impl_->tags_;
+   result.impl_->tags_.unite(other.impl_->tags_);
+   return result;
+  }
 
- MultipleTag MultipleTag::intersect(const MultipleTag& other) const
- {
-  MultipleTag result;
-  result.impl_->tags_ = impl_->tags_.intersect(other.impl_->tags_);
-  return result;
- }
+  MultipleTag MultipleTag::intersect(const MultipleTag& other) const
+  {
+   MultipleTag result;
+   result.impl_->tags_ = impl_->tags_;
+   result.impl_->tags_.intersect(other.impl_->tags_);
+   return result;
+  }
 
- MultipleTag MultipleTag::subtract(const MultipleTag& other) const
- {
-  MultipleTag result;
-  result.impl_->tags_ = impl_->tags_.subtract(other.impl_->tags_);
-  return result;
- }
+  MultipleTag MultipleTag::subtract(const MultipleTag& other) const
+  {
+   MultipleTag result;
+   result.impl_->tags_ = impl_->tags_;
+   result.impl_->tags_.subtract(other.impl_->tags_);
+   return result;
+  }
 
  QString MultipleTag::toString(const QString& separator) const
  {

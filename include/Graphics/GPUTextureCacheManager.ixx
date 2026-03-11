@@ -13,7 +13,7 @@ export namespace ArtifactCore {
  class GPUTextureManager:public QObject {
  private:
   class Impl;
-  
+  Impl* impl_;
  public:
   GPUTextureManager();
   

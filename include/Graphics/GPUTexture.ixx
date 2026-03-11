@@ -10,6 +10,13 @@ export namespace ArtifactCore {
  public:
   GPUTexture();
   ~GPUTexture();
+
+  GPUTexture(const GPUTexture&) = delete;
+  GPUTexture& operator=(const GPUTexture&) = delete;
+
+  GPUTexture(GPUTexture&& other) noexcept;
+  GPUTexture& operator=(GPUTexture&& other) noexcept;
+
   int GetWidth() const;
   int GetHeight() const;
  };

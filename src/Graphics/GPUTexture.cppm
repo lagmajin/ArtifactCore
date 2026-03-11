@@ -1,34 +1,48 @@
 ﻿module;
+
 module Graphics.Texture;
 
 namespace ArtifactCore {
 
  class GPUTexture::Impl {
- private:
-
  public:
-  Impl();
-  ~Impl();
+  int width_ = 0;
+  int height_ = 0;
+  Impl() = default;
  };
 
- GPUTexture::Impl::Impl()
+ GPUTexture::GPUTexture() : impl_(new Impl())
  {
-
  }
 
- GPUTexture::Impl::~Impl()
- {
+  GPUTexture::~GPUTexture()
+  {
+   delete impl_;
+  }
 
+  GPUTexture::GPUTexture(GPUTexture&& other) noexcept : impl_(other.impl_)
+  {
+   other.impl_ = nullptr;
+  }
+
+  GPUTexture& GPUTexture::operator=(GPUTexture&& other) noexcept
+  {
+   if (this != &other) {
+    delete impl_;
+    impl_ = other.impl_;
+    other.impl_ = nullptr;
+   }
+   return *this;
+  }
+
+ int GPUTexture::GetWidth() const
+ {
+  return impl_->width_;
  }
 
- GPUTexture::~GPUTexture()
+ int GPUTexture::GetHeight() const
  {
-
- }
-
- GPUTexture::GPUTexture() :impl_(new Impl())
- {
-  delete impl_;
+  return impl_->height_;
  }
 
 };

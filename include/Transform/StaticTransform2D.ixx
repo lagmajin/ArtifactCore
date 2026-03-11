@@ -61,7 +61,11 @@ export namespace ArtifactCore {
  public:
   StaticTransform2D();
   StaticTransform2D(const StaticTransform2D& other);
+  StaticTransform2D(StaticTransform2D&& other) noexcept;
   ~StaticTransform2D();
+
+  StaticTransform2D& operator=(const StaticTransform2D& other);
+  StaticTransform2D& operator=(StaticTransform2D&& other) noexcept;
 
   float x() const;
   float y() const;

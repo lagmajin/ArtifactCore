@@ -29,6 +29,37 @@ enum class BlendMode {
     Luminosity
 };
 
+// Legacy compatibility for existing Artifact layer code paths.
+// Keep this until all call sites migrate to BlendMode.
+enum class LAYER_BLEND_TYPE {
+    BLEND_NORMAL = static_cast<int>(BlendMode::Normal),
+    BLEND_ADD = static_cast<int>(BlendMode::Add),
+    BLEND_SUBTRACT = static_cast<int>(BlendMode::Subtract),
+    BLEND_MULTIPLY = static_cast<int>(BlendMode::Multiply),
+    BLEND_SCREEN = static_cast<int>(BlendMode::Screen),
+    BLEND_OVERLAY = static_cast<int>(BlendMode::Overlay),
+    BLEND_DARKEN = static_cast<int>(BlendMode::Darken),
+    BLEND_LIGHTEN = static_cast<int>(BlendMode::Lighten),
+    BLEND_COLOR_DODGE = static_cast<int>(BlendMode::ColorDodge),
+    BLEND_COLOR_BURN = static_cast<int>(BlendMode::ColorBurn),
+    BLEND_HARD_LIGHT = static_cast<int>(BlendMode::HardLight),
+    BLEND_SOFT_LIGHT = static_cast<int>(BlendMode::SoftLight),
+    BLEND_DIFFERENCE = static_cast<int>(BlendMode::Difference),
+    BLEND_EXCLUSION = static_cast<int>(BlendMode::Exclusion),
+    BLEND_HUE = static_cast<int>(BlendMode::Hue),
+    BLEND_SATURATION = static_cast<int>(BlendMode::Saturation),
+    BLEND_COLOR = static_cast<int>(BlendMode::Color),
+    BLEND_LUMINOSITY = static_cast<int>(BlendMode::Luminosity)
+};
+
+inline BlendMode toBlendMode(const LAYER_BLEND_TYPE legacy) {
+    return static_cast<BlendMode>(static_cast<int>(legacy));
+}
+
+inline LAYER_BLEND_TYPE toLegacyBlendType(const BlendMode mode) {
+    return static_cast<LAYER_BLEND_TYPE>(static_cast<int>(mode));
+}
+
 /**
  * @brief Helper class for BlendMode information
  */

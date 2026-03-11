@@ -3,7 +3,7 @@ module;
 
 export module Generator:SolidColor;
 
-import Generator:Image;
+import :Image;
 import Image.ImageF32x4_RGBA;
 import FloatRGBA;
 
@@ -21,7 +21,7 @@ public:
         return true;
     }
 
-    QString name() const override { return "Solid Color"; }
+    // QString name() const override { return "Solid Color"; } // TODO: Re-evaluate name() method if needed by the interface
 
     void setColor(const FloatRGBA& color) { color_ = color; }
     FloatRGBA color() const { return color_; }

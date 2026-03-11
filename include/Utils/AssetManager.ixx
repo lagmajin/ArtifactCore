@@ -10,6 +10,8 @@ export namespace ArtifactCore {
   public:
    AssetManager();
    ~AssetManager();
+   AssetManager(const AssetManager&) = delete;
+   AssetManager& operator=(const AssetManager&) = delete;
  };
 
 };
