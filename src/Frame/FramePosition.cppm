@@ -1,176 +1,140 @@
-﻿module;
+module;
 
-
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
-#include <memory>
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <optional>
-#include <utility>
-#include <array>
-#include <mutex>
-#include <thread>
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
-#include <variant>
-#include <any>
-#include <atomic>
-#include <condition_variable>
-#include <queue>
-#include <deque>
-#include <list>
-#include <tuple>
-#include <numeric>
-#include <regex>
-#include <random>
 #include <cstdint>
 module Frame.Position;
 
+import std;
+
 namespace ArtifactCore {
 
- class FramePosition::Impl {
- private:
+class FramePosition::Impl {
+private:
+public:
+ explicit Impl(int64_t position = 0);
+ ~Impl();
+ int64_t frame = 0;
+};
 
- public:
-  explicit Impl(int64_t position=0);
-  
-  ~Impl();
-  int64_t frame = 0.0;
- };
+FramePosition::Impl::Impl(int64_t position) : frame(position)
+{
+}
 
- FramePosition::Impl::Impl(int64_t position/*=0*/)
- {
+FramePosition::Impl::~Impl()
+{
+}
 
+FramePosition::FramePosition(int framePosition) : impl_(new Impl(framePosition))
+{
+}
+
+FramePosition::FramePosition(const FramePosition& other) : impl_(new Impl(other.impl_->frame))
+{
+}
+
+FramePosition::FramePosition(FramePosition&& other) noexcept : impl_(other.impl_)
+{
+ other.impl_ = nullptr;
+}
+
+FramePosition::~FramePosition()
+{
+ delete impl_;
+}
+
+int64_t FramePosition::framePosition() const
+{
+ return impl_->frame;
+}
+
+FramePosition& FramePosition::operator=(const FramePosition& other)
+{
+ if (this != &other) {
+  impl_->frame = other.impl_->frame;
  }
-
- FramePosition::Impl::~Impl()
- {
-
- }
-
- FramePosition::FramePosition(int framePosition/*=0*/):impl_(new Impl(framePosition))
- {
-
- }
-
- FramePosition::FramePosition(const FramePosition& other) :impl_(new Impl(other.impl_->frame))
- {
-
- }
-
- FramePosition::FramePosition(FramePosition&& other) noexcept:impl_(other.impl_)
- {
-  other.impl_ = nullptr;
- }
-
- FramePosition::~FramePosition()
- {
-  delete impl_;
- }
-
- int64_t FramePosition::framePosition() const
- {
-  return impl_->frame;
- }
-
- FramePosition& FramePosition::operator=(const FramePosition& other)
- {
-  if (this != &other) {
-   impl_->frame = other.impl_->frame;
-  }
-  return *this;
- }
+ return *this;
+}
 
 FramePosition& FramePosition::operator=(FramePosition&& other) noexcept
- {
+{
  if (this != &other) {
   delete impl_;
   impl_ = other.impl_;
   other.impl_ = nullptr;
  }
  return *this;
- }
-
-FramePosition& FramePosition::operator=(int64_t frame) noexcept {
-    impl_->frame = frame;
-    return *this;
 }
 
-bool FramePosition::isValid() const {
-    // A negative frame is used as an invalid sentinel in this codebase
-    return impl_ && impl_->frame >= 0;
+FramePosition& FramePosition::operator=(int64_t frame) noexcept
+{
+ impl_->frame = frame;
+ return *this;
 }
 
-bool FramePosition::isNegative() const {
-    return impl_ && impl_->frame < 0;
+bool FramePosition::isValid() const
+{
+ return impl_ && impl_->frame >= 0;
 }
 
- FramePosition FramePosition::operator+(int64_t frames) const
- {
-  return FramePosition(impl_->frame + frames);
- }
+bool FramePosition::isNegative() const
+{
+ return impl_ && impl_->frame < 0;
+}
+
+FramePosition FramePosition::operator+(int64_t frames) const
+{
+ return FramePosition(impl_->frame + frames);
+}
 
 FramePosition FramePosition::operator-(int64_t frames) const
- {
+{
  return FramePosition(impl_->frame - frames);
- }
+}
 
- FramePosition& FramePosition::operator+=(int64_t frames)
- {
-  impl_->frame += frames;
-  return *this;
- }
+FramePosition& FramePosition::operator+=(int64_t frames)
+{
+ impl_->frame += frames;
+ return *this;
+}
 
- FramePosition& FramePosition::operator-=(int64_t frames)
- {
-  impl_->frame -= frames;
-  return *this;
- }
+FramePosition& FramePosition::operator-=(int64_t frames)
+{
+ impl_->frame -= frames;
+ return *this;
+}
 
- int64_t FramePosition::operator-(const FramePosition& other) const
- {
-  return impl_->frame - other.impl_->frame;
- }
+int64_t FramePosition::operator-(const FramePosition& other) const
+{
+ return impl_->frame - other.impl_->frame;
+}
 
- bool FramePosition::operator==(const FramePosition& other) const
- {
-  return impl_->frame == other.impl_->frame;
- }
+bool FramePosition::operator==(const FramePosition& other) const
+{
+ return impl_->frame == other.impl_->frame;
+}
 
- bool FramePosition::operator!=(const FramePosition& other) const
- {
-  return !(*this == other);
- }
+bool FramePosition::operator!=(const FramePosition& other) const
+{
+ return !(*this == other);
+}
 
- bool FramePosition::operator<(const FramePosition& other) const
- {
-  return impl_->frame < other.impl_->frame;
- }
+bool FramePosition::operator<(const FramePosition& other) const
+{
+ return impl_->frame < other.impl_->frame;
+}
 
- bool FramePosition::operator<=(const FramePosition& other) const
- {
-  return !(other < *this);
- }
+bool FramePosition::operator<=(const FramePosition& other) const
+{
+ return !(other < *this);
+}
 
- bool FramePosition::operator>(const FramePosition& other) const
- {
-  return other < *this;
- }
+bool FramePosition::operator>(const FramePosition& other) const
+{
+ return other < *this;
+}
 
- bool FramePosition::operator>=(const FramePosition& other) const
- {
-  return !(*this < other);
- }
+bool FramePosition::operator>=(const FramePosition& other) const
+{
+ return !(*this < other);
+}
 
-};
+}
