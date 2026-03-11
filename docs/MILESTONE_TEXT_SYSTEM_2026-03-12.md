@@ -12,6 +12,16 @@ After Effects レベルを目指す text 機能のための Core 側マイルス
   - UI layer が ad-hoc な `fontSize/fontFamily/color` の個別保持をやめられる
   - serialization と property panel の受け皿になる
 
+## C-TXT-1A Font Foundation
+
+- 目標:
+  font family の解決と fallback を Core 側へ寄せる。
+- 対象:
+  `FontManager`, available families, default sans/mono, fallback resolution。
+- 完了条件:
+  - UI layer が直接 `QFontDatabase` を叩かなくても family 解決できる
+  - missing font 時の fallback が統一される
+
 ## C-TXT-2 Layer Integration
 
 - 目標:
@@ -45,3 +55,4 @@ After Effects レベルを目指す text 機能のための Core 側マイルス
 - 2026-03-12:
   - Core に `Text.Style` module を追加
   - `ArtifactTextLayer` は最小の style/paragraph だけ共有する方向へ移行開始
+  - `Font.FreeFont` の空 stub を family resolution 基盤として更新

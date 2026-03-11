@@ -86,6 +86,7 @@
 - `TextStyle`
 - `ParagraphStyle`
 - alignment / tracking / leading の共通化
+- font family resolution / fallback
 
 ### C-TXT-2 Text Layer Integration
 - `ArtifactTextLayer` への style 適用
