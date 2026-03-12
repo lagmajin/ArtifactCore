@@ -1,10 +1,9 @@
-module;
+ï»¿module;
 #include <concepts>
 #include <cmath>
 #include <iostream>
 
 export module Float3;
-
 
 export namespace ArtifactCore
 {
@@ -20,27 +19,27 @@ export namespace ArtifactCore
    : x(x_), y(y_), z(z_) {
   }
 
-  // ‰ÁZ
+  // Addition
   constexpr float3 operator+(const float3& rhs) const {
    return { x + rhs.x, y + rhs.y, z + rhs.z };
   }
 
-  // ƒXƒJƒ‰[æZ
+  // Scalar multiply
   constexpr float3 operator*(T s) const {
    return { x * s, y * s, z * s };
   }
 
-  // “àÏ
+  // Dot product
   constexpr T dot(const float3& rhs) const {
    return x * rhs.x + y * rhs.y + z * rhs.z;
   }
 
-  // ‘å‚«‚³
+  // Magnitude
   T length() const {
    return std::sqrt(dot(*this));
   }
 
-  // ³‹K‰»
+  // Normalized vector
   float3 normalized() const {
    T len = length();
    if (len == 0) return { 0, 0, 0 };
@@ -48,17 +47,10 @@ export namespace ArtifactCore
   }
  };
 
- // ostream ‘Î‰
+ // ostream support
  template <Float T>
  std::ostream& operator<<(std::ostream& os, const float3<T>& v) {
   return os << '(' << v.x << ", " << v.y << ", " << v.z << ')';
  }
-
-
-
-
-
-
-
 
 };

@@ -1,4 +1,4 @@
-module;
+ï»¿module;
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 export module Graphics.CBuffer.Constants.PixelShader;
 
@@ -7,21 +7,18 @@ export namespace ArtifactCore {
 
  struct CBSolidColor
  {
-  float color[4]; // RGBA‚È‚ÇBfloat32x4‚É‘Î‰
+  float color[4]; // RGBA stored as float32x4
  };
 
- // ’è”ƒoƒbƒtƒ@—piƒIƒvƒVƒ‡ƒ“A‘S‘ÌFw’è—pj
+ // Constant buffer for fill color overrides
  struct CBFillRectColor
  {
-  float4 color;    // ‹éŒ`‚Ì‹¤’ÊF
+  float4 color;    // Shared fill color
  };
-
 
  struct SpritePixelConstants {
   float4 SolidColor; // RGBA
-  float4 ExtraParams; // [•s“§–¾“x, Ê“x, ”½“]ƒtƒ‰ƒO, —\”õ]
+  float4 ExtraParams; // [invert, opacity, grayscale flag, reserved]
  };
-
-
 
 };

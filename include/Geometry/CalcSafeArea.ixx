@@ -1,4 +1,4 @@
-module;
+ï»¿module;
 #include <QRectF>
 #include <QSizeF>
 #include <vector>
@@ -7,9 +7,9 @@ export module CalcSafeArea;
 export namespace ArtifactCore {
 
  enum class SafeFrameType {
-  Action, // ˆê”Ê“I‚É 90%
-  Title,  // ˆê”Ê“I‚É 80%
-  Custom  // ”CˆÓ‚ÌŠ„‡iSNS—p UI‰ñ”ğ‚È‚Çj
+  Action, // Standard action-safe 90%
+  Title,  // Standard title-safe 80%
+  Custom  // Arbitrary safe area, e.g. for social UI
  };
 
  struct SafeRect {
@@ -17,6 +17,5 @@ export namespace ArtifactCore {
   QRectF rect;
   float ratio;
  };
-
 
 };

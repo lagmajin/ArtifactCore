@@ -1,4 +1,7 @@
 module;
+#include <algorithm>
+#include <memory>
+#include <shared_mutex>
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
@@ -11,7 +14,6 @@ module;
 #include <QStringList>
 
 module Core.FastSettingsStore;
-import std;
 
 namespace ArtifactCore
 {
@@ -255,7 +257,8 @@ QString FastSettingsStore::valueString(const QString& key, const QString& defaul
     return;
   }
   std::unique_lock lock(impl_->mutex_);
-  if (impl_->cache_.remove(key) > 0) {
+  if (impl_->cache_.contains(key)) {
+    impl_->cache_.remove(key);
     impl_->markChangedUnlocked();
     if (impl_->batchDepth_ == 0 && impl_->pendingOps_ >= impl_->autoSyncThreshold_) {
       impl_->syncUnlocked();
