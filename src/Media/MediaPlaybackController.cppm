@@ -5,6 +5,7 @@ module;
 #include <QString>
 #include <QImage>
 #include <QByteArray>
+#include <QFileInfo>
 #include <QSize>
 #include <Qt>
 
@@ -83,43 +84,131 @@ namespace ArtifactCore {
   EndOfMediaCallback endOfMediaCallback_;
 
   QString lastError_;
-  MediaMetaData metadata_;
+	  MediaMetaData metadata_;
 
-  Impl() {
-   mediaSource_ = new MediaSource();
-   mediaReader_ = new MediaReader(mediaSource_);
+	  Impl() {
+	   mediaSource_ = new MediaSource();
+	   mediaReader_ = new MediaReader(mediaSource_);
    videoDecoder_ = new MediaImageFrameDecoder();
    audioDecoder_ = new MediaAudioDecoder();
   }
 
-  ~Impl() {
+	  ~Impl() {
    delete audioDecoder_;
    delete videoDecoder_;
    delete mediaReader_;
    delete mediaSource_;
   }
 
-  void updatePlaybackInfo() {
-   if (mediaSource_ && mediaSource_->isOpen()) {
-    AVFormatContext* ctx = mediaSource_->getFormatContext();
-    if (ctx) {
-     durationMs_ = ctx->duration / 1000;
-     
-     for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
-      if (ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-       AVRational fr = ctx->streams[i]->avg_frame_rate;
-       if (fr.den > 0) {
-        fps_ = static_cast<double>(fr.num) / fr.den;
-        if (durationMs_ > 0 && fps_ > 0) {
-         totalFrames_ = static_cast<int64_t>((durationMs_ / 1000.0) * fps_);
-        }
-       }
-       break;
-      }
-     }
-    }
-   }
-  }
+	  void updatePlaybackInfo() {
+	   if (!mediaSource_ || !mediaSource_->isOpen()) {
+	    return;
+	   }
+	   AVFormatContext* ctx = mediaSource_->getFormatContext();
+	   if (!ctx) {
+	    return;
+	   }
+
+	   durationMs_ = ctx->duration / 1000;
+	   fps_ = 0.0;
+	   totalFrames_ = 0;
+	   for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
+	    if (ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+	     AVRational fr = ctx->streams[i]->avg_frame_rate;
+	     if (fr.den > 0) {
+	      fps_ = static_cast<double>(fr.num) / fr.den;
+	      if (durationMs_ > 0 && fps_ > 0) {
+	       totalFrames_ = static_cast<int64_t>((durationMs_ / 1000.0) * fps_);
+	      }
+	     }
+	     break;
+	    }
+	   }
+	  }
+
+	  void rebuildReader() {
+	   if (mediaReader_) {
+	    mediaReader_->stop();
+	    delete mediaReader_;
+	   }
+	   mediaReader_ = new MediaReader(mediaSource_);
+	  }
+
+	  void resetMetadata(const QString& url) {
+	   metadata_ = MediaMetaData();
+	   metadata_.filePath = url;
+	   QFileInfo fileInfo(url);
+	   metadata_.fileName = fileInfo.fileName();
+	   metadata_.fileExtension = fileInfo.suffix();
+	   if (fileInfo.exists()) {
+	    metadata_.fileSize = fileInfo.size();
+	   }
+
+	   if (!mediaSource_ || !mediaSource_->isOpen()) {
+	    return;
+	   }
+
+	   AVFormatContext* ctx = mediaSource_->getFormatContext();
+	   if (!ctx) {
+	    return;
+	   }
+
+	   metadata_.duration = ctx->duration > 0 ? static_cast<double>(ctx->duration) / AV_TIME_BASE : 0.0;
+	   metadata_.bitrate = ctx->bit_rate;
+	   if (ctx->iformat) {
+	    metadata_.formatName = QString::fromUtf8(ctx->iformat->name);
+	    metadata_.formatLongName = QString::fromUtf8(ctx->iformat->long_name ? ctx->iformat->long_name : "");
+	   }
+
+	   metadata_.streams.clear();
+	   metadata_.streams.reserve(ctx->nb_streams);
+	   for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
+	    const AVStream* stream = ctx->streams[i];
+	    const AVCodecParameters* params = stream->codecpar;
+	    StreamInfo streamInfo;
+	    streamInfo.index = static_cast<int>(i);
+	    streamInfo.duration = stream->duration > 0
+	     ? stream->duration * av_q2d(stream->time_base)
+	     : metadata_.duration;
+	    streamInfo.bitrate = params->bit_rate;
+
+	    switch (params->codec_type) {
+	     case AVMEDIA_TYPE_VIDEO:
+	      streamInfo.type = MediaType::Video;
+	      streamInfo.resolution = QSize(params->width, params->height);
+	      if (stream->avg_frame_rate.den > 0) {
+	       streamInfo.frameRate = av_q2d(stream->avg_frame_rate);
+	      }
+	      streamInfo.frameCount = stream->nb_frames;
+	      if (params->codec_id != AV_CODEC_ID_NONE) {
+	       const AVCodecDescriptor* desc = avcodec_descriptor_get(params->codec_id);
+	       if (desc) {
+	        streamInfo.videoCodec.codecName = QString::fromUtf8(desc->name);
+	        streamInfo.videoCodec.codecLongName = QString::fromUtf8(desc->long_name ? desc->long_name : "");
+	       }
+	      }
+	      break;
+	     case AVMEDIA_TYPE_AUDIO:
+	      streamInfo.type = MediaType::Audio;
+	      streamInfo.audioCodec.sampleRate = params->sample_rate;
+	      streamInfo.audioCodec.channels = params->ch_layout.nb_channels;
+	      streamInfo.audioCodec.bitrate = params->bit_rate;
+	      if (params->codec_id != AV_CODEC_ID_NONE) {
+	       const AVCodecDescriptor* desc = avcodec_descriptor_get(params->codec_id);
+	       if (desc) {
+	        streamInfo.audioCodec.codecName = QString::fromUtf8(desc->name);
+	        streamInfo.audioCodec.codecLongName = QString::fromUtf8(desc->long_name ? desc->long_name : "");
+	       }
+	      }
+	      break;
+	     default:
+	      streamInfo.type = MediaType::Unknown;
+	      break;
+	    }
+
+	    metadata_.streams.push_back(std::move(streamInfo));
+	   }
+	  }
 
   void notifyStateChanged(PlaybackState newState) {
    state_ = newState;
@@ -181,7 +270,7 @@ namespace ArtifactCore {
   return *this;
  }
 
- bool MediaPlaybackController::openMedia(const QString& url) {
+	 bool MediaPlaybackController::openMedia(const QString& url) {
   if (!impl_) return false;
 
   if (!impl_->mediaSource_->open(url)) {
@@ -189,13 +278,16 @@ namespace ArtifactCore {
    return false;
   }
 
-  AVFormatContext* ctx = impl_->mediaSource_->getFormatContext();
+	  AVFormatContext* ctx = impl_->mediaSource_->getFormatContext();
   if (!ctx) {
    impl_->notifyError("Invalid format context");
    return false;
   }
 
-  for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
+	  impl_->rebuildReader();
+	  impl_->resetMetadata(url);
+
+	  for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
    AVCodecParameters* params = ctx->streams[i]->codecpar;
    if (params->codec_type == AVMEDIA_TYPE_VIDEO) {
     if (!impl_->videoDecoder_->initialize(params)) {
@@ -217,11 +309,13 @@ namespace ArtifactCore {
   return openMedia(filePath);
  }
 
- void MediaPlaybackController::closeMedia() {
-  if (!impl_) return;
-  stop();
-  impl_->mediaSource_->close();
-  impl_->currentPositionMs_ = 0;
+	 void MediaPlaybackController::closeMedia() {
+	  if (!impl_) return;
+	  stop();
+	  impl_->mediaSource_->close();
+	  impl_->rebuildReader();
+	  impl_->metadata_ = MediaMetaData();
+	  impl_->currentPositionMs_ = 0;
   impl_->durationMs_ = 0;
   impl_->currentFrame_ = 0;
   impl_->totalFrames_ = 0;
@@ -265,14 +359,21 @@ namespace ArtifactCore {
   }
  }
 
- void MediaPlaybackController::seek(int64_t timestampMs, SeekMode mode) {
-  if (!impl_ || !impl_->mediaSource_) return;
-  
-  impl_->mediaSource_->seek(timestampMs);
-  impl_->videoDecoder_->flush();
-  impl_->audioDecoder_->flush();
-  impl_->notifyPositionChanged(timestampMs);
- }
+	 void MediaPlaybackController::seek(int64_t timestampMs, SeekMode mode) {
+	  if (!impl_ || !impl_->mediaSource_) return;
+	  const bool wasPlaying = impl_->state_ == PlaybackState::Playing;
+	  if (impl_->mediaReader_) {
+	   impl_->mediaReader_->stop();
+	  }
+	  impl_->mediaSource_->seek(timestampMs);
+	  impl_->rebuildReader();
+	  impl_->videoDecoder_->flush();
+	  impl_->audioDecoder_->flush();
+	  impl_->notifyPositionChanged(timestampMs);
+	  if (wasPlaying && impl_->mediaReader_) {
+	   impl_->mediaReader_->start();
+	  }
+	 }
 
  void MediaPlaybackController::seekToSeconds(double seconds, SeekMode mode) {
   seek(static_cast<int64_t>(seconds * 1000.0), mode);
@@ -356,14 +457,21 @@ namespace ArtifactCore {
   impl_->isMuted_ = !impl_->isMuted_;
  }
 
- QImage MediaPlaybackController::getNextVideoFrame() {
+	 QImage MediaPlaybackController::getNextVideoFrame() {
   if (!impl_ || !impl_->mediaReader_ || !impl_->videoDecoder_) {
    return QImage();
   }
 
-  AVPacket* pkt = impl_->mediaReader_->getNextPacket(StreamType::Video);
-  if (!pkt) {
-   impl_->notifyEndOfMedia();
+	  impl_->mediaReader_->start();
+	  AVPacket* pkt = nullptr;
+	  for (int attempt = 0; attempt < 100 && !pkt; ++attempt) {
+	   pkt = impl_->mediaReader_->getNextPacket(StreamType::Video);
+	   if (!pkt) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	   }
+	  }
+	  if (!pkt) {
+	   impl_->notifyEndOfMedia();
    return QImage();
   }
 
@@ -397,13 +505,20 @@ namespace ArtifactCore {
   return getNextVideoFrame();
  }
 
- QByteArray MediaPlaybackController::getNextAudioFrame() {
+	 QByteArray MediaPlaybackController::getNextAudioFrame() {
   if (!impl_ || !impl_->mediaReader_ || !impl_->audioDecoder_) {
    return QByteArray();
   }
 
-  AVPacket* pkt = impl_->mediaReader_->getNextPacket(StreamType::Audio);
-  if (!pkt) return QByteArray();
+	  impl_->mediaReader_->start();
+	  AVPacket* pkt = nullptr;
+	  for (int attempt = 0; attempt < 100 && !pkt; ++attempt) {
+	   pkt = impl_->mediaReader_->getNextPacket(StreamType::Audio);
+	   if (!pkt) {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	   }
+	  }
+	  if (!pkt) return QByteArray();
 
   QByteArray audio = impl_->audioDecoder_->decodeFrame(pkt);
   av_packet_free(&pkt);

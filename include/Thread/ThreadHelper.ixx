@@ -1,14 +1,11 @@
 ﻿module;
-#include <vector>
-#include <thread>
-#include <future>
-#include <functional>
 
 #include <QString>
 
 #include "../Define/DllExportMacro.hpp"
 
 export module Thread.Helper;
+import std;
 
 export namespace ArtifactCore
 {
