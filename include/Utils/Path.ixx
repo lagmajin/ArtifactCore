@@ -40,6 +40,21 @@ export namespace ArtifactCore
   return dir.filePath(fileName);
  }
 
+ inline QString getIconResourceRoot()
+ {
+  return QStringLiteral(":/icons");
+ }
+
+ inline QString resolveIconResourcePath(const QString& fileName)
+ {
+  QString normalized = fileName;
+  normalized.replace('\\', '/');
+  while (normalized.startsWith('/')) {
+   normalized.remove(0, 1);
+  }
+  return getIconResourceRoot() + "/" + normalized;
+ }
+
  class Path {
  private:
   class Impl;
