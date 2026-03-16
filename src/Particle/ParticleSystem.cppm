@@ -6,6 +6,8 @@ module;
 #include <vector>
 #include <random>
 
+#include <QList>
+
 module Particle.System;
 
 import Particle;
@@ -187,7 +189,7 @@ float3 ParticleEmitter::randomDirection() const {
     return dir;
 }
 
-void ParticleEmitter::emit(ParticlePool<>& pool, size_t count) {
+void ParticleEmitter::_emit(ParticlePool<>& pool, size_t count) {
     for (size_t i = 0; i < count; ++i) {
         size_t idx = pool.spawn();
         initParticle(pool[idx]);

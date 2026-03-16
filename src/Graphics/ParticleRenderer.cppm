@@ -9,6 +9,8 @@ module;
 
 module Graphics.ParticleRenderer;
 
+import std;
+
 namespace ArtifactCore {
 
 const char* ParticleVSSource = R"(

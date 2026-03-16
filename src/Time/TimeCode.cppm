@@ -3,7 +3,7 @@ module;
 #include <QStringList>
 module Time.Code;
 
-import std;
+//import std;
 import Time.Rational;
 
 namespace ArtifactCore {

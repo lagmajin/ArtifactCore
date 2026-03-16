@@ -1,7 +1,7 @@
 module;
 
 #include <compare>
-
+#include <QList>
 module Time.TimeRemap;
 
 import std;

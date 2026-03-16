@@ -52,15 +52,32 @@ namespace ArtifactCore {
   impl_->posY_.setCurrent(y);
  }
 
- void AnimatableTransform2D::setScale(float sx, float sy)
- {
-  impl_->scaleX_.setCurrent(sx);
-  impl_->scaleY_.setCurrent(sy);
- }
+   void AnimatableTransform2D::setScale(float sx, float sy)
+   {
+    impl_->scaleX_.setCurrent(sx);
+    impl_->scaleY_.setCurrent(sy);
+   }
 
- size_t AnimatableTransform2D::size() const
- {
-  return static_cast<size_t>(Element::Count);
- }
+   void AnimatableTransform2D::position(float& x, float& y) const
+   {
+    x = impl_->posX_.current();
+    y = impl_->posY_.current();
+   }
 
-};
+   float AnimatableTransform2D::rotation() const
+   {
+    return impl_->rotation_.current();
+   }
+
+   void AnimatableTransform2D::scale(float& sx, float& sy) const
+   {
+    sx = impl_->scaleX_.current();
+    sy = impl_->scaleY_.current();
+   }
+
+   size_t AnimatableTransform2D::size() const
+   {
+    return static_cast<size_t>(Element::Count);
+   }
+
+ };

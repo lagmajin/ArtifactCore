@@ -1,5 +1,5 @@
 module;
-
+#include <QList>
 module Audio.Panner;
 
 import Audio.Segment;

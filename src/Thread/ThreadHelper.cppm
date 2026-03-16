@@ -1,7 +1,7 @@
 ﻿module;
 
 #include <QString>
-
+#include "../../include/Define/DllExportMacro.hpp"
 #if defined(_WIN32)
 #include <windows.h>
 #elif defined(__APPLE__) || defined(__MACH__)
@@ -9,15 +9,16 @@
 #elif defined(__linux__)
 #include <pthread.h>
 #endif
-#include "../../include/Define/DllExportMacro.hpp"
+
 
 
 module Thread.Helper;
 
+
 namespace ArtifactCore
 {
 
- LIBRARY_DLL_API void setCurrentThreadName(const QString& name)
+void setCurrentThreadName(const QString& name)
  {
 #if defined(_WIN32)
   // Windows: SetThreadDescription は wchar_t* 必須

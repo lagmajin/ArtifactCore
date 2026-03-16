@@ -2,7 +2,7 @@ module;
 #include <QList>
 module Frame.Rate;
 
-import std;
+//import std;
 
 namespace ArtifactCore {
 

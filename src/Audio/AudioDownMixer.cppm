@@ -1,7 +1,7 @@
 module;
 #include <algorithm>
 #include <vector>
-
+#include <QList>
 module Audio.DownMixer;
 
 import Audio.Segment;

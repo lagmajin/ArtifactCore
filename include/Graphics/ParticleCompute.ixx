@@ -9,6 +9,7 @@ module;
 
 export module Graphics.ParticleCompute;
 
+import std;
 import Particle;
 import Graphics.GPUcomputeContext;
 

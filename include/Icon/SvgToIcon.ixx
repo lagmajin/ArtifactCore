@@ -13,7 +13,7 @@ export namespace ArtifactCore
  {
   QSvgRenderer renderer(svgPath);
   QPixmap pixmap(size);
-  pixmap.fill(Qt::transparent);  // ”wŒi‚ð“§–¾‚É
+  pixmap.fill(Qt::transparent);  // ï¿½wï¿½iï¿½ð“§–ï¿½ï¿½ï¿½
 
   QPainter painter(&pixmap);
   renderer.render(&painter);

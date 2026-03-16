@@ -1,16 +1,18 @@
 module;
 
-#include <cmath>
+//#include <cmath>
 #include <QString>
 
 module Audio.Volume;
 
 import std;
+
 import Utils.String.UniString;
 import Audio.Decibels;
 
 namespace ArtifactCore
 {
+
 class AudioVolume::Impl
 {
 public:

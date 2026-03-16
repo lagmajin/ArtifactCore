@@ -38,6 +38,7 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QList>
 module Audio.Analyze;
 
 

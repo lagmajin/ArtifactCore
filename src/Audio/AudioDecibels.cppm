@@ -1,12 +1,12 @@
 module;
 
 #include <QString>
-#include <cmath>
+
 #include <format>
 
 module Audio.Decibels;
 
-import std;
+//import std;
 import Utils.String.UniString;
 
 namespace ArtifactCore

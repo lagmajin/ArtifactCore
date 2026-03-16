@@ -62,6 +62,12 @@ export namespace ArtifactCore {
   void setPosition(float x, float y);
   void setRotation(float degrees);
   void setScale(float sx, float sy);
+
+  // Getters
+  void position(float& x, float& y) const;
+  float rotation() const;
+  void scale(float& sx, float& sy) const;
+
   size_t size() const;
  };
 

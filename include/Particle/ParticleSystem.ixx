@@ -541,7 +541,7 @@ public:
     ParticleEmitter();
     virtual ~ParticleEmitter() = default;
 
-    void emit(ParticlePool<>& pool, size_t count);
+    void _emit(ParticlePool<>& pool, size_t count);
     void update(double dt, ParticlePool<>& pool);
 
     void setConfig(const EmissionConfig& config) { config_ = config; }

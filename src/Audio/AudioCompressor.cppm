@@ -2,6 +2,7 @@ module;
 #include <cmath>
 #include <algorithm>
 #include <vector>
+#include <QList>
 
 module Audio.Effect.Compressor;
 

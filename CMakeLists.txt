@@ -93,11 +93,19 @@ add_library(ArtifactCore STATIC)
 set_target_properties(ArtifactCore PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
     CXX_MODULE_STD ON
 )
 
+# MSVC specific C++23 modules settings
 if(ARTIFACT_FRONTEND_MSVC)
     target_compile_options(ArtifactCore PRIVATE /WX-)
+    # Enable C++23 standard (latest)
+    target_compile_options(ArtifactCore PRIVATE /std:c++latest)
+    # Enable modules support
+    target_compile_options(ArtifactCore PRIVATE /experimental:module)
+    # Enable full C++23 library support
+    target_compile_options(ArtifactCore PRIVATE /Zc:__cplusplus /permissive-)
 endif()
 
 target_sources(ArtifactCore
@@ -155,9 +163,6 @@ target_link_libraries(ArtifactCore PUBLIC glm::glm)
 
 find_package(Stb REQUIRED)
 target_include_directories(ArtifactCore PUBLIC ${Stb_INCLUDE_DIR})
-
-find_package(assimp REQUIRED)
-target_link_libraries(ArtifactCore PUBLIC assimp::assimp)
 
 find_package(EnTT CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC EnTT::EnTT)

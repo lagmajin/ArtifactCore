@@ -8,12 +8,12 @@ import Utils.String.UniString;
 
 export namespace ArtifactCore {
 
-// ƒ}ƒeƒŠƒAƒ‹ƒ^ƒCƒv
+// ï¿½}ï¿½eï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½^ï¿½Cï¿½v
 export enum class MaterialType {
     Standard,
     PBR,
     Unlit,
-    MaterialX  // «—ˆ‚ÌMaterialXƒm[ƒhƒOƒ‰ƒt—p
+    MaterialX  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½MaterialXï¿½mï¿½[ï¿½hï¿½Oï¿½ï¿½ï¿½tï¿½p
 };
 
 export class Material {
@@ -28,7 +28,7 @@ public:
     Material& operator=(const Material& other);
     Material& operator=(Material&& other) noexcept;
 
-    // Šî–{ƒvƒƒpƒeƒB
+    // ï¿½ï¿½{ï¿½vï¿½ï¿½ï¿½pï¿½eï¿½B
     void setName(const UniString& name);
     UniString name() const;
     void setType(MaterialType type);
@@ -39,7 +39,7 @@ public:
     UniString baseColorTexture() const;
     // ... metallic, roughness, normal, emission, etc.
 
-    // MaterialXŠg’£—p
+    // MaterialXï¿½gï¿½ï¿½ï¿½p
     void setMaterialXDocument(const UniString& xml);
     UniString materialXDocument() const;
 };
