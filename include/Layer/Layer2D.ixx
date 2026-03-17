@@ -70,13 +70,25 @@ export namespace ArtifactCore {
 
  class Layer2D {
  private:
-  struct Impl;                
+  struct Impl;
   std::unique_ptr<Impl> impl_;
  public:
   Layer2D();
   ~Layer2D();
+  
+  // Transform2D 関連
   StaticTransform2D transform2D() const;
   ImageF32x4_RGBA transformedLayer();
+  
+  // Opacity 関連
+  float opacity() const;
+  void setOpacity(float value);
+  
+  // Blend/Matte 関連
+  BlendMode blendMode() const;
+  void setBlendMode(BlendMode mode);
+  MatteMode matteMode() const;
+  void setMatteMode(MatteMode mode);
  };
 
 
