@@ -57,7 +57,8 @@ enum class PropertyType {
     Integer,
     Boolean,
     Color,
-    String
+    String,
+    ObjectReference  // ID 参照
 };
 
 struct KeyFrame {
@@ -74,6 +75,10 @@ struct PropertyMetadata {
     QVariant softMin;
     QVariant softMax;
     QVariant step;
+    
+    // 参照タイプ用
+    QString referenceTypeName;  // 参照可能タイプ名（例："LayerID", "CompositionID"）
+    bool allowNull = true;      // null 許可
 };
 
 class LIBRARY_DLL_API AbstractProperty {
