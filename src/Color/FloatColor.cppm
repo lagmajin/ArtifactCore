@@ -237,7 +237,10 @@ static bool approximatelyEqual(float a, float b, float epsilon = 1e-5f) {
  return std::fabs(a - b) < epsilon;
 }
 
+} // namespace ArtifactCore
 
 
-};
+
+//W_REGISTER_ARGTYPE(ArtifactCore::FloatColor)
+
 

@@ -1,6 +1,6 @@
 module;
 #include <QString>
-
+#include <wobjectdefs.h>
 #include "../Define/DllExportMacro.hpp"
 
 export module Utils.String.UniString;
@@ -52,3 +52,5 @@ export namespace ArtifactCore {
 
 
 };
+
+W_REGISTER_ARGTYPE(ArtifactCore::UniString)

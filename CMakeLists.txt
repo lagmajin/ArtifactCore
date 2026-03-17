@@ -20,7 +20,7 @@ set(_PROVIDED_MODULES "")
 
 foreach(file_path ${POTENTIAL_SOURCES})
     # 除外チェック
-    if(file_path MATCHES "stashed_broken_modules" OR 
+    if(file_path MATCHES "stashed_broken_modules" OR
        file_path MATCHES "disabled_modules" OR
        file_path MATCHES "/Halide/" OR
        file_path MATCHES "hostfxr" OR
@@ -34,6 +34,10 @@ foreach(file_path ${POTENTIAL_SOURCES})
        file_path MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
        file_path MATCHES "include/Asset/AsseetImporter\\.ixx" OR
+       file_path MATCHES "include/Video/FFMpegEncoder\\.ixx" OR
+       file_path MATCHES "src/Image/FFmpegEncoder\\.cppm" OR
+       file_path MATCHES "src/Image/FFmpegEncoder\\.Helpers\\.cppm" OR
+       file_path MATCHES "src/Image/FFmpegEncoder\\.Test\\.cppm" OR
        file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
         continue()
     endif()
@@ -146,9 +150,10 @@ target_link_libraries(ArtifactCore PUBLIC SDL2::SDL2)
 find_package(Boost REQUIRED COMPONENTS system iostreams)
 target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system Boost::iostreams)
 
-# Vulkan
+# Vulkan (headers only — volk handles dynamic loading; linking vulkan-1.lib
+# would shadow volk's writable global symbols with read-only import thunks)
 find_package(Vulkan REQUIRED)
-target_link_libraries(ArtifactCore PUBLIC Vulkan::Vulkan)
+target_link_libraries(ArtifactCore PUBLIC Vulkan::Headers)
 
 # TBB
 find_package(TBB REQUIRED)

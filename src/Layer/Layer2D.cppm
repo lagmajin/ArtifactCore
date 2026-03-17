@@ -3,7 +3,7 @@ module;
 module Layer2D;
 
 import Image;
-import Layer2D.Setting;
+import Layer2D;
 import Layer.Blend;
 import Layer.Matte;
 import std;

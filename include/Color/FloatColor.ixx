@@ -34,6 +34,8 @@
 #include <numeric>
 #include <regex>
 #include <random>
+
+#include <wobjectimpl.h>
 export module Color.Float;
 
 
@@ -105,3 +107,5 @@ export namespace ArtifactCore {
 
 
 };
+
+W_REGISTER_ARGTYPE(ArtifactCore::FloatColor)
