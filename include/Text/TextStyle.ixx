@@ -31,6 +31,18 @@ export struct TextStyle {
  bool italic = false;
  bool allCaps = false;
  FloatRGBA fillColor = FloatRGBA(1.0f, 1.0f, 1.0f, 1.0f);
+
+ // Stroke
+ bool strokeEnabled = false;
+ FloatRGBA strokeColor = FloatRGBA(0.0f, 0.0f, 0.0f, 1.0f);
+ float strokeWidth = 2.0f;
+
+ // Shadow
+ bool shadowEnabled = false;
+ FloatRGBA shadowColor = FloatRGBA(0.0f, 0.0f, 0.0f, 0.5f);
+ float shadowOffsetX = 4.0f;
+ float shadowOffsetY = 4.0f;
+ float shadowBlur = 4.0f;
 };
 
 export struct ParagraphStyle {
