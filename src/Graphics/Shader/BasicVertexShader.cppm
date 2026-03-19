@@ -126,8 +126,8 @@ PSInput main(VSInput input)
 {
     PSInput output;
 
-    // input.pos はピクセル単位
-    float2 pos = input.pos + offset;       // 矩形左上 + ピクセル座標
+    // Composition -> View: viewPos = input.pos * scale + offset
+    float2 pos = input.pos * scale + offset;
     float2 ndc = pos / screenSize * 2.0f - float2(1.0f, 1.0f);
     ndc.y = -ndc.y; // Y軸反転
 
