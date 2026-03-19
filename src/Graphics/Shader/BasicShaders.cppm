@@ -14,6 +14,7 @@ struct PS_INPUT
 {
     float4 Position : SV_POSITION;
     float2 TexCoord : TEXCOORD0;
+    float4 Color    : COLOR0;
 };
 
 Texture2D g_texture : register(t0);
@@ -21,8 +22,8 @@ SamplerState g_sampler : register(s0);
 
 float4 main(PS_INPUT input) : SV_TARGET
 {
-    float4 color = g_texture.Sample(g_sampler, input.TexCoord);
-    return color;
+    float4 sampled = g_texture.Sample(g_sampler, input.TexCoord);
+    return sampled * input.Color;
 }
 )";
 

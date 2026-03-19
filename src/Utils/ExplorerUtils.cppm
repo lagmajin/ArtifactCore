@@ -30,7 +30,7 @@ void openInExplorer(const UniString& path, bool select) {
     }
     QProcess::startDetached("open", args);
 #else // Linux/Unix
-    // xdg-openはファイル選択未対応
+    // xdg-open does not support file selection, open parent directory instead.
     QString target = info.isDir() ? qpath : info.absolutePath();
     QProcess::startDetached("xdg-open", QStringList() << target);
 #endif

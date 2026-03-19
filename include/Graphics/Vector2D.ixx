@@ -7,8 +7,7 @@ export namespace ArtifactCore
  {
   float x;
   float y;
-  // 何も初期化しない。コンストラクタも定義しない。
-  // = 完全 POD, trivially copyable, 最速。
+  // Keep as plain POD for ABI-stable trivial copy/move.
  };
 
 };
