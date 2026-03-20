@@ -97,7 +97,7 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
 }
 )";
 
-ParticleCompute::ParticleCompute(GpuContext& context) : context_(context) {}
+ParticleCompute::ParticleCompute(GpuContext& context) : context_(context), executor_(context) {}
 ParticleCompute::~ParticleCompute() = default;
 
 void ParticleCompute::initialize(size_t maxParticles) {
@@ -139,32 +139,25 @@ void ParticleCompute::createBuffers() {
 }
 
 void ParticleCompute::createPSO() {
-    auto pDevice = context_.D3D12RenderDevice();
-    
-    ComputePipelineStateCreateInfo PSOCreateInfo;
-    PSOCreateInfo.PSODesc.Name = "Particle Compute PSO";
-    PSOCreateInfo.PSODesc.PipelineType = PIPELINE_TYPE_COMPUTE;
-
-    // Compile Compute Shader
-    auto cs = context_.CompileShader(ParticleUpdateCSSource, SHADER_TYPE_COMPUTE, "CSMain");
-    PSOCreateInfo.pCS = cs;
-
-    // Resource Layout (UAV と Constants)
-    PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
-    
     static ShaderResourceVariableDesc Vars[] = {
         {SHADER_TYPE_COMPUTE, "g_ParticleBuffer", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_AudioSpectrum", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
-    PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = 2;
 
-    pDevice->CreateComputePipelineState(PSOCreateInfo, &pUpdatePSO_);
+    ComputePipelineDesc desc;
+    desc.name = "Particle Compute PSO";
+    desc.shaderSource = ParticleUpdateCSSource;
+    desc.entryPoint = "CSMain";
+    desc.variables = Vars;
+    desc.variableCount = 2;
+    desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
-    // Bind Constants (Static)
-    pUpdatePSO_->GetStaticVariableByName(SHADER_TYPE_COMPUTE, "Constants")->Set(pConstantBuffer_);
-    
-    pUpdatePSO_->CreateShaderResourceBinding(&pUpdateSRB_, true);
+    if (!executor_.build(desc)) {
+        return;
+    }
+
+    executor_.setBuffer("Constants", pConstantBuffer_);
+    executor_.createShaderResourceBinding(true);
 }
 
 void ParticleCompute::dispatch(IDeviceContext* pContext, float dt) {
@@ -182,16 +175,12 @@ void ParticleCompute::dispatch(IDeviceContext* pContext, float dt) {
     }
 
     // 2. UAV & SRV セット
-    pUpdateSRB_->GetVariableByName(SHADER_TYPE_COMPUTE, "g_ParticleBuffer")->Set(pParticleBuffer_->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
-    pUpdateSRB_->GetVariableByName(SHADER_TYPE_COMPUTE, "g_AudioSpectrum")->Set(pAudioSpectrumBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
-
-    // 3. Dispatch
-    pContext->SetPipelineState(pUpdatePSO_);
-    pContext->CommitShaderResources(pUpdateSRB_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    executor_.setBufferView("g_ParticleBuffer", pParticleBuffer_->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
+    executor_.setBufferView("g_AudioSpectrum", pAudioSpectrumBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
     
     DispatchComputeAttribs Attribs;
     Attribs.ThreadGroupCountX = ((uint32_t)maxParticles_ + 63) / 64;
-    pContext->DispatchCompute(Attribs);
+    executor_.dispatch(pContext, Attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void ParticleCompute::uploadParticles(const std::vector<Particle>& particles, size_t count) {

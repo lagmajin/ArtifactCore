@@ -141,6 +141,39 @@ export namespace ArtifactCore
             background-color: %3;
         }
 
+        QMenuBar {
+            background-color: %2;
+            color: %1;
+        }
+        QMenuBar::item {
+            padding: 4px 10px;
+            background: transparent;
+        }
+        QMenuBar::item:selected {
+            background-color: %8;
+        }
+        QMenu {
+            background-color: %3;
+            color: %1;
+            border: 1px solid %6;
+            padding: 4px;
+        }
+        QMenu::item {
+            padding: 6px 28px 6px 28px;
+            background-color: transparent;
+        }
+        QMenu::item:selected {
+            background-color: %8;
+        }
+        QMenu::item:disabled {
+            color: rgba(170, 170, 170, 100);
+            background-color: %3;
+        }
+        QMenu::item:disabled:selected {
+            color: rgba(255, 255, 255, 170);
+            background-color: %6;
+        }
+
         QSlider::groove:horizontal {
             border: 1px solid %6;
             height: 4px;

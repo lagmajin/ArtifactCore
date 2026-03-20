@@ -1,5 +1,8 @@
 ﻿module;
 #include <opencv2/opencv.hpp>
+#include <algorithm>
+#include <cmath>
+#include <iostream>
 #include <random>
 #include "../../../include/Define/DllExportMacro.hpp"
 
@@ -9,6 +12,99 @@ module Glow;
 import Image;
 
 namespace ArtifactCore {
+
+ namespace
+ {
+  cv::Mat toBgr8U(const cv::Mat& src)
+  {
+   if (src.empty()) {
+    return cv::Mat();
+   }
+
+   cv::Mat u8;
+   switch (src.depth()) {
+   case CV_8U:
+    u8 = src;
+    break;
+   case CV_16U:
+    src.convertTo(u8, CV_8U, 255.0 / 65535.0);
+    break;
+   case CV_32F:
+   case CV_64F:
+    src.convertTo(u8, CV_8U, 255.0);
+    break;
+   default:
+    src.convertTo(u8, CV_8U);
+    break;
+   }
+
+   cv::Mat bgr;
+   switch (u8.channels()) {
+   case 1:
+    cv::cvtColor(u8, bgr, cv::COLOR_GRAY2BGR);
+    break;
+   case 3:
+    bgr = u8;
+    break;
+   case 4:
+    cv::cvtColor(u8, bgr, cv::COLOR_BGRA2BGR);
+    break;
+   default:
+    bgr = u8;
+    if (bgr.channels() == 4) {
+     cv::cvtColor(bgr, bgr, cv::COLOR_BGRA2BGR);
+    } else if (bgr.channels() == 1) {
+     cv::cvtColor(bgr, bgr, cv::COLOR_GRAY2BGR);
+    }
+    break;
+   }
+
+   return bgr;
+  }
+
+  cv::Mat toMaskGray32F(const cv::Mat& mask)
+  {
+   if (mask.empty()) {
+    return cv::Mat();
+   }
+
+   cv::Mat u8;
+   switch (mask.depth()) {
+   case CV_8U:
+    u8 = mask;
+    break;
+   case CV_16U:
+    mask.convertTo(u8, CV_8U, 255.0 / 65535.0);
+    break;
+   case CV_32F:
+   case CV_64F:
+    mask.convertTo(u8, CV_8U, 255.0);
+    break;
+   default:
+    mask.convertTo(u8, CV_8U);
+    break;
+   }
+
+   cv::Mat gray;
+   switch (u8.channels()) {
+   case 1:
+    gray = u8;
+    break;
+   case 3:
+    cv::cvtColor(u8, gray, cv::COLOR_BGR2GRAY);
+    break;
+   case 4:
+    cv::cvtColor(u8, gray, cv::COLOR_BGRA2GRAY);
+    break;
+   default:
+    cv::cvtColor(u8, gray, cv::COLOR_BGR2GRAY);
+    break;
+   }
+
+   gray.convertTo(gray, CV_32FC1, 1.0 / 255.0);
+   return gray;
+  }
+ } // namespace
 
  LIBRARY_DLL_API void applySimpleGlow(
   const cv::Mat& src,
@@ -26,70 +122,73 @@ namespace ArtifactCore {
  ) {
   if (src.empty()) return;
 
-  CV_Assert(src.type() == CV_8UC3 || src.type() == CV_8UC4);
-
-  cv::Mat glowAccum = cv::Mat::zeros(src.size(), CV_32FC3);
-  cv::Mat srcFloat;
-  src.convertTo(srcFloat, CV_32FC3, linearSpace ? 1.0 / 255.0 : 1.0);
-
-  // マスク処理
-  cv::Mat maskGray;
-  if (!mask.empty()) {
-   if (mask.channels() == 1)
-	maskGray = mask;
-   else
-	cv::cvtColor(mask, maskGray, cv::COLOR_BGR2GRAY);
-   maskGray.convertTo(maskGray, CV_32FC1, 1.0 / 255.0);
-  }
-
-  for (int i = 0; i < layerCount; ++i) {
-   float sigma =(float) baseSigma * std::pow(sigmaGrowth, i);
-   float alpha = baseAlpha * std::pow(alphaFalloff, i);
-
-   cv::Mat blurred;
-   cv::GaussianBlur(srcFloat, blurred, cv::Size(), sigma, sigma);
-
-   // 色調補正（glowColor）
-   cv::Mat colored = blurred.clone();
-   for (int y = 0; y < colored.rows; ++y) {
-	cv::Vec3f* row = colored.ptr<cv::Vec3f>(y);
-	for (int x = 0; x < colored.cols; ++x) {
-	 row[x][0] *= glowColor[0] / 255.0f;
-	 row[x][1] *= glowColor[1] / 255.0f;
-	 row[x][2] *= glowColor[2] / 255.0f;
-	}
+  try {
+   const cv::Mat baseBgr = toBgr8U(src);
+   if (baseBgr.empty()) {
+    dst = src.clone();
+    return;
    }
 
-   // マスク適用
-   if (!maskGray.empty()) {
-	for (int y = 0; y < colored.rows; ++y) {
-	 cv::Vec3f* row = colored.ptr<cv::Vec3f>(y);
-	 const float* mrow = maskGray.ptr<float>(y);
-	 for (int x = 0; x < colored.cols; ++x) {
-	  row[x] *= mrow[x];
-	 }
-	}
+   const cv::Mat maskGray = toMaskGray32F(mask);
+
+   cv::Mat glowAccum = cv::Mat::zeros(baseBgr.size(), CV_32FC3);
+   cv::Mat srcFloat;
+   baseBgr.convertTo(srcFloat, CV_32FC3, linearSpace ? 1.0 / 255.0 : 1.0);
+
+   const int safeLayerCount = std::max(1, layerCount);
+   const float safeBaseSigma = std::max(0.01f, baseSigma);
+   const float safeSigmaGrowth = std::max(0.01f, sigmaGrowth);
+   const float safeBaseAlpha = std::clamp(baseAlpha, 0.0f, 1.0f);
+   const float safeAlphaFalloff = std::clamp(alphaFalloff, 0.0f, 1.0f);
+
+   for (int i = 0; i < safeLayerCount; ++i) {
+    float sigma = safeBaseSigma * std::pow(safeSigmaGrowth, i);
+    float alpha = safeBaseAlpha * std::pow(safeAlphaFalloff, i);
+
+    cv::Mat blurred;
+    cv::GaussianBlur(srcFloat, blurred, cv::Size(), sigma, sigma);
+
+    cv::Mat colored = blurred.clone();
+    for (int y = 0; y < colored.rows; ++y) {
+     cv::Vec3f* row = colored.ptr<cv::Vec3f>(y);
+     for (int x = 0; x < colored.cols; ++x) {
+      row[x][0] *= static_cast<float>(glowColor[0] / 255.0);
+      row[x][1] *= static_cast<float>(glowColor[1] / 255.0);
+      row[x][2] *= static_cast<float>(glowColor[2] / 255.0);
+     }
+    }
+
+    if (!maskGray.empty()) {
+     for (int y = 0; y < colored.rows; ++y) {
+      cv::Vec3f* row = colored.ptr<cv::Vec3f>(y);
+      const float* mrow = maskGray.ptr<float>(y);
+      for (int x = 0; x < colored.cols; ++x) {
+       row[x] *= mrow[x];
+      }
+     }
+    }
+
+    glowAccum += colored * alpha;
    }
 
-   // アルファ合成
-   glowAccum += colored * alpha;
-  }
+   glowAccum *= glowGain;
+   cv::Mat glowFinal;
+   glowAccum.convertTo(glowFinal, CV_8UC3, linearSpace ? 255.0 : 1.0);
 
-  glowAccum *= glowGain;
-  cv::Mat glowFinal;
-  glowAccum.convertTo(glowFinal, CV_8UC3, linearSpace ? 255.0 : 1.0);
-
-  if (additiveBlend) {
-   cv::Mat base;
-   if (src.channels() == 4)
-	cv::cvtColor(src, base, cv::COLOR_BGRA2BGR);
-   else
-	base = src;
-
-   cv::add(base, glowFinal, dst);
-  }
-  else {
-   dst = glowFinal;
+   if (additiveBlend) {
+    cv::add(baseBgr, glowFinal, dst);
+   } else {
+    dst = glowFinal;
+   }
+  } catch (const cv::Exception& e) {
+   std::cerr << "[applySimpleGlow] OpenCV exception: " << e.what() << std::endl;
+   dst = src.clone();
+  } catch (const std::exception& e) {
+   std::cerr << "[applySimpleGlow] std::exception: " << e.what() << std::endl;
+   dst = src.clone();
+  } catch (...) {
+   std::cerr << "[applySimpleGlow] unknown exception" << std::endl;
+   dst = src.clone();
   }
  }
 

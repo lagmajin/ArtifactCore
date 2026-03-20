@@ -2,6 +2,7 @@
 
 #include <QFile>
 #include <QString>
+#include <QStringList>
 
 export module Encoder.FFmpegEncoder;
 

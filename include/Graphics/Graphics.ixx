@@ -2,6 +2,7 @@
 export module Graphics;
 
 export import Graphics.GPUcomputeContext;
+export import Graphics.Compute;
 export import :GraphicsHelper;
 
 export import Graphics.Resource.PSOAndSRB;

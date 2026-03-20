@@ -92,6 +92,11 @@ namespace ArtifactCore
 
  RefCntAutoPtr<Diligent::IShader> GpuContext::Impl::CompileShader(const char* shaderSource, Diligent::SHADER_TYPE type, const char* entryPoint)
  {
+ if (pD3D12Device == nullptr || shaderSource == nullptr || entryPoint == nullptr)
+ {
+   return {};
+ }
+
   Diligent::ShaderCreateInfo shaderCI;
   shaderCI.Desc.ShaderType = type;
   shaderCI.Desc.Name = "MyShader";
@@ -139,10 +144,7 @@ namespace ArtifactCore
 
  RefCntAutoPtr<IShader> GpuContext::CompileShader(const char* shaderSource, Diligent::SHADER_TYPE type, const char* entryPoint)
  {
-  Diligent::RefCntAutoPtr<IShader> pShader;
-  pShader = nullptr;
-
-  return pShader;
+  return pImpl_->CompileShader(shaderSource, type, entryPoint);
  }
 
  void GpuContext::Initialize()

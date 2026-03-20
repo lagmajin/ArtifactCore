@@ -12,6 +12,7 @@ export module Graphics.ParticleCompute;
 import std;
 import Particle;
 import Graphics.GPUcomputeContext;
+import Graphics.Compute;
 
 export namespace ArtifactCore {
 
@@ -53,9 +54,7 @@ public:
 
 private:
     GpuContext& context_;
-    
-    RefCntAutoPtr<IPipelineState>         pUpdatePSO_;
-    RefCntAutoPtr<IShaderResourceBinding> pUpdateSRB_;
+    ComputeExecutor                       executor_;
     
     RefCntAutoPtr<IBuffer>                pParticleBuffer_;
     RefCntAutoPtr<IBuffer>                pAudioSpectrumBuffer_; // 128-512 bins

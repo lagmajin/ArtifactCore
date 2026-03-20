@@ -9,13 +9,16 @@ extern "C" {
 }
 
 #include <QString>
+#include <QStringList>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 
 module Encoder.FFmpegEncoder;
 
 import std;
 import Image;
+import :Impl;
 
 namespace ArtifactCore {
 
@@ -335,8 +338,12 @@ public:
         }
 
         // 入力画像データを RGBA 形式で一時バッファにコピー
-        const float* srcData = image.data();
-        const int srcSize = w * h * 4;
+        const auto srcMat = image.toCVMat();
+        if (srcMat.empty()) {
+            lastError_ = "Failed to convert image to cv::Mat";
+            return false;
+        }
+        const float* srcData = reinterpret_cast<const float*>(srcMat.data);
 
         // 一時 RGBA フレーム作成
         AVFrame* rgbaFrame = av_frame_alloc();
@@ -440,7 +447,12 @@ public:
         }
 
         // 画像データを準備
-        const float* srcData = image.data();
+        const auto srcMat = image.toCVMat();
+        if (srcMat.empty()) {
+            lastError_ = "Failed to convert image to cv::Mat";
+            return false;
+        }
+        const float* srcData = reinterpret_cast<const float*>(srcMat.data);
         const int w = image.width();
         const int h = image.height();
 
@@ -679,8 +691,6 @@ private:
     int jpegQuality_ = 90;
     AVPixelFormat dstPixFmt_ = AV_PIX_FMT_RGB24;
 };
-
-W_OBJECT_IMPL(FFmpegEncoder)
 
 FFmpegEncoder::FFmpegEncoder() : impl_(new Impl()) {
 }

@@ -14,7 +14,7 @@ extern "C" {
 #include <QDir>
 #include <QMap>
 
-module Encoder.FFmpegEncoder.Impl;
+module Encoder.FFmpegEncoder:Impl;
 
 import std;
 import Image;
@@ -117,22 +117,10 @@ bool validateCodecContainerCombination(
         return false;
     }
     
-    // コンテナがコーデックをサポートしているかチェック
-    bool supported = false;
-    const AVCodecID* codecIds = fmt->video_codec;
-    if (codecIds) {
-        while (*codecIds != AV_CODEC_ID_NONE) {
-            if (*codecIds == codecId) {
-                supported = true;
-                break;
-            }
-            codecIds++;
-        }
-    }
-    
-    // 厳密なチェックをしない場合は true を返す（FFmpeg がフォールバックする）
-    // より厳密にする場合は上記の supported を使用
-    (void)supported;  // 未使用警告防止
+    // FFmpeg の `video_codec` は単一の推奨コーデック ID。
+    // 配列として扱わず、代表値として比較する。
+    const bool supported = (fmt->video_codec == AV_CODEC_ID_NONE || fmt->video_codec == codecId);
+    (void)supported;
     
     if (outCodecId) {
         *outCodecId = codecId;

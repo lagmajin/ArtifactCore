@@ -10,7 +10,9 @@ set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
 # 全てのソース候補を収集
 file(GLOB_RECURSE POTENTIAL_SOURCES CONFIGURE_DEPENDS 
     "src/*.cpp" "src/*.cppm" "src/*.ixx"
+    "src/**/*.cpp" "src/**/*.cppm" "src/**/*.ixx"
     "include/*.ixx" "include/*.cppm"
+    "include/**/*.ixx" "include/**/*.cppm"
     "NetworkRPCServer.ixx"
 )
 
@@ -34,9 +36,6 @@ foreach(file_path ${POTENTIAL_SOURCES})
        file_path MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
        file_path MATCHES "include/Asset/AsseetImporter\\.ixx" OR
-       file_path MATCHES "include/Video/FFMpegEncoder\\.ixx" OR
-       file_path MATCHES "src/Image/FFmpegEncoder\\.cppm" OR
-       file_path MATCHES "src/Image/FFmpegEncoder\\.Helpers\\.cppm" OR
        file_path MATCHES "src/Image/FFmpegEncoder\\.Test\\.cppm" OR
        file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
         continue()

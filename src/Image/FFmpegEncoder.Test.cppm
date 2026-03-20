@@ -6,6 +6,7 @@ module;
 #include <QDebug>
 #include <QDateTime>
 #include <QStandardPaths>
+#include <opencv2/opencv.hpp>
 
 module FFmpegEncoder.Test;
 
@@ -19,28 +20,28 @@ namespace ArtifactCore {
  * @brief テスト用カラーパターン生成
  */
 ImageF32x4_RGBA generateTestPattern(int frameIndex, int width, int height) {
-    ImageF32x4_RGBA image(width, height);
-    float* data = image.data();
+    cv::Mat mat(height, width, CV_32FC4);
     
     const float t = static_cast<float>(frameIndex) / 100.0f;
     
     for (int y = 0; y < height; ++y) {
+        cv::Vec4f* row = mat.ptr<cv::Vec4f>(y);
         for (int x = 0; x < width; ++x) {
-            const int idx = (y * width + x) * 4;
-            
             // グラデーション＋アニメーション
             const float r = (static_cast<float>(x) / width + std::sin(t * 3.14159f * 2.0f) * 0.3f + 0.5f) * 0.5f;
             const float g = (static_cast<float>(y) / height + std::cos(t * 3.14159f * 2.0f) * 0.3f + 0.5f)  * 0.5f;
             const float b = 0.5f;
             const float a = 1.0f;
-            
-            data[idx + 0] = std::clamp(r, 0.0f, 1.0f);
-            data[idx + 1] = std::clamp(g, 0.0f, 1.0f);
-            data[idx + 2] = std::clamp(b, 0.0f, 1.0f);
-            data[idx + 3] = a;
+            row[x] = cv::Vec4f(
+                std::clamp(r, 0.0f, 1.0f),
+                std::clamp(g, 0.0f, 1.0f),
+                std::clamp(b, 0.0f, 1.0f),
+                a);
         }
     }
-    
+
+    ImageF32x4_RGBA image;
+    image.setFromCVMat(mat);
     return image;
 }
 
