@@ -44,6 +44,7 @@ export namespace ArtifactCore
   Impl* pImpl_;
  public:
   GpuContext();
+  GpuContext(RefCntAutoPtr<IRenderDevice> device, RefCntAutoPtr<IDeviceContext> context);
   ~GpuContext();
   void Initialize();
   RefCntAutoPtr<IRenderDevice> D3D12RenderDevice();

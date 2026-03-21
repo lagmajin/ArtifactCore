@@ -10,7 +10,7 @@ namespace ArtifactCore {
  class SimpleWav::Impl {
  public:
   QAudioFormat format;
-  QVector<float> pcmData; // ‚·‚×‚Ä float (-1.0 ~ 1.0) ‚É³‹K‰»‚µ‚Ä‚Â‚Ì‚ªQImage“I
+  QVector<float> pcmData; // ã™ã¹ã¦ float (-1.0 ~ 1.0) ã«æ­£è¦åŒ–ã—ã¦ä¿æŒã™ã‚‹
   qint64 totalFrames = 0;
 
  

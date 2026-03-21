@@ -133,6 +133,29 @@ target_include_directories(ArtifactCore
         "${CMAKE_CURRENT_SOURCE_DIR}/../libs/DiligentEngine/DiligentCore/Platforms/interface"
 )
 
+# DiligentEngine
+set(DILIGENT_CORE_LIBS "")
+set(DILIGENT_CORE_COMPILE_DEFINITIONS "")
+if(TARGET Diligent-GraphicsEngineD3D12-static)
+    list(APPEND DILIGENT_CORE_LIBS Diligent-GraphicsEngineD3D12-static)
+elseif(TARGET Diligent-GraphicsEngineD3D12-shared)
+    list(APPEND DILIGENT_CORE_LIBS Diligent-GraphicsEngineD3D12-shared)
+    list(APPEND DILIGENT_CORE_COMPILE_DEFINITIONS DILIGENT_D3D12_SHARED=1)
+endif()
+if(TARGET Diligent-GraphicsEngineD3DBase)
+    list(APPEND DILIGENT_CORE_LIBS Diligent-GraphicsEngineD3DBase)
+endif()
+if(TARGET Diligent-Common)
+    list(APPEND DILIGENT_CORE_LIBS Diligent-Common)
+endif()
+if(DILIGENT_CORE_LIBS)
+    target_link_libraries(ArtifactCore PUBLIC ${DILIGENT_CORE_LIBS})
+endif()
+if(DILIGENT_CORE_COMPILE_DEFINITIONS)
+    list(REMOVE_DUPLICATES DILIGENT_CORE_COMPILE_DEFINITIONS)
+    target_compile_definitions(ArtifactCore PUBLIC ${DILIGENT_CORE_COMPILE_DEFINITIONS})
+endif()
+
 # ---------------------------------------------------------------------------
 # 外部ライブラリ探索
 # ---------------------------------------------------------------------------

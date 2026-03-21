@@ -146,29 +146,22 @@ namespace ArtifactCore {
     float alpha = safeBaseAlpha * std::pow(safeAlphaFalloff, i);
 
     cv::Mat blurred;
-    cv::GaussianBlur(srcFloat, blurred, cv::Size(), sigma, sigma);
+     cv::GaussianBlur(srcFloat, blurred, cv::Size(), sigma, sigma);
 
-    cv::Mat colored = blurred.clone();
-    for (int y = 0; y < colored.rows; ++y) {
-     cv::Vec3f* row = colored.ptr<cv::Vec3f>(y);
-     for (int x = 0; x < colored.cols; ++x) {
-      row[x][0] *= static_cast<float>(glowColor[0] / 255.0);
-      row[x][1] *= static_cast<float>(glowColor[1] / 255.0);
-      row[x][2] *= static_cast<float>(glowColor[2] / 255.0);
+     // 色乗算: ベクトル化演算でピクセルループを排除
+     cv::Mat colored;
+     const cv::Vec3f colorScale(
+      static_cast<float>(glowColor[0] / 255.0),
+      static_cast<float>(glowColor[1] / 255.0),
+      static_cast<float>(glowColor[2] / 255.0));
+     cv::multiply(blurred, colorScale, colored);
+
+     // マスク適用: ベクトル化演算でピクセルループを排除
+     if (!maskGray.empty()) {
+      cv::multiply(colored, maskGray, colored, 1.0, CV_32FC3);
      }
-    }
 
-    if (!maskGray.empty()) {
-     for (int y = 0; y < colored.rows; ++y) {
-      cv::Vec3f* row = colored.ptr<cv::Vec3f>(y);
-      const float* mrow = maskGray.ptr<float>(y);
-      for (int x = 0; x < colored.cols; ++x) {
-       row[x] *= mrow[x];
-      }
-     }
-    }
-
-    glowAccum += colored * alpha;
+     glowAccum += colored * alpha;
    }
 
    glowAccum *= glowGain;

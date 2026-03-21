@@ -93,7 +93,57 @@ namespace ArtifactCore {
  }
 
  void AspectRatio::setFromString(const UniString& str) {
-  // TODO: Implementation
+  QString q = str.toQString().trimmed();
+  if (q.isEmpty()) return;
+
+  // Support formats: "16:9", "16/9", "1.78", "1920x1080"
+  int colonIdx = q.indexOf(':');
+  int slashIdx = q.indexOf('/');
+  int xIdx = q.indexOf('x', 0, Qt::CaseInsensitive);
+
+  int w = 0, h = 0;
+
+  if (colonIdx > 0) {
+   // "16:9"
+   w = q.left(colonIdx).toInt();
+   h = q.mid(colonIdx + 1).toInt();
+  } else if (slashIdx > 0) {
+   // "16/9"
+   w = q.left(slashIdx).toInt();
+   h = q.mid(slashIdx + 1).toInt();
+  } else if (xIdx > 0) {
+   // "1920x1080"
+   w = q.left(xIdx).toInt();
+   h = q.mid(xIdx + 1).toInt();
+  } else {
+   // Decimal ratio like "1.78" -> approximate as fraction
+   bool ok = false;
+   double ratio = q.toDouble(&ok);
+   if (ok && ratio > 0.0) {
+    // Find best rational approximation (bounded search)
+    int bestW = 1, bestH = 1;
+    double bestErr = std::abs(ratio - 1.0);
+    for (int denom = 1; denom <= 100; ++denom) {
+     int num = static_cast<int>(std::round(ratio * denom));
+     if (num <= 0) continue;
+     double err = std::abs(ratio - static_cast<double>(num) / denom);
+     if (err < bestErr) {
+      bestErr = err;
+      bestW = num;
+      bestH = denom;
+      if (err < 1e-6) break;
+     }
+    }
+    w = bestW;
+    h = bestH;
+   }
+  }
+
+  if (w > 0 && h > 0) {
+   impl_->w_ = w;
+   impl_->h_ = h;
+   simplify();
+  }
  }
 
 }

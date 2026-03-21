@@ -8,8 +8,6 @@
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngineVulkan/interface/RenderDeviceVk.h>
-#include <DiligentCore/Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h>
-#include <DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h>
 
 #include <QSysInfo>
 #include <QOperatingSystemVersion>
@@ -27,16 +25,9 @@ namespace ArtifactCore
  struct GpuContext::Impl
  {
   QUuid	dx12id;
-  RefCntAutoPtr<IRenderDevice> pD3D12Device;
-  RefCntAutoPtr<IDeviceContext> pD3D12Context;
+  RefCntAutoPtr<IRenderDevice> pDevice;
+  RefCntAutoPtr<IDeviceContext> pContext;
 
-  RefCntAutoPtr<IRenderDevice> pVKRenderDevice;
-  RefCntAutoPtr<IDeviceContext> pVKContext;
- 	
-  RefCntAutoPtr<IRenderDevice> pMetalDevice;
-  RefCntAutoPtr<IDeviceContext> pMetalContext;
-
- 	
   GPUInfo info() const
   {
    QString osType = QSysInfo::productType(); // "windows", "osx", "linux" など
@@ -47,30 +38,17 @@ namespace ArtifactCore
   	
    if (osType == "windows")
    {
-    if (pD3D12Device)
+    if (pDevice)
     {
-     adapter = pD3D12Device->GetAdapterInfo();
+     adapter = pDevice->GetAdapterInfo();
     
-    }
-    else if (pVKRenderDevice)
-    {
-      adapter = pVKRenderDevice->GetAdapterInfo();
-     // info.name = adapter.Description;
-    }
-   }
-   else if (osType == "osx")
-   {
-    if (pMetalDevice)
-    {
-     adapter = pMetalDevice->GetAdapterInfo();
-     // info.name = adapter.Description;
     }
    }
    else if (osType == "linux")
    {
-    if (pVKRenderDevice)
+    if (pDevice)
     {
-     adapter = pVKRenderDevice->GetAdapterInfo();
+     adapter = pDevice->GetAdapterInfo();
      // info.name = adapter.Description;
     }
    }
@@ -92,7 +70,7 @@ namespace ArtifactCore
 
  RefCntAutoPtr<Diligent::IShader> GpuContext::Impl::CompileShader(const char* shaderSource, Diligent::SHADER_TYPE type, const char* entryPoint)
  {
- if (pD3D12Device == nullptr || shaderSource == nullptr || entryPoint == nullptr)
+ if (pDevice == nullptr || shaderSource == nullptr || entryPoint == nullptr)
  {
    return {};
  }
@@ -106,34 +84,35 @@ namespace ArtifactCore
   //shaderCI.UseCombinedTextureSamplers = true;
 
   Diligent::RefCntAutoPtr<Diligent::IShader> shader;
-  pD3D12Device->CreateShader(shaderCI, &shader);
+  pDevice->CreateShader(shaderCI, &shader);
   return shader;
  }
 
  void GpuContext::Impl::Initialize()
  {
-  EngineD3D12CreateInfo engineD3D12CI;
+#if VULKAN_SUPPORTED
+  EngineVkCreateInfo engineVKCI;
 
+  auto pVKFactory = GetEngineFactoryVk();
+  if (!pVKFactory)
+  {
+   return;
+  }
 
-
-  auto pD3D12Factory = GetEngineFactoryD3D12();
-
-  pD3D12Factory->CreateDeviceAndContextsD3D12(engineD3D12CI, &pD3D12Device, &pD3D12Context);
-
-
-
-  //pD3D12Device->GetDeviceInfo().Features.
-
-  //EngineVkCreateInfo engineVKCI;
-
-  //auto pVKFactory = GetEngineFactoryVk();
-
-  //pVKFactory->CreateDeviceAndContextsVk(engineVKCI, &pVKRenderDevice, &pVKContext);
+  pVKFactory->CreateDeviceAndContextsVk(engineVKCI, &pDevice, &pContext);
+#endif
  }
 
  GpuContext::GpuContext() :pImpl_(new Impl())
  {
 
+ }
+
+ GpuContext::GpuContext(RefCntAutoPtr<IRenderDevice> device, RefCntAutoPtr<IDeviceContext> context)
+  : pImpl_(new Impl())
+ {
+  pImpl_->pDevice = device;
+  pImpl_->pContext = context;
  }
 
  GpuContext::~GpuContext()
@@ -154,28 +133,28 @@ namespace ArtifactCore
 
  RefCntAutoPtr<IRenderDevice> GpuContext::D3D12RenderDevice()
  {
-  return pImpl_->pD3D12Device;
+  return pImpl_->pDevice;
  }
 
  Diligent::RefCntAutoPtr<IDeviceContext> GpuContext::D3D12DeviceContext()
  {
-  return pImpl_->pD3D12Context;
+  return pImpl_->pContext;
  }
 
  DeviceResources GpuContext::D3D12DeviceResources()
  {
-  DeviceResources result;
-  result.pContext = pImpl_->pD3D12Context;
-  result.pDevice = pImpl_->pD3D12Device;
+ DeviceResources result;
+  result.pContext = pImpl_->pContext;
+  result.pDevice = pImpl_->pDevice;
 
   return result;
  }
 
  DeviceResources GpuContext::VKDeviceResources()
  {
-  DeviceResources result;
-  //result.pContext = pImpl_->pD3D12Context;
-  //result.pDevice = pImpl_->pD3D12Device;
+ DeviceResources result;
+  result.pContext = pImpl_->pContext;
+  result.pDevice = pImpl_->pDevice;
 
   return result;
  }
