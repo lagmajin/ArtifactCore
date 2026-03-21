@@ -32,6 +32,16 @@ export namespace ArtifactCore
  };
 #pragma pack(pop)
 
+#pragma pack(push,1)
+ struct CBSolidRectTransform2D
+ {
+  float4 row0;
+  float4 row1;
+  float4 row2;
+  float4 row3;
+ };
+#pragma pack(pop)
+
 
  struct Vertex
  {

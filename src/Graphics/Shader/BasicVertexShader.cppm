@@ -104,7 +104,7 @@ PSInput main(VSInput input)
 
 
 
- LIBRARY_DLL_API const QByteArray drawSolidRectVSSource= R"(
+LIBRARY_DLL_API const QByteArray drawSolidRectVSSource= R"(
 struct VSInput
 {
     float2 pos : ATTRIB0;
@@ -136,6 +136,38 @@ PSInput main(VSInput input)
 }
 
 
+)";
+
+LIBRARY_DLL_API const QByteArray drawSolidRectTransformVSSource = R"(
+cbuffer TransformCB : register(b0)
+{
+    float4 row0;
+    float4 row1;
+    float4 row2;
+    float4 row3;
+};
+
+struct VSInput
+{
+    float2 pos : ATTRIB0;
+};
+
+struct PSInput
+{
+    float4 pos : SV_POSITION;
+};
+
+PSInput main(VSInput input)
+{
+    PSInput output;
+    float4 localPos = float4(input.pos.xy, 0.0f, 1.0f);
+    output.pos = float4(
+        dot(localPos, row0),
+        dot(localPos, row1),
+        dot(localPos, row2),
+        dot(localPos, row3));
+    return output;
+}
 )";
 
 
