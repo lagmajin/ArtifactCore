@@ -37,37 +37,42 @@ VSOutput main(VSInput input)
 })";
 
  const QByteArray g_qsBasic2DVS = R"(
-cbuffer Constants : register(b0)
+cbuffer TransformCB : register(b0)
 {
-    float4x4 ModelMatrix;      // オブジェクトの移動、回転、スケール
-    float4x4 ViewMatrix;
-    float4x4 ProjectionMatrix; // ワールド空間からクリップ空間への変換
+    float2 offset; // x, y 位置
+    float2 scale;  // 幅・高さ
+    float2 screenSize;
 };
 
 struct VSInput
 {
     float2 Position : ATTRIB0;
-float2 TexCoord  : ATTRIB1;
+    float2 TexCoord : ATTRIB1;
+    float4 Color    : ATTRIB2;
 };
 
 struct PSInput
 {
     float4 Position : SV_POSITION;
-float2 TexCoord  : TEXCOORD0;
+    float2 TexCoord : TEXCOORD0;
+    float4 Color    : COLOR0;
 };
 
 PSInput main(VSInput Input)
 {
     PSInput Out;
 
-    float4 pos = float4(Input.Position.xy, 0.0f, 1.0f);
-    float4 worldPos = mul(ModelMatrix, pos);
-    float4 viewPos  = mul(ViewMatrix, worldPos);
-    Out.Position    = mul(ProjectionMatrix, viewPos);
+    // Input.Position は 0..1 のローカル座標
+    float2 pos = offset + Input.Position.xy * scale;
+    float2 ndc = pos / screenSize * 2.0f - float2(1.0f, 1.0f);
+    ndc.y = -ndc.y; // Y軸反転
 
+    Out.Position = float4(ndc, 0.0f, 1.0f);
     Out.TexCoord = Input.TexCoord;
+    Out.Color    = Input.Color;
     return Out;
-})";
+}
+)";
 
  LIBRARY_DLL_API const QByteArray drawOutlineRectVSSource=R"(
 cbuffer TransformCB : register(b0)
@@ -126,8 +131,8 @@ PSInput main(VSInput input)
 {
     PSInput output;
 
-    // input.pos はピクセル単位
-    float2 pos = input.pos + offset;       // 矩形左上 + ピクセル座標
+    // input.pos は 0..1 のローカル座標
+    float2 pos = offset + input.pos * scale;
     float2 ndc = pos / screenSize * 2.0f - float2(1.0f, 1.0f);
     ndc.y = -ndc.y; // Y軸反転
 

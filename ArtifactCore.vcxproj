@@ -1878,7 +1878,7 @@
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{c9c6f040-1511-4b6d-8f5d-fe6c6237a268}</ProjectGuid>
     <RootNamespace>ArtifactCore</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <Keyword>QtVS_v304</Keyword>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -1946,9 +1946,9 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>X:\vcpkg\installed\x64-windows\include\Qt6\QtGui;X:\vcpkg\installed\x64-windows\include\Qt6\QtCore;X:\vcpkg\installed\x64-windows\include\Qt6;X:\Build\install\include;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\include;X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;C:\Users\lagma\Desktop\Artifact\third_party;X:\opencv\build\include;X:\vlc-3.0.21\sdk\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>
-    <LibraryPath>X:\Build\install\lib\DiligentCore\Debug;X:\Build\Graphics\GraphicsEngineVulkan\Debug;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;X:\box2d\lib;X:\SDL2\lib;X:\libsnd\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\vlc-3.0.21\sdk\lib;X:\opencv\build\x64\vc16\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
-    <OutDir>C:\Users\lagma\Desktop\Artifact\Artifact\App\</OutDir>
+    $1<IncludePath>C:\\vcpkg\\installed\\x64-windows\\include\\Qt6\\QtGui;C:\\vcpkg\\installed\\x64-windows\\include\\Qt6\\QtCore;C:\\vcpkg\\installed\\x64-windows\\include\\Qt6;$(ProjectDir)..\\..\\..\\Build\\install\\include;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.5\runtimes\win-x64\native;X:\box2d\include;X:\fmt\fmt\include;X:\SDL2\include;X:\libsnd\include;$(ProjectDir)..\\third_party\third_party;$(ProjectDir)..\\..\\..\\opencv\\build\\include;X:\vlc-3.0.21\sdk\include;C:\Program Files\Mono\include\mono-2.0;Z:\gstreamer\1.0\msvc_x86_64\lib\glib-2.0\include;Z:\gstreamer\1.0\msvc_x86_64\include\glib-2.0;Z:\gstreamer\1.0\msvc_x86_64\include\gstreamer-1.0;$(IncludePath)</IncludePath>$1
+    <LibraryPath>$(ProjectDir)..\\..\\Build\\install\lib\DiligentCore\Debug;X:\Build\Graphics\GraphicsEngineVulkan\Debug;C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\9.0.6\runtimes\win-x64\native;X:\box2d\lib;X:\SDL2\lib;X:\libsnd\lib;X:\cpuinfo\lib;X:\zlib\lib;X:\libwebp\lib;X:\vlc-3.0.21\sdk\lib;$(ProjectDir)..\\..\\opencv\\build\x64\vc16\lib;C:\Program Files\Mono\lib;$(SolutionDir)/lib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(ProjectDir)..\\third_party\Artifact\App\</OutDir>
     <IntDir>X:\temp/</IntDir>
     <AllProjectBMIsArePublic>true</AllProjectBMIsArePublic>
     <AllProjectIncludesArePublic>true</AllProjectIncludesArePublic>
@@ -1962,7 +1962,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Host.win-x64\\18.0.0-preview.4.24111.4\\runtimes\\win-x64\\native;$(PreprocessorDefinitions)WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
@@ -1977,7 +1977,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Host.win-x64\\18.0.0-preview.4.24111.4\\runtimes\\win-x64\\native;$(PreprocessorDefinitions)WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
@@ -1992,7 +1992,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;PLATFORM_WIN32;_GUARDOVERFLOW_CRT_ALLOCATORS=1;GLOG_NO_ABBREVIATED_SEVERITIES;GLOG_USE_GLOG_EXPORT;_CRT_SECURE_NO_WARNINGS;_SILENCE_CXX23_ALIGNED_STORAGE_DEPRECATION_WARNING;LIBRARY_DLL_MODE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Host.win-x64\\18.0.0-preview.4.24111.4\\runtimes\\win-x64\\native;$(PreprocessorDefinitions)_DEBUG;_CONSOLE;PLATFORM_WIN32;_GUARDOVERFLOW_CRT_ALLOCATORS=1;GLOG_NO_ABBREVIATED_SEVERITIES;GLOG_USE_GLOG_EXPORT;_CRT_SECURE_NO_WARNINGS;_SILENCE_CXX23_ALIGNED_STORAGE_DEPRECATION_WARNING;LIBRARY_DLL_MODE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
@@ -2023,7 +2023,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Host.win-x64\\18.0.0-preview.4.24111.4\\runtimes\\win-x64\\native;$(PreprocessorDefinitions)NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
