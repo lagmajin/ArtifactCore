@@ -9,50 +9,85 @@ module;
 #include <QString>
 #include "../Define/DllExportMacro.hpp"
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Codec.MFFrameExtractor;
 
-import std;
+
+
+
 
 export namespace ArtifactCore {
 
- // ƒtƒŒ[ƒ€’ŠoŒ‹‰Ê
+ // t[o
  struct ExtractedFrame {
-  std::vector<uint8_t> data;  // RGBA ‚Ü‚½‚Í BGR ƒf[ƒ^
+  std::vector<uint8_t> data;  // RGBA Ü‚ BGR f[^
   int width = 0;
   int height = 0;
   int stride = 0;
-  int64_t timestamp = 0;  // 100ƒiƒm•b’PˆÊ
+  int64_t timestamp = 0;  // 100imbP
   int frameNumber = 0;
   
-  // ŒŸØ
+  // 
   bool isValid() const { return !data.empty() && width > 0 && height > 0; }
   
-  // ƒoƒCƒgƒTƒCƒY
+  // oCgTCY
   size_t dataSize() const { return data.size(); }
  };
 
- // “®‰æ‚©‚çƒtƒŒ[ƒ€i‰æ‘œj‚ğ’Šo‚·‚éƒNƒ‰ƒX
+ // æ‚©t[iæ‘œjğ’ŠoNX
  class LIBRARY_DLL_API MFFrameExtractor {
  public:
   MFFrameExtractor();
   ~MFFrameExtractor();
 
-  // ƒRƒs[/ƒ€[ƒu‹Ö~iCOMƒŠƒ\[ƒXŠÇ—‚Ì‚½‚ßj
+  // Rs[/[uÖ~iCOM\[XÇ—Ì‚ßj
   MFFrameExtractor(const MFFrameExtractor&) = delete;
   MFFrameExtractor& operator=(const MFFrameExtractor&) = delete;
   MFFrameExtractor(MFFrameExtractor&&) = delete;
   MFFrameExtractor& operator=(MFFrameExtractor&&) = delete;
 
-  // “®‰æƒtƒ@ƒCƒ‹‚ğŠJ‚­
+  // t@CJ
   bool open(const QString& videoPath);
   bool open(const std::wstring& videoPath);
   
-  // ƒtƒ@ƒCƒ‹‚ğ•Â‚¶‚é
+  // t@CÂ‚
   void close();
 
-  // “®‰æî•ñ‚Ìæ“¾
+  // Ìæ“¾
   bool isOpen() const;
-  int64_t getDuration() const;  // 100ƒiƒm•b’PˆÊ
+  int64_t getDuration() const;  // 100imbP
   double getDurationSeconds() const;
   int getWidth() const;
   int getHeight() const;
@@ -60,63 +95,63 @@ export namespace ArtifactCore {
   int64_t getTotalFrames() const;
   QString getCodecName() const;
 
-  // ƒtƒŒ[ƒ€’Šo
-  // “Á’è‚Ì‚ÌƒtƒŒ[ƒ€‚ğæ“¾i100ƒiƒm•b’PˆÊj
+  // t[o
+  // ÌÌƒt[æ“¾i100imbPÊj
   std::unique_ptr<ExtractedFrame> extractFrameAtTime(int64_t timestamp);
   
-  // “Á’è‚ÌƒtƒŒ[ƒ€”Ô†‚ÌƒtƒŒ[ƒ€‚ğæ“¾
+  // Ìƒt[ÔÌƒt[æ“¾
   std::unique_ptr<ExtractedFrame> extractFrameAtIndex(int64_t frameIndex);
   
-  // “Á’è‚Ì•b”‚ÌƒtƒŒ[ƒ€‚ğæ“¾
+  // Ì•bÌƒt[æ“¾
   std::unique_ptr<ExtractedFrame> extractFrameAtSeconds(double seconds);
   
-  // •¡”ƒtƒŒ[ƒ€‚ğˆê“x‚É’ŠoiƒTƒ€ƒlƒCƒ‹¶¬—pj
+  // t[xÉ’oiTlCpj
   std::vector<std::unique_ptr<ExtractedFrame>> extractFrames(
    const std::vector<int64_t>& frameIndices);
   
-  // ‹Ï“™ŠÔŠu‚ÅƒtƒŒ[ƒ€‚ğ’ŠoiƒvƒŒƒrƒ…[—pj
+  // Ï“ÔŠuÅƒt[ğ’Šoivr[pj
   std::vector<std::unique_ptr<ExtractedFrame>> extractUniformFrames(int count);
   
-  // ”ÍˆÍ“à‚ÌƒtƒŒ[ƒ€‚ğ’ŠoiƒAƒjƒ[ƒVƒ‡ƒ“—pj
+  // ÍˆÍ“Ìƒt[ğ’ŠoiAj[Vpj
   std::vector<std::unique_ptr<ExtractedFrame>> extractFrameRange(
    int64_t startFrame, int64_t endFrame, int step = 1);
   
-  // o—ÍƒtƒH[ƒ}ƒbƒgİ’è
+  // oÍƒtH[}bgİ’
   enum class OutputFormat {
    RGBA,      // 32bit RGBA
    RGB,       // 24bit RGB
-   BGR,       // 24bit BGR (OpenCVŒİŠ·)
+   BGR,       // 24bit BGR (OpenCVİŠ)
    BGRA       // 32bit BGRA
   };
   
   void setOutputFormat(OutputFormat format);
   OutputFormat getOutputFormat() const;
   
-  // ƒŠƒTƒCƒYİ’èio—Í‚É©“®ƒŠƒTƒCƒYj
+  // TCYİ’ioÍÉTCYj
   void setOutputSize(int width, int height);
-  void clearOutputSize();  // ƒIƒŠƒWƒiƒ‹ƒTƒCƒY‚ğg—p
+  void clearOutputSize();  // IWiTCYgp
   bool hasCustomOutputSize() const;
   
-  // •i¿İ’è
+  // iİ’
   enum class Quality {
-   Draft,     // ’á•i¿E‚‘¬
-   Normal,    // ’Êí•i¿
-   High       // ‚•i¿E’á‘¬
+   Draft,     // iE
+   Normal,    // Êi
+   High       // iEá‘¬
   };
   
   void setQuality(Quality quality);
   Quality getQuality() const;
   
-  // ƒfƒR[ƒ_[İ’è
+  // fR[_[İ’
   void setHardwareAcceleration(bool enable);
   bool isHardwareAccelerationEnabled() const;
   
-  // ƒGƒ‰[î•ñ
+  // G[
   QString lastError() const;
   bool hasError() const;
   void clearError();
 
-  // “Œvî•ñ
+  // v
   struct Statistics {
    int64_t totalFramesExtracted = 0;
    int64_t totalBytesProcessed = 0;
@@ -131,7 +166,7 @@ export namespace ArtifactCore {
   std::unique_ptr<Impl> impl_;
  };
 
- // ƒGƒ“ƒR[ƒ_[—ñ‹“iŒã•ûŒİŠ·«‚Ì‚½‚ßc‚·j
+ // GR[_[ñ‹“iİŠÌ‚ßcj
  class LIBRARY_DLL_API MfEncoderEnumerator {
  public:
   struct EncoderInfo {
@@ -142,6 +177,6 @@ export namespace ArtifactCore {
   static std::vector<EncoderInfo> ListAvailableVideoEncoders(GUID subtype);
  };
 
- // ‹ŒƒNƒ‰ƒX–¼‚ÌƒGƒCƒŠƒAƒXiŒã•ûŒİŠ·«j
+ // NXÌƒGCAXiİŠj
  using MFEncoder = MFFrameExtractor;
 }

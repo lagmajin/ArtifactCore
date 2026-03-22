@@ -1,17 +1,51 @@
 ﻿module;
-
-
+#include <QImage>
 #include <opencv2/opencv.hpp>
 #include "../Define/DllExportMacro.hpp"
 #include <QUuid>
 #include <QObject>
 
-#include <folly/concurrency/AtomicSharedPtr.h>
+//#include <folly/concurrency/AtomicSharedPtr.h>
 
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Image.ImageF32x4_RGBA;
 
-import std;
+
+
+
 import Size;
 import FloatRGBA;
 import ImageInterface;
@@ -30,7 +64,10 @@ export namespace ArtifactCore {
   
   // 基本操作
   auto toCVMat() const -> class cv::Mat;
+  QImage toQImage() const;
   void fill(const FloatRGBA& rgba);
+  bool load(const QString& path);
+  bool save(const QString& path) const;
   void fillAlpha(float alpha=1.0f);
   void resize(int width,int height);
 

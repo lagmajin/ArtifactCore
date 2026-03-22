@@ -1,12 +1,12 @@
 module;
 
-export module Time.TimeRemap;
+#include <compare>
+#include <QList>
+module Time.TimeRemap;
 
 import std;
-import Frame.Rate;
 
-import <cmath>;
-import <algorithm>;
+import Frame.Rate;
 
 namespace ArtifactCore {
 

@@ -8,9 +8,49 @@ module;
 #include <chrono>
 #include <string>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Particle.System;
 
+
+
 import Particle;
+import Mesh;
+import Physics.Fluid;
+import Physics2D;
+import Audio.Analyze;
+
 
 export namespace ArtifactCore {
 
@@ -77,7 +117,24 @@ public:
         Turbulence,
         Vortex,
         Attractor,
-        Drag
+        Drag,
+        Audio,
+        Field,  // 汎用フィールド
+        Fluid,  // 流体フィールド
+        Physics // 物理衝突フィールド
+    };
+
+    enum class FalloffType {
+        Constant,
+        Linear,
+        Quadratic,
+        Smooth
+    };
+
+    enum class FieldShape {
+        Infinite,
+        Sphere,
+        Box
     };
 
     ForceField(Type type) : type_(type) {}
@@ -85,6 +142,9 @@ public:
 
     virtual void apply(Particle& particle, double deltaTime) = 0;
     
+    // 空間減衰の計算
+    float computeFalloff(const float3& p) const;
+
     Type getType() const { return type_; }
     const std::string& getId() const { return id_; }
     void setId(const std::string& id) { id_ = id; }
@@ -92,10 +152,23 @@ public:
     bool isEnabled() const { return enabled_; }
     void setEnabled(bool enabled) { enabled_ = enabled; }
 
+    // フィールド形状設定
+    void setShape(FieldShape shape) { shape_ = shape; }
+    void setFalloff(FalloffType type) { falloff_ = type; }
+    void setSphere(float radius, float feather) { shape_ = FieldShape::Sphere; radius_ = radius; feather_ = feather; }
+    void setBox(float3 size, float feather) { shape_ = FieldShape::Box; size_ = size; feather_ = feather; }
+
 protected:
     Type type_;
     std::string id_;
     bool enabled_ = true;
+
+    FieldShape shape_ = FieldShape::Infinite;
+    FalloffType falloff_ = FalloffType::Constant;
+    float3 center_{0, 0, 0};
+    float3 size_{1, 1, 1};
+    float radius_ = 1.0f;
+    float feather_ = 0.1f;
 };
 
 // ============================================================================
@@ -235,7 +308,7 @@ private:
 class LIBRARY_DLL_API DragForce : public ForceField {
 public:
     DragForce() : ForceField(Type::Drag) {}
-    
+
     void apply(Particle& p, double dt) override {
         float factor = 1.0f - drag_ * static_cast<float>(dt);
         factor = std::max(0.0f, factor);
@@ -252,27 +325,204 @@ private:
 };
 
 // ============================================================================
-// Particle Emitter - エミッター基底
+// Audio Force - オーディオ解析に反応する力
+// ============================================================================
+class LIBRARY_DLL_API AudioForce : public ForceField {
+public:
+    enum class Target { RMS, Peak, Low, Mid, High };
+
+    AudioForce() : ForceField(Type::Audio) {}
+
+    void apply(Particle& p, double dt) override {
+        float strength = audioValue_ * multiplier_ * static_cast<float>(dt);
+        p.velocity.x += direction_.x * strength;
+        p.velocity.y += direction_.y * strength;
+        p.velocity.z += direction_.z * strength;
+    }
+
+    void setAudioValue(float val) { audioValue_ = val; }
+    void setDirection(float x, float y, float z) { direction_ = {x, y, z}; }
+    void setMultiplier(float m) { multiplier_ = m; }
+
+private:
+    float audioValue_ = 0.0f;
+    float3 direction_{0.0f, 1.0f, 0.0f};
+    float multiplier_ = 10.0f;
+};
+
+// ============================================================================
+// Particle Constraint - パーティクル間の相互作用（流体・衝突）
+// ============================================================================
+class LIBRARY_DLL_API ParticleConstraint {
+public:
+    virtual ~ParticleConstraint() = default;
+    virtual void resolve(std::vector<Particle>& particles, double dt) = 0;
+};
+
+class LIBRARY_DLL_API FluidConstraint : public ParticleConstraint {
+public:
+    FluidConstraint(float radius = 0.5f, float density = 1.0f) 
+        : radius_(radius), targetDensity_(density) {}
+
+    void resolve(std::vector<Particle>& particles, double dt) override;
+
+private:
+    float radius_;
+    float targetDensity_;
+};
+
+// ============================================================================
+// Fluid Field - 2D流体による力の適用
+// ============================================================================
+class LIBRARY_DLL_API FluidField : public ForceField {
+public:
+    FluidField(int width, int height) : ForceField(Type::Fluid), solver_(width, height) {}
+
+    void apply(Particle& p, double dt) override {
+        // パーティクルの位置をグリッド座標に変換
+        float fx = (p.position.x - center_.x + size_.x * 0.5f) / size_.x * solver_.width();
+        float fy = (p.position.y - center_.y + size_.y * 0.5f) / size_.y * solver_.height();
+        
+        int ix = static_cast<int>(fx);
+        int iy = static_cast<int>(fy);
+        
+        float vx, vy;
+        solver_.getVelocity(ix, iy, vx, vy);
+        
+        p.velocity.x += vx * strength_ * static_cast<float>(dt);
+        p.velocity.y += vy * strength_ * static_cast<float>(dt);
+    }
+
+    void update(float dt) { solver_.update(dt); }
+    FluidSolver2D& getSolver() { return solver_; }
+    
+    void setStrength(float s) { strength_ = s; }
+
+    // Audio Injection
+    void injectAudioFrequency(const AudioAnalyzer::AnalysisResult& audio, float dt) {
+        // Sample: Use Low/Mid/High intensities to inject fluid bursts
+        // Low: Center bottom burst
+        if (audio.lowIntensity > 0.5f) {
+            solver_.addDensity(solver_.width()/2, solver_.height()-2, audio.lowIntensity * 5.0f);
+            solver_.addVelocity(solver_.width()/2, solver_.height()-2, 0, -audio.lowIntensity * 10.0f);
+        }
+        // High: Random bursts
+        if (audio.highIntensity > 0.3f) {
+            int rx = rand() % solver_.width();
+            int ry = rand() % solver_.height();
+            solver_.addDensity(rx, ry, audio.highIntensity * 2.0f);
+        }
+    }
+
+private:
+    FluidSolver2D solver_;
+    float strength_ = 1.0f;
+};
+// ============================================================================
+// Physics Collider Field - パーティクルが剛体に衝突する基盤
+// ============================================================================
+class LIBRARY_DLL_API PhysicsColliderField : public ForceField {
+public:
+    PhysicsColliderField(Physics2D* physics) : ForceField(Type::Physics), physics_(physics) {}
+
+    void apply(Particle& p, double dt) override {
+        if (!physics_) return;
+        
+        // 簡易的な衝突：各剛体との距離をチェック
+        // ※ 本来は空間分割(Quadtree等)が必要
+        for (auto& body : physics_->getBodies()) {
+            QVector2D bPos = body->position();
+            float3 diff = {p.position.x - bPos.x(), p.position.y - bPos.y(), 0.0f};
+            float distSq = diff.x*diff.x + diff.y*diff.y;
+
+            // 例：半径1.0の仮の当たり判定
+            float radius = 1.0f; 
+            if (distSq < radius * radius) {
+                float dist = std::sqrt(distSq);
+                float normal_len = dist + 0.0001f;
+                float3 normal = {diff.x / normal_len, diff.y / normal_len, 0.0f};
+                
+                // 反射ベクトル
+                float dot = p.velocity.x * normal.x + p.velocity.y * normal.y;
+                p.velocity.x -= 2.0f * dot * normal.x * bounciness_;
+                p.velocity.y -= 2.0f * dot * normal.y * bounciness_;
+                
+                // めり込み防止
+                p.position.x += normal.x * (radius - dist);
+                p.position.y += normal.y * (radius - dist);
+            }
+        }
+    }
+
+    void setBounciness(float b) { bounciness_ = b; }
+
+private:
+    Physics2D* physics_;
+    float bounciness_ = 0.5f;
+};
+
+// ============================================================================
+// Emission Config - パーティクル発生設定
 // ============================================================================
 struct EmissionConfig {
     int rate = 10;              // 1秒あたりの生成数
     int burstCount = 0;         // 一度に生成する数
     float burstInterval = 0.0f; // バースト間隔
-    
+
     float lifetimeMin = 1.0f;
     float lifetimeMax = 2.0f;
-    
+
     float speedMin = 1.0f;
     float speedMax = 2.0f;
-    
+
     float sizeMin = 1.0f;
     float sizeMax = 1.0f;
-    
+
     float4 colorStart{1.0f, 1.0f, 1.0f, 1.0f};
     float4 colorEnd{1.0f, 1.0f, 1.0f, 0.0f};
     
     float3 direction{0.0f, 1.0f, 0.0f};
     float spreadAngle = 0.0f;   // ラジアン
+
+    // Visual Settings
+    int textureIndex = -1;
+    int blendMode = 0;
+    float startOpacity = 1.0f;
+    float endOpacity = 0.0f;
+    float startSizeScale = 1.0f;
+    float endSizeScale = 1.0f;
+
+    // Noise Distortion
+    float3 noiseStrength{0.0f, 0.0f, 0.0f};
+    float noiseFrequency = 1.0f;
+    int noiseOctaves = 1;
+
+    // Color Gradients
+    struct ColorStop {
+        float time; // 0.0 - 1.0
+        float4 color;
+    };
+    std::vector<ColorStop> colorGradients;
+
+    // Motion Blur
+    struct MotionBlurConfig {
+        bool enabled = false;
+        float shutterAngle = 180.0f; // 0-360
+        int samples = 8;
+        float intensity = 1.0f;
+        float velocityStretch = 1.0f; // 速度に応じた伸び
+    } motionBlur;
+};
+
+struct SubEmitterConfig {
+    EmissionConfig config;
+    enum class Trigger {
+        Birth,
+        Death,
+        Trails  // 定期的な発生（軌跡）
+    } trigger = Trigger::Trails;
+    float interval = 0.1f; // Trails時の発生間隔
+    int count = 1;         // トリガー時の発生数
 };
 
 class LIBRARY_DLL_API ParticleEmitter {
@@ -283,13 +533,15 @@ public:
         Box,
         Cone,
         Circle,
-        Line
+        Line,
+        Mesh,   // 3Dモデルから発生
+        Layer   // 画像レイヤーから発生
     };
 
     ParticleEmitter();
     virtual ~ParticleEmitter() = default;
 
-    void emit(ParticlePool<>& pool, size_t count);
+    void _emit(ParticlePool<>& pool, size_t count);
     void update(double dt, ParticlePool<>& pool);
 
     void setConfig(const EmissionConfig& config) { config_ = config; }
@@ -307,6 +559,15 @@ public:
     const std::string& getId() const { return id_; }
     void setId(const std::string& id) { id_ = id; }
 
+    void addSubEmitter(const SubEmitterConfig& sub) { subEmitters_.push_back(sub); }
+    void clearSubEmitters() { subEmitters_.clear(); }
+    const std::vector<SubEmitterConfig>& getSubEmitters() const { return subEmitters_; }
+
+    // ジオメトリ・レイヤーソース
+    void setMeshSource(std::shared_ptr<Mesh> mesh) { meshSource_ = mesh; }
+    void setLayerSource(void* texture) { layerSource_ = texture; } // placeholder
+    void setColorInheritance(float amount) { colorInheritance_ = amount; }
+
 protected:
     virtual void initParticle(Particle& p);
     float3 randomDirection() const;
@@ -317,6 +578,13 @@ protected:
     std::string id_;
     bool enabled_ = true;
     
+    std::vector<SubEmitterConfig> subEmitters_;
+    
+    // Geometry sources
+    std::shared_ptr<Mesh> meshSource_;
+    void* layerSource_ = nullptr;
+    float colorInheritance_ = 0.0f;
+
     double accumulator_ = 0.0;
     mutable std::mt19937 rng_{std::random_device{}()};
 };
@@ -490,6 +758,10 @@ public:
     void clearColliders();
     size_t colliderCount() const;
 
+    // 拘束管理
+    void addConstraint(std::shared_ptr<ParticleConstraint> constraint);
+    void clearConstraints();
+
     // シミュレーション
     void update(double deltaTime);
     void reset();
@@ -522,6 +794,7 @@ public:
 private:
     class Impl;
     Impl* impl_;
+    EmissionConfig config_;
 };
 
 } // namespace ArtifactCore

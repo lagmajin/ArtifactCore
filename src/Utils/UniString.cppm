@@ -2,9 +2,44 @@ module;
 
 #include <QString>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 module Utils.String.UniString;
 
-import std;
+
+
+
 import Utils.Convertor.String;
 
 namespace ArtifactCore {
@@ -130,7 +165,11 @@ namespace ArtifactCore {
 
  UniString& UniString::operator=(UniString&& other) noexcept
  {
-  impl_->str_ = other.toQString();
+  if (this != &other) {
+   delete impl_;
+   impl_ = other.impl_;
+   other.impl_ = nullptr;
+  }
   return *this;
  }
 

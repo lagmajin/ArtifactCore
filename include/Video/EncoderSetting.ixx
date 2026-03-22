@@ -1,9 +1,44 @@
 module;
 #include <QVector>
 #include <QString>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Codec.Encoder.Setting;
 
-import std;
+
+
+
 import Utils.String.UniString;
 
 
@@ -90,7 +125,7 @@ export namespace ArtifactCore {
   void setBitrate(int bitrateMbps);
   int getBitrate() const;
 
-  void setQuality(int quality);  // 0-100 スライダー向け
+  void setQuality(int quality);  // 0-100 XC_[
   int getQuality() const;
 
   // --- Audio Settings ---
@@ -119,7 +154,7 @@ export namespace ArtifactCore {
   
   QVector<ImageFormat> getAvailableImageFormats() const;
 
-  // --- プリセット機能 ---
+  // --- vZbg@\ ---
   enum class Preset {
     YouTube_1080p_60fps,
     YouTube_4K_60fps,
@@ -132,19 +167,19 @@ export namespace ArtifactCore {
   void applyPreset(Preset preset);
   static UniString getPresetName(Preset preset);
 
-  // --- ビットレート自動計算 ---
-  int calculateBitrate() const;  // 解像度とfpsから推奨値を計算
+  // --- rbg[gvZ ---
+  int calculateBitrate() const;  // 恣xfps逅�lvZ
   int calculateAudioBitrate() const;
 
-  // --- 検証 ---
+  // ---  ---
   bool isValid() const;
   QVector<UniString> getValidationErrors() const;
 
-  // --- シリアライズ ---
+  // --- VACY ---
   UniString serialize() const;
   bool deserialize(const UniString& data);
 
-  // --- UI統合 ---
+  // --- UI ---
   static UniString getCodecName(VideoCodec codec);
   static UniString getProfileName(VideoProfile profile);
   

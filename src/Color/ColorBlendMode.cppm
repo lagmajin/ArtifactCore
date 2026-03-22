@@ -6,6 +6,7 @@ module;
 module Color.BlendMode;
 
 import std;
+
 import Color.Float;
 import Color.Conversion;
 import Color.Luminance;

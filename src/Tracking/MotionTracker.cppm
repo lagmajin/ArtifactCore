@@ -8,15 +8,51 @@ module;
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QPainter>
 #include <QMap>
 #include <vector>
 #include <cmath>
 #include <algorithm>
 #include <functional>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 module Tracking.MotionTracker;
 
-import std;
+
+
+
 
 namespace ArtifactCore {
 
@@ -754,7 +790,12 @@ void TrackerManager::clearTrackers() {
 }
 
 std::vector<MotionTracker*> TrackerManager::allTrackers() {
-    return impl_->trackers.values().toVector().toStdVector();
+    auto qlist = impl_->trackers.values();
+    std::vector<MotionTracker*> result;
+    for (auto* tracker : qlist) {
+        result.push_back(tracker);
+    }
+    return result;
 }
 
 int TrackerManager::trackerCount() const {

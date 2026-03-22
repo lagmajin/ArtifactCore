@@ -1,10 +1,47 @@
 module;
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Script.Expression.Evaluator;
 
-import std;
+
+
+
 import Script.Expression.Value;
 import Script.Expression.Parser;
+import Audio.Segment;
+
 
 export namespace ArtifactCore {
 
@@ -50,6 +87,9 @@ public:
     // Variable snapshot (for temporary injection)
     std::map<std::string, ExpressionValue> getVariablesCopy() const;
     void setVariables(const std::map<std::string, ExpressionValue>& vars);
+
+    // Audio Analysis Context
+    void setAudioData(float rms, float peak, float low, float mid, float high);
 };
 
 // Standard built-in functions (AE-style)
@@ -87,6 +127,13 @@ namespace BuiltinFunctions {
     // Array functions
     ExpressionValue Sum(const std::vector<ExpressionValue>& args);
     ExpressionValue Average(const std::vector<ExpressionValue>& args);
+    
+    // Audio functions
+    ExpressionValue AudioRMS(const std::vector<ExpressionValue>& args);
+    ExpressionValue AudioPeak(const std::vector<ExpressionValue>& args);
+    ExpressionValue AudioLow(const std::vector<ExpressionValue>& args);
+    ExpressionValue AudioMid(const std::vector<ExpressionValue>& args);
+    ExpressionValue AudioHigh(const std::vector<ExpressionValue>& args);
 }
 
 }

@@ -7,9 +7,44 @@ module;
 #include <QMatrix4x4>
 #include "../../Define/DllExportMacro.hpp"
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Physics2D;
 
-import std;
+
+
+
 
 export namespace ArtifactCore {
 
@@ -47,6 +82,8 @@ export namespace ArtifactCore {
                 b2Body_SetLinearVelocity(bodyId, b2Vec2{vel.x(), vel.y()});
             }
         }
+
+        b2BodyId getId() const { return bodyId; }
     };
 
     // ─────────────────────────────────────────────────────────
@@ -76,6 +113,13 @@ export namespace ArtifactCore {
         
         // 動的な円の追加
         std::shared_ptr<RigidBody2D> addDynamicCircle(float x, float y, float radius, float density = 1.0f, float friction = 0.3f, float restitution = 0.5f);
+
+        // 複雑な形状(ポリゴン)の追加
+        std::shared_ptr<RigidBody2D> addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic = true, float density = 1.0f);
+
+        // ジョイントの追加
+        b2JointId addDistanceJoint(std::shared_ptr<RigidBody2D> bodyA, std::shared_ptr<RigidBody2D> bodyB, float length, float damping = 0.5f, float stiffness = 1.0f);
+        b2JointId addRevoluteJoint(std::shared_ptr<RigidBody2D> bodyA, std::shared_ptr<RigidBody2D> bodyB, QVector2D anchor);
 
         // 状態のリセット
         void clear();

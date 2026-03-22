@@ -2,16 +2,49 @@ module;
 
 #include "../Define/DllExportMacro.hpp"
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+#include <QObject>
+#include <QVector>
+#include <QPair>
 export module Time.TimeRemap;
 
-import std;
+
+
+
 import Frame.Rate;
 import Frame.Position;
-
-// Qt classes for compatibility
-import <QObject>;
-import <QVector>;
-import <QPair>;
 
 export namespace ArtifactCore {
 
@@ -114,7 +147,7 @@ private:
     QVector<TimeRemapKeyframe> keyframes_;
     double sourceDuration_ = 10.0;  // Default 10 seconds
     int sourceFrameCount_ = 300;    // Default 30fps * 10s
-    FrameRate frameRate_ = FrameRate(30, 1);
+    FrameRate frameRate_{30.0f}; // Note: FrameRate takes float, not 2 args
     FrameBlendMode blendMode_ = FrameBlendMode::None;
     float blendAmount_ = 0.5f;
 };

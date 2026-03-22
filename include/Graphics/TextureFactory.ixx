@@ -1,4 +1,4 @@
-
+ï»¿
 module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/TextureView.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
@@ -20,15 +20,15 @@ export namespace ArtifactCore
  public:
   static RefCntAutoPtr<ITextureView> CreateFromFloatRGBA(IRenderDevice* device, const cv::Mat& mat)
   {
-   // ‘O’ñ: mat.type() == CV_32FC4
+   // ï¿½Oï¿½ï¿½: mat.type() == CV_32FC4
    VERIFY_EXPR(mat.type() == CV_32FC4);
-   VERIFY_EXPR(mat.isContinuous()); // ƒƒ‚ƒŠ‚ª˜A‘±‚µ‚Ä‚¢‚é‚±‚Æ‚ğŠm”F
+   VERIFY_EXPR(mat.isContinuous()); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½ï¿½ï¿½Ä‚ï¿½ï¿½é‚±ï¿½Æ‚ï¿½mï¿½F
 
-   // ƒeƒNƒXƒ`ƒƒ‚ÌƒTƒCƒY
+   // ï¿½eï¿½Nï¿½Xï¿½`ï¿½ï¿½ï¿½ÌƒTï¿½Cï¿½Y
    const Uint32 width = static_cast<Uint32>(mat.cols);
    const Uint32 height = static_cast<Uint32>(mat.rows);
 
-   // ƒeƒNƒXƒ`ƒƒ‹Lq
+   // ï¿½eï¿½Nï¿½Xï¿½`ï¿½ï¿½ï¿½Lï¿½q
    TextureDesc texDesc;
    texDesc.Name = "Float RGBA Texture";
    texDesc.Type = RESOURCE_DIM_TEX_2D;
@@ -39,18 +39,18 @@ export namespace ArtifactCore
    texDesc.BindFlags = BIND_SHADER_RESOURCE;
    texDesc.MipLevels = 1;
 
-   // ƒTƒuƒŠƒ\[ƒXî•ñ‚ğ\’z
+   // ï¿½Tï¿½uï¿½ï¿½ï¿½\ï¿½[ï¿½Xï¿½ï¿½ï¿½ï¿½\ï¿½z
    TextureSubResData subres = {};
-   subres.pData = mat.ptr();                        // ƒf[ƒ^ƒ|ƒCƒ“ƒ^
-   subres.Stride = static_cast<Uint32>(mat.step);    // 1s‚ ‚½‚è‚ÌƒoƒCƒg”
-   subres.DepthStride = 0;                                // 2D‚È‚Ì‚Å•s—v
+   subres.pData = mat.ptr();                        // ï¿½fï¿½[ï¿½^ï¿½|ï¿½Cï¿½ï¿½ï¿½^
+   subres.Stride = static_cast<Uint32>(mat.step);    // 1ï¿½sï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìƒoï¿½Cï¿½gï¿½ï¿½
+   subres.DepthStride = 0;                                // 2Dï¿½È‚Ì‚Å•sï¿½v
 
    TextureData initData;
    initData.pSubResources = &subres;
    initData.NumSubresources = 1;
    initData.pContext = nullptr;
 
-   // ƒeƒNƒXƒ`ƒƒì¬
+   // ï¿½eï¿½Nï¿½Xï¿½`ï¿½ï¿½ï¿½ì¬
    RefCntAutoPtr<ITexture> pTexture;
    device->CreateTexture(texDesc, &initData, &pTexture);
 

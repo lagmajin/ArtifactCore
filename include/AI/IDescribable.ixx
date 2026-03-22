@@ -4,6 +4,7 @@ module;
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QMap>
+#include <QVariant>
 #include <functional>
 
 export module Core.AI.Describable;
@@ -129,6 +130,17 @@ struct MethodDescription {
 class IDescribable {
 public:
     virtual ~IDescribable() = default;
+    
+    /**
+     * @brief Invoke a method by name for AI interaction
+     * 
+     * @param name Method name to invoke
+     * @param args List of arguments as QVariants
+     * @return QVariant result of the invocation
+     */
+    virtual QVariant invokeMethod(const QString& name, const QVariantList& args) {
+        return QVariant(); // Default: Do nothing
+    }
     
     // ===== Basic Description =====
     
@@ -407,6 +419,13 @@ public:
     
     void registerDescribable(const QString& name, std::function<const IDescribable*()> getter) {
         descriptors_[name] = getter;
+    }
+
+    const IDescribable* getDescribable(const QString& name) const {
+        if (descriptors_.contains(name)) {
+            return descriptors_[name]();
+        }
+        return nullptr;
     }
     
     QStringList registeredClasses() const {

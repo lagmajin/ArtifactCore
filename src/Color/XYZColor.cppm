@@ -5,6 +5,7 @@ module;
 module Color.XYZ;
 
 import std;
+
 import Color.Float;
 import Utils.String.UniString;
 

@@ -1,10 +1,7 @@
 module;
-
+#include <QString>
 
 export module Platform.ShellUtils;
-
-
-import <QString>; 
 
 namespace ArtifactCore {
 

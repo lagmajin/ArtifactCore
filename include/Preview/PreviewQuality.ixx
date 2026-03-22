@@ -1,8 +1,8 @@
 module ;
-
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
 #include <QSize>
+
 
 export module Preview.Quality;
 
@@ -22,9 +22,9 @@ export namespace ArtifactCore {
   };
 
   enum class RenderMode {
-   Normal,      // 通常レンダリング
-   Fast,        // エフェクトOFF / 簡易カラー処理
-   Draft        // 最低品質
+   Normal,      // ﾊ常レ_O
+   Fast,        // GtFNgOFF / ﾈ易カ[
+   Draft        // ﾅ段
   };
 
   enum class AntiAliasing {

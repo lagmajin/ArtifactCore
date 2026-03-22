@@ -1,10 +1,47 @@
 module;
 
 #include "../Define/DllExportMacro.hpp"
+#include <wobjectdefs.h>
+#include <QObject>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Color.ColorSpace;
 
-import std;
+
+
+
 
 export namespace ArtifactCore
 {
@@ -79,12 +116,13 @@ struct HDRMetadata
     int whitePointX = 15635;   // 0.15635 in 0.00002 units
     int whitePointY = 16450;   // 0.16450
     int maxLuminance = 1000000; // 1000 nits
-    int minLuminance = 1;       // 0.0001 nits
+    int masteringMinLuminance = 1;       // 0.0001 nits
 };
 
 // カラーマネージャー
-class LIBRARY_DLL_API ColorManager
+class LIBRARY_DLL_API ColorManager : public QObject
 {
+    W_OBJECT(ColorManager)
 public:
     static ColorManager& instance();
 

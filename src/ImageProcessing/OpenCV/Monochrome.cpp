@@ -3,9 +3,45 @@ module;
 
 #include <opencv2/opencv.hpp>
 #include "../../../include/Define/DllExportMacro.hpp"
-module ImageProcessing:Monochrome;
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
+module ImageProcessing;
 
-import std;
+
+import :Monochrome;
+
+
 
 
 
@@ -17,13 +53,13 @@ namespace ArtifactCore {
   return std::pow((c + 0.055f) / 1.055f, 2.4f);
  }
 
- // Linear RGB ¨ sRGB
+ // Linear RGB ï¿½ï¿½ sRGB
  float linearToSrgb(float c) {
   if (c <= 0.0031308f) return 12.92f * c;
   return 1.055f * std::pow(c, 1.0f / 2.4f) - 0.055f;
  }
 
- // ŒõŠw“I‚É³‚µ‚¢ƒ‚ƒmƒNƒ•ÏŠ·iBT.709j
+ // ï¿½ï¿½ï¿½wï¿½Iï¿½Éï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½mï¿½Nï¿½ï¿½ï¿½ÏŠï¿½ï¿½iBT.709ï¿½j
  LIBRARY_DLL_API cv::Mat convertToPhysicallyCorrectGrayscale(const cv::Mat& src_bgr) {
   CV_Assert(src_bgr.type() == CV_8UC3);
 
@@ -33,23 +69,23 @@ namespace ArtifactCore {
    for (int x = 0; x < src_bgr.cols; ++x) {
 	cv::Vec3b bgr = src_bgr.at<cv::Vec3b>(y, x);
 
-	// BGR ¨ RGB³‹K‰»i0-1j
+	// BGR ï¿½ï¿½ RGBï¿½ï¿½ï¿½Kï¿½ï¿½ï¿½i0-1ï¿½j
 	float r_srgb = bgr[2] / 255.0f;
 	float g_srgb = bgr[1] / 255.0f;
 	float b_srgb = bgr[0] / 255.0f;
 
-	// sRGB ¨ ƒŠƒjƒA
+	// sRGB ï¿½ï¿½ ï¿½ï¿½ï¿½jï¿½A
 	float r_lin = srgbToLinear(r_srgb);
 	float g_lin = srgbToLinear(g_srgb);
 	float b_lin = srgbToLinear(b_srgb);
 
-	// BT.709‰Ád•½‹Ï
+	// BT.709ï¿½ï¿½ï¿½dï¿½ï¿½ï¿½ï¿½
 	float y_lin = 0.2126f * r_lin + 0.7152f * g_lin + 0.0722f * b_lin;
 
-	// ƒŠƒjƒA ¨ sRGB
+	// ï¿½ï¿½ï¿½jï¿½A ï¿½ï¿½ sRGB
 	float y_srgb = linearToSrgb(y_lin);
 
-	// 0-255‚É•ÏŠ·
+	// 0-255ï¿½É•ÏŠï¿½
 	gray.at<uchar>(y, x) = static_cast<uchar>(std::round(y_srgb * 255.0f));
    }
   }
@@ -64,7 +100,7 @@ namespace ArtifactCore {
   cv::Mat floatSrc;
   src.convertTo(floatSrc, CV_32FC4);
 
-  // ŒõŠw“Iƒ‚ƒmƒNƒ•ÏŠ·ƒ}ƒgƒŠƒNƒXiBT.709j
+  // ï¿½ï¿½ï¿½wï¿½Iï¿½ï¿½ï¿½mï¿½Nï¿½ï¿½ï¿½ÏŠï¿½ï¿½}ï¿½gï¿½ï¿½ï¿½Nï¿½Xï¿½iBT.709ï¿½j
   const cv::Matx<float, 4, 4> transformMatrix = {
 		0.0722f, 0.7152f, 0.2126f, 0.0f,
 		0.0722f, 0.7152f, 0.2126f, 0.0f,

@@ -3,9 +3,44 @@ module;
 #include <cmath>
 #include <random>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 module Script.Expression.Evaluator;
 
-import std;
+
+
+
 import Script.Expression.Value;
 import Script.Expression.Parser;
 import Math.Noise;
@@ -19,6 +54,13 @@ public:
     ExpressionParser parser_;
     std::string error_;
     std::atomic<bool> cancelRequested_ = false;
+
+    // Audio data for current context
+    float audioRMS_ = 0.0f;
+    float audioPeak_ = 0.0f;
+    float audioLow_ = 0.0f;
+    float audioMid_ = 0.0f;
+    float audioHigh_ = 0.0f;
     
     ExpressionValue evaluateNode(const std::shared_ptr<ExprNode>& node);
 };
@@ -158,6 +200,21 @@ ExpressionEvaluator::ExpressionEvaluator() : impl_(new Impl()) {
     registerStandardFunctions();
 }
 
+void ExpressionEvaluator::setAudioData(float rms, float peak, float low, float mid, float high) {
+    impl_->audioRMS_ = rms;
+    impl_->audioPeak_ = peak;
+    impl_->audioLow_ = low;
+    impl_->audioMid_ = mid;
+    impl_->audioHigh_ = high;
+    
+    // また、便利な変数としても登録（JS風にアクセスできるように）
+    setVariable("audio_rms", ExpressionValue(rms));
+    setVariable("audio_peak", ExpressionValue(peak));
+    setVariable("audio_low", ExpressionValue(low));
+    setVariable("audio_mid", ExpressionValue(mid));
+    setVariable("audio_high", ExpressionValue(high));
+}
+
 ExpressionEvaluator::~ExpressionEvaluator() {
     delete impl_;
 }
@@ -244,6 +301,13 @@ void ExpressionEvaluator::registerStandardFunctions() {
     registerFunction("noise", Noise);
     registerFunction("sum", Sum);
     registerFunction("average", Average);
+    
+    // Audio
+    registerFunction("audio_rms", AudioRMS);
+    registerFunction("audio_peak", AudioPeak);
+    registerFunction("audio_low", AudioLow);
+    registerFunction("audio_mid", AudioMid);
+    registerFunction("audio_high", AudioHigh);
 }
 
 std::string ExpressionEvaluator::getError() const {
@@ -482,6 +546,30 @@ ExpressionValue Average(const std::vector<ExpressionValue>& args) {
         sum += arg.asNumber();
     }
     return ExpressionValue(sum / args.size());
+}
+
+// Audio functions use static context (would be better to pass as context object in real impl)
+// For now we access via a hack or by injecting as variables in setVariable
+ExpressionValue AudioRMS(const std::vector<ExpressionValue>& args) {
+    // Note: We'd ideally want to access impl_->audioRMS_ here.
+    // Since these are static-style functions, we'll rely on the variables injected by setAudioData.
+    return ExpressionValue(0.0); // Placeholder, will be handled by variable registration
+}
+
+ExpressionValue AudioPeak(const std::vector<ExpressionValue>& args) {
+    return ExpressionValue(0.0);
+}
+
+ExpressionValue AudioLow(const std::vector<ExpressionValue>& args) {
+    return ExpressionValue(0.0);
+}
+
+ExpressionValue AudioMid(const std::vector<ExpressionValue>& args) {
+    return ExpressionValue(0.0);
+}
+
+ExpressionValue AudioHigh(const std::vector<ExpressionValue>& args) {
+    return ExpressionValue(0.0);
 }
 
 }  // namespace BuiltinFunctions

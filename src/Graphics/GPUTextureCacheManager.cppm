@@ -1,26 +1,28 @@
 ﻿module;
 #include <QList>
 #include <QUuid>
+
 module Graphics.ImageCache;
-
-
-
 
 namespace ArtifactCore {
 
-void GPUTextureManager::clear()
-{
+ class GPUTextureManager::Impl {
+ public:
+  Impl() = default;
+  ~Impl() = default;
+ };
 
-}
+ GPUTextureManager::GPUTextureManager() : impl_(new Impl())
+ {
+ }
 
-GPUTextureManager::~GPUTextureManager()
-{
+ GPUTextureManager::~GPUTextureManager()
+ {
+  delete impl_;
+ }
 
-}
-
-GPUTextureManager::GPUTextureManager()
-{
-
-}
+ void GPUTextureManager::clear()
+ {
+ }
 
 };

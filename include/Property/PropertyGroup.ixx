@@ -5,9 +5,44 @@ module;
 #include <memory>
 #include "../Define/DllExportMacro.hpp"
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Property.Group;
 
-import std;
+
+
+
 import Property.Abstract;
 
 export namespace ArtifactCore {
@@ -17,6 +52,10 @@ using AbstractPropertyPtr = std::shared_ptr<AbstractProperty>;
 class LIBRARY_DLL_API PropertyGroup {
 public:
   explicit PropertyGroup(QString name = QString{});
+  PropertyGroup(const PropertyGroup& other);
+  PropertyGroup(PropertyGroup&& other) noexcept;
+  PropertyGroup& operator=(const PropertyGroup& other);
+  PropertyGroup& operator=(PropertyGroup&& other) noexcept;
   ~PropertyGroup();
 
   QString name() const;

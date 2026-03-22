@@ -4,9 +4,10 @@ module;
 #include <QVector3D>
 #include <QColor>
 
-module Core.AI.DataAssetDescriptions;
+export module Core.AI.DataAssetDescriptions;
 
 import std;
+
 import Core.AI.Describable;
 
 namespace ArtifactCore {

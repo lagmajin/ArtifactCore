@@ -1,6 +1,7 @@
 module;
 
 #include <QString>
+#include <QRegularExpression>
 #include <QImage>
 #include <QColor>
 #include <QVector3D>
@@ -8,9 +9,44 @@ module;
 #include <array>
 #include <memory>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Color.LUT;
 
-import std;
+
+
+
 
 export namespace ArtifactCore {
 
@@ -27,7 +63,7 @@ struct LUTSize {
 enum class LUTFormat {
     Cube,       ///< .cube ファイル（Adobe IRIDAS/Blackmagic）
     Csp,        ///< .csp ファイル（Cinespace）
-    3dl,        ///< .3dl ファイル（Autodesk）
+    _3dl,       ///< .3dl ファイル（Autodesk）
     Mga,        ///< .mga ファイル（Pandora）
     Look,       ///< .look ファイル（DaVinci Resolve）
     PNG,        ///< PNG画像（HaldCLUT）

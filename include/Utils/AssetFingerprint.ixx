@@ -4,8 +4,11 @@ module;
 #include <QString>
 
 export module Utils.Fingerprint;
-
 import std;
+
+
+
+
 
 export namespace ArtifactCore {
 

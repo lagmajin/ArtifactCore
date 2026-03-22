@@ -1,127 +1,78 @@
 ﻿module ;
 #include <stdint.h>
-#include<QtGui/QTransform>
+#include <QtGui/QTransform>
 
 module Transform._2D;
 
-
-import std;
-//import Transform:Scale2D;
-
-
-
 namespace ArtifactCore {
 
+struct StaticTransform2D::Impl {
+    float x = 0.0f;
+    float y = 0.0f;
+    float initialX = 1.0f;
+    float initialY = 1.0f;
+    float scaleX = 1.0f;
+    float scaleY = 1.0f;
+    float rotation = 0.0f;
+    float anchorPointX = 0.0f;
+    float anchorPointY = 0.0f;
 
- struct StaticTransform2D::Impl {
-  float x = 0;
-  float y = 0;
-  float initialX = 1.0f;
-  float initialY = 1.0f;
-  float scaleX = 1.0;
-  float scaleY = 1.0;
-
-  float rotation = 0; // radians or degrees?
-
-  float anchorPointX = 0.0f;
-  float anchorPointY = 0.0f;
-
- };
-
-
- StaticTransform2D::StaticTransform2D()
-  : impl_(new Impl())
- {
-
- }
-
- StaticTransform2D::StaticTransform2D(const StaticTransform2D& other) : impl_(new Impl())
- {
-
- }
-
- StaticTransform2D::~StaticTransform2D()
- {
-  delete impl_;
- }
-
- float StaticTransform2D::scaleX() const {
-  return impl_->scaleX;
- }
-
- float StaticTransform2D::scaleY() const {
-  return impl_->scaleY;
- }
-
- void StaticTransform2D::setX(float x)
- {
-	 impl_->x = x;
- }
-
-
- void StaticTransform2D::setY(float y)
- {
-  impl_->y = y;
- }
-
- void StaticTransform2D::setScaleX(float x)
- {
-
- }
-
- void StaticTransform2D::setScaleY(float y)
- {
-
- }
-
- float StaticTransform2D::x() const
- {
-  return impl_->x;
- }
-
- float StaticTransform2D::y() const
- {
-  return impl_->y;
- }
-
- float StaticTransform2D::rotation() const
- {
-  return 0;
- }
-
- void StaticTransform2D::setInitialScaleX(float x)
- {
-
- }
-
- void StaticTransform2D::setInitialScaleY(float y)
- {
-
- }
-
- void StaticTransform2D::setInitialScale(float x, float y)
- {
-
- }
-
- void StaticTransform2D::setAnchorPointX(float x)
- {
-
- }
-
- void StaticTransform2D::setAnchorPointY(float y)
- {
-
- }
-
- float StaticTransform2D::anchorPointX() const
- {
-  return 0.0f;
- }
-
- float StaticTransform2D::anchorPointY() const
- {
-  return 0.0f;
- }
-
+    Impl() = default;
+    Impl(const Impl& other) = default;
 };
+
+StaticTransform2D::StaticTransform2D() : impl_(new Impl()) {}
+
+StaticTransform2D::StaticTransform2D(const StaticTransform2D& other) 
+    : impl_(new Impl(*other.impl_)) {}
+
+StaticTransform2D::StaticTransform2D(StaticTransform2D&& other) noexcept 
+    : impl_(other.impl_) {
+    other.impl_ = nullptr;
+}
+
+StaticTransform2D::~StaticTransform2D() {
+    delete impl_;
+}
+
+StaticTransform2D& StaticTransform2D::operator=(const StaticTransform2D& other) {
+    if (this != &other) {
+        *impl_ = *other.impl_;
+    }
+    return *this;
+}
+
+StaticTransform2D& StaticTransform2D::operator=(StaticTransform2D&& other) noexcept {
+    if (this != &other) {
+        delete impl_;
+        impl_ = other.impl_;
+        other.impl_ = nullptr;
+    }
+    return *this;
+}
+
+float StaticTransform2D::scaleX() const { return impl_ ? impl_->scaleX : 1.0f; }
+float StaticTransform2D::scaleY() const { return impl_ ? impl_->scaleY : 1.0f; }
+
+void StaticTransform2D::setX(float x) { if (impl_) impl_->x = x; }
+void StaticTransform2D::setY(float y) { if (impl_) impl_->y = y; }
+
+void StaticTransform2D::setScaleX(float x) { if (impl_) impl_->scaleX = x; }
+void StaticTransform2D::setScaleY(float y) { if (impl_) impl_->scaleY = y; }
+
+float StaticTransform2D::x() const { return impl_ ? impl_->x : 0.0f; }
+float StaticTransform2D::y() const { return impl_ ? impl_->y : 0.0f; }
+float StaticTransform2D::rotation() const { return impl_ ? impl_->rotation : 0.0f; }
+
+void StaticTransform2D::setInitialScaleX(float x) { if (impl_) impl_->initialX = x; }
+void StaticTransform2D::setInitialScaleY(float y) { if (impl_) impl_->initialY = y; }
+void StaticTransform2D::setInitialScale(float x, float y) { 
+    if (impl_) { impl_->initialX = x; impl_->initialY = y; } 
+}
+
+void StaticTransform2D::setAnchorPointX(float x) { if (impl_) impl_->anchorPointX = x; }
+void StaticTransform2D::setAnchorPointY(float y) { if (impl_) impl_->anchorPointY = y; }
+float StaticTransform2D::anchorPointX() const { return impl_ ? impl_->anchorPointX : 0.0f; }
+float StaticTransform2D::anchorPointY() const { return impl_ ? impl_->anchorPointY : 0.0f; }
+
+} // namespace ArtifactCore

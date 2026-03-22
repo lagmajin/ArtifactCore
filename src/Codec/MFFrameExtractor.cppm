@@ -8,9 +8,44 @@ module;
 #include <QString>
 #include <QFile>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 module Codec.MFFrameExtractor;
 
-import std;
+
+
+
 
 using Microsoft::WRL::ComPtr;
 
@@ -23,32 +58,32 @@ namespace ArtifactCore {
   
   ComPtr<IMFSourceReader> sourceReader_;
   
-  // “®‰æî•ñ
+  // 
   int64_t duration_ = 0;
   int width_ = 0;
   int height_ = 0;
   double frameRate_ = 0.0;
   QString codecName_;
   
-  // İ’è
+  // İ’
   OutputFormat outputFormat_ = OutputFormat::RGBA;
   int outputWidth_ = 0;
   int outputHeight_ = 0;
   Quality quality_ = Quality::Normal;
   bool hardwareAcceleration_ = true;
   
-  // ƒGƒ‰[î•ñ
+  // G[
   QString lastError_;
   
-  // “Œv
+  // v
   Statistics stats_;
   
   Impl() {
-   // COM ‰Šú‰»
+   // COM 
    HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
    comInitialized_ = SUCCEEDED(hr) || hr == RPC_E_CHANGED_MODE;
 
-   // Media Foundation ‰Šú‰»
+   // Media Foundation 
    hr = MFStartup(MF_VERSION, MFSTARTUP_FULL);
    if (FAILED(hr)) {
     lastError_ = "MFStartup failed";
@@ -77,7 +112,7 @@ namespace ArtifactCore {
     return false;
    }
    
-   // ƒ\[ƒXƒŠ[ƒ_[ì¬
+   // \[X[_[ì¬
    ComPtr<IMFAttributes> attributes;
    HRESULT hr = MFCreateAttributes(&attributes, 2);
    if (FAILED(hr)) {
@@ -85,7 +120,7 @@ namespace ArtifactCore {
     return false;
    }
    
-   // ƒn[ƒhƒEƒFƒAƒAƒNƒZƒ‰ƒŒ[ƒVƒ‡ƒ“İ’è
+   // n[hEFAANZ[Vİ’
    if (hardwareAcceleration_) {
     attributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE);
     attributes->SetUINT32(MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, TRUE);
@@ -97,11 +132,11 @@ namespace ArtifactCore {
     return false;
    }
    
-   // ƒrƒfƒIƒXƒgƒŠ[ƒ€‘I‘ğ
+   // rfIXg[I
    hr = sourceReader_->SetStreamSelection((DWORD)MF_SOURCE_READER_ALL_STREAMS, FALSE);
    hr = sourceReader_->SetStreamSelection((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, TRUE);
    
-   // o—ÍƒƒfƒBƒAƒ^ƒCƒvİ’èiRGB32‚É•ÏŠ·j
+   // oÍƒfBA^Cvİ’iRGB32É•ÏŠj
    ComPtr<IMFMediaType> outputType;
    hr = MFCreateMediaType(&outputType);
    if (FAILED(hr)) {
@@ -121,7 +156,7 @@ namespace ArtifactCore {
     return false;
    }
    
-   // “®‰æî•ñ‚ğæ“¾
+   // æ“¾
    if (!readVideoInfo()) {
     close();
     return false;
@@ -140,7 +175,7 @@ namespace ArtifactCore {
     return false;
    }
    
-   // ‰ğ‘œ“xæ“¾
+   // ğ‘œ“xæ“¾
    UINT32 width, height;
    hr = MFGetAttributeSize(mediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
    if (SUCCEEDED(hr)) {
@@ -148,14 +183,14 @@ namespace ArtifactCore {
     height_ = height;
    }
    
-   // ƒtƒŒ[ƒ€ƒŒ[ƒgæ“¾
+   // t[[gæ“¾
    UINT32 numerator, denominator;
    hr = MFGetAttributeRatio(mediaType.Get(), MF_MT_FRAME_RATE, &numerator, &denominator);
    if (SUCCEEDED(hr) && denominator > 0) {
     frameRate_ = static_cast<double>(numerator) / denominator;
    }
    
-   // “®‰æ‚Ì’·‚³‚ğæ“¾
+   // Ì’æ“¾
    PROPVARIANT var;
    PropVariantInit(&var);
    hr = sourceReader_->GetPresentationAttribute(
@@ -188,7 +223,7 @@ namespace ArtifactCore {
    
    auto startTime = std::chrono::high_resolution_clock::now();
    
-   // ƒV[ƒN
+   // V[N
    PROPVARIANT var;
    PropVariantInit(&var);
    var.vt = VT_I8;
@@ -202,7 +237,7 @@ namespace ArtifactCore {
     return nullptr;
    }
    
-   // ƒTƒ“ƒvƒ‹“Ç‚İæ‚è
+   // TvÇ‚İ
    ComPtr<IMFSample> sample;
    DWORD streamFlags = 0;
    LONGLONG sampleTimestamp = 0;
@@ -230,7 +265,7 @@ namespace ArtifactCore {
     return nullptr;
    }
    
-   // ƒƒfƒBƒAƒoƒbƒtƒ@[‚ğæ“¾
+   // fBAobt@[æ“¾
    ComPtr<IMFMediaBuffer> buffer;
    hr = sample->ConvertToContiguousBuffer(&buffer);
    if (FAILED(hr)) {
@@ -238,7 +273,7 @@ namespace ArtifactCore {
     return nullptr;
    }
    
-   // ƒf[ƒ^‚ğƒƒbƒN
+   // f[^bN
    BYTE* data = nullptr;
    DWORD maxLength = 0, currentLength = 0;
    hr = buffer->Lock(&data, &maxLength, &currentLength);
@@ -247,7 +282,7 @@ namespace ArtifactCore {
     return nullptr;
    }
    
-   // ExtractedFrame ‚ğì¬
+   // ExtractedFrame ì¬
    auto frame = std::make_unique<ExtractedFrame>();
    
    int outputWidth = (outputWidth_ > 0) ? outputWidth_ : width_;
@@ -261,24 +296,24 @@ namespace ArtifactCore {
    frame->frameNumber = static_cast<int>(sampleTimestamp * frameRate_ / 10000000);
    frame->data.resize(stride * outputHeight);
    
-   // ƒf[ƒ^‚ğƒRƒs[iRGB32 ¨ RGBAj
+   // f[^Rs[iRGB32  RGBAj
    if (outputWidth == width_ && outputHeight == height_) {
-    // ƒŠƒTƒCƒY•s—v
+    // TCYsv
     std::memcpy(frame->data.data(), data, currentLength);
    } else {
-    // ŠÈˆÕƒŠƒTƒCƒYiÀÛ‚É‚Í‚æ‚è‚•i¿‚ÈƒŠƒTƒCƒYƒAƒ‹ƒSƒŠƒYƒ€‚ğg—p‚·‚×‚«j
-    // TODO: ‚æ‚è‚•i¿‚ÈƒŠƒTƒCƒYÀ‘•
+    // ÈˆÕƒTCYiÛ‚É‚Í‚è‚iÈƒTCYASYgp×‚j
+    // TODO: è‚iÈƒTCY
     std::memcpy(frame->data.data(), data, std::min<size_t>(currentLength, frame->data.size()));
    }
    
-   // ƒtƒH[ƒ}ƒbƒg•ÏŠ·
+   // tH[}bgÏŠ
    if (outputFormat_ != OutputFormat::RGBA) {
     convertFormat(frame->data, frame->width, frame->height, outputFormat_);
    }
    
    buffer->Unlock();
    
-   // “ŒvXV
+   // vXV
    auto endTime = std::chrono::high_resolution_clock::now();
    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
    
@@ -292,13 +327,13 @@ namespace ArtifactCore {
   }
   
   void convertFormat(std::vector<uint8_t>& data, int width, int height, OutputFormat format) {
-   // RGBA ¨ ‘¼‚ÌƒtƒH[ƒ}ƒbƒg‚Ö‚Ì•ÏŠ·
-   // À‘•‚Í format ‚É‰‚¶‚Ä•ÏX
-   // ŠÈˆÕÀ‘•iŠ®‘S”Å‚ÍŠeƒtƒH[ƒ}ƒbƒg‚É‘Î‰j
+   // RGBA  ÌƒtH[}bgÖ‚Ì•ÏŠ
+   //  format É‰Ä•ÏX
+   // ÈˆÕiSÅ‚ÍŠetH[}bgÉ‘Î‰j
    
    switch (format) {
    case OutputFormat::BGR:
-    // RGBA ¨ BGRiƒAƒ‹ƒtƒ@ƒ`ƒƒƒ“ƒlƒ‹íœ & R/B“ü‚ê‘Ö‚¦j
+    // RGBA  BGRiAt@`líœ & R/BÖ‚j
     {
      std::vector<uint8_t> temp;
      temp.reserve(width * height * 3);
@@ -312,7 +347,7 @@ namespace ArtifactCore {
     break;
     
    case OutputFormat::RGB:
-    // RGBA ¨ RGBiƒAƒ‹ƒtƒ@ƒ`ƒƒƒ“ƒlƒ‹íœj
+    // RGBA  RGBiAt@`líœj
     {
      std::vector<uint8_t> temp;
      temp.reserve(width * height * 3);
@@ -326,7 +361,7 @@ namespace ArtifactCore {
     break;
     
    case OutputFormat::BGRA:
-    // RGBA ¨ BGRAiR/B“ü‚ê‘Ö‚¦j
+    // RGBA  BGRAiR/BÖ‚j
     for (size_t i = 0; i < data.size(); i += 4) {
      std::swap(data[i], data[i + 2]);
     }
@@ -338,7 +373,7 @@ namespace ArtifactCore {
   }
  };
 
- // MFFrameExtractor À‘•
+ // MFFrameExtractor 
  
  MFFrameExtractor::MFFrameExtractor() : impl_(std::make_unique<Impl>()) {}
 
@@ -501,7 +536,7 @@ namespace ArtifactCore {
   impl_->stats_ = Statistics{};
  }
 
- // MfEncoderEnumerator À‘•iŒã•ûŒİŠ·«j
+ // MfEncoderEnumerator iİŠj
  
  std::vector<MfEncoderEnumerator::EncoderInfo> MfEncoderEnumerator::ListAvailableVideoEncoders(GUID subtype) {
   HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);

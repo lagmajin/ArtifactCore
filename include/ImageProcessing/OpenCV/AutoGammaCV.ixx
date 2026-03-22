@@ -1,6 +1,6 @@
 ﻿module;
 #include <opencv2/opencv.hpp>
-export module AutoGamma;
+export module ImageProcessing.AutoGamma.CV;
 
 
 

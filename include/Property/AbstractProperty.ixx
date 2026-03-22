@@ -5,9 +5,44 @@
 #include <QColor>
 #include <vector>
 #include "../Define/DllExportMacro.hpp"
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module Property.Abstract;
 
-import std;
+
+
+
 import Color.Float;
 import Utils.String.UniString;
 import Time.Rational;
@@ -22,12 +57,28 @@ enum class PropertyType {
     Integer,
     Boolean,
     Color,
-    String
+    String,
+    ObjectReference  // ID 参照
 };
 
 struct KeyFrame {
     RationalTime time;
     QVariant value;
+};
+
+struct PropertyMetadata {
+    QString displayLabel;
+    QString unit;
+    QString tooltip;
+    QVariant hardMin;
+    QVariant hardMax;
+    QVariant softMin;
+    QVariant softMax;
+    QVariant step;
+    
+    // 参照タイプ用
+    QString referenceTypeName;  // 参照可能タイプ名（例："LayerID", "CompositionID"）
+    bool allowNull = true;      // null 許可
 };
 
 class LIBRARY_DLL_API AbstractProperty {
@@ -54,6 +105,7 @@ public:
     QVariant getMaxValue() const;
     bool isAnimatable() const;
     QColor getColorValue() const;
+    PropertyMetadata metadata() const;
 
     // Setters
     void setName(const QString& name);
@@ -64,6 +116,13 @@ public:
     void setMaxValue(const QVariant& value);
     void setAnimatable(bool animatable);
     void setColorValue(const QColor& color);
+    void setMetadata(const PropertyMetadata& metadata);
+    void setDisplayLabel(const QString& label);
+    void setUnit(const QString& unit);
+    void setTooltip(const QString& tooltip);
+    void setStep(const QVariant& step);
+    void setHardRange(const QVariant& minValue, const QVariant& maxValue);
+    void setSoftRange(const QVariant& minValue, const QVariant& maxValue);
 
     /// @brief 表示優先度を設定する。
     /// 値が小さいほど高優先度（先頭に近い位置に表示される）。

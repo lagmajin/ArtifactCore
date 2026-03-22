@@ -3,6 +3,7 @@ module;
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 
 export module Math.SpatialGrid;
 

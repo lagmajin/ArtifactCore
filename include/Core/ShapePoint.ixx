@@ -1,7 +1,7 @@
 module;
 #include <cmath>
 #include <utility>
-module ShapeVertex;
+export module ShapeVertex;
 
 
 
@@ -27,10 +27,10 @@ export namespace ArtifactCore {
   };
 
  private:
-  Vec2 pos_;       // ’¸“_ˆÊ’u
-  Vec2 inHandle_;  // “ü‚èƒnƒ“ƒhƒ‹i‘Š‘Îj
-  Vec2 outHandle_; // oƒnƒ“ƒhƒ‹i‘Š‘Îj
-  bool corner_ = false; // ƒXƒ€[ƒY or ƒR[ƒi[
+  Vec2 pos_;       // ï¿½ï¿½ï¿½_ï¿½Ê’u
+  Vec2 inHandle_;  // ï¿½ï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½iï¿½ï¿½ï¿½Îj
+  Vec2 outHandle_; // ï¿½oï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½iï¿½ï¿½ï¿½Îj
+  bool corner_ = false; // ï¿½Xï¿½ï¿½ï¿½[ï¿½Y or ï¿½Rï¿½[ï¿½iï¿½[
 
  public:
   ShapeVertex() = default;
@@ -48,7 +48,7 @@ export namespace ArtifactCore {
   bool isCorner() const { return corner_; }
   void setCorner(bool corner) { corner_ = corner; }
 
-  // worldÀ•W‚Å‚Ìƒnƒ“ƒhƒ‹ˆÊ’u
+  // worldï¿½ï¿½ï¿½Wï¿½Å‚Ìƒnï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ê’u
   Vec2 inHandleWorld() const { return pos_ + inHandle_; }
   Vec2 outHandleWorld() const { return pos_ + outHandle_; }
 

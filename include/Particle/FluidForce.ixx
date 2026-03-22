@@ -41,7 +41,7 @@ public:
     }
 
     void step(float dt, float viscosity) {
-        ScopedPerformanceTimer timer("Fluid Simulation");
+        // ScopedPerformanceTimer timer("Fluid Simulation"); // Note: ScopedPerformanceTimer not available
         // Simple diffusion & advection (Conceptual)
         // In a real implementation, this would involve pressure projection
         for (auto& v : velocity_) {

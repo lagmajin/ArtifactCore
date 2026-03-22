@@ -2,13 +2,16 @@ module;
 #include <QVector>
 #include <QString>
 export module Utils.Convertor.String;
-
 import std;
+
+
+
+
 
 export namespace ArtifactCore {
 
  inline std::string toStdString(const QString& qstr) {
-  QByteArray utf8 = qstr.toUtf8(); // Qt ‘¤‚ÅUTF-8•ÏŠ·
+  QByteArray utf8 = qstr.toUtf8(); // Qt UTF-8ÏŠ
   return std::string(utf8.constData(), utf8.size());
  }
 
@@ -22,7 +25,7 @@ export namespace ArtifactCore {
  }
 
  inline std::u32string toStdU32String(const QString& qstr) {
-  // Qt ‚ª UCS-4 ‚ğ¶¬ ¨ ‚Â‚Ü‚è UTF-32-safe
+  // Qt  UCS-4 ğ¶  Â‚Ü‚ UTF-32-safe
   QVector<uint> ucs4 = qstr.toUcs4();
 
   std::u32string out;

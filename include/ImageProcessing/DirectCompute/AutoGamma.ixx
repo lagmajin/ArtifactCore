@@ -1,6 +1,6 @@
 ﻿module;
 
-export module AutoGamma;
+export module ImageProcessing.AutoGamma.CS;
 
 
 export namespace ArtifactCore

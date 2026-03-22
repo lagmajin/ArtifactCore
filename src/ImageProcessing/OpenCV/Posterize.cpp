@@ -3,7 +3,8 @@ module;
 #include <opencv2/opencv.hpp>
 #include "../../../include/Define/DllExportMacro.hpp"
 
-module ImageProcessing:Posterize;
+module ImageProcessing;
+import :Posterize;
 
 
 

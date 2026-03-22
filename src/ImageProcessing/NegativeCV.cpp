@@ -1,6 +1,7 @@
 module;
 
-module ImageProcessing:NegativeCV;
+module ImageProcessing;
+import :NegativeCV;
 
 
 

@@ -6,6 +6,7 @@ module;
 export module ArtifactCore.ImageProcessing.VolumetricShine;
 
 import Particle; // For float2, float3, float4 definitions
+import ArtifactCore.Utils.PerformanceProfiler;
 
 namespace ArtifactCore {
 

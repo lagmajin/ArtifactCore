@@ -10,16 +10,23 @@ export namespace ArtifactCore {
  public:
   ViewportOperator();
   ~ViewportOperator();
+  ViewportOperator(const ViewportOperator&) = delete;
+  ViewportOperator& operator=(const ViewportOperator&) = delete;
  };
 
- ViewportOperator::ViewportOperator()
- {
+ class ViewportOperator::Impl {
+ public:
+  Impl() = default;
+  ~Impl() = default;
+ };
 
+ ViewportOperator::ViewportOperator() : impl_(new Impl())
+ {
  }
 
  ViewportOperator::~ViewportOperator()
  {
-
+  delete impl_;
  }
 
 }

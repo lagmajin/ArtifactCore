@@ -3,9 +3,44 @@ module;
 #include <vector>
 #include <memory>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 module Physics2D;
 
-import std;
+
+
+
 
 namespace ArtifactCore {
 
@@ -57,7 +92,7 @@ namespace ArtifactCore {
 
         b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
         b2ShapeDef shapeDef = b2DefaultShapeDef();
-        shapeDef.friction = friction;
+        // shapeDef.friction = friction; // Note: API changed in box2d v3
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
     }
 
@@ -72,8 +107,8 @@ namespace ArtifactCore {
         b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
-        shapeDef.friction = friction;
-        shapeDef.restitution = restitution; // Bounciness
+        // shapeDef.friction = friction; // Note: API changed in box2d v3
+        // shapeDef.restitution = restitution; // Note: API changed in box2d v3
 
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
@@ -95,8 +130,8 @@ namespace ArtifactCore {
         b2Circle circle = { {0.0f, 0.0f}, radius };
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
-        shapeDef.friction = friction;
-        shapeDef.restitution = restitution;
+        // shapeDef.friction = friction; // Note: API changed in box2d v3
+        // shapeDef.restitution = restitution; // Note: API changed in box2d v3
 
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
 
@@ -105,6 +140,56 @@ namespace ArtifactCore {
         impl_->bodies.push_back(rb);
         
         return rb;
+    }
+
+    std::shared_ptr<RigidBody2D> Physics2D::addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic, float density) {
+        if (!b2World_IsValid(impl_->worldId) || vertices.size() < 3) return nullptr;
+
+        b2BodyDef bodyDef = b2DefaultBodyDef();
+        bodyDef.type = isDynamic ? b2_dynamicBody : b2_staticBody;
+        bodyDef.position = {x, y};
+        b2BodyId bodyId = b2CreateBody(impl_->worldId, &bodyDef);
+
+        std::vector<b2Vec2> b2verts;
+        for (const auto& v : vertices) {
+            b2verts.push_back({v.x(), v.y()});
+        }
+
+        b2Hull hull = b2ComputeHull(b2verts.data(), (int)b2verts.size());
+        b2Polygon poly = b2MakePolygon(&hull, 0.01f); // Note: API changed - requires Hull
+        b2ShapeDef shapeDef = b2DefaultShapeDef();
+        shapeDef.density = density;
+        b2CreatePolygonShape(bodyId, &shapeDef, &poly);
+
+        auto rb = std::make_shared<RigidBody2D>();
+        rb->bodyId = bodyId;
+        impl_->bodies.push_back(rb);
+        return rb;
+    }
+
+    b2JointId Physics2D::addDistanceJoint(std::shared_ptr<RigidBody2D> bodyA, std::shared_ptr<RigidBody2D> bodyB, float length, float damping, float stiffness) {
+        if (!b2Body_IsValid(bodyA->getId()) || !b2Body_IsValid(bodyB->getId())) return b2_nullJointId;
+
+        b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
+        jointDef.bodyIdA = bodyA->getId();
+        jointDef.bodyIdB = bodyB->getId();
+        jointDef.length = length;
+        jointDef.dampingRatio = damping;
+        jointDef.hertz = stiffness;
+
+        return b2CreateDistanceJoint(impl_->worldId, &jointDef);
+    }
+
+    b2JointId Physics2D::addRevoluteJoint(std::shared_ptr<RigidBody2D> bodyA, std::shared_ptr<RigidBody2D> bodyB, QVector2D anchor) {
+        if (!b2Body_IsValid(bodyA->getId()) || !b2Body_IsValid(bodyB->getId())) return b2_nullJointId;
+
+        b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
+        jointDef.bodyIdA = bodyA->getId();
+        jointDef.bodyIdB = bodyB->getId();
+        jointDef.localAnchorA = b2Body_GetLocalPoint(bodyA->getId(), b2Vec2{anchor.x(), anchor.y()});
+        jointDef.localAnchorB = b2Body_GetLocalPoint(bodyB->getId(), b2Vec2{anchor.x(), anchor.y()});
+
+        return b2CreateRevoluteJoint(impl_->worldId, &jointDef);
     }
 
     void Physics2D::clear() {

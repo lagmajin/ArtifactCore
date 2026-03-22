@@ -1,7 +1,8 @@
 module;
 
 #include <opencv2/opencv.hpp>
-module Image:ImageTransform;
+module Image;
+import :ImageTransform;
 
 
 namespace ArtifactCore {
@@ -9,20 +10,20 @@ namespace ArtifactCore {
  cv::Mat convertToFloat32RGBA(const cv::Mat& input) {
   cv::Mat floatImg;
 
-  // Step 1: Œ^•ÏŠ·i—áFuint8 ¨ float32j
+  // Step 1: ï¿½^ï¿½ÏŠï¿½ï¿½iï¿½ï¿½Fuint8 ï¿½ï¿½ float32ï¿½j
   if (input.depth() != CV_32F)
    input.convertTo(floatImg, CV_32F, 1.0 / 255.0); // normalize
 
   else
    floatImg = input;
 
-  // Step 2: ƒ`ƒƒƒ“ƒlƒ‹”‚ğ4‚É‘µ‚¦‚é
+  // Step 2: ï¿½`ï¿½ï¿½ï¿½ï¿½ï¿½lï¿½ï¿½ï¿½ï¿½ï¿½ï¿½4ï¿½É‘ï¿½ï¿½ï¿½ï¿½ï¿½
   cv::Mat output;
   switch (floatImg.channels()) {
-  case 1: // Grayscale ¨ RGBA
+  case 1: // Grayscale ï¿½ï¿½ RGBA
    cv::cvtColor(floatImg, output, cv::COLOR_GRAY2RGBA);
    break;
-  case 3: // BGR ¨ RGBA
+  case 3: // BGR ï¿½ï¿½ RGBA
    cv::cvtColor(floatImg, output, cv::COLOR_BGR2BGRA);
    break;
   case 4: // Assume already RGBA

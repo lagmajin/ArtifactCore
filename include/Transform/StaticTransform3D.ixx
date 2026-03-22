@@ -13,7 +13,12 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   StaticTransform3D();
+  StaticTransform3D(const StaticTransform3D& other);
+  StaticTransform3D(StaticTransform3D&& other) noexcept;
   ~StaticTransform3D();
+
+  StaticTransform3D& operator=(const StaticTransform3D& other);
+  StaticTransform3D& operator=(StaticTransform3D&& other) noexcept;
  };
 
 

@@ -6,15 +6,59 @@ module;
 #include <QVector>
 #include <vector>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module ImageProcessing.ColorTransform.LevelsCurves;
 
-import std;
+
+
+
 
 export namespace ArtifactCore {
 
 // ============================================================================
 // Levels（レベル補正）
 // ============================================================================
+
+/// チャンネル別レベル補正設定（再帰を避けるための基本設定）
+struct ChannelLevelsSettings {
+    double inputBlack = 0.0;
+    double inputWhite = 255.0;
+    double inputGamma = 1.0;
+    double outputBlack = 0.0;
+    double outputWhite = 255.0;
+};
 
 /// レベル補正設定
 struct LevelsSettings {
@@ -29,9 +73,9 @@ struct LevelsSettings {
     
     // チャンネルごとの設定（オプション）
     bool perChannel = false;     ///< チャンネルごとの調整を有効
-    LevelsSettings red;
-    LevelsSettings green;
-    LevelsSettings blue;
+    ChannelLevelsSettings red;
+    ChannelLevelsSettings green;
+    ChannelLevelsSettings blue;
     
     /// リセット
     void reset() {

@@ -1,11 +1,46 @@
 module;
 //#include <assimp/>
 #include <memory>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 export module MeshImporter;
 
-import std;
+
+
+
 import Mesh;
-import Utils.String.UniString; // •K—v‚É‰‚¶‚Ä—LŒø‰»
+import Utils.String.UniString; // KvÉ‰Ä—L
 
 export namespace ArtifactCore {
 
@@ -16,7 +51,11 @@ private:
 public:
     MeshImporter();
     ~MeshImporter();
-    // ƒtƒ@ƒCƒ‹‚©‚çMesh‚ğ¶¬
+
+    MeshImporter(const MeshImporter&) = delete;
+    MeshImporter& operator=(const MeshImporter&) = delete;
+
+    // t@CMeshğ¶
     std::shared_ptr<Mesh> importMeshFromFile(const UniString& path);
 };
 

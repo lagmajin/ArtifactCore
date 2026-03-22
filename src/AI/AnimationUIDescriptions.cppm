@@ -5,9 +5,10 @@ module;
 #include <QColor>
 #include <QEasingCurve>
 
-module Core.AI.AnimationUIDescriptions;
+export module Core.AI.AnimationUIDescriptions;
 
 import std;
+
 import Core.AI.Describable;
 
 namespace ArtifactCore {

@@ -1,40 +1,23 @@
 module;
 #include <QFileSystemWatcher>
+
 module Asset.Manager;
 
-
-import std;
-
-
 namespace ArtifactCore {
- 
+
  class AssetManager::Impl {
- private:
-
  public:
-  Impl();
-  ~Impl();
-
+  Impl() = default;
+  ~Impl() = default;
  };
 
- AssetManager::Impl::Impl()
+ AssetManager::AssetManager() : impl_(new Impl())
  {
-
- }
-
- AssetManager::Impl::~Impl()
- {
-
- }
-
- AssetManager::AssetManager()
- {
-
  }
 
  AssetManager::~AssetManager()
  {
-
+  delete impl_;
  }
 
 };

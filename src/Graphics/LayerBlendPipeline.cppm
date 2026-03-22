@@ -1,0 +1,177 @@
+module;
+#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
+#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <QDebug>
+
+module Graphics.LayerBlendPipeline;
+
+namespace ArtifactCore {
+
+LayerBlendPipeline::LayerBlendPipeline(GpuContext& context) : context_(context) {}
+LayerBlendPipeline::~LayerBlendPipeline() = default;
+
+bool LayerBlendPipeline::initialize()
+{
+ if (!createConstantBuffer()) return false;
+ if (!createExecutors()) return false;
+ qDebug() << "[LayerBlendPipeline] Initialized with" << executors_.size() << "blend modes";
+ return true;
+}
+
+bool LayerBlendPipeline::createConstantBuffer()
+{
+ auto pDevice = context_.D3D12RenderDevice();
+ if (!pDevice) return false;
+
+ BufferDesc buffDesc;
+ buffDesc.Name      = "BlendParams CB";
+ buffDesc.Usage     = USAGE_DYNAMIC;
+ buffDesc.Size      = sizeof(BlendParams);
+ buffDesc.BindFlags = BIND_UNIFORM_BUFFER;
+
+ pDevice->CreateBuffer(buffDesc, nullptr, &pBlendCB_);
+ if (!pBlendCB_) {
+  qWarning() << "[LayerBlendPipeline] Failed to create constant buffer";
+  return false;
+ }
+ return true;
+}
+
+bool LayerBlendPipeline::createExecutors()
+{
+ static ShaderResourceVariableDesc Vars[] = {
+  {SHADER_TYPE_COMPUTE, "SrcTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "DstTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+ };
+
+ for (const auto& [mode, shaderCode] : BlendShaders) {
+  BlendExecutor entry;
+  entry.executor = std::make_unique<ComputeExecutor>(context_);
+
+  ComputePipelineDesc desc;
+  desc.name = "Blend PSO";
+  desc.shaderSource = shaderCode.constData();
+  desc.entryPoint = "main";
+  desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+  desc.variables = Vars;
+  desc.variableCount = 3;
+  desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+
+  if (!entry.executor->build(desc)) {
+   qWarning() << "[LayerBlendPipeline] Failed to build PSO for blend mode" << static_cast<int>(mode);
+   continue;
+  }
+
+  if (pBlendCB_) {
+   entry.executor->setBuffer("BlendParams", pBlendCB_);
+  }
+
+  if (!entry.executor->createShaderResourceBinding(true)) {
+   qWarning() << "[LayerBlendPipeline] Failed to create SRB for blend mode" << static_cast<int>(mode);
+   continue;
+  }
+
+  executors_.emplace(mode, std::move(entry));
+ }
+
+ return !executors_.empty();
+}
+
+bool LayerBlendPipeline::ready() const
+{
+ return !executors_.empty() && pBlendCB_;
+}
+
+bool LayerBlendPipeline::blend(
+ IDeviceContext* ctx,
+ ITextureView* srcSRV,
+ ITextureView* dstSRV,
+ ITextureView* outUAV,
+ BlendMode mode,
+ float opacity
+)
+{
+ if (!ctx || !srcSRV || !dstSRV || !outUAV) return false;
+
+ auto it = executors_.find(mode);
+ if (it == executors_.end()) {
+  it = executors_.find(BlendMode::Normal);
+  if (it == executors_.end()) return false;
+ }
+
+ auto& exec = *it->second.executor;
+ if (!exec.ready()) return false;
+
+ currentParams_.opacity = opacity;
+ currentParams_.blendMode = static_cast<unsigned int>(mode);
+
+ void* pData = nullptr;
+ ctx->MapBuffer(pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+ if (pData) {
+  memcpy(pData, &currentParams_, sizeof(BlendParams));
+  ctx->UnmapBuffer(pBlendCB_, MAP_WRITE);
+ }
+
+ exec.setTextureView("SrcTex", srcSRV);
+ exec.setTextureView("DstTex", dstSRV);
+ exec.setTextureView("OutTex", outUAV);
+
+ auto attribs = ComputeExecutor::makeDispatchAttribs(64, 8, 1);
+ const auto& texDesc = outUAV->GetTexture()->GetDesc();
+ attribs.ThreadGroupCountX = (texDesc.Width + 7) / 8;
+ attribs.ThreadGroupCountY = (texDesc.Height + 7) / 8;
+ attribs.ThreadGroupCountZ = 1;
+
+ exec.dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+ return true;
+}
+
+bool LayerBlendPipeline::blendDirect(
+ IDeviceContext* ctx,
+ ITextureView* srcSRV,
+ ITextureView* outUAV,
+ BlendMode mode,
+ float opacity,
+ Uint32 width,
+ Uint32 height
+)
+{
+ if (!ctx || !srcSRV || !outUAV) return false;
+
+ auto it = executors_.find(mode);
+ if (it == executors_.end()) {
+  it = executors_.find(BlendMode::Normal);
+  if (it == executors_.end()) return false;
+ }
+
+ auto& exec = *it->second.executor;
+ if (!exec.ready()) return false;
+
+ currentParams_.opacity = opacity;
+ currentParams_.blendMode = static_cast<unsigned int>(mode);
+
+ void* pData = nullptr;
+ ctx->MapBuffer(pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+ if (pData) {
+  memcpy(pData, &currentParams_, sizeof(BlendParams));
+  ctx->UnmapBuffer(pBlendCB_, MAP_WRITE);
+ }
+
+ exec.setTextureView("SrcTex", srcSRV);
+ exec.setTextureView("OutTex", outUAV);
+
+ DispatchComputeAttribs attribs;
+ attribs.ThreadGroupCountX = (width + 7) / 8;
+ attribs.ThreadGroupCountY = (height + 7) / 8;
+ attribs.ThreadGroupCountZ = 1;
+
+ exec.dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+ return true;
+}
+
+}

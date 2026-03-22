@@ -6,6 +6,7 @@ module;
 module Color.Harmonizer;
 
 import std;
+
 import Color.Float;
 import Color.Conversion;
 

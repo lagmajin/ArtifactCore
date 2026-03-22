@@ -5,9 +5,44 @@ module;
 #include <QVariant>
 #include <QColor>
 
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+#include <memory>
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <utility>
+#include <array>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
+#include <any>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <deque>
+#include <list>
+#include <tuple>
+#include <numeric>
+#include <regex>
+#include <random>
 module Property.Abstract;
 
-import std;
+
+
+
 
 namespace ArtifactCore {
 
@@ -24,6 +59,7 @@ public:
     QVariant      m_maxValue;
     bool          m_animatable     = false;
     int           m_displayPriority = 0;          ///< 表示優先度（小さい値が先頭）
+    PropertyMetadata m_metadata;
 
     std::vector<KeyFrame> m_keyFrames;
 };
@@ -98,6 +134,10 @@ QColor AbstractProperty::getColorValue() const {
     return pImpl->m_value.value<QColor>();
 }
 
+PropertyMetadata AbstractProperty::metadata() const {
+    return pImpl->m_metadata;
+}
+
 // -----------------------------------------------------------------------
 // Setters
 // -----------------------------------------------------------------------
@@ -135,6 +175,36 @@ void AbstractProperty::setAnimatable(bool animatable) {
 
 void AbstractProperty::setColorValue(const QColor& color) {
     pImpl->m_value = QVariant::fromValue(color);
+}
+
+void AbstractProperty::setMetadata(const PropertyMetadata& metadata) {
+    pImpl->m_metadata = metadata;
+}
+
+void AbstractProperty::setDisplayLabel(const QString& label) {
+    pImpl->m_metadata.displayLabel = label;
+}
+
+void AbstractProperty::setUnit(const QString& unit) {
+    pImpl->m_metadata.unit = unit;
+}
+
+void AbstractProperty::setTooltip(const QString& tooltip) {
+    pImpl->m_metadata.tooltip = tooltip;
+}
+
+void AbstractProperty::setStep(const QVariant& step) {
+    pImpl->m_metadata.step = step;
+}
+
+void AbstractProperty::setHardRange(const QVariant& minValue, const QVariant& maxValue) {
+    pImpl->m_metadata.hardMin = minValue;
+    pImpl->m_metadata.hardMax = maxValue;
+}
+
+void AbstractProperty::setSoftRange(const QVariant& minValue, const QVariant& maxValue) {
+    pImpl->m_metadata.softMin = minValue;
+    pImpl->m_metadata.softMax = maxValue;
 }
 
 // -----------------------------------------------------------------------

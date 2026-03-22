@@ -1,68 +1,48 @@
 module;
-//#include <OpenImageIO/>
-
-#include <QDir>
 #include <QObject>
-#include <QFuture>
+#include <QImage>
+#include <QString>
+#include <future>
+#include <memory>
+#include <OpenImageIO/imagebuf.h>
 #include <wobjectdefs.h>
+#include "../../../include/Define/DllExportMacro.hpp"
 
-#include "../../Define/DllExportMacro.hpp"
 export module IO.ImageExporter;
 
-import Image;
-import Image.Utils;
 import Image.ExportOptions;
-
-//namespace OIIO {};//dummy
 
 export namespace ArtifactCore {
 
- //using namespace OIIO;
-
- struct ImageExportResult {
-  bool success = false;
-  //std::vector<unsigned char> data; // メモリ書き出し時のバイナリ
-  std::string error_message;      // OIIOからのエラー詳細
-  size_t byte_size = 0;           // 書き出されたサイズ
-
-  // 成功か失敗かをサクッと判定するためのヘルパー
-  explicit operator bool() const { return success; }
- };
-
-struct ImageExporterSubmitResult {
- enum class Status {
-  Accepted,
-  Rejected,
-  ImmediateError
- };
-  
- std::future<ImageExportResult>  future;
-  
- Status status;
- operator bool() const { return status == Status::Accepted; }
+struct ImageExportResult {
+    bool success = false;
+    QString errorStage;
+    QString errorMessage;
+    operator bool() const { return success; }
 };
 
- class LIBRARY_DLL_API ImageExporter :public QObject
- {
-  W_OBJECT(ImageExporter)
- private:
-  class Impl;
-  Impl* impl_;
- public:
-  explicit ImageExporter(QObject* parent = nullptr);
-  ~ImageExporter();
-  ImageExporterSubmitResult writeAsync(const QImage& image,const ImageExportOptions& options);
+/**
+ * @brief Manage and export images with many formats.
+ */
+class LIBRARY_DLL_API ImageExporter : public QObject {
+    W_OBJECT(ImageExporter)
+public:
+    explicit ImageExporter(QObject* parent = nullptr);
+    ~ImageExporter();
 
-  ImageExportResult testWrite();
-  ImageExportResult testWrite2();
-   
-  
+    // Image export methods
+    ImageExportResult write(const OIIO::ImageBuf& image, const QString& filePath, const ImageExportOptions& options);
+    ImageExportResult write(const QImage& image, const QString& filePath, const ImageExportOptions& options);
+    std::future<ImageExportResult> writeAsync(const OIIO::ImageBuf& image, const QString& filePath, const ImageExportOptions& options);
+    std::future<ImageExportResult> writeAsync(const QImage& image, const QString& filePath, const ImageExportOptions& options);
 
- public/*signals*/:
- };
+    // Test methods (used in AppMain)
+    ImageExportResult testWrite();
+    ImageExportResult testWrite2();
 
-
-
-
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 }

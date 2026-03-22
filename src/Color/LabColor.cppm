@@ -5,6 +5,7 @@
 module Color.Lab;
 
 import std;
+
 import Color.Float;
 import Utils.String.UniString;
 

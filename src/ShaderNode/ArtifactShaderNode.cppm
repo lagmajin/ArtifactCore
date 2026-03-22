@@ -1,3 +1,10 @@
+module;
+#include <string>
+#include <memory>
+#include <vector>
+#include <format>
+#include <sstream>
+
 module Artifact.ShaderNode.Core;
 
 namespace Artifact {

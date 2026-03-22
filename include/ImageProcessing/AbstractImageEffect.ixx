@@ -3,6 +3,11 @@
 export module ImageProcessing;
 
 export import :Monochrome;
+export import :NegativeCV;
+export import :AffineTransform;
+export import :AntiAliasing;
+export import :Posterize;
+export import :Vignette;
 //export import :Halide;
 export import ImageProcessing.NegateCS;
 //export import :ImageTransform;
