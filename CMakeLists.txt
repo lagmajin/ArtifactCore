@@ -221,6 +221,12 @@ else()
 endif()
 
 if(ARTIFACT_FRONTEND_MSVC)
+    target_link_libraries(ArtifactCore PUBLIC
+        mfplat
+        mfreadwrite
+        mfuuid
+        mf
+    )
     target_compile_definitions(ArtifactCore PRIVATE 
         PLATFORM_WIN32
         _GUARDOVERFLOW_CRT_ALLOCATORS=1

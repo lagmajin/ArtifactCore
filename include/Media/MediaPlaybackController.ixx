@@ -45,6 +45,7 @@ import MediaSource;
 import MediaReader;
 import MediaImageFrameDecoder;
 import MediaAudioDecoder;
+import Codec.MFFrameExtractor;
 import Media.MetaData;
 
 
@@ -74,6 +75,11 @@ export namespace ArtifactCore {
   QuadrupleSpeed   // 4.0x
  };
 
+ enum class DecoderBackend {
+  FFmpeg,
+  MediaFoundation
+ };
+
  // Đ
  struct PlaybackInfo {
   int64_t currentPositionMs = 0;     // ݈ʒui~bj
@@ -100,6 +106,9 @@ export namespace ArtifactCore {
  private:
   class Impl;
   Impl* impl_;
+  friend class PlaybackBackend;
+  friend class FFmpegPlaybackBackend;
+  friend class MFPlaybackBackend;
 
  public:
   MediaPlaybackController();
@@ -172,7 +181,8 @@ export namespace ArtifactCore {
   void setPlaybackSpeed(PlaybackSpeed speed);
   double getPlaybackSpeed() const;
 
-  // ---- I[fBI ----
+  void setDecoderBackend(DecoderBackend backend);
+  DecoderBackend getDecoderBackend() const;
 
   // ʂݒi0.0-1.0j
   void setVolume(float volume);
@@ -194,6 +204,7 @@ export namespace ArtifactCore {
   // wʒũrfIt[擾
   QImage getVideoFrameAt(int64_t timestampMs);
   QImage getVideoFrameAtFrame(int64_t frameNumber);
+  QImage getVideoFrameAtFrameDirect(int64_t frameNumber);
   
   // ̃I[fBIt[擾
   QByteArray getNextAudioFrame();

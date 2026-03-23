@@ -1,11 +1,11 @@
-module;
+ï»¿module;
 #include <memory>
 export module Utils.ExplorerUtils;
 
 import Utils.String.UniString;
 
 export namespace ArtifactCore {
-// path: ƒtƒ@ƒCƒ‹‚Ü‚½‚ÍƒtƒHƒ‹ƒ_‚ÌƒpƒX
-// select: true‚È‚çƒtƒ@ƒCƒ‹‚ğ‘I‘ğó‘Ô‚ÅŠJ‚­iWin/Mac‚Ì‚İ‘Î‰j
+// path: file or folder path
+// select: open file in selection mode when true (Win/Mac only)
 export void openInExplorer(const UniString& path, bool select = false);
 }

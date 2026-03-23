@@ -66,9 +66,16 @@ namespace ArtifactCore {
 
  }
 
- PreviewQuality::PreviewQuality(const PreviewQuality& other) :impl_(new Impl(*other.impl_))
+ PreviewQuality::PreviewQuality(const PreviewQuality& other)
+  : impl_(other.impl_ ? new Impl(*other.impl_) : new Impl)
  {
 
+ }
+
+ PreviewQuality::PreviewQuality(PreviewQuality&& other) noexcept
+  : impl_(other.impl_)
+ {
+  other.impl_ = nullptr;
  }
 
  PreviewQuality::PreviewQuality(Scale scale) :impl_(new Impl)
@@ -79,6 +86,34 @@ namespace ArtifactCore {
  PreviewQuality::~PreviewQuality()
  {
   delete impl_;
+ }
+
+ PreviewQuality& PreviewQuality::operator=(const PreviewQuality& other)
+ {
+  if (this != &other) {
+   if (!other.impl_) {
+    if (!impl_) {
+     impl_ = new Impl();
+    } else {
+     *impl_ = Impl();
+    }
+   } else if (!impl_) {
+    impl_ = new Impl(*other.impl_);
+   } else {
+    *impl_ = *other.impl_;
+   }
+  }
+  return *this;
+ }
+
+ PreviewQuality& PreviewQuality::operator=(PreviewQuality&& other) noexcept
+ {
+  if (this != &other) {
+   delete impl_;
+   impl_ = other.impl_;
+   other.impl_ = nullptr;
+  }
+  return *this;
  }
 
  PreviewQuality::Scale PreviewQuality::quality() const

@@ -66,7 +66,7 @@ export namespace ArtifactCore
   void setInitialScale(const RationalTime& time, float xs, float ys);
   void setInitialRotation(const RationalTime& time, float angle);
 
-  void setInitalAngle(const RationalTime& time, float angle) { setInitialRotation(time, angle); }
+  inline void setInitalAngle(const RationalTime& time, float angle) { setInitialRotation(time, angle); }
 
   void setPosition(const RationalTime& time, float x, float y);
   void setPositionZ(const RationalTime& time, float z);

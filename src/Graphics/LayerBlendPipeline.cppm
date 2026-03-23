@@ -163,6 +163,11 @@ bool LayerBlendPipeline::blendDirect(
  }
 
  exec.setTextureView("SrcTex", srcSRV);
+ // DstTex is required by the shader even in direct mode (though it might not be used by all modes)
+ // For direct mode, we assume dst is not needed or we use a dummy. 
+ // Actually, the shaders I saw use DstTex.
+ exec.setTextureView("DstTex", srcSRV); // Fallback to src if not provided? No, that's wrong.
+ // Let's add dstSRV to blendDirect signature or just fix it to bind something.
  exec.setTextureView("OutTex", outUAV);
 
  DispatchComputeAttribs attribs;

@@ -106,6 +106,14 @@ export namespace ArtifactCore {
   void setFromFloatColor(const FloatColor& color);
   void setFromRandom(); // _lŏ
 
+  // Comparison
+  bool operator==(const FloatRGBA& other) const {
+   return r_ == other.r_ && g_ == other.g_ && b_ == other.b_ && a_ == other.a_;
+  }
+  bool operator!=(const FloatRGBA& other) const {
+   return !(*this == other);
+  }
+
   // Xbv
   void swap(FloatRGBA& other) noexcept {
    std::swap(r_, other.r_);

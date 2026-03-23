@@ -89,16 +89,6 @@ export namespace ArtifactCore {
   void closeFile();
   QImage decodeNextVideoFrame();
   void flush();
- };
+  };
 
- void FFmpegVideoDecoder::flush()
- {
-
- }
-
-
-
-
-
-
-};
+  };

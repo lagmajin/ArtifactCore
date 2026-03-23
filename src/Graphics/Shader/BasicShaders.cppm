@@ -23,10 +23,20 @@ SamplerState g_sampler : register(s0);
 float4 main(PS_INPUT input) : SV_TARGET
 {
     float4 sampled = g_texture.Sample(g_sampler, input.TexCoord);
-    return sampled * input.Color;
+    
+    // Anti-aliasing at the quad edges
+    float dx = min(input.TexCoord.x, 1.0 - input.TexCoord.x);
+    float dy = min(input.TexCoord.y, 1.0 - input.TexCoord.y);
+    float d = min(dx, dy);
+    
+    float2 fw = fwidth(input.TexCoord);
+    float edgeWidth = max(fw.x, fw.y);
+    
+    float alphaMultiplier = (edgeWidth > 0.0001) ? smoothstep(0.0, edgeWidth * 1.0, d) : 1.0;
+
+    return sampled * input.Color * float4(1.0, 1.0, 1.0, alphaMultiplier);
 }
 )";
-
 
 
 
@@ -69,15 +79,27 @@ cbuffer ColorBuffer : register(b0)
 struct PS_INPUT
 {
     float4 Position : SV_POSITION;
-    //float2 TexCoord : TEXCOORD0; // VSに合わせて存在させてるだけ
+    float2 uv       : TEXCOORD0; 
 };
 
 float4 main(PS_INPUT input) : SV_TARGET
 {
-    return uColor;
+    // Local UV is 0.0 to 1.0 from VSInput pos in drawSolidRectTransformVSSource.
+    // However, drawSolidRectVSSource does not output uv. 
+    // To be safe and compatible with both, we check if fwidth works well.
+    // If uv is 0, derivatives are 0, alpha is 1.0.
+    float dx = min(input.uv.x, 1.0 - input.uv.x);
+    float dy = min(input.uv.y, 1.0 - input.uv.y);
+    float d = min(dx, dy);
+    
+    float2 fw = fwidth(input.uv);
+    float edgeWidth = max(fw.x, fw.y);
+    
+    float alphaMultiplier = (edgeWidth > 0.0001) ? smoothstep(0.0, edgeWidth * 1.0, d) : 1.0;
+    
+    return float4(uColor.rgb, uColor.a * alphaMultiplier);
 }
 )";
-
 
 
 

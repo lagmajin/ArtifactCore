@@ -118,6 +118,7 @@ struct VSInput
 struct PSInput
 {
     float4 pos : SV_POSITION;
+    float2 uv  : TEXCOORD0;
 };
 
 cbuffer TransformCB : register(b0)
@@ -137,12 +138,10 @@ PSInput main(VSInput input)
     ndc.y = -ndc.y; // Y軸反転
 
     output.pos = float4(ndc, 0.0f, 1.0f);
+    output.uv = input.pos;
     return output;
 }
-
-
 )";
-
 LIBRARY_DLL_API const QByteArray drawSolidRectTransformVSSource = R"(
 cbuffer TransformCB : register(b0)
 {
@@ -160,6 +159,7 @@ struct VSInput
 struct PSInput
 {
     float4 pos : SV_POSITION;
+    float2 uv  : TEXCOORD0;
 };
 
 PSInput main(VSInput input)
@@ -171,10 +171,10 @@ PSInput main(VSInput input)
         dot(localPos, row1),
         dot(localPos, row2),
         dot(localPos, row3));
+    output.uv = input.pos.xy;
     return output;
 }
 )";
-
 LIBRARY_DLL_API const QByteArray drawSpriteTransformVSSource = R"(
 cbuffer TransformCB : register(b0)
 {

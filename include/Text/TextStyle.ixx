@@ -43,12 +43,15 @@ export struct TextStyle {
  float shadowOffsetX = 4.0f;
  float shadowOffsetY = 4.0f;
  float shadowBlur = 4.0f;
-};
 
-export struct ParagraphStyle {
+ bool operator==(const TextStyle& other) const = default;
+ };
+
+ export struct ParagraphStyle {
  TextHorizontalAlignment horizontalAlignment = TextHorizontalAlignment::Left;
  TextVerticalAlignment verticalAlignment = TextVerticalAlignment::Top;
  float paragraphSpacing = 0.0f;
-};
 
+ bool operator==(const ParagraphStyle& other) const = default;
+ };
 }

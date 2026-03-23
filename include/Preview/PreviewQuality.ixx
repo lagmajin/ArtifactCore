@@ -45,6 +45,9 @@ export namespace ArtifactCore {
   PreviewQuality();
   explicit PreviewQuality(Scale scale);
   PreviewQuality(const PreviewQuality& other);
+  PreviewQuality(PreviewQuality&& other) noexcept;
+  PreviewQuality& operator=(const PreviewQuality& other);
+  PreviewQuality& operator=(PreviewQuality&& other) noexcept;
   ~PreviewQuality();
 
   // Scale

@@ -9,13 +9,6 @@ module;
 #include <QSize>
 #include <Qt>
 
-extern "C" {
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libswscale/swscale.h>
-
-}
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -51,18 +44,23 @@ extern "C" {
 #include <random>
 module MediaPlaybackController;
 
-
-
-
+extern "C" {
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+}
 
 namespace ArtifactCore {
 
- class MediaPlaybackController::Impl {
+class MediaPlaybackController::Impl {
  public:
   MediaSource* mediaSource_ = nullptr;
   MediaReader* mediaReader_ = nullptr;
   MediaImageFrameDecoder* videoDecoder_ = nullptr;
   MediaAudioDecoder* audioDecoder_ = nullptr;
+  MFFrameExtractor* mfExtractor_ = nullptr;
+
+  DecoderBackend backend_ = DecoderBackend::MediaFoundation;
 
   PlaybackState state_ = PlaybackState::Stopped;
   double playbackSpeed_ = 1.0;
@@ -77,6 +75,8 @@ namespace ArtifactCore {
   int64_t currentFrame_ = 0;
   int64_t totalFrames_ = 0;
   double fps_ = 0.0;
+  AVRational videoTimeBase_ = {1, 1000};
+  int videoStreamIndex_ = -1;
 
   PlaybackStateChangedCallback stateChangedCallback_;
   PositionChangedCallback positionChangedCallback_;
@@ -84,170 +84,349 @@ namespace ArtifactCore {
   EndOfMediaCallback endOfMediaCallback_;
 
   QString lastError_;
-	  MediaMetaData metadata_;
+  MediaMetaData metadata_;
+  std::mutex directDecodeMutex_;
 
-	  Impl() {
-	   mediaSource_ = new MediaSource();
-	   mediaReader_ = new MediaReader(mediaSource_);
-   videoDecoder_ = new MediaImageFrameDecoder();
-   audioDecoder_ = new MediaAudioDecoder();
+  Impl()
+      : mediaSource_(new MediaSource()),
+        mediaReader_(new MediaReader(mediaSource_)),
+        videoDecoder_(new MediaImageFrameDecoder()),
+        audioDecoder_(new MediaAudioDecoder()),
+        mfExtractor_(new MFFrameExtractor()) {}
+
+  ~Impl() {
+    delete audioDecoder_;
+    delete videoDecoder_;
+    delete mediaReader_;
+    delete mediaSource_;
+    delete mfExtractor_;
   }
 
-	  ~Impl() {
-   delete audioDecoder_;
-   delete videoDecoder_;
-   delete mediaReader_;
-   delete mediaSource_;
+  QImage decodeVideoFrameDirectAtFrame(int64_t frameNumber) {
+    if (backend_ == DecoderBackend::MediaFoundation && mfExtractor_ && mfExtractor_->isOpen()) {
+      auto frame = mfExtractor_->extractFrameAtIndex(frameNumber);
+      if (frame && frame->isValid()) {
+        QImage img(frame->data.data(), frame->width, frame->height, QImage::Format_RGBA8888);
+        return img.copy();
+      }
+      return QImage();
+    }
+
+    if (!mediaSource_ || !mediaSource_->isOpen() || !videoDecoder_ || fps_ <= 0.0 || videoStreamIndex_ < 0) {
+      qDebug() << "[MediaPlayback] direct decode skipped: invalid state";
+      return QImage();
+    }
+
+    std::lock_guard<std::mutex> lock(directDecodeMutex_);
+
+    const bool wasPlaying = state_ == PlaybackState::Playing;
+    if (wasPlaying && mediaReader_) {
+      mediaReader_->stop();
+      rebuildReader();
+    }
+
+    const int64_t targetMs = static_cast<int64_t>((frameNumber / fps_) * 1000.0);
+    if (!mediaSource_->seek(targetMs)) {
+      qWarning() << "[MediaPlayback] direct decode seek failed:" << targetMs << "ms";
+      if (wasPlaying && mediaReader_) {
+        mediaReader_->start();
+      }
+      return QImage();
+    }
+
+    if (auto ctx = mediaSource_->getFormatContext(); !ctx) {
+      qWarning() << "[MediaPlayback] direct decode failed: no format context";
+      if (wasPlaying && mediaReader_) {
+        mediaReader_->start();
+      }
+      return QImage();
+    }
+
+    videoDecoder_->flush();
+
+    AVPacket* pkt = av_packet_alloc();
+    if (!pkt) {
+      qWarning() << "[MediaPlayback] direct decode failed: packet alloc";
+      if (wasPlaying && mediaReader_) {
+        mediaReader_->start();
+      }
+      return QImage();
+    }
+
+    QImage result;
+    AVFormatContext* ctx = mediaSource_->getFormatContext();
+    const int maxPackets = 512;
+    int packetsRead = 0;
+    while (packetsRead < maxPackets) {
+      if (av_read_frame(ctx, pkt) < 0) {
+        break;
+      }
+      ++packetsRead;
+
+      if (pkt->stream_index == videoStreamIndex_) {
+        const int ret = videoDecoder_->sendPacket(pkt);
+        av_packet_unref(pkt);
+        if (ret < 0) {
+          qWarning() << "[MediaPlayback] sendPacket failed:" << ret;
+          break;
+        }
+
+        result = videoDecoder_->receiveFrame();
+        if (!result.isNull()) {
+          break;
+        }
+      } else {
+        av_packet_unref(pkt);
+      }
+    }
+
+    av_packet_free(&pkt);
+
+    currentPositionMs_ = targetMs;
+    currentFrame_ = frameNumber;
+
+    if (wasPlaying && mediaReader_) {
+      mediaReader_->start();
+    }
+
+    if (result.isNull()) {
+      qWarning() << "[MediaPlayback] direct decode failed for frame" << frameNumber;
+    }
+    return result;
   }
 
-	  void updatePlaybackInfo() {
-	   if (!mediaSource_ || !mediaSource_->isOpen()) {
-	    return;
-	   }
-	   AVFormatContext* ctx = mediaSource_->getFormatContext();
-	   if (!ctx) {
-	    return;
-	   }
+  void updatePlaybackInfo() {
+    if (!mediaSource_ || !mediaSource_->isOpen()) {
+      return;
+    }
+    AVFormatContext* ctx = mediaSource_->getFormatContext();
+    if (!ctx) {
+      return;
+    }
 
-	   durationMs_ = ctx->duration / 1000;
-	   fps_ = 0.0;
-	   totalFrames_ = 0;
-	   for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
-	    if (ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-	     AVRational fr = ctx->streams[i]->avg_frame_rate;
-	     if (fr.den > 0) {
-	      fps_ = static_cast<double>(fr.num) / fr.den;
-	      if (durationMs_ > 0 && fps_ > 0) {
-	       totalFrames_ = static_cast<int64_t>((durationMs_ / 1000.0) * fps_);
-	      }
-	     }
-	     break;
-	    }
-	   }
-	  }
+    durationMs_ = ctx->duration / 1000;
+    fps_ = 0.0;
+    totalFrames_ = 0;
+    for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
+      if (ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+        videoStreamIndex_ = i;
+        videoTimeBase_ = ctx->streams[i]->time_base;
+        AVRational fr = ctx->streams[i]->avg_frame_rate;
+        if (fr.den > 0) {
+          fps_ = static_cast<double>(fr.num) / fr.den;
+          if (durationMs_ > 0 && fps_ > 0) {
+            totalFrames_ = static_cast<int64_t>((durationMs_ / 1000.0) * fps_);
+          }
+        }
+        break;
+      }
+    }
+  }
 
-	  void rebuildReader() {
-	   if (mediaReader_) {
-	    mediaReader_->stop();
-	    delete mediaReader_;
-	   }
-	   mediaReader_ = new MediaReader(mediaSource_);
-	  }
+  void rebuildReader() {
+    if (mediaReader_) {
+      mediaReader_->stop();
+      delete mediaReader_;
+    }
+    mediaReader_ = new MediaReader(mediaSource_);
+  }
 
-	  void resetMetadata(const QString& url) {
-	   metadata_ = MediaMetaData();
-	   metadata_.filePath = url;
-	   QFileInfo fileInfo(url);
-	   metadata_.fileName = fileInfo.fileName();
-	   metadata_.fileExtension = fileInfo.suffix();
-	   if (fileInfo.exists()) {
-	    metadata_.fileSize = fileInfo.size();
-	   }
+  void setMetadataFromMediaFoundation(const QString& url) {
+    metadata_ = MediaMetaData();
+    metadata_.filePath = url;
+    QFileInfo fileInfo(url);
+    metadata_.fileName = fileInfo.fileName();
+    metadata_.fileExtension = fileInfo.suffix();
+    if (fileInfo.exists()) {
+      metadata_.fileSize = fileInfo.size();
+    }
 
-	   if (!mediaSource_ || !mediaSource_->isOpen()) {
-	    return;
-	   }
+    if (!mfExtractor_ || !mfExtractor_->isOpen()) {
+      return;
+    }
 
-	   AVFormatContext* ctx = mediaSource_->getFormatContext();
-	   if (!ctx) {
-	    return;
-	   }
+    metadata_.duration = mfExtractor_->getDurationSeconds();
+    metadata_.formatName = QStringLiteral("MediaFoundation");
+    metadata_.formatLongName = QStringLiteral("Media Foundation direct frame extractor");
 
-	   metadata_.duration = ctx->duration > 0 ? static_cast<double>(ctx->duration) / AV_TIME_BASE : 0.0;
-	   metadata_.bitrate = ctx->bit_rate;
-	   if (ctx->iformat) {
-	    metadata_.formatName = QString::fromUtf8(ctx->iformat->name);
-	    metadata_.formatLongName = QString::fromUtf8(ctx->iformat->long_name ? ctx->iformat->long_name : "");
-	   }
+    StreamInfo streamInfo;
+    streamInfo.index = 0;
+    streamInfo.type = MediaType::Video;
+    streamInfo.resolution = QSize(mfExtractor_->getWidth(), mfExtractor_->getHeight());
+    streamInfo.frameRate = mfExtractor_->getFrameRate();
+    streamInfo.frameCount = mfExtractor_->getTotalFrames();
+    streamInfo.duration = mfExtractor_->getDurationSeconds();
+    streamInfo.videoCodec.codecName = mfExtractor_->getCodecName();
+    streamInfo.videoCodec.codecLongName = mfExtractor_->getCodecName();
+    metadata_.streams.push_back(std::move(streamInfo));
 
-	   metadata_.streams.clear();
-	   metadata_.streams.reserve(ctx->nb_streams);
-	   for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
-	    const AVStream* stream = ctx->streams[i];
-	    const AVCodecParameters* params = stream->codecpar;
-	    StreamInfo streamInfo;
-	    streamInfo.index = static_cast<int>(i);
-	    streamInfo.duration = stream->duration > 0
-	     ? stream->duration * av_q2d(stream->time_base)
-	     : metadata_.duration;
-	    streamInfo.bitrate = params->bit_rate;
+    if (metadata_.duration > 0.0) {
+      durationMs_ = static_cast<int64_t>(metadata_.duration * 1000.0);
+    }
+    fps_ = mfExtractor_->getFrameRate();
+    totalFrames_ = mfExtractor_->getTotalFrames();
+    if (totalFrames_ <= 0 && fps_ > 0.0 && durationMs_ > 0) {
+      totalFrames_ = static_cast<int64_t>((durationMs_ / 1000.0) * fps_);
+    }
+  }
 
-	    switch (params->codec_type) {
-	     case AVMEDIA_TYPE_VIDEO:
-	      streamInfo.type = MediaType::Video;
-	      streamInfo.resolution = QSize(params->width, params->height);
-	      if (stream->avg_frame_rate.den > 0) {
-	       streamInfo.frameRate = av_q2d(stream->avg_frame_rate);
-	      }
-	      streamInfo.frameCount = stream->nb_frames;
-	      if (params->codec_id != AV_CODEC_ID_NONE) {
-	       const AVCodecDescriptor* desc = avcodec_descriptor_get(params->codec_id);
-	       if (desc) {
-	        streamInfo.videoCodec.codecName = QString::fromUtf8(desc->name);
-	        streamInfo.videoCodec.codecLongName = QString::fromUtf8(desc->long_name ? desc->long_name : "");
-	       }
-	      }
-	      break;
-	     case AVMEDIA_TYPE_AUDIO:
-	      streamInfo.type = MediaType::Audio;
-	      streamInfo.audioCodec.sampleRate = params->sample_rate;
-	      streamInfo.audioCodec.channels = params->ch_layout.nb_channels;
-	      streamInfo.audioCodec.bitrate = params->bit_rate;
-	      if (params->codec_id != AV_CODEC_ID_NONE) {
-	       const AVCodecDescriptor* desc = avcodec_descriptor_get(params->codec_id);
-	       if (desc) {
-	        streamInfo.audioCodec.codecName = QString::fromUtf8(desc->name);
-	        streamInfo.audioCodec.codecLongName = QString::fromUtf8(desc->long_name ? desc->long_name : "");
-	       }
-	      }
-	      break;
-	     default:
-	      streamInfo.type = MediaType::Unknown;
-	      break;
-	    }
+  void resetMetadata(const QString& url) {
+    metadata_ = MediaMetaData();
+    metadata_.filePath = url;
+    QFileInfo fileInfo(url);
+    metadata_.fileName = fileInfo.fileName();
+    metadata_.fileExtension = fileInfo.suffix();
+    if (fileInfo.exists()) {
+      metadata_.fileSize = fileInfo.size();
+    }
 
-	    metadata_.streams.push_back(std::move(streamInfo));
-	   }
-	  }
+    if (!mediaSource_ || !mediaSource_->isOpen()) {
+      return;
+    }
+
+    AVFormatContext* ctx = mediaSource_->getFormatContext();
+    if (!ctx) {
+      return;
+    }
+
+    metadata_.duration = ctx->duration > 0 ? static_cast<double>(ctx->duration) / AV_TIME_BASE : 0.0;
+    metadata_.bitrate = ctx->bit_rate;
+    if (ctx->iformat) {
+      metadata_.formatName = QString::fromUtf8(ctx->iformat->name);
+      metadata_.formatLongName = QString::fromUtf8(ctx->iformat->long_name ? ctx->iformat->long_name : "");
+    }
+
+    metadata_.streams.clear();
+    metadata_.streams.reserve(ctx->nb_streams);
+    for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
+      const AVStream* stream = ctx->streams[i];
+      const AVCodecParameters* params = stream->codecpar;
+      StreamInfo streamInfo;
+      streamInfo.index = static_cast<int>(i);
+      streamInfo.duration = stream->duration > 0 ? stream->duration * av_q2d(stream->time_base) : metadata_.duration;
+      streamInfo.bitrate = params->bit_rate;
+
+      switch (params->codec_type) {
+        case AVMEDIA_TYPE_VIDEO:
+          streamInfo.type = MediaType::Video;
+          streamInfo.resolution = QSize(params->width, params->height);
+          if (stream->avg_frame_rate.den > 0) {
+            streamInfo.frameRate = av_q2d(stream->avg_frame_rate);
+          }
+          streamInfo.frameCount = stream->nb_frames;
+          if (params->codec_id != AV_CODEC_ID_NONE) {
+            const AVCodecDescriptor* desc = avcodec_descriptor_get(params->codec_id);
+            if (desc) {
+              streamInfo.videoCodec.codecName = QString::fromUtf8(desc->name);
+              streamInfo.videoCodec.codecLongName = QString::fromUtf8(desc->long_name ? desc->long_name : "");
+            }
+          }
+          break;
+        case AVMEDIA_TYPE_AUDIO:
+          streamInfo.type = MediaType::Audio;
+          streamInfo.audioCodec.sampleRate = params->sample_rate;
+          streamInfo.audioCodec.channels = params->ch_layout.nb_channels;
+          streamInfo.audioCodec.bitrate = params->bit_rate;
+          if (params->codec_id != AV_CODEC_ID_NONE) {
+            const AVCodecDescriptor* desc = avcodec_descriptor_get(params->codec_id);
+            if (desc) {
+              streamInfo.audioCodec.codecName = QString::fromUtf8(desc->name);
+              streamInfo.audioCodec.codecLongName = QString::fromUtf8(desc->long_name ? desc->long_name : "");
+            }
+          }
+          break;
+        default:
+          streamInfo.type = MediaType::Unknown;
+          break;
+      }
+
+      metadata_.streams.push_back(std::move(streamInfo));
+    }
+  }
 
   void notifyStateChanged(PlaybackState newState) {
-   state_ = newState;
-   if (stateChangedCallback_) {
-    stateChangedCallback_(newState);
-   }
+    state_ = newState;
+    if (stateChangedCallback_) {
+      stateChangedCallback_(newState);
+    }
   }
 
   void notifyPositionChanged(int64_t positionMs) {
-   currentPositionMs_ = positionMs;
-   if (fps_ > 0) {
-    currentFrame_ = static_cast<int64_t>((positionMs / 1000.0) * fps_);
-   }
-   if (positionChangedCallback_) {
-    positionChangedCallback_(positionMs);
-   }
+    currentPositionMs_ = positionMs;
+    if (fps_ > 0) {
+      currentFrame_ = static_cast<int64_t>((positionMs / 1000.0) * fps_);
+    }
+    if (positionChangedCallback_) {
+      positionChangedCallback_(positionMs);
+    }
   }
 
   void notifyError(const QString& message) {
-   lastError_ = message;
-   if (errorCallback_) {
-    errorCallback_(message);
-   }
+    lastError_ = message;
+    if (errorCallback_) {
+      errorCallback_(message);
+    }
   }
 
   void notifyEndOfMedia() {
-   if (isLooping_) {
-    // [vĐ̏ꍇ͍ŏɖ߂
-    if (mediaSource_) {
-     mediaSource_->seek(loopStartMs_);
+    if (isLooping_) {
+      if (mediaSource_) {
+        mediaSource_->seek(loopStartMs_);
+      }
+    } else {
+      notifyStateChanged(PlaybackState::Stopped);
+      if (endOfMediaCallback_) {
+        endOfMediaCallback_();
+      }
     }
-   } else {
-    notifyStateChanged(PlaybackState::Stopped);
-    if (endOfMediaCallback_) {
-     endOfMediaCallback_();
-    }
-   }
   }
- };
+};
+
+class PlaybackBackend {
+ public:
+  virtual ~PlaybackBackend() = default;
+  virtual DecoderBackend type() const = 0;
+  virtual bool open(MediaPlaybackController::Impl& impl, const QString& url) = 0;
+  virtual void close(MediaPlaybackController::Impl& impl) = 0;
+  virtual bool isOpen(const MediaPlaybackController::Impl& impl) const = 0;
+  virtual void seek(MediaPlaybackController::Impl& impl, int64_t timestampMs, SeekMode mode) = 0;
+  virtual void seekToFrame(MediaPlaybackController::Impl& impl, int64_t frameNumber) = 0;
+  virtual QImage getNextVideoFrame(MediaPlaybackController::Impl& impl) = 0;
+  virtual QImage getVideoFrameAtFrameDirect(MediaPlaybackController::Impl& impl, int64_t frameNumber) = 0;
+};
+
+class FFmpegPlaybackBackend final : public PlaybackBackend {
+ public:
+  DecoderBackend type() const override { return DecoderBackend::FFmpeg; }
+
+  bool open(MediaPlaybackController::Impl& impl, const QString& url) override;
+  void close(MediaPlaybackController::Impl& impl) override;
+  bool isOpen(const MediaPlaybackController::Impl& impl) const override;
+  void seek(MediaPlaybackController::Impl& impl, int64_t timestampMs, SeekMode mode) override;
+  void seekToFrame(MediaPlaybackController::Impl& impl, int64_t frameNumber) override;
+  QImage getNextVideoFrame(MediaPlaybackController::Impl& impl) override;
+  QImage getVideoFrameAtFrameDirect(MediaPlaybackController::Impl& impl, int64_t frameNumber) override;
+};
+
+class MFPlaybackBackend final : public PlaybackBackend {
+ public:
+  DecoderBackend type() const override { return DecoderBackend::MediaFoundation; }
+
+  bool open(MediaPlaybackController::Impl& impl, const QString& url) override;
+  void close(MediaPlaybackController::Impl& impl) override;
+  bool isOpen(const MediaPlaybackController::Impl& impl) const override;
+  void seek(MediaPlaybackController::Impl& impl, int64_t timestampMs, SeekMode mode) override;
+  void seekToFrame(MediaPlaybackController::Impl& impl, int64_t frameNumber) override;
+  QImage getNextVideoFrame(MediaPlaybackController::Impl& impl) override;
+  QImage getVideoFrameAtFrameDirect(MediaPlaybackController::Impl& impl, int64_t frameNumber) override;
+};
+
+static PlaybackBackend& backendFor(DecoderBackend backend) {
+  static FFmpegPlaybackBackend ffmpegBackend;
+  static MFPlaybackBackend mfBackend;
+  return backend == DecoderBackend::MediaFoundation ? static_cast<PlaybackBackend&>(mfBackend)
+                                                    : static_cast<PlaybackBackend&>(ffmpegBackend);
+}
 
  MediaPlaybackController::MediaPlaybackController()
   : impl_(new Impl()) {}
@@ -270,39 +449,26 @@ namespace ArtifactCore {
   return *this;
  }
 
-	 bool MediaPlaybackController::openMedia(const QString& url) {
+ bool MediaPlaybackController::openMedia(const QString& url) {
   if (!impl_) return false;
 
-  if (!impl_->mediaSource_->open(url)) {
-   impl_->notifyError("Failed to open media: " + url);
-   return false;
+  PlaybackBackend& preferred = backendFor(impl_->backend_);
+  if (preferred.open(*impl_, url)) {
+    impl_->notifyStateChanged(PlaybackState::Stopped);
+    return true;
   }
 
-	  AVFormatContext* ctx = impl_->mediaSource_->getFormatContext();
-  if (!ctx) {
-   impl_->notifyError("Invalid format context");
-   return false;
+  PlaybackBackend& fallback = backendFor(impl_->backend_ == DecoderBackend::MediaFoundation
+                                          ? DecoderBackend::FFmpeg
+                                          : DecoderBackend::MediaFoundation);
+  if (fallback.open(*impl_, url)) {
+    impl_->backend_ = fallback.type();
+    impl_->notifyStateChanged(PlaybackState::Stopped);
+    return true;
   }
 
-	  impl_->rebuildReader();
-	  impl_->resetMetadata(url);
-
-	  for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
-   AVCodecParameters* params = ctx->streams[i]->codecpar;
-   if (params->codec_type == AVMEDIA_TYPE_VIDEO) {
-    if (!impl_->videoDecoder_->initialize(params)) {
-     qWarning() << "Failed to initialize video decoder";
-    }
-   } else if (params->codec_type == AVMEDIA_TYPE_AUDIO) {
-    if (!impl_->audioDecoder_->initialize(params)) {
-     qWarning() << "Failed to initialize audio decoder";
-    }
-   }
-  }
-
-  impl_->updatePlaybackInfo();
-  impl_->notifyStateChanged(PlaybackState::Stopped);
-  return true;
+  impl_->notifyError("Failed to open media with MediaFoundation and FFmpeg: " + url);
+  return false;
  }
 
  bool MediaPlaybackController::openMediaFile(const QString& filePath) {
@@ -312,8 +478,8 @@ namespace ArtifactCore {
 	 void MediaPlaybackController::closeMedia() {
 	  if (!impl_) return;
 	  stop();
-	  impl_->mediaSource_->close();
-	  impl_->rebuildReader();
+	  backendFor(impl_->backend_).close(*impl_);
+	  impl_->backend_ = DecoderBackend::MediaFoundation;
 	  impl_->metadata_ = MediaMetaData();
 	  impl_->currentPositionMs_ = 0;
   impl_->durationMs_ = 0;
@@ -323,28 +489,35 @@ namespace ArtifactCore {
  }
 
  bool MediaPlaybackController::isMediaOpen() const {
-  return impl_ && impl_->mediaSource_ && impl_->mediaSource_->isOpen();
+  if (!impl_) return false;
+  return backendFor(impl_->backend_).isOpen(*impl_);
  }
 
  void MediaPlaybackController::play() {
   if (!impl_) return;
   if (impl_->state_ != PlaybackState::Playing) {
-   impl_->mediaReader_->start();
+   if (impl_->backend_ == DecoderBackend::FFmpeg && impl_->mediaReader_) {
+    impl_->mediaReader_->start();
+   }
    impl_->notifyStateChanged(PlaybackState::Playing);
   }
  }
 
  void MediaPlaybackController::pause() {
   if (!impl_) return;
-  impl_->mediaReader_->pause();
+  if (impl_->backend_ == DecoderBackend::FFmpeg && impl_->mediaReader_) {
+   impl_->mediaReader_->pause();
+  }
   impl_->notifyStateChanged(PlaybackState::Paused);
  }
 
  void MediaPlaybackController::stop() {
   if (!impl_) return;
-  impl_->mediaReader_->stop();
-  impl_->videoDecoder_->flush();
-  impl_->audioDecoder_->flush();
+  if (impl_->backend_ == DecoderBackend::FFmpeg) {
+   if (impl_->mediaReader_) impl_->mediaReader_->stop();
+   if (impl_->videoDecoder_) impl_->videoDecoder_->flush();
+   if (impl_->audioDecoder_) impl_->audioDecoder_->flush();
+  }
   impl_->notifyStateChanged(PlaybackState::Stopped);
   impl_->currentPositionMs_ = 0;
   impl_->currentFrame_ = 0;
@@ -360,19 +533,11 @@ namespace ArtifactCore {
  }
 
 	 void MediaPlaybackController::seek(int64_t timestampMs, SeekMode mode) {
-	  if (!impl_ || !impl_->mediaSource_) return;
-	  const bool wasPlaying = impl_->state_ == PlaybackState::Playing;
-	  if (impl_->mediaReader_) {
-	   impl_->mediaReader_->stop();
+	  if (!impl_) {
+	   return;
 	  }
-	  impl_->mediaSource_->seek(timestampMs);
-	  impl_->rebuildReader();
-	  impl_->videoDecoder_->flush();
-	  impl_->audioDecoder_->flush();
-	  impl_->notifyPositionChanged(timestampMs);
-	  if (wasPlaying && impl_->mediaReader_) {
-	   impl_->mediaReader_->start();
-	  }
+
+	  backendFor(impl_->backend_).seek(*impl_, timestampMs, mode);
 	 }
 
  void MediaPlaybackController::seekToSeconds(double seconds, SeekMode mode) {
@@ -380,9 +545,8 @@ namespace ArtifactCore {
  }
 
  void MediaPlaybackController::seekToFrame(int64_t frameNumber) {
-  if (!impl_ || impl_->fps_ <= 0) return;
-  double seconds = frameNumber / impl_->fps_;
-  seekToSeconds(seconds);
+  if (!impl_) return;
+  backendFor(impl_->backend_).seekToFrame(*impl_, frameNumber);
  }
 
  void MediaPlaybackController::seekRelative(int64_t deltaMs) {
@@ -418,20 +582,12 @@ namespace ArtifactCore {
   impl_->playbackSpeed_ = std::max(0.25, std::min(speed, 4.0));
  }
 
- void MediaPlaybackController::setPlaybackSpeed(PlaybackSpeed speed) {
-  double speedValue = 1.0;
-  switch (speed) {
-   case PlaybackSpeed::QuarterSpeed: speedValue = 0.25; break;
-   case PlaybackSpeed::HalfSpeed: speedValue = 0.5; break;
-   case PlaybackSpeed::NormalSpeed: speedValue = 1.0; break;
-   case PlaybackSpeed::DoubleSpeed: speedValue = 2.0; break;
-   case PlaybackSpeed::QuadrupleSpeed: speedValue = 4.0; break;
-  }
-  setPlaybackSpeed(speedValue);
+ void MediaPlaybackController::setDecoderBackend(DecoderBackend backend) {
+  if (impl_) impl_->backend_ = backend;
  }
 
- double MediaPlaybackController::getPlaybackSpeed() const {
-  return impl_ ? impl_->playbackSpeed_ : 1.0;
+ DecoderBackend MediaPlaybackController::getDecoderBackend() const {
+  return impl_ ? impl_->backend_ : DecoderBackend::FFmpeg;
  }
 
  void MediaPlaybackController::setVolume(float volume) {
@@ -458,40 +614,8 @@ namespace ArtifactCore {
  }
 
 	 QImage MediaPlaybackController::getNextVideoFrame() {
-  if (!impl_ || !impl_->mediaReader_ || !impl_->videoDecoder_) {
-   return QImage();
-  }
-
-	  impl_->mediaReader_->start();
-	  
-      QImage img;
-      int max_attempts = 1000; // Safeguard against infinite loops
-      int attempts = 0;
-
-      while (img.isNull() && attempts < max_attempts) {
-          AVPacket* pkt = nullptr;
-          for (int read_attempt = 0; read_attempt < 100 && !pkt; ++read_attempt) {
-              pkt = impl_->mediaReader_->getNextPacket(StreamType::Video);
-              if (!pkt) {
-                  std::this_thread::sleep_for(std::chrono::milliseconds(2));
-              }
-          }
-          
-          if (!pkt) {
-              impl_->notifyEndOfMedia();
-              break;
-          }
-
-          img = impl_->videoDecoder_->decodeFrame(pkt);
-          av_packet_free(&pkt);
-          attempts++;
-      }
-
-  if (!img.isNull()) {
-   impl_->notifyPositionChanged(impl_->currentPositionMs_ + static_cast<int64_t>(1000.0 / impl_->fps_));
-  }
-
-  return img;
+  if (!impl_) return QImage();
+  return backendFor(impl_->backend_).getNextVideoFrame(*impl_);
  }
 
  QImage MediaPlaybackController::getCurrentVideoFrame() {
@@ -505,13 +629,78 @@ namespace ArtifactCore {
 
  QImage MediaPlaybackController::getVideoFrameAt(int64_t timestampMs) {
   if (!impl_) return QImage();
-  seek(timestampMs, SeekMode::Accurate);
-  return getNextVideoFrame();
+  const double fps = impl_->fps_;
+  const int64_t frameNumber = fps > 0.0 ? static_cast<int64_t>((timestampMs / 1000.0) * fps) : 0;
+  return backendFor(impl_->backend_).getVideoFrameAtFrameDirect(*impl_, frameNumber);
  }
 
  QImage MediaPlaybackController::getVideoFrameAtFrame(int64_t frameNumber) {
-  seekToFrame(frameNumber);
-  return getNextVideoFrame();
+  if (!impl_) {
+   return QImage();
+  }
+
+  if (impl_->backend_ == DecoderBackend::MediaFoundation) {
+   return backendFor(impl_->backend_).getVideoFrameAtFrameDirect(*impl_, frameNumber);
+  }
+
+  if (impl_->fps_ <= 0) {
+   qDebug() << "[MediaPlayback] getVideoFrameAtFrame: impl_ or fps invalid";
+   return QImage();
+  }
+
+  double targetSec = frameNumber / impl_->fps_;
+  int64_t targetMs = static_cast<int64_t>(targetSec * 1000.0);
+
+  int64_t targetPts = 0;
+  if (impl_->videoStreamIndex_ >= 0 && impl_->videoTimeBase_.den > 0) {
+      double timebaseSec = static_cast<double>(impl_->videoTimeBase_.num) / impl_->videoTimeBase_.den;
+      targetPts = static_cast<int64_t>(targetSec / timebaseSec);
+  } else {
+      targetPts = static_cast<int64_t>(targetSec * 90000.0);
+  }
+
+  qDebug() << "[MediaPlayback] getVideoFrameAtFrame:" << frameNumber
+           << "targetSec=" << targetSec
+           << "targetMs=" << targetMs
+           << "targetPts=" << targetPts
+           << "fps=" << impl_->fps_;
+
+  seek(targetMs, SeekMode::Accurate);
+
+  QImage result;
+  const int maxDiscard = 300;
+  int loopCount = 0;
+  for (int i = 0; i < maxDiscard; ++i) {
+      result = getNextVideoFrame();
+      loopCount = i + 1;
+      if (result.isNull()) {
+          break;
+      }
+      
+      int64_t currentPts = impl_->videoDecoder_->getLastDecodedPts();
+      if (currentPts >= targetPts) {
+          break;
+      }
+  }
+
+  if (result.isNull()) {
+   qDebug() << "[MediaPlayback] getVideoFrameAtFrame: NULL after" << loopCount << "iterations";
+    result = backendFor(impl_->backend_).getVideoFrameAtFrameDirect(*impl_, frameNumber);
+  } else {
+   qDebug() << "[MediaPlayback] got frame after" << loopCount << "iterations, size=" << result.width() << "x" << result.height();
+  }
+  
+  impl_->currentPositionMs_ = targetMs;
+  impl_->currentFrame_ = frameNumber;
+  
+  return result;
+ }
+
+ QImage MediaPlaybackController::getVideoFrameAtFrameDirect(int64_t frameNumber) {
+  if (!impl_) {
+   return QImage();
+  }
+  return backendFor(impl_->backend_).getVideoFrameAtFrameDirect(*impl_, frameNumber);
  }
 
 	 QByteArray MediaPlaybackController::getNextAudioFrame() {
@@ -655,9 +844,10 @@ namespace ArtifactCore {
 
  QImage MediaPlaybackController::generateThumbnail(int64_t timestampMs, const QSize& size) {
   if (!impl_) return QImage();
-  
-  seek(timestampMs, SeekMode::Fast);
-  QImage frame = getNextVideoFrame();
+
+  const double fps = impl_->fps_;
+  const int64_t frameNumber = fps > 0.0 ? static_cast<int64_t>((timestampMs / 1000.0) * fps) : 0;
+  QImage frame = backendFor(impl_->backend_).getVideoFrameAtFrameDirect(*impl_, frameNumber);
   
   if (!frame.isNull() && size.isValid()) {
    return frame.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -682,5 +872,167 @@ namespace ArtifactCore {
 
   return thumbnails;
  }
+
+bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QString& url) {
+  const bool opened = impl.mediaSource_ && impl.mediaSource_->open(url);
+  if (!opened) {
+    return false;
+  }
+
+  if (AVFormatContext* ctx = impl.mediaSource_->getFormatContext()) {
+    impl.rebuildReader();
+    for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
+      AVCodecParameters* params = ctx->streams[i]->codecpar;
+      if (params->codec_type == AVMEDIA_TYPE_VIDEO) {
+        if (!impl.videoDecoder_->initialize(params)) {
+          qWarning() << "Failed to initialize video decoder";
+        }
+      } else if (params->codec_type == AVMEDIA_TYPE_AUDIO) {
+        if (!impl.audioDecoder_->initialize(params)) {
+          qWarning() << "Failed to initialize audio decoder";
+        }
+      }
+    }
+    impl.resetMetadata(url);
+    impl.updatePlaybackInfo();
+  }
+
+  impl.backend_ = DecoderBackend::FFmpeg;
+  return true;
+}
+
+void FFmpegPlaybackBackend::close(MediaPlaybackController::Impl& impl) {
+  if (impl.mediaReader_) {
+    impl.mediaReader_->stop();
+  }
+  if (impl.mediaSource_) {
+    impl.mediaSource_->close();
+  }
+  if (impl.videoDecoder_) {
+    impl.videoDecoder_->flush();
+  }
+  if (impl.audioDecoder_) {
+    impl.audioDecoder_->flush();
+  }
+}
+
+bool FFmpegPlaybackBackend::isOpen(const MediaPlaybackController::Impl& impl) const {
+  return impl.mediaSource_ && impl.mediaSource_->isOpen();
+}
+
+void FFmpegPlaybackBackend::seek(MediaPlaybackController::Impl& impl, int64_t timestampMs, SeekMode) {
+  if (!impl.mediaSource_) {
+    return;
+  }
+  const bool wasPlaying = impl.state_ == PlaybackState::Playing;
+  if (impl.mediaReader_) {
+    impl.mediaReader_->stop();
+  }
+  impl.mediaSource_->seek(timestampMs);
+  impl.rebuildReader();
+  if (impl.videoDecoder_) impl.videoDecoder_->flush();
+  if (impl.audioDecoder_) impl.audioDecoder_->flush();
+  impl.notifyPositionChanged(timestampMs);
+  if (wasPlaying && impl.mediaReader_) {
+    impl.mediaReader_->start();
+  }
+}
+
+void FFmpegPlaybackBackend::seekToFrame(MediaPlaybackController::Impl& impl, int64_t frameNumber) {
+  if (impl.fps_ <= 0.0) {
+    return;
+  }
+  const double seconds = frameNumber / impl.fps_;
+  seek(impl, static_cast<int64_t>(seconds * 1000.0), SeekMode::Accurate);
+}
+
+QImage FFmpegPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& impl) {
+  if (!impl.mediaReader_ || !impl.videoDecoder_) {
+    return QImage();
+  }
+
+  impl.mediaReader_->start();
+  while (true) {
+    AVPacket* pkt = nullptr;
+    for (int attempt = 0; attempt < 100 && !pkt; ++attempt) {
+      pkt = impl.mediaReader_->getNextPacket(StreamType::Video);
+      if (!pkt) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+      }
+    }
+    if (!pkt) {
+      impl.notifyEndOfMedia();
+      return QImage();
+    }
+
+    QImage img = impl.videoDecoder_->decodeFrame(pkt);
+    av_packet_free(&pkt);
+    if (!img.isNull()) {
+      impl.notifyPositionChanged(impl.currentPositionMs_ + static_cast<int64_t>(1000.0 / std::max(0.0001, impl.fps_)));
+      return img;
+    }
+  }
+}
+
+QImage FFmpegPlaybackBackend::getVideoFrameAtFrameDirect(MediaPlaybackController::Impl& impl, int64_t frameNumber) {
+  return impl.decodeVideoFrameDirectAtFrame(frameNumber);
+}
+
+bool MFPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QString& url) {
+  if (!impl.mfExtractor_ || !impl.mfExtractor_->open(url)) {
+    return false;
+  }
+  impl.backend_ = DecoderBackend::MediaFoundation;
+  impl.setMetadataFromMediaFoundation(url);
+  return true;
+}
+
+void MFPlaybackBackend::close(MediaPlaybackController::Impl& impl) {
+  if (impl.mfExtractor_) {
+    impl.mfExtractor_->close();
+  }
+}
+
+bool MFPlaybackBackend::isOpen(const MediaPlaybackController::Impl& impl) const {
+  return impl.mfExtractor_ && impl.mfExtractor_->isOpen();
+}
+
+void MFPlaybackBackend::seek(MediaPlaybackController::Impl& impl, int64_t timestampMs, SeekMode) {
+  impl.currentPositionMs_ = std::max<int64_t>(0, timestampMs);
+  if (impl.fps_ > 0.0) {
+    impl.currentFrame_ = static_cast<int64_t>((impl.currentPositionMs_ / 1000.0) * impl.fps_);
+  }
+  impl.notifyPositionChanged(impl.currentPositionMs_);
+}
+
+void MFPlaybackBackend::seekToFrame(MediaPlaybackController::Impl& impl, int64_t frameNumber) {
+  impl.currentFrame_ = std::max<int64_t>(0, frameNumber);
+  if (impl.fps_ > 0.0) {
+    impl.currentPositionMs_ = static_cast<int64_t>((impl.currentFrame_ / impl.fps_) * 1000.0);
+  }
+  impl.notifyPositionChanged(impl.currentPositionMs_);
+}
+
+QImage MFPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& impl) {
+  const int64_t frameNumber = std::max<int64_t>(0, impl.currentFrame_);
+  return getVideoFrameAtFrameDirect(impl, frameNumber);
+}
+
+QImage MFPlaybackBackend::getVideoFrameAtFrameDirect(MediaPlaybackController::Impl& impl, int64_t frameNumber) {
+  if (!impl.mfExtractor_ || !impl.mfExtractor_->isOpen()) {
+    return QImage();
+  }
+  auto frame = impl.mfExtractor_->extractFrameAtIndex(frameNumber);
+  if (!frame || !frame->isValid()) {
+    return QImage();
+  }
+  QImage img(frame->data.data(), frame->width, frame->height, QImage::Format_RGBA8888);
+  QImage result = img.copy();
+  impl.currentFrame_ = frameNumber + 1;
+  if (impl.fps_ > 0.0) {
+    impl.currentPositionMs_ = static_cast<int64_t>((impl.currentFrame_ / impl.fps_) * 1000.0);
+  }
+  return result;
+}
 
 } // namespace ArtifactCore

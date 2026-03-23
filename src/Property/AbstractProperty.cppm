@@ -222,14 +222,19 @@ int AbstractProperty::displayPriority() const {
 // KeyFrame operations
 // -----------------------------------------------------------------------
 void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value) {
+    addKeyFrame(time, value, EasingType::Linear);
+}
+
+void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value, EasingType easing) {
     // 同じ時刻のキーフレームがあれば更新
     for (auto& kf : pImpl->m_keyFrames) {
         if (kf.time == time) {
             kf.value = value;
+            kf.easing = easing;
             return;
         }
     }
-    pImpl->m_keyFrames.push_back({ time, value });
+    pImpl->m_keyFrames.push_back({ time, value, easing });
     // 時刻順にソート
     std::sort(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
         [](const KeyFrame& a, const KeyFrame& b) {
@@ -282,6 +287,10 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
             double elapsed  = (time  - kf1.time).toDouble();
             double duration = (kf2.time - kf1.time).toDouble();
             double t = (duration > 0.0) ? (elapsed / duration) : 0.0;
+
+            if (kf1.easing == EasingType::Hold) {
+                return kf1.value;
+            }
 
             if (pImpl->m_type == PropertyType::Float) {
                 double v1 = kf1.value.toDouble();

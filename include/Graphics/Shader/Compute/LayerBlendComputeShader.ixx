@@ -69,10 +69,13 @@ void main(uint3 id : SV_DispatchThreadID)
 {
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
-    float3 blended = src.rgb * src.a + dst.rgb * (1.0 - src.a);
-    float outA = src.a + dst.a * (1.0 - src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    float srcA = src.a * opacity;
+    // src.rgb is already premultiplied in the previous RT pass, 
+    // so we only apply the layer's overall opacity.
+    float3 srcRGB = src.rgb * opacity;
+    float3 blended = srcRGB + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
@@ -93,10 +96,11 @@ void main(uint3 id : SV_DispatchThreadID)
 {
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
-    float3 blended = saturate(dst.rgb + src.rgb);
-    float outA = saturate(dst.a + src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    float srcA = src.a * opacity;
+    float3 srcRGB = src.rgb * opacity;
+    float3 blended = saturate(dst.rgb + srcRGB);
+    float outA = saturate(dst.a + srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 

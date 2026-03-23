@@ -61,9 +61,19 @@ enum class PropertyType {
     ObjectReference  // ID 参照
 };
 
+enum class EasingType {
+    Linear,
+    Hold,
+    EaseIn,
+    EaseOut,
+    EaseInOut,
+    Bezier
+};
+
 struct KeyFrame {
     RationalTime time;
     QVariant value;
+    EasingType easing = EasingType::Linear;
 };
 
 struct PropertyMetadata {
@@ -135,6 +145,7 @@ public:
 
     // KeyFrame operations
     void addKeyFrame(const RationalTime& time, const QVariant& value);
+    void addKeyFrame(const RationalTime& time, const QVariant& value, EasingType easing);
     void removeKeyFrame(const RationalTime& time);
     void clearKeyFrames();
     std::vector<KeyFrame> getKeyFrames() const;

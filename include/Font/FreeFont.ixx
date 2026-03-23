@@ -82,9 +82,15 @@ public:
   return QStringLiteral("Arial");
  }
 
- static QFont makeFont(const TextStyle& style)
+ static bool loadFontFromFile(const QString& fontPath)
  {
-  QFont font(resolvedFamily(style.fontFamily.toQString()));
+  if (fontPath.isEmpty()) return false;
+  int id = QFontDatabase::addApplicationFont(fontPath);
+  return id != -1;
+ }
+
+ static QFont makeFont(const TextStyle& style)
+ {  QFont font(resolvedFamily(style.fontFamily.toQString()));
   font.setPointSizeF(std::max(1.0f, style.fontSize));
   font.setBold(style.bold);
   font.setItalic(style.italic);

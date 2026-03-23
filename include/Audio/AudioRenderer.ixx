@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include "../Define/DllExportMacro.hpp"
 #include <memory>
 #include <QString>
@@ -50,6 +50,7 @@ export namespace ArtifactCore {
    * @brief Feed audio data to the renderer buffer
    */
   void enqueue(const AudioSegment& segment);
+  void clearBuffer();
 
  private:
   struct Impl;
