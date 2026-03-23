@@ -75,7 +75,7 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
     }
 
     swsCtx_ = sws_getContext(codecContext_->width, codecContext_->height, codecContext_->pix_fmt,
-                             codecContext_->width, codecContext_->height, AV_PIX_FMT_RGB24,
+                             codecContext_->width, codecContext_->height, AV_PIX_FMT_RGBA,
                              SWS_BILINEAR, nullptr, nullptr, nullptr);
     return swsCtx_ != nullptr;
 }
@@ -87,7 +87,7 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
     if (!frame) return QImage();
 
     int ret = avcodec_send_packet(codecContext_, packet);
-    if (ret < 0) {
+    if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
         av_frame_free(&frame);
         return QImage();
     }
@@ -95,13 +95,14 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
     ret = avcodec_receive_frame(codecContext_, frame);
     if (ret < 0) {
         av_frame_free(&frame);
-        return QImage();
+        return QImage(); // Needs more packets
     }
 
-    QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGB888);
-    uint8_t* dst[4];
-    int dstLinesize[4];
-    av_image_fill_arrays(dst, dstLinesize, img.bits(), AV_PIX_FMT_RGB24, img.width(), img.height(), 1);
+    // Use RGBA8888 to ensure 32-bit alignment matches between FFmpeg and Qt
+    QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGBA8888);
+    uint8_t* dst[4] = { img.bits(), nullptr, nullptr, nullptr };
+    int dstLinesize[4] = { static_cast<int>(img.bytesPerLine()), 0, 0, 0 };
+    
     sws_scale(swsCtx_, frame->data, frame->linesize, 0, codecContext_->height, dst, dstLinesize);
 
     av_frame_free(&frame);

@@ -463,20 +463,29 @@ namespace ArtifactCore {
   }
 
 	  impl_->mediaReader_->start();
-	  AVPacket* pkt = nullptr;
-	  for (int attempt = 0; attempt < 100 && !pkt; ++attempt) {
-	   pkt = impl_->mediaReader_->getNextPacket(StreamType::Video);
-	   if (!pkt) {
-	    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-	   }
-	  }
-	  if (!pkt) {
-	   impl_->notifyEndOfMedia();
-   return QImage();
-  }
+	  
+      QImage img;
+      int max_attempts = 1000; // Safeguard against infinite loops
+      int attempts = 0;
 
-  QImage img = impl_->videoDecoder_->decodeFrame(pkt);
-  av_packet_free(&pkt);
+      while (img.isNull() && attempts < max_attempts) {
+          AVPacket* pkt = nullptr;
+          for (int read_attempt = 0; read_attempt < 100 && !pkt; ++read_attempt) {
+              pkt = impl_->mediaReader_->getNextPacket(StreamType::Video);
+              if (!pkt) {
+                  std::this_thread::sleep_for(std::chrono::milliseconds(2));
+              }
+          }
+          
+          if (!pkt) {
+              impl_->notifyEndOfMedia();
+              break;
+          }
+
+          img = impl_->videoDecoder_->decodeFrame(pkt);
+          av_packet_free(&pkt);
+          attempts++;
+      }
 
   if (!img.isNull()) {
    impl_->notifyPositionChanged(impl_->currentPositionMs_ + static_cast<int64_t>(1000.0 / impl_->fps_));
