@@ -12,6 +12,7 @@ W_OBJECT_IMPL(ArtifactAppSettings)
 class ArtifactAppSettings::Impl {
 public:
     FastSettingsStore store;
+    bool safeMode = false;
 
     Impl() {
         QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -29,6 +30,14 @@ ArtifactAppSettings::ArtifactAppSettings() : impl_(new Impl()) {}
 
 ArtifactAppSettings::~ArtifactAppSettings() {
     delete impl_;
+}
+
+bool ArtifactAppSettings::isSafeMode() const {
+    return impl_->safeMode;
+}
+
+void ArtifactAppSettings::setSafeMode(bool enable) {
+    impl_->safeMode = enable;
 }
 
 QString ArtifactAppSettings::defaultFontFamily() const {

@@ -33,6 +33,10 @@ public:
     int renderThreadCount() const;
     void setRenderThreadCount(int count);
 
+    // --- Runtime States (Not persisted) ---
+    bool isSafeMode() const;
+    void setSafeMode(bool enable);
+
     // --- Persistence ---
     void sync();
 
