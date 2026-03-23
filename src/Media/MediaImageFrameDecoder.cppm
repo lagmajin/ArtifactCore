@@ -88,24 +88,47 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
 
     int ret = avcodec_send_packet(codecContext_, packet);
     if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+        qWarning() << "[MediaImageFrameDecoder] avcodec_send_packet failed:" << ret;
         av_frame_free(&frame);
         return QImage();
     }
 
     ret = avcodec_receive_frame(codecContext_, frame);
     if (ret < 0) {
+        // EAGAIN (needs more packets) or EOF are normal, don't warn for them
+        if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+            qWarning() << "[MediaImageFrameDecoder] avcodec_receive_frame failed:" << ret;
+        }
         av_frame_free(&frame);
         return QImage(); // Needs more packets
     }
 
-    // Use RGBA8888 to ensure 32-bit alignment matches between FFmpeg and Qt
-    QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGBA8888);
+    // Use RGBX8888 to ensure the 4th byte is ignored as alpha, guaranteeing the video is fully opaque.
+    QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGBX8888);
     uint8_t* dst[4] = { img.bits(), nullptr, nullptr, nullptr };
     int dstLinesize[4] = { static_cast<int>(img.bytesPerLine()), 0, 0, 0 };
     
-    sws_scale(swsCtx_, frame->data, frame->linesize, 0, codecContext_->height, dst, dstLinesize);
+    int h = sws_scale(swsCtx_, frame->data, frame->linesize, 0, codecContext_->height, dst, dstLinesize);
+    if (h <= 0) {
+        qWarning() << "[MediaImageFrameDecoder] sws_scale failed or returned 0 height.";
+        av_frame_free(&frame);
+        return QImage();
+    }
 
     av_frame_free(&frame);
+
+    // Debug: Save the very first decoded frame to disk to prove it works
+    static bool firstFrameSaved = false;
+    if (!firstFrameSaved && !img.isNull()) {
+        QString debugPath = "debug_first_frame.png";
+        if (img.save(debugPath)) {
+            qDebug() << "[MediaImageFrameDecoder] SUCCESS: First frame saved to" << debugPath;
+        } else {
+            qDebug() << "[MediaImageFrameDecoder] FAILED to save debug frame to" << debugPath;
+        }
+        firstFrameSaved = true;
+    }
+
     return img;
 }
 
