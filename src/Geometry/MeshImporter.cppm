@@ -54,14 +54,14 @@ namespace ArtifactCore {
                         size_t idx = face.index_begin + vi;
                         int outIdx = vertexOffset + (int)idx;
                         
-                        ufbx_vec3 pos = ufbx_get_vertex_vec3(srcMesh->vertex_position, idx);
+                        ufbx_vec3 pos = ufbx_get_vertex_vec3(&srcMesh->vertex_position, idx);
                         (*posAttr)[outIdx] = QVector3D(pos.x, pos.y, pos.z);
 
-                        ufbx_vec3 norm = ufbx_get_vertex_vec3(srcMesh->vertex_normal, idx);
+                        ufbx_vec3 norm = ufbx_get_vertex_vec3(&srcMesh->vertex_normal, idx);
                         (*normAttr)[outIdx] = QVector3D(norm.x, norm.y, norm.z);
 
                         if (srcMesh->vertex_uv.exists) {
-                            ufbx_vec2 uv = ufbx_get_vertex_vec2(srcMesh->vertex_uv, idx);
+                            ufbx_vec2 uv = ufbx_get_vertex_vec2(&srcMesh->vertex_uv, idx);
                             (*uvAttr)[outIdx] = QVector2D(uv.x, uv.y);
                         }
                         polyIndices.push_back(outIdx);

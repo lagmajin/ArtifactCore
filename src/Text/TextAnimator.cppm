@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <algorithm>
 #include <random>
+#include <numbers>
 
 module Text.Animator;
 
@@ -26,7 +27,7 @@ float TextAnimatorEngine::calculateWeight(int index, int totalCount, const Range
         case SelectorShape::RampDown: return 1.0f - t;
         case SelectorShape::Triangle: return (t < 0.5f) ? (t * 2.0f) : ((1.0f - t) * 2.0f);
         case SelectorShape::Round: return std::sqrt(1.0f - std::pow(t * 2.0f - 1.0f, 2.0f));
-        case SelectorShape::Smooth: return 0.5f - 0.5f * std::cos(t * M_PI);
+        case SelectorShape::Smooth: return 0.5f - 0.5f * std::cos(t * std::numbers::pi_v<float>);
         default: return 1.0f;
     }
 }
@@ -48,7 +49,7 @@ float TextAnimatorEngine::calculateWigglyWeight(int index, float time, const Wig
     float fract = t - std::floor(t);
     
     // 線形補間（滑らかに動くように）
-    return v1 + (v2 - v1) * (0.5f - 0.5f * std::cos(fract * M_PI));
+    return v1 + (v2 - v1) * (0.5f - 0.5f * std::cos(fract * std::numbers::pi_v<float>));
 }
 
 void TextAnimatorEngine::applyAnimator(

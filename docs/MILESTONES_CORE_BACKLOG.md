@@ -140,6 +140,12 @@
 -小さな test helper
 - サンプルパイプラインの整備
 
+### C-ARC-4 Internal Event System Foundation
+- `EventBus`
+- typed subscribe / publish / post
+- UI thread bridge の前提になる queued delivery
+- Qt 非依存の高速イベント基盤
+
 ## Good Small Tasks
 
 - `C-ARC-1 import std Rollout`

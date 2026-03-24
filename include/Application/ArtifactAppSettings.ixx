@@ -40,12 +40,13 @@ public:
     // --- Persistence ---
     void sync();
 
+    ~ArtifactAppSettings();
+
 signals:
     void settingsChanged() W_SIGNAL(settingsChanged);
 
 private:
     ArtifactAppSettings();
-    ~ArtifactAppSettings();
 
     class Impl;
     Impl* impl_;

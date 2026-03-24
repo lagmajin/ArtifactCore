@@ -197,6 +197,11 @@ target_link_libraries(ArtifactCore PUBLIC EnTT::EnTT)
 find_package(magic_enum CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC magic_enum::magic_enum)
 
+# ufbx (vendored)
+if(TARGET ufbx)
+    target_link_libraries(ArtifactCore PUBLIC ufbx)
+endif()
+
 # FFmpeg
 find_package(ffmpeg REQUIRED)
 if(ffmpeg_FOUND)

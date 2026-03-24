@@ -2,6 +2,7 @@ module;
 
 #include <QDebug>
 #include <QString>
+#include <QFileInfo>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -67,27 +68,55 @@ bool MediaSource::open(const QString& url) {
     close();
     url_ = url;
 
-    formatContext_ = avformat_alloc_context();
-    if (!formatContext_) {
-        qWarning() << "MediaSource::open: Failed to allocate AVFormatContext.";
+    // [Fix 1] Windows バックスラッシュを / に正規化して FFmpeg に渡す
+    const std::string pathUtf8 = QString(url).replace(QLatin1Char('\\'), QLatin1Char('/')).toUtf8().toStdString();
+
+    // [Fix 2] FFmpeg に渡す前にファイル存在を確認（エラー理由を明確化）
+    if (!QFileInfo::exists(url)) {
+        qCritical() << "[MediaSource] File does not exist:" << url;
         return false;
     }
 
-    if (avformat_open_input(&formatContext_, url.toUtf8().constData(), nullptr, nullptr) < 0) {
-        qWarning() << "MediaSource::open: Failed to open input:" << url;
+    formatContext_ = avformat_alloc_context();
+    if (!formatContext_) {
+        qCritical() << "[MediaSource] Failed to allocate AVFormatContext.";
+        return false;
+    }
+
+    // [Fix 3] avformat_open_input のエラーコードを av_strerror で出力
+    int ret = avformat_open_input(&formatContext_, pathUtf8.c_str(), nullptr, nullptr);
+    if (ret < 0) {
+        char errbuf[AV_ERROR_MAX_STRING_SIZE];
+        av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+        qCritical() << "[MediaSource] avformat_open_input failed:"
+                    << "path=" << url
+                    << "errcode=" << ret
+                    << "msg=" << errbuf;
         avformat_free_context(formatContext_);
         formatContext_ = nullptr;
         return false;
     }
 
-    if (avformat_find_stream_info(formatContext_, nullptr) < 0) {
-        qWarning() << "MediaSource::open: Failed to find stream info.";
+    // [Fix 4] probesize / analyzeduration に上限を設けてタイムアウトを防ぐ
+    AVDictionary* opts = nullptr;
+    av_dict_set(&opts, "probesize",       "2000000", 0); // 2 MB
+    av_dict_set(&opts, "analyzeduration", "2000000", 0); // 2 秒 (μs)
+    ret = avformat_find_stream_info(formatContext_, &opts);
+    av_dict_free(&opts);
+    if (ret < 0) {
+        char errbuf[AV_ERROR_MAX_STRING_SIZE];
+        av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+        qCritical() << "[MediaSource] avformat_find_stream_info failed:"
+                    << "path=" << url
+                    << "msg=" << errbuf;
         avformat_close_input(&formatContext_);
         formatContext_ = nullptr;
         return false;
     }
 
-    qDebug() << "MediaSource::open: Successfully opened:" << url;
+    qDebug() << "[MediaSource] Opened:" << url
+             << "streams=" << formatContext_->nb_streams
+             << "duration_ms=" << (formatContext_->duration / 1000);
     return true;
 }
 

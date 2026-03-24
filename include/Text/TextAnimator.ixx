@@ -6,6 +6,7 @@ module;
 
 export module Text.Animator;
 
+import FloatRGBA;
 import Text.GlyphLayout;
 
 namespace ArtifactCore {

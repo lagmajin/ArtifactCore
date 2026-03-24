@@ -1,32 +1,27 @@
-﻿module;
-
+module;
 #include <QString>
-#include <OpenImageIO/imageio.h>
+
 export module IO.ImageImporter;
 
-import Image;
+import Image.Raw;
 
-export namespace ArtifactCore
-{
+export namespace ArtifactCore {
 
- class ImageImporter {
- private:
-  class Impl;
-  Impl* impl_;
- public:
-  ImageImporter();
-  ~ImageImporter();
-  bool open(const QString& filePath);
-  RawImage readImage();
-  void close();
- };
+class ImageImporter {
+public:
+    ImageImporter();
+    ~ImageImporter();
 
+    ImageImporter(const ImageImporter&) = delete;
+    ImageImporter& operator=(const ImageImporter&) = delete;
 
+    bool open(const QString& filePath);
+    RawImage readImage();
+    void close();
 
+private:
+    class Impl;
+    Impl* impl_;
+};
 
-
-
-
-
-
-}
+} // namespace ArtifactCore

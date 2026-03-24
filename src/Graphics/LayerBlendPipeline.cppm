@@ -28,10 +28,12 @@ bool LayerBlendPipeline::createConstantBuffer()
  if (!pDevice) return false;
 
  BufferDesc buffDesc;
- buffDesc.Name      = "BlendParams CB";
- buffDesc.Usage     = USAGE_DYNAMIC;
- buffDesc.Size      = sizeof(BlendParams);
- buffDesc.BindFlags = BIND_UNIFORM_BUFFER;
+ buffDesc.Name           = "BlendParams CB";
+ buffDesc.Usage          = USAGE_DYNAMIC;
+ buffDesc.Size           = sizeof(BlendParams);
+ buffDesc.BindFlags      = BIND_UNIFORM_BUFFER;
+ // [Fix 1] USAGE_DYNAMIC には CPU_ACCESS_WRITE が必須
+ buffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
 
  pDevice->CreateBuffer(buffDesc, nullptr, &pBlendCB_);
  if (!pBlendCB_) {
@@ -43,42 +45,55 @@ bool LayerBlendPipeline::createConstantBuffer()
 
 bool LayerBlendPipeline::createExecutors()
 {
+ // [Fix A] Vars[] の変数名はシェーダに合わせて "OutTex" を宣言
  static ShaderResourceVariableDesc Vars[] = {
-  {SHADER_TYPE_COMPUTE, "SrcTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-  {SHADER_TYPE_COMPUTE, "DstTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-  {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+  {SHADER_TYPE_COMPUTE, "SrcTex",      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "DstTex",      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "OutTex",      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
  };
+
+ int successCount = 0;
+ int failCount    = 0;
 
  for (const auto& [mode, shaderCode] : BlendShaders) {
   BlendExecutor entry;
   entry.executor = std::make_unique<ComputeExecutor>(context_);
 
   ComputePipelineDesc desc;
-  desc.name = "Blend PSO";
-  desc.shaderSource = shaderCode.constData();
-  desc.entryPoint = "main";
-  desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-  desc.variables = Vars;
-  desc.variableCount = 3;
+  desc.name               = "Blend PSO";
+  desc.shaderSource       = shaderCode.constData();
+  desc.entryPoint         = "main";
+  desc.sourceLanguage     = SHADER_SOURCE_LANGUAGE_HLSL;
+  desc.variables          = Vars;
+  desc.variableCount      = 3;
   desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
   if (!entry.executor->build(desc)) {
-   qWarning() << "[LayerBlendPipeline] Failed to build PSO for blend mode" << static_cast<int>(mode);
+   qWarning() << "[LayerBlendPipeline] PSO build FAILED for blend mode" << static_cast<int>(mode);
+   ++failCount;
    continue;
   }
 
   if (pBlendCB_) {
    entry.executor->setBuffer("BlendParams", pBlendCB_);
+  } else {
+   qWarning() << "[LayerBlendPipeline] pBlendCB_ is null for blend mode" << static_cast<int>(mode)
+              << "- opacity will not work";
   }
 
   if (!entry.executor->createShaderResourceBinding(true)) {
-   qWarning() << "[LayerBlendPipeline] Failed to create SRB for blend mode" << static_cast<int>(mode);
+   qWarning() << "[LayerBlendPipeline] SRB creation FAILED for blend mode" << static_cast<int>(mode);
+   ++failCount;
    continue;
   }
 
   executors_.emplace(mode, std::move(entry));
+  ++successCount;
  }
 
+ qDebug() << "[LayerBlendPipeline] createExecutors done:"
+          << successCount << "succeeded," << failCount << "failed"
+          << "out of" << static_cast<int>(BlendShaders.size()) << "modes";
  return !executors_.empty();
 }
 
@@ -96,18 +111,46 @@ bool LayerBlendPipeline::blend(
  float opacity
 )
 {
- if (!ctx || !srcSRV || !dstSRV || !outUAV) return false;
+ // [Fix: 詳細チェック]
+ if (!ctx) {
+  qCritical() << "[LayerBlendPipeline::blend] ctx is null";
+  return false;
+ }
+ if (!srcSRV) {
+  qCritical() << "[LayerBlendPipeline::blend] srcSRV is null for mode" << static_cast<int>(mode);
+  return false;
+ }
+ if (!dstSRV) {
+  qCritical() << "[LayerBlendPipeline::blend] dstSRV is null for mode" << static_cast<int>(mode);
+  return false;
+ }
+ if (!outUAV) {
+  qCritical() << "[LayerBlendPipeline::blend] outUAV is null for mode" << static_cast<int>(mode);
+  return false;
+ }
+ if (!pBlendCB_) {
+  qCritical() << "[LayerBlendPipeline::blend] pBlendCB_ is null - constant buffer not initialized";
+  return false;
+ }
 
  auto it = executors_.find(mode);
  if (it == executors_.end()) {
+  qWarning() << "[LayerBlendPipeline::blend] No executor for mode" << static_cast<int>(mode)
+             << "- falling back to Normal";
   it = executors_.find(BlendMode::Normal);
-  if (it == executors_.end()) return false;
+  if (it == executors_.end()) {
+   qCritical() << "[LayerBlendPipeline::blend] No Normal fallback executor available!";
+   return false;
+  }
  }
 
  auto& exec = *it->second.executor;
- if (!exec.ready()) return false;
+ if (!exec.ready()) {
+  qCritical() << "[LayerBlendPipeline::blend] executor not ready for mode" << static_cast<int>(mode);
+  return false;
+ }
 
- currentParams_.opacity = opacity;
+ currentParams_.opacity   = opacity;
  currentParams_.blendMode = static_cast<unsigned int>(mode);
 
  void* pData = nullptr;
@@ -115,6 +158,8 @@ bool LayerBlendPipeline::blend(
  if (pData) {
   memcpy(pData, &currentParams_, sizeof(BlendParams));
   ctx->UnmapBuffer(pBlendCB_, MAP_WRITE);
+ } else {
+  qWarning() << "[LayerBlendPipeline::blend] MapBuffer failed - opacity may be wrong";
  }
 
  exec.setTextureView("SrcTex", srcSRV);
@@ -123,7 +168,7 @@ bool LayerBlendPipeline::blend(
 
  auto attribs = ComputeExecutor::makeDispatchAttribs(64, 8, 1);
  const auto& texDesc = outUAV->GetTexture()->GetDesc();
- attribs.ThreadGroupCountX = (texDesc.Width + 7) / 8;
+ attribs.ThreadGroupCountX = (texDesc.Width  + 7) / 8;
  attribs.ThreadGroupCountY = (texDesc.Height + 7) / 8;
  attribs.ThreadGroupCountZ = 1;
 

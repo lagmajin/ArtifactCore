@@ -67,6 +67,11 @@ cbuffer BlendParams : register(b0)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float srcA = src.a * opacity;
@@ -94,6 +99,11 @@ cbuffer BlendParams : register(b0)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float srcA = src.a * opacity;
@@ -119,6 +129,11 @@ cbuffer BlendParams : register(b0)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = saturate(dst.rgb - src.rgb);
@@ -143,6 +158,11 @@ cbuffer BlendParams : register(b0)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = src.rgb * dst.rgb;
@@ -167,6 +187,11 @@ cbuffer BlendParams : register(b0)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = 1.0 - (1.0 - dst.rgb) * (1.0 - src.rgb);
@@ -198,6 +223,11 @@ float3 Overlay(float3 base, float3 blend)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = Overlay(dst.rgb, src.rgb);
@@ -222,6 +252,11 @@ cbuffer BlendParams : register(b0)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = min(src.rgb, dst.rgb);
@@ -246,6 +281,11 @@ cbuffer BlendParams : register(b0)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = max(src.rgb, dst.rgb);
@@ -279,6 +319,11 @@ float3 ColorDodge(float3 base, float3 blend)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = ColorDodge(dst.rgb, src.rgb);
@@ -312,6 +357,11 @@ float3 ColorBurn(float3 base, float3 blend)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = ColorBurn(dst.rgb, src.rgb);
@@ -343,6 +393,11 @@ float3 HardLight(float3 base, float3 blend)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = HardLight(dst.rgb, src.rgb);
@@ -383,6 +438,11 @@ float3 SoftLight(float3 base, float3 blend)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = SoftLight(dst.rgb, src.rgb);
@@ -407,6 +467,11 @@ cbuffer BlendParams : register(b0)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = abs(dst.rgb - src.rgb);
@@ -431,6 +496,11 @@ cbuffer BlendParams : register(b0)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 blended = saturate(src.rgb + dst.rgb - 2.0 * src.rgb * dst.rgb);
@@ -493,6 +563,11 @@ float3 HslToRgb(float3 hsl)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 baseHsl = RgbToHsl(dst.rgb);
@@ -557,6 +632,11 @@ float3 HslToRgb(float3 hsl)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 baseHsl = RgbToHsl(dst.rgb);
@@ -621,6 +701,11 @@ float3 HslToRgb(float3 hsl)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 baseHsl = RgbToHsl(dst.rgb);
@@ -685,6 +770,11 @@ float3 HslToRgb(float3 hsl)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) {
+        return;
+    }
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
     float3 baseHsl = RgbToHsl(dst.rgb);

@@ -113,7 +113,11 @@ class MediaPlaybackController::Impl {
     }
 
     if (!mediaSource_ || !mediaSource_->isOpen() || !videoDecoder_ || fps_ <= 0.0 || videoStreamIndex_ < 0) {
-      qDebug() << "[MediaPlayback] direct decode skipped: invalid state";
+      qWarning() << "[MediaPlayback] direct decode skipped: invalid state"
+                 << "mediaSource_=" << (mediaSource_ && mediaSource_->isOpen() ? "open" : "closed")
+                 << "videoDecoder_=" << (videoDecoder_ ? "ok" : "null")
+                 << "fps_=" << fps_
+                 << "videoStreamIndex_=" << videoStreamIndex_;
       return QImage();
     }
 
@@ -895,6 +899,15 @@ bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QStr
     }
     impl.resetMetadata(url);
     impl.updatePlaybackInfo();
+    // [Fix 2] updatePlaybackInfo 後の videoStreamIndex_ を確認。
+    // -1 のままの場合 decodeVideoFrameDirectAtFrame が失敗する。
+    qDebug() << "[FFmpegBackend] opened url=" << url
+             << "videoStreamIndex_=" << impl.videoStreamIndex_
+             << "fps_=" << impl.fps_
+             << "totalFrames_=" << impl.totalFrames_;
+    if (impl.videoStreamIndex_ < 0) {
+      qWarning() << "[FFmpegBackend] No video stream found in" << url << "- frame decode will fail!";
+    }
   }
 
   impl.backend_ = DecoderBackend::FFmpeg;
@@ -1024,6 +1037,9 @@ QImage MFPlaybackBackend::getVideoFrameAtFrameDirect(MediaPlaybackController::Im
   }
   auto frame = impl.mfExtractor_->extractFrameAtIndex(frameNumber);
   if (!frame || !frame->isValid()) {
+    qWarning() << "[MFBackend] extractFrameAtIndex FAILED for frame" << frameNumber
+               << "mfExtractor open=" << impl.mfExtractor_->isOpen()
+               << "totalFrames=" << impl.mfExtractor_->getTotalFrames();
     return QImage();
   }
   QImage img(frame->data.data(), frame->width, frame->height, QImage::Format_RGBA8888);

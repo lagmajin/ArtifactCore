@@ -72,7 +72,7 @@ namespace ArtifactCore {
   // Image
   if (suffix == "png" || suffix == "jpg" || suffix == "jpeg" || suffix == "bmp" ||
       suffix == "gif" || suffix == "tiff" || suffix == "tif" || suffix == "tga" ||
-      suffix == "exr" || suffix == "hdr" || suffix == "psd" || suffix == "webp" ||
+      suffix == "exr" || suffix == "hdr" || suffix == "psd" || suffix == "psb" || suffix == "webp" ||
       suffix == "svg" || suffix == "ico" || suffix == "dds" || suffix == "ktx") {
     return FileType::Image;
   }
@@ -136,6 +136,10 @@ namespace ArtifactCore {
 
   // PNG
   if (header.startsWith("\x89PNG")) {
+    return FileType::Image;
+  }
+  // Photoshop PSD/PSB
+  if (header.startsWith("8BPS")) {
     return FileType::Image;
   }
   // JPEG
