@@ -124,36 +124,24 @@ class MediaPlaybackController::Impl {
     std::lock_guard<std::mutex> lock(directDecodeMutex_);
 
     const bool wasPlaying = state_ == PlaybackState::Playing;
-    if (wasPlaying && mediaReader_) {
-      mediaReader_->stop();
-      rebuildReader();
-    }
 
     const int64_t targetMs = static_cast<int64_t>((frameNumber / fps_) * 1000.0);
-    if (!mediaSource_->seek(targetMs)) {
+    if (!prepareFfmpegSeekReset(targetMs, true)) {
       qWarning() << "[MediaPlayback] direct decode seek failed:" << targetMs << "ms";
-      if (wasPlaying && mediaReader_) {
-        mediaReader_->start();
-      }
+      restoreFfmpegReaderState(wasPlaying);
       return QImage();
     }
 
     if (auto ctx = mediaSource_->getFormatContext(); !ctx) {
       qWarning() << "[MediaPlayback] direct decode failed: no format context";
-      if (wasPlaying && mediaReader_) {
-        mediaReader_->start();
-      }
+      restoreFfmpegReaderState(wasPlaying);
       return QImage();
     }
-
-    videoDecoder_->flush();
 
     AVPacket* pkt = av_packet_alloc();
     if (!pkt) {
       qWarning() << "[MediaPlayback] direct decode failed: packet alloc";
-      if (wasPlaying && mediaReader_) {
-        mediaReader_->start();
-      }
+      restoreFfmpegReaderState(wasPlaying);
       return QImage();
     }
 
@@ -189,9 +177,7 @@ class MediaPlaybackController::Impl {
     currentPositionMs_ = targetMs;
     currentFrame_ = frameNumber;
 
-    if (wasPlaying && mediaReader_) {
-      mediaReader_->start();
-    }
+    restoreFfmpegReaderState(wasPlaying);
 
     if (result.isNull()) {
       qWarning() << "[MediaPlayback] direct decode failed for frame" << frameNumber;
@@ -233,6 +219,42 @@ class MediaPlaybackController::Impl {
       delete mediaReader_;
     }
     mediaReader_ = new MediaReader(mediaSource_);
+  }
+
+  void flushFfmpegDecoders() {
+    if (videoDecoder_) {
+      videoDecoder_->flush();
+    }
+    if (audioDecoder_) {
+      audioDecoder_->flush();
+    }
+  }
+
+  bool prepareFfmpegSeekReset(int64_t timestampMs, bool rebuildReaderAfterSeek) {
+    if (!mediaSource_) {
+      return false;
+    }
+
+    if (mediaReader_) {
+      mediaReader_->stop();
+    }
+
+    if (!mediaSource_->seek(timestampMs)) {
+      return false;
+    }
+
+    if (rebuildReaderAfterSeek) {
+      rebuildReader();
+    }
+
+    flushFfmpegDecoders();
+    return true;
+  }
+
+  void restoreFfmpegReaderState(bool wasPlaying) {
+    if (wasPlaying && mediaReader_) {
+      mediaReader_->start();
+    }
   }
 
   void setMetadataFromMediaFoundation(const QString& url) {
@@ -461,6 +483,10 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
     impl_->notifyStateChanged(PlaybackState::Stopped);
     return true;
   }
+  const QString preferredName = impl_->backend_ == DecoderBackend::MediaFoundation
+      ? QStringLiteral("MediaFoundation")
+      : QStringLiteral("FFmpeg");
+  const QString preferredError = impl_->lastError_;
 
   PlaybackBackend& fallback = backendFor(impl_->backend_ == DecoderBackend::MediaFoundation
                                           ? DecoderBackend::FFmpeg
@@ -471,7 +497,8 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
     return true;
   }
 
-  impl_->notifyError("Failed to open media with MediaFoundation and FFmpeg: " + url);
+  impl_->notifyError(QStringLiteral("Failed to open media '%1' with %2 (error: %3)")
+                     .arg(url, preferredName, preferredError));
   return false;
  }
 
@@ -938,17 +965,12 @@ void FFmpegPlaybackBackend::seek(MediaPlaybackController::Impl& impl, int64_t ti
     return;
   }
   const bool wasPlaying = impl.state_ == PlaybackState::Playing;
-  if (impl.mediaReader_) {
-    impl.mediaReader_->stop();
+  if (!impl.prepareFfmpegSeekReset(timestampMs, true)) {
+    impl.restoreFfmpegReaderState(wasPlaying);
+    return;
   }
-  impl.mediaSource_->seek(timestampMs);
-  impl.rebuildReader();
-  if (impl.videoDecoder_) impl.videoDecoder_->flush();
-  if (impl.audioDecoder_) impl.audioDecoder_->flush();
   impl.notifyPositionChanged(timestampMs);
-  if (wasPlaying && impl.mediaReader_) {
-    impl.mediaReader_->start();
-  }
+  impl.restoreFfmpegReaderState(wasPlaying);
 }
 
 void FFmpegPlaybackBackend::seekToFrame(MediaPlaybackController::Impl& impl, int64_t frameNumber) {
@@ -992,7 +1014,13 @@ QImage FFmpegPlaybackBackend::getVideoFrameAtFrameDirect(MediaPlaybackController
 }
 
 bool MFPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QString& url) {
-  if (!impl.mfExtractor_ || !impl.mfExtractor_->open(url)) {
+  if (!impl.mfExtractor_) {
+    qWarning() << "[MFBackend] extractor not available for" << url;
+    return false;
+  }
+  if (!impl.mfExtractor_->open(url)) {
+    qWarning() << "[MFBackend] open failed for" << url
+               << "reason=" << impl.mfExtractor_->lastError();
     return false;
   }
   impl.backend_ = DecoderBackend::MediaFoundation;
@@ -1033,13 +1061,16 @@ QImage MFPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& impl)
 
 QImage MFPlaybackBackend::getVideoFrameAtFrameDirect(MediaPlaybackController::Impl& impl, int64_t frameNumber) {
   if (!impl.mfExtractor_ || !impl.mfExtractor_->isOpen()) {
+    qWarning() << "[MFBackend] frame extraction requested while extractor is closed"
+               << "frame=" << frameNumber;
     return QImage();
   }
   auto frame = impl.mfExtractor_->extractFrameAtIndex(frameNumber);
   if (!frame || !frame->isValid()) {
     qWarning() << "[MFBackend] extractFrameAtIndex FAILED for frame" << frameNumber
                << "mfExtractor open=" << impl.mfExtractor_->isOpen()
-               << "totalFrames=" << impl.mfExtractor_->getTotalFrames();
+               << "totalFrames=" << impl.mfExtractor_->getTotalFrames()
+               << "reason=" << impl.mfExtractor_->lastError();
     return QImage();
   }
   QImage img(frame->data.data(), frame->width, frame->height, QImage::Format_RGBA8888);

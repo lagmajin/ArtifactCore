@@ -46,6 +46,10 @@ export namespace ArtifactCore {
   void setMute(bool mute);
   bool isMute() const;
 
+  int sampleRate() const;
+  int channelCount() const;
+  QString backendName() const;
+
   /**
    * @brief Feed audio data to the renderer buffer
    */

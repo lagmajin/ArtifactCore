@@ -66,23 +66,26 @@ namespace ArtifactCore {
 
         bool read(AudioSegment& data, size_t frames) {
             QMutexLocker locker(&mutex_);
-            if (frames > size_) {
-                return false; 
+            if (size_ == 0) {
+                data.clear();
+                return false;
             }
+
+            const size_t readableFrames = std::min(frames, size_);
 
             data.channelData.resize(channelCount_);
             for (int ch = 0; ch < channelCount_; ++ch) {
-                data.channelData[ch].resize(frames);
+                data.channelData[ch].resize(readableFrames);
                 size_t tempReadIdx = readIndex_;
-                for (size_t i = 0; i < frames; ++i) {
+                for (size_t i = 0; i < readableFrames; ++i) {
                     data.channelData[ch][i] = channels_[ch][tempReadIdx];
                     tempReadIdx = (tempReadIdx + 1) % capacity_;
                 }
             }
             
-            readIndex_ = (readIndex_ + frames) % capacity_;
-            size_ -= frames;
-            return true;
+            readIndex_ = (readIndex_ + readableFrames) % capacity_;
+            size_ -= readableFrames;
+            return readableFrames > 0;
         }
 
         size_t available() const {

@@ -15,28 +15,13 @@ namespace ArtifactCore {
 
 const char* ParticleVSSource = R"(
 struct ParticleData {
-    uint2 id; // uint64_t
-    uint  seed;
-    uint  flags;
-    float age;
-    float lifetime;
     float3 position;
-    float3 prevPosition;
     float3 velocity;
-    float3 acceleration;
-    float3 rotation;
-    float3 angularVelocity;
-    float2 scale;
-    float size;
-    float mass;
-    float drag;
-    float opacity;
     float4 color;
-    float4 custom0;
-    float4 custom1;
-    int textureIndex;
-    int blendMode;
-    float lastSubEmitAge;
+    float  size;
+    float  rotation;
+    float  age;
+    float  lifetime;
 };
 
 StructuredBuffer<ParticleData> g_Particles : register(t0);
@@ -56,7 +41,6 @@ struct PS_Input {
     float4 Pos   : SV_Position;
     float2 UV    : TEXCOORD0;
     float4 Color : COLOR;
-    float  Opacity : OPACITY;
 };
 
 static const float2 c_Offsets[4] = {
@@ -70,13 +54,22 @@ PS_Input VSMain(VS_Input In) {
     
     // View space billboard
     float4 viewPos = mul(float4(p.position, 1.0), ViewMatrix);
-    float2 offset = c_Offsets[In.VertexID] * p.size * p.scale;
-    viewPos.xy += offset;
+    
+    // Rotation (degrees to radians)
+    float rad = p.rotation * 3.14159265 / 180.0;
+    float cosR = cos(rad);
+    float sinR = sin(rad);
+    
+    float2 localOffset = c_Offsets[In.VertexID] * p.size * 10.0; // Base size multiplier
+    float2 rotatedOffset;
+    rotatedOffset.x = localOffset.x * cosR - localOffset.y * sinR;
+    rotatedOffset.y = localOffset.x * sinR + localOffset.y * cosR;
+    
+    viewPos.xy += rotatedOffset;
     
     Out.Pos = mul(viewPos, ProjMatrix);
     Out.UV = c_Offsets[In.VertexID] + 0.5;
     Out.Color = p.color;
-    Out.Opacity = p.opacity;
     
     return Out;
 }
@@ -87,7 +80,6 @@ struct PS_Input {
     float4 Pos   : SV_Position;
     float2 UV    : TEXCOORD0;
     float4 Color : COLOR;
-    float  Opacity : OPACITY;
 };
 
 float4 PSMain(PS_Input In) : SV_Target {
@@ -96,7 +88,7 @@ float4 PSMain(PS_Input In) : SV_Target {
     
     // Soft circle
     float alpha = smoothstep(0.5, 0.4, dist);
-    return float4(In.Color.rgb, In.Color.a * In.Opacity * alpha);
+    return float4(In.Color.rgb, In.Color.a * alpha);
 }
 )";
 
@@ -116,20 +108,20 @@ void ParticleRenderer::createBuffers() {
     BufferDesc BuffDesc;
     BuffDesc.Name              = "Particle Structured Buffer";
     BuffDesc.Usage             = USAGE_DEFAULT;
-    BuffDesc.Size              = sizeof(Particle) * maxParticles_;
+    BuffDesc.Size              = sizeof(ParticleVertex) * maxParticles_;
     BuffDesc.BindFlags         = BIND_SHADER_RESOURCE;
-    // BuffDesc.ElementByteSize   = sizeof(Particle); // Note: API changed in Diligent
     BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
+    BuffDesc.ElementByteStride = sizeof(ParticleVertex);
     pDevice->CreateBuffer(BuffDesc, nullptr, &pParticleBuffer_);
 
     // 2. Constant Buffer
     BuffDesc.Name              = "Particle Constants CB";
     BuffDesc.Usage             = USAGE_DYNAMIC;
     BuffDesc.Size              = sizeof(ShaderConstants);
-    // BuffDesc.BindFlags         = BIND_CONSTANT_BUFFER; // Note: API changed in Diligent
+    BuffDesc.BindFlags         = BIND_UNIFORM_BUFFER;
     BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
-    // BuffDesc.ElementByteSize   = 0; // Note: API changed in Diligent
     BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
+    BuffDesc.ElementByteStride = 0;
     pDevice->CreateBuffer(BuffDesc, nullptr, &pConstantBuffer_);
 }
 
@@ -143,13 +135,13 @@ void ParticleRenderer::createPSO() {
     // Use Triangle Strip for 4 vertices
     PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-    PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM; // Match current UI format
+    PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = DefaultParticleRTVFormat;
     
-    // Alpha blending (Normal)
+    // Alpha blending (Additive by default for many particle effects, or Normal)
     auto& RT0 = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
     RT0.BlendEnable = true;
     RT0.SrcBlend    = BLEND_FACTOR_SRC_ALPHA;
-    RT0.DestBlend   = BLEND_FACTOR_INV_SRC_ALPHA;
+    RT0.DestBlend   = BLEND_FACTOR_ONE; // Additive
     RT0.BlendOp     = BLEND_OPERATION_ADD;
 
     // Compile Shaders
@@ -175,12 +167,13 @@ void ParticleRenderer::createPSO() {
     pPSO_->CreateShaderResourceBinding(&pSRB_, true);
 }
 
-void ParticleRenderer::updateBuffer(const std::vector<Particle>& particles, size_t activeCount) {
-    if (activeCount == 0) return;
+void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
+    if (data.particles.empty()) return;
     auto pContext = context_.D3D12DeviceContext();
     
-    // Upload current particles directly to GPU buffer
-    pContext->UpdateBuffer(pParticleBuffer_, 0, sizeof(Particle) * activeCount, particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    size_t count = std::min(data.particles.size(), maxParticles_);
+    pContext->UpdateBuffer(pParticleBuffer_, 0, sizeof(ParticleVertex) * count, 
+                          data.particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void ParticleRenderer::prepare(IDeviceContext* pContext) {
@@ -203,7 +196,7 @@ void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
     if (activeCount == 0) return;
     
     DrawAttribs drawAttrs;
-    drawAttrs.NumVertices  = 4;            // 4 vertices (Strip) -> 1 Box
+    drawAttrs.NumVertices  = 4;
     drawAttrs.NumInstances = (Uint32)activeCount;
     drawAttrs.Flags        = DRAW_FLAG_VERIFY_ALL;
     

@@ -134,7 +134,15 @@ namespace ArtifactCore {
    
    // rfIXg[I
    hr = sourceReader_->SetStreamSelection((DWORD)MF_SOURCE_READER_ALL_STREAMS, FALSE);
+   if (FAILED(hr)) {
+    lastError_ = QString("SetStreamSelection(all streams) failed: 0x%1").arg(hr, 0, 16);
+    return false;
+   }
    hr = sourceReader_->SetStreamSelection((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, TRUE);
+   if (FAILED(hr)) {
+    lastError_ = QString("SetStreamSelection(video stream) failed: 0x%1").arg(hr, 0, 16);
+    return false;
+   }
    
    // o̓fBA^CvݒiRGB32ɕϊj
    ComPtr<IMFMediaType> outputType;
@@ -176,18 +184,24 @@ namespace ArtifactCore {
    }
    
    // 𑜓x擾
-   UINT32 width, height;
+   UINT32 width = 0, height = 0;
    hr = MFGetAttributeSize(mediaType.Get(), MF_MT_FRAME_SIZE, &width, &height);
    if (SUCCEEDED(hr)) {
     width_ = width;
     height_ = height;
+   } else {
+    lastError_ = QString("MFGetAttributeSize failed: 0x%1").arg(hr, 0, 16);
+    return false;
    }
    
    // t[[g擾
-   UINT32 numerator, denominator;
+   UINT32 numerator = 0, denominator = 0;
    hr = MFGetAttributeRatio(mediaType.Get(), MF_MT_FRAME_RATE, &numerator, &denominator);
    if (SUCCEEDED(hr) && denominator > 0) {
     frameRate_ = static_cast<double>(numerator) / denominator;
+   } else {
+    lastError_ = QString("MFGetAttributeRatio(frame rate) failed: 0x%1").arg(hr, 0, 16);
+    return false;
    }
    
    // ̒擾
@@ -201,6 +215,10 @@ namespace ArtifactCore {
    if (SUCCEEDED(hr)) {
     duration_ = var.uhVal.QuadPart;
     PropVariantClear(&var);
+   } else {
+    PropVariantClear(&var);
+    lastError_ = QString("GetPresentationAttribute(duration) failed: 0x%1").arg(hr, 0, 16);
+    return false;
    }
    
    return true;
@@ -281,6 +299,14 @@ namespace ArtifactCore {
     lastError_ = "Buffer Lock failed";
     return nullptr;
    }
+   struct BufferUnlockGuard {
+    IMFMediaBuffer* buffer = nullptr;
+    ~BufferUnlockGuard() {
+     if (buffer) {
+      buffer->Unlock();
+     }
+    }
+   } unlockGuard{buffer.Get()};
    
    // ExtractedFrame 쐬
    auto frame = std::make_unique<ExtractedFrame>();
@@ -310,8 +336,6 @@ namespace ArtifactCore {
    if (outputFormat_ != OutputFormat::RGBA) {
     convertFormat(frame->data, frame->width, frame->height, outputFormat_);
    }
-   
-   buffer->Unlock();
    
    // vXV
    auto endTime = std::chrono::high_resolution_clock::now();
@@ -429,7 +453,14 @@ namespace ArtifactCore {
  }
 
  std::unique_ptr<ExtractedFrame> MFFrameExtractor::extractFrameAtIndex(int64_t frameIndex) {
-  if (impl_->frameRate_ <= 0.0) return nullptr;
+  if (frameIndex < 0) {
+   impl_->lastError_ = "Negative frame index";
+   return nullptr;
+  }
+  if (impl_->frameRate_ <= 0.0) {
+   impl_->lastError_ = "Frame rate is not available";
+   return nullptr;
+  }
   int64_t timestamp = static_cast<int64_t>(frameIndex * 10000000.0 / impl_->frameRate_);
   return extractFrameAtTime(timestamp);
  }

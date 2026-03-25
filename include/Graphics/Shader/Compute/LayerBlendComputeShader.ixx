@@ -42,17 +42,10 @@ import Layer.Blend;
 export namespace ArtifactCore
 {
 
-// BlendParams は Graphics.LayerBlendPipeline で定義
-
 // =====================================================================
-// 共通: 前景(src) + 背景(dst) を読み、ブレンド結果に opacity を適用
-// Texture2D<float4> SrcTex : register(t0)  (前景 / LayerA)
-// Texture2D<float4> DstTex : register(t1)  (背景 / LayerB)
-// RWTexture2D<float4> OutTex : register(u0)
-// ConstantBuffer<BlendParams> : register(b0)
+// Common Header
 // =====================================================================
-
-LIBRARY_DLL_API const QByteArray normalBlendShaderText = R"(
+const char* blendShaderHeader = R"(
 Texture2D<float4> SrcTex : register(t0);
 Texture2D<float4> DstTex : register(t1);
 RWTexture2D<float4> OutTex : register(u0);
@@ -64,249 +57,123 @@ cbuffer BlendParams : register(b0)
     float2 _pad;
 };
 
+#define CHECK_BOUNDS \
+    uint outWidth, outHeight; \
+    OutTex.GetDimensions(outWidth, outHeight); \
+    if (id.x >= outWidth || id.y >= outHeight) return;
+
+#define LOAD_BLEND_PIXELS \
+    CHECK_BOUNDS \
+    float4 src = SrcTex[id.xy]; \
+    float4 dst = DstTex[id.xy]; \
+    float srcA = src.a * opacity; \
+    float3 srcRGB = src.rgb * opacity; \
+    if (srcA <= 0.0001) { OutTex[id.xy] = dst; return; } \
+    if (dst.a <= 0.0001) { OutTex[id.xy] = float4(srcRGB, srcA); return; }
+)";
+
+// =====================================================================
+// Individual Shaders
+// =====================================================================
+
+LIBRARY_DLL_API const QByteArray normalBlendShaderText = QByteArray(blendShaderHeader) + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float srcA = src.a * opacity;
-    // src.rgb is already premultiplied in the previous RT pass, 
-    // so we only apply the layer's overall opacity.
-    float3 srcRGB = src.rgb * opacity;
+    LOAD_BLEND_PIXELS
     float3 blended = srcRGB + dst.rgb * (1.0 - srcA);
     float outA = srcA + dst.a * (1.0 - srcA);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray addBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray addBlendShaderText = QByteArray(blendShaderHeader) + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float srcA = src.a * opacity;
-    float3 srcRGB = src.rgb * opacity;
+    LOAD_BLEND_PIXELS
     float3 blended = saturate(dst.rgb + srcRGB);
     float outA = saturate(dst.a + srcA);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray subtractBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray subtractBlendShaderText = QByteArray(blendShaderHeader) + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = saturate(dst.rgb - src.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = saturate(dst.rgb - srcRGB);
+    float outA = saturate(dst.a - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray mulBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray mulBlendShaderText = QByteArray(blendShaderHeader) + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = src.rgb * dst.rgb;
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = (srcRGB * dst.rgb) + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray screenBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray screenBlendShaderText = QByteArray(blendShaderHeader) + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = 1.0 - (1.0 - dst.rgb) * (1.0 - src.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 screenRes = srcRGB + dst.rgb - (srcRGB * dst.rgb);
+    float outA = srcA + dst.a - (srcA * dst.a);
+    OutTex[id.xy] = float4(screenRes, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray overlayBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray overlayBlendShaderText = QByteArray(blendShaderHeader) + R"(
 float3 Overlay(float3 base, float3 blend)
 {
     float3 r;
-    r = (base < 0.5) ? (2.0 * base * blend) : (1.0 - 2.0 * (1.0 - base) * (1.0 - blend));
+    r.r = (base.r < 0.5) ? (2.0 * base.r * blend.r) : (1.0 - 2.0 * (1.0 - base.r) * (1.0 - blend.r));
+    r.g = (base.g < 0.5) ? (2.0 * base.g * blend.g) : (1.0 - 2.0 * (1.0 - base.g) * (1.0 - blend.g));
+    r.b = (base.b < 0.5) ? (2.0 * base.b * blend.b) : (1.0 - 2.0 * (1.0 - base.b) * (1.0 - blend.b));
     return r;
 }
 
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = Overlay(dst.rgb, src.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = Overlay(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray darkenBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray darkenBlendShaderText = QByteArray(blendShaderHeader) + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = min(src.rgb, dst.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = min(srcRGB, dst.rgb) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray lightenBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray lightenBlendShaderText = QByteArray(blendShaderHeader) + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = max(src.rgb, dst.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = max(srcRGB, dst.rgb) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray colorDodgeBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray colorDodgeBlendShaderText = QByteArray(blendShaderHeader) + R"(
 float3 ColorDodge(float3 base, float3 blend)
 {
     float3 r;
@@ -319,32 +186,14 @@ float3 ColorDodge(float3 base, float3 blend)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = ColorDodge(dst.rgb, src.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = ColorDodge(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray colorBurnBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray colorBurnBlendShaderText = QByteArray(blendShaderHeader) + R"(
 float3 ColorBurn(float3 base, float3 blend)
 {
     float3 r;
@@ -357,68 +206,34 @@ float3 ColorBurn(float3 base, float3 blend)
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = ColorBurn(dst.rgb, src.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = ColorBurn(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray hardLightBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray hardLightBlendShaderText = QByteArray(blendShaderHeader) + R"(
 float3 HardLight(float3 base, float3 blend)
 {
     float3 r;
-    r = (blend < 0.5) ? (2.0 * base * blend) : (1.0 - 2.0 * (1.0 - base) * (1.0 - blend));
+    r.r = (blend.r < 0.5) ? (2.0 * base.r * blend.r) : (1.0 - 2.0 * (1.0 - base.r) * (1.0 - blend.r));
+    r.g = (blend.g < 0.5) ? (2.0 * base.g * blend.g) : (1.0 - 2.0 * (1.0 - base.g) * (1.0 - blend.g));
+    r.b = (blend.b < 0.5) ? (2.0 * base.b * blend.b) : (1.0 - 2.0 * (1.0 - base.b) * (1.0 - blend.b));
     return r;
 }
 
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = HardLight(dst.rgb, src.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = HardLight(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray softLightBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray softLightBlendShaderText = QByteArray(blendShaderHeader) + R"(
 float SoftLightChannel(float base, float blend)
 {
     return (blend < 0.5)
@@ -428,100 +243,43 @@ float SoftLightChannel(float base, float blend)
 
 float3 SoftLight(float3 base, float3 blend)
 {
-    return float3(
-        SoftLightChannel(base.r, blend.r),
-        SoftLightChannel(base.g, blend.g),
-        SoftLightChannel(base.b, blend.b)
-    );
+    return float3(SoftLightChannel(base.r, blend.r), SoftLightChannel(base.g, blend.g), SoftLightChannel(base.b, blend.b));
 }
 
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = SoftLight(dst.rgb, src.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = SoftLight(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray differenceBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray differenceBlendShaderText = QByteArray(blendShaderHeader) + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = abs(dst.rgb - src.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = abs(dst.rgb - srcRGB) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray exclusionBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+LIBRARY_DLL_API const QByteArray exclusionBlendShaderText = QByteArray(blendShaderHeader) + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 blended = saturate(src.rgb + dst.rgb - 2.0 * src.rgb * dst.rgb);
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    LOAD_BLEND_PIXELS
+    float3 blended = (srcRGB + dst.rgb - 2.0 * srcRGB * dst.rgb) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray hueBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
+// HSL Helper functions
+const char* hslHelpers = R"(
 float3 RgbToHsl(float3 c)
 {
     float mx = max(max(c.r, c.g), c.b);
@@ -553,236 +311,59 @@ float3 HslToRgb(float3 hsl)
     if (hsl.y < 1e-5) return float3(hsl.z, hsl.z, hsl.z);
     float q = (hsl.z < 0.5) ? (hsl.z * (1.0 + hsl.y)) : (hsl.z + hsl.y - hsl.z * hsl.y);
     float p = 2.0 * hsl.z - q;
-    return float3(
-        HueToRgb(p, q, hsl.x + 1.0/3.0),
-        HueToRgb(p, q, hsl.x),
-        HueToRgb(p, q, hsl.x - 1.0/3.0)
-    );
-}
-
-[numthreads(8,8,1)]
-void main(uint3 id : SV_DispatchThreadID)
-{
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
-    float3 baseHsl = RgbToHsl(dst.rgb);
-    float3 blendHsl = RgbToHsl(src.rgb);
-    float3 blended = saturate(HslToRgb(float3(blendHsl.x, baseHsl.y, baseHsl.z)));
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    return float3(HueToRgb(p, q, hsl.x + 1.0/3.0), HueToRgb(p, q, hsl.x), HueToRgb(p, q, hsl.x - 1.0/3.0));
 }
 )";
 
-LIBRARY_DLL_API const QByteArray saturationBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
-float3 RgbToHsl(float3 c)
-{
-    float mx = max(max(c.r, c.g), c.b);
-    float mn = min(min(c.r, c.g), c.b);
-    float d = mx - mn;
-    float h = 0.0, s = 0.0, l = (mx + mn) * 0.5;
-    if (d > 1e-5) {
-        s = (l < 0.5) ? (d / (mx + mn)) : (d / (2.0 - mx - mn));
-        if (mx == c.r) h = fmod(((c.g - c.b) / d) + (c.g < c.b ? 6.0 : 0.0), 6.0);
-        else if (mx == c.g) h = ((c.b - c.r) / d) + 2.0;
-        else h = ((c.r - c.g) / d) + 4.0;
-        h /= 6.0;
-    }
-    return float3(h, s, l);
-}
-
-float HueToRgb(float p, float q, float t)
-{
-    t = fmod(t, 1.0);
-    if (t < 0.0) t += 1.0;
-    if (t < 1.0/6.0) return p + (q - p) * 6.0 * t;
-    if (t < 0.5) return q;
-    if (t < 2.0/3.0) return p + (q - p) * (2.0/3.0 - t) * 6.0;
-    return p;
-}
-
-float3 HslToRgb(float3 hsl)
-{
-    if (hsl.y < 1e-5) return float3(hsl.z, hsl.z, hsl.z);
-    float q = (hsl.z < 0.5) ? (hsl.z * (1.0 + hsl.y)) : (hsl.z + hsl.y - hsl.z * hsl.y);
-    float p = 2.0 * hsl.z - q;
-    return float3(
-        HueToRgb(p, q, hsl.x + 1.0/3.0),
-        HueToRgb(p, q, hsl.x),
-        HueToRgb(p, q, hsl.x - 1.0/3.0)
-    );
-}
-
+LIBRARY_DLL_API const QByteArray hueBlendShaderText = QByteArray(blendShaderHeader) + hslHelpers + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
+    LOAD_BLEND_PIXELS
     float3 baseHsl = RgbToHsl(dst.rgb);
-    float3 blendHsl = RgbToHsl(src.rgb);
-    float3 blended = saturate(HslToRgb(float3(baseHsl.x, blendHsl.y, baseHsl.z)));
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    float3 blendHsl = RgbToHsl(srcRGB);
+    float3 blended = saturate(HslToRgb(float3(blendHsl.x, baseHsl.y, baseHsl.z))) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray colorBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
-float3 RgbToHsl(float3 c)
-{
-    float mx = max(max(c.r, c.g), c.b);
-    float mn = min(min(c.r, c.g), c.b);
-    float d = mx - mn;
-    float h = 0.0, s = 0.0, l = (mx + mn) * 0.5;
-    if (d > 1e-5) {
-        s = (l < 0.5) ? (d / (mx + mn)) : (d / (2.0 - mx - mn));
-        if (mx == c.r) h = fmod(((c.g - c.b) / d) + (c.g < c.b ? 6.0 : 0.0), 6.0);
-        else if (mx == c.g) h = ((c.b - c.r) / d) + 2.0;
-        else h = ((c.r - c.g) / d) + 4.0;
-        h /= 6.0;
-    }
-    return float3(h, s, l);
-}
-
-float HueToRgb(float p, float q, float t)
-{
-    t = fmod(t, 1.0);
-    if (t < 0.0) t += 1.0;
-    if (t < 1.0/6.0) return p + (q - p) * 6.0 * t;
-    if (t < 0.5) return q;
-    if (t < 2.0/3.0) return p + (q - p) * (2.0/3.0 - t) * 6.0;
-    return p;
-}
-
-float3 HslToRgb(float3 hsl)
-{
-    if (hsl.y < 1e-5) return float3(hsl.z, hsl.z, hsl.z);
-    float q = (hsl.z < 0.5) ? (hsl.z * (1.0 + hsl.y)) : (hsl.z + hsl.y - hsl.z * hsl.y);
-    float p = 2.0 * hsl.z - q;
-    return float3(
-        HueToRgb(p, q, hsl.x + 1.0/3.0),
-        HueToRgb(p, q, hsl.x),
-        HueToRgb(p, q, hsl.x - 1.0/3.0)
-    );
-}
-
+LIBRARY_DLL_API const QByteArray saturationBlendShaderText = QByteArray(blendShaderHeader) + hslHelpers + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
+    LOAD_BLEND_PIXELS
     float3 baseHsl = RgbToHsl(dst.rgb);
-    float3 blendHsl = RgbToHsl(src.rgb);
-    float3 blended = saturate(HslToRgb(float3(blendHsl.x, blendHsl.y, baseHsl.z)));
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    float3 blendHsl = RgbToHsl(srcRGB);
+    float3 blended = saturate(HslToRgb(float3(baseHsl.x, blendHsl.y, baseHsl.z))) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 
-LIBRARY_DLL_API const QByteArray luminosityBlendShaderText = R"(
-Texture2D<float4> SrcTex : register(t0);
-Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
-
-cbuffer BlendParams : register(b0)
-{
-    float opacity;
-    uint blendMode;
-    float2 _pad;
-};
-
-float3 RgbToHsl(float3 c)
-{
-    float mx = max(max(c.r, c.g), c.b);
-    float mn = min(min(c.r, c.g), c.b);
-    float d = mx - mn;
-    float h = 0.0, s = 0.0, l = (mx + mn) * 0.5;
-    if (d > 1e-5) {
-        s = (l < 0.5) ? (d / (mx + mn)) : (d / (2.0 - mx - mn));
-        if (mx == c.r) h = fmod(((c.g - c.b) / d) + (c.g < c.b ? 6.0 : 0.0), 6.0);
-        else if (mx == c.g) h = ((c.b - c.r) / d) + 2.0;
-        else h = ((c.r - c.g) / d) + 4.0;
-        h /= 6.0;
-    }
-    return float3(h, s, l);
-}
-
-float HueToRgb(float p, float q, float t)
-{
-    t = fmod(t, 1.0);
-    if (t < 0.0) t += 1.0;
-    if (t < 1.0/6.0) return p + (q - p) * 6.0 * t;
-    if (t < 0.5) return q;
-    if (t < 2.0/3.0) return p + (q - p) * (2.0/3.0 - t) * 6.0;
-    return p;
-}
-
-float3 HslToRgb(float3 hsl)
-{
-    if (hsl.y < 1e-5) return float3(hsl.z, hsl.z, hsl.z);
-    float q = (hsl.z < 0.5) ? (hsl.z * (1.0 + hsl.y)) : (hsl.z + hsl.y - hsl.z * hsl.y);
-    float p = 2.0 * hsl.z - q;
-    return float3(
-        HueToRgb(p, q, hsl.x + 1.0/3.0),
-        HueToRgb(p, q, hsl.x),
-        HueToRgb(p, q, hsl.x - 1.0/3.0)
-    );
-}
-
+LIBRARY_DLL_API const QByteArray colorBlendShaderText = QByteArray(blendShaderHeader) + hslHelpers + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    uint outWidth, outHeight;
-    OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) {
-        return;
-    }
-    float4 src = SrcTex[id.xy];
-    float4 dst = DstTex[id.xy];
+    LOAD_BLEND_PIXELS
     float3 baseHsl = RgbToHsl(dst.rgb);
-    float3 blendHsl = RgbToHsl(src.rgb);
-    float3 blended = saturate(HslToRgb(float3(baseHsl.x, baseHsl.y, blendHsl.z)));
-    float outA = max(dst.a, src.a);
-    float3 result = lerp(dst.rgb, blended, opacity);
-    OutTex[id.xy] = float4(result, outA);
+    float3 blendHsl = RgbToHsl(srcRGB);
+    float3 blended = saturate(HslToRgb(float3(blendHsl.x, blendHsl.y, baseHsl.z))) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+LIBRARY_DLL_API const QByteArray luminosityBlendShaderText = QByteArray(blendShaderHeader) + hslHelpers + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 baseHsl = RgbToHsl(dst.rgb);
+    float3 blendHsl = RgbToHsl(srcRGB);
+    float3 blended = saturate(HslToRgb(float3(baseHsl.x, baseHsl.y, blendHsl.z))) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
 }
 )";
 

@@ -2,6 +2,7 @@ module;
 #include <QtMultimedia/QAudioDevice>
 #include <QtMultimedia/QAudioFormat>
 #include <QtMultimedia/QMediaDevices>
+#include <QDebug>
 #include <QString>
 #include <memory>
 #include <mutex>
@@ -11,6 +12,9 @@ module;
 module AudioRenderer;
 
 import Audio.Backend;
+#ifdef _WIN32
+import Audio.Backend.WASAPI;
+#endif
 import Audio.Backend.Qt;
 import Audio.Segment;
 import Audio.RingBuffer;
@@ -31,8 +35,12 @@ struct AudioRenderer::Impl {
     int channels = 2;
 
     Impl() {
-        ringBuffer = std::make_unique<AudioRingBuffer>(48000 * 2); // 1-second stereo buffer
+        ringBuffer = std::make_unique<AudioRingBuffer>(48000 * 4); // 4-second stereo buffer
+#ifdef _WIN32
+        backend = std::make_unique<WASAPIBackend>();
+#else
         backend = std::make_unique<QtAudioBackend>();
+#endif
     }
 
     void audioCallback(float* buffer, int frames, int channelsRequested) {
@@ -44,28 +52,33 @@ struct AudioRenderer::Impl {
         AudioSegment segment;
         segment.sampleRate = sampleRate;
         
-        bool success = ringBuffer->read(segment, frames);
-        
-        if (success) {
-            // Segment now contains stereo data
-            for (int i = 0; i < frames; ++i) {
+        const bool success = ringBuffer->read(segment, frames);
+        const int availableFrames = segment.frameCount();
+
+        std::memset(buffer, 0, frames * channelsRequested * sizeof(float));
+        if (success && availableFrames > 0) {
+            for (int i = 0; i < availableFrames; ++i) {
                 for (int ch = 0; ch < channelsRequested; ++ch) {
                     float sample = 0.0f;
-                    if (segment.channelCount() > ch) {
+                    if (segment.channelCount() > ch && i < segment.channelData[ch].size()) {
                         sample = segment.channelData[ch][i];
-                    } else if (segment.channelCount() == 1) {
+                    } else if (segment.channelCount() == 1 && i < segment.channelData[0].size()) {
                         sample = segment.channelData[0][i];
                     }
-                    
+
                     sample *= masterVolume;
-                    // Simple clipping protection
                     sample = std::clamp(sample, -1.0f, 1.0f);
                     buffer[i * channelsRequested + ch] = sample;
                 }
             }
         } else {
-            // Underflow - silence
-            std::memset(buffer, 0, frames * channelsRequested * sizeof(float));
+            static int underflowLogCount = 0;
+            if (underflowLogCount < 8) {
+                ++underflowLogCount;
+                qWarning() << "[AudioRenderer] underflow"
+                           << "requestedFrames=" << frames
+                           << "availableFrames=" << availableFrames;
+            }
         }
     }
 };
@@ -103,11 +116,26 @@ bool AudioRenderer::openDevice(const QString& deviceName) {
         impl_->channels = format.channelCount();
     }
 
-    return impl_->backend->open(device, format);
+    bool opened = impl_->backend->open(device, format);
+#ifdef _WIN32
+    if (!opened) {
+        impl_->backend = std::make_unique<QtAudioBackend>();
+        opened = impl_->backend->open(device, format);
+    }
+#endif
+    if (opened) {
+        const auto current = impl_->backend->currentFormat();
+        if (current.isValid()) {
+            impl_->sampleRate = current.sampleRate();
+            impl_->channels = current.channelCount();
+        }
+    }
+    return opened;
 }
 
 void AudioRenderer::closeDevice() {
     if (impl_) {
+        impl_->active = false;
         impl_->backend->stop();
         impl_->backend->close();
         impl_->deviceName.clear();
@@ -116,10 +144,18 @@ void AudioRenderer::closeDevice() {
 
 void AudioRenderer::start() {
     if (impl_ && !impl_->active) {
+        if (impl_->ringBuffer) {
+            impl_->ringBuffer->clear();
+        }
         impl_->active = true;
         impl_->backend->start([this](float* b, int f, int c) {
             impl_->audioCallback(b, f, c);
         });
+        if (!impl_->backend->isActive()) {
+            impl_->active = false;
+            impl_->backend->stop();
+            impl_->backend->close();
+        }
     }
 }
 
@@ -158,7 +194,16 @@ bool AudioRenderer::isMute() const {
 
 void AudioRenderer::enqueue(const AudioSegment& segment) {
     if (impl_ && impl_->ringBuffer) {
-        impl_->ringBuffer->write(segment);
+        if (!impl_->ringBuffer->write(segment)) {
+            static int overflowLogCount = 0;
+            if (overflowLogCount < 8) {
+                ++overflowLogCount;
+                qWarning() << "[AudioRenderer] ring buffer overflow"
+                           << "frames=" << segment.frameCount()
+                           << "sampleRate=" << segment.sampleRate
+                           << "channels=" << segment.channelCount();
+            }
+        }
     }
 }
 
@@ -166,6 +211,29 @@ void AudioRenderer::clearBuffer() {
     if (impl_ && impl_->ringBuffer) {
         impl_->ringBuffer->clear();
     }
+}
+
+int AudioRenderer::sampleRate() const {
+    if (!impl_ || !impl_->backend) {
+        return 0;
+    }
+    const auto format = impl_->backend->currentFormat();
+    return format.isValid() ? format.sampleRate() : impl_->sampleRate;
+}
+
+int AudioRenderer::channelCount() const {
+    if (!impl_ || !impl_->backend) {
+        return 0;
+    }
+    const auto format = impl_->backend->currentFormat();
+    return format.isValid() ? format.channelCount() : impl_->channels;
+}
+
+QString AudioRenderer::backendName() const {
+    if (!impl_ || !impl_->backend) {
+        return QString();
+    }
+    return impl_->backend->backendName();
 }
 
 } // namespace ArtifactCore

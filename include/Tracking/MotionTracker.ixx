@@ -85,17 +85,18 @@ struct TrackPoint {
 
 /// トラッキングデータ（1フレーム分）
 struct TrackFrame {
-    double time;                        ///< 時間（秒）
+    double time = 0.0;                  ///< 時間（秒）
     std::vector<TrackPoint> points;     ///< トラッキングポイント
     double overallConfidence = 1.0;     ///< 全体の信頼度
     
     TrackPoint* findPoint(int id);
     const TrackPoint* findPoint(int id) const;
+    void sortPointsById();
 };
 
 /// トラッキング結果
 struct TrackResult {
-    int trackerId;                      ///< トラッカーID
+    int trackerId = 0;                  ///< トラッカーID
     QString name;                       ///< 名前
     std::vector<TrackFrame> frames;     ///< フレームごとのデータ
     double startTime = 0.0;             ///< 開始時間
@@ -110,6 +111,15 @@ struct TrackResult {
     
     /// モーションパスを取得
     std::vector<QPointF> motionPath(int pointId) const;
+
+    /// フレームを時間順・ポイントID順に整える
+    void normalize();
+    
+    /// フレームを追加または置換する
+    void setFrame(TrackFrame frame);
+    
+    /// フレーム数取得
+    size_t frameCount() const;
 };
 
 /// トラッカー設定
@@ -249,6 +259,9 @@ public:
     /// トラッキングリセット
     void resetTracking();
     
+    /// 現在の追跡結果と入力フレームをクリア
+    void clearTrackingData();
+    
     // ========================================
     // 結果取得
     // ========================================
@@ -276,6 +289,9 @@ public:
     
     /// キーフレームとしてエクスポート
     std::vector<std::pair<double, QPointF>> exportKeyframes(int pointId) const;
+
+    /// 追跡結果があるか
+    bool hasResult() const;
     
     // ========================================
     // 統計・解析

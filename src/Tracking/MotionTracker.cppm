@@ -74,6 +74,13 @@ const TrackPoint* TrackFrame::findPoint(int id) const {
     return nullptr;
 }
 
+void TrackFrame::sortPointsById() {
+    std::sort(points.begin(), points.end(),
+              [](const TrackPoint& lhs, const TrackPoint& rhs) {
+                  return lhs.id < rhs.id;
+              });
+}
+
 // ============================================================================
 // TrackResult 実装
 // ============================================================================
@@ -106,6 +113,7 @@ TrackFrame TrackResult::interpolateAt(double time) const {
                     result.points.push_back(interp);
                 }
             }
+            result.sortPointsById();
             return result;
         }
     }
@@ -132,6 +140,43 @@ std::vector<QPointF> TrackResult::motionPath(int pointId) const {
         }
     }
     return path;
+}
+
+void TrackResult::normalize() {
+    std::sort(frames.begin(), frames.end(),
+              [](const TrackFrame& lhs, const TrackFrame& rhs) {
+                  return lhs.time < rhs.time;
+              });
+    for (auto& frame : frames) {
+        frame.sortPointsById();
+    }
+    if (!frames.empty()) {
+        startTime = frames.front().time;
+        endTime = frames.back().time;
+        isValid = true;
+    } else {
+        startTime = 0.0;
+        endTime = 0.0;
+        isValid = false;
+    }
+}
+
+void TrackResult::setFrame(TrackFrame frame) {
+    frame.sortPointsById();
+    auto it = std::lower_bound(frames.begin(), frames.end(), frame.time,
+                               [](const TrackFrame& lhs, double time) {
+                                   return lhs.time < time;
+                               });
+    if (it != frames.end() && std::abs(it->time - frame.time) < 1e-9) {
+        *it = std::move(frame);
+    } else {
+        frames.insert(it, std::move(frame));
+    }
+    normalize();
+}
+
+size_t TrackResult::frameCount() const {
+    return frames.size();
 }
 
 // ============================================================================
@@ -387,7 +432,7 @@ bool MotionTracker::trackForward(double fromTime, double toTime) {
     TrackFrame frame;
     frame.time = toTime;
     frame.points = impl_->currentPoints;
-    impl_->result.frames.push_back(frame);
+    impl_->result.setFrame(std::move(frame));
     
     return true;
 }
@@ -409,7 +454,7 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
     TrackFrame frame;
     frame.time = toTime;
     frame.points = impl_->currentPoints;
-    impl_->result.frames.insert(impl_->result.frames.begin(), frame);
+    impl_->result.setFrame(std::move(frame));
     
     return true;
 }
@@ -449,7 +494,7 @@ bool MotionTracker::trackRange(double startTime, double endTime,
     
     impl_->result.startTime = startTime;
     impl_->result.endTime = endTime;
-    impl_->result.isValid = !impl_->result.frames.empty();
+    impl_->result.normalize();
     impl_->isTracking = false;
     
     return impl_->result.isValid;
@@ -470,6 +515,13 @@ void MotionTracker::resetTracking() {
     impl_->result = TrackResult();
     impl_->result.trackerId = impl_->id;
     impl_->result.name = impl_->name;
+}
+
+void MotionTracker::clearTrackingData() {
+    impl_->frameBuffer.clear();
+    impl_->currentPoints.clear();
+    impl_->regions.clear();
+    resetTracking();
 }
 
 // ========================================
@@ -529,6 +581,10 @@ std::vector<std::pair<double, QPointF>> MotionTracker::exportKeyframes(int point
         }
     }
     return keyframes;
+}
+
+bool MotionTracker::hasResult() const {
+    return impl_->result.isValid && !impl_->result.frames.empty();
 }
 
 // ========================================
@@ -679,6 +735,48 @@ QString MotionTracker::toJson() const {
     QJsonObject root;
     root["id"] = impl_->id;
     root["name"] = impl_->name;
+    root["trackerType"] = static_cast<int>(impl_->type);
+    QJsonObject settingsObj;
+    settingsObj["method"] = static_cast<int>(impl_->settings.method);
+    settingsObj["quality"] = static_cast<int>(impl_->settings.quality);
+    settingsObj["type"] = static_cast<int>(impl_->settings.type);
+    settingsObj["maxFeatures"] = impl_->settings.maxFeatures;
+    settingsObj["minDistance"] = impl_->settings.minDistance;
+    settingsObj["windowSize"] = impl_->settings.windowSize;
+    settingsObj["maxPyramidLevel"] = impl_->settings.maxPyramidLevel;
+    settingsObj["confidenceThreshold"] = impl_->settings.confidenceThreshold;
+    settingsObj["errorThreshold"] = impl_->settings.errorThreshold;
+    settingsObj["trackForward"] = impl_->settings.trackForward;
+    settingsObj["trackBackward"] = impl_->settings.trackBackward;
+    settingsObj["subpixelAccuracy"] = impl_->settings.subpixelAccuracy;
+    settingsObj["subpixelIterations"] = impl_->settings.subpixelIterations;
+    root["settings"] = settingsObj;
+
+    QJsonArray pointsArray;
+    for (const auto& point : impl_->currentPoints) {
+        QJsonObject pointObj;
+        pointObj["id"] = point.id;
+        pointObj["x"] = point.position.x();
+        pointObj["y"] = point.position.y();
+        pointObj["vx"] = point.velocity.x();
+        pointObj["vy"] = point.velocity.y();
+        pointObj["confidence"] = point.confidence;
+        pointObj["active"] = point.active;
+        pointsArray.append(pointObj);
+    }
+    root["trackPoints"] = pointsArray;
+
+    QJsonArray regionsArray;
+    for (const auto& region : impl_->regions) {
+        QJsonObject regionObj;
+        regionObj["id"] = region.id;
+        regionObj["x"] = region.bounds.x();
+        regionObj["y"] = region.bounds.y();
+        regionObj["w"] = region.bounds.width();
+        regionObj["h"] = region.bounds.height();
+        regionsArray.append(regionObj);
+    }
+    root["trackRegions"] = regionsArray;
     
     QJsonArray framesArray;
     for (const auto& frame : impl_->result.frames) {
@@ -711,6 +809,51 @@ bool MotionTracker::fromJson(const QString& json) {
     QJsonObject root = doc.object();
     impl_->id = root["id"].toInt();
     impl_->name = root["name"].toString();
+    impl_->type = static_cast<TrackerType>(root["trackerType"].toInt(static_cast<int>(TrackerType::Point)));
+
+    if (root.contains("settings") && root["settings"].isObject()) {
+        const QJsonObject settingsObj = root["settings"].toObject();
+        impl_->settings.method = static_cast<TrackingMethod>(settingsObj["method"].toInt(static_cast<int>(TrackingMethod::OpticalFlow)));
+        impl_->settings.quality = static_cast<TrackingQuality>(settingsObj["quality"].toInt(static_cast<int>(TrackingQuality::Normal)));
+        impl_->settings.type = static_cast<TrackerType>(settingsObj["type"].toInt(static_cast<int>(TrackerType::Point)));
+        impl_->settings.maxFeatures = settingsObj["maxFeatures"].toInt(impl_->settings.maxFeatures);
+        impl_->settings.minDistance = settingsObj["minDistance"].toDouble(impl_->settings.minDistance);
+        impl_->settings.windowSize = settingsObj["windowSize"].toInt(impl_->settings.windowSize);
+        impl_->settings.maxPyramidLevel = settingsObj["maxPyramidLevel"].toInt(impl_->settings.maxPyramidLevel);
+        impl_->settings.confidenceThreshold = settingsObj["confidenceThreshold"].toDouble(impl_->settings.confidenceThreshold);
+        impl_->settings.errorThreshold = settingsObj["errorThreshold"].toDouble(impl_->settings.errorThreshold);
+        impl_->settings.trackForward = settingsObj["trackForward"].toBool(impl_->settings.trackForward);
+        impl_->settings.trackBackward = settingsObj["trackBackward"].toBool(impl_->settings.trackBackward);
+        impl_->settings.subpixelAccuracy = settingsObj["subpixelAccuracy"].toBool(impl_->settings.subpixelAccuracy);
+        impl_->settings.subpixelIterations = settingsObj["subpixelIterations"].toInt(impl_->settings.subpixelIterations);
+    }
+
+    impl_->currentPoints.clear();
+    impl_->regions.clear();
+    if (root.contains("trackPoints") && root["trackPoints"].isArray()) {
+        for (const auto& pointVal : root["trackPoints"].toArray()) {
+            const QJsonObject pointObj = pointVal.toObject();
+            TrackPoint point;
+            point.id = pointObj["id"].toInt();
+            point.position = QPointF(pointObj["x"].toDouble(), pointObj["y"].toDouble());
+            point.velocity = QPointF(pointObj["vx"].toDouble(), pointObj["vy"].toDouble());
+            point.confidence = pointObj["confidence"].toDouble(1.0);
+            point.active = pointObj["active"].toBool(true);
+            impl_->currentPoints.push_back(point);
+        }
+    }
+    if (root.contains("trackRegions") && root["trackRegions"].isArray()) {
+        for (const auto& regionVal : root["trackRegions"].toArray()) {
+            const QJsonObject regionObj = regionVal.toObject();
+            TrackRegion region;
+            region.id = regionObj["id"].toInt();
+            region.bounds = QRectF(regionObj["x"].toDouble(),
+                                   regionObj["y"].toDouble(),
+                                   regionObj["w"].toDouble(),
+                                   regionObj["h"].toDouble());
+            impl_->regions.push_back(region);
+        }
+    }
     
     impl_->result = TrackResult();
     impl_->result.trackerId = impl_->id;
@@ -736,7 +879,7 @@ bool MotionTracker::fromJson(const QString& json) {
         impl_->result.frames.push_back(frame);
     }
     
-    impl_->result.isValid = !impl_->result.frames.empty();
+    impl_->result.normalize();
     return true;
 }
 
