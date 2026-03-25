@@ -48,7 +48,8 @@
 - channel strip と基本ルーティング整理
 
 ### C-AUD-2 Device Layer Cleanup
-- `WASAPIDevice`
+- legacy `WASAPIDevice` residue cleanup
+- `WASAPI(shared)` backend cleanup / `AudioRenderer` fallback selection
 - `PortAudioDevice`
 - device abstraction と fallback 動作整理
 
@@ -63,6 +64,8 @@
 - `CreativeEffect`
 - `CreativeEffectManager`
 - parameter 表現と effect stack 基盤の統一
+- CPU reference / HLSL backend split
+- CPU/HLSL diff test harness
 
 ### C-GFX-2 Creative Effect Pack
 - `Halftone`
@@ -79,6 +82,12 @@
 - blend shader
 - blur shader
 - texture utility の整理
+
+### C-GFX-4 Object Fracture / Shatter Effect
+- shard generation
+- debris emission
+- collision / lifetime / dissolve
+- CPU reference / GPU backend split
 
 ## Layer / Composition Core
 
@@ -108,6 +117,13 @@
 - `Text`
 - `Null`
 - 各レイヤーの共通責務整理
+
+### C-LYR-4 Source Abstraction Foundation
+- `ISource`
+- `FileSource`
+- `GeneratedSource`
+- source metadata / capability / relink 基盤
+- layer 種別より source 中心へ寄せる準備
 
 ## Render / Playback
 
