@@ -60,6 +60,10 @@ namespace ArtifactCore {
   return std::string(errbuf);
  }
 
+ static QString av_error_qstring(int errnum) {
+  return QString::fromStdString(av_strerror_string(errnum));
+ }
+
  class FFmpegVideoDecoder::Impl {
  private:
   AVFormatContext* formatContext = nullptr;
@@ -263,18 +267,32 @@ namespace ArtifactCore {
 	 dst,
 	 dstLinesize);
 
-	return img;
+    return img;
    }
 
-   if (ret != AVERROR(EAGAIN))
-	break;
+   if (ret == AVERROR(EAGAIN)) {
+    // packet が必要
+   } else if (ret == AVERROR_EOF) {
+    qDebug() << "FFmpegDecoder::Impl::decodeNextVideoFrame: decoder eof";
+    break;
+   } else {
+    qWarning() << "FFmpegDecoder::Impl::decodeNextVideoFrame: receive_frame failed:"
+               << av_error_qstring(ret);
+    break;
+   }
 
-   // packet が必要
    if (av_read_frame(formatContext, packet) < 0)
 	break;
 
-   if (packet->stream_index == videoStreamIndex)
-	avcodec_send_packet(codecContext, packet);
+   if (packet->stream_index == videoStreamIndex) {
+	int sendRet = avcodec_send_packet(codecContext, packet);
+	if (sendRet < 0) {
+	 qWarning() << "FFmpegDecoder::Impl::decodeNextVideoFrame: send_packet failed:"
+	            << av_error_qstring(sendRet);
+	 av_packet_unref(packet);
+	 break;
+	}
+   }
 
    av_packet_unref(packet);
   }

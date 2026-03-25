@@ -5,6 +5,10 @@ module;
 #include <QIODevice>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QDebug>
+#include <QVector>
+#include <algorithm>
+#include <cmath>
 
 export module Audio.Backend.Qt;
 
@@ -83,14 +87,38 @@ public:
             return maxlen;
         }
 
-        int sampleSize = sizeof(float);
-        int channels = format_.channelCount();
-        int frames = static_cast<int>(maxlen / (sampleSize * channels));
+        const int channels = std::max(1, format_.channelCount());
+        const auto sampleFormat = format_.sampleFormat();
 
-        if (frames > 0) {
-            callback(reinterpret_cast<float*>(data), frames, channels);
+        if (sampleFormat == QAudioFormat::Float) {
+            const int sampleSize = static_cast<int>(sizeof(float));
+            const int frames = static_cast<int>(maxlen / (sampleSize * channels));
+            if (frames > 0) {
+                callback(reinterpret_cast<float*>(data), frames, channels);
+            }
+            return maxlen;
         }
 
+        if (sampleFormat == QAudioFormat::Int16) {
+            const int frames = static_cast<int>(maxlen / (static_cast<int>(sizeof(qint16)) * channels));
+            if (frames <= 0) {
+                return 0;
+            }
+
+            QVector<float> tempBuffer(frames * channels, 0.0f);
+            callback(tempBuffer.data(), frames, channels);
+
+            auto* out = reinterpret_cast<qint16*>(data);
+            for (int i = 0; i < frames * channels; ++i) {
+                const float sample = std::clamp(tempBuffer[i], -1.0f, 1.0f);
+                out[i] = static_cast<qint16>(std::lround(sample * 32767.0f));
+            }
+            return static_cast<qint64>(frames) * channels * static_cast<qint64>(sizeof(qint16));
+        }
+
+        qWarning() << "[QtAudioBackend] Unsupported output sample format"
+                   << sampleFormat << "for device pull. Writing silence.";
+        std::memset(data, 0, maxlen);
         return maxlen;
     }
 

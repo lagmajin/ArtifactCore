@@ -18,6 +18,14 @@ import std;
 
 namespace ArtifactCore {
 
+namespace {
+QString ffmpegErrorString(int err) {
+    char buffer[AV_ERROR_MAX_STRING_SIZE] = {};
+    av_make_error_string(buffer, AV_ERROR_MAX_STRING_SIZE, err);
+    return QString::fromLatin1(buffer);
+}
+}
+
 MediaImageFrameDecoder::MediaImageFrameDecoder() {}
 
 MediaImageFrameDecoder::~MediaImageFrameDecoder() {
@@ -56,26 +64,36 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
 
     int ret = avcodec_send_packet(codecContext_, packet);
     if (ret < 0) {
+        qWarning() << "[MediaImageFrameDecoder] send_packet failed:" << ffmpegErrorString(ret);
         av_frame_free(&frame);
         return QImage();
     }
 
-    ret = avcodec_receive_frame(codecContext_, frame);
-    if (ret < 0) {
-        av_frame_free(&frame);
-        return QImage();
+    QImage result;
+    while (true) {
+        ret = avcodec_receive_frame(codecContext_, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        }
+        if (ret < 0) {
+            qWarning() << "[MediaImageFrameDecoder] receive_frame failed:" << ffmpegErrorString(ret);
+            av_frame_free(&frame);
+            return QImage();
+        }
+
+        lastPts_ = frame->pts;
+
+        QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGB888);
+        uint8_t* dst[4];
+        int dstLinesize[4];
+        av_image_fill_arrays(dst, dstLinesize, img.bits(), AV_PIX_FMT_RGB24, img.width(), img.height(), 1);
+        sws_scale(swsCtx_, frame->data, frame->linesize, 0, codecContext_->height, dst, dstLinesize);
+        result = img;
+        av_frame_unref(frame);
     }
-
-    lastPts_ = frame->pts;
-
-    QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGB888);
-    uint8_t* dst[4];
-    int dstLinesize[4];
-    av_image_fill_arrays(dst, dstLinesize, img.bits(), AV_PIX_FMT_RGB24, img.width(), img.height(), 1);
-    sws_scale(swsCtx_, frame->data, frame->linesize, 0, codecContext_->height, dst, dstLinesize);
 
     av_frame_free(&frame);
-    return img;
+    return result;
 }
 
 int MediaImageFrameDecoder::sendPacket(AVPacket* packet) {
@@ -90,7 +108,12 @@ QImage MediaImageFrameDecoder::receiveFrame() {
     if (!frame) return QImage();
 
     int ret = avcodec_receive_frame(codecContext_, frame);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+        av_frame_free(&frame);
+        return QImage();
+    }
     if (ret < 0) {
+        qWarning() << "[MediaImageFrameDecoder] receive_frame failed:" << ffmpegErrorString(ret);
         av_frame_free(&frame);
         return QImage();
     }

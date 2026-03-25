@@ -44,7 +44,7 @@ export module Graphics.ParticleRenderer;
 
 
 
-import Particle;
+import Graphics.ParticleData;
 import Graphics.GPUcomputeContext;
 
 
@@ -69,7 +69,7 @@ public:
     /**
      * @brief CPUプールのデータをGPU構造化バッファへアップロード
      */
-    void updateBuffer(const std::vector<Particle>& particles, size_t activeCount);
+    void updateBuffer(const ParticleRenderData& data);
 
     /**
      * @brief 描画準備

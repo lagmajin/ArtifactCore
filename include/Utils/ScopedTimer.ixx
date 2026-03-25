@@ -1,4 +1,4 @@
-module;
+ï»¿module;
 #include <QElapsedTimer>
 #include <QDebug>
 #include <QString>
@@ -20,13 +20,14 @@ export namespace ArtifactCore {
   ~ScopedTimer()
   {
    qDebug() << m_name << "elapsed:"
-	<< m_timer.nsecsElapsed() / 1'000'000.0 << "ms"; // ¬”“_‚Â‚«
+	<< m_timer.nsecsElapsed() / 1'000'000.0 << "ms"; // elapsed in ms
   }
 
  private:
   QString m_name;
   QElapsedTimer m_timer;
  };
+
 
 
 
