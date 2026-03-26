@@ -125,6 +125,13 @@
 - source metadata / capability / relink 基盤
 - layer 種別より source 中心へ寄せる準備
 
+### C-LYR-5 Track Matte Core Evaluation
+- matte source layer の参照モデル
+- Alpha / Luminance / Inverted の評価
+- dependency order / cycle check
+- serialization / diagnostics / fallback
+- 隧ｳ邏ｰ縺ｯ `ArtifactCore/docs/MILESTONE_TRACK_MATTE_CORE_2026-03-26.md`
+
 ## Render / Playback
 
 ### C-RND-1 Software Render Bridge
