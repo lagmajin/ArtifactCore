@@ -1,12 +1,13 @@
-# Track Matte Core Milestone
+# Matte Stack / Child Matte Core Milestone
 
-`Layer2D` の `MatteMode` を、単なる設定値ではなく実際の layer evaluation に接続するための Core milestone.
+`Layer2D` の matte を、AE 風に「隣接レイヤー」ではなく「レイヤーにぶら下がる子要素」として扱うための Core milestone.
 
 ## Goal
 
-- matte source layer を明示的に参照できるようにする
+- matte を layer の child / attached node として扱う
+- 複数 matte を `Add / Common / Subtract` で合成できるようにする
 - `Alpha / AlphaInverted / Luminance / LuminanceInverted` を Core で評価する
-- track matte の依存順と cycle を Core 側で管理する
+- dependency order と cycle check を Core 側で管理する
 - serialization / import / diagnostics を Core の責務として整える
 
 ## Scope
@@ -25,11 +26,27 @@
 
 ## Background
 
-Core には `MatteMode` と `Layer2D::matteMode()` は既にあるが、まだ「どの layer を matte に使うか」「どう評価するか」が未定義。
+Core には `MatteMode` と `Layer2D::matteMode()` は既にあるが、まだ「どの layer を matte に使うか」「複数 matte をどうまとめるか」が未定義。
 そのため、現状の `track matte mode (未定義)` は UI の問題ではなく、Core の依存モデル不足として扱う。
 
-この milestone では、layer の前後関係と matte source を Core のデータモデルに持たせ、
-render / playback / diagnostics から一貫して使える状態を作る。
+この milestone では、layer の子要素として matte stack を持ち、render / playback / diagnostics から一貫して使える状態を作る。
+
+## Proposed Model
+
+- `Layer`
+  - `content`
+  - `children`
+  - `matteStack`
+- `MatteNode`
+  - `source`
+  - `mode`
+  - `invert`
+  - `enabled`
+  - `order`
+- `MatteStackMode`
+  - `Add`
+  - `Common`
+  - `Subtract`
 
 ## Phases
 
@@ -38,16 +55,18 @@ render / playback / diagnostics から一貫して使える状態を作る。
 - matte target layer と matte source layer の関係を定義する
 - source が missing のときの fallback を決める
 - self-reference と cycle を検出できるようにする
+- child matte node の ownership を決める
 
 ### Phase 2: Evaluation
 
 - `Alpha` と `Luminance` を評価できるようにする
 - inverted mode を含める
 - layer visibility / opacity / matte の適用順を固定する
+- `Add / Common / Subtract` の合成規則を固定する
 
 ### Phase 3: Serialization
 
-- project file に matte relationship を保存する
+- project file に matte stack を保存する
 - import / open / save で壊れないようにする
 - backward compatibility のための default を決める
 
@@ -68,4 +87,4 @@ render / playback / diagnostics から一貫して使える状態を作る。
 
 - `MatteMode` と `Layer2D::matteMode()` は既に存在する
 - ただし Core の evaluation path はまだ未実装
-- まずは data model を固定してから、render 側の適用に進むのが安全
+- まずは matte stack の data model を固定してから、render 側の適用に進むのが安全
