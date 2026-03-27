@@ -25,4 +25,10 @@ export namespace ArtifactCore
         float4 color;
         float  dist;
     };
+
+    struct GizmoVertex3D
+    {
+        float3 position;
+        float4 color;
+    };
 }

@@ -20,7 +20,7 @@ export namespace ArtifactCore {
   ~ScopedTimer()
   {
    qDebug() << m_name << "elapsed:"
-	<< m_timer.nsecsElapsed() / 1'000'000.0 << "ms"; // elapsed in ms
+   << m_timer.nsecsElapsed() / 1'000'000.0 << "ms";
   }
 
  private:
