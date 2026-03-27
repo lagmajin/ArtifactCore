@@ -131,13 +131,29 @@ bool MediaSource::seek(int64_t timestampMs) {
             break;
         }
     }
-    if (streamIndex == -1) return false;
+    if (streamIndex == -1) {
+        qWarning() << "[MediaSource] seek failed: no video stream available";
+        return false;
+    }
 
     AVStream* stream = formatContext_->streams[streamIndex];
     int64_t ts = av_rescale_q(timestampMs, AVRational{1, 1000}, stream->time_base);
 
-    if (av_seek_frame(formatContext_, streamIndex, ts, AVSEEK_FLAG_BACKWARD) < 0) {
-        qWarning() << "MediaSource::seek: av_seek_frame failed.";
+    int ret = av_seek_frame(formatContext_, streamIndex, ts, AVSEEK_FLAG_BACKWARD);
+    if (ret < 0) {
+        qWarning() << "[MediaSource] av_seek_frame failed, retrying with avformat_seek_file"
+                   << "timestampMs=" << timestampMs
+                   << "err=" << av_strerror_string(ret).c_str();
+        const int64_t offset = av_rescale_q(2, AVRational{1, 1}, stream->time_base);
+        const int64_t minTs = std::max<int64_t>(0, ts - offset);
+        const int64_t maxTs = ts + offset;
+        ret = avformat_seek_file(formatContext_, streamIndex, minTs, ts, maxTs, AVSEEK_FLAG_BACKWARD);
+    }
+
+    if (ret < 0) {
+        qWarning() << "[MediaSource] seek failed:"
+                   << "timestampMs=" << timestampMs
+                   << "err=" << av_strerror_string(ret).c_str();
         return false;
     }
 

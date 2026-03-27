@@ -136,13 +136,20 @@ public:
         
         // ピクセルフォーマット設定（コーデックによる）
         if (codecId == AV_CODEC_ID_PRORES) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_YUV422P10;  // ProRes は 10bit 4:2:2
+            const QString profile = settings.profile.trimmed().toLower();
+            if (profile.contains("4444")) {
+                codecCtx_->pix_fmt = AV_PIX_FMT_YUVA444P10LE;  // ProRes 4444 は alpha を含む
+            } else {
+                codecCtx_->pix_fmt = AV_PIX_FMT_YUV422P10;     // ProRes 422 系
+            }
         } else if (codecId == AV_CODEC_ID_HEVC || codecId == AV_CODEC_ID_H264) {
             codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
         } else if (codecId == AV_CODEC_ID_VP9) {
             codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
-        } else if (codecId == AV_CODEC_ID_MJPEG || codecId == AV_CODEC_ID_PNG) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
+        } else if (codecId == AV_CODEC_ID_MJPEG) {
+            codecCtx_->pix_fmt = AV_PIX_FMT_YUVJ420P;  // MJPEG は full-range
+        } else if (codecId == AV_CODEC_ID_PNG) {
+            codecCtx_->pix_fmt = AV_PIX_FMT_RGBA;       // PNG は alpha を保持
         } else {
             codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
         }
