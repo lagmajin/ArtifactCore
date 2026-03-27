@@ -55,6 +55,9 @@ export namespace ArtifactCore {
    */
   void enqueue(const AudioSegment& segment);
   void clearBuffer();
+  size_t bufferedFrames() const;
+  size_t underflowCount() const;
+  size_t overflowCount() const;
 
  private:
   struct Impl;

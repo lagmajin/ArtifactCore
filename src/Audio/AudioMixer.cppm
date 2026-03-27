@@ -66,6 +66,37 @@ AudioMixer::AudioMixer() : impl_(std::make_unique<Impl>()) {
 
 AudioMixer::~AudioMixer() = default;
 
+int AudioMixer::busCount() const
+{
+    return static_cast<int>(impl_->buses.size());
+}
+
+std::vector<std::string> AudioMixer::busNames() const
+{
+    std::vector<std::string> result;
+    result.reserve(impl_->buses.size());
+    for (const auto& bus : impl_->buses) {
+        if (!bus) {
+            continue;
+        }
+        result.push_back(static_cast<std::string>(bus->getName()));
+    }
+    return result;
+}
+
+std::shared_ptr<AudioBus> AudioMixer::findBusByName(const std::string& name) const
+{
+    for (const auto& bus : impl_->buses) {
+        if (!bus) {
+            continue;
+        }
+        if (static_cast<std::string>(bus->getName()) == name) {
+            return bus;
+        }
+    }
+    return nullptr;
+}
+
 std::shared_ptr<AudioBus> AudioMixer::createBus(const std::string& name) {
     auto bus = std::make_shared<AudioBus>();
     bus->setName(name);

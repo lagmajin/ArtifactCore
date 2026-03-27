@@ -20,6 +20,8 @@
 - `ColorConversion`
 - `AutoColorMatch`
 - `ColorHarmonizer`
+- 進捗: built-in LUT 名の列挙を追加し、UI/診断からの発見性を上げた
+- 進捗: built-in LUT を LUTManager に一括登録できるようにした
 
 ## Video
 
@@ -46,6 +48,8 @@
 - `AudioMixer`
 - `AudioPanner`
 - channel strip と基本ルーティング整理
+- 進捗: mixer に bus 名一覧 / bus 検索 API を追加し、状態把握しやすくした
+- 進捗: panning mode 名を表示できるようにした
 
 ### C-AUD-2 Device Layer Cleanup
 - legacy `WASAPIDevice` residue cleanup

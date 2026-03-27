@@ -6,6 +6,7 @@ module;
 #include <QString>
 #include <memory>
 #include <mutex>
+#include <atomic>
 #include <algorithm>
 #include <cmath>
 
@@ -29,13 +30,15 @@ struct AudioRenderer::Impl {
 
     std::unique_ptr<AudioBackend> backend;
     std::unique_ptr<AudioRingBuffer> ringBuffer;
+    std::atomic<size_t> underflowCount{0};
+    std::atomic<size_t> overflowCount{0};
     
     // We'll use 48kHz Stereo as our internal processing format for the renderer
     int sampleRate = 48000;
     int channels = 2;
 
     Impl() {
-        ringBuffer = std::make_unique<AudioRingBuffer>(48000 * 4); // 4-second stereo buffer
+        ringBuffer = std::make_unique<AudioRingBuffer>(48000 * 8); // 8-second stereo buffer
 #ifdef _WIN32
         backend = std::make_unique<WASAPIBackend>();
 #else
@@ -72,9 +75,8 @@ struct AudioRenderer::Impl {
                 }
             }
         } else {
-            static int underflowLogCount = 0;
-            if (underflowLogCount < 8) {
-                ++underflowLogCount;
+            const size_t count = ++underflowCount;
+            if (count <= 8) {
                 qWarning() << "[AudioRenderer] underflow"
                            << "requestedFrames=" << frames
                            << "availableFrames=" << availableFrames;
@@ -139,14 +141,14 @@ void AudioRenderer::closeDevice() {
         impl_->backend->stop();
         impl_->backend->close();
         impl_->deviceName.clear();
+        if (impl_->ringBuffer) {
+            impl_->ringBuffer->clear();
+        }
     }
 }
 
 void AudioRenderer::start() {
     if (impl_ && !impl_->active) {
-        if (impl_->ringBuffer) {
-            impl_->ringBuffer->clear();
-        }
         impl_->active = true;
         impl_->backend->start([this](float* b, int f, int c) {
             impl_->audioCallback(b, f, c);
@@ -163,6 +165,9 @@ void AudioRenderer::stop() {
     if (impl_ && impl_->active) {
         impl_->active = false;
         impl_->backend->stop();
+        if (impl_->ringBuffer) {
+            impl_->ringBuffer->clear();
+        }
     }
 }
 
@@ -195,9 +200,8 @@ bool AudioRenderer::isMute() const {
 void AudioRenderer::enqueue(const AudioSegment& segment) {
     if (impl_ && impl_->ringBuffer) {
         if (!impl_->ringBuffer->write(segment)) {
-            static int overflowLogCount = 0;
-            if (overflowLogCount < 8) {
-                ++overflowLogCount;
+            const size_t count = ++impl_->overflowCount;
+            if (count <= 8) {
                 qWarning() << "[AudioRenderer] ring buffer overflow"
                            << "frames=" << segment.frameCount()
                            << "sampleRate=" << segment.sampleRate
@@ -211,6 +215,18 @@ void AudioRenderer::clearBuffer() {
     if (impl_ && impl_->ringBuffer) {
         impl_->ringBuffer->clear();
     }
+}
+
+size_t AudioRenderer::bufferedFrames() const {
+    return (impl_ && impl_->ringBuffer) ? impl_->ringBuffer->available() : 0;
+}
+
+size_t AudioRenderer::underflowCount() const {
+    return impl_ ? impl_->underflowCount.load() : 0;
+}
+
+size_t AudioRenderer::overflowCount() const {
+    return impl_ ? impl_->overflowCount.load() : 0;
 }
 
 int AudioRenderer::sampleRate() const {

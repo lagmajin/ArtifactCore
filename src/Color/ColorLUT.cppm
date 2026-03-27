@@ -674,6 +674,34 @@ int LUTManager::loadFromDirectory(const QString& directoryPath) {
 
 namespace BuiltinLUTs {
 
+QStringList builtinLUTNames()
+{
+    return {
+        QStringLiteral("cinematic"),
+        QStringLiteral("vintage"),
+        QStringLiteral("cold"),
+        QStringLiteral("warm"),
+        QStringLiteral("highContrast"),
+        QStringLiteral("lowContrast"),
+        QStringLiteral("desaturated"),
+        QStringLiteral("kodak2383"),
+        QStringLiteral("fuji3510")
+    };
+}
+
+void registerBuiltins(LUTManager& manager)
+{
+    manager.registerLUT(QStringLiteral("cinematic"), cinematic());
+    manager.registerLUT(QStringLiteral("vintage"), vintage());
+    manager.registerLUT(QStringLiteral("cold"), cold());
+    manager.registerLUT(QStringLiteral("warm"), warm());
+    manager.registerLUT(QStringLiteral("highContrast"), highContrast());
+    manager.registerLUT(QStringLiteral("lowContrast"), lowContrast());
+    manager.registerLUT(QStringLiteral("desaturated"), desaturated());
+    manager.registerLUT(QStringLiteral("kodak2383"), kodak2383());
+    manager.registerLUT(QStringLiteral("fuji3510"), fuji3510());
+}
+
 ColorLUT cinematic() {
     ColorLUT lut = ColorLUT::createIdentity(17);
     // シネマティックな色調（オレンジとティールの強調）

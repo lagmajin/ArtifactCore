@@ -59,6 +59,11 @@ static const CodecContainerPair g_supportedPairs[] = {
     // PNG
     {AV_CODEC_ID_PNG, "mov", "PNG MOV"},
     {AV_CODEC_ID_PNG, "avi", "PNG AVI"},
+
+    // Animated image
+    {AV_CODEC_ID_GIF, "gif", "GIF Animation"},
+    {AV_CODEC_ID_APNG, "apng", "APNG Animation"},
+    {AV_CODEC_ID_WEBP, "webp", "Animated WebP"},
 };
 
 // コーデック名から AVCodecID を取得
@@ -85,6 +90,15 @@ AVCodecID codecNameToId(const QString& codecName) {
     }
     if (name == "png") {
         return AV_CODEC_ID_PNG;
+    }
+    if (name == "gif") {
+        return AV_CODEC_ID_GIF;
+    }
+    if (name == "apng") {
+        return AV_CODEC_ID_APNG;
+    }
+    if (name == "webp" || name == "libwebp_anim" || name == "libwebp") {
+        return AV_CODEC_ID_WEBP;
     }
     if (name == "ffv1") {
         return AV_CODEC_ID_FFV1;

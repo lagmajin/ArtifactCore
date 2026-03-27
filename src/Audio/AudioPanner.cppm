@@ -53,6 +53,23 @@ PanningGain AudioPanner::calculateConstantPowerGains(float pan) {
     return {{std::cos(angle), std::sin(angle)}};
 }
 
+QString AudioPanner::modeName(PanningMode mode)
+{
+    switch (mode) {
+    case PanningMode::StereoBalance:
+        return QStringLiteral("Stereo Balance");
+    case PanningMode::EqualPower:
+        return QStringLiteral("Equal Power");
+    case PanningMode::VBAP:
+        return QStringLiteral("VBAP");
+    case PanningMode::Ambisonics:
+        return QStringLiteral("Ambisonics");
+    case PanningMode::Binaural:
+        return QStringLiteral("Binaural");
+    }
+    return QStringLiteral("Unknown");
+}
+
 AudioPanner::AudioPanner() : impl_(new Impl())
 {
 }
