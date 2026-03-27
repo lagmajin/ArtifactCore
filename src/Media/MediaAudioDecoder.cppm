@@ -7,14 +7,21 @@ module;
 #include <string>
 #include <chrono>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
+#ifdef __cplusplus
 }
-
+#endif
+#pragma comment(lib, "avcodec.lib")
+#pragma comment(lib, "avformat.lib")
+#pragma comment(lib, "avutil.lib")
+#pragma comment(lib, "swresample.lib")
 #include <iostream>
 #include <vector>
 #include <string>
@@ -194,40 +201,58 @@ namespace ArtifactCore {
 
  bool MediaAudioDecoder::initialize(AVCodecParameters* codecParams) {
   if (!impl_) return false;
+  if (!codecParams) {
+   qWarning() << "[MediaAudioDecoder] initialize failed: null codecParams";
+   return false;
+  }
 
   impl_->cleanup();
 
   const AVCodec* codec = avcodec_find_decoder(codecParams->codec_id);
   if (!codec) {
+   qWarning() << "[MediaAudioDecoder] initialize failed: decoder not found"
+              << "codec_id=" << codecParams->codec_id;
    impl_->lastError_ = UniString(std::string("Decoder not found"));
    return false;
   }
 
   impl_->codecContext_ = avcodec_alloc_context3(codec);
   if (!impl_->codecContext_) {
+   qWarning() << "[MediaAudioDecoder] initialize failed: could not allocate codec context";
    impl_->lastError_ = UniString(std::string("Failed to allocate codec context"));
    return false;
   }
 
   if (avcodec_parameters_to_context(impl_->codecContext_, codecParams) < 0) {
+   qWarning() << "[MediaAudioDecoder] initialize failed: could not copy codec parameters";
    avcodec_free_context(&impl_->codecContext_);
    impl_->lastError_ = UniString(std::string("Failed to copy codec parameters"));
    return false;
   }
 
   if (avcodec_open2(impl_->codecContext_, codec, nullptr) < 0) {
+   qWarning() << "[MediaAudioDecoder] initialize failed: could not open codec"
+              << "codec=" << codec->name;
    avcodec_free_context(&impl_->codecContext_);
    impl_->lastError_ = UniString(std::string("Failed to open codec"));
    return false;
   }
 
   if (!impl_->setupResampler()) {
+   qWarning() << "[MediaAudioDecoder] initialize failed: could not setup resampler"
+              << "sample_fmt=" << codecParams->format
+              << "sample_rate=" << codecParams->sample_rate
+              << "channels=" << codecParams->ch_layout.nb_channels;
    avcodec_free_context(&impl_->codecContext_);
    return false;
   }
 
   impl_->updateAudioInfo();
   impl_->initialized_ = true;
+  qDebug() << "[MediaAudioDecoder] initialized successfully"
+           << "codec=" << codec->name
+           << "sample_rate=" << impl_->audioInfo_.sampleRate
+           << "channels=" << impl_->audioInfo_.channels;
   return true;
  }
 

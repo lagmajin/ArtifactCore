@@ -34,18 +34,43 @@ MediaImageFrameDecoder::~MediaImageFrameDecoder() {
 }
 
 bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
+    if (!codecParams) {
+        qWarning() << "[MediaImageFrameDecoder] initialize failed: null codecParams";
+        return false;
+    }
+
+    if (swsCtx_) {
+        sws_freeContext(swsCtx_);
+        swsCtx_ = nullptr;
+    }
+    if (codecContext_) {
+        avcodec_free_context(&codecContext_);
+    }
+
     const AVCodec* codec = avcodec_find_decoder(codecParams->codec_id);
-    if (!codec) return false;
+    if (!codec) {
+        qWarning() << "[MediaImageFrameDecoder] initialize failed: codec not found"
+                   << "codec_id=" << codecParams->codec_id;
+        return false;
+    }
 
     codecContext_ = avcodec_alloc_context3(codec);
-    if (!codecContext_) return false;
+    if (!codecContext_) {
+        qWarning() << "[MediaImageFrameDecoder] initialize failed: could not allocate codec context";
+        return false;
+    }
 
     if (avcodec_parameters_to_context(codecContext_, codecParams) < 0) {
+        qWarning() << "[MediaImageFrameDecoder] initialize failed: could not copy codec parameters";
         avcodec_free_context(&codecContext_);
         return false;
     }
 
-    if (avcodec_open2(codecContext_, codec, nullptr) < 0) {
+    int ret = avcodec_open2(codecContext_, codec, nullptr);
+    if (ret < 0) {
+        qWarning() << "[MediaImageFrameDecoder] initialize failed: could not open codec"
+                   << "codec=" << codec->name
+                   << "reason=" << ffmpegErrorString(ret);
         avcodec_free_context(&codecContext_);
         return false;
     }
@@ -53,7 +78,19 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
     swsCtx_ = sws_getContext(codecContext_->width, codecContext_->height, codecContext_->pix_fmt,
                              codecContext_->width, codecContext_->height, AV_PIX_FMT_RGB24,
                              SWS_BILINEAR, nullptr, nullptr, nullptr);
-    return swsCtx_ != nullptr;
+    if (!swsCtx_) {
+        qWarning() << "[MediaImageFrameDecoder] initialize failed: could not create sws context"
+                   << "pix_fmt=" << codecContext_->pix_fmt
+                   << "size=" << codecContext_->width << "x" << codecContext_->height
+                   << "reason=unsupported format conversion";
+        return false;
+    }
+
+    qDebug() << "[MediaImageFrameDecoder] initialized successfully"
+             << "codec=" << codec->name
+             << "size=" << codecContext_->width << "x" << codecContext_->height
+             << "pix_fmt=" << codecContext_->pix_fmt;
+    return true;
 }
 
 QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {

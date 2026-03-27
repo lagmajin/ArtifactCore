@@ -9,6 +9,10 @@ module;
 #include <QSize>
 #include <Qt>
 
+extern "C" {
+#include <libavutil/error.h>
+}
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -77,6 +81,7 @@ class MediaPlaybackController::Impl {
   double fps_ = 0.0;
   AVRational videoTimeBase_ = {1, 1000};
   int videoStreamIndex_ = -1;
+  int videoPacketWaitAttempts_ = 100;
 
   PlaybackStateChangedCallback stateChangedCallback_;
   PositionChangedCallback positionChangedCallback_;
@@ -741,7 +746,7 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
 
 	  impl_->mediaReader_->start();
 	  AVPacket* pkt = nullptr;
-	  for (int attempt = 0; attempt < 100 && !pkt; ++attempt) {
+	  for (int attempt = 0; attempt < impl_->videoPacketWaitAttempts_ && !pkt; ++attempt) {
 	   pkt = impl_->mediaReader_->getNextPacket(StreamType::Audio);
 	   if (!pkt) {
 	    std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -912,15 +917,29 @@ bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QStr
 
   if (AVFormatContext* ctx = impl.mediaSource_->getFormatContext()) {
     impl.rebuildReader();
+    const QFileInfo fileInfo(url);
+    const qint64 fileSize = fileInfo.exists() ? fileInfo.size() : 0;
+    impl.videoPacketWaitAttempts_ =
+        std::clamp<int>(100 + static_cast<int>(fileSize / (10 * 1024 * 1024)), 100, 500);
+
+    bool foundVideoStream = false;
+    bool videoDecoderOk = false;
+    bool audioDecoderOk = true;
     for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
       AVCodecParameters* params = ctx->streams[i]->codecpar;
       if (params->codec_type == AVMEDIA_TYPE_VIDEO) {
+        foundVideoStream = true;
         if (!impl.videoDecoder_->initialize(params)) {
-          qWarning() << "Failed to initialize video decoder";
+          qWarning() << "[FFmpegBackend] Failed to initialize video decoder";
+          impl.notifyError(QStringLiteral("Video decoder initialization failed for '%1'").arg(url));
+        } else {
+          videoDecoderOk = true;
         }
       } else if (params->codec_type == AVMEDIA_TYPE_AUDIO) {
         if (!impl.audioDecoder_->initialize(params)) {
-          qWarning() << "Failed to initialize audio decoder";
+          qWarning() << "[FFmpegBackend] Failed to initialize audio decoder";
+          impl.notifyError(QStringLiteral("Audio decoder initialization failed for '%1'").arg(url));
+          audioDecoderOk = false;
         }
       }
     }
@@ -931,13 +950,20 @@ bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QStr
     qDebug() << "[FFmpegBackend] opened url=" << url
              << "videoStreamIndex_=" << impl.videoStreamIndex_
              << "fps_=" << impl.fps_
-             << "totalFrames_=" << impl.totalFrames_;
-    if (impl.videoStreamIndex_ < 0) {
-      qWarning() << "[FFmpegBackend] No video stream found in" << url << "- frame decode will fail!";
+             << "totalFrames_=" << impl.totalFrames_
+             << "waitAttempts=" << impl.videoPacketWaitAttempts_;
+    if (!foundVideoStream || impl.videoStreamIndex_ < 0) {
+      qWarning() << "[FFmpegBackend] No video stream found in" << url << "- open will fail.";
+      impl.notifyError(QStringLiteral("No video stream found in '%1'").arg(url));
+    }
+    if (!foundVideoStream || impl.videoStreamIndex_ < 0 || !videoDecoderOk || !audioDecoderOk) {
+      close(impl);
+      return false;
     }
   }
 
   impl.backend_ = DecoderBackend::FFmpeg;
+  impl.lastError_.clear();
   return true;
 }
 
@@ -989,7 +1015,7 @@ QImage FFmpegPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& i
   impl.mediaReader_->start();
   while (true) {
     AVPacket* pkt = nullptr;
-    for (int attempt = 0; attempt < 100 && !pkt; ++attempt) {
+    for (int attempt = 0; attempt < impl.videoPacketWaitAttempts_ && !pkt; ++attempt) {
       pkt = impl.mediaReader_->getNextPacket(StreamType::Video);
       if (!pkt) {
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -1025,6 +1051,7 @@ bool MFPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QString&
   }
   impl.backend_ = DecoderBackend::MediaFoundation;
   impl.setMetadataFromMediaFoundation(url);
+  impl.lastError_.clear();
   return true;
 }
 

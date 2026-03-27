@@ -39,7 +39,17 @@ public:
     void setProjectSummary(const QString& summary) { projectSummary_ = summary; }
     void setActiveCompositionId(const QString& compId) { activeCompositionId_ = compId; }
     void addSelectedLayer(const QString& layerData) { selectedLayers_.push_back(layerData); }
+    void setUserPrompt(const QString& prompt) { userPrompt_ = prompt; }
+    void setSystemPrompt(const QString& prompt) { systemPrompt_ = prompt; }
     
+    // ── Getter メソッド（AI 分析用）─
+    QString projectSummary() const { return projectSummary_; }
+    QString activeCompositionId() const { return activeCompositionId_; }
+    std::vector<QString> selectedLayers() const { return selectedLayers_; }
+    std::vector<UserAction> recentActions() const { return recentActions_; }
+    QString userPrompt() const { return userPrompt_; }
+    QString systemPrompt() const { return systemPrompt_; }
+
     // 直近のユーザーアクションを記録（最大保持数を決めてリングバッファ的に扱うと良い）
     void logUserAction(ActionType type, const QString& targetId, const QString& details) {
         recentActions_.push_back({type, targetId, details, QDateTime::currentMSecsSinceEpoch()});
@@ -84,6 +94,8 @@ private:
     QString activeCompositionId_;
     std::vector<QString> selectedLayers_;
     std::vector<UserAction> recentActions_;
+    QString userPrompt_;
+    QString systemPrompt_;
 };
 
 } // namespace ArtifactCore
