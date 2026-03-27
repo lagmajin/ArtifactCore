@@ -4,6 +4,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/error.h>
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
@@ -19,6 +20,17 @@ module Encoder.FFmpegEncoder;
 import std;
 import Image;
 import :Impl;
+
+namespace {
+
+QString ffmpegErrorString(int err)
+{
+    char buffer[AV_ERROR_MAX_STRING_SIZE] = {};
+    av_strerror(err, buffer, sizeof(buffer));
+    return QString::fromUtf8(buffer);
+}
+
+} // namespace
 
 namespace ArtifactCore {
 
@@ -167,9 +179,14 @@ public:
             av_opt_set_int(codecCtx_->priv_data, "profile", proresProfile, 0);
         }
 
+        if (const int ret = avcodec_open2(codecCtx_, codec, nullptr); ret < 0) {
+            lastError_ = QStringLiteral("Failed to open video encoder: %1 (%2)").arg(settings.videoCodec, ffmpegErrorString(ret));
+            return false;
+        }
+
         // ストリームにコーデックパラメーターをコピー
-        if (avcodec_parameters_from_context(stream_->codecpar, codecCtx_) < 0) {
-            lastError_ = "Failed to copy codec parameters to stream";
+        if (const int ret = avcodec_parameters_from_context(stream_->codecpar, codecCtx_); ret < 0) {
+            lastError_ = QStringLiteral("Failed to copy codec parameters to stream: %1").arg(ffmpegErrorString(ret));
             return false;
         }
 
@@ -177,14 +194,14 @@ public:
         if (!(fmt->flags & AVFMT_NOFILE)) {
             const int ret = avio_open(&fmtCtx_->pb, outputPath.toUtf8().constData(), AVIO_FLAG_WRITE);
             if (ret < 0) {
-                lastError_ = QStringLiteral("Failed to open output file: %1").arg(outputPath);
+                lastError_ = QStringLiteral("Failed to open output file: %1 (%2)").arg(outputPath, ffmpegErrorString(ret));
                 return false;
             }
         }
 
         // ヘッダー書き込み
-        if (avformat_write_header(fmtCtx_, nullptr) < 0) {
-            lastError_ = QStringLiteral("Failed to write header to: %1").arg(outputPath);
+        if (const int ret = avformat_write_header(fmtCtx_, nullptr); ret < 0) {
+            lastError_ = QStringLiteral("Failed to write header to: %1 (%2)").arg(outputPath, ffmpegErrorString(ret));
             return false;
         }
 
@@ -400,7 +417,7 @@ public:
         // エンコード
         int ret = avcodec_send_frame(codecCtx_, frame_);
         if (ret < 0) {
-            lastError_ = QStringLiteral("Failed to send frame to encoder: %1").arg(ret);
+            lastError_ = QStringLiteral("Failed to send frame to encoder: %1 (%2)").arg(ret).arg(ffmpegErrorString(ret));
             return false;
         }
 
@@ -410,7 +427,7 @@ public:
                 break;
             }
             if (ret < 0) {
-                lastError_ = QStringLiteral("Failed to receive packet from encoder: %1").arg(ret);
+                lastError_ = QStringLiteral("Failed to receive packet from encoder: %1 (%2)").arg(ret).arg(ffmpegErrorString(ret));
                 return false;
             }
 
@@ -555,9 +572,9 @@ public:
         }
 
         // エンコーダー初期化
-        if (avcodec_open2(imgCodecCtx, codec, nullptr) < 0) {
+        if (const int ret = avcodec_open2(imgCodecCtx, codec, nullptr); ret < 0) {
             avcodec_free_context(&imgCodecCtx);
-            lastError_ = QStringLiteral("Failed to open image encoder for: %1").arg(fmt);
+            lastError_ = QStringLiteral("Failed to open image encoder for: %1 (%2)").arg(fmt, ffmpegErrorString(ret));
             return false;
         }
 
@@ -573,7 +590,7 @@ public:
         if (ret < 0) {
             av_packet_free(&packet);
             avcodec_free_context(&imgCodecCtx);
-            lastError_ = "Failed to send frame to image encoder";
+            lastError_ = QStringLiteral("Failed to send frame to image encoder: %1 (%2)").arg(ret).arg(ffmpegErrorString(ret));
             return false;
         }
 
@@ -581,7 +598,7 @@ public:
         if (ret < 0) {
             av_packet_free(&packet);
             avcodec_free_context(&imgCodecCtx);
-            lastError_ = "Failed to receive packet from image encoder";
+            lastError_ = QStringLiteral("Failed to receive packet from image encoder: %1 (%2)").arg(ret).arg(ffmpegErrorString(ret));
             return false;
         }
 
