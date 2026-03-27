@@ -8,6 +8,7 @@ module;
 #include <QFileInfo>
 #include <QSize>
 #include <Qt>
+#include <limits>
 
 extern "C" {
 #include <libavutil/error.h>
@@ -151,8 +152,13 @@ class MediaPlaybackController::Impl {
     }
 
     QImage result;
+    QImage lastDecodedFrame;
+    const int64_t targetPts =
+        (videoTimeBase_.den > 0)
+            ? av_rescale_q(targetMs, AVRational{1, 1000}, videoTimeBase_)
+            : AV_NOPTS_VALUE;
     AVFormatContext* ctx = mediaSource_->getFormatContext();
-    const int maxPackets = 512;
+    const int maxPackets = std::max(512, videoPacketWaitAttempts_ * 8);
     int packetsRead = 0;
     while (packetsRead < maxPackets) {
       if (av_read_frame(ctx, pkt) < 0) {
@@ -168,7 +174,18 @@ class MediaPlaybackController::Impl {
           break;
         }
 
-        result = videoDecoder_->receiveFrame();
+        while (true) {
+          QImage decoded = videoDecoder_->receiveFrame();
+          if (decoded.isNull()) {
+            break;
+          }
+          lastDecodedFrame = decoded;
+          const int64_t decodedPts = videoDecoder_->getLastDecodedPts();
+          if (targetPts == AV_NOPTS_VALUE || decodedPts == AV_NOPTS_VALUE || decodedPts >= targetPts) {
+            result = decoded;
+            break;
+          }
+        }
         if (!result.isNull()) {
           break;
         }
@@ -184,8 +201,22 @@ class MediaPlaybackController::Impl {
 
     restoreFfmpegReaderState(wasPlaying);
 
+    if (result.isNull() && !lastDecodedFrame.isNull()) {
+      result = lastDecodedFrame;
+    }
+
     if (result.isNull()) {
-      qWarning() << "[MediaPlayback] direct decode failed for frame" << frameNumber;
+      qWarning() << "[MediaPlayback] direct decode failed for frame" << frameNumber
+                 << "targetMs=" << targetMs
+                 << "targetPts=" << targetPts
+                 << "fps=" << fps_
+                 << "videoStreamIndex=" << videoStreamIndex_;
+    } else {
+      qDebug() << "[MediaPlayback] direct decode ok"
+               << "frame=" << frameNumber
+               << "targetMs=" << targetMs
+               << "targetPts=" << targetPts
+               << "size=" << result.width() << "x" << result.height();
     }
     return result;
   }
@@ -924,6 +955,7 @@ bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QStr
 
     bool foundVideoStream = false;
     bool videoDecoderOk = false;
+    bool audioStreamFound = false;
     bool audioDecoderOk = true;
     for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
       AVCodecParameters* params = ctx->streams[i]->codecpar;
@@ -936,6 +968,7 @@ bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QStr
           videoDecoderOk = true;
         }
       } else if (params->codec_type == AVMEDIA_TYPE_AUDIO) {
+        audioStreamFound = true;
         if (!impl.audioDecoder_->initialize(params)) {
           qWarning() << "[FFmpegBackend] Failed to initialize audio decoder";
           impl.notifyError(QStringLiteral("Audio decoder initialization failed for '%1'").arg(url));
@@ -956,9 +989,13 @@ bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QStr
       qWarning() << "[FFmpegBackend] No video stream found in" << url << "- open will fail.";
       impl.notifyError(QStringLiteral("No video stream found in '%1'").arg(url));
     }
-    if (!foundVideoStream || impl.videoStreamIndex_ < 0 || !videoDecoderOk || !audioDecoderOk) {
+    if (!foundVideoStream || impl.videoStreamIndex_ < 0 || !videoDecoderOk) {
       close(impl);
       return false;
+    }
+
+    if (audioStreamFound && !audioDecoderOk) {
+      qWarning() << "[FFmpegBackend] Audio decoder unavailable, continuing with video-only playback for" << url;
     }
   }
 
@@ -1083,13 +1120,25 @@ void MFPlaybackBackend::seekToFrame(MediaPlaybackController::Impl& impl, int64_t
 
 QImage MFPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& impl) {
   const int64_t frameNumber = std::max<int64_t>(0, impl.currentFrame_);
-  return getVideoFrameAtFrameDirect(impl, frameNumber);
+  QImage result = getVideoFrameAtFrameDirect(impl, frameNumber);
+  if (!result.isNull()) {
+    impl.currentFrame_ = frameNumber + 1;
+    if (impl.fps_ > 0.0) {
+      impl.currentPositionMs_ = static_cast<int64_t>((impl.currentFrame_ / impl.fps_) * 1000.0);
+    }
+  }
+  return result;
 }
 
 QImage MFPlaybackBackend::getVideoFrameAtFrameDirect(MediaPlaybackController::Impl& impl, int64_t frameNumber) {
   if (!impl.mfExtractor_ || !impl.mfExtractor_->isOpen()) {
     qWarning() << "[MFBackend] frame extraction requested while extractor is closed"
                << "frame=" << frameNumber;
+    return QImage();
+  }
+  if (impl.totalFrames_ > 0 && frameNumber >= impl.totalFrames_) {
+    qWarning() << "[MFBackend] frame out of range:" << frameNumber
+               << "totalFrames=" << impl.totalFrames_;
     return QImage();
   }
   auto frame = impl.mfExtractor_->extractFrameAtIndex(frameNumber);
@@ -1102,7 +1151,10 @@ QImage MFPlaybackBackend::getVideoFrameAtFrameDirect(MediaPlaybackController::Im
   }
   QImage img(frame->data.data(), frame->width, frame->height, QImage::Format_RGBA8888);
   QImage result = img.copy();
-  impl.currentFrame_ = frameNumber + 1;
+  qDebug() << "[MFBackend] extractFrameAtIndex ok"
+           << "frame=" << frameNumber
+           << "size=" << result.width() << "x" << result.height();
+  impl.currentFrame_ = frameNumber;
   if (impl.fps_ > 0.0) {
     impl.currentPositionMs_ = static_cast<int64_t>((impl.currentFrame_ / impl.fps_) * 1000.0);
   }

@@ -234,6 +234,12 @@ private:
 
 /// ビルトインLUT（よく使われるルック）
 namespace BuiltinLUTs {
+    /// ビルトイン LUT 名一覧
+    QStringList builtinLUTNames();
+
+    /// ビルトイン LUT を LUTManager に登録
+    void registerBuiltins(LUTManager& manager);
+
     /// シネマティックルック
     ColorLUT cinematic();
     

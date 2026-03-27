@@ -1,5 +1,6 @@
 module;
 #include "../Define/DllExportMacro.hpp"
+#include <QString>
 export module Audio.Panner;
 
 import Audio.Segment;
@@ -25,6 +26,7 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   static PanningGain calculateConstantPowerGains(float pan); // pan: -1.0 to 1.0
+  static QString modeName(PanningMode mode);
   AudioPanner();
   ~AudioPanner();
 

@@ -107,6 +107,12 @@ public:
             codecId = AV_CODEC_ID_MJPEG;
         } else if (codecLower == "png") {
             codecId = AV_CODEC_ID_PNG;
+        } else if (codecLower == "gif") {
+            codecId = AV_CODEC_ID_GIF;
+        } else if (codecLower == "apng") {
+            codecId = AV_CODEC_ID_APNG;
+        } else if (codecLower == "webp" || codecLower == "libwebp_anim" || codecLower == "libwebp") {
+            codecId = AV_CODEC_ID_WEBP;
         } else {
             codecId = AV_CODEC_ID_H264;  // デフォルト
         }
@@ -150,6 +156,10 @@ public:
             codecCtx_->pix_fmt = AV_PIX_FMT_YUVJ420P;  // MJPEG は full-range
         } else if (codecId == AV_CODEC_ID_PNG) {
             codecCtx_->pix_fmt = AV_PIX_FMT_RGBA;       // PNG は alpha を保持
+        } else if (codecId == AV_CODEC_ID_GIF) {
+            codecCtx_->pix_fmt = AV_PIX_FMT_PAL8;       // GIF はパレット形式
+        } else if (codecId == AV_CODEC_ID_APNG || codecId == AV_CODEC_ID_WEBP) {
+            codecCtx_->pix_fmt = AV_PIX_FMT_RGBA;       // animated image は alpha を扱える
         } else {
             codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
         }
@@ -184,6 +194,12 @@ public:
             else if (prof.contains("lt")) proresProfile = 2;
             else if (prof.contains("proxy")) proresProfile = 1;
             av_opt_set_int(codecCtx_->priv_data, "profile", proresProfile, 0);
+        } else if (codecId == AV_CODEC_ID_GIF) {
+            av_opt_set_int(codecCtx_->priv_data, "loop", 0, 0);
+        } else if (codecId == AV_CODEC_ID_APNG) {
+            av_opt_set_int(codecCtx_->priv_data, "plays", 0, 0);
+        } else if (codecId == AV_CODEC_ID_WEBP) {
+            av_opt_set_int(codecCtx_->priv_data, "loop", 0, 0);
         }
 
         if (const int ret = avcodec_open2(codecCtx_, codec, nullptr); ret < 0) {
@@ -768,6 +784,12 @@ bool FFmpegEncoder::isCodecAvailable(const QString& codecName) {
         codecId = AV_CODEC_ID_MJPEG;
     } else if (name == "png") {
         codecId = AV_CODEC_ID_PNG;
+    } else if (name == "gif") {
+        codecId = AV_CODEC_ID_GIF;
+    } else if (name == "apng") {
+        codecId = AV_CODEC_ID_APNG;
+    } else if (name == "webp" || name == "libwebp_anim" || name == "libwebp") {
+        codecId = AV_CODEC_ID_WEBP;
     }
 
     if (codecId == AV_CODEC_ID_NONE) {
@@ -799,6 +821,15 @@ QStringList FFmpegEncoder::availableVideoCodecs() {
     if (avcodec_find_encoder(AV_CODEC_ID_PNG)) {
         result << "png";
     }
+    if (avcodec_find_encoder(AV_CODEC_ID_GIF)) {
+        result << "gif";
+    }
+    if (avcodec_find_encoder(AV_CODEC_ID_APNG)) {
+        result << "apng";
+    }
+    if (avcodec_find_encoder(AV_CODEC_ID_WEBP)) {
+        result << "webp";
+    }
 
     return result;
 }
@@ -829,6 +860,15 @@ QStringList FFmpegEncoder::availableContainers() {
     }
     if (av_guess_format("webm", nullptr, nullptr)) {
         result << "webm";
+    }
+    if (av_guess_format("gif", nullptr, nullptr)) {
+        result << "gif";
+    }
+    if (av_guess_format("apng", nullptr, nullptr)) {
+        result << "apng";
+    }
+    if (av_guess_format("webp", nullptr, nullptr)) {
+        result << "webp";
     }
 
     return result;

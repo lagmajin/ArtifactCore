@@ -31,6 +31,9 @@ public:
     void process(AudioSegment& finalOutput);
 
     std::shared_ptr<AudioBus> getMasterBus() const { return masterBus_; }
+    int busCount() const;
+    std::vector<std::string> busNames() const;
+    std::shared_ptr<AudioBus> findBusByName(const std::string& name) const;
 
 private:
     struct Impl;

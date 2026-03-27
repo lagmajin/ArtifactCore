@@ -255,31 +255,40 @@ namespace ArtifactCore {
     return nullptr;
    }
    
-   // Tvǂݎ
+   // SetCurrentPosition 直後は stream tick / empty sample が返ることがあるため、少し待つ
    ComPtr<IMFSample> sample;
    DWORD streamFlags = 0;
    LONGLONG sampleTimestamp = 0;
-   
-   hr = sourceReader_->ReadSample(
-    (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
-    0,
-    nullptr,
-    &streamFlags,
-    &sampleTimestamp,
-    &sample);
-   
-   if (FAILED(hr)) {
-    lastError_ = QString("ReadSample failed: 0x%1").arg(hr, 0, 16);
-    return nullptr;
+   constexpr int kMaxReadAttempts = 12;
+   for (int attempt = 0; attempt < kMaxReadAttempts; ++attempt) {
+    sample.Reset();
+    streamFlags = 0;
+    sampleTimestamp = 0;
+    hr = sourceReader_->ReadSample(
+     (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+     0,
+     nullptr,
+     &streamFlags,
+     &sampleTimestamp,
+     &sample);
+
+    if (FAILED(hr)) {
+     lastError_ = QString("ReadSample failed: 0x%1").arg(hr, 0, 16);
+     return nullptr;
+    }
+
+    if (streamFlags & MF_SOURCE_READERF_ENDOFSTREAM) {
+      lastError_ = "End of stream";
+      return nullptr;
+    }
+
+    if (sample) {
+      break;
+    }
    }
-   
-   if (streamFlags & MF_SOURCE_READERF_ENDOFSTREAM) {
-    lastError_ = "End of stream";
-    return nullptr;
-   }
-   
+
    if (!sample) {
-    lastError_ = "No sample returned";
+    lastError_ = "No sample returned after seek";
     return nullptr;
    }
    
