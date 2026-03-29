@@ -94,6 +94,9 @@ public:
   font.setPointSizeF(std::max(1.0f, style.fontSize));
   font.setBold(style.bold);
   font.setItalic(style.italic);
+  font.setUnderline(style.underline);
+  font.setStrikeOut(style.strikethrough);
+  font.setCapitalization(style.allCaps ? QFont::AllUppercase : QFont::MixedCase);
   font.setLetterSpacing(QFont::AbsoluteSpacing, style.tracking);
   return font;
  }

@@ -7,6 +7,7 @@ module;
 #include <Mmdeviceapi.h>
 #include <Functiondiscoverykeys_devpkey.h>
 #include <comdef.h>
+#include <windows.h>
 #include <QString>
 #include <atomic>
 #include <chrono>
@@ -39,6 +40,8 @@ public:
   int mixChannels = 2;
   int mixSampleRate = 48000;
   bool comInitialized = false;
+  HANDLE audioEvent = nullptr;
+  HANDLE stopEvent = nullptr;
 
   ~Impl() {
     stopThread();
@@ -47,6 +50,12 @@ public:
 
   void stopThread() {
     stopRequested = true;
+    if (stopEvent) {
+      SetEvent(stopEvent);
+    }
+    if (audioEvent) {
+      SetEvent(audioEvent);
+    }
     if (renderThread.joinable()) {
       renderThread.join();
     }
@@ -58,6 +67,8 @@ public:
     if (audioClient) { audioClient->Release(); audioClient = nullptr; }
     if (device) { device->Release(); device = nullptr; }
     if (mixFormat) { CoTaskMemFree(mixFormat); mixFormat = nullptr; }
+    if (audioEvent) { CloseHandle(audioEvent); audioEvent = nullptr; }
+    if (stopEvent) { CloseHandle(stopEvent); stopEvent = nullptr; }
     if (comInitialized) {
       CoUninitialize();
       comInitialized = false;
@@ -107,9 +118,16 @@ public:
       renderClient->ReleaseBuffer(framesToWrite, 0);
     };
 
+    pump();
     while (!stopRequested) {
-      pump();
-      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+      HANDLE waits[2] = { stopEvent, audioEvent };
+      const DWORD waitResult = WaitForMultipleObjects(2, waits, FALSE, INFINITE);
+      if (waitResult == WAIT_OBJECT_0) {
+        break;
+      }
+      if (waitResult == WAIT_OBJECT_0 + 1) {
+        pump();
+      }
     }
   }
 };
@@ -168,9 +186,12 @@ bool WASAPIBackend::open(const QAudioDevice& device, const QAudioFormat& format)
     impl_->mixFormatIsFloat = IsEqualGUID(ext->SubFormat, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
   }
 
+  // Request a 50 ms shared-mode buffer (2400 frames at 48 kHz).
+  // A larger buffer gives the render thread more headroom before an underflow
+  // occurs if the OS scheduler delays the poll loop.
   impl_->bufferDuration = static_cast<REFERENCE_TIME>(
-      (10000000LL * 480) / std::max(1, impl_->mixSampleRate));
-  hr = impl_->audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, impl_->bufferDuration,
+      (10000000LL * 2400) / std::max(1, impl_->mixSampleRate));
+  hr = impl_->audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, impl_->bufferDuration,
                                       0, impl_->mixFormat, nullptr);
   if (FAILED(hr)) {
     impl_->releaseCom();
@@ -186,6 +207,19 @@ bool WASAPIBackend::open(const QAudioDevice& device, const QAudioFormat& format)
   hr = impl_->audioClient->GetService(__uuidof(IAudioRenderClient),
                                       reinterpret_cast<void**>(&impl_->renderClient));
   if (FAILED(hr) || !impl_->renderClient) {
+    impl_->releaseCom();
+    return false;
+  }
+
+  impl_->audioEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+  impl_->stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+  if (!impl_->audioEvent || !impl_->stopEvent) {
+    impl_->releaseCom();
+    return false;
+  }
+
+  hr = impl_->audioClient->SetEventHandle(impl_->audioEvent);
+  if (FAILED(hr)) {
     impl_->releaseCom();
     return false;
   }

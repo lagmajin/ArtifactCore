@@ -1,5 +1,6 @@
 module;
 #include <windows.h>
+#include <mmsystem.h>
 
 module Platform.Power;
 
@@ -16,5 +17,13 @@ namespace ArtifactCore
             // 標準状態に戻す
             SetThreadExecutionState(ES_CONTINUOUS);
         }
+    }
+
+    void SystemPower::playNotificationSound()
+    {
+#ifdef _WIN32
+        // Windows 標準の通知音を非同期で鳴らす
+        PlaySoundW(L"SystemAsterisk", nullptr, SND_ALIAS | SND_ASYNC | SND_NODEFAULT);
+#endif
     }
 }

@@ -122,6 +122,64 @@ export namespace ArtifactCore {
   }
  };
 
+ // Back補間 (Overshoot)
+ struct BackOut {
+  template<typename T>
+  T operator()(const T& start, const T& end, float alpha) const {
+   const float s = 1.70158f;
+   alpha = alpha - 1.0f;
+   alpha = (alpha * alpha * ((s + 1.0f) * alpha + s) + 1.0f);
+   return start + (end - start) * alpha;
+  }
+ };
+
+ // Bounce補間
+ struct BounceOut {
+  template<typename T>
+  T operator()(const T& start, const T& end, float alpha) const {
+   if (alpha < (1.0f / 2.75f)) {
+    alpha = (7.5625f * alpha * alpha);
+   } else if (alpha < (2.0f / 2.75f)) {
+    alpha -= (1.5f / 2.75f);
+    alpha = (7.5625f * alpha * alpha + 0.75f);
+   } else if (alpha < (2.5f / 2.75f)) {
+    alpha -= (2.25f / 2.75f);
+    alpha = (7.5625f * alpha * alpha + 0.9375f);
+   } else {
+    alpha -= (2.625f / 2.75f);
+    alpha = (7.5625f * alpha * alpha + 0.984375f);
+   }
+   return start + (end - start) * alpha;
+  }
+ };
+
+ // Elastic補間 (Rubber band)
+ struct ElasticOut {
+  template<typename T>
+  T operator()(const T& start, const T& end, float alpha) const {
+   if (alpha <= 0.0f) return start;
+   if (alpha >= 1.0f) return end;
+   const float p = 0.3f;
+   const float s = p / 4.0f;
+   float val = (std::pow(2.0f, -10.0f * alpha) * std::sin((alpha - s) * (2.0f * 3.14159265f) / p) + 1.0f);
+   return start + (end - start) * val;
+  }
+ };
+
+ export template<typename T>
+ T interpolate(const T& start, const T& end, float alpha, InterpolationType type) {
+  switch (type) {
+   case InterpolationType::Constant: return (alpha < 1.0f) ? start : end;
+   case InterpolationType::EaseIn: return EaseIn()(start, end, alpha);
+   case InterpolationType::BackOut: return BackOut()(start, end, alpha);
+   case InterpolationType::BounceOut: return BounceOut()(start, end, alpha);
+   case InterpolationType::ElasticOut: return ElasticOut()(start, end, alpha);
+   case InterpolationType::Linear:
+   default:
+    return start + (end - start) * alpha;
+  }
+ }
+
 
 
 

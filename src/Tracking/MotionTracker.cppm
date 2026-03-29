@@ -159,6 +159,13 @@ void TrackResult::normalize() {
         endTime = 0.0;
         isValid = false;
     }
+
+    std::sort(failureFrames.begin(), failureFrames.end());
+    failureFrames.erase(std::unique(failureFrames.begin(), failureFrames.end(),
+                                    [](double lhs, double rhs) {
+                                        return std::abs(lhs - rhs) < 1e-9;
+                                    }),
+                        failureFrames.end());
 }
 
 void TrackResult::setFrame(TrackFrame frame) {
@@ -173,6 +180,17 @@ void TrackResult::setFrame(TrackFrame frame) {
         frames.insert(it, std::move(frame));
     }
     normalize();
+}
+
+void TrackResult::addFailureFrame(double time) {
+    auto it = std::lower_bound(failureFrames.begin(), failureFrames.end(), time);
+    if (it == failureFrames.end() || std::abs(*it - time) >= 1e-9) {
+        failureFrames.insert(it, time);
+    }
+}
+
+void TrackResult::clearFailureFrames() {
+    failureFrames.clear();
 }
 
 size_t TrackResult::frameCount() const {
@@ -733,9 +751,13 @@ bool MotionTracker::loadFromFile(const QString& filePath) {
 
 QString MotionTracker::toJson() const {
     QJsonObject root;
+    root["schemaVersion"] = impl_->result.schemaVersion;
     root["id"] = impl_->id;
     root["name"] = impl_->name;
     root["trackerType"] = static_cast<int>(impl_->type);
+    root["sourceName"] = impl_->result.sourceName.isEmpty() ? impl_->name : impl_->result.sourceName;
+    root["sourcePath"] = impl_->result.sourcePath;
+    root["sourceType"] = impl_->result.sourceType;
     QJsonObject settingsObj;
     settingsObj["method"] = static_cast<int>(impl_->settings.method);
     settingsObj["quality"] = static_cast<int>(impl_->settings.quality);
@@ -774,9 +796,23 @@ QString MotionTracker::toJson() const {
         regionObj["y"] = region.bounds.y();
         regionObj["w"] = region.bounds.width();
         regionObj["h"] = region.bounds.height();
+        QJsonArray regionPointsArray;
+        for (const auto& p : region.points) {
+            QJsonObject pointObj;
+            pointObj["x"] = p.x();
+            pointObj["y"] = p.y();
+            regionPointsArray.append(pointObj);
+        }
+        regionObj["points"] = regionPointsArray;
         regionsArray.append(regionObj);
     }
     root["trackRegions"] = regionsArray;
+
+    QJsonArray failureFramesArray;
+    for (double time : impl_->result.failureFrames) {
+        failureFramesArray.append(time);
+    }
+    root["failureFrames"] = failureFramesArray;
     
     QJsonArray framesArray;
     for (const auto& frame : impl_->result.frames) {
@@ -790,6 +826,8 @@ QString MotionTracker::toJson() const {
             pointObj["id"] = p.id;
             pointObj["x"] = p.position.x();
             pointObj["y"] = p.position.y();
+            pointObj["vx"] = p.velocity.x();
+            pointObj["vy"] = p.velocity.y();
             pointObj["confidence"] = p.confidence;
             pointObj["active"] = p.active;
             pointsArray.append(pointObj);
@@ -807,9 +845,15 @@ bool MotionTracker::fromJson(const QString& json) {
     if (doc.isNull()) return false;
     
     QJsonObject root = doc.object();
+    const int schemaVersion = root["schemaVersion"].toInt(1);
     impl_->id = root["id"].toInt();
     impl_->name = root["name"].toString();
     impl_->type = static_cast<TrackerType>(root["trackerType"].toInt(static_cast<int>(TrackerType::Point)));
+    impl_->result = TrackResult();
+    impl_->result.schemaVersion = schemaVersion;
+    impl_->result.sourceName = root["sourceName"].toString(impl_->name);
+    impl_->result.sourcePath = root["sourcePath"].toString();
+    impl_->result.sourceType = root["sourceType"].toString();
 
     if (root.contains("settings") && root["settings"].isObject()) {
         const QJsonObject settingsObj = root["settings"].toObject();
@@ -851,11 +895,15 @@ bool MotionTracker::fromJson(const QString& json) {
                                    regionObj["y"].toDouble(),
                                    regionObj["w"].toDouble(),
                                    regionObj["h"].toDouble());
+            if (regionObj.contains("points") && regionObj["points"].isArray()) {
+                for (const auto& pointVal : regionObj["points"].toArray()) {
+                    const QJsonObject pointObj = pointVal.toObject();
+                    region.points.push_back(QPointF(pointObj["x"].toDouble(), pointObj["y"].toDouble()));
+                }
+            }
             impl_->regions.push_back(region);
         }
     }
-    
-    impl_->result = TrackResult();
     impl_->result.trackerId = impl_->id;
     impl_->result.name = impl_->name;
     
@@ -872,13 +920,20 @@ bool MotionTracker::fromJson(const QString& json) {
             TrackPoint p;
             p.id = pointObj["id"].toInt();
             p.position = QPointF(pointObj["x"].toDouble(), pointObj["y"].toDouble());
+            p.velocity = QPointF(pointObj["vx"].toDouble(), pointObj["vy"].toDouble());
             p.confidence = pointObj["confidence"].toDouble();
             p.active = pointObj["active"].toBool();
             frame.points.push_back(p);
         }
         impl_->result.frames.push_back(frame);
     }
-    
+
+    if (root.contains("failureFrames") && root["failureFrames"].isArray()) {
+        for (const auto& failureVal : root["failureFrames"].toArray()) {
+            impl_->result.addFailureFrame(failureVal.toDouble());
+        }
+    }
+
     impl_->result.normalize();
     return true;
 }

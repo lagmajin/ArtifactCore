@@ -29,6 +29,7 @@ export namespace ArtifactCore {
    */
   bool openDevice(const QString& deviceName = "");
   void closeDevice();
+  bool isDeviceOpen() const;
 
   /**
    * @brief Start/Stop audio processing playback

@@ -96,9 +96,14 @@ struct TrackFrame {
 
 /// トラッキング結果
 struct TrackResult {
+    int schemaVersion = 1;              ///< 結果スキーマ版本
     int trackerId = 0;                  ///< トラッカーID
     QString name;                       ///< 名前
+    QString sourceName;                 ///< 元ソース名
+    QString sourcePath;                 ///< 元ソースパス
+    QString sourceType;                 ///< 元ソース種別
     std::vector<TrackFrame> frames;     ///< フレームごとのデータ
+    std::vector<double> failureFrames;  ///< 失敗したフレーム時刻
     double startTime = 0.0;             ///< 開始時間
     double endTime = 0.0;               ///< 終了時間
     bool isValid = false;               ///< 有効かどうか
@@ -117,6 +122,12 @@ struct TrackResult {
     
     /// フレームを追加または置換する
     void setFrame(TrackFrame frame);
+
+    /// 失敗フレームを記録する
+    void addFailureFrame(double time);
+
+    /// 失敗フレーム記録を消去する
+    void clearFailureFrames();
     
     /// フレーム数取得
     size_t frameCount() const;

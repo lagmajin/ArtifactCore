@@ -56,21 +56,20 @@ public:
     
     LocalizedText briefDescription() const override {
         return loc(
-            "A layer that displays animated text with customizable fonts and styling.",
-            "カスタマイズ可能なフォントとスタイリングでアニメーションテキストを表示するレイヤー。",
-            "显示具有可自定义字体和样式的动画文本的图层。"
+            "A layer that displays animated text with customizable fonts, wrapping, and paragraph styling.",
+            "カスタマイズ可能なフォント、折り返し、段落スタイルでアニメーションテキストを表示するレイヤー。",
+            "显示具有可自定义字体、换行和段落样式的动画文本图层。"
         );
     }
     
     LocalizedText detailedDescription() const override {
         return loc(
-            "ArtifactTextLayer provides text rendering with support for multiple fonts, sizes, colors, "
-            "and text animations. Text can be animated per-character or per-word with various effects "
-            "like typewriter, fade, and scale.",
-            "ArtifactTextLayerは、複数のフォント、サイズ、色、テキストアニメーションをサポートした"
+            "ArtifactTextLayer provides text rendering with support for font styling, wrapping, box sizing, "
+            "and text animations. Text can be animated per-character or per-word with effects like typewriter, fade, and scale.",
+            "ArtifactTextLayerは、フォント装飾、折り返し、ボックスサイズ指定、テキストアニメーションをサポートした"
             "テキストレンダリングを提供します。テキストは文字ごとまたは単語ごとにアニメーションでき、"
             "タイプライター、フェード、スケールなどの様々なエフェクトがあります。",
-            "ArtifactTextLayer提供支持多种字体、大小、颜色和文本动画的文本渲染。"
+            "ArtifactTextLayer提供支持字体装饰、换行、框大小指定和文本动画的文本渲染。"
             "文本可以按字符或按词动画，具有打字机、淡入淡出和缩放等各种效果。"
         );
     }
@@ -80,10 +79,17 @@ public:
             {"text", loc("Text content to display", "表示するテキスト内容", "要显示的文本内容"), "QString"},
             {"fontFamily", loc("Font family name", "フォントファミリー名", "字体族名称"), "QString", "Arial"},
             {"fontSize", loc("Font size in points", "フォントサイズ（ポイント）", "字体大小（点）"), "float", "72.0"},
-            {"fontColor", loc("Text color", "テキスト色", "文本颜色"), "QColor", "white"},
+            {"fillColor", loc("Text color", "テキスト色", "文本颜色"), "QColor", "white"},
             {"alignment", loc("Text alignment", "テキスト配置", "文本对齐"), "Qt::Alignment", "AlignLeft"},
             {"tracking", loc("Character spacing", "文字間隔", "字符间距"), "float", "0.0"},
             {"leading", loc("Line spacing", "行間隔", "行间距"), "float", "1.0"},
+            {"underline", loc("Underline text", "テキストに下線を引く", "文本下划线"), "bool", "false"},
+            {"strikethrough", loc("Strike through text", "テキストに取り消し線を引く", "文本删除线"), "bool", "false"},
+            {"wrapMode", loc("Text wrapping mode", "テキスト折り返しモード", "文本换行模式"), "TextWrapMode", "WordWrap"},
+            {"maxWidth", loc("Maximum text box width", "テキストボックスの最大幅", "文本框最大宽度"), "float", "0.0"},
+            {"boxHeight", loc("Text box height", "テキストボックスの高さ", "文本框高度"), "float", "0.0"},
+            {"verticalAlignment", loc("Vertical alignment inside the box", "ボックス内の垂直配置", "框内垂直对齐"), "TextVerticalAlignment", "Top"},
+            {"paragraphSpacing", loc("Spacing between paragraphs", "段落間スペース", "段落间距"), "float", "0.0"},
             {"animatePerCharacter", loc("Animate each character separately", "各文字を個別にアニメーション", "单独动画每个字符"), "bool", "false"}
         };
     }

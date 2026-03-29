@@ -22,6 +22,13 @@ export enum class TextVerticalAlignment {
  Bottom = 2
 };
 
+export enum class TextWrapMode {
+ NoWrap = 0,
+ WordWrap = 1,
+ WrapAnywhere = 2,
+ ManualWrap = 3
+};
+
 export struct TextStyle {
  UniString fontFamily = UniString(QStringLiteral("Arial"));
  float fontSize = 60.0f;
@@ -30,6 +37,8 @@ export struct TextStyle {
  bool bold = false;
  bool italic = false;
  bool allCaps = false;
+ bool underline = false;
+ bool strikethrough = false;
  FloatRGBA fillColor = FloatRGBA(1.0f, 1.0f, 1.0f, 1.0f);
 
  // Stroke
@@ -47,11 +56,14 @@ export struct TextStyle {
  bool operator==(const TextStyle& other) const = default;
  };
 
- export struct ParagraphStyle {
+export struct ParagraphStyle {
  TextHorizontalAlignment horizontalAlignment = TextHorizontalAlignment::Left;
  TextVerticalAlignment verticalAlignment = TextVerticalAlignment::Top;
+ TextWrapMode wrapMode = TextWrapMode::WordWrap;
+ float boxWidth = 0.0f;
+ float boxHeight = 0.0f;
  float paragraphSpacing = 0.0f;
 
  bool operator==(const ParagraphStyle& other) const = default;
- };
+};
 }

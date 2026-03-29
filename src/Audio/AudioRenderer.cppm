@@ -26,12 +26,18 @@ struct AudioRenderer::Impl {
     float masterVolume = 1.0f; // Linear gain multiplier
     bool isMute = false;
     bool active = false;
+    bool deviceOpen = false;
     QString deviceName;
 
     std::unique_ptr<AudioBackend> backend;
     std::unique_ptr<AudioRingBuffer> ringBuffer;
     std::atomic<size_t> underflowCount{0};
     std::atomic<size_t> overflowCount{0};
+    std::atomic<size_t> partialUnderflowCount{0};
+    std::atomic<size_t> openAttemptCount{0};
+    std::atomic<size_t> startAttemptCount{0};
+    std::atomic<size_t> stopCount{0};
+    std::atomic<size_t> closeCount{0};
     
     // We'll use 48kHz Stereo as our internal processing format for the renderer
     int sampleRate = 48000;
@@ -60,6 +66,14 @@ struct AudioRenderer::Impl {
 
         std::memset(buffer, 0, frames * channelsRequested * sizeof(float));
         if (success && availableFrames > 0) {
+            if (availableFrames < frames) {
+                const size_t count = ++partialUnderflowCount;
+                if (count <= 16 || (count % 50) == 0) {
+                    qWarning() << "[AudioRenderer] partial underflow"
+                               << "requestedFrames=" << frames
+                               << "availableFrames=" << availableFrames;
+                }
+            }
             for (int i = 0; i < availableFrames; ++i) {
                 for (int ch = 0; ch < channelsRequested; ++ch) {
                     float sample = 0.0f;
@@ -71,6 +85,14 @@ struct AudioRenderer::Impl {
 
                     sample *= masterVolume;
                     sample = std::clamp(sample, -1.0f, 1.0f);
+
+                    // Fade out during partial underflow to avoid click noise
+                    if (availableFrames < frames) {
+                        const float fadeGain = static_cast<float>(availableFrames - i)
+                                             / static_cast<float>(availableFrames);
+                        sample *= fadeGain;
+                    }
+
                     buffer[i * channelsRequested + ch] = sample;
                 }
             }
@@ -95,8 +117,23 @@ AudioRenderer::~AudioRenderer() {
 bool AudioRenderer::openDevice(const QString& deviceName) {
     if (!impl_) return false;
 
-    impl_->deviceName = deviceName;
-    
+    if (impl_->deviceOpen && (deviceName.isEmpty() || deviceName == impl_->deviceName)) {
+        return true;
+    }
+    if (impl_->deviceOpen) {
+        closeDevice();
+    }
+
+    const size_t attempt = ++impl_->openAttemptCount;
+    if (attempt <= 12 || (attempt % 50) == 0) {
+        qDebug() << "[AudioRenderer] openDevice"
+                 << "attempt=" << attempt
+                 << "active=" << impl_->active
+                 << "deviceOpen=" << impl_->deviceOpen
+                 << "requestedDevice=" << deviceName
+                 << "backend=" << (impl_->backend ? impl_->backend->backendName() : QStringLiteral("<null>"));
+    }
+
     QAudioDevice device = QMediaDevices::defaultAudioOutput();
     if (!deviceName.isEmpty()) {
         for (const auto& dev : QMediaDevices::audioOutputs()) {
@@ -131,15 +168,36 @@ bool AudioRenderer::openDevice(const QString& deviceName) {
             impl_->sampleRate = current.sampleRate();
             impl_->channels = current.channelCount();
         }
+        impl_->deviceOpen = true;
+        impl_->deviceName = device.description();
+        qDebug() << "[AudioRenderer] openDevice success"
+                 << "attempt=" << attempt
+                 << "backend=" << impl_->backend->backendName()
+                 << "device=" << impl_->deviceName
+                 << "sampleRate=" << impl_->sampleRate
+                 << "channels=" << impl_->channels;
+    } else {
+        impl_->deviceOpen = false;
+        qWarning() << "[AudioRenderer] openDevice failed"
+                   << "attempt=" << attempt
+                   << "requestedDevice=" << deviceName;
     }
     return opened;
 }
 
 void AudioRenderer::closeDevice() {
     if (impl_) {
+        const size_t count = ++impl_->closeCount;
+        qDebug() << "[AudioRenderer] closeDevice"
+                 << "count=" << count
+                 << "active=" << impl_->active
+                 << "deviceOpen=" << impl_->deviceOpen
+                 << "backend=" << (impl_->backend ? impl_->backend->backendName() : QStringLiteral("<null>"))
+                 << "bufferedFrames=" << bufferedFrames();
         impl_->active = false;
         impl_->backend->stop();
         impl_->backend->close();
+        impl_->deviceOpen = false;
         impl_->deviceName.clear();
         if (impl_->ringBuffer) {
             impl_->ringBuffer->clear();
@@ -147,8 +205,22 @@ void AudioRenderer::closeDevice() {
     }
 }
 
+bool AudioRenderer::isDeviceOpen() const {
+    return impl_ ? impl_->deviceOpen : false;
+}
+
 void AudioRenderer::start() {
     if (impl_ && !impl_->active) {
+        if (!impl_->deviceOpen) {
+            qWarning() << "[AudioRenderer] start requested without open device";
+            return;
+        }
+        const size_t attempt = ++impl_->startAttemptCount;
+        qDebug() << "[AudioRenderer] start"
+                 << "attempt=" << attempt
+                 << "deviceOpen=" << impl_->deviceOpen
+                 << "bufferedFrames=" << bufferedFrames()
+                 << "backend=" << (impl_->backend ? impl_->backend->backendName() : QStringLiteral("<null>"));
         impl_->active = true;
         impl_->backend->start([this](float* b, int f, int c) {
             impl_->audioCallback(b, f, c);
@@ -157,12 +229,28 @@ void AudioRenderer::start() {
             impl_->active = false;
             impl_->backend->stop();
             impl_->backend->close();
+            impl_->deviceOpen = false;
+            qWarning() << "[AudioRenderer] start failed"
+                       << "attempt=" << attempt
+                       << "bufferedFrames=" << bufferedFrames();
+        } else {
+            qDebug() << "[AudioRenderer] start success"
+                     << "attempt=" << attempt
+                     << "backend=" << impl_->backend->backendName()
+                     << "bufferedFrames=" << bufferedFrames();
         }
     }
 }
 
 void AudioRenderer::stop() {
     if (impl_ && impl_->active) {
+        const size_t count = ++impl_->stopCount;
+        qDebug() << "[AudioRenderer] stop"
+                 << "count=" << count
+                 << "bufferedFrames=" << bufferedFrames()
+                 << "underflows=" << impl_->underflowCount.load()
+                 << "partialUnderflows=" << impl_->partialUnderflowCount.load()
+                 << "overflows=" << impl_->overflowCount.load();
         impl_->active = false;
         impl_->backend->stop();
         if (impl_->ringBuffer) {
