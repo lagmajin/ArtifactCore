@@ -71,10 +71,19 @@ struct KeyFrameT {
  InterpolationType interpolation = InterpolationType::Linear;
 };
 
+// 物理演算用のランタイム状態
+export struct SpringState {
+    float velocity = 0.0f;
+    float stiffness = 120.0f;   // k
+    float damping = 12.0f;      // c
+    float mass = 1.0f;          // m
+    float currentValue = 0.0f;  // 現在のシミュレーション位置
+    bool initialized = false;
+};
 
- // =========================
- // AnimatableValueT<T>
- // =========================
+// =========================
+// AnimatableValueT<T>
+// =========================
  template<typename T>
  class AnimatableValueT {
  private:
@@ -102,7 +111,7 @@ struct KeyFrameT {
    if (frame <= keyframes_.front().frame) return keyframes_.front().value;
    if (frame >= keyframes_.back().frame) return keyframes_.back().value;
 
-   // 2. Temporal Coherence Optimization (O(1) path for sequential playback)
+   // 2. Temporal Coherence Optimization
    size_t n = keyframes_.size();
    if (lastCachedIndex_ < n - 1) {
        const auto& kfPrev = keyframes_[lastCachedIndex_];
@@ -110,29 +119,44 @@ struct KeyFrameT {
 
        if (frame >= kfPrev.frame && frame < kfNext.frame) {
            float t = calculateT(kfPrev.frame, kfNext.frame, frame);
-           return mix(kfPrev.value, kfNext.value, t);
+           return interpolate(kfPrev.value, kfNext.value, t, kfPrev.interpolation);
        }
-       // 連続再生で次の区間に進んだ場合
        if (lastCachedIndex_ + 2 < n && frame >= kfNext.frame && frame < keyframes_[lastCachedIndex_ + 2].frame) {
            lastCachedIndex_++;
            const auto& kfNext2 = keyframes_[lastCachedIndex_ + 1];
            float t = calculateT(kfNext.frame, kfNext2.frame, frame);
-           return mix(kfNext.value, kfNext2.value, t); // Fixed: should be value, not frame
+           return interpolate(kfNext.value, kfNext2.value, t, kfNext.interpolation);
        }
    }
 
-   // 3. Fallback: Binary Search (O(log N))
+   // 3. Fallback: Binary Search
    auto it = std::lower_bound(keyframes_.begin(), keyframes_.end(), frame,
  [](const auto& kf, const auto& f) { return kf.frame < f; });
 
    auto next = it;
    auto prev = std::prev(it);
-
-   // キャッシュの更新
    lastCachedIndex_ = std::distance(keyframes_.begin(), prev);
 
-   float t = calculateT(prev->frame, next->frame, frame); // 0.0 ~ 1.0 ̊
-   return mix(prev->value, next->value, t); // `
+   float t = calculateT(prev->frame, next->frame, frame);
+   return interpolate(prev->value, next->value, t, prev->interpolation);
+  }
+
+  // 物理ベースの評価 (Spring-Damper)
+  float atSpring(const FramePosition& frame, float dt, SpringState& state) const {
+      float target = static_cast<float>(at(frame));
+      if (!state.initialized) {
+          state.currentValue = target;
+          state.velocity = 0.0f;
+          state.initialized = true;
+          return target;
+      }
+
+      // Semi-implicit Euler integration
+      float force = -state.stiffness * (state.currentValue - target) - state.damping * state.velocity;
+      state.velocity += (force / state.mass) * dt;
+      state.currentValue += state.velocity * dt;
+
+      return state.currentValue;
   }
 
   // L[t[ǉ

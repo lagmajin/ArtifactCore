@@ -231,6 +231,7 @@ if(ARTIFACT_FRONTEND_MSVC)
         mfreadwrite
         mfuuid
         mf
+        winmm
     )
     target_compile_definitions(ArtifactCore PRIVATE 
         PLATFORM_WIN32

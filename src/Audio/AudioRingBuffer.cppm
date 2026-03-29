@@ -1,127 +1,143 @@
 module;
 #include <QList>
-#include <QMutex>
-#include <QMutexLocker>
 #include <vector>
 #include <algorithm>
+#include <atomic>
+#include <cstdint>
+#include <cstring>
 
 module Audio.RingBuffer;
 
 import Audio.Segment;
 
 namespace ArtifactCore {
+    // Single-producer / single-consumer (SPSC) lock-free ring buffer.
+    // Producer = PlaybackEngine thread  (write, clear, available)
+    // Consumer = WASAPI render thread   (read)
     class AudioRingBuffer::Impl {
-    private:
         std::vector<std::vector<float>> channels_;
-        size_t capacity_ = 48000; 
-        size_t readIndex_ = 0;
-        size_t writeIndex_ = 0;
-        size_t size_ = 0;
+        size_t capacity_ = 48000 * 8;
         int channelCount_ = 2;
-        mutable QMutex mutex_;
+
+        // writeCount_ is exclusively written by the producer.
+        // readCount_ is exclusively written by the consumer.
+        // Placing them on separate cache lines prevents false sharing.
+        alignas(64) std::atomic<uint64_t> writeCount_{0};
+        alignas(64) std::atomic<uint64_t> readCount_{0};
+
+        // The producer increments clearGeneration_ to tell the consumer that
+        // all previously buffered frames should be discarded.
+        std::atomic<uint32_t> clearGeneration_{0};
+        uint32_t lastClearGen_ = 0; // consumer-side; no atomic needed
 
     public:
-        Impl(size_t capacity = 48000) : capacity_(capacity) {
+        explicit Impl(size_t capacity = 48000 * 8) : capacity_(capacity) {
             channels_.resize(channelCount_);
             for (auto& ch : channels_) ch.resize(capacity_);
         }
 
+        // Must only be called while audio output is stopped.
         void setCapacity(size_t capacity) {
-            QMutexLocker locker(&mutex_);
             capacity_ = capacity;
             for (auto& ch : channels_) ch.resize(capacity_);
-            clearInternal();
+            writeCount_.store(0, std::memory_order_relaxed);
+            readCount_.store(0, std::memory_order_relaxed);
+            clearGeneration_.fetch_add(1, std::memory_order_release);
         }
 
-        size_t capacity() const {
-            return capacity_;
+        size_t capacity() const { return capacity_; }
+
+        size_t available() const {
+            const uint64_t w = writeCount_.load(std::memory_order_acquire);
+            const uint64_t r = readCount_.load(std::memory_order_acquire);
+            return static_cast<size_t>(w - r);
+        }
+
+        size_t freeSpace() const {
+            return capacity_ - available();
         }
 
         bool write(const AudioSegment& data) {
-            QMutexLocker locker(&mutex_);
-            size_t frames = data.frameCount();
-            if (frames > freeSpaceInternal()) {
-                return false; 
+            const size_t frames = data.frameCount();
+            if (frames == 0) return true;
+            const uint64_t r = readCount_.load(std::memory_order_acquire);
+            const uint64_t w = writeCount_.load(std::memory_order_relaxed);
+            if (static_cast<size_t>(w - r) + frames > capacity_) {
+                return false;
             }
 
-            // Ensure our internal storage matches the channel count of the incoming data, or at least common ground (Stereo)
-            // For now, we stick to Stereo internal buffer if initialized so.
-            
-            for (int i = 0; i < frames; ++i) {
-                for (int ch = 0; ch < channelCount_; ++ch) {
-                    float sample = 0.0f;
-                    if (data.channelCount() > ch) {
-                        sample = data.channelData[ch][i];
-                    } else if (data.channelCount() == 1) {
-                        // Upmix mono to all channels
-                        sample = data.channelData[0][i];
-                    }
-                    channels_[ch][writeIndex_] = sample;
+            for (int ch = 0; ch < channelCount_; ++ch) {
+                const float* src = nullptr;
+                if (data.channelCount() > ch) {
+                    src = data.channelData[ch].data();
+                } else if (data.channelCount() == 1) {
+                    src = data.channelData[0].data();
                 }
-                writeIndex_ = (writeIndex_ + 1) % capacity_;
+
+                const size_t wIdx = static_cast<size_t>(w) % capacity_;
+                const size_t firstChunk = std::min(frames, capacity_ - wIdx);
+
+                if (src) {
+                    std::memcpy(&channels_[ch][wIdx], src, firstChunk * sizeof(float));
+                    if (firstChunk < frames) {
+                        std::memcpy(&channels_[ch][0], src + firstChunk, (frames - firstChunk) * sizeof(float));
+                    }
+                } else {
+                    std::memset(&channels_[ch][wIdx], 0, firstChunk * sizeof(float));
+                    if (firstChunk < frames) {
+                        std::memset(&channels_[ch][0], 0, (frames - firstChunk) * sizeof(float));
+                    }
+                }
             }
-            size_ += frames;
+
+            writeCount_.store(w + frames, std::memory_order_release);
             return true;
         }
 
         bool read(AudioSegment& data, size_t frames) {
-            QMutexLocker locker(&mutex_);
-            if (size_ == 0) {
+            // Check whether the producer has requested a buffer clear.
+            const uint32_t gen = clearGeneration_.load(std::memory_order_acquire);
+            if (gen != lastClearGen_) {
+                // Advance readCount to writeCount so the buffer appears empty.
+                readCount_.store(writeCount_.load(std::memory_order_acquire),
+                                 std::memory_order_release);
+                lastClearGen_ = gen;
                 data.clear();
                 return false;
             }
 
-            const size_t readableFrames = std::min(frames, size_);
+            const uint64_t r = readCount_.load(std::memory_order_relaxed);
+            const uint64_t w = writeCount_.load(std::memory_order_acquire);
+            const size_t avail = static_cast<size_t>(w - r);
+            if (avail == 0) {
+                data.clear();
+                return false;
+            }
 
+            const size_t readFrames = std::min(frames, avail);
             data.channelData.resize(channelCount_);
             for (int ch = 0; ch < channelCount_; ++ch) {
-                data.channelData[ch].resize(readableFrames);
-                size_t tempReadIdx = readIndex_;
-                for (size_t i = 0; i < readableFrames; ++i) {
-                    data.channelData[ch][i] = channels_[ch][tempReadIdx];
-                    tempReadIdx = (tempReadIdx + 1) % capacity_;
+                data.channelData[ch].resize(readFrames);
+                const size_t rIdx = static_cast<size_t>(r) % capacity_;
+                const size_t firstChunk = std::min(readFrames, capacity_ - rIdx);
+
+                std::memcpy(data.channelData[ch].data(), &channels_[ch][rIdx], firstChunk * sizeof(float));
+                if (firstChunk < readFrames) {
+                    std::memcpy(data.channelData[ch].data() + firstChunk, &channels_[ch][0], (readFrames - firstChunk) * sizeof(float));
                 }
             }
-            
-            readIndex_ = (readIndex_ + readableFrames) % capacity_;
-            size_ -= readableFrames;
-            return readableFrames > 0;
+            readCount_.store(r + readFrames, std::memory_order_release);
+            return true;
         }
 
-        size_t available() const {
-            QMutexLocker locker(&mutex_);
-            return size_;
-        }
-
-        size_t freeSpaceInternal() const {
-            return capacity_ - size_;
-        }
-
-        size_t freeSpace() const {
-            QMutexLocker locker(&mutex_);
-            return freeSpaceInternal();
-        }
-
-        void clearInternal() {
-            readIndex_ = 0;
-            writeIndex_ = 0;
-            size_ = 0;
-        }
-
+        // Called by the producer to discard all buffered audio.
+        // The consumer will detect the generation change on its next read().
         void clear() {
-            QMutexLocker locker(&mutex_);
-            clearInternal();
+            clearGeneration_.fetch_add(1, std::memory_order_release);
         }
 
-        bool isEmpty() const {
-            QMutexLocker locker(&mutex_);
-            return size_ == 0;
-        }
-
-        bool isFull() const {
-            QMutexLocker locker(&mutex_);
-            return size_ == capacity_;
-        }
+        bool isEmpty() const { return available() == 0; }
+        bool isFull() const { return available() >= capacity_; }
     };
 
     AudioRingBuffer::AudioRingBuffer() : impl_(new Impl()) {}

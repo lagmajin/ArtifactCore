@@ -112,13 +112,20 @@ class MediaPlaybackController::Impl {
     if (backend_ == DecoderBackend::MediaFoundation && mfExtractor_ && mfExtractor_->isOpen()) {
       auto frame = mfExtractor_->extractFrameAtIndex(frameNumber);
       if (frame && frame->isValid()) {
+        lastError_.clear();
         QImage img(frame->data.data(), frame->width, frame->height, QImage::Format_RGBA8888);
         return img.copy();
       }
+      lastError_ = mfExtractor_->lastError();
       return QImage();
     }
 
     if (!mediaSource_ || !mediaSource_->isOpen() || !videoDecoder_ || fps_ <= 0.0 || videoStreamIndex_ < 0) {
+      lastError_ = QStringLiteral("FFmpeg direct decode invalid state: media=%1 decoder=%2 fps=%3 videoStreamIndex=%4")
+          .arg(mediaSource_ && mediaSource_->isOpen() ? QStringLiteral("open") : QStringLiteral("closed"))
+          .arg(videoDecoder_ ? QStringLiteral("ok") : QStringLiteral("null"))
+          .arg(fps_)
+          .arg(videoStreamIndex_);
       qWarning() << "[MediaPlayback] direct decode skipped: invalid state"
                  << "mediaSource_=" << (mediaSource_ && mediaSource_->isOpen() ? "open" : "closed")
                  << "videoDecoder_=" << (videoDecoder_ ? "ok" : "null")
@@ -133,12 +140,14 @@ class MediaPlaybackController::Impl {
 
     const int64_t targetMs = static_cast<int64_t>((frameNumber / fps_) * 1000.0);
     if (!prepareFfmpegSeekReset(targetMs, true)) {
+      lastError_ = QStringLiteral("FFmpeg direct decode seek failed at %1 ms").arg(targetMs);
       qWarning() << "[MediaPlayback] direct decode seek failed:" << targetMs << "ms";
       restoreFfmpegReaderState(wasPlaying);
       return QImage();
     }
 
     if (auto ctx = mediaSource_->getFormatContext(); !ctx) {
+      lastError_ = QStringLiteral("FFmpeg direct decode failed: no format context");
       qWarning() << "[MediaPlayback] direct decode failed: no format context";
       restoreFfmpegReaderState(wasPlaying);
       return QImage();
@@ -146,6 +155,7 @@ class MediaPlaybackController::Impl {
 
     AVPacket* pkt = av_packet_alloc();
     if (!pkt) {
+      lastError_ = QStringLiteral("FFmpeg direct decode failed: packet alloc");
       qWarning() << "[MediaPlayback] direct decode failed: packet alloc";
       restoreFfmpegReaderState(wasPlaying);
       return QImage();
@@ -170,6 +180,7 @@ class MediaPlaybackController::Impl {
         const int ret = videoDecoder_->sendPacket(pkt);
         av_packet_unref(pkt);
         if (ret < 0) {
+          lastError_ = QStringLiteral("FFmpeg direct decode sendPacket failed: %1").arg(ret);
           qWarning() << "[MediaPlayback] sendPacket failed:" << ret;
           break;
         }
@@ -206,12 +217,19 @@ class MediaPlaybackController::Impl {
     }
 
     if (result.isNull()) {
+      lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 videoStreamIndex=%5")
+          .arg(frameNumber)
+          .arg(targetMs)
+          .arg(targetPts)
+          .arg(fps_)
+          .arg(videoStreamIndex_);
       qWarning() << "[MediaPlayback] direct decode failed for frame" << frameNumber
                  << "targetMs=" << targetMs
                  << "targetPts=" << targetPts
                  << "fps=" << fps_
                  << "videoStreamIndex=" << videoStreamIndex_;
     } else {
+      lastError_.clear();
       qDebug() << "[MediaPlayback] direct decode ok"
                << "frame=" << frameNumber
                << "targetMs=" << targetMs
@@ -604,6 +622,7 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
 	   return;
 	  }
 
+	  std::lock_guard<std::mutex> lock(impl_->directDecodeMutex_);
 	  backendFor(impl_->backend_).seek(*impl_, timestampMs, mode);
 	 }
 
@@ -613,6 +632,7 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
 
  void MediaPlaybackController::seekToFrame(int64_t frameNumber) {
   if (!impl_) return;
+  std::lock_guard<std::mutex> lock(impl_->directDecodeMutex_);
   backendFor(impl_->backend_).seekToFrame(*impl_, frameNumber);
  }
 
@@ -775,12 +795,17 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
    return QByteArray();
   }
 
+	  std::lock_guard<std::mutex> lock(impl_->directDecodeMutex_);
 	  impl_->mediaReader_->start();
 	  AVPacket* pkt = nullptr;
 	  for (int attempt = 0; attempt < impl_->videoPacketWaitAttempts_ && !pkt; ++attempt) {
 	   pkt = impl_->mediaReader_->getNextPacket(StreamType::Audio);
 	   if (!pkt) {
-	    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	    if ((attempt & 0x3) == 3) {
+	     std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	    } else {
+	     std::this_thread::yield();
+	    }
 	   }
 	  }
 	  if (!pkt) return QByteArray();
@@ -1055,7 +1080,11 @@ QImage FFmpegPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& i
     for (int attempt = 0; attempt < impl.videoPacketWaitAttempts_ && !pkt; ++attempt) {
       pkt = impl.mediaReader_->getNextPacket(StreamType::Video);
       if (!pkt) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        if ((attempt & 0x3) == 3) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+          std::this_thread::yield();
+        }
       }
     }
     if (!pkt) {
@@ -1132,23 +1161,29 @@ QImage MFPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& impl)
 
 QImage MFPlaybackBackend::getVideoFrameAtFrameDirect(MediaPlaybackController::Impl& impl, int64_t frameNumber) {
   if (!impl.mfExtractor_ || !impl.mfExtractor_->isOpen()) {
+    impl.lastError_ = QStringLiteral("MF extractor is closed");
     qWarning() << "[MFBackend] frame extraction requested while extractor is closed"
                << "frame=" << frameNumber;
     return QImage();
   }
   if (impl.totalFrames_ > 0 && frameNumber >= impl.totalFrames_) {
+    impl.lastError_ = QStringLiteral("MF frame out of range: %1 / %2")
+        .arg(frameNumber)
+        .arg(impl.totalFrames_);
     qWarning() << "[MFBackend] frame out of range:" << frameNumber
                << "totalFrames=" << impl.totalFrames_;
     return QImage();
   }
   auto frame = impl.mfExtractor_->extractFrameAtIndex(frameNumber);
   if (!frame || !frame->isValid()) {
+    impl.lastError_ = impl.mfExtractor_->lastError();
     qWarning() << "[MFBackend] extractFrameAtIndex FAILED for frame" << frameNumber
                << "mfExtractor open=" << impl.mfExtractor_->isOpen()
                << "totalFrames=" << impl.mfExtractor_->getTotalFrames()
                << "reason=" << impl.mfExtractor_->lastError();
     return QImage();
   }
+  impl.lastError_.clear();
   QImage img(frame->data.data(), frame->width, frame->height, QImage::Format_RGBA8888);
   QImage result = img.copy();
   qDebug() << "[MFBackend] extractFrameAtIndex ok"

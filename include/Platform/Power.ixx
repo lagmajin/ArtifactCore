@@ -17,5 +17,10 @@ namespace ArtifactCore
          * @param prevent trueで抑制（スリープしない）、falseで抑制解除
          */
         static void setPreventSleep(bool prevent);
+
+        /**
+         * @brief OS 標準の通知音を鳴らす
+         */
+        static void playNotificationSound();
     };
 }
