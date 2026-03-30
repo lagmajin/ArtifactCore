@@ -112,6 +112,9 @@ public:
 
     // String representation for debugging
     std::string toString() const;
+
+    // Vector operations
+    ExpressionValue normalized() const;
 };
 
 }

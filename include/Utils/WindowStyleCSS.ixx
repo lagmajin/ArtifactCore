@@ -1,20 +1,21 @@
 ﻿module;
-#include <QString>
 #include "..\Define\DllExportMacro.hpp"
+#include <QString>
+
 export module Widgets.Utils.CSS;
 
-export namespace ArtifactCore
-{
+export namespace ArtifactCore {
 
- enum class DccStylePreset {
+enum class DccStylePreset {
   DefaultQt,
   MayaStyle,
   ModoStyle,
   _3dsMaxStyle,
   NukeStyle,
- };
+  HighContrast,
+};
 
- struct DccStyleTheme {
+struct DccStyleTheme {
   QString accentColor;
   QString textColor;
   QString backgroundColor;
@@ -24,74 +25,83 @@ export namespace ArtifactCore
   QString buttonColor;
   QString buttonHoverColor;
   QString buttonPressedColor;
- };
+};
 
- DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset)
- {
+DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
   DccStyleTheme theme{};
   switch (preset) {
   case DccStylePreset::MayaStyle:
-   theme.accentColor = "#88C0D0";
-   theme.textColor = "#C0C0C0";
-   theme.backgroundColor = "#323232";
-   theme.secondaryBackgroundColor = "#404040";
-   theme.selectionColor = "#4A6E8A";
-   theme.borderColor = "#505050";
-   theme.buttonColor = "#505050";
-   theme.buttonHoverColor = "#5A5A5A";
-   theme.buttonPressedColor = "#404040";
-   break;
+    theme.accentColor = "#88C0D0";
+    theme.textColor = "#C0C0C0";
+    theme.backgroundColor = "#323232";
+    theme.secondaryBackgroundColor = "#404040";
+    theme.selectionColor = "#4A6E8A";
+    theme.borderColor = "#505050";
+    theme.buttonColor = "#505050";
+    theme.buttonHoverColor = "#5A5A5A";
+    theme.buttonPressedColor = "#404040";
+    break;
   case DccStylePreset::ModoStyle:
-   theme.accentColor = "#F5933C";
-   theme.textColor = "#E0E0E0";
-   theme.backgroundColor = "#2E2E2E";
-   theme.secondaryBackgroundColor = "#3A3A3A";
-   theme.selectionColor = "#5C3E20";
-   theme.borderColor = "#454545";
-   theme.buttonColor = "#404040";
-   theme.buttonHoverColor = "#4A4A4A";
-   theme.buttonPressedColor = "#3A3A3A";
-   break;
+    theme.accentColor = "#F5933C";
+    theme.textColor = "#E0E0E0";
+    theme.backgroundColor = "#2E2E2E";
+    theme.secondaryBackgroundColor = "#3A3A3A";
+    theme.selectionColor = "#5C3E20";
+    theme.borderColor = "#454545";
+    theme.buttonColor = "#404040";
+    theme.buttonHoverColor = "#4A4A4A";
+    theme.buttonPressedColor = "#3A3A3A";
+    break;
   case DccStylePreset::_3dsMaxStyle:
-   theme.accentColor = "#FFC200";
-   theme.textColor = "#C0C0C0";
-   theme.backgroundColor = "#353535";
-   theme.secondaryBackgroundColor = "#454545";
-   theme.selectionColor = "#504020";
-   theme.borderColor = "#606060";
-   theme.buttonColor = "#505050";
-   theme.buttonHoverColor = "#555555";
-   theme.buttonPressedColor = "#454545";
-   break;
+    theme.accentColor = "#FFC200";
+    theme.textColor = "#C0C0C0";
+    theme.backgroundColor = "#353535";
+    theme.secondaryBackgroundColor = "#454545";
+    theme.selectionColor = "#504020";
+    theme.borderColor = "#606060";
+    theme.buttonColor = "#505050";
+    theme.buttonHoverColor = "#555555";
+    theme.buttonPressedColor = "#454545";
+    break;
   case DccStylePreset::NukeStyle:
-   theme.accentColor = "#52C0FE";
-   theme.textColor = "#C0C0C0";
-   theme.backgroundColor = "#2C2C2C";
-   theme.secondaryBackgroundColor = "#383838";
-   theme.selectionColor = "#407080";
-   theme.borderColor = "#404040";
-   theme.buttonColor = "#383838";
-   theme.buttonHoverColor = "#404040";
-   theme.buttonPressedColor = "#303030";
-   break;
+    theme.accentColor = "#52C0FE";
+    theme.textColor = "#C0C0C0";
+    theme.backgroundColor = "#2C2C2C";
+    theme.secondaryBackgroundColor = "#383838";
+    theme.selectionColor = "#407080";
+    theme.borderColor = "#404040";
+    theme.buttonColor = "#383838";
+    theme.buttonHoverColor = "#404040";
+    theme.buttonPressedColor = "#303030";
+    break;
+  case DccStylePreset::HighContrast:
+    theme.accentColor = "#0000FF";     // 高コントラストのアクセント（青）
+    theme.textColor = "#000000";       // 黒文字
+    theme.backgroundColor = "#FFFFFF"; // 白背景
+    theme.secondaryBackgroundColor = "#F0F0F0"; // 薄い灰色
+    theme.selectionColor = "#FFFF00";           // 黄色選択
+    theme.borderColor = "#000000";              // 黒境界線
+    theme.buttonColor = "#FFFFFF";              // 白ボタン
+    theme.buttonHoverColor = "#E0E0E0";         // 薄い灰色ホバー
+    theme.buttonPressedColor = "#C0C0C0";       // 灰色押下
+    break;
   case DccStylePreset::DefaultQt:
   default:
-   theme.accentColor = "#0078D7";
-   theme.textColor = "#333333";
-   theme.backgroundColor = "#F0F0F0";
-   theme.secondaryBackgroundColor = "#FFFFFF";
-   theme.selectionColor = "#B4D5FF";
-   theme.borderColor = "#CCCCCC";
-   theme.buttonColor = "#F0F0F0";
-   theme.buttonHoverColor = "#E0E0E0";
-   theme.buttonPressedColor = "#D0D0D0";
-   break;
+    theme.accentColor = "#0078D7";
+    theme.textColor = "#333333";
+    theme.backgroundColor = "#F0F0F0";
+    theme.secondaryBackgroundColor = "#FFFFFF";
+    theme.selectionColor = "#B4D5FF";
+    theme.borderColor = "#CCCCCC";
+    theme.buttonColor = "#F0F0F0";
+    theme.buttonHoverColor = "#E0E0E0";
+    theme.buttonPressedColor = "#D0D0D0";
+    break;
   }
   return theme;
- }
+}
 
- QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme& theme)
- {
+QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme) {
   return QString(R"(
         * {
             font-family: "Segoe UI", "Meiryo UI", sans-serif;
@@ -260,21 +270,15 @@ export namespace ArtifactCore
         }
         QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
         QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: none; }
-    )").arg(
-   theme.accentColor,
-   theme.textColor,
-   theme.backgroundColor,
-   theme.secondaryBackgroundColor,
-   theme.selectionColor,
-   theme.borderColor,
-   theme.buttonColor,
-   theme.buttonHoverColor,
-   theme.buttonPressedColor);
- }
+    )")
+      .arg(theme.accentColor, theme.textColor, theme.backgroundColor,
+           theme.secondaryBackgroundColor, theme.selectionColor,
+           theme.borderColor, theme.buttonColor, theme.buttonHoverColor,
+           theme.buttonPressedColor);
+}
 
- QString LIBRARY_DLL_API getDCCStyleSheetPreset(DccStylePreset preset)
- {
+QString LIBRARY_DLL_API getDCCStyleSheetPreset(DccStylePreset preset) {
   return buildDCCStyleSheet(getDCCTheme(preset));
- }
+}
 
-};
+}; // namespace ArtifactCore

@@ -5,45 +5,11 @@ module;
 #include <QRectF>
 #include <QImage>
 #include <vector>
-
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
-#include <memory>
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <optional>
-#include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
-#include <variant>
-#include <any>
-#include <atomic>
-#include <condition_variable>
-#include <queue>
-#include <deque>
-#include <list>
-#include <tuple>
-#include <numeric>
-#include <regex>
-#include <random>
+#include <memory>
+#include <functional>
+
 export module Tracking.MotionTracker;
-
-
-
-
 
 export namespace ArtifactCore {
 
@@ -87,6 +53,8 @@ struct TrackPoint {
 struct TrackFrame {
     double time = 0.0;                  ///< 時間（秒）
     std::vector<TrackPoint> points;     ///< トラッキングポイント
+    std::array<double, 9> homography = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+    bool hasHomography = false;
     double overallConfidence = 1.0;     ///< 全体の信頼度
     
     TrackPoint* findPoint(int id);
@@ -175,9 +143,6 @@ struct TrackRegion {
 };
 
 /// モーショントラッカー
-/// 
-/// 動画内のオブジェクトを追跡する機能を提供。
-/// オプティカルフロー、特徴点追跡、テンプレートマッチングに対応。
 class MotionTracker {
 public:
     MotionTracker();
@@ -188,171 +153,72 @@ public:
     MotionTracker(MotionTracker&& other) noexcept;
     MotionTracker& operator=(MotionTracker&& other) noexcept;
     
-    // ========================================
     // 設定
-    // ========================================
-    
-    /// トラッカー設定
     void setSettings(const TrackerSettings& settings);
     TrackerSettings settings() const;
-    
-    /// トラッカータイプ
     void setTrackerType(TrackerType type);
     TrackerType trackerType() const;
-    
-    /// トラッカー名
     void setName(const QString& name);
     QString name() const;
-    
-    /// トラッカーID
     int id() const;
     
-    // ========================================
     // トラッキング領域設定
-    // ========================================
-    
-    /// トラッキングポイントを追加
     int addTrackPoint(const QPointF& point);
-    
-    /// 複数ポイントを追加
     void addTrackPoints(const std::vector<QPointF>& points);
-    
-    /// トラッキング領域を追加（平面トラッキング用）
     int addTrackRegion(const QRectF& bounds);
-    
-    /// ポイントを削除
     void removeTrackPoint(int pointId);
-    
-    /// 領域を削除
     void removeTrackRegion(int regionId);
-    
-    /// 全ポイントをクリア
     void clearTrackPoints();
-    
-    /// 全領域をクリア
     void clearTrackRegions();
-    
-    /// ポイント数取得
     int trackPointCount() const;
-    
-    /// 領域数取得
     int trackRegionCount() const;
-    
-    /// ポイント取得
     TrackPoint trackPoint(int index) const;
-    
-    /// 全ポイント取得
     std::vector<TrackPoint> trackPoints() const;
     
-    // ========================================
     // トラッキング実行
-    // ========================================
-    
-    /// フレームを設定
     void setFrame(double time, const QImage& frame);
-    
-    /// 単一フレームのトラッキング（順方向）
     bool trackForward(double fromTime, double toTime);
-    
-    /// 単一フレームのトラッキング（逆方向）
     bool trackBackward(double fromTime, double toTime);
-    
-    /// 範囲トラッキング
     bool trackRange(double startTime, double endTime, 
                     std::function<bool(double progress)> progressCallback = nullptr);
-    
-    /// 全範囲トラッキング
     bool trackAll(std::function<bool(double progress)> progressCallback = nullptr);
-    
-    /// トラッキング停止
     void stopTracking();
-    
-    /// トラッキングリセット
     void resetTracking();
-    
-    /// 現在の追跡結果と入力フレームをクリア
     void clearTrackingData();
     
-    // ========================================
     // 結果取得
-    // ========================================
-    
-    /// トラッキング結果取得
     TrackResult result() const;
-    
-    /// 指定時間のポイント位置取得
     QPointF pointPositionAt(int pointId, double time) const;
-    
-    /// 指定時間の全ポイント位置取得
     std::vector<QPointF> allPointPositionsAt(double time) const;
-    
-    /// 指定時間の変位（オフセット）取得
     QPointF displacementAt(double time) const;
-    
-    /// 指定時間の回転取得
     double rotationAt(double time) const;
-    
-    /// 指定時間のスケール取得
     QPointF scaleAt(double time) const;
-    
-    /// モーションパス取得
     std::vector<QPointF> motionPath(int pointId) const;
-    
-    /// キーフレームとしてエクスポート
     std::vector<std::pair<double, QPointF>> exportKeyframes(int pointId) const;
-
-    /// 追跡結果があるか
     bool hasResult() const;
     
-    // ========================================
     // 統計・解析
-    // ========================================
-    
-    /// 平均信頼度
     double averageConfidence() const;
-    
-    /// トラッキング品質評価
     double qualityScore() const;
-    
-    /// 問題のあるフレーム検出
     std::vector<double> problemFrames() const;
-    
-    /// 平均速度
     QPointF averageVelocity() const;
-    
-    /// 全移動距離
     double totalDistance(int pointId) const;
     
-    // ========================================
     // 補正
-    // ========================================
-    
-    /// 信頼度でフィルタリング
     void filterByConfidence(double threshold);
-    
-    /// スムージング
     void smoothTrack(int windowSize = 5);
-    
-    /// 外れ値除去
     void removeOutliers(double threshold = 3.0);
-    
-    /// 手動補正適用
     void applyCorrection(double time, int pointId, const QPointF& correctedPosition);
     
-    // ========================================
+    // ユーティリティ
+    static std::array<double, 9> computeHomography(
+        const std::vector<QPointF>& srcPoints,
+        const std::vector<QPointF>& dstPoints);
+
     // シリアライズ
-    // ========================================
-    
-    /// 結果をファイルに保存
     bool saveToFile(const QString& filePath) const;
-    
-    /// ファイルから読み込み
     bool loadFromFile(const QString& filePath);
-    
-    /// JSONにエクスポート
     QString toJson() const;
-    
-    /// JSONからインポート
     bool fromJson(const QString& json);
 
 private:
@@ -360,55 +226,33 @@ private:
     Impl* impl_;
 };
 
-/// トラッカーマネージャー（複数トラッカー管理）
+/// トラッカーマネージャー
 class TrackerManager {
 public:
     static TrackerManager& instance();
-    
-    /// トラッカー作成
     MotionTracker* createTracker(const QString& name = "");
-    
-    /// トラッカー取得
     MotionTracker* tracker(int id);
     const MotionTracker* tracker(int id) const;
-    
-    /// トラッカー削除
     void removeTracker(int id);
-    
-    /// 全トラッカー削除
     void clearTrackers();
-    
-    /// 全トラッカー取得
     std::vector<MotionTracker*> allTrackers();
-    
-    /// トラッカー数
     int trackerCount() const;
-    
-    /// 一括トラッキング実行
     void trackAllTrackers(double startTime, double endTime,
                           std::function<bool(double progress)> progressCallback = nullptr);
-
 private:
     TrackerManager();
     ~TrackerManager();
-    
     class Impl;
     Impl* impl_;
 };
 
-/// ユーティリティ：オプティカルフロー計算
 namespace OpticalFlow {
-    /// 2フレーム間のオプティカルフロー計算
     std::vector<std::pair<QPointF, QPointF>> computeFlow(
         const QImage& frame1, 
         const QImage& frame2,
         const TrackerSettings& settings = TrackerSettings::normal()
     );
-    
-    /// 密なオプティカルフロー（Farneback）
     QImage computeDenseFlow(const QImage& frame1, const QImage& frame2);
-    
-    /// モーションベクトルの可視化
     QImage visualizeFlow(const std::vector<std::pair<QPointF, QPointF>>& flow, 
                          const QSize& imageSize);
 }

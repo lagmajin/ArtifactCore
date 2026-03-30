@@ -325,6 +325,13 @@ public:
     QString toJSON() const;
     bool fromJSON(const QString& json);
     
+    // Preset system (Phase 3 implementation)
+    static QString toPresetJSON(const std::vector<KeyMap*>& keyMaps);
+    static bool fromPresetJSON(const QString& json, InputOperator* inputOp);
+    static bool loadPreset(const QString& presetName, InputOperator* inputOp);
+    static bool savePreset(const QString& presetName, const std::vector<KeyMap*>& keyMaps);
+    static QStringList availablePresets();
+    
     // Clear
     void clear();
     
@@ -369,6 +376,11 @@ public:
     QString activeContext() const;
     void setActiveContext(const QString& ctx);
     
+    // Widget-specific keymaps (Phase 1 implementation)
+    void registerWidgetKeyMap(QWidget* widget, KeyMap* keyMap);
+    void unregisterWidgetKeyMap(QWidget* widget);
+    KeyMap* getWidgetKeyMap(QWidget* widget) const;
+    
     // Process input events
     bool processKeyEvent(const InputEvent& event);
     bool processKeyPress(int key, InputEvent::Modifiers modifiers);
@@ -402,6 +414,7 @@ public:
     void contextChanged(const QString& context) W_SIGNAL(contextChanged, context);
     void chordStarted(int firstKey) W_SIGNAL(chordStarted, firstKey);
     void chordCancelled() W_SIGNAL(chordCancelled);
+    void widgetFocusChanged(QWidget* widget) W_SIGNAL(widgetFocusChanged, widget);
 };
 
 } // namespace ArtifactCore

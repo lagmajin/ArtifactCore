@@ -48,6 +48,9 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <opencv2/opencv.hpp>
+#include <opencv2/calib3d.hpp>
+#include <opencv2/video/tracking.hpp>
 module Tracking.MotionTracker;
 
 
@@ -263,6 +266,49 @@ public:
     int nextPointId = 1;
     int nextRegionId = 1;
     
+    // QImage -> cv::Mat 変換
+    cv::Mat qimageToMat(const QImage& img) {
+        QImage swapped = img.convertToFormat(QImage::Format_Grayscale8);
+        return cv::Mat(swapped.height(), swapped.width(), CV_8UC1,
+                       const_cast<uchar*>(swapped.bits()),
+                       swapped.bytesPerLine()).clone();
+    }
+
+    // ECCを用いたプラナートラッキング (Homography)
+    bool computePlanarHomography(const QImage& prevImg, const QImage& currImg, const QRectF& region, std::array<double, 9>& homographyOut) {
+        cv::Mat prev = qimageToMat(prevImg);
+        cv::Mat curr = qimageToMat(currImg);
+        
+        cv::Mat mask = cv::Mat::zeros(prev.size(), CV_8UC1);
+        cv::Rect roi(std::max(0, static_cast<int>(region.x())),
+                     std::max(0, static_cast<int>(region.y())),
+                     std::min(prev.cols - static_cast<int>(region.x()), static_cast<int>(region.width())),
+                     std::min(prev.rows - static_cast<int>(region.y()), static_cast<int>(region.height())));
+        
+        if(roi.width <= 0 || roi.height <= 0) return false;
+        mask(roi) = 255;
+        
+        cv::Mat warpMatrix = cv::Mat::eye(3, 3, CV_32F);
+        
+        int number_of_iterations = 50;
+        double termination_eps = 1e-4;
+        cv::TermCriteria criteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, number_of_iterations, termination_eps);
+        
+        try {
+            double ecc = cv::findTransformECC(prev, curr, warpMatrix, cv::MOTION_HOMOGRAPHY, criteria, mask);
+            if (ecc < 0) return false;
+            
+            for (int i=0; i<3; ++i) {
+                for (int j=0; j<3; ++j) {
+                    homographyOut[i*3 + j] = warpMatrix.at<float>(i, j);
+                }
+            }
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
     // オプティカルフロー計算（簡易実装）
     QPointF computeOpticalFlow(const QImage& prev, const QImage& curr, const QPointF& point) {
         // 簡易的な実装（実際はOpenCVなどを使用）
@@ -440,6 +486,20 @@ bool MotionTracker::trackForward(double fromTime, double toTime) {
         return false;
     }
     
+    // トラッカー種別に応じた処理
+    if (impl_->type == TrackerType::Planar && !impl_->regions.empty()) {
+        std::array<double, 9> h = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+        if (impl_->computePlanarHomography(it1.value(), it2.value(), impl_->regions.front().bounds, h)) {
+            TrackFrame frame;
+            frame.time = toTime;
+            frame.homography = h;
+            frame.hasHomography = true;
+            frame.points = impl_->currentPoints;
+            impl_->result.setFrame(std::move(frame));
+            return true;
+        }
+    }
+
     // オプティカルフロー計算
     for (auto& point : impl_->currentPoints) {
         QPointF flow = impl_->computeOpticalFlow(it1.value(), it2.value(), point.position);
@@ -463,6 +523,20 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
         return false;
     }
     
+    // トラッカー種別に応じた処理
+    if (impl_->type == TrackerType::Planar && !impl_->regions.empty()) {
+        std::array<double, 9> h = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+        if (impl_->computePlanarHomography(it1.value(), it2.value(), impl_->regions.front().bounds, h)) {
+            TrackFrame frame;
+            frame.time = toTime;
+            frame.homography = h;
+            frame.hasHomography = true;
+            frame.points = impl_->currentPoints;
+            impl_->result.setFrame(std::move(frame));
+            return true;
+        }
+    }
+
     // 逆方向トラッキング
     for (auto& point : impl_->currentPoints) {
         QPointF flow = impl_->computeOpticalFlow(it1.value(), it2.value(), point.position);
@@ -937,11 +1011,6 @@ bool MotionTracker::fromJson(const QString& json) {
     impl_->result.normalize();
     return true;
 }
-
-// ============================================================================
-// TrackerManager 実装
-// ============================================================================
-
 class TrackerManager::Impl {
 public:
     QMap<int, MotionTracker*> trackers;
@@ -995,6 +1064,7 @@ std::vector<MotionTracker*> TrackerManager::allTrackers() {
     }
     return result;
 }
+
 
 int TrackerManager::trackerCount() const {
     return impl_->trackers.size();
@@ -1054,10 +1124,33 @@ QImage visualizeFlow(const std::vector<std::pair<QPointF, QPointF>>& flow,
     for (const auto& [start, end] : flow) {
         painter.drawLine(start, start + end);
     }
-    
     return vis;
 }
 
 } // namespace OpticalFlow
+
+std::array<double, 9> MotionTracker::computeHomography(
+    const std::vector<QPointF>& srcPoints,
+    const std::vector<QPointF>& dstPoints) {
+    
+    if (srcPoints.size() < 4 || dstPoints.size() < 4) {
+        return {1, 0, 0, 0, 1, 0, 0, 0, 1};
+    }
+
+    std::vector<cv::Point2f> srcFull, dstFull;
+    for (size_t i = 0; i < 4; ++i) {
+        srcFull.push_back(cv::Point2f(static_cast<float>(srcPoints[i].x()), static_cast<float>(srcPoints[i].y())));
+        dstFull.push_back(cv::Point2f(static_cast<float>(dstPoints[i].x()), static_cast<float>(dstPoints[i].y())));
+    }
+
+    cv::Mat H = cv::getPerspectiveTransform(srcFull, dstFull);
+    std::array<double, 9> resultMat;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            resultMat[i * 3 + j] = H.at<double>(i, j);
+        }
+    }
+    return resultMat;
+}
 
 } // namespace ArtifactCore

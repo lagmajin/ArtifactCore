@@ -92,8 +92,8 @@ public:
  static QFont makeFont(const TextStyle& style)
  {  QFont font(resolvedFamily(style.fontFamily.toQString()));
   font.setPointSizeF(std::max(1.0f, style.fontSize));
-  font.setBold(style.bold);
-  font.setItalic(style.italic);
+  font.setBold(style.fontWeight == FontWeight::Bold);
+  font.setItalic(style.fontStyle == FontStyle::Italic);
   font.setUnderline(style.underline);
   font.setStrikeOut(style.strikethrough);
   font.setCapitalization(style.allCaps ? QFont::AllUppercase : QFont::MixedCase);

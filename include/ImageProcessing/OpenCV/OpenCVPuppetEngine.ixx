@@ -45,19 +45,31 @@ export module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
 
 namespace ArtifactCore {
 
+// ピンの種類
+export enum class PuppetPinType {
+    Position,   // 位置ピン: 移動させるための通常のピン
+    Starch,     // スターチ(剛性)ピン: その周辺を硬くし、変形を防ぐ
+    Bend,       // ベンド(曲げ)ピン: 回転パラメータを持ち、曲げを制御
+    Overlap     // オーバーラップ(深さ)ピン: 重なった際の前面/背面を制御するZ値のソース
+};
+
 // パペットピンのデータ構造
 // 初期位置(originalPosition)と、ユーザーがドラッグして移動させた現在位置(currentPosition)を保持します。
 export struct PuppetPin {
     std::string id;             // ピンの一意識別子
     cv::Point2f originalPosition; // キャッシュ/バインド時の初期座標
     cv::Point2f currentPosition;  // 移動後の座標
-    float weight = 1.0f;          // 変形に対する影響力（将来的な拡張用）
+    PuppetPinType type = PuppetPinType::Position; // ピンの役割
+    float weight = 1.0f;          // 影響範囲（Starchピン等で重要）
+    float rotation = 0.0f;        // 回転角（Bendピン用）
+    float depth = 0.0f;           // 深度（Overlapピン用）
 };
 
 // パペットメッシュの頂点およびポリゴン情報（将来的なハードウェアレンダリング用）
 export struct PuppetMesh {
     std::vector<cv::Point2f> vertices;   // 変形後の頂点座標
     std::vector<cv::Point2f> texCoords;  // 元画像のUV座標(0.0~1.0またはピクセル座標)
+    std::vector<float> zDepth;           // Z深度 (Overlap制御用)
     std::vector<int> indices;            // 三角形ポリゴンのインデックスリスト (v1, v2, v3, ...)
 };
 

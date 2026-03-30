@@ -1,5 +1,7 @@
 module;
+#define TINYOBJLOADER_IMPLEMENTATION
 #include "ufbx.h"
+#include <tinyobjloader/tiny_obj_loader.h>
 #include <QString>
 #include <QDebug>
 #include <QVector>
@@ -18,8 +20,12 @@ namespace ArtifactCore {
     public:
         Impl() {}
         ~Impl() {}
+        MeshImporter::Backend lastBackend_ = MeshImporter::Backend::None;
+        QString lastError_;
 
         std::shared_ptr<Mesh> loadWithUfbx(const QString& path) {
+            lastBackend_ = MeshImporter::Backend::Ufbx;
+            lastError_.clear();
             ufbx_load_opts opts = {};
             opts.generate_missing_normals = true;
 
@@ -27,6 +33,7 @@ namespace ArtifactCore {
             ufbx_scene* scene = ufbx_load_file(path.toStdString().c_str(), &opts, &error);
 
             if (!scene) {
+                lastError_ = QStringLiteral("ufbx: %1").arg(QString::fromUtf8(error.description.data));
                 qWarning() << "ufbx failed to load:" << path << "-" << error.description.data;
                 return nullptr;
             }
@@ -75,6 +82,114 @@ namespace ArtifactCore {
             mesh->updateBounds();
             return mesh;
         }
+
+        std::shared_ptr<Mesh> loadWithTinyObj(const QString& path) {
+            lastBackend_ = MeshImporter::Backend::TinyObj;
+            lastError_.clear();
+            tinyobj::ObjReaderConfig config;
+            config.triangulate = false;
+
+            tinyobj::ObjReader reader;
+            if (!reader.ParseFromFile(path.toStdString(), config)) {
+                const auto& err = reader.Error();
+                const auto& warn = reader.Warning();
+                if (!warn.empty()) {
+                    qWarning() << "tinyobj warning:" << QString::fromStdString(warn);
+                }
+                if (!err.empty()) {
+                    lastError_ = QStringLiteral("tinyobj: %1").arg(QString::fromStdString(err));
+                    qWarning() << "tinyobj failed to load:" << path << "-" << QString::fromStdString(err);
+                } else {
+                    lastError_ = QStringLiteral("tinyobj: unknown error");
+                    qWarning() << "tinyobj failed to load:" << path;
+                }
+                return nullptr;
+            }
+
+            const auto& attrib = reader.GetAttrib();
+            const auto& shapes = reader.GetShapes();
+            if (shapes.empty()) {
+                lastError_ = QStringLiteral("tinyobj: no shapes");
+                qWarning() << "tinyobj loaded no shapes:" << path;
+                return nullptr;
+            }
+
+            size_t totalVertices = 0;
+            size_t totalPolygons = 0;
+            for (const auto& shape : shapes) {
+                totalVertices += shape.mesh.indices.size();
+                totalPolygons += shape.mesh.num_face_vertices.size();
+            }
+            if (totalVertices == 0 || totalPolygons == 0) {
+                lastError_ = QStringLiteral("tinyobj: empty geometry");
+                qWarning() << "tinyobj loaded empty geometry:" << path;
+                return nullptr;
+            }
+
+            auto mesh = std::make_shared<Mesh>();
+            mesh->setVertexCount(static_cast<int>(totalVertices));
+            auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
+            auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
+            auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+
+            size_t vertexOffset = 0;
+            for (const auto& shape : shapes) {
+                size_t indexOffset = 0;
+                for (size_t face = 0; face < shape.mesh.num_face_vertices.size(); ++face) {
+                    const int fv = shape.mesh.num_face_vertices[face];
+                    QVector<int> polyIndices;
+                    polyIndices.reserve(fv);
+
+                    for (int v = 0; v < fv; ++v) {
+                        const tinyobj::index_t idx = shape.mesh.indices[indexOffset + static_cast<size_t>(v)];
+                        const int outIdx = static_cast<int>(vertexOffset++);
+
+                        QVector3D position(0.0f, 0.0f, 0.0f);
+                        if (idx.vertex_index >= 0) {
+                            const size_t vi = static_cast<size_t>(idx.vertex_index) * 3;
+                            if (vi + 2 < attrib.vertices.size()) {
+                                position = QVector3D(
+                                    attrib.vertices[vi + 0],
+                                    attrib.vertices[vi + 1],
+                                    attrib.vertices[vi + 2]);
+                            }
+                        }
+                        (*posAttr)[outIdx] = position;
+
+                        QVector3D normal(0.0f, 0.0f, 1.0f);
+                        if (idx.normal_index >= 0) {
+                            const size_t ni = static_cast<size_t>(idx.normal_index) * 3;
+                            if (ni + 2 < attrib.normals.size()) {
+                                normal = QVector3D(
+                                    attrib.normals[ni + 0],
+                                    attrib.normals[ni + 1],
+                                    attrib.normals[ni + 2]);
+                            }
+                        }
+                        (*normAttr)[outIdx] = normal;
+
+                        QVector2D uv(0.0f, 0.0f);
+                        if (idx.texcoord_index >= 0) {
+                            const size_t ti = static_cast<size_t>(idx.texcoord_index) * 2;
+                            if (ti + 1 < attrib.texcoords.size()) {
+                                uv = QVector2D(
+                                    attrib.texcoords[ti + 0],
+                                    attrib.texcoords[ti + 1]);
+                            }
+                        }
+                        (*uvAttr)[outIdx] = uv;
+
+                        polyIndices.push_back(outIdx);
+                    }
+
+                    mesh->addPolygon(polyIndices);
+                    indexOffset += static_cast<size_t>(fv);
+                }
+            }
+
+            mesh->updateBounds();
+            return mesh;
+        }
     };
 
     MeshImporter::MeshImporter() : impl_(new Impl()) {}
@@ -84,14 +199,33 @@ namespace ArtifactCore {
         QString qpath = path.toQString();
         std::filesystem::path fsPath(qpath.toStdString());
         QString ext = QString::fromStdString(fsPath.extension().string().substr(1)).toLower();
+        impl_->lastBackend_ = MeshImporter::Backend::None;
+        impl_->lastError_.clear();
 
-        if (ext == "fbx" || ext == "obj") { // ufbx は obj もサポートしています
+        if (ext == "fbx") {
             return impl_->loadWithUfbx(qpath);
+        }
+
+        if (ext == "obj") {
+            if (auto mesh = impl_->loadWithUfbx(qpath)) {
+                return mesh;
+            }
+            qWarning() << "ufbx fallback to tinyobjloader for OBJ:" << qpath;
+            return impl_->loadWithTinyObj(qpath);
         }
 
         // TODO: glTF (fastgltf) の実装をここに追加予定
         qWarning() << "Unsupported mesh format:" << ext;
+        impl_->lastError_ = QStringLiteral("unsupported format: %1").arg(ext);
         return nullptr;
+    }
+
+    MeshImporter::Backend MeshImporter::lastBackend() const {
+        return impl_ ? impl_->lastBackend_ : MeshImporter::Backend::None;
+    }
+
+    QString MeshImporter::lastError() const {
+        return impl_ ? impl_->lastError_ : QString();
     }
 
 };

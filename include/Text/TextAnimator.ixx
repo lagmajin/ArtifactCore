@@ -61,6 +61,8 @@ export struct AnimatorProperties {
     float rotation = 0.0f;
     float opacity = 1.0f;
     float skew = 0.0f;
+    float tracking = 0.0f;
+    float z = 0.0f;
     
     // カラーアニメーション
     bool colorEnabled = false;

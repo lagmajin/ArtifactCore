@@ -95,6 +95,22 @@ std::string ExprNode::stringValue() const {
     return impl_->stringValue_;
 }
 
+void ExprNode::setChildren(const std::vector<std::shared_ptr<ExprNode>>& children) {
+    impl_->children_ = children;
+}
+
+void ExprNode::setOperatorSymbol(const std::string& op) {
+    impl_->operatorSymbol_ = op;
+}
+
+void ExprNode::setNumberValue(double v) {
+    impl_->numberValue_ = v;
+}
+
+void ExprNode::setStringValue(const std::string& s) {
+    impl_->stringValue_ = s;
+}
+
 // Token types for lexer
 enum class TokenType {
     Number,

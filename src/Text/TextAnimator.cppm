@@ -35,12 +35,10 @@ float TextAnimatorEngine::calculateWeight(int index, int totalCount, const Range
 float TextAnimatorEngine::calculateWigglyWeight(int index, float time, const WigglySelector& selector) {
     if (!selector.enabled) return 1.0f;
 
-    // 簡易的なノイズ生成（実際にはPerlinノイズ等が望ましいが、ここでは擬似乱数で実装）
-    // 文字の相関関係（correlation）を考慮した位相
+    // 簡易的なノイズ生成
     float phaseOffset = (float)index * (100.0f - selector.correlation) / 100.0f;
     float t = time * selector.wigglesPerSecond + phaseOffset + selector.phase;
     
-    // シード値を用いた乱数
     std::mt19937 gen(selector.seed + (int)std::floor(t));
     std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
     
@@ -48,7 +46,6 @@ float TextAnimatorEngine::calculateWigglyWeight(int index, float time, const Wig
     float v2 = dis(gen);
     float fract = t - std::floor(t);
     
-    // 線形補間（滑らかに動くように）
     return v1 + (v2 - v1) * (0.5f - 0.5f * std::cos(fract * std::numbers::pi_v<float>));
 }
 
@@ -60,16 +57,26 @@ void TextAnimatorEngine::applyAnimator(
     float time) {
     
     int n = (int)glyphs.size();
+    float cumulativeTracking = 0.0f;
+
     for (int i = 0; i < n; ++i) {
         // セレクターの重み
         float selectorWeight = calculateWeight(i, n, selector);
         
-        // ウィグリーの重み（有効な場合）
+        // ウィグリーの重み
         float wigglyWeight = wiggly.enabled ? calculateWigglyWeight(i, time, wiggly) : 1.0f;
         
         // 最終的な「適用度」
         float totalWeight = selectorWeight * wigglyWeight;
-        if (std::abs(totalWeight) < 0.0001f) continue;
+        
+        // トラッキング（累積シフト）
+        glyphs[i].offsetPosition.setX(glyphs[i].offsetPosition.x() + cumulativeTracking);
+        
+        if (std::abs(totalWeight) < 0.0001f) {
+            // トラッキングだけは更新し続ける
+            cumulativeTracking += props.tracking * totalWeight;
+            continue;
+        }
 
         // トランスフォーム
         glyphs[i].offsetPosition += props.position * totalWeight;
@@ -77,12 +84,26 @@ void TextAnimatorEngine::applyAnimator(
         glyphs[i].offsetRotation += props.rotation * totalWeight;
         glyphs[i].offsetOpacity *= (1.0f - (1.0f - props.opacity) * totalWeight);
         
-        // スキュー（文字の斜体変形）
-        // glyphs[i].skew += props.skew * totalWeight; // 描画側に実装が必要
+        // スキューとZ軸
+        glyphs[i].offsetSkew += props.skew * totalWeight;
+        glyphs[i].offsetZ += props.z * totalWeight;
 
-        // カラーの補間（現在のベースカラーを上書きまたは加算するロジックが必要）
-        // ここでは単純な重み付けのみ提供
-        // if (props.colorEnabled) { ... }
+        // トラッキングの累積（文字ごとの個別適用）
+        cumulativeTracking += props.tracking * totalWeight;
+
+        // カラーとストローク
+        if (props.colorEnabled) {
+            glyphs[i].hasColorOverride = true;
+            glyphs[i].fillColorOverride = props.fillColor;
+        }
+        if (props.strokeEnabled) {
+            glyphs[i].hasStrokeOverride = true;
+            glyphs[i].strokeColorOverride = props.strokeColor;
+            glyphs[i].offsetStrokeWidth += props.strokeWidth * totalWeight;
+        }
+
+        // 特殊効果
+        glyphs[i].offsetBlur += props.blur * totalWeight;
     }
 }
 

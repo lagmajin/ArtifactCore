@@ -1,6 +1,7 @@
 module;
 //#include <assimp/>
 #include <memory>
+#include <QString>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -45,6 +46,12 @@ import Utils.String.UniString; // KvɉėL
 export namespace ArtifactCore {
 
 class MeshImporter {
+public:
+    enum class Backend {
+        None,
+        Ufbx,
+        TinyObj
+    };
 private:
     class Impl;
     Impl* impl_;
@@ -57,6 +64,8 @@ public:
 
     // t@CMesh𐶐
     std::shared_ptr<Mesh> importMeshFromFile(const UniString& path);
+    [[nodiscard]] Backend lastBackend() const;
+    [[nodiscard]] QString lastError() const;
 };
 
 }
