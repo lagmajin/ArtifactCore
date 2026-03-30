@@ -68,7 +68,7 @@ void ArtifactAppSettings::setLoadLastProjectOnStartup(bool enable) {
 }
 
 QString ArtifactAppSettings::themeName() const {
-    return impl_->store.valueString("UI/ThemeName", "Dark");
+    return impl_->store.valueString("UI/ThemeName", "Studio");
 }
 
 void ArtifactAppSettings::setThemeName(const QString& theme) {

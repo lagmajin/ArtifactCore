@@ -1,5 +1,7 @@
 ﻿module;
 #include "..\Define\DllExportMacro.hpp"
+#include <QColor>
+#include <QPalette>
 #include <QString>
 
 export module Widgets.Utils.CSS;
@@ -10,6 +12,9 @@ enum class DccStylePreset {
   DefaultQt,
   MayaStyle,
   ModoStyle,
+  StudioStyle,
+  BlenderStyle,
+  DaVinciStyle,
   _3dsMaxStyle,
   NukeStyle,
   HighContrast,
@@ -51,6 +56,39 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
     theme.buttonColor = "#404040";
     theme.buttonHoverColor = "#4A4A4A";
     theme.buttonPressedColor = "#3A3A3A";
+    break;
+  case DccStylePreset::StudioStyle:
+    theme.accentColor = "#84A9FF";
+    theme.textColor = "#E3E8EF";
+    theme.backgroundColor = "#181B20";
+    theme.secondaryBackgroundColor = "#20252D";
+    theme.selectionColor = "#2B3B4F";
+    theme.borderColor = "#2E3440";
+    theme.buttonColor = "#232A33";
+    theme.buttonHoverColor = "#2D3641";
+    theme.buttonPressedColor = "#1D232B";
+    break;
+  case DccStylePreset::BlenderStyle:
+    theme.accentColor = "#F5792A";
+    theme.textColor = "#E8E8E8";
+    theme.backgroundColor = "#26292E";
+    theme.secondaryBackgroundColor = "#31353B";
+    theme.selectionColor = "#51402A";
+    theme.borderColor = "#3D434B";
+    theme.buttonColor = "#343A40";
+    theme.buttonHoverColor = "#3E454C";
+    theme.buttonPressedColor = "#2C3137";
+    break;
+  case DccStylePreset::DaVinciStyle:
+    theme.accentColor = "#4FA8FF";
+    theme.textColor = "#E1E7EF";
+    theme.backgroundColor = "#111418";
+    theme.secondaryBackgroundColor = "#1A1F25";
+    theme.selectionColor = "#1B3550";
+    theme.borderColor = "#29313A";
+    theme.buttonColor = "#1D232A";
+    theme.buttonHoverColor = "#27303A";
+    theme.buttonPressedColor = "#151B21";
     break;
   case DccStylePreset::_3dsMaxStyle:
     theme.accentColor = "#FFC200";
@@ -101,6 +139,33 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
   return theme;
 }
 
+QPalette LIBRARY_DLL_API buildDCCPalette(const DccStyleTheme& theme) {
+  QPalette pal;
+  const QColor accent(theme.accentColor);
+  const QColor text(theme.textColor);
+  const QColor bg(theme.backgroundColor);
+  const QColor panel(theme.secondaryBackgroundColor);
+  const QColor selection(theme.selectionColor);
+  const QColor border(theme.borderColor);
+
+  pal.setColor(QPalette::Window, bg);
+  pal.setColor(QPalette::WindowText, text);
+  pal.setColor(QPalette::Base, panel);
+  pal.setColor(QPalette::AlternateBase, bg);
+  pal.setColor(QPalette::ToolTipBase, panel);
+  pal.setColor(QPalette::ToolTipText, text);
+  pal.setColor(QPalette::Text, text);
+  pal.setColor(QPalette::Button, panel);
+  pal.setColor(QPalette::ButtonText, text);
+  pal.setColor(QPalette::BrightText, QColor("#FFFFFF"));
+  pal.setColor(QPalette::Highlight, selection);
+  pal.setColor(QPalette::HighlightedText, QColor("#FFFFFF"));
+  pal.setColor(QPalette::Link, accent);
+  pal.setColor(QPalette::LinkVisited, accent.darker(120));
+  pal.setColor(QPalette::PlaceholderText, border.lighter(140));
+  return pal;
+}
+
 QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme) {
   return QString(R"(
         * {
@@ -112,6 +177,26 @@ QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme) {
         QMainWindow, QWidget, QDialog {
             background-color: %2;
             border: none;
+        }
+
+        QDockWidget, QToolBar, QStatusBar {
+            background-color: %2;
+            color: %1;
+            border: none;
+        }
+
+        QGroupBox {
+            border: 1px solid %6;
+            border-radius: 4px;
+            margin-top: 10px;
+            padding-top: 8px;
+            background-color: %3;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 8px;
+            padding: 0 4px;
+            color: %1;
         }
 
         QPushButton {
@@ -182,6 +267,22 @@ QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme) {
         QMenu::item:disabled:selected {
             color: rgba(255, 255, 255, 170);
             background-color: %6;
+        }
+
+        QToolButton {
+            background-color: transparent;
+            color: %1;
+            border: 1px solid transparent;
+            border-radius: 2px;
+            padding: 3px 6px;
+        }
+        QToolButton:hover {
+            background-color: %8;
+            border-color: %6;
+        }
+        QToolButton:checked {
+            background-color: %4;
+            border-color: %0;
         }
 
         QSlider::groove:horizontal {
