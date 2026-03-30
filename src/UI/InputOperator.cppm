@@ -1,10 +1,15 @@
 ﻿module;
 
+#include <QWidget>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QKeySequence>
 #include <QDebug>
+#include <QStandardPaths>
+#include <QDateTime>
+#include <QFile>
+#include <QDir>
 #include <wobjectimpl.h>
 
 module Input.Operator;
@@ -473,7 +478,10 @@ public:
     std::vector<int> chordKeys_;
     int chordTimeout_ = 1000;  // ms
     InteractiveAction* activeAction_ = nullptr;
- 
+    
+    // Widget-specific keymaps (Phase 1)
+    std::map<QWidget*, KeyMap*> widgetKeyMaps_;
+
     Impl() {}
 };
 
@@ -539,6 +547,44 @@ QString InputOperator::activeContext() const {
 void InputOperator::setActiveContext(const QString& ctx) {
     impl_->activeContext_ = ctx;
     emit contextChanged(ctx);
+}
+
+// ==================== Widget-specific KeyMaps (Phase 1) ====================
+
+void InputOperator::registerWidgetKeyMap(QWidget* widget, KeyMap* keyMap) {
+    if (!widget || !keyMap) {
+        return;
+    }
+    
+    impl_->widgetKeyMaps_[widget] = keyMap;
+    
+    // Connect focus signals to auto-switch context
+    connect(widget, &QWidget::destroyed, this, [this, widget]() {
+        unregisterWidgetKeyMap(widget);
+    });
+}
+
+void InputOperator::unregisterWidgetKeyMap(QWidget* widget) {
+    if (!widget) {
+        return;
+    }
+    
+    auto it = impl_->widgetKeyMaps_.find(widget);
+    if (it != impl_->widgetKeyMaps_.end()) {
+        impl_->widgetKeyMaps_.erase(it);
+    }
+}
+
+KeyMap* InputOperator::getWidgetKeyMap(QWidget* widget) const {
+    if (!widget) {
+        return nullptr;
+    }
+    
+    auto it = impl_->widgetKeyMaps_.find(widget);
+    if (it != impl_->widgetKeyMaps_.end()) {
+        return it->second;
+    }
+    return nullptr;
 }
 
 bool InputOperator::processKeyEvent(const InputEvent& event) {
@@ -658,16 +704,165 @@ void InputOperator::cancelInteractiveAction() {
 QString InputOperator::dumpKeyMaps() const {
     QString result;
     QTextStream stream(&result);
-    
+
     for (auto& [name, keyMap] : impl_->keyMaps_) {
         stream << "KeyMap: " << name << " (Context: " << keyMap->context() << ")\n";
         for (auto* binding : keyMap->allBindings()) {
-            stream << "  " << binding->toString() << " -> " << binding->actionId() 
+            stream << "  " << binding->toString() << " -> " << binding->actionId()
                    << " (" << binding->name() << ")\n";
         }
     }
-    
+
     return result;
+}
+
+// ==================== Preset System (Phase 3) ====================
+
+QString KeyMap::toPresetJSON(const std::vector<KeyMap*>& keyMaps) {
+    QJsonObject preset;
+    QJsonArray keyMapsArray;
+    
+    for (auto* keyMap : keyMaps) {
+        if (!keyMap) continue;
+        
+        QJsonObject kmObject;
+        kmObject["name"] = keyMap->name();
+        kmObject["context"] = keyMap->context();
+        
+        QJsonArray bindingsArray;
+        for (auto* binding : keyMap->allBindings()) {
+            if (!binding) continue;
+            
+            QJsonObject bindingObject;
+            bindingObject["actionId"] = binding->actionId();
+            bindingObject["keyCode"] = binding->keyCode();
+            bindingObject["modifiers"] = static_cast<int>(binding->modifiers());
+            bindingObject["description"] = binding->description();
+            
+            bindingsArray.append(bindingObject);
+        }
+        
+        kmObject["bindings"] = bindingsArray;
+        keyMapsArray.append(kmObject);
+    }
+    
+    preset["keyMaps"] = keyMapsArray;
+    preset["version"] = "1.0";
+    preset["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    
+    QJsonDocument doc(preset);
+    return doc.toJson(QJsonDocument::Indented);
+}
+
+bool KeyMap::fromPresetJSON(const QString& json, InputOperator* inputOp) {
+    if (!inputOp) return false;
+    
+    QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+    if (doc.isNull()) return false;
+    
+    QJsonObject preset = doc.object();
+    if (!preset.contains("keyMaps")) return false;
+    
+    QJsonArray keyMapsArray = preset["keyMaps"].toArray();
+    
+    for (const auto& kmValue : keyMapsArray) {
+        QJsonObject kmObject = kmValue.toObject();
+        
+        QString name = kmObject["name"].toString();
+        QString context = kmObject["context"].toString();
+        
+        auto* keyMap = inputOp->addKeyMap(name, context);
+        keyMap->clear();  // Clear existing bindings
+        
+        QJsonArray bindingsArray = kmObject["bindings"].toArray();
+        auto* actionManager = ActionManager::instance();
+        
+        for (const auto& bValue : bindingsArray) {
+            QJsonObject bindingObject = bValue.toObject();
+            
+            QString actionId = bindingObject["actionId"].toString();
+            int keyCode = bindingObject["keyCode"].toInt();
+            int modifiersInt = bindingObject["modifiers"].toInt();
+            QString description = bindingObject["description"].toString();
+            
+            auto* action = actionManager->getAction(actionId);
+            if (!action) continue;
+            
+            keyMap->addBinding(
+                keyCode,
+                static_cast<InputEvent::Modifiers>(modifiersInt),
+                action,
+                description
+            );
+        }
+    }
+    
+    return true;
+}
+
+bool KeyMap::loadPreset(const QString& presetName, InputOperator* inputOp) {
+    if (!inputOp) return false;
+    
+    // Get preset directory
+    const QString presetDir = QStandardPaths::writableLocation(
+        QStandardPaths::AppDataLocation) + "/presets";
+    
+    const QString presetPath = presetDir + "/" + presetName + ".json";
+    
+    if (!QFile::exists(presetPath)) {
+        qWarning() << "Preset not found:" << presetPath;
+        return false;
+    }
+    
+    QFile file(presetPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open preset:" << presetPath;
+        return false;
+    }
+    
+    QString json = QString::fromUtf8(file.readAll());
+    return fromPresetJSON(json, inputOp);
+}
+
+bool KeyMap::savePreset(const QString& presetName, const std::vector<KeyMap*>& keyMaps) {
+    // Get preset directory
+    const QString presetDir = QStandardPaths::writableLocation(
+        QStandardPaths::AppDataLocation) + "/presets";
+    
+    QDir().mkpath(presetDir);
+    
+    const QString presetPath = presetDir + "/" + presetName + ".json";
+    
+    QFile file(presetPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "Failed to save preset:" << presetPath;
+        return false;
+    }
+    
+    QString json = toPresetJSON(keyMaps);
+    file.write(json.toUtf8());
+    
+    qDebug() << "Preset saved:" << presetPath;
+    return true;
+}
+
+QStringList KeyMap::availablePresets() {
+    QStringList presets;
+    
+    const QString presetDir = QStandardPaths::writableLocation(
+        QStandardPaths::AppDataLocation) + "/presets";
+    
+    QDir dir(presetDir);
+    if (!dir.exists()) {
+        return presets;
+    }
+    
+    const auto files = dir.entryList({"*.json"}, QDir::Files);
+    for (const auto& file : files) {
+        presets << file.chopped(5);  // Remove ".json"
+    }
+    
+    return presets;
 }
 
 } // namespace ArtifactCore

@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <QString>
 #include <QVariant>
@@ -45,10 +45,12 @@ export module Property.Abstract;
 
 import Color.Float;
 import Utils.String.UniString;
+import Frame.Position;
+import Property.Types;
+
+import Script.Expression.Evaluator;
+import Script.Expression.Value;
 import Time.Rational;
-
-import Math.Interpolate;
-
 
 export namespace ArtifactCore {
 
@@ -143,6 +145,12 @@ public:
     /// @brief 表示優先度を返す。
     int displayPriority() const;
 
+    // Expression support
+    void setExpression(const QString& expression);
+    QString getExpression() const;
+    bool hasExpression() const;
+    QVariant evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator = nullptr) const;
+
     // KeyFrame operations
     void addKeyFrame(const RationalTime& time, const QVariant& value);
     void addKeyFrame(const RationalTime& time, const QVariant& value, EasingType easing);
@@ -155,6 +163,12 @@ public:
     // Validation
     void clampValue();
     bool isValueInRange(const QVariant& value) const;
+
+    // External Control
+    void setExternalOverride(const QVariant& value);
+    void clearExternalOverride();
+    bool hasExternalOverride() const;
+    void setExternalNormalizedValue(double normalized);
 };
 
 };

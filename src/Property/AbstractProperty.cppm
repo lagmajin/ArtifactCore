@@ -40,11 +40,56 @@ module;
 #include <random>
 module Property.Abstract;
 
+import Script.Expression.Evaluator;
+import Script.Expression.Value;
+import Math.Interpolate;
+
 
 
 
 
 namespace ArtifactCore {
+
+// -----------------------------------------------------------------------
+// Conversion Helpers
+// -----------------------------------------------------------------------
+namespace {
+    ExpressionValue qvariantToExpressionValue(const QVariant& v, PropertyType type) {
+        if (!v.isValid()) return ExpressionValue();
+        switch (type) {
+            case PropertyType::Float: return ExpressionValue(v.toDouble());
+            case PropertyType::Integer: return ExpressionValue(v.toDouble()); 
+            case PropertyType::Boolean: return ExpressionValue(v.toBool() ? 1.0 : 0.0);
+            case PropertyType::String: return ExpressionValue(v.toString().toStdString());
+            case PropertyType::Color: {
+                QColor c = v.value<QColor>();
+                return ExpressionValue(c.redF(), c.greenF(), c.blueF(), c.alphaF());
+            }
+            default: return ExpressionValue();
+        }
+    }
+
+    QVariant expressionValueToQVariant(const ExpressionValue& ev, PropertyType type) {
+        switch (type) {
+            case PropertyType::Float: return QVariant(ev.asNumber());
+            case PropertyType::Integer: return QVariant(static_cast<int>(std::round(ev.asNumber())));
+            case PropertyType::Boolean: return QVariant(ev.asNumber() > 0.5);
+            case PropertyType::String: return QVariant(QString::fromStdString(ev.asString()));
+            case PropertyType::Color: {
+                if (ev.isVector() || ev.isArray()) {
+                     return QVariant::fromValue(QColor::fromRgbF(
+                         static_cast<float>(ev.x()),
+                         static_cast<float>(ev.y()),
+                         static_cast<float>(ev.z()),
+                         static_cast<float>(ev.length() > 3 ? ev.w() : 1.0)
+                     ));
+                }
+                return QColor(Qt::white);
+            }
+            default: return QVariant();
+        }
+    }
+}
 
 // -----------------------------------------------------------------------
 // Impl
@@ -61,7 +106,11 @@ public:
     int           m_displayPriority = 0;          ///< 表示優先度（小さい値が先頭）
     PropertyMetadata m_metadata;
 
+    QString m_expression;
     std::vector<KeyFrame> m_keyFrames;
+
+    QVariant m_externalOverride;
+    bool     m_hasExternalOverride = false;
 };
 
 // Constructor / Destructor
@@ -219,6 +268,49 @@ int AbstractProperty::displayPriority() const {
 }
 
 // -----------------------------------------------------------------------
+// Expression support
+// -----------------------------------------------------------------------
+void AbstractProperty::setExpression(const QString& expression) {
+    pImpl->m_expression = expression;
+}
+
+QString AbstractProperty::getExpression() const {
+    return pImpl->m_expression;
+}
+
+bool AbstractProperty::hasExpression() const {
+    return !pImpl->m_expression.isEmpty();
+}
+
+QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator) const {
+    if (pImpl->m_hasExternalOverride) {
+        return pImpl->m_externalOverride;
+    }
+
+    QVariant baseValue = interpolateValue(time);
+    if (evaluator && hasExpression()) {
+        try {
+            // AE-like context injection
+            evaluator->setVariable("value", qvariantToExpressionValue(baseValue, pImpl->m_type));
+            evaluator->setVariable("time", ExpressionValue(time.toDouble()));
+            
+            ExpressionValue result = evaluator->evaluate(pImpl->m_expression.toStdString());
+            if (!evaluator->hasError()) {
+                return expressionValueToQVariant(result, pImpl->m_type);
+            } else {
+                // If error, return baseValue as fallback
+                std::cerr << "Expression error in property " << pImpl->m_name.toStdString() 
+                          << ": " << evaluator->getError() << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Expression exception in property " << pImpl->m_name.toStdString() 
+                      << ": " << e.what() << std::endl;
+        }
+    }
+    return baseValue;
+}
+
+// -----------------------------------------------------------------------
 // KeyFrame operations
 // -----------------------------------------------------------------------
 void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value) {
@@ -342,6 +434,41 @@ bool AbstractProperty::isValueInRange(const QVariant& value) const {
         return true;
     }
     return true;
+}
+
+void AbstractProperty::setExternalOverride(const QVariant& value) {
+    pImpl->m_externalOverride = value;
+    pImpl->m_hasExternalOverride = true;
+}
+
+void AbstractProperty::clearExternalOverride() {
+    pImpl->m_hasExternalOverride = false;
+    pImpl->m_externalOverride = QVariant();
+}
+
+bool AbstractProperty::hasExternalOverride() const {
+    return pImpl->m_hasExternalOverride;
+}
+
+void AbstractProperty::setExternalNormalizedValue(double normalized) {
+    if (pImpl->m_type == PropertyType::Float) {
+        double min = pImpl->m_minValue.isValid() ? pImpl->m_minValue.toDouble() : 0.0;
+        double max = pImpl->m_maxValue.isValid() ? pImpl->m_maxValue.toDouble() : 1.0;
+        
+        // Use soft range if available, as it's often more appropriate for controllers
+        if (pImpl->m_metadata.softMin.isValid() && pImpl->m_metadata.softMax.isValid()) {
+            min = pImpl->m_metadata.softMin.toDouble();
+            max = pImpl->m_metadata.softMax.toDouble();
+        }
+        
+        setExternalOverride(min + (max - min) * normalized);
+    } else if (pImpl->m_type == PropertyType::Integer) {
+        int min = pImpl->m_minValue.isValid() ? pImpl->m_minValue.toInt() : 0;
+        int max = pImpl->m_maxValue.isValid() ? pImpl->m_maxValue.toInt() : 100;
+        setExternalOverride(static_cast<int>(std::round(min + (max - min) * normalized)));
+    } else if (pImpl->m_type == PropertyType::Boolean) {
+        setExternalOverride(normalized > 0.5);
+    }
 }
 
 } // namespace ArtifactCore

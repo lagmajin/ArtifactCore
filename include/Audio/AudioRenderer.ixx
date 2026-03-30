@@ -10,9 +10,19 @@ import Audio.Segment;
 
 export namespace ArtifactCore {
 
+/**
+ * @brief オーディオバックエンドの種類
+ */
+enum class AudioBackendType {
+    Auto,    // 自動検出
+    WASAPI,  // WASAPI 共有モード
+    ASIO,    // ASIO（スタブ）
+    Qt       // Qt 標準
+};
+
  /**
   * @brief High-level component for outputting AudioSegments to hardware.
-  * 
+  *
   * It maintains an AudioBackend and provides control over final output stage
   * (Master volume, device selection, clipping protection).
   */
@@ -28,6 +38,7 @@ export namespace ArtifactCore {
    * @brief Initialize and open an audio device
    */
   bool openDevice(const QString& deviceName = "");
+  bool openDevice(AudioBackendType type, const QString& deviceName = "");
   void closeDevice();
   bool isDeviceOpen() const;
 
@@ -50,6 +61,7 @@ export namespace ArtifactCore {
   int sampleRate() const;
   int channelCount() const;
   QString backendName() const;
+  AudioBackendType currentBackendType() const;
 
   /**
    * @brief Feed audio data to the renderer buffer

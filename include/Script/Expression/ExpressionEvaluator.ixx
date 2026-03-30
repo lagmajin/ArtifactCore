@@ -44,9 +44,10 @@ import Audio.Segment;
 
 
 export namespace ArtifactCore {
+class ExpressionEvaluator;
 
 // Built-in function signature
-using BuiltinFunction = std::function<ExpressionValue(const std::vector<ExpressionValue>&)>;
+using BuiltinFunction = std::function<ExpressionValue(const std::vector<ExpressionValue>&, const ExpressionEvaluator*)>;
 
 // Expression evaluator with context
 class ExpressionEvaluator {
@@ -95,45 +96,46 @@ public:
 // Standard built-in functions (AE-style)
 namespace BuiltinFunctions {
     // Math functions
-    ExpressionValue Sin(const std::vector<ExpressionValue>& args);
-    ExpressionValue Cos(const std::vector<ExpressionValue>& args);
-    ExpressionValue Tan(const std::vector<ExpressionValue>& args);
-    ExpressionValue Sqrt(const std::vector<ExpressionValue>& args);
-    ExpressionValue Pow(const std::vector<ExpressionValue>& args);
-    ExpressionValue Abs(const std::vector<ExpressionValue>& args);
-    ExpressionValue Floor(const std::vector<ExpressionValue>& args);
-    ExpressionValue Ceil(const std::vector<ExpressionValue>& args);
-    ExpressionValue Round(const std::vector<ExpressionValue>& args);
-    ExpressionValue Min(const std::vector<ExpressionValue>& args);
-    ExpressionValue Max(const std::vector<ExpressionValue>& args);
-    ExpressionValue Clamp(const std::vector<ExpressionValue>& args);
+    ExpressionValue Sin(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Cos(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Tan(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Sqrt(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Pow(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Abs(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Floor(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Ceil(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Round(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Min(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Max(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Clamp(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     
     // Vector functions
-    ExpressionValue Length(const std::vector<ExpressionValue>& args);  // Vector magnitude
-    ExpressionValue Normalize(const std::vector<ExpressionValue>& args);
-    ExpressionValue Dot(const std::vector<ExpressionValue>& args);
-    ExpressionValue Cross(const std::vector<ExpressionValue>& args);
+    ExpressionValue Length(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);  // Vector magnitude
+    ExpressionValue Normalize(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Dot(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Cross(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     
     // Interpolation
-    ExpressionValue Linear(const std::vector<ExpressionValue>& args);  // lerp
-    ExpressionValue Ease(const std::vector<ExpressionValue>& args);
-    ExpressionValue EaseIn(const std::vector<ExpressionValue>& args);
-    ExpressionValue EaseOut(const std::vector<ExpressionValue>& args);
+    ExpressionValue Linear(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);  // lerp
+    ExpressionValue Ease(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue EaseIn(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue EaseOut(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     
     // Random
-    ExpressionValue Random(const std::vector<ExpressionValue>& args);
-    ExpressionValue Noise(const std::vector<ExpressionValue>& args);
+    ExpressionValue Random(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Noise(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Wiggle(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     
     // Array functions
-    ExpressionValue Sum(const std::vector<ExpressionValue>& args);
-    ExpressionValue Average(const std::vector<ExpressionValue>& args);
+    ExpressionValue Sum(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Average(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     
     // Audio functions
-    ExpressionValue AudioRMS(const std::vector<ExpressionValue>& args);
-    ExpressionValue AudioPeak(const std::vector<ExpressionValue>& args);
-    ExpressionValue AudioLow(const std::vector<ExpressionValue>& args);
-    ExpressionValue AudioMid(const std::vector<ExpressionValue>& args);
-    ExpressionValue AudioHigh(const std::vector<ExpressionValue>& args);
+    ExpressionValue AudioRMS(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue AudioPeak(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue AudioLow(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue AudioMid(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue AudioHigh(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
 }
 
 }

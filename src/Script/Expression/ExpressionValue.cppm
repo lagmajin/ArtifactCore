@@ -340,4 +340,19 @@ std::string ExpressionValue::toString() const {
     return "";
 }
 
+ExpressionValue ExpressionValue::normalized() const {
+    if (!isVector() || isNull()) return *this;
+    auto vec = asVector();
+    double lenSq = 0.0;
+    for (double v : vec) lenSq += v * v;
+    double len = std::sqrt(lenSq);
+    if (len < 1e-12) return *this;
+    
+    if (impl_->type_ == ExprValueType::Vec2) return ExpressionValue(vec[0] / len, vec[1] / len);
+    if (impl_->type_ == ExprValueType::Vec3) return ExpressionValue(vec[0] / len, vec[1] / len, vec[2] / len);
+    if (impl_->type_ == ExprValueType::Vec4) return ExpressionValue(vec[0] / len, vec[1] / len, vec[2] / len, vec[3] / len);
+    
+    return *this;
+}
+
 }
