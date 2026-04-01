@@ -83,19 +83,15 @@ namespace ArtifactCore {
 
  }
 
- std::u16string UniString::Impl::toStdU16String() const
- {
-  auto result = std::u16string();
+  std::u16string UniString::Impl::toStdU16String() const
+  {
+   return str_.toStdU16String();
+  }
 
-  return result;
- }
-
- std::u32string UniString::Impl::toStdU32String() const
- {
-  auto result = std::u32string();
-
-  return result;
- }
+  std::u32string UniString::Impl::toStdU32String() const
+  {
+   return str_.toStdU32String();
+  }
 
  UniString::UniString() :impl_(new Impl())
  {

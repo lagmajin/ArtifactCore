@@ -26,6 +26,14 @@ namespace ArtifactCore {
         std::shared_ptr<Mesh> loadWithUfbx(const QString& path) {
             lastBackend_ = MeshImporter::Backend::Ufbx;
             lastError_.clear();
+
+            // Detect glTF/glb from extension
+            const QString lowerPath = path.toLower();
+            const bool isGltf = lowerPath.endsWith(".gltf") || lowerPath.endsWith(".glb");
+            if (isGltf) {
+                lastBackend_ = MeshImporter::Backend::UfbxGltf;
+            }
+
             ufbx_load_opts opts = {};
             opts.generate_missing_normals = true;
 
@@ -44,10 +52,18 @@ namespace ArtifactCore {
                 totalVertices += (int)scene->meshes[i]->num_indices;
             }
             
+            if (totalVertices == 0) {
+                ufbx_free_scene(scene);
+                lastError_ = QStringLiteral("ufbx: no mesh data");
+                qWarning() << "ufbx loaded empty mesh:" << path;
+                return nullptr;
+            }
+            
             mesh->setVertexCount(totalVertices);
             auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
             auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
             auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+            auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
 
             int vertexOffset = 0;
             for (size_t i = 0; i < scene->meshes.count; ++i) {
@@ -71,6 +87,15 @@ namespace ArtifactCore {
                             ufbx_vec2 uv = ufbx_get_vertex_vec2(&srcMesh->vertex_uv, idx);
                             (*uvAttr)[outIdx] = QVector2D(uv.x, uv.y);
                         }
+
+                        // Vertex colors (glTF often has these)
+                        if (srcMesh->vertex_color.exists) {
+                            ufbx_vec4 col = ufbx_get_vertex_vec4(&srcMesh->vertex_color, idx);
+                            (*colorAttr)[outIdx] = QVector4D(col.x, col.y, col.z, col.w);
+                        } else {
+                            (*colorAttr)[outIdx] = QVector4D(1.0f, 1.0f, 1.0f, 1.0f);
+                        }
+
                         polyIndices.push_back(outIdx);
                     }
                     mesh->addPolygon(polyIndices);
@@ -214,7 +239,10 @@ namespace ArtifactCore {
             return impl_->loadWithTinyObj(qpath);
         }
 
-        // TODO: glTF (fastgltf) の実装をここに追加予定
+        if (ext == "gltf" || ext == "glb") {
+            return impl_->loadWithUfbx(qpath);
+        }
+
         qWarning() << "Unsupported mesh format:" << ext;
         impl_->lastError_ = QStringLiteral("unsupported format: %1").arg(ext);
         return nullptr;

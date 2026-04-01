@@ -22,7 +22,15 @@ export namespace ArtifactCore {
 
   EnvironmentVariableManager(const EnvironmentVariableManager&) = delete;
   EnvironmentVariableManager& operator=(const EnvironmentVariableManager&) = delete;
+
+  static EnvironmentVariableManager* instance();
+
   void setVariable(const QString& name, const QVariant& value);
+  QVariant getVariable(const QString& name) const;
+  bool hasVariable(const QString& name) const;
+  QStringList variableNames() const;
+  void loadFromSystemEnvironment();
+  void clear();
  };
 
 

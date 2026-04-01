@@ -1,7 +1,9 @@
 ﻿module;
 #include "..\Define\DllExportMacro.hpp"
+#include <QApplication>
 #include <QColor>
 #include <QPalette>
+#include <QStyleFactory>
 #include <QString>
 
 export module Widgets.Utils.CSS;
@@ -32,6 +34,95 @@ struct DccStyleTheme {
   QString buttonPressedColor;
 };
 
+DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset);
+QPalette LIBRARY_DLL_API buildDCCPalette(const DccStyleTheme& theme);
+QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme);
+DccStyleTheme& LIBRARY_DLL_API currentDCCTheme();
+
+QString LIBRARY_DLL_API themePresetKey(DccStylePreset preset) {
+  switch (preset) {
+  case DccStylePreset::DefaultQt:
+    return QStringLiteral("Light");
+  case DccStylePreset::MayaStyle:
+    return QStringLiteral("Maya");
+  case DccStylePreset::ModoStyle:
+    return QStringLiteral("Modo");
+  case DccStylePreset::StudioStyle:
+    return QStringLiteral("Studio");
+  case DccStylePreset::BlenderStyle:
+    return QStringLiteral("Blender");
+  case DccStylePreset::DaVinciStyle:
+    return QStringLiteral("DaVinci");
+  case DccStylePreset::_3dsMaxStyle:
+    return QStringLiteral("3ds Max");
+  case DccStylePreset::NukeStyle:
+    return QStringLiteral("Nuke");
+  case DccStylePreset::HighContrast:
+    return QStringLiteral("High Contrast");
+  }
+  return QStringLiteral("Studio");
+}
+
+QString LIBRARY_DLL_API themePresetLabel(DccStylePreset preset) {
+  return themePresetKey(preset);
+}
+
+DccStylePreset LIBRARY_DLL_API themePresetFromName(const QString& name) {
+  const QString key = name.trimmed();
+  if (key.compare(QStringLiteral("High Contrast"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("HighContrast"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::HighContrast;
+  }
+  if (key.compare(QStringLiteral("Maya"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("MayaStyle"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::MayaStyle;
+  }
+  if (key.compare(QStringLiteral("Modo"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("ModoStyle"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::ModoStyle;
+  }
+  if (key.compare(QStringLiteral("Studio"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("StudioStyle"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("Dark"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::StudioStyle;
+  }
+  if (key.compare(QStringLiteral("Blender"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("BlenderStyle"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::BlenderStyle;
+  }
+  if (key.compare(QStringLiteral("DaVinci"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("Resolve"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("DaVinciStyle"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::DaVinciStyle;
+  }
+  if (key.compare(QStringLiteral("3ds Max"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("3dsMax"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("_3dsMaxStyle"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::_3dsMaxStyle;
+  }
+  if (key.compare(QStringLiteral("Nuke"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("NukeStyle"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::NukeStyle;
+  }
+  if (key.compare(QStringLiteral("Light"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("DefaultQt"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::DefaultQt;
+  }
+  return DccStylePreset::StudioStyle;
+}
+
+void LIBRARY_DLL_API applyDCCTheme(QApplication& app, DccStylePreset preset) {
+  const auto theme = getDCCTheme(preset);
+  currentDCCTheme() = theme;
+  app.setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
+  app.setPalette(buildDCCPalette(theme));
+  app.setStyleSheet(buildDCCStyleSheet(theme));
+}
+
+void LIBRARY_DLL_API applyDCCTheme(QApplication& app, const QString& themeName) {
+  applyDCCTheme(app, themePresetFromName(themeName));
+}
+
 DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
   DccStyleTheme theme{};
   switch (preset) {
@@ -58,15 +149,15 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
     theme.buttonPressedColor = "#3A3A3A";
     break;
   case DccStylePreset::StudioStyle:
-    theme.accentColor = "#84A9FF";
-    theme.textColor = "#E3E8EF";
-    theme.backgroundColor = "#181B20";
-    theme.secondaryBackgroundColor = "#20252D";
-    theme.selectionColor = "#2B3B4F";
-    theme.borderColor = "#2E3440";
-    theme.buttonColor = "#232A33";
-    theme.buttonHoverColor = "#2D3641";
-    theme.buttonPressedColor = "#1D232B";
+    theme.accentColor = "#D9A35A";
+    theme.textColor = "#E3E6EA";
+    theme.backgroundColor = "#1E1E1E";
+    theme.secondaryBackgroundColor = "#282828";
+    theme.selectionColor = "#3A3A3A";
+    theme.borderColor = "#3C3C3C";
+    theme.buttonColor = "#2E2E2E";
+    theme.buttonHoverColor = "#383838";
+    theme.buttonPressedColor = "#252525";
     break;
   case DccStylePreset::BlenderStyle:
     theme.accentColor = "#F5792A";
@@ -376,6 +467,11 @@ QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme) {
            theme.secondaryBackgroundColor, theme.selectionColor,
            theme.borderColor, theme.buttonColor, theme.buttonHoverColor,
            theme.buttonPressedColor);
+}
+
+DccStyleTheme& LIBRARY_DLL_API currentDCCTheme() {
+  static DccStyleTheme theme = getDCCTheme(DccStylePreset::StudioStyle);
+  return theme;
 }
 
 QString LIBRARY_DLL_API getDCCStyleSheetPreset(DccStylePreset preset) {

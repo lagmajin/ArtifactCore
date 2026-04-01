@@ -50,7 +50,8 @@ public:
     enum class Backend {
         None,
         Ufbx,
-        TinyObj
+        TinyObj,
+        UfbxGltf
     };
 private:
     class Impl;

@@ -89,7 +89,7 @@ TextLayoutEngine::layout(const UniString &text, const TextStyle &style,
   float baselineOffset = metrics.ascent();
 
   auto u32str = text.toStdU32String();
-  for (size_t i = 0; i < text.length(); ++i) {
+  for (size_t i = 0; i < u32str.size(); ++i) {
     char32_t code = u32str[i];
 
     if (code == '\n') {

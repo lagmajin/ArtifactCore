@@ -23,10 +23,22 @@ public:
         std::function<void(const void*)> callback;
     };
 
+    enum class EventPriority : int {
+        Low = 0,
+        Normal = 1,
+        High = 2,
+        Critical = 3
+    };
+
     struct QueuedEvent {
         std::type_index type = std::type_index(typeid(void));
         std::shared_ptr<const void> payload;
         void (*dispatch)(EventBus&, const void*) = nullptr;
+        EventPriority priority = EventPriority::Normal;
+
+        bool operator<(const QueuedEvent& other) const {
+            return static_cast<int>(priority) < static_cast<int>(other.priority);
+        }
     };
 
     class Subscription {
@@ -78,19 +90,30 @@ public:
 
     template<typename Event, typename... Args>
         requires std::constructible_from<std::remove_cvref_t<Event>, Args...>
-    void post(Args&&... args) {
+    void post(EventPriority priority, Args&&... args) {
         using EventType = std::remove_cvref_t<Event>;
         auto payload = std::make_shared<EventType>(std::forward<Args>(args)...);
         auto rawPayload = std::shared_ptr<const void>(payload, static_cast<const void*>(payload.get()));
-        enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>);
+        enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>, priority);
+    }
+
+    template<typename Event, typename... Args>
+        requires std::constructible_from<std::remove_cvref_t<Event>, Args...>
+    void post(Args&&... args) {
+        post<Event>(EventPriority::Normal, std::forward<Args>(args)...);
+    }
+
+    template<typename Event>
+    void post(EventPriority priority, Event&& event) {
+        using EventType = std::remove_cvref_t<Event>;
+        auto payload = std::make_shared<EventType>(std::forward<Event>(event));
+        auto rawPayload = std::shared_ptr<const void>(payload, static_cast<const void*>(payload.get()));
+        enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>, priority);
     }
 
     template<typename Event>
     void post(Event&& event) {
-        using EventType = std::remove_cvref_t<Event>;
-        auto payload = std::make_shared<EventType>(std::forward<Event>(event));
-        auto rawPayload = std::shared_ptr<const void>(payload, static_cast<const void*>(payload.get()));
-        enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>);
+        post<Event>(EventPriority::Normal, std::forward<Event>(event));
     }
 
     [[nodiscard]] std::size_t drain(std::size_t maxEvents = std::numeric_limits<std::size_t>::max());
@@ -109,7 +132,7 @@ private:
 
     Subscription subscribeRaw(std::type_index type, std::function<void(const void*)> callback);
     std::size_t publishRaw(std::type_index type, const void* payload) const;
-    void enqueueRaw(std::type_index type, std::shared_ptr<const void> payload, void (*dispatch)(EventBus&, const void*));
+    void enqueueRaw(std::type_index type, std::shared_ptr<const void> payload, void (*dispatch)(EventBus&, const void*), EventPriority priority = EventPriority::Normal);
     std::size_t subscriberCountRaw(std::type_index type) const noexcept;
 
     template<typename EventType>

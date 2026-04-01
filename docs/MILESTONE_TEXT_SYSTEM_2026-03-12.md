@@ -50,9 +50,19 @@ After Effects レベルを目指す text 機能のための Core 側マイルス
 - 対象:
   selector, range, transform, opacity, fill/stroke animator。
 
+## C-TXT-6 GPU Text Rendering / Japanese Shaping
+
+- 目標:
+  DX12 / Vulkan backend で日本語を含む text を安定描画できるようにする。
+- 対象:
+  font fallback, shaping, glyph atlas, backend parity, IME safe path。
+- 詳細:
+  `MILESTONE_GPU_TEXT_RENDERING_JA_2026-04-01.md`
+
 ## First Pass Notes
 
 - 2026-03-12:
   - Core に `Text.Style` module を追加
   - `ArtifactTextLayer` は最小の style/paragraph だけ共有する方向へ移行開始
   - `Font.FreeFont` の空 stub を family resolution 基盤として更新
+  - DX12 / Vulkan 向けの日本語 text rendering は別マイルストーンに分離して整理する

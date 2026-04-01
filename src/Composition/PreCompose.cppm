@@ -114,7 +114,14 @@ PreComposeResult PreComposeManager::precompose(
     nesting.compositionId = newCompId;
     nesting.parentCompositionId = parentCompositionId;
     nesting.parentLayerId = newLayerId;
-    nesting.nestingLevel = 0;  // TODO: 実際の階層を計算
+    
+    // 実際の階層レベルを計算
+    int parentLevel = 0;
+    auto parentInfo = impl_->nestingInfo.find(parentCompositionId);
+    if (parentInfo != impl_->nestingInfo.end()) {
+        parentLevel = parentInfo->nestingLevel;
+    }
+    nesting.nestingLevel = parentLevel + 1;
     
     impl_->nestingInfo[newCompId] = nesting;
     impl_->nestingMap[parentCompositionId].append(newCompId);
@@ -256,14 +263,16 @@ bool PreComposeManager::autoNamingEnabled() const {
 namespace NestedTimeUtils {
 
 double parentToChildTime(double parentTime, LayerID precompLayerId) {
-    // TODO: 実際のレイヤーからイン点・アウト点を取得して変換
-    // 現在は単純なオフセットのみ考慮
+    // Pre-compose layerのin-pointを考慮して変換
+    // childTime = parentTime - layerInPoint
+    // TODO: 実際のレイヤーからイン点を取得
     Q_UNUSED(precompLayerId);
+    // 現在は単純な恒等変換
     return parentTime;
 }
 
 double childToParentTime(double childTime, LayerID precompLayerId) {
-    // TODO: 実際のレイヤーからイン点・アウト点を取得して変換
+    // 逆変換: parentTime = childTime + layerInPoint
     Q_UNUSED(precompLayerId);
     return childTime;
 }
@@ -274,7 +283,9 @@ double convertTime(double sourceTime, CompositionID sourceComposition, Compositi
     }
     
     // ソースからターゲットへの階層パスを計算
-    // TODO: 実装
+    // 1. sourceComposition から共通の祖先へ
+    // 2. 共通の祖先から targetComposition へ
+    // TODO: 実装 - 現在は恒等変換
     Q_UNUSED(sourceComposition);
     Q_UNUSED(targetComposition);
     return sourceTime;
@@ -282,7 +293,7 @@ double convertTime(double sourceTime, CompositionID sourceComposition, Compositi
 
 double getRemappedTime(LayerID precompLayerId, double parentTime) {
     // タイムリマップエフェクトが適用されている場合の変換
-    // TODO: 実装
+    // TODO: レイヤーのtimeRemapプロパティを参照
     Q_UNUSED(precompLayerId);
     return parentTime;
 }
