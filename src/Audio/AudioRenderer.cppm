@@ -221,7 +221,6 @@ void AudioRenderer::closeDevice() {
                                 : QStringLiteral("<null>"))
              << "bufferedFrames=" << bufferedFrames();
     impl_->active = false;
-    impl_->backend->stop();
     impl_->backend->close();
     impl_->deviceOpen = false;
     impl_->deviceName.clear();
@@ -252,7 +251,6 @@ void AudioRenderer::start() {
         [this](float *b, int f, int c) { impl_->audioCallback(b, f, c); });
     if (!impl_->backend->isActive()) {
       impl_->active = false;
-      impl_->backend->stop();
       impl_->backend->close();
       impl_->deviceOpen = false;
       qWarning() << "[AudioRenderer] start failed"

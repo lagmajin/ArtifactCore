@@ -32,7 +32,7 @@ public:
     void install();
     void uninstall();
 
-    std::vector<LogMessage> getLogs();
+    const std::vector<LogMessage>& getLogs() const;
     void clearLogs();
 
     void appendLog(LogLevel level, const QString& message, const QString& context = "");

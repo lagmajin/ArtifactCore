@@ -188,7 +188,7 @@ std::size_t EventBus::publishRaw(std::type_index type, const void* payload) cons
     return delivered;
 }
 
-void EventBus::enqueueRaw(std::type_index type, std::shared_ptr<const void> payload, void (*dispatch)(EventBus&, const void*))
+void EventBus::enqueueRaw(std::type_index type, std::shared_ptr<const void> payload, void (*dispatch)(EventBus&, const void*), EventPriority priority)
 {
     auto impl = impl_;
     if (!impl) {
@@ -196,7 +196,12 @@ void EventBus::enqueueRaw(std::type_index type, std::shared_ptr<const void> payl
     }
 
     std::lock_guard<std::mutex> lock(impl->queueMutex);
-    impl->queue.push_back(QueuedEvent { type, std::move(payload), dispatch });
+    // Insert in sorted position (high priority first)
+    auto pos = impl->queue.begin();
+    while (pos != impl->queue.end() && static_cast<int>(pos->priority) >= static_cast<int>(priority)) {
+        ++pos;
+    }
+    impl->queue.insert(pos, QueuedEvent { type, std::move(payload), dispatch, priority });
 }
 
 std::size_t EventBus::subscriberCountRaw(std::type_index type) const noexcept

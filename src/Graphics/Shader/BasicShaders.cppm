@@ -61,11 +61,39 @@ struct PSInput
 {
     float4 pos : SV_POSITION;
     float4 color : COLOR0;
+    float2 uv  : TEXCOORD0;
+};
+
+cbuffer OutlineParams : register(b1)
+{
+    float outlineThickness; // アウトラインの太さ (0.0-1.0 のUV空間)
 };
 
 float4 main(PSInput input) : SV_TARGET
 {
-    return input.color;
+    // UV座標の端からの距離を計算
+    float dx = min(input.uv.x, 1.0 - input.uv.x);
+    float dy = min(input.uv.y, 1.0 - input.uv.y);
+    float distToEdge = min(dx, dy);
+    
+    // エッジ幅を計算（アンチエイリアス用）
+    float2 fw = fwidth(input.uv);
+    float edgeWidth = max(fw.x, fw.y) * 2.0;
+    
+    // アウトライン内かどうかを判定
+    float innerEdge = outlineThickness - edgeWidth;
+    float outerEdge = outlineThickness + edgeWidth;
+    
+    float outlineAlpha = 1.0 - smoothstep(innerEdge, outerEdge, distToEdge);
+    
+    // アウトラインの外側は透明に
+    if (distToEdge > outlineThickness + edgeWidth * 2.0) {
+        discard;
+    }
+    
+    float4 result = input.color;
+    result.a *= outlineAlpha;
+    return result;
 }
 )";
 
@@ -95,9 +123,40 @@ float4 main(PS_INPUT input) : SV_TARGET
     float2 fw = fwidth(input.uv);
     float edgeWidth = max(fw.x, fw.y);
     
-    float alphaMultiplier = (edgeWidth > 0.0001) ? smoothstep(0.0, edgeWidth * 1.0, d) : 1.0;
+    if (d < edgeWidth) {
+        float alpha = d / edgeWidth;
+        return float4(uColor.rgb, uColor.a * alpha);
+    }
     
-    return float4(uColor.rgb, uColor.a * alphaMultiplier);
+    return uColor;
+}
+)";
+
+// Batch pixel shader: uses vertex color directly (no ColorBuffer)
+LIBRARY_DLL_API const QByteArray g_qsBatchSolidColorPSSource = R"(
+struct PS_INPUT
+{
+    float4 Position : SV_POSITION;
+    float4 Color    : COLOR0;
+};
+
+float4 main(PS_INPUT input) : SV_TARGET
+{
+    return input.Color;
+}
+)";
+
+// Batch pixel shader: uses vertex color directly (no ColorBuffer)
+LIBRARY_DLL_API const QByteArray g_qsBatchSolidColorPSSource = R"(
+struct PS_INPUT
+{
+    float4 Position : SV_POSITION;
+    float4 Color    : COLOR0;
+};
+
+float4 main(PS_INPUT input) : SV_TARGET
+{
+    return input.Color;
 }
 )";
 

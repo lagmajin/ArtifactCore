@@ -101,6 +101,11 @@
 - alignment / tracking / leading の共通化
 - font family resolution / fallback
 
+### C-TXT-6 GPU Text Rendering / Japanese Shaping
+- DX12 / Vulkan backend での日本語 text rendering
+- glyph atlas / shaping / backend parity
+- 詳細は `MILESTONE_GPU_TEXT_RENDERING_JA_2026-04-01.md`
+
 ### C-TXT-2 Text Layer Integration
 - `ArtifactTextLayer` への style 適用
 - property / serialization の受け皿
@@ -173,3 +178,4 @@
 - `C-AUD-3 Analysis / Waveform`
 - `C-GFX-2 Creative Effect Pack`
 - `C-IMG-2 OpenCV Image Ops`
+- `C-TXT-6 GPU Text Rendering / Japanese Shaping`

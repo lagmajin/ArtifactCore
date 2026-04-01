@@ -57,6 +57,7 @@ export namespace ArtifactCore {
 
  extern LIBRARY_DLL_API const QByteArray drawSolidRectVSSource;
  extern LIBRARY_DLL_API const QByteArray drawSolidRectTransformVSSource;
+ extern LIBRARY_DLL_API const QByteArray drawBatchSolidRectVSSource;
  extern LIBRARY_DLL_API const QByteArray drawSpriteTransformVSSource;
 
 

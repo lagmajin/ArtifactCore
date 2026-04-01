@@ -53,5 +53,7 @@ export namespace ArtifactCore {
 
 
  extern LIBRARY_DLL_API const QByteArray g_qsSolidColorPSSource;
+ extern LIBRARY_DLL_API const QByteArray g_qsBatchSolidColorPSSource;
+ extern LIBRARY_DLL_API const QByteArray g_qsBatchSolidColorPSSource;
 
 };

@@ -77,7 +77,8 @@ PSInput main(VSInput Input)
  LIBRARY_DLL_API const QByteArray drawOutlineRectVSSource=R"(
 cbuffer TransformCB : register(b0)
 {
-    float2 offset;     // 矩形の位置オフセット（必要なら）
+    float2 offset;     // 矩形の位置オフセット
+    float2 scale;      // 幅・高さ
     float2 screenSize; // 画面サイズ
 };
 
@@ -91,21 +92,22 @@ struct PSInput
 {
     float4 pos : SV_POSITION;
     float4 color : COLOR0;
-   
+    float2 uv  : TEXCOORD0;
 };
 
 PSInput main(VSInput input)
 {
     PSInput output;
-    float2 ndc = input.pos / screenSize * 2.0f - float2(1.0f,1.0f);
-    ndc.y = -ndc.y; // Y軸反転
+    // offset + pos * scale でワールド座標に変換
+    float2 worldPos = offset + input.pos * scale;
+    float2 ndc = worldPos / screenSize * 2.0f - float2(1.0f, 1.0f);
+    ndc.y = -ndc.y;
     output.pos = float4(ndc, 0, 1);
     output.color = input.color;
+    output.uv = input.pos;
     return output;
 }
-
-
-  )";
+)";
 
 
 
@@ -139,6 +141,52 @@ PSInput main(VSInput input)
 
     output.pos = float4(ndc, 0.0f, 1.0f);
     output.uv = input.pos;
+    return output;
+}
+)";
+
+// Pass-through vertex shader for batch rendering (NDC coords pre-computed on CPU)
+LIBRARY_DLL_API const QByteArray drawBatchSolidRectVSSource = R"(
+struct VSInput
+{
+    float2 pos : ATTRIB0;
+    float4 color : ATTRIB1;
+};
+
+struct PSInput
+{
+    float4 pos : SV_POSITION;
+    float4 color : COLOR0;
+};
+
+PSInput main(VSInput input)
+{
+    PSInput output;
+    output.pos = float4(input.pos, 0.0f, 1.0f);
+    output.color = input.color;
+    return output;
+}
+)";
+
+// Pass-through vertex shader for batch rendering (NDC coords pre-computed on CPU)
+LIBRARY_DLL_API const QByteArray drawBatchSolidRectVSSource = R"(
+struct VSInput
+{
+    float2 pos : ATTRIB0;
+    float4 color : ATTRIB1;
+};
+
+struct PSInput
+{
+    float4 pos : SV_POSITION;
+    float4 color : COLOR0;
+};
+
+PSInput main(VSInput input)
+{
+    PSInput output;
+    output.pos = float4(input.pos, 0.0f, 1.0f);
+    output.color = input.color;
     return output;
 }
 )";

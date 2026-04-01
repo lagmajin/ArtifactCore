@@ -25,6 +25,7 @@ class WASAPIBackend::Impl {
 public:
   std::atomic<bool> active{false};
   std::atomic<bool> stopRequested{false};
+  std::atomic<bool> stopJoined{false};
   AudioCallback callback;
   std::thread renderThread;
   QAudioFormat currentFormat;
@@ -56,8 +57,12 @@ public:
     if (audioEvent) {
       SetEvent(audioEvent);
     }
-    if (renderThread.joinable()) {
-      renderThread.join();
+    if (renderThread.joinable() && !stopJoined.exchange(true)) {
+      if (renderThread.get_id() == std::this_thread::get_id()) {
+        renderThread.detach();
+      } else {
+        renderThread.join();
+      }
     }
     active = false;
   }
@@ -246,6 +251,7 @@ void WASAPIBackend::start(AudioCallback callback) {
 
   impl_->callback = std::move(callback);
   impl_->stopRequested = false;
+  impl_->stopJoined = false;
   impl_->active = true;
   if (FAILED(impl_->audioClient->Start())) {
     impl_->active = false;
@@ -262,13 +268,14 @@ void WASAPIBackend::stop() {
     return;
   }
 
+  if (!impl_->active.load() && !impl_->renderThread.joinable()) {
+    return;
+  }
   impl_->stopRequested = true;
   if (impl_->audioClient) {
     impl_->audioClient->Stop();
   }
-  if (impl_->renderThread.joinable()) {
-    impl_->renderThread.join();
-  }
+  impl_->stopThread();
   impl_->active = false;
 }
 
