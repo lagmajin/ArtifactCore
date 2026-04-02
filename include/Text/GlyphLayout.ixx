@@ -11,6 +11,7 @@ module;
 export module Text.GlyphLayout;
 
 import Text.Style;
+import Font.FreeFont;
 import Utils.String.UniString;
 import FloatRGBA;
 
@@ -74,13 +75,7 @@ TextLayoutEngine::layout(const UniString &text, const TextStyle &style,
 
   Q_UNUSED(paragraph);
 
-  QFont font;
-  font.setFamily(style.fontFamily.toQString());
-  font.setPointSizeF(style.fontSize);
-  font.setWeight(style.fontWeight == FontWeight::Bold     ? QFont::Bold
-                 : style.fontWeight == FontWeight::Normal ? QFont::Normal
-                                                          : QFont::Normal);
-  font.setItalic(style.fontStyle == FontStyle::Italic);
+  const QFont font = FontManager::makeFont(style, text.toQString());
 
   QFontMetricsF metrics(font);
 

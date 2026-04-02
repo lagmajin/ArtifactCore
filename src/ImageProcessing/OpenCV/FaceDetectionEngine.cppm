@@ -152,13 +152,14 @@ public:
         float imgHeight = static_cast<float>(image.rows);
 
         for (int i = 0; i < detections.size[2]; ++i) {
-            float confidence = detections.at<float>(0, 0, i, 2);
+            float confidence = detections.ptr<float>(0, 0, i)[2];
             if (confidence < 0.5f) continue;
 
-            int x1 = static_cast<int>(detections.at<float>(0, 0, i, 3) * imgWidth);
-            int y1 = static_cast<int>(detections.at<float>(0, 0, i, 4) * imgHeight);
-            int x2 = static_cast<int>(detections.at<float>(0, 0, i, 5) * imgWidth);
-            int y2 = static_cast<int>(detections.at<float>(0, 0, i, 6) * imgHeight);
+            const float* row = detections.ptr<float>(0, 0, i);
+            int x1 = static_cast<int>(row[3] * imgWidth);
+            int y1 = static_cast<int>(row[4] * imgHeight);
+            int x2 = static_cast<int>(row[5] * imgWidth);
+            int y2 = static_cast<int>(row[6] * imgHeight);
 
             FaceDetectionResult result;
             result.rect = QRect(x1, y1, x2 - x1, y2 - y1);
@@ -185,11 +186,9 @@ public:
     }
 };
 
-FaceDetectionEngine::FaceDetectionEngine() : impl_(new Impl()) {}
+FaceDetectionEngine::FaceDetectionEngine() : impl_(std::make_unique<Impl>()) {}
 
-FaceDetectionEngine::~FaceDetectionEngine() {
-    delete impl_;
-}
+FaceDetectionEngine::~FaceDetectionEngine() = default;
 
 bool FaceDetectionEngine::initialize(const FaceDetectionSettings& settings) {
     impl_->settings_ = settings;

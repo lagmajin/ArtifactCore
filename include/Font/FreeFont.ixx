@@ -17,6 +17,20 @@ export namespace ArtifactCore
 class FontManager
 {
 public:
+ static bool containsCjkCharacters(const QString& text)
+ {
+  for (const QChar ch : text) {
+   const auto code = ch.unicode();
+   if ((code >= 0x3040 && code <= 0x30FF) || // Hiragana / Katakana
+       (code >= 0x3400 && code <= 0x9FFF) || // CJK Unified Ideographs
+       (code >= 0xF900 && code <= 0xFAFF) || // CJK Compatibility Ideographs
+       (code >= 0xFF00 && code <= 0xFFEF)) {  // Full-width forms / punctuation
+    return true;
+   }
+  }
+  return false;
+ }
+
  static QStringList availableFamilies()
  {
   return QFontDatabase::families();
@@ -62,6 +76,35 @@ public:
   return font.family();
  }
 
+ static QStringList japaneseFallbackCandidates()
+ {
+  return {
+      QStringLiteral("Yu Gothic UI"),
+      QStringLiteral("Yu Gothic"),
+      QStringLiteral("Meiryo UI"),
+      QStringLiteral("Meiryo"),
+      QStringLiteral("MS Gothic"),
+      QStringLiteral("Noto Sans CJK JP"),
+      QStringLiteral("Noto Sans JP"),
+      QStringLiteral("Source Han Sans JP"),
+      QStringLiteral("Segoe UI"),
+  };
+ }
+
+ static QString firstAvailableFamily(const QStringList& candidates)
+ {
+  const QStringList families = availableFamilies();
+  for (const QString& candidate : candidates) {
+   if (candidate.isEmpty()) {
+    continue;
+   }
+   if (families.contains(candidate, Qt::CaseInsensitive)) {
+    return candidate;
+   }
+  }
+  return {};
+ }
+
  static QString resolvedFamily(const QString& preferredFamily)
  {
   const QString preferred = preferredFamily.trimmed();
@@ -74,12 +117,34 @@ public:
    return general;
   }
 
+  const QString japaneseFallback = firstAvailableFamily(japaneseFallbackCandidates());
+  if (!japaneseFallback.isEmpty()) {
+   return japaneseFallback;
+  }
+
   const QStringList families = availableFamilies();
   if (!families.isEmpty()) {
    return families.front();
   }
 
   return QStringLiteral("Arial");
+ }
+
+ static QString resolvedFamilyForText(const QString& preferredFamily, const QString& sampleText)
+ {
+  const QString preferred = preferredFamily.trimmed();
+  if (!preferred.isEmpty() && isFamilyAvailable(preferred)) {
+   return preferred;
+  }
+
+  if (containsCjkCharacters(sampleText)) {
+   const QString japaneseFallback = firstAvailableFamily(japaneseFallbackCandidates());
+   if (!japaneseFallback.isEmpty()) {
+    return japaneseFallback;
+   }
+  }
+
+  return resolvedFamily(preferredFamily);
  }
 
  static bool loadFontFromFile(const QString& fontPath)
@@ -89,8 +154,8 @@ public:
   return id != -1;
  }
 
- static QFont makeFont(const TextStyle& style)
- {  QFont font(resolvedFamily(style.fontFamily.toQString()));
+ static QFont makeFont(const TextStyle& style, const QString& sampleText = QString())
+ {  QFont font(resolvedFamilyForText(style.fontFamily.toQString(), sampleText));
   font.setPointSizeF(std::max(1.0f, style.fontSize));
   font.setBold(style.fontWeight == FontWeight::Bold);
   font.setItalic(style.fontStyle == FontStyle::Italic);
