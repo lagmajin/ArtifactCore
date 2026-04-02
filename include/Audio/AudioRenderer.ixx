@@ -1,6 +1,7 @@
 module;
 #include "../Define/DllExportMacro.hpp"
 #include <memory>
+#include <functional>
 #include <QString>
 
 export module AudioRenderer;
@@ -18,6 +19,16 @@ enum class AudioBackendType {
     WASAPI,  // WASAPI 共有モード
     ASIO,    // ASIO（スタブ）
     Qt       // Qt 標準
+};
+
+/**
+ * @brief Audio level metering data (in dBFS)
+ */
+struct AudioLevelData {
+    float leftRms = -60.0f;
+    float rightRms = -60.0f;
+    float leftPeak = -60.0f;
+    float rightPeak = -60.0f;
 };
 
  /**
@@ -71,6 +82,12 @@ enum class AudioBackendType {
   size_t bufferedFrames() const;
   size_t underflowCount() const;
   size_t overflowCount() const;
+
+  /**
+   * @brief Set callback for receiving real-time level metering data
+   * @param callback Called with AudioLevelData (dBFS values) from the output buffer
+   */
+  void setLevelCallback(std::function<void(const AudioLevelData&)> callback);
 
  private:
   struct Impl;

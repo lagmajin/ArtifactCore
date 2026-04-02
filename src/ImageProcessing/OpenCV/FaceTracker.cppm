@@ -152,11 +152,9 @@ public:
     }
 };
 
-FaceTracker::FaceTracker() : impl_(new Impl()) {}
+FaceTracker::FaceTracker() : impl_(std::make_unique<Impl>()) {}
 
-FaceTracker::~FaceTracker() {
-    delete impl_;
-}
+FaceTracker::~FaceTracker() = default;
 
 void FaceTracker::setSettings(const FaceTrackerSettings& settings) {
     impl_->settings_ = settings;

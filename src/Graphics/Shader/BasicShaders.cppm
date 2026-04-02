@@ -146,21 +146,4 @@ float4 main(PS_INPUT input) : SV_TARGET
 }
 )";
 
-// Batch pixel shader: uses vertex color directly (no ColorBuffer)
-LIBRARY_DLL_API const QByteArray g_qsBatchSolidColorPSSource = R"(
-struct PS_INPUT
-{
-    float4 Position : SV_POSITION;
-    float4 Color    : COLOR0;
-};
-
-float4 main(PS_INPUT input) : SV_TARGET
-{
-    return input.Color;
-}
-)";
-
-
-
-
 };

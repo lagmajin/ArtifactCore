@@ -167,29 +167,6 @@ PSInput main(VSInput input)
     return output;
 }
 )";
-
-// Pass-through vertex shader for batch rendering (NDC coords pre-computed on CPU)
-LIBRARY_DLL_API const QByteArray drawBatchSolidRectVSSource = R"(
-struct VSInput
-{
-    float2 pos : ATTRIB0;
-    float4 color : ATTRIB1;
-};
-
-struct PSInput
-{
-    float4 pos : SV_POSITION;
-    float4 color : COLOR0;
-};
-
-PSInput main(VSInput input)
-{
-    PSInput output;
-    output.pos = float4(input.pos, 0.0f, 1.0f);
-    output.color = input.color;
-    return output;
-}
-)";
 LIBRARY_DLL_API const QByteArray drawSolidRectTransformVSSource = R"(
 cbuffer TransformCB : register(b0)
 {

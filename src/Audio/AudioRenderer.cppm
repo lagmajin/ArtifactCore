@@ -40,6 +40,10 @@ struct AudioRenderer::Impl {
   std::atomic<size_t> stopCount{0};
   std::atomic<size_t> closeCount{0};
 
+  // Level metering
+  std::function<void(const AudioLevelData&)> levelCallback;
+  int levelCallbackCounter = 0; // Throttle callback frequency
+
   // We'll use 48kHz Stereo as our internal processing format for the renderer
   int sampleRate = 48000;
   int channels = 2;
@@ -49,6 +53,14 @@ struct AudioRenderer::Impl {
     ringBuffer =
         std::make_unique<AudioRingBuffer>(48000 * 8); // 8-second stereo buffer
     backend = createBackend(AudioBackendType::Auto);
+  }
+
+  static float sampleToDb(float sample) {
+    const float absVal = std::abs(sample);
+    if (absVal < 0.00001f) {
+      return -60.0f;
+    }
+    return std::clamp(20.0f * std::log10(absVal), -60.0f, 0.0f);
   }
 
   std::unique_ptr<AudioBackend> createBackend(AudioBackendType type) {
@@ -97,6 +109,14 @@ struct AudioRenderer::Impl {
                      << "availableFrames=" << availableFrames;
         }
       }
+
+      double leftSumSq = 0.0;
+      double rightSumSq = 0.0;
+      float leftPeakAbs = 0.0f;
+      float rightPeakAbs = 0.0f;
+      int leftCount = 0;
+      int rightCount = 0;
+
       for (int i = 0; i < availableFrames; ++i) {
         for (int ch = 0; ch < channelsRequested; ++ch) {
           float sample = 0.0f;
@@ -111,14 +131,41 @@ struct AudioRenderer::Impl {
           sample *= masterVolume;
           sample = std::clamp(sample, -1.0f, 1.0f);
 
-          // Fade out during partial underflow to avoid click noise
           if (availableFrames < frames) {
-            const float fadeGain = static_cast<float>(availableFrames - i) /
-                                   static_cast<float>(availableFrames);
-            sample *= fadeGain;
+            const int fadeStart = std::max(0, availableFrames - 64);
+            if (i >= fadeStart) {
+              const float t = static_cast<float>(i - fadeStart) / static_cast<float>(availableFrames - fadeStart);
+              const float fadeGain = 0.5f * (1.0f + std::cos(3.14159265f * t));
+              sample *= fadeGain;
+            }
           }
 
           buffer[i * channelsRequested + ch] = sample;
+
+          if (ch == 0) {
+            leftSumSq += static_cast<double>(sample) * sample;
+            const float absSample = std::abs(sample);
+            if (absSample > leftPeakAbs) leftPeakAbs = absSample;
+            ++leftCount;
+          } else if (ch == 1) {
+            rightSumSq += static_cast<double>(sample) * sample;
+            const float absSample = std::abs(sample);
+            if (absSample > rightPeakAbs) rightPeakAbs = absSample;
+            ++rightCount;
+          }
+        }
+      }
+
+      if (levelCallback && availableFrames > 0) {
+        ++levelCallbackCounter;
+        if (levelCallbackCounter >= 4) {
+          levelCallbackCounter = 0;
+          AudioLevelData levels;
+          levels.leftRms = (leftCount > 0) ? sampleToDb(static_cast<float>(std::sqrt(leftSumSq / leftCount))) : -60.0f;
+          levels.rightRms = (rightCount > 0) ? sampleToDb(static_cast<float>(std::sqrt(rightSumSq / rightCount))) : -60.0f;
+          levels.leftPeak = sampleToDb(leftPeakAbs);
+          levels.rightPeak = sampleToDb(rightPeakAbs);
+          levelCallback(levels);
         }
       }
     } else {
@@ -392,6 +439,13 @@ bool AudioRenderer::openDevice(AudioBackendType type,
 
   // Now open with the new backend
   return openDevice(deviceName);
+}
+
+void AudioRenderer::setLevelCallback(std::function<void(const AudioLevelData&)> callback) {
+  if (impl_) {
+    impl_->levelCallback = std::move(callback);
+    impl_->levelCallbackCounter = 0;
+  }
 }
 
 } // namespace ArtifactCore
