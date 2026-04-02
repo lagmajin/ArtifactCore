@@ -67,6 +67,7 @@ export namespace ArtifactCore {
    
   // Job Management
   void addJob(const ArtifactCore::Id& compositionId, const QString& name);
+  void addJob(const QString& name, const QString& status, int progress, const QString& outputPath);
   void removeJob(int row);
   void clearJobs();
   RenderJob* jobAt(int row);

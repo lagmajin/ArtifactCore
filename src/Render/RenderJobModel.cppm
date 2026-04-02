@@ -1,5 +1,6 @@
 ﻿module;
 
+#include <algorithm>
 #include <QString>
 //#include <QHeaderView>
 #include <QAbstractItemModel>
@@ -118,6 +119,31 @@ namespace ArtifactCore {
     auto job = std::make_unique<RenderJob>();
     job->compositionId = compositionId;
     job->compositionName = name;
+    impl_->jobs.push_back(std::move(job));
+    endInsertRows();
+  }
+
+  namespace {
+    RenderJobStatus parseRenderJobStatus(const QString& status)
+    {
+      const QString normalized = status.trimmed().toLower();
+      if (normalized == "rendering" || normalized == "running") return RenderJobStatus::Rendering;
+      if (normalized == "completed" || normalized == "done") return RenderJobStatus::Done;
+      if (normalized == "failed" || normalized == "error") return RenderJobStatus::Error;
+      if (normalized == "paused") return RenderJobStatus::Paused;
+      if (normalized == "canceled" || normalized == "cancelled") return RenderJobStatus::Canceled;
+      return RenderJobStatus::Queued;
+    }
+  }
+
+  void RenderJobModel::addJob(const QString& name, const QString& status, int progress, const QString& outputPath) {
+    beginInsertRows(QModelIndex(), (int)impl_->jobs.size(), (int)impl_->jobs.size());
+    auto job = std::make_unique<RenderJob>();
+    job->compositionId = Id::Nil();
+    job->compositionName = name;
+    job->status = parseRenderJobStatus(status);
+    job->progress = std::clamp(progress, 0, 100) / 100.0f;
+    job->outputPath = outputPath;
     impl_->jobs.push_back(std::move(job));
     endInsertRows();
   }
