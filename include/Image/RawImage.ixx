@@ -66,6 +66,12 @@ export namespace ArtifactCore {
 
   // getPixelTypeSizeInBytes() の戻り値を size_t から int に変更 (Qt の慣例に合わせるため)
   int getPixelTypeSizeInBytes() const;
+
+  // Convert from OIIO-based raw buffer
+  static RawImage fromRawBuffer(const uint8_t* data, int width, int height, int channels,
+                               const std::string& pixelType);
+
+  static int getPixelTypeSizeFromString(const std::string& type);
  };
 
  typedef std::shared_ptr<RawImage> RawImagePtr;

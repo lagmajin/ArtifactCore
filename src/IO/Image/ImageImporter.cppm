@@ -9,6 +9,8 @@ module;
 module IO.ImageImporter;
 
 import Image.PSDDocument;
+import Image.Import.OIIO;
+import std;
 
 namespace ArtifactCore {
 
@@ -57,16 +59,30 @@ bool ImageImporter::open(const QString& filePath)
     return true;
 }
 
-RawImage ImageImporter::readImage()
+ImportedImage ImageImporter::readImage()
 {
+    ImportedImage result;
+
     if (!impl_ || !impl_->open || impl_->filePath.isEmpty()) {
-        return {};
+        return result;
     }
 
+    // First try OIIO path for metadata preservation
+    auto oiiResult = ArtifactCore::loadImageWithOIIO(impl_->filePath);
+    if (oiiResult.has_value()) {
+        const auto& import = oiiResult.value();
+        result.rawImage = import.rawImage;
+        result.metadata = import.metadata;
+        result.usedOIIO = true;
+        return result;
+    }
+
+    // Fallback to stb_image path (existing behavior)
     if (impl_->psd && impl_->psdDocument.isOpen()) {
         RawImage preview = impl_->psdDocument.flattenedPreview();
         if (preview.isValid()) {
-            return preview;
+            result.rawImage = preview;
+            return result;
         }
     }
 
@@ -77,33 +93,45 @@ RawImage ImageImporter::readImage()
 
     stbi_uc* pixels = stbi_load(encoded.constData(), &w, &h, &comp, 4);
     if (pixels) {
-        RawImage image;
-        image.width = w;
-        image.height = h;
-        image.channels = 4;
-        image.pixelType = QStringLiteral("uint8");
-        image.data.resize(static_cast<int>(w * h * 4));
-        std::memcpy(image.data.data(), pixels, image.data.size());
+        result.rawImage.width = w;
+        result.rawImage.height = h;
+        result.rawImage.channels = 4;
+        result.rawImage.pixelType = QStringLiteral("uint8");
+        result.rawImage.data.resize(static_cast<int>(w * h * 4));
+        std::memcpy(result.rawImage.data.data(), pixels, result.rawImage.data.size());
         stbi_image_free(pixels);
-        return image;
+        return result;
     }
 
     if (stbi_is_16_bit(encoded.constData())) {
         stbi_us* pixels16 = stbi_load_16(encoded.constData(), &w, &h, &comp, 4);
         if (pixels16) {
-            RawImage image;
-            image.width = w;
-            image.height = h;
-            image.channels = 4;
-            image.pixelType = QStringLiteral("uint16");
-            image.data.resize(static_cast<int>(w * h * 4 * static_cast<int>(sizeof(stbi_us))));
-            std::memcpy(image.data.data(), pixels16, image.data.size());
+            result.rawImage.width = w;
+            result.rawImage.height = h;
+            result.rawImage.channels = 4;
+            result.rawImage.pixelType = QStringLiteral("uint16");
+            result.rawImage.data.resize(static_cast<int>(w * h * 4 * static_cast<int>(sizeof(stbi_us))));
+            std::memcpy(result.rawImage.data.data(), pixels16, result.rawImage.data.size());
             stbi_image_free(pixels16);
-            return image;
+            return result;
         }
     }
 
-    return {};
+    return result;
+}
+
+std::optional<ImportedImage> ImageImporter::tryOIIO(const QString& filePath)
+{
+    auto oiioResult = ArtifactCore::loadImageWithOIIO(filePath);
+    if (!oiioResult.has_value()) {
+        return std::nullopt;
+    }
+
+    ImportedImage result;
+    result.rawImage = oiioResult->rawImage;
+    result.metadata = oiioResult->metadata;
+    result.usedOIIO = true;
+    return result;
 }
 
 void ImageImporter::close()
