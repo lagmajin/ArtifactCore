@@ -3,6 +3,7 @@ module;
 #include <QRect>
 #include <QVector>
 #include <opencv2/opencv.hpp>
+//#include <opencv2/tracking.hpp>
 #include <memory>
 #include <vector>
 #include <map>
