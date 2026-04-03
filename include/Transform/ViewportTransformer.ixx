@@ -70,6 +70,7 @@ export namespace ArtifactCore {
         // 高度な操作
         void ZoomAroundViewportPoint(float2 viewportPos, float newZoom);
         void FitCanvasToViewport(float margin = 50.0f);
+        void FillCanvasToViewport(float margin = 0.0f);
         void ResetView();
 
         // 状態取得

@@ -140,6 +140,31 @@ namespace ArtifactCore {
                  << "pan=(" << impl_->pan.x << "," << impl_->pan.y << ")";
     }
 
+    void ViewportTransformer::FillCanvasToViewport(float margin) {
+        if (impl_->canvasSize.x <= 0 || impl_->canvasSize.y <= 0) return;
+
+        float availableW = impl_->viewportSize.x - margin * 2.0f;
+        float availableH = impl_->viewportSize.y - margin * 2.0f;
+        if (availableW <= 0.0f || availableH <= 0.0f) {
+            return;
+        }
+
+        float zoomW = availableW / impl_->canvasSize.x;
+        float zoomH = availableH / impl_->canvasSize.y;
+
+        impl_->zoom = std::max(zoomW, zoomH);
+
+        // Center the canvas, then allow the canvas to crop beyond viewport edges.
+        impl_->pan.x = (impl_->viewportSize.x - (impl_->canvasSize.x * impl_->zoom)) * 0.5f;
+        impl_->pan.y = (impl_->viewportSize.y - (impl_->canvasSize.y * impl_->zoom)) * 0.5f;
+
+        qDebug() << "[ViewportTransformer] FillCanvasToViewport:"
+                 << "viewport=" << impl_->viewportSize.x << "x" << impl_->viewportSize.y
+                 << "canvas=" << impl_->canvasSize.x << "x" << impl_->canvasSize.y
+                 << "zoom=" << impl_->zoom
+                 << "pan=(" << impl_->pan.x << "," << impl_->pan.y << ")";
+    }
+
     float2 ViewportTransformer::GetViewportSize() const { return impl_->viewportSize; }
     float2 ViewportTransformer::GetCanvasSize() const { return impl_->canvasSize; }
     float2 ViewportTransformer::GetPan() const { return impl_->pan; }
