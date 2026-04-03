@@ -76,6 +76,15 @@ void ArtifactAppSettings::setThemeName(const QString& theme) {
     Q_EMIT settingsChanged();
 }
 
+QString ArtifactAppSettings::themePresetPath() const {
+    return impl_->store.valueString("UI/ThemePresetPath", "");
+}
+
+void ArtifactAppSettings::setThemePresetPath(const QString& path) {
+    impl_->store.setValue("UI/ThemePresetPath", path);
+    Q_EMIT settingsChanged();
+}
+
 int ArtifactAppSettings::renderThreadCount() const {
     return (int)impl_->store.valueInt64("Render/ThreadCount", 0); // 0 = Auto
 }

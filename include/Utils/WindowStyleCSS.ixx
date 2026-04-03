@@ -2,6 +2,12 @@
 #include "..\Define\DllExportMacro.hpp"
 #include <QApplication>
 #include <QColor>
+#include <QFile>
+#include <QFileInfo>
+#include <QIODevice>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
 #include <QPalette>
 #include <QStyleFactory>
 #include <QString>
@@ -38,6 +44,9 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset);
 QPalette LIBRARY_DLL_API buildDCCPalette(const DccStyleTheme& theme);
 QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme);
 DccStyleTheme& LIBRARY_DLL_API currentDCCTheme();
+bool LIBRARY_DLL_API loadDCCThemePresetFromFile(const QString& filePath, DccStyleTheme* theme,
+                                               QString* errorMessage = nullptr);
+void LIBRARY_DLL_API applyDCCTheme(QApplication& app, const DccStyleTheme& theme);
 
 QString LIBRARY_DLL_API themePresetKey(DccStylePreset preset) {
   switch (preset) {
@@ -111,16 +120,83 @@ DccStylePreset LIBRARY_DLL_API themePresetFromName(const QString& name) {
   return DccStylePreset::StudioStyle;
 }
 
-void LIBRARY_DLL_API applyDCCTheme(QApplication& app, DccStylePreset preset) {
-  const auto theme = getDCCTheme(preset);
+void LIBRARY_DLL_API applyDCCTheme(QApplication& app, const DccStyleTheme& theme) {
   currentDCCTheme() = theme;
-  app.setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
   app.setPalette(buildDCCPalette(theme));
   app.setStyleSheet(buildDCCStyleSheet(theme));
 }
 
+void LIBRARY_DLL_API applyDCCTheme(QApplication& app, DccStylePreset preset) {
+  applyDCCTheme(app, getDCCTheme(preset));
+}
+
 void LIBRARY_DLL_API applyDCCTheme(QApplication& app, const QString& themeName) {
   applyDCCTheme(app, themePresetFromName(themeName));
+}
+
+bool LIBRARY_DLL_API loadDCCThemePresetFromFile(const QString& filePath, DccStyleTheme* theme,
+                                               QString* errorMessage) {
+  if (!theme) {
+    if (errorMessage) {
+      *errorMessage = QStringLiteral("Theme output pointer is null.");
+    }
+    return false;
+  }
+
+  const QFileInfo info(filePath);
+  if (!info.exists() || !info.isFile()) {
+    if (errorMessage) {
+      *errorMessage = QStringLiteral("Theme preset file does not exist: %1").arg(filePath);
+    }
+    return false;
+  }
+
+  QFile file(filePath);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    if (errorMessage) {
+      *errorMessage = QStringLiteral("Failed to open theme preset file: %1").arg(filePath);
+    }
+    return false;
+  }
+
+  const auto doc = QJsonDocument::fromJson(file.readAll());
+  if (!doc.isObject()) {
+    if (errorMessage) {
+      *errorMessage = QStringLiteral("Theme preset file must contain a JSON object: %1")
+                          .arg(filePath);
+    }
+    return false;
+  }
+
+  const QJsonObject root = doc.object();
+  DccStyleTheme loaded =
+      getDCCTheme(themePresetFromName(root.value(QStringLiteral("base")).toString(
+          QStringLiteral("Studio"))));
+
+  const auto applyColor = [&root, &loaded](const char* key, QString DccStyleTheme::*field) {
+    const QJsonValue value = root.value(QLatin1String(key));
+    if (!value.isString()) {
+      return;
+    }
+    const QString color = value.toString().trimmed();
+    if (!QColor(color).isValid()) {
+      return;
+    }
+    loaded.*field = color;
+  };
+
+  applyColor("accentColor", &DccStyleTheme::accentColor);
+  applyColor("textColor", &DccStyleTheme::textColor);
+  applyColor("backgroundColor", &DccStyleTheme::backgroundColor);
+  applyColor("secondaryBackgroundColor", &DccStyleTheme::secondaryBackgroundColor);
+  applyColor("selectionColor", &DccStyleTheme::selectionColor);
+  applyColor("borderColor", &DccStyleTheme::borderColor);
+  applyColor("buttonColor", &DccStyleTheme::buttonColor);
+  applyColor("buttonHoverColor", &DccStyleTheme::buttonHoverColor);
+  applyColor("buttonPressedColor", &DccStyleTheme::buttonPressedColor);
+
+  *theme = loaded;
+  return true;
 }
 
 DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
