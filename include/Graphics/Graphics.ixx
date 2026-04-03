@@ -3,6 +3,7 @@ export module Graphics;
 
 export import Graphics.GPUcomputeContext;
 export import Graphics.Compute;
+export import Graphics.Shader.Compute.MaskCutout;
 export import :GraphicsHelper;
 
 export import Graphics.Resource.PSOAndSRB;
