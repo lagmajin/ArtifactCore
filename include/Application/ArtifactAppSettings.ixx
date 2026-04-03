@@ -28,6 +28,8 @@ public:
     // --- UI Settings ---
     QString themeName() const;
     void setThemeName(const QString& theme);
+    QString themePresetPath() const;
+    void setThemePresetPath(const QString& path);
 
     // --- Render Settings ---
     int renderThreadCount() const;

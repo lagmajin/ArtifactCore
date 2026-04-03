@@ -1010,16 +1010,27 @@ bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QStr
              << "fps_=" << impl.fps_
              << "totalFrames_=" << impl.totalFrames_
              << "waitAttempts=" << impl.videoPacketWaitAttempts_;
-    if (!foundVideoStream || impl.videoStreamIndex_ < 0) {
-      qWarning() << "[FFmpegBackend] No video stream found in" << url << "- open will fail.";
-      impl.notifyError(QStringLiteral("No video stream found in '%1'").arg(url));
-    }
-    if (!foundVideoStream || impl.videoStreamIndex_ < 0 || !videoDecoderOk) {
+    const bool hasVideoPlayback = foundVideoStream && impl.videoStreamIndex_ >= 0 && videoDecoderOk;
+    const bool hasAudioPlayback = audioStreamFound && audioDecoderOk;
+
+    if (!hasVideoPlayback && !hasAudioPlayback) {
+      if (!foundVideoStream) {
+        qWarning() << "[FFmpegBackend] No playable stream found in" << url << "- open will fail.";
+        impl.notifyError(QStringLiteral("No playable stream found in '%1'").arg(url));
+      } else if (!videoDecoderOk) {
+        qWarning() << "[FFmpegBackend] Video decoder unavailable and no audio fallback for" << url;
+        impl.notifyError(QStringLiteral("Video decoder initialization failed for '%1'").arg(url));
+      } else {
+        qWarning() << "[FFmpegBackend] Audio decoder unavailable and no video fallback for" << url;
+        impl.notifyError(QStringLiteral("Audio decoder initialization failed for '%1'").arg(url));
+      }
       close(impl);
       return false;
     }
 
-    if (audioStreamFound && !audioDecoderOk) {
+    if (!hasVideoPlayback) {
+      qWarning() << "[FFmpegBackend] Opening audio-only media with FFmpeg backend for" << url;
+    } else if (audioStreamFound && !audioDecoderOk) {
       qWarning() << "[FFmpegBackend] Audio decoder unavailable, continuing with video-only playback for" << url;
     }
   }
