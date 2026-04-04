@@ -123,7 +123,9 @@ DccStylePreset LIBRARY_DLL_API themePresetFromName(const QString& name) {
 void LIBRARY_DLL_API applyDCCTheme(QApplication& app, const DccStyleTheme& theme) {
   currentDCCTheme() = theme;
   app.setPalette(buildDCCPalette(theme));
-  app.setStyleSheet(buildDCCStyleSheet(theme));
+  // Theme application should be palette-driven. Keep style sheets empty so the
+  // UI is not split across multiple QSS layers.
+  app.setStyleSheet(QString());
 }
 
 void LIBRARY_DLL_API applyDCCTheme(QApplication& app, DccStylePreset preset) {
