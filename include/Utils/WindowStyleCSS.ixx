@@ -227,15 +227,15 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
     theme.buttonPressedColor = "#3A3A3A";
     break;
   case DccStylePreset::StudioStyle:
-    theme.accentColor = "#D9A35A";
-    theme.textColor = "#E3E6EA";
-    theme.backgroundColor = "#1E1E1E";
-    theme.secondaryBackgroundColor = "#282828";
-    theme.selectionColor = "#3A3A3A";
-    theme.borderColor = "#3C3C3C";
-    theme.buttonColor = "#2E2E2E";
-    theme.buttonHoverColor = "#383838";
-    theme.buttonPressedColor = "#252525";
+    theme.accentColor = "#E4B76C";
+    theme.textColor = "#EEF1F5";
+    theme.backgroundColor = "#24272D";
+    theme.secondaryBackgroundColor = "#30343B";
+    theme.selectionColor = "#45505A";
+    theme.borderColor = "#4A515C";
+    theme.buttonColor = "#32363D";
+    theme.buttonHoverColor = "#3A4048";
+    theme.buttonPressedColor = "#292D33";
     break;
   case DccStylePreset::BlenderStyle:
     theme.accentColor = "#F5792A";
