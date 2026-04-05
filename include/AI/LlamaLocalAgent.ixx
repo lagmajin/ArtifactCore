@@ -11,7 +11,7 @@ export namespace ArtifactCore {
 
 /**
  * @brief llama.cpp を使用したローカルAIエージェントの実装。
- * GGUF形式のモデルをロードし、テキスト生成や分析を行います。
+ * GGUF形式のモデルを直接ロードして、分析と会話応答を行います。
  */
 class LlamaLocalAgent : public LocalAIAgent {
 public:
@@ -24,11 +24,21 @@ public:
     QString predictParameter(const QString& targetProperty, const AIContext& context) override;
     bool requiresCloudEscalation(const QString& userPrompt, const AIContext& context) override;
     LocalAnalysisResult analyzeUserQuestion(const QString& question, const AIContext& context) override;
+    QString generateChatResponse(
+        const QString& systemPrompt,
+        const QString& userPrompt,
+        const AIContext& context) override;
+    QString generateChatResponseStreaming(
+        const QString& systemPrompt,
+        const QString& userPrompt,
+        const AIContext& context,
+        const std::function<bool(const QString& piece)>& tokenCallback) override;
     QString filterSensitiveInfo(const QString& text) override;
 
     // llama.cpp 固有のパラメータ設定
     void setMaxTokens(int maxTokens);
     void setTemperature(float temperature);
+    QString lastError() const;
 
 private:
     class Impl;

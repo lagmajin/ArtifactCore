@@ -315,4 +315,10 @@ std::size_t EventBus::pendingCount() const noexcept
     return impl->queue.size();
 }
 
+EventBus& globalEventBus()
+{
+    static EventBus instance;
+    return instance;
+}
+
 } // namespace ArtifactCore

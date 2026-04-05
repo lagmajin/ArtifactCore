@@ -47,18 +47,10 @@ import MediaImageFrameDecoder;
 import MediaAudioDecoder;
 import Codec.MFFrameExtractor;
 import Media.MetaData;
+import Playback.State;
 
 
 export namespace ArtifactCore {
-
- // Đ
- enum class PlaybackState {
-  Stopped,
-  Playing,
-  Paused,
-  Buffering,
-  Error
- };
 
  // V[Nx
  enum class SeekMode {

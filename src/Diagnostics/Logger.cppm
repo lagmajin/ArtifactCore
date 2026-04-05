@@ -78,8 +78,8 @@ void Logger::uninstall() {
     }
 }
 
-const std::vector<LogMessage>& Logger::getLogs() const {
-    // Note: mutex_ is mutable, so we can lock in const method
+std::vector<LogMessage> Logger::getLogs() const {
+    // Return a copy so callers never observe the live vector after the lock is released.
     std::lock_guard<std::mutex> lock(mutex_);
     return logs_;
 }

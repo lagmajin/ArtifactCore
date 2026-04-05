@@ -61,7 +61,8 @@ namespace ArtifactCore {
  Id::Id(const boost::uuids::uuid& u) : impl_(new Impl(u)) {}
 
  // コピーコンストラクタ
- Id::Id(const Id& other) : impl_(new Impl(other.impl_->value_)) {}
+ Id::Id(const Id& other)
+  : impl_(other.impl_ ? new Impl(other.impl_->value_) : new Impl(true)) {}
 
  // ムーブコンストラクタ
  Id::Id(Id&& other) noexcept : impl_(other.impl_) {
@@ -76,7 +77,7 @@ namespace ArtifactCore {
  // コピー代入演算子
  Id& Id::operator=(const Id& other) {
   if (this != &other) {
-   Impl* tmp = new Impl(other.impl_->value_);
+   Impl* tmp = other.impl_ ? new Impl(other.impl_->value_) : new Impl(true);
    delete impl_;
    impl_ = tmp;
   }
@@ -93,32 +94,45 @@ namespace ArtifactCore {
  }
 
  // UUIDのQString表現を取得
- QString Id::toString() const {
+QString Id::toString() const {
+  if (!impl_) {
+   return QString();
+  }
   return QString::fromStdString(boost::uuids::to_string(impl_->value_));
- }
+}
 
  // UUIDが空（nil）であるかチェック
- bool Id::isNil() const {
-  return impl_->value_.is_nil();
- }
+bool Id::isNil() const {
+  return !impl_ || impl_->value_.is_nil();
+}
 
  // 内部のboost::uuids::uuidオブジェクトを取得
- const boost::uuids::uuid& Id::getUuid() const {
+const boost::uuids::uuid& Id::getUuid() const {
+  static const boost::uuids::uuid nilUuid = boost::uuids::nil_uuid();
+  if (!impl_) {
+   return nilUuid;
+  }
   return impl_->value_;
- }
+}
 
  // 比較演算子
- bool Id::operator==(const Id& other) const {
+bool Id::operator==(const Id& other) const {
+  if (!impl_ || !other.impl_) {
+   return isNil() && other.isNil();
+  }
   return impl_->value_ == other.impl_->value_;
- }
+}
 
- bool Id::operator!=(const Id& other) const {
-  return impl_->value_ != other.impl_->value_;
- }
+bool Id::operator!=(const Id& other) const {
+  return !(*this == other);
+}
 
- bool Id::operator<(const Id& other) const {
+bool Id::operator<(const Id& other) const {
+  if (!impl_ || !other.impl_) {
+   return isNil() && !other.isNil();
+  }
   return impl_->value_ < other.impl_->value_;
- }
+}
 
  bool Id::operator!() const
  {
@@ -130,9 +144,13 @@ namespace ArtifactCore {
   return !isNil();
  }
 
- void Id::clear()
- {
-
+void Id::clear()
+{
+ if (!impl_) {
+  impl_ = new Impl(true);
+  return;
  }
+ impl_->value_ = boost::uuids::nil_uuid();
+}
 
 };

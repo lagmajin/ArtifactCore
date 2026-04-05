@@ -62,6 +62,34 @@ public:
      * @return 分析結果（意図、必要データ、クラウド要不要、ローカル回答など）
      */
     virtual LocalAnalysisResult analyzeUserQuestion(const QString& question, const AIContext& context) = 0;
+
+    /**
+     * @brief ローカル LLM で会話応答を生成する
+     * @param systemPrompt システムプロンプト
+     * @param userPrompt ユーザープロンプト
+     * @param context 現在のアプリケーションコンテキスト
+     * @return 生成された応答テキスト
+     */
+    virtual QString generateChatResponse(
+        const QString& systemPrompt,
+        const QString& userPrompt,
+        const AIContext& context) = 0;
+
+    /**
+     * @brief ローカル LLM でストリーミング会話応答を生成する
+     * @param systemPrompt システムプロンプト
+     * @param userPrompt ユーザープロンプト
+     * @param context 現在のアプリケーションコンテキスト
+     * @param tokenCallback トークンごとに呼ばれるコールバック。false を返すと生成を中断する。
+     * @return 生成された応答テキスト全体
+     */
+    virtual QString generateChatResponseStreaming(
+        const QString& systemPrompt,
+        const QString& userPrompt,
+        const AIContext& context,
+        const std::function<bool(const QString& piece)>& tokenCallback) {
+        return generateChatResponse(systemPrompt, userPrompt, context);
+    }
     
     /**
      * @brief 機密情報をフィルタリングする

@@ -46,14 +46,9 @@ export module Playback.Clock;
 
 import Frame.Rate;
 import Frame.Position;
+import Playback.State;
 
 export namespace ArtifactCore {
-
-enum class PlaybackState {
-    Stopped,
-    Playing,
-    Paused
-};
 
 // xĐNbN
 // : UIXVɂSignal/Slotg킸A|[O𐄏

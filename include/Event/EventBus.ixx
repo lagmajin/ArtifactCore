@@ -141,4 +141,6 @@ private:
     }
 };
 
+EventBus& globalEventBus();
+
 } // namespace ArtifactCore

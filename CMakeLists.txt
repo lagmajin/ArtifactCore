@@ -177,6 +177,24 @@ target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system Boost::iost
 find_package(Vulkan REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC Vulkan::Headers)
 
+# ggml-vulkan shader generation needs a real glslc executable.
+# Some environments resolve Vulkan_GLSLC_EXECUTABLE to a vcpkg path that does
+# not actually contain glslc.exe, so prefer a concrete SDK install if needed.
+if(NOT EXISTS "${Vulkan_GLSLC_EXECUTABLE}")
+    find_program(ARTIFACT_VULKAN_GLSLC_EXECUTABLE
+        NAMES glslc
+        HINTS
+            ENV VulkanSDK
+        PATHS
+            "C:/VulkanSDK"
+        PATH_SUFFIXES
+            Bin
+        REQUIRED
+    )
+    set(Vulkan_GLSLC_EXECUTABLE "${ARTIFACT_VULKAN_GLSLC_EXECUTABLE}" CACHE FILEPATH
+        "Preferred glslc executable for llama.cpp Vulkan shader generation" FORCE)
+endif()
+
 # TBB
 find_package(TBB REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
@@ -196,6 +214,76 @@ target_link_libraries(ArtifactCore PUBLIC EnTT::EnTT)
 
 find_package(magic_enum CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC magic_enum::magic_enum)
+
+# llama.cpp
+set(ARTIFACT_LLAMA_CPP_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../libs/llama.cpp")
+if(NOT TARGET llama AND EXISTS "${ARTIFACT_LLAMA_CPP_SOURCE_DIR}/CMakeLists.txt")
+    set(_artifact_prev_scan_for_modules "${CMAKE_CXX_SCAN_FOR_MODULES}")
+    set(_artifact_prev_build_shared_libs_defined FALSE)
+    if(DEFINED BUILD_SHARED_LIBS)
+        set(_artifact_prev_build_shared_libs "${BUILD_SHARED_LIBS}")
+        set(_artifact_prev_build_shared_libs_defined TRUE)
+    endif()
+    set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+
+    set(LLAMA_BUILD_COMMON OFF CACHE BOOL "" FORCE)
+    set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+    set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+    set(LLAMA_BUILD_WEBUI OFF CACHE BOOL "" FORCE)
+    set(LLAMA_OPENSSL OFF CACHE BOOL "" FORCE)
+    set(LLAMA_LLGUIDANCE OFF CACHE BOOL "" FORCE)
+    set(GGML_BACKEND_DL ON CACHE BOOL "" FORCE)
+    set(GGML_VULKAN ON CACHE BOOL "" FORCE)
+    find_package(CUDAToolkit QUIET)
+    if(CUDAToolkit_FOUND)
+        message(STATUS "CUDA Toolkit found: enabling ggml CUDA backend alongside Vulkan")
+        set(GGML_CUDA ON CACHE BOOL "" FORCE)
+    else()
+        message(STATUS "CUDA Toolkit not found: keeping ggml Vulkan backend only")
+        set(GGML_CUDA OFF CACHE BOOL "" FORCE)
+    endif()
+    set(GGML_METAL OFF CACHE BOOL "" FORCE)
+    set(GGML_WEBGPU OFF CACHE BOOL "" FORCE)
+    set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+    set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL "" FORCE)
+    set(GGML_CCACHE OFF CACHE BOOL "" FORCE)
+
+    add_subdirectory("${ARTIFACT_LLAMA_CPP_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/llama.cpp" EXCLUDE_FROM_ALL)
+
+    if(_artifact_prev_build_shared_libs_defined)
+        set(BUILD_SHARED_LIBS "${_artifact_prev_build_shared_libs}" CACHE BOOL "" FORCE)
+    else()
+        unset(BUILD_SHARED_LIBS CACHE)
+    endif()
+    set(CMAKE_CXX_SCAN_FOR_MODULES "${_artifact_prev_scan_for_modules}")
+endif()
+
+if(TARGET llama)
+    target_link_libraries(ArtifactCore PUBLIC llama)
+
+    function(_artifact_align_llama_output target_name)
+        if(TARGET ${target_name})
+            set_target_properties(${target_name} PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+                LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
+                ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>")
+        endif()
+    endfunction()
+
+    _artifact_align_llama_output(llama)
+    _artifact_align_llama_output(ggml)
+    _artifact_align_llama_output(ggml-base)
+    _artifact_align_llama_output(ggml-cpu)
+    _artifact_align_llama_output(ggml-vulkan)
+    _artifact_align_llama_output(ggml-metal)
+    _artifact_align_llama_output(ggml-cuda)
+else()
+    find_package(llama REQUIRED CONFIG)
+    target_link_libraries(ArtifactCore PUBLIC llama)
+endif()
 
 # ufbx (vendored)
 if(TARGET ufbx)
