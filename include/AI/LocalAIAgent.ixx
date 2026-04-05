@@ -97,6 +97,11 @@ public:
      * @return 匿名化されたテキスト
      */
     virtual QString filterSensitiveInfo(const QString& text) = 0;
+
+    /**
+     * @brief 最後のエラーメッセージ。未実装なら空文字。
+     */
+    virtual QString lastError() const { return {}; }
 };
 
 using LocalAIAgentPtr = std::shared_ptr<LocalAIAgent>;

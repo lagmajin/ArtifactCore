@@ -13,8 +13,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float3 baseHsl = RgbToHsl(dst.rgb);
     float3 blendHsl = RgbToHsl(src.rgb);
 
-    float3 outColor = HslToRgb(float3(blendHsl.x, baseHsl.y, baseHsl.z));
-    float outAlpha = max(dst.a, src.a);
+    float3 blended = HslToRgb(float3(blendHsl.x, baseHsl.y, baseHsl.z));
+    float outAlpha = src.a + dst.a * (1.0 - src.a);
+    float3 outColor = saturate((src.a * blended + dst.rgb * dst.a * (1.0 - src.a)) / max(outAlpha, 1e-5));
 
-    ResultTex[DTid.xy] = float4(saturate(outColor), outAlpha);
+    ResultTex[DTid.xy] = float4(outColor, outAlpha);
 }

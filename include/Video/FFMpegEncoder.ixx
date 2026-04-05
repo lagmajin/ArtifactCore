@@ -80,6 +80,9 @@ export namespace ArtifactCore {
         // 静的ヘルパー：コーデックが利用可能かチェック
         static bool isCodecAvailable(const QString& codecName);
 
+        // 静的ヘルパー：エンコーダー名で利用可能かチェック
+        static bool isEncoderAvailableByName(const QString& encoderName);
+
         // 静的ヘルパー：利用可能なコーデック一覧取得
         static QStringList availableVideoCodecs();
 

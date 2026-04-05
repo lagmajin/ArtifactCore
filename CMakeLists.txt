@@ -215,6 +215,51 @@ target_link_libraries(ArtifactCore PUBLIC EnTT::EnTT)
 find_package(magic_enum CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC magic_enum::magic_enum)
 
+find_package(protobuf CONFIG REQUIRED)
+find_package(absl CONFIG REQUIRED)
+
+# Locate sentencepiece using explicit paths derived from the include dir to avoid
+# the PATH_SUFFIXES bug where a Debug-build CMAKE_PREFIX_PATH causes the release
+# find_library to resolve to the debug/lib folder.
+unset(SENTENCEPIECE_INCLUDE_DIR       CACHE)
+unset(SENTENCEPIECE_LIBRARY_RELEASE   CACHE)
+unset(SENTENCEPIECE_LIBRARY_DEBUG     CACHE)
+
+find_path(SENTENCEPIECE_INCLUDE_DIR
+    NAMES sentencepiece_processor.h
+    REQUIRED
+)
+# Derive the vcpkg triplet prefix from the include directory (…/x64-windows/include → …/x64-windows)
+get_filename_component(_sp_prefix "${SENTENCEPIECE_INCLUDE_DIR}" DIRECTORY)
+find_library(SENTENCEPIECE_LIBRARY_RELEASE
+    NAMES sentencepiece
+    PATHS "${_sp_prefix}/lib"
+    NO_DEFAULT_PATH
+    REQUIRED
+)
+find_library(SENTENCEPIECE_LIBRARY_DEBUG
+    NAMES sentencepiece
+    PATHS "${_sp_prefix}/debug/lib"
+    NO_DEFAULT_PATH
+    REQUIRED
+)
+
+add_library(sentencepiece::sentencepiece STATIC IMPORTED GLOBAL)
+set_target_properties(sentencepiece::sentencepiece PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${SENTENCEPIECE_INCLUDE_DIR}"
+    IMPORTED_LOCATION_RELEASE "${SENTENCEPIECE_LIBRARY_RELEASE}"
+    IMPORTED_LOCATION_DEBUG   "${SENTENCEPIECE_LIBRARY_DEBUG}"
+    INTERFACE_LINK_LIBRARIES  "protobuf::libprotobuf;absl::abseil_dll;absl::flags"
+)
+target_link_libraries(ArtifactCore PUBLIC sentencepiece::sentencepiece)
+
+find_package(onnxruntime CONFIG REQUIRED)
+if(TARGET onnxruntime::onnxruntime)
+    target_link_libraries(ArtifactCore PUBLIC onnxruntime::onnxruntime)
+else()
+    target_link_libraries(ArtifactCore PUBLIC onnxruntime)
+endif()
+
 # llama.cpp
 set(ARTIFACT_LLAMA_CPP_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../libs/llama.cpp")
 if(NOT TARGET llama AND EXISTS "${ARTIFACT_LLAMA_CPP_SOURCE_DIR}/CMakeLists.txt")
@@ -240,6 +285,13 @@ if(NOT TARGET llama AND EXISTS "${ARTIFACT_LLAMA_CPP_SOURCE_DIR}/CMakeLists.txt"
     find_package(CUDAToolkit QUIET)
     if(CUDAToolkit_FOUND)
         message(STATUS "CUDA Toolkit found: enabling ggml CUDA backend alongside Vulkan")
+        if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+            # Keep the default CUDA build narrow to reduce compile time and binary size.
+            set(CMAKE_CUDA_ARCHITECTURES "86-real" CACHE STRING "CUDA architectures for ggml-cuda" FORCE)
+            if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL "11.8")
+                set(CMAKE_CUDA_ARCHITECTURES "86-real;89-real" CACHE STRING "CUDA architectures for ggml-cuda" FORCE)
+            endif()
+        endif()
         set(GGML_CUDA ON CACHE BOOL "" FORCE)
     else()
         message(STATUS "CUDA Toolkit not found: keeping ggml Vulkan backend only")

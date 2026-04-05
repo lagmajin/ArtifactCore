@@ -1,7 +1,7 @@
 module;
 #include <QtMultimedia/QAudioDevice>
-
-#include <QtMultimedia/QAudioDevice>
+#include <QtMultimedia/QAudioFormat>
+#include <QtCore/QString>
 #include <memory>
 #include <functional>
 export module Audio.Backend;

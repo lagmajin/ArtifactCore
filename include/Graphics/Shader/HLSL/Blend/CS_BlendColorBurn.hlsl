@@ -18,7 +18,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 dst = DstTex.Load(int3(DTid.xy, 0));
 
     float3 blended = ColorBurn(dst.rgb, src.rgb);
-    float outAlpha = max(dst.a, src.a);
+    float outAlpha = src.a + dst.a * (1.0 - src.a);
+    float3 outColor = (src.a * blended + dst.rgb * dst.a * (1.0 - src.a)) / max(outAlpha, 1e-5);
 
-    ResultTex[DTid.xy] = float4(blended, outAlpha);
+    ResultTex[DTid.xy] = float4(outColor, outAlpha);
 }

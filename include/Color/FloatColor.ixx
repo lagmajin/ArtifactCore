@@ -1,49 +1,14 @@
-﻿module;
+module;
 #include "../Define/DllExportMacro.hpp"
-#include <algorithm>
-#include <any>
-#include <array>
-#include <atomic>
-#include <chrono>
-#include <cmath>
-#include <condition_variable>
-#include <deque>
-#include <filesystem>
-#include <fstream>
-#include <functional>
-#include <glm/glm.hpp>
-#include <iostream>
-#include <list>
-#include <map>
 #include <memory>
-#include <mutex>
-#include <numeric>
-#include <optional>
-#include <queue>
-#include <random>
-#include <regex>
-#include <set>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <thread>
-#include <tuple>
-#include <type_traits>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
-#include <variant>
-#include <vector>
-
-
 #include <wobjectimpl.h>
+
 export module Color.Float;
 
 import FloatRGBA;
 
 export namespace ArtifactCore {
-
-// class FloatRGBA;
 
 class HSV;
 class XYZ;
@@ -98,10 +63,9 @@ public:
   void setColor(float red, float green, float blue, float alpha);
   void clamp();
 
-  FloatColor &operator=(const FloatColor &other); // コピー代入演算子
+  FloatColor &operator=(const FloatColor &other);
   FloatColor &operator=(FloatColor &&other) noexcept;
 
-  // 算術演算子
   FloatColor operator+(const FloatColor &other) const;
   FloatColor operator-(const FloatColor &other) const;
   FloatColor operator*(float scalar) const;

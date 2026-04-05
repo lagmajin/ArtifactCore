@@ -11,9 +11,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 src = SrcTex.Load(int3(DTid.xy, 0));
     float4 dst = DstTex.Load(int3(DTid.xy, 0));
 
-    // 加算合成（clampしないとHDRでぶっ飛ぶ）
-    float3 outColor = saturate(dst.rgb + src.rgb); // RGBの加算
-    float outAlpha = saturate(dst.a + src.a);      // アルファも加算（必要なら）
+    // 加算合成: Porter-Duff over + src.a で重み付けした加算
+    float3 blended = dst.rgb + src.rgb;
+    float outAlpha = src.a + dst.a * (1.0 - src.a);
+    float3 outColor = saturate((src.a * blended + dst.rgb * dst.a * (1.0 - src.a)) / max(outAlpha, 1e-5));
 
     ResultTex[DTid.xy] = float4(outColor, outAlpha);
 

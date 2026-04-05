@@ -799,6 +799,14 @@ bool FFmpegEncoder::isCodecAvailable(const QString& codecName) {
     return avcodec_find_encoder(codecId) != nullptr;
 }
 
+bool FFmpegEncoder::isEncoderAvailableByName(const QString& encoderName) {
+    const QByteArray name = encoderName.trimmed().toUtf8();
+    if (name.isEmpty()) {
+        return false;
+    }
+    return avcodec_find_encoder_by_name(name.constData()) != nullptr;
+}
+
 QStringList FFmpegEncoder::availableVideoCodecs() {
     QStringList result;
 

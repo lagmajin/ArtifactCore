@@ -1,5 +1,6 @@
 module;
 #include <QList>
+#include <QString>
 #include <vector>
 #include <algorithm>
 #include <atomic>
@@ -8,6 +9,7 @@ module;
 
 module Audio.RingBuffer;
 
+import std;
 import Audio.Segment;
 
 namespace ArtifactCore {

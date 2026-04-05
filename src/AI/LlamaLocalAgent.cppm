@@ -629,6 +629,15 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
 
     if (!architecture.isEmpty()) {
         qInfo() << "[LlamaLocalAgent] model architecture=" << architecture;
+        const QString normalizedArchitecture = architecture.trimmed().toLower();
+        if (normalizedArchitecture == QStringLiteral("phi4")) {
+            impl_->lastErrorMessage = QStringLiteral(
+                "Unsupported GGUF architecture '%1'. This build of llama.cpp supports phi2/phi3/phimoe, but not phi4 yet."
+            ).arg(architecture);
+            qWarning() << "[LlamaLocalAgent]" << impl_->lastErrorMessage << "path=" << modelPath;
+            impl_->initialized = false;
+            return false;
+        }
     }
 
     qInfo() << "[LlamaLocalAgent] loading model"
@@ -667,7 +676,13 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
     const std::string modelPathUtf8 = QStringToUtf8(modelPath);
     llama_model* rawModel = llama_model_load_from_file(modelPathUtf8.c_str(), mparams);
     if (!rawModel) {
-        impl_->lastErrorMessage = QStringLiteral("llama.cpp failed to load model: %1").arg(modelPath);
+        if (!architecture.isEmpty()) {
+            impl_->lastErrorMessage = QStringLiteral(
+                "llama.cpp failed to load model: %1 (GGUF architecture: %2)"
+            ).arg(modelPath, architecture);
+        } else {
+            impl_->lastErrorMessage = QStringLiteral("llama.cpp failed to load model: %1").arg(modelPath);
+        }
         qWarning() << "[LlamaLocalAgent]" << impl_->lastErrorMessage;
         impl_->initialized = false;
         return false;

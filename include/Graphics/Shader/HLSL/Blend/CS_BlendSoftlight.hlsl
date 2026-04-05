@@ -23,7 +23,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
     float4 dst = DstTex.Load(int3(DTid.xy, 0));
 
     float3 blended = SoftLightBlend(dst.rgb, src.rgb);
-    float outAlpha = max(dst.a, src.a); // アルファ合成は用途に応じて調整
+    float outAlpha = src.a + dst.a * (1.0 - src.a);
+    float3 outColor = (src.a * blended + dst.rgb * dst.a * (1.0 - src.a)) / max(outAlpha, 1e-5);
 
-    ResultTex[DTid.xy] = float4(blended, outAlpha);
+    ResultTex[DTid.xy] = float4(outColor, outAlpha);
 }
