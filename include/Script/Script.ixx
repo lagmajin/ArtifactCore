@@ -2,5 +2,4 @@ module;
 
 export module Script;
 
-
-//export import :hostfxr;
+export import Script.Runtime;
