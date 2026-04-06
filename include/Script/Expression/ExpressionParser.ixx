@@ -111,6 +111,8 @@ public:
     
     // Get last error message
     std::string getError() const;
+    std::size_t getErrorPosition() const;
+    std::size_t getErrorLength() const;
     bool hasError() const;
 };
 
