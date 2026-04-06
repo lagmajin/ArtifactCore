@@ -5,7 +5,9 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/error.h>
+#include <libavutil/hwcontext.h>
 #include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
 #include <libswscale/swscale.h>
 }
 
@@ -28,6 +30,88 @@ QString ffmpegErrorString(int err)
     char buffer[AV_ERROR_MAX_STRING_SIZE] = {};
     av_strerror(err, buffer, sizeof(buffer));
     return QString::fromUtf8(buffer);
+}
+
+AVPixelFormat preferredPixelFormatForCodec(const AVCodec* codec, AVCodecID codecId)
+{
+    if (codec && codec->pix_fmts) {
+        for (const AVPixelFormat* fmt = codec->pix_fmts; *fmt != AV_PIX_FMT_NONE; ++fmt) {
+            if (*fmt == AV_PIX_FMT_NV12 ||
+                *fmt == AV_PIX_FMT_P010LE ||
+                *fmt == AV_PIX_FMT_YUV420P ||
+                *fmt == AV_PIX_FMT_YUV422P ||
+                *fmt == AV_PIX_FMT_YUV444P ||
+                *fmt == AV_PIX_FMT_RGBA ||
+                *fmt == AV_PIX_FMT_BGRA) {
+                return *fmt;
+            }
+        }
+        return codec->pix_fmts[0];
+    }
+
+    switch (codecId) {
+    case AV_CODEC_ID_PRORES:
+        return AV_PIX_FMT_YUV422P10;
+    case AV_CODEC_ID_H264:
+    case AV_CODEC_ID_HEVC:
+    case AV_CODEC_ID_VP9:
+        return AV_PIX_FMT_YUV420P;
+    case AV_CODEC_ID_MJPEG:
+        return AV_PIX_FMT_YUVJ420P;
+    case AV_CODEC_ID_PNG:
+    case AV_CODEC_ID_APNG:
+    case AV_CODEC_ID_WEBP:
+        return AV_PIX_FMT_RGBA;
+    case AV_CODEC_ID_GIF:
+        return AV_PIX_FMT_PAL8;
+    default:
+        return AV_PIX_FMT_YUV420P;
+    }
+}
+
+QStringList hardwareEncoderCandidatesForCodec(const QString& codecName)
+{
+    const QString codec = codecName.trimmed().toLower();
+    if (codec == "h264" || codec == "avc" || codec == "libx264") {
+        return {"h264_nvenc", "h264_qsv", "h264_amf", "h264_vaapi"};
+    }
+    if (codec == "h265" || codec == "hevc" || codec == "libx265") {
+        return {"hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi"};
+    }
+    if (codec == "vp9" || codec == "libvpx-vp9") {
+        return {"vp9_qsv", "vp9_vaapi"};
+    }
+    return {};
+}
+
+AVHWDeviceType hardwareDeviceTypeForEncoderName(const QString& encoderName)
+{
+    const QString value = encoderName.trimmed().toLower();
+    if (value.contains("nvenc")) {
+        return av_hwdevice_find_type_by_name("cuda");
+    }
+    if (value.contains("qsv")) {
+        return av_hwdevice_find_type_by_name("qsv");
+    }
+    if (value.contains("vaapi")) {
+        return av_hwdevice_find_type_by_name("vaapi");
+    }
+    return AV_HWDEVICE_TYPE_NONE;
+}
+
+AVPixelFormat hardwarePixelFormatForEncoderName(const QString& encoderName)
+{
+    const QString value = encoderName.trimmed().toLower();
+    if (value.contains("nvenc")) {
+        return AV_PIX_FMT_CUDA;
+    }
+    if (value.contains("qsv")) {
+        return AV_PIX_FMT_QSV;
+    }
+    if (value.contains("vaapi")) {
+        return AV_PIX_FMT_VAAPI;
+    }
+    return AV_PIX_FMT_NONE;
 }
 
 } // namespace
@@ -117,7 +201,14 @@ public:
             codecId = AV_CODEC_ID_H264;  // デフォルト
         }
 
-        const AVCodec* codec = avcodec_find_encoder(codecId);
+        const QString encoderName = settings.encoderName.trimmed();
+        const AVCodec* codec = nullptr;
+        if (!encoderName.isEmpty()) {
+            codec = avcodec_find_encoder_by_name(encoderName.toUtf8().constData());
+        }
+        if (!codec) {
+            codec = avcodec_find_encoder(codecId);
+        }
         if (!codec) {
             lastError_ = QStringLiteral("Failed to find encoder for codec: %1").arg(settings.videoCodec);
             return false;
@@ -130,6 +221,10 @@ public:
             return false;
         }
 
+        hwDeviceType_ = hardwareDeviceTypeForEncoderName(encoderName);
+        hwPixFmt_ = hardwarePixelFormatForEncoderName(encoderName);
+        useHardwareFrames_ = (hwDeviceType_ != AV_HWDEVICE_TYPE_NONE && hwPixFmt_ != AV_PIX_FMT_NONE);
+
         // コーデックパラメーター設定
         codecCtx_->codec_id = codecId;
         codecCtx_->codec_type = AVMEDIA_TYPE_VIDEO;
@@ -141,6 +236,7 @@ public:
         codecCtx_->max_b_frames = settings.maxBFrames;
         
         // ピクセルフォーマット設定（コーデックによる）
+        const AVPixelFormat preferredPixFmt = preferredPixelFormatForCodec(codec, codecId);
         if (codecId == AV_CODEC_ID_PRORES) {
             const QString profile = settings.profile.trimmed().toLower();
             if (profile.contains("4444")) {
@@ -148,20 +244,47 @@ public:
             } else {
                 codecCtx_->pix_fmt = AV_PIX_FMT_YUV422P10;     // ProRes 422 系
             }
-        } else if (codecId == AV_CODEC_ID_HEVC || codecId == AV_CODEC_ID_H264) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
-        } else if (codecId == AV_CODEC_ID_VP9) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
-        } else if (codecId == AV_CODEC_ID_MJPEG) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_YUVJ420P;  // MJPEG は full-range
-        } else if (codecId == AV_CODEC_ID_PNG) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_RGBA;       // PNG は alpha を保持
-        } else if (codecId == AV_CODEC_ID_GIF) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_PAL8;       // GIF はパレット形式
-        } else if (codecId == AV_CODEC_ID_APNG || codecId == AV_CODEC_ID_WEBP) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_RGBA;       // animated image は alpha を扱える
+            useHardwareFrames_ = false;
+        } else if (useHardwareFrames_) {
+            swInputPixFmt_ = preferredPixFmt;
+            codecCtx_->pix_fmt = hwPixFmt_;
+            codecCtx_->sw_pix_fmt = swInputPixFmt_;
+            hwDeviceCtx_ = nullptr;
+            if (const int ret = av_hwdevice_ctx_create(&hwDeviceCtx_, hwDeviceType_, nullptr, nullptr, 0); ret < 0) {
+                lastError_ = QStringLiteral("Failed to create hardware device context for %1: %2")
+                    .arg(encoderName, ffmpegErrorString(ret));
+                close();
+                return false;
+            }
+
+            hwFramesCtx_ = av_hwframe_ctx_alloc(hwDeviceCtx_);
+            if (!hwFramesCtx_) {
+                lastError_ = QStringLiteral("Failed to allocate hardware frames context for %1").arg(encoderName);
+                close();
+                return false;
+            }
+
+            auto* framesCtx = reinterpret_cast<AVHWFramesContext*>(hwFramesCtx_->data);
+            framesCtx->format = hwPixFmt_;
+            framesCtx->sw_format = swInputPixFmt_;
+            framesCtx->width = width_;
+            framesCtx->height = height_;
+            framesCtx->initial_pool_size = 2;
+            if (const int ret = av_hwframe_ctx_init(hwFramesCtx_); ret < 0) {
+                lastError_ = QStringLiteral("Failed to initialize hardware frames context for %1: %2")
+                    .arg(encoderName, ffmpegErrorString(ret));
+                close();
+                return false;
+            }
+            codecCtx_->hw_frames_ctx = av_buffer_ref(hwFramesCtx_);
+            if (!codecCtx_->hw_frames_ctx) {
+                lastError_ = QStringLiteral("Failed to reference hardware frames context for %1").arg(encoderName);
+                close();
+                return false;
+            }
         } else {
-            codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
+            codecCtx_->pix_fmt = preferredPixFmt;
+            swInputPixFmt_ = preferredPixFmt;
         }
 
         // ビットレート設定（可変品質コーデックは CRF 優先）
@@ -204,12 +327,14 @@ public:
 
         if (const int ret = avcodec_open2(codecCtx_, codec, nullptr); ret < 0) {
             lastError_ = QStringLiteral("Failed to open video encoder: %1 (%2)").arg(settings.videoCodec, ffmpegErrorString(ret));
+            close();
             return false;
         }
 
         // ストリームにコーデックパラメーターをコピー
         if (const int ret = avcodec_parameters_from_context(stream_->codecpar, codecCtx_); ret < 0) {
             lastError_ = QStringLiteral("Failed to copy codec parameters to stream: %1").arg(ffmpegErrorString(ret));
+            close();
             return false;
         }
 
@@ -218,6 +343,7 @@ public:
             const int ret = avio_open(&fmtCtx_->pb, outputPath.toUtf8().constData(), AVIO_FLAG_WRITE);
             if (ret < 0) {
                 lastError_ = QStringLiteral("Failed to open output file: %1 (%2)").arg(outputPath, ffmpegErrorString(ret));
+                close();
                 return false;
             }
         }
@@ -225,11 +351,12 @@ public:
         // ヘッダー書き込み
         if (const int ret = avformat_write_header(fmtCtx_, nullptr); ret < 0) {
             lastError_ = QStringLiteral("Failed to write header to: %1 (%2)").arg(outputPath, ffmpegErrorString(ret));
+            close();
             return false;
         }
 
         // スケーラー作成（RGBA → 各コーデックのピクセルフォーマット変換用）
-        const AVPixelFormat dstPixFmt = codecCtx_->pix_fmt;
+        const AVPixelFormat dstPixFmt = useHardwareFrames_ ? swInputPixFmt_ : codecCtx_->pix_fmt;
         swsCtx_ = sws_getContext(
             width_, height_, AV_PIX_FMT_RGBA,
             width_, height_, dstPixFmt,
@@ -238,6 +365,7 @@ public:
 
         if (!swsCtx_) {
             lastError_ = "Failed to create sws context";
+            close();
             return false;
         }
 
@@ -245,15 +373,26 @@ public:
         frame_ = av_frame_alloc();
         if (!frame_) {
             lastError_ = "Failed to allocate frame";
+            close();
             return false;
         }
         frame_->format = dstPixFmt;
         frame_->width = width_;
         frame_->height = height_;
 
+        if (useHardwareFrames_) {
+            hwFrame_ = av_frame_alloc();
+            if (!hwFrame_) {
+                lastError_ = "Failed to allocate hardware frame";
+                close();
+                return false;
+            }
+        }
+
         const int ret = av_frame_get_buffer(frame_, 32);
         if (ret < 0) {
             lastError_ = "Failed to allocate frame buffer";
+            close();
             return false;
         }
 
@@ -261,6 +400,7 @@ public:
         packet_ = av_packet_alloc();
         if (!packet_) {
             lastError_ = "Failed to allocate packet";
+            close();
             return false;
         }
 
@@ -320,9 +460,10 @@ public:
         }
 
         // スケーラー作成
+        const AVPixelFormat swPixFmt = useHardwareFrames_ ? swInputPixFmt_ : dstPixFmt_;
         swsCtx_ = sws_getContext(
             width_, height_, AV_PIX_FMT_RGBA,
-            width_, height_, dstPixFmt_,
+            width_, height_, swPixFmt,
             SWS_BILINEAR,
             nullptr, nullptr, nullptr);
 
@@ -337,7 +478,7 @@ public:
             lastError_ = "Failed to allocate frame";
             return false;
         }
-        frame_->format = dstPixFmt_;
+        frame_->format = swPixFmt;
         frame_->width = width_;
         frame_->height = height_;
 
@@ -434,11 +575,32 @@ public:
 
         av_frame_free(&rgbaFrame);
 
+        AVFrame* frameToEncode = frame_;
+        if (useHardwareFrames_) {
+            if (!hwFrame_ || !hwFramesCtx_) {
+                lastError_ = "Hardware frame context is not initialized";
+                return false;
+            }
+            av_frame_unref(hwFrame_);
+            hwFrame_->format = hwPixFmt_;
+            hwFrame_->width = width_;
+            hwFrame_->height = height_;
+            if (const int ret = av_hwframe_get_buffer(hwFramesCtx_, hwFrame_, 0); ret < 0) {
+                lastError_ = QStringLiteral("Failed to allocate hardware frame: %1").arg(ffmpegErrorString(ret));
+                return false;
+            }
+            if (const int ret = av_hwframe_transfer_data(hwFrame_, frame_, 0); ret < 0) {
+                lastError_ = QStringLiteral("Failed to transfer frame to hardware surface: %1").arg(ffmpegErrorString(ret));
+                return false;
+            }
+            frameToEncode = hwFrame_;
+        }
+
         // フレームにタイムスタンプ設定
-        frame_->pts = frameIndex_++;
+        frameToEncode->pts = frameIndex_++;
 
         // エンコード
-        int ret = avcodec_send_frame(codecCtx_, frame_);
+        int ret = avcodec_send_frame(codecCtx_, frameToEncode);
         if (ret < 0) {
             lastError_ = QStringLiteral("Failed to send frame to encoder: %1 (%2)").arg(ret).arg(ffmpegErrorString(ret));
             return false;
@@ -645,12 +807,10 @@ public:
     }
 
     void close() {
-        if (!isOpen_) {
-            return;
-        }
+        const bool finalize = isOpen_;
 
         // 遅延フレームをエンコード
-        if (codecCtx_) {
+        if (finalize && codecCtx_) {
             avcodec_send_frame(codecCtx_, nullptr);
             while (avcodec_receive_packet(codecCtx_, packet_) >= 0) {
                 packet_->stream_index = stream_->index;
@@ -660,7 +820,7 @@ public:
         }
 
         // トライラー書き込み
-        if (fmtCtx_) {
+        if (finalize && fmtCtx_) {
             av_write_trailer(fmtCtx_);
         }
 
@@ -671,8 +831,17 @@ public:
         if (frame_) {
             av_frame_free(&frame_);
         }
+        if (hwFrame_) {
+            av_frame_free(&hwFrame_);
+        }
         if (swsCtx_) {
             sws_freeContext(swsCtx_);
+        }
+        if (hwFramesCtx_) {
+            av_buffer_unref(&hwFramesCtx_);
+        }
+        if (hwDeviceCtx_) {
+            av_buffer_unref(&hwDeviceCtx_);
         }
         if (codecCtx_) {
             avcodec_free_context(&codecCtx_);
@@ -689,8 +858,15 @@ public:
         stream_ = nullptr;
         swsCtx_ = nullptr;
         frame_ = nullptr;
+        hwFrame_ = nullptr;
+        hwFramesCtx_ = nullptr;
+        hwDeviceCtx_ = nullptr;
         packet_ = nullptr;
         isOpen_ = false;
+        useHardwareFrames_ = false;
+        swInputPixFmt_ = AV_PIX_FMT_NONE;
+        hwPixFmt_ = AV_PIX_FMT_NONE;
+        hwDeviceType_ = AV_HWDEVICE_TYPE_NONE;
     }
 
     QString lastError() const {
@@ -710,16 +886,23 @@ private:
     AVStream* stream_ = nullptr;
     AVCodecContext* codecCtx_ = nullptr;
     AVFrame* frame_ = nullptr;
+    AVFrame* hwFrame_ = nullptr;
     AVPacket* packet_ = nullptr;
     SwsContext* swsCtx_ = nullptr;
+    AVBufferRef* hwDeviceCtx_ = nullptr;
+    AVBufferRef* hwFramesCtx_ = nullptr;
 
     int width_ = 0;
     int height_ = 0;
     int frameIndex_ = 0;
     bool isOpen_ = false;
+    bool useHardwareFrames_ = false;
     QString lastError_;
 
     FFmpegEncoderSettings settings_;
+    AVPixelFormat swInputPixFmt_ = AV_PIX_FMT_NONE;
+    AVPixelFormat hwPixFmt_ = AV_PIX_FMT_NONE;
+    AVHWDeviceType hwDeviceType_ = AV_HWDEVICE_TYPE_NONE;
     
     // 連番画像出力用
     FFmpegImageSequenceSettings imageSeqSettings_;
@@ -799,6 +982,10 @@ bool FFmpegEncoder::isCodecAvailable(const QString& codecName) {
     return avcodec_find_encoder(codecId) != nullptr;
 }
 
+bool FFmpegEncoder::isEncoderAvailable(const QString& encoderName) {
+    return avcodec_find_encoder_by_name(encoderName.toUtf8().constData()) != nullptr;
+}
+
 QStringList FFmpegEncoder::availableVideoCodecs() {
     QStringList result;
 
@@ -831,6 +1018,22 @@ QStringList FFmpegEncoder::availableVideoCodecs() {
         result << "webp";
     }
 
+    return result;
+}
+
+QStringList FFmpegEncoder::availableHardwareVideoEncoders() {
+    QStringList result;
+    const QStringList candidates = {
+        "h264_nvenc", "hevc_nvenc",
+        "h264_qsv", "hevc_qsv", "vp9_qsv",
+        "h264_amf", "hevc_amf",
+        "h264_vaapi", "hevc_vaapi", "vp9_vaapi"
+    };
+    for (const auto& name : candidates) {
+        if (isEncoderAvailable(name)) {
+            result << name;
+        }
+    }
     return result;
 }
 

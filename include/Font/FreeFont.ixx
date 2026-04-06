@@ -22,8 +22,11 @@ public:
   for (const QChar ch : text) {
    const auto code = ch.unicode();
    if ((code >= 0x3040 && code <= 0x30FF) || // Hiragana / Katakana
+       (code >= 0x3000 && code <= 0x303F) || // CJK punctuation
        (code >= 0x3400 && code <= 0x9FFF) || // CJK Unified Ideographs
        (code >= 0xF900 && code <= 0xFAFF) || // CJK Compatibility Ideographs
+       (code >= 0xAC00 && code <= 0xD7AF) || // Hangul syllables
+       (code >= 0x1100 && code <= 0x11FF) || // Hangul Jamo
        (code >= 0xFF00 && code <= 0xFFEF)) {  // Full-width forms / punctuation
     return true;
    }

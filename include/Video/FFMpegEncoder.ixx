@@ -21,6 +21,7 @@ export namespace ArtifactCore {
         int bitrateKbps = 8000;
         QString videoCodec = "h264";
         QString container = "mp4";
+        QString encoderName;
 
         // コーデック固有オプション
         QString preset = "medium";      // ultrafast, fast, medium, slow, veryslow
@@ -79,9 +80,11 @@ export namespace ArtifactCore {
 
         // 静的ヘルパー：コーデックが利用可能かチェック
         static bool isCodecAvailable(const QString& codecName);
+        static bool isEncoderAvailable(const QString& encoderName);
 
         // 静的ヘルパー：利用可能なコーデック一覧取得
         static QStringList availableVideoCodecs();
+        static QStringList availableHardwareVideoEncoders();
 
         // 静的ヘルパー：コンテナ形式が利用可能かチェック
         static bool isContainerAvailable(const QString& containerName);

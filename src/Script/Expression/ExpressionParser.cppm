@@ -141,6 +141,8 @@ public:
     std::vector<Token> tokens_;
     size_t currentToken_ = 0;
     std::string error_;
+    size_t errorPosition_ = std::string::npos;
+    size_t errorLength_ = 0;
     ExpressionLanguageStyle languageStyle_ = ExpressionLanguageStyle::Flexible;
 
     void tokenize();
@@ -148,6 +150,7 @@ public:
     Token advance();
     bool match(TokenType type);
     bool isKeyword(const std::string& str, TokenType& outType);
+    void setError(const std::string& message, size_t position, size_t length = 1);
     
     std::shared_ptr<ExprNode> parseExpression();
     std::shared_ptr<ExprNode> parseTernary();
@@ -163,6 +166,13 @@ public:
     std::shared_ptr<ExprNode> parseArrayLiteral();
     std::shared_ptr<ExprNode> parseFunctionCall(const std::string& funcName);
 };
+
+void ExpressionParser::Impl::setError(const std::string& message,
+                                      size_t position, size_t length) {
+    error_ = message;
+    errorPosition_ = position;
+    errorLength_ = std::max<std::size_t>(1, length);
+}
 
 void ExpressionParser::Impl::tokenize() {
     tokens_.clear();
@@ -394,7 +404,10 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseTernary() {
     // JS-style: condition ? true_val : false_val
     if (match(TokenType::Question)) {
         auto trueExpr = parseExpression();
-        if (!match(TokenType::Colon)) { error_ = "Expected ':' in ternary operator"; return nullptr; }
+        if (!match(TokenType::Colon)) {
+            setError("Expected ':' in ternary operator", currentToken().position);
+            return nullptr;
+        }
         auto falseExpr = parseExpression();
         auto node = std::make_shared<ExprNode>(ExprNodeType::Conditional);
         node->setChildren({expr, trueExpr, falseExpr});
@@ -540,7 +553,7 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
     if (match(TokenType::LParen)) {
         auto expr = parseExpression();
         if (!match(TokenType::RParen)) {
-            error_ = "Expected ')' after expression";
+            setError("Expected ')' after expression", currentToken().position);
             return nullptr;
         }
         
@@ -552,7 +565,7 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
                 elements.push_back(parseExpression());
             }
             if (!match(TokenType::RParen)) {
-                error_ = "Expected ')' after vector literal";
+                setError("Expected ')' after vector literal", currentToken().position);
                 return nullptr;
             }
             auto node = std::make_shared<ExprNode>(ExprNodeType::Vector);
@@ -576,7 +589,7 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
         if (match(TokenType::LBracket)) {
             auto index = parseExpression();
             if (!match(TokenType::RBracket)) {
-                error_ = "Expected ']' after array index";
+                setError("Expected ']' after array index", currentToken().position);
                 return nullptr;
             }
             auto varNode = std::make_shared<ExprNode>(ExprNodeType::Variable);
@@ -592,7 +605,7 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
         return node;
     }
     
-    error_ = "Unexpected token in expression";
+    setError("Unexpected token in expression", currentToken().position);
     return nullptr;
 }
 
@@ -605,7 +618,7 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseArrayLiteral() {
             elements.push_back(parseExpression());
         }
         if (!match(TokenType::RBracket)) {
-            error_ = "Expected ']' after array elements";
+            setError("Expected ']' after array elements", currentToken().position);
             return nullptr;
         }
     }
@@ -624,7 +637,7 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseFunctionCall(const std::s
             args.push_back(parseExpression());
         }
         if (!match(TokenType::RParen)) {
-            error_ = "Expected ')' after function arguments";
+            setError("Expected ')' after function arguments", currentToken().position);
             return nullptr;
         }
     }
@@ -653,13 +666,31 @@ std::shared_ptr<ExprNode> ExpressionParser::parse(const std::string& expression)
     impl_->expression_ = expression;
     impl_->currentToken_ = 0;
     impl_->error_.clear();
+    impl_->errorPosition_ = std::string::npos;
+    impl_->errorLength_ = 0;
     
     impl_->tokenize();
-    return impl_->parseExpression();
+    auto result = impl_->parseExpression();
+    if (!impl_->error_.empty()) {
+        return nullptr;
+    }
+    if (result && impl_->currentToken().type != TokenType::EndOfFile) {
+        impl_->setError("Unexpected token after expression", impl_->currentToken().position);
+        return nullptr;
+    }
+    return result;
 }
 
 std::string ExpressionParser::getError() const {
     return impl_->error_;
+}
+
+std::size_t ExpressionParser::getErrorPosition() const {
+    return impl_->errorPosition_;
+}
+
+std::size_t ExpressionParser::getErrorLength() const {
+    return impl_->errorLength_;
 }
 
 bool ExpressionParser::hasError() const {
