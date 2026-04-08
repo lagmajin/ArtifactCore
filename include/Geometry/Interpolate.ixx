@@ -190,38 +190,40 @@ struct SineOut {
     alpha = std::sin((alpha * 3.14159265f) / 2.0f);
     return start + (end - start) * alpha;
   }
-  export float bezierEvaluate(float t, float cp1x, float cp1y, float cp2x,
-                              float cp2y) noexcept {
-    // 3次ベジェ 数値解 Newton-Raphson法
-    // AE 互換 誤差 1e-6 で 4回反復
-    float x = t;
-    for (int i = 0; i < 4; i++) {
-      const float t2 = x * x;
-      const float t3 = t2 * x;
+};
 
-      const float mt = 1.0f - x;
-      const float mt2 = mt * mt;
-      const float mt3 = mt2 * mt;
-
-      const float dx = 3.0f * mt2 * cp1x + 6.0f * mt * x * (cp2x - cp1x) +
-                       3.0f * t2 * (1.0f - cp2x);
-
-      if (std::abs(dx) < 1e-6f)
-        break;
-
-      const float cx = mt3 + 3.0f * mt2 * x * cp1x + 3.0f * mt * t2 * cp2x;
-      x -= (cx - t) / dx;
-    }
-
+export inline float bezierEvaluate(float t, float cp1x, float cp1y,
+                                   float cp2x, float cp2y) noexcept {
+  // 3次ベジェ 数値解 Newton-Raphson法
+  // AE 互換 誤差 1e-6 で 4回反復
+  float x = t;
+  for (int i = 0; i < 4; i++) {
     const float t2 = x * x;
     const float t3 = t2 * x;
+
     const float mt = 1.0f - x;
     const float mt2 = mt * mt;
     const float mt3 = mt2 * mt;
 
-    return mt3 + 3.0f * mt2 * x * cp1y + 3.0f * mt * t2 * cp2y + t3;
+    const float dx = 3.0f * mt2 * cp1x + 6.0f * mt * x * (cp2x - cp1x) +
+                     3.0f * t2 * (1.0f - cp2x);
+
+    if (std::abs(dx) < 1e-6f) {
+      break;
+    }
+
+    const float cx = mt3 + 3.0f * mt2 * x * cp1x + 3.0f * mt * t2 * cp2x;
+    x -= (cx - t) / dx;
   }
-};
+
+  const float t2 = x * x;
+  const float t3 = t2 * x;
+  const float mt = 1.0f - x;
+  const float mt2 = mt * mt;
+  const float mt3 = mt2 * mt;
+
+  return mt3 + 3.0f * mt2 * x * cp1y + 3.0f * mt * t2 * cp2y + t3;
+}
 
 struct CubicOut {
   template <typename T>

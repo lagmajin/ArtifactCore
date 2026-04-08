@@ -14,16 +14,6 @@ import Frame.Position;
 
 namespace ArtifactCore {
 
-namespace {
-
-PlaybackClockSnapshot captureSnapshot(const PlaybackClock::Impl* impl);
-bool sameSnapshot(const PlaybackClockSnapshot& a, const PlaybackClockSnapshot& b);
-void publishSnapshotChange(const PlaybackClockSnapshot& previous,
-                           const PlaybackClockSnapshot& current,
-                           const QString& reason);
-
-} // namespace
-
  class PlaybackClock::Impl {
  public:
   mutable QMutex mutex_;

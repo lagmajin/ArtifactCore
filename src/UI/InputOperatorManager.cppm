@@ -2,6 +2,8 @@ module;
 #include <utility>
 #include <mutex>
 
+#include <QString>
+
 module Input.Surface.Manager;
 
 import Event.Bus;

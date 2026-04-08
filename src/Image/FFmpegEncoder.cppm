@@ -822,6 +822,10 @@ bool FFmpegEncoder::addImage(const ImageF32x4_RGBA& image) {
     return impl_->addImage(image);
 }
 
+bool FFmpegEncoder::addImage(const QImage& image) {
+    return impl_->addImage(image);
+}
+
 void FFmpegEncoder::close() {
     impl_->close();
 }
