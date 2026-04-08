@@ -6,6 +6,7 @@ module;
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QImage>
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -17,6 +18,7 @@ extern "C" {
 
 module Encoder.FFmpegEncoder;
 import Image;
+import CvUtils;
 import :Impl;
 
 namespace {
@@ -459,6 +461,81 @@ public:
             packet_->duration = packet_->duration * stream_->time_base.den / codecCtx_->time_base.den;
 
             // ファイルに書き込み
+            ret = av_interleaved_write_frame(fmtCtx_, packet_);
+            if (ret < 0) {
+                lastError_ = QStringLiteral("Failed to write packet: %1").arg(ret);
+                av_packet_unref(packet_);
+                return false;
+            }
+
+            av_packet_unref(packet_);
+        }
+
+        return true;
+    }
+
+    bool addImage(const QImage& image) {
+        if (!isOpen_ || !swsCtx_) {
+            lastError_ = "Encoder is not open";
+            return false;
+        }
+
+        QImage rgba = image;
+        if (rgba.format() != QImage::Format_RGBA8888) {
+            rgba = rgba.convertToFormat(QImage::Format_RGBA8888);
+        }
+
+        const int w = rgba.width();
+        const int h = rgba.height();
+        if (w != width_ || h != height_) {
+            lastError_ = QStringLiteral("Image size mismatch: expected %1x%2, got %3x%4")
+                .arg(width_).arg(height_).arg(w).arg(h);
+            return false;
+        }
+
+        if (isImageSequence_) {
+            ImageF32x4_RGBA floatImage;
+            floatImage.setFromCVMat(CvUtils::qImageToCvMat(rgba));
+            return addImage(floatImage);
+        }
+
+        if (!codecCtx_) {
+            lastError_ = "Video encoder not initialized";
+            return false;
+        }
+
+        if (av_frame_make_writable(frame_) < 0) {
+            lastError_ = "Failed to make frame writable";
+            return false;
+        }
+
+        const uint8_t* srcDataPtr[1] = { rgba.constBits() };
+        const int srcLinesize[1] = { static_cast<int>(rgba.bytesPerLine()) };
+        sws_scale(swsCtx_, srcDataPtr, srcLinesize, 0, h, frame_->data, frame_->linesize);
+
+        frame_->pts = frameIndex_++;
+
+        int ret = avcodec_send_frame(codecCtx_, frame_);
+        if (ret < 0) {
+            lastError_ = QStringLiteral("Failed to send frame to encoder: %1 (%2)").arg(ret).arg(ffmpegErrorString(ret));
+            return false;
+        }
+
+        while (ret >= 0) {
+            ret = avcodec_receive_packet(codecCtx_, packet_);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                break;
+            }
+            if (ret < 0) {
+                lastError_ = QStringLiteral("Failed to receive packet from encoder: %1 (%2)").arg(ret).arg(ffmpegErrorString(ret));
+                return false;
+            }
+
+            packet_->stream_index = stream_->index;
+            packet_->pts = packet_->pts * stream_->time_base.den / codecCtx_->time_base.den;
+            packet_->dts = packet_->dts * stream_->time_base.den / codecCtx_->time_base.den;
+            packet_->duration = packet_->duration * stream_->time_base.den / codecCtx_->time_base.den;
+
             ret = av_interleaved_write_frame(fmtCtx_, packet_);
             if (ret < 0) {
                 lastError_ = QStringLiteral("Failed to write packet: %1").arg(ret);

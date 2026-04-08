@@ -7,11 +7,22 @@ module;
 module Playback.Clock;
 
 import std;
+import Event.Bus;
 
 import Frame.Rate;
 import Frame.Position;
 
 namespace ArtifactCore {
+
+namespace {
+
+PlaybackClockSnapshot captureSnapshot(const PlaybackClock::Impl* impl);
+bool sameSnapshot(const PlaybackClockSnapshot& a, const PlaybackClockSnapshot& b);
+void publishSnapshotChange(const PlaybackClockSnapshot& previous,
+                           const PlaybackClockSnapshot& current,
+                           const QString& reason);
+
+} // namespace
 
  class PlaybackClock::Impl {
  public:
@@ -171,6 +182,50 @@ namespace ArtifactCore {
   }
  };
 
+PlaybackClockSnapshot captureSnapshot(const PlaybackClock::Impl* impl)
+{
+ return PlaybackClockSnapshot{
+  .state = impl->state_,
+  .currentFrame = impl->currentFrame_,
+  .frameRate = impl->frameRate_.framerate(),
+  .playbackSpeed = impl->playbackSpeed_,
+  .looping = impl->looping_,
+  .loopStart = impl->loopStart_,
+  .loopEnd = impl->loopEnd_,
+  .audioSyncEnabled = impl->audioSyncEnabled_,
+  .audioOffset = impl->audioOffset_,
+  .droppedFrameCount = impl->droppedFrameCount_
+ };
+}
+
+bool sameSnapshot(const PlaybackClockSnapshot& a, const PlaybackClockSnapshot& b)
+{
+ return a.state == b.state
+  && a.currentFrame == b.currentFrame
+  && a.frameRate == b.frameRate
+  && a.playbackSpeed == b.playbackSpeed
+  && a.looping == b.looping
+  && a.loopStart == b.loopStart
+  && a.loopEnd == b.loopEnd
+  && a.audioSyncEnabled == b.audioSyncEnabled
+  && a.audioOffset == b.audioOffset
+  && a.droppedFrameCount == b.droppedFrameCount;
+}
+
+void publishSnapshotChange(const PlaybackClockSnapshot& previous,
+                           const PlaybackClockSnapshot& current,
+                           const QString& reason)
+{
+ if (sameSnapshot(previous, current)) {
+  return;
+ }
+ globalEventBus().publish(PlaybackClockStateChangedEvent{
+  .previous = previous,
+  .current = current,
+  .reason = reason
+ });
+}
+
  PlaybackClock::PlaybackClock() : impl_(new Impl()) {}
 
  PlaybackClock::PlaybackClock(const FrameRate& frameRate) : impl_(new Impl()) {
@@ -191,11 +246,16 @@ namespace ArtifactCore {
   other.impl_ = nullptr;
  }
 
- PlaybackClock::~PlaybackClock() {
+PlaybackClock::~PlaybackClock() {
   delete impl_;
- }
+}
 
- PlaybackClock& PlaybackClock::operator=(const PlaybackClock& other) {
+PlaybackClockSnapshot PlaybackClock::snapshot() const {
+ QMutexLocker locker(&impl_->mutex_);
+ return captureSnapshot(impl_);
+}
+
+PlaybackClock& PlaybackClock::operator=(const PlaybackClock& other) {
   if (this == &other) return *this;
 
   // Ensure both impl_ pointers are valid
@@ -234,39 +294,75 @@ namespace ArtifactCore {
  }
 
 void PlaybackClock::start() {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->state_ = PlaybackState::Playing;
-  impl_->startTime_ = std::chrono::high_resolution_clock::now();
-  impl_->pausedDuration_ = std::chrono::microseconds{0};
-  impl_->lastUpdateTime_ = impl_->startTime_;
-  impl_->lastFrameNumber_ = -1;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->state_ = PlaybackState::Playing;
+   impl_->startTime_ = std::chrono::high_resolution_clock::now();
+   impl_->pausedDuration_ = std::chrono::microseconds{0};
+   impl_->lastUpdateTime_ = impl_->startTime_;
+   impl_->lastFrameNumber_ = -1;
+   current = captureSnapshot(impl_);
+  }
+  publishSnapshotChange(previous, current, QStringLiteral("start"));
  }
 
 void PlaybackClock::pause() {
-  QMutexLocker locker(&impl_->mutex_);
-  if (impl_->state_ == PlaybackState::Playing) {
-   impl_->state_ = PlaybackState::Paused;
-   impl_->pauseTime_ = std::chrono::high_resolution_clock::now();
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  bool changed = false;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   if (impl_->state_ == PlaybackState::Playing) {
+    previous = captureSnapshot(impl_);
+    impl_->state_ = PlaybackState::Paused;
+    impl_->pauseTime_ = std::chrono::high_resolution_clock::now();
+    current = captureSnapshot(impl_);
+    changed = true;
+   }
+  }
+  if (changed) {
+   publishSnapshotChange(previous, current, QStringLiteral("pause"));
   }
  }
 
 void PlaybackClock::stop() {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->state_ = PlaybackState::Stopped;
-  impl_->currentFrame_ = impl_->startFrame_;
-  impl_->pausedDuration_ = std::chrono::microseconds{0};
-  impl_->lastFrameNumber_ = -1;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->state_ = PlaybackState::Stopped;
+   impl_->currentFrame_ = impl_->startFrame_;
+   impl_->pausedDuration_ = std::chrono::microseconds{0};
+   impl_->lastFrameNumber_ = -1;
+   current = captureSnapshot(impl_);
+  }
+  publishSnapshotChange(previous, current, QStringLiteral("stop"));
  }
 
 void PlaybackClock::resume() {
-  QMutexLocker locker(&impl_->mutex_);
-  if (impl_->state_ == PlaybackState::Paused) {
-   auto now = std::chrono::high_resolution_clock::now();
-   auto pauseDuration = std::chrono::duration_cast<std::chrono::microseconds>(
-    now - impl_->pauseTime_);
-   impl_->pausedDuration_ += pauseDuration;
-   impl_->state_ = PlaybackState::Playing;
-   impl_->lastUpdateTime_ = now;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  bool changed = false;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   if (impl_->state_ == PlaybackState::Paused) {
+    previous = captureSnapshot(impl_);
+    auto now = std::chrono::high_resolution_clock::now();
+    auto pauseDuration = std::chrono::duration_cast<std::chrono::microseconds>(
+     now - impl_->pauseTime_);
+    impl_->pausedDuration_ += pauseDuration;
+    impl_->state_ = PlaybackState::Playing;
+    impl_->lastUpdateTime_ = now;
+    current = captureSnapshot(impl_);
+    changed = true;
+   }
+  }
+  if (changed) {
+   publishSnapshotChange(previous, current, QStringLiteral("resume"));
   }
  }
 
@@ -311,18 +407,25 @@ FramePosition PlaybackClock::currentPosition() const {
  }
 
 void PlaybackClock::setFrame(int64_t frame) {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->currentFrame_ = frame;
-  impl_->startFrame_ = frame;
-  
-  if (impl_->state_ == PlaybackState::Playing || impl_->state_ == PlaybackState::Paused) {
-   auto now = std::chrono::high_resolution_clock::now();
-   impl_->startTime_ = now;
-   impl_->pausedDuration_ = std::chrono::microseconds{0};
-   if (impl_->state_ == PlaybackState::Paused) {
-    impl_->pauseTime_ = now;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->currentFrame_ = frame;
+   impl_->startFrame_ = frame;
+   
+   if (impl_->state_ == PlaybackState::Playing || impl_->state_ == PlaybackState::Paused) {
+    auto now = std::chrono::high_resolution_clock::now();
+    impl_->startTime_ = now;
+    impl_->pausedDuration_ = std::chrono::microseconds{0};
+    if (impl_->state_ == PlaybackState::Paused) {
+     impl_->pauseTime_ = now;
+    }
    }
+   current = captureSnapshot(impl_);
   }
+  publishSnapshotChange(previous, current, QStringLiteral("setFrame"));
  }
 
 void PlaybackClock::setPosition(const FramePosition& position) {
@@ -330,8 +433,15 @@ void PlaybackClock::setPosition(const FramePosition& position) {
  }
 
 void PlaybackClock::setFrameRate(const FrameRate& frameRate) {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->frameRate_ = frameRate;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->frameRate_ = frameRate;
+   current = captureSnapshot(impl_);
+  }
+  publishSnapshotChange(previous, current, QStringLiteral("setFrameRate"));
  }
 
 FrameRate PlaybackClock::frameRate() const {
@@ -344,24 +454,31 @@ double PlaybackClock::framesPerSecond() const {
  }
 
 void PlaybackClock::setPlaybackSpeed(double speed) {
-  QMutexLocker locker(&impl_->mutex_);
-  
-  // ���݂̃t���[���ʒu��ێ�
-  auto currentFrame = impl_->currentFrame_;
-  
-  impl_->playbackSpeed_ = speed;
-  
-  // �^�C�~���O���Čv�Z
-  if (impl_->state_ == PlaybackState::Playing || impl_->state_ == PlaybackState::Paused) {
-   auto now = std::chrono::high_resolution_clock::now();
-   auto elapsed = impl_->frameToTime(currentFrame - impl_->startFrame_);
-   impl_->startTime_ = now - elapsed;
-   impl_->pausedDuration_ = std::chrono::microseconds{0};
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
    
-   if (impl_->state_ == PlaybackState::Paused) {
-    impl_->pauseTime_ = now;
+   // ���݂̃t���[���ʒu��ێ�
+   auto currentFrame = impl_->currentFrame_;
+   previous = captureSnapshot(impl_);
+   
+   impl_->playbackSpeed_ = speed;
+   
+   // �^�C�~���O���Čv�Z
+   if (impl_->state_ == PlaybackState::Playing || impl_->state_ == PlaybackState::Paused) {
+    auto now = std::chrono::high_resolution_clock::now();
+    auto elapsed = impl_->frameToTime(currentFrame - impl_->startFrame_);
+    impl_->startTime_ = now - elapsed;
+    impl_->pausedDuration_ = std::chrono::microseconds{0};
+    
+    if (impl_->state_ == PlaybackState::Paused) {
+     impl_->pauseTime_ = now;
+    }
    }
+   current = captureSnapshot(impl_);
   }
+  publishSnapshotChange(previous, current, QStringLiteral("setPlaybackSpeed"));
  }
 
 double PlaybackClock::playbackSpeed() const {
@@ -374,15 +491,29 @@ bool PlaybackClock::isReversePlaying() const {
  }
 
 void PlaybackClock::setLoopRange(int64_t startFrame, int64_t endFrame) {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->looping_ = true;
-  impl_->loopStart_ = startFrame;
-  impl_->loopEnd_ = endFrame;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->looping_ = true;
+   impl_->loopStart_ = startFrame;
+   impl_->loopEnd_ = endFrame;
+   current = captureSnapshot(impl_);
+  }
+  publishSnapshotChange(previous, current, QStringLiteral("setLoopRange"));
  }
 
 void PlaybackClock::clearLoopRange() {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->looping_ = false;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->looping_ = false;
+   current = captureSnapshot(impl_);
+  }
+  publishSnapshotChange(previous, current, QStringLiteral("clearLoopRange"));
  }
 
 bool PlaybackClock::isLooping() const {
@@ -401,25 +532,43 @@ int64_t PlaybackClock::loopEndFrame() const {
  }
 
 void PlaybackClock::syncToAudioClock(std::chrono::microseconds audioTime) {
-  QMutexLocker locker(&impl_->mutex_);
-  
-  if (!impl_->audioSyncEnabled_) return;
-  
-  auto videoTime = impl_->calculateElapsedTime();
-  impl_->audioOffset_ = audioTime - videoTime;
-  impl_->lastAudioSyncTime_ = std::chrono::high_resolution_clock::now();
-  
-  // �I�[�f�B�I�Ƃ̍����傫���ꍇ�͒���
-  if (std::abs(impl_->audioOffset_.count()) > 16666) {  // 1�t���[�����ȏ�̃Y��
-   auto now = std::chrono::high_resolution_clock::now();
-   impl_->startTime_ = now - audioTime;
-   impl_->pausedDuration_ = std::chrono::microseconds{0};
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  bool changed = false;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   
+   if (!impl_->audioSyncEnabled_) return;
+   
+   previous = captureSnapshot(impl_);
+   auto videoTime = impl_->calculateElapsedTime();
+   impl_->audioOffset_ = audioTime - videoTime;
+   impl_->lastAudioSyncTime_ = std::chrono::high_resolution_clock::now();
+   
+   // �I�[�f�B�I�Ƃ̍����傫���ꍇ�͒���
+   if (std::abs(impl_->audioOffset_.count()) > 16666) {  // 1�t���[�����ȏ�̃Y��
+    auto now = std::chrono::high_resolution_clock::now();
+    impl_->startTime_ = now - audioTime;
+    impl_->pausedDuration_ = std::chrono::microseconds{0};
+   }
+   current = captureSnapshot(impl_);
+   changed = true;
+  }
+  if (changed) {
+   publishSnapshotChange(previous, current, QStringLiteral("syncToAudioClock"));
   }
  }
 
 void PlaybackClock::setAudioSyncEnabled(bool enabled) {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->audioSyncEnabled_ = enabled;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->audioSyncEnabled_ = enabled;
+   current = captureSnapshot(impl_);
+  }
+  publishSnapshotChange(previous, current, QStringLiteral("setAudioSyncEnabled"));
  }
 
 bool PlaybackClock::isAudioSyncEnabled() const {
@@ -433,8 +582,15 @@ std::chrono::microseconds PlaybackClock::audioOffset() const {
  }
 
 void PlaybackClock::setDropFrameDetectionEnabled(bool enabled) {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->dropFrameDetectionEnabled_ = enabled;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->dropFrameDetectionEnabled_ = enabled;
+   current = captureSnapshot(impl_);
+  }
+  publishSnapshotChange(previous, current, QStringLiteral("setDropFrameDetectionEnabled"));
  }
 
 bool PlaybackClock::isDropFrameDetectionEnabled() const {
@@ -448,9 +604,16 @@ int64_t PlaybackClock::droppedFrameCount() const {
  }
 
 void PlaybackClock::resetDroppedFrameCount() {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->droppedFrameCount_ = 0;
-  impl_->lastFrameNumber_ = -1;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->droppedFrameCount_ = 0;
+   impl_->lastFrameNumber_ = -1;
+   current = captureSnapshot(impl_);
+  }
+  publishSnapshotChange(previous, current, QStringLiteral("resetDroppedFrameCount"));
  }
 
 QString PlaybackClock::timecode() const {
@@ -498,13 +661,20 @@ std::chrono::microseconds PlaybackClock::deltaTime() {
  }
 
 void PlaybackClock::reset() {
-  QMutexLocker locker(&impl_->mutex_);
-  impl_->state_ = PlaybackState::Stopped;
-  impl_->currentFrame_ = impl_->startFrame_;
-  impl_->pausedDuration_ = std::chrono::microseconds{0};
-  impl_->audioOffset_ = std::chrono::microseconds{0};
-  impl_->droppedFrameCount_ = 0;
-  impl_->lastFrameNumber_ = -1;
+  PlaybackClockSnapshot previous;
+  PlaybackClockSnapshot current;
+  {
+   QMutexLocker locker(&impl_->mutex_);
+   previous = captureSnapshot(impl_);
+   impl_->state_ = PlaybackState::Stopped;
+   impl_->currentFrame_ = impl_->startFrame_;
+   impl_->pausedDuration_ = std::chrono::microseconds{0};
+   impl_->audioOffset_ = std::chrono::microseconds{0};
+   impl_->droppedFrameCount_ = 0;
+   impl_->lastFrameNumber_ = -1;
+   current = captureSnapshot(impl_);
+  }
+  publishSnapshotChange(previous, current, QStringLiteral("reset"));
  }
 
 QString PlaybackClock::statistics() const {

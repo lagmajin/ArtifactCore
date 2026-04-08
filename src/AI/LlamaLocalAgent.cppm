@@ -21,6 +21,7 @@ namespace ArtifactCore {
 namespace {
 
 static std::once_flag g_llamaBackendInitOnce;
+constexpr int32_t kDefaultGpuLayerCount = 20;
 
 bool loadBackendIfExists(const QDir& appDir, const QString& dllName)
 {
@@ -123,11 +124,28 @@ void ensureLlamaBackendInitialized()
             nullptr);
         llama_backend_init();
         const QDir appDir(QCoreApplication::applicationDirPath());
+        loadBackendIfExists(appDir, QStringLiteral("ggml-base.dll"));
+        loadBackendIfExists(appDir, QStringLiteral("ggml.dll"));
         loadBackendIfExists(appDir, QStringLiteral("ggml-cuda.dll"));
         loadBackendIfExists(appDir, QStringLiteral("ggml-vulkan.dll"));
-        loadBackendIfExists(appDir, QStringLiteral("ggml-cpu.dll"));
+        QDir cpuBackendDir = appDir;
+        if (cpuBackendDir.cdUp()) {
+            loadBackendIfExists(cpuBackendDir, QStringLiteral("ggml-cpu-x64.dll"));
+            loadBackendIfExists(cpuBackendDir, QStringLiteral("ggml-cpu-sse42.dll"));
+            loadBackendIfExists(cpuBackendDir, QStringLiteral("ggml-cpu-sandybridge.dll"));
+            loadBackendIfExists(cpuBackendDir, QStringLiteral("ggml-cpu-haswell.dll"));
+            loadBackendIfExists(cpuBackendDir, QStringLiteral("ggml-cpu-skylakex.dll"));
+            loadBackendIfExists(cpuBackendDir, QStringLiteral("ggml-cpu-cannonlake.dll"));
+            loadBackendIfExists(cpuBackendDir, QStringLiteral("ggml-cpu-cascadelake.dll"));
+            loadBackendIfExists(cpuBackendDir, QStringLiteral("ggml-cpu-icelake.dll"));
+            loadBackendIfExists(cpuBackendDir, QStringLiteral("ggml-cpu-alderlake.dll"));
+        }
         const QByteArray appDirUtf8 = appDir.path().toUtf8();
         ggml_backend_load_all_from_path(appDirUtf8.constData());
+        const QByteArray cpuBackendDirUtf8 = cpuBackendDir.path().toUtf8();
+        if (!cpuBackendDirUtf8.isEmpty()) {
+            ggml_backend_load_all_from_path(cpuBackendDirUtf8.constData());
+        }
         ggml_backend_load_all();
         qInfo() << "[LlamaLocalAgent] backend registry"
                 << "backendCount=" << static_cast<qulonglong>(ggml_backend_reg_count())
@@ -226,6 +244,52 @@ QString readGgufArchitecture(const QString& modelPath, QString* errorOut = nullp
     return architecture;
 }
 
+QString buildModelLoadDiagnostics(
+    const QString& modelPath,
+    const QFileInfo& modelInfo,
+    const QString& architecture,
+    bool supportsGpuOffload,
+    size_t availableDevices,
+    size_t gpuDevices,
+    size_t preferredGpuIndex,
+    const llama_model_params& params)
+{
+    return QStringLiteral(
+               "path=%1 sizeMB=%2 arch=%3 supportsGpuOffload=%4 availableDevices=%5 gpuDevices=%6 preferredGpuIndex=%7 "
+               "mainGpu=%8 nGpuLayers=%9 splitMode=%10 useMmap=%11 useDirectIO=%12 useMlock=%13 checkTensors=%14 vocabOnly=%15")
+        .arg(modelPath)
+        .arg(QString::number(modelInfo.size() / (1024.0 * 1024.0), 'f', 2))
+        .arg(architecture.isEmpty() ? QStringLiteral("<unknown>") : architecture)
+        .arg(supportsGpuOffload ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(QString::number(static_cast<qulonglong>(availableDevices)))
+        .arg(QString::number(static_cast<qulonglong>(gpuDevices)))
+        .arg(preferredGpuIndex == static_cast<size_t>(-1)
+                 ? QStringLiteral("-1")
+                 : QString::number(static_cast<qulonglong>(preferredGpuIndex)))
+        .arg(params.main_gpu)
+        .arg(params.n_gpu_layers)
+        .arg(static_cast<int>(params.split_mode))
+        .arg(params.use_mmap ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(params.use_direct_io ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(params.use_mlock ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(params.check_tensors ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(params.vocab_only ? QStringLiteral("true") : QStringLiteral("false"));
+}
+
+QString llamaParamsFitStatusToString(enum llama_params_fit_status status)
+{
+    switch (status) {
+    case LLAMA_PARAMS_FIT_STATUS_SUCCESS:
+        return QStringLiteral("success");
+    case LLAMA_PARAMS_FIT_STATUS_FAILURE:
+        return QStringLiteral("failure");
+    case LLAMA_PARAMS_FIT_STATUS_ERROR:
+        return QStringLiteral("error");
+    default:
+        return QStringLiteral("unknown");
+    }
+}
+
 QString buildContextSummary(const AIContext& context)
 {
     QStringList lines;
@@ -281,7 +345,6 @@ std::vector<llama_token> tokenizePrompt(const llama_vocab* vocab, const QString&
 bool decodeTokensInChunks(
     llama_context* ctx,
     const std::vector<llama_token>& tokens,
-    int batchSize,
     QString* errorOut)
 {
     if (!ctx) {
@@ -297,7 +360,7 @@ bool decodeTokensInChunks(
         return false;
     }
 
-    const int effectiveBatchSize = std::max(1, batchSize);
+    const int effectiveBatchSize = std::max(1, static_cast<int>(llama_n_batch(ctx)));
     for (size_t offset = 0; offset < tokens.size(); offset += static_cast<size_t>(effectiveBatchSize)) {
         const size_t chunkCount = std::min(tokens.size() - offset, static_cast<size_t>(effectiveBatchSize));
         llama_batch batch = llama_batch_get_one(
@@ -314,9 +377,27 @@ bool decodeTokensInChunks(
     return true;
 }
 
+llama_context_params buildInferenceContextParams(int nCtx, bool supportsGpuOffload)
+{
+    llama_context_params cparams = llama_context_default_params();
+    cparams.n_ctx = static_cast<uint32_t>(std::max(1024, nCtx));
+    cparams.n_batch = std::min<uint32_t>(512, cparams.n_ctx);
+    cparams.n_ubatch = std::min<uint32_t>(128, cparams.n_batch);
+    cparams.n_seq_max = 1;
+    cparams.n_threads = recommendedInferenceThreads();
+    cparams.n_threads_batch = std::max(2, recommendedInferenceThreads() / 2);
+    cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
+    cparams.embeddings = false;
+    cparams.offload_kqv = supportsGpuOffload;
+    cparams.no_perf = true;
+    cparams.op_offload = supportsGpuOffload;
+    cparams.swa_full = false;
+    cparams.kv_unified = false;
+    return cparams;
+}
+
 QString sampleWithModel(
-    llama_model* model,
-    llama_context_params cparams,
+    llama_context* ctx,
     const QString& systemPrompt,
     const QString& userPrompt,
     const AIContext& context,
@@ -325,22 +406,17 @@ QString sampleWithModel(
     const std::function<bool(const QString&)>* tokenCallback,
     QString* errorOut)
 {
-    if (!model) {
-        if (errorOut) {
-            *errorOut = QStringLiteral("LLM model is not loaded.");
-        }
-        return {};
-    }
-
-    LlamaContextPtr ctx{llama_init_from_model(model, cparams)};
     if (!ctx) {
         if (errorOut) {
-            *errorOut = QStringLiteral("Failed to create llama context.");
+            *errorOut = QStringLiteral("LLM context is not available.");
         }
         return {};
     }
 
-    const llama_vocab* vocab = llama_model_get_vocab(model);
+    llama_memory_clear(llama_get_memory(ctx), false);
+
+    const llama_model* model = llama_get_model(ctx);
+    const llama_vocab* vocab = model ? llama_model_get_vocab(model) : nullptr;
     if (!vocab) {
         if (errorOut) {
             *errorOut = QStringLiteral("Model vocabulary is unavailable.");
@@ -384,7 +460,7 @@ QString sampleWithModel(
             }
             return {};
         }
-        if (!decodeTokensInChunks(ctx.get(), tokens, static_cast<int>(cparams.n_batch), errorOut)) {
+        if (!decodeTokensInChunks(ctx, tokens, errorOut)) {
             return {};
         }
     } else {
@@ -414,7 +490,7 @@ QString sampleWithModel(
             }
             return {};
         }
-        if (!decodeTokensInChunks(ctx.get(), tokens, static_cast<int>(cparams.n_batch), errorOut)) {
+        if (!decodeTokensInChunks(ctx, tokens, errorOut)) {
             return {};
         }
     }
@@ -444,7 +520,7 @@ QString sampleWithModel(
     const int effectiveMaxTokens = std::max(32, maxTokens);
 
     for (int i = 0; i < effectiveMaxTokens; ++i) {
-        const llama_token token = llama_sampler_sample(sampler.get(), ctx.get(), -1);
+        const llama_token token = llama_sampler_sample(sampler.get(), ctx, -1);
         if (token == eos || llama_vocab_is_eog(vocab, token)) {
             break;
         }
@@ -477,7 +553,7 @@ QString sampleWithModel(
 
         llama_token nextToken = token;
         llama_batch batch = llama_batch_get_one(&nextToken, 1);
-        if (llama_decode(ctx.get(), batch) != 0) {
+        if (llama_decode(ctx, batch) != 0) {
             break;
         }
     }
@@ -507,6 +583,7 @@ public:
     std::mutex mutex;
     bool backendInitialized = false;
     bool gpuOffloadSupported = false;
+    LlamaContextPtr context;
 
     void ensureBackend()
     {
@@ -518,36 +595,14 @@ public:
 
     QString buildAnswer(const QString& systemPrompt, const QString& userPrompt, const AIContext& context, QString* errorOut = nullptr)
     {
-        llama_model* modelRaw = nullptr;
-        llama_context_params cparams;
-        int myNPredict;
-        float myTemp;
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            if (!initialized || !model) {
-                if (errorOut) {
-                    *errorOut = QStringLiteral("Local model is not initialized.");
-                }
-                return {};
+        std::lock_guard<std::mutex> lock(mutex);
+        if (!initialized || !model || !this->context) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("Local model is not initialized.");
             }
-            modelRaw = model.get();
-            cparams = llama_context_default_params();
-            cparams.n_ctx = static_cast<uint32_t>(std::max(1024, n_ctx));
-            cparams.n_batch = std::min<uint32_t>(2048, cparams.n_ctx);
-            cparams.n_ubatch = std::min<uint32_t>(256, cparams.n_batch);
-            cparams.n_seq_max = 1;
-            cparams.n_threads = recommendedInferenceThreads();
-            cparams.n_threads_batch = std::max(2, recommendedInferenceThreads() / 2);
-            cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
-            cparams.offload_kqv = gpuOffloadSupported;
-            cparams.no_perf = true;
-            cparams.op_offload = gpuOffloadSupported;
-            cparams.swa_full = false;
-            cparams.kv_unified = false;
-            myNPredict = n_predict;
-            myTemp = temp;
+            return {};
         }
-        return sampleWithModel(modelRaw, cparams, systemPrompt, userPrompt, context, myNPredict, myTemp, nullptr, errorOut);
+        return sampleWithModel(this->context.get(), systemPrompt, userPrompt, context, n_predict, temp, nullptr, errorOut);
     }
 
     QString buildAnswerStreaming(
@@ -557,36 +612,14 @@ public:
         const std::function<bool(const QString&)>& tokenCallback,
         QString* errorOut = nullptr)
     {
-        llama_model* modelRaw = nullptr;
-        llama_context_params cparams;
-        int myNPredict;
-        float myTemp;
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            if (!initialized || !model) {
-                if (errorOut) {
-                    *errorOut = QStringLiteral("Local model is not initialized.");
-                }
-                return {};
+        std::lock_guard<std::mutex> lock(mutex);
+        if (!initialized || !model || !this->context) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("Local model is not initialized.");
             }
-            modelRaw = model.get();
-            cparams = llama_context_default_params();
-            cparams.n_ctx = static_cast<uint32_t>(std::max(1024, n_ctx));
-            cparams.n_batch = std::min<uint32_t>(2048, cparams.n_ctx);
-            cparams.n_ubatch = std::min<uint32_t>(256, cparams.n_batch);
-            cparams.n_seq_max = 1;
-            cparams.n_threads = recommendedInferenceThreads();
-            cparams.n_threads_batch = std::max(2, recommendedInferenceThreads() / 2);
-            cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
-            cparams.offload_kqv = gpuOffloadSupported;
-            cparams.no_perf = true;
-            cparams.op_offload = gpuOffloadSupported;
-            cparams.swa_full = false;
-            cparams.kv_unified = false;
-            myNPredict = n_predict;
-            myTemp = temp;
+            return {};
         }
-        return sampleWithModel(modelRaw, cparams, systemPrompt, userPrompt, context, myNPredict, myTemp, &tokenCallback, errorOut);
+        return sampleWithModel(this->context.get(), systemPrompt, userPrompt, context, n_predict, temp, &tokenCallback, errorOut);
     }
 };
 
@@ -646,16 +679,27 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
     const size_t gpuDevices = countGpuBackends();
     const bool supportsGpuOffload = llama_supports_gpu_offload() && gpuDevices > 0;
     const size_t preferredGpuIndex = supportsGpuOffload ? findPreferredGpuDeviceIndex() : static_cast<size_t>(-1);
-    llama_model_params mparams = llama_model_default_params();
-    mparams.n_gpu_layers = supportsGpuOffload ? -1 : 0;
-    mparams.split_mode = LLAMA_SPLIT_MODE_NONE;
-    mparams.main_gpu = (supportsGpuOffload && preferredGpuIndex != static_cast<size_t>(-1))
+    llama_model_params baseMparams = llama_model_default_params();
+    // Avoid "all layers on GPU" by default; a fixed cap keeps memory pressure
+    // and initialization cost more predictable on large models.
+    baseMparams.n_gpu_layers = supportsGpuOffload ? kDefaultGpuLayerCount : 0;
+    baseMparams.split_mode = supportsGpuOffload && gpuDevices > 1
+        ? LLAMA_SPLIT_MODE_LAYER
+        : LLAMA_SPLIT_MODE_NONE;
+    baseMparams.main_gpu = (supportsGpuOffload && preferredGpuIndex != static_cast<size_t>(-1))
         ? static_cast<int32_t>(preferredGpuIndex)
         : -1;
-    mparams.use_mmap = true;
-    mparams.use_mlock = false;
-    mparams.check_tensors = false;
-    mparams.vocab_only = false;
+    baseMparams.use_mmap = true;
+    baseMparams.use_direct_io = false;
+    baseMparams.use_mlock = false;
+    baseMparams.check_tensors = false;
+    baseMparams.no_host = false;
+    baseMparams.no_alloc = false;
+    baseMparams.vocab_only = false;
+
+    llama_model_params loadMparams = baseMparams;
+    const std::string modelPathUtf8 = QStringToUtf8(modelPath);
+    const QString fitStatusText = QStringLiteral("skipped");
 
     impl_->gpuOffloadSupported = supportsGpuOffload;
 
@@ -664,12 +708,33 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
             << "gpuDevices=" << static_cast<qulonglong>(gpuDevices)
             << "gpuOffloadSupported=" << supportsGpuOffload
             << "preferredGpuIndex=" << (preferredGpuIndex == static_cast<size_t>(-1) ? -1 : static_cast<long long>(preferredGpuIndex))
-            << "mainGpu=" << mparams.main_gpu
-            << "nGpuLayers=" << mparams.n_gpu_layers;
+            << "mainGpu=" << loadMparams.main_gpu
+            << "nGpuLayers=" << loadMparams.n_gpu_layers
+            << "fitStatus=" << fitStatusText
+            << "ctx=" << impl_->n_ctx;
 
-    const std::string modelPathUtf8 = QStringToUtf8(modelPath);
-    llama_model* rawModel = llama_model_load_from_file(modelPathUtf8.c_str(), mparams);
+    qInfo().noquote() << "[LlamaLocalAgent] load diagnostics"
+                      << buildModelLoadDiagnostics(
+                             modelPath,
+                             modelInfo,
+                             architecture,
+                             supportsGpuOffload,
+                             availableDevices,
+                             gpuDevices,
+                             preferredGpuIndex,
+                             loadMparams);
+
+    llama_model* rawModel = llama_model_load_from_file(modelPathUtf8.c_str(), loadMparams);
     if (!rawModel) {
+        const QString diagnostic = buildModelLoadDiagnostics(
+            modelPath,
+            modelInfo,
+            architecture,
+            supportsGpuOffload,
+            availableDevices,
+            gpuDevices,
+            preferredGpuIndex,
+            loadMparams);
         if (!architecture.isEmpty()) {
             impl_->lastErrorMessage = QStringLiteral(
                 "llama.cpp failed to load model: %1 (GGUF architecture: %2)"
@@ -677,19 +742,39 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
         } else {
             impl_->lastErrorMessage = QStringLiteral("llama.cpp failed to load model: %1").arg(QStringView{modelPath});
         }
+        qWarning().noquote() << "[LlamaLocalAgent] model load failed" << diagnostic;
         qWarning() << "[LlamaLocalAgent]" << impl_->lastErrorMessage;
         impl_->initialized = false;
         return false;
     }
 
     impl_->model = LlamaModelPtr(rawModel);
+    impl_->context.reset();
+    const llama_context_params contextParams = buildInferenceContextParams(impl_->n_ctx, supportsGpuOffload);
+    impl_->context.reset(llama_init_from_model(impl_->model.get(), contextParams));
+    if (!impl_->context) {
+        impl_->model.reset();
+        impl_->lastErrorMessage = QStringLiteral("Failed to create llama context.");
+        qWarning() << "[LlamaLocalAgent]" << impl_->lastErrorMessage;
+        impl_->initialized = false;
+        return false;
+    }
     impl_->modelPath = modelPath;
     impl_->modelName = modelInfo.completeBaseName();
     impl_->initialized = true;
 
-    qInfo() << "[LlamaLocalAgent] model loaded"
-            << "path=" << modelPath
-            << "name=" << impl_->modelName;
+    qInfo().noquote() << "[LlamaLocalAgent] model loaded"
+                      << "path=" << modelPath
+                      << "name=" << impl_->modelName
+                      << "diagnostics=" << buildModelLoadDiagnostics(
+                             modelPath,
+                             modelInfo,
+                             architecture,
+                             supportsGpuOffload,
+                             availableDevices,
+                             gpuDevices,
+                             preferredGpuIndex,
+                             loadMparams);
     return true;
 }
 

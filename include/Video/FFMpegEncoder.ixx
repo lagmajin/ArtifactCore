@@ -2,6 +2,7 @@ module;
 #include <utility>
 
 #include <QFile>
+#include <QImage>
 #include <QString>
 #include <QStringList>
 export module Encoder.FFmpegEncoder;
@@ -64,6 +65,7 @@ export namespace ArtifactCore {
 
         // フレーム追加
         bool addImage(const ImageF32x4_RGBA& image);
+        bool addImage(const QImage& image);
 
         // エンコード完了とファイルクローズ
         void close();

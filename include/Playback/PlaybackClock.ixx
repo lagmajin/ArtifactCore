@@ -47,6 +47,25 @@ import Playback.State;
 
 export namespace ArtifactCore {
 
+struct PlaybackClockSnapshot {
+    PlaybackState state = PlaybackState::Stopped;
+    std::int64_t currentFrame = 0;
+    double frameRate = 30.0;
+    double playbackSpeed = 1.0;
+    bool looping = false;
+    std::int64_t loopStart = 0;
+    std::int64_t loopEnd = 0;
+    bool audioSyncEnabled = false;
+    std::chrono::microseconds audioOffset { 0 };
+    std::int64_t droppedFrameCount = 0;
+};
+
+struct PlaybackClockStateChangedEvent {
+    PlaybackClockSnapshot previous;
+    PlaybackClockSnapshot current;
+    QString reason;
+};
+
 // xĐNbN
 // : UIXVɂSignal/Slotg킸A|[O𐄏
 // Signal/Slot̓L[COxɂ荂x邽
@@ -115,6 +134,7 @@ public:
     bool isDropFrameDetectionEnabled() const;
     std::int64_t droppedFrameCount() const;
     void resetDroppedFrameCount();
+    PlaybackClockSnapshot snapshot() const;
 
     // ^CR[h
     QString timecode() const;  // HH:MM:SS:FF

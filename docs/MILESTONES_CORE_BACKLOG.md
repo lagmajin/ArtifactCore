@@ -149,6 +149,8 @@
 - playback context
 - audio/video sync
 - frame stepping の整理
+- 進捗: `PlaybackClock` が typed `PlaybackClockStateChangedEvent` を `EventBus` に流せるようになった
+- 進捗: `PlaybackClock::snapshot()` で transport 状態をまとめて取得できるようにした
 
 ## Architecture / Toolchain
 
@@ -170,6 +172,16 @@
 - typed subscribe / publish / post
 - UI thread bridge の前提になる queued delivery
 - Qt 非依存の高速イベント基盤
+
+### C-ARC-5 Deterministic Snapshot & Capability Contract
+- render / playback / export / AI / audio の入力 state を snapshot で固定する
+- backend capability を typed contract として公開する
+- `MFR` / backend fallback / reproducible export の前提を作る
+
+### C-ARC-6 Typed Background Task Runtime
+- render / proxy / cache warm / analysis を共通の task runtime で扱う
+- cancel / priority / progress / dependency を typed に整理する
+- App 側の background job 管理とつなぐ
 
 ## Good Small Tasks
 
