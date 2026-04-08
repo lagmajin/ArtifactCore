@@ -1,6 +1,8 @@
-﻿module;
-#include <QFile> // Qt のファイルIO用
-#include <QFileInfo> 
+module;
+#include <utility>
+#include <QFile>
+#include <QFileInfo>
+#include <QDebug>
 #include <boost\asio\io_context.hpp>
 #include <boost\asio\thread_pool.hpp>
 #include <boost\asio\post.hpp>

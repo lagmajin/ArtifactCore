@@ -1,7 +1,7 @@
 module;
+#include <utility>
 
 #include <QString>
-
 export module Text.Style;
 
 import Utils.String.UniString;

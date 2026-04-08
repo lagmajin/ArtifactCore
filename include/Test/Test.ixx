@@ -1,11 +1,11 @@
-﻿module;
-
-#include <QStandardPaths>
-#include <QDir>
-#include <QString>
+module;
+#include <utility>
 #include "../Define/DllExportMacro.hpp"
 
 export module Test;
+#include <QStandardPaths>
+#include <QDir>
+#include <QString>
 
 export import Test.Helper;
 

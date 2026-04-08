@@ -1,13 +1,14 @@
 module;
+#include <utility>
 #include <QImage>
 #include <QRect>
 #include <QVector>
 #include <QString>
-#include <opencv2/opencv.hpp>
-#include <opencv2/objdetect.hpp>
 #include <memory>
 #include <vector>
 
+#include <opencv2/opencv.hpp>
+#include <opencv2/objdetect.hpp>
 export module ArtifactCore.ImageProcessing.FaceDetection;
 
 export namespace ArtifactCore {

@@ -1,5 +1,9 @@
-﻿module;
-
+module;
+#include <utility>
+#include <QString>
+#include <QFile>
+#include <QFileInfo>
+#include <QDir>
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -9,14 +13,7 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
-#include <QString>
-#include <QFile>
-#include <QFileInfo>
-#include <QDir>
-
 module Media.Encoder.FFmpegAudioEncoder;
-
-import std;
 
 namespace ArtifactCore {
 

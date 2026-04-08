@@ -1,5 +1,7 @@
 module;
+#include <utility>
 #include <memory>
+
 #include <QString>
 
 export module Generator:Image;

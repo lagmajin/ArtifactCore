@@ -1,10 +1,10 @@
 module;
+#include <utility>
 
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
 
 export module Utils.Fingerprint;
-import std;
 
 
 

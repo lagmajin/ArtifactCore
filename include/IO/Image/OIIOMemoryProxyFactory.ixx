@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 #include <OpenImageIO/filesystem.h>
 
 #include <OpenImageIO/strutil.h>

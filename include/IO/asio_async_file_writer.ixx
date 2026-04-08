@@ -1,11 +1,14 @@
-﻿module;
+module;
 #include <boost/asio.hpp>
 #include <boost/asio/thread_pool.hpp> 
-
-
-#include <QObject>
+#include <cstddef>
+#include <functional>
+#include <vector>
+#include <QString>
 #include <QVector>
 #include <QByteArray>
+#include <QObject>
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -20,8 +23,6 @@
 #include <optional>
 #include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -31,7 +32,6 @@
 #include <variant>
 #include <any>
 #include <atomic>
-#include <condition_variable>
 #include <queue>
 #include <deque>
 #include <list>
@@ -40,11 +40,6 @@
 #include <regex>
 #include <random>
 export module asio_async_file_writer;
-
-
-
-
-
 
 export namespace ArtifactCore {
  // ファイル書き込み完了時の結果構造体

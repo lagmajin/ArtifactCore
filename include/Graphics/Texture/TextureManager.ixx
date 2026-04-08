@@ -1,7 +1,8 @@
 module;
+#include <utility>
 
 #include <QSizeF>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+// RefCntAutoPtr.hpp intentionally NOT included (MSVC 14.51 C1116 workaround)
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include "../../Define/DllExportMacro.hpp"
@@ -17,14 +18,9 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   TextureManager();
-  TextureManager(RefCntAutoPtr<IRenderDevice>& device);
+  TextureManager(IRenderDevice* device);
   ~TextureManager();
-  RefCntAutoPtr<ITexture> createTexture(const QSize&size,TEXTURE_FORMAT format,const QString& name="");
+  ITexture* createTexture(const QSize& size, TEXTURE_FORMAT format, const QString& name = "");
  };
-
-
-
-
-
 
 }

@@ -1,6 +1,7 @@
 module;
-#include <QString>
+#include <utility>
 #include <memory>
+#include <QString>
 
 export module Core.AI.LlamaAgent;
 
@@ -38,7 +39,7 @@ public:
     // llama.cpp 固有のパラメータ設定
     void setMaxTokens(int maxTokens);
     void setTemperature(float temperature);
-    QString lastError() const;
+    QString lastError() const override;
 
 private:
     class Impl;

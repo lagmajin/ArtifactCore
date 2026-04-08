@@ -1,6 +1,6 @@
 module;
+#include <utility>
 #include <QtCore/QFile>
-
 export module Media.MediaProbe;
 
 import Media.Info;

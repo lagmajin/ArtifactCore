@@ -1,15 +1,6 @@
 // ReSharper disable All
 module;
 
-#include <QtCore/QObject>
-#include <QtCore/QVector>
-#include <QtCore/QPointF>
-#include <QtCore/QSize>
-#include <QtGui/QImage>
-#include <QtGui/QColor>
-#include <QtGui/QRgb>
-#include <QtGui/QMatrix3x3>
-
 #include "../Define/DllExportMacro.hpp"
 
 #include <iostream>
@@ -26,8 +17,6 @@ module;
 #include <optional>
 #include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -37,7 +26,6 @@ module;
 #include <variant>
 #include <any>
 #include <atomic>
-#include <condition_variable>
 #include <queue>
 #include <deque>
 #include <list>
@@ -45,6 +33,15 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QtCore/QObject>
+#include <QtCore/QVector>
+#include <QtCore/QPointF>
+#include <QtCore/QSize>
+#include <QtGui/QImage>
+#include <QtGui/QColor>
+#include <QtGui/QRgb>
+#include <QtGui/QMatrix3x3>
+
 export module Video.Stabilizer;
 
 

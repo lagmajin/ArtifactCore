@@ -1,4 +1,5 @@
 module;
+#include <utility>
 
 #include <QtGui/QMatrix4x4>
 #include <QtGui/QQuaternion>

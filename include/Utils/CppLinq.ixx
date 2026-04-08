@@ -1,8 +1,10 @@
 module;
+#include <utility>
 
+#include <ranges>
+#include <optional>
 
 export module CppLinq;
-import std;
 
 
 

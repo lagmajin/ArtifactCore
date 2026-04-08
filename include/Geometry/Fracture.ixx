@@ -1,14 +1,15 @@
 module;
+#include <utility>
 
 #include "../Define/DllExportMacro.hpp"
+
+#include <memory>
+#include <vector>
 #include <QPointF>
 #include <QPolygonF>
 #include <QRectF>
 #include <QVector2D>
 #include <QVector3D>
-
-import std;
-
 export module Geometry.Fracture;
 
 import Mesh;

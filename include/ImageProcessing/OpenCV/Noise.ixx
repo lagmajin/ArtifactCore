@@ -1,6 +1,7 @@
 module;
-#include <opencv2/opencv.hpp>
+#include <utility>
 #include "../../Define/DllExportMacro.hpp"
+#include <opencv2/opencv.hpp>
 export module Noise;
 
 export namespace ArtifactCore {

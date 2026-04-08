@@ -1,5 +1,6 @@
 module;
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <utility>
+// RefCntAutoPtr.hpp intentionally NOT included here (MSVC 14.51 C1116 workaround)
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
@@ -66,7 +67,8 @@ export namespace ArtifactCore
   };
 
   GpuContext& context_;
-  RefCntAutoPtr<IBuffer> pBlendCB_;
+  class Impl;
+  Impl* pImpl_ = nullptr;
   std::map<BlendMode, BlendExecutor> executors_;
   BlendParams currentParams_{};
  };

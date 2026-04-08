@@ -1,9 +1,5 @@
 ﻿module;
-#include <QImage>
-#include <opencv2/opencv.hpp>
 #include "../Define/DllExportMacro.hpp"
-#include <QUuid>
-#include <QObject>
 
 //#include <folly/concurrency/AtomicSharedPtr.h>
 
@@ -20,31 +16,21 @@
 #include <cmath>
 #include <functional>
 #include <optional>
-#include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
-#include <variant>
+
+//#include <type_traits>
+//#include <variant>
 #include <any>
-#include <atomic>
-#include <condition_variable>
+//#include <atomic>
 #include <queue>
 #include <deque>
-#include <list>
-#include <tuple>
-#include <numeric>
-#include <regex>
-#include <random>
+#include <opencv2/opencv.hpp>
+#include <QImage>
+#include <QUuid>
+#include <QObject>
+#include <QString>
 export module Image.ImageF32x4_RGBA;
-
-
-
 
 import Size;
 import FloatRGBA;

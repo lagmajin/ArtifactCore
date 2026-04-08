@@ -1,5 +1,9 @@
-module ;
+module;
+#include <utility>
 #include <QPaintEngine>
+#include <QPaintDevice>
+#include <QPixmap>
+#include <QRectF>
 module Image.CvMatPaintEngine;
 
 namespace ArtifactCore {

@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <QDebug>
 #include <cstring>
 
@@ -17,12 +18,21 @@ namespace ArtifactCore {
 
 using namespace Diligent;
 
+struct MaskCutoutPipeline::Impl
+{
+    RefCntAutoPtr<IBuffer>  pMaskParamsCB_;
+    RefCntAutoPtr<ITexture> pMaskTexture_;
+};
+
 MaskCutoutPipeline::MaskCutoutPipeline(GpuContext& context)
-    : context_(context), executor_(context)
+    : context_(context), executor_(context), pImpl_(new Impl())
 {
 }
 
-MaskCutoutPipeline::~MaskCutoutPipeline() = default;
+MaskCutoutPipeline::~MaskCutoutPipeline()
+{
+    delete pImpl_;
+}
 
 bool MaskCutoutPipeline::initialize()
 {
@@ -55,11 +65,11 @@ bool MaskCutoutPipeline::initialize()
         return false;
     }
 
-    if (!pMaskParamsCB_) {
+    if (!pImpl_->pMaskParamsCB_) {
         return false;
     }
 
-    executor_.setBuffer("MaskParams", pMaskParamsCB_);
+    executor_.setBuffer("MaskParams", pImpl_->pMaskParamsCB_);
     return true;
 }
 
@@ -77,8 +87,8 @@ bool MaskCutoutPipeline::createConstantBuffer()
     buffDesc.BindFlags = BIND_UNIFORM_BUFFER;
     buffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
 
-    pDevice->CreateBuffer(buffDesc, nullptr, &pMaskParamsCB_);
-    if (!pMaskParamsCB_) {
+    pDevice->CreateBuffer(buffDesc, nullptr, &pImpl_->pMaskParamsCB_);
+    if (!pImpl_->pMaskParamsCB_) {
         qWarning() << "[MaskCutoutPipeline] failed to create constant buffer";
         return false;
     }
@@ -100,7 +110,7 @@ bool MaskCutoutPipeline::ensureMaskTexture(const QImage& maskImage)
     }
 
     const qint64 cacheKey = maskImage.cacheKey();
-    if (pMaskTexture_ && maskCacheKey_ == cacheKey && maskWidth_ == imgW && maskHeight_ == imgH) {
+    if (pImpl_->pMaskTexture_ && maskCacheKey_ == cacheKey && maskWidth_ == imgW && maskHeight_ == imgH) {
         return true;
     }
 
@@ -127,9 +137,9 @@ bool MaskCutoutPipeline::ensureMaskTexture(const QImage& maskImage)
     initData.pSubResources = &subData;
     initData.NumSubresources = 1;
 
-    pMaskTexture_ = nullptr;
-    pDevice->CreateTexture(texDesc, &initData, &pMaskTexture_);
-    if (!pMaskTexture_) {
+    pImpl_->pMaskTexture_ = nullptr;
+    pDevice->CreateTexture(texDesc, &initData, &pImpl_->pMaskTexture_);
+    if (!pImpl_->pMaskTexture_) {
         qWarning() << "[MaskCutoutPipeline] failed to upload mask texture";
         return false;
     }
@@ -154,18 +164,18 @@ bool MaskCutoutPipeline::apply(IDeviceContext* ctx,
         return false;
     }
 
-    auto* maskSRV = pMaskTexture_ ? pMaskTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
+    auto* maskSRV = pImpl_->pMaskTexture_ ? pImpl_->pMaskTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
     if (!maskSRV) {
         return false;
     }
 
     void* pData = nullptr;
-    ctx->MapBuffer(pMaskParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+    ctx->MapBuffer(pImpl_->pMaskParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
     if (pData) {
         MaskCutoutParams params;
         params.opacity = opacity;
         std::memcpy(pData, &params, sizeof(params));
-        ctx->UnmapBuffer(pMaskParamsCB_, MAP_WRITE);
+        ctx->UnmapBuffer(pImpl_->pMaskParamsCB_, MAP_WRITE);
     }
 
     executor_.setTextureView("SceneTex", sceneSRV);
@@ -185,7 +195,7 @@ bool MaskCutoutPipeline::apply(IDeviceContext* ctx,
 
 bool MaskCutoutPipeline::ready() const
 {
-    return executor_.ready() && pMaskParamsCB_;
+    return executor_.ready() && pImpl_->pMaskParamsCB_;
 }
 
 } // namespace ArtifactCore

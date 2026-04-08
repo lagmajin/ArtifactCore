@@ -1,6 +1,7 @@
-﻿module;
-#include <QObject>
+module;
+#include <utility>
 export module Input.Operator.Manager;
+#include <QObject>
 
 import Input.Operator;
 

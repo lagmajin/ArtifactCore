@@ -1,6 +1,5 @@
 ﻿module;
 
-#include <QString>
 #include <iostream>
 #include <vector>
 #include <string>

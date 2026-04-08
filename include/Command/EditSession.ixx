@@ -1,10 +1,14 @@
 module;
-#include <QUndoStack>
-#include <QObject>
-#include <QJsonObject>
-#include <QJsonArray>
+#include <memory>
+#include <utility>
 #include <vector>
 #include "../Define/DllExportMacro.hpp"
+#include <QString>
+#include <QObject>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QUndoStack>
 
 export module Command.Session;
 
@@ -28,11 +32,11 @@ export namespace ArtifactCore
         {
             // ここでシリアライズして送信待ちキューに入れたり、ログに記録したりする
             QJsonObject logEntry;
-            logEntry["type"] = command->commandType();
-            logEntry["data"] = command->serialize();
+            logEntry.insert(QStringLiteral("type"), QJsonValue(command->commandType()));
+            logEntry.insert(QStringLiteral("data"), QJsonValue(command->serialize()));
             historyLog_.push_back(logEntry);
 
-            undoStack_.push(command.release()); // 所有権の委譲
+            undoStack_.push(static_cast<QUndoCommand*>(command.release())); // 所有権の委譲
         }
 
         QUndoStack* undoStack() { return &undoStack_; }

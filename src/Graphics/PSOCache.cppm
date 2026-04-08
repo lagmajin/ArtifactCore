@@ -1,6 +1,8 @@
 module;
+#include <utility>
 #include <QDir>
 #include <QRegularExpression>
+#include <QString>
 
 module Graphics.PSO.Cache;
 
@@ -32,7 +34,7 @@ namespace ArtifactCore
   QString devicePart = sanitizePathPart(deviceName.toQString());
   QString cachePart = sanitizePathPart(cacheFolder.toQString());
 
-  QDir base(getAppPath());
+   QDir base(getAppPath());
   QString path = base.filePath(vendorPart + "/" + devicePart + "/" + cachePart);
   path = QDir::cleanPath(path);
 

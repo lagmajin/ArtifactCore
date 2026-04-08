@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <QImage>
 #include <QSize>
 #include <QString>
@@ -6,8 +7,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 export module Media.ISource;
-
-import std;
 
 export namespace ArtifactCore {
 

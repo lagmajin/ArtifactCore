@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 #include <QDir>
 #include <QString>
 #include <opencv2/core/mat.hpp>

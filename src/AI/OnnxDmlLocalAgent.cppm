@@ -1,11 +1,5 @@
 module;
-#include <QString>
-#include <QByteArray>
-#include <QDebug>
-#include <QFileInfo>
-#include <QDir>
-#include <QStringList>
-#include <QRegularExpression>
+#include <utility>
 #include <sentencepiece_processor.h>
 #include <onnxruntime_cxx_api.h>
 #include <onnxruntime_c_api.h>
@@ -17,6 +11,14 @@ module;
 #include <thread>
 #include <algorithm>
 #include <numeric>
+#include <QString>
+#include <QStringView>
+#include <QByteArray>
+#include <QDebug>
+#include <QFileInfo>
+#include <QDir>
+#include <QStringList>
+#include <QRegularExpression>
 
 module Core.AI.OnnxDmlAgent;
 
@@ -88,13 +90,13 @@ QString buildPrompt(const QString& systemPrompt, const QString& userPrompt, cons
 {
     QStringList parts;
     if (!systemPrompt.trimmed().isEmpty()) {
-        parts << QStringLiteral("System:\n%1").arg(systemPrompt.trimmed());
+        parts << QStringLiteral("System:\n%1").arg(QStringView{systemPrompt.trimmed()});
     }
     if (!context.projectSummary().isEmpty()) {
-        parts << QStringLiteral("Project:\n%1").arg(context.projectSummary().trimmed());
+        parts << QStringLiteral("Project:\n%1").arg(QStringView{context.projectSummary().trimmed()});
     }
     if (!context.activeCompositionId().isEmpty()) {
-        parts << QStringLiteral("Composition: %1").arg(context.activeCompositionId());
+        parts << QStringLiteral("Composition: %1").arg(QStringView{context.activeCompositionId()});
     }
     const auto selectedLayers = context.selectedLayers();
     if (!selectedLayers.empty()) {
@@ -102,9 +104,9 @@ QString buildPrompt(const QString& systemPrompt, const QString& userPrompt, cons
         for (const auto& layer : selectedLayers) {
             layers.push_back(layer);
         }
-        parts << QStringLiteral("Selected layers: %1").arg(layers.join(QStringLiteral(", ")));
+        parts << QStringLiteral("Selected layers: %1").arg(QStringView{layers.join(QStringLiteral(", "))});
     }
-    parts << QStringLiteral("User:\n%1").arg(userPrompt.trimmed());
+    parts << QStringLiteral("User:\n%1").arg(QStringView{userPrompt.trimmed()});
     parts << QStringLiteral("Assistant:");
     return parts.join(QStringLiteral("\n\n"));
 }
@@ -208,14 +210,14 @@ bool OnnxDmlLocalAgent::initialize(const QString& modelPath)
 
     const QFileInfo modelInfo(modelPath);
     if (!modelInfo.exists()) {
-        impl_->lastErrorMessage = QStringLiteral("Model path not found: %1").arg(modelPath);
+        impl_->lastErrorMessage = QStringLiteral("Model path not found: %1").arg(QStringView{modelPath});
         qWarning() << "[OnnxDmlLocalAgent]" << impl_->lastErrorMessage;
         return false;
     }
 
     const QString onnxPath = impl_->inferModelPath(modelPath);
     if (onnxPath.isEmpty()) {
-        impl_->lastErrorMessage = QStringLiteral("No ONNX model file found at: %1").arg(modelPath);
+        impl_->lastErrorMessage = QStringLiteral("No ONNX model file found at: %1").arg(QStringView{modelPath});
         qWarning() << "[OnnxDmlLocalAgent]" << impl_->lastErrorMessage;
         return false;
     }
@@ -224,7 +226,7 @@ bool OnnxDmlLocalAgent::initialize(const QString& modelPath)
     if (tokenizerPath.isEmpty()) {
         impl_->lastErrorMessage = QStringLiteral(
             "No SentencePiece tokenizer found next to ONNX model: %1"
-        ).arg(onnxPath);
+        ).arg(QStringView{onnxPath});
         qWarning() << "[OnnxDmlLocalAgent]" << impl_->lastErrorMessage;
         return false;
     }
@@ -246,7 +248,7 @@ bool OnnxDmlLocalAgent::initialize(const QString& modelPath)
         const std::string tokenizerUtf8 = toUtf8(tokenizerPath);
         const bool tokenizerOk = impl_->tokenizer->Load(tokenizerUtf8).ok();
         if (!tokenizerOk) {
-            impl_->lastErrorMessage = QStringLiteral("Failed to load SentencePiece tokenizer: %1").arg(tokenizerPath);
+            impl_->lastErrorMessage = QStringLiteral("Failed to load SentencePiece tokenizer: %1").arg(QStringView{tokenizerPath});
             qWarning() << "[OnnxDmlLocalAgent]" << impl_->lastErrorMessage;
             impl_->session.reset();
             impl_->env.reset();
@@ -269,9 +271,9 @@ bool OnnxDmlLocalAgent::initialize(const QString& modelPath)
                 << "outputs=" << static_cast<qulonglong>(impl_->outputNames.size());
         return true;
     } catch (const Ort::Exception& e) {
-        impl_->lastErrorMessage = QStringLiteral("ONNX Runtime init failed: %1").arg(Impl::readError(e));
+        impl_->lastErrorMessage = QStringLiteral("ONNX Runtime init failed: %1").arg(QStringView{Impl::readError(e)});
     } catch (const std::exception& e) {
-        impl_->lastErrorMessage = QStringLiteral("ONNX backend init failed: %1").arg(QString::fromUtf8(e.what()));
+        impl_->lastErrorMessage = QStringLiteral("ONNX backend init failed: %1").arg(QStringView{QString::fromUtf8(e.what())});
     }
 
     qWarning() << "[OnnxDmlLocalAgent]" << impl_->lastErrorMessage;
@@ -285,10 +287,10 @@ QString OnnxDmlLocalAgent::analyzeContext(const AIContext& context)
 {
     auto selectedLayers = context.selectedLayers();
     if (!selectedLayers.empty()) {
-        return QStringLiteral("選択中のレイヤー：%1").arg(selectedLayers.front());
+        return QStringLiteral("選択中のレイヤー：%1").arg(QStringView{selectedLayers.front()});
     }
     if (!context.activeCompositionId().isEmpty()) {
-        return QStringLiteral("アクティブコンポジション：%1").arg(context.activeCompositionId());
+        return QStringLiteral("アクティブコンポジション：%1").arg(QStringView{context.activeCompositionId()});
     }
     return QStringLiteral("コンテキスト情報なし");
 }

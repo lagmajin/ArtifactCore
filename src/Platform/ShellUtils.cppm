@@ -1,6 +1,7 @@
 module;
+#include <utility>
 #include <QString>
-
+#include <QStringList>
 #include <QFileInfo>
 #include <QProcess>
 #include <QUrl>

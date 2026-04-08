@@ -1,16 +1,16 @@
 module;
-
+#include <utility>
+#include <algorithm>
+#include <cmath>
+#include <opencv2/opencv.hpp>
 #include <QString>
 #include <QFile>
 #include <QDir>
 #include <QDebug>
 #include <QDateTime>
 #include <QStandardPaths>
-#include <opencv2/opencv.hpp>
 
 module FFmpegEncoder.Test;
-
-import std;
 import Encoder.FFmpegEncoder;
 import Image;
 

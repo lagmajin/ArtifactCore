@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <QImage>
 #include <QSize>
 #include <QString>

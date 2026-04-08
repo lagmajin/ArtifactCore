@@ -1,12 +1,17 @@
-﻿
+
 module;
+#include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/TextureView.h>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+// RefCntAutoPtr.hpp intentionally NOT in GMF (MSVC 14.51 C1116 workaround)
+#include <DiligentCore/Platforms/Basic/interface/DebugUtilities.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
-#include <opencv2/core/mat.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
+#include <opencv2/core/mat.hpp>
 export module TextureFactory;
+
+// RefCntAutoPtr.hpp intentionally NOT included (MSVC 14.51 C1116 workaround)
+// CreateFromFloatRGBA returns ITextureView* (borrowed); AddRef if you need to own it.
 
 namespace Diligent{}
 
@@ -15,10 +20,8 @@ export namespace ArtifactCore
  using namespace Diligent;
 
  class TextureFactory {
- private:
-
  public:
-  static RefCntAutoPtr<ITextureView> CreateFromFloatRGBA(IRenderDevice* device, const cv::Mat& mat)
+  static ITextureView* CreateFromFloatRGBA(IRenderDevice* device, const cv::Mat& mat)
   {
    // �O��: mat.type() == CV_32FC4
    VERIFY_EXPR(mat.type() == CV_32FC4);
@@ -51,16 +54,17 @@ export namespace ArtifactCore
    initData.pContext = nullptr;
 
    // �e�N�X�`���쐬
-   RefCntAutoPtr<ITexture> pTexture;
+   ITexture* pTexture = nullptr;
    device->CreateTexture(texDesc, &initData, &pTexture);
 
    if (pTexture)
-	return RefCntAutoPtr<ITextureView>{pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE)};
+	return pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 
-   return {};
+   return nullptr;
   }
  };
 
+}
 
 
 
@@ -75,4 +79,4 @@ export namespace ArtifactCore
 
 
 
-};
+

@@ -1,7 +1,7 @@
 module;
-#include <opencv2/opencv.hpp>
+#include <utility>
+#include <opencv2/core.hpp>
 module ImageF32x4;
-
 
 namespace ArtifactCore {
 

@@ -35,7 +35,7 @@ foreach(file_path ${POTENTIAL_SOURCES})
        file_path MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
-       file_path MATCHES "include/Asset/AsseetImporter\\.ixx" OR
+       file_path MATCHES "include[/\\\\]Asset[/\\\\]AsseetImporter\\.ixx" OR
        file_path MATCHES "src/Image/FFmpegEncoder\\.Test\\.cppm" OR
        file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
         continue()
@@ -132,6 +132,27 @@ target_include_directories(ArtifactCore
         "${CMAKE_CURRENT_SOURCE_DIR}/../libs/DiligentEngine/DiligentCore/Primitives/interface"
         "${CMAKE_CURRENT_SOURCE_DIR}/../libs/DiligentEngine/DiligentCore/Platforms/interface"
 )
+
+if(MSVC)
+    get_filename_component(_artifact_msvc_toolchain_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(_artifact_msvc_toolchain_dir "${_artifact_msvc_toolchain_dir}" DIRECTORY)
+    get_filename_component(_artifact_msvc_toolchain_dir "${_artifact_msvc_toolchain_dir}" DIRECTORY)
+    get_filename_component(_artifact_msvc_toolchain_dir "${_artifact_msvc_toolchain_dir}" DIRECTORY)
+    target_include_directories(ArtifactCore SYSTEM BEFORE PUBLIC "${_artifact_msvc_toolchain_dir}/include")
+
+    set(_artifact_windows_sdk_root "C:/Program Files (x86)/Windows Kits/10")
+    if(EXISTS "${_artifact_windows_sdk_root}/Include")
+        file(GLOB _artifact_windows_sdk_versions LIST_DIRECTORIES true "${_artifact_windows_sdk_root}/Include/*")
+        list(SORT _artifact_windows_sdk_versions COMPARE NATURAL ORDER DESCENDING)
+        list(GET _artifact_windows_sdk_versions 0 _artifact_windows_sdk_version_dir)
+        target_include_directories(ArtifactCore SYSTEM BEFORE PUBLIC
+            "${_artifact_windows_sdk_version_dir}/ucrt"
+            "${_artifact_windows_sdk_version_dir}/shared"
+            "${_artifact_windows_sdk_version_dir}/um"
+            "${_artifact_windows_sdk_version_dir}/winrt"
+        )
+    endif()
+endif()
 
 # DiligentEngine
 set(DILIGENT_CORE_LIBS "")
@@ -342,28 +363,55 @@ if(TARGET ufbx)
     target_link_libraries(ArtifactCore PUBLIC ufbx)
 endif()
 
-# FFmpeg
-find_package(ffmpeg REQUIRED)
-if(ffmpeg_FOUND)
-    target_include_directories(ArtifactCore PUBLIC ${FFMPEG_INCLUDE_DIR})
-    target_link_libraries(ArtifactCore PUBLIC 
-        ${FFMPEG_AVCODEC_LIBRARY}
-        ${FFMPEG_AVFORMAT_LIBRARY}
-        ${FFMPEG_AVUTIL_LIBRARY}
-        ${FFMPEG_SWSCALE_LIBRARY}
-        ${FFMPEG_SWRESAMPLE_LIBRARY}
-    )
-else()
-    # Fallback for manual specification
-    target_link_libraries(ArtifactCore PUBLIC
-        "${VCPKG_INSTALLED}/lib/avcodec.lib"
-        "${VCPKG_INSTALLED}/lib/avformat.lib"
-        "${VCPKG_INSTALLED}/lib/avutil.lib"
-        "${VCPKG_INSTALLED}/lib/swscale.lib"
-        "${VCPKG_INSTALLED}/lib/swresample.lib"
-    )
-    target_include_directories(ArtifactCore PUBLIC "${VCPKG_INSTALLED}/include")
+# FFmpeg - Direct linking with explicit library paths
+# These paths are set by the vcpkg integration and passed to CMake
+# The libraries exist in: out/vcpkg_installed/x64-windows/lib and debug/lib
+
+# Get the vcpkg installed directory from the toolchain file
+# Usually: out/vcpkg_installed
+if(NOT DEFINED VCPKG_INSTALLED_DIR)
+    # Try to infer from CMAKE_TOOLCHAIN_FILE
+    get_filename_component(_vcpkg_root_guess "${CMAKE_CURRENT_LIST_DIR}/../out/vcpkg_installed" ABSOLUTE)
+    if(EXISTS "${_vcpkg_root_guess}")
+        set(VCPKG_INSTALLED_DIR "${_vcpkg_root_guess}")
+    else()
+        # Fallback: use VCPKG_ROOT
+        set(VCPKG_INSTALLED_DIR "${VCPKG_ROOT}/installed" CACHE PATH "vcpkg installed directory")
+    endif()
 endif()
+
+message(STATUS "Using vcpkg directory: ${VCPKG_INSTALLED_DIR}")
+
+# Determine the vcpkg triplet (x64-windows for MSVC on x64)
+set(_vcpkg_triplet "x64-windows")
+
+# Set lib and include directories
+set(_vcpkg_lib_dir "${VCPKG_INSTALLED_DIR}/${_vcpkg_triplet}/lib")
+set(_vcpkg_debug_lib_dir "${VCPKG_INSTALLED_DIR}/${_vcpkg_triplet}/debug/lib")
+set(_vcpkg_include_dir "${VCPKG_INSTALLED_DIR}/${_vcpkg_triplet}/include")
+
+message(STATUS "FFmpeg library dir: ${_vcpkg_lib_dir}")
+message(STATUS "FFmpeg debug lib dir: ${_vcpkg_debug_lib_dir}")
+
+# Link the FFmpeg libraries directly by full path
+# Use $<CONFIG:Debug> generator expression for config-specific linking
+target_link_libraries(ArtifactCore PUBLIC
+    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avcodec.lib>
+    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avcodec.lib>
+    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avformat.lib>
+    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avformat.lib>
+    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avutil.lib>
+    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avutil.lib>
+    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/swscale.lib>
+    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/swscale.lib>
+    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/swresample.lib>
+    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/swresample.lib>
+)
+
+# Add FFmpeg include directory
+target_include_directories(ArtifactCore PUBLIC ${_vcpkg_include_dir})
+
+message(STATUS "FFmpeg libraries linked: avcodec, avformat, avutil, swscale, swresample")
 
 if(ARTIFACT_FRONTEND_MSVC)
     target_link_libraries(ArtifactCore PUBLIC

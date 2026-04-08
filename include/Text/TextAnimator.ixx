@@ -1,8 +1,9 @@
 module;
+#include <utility>
 #include <vector>
-#include <QPointF>
 #include <cmath>
 #include <algorithm>
+#include <QPointF>
 
 export module Text.Animator;
 

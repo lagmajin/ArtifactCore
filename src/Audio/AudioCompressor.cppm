@@ -1,11 +1,7 @@
 module;
-#include <cmath>
-#include <algorithm>
-#include <vector>
-#include <QList>
-
 module Audio.Effect.Compressor;
 
+import std;
 import Audio.Segment;
 import Audio.Bus;
 

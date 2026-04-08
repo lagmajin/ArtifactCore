@@ -1,9 +1,10 @@
 module;
+#include <utility>
 #include <QImage>
 #include <QColor>
-#include <opencv2/opencv.hpp>
 #include <vector>
 
+#include <opencv2/opencv.hpp>
 export module CvUtils;
 
 export namespace ArtifactCore {

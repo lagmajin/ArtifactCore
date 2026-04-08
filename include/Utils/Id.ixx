@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 #include <QDebug>
 #include <QString>
 #include <QByteArray> 
@@ -8,11 +9,11 @@
 #include <boost/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>  
 #include <boost/uuid/uuid_generators.hpp>
+#include <cstring>
 
 #include "../Define/DllExportMacro.hpp"
     
 export module Utils.Id;
-import std;
 
 
 

@@ -1,8 +1,9 @@
 module;
+#include <utility>
+#include "../Define/DllExportMacro.hpp"
 #include <QString>
 #include <QVariant>
 #include <wobjectdefs.h>
-#include "../Define/DllExportMacro.hpp"
 
 export module Application.AppSettings;
 

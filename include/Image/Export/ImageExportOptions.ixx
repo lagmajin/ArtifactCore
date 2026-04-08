@@ -1,7 +1,8 @@
 module;
-#include <QString>
+#include <utility>
 #include <OpenImageIO/imageio.h>
 #include <OpenImageIO/typedesc.h>
+#include <QString>
 
 export module Image.ExportOptions;
 

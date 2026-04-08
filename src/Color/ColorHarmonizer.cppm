@@ -1,11 +1,10 @@
 module;
+#include <utility>
 
 #include <cmath>
 #include <QList>
 
 module Color.Harmonizer;
-
-import std;
 
 import Color.Float;
 import Color.Conversion;

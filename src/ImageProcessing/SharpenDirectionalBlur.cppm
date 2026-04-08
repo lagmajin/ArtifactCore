@@ -2,9 +2,6 @@ module;
 
 #define _USE_MATH_DEFINES
 #include <cmath>
-#include <QString>
-#include <QImage>
-#include <QPointF>
 #include <vector>
 #include <algorithm>
 
@@ -41,6 +38,9 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QString>
+#include <QImage>
+#include <QPointF>
 module ImageProcessing.SharpenDirectionalBlur;
 
 

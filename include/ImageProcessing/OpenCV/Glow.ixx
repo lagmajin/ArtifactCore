@@ -1,7 +1,8 @@
-﻿module;
+module;
+#include <utility>
 #include <random>
-#include <opencv2/opencv.hpp>
 #include "../../Define/DllExportMacro.hpp"
+#include <opencv2/opencv.hpp>
 export module Glow;
 
 

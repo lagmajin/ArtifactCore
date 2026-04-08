@@ -1,5 +1,4 @@
 ﻿module;
-#include <QList>
 #include <iostream>
 #include <vector>
 #include <string>

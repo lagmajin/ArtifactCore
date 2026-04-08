@@ -1,4 +1,5 @@
 module;
+#include <utility>
 
 #include <array>
 #include <cmath>
@@ -7,8 +8,6 @@ module;
 class tst_QList;
 
 module Color.ColorSpace;
-
-import std;
 
 namespace ArtifactCore {
 

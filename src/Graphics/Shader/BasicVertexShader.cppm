@@ -1,4 +1,5 @@
-module ;
+module;
+#include <utility>
 #include <QString>
 #include <QByteArray>
 #include "../../../include/Define/DllExportMacro.hpp"

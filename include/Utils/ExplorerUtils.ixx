@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 #include <memory>
 export module Utils.ExplorerUtils;
 

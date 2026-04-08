@@ -1,4 +1,5 @@
 module;
+#include <utility>
 
 #include <vector>
 #include <memory>
@@ -7,7 +8,6 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <opencv2/opencv.hpp>
-#include <opencv2/imgproc.hpp>
 
 module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
 

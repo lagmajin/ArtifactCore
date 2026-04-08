@@ -1,5 +1,5 @@
-﻿module;
-#include <QList>
+module;
+#include <utility>
 module Composition.Buffer;
 
 import FloatRGBA;

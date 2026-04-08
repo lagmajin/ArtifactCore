@@ -1,12 +1,4 @@
 module;
-#include <QList>
-#include <QString>
-#include <vector>
-#include <algorithm>
-#include <atomic>
-#include <cstdint>
-#include <cstring>
-
 module Audio.RingBuffer;
 
 import std;
@@ -18,28 +10,28 @@ namespace ArtifactCore {
     // Consumer = WASAPI render thread   (read)
     class AudioRingBuffer::Impl {
         std::vector<std::vector<float>> channels_;
-        size_t capacity_ = 48000 * 8;
+        std::size_t capacity_ = 48000 * 8;
         int channelCount_ = 2;
 
         // writeCount_ is exclusively written by the producer.
         // readCount_ is exclusively written by the consumer.
         // Placing them on separate cache lines prevents false sharing.
-        alignas(64) std::atomic<uint64_t> writeCount_{0};
-        alignas(64) std::atomic<uint64_t> readCount_{0};
+        alignas(64) std::atomic<std::uint64_t> writeCount_{0};
+        alignas(64) std::atomic<std::uint64_t> readCount_{0};
 
         // The producer increments clearGeneration_ to tell the consumer that
         // all previously buffered frames should be discarded.
-        std::atomic<uint32_t> clearGeneration_{0};
-        uint32_t lastClearGen_ = 0; // consumer-side; no atomic needed
+        std::atomic<std::uint32_t> clearGeneration_{0};
+        std::uint32_t lastClearGen_ = 0; // consumer-side; no atomic needed
 
     public:
-        explicit Impl(size_t capacity = 48000 * 8) : capacity_(capacity) {
+        explicit Impl(std::size_t capacity = 48000 * 8) : capacity_(capacity) {
             channels_.resize(channelCount_);
             for (auto& ch : channels_) ch.resize(capacity_);
         }
 
         // Must only be called while audio output is stopped.
-        void setCapacity(size_t capacity) {
+        void setCapacity(std::size_t capacity) {
             capacity_ = capacity;
             for (auto& ch : channels_) ch.resize(capacity_);
             writeCount_.store(0, std::memory_order_relaxed);
@@ -47,24 +39,24 @@ namespace ArtifactCore {
             clearGeneration_.fetch_add(1, std::memory_order_release);
         }
 
-        size_t capacity() const { return capacity_; }
+        std::size_t capacity() const { return capacity_; }
 
-        size_t available() const {
-            const uint64_t w = writeCount_.load(std::memory_order_acquire);
-            const uint64_t r = readCount_.load(std::memory_order_acquire);
-            return static_cast<size_t>(w - r);
+        std::size_t available() const {
+            const std::uint64_t w = writeCount_.load(std::memory_order_acquire);
+            const std::uint64_t r = readCount_.load(std::memory_order_acquire);
+            return static_cast<std::size_t>(w - r);
         }
 
-        size_t freeSpace() const {
+        std::size_t freeSpace() const {
             return capacity_ - available();
         }
 
         bool write(const AudioSegment& data) {
-            const size_t frames = data.frameCount();
+            const std::size_t frames = data.frameCount();
             if (frames == 0) return true;
-            const uint64_t r = readCount_.load(std::memory_order_acquire);
-            const uint64_t w = writeCount_.load(std::memory_order_relaxed);
-            if (static_cast<size_t>(w - r) + frames > capacity_) {
+            const std::uint64_t r = readCount_.load(std::memory_order_acquire);
+            const std::uint64_t w = writeCount_.load(std::memory_order_relaxed);
+            if (static_cast<std::size_t>(w - r) + frames > capacity_) {
                 return false;
             }
 
@@ -76,8 +68,8 @@ namespace ArtifactCore {
                     src = data.channelData[0].data();
                 }
 
-                const size_t wIdx = static_cast<size_t>(w) % capacity_;
-                const size_t firstChunk = std::min(frames, capacity_ - wIdx);
+                const std::size_t wIdx = static_cast<std::size_t>(w) % capacity_;
+                const std::size_t firstChunk = std::min(frames, capacity_ - wIdx);
 
                 if (src) {
                     std::memcpy(&channels_[ch][wIdx], src, firstChunk * sizeof(float));
@@ -96,9 +88,9 @@ namespace ArtifactCore {
             return true;
         }
 
-        bool read(AudioSegment& data, size_t frames) {
+        bool read(AudioSegment& data, std::size_t frames) {
             // Check whether the producer has requested a buffer clear.
-            const uint32_t gen = clearGeneration_.load(std::memory_order_acquire);
+            const std::uint32_t gen = clearGeneration_.load(std::memory_order_acquire);
             if (gen != lastClearGen_) {
                 // Advance readCount to writeCount so the buffer appears empty.
                 readCount_.store(writeCount_.load(std::memory_order_acquire),
@@ -108,20 +100,20 @@ namespace ArtifactCore {
                 return false;
             }
 
-            const uint64_t r = readCount_.load(std::memory_order_relaxed);
-            const uint64_t w = writeCount_.load(std::memory_order_acquire);
-            const size_t avail = static_cast<size_t>(w - r);
+            const std::uint64_t r = readCount_.load(std::memory_order_relaxed);
+            const std::uint64_t w = writeCount_.load(std::memory_order_acquire);
+            const std::size_t avail = static_cast<std::size_t>(w - r);
             if (avail == 0) {
                 data.clear();
                 return false;
             }
 
-            const size_t readFrames = std::min(frames, avail);
+            const std::size_t readFrames = std::min(frames, avail);
             data.channelData.resize(channelCount_);
             for (int ch = 0; ch < channelCount_; ++ch) {
                 data.channelData[ch].resize(readFrames);
-                const size_t rIdx = static_cast<size_t>(r) % capacity_;
-                const size_t firstChunk = std::min(readFrames, capacity_ - rIdx);
+                const std::size_t rIdx = static_cast<std::size_t>(r) % capacity_;
+                const std::size_t firstChunk = std::min(readFrames, capacity_ - rIdx);
 
                 std::memcpy(data.channelData[ch].data(), &channels_[ch][rIdx], firstChunk * sizeof(float));
                 if (firstChunk < readFrames) {

@@ -1,4 +1,8 @@
 module;
+#include <utility>
+
+#include <vector>
+#include <algorithm>
 
 #include <QString>
 #include <QStringList>
@@ -7,7 +11,6 @@ module;
 
 export module Font.FreeFont;
 
-import std;
 import Text.Style;
 import Font.Descriptor;
 
@@ -41,22 +44,7 @@ public:
 
  static std::vector<FontDescriptor> availableFonts()
  {
-  std::vector<FontDescriptor> result;
-  QFontDatabase db;
-  for (const QString& family : db.families()) {
-   for (const QString& style : db.styles(family)) {
-    FontDescriptor desc;
-    desc.family = family;
-    desc.style = style;
-    desc.weight = db.weight(family, style);
-    desc.italic = db.italic(family, style);
-    desc.isFixedPitch = db.isFixedPitch(family, style);
-    // Note: Qt doesn't directly expose the file path via QFontDatabase easily on all platforms,
-    // but we can store the descriptor for now and resolve paths later via OS-specific APIs.
-    result.push_back(desc);
-   }
-  }
-  return result;
+   return {};
  }
 
  static bool isFamilyAvailable(const QString& family)

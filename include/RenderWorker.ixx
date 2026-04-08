@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 #include <QObject>
 #include <QThread>
 #include <QRunnable>

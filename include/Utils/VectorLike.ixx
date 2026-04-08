@@ -1,13 +1,14 @@
-﻿module;
+module;
+#include <utility>
 #include <QVector2D>
 #include <QVector3D>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <concepts>
 
 #include <opencv2/core.hpp>
 export module Vector.Like;
-import std;
 
 
 

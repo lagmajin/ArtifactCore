@@ -1,4 +1,5 @@
 module;
+#include <utility>
 export module Graphics.Vector2D;
 
 export namespace ArtifactCore

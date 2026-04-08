@@ -1,9 +1,13 @@
 module;
+#include <utility>
+#include <iostream>
+#include <opencv2/opencv.hpp>
 #include <QImage>
 #include <QList>
 #include <QRect>
-#include <opencv2/opencv.hpp>
-#include <iostream>
+#include <QString>
+#include <QStringView>
+#include <QVariant>
 
 module Core.AI.ObjectDetector;
 
@@ -44,7 +48,7 @@ QList<MethodDescription> ObjectDetector::methodDescriptions() const {
     };
 }
 
-QVariant ObjectDetector::invokeMethod(const QString& name, const QVariantList& args) {
+QVariant ObjectDetector::invokeMethod(QStringView name, const QVariantList& args) {
     if (name == "detect" && !args.isEmpty()) {
         // Expected: detect(image)
         // Note: Real implementation would need to handle QVariant to ImageF32x4_RGBA conversion

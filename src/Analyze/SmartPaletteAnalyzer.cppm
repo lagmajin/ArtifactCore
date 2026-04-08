@@ -1,7 +1,8 @@
 module;
-#include <opencv2/opencv.hpp>
+#include <utility>
 #include <vector>
 #include <QImage>
+#include <opencv2/opencv.hpp>
 
 module Analyze.SmartPalette;
 

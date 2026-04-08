@@ -1,6 +1,7 @@
-﻿module;
-#include <QString>
+module;
+#include <utility>
 #include "../Define/DllExportMacro.hpp"
+#include <QString>
 
 export module Audio.Render.Writer;
 

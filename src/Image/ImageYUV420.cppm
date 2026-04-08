@@ -1,6 +1,4 @@
 ﻿module;
-#include <QImage>
-#include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +32,9 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <opencv2/opencv.hpp>
+#include <QImage>
+
 module Image.ImageYUV420;
 
 

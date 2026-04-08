@@ -1,5 +1,5 @@
 ﻿module;
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+// RefCntAutoPtr.hpp intentionally NOT in GMF (MSVC 14.51 C1116 workaround)
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 
@@ -18,8 +18,6 @@
 #include <optional>
 #include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -29,7 +27,6 @@
 #include <variant>
 #include <any>
 #include <atomic>
-#include <condition_variable>
 #include <queue>
 #include <deque>
 #include <list>
@@ -38,8 +35,8 @@
 #include <regex>
 #include <random>
 export module Graphics.CBuffer.Constants.Helper;
-
-
+// RefCntAutoPtr.hpp intentionally NOT included (MSVC 14.51 C1116 workaround)
+// CreateConstantBuffer returns IBuffer* with refcount=1; caller wraps in RefCntAutoPtr if needed.
 
 
 
@@ -48,7 +45,7 @@ using namespace Diligent;
 export namespace ArtifactCore
 {
 
- inline RefCntAutoPtr<IBuffer> CreateConstantBuffer(
+ inline IBuffer* CreateConstantBuffer(
   IRenderDevice* device,
   Uint32 size,
   const void* initialData = nullptr, 
@@ -57,26 +54,19 @@ export namespace ArtifactCore
   BufferDesc desc;
   desc.Name = name;
   desc.Usage = USAGE_DYNAMIC;
-  desc.BindFlags =BIND_FLAGS::BIND_UNIFORM_BUFFER;
+  desc.BindFlags = BIND_FLAGS::BIND_UNIFORM_BUFFER;
   desc.CPUAccessFlags = CPU_ACCESS_WRITE;
   desc.Size = size;
 
   BufferData buffData;
   buffData.pData = initialData;
   buffData.DataSize = size;
-  buffData.pContext = nullptr; // ImmediateContext が使われる
+  buffData.pContext = nullptr;
 
-  RefCntAutoPtr<IBuffer> buffer;
+  IBuffer* buffer = nullptr;
   device->CreateBuffer(desc, initialData ? &buffData : nullptr, &buffer);
   return buffer;
  }
-
-
-
-
-
-
-
 
 }
 

@@ -1,8 +1,10 @@
 module;
+#include <array>
+#include <algorithm>
+#include <cmath>
+#include <utility>
 
 module Color.Conversion;
-
-import std;
 
 namespace ArtifactCore {
 
@@ -48,8 +50,12 @@ std::array<float, 3> ColorConversion::HSVToRGB(const HSVColor& hsv) {
 
     if (s <= 0.0f) return {v, v, v};
 
-    h = std::fmod(h, 360.0f);
-    if (h < 0.0f) h += 360.0f;
+    while (h >= 360.0f) {
+        h -= 360.0f;
+    }
+    while (h < 0.0f) {
+        h += 360.0f;
+    }
     h /= 60.0f;
 
     int hh = static_cast<int>(h);

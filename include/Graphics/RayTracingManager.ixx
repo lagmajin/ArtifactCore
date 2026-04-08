@@ -1,7 +1,8 @@
 module;
+#include <utility>
 #include <RenderDevice.h>
 #include <DeviceContext.h>
-#include <RefCntAutoPtr.hpp>
+// RefCntAutoPtr.hpp not needed in this interface (raw pointers used throughout)
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include <vector>
 #include <memory>

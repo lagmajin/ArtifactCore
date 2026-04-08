@@ -1,8 +1,8 @@
 module;
-
 #include <QString>
 #include <QPointF>
 #include <QRectF>
+
 #include <vector>
 #include <map>
 #include <set>

@@ -1,8 +1,8 @@
-﻿module;
-
-#include <QtCore/QFile>
+module;
+#include <utility>
 
 export module File:Info;
+#include <QtCore/QFile>
 
 
 namespace ArtifactCore {

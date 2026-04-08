@@ -4,14 +4,10 @@ module;
 #include <QtMultimedia/QAudioDevice>
 #include <QtMultimedia/QAudioFormat>
 #include <QtMultimedia/QMediaDevices>
-#include <algorithm>
-#include <atomic>
-#include <cmath>
-#include <memory>
-#include <mutex>
 
 module AudioRenderer;
 
+import std;
 import Audio.Backend;
 #ifdef _WIN32
 import Audio.Backend.WASAPI;
@@ -22,6 +18,21 @@ import Audio.Segment;
 import Audio.RingBuffer;
 
 namespace ArtifactCore {
+
+namespace {
+
+AudioBackendFormat toBackendFormat(const QAudioFormat& format)
+{
+  AudioBackendFormat backendFormat;
+  backendFormat.sampleRate = format.sampleRate();
+  backendFormat.channelCount = format.channelCount();
+  backendFormat.sampleFormat = (format.sampleFormat() == QAudioFormat::Int16)
+      ? AudioBackendSampleFormat::Int16
+      : AudioBackendSampleFormat::Float32;
+  return backendFormat;
+}
+
+} // namespace
 
 struct AudioRenderer::Impl {
   float masterVolume = 1.0f; // Linear gain multiplier
@@ -229,18 +240,20 @@ bool AudioRenderer::openDevice(const QString &deviceName) {
     impl_->channels = format.channelCount();
   }
 
-  bool opened = impl_->backend->open(device, format);
+  const AudioBackendFormat backendFormat = toBackendFormat(format);
+  const AudioDeviceInfo deviceInfo{device.description()};
+  bool opened = impl_->backend->open(deviceInfo, backendFormat);
 #ifdef _WIN32
   if (!opened) {
     impl_->backend = std::make_unique<QtAudioBackend>();
-    opened = impl_->backend->open(device, format);
+    opened = impl_->backend->open(deviceInfo, backendFormat);
   }
 #endif
   if (opened) {
     const auto current = impl_->backend->currentFormat();
     if (current.isValid()) {
-      impl_->sampleRate = current.sampleRate();
-      impl_->channels = current.channelCount();
+      impl_->sampleRate = current.sampleRate;
+      impl_->channels = current.channelCount;
     }
     impl_->deviceOpen = true;
     impl_->deviceName = device.description();
@@ -392,7 +405,7 @@ int AudioRenderer::sampleRate() const {
     return 0;
   }
   const auto format = impl_->backend->currentFormat();
-  return format.isValid() ? format.sampleRate() : impl_->sampleRate;
+  return format.isValid() ? format.sampleRate : impl_->sampleRate;
 }
 
 int AudioRenderer::channelCount() const {
@@ -400,7 +413,7 @@ int AudioRenderer::channelCount() const {
     return 0;
   }
   const auto format = impl_->backend->currentFormat();
-  return format.isValid() ? format.channelCount() : impl_->channels;
+  return format.isValid() ? format.channelCount : impl_->channels;
 }
 
 QString AudioRenderer::backendName() const {

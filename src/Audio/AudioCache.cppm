@@ -1,11 +1,11 @@
 module;
-
 #include <QDateTime>
 #include <QDebug>
 #include <QReadWriteLock>
-#include <algorithm>
+#include <QVector>
 
 module Audio.Cache;
+import std;
 
 namespace ArtifactCore
 {

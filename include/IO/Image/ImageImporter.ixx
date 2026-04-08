@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <QString>
 
 export module IO.ImageImporter;

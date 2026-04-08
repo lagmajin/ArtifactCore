@@ -1,30 +1,32 @@
 module;
+#include <utility>
 #include <QString>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <string>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
+
 module Graphics.Texture.Manager;
 
 
 namespace ArtifactCore
 {
  using namespace Diligent;
-	
+
  class TextureManager::Impl
  {
- private:
-  RefCntAutoPtr<IRenderDevice> renderDevice_;
  public:
+  IRenderDevice* renderDevice_ = nullptr;
   Impl();
-  Impl(RefCntAutoPtr<IRenderDevice> device);
+  Impl(IRenderDevice* device);
   ~Impl();
-  RefCntAutoPtr<ITexture> createTexture(const QSize& size, TEXTURE_FORMAT format, const QString& name = "");
+  ITexture* createTexture(const QSize& size, TEXTURE_FORMAT format, const QString& name = "");
  };
 
  TextureManager::Impl::Impl()
  {
  }
 
- TextureManager::Impl::Impl(RefCntAutoPtr<IRenderDevice> device) :renderDevice_(device)
+ TextureManager::Impl::Impl(IRenderDevice* device) : renderDevice_(device)
  {
  }
 
@@ -32,35 +34,37 @@ namespace ArtifactCore
  {
  }
 
- TextureManager::TextureManager():impl_(new Impl())
- {
-
- }
-
- TextureManager::TextureManager(RefCntAutoPtr<IRenderDevice>& device) :impl_(new Impl(device))
+ TextureManager::TextureManager() : impl_(new Impl())
  {
  }
-	
+
+ TextureManager::TextureManager(IRenderDevice* device) : impl_(new Impl(device))
+ {
+ }
+
  TextureManager::~TextureManager()
  {
   delete impl_;
  }
 
- RefCntAutoPtr<ITexture> TextureManager::createTexture(const QSize& size, TEXTURE_FORMAT format,const QString& name)
+ ITexture* TextureManager::createTexture(const QSize& size, TEXTURE_FORMAT format, const QString& name)
  {
-  RefCntAutoPtr<ITexture> texture;
+  ITexture* texture = nullptr;
   TextureDesc desc;
-  desc.Name = name.toStdString().c_str();
-  desc.Type = RESOURCE_DIM_TEX_2D;
-  //desc.Width = width;
-  //desc.Height = height;
-  desc.MipLevels = 1;
-  desc.Format = format;
-  desc.Usage = USAGE_DEFAULT;
-  desc.BindFlags = BIND_SHADER_RESOURCE | BIND_RENDER_TARGET;
+  std::string nameStr = name.toStdString();
+  desc.Name        = nameStr.c_str();
+  desc.Type        = RESOURCE_DIM_TEX_2D;
+  desc.Width       = static_cast<Uint32>(size.width());
+  desc.Height      = static_cast<Uint32>(size.height());
+  desc.MipLevels   = 1;
+  desc.Format      = format;
+  desc.Usage       = USAGE_DEFAULT;
+  desc.BindFlags   = BIND_SHADER_RESOURCE | BIND_RENDER_TARGET;
   desc.CPUAccessFlags = CPU_ACCESS_NONE;
 
- 	
+  if (impl_->renderDevice_)
+   impl_->renderDevice_->CreateTexture(desc, nullptr, &texture);
+
   return texture;
  }
 };

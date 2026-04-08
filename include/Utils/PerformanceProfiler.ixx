@@ -1,6 +1,11 @@
 module;
+#include <utility>
+#include <string>
+#include <chrono>
+#include <mutex>
+#include <map>
+#include <vector>
 export module ArtifactCore.Utils.PerformanceProfiler;
-import std;
 
 
 

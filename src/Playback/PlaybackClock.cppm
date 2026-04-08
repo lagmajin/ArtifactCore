@@ -1,9 +1,8 @@
 module;
-
-#include <chrono>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QString>
+#include <QStringView>
 
 module Playback.Clock;
 
@@ -465,7 +464,7 @@ QString PlaybackClock::timecode() const {
   int64_t minutes = (totalSeconds / 60) % 60;
   int64_t hours = totalSeconds / 3600;
   
-  return QString("%1:%2:%3:%4")
+   return QStringLiteral("%1:%2:%3:%4")
    .arg(hours, 2, 10, QChar('0'))
    .arg(minutes, 2, 10, QChar('0'))
    .arg(seconds, 2, 10, QChar('0'))
@@ -482,7 +481,7 @@ QString PlaybackClock::timecodeWithSubframe() const {
   double subframe = exactFrames - std::floor(exactFrames);
   int subframeInt = static_cast<int>(subframe * 100);
   
-  return timecode() + QString(".%1").arg(subframeInt, 2, 10, QChar('0'));
+   return timecode() + QStringLiteral(".%1").arg(subframeInt, 2, 10, QChar('0'));
  }
 
 std::chrono::microseconds PlaybackClock::deltaTime() {
@@ -512,21 +511,23 @@ QString PlaybackClock::statistics() const {
   QMutexLocker locker(&impl_->mutex_);
   
   QString stats;
-  stats += QString("State: %1\n").arg(
-   impl_->state_ == PlaybackState::Playing ? "Playing" :
-   impl_->state_ == PlaybackState::Paused ? "Paused" : "Stopped");
-  stats += QString("Current Frame: %1\n").arg(impl_->currentFrame_);
-  stats += QString("Frame Rate: %1 fps\n").arg(impl_->frameRate_.framerate());
-  stats += QString("Playback Speed: %1x\n").arg(impl_->playbackSpeed_);
-  stats += QString("Elapsed Time: %1 ms\n").arg(impl_->calculateElapsedTime().count() / 1000.0);
-  stats += QString("Audio Sync: %1\n").arg(impl_->audioSyncEnabled_ ? "Enabled" : "Disabled");
-  stats += QString("Audio Offset: %1 ��s\n").arg(impl_->audioOffset_.count());
-  stats += QString("Dropped Frames: %1\n").arg(impl_->droppedFrameCount_);
-  stats += QString("Looping: %1\n").arg(impl_->looping_ ? "Yes" : "No");
+   stats += QStringLiteral("State: %1\n").arg(QStringView{
+    impl_->state_ == PlaybackState::Playing ? QStringLiteral("Playing") :
+    impl_->state_ == PlaybackState::Paused ? QStringLiteral("Paused") : QStringLiteral("Stopped")});
+   stats += QStringLiteral("Current Frame: %1\n").arg(impl_->currentFrame_);
+   stats += QStringLiteral("Frame Rate: %1 fps\n").arg(impl_->frameRate_.framerate());
+   stats += QStringLiteral("Playback Speed: %1x\n").arg(impl_->playbackSpeed_);
+   stats += QStringLiteral("Elapsed Time: %1 ms\n").arg(impl_->calculateElapsedTime().count() / 1000.0);
+   stats += QStringLiteral("Audio Sync: %1\n").arg(QStringView{
+    impl_->audioSyncEnabled_ ? QStringLiteral("Enabled") : QStringLiteral("Disabled")});
+   stats += QStringLiteral("Audio Offset: %1 ��s\n").arg(impl_->audioOffset_.count());
+   stats += QStringLiteral("Dropped Frames: %1\n").arg(impl_->droppedFrameCount_);
+   stats += QStringLiteral("Looping: %1\n").arg(QStringView{
+    impl_->looping_ ? QStringLiteral("Yes") : QStringLiteral("No")});
   
-  if (impl_->looping_) {
-   stats += QString("Loop Range: %1 - %2\n")
-    .arg(impl_->loopStart_).arg(impl_->loopEnd_);
+   if (impl_->looping_) {
+    stats += QStringLiteral("Loop Range: %1 - %2\n")
+     .arg(impl_->loopStart_).arg(impl_->loopEnd_);
   }
   
   return stats;

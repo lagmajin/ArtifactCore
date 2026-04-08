@@ -3,6 +3,7 @@ module;
 #define QT_NO_KEYWORDS
 #include <QDebug>
 #include <QString>
+#include <QStringView>
 #include <QImage>
 #include <QByteArray>
 #include <QFileInfo>
@@ -47,13 +48,13 @@ extern "C" {
 #include <numeric>
 #include <regex>
 #include <random>
-module MediaPlaybackController;
-
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 }
+
+module MediaPlaybackController;
 
 namespace ArtifactCore {
 
@@ -122,8 +123,8 @@ class MediaPlaybackController::Impl {
 
     if (!mediaSource_ || !mediaSource_->isOpen() || !videoDecoder_ || fps_ <= 0.0 || videoStreamIndex_ < 0) {
       lastError_ = QStringLiteral("FFmpeg direct decode invalid state: media=%1 decoder=%2 fps=%3 videoStreamIndex=%4")
-          .arg(mediaSource_ && mediaSource_->isOpen() ? QStringLiteral("open") : QStringLiteral("closed"))
-          .arg(videoDecoder_ ? QStringLiteral("ok") : QStringLiteral("null"))
+          .arg(QStringView{mediaSource_ && mediaSource_->isOpen() ? QStringLiteral("open") : QStringLiteral("closed")})
+          .arg(QStringView{videoDecoder_ ? QStringLiteral("ok") : QStringLiteral("null")})
           .arg(fps_)
           .arg(videoStreamIndex_);
       qWarning() << "[MediaPlayback] direct decode skipped: invalid state"

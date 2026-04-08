@@ -1,10 +1,11 @@
-﻿module;
-#include <opencv2/opencv.hpp>
+module;
+#include <utility>
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <random>
 #include "../../../include/Define/DllExportMacro.hpp"
+#include <opencv2/opencv.hpp>
 
 
 module Glow;
@@ -15,6 +16,36 @@ namespace ArtifactCore {
 
  namespace
  {
+  cv::Mat convertToFloat32RGBA(const cv::Mat& input)
+  {
+   if (input.empty()) {
+    return {};
+   }
+
+   if (input.type() == CV_32FC4) {
+    return input.clone();
+   }
+
+   cv::Mat rgba;
+   if (input.channels() == 4) {
+    input.convertTo(rgba, CV_32FC4, input.depth() == CV_8U ? (1.0 / 255.0) : 1.0);
+    return rgba;
+   }
+
+   if (input.channels() == 3) {
+    cv::cvtColor(input, rgba, cv::COLOR_BGR2RGBA);
+   } else if (input.channels() == 1) {
+    cv::cvtColor(input, rgba, cv::COLOR_GRAY2RGBA);
+   } else {
+    return {};
+   }
+
+   if (rgba.depth() != CV_32F) {
+    rgba.convertTo(rgba, CV_32FC4, input.depth() == CV_8U ? (1.0 / 255.0) : 1.0);
+   }
+   return rgba;
+  }
+
   cv::Mat toBgr8U(const cv::Mat& src)
   {
    if (src.empty()) {

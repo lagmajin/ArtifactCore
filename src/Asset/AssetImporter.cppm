@@ -1,5 +1,7 @@
 module;
+#include <utility>
 #include <QString>
+#include <QStringList>
 #include <QFileInfo>
 #include <QUuid>
 

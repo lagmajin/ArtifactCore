@@ -1,5 +1,7 @@
-﻿module;
+module;
+#include <utility>
 #include "..\Define\DllExportMacro.hpp"
+
 #include <QApplication>
 #include <QColor>
 #include <QFile>

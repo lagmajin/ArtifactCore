@@ -1,10 +1,11 @@
 module;
+#include <utility>
+
+export module Core.AI.AIAnalysisDescriptions;
 #include <QString>
 #include <QStringList>
 #include <QVector3D>
 #include <QColor>
-
-export module Core.AI.AIAnalysisDescriptions;
 
 import std;
 

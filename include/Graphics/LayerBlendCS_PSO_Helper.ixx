@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 #include <QByteArray>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 

@@ -1,13 +1,14 @@
 module;
-#include <QDirIterator>
-#include <QImage>
-#include <QCoreApplication>
+#include <utility>
+#include "../../Define/DllExportMacro.hpp"
+
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
-#include "../../Define/DllExportMacro.hpp"
-
 export module SearchImage;
+#include <QDirIterator>
+#include <QImage>
+#include <QCoreApplication>
 
 
 export namespace ArtifactCore

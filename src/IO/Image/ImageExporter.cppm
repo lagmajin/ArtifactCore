@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <QImage>
 #include <QString>
 #include <QFuture>
@@ -7,6 +8,7 @@ module;
 #include <QDir>
 #include <QDateTime>
 #include <QRandomGenerator>
+#include <QObject>
 #include <wobjectimpl.h>
 #include <OpenImageIO/imageio.h>
 #include <OpenImageIO/imagebuf.h>

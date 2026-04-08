@@ -1,11 +1,13 @@
 module;
+#include <utility>
+#include <functional>
 #include <QString>
 #include <QStringList>
+#include <QStringView>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QMap>
 #include <QVariant>
-#include <functional>
 
 export module Core.AI.Describable;
 
@@ -138,7 +140,7 @@ public:
      * @param args List of arguments as QVariants
      * @return QVariant result of the invocation
      */
-    virtual QVariant invokeMethod(const QString& name, const QVariantList& args) {
+    virtual QVariant invokeMethod(QStringView name, const QVariantList& args) {
         return QVariant(); // Default: Do nothing
     }
     
@@ -173,7 +175,7 @@ public:
     /**
      * @brief Get property description by name
      */
-    virtual PropertyDescription propertyDescription(const QString& name) const {
+    virtual PropertyDescription propertyDescription(QStringView name) const {
         for (const auto& prop : propertyDescriptions()) {
             if (prop.name == name) return prop;
         }
@@ -192,7 +194,7 @@ public:
     /**
      * @brief Get method description by name
      */
-    virtual MethodDescription methodDescription(const QString& name) const {
+    virtual MethodDescription methodDescription(QStringView name) const {
         for (const auto& method : methodDescriptions()) {
             if (method.name == name) return method;
         }
@@ -417,30 +419,32 @@ public:
         return registry;
     }
     
-    void registerDescribable(const QString& name, std::function<const IDescribable*()> getter) {
-        descriptors_[name] = getter;
+    void registerDescribable(QStringView name, std::function<const IDescribable*()> getter) {
+        descriptors_[name.toString()] = getter;
     }
 
-    const IDescribable* getDescribable(const QString& name) const {
-        if (descriptors_.contains(name)) {
-            return descriptors_[name]();
+    const IDescribable* getDescribable(QStringView name) const {
+        const QString key = name.toString();
+        if (descriptors_.contains(key)) {
+            return descriptors_[key]();
         }
         return nullptr;
     }
-    
+
     QStringList registeredClasses() const {
         return descriptors_.keys();
     }
     
-    QString describeAll(DescriptionLanguage lang = DescriptionLanguage::English) const {
-        QString result;
+    QByteArray describeAll(DescriptionLanguage lang = DescriptionLanguage::English) const {
+        QStringList parts;
         for (auto it = descriptors_.constBegin(); it != descriptors_.constEnd(); ++it) {
             const IDescribable* obj = it.value()();
             if (obj) {
-                result += obj->describeForAI(lang) + "\n\n---\n\n";
+                parts.append(obj->describeForAI(lang));
+                parts.append(QStringLiteral("\n\n---\n\n"));
             }
         }
-        return result;
+        return parts.join(QStringLiteral("")).toUtf8();
     }
     
     QJsonObject describeAllAsJson(DescriptionLanguage lang = DescriptionLanguage::English) const {

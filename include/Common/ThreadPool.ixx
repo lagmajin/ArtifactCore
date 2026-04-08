@@ -1,15 +1,9 @@
 module;
-#include <vector>
-#include <thread>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <functional>
-#include <future>
-#include <atomic>
+#include <utility>
 #include "../Define/DllExportMacro.hpp"
-
 export module Core.ThreadPool;
+
+import std;
 
 export namespace ArtifactCore {
 

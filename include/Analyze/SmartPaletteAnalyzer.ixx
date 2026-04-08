@@ -1,8 +1,9 @@
 module;
+#include <utility>
 #include <vector>
 #include <memory>
-#include <QImage>
 #include "../Define/DllExportMacro.hpp"
+#include <QImage>
 
 export module Analyze.SmartPalette;
 

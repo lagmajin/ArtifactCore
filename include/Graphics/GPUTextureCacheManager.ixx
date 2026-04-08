@@ -1,9 +1,7 @@
-﻿module;
-
+module;
+#include <utility>
 #include <QUuid>
-#include <QImage>
 #include <QObject>
-
 
 export module Graphics.ImageCache;
 

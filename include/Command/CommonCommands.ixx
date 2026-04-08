@@ -1,8 +1,9 @@
 module;
+#include <utility>
+#include <memory>
 #include <QJsonObject>
 #include <QString>
 #include <QJsonValue>
-#include <memory>
 
 export module Command.Common;
 

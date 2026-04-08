@@ -1,9 +1,10 @@
 module;
+#include <utility>
+#include <memory>
+#include <functional>
 #include <QString>
 #include <QMap>
 #include <QStringList>
-#include <memory>
-#include <functional>
 
 export module Core.AI.LocalAgent;
 

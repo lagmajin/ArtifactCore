@@ -1,8 +1,9 @@
-﻿module ;
-
+module;
+#include <utility>
+#include <mutex>
+#include <algorithm>
+#include <cmath>
 module Color.Saturation;
-
-import std;
 
 namespace ArtifactCore
 {

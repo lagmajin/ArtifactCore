@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 export module Tool.Mode;
 
 export namespace ArtifactCore

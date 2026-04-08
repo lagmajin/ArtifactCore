@@ -1,10 +1,10 @@
 module;
+#include <utility>
+#include "../Define/DllExportMacro.hpp"
+
 #include <QVector>
 #include <QByteArray>
 #include <QtMultimedia/QAudioFormat>
-#include "../Define/DllExportMacro.hpp"
-
-
 export module Audio.SimpleWav;
 
 import Utils.String.UniString;

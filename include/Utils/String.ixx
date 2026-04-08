@@ -1,10 +1,11 @@
-﻿module;
+module;
+#include <utility>
 #include <Qstring>
 #include <QVector>
 #include <qminmax.h>
+#include <algorithm>
 
 export module Utils.String;
-import std;
 
 
 

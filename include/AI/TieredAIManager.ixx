@@ -1,7 +1,8 @@
 module;
-#include <QString>
+#include <utility>
 #include <memory>
 #include <functional>
+#include <QString>
 
 export module Core.AI.TieredManager;
 

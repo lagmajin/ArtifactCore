@@ -1,15 +1,21 @@
 module;
+#include <utility>
+#include <memory>
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "ufbx.h"
 #include <tinyobjloader/tiny_obj_loader.h>
 #include <QString>
+#include <QStringView>
 #include <QDebug>
 #include <QVector>
 #include <QVector2D>
 #include <QVector3D>
+#include <QVector4D>
 #include <filesystem>
 
 module MeshImporter;
+
+import MeshImporter;
 
 import Mesh;
 import Utils.String.UniString;
@@ -41,7 +47,7 @@ namespace ArtifactCore {
             ufbx_scene* scene = ufbx_load_file(path.toStdString().c_str(), &opts, &error);
 
             if (!scene) {
-                lastError_ = QStringLiteral("ufbx: %1").arg(QString::fromUtf8(error.description.data));
+                lastError_ = QStringLiteral("ufbx: %1").arg(QStringView{QString::fromUtf8(error.description.data)});
                 qWarning() << "ufbx failed to load:" << path << "-" << error.description.data;
                 return nullptr;
             }
@@ -122,7 +128,7 @@ namespace ArtifactCore {
                     qWarning() << "tinyobj warning:" << QString::fromStdString(warn);
                 }
                 if (!err.empty()) {
-                    lastError_ = QStringLiteral("tinyobj: %1").arg(QString::fromStdString(err));
+                    lastError_ = QStringLiteral("tinyobj: %1").arg(QStringView{QString::fromStdString(err)});
                     qWarning() << "tinyobj failed to load:" << path << "-" << QString::fromStdString(err);
                 } else {
                     lastError_ = QStringLiteral("tinyobj: unknown error");
@@ -227,11 +233,11 @@ namespace ArtifactCore {
         impl_->lastBackend_ = MeshImporter::Backend::None;
         impl_->lastError_.clear();
 
-        if (ext == "fbx") {
+        if (ext == QStringLiteral("fbx")) {
             return impl_->loadWithUfbx(qpath);
         }
 
-        if (ext == "obj") {
+        if (ext == QStringLiteral("obj")) {
             if (auto mesh = impl_->loadWithUfbx(qpath)) {
                 return mesh;
             }
@@ -239,12 +245,12 @@ namespace ArtifactCore {
             return impl_->loadWithTinyObj(qpath);
         }
 
-        if (ext == "gltf" || ext == "glb") {
+        if (ext == QStringLiteral("gltf") || ext == QStringLiteral("glb")) {
             return impl_->loadWithUfbx(qpath);
         }
 
         qWarning() << "Unsupported mesh format:" << ext;
-        impl_->lastError_ = QStringLiteral("unsupported format: %1").arg(ext);
+        impl_->lastError_ = QStringLiteral("unsupported format: %1").arg(QStringView{ext});
         return nullptr;
     }
 

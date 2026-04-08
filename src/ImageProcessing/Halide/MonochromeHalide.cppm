@@ -1,8 +1,9 @@
 
 module;
+#include <utility>
 #include <Halide.h>
-#include <opencv2/opencv.hpp>
 #include "../../../include/Define/DllExportMacro.hpp"
+#include <opencv2/opencv.hpp>
 module ImageProcessing:Halide;
 
 
@@ -31,7 +32,7 @@ namespace ArtifactCore {
   return luminanceFunc;
  }
  using namespace Halide;
- // Halide ˆ—ƒeƒXƒgFOpenCV‰æ‘œ‚ğHalide‚Å•ÏŠ·
+ // Halide ï¿½ï¿½ï¿½ï¿½ï¿½eï¿½Xï¿½gï¿½FOpenCVï¿½æ‘œï¿½ï¿½Halideï¿½Å•ÏŠï¿½
  LIBRARY_DLL_API cv::Mat halideTest2(const cv::Mat& rgba32f) {
   assert(rgba32f.type() == CV_32FC4);
   int w = rgba32f.cols;
@@ -40,7 +41,7 @@ namespace ArtifactCore {
   
   Var x("x"), y("y"), c("c");
 
-  // Planar buffer ‚É•ÏŠ· (c,x,y)
+  // Planar buffer ï¿½É•ÏŠï¿½ (c,x,y)
   Buffer<float> input(4, w, h);
   for (int y = 0; y < h; ++y) {
    const cv::Vec4f* row = rgba32f.ptr<cv::Vec4f>(y);
@@ -49,18 +50,18 @@ namespace ArtifactCore {
 	 input(c, x, y) = row[x][c];
   }
 
-  // Halide Func ‚É“n‚·
+  // Halide Func ï¿½É“nï¿½ï¿½
   Func inputFunc("inputFunc");
   inputFunc(x, y, c) = input(c, x, y);
 
-  // ‹P“x•ÏŠ·
+  // ï¿½Pï¿½xï¿½ÏŠï¿½
   Func luminanceFunc = makeLuminanceFunc(inputFunc);
 
-  // o—Í‚à planar
+  // ï¿½oï¿½Í‚ï¿½ planar
   Buffer<float> outBuf(4, w, h);
   luminanceFunc.realize(outBuf);
 
-  // OpenCV ‚É–ß‚·
+  // OpenCV ï¿½É–ß‚ï¿½
   cv::Mat output(h, w, CV_32FC4);
   for (int y = 0; y < h; ++y) {
    cv::Vec4f* row = output.ptr<cv::Vec4f>(y);
@@ -90,12 +91,12 @@ namespace ArtifactCore {
    }
   }
 
-  // 2. ‰½‚à‚µ‚È‚¢HalideŠÖ”ì¬
+  // 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È‚ï¿½Halideï¿½Öï¿½ï¿½ì¬
   Halide::Func identity("identity");
   Halide::Var x, y, c;
   identity(x, y, c) = buffer(c, x, y);
 
-  // 3. o—Íƒoƒbƒtƒ@—pˆÓ
+  // 3. ï¿½oï¿½Íƒoï¿½bï¿½tï¿½@ï¿½pï¿½ï¿½
   Halide::Buffer<float> outputBuffer(4, w, h);
   identity.realize(outputBuffer);
 
@@ -115,11 +116,11 @@ namespace ArtifactCore {
 
  LIBRARY_DLL_API cv::Mat halideTestMinimal2(const cv::Mat& inputRGBA32F)
  {
-  // ƒTƒCƒYŒˆ‚ß‘Å‚¿iÅ¬ƒeƒXƒg—pj
+  // ï¿½Tï¿½Cï¿½Yï¿½ï¿½ï¿½ß‘Å‚ï¿½ï¿½iï¿½Åï¿½ï¿½eï¿½Xï¿½gï¿½pï¿½j
   const int w = 4;
   const int h = 2;
 
-  // Halide ‘¤‚Å RGBA ’l‚ğ‚Âƒoƒbƒtƒ@‚ğ¶¬
+  // Halide ï¿½ï¿½ï¿½ï¿½ RGBA ï¿½lï¿½ï¿½ï¿½ï¿½ï¿½Âƒoï¿½bï¿½tï¿½@ï¿½ğ¶ï¿½
   Halide::Buffer<float> buffer(w, h, 4);
   for (int y = 0; y < h; ++y) {
    for (int x = 0; x < w; ++x) {
@@ -130,7 +131,7 @@ namespace ArtifactCore {
    }
   }
 
-  // OpenCV ‚Ì CV_32FC4 Œ`®‚Åo—ÍMat‚ğì¬
+  // OpenCV ï¿½ï¿½ CV_32FC4 ï¿½`ï¿½ï¿½ï¿½Åoï¿½ï¿½Matï¿½ï¿½ï¿½ì¬
   cv::Mat output(h, w, CV_32FC4);
   for (int y = 0; y < h; ++y) {
    cv::Vec4f* row = output.ptr<cv::Vec4f>(y);

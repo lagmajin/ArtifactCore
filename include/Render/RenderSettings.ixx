@@ -1,7 +1,6 @@
-﻿module;
+module;
+#include <utility>
 #include <QString>
-
-
 export module Render.Settings;
 
 

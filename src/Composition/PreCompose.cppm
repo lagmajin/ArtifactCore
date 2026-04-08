@@ -1,8 +1,5 @@
 module;
 
-#include <QString>
-#include <QVector>
-#include <QMap>
 #include <memory>
 
 #include <iostream>
@@ -38,6 +35,9 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QString>
+#include <QVector>
+#include <QMap>
 module Composition.PreCompose;
 
 

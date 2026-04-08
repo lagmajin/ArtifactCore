@@ -1,4 +1,6 @@
 module;
+#include <utility>
+
 #include <QString>
 #include <QObject>
 #include <wobjectdefs.h>

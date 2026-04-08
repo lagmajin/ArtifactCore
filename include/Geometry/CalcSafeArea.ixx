@@ -1,8 +1,9 @@
-﻿module;
-#include <QRectF>
-#include <QSizeF>
+module;
+#include <utility>
 #include <vector>
 export module CalcSafeArea;
+#include <QRectF>
+#include <QSizeF>
 
 export namespace ArtifactCore {
 

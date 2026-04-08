@@ -1,7 +1,5 @@
 ﻿module;
 #define QT_NO_KEYWORDS
-#include <QObject>
-#include <QCoreApplication>
 //#include <folly/th>
 #include <tbb/tbb.h>
 //#include <absl/container/>
@@ -38,7 +36,12 @@
 #include <numeric>
 #include <regex>
 #include <random>
+   
+// Qt headers must stay in the global fragment for module ABI stability.
+#include <QObject>
+#include <QCoreApplication>
 module Render.Queue.Manager;
+import Render.Queue.Manager;
 
 
 

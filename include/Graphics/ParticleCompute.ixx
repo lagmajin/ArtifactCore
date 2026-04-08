@@ -1,15 +1,16 @@
 module;
+#include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+// RefCntAutoPtr.hpp intentionally NOT included here (MSVC 14.51 C1116 workaround)
 #include "../Define/DllExportMacro.hpp"
+#include <vector>
 
 export module Graphics.ParticleCompute;
 
-import std;
 import Particle;
 import Graphics.GPUcomputeContext;
 import Graphics.Compute;
@@ -50,16 +51,13 @@ public:
     /**
      * @brief 描画用レンダラーにバッファを渡すために取得
      */
-    IBuffer* getParticleBuffer() { return pParticleBuffer_; }
+    IBuffer* getParticleBuffer();
 
 private:
     GpuContext& context_;
     ComputeExecutor                       executor_;
-    
-    RefCntAutoPtr<IBuffer>                pParticleBuffer_;
-    RefCntAutoPtr<IBuffer>                pAudioSpectrumBuffer_; // 128-512 bins
-    RefCntAutoPtr<IBuffer>                pConstantBuffer_;
-
+    class Impl;
+    Impl* pImpl_ = nullptr;
     size_t maxParticles_ = 0;
 
     struct SimulationConstants {

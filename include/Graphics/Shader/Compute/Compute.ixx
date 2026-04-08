@@ -1,11 +1,10 @@
 module;
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <utility>
+// RefCntAutoPtr.hpp intentionally NOT included here (MSVC 14.51 C1116 workaround)
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
-#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h>
-#include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include "../../../Define/DllExportMacro.hpp"
@@ -33,6 +32,7 @@ export namespace ArtifactCore
  {
  public:
   explicit ComputeExecutor(GpuContext& context);
+  ~ComputeExecutor();
 
   bool build(const ComputePipelineDesc& desc);
   bool createShaderResourceBinding(bool initializeStaticResources = true);
@@ -63,32 +63,7 @@ export namespace ArtifactCore
   bool setResource(const char* name, ResourceT* resource);
 
   GpuContext& context_;
-  RefCntAutoPtr<IShader> pComputeShader_;
-  RefCntAutoPtr<IPipelineState> pPSO_;
-  RefCntAutoPtr<IShaderResourceBinding> pSRB_;
+  class Impl;
+  Impl* pImpl_ = nullptr;
  };
-
- template <typename ResourceT>
- bool ComputeExecutor::setResource(const char* name, ResourceT* resource)
- {
-  if (name == nullptr || resource == nullptr || pPSO_ == nullptr)
-   return false;
-
-  if (auto* staticVar = pPSO_->GetStaticVariableByName(SHADER_TYPE_COMPUTE, name))
-  {
-   staticVar->Set(resource);
-   return true;
-  }
-
-  if (pSRB_ != nullptr)
-  {
-   if (auto* var = pSRB_->GetVariableByName(SHADER_TYPE_COMPUTE, name))
-   {
-    var->Set(resource);
-    return true;
-   }
-  }
-
-  return false;
- }
 }

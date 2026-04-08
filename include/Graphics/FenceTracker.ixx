@@ -1,9 +1,10 @@
-module ;
+module;
+#include <utility>
 
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Fence.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+// RefCntAutoPtr.hpp intentionally NOT included here (MSVC 14.51 C1116 workaround)
 
 export module Graphics.Fence.Tracker;
 
@@ -16,7 +17,7 @@ export namespace ArtifactCore {
  class FenceTracker
  {
  private:
-  RefCntAutoPtr<IFence> fence_;
+  IFence* fence_ = nullptr;
   Uint64 currentValue_ = 0;
 
  public:
@@ -25,7 +26,16 @@ export namespace ArtifactCore {
    FenceDesc desc;
    desc.Name = name;
    device->CreateFence(desc, &fence_);
+   // CreateFence returns with ref=1; no extra AddRef needed
   }
+
+  ~FenceTracker()
+  {
+   if (fence_) { fence_->Release(); fence_ = nullptr; }
+  }
+
+  FenceTracker(const FenceTracker&) = delete;
+  FenceTracker& operator=(const FenceTracker&) = delete;
 
   // GPU に Signal
   void Signal(IDeviceContext* context)

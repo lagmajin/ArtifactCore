@@ -1,8 +1,10 @@
-﻿module;
+module;
+#include <utility>
+#include "..\Define\DllExportMacro.hpp"
 #include <QString>
 #include <QDirIterator>
 #include <QCoreApplication>
-#include "..\Define\DllExportMacro.hpp"
+
 export module Test.Helper;
 
 export namespace ArtifactCore {

@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 // import <cstdint>;
 //#include <QtGui/QImage>
 

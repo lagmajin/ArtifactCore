@@ -1,7 +1,9 @@
 module;
+#include <utility>
+#include <QString>
 #include <QByteArray>
 #include <QCryptographicHash>
-#include "QFile"
+#include <QFile>
 module Utils.HashValue;
 
 namespace ArtifactCore {

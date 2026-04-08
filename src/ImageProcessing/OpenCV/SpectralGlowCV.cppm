@@ -1,7 +1,4 @@
 ﻿module;
-#include <opencv2/opencv.hpp>
-#include <QDebug>
-#include <QElapsedTimer>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -35,7 +32,11 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <opencv2/opencv.hpp>
+#include <QDebug>
+#include <QElapsedTimer>
 module ImageProcessing.SpectralGlow;
+
 
 
 

@@ -1,6 +1,7 @@
-﻿module;
-#include <QString>
+module;
+#include <utility>
 export module Core.Position2D;
+#include <QString>
 
 export namespace ArtifactCore
 {

@@ -1,7 +1,9 @@
-﻿module;
+module;
+#include <utility>
 #include <QFlags>
 #include <QKeyEvent>
 export module InputEvent;
+
 
 export namespace ArtifactCore {
 

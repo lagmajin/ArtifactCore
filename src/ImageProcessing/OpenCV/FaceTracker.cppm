@@ -1,13 +1,14 @@
 module;
-#include <QImage>
-#include <QRect>
-#include <QVector>
-#include <opencv2/opencv.hpp>
+#include <utility>
 #include <memory>
 #include <vector>
 #include <map>
 #include <algorithm>
 #include <cmath>
+#include <QImage>
+#include <QRect>
+#include <QVector>
+#include <QPointF>
 
 module ArtifactCore.ImageProcessing.FaceTracker;
 

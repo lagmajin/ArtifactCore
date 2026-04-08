@@ -1,8 +1,9 @@
 module;
+#include <utility>
 #include <QVector>
 #include <QString>
+#include <string>
 export module Utils.Convertor.String;
-import std;
 
 
 

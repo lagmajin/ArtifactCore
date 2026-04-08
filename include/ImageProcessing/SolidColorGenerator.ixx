@@ -1,6 +1,7 @@
 module;
-#include <QString>
+#include <utility>
 
+#include <QString>
 export module Generator:SolidColor;
 
 import :Image;

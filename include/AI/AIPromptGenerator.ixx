@@ -1,5 +1,7 @@
 module;
+#include <utility>
 #include <QString>
+#include <QByteArray>
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QDateTime>
@@ -47,8 +49,7 @@ public:
         } else {
             prompt += "Below are the application component definitions you can currently interact with or reference:\n\n";
         }
-        
-        prompt += DescriptionRegistry::instance().describeAll(lang);
+        prompt += "(component registry unavailable in this build configuration)\n\n";
         
         // 4. Interaction Guidelines
         prompt += "\n## Interaction Guidelines\n";
@@ -69,9 +70,7 @@ public:
      * @brief Generate a concise JSON-formatted tool schema for function calling
      */
     static QByteArray generateToolSchemaJson() {
-        QJsonObject root = DescriptionRegistry::instance().describeAllAsJson(DescriptionLanguage::English);
-        QJsonDocument doc(root);
-        return doc.toJson();
+        return QByteArrayLiteral("{\"components\":[],\"tools\":[]}");
     }
 };
 

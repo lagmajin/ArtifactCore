@@ -16,15 +16,13 @@ module;
 #include <QtGui/QVector3D>
 
 #include <iostream>
-#include <vector>
 #include <string>
 #include <map>
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
 #include <memory>
-#include <algorithm>
-#include <cmath>
+
 #include <functional>
 #include <optional>
 #include <utility>
@@ -49,6 +47,8 @@ module;
 #include <regex>
 #include <random>
 module Video.Stabilizer;
+
+import Video.Stabilizer;
 
 
 

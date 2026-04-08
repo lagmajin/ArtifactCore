@@ -1,4 +1,5 @@
 module;
+#include <utility>
 
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
@@ -17,8 +18,13 @@ import Graphics.GPUcomputeContext;
 
 namespace ArtifactCore
 {
+  struct GPUCompressionPipeline::Impl
+  {
+      RefCntAutoPtr<IBuffer> pCompressionCB_;
+  };
+
   GPUCompressionPipeline::GPUCompressionPipeline(GpuContext& context)
-    : context_(context)
+    : context_(context), pImpl_(new Impl())
   {
   }
 
@@ -26,7 +32,7 @@ namespace ArtifactCore
   {
     compressExecutor_.executor.reset();
     decompressExecutor_.executor.reset();
-    pCompressionCB_.Release();
+    delete pImpl_;
   }
 
   bool GPUCompressionPipeline::initialize()
@@ -54,10 +60,10 @@ namespace ArtifactCore
     // Update params
     currentParams_.numBlocks = (width * height * 4 + currentParams_.blockSize - 1) / currentParams_.blockSize;
     void* pData = nullptr;
-    ctx->MapBuffer(pCompressionCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+    ctx->MapBuffer(pImpl_->pCompressionCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
     if (pData) {
       memcpy(pData, &currentParams_, sizeof(CompressionParams));
-      ctx->UnmapBuffer(pCompressionCB_, MAP_WRITE);
+      ctx->UnmapBuffer(pImpl_->pCompressionCB_, MAP_WRITE);
     }
 
     // Bind resources
@@ -90,10 +96,10 @@ namespace ArtifactCore
     // Update params
     currentParams_.numBlocks = (width * height * 4 + currentParams_.blockSize - 1) / currentParams_.blockSize;
     void* pData = nullptr;
-    ctx->MapBuffer(pCompressionCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+    ctx->MapBuffer(pImpl_->pCompressionCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
     if (pData) {
       memcpy(pData, &currentParams_, sizeof(CompressionParams));
-      ctx->UnmapBuffer(pCompressionCB_, MAP_WRITE);
+      ctx->UnmapBuffer(pImpl_->pCompressionCB_, MAP_WRITE);
     }
 
     // Bind resources
@@ -114,7 +120,7 @@ namespace ArtifactCore
 
   bool GPUCompressionPipeline::ready() const
   {
-    return compressExecutor_.executor && decompressExecutor_.executor && pCompressionCB_;
+    return compressExecutor_.executor && decompressExecutor_.executor && pImpl_->pCompressionCB_;
   }
 
   bool GPUCompressionPipeline::createConstantBuffer()
@@ -129,8 +135,8 @@ namespace ArtifactCore
     auto device = context_.D3D12RenderDevice();
     if (!device) return false;
 
-    device->CreateBuffer(cbDesc, nullptr, &pCompressionCB_);
-    return pCompressionCB_;
+    device->CreateBuffer(cbDesc, nullptr, &pImpl_->pCompressionCB_);
+    return pImpl_->pCompressionCB_ != nullptr;
   }
 
   bool GPUCompressionPipeline::createExecutors()
@@ -155,8 +161,8 @@ namespace ArtifactCore
       return false;
     }
 
-    if (pCompressionCB_) {
-      compressExecutor_.executor->setBuffer("CompressionCB", pCompressionCB_);
+    if (pImpl_->pCompressionCB_) {
+      compressExecutor_.executor->setBuffer("CompressionCB", pImpl_->pCompressionCB_);
     }
 
     if (!compressExecutor_.executor->createShaderResourceBinding(true)) {
@@ -183,8 +189,8 @@ namespace ArtifactCore
       return false;
     }
 
-    if (pCompressionCB_) {
-      decompressExecutor_.executor->setBuffer("CompressionCB", pCompressionCB_);
+    if (pImpl_->pCompressionCB_) {
+      decompressExecutor_.executor->setBuffer("CompressionCB", pImpl_->pCompressionCB_);
     }
 
     if (!decompressExecutor_.executor->createShaderResourceBinding(true)) {

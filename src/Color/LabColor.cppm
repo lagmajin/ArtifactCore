@@ -1,10 +1,11 @@
-﻿module;
+module;
+#include <utility>
+#include <algorithm>
+#include <cmath>
 #include <QRegularExpression>
 #include <QString>
 
 module Color.Lab;
-
-import std;
 
 import Color.Float;
 import Utils.String.UniString;

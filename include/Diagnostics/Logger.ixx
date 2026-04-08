@@ -1,9 +1,11 @@
 module;
+#include <utility>
+#include <vector>
+
+#include <mutex>
 #include <wobjectdefs.h>
 #include <QString>
 #include <QDateTime>
-#include <vector>
-#include <mutex>
 
 export module Diagnostics.Logger;
 

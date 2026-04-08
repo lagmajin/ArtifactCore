@@ -1,6 +1,4 @@
 module;
-#include <QString>
-#include <wobjectdefs.h>
 #include <cstdint>
 
 #include "../Define/DllExportMacro.hpp"
@@ -18,8 +16,6 @@ module;
 #include <optional>
 #include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -29,7 +25,6 @@ module;
 #include <variant>
 #include <any>
 #include <atomic>
-#include <condition_variable>
 #include <queue>
 #include <deque>
 #include <list>
@@ -38,6 +33,8 @@ module;
 #include <regex>
 #include <random>
 export module Frame.Position;
+#include <QString>
+#include <wobjectdefs.h>
 
 
 

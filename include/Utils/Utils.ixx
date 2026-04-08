@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 
 export module Utils;
 export import Utils.Id;

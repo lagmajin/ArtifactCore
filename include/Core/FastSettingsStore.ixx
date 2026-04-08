@@ -4,8 +4,6 @@ module;
 #include <QStringList>
 #include <QHash>
 
-#include <shared_mutex>
-
 export module Core.FastSettingsStore;
 
 export namespace ArtifactCore

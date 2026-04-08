@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -8,11 +9,11 @@ module;
 #include <Functiondiscoverykeys_devpkey.h>
 #include <comdef.h>
 #include <windows.h>
-#include <QString>
 #include <atomic>
 #include <chrono>
 #include <cstring>
 #include <cstdint>
+#include <QString>
 #include <thread>
 
 module Audio.Backend.WASAPI;
@@ -28,7 +29,7 @@ public:
   std::atomic<bool> stopJoined{false};
   AudioCallback callback;
   std::thread renderThread;
-  QAudioFormat currentFormat;
+  AudioBackendFormat currentFormat;
   QString deviceName;
 
   IAudioClient* audioClient = nullptr;
@@ -140,10 +141,10 @@ public:
 WASAPIBackend::WASAPIBackend() : impl_(std::make_unique<Impl>()) {}
 WASAPIBackend::~WASAPIBackend() { close(); }
 
-bool WASAPIBackend::open(const QAudioDevice& device, const QAudioFormat& format) {
+bool WASAPIBackend::open(const AudioDeviceInfo& device, const AudioBackendFormat& format) {
   close();
 
-  impl_->deviceName = device.description();
+  impl_->deviceName = device.description;
   impl_->currentFormat = format;
 
   const HRESULT initHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -229,10 +230,11 @@ bool WASAPIBackend::open(const QAudioDevice& device, const QAudioFormat& format)
     return false;
   }
 
-  impl_->currentFormat.setSampleRate(impl_->mixSampleRate);
-  impl_->currentFormat.setChannelCount(impl_->mixChannels);
-  impl_->currentFormat.setSampleFormat(impl_->mixFormatIsFloat ? QAudioFormat::Float
-                                                               : QAudioFormat::Int16);
+  impl_->currentFormat.sampleRate = impl_->mixSampleRate;
+  impl_->currentFormat.channelCount = impl_->mixChannels;
+  impl_->currentFormat.sampleFormat = impl_->mixFormatIsFloat
+      ? AudioBackendSampleFormat::Float32
+      : AudioBackendSampleFormat::Int16;
   return true;
 }
 
@@ -283,12 +285,12 @@ bool WASAPIBackend::isActive() const {
   return impl_ ? impl_->active.load() : false;
 }
 
-QAudioFormat WASAPIBackend::currentFormat() const {
-  return impl_ ? impl_->currentFormat : QAudioFormat();
+AudioBackendFormat WASAPIBackend::currentFormat() const {
+  return impl_ ? impl_->currentFormat : AudioBackendFormat{};
 }
 
 QString WASAPIBackend::backendName() const {
-  return QStringLiteral("WASAPI(shared)");
+  return QString::fromUtf8("WASAPI(shared)");
 }
 
 } // namespace ArtifactCore

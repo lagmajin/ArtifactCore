@@ -1,7 +1,5 @@
 module;
-#include <QtMultimedia/QAudioDevice>
-#include <QtMultimedia/QAudioFormat>
-
+#include <utility>
 #include <memory>
 #include <functional>
 
@@ -16,13 +14,13 @@ public:
   WASAPIBackend();
   ~WASAPIBackend() override;
 
-  bool open(const QAudioDevice& device, const QAudioFormat& format) override;
+  bool open(const AudioDeviceInfo& device, const AudioBackendFormat& format) override;
   void close() override;
   void start(AudioCallback callback) override;
   void stop() override;
 
   bool isActive() const override;
-  QAudioFormat currentFormat() const override;
+  AudioBackendFormat currentFormat() const override;
   QString backendName() const override;
 
 private:

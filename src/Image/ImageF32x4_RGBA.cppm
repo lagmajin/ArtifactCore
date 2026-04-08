@@ -1,6 +1,4 @@
-﻿module ;
-#include <QList>
-#include <opencv2/opencv.hpp>
+module;
 
 
 #include <iostream>
@@ -36,6 +34,11 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <opencv2/opencv.hpp>
+#include <QImage>
+#include <QString>
+#include <QList>
+
 module Image.ImageF32x4_RGBA;
 
 

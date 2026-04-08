@@ -1,10 +1,10 @@
-﻿module;
-#include <QColor>
+module;
+#include <utility>
+#include <algorithm>
+#include <cmath>
 #include <qnamespace.h>
+#include <QColor>
 module Color.Float;
-
-// import FloatRGBA;
-import std;
 
 namespace ArtifactCore {
 

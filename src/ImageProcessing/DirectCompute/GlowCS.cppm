@@ -1,12 +1,13 @@
-﻿module;
+module;
+#include <utility>
+#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <opencv2/opencv.hpp>
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
-#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/core/mat.hpp>
+
 module ImageProcessing.GlowCS;
 
 import Graphics;

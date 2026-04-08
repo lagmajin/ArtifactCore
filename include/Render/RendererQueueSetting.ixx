@@ -1,6 +1,6 @@
-﻿module;
+module;
+#include <utility>
 #include <wobjectdefs.h>
-
 #include <QString>
 export module RendererQueueSetting;
 

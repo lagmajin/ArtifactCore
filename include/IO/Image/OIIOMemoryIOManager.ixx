@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 #include <cstring>
 #include <OpenImageIO/imageio.h>
 #include <OpenImageIO/filesystem.h>

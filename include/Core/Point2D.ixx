@@ -1,8 +1,5 @@
 ﻿module;
 #include <type_traits>
-#include <opencv2/core/types.hpp>
-#include <QPointF>
-#include <QVector2D>
 #include <glm/glm.hpp>
 #include "../Define/DllExportMacro.hpp"
 #include "../ArtifactWidgets/include/Define/DllExportMacro.hpp"
@@ -20,8 +17,6 @@
 #include <optional>
 #include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -31,7 +26,6 @@
 #include <variant>
 #include <any>
 #include <atomic>
-#include <condition_variable>
 #include <queue>
 #include <deque>
 #include <list>
@@ -39,6 +33,10 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <opencv2/core/types.hpp>
+#include <QPointF>
+#include <QVector2D>
+
 export module Core.Point2D;
 
 

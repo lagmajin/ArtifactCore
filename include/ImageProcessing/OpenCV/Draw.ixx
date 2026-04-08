@@ -1,10 +1,10 @@
-﻿module;
-#include <opencv2/opencv.hpp>
+module;
+#include <utility>
 #include "../../Define/DllExportMacro.hpp"
-#include <opencv2/opencv.hpp>
 #include <vector>
 #include <cmath>
 #include <algorithm> // For std::min
+#include <opencv2/opencv.hpp>
 export module Draw;
 
 

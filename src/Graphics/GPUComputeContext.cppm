@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 
 #include <vulkan/vulkan.h>
 
@@ -108,10 +109,10 @@ namespace ArtifactCore
 
  }
 
- GpuContext::GpuContext(RefCntAutoPtr<IRenderDevice> device, RefCntAutoPtr<IDeviceContext> context)
+ GpuContext::GpuContext(IRenderDevice* device, IDeviceContext* context)
   : pImpl_(new Impl())
  {
-  pImpl_->pDevice = device;
+  pImpl_->pDevice = device;   // RefCntAutoPtr assignment → AddRef
   pImpl_->pContext = context;
  }
 
@@ -121,9 +122,12 @@ namespace ArtifactCore
  }
 
 
- RefCntAutoPtr<IShader> GpuContext::CompileShader(const char* shaderSource, Diligent::SHADER_TYPE type, const char* entryPoint)
+ bool GpuContext::CompileShader(const char* shaderSource, Diligent::SHADER_TYPE type, const char* entryPoint, IShader** ppShader)
  {
-  return pImpl_->CompileShader(shaderSource, type, entryPoint);
+  if (!ppShader) return false;
+  auto shader = pImpl_->CompileShader(shaderSource, type, entryPoint);
+  *ppShader = shader.Detach();
+  return *ppShader != nullptr;
  }
 
  void GpuContext::Initialize()
@@ -131,12 +135,12 @@ namespace ArtifactCore
   pImpl_->Initialize();
  }
 
- RefCntAutoPtr<IRenderDevice> GpuContext::D3D12RenderDevice()
+ IRenderDevice* GpuContext::D3D12RenderDevice()
  {
-  return pImpl_->pDevice;
+  return pImpl_->pDevice;  // implicit RefCntAutoPtr → T* conversion
  }
 
- Diligent::RefCntAutoPtr<IDeviceContext> GpuContext::D3D12DeviceContext()
+ IDeviceContext* GpuContext::D3D12DeviceContext()
  {
   return pImpl_->pContext;
  }
@@ -144,9 +148,8 @@ namespace ArtifactCore
  DeviceResources GpuContext::D3D12DeviceResources()
  {
  DeviceResources result;
-  result.pContext = pImpl_->pContext;
+  result.pContext = pImpl_->pContext;  // implicit RefCntAutoPtr → T* conversion
   result.pDevice = pImpl_->pDevice;
-
   return result;
  }
 
@@ -155,7 +158,6 @@ namespace ArtifactCore
  DeviceResources result;
   result.pContext = pImpl_->pContext;
   result.pDevice = pImpl_->pDevice;
-
   return result;
  }
 

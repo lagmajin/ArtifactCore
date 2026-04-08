@@ -1,11 +1,17 @@
-﻿module;
+module;
+#include <utility>
 
-#include <QString>
-
+//import <QString>;
+#include <type_traits>
+#include <future>
+#include <vector>
+#include <algorithm>
+#include <iterator>
 #include "../Define/DllExportMacro.hpp"
 
+#include <thread>
 export module Thread.Helper;
-import std;
+// <thread> moved from GMF to module body — avoids C1116 stop_token chain in IFC
 
 export namespace ArtifactCore
 {
@@ -52,7 +58,7 @@ export namespace ArtifactCore
   }
  }
 
-  void setCurrentThreadName(const QString& name);
+  void setCurrentThreadName(const std::string& name);
  void setThreadPriorityHigh();
 	
 

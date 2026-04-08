@@ -1,15 +1,16 @@
 module;
+#include <utility>
+#include <memory>
+#include <vector>
+#include <algorithm>
+#include <opencv2/opencv.hpp>
 #include <QImage>
 #include <QRect>
 #include <QVector>
 #include <QString>
+#include <QStringView>
+#include <QStringList>
 #include <QFileInfo>
-#include <opencv2/opencv.hpp>
-#include <opencv2/objdetect.hpp>
-#include <opencv2/dnn.hpp>
-#include <memory>
-#include <vector>
-#include <algorithm>
 
 module ArtifactCore.ImageProcessing.FaceDetection;
 
@@ -36,8 +37,8 @@ public:
         if (haarCascadePath_.isEmpty()) {
             // デフォルトパスを試す
             QStringList candidates = {
-                "haarcascade_frontalface_default.xml",
-                "C:/opencv/sources/data/haarcascades/haarcascade_frontalface_default.xml",
+                QStringLiteral("haarcascade_frontalface_default.xml"),
+                QStringLiteral("C:/opencv/sources/data/haarcascades/haarcascade_frontalface_default.xml"),
             };
             for (const auto& path : candidates) {
                 if (QFileInfo::exists(path)) {
@@ -48,20 +49,20 @@ public:
         }
 
         if (haarCascadePath_.isEmpty()) {
-            lastError_ = "Haar cascade file not found. Set path with setHaarCascadePath().";
+            lastError_ = QStringLiteral("Haar cascade file not found. Set path with setHaarCascadePath().");
             return false;
         }
 
         haarLoaded_ = haarCascade_.load(haarCascadePath_.toStdString());
         if (!haarLoaded_) {
-            lastError_ = QString("Failed to load Haar cascade: %1").arg(haarCascadePath_);
+            lastError_ = QStringLiteral("Failed to load Haar cascade: %1").arg(QStringView{haarCascadePath_});
         }
         return haarLoaded_;
     }
 
     bool initializeDNN() {
         if (dnnModelPath_.isEmpty() || dnnConfigPath_.isEmpty()) {
-            lastError_ = "DNN model/config paths not set. Use setDNNModelPath() and setDNNConfigPath().";
+            lastError_ = QStringLiteral("DNN model/config paths not set. Use setDNNModelPath() and setDNNConfigPath().");
             return false;
         }
 
@@ -72,12 +73,12 @@ public:
             }
             dnnLoaded_ = !dnnNet_.empty();
         } catch (const cv::Exception& e) {
-            lastError_ = QString("DNN load error: %1").arg(e.what());
+            lastError_ = QStringLiteral("DNN load error: %1").arg(QStringView{QString::fromUtf8(e.what())});
             dnnLoaded_ = false;
         }
 
         if (!dnnLoaded_) {
-            lastError_ = QString("Failed to load DNN model: %1 / %2").arg(dnnModelPath_, dnnConfigPath_);
+            lastError_ = QStringLiteral("Failed to load DNN model: %1 / %2").arg(QStringView{dnnModelPath_}, QStringView{dnnConfigPath_});
         }
         return dnnLoaded_;
     }

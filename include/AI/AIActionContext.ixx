@@ -1,11 +1,12 @@
 module;
+#include <utility>
+
+export module Core.AI.ActionContext;
 #include <QString>
 #include <QMap>
 #include <QVariant>
 #include <QDateTime>
 #include <QJsonObject>
-
-export module Core.AI.ActionContext;
 
 export namespace ArtifactCore {
 

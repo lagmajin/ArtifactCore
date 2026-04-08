@@ -1,23 +1,16 @@
 module;
 
-#include <QString>
-#include <QImage>
-#include <QPointF>
-#include <QVector>
 #include <cmath>
 #include <algorithm>
 #include <vector>
 
 #include <iostream>
-#include <vector>
 #include <string>
 #include <map>
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
 #include <memory>
-#include <algorithm>
-#include <cmath>
 #include <functional>
 #include <optional>
 #include <utility>
@@ -41,11 +34,11 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QString>
+#include <QImage>
+#include <QPointF>
+#include <QVector>
 module ImageProcessing.ColorTransform.LevelsCurves;
-
-
-
-
 
 namespace ArtifactCore {
 

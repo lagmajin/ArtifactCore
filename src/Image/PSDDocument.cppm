@@ -1,12 +1,17 @@
 module;
+#include <utility>
+#include <cstring>
 #include <QFile>
 #include <QFileInfo>
 #include <QDataStream>
+#include <QIODevice>
 #include <QByteArray>
+#include <QString>
 #include <QStringList>
 #include <QStringConverter>
 #include <QDebug>
-#include <cstring>
+#include <QVector>
+#include <QRect>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>

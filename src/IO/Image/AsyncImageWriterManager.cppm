@@ -1,5 +1,12 @@
-﻿module;
+module;
+#include <utility>
 #include <boost/asio.hpp>
+#include <atomic>
+#include <cstddef>
+#include <QString>
+#include <string>
+#include <thread>
+#include <vector>
 module IO.Async.ImageWriterManager;
 
 import Image;

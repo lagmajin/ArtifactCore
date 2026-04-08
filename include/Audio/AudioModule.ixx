@@ -1,8 +1,9 @@
 module;
-
-#include <QByteArray>
+#include <utility>
 
 export module Audio;
+
+#include <QByteArray>
 
 
 export import Audio.Frame;

@@ -1,6 +1,5 @@
 module;
-
-#include <opencv2/opencv.hpp>
+#include <utility>
 
 module Image.Png;
 

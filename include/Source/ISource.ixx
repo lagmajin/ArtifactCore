@@ -1,14 +1,15 @@
 module;
+#include <utility>
 
 #include "../Define/DllExportMacro.hpp"
+
+#include <functional>
+#include <memory>
 #include <QByteArray>
 #include <QDateTime>
 #include <QSize>
 #include <QString>
 #include <QStringList>
-
-import std;
-
 export module Source.ISource;
 
 import Utils.Id;

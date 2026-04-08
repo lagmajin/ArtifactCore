@@ -1,5 +1,6 @@
 module;
-#include <QList>
+#include <utility>
+#include <QString>
 module Audio.Panner;
 
 import Audio.Segment;
@@ -57,17 +58,17 @@ QString AudioPanner::modeName(PanningMode mode)
 {
     switch (mode) {
     case PanningMode::StereoBalance:
-        return QStringLiteral("Stereo Balance");
+        return QString::fromUtf8("Stereo Balance");
     case PanningMode::EqualPower:
-        return QStringLiteral("Equal Power");
+        return QString::fromUtf8("Equal Power");
     case PanningMode::VBAP:
-        return QStringLiteral("VBAP");
+        return QString::fromUtf8("VBAP");
     case PanningMode::Ambisonics:
-        return QStringLiteral("Ambisonics");
+        return QString::fromUtf8("Ambisonics");
     case PanningMode::Binaural:
-        return QStringLiteral("Binaural");
+        return QString::fromUtf8("Binaural");
     }
-    return QStringLiteral("Unknown");
+    return QString::fromUtf8("Unknown");
 }
 
 AudioPanner::AudioPanner() : impl_(new Impl())

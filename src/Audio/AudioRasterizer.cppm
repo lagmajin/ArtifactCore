@@ -1,15 +1,4 @@
-﻿module;
-#include <QList>
+module;
+#include <utility>
 
 module Audio.Rasterizer;
-
-
-namespace ArtifactCore
-{
-
-
-
-
-
-
-}

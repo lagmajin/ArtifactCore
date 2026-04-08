@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 
 module ImageProcessing.AutoGamma.CV;
 

@@ -1,9 +1,11 @@
-﻿module;
+module;
+#include <utility>
 #include <QUuid>
 #include <DiligentCore/Platforms/interface/PlatformDefinitions.h>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+// RefCntAutoPtr.hpp intentionally NOT included here (MSVC 14.51 C1116 workaround: stop_token specialization conflict)
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h>
 #include "../Define/DllExportMacro.hpp"
 export module Graphics.GPUcomputeContext;
@@ -31,11 +33,12 @@ export namespace ArtifactCore
  
  using namespace Diligent;
 
+ // Raw-pointer view of device resources.
+ // Callers that need ownership should hold their own RefCntAutoPtr.
  struct DeviceResources
  {
-
-  RefCntAutoPtr<Diligent::IRenderDevice>  pDevice;
-  RefCntAutoPtr<Diligent::IDeviceContext> pContext;
+  IRenderDevice*  pDevice  = nullptr;
+  IDeviceContext* pContext = nullptr;
  };
 
  class LIBRARY_DLL_API GpuContext {
@@ -44,16 +47,18 @@ export namespace ArtifactCore
   Impl* pImpl_;
  public:
   GpuContext();
-  GpuContext(RefCntAutoPtr<IRenderDevice> device, RefCntAutoPtr<IDeviceContext> context);
+  // Accepts raw pointers; internally stores as RefCntAutoPtr (AddRef is called)
+  GpuContext(IRenderDevice* device, IDeviceContext* context);
   ~GpuContext();
   void Initialize();
-  RefCntAutoPtr<IRenderDevice> D3D12RenderDevice();
-  RefCntAutoPtr<IDeviceContext> D3D12DeviceContext();
+  IRenderDevice*  D3D12RenderDevice();
+  IDeviceContext* D3D12DeviceContext();
   DeviceResources D3D12DeviceResources();
   DeviceResources VKDeviceResources();
   GPUInfo info() const;
   
-  RefCntAutoPtr<IShader> CompileShader(const char* shaderSource, SHADER_TYPE type, const char* entryPoint);
+  // Output-parameter style: *ppShader has ref-count == 1 (caller must Release or wrap in RefCntAutoPtr)
+  bool CompileShader(const char* shaderSource, SHADER_TYPE type, const char* entryPoint, IShader** ppShader);
  private:
 
  };

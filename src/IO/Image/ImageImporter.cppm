@@ -1,8 +1,10 @@
 module;
+#include <utility>
+#include <cstring>
 #include <QFileInfo>
 #include <QFile>
 #include <QByteArray>
-#include <cstring>
+#include <QString>
 
 #include <stb_image.h>
 

@@ -1,14 +1,17 @@
-﻿module;
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+module;
+#include <utility>
+// RefCntAutoPtr.hpp intentionally NOT in GMF (MSVC 14.51 C1116 workaround)
 #include <DiligentCore/Platforms/Basic/interface/DebugUtilities.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
-#include <opencv2/core/mat.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <QDebug>
 #include "QString"
 
 
+#include <opencv2/core/mat.hpp>
 export module Graphics:GraphicsHelper;
+// RefCntAutoPtr.hpp intentionally NOT included (MSVC 14.51 C1116 workaround)
+// Functions returning ITexture* return refcount=1; caller wraps in RefCntAutoPtr if needed.
 
 
 export namespace ArtifactCore {
@@ -140,27 +143,22 @@ export namespace ArtifactCore {
   return TexDesc;
  }
 
- RefCntAutoPtr<ITexture> CreateCSSRVInputTexture(Uint32 Width,
+ ITexture* CreateCSSRVInputTexture(Uint32 Width,
   Uint32 Height, 
   TEXTURE_FORMAT   Format = TEX_FORMAT_RGBA32_FLOAT,
   QString name=""
   )
  {
-
-
-  return RefCntAutoPtr<ITexture>(nullptr);
+  return nullptr;
  }
 
- RefCntAutoPtr<ITexture> CreateCSSRVInputTexture(Uint32 Width,
+ ITexture* CreateCSSRVInputTexture(Uint32 Width,
   Uint32 Height,
   const QString name,
   TEXTURE_FORMAT   Format = TEX_FORMAT_RGBA32_FLOAT
- 
  )
  {
-
-
-  return RefCntAutoPtr<ITexture>(nullptr);
+  return nullptr;
  }
 
 
@@ -171,7 +169,7 @@ export namespace ArtifactCore {
  {
   if (mat.channels() != 4 || mat.type() != CV_32FC4) {
    qWarning() << "Expected CV_32FC4 format (RGBA32F)";
-   return RefCntAutoPtr<ITexture>(nullptr);
+   return (ITexture*)nullptr;
   }
   TextureDesc texDesc;
   texDesc.Name = name.toUtf8().constData();
@@ -179,35 +177,29 @@ export namespace ArtifactCore {
   texDesc.Width = mat.cols;
   texDesc.Height = mat.rows;
   texDesc.Format = Format;
-  texDesc.Usage = USAGE_IMMUTABLE; // 読み取り専用
+  texDesc.Usage = USAGE_IMMUTABLE;
   texDesc.BindFlags = BIND_SHADER_RESOURCE;
   texDesc.MipLevels = 1;
 
-
   TextureData InitialData;
   TextureSubResData subResData;
-
   subResData.Stride = static_cast<Uint32>(mat.step);
   subResData.pData = mat.data;
-
   InitialData.pSubResources = &subResData;
-  InitialData.NumSubresources = 1; // ミップマップがないため1
+  InitialData.NumSubresources = 1;
 
-  RefCntAutoPtr<ITexture> texture;
+  ITexture* texture = nullptr;
   device->CreateTexture(texDesc, &InitialData, &texture);
 
   if (!texture)
+   return (ITexture*)nullptr;
 
-  return RefCntAutoPtr<ITexture>(nullptr);
-
-
-  
+  return texture;
  }
- 
+
  auto CreateCSOutputTexture()
  {
-
-  return RefCntAutoPtr<ITexture>(nullptr);
+  return (ITexture*)nullptr;
  }
 
 }

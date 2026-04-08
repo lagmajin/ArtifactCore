@@ -1,8 +1,8 @@
 module;
+#include <utility>
 #include <QTime>
 #include "../Define/DllExportMacro.hpp"
 export module Time.Rational;
-import std;
 
 
 

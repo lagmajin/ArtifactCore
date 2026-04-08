@@ -1,5 +1,4 @@
 ﻿module;
-#include <QSize>
 
 #include <iostream>
 #include <vector>
@@ -15,8 +14,6 @@
 #include <optional>
 #include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -26,7 +23,6 @@
 #include <variant>
 #include <any>
 #include <atomic>
-#include <condition_variable>
 #include <queue>
 #include <deque>
 #include <list>
@@ -34,6 +30,9 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QSize>
+#include <concepts>
+#include <type_traits>
 export module Size;
 
 

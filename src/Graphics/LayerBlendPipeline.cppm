@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -11,8 +12,20 @@ module Graphics.LayerBlendPipeline;
 
 namespace ArtifactCore {
 
-LayerBlendPipeline::LayerBlendPipeline(GpuContext& context) : context_(context) {}
-LayerBlendPipeline::~LayerBlendPipeline() = default;
+struct LayerBlendPipeline::Impl
+{
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pBlendCB_;
+};
+
+LayerBlendPipeline::LayerBlendPipeline(GpuContext& context)
+    : context_(context), pImpl_(new Impl())
+{
+}
+
+LayerBlendPipeline::~LayerBlendPipeline()
+{
+    delete pImpl_;
+}
 
 bool LayerBlendPipeline::initialize()
 {
@@ -35,8 +48,8 @@ bool LayerBlendPipeline::createConstantBuffer()
  // [Fix 1] USAGE_DYNAMIC には CPU_ACCESS_WRITE が必須
  buffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
 
- pDevice->CreateBuffer(buffDesc, nullptr, &pBlendCB_);
- if (!pBlendCB_) {
+ pDevice->CreateBuffer(buffDesc, nullptr, &pImpl_->pBlendCB_);
+ if (!pImpl_->pBlendCB_) {
   qWarning() << "[LayerBlendPipeline] Failed to create constant buffer";
   return false;
  }
@@ -74,8 +87,8 @@ bool LayerBlendPipeline::createExecutors()
    continue;
   }
 
-  if (pBlendCB_) {
-   entry.executor->setBuffer("BlendParams", pBlendCB_);
+  if (pImpl_->pBlendCB_) {
+   entry.executor->setBuffer("BlendParams", pImpl_->pBlendCB_);
   } else {
    qWarning() << "[LayerBlendPipeline] pBlendCB_ is null for blend mode" << static_cast<int>(mode)
               << "- opacity will not work";
@@ -99,7 +112,7 @@ bool LayerBlendPipeline::createExecutors()
 
 bool LayerBlendPipeline::ready() const
 {
- return !executors_.empty() && pBlendCB_;
+ return !executors_.empty() && pImpl_->pBlendCB_;
 }
 
 bool LayerBlendPipeline::blend(
@@ -128,7 +141,7 @@ bool LayerBlendPipeline::blend(
   qCritical() << "[LayerBlendPipeline::blend] outUAV is null for mode" << static_cast<int>(mode);
   return false;
  }
- if (!pBlendCB_) {
+ if (!pImpl_->pBlendCB_) {
   qCritical() << "[LayerBlendPipeline::blend] pBlendCB_ is null - constant buffer not initialized";
   return false;
  }
@@ -154,10 +167,10 @@ bool LayerBlendPipeline::blend(
  currentParams_.blendMode = static_cast<unsigned int>(mode);
 
  void* pData = nullptr;
- ctx->MapBuffer(pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+ ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
  if (pData) {
   memcpy(pData, &currentParams_, sizeof(BlendParams));
-  ctx->UnmapBuffer(pBlendCB_, MAP_WRITE);
+  ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
  } else {
   qWarning() << "[LayerBlendPipeline::blend] MapBuffer failed - opacity may be wrong";
  }
@@ -201,10 +214,10 @@ bool LayerBlendPipeline::blendDirect(
  currentParams_.blendMode = static_cast<unsigned int>(mode);
 
  void* pData = nullptr;
- ctx->MapBuffer(pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+ ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
  if (pData) {
   memcpy(pData, &currentParams_, sizeof(BlendParams));
-  ctx->UnmapBuffer(pBlendCB_, MAP_WRITE);
+  ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
  }
 
  exec.setTextureView("SrcTex", srcSRV);

@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <QIcon>
 #include <QPixmap>
 #include <QtSVG/QSvgRenderer>

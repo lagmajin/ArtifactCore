@@ -49,8 +49,6 @@ module;
 #include <regex>
 #include <random>
 #include <opencv2/opencv.hpp>
-#include <opencv2/calib3d.hpp>
-#include <opencv2/video/tracking.hpp>
 module Tracking.MotionTracker;
 
 

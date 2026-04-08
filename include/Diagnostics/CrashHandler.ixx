@@ -1,6 +1,5 @@
 module;
 #include <windows.h>
-#include <QString>
 
 #include <iostream>
 #include <vector>
@@ -10,10 +9,12 @@ module;
 #include <optional>
 #include <utility>
 #include <array>
-#include <mutex>
 #include <atomic>
+#include <QString>
 
 export module Diagnostics.CrashHandler;
+
+import std;
 
 export namespace ArtifactCore {
 

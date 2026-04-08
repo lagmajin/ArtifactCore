@@ -1,10 +1,10 @@
 module;
+#include <utility>
+#include <cstdint>
 #include <QString>
 #include <QRect>
 #include <QVector>
 #include <QByteArray>
-
-#include <cstdint>
 
 export module Image.PSDDocument;
 

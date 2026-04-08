@@ -1,7 +1,8 @@
 module;
-#include <opencv2/opencv.hpp>
+#include <utility>
 #include <cmath>
 #include <algorithm>
+#include <opencv2/opencv.hpp>
 module LiftCV;
 
 namespace ArtifactCore {

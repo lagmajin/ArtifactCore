@@ -1,8 +1,9 @@
-﻿module;
+module;
+#include <utility>
+#include "../Define/DllExportMacro.hpp"
+#include <QString>
 #include <QAbstractItemModel>
 #include <QtWidgets/qheaderview.h>
-
-#include "../Define/DllExportMacro.hpp"
 
 export module Render.JobModel;
 

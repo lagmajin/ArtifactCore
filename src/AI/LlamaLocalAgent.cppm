@@ -1,4 +1,6 @@
 module;
+#include <gguf.h>
+#include <llama.h>
 #include <QString>
 #include <QByteArray>
 #include <QDebug>
@@ -7,18 +9,10 @@ module;
 #include <QCoreApplication>
 #include <QDir>
 #include <QStringList>
+#include <QStringView>
 #include <QFileInfo>
-#include <gguf.h>
-#include <llama.h>
-#include <vector>
-#include <string>
-#include <memory>
-#include <mutex>
-#include <thread>
-#include <algorithm>
 
 module Core.AI.LlamaAgent;
-
 import std;
 import Core.AI.Context;
 
@@ -236,16 +230,16 @@ QString buildContextSummary(const AIContext& context)
 {
     QStringList lines;
     if (!context.projectSummary().isEmpty()) {
-        lines.append(QStringLiteral("Project summary:\n%1").arg(context.projectSummary()));
+        lines.append(QStringLiteral("Project summary:\n%1").arg(QStringView{context.projectSummary()}));
     }
     if (!context.activeCompositionId().isEmpty()) {
-        lines.append(QStringLiteral("Active composition: %1").arg(context.activeCompositionId()));
+        lines.append(QStringLiteral("Active composition: %1").arg(QStringView{context.activeCompositionId()}));
     }
     const auto selectedLayers = context.selectedLayers();
     if (!selectedLayers.empty()) {
         lines.append(QStringLiteral("Selected layers:"));
         for (const auto& layer : selectedLayers) {
-            lines.append(QStringLiteral("- %1").arg(layer));
+            lines.append(QStringLiteral("- %1").arg(QStringView{layer}));
         }
     }
     return lines.join(QStringLiteral("\n"));
@@ -361,7 +355,7 @@ QString sampleWithModel(
                          "Use the provided context only when relevant.");
     const QString effectiveUserPrompt = contextBlock.isEmpty()
         ? userPrompt
-        : QStringLiteral("%1\n\nContext:\n%2").arg(userPrompt, contextBlock);
+        : QStringLiteral("%1\n\nContext:\n%2").arg(QStringView{userPrompt}, QStringView{contextBlock});
 
     const std::string systemUtf8 = QStringToUtf8(effectiveSystemPrompt);
     const std::string userUtf8 = QStringToUtf8(effectiveUserPrompt);
@@ -382,7 +376,7 @@ QString sampleWithModel(
     if (formattedLen < 0) {
         // Fallback to a simple plain-text prompt if the model template isn't available.
         const QString fallbackPrompt = QStringLiteral("System:\n%1\n\nUser:\n%2\n\nAssistant:\n")
-            .arg(effectiveSystemPrompt, effectiveUserPrompt);
+            .arg(QStringView{effectiveSystemPrompt}, QStringView{effectiveUserPrompt});
         const auto tokens = tokenizePrompt(vocab, fallbackPrompt);
         if (tokens.empty()) {
             if (errorOut) {
@@ -612,7 +606,7 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
 
     const QFileInfo modelInfo(modelPath);
     if (!modelInfo.exists() || !modelInfo.isFile()) {
-        impl_->lastErrorMessage = QStringLiteral("Model file not found: %1").arg(modelPath);
+        impl_->lastErrorMessage = QStringLiteral("Model file not found: %1").arg(QStringView{modelPath});
         qWarning() << "[LlamaLocalAgent]" << impl_->lastErrorMessage;
         impl_->initialized = false;
         return false;
@@ -633,7 +627,7 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
         if (normalizedArchitecture == QStringLiteral("phi4")) {
             impl_->lastErrorMessage = QStringLiteral(
                 "Unsupported GGUF architecture '%1'. This build of llama.cpp supports phi2/phi3/phimoe, but not phi4 yet."
-            ).arg(architecture);
+            ).arg(QStringView{architecture});
             qWarning() << "[LlamaLocalAgent]" << impl_->lastErrorMessage << "path=" << modelPath;
             impl_->initialized = false;
             return false;
@@ -679,9 +673,9 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
         if (!architecture.isEmpty()) {
             impl_->lastErrorMessage = QStringLiteral(
                 "llama.cpp failed to load model: %1 (GGUF architecture: %2)"
-            ).arg(modelPath, architecture);
+            ).arg(QStringView{modelPath}, QStringView{architecture});
         } else {
-            impl_->lastErrorMessage = QStringLiteral("llama.cpp failed to load model: %1").arg(modelPath);
+            impl_->lastErrorMessage = QStringLiteral("llama.cpp failed to load model: %1").arg(QStringView{modelPath});
         }
         qWarning() << "[LlamaLocalAgent]" << impl_->lastErrorMessage;
         impl_->initialized = false;
@@ -702,28 +696,28 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
 QString LlamaLocalAgent::analyzeContext(const AIContext& context) {
     auto selectedLayers = context.selectedLayers();
     if (!selectedLayers.empty()) {
-        return QString("選択中のレイヤー：%1").arg(selectedLayers.front());
+        return QStringLiteral("選択中のレイヤー：%1").arg(QStringView{selectedLayers.front()});
     }
     QString activeCompId = context.activeCompositionId();
     if (!activeCompId.isEmpty()) {
-        return QString("アクティブコンポジション：%1").arg(activeCompId);
+        return QStringLiteral("アクティブコンポジション：%1").arg(QStringView{activeCompId});
     }
-    return "コンテキスト情報なし";
+    return QStringLiteral("コンテキスト情報なし");
 }
 
 QString LlamaLocalAgent::predictParameter(const QString& targetProperty, const AIContext& context) {
     Q_UNUSED(targetProperty);
     Q_UNUSED(context);
-    return "{\"value\": 0.5}";
+    return QStringLiteral("{\"value\": 0.5}");
 }
 
 bool LlamaLocalAgent::requiresCloudEscalation(const QString& userPrompt, const AIContext& context) {
     Q_UNUSED(context);
-    if (userPrompt.contains("script", Qt::CaseInsensitive) ||
-        userPrompt.contains("algorithm", Qt::CaseInsensitive) ||
-        userPrompt.contains("coding", Qt::CaseInsensitive) ||
-        userPrompt.contains("映画", Qt::CaseInsensitive) ||
-        userPrompt.contains("cinematic", Qt::CaseInsensitive)) {
+    if (userPrompt.contains(QStringLiteral("script"), Qt::CaseInsensitive) ||
+        userPrompt.contains(QStringLiteral("algorithm"), Qt::CaseInsensitive) ||
+        userPrompt.contains(QStringLiteral("coding"), Qt::CaseInsensitive) ||
+        userPrompt.contains(QStringLiteral("映画"), Qt::CaseInsensitive) ||
+        userPrompt.contains(QStringLiteral("cinematic"), Qt::CaseInsensitive)) {
         return true;
     }
     return false;
@@ -733,8 +727,8 @@ LocalAnalysisResult LlamaLocalAgent::analyzeUserQuestion(const QString& question
     LocalAnalysisResult result;
     const QString q = question.toLower();
 
-    if (q.contains("見え") || q.contains("表示") || q.contains("visible") ||
-        q.contains("display") || q.contains("show")) {
+    if (q.contains(QStringLiteral("見え")) || q.contains(QStringLiteral("表示")) || q.contains(QStringLiteral("visible")) ||
+        q.contains(QStringLiteral("display")) || q.contains(QStringLiteral("show"))) {
         result.intent = "visibility";
         result.requiredData = {
             "layer.visible",
@@ -746,8 +740,8 @@ LocalAnalysisResult LlamaLocalAgent::analyzeUserQuestion(const QString& question
             "layer.locked"
         };
         result.confidence = 0.9f;
-    } else if (q.contains("アニメ") || q.contains("動き") || q.contains("motion") ||
-               q.contains("animate") || q.contains("keyframe")) {
+    } else if (q.contains(QStringLiteral("アニメ")) || q.contains(QStringLiteral("動き")) || q.contains(QStringLiteral("motion")) ||
+               q.contains(QStringLiteral("animate")) || q.contains(QStringLiteral("keyframe"))) {
         result.intent = "animation";
         result.requiredData = {
             "layer.keyframes",
@@ -756,8 +750,8 @@ LocalAnalysisResult LlamaLocalAgent::analyzeUserQuestion(const QString& question
             "layer.outPoint"
         };
         result.confidence = 0.85f;
-    } else if (q.contains("カラー") || q.contains("色") || q.contains("color") ||
-               q.contains("grade") || q.contains("lumetri")) {
+    } else if (q.contains(QStringLiteral("カラー")) || q.contains(QStringLiteral("色")) || q.contains(QStringLiteral("color")) ||
+               q.contains(QStringLiteral("grade")) || q.contains(QStringLiteral("lumetri"))) {
         result.intent = "color";
         result.requiredData = {
             "composition.colorSpace",
@@ -765,8 +759,8 @@ LocalAnalysisResult LlamaLocalAgent::analyzeUserQuestion(const QString& question
             "layer.adjustmentLayer"
         };
         result.confidence = 0.85f;
-    } else if (q.contains("オーディオ") || q.contains("音声") || q.contains("audio") ||
-               q.contains("sound") || q.contains("volume")) {
+    } else if (q.contains(QStringLiteral("オーディオ")) || q.contains(QStringLiteral("音声")) || q.contains(QStringLiteral("audio")) ||
+               q.contains(QStringLiteral("sound")) || q.contains(QStringLiteral("volume"))) {
         result.intent = "audio";
         result.requiredData = {
             "layer.audioLevels",
@@ -774,8 +768,8 @@ LocalAnalysisResult LlamaLocalAgent::analyzeUserQuestion(const QString& question
             "composition.sampleRate"
         };
         result.confidence = 0.85f;
-    } else if (q.contains("レンダー") || q.contains("出力") || q.contains("render") ||
-               q.contains("export") || q.contains("encode")) {
+    } else if (q.contains(QStringLiteral("レンダー")) || q.contains(QStringLiteral("出力")) || q.contains(QStringLiteral("render")) ||
+               q.contains(QStringLiteral("export")) || q.contains(QStringLiteral("encode"))) {
         result.intent = "render";
         result.requiredData = {
             "composition.resolution",
@@ -783,8 +777,8 @@ LocalAnalysisResult LlamaLocalAgent::analyzeUserQuestion(const QString& question
             "renderQueue.status"
         };
         result.confidence = 0.8f;
-    } else if (q.contains("エフェクト") || q.contains("effect") ||
-               q.contains("filter") || q.contains("plugin")) {
+    } else if (q.contains(QStringLiteral("エフェクト")) || q.contains(QStringLiteral("effect")) ||
+               q.contains(QStringLiteral("filter")) || q.contains(QStringLiteral("plugin"))) {
         result.intent = "effect";
         result.requiredData = {
             "layer.effects",
@@ -806,7 +800,7 @@ LocalAnalysisResult LlamaLocalAgent::analyzeUserQuestion(const QString& question
     QString collectedData;
     auto selectedLayers = context.selectedLayers();
     if (!selectedLayers.empty()) {
-        collectedData += QString("選択中のレイヤー：%1\n").arg(selectedLayers.front());
+        collectedData += QStringLiteral("選択中のレイヤー：%1\n").arg(QStringView{selectedLayers.front()});
         for (const auto& dataKey : result.requiredData) {
             if (dataKey == "layer.visible") {
                 collectedData += "  表示：(要確認)\n";
@@ -826,7 +820,7 @@ LocalAnalysisResult LlamaLocalAgent::analyzeUserQuestion(const QString& question
 
     QString activeCompId = context.activeCompositionId();
     if (!activeCompId.isEmpty()) {
-        collectedData += QString("アクティブコンポジション：%1\n").arg(activeCompId);
+        collectedData += QStringLiteral("アクティブコンポジション：%1\n").arg(QStringView{activeCompId});
     }
 
     result.requiresCloud = false;

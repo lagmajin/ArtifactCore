@@ -4,10 +4,8 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+// RefCntAutoPtr.hpp intentionally NOT included here (MSVC 14.51 C1116 workaround)
 #include "../Define/DllExportMacro.hpp"
-
-#include <iostream>
 #include <vector>
 #include <string>
 #include <map>
@@ -21,8 +19,6 @@ module;
 #include <optional>
 #include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -32,7 +28,6 @@ module;
 #include <variant>
 #include <any>
 #include <atomic>
-#include <condition_variable>
 #include <queue>
 #include <deque>
 #include <list>
@@ -88,12 +83,8 @@ public:
 
 private:
     GpuContext& context_;
-    
-    RefCntAutoPtr<IPipelineState>         pPSO_;
-    RefCntAutoPtr<IShaderResourceBinding> pSRB_;
-    RefCntAutoPtr<IBuffer>                pParticleBuffer_;
-    RefCntAutoPtr<IBuffer>                pConstantBuffer_;
-
+    class Impl;
+    Impl* pImpl_ = nullptr;
     size_t maxParticles_ = 0;
 
     struct ShaderConstants {

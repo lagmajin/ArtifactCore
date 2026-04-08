@@ -1,11 +1,10 @@
 module;
+#include <utility>
 
 #include <cmath>
 #include <algorithm>
 
 module Color.BlendMode;
-
-import std;
 
 import Color.Float;
 import Color.Conversion;

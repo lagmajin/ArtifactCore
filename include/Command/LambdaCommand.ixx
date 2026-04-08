@@ -1,6 +1,9 @@
-﻿module;
-
+module;
+#include <utility>
+#include <functional>
+#include <QString>
 #include <QUndoCommand>
+
 export module Command.Lambda;
 
 export namespace ArtifactCore {

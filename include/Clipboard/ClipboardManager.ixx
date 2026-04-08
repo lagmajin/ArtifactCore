@@ -1,4 +1,6 @@
 module;
+#include <utility>
+#include <memory>
 #include <QString>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -7,7 +9,6 @@ module;
 #include <QClipboard>
 #include <QApplication>
 #include <QHash>
-#include <memory>
 
 export module Clipboard.ClipboardManager;
 

@@ -1,8 +1,11 @@
 module;
+#include <utility>
 
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
 module Frame.Range;
+
+import Frame.Range;
 
 import std;
 

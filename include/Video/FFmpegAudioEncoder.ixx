@@ -1,7 +1,7 @@
-﻿module;
+module;
+#include <utility>
 
 #include <QString>
-
 export module Media.Encoder.FFmpegAudioEncoder;
 
 export namespace ArtifactCore

@@ -1,15 +1,1 @@
-module;
-
-
-export module Asset.Importer;
-
-
-export namespace ArtifactCore {
-
-
-
-
-
-
-
-};
+// Intentional stub. The real Asset.Importer module lives in AssetImporter.ixx.

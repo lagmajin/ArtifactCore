@@ -4,10 +4,9 @@ module;
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDateTime>
-#include <vector>
-#include <memory>
 
 export module Core.AI.Context;
+import std;
 
 export namespace ArtifactCore {
 

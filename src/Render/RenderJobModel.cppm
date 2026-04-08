@@ -1,9 +1,12 @@
-﻿module;
+module;
+#include <utility>
+#include <vector>
+#include <memory>
 
 #include <algorithm>
 #include <QString>
-//#include <QHeaderView>
 #include <QAbstractItemModel>
+#include <QtWidgets/qheaderview.h>
 
 module Render.JobModel;
 

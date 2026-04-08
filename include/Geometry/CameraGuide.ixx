@@ -1,7 +1,8 @@
 module;
-#include <algorithm>
 #include <QVector>
 #include <QVector3D>
+#include <utility>
+#include <algorithm>
 #include <cstdint>
 
 export module Geometry.CameraGuide;
@@ -9,9 +10,9 @@ export module Geometry.CameraGuide;
 export namespace ArtifactCore {
 
 struct CameraGuidePrimitive {
-    QVector<QVector3D> vertices;
-    QVector<std::uint32_t> lineIndices;
-    QVector<std::uint32_t> triangleIndices;
+    std::vector<QVector3D> vertices;
+    std::vector<std::uint32_t> lineIndices;
+    std::vector<std::uint32_t> triangleIndices;
 };
 
 inline CameraGuidePrimitive makeNukeStyleCameraGuidePrimitive(

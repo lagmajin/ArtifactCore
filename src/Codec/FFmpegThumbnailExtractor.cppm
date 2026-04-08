@@ -1,15 +1,14 @@
-﻿module;
+module;
 
 #include <QImage>
 #include <QDebug>
-
+#include <QString>
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/time.h> // av_usleep など
-
 }
 #include <iostream>
 #include <vector>

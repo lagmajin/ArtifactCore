@@ -1,7 +1,4 @@
 ﻿module;
-#include <QHash>
-#include <QMultiHash>
-#include <QVector>
 #include <typeindex>
 
 #include <iostream>
@@ -16,20 +13,16 @@
 #include <cmath>
 #include <functional>
 #include <optional>
-#include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
-#include <type_traits>
+#include <mutex>
 #include <variant>
 #include <any>
 #include <atomic>
-#include <condition_variable>
 #include <queue>
 #include <deque>
 #include <list>
@@ -37,9 +30,12 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QHash>
+#include <QMultiHash>
+#include <QVector>
 export module Container.MultiIndex;
 
-
+import std;
 
 
 

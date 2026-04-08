@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -10,6 +11,13 @@ module;
 module Graphics.ParticleCompute;
 
 namespace ArtifactCore {
+
+struct ParticleCompute::Impl
+{
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pParticleBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pAudioSpectrumBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pConstantBuffer_;
+};
 
 const char* ParticleUpdateCSSource = R"(
 struct ParticleData {
@@ -97,8 +105,14 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
 }
 )";
 
-ParticleCompute::ParticleCompute(GpuContext& context) : context_(context), executor_(context) {}
-ParticleCompute::~ParticleCompute() = default;
+ParticleCompute::ParticleCompute(GpuContext& context)
+    : context_(context), executor_(context), pImpl_(new Impl())
+{
+}
+ParticleCompute::~ParticleCompute()
+{
+    delete pImpl_;
+}
 
 void ParticleCompute::initialize(size_t maxParticles) {
     maxParticles_ = maxParticles;
@@ -118,7 +132,7 @@ void ParticleCompute::createBuffers() {
     BuffDesc.BindFlags         = BIND_UNORDERED_ACCESS | BIND_SHADER_RESOURCE;
     // BuffDesc.ElementByteSize   = sizeof(Particle); // Note: API changed in Diligent
     BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
-    pDevice->CreateBuffer(BuffDesc, nullptr, &pParticleBuffer_);
+    pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pParticleBuffer_);
 
     // 2. Constant Buffer (Simulation Params)
     BuffDesc.Name              = "Particle Compute Constants CB";
@@ -126,7 +140,7 @@ void ParticleCompute::createBuffers() {
     BuffDesc.Size              = sizeof(SimulationConstants);
     // BuffDesc.ElementByteSize   = 0; // Note: API changed in Diligent
     BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
-    pDevice->CreateBuffer(BuffDesc, nullptr, &pConstantBuffer_);
+    pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pConstantBuffer_);
 
     // 3. Audio Spectrum Buffer (SRV)
     BuffDesc.Name              = "Audio Spectrum Buffer";
@@ -135,7 +149,7 @@ void ParticleCompute::createBuffers() {
     BuffDesc.BindFlags         = BIND_SHADER_RESOURCE;
     // BuffDesc.ElementByteSize   = sizeof(float); // Note: API changed in Diligent
     BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
-    pDevice->CreateBuffer(BuffDesc, nullptr, &pAudioSpectrumBuffer_);
+    pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pAudioSpectrumBuffer_);
 }
 
 void ParticleCompute::createPSO() {
@@ -156,7 +170,7 @@ void ParticleCompute::createPSO() {
         return;
     }
 
-    executor_.setBuffer("Constants", pConstantBuffer_);
+    executor_.setBuffer("Constants", pImpl_->pConstantBuffer_);
     executor_.createShaderResourceBinding(true);
 }
 
@@ -168,32 +182,37 @@ void ParticleCompute::dispatch(IDeviceContext* pContext, float dt) {
     constants_.noiseStrength = 2.0f; // Default
 
     void* pData = nullptr;
-    pContext->MapBuffer(pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+    pContext->MapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
     if(pData) {
         memcpy(pData, &constants_, sizeof(SimulationConstants));
-        pContext->UnmapBuffer(pConstantBuffer_, MAP_WRITE);
+        pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
     }
 
     // 2. UAV & SRV セット
-    executor_.setBufferView("g_ParticleBuffer", pParticleBuffer_->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
-    executor_.setBufferView("g_AudioSpectrum", pAudioSpectrumBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    executor_.setBufferView("g_ParticleBuffer", pImpl_->pParticleBuffer_->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
+    executor_.setBufferView("g_AudioSpectrum", pImpl_->pAudioSpectrumBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
     
     DispatchComputeAttribs Attribs;
     Attribs.ThreadGroupCountX = ((uint32_t)maxParticles_ + 63) / 64;
     executor_.dispatch(pContext, Attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
+IBuffer* ParticleCompute::getParticleBuffer()
+{
+    return pImpl_->pParticleBuffer_;
+}
+
 void ParticleCompute::uploadParticles(const std::vector<Particle>& particles, size_t count) {
     if (count == 0) return;
     auto pContext = context_.D3D12DeviceContext();
-    pContext->UpdateBuffer(pParticleBuffer_, 0, sizeof(Particle) * std::min(count, maxParticles_), particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->UpdateBuffer(pImpl_->pParticleBuffer_, 0, sizeof(Particle) * std::min(count, maxParticles_), particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void ParticleCompute::setAudioData(const std::vector<float>& spectrum) {
     if (spectrum.empty()) return;
     auto pContext = context_.D3D12DeviceContext();
     size_t size = std::min(spectrum.size(), (size_t)256) * sizeof(float);
-    pContext->UpdateBuffer(pAudioSpectrumBuffer_, 0, size, spectrum.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->UpdateBuffer(pImpl_->pAudioSpectrumBuffer_, 0, size, spectrum.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     
     // Intensity は全体の平均とかでとりあえず
     float avg = 0;

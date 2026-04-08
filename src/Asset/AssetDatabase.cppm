@@ -1,11 +1,15 @@
 module;
+#include <utility>
 #include <QString>
 #include <QUuid>
+#include <QMap>
+#include <QList>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QFile>
+#include <QIODevice>
 
 module Asset.Database;
 

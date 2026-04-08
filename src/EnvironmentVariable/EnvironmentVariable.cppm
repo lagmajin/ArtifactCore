@@ -1,10 +1,16 @@
 module;
+#include <utility>
 #include <QSettings>
 #include <QCoreApplication>
 #include <QProcessEnvironment>
 #include <QRegularExpressionMatch>
 #include <QSet> 
 #include <QDebug>
+#include <QObject>
+#include <QString>
+#include <QStringList>
+#include <QVariant>
+#include <QMap>
 #include <wobjectimpl.h>
 module EnvironmentVariable;
 

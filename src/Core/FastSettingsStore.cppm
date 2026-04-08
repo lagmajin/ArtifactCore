@@ -1,8 +1,6 @@
 module;
-#include <algorithm>
-#include <memory>
-#include <shared_mutex>
 #include <QFile>
+#include <QIODevice>
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QDir>
@@ -11,9 +9,11 @@ module;
 #include <QCborMap>
 #include <QCborValue>
 #include <QByteArray>
+#include <QHash>
 #include <QStringList>
 
 module Core.FastSettingsStore;
+import std;
 
 namespace ArtifactCore
 {

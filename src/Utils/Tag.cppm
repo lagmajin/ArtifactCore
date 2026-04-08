@@ -1,8 +1,11 @@
 module;
+#include <utility>
 #define QT_NO_KEYWORDS
 #include <QString>
 
 module Utils.Tag;
+
+import Utils.Tag;
 
 import Utils.String.UniString;
 

@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <utility>
 #include "../Define/DllExportMacro.hpp"
 export module Color.Lab;
 

@@ -1,7 +1,8 @@
 module;
-#include <QString>
+#include <utility>
 #include <functional>
 #include <memory>
+#include <QString>
 
 export module Core.AI.OnnxDmlAgent;
 

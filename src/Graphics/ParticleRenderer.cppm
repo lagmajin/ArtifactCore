@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -12,6 +13,14 @@ module Graphics.ParticleRenderer;
 import std;
 
 namespace ArtifactCore {
+
+struct ParticleRenderer::Impl
+{
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pPSO_;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pSRB_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pParticleBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pConstantBuffer_;
+};
 
 const char* ParticleVSSource = R"(
 struct ParticleData {
@@ -92,8 +101,14 @@ float4 PSMain(PS_Input In) : SV_Target {
 }
 )";
 
-ParticleRenderer::ParticleRenderer(GpuContext& context) : context_(context) {}
-ParticleRenderer::~ParticleRenderer() = default;
+ParticleRenderer::ParticleRenderer(GpuContext& context)
+    : context_(context), pImpl_(new Impl())
+{
+}
+ParticleRenderer::~ParticleRenderer()
+{
+    delete pImpl_;
+}
 
 void ParticleRenderer::initialize(size_t maxParticles) {
     maxParticles_ = maxParticles;
@@ -112,7 +127,7 @@ void ParticleRenderer::createBuffers() {
     BuffDesc.BindFlags         = BIND_SHADER_RESOURCE;
     BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
     BuffDesc.ElementByteStride = sizeof(ParticleVertex);
-    pDevice->CreateBuffer(BuffDesc, nullptr, &pParticleBuffer_);
+    pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pParticleBuffer_);
 
     // 2. Constant Buffer
     BuffDesc.Name              = "Particle Constants CB";
@@ -122,7 +137,7 @@ void ParticleRenderer::createBuffers() {
     BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
     BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
     BuffDesc.ElementByteStride = 0;
-    pDevice->CreateBuffer(BuffDesc, nullptr, &pConstantBuffer_);
+    pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pConstantBuffer_);
 }
 
 void ParticleRenderer::createPSO() {
@@ -144,9 +159,10 @@ void ParticleRenderer::createPSO() {
     RT0.DestBlend   = BLEND_FACTOR_ONE; // Additive
     RT0.BlendOp     = BLEND_OPERATION_ADD;
 
-    // Compile Shaders
-    auto vs = context_.CompileShader(ParticleVSSource, SHADER_TYPE_VERTEX, "VSMain");
-    auto ps = context_.CompileShader(ParticlePSSource, SHADER_TYPE_PIXEL, "PSMain");
+    // Compile Shaders (output-param style per new GPUComputeContext API)
+    RefCntAutoPtr<IShader> vs, ps;
+    context_.CompileShader(ParticleVSSource, SHADER_TYPE_VERTEX, "VSMain", &vs);
+    context_.CompileShader(ParticlePSSource, SHADER_TYPE_PIXEL,  "PSMain", &ps);
 
     PSOCreateInfo.pVS = vs;
     PSOCreateInfo.pPS = ps;
@@ -160,11 +176,11 @@ void ParticleRenderer::createPSO() {
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
     PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = (Uint32)Vars.size();
 
-    pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pPSO_);
+    pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pImpl_->pPSO_);
 
     // Bind Constants
-    pPSO_->GetStaticVariableByName(SHADER_TYPE_VERTEX, "Constants")->Set(pConstantBuffer_);
-    pPSO_->CreateShaderResourceBinding(&pSRB_, true);
+    pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_VERTEX, "Constants")->Set(pImpl_->pConstantBuffer_);
+    pImpl_->pPSO_->CreateShaderResourceBinding(&pImpl_->pSRB_, true);
 }
 
 void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
@@ -172,24 +188,24 @@ void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
     auto pContext = context_.D3D12DeviceContext();
     
     size_t count = std::min(data.particles.size(), maxParticles_);
-    pContext->UpdateBuffer(pParticleBuffer_, 0, sizeof(ParticleVertex) * count, 
+    pContext->UpdateBuffer(pImpl_->pParticleBuffer_, 0, sizeof(ParticleVertex) * count, 
                           data.particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void ParticleRenderer::prepare(IDeviceContext* pContext) {
     // Update Constants
     void* pData = nullptr;
-    pContext->MapBuffer(pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+    pContext->MapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
     if(pData) {
         memcpy(pData, &constants_, sizeof(ShaderConstants));
-        pContext->UnmapBuffer(pConstantBuffer_, MAP_WRITE);
+        pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
     }
 
     // Set SRV
-    pSRB_->GetVariableByName(SHADER_TYPE_VERTEX, "g_Particles")->Set(pParticleBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    pImpl_->pSRB_->GetVariableByName(SHADER_TYPE_VERTEX, "g_Particles")->Set(pImpl_->pParticleBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
 
-    pContext->SetPipelineState(pPSO_);
-    pContext->CommitShaderResources(pSRB_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->SetPipelineState(pImpl_->pPSO_);
+    pContext->CommitShaderResources(pImpl_->pSRB_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {

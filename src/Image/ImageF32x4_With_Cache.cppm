@@ -1,5 +1,4 @@
 ﻿module;
-#include <wobjectimpl.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
@@ -36,6 +35,8 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QObject>
+#include <wobjectimpl.h>
 module Image.ImageF32x4RGBAWithCache;
 
 

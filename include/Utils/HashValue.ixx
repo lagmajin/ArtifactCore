@@ -1,7 +1,7 @@
 module;
+#include <utility>
 #include <QString>
 #include <QByteArray>
-
 export module Utils.HashValue;
 
 export namespace ArtifactCore {

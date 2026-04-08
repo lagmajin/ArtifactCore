@@ -1,11 +1,14 @@
 module;
+#include <QString>
 #include <QVector>
 #include <QByteArray>
 #include <QFile>
 #include <QDataStream>
 #include <QDebug>
-#include <cstring>
 #include <QtMultimedia/QAudioFormat>
+#include <utility>
+#include <cstring>
+
 module Audio.SimpleWav;
 
 

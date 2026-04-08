@@ -1,5 +1,7 @@
 module;
+#include <utility>
 #include <QString>
+#include <QStringView>
 #include <QVariant>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -33,12 +35,12 @@ public:
      * }
      */
     QVariant execute(const QJsonObject& toolCall) {
-        QString className = toolCall["class"].toString();
-        QString methodName = toolCall["method"].toString();
+        const QString className = toolCall["class"].toString();
+        const QString methodName = toolCall["method"].toString();
         QJsonArray argsArray = toolCall["arguments"].toArray();
 
         // 1. Find the object in registry
-        const IDescribable* constObj = DescriptionRegistry::instance().getDescribable(className);
+        const IDescribable* constObj = DescriptionRegistry::instance().getDescribable(QStringView{className});
         if (!constObj) return QVariant();
 
         // Note: For now we const_cast because the registry currently only returns const.
@@ -46,7 +48,7 @@ public:
         
         // 2. Invoke
         QVariantList args = jsonArgsToVariantList(argsArray);
-        return obj->invokeMethod(methodName, args);
+        return obj->invokeMethod(QStringView{methodName}, args);
     }
 
     /**

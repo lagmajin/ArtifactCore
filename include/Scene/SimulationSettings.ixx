@@ -1,7 +1,7 @@
 module;
+#include <utility>
 #include <QPointF>
 #include <QSizeF>
-
 export module Scene.SimulationSettings;
 
 export namespace ArtifactCore

@@ -1,4 +1,5 @@
 module;
+#include <QString>
 #include <QStandardPaths>
 #include <QDir>
 #include <wobjectimpl.h>

@@ -1,15 +1,15 @@
-﻿module;
+module;
+#include <utility>
+#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <opencv2/opencv.hpp>
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
-#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/core/mat.hpp>
+#include <QByteArray>
+#include <QString>
 module ImageProcessing.NegateCS;
-
-import TextureFactory;
 
 import Image;
 
@@ -36,9 +36,9 @@ namespace ArtifactCore
 	 QByteArray m_shaderBinaryData;
 
 
-	explicit	Impl(RefCntAutoPtr<IRenderDevice> device,RefCntAutoPtr<IDeviceContext> pContext) :pDevice(device),pContext(pContext)
+	explicit	Impl(IRenderDevice* device, IDeviceContext* ctx)
+		: pDevice(device), pContext(ctx)
 	{
-
 	}
 
 	~Impl()
@@ -285,7 +285,8 @@ namespace ArtifactCore
 
 
 
-	NegateCS::NegateCS(RefCntAutoPtr<IRenderDevice> pDevice, RefCntAutoPtr<IDeviceContext> pContext):impl_(new Impl(pDevice,pContext))
+	NegateCS::NegateCS(IRenderDevice* pDevice, IDeviceContext* pContext)
+		: impl_(new Impl(pDevice, pContext))
 	{
 
 	}

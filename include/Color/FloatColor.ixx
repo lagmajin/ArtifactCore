@@ -2,7 +2,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 #include <memory>
 #include <utility>
-#include <wobjectimpl.h>
 
 export module Color.Float;
 
@@ -75,5 +74,3 @@ public:
 };
 
 }; // namespace ArtifactCore
-
-W_REGISTER_ARGTYPE(ArtifactCore::FloatColor)

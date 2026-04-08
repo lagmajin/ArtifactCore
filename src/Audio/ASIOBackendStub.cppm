@@ -1,10 +1,10 @@
 module;
-#include <QtMultimedia/QAudioDevice>
-#include <QtMultimedia/QAudioFormat>
+#include <QString>
 #include <QDebug>
 
 module Audio.Backend.ASIOStub;
 
+import std;
 import Audio.Backend;
 import Audio.Backend.WASAPI;
 
@@ -31,8 +31,8 @@ ASIOBackendStub::~ASIOBackendStub() {
     close();
 }
 
-bool ASIOBackendStub::open(const QAudioDevice& device, 
-                           const QAudioFormat& format)
+bool ASIOBackendStub::open(const AudioDeviceInfo& device,
+                           const AudioBackendFormat& format)
 {
     if (impl_->isOpen_) {
         qWarning() << "[ASIOBackendStub] Already open";
@@ -88,12 +88,12 @@ bool ASIOBackendStub::isActive() const {
     return impl_->wasapi_->isActive();
 }
 
-QAudioFormat ASIOBackendStub::currentFormat() const {
+AudioBackendFormat ASIOBackendStub::currentFormat() const {
     return impl_->wasapi_->currentFormat();
 }
 
 QString ASIOBackendStub::backendName() const {
-    return QStringLiteral("ASIO(stub)");
+    return QString::fromUtf8("ASIO(stub)");
 }
 
 } // namespace ArtifactCore

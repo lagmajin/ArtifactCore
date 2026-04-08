@@ -1,5 +1,6 @@
-﻿
+
 module;
+#include <utility>
 #include <opencv2/opencv.hpp>
 export module BrightnessContrast;
 

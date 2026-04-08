@@ -1,7 +1,8 @@
-﻿module;
+module;
+#include <utility>
 #include <QString>
-
 export module Layer.Matte;
+
 
 export namespace ArtifactCore {
 

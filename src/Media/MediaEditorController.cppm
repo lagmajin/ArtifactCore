@@ -37,6 +37,8 @@ module;
 #include <random>
 module MediaEditorController;
 
+import MediaEditorController;
+
 
 
 

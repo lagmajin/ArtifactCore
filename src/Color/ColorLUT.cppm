@@ -1,21 +1,22 @@
 module;
-
+#include <utility>
+#include <vector>
+#include <cmath>
+#include <algorithm>
 #include <QString>
+#include <QStringList>
+#include <QByteArray>
 #include <QRegularExpression>
 #include <QImage>
 #include <QColor>
 #include <QVector3D>
 #include <QFile>
+#include <QFileInfo>
 #include <QTextStream>
 #include <QDir>
 #include <QMap>
-#include <vector>
-#include <cmath>
-#include <algorithm>
 
 module Color.LUT;
-
-import std;
 
 
 
@@ -677,29 +678,29 @@ namespace BuiltinLUTs {
 QStringList builtinLUTNames()
 {
     return {
-        QStringLiteral("cinematic"),
-        QStringLiteral("vintage"),
-        QStringLiteral("cold"),
-        QStringLiteral("warm"),
-        QStringLiteral("highContrast"),
-        QStringLiteral("lowContrast"),
-        QStringLiteral("desaturated"),
-        QStringLiteral("kodak2383"),
-        QStringLiteral("fuji3510")
+        QString::fromUtf8("cinematic"),
+        QString::fromUtf8("vintage"),
+        QString::fromUtf8("cold"),
+        QString::fromUtf8("warm"),
+        QString::fromUtf8("highContrast"),
+        QString::fromUtf8("lowContrast"),
+        QString::fromUtf8("desaturated"),
+        QString::fromUtf8("kodak2383"),
+        QString::fromUtf8("fuji3510")
     };
 }
 
 void registerBuiltins(LUTManager& manager)
 {
-    manager.registerLUT(QStringLiteral("cinematic"), cinematic());
-    manager.registerLUT(QStringLiteral("vintage"), vintage());
-    manager.registerLUT(QStringLiteral("cold"), cold());
-    manager.registerLUT(QStringLiteral("warm"), warm());
-    manager.registerLUT(QStringLiteral("highContrast"), highContrast());
-    manager.registerLUT(QStringLiteral("lowContrast"), lowContrast());
-    manager.registerLUT(QStringLiteral("desaturated"), desaturated());
-    manager.registerLUT(QStringLiteral("kodak2383"), kodak2383());
-    manager.registerLUT(QStringLiteral("fuji3510"), fuji3510());
+    manager.registerLUT(QString::fromUtf8("cinematic"), cinematic());
+    manager.registerLUT(QString::fromUtf8("vintage"), vintage());
+    manager.registerLUT(QString::fromUtf8("cold"), cold());
+    manager.registerLUT(QString::fromUtf8("warm"), warm());
+    manager.registerLUT(QString::fromUtf8("highContrast"), highContrast());
+    manager.registerLUT(QString::fromUtf8("lowContrast"), lowContrast());
+    manager.registerLUT(QString::fromUtf8("desaturated"), desaturated());
+    manager.registerLUT(QString::fromUtf8("kodak2383"), kodak2383());
+    manager.registerLUT(QString::fromUtf8("fuji3510"), fuji3510());
 }
 
 ColorLUT cinematic() {

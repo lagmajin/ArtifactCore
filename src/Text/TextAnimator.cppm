@@ -1,4 +1,5 @@
 module;
+#include <utility>
 #include <vector>
 #include <QPointF>
 #include <cmath>
@@ -7,6 +8,7 @@ module;
 #include <numbers>
 
 module Text.Animator;
+import Text.Animator;
 
 namespace ArtifactCore {
 

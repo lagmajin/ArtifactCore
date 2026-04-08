@@ -1,13 +1,15 @@
 module;
+#include <utility>
 #include <string>
 #include <vector>
 #include "../Define/DllExportMacro.hpp"
+#include <cmath>
+#include <algorithm>
 
 export module Graphics.Effect.Creative.Kaleidoscope;
 
 import Graphics.Effect.Creative;
 import Channel;
-import std;
 
 export namespace ArtifactCore {
 

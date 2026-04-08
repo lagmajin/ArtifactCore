@@ -1,12 +1,13 @@
 module;
-#include <QObject>
-#include <QImage>
-#include <QString>
+#include <utility>
 #include <future>
 #include <memory>
 #include <OpenImageIO/imagebuf.h>
-#include <wobjectdefs.h>
 #include "../../../include/Define/DllExportMacro.hpp"
+#include <QObject>
+#include <QImage>
+#include <QString>
+#include <wobjectdefs.h>
 
 export module IO.ImageExporter;
 

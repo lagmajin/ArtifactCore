@@ -1,12 +1,7 @@
-﻿module ;
-#define QT_NO_KEYWORDS
-#include <QList>
-#include <QPointF>
-#include <QVector2D>
+module;
+#include <utility>
+
 module Core.Point2D;
-
-
-
 
 namespace ArtifactCore
 {

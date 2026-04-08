@@ -1,11 +1,9 @@
-module ;
+module;
+#include <utility>
+
 #include <opencv2/opencv.hpp>
 
-
 module ImageProcessing.Sepia;
-
-
-
 
 
 namespace ArtifactCore {

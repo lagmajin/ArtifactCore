@@ -1,9 +1,9 @@
-﻿module;
+module;
+#include <utility>
 
 #include <QFile>
 #include <QString>
 #include <QStringList>
-
 export module Encoder.FFmpegEncoder;
 
 //import EncoderSettings;

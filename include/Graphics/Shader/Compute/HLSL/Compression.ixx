@@ -1,4 +1,5 @@
 module;
+#include <utility>
 
 export module Graphics.Shader.Compute.HLSL.Compression;
 

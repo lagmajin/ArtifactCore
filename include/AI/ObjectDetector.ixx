@@ -1,5 +1,8 @@
 module;
+#include <utility>
 #include <QString>
+#include <QStringView>
+#include <QVariant>
 #include <QList>
 #include <QRect>
 #include <QImage>
@@ -33,7 +36,7 @@ public:
     LocalizedText briefDescription() const override;
     QList<PropertyDescription> propertyDescriptions() const override;
     QList<MethodDescription> methodDescriptions() const override;
-    QVariant invokeMethod(const QString& name, const QVariantList& args) override;
+    QVariant invokeMethod(QStringView name, const QVariantList& args) override;
 
     /**
      * @brief Detect objects in an image

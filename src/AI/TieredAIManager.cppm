@@ -1,8 +1,6 @@
 module;
 #include <QString>
 #include <QDebug>
-#include <memory>
-#include <functional>
 
 module Core.AI.TieredManager;
 

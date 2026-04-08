@@ -1,4 +1,5 @@
 module;
+#include <utility>
 // pybind11-based embedded Python interpreter for Artifact
 // pybind11 wraps CPython C API with clean C++ semantics.
 // If pybind11 is not available, compiles as a no-op stub.

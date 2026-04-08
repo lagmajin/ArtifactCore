@@ -1,6 +1,5 @@
 ﻿module;
 
-#include <QString>
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 
 #include "../Define/DllExportMacro.hpp"
@@ -18,8 +17,6 @@
 #include <optional>
 #include <utility>
 #include <array>
-#include <mutex>
-#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -29,7 +26,6 @@
 #include <variant>
 #include <any>
 #include <atomic>
-#include <condition_variable>
 #include <queue>
 #include <deque>
 #include <list>

@@ -35,6 +35,8 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QDebug>
+#include <QVector>
 module Script.Builtin.Manager;
 
 

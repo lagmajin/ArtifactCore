@@ -37,6 +37,7 @@ module;
 #include <regex>
 #include <random>
 module Codec.Encoder.Setting;
+import Codec.Encoder.Setting;
 
 
 

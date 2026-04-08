@@ -1,5 +1,10 @@
 module;
-
+#include <utility>
+#include <QString>
+#include <QStringList>
+#include <QFile>
+#include <QDir>
+#include <QMap>
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -8,15 +13,7 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-#include <QString>
-#include <QStringList>
-#include <QFile>
-#include <QDir>
-#include <QMap>
-
 module Encoder.FFmpegEncoder:Impl;
-
-import std;
 import Image;
 import Encoder.FFmpegEncoder;
 

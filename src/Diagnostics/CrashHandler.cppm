@@ -3,31 +3,18 @@ module;
 #include <windows.h>
 #include <DbgHelp.h>
 #pragma comment(lib, "DbgHelp")
-#include <cstdio>
-#include <ctime>
-#include <cstring>
-
 #include <QString>
+#include <QStringView>
+#include <QTextStream>
 #include <QDir>
 #include <QStandardPaths>
 #include <QDateTime>
 #include <QDebug>
 #include <QSysInfo>
 
-#include <iostream>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <fstream>
-#include <memory>
-#include <functional>
-#include <optional>
-#include <utility>
-#include <array>
-#include <mutex>
-#include <atomic>
-
 module Diagnostics.CrashHandler;
+
+import std;
 
 namespace ArtifactCore {
 
@@ -66,8 +53,8 @@ LONG WINAPI CrashHandler::unhandledExceptionFilter(EXCEPTION_POINTERS* exception
  QString report = generateCrashReport(exceptionInfo);
 
  const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
- const QString dumpPath = QDir(crashDir_).filePath(
-  QStringLiteral("crash_%1.log").arg(timestamp));
+  const QString dumpPath = QDir(crashDir_).filePath(
+   QStringLiteral("crash_%1.log").arg(QStringView{timestamp}));
 
  writeCrashReport(report, dumpPath);
 

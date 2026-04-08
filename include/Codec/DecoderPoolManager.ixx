@@ -1,9 +1,10 @@
 module;
-#include <QVector>
-#include <QString>
+#include <utility>
 #include "../Define/DllExportMacro.hpp"
 
 export module DecoderPoolManager;
+#include <QVector>
+#include <QString>
 
 import Media.Encoder.FFmpegAudioDecoder;
 

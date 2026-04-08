@@ -1,7 +1,8 @@
 module;
+#include <utility>
 #include <QImage>
 #include <QByteArray>
-#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+// RefCntAutoPtr.hpp intentionally NOT included here (MSVC 14.51 C1116 workaround)
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
@@ -44,8 +45,8 @@ private:
 
     GpuContext& context_;
     ComputeExecutor executor_;
-    RefCntAutoPtr<IBuffer> pMaskParamsCB_;
-    RefCntAutoPtr<ITexture> pMaskTexture_;
+    class Impl;
+    Impl* pImpl_ = nullptr;
     qint64 maskCacheKey_ = -1;
     int maskWidth_ = 0;
     int maskHeight_ = 0;
