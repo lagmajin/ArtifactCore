@@ -36,6 +36,7 @@ namespace ArtifactCore {
             // Detect glTF/glb from extension
             const QString lowerPath = path.toLower();
             const bool isGltf = lowerPath.endsWith(".gltf") || lowerPath.endsWith(".glb");
+            const QString backendLabel = isGltf ? QStringLiteral("glTF via ufbx") : QStringLiteral("ufbx");
             if (isGltf) {
                 lastBackend_ = MeshImporter::Backend::UfbxGltf;
             }
@@ -47,8 +48,10 @@ namespace ArtifactCore {
             ufbx_scene* scene = ufbx_load_file(path.toStdString().c_str(), &opts, &error);
 
             if (!scene) {
-                lastError_ = QStringLiteral("ufbx: %1").arg(QStringView{QString::fromUtf8(error.description.data)});
-                qWarning() << "ufbx failed to load:" << path << "-" << error.description.data;
+                lastError_ = QStringLiteral("%1: %2")
+                                 .arg(backendLabel)
+                                 .arg(QStringView{QString::fromUtf8(error.description.data)});
+                qWarning() << backendLabel << "failed to load:" << path << "-" << error.description.data;
                 return nullptr;
             }
 
@@ -60,8 +63,8 @@ namespace ArtifactCore {
             
             if (totalVertices == 0) {
                 ufbx_free_scene(scene);
-                lastError_ = QStringLiteral("ufbx: no mesh data");
-                qWarning() << "ufbx loaded empty mesh:" << path;
+                lastError_ = QStringLiteral("%1: no mesh data").arg(backendLabel);
+                qWarning() << backendLabel << "loaded empty mesh:" << path;
                 return nullptr;
             }
             
