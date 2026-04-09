@@ -134,6 +134,13 @@
 - source metadata / capability / relink 基盤
 - layer 種別より source 中心へ寄せる準備
 
+## NLE / Editing Core
+
+### C-NLE-1 NLE Core Foundation
+- sequence / track / clip / transition / marker / conform / relink / proxy の編集基盤
+- insert / overwrite / ripple / roll / slip / slide の操作意味論
+- 詳細は `MILESTONE_NLE_CORE_2026-04-09.md`
+
 ## Render / Playback
 
 ### C-RND-1 Software Render Bridge
@@ -151,6 +158,11 @@
 - frame stepping の整理
 - 進捗: `PlaybackClock` が typed `PlaybackClockStateChangedEvent` を `EventBus` に流せるようになった
 - 進捗: `PlaybackClock::snapshot()` で transport 状態をまとめて取得できるようにした
+
+### C-NLE-1 NLE Core Foundation
+- sequence / track / clip / transition / marker / conform / relink / proxy の編集基盤
+- insert / overwrite / ripple / roll / slip / slide の操作意味論
+- 詳細は `MILESTONE_NLE_CORE_2026-04-09.md`
 
 ## Architecture / Toolchain
 

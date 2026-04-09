@@ -7,6 +7,7 @@ module Core.AI.TieredManager;
 import std;
 import Core.AI.Context;
 import Core.AI.LocalAgent;
+import Core.AI.CloudAgent;
 
 namespace ArtifactCore {
 
@@ -14,8 +15,7 @@ class TieredAIManager::Impl {
 public:
     AIContext globalContext;
     LocalAIAgentPtr localAgent;
-    QString cloudProvider;
-    QString cloudApiKey;
+    ICloudAIAgentPtr cloudAgent;
 
     Impl() = default;
 };
@@ -33,8 +33,14 @@ void TieredAIManager::setLocalAgent(LocalAIAgentPtr agent) {
 }
 
 void TieredAIManager::setCloudCredentials(const QString& provider, const QString& apiKey) {
-    impl_->cloudProvider = provider;
-    impl_->cloudApiKey = apiKey;
+    impl_->cloudAgent = CloudAgentFactory::createByName(provider);
+    if (impl_->cloudAgent) {
+        impl_->cloudAgent->setApiKey(apiKey);
+    }
+}
+
+void TieredAIManager::setCloudAgent(ICloudAIAgentPtr agent) {
+    impl_->cloudAgent = agent;
 }
 
 AIContext& TieredAIManager::globalContext() {
@@ -44,40 +50,39 @@ AIContext& TieredAIManager::globalContext() {
 void TieredAIManager::processRequest(const QString& prompt, std::function<void(bool, const QString&)> callback) {
     qDebug() << "[TieredAIManager] Received prompt:" << prompt;
 
-    // 1. ローカルAIが設定されていれば、まずローカルで解決できるか試みる
     if (impl_->localAgent) {
         bool needsCloud = impl_->localAgent->requiresCloudEscalation(prompt, impl_->globalContext);
         if (!needsCloud) {
-            // ローカルで解決
             QString result = impl_->localAgent->predictParameter(prompt, impl_->globalContext);
             if (callback) callback(true, result);
             return;
         }
     }
 
-    // 2. クラウドAIへのエスカレーション（今後の実装）
-    if (impl_->cloudApiKey.isEmpty()) {
-        qWarning() << "[TieredAIManager] Cloud API key not set. Cannot escalate.";
-        if (callback) callback(false, "Cloud API key missing");
+    if (!impl_->cloudAgent || !impl_->cloudAgent->isAvailable()) {
+        qWarning() << "[TieredAIManager] Cloud agent not available";
+        if (callback) callback(false, "Cloud AI not configured");
         return;
     }
 
-    qDebug() << "[TieredAIManager] Escalating to Cloud AI (" << impl_->cloudProvider << ")...";
-    // ここで QNetworkAccessManager 等を使ってクラウドAPIを叩き、
-    // impl_->globalContext.toJsonString() と prompt を送信する実装が入る。
-    
-    // シミュレーション
+    qDebug() << "[TieredAIManager] Escalating to Cloud AI...";
+    auto response = impl_->cloudAgent->chat(
+        QString(), prompt, impl_->globalContext);
+
     if (callback) {
-        callback(true, "Cloud AI response (simulated) based on: " + prompt);
+        callback(response.success, response.content);
     }
 }
 
 void TieredAIManager::triggerBackgroundAnalysis() {
     if (impl_->localAgent) {
-        // 現在のコンテキストを要約・前処理させておく（キャッシュ化）
         QString summary = impl_->localAgent->analyzeContext(impl_->globalContext);
         impl_->globalContext.setProjectSummary(summary);
     }
+}
+
+ICloudAIAgentPtr TieredAIManager::cloudAgent() const {
+    return impl_->cloudAgent;
 }
 
 } // namespace ArtifactCore
