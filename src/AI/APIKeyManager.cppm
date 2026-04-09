@@ -85,7 +85,7 @@ void APIKeyManager::saveToSettings() {
 void APIKeyManager::loadFromSettings() {
     QSettings settings;
     for (int i = static_cast<int>(CloudProvider::OpenRouter);
-         i <= static_cast<int>(CloudProvider::OpenAI); ++i) {
+         i <= static_cast<int>(CloudProvider::DirectOpenAI); ++i) {
         auto provider = static_cast<CloudProvider>(i);
         const QString key = settings.value(providerKeyName(provider)).toString();
         if (!key.isEmpty()) {
@@ -106,8 +106,8 @@ void APIKeyManager::clearAll() {
 QString cloudProviderToString(CloudProvider provider) {
     switch (provider) {
     case CloudProvider::OpenRouter: return QStringLiteral("openrouter");
-    case CloudProvider::Anthropic: return QStringLiteral("anthropic");
-    case CloudProvider::OpenAI: return QStringLiteral("openai");
+    case CloudProvider::DirectAnthropic: return QStringLiteral("anthropic");
+    case CloudProvider::DirectOpenAI: return QStringLiteral("openai");
     default: return QStringLiteral("unknown");
     }
 }

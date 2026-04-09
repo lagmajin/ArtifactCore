@@ -4,6 +4,7 @@ module;
 #include <functional>
 #include <QString>
 #include <QMap>
+#include <QList>
 #include <QStringList>
 #include <QVariant>
 

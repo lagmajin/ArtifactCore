@@ -180,8 +180,8 @@ endif()
 # ---------------------------------------------------------------------------
 # 外部ライブラリ探索
 # ---------------------------------------------------------------------------
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
-target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
+target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network)
 
 find_package(OpenCV REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC ${OpenCV_LIBS})

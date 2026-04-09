@@ -95,6 +95,16 @@ QString buildPrompt(const QString& systemPrompt, const QString& userPrompt, cons
     if (!context.projectSummary().isEmpty()) {
         parts << QStringLiteral("Project:\n%1").arg(QStringView{context.projectSummary().trimmed()});
     }
+    parts << QStringLiteral("Project stats: compositions=%1 totalLayers=%2 totalEffects=%3 heavyCompositions=%4")
+                 .arg(context.compositionCount())
+                 .arg(context.totalLayerCount())
+                 .arg(context.totalEffectCount())
+                 .arg(context.heavyCompositionCount());
+    const auto heavyNames = context.heavyCompositionNames();
+    if (!heavyNames.isEmpty()) {
+        parts << QStringLiteral("Compositions with 10+ layers: %1")
+                     .arg(QStringView{heavyNames.join(QStringLiteral(", "))});
+    }
     if (!context.activeCompositionId().isEmpty()) {
         parts << QStringLiteral("Composition: %1").arg(QStringView{context.activeCompositionId()});
     }
@@ -288,6 +298,11 @@ QString OnnxDmlLocalAgent::analyzeContext(const AIContext& context)
     auto selectedLayers = context.selectedLayers();
     if (!selectedLayers.empty()) {
         return QStringLiteral("選択中のレイヤー：%1").arg(QStringView{selectedLayers.front()});
+    }
+    if (context.compositionCount() > 0) {
+        return QStringLiteral("コンポジション数：%1、10個以上のレイヤーを持つコンポジション：%2")
+            .arg(context.compositionCount())
+            .arg(context.heavyCompositionCount());
     }
     if (!context.activeCompositionId().isEmpty()) {
         return QStringLiteral("アクティブコンポジション：%1").arg(QStringView{context.activeCompositionId()});

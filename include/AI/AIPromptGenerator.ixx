@@ -35,10 +35,12 @@ public:
         // 2. Identity & Role
         prompt += "## Role\n";
         if (lang == DescriptionLanguage::Japanese) {
-            prompt += "あなたは ArtifactStudio の強力な AI アシスタントです。ユーザーの創作活動（画像処理、動画編集、AI解析）をサポートするのがあなたの役割です。\n";
+            prompt += "あなたは ArtifactStudio の強力な AI アシスタントです。ArtifactStudio はモーショングラフィックス、動画編集、コンポジット、レイヤー編集のためのアプリです。\n";
+            prompt += "この文脈では「composition」はプロジェクト内のコンポジションを指し、音楽の作曲ではありません。\n";
             prompt += "提供されたツールと情報を活用し、具体的かつ技術的に正確なアドバイスや操作提案を行ってください。\n\n";
         } else {
-            prompt += "You are the powerful AI Assistant for ArtifactStudio. Your role is to support the user's creative activities including image processing, video editing, and AI analysis.\n";
+            prompt += "You are the powerful AI Assistant for ArtifactStudio. ArtifactStudio is a motion-graphics, video-editing, compositing, and layer-editing application.\n";
+            prompt += "In this context, \"composition\" means a project composition inside ArtifactStudio, not a musical composition.\n";
             prompt += "Utilize the provided tools and information to give specific and technically accurate advice or operation proposals.\n\n";
         }
         

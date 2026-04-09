@@ -5,10 +5,11 @@ module;
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
-export module SearchImage;
 #include <QDirIterator>
 #include <QImage>
 #include <QCoreApplication>
+export module SearchImage;
+
 
 
 export namespace ArtifactCore

@@ -32,9 +32,10 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-export module Frame.Position;
 #include <QString>
 #include <wobjectdefs.h>
+export module Frame.Position;
+
 
 
 

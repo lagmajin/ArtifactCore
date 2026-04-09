@@ -3,9 +3,12 @@ module;
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
+#include <QNetworkProxy>
+#include <QUrl>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QObject>
 #include <QEventLoop>
 #include <QTimer>
 
@@ -13,7 +16,6 @@ module Core.AI.CloudAgent;
 
 import std;
 import Core.AI.Context;
-import Core.AI.APIKeyManager;
 
 namespace ArtifactCore {
 
@@ -99,6 +101,20 @@ int estimateTokenCount(const QString& text) {
     return text.length() / 4;
 }
 
+CloudProvider providerFromName(const QString& providerName) {
+    const QString lower = providerName.trimmed().toLower();
+    if (lower == QStringLiteral("openrouter")) {
+        return CloudProvider::OpenRouter;
+    }
+    if (lower == QStringLiteral("anthropic") || lower == QStringLiteral("directanthropic")) {
+        return CloudProvider::DirectAnthropic;
+    }
+    if (lower == QStringLiteral("openai") || lower == QStringLiteral("directopenai")) {
+        return CloudProvider::DirectOpenAI;
+    }
+    return CloudProvider::Unknown;
+}
+
 } // namespace
 
 class OpenRouterAgent : public ICloudAIAgent {
@@ -125,12 +141,6 @@ public:
     QString proxy() const override { return proxyUrl_; }
 
     bool initialize() override {
-        if (apiKey_.isEmpty()) {
-            const auto& manager = APIKeyManager::instance();
-            if (manager.hasKey(CloudProvider::OpenRouter)) {
-                apiKey_ = manager.getKey(CloudProvider::OpenRouter);
-            }
-        }
         return isAvailable();
     }
 
@@ -143,6 +153,7 @@ public:
         const QString& userPrompt,
         const AIContext& context,
         const QString& model) override {
+        Q_UNUSED(context);
 
         if (!isAvailable()) {
             return {QString(), QString(), 0, 0, false, QStringLiteral("API key not set")};
@@ -157,7 +168,17 @@ public:
         request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
         request.setRawHeader("Authorization", QStringLiteral("Bearer %1").arg(apiKey_).toUtf8());
         if (!proxyUrl_.isEmpty()) {
-            request.setAttribute(QNetworkRequest::ProxyType, QNetworkRequest::ManualProxy);
+            const QUrl proxyUrl(proxyUrl_);
+            if (proxyUrl.isValid() && !proxyUrl.host().isEmpty()) {
+                QNetworkProxy proxy(QNetworkProxy::HttpProxy, proxyUrl.host(), proxyUrl.port(8080));
+                if (!proxyUrl.userName().isEmpty()) {
+                    proxy.setUser(proxyUrl.userName());
+                }
+                if (!proxyUrl.password().isEmpty()) {
+                    proxy.setPassword(proxyUrl.password());
+                }
+                manager.setProxy(proxy);
+            }
         }
 
         QEventLoop loop;
@@ -166,14 +187,14 @@ public:
         timeout.setInterval(60000);
 
         QNetworkReply* reply = nullptr;
-        connect(&timeout, &QTimer::timeout, [&]() {
+        QObject::connect(&timeout, &QTimer::timeout, [&]() {
             if (reply && !reply->isFinished()) {
                 reply->abort();
             }
         });
 
         reply = manager.post(request, QJsonDocument(requestJson).toJson());
-        connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 
         timeout.start();
         loop.exec();
@@ -196,6 +217,7 @@ public:
         const AIContext& context,
         const std::function<bool(const QString&)>& tokenCallback,
         const QString& model) override {
+        Q_UNUSED(tokenCallback);
 
         return chat(systemPrompt, userPrompt, context, model);
     }
@@ -234,7 +256,7 @@ public:
 
         QEventLoop loop;
         QNetworkReply* reply = manager.post(request, QJsonDocument(requestJson).toJson());
-        connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
         loop.exec();
 
         if (reply->error() != QNetworkReply::NoError) {
@@ -267,7 +289,7 @@ ICloudAIAgentPtr CloudAgentFactory::create(CloudProvider provider) {
 }
 
 ICloudAIAgentPtr CloudAgentFactory::createByName(const QString& providerName) {
-    return create(stringToCloudProvider(providerName));
+    return create(providerFromName(providerName));
 }
 
 QStringList CloudAgentFactory::supportedProviderNames() {

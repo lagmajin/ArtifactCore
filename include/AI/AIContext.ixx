@@ -1,5 +1,6 @@
 module;
 #include <QString>
+#include <QStringList>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -37,14 +38,30 @@ public:
     // ── 状態の記録 ──
     void setProjectSummary(const QString& summary) { projectSummary_ = summary; }
     void setActiveCompositionId(const QString& compId) { activeCompositionId_ = compId; }
+    void setActiveCompositionName(const QString& name) { activeCompositionName_ = name; }
     void addSelectedLayer(const QString& layerData) { selectedLayers_.push_back(layerData); }
+    void clearCompositionNames() { compositionNames_.clear(); }
+    void addCompositionName(const QString& name) { compositionNames_.push_back(name); }
+    void setCompositionCount(int count) { compositionCount_ = count; }
+    void setTotalLayerCount(int count) { totalLayerCount_ = count; }
+    void setTotalEffectCount(int count) { totalEffectCount_ = count; }
+    void setHeavyCompositionCount(int count) { heavyCompositionCount_ = count; }
+    void clearHeavyCompositionNames() { heavyCompositionNames_.clear(); }
+    void addHeavyCompositionName(const QString& name) { heavyCompositionNames_.push_back(name); }
     void setUserPrompt(const QString& prompt) { userPrompt_ = prompt; }
     void setSystemPrompt(const QString& prompt) { systemPrompt_ = prompt; }
     
     // ── Getter メソッド（AI 分析用）─
     QString projectSummary() const { return projectSummary_; }
     QString activeCompositionId() const { return activeCompositionId_; }
+    QString activeCompositionName() const { return activeCompositionName_; }
     std::vector<QString> selectedLayers() const { return selectedLayers_; }
+    QStringList compositionNames() const { return compositionNames_; }
+    int compositionCount() const { return compositionCount_; }
+    int totalLayerCount() const { return totalLayerCount_; }
+    int totalEffectCount() const { return totalEffectCount_; }
+    int heavyCompositionCount() const { return heavyCompositionCount_; }
+    QStringList heavyCompositionNames() const { return heavyCompositionNames_; }
     std::vector<UserAction> recentActions() const { return recentActions_; }
     QString userPrompt() const { return userPrompt_; }
     QString systemPrompt() const { return systemPrompt_; }
@@ -63,12 +80,28 @@ public:
         QJsonObject root;
         root["projectSummary"] = projectSummary_;
         root["activeComposition"] = activeCompositionId_;
+        root["activeCompositionName"] = activeCompositionName_;
+        QJsonArray compositionNameArray;
+        for (const auto& name : compositionNames_) {
+            compositionNameArray.append(name);
+        }
+        root["compositionNames"] = compositionNameArray;
+        root["compositionCount"] = compositionCount_;
+        root["totalLayerCount"] = totalLayerCount_;
+        root["totalEffectCount"] = totalEffectCount_;
+        root["heavyCompositionCount"] = heavyCompositionCount_;
 
         QJsonArray layers;
         for (const auto& l : selectedLayers_) {
             layers.append(l);
         }
         root["selectedLayers"] = layers;
+
+        QJsonArray heavyNames;
+        for (const auto& name : heavyCompositionNames_) {
+            heavyNames.append(name);
+        }
+        root["heavyCompositionNames"] = heavyNames;
 
         QJsonArray actions;
         for (const auto& a : recentActions_) {
@@ -91,7 +124,14 @@ public:
 private:
     QString projectSummary_;
     QString activeCompositionId_;
+    QString activeCompositionName_;
     std::vector<QString> selectedLayers_;
+    QStringList compositionNames_;
+    int compositionCount_ = 0;
+    int totalLayerCount_ = 0;
+    int totalEffectCount_ = 0;
+    int heavyCompositionCount_ = 0;
+    QStringList heavyCompositionNames_;
     std::vector<UserAction> recentActions_;
     QString userPrompt_;
     QString systemPrompt_;

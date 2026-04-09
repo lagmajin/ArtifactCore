@@ -1,8 +1,9 @@
 module;
 #include <utility>
 #include <vector>
-export module MeshEdgeExtractor;
 #include <QVector>
+export module MeshEdgeExtractor;
+
 
 
 export namespace ArtifactCore

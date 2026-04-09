@@ -8,6 +8,8 @@ export module Core.AI.APIKeyManager;
 
 export namespace ArtifactCore {
 
+enum class CloudProvider : int;
+
 class APIKeyManager {
 public:
     static APIKeyManager& instance();

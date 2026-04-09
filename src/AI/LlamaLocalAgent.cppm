@@ -296,6 +296,16 @@ QString buildContextSummary(const AIContext& context)
     if (!context.projectSummary().isEmpty()) {
         lines.append(QStringLiteral("Project summary:\n%1").arg(QStringView{context.projectSummary()}));
     }
+    lines.append(QStringLiteral("Project stats: compositions=%1 totalLayers=%2 totalEffects=%3 heavyCompositions=%4")
+                     .arg(context.compositionCount())
+                     .arg(context.totalLayerCount())
+                     .arg(context.totalEffectCount())
+                     .arg(context.heavyCompositionCount()));
+    const auto heavyNames = context.heavyCompositionNames();
+    if (!heavyNames.isEmpty()) {
+        lines.append(QStringLiteral("Compositions with 10+ layers: %1")
+                         .arg(heavyNames.join(QStringLiteral(", "))));
+    }
     if (!context.activeCompositionId().isEmpty()) {
         lines.append(QStringLiteral("Active composition: %1").arg(QStringView{context.activeCompositionId()}));
     }
@@ -782,6 +792,11 @@ QString LlamaLocalAgent::analyzeContext(const AIContext& context) {
     auto selectedLayers = context.selectedLayers();
     if (!selectedLayers.empty()) {
         return QStringLiteral("選択中のレイヤー：%1").arg(QStringView{selectedLayers.front()});
+    }
+    if (context.compositionCount() > 0) {
+        return QStringLiteral("コンポジション数：%1、10個以上のレイヤーを持つコンポジション：%2")
+            .arg(context.compositionCount())
+            .arg(context.heavyCompositionCount());
     }
     QString activeCompId = context.activeCompositionId();
     if (!activeCompId.isEmpty()) {
