@@ -10,6 +10,8 @@ module;
 export module Core.AI.PromptGenerator;
 
 import Core.AI.Describable;
+import Core.AI.CommandSandbox;
+import Artifact.AI.WorkspaceAutomation;
 
 export namespace ArtifactCore {
 
@@ -27,6 +29,8 @@ public:
      * 3. Interaction Rules
      */
     static QString generateSystemPrompt(DescriptionLanguage lang = DescriptionLanguage::English) {
+        CommandSandbox::ensureRegistered();
+        WorkspaceAutomation::ensureRegistered();
         QString prompt;
         
         // 1. Header
@@ -87,25 +91,31 @@ public:
      * @brief Generate a concise JSON-formatted tool schema for function calling
      */
     static QByteArray generateToolSchemaJson() {
+        CommandSandbox::ensureRegistered();
+        WorkspaceAutomation::ensureRegistered();
         const auto &registry = DescriptionRegistry::instance();
         const QJsonObject components = registry.describeAllAsJson(DescriptionLanguage::English);
 
         QJsonArray tools;
         for (auto it = components.constBegin(); it != components.constEnd(); ++it) {
+            const QString componentName = it.key().trimmed();
+            if (componentName.isEmpty()) {
+                continue;
+            }
             const QJsonObject component = it.value().toObject();
-            QJsonArray methods;
             for (const auto &methodValue : component.value(QStringLiteral("methods")).toArray()) {
                 const QJsonObject method = methodValue.toObject();
+                const QString methodName = method.value(QStringLiteral("name")).toString().trimmed();
+                if (methodName.isEmpty()) {
+                    continue;
+                }
                 QJsonObject tool;
-                tool[QStringLiteral("component")] = it.key();
-                tool[QStringLiteral("method")] = method.value(QStringLiteral("name")).toString();
+                tool[QStringLiteral("component")] = componentName;
+                tool[QStringLiteral("method")] = methodName;
                 tool[QStringLiteral("description")] = method.value(QStringLiteral("description")).toString();
                 tool[QStringLiteral("returnType")] = method.value(QStringLiteral("returnType")).toString();
                 tool[QStringLiteral("parameters")] = method.value(QStringLiteral("parameters")).toArray();
-                methods.append(tool);
-            }
-            for (const auto &toolValue : methods) {
-                tools.append(toolValue);
+                tools.append(tool);
             }
         }
 

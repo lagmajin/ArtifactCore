@@ -133,16 +133,18 @@ public:
             const QJsonArray schemaTools = schema.object().value(QStringLiteral("tools")).toArray();
             for (const QJsonValue& value : schemaTools) {
                 const QJsonObject tool = value.toObject();
-            QJsonObject entry;
-            entry[QStringLiteral("name")] =
-                QStringLiteral("%1.%2")
-                    .arg(tool.value(QStringLiteral("component")).toString(),
-                         tool.value(QStringLiteral("method")).toString());
-            entry[QStringLiteral("description")] = tool.value(QStringLiteral("description")).toString();
-            entry[QStringLiteral("returnType")] = tool.value(QStringLiteral("returnType")).toString();
-            entry[QStringLiteral("parameters")] = tool.value(QStringLiteral("parameters")).toArray();
-            tools.append(entry);
-        }
+                const QString componentName = tool.value(QStringLiteral("component")).toString().trimmed();
+                const QString methodName = tool.value(QStringLiteral("method")).toString().trimmed();
+                if (componentName.isEmpty() || methodName.isEmpty()) {
+                    continue;
+                }
+                QJsonObject entry;
+                entry[QStringLiteral("name")] = QStringLiteral("%1.%2").arg(componentName, methodName);
+                entry[QStringLiteral("description")] = tool.value(QStringLiteral("description")).toString();
+                entry[QStringLiteral("returnType")] = tool.value(QStringLiteral("returnType")).toString();
+                entry[QStringLiteral("parameters")] = tool.value(QStringLiteral("parameters")).toArray();
+                tools.append(entry);
+            }
         }
 
         QJsonObject capabilities;
@@ -152,7 +154,7 @@ public:
 
     static QJsonObject handleRequest(const QJsonObject& request, const AIContext& context = AIContext())
     {
-        const QString method = request.value(QStringLiteral("method")).toString();
+        const QString method = request.value(QStringLiteral("method")).toString().trimmed();
         const QJsonValue idValue = request.value(QStringLiteral("id"));
         const QJsonObject params = request.value(QStringLiteral("params")).toObject();
         AIContext effectiveContext = context;
@@ -183,6 +185,10 @@ public:
             return response;
         };
 
+        if (method.isEmpty()) {
+            return makeError(-32600, QStringLiteral("Invalid request: missing method"));
+        }
+
         if (method == QStringLiteral("initialize")) {
             QJsonObject result;
             result[QStringLiteral("protocolVersion")] = QStringLiteral("2024-11-05");
@@ -212,12 +218,13 @@ public:
                 toolCall[QStringLiteral("arguments")] = params.value(QStringLiteral("arguments")).toArray();
             }
 
-            if (!toolCall.contains(QStringLiteral("class")) ||
-                !toolCall.contains(QStringLiteral("method"))) {
-                return makeError(-32602, QStringLiteral("Invalid tool call payload"));
-            }
-
             const ToolBridgeResult bridgeResult = ToolBridge::executeToolCall(toolCall);
+            if (!bridgeResult.handled) {
+                return makeError(-32602,
+                                 bridgeResult.trace.isEmpty()
+                                     ? QStringLiteral("Invalid tool call payload")
+                                     : bridgeResult.trace);
+            }
             QJsonObject result;
             result[QStringLiteral("content")] = bridgeResult.trace;
             result[QStringLiteral("structuredContent")] = QJsonValue::fromVariant(bridgeResult.value);

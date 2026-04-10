@@ -1,6 +1,7 @@
 module;
 #include <QString>
 #include <QStringList>
+#include <QStringView>
 #include <QVariant>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -25,6 +26,64 @@ struct ToolBridgeResult {
 
 class ToolBridge {
 public:
+    static QJsonObject unwrapToolCall(const QJsonObject& toolCall)
+    {
+        QJsonObject normalized = toolCall;
+        if (normalized.contains(QStringLiteral("tool")) && normalized.value(QStringLiteral("tool")).isObject()) {
+            normalized = normalized.value(QStringLiteral("tool")).toObject();
+        } else if (normalized.contains(QStringLiteral("tool_call")) &&
+                   normalized.value(QStringLiteral("tool_call")).isObject()) {
+            normalized = normalized.value(QStringLiteral("tool_call")).toObject();
+        } else if (normalized.contains(QStringLiteral("tool_calls")) &&
+                   normalized.value(QStringLiteral("tool_calls")).isArray() &&
+                   !normalized.value(QStringLiteral("tool_calls")).toArray().isEmpty()) {
+            normalized = normalized.value(QStringLiteral("tool_calls")).toArray().first().toObject();
+        }
+        return normalized;
+    }
+
+    static bool validateToolCall(QJsonObject* toolCallOut, QString* errorOut = nullptr)
+    {
+        if (!toolCallOut) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("Missing tool call payload");
+            }
+            return false;
+        }
+
+        QJsonObject normalized = unwrapToolCall(*toolCallOut);
+        const QString className = normalized.value(QStringLiteral("class")).toString().trimmed();
+        const QString methodName = normalized.value(QStringLiteral("method")).toString().trimmed();
+        if (className.isEmpty()) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("Tool call is missing a class name");
+            }
+            return false;
+        }
+        if (methodName.isEmpty()) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("Tool call is missing a method name");
+            }
+            return false;
+        }
+
+        const QJsonValue argumentsValue = normalized.value(QStringLiteral("arguments"));
+        if (!argumentsValue.isUndefined() && !argumentsValue.isNull() && !argumentsValue.isArray()) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("Tool call arguments must be a JSON array");
+            }
+            return false;
+        }
+
+        normalized[QStringLiteral("class")] = className;
+        normalized[QStringLiteral("method")] = methodName;
+        if (!argumentsValue.isArray()) {
+            normalized[QStringLiteral("arguments")] = QJsonArray{};
+        }
+        *toolCallOut = normalized;
+        return true;
+    }
+
     static QString toolSchemaJson()
     {
         return QString::fromUtf8(AIPromptGenerator::generateToolSchemaJson());
@@ -56,6 +115,9 @@ public:
             const QString methodName = tool.value(QStringLiteral("method")).toString();
             const QString description = tool.value(QStringLiteral("description")).toString();
             const QString returnType = tool.value(QStringLiteral("returnType")).toString();
+            if (className.trimmed().isEmpty() || methodName.trimmed().isEmpty()) {
+                continue;
+            }
             QString line = QStringLiteral("- %1.%2").arg(className, methodName);
             if (!returnType.trimmed().isEmpty()) {
                 line += QStringLiteral(" -> %1").arg(returnType.trimmed());
@@ -186,20 +248,9 @@ public:
             return false;
         }
 
-        QJsonObject toolCall = doc.object();
-        if (toolCall.contains(QStringLiteral("tool")) && toolCall.value(QStringLiteral("tool")).isObject()) {
-            toolCall = toolCall.value(QStringLiteral("tool")).toObject();
-        } else if (toolCall.contains(QStringLiteral("tool_call")) &&
-                   toolCall.value(QStringLiteral("tool_call")).isObject()) {
-            toolCall = toolCall.value(QStringLiteral("tool_call")).toObject();
-        } else if (toolCall.contains(QStringLiteral("tool_calls")) &&
-                   toolCall.value(QStringLiteral("tool_calls")).isArray() &&
-                   !toolCall.value(QStringLiteral("tool_calls")).toArray().isEmpty()) {
-            toolCall = toolCall.value(QStringLiteral("tool_calls")).toArray().first().toObject();
-        }
-
-        if (!toolCall.contains(QStringLiteral("class")) ||
-            !toolCall.contains(QStringLiteral("method"))) {
+        QJsonObject toolCall = unwrapToolCall(doc.object());
+        QString validationError;
+        if (!validateToolCall(&toolCall, &validationError)) {
             return false;
         }
 
@@ -210,8 +261,25 @@ public:
     static ToolBridgeResult executeToolCall(const QJsonObject& toolCall)
     {
         ToolBridgeResult result;
-        result.value = AIToolExecutor::instance().execute(toolCall);
-        result.trace = buildToolTraceMessage(toolCall, result.value);
+        QJsonObject normalizedToolCall = toolCall;
+        QString validationError;
+        if (!validateToolCall(&normalizedToolCall, &validationError)) {
+            result.trace = QStringLiteral("Tool execution rejected:\n- error: %1\n")
+                               .arg(validationError);
+            return result;
+        }
+
+        const QString className = normalizedToolCall.value(QStringLiteral("class")).toString();
+        const IDescribable* constObj =
+            DescriptionRegistry::instance().getDescribable(QStringView{className});
+        if (!constObj) {
+            result.trace = QStringLiteral("Tool execution rejected:\n- error: Unknown tool '%1'\n")
+                               .arg(className);
+            return result;
+        }
+
+        result.value = AIToolExecutor::instance().execute(normalizedToolCall);
+        result.trace = buildToolTraceMessage(normalizedToolCall, result.value);
         result.handled = true;
         return result;
     }

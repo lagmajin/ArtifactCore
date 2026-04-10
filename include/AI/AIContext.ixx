@@ -109,6 +109,7 @@ public:
             act["type"] = static_cast<int>(a.type);
             act["targetId"] = a.targetId;
             act["details"] = a.details;
+            act["timestampMs"] = static_cast<qint64>(a.timestampMs);
             actions.append(act);
         }
         root["recentActions"] = actions;
@@ -155,7 +156,10 @@ public:
             action.type = static_cast<ActionType>(act.value(QStringLiteral("type")).toInt(static_cast<int>(ActionType::Unknown)));
             action.targetId = act.value(QStringLiteral("targetId")).toString();
             action.details = act.value(QStringLiteral("details")).toString();
-            action.timestampMs = QDateTime::currentMSecsSinceEpoch();
+            action.timestampMs = act.value(QStringLiteral("timestampMs")).toVariant().toLongLong();
+            if (action.timestampMs == 0) {
+                action.timestampMs = QDateTime::currentMSecsSinceEpoch();
+            }
             context.recentActions_.push_back(action);
         }
 
