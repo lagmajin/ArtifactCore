@@ -3,6 +3,7 @@ module;
 #include <QString>
 #include <QByteArray>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QDateTime>
 
@@ -51,7 +52,17 @@ public:
         } else {
             prompt += "Below are the application component definitions you can currently interact with or reference:\n\n";
         }
-        prompt += "(component registry unavailable in this build configuration)\n\n";
+        const auto classes = DescriptionRegistry::instance().registeredClasses();
+        if (classes.isEmpty()) {
+            prompt += "(component registry is currently empty)\n\n";
+        } else {
+            prompt += QString("Registered component count: %1\n").arg(classes.size());
+            prompt += "Registered components:\n";
+            for (const auto &className : classes) {
+                prompt += QStringLiteral("- %1\n").arg(className);
+            }
+            prompt += "\n";
+        }
         
         // 4. Interaction Guidelines
         prompt += "\n## Interaction Guidelines\n";
@@ -59,10 +70,14 @@ public:
             prompt += "1. テクニカルな質問には、上記のコンポーネント名やプロパティ名を使用して正確に答えてください。\n";
             prompt += "2. 複雑なタスクには、ステップバイステップの実行プランを提案してください。\n";
             prompt += "3. ソースコードや JSON 形式での出力が必要な場合は、Markdown 形式で記述してください。\n";
+            prompt += "4. 不具合調査や曖昧な相談では、最初に最有力仮説、根拠、確認すべきファイルや値、最小の次アクションを提示してください。\n";
+            prompt += "5. 情報が不足していても、ただ質問で止まらず、現時点の文脈から最も可能性が高い説明を先に返してください。\n";
         } else {
             prompt += "1. For technical questions, answer accurately using the component and property names defined above.\n";
             prompt += "2. For complex tasks, propose a step-by-step execution plan.\n";
             prompt += "3. If source code or JSON output is required, use Markdown blocks.\n";
+            prompt += "4. For bugs or ambiguous reports, start with the most likely hypothesis, the evidence, the files or values to inspect, and the smallest next action.\n";
+            prompt += "5. If context is incomplete, do not stop at a clarification question; first provide the best explanation available from the current context.\n";
         }
         
         return prompt;
@@ -72,7 +87,36 @@ public:
      * @brief Generate a concise JSON-formatted tool schema for function calling
      */
     static QByteArray generateToolSchemaJson() {
-        return QByteArrayLiteral("{\"components\":[],\"tools\":[]}");
+        const auto &registry = DescriptionRegistry::instance();
+        const QJsonObject components = registry.describeAllAsJson(DescriptionLanguage::English);
+
+        QJsonArray tools;
+        for (auto it = components.constBegin(); it != components.constEnd(); ++it) {
+            const QJsonObject component = it.value().toObject();
+            QJsonArray methods;
+            for (const auto &methodValue : component.value(QStringLiteral("methods")).toArray()) {
+                const QJsonObject method = methodValue.toObject();
+                QJsonObject tool;
+                tool[QStringLiteral("component")] = it.key();
+                tool[QStringLiteral("method")] = method.value(QStringLiteral("name")).toString();
+                tool[QStringLiteral("description")] = method.value(QStringLiteral("description")).toString();
+                tool[QStringLiteral("returnType")] = method.value(QStringLiteral("returnType")).toString();
+                tool[QStringLiteral("parameters")] = method.value(QStringLiteral("parameters")).toArray();
+                methods.append(tool);
+            }
+            for (const auto &toolValue : methods) {
+                tools.append(toolValue);
+            }
+        }
+
+        QJsonObject schema;
+        schema[QStringLiteral("generatedAt")] =
+            QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+        schema[QStringLiteral("language")] = QStringLiteral("en");
+        schema[QStringLiteral("componentCount")] = components.size();
+        schema[QStringLiteral("components")] = components;
+        schema[QStringLiteral("tools")] = tools;
+        return QJsonDocument(schema).toJson(QJsonDocument::Compact);
     }
 };
 

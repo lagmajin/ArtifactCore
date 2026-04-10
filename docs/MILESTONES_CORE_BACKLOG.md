@@ -120,6 +120,20 @@
 - insertion / move / duplication API
 - dirty propagation の整理
 
+### C-NLE-1 NLE Core Foundation
+- `Sequence`
+- `Track`
+- `Clip`
+- `Transition`
+- `Marker`
+- `Conform`
+- `Proxy`
+- `LinkingService`
+- `NLEProjectStore`
+- 進捗: typed model / in-memory store / serialization / link group 保存復元を実装
+- 進捗: `SequenceEditor` 経由で linked move / trim / selection propagation を動かせるようにした
+- 進捗: project diagnostics で invalid clip / orphan transition / broken link group を検出できるようにした
+
 ### C-LYR-3 Solid / Media / Text Layer Normalization
 - `Solid`
 - `Media`
@@ -133,13 +147,6 @@
 - `GeneratedSource`
 - source metadata / capability / relink 基盤
 - layer 種別より source 中心へ寄せる準備
-
-## NLE / Editing Core
-
-### C-NLE-1 NLE Core Foundation
-- sequence / track / clip / transition / marker / conform / relink / proxy の編集基盤
-- insert / overwrite / ripple / roll / slip / slide の操作意味論
-- 詳細は `MILESTONE_NLE_CORE_2026-04-09.md`
 
 ## Render / Playback
 
@@ -158,11 +165,6 @@
 - frame stepping の整理
 - 進捗: `PlaybackClock` が typed `PlaybackClockStateChangedEvent` を `EventBus` に流せるようになった
 - 進捗: `PlaybackClock::snapshot()` で transport 状態をまとめて取得できるようにした
-
-### C-NLE-1 NLE Core Foundation
-- sequence / track / clip / transition / marker / conform / relink / proxy の編集基盤
-- insert / overwrite / ripple / roll / slip / slide の操作意味論
-- 詳細は `MILESTONE_NLE_CORE_2026-04-09.md`
 
 ## Architecture / Toolchain
 

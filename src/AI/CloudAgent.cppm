@@ -21,6 +21,20 @@ namespace ArtifactCore {
 
 namespace {
 
+QString buildContextSnapshotBlock(const AIContext& context) {
+    const QString json = context.toJsonString();
+    if (json.trimmed().isEmpty()) {
+        return QString();
+    }
+
+    return QStringLiteral(
+               "\n\n## Live Project Context\n"
+               "Use the following snapshot as the current ArtifactStudio state.\n"
+               "If the user asks about counts, active selections, background fill, or timeline state, prefer this snapshot over generic guesses.\n"
+               "```json\n%1\n```\n")
+        .arg(json);
+}
+
 QJsonObject createOpenRouterRequest(
     const QString& model,
     const QString& systemPrompt,
@@ -153,15 +167,15 @@ public:
         const QString& userPrompt,
         const AIContext& context,
         const QString& model) override {
-        Q_UNUSED(context);
-
         if (!isAvailable()) {
             return {QString(), QString(), 0, 0, false, QStringLiteral("API key not set")};
         }
 
         const QString actualModel = model.isEmpty() ? defaultModel() : model;
+        const QString augmentedSystemPrompt =
+            systemPrompt + buildContextSnapshotBlock(context);
         const auto requestJson = createOpenRouterRequest(
-            actualModel, systemPrompt, userPrompt, {}, 4096);
+            actualModel, augmentedSystemPrompt, userPrompt, {}, 4096);
 
         QNetworkAccessManager manager;
         QNetworkRequest request(QUrl(QStringLiteral("https://openrouter.ai/api/v1/chat/completions")));

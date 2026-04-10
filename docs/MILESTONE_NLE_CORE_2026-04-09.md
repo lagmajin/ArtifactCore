@@ -319,5 +319,6 @@ update は 2 系統に分ける。
 
 ## Current Status
 
-2026-04-09 時点では未着手。
-Premiere ライクな NLE を将来コア流用で作れるようにするための、時間軸と編集操作の基盤 milestone として扱う。
+2026-04-10 時点で `NLE.Core` の typed model / in-memory store / basic editor / clip resolver / conform report / link group 保存復元 / project diagnostics を実装済み。
+さらに `SequenceEditor` 経由の linked move / trim / selection propagation を入れ、link group が単なる器ではなく編集動作に反映されるようにした。
+次の焦点は command 化、proxy / relink の精密化、nested sequence の扱い整理、undo / redo 接続。

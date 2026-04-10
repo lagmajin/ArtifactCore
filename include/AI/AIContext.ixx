@@ -121,6 +121,47 @@ public:
         return QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
     }
 
+    static AIContext fromJson(const QJsonObject& root)
+    {
+        AIContext context;
+        context.projectSummary_ = root.value(QStringLiteral("projectSummary")).toString();
+        context.activeCompositionId_ = root.value(QStringLiteral("activeComposition")).toString();
+        context.activeCompositionName_ = root.value(QStringLiteral("activeCompositionName")).toString();
+
+        const QJsonArray compositionNameArray = root.value(QStringLiteral("compositionNames")).toArray();
+        for (const auto& value : compositionNameArray) {
+            context.compositionNames_.push_back(value.toString());
+        }
+
+        context.compositionCount_ = root.value(QStringLiteral("compositionCount")).toInt();
+        context.totalLayerCount_ = root.value(QStringLiteral("totalLayerCount")).toInt();
+        context.totalEffectCount_ = root.value(QStringLiteral("totalEffectCount")).toInt();
+        context.heavyCompositionCount_ = root.value(QStringLiteral("heavyCompositionCount")).toInt();
+
+        const QJsonArray selectedLayerArray = root.value(QStringLiteral("selectedLayers")).toArray();
+        for (const auto& value : selectedLayerArray) {
+            context.selectedLayers_.push_back(value.toString());
+        }
+
+        const QJsonArray heavyNamesArray = root.value(QStringLiteral("heavyCompositionNames")).toArray();
+        for (const auto& value : heavyNamesArray) {
+            context.heavyCompositionNames_.push_back(value.toString());
+        }
+
+        const QJsonArray actionsArray = root.value(QStringLiteral("recentActions")).toArray();
+        for (const auto& value : actionsArray) {
+            const QJsonObject act = value.toObject();
+            UserAction action;
+            action.type = static_cast<ActionType>(act.value(QStringLiteral("type")).toInt(static_cast<int>(ActionType::Unknown)));
+            action.targetId = act.value(QStringLiteral("targetId")).toString();
+            action.details = act.value(QStringLiteral("details")).toString();
+            action.timestampMs = QDateTime::currentMSecsSinceEpoch();
+            context.recentActions_.push_back(action);
+        }
+
+        return context;
+    }
+
 private:
     QString projectSummary_;
     QString activeCompositionId_;
