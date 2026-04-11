@@ -80,6 +80,8 @@ export enum class MaterialType {
   // --- MaterialX ---
   void setMaterialXDocument(const UniString& xml);
   UniString materialXDocument() const;
+  bool hasMaterialXDocument() const;
+  void clearMaterialXDocument();
 
   // --- Presets ---
   static Material makeDefault();

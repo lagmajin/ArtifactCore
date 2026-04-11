@@ -104,6 +104,8 @@ UniString Material::opacityTexture() const { return impl_->opacityTexture_; }
 // MaterialX
 void Material::setMaterialXDocument(const UniString& xml) { impl_->materialXDocument_ = xml; }
 UniString Material::materialXDocument() const { return impl_->materialXDocument_; }
+bool Material::hasMaterialXDocument() const { return !impl_->materialXDocument_.toQString().trimmed().isEmpty(); }
+void Material::clearMaterialXDocument() { impl_->materialXDocument_ = UniString(); }
 
 // Presets
 Material Material::makeDefault()

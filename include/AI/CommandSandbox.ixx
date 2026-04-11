@@ -98,7 +98,15 @@ public:
 
     static void ensureRegistered()
     {
-        (void)instance();
+        static const bool registered = []() {
+            DescriptionRegistry::instance().registerDescribable(
+                QStringLiteral("CommandSandbox"),
+                []() -> const IDescribable* {
+                    return &CommandSandbox::instance();
+                });
+            return true;
+        }();
+        (void)registered;
     }
 
     QString className() const override { return QStringLiteral("CommandSandbox"); }
@@ -667,7 +675,5 @@ private:
 
     CommandSandboxPolicy policy_;
 };
-
-static AutoRegisterDescribable<CommandSandbox> _reg_CommandSandbox(QStringLiteral("CommandSandbox"));
 
 } // namespace ArtifactCore

@@ -11,7 +11,6 @@ export module Core.AI.PromptGenerator;
 
 import Core.AI.Describable;
 import Core.AI.CommandSandbox;
-import Artifact.AI.WorkspaceAutomation;
 
 export namespace ArtifactCore {
 
@@ -30,7 +29,6 @@ public:
      */
     static QString generateSystemPrompt(DescriptionLanguage lang = DescriptionLanguage::English) {
         CommandSandbox::ensureRegistered();
-        WorkspaceAutomation::ensureRegistered();
         QString prompt;
         
         // 1. Header
@@ -92,7 +90,6 @@ public:
      */
     static QByteArray generateToolSchemaJson() {
         CommandSandbox::ensureRegistered();
-        WorkspaceAutomation::ensureRegistered();
         const auto &registry = DescriptionRegistry::instance();
         const QJsonObject components = registry.describeAllAsJson(DescriptionLanguage::English);
 

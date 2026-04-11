@@ -23,6 +23,16 @@
 - 進捗: built-in LUT 名の列挙を追加し、UI/診断からの発見性を上げた
 - 進捗: built-in LUT を LUTManager に一括登録できるようにした
 
+### C-IMG-4 Photoshop-like Image Editing Tools ⭐ **新規追加**
+- `BrushEngine` / `EraserTool` / `CloneStampTool`
+- `SelectionEngine` / `Mask`
+- `FilterEngine` / `AdjustmentEngine`
+- `LayerEffectEngine`
+- Photoshop 風ペイント / 選択 / フィルター / 調整 / 効果を ArtifactCore に統合
+- **機能:** ブラシペイント、選択マスク、フィルター適用、色調整、レイヤー効果
+- **見積:** 80-115h
+- **詳細:** `docs/planned/MILESTONE_PHOTOSHOP_LIKE_IMAGE_EDITING_2026-04-11.md`
+
 ## Video
 
 ### C-VID-1 Stabilizer Hardening

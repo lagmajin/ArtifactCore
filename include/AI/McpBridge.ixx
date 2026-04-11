@@ -139,7 +139,7 @@ public:
                     continue;
                 }
                 QJsonObject entry;
-                entry[QStringLiteral("name")] = QStringLiteral("%1.%2").arg(componentName, methodName);
+                entry[QStringLiteral("name")] = componentName + QLatin1Char('.') + methodName;
                 entry[QStringLiteral("description")] = tool.value(QStringLiteral("description")).toString();
                 entry[QStringLiteral("returnType")] = tool.value(QStringLiteral("returnType")).toString();
                 entry[QStringLiteral("parameters")] = tool.value(QStringLiteral("parameters")).toArray();
@@ -241,7 +241,7 @@ public:
             });
         }
 
-        return makeError(-32601, QStringLiteral("Method not found: %1").arg(method));
+        return makeError(-32601, QStringLiteral("Method not found: ") + method);
     }
 
     static QByteArray handleFrame(const QByteArray& frame, const AIContext& context = AIContext())
