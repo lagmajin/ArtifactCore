@@ -45,7 +45,7 @@ export namespace ArtifactCore
 const char* blendShaderHeader = R"(
 Texture2D<float4> SrcTex : register(t0);
 Texture2D<float4> DstTex : register(t1);
-RWTexture2D<float4> OutTex : register(u0);
+RWTexture2D<min16float4> OutTex : register(u0);
 
 cbuffer BlendParams : register(b0)
 {

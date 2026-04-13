@@ -195,10 +195,17 @@ bool WASAPIBackend::open(const AudioDeviceInfo& device, const AudioBackendFormat
   // Request a 50 ms shared-mode buffer (2400 frames at 48 kHz).
   // A larger buffer gives the render thread more headroom before an underflow
   // occurs if the OS scheduler delays the poll loop.
-  impl_->bufferDuration = static_cast<REFERENCE_TIME>(
-      (10000000LL * 2400) / std::max(1, impl_->mixSampleRate));
-  hr = impl_->audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, impl_->bufferDuration,
-                                      0, impl_->mixFormat, nullptr);
+  // Windows WASAPI Exclusive Mode (排他モード) の取得を試みる
+  // プロ品質の低遅延のために、まずは Exclusive で初期化
+  hr = impl_->audioClient->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, impl_->bufferDuration,
+                                      impl_->bufferDuration, impl_->mixFormat, nullptr);
+  
+  if (FAILED(hr)) {
+      // Exclusive が対応していないフォーマットやデバイスの場合は、Shared にフォールバックする
+      hr = impl_->audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, impl_->bufferDuration,
+                                          0, impl_->mixFormat, nullptr);
+  }
+
   if (FAILED(hr)) {
     impl_->releaseCom();
     return false;

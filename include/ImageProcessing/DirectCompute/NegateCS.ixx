@@ -42,8 +42,7 @@ export module ImageProcessing.NegateCS;
 
 
 
-import Image;
-
+//import Image;
 export namespace ArtifactCore
 {
  using namespace Diligent;

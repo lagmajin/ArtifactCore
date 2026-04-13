@@ -1,8 +1,10 @@
-
 module;
 
 #include <opencv2/opencv.hpp>
 #include "../../../include/Define/DllExportMacro.hpp"
+#include <QtConcurrent>
+#include <numeric>
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -42,10 +44,6 @@ module ImageProcessing;
 import :Monochrome;
 
 
-
-
-
-
 namespace ArtifactCore {
 
  float srgbToLinear(float c) {
@@ -53,40 +51,57 @@ namespace ArtifactCore {
   return std::pow((c + 0.055f) / 1.055f, 2.4f);
  }
 
- // Linear RGB �� sRGB
+ // Linear RGB → sRGB
  float linearToSrgb(float c) {
   if (c <= 0.0031308f) return 12.92f * c;
   return 1.055f * std::pow(c, 1.0f / 2.4f) - 0.055f;
  }
 
- // ���w�I�ɐ��������m�N���ϊ��iBT.709�j
+ // 物理的に正しいグレースケール変換 (BT.709)
  LIBRARY_DLL_API cv::Mat convertToPhysicallyCorrectGrayscale(const cv::Mat& src_bgr) {
   CV_Assert(src_bgr.type() == CV_8UC3);
 
-  cv::Mat gray(src_bgr.size(), CV_8UC1);
+  const int rows = src_bgr.rows;
+  const int cols = src_bgr.cols;
+  cv::Mat gray(rows, cols, CV_8UC1);
 
-  for (int y = 0; y < src_bgr.rows; ++y) {
-   for (int x = 0; x < src_bgr.cols; ++x) {
-	cv::Vec3b bgr = src_bgr.at<cv::Vec3b>(y, x);
+  // sRGB → Linear → Grayscale → sRGB を行単位で並列化
+  std::vector<uchar> rowResults(rows * cols);
 
-	// BGR �� RGB���K���i0-1�j
-	float r_srgb = bgr[2] / 255.0f;
-	float g_srgb = bgr[1] / 255.0f;
-	float b_srgb = bgr[0] / 255.0f;
+  QVector<int> rowsToProcess(rows);
+  for (int i = 0; i < rows; ++i) {
+   rowsToProcess[i] = i;
+  }
 
-	// sRGB �� ���j�A
-	float r_lin = srgbToLinear(r_srgb);
-	float g_lin = srgbToLinear(g_srgb);
-	float b_lin = srgbToLinear(b_srgb);
+  QtConcurrent::blockingMap(rowsToProcess, [&](int y) {
+   for (int x = 0; x < cols; ++x) {
+    cv::Vec3b bgr = src_bgr.at<cv::Vec3b>(y, x);
 
-	// BT.709���d����
-	float y_lin = 0.2126f * r_lin + 0.7152f * g_lin + 0.0722f * b_lin;
+    // BGR → RGB変換 (0-1)
+    float r_srgb = bgr[2] / 255.0f;
+    float g_srgb = bgr[1] / 255.0f;
+    float b_srgb = bgr[0] / 255.0f;
 
-	// ���j�A �� sRGB
-	float y_srgb = linearToSrgb(y_lin);
+    // sRGB → 線形
+    float r_lin = srgbToLinear(r_srgb);
+    float g_lin = srgbToLinear(g_srgb);
+    float b_lin = srgbToLinear(b_srgb);
 
-	// 0-255�ɕϊ�
-	gray.at<uchar>(y, x) = static_cast<uchar>(std::round(y_srgb * 255.0f));
+    // BT.709重み付け
+    float y_lin = 0.2126f * r_lin + 0.7152f * g_lin + 0.0722f * b_lin;
+
+    // 線形 → sRGB
+    float y_srgb = linearToSrgb(y_lin);
+
+    // 0-255に変換
+    rowResults[y * cols + x] = static_cast<uchar>(std::round(y_srgb * 255.0f));
+   }
+  });
+
+  // 結果をgrayにコピー
+  for (int y = 0; y < rows; ++y) {
+   for (int x = 0; x < cols; ++x) {
+    gray.at<uchar>(y, x) = rowResults[y * cols + x];
    }
   }
 
@@ -100,12 +115,12 @@ namespace ArtifactCore {
   cv::Mat floatSrc;
   src.convertTo(floatSrc, CV_32FC4);
 
-  // ���w�I���m�N���ϊ��}�g���N�X�iBT.709�j
+  // 物理的に正しいグレースケール変換 (BT.709)
   const cv::Matx<float, 4, 4> transformMatrix = {
-		0.0722f, 0.7152f, 0.2126f, 0.0f,
-		0.0722f, 0.7152f, 0.2126f, 0.0f,
-		0.0722f, 0.7152f, 0.2126f, 0.0f,
-		0.0f,    0.0f,    0.0f,    1.0f
+    0.0722f, 0.7152f, 0.2126f, 0.0f,
+    0.0722f, 0.7152f, 0.2126f, 0.0f,
+    0.0722f, 0.7152f, 0.2126f, 0.0f,
+    0.0f,    0.0f,    0.0f,    1.0f
   };
 
   cv::Mat floatDst;

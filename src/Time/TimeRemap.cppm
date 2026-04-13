@@ -333,61 +333,112 @@ int AudioTimeStretchProcessor::processTimeStretchFFT(
     double timeStretchRatio,
     float* outputSamples
 ) {
-    // FFT-based time stretching (simplified implementation)
-    // For production, use libraries like SoundTouch or Rubber Band
+    if (timeStretchRatio <= 0.0) return 0;
     
     int outputSampleCount = static_cast<int>(inputSampleCount / timeStretchRatio);
-    
-    // Window size for FFT
-    const int windowSize = 2048;
-    const int hopSize = windowSize / 4;
-    
-    // Process in windows
+    int windowSize = 2048;
+    int hopSizeIn = windowSize / 4;
+    int hopSizeOut = static_cast<int>(hopSizeIn / timeStretchRatio);
+
+    if (inputSampleCount < windowSize) {
+        return processTimeStretchSimple(inputSamples, inputSampleCount, timeStretchRatio, outputSamples);
+    }
+
+    std::vector<float> window(windowSize);
+    for (int i = 0; i < windowSize; i++) {
+        window[i] = 0.5f * (1.0f - std::cos(2.0f * std::numbers::pi_v<float> * i / (windowSize - 1)));
+    }
+
+    struct ChannelData {
+        std::vector<float> phaseAcc;
+        std::vector<float> lastPhase;
+        ChannelData(int size) : phaseAcc(size, 0.0f), lastPhase(size, 0.0f) {}
+    };
+    std::vector<ChannelData> channelsData(channels_, ChannelData(windowSize / 2 + 1));
+    std::vector<float> outputBuffer(outputSampleCount * channels_ + windowSize * channels_ * 2, 0.0f);
+
     int inputPos = 0;
     int outputPos = 0;
-    
-    while (inputPos + windowSize < inputSampleCount) {
-        // Apply Hann window (simplified)
-        std::vector<float> windowedInput(windowSize * channels_);
-        
-        for (int i = 0; i < windowSize; i++) {
-            float window = 0.5f * (1.0f - std::cos(2.0f * 3.14159f * i / (windowSize - 1)));
-            for (int ch = 0; ch < channels_; ch++) {
-                windowedInput[i * channels_ + ch] = 
-                    inputSamples[(inputPos + i) * channels_ + ch] * window;
+
+    auto computeFFT = [](std::vector<std::complex<float>>& data, bool inverse) {
+        int n = data.size();
+        if (n <= 1) return;
+        int j = 0;
+        for (int i = 0; i < n; ++i) {
+            if (i < j) std::swap(data[i], data[j]);
+            int m = n >> 1;
+            while (m >= 1 && j >= m) { j -= m; m >>= 1; }
+            j += m;
+        }
+        for (int mmax = 1; mmax < n; mmax <<= 1) {
+            float theta = (inverse ? std::numbers::pi_v<float> : -std::numbers::pi_v<float>) / mmax;
+            std::complex<float> wtemp(std::cos(theta), std::sin(theta));
+            std::complex<float> w(1.0f, 0.0f);
+            for (int m = 0; m < mmax; ++m) {
+                for (int i = m; i < n; i += (mmax << 1)) {
+                    int j2 = i + mmax;
+                    std::complex<float> temp = w * data[j2];
+                    data[j2] = data[i] - temp;
+                    data[i] += temp;
+                }
+                w *= wtemp;
             }
         }
-        
-        // Copy to output (simplified - real implementation would do FFT processing)
-        for (int i = 0; i < windowSize && outputPos < outputSampleCount; i++) {
-            float fade = 1.0f;
-            if (i < hopSize) {
-                fade = static_cast<float>(i) / hopSize;
-            } else if (i > windowSize - hopSize) {
-                fade = static_cast<float>(windowSize - i) / hopSize;
-            }
-            
-            for (int ch = 0; ch < channels_; ch++) {
-                outputSamples[outputPos * channels_ + ch] = 
-                    windowedInput[i * channels_ + ch] * fade;
-            }
-            outputPos++;
+        if (inverse) {
+            for (int i = 0; i < n; ++i) data[i] /= static_cast<float>(n);
         }
-        
-        inputPos += hopSize;
-    }
-    
-    // Copy remaining samples
-    while (inputPos < inputSampleCount && outputPos < outputSampleCount) {
+    };
+
+    while (inputPos + windowSize <= inputSampleCount) {
         for (int ch = 0; ch < channels_; ch++) {
-            outputSamples[outputPos * channels_ + ch] = 
-                inputSamples[inputPos * channels_ + ch];
+            std::vector<std::complex<float>> frame(windowSize, {0.0f, 0.0f});
+            for (int i = 0; i < windowSize; i++) {
+                frame[i].real(inputSamples[(inputPos + i) * channels_ + ch] * window[i]);
+            }
+
+            computeFFT(frame, false);
+
+            std::vector<std::complex<float>> outFrame(windowSize, {0.0f, 0.0f});
+            float expctd = 2.0f * std::numbers::pi_v<float> * hopSizeIn / windowSize;
+
+            for (int k = 0; k <= windowSize / 2; k++) {
+                float magnitude = std::abs(frame[k]);
+                float phase = std::arg(frame[k]);
+                
+                float phaseDiff = phase - channelsData[ch].lastPhase[k];
+                channelsData[ch].lastPhase[k] = phase;
+                
+                phaseDiff -= k * expctd;
+                int qpd = phaseDiff / std::numbers::pi_v<float>;
+                if (qpd >= 0) qpd += qpd & 1; else qpd -= qpd & 1;
+                phaseDiff -= std::numbers::pi_v<float> * qpd;
+                
+                float freq = (k * expctd + phaseDiff) / hopSizeIn;
+                channelsData[ch].phaseAcc[k] += hopSizeOut * freq;
+                
+                outFrame[k] = std::polar(magnitude, channelsData[ch].phaseAcc[k]);
+                if (k > 0 && k < windowSize / 2) {
+                    outFrame[windowSize - k] = std::conj(outFrame[k]);
+                }
+            }
+
+            computeFFT(outFrame, true);
+
+            for (int i = 0; i < windowSize; i++) {
+                int outIndex = (outputPos + i) * channels_ + ch;
+                outputBuffer[outIndex] += outFrame[i].real() * window[i] * 2.0f / 3.0f;
+            }
         }
-        outputPos++;
-        inputPos += static_cast<int>(timeStretchRatio);
+        inputPos += hopSizeIn;
+        outputPos += hopSizeOut;
+    }
+
+    int finalSamples = std::min(outputPos, outputSampleCount);
+    for (int i = 0; i < finalSamples * channels_; i++) {
+        outputSamples[i] = std::clamp(outputBuffer[i], -1.0f, 1.0f);
     }
     
-    return outputSampleCount;
+    return finalSamples;
 }
 
 // ==================== TimeRemapEffect ====================

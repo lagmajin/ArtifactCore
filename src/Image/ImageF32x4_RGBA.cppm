@@ -34,7 +34,8 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-#include <opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 #include <QImage>
 #include <QString>
 #include <QList>
@@ -115,9 +116,9 @@ namespace ArtifactCore {
  }
 
  ImageF32x4_RGBA::Impl::Impl()
-  : mat_(1, 1, CV_32FC4, cv::Scalar(0, 0, 0, 1)) // Default 1x1 with transparent
+  : mat_(1, 1, CV_32FC4)
  {
-
+   mat_.setTo(cv::Scalar_<float>(0.f, 0.f, 0.f, 1.f));
  }
 
  ImageF32x4_RGBA::Impl::Impl(const Impl& other)

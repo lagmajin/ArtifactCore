@@ -127,6 +127,12 @@ public:
         return subscriberCountRaw(std::type_index(typeid(Event)));
     }
 
+    // Hook called synchronously after every publishRaw delivery.
+    // Signature: void(eventType, subscriberCount).
+    // Pass nullptr to remove the hook.
+    using PublishHookFn = void(*)(std::type_index, std::size_t);
+    void setPublishHook(PublishHookFn hook) noexcept;
+
 private:
     std::shared_ptr<Impl> impl_;
 

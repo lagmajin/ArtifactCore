@@ -1,4 +1,5 @@
 module;
+#include <functional>
 #include <QByteArray>
 #include <QDeadlineTimer>
 #include <QJsonArray>
@@ -21,11 +22,67 @@ import Core.AI.ToolExecutor;
 
 export namespace ArtifactCore {
 
-struct McpCallResult {
-  bool success = false;
-  QJsonObject response;
-  QString errorText;
+// ─────────────────────────────────────────────
+// Extended error codes for better diagnostics
+// ─────────────────────────────────────────────
+enum class McpErrorCode : int {
+    // JSON-RPC standard errors
+    ParseError = -32700,
+    InvalidRequest = -32600,
+    MethodNotFound = -32601,
+    InvalidParams = -32602,
+    InternalError = -32603,
+
+    // Transport-level errors
+    TransportStartFailed = -40001,
+    TransportWriteFailed = -40002,
+    TransportWriteTimeout = -40003,
+    TransportReadTimeout = -40004,
+    ProcessCrashed = -40005,
+    EmptyProgram = -40006,
+
+    // Server lifecycle errors
+    ServerNotInitialized = -40010,
+    ServerDisconnected = -40011,
+    RestartLimitExceeded = -40012,
 };
+
+struct McpCallResult {
+    bool success = false;
+    QJsonObject response;
+    QString errorText;
+    int errorCode = 0;  // McpErrorCode or process error code
+
+    bool hasError() const { return !success; }
+};
+
+// Progress notification from MCP server (progressToken)
+struct McpProgressInfo {
+    QString token;           // progressToken value
+    int current = 0;         // current progress (0-based)
+    int total = 0;           // total expected (0 if unknown)
+    QString message;         // optional human-readable status
+};
+
+using McpProgressCallback = std::function<void(const McpProgressInfo&)>;
+
+// Utility: check if a decoded frame is a progress notification and invoke callback
+inline bool tryHandleProgressFrame(const QJsonObject& frame, const McpProgressCallback& onProgress) {
+    const QString method = frame.value(QStringLiteral("method")).toString();
+    if (method == QStringLiteral("progress") || method.startsWith(QStringLiteral("notifications/progress"))) {
+        if (onProgress) {
+            const QJsonObject params = frame.value(QStringLiteral("params")).toObject();
+            McpProgressInfo info;
+            info.token = params.value(QStringLiteral("progressToken")).toString();
+            info.current = params.value(QStringLiteral("progress")).toInt();
+            info.total = params.value(QStringLiteral("total")).toInt(0);
+            info.message = params.value(QStringLiteral("message")).toString();
+            onProgress(info);
+        }
+        return true;
+    }
+    return false;
+}
 
 class McpTransportSession {
 public:
@@ -84,59 +141,57 @@ public:
     }
   }
 
-  McpCallResult call(const QJsonObject &request,
-                     const AIContext &context = AIContext(),
-                     int timeoutMs = 15000) {
+  // ── Call with progress callback ──
+
+  McpCallResult callWithProgress(const QJsonObject &request,
+                                 McpProgressCallback onProgress,
+                                 const AIContext &context = AIContext(),
+                                 int timeoutMs = 15000) {
     if (!process_ || process_->state() == QProcess::NotRunning) {
       if (!start()) {
         return {false, QJsonObject{},
                 lastError_.isEmpty()
                     ? QStringLiteral("Failed to start MCP transport")
-                    : lastError_};
+                    : lastError_,
+                static_cast<int>(McpErrorCode::TransportStartFailed)};
       }
     }
 
+    // Inject progressToken into _meta if callback is provided
     QJsonObject requestWithContext = request;
     QJsonObject params =
         requestWithContext.value(QStringLiteral("params")).toObject();
     params[QStringLiteral("context")] = context.toJson();
+
+    if (onProgress) {
+      const QString progressToken = QStringLiteral("progress_") + QString::number(++progressTokenCounter_);
+      QJsonObject meta = params.value(QStringLiteral("_meta")).toObject();
+      meta[QStringLiteral("progressToken")] = progressToken;
+      params[QStringLiteral("_meta")] = meta;
+    }
     requestWithContext[QStringLiteral("params")] = params;
 
     const QByteArray frame = McpBridge::encodeFrame(requestWithContext);
     if (process_->write(frame) < 0) {
       lastError_ = process_->errorString();
-      return {false, QJsonObject{}, lastError_};
+      return {false, QJsonObject{}, lastError_,
+              static_cast<int>(McpErrorCode::TransportWriteFailed)};
     }
     if (!process_->waitForBytesWritten(timeoutMs)) {
       lastError_ = QStringLiteral("Timed out writing MCP request");
-      return {false, QJsonObject{}, lastError_};
+      return {false, QJsonObject{}, lastError_,
+              static_cast<int>(McpErrorCode::TransportWriteTimeout)};
     }
 
-    QByteArray stdoutBytes;
-    QByteArray stderrBytes;
-    const auto deadline = QDeadlineTimer(timeoutMs);
-    while (deadline.remainingTime() > 0) {
-      if (process_->waitForReadyRead(50)) {
-        stdoutBytes += process_->readAllStandardOutput();
-        stderrBytes += process_->readAllStandardError();
-        const auto frames = McpBridge::decodeFrames(stdoutBytes);
-        if (!frames.isEmpty()) {
-          responseBuffer_ =
-              stdoutBytes.mid(stdoutBytes.lastIndexOf("\r\n\r\n") + 4);
-          lastError_.clear();
-          return {true, frames.last(), QString()};
-        }
-      }
-      if (process_->state() == QProcess::NotRunning) {
-        break;
-      }
-    }
+    return waitForResponseWithProgress(timeoutMs, onProgress);
+  }
 
-    stderrBytes += process_->readAllStandardError();
-    lastError_ = stderrBytes.isEmpty()
-                     ? QStringLiteral("Timed out waiting for MCP response")
-                     : QString::fromUtf8(stderrBytes).trimmed();
-    return {false, QJsonObject{}, lastError_};
+  // ── Simple call (no progress) ──
+
+  McpCallResult call(const QJsonObject &request,
+                     const AIContext &context = AIContext(),
+                     int timeoutMs = 15000) {
+    return callWithProgress(request, McpProgressCallback(), context, timeoutMs);
   }
 
   McpCallResult initialize(const AIContext &context = AIContext()) {
@@ -193,21 +248,6 @@ public:
     return names;
   }
 
-  // Convert MCP tool call to Artifact internal and execute
-  QVariant convertAndCallTool(const QJsonObject &mcpToolCall,
-                              const AIContext &context = AIContext()) {
-    const McpToolMapper &mapper = McpToolMapper::instance();
-    const QJsonObject artifactCall =
-        mapper.convertMcpToolCallToArtifact(mcpToolCall);
-    if (artifactCall.isEmpty()) {
-      return QVariant::fromValue(
-          QStringLiteral("Unknown MCP tool or mapping not found"));
-    }
-
-    // Execute using AIToolExecutor
-    return AIToolExecutor::instance().execute(artifactCall);
-  }
-
 private:
   std::unique_ptr<QProcess> process_;
   QString program_;
@@ -217,6 +257,73 @@ private:
   bool hasEnvironment_ = false;
   QByteArray responseBuffer_;
   QString lastError_;
+  int progressTokenCounter_ = 0;
+
+  McpCallResult waitForResponseWithProgress(int timeoutMs, McpProgressCallback onProgress) {
+    QByteArray stdoutBytes;
+    QByteArray stderrBytes;
+    const auto deadline = QDeadlineTimer(timeoutMs);
+
+    while (deadline.remainingTime() > 0) {
+      if (process_->waitForReadyRead(50)) {
+        stdoutBytes += process_->readAllStandardOutput();
+        stderrBytes += process_->readAllStandardError();
+
+        // Decode all available frames from the buffer
+        responseBuffer_ += stdoutBytes;
+        stdoutBytes.clear();
+
+        const auto frames = McpBridge::decodeFrames(responseBuffer_);
+        if (!frames.isEmpty()) {
+          // Find the position after the last complete frame to update buffer
+          const int lastFrameEnd = responseBuffer_.lastIndexOf("\r\n\r\n");
+          if (lastFrameEnd >= 0) {
+            // Find the body end of the last frame
+            const QByteArray header = responseBuffer_.left(lastFrameEnd);
+            const int clPos = header.toLower().lastIndexOf("content-length:");
+            if (clPos >= 0) {
+              const int clStart = clPos + 15;
+              const int clEnd = header.indexOf('\r', clStart);
+              if (clEnd > clStart) {
+                bool ok = false;
+                const int contentLength = header.mid(clStart, clEnd - clStart).trimmed().toInt(&ok);
+                if (ok && contentLength >= 0) {
+                  const int bodyEnd = lastFrameEnd + 4 + contentLength;
+                  if (bodyEnd <= responseBuffer_.size()) {
+                    responseBuffer_ = responseBuffer_.mid(bodyEnd);
+                  }
+                }
+              }
+            }
+          }
+
+          // Process each frame - filter progress notifications vs final responses
+          for (const auto& frame : frames) {
+            if (tryHandleProgressFrame(frame, onProgress)) {
+              continue;
+            }
+            lastError_.clear();
+            return {true, frame, QString(), 0};
+          }
+        }
+      }
+      if (process_->state() == QProcess::NotRunning) {
+        break;
+      }
+    }
+
+    stderrBytes += process_->readAllStandardError();
+    const bool crashed = (process_->state() == QProcess::NotRunning &&
+                          process_->exitStatus() == QProcess::CrashExit);
+    lastError_ = stderrBytes.isEmpty()
+                     ? (crashed ? QStringLiteral("MCP process crashed")
+                                : QStringLiteral("Timed out waiting for MCP response"))
+                     : QString::fromUtf8(stderrBytes).trimmed();
+    return {false, QJsonObject{}, lastError_,
+            crashed ? static_cast<int>(McpErrorCode::ProcessCrashed)
+                    : static_cast<int>(McpErrorCode::TransportReadTimeout)};
+  }
+
 };
 
 } // namespace ArtifactCore

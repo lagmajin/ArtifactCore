@@ -3,6 +3,7 @@ module;
 #include "../Define/DllExportMacro.hpp"
 #include <memory>
 #include <functional>
+#include <chrono>
 #include <QString>
 
 export module AudioRenderer;
@@ -89,6 +90,11 @@ struct AudioLevelData {
    * @param callback Called with AudioLevelData (dBFS values) from the output buffer
    */
   void setLevelCallback(std::function<void(const AudioLevelData&)> callback);
+
+  // A/V Sync support
+  std::chrono::microseconds getAudioPosition() const;
+  void reportUnderflow();
+  void reportOverflow();
 
  private:
   struct Impl;

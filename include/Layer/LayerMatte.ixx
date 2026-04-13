@@ -7,6 +7,36 @@ export module Layer.Matte;
 export namespace ArtifactCore {
 
 /**
+ * @brief Matte source channel selection used by matte evaluation.
+ */
+enum class MatteType {
+    Alpha,
+    Luma,
+    InverseAlpha,
+    InverseLuma
+};
+
+/**
+ * @brief Blend mode used when stacking multiple matte sources.
+ */
+enum class MatteBlendMode {
+    Add,
+    Subtract,
+    Intersect,
+    Difference
+};
+
+/**
+ * @brief How matte assets are resized into the target layer.
+ */
+enum class MatteFitMode {
+    Stretch,
+    Fit,
+    Fill,
+    Original
+};
+
+/**
  * @brief Track matte modes for using one layer as a mask for another.
  */
 enum class MatteMode {

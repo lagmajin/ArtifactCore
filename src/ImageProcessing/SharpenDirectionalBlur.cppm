@@ -4,6 +4,8 @@ module;
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <QtConcurrent>
+#include <numeric>
 
 #include <iostream>
 #include <vector>
@@ -83,24 +85,35 @@ void BlurSharpenUtils::convolveHorizontal(
 {
     const int width = source.width();
     const int height = source.height();
-    
+
+    // 行単位で並列化
+    std::vector<std::vector<QRgb>> rowResults(height);
     for (int y = 0; y < height; ++y) {
+        rowResults[y].resize(width);
+    }
+
+    QVector<int> rowsToProcess(height);
+    for (int i = 0; i < height; ++i) {
+        rowsToProcess[i] = i;
+    }
+
+    QtConcurrent::blockingMap(rowsToProcess, [&](int y) {
         const QRgb* srcLine = reinterpret_cast<const QRgb*>(source.scanLine(y));
-        QRgb* dstLine = reinterpret_cast<QRgb*>(dest.scanLine(y));
-        
+        QRgb* dstLine = rowResults[y].data();
+
         for (int x = 0; x < width; ++x) {
             double r = 0, g = 0, b = 0, a = 0;
-            
+
             for (int k = -kernelRadius; k <= kernelRadius; ++k) {
                 int sx = std::clamp(x + k, 0, width - 1);
                 double weight = kernel[k + kernelRadius];
-                
+
                 r += qRed(srcLine[sx]) * weight;
                 g += qGreen(srcLine[sx]) * weight;
                 b += qBlue(srcLine[sx]) * weight;
                 a += qAlpha(srcLine[sx]) * weight;
             }
-            
+
             dstLine[x] = qRgba(
                 static_cast<int>(std::clamp(r, 0.0, 255.0)),
                 static_cast<int>(std::clamp(g, 0.0, 255.0)),
@@ -108,6 +121,13 @@ void BlurSharpenUtils::convolveHorizontal(
                 static_cast<int>(std::clamp(a, 0.0, 255.0))
             );
         }
+    });
+
+    // 結果をdestにコピー
+    for (int y = 0; y < height; ++y) {
+        const auto& srcRow = rowResults[y];
+        QRgb* dstLine = reinterpret_cast<QRgb*>(dest.scanLine(y));
+        std::memcpy(dstLine, srcRow.data(), width * sizeof(QRgb));
     }
 }
 
@@ -119,24 +139,35 @@ void BlurSharpenUtils::convolveVertical(
 {
     const int width = source.width();
     const int height = source.height();
-    
+
+    // 行単位で並列化
+    std::vector<std::vector<QRgb>> rowResults(height);
     for (int y = 0; y < height; ++y) {
-        QRgb* dstLine = reinterpret_cast<QRgb*>(dest.scanLine(y));
-        
+        rowResults[y].resize(width);
+    }
+
+    QVector<int> rowsToProcess(height);
+    for (int i = 0; i < height; ++i) {
+        rowsToProcess[i] = i;
+    }
+
+    QtConcurrent::blockingMap(rowsToProcess, [&](int y) {
+        QRgb* dstLine = rowResults[y].data();
+
         for (int x = 0; x < width; ++x) {
             double r = 0, g = 0, b = 0, a = 0;
-            
+
             for (int k = -kernelRadius; k <= kernelRadius; ++k) {
                 int sy = std::clamp(y + k, 0, height - 1);
                 const QRgb* srcLine = reinterpret_cast<const QRgb*>(source.scanLine(sy));
                 double weight = kernel[k + kernelRadius];
-                
+
                 r += qRed(srcLine[x]) * weight;
                 g += qGreen(srcLine[x]) * weight;
                 b += qBlue(srcLine[x]) * weight;
                 a += qAlpha(srcLine[x]) * weight;
             }
-            
+
             dstLine[x] = qRgba(
                 static_cast<int>(std::clamp(r, 0.0, 255.0)),
                 static_cast<int>(std::clamp(g, 0.0, 255.0)),
@@ -144,6 +175,13 @@ void BlurSharpenUtils::convolveVertical(
                 static_cast<int>(std::clamp(a, 0.0, 255.0))
             );
         }
+    });
+
+    // 結果をdestにコピー
+    for (int y = 0; y < height; ++y) {
+        const auto& srcRow = rowResults[y];
+        QRgb* dstLine = reinterpret_cast<QRgb*>(dest.scanLine(y));
+        std::memcpy(dstLine, srcRow.data(), width * sizeof(QRgb));
     }
 }
 
@@ -155,39 +193,55 @@ QImage BlurSharpenUtils::convolve2D(
     int kWidth = kernel[0].size();
     int kRadiusY = kHeight / 2;
     int kRadiusX = kWidth / 2;
-    
-    QImage result = source.convertToFormat(QImage::Format_ARGB32);
+
+    QImage result(source.size(), QImage::Format_ARGB32);
     const int width = source.width();
     const int height = source.height();
-    
+
+    // 行単位で並列化
+    std::vector<std::vector<QRgb>> rowResults(height);
     for (int y = 0; y < height; ++y) {
-        QRgb* dstLine = reinterpret_cast<QRgb*>(result.scanLine(y));
-        
+        rowResults[y].resize(width);
+    }
+
+    QVector<int> rowsToProcess(height);
+    for (int i = 0; i < height; ++i) {
+        rowsToProcess[i] = i;
+    }
+
+    QtConcurrent::blockingMap(rowsToProcess, [&](int y) {
         for (int x = 0; x < width; ++x) {
             double r = 0, g = 0, b = 0;
-            
+
             for (int ky = 0; ky < kHeight; ++ky) {
                 int sy = std::clamp(y + ky - kRadiusY, 0, height - 1);
                 const QRgb* srcLine = reinterpret_cast<const QRgb*>(source.scanLine(sy));
-                
+
                 for (int kx = 0; kx < kWidth; ++kx) {
                     int sx = std::clamp(x + kx - kRadiusX, 0, width - 1);
                     double weight = kernel[ky][kx];
-                    
+
                     r += qRed(srcLine[sx]) * weight;
                     g += qGreen(srcLine[sx]) * weight;
                     b += qBlue(srcLine[sx]) * weight;
                 }
             }
-            
-            dstLine[x] = qRgb(
+
+            rowResults[y][x] = qRgb(
                 static_cast<int>(std::clamp(r, 0.0, 255.0)),
                 static_cast<int>(std::clamp(g, 0.0, 255.0)),
                 static_cast<int>(std::clamp(b, 0.0, 255.0))
             );
         }
+    });
+
+    // 結果をresultにコピー
+    for (int y = 0; y < height; ++y) {
+        const auto& srcRow = rowResults[y];
+        QRgb* dstLine = reinterpret_cast<QRgb*>(result.scanLine(y));
+        std::memcpy(dstLine, srcRow.data(), width * sizeof(QRgb));
     }
-    
+
     return result;
 }
 
@@ -253,45 +307,51 @@ QImage UnsharpMaskEffect::blendImages(
 {
     QImage result = original.convertToFormat(QImage::Format_ARGB32);
     double blendFactor = amount / 100.0;
-    
+
     const int width = original.width();
     const int height = original.height();
-    
-    for (int y = 0; y < height; ++y) {
+
+    // 行単位で並列化
+    QVector<int> rowsToProcess(height);
+    for (int i = 0; i < height; ++i) {
+        rowsToProcess[i] = i;
+    }
+
+    QtConcurrent::blockingMap(rowsToProcess, [&](int y) {
         const QRgb* origLine = reinterpret_cast<const QRgb*>(original.scanLine(y));
         const QRgb* blurLine = reinterpret_cast<const QRgb*>(blurred.scanLine(y));
         QRgb* resultLine = reinterpret_cast<QRgb*>(result.scanLine(y));
-        
+
         for (int x = 0; x < width; ++x) {
             int r = qRed(origLine[x]);
             int g = qGreen(origLine[x]);
             int b = qBlue(origLine[x]);
             int a = qAlpha(origLine[x]);
-            
+
             int blurR = qRed(blurLine[x]);
             int blurG = qGreen(blurLine[x]);
             int blurB = qBlue(blurLine[x]);
-            
+
             // 差分を計算
             int diffR = r - blurR;
             int diffG = g - blurG;
             int diffB = b - blurB;
-            
+
             // 閾値チェック
             int diff = std::abs(diffR) + std::abs(diffG) + std::abs(diffB);
             if (diff / 3.0 < threshold) {
                 continue;
             }
-            
+
             // アンシャープマスク適用
             r = static_cast<int>(std::clamp(r + diffR * blendFactor, 0.0, 255.0));
             g = static_cast<int>(std::clamp(g + diffG * blendFactor, 0.0, 255.0));
             b = static_cast<int>(std::clamp(b + diffB * blendFactor, 0.0, 255.0));
-            
+
             resultLine[x] = qRgba(r, g, b, a);
         }
-    }
-    
+    });
+
     return result;
 }
 
@@ -448,28 +508,39 @@ QImage DirectionalBlurEffect::blurInDirection(
     int steps) const
 {
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
-    
+
     const int width = source.width();
     const int height = source.height();
     const double radius = impl_->settings.radius;
     const double stepSize = radius / steps;
-    
+
+    // 行単位で並列化
+    std::vector<std::vector<QRgb>> rowResults(height);
     for (int y = 0; y < height; ++y) {
-        QRgb* resultLine = reinterpret_cast<QRgb*>(result.scanLine(y));
-        
+        rowResults[y].resize(width);
+    }
+
+    QVector<int> rowsToProcess(height);
+    for (int i = 0; i < height; ++i) {
+        rowsToProcess[i] = i;
+    }
+
+    QtConcurrent::blockingMap(rowsToProcess, [&](int y) {
+        const QRgb* srcRow = reinterpret_cast<const QRgb*>(source.constScanLine(y));
         for (int x = 0; x < width; ++x) {
-            double sumR = qRed(resultLine[x]);
-            double sumG = qGreen(resultLine[x]);
-            double sumB = qBlue(resultLine[x]);
-            double sumA = qAlpha(resultLine[x]);
+            const QRgb basePixel = srcRow[x];
+            double sumR = qRed(basePixel);
+            double sumG = qGreen(basePixel);
+            double sumB = qBlue(basePixel);
+            double sumA = qAlpha(basePixel);
             int count = 1;
-            
+
             // 正方向
             for (int s = 1; s <= steps; ++s) {
                 double offset = s * stepSize;
                 int sx = static_cast<int>(x + dx * offset);
                 int sy = static_cast<int>(y + dy * offset);
-                
+
                 if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
                     const QRgb* srcLine = reinterpret_cast<const QRgb*>(source.scanLine(sy));
                     sumR += qRed(srcLine[sx]);
@@ -479,13 +550,13 @@ QImage DirectionalBlurEffect::blurInDirection(
                     ++count;
                 }
             }
-            
+
             // 負方向
             for (int s = 1; s <= steps; ++s) {
                 double offset = s * stepSize;
                 int sx = static_cast<int>(x - dx * offset);
                 int sy = static_cast<int>(y - dy * offset);
-                
+
                 if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
                     const QRgb* srcLine = reinterpret_cast<const QRgb*>(source.scanLine(sy));
                     sumR += qRed(srcLine[sx]);
@@ -495,16 +566,23 @@ QImage DirectionalBlurEffect::blurInDirection(
                     ++count;
                 }
             }
-            
-            resultLine[x] = qRgba(
+
+            rowResults[y][x] = qRgba(
                 static_cast<int>(sumR / count),
                 static_cast<int>(sumG / count),
                 static_cast<int>(sumB / count),
                 static_cast<int>(sumA / count)
             );
         }
+    });
+
+    // 結果をresultにコピー
+    for (int y = 0; y < height; ++y) {
+        const auto& srcRow = rowResults[y];
+        QRgb* dstLine = reinterpret_cast<QRgb*>(result.scanLine(y));
+        std::memcpy(dstLine, srcRow.data(), width * sizeof(QRgb));
     }
-    
+
     return result;
 }
 

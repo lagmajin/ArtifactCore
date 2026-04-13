@@ -149,7 +149,174 @@ public:
 
         QJsonObject capabilities;
         capabilities[QStringLiteral("tools")] = tools;
+        capabilities[QStringLiteral("resources")] = QJsonObject{
+            {QStringLiteral("list"), true},
+            {QStringLiteral("read"), true}
+        };
+        capabilities[QStringLiteral("prompts")] = QJsonObject{
+            {QStringLiteral("list"), true},
+            {QStringLiteral("get"), true}
+        };
         return capabilities;
+    }
+
+    // --- Resources ---
+
+    static QJsonObject resourceList()
+    {
+        QJsonArray resources;
+        resources.append(QJsonObject{
+            {QStringLiteral("uri"), QStringLiteral("project://current")},
+            {QStringLiteral("name"), QStringLiteral("Current Project")},
+            {QStringLiteral("description"), QStringLiteral("Metadata of the currently open project")},
+            {QStringLiteral("mimeType"), QStringLiteral("application/json")}
+        });
+        resources.append(QJsonObject{
+            {QStringLiteral("uri"), QStringLiteral("composition://current")},
+            {QStringLiteral("name"), QStringLiteral("Current Composition")},
+            {QStringLiteral("description"), QStringLiteral("Settings and layer list of the current composition")},
+            {QStringLiteral("mimeType"), QStringLiteral("application/json")}
+        });
+        resources.append(QJsonObject{
+            {QStringLiteral("uri"), QStringLiteral("composition://current/layers")},
+            {QStringLiteral("name"), QStringLiteral("Current Composition Layers")},
+            {QStringLiteral("description"), QStringLiteral("Detailed layer list of the current composition")},
+            {QStringLiteral("mimeType"), QStringLiteral("application/json")}
+        });
+        resources.append(QJsonObject{
+            {QStringLiteral("uri"), QStringLiteral("render-queue://current")},
+            {QStringLiteral("name"), QStringLiteral("Render Queue")},
+            {QStringLiteral("description"), QStringLiteral("Current render queue jobs and status")},
+            {QStringLiteral("mimeType"), QStringLiteral("application/json")}
+        });
+        resources.append(QJsonObject{
+            {QStringLiteral("uri"), QStringLiteral("playback://current")},
+            {QStringLiteral("name"), QStringLiteral("Playback State")},
+            {QStringLiteral("description"), QStringLiteral("Current playback state (frame, speed, range)")},
+            {QStringLiteral("mimeType"), QStringLiteral("application/json")}
+        });
+        return QJsonObject{{QStringLiteral("resources"), resources}};
+    }
+
+    static QJsonObject resourceRead(const QString& uri, const AIContext& context = AIContext())
+    {
+        auto makeContent = [&](const QString& text, const QString& mimeType = QStringLiteral("application/json")) {
+            return QJsonObject{
+                {QStringLiteral("contents"), QJsonArray{QJsonObject{
+                    {QStringLiteral("uri"), uri},
+                    {QStringLiteral("mimeType"), mimeType},
+                    {QStringLiteral("text"), text}
+                }}}
+            };
+        };
+
+        if (uri == QStringLiteral("project://current")) {
+            const auto proj = context.toJson().value(QStringLiteral("project"));
+            return makeContent(proj.isObject() && !proj.toObject().isEmpty()
+                ? QJsonDocument(proj.toObject()).toJson(QJsonDocument::Compact)
+                : QStringLiteral("{\"error\":\"no project open\"}"));
+        }
+        if (uri == QStringLiteral("composition://current") || uri == QStringLiteral("composition://current/layers")) {
+            const auto comp = context.toJson().value(QStringLiteral("composition"));
+            return makeContent(comp.isObject() && !comp.toObject().isEmpty()
+                ? QJsonDocument(comp.toObject()).toJson(QJsonDocument::Compact)
+                : QStringLiteral("{\"error\":\"no composition open\"}"));
+        }
+        if (uri == QStringLiteral("render-queue://current")) {
+            const auto rq = context.toJson().value(QStringLiteral("renderQueue"));
+            return makeContent(rq.isObject() && !rq.toObject().isEmpty()
+                ? QJsonDocument(rq.toObject()).toJson(QJsonDocument::Compact)
+                : QStringLiteral("{\"renderQueue\":[]}"));
+        }
+        if (uri == QStringLiteral("playback://current")) {
+            const auto pb = context.toJson().value(QStringLiteral("playback"));
+            return makeContent(pb.isObject() && !pb.toObject().isEmpty()
+                ? QJsonDocument(pb.toObject()).toJson(QJsonDocument::Compact)
+                : QStringLiteral("{\"error\":\"no playback context\"}"));
+        }
+        return QJsonObject{{QStringLiteral("error"), QStringLiteral("Resource not found: ") + uri}};
+    }
+
+    // --- Prompts ---
+
+    static QJsonObject promptList()
+    {
+        QJsonArray prompts;
+        prompts.append(QJsonObject{
+            {QStringLiteral("name"), QStringLiteral("compose_new_project")},
+            {QStringLiteral("description"), QStringLiteral("Guide for setting up a new project with recommended composition settings")},
+            {QStringLiteral("arguments"), QJsonArray{
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("purpose")},
+                            {QStringLiteral("description"), QStringLiteral("Purpose of the project (e.g. motion_graphics, vfx_compositing, color_grading)")},
+                            {QStringLiteral("required"), false}}
+            }}
+        });
+        prompts.append(QJsonObject{
+            {QStringLiteral("name"), QStringLiteral("add_vfx_to_layer")},
+            {QStringLiteral("description"), QStringLiteral("Guide for adding visual effects to a selected layer")},
+            {QStringLiteral("arguments"), QJsonArray{
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("effect_type")},
+                            {QStringLiteral("description"), QStringLiteral("Type of effect (e.g. blur, glow, color_correction, distortion)")},
+                            {QStringLiteral("required"), true}}
+            }}
+        });
+        prompts.append(QJsonObject{
+            {QStringLiteral("name"), QStringLiteral("debug_render_issue")},
+            {QStringLiteral("description"), QStringLiteral("Diagnostic workflow for rendering problems (black frames, artifacts, crashes)")},
+            {QStringLiteral("arguments"), QJsonArray{
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("symptom")},
+                            {QStringLiteral("description"), QStringLiteral("Description of the issue")},
+                            {QStringLiteral("required"), true}}
+            }}
+        });
+        prompts.append(QJsonObject{
+            {QStringLiteral("name"), QStringLiteral("optimize_composition_performance")},
+            {QStringLiteral("description"), QStringLiteral("Performance optimization checklist for slow compositions")},
+            {QStringLiteral("arguments"), QJsonArray{
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("layer_count")},
+                            {QStringLiteral("description"), QStringLiteral("Approximate number of layers")},
+                            {QStringLiteral("required"), false}}
+            }}
+        });
+        return QJsonObject{{QStringLiteral("prompts"), prompts}};
+    }
+
+    static QJsonObject promptGet(const QString& name)
+    {
+        const struct PromptEntry {
+            const char* name;
+            const char* systemPrompt;
+            const char* userTemplate;
+        } kPrompts[] = {
+            {"compose_new_project",
+             "You are an expert compositing supervisor. Help the user set up a new project with industry-standard settings.",
+             "The user wants to create a project for: {{purpose}}.\n\nRecommend composition size, frame rate, color space, and bit depth. Explain your reasoning briefly."},
+            {"add_vfx_to_layer",
+             "You are a VFX pipeline specialist. Guide the user through adding effects to a layer in ArtifactStudio.",
+             "The user wants to add a {{effect_type}} effect.\n\n1. Tell them which effect class to use.\n2. Show the key parameters.\n3. Give recommended starting values.\n4. Mention any performance considerations."},
+            {"debug_render_issue",
+             "You are a rendering debugger. Help the user diagnose and fix rendering issues in ArtifactStudio.",
+             "The user reports: {{symptom}}.\n\nAsk for the following if not provided:\n- Number of layers\n- Whether GPU blend is enabled\n- Preview quality setting\n- Any recent changes\n\nThen provide a step-by-step diagnostic plan starting from the most likely cause."},
+            {"optimize_composition_performance",
+             "You are a performance optimization expert for ArtifactStudio compositions.",
+             "The composition has approximately {{layer_count}} layers and is running slowly.\n\nProvide a prioritized checklist:\n1. Check GPU readback status\n2. Verify texture cache behavior\n3. Review event dispatch patterns\n4. Suggest preview quality adjustments\n5. Identify layers with CPU rasterizer effects"}
+        };
+
+        for (const auto& entry : kPrompts) {
+            if (name == QLatin1String(entry.name)) {
+                QJsonObject prompt;
+                prompt[QStringLiteral("name")] = QLatin1String(entry.name);
+                prompt[QStringLiteral("description")] = QLatin1String(entry.systemPrompt);
+                prompt[QStringLiteral("messages")] = QJsonArray{
+                    QJsonObject{{QStringLiteral("role"), QStringLiteral("system")},
+                                {QStringLiteral("content"), QLatin1String(entry.systemPrompt)}},
+                    QJsonObject{{QStringLiteral("role"), QStringLiteral("user")},
+                                {QStringLiteral("content"), QLatin1String(entry.userTemplate)}}
+                };
+                return QJsonObject{{QStringLiteral("prompt"), prompt}};
+            }
+        }
+        return QJsonObject{{QStringLiteral("error"), QStringLiteral("Prompt not found: ") + name}};
     }
 
     static QJsonObject handleRequest(const QJsonObject& request, const AIContext& context = AIContext())
@@ -239,6 +406,30 @@ public:
                 {QStringLiteral("pong"), true},
                 {QStringLiteral("timestamp"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}
             });
+        }
+
+        if (method == QStringLiteral("resources/list")) {
+            return makeResponse(resourceList());
+        }
+
+        if (method == QStringLiteral("resources/read")) {
+            const QString uri = params.value(QStringLiteral("uri")).toString();
+            if (uri.isEmpty()) {
+                return makeError(-32602, QStringLiteral("Missing required parameter: uri"));
+            }
+            return makeResponse(resourceRead(uri, effectiveContext));
+        }
+
+        if (method == QStringLiteral("prompts/list")) {
+            return makeResponse(promptList());
+        }
+
+        if (method == QStringLiteral("prompts/get")) {
+            const QString name = params.value(QStringLiteral("name")).toString();
+            if (name.isEmpty()) {
+                return makeError(-32602, QStringLiteral("Missing required parameter: name"));
+            }
+            return makeResponse(promptGet(name));
         }
 
         return makeError(-32601, QStringLiteral("Method not found: ") + method);

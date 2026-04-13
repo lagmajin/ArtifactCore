@@ -25,9 +25,8 @@
 //#include <atomic>
 #include <queue>
 #include <deque>
-#include <opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
 #include <QImage>
-#include <QUuid>
 #include <QObject>
 #include <QString>
 export module Image.ImageF32x4_RGBA;
@@ -35,11 +34,7 @@ export module Image.ImageF32x4_RGBA;
 import Size;
 import FloatRGBA;
 import ImageInterface;
-
-
 export namespace ArtifactCore {
-
-
 
   class LIBRARY_DLL_API ImageF32x4_RGBA : public QObject, public ImageInterface {
  public:

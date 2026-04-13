@@ -114,6 +114,13 @@ bool LayerBlendPipeline::ready() const {
 bool LayerBlendPipeline::blend(IDeviceContext *ctx, ITextureView *srcSRV,
                                ITextureView *dstSRV, ITextureView *outUAV,
                                BlendMode mode, float opacity) {
+  if (executors_.empty()) {
+    if (!createExecutors()) {
+      qCritical() << "[LayerBlendPipeline::blend] executor creation failed";
+      return false;
+    }
+  }
+
   // [Fix: 詳細チェック]
   if (!ctx) {
     qCritical() << "[LayerBlendPipeline::blend] ctx is null";
@@ -190,6 +197,12 @@ bool LayerBlendPipeline::blendDirect(IDeviceContext *ctx, ITextureView *srcSRV,
                                      ITextureView *outUAV, BlendMode mode,
                                      float opacity, Uint32 width,
                                      Uint32 height) {
+  if (executors_.empty()) {
+    if (!createExecutors()) {
+      return false;
+    }
+  }
+
   if (!ctx || !srcSRV || !outUAV)
     return false;
 

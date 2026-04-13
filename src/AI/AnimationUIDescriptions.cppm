@@ -1,12 +1,12 @@
 module;
 #include <utility>
-
-export module Core.AI.AnimationUIDescriptions;
 #include <QString>
 #include <QStringList>
 #include <QVector3D>
 #include <QColor>
 #include <QEasingCurve>
+
+export module Core.AI.AnimationUIDescriptions;
 
 import std;
 

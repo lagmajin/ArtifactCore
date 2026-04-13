@@ -1,38 +1,13 @@
 ﻿module;
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
-#include <memory>
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <optional>
-#include <utility>
-#include <array>
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
-#include <variant>
-#include <any>
-#include <atomic>
-#include <queue>
-#include <deque>
-#include <list>
-#include <tuple>
-#include <numeric>
-#include <regex>
-#include <random>
-export module Audio.Rasterizer;
-
 #include <QVector>
 #include <QImage>
+#include <QPainter>
+#include <QPen>
+#include <QColor>
+
+export module Audio.Rasterizer;
+
+import Audio.Segment;
 
 
 
@@ -43,17 +18,28 @@ export namespace ArtifactCore
  struct WaveformData {
   QVector<float> minValues;
   QVector<float> maxValues;
-
  };
 
  class AudioRasterizer
  {
  private:
-
+  class Impl;
+  Impl* impl_ = nullptr;
 
  public:
+  AudioRasterizer();
+  ~AudioRasterizer();
 
+  // 設定
+  void setDisplaySize(int width, int height);
+  void setUseRMS(bool use);
 
+  // ラスタライズ
+  WaveformData rasterize(const AudioSegment& segment);
+  WaveformData rasterizeRange(const AudioSegment& segment, int startSample, int sampleCount);
+
+  // 画像レンダリング
+  QImage renderToImage(const WaveformData& data);
  };
 
 };

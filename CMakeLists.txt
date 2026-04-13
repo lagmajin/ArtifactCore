@@ -177,11 +177,13 @@ if(DILIGENT_CORE_COMPILE_DEFINITIONS)
     target_compile_definitions(ArtifactCore PUBLIC ${DILIGENT_CORE_COMPILE_DEFINITIONS})
 endif()
 
+target_link_libraries(ArtifactCore PUBLIC Taskflow::Taskflow)
+
 # ---------------------------------------------------------------------------
 # 外部ライブラリ探索
 # ---------------------------------------------------------------------------
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
-target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Concurrent WebSockets)
+target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Concurrent Qt6::WebSockets)
 
 find_package(OpenCV REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC ${OpenCV_LIBS})

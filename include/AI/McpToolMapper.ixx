@@ -1,11 +1,14 @@
 module;
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QMap>
 #include <QString>
 
 export module Core.AI.McpToolMapper;
 
 import std;
+import Core.AI.ToolBridge;
 
 export namespace ArtifactCore {
 
@@ -197,6 +200,104 @@ private:
     registerMapping("create_directory", "FileAutomation", "createDirectory");
     registerMapping("delete_file", "FileAutomation", "deleteFile");
     registerMapping("get_file_info", "FileAutomation", "getFileInfo");
+  }
+
+  // ── Auto-generate mappings from ToolBridge schema ──
+
+  // Generate an MCP-friendly tool name from a class.method pair
+  static QString generateMcpToolName(const QString& className, const QString& methodName)
+  {
+    // e.g. "WorkspaceAutomation" + "listCompositions" → "workspace_list_compositions"
+    // e.g. "FileAutomation" + "readTextFile" → "file_read_text_file"
+    QString classPrefix = className;
+    // Strip common suffixes for brevity
+    classPrefix.replace(QStringLiteral("Automation"), QString());
+    classPrefix.replace(QStringLiteral("Controller"), QString());
+    classPrefix.replace(QStringLiteral("Manager"), QString());
+    classPrefix.replace(QStringLiteral("Service"), QString());
+    classPrefix = classPrefix.trimmed();
+    if (classPrefix.isEmpty()) {
+        classPrefix = className;
+    }
+
+    // Convert camelCase methodName to snake_case
+    QString snakeMethod;
+    for (int i = 0; i < methodName.size(); ++i) {
+        const QChar ch = methodName.at(i);
+        if (ch.isUpper() && i > 0) {
+            snakeMethod.append(QLatin1Char('_'));
+        }
+        snakeMethod.append(ch.toLower());
+    }
+
+    QString snakeClass;
+    for (int i = 0; i < classPrefix.size(); ++i) {
+        const QChar ch = classPrefix.at(i);
+        if (ch.isUpper() && i > 0) {
+            snakeClass.append(QLatin1Char('_'));
+        }
+        snakeClass.append(ch.toLower());
+    }
+
+    // Use last word of class as prefix if it's compound
+    const QStringList classParts = snakeClass.split(QLatin1Char('_'));
+    const QString shortPrefix = classParts.isEmpty() ? snakeClass : classParts.last();
+
+    return shortPrefix + QLatin1Char('_') + snakeMethod;
+  }
+
+  // Build parameter mapping (identity mapping by default)
+  static QJsonObject buildIdentityParamMapping(const QJsonArray& parameters)
+  {
+    QJsonObject mapping;
+    for (const auto& val : parameters) {
+        const QJsonObject param = val.toObject();
+        const QString name = param.value(QStringLiteral("name")).toString();
+        if (!name.isEmpty()) {
+            // Identity: MCP param name == Artifact param name
+            mapping[name] = name;
+        }
+    }
+    return mapping;
+  }
+
+  // Auto-register all tools from ToolBridge schema
+  void autoGenerateFromToolSchema()
+  {
+    const QString schemaJson = ToolBridge::toolSchemaJson();
+    QJsonParseError error;
+    const QJsonDocument doc = QJsonDocument::fromJson(schemaJson.toUtf8(), &error);
+    if (error.error != QJsonParseError::NoError || !doc.isObject()) {
+        return;
+    }
+
+    const QJsonArray tools = doc.object().value(QStringLiteral("tools")).toArray();
+    int addedCount = 0;
+    for (const auto& val : tools) {
+        const QJsonObject tool = val.toObject();
+        const QString className = tool.value(QStringLiteral("component")).toString().trimmed();
+        const QString methodName = tool.value(QStringLiteral("method")).toString().trimmed();
+        if (className.isEmpty() || methodName.isEmpty()) {
+            continue;
+        }
+
+        const QString mcpName = generateMcpToolName(className, methodName);
+        if (hasMapping(mcpName)) {
+            continue; // Already registered
+        }
+
+        const QJsonArray params = tool.value(QStringLiteral("parameters")).toArray();
+        const QJsonObject paramMapping = buildIdentityParamMapping(params);
+        registerMapping(mcpName, className, methodName, paramMapping);
+        ++addedCount;
+    }
+  }
+
+  // Sync: clear existing mappings and re-generate from schema
+  void syncMappingsFromToolSchema()
+  {
+    mappings_.clear();
+    autoGenerateFromToolSchema();
   }
 };
 

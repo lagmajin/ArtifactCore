@@ -461,4 +461,29 @@ void AudioRenderer::setLevelCallback(std::function<void(const AudioLevelData&)> 
   }
 }
 
+std::chrono::microseconds AudioRenderer::getAudioPosition() const {
+  if (!impl_ || !impl_->ringBuffer) {
+    return std::chrono::microseconds{0};
+  }
+  // Estimate audio position based on buffered frames
+  const size_t buffered = impl_->ringBuffer->available();
+  const int bytesPerFrame = impl_->channels * sizeof(float);
+  const double seconds = static_cast<double>(buffered) /
+                         (impl_->sampleRate * bytesPerFrame);
+  return std::chrono::microseconds(
+      static_cast<int64_t>(seconds * 1000000.0));
+}
+
+void AudioRenderer::reportUnderflow() {
+  if (impl_) {
+    impl_->underflowCount++;
+  }
+}
+
+void AudioRenderer::reportOverflow() {
+  if (impl_) {
+    impl_->overflowCount++;
+  }
+}
+
 } // namespace ArtifactCore
