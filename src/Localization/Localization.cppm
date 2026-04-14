@@ -60,7 +60,8 @@ LocaleLanguage LocalizationManager::language() const {
 QString LocalizationManager::languageCode() const {
     switch (impl_->currentLang_) {
         case LocaleLanguage::Japanese: return "ja";
-        case LocaleLanguage::Chinese: return "zh";
+        case LocaleLanguage::ChineseSimplified: return "zh";
+        case LocaleLanguage::ChineseTraditional: return "zh-TW";
         case LocaleLanguage::English: return "en";
         default: return "en";
     }
@@ -135,9 +136,11 @@ bool LocalizationManager::loadFromDirectory(const QString& dirPath) {
     QFileInfoList files = dir.entryInfoList(filters, QDir::Files);
     for (const auto& fi : files) {
         QString baseName = fi.baseName();
-        LocaleLanguage lang = LocaleLanguage::English;
+        LocaleLanguage lang = LocaleLanguage::Auto;
+        
         if (baseName == "ja") lang = LocaleLanguage::Japanese;
-        else if (baseName == "zh") lang = LocaleLanguage::Chinese;
+        else if (baseName == "zh" || baseName == "zh-CN") lang = LocaleLanguage::ChineseSimplified;
+        else if (baseName == "zh-TW") lang = LocaleLanguage::ChineseTraditional;
         else if (baseName == "en") lang = LocaleLanguage::English;
         else continue; // サポート外の言語
 

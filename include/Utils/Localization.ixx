@@ -15,10 +15,11 @@ export namespace ArtifactCore {
  * @brief 言語コードの定義
  */
 enum class LocaleLanguage {
-    English,    // en
-    Japanese,   // ja
-    Chinese,    // zh
-    Auto        // システム設定に従う
+    English,             // en
+    Japanese,            // ja
+    ChineseSimplified,   // zh-CN / zh
+    ChineseTraditional,  // zh-TW
+    Auto                 // システム設定に従う
 };
 
 /**
