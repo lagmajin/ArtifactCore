@@ -51,6 +51,9 @@ public:
 
     // 外部ファイルからロード
     bool loadFromFile(const std::string& path, LocaleLanguage lang);
+
+    // ディレクトリから全言語を一括ロード
+    bool loadFromDirectory(const QString& dirPath);
 };
 
 } // namespace ArtifactCore
