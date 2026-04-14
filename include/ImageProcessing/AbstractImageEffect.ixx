@@ -9,6 +9,8 @@ export import :AffineTransform;
 export import :AntiAliasing;
 export import :Posterize;
 export import :Vignette;
+export import :ColorTransform.LevelsCurves;
+export import :ColorTransform.HueSaturation;
 //export import :Halide;
 export import ImageProcessing.NegateCS;
 //export import :ImageTransform;
