@@ -358,6 +358,119 @@ private:
     int eventSpamThreshold_ = 25;
 };
 
+// ---------------------------------------------------------------------------
+// Startup / one-shot profiler
+// ---------------------------------------------------------------------------
+
+export enum class StartupPhase : std::uint8_t {
+    DeviceCreation = 0,
+    ShaderCompilation,
+    PSOCreation,
+    PSOCacheLoad,
+    PSOCacheSave,
+    RayTracingInit,
+    PrimitiveRendererInit,
+    SwapChainCreation,
+    TotalStartup,
+    Custom
+};
+
+export struct StartupEvent {
+    std::string name;
+    StartupPhase phase = StartupPhase::Custom;
+    double durationMs = 0.0;
+    std::chrono::system_clock::time_point timestamp;
+    int threadCount = 0;   // number of parallel tasks (0 = sequential)
+    int itemCount = 0;     // e.g. shader count, PSO count
+};
+
+export class StartupProfiler {
+public:
+    static StartupProfiler& instance() {
+        static StartupProfiler inst;
+        return inst;
+    }
+
+    void recordEvent(const std::string& name, StartupPhase phase,
+                     double durationMs, int threadCount = 0, int itemCount = 0) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        events_.push_back(StartupEvent{
+            name, phase, durationMs,
+            std::chrono::system_clock::now(),
+            threadCount, itemCount});
+    }
+
+    std::vector<StartupEvent> events() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return events_;
+    }
+
+    void clear() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        events_.clear();
+    }
+
+    double totalMs() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        double total = 0.0;
+        for (const auto& e : events_) {
+            if (e.phase == StartupPhase::TotalStartup)
+                return e.durationMs;
+            total += e.durationMs;
+        }
+        return total;
+    }
+
+    std::string generateReport() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::ostringstream oss;
+        oss << "=== Startup Profile ===\n";
+        double sum = 0.0;
+        for (const auto& e : events_) {
+            oss << "  " << e.name << ": " << e.durationMs << " ms";
+            if (e.threadCount > 0)
+                oss << " (threads=" << e.threadCount << ")";
+            if (e.itemCount > 0)
+                oss << " (items=" << e.itemCount << ")";
+            oss << "\n";
+            if (e.phase != StartupPhase::TotalStartup)
+                sum += e.durationMs;
+        }
+        oss << "  --- sum (excl. total): " << sum << " ms\n";
+        return oss.str();
+    }
+
+private:
+    mutable std::mutex mutex_;
+    std::vector<StartupEvent> events_;
+};
+
+export class ScopedStartupTimer {
+public:
+    ScopedStartupTimer(const std::string& name, StartupPhase phase,
+                       int threadCount = 0, int itemCount = 0)
+        : name_(name), phase_(phase),
+          threadCount_(threadCount), itemCount_(itemCount),
+          start_(std::chrono::high_resolution_clock::now()) {}
+
+    ~ScopedStartupTimer() {
+        const auto end = std::chrono::high_resolution_clock::now();
+        const double ms = std::chrono::duration<double, std::milli>(end - start_).count();
+        StartupProfiler::instance().recordEvent(name_, phase_, ms,
+                                                 threadCount_, itemCount_);
+    }
+
+    ScopedStartupTimer(const ScopedStartupTimer&) = delete;
+    ScopedStartupTimer& operator=(const ScopedStartupTimer&) = delete;
+
+private:
+    std::string name_;
+    StartupPhase phase_;
+    int threadCount_;
+    int itemCount_;
+    std::chrono::high_resolution_clock::time_point start_;
+};
+
 export class ProfileScope {
 public:
     ProfileScope(std::string_view name, ProfileCategory category)
