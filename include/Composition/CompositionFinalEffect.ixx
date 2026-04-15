@@ -11,7 +11,7 @@ module;
 
 export module Core.Composition.FinalEffect;
 
-import Core.Define;
+// import Core.Define; // Module not found
 
 export namespace ArtifactCore {
 

@@ -5,6 +5,7 @@ module;
 #include <QPainterPath>
 #include <vector>
 #include <memory>
+#include <QObject>
 
 #include <iostream>
 #include <vector>
@@ -43,6 +44,7 @@ export module Shape.Group;
 
 import Shape.Types;
 import Shape.Path;
+import Shape.Operator;
 
 export namespace ArtifactCore {
 
@@ -155,7 +157,33 @@ public:
     
 private:
     std::vector<std::unique_ptr<ShapeElement>> children_;
+    std::vector<std::unique_ptr<ShapeOperator>> operators_; // 演算子リスト
     ShapeTransform transform_;
+
+public:
+    // ========================================
+    // 演算子管理
+    // ========================================
+
+    /// 演算子を追加
+    void addOperator(std::unique_ptr<ShapeOperator> op);
+
+    /// 演算子数
+    int operatorCount() const { return static_cast<int>(operators_.size()); }
+
+    /// 演算子取得
+    ShapeOperator* operatorAt(int index) const {
+        if (index >= 0 && index < static_cast<int>(operators_.size())) {
+            return operators_[index].get();
+        }
+        return nullptr;
+    }
+
+    /// 全演算子取得
+    const std::vector<std::unique_ptr<ShapeOperator>>& operators() const { return operators_; }
+
+    /// 演算子を適用したパスリストを取得
+    std::vector<ShapePath> processedPaths() const;
 };
 
 /// パスシェイプ（実際の描画要素）
@@ -309,5 +337,33 @@ private:
     double outerRadius_ = 100.0;
     double innerRadius_ = 50.0;
 };
+
+// ========================================
+// ShapeGroup Implementation (New Methods)
+// ========================================
+
+inline void ShapeGroup::addOperator(std::unique_ptr<ShapeOperator> op) {
+    if (op) {
+        operators_.push_back(std::move(op));
+    }
+}
+
+inline std::vector<ShapePath> ShapeGroup::processedPaths() const {
+    // 1. Collect all PathShape elements from children
+    std::vector<ShapePath> paths;
+    for (const auto& child : children_) {
+        if (auto* pathShape = dynamic_cast<PathShape*>(child.get())) {
+            paths.push_back(pathShape->path());
+        }
+        // TODO: Support nested groups recursively if needed
+    }
+
+    // 2. Apply operators sequentially
+    for (const auto& op : operators_) {
+        paths = op->process(paths);
+    }
+
+    return paths;
+}
 
 } // namespace ArtifactCore

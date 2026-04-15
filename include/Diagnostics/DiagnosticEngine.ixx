@@ -9,7 +9,7 @@ module;
 export module Core.Diagnostics.DiagnosticEngine;
 
 import Core.Diagnostics.ProjectDiagnostic;
-import Core.Define;
+// import Core.Define; // Module not found
 
 export namespace ArtifactCore {
 
@@ -61,7 +61,7 @@ public:
 
     // ルール管理
     auto ruleRegistry() -> ValidationRuleRegistry& { return ruleRegistry_; }
-    const auto ruleRegistry() const -> const ValidationRuleRegistry& { return ruleRegistry_; }
+    auto ruleRegistry() const -> const ValidationRuleRegistry& { return ruleRegistry_; }
 
     // 検証実行
     auto validateAll(const void* project) -> DiagnosticResult;

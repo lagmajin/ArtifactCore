@@ -2,7 +2,7 @@ module;
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
 
-export module Test;
+export module Core.Test;
 #include <QStandardPaths>
 #include <QDir>
 #include <QString>

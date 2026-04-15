@@ -32,6 +32,7 @@ export enum class FontStyle { Normal = 0, Italic = 1 };
 export struct TextStyle {
   UniString fontFamily = UniString(QStringLiteral("Arial"));
   float fontSize = 60.0f;
+  float pixelSize = 60.0f;
   float tracking = 0.0f;
   float leading = -1.0f;
   FontWeight fontWeight = FontWeight::Normal;

@@ -1,5 +1,6 @@
 module;
 #include <utility>
+#include <QStringView>
 #include <QString>
 #include <QByteArray>
 #include <QJsonObject>
@@ -11,7 +12,7 @@ export module Core.AI.PromptGenerator;
 
 import Core.AI.Describable;
 import Core.AI.CommandSandbox;
-import Artifact.AI.WorkspaceAutomation;
+// import Artifact.AI.WorkspaceAutomation; // Core cannot depend on Artifact layer
 
 export namespace ArtifactCore {
 
@@ -30,12 +31,13 @@ public:
      */
     static QString generateSystemPrompt(DescriptionLanguage lang = DescriptionLanguage::English) {
         CommandSandbox::ensureRegistered();
-        WorkspaceAutomation::ensureRegistered();
+        // WorkspaceAutomation::ensureRegistered(); // Moved to App layer initialization
         QString prompt;
         
         // 1. Header
         prompt += "# ArtifactStudio AI Assistant System Prompt\n";
-        prompt += QString("Generated at: %1\n\n").arg(QDateTime::currentDateTime().toString(Qt::ISODate));
+        prompt += QStringLiteral("Generated at: ") + QDateTime::currentDateTime().toString(Qt::ISODate) +
+                  QStringLiteral("\n\n");
         
         // 2. Identity & Role
         prompt += "## Role\n";
@@ -60,10 +62,11 @@ public:
         if (classes.isEmpty()) {
             prompt += "(component registry is currently empty)\n\n";
         } else {
-            prompt += QString("Registered component count: %1\n").arg(classes.size());
+            prompt += QStringLiteral("Registered component count: ") + QString::number(classes.size()) +
+                      QStringLiteral("\n");
             prompt += "Registered components:\n";
             for (const auto &className : classes) {
-                prompt += QStringLiteral("- %1\n").arg(className);
+                prompt += QStringLiteral("- ") + className + QStringLiteral("\n");
             }
             prompt += "\n";
         }
@@ -92,7 +95,7 @@ public:
      */
     static QByteArray generateToolSchemaJson() {
         CommandSandbox::ensureRegistered();
-        WorkspaceAutomation::ensureRegistered();
+        // WorkspaceAutomation::ensureRegistered(); // Moved to App layer initialization
         const auto &registry = DescriptionRegistry::instance();
         const QJsonObject components = registry.describeAllAsJson(DescriptionLanguage::English);
 

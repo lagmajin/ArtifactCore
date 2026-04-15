@@ -1,10 +1,18 @@
 module;
 #include <utility>
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <cmath>
+#include <numeric>
 #include <string>
+#include <string_view>
 #include <chrono>
 #include <mutex>
 #include <map>
 #include <vector>
+#include <sstream>
 export module ArtifactCore.Utils.PerformanceProfiler;
 
 
@@ -76,6 +84,298 @@ public:
 private:
     std::string name_;
     std::chrono::high_resolution_clock::time_point start_;
+};
+
+export enum class ProfileCategory : std::uint8_t {
+    Render = 0,
+    Composite = 1,
+    UI = 2,
+    EventBus = 3,
+    IO = 4,
+    Animation = 5,
+    Other = 6
+};
+
+export class ProfileTimer {
+public:
+    ProfileTimer(const std::string& name, ProfileCategory category)
+        : category_(category), timer_(name) {}
+
+private:
+    ProfileCategory category_ = ProfileCategory::Other;
+    ScopedPerformanceTimer timer_;
+};
+
+export struct ScopeRecord {
+    std::string name;
+    ProfileCategory category = ProfileCategory::Other;
+    int depth = 0;
+    std::int64_t durationNs = 0;
+};
+
+export struct FrameRecord {
+    std::int64_t frameIndex = 0;
+    std::int64_t frameDurationNs = 0;
+    bool isPlayback = false;
+    int canvasWidth = 0;
+    int canvasHeight = 0;
+    std::vector<ScopeRecord> scopes;
+    std::map<std::string, int> eventCounts;
+    std::map<std::string, int> eventSubscriberPeak;
+};
+
+export struct FrameStats {
+    double avgMs = 0.0;
+    double p95Ms = 0.0;
+    double maxMs = 0.0;
+    int samples = 0;
+};
+
+export struct ScopeStats {
+    double avgMs = 0.0;
+    double p95Ms = 0.0;
+    double maxMs = 0.0;
+    int samples = 0;
+};
+
+export class Profiler {
+public:
+    static Profiler& instance() {
+        static Profiler inst;
+        return inst;
+    }
+
+    void setEnabled(bool enabled) { enabled_ = enabled; }
+    bool isEnabled() const { return enabled_; }
+
+    void beginFrame(std::int64_t frameIndex, int canvasWidth, int canvasHeight, bool isPlayback) {
+        auto& ts = threadState();
+        ts.frame = {};
+        ts.frame.frameIndex = frameIndex;
+        ts.frame.canvasWidth = canvasWidth;
+        ts.frame.canvasHeight = canvasHeight;
+        ts.frame.isPlayback = isPlayback;
+        ts.frameStart = std::chrono::high_resolution_clock::now();
+        ts.scopeStack.clear();
+        ts.inFrame = enabled_;
+        if (!enabled_) {
+            ts.frame = {};
+        }
+    }
+
+    void endFrame() {
+        auto& ts = threadState();
+        if (!enabled_ || !ts.inFrame) {
+            ts.scopeStack.clear();
+            ts.inFrame = false;
+            return;
+        }
+
+        const auto now = std::chrono::high_resolution_clock::now();
+        ts.frame.frameDurationNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now - ts.frameStart).count();
+
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            frames_.push_back(ts.frame);
+            if (frames_.size() > kMaxFrames) {
+                frames_.pop_front();
+            }
+        }
+
+        ts.scopeStack.clear();
+        ts.inFrame = false;
+    }
+
+    bool beginScope(std::string_view name, ProfileCategory category) {
+        auto& ts = threadState();
+        if (!enabled_ || !ts.inFrame) {
+            return false;
+        }
+
+        ts.scopeStack.push_back(ActiveScope{
+            std::string(name),
+            category,
+            std::chrono::high_resolution_clock::now(),
+            static_cast<int>(ts.scopeStack.size())
+        });
+        return true;
+    }
+
+    void endScope() {
+        auto& ts = threadState();
+        if (!enabled_ || !ts.inFrame || ts.scopeStack.empty()) {
+            return;
+        }
+
+        const auto now = std::chrono::high_resolution_clock::now();
+        auto active = std::move(ts.scopeStack.back());
+        ts.scopeStack.pop_back();
+
+        ScopeRecord rec;
+        rec.name = std::move(active.name);
+        rec.category = active.category;
+        rec.depth = active.depth;
+        rec.durationNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now - active.start).count();
+        ts.frame.scopes.push_back(std::move(rec));
+    }
+
+    void recordEvent(std::string_view name, int subscriberCount = 0) {
+        auto& ts = threadState();
+        if (!enabled_ || !ts.inFrame) {
+            return;
+        }
+
+        const std::string key(name);
+        ++ts.frame.eventCounts[key];
+        auto& peak = ts.frame.eventSubscriberPeak[key];
+        if (subscriberCount > peak) {
+            peak = subscriberCount;
+        }
+    }
+
+    std::vector<FrameRecord> frameHistory(int n) const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (n <= 0 || frames_.empty()) {
+            return {};
+        }
+
+        const std::size_t count = std::min<std::size_t>(static_cast<std::size_t>(n), frames_.size());
+        return std::vector<FrameRecord>(frames_.end() - static_cast<std::ptrdiff_t>(count), frames_.end());
+    }
+
+    FrameRecord lastFrameSnapshot() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return frames_.empty() ? FrameRecord{} : frames_.back();
+    }
+
+    FrameStats computeFrameStats(int histN) const {
+        const auto frames = frameHistory(histN);
+        std::vector<double> values;
+        values.reserve(frames.size());
+        for (const auto& fr : frames) {
+            values.push_back(static_cast<double>(fr.frameDurationNs) / 1e6);
+        }
+        return summarize<FrameStats>(values);
+    }
+
+    ScopeStats computeScopeStats(const std::string& name, int histN) const {
+        const auto frames = frameHistory(histN);
+        std::vector<double> values;
+        for (const auto& fr : frames) {
+            for (const auto& scope : fr.scopes) {
+                if (scope.name == name) {
+                    values.push_back(static_cast<double>(scope.durationNs) / 1e6);
+                }
+            }
+        }
+        return summarize<ScopeStats>(values);
+    }
+
+    std::vector<std::string> knownTimerNames() const {
+        const auto latest = PerformanceRegistry::instance().getLatestSamples();
+        std::vector<std::string> names;
+        names.reserve(latest.size());
+        for (const auto& [name, sample] : latest) {
+            (void)sample;
+            names.push_back(name);
+        }
+        return names;
+    }
+
+    ScopeStats timerStats(const std::string& name, int /*histN*/) const {
+        const auto history = PerformanceRegistry::instance().getHistory(name);
+        std::vector<double> values(history.begin(), history.end());
+        return summarize<ScopeStats>(values);
+    }
+
+    double scopeWarningThresholdMs() const { return scopeWarningThresholdMs_; }
+    int eventSpamThreshold() const { return eventSpamThreshold_; }
+
+    std::string generateDiagnosticReport(int histN) const {
+        std::ostringstream oss;
+        const auto last = lastFrameSnapshot();
+        const auto fstats = computeFrameStats(histN);
+        oss << "Profiler report\n";
+        oss << "  enabled=" << (enabled_ ? "true" : "false") << '\n';
+        oss << "  lastFrameMs=" << (static_cast<double>(last.frameDurationNs) / 1e6) << '\n';
+        oss << "  avgMs=" << fstats.avgMs << " p95Ms=" << fstats.p95Ms << " maxMs=" << fstats.maxMs << '\n';
+        oss << "  scopes=" << last.scopes.size() << " events=" << last.eventCounts.size() << '\n';
+        for (const auto& name : knownTimerNames()) {
+            const auto st = timerStats(name, histN);
+            oss << "  timer " << name << " avgMs=" << st.avgMs
+                << " p95Ms=" << st.p95Ms << " samples=" << st.samples << '\n';
+        }
+        return oss.str();
+    }
+
+private:
+    struct ActiveScope {
+        std::string name;
+        ProfileCategory category = ProfileCategory::Other;
+        std::chrono::high_resolution_clock::time_point start;
+        int depth = 0;
+    };
+
+    struct ThreadState {
+        bool inFrame = false;
+        std::int64_t frameIndex = 0;
+        std::chrono::high_resolution_clock::time_point frameStart;
+        FrameRecord frame;
+        std::vector<ActiveScope> scopeStack;
+    };
+
+    static ThreadState& threadState() {
+        static thread_local ThreadState state;
+        return state;
+    }
+
+    static constexpr std::size_t kMaxFrames = 300;
+
+    template <typename TStats>
+    static TStats summarize(const std::vector<double>& values) {
+        TStats stats;
+        if (values.empty()) {
+            return stats;
+        }
+
+        stats.samples = static_cast<int>(values.size());
+        const double sum = std::accumulate(values.begin(), values.end(), 0.0);
+        stats.avgMs = sum / static_cast<double>(values.size());
+        stats.maxMs = *std::max_element(values.begin(), values.end());
+
+        auto sorted = values;
+        std::sort(sorted.begin(), sorted.end());
+        const std::size_t idx = static_cast<std::size_t>(
+            0.95 * static_cast<double>(sorted.size() - 1));
+        stats.p95Ms = sorted[idx];
+        return stats;
+    }
+
+    mutable std::mutex mutex_;
+    std::deque<FrameRecord> frames_;
+    bool enabled_ = true;
+    double scopeWarningThresholdMs_ = 8.0;
+    int eventSpamThreshold_ = 25;
+};
+
+export class ProfileScope {
+public:
+    ProfileScope(std::string_view name, ProfileCategory category)
+        : active_(Profiler::instance().beginScope(name, category)) {}
+
+    ~ProfileScope() {
+        if (active_) {
+            Profiler::instance().endScope();
+        }
+    }
+
+    ProfileScope(const ProfileScope&) = delete;
+    ProfileScope& operator=(const ProfileScope&) = delete;
+    ProfileScope(ProfileScope&&) = delete;
+    ProfileScope& operator=(ProfileScope&&) = delete;
+
+private:
+    bool active_ = false;
 };
 
 } // namespace ArtifactCore

@@ -108,7 +108,7 @@ public:
         }
 
         QStringList lines;
-        lines << QStringLiteral("Registered tools: %1").arg(tools.size());
+        lines << QStringLiteral("Registered tools: ") + QString::number(tools.size());
         for (const QJsonValue& value : tools) {
             const QJsonObject tool = value.toObject();
             const QString className = tool.value(QStringLiteral("component")).toString();
@@ -118,12 +118,12 @@ public:
             if (className.trimmed().isEmpty() || methodName.trimmed().isEmpty()) {
                 continue;
             }
-            QString line = QStringLiteral("- %1.%2").arg(className, methodName);
+            QString line = QStringLiteral("- ") + className + QStringLiteral(".") + methodName;
             if (!returnType.trimmed().isEmpty()) {
-                line += QStringLiteral(" -> %1").arg(returnType.trimmed());
+                line += QStringLiteral(" -> ") + returnType.trimmed();
             }
             if (!description.trimmed().isEmpty()) {
-                line += QStringLiteral(" | %1").arg(description.trimmed());
+                line += QStringLiteral(" | ") + description.trimmed();
             }
             lines << line;
         }
@@ -186,16 +186,11 @@ public:
             QJsonDocument(QJsonObject{{QStringLiteral("arguments"),
                                        toolCall.value(QStringLiteral("arguments"))}})
                 .toJson(QJsonDocument::Compact));
-        return QStringLiteral(
-                   "Tool execution result:\n"
-                   "- class: %1\n"
-                   "- method: %2\n"
-                   "- arguments: %3\n"
-                   "- result: %4\n")
-            .arg(className,
-                 methodName,
-                 argsJson,
-                 variantToCompactJsonString(toolResult));
+        return QStringLiteral("Tool execution result:\n- class: ") + className +
+               QStringLiteral("\n- method: ") + methodName +
+               QStringLiteral("\n- arguments: ") + argsJson +
+               QStringLiteral("\n- result: ") + variantToCompactJsonString(toolResult) +
+               QStringLiteral("\n");
     }
 
     static QString buildToolArgumentsTemplate(const QJsonObject& tool)
@@ -226,7 +221,7 @@ public:
             } else {
                 const QString placeholder = paramName.isEmpty()
                     ? QStringLiteral("<value>")
-                    : QStringLiteral("<%1>").arg(paramName);
+                    : QStringLiteral("<") + paramName + QStringLiteral(">");
                 templateArgs.append(placeholder);
             }
         }
@@ -264,8 +259,7 @@ public:
         QJsonObject normalizedToolCall = toolCall;
         QString validationError;
         if (!validateToolCall(&normalizedToolCall, &validationError)) {
-            result.trace = QStringLiteral("Tool execution rejected:\n- error: %1\n")
-                               .arg(validationError);
+            result.trace = QStringLiteral("Tool execution rejected:\n- error: ") + validationError + QStringLiteral("\n");
             return result;
         }
 
@@ -273,8 +267,8 @@ public:
         const IDescribable* constObj =
             DescriptionRegistry::instance().getDescribable(QStringView{className});
         if (!constObj) {
-            result.trace = QStringLiteral("Tool execution rejected:\n- error: Unknown tool '%1'\n")
-                               .arg(className);
+            result.trace = QStringLiteral("Tool execution rejected:\n- error: Unknown tool '") + className +
+                           QStringLiteral("'\n");
             return result;
         }
 

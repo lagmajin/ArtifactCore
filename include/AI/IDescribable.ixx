@@ -233,7 +233,7 @@ public:
         QString result;
         
         // Class name and brief
-        result += QString("# %1\n\n").arg(className());
+        result += QStringLiteral("# ") + className() + QStringLiteral("\n\n");
         result += briefDescription().get(lang) + "\n\n";
         
         // Detailed description
@@ -247,10 +247,8 @@ public:
         if (!props.isEmpty()) {
             result += "## Properties\n\n";
             for (const auto& prop : props) {
-                result += QString("- **%1** (%2): %3\n")
-                    .arg(prop.name)
-                    .arg(prop.type)
-                    .arg(prop.description.get(lang));
+                result += QStringLiteral("- **") + prop.name + QStringLiteral("** (") + prop.type +
+                          QStringLiteral("): ") + prop.description.get(lang) + QStringLiteral("\n");
             }
             result += "\n";
         }
@@ -260,9 +258,8 @@ public:
         if (!methods.isEmpty()) {
             result += "## Methods\n\n";
             for (const auto& method : methods) {
-                result += QString("- **%1()**: %2\n")
-                    .arg(method.name)
-                    .arg(method.description.get(lang));
+                result += QStringLiteral("- **") + method.name + QStringLiteral("()**: ") +
+                          method.description.get(lang) + QStringLiteral("\n");
             }
             result += "\n";
         }
@@ -278,7 +275,7 @@ public:
         if (!related.isEmpty()) {
             result += "## Related\n\n";
             for (const auto& cls : related) {
-                result += QString("- %1\n").arg(cls);
+                result += QStringLiteral("- ") + cls + QStringLiteral("\n");
             }
         }
         

@@ -381,7 +381,7 @@ public:
             } else if (result.exitStatus != QProcess::NormalExit) {
                 result.errorText = QStringLiteral("Command crashed");
             } else if (result.exitCode != 0) {
-                result.errorText = QStringLiteral("Command exited with code %1").arg(result.exitCode);
+            result.errorText = QStringLiteral("Command exited with code %1").arg(result.exitCode);
             }
         }
         return result.toVariantMap();
@@ -576,7 +576,7 @@ private:
         }
 
         if (isShellProgramName(plan.requestedProgram) && !policy_.allowShellPrograms) {
-            plan.errorText = QStringLiteral("Shell programs are disabled by policy: %1").arg(plan.requestedProgram);
+            plan.errorText = QStringLiteral("Shell programs are disabled by policy: %1").arg(QStringView{plan.requestedProgram});
             return plan;
         }
 
@@ -589,23 +589,23 @@ private:
         }
 
         if (resolvedProgram.isEmpty()) {
-            plan.errorText = QStringLiteral("Unable to resolve executable: %1").arg(plan.requestedProgram);
+            plan.errorText = QStringLiteral("Unable to resolve executable: %1").arg(QStringView{plan.requestedProgram});
             return plan;
         }
         if (QFileInfo(resolvedProgram).isAbsolute() && !QFileInfo(resolvedProgram).exists()) {
-            plan.errorText = QStringLiteral("Executable does not exist: %1").arg(resolvedProgram);
+            plan.errorText = QStringLiteral("Executable does not exist: %1").arg(QStringView{resolvedProgram});
             return plan;
         }
 
         if (!policy_.blockedPrograms.isEmpty() &&
             matchesAllowedProgram(resolvedProgram, plan.requestedProgram, policy_.blockedPrograms)) {
-            plan.errorText = QStringLiteral("Program is blocked by policy: %1").arg(plan.requestedProgram);
+            plan.errorText = QStringLiteral("Program is blocked by policy: %1").arg(QStringView{plan.requestedProgram});
             return plan;
         }
 
         if (!policy_.allowedPrograms.isEmpty() &&
             !matchesAllowedProgram(resolvedProgram, plan.requestedProgram, policy_.allowedPrograms)) {
-            plan.errorText = QStringLiteral("Program is not on the allowlist: %1").arg(plan.requestedProgram);
+            plan.errorText = QStringLiteral("Program is not on the allowlist: %1").arg(QStringView{plan.requestedProgram});
             return plan;
         }
 
@@ -613,7 +613,7 @@ private:
             policy_.workingDirectory.trimmed().isEmpty() ? QDir::currentPath()
                                                          : normalizePath(policy_.workingDirectory);
         if (!QFileInfo(workingDirectory).isDir()) {
-            plan.errorText = QStringLiteral("Working directory does not exist: %1").arg(workingDirectory);
+            plan.errorText = QStringLiteral("Working directory does not exist: %1").arg(QStringView{workingDirectory});
             return plan;
         }
 
@@ -668,6 +668,8 @@ private:
     CommandSandboxPolicy policy_;
 };
 
-static AutoRegisterDescribable<CommandSandbox> _reg_CommandSandbox(QStringLiteral("CommandSandbox"));
+// Exported module variables should not have internal linkage (static)
+// Using inline to ensure single definition across the module
+inline AutoRegisterDescribable<CommandSandbox> _reg_CommandSandbox(QStringLiteral("CommandSandbox"));
 
 } // namespace ArtifactCore

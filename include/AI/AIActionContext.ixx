@@ -1,12 +1,13 @@
 module;
 #include <utility>
-
-export module Core.AI.ActionContext;
 #include <QString>
+#include <QStringView>
 #include <QMap>
 #include <QVariant>
 #include <QDateTime>
 #include <QJsonObject>
+export module Core.AI.ActionContext;
+
 
 export namespace ArtifactCore {
 
@@ -49,7 +50,8 @@ public:
      */
     QString describeContext() const {
         QString result = "## Current Application State\n\n";
-        result += QString("- **Current Time**: %1\n").arg(QDateTime::currentDateTime().toString(Qt::ISODate));
+        result += QStringLiteral("- **Current Time**: ") + QDateTime::currentDateTime().toString(Qt::ISODate) +
+                  QStringLiteral("\n");
         
         if (contextData_.isEmpty()) {
             result += "- No specific context active.\n";
@@ -57,7 +59,8 @@ public:
         }
 
         for (auto it = contextData_.constBegin(); it != contextData_.constEnd(); ++it) {
-            result += QString("- **%1**: %2\n").arg(it.key()).arg(it.value().toString());
+            result += QStringLiteral("- **") + it.key() + QStringLiteral("**: ") + it.value().toString() +
+                      QStringLiteral("\n");
         }
         
         return result + "\n";

@@ -9,8 +9,8 @@ module;
 
 export module Core.Diagnostics.ProjectDiagnostic;
 
-import Core.Define;
-import Core.Layer.LayerTypes;
+// import Core.Define; // Module not found
+// import Core.Layer.LayerTypes; // Module not found
 
 export namespace ArtifactCore {
 

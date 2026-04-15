@@ -8,9 +8,12 @@ export import :NegativeCV;
 export import :AffineTransform;
 export import :AntiAliasing;
 export import :Posterize;
-export import :Vignette;
-export import :ColorTransform.LevelsCurves;
-export import :ColorTransform.HueSaturation;
+// export import :Vignette; // Vignette.ixx missing
+
+// Sub-modules (imported as full module names)
+// export import ImageProcessing.ColorTransform.LevelsCurves;
+// export import ImageProcessing.ColorTransform.HueSaturation;
+
 //export import :Halide;
 export import ImageProcessing.NegateCS;
 //export import :ImageTransform;
