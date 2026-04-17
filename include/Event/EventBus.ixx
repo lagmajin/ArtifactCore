@@ -4,6 +4,7 @@ module;
 #include <functional>
 #include <limits>
 #include <memory>
+#include <string_view>
 #include <typeindex>
 #include <type_traits>
 #include <typeinfo>
@@ -76,6 +77,7 @@ public:
     template<typename Event, typename Callable>
         requires std::invocable<Callable&, const Event&>
     Subscription subscribe(Callable&& callback) {
+        registerTypeNameRaw(std::type_index(typeid(Event)), typeid(Event).name());
         auto wrapped = [fn = std::decay_t<Callable>(std::forward<Callable>(callback))](const void* payload) mutable {
             std::invoke(fn, *static_cast<const Event*>(payload));
         };
@@ -85,6 +87,7 @@ public:
     template<typename Event>
     std::size_t publish(Event&& event) {
         using EventType = std::remove_cvref_t<Event>;
+        registerTypeNameRaw(std::type_index(typeid(EventType)), typeid(EventType).name());
         return publishRaw(std::type_index(typeid(EventType)), std::addressof(event));
     }
 
@@ -122,6 +125,12 @@ public:
 
     [[nodiscard]] std::size_t pendingCount() const noexcept;
 
+    // Debug observability
+    using PublishHook = std::function<void(std::type_index, std::string_view /*name*/, std::size_t /*delivered*/, std::int64_t /*durationNs*/)>;
+    void setPublishHook(PublishHook hook);
+    void clearPublishHook();
+    void forEachRegisteredType(const std::function<void(std::type_index, std::string_view, std::size_t)>& fn) const;
+
     template<typename Event>
     [[nodiscard]] std::size_t subscriberCount() const {
         return subscriberCountRaw(std::type_index(typeid(Event)));
@@ -130,6 +139,7 @@ public:
 private:
     std::shared_ptr<Impl> impl_;
 
+    void registerTypeNameRaw(std::type_index type, const char* name);
     Subscription subscribeRaw(std::type_index type, std::function<void(const void*)> callback);
     std::size_t publishRaw(std::type_index type, const void* payload) const;
     void enqueueRaw(std::type_index type, std::shared_ptr<const void> payload, void (*dispatch)(EventBus&, const void*), EventPriority priority = EventPriority::Normal);
@@ -137,6 +147,7 @@ private:
 
     template<typename EventType>
     static void dispatchQueued(EventBus& bus, const void* payload) {
+        bus.registerTypeNameRaw(std::type_index(typeid(EventType)), typeid(EventType).name());
         bus.publishRaw(std::type_index(typeid(EventType)), payload);
     }
 };

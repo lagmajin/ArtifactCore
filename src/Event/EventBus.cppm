@@ -1,10 +1,13 @@
 module;
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <string_view>
 #include <typeindex>
 #include <unordered_map>
 #include <utility>
@@ -27,6 +30,12 @@ struct EventBus::Impl {
     std::deque<QueuedEvent> queue;
 
     std::atomic_size_t nextSubscriberId { 1 };
+
+    // Debug hooks (only active when a debugger is attached)
+    mutable std::mutex hookMutex;
+    EventBus::PublishHook publishHook;
+    mutable std::mutex namesMutex;
+    std::unordered_map<std::type_index, std::string> typeNames;
 };
 
 static void pruneInactive(std::vector<std::shared_ptr<EventBus::SubscriberRecord>>& subscribers)
@@ -176,6 +185,7 @@ std::size_t EventBus::publishRaw(std::type_index type, const void* payload) cons
         snapshot = entry->subscribers;
     }
 
+    const auto dispatchStart = std::chrono::high_resolution_clock::now();
     std::size_t delivered = 0;
     for (const auto& record : snapshot) {
         if (!record || !record->active.load(std::memory_order_acquire) || !record->callback) {
@@ -183,6 +193,26 @@ std::size_t EventBus::publishRaw(std::type_index type, const void* payload) cons
         }
         record->callback(payload);
         ++delivered;
+    }
+    const std::int64_t dispatchNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::high_resolution_clock::now() - dispatchStart).count();
+
+    // Fire debug hook if attached (copy both to avoid holding locks during callback)
+    {
+        PublishHook hook_copy;
+        {
+            std::lock_guard<std::mutex> lock(impl->hookMutex);
+            hook_copy = impl->publishHook;
+        }
+        if (hook_copy) {
+            std::string name_copy;
+            {
+                std::lock_guard<std::mutex> lock(impl->namesMutex);
+                auto it = impl->typeNames.find(type);
+                if (it != impl->typeNames.end()) name_copy = it->second;
+            }
+            hook_copy(type, name_copy, delivered, dispatchNs);
+        }
     }
 
     return delivered;
@@ -229,6 +259,66 @@ std::size_t EventBus::subscriberCountRaw(std::type_index type) const noexcept
         }
     }
     return count;
+}
+
+void EventBus::registerTypeNameRaw(std::type_index type, const char* name)
+{
+    auto impl = impl_;
+    if (!impl || !name) return;
+    std::lock_guard<std::mutex> lock(impl->namesMutex);
+    impl->typeNames.emplace(type, name);  // no-op if already present
+}
+
+void EventBus::setPublishHook(PublishHook hook)
+{
+    auto impl = impl_;
+    if (!impl) return;
+    std::lock_guard<std::mutex> lock(impl->hookMutex);
+    impl->publishHook = std::move(hook);
+}
+
+void EventBus::clearPublishHook()
+{
+    auto impl = impl_;
+    if (!impl) return;
+    std::lock_guard<std::mutex> lock(impl->hookMutex);
+    impl->publishHook = nullptr;
+}
+
+void EventBus::forEachRegisteredType(
+    const std::function<void(std::type_index, std::string_view, std::size_t)>& fn) const
+{
+    if (!fn) return;
+    auto impl = impl_;
+    if (!impl) return;
+
+    // Snapshot registry to avoid holding locks while calling fn
+    std::vector<std::pair<std::type_index, std::shared_ptr<Impl::Entry>>> snapshot;
+    {
+        std::lock_guard<std::mutex> lock(impl->registryMutex);
+        snapshot.reserve(impl->registry.size());
+        for (const auto& [t, entry] : impl->registry) {
+            snapshot.emplace_back(t, entry);
+        }
+    }
+
+    for (const auto& [type, entry] : snapshot) {
+        if (!entry) continue;
+        std::size_t count = 0;
+        {
+            std::lock_guard<std::mutex> lock(entry->mutex);
+            for (const auto& rec : entry->subscribers) {
+                if (rec && rec->active.load(std::memory_order_acquire)) ++count;
+            }
+        }
+        std::string name_str;
+        {
+            std::lock_guard<std::mutex> lock(impl->namesMutex);
+            auto it = impl->typeNames.find(type);
+            if (it != impl->typeNames.end()) name_str = it->second;
+        }
+        fn(type, name_str, count);
+    }
 }
 
 std::size_t EventBus::drain(std::size_t maxEvents)
