@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -93,7 +94,8 @@ export enum class ProfileCategory : std::uint8_t {
     EventBus = 3,
     IO = 4,
     Animation = 5,
-    Other = 6
+    Other = 6,
+    Audio = 7
 };
 
 export class ProfileTimer {
@@ -489,6 +491,117 @@ public:
 
 private:
     bool active_ = false;
+};
+
+// ---------------------------------------------------------------------------
+// Audio Engine Profiler — lock-free, safe from real-time audio callback threads
+// ---------------------------------------------------------------------------
+
+export struct AudioCallbackStats {
+    double avgCallbackUs  = 0.0;  ///< Average audio callback duration (µs)
+    double maxCallbackUs  = 0.0;  ///< Peak audio callback duration (µs)
+    double avgFillMs      = 0.0;  ///< Average fill-loop duration per updateAudio call (ms)
+    double maxFillMs      = 0.0;  ///< Peak fill-loop duration (ms)
+    std::int64_t totalCallbacks  = 0;
+    std::int64_t totalUnderflows = 0;
+    std::int64_t totalFillLoops  = 0;
+    double bufferLevelPct = 0.0;  ///< Ring-buffer fill level relative to target (0-100+)
+    int lastCallbackFrames  = 0;
+    int lastRequestedFrames = 0;
+};
+
+export class AudioEngineProfiler {
+public:
+    static AudioEngineProfiler& instance() {
+        static AudioEngineProfiler inst;
+        return inst;
+    }
+
+    // Lock-free: safe to call from the real-time audio callback thread.
+    void recordCallback(std::int64_t durationNs, int requestedFrames, int providedFrames) {
+        callbackSumNs_.fetch_add(durationNs, std::memory_order_relaxed);
+        ++callbackCount_;
+
+        std::int64_t prevMax = callbackMaxNs_.load(std::memory_order_relaxed);
+        while (durationNs > prevMax) {
+            if (callbackMaxNs_.compare_exchange_weak(prevMax, durationNs,
+                    std::memory_order_relaxed)) break;
+        }
+
+        if (providedFrames < requestedFrames) {
+            ++underflowCount_;
+        }
+        lastCallbackFrames_.store(providedFrames, std::memory_order_relaxed);
+        lastRequestedFrames_.store(requestedFrames, std::memory_order_relaxed);
+    }
+
+    // Lock-free: safe from any thread.
+    void recordFillLoop(std::int64_t durationNs) {
+        fillSumNs_.fetch_add(durationNs, std::memory_order_relaxed);
+        ++fillCount_;
+
+        std::int64_t prevMax = fillMaxNs_.load(std::memory_order_relaxed);
+        while (durationNs > prevMax) {
+            if (fillMaxNs_.compare_exchange_weak(prevMax, durationNs,
+                    std::memory_order_relaxed)) break;
+        }
+    }
+
+    // Stores buffer level as pct * 10 integer to avoid fp atomics.
+    void setBufferLevel(double pct) {
+        const int v = static_cast<int>(std::clamp(pct * 10.0, 0.0, 100000.0));
+        bufferLevelPct_.store(v, std::memory_order_relaxed);
+    }
+
+    AudioCallbackStats snapshot() const {
+        AudioCallbackStats s;
+        s.totalCallbacks  = callbackCount_.load(std::memory_order_relaxed);
+        s.totalUnderflows = underflowCount_.load(std::memory_order_relaxed);
+        s.totalFillLoops  = fillCount_.load(std::memory_order_relaxed);
+
+        const std::int64_t cbSum = callbackSumNs_.load(std::memory_order_relaxed);
+        s.avgCallbackUs = (s.totalCallbacks > 0)
+            ? static_cast<double>(cbSum) / static_cast<double>(s.totalCallbacks) / 1000.0
+            : 0.0;
+        s.maxCallbackUs = static_cast<double>(
+            callbackMaxNs_.load(std::memory_order_relaxed)) / 1000.0;
+
+        const std::int64_t fillSum = fillSumNs_.load(std::memory_order_relaxed);
+        s.avgFillMs = (s.totalFillLoops > 0)
+            ? static_cast<double>(fillSum) / static_cast<double>(s.totalFillLoops) / 1e6
+            : 0.0;
+        s.maxFillMs = static_cast<double>(
+            fillMaxNs_.load(std::memory_order_relaxed)) / 1e6;
+
+        s.bufferLevelPct     = static_cast<double>(
+            bufferLevelPct_.load(std::memory_order_relaxed)) / 10.0;
+        s.lastCallbackFrames  = lastCallbackFrames_.load(std::memory_order_relaxed);
+        s.lastRequestedFrames = lastRequestedFrames_.load(std::memory_order_relaxed);
+        return s;
+    }
+
+    void resetStats() {
+        callbackCount_  = 0;
+        callbackSumNs_  = 0;
+        callbackMaxNs_  = 0;
+        fillCount_      = 0;
+        fillSumNs_      = 0;
+        fillMaxNs_      = 0;
+        underflowCount_ = 0;
+        bufferLevelPct_ = 0;
+    }
+
+private:
+    std::atomic<std::int64_t> callbackCount_{0};
+    std::atomic<std::int64_t> callbackSumNs_{0};
+    std::atomic<std::int64_t> callbackMaxNs_{0};
+    std::atomic<std::int64_t> fillCount_{0};
+    std::atomic<std::int64_t> fillSumNs_{0};
+    std::atomic<std::int64_t> fillMaxNs_{0};
+    std::atomic<std::int64_t> underflowCount_{0};
+    std::atomic<int>          bufferLevelPct_{0};
+    std::atomic<int>          lastCallbackFrames_{0};
+    std::atomic<int>          lastRequestedFrames_{0};
 };
 
 } // namespace ArtifactCore

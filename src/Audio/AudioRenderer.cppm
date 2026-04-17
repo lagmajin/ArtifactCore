@@ -16,6 +16,7 @@ import Audio.Backend.ASIOStub;
 import Audio.Backend.Qt;
 import Audio.Segment;
 import Audio.RingBuffer;
+import ArtifactCore.Utils.PerformanceProfiler;
 
 namespace ArtifactCore {
 
@@ -99,8 +100,14 @@ struct AudioRenderer::Impl {
   }
 
   void audioCallback(float *buffer, int frames, int channelsRequested) {
+    const auto cbStart = std::chrono::high_resolution_clock::now();
+
     if (!active || isMute) {
       std::memset(buffer, 0, frames * channelsRequested * sizeof(float));
+      AudioEngineProfiler::instance().recordCallback(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+              std::chrono::high_resolution_clock::now() - cbStart).count(),
+          frames, 0);
       return;
     }
 
@@ -187,6 +194,11 @@ struct AudioRenderer::Impl {
                    << "availableFrames=" << availableFrames;
       }
     }
+
+    AudioEngineProfiler::instance().recordCallback(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::high_resolution_clock::now() - cbStart).count(),
+        frames, availableFrames);
   }
 };
 
