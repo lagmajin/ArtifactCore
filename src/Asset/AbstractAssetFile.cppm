@@ -85,6 +85,7 @@ namespace ArtifactCore {
    ~Impl();
    UniString path;
    AssetID id;
+   AssetStatus status = AssetStatus::Normal;
    bool loaded = false;
    bool dirty = false;
    AssetMeta meta;
@@ -145,6 +146,17 @@ namespace ArtifactCore {
  void AbstractAssetFile::setAssetID(const AssetID& assetID)
  {
   impl_->id = assetID;
+ }
+
+ AssetStatus AbstractAssetFile::status() const {
+     return impl_->status;
+ }
+
+ void AbstractAssetFile::setStatus(AssetStatus status) {
+     if (impl_->status != status) {
+         impl_->status = status;
+         Q_EMIT statusChanged(status);
+     }
  }
 
  AssetMeta& AbstractAssetFile::meta()

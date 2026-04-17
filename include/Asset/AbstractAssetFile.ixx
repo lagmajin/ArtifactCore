@@ -46,8 +46,13 @@ import Container.MultiIndex;
 
 export namespace ArtifactCore {
 
- class LIBRARY_DLL_API AssetID : public Id {
- public:
+ enum class AssetStatus {
+   Normal,
+   Missing,
+   Modified
+ };
+
+class LIBRARY_DLL_API AssetID : public Id { public:
   using Id::Id;
  };
 
@@ -82,6 +87,9 @@ export namespace ArtifactCore {
   AssetID assetID() const;
   void setAssetID(const AssetID& assetID);
 
+  AssetStatus status() const;
+  void setStatus(AssetStatus status);
+
   AssetMeta& meta();
   const AssetMeta& meta() const;
 
@@ -96,6 +104,8 @@ export namespace ArtifactCore {
   bool load(); // Public, calls _load
   void unload(); // Public, calls _unload
   UniString filePath() const;
+
+  void statusChanged(AssetStatus status) W_SIGNAL(statusChanged, status);
 
   //public slots:
 

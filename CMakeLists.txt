@@ -88,6 +88,20 @@ foreach(file_path ${POTENTIAL_SOURCES})
     endif()
 endforeach()
 
+# CMake's module scan can miss implementation partitions in this tree when the
+# module unit is only provided as `module M:Impl;`, so register the known shape
+# partitions explicitly to keep FILE_SET CXX_MODULES complete.
+foreach(_artifact_force_module IN ITEMS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeGroup.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeGroup.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"
+)
+    list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
+    if(_artifact_force_module_index EQUAL -1)
+        list(APPEND CORE_MODULES "${_artifact_force_module}")
+    endif()
+endforeach()
+
 # ---------------------------------------------------------------------------
 # ターゲット定義
 # ---------------------------------------------------------------------------
@@ -122,6 +136,9 @@ target_include_directories(ArtifactCore
         "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition"
         "${CMAKE_CURRENT_SOURCE_DIR}/include/Core"
         "${CMAKE_CURRENT_SOURCE_DIR}/include/Image"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/Grid"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/Render"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/Color"
         "${CMAKE_CURRENT_SOURCE_DIR}/../Artifact/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
     PRIVATE

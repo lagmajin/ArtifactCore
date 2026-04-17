@@ -5,42 +5,8 @@ module;
 #include <QPainterPath>
 #include <vector>
 #include <memory>
-#include <QObject>
 
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
-#include <memory>
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <optional>
-#include <utility>
-#include <array>
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
-#include <variant>
-#include <any>
-#include <atomic>
-#include <queue>
-#include <deque>
-#include <list>
-#include <tuple>
-#include <numeric>
-#include <regex>
-#include <random>
 export module Shape.Group;
-
-
-
 
 import Shape.Types;
 import Shape.Path;
@@ -48,7 +14,6 @@ import Shape.Operator;
 
 export namespace ArtifactCore {
 
-/// 前方宣言
 class ShapeGroup;
 
 /// シェイプ要素の基底クラス
@@ -172,16 +137,11 @@ public:
     int operatorCount() const { return static_cast<int>(operators_.size()); }
 
     /// 演算子取得
-    ShapeOperator* operatorAt(int index) const {
-        if (index >= 0 && index < static_cast<int>(operators_.size())) {
-            return operators_[index].get();
-        }
-        return nullptr;
-    }
+    ShapeOperator* operatorAt(int index) const;
 
     /// 全演算子取得
     const std::vector<std::unique_ptr<ShapeOperator>>& operators() const { return operators_; }
-
+    
     /// 演算子を適用したパスリストを取得
     std::vector<ShapePath> processedPaths() const;
 };
@@ -337,33 +297,5 @@ private:
     double outerRadius_ = 100.0;
     double innerRadius_ = 50.0;
 };
-
-// ========================================
-// ShapeGroup Implementation (New Methods)
-// ========================================
-
-inline void ShapeGroup::addOperator(std::unique_ptr<ShapeOperator> op) {
-    if (op) {
-        operators_.push_back(std::move(op));
-    }
-}
-
-inline std::vector<ShapePath> ShapeGroup::processedPaths() const {
-    // 1. Collect all PathShape elements from children
-    std::vector<ShapePath> paths;
-    for (const auto& child : children_) {
-        if (auto* pathShape = dynamic_cast<PathShape*>(child.get())) {
-            paths.push_back(pathShape->path());
-        }
-        // TODO: Support nested groups recursively if needed
-    }
-
-    // 2. Apply operators sequentially
-    for (const auto& op : operators_) {
-        paths = op->process(paths);
-    }
-
-    return paths;
-}
 
 } // namespace ArtifactCore

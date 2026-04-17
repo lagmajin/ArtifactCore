@@ -11,7 +11,7 @@ module;
 #include <vector>
 export module ArtifactCore.Event.EventBusDebugger;
 
-export import ArtifactCore.Event.Bus;
+export import Event.Bus;
 
 export namespace ArtifactCore {
 
@@ -25,7 +25,7 @@ struct FireEntry {
 
 struct SubscriberInfo {
     std::string    eventName;
-    std::type_index typeIdx;
+    std::type_index typeIdx = std::type_index(typeid(void));
     std::size_t    activeCount  = 0;
     bool           neverFired   = true;
 };

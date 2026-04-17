@@ -56,6 +56,8 @@ extern "C" {
 
 module MediaPlaybackController;
 
+import ArtifactCore.Utils.PerformanceProfiler;
+
 namespace ArtifactCore {
 
 class MediaPlaybackController::Impl {
@@ -796,6 +798,7 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
    return QByteArray();
   }
 
+  ArtifactCore::ScopedPerformanceTimer timer("Audio/Controller/getNextAudioFrame");
 	  std::lock_guard<std::mutex> lock(impl_->directDecodeMutex_);
 	  impl_->mediaReader_->start();
 	  AVPacket* pkt = nullptr;

@@ -38,9 +38,6 @@ module;
 #include <random>
 export module Shape.Path;
 
-
-
-
 import Shape.Types;
 
 export namespace ArtifactCore {
@@ -196,6 +193,14 @@ public:
 private:
     class Impl;
     Impl* impl_;
+    
+    // ヘルパー関数
+    QPointF getStartPoint(const PathCommand& cmd) const;
+    QPointF getEndPoint(const PathCommand& cmd) const;
+    double cubicApproxLength(const QPointF& p0, const QPointF& p1, const QPointF& p2, const QPointF& p3) const;
+    double quadApproxLength(const QPointF& p0, const QPointF& p1, const QPointF& p2) const;
+    QPointF cubicPointAtLength(const QPointF& p0, const QPointF& p1, const QPointF& p2, const QPointF& p3, double targetLen) const;
+    QPointF quadPointAtLength(const QPointF& p0, const QPointF& p1, const QPointF& p2, double targetLen) const;
 };
 
 /// 矩形シェイプ
