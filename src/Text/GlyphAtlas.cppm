@@ -1,5 +1,6 @@
 module;
 #include <QFont>
+#include <QFontDatabase>
 #include <QFontMetricsF>
 #include <QImage>
 #include <QPainter>
@@ -99,10 +100,20 @@ GlyphRect GlyphAtlas::acquire(const GlyphKey &key, const QFont &font) {
     return empty;
   }
 
-  // RGBA8 に変換
-  glyphBitmap = glyphBitmap.convertToFormat(QImage::Format_RGBA8888);
   const int gw = glyphBitmap.width();
   const int gh = glyphBitmap.height();
+
+  // alpha map を RGBA8 に展開する。
+  // shader 側は alpha をサンプリングするので RGB は白で良い。
+  QImage glyphRgba(gw, gh, QImage::Format_RGBA8888);
+  glyphRgba.fill(Qt::transparent);
+  for (int y = 0; y < gh; ++y) {
+    auto *dst = reinterpret_cast<QRgb *>(glyphRgba.scanLine(y));
+    for (int x = 0; x < gw; ++x) {
+      const int alpha = glyphBitmap.pixelColor(x, y).alpha();
+      dst[x] = qRgba(255, 255, 255, alpha);
+    }
+  }
 
   // atlas が満杯の場合はリセット
   int px = 0, py = 0;
@@ -121,7 +132,7 @@ GlyphRect GlyphAtlas::acquire(const GlyphKey &key, const QFont &font) {
   {
     QPainter p(&atlasImage_);
     p.setCompositionMode(QPainter::CompositionMode_Source);
-    p.drawImage(px, py, glyphBitmap);
+    p.drawImage(px, py, glyphRgba);
   }
 
   // メトリクスを収集
@@ -135,8 +146,9 @@ GlyphRect GlyphAtlas::acquire(const GlyphKey &key, const QFont &font) {
   rect.height = gh;
   rect.bearingX = static_cast<float>(br.left());
   rect.bearingY = static_cast<float>(-br.top()); // Qt: top は負
-  rect.advance = static_cast<float>(
-      rawFont.advancesForGlyphIndexes({gindex}).value(0, QPointF()).x());
+  const QVector<quint32> glyphIndexes{gindex};
+  const QVector<QPointF> advances = rawFont.advancesForGlyphIndexes(glyphIndexes);
+  rect.advance = static_cast<float>(advances.isEmpty() ? 0.0 : advances.first().x());
   rect.valid = true;
 
   dirty_ = true;
