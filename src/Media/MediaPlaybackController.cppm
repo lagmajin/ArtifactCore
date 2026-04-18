@@ -799,20 +799,11 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
   }
 
   ArtifactCore::ScopedPerformanceTimer timer("Audio/Controller/getNextAudioFrame");
-	  std::lock_guard<std::mutex> lock(impl_->directDecodeMutex_);
-	  impl_->mediaReader_->start();
-	  AVPacket* pkt = nullptr;
-	  for (int attempt = 0; attempt < impl_->videoPacketWaitAttempts_ && !pkt; ++attempt) {
-	   pkt = impl_->mediaReader_->getNextPacket(StreamType::Audio);
-	   if (!pkt) {
-	    if ((attempt & 0x3) == 3) {
-	     std::this_thread::sleep_for(std::chrono::milliseconds(1));
-	    } else {
-	     std::this_thread::yield();
-	    }
-	   }
-	  }
-	  if (!pkt) return QByteArray();
+  // Non-blocking: try to pop one audio packet without spinning.
+  // The reader must already be running (started by play()).
+  // Spinning here blocks the UI thread and respawns TBB tasks on every pump tick.
+  AVPacket* pkt = impl_->mediaReader_->getNextPacket(StreamType::Audio);
+  if (!pkt) return QByteArray();
 
   QByteArray audio = impl_->audioDecoder_->decodeFrame(pkt);
   av_packet_free(&pkt);
