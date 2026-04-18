@@ -15,6 +15,7 @@ extern "C" {
 #include <libavutil/error.h>
 }
 
+#include <cerrno>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -173,36 +174,53 @@ class MediaPlaybackController::Impl {
     AVFormatContext* ctx = mediaSource_->getFormatContext();
     const int maxPackets = std::max(512, videoPacketWaitAttempts_ * 8);
     int packetsRead = 0;
-    while (packetsRead < maxPackets) {
-      if (av_read_frame(ctx, pkt) < 0) {
+    bool hitEof = false;
+
+    // Helper: drain decoded frames from the video decoder
+    auto drainFrames = [&]() {
+      while (true) {
+        QImage decoded = videoDecoder_->receiveFrame();
+        if (decoded.isNull()) break;
+        lastDecodedFrame = decoded;
+        const int64_t decodedPts = videoDecoder_->getLastDecodedPts();
+        if (targetPts == AV_NOPTS_VALUE || decodedPts == AV_NOPTS_VALUE ||
+            decodedPts >= targetPts) {
+          result = decoded;
+          break;
+        }
+      }
+    };
+
+    while (packetsRead < maxPackets && result.isNull()) {
+      const int readRet = av_read_frame(ctx, pkt);
+      if (readRet < 0) {
+        if (readRet == AVERROR_EOF) {
+          // Flush decoder to retrieve remaining buffered frames
+          videoDecoder_->sendPacket(nullptr);
+          drainFrames();
+        }
+        hitEof = true;
         break;
       }
       ++packetsRead;
 
       if (pkt->stream_index == videoStreamIndex_) {
-        const int ret = videoDecoder_->sendPacket(pkt);
+        int ret = videoDecoder_->sendPacket(pkt);
         av_packet_unref(pkt);
+        if (ret == AVERROR(EAGAIN)) {
+          // Decoder buffer full — drain frames then retry the packet
+          drainFrames();
+          if (!result.isNull()) break;
+          // Packet was already unref'd; the data is lost but we continue
+          // reading to reach the target PTS.
+          continue;
+        }
         if (ret < 0) {
           lastError_ = QStringLiteral("FFmpeg direct decode sendPacket failed: %1").arg(ret);
           qWarning() << "[MediaPlayback] sendPacket failed:" << ret;
           break;
         }
-
-        while (true) {
-          QImage decoded = videoDecoder_->receiveFrame();
-          if (decoded.isNull()) {
-            break;
-          }
-          lastDecodedFrame = decoded;
-          const int64_t decodedPts = videoDecoder_->getLastDecodedPts();
-          if (targetPts == AV_NOPTS_VALUE || decodedPts == AV_NOPTS_VALUE || decodedPts >= targetPts) {
-            result = decoded;
-            break;
-          }
-        }
-        if (!result.isNull()) {
-          break;
-        }
+        drainFrames();
       } else {
         av_packet_unref(pkt);
       }
