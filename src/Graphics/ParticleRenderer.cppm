@@ -7,6 +7,7 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QString>
+#include <QDebug>
 
 module Graphics.ParticleRenderer;
 
@@ -178,8 +179,21 @@ void ParticleRenderer::createPSO() {
 
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pImpl_->pPSO_);
 
-    // Bind Constants
-    pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_VERTEX, "Constants")->Set(pImpl_->pConstantBuffer_);
+    if (!pImpl_->pPSO_) {
+        qWarning("[ParticleRenderer] PSO creation FAILED — "
+                 "check shader compilation and RTV format");
+        return;
+    }
+    qDebug() << "[ParticleRenderer] PSO created successfully";
+
+    // Bind Constants cbuffer (static variable — bound once at PSO level)
+    auto* pConstVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_VERTEX, "Constants");
+    if (!pConstVar) {
+        qWarning("[ParticleRenderer] 'Constants' cbuffer not found in PSO "
+                 "— static variable name mismatch");
+        return;
+    }
+    pConstVar->Set(pImpl_->pConstantBuffer_);
     pImpl_->pPSO_->CreateShaderResourceBinding(&pImpl_->pSRB_, true);
 }
 
@@ -193,6 +207,12 @@ void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
 }
 
 void ParticleRenderer::prepare(IDeviceContext* pContext) {
+    if (!pImpl_->pPSO_ || !pImpl_->pSRB_) {
+        qWarning("[ParticleRenderer] prepare() called but PSO/SRB is null — "
+                 "particle rendering skipped");
+        return;
+    }
+
     // Update Constants
     void* pData = nullptr;
     pContext->MapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
