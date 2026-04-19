@@ -29,10 +29,11 @@
 #include <numeric>
 #include <regex>
 #include <random>
-export module Audio.Rasterizer;
-
 #include <QVector>
 #include <QImage>
+export module Audio.Rasterizer;
+
+
 
 
 

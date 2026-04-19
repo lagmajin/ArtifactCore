@@ -4,6 +4,7 @@ module;
 #include <QPointF>
 #include <QRectF>
 #include <QPainterPath>
+#include <QTransform>
 #include <vector>
 
 #include <iostream>

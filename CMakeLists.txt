@@ -95,6 +95,7 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeGroup.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeGroup.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeLayer.cppm"
 )
     list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
     if(_artifact_force_module_index EQUAL -1)
@@ -324,11 +325,8 @@ if(NOT TARGET llama AND EXISTS "${ARTIFACT_LLAMA_CPP_SOURCE_DIR}/CMakeLists.txt"
     if(CUDAToolkit_FOUND)
         message(STATUS "CUDA Toolkit found: enabling ggml CUDA backend alongside Vulkan")
         if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-            # Keep the default CUDA build narrow to reduce compile time and binary size.
-            set(CMAKE_CUDA_ARCHITECTURES "86-real" CACHE STRING "CUDA architectures for ggml-cuda" FORCE)
-            if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL "11.8")
-                set(CMAKE_CUDA_ARCHITECTURES "86-real;89-real" CACHE STRING "CUDA architectures for ggml-cuda" FORCE)
-            endif()
+            # RTX 4070 Ti is sm_89, so keep the default CUDA build narrow.
+            set(CMAKE_CUDA_ARCHITECTURES "89-real" CACHE STRING "CUDA architectures for ggml-cuda" FORCE)
         endif()
         set(GGML_CUDA ON CACHE BOOL "" FORCE)
     else()

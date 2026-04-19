@@ -3,6 +3,7 @@ module;
 #include <QPointF>
 #include <QRectF>
 #include <QPainterPath>
+#include <QTransform>
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -38,15 +39,7 @@ public:
     void invalidate() const { dirty_ = true; }
 
     QRectF computeBounds() const {
-        if (commands_.empty()) return QRectF();
-
-        QRectF bounds = QRectF(commands_.front().points[0], commands_.front().points[0]);
-        for (const auto& cmd : commands_) {
-            for (int i = 0; i < 3; ++i) {
-                bounds = bounds.united(QRectF(cmd.points[i], cmd.points[i]));
-            }
-        }
-        return bounds;
+        return toPainterPath().boundingRect();
     }
 
     // 現在のパスを QPainterPath に変換
@@ -92,6 +85,7 @@ public:
         if (count == 0) return result;
 
         QPointF currentPos;
+        QPointF subpathStart;
         bool hasCurrent = false;
 
         for (int i = 0; i < count; ++i) {
@@ -100,8 +94,12 @@ public:
 
             switch (e.type) {
                 case QPainterPath::MoveToElement:
+                    if (hasCurrent && qFuzzyCompare(currentPos.x(), subpathStart.x()) && qFuzzyCompare(currentPos.y(), subpathStart.y())) {
+                        result.impl_->commands_.push_back(PathCommand{PathCommandType::Close});
+                    }
                     result.impl_->commands_.push_back(PathCommand{PathCommandType::MoveTo, pt});
                     currentPos = pt;
+                    subpathStart = pt;
                     hasCurrent = true;
                     break;
                 case QPainterPath::LineToElement:
@@ -125,6 +123,9 @@ public:
                     // 単独では使用されない
                     break;
             }
+        }
+        if (hasCurrent && qFuzzyCompare(currentPos.x(), subpathStart.x()) && qFuzzyCompare(currentPos.y(), subpathStart.y())) {
+            result.impl_->commands_.push_back(PathCommand{PathCommandType::Close});
         }
         return result;
     }
@@ -244,9 +245,9 @@ void ShapePath::setRectangle(double x, double y, double width, double height) {
 }
 
 void ShapePath::setRoundedRect(const QRectF& rect, double radiusX, double radiusY) {
-    Q_UNUSED(radiusX);
-    Q_UNUSED(radiusY);
-    setRectangle(rect);
+    QPainterPath path;
+    path.addRoundedRect(rect, radiusX, radiusY);
+    *this = fromPainterPath(path);
 }
 
 void ShapePath::setEllipse(const QRectF& rect) {
@@ -372,121 +373,25 @@ bool ShapePath::contains(const QPointF& point) const {
 
 QPointF ShapePath::pointAtPercent(double t) const {
     if (impl_->commands_.empty()) return QPointF();
-
-    double totalLen = length();
-    if (totalLen <= 0.0) return impl_->commands_.front().points[0];
-
-    double targetLen = t * totalLen;
-    return pointAtLength(targetLen);
+    QPainterPath path = toPainterPath();
+    if (path.isEmpty()) return QPointF();
+    return path.pointAtPercent(std::clamp(t, 0.0, 1.0));
 }
 
 double ShapePath::length() const {
-    double total = 0.0;
-    const auto& cmds = impl_->commands_;
-
-    for (size_t i = 0; i < cmds.size(); ++i) {
-        const auto& cmd = cmds[i];
-        QPointF p0, p1;
-        double segLen = 0.0;
-
-        switch (cmd.type) {
-            case PathCommandType::MoveTo:
-                break;
-            case PathCommandType::LineTo: {
-                p0 = (i > 0) ? getEndPoint(cmds[i - 1]) : QPointF(0, 0);
-                p1 = cmd.points[0];
-                segLen = (p1 - p0).manhattanLength();
-                total += segLen;
-                break;
-            }
-            case PathCommandType::CubicTo: {
-                p0 = (i > 0) ? getEndPoint(cmds[i - 1]) : QPointF(0, 0);
-                p1 = cmd.points[2];
-                segLen = cubicApproxLength(p0, cmd.points[0], cmd.points[1], p1);
-                total += segLen;
-                break;
-            }
-            case PathCommandType::QuadTo: {
-                p0 = (i > 0) ? getEndPoint(cmds[i - 1]) : QPointF(0, 0);
-                p1 = cmd.points[1];
-                segLen = quadApproxLength(p0, cmd.points[0], p1);
-                total += segLen;
-                break;
-            }
-            case PathCommandType::Close: {
-                if (!cmds.empty()) {
-                    QPointF first = getStartPoint(cmds.front());
-                    QPointF last = getEndPoint(cmds[i > 0 ? i - 1 : 0]);
-                    segLen = (first - last).manhattanLength();
-                    total += segLen;
-                }
-                break;
-            }
-        }
-    }
-    return total;
+    QPainterPath path = toPainterPath();
+    return path.length();
 }
 
 QPointF ShapePath::pointAtLength(double length) const {
     if (impl_->commands_.empty()) return QPointF();
-
-    double remaining = length;
-    const auto& cmds = impl_->commands_;
-
-    for (size_t i = 0; i < cmds.size(); ++i) {
-        const auto& cmd = cmds[i];
-        QPointF p0, p1;
-        double segLen = 0.0;
-
-        switch (cmd.type) {
-            case PathCommandType::MoveTo:
-                continue;
-            case PathCommandType::LineTo: {
-                p0 = (i > 0) ? getEndPoint(cmds[i - 1]) : QPointF(0, 0);
-                p1 = cmd.points[0];
-                segLen = (p1 - p0).manhattanLength();
-                if (remaining <= segLen) {
-                    double t = (segLen > 1e-9) ? remaining / segLen : 0.0;
-                    return p0 + (p1 - p0) * t;
-                }
-                remaining -= segLen;
-                break;
-            }
-            case PathCommandType::CubicTo: {
-                p0 = (i > 0) ? getEndPoint(cmds[i - 1]) : QPointF(0, 0);
-                p1 = cmd.points[2];
-                segLen = cubicApproxLength(p0, cmd.points[0], cmd.points[1], p1);
-                if (remaining <= segLen) {
-                    return cubicPointAtLength(p0, cmd.points[0], cmd.points[1], p1, remaining);
-                }
-                remaining -= segLen;
-                break;
-            }
-            case PathCommandType::QuadTo: {
-                p0 = (i > 0) ? getEndPoint(cmds[i - 1]) : QPointF(0, 0);
-                p1 = cmd.points[1];
-                segLen = quadApproxLength(p0, cmd.points[0], p1);
-                if (remaining <= segLen) {
-                    return quadPointAtLength(p0, cmd.points[0], p1, remaining);
-                }
-                remaining -= segLen;
-                break;
-            }
-            case PathCommandType::Close: {
-                QPointF first = getStartPoint(cmds.front());
-                QPointF last = getEndPoint(cmds[i > 0 ? i - 1 : 0]);
-                segLen = (first - last).manhattanLength();
-                if (remaining <= segLen) {
-                    double t = (segLen > 1e-9) ? remaining / segLen : 0.0;
-                    return last + (first - last) * t;
-                }
-                remaining -= segLen;
-                break;
-            }
-        }
+    QPainterPath path = toPainterPath();
+    if (path.isEmpty()) return QPointF();
+    const double total = path.length();
+    if (total <= 0.0) {
+        return path.pointAtPercent(0.0);
     }
-
-    return getEndPoint(cmds.back());
+    return path.pointAtPercent(path.percentAtLength(std::clamp(length, 0.0, total)));
 }
 
 std::vector<BezierSegment> ShapePath::toSegments() const {
@@ -617,24 +522,9 @@ void ShapePath::reverse() {
 
 void ShapePath::addPath(const ShapePath& other) {
     if (other.isEmpty()) return;
-
-    const auto& otherCmds = other.impl_->commands_;
-    if (impl_->commands_.empty()) {
-        impl_->commands_ = otherCmds;
-    } else {
-        bool first = true;
-        for (const auto& cmd : otherCmds) {
-            if (first && cmd.type == PathCommandType::MoveTo) {
-                QPointF currentEnd = getEndPoint(impl_->commands_.back());
-                impl_->commands_.push_back(PathCommand{PathCommandType::LineTo, cmd.points[0]});
-                first = false;
-            } else {
-                impl_->commands_.push_back(cmd);
-                first = false;
-            }
-        }
-    }
-    impl_->invalidate();
+    QPainterPath combined = toPainterPath();
+    combined.addPath(other.toPainterPath());
+    *this = fromPainterPath(combined);
 }
 
 void ShapePath::simplify() {

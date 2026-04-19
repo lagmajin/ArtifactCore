@@ -1,9 +1,9 @@
 module;
 #include <utility>
-
+#include <QtMultiMedia/QAudioFormat>
 export module Audio.Converter.Qt;
 
-#include <QtMultiMedia/QAudioFormat>
+
 
 import Audio.Frame;
 

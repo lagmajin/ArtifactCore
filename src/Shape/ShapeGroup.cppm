@@ -4,6 +4,8 @@ module;
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <functional>
+#include <QTransform>
 
 module Shape.Group:Impl;
 
@@ -115,7 +117,14 @@ QRectF ShapeGroup::boundingRect() const {
             }
         }
     }
-    return bounds;
+    const auto& self = transform();
+    QTransform matrix;
+    matrix.translate(self.position.x, self.position.y);
+    matrix.translate(self.anchor.x, self.anchor.y);
+    matrix.rotate(self.rotation);
+    matrix.scale(self.scale.x, self.scale.y);
+    matrix.translate(-self.anchor.x, -self.anchor.y);
+    return matrix.mapRect(bounds);
 }
 
 void ShapeGroup::translate(const QPointF& offset) {
@@ -195,11 +204,28 @@ ShapeOperator* ShapeGroup::operatorAt(int index) const {
 
 std::vector<ShapePath> ShapeGroup::processedPaths() const {
     std::vector<ShapePath> paths;
-    for (const auto& child : children_) {
-        if (auto* pathShape = dynamic_cast<PathShape*>(child.get())) {
-            paths.push_back(pathShape->path());
+    auto makeMatrix = [](const ShapeTransform& tf) {
+        QTransform matrix;
+        matrix.translate(tf.position.x, tf.position.y);
+        matrix.translate(tf.anchor.x, tf.anchor.y);
+        matrix.rotate(tf.rotation);
+        matrix.scale(tf.scale.x, tf.scale.y);
+        matrix.translate(-tf.anchor.x, -tf.anchor.y);
+        return matrix;
+    };
+    std::function<void(const ShapeGroup&, const QTransform&)> collectPaths = [&](const ShapeGroup& group, const QTransform& parentMatrix) {
+        const QTransform groupMatrix = parentMatrix * makeMatrix(group.transform());
+        for (const auto& child : group.children_) {
+            if (auto* pathShape = dynamic_cast<PathShape*>(child.get())) {
+                ShapePath path = ShapePath::fromPainterPath(pathShape->toPainterPath());
+                path.transform(groupMatrix);
+                paths.push_back(path);
+            } else if (auto* childGroup = dynamic_cast<ShapeGroup*>(child.get())) {
+                collectPaths(*childGroup, groupMatrix);
+            }
         }
-    }
+    };
+    collectPaths(*this, QTransform());
     for (const auto& op : operators_) {
         paths = op->process(paths);
     }
@@ -251,11 +277,19 @@ void PathShape::setFill(const FillSettings& fill) {
 }
 
 QRectF PathShape::boundingRect() const {
-    return path().boundingRect();
+    return toPainterPath().boundingRect();
 }
 
 QPainterPath PathShape::toPainterPath() const {
     QPainterPath qpath = path().toPainterPath();
+    const auto& tf = transform();
+    QTransform matrix;
+    matrix.translate(tf.position.x, tf.position.y);
+    matrix.translate(tf.anchor.x, tf.anchor.y);
+    matrix.rotate(tf.rotation);
+    matrix.scale(tf.scale.x, tf.scale.y);
+    matrix.translate(-tf.anchor.x, -tf.anchor.y);
+    qpath = matrix.map(qpath);
 
     // ストローク設定が有効なら QPainterPathStroker で変換
     // TODO: 実装

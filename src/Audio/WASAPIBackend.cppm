@@ -3,18 +3,20 @@ module;
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <Audioclient.h>
-#include <ksmedia.h>
-#include <Mmdeviceapi.h>
-#include <Functiondiscoverykeys_devpkey.h>
-#include <comdef.h>
 #include <windows.h>
+#include <Audioclient.h>
+#include <propkey.h>
+#include <Functiondiscoverykeys_devpkey.h>
+#include <Mmdeviceapi.h>
+#include <QString>
 #include <atomic>
 #include <chrono>
-#include <cstring>
+#include <comdef.h>
 #include <cstdint>
-#include <QString>
+#include <cstring>
+#include <ksmedia.h>
 #include <thread>
+
 
 module Audio.Backend.WASAPI;
 
@@ -32,10 +34,10 @@ public:
   AudioBackendFormat currentFormat;
   QString deviceName;
 
-  IAudioClient* audioClient = nullptr;
-  IAudioRenderClient* renderClient = nullptr;
-  IMMDevice* device = nullptr;
-  WAVEFORMATEX* mixFormat = nullptr;
+  IAudioClient *audioClient = nullptr;
+  IAudioRenderClient *renderClient = nullptr;
+  IMMDevice *device = nullptr;
+  WAVEFORMATEX *mixFormat = nullptr;
   REFERENCE_TIME bufferDuration = 0;
   UINT32 bufferFrameCount = 0;
   bool mixFormatIsFloat = true;
@@ -69,12 +71,30 @@ public:
   }
 
   void releaseCom() {
-    if (renderClient) { renderClient->Release(); renderClient = nullptr; }
-    if (audioClient) { audioClient->Release(); audioClient = nullptr; }
-    if (device) { device->Release(); device = nullptr; }
-    if (mixFormat) { CoTaskMemFree(mixFormat); mixFormat = nullptr; }
-    if (audioEvent) { CloseHandle(audioEvent); audioEvent = nullptr; }
-    if (stopEvent) { CloseHandle(stopEvent); stopEvent = nullptr; }
+    if (renderClient) {
+      renderClient->Release();
+      renderClient = nullptr;
+    }
+    if (audioClient) {
+      audioClient->Release();
+      audioClient = nullptr;
+    }
+    if (device) {
+      device->Release();
+      device = nullptr;
+    }
+    if (mixFormat) {
+      CoTaskMemFree(mixFormat);
+      mixFormat = nullptr;
+    }
+    if (audioEvent) {
+      CloseHandle(audioEvent);
+      audioEvent = nullptr;
+    }
+    if (stopEvent) {
+      CloseHandle(stopEvent);
+      stopEvent = nullptr;
+    }
     if (comInitialized) {
       CoUninitialize();
       comInitialized = false;
@@ -100,21 +120,39 @@ public:
       }
 
       const UINT32 framesToWrite = bufferFrameCount - padding;
-      BYTE* data = nullptr;
-      if (FAILED(renderClient->GetBuffer(framesToWrite, &data)) || !data) {
+      if (framesToWrite == 0) {
         return;
       }
 
+      // バッファ全体を取得してオフセット位置から書き込み
+      BYTE *data = nullptr;
+      if (FAILED(renderClient->GetBuffer(bufferFrameCount, &data)) || !data) {
+        return;
+      }
+
+      const size_t frameSize = mixFormatIsFloat
+                                   ? (sizeof(float) * mixChannels)
+                                   : (sizeof(std::int16_t) * mixChannels);
+
+      // 前後の未使用領域は無音で埋める
+      memset(data, 0, padding * frameSize);
+      memset(data + (padding + framesToWrite) * frameSize, 0,
+             (bufferFrameCount - padding - framesToWrite) * frameSize);
+
+      // 書き込み開始位置をオフセット
+      data += padding * frameSize;
+
       const int channels = std::max(1, mixChannels);
-      const size_t sampleCount = static_cast<size_t>(framesToWrite) * static_cast<size_t>(channels);
+      const size_t sampleCount =
+          static_cast<size_t>(framesToWrite) * static_cast<size_t>(channels);
 
       if (mixFormatIsFloat) {
-        auto* out = reinterpret_cast<float*>(data);
+        auto *out = reinterpret_cast<float *>(data);
         callback(out, static_cast<int>(framesToWrite), channels);
       } else {
         std::vector<float> temp(sampleCount, 0.0f);
         callback(temp.data(), static_cast<int>(framesToWrite), channels);
-        auto* out = reinterpret_cast<std::int16_t*>(data);
+        auto *out = reinterpret_cast<std::int16_t *>(data);
         for (size_t i = 0; i < sampleCount; ++i) {
           const float sample = std::clamp(temp[i], -1.0f, 1.0f);
           out[i] = static_cast<std::int16_t>(std::lround(sample * 32767.0f));
@@ -126,8 +164,9 @@ public:
 
     pump();
     while (!stopRequested) {
-      HANDLE waits[2] = { stopEvent, audioEvent };
-      const DWORD waitResult = WaitForMultipleObjects(2, waits, FALSE, INFINITE);
+      HANDLE waits[2] = {stopEvent, audioEvent};
+      const DWORD waitResult =
+          WaitForMultipleObjects(2, waits, FALSE, INFINITE);
       if (waitResult == WAIT_OBJECT_0) {
         break;
       }
@@ -141,7 +180,8 @@ public:
 WASAPIBackend::WASAPIBackend() : impl_(std::make_unique<Impl>()) {}
 WASAPIBackend::~WASAPIBackend() { close(); }
 
-bool WASAPIBackend::open(const AudioDeviceInfo& device, const AudioBackendFormat& format) {
+bool WASAPIBackend::open(const AudioDeviceInfo &device,
+                         const AudioBackendFormat &format) {
   close();
 
   impl_->deviceName = device.description;
@@ -153,9 +193,9 @@ bool WASAPIBackend::open(const AudioDeviceInfo& device, const AudioBackendFormat
   }
   impl_->comInitialized = (initHr == S_OK || initHr == S_FALSE);
 
-  IMMDeviceEnumerator* enumerator = nullptr;
-  HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                               IID_PPV_ARGS(&enumerator));
+  IMMDeviceEnumerator *enumerator = nullptr;
+  HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
+                                CLSCTX_ALL, IID_PPV_ARGS(&enumerator));
   if (FAILED(hr) || !enumerator) {
     impl_->releaseCom();
     return false;
@@ -169,7 +209,7 @@ bool WASAPIBackend::open(const AudioDeviceInfo& device, const AudioBackendFormat
   }
 
   hr = impl_->device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-                               reinterpret_cast<void**>(&impl_->audioClient));
+                               reinterpret_cast<void **>(&impl_->audioClient));
   if (FAILED(hr) || !impl_->audioClient) {
     impl_->releaseCom();
     return false;
@@ -188,8 +228,9 @@ bool WASAPIBackend::open(const AudioDeviceInfo& device, const AudioBackendFormat
   if (impl_->mixFormat->wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
     impl_->mixFormatIsFloat = true;
   } else if (impl_->mixFormat->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
-    auto* ext = reinterpret_cast<WAVEFORMATEXTENSIBLE*>(impl_->mixFormat);
-    impl_->mixFormatIsFloat = IsEqualGUID(ext->SubFormat, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
+    auto *ext = reinterpret_cast<WAVEFORMATEXTENSIBLE *>(impl_->mixFormat);
+    impl_->mixFormatIsFloat =
+        IsEqualGUID(ext->SubFormat, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
   }
 
   // Request a 50 ms shared-mode buffer (2400 frames at 48 kHz).
@@ -197,8 +238,9 @@ bool WASAPIBackend::open(const AudioDeviceInfo& device, const AudioBackendFormat
   // occurs if the OS scheduler delays the poll loop.
   impl_->bufferDuration = static_cast<REFERENCE_TIME>(
       (10000000LL * 2400) / std::max(1, impl_->mixSampleRate));
-  hr = impl_->audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, impl_->bufferDuration,
-                                      0, impl_->mixFormat, nullptr);
+  hr = impl_->audioClient->Initialize(
+      AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+      impl_->bufferDuration, 0, impl_->mixFormat, nullptr);
   if (FAILED(hr)) {
     impl_->releaseCom();
     return false;
@@ -210,8 +252,9 @@ bool WASAPIBackend::open(const AudioDeviceInfo& device, const AudioBackendFormat
     return false;
   }
 
-  hr = impl_->audioClient->GetService(__uuidof(IAudioRenderClient),
-                                      reinterpret_cast<void**>(&impl_->renderClient));
+  hr = impl_->audioClient->GetService(
+      __uuidof(IAudioRenderClient),
+      reinterpret_cast<void **>(&impl_->renderClient));
   if (FAILED(hr) || !impl_->renderClient) {
     impl_->releaseCom();
     return false;
@@ -233,8 +276,8 @@ bool WASAPIBackend::open(const AudioDeviceInfo& device, const AudioBackendFormat
   impl_->currentFormat.sampleRate = impl_->mixSampleRate;
   impl_->currentFormat.channelCount = impl_->mixChannels;
   impl_->currentFormat.sampleFormat = impl_->mixFormatIsFloat
-      ? AudioBackendSampleFormat::Float32
-      : AudioBackendSampleFormat::Int16;
+                                          ? AudioBackendSampleFormat::Float32
+                                          : AudioBackendSampleFormat::Int16;
   return true;
 }
 
@@ -260,9 +303,7 @@ void WASAPIBackend::start(AudioCallback callback) {
     return;
   }
 
-  impl_->renderThread = std::thread([this]() {
-    impl_->renderLoop();
-  });
+  impl_->renderThread = std::thread([this]() { impl_->renderLoop(); });
 }
 
 void WASAPIBackend::stop() {

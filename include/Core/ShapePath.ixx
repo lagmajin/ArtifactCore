@@ -1,7 +1,8 @@
 module;
 #include <utility>
-export module ShapePath;
 #include <QString>
+export module ShapePath;
+
 
 
 

@@ -69,6 +69,7 @@ public:
     bool hasChannel(ChannelType type) const;
     
     std::shared_ptr<VideoChannel> getChannel(ChannelType type);
+    std::shared_ptr<const VideoChannel> getChannel(ChannelType type) const;
     
     int width() const { return width_; }
     int height() const { return height_; }

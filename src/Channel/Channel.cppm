@@ -62,4 +62,12 @@ std::shared_ptr<VideoChannel> VideoFrame::getChannel(ChannelType type) {
     return nullptr;
 }
 
+std::shared_ptr<const VideoChannel> VideoFrame::getChannel(ChannelType type) const {
+    auto it = channels_.find(type);
+    if (it != channels_.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
 } // namespace ArtifactCore

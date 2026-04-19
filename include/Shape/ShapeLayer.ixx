@@ -1,8 +1,13 @@
 module;
 
 #include <QString>
+#include <QPointF>
 #include <QRectF>
+#include <QSize>
+#include <QSizeF>
 #include <QImage>
+#include <QPainterPath>
+#include <QTransform>
 #include <memory>
 
 #include <iostream>
@@ -40,13 +45,12 @@ export module Shape.Layer;
 
 
 
-import Shape.Types;
-import Shape.Path;
-import Shape.Group;
+export import Property.Types;
+export import Shape.Types;
+export import Shape.Path;
+export import Shape.Group;
 
 export namespace ArtifactCore {
-    // Forward declaration workaround for Point2DValue
-    class Point2DValue;
 
 /// シェイプレイヤー
 /// 
@@ -201,6 +205,16 @@ public:
     static ShapeLayer createRectangle(const QRectF& rect, 
                                        const FillSettings& fill = FillSettings(),
                                        const StrokeSettings& stroke = StrokeSettings());
+
+    /// 正方形シェイプレイヤー作成
+    static ShapeLayer createSquare(const QPointF& topLeft, double size,
+                                   const FillSettings& fill = FillSettings(),
+                                   const StrokeSettings& stroke = StrokeSettings());
+    
+    /// 三角形シェイプレイヤー作成
+    static ShapeLayer createTriangle(const QRectF& bounds, bool pointUp = true,
+                                     const FillSettings& fill = FillSettings(),
+                                     const StrokeSettings& stroke = StrokeSettings());
     
     /// 楕円シェイプレイヤー作成
     static ShapeLayer createEllipse(const QRectF& rect,
@@ -230,6 +244,16 @@ public:
     static ShapeLayer fromPath(const ShapePath& path,
                                 const FillSettings& fill,
                                 const StrokeSettings& stroke);
+
+    /// 正方形からシェイプレイヤー作成
+    static ShapeLayer fromSquare(const QPointF& topLeft, double size,
+                                 const FillSettings& fill,
+                                 const StrokeSettings& stroke);
+
+    /// 三角形からシェイプレイヤー作成
+    static ShapeLayer fromTriangle(const QRectF& bounds, bool pointUp,
+                                   const FillSettings& fill,
+                                   const StrokeSettings& stroke);
     
     /// QPainterPathからシェイプレイヤー作成
     static ShapeLayer fromPainterPath(const QPainterPath& path,
