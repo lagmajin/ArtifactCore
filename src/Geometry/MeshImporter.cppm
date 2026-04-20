@@ -5,6 +5,9 @@ module;
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "ufbx.h"
 #include <QDebug>
+#include <QDataStream>
+#include <QFile>
+#include <QIODevice>
 #include <QString>
 #include <QStringView>
 #include <QVector2D>
@@ -13,7 +16,6 @@ module;
 #include <QVector>
 #include <filesystem>
 #include <tinyobjloader/tiny_obj_loader.h>
-
 
 module MeshImporter;
 
@@ -231,6 +233,83 @@ public:
     mesh->updateBounds();
     return mesh;
   }
+  std::shared_ptr<Mesh> loadPMD(const QString &path) {
+    lastBackend_ = MeshImporter::Backend::PMD;
+    lastError_.clear();
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+      lastError_ = QStringLiteral("PMD: cannot open file");
+      return nullptr;
+    }
+
+    QDataStream stream(&file);
+    stream.setByteOrder(QDataStream::LittleEndian);
+    stream.setFloatingPointPrecision(QDataStream::SinglePrecision);
+
+    char magic[3];
+    stream.readRawData(magic, 3);
+    if (memcmp(magic, "Pmd", 3) != 0) {
+      lastError_ = QStringLiteral("PMD: invalid magic number");
+      return nullptr;
+    }
+
+    float version;
+    stream >> version;
+
+    char name[20];
+    char comment[256];
+    stream.readRawData(name, 20);
+    stream.readRawData(comment, 256);
+
+    quint32 vertexCount;
+    stream >> vertexCount;
+
+    if (vertexCount == 0 || vertexCount > 1000000) {
+      lastError_ = QStringLiteral("PMD: invalid vertex count");
+      return nullptr;
+    }
+
+    auto mesh = std::make_shared<Mesh>();
+    mesh->setVertexCount(static_cast<int>(vertexCount));
+
+    auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
+    auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
+    auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+
+    for (quint32 i = 0; i < vertexCount; i++) {
+      float x, y, z;
+      float nx, ny, nz;
+      float u, v;
+
+      stream >> x >> y >> z;
+      stream >> nx >> ny >> nz;
+      stream >> u >> v;
+
+      (*posAttr)[i] = QVector3D(x, y, z);
+      (*normAttr)[i] = QVector3D(nx, ny, nz);
+      (*uvAttr)[i] = QVector2D(u, 1.0f - v);
+
+      // Skip bone weight data for now
+      stream.skipRawData(6);
+    }
+
+    quint32 faceCount;
+    stream >> faceCount;
+
+    for (quint32 i = 0; i < faceCount / 3; i++) {
+      quint16 i0, i1, i2;
+      stream >> i0 >> i1 >> i2;
+      mesh->addPolygon(
+          {static_cast<int>(i0), static_cast<int>(i1), static_cast<int>(i2)});
+    }
+
+    mesh->updateBounds();
+
+    qInfo() << "PMD loaded: " << vertexCount << " vertices, " << faceCount / 3
+            << " faces";
+    return mesh;
+  }
 };
 
 MeshImporter::MeshImporter() : impl_(new Impl()) {}
@@ -261,20 +340,7 @@ std::shared_ptr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
   }
 
   if (ext == QStringLiteral("pmd") || ext == QStringLiteral("pmx")) {
-    // TODO: PMD native importer will be implemented here
-    // For now just return empty mesh without error to prevent crash
-    qWarning() << "PMD format not implemented yet:" << qpath;
-    impl_->lastError_ =
-        QStringLiteral("PMD format support is under development");
-    auto mesh = std::make_shared<Mesh>();
-    mesh->setVertexCount(3);
-    auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
-    (*posAttr)[0] = QVector3D(-1.0f, -1.0f, 0.0f);
-    (*posAttr)[1] = QVector3D(1.0f, -1.0f, 0.0f);
-    (*posAttr)[2] = QVector3D(0.0f, 1.0f, 0.0f);
-    mesh->addPolygon({0, 1, 2});
-    mesh->updateBounds();
-    return mesh;
+    return impl_->loadPMD(qpath);
   }
 
   qWarning() << "Unsupported mesh format:" << ext;
