@@ -140,6 +140,7 @@ target_include_directories(ArtifactCore
         "${CMAKE_CURRENT_SOURCE_DIR}/include/Grid"
         "${CMAKE_CURRENT_SOURCE_DIR}/include/Render"
         "${CMAKE_CURRENT_SOURCE_DIR}/include/Color"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic"
         "${CMAKE_CURRENT_SOURCE_DIR}/../Artifact/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
     PRIVATE
