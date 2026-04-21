@@ -447,12 +447,20 @@ QVector<UniString> EncoderSettings::getValidationErrors() const
 // --- VACY ---
 UniString EncoderSettings::serialize() const
 {
-    std::string json = std::format(
-        R"({{"width":{}, "height":{}, "fps":{}, "bitrate":{}, "quality":{}, "audioCodec":{}}})",
-        impl_->width, impl_->height, impl_->frameRate, impl_->bitrateMbps, 
-        impl_->quality, static_cast<int>(impl_->aCodec)
-    );
-    return UniString(QString::fromStdString(json));
+    const QString json = QString("{\"width\":")
+        + QString::number(impl_->width)
+        + QString(",\"height\":")
+        + QString::number(impl_->height)
+        + QString(",\"fps\":")
+        + QString::number(impl_->frameRate, 'g', 9)
+        + QString(",\"bitrate\":")
+        + QString::number(impl_->bitrateMbps, 'g', 9)
+        + QString(",\"quality\":")
+        + QString::number(impl_->quality, 'g', 9)
+        + QString(",\"audioCodec\":")
+        + QString::number(static_cast<int>(impl_->aCodec))
+        + QString("}");
+    return UniString(json);
 }
 
 bool EncoderSettings::deserialize(const UniString& data)

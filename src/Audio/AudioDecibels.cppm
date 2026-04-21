@@ -119,8 +119,10 @@ UniString AudioDecibels::getPresetName(Preset preset)
 
 UniString AudioDecibels::serialize() const
 {
- const std::string json = std::format(R"({{"dB":{}}})", impl_->dB);
- return UniString(QString::fromStdString(json));
+ const QString json = QString("{\"dB\":")
+                    + QString::number(impl_->dB, 'g', 9)
+                    + QString("}");
+ return UniString(json);
 }
 
 AudioDecibels AudioDecibels::deserialize(const UniString&)

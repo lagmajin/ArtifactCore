@@ -202,6 +202,12 @@ public:
             av_opt_set_int(codecCtx_->priv_data, "loop", 0, 0);
         }
 
+        // カラープライマリ・マトリックス・レンジの設定 (BT.709)
+        codecCtx_->color_range = AVCOL_RANGE_MPEG; 
+        codecCtx_->color_primaries = AVCOL_PRI_BT709;
+        codecCtx_->color_trc = AVCOL_TRC_BT709;
+        codecCtx_->colorspace = AVCOL_SPC_BT709;
+
         if (const int ret = avcodec_open2(codecCtx_, codec, nullptr); ret < 0) {
             lastError_ = QStringLiteral("Failed to open video encoder: %1 (%2)").arg(settings.videoCodec, ffmpegErrorString(ret));
             return false;

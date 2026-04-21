@@ -1,5 +1,7 @@
 module;
+#include <algorithm>
 #include <utility>
+#include <memory>
 
 module Layer2D;
 
@@ -7,8 +9,6 @@ import Image;
 import Layer2D;
 import Layer.Blend;
 import Layer.Matte;
-import std;
-
 
 namespace ArtifactCore {
 

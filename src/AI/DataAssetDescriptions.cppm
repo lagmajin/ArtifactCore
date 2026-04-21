@@ -1,11 +1,11 @@
 module;
 #include <utility>
-
-export module Core.AI.DataAssetDescriptions;
 #include <QString>
 #include <QStringList>
 #include <QVector3D>
 #include <QColor>
+export module Core.AI.DataAssetDescriptions;
+
 
 import std;
 

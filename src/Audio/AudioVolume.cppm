@@ -139,10 +139,12 @@ UniString AudioVolume::getPresetName(Preset preset)
 
 UniString AudioVolume::serialize() const
 {
- const std::string json = std::format(
-  R"({{"volume":{}, "muted":{}}})",
-  impl_->volume, impl_->muted ? "true" : "false");
- return UniString(QString::fromStdString(json));
+ const QString json = QString("{\"volume\":")
+                    + QString::number(impl_->volume, 'g', 9)
+                    + QString(",\"muted\":")
+                    + (impl_->muted ? QString("true") : QString("false"))
+                    + QString("}");
+ return UniString(json);
 }
 
 AudioVolume AudioVolume::deserialize(const UniString&)
