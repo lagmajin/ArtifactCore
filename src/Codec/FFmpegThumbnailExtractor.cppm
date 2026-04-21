@@ -244,12 +244,9 @@ namespace ArtifactCore {
             goto cleanup;
         }
 
-        // Multithreading for decode (using slice or frame threading if supported)
-        codecCtx->thread_count = 0; // Auto
-        if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS)
-            codecCtx->thread_type = FF_THREAD_FRAME;
-        else if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS)
-            codecCtx->thread_type = FF_THREAD_SLICE;
+        // Keep thumbnail extraction single-threaded to avoid noisy worker bursts.
+        codecCtx->thread_count = 1;
+        codecCtx->thread_type = 0;
 
         if (avcodec_open2(codecCtx, codec, nullptr) < 0) {
             result.message = ThumbnailExtractorMessage::DecodeError;

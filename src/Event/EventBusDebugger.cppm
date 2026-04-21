@@ -4,6 +4,7 @@ module;
 #include <cstdint>
 #include <deque>
 #include <mutex>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <typeindex>
@@ -41,8 +42,9 @@ void EventBusDebugger::attach(EventBus& bus)
     totalFired_  = 0;
 
     bus.setPublishHook([this](std::type_index type, std::string_view name,
-                              std::size_t delivered, std::int64_t durationNs) {
-        onPublish(type, name, delivered, durationNs);
+                              std::size_t delivered, std::int64_t durationNs,
+                              std::source_location origin) {
+        onPublish(type, name, delivered, durationNs, origin);
     });
 }
 
@@ -76,7 +78,8 @@ void EventBusDebugger::clearLog()                                 { std::lock_gu
 
 // ------------------------------------------------------------------ onPublish
 void EventBusDebugger::onPublish(std::type_index type, std::string_view name,
-                                  std::size_t delivered, std::int64_t durationNs)
+                                  std::size_t delivered, std::int64_t durationNs,
+                                  std::source_location origin)
 {
     if (paused_.load(std::memory_order_relaxed)) return;
 
@@ -141,6 +144,7 @@ void EventBusDebugger::onPublish(std::type_index type, std::string_view name,
         cleanName(name),
         delivered,
         durUs,
+        origin,
         isDup,
         isSlow,
         isBurst

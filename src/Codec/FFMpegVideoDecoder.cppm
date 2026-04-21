@@ -154,6 +154,11 @@ namespace ArtifactCore {
    return false;
   }
 
+  // Keep decode single-threaded here to avoid spawning a burst of FFmpeg worker
+  // threads during preview / timeline initialization.
+  codecContext->thread_count = 1;
+  codecContext->thread_type = 0;
+
   // 8. コーデックを開く
   if (avcodec_open2(codecContext, codec, nullptr) < 0) {
    qWarning() << "FFmpegDecoder::Impl::openFile: Failed to open codec.";

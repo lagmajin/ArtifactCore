@@ -67,6 +67,10 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
         return false;
     }
 
+    // Avoid auto-spawning multiple FFmpeg decode workers for single-frame probes.
+    codecContext_->thread_count = 1;
+    codecContext_->thread_type = 0;
+
     int ret = avcodec_open2(codecContext_, codec, nullptr);
     if (ret < 0) {
         qWarning() << "[MediaImageFrameDecoder] initialize failed: could not open codec"

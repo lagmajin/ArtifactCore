@@ -6,6 +6,7 @@ module;
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <typeindex>
@@ -162,7 +163,8 @@ EventBus::Subscription EventBus::subscribeRaw(std::type_index type, std::functio
     return Subscription { impl, std::move(record) };
 }
 
-std::size_t EventBus::publishRaw(std::type_index type, const void* payload) const
+std::size_t EventBus::publishRaw(std::type_index type, const void* payload,
+                                 std::source_location origin) const
 {
     auto impl = impl_;
     if (!impl) {
@@ -211,14 +213,17 @@ std::size_t EventBus::publishRaw(std::type_index type, const void* payload) cons
                 auto it = impl->typeNames.find(type);
                 if (it != impl->typeNames.end()) name_copy = it->second;
             }
-            hook_copy(type, name_copy, delivered, dispatchNs);
+            hook_copy(type, name_copy, delivered, dispatchNs, origin);
         }
     }
 
     return delivered;
 }
 
-void EventBus::enqueueRaw(std::type_index type, std::shared_ptr<const void> payload, void (*dispatch)(EventBus&, const void*), EventPriority priority)
+void EventBus::enqueueRaw(std::type_index type, std::shared_ptr<const void> payload,
+                          void (*dispatch)(EventBus&, const void*, std::source_location),
+                          EventPriority priority,
+                          std::source_location origin)
 {
     auto impl = impl_;
     if (!impl) {
@@ -231,7 +236,7 @@ void EventBus::enqueueRaw(std::type_index type, std::shared_ptr<const void> payl
     while (pos != impl->queue.end() && static_cast<int>(pos->priority) >= static_cast<int>(priority)) {
         ++pos;
     }
-    impl->queue.insert(pos, QueuedEvent { type, std::move(payload), dispatch, priority });
+    impl->queue.insert(pos, QueuedEvent { type, std::move(payload), dispatch, priority, origin });
 }
 
 std::size_t EventBus::subscriberCountRaw(std::type_index type) const noexcept
@@ -348,7 +353,7 @@ std::size_t EventBus::drain(std::size_t maxEvents)
             if (!queued.dispatch || !queued.payload) {
                 continue;
             }
-            queued.dispatch(*this, queued.payload.get());
+            queued.dispatch(*this, queued.payload.get(), queued.origin);
         }
     }
 

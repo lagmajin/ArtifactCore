@@ -4,6 +4,7 @@ module;
 #include <functional>
 #include <limits>
 #include <memory>
+#include <source_location>
 #include <string_view>
 #include <typeindex>
 #include <type_traits>
@@ -34,8 +35,9 @@ public:
     struct QueuedEvent {
         std::type_index type = std::type_index(typeid(void));
         std::shared_ptr<const void> payload;
-        void (*dispatch)(EventBus&, const void*) = nullptr;
+        void (*dispatch)(EventBus&, const void*, std::source_location) = nullptr;
         EventPriority priority = EventPriority::Normal;
+        std::source_location origin = std::source_location::current();
 
         bool operator<(const QueuedEvent& other) const {
             return static_cast<int>(priority) < static_cast<int>(other.priority);
@@ -85,38 +87,43 @@ public:
     }
 
     template<typename Event>
-    std::size_t publish(Event&& event) {
+    std::size_t publish(Event&& event,
+                        std::source_location origin = std::source_location::current()) {
         using EventType = std::remove_cvref_t<Event>;
         registerTypeNameRaw(std::type_index(typeid(EventType)), typeid(EventType).name());
-        return publishRaw(std::type_index(typeid(EventType)), std::addressof(event));
+        return publishRaw(std::type_index(typeid(EventType)), std::addressof(event), origin);
     }
 
     template<typename Event, typename... Args>
         requires std::constructible_from<std::remove_cvref_t<Event>, Args...>
-    void post(EventPriority priority, Args&&... args) {
+    void post(EventPriority priority, Args&&... args,
+              std::source_location origin = std::source_location::current()) {
         using EventType = std::remove_cvref_t<Event>;
         auto payload = std::make_shared<EventType>(std::forward<Args>(args)...);
         auto rawPayload = std::shared_ptr<const void>(payload, static_cast<const void*>(payload.get()));
-        enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>, priority);
+        enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>, priority, origin);
     }
 
     template<typename Event, typename... Args>
         requires std::constructible_from<std::remove_cvref_t<Event>, Args...>
-    void post(Args&&... args) {
-        post<Event>(EventPriority::Normal, std::forward<Args>(args)...);
+    void post(Args&&... args,
+              std::source_location origin = std::source_location::current()) {
+        post<Event>(EventPriority::Normal, std::forward<Args>(args)..., origin);
     }
 
     template<typename Event>
-    void post(EventPriority priority, Event&& event) {
+    void post(EventPriority priority, Event&& event,
+              std::source_location origin = std::source_location::current()) {
         using EventType = std::remove_cvref_t<Event>;
         auto payload = std::make_shared<EventType>(std::forward<Event>(event));
         auto rawPayload = std::shared_ptr<const void>(payload, static_cast<const void*>(payload.get()));
-        enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>, priority);
+        enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>, priority, origin);
     }
 
     template<typename Event>
-    void post(Event&& event) {
-        post<Event>(EventPriority::Normal, std::forward<Event>(event));
+    void post(Event&& event,
+              std::source_location origin = std::source_location::current()) {
+        post<Event>(EventPriority::Normal, std::forward<Event>(event), origin);
     }
 
     [[nodiscard]] std::size_t drain(std::size_t maxEvents = std::numeric_limits<std::size_t>::max());
@@ -126,7 +133,7 @@ public:
     [[nodiscard]] std::size_t pendingCount() const noexcept;
 
     // Debug observability
-    using PublishHook = std::function<void(std::type_index, std::string_view /*name*/, std::size_t /*delivered*/, std::int64_t /*durationNs*/)>;
+    using PublishHook = std::function<void(std::type_index, std::string_view /*name*/, std::size_t /*delivered*/, std::int64_t /*durationNs*/, std::source_location /*origin*/)>;
     void setPublishHook(PublishHook hook);
     void clearPublishHook();
     void forEachRegisteredType(const std::function<void(std::type_index, std::string_view, std::size_t)>& fn) const;
@@ -141,14 +148,18 @@ private:
 
     void registerTypeNameRaw(std::type_index type, const char* name);
     Subscription subscribeRaw(std::type_index type, std::function<void(const void*)> callback);
-    std::size_t publishRaw(std::type_index type, const void* payload) const;
-    void enqueueRaw(std::type_index type, std::shared_ptr<const void> payload, void (*dispatch)(EventBus&, const void*), EventPriority priority = EventPriority::Normal);
+    std::size_t publishRaw(std::type_index type, const void* payload,
+                           std::source_location origin = std::source_location::current()) const;
+    void enqueueRaw(std::type_index type, std::shared_ptr<const void> payload,
+                    void (*dispatch)(EventBus&, const void*, std::source_location),
+                    EventPriority priority = EventPriority::Normal,
+                    std::source_location origin = std::source_location::current());
     std::size_t subscriberCountRaw(std::type_index type) const noexcept;
 
     template<typename EventType>
-    static void dispatchQueued(EventBus& bus, const void* payload) {
+    static void dispatchQueued(EventBus& bus, const void* payload, std::source_location origin) {
         bus.registerTypeNameRaw(std::type_index(typeid(EventType)), typeid(EventType).name());
-        bus.publishRaw(std::type_index(typeid(EventType)), payload);
+        bus.publishRaw(std::type_index(typeid(EventType)), payload, origin);
     }
 };
 

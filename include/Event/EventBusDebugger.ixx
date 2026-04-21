@@ -4,6 +4,7 @@ module;
 #include <deque>
 #include <functional>
 #include <mutex>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <typeindex>
@@ -20,6 +21,7 @@ struct FireEntry {
     std::string  eventName;
     std::size_t  subscriberCount = 0;
     std::int64_t durationUs     = 0;
+    std::source_location origin = std::source_location::current();
     bool         isDuplicate    = false;
     bool         isSlow         = false; // dispatch time >= slowThreshUs
     bool         isBurst        = false; // N fires within burstWindowMs
@@ -88,7 +90,8 @@ private:
     EventBusDebugger() = default;
 
     void onPublish(std::type_index type, std::string_view name,
-                   std::size_t delivered, std::int64_t durationNs);
+                   std::size_t delivered, std::int64_t durationNs,
+                   std::source_location origin);
 
     static std::string cleanName(std::string_view raw);
 
