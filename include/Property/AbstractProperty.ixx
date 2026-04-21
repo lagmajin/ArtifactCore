@@ -44,6 +44,7 @@ import Color.Float;
 import Utils.String.UniString;
 import Frame.Position;
 import Property.Types;
+import Math.Interpolate;
 
 import Script.Expression.Evaluator;
 import Script.Expression.Value;
@@ -60,19 +61,12 @@ enum class PropertyType {
     ObjectReference  // ID 参照
 };
 
-enum class EasingType {
-    Linear,
-    Hold,
-    EaseIn,
-    EaseOut,
-    EaseInOut,
-    Bezier
-};
-
 struct KeyFrame {
     RationalTime time;
     QVariant value;
-    EasingType easing = EasingType::Linear;
+    InterpolationType interpolation = InterpolationType::Linear;
+    float cp1_x = 0.42f, cp1_y = 0.0f;
+    float cp2_x = 0.58f, cp2_y = 1.0f;
 };
 
 struct PropertyMetadata {
@@ -150,7 +144,9 @@ public:
 
     // KeyFrame operations
     void addKeyFrame(const RationalTime& time, const QVariant& value);
-    void addKeyFrame(const RationalTime& time, const QVariant& value, EasingType easing);
+    void addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation);
+    void addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation,
+                     float cp1_x, float cp1_y, float cp2_x, float cp2_y);
     void removeKeyFrame(const RationalTime& time);
     void clearKeyFrames();
     std::vector<KeyFrame> getKeyFrames() const;

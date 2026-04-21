@@ -4,6 +4,7 @@ module;
 #include <QVariant>
 #include <QHash>
 #include <QVector>
+#include <QJsonObject>
 #include <memory>
 #include "../Define/DllExportMacro.hpp"
 
@@ -11,6 +12,8 @@ export module Property;
 
 import Property.Abstract;
 import Property.Group;
+import Property.Path;
+import Property.SerializationBridge;
 
 export namespace ArtifactCore {
 
@@ -138,6 +141,11 @@ struct PropertyHandle {
         }
         return ownerPath + QStringLiteral(".") + propertyName;
     }
+
+    PropertyPath typedPath() const
+    {
+        return PropertyPath(ownerPath, propertyName);
+    }
 };
 
 inline QString propertyPathJoin(const QString& ownerPath, const QString& propertyName)
@@ -149,6 +157,25 @@ inline QString propertyPathJoin(const QString& ownerPath, const QString& propert
         return ownerPath;
     }
     return ownerPath + QStringLiteral(".") + propertyName;
+}
+
+inline QString propertyTypeToString(PropertyType type)
+{
+    switch (type) {
+    case PropertyType::Float:
+        return QStringLiteral("Float");
+    case PropertyType::Integer:
+        return QStringLiteral("Integer");
+    case PropertyType::Boolean:
+        return QStringLiteral("Boolean");
+    case PropertyType::Color:
+        return QStringLiteral("Color");
+    case PropertyType::String:
+        return QStringLiteral("String");
+    case PropertyType::ObjectReference:
+        return QStringLiteral("ObjectReference");
+    }
+    return QStringLiteral("Unknown");
 }
 
 /**
@@ -270,6 +297,11 @@ public:
         return {};
     }
 
+    AbstractPropertyPtr findProperty(const PropertyPath& path) const
+    {
+        return findProperty(path.toString());
+    }
+
     PropertyHandle handleForPath(const QString& propertyPath) const
     {
         const int sep = propertyPath.lastIndexOf(QLatin1Char('.'));
@@ -277,6 +309,32 @@ public:
         const QString propertyName = sep >= 0 ? propertyPath.mid(sep + 1) : propertyPath;
         auto property = findProperty(propertyPath);
         return PropertyHandle{ownerPath, propertyName, property};
+    }
+
+    PropertyHandle handleForPath(const PropertyPath& path) const
+    {
+        return handleForPath(path.toString());
+    }
+
+    SerializedOwner serializeOwnerToSnapshot(const QString& ownerPath) const
+    {
+        const auto it = entries_.find(ownerPath);
+        if (it == entries_.end()) {
+            return SerializedOwner{};
+        }
+        const auto& entry = it.value();
+        return PropertySerializationBridge::serializeOwner(
+            PropertyPath(ownerPath), entry.descriptor.displayName,
+            entry.descriptor.ownerType, entry.descriptor.readOnly, entry.group);
+    }
+
+    QJsonObject serializeOwnerToJson(const QString& ownerPath) const
+    {
+        const auto so = serializeOwnerToSnapshot(ownerPath);
+        if (so.properties.empty() && so.ownerPath.isEmpty()) {
+            return QJsonObject{};
+        }
+        return PropertySerializationBridge::serializedOwnerToJson(so);
     }
 
 private:
@@ -288,5 +346,80 @@ inline PropertyRegistry& globalPropertyRegistry()
     static PropertyRegistry registry;
     return registry;
 }
+
+/**
+ * @brief PropertyRegistry の read-only な外部参照アダプター
+ *
+ * RPC / CLI / script / headless などの UI 外の入口から
+ * プロパティを安全に参照するためのインターフェース。
+ * 値の書き換えは行わない（Phase 7 は read-only）。
+ */
+class LIBRARY_DLL_API PropertyRegistryReadOnlyAdapter {
+public:
+    struct PropertyValueSnapshot {
+        QString ownerPath;
+        QString propertyName;
+        QString propertyType;
+        QVariant currentValue;
+        std::shared_ptr<AbstractProperty> property;
+        bool isReadOnly = true;
+        bool isValid = false;
+    };
+
+    static PropertyValueSnapshot queryProperty(const QString& propertyPath)
+    {
+        PropertyValueSnapshot result;
+        result.ownerPath = propertyPath;
+        result.isReadOnly = true;
+
+        auto& registry = globalPropertyRegistry();
+        auto handle = registry.handleForPath(propertyPath);
+        if (!handle.isValid()) {
+            return result;
+        }
+
+        result.ownerPath = handle.ownerPath;
+        result.propertyName = handle.propertyName;
+        result.property = handle.property;
+        if (result.property) {
+            result.propertyType = propertyTypeToString(result.property->getType());
+            result.currentValue = result.property->getValue();
+            result.isValid = true;
+        }
+        return result;
+    }
+
+    static QVector<PropertyValueSnapshot> queryAllProperties()
+    {
+        QVector<PropertyValueSnapshot> results;
+        auto& registry = globalPropertyRegistry();
+        for (const auto& handle : registry.enumerate()) {
+            if (!handle.property) continue;
+            PropertyValueSnapshot snap;
+            snap.ownerPath = handle.ownerPath;
+            snap.propertyName = handle.propertyName;
+            snap.property = handle.property;
+            snap.propertyType = propertyTypeToString(handle.property->getType());
+            snap.currentValue = handle.property->getValue();
+            snap.isReadOnly = true;
+            snap.isValid = true;
+            results.push_back(snap);
+        }
+        return results;
+    }
+
+    static QStringList listOwners()
+    {
+        QStringList names;
+        auto& registry = globalPropertyRegistry();
+        for (const auto& desc : registry.owners()) {
+            names.push_back(desc.ownerPath);
+        }
+        return names;
+    }
+
+private:
+    AbstractPropertyPtr property;
+};
 
 } // namespace ArtifactCore

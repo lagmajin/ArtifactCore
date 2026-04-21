@@ -68,9 +68,19 @@ namespace ArtifactCore {
   return impl_->settings.matteMode;
  }
  
- void Layer2D::setMatteMode(MatteMode mode)
- {
-  impl_->settings.matteMode = mode;
- }
+  void Layer2D::setMatteMode(MatteMode mode)
+  {
+   impl_->settings.matteMode = mode;
+  }
+
+  const MatteStack& Layer2D::matteStack() const
+  {
+   return impl_->settings.matteStack;
+  }
+
+  void Layer2D::setMatteStack(const MatteStack& stack)
+  {
+   impl_->settings.matteStack = stack;
+  }
 
 }

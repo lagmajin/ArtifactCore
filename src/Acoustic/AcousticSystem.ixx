@@ -1,14 +1,20 @@
+module;
+
+#include <algorithm>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
 export module Artifact.Acoustic.System;
 
 import Artifact.Acoustic;
+import Artifact.Acoustic.ModalResonator;
+import Artifact.Acoustic.RainModel;
+import Artifact.Acoustic.WindModel;
 import Artifact.Acoustic.FrictionModel;
 import Artifact.Acoustic.Spatial;
-
-import <vector>;
-import <memory>;
-import <map>;
-import <string>;
-import <algorithm>;
 
 export namespace Artifact::Acoustic {
 
@@ -26,7 +32,7 @@ export namespace Artifact::Acoustic {
 
         // --- 外部入力 ---
 
-        void UpdateLayerSpatial(uint32_t layerId, const Vector3& pos, const Vector3& vel) {
+        void UpdateLayerSpatial(std::uint32_t layerId, const Vector3& pos, const Vector3& vel) {
             m_layerSpatial[layerId] = { pos, vel };
         }
 
@@ -34,7 +40,7 @@ export namespace Artifact::Acoustic {
             m_spatial->SetListener({ pos, vel });
         }
 
-        void OnCollision(uint32_t layerId, const std::string& material, float impulse, float pos) {
+        void OnCollision(std::uint32_t layerId, const std::string& material, float impulse, float pos) {
             if (!m_layerModels.contains(layerId)) {
                 auto profile = m_materialLibrary.contains(material) ? m_materialLibrary[material] : m_materialLibrary["Steel"];
                 m_layerModels[layerId] = std::make_unique<ModalResonator>(profile);
@@ -42,7 +48,7 @@ export namespace Artifact::Acoustic {
             m_layerModels[layerId]->Trigger(impulse, pos);
         }
 
-        void OnFriction(uint32_t layerId, float velocity, float pressure) {
+        void OnFriction(std::uint32_t layerId, float velocity, float pressure) {
             if (!m_frictionModels.contains(layerId)) {
                 m_frictionModels[layerId] = std::make_unique<FrictionModel>();
             }
@@ -64,49 +70,69 @@ export namespace Artifact::Acoustic {
 
         // --- タスク発行と最適化 ---
 
+        struct InternalTask {
+            std::uint32_t layerId;
+            AudioTask task;
+        };
+
         std::vector<AudioTask> FetchTasks() {
-            std::vector<AudioTask> rawTasks;
+            auto snapshot = FetchDebugSnapshot();
+            std::vector<AudioTask> tasks;
+            for (const auto& t : snapshot.activeTasks) {
+                tasks.push_back({ t.type, t.amp, t.freq, 10.0f, t.duration, 0.0f, 1.0f, t.attenuation, 0 });
+            }
+            return tasks;
+        }
+
+        AcousticSnapshot FetchDebugSnapshot() {
+            AcousticSnapshot snapshot;
+            snapshot.frameNumber = m_frameCount++;
             
-            // 全モデルからタスクを収集
+            std::vector<InternalTask> allInternalTasks;
+
             auto collect = [&](auto& models) {
                 for (auto& [id, model] : models) {
                     auto tasks = model->GenerateTasks();
-                    // 空間情報を反映
-                    if (m_layerSpatial.contains(id)) {
-                        for (auto& t : tasks) m_spatial->Calculate(m_layerSpatial[id], t);
+                    for (auto& t : tasks) {
+                        if (m_layerSpatial.contains(id)) m_spatial->Calculate(m_layerSpatial[id], t);
+                        allInternalTasks.push_back({ id, t });
                     }
-                    rawTasks.insert(rawTasks.end(), tasks.begin(), tasks.end());
                 }
             };
 
             collect(m_layerModels);
             collect(m_frictionModels);
 
-            // 環境音は空間演算なし（または固定）
-            auto rainTasks = m_rain->GenerateTasks();
-            rawTasks.insert(rawTasks.end(), rainTasks.begin(), rainTasks.end());
+            // 環境音
+            for (auto& t : m_rain->GenerateTasks()) allInternalTasks.push_back({ 0, t });
+            for (auto& t : m_wind->GenerateTasks()) allInternalTasks.push_back({ 0, t });
 
-            auto windTasks = m_wind->GenerateTasks();
-            rawTasks.insert(rawTasks.end(), windTasks.begin(), windTasks.end());
-
-            // --- LOD / カリング (最適化) ---
-            // 振幅(amplitude)と減衰(attenuation)の積でソートし、上位32個に制限
-            std::sort(rawTasks.begin(), rawTasks.end(), [](const AudioTask& a, const AudioTask& b) {
-                return (a.amplitude * a.attenuation) > (b.amplitude * b.attenuation);
+            // ソート
+            std::sort(allInternalTasks.begin(), allInternalTasks.end(), [](const InternalTask& a, const InternalTask& b) {
+                return (a.task.amplitude * a.task.attenuation) > (b.task.amplitude * b.task.attenuation);
             });
 
-            if (rawTasks.size() > 32) {
-                rawTasks.resize(32);
+            // LOD振り分け
+            for (std::size_t i = 0; i < allInternalTasks.size(); ++i) {
+                const auto& it = allInternalTasks[i];
+                AudioTaskDebug debug = { it.layerId, it.task.type, it.task.frequency, it.task.amplitude, it.task.duration, it.task.attenuation };
+                
+                if (i < 32) {
+                    snapshot.activeTasks.push_back(debug);
+                } else {
+                    snapshot.culledTasks.push_back(debug);
+                }
             }
 
-            return rawTasks;
+            return snapshot;
         }
 
     private:
+        std::uint64_t m_frameCount = 0;
         std::map<std::string, MaterialProfile> m_materialLibrary;
-        std::map<uint32_t, std::unique_ptr<IAcousticModel>> m_layerModels;
-        std::map<uint32_t, std::unique_ptr<FrictionModel>> m_frictionModels;
-        std::map<uint32_t, SpatialState> m_layerSpatial;
+        std::map<std::uint32_t, std::unique_ptr<IAcousticModel>> m_layerModels;
+        std::map<std::uint32_t, std::unique_ptr<FrictionModel>> m_frictionModels;
+        std::map<std::uint32_t, SpatialState> m_layerSpatial;
         
         std::shared_ptr<RainModel> m_rain;
         std::shared_ptr<WindModel> m_wind;

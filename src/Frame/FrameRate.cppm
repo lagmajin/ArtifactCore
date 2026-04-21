@@ -2,8 +2,6 @@ module;
 #include <QList>
 module Frame.Rate;
 
-import std;
-
 namespace ArtifactCore {
 
 class FrameRate::Impl {

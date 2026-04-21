@@ -1,7 +1,11 @@
 module;
-module Audio.Analyze;
+#include <algorithm>
+#include <cmath>
+#include <complex>
+#include <cstddef>
+#include <vector>
 
-import std;
+module Audio.Analyze;
 
 namespace ArtifactCore {
 

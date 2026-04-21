@@ -3,10 +3,10 @@ module;
 #include <QMutexLocker>
 #include <QString>
 #include <QStringView>
+#include <chrono>
 
 module Playback.Clock;
 
-import std;
 import Event.Bus;
 
 import Frame.Rate;

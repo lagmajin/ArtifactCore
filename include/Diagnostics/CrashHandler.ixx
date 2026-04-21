@@ -24,6 +24,9 @@ export namespace ArtifactCore {
   static void uninstall();
   static bool isInstalled();
 
+  using CrashCallback = std::function<void(const QString& crashReportPath)>;
+  static void setCrashCallback(CrashCallback callback);
+
  private:
   static LONG WINAPI unhandledExceptionFilter(EXCEPTION_POINTERS* exceptionInfo);
   static QString generateCrashReport(EXCEPTION_POINTERS* exceptionInfo);
@@ -35,6 +38,7 @@ export namespace ArtifactCore {
   static inline std::atomic<bool> installed_{false};
   static inline std::atomic<bool> handling_{false};
   static inline QString crashDir_;
+  static inline CrashCallback crashCallback_;
  };
 
 }

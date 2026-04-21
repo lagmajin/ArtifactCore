@@ -1,8 +1,11 @@
+module;
+
+#include <algorithm>
+#include <cmath>
+
 export module Artifact.Acoustic.Spatial;
 
 import Artifact.Acoustic;
-import <cmath>;
-import <algorithm>;
 
 export namespace Artifact::Acoustic {
 

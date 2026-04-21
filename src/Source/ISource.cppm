@@ -6,8 +6,6 @@ module;
 #include <QUrl>
 #include <utility>
 
-import std;
-
 module Source.ISource;
 
 namespace ArtifactCore {

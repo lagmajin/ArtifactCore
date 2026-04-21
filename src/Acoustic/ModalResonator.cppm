@@ -1,9 +1,12 @@
+module;
+
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
 export module Artifact.Acoustic.ModalResonator;
 
 import Artifact.Acoustic;
-import <vector>;
-import <cmath>;
-import <algorithm>;
 
 export namespace Artifact::Acoustic {
 
@@ -25,7 +28,7 @@ export namespace Artifact::Acoustic {
             InitializeModes();
         }
 
-        void Trigger(float impulse, float position) override {
+        void Trigger(float impulse, float position) {
             for (auto& mode : m_modes) {
                 float excitation = std::abs(std::sin(mode.freq * 0.001f * position));
                 mode.currentAmp = std::min(1.0f, mode.currentAmp + (impulse * excitation * m_profile.stiffness));
@@ -50,6 +53,7 @@ export namespace Artifact::Acoustic {
                         1.0f / (mode.decay * m_profile.damping),
                         0.0f,
                         1.0f,
+                        mode.currentAmp,
                         0
                     });
                 }

@@ -1,10 +1,10 @@
-export module Artifact.Acoustic;
+module;
 
 #include <cmath>
 #include <cstdint>
-#include <memory>
-#include <string>
 #include <vector>
+
+export module Artifact.Acoustic;
 
 export namespace Artifact::Acoustic {
 
@@ -41,11 +41,30 @@ export namespace Artifact::Acoustic {
         std::uint32_t seed;
     };
 
+    // 音響合成タスクのデバッグ用情報
+    export struct AudioTaskDebug {
+        std::uint32_t layerId;
+        SynthesisType type;
+        float freq;
+        float amp;
+        float duration;
+        float attenuation;
+    };
+
+    // 1フレーム分の音響情報のスナップショット
+    export struct AcousticSnapshot {
+        std::uint64_t frameNumber;
+        double timestamp;
+        std::vector<AudioTaskDebug> activeTasks;
+        std::vector<AudioTaskDebug> culledTasks; // LODで間引かれたタスク
+    };
+
     // モデルの基本インターフェース
     export class IAcousticModel {
     public:
         virtual ~IAcousticModel() = default;
         virtual void Update(float dt) = 0;
+        virtual void Trigger(float impulse, float position) {} // デフォルトでは何もしない
         virtual std::vector<AudioTask> GenerateTasks() = 0;
     };
 }

@@ -1,11 +1,11 @@
 module;
 #include <utility>
 
+#include <algorithm>
+#include <cmath>
 #include <compare>
 #include <QList>
 module Time.TimeRemap;
-
-import std;
 
 import Frame.Rate;
 

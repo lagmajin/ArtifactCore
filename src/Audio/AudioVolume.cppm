@@ -1,9 +1,10 @@
 module;
 #include <QString>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 
 module Audio.Volume;
-
-import std;
 
 import Utils.String.UniString;
 import Audio.Decibels;

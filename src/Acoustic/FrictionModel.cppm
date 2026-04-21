@@ -1,10 +1,12 @@
-export module Artifact.Acoustic.FrictionModel;
-
-import Artifact.Acoustic;
+module;
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <vector>
+
+export module Artifact.Acoustic.FrictionModel;
+
+import Artifact.Acoustic;
 
 export namespace Artifact::Acoustic {
 
@@ -35,6 +37,7 @@ export namespace Artifact::Acoustic {
                     0.1f,
                     0.0f,
                     1.0f,
+                    m_intensity,
                     static_cast<std::uint32_t>(m_velocity * 1000.0f)
                 });
             }

@@ -314,20 +314,35 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
 // KeyFrame operations
 // -----------------------------------------------------------------------
 void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value) {
-    addKeyFrame(time, value, EasingType::Linear);
+    addKeyFrame(time, value, InterpolationType::Linear);
 }
 
-void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value, EasingType easing) {
-    // 同じ時刻のキーフレームがあれば更新
+void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation) {
+    addKeyFrame(time, value, interpolation, 0.42f, 0.0f, 0.58f, 1.0f);
+}
+
+void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation,
+                                    float cp1_x, float cp1_y, float cp2_x, float cp2_y) {
     for (auto& kf : pImpl->m_keyFrames) {
         if (kf.time == time) {
             kf.value = value;
-            kf.easing = easing;
+            kf.interpolation = interpolation;
+            kf.cp1_x = cp1_x;
+            kf.cp1_y = cp1_y;
+            kf.cp2_x = cp2_x;
+            kf.cp2_y = cp2_y;
             return;
         }
     }
-    pImpl->m_keyFrames.push_back({ time, value, easing });
-    // 時刻順にソート
+    KeyFrame kf;
+    kf.time = time;
+    kf.value = value;
+    kf.interpolation = interpolation;
+    kf.cp1_x = cp1_x;
+    kf.cp1_y = cp1_y;
+    kf.cp2_x = cp2_x;
+    kf.cp2_y = cp2_y;
+    pImpl->m_keyFrames.push_back(kf);
     std::sort(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
         [](const KeyFrame& a, const KeyFrame& b) {
             return a.time < b.time;
@@ -363,7 +378,6 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
         return pImpl->m_keyFrames.front().value;
     }
 
-    // 範囲外クランプ
     if (time <= pImpl->m_keyFrames.front().time) {
         return pImpl->m_keyFrames.front().value;
     }
@@ -371,30 +385,47 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
         return pImpl->m_keyFrames.back().value;
     }
 
-    // 前後キーフレームを線形補間
+    const double targetTime = time.toDouble();
+
+    if (pImpl->m_type == PropertyType::Float) {
+        KeyframeInterpolator<float> interp;
+        for (const auto& kf : pImpl->m_keyFrames) {
+            typename KeyframeInterpolator<float>::KeyframeEntry entry;
+            entry.time = kf.time.toDouble();
+            entry.value = kf.value.toFloat();
+            entry.type = kf.interpolation;
+            entry.cp1_x = kf.cp1_x;
+            entry.cp1_y = kf.cp1_y;
+            entry.cp2_x = kf.cp2_x;
+            entry.cp2_y = kf.cp2_y;
+            interp.addKeyframe(entry);
+        }
+        return QVariant(interp.evaluate(targetTime));
+    }
+
+    if (pImpl->m_type == PropertyType::Integer) {
+        KeyframeInterpolator<float> interp;
+        for (const auto& kf : pImpl->m_keyFrames) {
+            typename KeyframeInterpolator<float>::KeyframeEntry entry;
+            entry.time = kf.time.toDouble();
+            entry.value = static_cast<float>(kf.value.toInt());
+            entry.type = kf.interpolation;
+            entry.cp1_x = kf.cp1_x;
+            entry.cp1_y = kf.cp1_y;
+            entry.cp2_x = kf.cp2_x;
+            entry.cp2_y = kf.cp2_y;
+            interp.addKeyframe(entry);
+        }
+        return QVariant(static_cast<int>(std::round(interp.evaluate(targetTime))));
+    }
+
     for (size_t i = 0; i + 1 < pImpl->m_keyFrames.size(); ++i) {
         const auto& kf1 = pImpl->m_keyFrames[i];
         const auto& kf2 = pImpl->m_keyFrames[i + 1];
         if (time >= kf1.time && time <= kf2.time) {
-            double elapsed  = (time  - kf1.time).toDouble();
-            double duration = (kf2.time - kf1.time).toDouble();
-            double t = (duration > 0.0) ? (elapsed / duration) : 0.0;
-
-            if (kf1.easing == EasingType::Hold) {
+            if (kf1.interpolation == InterpolationType::Constant) {
                 return kf1.value;
             }
-
-            if (pImpl->m_type == PropertyType::Float) {
-                double v1 = kf1.value.toDouble();
-                double v2 = kf2.value.toDouble();
-                return QVariant(lerp(v1, v2, t));
-            }
-            if (pImpl->m_type == PropertyType::Integer) {
-                int v1 = kf1.value.toInt();
-                int v2 = kf2.value.toInt();
-                return QVariant(static_cast<int>(std::round(lerp(v1, v2, t))));
-            }
-            // それ以外はステップ補間
             return kf1.value;
         }
     }

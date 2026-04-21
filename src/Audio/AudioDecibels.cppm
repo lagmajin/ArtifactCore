@@ -1,10 +1,11 @@
 module;
 #include <QString>
 #include <utility>
+#include <algorithm>
+#include <cmath>
 
 module Audio.Decibels;
 
-import std;
 import Utils.String.UniString;
 
 namespace ArtifactCore

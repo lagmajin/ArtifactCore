@@ -1,7 +1,11 @@
 module;
+#include <algorithm>
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <vector>
 module Audio.RingBuffer;
-
-import std;
 import Audio.Segment;
 
 namespace ArtifactCore {

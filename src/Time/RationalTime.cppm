@@ -1,9 +1,8 @@
 module;
 #include <utility>
+#include <cmath>
 
 module Time.Rational;
-
-import std;
 
 namespace ArtifactCore {
 

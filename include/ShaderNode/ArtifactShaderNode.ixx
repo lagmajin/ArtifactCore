@@ -62,6 +62,24 @@ namespace ShaderNode {
         Pin* toPin;
     };
 
+    // ノードの状態
+    export enum class NodeState {
+        Clean,
+        Dirty,
+        Evaluating,
+        Cached
+    };
+
+    // デバッグ表示用のノード情報
+    export struct NodeDebugInfo {
+        std::string id;
+        std::string name;
+        NodeState state;
+        std::string lastDirtyReason;
+        float lastExecutionTimeMs;
+        std::vector<std::string> dependencies; // 入力元のID
+    };
+
     class ShaderNodeBase {
     public:
         std::string id;
@@ -69,8 +87,18 @@ namespace ShaderNode {
         std::vector<std::unique_ptr<Pin>> inputs;
         std::vector<std::unique_ptr<Pin>> outputs;
         
+        NodeState state = NodeState::Dirty;
+        std::string lastDirtyReason = "Initial";
+        float lastExecutionTimeMs = 0.0f;
+
         virtual ~ShaderNodeBase() = default;
         virtual std::string generateHLSL() const = 0;
+
+        // デバッグ情報の取得
+        NodeDebugInfo getDebugInfo() const;
+        
+        // 状態更新
+        void markDirty(const std::string& reason);
         
     protected:
         void addInput(const std::string& name, PinType type);

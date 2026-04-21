@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 //#include "../third_party/Eigen/Core"
 //#include "../third_party/Eigen/Dense"
@@ -45,24 +45,23 @@ import ImageF32x4;
 import Image;
 
 import Transform;
-import Layer.Blend;
-import Layer.Matte;
+ import Layer.Blend;
+ import Layer.Matte;
 
-export namespace ArtifactCore {
+ export namespace ArtifactCore {
 
- 
+  class Layer2DSettingPrivate;
 
- class Layer2DSettingPrivate;
+  class Layer2DSetting {
+   
+  public:
 
- class Layer2DSetting {
-  
- public:
-
-  //QPoint position;
-  float opacity = 1.0f;
-  BlendMode blendMode = BlendMode::Normal;
-  MatteMode matteMode = MatteMode::None;
- };
+   //QPoint position;
+   float opacity = 1.0f;
+   BlendMode blendMode = BlendMode::Normal;
+   MatteMode matteMode = MatteMode::None;
+   MatteStack matteStack;
+  };
 
 
  class Layer2D {
@@ -84,8 +83,10 @@ export namespace ArtifactCore {
   // Blend/Matte 関連
   BlendMode blendMode() const;
   void setBlendMode(BlendMode mode);
-  MatteMode matteMode() const;
-  void setMatteMode(MatteMode mode);
+   MatteMode matteMode() const;
+   void setMatteMode(MatteMode mode);
+   const MatteStack& matteStack() const;
+   void setMatteStack(const MatteStack& stack);
  };
 
 

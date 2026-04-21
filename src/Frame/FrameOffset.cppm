@@ -2,11 +2,10 @@ module;
 #include <utility>
 #include <cstdint>
 #include <cstdlib>
+#include <cmath>
 #include <string>
 
 module Frame.Offset;
-
-import std;
 import Frame.Rate;
 import Time.Rational;
 import Time.Code;

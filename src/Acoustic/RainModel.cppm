@@ -1,9 +1,11 @@
-export module Artifact.Acoustic.RainModel;
-
-import Artifact.Acoustic;
+module;
 #include <algorithm>
 #include <cstdint>
 #include <vector>
+
+export module Artifact.Acoustic.RainModel;
+
+import Artifact.Acoustic;
 
 export namespace Artifact::Acoustic {
 
@@ -36,6 +38,7 @@ export namespace Artifact::Acoustic {
                     0.1f,                    // Duration (短期的な更新)
                     0.0f,                    // Pan
                     1.0f,                    // Doppler
+                    std::min(1.0f, m_intensity / 10000.0f),
                     static_cast<std::uint32_t>(m_intensity * 1234.5f) // Seed
                 });
             }

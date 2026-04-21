@@ -8,6 +8,7 @@ export import :NegativeCV;
 export import :AffineTransform;
 export import :AntiAliasing;
 export import :Posterize;
+export import ImageProcessing.ProceduralTexture;
 // export import :Vignette; // Vignette.ixx missing
 
 // Sub-modules (imported as full module names)

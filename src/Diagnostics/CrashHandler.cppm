@@ -39,6 +39,11 @@ void CrashHandler::uninstall()
  qDebug() << "[CrashHandler] uninstalled";
 }
 
+void CrashHandler::setCrashCallback(CrashCallback callback)
+{
+ crashCallback_ = std::move(callback);
+}
+
 bool CrashHandler::isInstalled()
 {
  return installed_.load();
@@ -59,6 +64,10 @@ LONG WINAPI CrashHandler::unhandledExceptionFilter(EXCEPTION_POINTERS* exception
  writeCrashReport(report, dumpPath);
 
  qDebug() << "[CrashHandler] crash report written to:" << dumpPath;
+
+ if (crashCallback_) {
+  crashCallback_(dumpPath);
+ }
 
  return EXCEPTION_EXECUTE_HANDLER;
 }

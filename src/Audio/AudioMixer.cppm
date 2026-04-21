@@ -1,9 +1,16 @@
 module;
+#include <algorithm>
+#include <functional>
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
+#include <vector>
+
 module Audio.Mixer;
 
 import Audio.Bus;
 import Audio.Segment;
-import std;
 
 namespace ArtifactCore {
 

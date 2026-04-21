@@ -4,8 +4,6 @@ module;
 #include <cstdint>
 module Frame.Position;
 
-import std;
-
 namespace ArtifactCore {
 
 class FramePosition::Impl {

@@ -1,9 +1,11 @@
-export module Artifact.Acoustic.WindModel;
-
-import Artifact.Acoustic;
+module;
 #include <algorithm>
 #include <cmath>
 #include <vector>
+
+export module Artifact.Acoustic.WindModel;
+
+import Artifact.Acoustic;
 
 export namespace Artifact::Acoustic {
 
@@ -40,6 +42,7 @@ export namespace Artifact::Acoustic {
                     0.16f,                             // Duration
                     0.0f,
                     1.0f,
+                    std::min(1.0f, m_velocity * 0.02f),
                     0
                 });
             }

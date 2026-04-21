@@ -1,9 +1,10 @@
 module;
 #include <QString>
 #include <QStringList>
+#include <cstdio>
+#include <string>
 module Time.Code;
 
-import std;
 import Time.Rational;
 
 namespace ArtifactCore {

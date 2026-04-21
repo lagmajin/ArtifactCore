@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <algorithm>
 #include <any>
@@ -257,9 +257,111 @@ T interpolate(const T &start, const T &end, float alpha,
     return BounceOut()(start, end, alpha);
   case InterpolationType::ElasticOut:
     return ElasticOut()(start, end, alpha);
+  case InterpolationType::Bezier:
+    return start; // bezier requires control points — use bezierInterpolate()
   default:
     return Linear()(start, end, alpha);
   }
 }
+
+/**
+ * @brief Bezier control points を使った補間
+ *
+ * @param start 始点値
+ * @param end 終点値
+ * @param alpha 時間パラメータ [0, 1]
+ * @param cp1_x, cp1_y, cp2_x, cp2_y AE 互換のベジェ制御点
+ */
+export template <typename T>
+T bezierInterpolate(const T &start, const T &end, float alpha,
+                    float cp1_x, float cp1_y, float cp2_x, float cp2_y) {
+  const float easedT = bezierEvaluate(alpha, cp1_x, cp1_y, cp2_x, cp2_y);
+  return start + (end - start) * easedT;
+}
+
+/**
+ * @brief Bezier カーブの速度（dy/dx）を計算
+ *
+ * speed graph 表示や微分値として使用。
+ * 数値微分により dy/dx を求める。
+ */
+export inline float bezierSpeed(float t, float cp1x, float cp1y,
+                                float cp2x, float cp2y,
+                                float epsilon = 1e-4f) noexcept {
+  const float y1 = bezierEvaluate(t, cp1x, cp1y, cp2x, cp2y);
+  const float y2 = bezierEvaluate(t + epsilon, cp1x, cp1y, cp2x, cp2y);
+  return (y2 - y1) / epsilon;
+}
+
+/**
+ * @brief 複数キーフレーム間の補間を行うインターポレーター
+ *
+ * キーフレームのリストから現在時刻に対応する値を補間する。
+ * Bezier 制御点に対応し、speed graph の計算も可能。
+ */
+export template <typename T>
+class KeyframeInterpolator {
+public:
+  struct KeyframeEntry {
+    double time = 0.0;
+    T value{};
+    InterpolationType type = InterpolationType::Linear;
+    float cp1_x = 0.42f, cp1_y = 0.0f;
+    float cp2_x = 0.58f, cp2_y = 1.0f;
+  };
+
+  void clear() { keyframes_.clear(); }
+
+  void addKeyframe(const KeyframeEntry& kf) {
+    keyframes_.push_back(kf);
+    std::sort(keyframes_.begin(), keyframes_.end(),
+              [](const KeyframeEntry& a, const KeyframeEntry& b) {
+                return a.time < b.time;
+              });
+  }
+
+  T evaluate(double time) const {
+    if (keyframes_.empty()) return T{};
+    if (time <= keyframes_.front().time) return keyframes_.front().value;
+    if (time >= keyframes_.back().time) return keyframes_.back().value;
+
+    auto it = std::lower_bound(keyframes_.begin(), keyframes_.end(), time,
+      [](const KeyframeEntry& a, double t) { return a.time < t; });
+
+    if (it == keyframes_.begin()) return keyframes_.front().value;
+
+    const auto& prev = *(it - 1);
+    const auto& curr = *it;
+
+    if (prev.type == InterpolationType::Constant) return prev.value;
+
+    const double duration = curr.time - prev.time;
+    if (duration <= 0.0) return prev.value;
+
+    const float alpha = static_cast<float>((time - prev.time) / duration);
+
+    if (prev.type == InterpolationType::Bezier) {
+      return bezierInterpolate(prev.value, curr.value, alpha,
+                               prev.cp1_x, prev.cp1_y, prev.cp2_x, prev.cp2_y);
+    }
+
+    return interpolate(prev.value, curr.value, alpha, prev.type);
+  }
+
+  float speedAt(double time) const {
+    if (keyframes_.size() < 2) return 0.0f;
+    const float epsilon = 1e-4f;
+    const float v1 = evaluate(time);
+    const float v2 = evaluate(time + epsilon);
+    return (v2 - v1) / epsilon;
+  }
+
+  const std::vector<KeyframeEntry>& keyframes() const { return keyframes_; }
+  bool isEmpty() const { return keyframes_.empty(); }
+  size_t size() const { return keyframes_.size(); }
+
+private:
+  std::vector<KeyframeEntry> keyframes_;
+};
 
 }; // namespace ArtifactCore
