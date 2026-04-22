@@ -8,6 +8,7 @@ module;
 #include <algorithm>
 #include <iterator>
 #include <QThreadPool>
+#include <QString>
 #include "../Define/DllExportMacro.hpp"
 
 #include <thread>
@@ -17,7 +18,17 @@ export module Thread.Helper;
 export namespace ArtifactCore
 {
 
- QThreadPool& sharedBackgroundThreadPool();
+  QThreadPool& sharedBackgroundThreadPool();
+ 
+ class ScopedThreadName {
+ public:
+  explicit ScopedThreadName(const std::string& name);
+  explicit ScopedThreadName(const QString& name);
+  ~ScopedThreadName();
+
+ private:
+  QString previousName_;
+ };
 
  template<typename Iterator, typename Func>
  void execute_parallel_if(Iterator begin, Iterator end, Func&& func, bool multithread)

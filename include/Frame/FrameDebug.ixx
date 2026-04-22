@@ -110,6 +110,8 @@ struct FrameDebugSnapshot {
     QString renderBackend;
     QString playbackState;
     QString selectedLayerName;
+    double renderLastFrameMs = 0.0;
+    double renderAverageFrameMs = 0.0;
     FrameDebugCompareMode compareMode = FrameDebugCompareMode::Disabled;
     QString compareTargetId;
     std::vector<FrameDebugPassRecord> passes;
@@ -358,6 +360,8 @@ inline QJsonObject FrameDebugSnapshot::toJson() const
     json.insert(QStringLiteral("renderBackend"), renderBackend);
     json.insert(QStringLiteral("playbackState"), playbackState);
     json.insert(QStringLiteral("selectedLayerName"), selectedLayerName);
+    json.insert(QStringLiteral("renderLastFrameMs"), renderLastFrameMs);
+    json.insert(QStringLiteral("renderAverageFrameMs"), renderAverageFrameMs);
     json.insert(QStringLiteral("compareMode"), toString(compareMode));
     json.insert(QStringLiteral("compareTargetId"), compareTargetId);
     json.insert(QStringLiteral("failed"), failed);
@@ -392,6 +396,8 @@ inline FrameDebugSnapshot FrameDebugSnapshot::fromJson(const QJsonObject& json)
     snapshot.renderBackend = json.value(QStringLiteral("renderBackend")).toString();
     snapshot.playbackState = json.value(QStringLiteral("playbackState")).toString();
     snapshot.selectedLayerName = json.value(QStringLiteral("selectedLayerName")).toString();
+    snapshot.renderLastFrameMs = json.value(QStringLiteral("renderLastFrameMs")).toDouble();
+    snapshot.renderAverageFrameMs = json.value(QStringLiteral("renderAverageFrameMs")).toDouble();
     snapshot.compareMode = compareModeFromString(json.value(QStringLiteral("compareMode")).toString());
     snapshot.compareTargetId = json.value(QStringLiteral("compareTargetId")).toString();
     snapshot.failed = json.value(QStringLiteral("failed")).toBool();

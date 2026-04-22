@@ -247,6 +247,53 @@ public:
         return result;
     }
 
+    QStringList ownerPaths() const
+    {
+        QStringList result;
+        result.reserve(entries_.size());
+        for (auto it = entries_.cbegin(); it != entries_.cend(); ++it) {
+            result.push_back(it.key());
+        }
+        return result;
+    }
+
+    bool tryGetOwner(const QString& ownerPath, PropertyOwnerDescriptor* descriptor, std::shared_ptr<PropertyGroup>* group = nullptr) const
+    {
+        const auto it = entries_.find(ownerPath);
+        if (it == entries_.end()) {
+            return false;
+        }
+        if (descriptor) {
+            *descriptor = it->descriptor;
+        }
+        if (group) {
+            *group = it->group;
+        }
+        return true;
+    }
+
+    QVector<PropertyHandle> handlesForOwner(const QString& ownerPath) const
+    {
+        QVector<PropertyHandle> result;
+        const auto it = entries_.find(ownerPath);
+        if (it == entries_.end() || !it->group) {
+            return result;
+        }
+        const auto properties = it->group->allProperties();
+        result.reserve(static_cast<int>(properties.size()));
+        for (const auto& property : properties) {
+            if (!property) {
+                continue;
+            }
+            result.push_back(PropertyHandle{
+                it->descriptor.ownerPath,
+                property->getName(),
+                property
+            });
+        }
+        return result;
+    }
+
     QVector<PropertyHandle> enumerate() const
     {
         QVector<PropertyHandle> result;
@@ -356,6 +403,15 @@ inline PropertyRegistry& globalPropertyRegistry()
  */
 class LIBRARY_DLL_API PropertyRegistryReadOnlyAdapter {
 public:
+    struct PropertyOwnerSnapshot {
+        QString ownerPath;
+        QString displayName;
+        QString ownerType;
+        bool readOnly = true;
+        int propertyCount = 0;
+        bool isValid = false;
+    };
+
     struct PropertyValueSnapshot {
         QString ownerPath;
         QString propertyName;
@@ -389,6 +445,40 @@ public:
         return result;
     }
 
+    static PropertyOwnerSnapshot queryOwner(const QString& ownerPath)
+    {
+        PropertyOwnerSnapshot result;
+        result.ownerPath = ownerPath;
+        result.readOnly = true;
+
+        auto& registry = globalPropertyRegistry();
+        PropertyOwnerDescriptor descriptor;
+        std::shared_ptr<PropertyGroup> group;
+        if (!registry.tryGetOwner(ownerPath, &descriptor, &group)) {
+            return result;
+        }
+
+        result.ownerPath = descriptor.ownerPath;
+        result.displayName = descriptor.displayName;
+        result.ownerType = descriptor.ownerType;
+        result.readOnly = descriptor.readOnly;
+        result.propertyCount = group ? static_cast<int>(group->propertyCount()) : 0;
+        result.isValid = true;
+        return result;
+    }
+
+    static QVector<PropertyOwnerSnapshot> queryAllOwners()
+    {
+        QVector<PropertyOwnerSnapshot> results;
+        auto& registry = globalPropertyRegistry();
+        const auto ownerPaths = registry.ownerPaths();
+        results.reserve(ownerPaths.size());
+        for (const auto& ownerPath : ownerPaths) {
+            results.push_back(queryOwner(ownerPath));
+        }
+        return results;
+    }
+
     static QVector<PropertyValueSnapshot> queryAllProperties()
     {
         QVector<PropertyValueSnapshot> results;
@@ -412,8 +502,8 @@ public:
     {
         QStringList names;
         auto& registry = globalPropertyRegistry();
-        for (const auto& desc : registry.owners()) {
-            names.push_back(desc.ownerPath);
+        for (const auto& ownerPath : registry.ownerPaths()) {
+            names.push_back(ownerPath);
         }
         return names;
     }
