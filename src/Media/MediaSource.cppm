@@ -56,15 +56,6 @@ static std::string av_strerror_string(int errnum) {
     return std::string(errbuf);
 }
 
-static AVDictionary* makeSingleThreadStreamInfoOptions() {
-    AVDictionary* opts = nullptr;
-    av_dict_set(&opts, "probesize", "2000000", 0);
-    av_dict_set(&opts, "analyzeduration", "2000000", 0);
-    av_dict_set(&opts, "threads", "1", 0);
-    av_dict_set(&opts, "thread_type", "0", 0);
-    return opts;
-}
-
 MediaSource::MediaSource() {
     // Initialize if needed
 }
@@ -106,10 +97,21 @@ bool MediaSource::open(const QString& url) {
         return false;
     }
 
-    // Constrain stream probing so FFmpeg does not auto-spawn a decoder worker burst.
-    AVDictionary* opts = makeSingleThreadStreamInfoOptions();
-    ret = avformat_find_stream_info(formatContext_, &opts);
-    av_dict_free(&opts);
+    // Constrain stream probing: limit probe duration and disable decoder threading.
+    // probesize/analyzeduration are format-level; set on the context directly.
+    formatContext_->probesize = 2000000;
+    formatContext_->max_analyze_duration = 2000000;
+    // Build a per-stream codec options array — avformat_find_stream_info expects nb_streams entries.
+    {
+        const unsigned nbStreams = formatContext_->nb_streams;
+        std::vector<AVDictionary*> streamOpts(nbStreams, nullptr);
+        for (unsigned i = 0; i < nbStreams; ++i) {
+            av_dict_set(&streamOpts[i], "threads", "1", 0);
+            av_dict_set(&streamOpts[i], "thread_type", "0", 0);
+        }
+        ret = avformat_find_stream_info(formatContext_, nbStreams > 0 ? streamOpts.data() : nullptr);
+        for (auto& d : streamOpts) av_dict_free(&d);
+    }
     if (ret < 0) {
         char errbuf[AV_ERROR_MAX_STRING_SIZE];
         av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);

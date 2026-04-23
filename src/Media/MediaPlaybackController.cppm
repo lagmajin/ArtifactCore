@@ -143,7 +143,7 @@ class MediaPlaybackController::Impl {
     const bool wasPlaying = state_ == PlaybackState::Playing;
 
     const int64_t targetMs = static_cast<int64_t>((frameNumber / fps_) * 1000.0);
-    if (!prepareFfmpegSeekReset(targetMs, true)) {
+    if (!prepareFfmpegSeekReset(targetMs, false)) {
       lastError_ = QStringLiteral("FFmpeg direct decode seek failed at %1 ms").arg(targetMs);
       qWarning() << "[MediaPlayback] direct decode seek failed:" << targetMs << "ms";
       restoreFfmpegReaderState(wasPlaying);
