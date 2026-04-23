@@ -19,6 +19,16 @@ import Media.Info;
 
 namespace ArtifactCore {
 
+ namespace {
+  AVDictionary* makeSingleThreadStreamInfoOptions()
+  {
+   AVDictionary* opts = nullptr;
+   av_dict_set(&opts, "threads", "1", 0);
+   av_dict_set(&opts, "thread_type", "0", 0);
+   return opts;
+  }
+ }
+
 
 
 
@@ -52,9 +62,12 @@ namespace ArtifactCore {
   if (avformat_open_input(&formatContext, file.fileName().toUtf8().constData(), nullptr, nullptr) != 0) {
    //return false; // t@CðJ¯È¢ê
   }
-  if (avformat_find_stream_info(formatContext, nullptr) < 0) {
+  AVDictionary* streamInfoOpts = makeSingleThreadStreamInfoOptions();
+  if (avformat_find_stream_info(formatContext, &streamInfoOpts) < 0) {
+   av_dict_free(&streamInfoOpts);
 
   }
+  av_dict_free(&streamInfoOpts);
 
   info_ = MediaInfo();
 

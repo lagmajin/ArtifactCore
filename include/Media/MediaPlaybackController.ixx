@@ -267,6 +267,7 @@ export namespace ArtifactCore {
   
   // Ō̃G[bZ[W
   QString getLastError() const;
+  QString getDebugState() const;
   
   // TlC𐶐
   QImage generateThumbnail(int64_t timestampMs, const QSize& size);

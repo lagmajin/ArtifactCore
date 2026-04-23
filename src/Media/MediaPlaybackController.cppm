@@ -69,7 +69,7 @@ class MediaPlaybackController::Impl {
   MediaAudioDecoder* audioDecoder_ = nullptr;
   MFFrameExtractor* mfExtractor_ = nullptr;
 
-  DecoderBackend backend_ = DecoderBackend::MediaFoundation;
+  DecoderBackend backend_ = DecoderBackend::FFmpeg;
 
   PlaybackState state_ = PlaybackState::Stopped;
   double playbackSpeed_ = 1.0;
@@ -567,6 +567,10 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
                                           ? DecoderBackend::FFmpeg
                                           : DecoderBackend::MediaFoundation);
   if (fallback.open(*impl_, url)) {
+    qWarning() << "[MediaPlayback] preferred backend open failed, falling back"
+               << "preferred=" << preferredName
+               << "preferredError=" << preferredError
+               << "fallback=" << (fallback.type() == DecoderBackend::MediaFoundation ? "MediaFoundation" : "FFmpeg");
     impl_->backend_ = fallback.type();
     impl_->notifyStateChanged(PlaybackState::Stopped);
     return true;
@@ -585,7 +589,7 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
 	  if (!impl_) return;
 	  stop();
 	  backendFor(impl_->backend_).close(*impl_);
-	  impl_->backend_ = DecoderBackend::MediaFoundation;
+	  impl_->backend_ = DecoderBackend::FFmpeg;
 	  impl_->metadata_ = MediaMetaData();
 	  impl_->currentPositionMs_ = 0;
   impl_->durationMs_ = 0;
@@ -945,6 +949,26 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
 
  QString MediaPlaybackController::getLastError() const {
   return impl_ ? impl_->lastError_ : QString();
+ }
+
+ QString MediaPlaybackController::getDebugState() const {
+  if (!impl_) {
+   return QStringLiteral("MediaPlaybackController impl=null");
+  }
+
+  return QStringLiteral("backend=%1 open=%2 state=%3 fps=%4 frame=%5/%6 posMs=%7 durationMs=%8 videoStreamIndex=%9 waitAttempts=%10 lastError=%11")
+      .arg(impl_->backend_ == DecoderBackend::MediaFoundation ? QStringLiteral("MediaFoundation")
+                                                              : QStringLiteral("FFmpeg"))
+      .arg(isMediaOpen() ? QStringLiteral("true") : QStringLiteral("false"))
+      .arg(static_cast<int>(impl_->state_))
+      .arg(QString::number(impl_->fps_, 'f', 3))
+      .arg(impl_->currentFrame_)
+      .arg(impl_->totalFrames_)
+      .arg(impl_->currentPositionMs_)
+      .arg(impl_->durationMs_)
+      .arg(impl_->videoStreamIndex_)
+      .arg(impl_->videoPacketWaitAttempts_)
+      .arg(impl_->lastError_);
  }
 
  QImage MediaPlaybackController::generateThumbnail(int64_t timestampMs, const QSize& size) {

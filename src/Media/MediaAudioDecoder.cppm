@@ -63,6 +63,15 @@ module MediaAudioDecoder;
 
 namespace ArtifactCore {
 
+ namespace {
+ AVDictionary* makeSingleThreadCodecOpenOptions() {
+  AVDictionary* opts = nullptr;
+  av_dict_set(&opts, "threads", "1", 0);
+  av_dict_set(&opts, "thread_type", "0", 0);
+  return opts;
+ }
+ }
+
  class MediaAudioDecoder::Impl {
  public:
   AVCodecContext* codecContext_ = nullptr;
@@ -230,13 +239,19 @@ namespace ArtifactCore {
    return false;
   }
 
-  if (avcodec_open2(impl_->codecContext_, codec, nullptr) < 0) {
+  impl_->codecContext_->thread_count = 1;
+  impl_->codecContext_->thread_type = 0;
+
+  AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
+  if (avcodec_open2(impl_->codecContext_, codec, &codecOpts) < 0) {
+   av_dict_free(&codecOpts);
    qWarning() << "[MediaAudioDecoder] initialize failed: could not open codec"
               << "codec=" << codec->name;
    avcodec_free_context(&impl_->codecContext_);
    impl_->lastError_ = UniString(std::string("Failed to open codec"));
    return false;
   }
+  av_dict_free(&codecOpts);
 
   if (!impl_->setupResampler()) {
    qWarning() << "[MediaAudioDecoder] initialize failed: could not setup resampler"
@@ -290,11 +305,17 @@ namespace ArtifactCore {
    return false;
   }
 
-  if (avcodec_open2(impl_->codecContext_, codec, nullptr) < 0) {
+  impl_->codecContext_->thread_count = 1;
+  impl_->codecContext_->thread_type = 0;
+
+  AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
+  if (avcodec_open2(impl_->codecContext_, codec, &codecOpts) < 0) {
+   av_dict_free(&codecOpts);
    avcodec_free_context(&impl_->codecContext_);
    impl_->lastError_ = UniString(std::string("Failed to open codec"));
    return false;
   }
+  av_dict_free(&codecOpts);
 
   impl_->updateAudioInfo();
   impl_->initialized_ = true;

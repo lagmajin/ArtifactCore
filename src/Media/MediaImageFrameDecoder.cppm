@@ -25,6 +25,13 @@ QString ffmpegErrorString(int err) {
     av_make_error_string(buffer, AV_ERROR_MAX_STRING_SIZE, err);
     return QString::fromLatin1(buffer);
 }
+
+AVDictionary* makeSingleThreadCodecOpenOptions() {
+    AVDictionary* opts = nullptr;
+    av_dict_set(&opts, "threads", "1", 0);
+    av_dict_set(&opts, "thread_type", "0", 0);
+    return opts;
+}
 }
 
 MediaImageFrameDecoder::MediaImageFrameDecoder() {}
@@ -71,7 +78,9 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
     codecContext_->thread_count = 1;
     codecContext_->thread_type = 0;
 
-    int ret = avcodec_open2(codecContext_, codec, nullptr);
+    AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
+    int ret = avcodec_open2(codecContext_, codec, &codecOpts);
+    av_dict_free(&codecOpts);
     if (ret < 0) {
         qWarning() << "[MediaImageFrameDecoder] initialize failed: could not open codec"
                    << "codec=" << codec->name

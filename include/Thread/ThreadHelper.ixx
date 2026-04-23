@@ -9,6 +9,7 @@ module;
 #include <iterator>
 #include <QThreadPool>
 #include <QString>
+#include <cstdint>
 #include "../Define/DllExportMacro.hpp"
 
 #include <thread>
@@ -17,8 +18,28 @@ export module Thread.Helper;
 
 export namespace ArtifactCore
 {
+ struct NamedThreadCount {
+  QString name;
+  int count = 0;
+ };
+
+ struct BackgroundThreadPoolSnapshot {
+  QString poolName;
+  int maxThreadCount = 0;
+  int activeThreadCount = 0;
+  int expiryTimeoutMs = 0;
+ };
+
+ struct ProcessThreadSnapshot {
+  int totalThreadCount = 0;
+  std::vector<NamedThreadCount> nameCounts;
+ };
 
   QThreadPool& sharedBackgroundThreadPool();
+  BackgroundThreadPoolSnapshot sharedBackgroundThreadPoolSnapshot();
+  ProcessThreadSnapshot currentProcessThreadSnapshot();
+  QString sharedBackgroundThreadPoolDebugString();
+  QString currentProcessThreadDebugString();
  
  class ScopedThreadName {
  public:

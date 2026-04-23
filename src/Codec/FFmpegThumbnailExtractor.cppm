@@ -61,6 +61,22 @@ import Media.Info;
 
 namespace ArtifactCore {
 
+ namespace {
+  AVDictionary* makeSingleThreadStreamInfoOptions() {
+    AVDictionary* opts = nullptr;
+    av_dict_set(&opts, "threads", "1", 0);
+    av_dict_set(&opts, "thread_type", "0", 0);
+    return opts;
+  }
+
+  AVDictionary* makeSingleThreadCodecOpenOptions() {
+    AVDictionary* opts = nullptr;
+    av_dict_set(&opts, "threads", "1", 0);
+    av_dict_set(&opts, "thread_type", "0", 0);
+    return opts;
+  }
+ }
+
  class FFmpegThumbnailExtractor::Impl {
  private:
 
@@ -87,10 +103,13 @@ namespace ArtifactCore {
    return image;
   }
 
-  if (avformat_find_stream_info(fmtCtx, nullptr) < 0) {
+  AVDictionary* streamInfoOpts = makeSingleThreadStreamInfoOptions();
+  if (avformat_find_stream_info(fmtCtx, &streamInfoOpts) < 0) {
+   av_dict_free(&streamInfoOpts);
    qWarning() << "Failed to get stream info.";
    goto cleanup;
   }
+  av_dict_free(&streamInfoOpts);
 
   // Find video stream
   videoStreamIndex = av_find_best_stream(fmtCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
@@ -127,7 +146,14 @@ namespace ArtifactCore {
    if (!codecCtx) goto cleanup;
 
    if (avcodec_parameters_to_context(codecCtx, codecPar) < 0) goto cleanup;
-   if (avcodec_open2(codecCtx, codec, nullptr) < 0) goto cleanup;
+   codecCtx->thread_count = 1;
+   codecCtx->thread_type = 0;
+   {
+    AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
+    const int ret = avcodec_open2(codecCtx, codec, &codecOpts);
+    av_dict_free(&codecOpts);
+    if (ret < 0) goto cleanup;
+   }
 
    frame = av_frame_alloc();
    packet = av_packet_alloc();
@@ -198,11 +224,14 @@ namespace ArtifactCore {
     }
 
     // Retrieve stream information
-    if (avformat_find_stream_info(fmtCtx, nullptr) < 0) {
+    AVDictionary* streamInfoOpts = makeSingleThreadStreamInfoOptions();
+    if (avformat_find_stream_info(fmtCtx, &streamInfoOpts) < 0) {
+        av_dict_free(&streamInfoOpts);
         qWarning() << "FFmpegThumbnailExtractor: Failed to find stream info.";
         result.message = ThumbnailExtractorMessage::NoVideoStream;
         goto cleanup;
     }
+    av_dict_free(&streamInfoOpts);
 
     // Find best video stream
     videoStreamIndex = av_find_best_stream(fmtCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
@@ -248,10 +277,13 @@ namespace ArtifactCore {
         codecCtx->thread_count = 1;
         codecCtx->thread_type = 0;
 
-        if (avcodec_open2(codecCtx, codec, nullptr) < 0) {
+        AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
+        if (avcodec_open2(codecCtx, codec, &codecOpts) < 0) {
+            av_dict_free(&codecOpts);
             result.message = ThumbnailExtractorMessage::DecodeError;
             goto cleanup;
         }
+        av_dict_free(&codecOpts);
 
         frame = av_frame_alloc();
         packet = av_packet_alloc();

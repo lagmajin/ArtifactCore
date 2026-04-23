@@ -215,14 +215,14 @@ void ArtifactAppSettings::setProjectDefaultCompositionFrameRate(double fps) {
 }
 
 QString ArtifactAppSettings::projectDefaultCompositionBackgroundColor() const {
-    return impl_->store.valueString("ProjectDefaults/CompositionBackgroundColor", QStringLiteral("#000000ff"));
+    return impl_->store.valueString("ProjectDefaults/CompositionBackgroundColor", QStringLiteral("#ff000000"));
 }
 
 void ArtifactAppSettings::setProjectDefaultCompositionBackgroundColor(const QString& value) {
     const QColor color(value);
     impl_->store.setValue("ProjectDefaults/CompositionBackgroundColor",
                           color.isValid() ? color.name(QColor::HexArgb)
-                                          : QStringLiteral("#000000ff"));
+                                          : QStringLiteral("#ff000000"));
     Q_EMIT settingsChanged();
 }
 

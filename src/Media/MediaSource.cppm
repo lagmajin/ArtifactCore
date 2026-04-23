@@ -56,6 +56,15 @@ static std::string av_strerror_string(int errnum) {
     return std::string(errbuf);
 }
 
+static AVDictionary* makeSingleThreadStreamInfoOptions() {
+    AVDictionary* opts = nullptr;
+    av_dict_set(&opts, "probesize", "2000000", 0);
+    av_dict_set(&opts, "analyzeduration", "2000000", 0);
+    av_dict_set(&opts, "threads", "1", 0);
+    av_dict_set(&opts, "thread_type", "0", 0);
+    return opts;
+}
+
 MediaSource::MediaSource() {
     // Initialize if needed
 }
@@ -97,10 +106,8 @@ bool MediaSource::open(const QString& url) {
         return false;
     }
 
-    // [Fix 4] probesize / analyzeduration に上限を設けてタイムアウトを防ぐ
-    AVDictionary* opts = nullptr;
-    av_dict_set(&opts, "probesize",       "2000000", 0); // 2 MB
-    av_dict_set(&opts, "analyzeduration", "2000000", 0); // 2 秒 (μs)
+    // Constrain stream probing so FFmpeg does not auto-spawn a decoder worker burst.
+    AVDictionary* opts = makeSingleThreadStreamInfoOptions();
     ret = avformat_find_stream_info(formatContext_, &opts);
     av_dict_free(&opts);
     if (ret < 0) {

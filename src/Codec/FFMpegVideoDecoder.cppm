@@ -62,6 +62,20 @@ namespace ArtifactCore {
   return QString::fromStdString(av_strerror_string(errnum));
  }
 
+ static AVDictionary* makeSingleThreadStreamInfoOptions() {
+  AVDictionary* opts = nullptr;
+  av_dict_set(&opts, "threads", "1", 0);
+  av_dict_set(&opts, "thread_type", "0", 0);
+  return opts;
+ }
+
+ static AVDictionary* makeSingleThreadCodecOpenOptions() {
+  AVDictionary* opts = nullptr;
+  av_dict_set(&opts, "threads", "1", 0);
+  av_dict_set(&opts, "thread_type", "0", 0);
+  return opts;
+ }
+
  class FFmpegVideoDecoder::Impl {
  private:
   AVFormatContext* formatContext = nullptr;
@@ -102,12 +116,15 @@ namespace ArtifactCore {
    return false;
   }
 
-  if (avformat_find_stream_info(formatContext, nullptr) < 0) {
+  AVDictionary* streamInfoOpts = makeSingleThreadStreamInfoOptions();
+  if (avformat_find_stream_info(formatContext, &streamInfoOpts) < 0) {
+   av_dict_free(&streamInfoOpts);
    qWarning() << "FFmpegDecoder::Impl::openFile: Failed to find stream info.";
    avformat_close_input(&formatContext);
    formatContext = nullptr;
    return false;
   }
+  av_dict_free(&streamInfoOpts);
 
   videoStreamIndex = -1;
   AVCodecParameters* codecParameters = nullptr;
@@ -160,7 +177,9 @@ namespace ArtifactCore {
   codecContext->thread_type = 0;
 
   // 8. コーデックを開く
-  if (avcodec_open2(codecContext, codec, nullptr) < 0) {
+  AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
+  if (avcodec_open2(codecContext, codec, &codecOpts) < 0) {
+   av_dict_free(&codecOpts);
    qWarning() << "FFmpegDecoder::Impl::openFile: Failed to open codec.";
    avcodec_free_context(&codecContext);
    codecContext = nullptr;
@@ -168,6 +187,7 @@ namespace ArtifactCore {
    formatContext = nullptr;
    return false;
   }
+  av_dict_free(&codecOpts);
 
   // 9. パケットとフレームを割り当て
   packet = av_packet_alloc();
