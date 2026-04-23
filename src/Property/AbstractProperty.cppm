@@ -419,6 +419,51 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
         return QVariant(static_cast<int>(std::round(interp.evaluate(targetTime))));
     }
 
+    if (pImpl->m_type == PropertyType::Color) {
+        auto interpolateColor = [](const QColor& start, const QColor& end,
+                                   float alpha, InterpolationType type,
+                                   float cp1_x, float cp1_y, float cp2_x,
+                                   float cp2_y) {
+            auto blendChannel = [&](float a, float b) {
+                if (type == InterpolationType::Bezier) {
+                    return bezierInterpolate(a, b, alpha, cp1_x, cp1_y, cp2_x, cp2_y);
+                }
+                return interpolate(a, b, alpha, type);
+            };
+
+            return QColor::fromRgbF(
+                blendChannel(start.redF(), end.redF()),
+                blendChannel(start.greenF(), end.greenF()),
+                blendChannel(start.blueF(), end.blueF()),
+                blendChannel(start.alphaF(), end.alphaF()));
+        };
+
+        for (size_t i = 0; i + 1 < pImpl->m_keyFrames.size(); ++i) {
+            const auto& kf1 = pImpl->m_keyFrames[i];
+            const auto& kf2 = pImpl->m_keyFrames[i + 1];
+            if (time >= kf1.time && time <= kf2.time) {
+                if (kf1.interpolation == InterpolationType::Constant) {
+                    return kf1.value;
+                }
+                const QColor start = kf1.value.value<QColor>();
+                const QColor end = kf2.value.value<QColor>();
+                if (!start.isValid() || !end.isValid()) {
+                    return kf1.value;
+                }
+                const double duration = kf2.time.toDouble() - kf1.time.toDouble();
+                if (duration <= 0.0) {
+                    return kf1.value;
+                }
+                const float alpha =
+                    static_cast<float>((targetTime - kf1.time.toDouble()) / duration);
+                return QVariant::fromValue(interpolateColor(
+                    start, end, alpha, kf1.interpolation, kf1.cp1_x, kf1.cp1_y,
+                    kf1.cp2_x, kf1.cp2_y));
+            }
+        }
+        return pImpl->m_value;
+    }
+
     for (size_t i = 0; i + 1 < pImpl->m_keyFrames.size(); ++i) {
         const auto& kf1 = pImpl->m_keyFrames[i];
         const auto& kf2 = pImpl->m_keyFrames[i + 1];
