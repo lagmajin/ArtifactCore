@@ -401,8 +401,11 @@ public:
 
     static TraceRecorder& instance()
     {
-        static TraceRecorder recorder;
-        return recorder;
+        // Intentionally leaked to avoid static-destruction races with worker threads.
+        // Trace scopes can still unwind during process shutdown, and a destroyed
+        // singleton would turn that into a use-after-free.
+        static TraceRecorder* recorder = new TraceRecorder();
+        return *recorder;
     }
 
     void clear()

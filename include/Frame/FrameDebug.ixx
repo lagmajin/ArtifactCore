@@ -81,6 +81,7 @@ struct FrameDebugResourceRecord {
     QString label;
     QString type;
     QString relation;
+    QString note;
     FrameDebugTextureRef texture;
     FrameDebugBufferRef buffer;
     bool cacheHit = false;
@@ -290,6 +291,7 @@ inline QJsonObject FrameDebugResourceRecord::toJson() const
     json.insert(QStringLiteral("label"), label);
     json.insert(QStringLiteral("type"), type);
     json.insert(QStringLiteral("relation"), relation);
+    json.insert(QStringLiteral("note"), note);
     json.insert(QStringLiteral("texture"), texture.toJson());
     json.insert(QStringLiteral("buffer"), buffer.toJson());
     json.insert(QStringLiteral("cacheHit"), cacheHit);
@@ -303,6 +305,7 @@ inline FrameDebugResourceRecord FrameDebugResourceRecord::fromJson(const QJsonOb
     record.label = json.value(QStringLiteral("label")).toString();
     record.type = json.value(QStringLiteral("type")).toString();
     record.relation = json.value(QStringLiteral("relation")).toString();
+    record.note = json.value(QStringLiteral("note")).toString();
     record.texture = FrameDebugTextureRef::fromJson(json.value(QStringLiteral("texture")).toObject());
     record.buffer = FrameDebugBufferRef::fromJson(json.value(QStringLiteral("buffer")).toObject());
     record.cacheHit = json.value(QStringLiteral("cacheHit")).toBool();

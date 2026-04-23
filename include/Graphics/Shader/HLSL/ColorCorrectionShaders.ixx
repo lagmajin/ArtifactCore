@@ -15,6 +15,7 @@ export namespace ArtifactCore {
 //   - Exposure (EV * 2^exposure + offset, gamma)
 //   - Brightness/Contrast/Highlights/Shadows
 //   - Hue/Saturation/Lightness/Colorize
+//   - Color Wheels / Curves
 // ─────────────────────────────────────────────────────────
 
 LIBRARY_DLL_API const QByteArray g_colorCorrectionVS = R"(
@@ -215,6 +216,106 @@ float4 main(PSInput input) : SV_TARGET {
 
     // Brightness
     color.rgb *= brightnessMul;
+
+    color.rgb = clamp(color.rgb, 0.0f, 1.0f);
+    return color;
+}
+)";
+
+// Color Wheels PS
+LIBRARY_DLL_API const QByteArray g_colorWheelsPS = R"(
+Texture2D    g_texture  : register(t0);
+SamplerState g_sampler  : register(s0);
+
+cbuffer ColorCorrectionCB : register(b0) {
+    float liftR, liftG, liftB, liftMaster;
+    float gammaR, gammaG, gammaB, gammaMaster;
+    float gainR, gainG, gainB, gainMaster;
+    float offsetR, offsetG, offsetB, offsetMaster;
+};
+
+float3 applyLift(float3 color) {
+    float lum = dot(color, float3(0.2126f, 0.7152f, 0.0722f));
+    float shadowFactor = 1.0f - saturate(lum);
+    color += float3(liftR, liftG, liftB) * shadowFactor + liftMaster * shadowFactor;
+    return color;
+}
+
+float3 applyGamma(float3 color) {
+    float3 gammaValue = max(float3(gammaR, gammaG, gammaB) * gammaMaster, 0.0001f);
+    color = pow(max(color, 0.0f), 1.0f / gammaValue);
+    return color;
+}
+
+float3 applyGain(float3 color) {
+    float lum = dot(color, float3(0.2126f, 0.7152f, 0.0722f));
+    color *= float3(gainR, gainG, gainB) + gainMaster * lum;
+    return color;
+}
+
+float3 applyOffset(float3 color) {
+    color += float3(offsetR, offsetG, offsetB) + offsetMaster;
+    return color;
+}
+
+float4 main(PSInput input) : SV_TARGET {
+    float4 color = g_texture.Sample(g_sampler, input.texCoord);
+    color.rgb = applyLift(color.rgb);
+    color.rgb = applyGamma(color.rgb);
+    color.rgb = applyGain(color.rgb);
+    color.rgb = applyOffset(color.rgb);
+    color.rgb = clamp(color.rgb, 0.0f, 1.0f);
+    return color;
+}
+)";
+
+// Curves PS
+LIBRARY_DLL_API const QByteArray g_curvesPS = R"(
+Texture2D    g_texture  : register(t0);
+SamplerState g_sampler  : register(s0);
+
+cbuffer ColorCorrectionCB : register(b0) {
+    int   curvePreset;
+    float strength;
+    int   posterizeLevels;
+    float padding;
+};
+
+float applySCurve(float x, float s) {
+    float t = saturate(x);
+    float mid = 0.5f;
+    float bias = 0.15f * saturate(s);
+    if (t < mid) {
+        return saturate(t * (1.0f - bias * 2.0f));
+    }
+    return saturate(mid + (t - mid) * (1.0f + bias * 2.0f));
+}
+
+float posterize(float x, int levels) {
+    levels = max(levels, 2);
+    float step = 1.0f / (levels - 1);
+    return round(saturate(x) / step) * step;
+}
+
+float4 main(PSInput input) : SV_TARGET {
+    float4 color = g_texture.Sample(g_sampler, input.texCoord);
+
+    if (curvePreset == 1) {
+        color.rgb = float3(
+            applySCurve(color.r, strength),
+            applySCurve(color.g, strength),
+            applySCurve(color.b, strength));
+    } else if (curvePreset == 2) {
+        color.rgb = color.rgb * float3(1.0f, 0.8f, 1.0f) + strength * 0.05f;
+    } else if (curvePreset == 3) {
+        color.rgb = color.rgb * float3(0.8f, 1.0f, 0.8f) + strength * 0.05f;
+    } else if (curvePreset == 4) {
+        color.rgb = 1.0f - color.rgb;
+    } else if (curvePreset == 5) {
+        color.r = posterize(color.r, posterizeLevels);
+        color.g = posterize(color.g, posterizeLevels);
+        color.b = posterize(color.b, posterizeLevels);
+    }
 
     color.rgb = clamp(color.rgb, 0.0f, 1.0f);
     return color;
