@@ -45,7 +45,33 @@ QString makeTemporaryPathNear(const QString& filePath)
     }
     const QString stamp = QString::number(QDateTime::currentMSecsSinceEpoch());
     const quint32 salt = QRandomGenerator::global()->generate();
-    return info.dir().filePath(baseName + ".tmp." + stamp + "." + QString::number(salt) + ".part");
+    QString tempName = info.completeBaseName();
+    if (tempName.isEmpty()) {
+        tempName = baseName;
+    }
+    tempName += ".tmp." + stamp + "." + QString::number(salt);
+    const QString suffix = info.suffix();
+    if (!suffix.isEmpty()) {
+        tempName += "." + suffix;
+    }
+    return info.dir().filePath(tempName);
+}
+
+OIIO::TypeDesc resolveWriteType(const QString& filePath, const ImageExportOptions& options)
+{
+    OIIO::TypeDesc type = options.dataType;
+    if (type == OIIO::TypeDesc::UNKNOWN) {
+        type = OIIO::TypeDesc::UINT8;
+    }
+
+    const QString suffix = QFileInfo(filePath).suffix().toLower();
+    if (suffix == QStringLiteral("exr") && type == OIIO::TypeDesc::UINT8) {
+        type = OIIO::TypeDesc::FLOAT;
+    }
+    if (type == OIIO::TypeDesc::HALF) {
+        type = OIIO::TypeDesc::FLOAT;
+    }
+    return type;
 }
 
 ImageExportResult prepareImageForEncoding(const QImage& src, const ImageExportOptions& options, QImage& converted)
@@ -75,18 +101,17 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
     ImageSpec spec = makeSpec(imageRGBA8.width(), imageRGBA8.height(), options);
     spec.nchannels = 4;
     spec.channelnames = {"R", "G", "B", "A"};
-    spec.format = TypeDesc::UINT8;
+    const TypeDesc writeType = resolveWriteType(filePath, options);
+    spec.format = writeType;
 
     if (!out->open(filePath.toStdString(), spec)) {
         return makeError("encode.open", "Could not open output: " + QString::fromStdString(out->geterror()));
     }
 
     std::vector<float> pixelsF32;
-    TypeDesc writeType = TypeDesc::UINT8;
     const void* writeData = nullptr;
 
-    if (options.dataType == TypeDesc::FLOAT || options.dataType == TypeDesc::HALF) {
-        writeType = options.dataType;
+    if (writeType != TypeDesc::UINT8) {
         pixelsF32.resize(static_cast<std::size_t>(imageRGBA8.width()) * static_cast<std::size_t>(imageRGBA8.height()) * 4);
 
         const auto* src = imageRGBA8.constBits();
@@ -101,7 +126,6 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
         }
         writeData = pixelsF32.data();
     } else {
-        writeType = TypeDesc::UINT8;
         writeData = imageRGBA8.constBits();
     }
 
@@ -142,7 +166,8 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
     spec.channelnames = (spec.nchannels == 4)
         ? std::vector<std::string>{"R", "G", "B", "A"}
         : std::vector<std::string>{"R", "G", "B"};
-    spec.format = options.dataType;
+    const TypeDesc writeType = resolveWriteType(filePath, options);
+    spec.format = writeType;
 
     if (!out->open(filePath.toStdString(), spec)) {
         return makeError("encode.open", "Could not open output: " + QString::fromStdString(out->geterror()));
@@ -160,7 +185,7 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
         return makeError("encode.readpixels", "Failed to read pixels from ImageBuf.");
     }
 
-    if (!out->write_image(spec.format, packed.data())) {
+    if (!out->write_image(writeType, packed.data())) {
         const QString err = QString::fromStdString(out->geterror());
         out->close();
         return makeError("encode.write", "Could not write image: " + err);

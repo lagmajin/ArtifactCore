@@ -7,6 +7,7 @@ module;
 #include <QFileInfo>
 #include <QDir>
 #include <QImage>
+#include <OpenImageIO/imageio.h>
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -280,6 +281,7 @@ public:
         width_ = settings.width;
         height_ = settings.height;
         isImageSequence_ = true;
+        useOiioSequence_ = false;
         currentFrameNum_ = settings.startFrame;
 
         // 出力ディレクトリ作成
@@ -297,6 +299,14 @@ public:
             return false;
         }
         imageFormat_ = fmt == "jpg" ? "jpeg" : fmt;
+
+        if (imageFormat_ == QStringLiteral("exr")) {
+            useOiioSequence_ = true;
+            outputPathPattern_ = outputPathPattern;
+            isOpen_ = true;
+            lastError_.clear();
+            return true;
+        }
 
         // 出力パターン保存（%04d を後で展開）
         outputPathPattern_ = outputPathPattern;
@@ -561,6 +571,54 @@ public:
             outputPath += "." + imageFormat_;
         }
 
+        if (useOiioSequence_) {
+            const cv::Mat srcMat = image.toCVMat();
+            if (srcMat.empty()) {
+                lastError_ = "Failed to convert image to cv::Mat";
+                return false;
+            }
+            if (srcMat.type() != CV_32FC4) {
+                lastError_ = "EXR sequence expects CV_32FC4 input";
+                return false;
+            }
+
+            cv::Mat floatMat = srcMat.isContinuous() ? srcMat : srcMat.clone();
+            if (!floatMat.isContinuous()) {
+                floatMat = floatMat.clone();
+            }
+
+            using namespace OIIO;
+            std::unique_ptr<ImageOutput> out = ImageOutput::create(outputPath.toStdString());
+            if (!out) {
+                lastError_ = QStringLiteral("Failed to create EXR output: %1").arg(outputPath);
+                return false;
+            }
+
+            ImageSpec spec(image.width(), image.height(), 4, TypeDesc::FLOAT);
+            spec.channelnames = {"R", "G", "B", "A"};
+            if (!out->open(outputPath.toStdString(), spec)) {
+                lastError_ = QStringLiteral("Failed to open EXR output: %1 (%2)")
+                                 .arg(outputPath, QString::fromStdString(out->geterror()));
+                return false;
+            }
+
+            if (!out->write_image(TypeDesc::FLOAT, floatMat.ptr<float>())) {
+                lastError_ = QStringLiteral("Failed to write EXR frame: %1")
+                                 .arg(QString::fromStdString(out->geterror()));
+                out->close();
+                return false;
+            }
+
+            if (!out->close()) {
+                lastError_ = QStringLiteral("Failed to close EXR output: %1")
+                                 .arg(QString::fromStdString(out->geterror()));
+                return false;
+            }
+
+            currentFrameNum_++;
+            return true;
+        }
+
         // 画像データを準備
         const auto srcMat = image.toCVMat();
         if (srcMat.empty()) {
@@ -766,6 +824,7 @@ public:
         frame_ = nullptr;
         packet_ = nullptr;
         isOpen_ = false;
+        useOiioSequence_ = false;
     }
 
     QString lastError() const {
@@ -799,6 +858,7 @@ private:
     // 連番画像出力用
     FFmpegImageSequenceSettings imageSeqSettings_;
     bool isImageSequence_ = false;
+    bool useOiioSequence_ = false;
     int currentFrameNum_ = 0;
     QString outputPathPattern_;
     QString imageFormat_;
@@ -963,18 +1023,14 @@ QStringList FFmpegEncoder::availableContainers() {
 
 bool FFmpegEncoder::isImageSequenceFormatAvailable(const QString& format) {
     const QString fmt = format.toLower();
-    if (fmt == "png" || fmt == "jpeg" || fmt == "jpg" || fmt == "tiff" || fmt == "bmp") {
+    if (fmt == "png" || fmt == "jpeg" || fmt == "jpg" || fmt == "tiff" || fmt == "bmp" || fmt == "exr") {
         return true;
-    }
-    if (fmt == "exr") {
-        // EXR は FFmpeg 標準では非対応の場合がある
-        return false;
     }
     return false;
 }
 
 QStringList FFmpegEncoder::availableImageSequenceFormats() {
-    return QStringList{"png", "jpeg", "tiff", "bmp"};
+    return QStringList{"png", "jpeg", "tiff", "bmp", "exr"};
 }
 
 } // namespace ArtifactCore

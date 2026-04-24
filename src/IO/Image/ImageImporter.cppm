@@ -1,10 +1,14 @@
 module;
 #include <utility>
 #include <cstring>
+#include <array>
 #include <QFileInfo>
 #include <QFile>
 #include <QByteArray>
 #include <QString>
+#include <OpenImageIO/imagebuf.h>
+#include <OpenImageIO/imagebufalgo.h>
+#include <OpenImageIO/imageio.h>
 
 #include <stb_image.h>
 
@@ -29,6 +33,73 @@ public:
         psdDocument.close();
     }
 };
+
+namespace {
+
+OIIO::TypeDesc chooseReadType(const QString& filePath)
+{
+    const QString suffix = QFileInfo(filePath).suffix().toLower();
+    if (suffix == QStringLiteral("exr")) {
+        return OIIO::TypeDesc::FLOAT;
+    }
+    return OIIO::TypeDesc::UINT8;
+}
+
+RawImage loadRawImageViaOIIO(const QString& filePath)
+{
+    RawImage image;
+    if (filePath.isEmpty()) {
+        return image;
+    }
+
+    const std::string utf8Path = filePath.toUtf8().toStdString();
+    OIIO::ImageBuf source(utf8Path);
+    const OIIO::TypeDesc readType = chooseReadType(filePath);
+    if (!source.read(0, 0, true, readType)) {
+        return image;
+    }
+
+    OIIO::ImageBuf oriented = OIIO::ImageBufAlgo::reorient(source);
+    const OIIO::ImageSpec& spec = oriented.spec();
+    if (spec.width <= 0 || spec.height <= 0 || spec.nchannels <= 0) {
+        return image;
+    }
+
+    OIIO::ImageBuf rgba;
+    if (spec.nchannels >= 4) {
+        const std::array<int, 4> channelOrder{0, 1, 2, 3};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder);
+    } else if (spec.nchannels == 3) {
+        const std::array<int, 4> channelOrder{0, 1, 2, -1};
+        const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+    } else if (spec.nchannels == 2) {
+        const std::array<int, 4> channelOrder{0, 0, 0, 1};
+        const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+    } else {
+        const std::array<int, 4> channelOrder{0, 0, 0, -1};
+        const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+    }
+
+    image.width = spec.width;
+    image.height = spec.height;
+    image.channels = 4;
+    if (readType == OIIO::TypeDesc::FLOAT) {
+        image.pixelType = QStringLiteral("float");
+        image.data.resize(spec.width * spec.height * 4 * static_cast<int>(sizeof(float)));
+    } else {
+        image.pixelType = QStringLiteral("uint8");
+        image.data.resize(spec.width * spec.height * 4);
+    }
+    if (!rgba.get_pixels(OIIO::ROI::All(), readType, image.data.data())) {
+        return {};
+    }
+    return image;
+}
+
+} // namespace
 
 ImageImporter::ImageImporter()
     : impl_(new Impl())
@@ -70,6 +141,10 @@ RawImage ImageImporter::readImage()
         if (preview.isValid()) {
             return preview;
         }
+    }
+
+    if (RawImage image = loadRawImageViaOIIO(impl_->filePath); image.isValid()) {
+        return image;
     }
 
     const QByteArray encoded = QFile::encodeName(impl_->filePath);

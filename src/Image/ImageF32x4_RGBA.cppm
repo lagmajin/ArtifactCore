@@ -38,6 +38,10 @@ module;
 #include <QImage>
 #include <QString>
 #include <QList>
+#include <QFileInfo>
+#include <OpenImageIO/imagebuf.h>
+#include <OpenImageIO/imagebufalgo.h>
+#include <OpenImageIO/imageio.h>
 
 module Image.ImageF32x4_RGBA;
 
@@ -160,6 +164,38 @@ namespace ArtifactCore {
 
  bool ImageF32x4_RGBA::load(const QString& path)
  {
+  const std::string utf8Path = path.toUtf8().toStdString();
+  OIIO::ImageBuf source(utf8Path);
+  if (source.read(0, 0, true, OIIO::TypeDesc::FLOAT)) {
+    OIIO::ImageBuf oriented = OIIO::ImageBufAlgo::reorient(source);
+    const OIIO::ImageSpec& spec = oriented.spec();
+    if (spec.width > 0 && spec.height > 0 && spec.nchannels > 0) {
+      OIIO::ImageBuf rgba;
+      if (spec.nchannels >= 4) {
+        const std::array<int, 4> channelOrder{0, 1, 2, 3};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder);
+      } else if (spec.nchannels == 3) {
+        const std::array<int, 4> channelOrder{0, 1, 2, -1};
+        const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+      } else if (spec.nchannels == 2) {
+        const std::array<int, 4> channelOrder{0, 0, 0, 1};
+        const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+      } else {
+        const std::array<int, 4> channelOrder{0, 0, 0, -1};
+        const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+      }
+
+      cv::Mat mat(spec.height, spec.width, CV_32FC4);
+      if (rgba.get_pixels(OIIO::ROI::All(), OIIO::TypeDesc::FLOAT, mat.ptr<float>())) {
+        setFromCVMat(mat);
+        return true;
+      }
+    }
+  }
+
   QImage img(path);
   if (img.isNull()) return false;
   setFromCVMat(CvUtils::qImageToCvMat(img));
@@ -168,6 +204,33 @@ namespace ArtifactCore {
 
  bool ImageF32x4_RGBA::save(const QString& path) const
  {
+  const QString suffix = QFileInfo(path).suffix().toLower();
+  if (suffix == QStringLiteral("exr")) {
+    cv::Mat mat = impl_->mat_;
+    if (mat.empty() || mat.type() != CV_32FC4) {
+      return false;
+    }
+    if (!mat.isContinuous()) {
+      mat = mat.clone();
+    }
+
+    std::unique_ptr<OIIO::ImageOutput> out = OIIO::ImageOutput::create(path.toUtf8().constData());
+    if (!out) {
+      return false;
+    }
+
+    OIIO::ImageSpec spec(mat.cols, mat.rows, 4, OIIO::TypeDesc::FLOAT);
+    spec.channelnames = {"R", "G", "B", "A"};
+    if (!out->open(path.toUtf8().constData(), spec)) {
+      return false;
+    }
+    if (!out->write_image(OIIO::TypeDesc::FLOAT, mat.ptr<float>())) {
+      out->close();
+      return false;
+    }
+    return out->close();
+  }
+
   return toQImage().save(path);
  }
 
