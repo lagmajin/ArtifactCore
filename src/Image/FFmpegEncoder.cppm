@@ -8,9 +8,7 @@
 #include <QDir>
 #include <QImage>
 #include <OpenImageIO/imageio.h>
-
 module Encoder.FFmpegEncoder;
-
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
