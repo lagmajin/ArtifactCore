@@ -1,7 +1,12 @@
 module;
 #include <utility>
 #include <QString>
+#include <vector>
 export module Layer.Matte;
+
+import FloatRGBA;
+import Image.ImageF32x4_RGBA;
+import Color.Luminance;
 
 
 export namespace ArtifactCore {
@@ -15,6 +20,19 @@ enum class MatteMode {
     AlphaInverted,   // Use Inverted Alpha channel
     Luminance,       // Use Luminance (brightness) of the matte layer
     LuminanceInverted // Use Inverted Luminance
+};
+
+enum class MatteStackMode {
+    Add,
+    Common,
+    Subtract
+};
+
+struct MatteEvaluationSettings {
+    MatteMode mode = MatteMode::Alpha;
+    MatteStackMode stackMode = MatteStackMode::Common;
+    LuminanceStandard luminanceStandard = LuminanceStandard::Rec709;
+    float opacity = 1.0f;
 };
 
 /**
@@ -42,6 +60,30 @@ public:
         if (s == "luminanceinverted" || s == "lumainvertedmatte") return MatteMode::LuminanceInverted;
         return MatteMode::None;
     }
+};
+
+class LIBRARY_DLL_API MatteEvaluator {
+public:
+    static float sample(const FloatRGBA& pixel,
+                        MatteMode mode,
+                        LuminanceStandard standard = LuminanceStandard::Rec709);
+
+    static float sample(const ImageF32x4_RGBA& image,
+                        int x,
+                        int y,
+                        MatteMode mode,
+                        LuminanceStandard standard = LuminanceStandard::Rec709);
+
+    static float combine(float current, float next, MatteStackMode mode);
+
+    static float evaluate(const std::vector<float>& matteFactors,
+                          MatteStackMode stackMode = MatteStackMode::Common);
+
+    static FloatRGBA apply(const FloatRGBA& source, float matteFactor);
+
+    static ImageF32x4_RGBA apply(const ImageF32x4_RGBA& source,
+                                 const ImageF32x4_RGBA& matte,
+                                 const MatteEvaluationSettings& settings = {});
 };
 
 } // namespace ArtifactCore

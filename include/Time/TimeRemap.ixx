@@ -231,8 +231,30 @@ public:
         float& blendBackward   // 0-1, how much to blend with previous frame
     );
     
+    // Process frame blending: blend current frame with adjacent frames
+    // Returns blended QImage. If no blending needed, returns original.
+    QImage processFrameBlending(
+        double outputTime,
+        const QImage& currentFrame,
+        const QImage& nextFrame,
+        const QImage& prevFrame,
+        int64_t frameNumber
+    );
+    
+    // Motion blur: apply motion blur based on shutter settings
+    // velocity: motion vector (pixels per frame)
+    QImage applyMotionBlur(
+        const QImage& frame,
+        const QPointF& velocity,
+        float shutterAngle = 0.5f,
+        int samples = 8
+    );
+    
     // Get time stretch ratio at current time
     double getTimeStretchRatio(double outputTime) const;
+    
+    // Check if frame blending is needed for this output time
+    bool needsFrameBlending(double outputTime) const;
     
     // Reset
     void reset();

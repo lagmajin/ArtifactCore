@@ -12,6 +12,8 @@ export module Graphics.Shader.Compute.MaskCutout;
 
 import Graphics.Compute;
 import Graphics.GPUcomputeContext;
+import Layer.Matte;
+import Color.Luminance;
 import Graphics.Shader.Compute.HLSL.MaskCutout;
 
 export namespace ArtifactCore {
@@ -20,9 +22,9 @@ using namespace Diligent;
 
 struct MaskCutoutParams {
     float opacity = 1.0f;
-    float pad0 = 0.0f;
-    float pad1 = 0.0f;
-    float pad2 = 0.0f;
+    Uint32 matteMode = static_cast<Uint32>(MatteMode::Alpha);
+    Uint32 luminanceStandard = static_cast<Uint32>(LuminanceStandard::Rec709);
+    Uint32 pad0 = 0;
 };
 
 class LIBRARY_DLL_API MaskCutoutPipeline {
@@ -32,16 +34,24 @@ public:
 
     bool initialize();
     bool apply(IDeviceContext* ctx,
-               const QImage& maskImage,
+               const QImage& matteImage,
                ITextureView* sceneSRV,
                ITextureView* outUAV,
                float opacity = 1.0f);
+
+    bool apply(IDeviceContext* ctx,
+               const QImage& matteImage,
+               ITextureView* sceneSRV,
+               ITextureView* outUAV,
+               MatteMode mode,
+               float opacity = 1.0f,
+               LuminanceStandard luminanceStandard = LuminanceStandard::Rec709);
 
     bool ready() const;
 
 private:
     bool createConstantBuffer();
-    bool ensureMaskTexture(const QImage& maskImage);
+    bool ensureMaskTexture(const QImage& matteImage);
 
     GpuContext& context_;
     ComputeExecutor executor_;

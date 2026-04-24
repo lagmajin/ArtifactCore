@@ -393,10 +393,165 @@ int AudioTimeStretchProcessor::processTimeStretchFFT(
 // ==================== TimeRemapEffect ====================
 
 TimeRemapEffect::TimeRemapEffect() = default;
-TimeRemapEffect::~TimeRemapEffect() = default;
+TimeRemapEffect::~TimeRemapEffect() = default();
 
 void TimeRemapEffect::setEnabled(bool enabled) {
     enabled_ = enabled;
+}
+
+void TimeRemapEffect::setHasAudio(bool hasAudio) {
+    hasAudio_ = hasAudio;
+}
+
+int TimeRemapEffect::processFrame(
+    double outputTime,
+    float& blendForward,
+    float& blendBackward
+) {
+    blendForward = 0.0f;
+    blendBackward = 0.0f;
+    
+    if (!enabled_) {
+        return static_cast<int>(outputTime * remap_.frameRate().framerate());
+    }
+    
+    // Get source time
+    double sourceTime = remap_.mapOutputToSource(outputTime);
+    
+    // Get frame index
+    int frameIndex = static_cast<int>(sourceTime * remap_.frameRate().framerate());
+    
+    // Handle frame blending for slow motion
+    if (remap_.frameBlendMode() == FrameBlendMode::FrameMix) {
+        // Calculate fractional part
+        float frac = static_cast<float>(sourceTime * remap_.frameRate().framerate() - frameIndex);
+        
+        // Blend with adjacent frames
+        blendForward = frac * remap_.frameBlendAmount();
+        blendBackward = (1.0f - frac) * remap_.frameBlendAmount();
+    }
+    
+    return frameIndex;
+}
+
+bool TimeRemapEffect::needsFrameBlending(double outputTime) const {
+    if (!enabled_) {
+        return false;
+    }
+    
+    FrameBlendMode mode = remap_.frameBlendMode();
+    if (mode == FrameBlendMode::None) {
+        return false;
+    }
+    
+    // Check if we're in slow motion (time stretch > 1.0)
+    double speed = remap_.getSpeedAtTime(outputTime);
+    if (std::abs(speed) < 1.0) {
+        // Slow motion - blending needed
+        return true;
+    }
+    
+    return false;
+}
+
+QImage TimeRemapEffect::processFrameBlending(
+    double outputTime,
+    const QImage& currentFrame,
+    const QImage& nextFrame,
+    const QImage& prevFrame,
+    int64_t frameNumber
+) {
+    if (currentFrame.isNull()) {
+        return currentFrame;
+    }
+    
+    if (!enabled_) {
+        return currentFrame;
+    }
+    
+    FrameBlendMode mode = remap_.frameBlendMode();
+    if (mode == FrameBlendMode::None) {
+        return currentFrame;
+    }
+    
+    // Get blend factors
+    float blendForward = 0.0f;
+    float blendBackward = 0.0f;
+    int frameIndex = processFrame(outputTime, blendForward, blendBackward);
+    
+    if (mode == FrameBlendMode::FrameMix) {
+        // Simple frame mixing
+        if (blendForward <= 0.0f && blendBackward <= 0.0f) {
+            return currentFrame;
+        }
+        
+        // Blend current frame with adjacent frames
+        QImage result = currentFrame.copy();
+        QPainter painter(&result);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+        
+        if (blendForward > 0.0f && !nextFrame.isNull()) {
+            painter.setOpacity(blendForward);
+            painter.drawImage(0, 0, nextFrame);
+        }
+        
+        if (blendBackward > 0.0f && !prevFrame.isNull()) {
+            painter.setOpacity(blendBackward);
+            painter.drawImage(0, 0, prevFrame);
+        }
+        
+        return result;
+    }
+    
+    if (mode == FrameBlendMode::MotionBlur) {
+        // Motion blur requires velocity information
+        // For now, fall back to frame mix with higher blend amount
+        return processFrameBlending(outputTime, currentFrame, nextFrame, prevFrame, frameNumber);
+    }
+    
+    if (mode == FrameBlendMode::OpticalFlow) {
+        // Optical flow is future work - fall back to frame mix
+        // TODO: Implement proper optical flow interpolation
+        return processFrameBlending(outputTime, currentFrame, nextFrame, prevFrame, frameNumber);
+    }
+    
+    return currentFrame;
+}
+
+QImage TimeRemapEffect::applyMotionBlur(
+    const QImage& frame,
+    const QPointF& velocity,
+    float shutterAngle,
+    int samples
+) {
+    if (frame.isNull() || velocity.isNull()) {
+        return frame;
+    }
+    
+    // Simple directional motion blur based on velocity
+    QImage result = frame.copy();
+    QPainter painter(&result);
+    
+    const int sampleCount = std::clamp(samples, 2, 32);
+    const float blurLength = std::sqrt(velocity.x() * velocity.x() + velocity.y() * velocity.y()) * shutterAngle;
+    const float angle = std::atan2(velocity.y(), velocity.x());
+    const float cosA = std::cos(angle);
+    const float sinA = std::sin(angle);
+    
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    
+    for (int i = 0; i < sampleCount; ++i) {
+        float t = static_cast<float>(i) / static_cast<float>(sampleCount - 1);
+        float offset = (t - 0.5f) * blurLength;
+        
+        int dx = static_cast<int>(std::round(cosA * offset));
+        int dy = static_cast<int>(std::round(sinA * offset));
+        
+        painter.setOpacity(1.0f / sampleCount);
+        painter.drawImage(dx, dy, frame);
+    }
+    
+    return result;
 }
 
 void TimeRemapEffect::setHasAudio(bool hasAudio) {
