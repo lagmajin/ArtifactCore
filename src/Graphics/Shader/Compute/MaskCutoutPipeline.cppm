@@ -96,20 +96,24 @@ bool MaskCutoutPipeline::createConstantBuffer()
     return true;
 }
 
-bool MaskCutoutPipeline::ensureMaskTexture(const QImage& maskImage)
+bool MaskCutoutPipeline::ensureMaskTexture(const QImage& matteImage)
 {
-    if (maskImage.isNull()) {
-        return false;
+    QImage rgba;
+    qint64 cacheKey = -1;
+    if (matteImage.isNull()) {
+        rgba = QImage(1, 1, QImage::Format_RGBA8888);
+        rgba.fill(0xffffffff);
+    } else {
+        rgba = matteImage.convertToFormat(QImage::Format_RGBA8888);
+        cacheKey = matteImage.cacheKey();
     }
 
-    const QImage rgba = maskImage.convertToFormat(QImage::Format_RGBA8888);
     const int imgW = rgba.width();
     const int imgH = rgba.height();
     if (imgW <= 0 || imgH <= 0) {
         return false;
     }
 
-    const qint64 cacheKey = maskImage.cacheKey();
     if (pImpl_->pMaskTexture_ && maskCacheKey_ == cacheKey && maskWidth_ == imgW && maskHeight_ == imgH) {
         return true;
     }
@@ -151,16 +155,28 @@ bool MaskCutoutPipeline::ensureMaskTexture(const QImage& maskImage)
 }
 
 bool MaskCutoutPipeline::apply(IDeviceContext* ctx,
-                               const QImage& maskImage,
+                               const QImage& matteImage,
                                ITextureView* sceneSRV,
                                ITextureView* outUAV,
                                float opacity)
+{
+    return apply(ctx, matteImage, sceneSRV, outUAV, MatteMode::Alpha, opacity,
+                 LuminanceStandard::Rec709);
+}
+
+bool MaskCutoutPipeline::apply(IDeviceContext* ctx,
+                               const QImage& matteImage,
+                               ITextureView* sceneSRV,
+                               ITextureView* outUAV,
+                               MatteMode mode,
+                               float opacity,
+                               LuminanceStandard luminanceStandard)
 {
     if (!ctx || !sceneSRV || !outUAV || !ready()) {
         return false;
     }
 
-    if (!ensureMaskTexture(maskImage)) {
+    if (!ensureMaskTexture(matteImage)) {
         return false;
     }
 
@@ -174,6 +190,8 @@ bool MaskCutoutPipeline::apply(IDeviceContext* ctx,
     if (pData) {
         MaskCutoutParams params;
         params.opacity = opacity;
+        params.matteMode = static_cast<Uint32>(mode);
+        params.luminanceStandard = static_cast<Uint32>(luminanceStandard);
         std::memcpy(pData, &params, sizeof(params));
         ctx->UnmapBuffer(pImpl_->pMaskParamsCB_, MAP_WRITE);
     }

@@ -1,7 +1,7 @@
-﻿module;
+module;
 #include <utility>
+#include <algorithm>
 #include <vector>
-#include <memory>
 #include <QString>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -9,6 +9,9 @@
 export module Layer.Matte;
 
 import Utils.Id;
+import FloatRGBA;
+import Image.ImageF32x4_RGBA;
+import Color.Luminance;
 
 export namespace ArtifactCore {
 
@@ -26,13 +29,20 @@ enum class MatteStackMode {
     Subtract
 };
 
+struct MatteEvaluationSettings {
+    MatteMode mode = MatteMode::Alpha;
+    MatteStackMode stackMode = MatteStackMode::Common;
+    LuminanceStandard luminanceStandard = LuminanceStandard::Rec709;
+    float opacity = 1.0f;
+};
+
 inline QString matteStackModeToString(MatteStackMode mode);
 inline MatteStackMode matteStackModeFromString(const QString& str);
 
 inline QString matteStackModeToString(MatteStackMode mode) {
     switch (mode) {
-    case MatteStackMode::Add:     return QStringLiteral("Add");
-    case MatteStackMode::Common:  return QStringLiteral("Common");
+    case MatteStackMode::Add:      return QStringLiteral("Add");
+    case MatteStackMode::Common:   return QStringLiteral("Common");
     case MatteStackMode::Subtract: return QStringLiteral("Subtract");
     }
     return QStringLiteral("Unknown");
@@ -227,9 +237,6 @@ private:
     MatteStackMode stackMode_;
 };
 
-/**
- * @brief matte 評価の結果（アルファマスク）
- */
 struct MatteEvaluationResult {
     std::vector<float> alphaMask;
     int width = 0;
@@ -244,17 +251,6 @@ struct MatteEvaluationResult {
     }
 };
 
-/**
- * @brief MatteStack を評価してアルファマスクを生成する
- *
- * 各 matte source の画像を受け取り、mode に従ってアルファチャンネルまたは
- * 輝度チャンネルを抽出し、stackMode で合成する。
- *
- * @param sources matte source layer の画像（matteStack.nodes() と同じ順序）
- * @param stack 評価対象の matte stack
- * @param targetWidth 対象画像の幅
- * @param targetHeight 対象画像の高さ
- */
 inline MatteEvaluationResult evaluateMatteStack(
     const std::vector<std::vector<float>>& sources,
     const MatteStack& stack,
@@ -315,5 +311,29 @@ inline MatteEvaluationResult evaluateMatteStack(
 
     return result;
 }
+
+class LIBRARY_DLL_API MatteEvaluator {
+public:
+    static float sample(const FloatRGBA& pixel,
+                        MatteMode mode,
+                        LuminanceStandard standard = LuminanceStandard::Rec709);
+
+    static float sample(const ImageF32x4_RGBA& image,
+                        int x,
+                        int y,
+                        MatteMode mode,
+                        LuminanceStandard standard = LuminanceStandard::Rec709);
+
+    static float combine(float current, float next, MatteStackMode mode);
+
+    static float evaluate(const std::vector<float>& matteFactors,
+                          MatteStackMode stackMode = MatteStackMode::Common);
+
+    static FloatRGBA apply(const FloatRGBA& source, float matteFactor);
+
+    static ImageF32x4_RGBA apply(const ImageF32x4_RGBA& source,
+                                 const ImageF32x4_RGBA& matte,
+                                 const MatteEvaluationSettings& settings = {});
+};
 
 } // namespace ArtifactCore
