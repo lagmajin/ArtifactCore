@@ -40,6 +40,14 @@ enum class FrameDebugCompareMode {
     CaptureId
 };
 
+struct RenderCostStats {
+    std::uint64_t drawCalls = 0;
+    std::uint64_t indexedDrawCalls = 0;
+    std::uint64_t psoSwitches = 0;
+    std::uint64_t srbCommits = 0;
+    std::uint64_t bufferUpdates = 0;
+};
+
 struct FrameDebugTextureRef {
     QString name;
     QString format;
@@ -113,6 +121,8 @@ struct FrameDebugSnapshot {
     QString selectedLayerName;
     double renderLastFrameMs = 0.0;
     double renderAverageFrameMs = 0.0;
+    double renderGpuFrameMs = 0.0;
+    RenderCostStats renderCost;
     FrameDebugCompareMode compareMode = FrameDebugCompareMode::Disabled;
     QString compareTargetId;
     std::vector<FrameDebugPassRecord> passes;
@@ -365,6 +375,12 @@ inline QJsonObject FrameDebugSnapshot::toJson() const
     json.insert(QStringLiteral("selectedLayerName"), selectedLayerName);
     json.insert(QStringLiteral("renderLastFrameMs"), renderLastFrameMs);
     json.insert(QStringLiteral("renderAverageFrameMs"), renderAverageFrameMs);
+    json.insert(QStringLiteral("renderGpuFrameMs"), renderGpuFrameMs);
+    json.insert(QStringLiteral("renderDrawCalls"), static_cast<double>(renderCost.drawCalls));
+    json.insert(QStringLiteral("renderIndexedDrawCalls"), static_cast<double>(renderCost.indexedDrawCalls));
+    json.insert(QStringLiteral("renderPsoSwitches"), static_cast<double>(renderCost.psoSwitches));
+    json.insert(QStringLiteral("renderSrbCommits"), static_cast<double>(renderCost.srbCommits));
+    json.insert(QStringLiteral("renderBufferUpdates"), static_cast<double>(renderCost.bufferUpdates));
     json.insert(QStringLiteral("compareMode"), toString(compareMode));
     json.insert(QStringLiteral("compareTargetId"), compareTargetId);
     json.insert(QStringLiteral("failed"), failed);
@@ -401,6 +417,12 @@ inline FrameDebugSnapshot FrameDebugSnapshot::fromJson(const QJsonObject& json)
     snapshot.selectedLayerName = json.value(QStringLiteral("selectedLayerName")).toString();
     snapshot.renderLastFrameMs = json.value(QStringLiteral("renderLastFrameMs")).toDouble();
     snapshot.renderAverageFrameMs = json.value(QStringLiteral("renderAverageFrameMs")).toDouble();
+    snapshot.renderGpuFrameMs = json.value(QStringLiteral("renderGpuFrameMs")).toDouble();
+    snapshot.renderCost.drawCalls = static_cast<std::uint64_t>(json.value(QStringLiteral("renderDrawCalls")).toDouble());
+    snapshot.renderCost.indexedDrawCalls = static_cast<std::uint64_t>(json.value(QStringLiteral("renderIndexedDrawCalls")).toDouble());
+    snapshot.renderCost.psoSwitches = static_cast<std::uint64_t>(json.value(QStringLiteral("renderPsoSwitches")).toDouble());
+    snapshot.renderCost.srbCommits = static_cast<std::uint64_t>(json.value(QStringLiteral("renderSrbCommits")).toDouble());
+    snapshot.renderCost.bufferUpdates = static_cast<std::uint64_t>(json.value(QStringLiteral("renderBufferUpdates")).toDouble());
     snapshot.compareMode = compareModeFromString(json.value(QStringLiteral("compareMode")).toString());
     snapshot.compareTargetId = json.value(QStringLiteral("compareTargetId")).toString();
     snapshot.failed = json.value(QStringLiteral("failed")).toBool();

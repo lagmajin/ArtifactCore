@@ -12,6 +12,7 @@ module;
 module Graphics.ParticleRenderer;
 
 import std;
+import Frame.Debug;
 
 namespace ArtifactCore {
 
@@ -117,6 +118,11 @@ void ParticleRenderer::initialize(size_t maxParticles) {
     createPSO();
 }
 
+void ParticleRenderer::setFrameCostStats(ArtifactCore::RenderCostStats* stats)
+{
+    frameCostStats_ = stats;
+}
+
 void ParticleRenderer::createBuffers() {
     auto pDevice = context_.D3D12RenderDevice();
 
@@ -204,6 +210,9 @@ void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
     size_t count = std::min(data.particles.size(), maxParticles_);
     pContext->UpdateBuffer(pImpl_->pParticleBuffer_, 0, sizeof(ParticleVertex) * count, 
                           data.particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (frameCostStats_) {
+        ++frameCostStats_->bufferUpdates;
+    }
 }
 
 void ParticleRenderer::prepare(IDeviceContext* pContext) {
@@ -219,12 +228,19 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
     if(pData) {
         memcpy(pData, &constants_, sizeof(ShaderConstants));
         pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
+        if (frameCostStats_) {
+            ++frameCostStats_->bufferUpdates;
+        }
     }
 
     // Set SRV
     pImpl_->pSRB_->GetVariableByName(SHADER_TYPE_VERTEX, "g_Particles")->Set(pImpl_->pParticleBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
 
     pContext->SetPipelineState(pImpl_->pPSO_);
+    if (frameCostStats_) {
+        ++frameCostStats_->psoSwitches;
+        ++frameCostStats_->srbCommits;
+    }
     pContext->CommitShaderResources(pImpl_->pSRB_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
@@ -235,7 +251,9 @@ void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
     drawAttrs.NumVertices  = 4;
     drawAttrs.NumInstances = (Uint32)activeCount;
     drawAttrs.Flags        = DRAW_FLAG_VERIFY_ALL;
-    
+    if (frameCostStats_) {
+        ++frameCostStats_->drawCalls;
+    }
     pContext->Draw(drawAttrs);
 }
 

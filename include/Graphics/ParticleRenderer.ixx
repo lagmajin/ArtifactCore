@@ -41,6 +41,7 @@ export module Graphics.ParticleRenderer;
 
 import Graphics.ParticleData;
 import Graphics.GPUcomputeContext;
+import Frame.Debug;
 
 
 export namespace ArtifactCore {
@@ -60,6 +61,7 @@ public:
      * @brief レンダリング用リソース（PSO, Buffer）の初期化
      */
     void initialize(size_t maxParticles);
+    void setFrameCostStats(ArtifactCore::RenderCostStats* stats);
 
     /**
      * @brief CPUプールのデータをGPU構造化バッファへアップロード
@@ -94,6 +96,7 @@ private:
         float padding[3];
     };
     ShaderConstants constants_;
+    ArtifactCore::RenderCostStats* frameCostStats_ = nullptr;
 
     void createPSO();
     void createBuffers();
