@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <cstring>
+#include <array>
 #include <QFile>
 #include <QFileInfo>
 #include <QDataStream>
@@ -12,12 +13,11 @@ module;
 #include <QDebug>
 #include <QVector>
 #include <QRect>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include <OpenImageIO/imagebuf.h>
+#include <OpenImageIO/imagebufalgo.h>
+#include <OpenImageIO/imageio.h>
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 
 module Image.PSDDocument;
@@ -37,6 +37,74 @@ bool readExact(QDataStream& stream, char* dst, const int size)
 QString readAsciiString(const QByteArray& bytes)
 {
     return QString::fromLatin1(bytes);
+}
+
+OIIO::TypeDesc chooseReadType(const PsdHeader& header)
+{
+    if (header.depth >= 32) {
+        return OIIO::TypeDesc::FLOAT;
+    }
+    if (header.depth >= 16) {
+        return OIIO::TypeDesc::UINT16;
+    }
+    return OIIO::TypeDesc::UINT8;
+}
+
+RawImage loadFlattenedPreviewViaOIIO(const QString& filePath, const PsdHeader& header)
+{
+    RawImage image;
+    if (filePath.isEmpty()) {
+        return image;
+    }
+
+    const std::string utf8Path = filePath.toUtf8().toStdString();
+    OIIO::ImageBuf source(utf8Path);
+    const OIIO::TypeDesc readType = chooseReadType(header);
+    if (!source.read(0, 0, true, readType)) {
+        return image;
+    }
+
+    OIIO::ImageBuf oriented = OIIO::ImageBufAlgo::reorient(source);
+    const OIIO::ImageSpec& spec = oriented.spec();
+    if (spec.width <= 0 || spec.height <= 0 || spec.nchannels <= 0) {
+        return image;
+    }
+
+    OIIO::ImageBuf rgba;
+    if (spec.nchannels >= 4) {
+        const std::array<int, 4> channelOrder{0, 1, 2, 3};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder);
+    } else if (spec.nchannels == 3) {
+        const std::array<int, 4> channelOrder{0, 1, 2, -1};
+        const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+    } else if (spec.nchannels == 2) {
+        const std::array<int, 4> channelOrder{0, 0, 0, 1};
+        const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+    } else {
+        const std::array<int, 4> channelOrder{0, 0, 0, -1};
+        const std::array<float, 4> channelValues{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(oriented, 4, channelOrder, channelValues);
+    }
+
+    image.width = spec.width;
+    image.height = spec.height;
+    image.channels = 4;
+    if (readType == OIIO::TypeDesc::UINT16) {
+        image.pixelType = QStringLiteral("uint16");
+        image.data.resize(spec.width * spec.height * 4 * static_cast<int>(sizeof(quint16)));
+    } else if (readType == OIIO::TypeDesc::FLOAT) {
+        image.pixelType = QStringLiteral("float");
+        image.data.resize(spec.width * spec.height * 4 * static_cast<int>(sizeof(float)));
+    } else {
+        image.pixelType = QStringLiteral("uint8");
+        image.data.resize(spec.width * spec.height * 4);
+    }
+    if (!rgba.get_pixels(OIIO::ROI::All(), readType, image.data.data())) {
+        return {};
+    }
+    return image;
 }
 
 PsdLayerInfo parseLayerRecord(QDataStream& stream, QVector<QString>* warnings)
@@ -152,43 +220,7 @@ QString blendModeLabelFromKey(const QByteArray& key)
 
 RawImage loadFlattenedPreview(const QString& filePath, const PsdHeader& header)
 {
-    RawImage image;
-    if (filePath.isEmpty()) {
-        return image;
-    }
-
-    const QByteArray utf8 = QFile::encodeName(filePath);
-    int w = 0;
-    int h = 0;
-    int comp = 0;
-
-    if (header.depth >= 16 && stbi_is_16_bit(utf8.constData())) {
-        stbi_us* pixels16 = stbi_load_16(utf8.constData(), &w, &h, &comp, 4);
-        if (!pixels16) {
-            return image;
-        }
-        image.width = w;
-        image.height = h;
-        image.channels = 4;
-        image.pixelType = QStringLiteral("uint16");
-        image.data.resize(static_cast<int>(w * h * 4 * static_cast<int>(sizeof(stbi_us))));
-        std::memcpy(image.data.data(), pixels16, image.data.size());
-        stbi_image_free(pixels16);
-        return image;
-    }
-
-    stbi_uc* pixels = stbi_load(utf8.constData(), &w, &h, &comp, 4);
-    if (!pixels) {
-        return image;
-    }
-    image.width = w;
-    image.height = h;
-    image.channels = 4;
-    image.pixelType = QStringLiteral("uint8");
-    image.data.resize(static_cast<int>(w * h * 4));
-    std::memcpy(image.data.data(), pixels, image.data.size());
-    stbi_image_free(pixels);
-    return image;
+    return loadFlattenedPreviewViaOIIO(filePath, header);
 }
 
 } // namespace
