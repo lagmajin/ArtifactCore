@@ -7,6 +7,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
+#include <libavutil/avutil.h>
 #include <libavutil/imgutils.h>
 }
 
@@ -132,7 +133,9 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
             return QImage();
         }
 
-        lastPts_ = frame->pts;
+        lastPts_ = frame->best_effort_timestamp != AV_NOPTS_VALUE
+            ? frame->best_effort_timestamp
+            : frame->pts;
 
         QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGB888);
         uint8_t* dst[4];
@@ -169,7 +172,9 @@ QImage MediaImageFrameDecoder::receiveFrame() {
         return QImage();
     }
 
-    lastPts_ = frame->pts;
+    lastPts_ = frame->best_effort_timestamp != AV_NOPTS_VALUE
+        ? frame->best_effort_timestamp
+        : frame->pts;
 
     QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGB888);
     uint8_t* dst[4];

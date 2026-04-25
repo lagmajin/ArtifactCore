@@ -8,6 +8,7 @@ module;
 #include <QDir>
 #include <QImage>
 #include <OpenImageIO/imageio.h>
+#include <opencv2/opencv.hpp>
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>

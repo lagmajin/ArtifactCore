@@ -17,6 +17,7 @@ private:
     AVFormatContext* formatContext_ = nullptr;
     AVIOContext* ioContext_ = nullptr;
     QString url_;
+    QString lastError_;
 
 public:
     MediaSource();
@@ -29,6 +30,7 @@ public:
 
     AVFormatContext* getFormatContext() const { return formatContext_; }
     const QString& getUrl() const { return url_; }
+    const QString& getLastError() const { return lastError_; }
 };
 
 } // namespace ArtifactCore

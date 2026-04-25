@@ -175,6 +175,7 @@ class MediaPlaybackController::Impl {
     const int maxPackets = std::max(512, videoPacketWaitAttempts_ * 8);
     int packetsRead = 0;
     bool hitEof = false;
+    int lastReadError = 0;
 
     // Helper: drain decoded frames from the video decoder
     auto drainFrames = [&]() {
@@ -194,6 +195,7 @@ class MediaPlaybackController::Impl {
     while (packetsRead < maxPackets && result.isNull()) {
       const int readRet = av_read_frame(ctx, pkt);
       if (readRet < 0) {
+        lastReadError = readRet;
         if (readRet == AVERROR_EOF) {
           // Flush decoder to retrieve remaining buffered frames
           videoDecoder_->sendPacket(nullptr);
@@ -206,15 +208,12 @@ class MediaPlaybackController::Impl {
 
       if (pkt->stream_index == videoStreamIndex_) {
         int ret = videoDecoder_->sendPacket(pkt);
-        av_packet_unref(pkt);
         if (ret == AVERROR(EAGAIN)) {
-          // Decoder buffer full — drain frames then retry the packet
           drainFrames();
           if (!result.isNull()) break;
-          // Packet was already unref'd; the data is lost but we continue
-          // reading to reach the target PTS.
-          continue;
+          ret = videoDecoder_->sendPacket(pkt);
         }
+        av_packet_unref(pkt);
         if (ret < 0) {
           lastError_ = QStringLiteral("FFmpeg direct decode sendPacket failed: %1").arg(ret);
           qWarning() << "[MediaPlayback] sendPacket failed:" << ret;
@@ -238,17 +237,25 @@ class MediaPlaybackController::Impl {
     }
 
     if (result.isNull()) {
-      lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 videoStreamIndex=%5")
+      lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 videoStreamIndex=%5 packetsRead=%6 maxPackets=%7 eof=%8 readError=%9")
           .arg(frameNumber)
           .arg(targetMs)
           .arg(targetPts)
           .arg(fps_)
-          .arg(videoStreamIndex_);
+          .arg(videoStreamIndex_)
+          .arg(packetsRead)
+          .arg(maxPackets)
+          .arg(hitEof ? QStringLiteral("true") : QStringLiteral("false"))
+          .arg(lastReadError);
       qWarning() << "[MediaPlayback] direct decode failed for frame" << frameNumber
                  << "targetMs=" << targetMs
                  << "targetPts=" << targetPts
                  << "fps=" << fps_
-                 << "videoStreamIndex=" << videoStreamIndex_;
+                 << "videoStreamIndex=" << videoStreamIndex_
+                 << "packetsRead=" << packetsRead
+                 << "maxPackets=" << maxPackets
+                 << "eof=" << hitEof
+                 << "readError=" << lastReadError;
     } else {
       lastError_.clear();
       qDebug() << "[MediaPlayback] direct decode ok"
@@ -576,8 +583,10 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
     return true;
   }
 
-  impl_->notifyError(QStringLiteral("Failed to open media '%1' with %2 (error: %3)")
-                     .arg(url, preferredName, preferredError));
+  const QString fallbackError = impl_->lastError_;
+  impl_->notifyError(
+      QStringLiteral("Failed to open media '%1'. Preferred %2 error: %3. Fallback error: %4")
+          .arg(url, preferredName, preferredError, fallbackError));
   return false;
  }
 
@@ -1005,6 +1014,13 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
 bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QString& url) {
   const bool opened = impl.mediaSource_ && impl.mediaSource_->open(url);
   if (!opened) {
+    const QString sourceError = impl.mediaSource_
+        ? impl.mediaSource_->getLastError()
+        : QStringLiteral("MediaSource is null");
+    qWarning() << "[FFmpegBackend] open failed for" << url
+               << "reason=" << sourceError;
+    impl.notifyError(QStringLiteral("FFmpeg open failed for '%1': %2")
+                         .arg(url, sourceError));
     return false;
   }
 

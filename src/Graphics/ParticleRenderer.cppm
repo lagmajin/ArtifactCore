@@ -250,7 +250,8 @@ void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
     DrawAttribs drawAttrs;
     drawAttrs.NumVertices  = 4;
     drawAttrs.NumInstances = (Uint32)activeCount;
-    drawAttrs.Flags        = DRAW_FLAG_VERIFY_ALL;
+    // drawAttrs.Flags        = DRAW_FLAG_VERIFY_ALL;
+    drawAttrs.Flags        = DRAW_FLAG_NONE;
     if (frameCostStats_) {
         ++frameCostStats_->drawCalls;
     }

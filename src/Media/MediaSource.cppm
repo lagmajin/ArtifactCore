@@ -67,18 +67,21 @@ MediaSource::~MediaSource() {
 bool MediaSource::open(const QString& url) {
     close();
     url_ = url;
+    lastError_.clear();
 
     // [Fix 1] Windows バックスラッシュを / に正規化して FFmpeg に渡す
     const std::string pathUtf8 = QString(url).replace(QLatin1Char('\\'), QLatin1Char('/')).toUtf8().toStdString();
 
     // [Fix 2] FFmpeg に渡す前にファイル存在を確認（エラー理由を明確化）
     if (!QFileInfo::exists(url)) {
+        lastError_ = QStringLiteral("File does not exist: %1").arg(url);
         qCritical() << "[MediaSource] File does not exist:" << url;
         return false;
     }
 
     formatContext_ = avformat_alloc_context();
     if (!formatContext_) {
+        lastError_ = QStringLiteral("Failed to allocate AVFormatContext");
         qCritical() << "[MediaSource] Failed to allocate AVFormatContext.";
         return false;
     }
@@ -88,6 +91,9 @@ bool MediaSource::open(const QString& url) {
     if (ret < 0) {
         char errbuf[AV_ERROR_MAX_STRING_SIZE];
         av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+        lastError_ = QStringLiteral("avformat_open_input failed: %1 (%2)")
+                         .arg(QString::fromUtf8(errbuf))
+                         .arg(ret);
         qCritical() << "[MediaSource] avformat_open_input failed:"
                     << "path=" << url
                     << "errcode=" << ret
@@ -115,6 +121,9 @@ bool MediaSource::open(const QString& url) {
     if (ret < 0) {
         char errbuf[AV_ERROR_MAX_STRING_SIZE];
         av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+        lastError_ = QStringLiteral("avformat_find_stream_info failed: %1 (%2)")
+                         .arg(QString::fromUtf8(errbuf))
+                         .arg(ret);
         qCritical() << "[MediaSource] avformat_find_stream_info failed:"
                     << "path=" << url
                     << "msg=" << errbuf;
@@ -126,11 +135,15 @@ bool MediaSource::open(const QString& url) {
     qDebug() << "[MediaSource] Opened:" << url
              << "streams=" << formatContext_->nb_streams
              << "duration_ms=" << (formatContext_->duration / 1000);
+    lastError_.clear();
     return true;
 }
 
 bool MediaSource::seek(int64_t timestampMs) {
-    if (!formatContext_) return false;
+    if (!formatContext_) {
+        lastError_ = QStringLiteral("seek failed: media is not open");
+        return false;
+    }
 
     // Assume seeking to the first video stream
     int streamIndex = -1;
@@ -141,6 +154,7 @@ bool MediaSource::seek(int64_t timestampMs) {
         }
     }
     if (streamIndex == -1) {
+        lastError_ = QStringLiteral("seek failed: no video stream available");
         qWarning() << "[MediaSource] seek failed: no video stream available";
         return false;
     }
@@ -160,12 +174,16 @@ bool MediaSource::seek(int64_t timestampMs) {
     }
 
     if (ret < 0) {
+        lastError_ = QStringLiteral("seek failed at %1 ms: %2")
+                         .arg(timestampMs)
+                         .arg(QString::fromStdString(av_strerror_string(ret)));
         qWarning() << "[MediaSource] seek failed:"
                    << "timestampMs=" << timestampMs
                    << "err=" << av_strerror_string(ret).c_str();
         return false;
     }
 
+    lastError_.clear();
     return true;
 }
 
@@ -179,6 +197,7 @@ void MediaSource::close() {
         ioContext_ = nullptr;
     }
     url_.clear();
+    lastError_.clear();
     qDebug() << "MediaSource::close: Resources released.";
 }
 

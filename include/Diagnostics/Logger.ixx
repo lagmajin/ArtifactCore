@@ -4,6 +4,7 @@ module;
 
 #include <mutex>
 #include <wobjectdefs.h>
+#include <QFile>
 #include <QString>
 #include <QDateTime>
 
@@ -46,6 +47,10 @@ public:
     W_SIGNAL(logsCleared)
 
 private:
+    bool ensureLogFileReady();
+    void writeLineToLogFile(const QString& line);
+    QString formatLogLine(const LogMessage& logMsg) const;
+
     Logger(QObject* parent = nullptr);
 
 public:
@@ -53,7 +58,10 @@ public:
 
     mutable std::mutex mutex_;
     std::vector<LogMessage> logs_;
+    QString logFilePath_;
+    QFile logFile_;
     bool installed_ = false;
+    bool fileLoggingEnabled_ = false;
 };
 
 }
