@@ -14,13 +14,44 @@ After Effects レベルを目指す text 機能のための Core 側マイルス
 
 ## C-TXT-1A Font Foundation
 
+**Status: ✅ COMPLETED** (2026-04-27)
+
 - 目標:
   font family の解決と fallback を Core 側へ寄せる。
 - 対象:
   `FontManager`, available families, default sans/mono, fallback resolution。
 - 完了条件:
-  - UI layer が直接 `QFontDatabase` を叩かなくても family 解決できる
-  - missing font 時の fallback が統一される
+  - ✅ UI layer が直接 `QFontDatabase` を叩かなくても family 解決できる
+  - ✅ missing font 時の fallback が統一される
+  
+### Implementation Details (C-TXT-1A)
+
+**ArtifactCore/include/Font/FreeFont.ixx** に `FontManager` クラスが実装されている:
+- `resolvedFamily(preferredFamily)`: Preferred → System default → CJK fallback → arbitrary
+- `resolvedFamilyForText(preferredFamily, sampleText)`: CJK 文字判定による intelligent fallback
+- `makeFont(TextStyle, sampleText)`: TextStyle から QFont を生成
+- `japaneseFallbackCandidates()`: 日本語フォント候補リスト
+- `loadFontFromFile(fontPath)`: カスタムフォント読み込み
+
+**ArtifactTextLayer** (Artifact/src/Layer/ArtifactTextLayer.cppm) は既に使用中:
+- Line 70: `import Font.FreeFont;`
+- Font creation 時に常に `FontManager::makeFont()` を呼び出し
+
+**UI コード状況**:
+- `#include <QFontDatabase>` の直接使用なし
+- 全フォント家族解決は Core の FontManager 経由
+
+**Fallback Chain**:
+1. Preferred family が available ならそれを使用
+2. CJK テキストならば Japanese fallback candidates を走査
+3. System default sans-serif へフォールバック
+4. 利用可能フォント一覧から最初のフォントを取得
+5. 最終的には "Arial" へ
+
+**Japanese Font Candidates**:
+```
+Yu Gothic UI → Yu Gothic → Meiryo UI → Meiryo → MS Gothic → Noto Sans CJK JP → Noto Sans JP → Source Han Sans JP → Segoe UI
+```
 
 ## C-TXT-2 Layer Integration
 
