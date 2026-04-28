@@ -119,6 +119,8 @@ void AnimatableTransform3D::setInitialScale(const RationalTime& time, float xs, 
 {
   impl_->initialScaleX_ = xs;
   impl_->initialScaleY_ = ys;
+  impl_->scaleX_.setCurrent(xs);
+  impl_->scaleY_.setCurrent(ys);
   impl_->currentScaleX_ = xs;
   impl_->currentScaleY_ = ys;
 }

@@ -27,7 +27,13 @@ enum class BlendMode {
     Hue,
     Saturation,
     Color,
-    Luminosity
+    Luminosity,
+    LinearBurn,
+    Divide,
+    PinLight,
+    VividLight,
+    LinearLight,
+    HardMix
 };
 
 // Legacy compatibility for existing Artifact layer code paths.
@@ -50,7 +56,13 @@ enum class LAYER_BLEND_TYPE {
     BLEND_HUE = static_cast<int>(BlendMode::Hue),
     BLEND_SATURATION = static_cast<int>(BlendMode::Saturation),
     BLEND_COLOR = static_cast<int>(BlendMode::Color),
-    BLEND_LUMINOSITY = static_cast<int>(BlendMode::Luminosity)
+    BLEND_LUMINOSITY = static_cast<int>(BlendMode::Luminosity),
+    BLEND_LINEAR_BURN = static_cast<int>(BlendMode::LinearBurn),
+    BLEND_DIVIDE = static_cast<int>(BlendMode::Divide),
+    BLEND_PIN_LIGHT = static_cast<int>(BlendMode::PinLight),
+    BLEND_VIVID_LIGHT = static_cast<int>(BlendMode::VividLight),
+    BLEND_LINEAR_LIGHT = static_cast<int>(BlendMode::LinearLight),
+    BLEND_HARD_MIX = static_cast<int>(BlendMode::HardMix)
 };
 
 inline BlendMode toBlendMode(const LAYER_BLEND_TYPE legacy) {
@@ -86,6 +98,12 @@ public:
             case BlendMode::Saturation: return "Saturation";
             case BlendMode::Color: return "Color";
             case BlendMode::Luminosity: return "Luminosity";
+            case BlendMode::LinearBurn: return "Linear Burn";
+            case BlendMode::Divide: return "Divide";
+            case BlendMode::PinLight: return "Pin Light";
+            case BlendMode::VividLight: return "Vivid Light";
+            case BlendMode::LinearLight: return "Linear Light";
+            case BlendMode::HardMix: return "Hard Mix";
             default: return "Unknown";
         }
     }
@@ -110,6 +128,12 @@ public:
         if (s == "saturation") return BlendMode::Saturation;
         if (s == "color") return BlendMode::Color;
         if (s == "luminosity") return BlendMode::Luminosity;
+        if (s == "linearburn") return BlendMode::LinearBurn;
+        if (s == "divide") return BlendMode::Divide;
+        if (s == "pinlight") return BlendMode::PinLight;
+        if (s == "vividlight") return BlendMode::VividLight;
+        if (s == "linearlight") return BlendMode::LinearLight;
+        if (s == "hardmix") return BlendMode::HardMix;
         return BlendMode::Normal;
     }
 };

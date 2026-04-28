@@ -60,7 +60,13 @@ enum class BlendMode {
     Hue,            // 色相
     Saturation,     // 彩度
     Color,          // カラー
-    Luminosity      // 輝度
+    Luminosity,     // 輝度
+    LinearBurn,     // リニアバーン
+    Divide,         // 除算
+    PinLight,       // ピンライト
+    VividLight,     // ビビッドライト
+    LinearLight,    // リニアライト
+    HardMix         // ハードミックス
 };
 
 // ブレンド処理ユーティリティ (CPU向け)
@@ -84,6 +90,12 @@ private:
     static float blendSoftLight(float b, float f);
     static float blendDifference(float b, float f);
     static float blendExclusion(float b, float f);
+    static float blendLinearBurn(float b, float f);
+    static float blendDivide(float b, float f);
+    static float blendPinLight(float b, float f);
+    static float blendVividLight(float b, float f);
+    static float blendLinearLight(float b, float f);
+    static float blendHardMix(float b, float f);
 };
 
 } // namespace ArtifactCore

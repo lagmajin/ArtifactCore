@@ -364,6 +364,105 @@ void main(uint3 id : SV_DispatchThreadID)
 }
 )";
 
+LIBRARY_DLL_API const QByteArray linearBurnBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = saturate(srcRGB + dst.rgb - 1.0) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+LIBRARY_DLL_API const QByteArray divideBlendShaderText = QByteArray(blendShaderHeader) + R"(
+float3 Divide(float3 base, float3 blend)
+{
+    float3 r;
+    r.r = saturate(base.r / max(blend.r, 1e-6));
+    r.g = saturate(base.g / max(blend.g, 1e-6));
+    r.b = saturate(base.b / max(blend.b, 1e-6));
+    return r;
+}
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = Divide(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+LIBRARY_DLL_API const QByteArray pinLightBlendShaderText = QByteArray(blendShaderHeader) + R"(
+float3 PinLight(float3 base, float3 blend)
+{
+    float3 r;
+    r.r = (blend.r < 0.5) ? min(base.r, 2.0 * blend.r) : max(base.r, 2.0 * (blend.r - 0.5));
+    r.g = (blend.g < 0.5) ? min(base.g, 2.0 * blend.g) : max(base.g, 2.0 * (blend.g - 0.5));
+    r.b = (blend.b < 0.5) ? min(base.b, 2.0 * blend.b) : max(base.b, 2.0 * (blend.b - 0.5));
+    return r;
+}
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = PinLight(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+LIBRARY_DLL_API const QByteArray vividLightBlendShaderText = QByteArray(blendShaderHeader) + R"(
+float3 VividLight(float3 base, float3 blend)
+{
+    float3 r;
+    r.r = (blend.r < 0.5)
+        ? (blend.r < 1e-6 ? 0.0 : saturate(1.0 - (1.0 - base.r) / (2.0 * blend.r)))
+        : (blend.r > 0.999 ? 1.0 : saturate(base.r / (2.0 * (1.0 - blend.r))));
+    r.g = (blend.g < 0.5)
+        ? (blend.g < 1e-6 ? 0.0 : saturate(1.0 - (1.0 - base.g) / (2.0 * blend.g)))
+        : (blend.g > 0.999 ? 1.0 : saturate(base.g / (2.0 * (1.0 - blend.g))));
+    r.b = (blend.b < 0.5)
+        ? (blend.b < 1e-6 ? 0.0 : saturate(1.0 - (1.0 - base.b) / (2.0 * blend.b)))
+        : (blend.b > 0.999 ? 1.0 : saturate(base.b / (2.0 * (1.0 - blend.b))));
+    return r;
+}
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = VividLight(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+LIBRARY_DLL_API const QByteArray linearLightBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = saturate(dst.rgb + 2.0 * srcRGB - 1.0) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+LIBRARY_DLL_API const QByteArray hardMixBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = step(1.0 - srcRGB, dst.rgb) * srcA + dst.rgb * (1.0 - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
  LIBRARY_DLL_API const std::map<BlendMode, QByteArray> BlendShaders = {
   {BlendMode::Normal,      normalBlendShaderText},
   {BlendMode::Add,         addBlendShaderText},
@@ -383,6 +482,12 @@ void main(uint3 id : SV_DispatchThreadID)
   {BlendMode::Saturation,  saturationBlendShaderText},
   {BlendMode::Color,       colorBlendShaderText},
   {BlendMode::Luminosity,  luminosityBlendShaderText},
+  {BlendMode::LinearBurn,  linearBurnBlendShaderText},
+  {BlendMode::Divide,      divideBlendShaderText},
+  {BlendMode::PinLight,    pinLightBlendShaderText},
+  {BlendMode::VividLight,  vividLightBlendShaderText},
+  {BlendMode::LinearLight, linearLightBlendShaderText},
+  {BlendMode::HardMix,     hardMixBlendShaderText},
  };
 
 }

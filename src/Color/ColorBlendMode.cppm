@@ -59,6 +59,26 @@ inline float ColorBlendMode::blendDifference(float b, float f) {
 inline float ColorBlendMode::blendExclusion(float b, float f) {
     return b + f - 2.0f * b * f;
 }
+inline float ColorBlendMode::blendLinearBurn(float b, float f) {
+    return std::max(b + f - 1.0f, 0.0f);
+}
+inline float ColorBlendMode::blendDivide(float b, float f) {
+    return std::min(b / std::max(f, 1e-6f), 1.0f);
+}
+inline float ColorBlendMode::blendPinLight(float b, float f) {
+    return (f < 0.5f) ? std::min(b, 2.0f * f) : std::max(b, 2.0f * (f - 0.5f));
+}
+inline float ColorBlendMode::blendVividLight(float b, float f) {
+    return (f < 0.5f)
+        ? (f == 0.0f ? 0.0f : std::max(1.0f - (1.0f - b) / (2.0f * f), 0.0f))
+        : (f == 1.0f ? 1.0f : std::min(b / (2.0f * (1.0f - f)), 1.0f));
+}
+inline float ColorBlendMode::blendLinearLight(float b, float f) {
+    return std::clamp(b + 2.0f * f - 1.0f, 0.0f, 1.0f);
+}
+inline float ColorBlendMode::blendHardMix(float b, float f) {
+    return (b + f >= 1.0f) ? 1.0f : 0.0f;
+}
 
 // -------------------------------------------------------------
 // Main Blend Logic
@@ -93,6 +113,12 @@ FloatColor ColorBlendMode::blend(const FloatColor& base, const FloatColor& blend
     case BlendMode::SoftLight:    return applyBlend(blendSoftLight);
     case BlendMode::Difference:   return applyBlend(blendDifference);
     case BlendMode::Exclusion:    return applyBlend(blendExclusion);
+    case BlendMode::LinearBurn:   return applyBlend(blendLinearBurn);
+    case BlendMode::Divide:       return applyBlend(blendDivide);
+    case BlendMode::PinLight:     return applyBlend(blendPinLight);
+    case BlendMode::VividLight:   return applyBlend(blendVividLight);
+    case BlendMode::LinearLight:  return applyBlend(blendLinearLight);
+    case BlendMode::HardMix:      return applyBlend(blendHardMix);
     
     // HSL Component Blend Modes
     case BlendMode::Hue:
