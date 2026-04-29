@@ -14,6 +14,15 @@ export import ImageProcessing.ProceduralTexture;
 // Sub-modules (imported as full module names)
 // export import ImageProcessing.ColorTransform.LevelsCurves;
 // export import ImageProcessing.ColorTransform.HueSaturation;
+export import ImageProcessing.ColorTransform.Tritone;
+export import ImageProcessing.ColorTransform.Colorama;
+export import ImageProcessing.ColorTransform.PhotoFilter;
+export import ImageProcessing.ColorTransform.ColorBalance;
+export import ImageProcessing.ColorTransform.LevelsCurves;
+export import ImageProcessing.ColorTransform.ChannelMixer;
+export import ImageProcessing.ColorTransform.SelectiveColor;
+export import ImageProcessing.ColorTransform.GradientRamp;
+export import ImageProcessing.ColorTransform.Fill;
 
 //export import :Halide;
 export import ImageProcessing.NegateCS;

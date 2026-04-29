@@ -179,6 +179,14 @@ export struct SpringState {
    return true;
   }
 
+  bool setKeyFrameValueAt(const FramePosition& frame, const T& value) {
+   auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
+    [&frame](const auto& kf) { return kf.frame == frame; });
+   if (it == keyframes_.end()) return false;
+   it->value = value;
+   return true;
+  }
+
   InterpolationType getKeyFrameInterpolationAt(const FramePosition& frame) const {
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });

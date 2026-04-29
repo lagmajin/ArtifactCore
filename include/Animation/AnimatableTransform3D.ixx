@@ -101,6 +101,12 @@ export namespace ArtifactCore
   bool hasPositionKeyFrameAt(const RationalTime& time) const;
   bool hasRotationKeyFrameAt(const RationalTime& time) const;
   bool hasScaleKeyFrameAt(const RationalTime& time) const;
+  bool setPositionKeyFrameValueAt(const RationalTime& time, float x, float y);
+  bool setPositionKeyFrameInterpolationAt(const RationalTime& time,
+                                         InterpolationType xInterpolation,
+                                         InterpolationType yInterpolation);
+  InterpolationType positionXKeyFrameInterpolationAt(const RationalTime& time) const;
+  InterpolationType positionYKeyFrameInterpolationAt(const RationalTime& time) const;
   
   void removePositionKeyFrameAt(const RationalTime& time);
   void removeRotationKeyFrameAt(const RationalTime& time);

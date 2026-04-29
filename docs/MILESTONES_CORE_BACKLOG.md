@@ -105,6 +105,16 @@
 - DX12 / Vulkan backend での日本語 text rendering
 - glyph atlas / shaping / backend parity
 - 詳細は `MILESTONE_GPU_TEXT_RENDERING_JA_2026-04-01.md`
+- 実行メモは `MILESTONE_GPU_TEXT_RENDERING_JA_EXECUTION_2026-04-30.md`
+
+### C-TXT-7 GPU Text Rendering WP-1 / GlyphAtlas
+- GPU text backend の入口となる glyph atlas 構築
+- `MILESTONE_PRIORITY_ROADMAP_2026-04-27.md` の WP-1 に対応する
+- `C-TXT-6` の backend work を前倒しで支える
+
+### Text Workstream Index
+- `../docs/planned/MILESTONE_TEXT_WORKSTREAM_INDEX_2026-04-30.md`
+- Text Animator と GPU Text の plan / execution をまとめる入口
 
 ### C-TXT-2 Text Layer Integration
 - `ArtifactTextLayer` への style 適用

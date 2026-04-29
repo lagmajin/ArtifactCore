@@ -426,6 +426,49 @@ bool AnimatableTransform3D::hasPositionKeyFrameAt(const RationalTime& time) cons
   return impl_->x_.hasKeyFrameAt(frame) || impl_->y_.hasKeyFrameAt(frame);
 }
 
+bool AnimatableTransform3D::setPositionKeyFrameValueAt(const RationalTime& time,
+                                                       float x, float y)
+{
+  FramePosition frame(time.rescaledTo(24));
+  const bool xOk = impl_->x_.setKeyFrameValueAt(frame, x);
+  const bool yOk = impl_->y_.setKeyFrameValueAt(frame, y);
+  if (!xOk || !yOk) {
+    if (!xOk) {
+      impl_->x_.addKeyFrame(frame, x);
+    }
+    if (!yOk) {
+      impl_->y_.addKeyFrame(frame, y);
+    }
+  }
+  impl_->currentX_ = impl_->initialX_ + x;
+  impl_->currentY_ = impl_->initialY_ + y;
+  return true;
+}
+
+bool AnimatableTransform3D::setPositionKeyFrameInterpolationAt(
+    const RationalTime& time, InterpolationType xInterpolation,
+    InterpolationType yInterpolation)
+{
+  FramePosition frame(time.rescaledTo(24));
+  const bool xOk = impl_->x_.setKeyFrameInterpolationAt(frame, xInterpolation);
+  const bool yOk = impl_->y_.setKeyFrameInterpolationAt(frame, yInterpolation);
+  return xOk || yOk;
+}
+
+InterpolationType AnimatableTransform3D::positionXKeyFrameInterpolationAt(
+    const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->x_.getKeyFrameInterpolationAt(frame);
+}
+
+InterpolationType AnimatableTransform3D::positionYKeyFrameInterpolationAt(
+    const RationalTime& time) const
+{
+  FramePosition frame(time.rescaledTo(24));
+  return impl_->y_.getKeyFrameInterpolationAt(frame);
+}
+
 void AnimatableTransform3D::removePositionKeyFrameAt(const RationalTime& time)
 {
   FramePosition frame(time.rescaledTo(24));

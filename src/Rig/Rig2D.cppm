@@ -4,14 +4,61 @@ module;
 #include <QVector2D>
 #include <QMatrix4x4>
 #include <QList>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QPair>
+#include <QtGlobal>
 #include <cmath>
 #include <algorithm>
+#include <utility>
 
 module ArtifactCore.Rig2D;
 
 import Utils.Id;
+import Time.Rational;
 
 namespace ArtifactCore {
+
+namespace {
+
+QJsonObject vector2DToJson(const QVector2D& value) {
+    QJsonObject object;
+    object["x"] = static_cast<double>(value.x());
+    object["y"] = static_cast<double>(value.y());
+    return object;
+}
+
+QVector2D vector2DFromJson(const QJsonValue& value, const QVector2D& fallback) {
+    if (!value.isObject()) {
+        return fallback;
+    }
+    const QJsonObject object = value.toObject();
+    return QVector2D(static_cast<float>(object.value("x").toDouble(fallback.x())),
+                     static_cast<float>(object.value("y").toDouble(fallback.y())));
+}
+
+QJsonObject transformToJson(const BoneTransform& transform) {
+    QJsonObject object;
+    object["position"] = vector2DToJson(transform.position);
+    object["rotation"] = static_cast<double>(transform.rotation);
+    object["scale"] = vector2DToJson(transform.scale);
+    return object;
+}
+
+BoneTransform transformFromJson(const QJsonValue& value, const BoneTransform& fallback) {
+    if (!value.isObject()) {
+        return fallback;
+    }
+    const QJsonObject object = value.toObject();
+    BoneTransform transform = fallback;
+    transform.position = vector2DFromJson(object.value("position"), fallback.position);
+    transform.rotation = static_cast<float>(object.value("rotation").toDouble(fallback.rotation));
+    transform.scale = vector2DFromJson(object.value("scale"), fallback.scale);
+    return transform;
+}
+
+} // namespace
 
 // ─────────────────────────────────────────────────────────
 // Bone2D 実装
@@ -39,6 +86,33 @@ void Bone2D::removeChild(Bone2D* child) {
             child->parent_ = nullptr;
         }
     }
+}
+
+BoneTransform Bone2D::evaluate(const RationalTime& time) const {
+    Q_UNUSED(time);
+    return localTransform_;
+}
+
+QJsonObject Bone2D::toJson() const {
+    QJsonObject object;
+    object["id"] = id_.toString();
+    object["name"] = name_;
+    object["length"] = static_cast<double>(length_);
+    object["localTransform"] = transformToJson(localTransform_);
+    if (parent_) {
+        object["parentId"] = parent_->id().toString();
+    }
+    return object;
+}
+
+void Bone2D::fromJson(const QJsonObject& object) {
+    const QString idString = object.value("id").toString();
+    if (!idString.isEmpty()) {
+        id_ = Id(idString);
+    }
+    name_ = object.value("name").toString(name_);
+    length_ = static_cast<float>(object.value("length").toDouble(length_));
+    localTransform_ = transformFromJson(object.value("localTransform"), localTransform_);
 }
 
 void Bone2D::updateHierarchy() {
@@ -71,6 +145,22 @@ void Bone2D::updateHierarchy() {
 Rig2D::Rig2D() {
 }
 
+Rig2D::Rig2D(Rig2D&& other) noexcept
+    : rootBone_(other.rootBone_) {
+    bones_.swap(other.bones_);
+    other.rootBone_ = nullptr;
+}
+
+Rig2D& Rig2D::operator=(Rig2D&& other) noexcept {
+    if (this != &other) {
+        clearBones();
+        bones_.swap(other.bones_);
+        rootBone_ = other.rootBone_;
+        other.rootBone_ = nullptr;
+    }
+    return *this;
+}
+
 Rig2D::~Rig2D() {
     clearBones();
 }
@@ -85,6 +175,10 @@ Bone2D* Rig2D::addBone(const QString& name, Bone2D* parent) {
         rootBone_ = bone;
     }
     return bone;
+}
+
+Bone2D* Rig2D::addBone(const QString& name, const Id& parentId) {
+    return addBone(name, findBone(parentId));
 }
 
 void Rig2D::removeBone(Bone2D* bone) {
@@ -107,6 +201,15 @@ void Rig2D::removeBone(Bone2D* bone) {
         rootBone_ = bones_.isEmpty() ? nullptr : bones_.first();
     }
     delete bone;
+}
+
+bool Rig2D::removeBone(const Id& id) {
+    Bone2D* bone = findBone(id);
+    if (!bone) {
+        return false;
+    }
+    removeBone(bone);
+    return true;
 }
 
 void Rig2D::clearBones() {
@@ -137,6 +240,93 @@ void Rig2D::update() {
     if (rootBone_) {
         rootBone_->updateHierarchy();
     }
+}
+
+void Rig2D::evaluate(const RationalTime& time) {
+    for (Bone2D* bone : bones_) {
+        if (bone) {
+            bone->setLocalTransform(bone->evaluate(time));
+        }
+    }
+    update();
+}
+
+bool Rig2D::setBoneLocalTransform(const Id& id, const BoneTransform& transform) {
+    Bone2D* bone = findBone(id);
+    if (!bone) {
+        return false;
+    }
+    bone->setLocalTransform(transform);
+    return true;
+}
+
+bool Rig2D::boneLocalTransform(const Id& id, BoneTransform* outTransform) const {
+    if (!outTransform) {
+        return false;
+    }
+    const Bone2D* bone = findBone(id);
+    if (!bone) {
+        return false;
+    }
+    *outTransform = bone->localTransform();
+    return true;
+}
+
+QJsonObject Rig2D::toJson() const {
+    QJsonObject object;
+    object["version"] = 1;
+    if (rootBone_) {
+        object["rootBoneId"] = rootBone_->id().toString();
+    }
+
+    QJsonArray bonesArray;
+    for (const Bone2D* bone : bones_) {
+        if (bone) {
+            bonesArray.append(bone->toJson());
+        }
+    }
+    object["bones"] = bonesArray;
+    return object;
+}
+
+Rig2D Rig2D::fromJson(const QJsonObject& object) {
+    Rig2D rig;
+    const QJsonArray bonesArray = object.value("bones").toArray();
+    QList<QPair<Id, Id>> parentLinks;
+
+    for (const QJsonValue& value : bonesArray) {
+        if (!value.isObject()) {
+            continue;
+        }
+
+        const QJsonObject boneObject = value.toObject();
+        auto* bone = new Bone2D();
+        bone->fromJson(boneObject);
+        rig.bones_.append(bone);
+
+        const QString parentIdString = boneObject.value("parentId").toString();
+        if (!parentIdString.isEmpty()) {
+            parentLinks.append(QPair<Id, Id>(bone->id(), Id(parentIdString)));
+        }
+    }
+
+    for (const auto& link : parentLinks) {
+        Bone2D* child = rig.findBone(link.first);
+        Bone2D* parent = rig.findBone(link.second);
+        if (child && parent) {
+            parent->addChild(child);
+        }
+    }
+
+    const QString rootBoneIdString = object.value("rootBoneId").toString();
+    if (!rootBoneIdString.isEmpty()) {
+        rig.rootBone_ = rig.findBone(Id(rootBoneIdString));
+    }
+    if (!rig.rootBone_ && !rig.bones_.isEmpty()) {
+        rig.rootBone_ = rig.bones_.first();
+    }
+    rig.update();
+    return rig;
 }
 
 // ─────────────────────────────────────────────────────────

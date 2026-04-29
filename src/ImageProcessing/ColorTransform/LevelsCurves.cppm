@@ -185,11 +185,23 @@ QImage LevelsEffect::apply(const QImage& source) const {
 }
 
 void LevelsEffect::applyPixel(float& r, float& g, float& b) const {
-    double result = applyLevels(r, 
-        impl_->settings.inputBlack, impl_->settings.inputWhite,
-        impl_->settings.inputGamma,
-        impl_->settings.outputBlack, impl_->settings.outputWhite);
-    r = g = b = static_cast<float>(result);
+    const auto& settings = impl_->settings;
+    const auto transform = [&](float value, const ChannelLevelsSettings& channel) {
+        if (settings.perChannel) {
+            return static_cast<float>(applyLevels(value,
+                channel.inputBlack, channel.inputWhite,
+                channel.inputGamma,
+                channel.outputBlack, channel.outputWhite));
+        }
+        return static_cast<float>(applyLevels(value,
+            settings.inputBlack, settings.inputWhite,
+            settings.inputGamma,
+            settings.outputBlack, settings.outputWhite));
+    };
+
+    r = transform(r, settings.red);
+    g = transform(g, settings.green);
+    b = transform(b, settings.blue);
 }
 
 QVector<int> LevelsEffect::calculateHistogram(const QImage& image, int channel) {

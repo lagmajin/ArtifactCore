@@ -5,12 +5,14 @@ module;
 #include <QVector3D>
 #include <QMatrix4x4>
 #include <QList>
+#include <QJsonObject>
 #include <memory>
 #include <vector>
 
 export module ArtifactCore.Rig2D;
 
 import Utils.Id;
+import Time.Rational;
 
 export namespace ArtifactCore {
 
@@ -57,6 +59,12 @@ public:
     float length() const { return length_; }
     void setLength(float length) { length_ = length; }
 
+    // 評価境界。現時点では静的ローカル変換を返し、将来のキー/制約評価をここへ集約する。
+    BoneTransform evaluate(const RationalTime& time) const;
+
+    QJsonObject toJson() const;
+    void fromJson(const QJsonObject& object);
+
     // 階層を更新（グローバル変換の再計算）
     void updateHierarchy();
 
@@ -74,11 +82,17 @@ private:
 class Rig2D {
 public:
     Rig2D();
+    Rig2D(const Rig2D&) = delete;
+    Rig2D& operator=(const Rig2D&) = delete;
+    Rig2D(Rig2D&& other) noexcept;
+    Rig2D& operator=(Rig2D&& other) noexcept;
     ~Rig2D();
 
     // ボーン管理
     Bone2D* addBone(const QString& name, Bone2D* parent = nullptr);
+    Bone2D* addBone(const QString& name, const Id& parentId);
     void removeBone(Bone2D* bone);
+    bool removeBone(const Id& id);
     void clearBones();
 
     const QList<Bone2D*>& bones() const { return bones_; }
@@ -91,6 +105,12 @@ public:
 
     // 更新
     void update();
+    void evaluate(const RationalTime& time);
+    bool setBoneLocalTransform(const Id& id, const BoneTransform& transform);
+    bool boneLocalTransform(const Id& id, BoneTransform* outTransform) const;
+
+    QJsonObject toJson() const;
+    static Rig2D fromJson(const QJsonObject& object);
 
     // IKソルバー
     void solveTwoBoneIK(Bone2D* bone1, Bone2D* bone2, Bone2D* effector, const QVector2D& target);
