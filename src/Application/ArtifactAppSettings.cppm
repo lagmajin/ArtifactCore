@@ -8,6 +8,8 @@ module;
 
 module Application.AppSettings;
 
+import Color.Float;
+
 namespace ArtifactCore {
 
 W_OBJECT_IMPL(ArtifactAppSettings)
@@ -88,6 +90,127 @@ void ArtifactAppSettings::setDockTabFontPointSize(int pointSize) {
     Q_EMIT settingsChanged();
 }
 
+float ArtifactAppSettings::compositionCheckerboardSize() const {
+    return impl_->store.value("UI/CompositionCheckerboardSize", 16.0).toFloat();
+}
+
+void ArtifactAppSettings::setCompositionCheckerboardSize(float size) {
+    impl_->store.setValue("UI/CompositionCheckerboardSize",
+                          std::clamp(size, 2.0f, 128.0f));
+    Q_EMIT settingsChanged();
+}
+
+Artifact::Grid::GridSettings ArtifactAppSettings::compositionGridSettings() const {
+    Artifact::Grid::GridSettings settings;
+    settings.majorInterval =
+        impl_->store.value("UI/CompositionGrid/MajorInterval", 100.0).toFloat();
+    settings.subdivisions = (int)impl_->store.valueInt64("UI/CompositionGrid/Subdivisions", 4);
+    settings.showMajor = impl_->store.valueBool("UI/CompositionGrid/ShowMajor", true);
+    settings.showMinor = impl_->store.valueBool("UI/CompositionGrid/ShowMinor", true);
+    settings.showAxis = impl_->store.valueBool("UI/CompositionGrid/ShowAxis", true);
+    settings.majorColor = ArtifactCore::FloatColor(
+        impl_->store.value("UI/CompositionGrid/MajorColorR", 0.45).toFloat(),
+        impl_->store.value("UI/CompositionGrid/MajorColorG", 0.45).toFloat(),
+        impl_->store.value("UI/CompositionGrid/MajorColorB", 0.45).toFloat(),
+        impl_->store.value("UI/CompositionGrid/MajorColorA", 0.8).toFloat());
+    settings.minorColor = ArtifactCore::FloatColor(
+        impl_->store.value("UI/CompositionGrid/MinorColorR", 0.25).toFloat(),
+        impl_->store.value("UI/CompositionGrid/MinorColorG", 0.25).toFloat(),
+        impl_->store.value("UI/CompositionGrid/MinorColorB", 0.25).toFloat(),
+        impl_->store.value("UI/CompositionGrid/MinorColorA", 0.4).toFloat());
+    settings.axisColor = ArtifactCore::FloatColor(
+        impl_->store.value("UI/CompositionGrid/AxisColorR", 0.9).toFloat(),
+        impl_->store.value("UI/CompositionGrid/AxisColorG", 0.3).toFloat(),
+        impl_->store.value("UI/CompositionGrid/AxisColorB", 0.3).toFloat(),
+        impl_->store.value("UI/CompositionGrid/AxisColorA", 0.9).toFloat());
+    return settings;
+}
+
+void ArtifactAppSettings::setCompositionGridSettings(
+    const Artifact::Grid::GridSettings& settings) {
+    impl_->store.setValue("UI/CompositionGrid/MajorInterval", settings.majorInterval);
+    impl_->store.setValue("UI/CompositionGrid/Subdivisions", settings.subdivisions);
+    impl_->store.setValue("UI/CompositionGrid/ShowMajor", settings.showMajor);
+    impl_->store.setValue("UI/CompositionGrid/ShowMinor", settings.showMinor);
+    impl_->store.setValue("UI/CompositionGrid/ShowAxis", settings.showAxis);
+    impl_->store.setValue("UI/CompositionGrid/MajorColorR", settings.majorColor.r());
+    impl_->store.setValue("UI/CompositionGrid/MajorColorG", settings.majorColor.g());
+    impl_->store.setValue("UI/CompositionGrid/MajorColorB", settings.majorColor.b());
+    impl_->store.setValue("UI/CompositionGrid/MajorColorA", settings.majorColor.a());
+    impl_->store.setValue("UI/CompositionGrid/MinorColorR", settings.minorColor.r());
+    impl_->store.setValue("UI/CompositionGrid/MinorColorG", settings.minorColor.g());
+    impl_->store.setValue("UI/CompositionGrid/MinorColorB", settings.minorColor.b());
+    impl_->store.setValue("UI/CompositionGrid/MinorColorA", settings.minorColor.a());
+    impl_->store.setValue("UI/CompositionGrid/AxisColorR", settings.axisColor.r());
+    impl_->store.setValue("UI/CompositionGrid/AxisColorG", settings.axisColor.g());
+    impl_->store.setValue("UI/CompositionGrid/AxisColorB", settings.axisColor.b());
+    impl_->store.setValue("UI/CompositionGrid/AxisColorA", settings.axisColor.a());
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::compositionBackgroundMode() const {
+    return (int)impl_->store.valueInt64("UI/Composition/BackgroundMode", 1);
+}
+
+void ArtifactAppSettings::setCompositionBackgroundMode(int mode) {
+    impl_->store.setValue("UI/Composition/BackgroundMode", mode);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::compositionShowGrid() const {
+    return impl_->store.valueBool("UI/Composition/ShowGrid", false);
+}
+
+void ArtifactAppSettings::setCompositionShowGrid(bool enable) {
+    impl_->store.setValue("UI/Composition/ShowGrid", enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::compositionShowGuides() const {
+    return impl_->store.valueBool("UI/Composition/ShowGuides", false);
+}
+
+void ArtifactAppSettings::setCompositionShowGuides(bool enable) {
+    impl_->store.setValue("UI/Composition/ShowGuides", enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::compositionShowSafeMargins() const {
+    return impl_->store.valueBool("UI/Composition/ShowSafeMargins", false);
+}
+
+void ArtifactAppSettings::setCompositionShowSafeMargins(bool enable) {
+    impl_->store.setValue("UI/Composition/ShowSafeMargins", enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::compositionShowAnchorCenterOverlay() const {
+    return impl_->store.valueBool("UI/Composition/ShowAnchorCenterOverlay", false);
+}
+
+void ArtifactAppSettings::setCompositionShowAnchorCenterOverlay(bool enable) {
+    impl_->store.setValue("UI/Composition/ShowAnchorCenterOverlay", enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::compositionShowCameraFrustumOverlay() const {
+    return impl_->store.valueBool("UI/Composition/ShowCameraFrustumOverlay", false);
+}
+
+void ArtifactAppSettings::setCompositionShowCameraFrustumOverlay(bool enable) {
+    impl_->store.setValue("UI/Composition/ShowCameraFrustumOverlay", enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::compositionShowMotionPathOverlay() const {
+    return impl_->store.valueBool("UI/Composition/ShowMotionPathOverlay", false);
+}
+
+void ArtifactAppSettings::setCompositionShowMotionPathOverlay(bool enable) {
+    impl_->store.setValue("UI/Composition/ShowMotionPathOverlay", enable);
+    Q_EMIT settingsChanged();
+}
+
 QString ArtifactAppSettings::themeName() const {
     return impl_->store.valueString("UI/ThemeName", "Studio");
 }
@@ -112,6 +235,24 @@ int ArtifactAppSettings::renderThreadCount() const {
 
 void ArtifactAppSettings::setRenderThreadCount(int count) {
     impl_->store.setValue("Render/ThreadCount", count);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::toolbarShowGrid() const {
+    return impl_->store.valueBool("UI/Toolbar/ShowGrid", true);
+}
+
+void ArtifactAppSettings::setToolbarShowGrid(bool enable) {
+    impl_->store.setValue("UI/Toolbar/ShowGrid", enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::toolbarShowGuide() const {
+    return impl_->store.valueBool("UI/Toolbar/ShowGuide", true);
+}
+
+void ArtifactAppSettings::setToolbarShowGuide(bool enable) {
+    impl_->store.setValue("UI/Toolbar/ShowGuide", enable);
     Q_EMIT settingsChanged();
 }
 

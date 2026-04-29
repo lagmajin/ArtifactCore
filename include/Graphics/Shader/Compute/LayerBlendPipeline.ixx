@@ -32,7 +32,7 @@ export namespace ArtifactCore
  class LIBRARY_DLL_API LayerBlendPipeline
  {
  public:
-  explicit LayerBlendPipeline(GpuContext& context);
+  explicit LayerBlendPipeline(std::shared_ptr<GpuContext> context);
   ~LayerBlendPipeline();
 
   bool initialize();
@@ -66,7 +66,7 @@ export namespace ArtifactCore
    std::unique_ptr<ComputeExecutor> executor;
   };
 
-  GpuContext& context_;
+  std::shared_ptr<GpuContext> context_;
   class Impl;
   Impl* pImpl_ = nullptr;
   std::map<BlendMode, BlendExecutor> executors_;

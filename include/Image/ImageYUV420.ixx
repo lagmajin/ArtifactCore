@@ -33,10 +33,13 @@
 #include <numeric>
 #include <regex>
 #include <random>
-#include <opencv2/opencv.hpp>
 #include <QImage>
 #include <QtGui/QBitmap>
 export module Image.ImageYUV420;
+
+namespace cv {
+  class Mat;
+}
 
 
 

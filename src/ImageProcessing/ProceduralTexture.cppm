@@ -518,14 +518,12 @@ std::unique_ptr<ImageF32x4_RGBA> ProceduralTextureOutput::toFloatImage() const
     auto img = std::make_unique<ImageF32x4_RGBA>();
     if (!rgba32f.empty())
     {
-        cv::Mat mat(height, width, CV_32FC4, const_cast<float*>(rgba32f.data()));
-        img->setFromCVMat(mat);
+        img->setFromRGBA32F(rgba32f.data(), width, height);
         return img;
     }
     if (!rgba8.empty())
     {
-        cv::Mat mat(height, width, CV_8UC4, const_cast<std::uint8_t*>(rgba8.data()));
-        img->setFromCVMat(mat);
+        img->setFromRGBA8(rgba8.data(), width, height);
         return img;
     }
 
@@ -610,15 +608,13 @@ bool ProceduralTextureGenerator::generate(const ProceduralTextureSettings& setti
 
     if (!result.rgba32f.empty())
     {
-        cv::Mat mat(result.height, result.width, CV_32FC4, const_cast<float*>(result.rgba32f.data()));
-        output.setFromCVMat(mat);
+        output.setFromRGBA32F(result.rgba32f.data(), result.width, result.height);
         return true;
     }
 
     if (!result.rgba8.empty())
     {
-        cv::Mat mat(result.height, result.width, CV_8UC4, const_cast<std::uint8_t*>(result.rgba8.data()));
-        output.setFromCVMat(mat);
+        output.setFromRGBA8(result.rgba8.data(), result.width, result.height);
         return true;
     }
 
@@ -940,3 +936,6 @@ ITexture* ProceduralTextureComputePipeline::createOutputTexture(IRenderDevice* d
 }
 
 } // namespace ArtifactCore
+
+
+

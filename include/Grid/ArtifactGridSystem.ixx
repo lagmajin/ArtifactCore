@@ -20,7 +20,7 @@ namespace Artifact { class PrimitiveRenderer2D; }
 
 using namespace ArtifactCore;
 
-namespace Artifact::Grid {
+export namespace Artifact::Grid {
 
 /**
  * @brief 単位種別

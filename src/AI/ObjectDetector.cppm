@@ -1,10 +1,11 @@
 module;
 #include <utility>
 #include <iostream>
-#include <opencv2/opencv.hpp>
 #include <QImage>
+#include <QColor>
 #include <QList>
 #include <QRect>
+#include <QPainter>
 #include <QString>
 #include <QStringView>
 #include <QVariant>
@@ -12,7 +13,6 @@ module;
 module Core.AI.ObjectDetector;
 
 import Image.ImageF32x4_RGBA;
-import CvUtils;
 
 namespace ArtifactCore {
 
@@ -70,23 +70,32 @@ static AutoRegisterDescribable<ObjectDetector> _reg_ObjectDetector("ObjectDetect
 QList<Detection> ObjectDetector::detect(const ImageF32x4_RGBA& image) {
     if (image.isEmpty()) return {};
 
-    cv::Mat mat = image.toCVMat();
-    cv::Mat gray = CvUtils::ensureGray(mat);
-    
-    QList<Detection> results;
-    
-    // (Simulate) Real detection would be: 
-    // cv::CascadeClassifier classifier; classifier.detectMultiScale(gray, objects);
-    // For this stub, let's detect the "brightest" spot as an object
-    double minVal, maxVal;
-    cv::Point minLoc, maxLoc;
-    cv::minMaxLoc(gray, &minVal, &maxVal, &minLoc, &maxLoc);
+    QImage qimage = image.toQImage();
+    if (qimage.isNull()) return {};
+    QImage gray = qimage.convertToFormat(QImage::Format_Grayscale8);
 
-    if (maxVal > 0.8) { // Assuming float 0.0-1.0
+    QList<Detection> results;
+
+    int bestX = 0;
+    int bestY = 0;
+    int bestValue = -1;
+    for (int y = 0; y < gray.height(); ++y) {
+        const uchar *row = gray.constScanLine(y);
+        for (int x = 0; x < gray.width(); ++x) {
+            const int value = row[x];
+            if (value > bestValue) {
+                bestValue = value;
+                bestX = x;
+                bestY = y;
+            }
+        }
+    }
+
+    if (bestValue > static_cast<int>(0.8f * 255.0f)) {
         Detection d;
         d.label = "Subject";
-        d.confidence = static_cast<float>(maxVal);
-        d.rect = QRect(maxLoc.x - 25, maxLoc.y - 25, 50, 50);
+        d.confidence = static_cast<float>(bestValue) / 255.0f;
+        d.rect = QRect(bestX - 25, bestY - 25, 50, 50);
         results.append(d);
     }
     
@@ -97,12 +106,17 @@ void ObjectDetector::detectAndDraw(ImageF32x4_RGBA& image) {
     auto detections = detect(image);
     if (detections.isEmpty()) return;
 
-    cv::Mat mat = image.toCVMat();
-    
+    QImage qimage = image.toQImage().convertToFormat(QImage::Format_RGBA8888);
+    if (qimage.isNull()) return;
+    QPainter painter(&qimage);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
     for (const auto& d : detections) {
-        cv::Rect rect(d.rect.x(), d.rect.y(), d.rect.width(), d.rect.height());
-        CvUtils::drawDetection(mat, rect, d.label.toStdString(), cv::Scalar(0, 1, 0, 1)); // Green RGBA
+        painter.setPen(QPen(QColor(0, 255, 0), 2));
+        painter.drawRect(d.rect);
     }
+
+    image.setFromRGBA8(qimage.bits(), qimage.width(), qimage.height());
 }
 
 void ObjectDetector::setConfidenceThreshold(float threshold) {

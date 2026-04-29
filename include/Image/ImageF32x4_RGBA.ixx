@@ -16,6 +16,7 @@
 #include <cmath>
 #include <functional>
 #include <optional>
+#include <cstdint>
 #include <array>
 #include <chrono>
 
@@ -25,11 +26,11 @@
 //#include <atomic>
 #include <queue>
 #include <deque>
-#include <opencv2/opencv.hpp>
 #include <QImage>
 #include <QUuid>
 #include <QObject>
 #include <QString>
+#include <opencv2/core/mat.hpp>
 export module Image.ImageF32x4_RGBA;
 
 import Size;
@@ -49,8 +50,12 @@ export namespace ArtifactCore {
   ~ImageF32x4_RGBA();
   
   // 基本操作
-  auto toCVMat() const -> class cv::Mat;
+  auto toCVMat() const -> cv::Mat;
   QImage toQImage() const;
+  const float* rgba32fData() const;
+  float* rgba32fData();
+  const std::uint8_t* rgba8Data() const;
+  std::uint8_t* rgba8Data();
   void fill(const FloatRGBA& rgba);
   bool load(const QString& path);
   bool save(const QString& path) const;
@@ -73,6 +78,8 @@ export namespace ArtifactCore {
   ImageF32x4_RGBA crop(int x, int y, int width, int height) const;
   // Set from an existing OpenCV Mat (various types supported)
   void setFromCVMat(const cv::Mat& mat);
+  void setFromRGBA32F(const float* data, int width, int height);
+  void setFromRGBA8(const std::uint8_t* data, int width, int height);
   
   // ブレンディング
   void alphaBlend(const ImageF32x4_RGBA& overlay, float opacity = 1.0f);
@@ -94,6 +101,4 @@ export namespace ArtifactCore {
 
   //typedef std::shared_ptr<
 
- // ダミーのcv::Matラッパー型を forward declare（export してない）
- class cv_Mat;
 }

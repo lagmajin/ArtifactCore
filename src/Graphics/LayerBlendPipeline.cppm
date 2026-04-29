@@ -17,8 +17,8 @@ struct LayerBlendPipeline::Impl
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pBlendCB_;
 };
 
-LayerBlendPipeline::LayerBlendPipeline(GpuContext& context)
-    : context_(context), pImpl_(new Impl())
+LayerBlendPipeline::LayerBlendPipeline(std::shared_ptr<GpuContext> context)
+    : context_(std::move(context)), pImpl_(new Impl())
 {
 }
 
@@ -37,7 +37,8 @@ bool LayerBlendPipeline::initialize()
 
 bool LayerBlendPipeline::createConstantBuffer()
 {
- auto pDevice = context_.D3D12RenderDevice();
+ if (!context_) return false;
+ auto pDevice = context_->D3D12RenderDevice();
  if (!pDevice) return false;
 
  BufferDesc buffDesc;
@@ -70,7 +71,7 @@ bool LayerBlendPipeline::createExecutors()
 
  for (const auto& [mode, shaderCode] : BlendShaders) {
   BlendExecutor entry;
-  entry.executor = std::make_unique<ComputeExecutor>(context_);
+  entry.executor = std::make_unique<ComputeExecutor>(*context_);
 
   ComputePipelineDesc desc;
   desc.name               = "Blend PSO";

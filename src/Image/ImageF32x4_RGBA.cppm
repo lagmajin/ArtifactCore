@@ -274,6 +274,38 @@ namespace ArtifactCore {
    return impl_->mat_;
   }
 
+  const float* ImageF32x4_RGBA::rgba32fData() const
+  {
+   if (impl_->mat_.empty() || impl_->mat_.type() != CV_32FC4 || !impl_->mat_.isContinuous()) {
+    return nullptr;
+   }
+   return impl_->mat_.ptr<float>();
+  }
+
+  float* ImageF32x4_RGBA::rgba32fData()
+  {
+   if (impl_->mat_.empty() || impl_->mat_.type() != CV_32FC4 || !impl_->mat_.isContinuous()) {
+    return nullptr;
+   }
+   return impl_->mat_.ptr<float>();
+  }
+
+  const std::uint8_t* ImageF32x4_RGBA::rgba8Data() const
+  {
+   if (impl_->mat_.empty() || impl_->mat_.type() != CV_8UC4 || !impl_->mat_.isContinuous()) {
+    return nullptr;
+   }
+   return impl_->mat_.ptr<std::uint8_t>();
+  }
+
+  std::uint8_t* ImageF32x4_RGBA::rgba8Data()
+  {
+   if (impl_->mat_.empty() || impl_->mat_.type() != CV_8UC4 || !impl_->mat_.isContinuous()) {
+    return nullptr;
+   }
+   return impl_->mat_.ptr<std::uint8_t>();
+  }
+
   QImage ImageF32x4_RGBA::toQImage() const
   {
    return CvUtils::cvMatToQImage(impl_->mat_);
@@ -318,6 +350,7 @@ namespace ArtifactCore {
       cv::cvtColor(f, tmp, cv::COLOR_BGR2RGBA);
     } else if (mat.type() == CV_32FC3) {
       cv::cvtColor(mat, tmp, cv::COLOR_BGR2RGBA);
+      tmp.convertTo(tmp, CV_32F);
     } else if (mat.type() == CV_32FC4) {
       // zero-copy: directly take ownership of the provided float RGBA mat
       impl_->mat_ = mat; // shares the underlying buffer (refcounted)
@@ -340,6 +373,26 @@ namespace ArtifactCore {
     } else {
       impl_->mat_ = tmp; // assign without extra clone
     }
+  }
+
+  void ImageF32x4_RGBA::setFromRGBA32F(const float* data, int width, int height)
+  {
+   if (!data || width <= 0 || height <= 0) {
+    impl_->mat_.release();
+    return;
+   }
+   cv::Mat mat(height, width, CV_32FC4, const_cast<float*>(data));
+   setFromCVMat(mat);
+  }
+
+  void ImageF32x4_RGBA::setFromRGBA8(const std::uint8_t* data, int width, int height)
+  {
+   if (!data || width <= 0 || height <= 0) {
+    impl_->mat_.release();
+    return;
+   }
+   cv::Mat mat(height, width, CV_8UC4, const_cast<std::uint8_t*>(data));
+   setFromCVMat(mat);
   }
 
   ImageF32x4_RGBA ImageF32x4_RGBA::DeepCopy() const
@@ -437,3 +490,5 @@ namespace ArtifactCore {
   }
 
 };
+
+

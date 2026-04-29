@@ -7,6 +7,7 @@ module;
 
 export module Application.AppSettings;
 
+import Artifact.Grid.System;
 import Core.FastSettingsStore;
 
 namespace ArtifactCore {
@@ -31,6 +32,26 @@ public:
 
     int dockTabFontPointSize() const;
     void setDockTabFontPointSize(int pointSize);
+
+    // --- Composition View Defaults ---
+    float compositionCheckerboardSize() const;
+    void setCompositionCheckerboardSize(float size);
+    Artifact::Grid::GridSettings compositionGridSettings() const;
+    void setCompositionGridSettings(const Artifact::Grid::GridSettings& settings);
+    int compositionBackgroundMode() const;
+    void setCompositionBackgroundMode(int mode);
+    bool compositionShowGrid() const;
+    void setCompositionShowGrid(bool enable);
+    bool compositionShowGuides() const;
+    void setCompositionShowGuides(bool enable);
+    bool compositionShowSafeMargins() const;
+    void setCompositionShowSafeMargins(bool enable);
+    bool compositionShowAnchorCenterOverlay() const;
+    void setCompositionShowAnchorCenterOverlay(bool enable);
+    bool compositionShowCameraFrustumOverlay() const;
+    void setCompositionShowCameraFrustumOverlay(bool enable);
+    bool compositionShowMotionPathOverlay() const;
+    void setCompositionShowMotionPathOverlay(bool enable);
 
     // --- Import / Preview Defaults ---
     QString importDefaultFrameRateText() const;
@@ -90,6 +111,10 @@ public:
     // --- Render Settings ---
     int renderThreadCount() const;
     void setRenderThreadCount(int count);
+    bool toolbarShowGrid() const;
+    void setToolbarShowGrid(bool enable);
+    bool toolbarShowGuide() const;
+    void setToolbarShowGuide(bool enable);
 
     // --- Runtime States (Not persisted) ---
     bool isSafeMode() const;

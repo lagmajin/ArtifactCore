@@ -8,7 +8,8 @@ module;
 #include <QDir>
 #include <QImage>
 #include <OpenImageIO/imageio.h>
-#include <opencv2/opencv.hpp>
+
+module Encoder.FFmpegEncoder;
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -17,10 +18,7 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
-
-module Encoder.FFmpegEncoder;
 import Image;
-import CvUtils;
 import :Impl;
 
 namespace {
@@ -395,12 +393,11 @@ public:
         }
 
         // 入力画像データを RGBA 形式で一時バッファにコピー
-        const auto srcMat = image.toCVMat();
-        if (srcMat.empty()) {
-            lastError_ = "Failed to convert image to cv::Mat";
+        const float* srcData = image.rgba32fData();
+        if (!srcData) {
+            lastError_ = "Failed to access RGBA32F image data";
             return false;
         }
-        const float* srcData = reinterpret_cast<const float*>(srcMat.data);
 
         // 一時 RGBA フレーム作成
         AVFrame* rgbaFrame = av_frame_alloc();
@@ -512,7 +509,7 @@ public:
 
         if (isImageSequence_) {
             ImageF32x4_RGBA floatImage;
-            floatImage.setFromCVMat(CvUtils::qImageToCvMat(rgba));
+            floatImage.setFromRGBA8(rgba.constBits(), rgba.width(), rgba.height());
             return addImage(floatImage);
         }
 
@@ -579,19 +576,10 @@ public:
         }
 
         if (useOiioSequence_) {
-            const cv::Mat srcMat = image.toCVMat();
-            if (srcMat.empty()) {
-                lastError_ = "Failed to convert image to cv::Mat";
+            const float* srcData = image.rgba32fData();
+            if (!srcData) {
+                lastError_ = "Failed to access RGBA32F image data";
                 return false;
-            }
-            if (srcMat.type() != CV_32FC4) {
-                lastError_ = "EXR sequence expects CV_32FC4 input";
-                return false;
-            }
-
-            cv::Mat floatMat = srcMat.isContinuous() ? srcMat : srcMat.clone();
-            if (!floatMat.isContinuous()) {
-                floatMat = floatMat.clone();
             }
 
             using namespace OIIO;
@@ -609,7 +597,7 @@ public:
                 return false;
             }
 
-            if (!out->write_image(TypeDesc::FLOAT, floatMat.ptr<float>())) {
+            if (!out->write_image(TypeDesc::FLOAT, srcData)) {
                 lastError_ = QStringLiteral("Failed to write EXR frame: %1")
                                  .arg(QString::fromStdString(out->geterror()));
                 out->close();
@@ -627,12 +615,11 @@ public:
         }
 
         // 画像データを準備
-        const auto srcMat = image.toCVMat();
-        if (srcMat.empty()) {
-            lastError_ = "Failed to convert image to cv::Mat";
+        const float* srcData = image.rgba32fData();
+        if (!srcData) {
+            lastError_ = "Failed to access RGBA32F image data";
             return false;
         }
-        const float* srcData = reinterpret_cast<const float*>(srcMat.data);
         const int w = image.width();
         const int h = image.height();
 

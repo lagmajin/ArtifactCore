@@ -63,10 +63,10 @@ cbuffer BlendParams : register(b0)
     CHECK_BOUNDS \
     float4 src = SrcTex[id.xy]; \
     float4 dst = DstTex[id.xy]; \
-    float srcA = src.a * opacity; \
-    float3 srcRGB = src.rgb * opacity; \
+    float srcA = saturate(src.a * opacity); \
+    float3 srcRGB = src.rgb * srcA; \
     if (srcA <= 0.0001) { OutTex[id.xy] = dst; return; } \
-    if (dst.a <= 0.0001) { OutTex[id.xy] = float4(srcRGB, srcA); return; }
+    if (dst.a <= 0.0001) { OutTex[id.xy] = float4(src.rgb, srcA); return; }
 )";
 
 // =====================================================================
