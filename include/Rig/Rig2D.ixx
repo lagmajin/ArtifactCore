@@ -74,7 +74,7 @@ private:
 class Rig2D {
 public:
     Rig2D();
-    ~Rig2D() = default;
+    ~Rig2D();
 
     // ボーン管理
     Bone2D* addBone(const QString& name, Bone2D* parent = nullptr);

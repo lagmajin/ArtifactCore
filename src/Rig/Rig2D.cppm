@@ -71,6 +71,10 @@ void Bone2D::updateHierarchy() {
 Rig2D::Rig2D() {
 }
 
+Rig2D::~Rig2D() {
+    clearBones();
+}
+
 Bone2D* Rig2D::addBone(const QString& name, Bone2D* parent) {
     auto* bone = new Bone2D(name);
     bones_.append(bone);
