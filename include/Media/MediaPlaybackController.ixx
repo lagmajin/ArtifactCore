@@ -31,6 +31,7 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <cstring>
 #include <QString>
 #include <QImage>
 #include <QByteArray>
@@ -45,6 +46,7 @@ import MediaAudioDecoder;
 import Codec.MFFrameExtractor;
 import Media.MetaData;
 import Playback.State;
+import Video.VideoFrame;
 
 
 export namespace ArtifactCore {
@@ -186,14 +188,19 @@ export namespace ArtifactCore {
 
   // ̃rfIt[擾
   QImage getNextVideoFrame();
+  DecodedVideoFrame getNextVideoFrameRaw();
   
   // ݂̃rfIt[擾iĐʒui߂Ȃj
   QImage getCurrentVideoFrame();
+  DecodedVideoFrame getCurrentVideoFrameRaw();
   
   // wʒũrfIt[擾
   QImage getVideoFrameAt(int64_t timestampMs);
+  DecodedVideoFrame getVideoFrameAtRaw(int64_t timestampMs);
   QImage getVideoFrameAtFrame(int64_t frameNumber);
+  DecodedVideoFrame getVideoFrameAtFrameRaw(int64_t frameNumber);
   QImage getVideoFrameAtFrameDirect(int64_t frameNumber);
+  DecodedVideoFrame getVideoFrameAtFrameDirectRaw(int64_t frameNumber);
   
   // ̃I[fBIt[擾
   QByteArray getNextAudioFrame();

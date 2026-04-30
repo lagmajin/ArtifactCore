@@ -2,6 +2,8 @@ module;
 #include <utility>
 
 #include <QDebug>
+#include <QImage>
+#include <cstring>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -15,6 +17,7 @@ extern "C" {
 module MediaImageFrameDecoder;
 
 
+import Video.VideoFrame;
 import std;
 
 
@@ -32,6 +35,47 @@ AVDictionary* makeSingleThreadCodecOpenOptions() {
     av_dict_set(&opts, "threads", "1", 0);
     av_dict_set(&opts, "thread_type", "0", 0);
     return opts;
+}
+
+CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& source) {
+    if (source.isNull()) {
+        return {};
+    }
+
+    const QImage rgba = source.convertToFormat(QImage::Format_RGBA8888);
+    CpuVideoFrame out;
+    out.meta.width = rgba.width();
+    out.meta.height = rgba.height();
+    out.meta.pixelFormat = VideoFramePixelFormat::RGBA8;
+    out.strideBytes = rgba.bytesPerLine();
+    out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(out.meta.height));
+    for (int y = 0; y < out.meta.height; ++y) {
+        const std::uint8_t* src = rgba.constScanLine(y);
+        std::uint8_t* dst = out.bytes.data() + static_cast<size_t>(y) * static_cast<size_t>(out.strideBytes);
+        std::memcpy(dst, src, static_cast<size_t>(out.strideBytes));
+    }
+    return out;
+}
+
+CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsCtx, int width, int height, int64_t pts) {
+    CpuVideoFrame out;
+    if (!frame || !swsCtx || width <= 0 || height <= 0) {
+        return out;
+    }
+
+    out.meta.width = width;
+    out.meta.height = height;
+    out.meta.pts = pts;
+    out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
+    out.strideBytes = width * 3;
+    out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(height));
+
+    uint8_t* dst[4] = {};
+    int dstLinesize[4] = {};
+    dst[0] = out.bytes.data();
+    dstLinesize[0] = out.strideBytes;
+    sws_scale(swsCtx, frame->data, frame->linesize, 0, height, dst, dstLinesize);
+    return out;
 }
 }
 
@@ -150,6 +194,46 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
     return result;
 }
 
+DecodedVideoFrame MediaImageFrameDecoder::decodeFrameRaw(AVPacket* packet) {
+    if (!codecContext_ || !swsCtx_) {
+        return std::monostate{};
+    }
+
+    AVFrame* frame = av_frame_alloc();
+    if (!frame) {
+        return std::monostate{};
+    }
+
+    int ret = avcodec_send_packet(codecContext_, packet);
+    if (ret < 0) {
+        av_frame_free(&frame);
+        return std::monostate{};
+    }
+
+    while (true) {
+        ret = avcodec_receive_frame(codecContext_, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        }
+        if (ret < 0) {
+            av_frame_free(&frame);
+            return std::monostate{};
+        }
+
+        const int64_t pts = frame->best_effort_timestamp != AV_NOPTS_VALUE
+            ? frame->best_effort_timestamp
+            : frame->pts;
+        lastPts_ = pts;
+        CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, codecContext_->width, codecContext_->height, pts);
+        av_frame_unref(frame);
+        av_frame_free(&frame);
+        return out;
+    }
+
+    av_frame_free(&frame);
+    return std::monostate{};
+}
+
 int MediaImageFrameDecoder::sendPacket(AVPacket* packet) {
     if (!codecContext_) return AVERROR(EINVAL);
     return avcodec_send_packet(codecContext_, packet);
@@ -184,6 +268,35 @@ QImage MediaImageFrameDecoder::receiveFrame() {
 
     av_frame_free(&frame);
     return img;
+}
+
+DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
+    if (!codecContext_ || !swsCtx_) {
+        return std::monostate{};
+    }
+
+    AVFrame* frame = av_frame_alloc();
+    if (!frame) {
+        return std::monostate{};
+    }
+
+    int ret = avcodec_receive_frame(codecContext_, frame);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+        av_frame_free(&frame);
+        return std::monostate{};
+    }
+    if (ret < 0) {
+        av_frame_free(&frame);
+        return std::monostate{};
+    }
+
+    const int64_t pts = frame->best_effort_timestamp != AV_NOPTS_VALUE
+        ? frame->best_effort_timestamp
+        : frame->pts;
+    lastPts_ = pts;
+    CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, codecContext_->width, codecContext_->height, pts);
+    av_frame_free(&frame);
+    return out;
 }
 
 void MediaImageFrameDecoder::flush() {

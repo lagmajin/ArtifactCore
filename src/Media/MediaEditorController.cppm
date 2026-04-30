@@ -1,6 +1,8 @@
 module;
 
 #include <QDebug>
+#include <QImage>
+#include <cstring>
 
 #include <iostream>
 #include <vector>
@@ -43,6 +45,7 @@ import MediaEditorController;
 
 
 import MediaPlaybackController;
+import Video.VideoFrame;
 
 namespace ArtifactCore {
 
@@ -74,7 +77,21 @@ void MediaEditorController::seek(int64_t timeMs) {
 }
 
 QImage MediaEditorController::getCurrentFrame() {
-    return playbackController_->getNextVideoFrame();
+    const DecodedVideoFrame decoded = playbackController_->getNextVideoFrameRaw();
+    if (const auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+        QImage image(cpu->meta.width, cpu->meta.height, QImage::Format_RGB888);
+        if (image.isNull()) {
+            return QImage();
+        }
+        const int rowBytes = std::min(cpu->strideBytes, image.bytesPerLine());
+        for (int y = 0; y < cpu->meta.height; ++y) {
+            std::memcpy(image.scanLine(y),
+                        cpu->bytes.data() + static_cast<size_t>(y) * static_cast<size_t>(cpu->strideBytes),
+                        static_cast<size_t>(rowBytes));
+        }
+        return image;
+    }
+    return QImage();
 }
 
 QByteArray MediaEditorController::getCurrentAudio() {

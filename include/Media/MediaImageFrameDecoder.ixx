@@ -10,6 +10,8 @@ extern "C" {
 }
 export module MediaImageFrameDecoder;
 
+import Video.VideoFrame;
+
 
 
 export namespace ArtifactCore {
@@ -26,10 +28,12 @@ public:
 
     bool initialize(AVCodecParameters* codecParams);
     QImage decodeFrame(AVPacket* packet);
+    DecodedVideoFrame decodeFrameRaw(AVPacket* packet);
     
     // New methods for robust decoding
     int sendPacket(AVPacket* packet);
     QImage receiveFrame();
+    DecodedVideoFrame receiveFrameRaw();
     
     void flush();
     int64_t getLastDecodedPts() const { return lastPts_; }

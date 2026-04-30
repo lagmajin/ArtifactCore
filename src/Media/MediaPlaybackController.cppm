@@ -10,6 +10,7 @@ module;
 #include <QSize>
 #include <Qt>
 #include <limits>
+#include <cstring>
 
 extern "C" {
 #include <libavutil/error.h>
@@ -58,8 +59,71 @@ extern "C" {
 module MediaPlaybackController;
 
 import ArtifactCore.Utils.PerformanceProfiler;
+import Video.VideoFrame;
 
 namespace ArtifactCore {
+
+namespace {
+
+CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& image) {
+  if (image.isNull()) {
+    return {};
+  }
+
+  const QImage rgb = image.convertToFormat(QImage::Format_RGB888);
+  CpuVideoFrame out;
+  out.meta.width = rgb.width();
+  out.meta.height = rgb.height();
+  out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
+  out.strideBytes = rgb.bytesPerLine();
+  out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(out.meta.height));
+  for (int y = 0; y < out.meta.height; ++y) {
+    std::memcpy(out.bytes.data() + static_cast<size_t>(y) * static_cast<size_t>(out.strideBytes),
+                rgb.constScanLine(y),
+                static_cast<size_t>(out.strideBytes));
+  }
+  return out;
+}
+
+CpuVideoFrame makeCpuVideoFrameFromExtractedFrame(const ExtractedFrame& frame) {
+  CpuVideoFrame out;
+  if (!frame.isValid()) {
+    return out;
+  }
+
+  out.meta.width = frame.width;
+  out.meta.height = frame.height;
+  out.meta.pts = frame.timestamp;
+  out.meta.pixelFormat = VideoFramePixelFormat::RGBA8;
+  out.strideBytes = frame.stride > 0 ? frame.stride : frame.width * 4;
+  out.bytes = frame.data;
+  return out;
+}
+
+QImage makeQImageFromCpuVideoFrame(const CpuVideoFrame& frame) {
+  if (!frame.isValid() || frame.meta.width <= 0 || frame.meta.height <= 0 || frame.strideBytes <= 0) {
+    return QImage();
+  }
+
+  const QImage::Format format = frame.meta.pixelFormat == VideoFramePixelFormat::RGBA8
+      ? QImage::Format_RGBA8888
+      : QImage::Format_RGB888;
+
+  QImage image(frame.meta.width, frame.meta.height, format);
+  if (image.isNull()) {
+    return QImage();
+  }
+
+  const int copyBytes = std::min(frame.strideBytes, image.bytesPerLine());
+  for (int y = 0; y < frame.meta.height; ++y) {
+    std::memcpy(image.scanLine(y),
+                frame.bytes.data() + static_cast<size_t>(y) * static_cast<size_t>(frame.strideBytes),
+                static_cast<size_t>(copyBytes));
+  }
+  return image;
+}
+
+}
 
 class MediaPlaybackController::Impl {
  public:
@@ -112,16 +176,15 @@ class MediaPlaybackController::Impl {
     delete mfExtractor_;
   }
 
-  QImage decodeVideoFrameDirectAtFrame(int64_t frameNumber) {
+  DecodedVideoFrame decodeVideoFrameDirectAtFrameRaw(int64_t frameNumber) {
     if (backend_ == DecoderBackend::MediaFoundation && mfExtractor_ && mfExtractor_->isOpen()) {
       auto frame = mfExtractor_->extractFrameAtIndex(frameNumber);
       if (frame && frame->isValid()) {
         lastError_.clear();
-        QImage img(frame->data.data(), frame->width, frame->height, QImage::Format_RGBA8888);
-        return img.copy();
+        return makeCpuVideoFrameFromExtractedFrame(*frame);
       }
       lastError_ = mfExtractor_->lastError();
-      return QImage();
+      return std::monostate{};
     }
 
     if (!mediaSource_ || !mediaSource_->isOpen() || !videoDecoder_ || fps_ <= 0.0 || videoStreamIndex_ < 0) {
@@ -135,7 +198,7 @@ class MediaPlaybackController::Impl {
                  << "videoDecoder_=" << (videoDecoder_ ? "ok" : "null")
                  << "fps_=" << fps_
                  << "videoStreamIndex_=" << videoStreamIndex_;
-      return QImage();
+      return std::monostate{};
     }
 
     std::lock_guard<std::mutex> lock(directDecodeMutex_);
@@ -147,14 +210,14 @@ class MediaPlaybackController::Impl {
       lastError_ = QStringLiteral("FFmpeg direct decode seek failed at %1 ms").arg(targetMs);
       qWarning() << "[MediaPlayback] direct decode seek failed:" << targetMs << "ms";
       restoreFfmpegReaderState(wasPlaying);
-      return QImage();
+      return std::monostate{};
     }
 
     if (auto ctx = mediaSource_->getFormatContext(); !ctx) {
       lastError_ = QStringLiteral("FFmpeg direct decode failed: no format context");
       qWarning() << "[MediaPlayback] direct decode failed: no format context";
       restoreFfmpegReaderState(wasPlaying);
-      return QImage();
+      return std::monostate{};
     }
 
     AVPacket* pkt = av_packet_alloc();
@@ -162,11 +225,11 @@ class MediaPlaybackController::Impl {
       lastError_ = QStringLiteral("FFmpeg direct decode failed: packet alloc");
       qWarning() << "[MediaPlayback] direct decode failed: packet alloc";
       restoreFfmpegReaderState(wasPlaying);
-      return QImage();
+      return std::monostate{};
     }
 
-    QImage result;
-    QImage lastDecodedFrame;
+    DecodedVideoFrame result = std::monostate{};
+    DecodedVideoFrame lastDecodedFrame = std::monostate{};
     const int64_t targetPts =
         (videoTimeBase_.den > 0)
             ? av_rescale_q(targetMs, AVRational{1, 1000}, videoTimeBase_)
@@ -180,19 +243,22 @@ class MediaPlaybackController::Impl {
     // Helper: drain decoded frames from the video decoder
     auto drainFrames = [&]() {
       while (true) {
-        QImage decoded = videoDecoder_->receiveFrame();
-        if (decoded.isNull()) break;
-        lastDecodedFrame = decoded;
-        const int64_t decodedPts = videoDecoder_->getLastDecodedPts();
-        if (targetPts == AV_NOPTS_VALUE || decodedPts == AV_NOPTS_VALUE ||
-            decodedPts >= targetPts) {
-          result = decoded;
+        DecodedVideoFrame decoded = videoDecoder_->receiveFrameRaw();
+        if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+          lastDecodedFrame = *cpu;
+          const int64_t decodedPts = cpu->meta.pts;
+          if (targetPts == AV_NOPTS_VALUE || decodedPts == AV_NOPTS_VALUE ||
+              decodedPts >= targetPts) {
+            result = *cpu;
+            break;
+          }
+        } else {
           break;
         }
       }
     };
 
-    while (packetsRead < maxPackets && result.isNull()) {
+    while (packetsRead < maxPackets && !std::holds_alternative<CpuVideoFrame>(result)) {
       const int readRet = av_read_frame(ctx, pkt);
       if (readRet < 0) {
         lastReadError = readRet;
@@ -210,7 +276,7 @@ class MediaPlaybackController::Impl {
         int ret = videoDecoder_->sendPacket(pkt);
         if (ret == AVERROR(EAGAIN)) {
           drainFrames();
-          if (!result.isNull()) break;
+          if (std::holds_alternative<CpuVideoFrame>(result)) break;
           ret = videoDecoder_->sendPacket(pkt);
         }
         av_packet_unref(pkt);
@@ -232,11 +298,11 @@ class MediaPlaybackController::Impl {
 
     restoreFfmpegReaderState(wasPlaying);
 
-    if (result.isNull() && !lastDecodedFrame.isNull()) {
+    if (!std::holds_alternative<CpuVideoFrame>(result) && std::holds_alternative<CpuVideoFrame>(lastDecodedFrame)) {
       result = lastDecodedFrame;
     }
 
-    if (result.isNull()) {
+    if (!std::holds_alternative<CpuVideoFrame>(result)) {
       lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 videoStreamIndex=%5 packetsRead=%6 maxPackets=%7 eof=%8 readError=%9")
           .arg(frameNumber)
           .arg(targetMs)
@@ -258,13 +324,22 @@ class MediaPlaybackController::Impl {
                  << "readError=" << lastReadError;
     } else {
       lastError_.clear();
+      const auto* cpu = std::get_if<CpuVideoFrame>(&result);
       qDebug() << "[MediaPlayback] direct decode ok"
                << "frame=" << frameNumber
                << "targetMs=" << targetMs
                << "targetPts=" << targetPts
-               << "size=" << result.width() << "x" << result.height();
+               << "size=" << cpu->meta.width << "x" << cpu->meta.height;
     }
     return result;
+  }
+
+  QImage decodeVideoFrameDirectAtFrame(int64_t frameNumber) {
+    DecodedVideoFrame decoded = decodeVideoFrameDirectAtFrameRaw(frameNumber);
+    if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+      return makeQImageFromCpuVideoFrame(*cpu);
+    }
+    return QImage();
   }
 
   void updatePlaybackInfo() {
@@ -729,100 +804,241 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
   return impl_ && impl_->isMuted_;
  }
 
- void MediaPlaybackController::toggleMute() {
+void MediaPlaybackController::toggleMute() {
   if (!impl_) return;
   impl_->isMuted_ = !impl_->isMuted_;
- }
+}
+
+DecodedVideoFrame MediaPlaybackController::getNextVideoFrameRaw() {
+  if (!impl_) return std::monostate{};
+
+  if (impl_->backend_ == DecoderBackend::MediaFoundation) {
+    if (!impl_->mfExtractor_ || !impl_->mfExtractor_->isOpen()) {
+      impl_->lastError_ = QStringLiteral("MF extractor is closed");
+      return std::monostate{};
+    }
+    const int64_t frameNumber = std::max<int64_t>(0, impl_->currentFrame_);
+    auto frame = impl_->mfExtractor_->extractFrameAtIndex(frameNumber);
+    if (!frame || !frame->isValid()) {
+      impl_->lastError_ = impl_->mfExtractor_->lastError();
+      return std::monostate{};
+    }
+    impl_->currentFrame_ = frameNumber + 1;
+    if (impl_->fps_ > 0.0) {
+      impl_->currentPositionMs_ = static_cast<int64_t>((impl_->currentFrame_ / impl_->fps_) * 1000.0);
+    }
+    impl_->lastError_.clear();
+    return makeCpuVideoFrameFromExtractedFrame(*frame);
+  }
+
+  if (!impl_->mediaReader_ || !impl_->videoDecoder_) {
+    return std::monostate{};
+  }
+
+  impl_->mediaReader_->start();
+  while (true) {
+    AVPacket* pkt = nullptr;
+    for (int attempt = 0; attempt < impl_->videoPacketWaitAttempts_ && !pkt; ++attempt) {
+      pkt = impl_->mediaReader_->getNextPacket(StreamType::Video);
+      if (!pkt) {
+        if ((attempt & 0x3) == 3) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+          std::this_thread::yield();
+        }
+      }
+    }
+    if (!pkt) {
+      impl_->notifyEndOfMedia();
+      return std::monostate{};
+    }
+
+    const int ret = impl_->videoDecoder_->sendPacket(pkt);
+    av_packet_free(&pkt);
+    if (ret < 0) {
+      impl_->lastError_ = QStringLiteral("FFmpeg raw decode sendPacket failed: %1").arg(ret);
+      return std::monostate{};
+    }
+
+    while (true) {
+      DecodedVideoFrame decoded = impl_->videoDecoder_->receiveFrameRaw();
+      if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+        ++impl_->currentFrame_;
+        if (impl_->fps_ > 0.0) {
+          impl_->currentPositionMs_ = static_cast<int64_t>((impl_->currentFrame_ / impl_->fps_) * 1000.0);
+        }
+        impl_->notifyPositionChanged(impl_->currentPositionMs_);
+        return *cpu;
+      }
+      break;
+    }
+  }
+}
+
+DecodedVideoFrame MediaPlaybackController::getCurrentVideoFrameRaw() {
+  if (!impl_) return std::monostate{};
+  return getVideoFrameAtFrameDirectRaw(getCurrentFrame());
+}
+
+DecodedVideoFrame MediaPlaybackController::getVideoFrameAtRaw(int64_t timestampMs) {
+  if (!impl_) return std::monostate{};
+  const double fps = impl_->fps_;
+  const int64_t frameNumber = fps > 0.0 ? static_cast<int64_t>((timestampMs / 1000.0) * fps) : 0;
+  return getVideoFrameAtFrameDirectRaw(frameNumber);
+}
+
+DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameRaw(int64_t frameNumber) {
+  return getVideoFrameAtFrameDirectRaw(frameNumber);
+}
+
+DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t frameNumber) {
+  if (!impl_) return std::monostate{};
+
+  if (impl_->backend_ == DecoderBackend::MediaFoundation) {
+    if (!impl_->mfExtractor_ || !impl_->mfExtractor_->isOpen()) {
+      impl_->lastError_ = QStringLiteral("MF extractor is closed");
+      return std::monostate{};
+    }
+    auto frame = impl_->mfExtractor_->extractFrameAtIndex(frameNumber);
+    if (!frame || !frame->isValid()) {
+      impl_->lastError_ = impl_->mfExtractor_->lastError();
+      return std::monostate{};
+    }
+    impl_->currentFrame_ = frameNumber;
+    if (impl_->fps_ > 0.0) {
+      impl_->currentPositionMs_ = static_cast<int64_t>((impl_->currentFrame_ / impl_->fps_) * 1000.0);
+    }
+    impl_->lastError_.clear();
+    return makeCpuVideoFrameFromExtractedFrame(*frame);
+  }
+
+  if (!impl_->mediaSource_ || !impl_->mediaSource_->isOpen() || !impl_->videoDecoder_ || impl_->fps_ <= 0.0 || impl_->videoStreamIndex_ < 0) {
+    impl_->lastError_ = QStringLiteral("FFmpeg raw direct decode invalid state");
+    return std::monostate{};
+  }
+
+  std::lock_guard<std::mutex> lock(impl_->directDecodeMutex_);
+
+  const bool wasPlaying = impl_->state_ == PlaybackState::Playing;
+  const int64_t targetMs = static_cast<int64_t>((frameNumber / impl_->fps_) * 1000.0);
+  if (!impl_->prepareFfmpegSeekReset(targetMs, false)) {
+    impl_->lastError_ = QStringLiteral("FFmpeg raw direct decode seek failed at %1 ms").arg(targetMs);
+    impl_->restoreFfmpegReaderState(wasPlaying);
+    return std::monostate{};
+  }
+
+  AVPacket* pkt = av_packet_alloc();
+  if (!pkt) {
+    impl_->lastError_ = QStringLiteral("FFmpeg raw direct decode packet alloc failed");
+    impl_->restoreFfmpegReaderState(wasPlaying);
+    return std::monostate{};
+  }
+
+  DecodedVideoFrame result = std::monostate{};
+  const int maxPackets = std::max(512, impl_->videoPacketWaitAttempts_ * 8);
+  int packetsRead = 0;
+  AVFormatContext* ctx = impl_->mediaSource_->getFormatContext();
+
+  while (packetsRead < maxPackets) {
+    const int readRet = av_read_frame(ctx, pkt);
+    if (readRet < 0) {
+      if (readRet == AVERROR_EOF) {
+        impl_->videoDecoder_->sendPacket(nullptr);
+        while (true) {
+          DecodedVideoFrame decoded = impl_->videoDecoder_->receiveFrameRaw();
+          if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+            result = *cpu;
+            break;
+          }
+          break;
+        }
+      }
+      break;
+    }
+    ++packetsRead;
+
+    if (pkt->stream_index == impl_->videoStreamIndex_) {
+      int ret = impl_->videoDecoder_->sendPacket(pkt);
+      av_packet_unref(pkt);
+      if (ret < 0) {
+        impl_->lastError_ = QStringLiteral("FFmpeg raw direct decode sendPacket failed: %1").arg(ret);
+        break;
+      }
+
+      while (true) {
+        DecodedVideoFrame decoded = impl_->videoDecoder_->receiveFrameRaw();
+        if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+          result = *cpu;
+          break;
+        }
+        break;
+      }
+
+      if (std::holds_alternative<CpuVideoFrame>(result)) {
+        break;
+      }
+    } else {
+      av_packet_unref(pkt);
+    }
+  }
+
+  av_packet_free(&pkt);
+  impl_->restoreFfmpegReaderState(wasPlaying);
+
+  if (auto* cpu = std::get_if<CpuVideoFrame>(&result)) {
+    impl_->currentFrame_ = frameNumber;
+    impl_->currentPositionMs_ = targetMs;
+    impl_->lastError_.clear();
+    return *cpu;
+  }
+
+  return std::monostate{};
+}
 
 	 QImage MediaPlaybackController::getNextVideoFrame() {
   if (!impl_) return QImage();
-  return backendFor(impl_->backend_).getNextVideoFrame(*impl_);
- }
+  DecodedVideoFrame decoded = getNextVideoFrameRaw();
+  if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+    return makeQImageFromCpuVideoFrame(*cpu);
+  }
+  return QImage();
+}
 
  QImage MediaPlaybackController::getCurrentVideoFrame() {
-  if (!impl_ || !impl_->videoDecoder_) {
-   return QImage();
+  if (!impl_) return QImage();
+  DecodedVideoFrame decoded = getCurrentVideoFrameRaw();
+  if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+    return makeQImageFromCpuVideoFrame(*cpu);
   }
-  // ݈ʒũt[擾iĐʒui߂Ȃj
-  // ۂ̎ł݂͌̃t[LbVKv
   return QImage();
- }
+}
 
  QImage MediaPlaybackController::getVideoFrameAt(int64_t timestampMs) {
   if (!impl_) return QImage();
-  const double fps = impl_->fps_;
-  const int64_t frameNumber = fps > 0.0 ? static_cast<int64_t>((timestampMs / 1000.0) * fps) : 0;
-  return backendFor(impl_->backend_).getVideoFrameAtFrameDirect(*impl_, frameNumber);
- }
+  DecodedVideoFrame decoded = getVideoFrameAtRaw(timestampMs);
+  if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+    return makeQImageFromCpuVideoFrame(*cpu);
+  }
+  return QImage();
+}
 
  QImage MediaPlaybackController::getVideoFrameAtFrame(int64_t frameNumber) {
-  if (!impl_) {
-   return QImage();
+  if (!impl_) return QImage();
+  DecodedVideoFrame decoded = getVideoFrameAtFrameRaw(frameNumber);
+  if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+    return makeQImageFromCpuVideoFrame(*cpu);
   }
-
-  if (impl_->backend_ == DecoderBackend::MediaFoundation) {
-   return backendFor(impl_->backend_).getVideoFrameAtFrameDirect(*impl_, frameNumber);
-  }
-
-  if (impl_->fps_ <= 0) {
-   qDebug() << "[MediaPlayback] getVideoFrameAtFrame: impl_ or fps invalid";
-   return QImage();
-  }
-
-  double targetSec = frameNumber / impl_->fps_;
-  int64_t targetMs = static_cast<int64_t>(targetSec * 1000.0);
-
-  int64_t targetPts = 0;
-  if (impl_->videoStreamIndex_ >= 0 && impl_->videoTimeBase_.den > 0) {
-      double timebaseSec = static_cast<double>(impl_->videoTimeBase_.num) / impl_->videoTimeBase_.den;
-      targetPts = static_cast<int64_t>(targetSec / timebaseSec);
-  } else {
-      targetPts = static_cast<int64_t>(targetSec * 90000.0);
-  }
-
-  qDebug() << "[MediaPlayback] getVideoFrameAtFrame:" << frameNumber
-           << "targetSec=" << targetSec
-           << "targetMs=" << targetMs
-           << "targetPts=" << targetPts
-           << "fps=" << impl_->fps_;
-
-  seek(targetMs, SeekMode::Accurate);
-
-  QImage result;
-  const int maxDiscard = 300;
-  int loopCount = 0;
-  for (int i = 0; i < maxDiscard; ++i) {
-      result = getNextVideoFrame();
-      loopCount = i + 1;
-      if (result.isNull()) {
-          break;
-      }
-      
-      int64_t currentPts = impl_->videoDecoder_->getLastDecodedPts();
-      if (currentPts >= targetPts) {
-          break;
-      }
-  }
-
-  if (result.isNull()) {
-   qDebug() << "[MediaPlayback] getVideoFrameAtFrame: NULL after" << loopCount << "iterations";
-    result = backendFor(impl_->backend_).getVideoFrameAtFrameDirect(*impl_, frameNumber);
-  } else {
-   qDebug() << "[MediaPlayback] got frame after" << loopCount << "iterations, size=" << result.width() << "x" << result.height();
-  }
-  
-  impl_->currentPositionMs_ = targetMs;
-  impl_->currentFrame_ = frameNumber;
-  
-  return result;
- }
+  return QImage();
+}
 
  QImage MediaPlaybackController::getVideoFrameAtFrameDirect(int64_t frameNumber) {
-  if (!impl_) {
-   return QImage();
+  if (!impl_) return QImage();
+  DecodedVideoFrame decoded = getVideoFrameAtFrameDirectRaw(frameNumber);
+  if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+    return makeQImageFromCpuVideoFrame(*cpu);
   }
-  return backendFor(impl_->backend_).getVideoFrameAtFrameDirect(*impl_, frameNumber);
- }
+  return QImage();
+}
 
 	 QByteArray MediaPlaybackController::getNextAudioFrame() {
   if (!impl_ || !impl_->mediaReader_ || !impl_->audioDecoder_) {
@@ -1156,11 +1372,15 @@ QImage FFmpegPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& i
       return QImage();
     }
 
-    QImage img = impl.videoDecoder_->decodeFrame(pkt);
+    DecodedVideoFrame decoded = impl.videoDecoder_->decodeFrameRaw(pkt);
     av_packet_free(&pkt);
-    if (!img.isNull()) {
-      impl.notifyPositionChanged(impl.currentPositionMs_ + static_cast<int64_t>(1000.0 / std::max(0.0001, impl.fps_)));
-      return img;
+    if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+      ++impl.currentFrame_;
+      if (impl.fps_ > 0.0) {
+        impl.currentPositionMs_ = static_cast<int64_t>((impl.currentFrame_ / impl.fps_) * 1000.0);
+      }
+      impl.notifyPositionChanged(impl.currentPositionMs_);
+      return makeQImageFromCpuVideoFrame(*cpu);
     }
   }
 }
