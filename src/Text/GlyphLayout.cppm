@@ -41,6 +41,7 @@ struct ShapedLine {
   float width = 0.0f;
   float height = 0.0f;
   float ascent = 0.0f;
+  std::vector<float> cursorX;
 };
 
 bool isLineBreak(char32_t code) {
@@ -151,6 +152,11 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
     shapedLine.height = static_cast<float>(
         std::max<qreal>(line.height(), lineHeightFallback));
     shapedLine.ascent = static_cast<float>(line.ascent());
+    shapedLine.cursorX.resize(static_cast<size_t>(shapedLine.lengthUtf16 + 1), 0.0f);
+    for (int cursor = 0; cursor <= shapedLine.lengthUtf16; ++cursor) {
+      shapedLine.cursorX[static_cast<size_t>(cursor)] =
+          static_cast<float>(line.cursorToX(cursor));
+    }
     lines.push_back(shapedLine);
   }
   layout.endLayout();
@@ -247,8 +253,8 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
       const char32_t code = u32text[codepointIndex];
       const int utf16Length = code > 0xFFFF ? 2 : 1;
       const int lineCursor = utf16Index - lineStart;
-      const qreal localX = line.cursorToX(lineCursor);
-      const qreal localEndX = line.cursorToX(lineCursor + utf16Length);
+      const qreal localX = line.cursorX[static_cast<size_t>(lineCursor)];
+      const qreal localEndX = line.cursorX[static_cast<size_t>(lineCursor + utf16Length)];
       const qreal glyphWidth = std::max<qreal>(0.0, localEndX - localX);
       const bool whitespace = isWhitespace(code);
 
@@ -256,7 +262,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
       item.charCode = code;
       item.index = static_cast<int>(codepointIndex);
       item.basePosition = QPointF(xOffset + localX + extraAdvance,
-                                  y + line.ascent());
+                                  y + line.ascent);
       item.baseRotation = 0.0f;
       item.baseScale = 1.0f;
       item.offsetPosition = QPointF(0.0f, 0.0f);
@@ -265,7 +271,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
       item.offsetOpacity = 1.0f;
       item.bounds = QRectF(xOffset + localX + extraAdvance, y,
                            glyphWidth + ((shouldJustify && whitespace) ? justifyStep : 0.0f),
-                           line.height());
+                           line.height);
       result.push_back(item);
 
       if (shouldJustify && whitespace) {
@@ -274,7 +280,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
       ++codepointIndex;
     }
 
-    y += line.height();
+    y += line.height;
     if (paragraph.paragraphSpacing > 0.0f) {
       y += paragraph.paragraphSpacing;
     }

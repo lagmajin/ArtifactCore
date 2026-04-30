@@ -65,8 +65,9 @@ cbuffer BlendParams : register(b0)
     float4 dst = DstTex[id.xy]; \
     float srcA = saturate(src.a * opacity); \
     float3 srcRGB = src.rgb * srcA; \
+    float3 srcColor = src.rgb; \
     if (srcA <= 0.0001) { OutTex[id.xy] = dst; return; } \
-    if (dst.a <= 0.0001) { OutTex[id.xy] = float4(src.rgb, srcA); return; }
+    if (dst.a <= 0.0001) { OutTex[id.xy] = float4(srcRGB, srcA); return; }
 )";
 
 // =====================================================================
@@ -90,7 +91,7 @@ void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
     float3 blended = saturate(dst.rgb + srcRGB);
-    float outA = saturate(dst.a + srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -101,7 +102,7 @@ void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
     float3 blended = saturate(dst.rgb - srcRGB);
-    float outA = saturate(dst.a - srcA);
+    float outA = srcA + dst.a * (1.0 - srcA);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";

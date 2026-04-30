@@ -83,7 +83,7 @@ QImage MediaEditorController::getCurrentFrame() {
         if (image.isNull()) {
             return QImage();
         }
-        const int rowBytes = std::min(cpu->strideBytes, image.bytesPerLine());
+        const int rowBytes = std::min<int>(cpu->strideBytes, image.bytesPerLine());
         for (int y = 0; y < cpu->meta.height; ++y) {
             std::memcpy(image.scanLine(y),
                         cpu->bytes.data() + static_cast<size_t>(y) * static_cast<size_t>(cpu->strideBytes),

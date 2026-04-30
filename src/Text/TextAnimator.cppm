@@ -6,6 +6,7 @@ module;
 #include <algorithm>
 #include <random>
 #include <numbers>
+#include <tuple>
 
 module Text.Animator;
 import Text.Animator;
@@ -106,6 +107,24 @@ void TextAnimatorEngine::applyAnimator(
 
         // 特殊効果
         glyphs[i].offsetBlur += props.blur * totalWeight;
+    }
+}
+
+void TextAnimatorEngine::applyAnimatorStack(
+    std::vector<GlyphItem>& glyphs,
+    std::span<const std::tuple<RangeSelector, WigglySelector, AnimatorProperties>> stack,
+    float time)
+{
+    if (stack.empty() || glyphs.empty()) {
+        return;
+    }
+
+    for (const auto& entry : stack) {
+        applyAnimator(glyphs,
+                      std::get<0>(entry),
+                      std::get<1>(entry),
+                      std::get<2>(entry),
+                      time);
     }
 }
 

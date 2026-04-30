@@ -12,10 +12,6 @@ module;
 #include <limits>
 #include <cstring>
 
-extern "C" {
-#include <libavutil/error.h>
-}
-
 #include <cerrno>
 #include <iostream>
 #include <vector>
@@ -50,13 +46,14 @@ extern "C" {
 #include <numeric>
 #include <regex>
 #include <random>
+module MediaPlaybackController;
+
 extern "C" {
+#include <libavutil/error.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 }
-
-module MediaPlaybackController;
 
 import ArtifactCore.Utils.PerformanceProfiler;
 import Video.VideoFrame;
@@ -114,7 +111,7 @@ QImage makeQImageFromCpuVideoFrame(const CpuVideoFrame& frame) {
     return QImage();
   }
 
-  const int copyBytes = std::min(frame.strideBytes, image.bytesPerLine());
+  const int copyBytes = std::min<int>(frame.strideBytes, image.bytesPerLine());
   for (int y = 0; y < frame.meta.height; ++y) {
     std::memcpy(image.scanLine(y),
                 frame.bytes.data() + static_cast<size_t>(y) * static_cast<size_t>(frame.strideBytes),
@@ -1351,6 +1348,8 @@ void FFmpegPlaybackBackend::seekToFrame(MediaPlaybackController::Impl& impl, int
 
 QImage FFmpegPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& impl) {
   if (!impl.mediaReader_ || !impl.videoDecoder_) {
+    impl.notifyError(QStringLiteral("FFmpeg video decoder is not available"));
+    qWarning() << "[FFmpegBackend] getNextVideoFrame requested without an active reader/decoder";
     return QImage();
   }
 
@@ -1382,6 +1381,17 @@ QImage FFmpegPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& i
       impl.notifyPositionChanged(impl.currentPositionMs_);
       return makeQImageFromCpuVideoFrame(*cpu);
     }
+    if (std::holds_alternative<GpuVideoFrame>(decoded)) {
+      impl.notifyError(QStringLiteral("FFmpeg backend produced a GPU video frame that the Qt preview path cannot present yet"));
+      qWarning() << "[FFmpegBackend] getNextVideoFrame produced unsupported GPU frame"
+                 << "frame=" << impl.currentFrame_
+                 << "positionMs=" << impl.currentPositionMs_;
+      return QImage();
+    }
+    impl.notifyError(QStringLiteral("FFmpeg backend decoded an empty video frame"));
+    qWarning() << "[FFmpegBackend] getNextVideoFrame produced empty decoded frame"
+               << "frame=" << impl.currentFrame_
+               << "positionMs=" << impl.currentPositionMs_;
   }
 }
 

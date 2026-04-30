@@ -2,12 +2,6 @@ module;
 
 #include <QDebug>
 #include <QString>
-extern "C" {
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libswscale/swscale.h>
-#include <libavutil/imgutils.h>
-}
 
 #include <iostream>
 #include <vector>
@@ -44,6 +38,13 @@ extern "C" {
 #include <random>
 module Codec.FFmpegVideoDecoder;
 
+extern "C" {
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
+}
+
 import Video.VideoFrame;
 
 namespace ArtifactCore {
@@ -77,7 +78,6 @@ static CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsC
   out.meta.width = width;
   out.meta.height = height;
   out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
-  out.meta.storageKind = VideoFrameStorageKind::SystemMemory;
   out.meta.pts = pts;
   out.strideBytes = width * 3;
   out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(height));
