@@ -5,6 +5,7 @@ module;
 #include <QVector3D>
 #include <QMatrix4x4>
 #include <QList>
+#include <QHash>
 #include <QJsonObject>
 #include <QVariant>
 #include <memory>
@@ -131,6 +132,30 @@ private:
     bool enabled_ = true;
 };
 
+class Rig2D;
+
+class RigEvaluationContext2D {
+public:
+    RigEvaluationContext2D();
+
+    void setRig(Rig2D* rig);
+    Rig2D* rig() const { return rig_; }
+    const RationalTime& time() const { return time_; }
+    void setTime(const RationalTime& time);
+
+    void indexBones(const QList<Bone2D*>& bones);
+    void indexControls(const QList<RigControl2D*>& controls);
+
+    Bone2D* findBone(const Id& id) const;
+    RigControl2D* findControl(const Id& id) const;
+
+private:
+    Rig2D* rig_ = nullptr;
+    RationalTime time_;
+    QHash<Id, Bone2D*> bonesById_;
+    QHash<Id, RigControl2D*> controlsById_;
+};
+
 class RigConstraint2D {
 public:
     RigConstraint2D();
@@ -145,7 +170,7 @@ public:
     void setEnabled(bool enabled) { enabled_ = enabled; }
 
     virtual RigConstraintKind kind() const = 0;
-    virtual void evaluate(class Rig2D& rig, const RationalTime& time) = 0;
+    virtual void evaluate(RigEvaluationContext2D& context) = 0;
     virtual QJsonObject toJson() const = 0;
 
 protected:
@@ -160,7 +185,7 @@ public:
     ParentConstraint2D(const QString& name, const Id& targetBoneId, const Id& parentBoneId);
 
     RigConstraintKind kind() const override { return RigConstraintKind::Parent; }
-    void evaluate(Rig2D& rig, const RationalTime& time) override;
+    void evaluate(RigEvaluationContext2D& context) override;
     QJsonObject toJson() const override;
     static std::shared_ptr<ParentConstraint2D> fromJson(const QJsonObject& object);
 
@@ -183,7 +208,7 @@ public:
     MapRangeConstraint2D(const QString& name, const Id& controlId, const Id& targetBoneId);
 
     RigConstraintKind kind() const override { return RigConstraintKind::MapRange; }
-    void evaluate(Rig2D& rig, const RationalTime& time) override;
+    void evaluate(RigEvaluationContext2D& context) override;
     QJsonObject toJson() const override;
     static std::shared_ptr<MapRangeConstraint2D> fromJson(const QJsonObject& object);
 
@@ -215,7 +240,7 @@ public:
     AimConstraint2D(const QString& name, const Id& sourceBoneId, const Id& targetBoneId);
 
     RigConstraintKind kind() const override { return RigConstraintKind::Aim; }
-    void evaluate(Rig2D& rig, const RationalTime& time) override;
+    void evaluate(RigEvaluationContext2D& context) override;
     QJsonObject toJson() const override;
     static std::shared_ptr<AimConstraint2D> fromJson(const QJsonObject& object);
 
@@ -242,7 +267,7 @@ public:
                           const Id& targetBoneId);
 
     RigConstraintKind kind() const override { return RigConstraintKind::TwoBoneIK; }
-    void evaluate(Rig2D& rig, const RationalTime& time) override;
+    void evaluate(RigEvaluationContext2D& context) override;
     QJsonObject toJson() const override;
     static std::shared_ptr<TwoBoneIKConstraint2D> fromJson(const QJsonObject& object);
 

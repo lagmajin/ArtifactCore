@@ -24,6 +24,56 @@ import Time.Rational;
 
 namespace ArtifactCore {
 
+// ─────────────────────────────────────────────────────────
+// RigEvaluationContext2D 実装
+// ─────────────────────────────────────────────────────────
+
+RigEvaluationContext2D::RigEvaluationContext2D()
+{
+}
+
+void RigEvaluationContext2D::setRig(Rig2D* rig)
+{
+    rig_ = rig;
+}
+
+void RigEvaluationContext2D::setTime(const RationalTime& time)
+{
+    time_ = time;
+}
+
+void RigEvaluationContext2D::indexBones(const QList<Bone2D*>& bones)
+{
+    bonesById_.clear();
+    for (Bone2D* bone : bones) {
+        if (bone) {
+            bonesById_.insert(bone->id(), bone);
+        }
+    }
+}
+
+void RigEvaluationContext2D::indexControls(const QList<RigControl2D*>& controls)
+{
+    controlsById_.clear();
+    for (RigControl2D* control : controls) {
+        if (control) {
+            controlsById_.insert(control->id(), control);
+        }
+    }
+}
+
+Bone2D* RigEvaluationContext2D::findBone(const Id& id) const
+{
+    const auto it = bonesById_.constFind(id);
+    return it == bonesById_.constEnd() ? nullptr : it.value();
+}
+
+RigControl2D* RigEvaluationContext2D::findControl(const Id& id) const
+{
+    const auto it = controlsById_.constFind(id);
+    return it == controlsById_.constEnd() ? nullptr : it.value();
+}
+
 namespace {
 
 QJsonObject vector2DToJson(const QVector2D& value) {
@@ -290,15 +340,14 @@ ParentConstraint2D::ParentConstraint2D(const QString& name, const Id& targetBone
 {
 }
 
-void ParentConstraint2D::evaluate(Rig2D& rig, const RationalTime& time)
+void ParentConstraint2D::evaluate(RigEvaluationContext2D& context)
 {
-    Q_UNUSED(time);
     if (!enabled_) {
         return;
     }
 
-    Bone2D* target = rig.findBone(targetBoneId_);
-    Bone2D* parent = rig.findBone(parentBoneId_);
+    Bone2D* target = context.findBone(targetBoneId_);
+    Bone2D* parent = context.findBone(parentBoneId_);
     if (!target || !parent) {
         return;
     }
@@ -356,19 +405,19 @@ void MapRangeConstraint2D::setMapping(double inputMin, double inputMax, double o
     outputMax_ = outputMax;
 }
 
-void MapRangeConstraint2D::evaluate(Rig2D& rig, const RationalTime& time)
+void MapRangeConstraint2D::evaluate(RigEvaluationContext2D& context)
 {
-    Q_UNUSED(time);
     if (!enabled_) {
         return;
     }
 
-    Bone2D* target = rig.findBone(targetBoneId_);
+    Bone2D* target = context.findBone(targetBoneId_);
     if (!target) {
         return;
     }
 
-    const QVariant rawControl = rig.controlValue(controlId_);
+    RigControl2D* control = context.findControl(controlId_);
+    const QVariant rawControl = control ? control->value() : QVariant();
     const double mapped = remapRange(doubleFromVariant(rawControl, inputMin_), inputMin_, inputMax_, outputMin_, outputMax_);
     BoneTransform resolved = target->resolvedTransform();
     const QString channel = channelNameForMap(targetChannel_);
@@ -432,15 +481,14 @@ AimConstraint2D::AimConstraint2D(const QString& name, const Id& sourceBoneId, co
 {
 }
 
-void AimConstraint2D::evaluate(Rig2D& rig, const RationalTime& time)
+void AimConstraint2D::evaluate(RigEvaluationContext2D& context)
 {
-    Q_UNUSED(time);
     if (!enabled_) {
         return;
     }
 
-    Bone2D* source = rig.findBone(sourceBoneId_);
-    Bone2D* target = rig.findBone(targetBoneId_);
+    Bone2D* source = context.findBone(sourceBoneId_);
+    Bone2D* target = context.findBone(targetBoneId_);
     if (!source || !target) {
         return;
     }
@@ -509,17 +557,16 @@ TwoBoneIKConstraint2D::TwoBoneIKConstraint2D(const QString& name,
 {
 }
 
-void TwoBoneIKConstraint2D::evaluate(Rig2D& rig, const RationalTime& time)
+void TwoBoneIKConstraint2D::evaluate(RigEvaluationContext2D& context)
 {
-    Q_UNUSED(time);
     if (!enabled_) {
         return;
     }
 
-    Bone2D* upper = rig.findBone(upperBoneId_);
-    Bone2D* lower = rig.findBone(lowerBoneId_);
-    Bone2D* effector = rig.findBone(effectorBoneId_);
-    Bone2D* target = rig.findBone(targetBoneId_);
+    Bone2D* upper = context.findBone(upperBoneId_);
+    Bone2D* lower = context.findBone(lowerBoneId_);
+    Bone2D* effector = context.findBone(effectorBoneId_);
+    Bone2D* target = context.findBone(targetBoneId_);
     if (!upper || !lower || !effector || !target) {
         return;
     }
@@ -719,6 +766,11 @@ void Rig2D::evaluate(const RationalTime& time) {
         }
     }
     update();
+    RigEvaluationContext2D context;
+    context.setRig(this);
+    context.setTime(time);
+    context.indexBones(bones_);
+    context.indexControls(controls_);
     for (RigControl2D* control : controls_) {
         if (!control) {
             continue;
@@ -731,7 +783,7 @@ void Rig2D::evaluate(const RationalTime& time) {
     }
     for (const auto& constraint : constraints_) {
         if (constraint && constraint->enabled()) {
-            constraint->evaluate(*this, time);
+            constraint->evaluate(context);
         }
     }
     update();
