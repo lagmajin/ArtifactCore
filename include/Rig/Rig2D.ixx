@@ -152,7 +152,7 @@ public:
     RigControl2D* findControl(const Id& id) const;
     RigControl2D* findControl(const QString& name) const;
     int controlCount() const;
-    const QList<RigControl2D*>& controls() const { return controlSet_.controls(); }
+    const QList<RigControl2D*>& controls() const { return controls_; }
     bool setControlValue(const Id& id, const QVariant& value);
     QVariant controlValue(const Id& id) const;
     void clear();
@@ -390,7 +390,7 @@ public:
     RigControl2D* findControl(const Id& id) const;
     RigControl2D* findControl(const QString& name) const;
     int controlCount() const;
-    const QList<RigControl2D*>& controls() const { return controls_; }
+    const QList<RigControl2D*>& controls() const { return controlSet_.controls(); }
     bool setControlValue(const Id& id, const QVariant& value);
     QVariant controlValue(const Id& id) const;
 
