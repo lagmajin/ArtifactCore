@@ -2,12 +2,16 @@ module;
 #include <utility>
 #include <QString>
 #include <QVector2D>
+#include <QVector4D>
 #include <QMatrix4x4>
 #include <QList>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QPair>
+#include <QPointF>
+#include <QtAlgorithms>
+#include <QVariant>
 #include <QtGlobal>
 #include <cmath>
 #include <algorithm>
@@ -58,6 +62,80 @@ BoneTransform transformFromJson(const QJsonValue& value, const BoneTransform& fa
     return transform;
 }
 
+QVector2D vector2DFromVariant(const QVariant& value, const QVector2D& fallback = QVector2D()) {
+    if (value.canConvert<QVector2D>()) {
+        return value.value<QVector2D>();
+    }
+    if (value.canConvert<QPointF>()) {
+        const QPointF point = value.toPointF();
+        return QVector2D(static_cast<float>(point.x()), static_cast<float>(point.y()));
+    }
+    if (value.isValid() && value.canConvert<double>()) {
+        const double v = value.toDouble();
+        return QVector2D(static_cast<float>(v), static_cast<float>(v));
+    }
+    return fallback;
+}
+
+double doubleFromVariant(const QVariant& value, double fallback = 0.0) {
+    if (!value.isValid()) {
+        return fallback;
+    }
+    bool ok = false;
+    const double asDouble = value.toDouble(&ok);
+    return ok ? asDouble : fallback;
+}
+
+double clampDouble(double value, double minValue, double maxValue) {
+    if (minValue > maxValue) {
+        std::swap(minValue, maxValue);
+    }
+    return std::clamp(value, minValue, maxValue);
+}
+
+double remapRange(double value, double inMin, double inMax, double outMin, double outMax) {
+    const double span = inMax - inMin;
+    if (std::abs(span) < 1e-8) {
+        return outMin;
+    }
+    const double t = clampDouble((value - inMin) / span, 0.0, 1.0);
+    return outMin + (outMax - outMin) * t;
+}
+
+float matrixRotationDegrees(const QMatrix4x4& matrix) {
+    const QVector4D axisX = matrix.column(0);
+    return static_cast<float>(std::atan2(axisX.y(), axisX.x()) * (180.0 / 3.14159265358979323846));
+}
+
+QJsonObject controlValueToJson(const QVariant& value) {
+    QJsonObject object;
+    if (value.canConvert<QVector2D>()) {
+        const QVector2D vec = value.value<QVector2D>();
+        object["x"] = static_cast<double>(vec.x());
+        object["y"] = static_cast<double>(vec.y());
+    } else {
+        object["value"] = value.toDouble();
+    }
+    return object;
+}
+
+QVariant controlValueFromJson(const QJsonObject& object, RigControlKind kind, const QVariant& fallback) {
+    switch (kind) {
+    case RigControlKind::Point:
+        return QVariant::fromValue(QVector2D(static_cast<float>(object.value("x").toDouble(0.0)),
+                                             static_cast<float>(object.value("y").toDouble(0.0))));
+    case RigControlKind::Angle:
+    case RigControlKind::Slider:
+    default:
+        return QVariant(object.value("value").toDouble(fallback.toDouble()));
+    }
+}
+
+QString channelNameForMap(const QString& channel) {
+    const QString trimmed = channel.trimmed().toLower();
+    return trimmed.isEmpty() ? QStringLiteral("rotation") : trimmed;
+}
+
 } // namespace
 
 // ─────────────────────────────────────────────────────────
@@ -66,10 +144,12 @@ BoneTransform transformFromJson(const QJsonValue& value, const BoneTransform& fa
 
 Bone2D::Bone2D() : id_(), name_("Bone") {
     globalMatrix_.setToIdentity();
+    resolvedTransform_ = localTransform_;
 }
 
 Bone2D::Bone2D(const QString& name) : id_(), name_(name) {
     globalMatrix_.setToIdentity();
+    resolvedTransform_ = localTransform_;
 }
 
 void Bone2D::addChild(Bone2D* child) {
@@ -113,15 +193,16 @@ void Bone2D::fromJson(const QJsonObject& object) {
     name_ = object.value("name").toString(name_);
     length_ = static_cast<float>(object.value("length").toDouble(length_));
     localTransform_ = transformFromJson(object.value("localTransform"), localTransform_);
+    resolvedTransform_ = localTransform_;
 }
 
 void Bone2D::updateHierarchy() {
     // ローカル変換からローカル行列を構築
     QMatrix4x4 localMatrix;
     localMatrix.setToIdentity();
-    localMatrix.translate(localTransform_.position.x(), localTransform_.position.y(), 0.0f);
-    localMatrix.rotate(localTransform_.rotation, 0.0f, 0.0f, 1.0f);
-    localMatrix.scale(localTransform_.scale.x(), localTransform_.scale.y(), 1.0f);
+    localMatrix.translate(resolvedTransform_.position.x(), resolvedTransform_.position.y(), 0.0f);
+    localMatrix.rotate(resolvedTransform_.rotation, 0.0f, 0.0f, 1.0f);
+    localMatrix.scale(resolvedTransform_.scale.x(), resolvedTransform_.scale.y(), 1.0f);
 
     // グローバル行列の計算
     if (parent_) {
@@ -139,6 +220,382 @@ void Bone2D::updateHierarchy() {
 }
 
 // ─────────────────────────────────────────────────────────
+// RigControl2D 実装
+// ─────────────────────────────────────────────────────────
+
+RigControl2D::RigControl2D()
+{
+}
+
+RigControl2D::RigControl2D(const QString& name, RigControlKind kind)
+    : name_(name), kind_(kind)
+{
+}
+
+void RigControl2D::setRange(const QVariant& minValue, const QVariant& maxValue)
+{
+    minValue_ = minValue;
+    maxValue_ = maxValue;
+}
+
+QJsonObject RigControl2D::toJson() const
+{
+    QJsonObject object;
+    object["id"] = id_.toString();
+    object["name"] = name_;
+    object["kind"] = static_cast<int>(kind_);
+    object["enabled"] = enabled_;
+    object["value"] = controlValueToJson(value_);
+    object["minValue"] = controlValueToJson(minValue_);
+    object["maxValue"] = controlValueToJson(maxValue_);
+    return object;
+}
+
+RigControl2D RigControl2D::fromJson(const QJsonObject& object)
+{
+    RigControl2D control;
+    const QString idString = object.value("id").toString();
+    if (!idString.isEmpty()) {
+        control.id_ = Id(idString);
+    }
+    control.name_ = object.value("name").toString(control.name_);
+    control.kind_ = static_cast<RigControlKind>(object.value("kind").toInt(static_cast<int>(RigControlKind::Slider)));
+    control.enabled_ = object.value("enabled").toBool(true);
+    control.value_ = controlValueFromJson(object.value("value").toObject(), control.kind_, QVariant());
+    control.minValue_ = controlValueFromJson(object.value("minValue").toObject(), control.kind_, QVariant());
+    control.maxValue_ = controlValueFromJson(object.value("maxValue").toObject(), control.kind_, QVariant());
+    return control;
+}
+
+// ─────────────────────────────────────────────────────────
+// RigConstraint2D / derived 実装
+// ─────────────────────────────────────────────────────────
+
+RigConstraint2D::RigConstraint2D()
+{
+}
+
+RigConstraint2D::RigConstraint2D(const QString& name)
+    : name_(name)
+{
+}
+
+ParentConstraint2D::ParentConstraint2D()
+    : RigConstraint2D(QStringLiteral("Parent Constraint"))
+{
+}
+
+ParentConstraint2D::ParentConstraint2D(const QString& name, const Id& targetBoneId, const Id& parentBoneId)
+    : RigConstraint2D(name), targetBoneId_(targetBoneId), parentBoneId_(parentBoneId)
+{
+}
+
+void ParentConstraint2D::evaluate(Rig2D& rig, const RationalTime& time)
+{
+    Q_UNUSED(time);
+    if (!enabled_) {
+        return;
+    }
+
+    Bone2D* target = rig.findBone(targetBoneId_);
+    Bone2D* parent = rig.findBone(parentBoneId_);
+    if (!target || !parent) {
+        return;
+    }
+
+    BoneTransform resolved = target->resolvedTransform();
+    resolved.position = offset_.position;
+    resolved.rotation = offset_.rotation;
+    resolved.scale = offset_.scale;
+    target->setResolvedTransform(resolved);
+}
+
+QJsonObject ParentConstraint2D::toJson() const
+{
+    QJsonObject object;
+    object["kind"] = QStringLiteral("Parent");
+    object["id"] = id_.toString();
+    object["name"] = name_;
+    object["enabled"] = enabled_;
+    object["targetBoneId"] = targetBoneId_.toString();
+    object["parentBoneId"] = parentBoneId_.toString();
+    object["offset"] = transformToJson(offset_);
+    return object;
+}
+
+std::shared_ptr<ParentConstraint2D> ParentConstraint2D::fromJson(const QJsonObject& object)
+{
+    auto constraint = std::make_shared<ParentConstraint2D>();
+    const QString idString = object.value("id").toString();
+    if (!idString.isEmpty()) {
+        constraint->id_ = Id(idString);
+    }
+    constraint->name_ = object.value("name").toString(constraint->name_);
+    constraint->enabled_ = object.value("enabled").toBool(true);
+    constraint->targetBoneId_ = Id(object.value("targetBoneId").toString());
+    constraint->parentBoneId_ = Id(object.value("parentBoneId").toString());
+    constraint->offset_ = transformFromJson(object.value("offset"), constraint->offset_);
+    return constraint;
+}
+
+MapRangeConstraint2D::MapRangeConstraint2D()
+    : RigConstraint2D(QStringLiteral("Map Range"))
+{
+}
+
+MapRangeConstraint2D::MapRangeConstraint2D(const QString& name, const Id& controlId, const Id& targetBoneId)
+    : RigConstraint2D(name), controlId_(controlId), targetBoneId_(targetBoneId)
+{
+}
+
+void MapRangeConstraint2D::setMapping(double inputMin, double inputMax, double outputMin, double outputMax)
+{
+    inputMin_ = inputMin;
+    inputMax_ = inputMax;
+    outputMin_ = outputMin;
+    outputMax_ = outputMax;
+}
+
+void MapRangeConstraint2D::evaluate(Rig2D& rig, const RationalTime& time)
+{
+    Q_UNUSED(time);
+    if (!enabled_) {
+        return;
+    }
+
+    Bone2D* target = rig.findBone(targetBoneId_);
+    if (!target) {
+        return;
+    }
+
+    const QVariant rawControl = rig.controlValue(controlId_);
+    const double mapped = remapRange(doubleFromVariant(rawControl, inputMin_), inputMin_, inputMax_, outputMin_, outputMax_);
+    BoneTransform resolved = target->resolvedTransform();
+    const QString channel = channelNameForMap(targetChannel_);
+    if (channel == QStringLiteral("position.x")) {
+        resolved.position.setX(static_cast<float>(mapped));
+    } else if (channel == QStringLiteral("position.y")) {
+        resolved.position.setY(static_cast<float>(mapped));
+    } else if (channel == QStringLiteral("scale.x")) {
+        resolved.scale.setX(static_cast<float>(mapped));
+    } else if (channel == QStringLiteral("scale.y")) {
+        resolved.scale.setY(static_cast<float>(mapped));
+    } else {
+        resolved.rotation = static_cast<float>(mapped);
+    }
+    target->setResolvedTransform(resolved);
+}
+
+QJsonObject MapRangeConstraint2D::toJson() const
+{
+    QJsonObject object;
+    object["kind"] = QStringLiteral("MapRange");
+    object["id"] = id_.toString();
+    object["name"] = name_;
+    object["enabled"] = enabled_;
+    object["controlId"] = controlId_.toString();
+    object["targetBoneId"] = targetBoneId_.toString();
+    object["targetChannel"] = targetChannel_;
+    object["inputMin"] = inputMin_;
+    object["inputMax"] = inputMax_;
+    object["outputMin"] = outputMin_;
+    object["outputMax"] = outputMax_;
+    return object;
+}
+
+std::shared_ptr<MapRangeConstraint2D> MapRangeConstraint2D::fromJson(const QJsonObject& object)
+{
+    auto constraint = std::make_shared<MapRangeConstraint2D>();
+    const QString idString = object.value("id").toString();
+    if (!idString.isEmpty()) {
+        constraint->id_ = Id(idString);
+    }
+    constraint->name_ = object.value("name").toString(constraint->name_);
+    constraint->enabled_ = object.value("enabled").toBool(true);
+    constraint->controlId_ = Id(object.value("controlId").toString());
+    constraint->targetBoneId_ = Id(object.value("targetBoneId").toString());
+    constraint->targetChannel_ = channelNameForMap(object.value("targetChannel").toString(constraint->targetChannel_));
+    constraint->inputMin_ = object.value("inputMin").toDouble(constraint->inputMin_);
+    constraint->inputMax_ = object.value("inputMax").toDouble(constraint->inputMax_);
+    constraint->outputMin_ = object.value("outputMin").toDouble(constraint->outputMin_);
+    constraint->outputMax_ = object.value("outputMax").toDouble(constraint->outputMax_);
+    return constraint;
+}
+
+AimConstraint2D::AimConstraint2D()
+    : RigConstraint2D(QStringLiteral("Aim Constraint"))
+{
+}
+
+AimConstraint2D::AimConstraint2D(const QString& name, const Id& sourceBoneId, const Id& targetBoneId)
+    : RigConstraint2D(name), sourceBoneId_(sourceBoneId), targetBoneId_(targetBoneId)
+{
+}
+
+void AimConstraint2D::evaluate(Rig2D& rig, const RationalTime& time)
+{
+    Q_UNUSED(time);
+    if (!enabled_) {
+        return;
+    }
+
+    Bone2D* source = rig.findBone(sourceBoneId_);
+    Bone2D* target = rig.findBone(targetBoneId_);
+    if (!source || !target) {
+        return;
+    }
+
+    const QVector2D sourcePos = source->resolvedTransform().position;
+    const QVector2D targetPos = target->resolvedTransform().position;
+    const QVector2D delta = targetPos - sourcePos;
+    if (delta.lengthSquared() < 1e-8f) {
+        return;
+    }
+
+    const float worldAngle = static_cast<float>(std::atan2(delta.y(), delta.x()) * (180.0 / 3.14159265358979323846) + angleOffset_);
+    float parentWorldAngle = 0.0f;
+    if (source->parent()) {
+        parentWorldAngle = matrixRotationDegrees(source->parent()->globalMatrix());
+    }
+
+    BoneTransform resolved = source->resolvedTransform();
+    resolved.rotation = worldAngle - parentWorldAngle;
+    source->setResolvedTransform(resolved);
+}
+
+QJsonObject AimConstraint2D::toJson() const
+{
+    QJsonObject object;
+    object["kind"] = QStringLiteral("Aim");
+    object["id"] = id_.toString();
+    object["name"] = name_;
+    object["enabled"] = enabled_;
+    object["sourceBoneId"] = sourceBoneId_.toString();
+    object["targetBoneId"] = targetBoneId_.toString();
+    object["angleOffset"] = angleOffset_;
+    return object;
+}
+
+std::shared_ptr<AimConstraint2D> AimConstraint2D::fromJson(const QJsonObject& object)
+{
+    auto constraint = std::make_shared<AimConstraint2D>();
+    const QString idString = object.value("id").toString();
+    if (!idString.isEmpty()) {
+        constraint->id_ = Id(idString);
+    }
+    constraint->name_ = object.value("name").toString(constraint->name_);
+    constraint->enabled_ = object.value("enabled").toBool(true);
+    constraint->sourceBoneId_ = Id(object.value("sourceBoneId").toString());
+    constraint->targetBoneId_ = Id(object.value("targetBoneId").toString());
+    constraint->angleOffset_ = static_cast<float>(object.value("angleOffset").toDouble(constraint->angleOffset_));
+    return constraint;
+}
+
+TwoBoneIKConstraint2D::TwoBoneIKConstraint2D()
+    : RigConstraint2D(QStringLiteral("Two Bone IK"))
+{
+}
+
+TwoBoneIKConstraint2D::TwoBoneIKConstraint2D(const QString& name,
+                                             const Id& upperBoneId,
+                                             const Id& lowerBoneId,
+                                             const Id& effectorBoneId,
+                                             const Id& targetBoneId)
+    : RigConstraint2D(name),
+      upperBoneId_(upperBoneId),
+      lowerBoneId_(lowerBoneId),
+      effectorBoneId_(effectorBoneId),
+      targetBoneId_(targetBoneId)
+{
+}
+
+void TwoBoneIKConstraint2D::evaluate(Rig2D& rig, const RationalTime& time)
+{
+    Q_UNUSED(time);
+    if (!enabled_) {
+        return;
+    }
+
+    Bone2D* upper = rig.findBone(upperBoneId_);
+    Bone2D* lower = rig.findBone(lowerBoneId_);
+    Bone2D* effector = rig.findBone(effectorBoneId_);
+    Bone2D* target = rig.findBone(targetBoneId_);
+    if (!upper || !lower || !effector || !target) {
+        return;
+    }
+
+    const QVector2D p1 = upper->resolvedTransform().position;
+    const QVector2D p2 = lower->resolvedTransform().position;
+    const QVector2D p3 = effector->resolvedTransform().position;
+    const QVector2D targetPos = target->resolvedTransform().position;
+
+    const float len1 = std::max(0.001f, (p2 - p1).length());
+    const float len2 = std::max(0.001f, (p3 - p2).length());
+    const float dist = (targetPos - p1).length();
+    const float maxReach = len1 + len2;
+
+    QVector2D jointPos = p2;
+    QVector2D effectorPos = p3;
+
+    if (dist > maxReach) {
+        const QVector2D dir = (targetPos - p1).normalized();
+        jointPos = p1 + dir * len1;
+        effectorPos = p1 + dir * maxReach;
+    } else {
+        const float cosAngle1 = clampDouble((len1 * len1 + dist * dist - len2 * len2) / (2.0f * len1 * std::max(dist, 0.001f)), -1.0, 1.0);
+        const float angle1 = std::acos(cosAngle1);
+        const float baseAngle = std::atan2(targetPos.y() - p1.y(), targetPos.x() - p1.x());
+        jointPos = p1 + QVector2D(std::cos(baseAngle + angle1), std::sin(baseAngle + angle1)) * len1;
+        effectorPos = targetPos;
+    }
+
+    BoneTransform upperResolved = upper->resolvedTransform();
+    BoneTransform lowerResolved = lower->resolvedTransform();
+    const float upperWorldAngle = static_cast<float>(std::atan2(jointPos.y() - p1.y(), jointPos.x() - p1.x()) * (180.0 / 3.14159265358979323846));
+    const float lowerWorldAngle = static_cast<float>(std::atan2(effectorPos.y() - jointPos.y(), effectorPos.x() - jointPos.x()) * (180.0 / 3.14159265358979323846));
+    float upperParentWorldAngle = 0.0f;
+    if (upper->parent()) {
+        upperParentWorldAngle = matrixRotationDegrees(upper->parent()->globalMatrix());
+    }
+    upperResolved.rotation = upperWorldAngle - upperParentWorldAngle;
+    lowerResolved.rotation = lowerWorldAngle - upperWorldAngle;
+    upper->setResolvedTransform(upperResolved);
+    lower->setResolvedTransform(lowerResolved);
+}
+
+QJsonObject TwoBoneIKConstraint2D::toJson() const
+{
+    QJsonObject object;
+    object["kind"] = QStringLiteral("TwoBoneIK");
+    object["id"] = id_.toString();
+    object["name"] = name_;
+    object["enabled"] = enabled_;
+    object["upperBoneId"] = upperBoneId_.toString();
+    object["lowerBoneId"] = lowerBoneId_.toString();
+    object["effectorBoneId"] = effectorBoneId_.toString();
+    object["targetBoneId"] = targetBoneId_.toString();
+    object["poleAngle"] = poleAngle_;
+    return object;
+}
+
+std::shared_ptr<TwoBoneIKConstraint2D> TwoBoneIKConstraint2D::fromJson(const QJsonObject& object)
+{
+    auto constraint = std::make_shared<TwoBoneIKConstraint2D>();
+    const QString idString = object.value("id").toString();
+    if (!idString.isEmpty()) {
+        constraint->id_ = Id(idString);
+    }
+    constraint->name_ = object.value("name").toString(constraint->name_);
+    constraint->enabled_ = object.value("enabled").toBool(true);
+    constraint->upperBoneId_ = Id(object.value("upperBoneId").toString());
+    constraint->lowerBoneId_ = Id(object.value("lowerBoneId").toString());
+    constraint->effectorBoneId_ = Id(object.value("effectorBoneId").toString());
+    constraint->targetBoneId_ = Id(object.value("targetBoneId").toString());
+    constraint->poleAngle_ = static_cast<float>(object.value("poleAngle").toDouble(constraint->poleAngle_));
+    return constraint;
+}
+
+// ─────────────────────────────────────────────────────────
 // Rig2D 実装
 // ─────────────────────────────────────────────────────────
 
@@ -146,17 +603,27 @@ Rig2D::Rig2D() {
 }
 
 Rig2D::Rig2D(Rig2D&& other) noexcept
-    : rootBone_(other.rootBone_) {
-    bones_.swap(other.bones_);
+    : bones_(std::move(other.bones_)),
+      controls_(std::move(other.controls_)),
+      constraints_(std::move(other.constraints_)),
+      rootBone_(other.rootBone_) {
     other.rootBone_ = nullptr;
+    other.bones_.clear();
+    other.controls_.clear();
+    other.constraints_.clear();
 }
 
 Rig2D& Rig2D::operator=(Rig2D&& other) noexcept {
     if (this != &other) {
         clearBones();
-        bones_.swap(other.bones_);
+        bones_ = std::move(other.bones_);
+        controls_ = std::move(other.controls_);
+        constraints_ = std::move(other.constraints_);
         rootBone_ = other.rootBone_;
         other.rootBone_ = nullptr;
+        other.bones_.clear();
+        other.controls_.clear();
+        other.constraints_.clear();
     }
     return *this;
 }
@@ -214,8 +681,11 @@ bool Rig2D::removeBone(const Id& id) {
 
 void Rig2D::clearBones() {
     qDeleteAll(bones_);
+    qDeleteAll(controls_);
     bones_.clear();
+    controls_.clear();
     rootBone_ = nullptr;
+    constraints_.clear();
 }
 
 Bone2D* Rig2D::findBone(const Id& id) const {
@@ -245,7 +715,23 @@ void Rig2D::update() {
 void Rig2D::evaluate(const RationalTime& time) {
     for (Bone2D* bone : bones_) {
         if (bone) {
-            bone->setLocalTransform(bone->evaluate(time));
+            bone->setResolvedTransform(bone->evaluate(time));
+        }
+    }
+    update();
+    for (RigControl2D* control : controls_) {
+        if (!control) {
+            continue;
+        }
+        if (control->kind() == RigControlKind::Slider || control->kind() == RigControlKind::Angle) {
+            const double minValue = doubleFromVariant(control->minValue(), 0.0);
+            const double maxValue = doubleFromVariant(control->maxValue(), 1.0);
+            control->setValue(clampDouble(doubleFromVariant(control->value(), minValue), minValue, maxValue));
+        }
+    }
+    for (const auto& constraint : constraints_) {
+        if (constraint && constraint->enabled()) {
+            constraint->evaluate(*this, time);
         }
     }
     update();
@@ -272,6 +758,149 @@ bool Rig2D::boneLocalTransform(const Id& id, BoneTransform* outTransform) const 
     return true;
 }
 
+RigControl2D* Rig2D::addControl(const QString& name, RigControlKind kind, const QVariant& defaultValue)
+{
+    auto* control = new RigControl2D(name, kind);
+    control->setValue(defaultValue);
+    switch (kind) {
+    case RigControlKind::Point:
+        control->setRange(QVector2D(-1.0f, -1.0f), QVector2D(1.0f, 1.0f));
+        break;
+    case RigControlKind::Angle:
+        control->setRange(-180.0, 180.0);
+        break;
+    case RigControlKind::Slider:
+    default:
+        control->setRange(0.0, 1.0);
+        break;
+    }
+    controls_.append(control);
+    return control;
+}
+
+RigControl2D* Rig2D::addSlider(const QString& name, double defaultValue, double minValue, double maxValue)
+{
+    auto* control = addControl(name, RigControlKind::Slider, QVariant(defaultValue));
+    if (control) {
+        control->setRange(minValue, maxValue);
+    }
+    return control;
+}
+
+RigControl2D* Rig2D::addPoint(const QString& name, const QVector2D& defaultValue)
+{
+    return addControl(name, RigControlKind::Point, QVariant::fromValue(defaultValue));
+}
+
+RigControl2D* Rig2D::addAngle(const QString& name, double defaultValue, double minValue, double maxValue)
+{
+    auto* control = addControl(name, RigControlKind::Angle, QVariant(defaultValue));
+    if (control) {
+        control->setRange(minValue, maxValue);
+    }
+    return control;
+}
+
+bool Rig2D::removeControl(const Id& id)
+{
+    for (int i = 0; i < controls_.size(); ++i) {
+        RigControl2D* control = controls_.at(i);
+        if (control && control->id() == id) {
+            delete control;
+            controls_.removeAt(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+RigControl2D* Rig2D::findControl(const Id& id) const
+{
+    for (RigControl2D* control : controls_) {
+        if (control && control->id() == id) {
+            return control;
+        }
+    }
+    return nullptr;
+}
+
+RigControl2D* Rig2D::findControl(const QString& name) const
+{
+    for (RigControl2D* control : controls_) {
+        if (control && control->name() == name) {
+            return control;
+        }
+    }
+    return nullptr;
+}
+
+int Rig2D::controlCount() const
+{
+    return controls_.size();
+}
+
+bool Rig2D::setControlValue(const Id& id, const QVariant& value)
+{
+    RigControl2D* control = findControl(id);
+    if (!control) {
+        return false;
+    }
+    control->setValue(value);
+    return true;
+}
+
+QVariant Rig2D::controlValue(const Id& id) const
+{
+    const RigControl2D* control = findControl(id);
+    return control ? control->value() : QVariant();
+}
+
+std::shared_ptr<RigConstraint2D> Rig2D::addConstraint(std::shared_ptr<RigConstraint2D> constraint)
+{
+    if (!constraint) {
+        return {};
+    }
+    constraints_.append(constraint);
+    return constraint;
+}
+
+bool Rig2D::removeConstraint(const Id& id)
+{
+    for (int i = 0; i < constraints_.size(); ++i) {
+        const auto& constraint = constraints_.at(i);
+        if (constraint && constraint->id() == id) {
+            constraints_.removeAt(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+std::shared_ptr<RigConstraint2D> Rig2D::findConstraint(const Id& id) const
+{
+    for (const auto& constraint : constraints_) {
+        if (constraint && constraint->id() == id) {
+            return constraint;
+        }
+    }
+    return {};
+}
+
+std::shared_ptr<RigConstraint2D> Rig2D::findConstraint(const QString& name) const
+{
+    for (const auto& constraint : constraints_) {
+        if (constraint && constraint->name() == name) {
+            return constraint;
+        }
+    }
+    return {};
+}
+
+int Rig2D::constraintCount() const
+{
+    return constraints_.size();
+}
+
 QJsonObject Rig2D::toJson() const {
     QJsonObject object;
     object["version"] = 1;
@@ -286,6 +915,22 @@ QJsonObject Rig2D::toJson() const {
         }
     }
     object["bones"] = bonesArray;
+
+    QJsonArray controlsArray;
+    for (const RigControl2D* control : controls_) {
+        if (control) {
+            controlsArray.append(control->toJson());
+        }
+    }
+    object["controls"] = controlsArray;
+
+    QJsonArray constraintsArray;
+    for (const auto& constraint : constraints_) {
+        if (constraint) {
+            constraintsArray.append(constraint->toJson());
+        }
+    }
+    object["constraints"] = constraintsArray;
     return object;
 }
 
@@ -315,6 +960,33 @@ Rig2D Rig2D::fromJson(const QJsonObject& object) {
         Bone2D* parent = rig.findBone(link.second);
         if (child && parent) {
             parent->addChild(child);
+        }
+    }
+
+    const QJsonArray controlsArray = object.value("controls").toArray();
+    for (const QJsonValue& value : controlsArray) {
+        if (!value.isObject()) {
+            continue;
+        }
+        auto* control = new RigControl2D(RigControl2D::fromJson(value.toObject()));
+        rig.controls_.append(control);
+    }
+
+    const QJsonArray constraintsArray = object.value("constraints").toArray();
+    for (const QJsonValue& value : constraintsArray) {
+        if (!value.isObject()) {
+            continue;
+        }
+        const QJsonObject constraintObject = value.toObject();
+        const QString kind = constraintObject.value("kind").toString();
+        if (kind == QStringLiteral("Parent")) {
+            rig.constraints_.append(ParentConstraint2D::fromJson(constraintObject));
+        } else if (kind == QStringLiteral("MapRange")) {
+            rig.constraints_.append(MapRangeConstraint2D::fromJson(constraintObject));
+        } else if (kind == QStringLiteral("Aim")) {
+            rig.constraints_.append(AimConstraint2D::fromJson(constraintObject));
+        } else if (kind == QStringLiteral("TwoBoneIK")) {
+            rig.constraints_.append(TwoBoneIKConstraint2D::fromJson(constraintObject));
         }
     }
 

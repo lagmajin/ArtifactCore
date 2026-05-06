@@ -6,6 +6,7 @@ module;
 #include <QMatrix4x4>
 #include <QList>
 #include <QJsonObject>
+#include <QVariant>
 #include <memory>
 #include <vector>
 
@@ -21,6 +22,19 @@ struct BoneTransform {
     QVector2D position = {0.0f, 0.0f};
     float rotation = 0.0f;           // 度単位
     QVector2D scale = {1.0f, 1.0f};
+};
+
+enum class RigControlKind {
+    Slider,
+    Point,
+    Angle
+};
+
+enum class RigConstraintKind {
+    Parent,
+    MapRange,
+    Aim,
+    TwoBoneIK
 };
 
 // 2Dボーン階層のノード
@@ -46,7 +60,10 @@ public:
 
     // ローカル変換
     const BoneTransform& localTransform() const { return localTransform_; }
-    void setLocalTransform(const BoneTransform& transform) { localTransform_ = transform; }
+    void setLocalTransform(const BoneTransform& transform) { localTransform_ = transform; resolvedTransform_ = transform; }
+    const BoneTransform& resolvedTransform() const { return resolvedTransform_; }
+    void setResolvedTransform(const BoneTransform& transform) { resolvedTransform_ = transform; }
+    void syncResolvedToLocal() { resolvedTransform_ = localTransform_; }
 
     void setLocalPosition(const QVector2D& pos) { localTransform_.position = pos; }
     void setLocalRotation(float rot) { localTransform_.rotation = rot; }
@@ -74,8 +91,178 @@ private:
     Bone2D* parent_ = nullptr;
     QList<Bone2D*> children_;
     BoneTransform localTransform_;
+    BoneTransform resolvedTransform_;
     QMatrix4x4 globalMatrix_;
     float length_ = 50.0f;
+};
+
+class RigControl2D {
+public:
+    RigControl2D();
+    explicit RigControl2D(const QString& name, RigControlKind kind);
+
+    Id id() const { return id_; }
+    QString name() const { return name_; }
+    void setName(const QString& name) { name_ = name; }
+
+    RigControlKind kind() const { return kind_; }
+    void setKind(RigControlKind kind) { kind_ = kind; }
+
+    QVariant value() const { return value_; }
+    void setValue(const QVariant& value) { value_ = value; }
+
+    QVariant minValue() const { return minValue_; }
+    QVariant maxValue() const { return maxValue_; }
+    void setRange(const QVariant& minValue, const QVariant& maxValue);
+
+    bool enabled() const { return enabled_; }
+    void setEnabled(bool enabled) { enabled_ = enabled; }
+
+    QJsonObject toJson() const;
+    static RigControl2D fromJson(const QJsonObject& object);
+
+private:
+    Id id_;
+    QString name_;
+    RigControlKind kind_ = RigControlKind::Slider;
+    QVariant value_;
+    QVariant minValue_;
+    QVariant maxValue_;
+    bool enabled_ = true;
+};
+
+class RigConstraint2D {
+public:
+    RigConstraint2D();
+    explicit RigConstraint2D(const QString& name);
+    virtual ~RigConstraint2D() = default;
+
+    Id id() const { return id_; }
+    QString name() const { return name_; }
+    void setName(const QString& name) { name_ = name; }
+
+    bool enabled() const { return enabled_; }
+    void setEnabled(bool enabled) { enabled_ = enabled; }
+
+    virtual RigConstraintKind kind() const = 0;
+    virtual void evaluate(class Rig2D& rig, const RationalTime& time) = 0;
+    virtual QJsonObject toJson() const = 0;
+
+protected:
+    Id id_;
+    QString name_;
+    bool enabled_ = true;
+};
+
+class ParentConstraint2D final : public RigConstraint2D {
+public:
+    ParentConstraint2D();
+    ParentConstraint2D(const QString& name, const Id& targetBoneId, const Id& parentBoneId);
+
+    RigConstraintKind kind() const override { return RigConstraintKind::Parent; }
+    void evaluate(Rig2D& rig, const RationalTime& time) override;
+    QJsonObject toJson() const override;
+    static std::shared_ptr<ParentConstraint2D> fromJson(const QJsonObject& object);
+
+    Id targetBoneId() const { return targetBoneId_; }
+    void setTargetBoneId(const Id& id) { targetBoneId_ = id; }
+    Id parentBoneId() const { return parentBoneId_; }
+    void setParentBoneId(const Id& id) { parentBoneId_ = id; }
+    BoneTransform offset() const { return offset_; }
+    void setOffset(const BoneTransform& offset) { offset_ = offset; }
+
+private:
+    Id targetBoneId_;
+    Id parentBoneId_;
+    BoneTransform offset_;
+};
+
+class MapRangeConstraint2D final : public RigConstraint2D {
+public:
+    MapRangeConstraint2D();
+    MapRangeConstraint2D(const QString& name, const Id& controlId, const Id& targetBoneId);
+
+    RigConstraintKind kind() const override { return RigConstraintKind::MapRange; }
+    void evaluate(Rig2D& rig, const RationalTime& time) override;
+    QJsonObject toJson() const override;
+    static std::shared_ptr<MapRangeConstraint2D> fromJson(const QJsonObject& object);
+
+    Id controlId() const { return controlId_; }
+    void setControlId(const Id& id) { controlId_ = id; }
+    Id targetBoneId() const { return targetBoneId_; }
+    void setTargetBoneId(const Id& id) { targetBoneId_ = id; }
+    QString targetChannel() const { return targetChannel_; }
+    void setTargetChannel(const QString& channel) { targetChannel_ = channel; }
+    double inputMin() const { return inputMin_; }
+    double inputMax() const { return inputMax_; }
+    double outputMin() const { return outputMin_; }
+    double outputMax() const { return outputMax_; }
+    void setMapping(double inputMin, double inputMax, double outputMin, double outputMax);
+
+private:
+    Id controlId_;
+    Id targetBoneId_;
+    QString targetChannel_ = QStringLiteral("rotation");
+    double inputMin_ = 0.0;
+    double inputMax_ = 1.0;
+    double outputMin_ = 0.0;
+    double outputMax_ = 1.0;
+};
+
+class AimConstraint2D final : public RigConstraint2D {
+public:
+    AimConstraint2D();
+    AimConstraint2D(const QString& name, const Id& sourceBoneId, const Id& targetBoneId);
+
+    RigConstraintKind kind() const override { return RigConstraintKind::Aim; }
+    void evaluate(Rig2D& rig, const RationalTime& time) override;
+    QJsonObject toJson() const override;
+    static std::shared_ptr<AimConstraint2D> fromJson(const QJsonObject& object);
+
+    Id sourceBoneId() const { return sourceBoneId_; }
+    void setSourceBoneId(const Id& id) { sourceBoneId_ = id; }
+    Id targetBoneId() const { return targetBoneId_; }
+    void setTargetBoneId(const Id& id) { targetBoneId_ = id; }
+    float angleOffset() const { return angleOffset_; }
+    void setAngleOffset(float angleOffset) { angleOffset_ = angleOffset; }
+
+private:
+    Id sourceBoneId_;
+    Id targetBoneId_;
+    float angleOffset_ = 0.0f;
+};
+
+class TwoBoneIKConstraint2D final : public RigConstraint2D {
+public:
+    TwoBoneIKConstraint2D();
+    TwoBoneIKConstraint2D(const QString& name,
+                          const Id& upperBoneId,
+                          const Id& lowerBoneId,
+                          const Id& effectorBoneId,
+                          const Id& targetBoneId);
+
+    RigConstraintKind kind() const override { return RigConstraintKind::TwoBoneIK; }
+    void evaluate(Rig2D& rig, const RationalTime& time) override;
+    QJsonObject toJson() const override;
+    static std::shared_ptr<TwoBoneIKConstraint2D> fromJson(const QJsonObject& object);
+
+    Id upperBoneId() const { return upperBoneId_; }
+    void setUpperBoneId(const Id& id) { upperBoneId_ = id; }
+    Id lowerBoneId() const { return lowerBoneId_; }
+    void setLowerBoneId(const Id& id) { lowerBoneId_ = id; }
+    Id effectorBoneId() const { return effectorBoneId_; }
+    void setEffectorBoneId(const Id& id) { effectorBoneId_ = id; }
+    Id targetBoneId() const { return targetBoneId_; }
+    void setTargetBoneId(const Id& id) { targetBoneId_ = id; }
+    float poleAngle() const { return poleAngle_; }
+    void setPoleAngle(float poleAngle) { poleAngle_ = poleAngle; }
+
+private:
+    Id upperBoneId_;
+    Id lowerBoneId_;
+    Id effectorBoneId_;
+    Id targetBoneId_;
+    float poleAngle_ = 0.0f;
 };
 
 // 2Dリグシステム全体を管理
@@ -103,6 +290,27 @@ public:
     Bone2D* rootBone() const { return rootBone_; }
     void setRootBone(Bone2D* bone) { rootBone_ = bone; }
 
+    // Control management
+    RigControl2D* addControl(const QString& name, RigControlKind kind, const QVariant& defaultValue = QVariant());
+    RigControl2D* addSlider(const QString& name, double defaultValue = 0.0, double minValue = 0.0, double maxValue = 1.0);
+    RigControl2D* addPoint(const QString& name, const QVector2D& defaultValue = QVector2D());
+    RigControl2D* addAngle(const QString& name, double defaultValue = 0.0, double minValue = -180.0, double maxValue = 180.0);
+    bool removeControl(const Id& id);
+    RigControl2D* findControl(const Id& id) const;
+    RigControl2D* findControl(const QString& name) const;
+    int controlCount() const;
+    const QList<RigControl2D*>& controls() const { return controls_; }
+    bool setControlValue(const Id& id, const QVariant& value);
+    QVariant controlValue(const Id& id) const;
+
+    // Constraint management
+    std::shared_ptr<RigConstraint2D> addConstraint(std::shared_ptr<RigConstraint2D> constraint);
+    bool removeConstraint(const Id& id);
+    std::shared_ptr<RigConstraint2D> findConstraint(const Id& id) const;
+    std::shared_ptr<RigConstraint2D> findConstraint(const QString& name) const;
+    int constraintCount() const;
+    const QList<std::shared_ptr<RigConstraint2D>>& constraints() const { return constraints_; }
+
     // 更新
     void update();
     void evaluate(const RationalTime& time);
@@ -118,6 +326,8 @@ public:
 
 private:
     QList<Bone2D*> bones_;
+    QList<RigControl2D*> controls_;
+    QList<std::shared_ptr<RigConstraint2D>> constraints_;
     Bone2D* rootBone_ = nullptr;
 };
 
