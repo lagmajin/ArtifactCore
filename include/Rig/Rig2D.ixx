@@ -164,6 +164,42 @@ private:
     QList<RigControl2D*> controls_;
 };
 
+class RigPropertyBinding2D {
+public:
+    RigPropertyBinding2D();
+    RigPropertyBinding2D(const QString& name,
+                        const Id& controlId,
+                        const LayerID& targetLayerId,
+                        const QString& targetPropertyPath);
+
+    Id id() const { return id_; }
+    QString name() const { return name_; }
+    void setName(const QString& name) { name_ = name; }
+
+    Id controlId() const { return controlId_; }
+    void setControlId(const Id& id) { controlId_ = id; }
+
+    LayerID targetLayerId() const { return targetLayerId_; }
+    void setTargetLayerId(const LayerID& id) { targetLayerId_ = id; }
+
+    QString targetPropertyPath() const { return targetPropertyPath_; }
+    void setTargetPropertyPath(const QString& path) { targetPropertyPath_ = path; }
+
+    bool enabled() const { return enabled_; }
+    void setEnabled(bool enabled) { enabled_ = enabled; }
+
+    QJsonObject toJson() const;
+    static std::shared_ptr<RigPropertyBinding2D> fromJson(const QJsonObject& object);
+
+private:
+    Id id_;
+    QString name_;
+    Id controlId_;
+    LayerID targetLayerId_;
+    QString targetPropertyPath_;
+    bool enabled_ = true;
+};
+
 class RigEvaluationContext2D {
 public:
     RigEvaluationContext2D();
@@ -366,6 +402,13 @@ public:
     int constraintCount() const;
     const QList<std::shared_ptr<RigConstraint2D>>& constraints() const { return constraints_; }
 
+    std::shared_ptr<RigPropertyBinding2D> addPropertyBinding(std::shared_ptr<RigPropertyBinding2D> binding);
+    bool removePropertyBinding(const Id& id);
+    std::shared_ptr<RigPropertyBinding2D> findPropertyBinding(const Id& id) const;
+    std::shared_ptr<RigPropertyBinding2D> findPropertyBinding(const QString& name) const;
+    int propertyBindingCount() const;
+    const QList<std::shared_ptr<RigPropertyBinding2D>>& propertyBindings() const { return propertyBindings_; }
+
     // 更新
     void update();
     void evaluate(const RationalTime& time);
@@ -383,6 +426,7 @@ private:
     QList<Bone2D*> bones_;
     RigControlSet2D controlSet_;
     QList<std::shared_ptr<RigConstraint2D>> constraints_;
+    QList<std::shared_ptr<RigPropertyBinding2D>> propertyBindings_;
     Bone2D* rootBone_ = nullptr;
 };
 

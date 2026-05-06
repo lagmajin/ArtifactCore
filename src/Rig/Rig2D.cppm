@@ -474,6 +474,52 @@ RigControlSet2D RigControlSet2D::fromJson(const QJsonArray& array)
 }
 
 // ─────────────────────────────────────────────────────────
+// RigPropertyBinding2D 実装
+// ─────────────────────────────────────────────────────────
+
+RigPropertyBinding2D::RigPropertyBinding2D()
+{
+}
+
+RigPropertyBinding2D::RigPropertyBinding2D(const QString& name,
+                                           const Id& controlId,
+                                           const LayerID& targetLayerId,
+                                           const QString& targetPropertyPath)
+    : name_(name),
+      controlId_(controlId),
+      targetLayerId_(targetLayerId),
+      targetPropertyPath_(targetPropertyPath)
+{
+}
+
+QJsonObject RigPropertyBinding2D::toJson() const
+{
+    QJsonObject object;
+    object["id"] = id_.toString();
+    object["name"] = name_;
+    object["controlId"] = controlId_.toString();
+    object["targetLayerId"] = targetLayerId_.toString();
+    object["targetPropertyPath"] = targetPropertyPath_;
+    object["enabled"] = enabled_;
+    return object;
+}
+
+std::shared_ptr<RigPropertyBinding2D> RigPropertyBinding2D::fromJson(const QJsonObject& object)
+{
+    auto binding = std::make_shared<RigPropertyBinding2D>();
+    const QString idString = object.value("id").toString();
+    if (!idString.isEmpty()) {
+        binding->id_ = Id(idString);
+    }
+    binding->name_ = object.value("name").toString(binding->name_);
+    binding->controlId_ = Id(object.value("controlId").toString());
+    binding->targetLayerId_ = LayerID(object.value("targetLayerId").toString());
+    binding->targetPropertyPath_ = object.value("targetPropertyPath").toString(binding->targetPropertyPath_);
+    binding->enabled_ = object.value("enabled").toBool(true);
+    return binding;
+}
+
+// ─────────────────────────────────────────────────────────
 // RigConstraint2D / derived 実装
 // ─────────────────────────────────────────────────────────
 
@@ -809,10 +855,12 @@ Rig2D::Rig2D(Rig2D&& other) noexcept
     : bones_(std::move(other.bones_)),
       controlSet_(std::move(other.controlSet_)),
       constraints_(std::move(other.constraints_)),
+      propertyBindings_(std::move(other.propertyBindings_)),
       rootBone_(other.rootBone_) {
     other.rootBone_ = nullptr;
     other.bones_.clear();
     other.constraints_.clear();
+    other.propertyBindings_.clear();
 }
 
 Rig2D& Rig2D::operator=(Rig2D&& other) noexcept {
@@ -821,10 +869,12 @@ Rig2D& Rig2D::operator=(Rig2D&& other) noexcept {
         bones_ = std::move(other.bones_);
         controlSet_ = std::move(other.controlSet_);
         constraints_ = std::move(other.constraints_);
+        propertyBindings_ = std::move(other.propertyBindings_);
         rootBone_ = other.rootBone_;
         other.rootBone_ = nullptr;
         other.bones_.clear();
         other.constraints_.clear();
+        other.propertyBindings_.clear();
     }
     return *this;
 }
@@ -886,6 +936,7 @@ void Rig2D::clearBones() {
     controlSet_.clear();
     rootBone_ = nullptr;
     constraints_.clear();
+    propertyBindings_.clear();
 }
 
 Bone2D* Rig2D::findBone(const Id& id) const {
@@ -1067,6 +1118,52 @@ int Rig2D::constraintCount() const
     return constraints_.size();
 }
 
+std::shared_ptr<RigPropertyBinding2D> Rig2D::addPropertyBinding(std::shared_ptr<RigPropertyBinding2D> binding)
+{
+    if (!binding) {
+        return {};
+    }
+    propertyBindings_.append(binding);
+    return binding;
+}
+
+bool Rig2D::removePropertyBinding(const Id& id)
+{
+    for (int i = 0; i < propertyBindings_.size(); ++i) {
+        const auto& binding = propertyBindings_.at(i);
+        if (binding && binding->id() == id) {
+            propertyBindings_.removeAt(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+std::shared_ptr<RigPropertyBinding2D> Rig2D::findPropertyBinding(const Id& id) const
+{
+    for (const auto& binding : propertyBindings_) {
+        if (binding && binding->id() == id) {
+            return binding;
+        }
+    }
+    return {};
+}
+
+std::shared_ptr<RigPropertyBinding2D> Rig2D::findPropertyBinding(const QString& name) const
+{
+    for (const auto& binding : propertyBindings_) {
+        if (binding && binding->name() == name) {
+            return binding;
+        }
+    }
+    return {};
+}
+
+int Rig2D::propertyBindingCount() const
+{
+    return propertyBindings_.size();
+}
+
 QJsonObject Rig2D::toJson() const {
     QJsonObject object;
     object["version"] = 1;
@@ -1097,6 +1194,14 @@ QJsonObject Rig2D::toJson() const {
         }
     }
     object["constraints"] = constraintsArray;
+
+    QJsonArray propertyBindingsArray;
+    for (const auto& binding : propertyBindings_) {
+        if (binding) {
+            propertyBindingsArray.append(binding->toJson());
+        }
+    }
+    object["propertyBindings"] = propertyBindingsArray;
     return object;
 }
 
@@ -1147,6 +1252,14 @@ Rig2D Rig2D::fromJson(const QJsonObject& object) {
         } else if (kind == QStringLiteral("TwoBoneIK")) {
             rig.constraints_.append(TwoBoneIKConstraint2D::fromJson(constraintObject));
         }
+    }
+
+    const QJsonArray bindingsArray = object.value("propertyBindings").toArray();
+    for (const QJsonValue& value : bindingsArray) {
+        if (!value.isObject()) {
+            continue;
+        }
+        rig.propertyBindings_.append(RigPropertyBinding2D::fromJson(value.toObject()));
     }
 
     const QString rootBoneIdString = object.value("rootBoneId").toString();
