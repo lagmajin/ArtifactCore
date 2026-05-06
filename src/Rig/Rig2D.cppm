@@ -318,6 +318,162 @@ RigControl2D RigControl2D::fromJson(const QJsonObject& object)
 }
 
 // ─────────────────────────────────────────────────────────
+// RigControlSet2D 実装
+// ─────────────────────────────────────────────────────────
+
+RigControlSet2D::RigControlSet2D()
+{
+}
+
+RigControlSet2D::RigControlSet2D(RigControlSet2D&& other) noexcept
+    : controls_(std::move(other.controls_))
+{
+    other.controls_.clear();
+}
+
+RigControlSet2D& RigControlSet2D::operator=(RigControlSet2D&& other) noexcept
+{
+    if (this != &other) {
+        clear();
+        controls_ = std::move(other.controls_);
+        other.controls_.clear();
+    }
+    return *this;
+}
+
+RigControlSet2D::~RigControlSet2D()
+{
+    clear();
+}
+
+RigControl2D* RigControlSet2D::addControl(const QString& name, RigControlKind kind, const QVariant& defaultValue)
+{
+    auto* control = new RigControl2D(name, kind);
+    control->setValue(defaultValue);
+    switch (kind) {
+    case RigControlKind::Point:
+        control->setRange(QVector2D(-1.0f, -1.0f), QVector2D(1.0f, 1.0f));
+        break;
+    case RigControlKind::Angle:
+        control->setRange(-180.0, 180.0);
+        break;
+    case RigControlKind::Slider:
+    default:
+        control->setRange(0.0, 1.0);
+        break;
+    }
+    controls_.append(control);
+    return control;
+}
+
+RigControl2D* RigControlSet2D::addSlider(const QString& name, double defaultValue, double minValue, double maxValue)
+{
+    auto* control = addControl(name, RigControlKind::Slider, QVariant(defaultValue));
+    if (control) {
+        control->setRange(minValue, maxValue);
+    }
+    return control;
+}
+
+RigControl2D* RigControlSet2D::addPoint(const QString& name, const QVector2D& defaultValue)
+{
+    return addControl(name, RigControlKind::Point, QVariant::fromValue(defaultValue));
+}
+
+RigControl2D* RigControlSet2D::addAngle(const QString& name, double defaultValue, double minValue, double maxValue)
+{
+    auto* control = addControl(name, RigControlKind::Angle, QVariant(defaultValue));
+    if (control) {
+        control->setRange(minValue, maxValue);
+    }
+    return control;
+}
+
+bool RigControlSet2D::removeControl(const Id& id)
+{
+    for (int i = 0; i < controls_.size(); ++i) {
+        RigControl2D* control = controls_.at(i);
+        if (control && control->id() == id) {
+            delete control;
+            controls_.removeAt(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+RigControl2D* RigControlSet2D::findControl(const Id& id) const
+{
+    for (RigControl2D* control : controls_) {
+        if (control && control->id() == id) {
+            return control;
+        }
+    }
+    return nullptr;
+}
+
+RigControl2D* RigControlSet2D::findControl(const QString& name) const
+{
+    for (RigControl2D* control : controls_) {
+        if (control && control->name() == name) {
+            return control;
+        }
+    }
+    return nullptr;
+}
+
+int RigControlSet2D::controlCount() const
+{
+    return controls_.size();
+}
+
+bool RigControlSet2D::setControlValue(const Id& id, const QVariant& value)
+{
+    RigControl2D* control = findControl(id);
+    if (!control) {
+        return false;
+    }
+    control->setValue(value);
+    return true;
+}
+
+QVariant RigControlSet2D::controlValue(const Id& id) const
+{
+    const RigControl2D* control = findControl(id);
+    return control ? control->value() : QVariant();
+}
+
+void RigControlSet2D::clear()
+{
+    qDeleteAll(controls_);
+    controls_.clear();
+}
+
+QJsonArray RigControlSet2D::toJson() const
+{
+    QJsonArray array;
+    for (const RigControl2D* control : controls_) {
+        if (control) {
+            array.append(control->toJson());
+        }
+    }
+    return array;
+}
+
+RigControlSet2D RigControlSet2D::fromJson(const QJsonArray& array)
+{
+    RigControlSet2D set;
+    for (const QJsonValue& value : array) {
+        if (!value.isObject()) {
+            continue;
+        }
+        auto* control = new RigControl2D(RigControl2D::fromJson(value.toObject()));
+        set.controls_.append(control);
+    }
+    return set;
+}
+
+// ─────────────────────────────────────────────────────────
 // RigConstraint2D / derived 実装
 // ─────────────────────────────────────────────────────────
 
@@ -651,12 +807,11 @@ Rig2D::Rig2D() {
 
 Rig2D::Rig2D(Rig2D&& other) noexcept
     : bones_(std::move(other.bones_)),
-      controls_(std::move(other.controls_)),
+      controlSet_(std::move(other.controlSet_)),
       constraints_(std::move(other.constraints_)),
       rootBone_(other.rootBone_) {
     other.rootBone_ = nullptr;
     other.bones_.clear();
-    other.controls_.clear();
     other.constraints_.clear();
 }
 
@@ -664,12 +819,11 @@ Rig2D& Rig2D::operator=(Rig2D&& other) noexcept {
     if (this != &other) {
         clearBones();
         bones_ = std::move(other.bones_);
-        controls_ = std::move(other.controls_);
+        controlSet_ = std::move(other.controlSet_);
         constraints_ = std::move(other.constraints_);
         rootBone_ = other.rootBone_;
         other.rootBone_ = nullptr;
         other.bones_.clear();
-        other.controls_.clear();
         other.constraints_.clear();
     }
     return *this;
@@ -728,9 +882,8 @@ bool Rig2D::removeBone(const Id& id) {
 
 void Rig2D::clearBones() {
     qDeleteAll(bones_);
-    qDeleteAll(controls_);
     bones_.clear();
-    controls_.clear();
+    controlSet_.clear();
     rootBone_ = nullptr;
     constraints_.clear();
 }
@@ -770,8 +923,8 @@ void Rig2D::evaluate(const RationalTime& time) {
     context.setRig(this);
     context.setTime(time);
     context.indexBones(bones_);
-    context.indexControls(controls_);
-    for (RigControl2D* control : controls_) {
+    context.indexControls(controlSet_.controls());
+    for (RigControl2D* control : controlSet_.controls()) {
         if (!control) {
             continue;
         }
@@ -812,22 +965,7 @@ bool Rig2D::boneLocalTransform(const Id& id, BoneTransform* outTransform) const 
 
 RigControl2D* Rig2D::addControl(const QString& name, RigControlKind kind, const QVariant& defaultValue)
 {
-    auto* control = new RigControl2D(name, kind);
-    control->setValue(defaultValue);
-    switch (kind) {
-    case RigControlKind::Point:
-        control->setRange(QVector2D(-1.0f, -1.0f), QVector2D(1.0f, 1.0f));
-        break;
-    case RigControlKind::Angle:
-        control->setRange(-180.0, 180.0);
-        break;
-    case RigControlKind::Slider:
-    default:
-        control->setRange(0.0, 1.0);
-        break;
-    }
-    controls_.append(control);
-    return control;
+    return controlSet_.addControl(name, kind, defaultValue);
 }
 
 RigControl2D* Rig2D::addSlider(const QString& name, double defaultValue, double minValue, double maxValue)
@@ -855,56 +993,32 @@ RigControl2D* Rig2D::addAngle(const QString& name, double defaultValue, double m
 
 bool Rig2D::removeControl(const Id& id)
 {
-    for (int i = 0; i < controls_.size(); ++i) {
-        RigControl2D* control = controls_.at(i);
-        if (control && control->id() == id) {
-            delete control;
-            controls_.removeAt(i);
-            return true;
-        }
-    }
-    return false;
+    return controlSet_.removeControl(id);
 }
 
 RigControl2D* Rig2D::findControl(const Id& id) const
 {
-    for (RigControl2D* control : controls_) {
-        if (control && control->id() == id) {
-            return control;
-        }
-    }
-    return nullptr;
+    return controlSet_.findControl(id);
 }
 
 RigControl2D* Rig2D::findControl(const QString& name) const
 {
-    for (RigControl2D* control : controls_) {
-        if (control && control->name() == name) {
-            return control;
-        }
-    }
-    return nullptr;
+    return controlSet_.findControl(name);
 }
 
 int Rig2D::controlCount() const
 {
-    return controls_.size();
+    return controlSet_.controlCount();
 }
 
 bool Rig2D::setControlValue(const Id& id, const QVariant& value)
 {
-    RigControl2D* control = findControl(id);
-    if (!control) {
-        return false;
-    }
-    control->setValue(value);
-    return true;
+    return controlSet_.setControlValue(id, value);
 }
 
 QVariant Rig2D::controlValue(const Id& id) const
 {
-    const RigControl2D* control = findControl(id);
-    return control ? control->value() : QVariant();
+    return controlSet_.controlValue(id);
 }
 
 std::shared_ptr<RigConstraint2D> Rig2D::addConstraint(std::shared_ptr<RigConstraint2D> constraint)
@@ -969,7 +1083,7 @@ QJsonObject Rig2D::toJson() const {
     object["bones"] = bonesArray;
 
     QJsonArray controlsArray;
-    for (const RigControl2D* control : controls_) {
+    for (const RigControl2D* control : controlSet_.controls()) {
         if (control) {
             controlsArray.append(control->toJson());
         }
@@ -1015,14 +1129,7 @@ Rig2D Rig2D::fromJson(const QJsonObject& object) {
         }
     }
 
-    const QJsonArray controlsArray = object.value("controls").toArray();
-    for (const QJsonValue& value : controlsArray) {
-        if (!value.isObject()) {
-            continue;
-        }
-        auto* control = new RigControl2D(RigControl2D::fromJson(value.toObject()));
-        rig.controls_.append(control);
-    }
+    rig.controlSet_ = RigControlSet2D::fromJson(object.value("controls").toArray());
 
     const QJsonArray constraintsArray = object.value("constraints").toArray();
     for (const QJsonValue& value : constraintsArray) {

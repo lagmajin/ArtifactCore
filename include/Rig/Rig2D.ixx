@@ -6,6 +6,7 @@ module;
 #include <QMatrix4x4>
 #include <QList>
 #include <QHash>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QVariant>
 #include <memory>
@@ -133,6 +134,35 @@ private:
 };
 
 class Rig2D;
+
+class RigControlSet2D {
+public:
+    RigControlSet2D();
+    RigControlSet2D(const RigControlSet2D&) = delete;
+    RigControlSet2D& operator=(const RigControlSet2D&) = delete;
+    RigControlSet2D(RigControlSet2D&& other) noexcept;
+    RigControlSet2D& operator=(RigControlSet2D&& other) noexcept;
+    ~RigControlSet2D();
+
+    RigControl2D* addControl(const QString& name, RigControlKind kind, const QVariant& defaultValue = QVariant());
+    RigControl2D* addSlider(const QString& name, double defaultValue = 0.0, double minValue = 0.0, double maxValue = 1.0);
+    RigControl2D* addPoint(const QString& name, const QVector2D& defaultValue = QVector2D());
+    RigControl2D* addAngle(const QString& name, double defaultValue = 0.0, double minValue = -180.0, double maxValue = 180.0);
+    bool removeControl(const Id& id);
+    RigControl2D* findControl(const Id& id) const;
+    RigControl2D* findControl(const QString& name) const;
+    int controlCount() const;
+    const QList<RigControl2D*>& controls() const { return controlSet_.controls(); }
+    bool setControlValue(const Id& id, const QVariant& value);
+    QVariant controlValue(const Id& id) const;
+    void clear();
+
+    QJsonArray toJson() const;
+    static RigControlSet2D fromJson(const QJsonArray& array);
+
+private:
+    QList<RigControl2D*> controls_;
+};
 
 class RigEvaluationContext2D {
 public:
@@ -351,7 +381,7 @@ public:
 
 private:
     QList<Bone2D*> bones_;
-    QList<RigControl2D*> controls_;
+    RigControlSet2D controlSet_;
     QList<std::shared_ptr<RigConstraint2D>> constraints_;
     Bone2D* rootBone_ = nullptr;
 };
