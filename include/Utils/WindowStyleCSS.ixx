@@ -416,7 +416,7 @@ QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme) {
             background: transparent;
         }
         QMenuBar::item:selected {
-            background-color: %8;
+            background-color: %7;
         }
         QMenu {
             background-color: %3;
@@ -429,7 +429,7 @@ QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme) {
             background-color: transparent;
         }
         QMenu::item:selected {
-            background-color: %8;
+            background-color: %7;
         }
         QMenu::item:disabled {
             color: rgba(170, 170, 170, 100);

@@ -124,7 +124,7 @@ void ParticleRenderer::setFrameCostStats(ArtifactCore::RenderCostStats* stats)
 }
 
 void ParticleRenderer::createBuffers() {
-    auto pDevice = context_.D3D12RenderDevice();
+    auto pDevice = context_.RenderDevice();
 
     // 1. Particle Structured Buffer
     BufferDesc BuffDesc;
@@ -148,7 +148,7 @@ void ParticleRenderer::createBuffers() {
 }
 
 void ParticleRenderer::createPSO() {
-    auto pDevice = context_.D3D12RenderDevice();
+    auto pDevice = context_.RenderDevice();
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
     
     PSOCreateInfo.PSODesc.Name = "Particle Rendering PSO";
@@ -205,7 +205,7 @@ void ParticleRenderer::createPSO() {
 
 void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
     if (data.particles.empty()) return;
-    auto pContext = context_.D3D12DeviceContext();
+    auto pContext = context_.DeviceContext();
     
     size_t count = std::min(data.particles.size(), maxParticles_);
     pContext->UpdateBuffer(pImpl_->pParticleBuffer_, 0, sizeof(ParticleVertex) * count, 
@@ -267,3 +267,4 @@ void ParticleRenderer::setViewMatrix(const float* matrix) {
 }
 
 } // namespace ArtifactCore
+

@@ -132,7 +132,7 @@ namespace ArtifactCore
     cbDesc.BindFlags = BIND_UNIFORM_BUFFER;
     cbDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
 
-    auto device = context_.D3D12RenderDevice();
+    auto device = context_.RenderDevice();
     if (!device) return false;
 
     device->CreateBuffer(cbDesc, nullptr, &pImpl_->pCompressionCB_);
@@ -200,3 +200,4 @@ namespace ArtifactCore
     return true;
   }
 }
+

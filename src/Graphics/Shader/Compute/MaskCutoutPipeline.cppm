@@ -75,7 +75,7 @@ bool MaskCutoutPipeline::initialize()
 
 bool MaskCutoutPipeline::createConstantBuffer()
 {
-    auto pDevice = context_.D3D12RenderDevice();
+    auto pDevice = context_.RenderDevice();
     if (!pDevice) {
         return false;
     }
@@ -114,7 +114,7 @@ bool MaskCutoutPipeline::ensureMaskTexture(const QImage& maskImage)
         return true;
     }
 
-    auto pDevice = context_.D3D12RenderDevice();
+    auto pDevice = context_.RenderDevice();
     if (!pDevice) {
         return false;
     }
@@ -199,3 +199,4 @@ bool MaskCutoutPipeline::ready() const
 }
 
 } // namespace ArtifactCore
+

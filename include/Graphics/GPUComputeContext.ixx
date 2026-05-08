@@ -51,6 +51,8 @@ export namespace ArtifactCore
   GpuContext(IRenderDevice* device, IDeviceContext* context);
   ~GpuContext();
   void Initialize();
+  IRenderDevice* RenderDevice();
+  IDeviceContext* DeviceContext();
   IRenderDevice*  D3D12RenderDevice();
   IDeviceContext* D3D12DeviceContext();
   DeviceResources D3D12DeviceResources();

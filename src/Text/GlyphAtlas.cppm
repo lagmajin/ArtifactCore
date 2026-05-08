@@ -30,6 +30,17 @@ GlyphAtlas::GlyphAtlas()
 
 GlyphAtlas::~GlyphAtlas() = default;
 
+QString GlyphAtlas::debugState() const {
+  return QStringLiteral("entries=%1 dirty=%2 shelf=%3,%4 shelfH=%5 size=%6x%7")
+      .arg(static_cast<qulonglong>(cache_.size()))
+      .arg(dirty_ ? QStringLiteral("true") : QStringLiteral("false"))
+      .arg(currentShelfX_)
+      .arg(currentShelfY_)
+      .arg(currentShelfH_)
+      .arg(kAtlasSize)
+      .arg(kAtlasSize);
+}
+
 void GlyphAtlas::clear() {
   cache_.clear();
   atlasImage_.fill(Qt::transparent);

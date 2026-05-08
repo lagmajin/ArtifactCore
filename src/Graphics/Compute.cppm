@@ -56,7 +56,7 @@ namespace ArtifactCore
 
  bool ComputeExecutor::build(const ComputePipelineDesc& desc)
  {
-  auto pDevice = context_.D3D12RenderDevice();
+  auto pDevice = context_.RenderDevice();
   if (pDevice == nullptr || desc.shaderSource == nullptr)
    return false;
 
@@ -167,3 +167,4 @@ bool ComputeExecutor::setTextureView(const char* name, ITextureView* view)
   return pImpl_->pSRB_;
  }
 }
+

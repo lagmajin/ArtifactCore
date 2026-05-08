@@ -135,14 +135,24 @@ namespace ArtifactCore
   pImpl_->Initialize();
  }
 
+ IRenderDevice* GpuContext::RenderDevice()
+ {
+  return pImpl_->pDevice;
+ }
+
+ IDeviceContext* GpuContext::DeviceContext()
+ {
+  return pImpl_->pContext;
+ }
+
  IRenderDevice* GpuContext::D3D12RenderDevice()
  {
-  return pImpl_->pDevice;  // implicit RefCntAutoPtr → T* conversion
+  return RenderDevice();  // retained for compatibility
  }
 
  IDeviceContext* GpuContext::D3D12DeviceContext()
  {
-  return pImpl_->pContext;
+  return DeviceContext();
  }
 
  DeviceResources GpuContext::D3D12DeviceResources()

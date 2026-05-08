@@ -129,7 +129,7 @@ void MeshRenderer::setFrameCostStats(ArtifactCore::RenderCostStats* stats)
 
 void MeshRenderer::createBuffers()
 {
-    auto pDevice = context_.D3D12RenderDevice();
+    auto pDevice = context_.RenderDevice();
     
     // 1. Position buffer (always needed)
     if (vertexCount_ > 0) {
@@ -183,7 +183,7 @@ void MeshRenderer::createBuffers()
 
 void MeshRenderer::createPSO()
 {
-    auto pDevice = context_.D3D12RenderDevice();
+    auto pDevice = context_.RenderDevice();
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
     
     PSOCreateInfo.PSODesc.Name = "Mesh Instancing PSO";
@@ -269,7 +269,7 @@ void MeshRenderer::createPSO()
 void MeshRenderer::updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
                                       const uint32_t* indices)
 {
-    auto pContext = context_.D3D12DeviceContext();
+    auto pContext = context_.DeviceContext();
     
     if (positions && pImpl_->pPositionBuffer_) {
         pContext->UpdateBuffer(pImpl_->pPositionBuffer_, 0, sizeof(float) * 3 * vertexCount_,
@@ -288,7 +288,7 @@ void MeshRenderer::updateInstanceData(const InstanceData* instances, size_t coun
 {
     if (!instances || count == 0 || !pImpl_->pInstanceBuffer_) return;
     
-    auto pContext = context_.D3D12DeviceContext();
+    auto pContext = context_.DeviceContext();
     size_t uploadSize = sizeof(InstanceData) * std::min(count, maxInstances_);
     
     pContext->UpdateBuffer(pImpl_->pInstanceBuffer_, 0, uploadSize,
@@ -375,3 +375,4 @@ void MeshRenderer::setProjectionMatrix(const float* matrix)
 }
 
 } // namespace ArtifactCore
+

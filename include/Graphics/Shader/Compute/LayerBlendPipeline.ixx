@@ -49,6 +49,17 @@ export namespace ArtifactCore
   bool blendDirect(
    IDeviceContext* ctx,
    ITextureView* srcSRV,
+   ITextureView* dstSRV,
+   ITextureView* outUAV,
+   BlendMode mode,
+   float opacity,
+   Uint32 width,
+   Uint32 height
+  );
+
+  bool blendDirect(
+   IDeviceContext* ctx,
+   ITextureView* srcSRV,
    ITextureView* outUAV,
    BlendMode mode,
    float opacity,

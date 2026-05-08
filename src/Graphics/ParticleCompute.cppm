@@ -121,7 +121,7 @@ void ParticleCompute::initialize(size_t maxParticles) {
 }
 
 void ParticleCompute::createBuffers() {
-    auto pDevice = context_.D3D12RenderDevice();
+    auto pDevice = context_.RenderDevice();
 
     // 1. RWStructuredBuffer (UAV)
     BufferDesc BuffDesc;
@@ -204,13 +204,13 @@ IBuffer* ParticleCompute::getParticleBuffer()
 
 void ParticleCompute::uploadParticles(const std::vector<Particle>& particles, size_t count) {
     if (count == 0) return;
-    auto pContext = context_.D3D12DeviceContext();
+    auto pContext = context_.DeviceContext();
     pContext->UpdateBuffer(pImpl_->pParticleBuffer_, 0, sizeof(Particle) * std::min(count, maxParticles_), particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void ParticleCompute::setAudioData(const std::vector<float>& spectrum) {
     if (spectrum.empty()) return;
-    auto pContext = context_.D3D12DeviceContext();
+    auto pContext = context_.DeviceContext();
     size_t size = std::min(spectrum.size(), (size_t)256) * sizeof(float);
     pContext->UpdateBuffer(pImpl_->pAudioSpectrumBuffer_, 0, size, spectrum.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     
@@ -221,3 +221,4 @@ void ParticleCompute::setAudioData(const std::vector<float>& spectrum) {
 }
 
 } // namespace ArtifactCore
+

@@ -815,7 +815,7 @@ ProceduralTextureComputePipeline::~ProceduralTextureComputePipeline()
 
 bool ProceduralTextureComputePipeline::initialize()
 {
-    auto pDevice = context_.D3D12RenderDevice();
+    auto pDevice = context_.RenderDevice();
     if (!pDevice)
     {
         return false;
@@ -936,6 +936,7 @@ ITexture* ProceduralTextureComputePipeline::createOutputTexture(IRenderDevice* d
 }
 
 } // namespace ArtifactCore
+
 
 
 

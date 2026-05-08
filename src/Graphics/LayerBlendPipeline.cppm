@@ -38,7 +38,7 @@ bool LayerBlendPipeline::initialize()
 bool LayerBlendPipeline::createConstantBuffer()
 {
  if (!context_) return false;
- auto pDevice = context_->D3D12RenderDevice();
+ auto pDevice = context_->RenderDevice();
  if (!pDevice) return false;
 
  BufferDesc buffDesc;
@@ -193,6 +193,7 @@ bool LayerBlendPipeline::blend(
 bool LayerBlendPipeline::blendDirect(
  IDeviceContext* ctx,
  ITextureView* srcSRV,
+ ITextureView* dstSRV,
  ITextureView* outUAV,
  BlendMode mode,
  float opacity,
@@ -200,16 +201,27 @@ bool LayerBlendPipeline::blendDirect(
  Uint32 height
 )
 {
- if (!ctx || !srcSRV || !outUAV) return false;
+ if (!ctx || !srcSRV || !dstSRV || !outUAV) {
+  qCritical() << "[LayerBlendPipeline::blendDirect] invalid input"
+              << "ctx=" << static_cast<bool>(ctx)
+              << "srcSRV=" << static_cast<bool>(srcSRV)
+              << "dstSRV=" << static_cast<bool>(dstSRV)
+              << "outUAV=" << static_cast<bool>(outUAV);
+  return false;
+ }
 
  auto it = executors_.find(mode);
  if (it == executors_.end()) {
   it = executors_.find(BlendMode::Normal);
-  if (it == executors_.end()) return false;
+  if (it == executors_.end()) {
+   return false;
+  }
  }
 
  auto& exec = *it->second.executor;
- if (!exec.ready()) return false;
+ if (!exec.ready()) {
+  return false;
+ }
 
  currentParams_.opacity = opacity;
  currentParams_.blendMode = static_cast<unsigned int>(mode);
@@ -222,11 +234,7 @@ bool LayerBlendPipeline::blendDirect(
  }
 
  exec.setTextureView("SrcTex", srcSRV);
- // DstTex is required by the shader even in direct mode (though it might not be used by all modes)
- // For direct mode, we assume dst is not needed or we use a dummy. 
- // Actually, the shaders I saw use DstTex.
- exec.setTextureView("DstTex", srcSRV); // Fallback to src if not provided? No, that's wrong.
- // Let's add dstSRV to blendDirect signature or just fix it to bind something.
+ exec.setTextureView("DstTex", dstSRV);
  exec.setTextureView("OutTex", outUAV);
 
  DispatchComputeAttribs attribs;
@@ -236,6 +244,20 @@ bool LayerBlendPipeline::blendDirect(
 
  exec.dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
  return true;
+}
+
+bool LayerBlendPipeline::blendDirect(
+ IDeviceContext* ctx,
+ ITextureView* srcSRV,
+ ITextureView* outUAV,
+ BlendMode mode,
+ float opacity,
+ Uint32 width,
+ Uint32 height
+)
+{
+ qWarning() << "[LayerBlendPipeline::blendDirect] legacy overload called without dstSRV";
+ return false;
 }
 
 }

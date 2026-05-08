@@ -5,6 +5,7 @@ module;
 #include <vector>
 #include <QFont>
 #include <QImage>
+#include <QString>
 #include <QRawFont>
 
 export module Text.GlyphAtlas;
@@ -88,6 +89,9 @@ public:
     /// GPU への再アップロードが必要かどうか
     bool isDirty() const { return dirty_; }
     void clearDirty()    { dirty_ = false; }
+
+    /// デバッグ用の簡易状態文字列
+    QString debugState() const;
 
     /// atlas を完全にリセット（GPUテクスチャも再アップロード必要）
     void clear();
