@@ -4,6 +4,7 @@ module;
 #include <QString>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 
 export module Utils.Path;
 import Utils.String.Like;
@@ -34,26 +35,35 @@ export namespace ArtifactCore
   return dir.filePath("Icon");
  }
 
- inline QString resolveIconPath(const QString& fileName)
- {
-  QDir dir(getAppPath());
-  dir.cd("Icon"); // getAppPath()/Icon に移動
-  return dir.filePath(fileName);
- }
-
  inline QString getIconResourceRoot()
  {
   return QStringLiteral(":/icons");
  }
 
- inline QString resolveIconResourcePath(const QString& fileName)
+ inline QString normalizeIconResourceName(const QString& fileName)
  {
   QString normalized = fileName;
   normalized.replace('\\', '/');
   while (normalized.startsWith('/')) {
    normalized.remove(0, 1);
   }
-  return getIconResourceRoot() + "/" + normalized;
+  return normalized;
+ }
+
+ inline QString resolveIconPath(const QString& fileName)
+ {
+  QDir dir(getAppPath());
+  dir.cd("Icon"); // getAppPath()/Icon に移動
+  const QString filePath = dir.filePath(fileName);
+  if (QFileInfo::exists(filePath)) {
+   return filePath;
+  }
+  return getIconResourceRoot() + "/" + normalizeIconResourceName(fileName);
+ }
+
+ inline QString resolveIconResourcePath(const QString& fileName)
+ {
+  return getIconResourceRoot() + "/" + normalizeIconResourceName(fileName);
  }
 
  class Path {

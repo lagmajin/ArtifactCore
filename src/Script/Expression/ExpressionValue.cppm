@@ -48,6 +48,7 @@ public:
     std::vector<double> vector_;
     std::vector<ExpressionValue> array_;
     std::string string_;
+    std::map<std::string, ExpressionValue> object_;
 };
 
 ExpressionValue::ExpressionValue() : impl_(new Impl()) {}
@@ -82,12 +83,18 @@ ExpressionValue::ExpressionValue(const std::string& str) : impl_(new Impl()) {
     impl_->string_ = str;
 }
 
+ExpressionValue::ExpressionValue(const std::map<std::string, ExpressionValue>& object) : impl_(new Impl()) {
+    impl_->type_ = ExprValueType::Object;
+    impl_->object_ = object;
+}
+
 ExpressionValue::ExpressionValue(const ExpressionValue& other) : impl_(new Impl()) {
     impl_->type_ = other.impl_->type_;
     impl_->number_ = other.impl_->number_;
     impl_->vector_ = other.impl_->vector_;
     impl_->array_ = other.impl_->array_;
     impl_->string_ = other.impl_->string_;
+    impl_->object_ = other.impl_->object_;
 }
 
 ExpressionValue::ExpressionValue(ExpressionValue&& other) noexcept : impl_(other.impl_) {
@@ -101,6 +108,7 @@ ExpressionValue& ExpressionValue::operator=(const ExpressionValue& other) {
         impl_->vector_ = other.impl_->vector_;
         impl_->array_ = other.impl_->array_;
         impl_->string_ = other.impl_->string_;
+        impl_->object_ = other.impl_->object_;
     }
     return *this;
 }
@@ -128,6 +136,7 @@ bool ExpressionValue::isVector() const {
 }
 bool ExpressionValue::isArray() const { return impl_->type_ == ExprValueType::Array; }
 bool ExpressionValue::isString() const { return impl_->type_ == ExprValueType::String; }
+bool ExpressionValue::isObject() const { return impl_->type_ == ExprValueType::Object; }
 
 double ExpressionValue::asNumber() const {
     if (impl_->type_ == ExprValueType::Number) return impl_->number_;
@@ -160,8 +169,23 @@ double ExpressionValue::y() const { return impl_->vector_.size() > 1 ? impl_->ve
 double ExpressionValue::z() const { return impl_->vector_.size() > 2 ? impl_->vector_[2] : 0.0; }
 double ExpressionValue::w() const { return impl_->vector_.size() > 3 ? impl_->vector_[3] : 0.0; }
 
+bool ExpressionValue::hasProperty(const std::string& name) const {
+    return impl_ && impl_->type_ == ExprValueType::Object && impl_->object_.find(name) != impl_->object_.end();
+}
+
+ExpressionValue ExpressionValue::property(const std::string& name) const {
+    if (impl_ && impl_->type_ == ExprValueType::Object) {
+        auto it = impl_->object_.find(name);
+        if (it != impl_->object_.end()) {
+            return it->second;
+        }
+    }
+    return ExpressionValue();
+}
+
 size_t ExpressionValue::length() const {
     if (impl_->type_ == ExprValueType::Array) return impl_->array_.size();
+    if (impl_->type_ == ExprValueType::Object) return impl_->object_.size();
     if (isVector()) return impl_->vector_.size();
     return 0;
 }
@@ -336,6 +360,17 @@ std::string ExpressionValue::toString() const {
     }
     case ExprValueType::String:
         return "\"" + impl_->string_ + "\"";
+    case ExprValueType::Object: {
+        std::string result = "{";
+        bool first = true;
+        for (const auto& kv : impl_->object_) {
+            if (!first) result += ", ";
+            first = false;
+            result += kv.first + ": " + kv.second.toString();
+        }
+        result += "}";
+        return result;
+    }
     }
     return "";
 }

@@ -46,7 +46,8 @@ enum class ExprValueType {
     Vec3,       // 3D vector [x, y, z]
     Vec4,       // 4D vector (color RGBA)
     Array,      // Array of values
-    String      // String value
+    String,     // String value
+    Object      // Named property bag
 };
 
 class ExpressionValue {
@@ -62,6 +63,7 @@ public:
     ExpressionValue(double x, double y, double z, double w);
     explicit ExpressionValue(const std::vector<ExpressionValue>& array);
     explicit ExpressionValue(const std::string& str);
+    explicit ExpressionValue(const std::map<std::string, ExpressionValue>& object);
     ExpressionValue(const ExpressionValue& other);
     ExpressionValue(ExpressionValue&& other) noexcept;
     ExpressionValue& operator=(const ExpressionValue& other);
@@ -75,6 +77,7 @@ public:
     bool isVector() const;
     bool isArray() const;
     bool isString() const;
+    bool isObject() const;
 
     // Conversion
     double asNumber() const;
@@ -87,6 +90,8 @@ public:
     double y() const;
     double z() const;
     double w() const;
+    bool hasProperty(const std::string& name) const;
+    ExpressionValue property(const std::string& name) const;
     
     // Array operations
     size_t length() const;

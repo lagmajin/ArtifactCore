@@ -56,6 +56,8 @@ enum class ExprNodeType {
     Variable,
     ArrayLiteral,
     ArrayAccess,
+    PropertyAccess,
+    MethodCall,
     BinaryOp,
     UnaryOp,
     FunctionCall,

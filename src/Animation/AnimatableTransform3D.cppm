@@ -46,6 +46,30 @@ import Math.Interpolate;
 namespace ArtifactCore
 {
 using namespace Diligent;
+
+namespace {
+
+template <typename... AnimatableValues>
+std::vector<RationalTime> collectUniqueKeyFrameTimes(
+    const AnimatableValues &...values) {
+  std::set<int64_t> frameSet;
+  const auto collect = [&](const auto &animValue) {
+    for (const auto &kf : animValue.getKeyFrames()) {
+      frameSet.insert(kf.frame.framePosition());
+    }
+  };
+  (collect(values), ...);
+
+  std::vector<RationalTime> times;
+  times.reserve(frameSet.size());
+  for (const int64_t framePos : frameSet) {
+    times.emplace_back(framePos, 24);
+  }
+  return times;
+}
+
+} // namespace
+
 class AnimatableTransform3D::Impl
 {
 public:
@@ -98,13 +122,13 @@ public:
  }
 
  AnimatableTransform3D::AnimatableTransform3D(AnimatableTransform3D&& other) noexcept : impl_(other.impl_) {
-  other.impl_ = nullptr;
+  other.impl_ = new Impl();
  }
  AnimatableTransform3D& AnimatableTransform3D::operator=(AnimatableTransform3D&& other) noexcept {
   if (this != &other) {
    delete impl_;
    impl_ = other.impl_;
-   other.impl_ = nullptr;
+   other.impl_ = new Impl();
   }
   return *this;
  }
@@ -415,6 +439,57 @@ float4x4 AnimatableTransform3D::getAllMatrixAt(const RationalTime& time) const
   return translationMatrix * rotationMatrix * scaleMatrix * anchorMatrix;
 }
 
+Transform3DSnapshot AnimatableTransform3D::snapshot() const
+{
+  Transform3DSnapshot snapshot;
+  snapshot.positionX = impl_->currentX_;
+  snapshot.positionY = impl_->currentY_;
+  snapshot.positionZ = impl_->currentZ_;
+  snapshot.rotation = impl_->currentRotation_;
+  snapshot.scaleX = impl_->currentScaleX_;
+  snapshot.scaleY = impl_->currentScaleY_;
+  snapshot.anchorX = impl_->anchorX_.current();
+  snapshot.anchorY = impl_->anchorY_.current();
+  snapshot.anchorZ = impl_->anchorZ_.current();
+  snapshot.isZVisible = impl_->isZVisible;
+  snapshot.matrix = getMatrix();
+  snapshot.matrixWithAnchor = getAllMatrix();
+  snapshot.anchorCanvasPosition = anchorPosition();
+  return snapshot;
+}
+
+Transform3DSnapshot AnimatableTransform3D::snapshotAt(const RationalTime& time) const
+{
+  Transform3DSnapshot snapshot;
+  FramePosition frame(time.rescaledTo(24));
+  snapshot.positionX = impl_->initialX_ + impl_->x_.at(frame);
+  snapshot.positionY = impl_->initialY_ + impl_->y_.at(frame);
+  snapshot.positionZ = impl_->initialZ_ + impl_->z_.at(frame);
+  snapshot.rotation = impl_->initialRotation_ + impl_->rotation_.at(frame);
+  snapshot.scaleX = impl_->initialScaleX_ * impl_->scaleX_.at(frame);
+  snapshot.scaleY = impl_->initialScaleY_ * impl_->scaleY_.at(frame);
+  snapshot.anchorX = impl_->anchorX_.at(frame);
+  snapshot.anchorY = impl_->anchorY_.at(frame);
+  snapshot.anchorZ = impl_->anchorZ_.at(frame);
+  snapshot.isZVisible = impl_->isZVisible;
+  snapshot.matrix = getMatrixAt(time);
+  snapshot.matrixWithAnchor = getAllMatrixAt(time);
+  snapshot.anchorCanvasPosition = anchorPositionAt(time);
+  return snapshot;
+}
+
+float2 AnimatableTransform3D::anchorPosition() const
+{
+  const auto matrix = getAllMatrix();
+  return float2{matrix.m30, matrix.m31};
+}
+
+float2 AnimatableTransform3D::anchorPositionAt(const RationalTime& time) const
+{
+  const auto matrix = getAllMatrixAt(time);
+  return float2{matrix.m30, matrix.m31};
+}
+
 // ============================================
 // �L�[�t���[���Ǘ��@�\�̎���
 // ============================================
@@ -490,25 +565,7 @@ size_t AnimatableTransform3D::getPositionKeyFrameCount() const
 
 std::vector<RationalTime> AnimatableTransform3D::getPositionKeyFrameTimes() const
 {
-  std::set<int64_t> frameSet;
-  
-  // X �̃L�[�t���[��������ǉ�
-  for (const auto& kf : impl_->x_.getKeyFrames()) {
-    frameSet.insert(kf.frame.framePosition());
-  }
-  
-  // Y �̃L�[�t���[��������ǉ�
-  for (const auto& kf : impl_->y_.getKeyFrames()) {
-    frameSet.insert(kf.frame.framePosition());
-  }
-  
-  // RationalTime �ɕϊ�
-  std::vector<RationalTime> times;
-  for (int64_t framePos : frameSet) {
-    times.push_back(RationalTime(framePos, 24));
-  }
-  
-  return times;
+  return collectUniqueKeyFrameTimes(impl_->x_, impl_->y_);
 }
 
 // Rotation �L�[�t���[���Ǘ�
@@ -536,13 +593,7 @@ size_t AnimatableTransform3D::getRotationKeyFrameCount() const
 
 std::vector<RationalTime> AnimatableTransform3D::getRotationKeyFrameTimes() const
 {
-  std::vector<RationalTime> times;
-  
-  for (const auto& kf : impl_->rotation_.getKeyFrames()) {
-    times.push_back(RationalTime(kf.frame.framePosition(), 24));
-  }
-  
-  return times;
+  return collectUniqueKeyFrameTimes(impl_->rotation_);
 }
 
 // Scale �L�[�t���[���Ǘ�
@@ -572,25 +623,15 @@ size_t AnimatableTransform3D::getScaleKeyFrameCount() const
 
 std::vector<RationalTime> AnimatableTransform3D::getScaleKeyFrameTimes() const
 {
-  std::set<int64_t> frameSet;
-  
-  // ScaleX �̃L�[�t���[��������ǉ�
-  for (const auto& kf : impl_->scaleX_.getKeyFrames()) {
-    frameSet.insert(kf.frame.framePosition());
-  }
-  
-  // ScaleY �̃L�[�t���[��������ǉ�
-  for (const auto& kf : impl_->scaleY_.getKeyFrames()) {
-    frameSet.insert(kf.frame.framePosition());
-  }
-  
-  // RationalTime �ɕϊ�
-  std::vector<RationalTime> times;
-  for (int64_t framePos : frameSet) {
-    times.push_back(RationalTime(framePos, 24));
-  }
-  
-  return times;
+  return collectUniqueKeyFrameTimes(impl_->scaleX_, impl_->scaleY_);
+}
+
+std::vector<RationalTime> AnimatableTransform3D::getAllKeyFrameTimes() const
+{
+  return collectUniqueKeyFrameTimes(impl_->x_, impl_->y_, impl_->z_,
+                                    impl_->rotation_, impl_->scaleX_,
+                                    impl_->scaleY_, impl_->anchorX_,
+                                    impl_->anchorY_, impl_->anchorZ_);
 }
 
 // ���ׂăN���A

@@ -63,6 +63,10 @@ export struct SpringState {
   T currentValue_{};
   mutable size_t lastCachedIndex_ = 0; // Temporal Coherence用のキャッシュ
 
+  void invalidateCache() {
+   lastCachedIndex_ = 0;
+  }
+
  public:
   AnimatableValueT() = default;
 
@@ -136,7 +140,7 @@ export struct SpringState {
    keyframes_.push_back({ frame, value });
    std::sort(keyframes_.begin(), keyframes_.end(),
  [](auto& a, auto& b) { return a.frame < b.frame; });
-   lastCachedIndex_ = 0; // キャッシュ無効化
+   invalidateCache();
   }
 
   // ============================================
@@ -155,6 +159,7 @@ export struct SpringState {
    auto it = std::remove_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    keyframes_.erase(it, keyframes_.end());
+   invalidateCache();
   }
 
   bool moveKeyFrame(const FramePosition& from, const FramePosition& to) {
@@ -168,6 +173,7 @@ export struct SpringState {
    it->frame = to;
    std::sort(keyframes_.begin(), keyframes_.end(),
     [](auto& a, auto& b) { return a.frame < b.frame; });
+   invalidateCache();
    return true;
   }
 
@@ -197,6 +203,7 @@ export struct SpringState {
   // ���ׂẴL�[�t���[�����N���A
   void clearKeyFrames() {
    keyframes_.clear();
+   invalidateCache();
   }
   
   // �L�[�t���[�������擾
@@ -207,6 +214,15 @@ export struct SpringState {
   // ���ׂẴL�[�t���[�����擾�i�ǂݎ���p�j
   const std::vector<KeyFrameT<T>>& getKeyFrames() const {
    return keyframes_;
+  }
+
+  std::vector<FramePosition> getKeyFrameFrames() const {
+   std::vector<FramePosition> frames;
+   frames.reserve(keyframes_.size());
+   for (const auto& kf : keyframes_) {
+    frames.push_back(kf.frame);
+   }
+   return frames;
   }
 
   

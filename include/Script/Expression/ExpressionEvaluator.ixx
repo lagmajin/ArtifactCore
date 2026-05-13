@@ -96,6 +96,8 @@ namespace BuiltinFunctions {
     ExpressionValue Sin(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Cos(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Tan(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue DegToRad(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue RadToDeg(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Sqrt(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Pow(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Abs(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
@@ -108,6 +110,7 @@ namespace BuiltinFunctions {
     
     // Vector functions
     ExpressionValue Length(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);  // Vector magnitude
+    ExpressionValue Distance(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Normalize(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Dot(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Cross(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);

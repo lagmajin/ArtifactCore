@@ -228,11 +228,43 @@ public:
         vars["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
         std::vector<ExpressionValue> selectionValues;
         selectionValues.reserve(hostSnapshot_.selection.size());
+        std::vector<ExpressionValue> layerCatalog;
         for (const auto& item : hostSnapshot_.selection) {
             selectionValues.emplace_back(item);
+            std::map<std::string, ExpressionValue> layer;
+            layer["name"] = ExpressionValue(item);
+            layer["index"] = ExpressionValue(static_cast<double>(layerCatalog.size() + 1));
+            layerCatalog.emplace_back(layer);
         }
         vars["selection"] = ExpressionValue(selectionValues);
         vars["selection_names"] = ExpressionValue(selectionValues);
+
+        std::map<std::string, ExpressionValue> thisComp;
+        thisComp["name"] = ExpressionValue(hostSnapshot_.activeCompositionName);
+        thisComp["app_name"] = ExpressionValue(hostSnapshot_.appName);
+        thisComp["app_version"] = ExpressionValue(hostSnapshot_.appVersion);
+        thisComp["project_name"] = ExpressionValue(hostSnapshot_.projectName);
+        thisComp["working_directory"] = ExpressionValue(hostSnapshot_.workingDirectory);
+        thisComp["has_project"] = ExpressionValue(hostSnapshot_.hasProject ? 1.0 : 0.0);
+        thisComp["has_composition"] = ExpressionValue(hostSnapshot_.hasComposition ? 1.0 : 0.0);
+        thisComp["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
+        thisComp["layers"] = ExpressionValue(layerCatalog);
+        thisComp["numLayers"] = ExpressionValue(static_cast<double>(layerCatalog.size()));
+        vars["thisComp"] = ExpressionValue(thisComp);
+
+        std::map<std::string, ExpressionValue> thisLayer;
+        if (!hostSnapshot_.selection.empty()) {
+            thisLayer["name"] = ExpressionValue(hostSnapshot_.selection.front());
+            thisLayer["index"] = ExpressionValue(1.0);
+        } else {
+            thisLayer["name"] = ExpressionValue(hostSnapshot_.activeCompositionName);
+            thisLayer["index"] = ExpressionValue(0.0);
+        }
+        thisLayer["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
+        thisLayer["comp"] = ExpressionValue(thisComp);
+        vars["thisLayer"] = ExpressionValue(thisLayer);
+        vars["index"] = thisLayer["index"];
+
         evaluator_.setVariables(vars);
     }
 

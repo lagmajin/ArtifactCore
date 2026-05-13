@@ -165,6 +165,8 @@ public:
     std::shared_ptr<ExprNode> parsePrimary();
     std::shared_ptr<ExprNode> parseArrayLiteral();
     std::shared_ptr<ExprNode> parseFunctionCall(const std::string& funcName);
+    std::shared_ptr<ExprNode> parseCallExpression(std::shared_ptr<ExprNode> callee, bool methodCall);
+    std::shared_ptr<ExprNode> parsePostfix(std::shared_ptr<ExprNode> base);
 };
 
 void ExpressionParser::Impl::setError(const std::string& message,
@@ -250,6 +252,7 @@ void ExpressionParser::Impl::tokenize() {
         case ')': tokens_.push_back({TokenType::RParen, ")", pos}); break;
         case '[': tokens_.push_back({TokenType::LBracket, "[", pos}); break;
         case ']': tokens_.push_back({TokenType::RBracket, "]", pos}); break;
+        case '.': tokens_.push_back({TokenType::Unknown, ".", pos}); break;
         case ',': tokens_.push_back({TokenType::Comma, ",", pos}); break;
         case '?': tokens_.push_back({TokenType::Question, "?", pos}); break;
         case ':': tokens_.push_back({TokenType::Colon, ":", pos}); break;
@@ -530,50 +533,62 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseUnary() {
 }
 
 std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
+    std::shared_ptr<ExprNode> base;
+
     // Number
     if (match(TokenType::Number)) {
-        auto node = std::make_shared<ExprNode>(ExprNodeType::Number);
-        node->setNumberValue(std::stod(tokens_[currentToken_ - 1].value));
-        return node;
+        base = std::make_shared<ExprNode>(ExprNodeType::Number);
+        base->setNumberValue(std::stod(tokens_[currentToken_ - 1].value));
+        return parsePostfix(base);
     }
     
     // String
     if (match(TokenType::String)) {
-        auto node = std::make_shared<ExprNode>(ExprNodeType::String);
-        node->setStringValue(tokens_[currentToken_ - 1].value);
-        return node;
+        base = std::make_shared<ExprNode>(ExprNodeType::String);
+        base->setStringValue(tokens_[currentToken_ - 1].value);
+        return parsePostfix(base);
     }
     
     // Array literal [1, 2, 3]
     if (match(TokenType::LBracket)) {
-        return parseArrayLiteral();
+        base = parseArrayLiteral();
+        return parsePostfix(base);
     }
     
     // Parenthesized expression or vector literal
     if (match(TokenType::LParen)) {
         auto expr = parseExpression();
-        if (!match(TokenType::RParen)) {
-            setError("Expected ')' after expression", currentToken().position);
+        if (!expr) {
             return nullptr;
         }
-        
-        // Check if this is a vector literal like (x, y) or (x, y, z)
+
+        // Vector literal: (x, y, z)
         if (match(TokenType::Comma)) {
             std::vector<std::shared_ptr<ExprNode>> elements = {expr};
-            elements.push_back(parseExpression());
-            while (match(TokenType::Comma)) {
-                elements.push_back(parseExpression());
-            }
+            do {
+                auto element = parseExpression();
+                if (!element) {
+                    return nullptr;
+                }
+                elements.push_back(element);
+            } while (match(TokenType::Comma));
+
             if (!match(TokenType::RParen)) {
                 setError("Expected ')' after vector literal", currentToken().position);
                 return nullptr;
             }
+
             auto node = std::make_shared<ExprNode>(ExprNodeType::Vector);
             node->setChildren(elements);
-            return node;
+            return parsePostfix(node);
         }
         
-        return expr;
+        if (!match(TokenType::RParen)) {
+            setError("Expected ')' after expression", currentToken().position);
+            return nullptr;
+        }
+
+        return parsePostfix(expr);
     }
     
     // Identifier (variable or function call)
@@ -582,7 +597,8 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
         
         // Function call
         if (match(TokenType::LParen)) {
-            return parseFunctionCall(name);
+            base = parseFunctionCall(name);
+            return parsePostfix(base);
         }
         
         // Array/vector access: variable[index]
@@ -596,17 +612,67 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePrimary() {
             varNode->setStringValue(name);
             auto node = std::make_shared<ExprNode>(ExprNodeType::ArrayAccess);
             node->setChildren({varNode, index});
-            return node;
+            return parsePostfix(node);
         }
         
         // Variable
-        auto node = std::make_shared<ExprNode>(ExprNodeType::Variable);
-        node->setStringValue(name);
-        return node;
+        base = std::make_shared<ExprNode>(ExprNodeType::Variable);
+        base->setStringValue(name);
+        return parsePostfix(base);
     }
     
     setError("Unexpected token in expression", currentToken().position);
     return nullptr;
+}
+
+std::shared_ptr<ExprNode> ExpressionParser::Impl::parsePostfix(std::shared_ptr<ExprNode> base) {
+    while (true) {
+        if (currentToken().type == TokenType::Unknown && currentToken().value == ".") {
+            advance();
+            if (!match(TokenType::Identifier)) {
+                setError("Expected property name after '.'", currentToken().position);
+                return nullptr;
+            }
+            auto node = std::make_shared<ExprNode>(ExprNodeType::PropertyAccess);
+            node->setStringValue(tokens_[currentToken_ - 1].value);
+            node->setChildren({base});
+            base = node;
+            continue;
+        }
+
+        if (match(TokenType::LParen)) {
+            if (!base) {
+                setError("Unexpected function call target", currentToken().position);
+                return nullptr;
+            }
+            const bool methodCall = base->type() == ExprNodeType::PropertyAccess;
+            if (!methodCall && base->type() != ExprNodeType::Variable) {
+                setError("Unexpected function call target", currentToken().position);
+                return nullptr;
+            }
+            base = parseCallExpression(base, methodCall);
+            if (!base) {
+                return nullptr;
+            }
+            continue;
+        }
+
+        if (match(TokenType::LBracket)) {
+            auto index = parseExpression();
+            if (!match(TokenType::RBracket)) {
+                setError("Expected ']' after array index", currentToken().position);
+                return nullptr;
+            }
+            auto node = std::make_shared<ExprNode>(ExprNodeType::ArrayAccess);
+            node->setChildren({base, index});
+            base = node;
+            continue;
+        }
+
+        break;
+    }
+
+    return base;
 }
 
 std::shared_ptr<ExprNode> ExpressionParser::Impl::parseArrayLiteral() {
@@ -644,6 +710,44 @@ std::shared_ptr<ExprNode> ExpressionParser::Impl::parseFunctionCall(const std::s
     
     auto node = std::make_shared<ExprNode>(ExprNodeType::FunctionCall);
     node->setStringValue(funcName);
+    node->setChildren(args);
+    return node;
+}
+
+std::shared_ptr<ExprNode> ExpressionParser::Impl::parseCallExpression(std::shared_ptr<ExprNode> callee, bool methodCall) {
+    std::vector<std::shared_ptr<ExprNode>> args;
+
+    if (!match(TokenType::RParen)) {
+        auto firstArg = parseExpression();
+        if (!firstArg) {
+            return nullptr;
+        }
+        args.push_back(firstArg);
+        while (match(TokenType::Comma)) {
+            auto arg = parseExpression();
+            if (!arg) {
+                return nullptr;
+            }
+            args.push_back(arg);
+        }
+        if (!match(TokenType::RParen)) {
+            setError("Expected ')' after function arguments", currentToken().position);
+            return nullptr;
+        }
+    }
+
+    if (methodCall) {
+        auto node = std::make_shared<ExprNode>(ExprNodeType::MethodCall);
+        node->setStringValue(callee ? callee->stringValue() : std::string());
+        std::vector<std::shared_ptr<ExprNode>> children;
+        children.push_back(callee);
+        children.insert(children.end(), args.begin(), args.end());
+        node->setChildren(children);
+        return node;
+    }
+
+    auto node = std::make_shared<ExprNode>(ExprNodeType::FunctionCall);
+    node->setStringValue(callee ? callee->stringValue() : std::string());
     node->setChildren(args);
     return node;
 }

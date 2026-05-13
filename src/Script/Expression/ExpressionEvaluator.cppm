@@ -74,6 +74,42 @@ mergeVariables(const std::map<std::string, ExpressionValue> &a,
   return out;
 }
 
+static ExpressionValue interpolateValue(const ExpressionValue& from,
+                                         const ExpressionValue& to,
+                                         double t) {
+  if (from.isVector() && to.isVector()) {
+    const auto v1 = from.asVector();
+    const auto v2 = to.asVector();
+    const size_t size = std::min(v1.size(), v2.size());
+    std::vector<double> result(size);
+    for (size_t i = 0; i < size; ++i) {
+      result[i] = v1[i] + t * (v2[i] - v1[i]);
+    }
+    if (size == 2) return ExpressionValue(result[0], result[1]);
+    if (size == 3) return ExpressionValue(result[0], result[1], result[2]);
+    if (size == 4) return ExpressionValue(result[0], result[1], result[2], result[3]);
+  }
+
+  const double a = from.asNumber();
+  const double b = to.asNumber();
+  return ExpressionValue(a + t * (b - a));
+}
+
+static double easeCurve(double t) {
+  t = std::clamp(t, 0.0, 1.0);
+  return t * t * (3.0 - 2.0 * t);
+}
+
+static double easeInCurve(double t) {
+  t = std::clamp(t, 0.0, 1.0);
+  return t * t;
+}
+
+static double easeOutCurve(double t) {
+  t = std::clamp(t, 0.0, 1.0);
+  return 1.0 - (1.0 - t) * (1.0 - t);
+}
+
 ExpressionValue
 ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
   if (!node) {
@@ -135,6 +171,42 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
     auto index = evaluateNode(node->child(1));
     size_t idx = static_cast<size_t>(index.asNumber());
     return array.at(idx);
+  }
+
+  case ExprNodeType::PropertyAccess: {
+    if (node->childCount() < 1) {
+      error_ = "Invalid property access";
+      return ExpressionValue();
+    }
+
+    auto base = evaluateNode(node->child(0));
+    const auto prop = node->stringValue();
+
+    if (base.isObject()) {
+      if (base.hasProperty(prop)) {
+        return base.property(prop);
+      }
+      error_ = "Undefined property: " + prop;
+      return ExpressionValue();
+    }
+
+    if (base.isVector()) {
+      if (prop == "x" || prop == "r") return ExpressionValue(base.x());
+      if (prop == "y" || prop == "g") return ExpressionValue(base.y());
+      if (prop == "z" || prop == "b") return ExpressionValue(base.z());
+      if (prop == "w" || prop == "a") return ExpressionValue(base.w());
+    }
+
+    if (base.isArray() && prop == "length") {
+      return ExpressionValue(static_cast<double>(base.length()));
+    }
+
+    if (base.isString() && prop == "length") {
+      return ExpressionValue(static_cast<double>(base.asString().size()));
+    }
+
+    error_ = "Unsupported property access: " + prop;
+    return ExpressionValue();
   }
 
   case ExprNodeType::BinaryOp: {
@@ -214,6 +286,54 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
     // Pass ExpressionEvaluator pointer to functions
     return it->second(
         args, static_cast<const ExpressionEvaluator *>(this->owner_));
+  }
+
+  case ExprNodeType::MethodCall: {
+    if (node->childCount() < 1) {
+      error_ = "Invalid method call";
+      return ExpressionValue();
+    }
+
+    auto base = evaluateNode(node->child(0));
+    const auto method = node->stringValue();
+    std::vector<ExpressionValue> args;
+    for (size_t i = 1; i < node->childCount(); ++i) {
+      args.push_back(evaluateNode(node->child(i)));
+    }
+
+    if (base.isObject() && method == "layer") {
+      auto layersValue = base.property("layers");
+      if (!layersValue.isArray()) {
+        error_ = "thisComp.layer() requires a layers catalog";
+        return ExpressionValue();
+      }
+
+      if (args.empty()) {
+        error_ = "thisComp.layer() requires an argument";
+        return ExpressionValue();
+      }
+
+      const auto layers = layersValue.asArray();
+      if (args[0].isNumber()) {
+        const auto index = static_cast<std::size_t>(std::max(0.0, args[0].asNumber()));
+        if (index >= 1 && index <= layers.size()) {
+          return layers[index - 1];
+        }
+      }
+
+      const std::string wantedName = args[0].asString();
+      for (const auto& layer : layers) {
+        if (layer.isObject() && layer.hasProperty("name") && layer.property("name").asString() == wantedName) {
+          return layer;
+        }
+      }
+
+      error_ = "Layer not found: " + wantedName;
+      return ExpressionValue();
+    }
+
+    error_ = "Unsupported method call: " + method;
+    return ExpressionValue();
   }
 
   case ExprNodeType::Conditional: {
@@ -317,6 +437,8 @@ void ExpressionEvaluator::registerStandardFunctions() {
   registerFunction("sin", Sin);
   registerFunction("cos", Cos);
   registerFunction("tan", Tan);
+  registerFunction("degToRad", DegToRad);
+  registerFunction("radToDeg", RadToDeg);
   registerFunction("sqrt", Sqrt);
   registerFunction("pow", Pow);
   registerFunction("abs", Abs);
@@ -327,6 +449,7 @@ void ExpressionEvaluator::registerStandardFunctions() {
   registerFunction("max", Max);
   registerFunction("clamp", Clamp);
   registerFunction("length", Length);
+  registerFunction("distance", Distance);
   registerFunction("normalize", Normalize);
   registerFunction("dot", Dot);
   registerFunction("cross", Cross);
@@ -367,6 +490,16 @@ ExpressionValue Cos(const std::vector<ExpressionValue> &args, const ExpressionEv
 ExpressionValue Tan(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
   if (args.empty()) return ExpressionValue();
   return ExpressionValue(std::tan(args[0].asNumber()));
+}
+
+ExpressionValue DegToRad(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
+  if (args.empty()) return ExpressionValue();
+  return ExpressionValue(args[0].asNumber() * (std::acos(-1.0) / 180.0));
+}
+
+ExpressionValue RadToDeg(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
+  if (args.empty()) return ExpressionValue();
+  return ExpressionValue(args[0].asNumber() * (180.0 / std::acos(-1.0)));
 }
 
 ExpressionValue Sqrt(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
@@ -420,7 +553,42 @@ ExpressionValue Clamp(const std::vector<ExpressionValue> &args, const Expression
 
 ExpressionValue Length(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
   if (args.empty()) return ExpressionValue(0.0);
-  return ExpressionValue(args[0].length());
+
+  const auto& value = args[0];
+  if (value.isVector()) {
+    const auto vec = value.asVector();
+    double sumSq = 0.0;
+    for (double component : vec) {
+      sumSq += component * component;
+    }
+    return ExpressionValue(std::sqrt(sumSq));
+  }
+
+  if (value.isArray()) {
+    return ExpressionValue(static_cast<double>(value.length()));
+  }
+
+  return ExpressionValue(std::abs(value.asNumber()));
+}
+
+ExpressionValue Distance(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
+  if (args.size() < 2) return ExpressionValue(0.0);
+
+  const auto a = args[0];
+  const auto b = args[1];
+  if (a.isVector() && b.isVector()) {
+    const auto av = a.asVector();
+    const auto bv = b.asVector();
+    const size_t size = std::min(av.size(), bv.size());
+    double sumSq = 0.0;
+    for (size_t i = 0; i < size; ++i) {
+      const double delta = av[i] - bv[i];
+      sumSq += delta * delta;
+    }
+    return ExpressionValue(std::sqrt(sumSq));
+  }
+
+  return ExpressionValue(std::abs(a.asNumber() - b.asNumber()));
 }
 
 ExpressionValue Normalize(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
@@ -449,38 +617,87 @@ ExpressionValue Cross(const std::vector<ExpressionValue> &args, const Expression
 }
 
 ExpressionValue Linear(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
-  if (args.size() < 3) return ExpressionValue();
-  double t = args[0].asNumber();
-  double a = args[1].asNumber();
-  double b = args[2].asNumber();
-  return ExpressionValue(a + t * (b - a));
+  if (args.size() == 3) {
+    const double t = args[0].asNumber();
+    return interpolateValue(args[1], args[2], t);
+  }
+
+  if (args.size() >= 5) {
+    const double t = args[0].asNumber();
+    const double tMin = args[1].asNumber();
+    const double tMax = args[2].asNumber();
+    const double range = tMax - tMin;
+    if (std::abs(range) < 1e-12) {
+      return args[3];
+    }
+    const double alpha = std::clamp((t - tMin) / range, 0.0, 1.0);
+    return interpolateValue(args[3], args[4], alpha);
+  }
+
+  return ExpressionValue();
 }
 
 ExpressionValue Ease(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
-  if (args.size() < 3) return ExpressionValue();
-  double t = std::clamp(args[0].asNumber(), 0.0, 1.0);
-  double a = args[1].asNumber();
-  double b = args[2].asNumber();
-  t = t * t * (3.0 - 2.0 * t);
-  return ExpressionValue(a + t * (b - a));
+  if (args.size() == 3) {
+    const double t = easeCurve(args[0].asNumber());
+    return interpolateValue(args[1], args[2], t);
+  }
+
+  if (args.size() >= 5) {
+    const double t = args[0].asNumber();
+    const double tMin = args[1].asNumber();
+    const double tMax = args[2].asNumber();
+    const double range = tMax - tMin;
+    if (std::abs(range) < 1e-12) {
+      return args[3];
+    }
+    const double alpha = easeCurve((t - tMin) / range);
+    return interpolateValue(args[3], args[4], alpha);
+  }
+
+  return ExpressionValue();
 }
 
 ExpressionValue EaseIn(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
-  if (args.size() < 3) return ExpressionValue();
-  double t = std::clamp(args[0].asNumber(), 0.0, 1.0);
-  double a = args[1].asNumber();
-  double b = args[2].asNumber();
-  t = t * t;
-  return ExpressionValue(a + t * (b - a));
+  if (args.size() == 3) {
+    const double t = easeInCurve(args[0].asNumber());
+    return interpolateValue(args[1], args[2], t);
+  }
+
+  if (args.size() >= 5) {
+    const double t = args[0].asNumber();
+    const double tMin = args[1].asNumber();
+    const double tMax = args[2].asNumber();
+    const double range = tMax - tMin;
+    if (std::abs(range) < 1e-12) {
+      return args[3];
+    }
+    const double alpha = easeInCurve((t - tMin) / range);
+    return interpolateValue(args[3], args[4], alpha);
+  }
+
+  return ExpressionValue();
 }
 
 ExpressionValue EaseOut(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
-  if (args.size() < 3) return ExpressionValue();
-  double t = std::clamp(args[0].asNumber(), 0.0, 1.0);
-  double a = args[1].asNumber();
-  double b = args[2].asNumber();
-  t = 1.0 - (1.0 - t) * (1.0 - t);
-  return ExpressionValue(a + t * (b - a));
+  if (args.size() == 3) {
+    const double t = easeOutCurve(args[0].asNumber());
+    return interpolateValue(args[1], args[2], t);
+  }
+
+  if (args.size() >= 5) {
+    const double t = args[0].asNumber();
+    const double tMin = args[1].asNumber();
+    const double tMax = args[2].asNumber();
+    const double range = tMax - tMin;
+    if (std::abs(range) < 1e-12) {
+      return args[3];
+    }
+    const double alpha = easeOutCurve((t - tMin) / range);
+    return interpolateValue(args[3], args[4], alpha);
+  }
+
+  return ExpressionValue();
 }
 
 ExpressionValue Random(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {

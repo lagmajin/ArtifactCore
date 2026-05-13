@@ -45,6 +45,22 @@ export namespace ArtifactCore
 {
  using namespace Diligent;
 
+  struct Transform3DSnapshot {
+    float positionX = 0.0f;
+    float positionY = 0.0f;
+    float positionZ = 0.0f;
+    float rotation = 0.0f;
+    float scaleX = 1.0f;
+    float scaleY = 1.0f;
+    float anchorX = 0.0f;
+    float anchorY = 0.0f;
+    float anchorZ = 0.0f;
+    bool isZVisible = false;
+    float4x4 matrix = float4x4::Identity();
+    float4x4 matrixWithAnchor = float4x4::Identity();
+    float2 anchorCanvasPosition = float2{0.0f, 0.0f};
+  };
+
  class LIBRARY_DLL_API AnimatableTransform3D
  {
  private:
@@ -92,11 +108,15 @@ export namespace ArtifactCore
   float anchorXAt(const RationalTime& time) const;
   float anchorYAt(const RationalTime& time) const;
   float anchorZAt(const RationalTime& time) const;
+  float2 anchorPosition() const;
+  float2 anchorPositionAt(const RationalTime& time) const;
 
   float4x4 getMatrix() const;
   float4x4 getAllMatrix() const;
   float4x4 getMatrixAt(const RationalTime& time) const;
   float4x4 getAllMatrixAt(const RationalTime& time) const;
+  Transform3DSnapshot snapshot() const;
+  Transform3DSnapshot snapshotAt(const RationalTime& time) const;
   
   bool hasPositionKeyFrameAt(const RationalTime& time) const;
   bool hasRotationKeyFrameAt(const RationalTime& time) const;
@@ -124,6 +144,7 @@ export namespace ArtifactCore
   std::vector<RationalTime> getPositionKeyFrameTimes() const;
   std::vector<RationalTime> getRotationKeyFrameTimes() const;
   std::vector<RationalTime> getScaleKeyFrameTimes() const;
+  std::vector<RationalTime> getAllKeyFrameTimes() const;
  };
 
 };
