@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -35,10 +35,6 @@ module;
 #include <regex>
 #include <random>
 module GenerateTestImage;
-
-
-
-
 
 namespace ArtifactCore {
 

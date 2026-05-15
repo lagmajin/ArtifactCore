@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include <QPointF>
 #include <QVector>
@@ -38,10 +39,6 @@ module;
 #include <regex>
 #include <random>
 module Math.Bezier;
-
-
-
-
 
 namespace ArtifactCore {
 

@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,12 +35,6 @@ module;
 #include <QVector>
 
 export module Script.Builtin.Manager;
-
-
-
-
-
-
 
 export namespace ArtifactCore {
 

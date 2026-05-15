@@ -1,11 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 #include <QImage>
 #include <QByteArray>
 export module MediaEditorController;
-
-
 
 import MediaPlaybackController;
 

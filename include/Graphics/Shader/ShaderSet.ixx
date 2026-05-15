@@ -1,12 +1,10 @@
-module;
+﻿module;
 #include <utility>
 // RefCntAutoPtr.hpp intentionally NOT included anywhere (MSVC 14.51 C1116 workaround)
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>
 
 
 export module Graphics.Shader.Set;
-
-
 
 export namespace ArtifactCore
 {

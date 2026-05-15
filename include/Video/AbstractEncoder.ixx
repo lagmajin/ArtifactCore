@@ -1,4 +1,4 @@
-
+﻿
 module;
 #include <utility>
 #include <stdint.h>
@@ -6,6 +6,7 @@ module;
 
 
 export module Codec.AbstractEncoder;
+
 #include <QtCore/QFile>
 
 

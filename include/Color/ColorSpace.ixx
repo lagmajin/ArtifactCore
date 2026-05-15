@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include "../Define/DllExportMacro.hpp"
 #include <wobjectdefs.h>
@@ -35,10 +35,6 @@ module;
 #include <regex>
 #include <random>
 export module Color.ColorSpace;
-
-
-
-
 
 export namespace ArtifactCore
 {

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <cstdint>
 #include <cstdlib>
@@ -6,6 +6,7 @@ module;
 #include <string>
 
 module Frame.Offset;
+
 import Frame.Rate;
 import Time.Rational;
 import Time.Code;

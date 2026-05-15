@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <QDebug>
@@ -15,7 +15,6 @@ extern "C" {
 
 
 module MediaImageFrameDecoder;
-
 
 import Video.VideoFrame;
 import std;

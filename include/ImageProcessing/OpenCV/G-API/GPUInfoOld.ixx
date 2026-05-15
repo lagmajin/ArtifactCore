@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 //#include <vulkan/vulkan.h>
@@ -8,8 +8,6 @@ module;
 #include <QString>
 
 export module GPUInfo;
-
-
 
 export namespace ArtifactCore {
  /*

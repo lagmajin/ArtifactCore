@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QFile>
 #include <QFileInfo>
@@ -8,7 +8,6 @@ module;
 #include <boost\asio\post.hpp>
 
 module asio_async_file_writer;
-
 
 namespace ArtifactCore {
 

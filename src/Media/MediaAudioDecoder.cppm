@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #define QT_NO_KEYWORDS
 #include <QDebug>
@@ -56,10 +56,6 @@ extern "C" {
 #include <regex>
 #include <random>
 module MediaAudioDecoder;
-
-
-
-
 
 namespace ArtifactCore {
 

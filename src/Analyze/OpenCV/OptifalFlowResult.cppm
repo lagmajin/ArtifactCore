@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <vector>
 
@@ -36,10 +36,6 @@ module;
 #include <regex>
 #include <random>
 module Analyze.OpticalFlow;
-
-
-
-
 
 namespace ArtifactCore {
 

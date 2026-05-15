@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <OpenImageIO/imageio.h>
 #include <QImage>

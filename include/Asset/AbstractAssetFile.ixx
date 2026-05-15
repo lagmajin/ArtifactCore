@@ -36,8 +36,6 @@
 #include <wobjectdefs.h>
 export module Asset.File;
 
-
-
 //import String.like;
 
 import Utils.Id;

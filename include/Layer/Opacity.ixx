@@ -32,9 +32,6 @@
 #include <random>
 export module Core.Opacity;
 
-
-
-
 import Utils.String.UniString;
 
 export namespace ArtifactCore {

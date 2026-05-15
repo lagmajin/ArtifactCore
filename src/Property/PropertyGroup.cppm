@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <algorithm>
 #include <utility>
@@ -36,9 +36,6 @@ module;
 #include <regex>
 #include <random>
 module Property.Group;
-
-
-
 
 import Property.Abstract;
 

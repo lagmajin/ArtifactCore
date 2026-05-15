@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QtCore/QFile>
 extern "C" {
@@ -10,7 +10,6 @@ extern "C" {
 
 module Media.MediaProbe;
 
-import Media.MediaProbe;
 import Media.Info;
 
 

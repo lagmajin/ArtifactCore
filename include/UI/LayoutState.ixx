@@ -1,10 +1,11 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 #include <QByteArray>
 #include <QJsonObject>
 #include <QSettings>
 export module UI.Layout.State;
+
 import Core.FastSettingsStore;
 
 export namespace ArtifactCore

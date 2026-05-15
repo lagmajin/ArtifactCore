@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <numeric>
 #include <memory>
 #include <QString>
@@ -37,10 +37,6 @@ module;
 #include <regex>
 #include <random>
 module Core.AspectRatio;
-
-
-
-
 
 namespace ArtifactCore {
 

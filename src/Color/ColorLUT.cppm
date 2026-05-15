@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <vector>
 #include <cmath>
@@ -17,10 +17,6 @@ module;
 #include <QMap>
 
 module Color.LUT;
-
-
-
-
 
 namespace ArtifactCore {
 

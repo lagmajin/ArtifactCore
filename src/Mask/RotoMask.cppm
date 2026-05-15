@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QString>
 #include <QPointF>
 #include <QRectF>
@@ -43,10 +43,6 @@ module;
 #include <regex>
 #include <random>
 module Core.Mask.RotoMask;
-
-
-
-
 
 namespace ArtifactCore {
 

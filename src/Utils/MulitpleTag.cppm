@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 #include <QStringList>
@@ -39,10 +39,6 @@ module;
 #include <regex>
 #include <random>
 module Utils.MultipleTag;
-
-
-
-
 
 namespace ArtifactCore {
 

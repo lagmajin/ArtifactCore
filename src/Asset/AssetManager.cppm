@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QFileSystemWatcher>
 
 module Asset.Manager;

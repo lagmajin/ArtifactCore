@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <memory>
 #include <string>
 
@@ -33,10 +33,6 @@ module;
 #include <regex>
 #include <random>
 export module ArtifactCore.Core.Simulation;
-
-
-
-
 
 export namespace ArtifactCore {
 

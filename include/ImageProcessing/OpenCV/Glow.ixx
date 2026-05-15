@@ -1,11 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <random>
 #include "../../Define/DllExportMacro.hpp"
 #include <opencv2/opencv.hpp>
 export module Glow;
-
-
 
 export namespace ArtifactCore {
 

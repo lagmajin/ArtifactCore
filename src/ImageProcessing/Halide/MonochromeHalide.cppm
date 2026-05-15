@@ -1,14 +1,10 @@
-
+﻿
 module;
 #include <utility>
 #include <Halide.h>
 #include "../../../include/Define/DllExportMacro.hpp"
 #include <opencv2/opencv.hpp>
 module ImageProcessing:Halide;
-
-
-
-
 
 namespace ArtifactCore {
  using namespace Halide;

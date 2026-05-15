@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <iostream>
 #include <vector>
@@ -34,8 +34,6 @@ module;
 #include <regex>
 #include <random>
 module Audio.Bus;
-
-
 
 import Utils.String.UniString;
 import Audio.Segment;

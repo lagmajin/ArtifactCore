@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -37,10 +37,6 @@ module;
 #include <QImage>
 #include <QPointF>
 export module ImageProcessing.SharpenDirectionalBlur;
-
-
-
-
 
 export namespace ArtifactCore {
 

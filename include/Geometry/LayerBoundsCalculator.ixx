@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include "../Define/DllExportMacro.hpp"
 
@@ -36,10 +37,6 @@ module;
 #include <QVector>
 #include <QRectF>
 export module Geometry.LayerBounds;
-
-
-
-
 
 export namespace ArtifactCore {
 

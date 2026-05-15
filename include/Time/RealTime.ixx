@@ -1,9 +1,7 @@
-module;
+﻿module;
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
 export module Time.Real;
-
-
 
 export namespace ArtifactCore
 {

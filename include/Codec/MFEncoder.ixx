@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mfreadwrite.h>
@@ -37,6 +37,7 @@ module;
 #include <regex>
 #include <random>
 export module Codec.MFEncoder;
+
 #include <QString>
 
 

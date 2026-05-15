@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QString>
 #include <QStringList>
 #include <QJsonDocument>
@@ -7,6 +7,7 @@ module;
 #include <QDateTime>
 
 export module Core.AI.Context;
+
 import std;
 
 export namespace ArtifactCore {

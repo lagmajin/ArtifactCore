@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QFont>
 #include <QFontDatabase>
 #include <QFontMetricsF>

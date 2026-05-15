@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QString>
 
 module Audio.Render.Writer;

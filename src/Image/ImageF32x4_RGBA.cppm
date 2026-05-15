@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 
 #include <iostream>
@@ -44,9 +45,6 @@ module;
 #include <OpenImageIO/imageio.h>
 
 module Image.ImageF32x4_RGBA;
-
-
-
 
 import FloatRGBA;
 import CvUtils;

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 #include <string>
@@ -6,7 +6,6 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
 module Graphics.Texture.Manager;
-
 
 namespace ArtifactCore
 {

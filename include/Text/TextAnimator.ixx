@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QPointF>
 #include <algorithm>
 #include <cmath>

@@ -1,8 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <stdint.h>
 
 export module ArtifactCore.AbstractDecoder;
+
 #include <QtCore/QFile>
 
 

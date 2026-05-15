@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <mutex>
 #include <algorithm>

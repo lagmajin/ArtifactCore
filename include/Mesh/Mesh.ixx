@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include <memory>
 #include <QString>
@@ -45,10 +46,6 @@ module;
 #include <regex>
 #include <random>
 export module Mesh;
-
-
-
-
 
 export namespace ArtifactCore {
 

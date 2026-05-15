@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include <QVariant>
 #include <QString>
@@ -38,11 +39,6 @@ module;
 #include <QDebug>
 #include <QVector>
 module Script.Builtin.Manager;
-
-
-
-
-
 
 namespace ArtifactCore {
 

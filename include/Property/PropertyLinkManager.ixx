@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <vector>
 #include <memory>
@@ -37,9 +37,6 @@ module;
 #include <regex>
 #include <random>
 export module Property.LinkManager;
-
-
-
 
 import Property.Abstract;
 

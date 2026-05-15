@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QPaintEngine>
 #include <QPaintDevice>
@@ -6,8 +6,7 @@ module;
 #include <QRectF>
 export module Image.CvMatPaintEngine;
 
-
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
  class CvMatPaintEngine:public QPaintEngine {
  private:

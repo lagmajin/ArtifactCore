@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include "../Define/DllExportMacro.hpp"
 #include <QList>
@@ -34,9 +35,6 @@ module;
 #include <regex>
 #include <random>
 export module Color.Harmonizer;
-
-
-
 
 import Color.Float;
 

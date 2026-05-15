@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <iostream>
 #include <vector>
@@ -32,9 +32,6 @@ module;
 #include <random>
 #include <cstdint>
 export module Frame.Offset;
-
-
-
 
 import Frame.Rate;
 import Time.Rational;

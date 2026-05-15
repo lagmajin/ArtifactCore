@@ -1,10 +1,9 @@
-module;
+﻿module;
+class tst_QList;
 #include <utility>
 #include <vector>
 #include <QVector>
 export module MeshEdgeExtractor;
-
-
 
 export namespace ArtifactCore
 {

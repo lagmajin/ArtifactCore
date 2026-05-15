@@ -1,8 +1,10 @@
-module;
+﻿module;
+class tst_QList;
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
 
 export module DecoderPoolManager;
+
 #include <QVector>
 #include <QString>
 

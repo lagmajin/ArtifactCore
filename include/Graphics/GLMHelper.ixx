@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <glm/glm.hpp>
 #include <QString>

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <string>
 #include "../Define/DllExportMacro.hpp"
@@ -6,10 +6,6 @@ module;
 #include <wobjectdefs.h>
 
 export module Utils.String.UniString;
-
-
-
-
 
 export namespace ArtifactCore {
 

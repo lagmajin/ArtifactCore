@@ -1,9 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 export module Platform.ShellUtils;
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
  //class QString;
 

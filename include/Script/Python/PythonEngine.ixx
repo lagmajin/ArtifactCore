@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include "../../Define/DllExportMacro.hpp"
 #include <cstdint>
 #include <iostream>
@@ -32,10 +32,6 @@ module;
 #include <regex>
 #include <random>
 export module Script.Python.Engine;
-
-
-
-
 
 export namespace ArtifactCore {
 

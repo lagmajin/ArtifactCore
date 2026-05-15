@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <cctype>
 #include <algorithm>
 #include <map>
@@ -39,9 +39,6 @@ module;
 #include <regex>
 #include <random>
 module Script.Expression.Parser;
-
-
-
 
 import Script.Expression.Value;
 

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 #include <QByteArray>
@@ -6,7 +6,6 @@ module;
 #define QT_NO_KEYWORDS
 
 module Graphics.Shader.HLSL.Basics.Vertex;
-
 
 namespace ArtifactCore
 {

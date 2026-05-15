@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <QtGui/QMatrix4x4>
@@ -9,7 +9,6 @@ module;
 
 
 module Transform.Hlper;
-
 
 namespace ArtifactCore
 {

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <vector>
 #include <memory>
 #include <string>
@@ -34,10 +34,6 @@ module;
 #include <random>
 #include <opencv2/opencv.hpp>
 export module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
-
-
-
-
 
 namespace ArtifactCore {
 

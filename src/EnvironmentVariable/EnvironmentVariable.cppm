@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QSettings>
 #include <QCoreApplication>
@@ -13,7 +13,6 @@ module;
 #include <QMap>
 #include <wobjectimpl.h>
 module EnvironmentVariable;
-
 
 namespace ArtifactCore
 {

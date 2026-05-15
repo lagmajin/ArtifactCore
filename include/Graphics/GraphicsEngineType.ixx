@@ -1,7 +1,6 @@
-module;
+﻿module;
 #include <utility>
 export module Graphics.EngineType;
-
 
 export namespace ArtifactCore
 {

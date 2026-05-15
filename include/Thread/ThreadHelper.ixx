@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 //import <QString>;
@@ -14,6 +14,7 @@ module;
 
 #include <thread>
 export module Thread.Helper;
+
 // <thread> moved from GMF to module body — avoids C1116 stop_token chain in IFC
 
 export namespace ArtifactCore

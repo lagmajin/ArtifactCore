@@ -1,11 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <tbb/tbb.h>
 #include <QRunnable>
 
 module Render.Worker;
-
-
 
 namespace ArtifactCore {
 

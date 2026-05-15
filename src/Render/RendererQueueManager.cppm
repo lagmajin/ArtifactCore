@@ -41,9 +41,6 @@
 #include <QObject>
 #include <QCoreApplication>
 module Render.Queue.Manager;
-import Render.Queue.Manager;
-
-
 
 import Render.Settings;
 import Render.JobModel;

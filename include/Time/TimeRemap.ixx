@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include "../Define/DllExportMacro.hpp"
 
@@ -36,9 +37,6 @@ module;
 #include <QVector>
 #include <QPair>
 export module Time.TimeRemap;
-
-
-
 
 import Frame.Rate;
 import Frame.Position;

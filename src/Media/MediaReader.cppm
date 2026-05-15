@@ -1,4 +1,4 @@
-module;
+﻿module;
 #define QT_NO_KEYWORDS
 
 #include <QDebug>
@@ -46,9 +46,6 @@ extern "C" {
 #include <regex>
 #include <random>
 module MediaReader;
-
-
-
 
 import MediaSource;
 

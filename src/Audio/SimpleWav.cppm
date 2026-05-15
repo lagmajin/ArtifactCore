@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include <QString>
 #include <QVector>
 #include <QByteArray>
@@ -10,7 +11,6 @@ module;
 #include <cstring>
 
 module Audio.SimpleWav;
-
 
 namespace ArtifactCore {
 

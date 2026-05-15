@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 #include <QSize>
@@ -37,10 +37,6 @@ module;
 #include <regex>
 #include <random>
 module Preview.Quality;
-
-
-
-
 
 namespace ArtifactCore {
 

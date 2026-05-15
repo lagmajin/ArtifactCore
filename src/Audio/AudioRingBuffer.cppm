@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
@@ -6,6 +6,7 @@ module;
 #include <cstring>
 #include <vector>
 module Audio.RingBuffer;
+
 import Audio.Segment;
 
 namespace ArtifactCore {

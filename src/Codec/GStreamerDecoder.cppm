@@ -1,10 +1,7 @@
-module;
+﻿module;
 #include <utility>
 
- module Codec.GStreamerDecoder;
-
-
-
+module Video.GStreamerDecoder;
 
 namespace ArtifactCore {
 

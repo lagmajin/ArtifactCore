@@ -1,12 +1,8 @@
-module;
+﻿module;
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
 #include <string>
 export module Utils.NameGenerator;
-
-
-
-
 
 export namespace ArtifactCore
 {

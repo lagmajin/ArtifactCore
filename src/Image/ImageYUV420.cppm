@@ -37,9 +37,6 @@
 
 module Image.ImageYUV420;
 
-
-
-
 import Image.ImageF32x4_RGBA;
 import FloatRGBA;
 

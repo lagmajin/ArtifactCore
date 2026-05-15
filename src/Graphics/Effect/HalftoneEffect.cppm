@@ -1,1 +1,1 @@
-module Graphics.Effect.Creative.Halftone;
+﻿module Graphics.Effect.Creative.Halftone;

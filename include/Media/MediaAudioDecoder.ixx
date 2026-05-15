@@ -1,4 +1,4 @@
-module;
+﻿module;
 #define QT_NO_KEYWORDS
 #include <QByteArray>
 #include <QString>
@@ -40,9 +40,6 @@ extern "C" {
 #include <regex>
 #include <random>
 export module MediaAudioDecoder;
-
-
-
 
 import Utils.String.UniString;
 

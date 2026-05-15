@@ -33,10 +33,6 @@
 #include <random>
 export module Math.RotationTurns;
 
-
-
-
-
 export namespace ArtifactCore
 {
  class LIBRARY_DLL_API RotationTurns

@@ -1,4 +1,4 @@
-module;
+﻿module;
 // ReSharper disable All
 
 
@@ -37,9 +37,6 @@ module;
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
 export module Frame.Rate;
-
-
-
 
 import Utils.String.UniString;
 

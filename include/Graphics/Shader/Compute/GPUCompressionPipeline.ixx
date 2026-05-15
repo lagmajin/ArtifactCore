@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 // RefCntAutoPtr.hpp intentionally NOT included here (MSVC 14.51 C1116 workaround)

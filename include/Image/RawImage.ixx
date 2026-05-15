@@ -1,4 +1,5 @@
 ﻿module;
+class tst_QList;
 #include <Opencv2/opencv.hpp>
 
 
@@ -35,10 +36,6 @@
 #include <QVector>
 #include <QString>
 export module Image.Raw;
-
-
-
-
 
 export namespace ArtifactCore {
 

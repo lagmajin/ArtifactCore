@@ -1,9 +1,8 @@
-module;
+﻿module;
 #include <utility>
 
 
 export module IO.Image.Abstract;
-
 
 export namespace ArtifactCore {
 

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -38,8 +38,6 @@ module;
 #include "InstanceData.h"
 export module Graphics.MeshRenderer;
 
-
-
 import Graphics.GPUcomputeContext;
 import Frame.Debug;
 
@@ -75,6 +73,20 @@ public:
      */
     void updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
                             const uint32_t* indices);
+
+    /**
+     * @brief Set a base-color texture to be sampled by the mesh shader.
+     *        Empty path clears the texture and falls back to a white texture.
+     */
+    void setBaseColorTexture(const QString& path);
+    void clearBaseColorTexture();
+
+    /**
+     * @brief Set an opacity texture to modulate mesh alpha.
+     *        Empty path clears the texture and falls back to a white texture.
+     */
+    void setOpacityTexture(const QString& path);
+    void clearOpacityTexture();
 
     /**
      * @brief Upload instance data to GPU structured buffer

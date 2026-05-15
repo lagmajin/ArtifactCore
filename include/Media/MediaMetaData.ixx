@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 #include <QDateTime>
@@ -37,10 +37,6 @@ module;
 #include <regex>
 #include <random>
 export module Media.MetaData;
-
-
-
-
 
 export namespace ArtifactCore {
 

@@ -32,9 +32,6 @@
 #include <random>
 export module Interpolate.Factory;
 
-
-
-
 import Math.Interpolate;
 
 export namespace ArtifactCore {

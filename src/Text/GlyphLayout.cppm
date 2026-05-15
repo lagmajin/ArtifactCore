@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QFont>
 #include <QFontMetricsF>
 #include <QPointF>
@@ -12,7 +12,6 @@ module;
 #include <vector>
 
 module Text.GlyphLayout;
-import Text.GlyphLayout;
 
 import Text.Style;
 import Font.FreeFont;

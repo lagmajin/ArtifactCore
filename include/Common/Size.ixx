@@ -35,12 +35,6 @@
 #include <type_traits>
 export module Size;
 
-
-
-
-
-
-
 export namespace ArtifactCore {
 
  template<typename T>

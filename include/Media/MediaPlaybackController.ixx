@@ -1,4 +1,4 @@
-module;
+﻿module;
 #define QT_NO_KEYWORDS
 
 #include <iostream>
@@ -36,8 +36,6 @@ module;
 #include <QImage>
 #include <QByteArray>
 export module MediaPlaybackController;
-
-
 
 import MediaSource;
 import MediaReader;

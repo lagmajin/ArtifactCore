@@ -1,7 +1,8 @@
-module;
+﻿module;
 #include <utility>
 #include <vector>
 export module CalcSafeArea;
+
 #include <QRectF>
 #include <QSizeF>
 

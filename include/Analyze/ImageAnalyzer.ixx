@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include "../Define/DllExportMacro.hpp"
 #include <array>
@@ -34,10 +34,6 @@ module;
 #include <regex>
 #include <random>
 export module Analyze.Histogram;
-
-
-
-
 
 export namespace ArtifactCore {
 

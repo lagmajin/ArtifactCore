@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #define QT_NO_KEYWORDS
 #include <QString>
@@ -8,7 +8,6 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 export module MediaSource;
-
 
 export namespace ArtifactCore {
 

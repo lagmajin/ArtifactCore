@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #define QT_NO_KEYWORDS
 #include <QMutex>
@@ -11,8 +11,6 @@ extern "C" {
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
 export module MediaReader;
-
-
 
 import MediaSource;
 

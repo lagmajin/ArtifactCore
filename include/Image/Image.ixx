@@ -1,6 +1,7 @@
-module;
+﻿module;
 #include <utility>
 export module Image;
+
 export import Image.PSDDocument;
 export import Image.ImageF32x4_RGBA;
 export import Image.MultiChannelImage;

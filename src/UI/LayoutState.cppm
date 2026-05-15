@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <QString>
@@ -7,6 +7,7 @@ module;
 #include <QSettings>
 
 module UI.Layout.State;
+
 import Core.FastSettingsStore;
 
 namespace ArtifactCore

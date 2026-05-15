@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <iostream>
 #include <vector>
@@ -34,10 +34,6 @@ module;
 #include <regex>
 #include <random>
 module Script.Expression.Value;
-
-
-
-
 
 namespace ArtifactCore {
 

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 
@@ -9,7 +9,6 @@ module;
 
 #include "../../Define/DllExportMacro.hpp"
 export module Graphics.Func;
-
 
 export namespace ArtifactCore
 {

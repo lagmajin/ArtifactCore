@@ -1,9 +1,7 @@
-module;
+﻿module;
 #include <utility>
 
 export module LogImage;
-
-
 
 namespace ArtifactCore {
 

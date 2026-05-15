@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <stdint.h>
 #include <QtGui/QTransform>

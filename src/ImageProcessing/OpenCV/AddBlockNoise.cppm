@@ -1,9 +1,8 @@
-
+﻿
 module;
 #include <utility>
 
 module AddBlockNoise;
-
 
 namespace ArtifactCore
 {

@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QFile>
 #include <QCryptographicHash>
@@ -38,10 +38,6 @@ module;
 #include <regex>
 #include <random>
 module Utils.Fingerprint;
-
-
-
-
 
 namespace ArtifactCore {
 

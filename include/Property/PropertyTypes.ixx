@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QPointF>
 #include <QVector3D>
@@ -36,10 +36,6 @@ module;
 #include <regex>
 #include <random>
 export module Property.Types;
-
-
-
-
 
 export namespace ArtifactCore {
 

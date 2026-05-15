@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>

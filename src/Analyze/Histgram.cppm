@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include <iostream>
@@ -35,12 +35,6 @@ module;
 #include <regex>
 #include <random>
 module Analyze.Histgram;
-
-
-
-
-
-
 
 namespace ArtifactCore {
 

@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <chrono>
 #include <cstdint>
@@ -37,9 +37,6 @@ module;
 #include <regex>
 #include <random>
 export module Playback.Clock;
-
-
-
 
 import Frame.Rate;
 import Frame.Position;

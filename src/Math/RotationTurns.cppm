@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <cmath>
 
 #include <iostream>
@@ -35,10 +35,6 @@ module;
 #include <regex>
 #include <random>
 module Math.RotationTurns;
-
-
-
-
 
 namespace ArtifactCore
 {

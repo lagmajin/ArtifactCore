@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <mutex>
 #include <QSysInfo>
@@ -7,7 +7,6 @@ module;
 #include <QDateTime>
 
 module Media.Info;
-
 
 namespace ArtifactCore {
 

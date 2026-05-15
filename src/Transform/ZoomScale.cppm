@@ -35,12 +35,6 @@
 #include <random>
 module Core.Scale.Zoom;
 
-
-
-
-
-
-
 namespace ArtifactCore {
 
 class ZoomScale2D::Impl

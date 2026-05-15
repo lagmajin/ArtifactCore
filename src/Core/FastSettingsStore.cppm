@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QFile>
 #include <QIODevice>
 #include <QFileInfo>
@@ -13,6 +13,7 @@ module;
 #include <QStringList>
 
 module Core.FastSettingsStore;
+
 import std;
 
 namespace ArtifactCore

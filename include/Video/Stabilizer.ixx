@@ -1,4 +1,4 @@
-// ReSharper disable All
+﻿// ReSharper disable All
 module;
 
 #include "../Define/DllExportMacro.hpp"
@@ -43,9 +43,6 @@ module;
 #include <QtGui/QMatrix3x3>
 
 export module Video.Stabilizer;
-
-
-
 
 import Frame.Position;
 

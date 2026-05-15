@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <vector>
 #include <string>
 #include <map>
@@ -29,10 +29,6 @@
 #include <regex>
 #include <random>
 export module Artifact.ShaderNode.Core;
-
-
-
-
 
 export namespace Artifact {
 namespace ShaderNode {

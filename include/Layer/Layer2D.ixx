@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 //#include "../third_party/Eigen/Core"
 //#include "../third_party/Eigen/Dense"
@@ -36,10 +36,6 @@ module;
 #include <regex>
 #include <random>
 export module Layer2D;
-
-
-
-
 
 import ImageF32x4;
 import Image;

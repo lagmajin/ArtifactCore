@@ -1,8 +1,9 @@
-module;
+﻿module;
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
 
 export module Audio.Panner;
+
 import std;
 
 import Audio.Segment;

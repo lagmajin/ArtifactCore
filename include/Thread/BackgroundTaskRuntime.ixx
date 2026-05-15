@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QString>
 #include <atomic>
 #include <chrono>

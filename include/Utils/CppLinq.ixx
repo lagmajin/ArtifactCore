@@ -1,12 +1,10 @@
-module;
+﻿module;
 #include <utility>
 
 #include <ranges>
 #include <optional>
 
 export module CppLinq;
-
-
 
 export namespace ArtifactCore {
 

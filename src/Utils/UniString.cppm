@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 
@@ -36,10 +36,6 @@ module;
 #include <regex>
 #include <random>
 module Utils.String.UniString;
-import Utils.String.UniString;
-
-
-
 
 import Utils.Convertor.String;
 

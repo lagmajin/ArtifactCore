@@ -1,11 +1,7 @@
-module;
+﻿module;
 #include <utility>
 
 export module Controls;
-
-
-
-
 
 export namespace ArtifactCore
 {

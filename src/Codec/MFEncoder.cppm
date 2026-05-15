@@ -1,4 +1,4 @@
-module ;
+﻿module ;
 
 #include <windows.h>
 #include <mfapi.h>
@@ -43,9 +43,6 @@ module ;
 
 
 module Codec.MFEncoder;
-
-
-
 
 namespace ArtifactCore {
 

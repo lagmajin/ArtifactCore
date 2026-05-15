@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include "../Define/DllExportMacro.hpp"
 #include <iostream>
 #include <vector>
@@ -35,9 +36,6 @@ module;
 #include <QWaitCondition>
 #include <QVector>
 export module Audio.RingBuffer;
-
-
-
 
 import Audio.Segment;
 

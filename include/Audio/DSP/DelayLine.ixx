@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <vector>
 #include <cmath>
 #include <cstdint>
@@ -35,10 +35,6 @@ module;
 #include <regex>
 #include <random>
 export module Audio.DSP.DelayLine;
-
-
-
-
 
 export namespace ArtifactCore {
 namespace Audio {

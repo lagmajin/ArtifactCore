@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include <QString>
 #include <QDateTime>
 #include <QJsonArray>

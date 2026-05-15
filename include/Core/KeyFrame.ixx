@@ -35,10 +35,6 @@
 #include <random>
 export module Core.KeyFrame;
 
-
-
-
-
 import Frame.Position;
 import Math.Interpolate;
 

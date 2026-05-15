@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 #include <vector>
@@ -36,9 +36,6 @@ module;
 #include <regex>
 #include <random>
 export module Property.Group;
-
-
-
 
 import Property.Abstract;
 

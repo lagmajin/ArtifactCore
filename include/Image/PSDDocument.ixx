@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include <utility>
 #include <cstdint>
 #include <QString>

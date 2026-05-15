@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <vector>
 #include <QVector2D>
 #include "../Define/DllExportMacro.hpp"
@@ -34,10 +34,6 @@ module;
 #include <regex>
 #include <random>
 export module Physics.Fracture;
-
-
-
-
 
 export namespace ArtifactCore {
 

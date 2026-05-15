@@ -1,4 +1,4 @@
-// ReSharper disable CppMemberFunctionMayBeStatic
+﻿// ReSharper disable CppMemberFunctionMayBeStatic
 module;
 #include <utility>
 

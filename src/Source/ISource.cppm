@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QFile>
 #include <QFileInfo>

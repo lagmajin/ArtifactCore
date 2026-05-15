@@ -35,6 +35,7 @@
 #include <regex>
 #include <random>
 export module Graphics.CBuffer.Constants.Helper;
+
 // RefCntAutoPtr.hpp intentionally NOT included (MSVC 14.51 C1116 workaround)
 // CreateConstantBuffer returns IBuffer* with refcount=1; caller wraps in RefCntAutoPtr if needed.
 

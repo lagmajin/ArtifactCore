@@ -1,10 +1,12 @@
-module;
+﻿module;
+class tst_QList;
 #include <QDateTime>
 #include <QDebug>
 #include <QReadWriteLock>
 #include <QVector>
 
 module Audio.Cache;
+
 import std;
 
 namespace ArtifactCore

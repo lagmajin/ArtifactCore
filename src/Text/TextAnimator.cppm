@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <vector>
 #include <QPointF>
@@ -9,7 +9,6 @@ module;
 #include <tuple>
 
 module Text.Animator;
-import Text.Animator;
 
 namespace ArtifactCore {
 

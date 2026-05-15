@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include "../Define/DllExportMacro.hpp"
 #include <cstddef>
 #include <algorithm>

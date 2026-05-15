@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include <memory>
 
@@ -39,9 +40,6 @@ module;
 #include <QVector>
 #include <QMap>
 module Composition.PreCompose;
-
-
-
 
 import Utils.Id;
 

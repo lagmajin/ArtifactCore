@@ -35,10 +35,6 @@
 #include <random>
 export module Render.Queue.Manager;
 
-
-
-
-
 import Render.JobModel;
 import RendererQueueSetting;
 import Utils.Id;

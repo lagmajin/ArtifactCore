@@ -1,3 +1,3 @@
-export module ScaleOperator;
+﻿export module ScaleOperator;
 
 export void MyFunc();

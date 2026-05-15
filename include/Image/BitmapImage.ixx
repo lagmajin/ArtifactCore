@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 // import <cstdint>;
 //#include <QtGui/QImage>
@@ -9,7 +9,7 @@ module;
 
 export module Image.Bitmap;
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
  
  
 

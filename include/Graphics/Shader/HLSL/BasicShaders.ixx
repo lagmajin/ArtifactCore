@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QString>
 #include <QByteArray>
 
@@ -34,9 +34,6 @@ module;
 #include <random>
 #include "../../../Define/DllExportMacro.hpp"
 export module Graphics.Shader.HLSL.Basics.Pixel;
-
-
-
 
 export namespace ArtifactCore {
 

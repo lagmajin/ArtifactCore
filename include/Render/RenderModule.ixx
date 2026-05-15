@@ -1,7 +1,6 @@
-module;
+﻿module;
 #include <utility>
 export module Render;
-
 
 export import Render.JobModel;
 export import Render.Settings;

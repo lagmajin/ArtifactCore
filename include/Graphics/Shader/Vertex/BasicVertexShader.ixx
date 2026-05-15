@@ -36,11 +36,6 @@
 #include <random>
 export module Graphics.Shader.HLSL.Basics.Vertex;
 
-
-
-
-
-
 export namespace ArtifactCore {
 
  extern LIBRARY_DLL_API const QByteArray lineShaderVSText;

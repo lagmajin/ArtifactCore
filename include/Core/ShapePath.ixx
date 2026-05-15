@@ -1,10 +1,7 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 export module ShapePath;
-
-
-
 
 export namespace ArtifactCore {
 

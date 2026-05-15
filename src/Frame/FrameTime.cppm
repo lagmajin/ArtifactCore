@@ -1,8 +1,7 @@
-module;
+﻿module;
 #include <utility>
 
 module Frame.Time;
-
 
 namespace ArtifactCore {
 

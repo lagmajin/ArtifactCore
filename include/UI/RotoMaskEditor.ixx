@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <vector>
 #include <functional>
@@ -43,9 +43,6 @@ module;
 #include <QCursor>
 
 export module Core.UI.RotoMaskEditor;
-
-
-
 
 import Core.Mask.RotoMask;
 

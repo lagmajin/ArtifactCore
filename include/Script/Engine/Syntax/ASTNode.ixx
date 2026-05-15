@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <iostream>
 #include <vector>
 #include <string>
@@ -30,6 +30,7 @@ module;
 #include <regex>
 #include <random>
 export module ASTNode;
+
 #include <QString>
 
 

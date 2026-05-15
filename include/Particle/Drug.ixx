@@ -1,4 +1,4 @@
-export module Drug;
+﻿export module Drug;
 
 export namespace ArtifactCore
 {

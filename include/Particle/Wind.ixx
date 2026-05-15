@@ -1,4 +1,4 @@
-export module Wind;
+﻿export module Wind;
 
 export namespace ArtifactCore
 {

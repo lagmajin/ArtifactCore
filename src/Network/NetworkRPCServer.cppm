@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 //#include <QNetwork/QTcpServer>
@@ -6,9 +6,6 @@ module;
 #include <QDebug>
 //#include <thrift/concurrency/Exception.h>
 module NetworkRPCServer;
-
-
-
 
 namespace ArtifactCore
 {

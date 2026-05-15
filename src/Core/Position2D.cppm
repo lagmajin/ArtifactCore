@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 module Core.Position2D;

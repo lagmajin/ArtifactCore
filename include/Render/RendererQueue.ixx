@@ -31,9 +31,6 @@
 #include <random>
 export module RenderQueue;
 
-
-
-
 import Utils.Id;
 
 

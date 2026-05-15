@@ -39,11 +39,6 @@
 
 export module Core.Point2D;
 
-
-
-
-
-
 export namespace ArtifactCore {
 
  template<typename T>

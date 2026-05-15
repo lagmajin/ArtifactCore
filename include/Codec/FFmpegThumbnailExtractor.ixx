@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include "../Define/DllExportMacro.hpp"
 #include <iostream>
@@ -34,9 +34,6 @@ module;
 #include <QString>
 #include <QImage>
 export module Codec.Thumbnail.FFmpeg;
-
-
-
 
 import Utils.String.UniString;
 

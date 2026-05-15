@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <mfidl.h>
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include "../Define/DllExportMacro.hpp"

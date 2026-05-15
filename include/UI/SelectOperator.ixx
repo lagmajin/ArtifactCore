@@ -1,3 +1,3 @@
-export module SelectOperator;
+﻿export module SelectOperator;
 
 export void MyFunc();

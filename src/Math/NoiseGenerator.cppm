@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <cmath>
 #include <algorithm>
@@ -40,10 +40,6 @@ module;
 #include <regex>
 #include <random>
 module Math.Noise;
-
-
-
-
 
 namespace ArtifactCore {
 

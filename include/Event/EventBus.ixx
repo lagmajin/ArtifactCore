@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <concepts>
 #include <atomic>
 #include <functional>

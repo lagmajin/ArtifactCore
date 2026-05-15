@@ -1,4 +1,4 @@
-
+﻿
 module;
 #include <Halide.h>
 #include "../../Define/DllExportMacro.hpp"
@@ -35,10 +35,6 @@ module;
 
 #include <opencv2/opencv.hpp>
 export module HalideTest;
-
-
-
-
 
 export namespace ArtifactCore
 {

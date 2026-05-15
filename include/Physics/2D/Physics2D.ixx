@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <box2d/box2d.h>
 #include <memory>
 #include <vector>
@@ -38,10 +38,6 @@ module;
 #include <regex>
 #include <random>
 export module Physics2D;
-
-
-
-
 
 export namespace ArtifactCore {
 

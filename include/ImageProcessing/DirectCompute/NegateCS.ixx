@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include "../../Define/DllExportMacro.hpp"
@@ -39,8 +39,6 @@ module;
 //#include <random>
 #include <opencv2/core/mat.hpp>
 export module ImageProcessing.NegateCS;
-
-
 
 import Image;
 

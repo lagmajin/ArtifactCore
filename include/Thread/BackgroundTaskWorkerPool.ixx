@@ -1,4 +1,4 @@
-export module Core.Thread.BackgroundTaskWorkerPool;
+﻿export module Core.Thread.BackgroundTaskWorkerPool;
 
 import std;
 import Core.Thread.BackgroundTaskRuntime;

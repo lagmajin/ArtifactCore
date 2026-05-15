@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include "../Define/DllExportMacro.hpp"
 #include <iostream>
 #include <vector>
@@ -33,9 +34,6 @@ module;
 #include <QList>
 #include <QString>
 export module Media.Encoder.FFmpegAudioDecoder;
-
-
-
 
 import Utils.Size.Like;
 import Utils.String.UniString;

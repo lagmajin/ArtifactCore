@@ -1,8 +1,7 @@
-module;
+﻿module;
 #include <utility>
 
 module ImageProcessing.Shader;
-
 
 namespace ArtifactCore {
 

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include "../Define/DllExportMacro.hpp"
 #include <cstdint>
 #include <vector>
@@ -40,7 +40,6 @@ module;
 #include <regex>
 #include <random>
 export module Particle.System;
-
 
 import Particle;
 import Mesh;

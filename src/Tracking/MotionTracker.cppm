@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 #include <QPointF>
@@ -50,10 +50,6 @@ module;
 #include <random>
 #include <opencv2/opencv.hpp>
 module Tracking.MotionTracker;
-
-
-
-
 
 namespace ArtifactCore {
 

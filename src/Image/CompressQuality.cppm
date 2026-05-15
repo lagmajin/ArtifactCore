@@ -1,5 +1,6 @@
-module;
+﻿module;
 #include <utility>
+#include <QString>
 
 module CompressQuality;
 

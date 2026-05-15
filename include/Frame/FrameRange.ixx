@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <vector>
 #include "../Define/DllExportMacro.hpp"
@@ -37,6 +37,7 @@ module;
 #include <regex>
 #include <random>
 export module Frame.Range;
+
 import Frame.Position;
 import Frame.Offset;
 import Frame.Rate;

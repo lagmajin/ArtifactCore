@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include <iostream>
 #include <vector>
@@ -34,10 +35,6 @@ module;
 #include <QVector>
 
 export module Math.Bezier;
-
-
-
-
 
 export namespace ArtifactCore {
 

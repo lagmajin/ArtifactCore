@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include <QVector>
 #include <QVector3D>
 #include <utility>

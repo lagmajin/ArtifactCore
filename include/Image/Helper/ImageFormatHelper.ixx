@@ -1,8 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <OpenImageIO/typedesc.h>
 #include "../../Define/DllExportMacro.hpp"
 export module Image.Format.Helper;
+
 #include <QImage>
 
 export namespace ArtifactCore {

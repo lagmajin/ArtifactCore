@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QDebug>
 #include <QString>
@@ -43,10 +43,6 @@ extern "C" {
 #include <regex>
 #include <random>
 module MediaSource;
-
-
-
-
 
 namespace ArtifactCore {
 

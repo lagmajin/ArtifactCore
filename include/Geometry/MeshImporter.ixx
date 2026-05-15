@@ -1,4 +1,4 @@
-module;
+﻿module;
 //#include <assimp/>
 #include <memory>
 #include <iostream>
@@ -35,9 +35,6 @@ module;
 
 export module MeshImporter;
 
-
-
-
 import Mesh;
 import Utils.String.UniString; // KvɉėL
 
@@ -66,6 +63,12 @@ public:
     std::shared_ptr<Mesh> importMeshFromFile(const UniString& path);
     [[nodiscard]] Backend lastBackend() const;
     [[nodiscard]] QString lastError() const;
+    [[nodiscard]] QString lastBaseColorTexture() const;
+    [[nodiscard]] QString lastMetallicRoughnessTexture() const;
+    [[nodiscard]] QString lastNormalTexture() const;
+    [[nodiscard]] QString lastEmissionTexture() const;
+    [[nodiscard]] QString lastOcclusionTexture() const;
+    [[nodiscard]] QString lastOpacityTexture() const;
 };
 
 }

@@ -34,9 +34,6 @@
 #include <random>
 module Image.Raw;
 
-
-
-
 namespace ArtifactCore {
 
 

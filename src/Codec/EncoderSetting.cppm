@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include <QVector>
 #include <QString>
@@ -37,10 +38,6 @@ module;
 #include <regex>
 #include <random>
 module Codec.Encoder.Setting;
-import Codec.Encoder.Setting;
-
-
-
 
 import Utils.String.UniString;
 

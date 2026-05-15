@@ -1,9 +1,10 @@
-module;
+﻿module;
 #define QT_NO_KEYWORDS
 
 #include <QString>
 
 export module Utils.Tag;
+
 import std;
 
 import Utils.String.UniString;

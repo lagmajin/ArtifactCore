@@ -1,4 +1,4 @@
-// ReSharper disable All
+﻿// ReSharper disable All
 module;
 
 #include <cmath>
@@ -47,11 +47,6 @@ module;
 #include <regex>
 #include <random>
 module Video.Stabilizer;
-
-import Video.Stabilizer;
-
-
-
 
 import Frame.Position;
 

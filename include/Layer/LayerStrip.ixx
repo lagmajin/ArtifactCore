@@ -1,4 +1,4 @@
-
+﻿
 module;
 #include <cstdint>
 #include <iostream>
@@ -32,10 +32,6 @@ module;
 #include <regex>
 #include <random>
 export module Layer.LayerStrip;
-
-
-
-
 
 export namespace ArtifactCore {
 

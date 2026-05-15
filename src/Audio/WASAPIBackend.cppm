@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #ifndef NOMINMAX
 #define NOMINMAX

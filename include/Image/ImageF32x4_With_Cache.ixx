@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include "../Define/DllExportMacro.hpp"
 #include <QObject>
@@ -34,9 +34,6 @@ module;
 #include <regex>
 #include <random>
 export module Image.ImageF32x4RGBAWithCache;
-
-
-
 
 import Image.ImageF32x4_RGBA;
 

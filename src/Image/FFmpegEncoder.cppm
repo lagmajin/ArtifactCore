@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <algorithm>
 #include <QString>
@@ -10,6 +10,7 @@ module;
 #include <OpenImageIO/imageio.h>
 
 module Encoder.FFmpegEncoder;
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>

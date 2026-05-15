@@ -1,4 +1,4 @@
-export module Core.Thread.BackgroundTaskSamples;
+﻿export module Core.Thread.BackgroundTaskSamples;
 
 import std;
 import Core.Thread.BackgroundTaskRuntime;

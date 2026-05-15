@@ -37,10 +37,6 @@
 #include <opencv2/opencv.hpp>
 export module Transform._2D;
 
-
-
-
-
 namespace cv {};//dummy
 
 export namespace ArtifactCore {

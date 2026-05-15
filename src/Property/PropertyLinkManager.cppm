@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <vector>
 #include <QVariant>
@@ -38,10 +38,6 @@ module;
 #include <regex>
 #include <random>
 module Property.LinkManager;
-
-
-
-
 
 namespace ArtifactCore {
 

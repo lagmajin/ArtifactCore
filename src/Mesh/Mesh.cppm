@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 
 #include <QVector>
 #include <QVector2D>
@@ -39,10 +40,6 @@ module;
 #include <regex>
 #include <random>
 module Mesh;
-
-
-
-
 
 namespace ArtifactCore {
 

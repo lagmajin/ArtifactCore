@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include "../Define/DllExportMacro.hpp"
 #include <vector>
 
@@ -35,7 +35,6 @@ module;
 #include <regex>
 #include <random>
 export module ImageProcessing.FluidVisualizer;
-
 
 import Particle;
 import Physics.Fluid;

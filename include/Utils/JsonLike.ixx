@@ -1,7 +1,8 @@
-module;
+﻿module;
 #include <utility>
 
 export module Utils.Json.Like;
+
 #include <QJsonDocument>
 
 

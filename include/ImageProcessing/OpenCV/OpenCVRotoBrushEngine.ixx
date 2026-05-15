@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <vector>
 #include <memory>
 #include <iostream>
@@ -33,10 +33,6 @@ module;
 #include <random>
 #include <opencv2/opencv.hpp>
 export module ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine;
-
-
-
-
 
 namespace ArtifactCore {
 

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 // ReSharper disable All
 #include "../Define/DllExportMacro.hpp"
@@ -9,6 +9,7 @@ module;
 #include <wobjectdefs.h>
 
 export module EnvironmentVariable;
+
 export namespace ArtifactCore {
 
  class LIBRARY_DLL_API EnvironmentVariableManager :public QObject{

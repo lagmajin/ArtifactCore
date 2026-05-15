@@ -1,11 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <QObject>
 #include <QThread>
 #include <QRunnable>
 export module Render.Worker;
-
-
 
 export namespace ArtifactCore {
  

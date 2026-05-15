@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include "../Define/DllExportMacro.hpp"
 #include <vector>
 
@@ -33,10 +33,6 @@ module;
 #include <regex>
 #include <random>
 export module Physics.Fluid;
-
-
-
-
 
 export namespace ArtifactCore {
 

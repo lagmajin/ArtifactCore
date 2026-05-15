@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include "../Define/DllExportMacro.hpp"
 #include <iostream>
 #include <vector>
@@ -31,9 +31,6 @@ module;
 #include <regex>
 #include <random>
 export module Color.XYZ;
-
-
-
 
 import Color.Float;
 import Utils.String.UniString;

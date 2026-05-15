@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QWidget>
 #include <QPointF>
@@ -48,12 +48,22 @@ module;
 #include <random>
 module Core.UI.RotoMaskEditor;
 
-
-
-
 import Core.Mask.RotoMask;
 
 namespace ArtifactCore {
+
+namespace {
+
+constexpr qreal kVertexHandleHalfSize = 5.0;
+constexpr qreal kTangentHandleRadius = 4.0;
+
+QRectF centeredSquare(const QPointF& center, qreal halfSize)
+{
+    return QRectF(center.x() - halfSize, center.y() - halfSize,
+                  halfSize * 2.0, halfSize * 2.0);
+}
+
+} // namespace
 
 // ============================================================================
 // RotoMaskEditor::Impl
@@ -161,23 +171,7 @@ double RotoMaskEditor::currentTime() const {
 
 void RotoMaskEditor::setEditMode(RotoEditMode mode) {
     impl_->editMode = mode;
-    
-    // モードに応じたカーサー
-    switch (mode) {
-        case RotoEditMode::Select:
-            setCursor(Qt::ArrowCursor);
-            break;
-        case RotoEditMode::Draw:
-            setCursor(Qt::CrossCursor);
-            break;
-        case RotoEditMode::Edit:
-            setCursor(Qt::SizeAllCursor);
-            break;
-        case RotoEditMode::Delete:
-            setCursor(Qt::ForbiddenCursor);
-            break;
-    }
-    
+    setCursor(mode == RotoEditMode::Draw ? Qt::CrossCursor : Qt::ArrowCursor);
     Q_EMIT editModeChanged(mode);
     update();
 }
@@ -331,6 +325,8 @@ void RotoMaskEditor::paintEvent(QPaintEvent* event) {
     
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::TextAntialiasing);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
     
     // 背景
     painter.fillRect(rect(), QColor(30, 30, 30));
@@ -397,7 +393,8 @@ void RotoMaskEditor::drawPath(QPainter& painter) {
         path.cubicTo(p1, p2, p3);
     }
     
-    painter.setPen(QPen(impl_->pathColor, 2));
+    painter.setPen(QPen(impl_->pathColor, 2.25, Qt::SolidLine,
+                        Qt::RoundCap, Qt::RoundJoin));
     painter.setBrush(Qt::NoBrush);
     painter.drawPath(path);
 }
@@ -406,7 +403,6 @@ void RotoMaskEditor::drawVertices(QPainter& painter) {
     if (!impl_->mask) return;
     
     auto vertices = impl_->getCurrentVertices();
-    auto ids = impl_->mask->vertexIDs();
     
     for (int i = 0; i < static_cast<int>(vertices.size()); ++i) {
         QPointF screenPos = maskToScreen(vertices[i].position);
@@ -414,11 +410,15 @@ void RotoMaskEditor::drawVertices(QPainter& painter) {
         bool isSelected = (impl_->selection.type == SelectionType::Vertex && 
                           impl_->selection.vertexIndex == i);
         
-        QColor color = isSelected ? impl_->selectedVertexColor : impl_->vertexColor;
-        
-        painter.setPen(QPen(Qt::black, 1));
-        painter.setBrush(QBrush(color));
-        painter.drawEllipse(screenPos, 6, 6);
+        const QRectF box = centeredSquare(screenPos, kVertexHandleHalfSize);
+        const QColor color = isSelected ? impl_->selectedVertexColor : impl_->vertexColor;
+        painter.setPen(QPen(Qt::black, 2.0, Qt::SolidLine,
+                            Qt::SquareCap, Qt::MiterJoin));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRect(box.adjusted(0.5, 0.5, -0.5, -0.5));
+        painter.setPen(QPen(color, 1.2, Qt::SolidLine,
+                            Qt::SquareCap, Qt::MiterJoin));
+        painter.drawRect(box);
     }
 }
 
@@ -437,9 +437,10 @@ void RotoMaskEditor::drawTangents(QPainter& painter) {
             painter.setPen(QPen(impl_->tangentLineColor, 1, Qt::DashLine));
             painter.drawLine(vertexScreen, inScreen);
             
-            painter.setPen(QPen(Qt::black, 1));
+            painter.setPen(QPen(Qt::black, 1.0, Qt::SolidLine,
+                                Qt::SquareCap, Qt::MiterJoin));
             painter.setBrush(QBrush(impl_->tangentColor));
-            painter.drawEllipse(inScreen, 4, 4);
+            painter.drawEllipse(inScreen, kTangentHandleRadius, kTangentHandleRadius);
         }
         
         // 出力タンジェント
@@ -448,9 +449,10 @@ void RotoMaskEditor::drawTangents(QPainter& painter) {
             painter.setPen(QPen(impl_->tangentLineColor, 1, Qt::DashLine));
             painter.drawLine(vertexScreen, outScreen);
             
-            painter.setPen(QPen(Qt::black, 1));
+            painter.setPen(QPen(Qt::black, 1.0, Qt::SolidLine,
+                                Qt::SquareCap, Qt::MiterJoin));
             painter.setBrush(QBrush(impl_->tangentColor));
-            painter.drawEllipse(outScreen, 4, 4);
+            painter.drawEllipse(outScreen, kTangentHandleRadius, kTangentHandleRadius);
         }
     }
 }
@@ -530,6 +532,41 @@ void RotoMaskEditor::mousePressEvent(QMouseEvent* event) {
 }
 
 void RotoMaskEditor::mouseMoveEvent(QMouseEvent* event) {
+    if (!event) {
+        return;
+    }
+
+    if (!impl_->isDragging) {
+        const QPointF screenPos = event->position();
+        if (!impl_->mask) {
+            unsetCursor();
+            update();
+            return;
+        }
+
+        const bool overVertex = hitTestVertex(screenPos, kVertexHandleHalfSize + 2.0) >= 0;
+        const bool overTangent =
+            hitTestTangent(screenPos, true, kTangentHandleRadius + 2.0) >= 0 ||
+            hitTestTangent(screenPos, false, kTangentHandleRadius + 2.0) >= 0;
+
+        switch (impl_->editMode) {
+            case RotoEditMode::Draw:
+                setCursor(Qt::CrossCursor);
+                break;
+            case RotoEditMode::Delete:
+                setCursor((overVertex || overTangent) ? Qt::ForbiddenCursor : Qt::ArrowCursor);
+                break;
+            case RotoEditMode::Select:
+                setCursor((overVertex || overTangent) ? Qt::OpenHandCursor : Qt::ArrowCursor);
+                break;
+            case RotoEditMode::Edit:
+                setCursor((overVertex || overTangent) ? Qt::SizeAllCursor : Qt::ArrowCursor);
+                break;
+        }
+    } else {
+        setCursor(Qt::ClosedHandCursor);
+    }
+
     if (!impl_->isDragging || !impl_->mask) {
         update();
         return;
@@ -642,15 +679,13 @@ int RotoMaskEditor::hitTestVertex(const QPointF& screenPos, double threshold) {
     if (!impl_->mask) return -1;
     
     auto vertices = impl_->getCurrentVertices();
+    const double effectiveThreshold = threshold > 0.0 ? threshold : (kVertexHandleHalfSize + 2.0);
     
     for (int i = 0; i < static_cast<int>(vertices.size()); ++i) {
         QPointF vertexScreen = maskToScreen(vertices[i].position);
-        double dist = std::sqrt(
-            std::pow(screenPos.x() - vertexScreen.x(), 2) +
-            std::pow(screenPos.y() - vertexScreen.y(), 2)
-        );
-        
-        if (dist < threshold) {
+        const QRectF box = centeredSquare(vertexScreen, effectiveThreshold);
+
+        if (box.contains(screenPos)) {
             return i;
         }
     }
@@ -670,12 +705,10 @@ int RotoMaskEditor::hitTestTangent(const QPointF& screenPos, bool isOutTangent, 
         if (tangent.isNull()) continue;
         
         QPointF tangentScreen = maskToScreen(v.position + tangent);
-        double dist = std::sqrt(
-            std::pow(screenPos.x() - tangentScreen.x(), 2) +
-            std::pow(screenPos.y() - tangentScreen.y(), 2)
-        );
-        
-        if (dist < threshold) {
+        const double effectiveThreshold = threshold > 0.0 ? threshold : (kTangentHandleRadius + 2.0);
+        const QRectF box = centeredSquare(tangentScreen, effectiveThreshold);
+
+        if (box.contains(screenPos)) {
             return i;
         }
     }

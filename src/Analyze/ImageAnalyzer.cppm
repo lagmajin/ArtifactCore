@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <cmath>
 #include <algorithm>
 #include <array>
@@ -36,10 +36,6 @@ module;
 #include <regex>
 #include <random>
 module Analyze.Histogram;
-
-
-
-
 
 namespace ArtifactCore {
 

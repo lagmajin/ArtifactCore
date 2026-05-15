@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QString>
 #include <iostream>
 #include <vector>
@@ -32,12 +32,7 @@ module;
 #include <random>
 export module Media.MediaFrame;
 
-
-
-
-
-
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
  class MediaFramePrivate;
 

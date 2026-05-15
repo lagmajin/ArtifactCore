@@ -37,12 +37,6 @@
 #include <QElapsedTimer>
 module ImageProcessing.SpectralGlow;
 
-
-
-
-
-
-
 namespace ArtifactCore {
 
 

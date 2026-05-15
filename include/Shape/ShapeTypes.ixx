@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 #include <QPointF>
@@ -37,9 +37,6 @@ module;
 #include <regex>
 #include <random>
 export module Shape.Types;
-
-
-
 
 import Property.Types;
 

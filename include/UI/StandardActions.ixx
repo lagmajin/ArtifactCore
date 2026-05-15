@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QVariant>
 #include <QString>
 #include <QDebug>
@@ -34,9 +34,6 @@ module;
 #include <regex>
 #include <random>
 export module UI.StandardActions;
-
-
-
 
 import Input.Operator;
 

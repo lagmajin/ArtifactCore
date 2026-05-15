@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 #include <QRegularExpression>
@@ -40,10 +40,6 @@ module;
 #include <regex>
 #include <random>
 export module Color.LUT;
-
-
-
-
 
 export namespace ArtifactCore {
 

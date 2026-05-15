@@ -30,13 +30,9 @@
 #include <numeric>
 #include <regex>
 #include <random>
-export module Codec.GStreamerDecoder;
+export module Video.GStreamerDecoder;
 
-
-
-
-
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
  class GStreamerDecoderPrivate;
 

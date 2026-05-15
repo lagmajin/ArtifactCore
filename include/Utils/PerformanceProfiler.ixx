@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <algorithm>
 #include <atomic>
@@ -15,10 +15,6 @@ module;
 #include <vector>
 #include <sstream>
 export module ArtifactCore.Utils.PerformanceProfiler;
-
-
-
-
 
 namespace ArtifactCore {
 

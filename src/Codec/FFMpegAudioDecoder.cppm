@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -42,9 +43,6 @@ extern "C" {
 #include <regex>
 #include <random>
 module Media.Encoder.FFmpegAudioDecoder;
-
-
-
 
 import Utils.String.UniString;
 import Audio.RingBuffer;

@@ -1,4 +1,4 @@
-module;
+﻿module;
 //#include "../../include/Asset/AbstractAssetFile.hpp"
 
 #include <iostream>
@@ -38,7 +38,6 @@ module;
 #include <wobjectimpl.h>
 
 module Asset.File;
-import Asset.File;
 
 import Utils.Id;
 import Utils.String.UniString;

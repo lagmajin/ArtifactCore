@@ -39,9 +39,6 @@
 #include <wobjectimpl.h>
 module Image.ImageF32x4RGBAWithCache;
 
-
-
-
 import Image.ImageF32x4_RGBA;
 
 namespace Diligent {}//dummy

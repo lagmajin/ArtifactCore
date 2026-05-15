@@ -1,3 +1,3 @@
-export module RotateOperator;
+﻿export module RotateOperator;
 
 export void MyFunc();

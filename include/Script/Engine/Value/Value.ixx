@@ -1,4 +1,4 @@
-
+﻿
 
 module;
 
@@ -34,10 +34,6 @@ module;
 #include <regex>
 #include <random>
 export module Script.Engine.Value;
-
-
-
-
 
 export namespace ArtifactCore {
 

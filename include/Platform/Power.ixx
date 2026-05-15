@@ -1,11 +1,11 @@
-module;
+﻿module;
 #include <utility>
 #include <windows.h>
 #include "../Define/DllExportMacro.hpp"
 
 export module Platform.Power;
 
-namespace ArtifactCore
+export namespace ArtifactCore
 {
     /**
      * @brief システムのスリープ抑制を管理するクラス

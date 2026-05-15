@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include "../../Define/DllExportMacro.hpp"
 
@@ -9,8 +9,6 @@ module;
 #include <QImage>
 #include <QCoreApplication>
 export module SearchImage;
-
-
 
 export namespace ArtifactCore
 {

@@ -1,11 +1,7 @@
-module;
+﻿module;
 #include <utility>
 #include <concepts>
 export module Numeric.Like;
-
-
-
-
 
 export namespace ArtifactCore {
 

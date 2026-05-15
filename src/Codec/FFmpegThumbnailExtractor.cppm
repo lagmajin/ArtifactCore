@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QImage>
 #include <QDebug>
@@ -49,9 +49,6 @@ extern "C" {
 #pragma comment(lib, "swscale.lib")
 #pragma comment(lib, "swresample.lib")
 module Codec.Thumbnail.FFmpeg;
-
-
-
 
 import Media.Info;
 

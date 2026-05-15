@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include <cmath>
 
@@ -36,8 +36,6 @@ module;
 #include <regex>
 #include <random>
 module Animation.Transform3D;
-
-
 
 import Animation.Value;
 import Math.Interpolate;
@@ -96,7 +94,11 @@ public:
   float currentScaleX_ = 1.0f;
   float currentScaleY_ = 1.0f;
 
-  Impl() = default;
+  Impl() {
+    // Scale defaults to 1.0f so "no keyframes" still means "unchanged size".
+    scaleX_.setCurrent(1.0f);
+    scaleY_.setCurrent(1.0f);
+  }
   ~Impl() = default;
   Impl(const Impl& other) = default;
   Impl& operator=(const Impl& other) = default;

@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <vector>
 #include <functional>
@@ -37,10 +37,6 @@ module;
 #include <QPointF>
 #include <QRectF>
 export module Core.Mask.RotoMask;
-
-
-
-
 
 export namespace ArtifactCore {
 

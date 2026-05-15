@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include <utility>
 #include <Qstring>
 #include <QVector>
@@ -6,10 +7,6 @@ module;
 #include <algorithm>
 
 export module Utils.String;
-
-
-
-
 
 export namespace ArtifactCore {
 

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>

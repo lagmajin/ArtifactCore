@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <opencv2/core.hpp>
 module ImageF32x4;

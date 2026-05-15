@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <vector>
 #include <memory>
@@ -9,7 +9,6 @@ module;
 #include <QtWidgets/qheaderview.h>
 
 module Render.JobModel;
-
 
 namespace ArtifactCore {
   RenderJob::RenderJob() = default;

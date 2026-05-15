@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QtGui/QQuaternion>
 #include <QtGui/QVector3D>

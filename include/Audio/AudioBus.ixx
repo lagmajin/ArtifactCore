@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <iostream>
 #include <vector>
 #include <string>
@@ -30,9 +30,6 @@ module;
 #include <regex>
 #include <random>
 export module Audio.Bus;
-
-
-
 
 import Utils.Id;
 import Utils.String.Like;

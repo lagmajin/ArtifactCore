@@ -1,9 +1,7 @@
-module;
+﻿module;
 #include <cmath>
 #include <utility>
 export module ShapeVertex;
-
-
 
 export namespace ArtifactCore {
 

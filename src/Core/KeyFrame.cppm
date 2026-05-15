@@ -35,12 +35,6 @@
 #include <random>
 module Core.KeyFrame;
 
-
-
-
-
-
-
 namespace ArtifactCore {
 
  /*

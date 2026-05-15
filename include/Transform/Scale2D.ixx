@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 
 #include <QtGui/QTransform>
@@ -38,9 +38,6 @@ module;
 #include <regex>
 #include <random>
 export module Transform.Scale2D;
-
-
-
 
 export namespace ArtifactCore {
 

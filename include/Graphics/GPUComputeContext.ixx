@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QUuid>
 #include <DiligentCore/Platforms/interface/PlatformDefinitions.h>
@@ -9,6 +9,7 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h>
 #include "../Define/DllExportMacro.hpp"
 export module Graphics.GPUcomputeContext;
+
 import Graphics.GPU.Info;
 
 // #pragma comment(lib,"d3d12.lib")

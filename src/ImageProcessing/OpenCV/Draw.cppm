@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 
@@ -8,7 +8,6 @@ module;
 #include <opencv2/opencv.hpp>
 
 module Draw;
-
 
 namespace ArtifactCore {
 

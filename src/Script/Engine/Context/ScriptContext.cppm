@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <iostream>
 #include <vector>
@@ -34,9 +34,6 @@ module;
 #include <regex>
 #include <random>
 module Script.Engine.Context;
-
-
-
 
 import Script.Expression.Parser;
 import Script.Expression.Value;

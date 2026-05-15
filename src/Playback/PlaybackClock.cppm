@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QMutex>
 #include <QMutexLocker>
 #include <QString>

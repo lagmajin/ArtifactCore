@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <QString>
@@ -10,8 +10,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 export module Media.Info;
-
-
 
 export namespace ArtifactCore {
 

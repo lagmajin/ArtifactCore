@@ -31,10 +31,6 @@
 #include <random>
 export module Graphics.ShaderID;
 
-
-
-
-
 export namespace ArtifactCore {
 
  enum class BuiltinShader

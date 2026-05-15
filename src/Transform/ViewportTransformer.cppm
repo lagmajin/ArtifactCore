@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include <algorithm>
 
@@ -37,9 +37,6 @@ module;
 #include <random>
 #include <QDebug>
 module Core.Transform.Viewport;
-
-
-
 
 import Core.Scale.Zoom;
 

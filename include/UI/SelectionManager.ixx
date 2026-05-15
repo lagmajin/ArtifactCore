@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QObject>
 #include <vector>
 #include <QString>
@@ -37,9 +37,6 @@ module;
 #include <regex>
 #include <random>
 export module UI.SelectionManager;
-
-
-
 
 import Utils.Id;
 

@@ -1,1 +1,1 @@
-module Graphics.Effect.Creative.Mirror;
+﻿module Graphics.Effect.Creative.Mirror;

@@ -34,11 +34,6 @@
 #include <random>
 export module Core.Scale.Zoom;
 
-
-
-
-
-
 export namespace ArtifactCore {
 
  class LIBRARY_DLL_API ZoomScale2D {

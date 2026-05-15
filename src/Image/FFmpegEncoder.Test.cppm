@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <algorithm>
 #include <cmath>
@@ -11,6 +11,7 @@ module;
 #include <QStandardPaths>
 
 module FFmpegEncoder.Test;
+
 import Encoder.FFmpegEncoder;
 import Image;
 

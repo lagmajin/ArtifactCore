@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include <memory>
 #include <utility>
 
@@ -6,7 +7,9 @@ module;
 #include "ufbx.h"
 #include <QDebug>
 #include <QDataStream>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QIODevice>
 #include <QString>
 #include <QStringView>
@@ -14,12 +17,9 @@ module;
 #include <QVector3D>
 #include <QVector4D>
 #include <QVector>
-#include <filesystem>
 #include <tinyobjloader/tiny_obj_loader.h>
 
 module MeshImporter;
-
-import MeshImporter;
 
 import Mesh;
 import Utils.String.UniString;
@@ -32,10 +32,202 @@ public:
   ~Impl() {}
   MeshImporter::Backend lastBackend_ = MeshImporter::Backend::None;
   QString lastError_;
+  QString lastBaseColorTexture_;
+  QString lastMetallicRoughnessTexture_;
+  QString lastNormalTexture_;
+  QString lastEmissionTexture_;
+  QString lastOcclusionTexture_;
+  QString lastOpacityTexture_;
+
+  static QString ufbxStringToQString(const ufbx_string& s)
+  {
+    if (!s.data || s.length == 0) {
+      return {};
+    }
+    return QString::fromUtf8(s.data, static_cast<int>(s.length));
+  }
+
+  static QString resolveTexturePath(const QString& modelPath,
+                                   const QString& texturePath)
+  {
+    if (texturePath.isEmpty()) {
+      return {};
+    }
+    const QFileInfo texInfo(texturePath);
+    if (texInfo.isAbsolute()) {
+      return QDir::cleanPath(texInfo.absoluteFilePath());
+    }
+    const QFileInfo modelInfo(modelPath);
+    return QDir(modelInfo.absolutePath()).absoluteFilePath(texturePath);
+  }
+
+  void setLastBaseColorTexture(const QString& path)
+  {
+    lastBaseColorTexture_ = QDir::cleanPath(path.trimmed());
+  }
+
+  void setLastMetallicRoughnessTexture(const QString& path)
+  {
+    lastMetallicRoughnessTexture_ = QDir::cleanPath(path.trimmed());
+  }
+
+  void setLastNormalTexture(const QString& path)
+  {
+    lastNormalTexture_ = QDir::cleanPath(path.trimmed());
+  }
+
+  void setLastEmissionTexture(const QString& path)
+  {
+    lastEmissionTexture_ = QDir::cleanPath(path.trimmed());
+  }
+
+  void setLastOcclusionTexture(const QString& path)
+  {
+    lastOcclusionTexture_ = QDir::cleanPath(path.trimmed());
+  }
+
+  void setLastOpacityTexture(const QString& path)
+  {
+    lastOpacityTexture_ = QDir::cleanPath(path.trimmed());
+  }
+
+  void detectTexturesFromUfbx(const QString& modelPath, ufbx_scene* scene)
+  {
+    if (!scene) {
+      return;
+    }
+
+    for (size_t i = 0; i < scene->materials.count; ++i) {
+      const ufbx_material* material = scene->materials[i];
+      if (!material) {
+        continue;
+      }
+
+      const auto assignTexture = [&](const ufbx_texture* texture, auto&& setter,
+                                     const char* label) {
+        if (!texture || texture->type != UFBX_TEXTURE_FILE) {
+          return;
+        }
+        QString candidate = ufbxStringToQString(texture->absolute_filename);
+        if (candidate.isEmpty()) {
+          candidate = ufbxStringToQString(texture->relative_filename);
+        }
+        if (candidate.isEmpty()) {
+          candidate = ufbxStringToQString(texture->filename);
+        }
+        if (candidate.isEmpty()) {
+          return;
+        }
+        const QString resolved = resolveTexturePath(modelPath, candidate);
+        if (resolved.isEmpty()) {
+          return;
+        }
+        setter(resolved);
+        qDebug() << "[MeshImporter] ufbx" << label << ":" << resolved;
+      };
+
+      assignTexture(material->pbr.base_color.texture, [&](const QString& p) { setLastBaseColorTexture(p); }, "base color texture");
+      if (lastMetallicRoughnessTexture_.isEmpty()) {
+        assignTexture(material->pbr.base_factor.texture, [&](const QString& p) { setLastMetallicRoughnessTexture(p); }, "metallic-roughness texture");
+      }
+      if (lastNormalTexture_.isEmpty()) {
+        assignTexture(material->pbr.normal_map.texture, [&](const QString& p) { setLastNormalTexture(p); }, "normal texture");
+      }
+      if (lastEmissionTexture_.isEmpty()) {
+        assignTexture(material->pbr.emission_color.texture, [&](const QString& p) { setLastEmissionTexture(p); }, "emission texture");
+      }
+      if (lastOpacityTexture_.isEmpty()) {
+        assignTexture(material->pbr.opacity.texture, [&](const QString& p) { setLastOpacityTexture(p); }, "opacity texture");
+      }
+      if (lastOcclusionTexture_.isEmpty()) {
+        assignTexture(material->pbr.ambient_occlusion.texture, [&](const QString& p) { setLastOcclusionTexture(p); }, "occlusion texture");
+      }
+
+      if (!lastBaseColorTexture_.isEmpty() &&
+          !lastNormalTexture_.isEmpty() &&
+          !lastEmissionTexture_.isEmpty() &&
+          !lastOpacityTexture_.isEmpty() &&
+          !lastOcclusionTexture_.isEmpty()) {
+        return;
+      }
+    }
+  }
+
+  void detectTexturesFromTinyObj(const QString& modelPath,
+                                 const tinyobj::ObjReader& reader)
+  {
+    const auto& materials = reader.GetMaterials();
+    if (materials.empty()) {
+      return;
+    }
+
+    for (const auto& material : materials) {
+      const auto assignTexture = [&](const std::string& path, auto&& setter,
+                                     const char* label) {
+        const QString candidate = QString::fromStdString(path);
+        if (candidate.isEmpty()) {
+          return;
+        }
+        const QString resolved = resolveTexturePath(modelPath, candidate);
+        if (resolved.isEmpty()) {
+          return;
+        }
+        setter(resolved);
+        qDebug() << "[MeshImporter] tinyobj" << label << ":" << resolved;
+      };
+
+      if (lastBaseColorTexture_.isEmpty()) {
+        assignTexture(material.diffuse_texname,
+                      [&](const QString& p) { setLastBaseColorTexture(p); },
+                      "base color texture");
+        if (lastBaseColorTexture_.isEmpty()) {
+          assignTexture(material.ambient_texname,
+                        [&](const QString& p) { setLastBaseColorTexture(p); },
+                        "base color texture");
+        }
+      }
+      if (lastMetallicRoughnessTexture_.isEmpty()) {
+        assignTexture(material.roughness_texname,
+                      [&](const QString& p) { setLastMetallicRoughnessTexture(p); },
+                      "metallic-roughness texture");
+        if (lastMetallicRoughnessTexture_.isEmpty()) {
+          assignTexture(material.metallic_texname,
+                        [&](const QString& p) { setLastMetallicRoughnessTexture(p); },
+                        "metallic-roughness texture");
+        }
+      }
+      if (lastNormalTexture_.isEmpty()) {
+        assignTexture(material.normal_texname,
+                      [&](const QString& p) { setLastNormalTexture(p); },
+                      "normal texture");
+        if (lastNormalTexture_.isEmpty()) {
+          assignTexture(material.bump_texname,
+                        [&](const QString& p) { setLastNormalTexture(p); },
+                        "normal texture");
+        }
+      }
+      if (lastEmissionTexture_.isEmpty()) {
+        assignTexture(material.emissive_texname,
+                      [&](const QString& p) { setLastEmissionTexture(p); },
+                      "emission texture");
+      }
+      if (lastOpacityTexture_.isEmpty()) {
+        assignTexture(material.alpha_texname,
+                      [&](const QString& p) { setLastOpacityTexture(p); },
+                      "opacity texture");
+      }
+    }
+  }
 
   std::shared_ptr<Mesh> loadWithUfbx(const QString &path) {
     lastBackend_ = MeshImporter::Backend::Ufbx;
     lastError_.clear();
+    lastBaseColorTexture_.clear();
+    lastMetallicRoughnessTexture_.clear();
+    lastNormalTexture_.clear();
+    lastEmissionTexture_.clear();
+    lastOcclusionTexture_.clear();
+    lastOpacityTexture_.clear();
 
     // Detect glTF/glb from extension
     const QString lowerPath = path.toLower();
@@ -121,6 +313,7 @@ public:
       vertexOffset += (int)srcMesh->num_indices;
     }
 
+    detectTexturesFromUfbx(path, scene);
     ufbx_free_scene(scene);
     mesh->updateBounds();
     return mesh;
@@ -129,6 +322,12 @@ public:
   std::shared_ptr<Mesh> loadWithTinyObj(const QString &path) {
     lastBackend_ = MeshImporter::Backend::TinyObj;
     lastError_.clear();
+    lastBaseColorTexture_.clear();
+    lastMetallicRoughnessTexture_.clear();
+    lastNormalTexture_.clear();
+    lastEmissionTexture_.clear();
+    lastOcclusionTexture_.clear();
+    lastOpacityTexture_.clear();
     tinyobj::ObjReaderConfig config;
     config.triangulate = false;
 
@@ -231,11 +430,18 @@ public:
     }
 
     mesh->updateBounds();
+    detectTexturesFromTinyObj(path, reader);
     return mesh;
   }
   std::shared_ptr<Mesh> loadPMD(const QString &path) {
     lastBackend_ = MeshImporter::Backend::PMD;
     lastError_.clear();
+    lastBaseColorTexture_.clear();
+    lastMetallicRoughnessTexture_.clear();
+    lastNormalTexture_.clear();
+    lastEmissionTexture_.clear();
+    lastOcclusionTexture_.clear();
+    lastOpacityTexture_.clear();
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -317,11 +523,10 @@ MeshImporter::~MeshImporter() { delete impl_; }
 
 std::shared_ptr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
   QString qpath = path.toQString();
-  std::filesystem::path fsPath(qpath.toStdString());
-  QString ext =
-      QString::fromStdString(fsPath.extension().string().substr(1)).toLower();
+  const QString ext = QFileInfo(qpath).suffix().toLower();
   impl_->lastBackend_ = MeshImporter::Backend::None;
   impl_->lastError_.clear();
+  impl_->lastBaseColorTexture_.clear();
 
   if (ext == QStringLiteral("fbx")) {
     return impl_->loadWithUfbx(qpath);
@@ -355,6 +560,30 @@ MeshImporter::Backend MeshImporter::lastBackend() const {
 
 QString MeshImporter::lastError() const {
   return impl_ ? impl_->lastError_ : QString();
+}
+
+QString MeshImporter::lastBaseColorTexture() const {
+  return impl_ ? impl_->lastBaseColorTexture_ : QString();
+}
+
+QString MeshImporter::lastMetallicRoughnessTexture() const {
+  return impl_ ? impl_->lastMetallicRoughnessTexture_ : QString();
+}
+
+QString MeshImporter::lastNormalTexture() const {
+  return impl_ ? impl_->lastNormalTexture_ : QString();
+}
+
+QString MeshImporter::lastEmissionTexture() const {
+  return impl_ ? impl_->lastEmissionTexture_ : QString();
+}
+
+QString MeshImporter::lastOcclusionTexture() const {
+  return impl_ ? impl_->lastOcclusionTexture_ : QString();
+}
+
+QString MeshImporter::lastOpacityTexture() const {
+  return impl_ ? impl_->lastOpacityTexture_ : QString();
 }
 
 }; // namespace ArtifactCore

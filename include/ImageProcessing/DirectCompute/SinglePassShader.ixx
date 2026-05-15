@@ -31,10 +31,6 @@
 #include <random>
 export module ImageProcessing.Shader;
 
-
-
-
-
 export namespace ArtifactCore {
 
  class SinglePassShader {

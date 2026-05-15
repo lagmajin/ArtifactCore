@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <random>
 #include <cmath>

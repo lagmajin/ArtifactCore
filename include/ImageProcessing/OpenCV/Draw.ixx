@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include "../../Define/DllExportMacro.hpp"
 #include <vector>
@@ -6,8 +6,6 @@ module;
 #include <algorithm> // For std::min
 #include <opencv2/opencv.hpp>
 export module Draw;
-
-
 
 export namespace ArtifactCore {
 

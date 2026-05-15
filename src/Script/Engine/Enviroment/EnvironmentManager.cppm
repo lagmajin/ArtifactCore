@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QString>
 
 #include <iostream>
@@ -35,10 +35,6 @@ module;
 #include <regex>
 #include <random>
 module Script.Enviroment;
-
-
-
-
 
 import Script.Engine.Value;
 

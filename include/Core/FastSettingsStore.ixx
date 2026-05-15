@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QVariant>
 #include <QString>
 #include <QStringList>

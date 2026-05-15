@@ -1,6 +1,7 @@
-module;
+﻿module;
 #include "../../include/Define/DllExportMacro.hpp"
 #include <QThread>
+#include <QThreadPool>
 #include <QString>
 #include <QStringList>
 #include <QRegularExpression>

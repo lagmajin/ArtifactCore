@@ -1,12 +1,8 @@
-module;
+﻿module;
 
 #include <stdexcept>
 #include <utility>
 export module FloatRGBA;
-
-
-
-
 
 export namespace ArtifactCore {
 

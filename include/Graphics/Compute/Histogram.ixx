@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include "../../Define/DllExportMacro.hpp"
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>

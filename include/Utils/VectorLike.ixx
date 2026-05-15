@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QVector2D>
 #include <QVector3D>
@@ -9,10 +9,6 @@ module;
 
 #include <opencv2/core.hpp>
 export module Vector.Like;
-
-
-
-
 
 export namespace ArtifactCore {
 

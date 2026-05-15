@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -36,8 +36,6 @@ module;
 #include <regex>
 #include <random>
 export module Graphics.ParticleRenderer;
-
-
 
 import Graphics.ParticleData;
 import Graphics.GPUcomputeContext;

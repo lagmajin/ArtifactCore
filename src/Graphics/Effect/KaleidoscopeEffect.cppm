@@ -1,1 +1,1 @@
-module Graphics.Effect.Creative.Kaleidoscope;
+﻿module Graphics.Effect.Creative.Kaleidoscope;

@@ -1,4 +1,5 @@
 ﻿module;
+class tst_QList;
 #include <iostream>
 #include <vector>
 #include <string>
@@ -32,12 +33,6 @@
 #include <QVector>
 #include <QImage>
 export module Audio.Rasterizer;
-
-
-
-
-
-
 
 export namespace ArtifactCore
 {

@@ -1,9 +1,7 @@
-module;
+﻿module;
 #include <utility>
 
 module Time.Real;
-
-
 
 namespace ArtifactCore
 {

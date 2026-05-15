@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mfreadwrite.h>
@@ -6,6 +6,7 @@ module;
 #include <QString>
 
 export module Codec.MFFrameExtractor;
+
 import std;
 
 

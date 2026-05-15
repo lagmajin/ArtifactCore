@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <algorithm>
@@ -7,8 +7,6 @@ module;
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
 module Frame.Range;
-
-import Frame.Range;
 
 import Frame.Position;
 import Frame.Offset;

@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <algorithm>
 #include <cstdint>
@@ -6,9 +6,6 @@ module;
 #include <utility>
 #include <vector>
 export module Animation.Value;
-
-
-
 
 import Core.KeyFrame;
 import Frame.Position;

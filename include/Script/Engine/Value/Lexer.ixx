@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <iostream>
 #include <vector>
@@ -32,11 +32,6 @@ module;
 #include <random>
 #include <QString>
 export module Lexer;
-
-
-
-
-
 
 export namespace ArtifactCore {
 

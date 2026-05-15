@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include "../Define/DllExportMacro.hpp"
 
 #include <iostream>
@@ -32,9 +32,6 @@ module;
 #include <regex>
 #include <random>
 export module Audio.Decibels;
-
-
-
 
 import Utils.String.UniString;
 

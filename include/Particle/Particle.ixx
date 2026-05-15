@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <iostream>
 #include <vector>
 #include <string>
@@ -30,10 +30,6 @@ module;
 #include <regex>
 #include <random>
 export module Particle;
-
-
-
-
 
 export namespace ArtifactCore
 {

@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QDebug>
 #include <QImage>
@@ -38,11 +38,6 @@ module;
 #include <regex>
 #include <random>
 module MediaEditorController;
-
-import MediaEditorController;
-
-
-
 
 import MediaPlaybackController;
 import Video.VideoFrame;

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QString>
 #include <QColor>
 #include <QVector3D>

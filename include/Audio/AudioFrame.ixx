@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <libavutil/samplefmt.h>
 #include <QByteArray>
 #include <iostream>

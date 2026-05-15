@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 export module Graphics.CBuffer.Constants.PixelShader;

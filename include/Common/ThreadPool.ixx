@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
 export module Core.ThreadPool;

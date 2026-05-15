@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <QString>
@@ -7,6 +7,7 @@ module;
 #include <QFileInfo>
 
 export module Utils.Path;
+
 import Utils.String.Like;
 
 export namespace ArtifactCore

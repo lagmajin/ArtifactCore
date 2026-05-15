@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <vector>
 #include <memory>
 #include <cmath>
@@ -36,9 +36,6 @@ module;
 #include <regex>
 #include <random>
 export module ArtifactCore.Crowd.Boids;
-
-
-
 
 import Particle;
 import Math.SpatialGrid;

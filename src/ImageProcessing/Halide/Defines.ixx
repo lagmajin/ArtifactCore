@@ -1,6 +1,4 @@
-export module Defines;
-
-
+﻿export module Defines;
 
 export namespace ArtifactCore {
 

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <memory>
 #include "../Define/DllExportMacro.hpp"
 
@@ -34,9 +34,6 @@ module;
 #include <random>
 #include <QString>
 export module Core.AspectRatio;
-
-
-
 
 import Utils.String.UniString;
 

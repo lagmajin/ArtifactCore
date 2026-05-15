@@ -1,7 +1,9 @@
-module;
+﻿module;
 #include <utility>
 
 module Animation.Transform2D;
+
+import Animation.Value;
 
 namespace ArtifactCore {
 
@@ -14,7 +16,11 @@ namespace ArtifactCore {
   AnimatableValueT<float> scaleX_;
   AnimatableValueT<float> scaleY_;
 
-  Impl() = default;
+  Impl() {
+   // Scale defaults to 1.0f so empty animation state preserves size.
+   scaleX_.setCurrent(1.0f);
+   scaleY_.setCurrent(1.0f);
+  }
   Impl(const Impl& other) = default;
   Impl& operator=(const Impl& other) = default;
  };

@@ -36,11 +36,6 @@
 #include <random>
 module Command.Lambda;
 
-
-
-
-
-
 namespace ArtifactCore {
 
  class LambdaCommand::Impl {

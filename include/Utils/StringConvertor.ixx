@@ -1,13 +1,10 @@
-module;
+﻿module;
+class tst_QList;
 #include <utility>
 #include <QVector>
 #include <QString>
 #include <string>
 export module Utils.Convertor.String;
-
-
-
-
 
 export namespace ArtifactCore {
 

@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include "../Define/DllExportMacro.hpp"
 
@@ -33,9 +33,6 @@ module;
 #include <regex>
 #include <random>
 export module Core.Transform.Viewport;
-
-
-
 
 import Core.Scale.Zoom;
 

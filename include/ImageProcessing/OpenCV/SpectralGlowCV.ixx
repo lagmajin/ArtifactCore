@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include "../../Define/DllExportMacro.hpp"
 
 #include <iostream>
@@ -33,10 +33,6 @@ module;
 #include <random>
 #include <opencv2/opencv.hpp>
 export module ImageProcessing.SpectralGlow;
-
-
-
-
 
 export namespace ArtifactCore {
 

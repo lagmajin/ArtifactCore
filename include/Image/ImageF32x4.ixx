@@ -1,4 +1,4 @@
-module;
+﻿module;
 //#include <memory>
 #include "../Define/DllExportMacro.hpp"
 #include <iostream>
@@ -35,11 +35,6 @@ module;
 #include <opencv2/opencv.hpp>
 #endif
 export module ImageF32x4;
-
-
-
-
-
 
 export namespace ArtifactCore {
 

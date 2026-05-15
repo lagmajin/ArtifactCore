@@ -1,8 +1,7 @@
-module;
+﻿module;
 #include <utility>
 
 module Preview.Settings;
-
 
 namespace ArtifactCore
 {

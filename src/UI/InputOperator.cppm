@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <QWidget>
@@ -14,6 +14,7 @@ module;
 #include <wobjectimpl.h>
 
 module Input.Operator;
+
 import InputEvent;
 
 namespace ArtifactCore {

@@ -1,11 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 #include <QObject>
 #include <wobjectimpl.h>
 module Video.PlaybackManager;
-
-import Video.PlaybackManager;
 
 namespace ArtifactCore {
 

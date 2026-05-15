@@ -1,4 +1,4 @@
-module;
+﻿module;
 
 #include <QString>
 #include <QVariant>
@@ -36,9 +36,6 @@ module;
 #include <regex>
 #include <random>
 export module Property.Abstract;
-
-
-
 
 import Color.Float;
 import Utils.String.UniString;

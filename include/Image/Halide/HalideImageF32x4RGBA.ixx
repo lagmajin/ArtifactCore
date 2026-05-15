@@ -1,11 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <HalideBuffer.h>
 #include <cassert>
 #include <opencv2/opencv.hpp>
 export module HalideImageF32x4RGBA;
-
-
 
 export namespace ArtifactCore {
 

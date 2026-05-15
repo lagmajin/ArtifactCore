@@ -1,12 +1,7 @@
-module;
+﻿module;
 #include <QString>
 
 export module File.TypeDetector;
-
-
-
-
-
 
 export namespace ArtifactCore {
 

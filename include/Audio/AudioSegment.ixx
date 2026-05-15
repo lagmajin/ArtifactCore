@@ -1,7 +1,8 @@
-module;
+﻿module;
 #include <utility>
 #include <QtGlobal>
 #include <QVector>
+class tst_QList;
 
 export module Audio.Segment;
 

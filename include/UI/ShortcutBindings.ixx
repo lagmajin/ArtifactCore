@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QJsonObject>

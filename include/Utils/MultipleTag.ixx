@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 #include <QStringList>
@@ -6,10 +6,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 export module Utils.MultipleTag;
-
-
-
-
 
 export namespace ArtifactCore {
 

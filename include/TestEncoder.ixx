@@ -1,12 +1,8 @@
-module;
+﻿module;
 #include <utility>
 #include <string>
 #include <opencv2/core.hpp>
 export module TestEncoder;
-
-
-
-
 
 export namespace ArtifactCore {
 

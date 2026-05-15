@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 #include <QStringList>
@@ -14,6 +14,7 @@ extern "C" {
 }
 
 module Encoder.FFmpegEncoder:Impl;
+
 import Image;
 import Encoder.FFmpegEncoder;
 

@@ -1,10 +1,9 @@
-module;
+﻿module;
 #include <utility>
 #include <QUuid>
 #include <QObject>
 
 export module Graphics.ImageCache;
-
 
 export namespace ArtifactCore {
 

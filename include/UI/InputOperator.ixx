@@ -40,9 +40,6 @@
 #include <random>
 export module Input.Operator;
 
-
-
-
 import InputEvent;
 
 export namespace ArtifactCore

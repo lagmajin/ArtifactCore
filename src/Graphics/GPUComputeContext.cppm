@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <vulkan/vulkan.h>
@@ -14,7 +14,6 @@ module;
 #include <QOperatingSystemVersion>
 #include <QUuid>
 module Graphics.GPUcomputeContext;
-
 
 namespace Diligent {}//dummy
 

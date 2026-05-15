@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 #include <QDebug>
 #include <QString>
@@ -14,10 +14,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
     
 export module Utils.Id;
-
-
-
-
 
 export namespace ArtifactCore{
 

@@ -1,9 +1,9 @@
-module;
+﻿module;
+#include <QString>
 #include <utility>
 
 #include "../Define/DllExportMacro.hpp"
 export module CompressQuality;
-#include <QString>
 
 export namespace ArtifactCore
 {

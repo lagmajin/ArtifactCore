@@ -1,10 +1,7 @@
-module;
+﻿module;
 #include <utility>
 
 module RendererQueueSetting;
-
-
-
 
 namespace ArtifactCore
 {

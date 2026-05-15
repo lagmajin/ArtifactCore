@@ -1,8 +1,7 @@
-module;
+﻿module;
 #include <utility>
 
 export module Render.FrameRenderer;
-
 
 export namespace ArtifactCore {
 

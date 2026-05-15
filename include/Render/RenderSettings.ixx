@@ -1,9 +1,7 @@
-module;
+﻿module;
 #include <utility>
 #include <QString>
 export module Render.Settings;
-
-
 
 export namespace ArtifactCore
 {

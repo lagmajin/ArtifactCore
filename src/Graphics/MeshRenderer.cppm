@@ -1,21 +1,92 @@
-module;
+﻿module;
 #include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QString>
 #include <QDebug>
+#include <QFileInfo>
 
 module Graphics.MeshRenderer;
 
 import std;
 import Frame.Debug;
 import Graphics.ParticleData;
+import IO.ImageImporter;
+import Image.Raw;
 
 namespace ArtifactCore {
+
+namespace {
+void transpose4x4(const float* src, float* dst)
+{
+    for (int row = 0; row < 4; ++row) {
+        for (int col = 0; col < 4; ++col) {
+            dst[row * 4 + col] = src[col * 4 + row];
+        }
+    }
+}
+
+QVector<quint8> expandTextureToRgba8(const ArtifactCore::RawImage& rawImage,
+                                    bool alphaFromLuminance)
+{
+    QVector<quint8> rgba8;
+    const int pixelCount = rawImage.width * rawImage.height;
+    if (pixelCount <= 0 || rawImage.channels <= 0) {
+        return rgba8;
+    }
+
+    const int srcPixelSize = rawImage.getPixelTypeSizeInBytes();
+    if (srcPixelSize <= 0) {
+        return rgba8;
+    }
+
+    rgba8.resize(pixelCount * 4);
+    const quint8* srcBytes = rawImage.data.constData();
+    const int srcStride = rawImage.channels * srcPixelSize;
+
+    auto sampleChannel = [&](int pixelIndex, int channelIndex) -> quint8 {
+        const int srcIndex = pixelIndex * srcStride + channelIndex * srcPixelSize;
+        if (rawImage.pixelType == QStringLiteral("uint8")) {
+            if (srcIndex < 0 || srcIndex >= rawImage.data.size()) return 0;
+            return rawImage.data[static_cast<size_t>(srcIndex)];
+        }
+        if (rawImage.pixelType == QStringLiteral("uint16")) {
+            quint16 value = 0;
+            std::memcpy(&value, srcBytes + srcIndex, sizeof(quint16));
+            return static_cast<quint8>(value / 257u);
+        }
+        if (rawImage.pixelType == QStringLiteral("float")) {
+            float value = 0.0f;
+            std::memcpy(&value, srcBytes + srcIndex, sizeof(float));
+            value = std::clamp(value, 0.0f, 1.0f);
+            return static_cast<quint8>(std::lround(value * 255.0f));
+        }
+        return 0;
+    };
+
+    for (int i = 0; i < pixelCount; ++i) {
+        const quint8 c0 = sampleChannel(i, 0);
+        const quint8 c1 = (rawImage.channels > 1) ? sampleChannel(i, 1) : c0;
+        const quint8 c2 = (rawImage.channels > 2) ? sampleChannel(i, 2) : c0;
+        const quint8 c3 = (rawImage.channels > 3) ? sampleChannel(i, 3) : 255;
+        const quint8 alpha = alphaFromLuminance
+                                 ? static_cast<quint8>((static_cast<int>(c0) + static_cast<int>(c1) + static_cast<int>(c2)) / 3)
+                                 : c3;
+        rgba8[i * 4 + 0] = c0;
+        rgba8[i * 4 + 1] = c1;
+        rgba8[i * 4 + 2] = c2;
+        rgba8[i * 4 + 3] = alpha;
+    }
+
+    return rgba8;
+}
+}
 
 const char* MeshVSSource = R"(
 struct VSInput {
@@ -73,12 +144,20 @@ struct PSInput {
     float4 Color : COLOR;
 };
 
+Texture2D g_BaseColorTexture : register(t0);
+Texture2D g_OpacityTexture : register(t1);
+SamplerState g_BaseColorSampler : register(s0);
+
 float4 PSMain(PSInput In) : SV_Target {
+    float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, In.UV);
+    float4 opacitySample = g_OpacityTexture.Sample(g_BaseColorSampler, In.UV);
+    float4 baseColor = baseSample * In.Color;
+
     // Simple lighting
     float3 lightDir = normalize(float3(0.5, 0.8, 1.0));
     float NdotL = max(dot(normalize(In.Normal), lightDir), 0.0);
-    float3 litColor = In.Color.rgb * (0.3 + 0.7 * NdotL);
-    return float4(litColor, In.Color.a);
+    float3 litColor = baseColor.rgb * (0.3 + 0.7 * NdotL);
+    return float4(litColor, baseColor.a * opacitySample.a);
 }
 )";
 
@@ -91,6 +170,11 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pNormalBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pUVBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pIndexBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pBaseColorTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pBaseColorTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pOpacityTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pOpacityTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ISampler>               pBaseColorSampler_;
     
     // Instance data buffer
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pInstanceBuffer_;
@@ -101,6 +185,8 @@ struct MeshRenderer::Impl {
     size_t vertexCount_ = 0;
     size_t indexCount_ = 0;
     size_t maxInstances_ = 0;
+    QString baseColorTexturePath_;
+    QString opacityTexturePath_;
 };
 
 MeshRenderer::MeshRenderer(GpuContext& context)
@@ -142,8 +228,26 @@ void MeshRenderer::createBuffers()
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pPositionBuffer_);
     }
     
-    // 2. Normal buffer (optional, can be created later)
-    // 3. UV buffer (optional, can be created later)
+    // 2. Normal buffer
+    if (vertexCount_ > 0) {
+        BufferDesc BuffDesc;
+        BuffDesc.Name              = "Mesh Normal Buffer";
+        BuffDesc.Usage             = USAGE_DEFAULT;
+        BuffDesc.Size              = sizeof(float) * 3 * vertexCount_;
+        BuffDesc.BindFlags         = BIND_VERTEX_BUFFER;
+        BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pNormalBuffer_);
+    }
+    // 3. UV buffer
+    if (vertexCount_ > 0) {
+        BufferDesc BuffDesc;
+        BuffDesc.Name              = "Mesh UV Buffer";
+        BuffDesc.Usage             = USAGE_DEFAULT;
+        BuffDesc.Size              = sizeof(float) * 2 * vertexCount_;
+        BuffDesc.BindFlags         = BIND_VERTEX_BUFFER;
+        BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pUVBuffer_);
+    }
     
     // 4. Index buffer (if indexed rendering)
     if (indexCount_ > 0) {
@@ -178,6 +282,67 @@ void MeshRenderer::createBuffers()
         BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pConstantBuffer_);
+    }
+
+    if (!pImpl_->pBaseColorSampler_) {
+        SamplerDesc samplerDesc;
+        samplerDesc.MinFilter = FILTER_TYPE_LINEAR;
+        samplerDesc.MagFilter = FILTER_TYPE_LINEAR;
+        samplerDesc.MipFilter = FILTER_TYPE_LINEAR;
+        samplerDesc.AddressU = TEXTURE_ADDRESS_WRAP;
+        samplerDesc.AddressV = TEXTURE_ADDRESS_WRAP;
+        samplerDesc.AddressW = TEXTURE_ADDRESS_WRAP;
+        samplerDesc.ComparisonFunc = COMPARISON_FUNC_ALWAYS;
+        samplerDesc.MaxAnisotropy = 1;
+        pDevice->CreateSampler(samplerDesc, &pImpl_->pBaseColorSampler_);
+    }
+
+    if (!pImpl_->pBaseColorTexture_) {
+        const Uint8 whitePixel[4] = {255, 255, 255, 255};
+        TextureDesc texDesc;
+        texDesc.Name = "MeshRenderer_WhiteTexture";
+        texDesc.Type = RESOURCE_DIM_TEX_2D;
+        texDesc.Width = 1;
+        texDesc.Height = 1;
+        texDesc.MipLevels = 1;
+        texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+        texDesc.Usage = USAGE_IMMUTABLE;
+        texDesc.BindFlags = BIND_SHADER_RESOURCE;
+        TextureSubResData subRes;
+        subRes.pData = whitePixel;
+        subRes.Stride = 4;
+        TextureData initData;
+        initData.pSubResources = &subRes;
+        initData.NumSubresources = 1;
+        pDevice->CreateTexture(texDesc, &initData, &pImpl_->pBaseColorTexture_);
+        if (pImpl_->pBaseColorTexture_) {
+            pImpl_->pBaseColorTextureSRV_ =
+                pImpl_->pBaseColorTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        }
+    }
+
+    if (!pImpl_->pOpacityTexture_) {
+        const Uint8 whitePixel[4] = {255, 255, 255, 255};
+        TextureDesc texDesc;
+        texDesc.Name = "MeshRenderer_OpacityWhiteTexture";
+        texDesc.Type = RESOURCE_DIM_TEX_2D;
+        texDesc.Width = 1;
+        texDesc.Height = 1;
+        texDesc.MipLevels = 1;
+        texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+        texDesc.Usage = USAGE_IMMUTABLE;
+        texDesc.BindFlags = BIND_SHADER_RESOURCE;
+        TextureSubResData subRes;
+        subRes.pData = whitePixel;
+        subRes.Stride = 4;
+        TextureData initData;
+        initData.pSubResources = &subRes;
+        initData.NumSubresources = 1;
+        pDevice->CreateTexture(texDesc, &initData, &pImpl_->pOpacityTexture_);
+        if (pImpl_->pOpacityTexture_) {
+            pImpl_->pOpacityTextureSRV_ =
+                pImpl_->pOpacityTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        }
     }
 }
 
@@ -243,8 +408,11 @@ void MeshRenderer::createPSO()
     // Resource layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     
-    static std::array<ShaderResourceVariableDesc, 1> Vars = {{
-        {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+    static std::array<ShaderResourceVariableDesc, 4> Vars = {{
+        {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_OpacityTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_BaseColorSampler", SHADER_RESOURCE_VARIABLE_TYPE_STATIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
     PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = (Uint32)Vars.size();
@@ -262,6 +430,15 @@ void MeshRenderer::createPSO()
     if (pConstVar) {
         pConstVar->Set(pImpl_->pConstantBuffer_);
     }
+    if (auto* texVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorTexture")) {
+        texVar->Set(pImpl_->pBaseColorTextureSRV_);
+    }
+    if (auto* opacityVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_OpacityTexture")) {
+        opacityVar->Set(pImpl_->pOpacityTextureSRV_);
+    }
+    if (auto* sampVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorSampler")) {
+        sampVar->Set(pImpl_->pBaseColorSampler_);
+    }
     
     pImpl_->pPSO_->CreateShaderResourceBinding(&pImpl_->pSRB_, true);
 }
@@ -274,6 +451,18 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
     if (positions && pImpl_->pPositionBuffer_) {
         pContext->UpdateBuffer(pImpl_->pPositionBuffer_, 0, sizeof(float) * 3 * vertexCount_,
                               positions, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    }
+
+    if (normals && pImpl_->pNormalBuffer_) {
+        pContext->UpdateBuffer(pImpl_->pNormalBuffer_, 0, sizeof(float) * 3 * vertexCount_,
+                              normals, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    }
+
+    if (uvs && pImpl_->pUVBuffer_) {
+        pContext->UpdateBuffer(pImpl_->pUVBuffer_, 0, sizeof(float) * 2 * vertexCount_,
+                              uvs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     }
     
@@ -318,6 +507,15 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         if (pVar) {
             pVar->Set(pImpl_->pInstanceBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
         }
+        if (auto* texVar = pImpl_->pSRB_->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorTexture")) {
+            texVar->Set(pImpl_->pBaseColorTextureSRV_);
+        }
+        if (auto* opacityVar = pImpl_->pSRB_->GetVariableByName(SHADER_TYPE_PIXEL, "g_OpacityTexture")) {
+            opacityVar->Set(pImpl_->pOpacityTextureSRV_);
+        }
+        if (auto* sampVar = pImpl_->pSRB_->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorSampler")) {
+            sampVar->Set(pImpl_->pBaseColorSampler_);
+        }
     }
     
     pContext->SetPipelineState(pImpl_->pPSO_);
@@ -329,8 +527,8 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
     
     // Set vertex buffers
     if (pImpl_->pPositionBuffer_) {
-        IBuffer* pVBs[] = {pImpl_->pPositionBuffer_};
-        pContext->SetVertexBuffers(0, 1, pVBs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        IBuffer* pVBs[] = {pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_, pImpl_->pUVBuffer_};
+        pContext->SetVertexBuffers(0, 3, pVBs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                   SET_VERTEX_BUFFERS_FLAG_RESET);
     }
     
@@ -366,12 +564,210 @@ void MeshRenderer::draw(IDeviceContext* pContext, size_t instanceCount)
 
 void MeshRenderer::setViewMatrix(const float* matrix)
 {
-    memcpy(constants_.viewMatrix, matrix, sizeof(float) * 16);
+    transpose4x4(matrix, constants_.viewMatrix);
 }
 
 void MeshRenderer::setProjectionMatrix(const float* matrix)
 {
-    memcpy(constants_.projMatrix, matrix, sizeof(float) * 16);
+    transpose4x4(matrix, constants_.projMatrix);
+}
+
+void MeshRenderer::setBaseColorTexture(const QString& path)
+{
+    const QString newPath = path.trimmed();
+    auto pDevice = context_.RenderDevice();
+    if (newPath == pImpl_->baseColorTexturePath_ && pImpl_->pBaseColorTextureSRV_) {
+        return;
+    }
+
+    if (newPath.isEmpty() || !pDevice) {
+        clearBaseColorTexture();
+        return;
+    }
+
+    pImpl_->baseColorTexturePath_ = newPath;
+
+    ArtifactCore::ImageImporter importer;
+    if (!importer.open(pImpl_->baseColorTexturePath_)) {
+        qWarning() << "[MeshRenderer] Failed to open texture path:" << pImpl_->baseColorTexturePath_;
+        clearBaseColorTexture();
+        return;
+    }
+
+    const ArtifactCore::RawImage rawImage = importer.readImage();
+    if (!rawImage.isValid() || rawImage.width <= 0 || rawImage.height <= 0) {
+        qWarning() << "[MeshRenderer] Failed to read texture image:" << pImpl_->baseColorTexturePath_;
+        clearBaseColorTexture();
+        return;
+    }
+
+    TextureDesc texDesc;
+    texDesc.Name = "MeshRenderer_BaseColorTexture";
+    texDesc.Type = RESOURCE_DIM_TEX_2D;
+    texDesc.Width = static_cast<Uint32>(rawImage.width);
+    texDesc.Height = static_cast<Uint32>(rawImage.height);
+    texDesc.MipLevels = 1;
+    texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+    texDesc.Usage = USAGE_IMMUTABLE;
+    texDesc.BindFlags = BIND_SHADER_RESOURCE;
+
+    QVector<quint8> rgba8 = expandTextureToRgba8(rawImage, false);
+    if (rgba8.isEmpty()) {
+        qWarning() << "[MeshRenderer] Unsupported texture pixel type:"
+                   << pImpl_->baseColorTexturePath_
+                   << rawImage.pixelType;
+        clearBaseColorTexture();
+        return;
+    }
+
+    TextureSubResData subRes;
+    subRes.pData = rgba8.constData();
+    subRes.Stride = static_cast<Uint64>(rawImage.width * 4);
+
+    TextureData initData;
+    initData.pSubResources = &subRes;
+    initData.NumSubresources = 1;
+
+    pDevice->CreateTexture(texDesc, &initData, &pImpl_->pBaseColorTexture_);
+    if (pImpl_->pBaseColorTexture_) {
+        pImpl_->pBaseColorTextureSRV_ =
+            pImpl_->pBaseColorTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+}
+
+void MeshRenderer::clearBaseColorTexture()
+{
+    if (pImpl_->baseColorTexturePath_.isEmpty() && pImpl_->pBaseColorTextureSRV_) {
+        return;
+    }
+    pImpl_->baseColorTexturePath_.clear();
+    auto pDevice = context_.RenderDevice();
+    if (!pDevice) {
+        pImpl_->pBaseColorTexture_ = nullptr;
+        pImpl_->pBaseColorTextureSRV_ = nullptr;
+        return;
+    }
+
+    const Uint8 whitePixel[4] = {255, 255, 255, 255};
+    TextureDesc texDesc;
+    texDesc.Name = "MeshRenderer_WhiteTexture";
+    texDesc.Type = RESOURCE_DIM_TEX_2D;
+    texDesc.Width = 1;
+    texDesc.Height = 1;
+    texDesc.MipLevels = 1;
+    texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+    texDesc.Usage = USAGE_IMMUTABLE;
+    texDesc.BindFlags = BIND_SHADER_RESOURCE;
+    TextureSubResData subRes;
+    subRes.pData = whitePixel;
+    subRes.Stride = 4;
+    TextureData initData;
+    initData.pSubResources = &subRes;
+    initData.NumSubresources = 1;
+    pDevice->CreateTexture(texDesc, &initData, &pImpl_->pBaseColorTexture_);
+    if (pImpl_->pBaseColorTexture_) {
+        pImpl_->pBaseColorTextureSRV_ =
+            pImpl_->pBaseColorTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+}
+
+void MeshRenderer::setOpacityTexture(const QString& path)
+{
+    const QString newPath = path.trimmed();
+    auto pDevice = context_.RenderDevice();
+    if (newPath == pImpl_->opacityTexturePath_ && pImpl_->pOpacityTextureSRV_) {
+        return;
+    }
+
+    if (newPath.isEmpty() || !pDevice) {
+        clearOpacityTexture();
+        return;
+    }
+
+    pImpl_->opacityTexturePath_ = newPath;
+
+    ArtifactCore::ImageImporter importer;
+    if (!importer.open(pImpl_->opacityTexturePath_)) {
+        qWarning() << "[MeshRenderer] Failed to open opacity texture path:" << pImpl_->opacityTexturePath_;
+        clearOpacityTexture();
+        return;
+    }
+
+    const ArtifactCore::RawImage rawImage = importer.readImage();
+    if (!rawImage.isValid() || rawImage.width <= 0 || rawImage.height <= 0) {
+        qWarning() << "[MeshRenderer] Failed to read opacity texture image:" << pImpl_->opacityTexturePath_;
+        clearOpacityTexture();
+        return;
+    }
+
+    TextureDesc texDesc;
+    texDesc.Name = "MeshRenderer_OpacityTexture";
+    texDesc.Type = RESOURCE_DIM_TEX_2D;
+    texDesc.Width = static_cast<Uint32>(rawImage.width);
+    texDesc.Height = static_cast<Uint32>(rawImage.height);
+    texDesc.MipLevels = 1;
+    texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+    texDesc.Usage = USAGE_IMMUTABLE;
+    texDesc.BindFlags = BIND_SHADER_RESOURCE;
+
+    QVector<quint8> rgba8 = expandTextureToRgba8(rawImage, true);
+    if (rgba8.isEmpty()) {
+        qWarning() << "[MeshRenderer] Unsupported opacity texture pixel type:"
+                   << pImpl_->opacityTexturePath_
+                   << rawImage.pixelType;
+        clearOpacityTexture();
+        return;
+    }
+
+    TextureSubResData subRes;
+    subRes.pData = rgba8.constData();
+    subRes.Stride = static_cast<Uint64>(rawImage.width * 4);
+
+    TextureData initData;
+    initData.pSubResources = &subRes;
+    initData.NumSubresources = 1;
+
+    pDevice->CreateTexture(texDesc, &initData, &pImpl_->pOpacityTexture_);
+    if (pImpl_->pOpacityTexture_) {
+        pImpl_->pOpacityTextureSRV_ =
+            pImpl_->pOpacityTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+}
+
+void MeshRenderer::clearOpacityTexture()
+{
+    if (pImpl_->opacityTexturePath_.isEmpty() && pImpl_->pOpacityTextureSRV_) {
+        return;
+    }
+    pImpl_->opacityTexturePath_.clear();
+    auto pDevice = context_.RenderDevice();
+    if (!pDevice) {
+        pImpl_->pOpacityTexture_ = nullptr;
+        pImpl_->pOpacityTextureSRV_ = nullptr;
+        return;
+    }
+
+    const Uint8 whitePixel[4] = {255, 255, 255, 255};
+    TextureDesc texDesc;
+    texDesc.Name = "MeshRenderer_OpacityWhiteTexture";
+    texDesc.Type = RESOURCE_DIM_TEX_2D;
+    texDesc.Width = 1;
+    texDesc.Height = 1;
+    texDesc.MipLevels = 1;
+    texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+    texDesc.Usage = USAGE_IMMUTABLE;
+    texDesc.BindFlags = BIND_SHADER_RESOURCE;
+    TextureSubResData subRes;
+    subRes.pData = whitePixel;
+    subRes.Stride = 4;
+    TextureData initData;
+    initData.pSubResources = &subRes;
+    initData.NumSubresources = 1;
+    pDevice->CreateTexture(texDesc, &initData, &pImpl_->pOpacityTexture_);
+    if (pImpl_->pOpacityTexture_) {
+        pImpl_->pOpacityTextureSRV_ =
+            pImpl_->pOpacityTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
 }
 
 } // namespace ArtifactCore

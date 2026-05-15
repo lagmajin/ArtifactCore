@@ -1,4 +1,5 @@
-module;
+﻿module;
+class tst_QList;
 #include <iostream>
 #include <vector>
 #include <string>
@@ -32,9 +33,6 @@ module;
 #include <QVector>
 #include <QString>
 export module Codec.Encoder.Setting;
-
-
-
 
 import Utils.String.UniString;
 

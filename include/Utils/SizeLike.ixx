@@ -1,4 +1,4 @@
-module;
+﻿module;
 #include <utility>
 
 #include <concepts>
@@ -7,7 +7,6 @@ module;
 
 #include <opencv2/opencv.hpp>
 export module Utils.Size.Like;
-
 
 namespace ArtifactCore {
 
