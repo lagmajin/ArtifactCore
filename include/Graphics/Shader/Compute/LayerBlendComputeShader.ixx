@@ -66,8 +66,20 @@ cbuffer BlendParams : register(b0)
     float srcA = saturate(src.a * opacity); \
     float3 srcRGB = src.rgb * srcA; \
     float3 srcColor = src.rgb; \
+    float3 dstColor = dst.rgb / max(dst.a, 1e-6); \
     if (srcA <= 0.0001) { OutTex[id.xy] = dst; return; } \
     if (dst.a <= 0.0001) { OutTex[id.xy] = float4(srcRGB, srcA); return; }
+
+float OutAlpha(float srcAlpha, float dstAlpha)
+{
+    return srcAlpha + dstAlpha * (1.0 - srcAlpha);
+}
+
+float3 ComposeBlend(float3 srcStraight, float srcAlpha, float3 dstPremul, float dstAlpha, float3 blendedStraight)
+{
+    return dstPremul * (1.0 - srcAlpha) +
+           (blendedStraight * dstAlpha + srcStraight * (1.0 - dstAlpha)) * srcAlpha;
+}
 )";
 
 // =====================================================================
@@ -90,8 +102,8 @@ LIBRARY_DLL_API const QByteArray addBlendShaderText = QByteArray(blendShaderHead
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = saturate(dst.rgb + srcRGB);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor + srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -101,8 +113,8 @@ LIBRARY_DLL_API const QByteArray subtractBlendShaderText = QByteArray(blendShade
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = saturate(dst.rgb - srcRGB);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor - srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -112,8 +124,8 @@ LIBRARY_DLL_API const QByteArray mulBlendShaderText = QByteArray(blendShaderHead
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = (srcRGB * dst.rgb) + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, dstColor * srcColor);
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -123,8 +135,8 @@ LIBRARY_DLL_API const QByteArray screenBlendShaderText = QByteArray(blendShaderH
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 screenRes = srcRGB + dst.rgb - (srcRGB * dst.rgb);
-    float outA = srcA + dst.a - (srcA * dst.a);
+    float3 screenRes = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, srcColor + dstColor - (srcColor * dstColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(screenRes, outA);
 }
 )";
@@ -143,8 +155,8 @@ float3 Overlay(float3 base, float3 blend)
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = Overlay(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, Overlay(dstColor, srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -154,8 +166,8 @@ LIBRARY_DLL_API const QByteArray darkenBlendShaderText = QByteArray(blendShaderH
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = min(srcRGB, dst.rgb) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, min(srcColor, dstColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -165,8 +177,8 @@ LIBRARY_DLL_API const QByteArray lightenBlendShaderText = QByteArray(blendShader
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = max(srcRGB, dst.rgb) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, max(srcColor, dstColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -185,8 +197,8 @@ float3 ColorDodge(float3 base, float3 blend)
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = ColorDodge(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, ColorDodge(dstColor, srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -205,8 +217,8 @@ float3 ColorBurn(float3 base, float3 blend)
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = ColorBurn(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, ColorBurn(dstColor, srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -225,8 +237,8 @@ float3 HardLight(float3 base, float3 blend)
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = HardLight(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, HardLight(dstColor, srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -248,8 +260,8 @@ float3 SoftLight(float3 base, float3 blend)
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = SoftLight(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, SoftLight(dstColor, srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -259,8 +271,8 @@ LIBRARY_DLL_API const QByteArray differenceBlendShaderText = QByteArray(blendSha
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = abs(dst.rgb - srcRGB) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, abs(dstColor - srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -270,8 +282,8 @@ LIBRARY_DLL_API const QByteArray exclusionBlendShaderText = QByteArray(blendShad
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = (srcRGB + dst.rgb - 2.0 * srcRGB * dst.rgb) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, srcColor + dstColor - 2.0 * srcColor * dstColor);
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -318,10 +330,10 @@ LIBRARY_DLL_API const QByteArray hueBlendShaderText = QByteArray(blendShaderHead
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 baseHsl = RgbToHsl(dst.rgb);
-    float3 blendHsl = RgbToHsl(srcRGB);
-    float3 blended = saturate(HslToRgb(float3(blendHsl.x, baseHsl.y, baseHsl.z))) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 baseHsl = RgbToHsl(dstColor);
+    float3 blendHsl = RgbToHsl(srcColor);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(HslToRgb(float3(blendHsl.x, baseHsl.y, baseHsl.z))));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -331,10 +343,10 @@ LIBRARY_DLL_API const QByteArray saturationBlendShaderText = QByteArray(blendSha
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 baseHsl = RgbToHsl(dst.rgb);
-    float3 blendHsl = RgbToHsl(srcRGB);
-    float3 blended = saturate(HslToRgb(float3(baseHsl.x, blendHsl.y, baseHsl.z))) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 baseHsl = RgbToHsl(dstColor);
+    float3 blendHsl = RgbToHsl(srcColor);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(HslToRgb(float3(baseHsl.x, blendHsl.y, baseHsl.z))));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -344,10 +356,10 @@ LIBRARY_DLL_API const QByteArray colorBlendShaderText = QByteArray(blendShaderHe
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 baseHsl = RgbToHsl(dst.rgb);
-    float3 blendHsl = RgbToHsl(srcRGB);
-    float3 blended = saturate(HslToRgb(float3(blendHsl.x, blendHsl.y, baseHsl.z))) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 baseHsl = RgbToHsl(dstColor);
+    float3 blendHsl = RgbToHsl(srcColor);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(HslToRgb(float3(blendHsl.x, blendHsl.y, baseHsl.z))));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -357,10 +369,10 @@ LIBRARY_DLL_API const QByteArray luminosityBlendShaderText = QByteArray(blendSha
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 baseHsl = RgbToHsl(dst.rgb);
-    float3 blendHsl = RgbToHsl(srcRGB);
-    float3 blended = saturate(HslToRgb(float3(baseHsl.x, baseHsl.y, blendHsl.z))) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 baseHsl = RgbToHsl(dstColor);
+    float3 blendHsl = RgbToHsl(srcColor);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(HslToRgb(float3(baseHsl.x, baseHsl.y, blendHsl.z))));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -370,8 +382,8 @@ LIBRARY_DLL_API const QByteArray linearBurnBlendShaderText = QByteArray(blendSha
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = saturate(srcRGB + dst.rgb - 1.0) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(srcColor + dstColor - 1.0));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -390,8 +402,8 @@ float3 Divide(float3 base, float3 blend)
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = Divide(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, Divide(dstColor, srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -410,8 +422,8 @@ float3 PinLight(float3 base, float3 blend)
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = PinLight(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, PinLight(dstColor, srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -436,8 +448,8 @@ float3 VividLight(float3 base, float3 blend)
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = VividLight(dst.rgb, srcRGB) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, VividLight(dstColor, srcColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -447,8 +459,8 @@ LIBRARY_DLL_API const QByteArray linearLightBlendShaderText = QByteArray(blendSh
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = saturate(dst.rgb + 2.0 * srcRGB - 1.0) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor + 2.0 * srcColor - 1.0));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
@@ -458,8 +470,8 @@ LIBRARY_DLL_API const QByteArray hardMixBlendShaderText = QByteArray(blendShader
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = step(1.0 - srcRGB, dst.rgb) * srcA + dst.rgb * (1.0 - srcA);
-    float outA = srcA + dst.a * (1.0 - srcA);
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, step(1.0 - srcColor, dstColor));
+    float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }
 )";
