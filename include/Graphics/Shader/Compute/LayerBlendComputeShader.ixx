@@ -82,6 +82,24 @@ float3 ComposeBlend(float3 srcStraight, float srcAlpha, float3 dstPremul, float 
 }
 )";
 
+LIBRARY_DLL_API const QByteArray layerToFloatShaderText = R"(
+Texture2D<float4> SrcTex : register(t0);
+RWTexture2D<float4> OutTex : register(u0);
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) return;
+
+    float4 src = SrcTex[id.xy];
+    float alpha = saturate(src.a);
+    float3 straight = (alpha > 1e-6) ? (src.rgb / alpha) : float3(0.0, 0.0, 0.0);
+    OutTex[id.xy] = float4(saturate(straight), alpha);
+}
+)";
+
 // =====================================================================
 // Individual Shaders
 // =====================================================================

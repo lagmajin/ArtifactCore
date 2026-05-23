@@ -46,6 +46,14 @@ export namespace ArtifactCore
    float opacity
   );
 
+  bool convertLayerToFloat(
+   IDeviceContext* ctx,
+   ITextureView* srcSRV,
+   ITextureView* outUAV,
+   Uint32 width,
+   Uint32 height
+  );
+
   bool blendDirect(
    IDeviceContext* ctx,
    ITextureView* srcSRV,
@@ -80,6 +88,7 @@ export namespace ArtifactCore
   std::shared_ptr<GpuContext> context_;
   class Impl;
   Impl* pImpl_ = nullptr;
+  std::unique_ptr<ComputeExecutor> layerToFloatExecutor_;
   std::map<BlendMode, BlendExecutor> executors_;
   BlendParams currentParams_{};
  };

@@ -59,6 +59,25 @@ bool LayerBlendPipeline::createConstantBuffer()
 
 bool LayerBlendPipeline::createExecutors()
 {
+ static ShaderResourceVariableDesc layerToFloatVars[] = {
+  {SHADER_TYPE_COMPUTE, "SrcTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+ };
+ layerToFloatExecutor_ = std::make_unique<ComputeExecutor>(*context_);
+ ComputePipelineDesc layerToFloatDesc;
+ layerToFloatDesc.name = "LayerToFloat PSO";
+ layerToFloatDesc.shaderSource = layerToFloatShaderText.constData();
+ layerToFloatDesc.entryPoint = "main";
+ layerToFloatDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+ layerToFloatDesc.variables = layerToFloatVars;
+ layerToFloatDesc.variableCount = 2;
+ layerToFloatDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+ if (!layerToFloatExecutor_->build(layerToFloatDesc) ||
+     !layerToFloatExecutor_->createShaderResourceBinding(true)) {
+  qWarning() << "[LayerBlendPipeline] layer-to-float conversion PSO build failed";
+  layerToFloatExecutor_.reset();
+ }
+
  // [Fix A] Vars[] の変数名はシェーダに合わせて "OutTex" を宣言
  static ShaderResourceVariableDesc Vars[] = {
   {SHADER_TYPE_COMPUTE, "SrcTex",      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -113,7 +132,36 @@ bool LayerBlendPipeline::createExecutors()
 
 bool LayerBlendPipeline::ready() const
 {
- return !executors_.empty() && pImpl_->pBlendCB_;
+ return !executors_.empty() && pImpl_->pBlendCB_ && layerToFloatExecutor_ &&
+        layerToFloatExecutor_->ready();
+}
+
+bool LayerBlendPipeline::convertLayerToFloat(
+ IDeviceContext* ctx,
+ ITextureView* srcSRV,
+ ITextureView* outUAV,
+ Uint32 width,
+ Uint32 height
+)
+{
+ if (!ctx || !srcSRV || !outUAV || !layerToFloatExecutor_ ||
+     !layerToFloatExecutor_->ready() || width == 0 || height == 0) {
+  qCritical() << "[LayerBlendPipeline::convertLayerToFloat] invalid input"
+              << "ctx=" << static_cast<bool>(ctx)
+              << "srcSRV=" << static_cast<bool>(srcSRV)
+              << "outUAV=" << static_cast<bool>(outUAV)
+              << "executor=" << static_cast<bool>(layerToFloatExecutor_)
+              << "width=" << width
+              << "height=" << height;
+  return false;
+ }
+
+ layerToFloatExecutor_->setTextureView("SrcTex", srcSRV);
+ layerToFloatExecutor_->setTextureView("OutTex", outUAV);
+
+ auto attribs = ComputeExecutor::makeDispatchAttribs(width, height, 1, 8, 8, 1);
+ layerToFloatExecutor_->dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+ return true;
 }
 
 bool LayerBlendPipeline::blend(

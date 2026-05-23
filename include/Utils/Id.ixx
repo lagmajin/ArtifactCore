@@ -32,6 +32,7 @@ class  LIBRARY_DLL_API Id {
 
   Id& operator=(Id&& other) noexcept;
   QString toString() const;
+  QString toQString() const { return toString(); }
   bool isNil() const;
   const boost::uuids::uuid& getUuid() const;
   explicit operator bool() const;
