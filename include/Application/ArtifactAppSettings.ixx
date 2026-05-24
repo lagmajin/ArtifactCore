@@ -2,6 +2,7 @@
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 #include <wobjectdefs.h>
 
@@ -26,6 +27,24 @@ public:
 
     bool loadLastProjectOnStartup() const;
     void setLoadLastProjectOnStartup(bool enable);
+
+    QStringList recentProjectPaths() const;
+    void setRecentProjectPaths(const QStringList& paths);
+
+    QStringList recentContentsViewerSourcePaths() const;
+    void setRecentContentsViewerSourcePaths(const QStringList& paths);
+    QString lastContentsViewerSourcePath() const;
+    void setLastContentsViewerSourcePath(const QString& path);
+    int contentsViewerCompareWipePercent() const;
+    void setContentsViewerCompareWipePercent(int percent);
+    bool contentsViewerCompareSidesSwapped() const;
+    void setContentsViewerCompareSidesSwapped(bool swapped);
+    QString contentsViewerCompareSourceAPath() const;
+    void setContentsViewerCompareSourceAPath(const QString& path);
+    QString contentsViewerCompareSourceBPath() const;
+    void setContentsViewerCompareSourceBPath(const QString& path);
+    int contentsViewerAssignment() const;
+    void setContentsViewerAssignment(int assignment);
 
     int menuBarFontScalePercent() const;
     void setMenuBarFontScalePercent(int percent);

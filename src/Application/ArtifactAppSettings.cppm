@@ -72,6 +72,78 @@ void ArtifactAppSettings::setLoadLastProjectOnStartup(bool enable) {
     Q_EMIT settingsChanged();
 }
 
+QStringList ArtifactAppSettings::recentProjectPaths() const {
+    return impl_->store.value(QStringLiteral("File/RecentProjectPaths"), QStringList()).toStringList();
+}
+
+void ArtifactAppSettings::setRecentProjectPaths(const QStringList& paths) {
+    impl_->store.setValue(QStringLiteral("File/RecentProjectPaths"), paths);
+    Q_EMIT settingsChanged();
+}
+
+QStringList ArtifactAppSettings::recentContentsViewerSourcePaths() const {
+    return impl_->store.value(QStringLiteral("ContentsViewer/RecentSourcePaths"), QStringList()).toStringList();
+}
+
+void ArtifactAppSettings::setRecentContentsViewerSourcePaths(const QStringList& paths) {
+    impl_->store.setValue(QStringLiteral("ContentsViewer/RecentSourcePaths"), paths);
+    Q_EMIT settingsChanged();
+}
+
+QString ArtifactAppSettings::lastContentsViewerSourcePath() const {
+    return impl_->store.valueString(QStringLiteral("ContentsViewer/LastSourcePath"), QString());
+}
+
+void ArtifactAppSettings::setLastContentsViewerSourcePath(const QString& path) {
+    impl_->store.setValue(QStringLiteral("ContentsViewer/LastSourcePath"), path);
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::contentsViewerCompareWipePercent() const {
+    return (int)impl_->store.valueInt64(QStringLiteral("ContentsViewer/CompareWipePercent"), 50);
+}
+
+void ArtifactAppSettings::setContentsViewerCompareWipePercent(int percent) {
+    impl_->store.setValue(QStringLiteral("ContentsViewer/CompareWipePercent"), std::clamp(percent, 0, 100));
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::contentsViewerCompareSidesSwapped() const {
+    return impl_->store.valueBool(QStringLiteral("ContentsViewer/CompareSidesSwapped"), false);
+}
+
+void ArtifactAppSettings::setContentsViewerCompareSidesSwapped(bool swapped) {
+    impl_->store.setValue(QStringLiteral("ContentsViewer/CompareSidesSwapped"), swapped);
+    Q_EMIT settingsChanged();
+}
+
+QString ArtifactAppSettings::contentsViewerCompareSourceAPath() const {
+    return impl_->store.valueString(QStringLiteral("ContentsViewer/CompareSourceAPath"), QString());
+}
+
+void ArtifactAppSettings::setContentsViewerCompareSourceAPath(const QString& path) {
+    impl_->store.setValue(QStringLiteral("ContentsViewer/CompareSourceAPath"), path);
+    Q_EMIT settingsChanged();
+}
+
+QString ArtifactAppSettings::contentsViewerCompareSourceBPath() const {
+    return impl_->store.valueString(QStringLiteral("ContentsViewer/CompareSourceBPath"), QString());
+}
+
+void ArtifactAppSettings::setContentsViewerCompareSourceBPath(const QString& path) {
+    impl_->store.setValue(QStringLiteral("ContentsViewer/CompareSourceBPath"), path);
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::contentsViewerAssignment() const {
+    return (int)impl_->store.valueInt64(QStringLiteral("ContentsViewer/ViewerAssignment"), 1);
+}
+
+void ArtifactAppSettings::setContentsViewerAssignment(int assignment) {
+    impl_->store.setValue(QStringLiteral("ContentsViewer/ViewerAssignment"), std::clamp(assignment, 1, 4));
+    Q_EMIT settingsChanged();
+}
+
 int ArtifactAppSettings::menuBarFontScalePercent() const {
     return (int)impl_->store.valueInt64("UI/MenuBarFontScalePercent", 132);
 }
