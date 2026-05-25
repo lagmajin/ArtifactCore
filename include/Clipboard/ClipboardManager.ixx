@@ -240,13 +240,25 @@ void ClipboardManager::syncToSystemClipboard() {
 
 void ClipboardManager::syncFromSystemClipboard() {
     QClipboard* clipboard = QApplication::clipboard();
-    if (!clipboard) return;
+    if (!clipboard) {
+        internalClip_ = {};
+        cachedLayers_.clear();
+        return;
+    }
 
     const QString text = clipboard->text();
-    if (text.isEmpty()) return;
+    if (text.isEmpty()) {
+        internalClip_ = {};
+        cachedLayers_.clear();
+        return;
+    }
 
     QJsonDocument doc = QJsonDocument::fromJson(text.toUtf8());
-    if (!doc.isObject()) return;
+    if (!doc.isObject()) {
+        internalClip_ = {};
+        cachedLayers_.clear();
+        return;
+    }
 
     QJsonObject obj = doc.object();
     const QString type = obj["artifact_clipboard"].toString();
@@ -271,6 +283,9 @@ void ClipboardManager::syncFromSystemClipboard() {
         internalClip_.data = obj;
         internalClip_.sourcePropertyPath = obj["propertyPath"].toString();
         internalClip_.description = QString("%1 = %2").arg(internalClip_.sourcePropertyPath, obj["value"].toVariant().toString());
+    } else {
+        internalClip_ = {};
+        cachedLayers_.clear();
     }
 }
 
