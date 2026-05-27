@@ -92,6 +92,9 @@ endforeach()
 # module unit is only provided as `module M:Impl;`, so register the known shape
 # partitions explicitly to keep FILE_SET CXX_MODULES complete.
 foreach(_artifact_force_module IN ITEMS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeOperator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/TrimPaths.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/Repeater.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeGroup.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeGroup.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"

@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <vector>
 #include <memory>
@@ -45,6 +45,11 @@ public:
      * @return 変換後のパスのリスト
      */
     virtual std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const = 0;
+
+    /**
+     * @brief 演算子を複製する
+     */
+    virtual std::unique_ptr<ShapeOperator> clone() const = 0;
 
 private:
     ShapeOperatorType type_;

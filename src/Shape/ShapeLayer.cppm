@@ -1,4 +1,4 @@
-﻿module;
+module;
 class tst_QList;
 
 #include <QPainter>
@@ -385,9 +385,56 @@ void renderElement(QPainter& painter, const ShapeElement& element, const QTransf
             painter.drawPath(path);
         }
     } else if (const auto* group = dynamic_cast<const ShapeGroup*>(&element)) {
-        for (const ShapeElement* child : group->children()) {
-            if (child) {
-                renderElement(painter, *child, localMatrix);
+        if (group->operatorCount() > 0) {
+            // 演算子付きグループ: processedPaths() で幾何を取得し描画
+            // スタイルは最初の PathShape 子要素からフォールバック取得
+            const PathShape* styleSource = nullptr;
+            for (const ShapeElement* child : group->children()) {
+                if (const auto* ps = dynamic_cast<const PathShape*>(child)) {
+                    styleSource = ps;
+                    break;
+                }
+            }
+
+            auto processed = group->processedPaths();
+            for (const auto& shapePath : processed) {
+                QPainterPath qpath = shapePath.toPainterPath();
+                // processedPaths は既にグループトランスフォーム適用済み
+                // ただし親トランスフォームは未適用なので parentMatrix のみ適用
+                qpath = parentMatrix.map(qpath);
+
+                if (styleSource) {
+                    const auto& fill = styleSource->fill();
+                    if (fill.enabled) {
+                        painter.save();
+                        painter.setPen(Qt::NoPen);
+                        painter.setBrush(toQColor(fill));
+                        painter.drawPath(qpath);
+                        painter.restore();
+                    }
+
+                    const auto& stroke = styleSource->stroke();
+                    if (stroke.enabled && stroke.width > 0.0) {
+                        QPen pen = makeStrokePen(stroke);
+                        painter.setPen(pen);
+                        painter.setBrush(Qt::NoBrush);
+                        painter.drawPath(qpath);
+                    }
+                } else {
+                    // スタイルソースなし: デフォルト黒フィル
+                    painter.save();
+                    painter.setPen(Qt::NoPen);
+                    painter.setBrush(QColor(0, 0, 0));
+                    painter.drawPath(qpath);
+                    painter.restore();
+                }
+            }
+        } else {
+            // 演算子なし: 通常の再帰描画
+            for (const ShapeElement* child : group->children()) {
+                if (child) {
+                    renderElement(painter, *child, localMatrix);
+                }
             }
         }
     }

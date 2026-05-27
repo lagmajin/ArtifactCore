@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <memory>
 #include <vector>
@@ -183,8 +183,7 @@ std::unique_ptr<ShapeElement> ShapeGroup::clone() const {
     }
     // 演算子もクローン
     for (const auto& op : operators_) {
-        // ShapeOperator のクローン実装が必要（未実装の場合はskip）
-        // TODO: ShapeOperator に clone() を実装
+        copy->addOperator(op->clone());
     }
     return copy;
 }
