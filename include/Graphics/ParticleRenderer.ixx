@@ -80,6 +80,7 @@ public:
     // 設定
     void setProjectionMatrix(const float* matrix); // float[16]
     void setViewMatrix(const float* matrix);       // float[16]
+    QString debugState() const;
 
 private:
     GpuContext& context_;
@@ -95,6 +96,7 @@ private:
     };
     ShaderConstants constants_;
     ArtifactCore::RenderCostStats* frameCostStats_ = nullptr;
+    QString debugState_;
 
     void createPSO();
     void createBuffers();

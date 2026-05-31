@@ -106,6 +106,7 @@ float4 PSMain(PS_Input In) : SV_Target {
 ParticleRenderer::ParticleRenderer(GpuContext& context)
     : context_(context), pImpl_(new Impl())
 {
+    debugState_ = QStringLiteral("stage=constructed");
 }
 ParticleRenderer::~ParticleRenderer()
 {
@@ -114,6 +115,7 @@ ParticleRenderer::~ParticleRenderer()
 
 void ParticleRenderer::initialize(size_t maxParticles) {
     maxParticles_ = maxParticles;
+    debugState_ = QStringLiteral("stage=initialize max=%1").arg(static_cast<qulonglong>(maxParticles_));
     createBuffers();
     createPSO();
 }
@@ -145,6 +147,10 @@ void ParticleRenderer::createBuffers() {
     BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
     BuffDesc.ElementByteStride = 0;
     pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pConstantBuffer_);
+    debugState_ = QStringLiteral("stage=buffers-ready max=%1 particleBuffer=%2 constantBuffer=%3")
+                      .arg(static_cast<qulonglong>(maxParticles_))
+                      .arg(pImpl_->pParticleBuffer_ ? 1 : 0)
+                      .arg(pImpl_->pConstantBuffer_ ? 1 : 0);
 }
 
 void ParticleRenderer::createPSO() {
@@ -186,6 +192,9 @@ void ParticleRenderer::createPSO() {
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pImpl_->pPSO_);
 
     if (!pImpl_->pPSO_) {
+        debugState_ = QStringLiteral("stage=pso-failed max=%1 format=%2")
+                          .arg(static_cast<qulonglong>(maxParticles_))
+                          .arg(QStringLiteral("rgba8-srgb"));
         qWarning("[ParticleRenderer] PSO creation FAILED — "
                  "check shader compilation and RTV format");
         return;
@@ -195,21 +204,34 @@ void ParticleRenderer::createPSO() {
     // Bind Constants cbuffer (static variable — bound once at PSO level)
     auto* pConstVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_VERTEX, "Constants");
     if (!pConstVar) {
+        debugState_ = QStringLiteral("stage=pso-missing-constants max=%1 pso=ready")
+                          .arg(static_cast<qulonglong>(maxParticles_));
         qWarning("[ParticleRenderer] 'Constants' cbuffer not found in PSO "
                  "— static variable name mismatch");
         return;
     }
     pConstVar->Set(pImpl_->pConstantBuffer_);
     pImpl_->pPSO_->CreateShaderResourceBinding(&pImpl_->pSRB_, true);
+    debugState_ = QStringLiteral("stage=pso-ready max=%1 pso=%2 srb=%3 blend=additive format=rgba8-srgb")
+                      .arg(static_cast<qulonglong>(maxParticles_))
+                      .arg(pImpl_->pPSO_ ? 1 : 0)
+                      .arg(pImpl_->pSRB_ ? 1 : 0);
 }
 
 void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
-    if (data.particles.empty()) return;
+    if (data.particles.empty()) {
+        debugState_ = QStringLiteral("stage=update-empty count=0");
+        return;
+    }
     auto pContext = context_.DeviceContext();
     
     size_t count = std::min(data.particles.size(), maxParticles_);
     pContext->UpdateBuffer(pImpl_->pParticleBuffer_, 0, sizeof(ParticleVertex) * count, 
                           data.particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    debugState_ = QStringLiteral("stage=buffer-updated count=%1 uploaded=%2 max=%3")
+                      .arg(static_cast<qulonglong>(data.particles.size()))
+                      .arg(static_cast<qulonglong>(count))
+                      .arg(static_cast<qulonglong>(maxParticles_));
     if (frameCostStats_) {
         ++frameCostStats_->bufferUpdates;
     }
@@ -217,6 +239,9 @@ void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
 
 void ParticleRenderer::prepare(IDeviceContext* pContext) {
     if (!pImpl_->pPSO_ || !pImpl_->pSRB_) {
+        debugState_ = QStringLiteral("stage=prepare-skipped pso=%1 srb=%2")
+                          .arg(pImpl_->pPSO_ ? 1 : 0)
+                          .arg(pImpl_->pSRB_ ? 1 : 0);
         qWarning("[ParticleRenderer] prepare() called but PSO/SRB is null — "
                  "particle rendering skipped");
         return;
@@ -242,10 +267,17 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
         ++frameCostStats_->srbCommits;
     }
     pContext->CommitShaderResources(pImpl_->pSRB_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    debugState_ = QStringLiteral("stage=prepared pso=1 srb=1 const=%1 view=%2 proj=%3")
+                      .arg(pData ? 1 : 0)
+                      .arg(constants_.viewMatrix[0] != 0.0f || constants_.viewMatrix[5] != 0.0f || constants_.viewMatrix[10] != 0.0f ? 1 : 0)
+                      .arg(constants_.projMatrix[0] != 0.0f || constants_.projMatrix[5] != 0.0f || constants_.projMatrix[10] != 0.0f ? 1 : 0);
 }
 
 void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
-    if (activeCount == 0) return;
+    if (activeCount == 0) {
+        debugState_ = QStringLiteral("stage=draw-skipped active=0");
+        return;
+    }
     
     DrawAttribs drawAttrs;
     drawAttrs.NumVertices  = 4;
@@ -256,14 +288,26 @@ void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
         ++frameCostStats_->drawCalls;
     }
     pContext->Draw(drawAttrs);
+    debugState_ = QStringLiteral("stage=drawn active=%1 vertices=4 blend=additive")
+                      .arg(static_cast<qulonglong>(activeCount));
 }
 
 void ParticleRenderer::setProjectionMatrix(const float* matrix) {
     memcpy(constants_.projMatrix, matrix, sizeof(float) * 16);
+    debugState_ = QStringLiteral("stage=matrix-updated view=%1 proj=%2")
+                      .arg(constants_.viewMatrix[0] != 0.0f || constants_.viewMatrix[5] != 0.0f || constants_.viewMatrix[10] != 0.0f ? 1 : 0)
+                      .arg(1);
 }
 
 void ParticleRenderer::setViewMatrix(const float* matrix) {
     memcpy(constants_.viewMatrix, matrix, sizeof(float) * 16);
+    debugState_ = QStringLiteral("stage=matrix-updated view=%1 proj=%2")
+                      .arg(1)
+                      .arg(constants_.projMatrix[0] != 0.0f || constants_.projMatrix[5] != 0.0f || constants_.projMatrix[10] != 0.0f ? 1 : 0);
+}
+
+QString ParticleRenderer::debugState() const {
+    return debugState_.isEmpty() ? QStringLiteral("stage=unknown") : debugState_;
 }
 
 } // namespace ArtifactCore
