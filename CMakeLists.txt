@@ -99,6 +99,8 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeGroup.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeLayer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateSlot.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/TemplateSlot.cppm"
 )
     list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
     if(_artifact_force_module_index EQUAL -1)
@@ -440,7 +442,7 @@ if(ARTIFACT_FRONTEND_MSVC)
         mf
         winmm
     )
-    target_compile_definitions(ArtifactCore PRIVATE 
+    target_compile_definitions(ArtifactCore PRIVATE
         PLATFORM_WIN32
         _GUARDOVERFLOW_CRT_ALLOCATORS=1
         _WIN32_WINNT=0x0A00
@@ -449,4 +451,15 @@ if(ARTIFACT_FRONTEND_MSVC)
         UNICODE
         GLOG_USE_GLOG_EXPORT
     )
+endif()
+
+# Python scripting support (pybind11 embedded interpreter)
+find_package(Python3 QUIET COMPONENTS Interpreter Development)
+if(Python3_FOUND)
+    find_package(pybind11 QUIET)
+    if(pybind11_FOUND)
+        target_link_libraries(ArtifactCore PUBLIC pybind11::headers Python3::Python)
+        target_compile_definitions(ArtifactCore PRIVATE ARTIFACT_HAS_PYTHON=1)
+        message(STATUS "Python scripting enabled: pybind11 + Python ${Python3_VERSION}")
+    endif()
 endif()

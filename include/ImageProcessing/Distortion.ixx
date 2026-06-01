@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 
 #include <cmath>
@@ -95,6 +95,10 @@ export namespace ArtifactCore
  /// Noise-based displacement with explicit seed.
  LIBRARY_DLL_API DisplacementFunc makeNoiseDisplace(float amount, float size,
                                                       int seed, float evolution);
+
+ /// Kaleidoscope effect (mirrored angular segments).
+ LIBRARY_DLL_API DisplacementFunc makeKaleidoscope(float centerX, float centerY,
+                                                    int segments, float angleDegrees);
 
  // === Value noise (exposed for custom use) ===
 

@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <cmath>
 #include <algorithm>
@@ -288,6 +288,43 @@ DisplacementFunc makeNoiseDisplace(float amount, float size, int seed, float evo
   float ny = valueNoise2D(sx * scale, sy * scale + evolution, seed + 31);
   ox = sx + (nx - 0.5f) * 2.0f * amount;
   oy = sy + (ny - 0.5f) * 2.0f * amount;
+ };
+}
+
+DisplacementFunc makeKaleidoscope(float cx, float cy, int segments, float angleDegrees)
+{
+ float phi = kTwoPi / std::max(segments, 1);
+ float angleRad = angleDegrees * kPi / 180.0f;
+ return [cx, cy, phi, angleRad](float sx, float sy, float, float, float& ox, float& oy) {
+  float dx = sx - cx;
+  float dy = sy - cy;
+  float dist = std::sqrt(dx * dx + dy * dy);
+  if (dist < 0.001f) {
+   ox = sx;
+   oy = sy;
+   return;
+  }
+
+  // Polar coordinates conversion
+  float theta = std::atan2(dy, dx);
+
+  // Apply rotation
+  float theta_prime = theta - angleRad;
+
+  // Segment modulo wrapping
+  float theta_local = std::fmod(theta_prime, phi);
+  if (theta_local < 0.0f) {
+   theta_local += phi;
+  }
+
+  // Reflection (Mirror symmetry within the sector)
+  if (theta_local > phi * 0.5f) {
+   theta_local = phi - theta_local;
+  }
+
+  // Convert back to Cartesian
+  ox = cx + dist * std::cos(theta_local + angleRad);
+  oy = cy + dist * std::sin(theta_local + angleRad);
  };
 }
 

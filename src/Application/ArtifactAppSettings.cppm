@@ -283,6 +283,15 @@ void ArtifactAppSettings::setCompositionShowMotionPathOverlay(bool enable) {
     Q_EMIT settingsChanged();
 }
 
+bool ArtifactAppSettings::compositionShowGizmoDuringDrag() const {
+    return impl_->store.valueBool("UI/Composition/ShowGizmoDuringDrag", false);
+}
+
+void ArtifactAppSettings::setCompositionShowGizmoDuringDrag(bool enable) {
+    impl_->store.setValue("UI/Composition/ShowGizmoDuringDrag", enable);
+    Q_EMIT settingsChanged();
+}
+
 QString ArtifactAppSettings::themeName() const {
     return impl_->store.valueString("UI/ThemeName", "Studio");
 }

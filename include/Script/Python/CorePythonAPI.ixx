@@ -56,6 +56,7 @@ private:
     static void registerColorAPI();
     static void registerDSPAPI();
     static void registerSystemAPI();
+    static void registerCompositionAPI();
 };
 
 } // namespace ArtifactCore

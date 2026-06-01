@@ -30,6 +30,7 @@ struct ParticleData {
     float3 velocity;
     float4 color;
     float  size;
+    float  stretch;
     float  rotation;
     float  age;
     float  lifetime;
@@ -71,7 +72,9 @@ PS_Input VSMain(VS_Input In) {
     float cosR = cos(rad);
     float sinR = sin(rad);
     
-    float2 localOffset = c_Offsets[In.VertexID] * p.size * 10.0; // Base size multiplier
+    float halfWidth = max(0.75, p.size * 5.0);
+    float halfHeight = halfWidth * max(1.0, p.stretch);
+    float2 localOffset = c_Offsets[In.VertexID] * float2(halfWidth * 2.0, halfHeight * 2.0);
     float2 rotatedOffset;
     rotatedOffset.x = localOffset.x * cosR - localOffset.y * sinR;
     rotatedOffset.y = localOffset.x * sinR + localOffset.y * cosR;

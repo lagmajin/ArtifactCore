@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 
 export module ImageProcessing;
@@ -23,6 +23,12 @@ export import ImageProcessing.ColorTransform.ChannelMixer;
 export import ImageProcessing.ColorTransform.SelectiveColor;
 export import ImageProcessing.ColorTransform.GradientRamp;
 export import ImageProcessing.ColorTransform.Fill;
+export import :MotionTrail;
+export import :Halftone;
+export import :TiltShift;
+export import :AnamorphicFlare;
+export import :Duotone;
+export import :EdgeEcho;
 
 //export import :Halide;
 export import ImageProcessing.NegateCS;

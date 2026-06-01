@@ -26,10 +26,16 @@ export import Graphics.Effect.Creative.Glitch;
 export import Graphics.Effect.Creative.Kaleidoscope;
 export import Graphics.Effect.Creative.Mirror;
 export import Graphics.Effect.Creative.Halftone;
+export import Graphics.Effect.Creative.DepthMelt;
+export import Graphics.Effect.Creative.EdgeEcho;
+export import Graphics.Effect.Creative.LightPressure;
 export import Graphics.Effect.Creative.Pixelate;
 export import Graphics.Effect.Creative.Posterize;
 export import Graphics.Effect.Creative.Fisheye;
 export import Graphics.Effect.Creative.OldTV;
+export import Graphics.Effect.Creative.TemporalFossil;
+export import Graphics.Effect.Creative.PigmentSeparation;
+export import Graphics.Effect.Creative.SurfaceMemory;
 
 export namespace ArtifactCore
 {

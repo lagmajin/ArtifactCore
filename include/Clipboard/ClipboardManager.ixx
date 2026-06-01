@@ -242,21 +242,21 @@ void ClipboardManager::syncFromSystemClipboard() {
     QClipboard* clipboard = QApplication::clipboard();
     if (!clipboard) {
         internalClip_ = {};
-        cachedLayers_.clear();
+        cachedLayers_ = {};
         return;
     }
 
     const QString text = clipboard->text();
     if (text.isEmpty()) {
         internalClip_ = {};
-        cachedLayers_.clear();
+        cachedLayers_ = {};
         return;
     }
 
     QJsonDocument doc = QJsonDocument::fromJson(text.toUtf8());
     if (!doc.isObject()) {
         internalClip_ = {};
-        cachedLayers_.clear();
+        cachedLayers_ = {};
         return;
     }
 
@@ -285,7 +285,7 @@ void ClipboardManager::syncFromSystemClipboard() {
         internalClip_.description = QString("%1 = %2").arg(internalClip_.sourcePropertyPath, obj["value"].toVariant().toString());
     } else {
         internalClip_ = {};
-        cachedLayers_.clear();
+        cachedLayers_ = {};
     }
 }
 

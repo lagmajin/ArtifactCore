@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <algorithm>
 #include <vector>
+#include "../Define/DllExportMacro.hpp"
 #include <QString>
 #include <QJsonObject>
 #include <QJsonArray>

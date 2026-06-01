@@ -21,6 +21,7 @@ struct ParticleVertex {
     float vx, vy, vz; // Velocity
     float r, g, b, a; // Color (RGBA)
     float size = 1.0f;
+    float stretch = 1.0f;
     float rotation = 0.0f;
     float age = 0.0f;
     float lifetime = 1.0f;

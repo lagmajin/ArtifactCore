@@ -71,6 +71,8 @@ public:
     void setCompositionShowCameraFrustumOverlay(bool enable);
     bool compositionShowMotionPathOverlay() const;
     void setCompositionShowMotionPathOverlay(bool enable);
+    bool compositionShowGizmoDuringDrag() const;
+    void setCompositionShowGizmoDuringDrag(bool enable);
 
     // --- Import / Preview Defaults ---
     QString importDefaultFrameRateText() const;

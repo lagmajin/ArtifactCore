@@ -80,6 +80,13 @@
 - `Fisheye`
 - `Glitch`
 - `OldTV`
+- `TemporalFossil`
+- `PigmentSeparation`
+- `SurfaceMemory`
+- `DepthMelt`
+- `EdgeEcho`
+- `LightPressure`
+- 進捗: exploratory backlog から `TemporalFossil` / `PigmentSeparation` / `SurfaceMemory` / `DepthMelt` / `EdgeEcho` / `LightPressure` の CPU reference 実装を追加した
 
 ### C-GFX-3 Shader / Compute Utility Cleanup
 - shader helper

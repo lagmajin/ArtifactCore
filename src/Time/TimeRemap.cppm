@@ -1,11 +1,13 @@
 ﻿module;
-class tst_QList;
 #include <utility>
 
 #include <algorithm>
 #include <cmath>
 #include <compare>
-#include <QList>
+#include <QtCore/QList>
+#include <QtCore/QPointF>
+#include <QtGui/QImage>
+#include <QtGui/QPainter>
 module Time.TimeRemap;
 
 import Frame.Rate;
@@ -394,7 +396,7 @@ int AudioTimeStretchProcessor::processTimeStretchFFT(
 // ==================== TimeRemapEffect ====================
 
 TimeRemapEffect::TimeRemapEffect() = default;
-TimeRemapEffect::~TimeRemapEffect() = default();
+TimeRemapEffect::~TimeRemapEffect() = default;
 
 void TimeRemapEffect::setEnabled(bool enabled) {
     enabled_ = enabled;
@@ -506,14 +508,13 @@ QImage TimeRemapEffect::processFrameBlending(
     
     if (mode == FrameBlendMode::MotionBlur) {
         // Motion blur requires velocity information
-        // For now, fall back to frame mix with higher blend amount
-        return processFrameBlending(outputTime, currentFrame, nextFrame, prevFrame, frameNumber);
+        // For now, return the current frame until a velocity source is wired in.
+        return currentFrame;
     }
     
     if (mode == FrameBlendMode::OpticalFlow) {
-        // Optical flow is future work - fall back to frame mix
-        // TODO: Implement proper optical flow interpolation
-        return processFrameBlending(outputTime, currentFrame, nextFrame, prevFrame, frameNumber);
+        // Optical flow is future work - keep the current frame as a safe fallback.
+        return currentFrame;
     }
     
     return currentFrame;
@@ -553,41 +554,6 @@ QImage TimeRemapEffect::applyMotionBlur(
     }
     
     return result;
-}
-
-void TimeRemapEffect::setHasAudio(bool hasAudio) {
-    hasAudio_ = hasAudio;
-}
-
-int TimeRemapEffect::processFrame(
-    double outputTime,
-    float& blendForward,
-    float& blendBackward
-) {
-    blendForward = 0.0f;
-    blendBackward = 0.0f;
-    
-    if (!enabled_) {
-        return static_cast<int>(outputTime * remap_.frameRate().framerate());
-    }
-    
-    // Get source time
-    double sourceTime = remap_.mapOutputToSource(outputTime);
-    
-    // Get frame index
-    int frameIndex = static_cast<int>(sourceTime * remap_.frameRate().framerate());
-    
-    // Handle frame blending for slow motion
-    if (remap_.frameBlendMode() == FrameBlendMode::FrameMix) {
-        // Calculate fractional part
-        float frac = static_cast<float>(sourceTime * remap_.frameRate().framerate() - frameIndex);
-        
-        // Blend with adjacent frames
-        blendForward = frac * remap_.frameBlendAmount();
-        blendBackward = (1.0f - frac) * remap_.frameBlendAmount();
-    }
-    
-    return frameIndex;
 }
 
 double TimeRemapEffect::getTimeStretchRatio(double outputTime) const {
