@@ -71,6 +71,8 @@ public:
     void setCompositionShowCameraFrustumOverlay(bool enable);
     bool compositionShowMotionPathOverlay() const;
     void setCompositionShowMotionPathOverlay(bool enable);
+    bool compositionShowDensityHeatmapOverlay() const;
+    void setCompositionShowDensityHeatmapOverlay(bool enable);
     bool compositionShowGizmoDuringDrag() const;
     void setCompositionShowGizmoDuringDrag(bool enable);
     bool timelineAllowOverscroll() const;

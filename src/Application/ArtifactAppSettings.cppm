@@ -283,6 +283,15 @@ void ArtifactAppSettings::setCompositionShowMotionPathOverlay(bool enable) {
     Q_EMIT settingsChanged();
 }
 
+bool ArtifactAppSettings::compositionShowDensityHeatmapOverlay() const {
+    return impl_->store.valueBool("UI/Composition/ShowDensityHeatmapOverlay", false);
+}
+
+void ArtifactAppSettings::setCompositionShowDensityHeatmapOverlay(bool enable) {
+    impl_->store.setValue("UI/Composition/ShowDensityHeatmapOverlay", enable);
+    Q_EMIT settingsChanged();
+}
+
 bool ArtifactAppSettings::compositionShowGizmoDuringDrag() const {
     return impl_->store.valueBool("UI/Composition/ShowGizmoDuringDrag", false);
 }
