@@ -100,7 +100,6 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeLayer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateSlot.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/TemplateSlot.cppm"
 )
     list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
     if(_artifact_force_module_index EQUAL -1)

@@ -292,6 +292,64 @@ void ArtifactAppSettings::setCompositionShowGizmoDuringDrag(bool enable) {
     Q_EMIT settingsChanged();
 }
 
+bool ArtifactAppSettings::timelineAllowOverscroll() const {
+    return impl_->store.valueBool("UI/Timeline/AllowOverscroll", false);
+}
+
+void ArtifactAppSettings::setTimelineAllowOverscroll(bool enable) {
+    impl_->store.setValue("UI/Timeline/AllowOverscroll", enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::timelineShyActive() const {
+    return impl_->store.valueBool("UI/Timeline/ShyActive", false);
+}
+
+void ArtifactAppSettings::setTimelineShyActive(bool enable) {
+    impl_->store.setValue("UI/Timeline/ShyActive", enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::timelineGraphEditorActive() const {
+    return impl_->store.valueBool("UI/Timeline/GraphEditorActive", false);
+}
+
+void ArtifactAppSettings::setTimelineGraphEditorActive(bool enable) {
+    impl_->store.setValue("UI/Timeline/GraphEditorActive", enable);
+    Q_EMIT settingsChanged();
+}
+
+QString ArtifactAppSettings::timelineGraphEditorModeText() const {
+    return impl_->store.valueString("UI/Timeline/GraphEditorMode", QStringLiteral("Value"));
+}
+
+void ArtifactAppSettings::setTimelineGraphEditorModeText(const QString& value) {
+    const QString normalized = value.trimmed().toLower();
+    impl_->store.setValue(
+        "UI/Timeline/GraphEditorMode",
+        normalized == QStringLiteral("speed") ? QStringLiteral("Speed")
+                                               : QStringLiteral("Value"));
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::timelineMotionBlurActive() const {
+    return impl_->store.valueBool("UI/Timeline/MotionBlurActive", false);
+}
+
+void ArtifactAppSettings::setTimelineMotionBlurActive(bool enable) {
+    impl_->store.setValue("UI/Timeline/MotionBlurActive", enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::timelineFrameBlendingActive() const {
+    return impl_->store.valueBool("UI/Timeline/FrameBlendingActive", false);
+}
+
+void ArtifactAppSettings::setTimelineFrameBlendingActive(bool enable) {
+    impl_->store.setValue("UI/Timeline/FrameBlendingActive", enable);
+    Q_EMIT settingsChanged();
+}
+
 QString ArtifactAppSettings::themeName() const {
     return impl_->store.valueString("UI/ThemeName", "Studio");
 }

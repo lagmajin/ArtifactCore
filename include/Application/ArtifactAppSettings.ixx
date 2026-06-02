@@ -73,6 +73,18 @@ public:
     void setCompositionShowMotionPathOverlay(bool enable);
     bool compositionShowGizmoDuringDrag() const;
     void setCompositionShowGizmoDuringDrag(bool enable);
+    bool timelineAllowOverscroll() const;
+    void setTimelineAllowOverscroll(bool enable);
+    bool timelineShyActive() const;
+    void setTimelineShyActive(bool enable);
+    bool timelineGraphEditorActive() const;
+    void setTimelineGraphEditorActive(bool enable);
+    QString timelineGraphEditorModeText() const;
+    void setTimelineGraphEditorModeText(const QString& value);
+    bool timelineMotionBlurActive() const;
+    void setTimelineMotionBlurActive(bool enable);
+    bool timelineFrameBlendingActive() const;
+    void setTimelineFrameBlendingActive(bool enable);
 
     // --- Import / Preview Defaults ---
     QString importDefaultFrameRateText() const;

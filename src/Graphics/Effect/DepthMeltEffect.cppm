@@ -75,7 +75,7 @@ void DepthMeltEffect::process(VideoFrame& frame, const CreativeEffectContext& co
 
     const float melt = meltAmount();
     const float gravityPull = gravity();
-    const float heat = heat();
+    const float heatAmount = this->heat();
     const float surfaceDetail = detail();
     const float time = static_cast<float>(context.time);
 
@@ -97,11 +97,11 @@ void DepthMeltEffect::process(VideoFrame& frame, const CreativeEffectContext& co
             const float thermal = NoiseGenerator::perlin(x * 0.015f, y * 0.015f, time * 0.20f);
             const float dripNoise = NoiseGenerator::perlin(x * 0.010f, y * 0.030f, time * 0.35f + 10.0f);
             const float meltBias = std::pow(fauxDepth, 1.45f) * melt;
-            const float drip = std::max(0.0f, dripNoise - 0.12f) * (0.75f + heat * 0.75f);
+            const float drip = std::max(0.0f, dripNoise - 0.12f) * (0.75f + heatAmount * 0.75f);
             const float verticalShift = (meltBias * (0.35f + slope * surfaceDetail) + drip) * (6.0f + gravityPull * 18.0f);
-            const float lateralShiftX = gx * (2.0f + heat * 6.0f) * meltBias;
-            const float lateralShiftY = gy * (2.0f + heat * 6.0f) * meltBias;
-            const float heatWarp = (thermal - 0.5f) * heat * 3.0f;
+            const float lateralShiftX = gx * (2.0f + heatAmount * 6.0f) * meltBias;
+            const float lateralShiftY = gy * (2.0f + heatAmount * 6.0f) * meltBias;
+            const float heatWarp = (thermal - 0.5f) * heatAmount * 3.0f;
 
             const float sampleX = static_cast<float>(x) + lateralShiftX + heatWarp;
             const float sampleY = static_cast<float>(y) + verticalShift + lateralShiftY + heatWarp * 0.35f;
@@ -110,7 +110,7 @@ void DepthMeltEffect::process(VideoFrame& frame, const CreativeEffectContext& co
             const float g = sampleBilinear(srcG, width, height, sampleX, sampleY);
             const float b = sampleBilinear(srcB, width, height, sampleX - meltBias * 0.8f, sampleY + verticalShift * 0.18f);
 
-            const float meltGlow = clamp01(meltBias * 0.5f + slope * 0.5f + heat * 0.2f);
+            const float meltGlow = clamp01(meltBias * 0.5f + slope * 0.5f + heatAmount * 0.2f);
             rCh->data()[idx] = clamp01(std::lerp(srcR[idx], r + meltGlow * 0.08f, meltBias));
             gCh->data()[idx] = clamp01(std::lerp(srcG[idx], g + meltGlow * 0.04f, meltBias));
             bCh->data()[idx] = clamp01(std::lerp(srcB[idx], b + meltGlow * 0.08f, meltBias));

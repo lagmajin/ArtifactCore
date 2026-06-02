@@ -64,6 +64,7 @@ struct KeyFrame {
     InterpolationType interpolation = InterpolationType::Linear;
     float cp1_x = 0.42f, cp1_y = 0.0f;
     float cp2_x = 0.58f, cp2_y = 1.0f;
+    bool roving = false;
 };
 
 struct PropertyMetadata {
@@ -144,10 +145,14 @@ public:
     void addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation);
     void addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation,
                      float cp1_x, float cp1_y, float cp2_x, float cp2_y);
+    void addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation,
+                     float cp1_x, float cp1_y, float cp2_x, float cp2_y, bool roving);
     void removeKeyFrame(const RationalTime& time);
     void clearKeyFrames();
     std::vector<KeyFrame> getKeyFrames() const;
     bool hasKeyFrameAt(const RationalTime& time) const;
+    bool setKeyFrameRovingAt(const RationalTime& time, bool roving);
+    bool getKeyFrameRovingAt(const RationalTime& time) const;
     QVariant interpolateValue(const RationalTime& time) const;
 
     // Validation

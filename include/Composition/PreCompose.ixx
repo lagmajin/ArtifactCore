@@ -160,7 +160,7 @@ struct CompositionNesting {
     int nestingLevel;                    ///< ネスト階層（ルート=0）
     
     /// ルートコンポジションかどうか
-    bool isRoot() const { return !parentCompositionId.isNil(); }
+    bool isRoot() const { return parentCompositionId.isNil(); }
 };
 
 /// ネストしたコンポジションの時間変換ユーティリティ

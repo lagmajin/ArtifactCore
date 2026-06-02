@@ -323,6 +323,11 @@ void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& val
 
 void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation,
                                     float cp1_x, float cp1_y, float cp2_x, float cp2_y) {
+    addKeyFrame(time, value, interpolation, cp1_x, cp1_y, cp2_x, cp2_y, false);
+}
+
+void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation,
+                                    float cp1_x, float cp1_y, float cp2_x, float cp2_y, bool roving) {
     for (auto& kf : pImpl->m_keyFrames) {
         if (kf.time == time) {
             kf.value = value;
@@ -331,6 +336,7 @@ void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& val
             kf.cp1_y = cp1_y;
             kf.cp2_x = cp2_x;
             kf.cp2_y = cp2_y;
+            kf.roving = roving;
             return;
         }
     }
@@ -342,6 +348,7 @@ void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& val
     kf.cp1_y = cp1_y;
     kf.cp2_x = cp2_x;
     kf.cp2_y = cp2_y;
+    kf.roving = roving;
     pImpl->m_keyFrames.push_back(kf);
     std::sort(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
         [](const KeyFrame& a, const KeyFrame& b) {
@@ -368,6 +375,25 @@ std::vector<KeyFrame> AbstractProperty::getKeyFrames() const {
 bool AbstractProperty::hasKeyFrameAt(const RationalTime& time) const {
     return std::any_of(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
         [&time](const KeyFrame& kf) { return kf.time == time; });
+}
+
+bool AbstractProperty::setKeyFrameRovingAt(const RationalTime& time, bool roving) {
+    auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+        [&time](const KeyFrame& kf) { return kf.time == time; });
+    if (it == pImpl->m_keyFrames.end()) {
+        return false;
+    }
+    it->roving = roving;
+    return true;
+}
+
+bool AbstractProperty::getKeyFrameRovingAt(const RationalTime& time) const {
+    auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+        [&time](const KeyFrame& kf) { return kf.time == time; });
+    if (it == pImpl->m_keyFrames.end()) {
+        return false;
+    }
+    return it->roving;
 }
 
 QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {

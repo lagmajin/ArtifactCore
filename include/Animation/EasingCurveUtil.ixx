@@ -20,6 +20,7 @@ export enum class EasingType {
     EaseInOut,
     Back,
     Expo,
+    Bezier,
 };
 
 export struct EasingCandidate {
@@ -42,6 +43,7 @@ export inline QString easingTypeToString(EasingType type)
     case EasingType::EaseInOut: return QStringLiteral("Ease In-Out");
     case EasingType::Back: return QStringLiteral("Back");
     case EasingType::Expo: return QStringLiteral("Expo");
+    case EasingType::Bezier: return QStringLiteral("Bezier");
     }
     return QStringLiteral("Linear");
 }
@@ -79,6 +81,8 @@ export inline float evaluateEasing(EasingType type, float t) noexcept
             return 1.0f;
         }
         return std::pow(2.0f, 10.0f * (t - 1.0f));
+    case EasingType::Bezier:
+        return bezierEvaluate(t, 0.42f, 0.0f, 0.58f, 1.0f);
     }
 
     return t;
@@ -101,6 +105,8 @@ export inline InterpolationType easingTypeToInterpolation(EasingType type) noexc
         return InterpolationType::BackOut;
     case EasingType::Expo:
         return InterpolationType::Exponential;
+    case EasingType::Bezier:
+        return InterpolationType::Bezier;
     }
     return InterpolationType::Linear;
 }
@@ -112,9 +118,10 @@ export inline std::vector<EasingCandidate> defaultEasingCandidates()
         {QStringLiteral("Linear"), EasingType::Linear},
         {QStringLiteral("Ease In"), EasingType::EaseIn},
         {QStringLiteral("Ease Out"), EasingType::EaseOut},
-        {QStringLiteral("Ease In-Out"), EasingType::EaseInOut},
+        {QStringLiteral("Easy Ease"), EasingType::EaseInOut},
         {QStringLiteral("Back"), EasingType::Back},
         {QStringLiteral("Expo"), EasingType::Expo},
+        {QStringLiteral("Bezier"), EasingType::Bezier},
     };
 }
 

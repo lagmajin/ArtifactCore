@@ -123,6 +123,7 @@ public:
                 kfObj[QStringLiteral("cp1_y")] = kf.cp1_y;
                 kfObj[QStringLiteral("cp2_x")] = kf.cp2_x;
                 kfObj[QStringLiteral("cp2_y")] = kf.cp2_y;
+                kfObj[QStringLiteral("roving")] = kf.roving;
                 switch (property->getType()) {
                 case PropertyType::Float:
                 case PropertyType::Integer:
@@ -202,8 +203,9 @@ public:
                 float cp1_y = kfObj.value(QStringLiteral("cp1_y")).toDouble(0.0);
                 float cp2_x = kfObj.value(QStringLiteral("cp2_x")).toDouble(0.58);
                 float cp2_y = kfObj.value(QStringLiteral("cp2_y")).toDouble(1.0);
+                const bool roving = kfObj.value(QStringLiteral("roving")).toBool(false);
                 const QJsonValue val = kfObj.value(QStringLiteral("value"));
-                property->addKeyFrame(time, val.toVariant(), interpolation, cp1_x, cp1_y, cp2_x, cp2_y);
+                property->addKeyFrame(time, val.toVariant(), interpolation, cp1_x, cp1_y, cp2_x, cp2_y, roving);
             }
         }
     }

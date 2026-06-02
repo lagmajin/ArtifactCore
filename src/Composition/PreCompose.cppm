@@ -150,28 +150,34 @@ bool PreComposeManager::unprecompose(
     LayerID precompLayerId,
     const UnprecomposeOptions& options)
 {
-    // プリコンポーズレイヤーかチェック
-    if (!impl_) {
+    if (!impl_ || precompLayerId.isNil()) {
         return false;
     }
-    // if (!impl_->precomposeLayers.contains(precompLayerId)) {
-    //     return false;
-    // }
 
-    // ネスト情報を削除
-    // CompositionID childCompId = impl_->layerSourceMap.value(precompLayerId);
-    // impl_->nestingInfo.remove(childCompId);
-    // impl_->layerSourceMap.remove(precompLayerId);
-    // impl_->precomposeLayers.remove(precompLayerId);
+    const auto sourceIt = impl_->layerSourceMap.find(precompLayerId);
+    if (sourceIt == impl_->layerSourceMap.end()) {
+        return false;
+    }
 
-    // if (!options.keepComposition) {
-    //     // コンポジション自体も削除する場合は、
-    //     // 親のネストマップからも削除
-    //     for (auto it = impl_->nestingMap.begin(); it != impl_->nestingMap.end(); ++it) {
-    //         it.value().removeOne(childCompId);
-    //     }
-    // }
-    
+    const CompositionID childCompId = *sourceIt;
+    impl_->layerSourceMap.erase(sourceIt);
+    impl_->nestingInfo.remove(childCompId);
+
+    auto parentIt = impl_->nestingMap.find(compositionId);
+    if (parentIt != impl_->nestingMap.end()) {
+        parentIt->removeOne(childCompId);
+        if (parentIt->isEmpty()) {
+            impl_->nestingMap.erase(parentIt);
+        }
+    }
+
+    if (!options.keepComposition) {
+        for (auto it = impl_->nestingMap.begin(); it != impl_->nestingMap.end(); ++it) {
+            it.value().removeOne(childCompId);
+        }
+    }
+
+    Q_UNUSED(options.preserveTiming);
     return true;
 }
 
@@ -180,8 +186,7 @@ bool PreComposeManager::unprecompose(
 // ========================================
 
 bool PreComposeManager::isPrecomposeLayer(LayerID layerId) const {
-    // return impl_->precomposeLayers.contains(layerId);
-    return false; // Note: precomposeLayers commented out
+    return impl_ && impl_->layerSourceMap.contains(layerId);
 }
 
 CompositionID PreComposeManager::getSourceCompositionId(LayerID precompLayerId) const {
