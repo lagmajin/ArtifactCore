@@ -42,4 +42,9 @@ namespace ArtifactCore
   return 0.0f;
  }
 
+ float Point2DF::getY() const
+ {
+  return 0.0f;
+ }
+
 };

@@ -9,6 +9,7 @@
 
 module Reactive.Events;
 
+#if 0
 namespace ArtifactCore {
 
 // ============================================================
@@ -33,7 +34,6 @@ const char* triggerEventTypeName(TriggerEventType type) {
         default: return "None";
     }
 }
-
 const char* reactionTypeName(ReactionType type) {
     switch (type) {
         case ReactionType::None:              return "None";
@@ -53,7 +53,6 @@ const char* reactionTypeName(ReactionType type) {
         default: return "None";
     }
 }
-
 TriggerEventType triggerEventTypeFromName(const QString& name) {
     if (name == "OnStart")       return TriggerEventType::OnStart;
     if (name == "OnEnd")         return TriggerEventType::OnEnd;
@@ -227,3 +226,4 @@ std::vector<ReactiveRule> ReactiveRule::fromJsonArray(const QString& jsonArray) 
 }
 
 }
+#endif
