@@ -35,6 +35,11 @@ foreach(file_path ${POTENTIAL_SOURCES})
        file_path MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
+       # ValidationRules depends on Artifact project modules and is built there
+       # once the app layer wires it in; keeping it out of ArtifactCore avoids a
+       # cross-project module dependency cycle.
+       file_path MATCHES "src/Diagnostics/ValidationRules\\.cppm" OR
+       file_path MATCHES "include/Diagnostics/ValidationRules\\.ixx" OR
        file_path MATCHES "include[/\\\\]Asset[/\\\\]AsseetImporter\\.ixx" OR
        file_path MATCHES "src/Image/FFmpegEncoder\\.Test\\.cppm" OR
        file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
