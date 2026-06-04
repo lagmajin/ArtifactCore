@@ -70,18 +70,30 @@ namespace CvUtils {
                 return image.copy();
             }
             case CV_32FC4: {
+                cv::Mat safe = mat.isContinuous() ? mat.clone() : mat.clone();
+                cv::patchNaNs(safe, 0.0);
+                cv::min(safe, 1.0, safe);
+                cv::max(safe, 0.0, safe);
                 cv::Mat u8;
-                mat.convertTo(u8, CV_8U, 255.0);
+                safe.convertTo(u8, CV_8UC4, 255.0);
                 return cvMatToQImage(u8);
             }
             case CV_32FC3: {
+                cv::Mat safe = mat.isContinuous() ? mat.clone() : mat.clone();
+                cv::patchNaNs(safe, 0.0);
+                cv::min(safe, 1.0, safe);
+                cv::max(safe, 0.0, safe);
                 cv::Mat u8;
-                mat.convertTo(u8, CV_8U, 255.0);
+                safe.convertTo(u8, CV_8UC3, 255.0);
                 return cvMatToQImage(u8);
             }
             case CV_32FC1: {
+                cv::Mat safe = mat.isContinuous() ? mat.clone() : mat.clone();
+                cv::patchNaNs(safe, 0.0);
+                cv::min(safe, 1.0, safe);
+                cv::max(safe, 0.0, safe);
                 cv::Mat u8;
-                mat.convertTo(u8, CV_8U, 255.0);
+                safe.convertTo(u8, CV_8UC1, 255.0);
                 return cvMatToQImage(u8);
             }
             default:

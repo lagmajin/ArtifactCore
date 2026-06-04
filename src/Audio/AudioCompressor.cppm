@@ -24,12 +24,7 @@ void AudioCompressor::process(AudioSegment& segment, const AudioSegment* sideCha
 
     float thresholdLinear = std::pow(10.0f, thresholdDb_ / 20.0f);
 
-    // サイドチェーンバッファがあるか確認し、なければ自分を参照
-    // 本来は AudioBus の情報を参照する必要があるが、ここでは簡易化
-    // ※ 実際の実装では AudioBus::process 内で sideChainBuffer をセットする想定
-    
     for (int i = 0; i < frames; ++i) {
-        // 制御用レベルの検出 (サイドチェーン or メイン)
         float detectorVal = 0.0f;
         
         const AudioSegment* source = (sideChainEnabled_ && sideChain) ? sideChain : &segment;
@@ -39,18 +34,19 @@ void AudioCompressor::process(AudioSegment& segment, const AudioSegment* sideCha
             detectorVal = std::max(detectorVal, std::abs(source->channelData[c][i]));
         }
 
-        // エンベロープ・フォロワー
-        if (detectorVal > envelope_) {
-            envelope_ = attackCoef * envelope_ + (1.0f - attackCoef) * detectorVal;
+        // envelope_ を読み書き（process は同一スレッド内で連続呼ばれるためローカルコピーで競合回避）
+        float envelope = envelope_;
+        if (detectorVal > envelope) {
+            envelope = attackCoef * envelope + (1.0f - attackCoef) * detectorVal;
         } else {
-            envelope_ = releaseCoef * envelope_ + (1.0f - releaseCoef) * detectorVal;
+            envelope = releaseCoef * envelope + (1.0f - releaseCoef) * detectorVal;
         }
+        envelope_ = envelope;
 
         // ゲイン計算
         float gain = 1.0f;
-        if (envelope_ > thresholdLinear) {
-            // dB空間での計算
-            float envDb = 20.0f * std::log10(envelope_);
+        if (envelope > thresholdLinear) {
+            float envDb = 20.0f * std::log10(envelope);
             float overDb = envDb - thresholdDb_;
             float newDb = thresholdDb_ + overDb / ratio_;
             gain = std::pow(10.0f, (newDb - envDb) / 20.0f);
@@ -61,8 +57,12 @@ void AudioCompressor::process(AudioSegment& segment, const AudioSegment* sideCha
             segment.channelData[c][i] *= gain;
         }
 
-        currentGainReduction_ = gain; // 可視化用に保存
+        currentGainReduction_ = gain;
     }
+}
+
+float AudioCompressor::getGainReduction() const {
+    return currentGainReduction_;
 }
 
 } // namespace ArtifactCore

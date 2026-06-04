@@ -1,4 +1,5 @@
-﻿module;
+module;
+#include <algorithm>
 #include <utility>
 #include <memory>
 #include <QString>
@@ -9,6 +10,7 @@
 #include <QClipboard>
 #include <QApplication>
 #include <QHash>
+#include <QMimeData>
 
 export module Clipboard.ClipboardManager;
 
@@ -24,6 +26,7 @@ enum class ClipboardType {
     Effect,         // エフェクト設定
     Keyframes,      // キーフレーム範囲
     PropertyValue,  // プロパティ値
+    ProjectItems,   // Project View の item snapshot
 };
 
 // ============================================================
@@ -74,6 +77,11 @@ public:
     QVariant pastePropertyValue() const;
     QString pastePropertyPath() const;
 
+    // --- Project Item Snapshot Operations ---
+    void copyProjectItems(const QJsonArray& itemsJson, const QString& description = QString());
+    bool hasProjectItemData() const;
+    QJsonArray pasteProjectItems() const;
+
     // --- Generic ---
     ClipboardType currentType() const;
     QString description() const;
@@ -89,33 +97,114 @@ private:
     ClipboardEntry internalClip_;
     QJsonArray cachedLayers_;
 
+    static constexpr int kClipboardBundleVersion = 1;
     static constexpr const char* kArtifactMimePrefix = "application/x-artifact-";
+    static constexpr const char* kClipboardMime = "application/x-artifact-clipboard+json";
     static constexpr const char* kLayerMime = "application/x-artifact-layer";
     static constexpr const char* kEffectMime = "application/x-artifact-effect";
     static constexpr const char* kKeyframeMime = "application/x-artifact-keyframe";
     static constexpr const char* kPropertyMime = "application/x-artifact-property";
+    static constexpr const char* kProjectItemsMime = "application/x-artifact-project-items";
+
+    static QString descriptionForLayerCount(const QJsonArray& layersJson, int count);
+    static QJsonObject makeEnvelope(const QString& kind, const QJsonObject& payload);
+    static bool parseClipboardObject(const QJsonObject& obj, ClipboardEntry& outEntry, QJsonArray& outLayers);
 };
 
 // ============================================================
 // Implementation
 // ============================================================
 
+QString ClipboardManager::descriptionForLayerCount(const QJsonArray& layersJson, int count) {
+    if (count == 1 && !layersJson.isEmpty()) {
+        const QJsonObject first = layersJson.first().toObject();
+        const QString layerName = first.value(QStringLiteral("layerName")).toString().trimmed();
+        if (!layerName.isEmpty()) {
+            return layerName;
+        }
+    }
+    return QStringLiteral("%1 layer(s)").arg(std::max(0, count));
+}
+
+QJsonObject ClipboardManager::makeEnvelope(const QString& kind, const QJsonObject& payload) {
+    QJsonObject clipObj = payload;
+    clipObj[QStringLiteral("artifact_clipboard")] = kind;
+    clipObj[QStringLiteral("artifact_clipboard_version")] = kClipboardBundleVersion;
+    return clipObj;
+}
+
+bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEntry& outEntry, QJsonArray& outLayers) {
+    const QString type = obj.value(QStringLiteral("artifact_clipboard")).toString();
+    if (type.isEmpty()) {
+        return false;
+    }
+
+    outEntry = {};
+    outEntry.data = obj;
+
+    if (type == QStringLiteral("layer")) {
+        outEntry.type = ClipboardType::Layer;
+        outEntry.mimeType = kLayerMime;
+        outLayers = obj.value(QStringLiteral("layers")).toArray();
+        outEntry.description = descriptionForLayerCount(outLayers, outLayers.size());
+        return true;
+    }
+    if (type == QStringLiteral("effect")) {
+        outEntry.type = ClipboardType::Effect;
+        outEntry.mimeType = kEffectMime;
+        outEntry.description = obj.value(QStringLiteral("effect")).toObject()
+                                  .value(QStringLiteral("displayName")).toString();
+        return true;
+    }
+    if (type == QStringLiteral("keyframes")) {
+        outEntry.type = ClipboardType::Keyframes;
+        outEntry.mimeType = kKeyframeMime;
+        outEntry.sourcePropertyPath = obj.value(QStringLiteral("propertyPath")).toString();
+        const QJsonArray keyframes = obj.value(QStringLiteral("keyframes")).toArray();
+        outEntry.description = QStringLiteral("%1 keyframes on %2")
+                                   .arg(keyframes.size())
+                                   .arg(outEntry.sourcePropertyPath);
+        return true;
+    }
+    if (type == QStringLiteral("property")) {
+        outEntry.type = ClipboardType::PropertyValue;
+        outEntry.mimeType = kPropertyMime;
+        outEntry.sourcePropertyPath = obj.value(QStringLiteral("propertyPath")).toString();
+        outEntry.description = QStringLiteral("%1 = %2")
+                                   .arg(outEntry.sourcePropertyPath,
+                                        obj.value(QStringLiteral("value")).toVariant().toString());
+        return true;
+    }
+    if (type == QStringLiteral("project-items")) {
+        outEntry.type = ClipboardType::ProjectItems;
+        outEntry.mimeType = kProjectItemsMime;
+        const QJsonArray items = obj.value(QStringLiteral("items")).toArray();
+        outEntry.description = QStringLiteral("%1 item(s)").arg(items.size());
+        return true;
+    }
+
+    return false;
+}
+
 // --- Layer ---
 void ClipboardManager::copyLayer(const QJsonObject& layerJson, const QString& layerName) {
     QJsonArray arr;
     arr.append(layerJson);
     copyLayers(arr, 1);
+    if (!layerName.trimmed().isEmpty()) {
+        internalClip_.description = layerName.trimmed();
+    }
 }
 
 void ClipboardManager::copyLayers(const QJsonArray& layersJson, int count) {
     QJsonObject clipObj;
-    clipObj["artifact_clipboard"] = QStringLiteral("layer");
-    clipObj["layers"] = layersJson;
+    clipObj = makeEnvelope(QStringLiteral("layer"), clipObj);
+    clipObj[QStringLiteral("layers")] = layersJson;
 
     internalClip_.type = ClipboardType::Layer;
     internalClip_.mimeType = kLayerMime;
     internalClip_.data = clipObj;
-    internalClip_.description = QString("%1 layer(s)").arg(count);
+    internalClip_.description = descriptionForLayerCount(layersJson, count);
     cachedLayers_ = layersJson;
 
     syncToSystemClipboard();
@@ -133,8 +222,8 @@ QJsonArray ClipboardManager::pasteLayers() const {
 // --- Effect ---
 void ClipboardManager::copyEffect(const QJsonObject& effectJson, const QString& effectName, const QString& layerId) {
     QJsonObject clipObj;
-    clipObj["artifact_clipboard"] = QStringLiteral("effect");
-    clipObj["effect"] = effectJson;
+    clipObj = makeEnvelope(QStringLiteral("effect"), clipObj);
+    clipObj[QStringLiteral("effect")] = effectJson;
 
     internalClip_.type = ClipboardType::Effect;
     internalClip_.mimeType = kEffectMime;
@@ -151,7 +240,7 @@ bool ClipboardManager::hasEffectData() const {
 
 QJsonObject ClipboardManager::pasteEffect() const {
     if (internalClip_.type != ClipboardType::Effect) return {};
-    return internalClip_.data["effect"].toObject();
+    return internalClip_.data[QStringLiteral("effect")].toObject();
 }
 
 QString ClipboardManager::pasteEffectSourceLayerId() const {
@@ -161,14 +250,14 @@ QString ClipboardManager::pasteEffectSourceLayerId() const {
 // --- Keyframes ---
 void ClipboardManager::copyKeyframes(const QString& propertyPath, const QJsonArray& keyframes, const QString& layerId) {
     QJsonObject clipObj;
-    clipObj["artifact_clipboard"] = QStringLiteral("keyframes");
-    clipObj["propertyPath"] = propertyPath;
-    clipObj["keyframes"] = keyframes;
+    clipObj = makeEnvelope(QStringLiteral("keyframes"), clipObj);
+    clipObj[QStringLiteral("propertyPath")] = propertyPath;
+    clipObj[QStringLiteral("keyframes")] = keyframes;
 
     internalClip_.type = ClipboardType::Keyframes;
     internalClip_.mimeType = kKeyframeMime;
     internalClip_.data = clipObj;
-    internalClip_.description = QString("%1 keyframes on %2").arg(keyframes.size()).arg(propertyPath);
+    internalClip_.description = QStringLiteral("%1 keyframes on %2").arg(keyframes.size()).arg(propertyPath);
     internalClip_.sourceLayerId = layerId;
     internalClip_.sourcePropertyPath = propertyPath;
 
@@ -181,7 +270,7 @@ bool ClipboardManager::hasKeyframeData() const {
 
 QJsonArray ClipboardManager::pasteKeyframes() const {
     if (internalClip_.type != ClipboardType::Keyframes) return {};
-    return internalClip_.data["keyframes"].toArray();
+    return internalClip_.data[QStringLiteral("keyframes")].toArray();
 }
 
 QString ClipboardManager::pasteKeyframesPropertyPath() const {
@@ -191,14 +280,14 @@ QString ClipboardManager::pasteKeyframesPropertyPath() const {
 // --- Property Value ---
 void ClipboardManager::copyPropertyValue(const QString& propertyPath, const QVariant& value, const QString& layerId) {
     QJsonObject clipObj;
-    clipObj["artifact_clipboard"] = QStringLiteral("property");
-    clipObj["propertyPath"] = propertyPath;
-    clipObj["value"] = QJsonValue::fromVariant(value);
+    clipObj = makeEnvelope(QStringLiteral("property"), clipObj);
+    clipObj[QStringLiteral("propertyPath")] = propertyPath;
+    clipObj[QStringLiteral("value")] = QJsonValue::fromVariant(value);
 
     internalClip_.type = ClipboardType::PropertyValue;
     internalClip_.mimeType = kPropertyMime;
     internalClip_.data = clipObj;
-    internalClip_.description = QString("%1 = %2").arg(propertyPath, value.toString());
+    internalClip_.description = QStringLiteral("%1 = %2").arg(propertyPath, value.toString());
     internalClip_.sourceLayerId = layerId;
     internalClip_.sourcePropertyPath = propertyPath;
 
@@ -211,11 +300,36 @@ bool ClipboardManager::hasPropertyValue() const {
 
 QVariant ClipboardManager::pastePropertyValue() const {
     if (internalClip_.type != ClipboardType::PropertyValue) return {};
-    return internalClip_.data["value"].toVariant();
+    return internalClip_.data[QStringLiteral("value")].toVariant();
 }
 
 QString ClipboardManager::pastePropertyPath() const {
     return internalClip_.sourcePropertyPath;
+}
+
+// --- Project Items ---
+void ClipboardManager::copyProjectItems(const QJsonArray& itemsJson, const QString& description) {
+    QJsonObject clipObj;
+    clipObj = makeEnvelope(QStringLiteral("project-items"), clipObj);
+    clipObj[QStringLiteral("items")] = itemsJson;
+
+    internalClip_.type = ClipboardType::ProjectItems;
+    internalClip_.mimeType = kProjectItemsMime;
+    internalClip_.data = clipObj;
+    internalClip_.description = description.trimmed().isEmpty()
+                                    ? QStringLiteral("%1 item(s)").arg(itemsJson.size())
+                                    : description.trimmed();
+
+    syncToSystemClipboard();
+}
+
+bool ClipboardManager::hasProjectItemData() const {
+    return internalClip_.type == ClipboardType::ProjectItems;
+}
+
+QJsonArray ClipboardManager::pasteProjectItems() const {
+    if (internalClip_.type != ClipboardType::ProjectItems) return {};
+    return internalClip_.data[QStringLiteral("items")].toArray();
 }
 
 // --- Generic ---
@@ -234,7 +348,14 @@ bool ClipboardManager::isEmpty() const {
 void ClipboardManager::syncToSystemClipboard() {
     QClipboard* clipboard = QApplication::clipboard();
     if (clipboard && !internalClip_.data.isEmpty()) {
-        clipboard->setText(QJsonDocument(internalClip_.data).toJson(QJsonDocument::Compact));
+        const QByteArray jsonBytes = QJsonDocument(internalClip_.data).toJson(QJsonDocument::Compact);
+        auto* mimeData = new QMimeData();
+        mimeData->setText(QString::fromUtf8(jsonBytes));
+        mimeData->setData(kClipboardMime, jsonBytes);
+        if (!internalClip_.mimeType.isEmpty()) {
+            mimeData->setData(internalClip_.mimeType.toUtf8(), jsonBytes);
+        }
+        clipboard->setMimeData(mimeData);
     }
 }
 
@@ -246,14 +367,40 @@ void ClipboardManager::syncFromSystemClipboard() {
         return;
     }
 
-    const QString text = clipboard->text();
-    if (text.isEmpty()) {
+    const QMimeData* mime = clipboard->mimeData();
+    QByteArray rawBytes;
+    if (mime) {
+        if (mime->hasFormat(kClipboardMime)) {
+            rawBytes = mime->data(kClipboardMime);
+        }
+        if (rawBytes.isEmpty() && mime->hasFormat(kLayerMime)) {
+            rawBytes = mime->data(kLayerMime);
+        }
+        if (rawBytes.isEmpty() && mime->hasFormat(kEffectMime)) {
+            rawBytes = mime->data(kEffectMime);
+        }
+        if (rawBytes.isEmpty() && mime->hasFormat(kKeyframeMime)) {
+            rawBytes = mime->data(kKeyframeMime);
+        }
+        if (rawBytes.isEmpty() && mime->hasFormat(kPropertyMime)) {
+            rawBytes = mime->data(kPropertyMime);
+        }
+        if (rawBytes.isEmpty() && mime->hasFormat(kProjectItemsMime)) {
+            rawBytes = mime->data(kProjectItemsMime);
+        }
+        if (rawBytes.isEmpty() && mime->hasText()) {
+            rawBytes = mime->text().toUtf8();
+        }
+    }
+
+    if (rawBytes.isEmpty()) {
         internalClip_ = {};
         cachedLayers_ = {};
         return;
     }
 
-    QJsonDocument doc = QJsonDocument::fromJson(text.toUtf8());
+    QJsonParseError error{};
+    QJsonDocument doc = QJsonDocument::fromJson(rawBytes, &error);
     if (!doc.isObject()) {
         internalClip_ = {};
         cachedLayers_ = {};
@@ -261,30 +408,16 @@ void ClipboardManager::syncFromSystemClipboard() {
     }
 
     QJsonObject obj = doc.object();
-    const QString type = obj["artifact_clipboard"].toString();
-
-    if (type == "layer") {
-        internalClip_.type = ClipboardType::Layer;
-        internalClip_.data = obj;
-        cachedLayers_ = obj["layers"].toArray();
-        internalClip_.description = QString("%1 layer(s)").arg(cachedLayers_.size());
-    } else if (type == "effect") {
-        internalClip_.type = ClipboardType::Effect;
-        internalClip_.data = obj;
-        internalClip_.description = obj["effect"].toObject()["displayName"].toString();
-    } else if (type == "keyframes") {
-        internalClip_.type = ClipboardType::Keyframes;
-        internalClip_.data = obj;
-        internalClip_.sourcePropertyPath = obj["propertyPath"].toString();
-        auto kf = obj["keyframes"].toArray();
-        internalClip_.description = QString("%1 keyframes on %2").arg(kf.size()).arg(internalClip_.sourcePropertyPath);
-    } else if (type == "property") {
-        internalClip_.type = ClipboardType::PropertyValue;
-        internalClip_.data = obj;
-        internalClip_.sourcePropertyPath = obj["propertyPath"].toString();
-        internalClip_.description = QString("%1 = %2").arg(internalClip_.sourcePropertyPath, obj["value"].toVariant().toString());
-    } else {
+    QJsonArray layers;
+    if (!parseClipboardObject(obj, internalClip_, layers)) {
         internalClip_ = {};
+        cachedLayers_ = {};
+        return;
+    }
+
+    if (internalClip_.type == ClipboardType::Layer) {
+        cachedLayers_ = layers;
+    } else {
         cachedLayers_ = {};
     }
 }

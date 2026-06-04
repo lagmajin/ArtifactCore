@@ -137,6 +137,13 @@
 - insertion / move / duplication API
 - dirty propagation の整理
 
+### C-LYR-5 Parametric Composition Foundation
+- `ParametricComposition`
+- generic `Slot` model で Input / Output / Control / Event を表現できる reusable template surface
+- 1 input / 1 output / RGBA の安全な first-step implementation
+- instance override と cache key の deterministic 化
+- 詳細は `MILESTONE_PARAMETRIC_COMPOSITION_2026-06-05.md`
+
 ### C-NLE-1 NLE Core Foundation
 - `Sequence`
 - `Track`

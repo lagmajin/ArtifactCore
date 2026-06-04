@@ -26,12 +26,12 @@ public:
 
     // パラメータ
     void setThreshold(float db) { thresholdDb_ = db; }
-    void setRatio(float ratio) { ratio_ = ratio; } // 1.0 ~ 20.0 (Inf)
+    void setRatio(float ratio) { ratio_ = ratio; }
     void setAttack(float ms) { attackMs_ = ms; }
     void setRelease(float ms) { releaseMs_ = ms; }
     void setSideChain(bool enable) { sideChainEnabled_ = enable; }
     
-    float getGainReduction() const { return currentGainReduction_; }
+    float getGainReduction() const { return currentGainReduction_.load(std::memory_order_acquire); }
 
 private:
     float thresholdDb_ = -20.0f;
@@ -40,8 +40,8 @@ private:
     float releaseMs_ = 100.0f;
     bool sideChainEnabled_ = false;
 
-    float envelope_ = 0.0f;
-    float currentGainReduction_ = 1.0f; // 0.0 ~ 1.0
+    float envelope_ = 0.0f; // process() ループ内で連続書き換え（同一スレッド）
+    std::atomic<float> currentGainReduction_{1.0f}; // UI スレッドからの読み込み用
 };
 
 } // namespace ArtifactCore

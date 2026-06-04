@@ -56,6 +56,8 @@ namespace ArtifactCore {
             return capacity_ - available();
         }
 
+        // PERF: PlaybackEngine スレッド (Producer) からのみ呼ばれる。
+        // writeCount_ はこの関数内でのみインクリメントされる (SPSC 保証)。
         bool write(const AudioSegment& data) {
             const std::size_t frames = data.frameCount();
             if (frames == 0) return true;
@@ -93,6 +95,13 @@ namespace ArtifactCore {
             return true;
         }
 
+        // PERF: この関数は WASAPI レンダースレッド (RT) で呼ばれる。
+        // - data.channelData.resize() は呼び出し側で同じサイズを事前確保していれば no-op
+        // - clear() 時は clearGeneration_ で producer→consumer へ lock-free 通知
+        // - 以下の制約を守ること:
+        //   * qWarning/qDebug 等のログ出力不可
+        //   * std::mutex ロック不可
+        //   * heap アロケーション不可
         bool read(AudioSegment& data, std::size_t frames) {
             // Check whether the producer has requested a buffer clear.
             const std::uint32_t gen = clearGeneration_.load(std::memory_order_acquire);

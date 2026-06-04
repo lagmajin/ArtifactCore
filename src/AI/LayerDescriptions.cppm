@@ -222,7 +222,7 @@ public:
     LocalizedText detailedDescription() const override {
         return loc(
             "ArtifactShapeLayer creates vector-based graphics using paths, shapes, and curves. "
-            "It supports fill colors, stroke styles, gradients, and path morphing animations. "
+            "It supports fill colors, stroke styles, tapered strokes, gradients, and path morphing animations. "
             "Common shapes like rectangles, ellipses, and polygons are available as presets.",
             "ArtifactShapeLayerはパス、シェイプ、カーブを使用してベクターベースのグラフィックスを作成します。"
             "塗り色、ストロークスタイル、グラデーション、パスモーフィングアニメーションをサポートします。"

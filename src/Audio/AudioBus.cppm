@@ -185,6 +185,10 @@ namespace ArtifactCore {
 		return nullptr;
 	}
 
+	// PERF: この関数は AudioMixer の topological sort で複数バス分呼ばれる。
+	// volume/metering ループは scalar で、バス数 × サンプル数 のコスト。
+	// SIMD (SSE/AVX) 化で 4-8 倍の高速化が見込める。
+	// 参照: docs/AUDIO_PERFORMANCE_ARCHITECTURE_2026-06-05.md
 	void AudioBus::process(AudioSegment& segment)
 	{
 		// 1. Apply FX Rack FIRST (Pre-fader)

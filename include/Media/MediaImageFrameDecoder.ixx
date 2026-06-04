@@ -7,6 +7,10 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
+#include <libavutil/hwcontext.h>
+}
+extern "C" {
+#include <vulkan/vulkan.h>
 }
 export module MediaImageFrameDecoder;
 
@@ -20,6 +24,8 @@ class MediaImageFrameDecoder {
 private:
     AVCodecContext* codecContext_ = nullptr;
     SwsContext* swsCtx_ = nullptr;
+    AVBufferRef* hwDeviceCtx_ = nullptr;
+    AVBufferRef* frameCtx_ = nullptr;
     int64_t lastPts_ = 0;
 
 public:
@@ -27,6 +33,7 @@ public:
     ~MediaImageFrameDecoder();
 
     bool initialize(AVCodecParameters* codecParams);
+    void setVulkanDevice(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, uint32_t queueFamilyIndex);
     QImage decodeFrame(AVPacket* packet);
     DecodedVideoFrame decodeFrameRaw(AVPacket* packet);
     
@@ -40,6 +47,7 @@ public:
     
     AVCodecContext* getCodecContext() const { return codecContext_; }
     SwsContext* getSwsContext() const { return swsCtx_; }
+    AVBufferRef* getHwDeviceContext() const { return hwDeviceCtx_; }
 };
 
 } // namespace ArtifactCore

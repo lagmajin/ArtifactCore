@@ -61,12 +61,18 @@ struct VulkanVideoFrameHandle {
     void* memory = nullptr;
     void* semaphore = nullptr;
     std::uint64_t semaphoreValue = 0;
+    std::uint32_t nativeFormat = 0;
+    std::uint32_t imageLayout = 0;
+    std::uint32_t planeCount = 1;
+    std::uint32_t planeIndex = 0;
+    std::uint32_t arrayLayer = 0;
 };
 
 struct GpuVideoFrame {
     VideoFrameMetadata meta;
     VideoFrameStorageKind storage = VideoFrameStorageKind::Unknown;
     std::variant<std::monostate, VulkanVideoFrameHandle> handle;
+    std::shared_ptr<void> lifetime;
 
     bool isValid() const
     {

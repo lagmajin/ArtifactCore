@@ -105,12 +105,15 @@ void AudioCache::clear()
     qDebug() << "[AudioCache] Cache cleared";
 }
 
-void AudioCache::cleanupLRU()
+    // PERF: std::sort (O(n log n)) の代わりに std::nth_element (O(n)) を使用。
+    // 中央値を見つけて古い半分を削除する。ソート不要で LRU 分割が可能。
+    // 参照: docs/AUDIO_PERFORMANCE_ARCHITECTURE_2026-06-05.md
+    void AudioCache::cleanupLRU()
 {
     // LRU (Least Recently Used) 方式で古いエントリを削除
     if (cache_.isEmpty()) return;
     
-    // lastAccess でソートして最も古いものを削除
+    // lastAccess の中央値を見つけて、古い半分を削除（O(n) nth_element 使用）
     QVector<CachedAudioFrame*> entries;
     entries.reserve(cache_.size());
     
@@ -118,19 +121,18 @@ void AudioCache::cleanupLRU()
         entries.append(&entry);
     }
     
-    // lastAccess の昇順ソート（古い順）
-    std::sort(entries.begin(), entries.end(), 
+    const int mid = entries.size() / 2;
+    std::nth_element(entries.begin(), entries.begin() + mid, entries.end(),
               [](const CachedAudioFrame* a, const CachedAudioFrame* b) {
                   return a->lastAccess < b->lastAccess;
               });
     
-    // 半分のエントリを削除
-    int toRemove = cache_.size() / 2;
-    for (int i = 0; i < toRemove; ++i) {
+    // 中央値より古いエントリを削除
+    for (int i = 0; i < mid; ++i) {
         cache_.remove(entries[i]->frameNumber);
     }
     
-    qDebug() << "[AudioCache] LRU cleanup removed" << toRemove << "entries, remaining:" << cache_.size();
+    qDebug() << "[AudioCache] LRU cleanup removed" << mid << "entries, remaining:" << cache_.size();
 }
 
 } // namespace ArtifactCore

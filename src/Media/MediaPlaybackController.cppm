@@ -120,6 +120,43 @@ QImage makeQImageFromCpuVideoFrame(const CpuVideoFrame& frame) {
   return image;
 }
 
+bool isDecodedVideoFrameUsable(const DecodedVideoFrame& decoded) {
+  if (const auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+    return cpu->isValid();
+  }
+  if (const auto* gpu = std::get_if<GpuVideoFrame>(&decoded)) {
+    return gpu->isValid();
+  }
+  return false;
+}
+
+int64_t decodedVideoFramePts(const DecodedVideoFrame& decoded) {
+  if (const auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+    return cpu->meta.pts;
+  }
+  if (const auto* gpu = std::get_if<GpuVideoFrame>(&decoded)) {
+    return gpu->meta.pts;
+  }
+  return AV_NOPTS_VALUE;
+}
+
+QString decodedVideoFrameSummary(const DecodedVideoFrame& decoded) {
+  if (const auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+    return QStringLiteral("cpu %1x%2 fmt=%3")
+        .arg(cpu->meta.width)
+        .arg(cpu->meta.height)
+        .arg(static_cast<int>(cpu->meta.pixelFormat));
+  }
+  if (const auto* gpu = std::get_if<GpuVideoFrame>(&decoded)) {
+    return QStringLiteral("gpu %1x%2 fmt=%3 storage=%4")
+        .arg(gpu->meta.width)
+        .arg(gpu->meta.height)
+        .arg(static_cast<int>(gpu->meta.pixelFormat))
+        .arg(static_cast<int>(gpu->storage));
+  }
+  return QStringLiteral("empty");
+}
+
 }
 
 class MediaPlaybackController::Impl {
@@ -241,12 +278,12 @@ class MediaPlaybackController::Impl {
     auto drainFrames = [&]() {
       while (true) {
         DecodedVideoFrame decoded = videoDecoder_->receiveFrameRaw();
-        if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
-          lastDecodedFrame = *cpu;
-          const int64_t decodedPts = cpu->meta.pts;
+        if (isDecodedVideoFrameUsable(decoded)) {
+          lastDecodedFrame = decoded;
+          const int64_t decodedPts = decodedVideoFramePts(decoded);
           if (targetPts == AV_NOPTS_VALUE || decodedPts == AV_NOPTS_VALUE ||
               decodedPts >= targetPts) {
-            result = *cpu;
+            result = decoded;
             break;
           }
         } else {
@@ -255,7 +292,7 @@ class MediaPlaybackController::Impl {
       }
     };
 
-    while (packetsRead < maxPackets && !std::holds_alternative<CpuVideoFrame>(result)) {
+    while (packetsRead < maxPackets && !isDecodedVideoFrameUsable(result)) {
       const int readRet = av_read_frame(ctx, pkt);
       if (readRet < 0) {
         lastReadError = readRet;
@@ -273,7 +310,7 @@ class MediaPlaybackController::Impl {
         int ret = videoDecoder_->sendPacket(pkt);
         if (ret == AVERROR(EAGAIN)) {
           drainFrames();
-          if (std::holds_alternative<CpuVideoFrame>(result)) break;
+          if (isDecodedVideoFrameUsable(result)) break;
           ret = videoDecoder_->sendPacket(pkt);
         }
         av_packet_unref(pkt);
@@ -295,11 +332,11 @@ class MediaPlaybackController::Impl {
 
     restoreFfmpegReaderState(wasPlaying);
 
-    if (!std::holds_alternative<CpuVideoFrame>(result) && std::holds_alternative<CpuVideoFrame>(lastDecodedFrame)) {
+    if (!isDecodedVideoFrameUsable(result) && isDecodedVideoFrameUsable(lastDecodedFrame)) {
       result = lastDecodedFrame;
     }
 
-    if (!std::holds_alternative<CpuVideoFrame>(result)) {
+    if (!isDecodedVideoFrameUsable(result)) {
       lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 videoStreamIndex=%5 packetsRead=%6 maxPackets=%7 eof=%8 readError=%9")
           .arg(frameNumber)
           .arg(targetMs)
@@ -321,12 +358,11 @@ class MediaPlaybackController::Impl {
                  << "readError=" << lastReadError;
     } else {
       lastError_.clear();
-      const auto* cpu = std::get_if<CpuVideoFrame>(&result);
       qDebug() << "[MediaPlayback] direct decode ok"
                << "frame=" << frameNumber
                << "targetMs=" << targetMs
                << "targetPts=" << targetPts
-               << "size=" << cpu->meta.width << "x" << cpu->meta.height;
+               << "decoded=" << decodedVideoFrameSummary(result);
     }
     return result;
   }
@@ -783,6 +819,41 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
   return impl_ ? impl_->backend_ : DecoderBackend::FFmpeg;
  }
 
+ void MediaPlaybackController::setVulkanDevice(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, uint32_t queueFamilyIndex) {
+  if (!impl_ || !impl_->videoDecoder_) {
+    return;
+  }
+  impl_->videoDecoder_->setVulkanDevice(instance, physicalDevice, device, queueFamilyIndex);
+
+  if (impl_->backend_ == DecoderBackend::FFmpeg && isMediaOpen() && !impl_->metadata_.filePath.isEmpty()) {
+    const QString reopenPath = impl_->metadata_.filePath;
+    const PlaybackState preservedState = impl_->state_;
+    const double preservedSpeed = impl_->playbackSpeed_;
+    const int64_t preservedPosition = impl_->currentPositionMs_;
+    const bool preservedMuted = impl_->isMuted_;
+    const float preservedVolume = impl_->volume_;
+    const bool preservedLoop = impl_->isLooping_;
+    const int64_t preservedLoopStart = impl_->loopStartMs_;
+    const int64_t preservedLoopEnd = impl_->loopEndMs_;
+
+    closeMedia();
+    impl_->playbackSpeed_ = preservedSpeed;
+    impl_->isMuted_ = preservedMuted;
+    impl_->volume_ = preservedVolume;
+    impl_->isLooping_ = preservedLoop;
+    impl_->loopStartMs_ = preservedLoopStart;
+    impl_->loopEndMs_ = preservedLoopEnd;
+    if (openMediaFile(reopenPath)) {
+      impl_->currentPositionMs_ = preservedPosition;
+      if (preservedState == PlaybackState::Playing) {
+        play();
+      } else if (preservedState == PlaybackState::Paused) {
+        pause();
+      }
+    }
+  }
+ }
+
  void MediaPlaybackController::setVolume(float volume) {
   if (!impl_) return;
   impl_->volume_ = std::max(0.0f, std::min(volume, 1.0f));
@@ -859,13 +930,13 @@ DecodedVideoFrame MediaPlaybackController::getNextVideoFrameRaw() {
 
     while (true) {
       DecodedVideoFrame decoded = impl_->videoDecoder_->receiveFrameRaw();
-      if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+      if (isDecodedVideoFrameUsable(decoded)) {
         ++impl_->currentFrame_;
         if (impl_->fps_ > 0.0) {
           impl_->currentPositionMs_ = static_cast<int64_t>((impl_->currentFrame_ / impl_->fps_) * 1000.0);
         }
         impl_->notifyPositionChanged(impl_->currentPositionMs_);
-        return *cpu;
+        return decoded;
       }
       break;
     }
@@ -943,8 +1014,8 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t
         impl_->videoDecoder_->sendPacket(nullptr);
         while (true) {
           DecodedVideoFrame decoded = impl_->videoDecoder_->receiveFrameRaw();
-          if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
-            result = *cpu;
+          if (isDecodedVideoFrameUsable(decoded)) {
+            result = decoded;
             break;
           }
           break;
@@ -964,14 +1035,14 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t
 
       while (true) {
         DecodedVideoFrame decoded = impl_->videoDecoder_->receiveFrameRaw();
-        if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
-          result = *cpu;
+        if (isDecodedVideoFrameUsable(decoded)) {
+          result = decoded;
           break;
         }
         break;
       }
 
-      if (std::holds_alternative<CpuVideoFrame>(result)) {
+      if (isDecodedVideoFrameUsable(result)) {
         break;
       }
     } else {
@@ -982,11 +1053,11 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t
   av_packet_free(&pkt);
   impl_->restoreFfmpegReaderState(wasPlaying);
 
-  if (auto* cpu = std::get_if<CpuVideoFrame>(&result)) {
+  if (isDecodedVideoFrameUsable(result)) {
     impl_->currentFrame_ = frameNumber;
     impl_->currentPositionMs_ = targetMs;
     impl_->lastError_.clear();
-    return *cpu;
+    return result;
   }
 
   return std::monostate{};

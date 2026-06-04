@@ -4,12 +4,18 @@
 #include <QtMultimedia/QAudioDevice>
 #include <QtMultimedia/QAudioFormat>
 #include <QtMultimedia/QMediaDevices>
+#include <algorithm>
 #include <atomic>
-#include <mutex>
+#include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <cstring>
+#include <functional>
+#include <memory>
+#include <utility>
 
 module AudioRenderer;
 
-import std;
 import Audio.Backend;
 #ifdef _WIN32
 import Audio.Backend.WASAPI;
@@ -39,13 +45,17 @@ AudioBackendFormat toBackendFormat(const QAudioFormat& format)
 
 struct AudioRenderer::Impl {
   float masterVolume = 1.0f; // Linear gain multiplier
-  bool isMute = false;
-  bool active = false;
-  bool deviceOpen = false;
+  std::atomic<bool> isMute{false};
+  std::atomic<bool> active{false};
+  std::atomic<bool> deviceOpen{false};
   QString deviceName;
 
   std::unique_ptr<AudioBackend> backend;
   std::unique_ptr<AudioRingBuffer> ringBuffer;
+  // PERF: コールバック毎に AudioSegment を新規生成すると QVector の heap アロケーションが発生するため、
+  // 再利用可能なバッファを保持する。resize() は同じサイズなら no-op、
+  // 部分読出し時は事前に zero-fill して未使用領域を無音に保つ。
+  AudioSegment readBuffer_;
   std::atomic<size_t> underflowCount{0};
   std::atomic<size_t> overflowCount{0};
   std::atomic<size_t> partialUnderflowCount{0};
@@ -54,15 +64,19 @@ struct AudioRenderer::Impl {
   std::atomic<size_t> stopCount{0};
   std::atomic<size_t> closeCount{0};
 
-  // Level metering
-  std::function<void(const AudioLevelData&)> levelCallback;
-  std::mutex levelCallbackMutex_;
+  // Level metering — shared_ptr + atomic for lock-free read in audio callback.
+  // PERF: std::function + mutex はコールバック毎に mutex ロック + ハップ割り当てを発生させるため、
+  // atomic<shared_ptr> で参照を差し替え、読み側は load で参照する。
+  std::atomic<std::shared_ptr<std::function<void(const AudioLevelData&)>>> levelCallback_;
   std::atomic<int> levelCallbackCounter{0}; // Throttle callback frequency
 
   // We'll use 48kHz Stereo as our internal processing format for the renderer
   int sampleRate = 48000;
   int channels = 2;
   AudioBackendType backendType = AudioBackendType::Auto;
+
+  // Thread safety for concurrent access
+  std::atomic<float> masterVolumeLinear{1.0f};
 
   Impl() {
     ringBuffer =
@@ -102,10 +116,19 @@ struct AudioRenderer::Impl {
 #endif
   }
 
+  // PERF: この関数は WASAPI レンダースレッド（TimeCritical）上で実行される。
+  // - qWarning()/qDebug() は文字列フォーマット + ロック取得が伴うため RT コールバック内では禁止
+  // - levelCallback は shared_ptr + atomic_load で lock-free に呼び出し
+  // - readBuffer_ を再利用し、heap アロケーションを排除
+  // - 音量/ミュートは atomic で読み取り、変化時のみ setMasterVolume/setMute を呼ぶ
   void audioCallback(float *buffer, int frames, int channelsRequested) {
     const auto cbStart = std::chrono::high_resolution_clock::now();
 
-    if (!active || isMute) {
+    const bool isActive = active.load(std::memory_order_acquire);
+    const bool isMuted = isMute.load(std::memory_order_acquire);
+    const float volume = masterVolumeLinear.load(std::memory_order_acquire);
+
+    if (!isActive || isMuted) {
       std::memset(buffer, 0, frames * channelsRequested * sizeof(float));
       AudioEngineProfiler::instance().recordCallback(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -114,21 +137,20 @@ struct AudioRenderer::Impl {
       return;
     }
 
-    AudioSegment segment;
-    segment.sampleRate = sampleRate;
+    readBuffer_.sampleRate = sampleRate;
+    readBuffer_.channelData.resize(channels);
+    for (auto& ch : readBuffer_.channelData) {
+      ch.resize(frames);
+      ch.fill(0.0f);
+    }
 
-    const bool success = ringBuffer->read(segment, frames);
-    const int availableFrames = segment.frameCount();
+    const bool success = ringBuffer->read(readBuffer_, frames);
+    const int availableFrames = readBuffer_.frameCount();
 
     std::memset(buffer, 0, frames * channelsRequested * sizeof(float));
     if (success && availableFrames > 0) {
       if (availableFrames < frames) {
-        const size_t count = ++partialUnderflowCount;
-        if (count <= 16 || (count % 50) == 0) {
-          qWarning() << "[AudioRenderer] partial underflow"
-                     << "requestedFrames=" << frames
-                     << "availableFrames=" << availableFrames;
-        }
+        ++partialUnderflowCount;
       }
 
       double leftSumSq = 0.0;
@@ -138,19 +160,19 @@ struct AudioRenderer::Impl {
       int leftCount = 0;
       int rightCount = 0;
 
-      for (int i = 0; i < availableFrames; ++i) {
-        for (int ch = 0; ch < channelsRequested; ++ch) {
-          float sample = 0.0f;
-          if (segment.channelCount() > ch &&
-              i < segment.channelData[ch].size()) {
-            sample = segment.channelData[ch][i];
-          } else if (segment.channelCount() == 1 &&
-                     i < segment.channelData[0].size()) {
-            sample = segment.channelData[0][i];
-          }
+for (int i = 0; i < availableFrames; ++i) {
+         for (int ch = 0; ch < channelsRequested; ++ch) {
+           float sample = 0.0f;
+           if (readBuffer_.channelCount() > ch &&
+               i < readBuffer_.channelData[ch].size()) {
+             sample = readBuffer_.channelData[ch][i];
+           } else if (readBuffer_.channelCount() == 1 &&
+                      i < readBuffer_.channelData[0].size()) {
+             sample = readBuffer_.channelData[0][i];
+           }
 
-          sample *= masterVolume;
-          sample = std::clamp(sample, -1.0f, 1.0f);
+           sample *= volume;
+           sample = std::clamp(sample, -1.0f, 1.0f);
 
           if (availableFrames < frames) {
             const int fadeStart = std::max(0, availableFrames - 64);
@@ -177,13 +199,8 @@ struct AudioRenderer::Impl {
         }
       }
 
-      std::function<void(const AudioLevelData&)> callback;
-      {
-        std::lock_guard<std::mutex> lock(levelCallbackMutex_);
-        callback = levelCallback;
-      }
-
-      if (callback && availableFrames > 0) {
+      auto cb = levelCallback_.load(std::memory_order_acquire);
+      if (cb && availableFrames > 0) {
         const int counter = levelCallbackCounter.fetch_add(1, std::memory_order_relaxed) + 1;
         if (counter >= 4) {
           levelCallbackCounter.store(0, std::memory_order_relaxed);
@@ -192,16 +209,11 @@ struct AudioRenderer::Impl {
           levels.rightRms = (rightCount > 0) ? sampleToDb(static_cast<float>(std::sqrt(rightSumSq / rightCount))) : -60.0f;
           levels.leftPeak = sampleToDb(leftPeakAbs);
           levels.rightPeak = sampleToDb(rightPeakAbs);
-          callback(levels);
+          (*cb)(levels);
         }
       }
     } else {
-      const size_t count = ++underflowCount;
-      if (count <= 8) {
-        qWarning() << "[AudioRenderer] underflow"
-                   << "requestedFrames=" << frames
-                   << "availableFrames=" << availableFrames;
-      }
+      ++underflowCount;
     }
 
     AudioEngineProfiler::instance().recordCallback(
@@ -222,19 +234,19 @@ bool AudioRenderer::openDevice(const QString &deviceName) {
   if (!impl_)
     return false;
 
-  if (impl_->deviceOpen &&
+  if (impl_->deviceOpen.load(std::memory_order_acquire) &&
       (deviceName.isEmpty() || deviceName == impl_->deviceName)) {
     return true;
   }
-  if (impl_->deviceOpen) {
+  if (impl_->deviceOpen.load(std::memory_order_acquire)) {
     closeDevice();
   }
 
   const size_t attempt = ++impl_->openAttemptCount;
   if (attempt <= 12 || (attempt % 50) == 0) {
     qDebug() << "[AudioRenderer] openDevice"
-             << "attempt=" << attempt << "active=" << impl_->active
-             << "deviceOpen=" << impl_->deviceOpen
+             << "attempt=" << attempt << "active=" << impl_->active.load()
+             << "deviceOpen=" << impl_->deviceOpen.load()
              << "requestedDevice=" << deviceName << "backend="
              << (impl_->backend ? impl_->backend->backendName()
                                 : QStringLiteral("<null>"));
@@ -276,7 +288,7 @@ bool AudioRenderer::openDevice(const QString &deviceName) {
       impl_->sampleRate = current.sampleRate;
       impl_->channels = current.channelCount;
     }
-    impl_->deviceOpen = true;
+    impl_->deviceOpen.store(true, std::memory_order_release);
     impl_->deviceName = device.description();
     qDebug() << "[AudioRenderer] openDevice success"
              << "attempt=" << attempt
@@ -285,7 +297,7 @@ bool AudioRenderer::openDevice(const QString &deviceName) {
              << "sampleRate=" << impl_->sampleRate
              << "channels=" << impl_->channels;
   } else {
-    impl_->deviceOpen = false;
+    impl_->deviceOpen.store(false, std::memory_order_release);
     qWarning() << "[AudioRenderer] openDevice failed"
                << "attempt=" << attempt << "requestedDevice=" << deviceName;
   }
@@ -296,14 +308,14 @@ void AudioRenderer::closeDevice() {
   if (impl_) {
     const size_t count = ++impl_->closeCount;
     qDebug() << "[AudioRenderer] closeDevice"
-             << "count=" << count << "active=" << impl_->active
-             << "deviceOpen=" << impl_->deviceOpen << "backend="
+             << "count=" << count << "active=" << impl_->active.load()
+             << "deviceOpen=" << impl_->deviceOpen.load() << "backend="
              << (impl_->backend ? impl_->backend->backendName()
-                                : QStringLiteral("<null>"))
+                                  : QStringLiteral("<null>"))
              << "bufferedFrames=" << bufferedFrames();
-    impl_->active = false;
+    impl_->active.store(false, std::memory_order_release);
     impl_->backend->close();
-    impl_->deviceOpen = false;
+    impl_->deviceOpen.store(false, std::memory_order_release);
     impl_->deviceName.clear();
     if (impl_->ringBuffer) {
       impl_->ringBuffer->clear();
@@ -312,28 +324,28 @@ void AudioRenderer::closeDevice() {
 }
 
 bool AudioRenderer::isDeviceOpen() const {
-  return impl_ ? impl_->deviceOpen : false;
+  return impl_ ? impl_->deviceOpen.load(std::memory_order_acquire) : false;
 }
 
 void AudioRenderer::start() {
-  if (impl_ && !impl_->active) {
-    if (!impl_->deviceOpen) {
+  if (impl_ && !impl_->active.load(std::memory_order_acquire)) {
+    if (!impl_->deviceOpen.load(std::memory_order_acquire)) {
       qWarning() << "[AudioRenderer] start requested without open device";
       return;
     }
     const size_t attempt = ++impl_->startAttemptCount;
     qDebug() << "[AudioRenderer] start"
-             << "attempt=" << attempt << "deviceOpen=" << impl_->deviceOpen
+             << "attempt=" << attempt << "deviceOpen=" << impl_->deviceOpen.load()
              << "bufferedFrames=" << bufferedFrames() << "backend="
              << (impl_->backend ? impl_->backend->backendName()
                                 : QStringLiteral("<null>"));
-    impl_->active = true;
+    impl_->active.store(true, std::memory_order_release);
     impl_->backend->start(
         [this](float *b, int f, int c) { impl_->audioCallback(b, f, c); });
     if (!impl_->backend->isActive()) {
-      impl_->active = false;
+      impl_->active.store(false, std::memory_order_release);
       impl_->backend->close();
-      impl_->deviceOpen = false;
+      impl_->deviceOpen.store(false, std::memory_order_release);
       qWarning() << "[AudioRenderer] start failed"
                  << "attempt=" << attempt
                  << "bufferedFrames=" << bufferedFrames();
@@ -347,14 +359,13 @@ void AudioRenderer::start() {
 }
 
 void AudioRenderer::stop() {
-  if (impl_ && impl_->active) {
+  if (impl_ && impl_->active.exchange(false, std::memory_order_acq_rel)) {
     const size_t count = ++impl_->stopCount;
     qDebug() << "[AudioRenderer] stop"
              << "count=" << count << "bufferedFrames=" << bufferedFrames()
              << "underflows=" << impl_->underflowCount.load()
              << "partialUnderflows=" << impl_->partialUnderflowCount.load()
              << "overflows=" << impl_->overflowCount.load();
-    impl_->active = false;
     impl_->backend->stop();
     if (impl_->ringBuffer) {
       impl_->ringBuffer->clear();
@@ -362,32 +373,28 @@ void AudioRenderer::stop() {
   }
 }
 
-bool AudioRenderer::isActive() const { return impl_ ? impl_->active : false; }
+bool AudioRenderer::isActive() const { return impl_ ? impl_->active.load(std::memory_order_acquire) : false; }
 
 void AudioRenderer::setMasterVolume(float db) {
   if (impl_) {
     // Convert dB to linear gain
-    if (db <= -144.0f)
-      impl_->masterVolume = 0.0f;
-    else
-      impl_->masterVolume = std::pow(10.0f, db / 20.0f);
+    const float linear = (db <= -144.0f) ? 0.0f : std::pow(10.0f, db / 20.0f);
+    impl_->masterVolumeLinear.store(linear, std::memory_order_release);
   }
 }
 
 float AudioRenderer::masterVolume() const {
-  if (!impl_)
-    return 1.0f;
-  if (impl_->masterVolume <= 0.0f)
-    return -144.0f;
-  return 20.0f * std::log10(impl_->masterVolume);
+  const float linear = impl_ ? impl_->masterVolumeLinear.load(std::memory_order_acquire) : 1.0f;
+  if (linear <= 0.0f) return -144.0f;
+  return 20.0f * std::log10(linear);
 }
 
 void AudioRenderer::setMute(bool mute) {
   if (impl_)
-    impl_->isMute = mute;
+    impl_->isMute.store(mute, std::memory_order_release);
 }
 
-bool AudioRenderer::isMute() const { return impl_ ? impl_->isMute : false; }
+bool AudioRenderer::isMute() const { return impl_ ? impl_->isMute.load(std::memory_order_acquire) : false; }
 
 void AudioRenderer::enqueue(const AudioSegment &segment) {
   if (impl_ && impl_->ringBuffer) {
@@ -475,10 +482,19 @@ bool AudioRenderer::openDevice(AudioBackendType type,
   return openDevice(deviceName);
 }
 
+// PERF: atomic<shared_ptr> で参照を差し替える。呼び出し側は非同期で安全に新しいコールバックを設定できる。
+// audioCallback 側は load でコピーせずに参照する。
 void AudioRenderer::setLevelCallback(std::function<void(const AudioLevelData&)> callback) {
   if (impl_) {
-    std::lock_guard<std::mutex> lock(impl_->levelCallbackMutex_);
-    impl_->levelCallback = std::move(callback);
+    if (callback) {
+      impl_->levelCallback_.store(
+          std::make_shared<std::function<void(const AudioLevelData&)>>(std::move(callback)),
+          std::memory_order_release);
+    } else {
+      impl_->levelCallback_.store(
+          std::shared_ptr<std::function<void(const AudioLevelData&)>>(),
+          std::memory_order_release);
+    }
     impl_->levelCallbackCounter.store(0, std::memory_order_relaxed);
   }
 }

@@ -49,6 +49,8 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("TimelineAddKeyframeAtPlayhead");
     case ShortcutId::TimelineRemoveKeyframeAtPlayhead:
         return QStringLiteral("TimelineRemoveKeyframeAtPlayhead");
+    case ShortcutId::TimelineCleanKeyframes:
+        return QStringLiteral("TimelineCleanKeyframes");
     case ShortcutId::TimelineJumpToFirstKeyframe:
         return QStringLiteral("TimelineJumpToFirstKeyframe");
     case ShortcutId::TimelineJumpToLastKeyframe:
@@ -101,6 +103,8 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Timeline Add Keyframe at Playhead");
     case ShortcutId::TimelineRemoveKeyframeAtPlayhead:
         return QStringLiteral("Timeline Remove Keyframe at Playhead");
+    case ShortcutId::TimelineCleanKeyframes:
+        return QStringLiteral("Timeline Clean Keyframes");
     case ShortcutId::TimelineJumpToFirstKeyframe:
         return QStringLiteral("Timeline Jump to First Keyframe");
     case ShortcutId::TimelineJumpToLastKeyframe:
@@ -129,6 +133,7 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::TimelineSelectAllKeyframes,
         ShortcutId::TimelineAddKeyframeAtPlayhead,
         ShortcutId::TimelineRemoveKeyframeAtPlayhead,
+        ShortcutId::TimelineCleanKeyframes,
         ShortcutId::TimelineJumpToFirstKeyframe,
         ShortcutId::TimelineJumpToLastKeyframe,
         ShortcutId::TimelineJumpToNextKeyframe,
@@ -149,6 +154,7 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::TimelineSelectAllKeyframes)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_A);
     defaults_[index(ShortcutId::TimelineAddKeyframeAtPlayhead)] = QKeySequence(Qt::ALT | Qt::SHIFT | Qt::Key_K);
     defaults_[index(ShortcutId::TimelineRemoveKeyframeAtPlayhead)] = QKeySequence(Qt::ALT | Qt::Key_K);
+    defaults_[index(ShortcutId::TimelineCleanKeyframes)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K);
     defaults_[index(ShortcutId::TimelineJumpToFirstKeyframe)] = QKeySequence(Qt::SHIFT | Qt::Key_J);
     defaults_[index(ShortcutId::TimelineJumpToLastKeyframe)] = QKeySequence(Qt::SHIFT | Qt::Key_K);
     defaults_[index(ShortcutId::TimelineJumpToNextKeyframe)] = QKeySequence(Qt::CTRL | Qt::Key_PageDown);

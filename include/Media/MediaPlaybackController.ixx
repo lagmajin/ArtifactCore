@@ -35,6 +35,9 @@
 #include <QString>
 #include <QImage>
 #include <QByteArray>
+extern "C" {
+#include <vulkan/vulkan.h>
+}
 export module MediaPlaybackController;
 
 import MediaSource;
@@ -172,6 +175,7 @@ export namespace ArtifactCore {
 
   void setDecoderBackend(DecoderBackend backend);
   DecoderBackend getDecoderBackend() const;
+  void setVulkanDevice(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, uint32_t queueFamilyIndex);
 
   // ʂݒi0.0-1.0j
   void setVolume(float volume);

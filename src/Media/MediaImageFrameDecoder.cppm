@@ -4,20 +4,22 @@
 #include <QDebug>
 #include <QImage>
 #include <cstring>
-
-extern "C" {
+#include <cstdint>
+#include <memory>
+#include <variant>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 #include <libavutil/avutil.h>
 #include <libavutil/imgutils.h>
-}
+#include <libavutil/hwcontext.h>
+#include <libavutil/hwcontext_vulkan.h>
+#include <libavutil/pixdesc.h>
 
 
 module MediaImageFrameDecoder;
 
 import Video.VideoFrame;
-import std;
 
 
 namespace ArtifactCore {
@@ -76,13 +78,171 @@ CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsCtx, int
     sws_scale(swsCtx, frame->data, frame->linesize, 0, height, dst, dstLinesize);
     return out;
 }
+
+VideoFramePixelFormat mapAvPixelFormatToVideoFramePixelFormat(AVPixelFormat format)
+{
+    switch (format) {
+    case AV_PIX_FMT_RGBA:
+        return VideoFramePixelFormat::RGBA8;
+    case AV_PIX_FMT_BGRA:
+        return VideoFramePixelFormat::BGRA8;
+    case AV_PIX_FMT_RGB24:
+        return VideoFramePixelFormat::RGB24;
+    case AV_PIX_FMT_NV12:
+        return VideoFramePixelFormat::NV12;
+    case AV_PIX_FMT_YUV420P:
+        return VideoFramePixelFormat::YUV420P;
+    case AV_PIX_FMT_VULKAN:
+        return VideoFramePixelFormat::VulkanImage;
+    default:
+        return VideoFramePixelFormat::Unknown;
+    }
+}
+
+AVPixelFormat chooseBestDecoderPixelFormat(AVCodecContext* ctx, const AVPixelFormat* formats)
+{
+    if (!formats) {
+        return AV_PIX_FMT_NONE;
+    }
+
+    if (ctx && ctx->hw_device_ctx) {
+        for (const AVPixelFormat* fmt = formats; *fmt != AV_PIX_FMT_NONE; ++fmt) {
+            if (*fmt == AV_PIX_FMT_VULKAN) {
+                return *fmt;
+            }
+        }
+    }
+
+    return formats[0];
+}
+
+GpuVideoFrame makeGpuVideoFrameFromFrame(AVFrame* frame)
+{
+    GpuVideoFrame out;
+    if (!frame || frame->format != AV_PIX_FMT_VULKAN || !frame->data[0]) {
+        return out;
+    }
+
+    const auto* vkFrame = reinterpret_cast<const AVVkFrame*>(frame->data[0]);
+    if (!vkFrame || vkFrame->img[0] == VK_NULL_HANDLE) {
+        return out;
+    }
+
+    const auto frameRef = std::shared_ptr<void>(
+        av_frame_clone(frame),
+        [](void* ptr) {
+            AVFrame* cloned = static_cast<AVFrame*>(ptr);
+            if (cloned) {
+                av_frame_free(&cloned);
+            }
+        });
+    if (!frameRef) {
+        return out;
+    }
+
+    VideoFramePixelFormat pixelFormat = VideoFramePixelFormat::VulkanImage;
+    std::uint32_t nativeFormat = 0;
+    std::uint32_t planeCount = 0;
+    if (frame->hw_frames_ctx && frame->hw_frames_ctx->data) {
+        const auto* hwFrames = reinterpret_cast<const AVHWFramesContext*>(frame->hw_frames_ctx->data);
+        if (hwFrames) {
+            pixelFormat = mapAvPixelFormatToVideoFramePixelFormat(hwFrames->sw_format);
+            if (const auto* vkFrames = reinterpret_cast<const AVVulkanFramesContext*>(hwFrames->hwctx)) {
+                nativeFormat = static_cast<std::uint32_t>(vkFrames->format[0]);
+            }
+        }
+    }
+
+    for (int i = 0; i < AV_NUM_DATA_POINTERS; ++i) {
+        if (vkFrame->img[i] == VK_NULL_HANDLE) {
+            break;
+        }
+        ++planeCount;
+    }
+
+    out.meta.width = frame->width;
+    out.meta.height = frame->height;
+    out.meta.pts = frame->best_effort_timestamp != AV_NOPTS_VALUE
+        ? frame->best_effort_timestamp
+        : frame->pts;
+    out.meta.pixelFormat = pixelFormat;
+    out.storage = VideoFrameStorageKind::VulkanImage;
+    out.lifetime = frameRef;
+
+    VulkanVideoFrameHandle handle;
+    handle.image = reinterpret_cast<void*>(vkFrame->img[0]);
+    handle.memory = reinterpret_cast<void*>(vkFrame->mem[0]);
+    handle.semaphore = reinterpret_cast<void*>(vkFrame->sem[0]);
+    handle.semaphoreValue = vkFrame->sem_value[0];
+    handle.nativeFormat = nativeFormat;
+    handle.imageLayout = static_cast<std::uint32_t>(vkFrame->layout[0]);
+    handle.planeCount = planeCount > 0 ? planeCount : 1u;
+    out.handle = handle;
+    return out;
+}
+
+void freeHwDeviceContext(AVBufferRef*& ref)
+{
+    if (ref) {
+        av_buffer_unref(&ref);
+    }
+}
 }
 
 MediaImageFrameDecoder::MediaImageFrameDecoder() {}
 
 MediaImageFrameDecoder::~MediaImageFrameDecoder() {
+    freeHwDeviceContext(hwDeviceCtx_);
+    freeHwDeviceContext(frameCtx_);
     if (swsCtx_) sws_freeContext(swsCtx_);
     if (codecContext_) avcodec_free_context(&codecContext_);
+}
+
+void MediaImageFrameDecoder::setVulkanDevice(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, uint32_t queueFamilyIndex)
+{
+    freeHwDeviceContext(hwDeviceCtx_);
+    freeHwDeviceContext(frameCtx_);
+
+    if (!instance || !physicalDevice || !device) {
+        return;
+    }
+
+    AVBufferRef* deviceRef = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VULKAN);
+    if (!deviceRef) {
+        qWarning() << "[MediaImageFrameDecoder] failed to allocate Vulkan hwdevice context";
+        return;
+    }
+
+    auto* hwDevice = reinterpret_cast<AVHWDeviceContext*>(deviceRef->data);
+    auto* vkDevice = reinterpret_cast<AVVulkanDeviceContext*>(hwDevice->hwctx);
+    if (!vkDevice) {
+        av_buffer_unref(&deviceRef);
+        qWarning() << "[MediaImageFrameDecoder] failed to access Vulkan hwdevice payload";
+        return;
+    }
+
+    vkDevice->inst = instance;
+    vkDevice->phys_dev = physicalDevice;
+    vkDevice->act_dev = device;
+    vkDevice->nb_enabled_inst_extensions = 0;
+    vkDevice->enabled_inst_extensions = nullptr;
+    vkDevice->nb_enabled_dev_extensions = 0;
+    vkDevice->enabled_dev_extensions = nullptr;
+    vkDevice->nb_qf = 1;
+    vkDevice->qf[0].idx = static_cast<int>(queueFamilyIndex);
+    vkDevice->qf[0].num = 1;
+    vkDevice->qf[0].flags = static_cast<VkQueueFlagBits>(
+        VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT);
+    vkDevice->qf[0].video_caps = static_cast<VkVideoCodecOperationFlagBitsKHR>(0);
+
+    const int initResult = av_hwdevice_ctx_init(deviceRef);
+    if (initResult < 0) {
+        qWarning() << "[MediaImageFrameDecoder] Vulkan hwdevice init failed:" << ffmpegErrorString(initResult);
+        av_buffer_unref(&deviceRef);
+        return;
+    }
+
+    hwDeviceCtx_ = deviceRef;
 }
 
 bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
@@ -98,7 +258,6 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
     if (codecContext_) {
         avcodec_free_context(&codecContext_);
     }
-
     const AVCodec* codec = avcodec_find_decoder(codecParams->codec_id);
     if (!codec) {
         qWarning() << "[MediaImageFrameDecoder] initialize failed: codec not found"
@@ -121,6 +280,11 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
     // Avoid auto-spawning multiple FFmpeg decode workers for single-frame probes.
     codecContext_->thread_count = 1;
     codecContext_->thread_type = 0;
+    codecContext_->get_format = chooseBestDecoderPixelFormat;
+
+    if (hwDeviceCtx_) {
+        codecContext_->hw_device_ctx = av_buffer_ref(hwDeviceCtx_);
+    }
 
     AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
     int ret = avcodec_open2(codecContext_, codec, &codecOpts);
@@ -136,12 +300,12 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
     swsCtx_ = sws_getContext(codecContext_->width, codecContext_->height, codecContext_->pix_fmt,
                              codecContext_->width, codecContext_->height, AV_PIX_FMT_RGB24,
                              SWS_BILINEAR, nullptr, nullptr, nullptr);
-    if (!swsCtx_) {
-        qWarning() << "[MediaImageFrameDecoder] initialize failed: could not create sws context"
+    if (swsCtx_) {
+    } else {
+        qWarning() << "[MediaImageFrameDecoder] initialize: sws context unavailable,"
+                   << "raw decode will continue"
                    << "pix_fmt=" << codecContext_->pix_fmt
-                   << "size=" << codecContext_->width << "x" << codecContext_->height
-                   << "reason=unsupported format conversion";
-        return false;
+                   << "size=" << codecContext_->width << "x" << codecContext_->height;
     }
 
     qDebug() << "[MediaImageFrameDecoder] initialized successfully"
@@ -152,7 +316,7 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
 }
 
 QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
-    if (!codecContext_ || !swsCtx_) return QImage();
+    if (!codecContext_) return QImage();
 
     AVFrame* frame = av_frame_alloc();
     if (!frame) return QImage();
@@ -180,6 +344,11 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
             ? frame->best_effort_timestamp
             : frame->pts;
 
+        if (frame->format == AV_PIX_FMT_VULKAN || !swsCtx_) {
+            av_frame_unref(frame);
+            continue;
+        }
+
         QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGB888);
         uint8_t* dst[4];
         int dstLinesize[4];
@@ -194,7 +363,7 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
 }
 
 DecodedVideoFrame MediaImageFrameDecoder::decodeFrameRaw(AVPacket* packet) {
-    if (!codecContext_ || !swsCtx_) {
+    if (!codecContext_) {
         return std::monostate{};
     }
 
@@ -223,6 +392,17 @@ DecodedVideoFrame MediaImageFrameDecoder::decodeFrameRaw(AVPacket* packet) {
             ? frame->best_effort_timestamp
             : frame->pts;
         lastPts_ = pts;
+        if (frame->format == AV_PIX_FMT_VULKAN) {
+            GpuVideoFrame out = makeGpuVideoFrameFromFrame(frame);
+            av_frame_unref(frame);
+            av_frame_free(&frame);
+            return out;
+        }
+        if (!swsCtx_) {
+            av_frame_unref(frame);
+            av_frame_free(&frame);
+            return std::monostate{};
+        }
         CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, codecContext_->width, codecContext_->height, pts);
         av_frame_unref(frame);
         av_frame_free(&frame);
@@ -239,7 +419,7 @@ int MediaImageFrameDecoder::sendPacket(AVPacket* packet) {
 }
 
 QImage MediaImageFrameDecoder::receiveFrame() {
-    if (!codecContext_ || !swsCtx_) return QImage();
+    if (!codecContext_) return QImage();
 
     AVFrame* frame = av_frame_alloc();
     if (!frame) return QImage();
@@ -259,6 +439,11 @@ QImage MediaImageFrameDecoder::receiveFrame() {
         ? frame->best_effort_timestamp
         : frame->pts;
 
+    if (frame->format == AV_PIX_FMT_VULKAN || !swsCtx_) {
+        av_frame_free(&frame);
+        return QImage();
+    }
+
     QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGB888);
     uint8_t* dst[4];
     int dstLinesize[4];
@@ -270,7 +455,7 @@ QImage MediaImageFrameDecoder::receiveFrame() {
 }
 
 DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
-    if (!codecContext_ || !swsCtx_) {
+    if (!codecContext_) {
         return std::monostate{};
     }
 
@@ -293,7 +478,19 @@ DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
         ? frame->best_effort_timestamp
         : frame->pts;
     lastPts_ = pts;
+    if (frame->format == AV_PIX_FMT_VULKAN) {
+        GpuVideoFrame out = makeGpuVideoFrameFromFrame(frame);
+        av_frame_unref(frame);
+        av_frame_free(&frame);
+        return out;
+    }
+    if (!swsCtx_) {
+        av_frame_unref(frame);
+        av_frame_free(&frame);
+        return std::monostate{};
+    }
     CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, codecContext_->width, codecContext_->height, pts);
+    av_frame_unref(frame);
     av_frame_free(&frame);
     return out;
 }

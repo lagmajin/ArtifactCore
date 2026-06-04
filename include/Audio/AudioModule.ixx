@@ -1,10 +1,8 @@
-﻿module;
+module;
 #include <utility>
-
-export module Audio;
-
 #include <QByteArray>
 
+export module Audio;
 
 export import Audio.Frame;
 export import Audio.Volume;
@@ -14,14 +12,6 @@ export import Audio.Mixer;
 export import Audio.Effect;
 export import Audio.Effect.Compressor;
 
-
-
 export namespace ArtifactCore {
-
-
-
-
-
-
 
 };
