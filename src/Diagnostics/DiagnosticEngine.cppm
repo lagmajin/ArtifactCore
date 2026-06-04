@@ -71,10 +71,24 @@ auto DiagnosticEngine::validateAll(const void* project) -> DiagnosticResult {
 }
 
 auto DiagnosticEngine::validateDelta(const void* project, const QStringList& changedIds) -> DiagnosticResult {
-    // 変更された部分のみ検証（高速化）
-    // TODO: 差分検証の実装
-    // 現状は全量検証
-    return validateAll(project);
+    if (!hasCachedResult_) {
+        return validateAll(project);
+    }
+
+    if (changedIds.isEmpty()) {
+        return cachedResult_;
+    }
+
+    // 既存キャッシュに影響がない変更なら、全量再検証を避ける。
+    // 変更対象に紐づく診断が 1 件でもある場合は、現状のルール API では
+    // 差分再評価ができないため、保守的に全量再検証へフォールバックする。
+    for (const auto& changedId : changedIds) {
+        if (!cachedResult_.getBySource(changedId, changedId).empty()) {
+            return validateAll(project);
+        }
+    }
+
+    return cachedResult_;
 }
 
 void DiagnosticEngine::clearCache() {

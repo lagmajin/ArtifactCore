@@ -1,202 +1,457 @@
-﻿module;
+module;
 #include <algorithm>
-#include <vector>
-#include <QString>
-#include <QSet>
 #include <functional>
-#include <unordered_map>
-#include <unordered_set>
+#include <QString>
+#include <QStringList>
+#include <QFileInfo>
+#include <QHash>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QSet>
+#include <vector>
 
 module Core.Diagnostics.ValidationRules;
 
+import Artifact.Composition.Abstract;
+import Artifact.Layer.Abstract;
+import Artifact.Layer.Composition;
+import Artifact.Project;
+import Artifact.Project.Items;
 import Layer.Matte;
 
 namespace ArtifactCore {
 
-// ============================================================================
-// MissingFileValidationRule
-// ============================================================================
+namespace {
 
-auto MissingFileValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> diagnostics;
-
-    // TODO: 実際のComposition型にキャストしてチェック
-    // 現在はインターフェースのみ
-    // auto comp = static_cast<const ArtifactComposition*>(project);
-    // if (!comp) return diagnostics;
-    //
-    // for (const auto& layer : comp->allLayer()) {
-    //     if (!layer) continue;
-    //     // ソースファイルがあるかチェック
-    //     if (layer->hasSource() && !layer->isSourceAvailable()) {
-    //         diagnostics.push_back(
-    //             ProjectDiagnostic::createMissingFile(
-    //                 layer->sourcePath(),
-    //                 layer->id().toString()));
-    //     }
-    // }
-
-    return diagnostics;
+void collectSourcePaths(const QJsonValue& value, QStringList& paths)
+{
+    if (value.isObject()) {
+        const QJsonObject object = value.toObject();
+        for (auto it = object.begin(); it != object.end(); ++it) {
+            const QString& key = it.key();
+            if ((key == QStringLiteral("sourcePath") || key.endsWith(QStringLiteral(".sourcePath")))
+                && it.value().isString()) {
+                const QString path = it.value().toString().trimmed();
+                if (!path.isEmpty()) {
+                    paths.push_back(path);
+                }
+            }
+            collectSourcePaths(it.value(), paths);
+        }
+    } else if (value.isArray()) {
+        const QJsonArray array = value.toArray();
+        for (const auto& entry : array) {
+            collectSourcePaths(entry, paths);
+        }
+    }
 }
 
-// ============================================================================
-// CircularDependencyValidationRule
-// ============================================================================
+template <typename Fn>
+void visitProjectItems(Artifact::ProjectItem* item, const Fn& fn)
+{
+    if (!item) {
+        return;
+    }
+    fn(item);
+    for (auto* child : item->children) {
+        visitProjectItems(child, fn);
+    }
+}
 
-auto CircularDependencyValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic> {
+bool isCompositionItem(const Artifact::ProjectItem* item)
+{
+    return item && item->type() == Artifact::eProjectItemType::Composition;
+}
+
+QString layerDisplayName(const Artifact::ArtifactAbstractLayerPtr& layer)
+{
+    return layer ? layer->layerName() : QString();
+}
+
+} // namespace
+
+auto MissingFileValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+{
     std::vector<ProjectDiagnostic> diagnostics;
+    auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
+    if (!projectPtr) {
+        return diagnostics;
+    }
 
-    auto cycles = detectCycles(project);
-    for (const auto& cycle : cycles) {
-        diagnostics.push_back(
-            ProjectDiagnostic::createCircularDependency(cycle));
+    const auto items = projectPtr->projectItems();
+    auto handleComposition = [&](Artifact::CompositionItem* compItem) {
+        if (!compItem) {
+            return;
+        }
+        const auto findResult = projectPtr->findComposition(compItem->compositionId);
+        if (!findResult.success) {
+            return;
+        }
+        const auto comp = findResult.ptr.lock();
+        if (!comp) {
+            return;
+        }
+
+        for (const auto& layer : comp->allLayer()) {
+            if (!layer) {
+                continue;
+            }
+
+            QStringList sourcePaths;
+            collectSourcePaths(layer->toJson(), sourcePaths);
+            sourcePaths.removeDuplicates();
+
+            for (const auto& sourcePath : sourcePaths) {
+                if (!QFileInfo::exists(sourcePath)) {
+                    diagnostics.push_back(ProjectDiagnostic::createMissingFile(
+                        sourcePath,
+                        layer->id().toString()));
+                }
+            }
+        }
+    };
+
+    std::function<void(Artifact::ProjectItem*)> walk = [&](Artifact::ProjectItem* item) {
+        if (!item) {
+            return;
+        }
+        if (isCompositionItem(item)) {
+            handleComposition(static_cast<Artifact::CompositionItem*>(item));
+        }
+        for (auto* child : item->children) {
+            walk(child);
+        }
+    };
+
+    for (auto* root : items) {
+        walk(root);
     }
 
     return diagnostics;
 }
 
-auto CircularDependencyValidationRule::detectCycles(const void* project) -> std::vector<QString> {
-    std::vector<QString> cycles;
+auto CircularDependencyValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+{
+    std::vector<ProjectDiagnostic> diagnostics;
 
-    // TODO: 実際の依存グラフを構築
-    // 実装例（CompositionのPreCompose依存をチェック）:
-    //
-    // std::unordered_map<QString, std::vector<QString>> adjacencyList;
-    // auto comp = static_cast<const ArtifactComposition*>(project);
-    // if (!comp) return cycles;
-    //
-    // // 依存関係構築
-    // for (const auto& layer : comp->allLayer()) {
-    //     if (layer->isPreCompose()) {
-    //         auto targetComp = layer->targetComposition();
-    //         if (targetComp) {
-    //             adjacencyList[comp->id().toString()].push_back(targetComp->id().toString());
-    //         }
-    //     }
-    // }
-    //
-    // // DFSで循環検出
-    // QSet<QString> visited;
-    // QSet<QString> recStack;
-    //
-    // std::function<bool(const QString&, std::vector<QString>&)> dfs =
-    //     [&](const QString& node, std::vector<QString>& path) -> bool {
-    //         visited.insert(node);
-    //         recStack.insert(node);
-    //         path.push_back(node);
-    //
-    //         if (adjacencyList.contains(node)) {
-    //             for (const auto& neighbor : adjacencyList[node]) {
-    //                 if (!visited.contains(neighbor)) {
-    //                     if (dfs(neighbor, path)) return true;
-    //                 } else if (recStack.contains(neighbor)) {
-    //                     QString cycle;
-    //                     bool recording = false;
-    //                     for (const auto& p : path) {
-    //                         if (p == neighbor) recording = true;
-    //                         if (recording) cycle += p + " → ";
-    //                     }
-    //                     cycle += neighbor;
-    //                     cycles.push_back(cycle);
-    //                     return true;
-    //                 }
-    //             }
-    //         }
-    //
-    //         path.pop_back();
-    //         recStack.remove(node);
-    //         return false;
-    //     };
-    //
-    // for (const auto& [node, _] : adjacencyList) {
-    //     if (!visited.contains(node)) {
-    //         std::vector<QString> path;
-    //         dfs(node, path);
-    //     }
-    // }
+    for (const auto& cycle : detectCycles(project)) {
+        diagnostics.push_back(ProjectDiagnostic::createCircularDependency(cycle));
+    }
+
+    return diagnostics;
+}
+
+auto CircularDependencyValidationRule::detectCycles(const void* project) -> std::vector<QString>
+{
+    std::vector<QString> cycles;
+    auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
+    if (!projectPtr) {
+        return cycles;
+    }
+
+    QHash<QString, QStringList> adjacency;
+    QHash<QString, QString> compositionNames;
+
+    const auto items = projectPtr->projectItems();
+    std::function<void(Artifact::ProjectItem*)> gather = [&](Artifact::ProjectItem* item) {
+        if (!item) {
+            return;
+        }
+
+        if (isCompositionItem(item)) {
+            auto* compItem = static_cast<Artifact::CompositionItem*>(item);
+            const auto findResult = projectPtr->findComposition(compItem->compositionId);
+            if (findResult.success) {
+                const auto comp = findResult.ptr.lock();
+                if (comp) {
+                    const QString compId = comp->id().toString();
+                    compositionNames.insert(compId, compItem->name.toQString());
+
+                    for (const auto& layer : comp->allLayer()) {
+                        auto* compLayer = dynamic_cast<Artifact::ArtifactCompositionLayer*>(layer.get());
+                        if (!compLayer) {
+                            continue;
+                        }
+                        const QString targetId = compLayer->sourceCompositionId().toString();
+                        if (!targetId.isEmpty()) {
+                            adjacency[compId].push_back(targetId);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (auto* child : item->children) {
+            gather(child);
+        }
+    };
+
+    for (auto* root : items) {
+        gather(root);
+    }
+
+    QSet<QString> visited;
+    QSet<QString> stackSet;
+    QStringList stack;
+    QSet<QString> reported;
+
+    std::function<void(const QString&)> dfs = [&](const QString& node) {
+        visited.insert(node);
+        stackSet.insert(node);
+        stack.push_back(node);
+
+        const auto neighbors = adjacency.value(node);
+        for (const auto& next : neighbors) {
+            if (!visited.contains(next)) {
+                dfs(next);
+            } else if (stackSet.contains(next)) {
+                const int startIndex = stack.indexOf(next);
+                if (startIndex >= 0) {
+                    QStringList cycleNames;
+                    for (int i = startIndex; i < stack.size(); ++i) {
+                        const QString& compId = stack.at(i);
+                        cycleNames.push_back(compositionNames.value(compId, compId));
+                    }
+                    cycleNames.push_back(compositionNames.value(next, next));
+                    const QString cycle = cycleNames.join(QStringLiteral(" -> "));
+                    if (!reported.contains(cycle)) {
+                        reported.insert(cycle);
+                        cycles.push_back(cycle);
+                    }
+                }
+            }
+        }
+
+        stack.removeLast();
+        stackSet.remove(node);
+    };
+
+    for (auto it = adjacency.begin(); it != adjacency.end(); ++it) {
+        const QString& node = it.key();
+        if (!visited.contains(node)) {
+            dfs(node);
+        }
+    }
 
     return cycles;
 }
 
-// ============================================================================
-// MatteReferenceValidationRule
-// ============================================================================
-
-auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic> {
+auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+{
     std::vector<ProjectDiagnostic> diagnostics;
+    auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
+    if (!projectPtr) {
+        return diagnostics;
+    }
 
-    // Matte reference validation:
-    // 1. Check that matte source layers exist
-    // 2. Detect self-references (layer using itself as matte source)
-    // 3. Detect cycles in matte dependency chain
-    //
-    // The project pointer is expected to be an ArtifactComposition.
-    // Since we can't include Artifact headers here, we use a callback-based
-    // approach via the MatteStack's hasCycleWithLayer() method.
-    //
-    // For now, we validate MatteStack structures that are accessible
-    // through the layer's matteReferences(). The actual composition
-    // layer enumeration would need to be done at the App level.
+    const auto items = projectPtr->projectItems();
+    std::function<void(Artifact::ProjectItem*)> walk = [&](Artifact::ProjectItem* item) {
+        if (!item || !isCompositionItem(item)) {
+            if (item) {
+                for (auto* child : item->children) {
+                    walk(child);
+                }
+            }
+            return;
+        }
+
+        auto* compItem = static_cast<Artifact::CompositionItem*>(item);
+        const auto findResult = projectPtr->findComposition(compItem->compositionId);
+        if (!findResult.success) {
+            return;
+        }
+
+        const auto comp = findResult.ptr.lock();
+        if (!comp) {
+            return;
+        }
+
+        const QString compId = comp->id().toString();
+        const auto layers = comp->allLayer();
+
+        QHash<QString, Artifact::ArtifactAbstractLayerPtr> layerMap;
+        for (const auto& layer : layers) {
+            if (layer) {
+                layerMap.insert(layer->id().toString(), layer);
+            }
+        }
+
+        QSet<QString> reportedCycles;
+
+        for (const auto& layer : layers) {
+            if (!layer) {
+                continue;
+            }
+
+            const QString layerId = layer->id().toString();
+            const QString layerName = layerDisplayName(layer);
+            const auto matteRefs = layer->matteReferences();
+
+            for (const auto& ref : matteRefs) {
+                if (!ref.enabled) {
+                    continue;
+                }
+
+                const QString sourceId = ref.sourceLayerId.toString();
+                if (sourceId.isEmpty()) {
+                    continue;
+                }
+
+                if (!layerMap.contains(sourceId)) {
+                    diagnostics.push_back(ProjectDiagnostic::createMissingMatte(
+                        QStringLiteral("Matte source '%1' not found").arg(sourceId),
+                        layerId));
+                    continue;
+                }
+
+                if (sourceId == layerId) {
+                    ProjectDiagnostic diag(
+                        DiagnosticSeverity::Error,
+                        DiagnosticCategory::Matte,
+                        QStringLiteral("Layer '%1' references itself as matte source").arg(layerName));
+                    diag.setSourceLayerId(layerId);
+                    diag.setSourceCompId(compId);
+                    diag.setFixAction(QStringLiteral("Select a different matte source"));
+                    diagnostics.push_back(diag);
+                    continue;
+                }
+
+                const auto sourceLayer = layerMap.value(sourceId);
+                if (sourceLayer && !sourceLayer->isVisible()) {
+                    ProjectDiagnostic diag(
+                        DiagnosticSeverity::Warning,
+                        DiagnosticCategory::Matte,
+                        QStringLiteral("Matte source '%1' for layer '%2' is hidden")
+                            .arg(sourceLayer->layerName(), layerName));
+                    diag.setSourceLayerId(sourceId);
+                    diag.setSourceCompId(compId);
+                    diag.setFixAction(QStringLiteral("Show the matte source layer"));
+                    diagnostics.push_back(diag);
+                }
+            }
+
+            QSet<QString> visited;
+            QString currentId = layerId;
+            QStringList chain;
+            bool hasCycle = false;
+
+            while (!currentId.isEmpty()) {
+                if (visited.contains(currentId)) {
+                    hasCycle = true;
+                    break;
+                }
+                visited.insert(currentId);
+                chain.push_back(currentId);
+
+                const auto currentLayer = layerMap.value(currentId);
+                if (!currentLayer) {
+                    break;
+                }
+
+                const auto refs = currentLayer->matteReferences();
+                QString nextId;
+                for (const auto& matteRef : refs) {
+                    if (matteRef.enabled && !matteRef.sourceLayerId.isNil()) {
+                        nextId = matteRef.sourceLayerId.toString();
+                        break;
+                    }
+                }
+
+                if (nextId.isEmpty()) {
+                    break;
+                }
+                currentId = nextId;
+            }
+
+            if (hasCycle) {
+                const int cycleStart = chain.indexOf(currentId);
+                QStringList cycleNames;
+                if (cycleStart >= 0) {
+                    for (int i = cycleStart; i < chain.size(); ++i) {
+                        const auto chainLayer = layerMap.value(chain.at(i));
+                        cycleNames.push_back(chainLayer ? chainLayer->layerName() : chain.at(i));
+                    }
+                } else {
+                    for (const auto& id : chain) {
+                        const auto chainLayer = layerMap.value(id);
+                        cycleNames.push_back(chainLayer ? chainLayer->layerName() : id);
+                    }
+                }
+                cycleNames.push_back(layerMap.value(currentId) ? layerMap.value(currentId)->layerName() : currentId);
+                const QString cycle = cycleNames.join(QStringLiteral(" -> "));
+                if (!reportedCycles.contains(cycle)) {
+                    reportedCycles.insert(cycle);
+                    diagnostics.push_back(ProjectDiagnostic::createCircularDependency(cycle, compId));
+                }
+            }
+        }
+
+        for (auto* child : item->children) {
+            walk(child);
+        }
+    };
+
+    for (auto* root : items) {
+        walk(root);
+    }
 
     return diagnostics;
 }
 
-// ============================================================================
-// ExpressionValidationRule
-// ============================================================================
-
-auto ExpressionValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> diagnostics;
-
-    // TODO: エクスプレッションを検証
-    // auto comp = static_cast<const ArtifactComposition*>(project);
-    // if (!comp) return diagnostics;
-    //
-    // for (const auto& layer : comp->allLayer()) {
-    //     const auto props = layer->getLayerPropertyGroups();
-    //     for (const auto& group : props) {
-    //         for (const auto& prop : group.properties()) {
-    //             if (prop.hasExpression() && !prop.isExpressionValid()) {
-    //                 diagnostics.push_back(
-    //                     ProjectDiagnostic::createExpressionError(
-    //                         prop.expression(),
-    //                         layer->id().toString()));
-    //             }
-    //         }
-    //     }
-    // }
-
-    return diagnostics;
+auto ExpressionValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+{
+    Q_UNUSED(project);
+    return {};
 }
 
-// ============================================================================
-// PerformanceValidationRule
-// ============================================================================
-
-auto PerformanceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic> {
+auto PerformanceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+{
     std::vector<ProjectDiagnostic> diagnostics;
+    auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
+    if (!projectPtr) {
+        return diagnostics;
+    }
 
-    // TODO: パフォーマンス問題を検出
-    // auto comp = static_cast<const ArtifactComposition*>(project);
-    // if (!comp) return diagnostics;
-    //
-    // // 巨大なコンポジション
-    // if (comp->width() > 4096 || comp->height() > 4096) {
-    //     diagnostics.push_back(
-    //         ProjectDiagnostic::createPerformanceWarning(
-    //             QString("Large composition: %1x%2").arg(comp->width()).arg(comp->height()),
-    //             comp->id().toString()));
-    // }
-    //
-    // // 高解像度未使用アセット
-    // for (const auto& layer : comp->allLayer()) {
-    //     if (layer->isHidden() && layer->hasHighResSource()) {
-    //         diagnostics.push_back(
-    //             ProjectDiagnostic::createPerformanceWarning(
-    //                 QString("Hidden layer with high-res source: %1").arg(layer->layerName()),
-    //                 layer->id().toString()));
-    //     }
-    // }
+    const auto items = projectPtr->projectItems();
+    std::function<void(Artifact::ProjectItem*)> walk = [&](Artifact::ProjectItem* item) {
+        if (!item) {
+            return;
+        }
+
+        if (isCompositionItem(item)) {
+            auto* compItem = static_cast<Artifact::CompositionItem*>(item);
+            const auto findResult = projectPtr->findComposition(compItem->compositionId);
+            if (findResult.success) {
+                const auto comp = findResult.ptr.lock();
+                if (comp) {
+                    const auto json = comp->toJson().object();
+                    const int width = json.value(QStringLiteral("width")).toInt(0);
+                    const int height = json.value(QStringLiteral("height")).toInt(0);
+
+                    if (width > 3840 || height > 2160) {
+                        diagnostics.push_back(ProjectDiagnostic::createPerformanceWarning(
+                            QStringLiteral("High-resolution composition: %1x%2").arg(width).arg(height),
+                            comp->id().toString()));
+                    }
+
+                    if (comp->allLayer().size() > 500) {
+                        diagnostics.push_back(ProjectDiagnostic::createPerformanceWarning(
+                            QStringLiteral("Large layer stack: %1 layers").arg(comp->allLayer().size()),
+                            comp->id().toString()));
+                    }
+                }
+            }
+        }
+
+        for (auto* child : item->children) {
+            walk(child);
+        }
+    };
+
+    for (auto* root : items) {
+        walk(root);
+    }
 
     return diagnostics;
 }

@@ -4,6 +4,8 @@
 #include <QtMultimedia/QAudioDevice>
 #include <QtMultimedia/QAudioFormat>
 #include <QtMultimedia/QMediaDevices>
+#include <atomic>
+#include <mutex>
 
 module AudioRenderer;
 
@@ -54,7 +56,8 @@ struct AudioRenderer::Impl {
 
   // Level metering
   std::function<void(const AudioLevelData&)> levelCallback;
-  int levelCallbackCounter = 0; // Throttle callback frequency
+  std::mutex levelCallbackMutex_;
+  std::atomic<int> levelCallbackCounter{0}; // Throttle callback frequency
 
   // We'll use 48kHz Stereo as our internal processing format for the renderer
   int sampleRate = 48000;
@@ -174,16 +177,22 @@ struct AudioRenderer::Impl {
         }
       }
 
-      if (levelCallback && availableFrames > 0) {
-        ++levelCallbackCounter;
-        if (levelCallbackCounter >= 4) {
-          levelCallbackCounter = 0;
+      std::function<void(const AudioLevelData&)> callback;
+      {
+        std::lock_guard<std::mutex> lock(levelCallbackMutex_);
+        callback = levelCallback;
+      }
+
+      if (callback && availableFrames > 0) {
+        const int counter = levelCallbackCounter.fetch_add(1, std::memory_order_relaxed) + 1;
+        if (counter >= 4) {
+          levelCallbackCounter.store(0, std::memory_order_relaxed);
           AudioLevelData levels;
           levels.leftRms = (leftCount > 0) ? sampleToDb(static_cast<float>(std::sqrt(leftSumSq / leftCount))) : -60.0f;
           levels.rightRms = (rightCount > 0) ? sampleToDb(static_cast<float>(std::sqrt(rightSumSq / rightCount))) : -60.0f;
           levels.leftPeak = sampleToDb(leftPeakAbs);
           levels.rightPeak = sampleToDb(rightPeakAbs);
-          levelCallback(levels);
+          callback(levels);
         }
       }
     } else {
@@ -468,8 +477,9 @@ bool AudioRenderer::openDevice(AudioBackendType type,
 
 void AudioRenderer::setLevelCallback(std::function<void(const AudioLevelData&)> callback) {
   if (impl_) {
+    std::lock_guard<std::mutex> lock(impl_->levelCallbackMutex_);
     impl_->levelCallback = std::move(callback);
-    impl_->levelCallbackCounter = 0;
+    impl_->levelCallbackCounter.store(0, std::memory_order_relaxed);
   }
 }
 

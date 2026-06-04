@@ -5,6 +5,10 @@ class tst_QList;
 #include <QVector2D>
 #include <QVector3D>
 #include <QMatrix4x4>
+#include <QFile>
+#include <QFileInfo>
+#include <QStringList>
+#include <QTextStream>
 
 #include <iostream>
 #include <vector>
@@ -42,6 +46,25 @@ class tst_QList;
 module Mesh;
 
 namespace ArtifactCore {
+
+namespace {
+int resolveObjIndex(const QString& token, const int elementCount)
+{
+    bool ok = false;
+    int index = token.toInt(&ok);
+    if (!ok || index == 0) {
+        return -1;
+    }
+
+    if (index < 0) {
+        index = elementCount + index;
+    } else {
+        index -= 1;
+    }
+
+    return (index >= 0 && index < elementCount) ? index : -1;
+}
+}
 
     class Mesh::Impl {
     public:
@@ -324,8 +347,164 @@ namespace ArtifactCore {
     QVector3D Mesh::boundingBoxMin() const { return impl_->minBounds; }
     QVector3D Mesh::boundingBoxMax() const { return impl_->maxBounds; }
 
-    bool Mesh::loadFromFile(const QString& filePath) { return false; }
-    bool Mesh::saveToFile(const QString& filePath) const { return false; }
+    bool Mesh::loadFromFile(const QString& filePath)
+    {
+        const QString trimmed = filePath.trimmed();
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+
+        QFile file(trimmed);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return false;
+        }
+
+        QVector<QVector3D> positions;
+        QVector<QVector3D> normals;
+        QVector<QVector2D> texCoords;
+        QVector<QVector<int>> polygons;
+
+        QTextStream in(&file);
+        while (!in.atEnd()) {
+            const QString line = in.readLine().trimmed();
+            if (line.isEmpty() || line.startsWith('#')) {
+                continue;
+            }
+
+            const QStringList tokens = line.split(QChar::Space, Qt::SkipEmptyParts);
+            if (tokens.isEmpty()) {
+                continue;
+            }
+
+            const QString& tag = tokens.front();
+            if (tag == QStringLiteral("v") && tokens.size() >= 4) {
+                bool okX = false, okY = false, okZ = false;
+                const float x = tokens[1].toFloat(&okX);
+                const float y = tokens[2].toFloat(&okY);
+                const float z = tokens[3].toFloat(&okZ);
+                if (okX && okY && okZ) {
+                    positions.append(QVector3D(x, y, z));
+                }
+            } else if (tag == QStringLiteral("vn") && tokens.size() >= 4) {
+                bool okX = false, okY = false, okZ = false;
+                const float x = tokens[1].toFloat(&okX);
+                const float y = tokens[2].toFloat(&okY);
+                const float z = tokens[3].toFloat(&okZ);
+                if (okX && okY && okZ) {
+                    normals.append(QVector3D(x, y, z));
+                }
+            } else if (tag == QStringLiteral("vt") && tokens.size() >= 3) {
+                bool okU = false, okV = false;
+                const float u = tokens[1].toFloat(&okU);
+                const float v = tokens[2].toFloat(&okV);
+                if (okU && okV) {
+                    texCoords.append(QVector2D(u, v));
+                }
+            } else if (tag == QStringLiteral("f") && tokens.size() >= 4) {
+                QVector<int> polygon;
+                polygon.reserve(tokens.size() - 1);
+                for (int i = 1; i < tokens.size(); ++i) {
+                    const QStringList vertexParts = tokens[i].split(QChar('/'));
+                    const int posIndex = resolveObjIndex(vertexParts.value(0), positions.size());
+                    if (posIndex >= 0) {
+                        polygon.append(posIndex);
+                    }
+                }
+                if (polygon.size() >= 3) {
+                    polygons.append(std::move(polygon));
+                }
+            }
+        }
+
+        if (positions.isEmpty() || polygons.isEmpty()) {
+            clear();
+            return false;
+        }
+
+        clear();
+        setVertexCount(positions.size());
+
+        auto posAttr = vertexAttributes().add<QVector3D>("position");
+        for (int i = 0; i < positions.size(); ++i) {
+            (*posAttr)[i] = positions[i];
+        }
+
+        if (normals.size() == positions.size()) {
+            auto normAttr = vertexAttributes().add<QVector3D>("normal");
+            for (int i = 0; i < normals.size(); ++i) {
+                (*normAttr)[i] = normals[i];
+            }
+        }
+
+        if (texCoords.size() == positions.size()) {
+            auto uvAttr = vertexAttributes().add<QVector2D>("uv");
+            for (int i = 0; i < texCoords.size(); ++i) {
+                (*uvAttr)[i] = texCoords[i];
+            }
+        }
+
+        for (const auto& polygon : polygons) {
+            addPolygon(polygon);
+        }
+
+        updateBounds();
+        return true;
+    }
+
+    bool Mesh::saveToFile(const QString& filePath) const
+    {
+        const QString trimmed = filePath.trimmed();
+        if (trimmed.isEmpty() || !isValid()) {
+            return false;
+        }
+
+        QFile file(trimmed);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+            return false;
+        }
+
+        const auto posAttr = vertexAttributes().get<QVector3D>("position");
+        if (!posAttr || posAttr->size() == 0) {
+            return false;
+        }
+
+        const auto normAttr = vertexAttributes().get<QVector3D>("normal");
+        const auto uvAttr = vertexAttributes().get<QVector2D>("uv");
+
+        QTextStream out(&file);
+        out << "# ArtifactCore Mesh OBJ export\n";
+        for (int i = 0; i < posAttr->size(); ++i) {
+            const QVector3D& p = (*posAttr)[i];
+            out << "v " << p.x() << ' ' << p.y() << ' ' << p.z() << '\n';
+        }
+
+        if (normAttr && normAttr->size() == posAttr->size()) {
+            for (int i = 0; i < normAttr->size(); ++i) {
+                const QVector3D& n = (*normAttr)[i];
+                out << "vn " << n.x() << ' ' << n.y() << ' ' << n.z() << '\n';
+            }
+        }
+
+        if (uvAttr && uvAttr->size() == posAttr->size()) {
+            for (int i = 0; i < uvAttr->size(); ++i) {
+                const QVector2D& uv = (*uvAttr)[i];
+                out << "vt " << uv.x() << ' ' << uv.y() << '\n';
+            }
+        }
+
+        for (const auto& polygon : impl_->polygons) {
+            if (polygon.size() < 3) {
+                continue;
+            }
+            out << "f";
+            for (const int vertexIndex : polygon) {
+                out << ' ' << (vertexIndex + 1);
+            }
+            out << '\n';
+        }
+
+        return out.status() == QTextStream::Ok;
+    }
 
     void Mesh::clear() {
         impl_->vertexAttrs.setElementCount(0);

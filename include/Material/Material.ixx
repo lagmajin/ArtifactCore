@@ -66,16 +66,22 @@ export enum class MaterialType {
   // --- Texture Paths ---
   void setBaseColorTexture(const UniString& path);
   UniString baseColorTexture() const;
+  bool hasBaseColorTexture() const;
   void setMetallicRoughnessTexture(const UniString& path);
   UniString metallicRoughnessTexture() const;
+  bool hasMetallicRoughnessTexture() const;
   void setNormalTexture(const UniString& path);
   UniString normalTexture() const;
+  bool hasNormalTexture() const;
   void setEmissionTexture(const UniString& path);
   UniString emissionTexture() const;
+  bool hasEmissionTexture() const;
   void setOcclusionTexture(const UniString& path);
   UniString occlusionTexture() const;
+  bool hasOcclusionTexture() const;
   void setOpacityTexture(const UniString& path);
   UniString opacityTexture() const;
+  bool hasOpacityTexture() const;
 
   // --- MaterialX ---
   void setMaterialXDocument(const UniString& xml);

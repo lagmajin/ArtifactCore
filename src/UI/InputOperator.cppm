@@ -11,6 +11,8 @@
 #include <QDateTime>
 #include <QFile>
 #include <QDir>
+#include <QKeyEvent>
+#include <QVariant>
 #include <wobjectimpl.h>
 
 module Input.Operator;
@@ -26,6 +28,47 @@ W_OBJECT_IMPL(KeyMap)
 W_OBJECT_IMPL(InputOperator)
 
 // ==================== InputBinding Implementation ====================
+
+namespace {
+
+constexpr char kWidgetKeyMapNameProperty[] = "_artifact_widget_keymap_name";
+
+InputEvent::Modifiers toInputModifiers(Qt::KeyboardModifiers modifiers)
+{
+    InputEvent::Modifiers result;
+    if (modifiers & Qt::ShiftModifier) {
+        result |= InputEvent::ModifierKey::LShift;
+        result |= InputEvent::ModifierKey::RShift;
+    }
+    if (modifiers & Qt::ControlModifier) {
+        result |= InputEvent::ModifierKey::LCtrl;
+        result |= InputEvent::ModifierKey::RCtrl;
+    }
+    if (modifiers & Qt::AltModifier) {
+        result |= InputEvent::ModifierKey::LAlt;
+        result |= InputEvent::ModifierKey::RAlt;
+    }
+    if (modifiers & Qt::MetaModifier) {
+        result |= InputEvent::ModifierKey::LMeta;
+        result |= InputEvent::ModifierKey::RMeta;
+    }
+    return result;
+}
+
+InputBinding* findMatchingBinding(KeyMap* keyMap, int key, InputEvent::Modifiers modifiers)
+{
+    if (!keyMap) {
+        return nullptr;
+    }
+
+    auto* binding = keyMap->findBinding(key, modifiers);
+    if (!binding || !binding->callback()) {
+        return nullptr;
+    }
+    return binding;
+}
+
+} // namespace
 
 InputBinding::InputBinding(const QString& id, QObject* parent)
     : QObject(parent)
@@ -480,9 +523,6 @@ public:
     std::vector<int> chordKeys_;
     int chordTimeout_ = 1000;  // ms
     InteractiveAction* activeAction_ = nullptr;
-    
-    // Widget-specific keymaps (Phase 1)
-    std::map<QWidget*, KeyMap*> widgetKeyMaps_;
 
     Impl() {}
 };
@@ -557,35 +597,33 @@ void InputOperator::registerWidgetKeyMap(QWidget* widget, KeyMap* keyMap) {
     if (!widget || !keyMap) {
         return;
     }
-    
-    impl_->widgetKeyMaps_[widget] = keyMap;
-    
-    // Connect focus signals to auto-switch context
-    connect(widget, &QWidget::destroyed, this, [this, widget]() {
-        unregisterWidgetKeyMap(widget);
-    });
+
+    widget->setProperty(kWidgetKeyMapNameProperty, keyMap->name());
 }
 
 void InputOperator::unregisterWidgetKeyMap(QWidget* widget) {
     if (!widget) {
         return;
     }
-    
-    auto it = impl_->widgetKeyMaps_.find(widget);
-    if (it != impl_->widgetKeyMaps_.end()) {
-        impl_->widgetKeyMaps_.erase(it);
-    }
+
+    widget->setProperty(kWidgetKeyMapNameProperty, QVariant());
 }
 
 KeyMap* InputOperator::getWidgetKeyMap(QWidget* widget) const {
     if (!widget) {
         return nullptr;
     }
-    
-    auto it = impl_->widgetKeyMaps_.find(widget);
-    if (it != impl_->widgetKeyMaps_.end()) {
+
+    const QString keyMapName = widget->property(kWidgetKeyMapNameProperty).toString();
+    if (keyMapName.isEmpty()) {
+        return nullptr;
+    }
+
+    auto it = impl_->keyMaps_.find(keyMapName);
+    if (it != impl_->keyMaps_.end()) {
         return it->second;
     }
+
     return nullptr;
 }
 
@@ -601,6 +639,30 @@ bool InputOperator::processKeyEvent(const InputEvent& event) {
     }
     
     return false;
+}
+
+bool InputOperator::processKeyPress(QWidget* widget, int key, Qt::KeyboardModifiers modifiers) {
+    if (!impl_->enabled_) {
+        return false;
+    }
+
+    const InputEvent::Modifiers inputModifiers = toInputModifiers(modifiers);
+
+    if (auto* keyMap = getWidgetKeyMap(widget)) {
+        const QString context = keyMap->context();
+        if (context.isEmpty() || context == impl_->activeContext_ ||
+            context == QStringLiteral("Global")) {
+            if (auto* binding = findMatchingBinding(keyMap, key, inputModifiers)) {
+                emit keyPressed(key, inputModifiers);
+                binding->callback();
+                emit actionExecuted(binding->actionId());
+                emit binding->activated();
+                return true;
+            }
+        }
+    }
+
+    return processKeyPress(key, inputModifiers);
 }
 
 bool InputOperator::processKeyPress(int key, InputEvent::Modifiers modifiers) {
@@ -620,13 +682,10 @@ bool InputOperator::processKeyPress(int key, InputEvent::Modifiers modifiers) {
         }
         
         auto* binding = keyMap->findBinding(key, modifiers);
-        if (binding) {
-            // Execute the action
-            if (binding->callback()) {
-                binding->callback();
-                emit actionExecuted(binding->actionId());
-                emit binding->activated();
-            }
+        if (binding && binding->callback()) {
+            binding->callback();
+            emit actionExecuted(binding->actionId());
+            emit binding->activated();
             return true;
         }
     }

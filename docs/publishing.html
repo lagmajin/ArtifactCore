@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Publish</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 48px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.12);
+    text-align: center;
+  }
+  h1 { font-size: 28px; font-weight: 600; color: #111; margin-bottom: 8px; }
+  p  { color: #555; line-height: 1.6; margin-bottom: 28px; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  button, .btn {
+    padding: 11px 22px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button.primary, .btn.primary {
+    background: #111;
+    color: #fff;
+  }
+  button.primary:hover, .btn.primary:hover { background: #333; }
+  .outline {
+    background: transparent;
+    border: 1px solid #d1d5db;
+    color: #374151;
+  }
+  .outline:hover { background: #f9fafb; }
+  .hint { margin-top: 18px; font-size: 12px; color: #9ca3af; }
+
+  /* Modal */
+  .modal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35);
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal.active { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 12px;
+    padding: 32px; max-width: 380px; width: 90%;
+    text-align: center;
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 18px; }
+  .row { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Publish your work</h1>
+  <p>Share it with the world. One place for everything you create.</p>
+  <div class="actions">
+    <button class="primary" onclick="publish()">Publish Now</button>
+    <button class="outline" onclick="schedule()">Schedule</button>
+  </div>
+  <div class="hint">No account required · Free forever</div>
+</div>
+
+<div class="modal" id="publishModal">
+  <div class="modal-box">
+    <h2>Publish now?</h2>
+    <p style="margin-bottom: 8px;">Your work will be visible to everyone immediately.</p>
+    <div class="row">
+      <button class="primary" onclick="done()">Confirm</button>
+      <button class="outline" onclick="cancel()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function publish()     { document.getElementById('publishModal').classList.add('active'); }
+  function schedule()    { alert('Scheduling coming soon.'); }
+  function done()        { document.getElementById('publishModal').classList.remove('active'); }
+  function cancel()      { document.getElementById('publishModal').classList.remove('active'); }
+</script>
+
+</body>
+</html>

@@ -37,11 +37,17 @@ public:
 
  // Texture paths
  UniString baseColorTexture_;
+ bool hasBaseColorTexture_ = false;
  UniString metallicRoughnessTexture_;
+ bool hasMetallicRoughnessTexture_ = false;
  UniString normalTexture_;
+ bool hasNormalTexture_ = false;
  UniString emissionTexture_;
+ bool hasEmissionTexture_ = false;
  UniString occlusionTexture_;
+ bool hasOcclusionTexture_ = false;
  UniString opacityTexture_;
+ bool hasOpacityTexture_ = false;
 
  // MaterialX
  UniString materialXDocument_;
@@ -88,18 +94,24 @@ void Material::setOcclusionStrength(float v) { impl_->occlusionStrength_ = std::
 float Material::occlusionStrength() const { return impl_->occlusionStrength_; }
 
 // Texture paths
-void Material::setBaseColorTexture(const UniString& p) { impl_->baseColorTexture_ = p; }
+void Material::setBaseColorTexture(const UniString& p) { impl_->baseColorTexture_ = p; impl_->hasBaseColorTexture_ = true; }
 UniString Material::baseColorTexture() const { return impl_->baseColorTexture_; }
-void Material::setMetallicRoughnessTexture(const UniString& p) { impl_->metallicRoughnessTexture_ = p; }
+bool Material::hasBaseColorTexture() const { return impl_->hasBaseColorTexture_; }
+void Material::setMetallicRoughnessTexture(const UniString& p) { impl_->metallicRoughnessTexture_ = p; impl_->hasMetallicRoughnessTexture_ = true; }
 UniString Material::metallicRoughnessTexture() const { return impl_->metallicRoughnessTexture_; }
-void Material::setNormalTexture(const UniString& p) { impl_->normalTexture_ = p; }
+bool Material::hasMetallicRoughnessTexture() const { return impl_->hasMetallicRoughnessTexture_; }
+void Material::setNormalTexture(const UniString& p) { impl_->normalTexture_ = p; impl_->hasNormalTexture_ = true; }
 UniString Material::normalTexture() const { return impl_->normalTexture_; }
-void Material::setEmissionTexture(const UniString& p) { impl_->emissionTexture_ = p; }
+bool Material::hasNormalTexture() const { return impl_->hasNormalTexture_; }
+void Material::setEmissionTexture(const UniString& p) { impl_->emissionTexture_ = p; impl_->hasEmissionTexture_ = true; }
 UniString Material::emissionTexture() const { return impl_->emissionTexture_; }
-void Material::setOcclusionTexture(const UniString& p) { impl_->occlusionTexture_ = p; }
+bool Material::hasEmissionTexture() const { return impl_->hasEmissionTexture_; }
+void Material::setOcclusionTexture(const UniString& p) { impl_->occlusionTexture_ = p; impl_->hasOcclusionTexture_ = true; }
 UniString Material::occlusionTexture() const { return impl_->occlusionTexture_; }
-void Material::setOpacityTexture(const UniString& p) { impl_->opacityTexture_ = p; }
+bool Material::hasOcclusionTexture() const { return impl_->hasOcclusionTexture_; }
+void Material::setOpacityTexture(const UniString& p) { impl_->opacityTexture_ = p; impl_->hasOpacityTexture_ = true; }
 UniString Material::opacityTexture() const { return impl_->opacityTexture_; }
+bool Material::hasOpacityTexture() const { return impl_->hasOpacityTexture_; }
 
 // MaterialX
 void Material::setMaterialXDocument(const UniString& xml) { impl_->materialXDocument_ = xml; }

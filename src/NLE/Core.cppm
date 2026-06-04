@@ -14,6 +14,8 @@ class tst_QList;
 #include <QDateTime>
 #include <QSize>
 #include <QString>
+#include <QVariant>
+#include <QVariantMap>
 #include <QVector>
 
 module NLE.Core;
@@ -406,6 +408,10 @@ Marker markerFromJson(const QJsonObject& obj)
 
 QJsonObject transitionToJson(const Transition& transition)
 {
+    QJsonObject paramsObj;
+    for (auto it = transition.parameters.constBegin(); it != transition.parameters.constEnd(); ++it) {
+        paramsObj.insert(it.key(), QJsonValue::fromVariant(it.value()));
+    }
     return QJsonObject{
         {QStringLiteral("id"), QString::number(transition.id.value)},
         {QStringLiteral("trackId"), QString::number(transition.trackId.value)},
@@ -414,7 +420,9 @@ QJsonObject transitionToJson(const Transition& transition)
         {QStringLiteral("range"), transition.range.toJson()},
         {QStringLiteral("kind"), static_cast<int>(transition.kind)},
         {QStringLiteral("duration"), transition.duration},
-        {QStringLiteral("enabled"), transition.enabled}
+        {QStringLiteral("enabled"), transition.enabled},
+        {QStringLiteral("direction"), static_cast<int>(transition.direction)},
+        {QStringLiteral("parameters"), paramsObj}
     };
 }
 
@@ -429,6 +437,12 @@ Transition transitionFromJson(const QJsonObject& obj)
     transition.kind = static_cast<TransitionKind>(obj.value(QStringLiteral("kind")).toInt(static_cast<int>(TransitionKind::Crossfade)));
     transition.duration = obj.value(QStringLiteral("duration")).toDouble(12.0);
     transition.enabled = obj.value(QStringLiteral("enabled")).toBool(true);
+    transition.direction = static_cast<Transition::Direction>(obj.value(QStringLiteral("direction")).toInt(static_cast<int>(Transition::Direction::LeftToRight)));
+
+    const QJsonObject paramsObj = obj.value(QStringLiteral("parameters")).toObject();
+    for (auto it = paramsObj.constBegin(); it != paramsObj.constEnd(); ++it) {
+        transition.parameters.insert(it.key(), it.value().toVariant());
+    }
     return transition;
 }
 
@@ -774,11 +788,13 @@ MarkerId NLEProjectStore::createMarker(const SequenceId& sequenceId,
 }
 
 TransitionId NLEProjectStore::createTransition(const TrackId& trackId,
-                                              const ClipId& leftClipId,
-                                              const ClipId& rightClipId,
-                                              const FrameRange& range,
-                                              TransitionKind kind,
-                                              double duration)
+                                               const ClipId& leftClipId,
+                                               const ClipId& rightClipId,
+                                               const FrameRange& range,
+                                               TransitionKind kind,
+                                               double duration,
+                                               Transition::Direction direction,
+                                               const QVariantMap& parameters)
 {
     if (!impl_->tracks.contains(trackId) ||
         !impl_->clips.contains(leftClipId) ||
@@ -794,11 +810,46 @@ TransitionId NLEProjectStore::createTransition(const TrackId& trackId,
     transition.range = range;
     transition.kind = kind;
     transition.duration = duration;
-    impl_->transitions.insert(transition.id, transition);
+    transition.enabled = true;
+    transition.direction = direction;
+    transition.parameters = parameters;
 
-    impl_->clips[leftClipId].attachedTransitions.push_back(transition.id);
-    impl_->clips[rightClipId].attachedTransitions.push_back(transition.id);
+    if (impl_->clips.contains(leftClipId)) {
+        impl_->clips[leftClipId].attachedTransitions.push_back(transition.id);
+    }
+    if (impl_->clips.contains(rightClipId)) {
+        impl_->clips[rightClipId].attachedTransitions.push_back(transition.id);
+    }
+    if (auto track = findTrack(impl_->tracks, trackId)) {
+        track->transitions.push_back(transition.id);
+    }
+    impl_->transitions.insert(transition.id, transition);
     return transition.id;
+}
+
+bool NLEProjectStore::removeTransition(const TransitionId& transitionId)
+{
+    const auto transitionIt = impl_->transitions.find(transitionId);
+    if (transitionIt == impl_->transitions.end()) {
+        return false;
+    }
+
+    const Transition transition = transitionIt.value();
+    if (impl_->clips.contains(transition.leftClipId)) {
+        Clip* left = &impl_->clips[transition.leftClipId];
+        left->attachedTransitions.removeAll(transitionId);
+    }
+    if (impl_->clips.contains(transition.rightClipId)) {
+        Clip* right = &impl_->clips[transition.rightClipId];
+        right->attachedTransitions.removeAll(transitionId);
+    }
+
+    if (auto track = findTrack(impl_->tracks, transition.trackId)) {
+        track->transitions.removeAll(transitionId);
+    }
+
+    impl_->transitions.remove(transitionId);
+    return true;
 }
 
 SourceId NLEProjectStore::registerSource(const SourceRef& source)
@@ -1214,6 +1265,74 @@ const Transition* NLEProjectStore::transition(const TransitionId& transitionId) 
 {
     const auto it = impl_->transitions.find(transitionId);
     return it == impl_->transitions.end() ? nullptr : &it.value();
+}
+
+QVector<Transition*> NLEProjectStore::transitions(const TrackId& trackId)
+{
+    QVector<Transition*> result;
+    const auto trackIt = impl_->tracks.find(trackId);
+    if (trackIt == impl_->tracks.end()) {
+        return result;
+    }
+    result.reserve(trackIt->transitions.size());
+    for (const TransitionId& id : trackIt->transitions) {
+        Transition* transition = this->transition(id);
+        if (transition) {
+            result.push_back(transition);
+        }
+    }
+    return result;
+}
+
+QVector<const Transition*> NLEProjectStore::transitions(const TrackId& trackId) const
+{
+    QVector<const Transition*> result;
+    const auto trackIt = impl_->tracks.find(trackId);
+    if (trackIt == impl_->tracks.end()) {
+        return result;
+    }
+    result.reserve(trackIt->transitions.size());
+    for (const TransitionId& id : trackIt->transitions) {
+        const Transition* transition = this->transition(id);
+        if (transition) {
+            result.push_back(transition);
+        }
+    }
+    return result;
+}
+
+QVector<Transition*> NLEProjectStore::transitionsForClip(const ClipId& clipId)
+{
+    QVector<Transition*> result;
+    const auto clipIt = impl_->clips.find(clipId);
+    if (clipIt == impl_->clips.end()) {
+        return result;
+    }
+    result.reserve(clipIt->attachedTransitions.size());
+    for (const TransitionId& id : clipIt->attachedTransitions) {
+        Transition* transition = this->transition(id);
+        if (transition) {
+            result.push_back(transition);
+        }
+    }
+    return result;
+}
+
+QVector<const Transition*> NLEProjectStore::transitionsForClip(const ClipId& clipId) const
+{
+    QVector<const Transition*> result;
+    const auto clipIt = impl_->clips.find(clipId);
+    if (clipIt == impl_->clips.end()) {
+        return result;
+    }
+    result.reserve(clipIt->attachedTransitions.size());
+    for (const TransitionId& id : clipIt->attachedTransitions) {
+        const Transition* transition = this->transition(id);
+        if (transition) {
+            result.push_back(transition);
+        }
+    }
+    return result;
 }
 
 SourceRef* NLEProjectStore::source(const SourceId& sourceId)
@@ -1930,6 +2049,128 @@ EditResult SequenceEditor::selectClip(const ClipId& clipId, bool selected)
         for (const QString& warning : propagation.warnings) {
             result.warnings.push_back(warning);
         }
+    }
+    return result;
+}
+
+EditResult SequenceEditor::insertTransition(const ClipId& leftClipId,
+                                            const ClipId& rightClipId,
+                                            TransitionKind kind,
+                                            double duration)
+{
+    EditResult result;
+    if (!store_) {
+        result.message = QStringLiteral("No NLE store attached");
+        return result;
+    }
+
+    const Clip* left = store_->clip(leftClipId);
+    const Clip* right = store_->clip(rightClipId);
+    if (!left || !right) {
+        result.message = QStringLiteral("Transition requires two existing clips");
+        return result;
+    }
+    if (left->trackId != right->trackId) {
+        result.message = QStringLiteral("Clips must be on the same track for a transition");
+        return result;
+    }
+
+    const int64_t transitionStart = qMin(left->timelineRange.end(), right->timelineRange.start());
+    const int64_t transitionEnd = transitionStart + static_cast<int64_t>(duration);
+    const FrameRange range = FrameRange(transitionStart, transitionEnd);
+
+    const TransitionId id = store_->createTransition(left->trackId, leftClipId, rightClipId, range, kind, duration);
+    result.success = id.isValid();
+    result.message = result.success ? QStringLiteral("Transition inserted")
+                                    : QStringLiteral("Failed to insert transition");
+    if (result.success) {
+        result.touchedClips.push_back(leftClipId);
+        result.touchedClips.push_back(rightClipId);
+        result.touchedTracks.push_back(left->trackId);
+        if (const Track* track = store_->track(left->trackId)) {
+            result.touchedSequences.push_back(track->ownerSequenceId);
+        }
+    }
+
+    return result;
+}
+
+EditResult SequenceEditor::removeTransition(const TransitionId& transitionId)
+{
+    EditResult result;
+    if (!store_) {
+        result.message = QStringLiteral("No NLE store attached");
+        return result;
+    }
+
+    const Transition* transition = store_->transition(transitionId);
+    if (!transition) {
+        result.message = QStringLiteral("Transition not found");
+        return result;
+    }
+
+    result.success = store_->removeTransition(transitionId);
+    result.message = result.success ? QStringLiteral("Transition removed")
+                                    : QStringLiteral("Failed to remove transition");
+    if (result.success) {
+        result.touchedClips.push_back(transition->leftClipId);
+        result.touchedClips.push_back(transition->rightClipId);
+        result.touchedTracks.push_back(transition->trackId);
+        if (const Track* track = store_->track(transition->trackId)) {
+            result.touchedSequences.push_back(track->ownerSequenceId);
+        }
+    }
+    return result;
+}
+
+EditResult SequenceEditor::setTransitionDuration(const TransitionId& transitionId, double duration)
+{
+    EditResult result;
+    if (!store_) {
+        result.message = QStringLiteral("No NLE store attached");
+        return result;
+    }
+
+    Transition* transition = store_->transition(transitionId);
+    if (!transition) {
+        result.message = QStringLiteral("Transition not found");
+        return result;
+    }
+
+    transition->duration = duration;
+    result.success = true;
+    result.message = QStringLiteral("Transition duration kind updated");
+    result.touchedTracks.push_back(transition->trackId);
+    result.touchedClips.push_back(transition->leftClipId);
+    result.touchedClips.push_back(transition->rightClipId);
+    if (const Track* track = store_->track(transition->trackId)) {
+        result.touchedSequences.push_back(track->ownerSequenceId);
+    }
+    return result;
+}
+
+EditResult SequenceEditor::setTransitionKind(const TransitionId& transitionId, TransitionKind kind)
+{
+    EditResult result;
+    if (!store_) {
+        result.message = QStringLiteral("No NLE store attached");
+        return result;
+    }
+
+    Transition* transition = store_->transition(transitionId);
+    if (!transition) {
+        result.message = QStringLiteral("Transition not found");
+        return result;
+    }
+
+    transition->kind = kind;
+    result.success = true;
+    result.message = QStringLiteral("Transition kind updated");
+    result.touchedTracks.push_back(transition->trackId);
+    result.touchedClips.push_back(transition->leftClipId);
+    result.touchedClips.push_back(transition->rightClipId);
+    if (const Track* track = store_->track(transition->trackId)) {
+        result.touchedSequences.push_back(track->ownerSequenceId);
     }
     return result;
 }

@@ -41,6 +41,7 @@
 export module Input.Operator;
 
 import InputEvent;
+class QKeyEvent;
 
 export namespace ArtifactCore
 {
@@ -377,6 +378,7 @@ public:
     
     // Process input events
     bool processKeyEvent(const InputEvent& event);
+    bool processKeyPress(QWidget* widget, int key, Qt::KeyboardModifiers modifiers);
     bool processKeyPress(int key, InputEvent::Modifiers modifiers);
     bool processKeyRelease(int key, InputEvent::Modifiers modifiers);
     

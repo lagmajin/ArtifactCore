@@ -10,6 +10,8 @@ class tst_QList;
 #include <QJsonArray>
 #include <QSize>
 #include <QString>
+#include <QVariant>
+#include <QVariantMap>
 #include <QVector>
 
 #include "../Define/DllExportMacro.hpp"
@@ -69,7 +71,17 @@ enum class TransitionKind : quint8 {
     Cut = 0,
     Crossfade,
     Dissolve,
-    Wipe
+    Wipe,
+    Slide,
+    Zoom,
+    GlitchDisplace,
+    Spin,
+    LinearWipe,
+    RadialWipe,
+    Flip,
+    Cube,
+    Doors,
+    LightLeak
 };
 
 enum class TrimMode : quint8 {
@@ -128,6 +140,13 @@ struct LIBRARY_DLL_API Transition {
     TransitionKind kind = TransitionKind::Crossfade;
     double duration = 12.0;
     bool enabled = true;
+
+    enum class Direction : quint8 {
+        LeftToRight = 0,
+        RightToLeft
+    } direction = Direction::LeftToRight;
+
+    QVariantMap parameters;
 };
 
 struct LIBRARY_DLL_API ClipLinkGroup {
@@ -270,7 +289,11 @@ public:
                                   const ClipId& rightClipId,
                                   const FrameRange& range,
                                   TransitionKind kind = TransitionKind::Crossfade,
-                                  double duration = 12.0);
+                                  double duration = 12.0,
+                                  Transition::Direction direction = Transition::Direction::LeftToRight,
+                                  const QVariantMap& parameters = QVariantMap{});
+
+    bool removeTransition(const TransitionId& transitionId);
 
     SourceId registerSource(const SourceRef& source);
     bool relinkSource(const SourceId& sourceId, const QString& newUri,
@@ -309,6 +332,10 @@ public:
     const Marker* marker(const MarkerId& markerId) const;
     Transition* transition(const TransitionId& transitionId);
     const Transition* transition(const TransitionId& transitionId) const;
+    QVector<Transition*> transitions(const TrackId& trackId);
+    QVector<const Transition*> transitions(const TrackId& trackId) const;
+    QVector<Transition*> transitionsForClip(const ClipId& clipId);
+    QVector<const Transition*> transitionsForClip(const ClipId& clipId) const;
     SourceRef* source(const SourceId& sourceId);
     const SourceRef* source(const SourceId& sourceId) const;
 
@@ -372,6 +399,14 @@ public:
     EditResult slipClip(const ClipId& clipId, const FramePosition& newSourceStart);
     EditResult slideClip(const ClipId& clipId, const FramePosition& newTimelineStart);
     EditResult selectClip(const ClipId& clipId, bool selected = true);
+
+    EditResult insertTransition(const ClipId& leftClipId,
+                                const ClipId& rightClipId,
+                                TransitionKind kind = TransitionKind::Crossfade,
+                                double duration = 12.0);
+    EditResult removeTransition(const TransitionId& transitionId);
+    EditResult setTransitionDuration(const TransitionId& transitionId, double duration);
+    EditResult setTransitionKind(const TransitionId& transitionId, TransitionKind kind);
 
 private:
     NLEProjectStore* store_ = nullptr;

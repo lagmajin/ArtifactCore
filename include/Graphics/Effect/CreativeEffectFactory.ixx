@@ -8,9 +8,12 @@
 export module Graphics.Effect.Creative.Factory;
 
 import Graphics.Effect.Creative;
+import Graphics.Effect.Creative.Emboss;
 import Graphics.Effect.Creative.Fisheye;
 import Graphics.Effect.Creative.Glitch;
 import Graphics.Effect.Creative.Halftone;
+import Graphics.Effect.Creative.ChromaticAberration;
+import Graphics.Effect.Creative.Solarize;
 import Graphics.Effect.Creative.DepthMelt;
 import Graphics.Effect.Creative.EdgeEcho;
 import Graphics.Effect.Creative.Kaleidoscope;
@@ -47,6 +50,9 @@ inline std::shared_ptr<CreativeEffect> CreativeEffectFactory::create(const std::
     if (name == "TemporalFossil") return std::make_shared<TemporalFossilEffect>();
     if (name == "PigmentSeparation") return std::make_shared<PigmentSeparationEffect>();
     if (name == "SurfaceMemory") return std::make_shared<SurfaceMemoryEffect>();
+    if (name == "Emboss") return std::make_shared<EmbossEffect>();
+    if (name == "Solarize") return std::make_shared<SolarizeEffect>();
+    if (name == "ChromaticAberration") return std::make_shared<ChromaticAberrationEffect>();
     return nullptr;
 }
 
@@ -64,7 +70,10 @@ inline std::vector<std::string> CreativeEffectFactory::getAvailableEffects() {
         "Pixelate",
         "Posterize",
         "SurfaceMemory",
-        "TemporalFossil"
+        "TemporalFossil",
+        "Emboss",
+        "Solarize",
+        "ChromaticAberration"
     };
 }
 

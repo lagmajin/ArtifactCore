@@ -4,6 +4,7 @@ module;
 #include <QPointF>
 #include <QVector3D>
 #include <QImage>
+#include <cmath>
 #include <vector>
 #include <opencv2/opencv.hpp>
 
@@ -58,11 +59,65 @@ private:
 
 namespace ArtifactCore::Tracking {
 
+namespace {
+cv::Mat makeProjectionMatrix(const cv::Mat& K, const cv::Matx33d& Rcw, const cv::Vec3d& tcw)
+{
+    cv::Mat Rt = cv::Mat::zeros(3, 4, CV_64F);
+    cv::Mat(Rcw).copyTo(Rt(cv::Rect(0, 0, 3, 3)));
+    cv::Mat tMat = (cv::Mat_<double>(3, 1) << tcw[0], tcw[1], tcw[2]);
+    tMat.copyTo(Rt(cv::Rect(3, 0, 1, 3)));
+    return K * Rt;
+}
+
+cv::Matx33d matToMatx33d(const cv::Mat& m)
+{
+    cv::Matx33d out = cv::Matx33d::eye();
+    if (m.rows >= 3 && m.cols >= 3) {
+        for (int row = 0; row < 3; ++row) {
+            for (int col = 0; col < 3; ++col) {
+                out(row, col) = m.at<double>(row, col);
+            }
+        }
+    }
+    return out;
+}
+
+cv::Vec3d matToVec3d(const cv::Mat& m)
+{
+    return {
+        m.at<double>(0, 0),
+        m.at<double>(1, 0),
+        m.at<double>(2, 0),
+    };
+}
+
+QVector3D eulerDegreesFromRotation(const cv::Matx33d& rotation)
+{
+    const double sy = std::sqrt(rotation(0, 0) * rotation(0, 0) + rotation(1, 0) * rotation(1, 0));
+    const bool singular = sy < 1e-6;
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+
+    if (!singular) {
+        x = std::atan2(rotation(2, 1), rotation(2, 2));
+        y = std::atan2(-rotation(2, 0), sy);
+        z = std::atan2(rotation(1, 0), rotation(0, 0));
+    } else {
+        x = std::atan2(-rotation(1, 2), rotation(1, 1));
+        y = std::atan2(-rotation(2, 0), sy);
+    }
+
+    return QVector3D(static_cast<float>(x * 180.0 / CV_PI),
+                     static_cast<float>(y * 180.0 / CV_PI),
+                     static_cast<float>(z * 180.0 / CV_PI));
+}
+} // namespace
+
 struct CameraTracker::Impl {
     struct FrameData {
         double time;
         cv::Mat image;
-        std::vector<cv::Point2f> keypoints;
     };
 
     std::vector<FrameData> frames;
@@ -82,107 +137,174 @@ CameraTracker::~CameraTracker() { delete impl_; }
 void CameraTracker::setInitialFov(float fov) { impl_->fov = fov; }
 
 void CameraTracker::addFrame(double time, const QImage& frame) {
+    if (frame.isNull()) {
+        return;
+    }
+
     Impl::FrameData data;
     data.time = time;
     data.image = impl_->qimageToMat(frame);
+    if (data.image.empty()) {
+        return;
+    }
     impl_->frames.push_back(std::move(data));
 }
 
 CameraTrackResult CameraTracker::solve() {
     CameraTrackResult result;
-    if (impl_->frames.size() < 2) return result;
+    if (impl_->frames.size() < 2) {
+        return result;
+    }
 
     const int width = impl_->frames[0].image.cols;
     const int height = impl_->frames[0].image.rows;
-
-    // 1. カメラマトリックスの推定 (簡易)
-    double focalLength = (width / 2.0) / std::tan(impl_->fov * 0.5 * CV_PI / 180.0);
-    cv::Point2d principalPoint(width / 2.0, height / 2.0);
-    cv::Mat K = (cv::Mat_<double>(3,3) << focalLength, 0, principalPoint.x, 
-                                          0, focalLength, principalPoint.y,
-                                          0, 0, 1);
-
-    // 2. 特徴点抽出と追跡 (第一段階: シンプルな2フレーム間ポーズ推定)
-    // 本来は全フレームを通したSfMが必要だが、ここでは初期ポーズ推定のみ実装
-    std::vector<cv::Point2f> pts1, pts2;
-    cv::goodFeaturesToTrack(impl_->frames[0].image, pts1, 500, 0.01, 10);
-    
-    std::vector<uchar> status;
-    std::vector<float> err;
-    cv::calcOpticalFlowPyrLK(impl_->frames[0].image, impl_->frames[1].image, pts1, pts2, status, err);
-
-    std::vector<cv::Point2f> matched1, matched2;
-    for (size_t i = 0; i < status.size(); i++) {
-        if (status[i]) {
-            matched1.push_back(pts1[i]);
-            matched2.push_back(pts2[i]);
-        }
+    if (width <= 0 || height <= 0) {
+        return result;
     }
 
-    if (matched1.size() < 10) return result;
+    const double focalLength = (width / 2.0) / std::tan(impl_->fov * 0.5 * CV_PI / 180.0);
+    const cv::Point2d principalPoint(width / 2.0, height / 2.0);
+    const cv::Mat K = (cv::Mat_<double>(3, 3) << focalLength, 0.0, principalPoint.x,
+                                                  0.0, focalLength, principalPoint.y,
+                                                  0.0, 0.0, 1.0);
 
-    // 3. エッセンシャル行列の計算
-    cv::Mat E, mask;
-    E = cv::findEssentialMat(matched1, matched2, focalLength, principalPoint, cv::RANSAC, 0.999, 1.0, mask);
+    cv::Matx33d currentRcw = cv::Matx33d::eye();
+    cv::Vec3d currentTcw(0.0, 0.0, 0.0);
 
-    // 4. ポーズ復元
-    cv::Mat R, t;
-    cv::recoverPose(E, matched1, matched2, R, t, focalLength, principalPoint, mask);
+    result.cameraPath.push_back({
+        impl_->frames[0].time,
+        QVector3D(0.0f, 0.0f, 0.0f),
+        QVector3D(0.0f, 0.0f, 0.0f),
+    });
 
-    // 回転行列をオイラー角（度）に変換
-    auto getEulerAngles = [](const cv::Mat& R) {
-        double sy = std::sqrt(R.at<double>(0,0) * R.at<double>(0,0) +  R.at<double>(1,0) * R.at<double>(1,0));
-        bool singular = sy < 1e-6;
-        double x, y, z;
-        if (!singular) {
-            x = std::atan2(R.at<double>(2,1) , R.at<double>(2,2));
-            y = std::atan2(-R.at<double>(2,0), sy);
-            z = std::atan2(R.at<double>(1,0), R.at<double>(0,0));
-        } else {
-            x = std::atan2(-R.at<double>(1,2), R.at<double>(1,1));
-            y = std::atan2(-R.at<double>(2,0), sy);
-            z = 0;
+    int nextFeatureId = 0;
+    bool solvedAnyStep = false;
+
+    for (size_t frameIndex = 1; frameIndex < impl_->frames.size(); ++frameIndex) {
+        const auto& prevFrame = impl_->frames[frameIndex - 1];
+        const auto& curFrame = impl_->frames[frameIndex];
+
+        std::vector<cv::Point2f> prevPoints;
+        cv::goodFeaturesToTrack(prevFrame.image, prevPoints, 1000, 0.01, 10.0);
+
+        if (prevPoints.size() < 8) {
+            const cv::Vec3d worldPosition = -(currentRcw.t() * currentTcw);
+            result.cameraPath.push_back({
+                curFrame.time,
+                QVector3D(static_cast<float>(worldPosition[0]),
+                          static_cast<float>(worldPosition[1]),
+                          static_cast<float>(worldPosition[2])),
+                eulerDegreesFromRotation(currentRcw.t()),
+            });
+            continue;
         }
-        return QVector3D(x * 180.0 / CV_PI, y * 180.0 / CV_PI, z * 180.0 / CV_PI);
-    };
 
-    QVector3D rot0(0,0,0);
-    QVector3D rot1 = getEulerAngles(R);
+        std::vector<cv::Point2f> curPoints;
+        std::vector<uchar> status;
+        std::vector<float> err;
+        cv::calcOpticalFlowPyrLK(prevFrame.image, curFrame.image, prevPoints, curPoints, status, err);
 
-    // 結果の格納
-    result.cameraPath.push_back({impl_->frames[0].time, QVector3D(0,0,0), rot0});
-    result.cameraPath.push_back({impl_->frames[1].time, 
-                                 QVector3D(t.at<double>(0), t.at<double>(1), t.at<double>(2)), 
-                                 rot1});
+        std::vector<cv::Point2f> matchedPrev;
+        std::vector<cv::Point2f> matchedCur;
+        matchedPrev.reserve(prevPoints.size());
+        matchedCur.reserve(prevPoints.size());
+        for (size_t i = 0; i < status.size(); ++i) {
+            if (status[i]) {
+                matchedPrev.push_back(prevPoints[i]);
+                matchedCur.push_back(curPoints[i]);
+            }
+        }
 
-    // 5. 三角測量による3Dポイント生成
-    cv::Mat P1 = cv::Mat::eye(3, 4, CV_64F);
-    cv::Mat P2(3, 4, CV_64F);
-    R.copyTo(P2(cv::Rect(0,0,3,3)));
-    t.copyTo(P2(cv::Rect(3,0,1,3)));
+        if (matchedPrev.size() < 8) {
+            const cv::Vec3d worldPosition = -(currentRcw.t() * currentTcw);
+            result.cameraPath.push_back({
+                curFrame.time,
+                QVector3D(static_cast<float>(worldPosition[0]),
+                          static_cast<float>(worldPosition[1]),
+                          static_cast<float>(worldPosition[2])),
+                eulerDegreesFromRotation(currentRcw.t()),
+            });
+            continue;
+        }
 
-    // 正規化座標
-    std::vector<cv::Point2f> pts1_norm, pts2_norm;
-    cv::undistortPoints(matched1, pts1_norm, K, cv::Mat());
-    cv::undistortPoints(matched2, pts2_norm, K, cv::Mat());
+        cv::Mat inlierMask;
+        cv::Mat E = cv::findEssentialMat(matchedPrev, matchedCur, K, cv::RANSAC, 0.999, 1.0, inlierMask);
+        if (E.empty()) {
+            const cv::Vec3d worldPosition = -(currentRcw.t() * currentTcw);
+            result.cameraPath.push_back({
+                curFrame.time,
+                QVector3D(static_cast<float>(worldPosition[0]),
+                          static_cast<float>(worldPosition[1]),
+                          static_cast<float>(worldPosition[2])),
+                eulerDegreesFromRotation(currentRcw.t()),
+            });
+            continue;
+        }
 
-    cv::Mat pts4D;
-    cv::triangulatePoints(P1, P2, pts1_norm, pts2_norm, pts4D);
+        cv::Mat R, t;
+        const int poseInliers = cv::recoverPose(E, matchedPrev, matchedCur, K, R, t, inlierMask);
+        if (poseInliers < 8) {
+            const cv::Vec3d worldPosition = -(currentRcw.t() * currentTcw);
+            result.cameraPath.push_back({
+                curFrame.time,
+                QVector3D(static_cast<float>(worldPosition[0]),
+                          static_cast<float>(worldPosition[1]),
+                          static_cast<float>(worldPosition[2])),
+                eulerDegreesFromRotation(currentRcw.t()),
+            });
+            continue;
+        }
 
-    for (int i = 0; i < pts4D.cols; i++) {
-        float w = pts4D.at<float>(3, i);
-        if (std::abs(w) > 1e-6) {
+        cv::Matx33d relativeR = matToMatx33d(R);
+        cv::Vec3d relativeT = matToVec3d(t);
+        const double tNorm = cv::norm(relativeT);
+        if (tNorm > 1e-8) {
+            relativeT *= (1.0 / tNorm);
+        } else {
+            relativeT = cv::Vec3d(0.0, 0.0, 1.0);
+        }
+
+        const cv::Mat P1 = makeProjectionMatrix(K, currentRcw, currentTcw);
+        currentRcw = relativeR * currentRcw;
+        currentTcw = relativeR * currentTcw + relativeT;
+        const cv::Mat P2 = makeProjectionMatrix(K, currentRcw, currentTcw);
+
+        cv::Mat pts4D;
+        cv::triangulatePoints(P1, P2, matchedPrev, matchedCur, pts4D);
+
+        const int depth = pts4D.depth();
+        for (int i = 0; i < pts4D.cols; ++i) {
+            const double w = depth == CV_32F ? pts4D.at<float>(3, i) : pts4D.at<double>(3, i);
+            if (std::abs(w) <= 1e-8) {
+                continue;
+            }
+
+            const double x = depth == CV_32F ? pts4D.at<float>(0, i) : pts4D.at<double>(0, i);
+            const double y = depth == CV_32F ? pts4D.at<float>(1, i) : pts4D.at<double>(1, i);
+            const double z = depth == CV_32F ? pts4D.at<float>(2, i) : pts4D.at<double>(2, i);
+
             CameraTrackPoint pt;
-            pt.id = i;
-            pt.position = QVector3D(pts4D.at<float>(0, i) / w,
-                                    pts4D.at<float>(1, i) / w,
-                                    pts4D.at<float>(2, i) / w);
+            pt.id = nextFeatureId++;
+            pt.position = QVector3D(static_cast<float>(x / w),
+                                    static_cast<float>(y / w),
+                                    static_cast<float>(z / w));
             pt.isValid = true;
             result.featurePoints.push_back(pt);
         }
+
+        const cv::Vec3d worldPosition = -(currentRcw.t() * currentTcw);
+        result.cameraPath.push_back({
+            curFrame.time,
+            QVector3D(static_cast<float>(worldPosition[0]),
+                      static_cast<float>(worldPosition[1]),
+                      static_cast<float>(worldPosition[2])),
+            eulerDegreesFromRotation(currentRcw.t()),
+        });
+
+        solvedAnyStep = true;
     }
 
-    result.success = true;
+    result.success = solvedAnyStep && result.cameraPath.size() >= 2;
     return result;
 }
 

@@ -65,6 +65,7 @@ public:
      * @brief CPUプールのデータをGPU構造化バッファへアップロード
      */
     void updateBuffer(const ParticleRenderData& data);
+    size_t lastUploadedParticleCount() const;
 
     /**
      * @brief 描画準備
@@ -87,6 +88,7 @@ private:
     class Impl;
     Impl* pImpl_ = nullptr;
     size_t maxParticles_ = 0;
+    size_t lastUploadedParticleCount_ = 0;
 
     struct ShaderConstants {
         float viewMatrix[16];
