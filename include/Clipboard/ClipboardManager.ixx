@@ -27,6 +27,7 @@ enum class ClipboardType {
     Keyframes,      // キーフレーム範囲
     PropertyValue,  // プロパティ値
     ProjectItems,   // Project View の item snapshot
+    ProjectBundle,  // Inter-process project bundle
 };
 
 // ============================================================
@@ -81,6 +82,9 @@ public:
     void copyProjectItems(const QJsonArray& itemsJson, const QString& description = QString());
     bool hasProjectItemData() const;
     QJsonArray pasteProjectItems() const;
+    void copyProjectBundle(const QJsonObject& bundleJson, const QString& description = QString());
+    bool hasProjectBundleData() const;
+    QJsonObject pasteProjectBundle() const;
 
     // --- Generic ---
     ClipboardType currentType() const;
@@ -105,6 +109,7 @@ private:
     static constexpr const char* kKeyframeMime = "application/x-artifact-keyframe";
     static constexpr const char* kPropertyMime = "application/x-artifact-property";
     static constexpr const char* kProjectItemsMime = "application/x-artifact-project-items";
+    static constexpr const char* kProjectBundleMime = "application/x-artifact-project-bundle";
 
     static QString descriptionForLayerCount(const QJsonArray& layersJson, int count);
     static QJsonObject makeEnvelope(const QString& kind, const QJsonObject& payload);
@@ -180,6 +185,21 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
         outEntry.mimeType = kProjectItemsMime;
         const QJsonArray items = obj.value(QStringLiteral("items")).toArray();
         outEntry.description = QStringLiteral("%1 item(s)").arg(items.size());
+        return true;
+    }
+    if (type == QStringLiteral("project-bundle")) {
+        outEntry.type = ClipboardType::ProjectBundle;
+        outEntry.mimeType = kProjectBundleMime;
+        const QJsonArray items = obj.value(QStringLiteral("items")).toArray();
+        const QString title = obj.value(QStringLiteral("bundleTitle")).toString().trimmed();
+        const QString sourceProjectName = obj.value(QStringLiteral("sourceProjectName")).toString().trimmed();
+        if (!title.isEmpty()) {
+            outEntry.description = title;
+        } else if (!sourceProjectName.isEmpty()) {
+            outEntry.description = QStringLiteral("%1 bundle").arg(sourceProjectName);
+        } else {
+            outEntry.description = QStringLiteral("%1 item(s)").arg(items.size());
+        }
         return true;
     }
 
@@ -309,27 +329,58 @@ QString ClipboardManager::pastePropertyPath() const {
 
 // --- Project Items ---
 void ClipboardManager::copyProjectItems(const QJsonArray& itemsJson, const QString& description) {
-    QJsonObject clipObj;
-    clipObj = makeEnvelope(QStringLiteral("project-items"), clipObj);
-    clipObj[QStringLiteral("items")] = itemsJson;
+    QJsonObject payload;
+    payload[QStringLiteral("items")] = itemsJson;
+    payload[QStringLiteral("bundleKind")] = QStringLiteral("project-items");
+    payload[QStringLiteral("bundleTitle")] = description.trimmed().isEmpty()
+                                                 ? QStringLiteral("%1 item(s)").arg(itemsJson.size())
+                                                 : description.trimmed();
+    copyProjectBundle(payload, payload.value(QStringLiteral("bundleTitle")).toString());
+}
 
-    internalClip_.type = ClipboardType::ProjectItems;
-    internalClip_.mimeType = kProjectItemsMime;
+bool ClipboardManager::hasProjectItemData() const {
+    return internalClip_.type == ClipboardType::ProjectItems ||
+           internalClip_.type == ClipboardType::ProjectBundle;
+}
+
+QJsonArray ClipboardManager::pasteProjectItems() const {
+    if (internalClip_.type != ClipboardType::ProjectItems &&
+        internalClip_.type != ClipboardType::ProjectBundle) return {};
+    return internalClip_.data[QStringLiteral("items")].toArray();
+}
+
+void ClipboardManager::copyProjectBundle(const QJsonObject& bundleJson, const QString& description) {
+    QJsonObject clipObj;
+    clipObj = makeEnvelope(QStringLiteral("project-bundle"), bundleJson);
+
+    internalClip_.type = ClipboardType::ProjectBundle;
+    internalClip_.mimeType = kProjectBundleMime;
     internalClip_.data = clipObj;
-    internalClip_.description = description.trimmed().isEmpty()
-                                    ? QStringLiteral("%1 item(s)").arg(itemsJson.size())
-                                    : description.trimmed();
+
+    const QString trimmedDescription = description.trimmed();
+    if (!trimmedDescription.isEmpty()) {
+        internalClip_.description = trimmedDescription;
+    } else {
+        const QString title = bundleJson.value(QStringLiteral("bundleTitle")).toString().trimmed();
+        if (!title.isEmpty()) {
+            internalClip_.description = title;
+        } else {
+            const QJsonArray items = bundleJson.value(QStringLiteral("items")).toArray();
+            internalClip_.description = QStringLiteral("%1 item(s)").arg(items.size());
+        }
+    }
 
     syncToSystemClipboard();
 }
 
-bool ClipboardManager::hasProjectItemData() const {
-    return internalClip_.type == ClipboardType::ProjectItems;
+bool ClipboardManager::hasProjectBundleData() const {
+    return internalClip_.type == ClipboardType::ProjectBundle;
 }
 
-QJsonArray ClipboardManager::pasteProjectItems() const {
-    if (internalClip_.type != ClipboardType::ProjectItems) return {};
-    return internalClip_.data[QStringLiteral("items")].toArray();
+QJsonObject ClipboardManager::pasteProjectBundle() const {
+    if (internalClip_.type != ClipboardType::ProjectBundle &&
+        internalClip_.type != ClipboardType::ProjectItems) return {};
+    return internalClip_.data;
 }
 
 // --- Generic ---
@@ -387,6 +438,9 @@ void ClipboardManager::syncFromSystemClipboard() {
         }
         if (rawBytes.isEmpty() && mime->hasFormat(kProjectItemsMime)) {
             rawBytes = mime->data(kProjectItemsMime);
+        }
+        if (rawBytes.isEmpty() && mime->hasFormat(kProjectBundleMime)) {
+            rawBytes = mime->data(kProjectBundleMime);
         }
         if (rawBytes.isEmpty() && mime->hasText()) {
             rawBytes = mime->text().toUtf8();
