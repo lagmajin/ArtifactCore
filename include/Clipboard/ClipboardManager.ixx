@@ -83,6 +83,8 @@ public:
     bool hasProjectItemData() const;
     QJsonArray pasteProjectItems() const;
     void copyProjectBundle(const QJsonObject& bundleJson, const QString& description = QString());
+    void copyLayerBundle(const QJsonArray& layersJson, const QString& description = QString(),
+                         const QJsonObject& metadata = QJsonObject());
     bool hasProjectBundleData() const;
     QJsonObject pasteProjectBundle() const;
 
@@ -231,12 +233,28 @@ void ClipboardManager::copyLayers(const QJsonArray& layersJson, int count) {
 }
 
 bool ClipboardManager::hasLayerData() const {
-    return internalClip_.type == ClipboardType::Layer;
+    if (internalClip_.type == ClipboardType::Layer) {
+        return true;
+    }
+    if (internalClip_.type != ClipboardType::ProjectBundle) {
+        return false;
+    }
+    const QString bundleKind = internalClip_.data.value(QStringLiteral("bundleKind")).toString();
+    return bundleKind == QStringLiteral("layer");
 }
 
 QJsonArray ClipboardManager::pasteLayers() const {
-    if (internalClip_.type != ClipboardType::Layer) return {};
-    return cachedLayers_;
+    if (internalClip_.type == ClipboardType::Layer) {
+        return cachedLayers_;
+    }
+    if (internalClip_.type != ClipboardType::ProjectBundle) {
+        return {};
+    }
+    const QString bundleKind = internalClip_.data.value(QStringLiteral("bundleKind")).toString();
+    if (bundleKind != QStringLiteral("layer")) {
+        return {};
+    }
+    return internalClip_.data.value(QStringLiteral("layers")).toArray();
 }
 
 // --- Effect ---
@@ -339,13 +357,25 @@ void ClipboardManager::copyProjectItems(const QJsonArray& itemsJson, const QStri
 }
 
 bool ClipboardManager::hasProjectItemData() const {
-    return internalClip_.type == ClipboardType::ProjectItems ||
-           internalClip_.type == ClipboardType::ProjectBundle;
+    if (internalClip_.type == ClipboardType::ProjectItems) {
+        return true;
+    }
+    if (internalClip_.type != ClipboardType::ProjectBundle) {
+        return false;
+    }
+    const QString bundleKind = internalClip_.data.value(QStringLiteral("bundleKind")).toString();
+    return bundleKind == QStringLiteral("project-items") || bundleKind.isEmpty();
 }
 
 QJsonArray ClipboardManager::pasteProjectItems() const {
     if (internalClip_.type != ClipboardType::ProjectItems &&
         internalClip_.type != ClipboardType::ProjectBundle) return {};
+    if (internalClip_.type == ClipboardType::ProjectBundle) {
+        const QString bundleKind = internalClip_.data.value(QStringLiteral("bundleKind")).toString();
+        if (!bundleKind.isEmpty() && bundleKind != QStringLiteral("project-items")) {
+            return {};
+        }
+    }
     return internalClip_.data[QStringLiteral("items")].toArray();
 }
 
@@ -371,6 +401,17 @@ void ClipboardManager::copyProjectBundle(const QJsonObject& bundleJson, const QS
     }
 
     syncToSystemClipboard();
+}
+
+void ClipboardManager::copyLayerBundle(const QJsonArray& layersJson, const QString& description,
+                                       const QJsonObject& metadata) {
+    QJsonObject bundle = metadata;
+    bundle[QStringLiteral("bundleKind")] = QStringLiteral("layer");
+    bundle[QStringLiteral("bundleTitle")] = description.trimmed().isEmpty()
+                                                 ? QStringLiteral("%1 layer(s)").arg(layersJson.size())
+                                                 : description.trimmed();
+    bundle[QStringLiteral("layers")] = layersJson;
+    copyProjectBundle(bundle, bundle.value(QStringLiteral("bundleTitle")).toString());
 }
 
 bool ClipboardManager::hasProjectBundleData() const {
