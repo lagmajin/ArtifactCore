@@ -85,7 +85,7 @@ inline QVariant numericLikeVariant(const QVariant &templateValue, double value) 
   case QMetaType::ULongLong:
   case QMetaType::UShort:
   case QMetaType::UChar:
-    return QVariant(static_cast<qulonglong>(std::max(0.0, std::llround(value))));
+    return QVariant(static_cast<qulonglong>(std::max(0LL, std::llround(value))));
   case QMetaType::Bool:
     return QVariant(value >= 0.5);
   case QMetaType::Float:

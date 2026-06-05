@@ -234,7 +234,7 @@ void ParametricCompositionDefinition::setDisplayName(const QString& name)
     displayName_ = name;
 }
 
-const QVector<ParametricCompositionSlot>& ParametricCompositionDefinition::slots() const
+const QVector<ParametricCompositionSlot>& ParametricCompositionDefinition::slotDefinitions() const
 {
     return slots_;
 }

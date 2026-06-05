@@ -155,7 +155,7 @@ public:
     const QString& displayName() const;
     void setDisplayName(const QString& name);
 
-    const QVector<ParametricCompositionSlot>& slots() const;
+    const QVector<ParametricCompositionSlot>& slotDefinitions() const;
     const QVector<ParametricCompositionSlot>& inputSlots() const;
     const QVector<ParametricCompositionParameter>& parameters() const;
 
