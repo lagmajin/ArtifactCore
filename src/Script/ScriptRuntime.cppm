@@ -226,6 +226,9 @@ public:
         vars["has_project"] = ExpressionValue(hostSnapshot_.hasProject ? 1.0 : 0.0);
         vars["has_composition"] = ExpressionValue(hostSnapshot_.hasComposition ? 1.0 : 0.0);
         vars["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
+        vars["time"] = ExpressionValue(0.0);
+        vars["frame"] = ExpressionValue(0.0);
+        vars["duration"] = ExpressionValue(0.0);
         std::vector<ExpressionValue> selectionValues;
         selectionValues.reserve(hostSnapshot_.selection.size());
         std::vector<ExpressionValue> layerCatalog;
@@ -250,6 +253,9 @@ public:
         thisComp["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
         thisComp["layers"] = ExpressionValue(layerCatalog);
         thisComp["numLayers"] = ExpressionValue(static_cast<double>(layerCatalog.size()));
+        thisComp["width"] = ExpressionValue(1920.0);
+        thisComp["height"] = ExpressionValue(1080.0);
+        thisComp["duration"] = ExpressionValue(0.0);
         vars["thisComp"] = ExpressionValue(thisComp);
 
         std::map<std::string, ExpressionValue> thisLayer;
@@ -262,6 +268,7 @@ public:
         }
         thisLayer["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
         thisLayer["comp"] = ExpressionValue(thisComp);
+        thisLayer["time"] = ExpressionValue(0.0);
         vars["thisLayer"] = ExpressionValue(thisLayer);
         vars["index"] = thisLayer["index"];
 

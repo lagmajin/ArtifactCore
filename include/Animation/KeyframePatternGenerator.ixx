@@ -11,6 +11,7 @@ module;
 export module Animation.KeyframePatternGenerator;
 
 import Property.Abstract;
+import Math.Interpolate;
 import Time.Rational;
 
 export namespace ArtifactCore {

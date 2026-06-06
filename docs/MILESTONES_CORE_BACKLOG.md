@@ -172,6 +172,14 @@
 - source metadata / capability / relink 基盤
 - layer 種別より source 中心へ寄せる準備
 
+### C-LYR-6 Vector Source / Illustrator Import Contract
+- vector source descriptor
+- parsed import node tree
+- preview-only / editable-partial / editable-success の import result
+- unsupported feature report
+- `.ai` / `.pdf` / `.eps` / `SVG` を app 側へ同じ contract で渡す基盤
+- 詳細は `../docs/planned/MILESTONE_ILLUSTRATOR_FILE_IMPORT_2026-04-18.md`
+
 ## Render / Playback
 
 ### C-RND-1 Software Render Bridge

@@ -40,6 +40,7 @@ import Audio.Segment;
 import Audio.DownMixer;
 import Audio.Effect;
 import Audio.Effect.Compressor;
+import Memory.TrackedPtr;
 
 
 namespace ArtifactCore {

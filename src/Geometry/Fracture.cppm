@@ -18,6 +18,8 @@ import std;
 
 module Geometry.Fracture;
 
+import Memory.TrackedPtr;
+
 namespace ArtifactCore {
 
 namespace {

@@ -11,6 +11,7 @@
 module Codec.MFFrameExtractor;
 
 import std;
+import Memory.TrackedPtr;
 
 
 
@@ -377,7 +378,7 @@ namespace ArtifactCore {
 
  // MFFrameExtractor 
  
- MFFrameExtractor::MFFrameExtractor() : impl_(std::make_unique<Impl>()) {}
+MFFrameExtractor::MFFrameExtractor() : impl_(std::make_unique<Impl>()) {}
 
  MFFrameExtractor::~MFFrameExtractor() = default;
 

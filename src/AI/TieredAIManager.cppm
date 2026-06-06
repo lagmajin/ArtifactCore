@@ -2,12 +2,13 @@ module;
 #include <QString>
 #include <QDebug>
 
-module Core.AI.TieredManager;
+module Core.AI.TieredAIManager;
 
 import std;
 import Core.AI.Context;
 import Core.AI.LocalAgent;
 import Core.AI.CloudAgent;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 

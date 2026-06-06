@@ -7,6 +7,7 @@ module Audio.Backend.ASIOStub;
 import std;
 import Audio.Backend;
 import Audio.Backend.WASAPI;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 

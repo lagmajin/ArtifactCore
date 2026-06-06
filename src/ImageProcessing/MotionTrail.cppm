@@ -7,6 +7,7 @@ module ImageProcessing:MotionTrail;
 
 import Particle;
 import Image.ImageF32x4_RGBA;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 

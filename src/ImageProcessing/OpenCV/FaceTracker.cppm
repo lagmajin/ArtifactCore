@@ -14,6 +14,7 @@ class tst_QList;
 module ArtifactCore.ImageProcessing.FaceTracker;
 
 import ArtifactCore.ImageProcessing.FaceDetection;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 

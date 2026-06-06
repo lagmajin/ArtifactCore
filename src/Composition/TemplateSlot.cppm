@@ -7,7 +7,6 @@ module;
 
 module Composition.TemplateSlot;
 
-import Composition.TemplateSlot;
 import Utils.Id;
 
 namespace ArtifactCore {

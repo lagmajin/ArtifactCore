@@ -136,6 +136,27 @@ struct ParametricCompositionEvaluation {
     bool inputResolved = false;
 };
 
+struct ParametricCompositionBundle {
+    QString bundleKind = QStringLiteral("parametric-composition");
+    QString bundleTitle;
+    QJsonObject definition;
+    QJsonObject instance;
+    QJsonObject metadata;
+
+    QJsonObject toJson() const;
+    static ParametricCompositionBundle fromJson(const QJsonObject& obj);
+};
+
+QJsonObject parametricCompositionBundleToCompositionJson(const ParametricCompositionBundle& bundle);
+
+class ParametricCompositionDefinition;
+
+ParametricCompositionDefinition makeDefaultParametricCompositionDefinition(
+    QString definitionId,
+    QString displayName = QString(),
+    QString inputSlotId = QStringLiteral("input"),
+    QString outputSlotId = QStringLiteral("output"));
+
 struct ParametricCompositionInputResolver {
     using Resolver = std::function<std::optional<ImageF32x4_RGBA>(
         const ParametricCompositionInputBinding& binding,
@@ -157,6 +178,7 @@ public:
 
     const QVector<ParametricCompositionSlot>& slotDefinitions() const;
     const QVector<ParametricCompositionSlot>& inputSlots() const;
+    QVector<ParametricCompositionSlot> outputSlots() const;
     const QVector<ParametricCompositionParameter>& parameters() const;
 
     bool addSlot(const ParametricCompositionSlot& slot);

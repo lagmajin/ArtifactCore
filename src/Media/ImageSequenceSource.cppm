@@ -13,6 +13,8 @@ class tst_QList;
 
 module Media.ImageSequenceSource;
 
+import Memory.TrackedPtr;
+
 namespace ArtifactCore {
 
 struct ImageSequenceSource::FrameEntry {

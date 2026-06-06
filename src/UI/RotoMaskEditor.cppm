@@ -9,6 +9,7 @@
 #include <QPen>
 #include <QBrush>
 #include <QCursor>
+#include <QElapsedTimer>
 #include <QColor>
 #include <vector>
 #include <cmath>
@@ -57,6 +58,21 @@ namespace {
 constexpr qreal kVertexHandleHalfSize = 5.0;
 constexpr qreal kTangentHandleRadius = 4.0;
 
+QString rotoEditModeLabel(RotoEditMode mode)
+{
+    switch (mode) {
+    case RotoEditMode::Select:
+        return QStringLiteral("Select");
+    case RotoEditMode::Draw:
+        return QStringLiteral("Draw");
+    case RotoEditMode::Edit:
+        return QStringLiteral("Edit");
+    case RotoEditMode::Delete:
+        return QStringLiteral("Delete");
+    }
+    return QStringLiteral("Draw");
+}
+
 QRectF centeredSquare(const QPointF& center, qreal halfSize)
 {
     return QRectF(center.x() - halfSize, center.y() - halfSize,
@@ -94,6 +110,10 @@ public:
     // 描画中の新しい頂点位置
     bool isDrawing = false;
     QPointF lastDrawPos;
+
+    // AE-style shortcut grammar state
+    QElapsedTimer shortcutTimer;
+    int lastShortcutKey = 0;
     
     // アンドゥ用履歴（簡易実装）
     std::vector<RotoMask> undoStack;
@@ -135,6 +155,7 @@ RotoMaskEditor::RotoMaskEditor(QWidget* parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setCursor(Qt::CrossCursor);
+    impl_->shortcutTimer.start();
 }
 
 RotoMaskEditor::~RotoMaskEditor() {
@@ -172,6 +193,8 @@ double RotoMaskEditor::currentTime() const {
 void RotoMaskEditor::setEditMode(RotoEditMode mode) {
     impl_->editMode = mode;
     setCursor(mode == RotoEditMode::Draw ? Qt::CrossCursor : Qt::ArrowCursor);
+    setProperty("artifactRotoEditMode", rotoEditModeLabel(mode));
+    setProperty("artifactRotoEditModeText", rotoEditModeLabel(mode));
     Q_EMIT editModeChanged(mode);
     update();
 }
@@ -609,6 +632,14 @@ void RotoMaskEditor::mouseDoubleClickEvent(QMouseEvent* event) {
 }
 
 void RotoMaskEditor::keyPressEvent(QKeyEvent* event) {
+    if (!event) {
+        return;
+    }
+
+    const bool altPressed = (event->modifiers() & Qt::AltModifier) != 0;
+    const bool ctrlPressed = (event->modifiers() & Qt::ControlModifier) != 0;
+    const bool shiftPressed = (event->modifiers() & Qt::ShiftModifier) != 0;
+
     switch (event->key()) {
         case Qt::Key_Delete:
         case Qt::Key_Backspace:
@@ -620,8 +651,8 @@ void RotoMaskEditor::keyPressEvent(QKeyEvent* event) {
             break;
             
         case Qt::Key_Z:
-            if (event->modifiers() & Qt::ControlModifier) {
-                if (event->modifiers() & Qt::ShiftModifier) {
+            if (ctrlPressed) {
+                if (shiftPressed) {
                     redo();
                 } else {
                     undo();
@@ -629,20 +660,59 @@ void RotoMaskEditor::keyPressEvent(QKeyEvent* event) {
             }
             break;
             
-        case Qt::Key_V:
-            setEditMode(RotoEditMode::Select);
-            break;
-            
         case Qt::Key_P:
             setEditMode(RotoEditMode::Draw);
             break;
             
         case Qt::Key_A:
-            if (event->modifiers() & Qt::ControlModifier) {
+            if (ctrlPressed) {
                 // 全選択
                 if (impl_->mask) {
                     // 実装簡略化
                 }
+            }
+            break;
+
+        case Qt::Key_M: {
+            const qint64 elapsed = impl_->shortcutTimer.elapsed();
+            const bool doubleM = impl_->lastShortcutKey == Qt::Key_M && elapsed >= 0 && elapsed <= 400;
+            impl_->shortcutTimer.restart();
+            impl_->lastShortcutKey = Qt::Key_M;
+
+            if (doubleM) {
+                setProperty("artifactMaskFocus", QStringLiteral("Mask Expansion"));
+                setProperty("artifactMaskShortcut", QStringLiteral("MM"));
+            } else {
+                setProperty("artifactMaskFocus", QStringLiteral("Mask List"));
+                setProperty("artifactMaskShortcut", QStringLiteral("M"));
+            }
+            update();
+            break;
+        }
+
+        case Qt::Key_F:
+            if (!ctrlPressed) {
+                setProperty("artifactMaskFocus", QStringLiteral("Mask Feather"));
+                setProperty("artifactMaskShortcut", QStringLiteral("F"));
+                update();
+            }
+            break;
+
+        case Qt::Key_T:
+            if (!ctrlPressed) {
+                setProperty("artifactMaskFocus", QStringLiteral("Mask Opacity"));
+                setProperty("artifactMaskShortcut", QStringLiteral("T"));
+                update();
+            }
+            break;
+
+        case Qt::Key_V:
+            if (altPressed) {
+                setProperty("artifactMaskFocus", QStringLiteral("Vertex Tangents"));
+                setProperty("artifactMaskShortcut", QStringLiteral("Alt+V"));
+                update();
+            } else {
+                setEditMode(RotoEditMode::Select);
             }
             break;
     }

@@ -44,6 +44,7 @@ module Render.Queue.Manager;
 
 import Render.Settings;
 import Render.JobModel;
+import Memory.TrackedPtr;
 import Utils.Id;
 import Core.ThreadPool;
 

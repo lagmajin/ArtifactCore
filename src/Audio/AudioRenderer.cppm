@@ -24,6 +24,7 @@ import Audio.Backend.ASIOStub;
 import Audio.Backend.Qt;
 import Audio.Segment;
 import Audio.RingBuffer;
+import Memory.TrackedPtr;
 import ArtifactCore.Utils.PerformanceProfiler;
 
 namespace ArtifactCore {
@@ -79,8 +80,7 @@ struct AudioRenderer::Impl {
   std::atomic<float> masterVolumeLinear{1.0f};
 
   Impl() {
-    ringBuffer =
-        std::make_unique<AudioRingBuffer>(48000 * 8); // 8-second stereo buffer
+    ringBuffer = std::make_unique<AudioRingBuffer>(48000 * 8); // 8-second stereo buffer
     backend = createBackend(AudioBackendType::Auto);
   }
 
@@ -96,22 +96,22 @@ struct AudioRenderer::Impl {
 #ifdef _WIN32
     switch (type) {
     case AudioBackendType::WASAPI:
-      return std::make_unique<WASAPIBackend>();
+      return std::unique_ptr<AudioBackend>(new WASAPIBackend());
     case AudioBackendType::ASIO:
-      return std::make_unique<ASIOBackendStub>();
+      return std::unique_ptr<AudioBackend>(new ASIOBackendStub());
     case AudioBackendType::Qt:
-      return std::make_unique<QtAudioBackend>();
+      return std::unique_ptr<AudioBackend>(new QtAudioBackend());
     case AudioBackendType::Auto:
     default:
-      return std::make_unique<WASAPIBackend>();
+      return std::unique_ptr<AudioBackend>(new WASAPIBackend());
     }
 #else
     switch (type) {
     case AudioBackendType::Qt:
-      return std::make_unique<QtAudioBackend>();
+      return std::unique_ptr<AudioBackend>(new QtAudioBackend());
     case AudioBackendType::Auto:
     default:
-      return std::make_unique<QtAudioBackend>();
+      return std::unique_ptr<AudioBackend>(new QtAudioBackend());
     }
 #endif
   }
@@ -278,7 +278,7 @@ bool AudioRenderer::openDevice(const QString &deviceName) {
   bool opened = impl_->backend->open(deviceInfo, backendFormat);
 #ifdef _WIN32
   if (!opened) {
-    impl_->backend = std::make_unique<QtAudioBackend>();
+    impl_->backend = std::unique_ptr<AudioBackend>(new QtAudioBackend());
     opened = impl_->backend->open(deviceInfo, backendFormat);
   }
 #endif

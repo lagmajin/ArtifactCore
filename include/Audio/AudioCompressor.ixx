@@ -31,7 +31,7 @@ public:
     void setRelease(float ms) { releaseMs_ = ms; }
     void setSideChain(bool enable) { sideChainEnabled_ = enable; }
     
-    float getGainReduction() const { return currentGainReduction_.load(std::memory_order_acquire); }
+    float getGainReduction() const;
 
 private:
     float thresholdDb_ = -20.0f;

@@ -9,6 +9,7 @@ export module Physics.System;
 
 import Physics.Fluid;
 import Physics.SoftBody;
+import Memory.TrackedPtr;
 import Utils.Id;
 
 namespace ArtifactCore {

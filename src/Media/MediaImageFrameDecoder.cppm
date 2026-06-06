@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <variant>
+extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
@@ -15,6 +16,7 @@
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vulkan.h>
 #include <libavutil/pixdesc.h>
+}
 
 
 module MediaImageFrameDecoder;

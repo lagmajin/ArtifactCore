@@ -6,10 +6,9 @@ module;
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QCryptographicHash>
 
 module Composition.ParametricComposition;
-
-import Composition.ParametricComposition;
 
 namespace ArtifactCore {
 
@@ -208,6 +207,80 @@ QString ParametricCompositionCacheKey::toString() const
         .arg(timeKey);
 }
 
+QJsonObject ParametricCompositionBundle::toJson() const
+{
+    QJsonObject obj = metadata;
+    obj.insert(QStringLiteral("bundleKind"), bundleKind);
+    obj.insert(QStringLiteral("bundleTitle"), bundleTitle);
+    obj.insert(QStringLiteral("definition"), definition);
+    obj.insert(QStringLiteral("instance"), instance);
+    return obj;
+}
+
+ParametricCompositionBundle ParametricCompositionBundle::fromJson(const QJsonObject& obj)
+{
+    ParametricCompositionBundle bundle;
+    bundle.bundleKind = obj.value(QStringLiteral("bundleKind")).toString(QStringLiteral("parametric-composition"));
+    bundle.bundleTitle = obj.value(QStringLiteral("bundleTitle")).toString();
+    bundle.definition = obj.value(QStringLiteral("definition")).toObject();
+    bundle.instance = obj.value(QStringLiteral("instance")).toObject();
+    bundle.metadata = obj;
+    bundle.metadata.remove(QStringLiteral("bundleKind"));
+    bundle.metadata.remove(QStringLiteral("bundleTitle"));
+    bundle.metadata.remove(QStringLiteral("definition"));
+    bundle.metadata.remove(QStringLiteral("instance"));
+    return bundle;
+}
+
+QJsonObject parametricCompositionBundleToCompositionJson(const ParametricCompositionBundle& bundle)
+{
+    QJsonObject compositionJson = bundle.definition;
+    if (compositionJson.isEmpty()) {
+        compositionJson = bundle.instance;
+    }
+    if (compositionJson.isEmpty()) {
+        return {};
+    }
+    if (!bundle.bundleTitle.isEmpty()) {
+        compositionJson.insert(QStringLiteral("displayName"), bundle.bundleTitle);
+    }
+    compositionJson.insert(QStringLiteral("bundleKind"), bundle.bundleKind);
+    compositionJson.insert(QStringLiteral("bundleMetadata"), bundle.metadata);
+    if (!bundle.instance.isEmpty()) {
+        compositionJson.insert(QStringLiteral("instance"), bundle.instance);
+    }
+    return compositionJson;
+}
+
+ParametricCompositionDefinition makeDefaultParametricCompositionDefinition(
+    QString definitionId,
+    QString displayName,
+    QString inputSlotId,
+    QString outputSlotId)
+{
+    ParametricCompositionDefinition definition(std::move(definitionId), std::move(displayName));
+
+    ParametricCompositionSlot inputSlot;
+    inputSlot.slotId = std::move(inputSlotId);
+    inputSlot.displayName = QStringLiteral("Input");
+    inputSlot.role = ParametricCompositionSlotRole::Input;
+    inputSlot.kind = ParametricCompositionSlotKind::RGBA;
+    inputSlot.valueType = QStringLiteral("RGBA");
+    inputSlot.required = true;
+    definition.addSlot(inputSlot);
+
+    ParametricCompositionSlot outputSlot;
+    outputSlot.slotId = std::move(outputSlotId);
+    outputSlot.displayName = QStringLiteral("Output");
+    outputSlot.role = ParametricCompositionSlotRole::Output;
+    outputSlot.kind = ParametricCompositionSlotKind::RGBA;
+    outputSlot.valueType = QStringLiteral("RGBA");
+    outputSlot.required = true;
+    definition.addSlot(outputSlot);
+
+    return definition;
+}
+
 ParametricCompositionDefinition::ParametricCompositionDefinition(QString definitionId, QString displayName)
     : definitionId_(std::move(definitionId))
     , displayName_(std::move(displayName))
@@ -242,6 +315,11 @@ const QVector<ParametricCompositionSlot>& ParametricCompositionDefinition::slotD
 const QVector<ParametricCompositionSlot>& ParametricCompositionDefinition::inputSlots() const
 {
     return slots_;
+}
+
+QVector<ParametricCompositionSlot> ParametricCompositionDefinition::outputSlots() const
+{
+    return slotsByRole(ParametricCompositionSlotRole::Output);
 }
 
 const QVector<ParametricCompositionParameter>& ParametricCompositionDefinition::parameters() const
@@ -334,17 +412,38 @@ bool ParametricCompositionDefinition::validate(QString* errorMessage) const
         return false;
     }
     const auto inputOnlySlots = slotsByRole(ParametricCompositionSlotRole::Input);
-    if (inputOnlySlots.size() > 1) {
+    const auto outputOnlySlots = slotsByRole(ParametricCompositionSlotRole::Output);
+    if (inputOnlySlots.size() != 1) {
         if (errorMessage) {
-            *errorMessage = QStringLiteral("ParametricComposition supports at most one input slot.");
+            *errorMessage = QStringLiteral("ParametricComposition requires exactly one input slot.");
         }
         return false;
     }
-    if (!inputOnlySlots.isEmpty() && inputOnlySlots.front().slotId.isEmpty()) {
+    if (outputOnlySlots.size() != 1) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("ParametricComposition requires exactly one output slot.");
+        }
+        return false;
+    }
+    if (inputOnlySlots.front().slotId.isEmpty()) {
         if (errorMessage) {
             *errorMessage = QStringLiteral("ParametricComposition input slotId cannot be empty.");
         }
         return false;
+    }
+    if (outputOnlySlots.front().slotId.isEmpty()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("ParametricComposition output slotId cannot be empty.");
+        }
+        return false;
+    }
+    for (const auto& slot : slots_) {
+        if (slot.valueType.compare(QStringLiteral("RGBA"), Qt::CaseInsensitive) != 0) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("ParametricComposition only supports RGBA slot values.");
+            }
+            return false;
+        }
     }
     QMap<QString, bool> seenParameters;
     for (const auto& parameterItem : parameters_) {
@@ -371,12 +470,12 @@ QJsonObject ParametricCompositionDefinition::toJson() const
     obj.insert(QStringLiteral("definitionId"), definitionId_);
     obj.insert(QStringLiteral("displayName"), displayName_);
 
-    QJsonArray slots;
+    QJsonArray slotArray;
     for (const auto& slot : slots_) {
-        slots.append(slot.toJson());
+        slotArray.append(slot.toJson());
     }
-    obj.insert(QStringLiteral("inputSlots"), slots);
-    obj.insert(QStringLiteral("slots"), slots);
+    obj.insert(QStringLiteral("inputSlots"), slotArray);
+    obj.insert(QStringLiteral("slots"), slotArray);
 
     QJsonArray params;
     for (const auto& parameter : parameters_) {
@@ -626,7 +725,9 @@ ParametricCompositionEvaluation ParametricCompositionInstance::evaluate(
 
     evaluation.inputResolved = resolved;
     evaluation.cacheKey.definitionId = definition_ ? definition_->definitionId() : QString();
-    evaluation.cacheKey.inputFrameHash = resolved ? hashImage(resolvedImage) : QByteArrayLiteral("transparent-rgba");
+    evaluation.cacheKey.inputFrameHash =
+        resolved ? hashImage(resolvedImage)
+                 : QByteArrayLiteral("transparent-rgba");
     evaluation.cacheKey.parameterHash = parameterHash();
     evaluation.cacheKey.timeKey = context.timeKey();
     return evaluation;

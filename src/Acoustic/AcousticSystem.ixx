@@ -15,6 +15,7 @@ import Artifact.Acoustic.RainModel;
 import Artifact.Acoustic.WindModel;
 import Artifact.Acoustic.FrictionModel;
 import Artifact.Acoustic.Spatial;
+import Memory.TrackedPtr;
 
 export namespace Artifact::Acoustic {
 

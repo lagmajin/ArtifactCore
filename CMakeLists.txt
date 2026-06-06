@@ -101,11 +101,18 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/TrimPaths.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/Repeater.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeGroup.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/UniquePtr.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/TrackedPtr.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeGroup.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeLayer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateSlot.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/ParametricComposition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/SharedPtr.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/ArtifactArray.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactAtomic.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactHashMap.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactOptional.cppm"
 )
     list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
     if(_artifact_force_module_index EQUAL -1)

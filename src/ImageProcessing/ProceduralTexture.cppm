@@ -26,6 +26,7 @@ module ImageProcessing.ProceduralTexture;
 
 import Graphics.Compute;
 import Graphics.Shader.Compute.HLSL.ProceduralTexture;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore
 {

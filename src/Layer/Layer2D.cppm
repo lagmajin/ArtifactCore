@@ -8,6 +8,7 @@ module Layer2D;
 import Image;
 import Layer.Blend;
 import Layer.Matte;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 

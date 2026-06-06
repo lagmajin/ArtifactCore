@@ -16,6 +16,7 @@ class tst_QList;
 export module Audio.Backend.Qt;
 
 import Audio.Backend;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 

@@ -49,11 +49,6 @@ export namespace ArtifactCore {
 
  template <typename Ptr, typename Id, typename TypeKey = std::type_index>
  class MultiIndexContainer {
-  // Ptr は必ず std::shared_ptr<T> であることをコンパイル時にチェック
-  static_assert(
-   std::is_same<Ptr, std::shared_ptr<typename Ptr::element_type>>::value,
-   "Ptr must be a std::shared_ptr");
-
  private:
   QVector<Ptr> list_;               // 線形アクセス
   QHash<Id, Ptr> byId_;             // IDアクセス

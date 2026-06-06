@@ -11,6 +11,7 @@ module Audio.Mixer;
 
 import Audio.Bus;
 import Audio.Segment;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 

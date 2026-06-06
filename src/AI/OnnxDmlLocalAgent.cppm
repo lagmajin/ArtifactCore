@@ -24,6 +24,7 @@ module Core.AI.OnnxDmlAgent;
 
 import std;
 import Core.AI.Context;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 

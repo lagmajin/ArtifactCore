@@ -124,6 +124,8 @@ public:
                 kfObj[QStringLiteral("cp2_x")] = kf.cp2_x;
                 kfObj[QStringLiteral("cp2_y")] = kf.cp2_y;
                 kfObj[QStringLiteral("roving")] = kf.roving;
+                kfObj[QStringLiteral("anchor")] = static_cast<int>(kf.anchor);
+                kfObj[QStringLiteral("colorLabel")] = static_cast<int>(kf.colorLabel);
                 switch (property->getType()) {
                 case PropertyType::Float:
                 case PropertyType::Integer:
@@ -204,8 +206,14 @@ public:
                 float cp2_x = kfObj.value(QStringLiteral("cp2_x")).toDouble(0.58);
                 float cp2_y = kfObj.value(QStringLiteral("cp2_y")).toDouble(1.0);
                 const bool roving = kfObj.value(QStringLiteral("roving")).toBool(false);
+                const auto anchor = static_cast<KeyFrame::Anchor>(
+                    kfObj.value(QStringLiteral("anchor")).toInt(static_cast<int>(KeyFrame::Anchor::Absolute)));
+                const auto colorLabel = static_cast<KeyFrame::ColorLabel>(
+                    kfObj.value(QStringLiteral("colorLabel")).toInt(static_cast<int>(KeyFrame::ColorLabel::None)));
                 const QJsonValue val = kfObj.value(QStringLiteral("value"));
                 property->addKeyFrame(time, val.toVariant(), interpolation, cp1_x, cp1_y, cp2_x, cp2_y, roving);
+                property->setKeyFrameAnchorAt(time, anchor);
+                property->setKeyFrameColorLabelAt(time, colorLabel);
             }
         }
     }

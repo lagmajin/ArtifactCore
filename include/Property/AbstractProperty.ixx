@@ -59,12 +59,31 @@ enum class PropertyType {
 };
 
 struct KeyFrame {
+    enum class Anchor {
+        Absolute = 0,
+        LockToIn = 1,
+        LockToOut = 2,
+        StretchWithLayer = 3
+    };
+
+    enum class ColorLabel {
+        None = 0,
+        Red = 1,
+        Blue = 2,
+        Yellow = 3,
+        Green = 4,
+        Purple = 5,
+        Gray = 6
+    };
+
     RationalTime time;
     QVariant value;
     InterpolationType interpolation = InterpolationType::Linear;
     float cp1_x = 0.42f, cp1_y = 0.0f;
     float cp2_x = 0.58f, cp2_y = 1.0f;
     bool roving = false;
+    Anchor anchor = Anchor::Absolute;
+    ColorLabel colorLabel = ColorLabel::None;
 };
 
 struct PropertyMetadata {
@@ -147,6 +166,14 @@ public:
                      float cp1_x, float cp1_y, float cp2_x, float cp2_y);
     void addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation,
                      float cp1_x, float cp1_y, float cp2_x, float cp2_y, bool roving);
+    void setKeyFrameAnchorAt(const RationalTime& time, KeyFrame::Anchor anchor);
+    KeyFrame::Anchor getKeyFrameAnchorAt(const RationalTime& time) const;
+    void setKeyFrameColorLabelAt(const RationalTime& time, KeyFrame::ColorLabel label);
+    KeyFrame::ColorLabel getKeyFrameColorLabelAt(const RationalTime& time) const;
+    void retimeKeyFramesForLayerPointChange(const RationalTime& oldInPoint,
+                                            const RationalTime& oldOutPoint,
+                                            const RationalTime& newInPoint,
+                                            const RationalTime& newOutPoint);
     void removeKeyFrame(const RationalTime& time);
     void clearKeyFrames();
     std::vector<KeyFrame> getKeyFrames() const;

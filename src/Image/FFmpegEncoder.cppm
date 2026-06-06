@@ -25,7 +25,7 @@ namespace {
 QString ffmpegErrorString(int err)
 {
     char buffer[AV_ERROR_MAX_STRING_SIZE] = {};
-    av_strerror(err, buffer, sizeof(buffer));
+    av_make_error_string(buffer, AV_ERROR_MAX_STRING_SIZE, err);
     return QString::fromUtf8(buffer);
 }
 

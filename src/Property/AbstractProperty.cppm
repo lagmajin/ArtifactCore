@@ -349,11 +349,80 @@ void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& val
     kf.cp2_x = cp2_x;
     kf.cp2_y = cp2_y;
     kf.roving = roving;
+    kf.anchor = KeyFrame::Anchor::Absolute;
+    kf.colorLabel = KeyFrame::ColorLabel::None;
     pImpl->m_keyFrames.push_back(kf);
     std::sort(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
         [](const KeyFrame& a, const KeyFrame& b) {
             return a.time < b.time;
         });
+}
+
+void AbstractProperty::setKeyFrameAnchorAt(const RationalTime& time, KeyFrame::Anchor anchor) {
+    auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+        [&time](const KeyFrame& kf) { return kf.time == time; });
+    if (it != pImpl->m_keyFrames.end()) {
+        it->anchor = anchor;
+    }
+}
+
+KeyFrame::Anchor AbstractProperty::getKeyFrameAnchorAt(const RationalTime& time) const {
+    auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+        [&time](const KeyFrame& kf) { return kf.time == time; });
+    return it != pImpl->m_keyFrames.end() ? it->anchor : KeyFrame::Anchor::Absolute;
+}
+
+void AbstractProperty::setKeyFrameColorLabelAt(const RationalTime& time,
+                                               KeyFrame::ColorLabel label) {
+    auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+        [&time](const KeyFrame& kf) { return kf.time == time; });
+    if (it != pImpl->m_keyFrames.end()) {
+        it->colorLabel = label;
+    }
+}
+
+KeyFrame::ColorLabel AbstractProperty::getKeyFrameColorLabelAt(
+    const RationalTime& time) const {
+    auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+        [&time](const KeyFrame& kf) { return kf.time == time; });
+    return it != pImpl->m_keyFrames.end() ? it->colorLabel : KeyFrame::ColorLabel::None;
+}
+
+void AbstractProperty::retimeKeyFramesForLayerPointChange(const RationalTime& oldInPoint,
+                                                          const RationalTime& oldOutPoint,
+                                                          const RationalTime& newInPoint,
+                                                          const RationalTime& newOutPoint) {
+    const double oldIn = oldInPoint.toDouble();
+    const double oldOut = oldOutPoint.toDouble();
+    const double newIn = newInPoint.toDouble();
+    const double newOut = newOutPoint.toDouble();
+    const double oldSpan = oldOut - oldIn;
+    const double newSpan = newOut - newIn;
+
+    for (auto& kf : pImpl->m_keyFrames) {
+        const double t = kf.time.toDouble();
+        double newTime = t;
+        switch (kf.anchor) {
+        case KeyFrame::Anchor::Absolute:
+            break;
+        case KeyFrame::Anchor::LockToIn:
+            newTime = newIn + (t - oldIn);
+            break;
+        case KeyFrame::Anchor::LockToOut:
+            newTime = newOut + (t - oldOut);
+            break;
+        case KeyFrame::Anchor::StretchWithLayer:
+            if (std::abs(oldSpan) > 1e-12) {
+                const double normalized = (t - oldIn) / oldSpan;
+                newTime = newIn + normalized * newSpan;
+            }
+            break;
+        }
+        kf.time = RationalTime::fromSeconds(newTime);
+    }
+
+    std::sort(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+        [](const KeyFrame& a, const KeyFrame& b) { return a.time < b.time; });
 }
 
 void AbstractProperty::removeKeyFrame(const RationalTime& time) {

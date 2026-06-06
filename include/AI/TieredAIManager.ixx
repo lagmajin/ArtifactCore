@@ -4,7 +4,7 @@
 #include <functional>
 #include <QString>
 
-export module Core.AI.TieredManager;
+export module Core.AI.TieredAIManager;
 
 import Core.AI.Context;
 import Core.AI.LocalAgent;

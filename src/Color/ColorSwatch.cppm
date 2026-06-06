@@ -12,6 +12,7 @@
 module Color.Swatch;
 
 import Color.Float;
+import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 
