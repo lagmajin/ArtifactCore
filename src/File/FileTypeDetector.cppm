@@ -64,7 +64,7 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
     return FileType::Text;
   }
   // Document
-  if (suffix == "pdf" || suffix == "doc" || suffix == "docx" ||
+  if (suffix == "ai" || suffix == "pdf" || suffix == "doc" || suffix == "docx" ||
       suffix == "xls" || suffix == "xlsx" || suffix == "ppt" ||
       suffix == "pptx") {
     return FileType::Document;
@@ -146,6 +146,10 @@ FileTypeDetector::Impl::detectByMagicNumber(const QString &filePath) const {
   }
   // PDF
   if (header.startsWith("%PDF")) {
+    return FileType::Document;
+  }
+  // Adobe Illustrator AI files often carry a PDF header when saved as PDF-compatible AI.
+  if (header.startsWith("%!PS-Adobe") || header.startsWith("%!PS")) {
     return FileType::Document;
   }
   // GLB (Binary glTF)

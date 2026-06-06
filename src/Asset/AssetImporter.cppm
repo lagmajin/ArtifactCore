@@ -10,6 +10,7 @@ module Asset.Importer;
 import AssetType;
 import Asset.Database;
 import File.TypeDetector;
+import Asset.VectorImport;
 
 namespace ArtifactCore {
 
@@ -28,6 +29,7 @@ bool AssetImporter::isSupported(const QString& extension) {
     // Simple list of supported extensions
     static const QStringList supported = {
         "jpg", "jpeg", "png", "tga", "exr", "tif", "tiff", "psd", "psb",
+        "ai", "pdf", "eps", "svg",
         "mp4", "mov", "avi", "mkv",
         "wav", "mp3", "flac", "aac",
         "obj", "fbx", "abc", "glb", "gltf"
@@ -39,7 +41,12 @@ bool AssetImporter::isSupported(const QString& extension) {
 AssetType AssetImporter::detectType(const QString& filePath) {
     FileTypeDetector detector;
     FileType ft = detector.detect(filePath);
+    const VectorSourceKind vectorKind = vectorSourceKindForExtension(QFileInfo(filePath).suffix());
     
+    if (vectorKind != VectorSourceKind::Unknown || ft == FileType::Document) {
+        return AssetType::Data;
+    }
+
     switch (ft) {
         case FileType::Image: return AssetType::Image;
         case FileType::Video: return AssetType::Video;
