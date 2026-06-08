@@ -23,6 +23,9 @@ public:
   AudioBackendFormat currentFormat() const override;
   QString backendName() const override;
 
+  void setExclusive(bool enable);
+  bool isExclusive() const;
+
 private:
   class Impl;
   std::unique_ptr<Impl> impl_;

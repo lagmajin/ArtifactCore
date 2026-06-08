@@ -241,6 +241,8 @@ public:
 
     ufbx_load_opts opts = {};
     opts.generate_missing_normals = true;
+    opts.target_axes = ufbx_axes_right_handed_y_up;
+    opts.space_conversion = UFBX_SPACE_CONVERSION_MODIFY_GEOMETRY;
 
     ufbx_error error;
     ufbx_scene *scene =

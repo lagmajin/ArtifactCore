@@ -3,11 +3,13 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <QDebug>
 #include "../Define/DllExportMacro.hpp"
 
 export module Graphics.Effect.Creative.Factory;
 
 import Graphics.Effect.Creative;
+import Core.Diagnostics.FallbackPolicy;
 import Graphics.Effect.Creative.Emboss;
 import Graphics.Effect.Creative.Fisheye;
 import Graphics.Effect.Creative.Glitch;
@@ -53,8 +55,22 @@ inline std::shared_ptr<CreativeEffect> CreativeEffectFactory::create(const std::
     if (name == "Emboss") return std::make_shared<EmbossEffect>();
     if (name == "Solarize") return std::make_shared<SolarizeEffect>();
     if (name == "ChromaticAberration") return std::make_shared<ChromaticAberrationEffect>();
+
+    auto* tracker = FallbackTracker::instance();
+    auto policy = tracker->policy(FallbackCategory::Effect);
+    if (policy.action == FallbackAction::Bypass) {
+        tracker->record(FallbackCategory::Effect, FallbackAction::Bypass,
+                       QString::fromStdString(name), "[effect bypassed]",
+                       policy.warningMessage);
+        qWarning() << "[CreativeEffectFactory] unsupported effect, bypassing:" << QString::fromStdString(name);
+    } else {
+        tracker->record(FallbackCategory::Effect, FallbackAction::Fallback,
+                       QString::fromStdString(name), "[null]",
+                       "Unsupported effect, returning null");
+        qWarning() << "[CreativeEffectFactory] unsupported effect:" << QString::fromStdString(name);
+    }
     return nullptr;
-}
+ }
 
 inline std::vector<std::string> CreativeEffectFactory::getAvailableEffects() {
     return {

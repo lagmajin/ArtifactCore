@@ -6,6 +6,7 @@
 
 extern "C" {
 #include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
 #include <libavutil/error.h>
 }
 
@@ -195,6 +196,110 @@ void MediaSource::close() {
     url_.clear();
     lastError_.clear();
     qDebug() << "MediaSource::close: Resources released.";
+}
+
+// ---------------------------------------------------------------------------
+// Video codec probe — lightweight format-level check for editing suitability
+// ---------------------------------------------------------------------------
+
+static bool isEditingFriendlyCodec(AVCodecID id) {
+    switch (id) {
+    // Intra-frame / mezzanine codecs well suited for editing
+    case AV_CODEC_ID_PRORES:
+    case AV_CODEC_ID_DNXHD:
+    case AV_CODEC_ID_FFV1:
+    case AV_CODEC_ID_UTVIDEO:
+    case AV_CODEC_ID_MAGICYUV:
+    case AV_CODEC_ID_HUFFYUV:
+    case AV_CODEC_ID_FFVHUFF:
+    case AV_CODEC_ID_RAWVIDEO:
+    case AV_CODEC_ID_MJPEG:
+    case AV_CODEC_ID_MJPEGB:
+    case AV_CODEC_ID_BMP:
+    case AV_CODEC_ID_PNG:
+    case AV_CODEC_ID_TIFF:
+    case AV_CODEC_ID_DPX:
+    case AV_CODEC_ID_TARGA:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool isLongGopCodec(AVCodecID id) {
+    switch (id) {
+    // Long-GOP inter-frame codecs that hinder editing performance
+    case AV_CODEC_ID_H264:
+    case AV_CODEC_ID_HEVC:
+    case AV_CODEC_ID_VP9:
+    case AV_CODEC_ID_AV1:
+    case AV_CODEC_ID_MPEG4:
+    case AV_CODEC_ID_MPEG2VIDEO:
+    case AV_CODEC_ID_VC1:
+    case AV_CODEC_ID_WMV3:
+    case AV_CODEC_ID_VP8:
+    case AV_CODEC_ID_H263:
+        return true;
+    default:
+        return false;
+    }
+}
+
+VideoProbeResult probeVideoFile(const QString& filePath) {
+    VideoProbeResult result;
+
+    const std::string pathUtf8 = QString(filePath)
+        .replace(QLatin1Char('\\'), QLatin1Char('/'))
+        .toUtf8().toStdString();
+
+    AVFormatContext* fmtCtx = avformat_alloc_context();
+    if (!fmtCtx) {
+        result.probeError = QStringLiteral("Failed to allocate AVFormatContext");
+        return result;
+    }
+
+    int ret = avformat_open_input(&fmtCtx, pathUtf8.c_str(), nullptr, nullptr);
+    if (ret < 0) {
+        char errbuf[AV_ERROR_MAX_STRING_SIZE];
+        av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+        result.probeError = QStringLiteral("avformat_open_input failed: %1").arg(errbuf);
+        avformat_free_context(fmtCtx);
+        return result;
+    }
+
+    fmtCtx->probesize = 512000;
+    fmtCtx->max_analyze_duration = 1000000;
+
+    ret = avformat_find_stream_info(fmtCtx, nullptr);
+    if (ret < 0) {
+        result.probeError = QStringLiteral("avformat_find_stream_info failed");
+        avformat_close_input(&fmtCtx);
+        return result;
+    }
+
+    for (unsigned i = 0; i < fmtCtx->nb_streams; ++i) {
+        AVStream* st = fmtCtx->streams[i];
+        if (!st || !st->codecpar)
+            continue;
+        if (st->codecpar->codec_type != AVMEDIA_TYPE_VIDEO)
+            continue;
+
+        result.hasVideoStream = true;
+        result.codecName = QString::fromUtf8(avcodec_get_name(st->codecpar->codec_id));
+
+        if (isEditingFriendlyCodec(st->codecpar->codec_id)) {
+            result.isEditingFriendly = true;
+        } else if (isLongGopCodec(st->codecpar->codec_id)) {
+            result.isEditingFriendly = false;
+        } else {
+            // Unknown codec — assume editing-friendly to avoid false alarms
+            result.isEditingFriendly = true;
+        }
+        break;
+    }
+
+    avformat_close_input(&fmtCtx);
+    return result;
 }
 
 } // namespace ArtifactCore

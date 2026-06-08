@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <QFont>
 #include <QFontMetricsF>
 #include <QPointF>
@@ -516,6 +516,80 @@ TextLayoutEngine::layout(const UniString &text, const TextStyle &style,
     }
   }
 
+  return result;
+}
+
+std::vector<GlyphItem>
+TextLayoutEngine::layoutOnPath(const UniString &text,
+                                const TextStyle &style,
+                                const ParagraphStyle &paragraph,
+                                const std::vector<BezierSegment> &pathSegments) {
+  std::vector<GlyphItem> result;
+  if (text.length() == 0 || pathSegments.empty()) return result;
+  std::vector<double> segLengths(pathSegments.size());
+  double totalLen = 0.0;
+  for (size_t i = 0; i < pathSegments.size(); ++i) {
+    double len = 0.0;
+    QPointF prev = pathSegments[i].p0;
+    for (int s = 1; s <= 10; ++s) {
+      double t = s / 10.0;
+      QPointF pt = pathSegments[i].pointAt(t);
+      len += std::sqrt(QPointF::dotProduct(pt - prev, pt - prev));
+      prev = pt;
+    }
+    segLengths[i] = len;
+    totalLen += len;
+  }
+  if (totalLen < 1.0) return result;
+  double startOff = paragraph.pathBinding ? paragraph.pathBinding->startOffset : 0.0;
+  double endOff = (paragraph.pathBinding && paragraph.pathBinding->endOffset > 0.0) ? paragraph.pathBinding->endOffset : totalLen;
+  double available = std::max(0.0, endOff - startOff);
+  if (available < 1.0) return result;
+  const QString qText = text.toQString();
+  const QFont font = FontManager::makeFont(style, qText);
+  const QFontMetricsF metrics(font);
+  float totalTextWidth = 0.0f;
+  const std::u32string u32str = text.toStdU32String();
+  for (char32_t code : u32str) totalTextWidth += charWidth(code, style);
+  if (totalTextWidth < 1.0f) return result;
+  double scale = available / (double)totalTextWidth;
+  auto samplePathAt = [&](double len) -> std::pair<QPointF, double> {
+    if (len <= 0.0) return {pathSegments[0].p0, 0.0};
+    if (len >= totalLen) return {pathSegments.back().p1, 0.0};
+    double accum = 0.0;
+    for (size_t i = 0; i < pathSegments.size(); ++i) {
+      if (accum + segLengths[i] >= len) {
+        double localLen = len - accum;
+        double t = (segLengths[i] > 0.0) ? localLen / segLengths[i] : 0.0;
+        double clampedT = std::clamp(t, 0.0, 1.0);
+        double dt = 0.01;
+        QPointF pt = pathSegments[i].pointAt(clampedT);
+        QPointF pt1 = pathSegments[i].pointAt(std::min(clampedT+dt,1.0));
+        double angle = std::atan2(pt1.y()-pt.y(), pt1.x()-pt.x());
+        return {pt, angle};
+      }
+      accum += segLengths[i];
+    }
+    return {pathSegments.back().p1, 0.0};
+  };
+  bool alignToPath = !paragraph.pathBinding || paragraph.pathBinding->alignToPath;
+  double cursor = startOff;
+  for (size_t i = 0; i < u32str.size(); ++i) {
+    char32_t code = u32str[i];
+    float charW = charWidth(code, style);
+    double advance = (double)charW * scale;
+    double mid = cursor + advance * 0.5;
+    auto [pos, angle] = samplePathAt(mid);
+    GlyphItem item;
+    item.charCode = code;
+    item.index = (int)i;
+    item.basePosition = pos;
+    item.baseRotation = alignToPath ? (float)angle : 0.0f;
+    item.baseScale = (float)scale;
+    item.bounds = QRectF(pos.x(), pos.y(), (float)advance, (float)metrics.height());
+    result.push_back(item);
+    cursor += advance;
+  }
   return result;
 }
 

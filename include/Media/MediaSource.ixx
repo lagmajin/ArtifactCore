@@ -11,6 +11,15 @@ export module MediaSource;
 
 export namespace ArtifactCore {
 
+struct VideoProbeResult {
+    bool hasVideoStream = false;
+    QString codecName;
+    bool isEditingFriendly = false;
+    QString probeError;
+};
+
+VideoProbeResult probeVideoFile(const QString& filePath);
+
 class MediaSource {
 private:
     AVFormatContext* formatContext_ = nullptr;

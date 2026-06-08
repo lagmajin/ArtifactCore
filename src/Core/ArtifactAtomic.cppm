@@ -7,6 +7,7 @@ export module Core.ArtifactAtomic;
 
 namespace ArtifactCore {
 
+export
 template<typename T>
 class ArtifactAtomic {
 public:
@@ -19,54 +20,48 @@ public:
     ArtifactAtomic(const ArtifactAtomic&) = delete;
     ArtifactAtomic& operator=(const ArtifactAtomic&) = delete;
     
-    T load(int memoryOrder = std::memory_order_seq_cst) const noexcept {
-        return value_.load(static_cast<std::memory_order>(memoryOrder));
+    T load(std::memory_order mo = std::memory_order_seq_cst) const noexcept {
+        return value_.load(mo);
     }
     
-    void store(T newValue, int memoryOrder = std::memory_order_seq_cst) noexcept {
-        value_.store(newValue, static_cast<std::memory_order>(memoryOrder));
+    void store(T newValue, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+        value_.store(newValue, mo);
     }
     
-    T exchange(T newValue, int memoryOrder = std::memory_order_seq_cst) noexcept {
-        return value_.exchange(newValue, static_cast<std::memory_order>(memoryOrder));
+    T exchange(T newValue, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+        return value_.exchange(newValue, mo);
     }
     
     bool compare_exchange_strong(T& expected, T desired, 
-                                  int successOrder = std::memory_order_seq_cst,
-                                  int failureOrder = std::memory_order_seq_cst) noexcept {
-        return value_.compare_exchange_strong(
-            expected, desired,
-            static_cast<std::memory_order>(successOrder),
-            static_cast<std::memory_order>(failureOrder));
+                                  std::memory_order success = std::memory_order_seq_cst,
+                                  std::memory_order failure = std::memory_order_seq_cst) noexcept {
+        return value_.compare_exchange_strong(expected, desired, success, failure);
     }
     
     bool compare_exchange_weak(T& expected, T desired,
-                              int successOrder = std::memory_order_seq_cst,
-                              int failureOrder = std::memory_order_seq_cst) noexcept {
-        return value_.compare_exchange_weak(
-            expected, desired,
-            static_cast<std::memory_order>(successOrder),
-            static_cast<std::memory_order>(failureOrder));
+                              std::memory_order success = std::memory_order_seq_cst,
+                              std::memory_order failure = std::memory_order_seq_cst) noexcept {
+        return value_.compare_exchange_weak(expected, desired, success, failure);
     }
     
-    T fetch_add(T operand, int memoryOrder = std::memory_order_seq_cst) noexcept {
-        return value_.fetch_add(operand, static_cast<std::memory_order>(memoryOrder));
+    T fetch_add(T operand, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+        return value_.fetch_add(operand, mo);
     }
     
-    T fetch_sub(T operand, int memoryOrder = std::memory_order_seq_cst) noexcept {
-        return value_.fetch_sub(operand, static_cast<std::memory_order>(memoryOrder));
+    T fetch_sub(T operand, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+        return value_.fetch_sub(operand, mo);
     }
     
-    T fetch_and(T operand, int memoryOrder = std::memory_order_seq_cst) noexcept {
-        return value_.fetch_and(operand, static_cast<std::memory_order>(memoryOrder));
+    T fetch_and(T operand, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+        return value_.fetch_and(operand, mo);
     }
     
-    T fetch_or(T operand, int memoryOrder = std::memory_order_seq_cst) noexcept {
-        return value_.fetch_or(operand, static_cast<std::memory_order>(memoryOrder));
+    T fetch_or(T operand, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+        return value_.fetch_or(operand, mo);
     }
     
-    T fetch_xor(T operand, int memoryOrder = std::memory_order_seq_cst) noexcept {
-        return value_.fetch_xor(operand, static_cast<std::memory_order>(memoryOrder));
+    T fetch_xor(T operand, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+        return value_.fetch_xor(operand, mo);
     }
     
     void setContended(bool contended) noexcept { contended_ = contended; }

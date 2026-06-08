@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 
 #include <QFile>
@@ -14,6 +14,13 @@ import Image;
 
 export namespace ArtifactCore {
 
+    // HDR 色空間設定
+    enum class HDRColorSpace {
+        SDR_BT709,
+        HDR10_PQ,
+        HLG_BT2020,
+    };
+
     // FFmpeg エンコーダー設定
     struct FFmpegEncoderSettings {
         int width = 1920;
@@ -23,6 +30,14 @@ export namespace ArtifactCore {
         QString videoCodec = "h264";
         QString container = "mp4";
 
+        // HW エンコード
+        QString encoderName;
+        bool preferHardware = false;
+
+        // HDR
+        HDRColorSpace hdrColorSpace = HDRColorSpace::SDR_BT709;
+        double hdrNominalPeak = 1000.0;
+
         // コーデック固有オプション
         QString preset = "medium";      // ultrafast, fast, medium, slow, veryslow
         int crf = 23;                   // 品質（0-51, 低ほど高品質）
@@ -30,6 +45,7 @@ export namespace ArtifactCore {
         int maxBFrames = 0;             // B フレーム数
         QString profile = "high";       // コーデックプロファイル
         bool zerolatency = true;        // ゼロレイテンシモード
+        int swsQuality = 2;             // sws_scale 品質 (2=SWS_BILINEAR, 4=SWS_LANCZOS, 1=SWS_SPLINE etc)
     };
 
     // 連番画像出力設定

@@ -48,6 +48,39 @@ struct VectorImportIssue {
     QString message;
 };
 
+inline bool isVectorDocumentType(FileType type)
+{
+    switch (type) {
+    case FileType::Document:
+    case FileType::Image:
+        return true;
+    case FileType::Unknown:
+    case FileType::Video:
+    case FileType::Audio:
+    case FileType::Text:
+    case FileType::Binary:
+    case FileType::Archive:
+    case FileType::Model3D:
+    default:
+        return false;
+    }
+}
+
+inline VectorSourceKind vectorSourceKindForExtension(const QString& extension)
+{
+    const QString ext = extension.trimmed().toLower().startsWith('.')
+        ? extension.trimmed().toLower().mid(1)
+        : extension.trimmed().toLower();
+    if (ext == QStringLiteral("ai")) return VectorSourceKind::Illustrator;
+    if (ext == QStringLiteral("pdf")) return VectorSourceKind::Pdf;
+    if (ext == QStringLiteral("eps")) return VectorSourceKind::Eps;
+    if (ext == QStringLiteral("svg")) return VectorSourceKind::Svg;
+    if (ext == QStringLiteral("afdesign") || ext == QStringLiteral("afphoto") || ext == QStringLiteral("afpub")) {
+        return VectorSourceKind::AffinityExport;
+    }
+    return VectorSourceKind::Unknown;
+}
+
 struct VectorImportResult {
     QString sourcePath;
     QString displayName;
@@ -94,39 +127,6 @@ inline VectorImportResult makeVectorImportResult(const QString& sourcePath)
     }
 
     return result;
-}
-
-inline bool isVectorDocumentType(FileType type)
-{
-    switch (type) {
-    case FileType::Document:
-    case FileType::Image:
-        return true;
-    case FileType::Unknown:
-    case FileType::Video:
-    case FileType::Audio:
-    case FileType::Text:
-    case FileType::Binary:
-    case FileType::Archive:
-    case FileType::Model3D:
-    default:
-        return false;
-    }
-}
-
-inline VectorSourceKind vectorSourceKindForExtension(const QString& extension)
-{
-    const QString ext = extension.trimmed().toLower().startsWith('.')
-        ? extension.trimmed().toLower().mid(1)
-        : extension.trimmed().toLower();
-    if (ext == QStringLiteral("ai")) return VectorSourceKind::Illustrator;
-    if (ext == QStringLiteral("pdf")) return VectorSourceKind::Pdf;
-    if (ext == QStringLiteral("eps")) return VectorSourceKind::Eps;
-    if (ext == QStringLiteral("svg")) return VectorSourceKind::Svg;
-    if (ext == QStringLiteral("afdesign") || ext == QStringLiteral("afphoto") || ext == QStringLiteral("afpub")) {
-        return VectorSourceKind::AffinityExport;
-    }
-    return VectorSourceKind::Unknown;
 }
 
 } // namespace ArtifactCore

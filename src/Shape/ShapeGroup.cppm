@@ -10,6 +10,9 @@ module;
 module Shape.Group:Impl;
 
 import Shape.Group;
+import Shape.TrimPaths;
+import Shape.Repeater;
+import Shape.AeOperators;
 
 namespace ArtifactCore {
 
@@ -192,6 +195,49 @@ void ShapeGroup::addOperator(std::unique_ptr<ShapeOperator> op) {
     if (op) {
         operators_.push_back(std::move(op));
     }
+}
+
+ShapeOperator* ShapeGroup::addOperator(ShapeOperatorType type) {
+    std::unique_ptr<ShapeOperator> op;
+    switch (type) {
+    case ShapeOperatorType::TrimPaths:
+        op = std::make_unique<TrimPaths>();
+        break;
+    case ShapeOperatorType::Repeater:
+        op = std::make_unique<Repeater>();
+        break;
+    case ShapeOperatorType::MergePaths:
+        op = std::make_unique<MergePaths>();
+        break;
+    case ShapeOperatorType::OffsetPaths:
+        op = std::make_unique<OffsetPaths>();
+        break;
+    case ShapeOperatorType::PuckerBloat:
+        op = std::make_unique<PuckerBloat>();
+        break;
+    case ShapeOperatorType::RoundedCorners:
+        op = std::make_unique<RoundedCorners>();
+        break;
+    case ShapeOperatorType::WigglePaths:
+        op = std::make_unique<WigglePaths>();
+        break;
+    case ShapeOperatorType::ZigZag:
+        op = std::make_unique<ZigZag>();
+        break;
+    case ShapeOperatorType::Twist:
+        op = std::make_unique<Twist>();
+        break;
+    case ShapeOperatorType::HandDrawnWobble:
+        op = std::make_unique<HandDrawnWobble>();
+        break;
+    case ShapeOperatorType::None:
+    default:
+        return nullptr;
+    }
+
+    ShapeOperator* raw = op.get();
+    addOperator(std::move(op));
+    return raw;
 }
 
 ShapeOperator* ShapeGroup::operatorAt(int index) const {

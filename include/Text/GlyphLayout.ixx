@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -18,11 +18,10 @@ import Text.Style;
 import Font.FreeFont;
 import Utils.String.UniString;
 import FloatRGBA;
+import Shape.Types;
 
 namespace ArtifactCore {
 
-// 繝医Λ繝・け縺ｧ縺ｯ縺ｪ縺・け繧ｷ繧ｯ繧ｹ繝・け繧ｹ繝昴Ν繝・け繝・け繧ｹ繝√ｂ縺ｭ縺・
-// AE 繝励Ν繝ｪ繝医′縺ゅｋ縺ｧ縺ｯ縺ｪ縺上□縺代→縺ｪ縺・△縺・ｉ縺・
 export struct GlyphItem {
   char32_t charCode;
   int index;
@@ -54,6 +53,12 @@ public:
   static std::vector<GlyphItem> layout(const UniString &text,
                                        const TextStyle &style,
                                        const ParagraphStyle &paragraph);
+
+  // Path text: layout glyphs along a bezier path
+  static std::vector<GlyphItem> layoutOnPath(const UniString &text,
+                                              const TextStyle &style,
+                                              const ParagraphStyle &paragraph,
+                                              const std::vector<BezierSegment> &pathSegments);
 
 private:
   static float getCharWidth(char32_t code, const TextStyle &style);

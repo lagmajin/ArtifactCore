@@ -17,7 +17,7 @@ export namespace ArtifactCore {
  */
 enum class AudioBackendType {
     Auto,    // 自動検出
-    WASAPI,  // WASAPI 共有モード
+    WASAPI,  // WASAPI（setExclusiveMode で shared / exclusive 切替）
     ASIO,    // ASIO（スタブ）
     Qt       // Qt 標準
 };
@@ -74,6 +74,9 @@ struct AudioLevelData {
   int channelCount() const;
   QString backendName() const;
   AudioBackendType currentBackendType() const;
+
+  void setExclusiveMode(bool exclusive);
+  bool isExclusiveMode() const;
 
   /**
    * @brief Feed audio data to the renderer buffer

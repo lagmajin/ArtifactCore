@@ -8,11 +8,14 @@
 #include <QStringList>
 #include <QFont>
 #include <QFontDatabase>
+#include <QDebug>
+#include <QDateTime>
 
 export module Font.FreeFont;
 
 import Text.Style;
 import Font.Descriptor;
+import Core.Diagnostics.FallbackPolicy;
 
 export namespace ArtifactCore
 {
@@ -103,21 +106,44 @@ public:
    return preferred;
   }
 
+  auto* tracker = FallbackTracker::instance();
+  const auto policy = tracker->policy(FallbackCategory::Font);
+
+  if (!policy.enabled) {
+   if (!preferred.isEmpty()) {
+    qWarning() << "[FontManager] font missing and fallback disabled"
+               << "requested=" << preferred;
+   }
+   return preferred;
+  }
+
   const QString general = defaultSansSerifFamily();
   if (!general.isEmpty()) {
+   tracker->record({QDateTime::currentDateTime(), FallbackCategory::Font,
+                    FallbackAction::Fallback, preferred, general,
+                    policy.warningMessage, policy.logWarning});
    return general;
   }
 
   const QString japaneseFallback = firstAvailableFamily(japaneseFallbackCandidates());
   if (!japaneseFallback.isEmpty()) {
+   tracker->record({QDateTime::currentDateTime(), FallbackCategory::Font,
+                    FallbackAction::Fallback, preferred, japaneseFallback,
+                    policy.warningMessage, policy.logWarning});
    return japaneseFallback;
   }
 
   const QStringList families = availableFamilies();
   if (!families.isEmpty()) {
+   tracker->record({QDateTime::currentDateTime(), FallbackCategory::Font,
+                    FallbackAction::Fallback, preferred, families.front(),
+                    policy.warningMessage, policy.logWarning});
    return families.front();
   }
 
+  tracker->record({QDateTime::currentDateTime(), FallbackCategory::Font,
+                   FallbackAction::Fallback, preferred, "Arial",
+                   policy.warningMessage, policy.logWarning});
   return QStringLiteral("Arial");
  }
 
@@ -131,6 +157,10 @@ public:
   if (containsCjkCharacters(sampleText)) {
    const QString japaneseFallback = firstAvailableFamily(japaneseFallbackCandidates());
    if (!japaneseFallback.isEmpty()) {
+    auto* tracker = FallbackTracker::instance();
+    tracker->record({QDateTime::currentDateTime(), FallbackCategory::Font,
+                     FallbackAction::Fallback, preferred, japaneseFallback,
+                     "[FontManager] fallback family for CJK text", true});
     return japaneseFallback;
    }
   }

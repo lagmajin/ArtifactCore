@@ -207,15 +207,15 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
   DccStyleTheme theme{};
   switch (preset) {
   case DccStylePreset::MayaStyle:
-    theme.accentColor = "#88C0D0";
-    theme.textColor = "#C0C0C0";
-    theme.backgroundColor = "#323232";
-    theme.secondaryBackgroundColor = "#404040";
-    theme.selectionColor = "#4A6E8A";
-    theme.borderColor = "#505050";
-    theme.buttonColor = "#505050";
-    theme.buttonHoverColor = "#5A5A5A";
-    theme.buttonPressedColor = "#404040";
+    theme.accentColor = "#4FA8FF";
+    theme.textColor = "#D8D8D8";
+    theme.backgroundColor = "#2E2E2E";
+    theme.secondaryBackgroundColor = "#3A3A3A";
+    theme.selectionColor = "#355C7A";
+    theme.borderColor = "#4C4C4C";
+    theme.buttonColor = "#404040";
+    theme.buttonHoverColor = "#4A4A4A";
+    theme.buttonPressedColor = "#353535";
     break;
   case DccStylePreset::ModoStyle:
     theme.accentColor = "#F5933C";
@@ -550,7 +550,7 @@ QString LIBRARY_DLL_API buildDCCStyleSheet(const DccStyleTheme &theme) {
 }
 
 DccStyleTheme& LIBRARY_DLL_API currentDCCTheme() {
-  static DccStyleTheme theme = getDCCTheme(DccStylePreset::StudioStyle);
+  static DccStyleTheme theme = getDCCTheme(DccStylePreset::MayaStyle);
   return theme;
 }
 

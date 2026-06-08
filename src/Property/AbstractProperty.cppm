@@ -291,9 +291,12 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
     if (evaluator && hasExpression()) {
         try {
             // AE-like context injection
+            const double frameRate = static_cast<double>(time.scale());
+            evaluator->setFrameRate(frameRate);
             evaluator->setVariable("value", qvariantToExpressionValue(baseValue, pImpl->m_type));
             evaluator->setVariable("time", ExpressionValue(time.toDouble()));
-            
+            evaluator->setVariable("frameRate", ExpressionValue(frameRate));
+
             ExpressionValue result = evaluator->evaluate(pImpl->m_expression.toStdString());
             if (!evaluator->hasError()) {
                 return expressionValueToQVariant(result, pImpl->m_type);

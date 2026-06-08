@@ -29,9 +29,10 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QString>
 export module ASTNode;
 
-#include <QString>
+
 
 
 

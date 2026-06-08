@@ -360,7 +360,7 @@ void ArtifactAppSettings::setTimelineFrameBlendingActive(bool enable) {
 }
 
 QString ArtifactAppSettings::themeName() const {
-    return impl_->store.valueString("UI/ThemeName", "Studio");
+    return impl_->store.valueString("UI/ThemeName", "Maya");
 }
 
 void ArtifactAppSettings::setThemeName(const QString& theme) {
@@ -523,6 +523,15 @@ void ArtifactAppSettings::setProjectDefaultWorkspaceModeText(const QString& valu
     const QString normalized = value.trimmed();
     impl_->store.setValue("ProjectDefaults/WorkspaceMode",
                           normalized.isEmpty() ? QStringLiteral("Default") : normalized);
+    Q_EMIT settingsChanged();
+}
+
+QString ArtifactAppSettings::creationDefaultsJson() const {
+    return impl_->store.valueString(QStringLiteral("CreationDefaults/Json"), QString());
+}
+
+void ArtifactAppSettings::setCreationDefaultsJson(const QString& json) {
+    impl_->store.setValue(QStringLiteral("CreationDefaults/Json"), json);
     Q_EMIT settingsChanged();
 }
 

@@ -133,6 +133,9 @@ public:
     /// 演算子を追加
     void addOperator(std::unique_ptr<ShapeOperator> op);
 
+    /// 型を指定して演算子を追加
+    ShapeOperator* addOperator(ShapeOperatorType type);
+
     /// 演算子数
     int operatorCount() const { return static_cast<int>(operators_.size()); }
 

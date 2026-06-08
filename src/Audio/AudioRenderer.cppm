@@ -75,6 +75,7 @@ struct AudioRenderer::Impl {
   int sampleRate = 48000;
   int channels = 2;
   AudioBackendType backendType = AudioBackendType::Auto;
+  bool exclusiveMode = false;
 
   // Thread safety for concurrent access
   std::atomic<float> masterVolumeLinear{1.0f};
@@ -95,15 +96,21 @@ struct AudioRenderer::Impl {
   std::unique_ptr<AudioBackend> createBackend(AudioBackendType type) {
 #ifdef _WIN32
     switch (type) {
-    case AudioBackendType::WASAPI:
-      return std::unique_ptr<AudioBackend>(new WASAPIBackend());
+    case AudioBackendType::WASAPI: {
+      auto wasapi = std::make_unique<WASAPIBackend>();
+      wasapi->setExclusive(exclusiveMode);
+      return wasapi;
+    }
     case AudioBackendType::ASIO:
       return std::unique_ptr<AudioBackend>(new ASIOBackendStub());
     case AudioBackendType::Qt:
       return std::unique_ptr<AudioBackend>(new QtAudioBackend());
     case AudioBackendType::Auto:
-    default:
-      return std::unique_ptr<AudioBackend>(new WASAPIBackend());
+    default: {
+      auto wasapi = std::make_unique<WASAPIBackend>();
+      wasapi->setExclusive(exclusiveMode);
+      return wasapi;
+    }
     }
 #else
     switch (type) {
@@ -241,6 +248,9 @@ bool AudioRenderer::openDevice(const QString &deviceName) {
   if (impl_->deviceOpen.load(std::memory_order_acquire)) {
     closeDevice();
   }
+
+  // 排他モード変更を反映するためバックエンドを再作成
+  impl_->backend = impl_->createBackend(impl_->backendType);
 
   const size_t attempt = ++impl_->openAttemptCount;
   if (attempt <= 12 || (attempt % 50) == 0) {
@@ -456,6 +466,16 @@ AudioBackendType AudioRenderer::currentBackendType() const {
     return AudioBackendType::Auto;
   }
   return impl_->backendType;
+}
+
+void AudioRenderer::setExclusiveMode(bool exclusive) {
+  if (impl_) {
+    impl_->exclusiveMode = exclusive;
+  }
+}
+
+bool AudioRenderer::isExclusiveMode() const {
+  return impl_ ? impl_->exclusiveMode : false;
 }
 
 bool AudioRenderer::openDevice(AudioBackendType type,

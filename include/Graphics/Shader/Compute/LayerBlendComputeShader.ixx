@@ -494,6 +494,155 @@ void main(uint3 id : SV_DispatchThreadID)
 }
 )";
 
+// -------- Dissolve --------
+LIBRARY_DLL_API const QByteArray dissolveBlendShaderText = QByteArray(blendShaderHeader) + R"(
+uint pcgHash(uint2 p)
+{
+    uint v = p.x * 1664525u + p.y * 1013904223u;
+    v = v * 747796405u + 2891336453u;
+    return v;
+}
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    CHECK_BOUNDS
+    float4 src = SrcTex[id.xy];
+    float4 dst = DstTex[id.xy];
+    float srcA = saturate(src.a * opacity);
+    float r = float(pcgHash(id.xy & 0xFFFF)) / 4294967296.0;
+    float3 blended = (r < srcA) ? src.rgb : dst.rgb;
+    float outA = (r < srcA) ? srcA : dst.a;
+    OutTex[id.xy] = float4(blended * outA, outA);
+}
+)";
+
+// -------- Dancing Dissolve --------
+LIBRARY_DLL_API const QByteArray dancingDissolveBlendShaderText = QByteArray(blendShaderHeader) + R"(
+uint dcgHash(uint2 p, uint seed)
+{
+    uint v = p.x * 1664525u + p.y * 1013904223u + seed * 1234567u;
+    v = v * 747796405u + 2891336453u;
+    return v;
+}
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    CHECK_BOUNDS
+    float4 src = SrcTex[id.xy];
+    float4 dst = DstTex[id.xy];
+    float srcA = saturate(src.a * opacity);
+    uint frameSeed = uint(opacity * 1000.0);
+    float r = float(dcgHash(id.xy & 0xFFFF, frameSeed)) / 4294967296.0;
+    float3 blended = (r < srcA) ? src.rgb : dst.rgb;
+    float outA = (r < srcA) ? srcA : dst.a;
+    OutTex[id.xy] = float4(blended * outA, outA);
+}
+)";
+
+// -------- Classic Color Burn --------
+LIBRARY_DLL_API const QByteArray classicColorBurnBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(1.0 - (1.0 - dstColor) / max(srcColor, 1e-6)));
+    float outA = OutAlpha(srcA, dst.a);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+// -------- Linear Dodge --------
+LIBRARY_DLL_API const QByteArray linearDodgeBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor + srcColor));
+    float outA = OutAlpha(srcA, dst.a);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+// -------- Classic Color Dodge --------
+LIBRARY_DLL_API const QByteArray classicColorDodgeBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor / max(1.0 - srcColor, 1e-6)));
+    float outA = OutAlpha(srcA, dst.a);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+// -------- Classic Difference --------
+LIBRARY_DLL_API const QByteArray classicDifferenceBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    LOAD_BLEND_PIXELS
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, abs(dstColor - srcColor));
+    float outA = OutAlpha(srcA, dst.a);
+    OutTex[id.xy] = float4(blended, outA);
+}
+)";
+
+// -------- Stencil Alpha --------
+LIBRARY_DLL_API const QByteArray stencilAlphaBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    CHECK_BOUNDS
+    float4 src = SrcTex[id.xy];
+    float4 dst = DstTex[id.xy];
+    float factor = saturate(src.a * opacity);
+    OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
+}
+)";
+
+// -------- Stencil Luma --------
+LIBRARY_DLL_API const QByteArray stencilLumaBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    CHECK_BOUNDS
+    float4 src = SrcTex[id.xy];
+    float4 dst = DstTex[id.xy];
+    float luma = dot(src.rgb, float3(0.299, 0.587, 0.114));
+    float factor = saturate(luma * opacity);
+    OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
+}
+)";
+
+// -------- Silhouette Alpha --------
+LIBRARY_DLL_API const QByteArray silhouetteAlphaBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    CHECK_BOUNDS
+    float4 src = SrcTex[id.xy];
+    float4 dst = DstTex[id.xy];
+    float factor = 1.0 - saturate(src.a * opacity);
+    OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
+}
+)";
+
+// -------- Silhouette Luma --------
+LIBRARY_DLL_API const QByteArray silhouetteLumaBlendShaderText = QByteArray(blendShaderHeader) + R"(
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    CHECK_BOUNDS
+    float4 src = SrcTex[id.xy];
+    float4 dst = DstTex[id.xy];
+    float luma = dot(src.rgb, float3(0.299, 0.587, 0.114));
+    float factor = 1.0 - saturate(luma * opacity);
+    OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
+}
+)";
+
  LIBRARY_DLL_API const std::map<BlendMode, QByteArray> BlendShaders = {
   {BlendMode::Normal,      normalBlendShaderText},
   {BlendMode::Add,         addBlendShaderText},
@@ -519,6 +668,16 @@ void main(uint3 id : SV_DispatchThreadID)
   {BlendMode::VividLight,  vividLightBlendShaderText},
   {BlendMode::LinearLight, linearLightBlendShaderText},
   {BlendMode::HardMix,     hardMixBlendShaderText},
+  {BlendMode::Dissolve,         dissolveBlendShaderText},
+  {BlendMode::DancingDissolve,  dancingDissolveBlendShaderText},
+  {BlendMode::ClassicColorBurn, classicColorBurnBlendShaderText},
+  {BlendMode::LinearDodge,      linearDodgeBlendShaderText},
+  {BlendMode::ClassicColorDodge,classicColorDodgeBlendShaderText},
+  {BlendMode::ClassicDifference,classicDifferenceBlendShaderText},
+  {BlendMode::StencilAlpha,     stencilAlphaBlendShaderText},
+  {BlendMode::StencilLuma,      stencilLumaBlendShaderText},
+  {BlendMode::SilhouetteAlpha,  silhouetteAlphaBlendShaderText},
+  {BlendMode::SilhouetteLuma,   silhouetteLumaBlendShaderText},
  };
 
 }

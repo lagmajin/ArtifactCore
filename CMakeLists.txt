@@ -106,7 +106,9 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeGroup.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeLayer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationProtocol.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateSlot.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateLock.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/ParametricComposition.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/SharedPtr.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/ArtifactArray.cppm"
@@ -354,7 +356,8 @@ if(NOT TARGET llama AND EXISTS "${ARTIFACT_LLAMA_CPP_SOURCE_DIR}/CMakeLists.txt"
     set(GGML_METAL OFF CACHE BOOL "" FORCE)
     set(GGML_WEBGPU OFF CACHE BOOL "" FORCE)
     set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
-    set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL "" FORCE)
+    # Build a single CPU variant to keep compile time and binary size down.
+    set(GGML_CPU_ALL_VARIANTS OFF CACHE BOOL "" FORCE)
     set(GGML_CCACHE OFF CACHE BOOL "" FORCE)
 
     add_subdirectory("${ARTIFACT_LLAMA_CPP_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/llama.cpp" EXCLUDE_FROM_ALL)

@@ -17,12 +17,14 @@ enum class ShapeOperatorType {
     None,
     TrimPaths,      // トリムパス
     Repeater,       // 繰り返
+    MergePaths,     // パス結合
     OffsetPaths,    // パスのオフセット
     WigglePaths,    // パスのゆらぎ
     ZigZag,         // ぎざぎざ
     PuckerBloat,    // 膨張・収縮
     RoundedCorners, // 角丸
-    Twist           // ねじれ
+    Twist,          // ねじれ
+    HandDrawnWobble // 手書き風ゆらぎ（筆圧・かすれ・ブレ）
 };
 
 /**

@@ -8,6 +8,7 @@ module;
 module Composition.TemplateSlot;
 
 import Utils.Id;
+import Composition.TemplateLock;
 
 namespace ArtifactCore {
 
@@ -19,6 +20,8 @@ QJsonObject TemplateSlot::toJson() const {
     obj["defaultValue"] = defaultValue;
     obj["required"] = required;
     obj["isLocked"] = isLocked;
+    obj["lockScope"] = static_cast<int>(lockScope);
+    obj["editability"] = static_cast<int>(editability);
     obj["type"] = static_cast<int>(type);
     return obj;
 }
@@ -31,6 +34,8 @@ TemplateSlot TemplateSlot::fromJson(const QJsonObject& obj) {
     slot.defaultValue = obj["defaultValue"].toString();
     slot.required = obj["required"].toBool();
     slot.isLocked = obj.value("isLocked").toBool();
+    slot.lockScope = static_cast<LockScope>(obj.value("lockScope").toInt(static_cast<int>(LockScope::All)));
+    slot.editability = static_cast<Editability>(obj.value("editability").toInt(static_cast<int>(Editability::Editable)));
     slot.type = static_cast<SlotValueType>(obj.value("type").toInt(static_cast<int>(SlotValueType::Text)));
     return slot;
 }

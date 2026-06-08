@@ -117,6 +117,8 @@ public:
     void setProjectDefaultCompositionBackgroundColor(const QString& value);
     QString projectDefaultWorkspaceModeText() const;
     void setProjectDefaultWorkspaceModeText(const QString& value);
+    QString creationDefaultsJson() const;
+    void setCreationDefaultsJson(const QString& json);
 
     QString previewQualityText() const;
     void setPreviewQualityText(const QString& value);

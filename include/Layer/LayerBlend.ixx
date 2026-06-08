@@ -33,7 +33,17 @@ enum class BlendMode {
     PinLight,
     VividLight,
     LinearLight,
-    HardMix
+    HardMix,
+    Dissolve,
+    DancingDissolve,
+    ClassicColorBurn,
+    LinearDodge,
+    ClassicColorDodge,
+    ClassicDifference,
+    StencilAlpha,
+    StencilLuma,
+    SilhouetteAlpha,
+    SilhouetteLuma
 };
 
 // Legacy compatibility for existing Artifact layer code paths.
@@ -62,7 +72,17 @@ enum class LAYER_BLEND_TYPE {
     BLEND_PIN_LIGHT = static_cast<int>(BlendMode::PinLight),
     BLEND_VIVID_LIGHT = static_cast<int>(BlendMode::VividLight),
     BLEND_LINEAR_LIGHT = static_cast<int>(BlendMode::LinearLight),
-    BLEND_HARD_MIX = static_cast<int>(BlendMode::HardMix)
+    BLEND_HARD_MIX = static_cast<int>(BlendMode::HardMix),
+    BLEND_DISSOLVE = static_cast<int>(BlendMode::Dissolve),
+    BLEND_DANCING_DISSOLVE = static_cast<int>(BlendMode::DancingDissolve),
+    BLEND_CLASSIC_COLOR_BURN = static_cast<int>(BlendMode::ClassicColorBurn),
+    BLEND_LINEAR_DODGE = static_cast<int>(BlendMode::LinearDodge),
+    BLEND_CLASSIC_COLOR_DODGE = static_cast<int>(BlendMode::ClassicColorDodge),
+    BLEND_CLASSIC_DIFFERENCE = static_cast<int>(BlendMode::ClassicDifference),
+    BLEND_STENCIL_ALPHA = static_cast<int>(BlendMode::StencilAlpha),
+    BLEND_STENCIL_LUMA = static_cast<int>(BlendMode::StencilLuma),
+    BLEND_SILHOUETTE_ALPHA = static_cast<int>(BlendMode::SilhouetteAlpha),
+    BLEND_SILHOUETTE_LUMA = static_cast<int>(BlendMode::SilhouetteLuma)
 };
 
 inline BlendMode toBlendMode(const LAYER_BLEND_TYPE legacy) {
@@ -104,6 +124,16 @@ public:
             case BlendMode::VividLight: return "Vivid Light";
             case BlendMode::LinearLight: return "Linear Light";
             case BlendMode::HardMix: return "Hard Mix";
+            case BlendMode::Dissolve: return "Dissolve";
+            case BlendMode::DancingDissolve: return "Dancing Dissolve";
+            case BlendMode::ClassicColorBurn: return "Classic Color Burn";
+            case BlendMode::LinearDodge: return "Linear Dodge";
+            case BlendMode::ClassicColorDodge: return "Classic Color Dodge";
+            case BlendMode::ClassicDifference: return "Classic Difference";
+            case BlendMode::StencilAlpha: return "Stencil Alpha";
+            case BlendMode::StencilLuma: return "Stencil Luma";
+            case BlendMode::SilhouetteAlpha: return "Silhouette Alpha";
+            case BlendMode::SilhouetteLuma: return "Silhouette Luma";
             default: return "Unknown";
         }
     }
@@ -134,6 +164,16 @@ public:
         if (s == "vividlight") return BlendMode::VividLight;
         if (s == "linearlight") return BlendMode::LinearLight;
         if (s == "hardmix") return BlendMode::HardMix;
+        if (s == "dissolve") return BlendMode::Dissolve;
+        if (s == "dancingdissolve") return BlendMode::DancingDissolve;
+        if (s == "classiccolorburn") return BlendMode::ClassicColorBurn;
+        if (s == "lineardodge") return BlendMode::LinearDodge;
+        if (s == "classiccolordodge") return BlendMode::ClassicColorDodge;
+        if (s == "classicdifference") return BlendMode::ClassicDifference;
+        if (s == "stencilalpha") return BlendMode::StencilAlpha;
+        if (s == "stencilluma") return BlendMode::StencilLuma;
+        if (s == "silhouettealpha") return BlendMode::SilhouetteAlpha;
+        if (s == "silhouetteluma") return BlendMode::SilhouetteLuma;
         return BlendMode::Normal;
     }
 };

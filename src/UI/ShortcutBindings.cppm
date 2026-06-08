@@ -21,7 +21,7 @@ QKeySequence eventSequence(const QKeyEvent* event)
         return {};
     }
 
-    return QKeySequence(event->modifiers() | event->key());
+    return QKeySequence(event->key() | event->modifiers());
 }
 
 QString shortcutIdKey(ShortcutId id)
@@ -59,6 +59,16 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("TimelineJumpToNextKeyframe");
     case ShortcutId::TimelineJumpToPreviousKeyframe:
         return QStringLiteral("TimelineJumpToPreviousKeyframe");
+    case ShortcutId::ImportPlacementNextSizeMode:
+        return QStringLiteral("ImportPlacementNextSizeMode");
+    case ShortcutId::ImportPlacementPreviousSizeMode:
+        return QStringLiteral("ImportPlacementPreviousSizeMode");
+    case ShortcutId::ImportPlacementConfirm:
+        return QStringLiteral("ImportPlacementConfirm");
+    case ShortcutId::ImportPlacementCancel:
+        return QStringLiteral("ImportPlacementCancel");
+    case ShortcutId::ImportPlacementReset:
+        return QStringLiteral("ImportPlacementReset");
     case ShortcutId::Count:
         break;
     }
@@ -113,6 +123,16 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Timeline Jump to Next Keyframe");
     case ShortcutId::TimelineJumpToPreviousKeyframe:
         return QStringLiteral("Timeline Jump to Previous Keyframe");
+    case ShortcutId::ImportPlacementNextSizeMode:
+        return QStringLiteral("Import Placement Next Size Mode");
+    case ShortcutId::ImportPlacementPreviousSizeMode:
+        return QStringLiteral("Import Placement Previous Size Mode");
+    case ShortcutId::ImportPlacementConfirm:
+        return QStringLiteral("Import Placement Confirm");
+    case ShortcutId::ImportPlacementCancel:
+        return QStringLiteral("Import Placement Cancel");
+    case ShortcutId::ImportPlacementReset:
+        return QStringLiteral("Import Placement Reset");
     case ShortcutId::Count:
         break;
     }
@@ -138,6 +158,11 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::TimelineJumpToLastKeyframe,
         ShortcutId::TimelineJumpToNextKeyframe,
         ShortcutId::TimelineJumpToPreviousKeyframe,
+        ShortcutId::ImportPlacementNextSizeMode,
+        ShortcutId::ImportPlacementPreviousSizeMode,
+        ShortcutId::ImportPlacementConfirm,
+        ShortcutId::ImportPlacementCancel,
+        ShortcutId::ImportPlacementReset,
     };
 }
 
@@ -152,13 +177,18 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::TimelineCopySelectedKeyframes)] = QKeySequence(Qt::CTRL | Qt::Key_C);
     defaults_[index(ShortcutId::TimelinePasteKeyframesAtPlayhead)] = QKeySequence(Qt::CTRL | Qt::Key_V);
     defaults_[index(ShortcutId::TimelineSelectAllKeyframes)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_A);
-    defaults_[index(ShortcutId::TimelineAddKeyframeAtPlayhead)] = QKeySequence(Qt::ALT | Qt::SHIFT | Qt::Key_K);
-    defaults_[index(ShortcutId::TimelineRemoveKeyframeAtPlayhead)] = QKeySequence(Qt::ALT | Qt::Key_K);
-    defaults_[index(ShortcutId::TimelineCleanKeyframes)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K);
-    defaults_[index(ShortcutId::TimelineJumpToFirstKeyframe)] = QKeySequence(Qt::SHIFT | Qt::Key_J);
-    defaults_[index(ShortcutId::TimelineJumpToLastKeyframe)] = QKeySequence(Qt::SHIFT | Qt::Key_K);
+    defaults_[index(ShortcutId::TimelineAddKeyframeAtPlayhead)] = QKeySequence(Qt::Key_Insert);
+    defaults_[index(ShortcutId::TimelineRemoveKeyframeAtPlayhead)] = QKeySequence(QKeySequence::Delete);
+    defaults_[index(ShortcutId::TimelineCleanKeyframes)] = QKeySequence(Qt::Key_Delete);
+    defaults_[index(ShortcutId::TimelineJumpToFirstKeyframe)] = QKeySequence(Qt::CTRL | Qt::Key_Home);
+    defaults_[index(ShortcutId::TimelineJumpToLastKeyframe)] = QKeySequence(Qt::CTRL | Qt::Key_End);
     defaults_[index(ShortcutId::TimelineJumpToNextKeyframe)] = QKeySequence(Qt::CTRL | Qt::Key_PageDown);
     defaults_[index(ShortcutId::TimelineJumpToPreviousKeyframe)] = QKeySequence(Qt::CTRL | Qt::Key_PageUp);
+    defaults_[index(ShortcutId::ImportPlacementNextSizeMode)] = QKeySequence(Qt::Key_S);
+    defaults_[index(ShortcutId::ImportPlacementPreviousSizeMode)] = QKeySequence(Qt::SHIFT | Qt::Key_S);
+    defaults_[index(ShortcutId::ImportPlacementConfirm)] = QKeySequence(Qt::Key_Return);
+    defaults_[index(ShortcutId::ImportPlacementCancel)] = QKeySequence(Qt::Key_Escape);
+    defaults_[index(ShortcutId::ImportPlacementReset)] = QKeySequence(Qt::Key_R);
 
     overrides_.fill(QKeySequence());
 }

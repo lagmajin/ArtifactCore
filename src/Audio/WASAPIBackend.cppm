@@ -8,6 +8,7 @@
 #include <propkey.h>
 #include <Functiondiscoverykeys_devpkey.h>
 #include <Mmdeviceapi.h>
+#include <QDebug>
 #include <QString>
 #include <atomic>
 #include <chrono>
@@ -46,6 +47,7 @@ public:
   bool comInitialized = false;
   HANDLE audioEvent = nullptr;
   HANDLE stopEvent = nullptr;
+  bool exclusive = false;
 
   ~Impl() {
     stopThread();
@@ -180,6 +182,14 @@ public:
 WASAPIBackend::WASAPIBackend() : impl_(std::make_unique<Impl>()) {}
 WASAPIBackend::~WASAPIBackend() { close(); }
 
+void WASAPIBackend::setExclusive(bool enable) {
+  impl_->exclusive = enable;
+}
+
+bool WASAPIBackend::isExclusive() const {
+  return impl_->exclusive;
+}
+
 bool WASAPIBackend::open(const AudioDeviceInfo &device,
                          const AudioBackendFormat &format) {
   close();
@@ -233,17 +243,45 @@ bool WASAPIBackend::open(const AudioDeviceInfo &device,
         IsEqualGUID(ext->SubFormat, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
   }
 
-  // Request a 50 ms shared-mode buffer (2400 frames at 48 kHz).
-  // A larger buffer gives the render thread more headroom before an underflow
-  // occurs if the OS scheduler delays the poll loop.
-  impl_->bufferDuration = static_cast<REFERENCE_TIME>(
-      (10000000LL * 2400) / std::max(1, impl_->mixSampleRate));
-  hr = impl_->audioClient->Initialize(
-      AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-      impl_->bufferDuration, 0, impl_->mixFormat, nullptr);
-  if (FAILED(hr)) {
-    impl_->releaseCom();
-    return false;
+  if (impl_->exclusive) {
+    // Exclusive (占有) モード — 低遅延、デバイスを専有
+    // 純粋な PCM フォーマットで初期化する（WAVE_FORMAT_EXTENSIBLE 不可）
+    WAVEFORMATEX exclusiveFmt = {};
+    exclusiveFmt.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
+    exclusiveFmt.nChannels = static_cast<WORD>(std::min(2, impl_->mixChannels));
+    exclusiveFmt.nSamplesPerSec = impl_->mixSampleRate;
+    exclusiveFmt.wBitsPerSample = 32;
+    exclusiveFmt.nBlockAlign = exclusiveFmt.nChannels * (exclusiveFmt.wBitsPerSample / 8);
+    exclusiveFmt.nAvgBytesPerSec = exclusiveFmt.nSamplesPerSec * exclusiveFmt.nBlockAlign;
+
+    // 10ms バッファを要求（ASIO に近い低遅延を狙う）
+    impl_->bufferDuration = static_cast<REFERENCE_TIME>(100000);
+    hr = impl_->audioClient->Initialize(
+        AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+        impl_->bufferDuration, 0, &exclusiveFmt, nullptr);
+    if (FAILED(hr)) {
+      qWarning() << "[WASAPIBackend] Exclusive mode init failed, hr=" << hr;
+      // フォールバック: 10ms が非対応の場合 30ms で再試行
+      impl_->bufferDuration = static_cast<REFERENCE_TIME>(300000);
+      hr = impl_->audioClient->Initialize(
+          AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+          impl_->bufferDuration, 0, &exclusiveFmt, nullptr);
+    }
+    if (FAILED(hr)) {
+      impl_->releaseCom();
+      return false;
+    }
+  } else {
+    // Shared (共有) モード — 50ms バッファ、他アプリと共存
+    impl_->bufferDuration = static_cast<REFERENCE_TIME>(
+        (10000000LL * 2400) / std::max(1, impl_->mixSampleRate));
+    hr = impl_->audioClient->Initialize(
+        AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+        impl_->bufferDuration, 0, impl_->mixFormat, nullptr);
+    if (FAILED(hr)) {
+      impl_->releaseCom();
+      return false;
+    }
   }
 
   hr = impl_->audioClient->GetBufferSize(&impl_->bufferFrameCount);
@@ -259,6 +297,12 @@ bool WASAPIBackend::open(const AudioDeviceInfo &device,
     impl_->releaseCom();
     return false;
   }
+
+  qDebug() << "[WASAPIBackend] Opened"
+           << (impl_->exclusive ? "exclusive" : "shared")
+           << "mode, bufferFrames=" << impl_->bufferFrameCount
+           << "sampleRate=" << impl_->mixSampleRate
+           << "channels=" << impl_->mixChannels;
 
   impl_->audioEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
   impl_->stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
@@ -331,6 +375,9 @@ AudioBackendFormat WASAPIBackend::currentFormat() const {
 }
 
 QString WASAPIBackend::backendName() const {
+  if (impl_ && impl_->exclusive) {
+    return QString::fromUtf8("WASAPI(exclusive)");
+  }
   return QString::fromUtf8("WASAPI(shared)");
 }
 

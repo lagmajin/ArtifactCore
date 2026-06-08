@@ -38,6 +38,15 @@ import Audio.Segment;
 
 
 export namespace ArtifactCore {
+
+// Evaluation mode for time-dependent expressions
+export enum class EvaluationMode {
+    FrameLocked     = 0,  // One evaluation per frame (current default)
+    SubframeSampled = 1,  // Evaluate at arbitrary subframe time
+    AdaptiveStep    = 2,  // Adaptive micro-stepping for physics expressions
+    FixedMicrostep  = 3   // Fixed number of substeps per frame
+};
+
 class ExpressionEvaluator;
 
 // Built-in function signature
@@ -79,12 +88,51 @@ public:
     void requestCancel();
     void clearCancel();
 
+    // --- Recursion Safety (Phase 1) ---
+    void setRecursionDepthLimit(int depth);
+    int recursionDepthLimit() const;
+    void setEvaluationBudget(int maxEvals);
+    int evaluationBudget() const;
+    int currentEvaluationCount() const;
+
+    // --- Memoization (Phase 2) ---
+    void setMemoizationEnabled(bool enabled);
+    bool memoizationEnabled() const;
+    void clearMemoCache();
+
     // Variable snapshot (for temporary injection)
     std::map<std::string, ExpressionValue> getVariablesCopy() const;
     void setVariables(const std::map<std::string, ExpressionValue>& vars);
 
     // Audio Analysis Context
     void setAudioData(float rms, float peak, float low, float mid, float high);
+
+    // --- Time Evaluation Contract (Phase 1) ---
+    void setEvaluationMode(EvaluationMode mode);
+    EvaluationMode evaluationMode() const;
+
+    void setFrameRate(double fps);
+    double frameRate() const;
+
+    void setSubstepCount(int count);
+    int substepCount() const;
+
+    void setAdaptiveTolerance(double tol);
+    double adaptiveTolerance() const;
+
+    // Evaluate expression at an arbitrary time point (seconds)
+    ExpressionValue evaluateAtTime(const std::string& expression, double timeSec);
+
+    // Evaluate pre-parsed AST at an arbitrary time point (seconds)
+    ExpressionValue evaluateASTAtTime(const std::shared_ptr<ExprNode>& node, double timeSec);
+
+    // Evaluate expression over a time range using current evaluation mode
+    // Returns vector of (time, value) pairs sampled according to the mode
+    std::vector<std::pair<double, ExpressionValue>> evaluateOverRange(
+        const std::string& expression,
+        double startTimeSec,
+        double endTimeSec,
+        EvaluationMode mode = EvaluationMode::FrameLocked);
 };
 
 // Standard built-in functions (AE-style)
@@ -133,6 +181,13 @@ namespace BuiltinFunctions {
     ExpressionValue AudioLow(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue AudioMid(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue AudioHigh(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+
+    // --- AE Loop / ValueAtTime (Phase 1/3) ---
+    ExpressionValue ValueAtTime(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue LoopIn(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue LoopOut(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue LoopInDuration(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue LoopOutDuration(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
 }
 
 }

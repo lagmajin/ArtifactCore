@@ -32,6 +32,8 @@
 #include <numeric>
 #include <regex>
 #include <random>
+
+#include <QString>
 export module Math.Noise;
 
 export namespace ArtifactCore {
@@ -56,6 +58,13 @@ public:
 
     // シード値の設定
     static void setSeed(unsigned int seed);
+
+    // GPU shader source helpers
+    QString glslPerlin2D() const;
+    QString glslWorley2D() const;
+    QString wiggleGLSL(float freq, float amp, int octaves,
+                       float persistence = 0.5f,
+                       float lacunarity = 2.0f) const;
 
 private:
     static float fade(float t);

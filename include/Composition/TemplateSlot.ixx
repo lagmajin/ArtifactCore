@@ -8,6 +8,7 @@ module;
 export module Composition.TemplateSlot;
 
 import Utils.Id;
+import Composition.TemplateLock;
 
 export namespace ArtifactCore {
 
@@ -27,6 +28,8 @@ struct TemplateSlot {
     QString defaultValue;
     bool required = false;
     bool isLocked = false;
+    LockScope lockScope = LockScope::All;
+    Editability editability = Editability::Editable;
 
     QJsonObject toJson() const;
     static TemplateSlot fromJson(const QJsonObject& obj);

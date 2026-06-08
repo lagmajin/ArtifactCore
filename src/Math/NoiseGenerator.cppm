@@ -5,6 +5,7 @@
 #include <vector>
 #include <numeric>
 #include <random>
+#include <QString>
 
 #include <iostream>
 #include <vector>
@@ -131,7 +132,6 @@ float NoiseGenerator::fractal(float x, float y, float z, int octaves, float pers
 }
 
 float NoiseGenerator::worley(float x, float y, float z) {
-    // 簡易Worley Noise
     int xi = static_cast<int>(std::floor(x));
     int yi = static_cast<int>(std::floor(y));
     int zi = static_cast<int>(std::floor(z));
@@ -150,7 +150,6 @@ float NoiseGenerator::worley(float x, float y, float z) {
                 int cy = yi + dy;
                 int cz = zi + dz;
                 
-                // 各セル内のランダムな点
                 float px = cx + hash(cx, cy, cz);
                 float py = cy + hash(cy, cz, cx);
                 float pz = cz + hash(cz, cx, cy);
@@ -161,6 +160,56 @@ float NoiseGenerator::worley(float x, float y, float z) {
         }
     }
     return minDist;
+}
+
+// ============================================================
+// GPU Shader Source Generation (for wiggle())
+// ============================================================
+
+QString NoiseGenerator::glslPerlin2D() const {
+    return QStringLiteral(R"(
+vec2 perlinPos = pos * frequency;
+vec2 i = floor(perlinPos);
+vec2 f = fract(perlinPos);
+vec2 u = f * f * (3.0 - 2.0 * f);
+float a = texture(noisePermTex, (i + vec2(0.0, 0.0)) / 256.0).x;
+float b = texture(noisePermTex, (i + vec2(1.0, 0.0)) / 256.0).x;
+float c = texture(noisePermTex, (i + vec2(0.0, 1.0)) / 256.0).x;
+float d = texture(noisePermTex, (i + vec2(1.0, 1.0)) / 256.0).x;
+float value = mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+)");
+}
+
+QString NoiseGenerator::glslWorley2D() const {
+    return QStringLiteral(R"(
+vec2 cell = floor(pos * frequency);
+vec2 fracPos = fract(pos * frequency);
+float minDist = 1e10;
+for (int dx = -1; dx <= 1; dx++) {
+    for (int dy = -1; dy <= 1; dy++) {
+        vec2 neighbor = cell + vec2(float(dx), float(dy));
+        float seed = float(dx * 73856093 ^ dy * 19349663);
+        vec2 point = neighbor + vec2(fract(sin(seed) * 43758.5453), fract(cos(seed) * 43758.5453));
+        float dist = length(fracPos - point);
+        minDist = min(minDist, dist);
+    }
+}
+)");
+}
+
+QString NoiseGenerator::wiggleGLSL(float freq, float amp, int octaves, 
+                                    float persistence, float lacunarity) const {
+    return QStringLiteral(R"(
+float noiseVal = perlinValue(pos * %1);
+float ampFactor = %2;
+for (int i = 1; i < %3; i++) {
+    noiseVal += texture(noiseTex, pos * %1 * pow(%4, float(i))) * ampFactor;
+    ampFactor *= %5;
+}
+result = base + noiseVal * %2;
+)").arg(QString::number(freq), QString::number(amp), 
+       QString::number(octaves), QString::number(lacunarity), 
+       QString::number(persistence));
 }
 
 } // namespace ArtifactCore

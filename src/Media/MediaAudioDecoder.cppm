@@ -68,16 +68,18 @@ namespace ArtifactCore {
  }
  }
 
- class MediaAudioDecoder::Impl {
- public:
-  AVCodecContext* codecContext_ = nullptr;
-  SwrContext* swrCtx_ = nullptr;
-  bool initialized_ = false;
-  bool resamplingEnabled_ = false;
-  ResamplingConfig resamplingConfig_;
-  DecoderStatistics statistics_;
-  UniString lastError_;
-  AudioInfo audioInfo_;
+  class MediaAudioDecoder::Impl {
+  public:
+   AVCodecContext* codecContext_ = nullptr;
+   SwrContext* swrCtx_ = nullptr;
+   bool initialized_ = false;
+   bool resamplingEnabled_ = false;
+   ResamplingConfig resamplingConfig_;
+   DecoderStatistics statistics_;
+   UniString lastError_;
+   AudioInfo audioInfo_;
+   int outSampleRate_ = 44100;
+   int outBytesPerSample_ = 4; // 2 channels x 2 bytes (S16 stereo default)
 
   Impl() = default;
 
@@ -136,6 +138,9 @@ namespace ArtifactCore {
     lastError_ = UniString(std::string("Failed to initialize SwrContext"));
     return false;
    }
+
+   outSampleRate_ = outSampleRate;
+   outBytesPerSample_ = av_get_bytes_per_sample(outFormat) * outLayout.nb_channels;
 
    return true;
   }
@@ -371,8 +376,8 @@ namespace ArtifactCore {
    return result;
   }
 
-  int outSamples = swr_get_delay(impl_->swrCtx_, 44100) + frame->nb_samples;
-  int bytesPerSample = 2 * 2; // S16 stereo
+  int outSamples = swr_get_delay(impl_->swrCtx_, impl_->outSampleRate_) + frame->nb_samples;
+  int bytesPerSample = impl_->outBytesPerSample_;
   uint8_t* outBuffer = new uint8_t[outSamples * bytesPerSample];
   uint8_t* outPtr[1] = { outBuffer };
 
