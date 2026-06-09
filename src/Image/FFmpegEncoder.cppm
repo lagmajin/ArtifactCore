@@ -1,6 +1,7 @@
-﻿module;
+module;
 #include <utility>
 #include <algorithm>
+#include <cstring>
 #include <QString>
 #include <QStringList>
 #include <QFile>
@@ -8,15 +9,21 @@
 #include <QDir>
 #include <QImage>
 #include <OpenImageIO/imageio.h>
-module Encoder.FFmpegEncoder;
+#ifdef __cplusplus
 extern "C" {
+#endif
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/error.h>
 #include <libavutil/opt.h>
+#include <libavutil/mastering_display_metadata.h>
 #include <libswscale/swscale.h>
+#ifdef __cplusplus
 }
+#endif
+
+module Encoder.FFmpegEncoder;
 import Image;
 import :Impl;
 
@@ -25,8 +32,29 @@ namespace {
 QString ffmpegErrorString(int err)
 {
     char buffer[AV_ERROR_MAX_STRING_SIZE] = {};
-    av_strerror(err, buffer, sizeof(buffer));
+    av_make_error_string(buffer, AV_ERROR_MAX_STRING_SIZE, err);
     return QString::fromUtf8(buffer);
+}
+
+// HW エンコーダー名を codec id と encoder name に分解
+struct EncoderNameInfo {
+    AVCodecID codecId = AV_CODEC_ID_NONE;
+    QString encoderName;  // 空なら自動
+};
+
+// NVENC, AMF, QSV, VAAPI の短縮名マッピング
+static QStringList knownHardwareEncodersFor(AVCodecID codecId)
+{
+    switch (codecId) {
+    case AV_CODEC_ID_H264:
+        return {"h264_nvenc", "h264_amf", "h264_qsv", "h264_vaapi"};
+    case AV_CODEC_ID_HEVC:
+        return {"hevc_nvenc", "hevc_amf", "hevc_qsv", "hevc_vaapi"};
+    case AV_CODEC_ID_VP9:
+        return {"vp9_qsv", "vp9_vaapi"};
+    default:
+        return {};
+    }
 }
 
 } // namespace
@@ -36,7 +64,6 @@ namespace ArtifactCore {
 class FFmpegEncoder::Impl {
 public:
     Impl() {
-        // FFmpeg ライブラリ初期化
         avformat_network_init();
     }
 
@@ -89,18 +116,19 @@ public:
         }
         stream_->id = 0;
 
-        // コーデック検索
+        // コーデック検索 - HW エンコーダー優先
         AVCodecID codecId = AV_CODEC_ID_NONE;
         
-        // コンテナとコーデックの組み合わせ検証
         const QString codecLower = settings.videoCodec.toLower().trimmed();
-        if (codecLower == "h264" || codecLower == "avc" || codecLower == "libx264") {
+        if (codecLower == "h264" || codecLower == "avc" || codecLower == "libx264" ||
+            codecLower == "h264_nvenc" || codecLower == "h264_amf" || codecLower == "h264_qsv") {
             codecId = AV_CODEC_ID_H264;
-        } else if (codecLower == "h265" || codecLower == "hevc" || codecLower == "libx265") {
+        } else if (codecLower == "h265" || codecLower == "hevc" || codecLower == "libx265" ||
+                   codecLower == "hevc_nvenc" || codecLower == "hevc_amf" || codecLower == "hevc_qsv") {
             codecId = AV_CODEC_ID_HEVC;
         } else if (codecLower == "prores" || codecLower == "apple_prores") {
             codecId = AV_CODEC_ID_PRORES;
-        } else if (codecLower == "vp9" || codecLower == "libvpx-vp9") {
+        } else if (codecLower == "vp9" || codecLower == "libvpx-vp9" || codecLower == "vp9_qsv") {
             codecId = AV_CODEC_ID_VP9;
         } else if (codecLower == "mjpeg" || codecLower == "motion_jpeg") {
             codecId = AV_CODEC_ID_MJPEG;
@@ -113,10 +141,38 @@ public:
         } else if (codecLower == "webp" || codecLower == "libwebp_anim" || codecLower == "libwebp") {
             codecId = AV_CODEC_ID_WEBP;
         } else {
-            codecId = AV_CODEC_ID_H264;  // デフォルト
+            codecId = AV_CODEC_ID_H264;
         }
 
-        const AVCodec* codec = avcodec_find_encoder(codecId);
+        // HW エンコーダーを探す
+        const AVCodec* codec = nullptr;
+        bool isHardwareEncoder = false;
+
+        // 明示的なエンコーダー名が指定されていればそれを使う
+        if (!settings.encoderName.isEmpty()) {
+            codec = avcodec_find_encoder_by_name(settings.encoderName.toUtf8().constData());
+            if (codec) {
+                isHardwareEncoder = true;
+            }
+        }
+
+        // preferHardware なら HW エンコーダー一覧から探す
+        if (!codec && settings.preferHardware) {
+            const auto hwEncoders = knownHardwareEncodersFor(codecId);
+            for (const auto& name : hwEncoders) {
+                codec = avcodec_find_encoder_by_name(name.toUtf8().constData());
+                if (codec) {
+                    isHardwareEncoder = true;
+                    break;
+                }
+            }
+        }
+
+        // フォールバック: ソフトウェアエンコーダー
+        if (!codec) {
+            codec = avcodec_find_encoder(codecId);
+        }
+
         if (!codec) {
             lastError_ = QStringLiteral("Failed to find encoder for codec: %1").arg(settings.videoCodec);
             return false;
@@ -129,7 +185,9 @@ public:
             return false;
         }
 
-        // コーデックパラメーター設定
+        // HDR 対応ピクセルフォーマットと色空間の決定
+        const bool isHdr = (settings.hdrColorSpace != HDRColorSpace::SDR_BT709);
+
         codecCtx_->codec_id = codecId;
         codecCtx_->codec_type = AVMEDIA_TYPE_VIDEO;
         codecCtx_->width = width_;
@@ -138,32 +196,61 @@ public:
         codecCtx_->framerate = AVRational{static_cast<int>(settings.fps), 1};
         codecCtx_->gop_size = settings.gopSize;
         codecCtx_->max_b_frames = settings.maxBFrames;
-        
-        // ピクセルフォーマット設定（コーデックによる）
+
+        // ピクセルフォーマット設定（HDR 時は 10bit 以上を優先）
         if (codecId == AV_CODEC_ID_PRORES) {
             const QString profile = settings.profile.trimmed().toLower();
             if (profile.contains("4444")) {
-                codecCtx_->pix_fmt = AV_PIX_FMT_YUVA444P10LE;  // ProRes 4444 は alpha を含む
+                codecCtx_->pix_fmt = AV_PIX_FMT_YUVA444P10LE;
             } else {
-                codecCtx_->pix_fmt = AV_PIX_FMT_YUV422P10;     // ProRes 422 系
+                codecCtx_->pix_fmt = AV_PIX_FMT_YUV422P10;
             }
-        } else if (codecId == AV_CODEC_ID_HEVC || codecId == AV_CODEC_ID_H264) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
-        } else if (codecId == AV_CODEC_ID_VP9) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
+        } else if (isHdr && (codecId == AV_CODEC_ID_H264 || codecId == AV_CODEC_ID_HEVC || codecId == AV_CODEC_ID_VP9)) {
+            // HDR 時は 10bit を試す。HEVC/V9 では P010 が一般的
+            if (codecId == AV_CODEC_ID_HEVC) {
+                codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P10LE;       // HEVC 10bit
+            } else if (codecId == AV_CODEC_ID_VP9) {
+                codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P10LE;       // VP9 10bit
+            } else {
+                codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;            // H.264 10bit は限定的
+            }
+            // エンコーダーが 10bit 対応していない場合は 8bit にフォールバック
+            if (codecCtx_->pix_fmt != AV_PIX_FMT_NONE && codec->pix_fmts) {
+                bool found10 = false;
+                for (int i = 0; codec->pix_fmts[i] != AV_PIX_FMT_NONE; ++i) {
+                    if (codec->pix_fmts[i] == codecCtx_->pix_fmt) {
+                        found10 = true;
+                        break;
+                    }
+                }
+                if (!found10) {
+                    codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
+                }
+            }
         } else if (codecId == AV_CODEC_ID_MJPEG) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_YUVJ420P;  // MJPEG は full-range
+            codecCtx_->pix_fmt = AV_PIX_FMT_YUVJ420P;
         } else if (codecId == AV_CODEC_ID_PNG) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_RGBA;       // PNG は alpha を保持
+            codecCtx_->pix_fmt = AV_PIX_FMT_RGBA;
         } else if (codecId == AV_CODEC_ID_GIF) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_PAL8;       // GIF はパレット形式
+            codecCtx_->pix_fmt = AV_PIX_FMT_PAL8;
         } else if (codecId == AV_CODEC_ID_APNG || codecId == AV_CODEC_ID_WEBP) {
-            codecCtx_->pix_fmt = AV_PIX_FMT_RGBA;       // animated image は alpha を扱える
+            codecCtx_->pix_fmt = AV_PIX_FMT_RGBA;
         } else {
             codecCtx_->pix_fmt = AV_PIX_FMT_YUV420P;
         }
 
-        // ビットレート設定（可変品質コーデックは CRF 優先）
+        // HW エンコーダーに最適なピクセルフォーマットを確認
+        if (isHardwareEncoder && codecCtx_->pix_fmt == AV_PIX_FMT_YUV420P) {
+            // HW エンコーダーは特定の pix_fmt を要求する
+            if (codec->pix_fmts) {
+                for (int i = 0; codec->pix_fmts[i] != AV_PIX_FMT_NONE; ++i) {
+                    codecCtx_->pix_fmt = codec->pix_fmts[i];
+                    break;
+                }
+            }
+        }
+
+        // ビットレート設定
         if (codecId == AV_CODEC_ID_H264 || codecId == AV_CODEC_ID_HEVC || codecId == AV_CODEC_ID_VP9) {
             codecCtx_->global_quality = settings.crf * FF_QP2LAMBDA;
             codecCtx_->flags |= AV_CODEC_FLAG_QSCALE;
@@ -185,8 +272,7 @@ public:
             av_opt_set(codecCtx_->priv_data, "preset", settings.preset.toUtf8().constData(), 0);
             av_opt_set_int(codecCtx_->priv_data, "crf", settings.crf, 0);
         } else if (codecId == AV_CODEC_ID_PRORES) {
-            // ProRes profile（1=proxy, 2=lt, 3=standard, 4=hq, 5=4444）
-            int proresProfile = 3;  // default: standard
+            int proresProfile = 3;
             const QString prof = settings.profile.toLower();
             if (prof.contains("4444")) proresProfile = 5;
             else if (prof.contains("hq")) proresProfile = 4;
@@ -201,11 +287,41 @@ public:
             av_opt_set_int(codecCtx_->priv_data, "loop", 0, 0);
         }
 
-        // カラープライマリ・マトリックス・レンジの設定 (BT.709)
-        codecCtx_->color_range = AVCOL_RANGE_MPEG; 
-        codecCtx_->color_primaries = AVCOL_PRI_BT709;
-        codecCtx_->color_trc = AVCOL_TRC_BT709;
-        codecCtx_->colorspace = AVCOL_SPC_BT709;
+        // HW エンコーダー固有オプション
+        if (isHardwareEncoder) {
+            const AVCodecHWConfig* hwConfig = nullptr;
+            for (int i = 0; (hwConfig = avcodec_get_hw_config(codec, i)); ++i) {
+                if (hwConfig->methods & AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX) {
+                    break;
+                }
+            }
+            // HW フレームコンテキストは未設定（sws_scale 経由でシステムメモリから入力）
+            // NVENC はデフォルトでシステムメモリ入力を受け付ける
+            av_opt_set(codecCtx_->priv_data, "preset", "p4", 0);
+        }
+
+        // HDR 色空間設定
+        switch (settings.hdrColorSpace) {
+        case HDRColorSpace::HDR10_PQ:
+            codecCtx_->color_primaries = AVCOL_PRI_BT2020;
+            codecCtx_->color_trc = AVCOL_TRC_SMPTEST2084;
+            codecCtx_->colorspace = AVCOL_SPC_BT2020_NCL;
+            codecCtx_->color_range = AVCOL_RANGE_MPEG;
+            break;
+        case HDRColorSpace::HLG_BT2020:
+            codecCtx_->color_primaries = AVCOL_PRI_BT2020;
+            codecCtx_->color_trc = AVCOL_TRC_ARIB_STD_B67;
+            codecCtx_->colorspace = AVCOL_SPC_BT2020_NCL;
+            codecCtx_->color_range = AVCOL_RANGE_MPEG;
+            break;
+        case HDRColorSpace::SDR_BT709:
+        default:
+            codecCtx_->color_range = AVCOL_RANGE_MPEG;
+            codecCtx_->color_primaries = AVCOL_PRI_BT709;
+            codecCtx_->color_trc = AVCOL_TRC_BT709;
+            codecCtx_->colorspace = AVCOL_SPC_BT709;
+            break;
+        }
 
         if (const int ret = avcodec_open2(codecCtx_, codec, nullptr); ret < 0) {
             lastError_ = QStringLiteral("Failed to open video encoder: %1 (%2)").arg(settings.videoCodec, ffmpegErrorString(ret));
@@ -312,10 +428,9 @@ public:
             return true;
         }
 
-        // 出力パターン保存（%04d を後で展開）
+        // 出力パターン保存
         outputPathPattern_ = outputPathPattern;
 
-        // 圧縮レベル設定
         if (fmt == "png") {
             compressionLevel_ = std::clamp(settings.compressionLevel, 0, 9);
         } else if (fmt == "tiff") {
@@ -324,16 +439,14 @@ public:
             jpegQuality_ = std::clamp(settings.jpegQuality, 1, 100);
         }
 
-        // ピクセルフォーマット設定
         if (settings.is32bit && fmt == "exr") {
-            dstPixFmt_ = AV_PIX_FMT_RGBF32LE;  // 32bit float
+            dstPixFmt_ = AV_PIX_FMT_RGBF32LE;
         } else if (settings.is16bit && (fmt == "png" || fmt == "tiff")) {
-            dstPixFmt_ = AV_PIX_FMT_RGB48LE;  // 16bit
+            dstPixFmt_ = AV_PIX_FMT_RGB48LE;
         } else {
-            dstPixFmt_ = AV_PIX_FMT_RGB24;  // 8bit
+            dstPixFmt_ = AV_PIX_FMT_RGB24;
         }
 
-        // スケーラー作成
         swsCtx_ = sws_getContext(
             width_, height_, AV_PIX_FMT_RGBA,
             width_, height_, dstPixFmt_,
@@ -345,7 +458,6 @@ public:
             return false;
         }
 
-        // フレーム作成
         frame_ = av_frame_alloc();
         if (!frame_) {
             lastError_ = "Failed to allocate frame";
@@ -380,25 +492,21 @@ public:
             return false;
         }
 
-        // 連番画像出力の場合
         if (isImageSequence_) {
             return addImageSequenceFrame(image);
         }
 
-        // ビデオエンコードの場合
         if (!codecCtx_) {
             lastError_ = "Video encoder not initialized";
             return false;
         }
 
-        // 入力画像データを RGBA 形式で一時バッファにコピー
         const float* srcData = image.rgba32fData();
         if (!srcData) {
             lastError_ = "Failed to access RGBA32F image data";
             return false;
         }
 
-        // 一時 RGBA フレーム作成
         AVFrame* rgbaFrame = av_frame_alloc();
         if (!rgbaFrame) {
             lastError_ = "Failed to allocate temporary RGBA frame";
@@ -414,27 +522,36 @@ public:
             return false;
         }
 
-        // フレームをロック
         if (av_frame_make_writable(rgbaFrame) < 0) {
             av_frame_free(&rgbaFrame);
             lastError_ = "Failed to make RGBA frame writable";
             return false;
         }
 
-        // 画像データをコピー（float [0,1] → uint8 [0,255]）
+        // HDR 対応: ノミナルピーク値を使って float → uint8/uint16 変換
         uint8_t* dst = rgbaFrame->data[0];
-        for (int i = 0; i < w * h; ++i) {
-            const int r = static_cast<uint8_t>(std::clamp(srcData[i * 4 + 0] * 255.0f, 0.0f, 255.0f));
-            const int g = static_cast<uint8_t>(std::clamp(srcData[i * 4 + 1] * 255.0f, 0.0f, 255.0f));
-            const int b = static_cast<uint8_t>(std::clamp(srcData[i * 4 + 2] * 255.0f, 0.0f, 255.0f));
-            const int a = static_cast<uint8_t>(std::clamp(srcData[i * 4 + 3] * 255.0f, 0.0f, 255.0f));
-            dst[i * 4 + 0] = r;
-            dst[i * 4 + 1] = g;
-            dst[i * 4 + 2] = b;
-            dst[i * 4 + 3] = a;
+        const bool isHdr = (settings_.hdrColorSpace != HDRColorSpace::SDR_BT709);
+        const float peak = isHdr ? static_cast<float>(settings_.hdrNominalPeak / 100.0) : 1.0f;
+
+        if (codecCtx_->pix_fmt == AV_PIX_FMT_YUV420P10LE) {
+            // 10bit YUV: float → 10bit スケーリング（HDR: [0, peak] → [0, 1023]）
+            uint16_t* dst16 = reinterpret_cast<uint16_t*>(dst);
+            for (int i = 0; i < w * h; ++i) {
+                dst16[i * 4 + 0] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 0] / peak) * 1023.0f, 0.0f, 1023.0f));
+                dst16[i * 4 + 1] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 1] / peak) * 1023.0f, 0.0f, 1023.0f));
+                dst16[i * 4 + 2] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 2] / peak) * 1023.0f, 0.0f, 1023.0f));
+                dst16[i * 4 + 3] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 3]) * 1023.0f, 0.0f, 1023.0f));
+            }
+        } else {
+            // 8bit: float → uint8（HDR は peak で正規化）
+            for (int i = 0; i < w * h; ++i) {
+                dst[i * 4 + 0] = static_cast<uint8_t>(std::clamp((srcData[i * 4 + 0] / peak) * 255.0f, 0.0f, 255.0f));
+                dst[i * 4 + 1] = static_cast<uint8_t>(std::clamp((srcData[i * 4 + 1] / peak) * 255.0f, 0.0f, 255.0f));
+                dst[i * 4 + 2] = static_cast<uint8_t>(std::clamp((srcData[i * 4 + 2] / peak) * 255.0f, 0.0f, 255.0f));
+                dst[i * 4 + 3] = static_cast<uint8_t>(std::clamp(srcData[i * 4 + 3] * 255.0f, 0.0f, 255.0f));
+            }
         }
 
-        // 指定ピクセルフォーマットに変換
         if (av_frame_make_writable(frame_) < 0) {
             av_frame_free(&rgbaFrame);
             lastError_ = "Failed to make frame writable";
@@ -447,10 +564,8 @@ public:
 
         av_frame_free(&rgbaFrame);
 
-        // フレームにタイムスタンプ設定
         frame_->pts = frameIndex_++;
 
-        // エンコード
         int ret = avcodec_send_frame(codecCtx_, frame_);
         if (ret < 0) {
             lastError_ = QStringLiteral("Failed to send frame to encoder: %1 (%2)").arg(ret).arg(ffmpegErrorString(ret));
@@ -467,13 +582,11 @@ public:
                 return false;
             }
 
-            // パケットにストリームインデックスとタイムスタンプ設定
             packet_->stream_index = stream_->index;
             packet_->pts = packet_->pts * stream_->time_base.den / codecCtx_->time_base.den;
             packet_->dts = packet_->dts * stream_->time_base.den / codecCtx_->time_base.den;
             packet_->duration = packet_->duration * stream_->time_base.den / codecCtx_->time_base.den;
 
-            // ファイルに書き込み
             ret = av_interleaved_write_frame(fmtCtx_, packet_);
             if (ret < 0) {
                 lastError_ = QStringLiteral("Failed to write packet: %1").arg(ret);
@@ -563,13 +676,11 @@ public:
     }
 
     bool addImageSequenceFrame(const ImageF32x4_RGBA& image) {
-        // 出力ファイル名生成（%04d を展開）
         const QString frameNumStr = QString::number(currentFrameNum_).rightJustified(imageSeqSettings_.padding, '0');
         QString outputPath = outputPathPattern_;
         outputPath.replace("%04d", frameNumStr);
         outputPath.replace("%d", frameNumStr);
-        
-        // 拡張子がなければ追加
+
         if (!outputPath.contains(".")) {
             outputPath += "." + imageFormat_;
         }
@@ -613,7 +724,6 @@ public:
             return true;
         }
 
-        // 画像データを準備
         const float* srcData = image.rgba32fData();
         if (!srcData) {
             lastError_ = "Failed to access RGBA32F image data";
@@ -622,7 +732,6 @@ public:
         const int w = image.width();
         const int h = image.height();
 
-        // 一時 RGBA フレーム作成
         AVFrame* rgbaFrame = av_frame_alloc();
         if (!rgbaFrame) {
             lastError_ = "Failed to allocate temporary RGBA frame";
@@ -644,28 +753,23 @@ public:
             return false;
         }
 
-        // 画像データをコピー（float → 8bit/16bit）
         if (dstPixFmt_ == AV_PIX_FMT_RGB48LE) {
-            // 16bit 出力
             uint16_t* dst = reinterpret_cast<uint16_t*>(rgbaFrame->data[0]);
             for (int i = 0; i < w * h * 4; ++i) {
                 dst[i] = static_cast<uint16_t>(std::clamp(srcData[i] * 65535.0f, 0.0f, 65535.0f));
             }
         } else if (dstPixFmt_ == AV_PIX_FMT_RGBF32LE) {
-            // 32bit float 出力
             float* dst = reinterpret_cast<float*>(rgbaFrame->data[0]);
             for (int i = 0; i < w * h * 4; ++i) {
                 dst[i] = srcData[i];
             }
         } else {
-            // 8bit 出力
             uint8_t* dst = rgbaFrame->data[0];
             for (int i = 0; i < w * h * 4; ++i) {
                 dst[i] = static_cast<uint8_t>(std::clamp(srcData[i] * 255.0f, 0.0f, 255.0f));
             }
         }
 
-        // 指定フォーマットに変換
         if (av_frame_make_writable(frame_) < 0) {
             av_frame_free(&rgbaFrame);
             lastError_ = "Failed to make frame writable";
@@ -678,7 +782,6 @@ public:
 
         av_frame_free(&rgbaFrame);
 
-        // 画像エンコーダー取得
         const QString fmt = imageFormat_;
         AVCodecID codecId = AV_CODEC_ID_NONE;
         if (fmt == "png") codecId = AV_CODEC_ID_PNG;
@@ -686,9 +789,6 @@ public:
         else if (fmt == "tiff") codecId = AV_CODEC_ID_TIFF;
         else if (fmt == "bmp") codecId = AV_CODEC_ID_BMP;
         else if (fmt == "exr") {
-            // EXR は FFmpeg の標準エンコーダーでは非対応の場合がある
-            lastError_ = "EXR format requires special handling (use OpenEXR library directly)";
-            // 簡易的に TIFF で出力
             codecId = AV_CODEC_ID_TIFF;
         }
 
@@ -698,7 +798,6 @@ public:
             return false;
         }
 
-        // 画像エンコードコンテキスト作成
         AVCodecContext* imgCodecCtx = avcodec_alloc_context3(codec);
         if (!imgCodecCtx) {
             lastError_ = "Failed to allocate image codec context";
@@ -712,7 +811,6 @@ public:
         imgCodecCtx->pix_fmt = dstPixFmt_;
         imgCodecCtx->time_base = AVRational{1, 30};
 
-        // 圧縮設定
         if (fmt == "png" || fmt == "tiff") {
             imgCodecCtx->compression_level = compressionLevel_;
         } else if (fmt == "jpeg") {
@@ -720,14 +818,12 @@ public:
             imgCodecCtx->flags |= AV_CODEC_FLAG_QSCALE;
         }
 
-        // エンコーダー初期化
         if (const int ret = avcodec_open2(imgCodecCtx, codec, nullptr); ret < 0) {
             avcodec_free_context(&imgCodecCtx);
             lastError_ = QStringLiteral("Failed to open image encoder for: %1 (%2)").arg(fmt, ffmpegErrorString(ret));
             return false;
         }
 
-        // エンコード
         AVPacket* packet = av_packet_alloc();
         if (!packet) {
             avcodec_free_context(&imgCodecCtx);
@@ -751,7 +847,6 @@ public:
             return false;
         }
 
-        // ファイルに書き込み
         QFile file(outputPath);
         if (!file.open(QIODevice::WriteOnly)) {
             av_packet_free(&packet);
@@ -775,7 +870,6 @@ public:
             return;
         }
 
-        // 遅延フレームをエンコード
         if (codecCtx_) {
             avcodec_send_frame(codecCtx_, nullptr);
             while (avcodec_receive_packet(codecCtx_, packet_) >= 0) {
@@ -785,12 +879,10 @@ public:
             }
         }
 
-        // トライラー書き込み
         if (fmtCtx_) {
             av_write_trailer(fmtCtx_);
         }
 
-        // リソース解放
         if (packet_) {
             av_packet_free(&packet_);
         }
@@ -847,8 +939,7 @@ private:
     QString lastError_;
 
     FFmpegEncoderSettings settings_;
-    
-    // 連番画像出力用
+
     FFmpegImageSequenceSettings imageSeqSettings_;
     bool isImageSequence_ = false;
     bool useOiioSequence_ = false;
@@ -942,7 +1033,6 @@ bool FFmpegEncoder::isEncoderAvailableByName(const QString& encoderName) {
 QStringList FFmpegEncoder::availableVideoCodecs() {
     QStringList result;
 
-    // 主要コーデックを手動で登録
     if (avcodec_find_encoder(AV_CODEC_ID_H264)) {
         result << "h264";
     }
@@ -985,7 +1075,6 @@ bool FFmpegEncoder::isContainerAvailable(const QString& containerName) {
 QStringList FFmpegEncoder::availableContainers() {
     QStringList result;
 
-    // 主要コンテナを手動で登録
     if (av_guess_format("mp4", nullptr, nullptr)) {
         result << "mp4";
     }

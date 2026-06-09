@@ -6,6 +6,8 @@ module;
 #include <QPainterPath>
 #include <QPainterPathStroker>
 #include <QPointF>
+#include <wobjectdefs.h>
+#include <wobjectimpl.h>
 
 export module Shape.TrimPaths;
 
@@ -22,7 +24,7 @@ export namespace ArtifactCore {
  * AEのシェイプレイヤーにある「トリムパス」と同等の機能。
  */
 class TrimPaths : public ShapeOperator {
-    Q_OBJECT
+    W_OBJECT(TrimPaths)
     Q_PROPERTY(float start READ start WRITE setStart NOTIFY startChanged)
     Q_PROPERTY(float end READ end WRITE setEnd NOTIFY endChanged)
     Q_PROPERTY(float offset READ offset WRITE setOffset NOTIFY offsetChanged)
@@ -143,10 +145,9 @@ public:
         return result;
     }
 
-signals:
-    void startChanged();
-    void endChanged();
-    void offsetChanged();
+    void startChanged() W_SIGNAL(startChanged);
+    void endChanged() W_SIGNAL(endChanged);
+    void offsetChanged() W_SIGNAL(offsetChanged);
 
 private:
     float start_ = 0.0f;   // 0.0 - 100.0
@@ -256,5 +257,7 @@ private:
         return path;
     }
 };
+
+W_OBJECT_IMPL(TrimPaths)
 
 } // namespace ArtifactCore

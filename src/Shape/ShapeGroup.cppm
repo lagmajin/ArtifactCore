@@ -237,6 +237,10 @@ std::vector<ShapePath> ShapeGroup::processedPaths() const {
 
 PathShape::PathShape() : impl_(new Impl()) {}
 
+PathShape::PathShape(const ShapePath& path) : impl_(new Impl()) {
+    setPath(path);
+}
+
 PathShape::~PathShape() { delete impl_; }
 
 ShapePath& PathShape::path() {
