@@ -3,6 +3,7 @@ module;
 #include <cmath>
 export module ImageProcessing.ColorTransform.TriChromaticShift;
 
+import Particle;
 import FloatRGBA;
 import Image.ImageF32x4_RGBA;
 
