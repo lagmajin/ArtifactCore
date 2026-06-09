@@ -37,6 +37,7 @@ export module Media.Encoder.FFmpegAudioDecoder;
 
 import Utils.Size.Like;
 import Utils.String.UniString;
+import Audio.Segment;
 
 export namespace ArtifactCore
 {
@@ -55,8 +56,11 @@ export namespace ArtifactCore
   void fillCacheAsync(double start, double end);
   void flush();
   bool isSameFile(const UniString& path) const;
+  bool decodeNextSegment(AudioSegment& out);
+  int sampleRate() const;
+  int channelCount() const;
+  bool isEndOfStream() const;
  };
-
 
 
 

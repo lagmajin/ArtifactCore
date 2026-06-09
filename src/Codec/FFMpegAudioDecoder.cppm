@@ -1,4 +1,4 @@
-﻿module;
+module;
 class tst_QList;
 extern "C" {
 #include <libavformat/avformat.h>
@@ -540,6 +540,36 @@ namespace ArtifactCore
  bool FFmpegAudioDecoder::isSameFile(const UniString& path) const
  {
   return impl_->isSameFile(path);
+ }
+
+
+ bool FFmpegAudioDecoder::decodeNextSegment(AudioSegment& out)
+ {
+  AudioBufferQueue queue;
+  if (!impl_->decodeNextFrame(queue)) {
+   return false;
+  }
+  AudioSegment seg;
+  if (!queue.pop(seg)) {
+   return false;
+  }
+  out = std::move(seg);
+  return true;
+ }
+
+ int FFmpegAudioDecoder::sampleRate() const
+ {
+  return impl_ ? 48000 : 44100;
+ }
+
+ int FFmpegAudioDecoder::channelCount() const
+ {
+  return 2;
+ }
+
+ bool FFmpegAudioDecoder::isEndOfStream() const
+ {
+  return false;
  }
 
 };
