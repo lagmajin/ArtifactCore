@@ -1,10 +1,12 @@
-﻿module;
+module;
 #include <utility>
 #include <cmath>
 #include <algorithm>
 #include <array>
 #include <vector>
 module Color.AutoMatch;
+
+import Image.ImageF32x4_RGBA;
 
 namespace ArtifactCore {
 
@@ -33,17 +35,14 @@ static float labfInv(float t) {
 }
 
 static void rgbToLab(float r, float g, float b, float& L, float& a, float& labB) {
-    // sRGB -> Linear
     float lr = gammaToLinear(std::clamp(r, 0.0f, 1.0f));
     float lg = gammaToLinear(std::clamp(g, 0.0f, 1.0f));
     float lb = gammaToLinear(std::clamp(b, 0.0f, 1.0f));
 
-    // Linear RGB -> XYZ (sRGB matrix)
     float x = 0.4124564f * lr + 0.3575761f * lg + 0.1804375f * lb;
     float y = 0.2126729f * lr + 0.7151522f * lg + 0.0721750f * lb;
     float z = 0.0193339f * lr + 0.1191920f * lg + 0.9503041f * lb;
 
-    // XYZ -> Lab
     float fx = labf(x / D65_X);
     float fy = labf(y / D65_Y);
     float fz = labf(z / D65_Z);
@@ -54,7 +53,6 @@ static void rgbToLab(float r, float g, float b, float& L, float& a, float& labB)
 }
 
 static void labToRgb(float L, float a, float labB, float& r, float& g, float& b) {
-    // Lab -> XYZ
     float fy = (L + 16.0f) / 116.0f;
     float fx = a / 500.0f + fy;
     float fz = fy - labB / 200.0f;
@@ -63,12 +61,10 @@ static void labToRgb(float L, float a, float labB, float& r, float& g, float& b)
     float y = D65_Y * labfInv(fy);
     float z = D65_Z * labfInv(fz);
 
-    // XYZ -> Linear RGB
     float lr =  3.2404542f * x - 1.5371385f * y - 0.4985314f * z;
     float lg = -0.9692660f * x + 1.8760108f * y + 0.0415560f * z;
     float lb =  0.0556434f * x - 0.2040259f * y + 1.0572252f * z;
 
-    // Linear -> sRGB
     r = linearToGamma(std::clamp(lr, 0.0f, 1.0f));
     g = linearToGamma(std::clamp(lg, 0.0f, 1.0f));
     b = linearToGamma(std::clamp(lb, 0.0f, 1.0f));
@@ -108,7 +104,6 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
     const int srcTotal = srcWidth * srcHeight;
     const int refTotal = refWidth * refHeight;
 
-    // Convert source to Lab
     std::vector<float> srcL(srcTotal), srcA(srcTotal), srcB(srcTotal);
     for (int i = 0; i < srcTotal; ++i) {
         int idx = i * 4;
@@ -116,7 +111,6 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
                  srcL[i], srcA[i], srcB[i]);
     }
 
-    // Convert reference to Lab
     std::vector<float> refL(refTotal), refA(refTotal), refB(refTotal);
     for (int i = 0; i < refTotal; ++i) {
         int idx = i * 4;
@@ -124,7 +118,6 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
                  refL[i], refA[i], refB[i]);
     }
 
-    // Compute Lab statistics for both images
     auto srcStatsL = computeChannelStats(srcL.data(), srcTotal);
     auto srcStatsA = computeChannelStats(srcA.data(), srcTotal);
     auto srcStatsB = computeChannelStats(srcB.data(), srcTotal);
@@ -133,8 +126,6 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
     auto refStatsA = computeChannelStats(refA.data(), refTotal);
     auto refStatsB = computeChannelStats(refB.data(), refTotal);
 
-    // Reinhard transfer: for each pixel
-    // new_L = (src_L - src_mean_L) * (ref_std_L / src_std_L) + ref_mean_L
     for (int i = 0; i < srcTotal; ++i) {
         float newL = static_cast<float>(
             (srcL[i] - srcStatsL.mean) * (refStatsL.stddev / srcStatsL.stddev) + refStatsL.mean);
@@ -143,21 +134,18 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
         float newB_lab = static_cast<float>(
             (srcB[i] - srcStatsB.mean) * (refStatsB.stddev / srcStatsB.stddev) + refStatsB.mean);
 
-        // Blend with original based on intensity
         float finalL = srcL[i] + (newL - srcL[i]) * intensity;
         float finalA = srcA[i] + (newA - srcA[i]) * intensity;
         float finalB_lab = srcB[i] + (newB_lab - srcB[i]) * intensity;
 
-        // Convert back to RGB
         int idx = i * 4;
-        float origR = srcPixels[idx], origG = srcPixels[idx + 1], origB = srcPixels[idx + 2];
         labToRgb(finalL, finalA, finalB_lab,
                  srcPixels[idx], srcPixels[idx + 1], srcPixels[idx + 2]);
     }
 }
 
 // ============================================================
-// Mean/Stddev Match (RGB space — lightweight)
+// Mean/Stddev Match
 // ============================================================
 
 void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHeight,
@@ -166,7 +154,6 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
     const int srcTotal = srcWidth * srcHeight;
     const int refTotal = refWidth * refHeight;
 
-    // Compute per-channel stats for source
     std::vector<float> srcR(srcTotal), srcG(srcTotal), srcBch(srcTotal);
     for (int i = 0; i < srcTotal; ++i) {
         int idx = i * 4;
@@ -219,8 +206,7 @@ static void buildCDF(const float* channel, int count, float cdf[256]) {
 static float matchCDF(float value, const float srcCDF[256], const float refCDF[256]) {
     int srcBin = std::clamp(static_cast<int>(value * 255.0f), 0, 255);
     float srcCDFVal = srcCDF[srcBin];
-    
-    // Find the bin in ref whose CDF is closest to srcCDFVal
+
     int bestBin = 0;
     float bestDist = 2.0f;
     for (int i = 0; i < 256; ++i) {
@@ -236,7 +222,6 @@ void AutoColorMatcher::histogramMatch(float* srcPixels, int srcWidth, int srcHei
     const int srcTotal = srcWidth * srcHeight;
     const int refTotal = refWidth * refHeight;
 
-    // Process each channel independently
     for (int ch = 0; ch < 3; ++ch) {
         std::vector<float> srcCh(srcTotal), refCh(refTotal);
         for (int i = 0; i < srcTotal; ++i) srcCh[i] = srcPixels[i * 4 + ch];
@@ -283,7 +268,6 @@ AutoColorMatcher::MatchResult AutoColorMatcher::computeMatch(
     const int refTotal = refWidth * refHeight;
     MatchResult result;
 
-    // Compute per-channel scales and offsets
     for (int ch = 0; ch < 3; ++ch) {
         std::vector<float> srcCh(srcTotal), refCh(refTotal);
         for (int i = 0; i < srcTotal; ++i) srcCh[i] = srcPixels[i * 4 + ch];
@@ -302,7 +286,6 @@ AutoColorMatcher::MatchResult AutoColorMatcher::computeMatch(
         }
     }
 
-    // Confidence based on how similar the stddevs already are
     float diffR = std::abs(result.scaleR - 1.0f);
     float diffG = std::abs(result.scaleG - 1.0f);
     float diffB = std::abs(result.scaleB - 1.0f);
@@ -325,6 +308,37 @@ void AutoColorMatcher::applyMatch(float* pixels, int width, int height,
         pixels[idx + 1] = pixels[idx + 1] + (g - pixels[idx + 1]) * intensity;
         pixels[idx + 2] = pixels[idx + 2] + (b - pixels[idx + 2]) * intensity;
     }
+}
+
+// ============================================================
+// ImageF32x4_RGBA overloads
+// ============================================================
+
+void AutoColorMatcher::match(ImageF32x4_RGBA& src, const ImageF32x4_RGBA& ref,
+                              Method method, float intensity)
+{
+    match(src.rgba32fData(), ref.rgba32fData(), src.width(), src.height(), method, intensity);
+}
+
+void AutoColorMatcher::reinhardTransfer(ImageF32x4_RGBA& src, const ImageF32x4_RGBA& ref,
+                                         float intensity)
+{
+    reinhardTransfer(src.rgba32fData(), src.width(), src.height(),
+                     ref.rgba32fData(), ref.width(), ref.height(), intensity);
+}
+
+void AutoColorMatcher::meanStddevMatch(ImageF32x4_RGBA& src, const ImageF32x4_RGBA& ref,
+                                        float intensity)
+{
+    meanStddevMatch(src.rgba32fData(), src.width(), src.height(),
+                    ref.rgba32fData(), ref.width(), ref.height(), intensity);
+}
+
+void AutoColorMatcher::histogramMatch(ImageF32x4_RGBA& src, const ImageF32x4_RGBA& ref,
+                                       float intensity)
+{
+    histogramMatch(src.rgba32fData(), src.width(), src.height(),
+                   ref.rgba32fData(), ref.width(), ref.height(), intensity);
 }
 
 } // namespace ArtifactCore

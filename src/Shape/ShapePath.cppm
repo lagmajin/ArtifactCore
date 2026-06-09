@@ -642,4 +642,257 @@ QPointF ShapePath::quadPointAtLength(const QPointF& p0, const QPointF& p1, const
     return result;
 }
 
+// ========================================
+// サブパス分解
+// ========================================
+
+std::vector<ShapePath> ShapePath::subpaths() const
+{
+    std::vector<ShapePath> result;
+    if (impl_->commands_.empty()) return result;
+
+    ShapePath current;
+    for (const auto& cmd : impl_->commands_) {
+        if (cmd.type == PathCommandType::MoveTo) {
+            if (!current.impl_->commands_.empty()) {
+                result.push_back(std::move(current));
+                current = ShapePath();
+            }
+            current.impl_->commands_.push_back(cmd);
+        } else {
+            current.impl_->commands_.push_back(cmd);
+        }
+    }
+    if (!current.impl_->commands_.empty())
+        result.push_back(std::move(current));
+    return result;
+}
+
+// ========================================
+// 等距離サンプリング
+// ========================================
+
+std::vector<QPointF> ShapePath::sampleEquidistant(int count) const
+{
+    std::vector<QPointF> result;
+    if (impl_->commands_.empty() || count < 2) return result;
+
+    QPainterPath qpath = toPainterPath();
+    if (qpath.isEmpty()) return result;
+
+    const double totalLen = qpath.length();
+    if (totalLen < 1e-9) {
+        result.resize(count, QPointF(0, 0));
+        return result;
+    }
+
+    result.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        const double t = qpath.percentAtLength(
+            static_cast<double>(i) / (count - 1) * totalLen);
+        result.push_back(qpath.pointAtPercent(t));
+    }
+    return result;
+}
+
+// ========================================
+// パス間補間
+// ========================================
+
+ShapePath ShapePath::interpolate(
+    const ShapePath& from, const ShapePath& to,
+    double t, int sampleCount)
+{
+    if (from.isEmpty() && to.isEmpty()) return {};
+    if (from.isEmpty()) return to;
+    if (to.isEmpty()) return from;
+    if (t <= 0.0) return from;
+    if (t >= 1.0) return to;
+
+    const auto subA = from.subpaths();
+    const auto subB = to.subpaths();
+    const size_t n = std::min(subA.size(), subB.size());
+    if (n == 0) return {};
+
+    ShapePath result;
+    for (size_t s = 0; s < n; ++s) {
+        const auto ptsA = subA[s].sampleEquidistant(sampleCount);
+        const auto ptsB = subB[s].sampleEquidistant(sampleCount);
+        const size_t m = std::min(ptsA.size(), ptsB.size());
+        if (m < 2) continue;
+
+        const QPointF start = ptsA[0] + (ptsB[0] - ptsA[0]) * t;
+        result.moveTo(start);
+
+        for (size_t i = 1; i < m; ++i) {
+            const QPointF p = ptsA[i] + (ptsB[i] - ptsA[i]) * t;
+            result.lineTo(p);
+        }
+
+        if (subA[s].isClosed() || subB[s].isClosed())
+            result.close();
+    }
+    return result;
+}
+
+// ========================================
+// 面積
+// ========================================
+
+double ShapePath::area() const
+{
+    const auto sampled = sampleEquidistant(256);
+    if (sampled.size() < 3) return 0.0;
+
+    double a = 0.0;
+    for (size_t i = 0; i < sampled.size(); ++i) {
+        const auto& p0 = sampled[i];
+        const auto& p1 = sampled[(i + 1) % sampled.size()];
+        a += p0.x() * p1.y() - p1.x() * p0.y();
+    }
+    return a * 0.5;
+}
+
+// ========================================
+// 重心
+// ========================================
+
+QPointF ShapePath::centroid() const
+{
+    const auto sampled = sampleEquidistant(256);
+    if (sampled.empty()) return {};
+
+    double cx = 0.0, cy = 0.0;
+    for (const auto& p : sampled) {
+        cx += p.x();
+        cy += p.y();
+    }
+    return QPointF(cx / sampled.size(), cy / sampled.size());
+}
+
+// ========================================
+// 接線・法線
+// ========================================
+
+QPointF ShapePath::tangentAtPercent(double t) const
+{
+    QPainterPath qpath = toPainterPath();
+    if (qpath.isEmpty()) return {};
+
+    const double epsilon = 0.001;
+    t = std::clamp(t, epsilon, 1.0 - epsilon);
+
+    const QPointF p0 = qpath.pointAtPercent(t - epsilon);
+    const QPointF p1 = qpath.pointAtPercent(t + epsilon);
+    QPointF dir = p1 - p0;
+
+    const double len = std::sqrt(dir.x() * dir.x() + dir.y() * dir.y());
+    if (len < 1e-12) return {};
+    return dir / len;
+}
+
+QPointF ShapePath::normalAtPercent(double t) const
+{
+    const QPointF tan = tangentAtPercent(t);
+    return QPointF(-tan.y(), tan.x());
+}
+
+// ========================================
+// 巻き方向判定
+// ========================================
+
+bool ShapePath::isClockwise() const
+{
+    return area() < 0.0;
+}
+
+// ========================================
+// パスオフセット（膨張・収縮）
+// ========================================
+
+ShapePath ShapePath::offsetPath(double delta, int subdivisions) const
+{
+    if (std::abs(delta) < 0.001) return clone();
+
+    auto samples = sampleEquidistant(subdivisions);
+    if (samples.size() < 3) return clone();
+
+    // 各点の法線方向に delta だけオフセット
+    const int n = static_cast<int>(samples.size());
+    const bool closed = isClosed();
+
+    std::vector<QPointF> offsetPts(n);
+    for (int i = 0; i < n; ++i) {
+        const int prev = (i == 0) ? (closed ? n - 1 : 0) : i - 1;
+        const int next = (i == n - 1) ? (closed ? 0 : n - 1) : i + 1;
+        const QPointF d = samples[next] - samples[prev];
+
+        // 法線 = 接線（d方向）を右90度回転
+        const double len = std::sqrt(d.x() * d.x() + d.y() * d.y());
+        if (len < 1e-12) {
+            offsetPts[i] = samples[i];
+            continue;
+        }
+        QPointF nrm(-d.y() / len, d.x() / len);
+        offsetPts[i] = samples[i] + nrm * delta;
+    }
+
+    ShapePath result;
+    result.moveTo(offsetPts[0]);
+    for (int i = 1; i < n; ++i)
+        result.lineTo(offsetPts[i]);
+    if (closed) result.close();
+    return result;
+}
+
+// ========================================
+// シリアライズ
+// ========================================
+
+QJsonObject ShapePath::toJson() const
+{
+    QJsonObject obj;
+    obj["name"] = name();
+
+    QJsonArray cmdArr;
+    for (const auto& cmd : impl_->commands_) {
+        QJsonObject c;
+        c["type"] = static_cast<int>(cmd.type);
+        QJsonArray pts;
+        for (int i = 0; i < 3; ++i) {
+            QJsonArray pt;
+            pt.append(cmd.points[i].x());
+            pt.append(cmd.points[i].y());
+            pts.append(pt);
+        }
+        c["pts"] = pts;
+        cmdArr.append(c);
+    }
+    obj["commands"] = cmdArr;
+    return obj;
+}
+
+ShapePath ShapePath::fromJson(const QJsonObject& obj)
+{
+    ShapePath path;
+    path.setName(obj["name"].toString());
+
+    const QJsonArray cmdArr = obj["commands"].toArray();
+    for (const auto& val : cmdArr) {
+        const QJsonObject c = val.toObject();
+        const int type = c["type"].toInt();
+        const QJsonArray pts = c["pts"].toArray();
+
+        PathCommand cmd;
+        cmd.type = static_cast<PathCommandType>(type);
+        for (int i = 0; i < std::min(3, static_cast<int>(pts.size())); ++i) {
+            const QJsonArray pt = pts[i].toArray();
+            cmd.points[i] = QPointF(pt[0].toDouble(), pt[1].toDouble());
+        }
+        path.impl_->commands_.push_back(cmd);
+    }
+    path.impl_->invalidate();
+    return path;
+}
+
 } // namespace ArtifactCore

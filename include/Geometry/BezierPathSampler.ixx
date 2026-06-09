@@ -50,6 +50,26 @@ public:
 
     // 曲線の「長さ」を計算。
     static float calculatePathLength(const QVector<BezierPoint>& points, bool closed = false);
+
+    // 指定した数の点で等距離サンプリング（closed の始点重複を除去）
+    static QVector<QPointF> sampleByCount(const QVector<BezierPoint>& points, int count, bool closed = false);
+
+    // 曲率適応サンプリング：曲がりが大きい箇所ほど密にサンプリング
+    // maxAngle: 隣接セグメント間の角度閾値（ラジアン、小さいほど密）
+    static QVector<QPointF> sampleAdaptive(const QVector<BezierPoint>& points, float maxAngle = 0.15f, bool closed = false);
+
+    // 位置＋接線ベクトルを同時にサンプリング
+    struct SampledPoint {
+        QPointF position;
+        QPointF tangent;  // 正規化済み
+    };
+    static QVector<SampledPoint> sampleWithTangents(const QVector<BezierPoint>& points, int count, bool closed = false);
+
+    // パラメータ t (0..1) における位置を取得
+    static QPointF pointAt(const QVector<BezierPoint>& points, float t, bool closed = false);
+
+    // パラメータ t (0..1) における接線ベクトル（正規化済み）
+    static QPointF tangentAt(const QVector<BezierPoint>& points, float t, bool closed = false);
 };
 
 } // namespace ArtifactCore
