@@ -401,8 +401,52 @@ auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<
 
 auto ExpressionValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
 {
-    Q_UNUSED(project);
-    return {};
+    std::vector<ProjectDiagnostic> diagnostics;
+    auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
+    if (!projectPtr) return diagnostics;
+
+    const auto items = projectPtr->projectItems();
+    std::function<void(Artifact::ProjectItem*)> walk = [&](Artifact::ProjectItem* item) {
+        if (!item) return;
+        if (isCompositionItem(item)) {
+            auto* compItem = static_cast<Artifact::CompositionItem*>(item);
+            const auto findResult = projectPtr->findComposition(compItem->compositionId);
+            if (findResult.success) {
+                const auto comp = findResult.ptr.lock();
+                if (comp) {
+                    const auto json = comp->toJson().object();
+                    const auto layers = json.value(QStringLiteral("layers")).toArray();
+                    for (const auto& layerVal : layers) {
+                        const QJsonObject layerObj = layerVal.toObject();
+                        if (layerObj.isEmpty()) continue;
+                        const auto effects = layerObj.value(QStringLiteral("effects")).toArray();
+                        for (const auto& effectVal : effects) {
+                            const QJsonObject effectObj = effectVal.toObject();
+                            const auto props = effectObj.value(QStringLiteral("properties")).toObject();
+                            for (auto it = props.begin(); it != props.end(); ++it) {
+                                const QString val = it.value().toString();
+                                if (val.contains(QStringLiteral("=")) ||
+                                    val.contains(QStringLiteral("loopOut")) ||
+                                    val.contains(QStringLiteral("wiggle")) ||
+                                    val.contains(QStringLiteral("transform.")) ||
+                                    val.contains(QStringLiteral("thisComp")) ||
+                                    val.contains(QStringLiteral("valueAtTime")) ||
+                                    val.contains(QStringLiteral("Math."))) {
+                                    if (val.count(QStringLiteral("(")) != val.count(QStringLiteral(")"))) {
+                                        diagnostics.push_back(ProjectDiagnostic::createExpressionError(
+                                            val, layerObj.value(QStringLiteral("id")).toString()));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (auto* child : item->children) walk(child);
+    };
+    for (auto* root : items) walk(root);
+    return diagnostics;
 }
 
 auto PerformanceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
