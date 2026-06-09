@@ -5,6 +5,8 @@ module;
 #include <QObject>
 #include <QPointF>
 #include <QTransform>
+#include <wobjectdefs.h>
+#include <wobjectimpl.h>
 
 export module Shape.Repeater;
 
@@ -20,7 +22,7 @@ export namespace ArtifactCore {
  * AEのシェイプレイヤーにある「リピーター」と同等の機能。
  */
 class Repeater : public ShapeOperator {
-    Q_OBJECT
+    W_OBJECT(Repeater)
     Q_PROPERTY(int copies READ copies WRITE setCopies NOTIFY copiesChanged)
     Q_PROPERTY(float offset READ offset WRITE setOffset NOTIFY offsetChanged)
     Q_PROPERTY(QPointF anchorPoint READ anchorPoint WRITE setAnchorPoint NOTIFY anchorPointChanged)
@@ -123,13 +125,12 @@ public:
         return result;
     }
 
-signals:
-    void copiesChanged();
-    void offsetChanged();
-    void anchorPointChanged();
-    void positionChanged();
-    void scaleChanged();
-    void rotationChanged();
+    void copiesChanged() W_SIGNAL(copiesChanged);
+    void offsetChanged() W_SIGNAL(offsetChanged);
+    void anchorPointChanged() W_SIGNAL(anchorPointChanged);
+    void positionChanged() W_SIGNAL(positionChanged);
+    void scaleChanged() W_SIGNAL(scaleChanged);
+    void rotationChanged() W_SIGNAL(rotationChanged);
 
 private:
     int copies_ = 3;
@@ -139,5 +140,7 @@ private:
     QPointF scale_ = QPointF(1.0f, 1.0f);       // 100% scale
     float rotation_ = 0.0f;
 };
+
+W_OBJECT_IMPL(Repeater)
 
 } // namespace ArtifactCore
