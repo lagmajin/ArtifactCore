@@ -48,11 +48,7 @@ inline Vec3 randomInUnitSphere()
 
 inline Vec3 randomInHemisphere(const Vec3& normal)
 {
-    Vec3 inUnit = randomInUnitSphere();
-    if (Vec3::dot(inUnit, normal) > 0.0f)
-        return inUnit;
-    else
-        return -inUnit;
+    return randomInUnitSphere() + normal;
 }
 
 inline Vec3 reflect(const Vec3& v, const Vec3& n)

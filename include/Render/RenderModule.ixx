@@ -16,6 +16,8 @@ export import Render.Hittable;
 export import Render.BVH;
 export import Render.QuadOctree;
 export import Render.SoftwareRayTracer;
+export import Render.FrameRenderer;
+export import Render.RenderableObject;
 export import Render.JobModel;
 export import Render.Settings;
 export import Render.Queue.Manager;

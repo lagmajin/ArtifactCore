@@ -41,8 +41,9 @@ foreach(file_path ${POTENTIAL_SOURCES})
        file_path MATCHES "src/Diagnostics/ValidationRules\\.cppm" OR
        file_path MATCHES "include/Diagnostics/ValidationRules\\.ixx" OR
        file_path MATCHES "include[/\\\\]Asset[/\\\\]AsseetImporter\\.ixx" OR
-       file_path MATCHES "src/Image/FFmpegEncoder\\.Test\\.cppm" OR
-       file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
+file_path MATCHES "src/Image/FFmpegEncoder\\.Test\\.cppm" OR
+        file_path MATCHES "src/Render/SoftwareRayTracer\\.Test\\.cppm" OR
+        file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
         continue()
     endif()
 
