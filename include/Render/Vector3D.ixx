@@ -3,9 +3,9 @@ module;
 #include <cmath>
 #include <algorithm>
 
-export module Graphics.Vector3D;
+export module Render.Vector3D;
 
-export namespace ArtifactCore
+export namespace ArtifactCore::RayTrace
 {
 
 struct Vec3
@@ -59,21 +59,12 @@ struct Vec3
     }
 };
 
-// Free operators for scalar * Vec3
 inline Vec3 operator*(float t, const Vec3& v) { return v * t; }
 
-// Point3 for ray tracing clarity (same as Vec3 but semantically different)
+// Point3 for ray tracing clarity
 using Point3 = Vec3;
+
+// RGB Color for ray tracing
 using Color = Vec3;
 
-} // namespace ArtifactCore
-
-import Math.Quaternion;
-
-export namespace ArtifactCore
-{
-
-using Vec3f = Vec3;
-using Vec3Point = Point3;
-
-} // namespace ArtifactCore
+} // namespace ArtifactCore::RayTrace

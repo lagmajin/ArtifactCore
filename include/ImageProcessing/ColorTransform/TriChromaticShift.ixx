@@ -68,8 +68,10 @@ private:
     TriChromaticSettings settings_;
 
     static double luma(double r, double g, double b);
+    static double smoothstep(double edge0, double edge1, double x);
     static void hslToRgb(double h, double s, double l, double& r, double& g, double& b);
     static void rgbToHsl(double r, double g, double b, double& h, double& s, double& l);
+    void applyPixel(double& r, double& g, double& b) const;
 };
 
 }

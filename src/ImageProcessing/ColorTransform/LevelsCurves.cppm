@@ -1,10 +1,10 @@
-﻿module;
-class tst_QList;
-
+module;
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_reduce.h>
 #include <cmath>
 #include <algorithm>
 #include <vector>
-
 #include <iostream>
 #include <string>
 #include <map>
@@ -39,7 +39,9 @@ class tst_QList;
 #include <QImage>
 #include <QPointF>
 #include <QVector>
+
 module ImageProcessing.ColorTransform.LevelsCurves;
+
 
 namespace ArtifactCore {
 
@@ -170,17 +172,20 @@ QImage LevelsEffect::apply(const QImage& source) const {
     
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
     
-    for (int y = 0; y < result.height(); ++y) {
-        QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
-        for (int x = 0; x < result.width(); ++x) {
-            int r = qRed(line[x]);
-            int g = qGreen(line[x]);
-            int b = qBlue(line[x]);
-            int a = qAlpha(line[x]);
-            
-            line[x] = qRgba(impl_->lutR[r], impl_->lutG[g], impl_->lutB[b], a);
-        }
-    }
+    tbb::parallel_for(tbb::blocked_range<int>(0, result.height()),
+        [&](const tbb::blocked_range<int>& rows) {
+            for (int y = rows.begin(); y < rows.end(); ++y) {
+                QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
+                for (int x = 0; x < result.width(); ++x) {
+                    int r = qRed(line[x]);
+                    int g = qGreen(line[x]);
+                    int b = qBlue(line[x]);
+                    int a = qAlpha(line[x]);
+                    
+                    line[x] = qRgba(impl_->lutR[r], impl_->lutG[g], impl_->lutB[b], a);
+                }
+            }
+        });
     
     return result;
 }
@@ -206,27 +211,42 @@ void LevelsEffect::applyPixel(float& r, float& g, float& b) const {
 }
 
 QVector<int> LevelsEffect::calculateHistogram(const QImage& image, int channel) {
-    QVector<int> histogram(256, 0);
     QImage converted = image.convertToFormat(QImage::Format_ARGB32);
+    const int hist_h = converted.height();
+    const int hist_w = converted.width();
     
-    for (int y = 0; y < converted.height(); ++y) {
-        const QRgb* line = reinterpret_cast<const QRgb*>(converted.scanLine(y));
-        for (int x = 0; x < converted.width(); ++x) {
-            int value;
-            if (channel < 0) {
-                // 輝度
-                value = qGray(line[x]);
-            } else if (channel == 0) {
-                value = qRed(line[x]);
-            } else if (channel == 1) {
-                value = qGreen(line[x]);
-            } else {
-                value = qBlue(line[x]);
+    // parallel_reduce: each row range accumulates its own local histogram
+    std::vector<int> merged_hist = tbb::parallel_reduce(
+        tbb::blocked_range<int>(0, hist_h),
+        std::vector<int>(256, 0),
+        [&](const tbb::blocked_range<int>& rows, std::vector<int> local) {
+            for (int y = rows.begin(); y < rows.end(); ++y) {
+                const QRgb* line = reinterpret_cast<const QRgb*>(converted.scanLine(y));
+                for (int x = 0; x < hist_w; ++x) {
+                    int value;
+                    if (channel < 0) {
+                        value = qGray(line[x]);
+                    } else if (channel == 0) {
+                        value = qRed(line[x]);
+                    } else if (channel == 1) {
+                        value = qGreen(line[x]);
+                    } else {
+                        value = qBlue(line[x]);
+                    }
+                    ++local[value];
+                }
             }
-            ++histogram[value];
+            return local;
+        },
+        [](const std::vector<int>& a, const std::vector<int>& b) {
+            std::vector<int> result(256);
+            for (int i = 0; i < 256; ++i) result[i] = a[i] + b[i];
+            return result;
         }
-    }
+    );
     
+    QVector<int> histogram(256);
+    for (int i = 0; i < 256; ++i) histogram[i] = merged_hist[i];
     return histogram;
 }
 
@@ -524,17 +544,20 @@ QImage CurvesEffect::apply(const QImage& source) const {
     
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
     
-    for (int y = 0; y < result.height(); ++y) {
-        QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
-        for (int x = 0; x < result.width(); ++x) {
-            int r = qRed(line[x]);
-            int g = qGreen(line[x]);
-            int b = qBlue(line[x]);
-            int a = qAlpha(line[x]);
-            
-            line[x] = qRgba(impl_->lutR[r], impl_->lutG[g], impl_->lutB[b], a);
-        }
-    }
+        tbb::parallel_for(tbb::blocked_range<int>(0, result.height()),
+        [&](const tbb::blocked_range<int>& rows) {
+            for (int y = rows.begin(); y < rows.end(); ++y) {
+                QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
+                for (int x = 0; x < result.width(); ++x) {
+                    int r = qRed(line[x]);
+                    int g = qGreen(line[x]);
+                    int b = qBlue(line[x]);
+                    int a = qAlpha(line[x]);
+                    
+                    line[x] = qRgba(impl_->lutR[r], impl_->lutG[g], impl_->lutB[b], a);
+                }
+            }
+        });
     
     return result;
 }

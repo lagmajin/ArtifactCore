@@ -1,5 +1,6 @@
 module;
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <numbers>
 module ImageProcessing.ColorTransform.TriChromaticShift;
@@ -110,6 +111,14 @@ const TriChromaticSettings& TriChromaticProcessor::settings() const {
 
 double TriChromaticProcessor::luma(double r, double g, double b) {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+double TriChromaticProcessor::smoothstep(double edge0, double edge1, double x) {
+    if (edge0 == edge1)
+        return x < edge0 ? 0.0 : 1.0;
+
+    const double t = std::clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
 }
 
 void TriChromaticProcessor::applyPixel(double& r, double& g, double& b) const {

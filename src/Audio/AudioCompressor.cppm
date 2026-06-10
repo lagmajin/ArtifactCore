@@ -5,7 +5,6 @@
 module Audio.Effect.Compressor;
 
 import Audio.Segment;
-import Audio.Bus;
 
 namespace ArtifactCore {
 

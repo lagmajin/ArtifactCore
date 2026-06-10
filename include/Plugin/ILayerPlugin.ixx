@@ -9,6 +9,7 @@ module;
 export module ArtifactCore.Plugin.Layer.Interface;
 
 import ArtifactCore.Plugin.Common;
+import Property.Group;
 import Property.Abstract;
 
 export namespace ArtifactCore {

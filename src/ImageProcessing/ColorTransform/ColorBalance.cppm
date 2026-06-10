@@ -1,10 +1,12 @@
-﻿module;
+module;
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
 #include <algorithm>
 #include <cmath>
 #include <QColor>
 #include <QImage>
-
 module ImageProcessing.ColorTransform.ColorBalance;
+
 
 namespace ArtifactCore {
 
@@ -64,22 +66,25 @@ QImage ColorBalanceProcessor::apply(const QImage& source) const {
     }
 
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
-    for (int y = 0; y < result.height(); ++y) {
-        auto* scanLine = reinterpret_cast<QRgb*>(result.scanLine(y));
-        for (int x = 0; x < result.width(); ++x) {
-            float r = qRed(scanLine[x]) / 255.0f;
-            float g = qGreen(scanLine[x]) / 255.0f;
-            float b = qBlue(scanLine[x]) / 255.0f;
-            float a = qAlpha(scanLine[x]) / 255.0f;
-            applyPixel(r, g, b);
-            scanLine[x] = qRgba(
-                static_cast<int>(std::clamp(r * 255.0f, 0.0f, 255.0f)),
-                static_cast<int>(std::clamp(g * 255.0f, 0.0f, 255.0f)),
-                static_cast<int>(std::clamp(b * 255.0f, 0.0f, 255.0f)),
-                static_cast<int>(std::clamp(a * 255.0f, 0.0f, 255.0f))
-            );
-        }
-    }
+    tbb::parallel_for(tbb::blocked_range<int>(0, result.height()),
+        [&](const tbb::blocked_range<int>& rows) {
+            for (int y = rows.begin(); y < rows.end(); ++y) {
+                auto* scanLine = reinterpret_cast<QRgb*>(result.scanLine(y));
+                for (int x = 0; x < result.width(); ++x) {
+                    float r = qRed(scanLine[x]) / 255.0f;
+                    float g = qGreen(scanLine[x]) / 255.0f;
+                    float b = qBlue(scanLine[x]) / 255.0f;
+                    float a = qAlpha(scanLine[x]) / 255.0f;
+                    applyPixel(r, g, b);
+                    scanLine[x] = qRgba(
+                        static_cast<int>(std::clamp(r * 255.0f, 0.0f, 255.0f)),
+                        static_cast<int>(std::clamp(g * 255.0f, 0.0f, 255.0f)),
+                        static_cast<int>(std::clamp(b * 255.0f, 0.0f, 255.0f)),
+                        static_cast<int>(std::clamp(a * 255.0f, 0.0f, 255.0f))
+                    );
+                }
+            }
+        });
 
     return result;
 }

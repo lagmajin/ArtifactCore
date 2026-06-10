@@ -1,3 +1,12 @@
+module;
+#include <mutex>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
 module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
@@ -10,7 +19,7 @@ ArtifactPluginRegistry& ArtifactPluginRegistry::instance() {
 }
 
 void ArtifactPluginRegistry::registerPlugin(const PluginDescriptor& descriptor) {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     Entry entry;
     entry.descriptor = descriptor;
     entry.descriptor.state = PluginState::Registered;
@@ -18,7 +27,7 @@ void ArtifactPluginRegistry::registerPlugin(const PluginDescriptor& descriptor) 
 }
 
 void ArtifactPluginRegistry::unregisterPlugin(const std::string& id) {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     active_.erase(id);
     auto it = entries_.find(id);
     if (it != entries_.end()) {
@@ -27,7 +36,7 @@ void ArtifactPluginRegistry::unregisterPlugin(const std::string& id) {
 }
 
 void ArtifactPluginRegistry::activatePlugin(const std::string& id) {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(id);
     if (it != entries_.end()) {
         it->second.descriptor.state = PluginState::Active;
@@ -36,7 +45,7 @@ void ArtifactPluginRegistry::activatePlugin(const std::string& id) {
 }
 
 void ArtifactPluginRegistry::deactivatePlugin(const std::string& id) {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     active_.erase(id);
     auto it = entries_.find(id);
     if (it != entries_.end() && it->second.descriptor.state == PluginState::Active) {
@@ -45,17 +54,17 @@ void ArtifactPluginRegistry::deactivatePlugin(const std::string& id) {
 }
 
 bool ArtifactPluginRegistry::isRegistered(const std::string& id) const {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return entries_.find(id) != entries_.end();
 }
 
 bool ArtifactPluginRegistry::isActive(const std::string& id) const {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     return active_.find(id) != active_.end();
 }
 
 PluginState ArtifactPluginRegistry::pluginState(const std::string& id) const {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(id);
     if (it != entries_.end()) {
         return it->second.descriptor.state;
@@ -64,7 +73,7 @@ PluginState ArtifactPluginRegistry::pluginState(const std::string& id) const {
 }
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::pluginsOfCategory(PluginCategory category) const {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     std::vector<PluginDescriptor> result;
     for (const auto& [id, entry] : entries_) {
         if (entry.descriptor.category == category) {
@@ -75,7 +84,7 @@ std::vector<PluginDescriptor> ArtifactPluginRegistry::pluginsOfCategory(PluginCa
 }
 
 std::optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::string& id) const {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(id);
     if (it != entries_.end()) {
         return it->second.descriptor;
@@ -84,7 +93,7 @@ std::optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::st
 }
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     std::vector<PluginDescriptor> result;
     for (const auto& [id, entry] : entries_) {
         result.push_back(entry.descriptor);
@@ -93,7 +102,7 @@ std::vector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {
 }
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::activePlugins() const {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     std::vector<PluginDescriptor> result;
     for (const auto& id : active_) {
         auto it = entries_.find(id);

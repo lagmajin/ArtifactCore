@@ -1,11 +1,13 @@
 module;
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+module ImageProcessing.Distortion;
 #include <utility>
 #include <cmath>
 #include <algorithm>
 #include <functional>
 #include <cstdint>
 
-module ImageProcessing.Distortion;
 
 import FloatRGBA;
 import Image.ImageF32x4_RGBA;
@@ -95,15 +97,18 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
 
  auto sampler = bilinear ? sampleBilinear : sampleNearest;
 
- for (int y = 0; y < h; ++y) {
-  for (int x = 0; x < w; ++x) {
-   float sx = static_cast<float>(x);
-   float sy = static_cast<float>(y);
-   float outSX = sx, outSY = sy;
-   func(sx, sy, static_cast<float>(w), static_cast<float>(h), outSX, outSY);
-   dst.setPixel(x, y, sampler(src, outSX, outSY));
-  }
- }
+ tbb::parallel_for(tbb::blocked_range<int>(0, h),
+  [&](const tbb::blocked_range<int>& rows) {
+   for (int y = rows.begin(); y < rows.end(); ++y) {
+    float sy = static_cast<float>(y);
+    for (int x = 0; x < w; ++x) {
+     float sx = static_cast<float>(x);
+     float outSX = sx, outSY = sy;
+     func(sx, sy, static_cast<float>(w), static_cast<float>(h), outSX, outSY);
+     dst.setPixel(x, y, sampler(src, outSX, outSY));
+    }
+   }
+  });
 }
 
 // === Value noise ===

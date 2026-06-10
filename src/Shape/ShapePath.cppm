@@ -883,8 +883,7 @@ ShapePath ShapePath::fromJson(const QJsonObject& obj)
         const int type = c["type"].toInt();
         const QJsonArray pts = c["pts"].toArray();
 
-        PathCommand cmd;
-        cmd.type = static_cast<PathCommandType>(type);
+        PathCommand cmd{static_cast<PathCommandType>(type)};
         for (int i = 0; i < std::min(3, static_cast<int>(pts.size())); ++i) {
             const QJsonArray pt = pts[i].toArray();
             cmd.points[i] = QPointF(pt[0].toDouble(), pt[1].toDouble());

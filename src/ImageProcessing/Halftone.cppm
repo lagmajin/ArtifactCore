@@ -1,10 +1,12 @@
 module;
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+module ImageProcessing:Halftone;
 #include <algorithm>
 #include <cmath>
 #include <vector>
 #include <array>
 
-module ImageProcessing:Halftone;
 
 import Particle;
 import Image.ImageF32x4_RGBA;
@@ -106,39 +108,42 @@ void Halftone::process(float4* buffer, int width, int height, const HalftoneSett
         float cosA = std::cos(angleRad);
         float sinA = std::sin(angleRad);
 
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                float px = static_cast<float>(x) + 0.5f;
-                float py = static_cast<float>(y) + 0.5f;
-                float rx = px * cosA - py * sinA;
-                float ry = px * sinA + py * cosA;
-                int idx = y * width + x;
-                const auto& src = original[idx];
+        tbb::parallel_for(tbb::blocked_range<int>(0, height),
+            [&](const tbb::blocked_range<int>& y_range) {
+                for (int y = y_range.begin(); y < y_range.end(); ++y) {
+                    float py = static_cast<float>(y) + 0.5f;
+                    for (int x = 0; x < width; ++x) {
+                        float px = static_cast<float>(x) + 0.5f;
+                        float rx = px * cosA - py * sinA;
+                        float ry = px * sinA + py * cosA;
+                        int idx = y * width + x;
+                        const auto& src = original[idx];
 
-                if (settings.colorMode == HalftoneColorMode::Monochrome) {
-                    float lum = src.x * 0.299f + src.y * 0.587f + src.z * 0.114f;
-                    float intensity = std::clamp(lum * settings.contrast, 0.0f, 1.0f);
-                    float ink = 1.0f - channelCoverage(rx, ry, dotSize, halfDot, intensity,
-                                                      settings.dotShape, settings.ellipseAspect);
-                    buffer[idx].x = ink;
-                    buffer[idx].y = ink;
-                    buffer[idx].z = ink;
-                    buffer[idx].w = src.w;
-                } else {
-                    // Color: each channel modulates the same grid
-                    float r = std::clamp(src.x * settings.contrast, 0.0f, 1.0f);
-                    float g = std::clamp(src.y * settings.contrast, 0.0f, 1.0f);
-                    float b = std::clamp(src.z * settings.contrast, 0.0f, 1.0f);
-                    buffer[idx].x = 1.0f - channelCoverage(rx, ry, dotSize, halfDot, r,
-                                                          settings.dotShape, settings.ellipseAspect);
-                    buffer[idx].y = 1.0f - channelCoverage(rx, ry, dotSize, halfDot, g,
-                                                          settings.dotShape, settings.ellipseAspect);
-                    buffer[idx].z = 1.0f - channelCoverage(rx, ry, dotSize, halfDot, b,
-                                                          settings.dotShape, settings.ellipseAspect);
-                    buffer[idx].w = src.w;
+                        if (settings.colorMode == HalftoneColorMode::Monochrome) {
+                            float lum = src.x * 0.299f + src.y * 0.587f + src.z * 0.114f;
+                            float intensity = std::clamp(lum * settings.contrast, 0.0f, 1.0f);
+                            float ink = 1.0f - channelCoverage(rx, ry, dotSize, halfDot, intensity,
+                                                              settings.dotShape, settings.ellipseAspect);
+                            buffer[idx].x = ink;
+                            buffer[idx].y = ink;
+                            buffer[idx].z = ink;
+                            buffer[idx].w = src.w;
+                        } else {
+                            // Color: each channel modulates the same grid
+                            float r = std::clamp(src.x * settings.contrast, 0.0f, 1.0f);
+                            float g = std::clamp(src.y * settings.contrast, 0.0f, 1.0f);
+                            float b = std::clamp(src.z * settings.contrast, 0.0f, 1.0f);
+                            buffer[idx].x = 1.0f - channelCoverage(rx, ry, dotSize, halfDot, r,
+                                                                  settings.dotShape, settings.ellipseAspect);
+                            buffer[idx].y = 1.0f - channelCoverage(rx, ry, dotSize, halfDot, g,
+                                                                  settings.dotShape, settings.ellipseAspect);
+                            buffer[idx].z = 1.0f - channelCoverage(rx, ry, dotSize, halfDot, b,
+                                                                  settings.dotShape, settings.ellipseAspect);
+                            buffer[idx].w = src.w;
+                        }
+                    }
                 }
-            }
-        }
+            });
     } else {
         // CMYK: 4 separations, each with its own angle
         // Convert RGB → CMYK (naive inverse)
@@ -187,28 +192,32 @@ void Halftone::process(float4* buffer, int width, int height, const HalftoneSett
         }
 
         // Simplified CMYK screen: treat as 4-channel monochrome screens composited
+        // Parallelized: each channel's row-loop runs independently
         for (int ch = 0; ch < 4; ++ch) {
             float angleRad = settings.cmykAngles[ch] * kPi / 180.0f;
             float cosA = std::cos(angleRad);
             float sinA = std::sin(angleRad);
 
-            for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    float px = static_cast<float>(x) + 0.5f;
-                    float py = static_cast<float>(y) + 0.5f;
-                    float rx = px * cosA - py * sinA;
-                    float ry = px * sinA + py * cosA;
-                    int idx = y * width + x;
-                    float intensity = std::clamp(cmyk[idx][ch] * settings.contrast, 0.0f, 1.0f);
-                    float ink = channelCoverage(rx, ry, dotSize, halfDot, intensity,
-                                               settings.dotShape, settings.ellipseAspect);
-                    // ink = 1 where paper, 0 where solid ink
-                    // Composite subtractively: multiply into output
-                    buffer[idx].x *= ink;
-                    buffer[idx].y *= ink;
-                    buffer[idx].z *= ink;
-                }
-            }
+            tbb::parallel_for(tbb::blocked_range<int>(0, height),
+                [&](const tbb::blocked_range<int>& y_range) {
+                    for (int y = y_range.begin(); y < y_range.end(); ++y) {
+                        float py = static_cast<float>(y) + 0.5f;
+                        for (int x = 0; x < width; ++x) {
+                            float px = static_cast<float>(x) + 0.5f;
+                            float rx = px * cosA - py * sinA;
+                            float ry = px * sinA + py * cosA;
+                            int idx = y * width + x;
+                            float intensity = std::clamp(cmyk[idx][ch] * settings.contrast, 0.0f, 1.0f);
+                            float ink = channelCoverage(rx, ry, dotSize, halfDot, intensity,
+                                                       settings.dotShape, settings.ellipseAspect);
+                            // ink = 1 where paper, 0 where solid ink
+                            // Composite subtractively: multiply into output
+                            buffer[idx].x *= ink;
+                            buffer[idx].y *= ink;
+                            buffer[idx].z *= ink;
+                        }
+                    }
+                });
         }
     }
 }
