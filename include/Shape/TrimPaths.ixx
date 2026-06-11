@@ -1,13 +1,12 @@
 module;
 
+#include <QObject>
 #include <vector>
 #include <cmath>
 #include <algorithm>
 #include <QPainterPath>
 #include <QPainterPathStroker>
 #include <QPointF>
-#include <wobjectdefs.h>
-#include <wobjectimpl.h>
 
 export module Shape.TrimPaths;
 
@@ -18,16 +17,25 @@ import Shape.Types;
 export namespace ArtifactCore {
 
 /**
+ * @brief トリムパスのモード
+ */
+export enum class TrimMode {
+    Simultaneously, ///< 同時に（全てのパスを1本の連続したパスとして扱う）
+    Individually    ///< 個別に（それぞれのパスを独立して0-100%で扱う）
+};
+
+/**
  * @brief トリムパス演算子
  * 
  * パスの開始点、終了点、オフセットを指定してパスを切り取る。
  * AEのシェイプレイヤーにある「トリムパス」と同等の機能。
  */
 class TrimPaths : public ShapeOperator {
-    W_OBJECT(TrimPaths)
+    Q_OBJECT
     Q_PROPERTY(float start READ start WRITE setStart NOTIFY startChanged)
     Q_PROPERTY(float end READ end WRITE setEnd NOTIFY endChanged)
     Q_PROPERTY(float offset READ offset WRITE setOffset NOTIFY offsetChanged)
+    Q_PROPERTY(TrimMode trimMode READ trimMode WRITE setTrimMode NOTIFY trimModeChanged)
 
 public:
     explicit TrimPaths(QObject* parent = nullptr) 
@@ -57,12 +65,37 @@ public:
         }
     }
 
+    TrimMode trimMode() const { return trimMode_; }
+    void setTrimMode(TrimMode mode) {
+        if (trimMode_ != mode) {
+            trimMode_ = mode;
+            emit trimModeChanged();
+        }
+    }
+
     std::unique_ptr<ShapeOperator> clone() const override {
         auto copy = std::make_unique<TrimPaths>();
         copy->setStart(start_);
         copy->setEnd(end_);
         copy->setOffset(offset_);
+        copy->setTrimMode(trimMode_);
         return copy;
+    }
+
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["start"] = (double)start_;
+        obj["end"] = (double)end_;
+        obj["offset"] = (double)offset_;
+        obj["trimMode"] = static_cast<int>(trimMode_);
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("start")) setStart(obj["start"].toDouble());
+        if (obj.contains("end")) setEnd(obj["end"].toDouble());
+        if (obj.contains("offset")) setOffset(obj["offset"].toDouble());
+        if (obj.contains("trimMode")) setTrimMode(static_cast<TrimMode>(obj["trimMode"].toInt()));
     }
 
     /**
@@ -95,64 +128,129 @@ public:
             return inputPaths;
         }
 
-        for (const auto& path : inputPaths) {
-            if (path.isEmpty()) continue;
-
-            std::vector<BezierSegment> segments = path.toSegments();
-            if (segments.empty()) continue;
-
+        if (trimMode_ == TrimMode::Individually) {
+            for (const auto& path : inputPaths) {
+                if (path.isEmpty()) continue;
+                processSinglePath(path, t_start, t_end, result);
+            }
+        } else {
+            // Simultaneously: treat all paths as one combined length
+            std::vector<double> pathLengths;
             double totalLen = 0.0;
-            for (const auto& seg : segments) {
-                if (seg.cp1 == seg.p0 && seg.cp2 == seg.p1) {
-                    totalLen += distance(seg.p0, seg.p1);
-                } else {
-                    totalLen += segmentLength(seg);
-                }
+            for (const auto& path : inputPaths) {
+                double len = calculatePathLength(path);
+                pathLengths.push_back(len);
+                totalLen += len;
             }
 
             if (totalLen <= 0.0001) {
-                result.push_back(path.clone());
-                continue;
+                return inputPaths;
             }
 
             double targetStart = t_start * totalLen;
             double targetEnd = t_end * totalLen;
 
             if (targetStart <= targetEnd) {
-                std::vector<BezierSegment> trimmed = trimSegments(segments, targetStart, targetEnd);
-                if (!trimmed.empty()) {
-                    ShapePath trimmedPath = segmentsToPath(trimmed);
-                    trimmedPath.setClosed(false); // trimmed paths are always open
-                    result.push_back(trimmedPath);
-                }
+                processSimultaneousRange(inputPaths, pathLengths, targetStart, targetEnd, result);
             } else {
-                // Wrap around: split into [targetStart, totalLen] and [0, targetEnd]
-                std::vector<BezierSegment> trimmed1 = trimSegments(segments, targetStart, totalLen);
-                std::vector<BezierSegment> trimmed2 = trimSegments(segments, 0.0, targetEnd);
-
-                if (!trimmed1.empty()) {
-                    ShapePath trimmedPath1 = segmentsToPath(trimmed1);
-                    trimmedPath1.setClosed(false);
-                    result.push_back(trimmedPath1);
-                }
-                if (!trimmed2.empty()) {
-                    ShapePath trimmedPath2 = segmentsToPath(trimmed2);
-                    trimmedPath2.setClosed(false);
-                    result.push_back(trimmedPath2);
-                }
+                // Wrap around
+                processSimultaneousRange(inputPaths, pathLengths, targetStart, totalLen, result);
+                processSimultaneousRange(inputPaths, pathLengths, 0.0, targetEnd, result);
             }
         }
         return result;
     }
 
-    void startChanged() W_SIGNAL(startChanged);
-    void endChanged() W_SIGNAL(endChanged);
-    void offsetChanged() W_SIGNAL(offsetChanged);
+signals:
+    void startChanged();
+    void endChanged();
+    void offsetChanged();
+    void trimModeChanged();
 
 private:
     float start_ = 0.0f;   // 0.0 - 100.0
     float end_ = 100.0f;   // 0.0 - 100.0
     float offset_ = 0.0f;  // 0.0 - 360.0 degrees
+    TrimMode trimMode_ = TrimMode::Individually;
+
+    static double calculatePathLength(const ShapePath& path) {
+        if (path.isEmpty()) return 0.0;
+        std::vector<BezierSegment> segments = path.toSegments();
+        double totalLen = 0.0;
+        for (const auto& seg : segments) {
+            if (seg.cp1 == seg.p0 && seg.cp2 == seg.p1) {
+                totalLen += distance(seg.p0, seg.p1);
+            } else {
+                totalLen += segmentLength(seg);
+            }
+        }
+        return totalLen;
+    }
+
+    void processSinglePath(const ShapePath& path, double t_start, double t_end, std::vector<ShapePath>& result) const {
+        std::vector<BezierSegment> segments = path.toSegments();
+        if (segments.empty()) return;
+
+        double totalLen = calculatePathLength(path);
+        if (totalLen <= 0.0001) {
+            result.push_back(path.clone());
+            return;
+        }
+
+        double targetStart = t_start * totalLen;
+        double targetEnd = t_end * totalLen;
+
+        if (targetStart <= targetEnd) {
+            std::vector<BezierSegment> trimmed = trimSegments(segments, targetStart, targetEnd);
+            if (!trimmed.empty()) {
+                ShapePath trimmedPath = segmentsToPath(trimmed);
+                trimmedPath.setClosed(false);
+                result.push_back(trimmedPath);
+            }
+        } else {
+            std::vector<BezierSegment> trimmed1 = trimSegments(segments, targetStart, totalLen);
+            std::vector<BezierSegment> trimmed2 = trimSegments(segments, 0.0, targetEnd);
+
+            if (!trimmed1.empty()) {
+                ShapePath trimmedPath1 = segmentsToPath(trimmed1);
+                trimmedPath1.setClosed(false);
+                result.push_back(trimmedPath1);
+            }
+            if (!trimmed2.empty()) {
+                ShapePath trimmedPath2 = segmentsToPath(trimmed2);
+                trimmedPath2.setClosed(false);
+                result.push_back(trimmedPath2);
+            }
+        }
+    }
+
+    void processSimultaneousRange(const std::vector<ShapePath>& inputPaths,
+                                  const std::vector<double>& pathLengths,
+                                  double targetStart, double targetEnd,
+                                  std::vector<ShapePath>& result) const {
+        double currentLen = 0.0;
+        for (size_t i = 0; i < inputPaths.size(); ++i) {
+            double pathLen = pathLengths[i];
+            if (pathLen <= 0.0001) continue;
+
+            double pathStart = currentLen;
+            double pathEnd = currentLen + pathLen;
+
+            double overlapStart = std::max(pathStart, targetStart);
+            double overlapEnd = std::min(pathEnd, targetEnd);
+
+            if (overlapStart < overlapEnd) {
+                std::vector<BezierSegment> segments = inputPaths[i].toSegments();
+                std::vector<BezierSegment> trimmed = trimSegments(segments, overlapStart - pathStart, overlapEnd - pathStart);
+                if (!trimmed.empty()) {
+                    ShapePath trimmedPath = segmentsToPath(trimmed);
+                    trimmedPath.setClosed(false);
+                    result.push_back(trimmedPath);
+                }
+            }
+            currentLen = pathEnd;
+        }
+    }
 
     static double distance(const QPointF& a, const QPointF& b) {
         double dx = b.x() - a.x();
@@ -257,7 +355,5 @@ private:
         return path;
     }
 };
-
-W_OBJECT_IMPL(TrimPaths)
 
 } // namespace ArtifactCore

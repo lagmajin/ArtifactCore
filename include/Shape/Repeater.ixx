@@ -22,14 +22,6 @@ export namespace ArtifactCore {
  * AEのシェイプレイヤーにある「リピーター」と同等の機能。
  */
 class Repeater : public ShapeOperator {
-    W_OBJECT(Repeater)
-    Q_PROPERTY(int copies READ copies WRITE setCopies NOTIFY copiesChanged)
-    Q_PROPERTY(float offset READ offset WRITE setOffset NOTIFY offsetChanged)
-    Q_PROPERTY(QPointF anchorPoint READ anchorPoint WRITE setAnchorPoint NOTIFY anchorPointChanged)
-    Q_PROPERTY(QPointF position READ position WRITE setPosition NOTIFY positionChanged)
-    Q_PROPERTY(QPointF scale READ scale WRITE setScale NOTIFY scaleChanged)
-    Q_PROPERTY(float rotation READ rotation WRITE setRotation NOTIFY rotationChanged)
-
 public:
     explicit Repeater(QObject* parent = nullptr)
         : ShapeOperator(ShapeOperatorType::Repeater, parent) {}
@@ -82,6 +74,22 @@ public:
         }
     }
 
+    float startOpacity() const { return startOpacity_; }
+    void setStartOpacity(float o) {
+        if (startOpacity_ != o) {
+            startOpacity_ = o;
+            emit startOpacityChanged();
+        }
+    }
+
+    float endOpacity() const { return endOpacity_; }
+    void setEndOpacity(float o) {
+        if (endOpacity_ != o) {
+            endOpacity_ = o;
+            emit endOpacityChanged();
+        }
+    }
+
     std::unique_ptr<ShapeOperator> clone() const override {
         auto copy = std::make_unique<Repeater>();
         copy->setCopies(copies_);
@@ -90,7 +98,36 @@ public:
         copy->setPosition(position_);
         copy->setScale(scale_);
         copy->setRotation(rotation_);
+        copy->setStartOpacity(startOpacity_);
+        copy->setEndOpacity(endOpacity_);
         return copy;
+    }
+
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["copies"] = copies_;
+        obj["offset"] = (double)offset_;
+        obj["anchorX"] = anchorPoint_.x();
+        obj["anchorY"] = anchorPoint_.y();
+        obj["posX"] = position_.x();
+        obj["posY"] = position_.y();
+        obj["scaleX"] = scale_.x();
+        obj["scaleY"] = scale_.y();
+        obj["rotation"] = (double)rotation_;
+        obj["startOpacity"] = (double)startOpacity_;
+        obj["endOpacity"] = (double)endOpacity_;
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("copies")) setCopies(obj["copies"].toInt());
+        if (obj.contains("offset")) setOffset(obj["offset"].toDouble());
+        if (obj.contains("anchorX")) setAnchorPoint(QPointF(obj["anchorX"].toDouble(), obj["anchorY"].toDouble()));
+        if (obj.contains("posX")) setPosition(QPointF(obj["posX"].toDouble(), obj["posY"].toDouble()));
+        if (obj.contains("scaleX")) setScale(QPointF(obj["scaleX"].toDouble(), obj["scaleY"].toDouble()));
+        if (obj.contains("rotation")) setRotation(obj["rotation"].toDouble());
+        if (obj.contains("startOpacity")) setStartOpacity(obj["startOpacity"].toDouble());
+        if (obj.contains("endOpacity")) setEndOpacity(obj["endOpacity"].toDouble());
     }
 
     /**
@@ -116,21 +153,27 @@ public:
             matrix.scale(std::pow(scale_.x(), index), std::pow(scale_.y(), index));
             matrix.translate(-anchorPoint_.x(), -anchorPoint_.y());
 
+            double t = (copies_ > 1) ? (static_cast<double>(i) / (copies_ - 1)) : 0.0;
+            double opacityMult = startOpacity_ + (endOpacity_ - startOpacity_) * t;
+
             for (const auto& path : inputPaths) {
                 ShapePath copyPath = path.clone();
                 copyPath.transform(matrix);
+                copyPath.setOpacity(path.opacity() * opacityMult);
                 result.push_back(copyPath);
             }
         }
         return result;
     }
 
-    void copiesChanged() W_SIGNAL(copiesChanged);
-    void offsetChanged() W_SIGNAL(offsetChanged);
-    void anchorPointChanged() W_SIGNAL(anchorPointChanged);
-    void positionChanged() W_SIGNAL(positionChanged);
-    void scaleChanged() W_SIGNAL(scaleChanged);
-    void rotationChanged() W_SIGNAL(rotationChanged);
+    void copiesChanged() {}
+    void offsetChanged() {}
+    void anchorPointChanged() {}
+    void positionChanged() {}
+    void scaleChanged() {}
+    void rotationChanged() {}
+    void startOpacityChanged() {}
+    void endOpacityChanged() {}
 
 private:
     int copies_ = 3;
@@ -139,8 +182,8 @@ private:
     QPointF position_ = QPointF(100.0f, 0.0f); // Default translation per copy
     QPointF scale_ = QPointF(1.0f, 1.0f);       // 100% scale
     float rotation_ = 0.0f;
+    float startOpacity_ = 1.0f;
+    float endOpacity_ = 1.0f;
 };
-
-W_OBJECT_IMPL(Repeater)
 
 } // namespace ArtifactCore

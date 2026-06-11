@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <QString>
 #include <QAbstractItemModel>
@@ -15,6 +15,9 @@ export import Render.Material;
 export import Render.Hittable;
 export import Render.BVH;
 export import Render.QuadOctree;
+export import Render.IRayTracer;
+export import Render.ImageBuffer;
+export import Render.GPURayTracer;
 export import Render.SoftwareRayTracer;
 export import Render.FrameRenderer;
 export import Render.RenderableObject;

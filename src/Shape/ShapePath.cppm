@@ -28,6 +28,7 @@ class ShapePath::Impl {
 public:
     QString name_;
     std::vector<PathCommand> commands_;
+    double opacity_ = 1.0;
     mutable QRectF cachedBounds_;
     mutable bool dirty_ = true;
 
@@ -340,6 +341,14 @@ void ShapePath::setClosed(bool closed) {
             impl_->invalidate();
         }
     }
+}
+
+double ShapePath::opacity() const {
+    return impl_->opacity_;
+}
+
+void ShapePath::setOpacity(double opacity) {
+    impl_->opacity_ = opacity;
 }
 
 bool ShapePath::isEmpty() const {

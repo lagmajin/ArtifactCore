@@ -79,6 +79,8 @@ struct BezierSegment {
                   const QPointF& control2, const QPointF& end)
         : p0(start), cp1(control1), cp2(control2), p1(end) {}
     
+    bool operator==(const BezierSegment& other) const = default;
+
     /// t(0-1)での点を取得
     QPointF pointAt(double t) const {
         double u = 1.0 - t;

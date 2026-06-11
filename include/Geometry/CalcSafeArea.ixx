@@ -1,10 +1,11 @@
 ﻿module;
 #include <utility>
 #include <vector>
-export module CalcSafeArea;
-
 #include <QRectF>
 #include <QSizeF>
+export module CalcSafeArea;
+
+
 
 export namespace ArtifactCore {
 

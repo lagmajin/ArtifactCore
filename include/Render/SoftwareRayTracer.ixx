@@ -17,9 +17,12 @@ import Render.Camera;
 import Render.Sphere;
 import Render.Hittable;
 import Render.Material;
+import Render.ImageBuffer;
+import Render.IRayTracer;
 
 export namespace ArtifactCore::RayTrace
 {
+
 
 inline float randomFloat()
 {
@@ -131,31 +134,7 @@ inline Color rayColor(const Ray& r, const Hittable& world, int depth)
     return (1.0f - t) * Color(1.0f, 1.0f, 1.0f) + t * Color(0.5f, 0.7f, 1.0f);
 }
 
-class ImageBuffer
-{
-public:
-    int width = 800;
-    int height = 600;
-    std::vector<uint8_t> pixels;
-
-    ImageBuffer() = default;
-    ImageBuffer(int w, int h) : width(w), height(h), pixels(w * h * 3) {}
-
-    void setPixel(int x, int y, const Color& color, int samplesPerPixel = 1)
-    {
-        float scale = 1.0f / samplesPerPixel;
-        int idx = (y * width + x) * 3;
-        pixels[idx + 0] = static_cast<uint8_t>(std::clamp(std::sqrt(color.x) * scale, 0.0f, 0.999f) * 256);
-        pixels[idx + 1] = static_cast<uint8_t>(std::clamp(std::sqrt(color.y) * scale, 0.0f, 0.999f) * 256);
-        pixels[idx + 2] = static_cast<uint8_t>(std::clamp(std::sqrt(color.z) * scale, 0.0f, 0.999f) * 256);
-    }
-
-    bool savePNG(const char* filename) const;
-
-    unsigned char* data() { return pixels.data(); }
-};
-
-class SoftwareRayTracer
+class SoftwareRayTracer : public IRayTracer
 {
 public:
     int imageWidth = 800;
@@ -172,7 +151,25 @@ public:
             Point3(0, 0, 0), Point3(0, 0, -1), Vec3(0, 1, 0));
     }
 
-    void setupCornellBox()
+    ~SoftwareRayTracer() override = default;
+
+    void setImageSize(int width, int height) override
+    {
+        imageWidth = width;
+        imageHeight = height;
+    }
+
+    void setSamplesPerPixel(int samples) override
+    {
+        samplesPerPixel = samples;
+    }
+
+    void setMaxDepth(int depth) override
+    {
+        maxDepth = depth;
+    }
+
+    void setupCornellBox() override
     {
         world.clear();
 
@@ -201,10 +198,10 @@ public:
         world.add(right);
     }
 
-    void setupRandomSpheres(int count = 500)
+    void setupRandomSpheres(int count = 500) override
     {
         world.clear();
-
+        
         auto ground = std::make_shared<SphereObject>(
             Sphere{Vec3(0, -1000, 0), 1000},
             Material::lambertian(Vec3(0.5f, 0.5f, 0.5f))
@@ -247,7 +244,7 @@ public:
         }
     }
 
-    ImageBuffer render()
+    ImageBuffer render() override
     {
         ImageBuffer img(imageWidth, imageHeight);
 

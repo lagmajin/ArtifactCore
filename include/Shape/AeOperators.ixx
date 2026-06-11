@@ -1,5 +1,7 @@
 module;
 
+#include <QObject>
+#include <QJsonObject>
 #include <QPainterPath>
 #include <QPainterPathStroker>
 #include <QPointF>
@@ -140,16 +142,12 @@ inline Qt::PenJoinStyle toJoinStyle(LineJoin join)
 } // namespace detail
 
 class MergePaths : public ShapeOperator {
-    Q_OBJECT
-    Q_PROPERTY(int mode READ mode WRITE setMode NOTIFY modeChanged)
-
 public:
     enum Mode {
         Add = 0,
         Subtract = 1,
         Intersect = 2
     };
-    Q_ENUM(Mode)
 
     explicit MergePaths(QObject* parent = nullptr)
         : ShapeOperator(ShapeOperatorType::MergePaths, parent) {}
@@ -169,6 +167,16 @@ public:
         auto copy = std::make_unique<MergePaths>();
         copy->setMode(mode());
         return copy;
+    }
+
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["mode"] = static_cast<int>(mode_);
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("mode")) setMode(obj["mode"].toInt());
     }
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
@@ -201,8 +209,7 @@ public:
         return result;
     }
 
-signals:
-    void modeChanged();
+    void modeChanged() {}
 
 private:
     Mode mode_ = Add;
@@ -258,6 +265,20 @@ public:
         copy->setJoin(join_);
         copy->setMiterLimit(miterLimit_);
         return copy;
+    }
+
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["offset"] = (double)offset_;
+        obj["join"] = static_cast<int>(join_);
+        obj["miterLimit"] = (double)miterLimit_;
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("offset")) setOffset(obj["offset"].toDouble());
+        if (obj.contains("join")) setJoin(static_cast<LineJoin>(obj["join"].toInt()));
+        if (obj.contains("miterLimit")) setMiterLimit(obj["miterLimit"].toDouble());
     }
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
@@ -327,6 +348,16 @@ public:
         return copy;
     }
 
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["amount"] = (double)amount_;
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("amount")) setAmount(obj["amount"].toDouble());
+    }
+
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
         std::vector<ShapePath> result;
@@ -373,6 +404,16 @@ public:
         return copy;
     }
 
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["angle"] = (double)angle_;
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("angle")) setAngle(obj["angle"].toDouble());
+    }
+
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
         std::vector<ShapePath> result;
@@ -416,6 +457,16 @@ public:
         auto copy = std::make_unique<RoundedCorners>();
         copy->setRadius(radius_);
         return copy;
+    }
+
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["radius"] = (double)radius_;
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("radius")) setRadius(obj["radius"].toDouble());
     }
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
@@ -517,6 +568,18 @@ public:
         return copy;
     }
 
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["amount"] = (double)amount_;
+        obj["frequency"] = (double)frequency_;
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("amount")) setAmount(obj["amount"].toDouble());
+        if (obj.contains("frequency")) setFrequency(obj["frequency"].toDouble());
+    }
+
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
         std::vector<ShapePath> result;
@@ -602,6 +665,18 @@ public:
         copy->setAmount(amount_);
         copy->setFrequency(frequency_);
         return copy;
+    }
+
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["amount"] = (double)amount_;
+        obj["frequency"] = (double)frequency_;
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("amount")) setAmount(obj["amount"].toDouble());
+        if (obj.contains("frequency")) setFrequency(obj["frequency"].toDouble());
     }
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
@@ -696,6 +771,22 @@ public:
         copy->setPressureJitter(pressureJitter_);
         copy->setGapProbability(gapProbability_);
         return copy;
+    }
+
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["wobbleAmount"] = (double)wobbleAmount_;
+        obj["wobbleFrequency"] = (double)wobbleFrequency_;
+        obj["pressureJitter"] = (double)pressureJitter_;
+        obj["gapProbability"] = (double)gapProbability_;
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("wobbleAmount")) setWobbleAmount(obj["wobbleAmount"].toDouble());
+        if (obj.contains("wobbleFrequency")) setWobbleFrequency(obj["wobbleFrequency"].toDouble());
+        if (obj.contains("pressureJitter")) setPressureJitter(obj["pressureJitter"].toDouble());
+        if (obj.contains("gapProbability")) setGapProbability(obj["gapProbability"].toDouble());
     }
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override

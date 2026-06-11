@@ -91,6 +91,8 @@ public:
     void setName(const QString& name);
     bool isClosed() const;
     void setClosed(bool closed);
+    double opacity() const;
+    void setOpacity(double opacity);
     bool isEmpty() const;
     int commandCount() const;
     const std::vector<PathCommand>& commands() const;

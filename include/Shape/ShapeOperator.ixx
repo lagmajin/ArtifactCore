@@ -3,6 +3,7 @@ module;
 #include <vector>
 #include <memory>
 #include <QObject>
+#include <QJsonObject>
 #include <wobjectdefs.h>
 #include <wobjectimpl.h>
 
@@ -54,6 +55,16 @@ public:
      * @brief 演算子を複製する
      */
     virtual std::unique_ptr<ShapeOperator> clone() const = 0;
+
+    /**
+     * @brief プロパティをJSONに変換する
+     */
+    virtual QJsonObject toJson() const = 0;
+
+    /**
+     * @brief プロパティをJSONから読み込む
+     */
+    virtual void fromJson(const QJsonObject& obj) = 0;
 
 private:
     ShapeOperatorType type_;

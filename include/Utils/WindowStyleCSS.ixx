@@ -27,6 +27,7 @@ enum class DccStylePreset {
   DaVinciStyle,
   _3dsMaxStyle,
   NukeStyle,
+  AfterEffectsStyle,
   HighContrast,
 };
 
@@ -68,6 +69,8 @@ QString LIBRARY_DLL_API themePresetKey(DccStylePreset preset) {
     return QStringLiteral("3ds Max");
   case DccStylePreset::NukeStyle:
     return QStringLiteral("Nuke");
+  case DccStylePreset::AfterEffectsStyle:
+    return QStringLiteral("After Effects");
   case DccStylePreset::HighContrast:
     return QStringLiteral("High Contrast");
   }
@@ -114,6 +117,12 @@ DccStylePreset LIBRARY_DLL_API themePresetFromName(const QString& name) {
   if (key.compare(QStringLiteral("Nuke"), Qt::CaseInsensitive) == 0 ||
       key.compare(QStringLiteral("NukeStyle"), Qt::CaseInsensitive) == 0) {
     return DccStylePreset::NukeStyle;
+  }
+  if (key.compare(QStringLiteral("After Effects"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("AfterEffects"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("AE"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("AfterEffectsStyle"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::AfterEffectsStyle;
   }
   if (key.compare(QStringLiteral("Light"), Qt::CaseInsensitive) == 0 ||
       key.compare(QStringLiteral("DefaultQt"), Qt::CaseInsensitive) == 0) {
@@ -282,6 +291,17 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
     theme.buttonColor = "#383838";
     theme.buttonHoverColor = "#404040";
     theme.buttonPressedColor = "#303030";
+    break;
+  case DccStylePreset::AfterEffectsStyle:
+    theme.accentColor = "#E4A64A";
+    theme.textColor = "#E0E6EE";
+    theme.backgroundColor = "#1F2329";
+    theme.secondaryBackgroundColor = "#282D34";
+    theme.selectionColor = "#33485E";
+    theme.borderColor = "#434B57";
+    theme.buttonColor = "#2B3037";
+    theme.buttonHoverColor = "#343A43";
+    theme.buttonPressedColor = "#23272D";
     break;
   case DccStylePreset::HighContrast:
     theme.accentColor = "#0000FF";     // 高コントラストのアクセント（青）
