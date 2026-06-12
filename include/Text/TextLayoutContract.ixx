@@ -65,6 +65,14 @@ export struct TextClusterSpan {
   bool isEmojiSequence = false;
 };
 
+export struct TextScriptRun {
+  int logicalStart = 0;
+  int logicalLength = 0;
+  QString scriptTag;
+  TextDirection direction = TextDirection::Auto;
+  bool isComplexScript = false;
+};
+
 export struct TextBidiRun {
   int logicalStart = 0;
   int logicalLength = 0;
@@ -119,6 +127,7 @@ export struct TextKinsokuBoundaryInfo {
 export struct TextLayoutContract {
   TextWritingMode writingMode = TextWritingMode::Horizontal;
   TextDirection baseDirection = TextDirection::Auto;
+  QVector<TextScriptRun> scriptRuns;
   QVector<TextClusterSpan> clusters;
   QVector<TextBidiRun> bidiRuns;
   QVector<TextLineRun> lineRuns;

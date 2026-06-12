@@ -51,6 +51,18 @@ enum class TextDirection {
 };
 ```
 
+### Script Run
+
+```cpp
+struct TextScriptRun {
+  int logicalStart = 0;
+  int logicalLength = 0;
+  QString scriptTag;
+  TextDirection direction = TextDirection::Auto;
+  bool isComplexScript = false;
+};
+```
+
 ### Cluster Span
 
 ```cpp
@@ -150,6 +162,7 @@ struct TextKinsokuBoundaryInfo {
 ## Invariants
 
 - logical order と visual order を同時に保持する
+- script run を selector と shaping の境界として保持する
 - grapheme cluster を壊す selector は原則禁止する
 - glyph cluster は shaping backend の結果として扱う
 - vertical writing では punctuation / bracket / ruby / tate-chu-yoko の metadata を残す

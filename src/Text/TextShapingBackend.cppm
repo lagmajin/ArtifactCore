@@ -255,6 +255,7 @@ TextLayoutContract buildContract(const QString& text,
   contract.rubyAttachments = request.rubyAttachments;
 
   const std::u32string u32text = text.toStdU32string();
+  contract.scriptRuns.reserve(static_cast<int>(u32text.size()));
   contract.clusters.reserve(static_cast<int>(u32text.size()));
   contract.bidiRuns.reserve(1);
   contract.lineRuns.reserve(4);
@@ -269,6 +270,31 @@ TextLayoutContract buildContract(const QString& text,
 
   int lineStart = 0;
   int lineIndex = 0;
+  int scriptStart = 0;
+  QString currentScriptTag;
+  TextDirection currentScriptDirection = TextDirection::Auto;
+  bool currentScriptComplex = false;
+  const auto flushScriptRun = [&](const int scriptEnd) {
+    const int scriptLength = std::max(0, scriptEnd - scriptStart);
+    if (scriptLength <= 0 || currentScriptTag.isEmpty()) {
+      scriptStart = scriptEnd;
+      currentScriptTag.clear();
+      currentScriptDirection = TextDirection::Auto;
+      currentScriptComplex = false;
+      return;
+    }
+    contract.scriptRuns.push_back(TextScriptRun{
+        .logicalStart = scriptStart,
+        .logicalLength = scriptLength,
+        .scriptTag = currentScriptTag,
+        .direction = currentScriptDirection,
+        .isComplexScript = currentScriptComplex,
+    });
+    scriptStart = scriptEnd;
+    currentScriptTag.clear();
+    currentScriptDirection = TextDirection::Auto;
+    currentScriptComplex = false;
+  };
   const auto flushLineRun = [&](const int lineEnd, const bool verticalColumn) {
     const int lineLength = std::max(0, lineEnd - lineStart);
     contract.lineRuns.push_back(TextLineRun{
@@ -285,6 +311,7 @@ TextLayoutContract buildContract(const QString& text,
   for (int i = 0; i < static_cast<int>(u32text.size()); ++i) {
     const char32_t code = u32text[static_cast<size_t>(i)];
     if (code == U'\r') {
+      flushScriptRun(i);
       flushLineRun(i, request.writingMode == TextWritingMode::Vertical);
       if (i + 1 < static_cast<int>(u32text.size()) &&
           u32text[static_cast<size_t>(i + 1)] == U'\n') {
@@ -293,8 +320,27 @@ TextLayoutContract buildContract(const QString& text,
       continue;
     }
     if (code == U'\n') {
+      flushScriptRun(i);
       flushLineRun(i, request.writingMode == TextWritingMode::Vertical);
       continue;
+    }
+    const QString scriptTag = scriptTagForCodepoint(code);
+    const TextDirection scriptDirection = isRtlCodepoint(code)
+                                              ? TextDirection::RightToLeft
+                                              : TextDirection::LeftToRight;
+    const bool scriptComplex = scriptTag != QStringLiteral("Latn");
+    if (currentScriptTag.isEmpty()) {
+      scriptStart = i;
+      currentScriptTag = scriptTag;
+      currentScriptDirection = scriptDirection;
+      currentScriptComplex = scriptComplex;
+    } else if (currentScriptTag != scriptTag ||
+               currentScriptDirection != scriptDirection) {
+      flushScriptRun(i);
+      scriptStart = i;
+      currentScriptTag = scriptTag;
+      currentScriptDirection = scriptDirection;
+      currentScriptComplex = scriptComplex;
     }
     const bool isEmojiSequence = code >= 0x1F300 && code <= 0x1FAFF;
     const bool isLigature = false;
@@ -336,6 +382,7 @@ TextLayoutContract buildContract(const QString& text,
         .breakAfterAllowed = !isOpeningBracketCodepoint(code),
     });
   }
+  flushScriptRun(static_cast<int>(u32text.size()));
   flushLineRun(static_cast<int>(u32text.size()), request.writingMode == TextWritingMode::Vertical);
 
   if (request.writingMode == TextWritingMode::Vertical) {
