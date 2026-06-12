@@ -23,6 +23,7 @@
 - `Qt` fallback で `cluster` / `bidi` / `writingMode` を result contract に入れるところまで完了
 - `TextLayoutContract` に `scriptRuns` を追加し、連続 script 区間の metadata を流し始めた
 - `ArtifactTextLayer` へ `scriptRuns` の summary 表示をつなぎ始めた
+- `ArtifactTextLayer` へ vertical metadata の件数 summary も追加し始めた
 - `ArtifactTextLayer` の glyph 生成を backend request 経由へ接続開始
 - `ArtifactTextLayer` から `baseDirection` を request に流し始めた
 - `ArtifactTextLayer` に `text.writingMode` を追加し、縦書きの入口を public surface に出した
