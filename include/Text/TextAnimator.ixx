@@ -1,5 +1,6 @@
 ﻿module;
 #include <QPointF>
+#include <QString>
 #include <algorithm>
 #include <cmath>
 #include <span>
@@ -16,7 +17,10 @@ namespace ArtifactCore {
 // AEの「範囲セレクター」のモード
 export enum class SelectorUnits {
   Percentage, // パーセンテージ (0-100)
-  Index       // インデックス (文字数)
+  Index,      // インデックス (文字数)
+  Cluster,    // grapheme / glyph cluster 単位
+  Line,       // line / column 単位
+  Tag         // script / selector tag 単位
 };
 
 export enum class SelectorShape {
@@ -57,6 +61,8 @@ export struct RangeSelector {
   float offset = 0.0f;
   SelectorUnits units = SelectorUnits::Percentage;
   SelectorShape shape = SelectorShape::Square;
+  bool regexEnabled = false;
+  QString selectorPattern;
   float easeHigh = 0.0f;
   float easeLow = 0.0f;
 };
@@ -95,6 +101,15 @@ export class TextAnimatorEngine {
 public:
   static float calculateWeight(int index, int totalCount,
                                const RangeSelector &selector);
+
+  static float calculateWeightForGlyph(const GlyphItem &glyph,
+                                       int glyphIndex,
+                                       int glyphCount,
+                                       int clusterCount,
+                                       int lineCount,
+                                       int tagIndex,
+                                       int tagCount,
+                                       const RangeSelector &selector);
 
   // ウィグリー（ランダム）の重み計算
   static float calculateWigglyWeight(int index, float time,

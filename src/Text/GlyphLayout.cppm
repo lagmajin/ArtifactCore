@@ -14,6 +14,8 @@ module;
 module Text.GlyphLayout;
 
 import Text.Style;
+import Text.LayoutContract;
+import Text.ShapingBackend;
 import Font.FreeFont;
 import Utils.String.UniString;
 import FloatRGBA;
@@ -49,6 +51,45 @@ bool isLineBreak(char32_t code) {
 
 bool isWhitespace(char32_t code) {
   return code == U' ' || code == U'\t' || code == 0x3000;
+}
+
+QString selectorTagForCodepoint(char32_t code) {
+  if (code >= 0xAC00 && code <= 0xD7AF) {
+    return QStringLiteral("Hang");
+  }
+  if ((code >= 0x3040 && code <= 0x30FF) || (code >= 0x4E00 && code <= 0x9FFF)) {
+    return QStringLiteral("Hani");
+  }
+  if ((code >= 0x0590 && code <= 0x05FF) ||
+      (code >= 0x0600 && code <= 0x08FF) ||
+      (code >= 0xFB1D && code <= 0xFDFF) ||
+      (code >= 0xFE70 && code <= 0xFEFF)) {
+    return QStringLiteral("Rtl");
+  }
+  if (code >= 0x0E00 && code <= 0x0E7F) {
+    return QStringLiteral("Thai");
+  }
+  if ((code >= 0x0900 && code <= 0x097F) || (code >= 0x0980 && code <= 0x09FF) ||
+      (code >= 0x0A00 && code <= 0x0A7F) || (code >= 0x0A80 && code <= 0x0AFF) ||
+      (code >= 0x0B00 && code <= 0x0B7F) || (code >= 0x0B80 && code <= 0x0BFF) ||
+      (code >= 0x0C00 && code <= 0x0C7F) || (code >= 0x0C80 && code <= 0x0CFF) ||
+      (code >= 0x0D00 && code <= 0x0D7F) || (code >= 0x0D80 && code <= 0x0DFF) ||
+      (code >= 0x1780 && code <= 0x17FF) || (code >= 0x1000 && code <= 0x109F) ||
+      (code >= 0x0F00 && code <= 0x0FFF)) {
+    return QStringLiteral("Indic");
+  }
+  if (code >= 0x1F300 && code <= 0x1FAFF) {
+    return QStringLiteral("Emoji");
+  }
+  return QStringLiteral("Latn");
+}
+
+QString stableTokenIdForCodepoint(char32_t code, int index) {
+  const QString tag = selectorTagForCodepoint(code);
+  return QStringLiteral("%1:%2:%3")
+      .arg(tag)
+      .arg(index)
+      .arg(QString::number(static_cast<unsigned int>(code), 16));
 }
 
 float whitespaceWidth(char32_t code, const QFontMetricsF &metrics,
@@ -260,6 +301,8 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
       GlyphItem item;
       item.charCode = code;
       item.index = static_cast<int>(codepointIndex);
+      item.selectorTag = selectorTagForCodepoint(code);
+      item.stableTokenId = stableTokenIdForCodepoint(code, item.index);
       item.basePosition = QPointF(xOffset + localX + extraAdvance,
                                   y + line.ascent);
       item.baseRotation = 0.0f;
@@ -296,227 +339,26 @@ float TextLayoutEngine::getCharWidth(char32_t code, const TextStyle &style) {
 
 std::vector<GlyphItem>
 TextLayoutEngine::layout(const UniString &text, const TextStyle &style,
+                         const ParagraphStyle &paragraph,
+                         ITextShapingBackend &backend,
+                         TextWritingMode writingMode,
+                         TextDirection baseDirection) {
+  const TextShapingRequest request{
+      .text = text.toQString(),
+      .style = style,
+      .paragraph = paragraph,
+      .writingMode = writingMode,
+      .baseDirection = baseDirection,
+      .locale = QString(),
+  };
+  return backend.shape(request).glyphs;
+}
+
+std::vector<GlyphItem>
+TextLayoutEngine::layout(const UniString &text, const TextStyle &style,
                          const ParagraphStyle &paragraph) {
-  std::vector<GlyphItem> result;
-  if (text.length() == 0) {
-    return result;
-  }
-
-  const QString qText = text.toQString();
-  const QFont font = FontManager::makeFont(style, qText);
-  const QFontMetricsF metrics(font);
-
-  if (FontManager::containsCjkCharacters(qText)) {
-    auto shaped = layoutWithQtTextLayout(qText, font, paragraph);
-    if (!shaped.empty()) {
-      return shaped;
-    }
-  }
-
-  const float lineHeight = static_cast<float>(
-      std::max<qreal>(metrics.lineSpacing(), metrics.height()));
-  const float baselineOffset = static_cast<float>(metrics.ascent());
-  const float wrapWidth = paragraph.boxWidth > 0.0f
-                              ? paragraph.boxWidth
-                              : std::numeric_limits<float>::infinity();
-  const bool allowWrap = paragraph.wrapMode != TextWrapMode::NoWrap &&
-                         paragraph.wrapMode != TextWrapMode::ManualWrap &&
-                         std::isfinite(wrapWidth);
-
-  std::vector<LayoutLine> lines;
-  std::vector<LayoutGlyph> currentLine;
-  float currentWidth = 0.0f;
-  int lastBreakPoint = -1;
-
-  auto flushCurrentLine = [&](bool forceEmptyLine) {
-    if (currentLine.empty()) {
-      if (forceEmptyLine) {
-        lines.push_back(LayoutLine{});
-      }
-      currentWidth = 0.0f;
-      lastBreakPoint = -1;
-      return;
-    }
-
-    lines.push_back(makeLine(currentLine));
-    currentLine.clear();
-    currentWidth = 0.0f;
-    lastBreakPoint = -1;
-  };
-
-  auto trimRemainder = [&](std::vector<LayoutGlyph> &glyphs) {
-    while (!glyphs.empty() && glyphs.front().isWhitespace) {
-      glyphs.erase(glyphs.begin());
-    }
-  };
-
-  auto appendGlyph = [&](const LayoutGlyph &glyph) {
-    if (glyph.isWhitespace) {
-      currentLine.push_back(glyph);
-      currentWidth += glyph.width;
-      lastBreakPoint = static_cast<int>(currentLine.size());
-      return;
-    }
-
-    const float nextWidth = currentWidth + glyph.width;
-    if (allowWrap && !currentLine.empty() && nextWidth > wrapWidth) {
-      if (paragraph.wrapMode == TextWrapMode::WordWrap &&
-          lastBreakPoint > 0) {
-        std::vector<LayoutGlyph> lineGlyphs(currentLine.begin(),
-                                            currentLine.begin() + lastBreakPoint);
-        while (!lineGlyphs.empty() && lineGlyphs.back().isWhitespace) {
-          lineGlyphs.pop_back();
-        }
-        LayoutLine line;
-        line.glyphs.swap(lineGlyphs);
-        float width = 0.0f;
-        for (const auto &lg : line.glyphs) {
-          width += lg.width;
-        }
-        line.width = width;
-        lines.push_back(line);
-
-        std::vector<LayoutGlyph> remainder(currentLine.begin() + lastBreakPoint,
-                                           currentLine.end());
-        trimRemainder(remainder);
-        currentLine.swap(remainder);
-        currentWidth = 0.0f;
-        for (const auto &lg : currentLine) {
-          currentWidth += lg.width;
-        }
-        lastBreakPoint = -1;
-      } else {
-        flushCurrentLine(false);
-      }
-    }
-
-    currentLine.push_back(glyph);
-    currentWidth += glyph.width;
-  };
-
-  const std::u32string u32str = text.toStdU32String();
-  for (size_t i = 0; i < u32str.size(); ++i) {
-    const char32_t code = u32str[i];
-
-    if (isLineBreak(code)) {
-      flushCurrentLine(true);
-      continue;
-    }
-
-    LayoutGlyph glyph;
-    glyph.code = code;
-    glyph.index = static_cast<int>(i);
-    glyph.isWhitespace = isWhitespace(code);
-    glyph.width = glyph.isWhitespace
-                      ? whitespaceWidth(code, metrics, style)
-                      : charWidth(code, style);
-
-    if (glyph.isWhitespace && currentLine.empty()) {
-      continue;
-    }
-
-    appendGlyph(glyph);
-  }
-
-  flushCurrentLine(false);
-
-  if (lines.empty()) {
-    return result;
-  }
-
-  float contentHeight = 0.0f;
-  for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
-    contentHeight += lineHeight;
-    if (lineIndex + 1 < lines.size() && paragraph.paragraphSpacing > 0.0f) {
-      contentHeight += paragraph.paragraphSpacing;
-    }
-  }
-
-  float verticalOffset = 0.0f;
-  if (paragraph.boxHeight > contentHeight) {
-    switch (paragraph.verticalAlignment) {
-    case TextVerticalAlignment::Middle:
-      verticalOffset = (paragraph.boxHeight - contentHeight) * 0.5f;
-      break;
-    case TextVerticalAlignment::Bottom:
-      verticalOffset = paragraph.boxHeight - contentHeight;
-      break;
-    case TextVerticalAlignment::Top:
-    default:
-      verticalOffset = 0.0f;
-      break;
-    }
-  }
-
-  float y = verticalOffset;
-  for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
-    const auto &line = lines[lineIndex];
-    float xOffset = 0.0f;
-    if (paragraph.boxWidth > 0.0f && line.width < paragraph.boxWidth) {
-      switch (paragraph.horizontalAlignment) {
-      case TextHorizontalAlignment::Center:
-        xOffset = (paragraph.boxWidth - line.width) * 0.5f;
-        break;
-      case TextHorizontalAlignment::Right:
-        xOffset = paragraph.boxWidth - line.width;
-        break;
-      case TextHorizontalAlignment::Justify:
-      case TextHorizontalAlignment::Left:
-      default:
-        xOffset = 0.0f;
-        break;
-      }
-    }
-
-    const bool shouldJustify =
-        paragraph.horizontalAlignment == TextHorizontalAlignment::Justify &&
-        paragraph.boxWidth > 0.0f && line.width < paragraph.boxWidth &&
-        lineIndex + 1 < lines.size();
-    const float extraWidth = shouldJustify
-                                 ? std::max(0.0f, paragraph.boxWidth - line.width)
-                                 : 0.0f;
-    int expandableSpaces = 0;
-    if (shouldJustify) {
-      for (const auto &glyph : line.glyphs) {
-        if (glyph.isWhitespace) {
-          ++expandableSpaces;
-        }
-      }
-    }
-    const float justifyStep =
-        (shouldJustify && expandableSpaces > 0)
-            ? (extraWidth / static_cast<float>(expandableSpaces))
-            : 0.0f;
-
-    float x = xOffset;
-    for (const auto &glyph : line.glyphs) {
-      GlyphItem item;
-      item.charCode = glyph.code;
-      item.index = glyph.index;
-      item.basePosition = QPointF(x, y + baselineOffset);
-      item.baseRotation = 0.0f;
-      item.baseScale = 1.0f;
-      item.offsetPosition = QPointF(0.0f, 0.0f);
-      item.offsetRotation = 0.0f;
-      item.offsetScale = 1.0f;
-      item.offsetOpacity = 1.0f;
-      const float glyphWidth =
-          glyph.width + ((shouldJustify && glyph.isWhitespace) ? justifyStep : 0.0f);
-      item.bounds = QRectF(x, y, glyphWidth, lineHeight);
-      result.push_back(item);
-      x += glyph.width;
-      if (shouldJustify && glyph.isWhitespace) {
-        x += justifyStep;
-      }
-    }
-
-    y += lineHeight;
-    if (paragraph.paragraphSpacing > 0.0f) {
-      y += paragraph.paragraphSpacing;
-    }
-  }
-
-  return result;
+  QtShapingBackend backend;
+  return layout(text, style, paragraph, backend);
 }
 
 std::vector<GlyphItem>
@@ -583,6 +425,8 @@ TextLayoutEngine::layoutOnPath(const UniString &text,
     GlyphItem item;
     item.charCode = code;
     item.index = (int)i;
+    item.selectorTag = selectorTagForCodepoint(code);
+    item.stableTokenId = stableTokenIdForCodepoint(code, item.index);
     item.basePosition = pos;
     item.baseRotation = alignToPath ? (float)angle : 0.0f;
     item.baseScale = (float)scale;

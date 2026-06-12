@@ -1,4 +1,6 @@
 ﻿module;
+#include <QRegularExpression>
+#include <QHash>
 #include <utility>
 #include <vector>
 #include <QPointF>
@@ -14,8 +16,19 @@ namespace ArtifactCore {
 
 float TextAnimatorEngine::calculateWeight(int index, int totalCount, const RangeSelector& selector) {
     if (totalCount == 0) return 0.0f;
-    float position = (selector.units == SelectorUnits::Percentage) ? 
-                     ((float)index / totalCount) * 100.0f : (float)index;
+    float position = 0.0f;
+    switch (selector.units) {
+        case SelectorUnits::Percentage:
+            position = ((float)index / totalCount) * 100.0f;
+            break;
+        case SelectorUnits::Index:
+        case SelectorUnits::Cluster:
+        case SelectorUnits::Line:
+        case SelectorUnits::Tag:
+        default:
+            position = (float)index;
+            break;
+    }
 
     float start = selector.start + selector.offset;
     float end = selector.end + selector.offset;
@@ -32,6 +45,53 @@ float TextAnimatorEngine::calculateWeight(int index, int totalCount, const Range
         case SelectorShape::Smooth: return 0.5f - 0.5f * std::cos(t * std::numbers::pi_v<float>);
         default: return 1.0f;
     }
+}
+
+float TextAnimatorEngine::calculateWeightForGlyph(const GlyphItem& glyph,
+                                                  int glyphIndex,
+                                                  int glyphCount,
+                                                  int clusterCount,
+                                                  int lineCount,
+                                                  int tagIndex,
+                                                  int tagCount,
+                                                  const RangeSelector& selector) {
+    if (selector.regexEnabled && !selector.selectorPattern.isEmpty()) {
+        const QRegularExpression regex(selector.selectorPattern);
+        const QString haystack = glyph.clusterId + QStringLiteral(" ") + glyph.selectorTag +
+                                 QStringLiteral(" ") + glyph.stableTokenId +
+                                 QStringLiteral(" ") + QString::number(glyph.index);
+        if (!regex.isValid() || !regex.match(haystack).hasMatch()) {
+            return 0.0f;
+        }
+    }
+    int positionIndex = glyphIndex;
+    int totalCount = glyphCount;
+
+    switch (selector.units) {
+        case SelectorUnits::Cluster:
+            positionIndex = glyph.clusterIndex >= 0 ? glyph.clusterIndex : glyphIndex;
+            totalCount = clusterCount > 0 ? clusterCount : glyphCount;
+            break;
+        case SelectorUnits::Line:
+            positionIndex = glyph.lineIndex >= 0 ? glyph.lineIndex : glyphIndex;
+            totalCount = lineCount > 0 ? lineCount : glyphCount;
+            break;
+        case SelectorUnits::Tag:
+            positionIndex = tagIndex >= 0 ? tagIndex : glyphIndex;
+            totalCount = tagCount > 0 ? tagCount : glyphCount;
+            break;
+        case SelectorUnits::Index:
+            positionIndex = glyphIndex;
+            totalCount = glyphCount;
+            break;
+        case SelectorUnits::Percentage:
+        default:
+            positionIndex = glyphIndex;
+            totalCount = glyphCount;
+            break;
+    }
+
+    return calculateWeight(positionIndex, totalCount, selector);
 }
 
 float TextAnimatorEngine::calculateWigglyWeight(int index, float time, const WigglySelector& selector) {
@@ -59,11 +119,41 @@ void TextAnimatorEngine::applyAnimator(
     float time) {
     
     int n = (int)glyphs.size();
+    int clusterCount = 0;
+    int lineCount = 0;
+    for (const auto& glyph : glyphs) {
+        if (glyph.clusterIndex >= 0) {
+            clusterCount = std::max(clusterCount, glyph.clusterIndex + 1);
+        }
+        if (glyph.lineIndex >= 0) {
+            lineCount = std::max(lineCount, glyph.lineIndex + 1);
+        }
+    }
     float cumulativeTracking = 0.0f;
+    QHash<QString, int> tagOrder;
+    std::vector<int> tagIndices;
+    tagIndices.reserve(static_cast<size_t>(n));
+    for (const auto& glyph : glyphs) {
+        const QString tag = glyph.selectorTag.isEmpty()
+                                ? QStringLiteral("untagged")
+                                : glyph.selectorTag;
+        const auto it = tagOrder.constFind(tag);
+        if (it == tagOrder.cend()) {
+            const int index = tagOrder.size();
+            tagOrder.insert(tag, index);
+            tagIndices.push_back(index);
+        } else {
+            tagIndices.push_back(it.value());
+        }
+    }
+    const int tagCount = tagOrder.size();
 
     for (int i = 0; i < n; ++i) {
         // セレクターの重み
-        float selectorWeight = calculateWeight(i, n, selector);
+        float selectorWeight = calculateWeightForGlyph(glyphs[i], i, n,
+                                                       clusterCount, lineCount,
+                                                       tagIndices[static_cast<size_t>(i)],
+                                                       tagCount, selector);
         
         // ウィグリーの重み
         float wigglyWeight = wiggly.enabled ? calculateWigglyWeight(i, time, wiggly) : 1.0f;

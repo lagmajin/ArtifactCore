@@ -90,6 +90,24 @@ Yu Gothic UI → Yu Gothic → Meiryo UI → Meiryo → MS Gothic → Noto Sans 
 - 詳細:
   `MILESTONE_GPU_TEXT_RENDERING_JA_2026-04-01.md`
 
+## C-TXT-6A Text Shaping Backend / HarfBuzz
+
+- 目標:
+  `Qt` 互換経路を残しつつ、complex script と vertical writing を扱える shaping backend を導入する。
+- 対象:
+  backend contract, logical/visual mapping, bidi, cluster metadata, ruby / tate-chu-yoko / kinsoku.
+- 詳細:
+  `MILESTONE_TEXT_SHAPING_BACKEND_HARFBUZZ_2026-06-12.md`
+
+## C-TXT-6B Text Layout Contract
+
+- 目標:
+  shaping backend に依存しない共通の text layout 意味論を固定する。
+- 対象:
+  writing mode, bidi runs, cluster spans, ruby attachments, tate-chu-yoko, punctuation, kinsoku。
+- 詳細:
+  `MILESTONE_TEXT_LAYOUT_CONTRACT_2026-06-12.md`
+
 ## First Pass Notes
 
 - 2026-03-12:
@@ -97,3 +115,45 @@ Yu Gothic UI → Yu Gothic → Meiryo UI → Meiryo → MS Gothic → Noto Sans 
   - `ArtifactTextLayer` は最小の style/paragraph だけ共有する方向へ移行開始
   - `Font.FreeFont` の空 stub を family resolution 基盤として更新
   - DX12 / Vulkan 向けの日本語 text rendering は別マイルストーンに分離して整理する
+- 2026-06-12:
+  - `Text Layout Contract` を切り出し、complex script / vertical writing / ruby / kinsoku の共通語を整理開始
+  - `Text Shaping Backend / HarfBuzz` の execution slice と `Qt` fallback adapter skeleton を追加
+  - `ArtifactTextLayer` の glyph 生成を backend request 経由へ接続し、consumer wiring を開始
+  - `ArtifactTextLayer` から `baseDirection` を shaping request に流し始めた
+  - `ArtifactTextLayer` に `text.writingMode` を追加し、縦書きの入口を public surface に出した
+  - `DiligentImmediateSubmitter` の glyph text も shaping request 経由へ寄せ始めた
+  - `TextLayoutContract` に bracket / kinsoku の metadata container を追加し、Qt fallback に vertical column flow を入れ始めた
+  - `TextLayoutEngine` の backend overload が writingMode / baseDirection を受け取れるようになった
+  - `TextLayoutContract` の vertical path で tate-chu-yoko run を返し始めた
+  - `ArtifactTextLayer` に ruby attachment の入口を追加し、request/contract に流し始めた
+  - `Qt` fallback の vertical path で ruby glyph overlay を描き始めた
+  - `Qt` fallback の vertical path で punctuation / bracket の upright-or-rotate を少し分け始めた
+  - `Qt` fallback の vertical path で minimal kinsoku line-start guard を入れ始めた
+  - `ArtifactTextLayer` の Text group に dynamic unit badge と selection target の入口を出し始めた
+  - `ArtifactTextLayer` の selection target を line-aware 表示へ少し寄せた
+  - `SelectorUnits` に Cluster / Line を足し、selector 側も glyph 以外の手がかりを受け始めた
+  - `TextGizmo` に selector weight heatmap の入口を追加した
+  - selector weight heatmap を glyph/cluster/line ベースへ少し寄せた
+  - selector heatmap に logical / visual / unit の label を足し始めた
+  - selector heatmap に cluster / line boundary marker を足し始めた
+  - selector heatmap の boundary marker に番号を振り始めた
+  - Inspector に selector overview を出し始めた
+  - selector overview に writing mode を足し始めた
+  - debugState に selector overview を足し始めた
+  - selector overview に logical / visual order を足し始めた
+  - Inspector の個別 selector 詳細を selector overview 寄りに整理し始めた
+  - selector overview を key/value 形式へ寄せ始めた
+  - debugState の selector ラベルを selectorOverview に揃えた
+  - selector overview の order を source / visual に分け始めた
+  - debugState の selectorOverview を括弧なしにした
+  - selector overview を compact key=value 形式へ寄せた
+  - selector overview に unit も入れた
+  - selector overview の target を atom 化した
+  - shaping backend の script tag 分類を広げた
+  - selector に tag 単位を追加した
+  - selector overview に tag summary を出した
+  - selector の regex pattern を受け始めた
+  - stable token id を glyph に載せた
+  - Inspector に selector token を出した
+  - selector overview に token を入れた
+  - selector overview に tag も戻した
