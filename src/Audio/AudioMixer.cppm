@@ -6,6 +6,9 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
 
 module Audio.Mixer;
 
@@ -102,6 +105,113 @@ std::shared_ptr<AudioBus> AudioMixer::findBusByName(const std::string& name) con
         }
     }
     return nullptr;
+}
+
+std::vector<std::shared_ptr<AudioBus>> AudioMixer::getAllBuses() const
+{
+    std::vector<std::shared_ptr<AudioBus>> result;
+    result.reserve(impl_->buses.size());
+    for (const auto& bus : impl_->buses) {
+        if (bus) result.push_back(bus);
+    }
+    return result;
+}
+
+std::shared_ptr<AudioBus> AudioMixer::getRoutingTarget(std::shared_ptr<AudioBus> bus) const
+{
+    auto it = impl_->routing.find(bus);
+    if (it != impl_->routing.end()) {
+        return it->second;
+    }
+    return masterBus_;
+}
+
+std::vector<std::pair<std::shared_ptr<AudioBus>, float>> AudioMixer::getSideChainSends(std::shared_ptr<AudioBus> bus) const
+{
+    std::vector<std::pair<std::shared_ptr<AudioBus>, float>> result;
+    for (const auto& send : impl_->sends) {
+        if (send.source == bus) {
+            result.emplace_back(send.target, send.amount);
+        }
+    }
+    return result;
+}
+
+QJsonObject AudioMixer::serialize() const {
+    QJsonObject obj;
+    QJsonArray busesArr;
+
+    for (const auto& bus : impl_->buses) {
+        if (!bus || bus == masterBus_) {
+            continue;
+        }
+
+        QJsonObject busObj;
+        busObj["name"] = QString::fromStdString(bus->getName());
+        busObj["volume"] = bus->getVolume();
+        busObj["pan"] = bus->getPan();
+        busObj["mute"] = bus->isMute();
+        busObj["solo"] = bus->isSolo();
+
+        const auto target = getRoutingTarget(bus);
+        busObj["target"] = QString::fromStdString(target->getName());
+
+        QJsonArray sendsArr;
+        for (const auto& send : impl_->sends) {
+            if (send.source == bus) {
+                QJsonObject sendObj;
+                sendObj["target"] = QString::fromStdString(send.target->getName());
+                sendObj["amount"] = send.amount;
+                sendsArr.push_back(sendObj);
+            }
+        }
+        busObj["sends"] = sendsArr;
+
+        busesArr.push_back(busObj);
+    }
+
+    obj["buses"] = busesArr;
+    return obj;
+}
+
+bool AudioMixer::deserialize(const QJsonObject& data) {
+    impl_->routing.clear();
+    impl_->sends.clear();
+
+    const auto busesArr = data["buses"].toArray();
+    for (const auto& val : busesArr) {
+        const auto busObj = val.toObject();
+        const std::string name = busObj["name"].toString().toStdString();
+
+        auto bus = findBusByName(name);
+        if (!bus) {
+            bus = createBus(name);
+        }
+
+        bus->setVolume(static_cast<float>(busObj["volume"].toDouble()));
+        bus->setPan(static_cast<float>(busObj["pan"].toDouble()));
+        bus->setMute(busObj["mute"].toBool());
+        bus->setSolo(busObj["solo"].toBool());
+
+        const std::string targetName = busObj["target"].toString().toStdString();
+        const auto target = findBusByName(targetName);
+        if (target) {
+            impl_->routing[bus] = target;
+        }
+
+        const auto sendsArr = busObj["sends"].toArray();
+        for (const auto& sVal : sendsArr) {
+            const auto sendObj = sVal.toObject();
+            const std::string sTarget = sendObj["target"].toString().toStdString();
+            const float sAmount = static_cast<float>(sendObj["amount"].toDouble());
+            const auto sBus = findBusByName(sTarget);
+            if (sBus) {
+                impl_->sends.push_back({bus, sBus, sAmount});
+            }
+        }
+    }
+
+    return true;
 }
 
 std::shared_ptr<AudioBus> AudioMixer::createBus(const std::string& name) {

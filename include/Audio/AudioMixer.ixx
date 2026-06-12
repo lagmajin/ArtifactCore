@@ -1,6 +1,7 @@
 ﻿module;
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
+#include <QJsonObject>
 #include <memory>
 #include <string>
 #include <vector>
@@ -37,6 +38,13 @@ public:
     int busCount() const;
     std::vector<std::string> busNames() const;
     std::shared_ptr<AudioBus> findBusByName(const std::string& name) const;
+
+    std::vector<std::shared_ptr<AudioBus>> getAllBuses() const;
+    std::shared_ptr<AudioBus> getRoutingTarget(std::shared_ptr<AudioBus> bus) const;
+    std::vector<std::pair<std::shared_ptr<AudioBus>, float>> getSideChainSends(std::shared_ptr<AudioBus> bus) const;
+
+    QJsonObject serialize() const;
+    bool deserialize(const QJsonObject& data);
 
 private:
     struct Impl;

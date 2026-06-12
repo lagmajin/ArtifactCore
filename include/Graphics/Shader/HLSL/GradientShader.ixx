@@ -1,8 +1,8 @@
-﻿module;
+module;
 #include <utility>
-export module GradientShader;
-
 #include <QString>
+
+export module GradientShader;
 
 export namespace ArtifactCore {
 
