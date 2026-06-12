@@ -1,6 +1,5 @@
 module;
 
-#include <QObject>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -31,7 +30,6 @@ export enum class TrimMode {
  * AEのシェイプレイヤーにある「トリムパス」と同等の機能。
  */
 class TrimPaths : public ShapeOperator {
-    Q_OBJECT
     Q_PROPERTY(float start READ start WRITE setStart NOTIFY startChanged)
     Q_PROPERTY(float end READ end WRITE setEnd NOTIFY endChanged)
     Q_PROPERTY(float offset READ offset WRITE setOffset NOTIFY offsetChanged)
@@ -162,10 +160,10 @@ public:
     }
 
 signals:
-    void startChanged();
-    void endChanged();
-    void offsetChanged();
-    void trimModeChanged();
+    void startChanged() {}
+    void endChanged() {}
+    void offsetChanged() {}
+    void trimModeChanged() {}
 
 private:
     float start_ = 0.0f;   // 0.0 - 100.0

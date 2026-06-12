@@ -5,8 +5,6 @@ module;
 #include <QObject>
 #include <QPointF>
 #include <QTransform>
-#include <wobjectdefs.h>
-#include <wobjectimpl.h>
 
 export module Shape.Repeater;
 

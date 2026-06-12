@@ -4,8 +4,6 @@ module;
 #include <memory>
 #include <QObject>
 #include <QJsonObject>
-#include <wobjectdefs.h>
-#include <wobjectimpl.h>
 
 export module Shape.Operator;
 
@@ -37,7 +35,6 @@ enum class ShapeOperatorType {
  * ShapeGroup 内のパスリストに対して処理を行い、新しいパスリストを返す。
  */
 class ShapeOperator : public QObject {
-    W_OBJECT(ShapeOperator)
 public:
     explicit ShapeOperator(ShapeOperatorType type, QObject* parent = nullptr) : QObject(parent), type_(type) {}
     virtual ~ShapeOperator() = default;
@@ -69,7 +66,5 @@ public:
 private:
     ShapeOperatorType type_;
 };
-
-W_OBJECT_IMPL(ShapeOperator)
 
 } // namespace ArtifactCore

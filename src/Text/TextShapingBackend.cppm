@@ -2,9 +2,11 @@ module;
 #include <algorithm>
 #include <QFont>
 #include <QFontMetricsF>
+#include <QList>
 #include <QPointF>
 #include <QRectF>
 #include <QTextLayout>
+#include <QString>
 #include <QStringLiteral>
 #include <cmath>
 #include <limits>
@@ -14,6 +16,7 @@ module;
 module Text.ShapingBackend;
 
 import std;
+import Font.FreeFont;
 import Text.LayoutContract;
 import Text.Style;
 import Utils.String.UniString;
@@ -21,6 +24,17 @@ import Utils.String.UniString;
 namespace ArtifactCore {
 
 namespace {
+
+std::u32string toU32String(const QString& text)
+{
+  const QList<uint> ucs4 = text.toUcs4();
+  std::u32string result;
+  result.reserve(static_cast<size_t>(ucs4.size()));
+  for (const uint ch : ucs4) {
+    result.push_back(static_cast<char32_t>(ch));
+  }
+  return result;
+}
 
 bool isRtlCodepoint(const char32_t code)
 {
@@ -254,7 +268,7 @@ TextLayoutContract buildContract(const QString& text,
   contract.baseDirection = inferredDirection(text, request.baseDirection);
   contract.rubyAttachments = request.rubyAttachments;
 
-  const std::u32string u32text = text.toStdU32string();
+  const std::u32string u32text = toU32String(text);
   contract.scriptRuns.reserve(static_cast<int>(u32text.size()));
   contract.clusters.reserve(static_cast<int>(u32text.size()));
   contract.bidiRuns.reserve(1);
@@ -563,7 +577,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
     return result;
   }
 
-  const std::u32string u32text = text.toStdU32String();
+  const std::u32string u32text = toU32String(text);
   const std::vector<int> utf16Offsets = buildUtf16Offsets(u32text);
 
   float contentHeight = 0.0f;
@@ -706,7 +720,7 @@ std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
   const float columnAdvance = static_cast<float>(
       std::max<qreal>(metrics.horizontalAdvance(QStringLiteral("M")), metrics.height()));
   const float boxHeight = paragraph.boxHeight > 0.0f ? paragraph.boxHeight : std::numeric_limits<float>::max();
-  const std::u32string u32text = text.toStdU32String();
+  const std::u32string u32text = toU32String(text);
 
   float x = 0.0f;
   float y = 0.0f;

@@ -29,6 +29,11 @@ export import :TiltShift;
 export import :AnamorphicFlare;
 export import :Duotone;
 export import :EdgeEcho;
+export import :ChromaSpread;
+export import :StructureTensor;
+export import :ChromaSpreadGlow;
+export import :AnisotropicFlowBlur;
+export import :VectorFlowGlitch;
 
 //export import :Halide;
 export import ImageProcessing.NegateCS;

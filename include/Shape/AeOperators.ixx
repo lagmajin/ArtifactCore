@@ -5,6 +5,8 @@ module;
 #include <QPainterPath>
 #include <QPainterPathStroker>
 #include <QPointF>
+#include <wobjectdefs.h>
+#include <wobjectimpl.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -142,6 +144,7 @@ inline Qt::PenJoinStyle toJoinStyle(LineJoin join)
 } // namespace detail
 
 class MergePaths : public ShapeOperator {
+    W_OBJECT(MergePaths)
 public:
     enum Mode {
         Add = 0,
@@ -209,14 +212,14 @@ public:
         return result;
     }
 
-    void modeChanged() {}
+    void modeChanged() W_SIGNAL(modeChanged);
 
 private:
     Mode mode_ = Add;
 };
 
 class OffsetPaths : public ShapeOperator {
-    Q_OBJECT
+    W_OBJECT(OffsetPaths)
     Q_PROPERTY(float offset READ offset WRITE setOffset NOTIFY offsetChanged)
     Q_PROPERTY(int join READ joinValue WRITE setJoinValue NOTIFY joinChanged)
     Q_PROPERTY(float miterLimit READ miterLimit WRITE setMiterLimit NOTIFY miterLimitChanged)
@@ -314,9 +317,9 @@ public:
     }
 
 signals:
-    void offsetChanged();
-    void joinChanged();
-    void miterLimitChanged();
+    void offsetChanged() W_SIGNAL(offsetChanged);
+    void joinChanged() W_SIGNAL(joinChanged);
+    void miterLimitChanged() W_SIGNAL(miterLimitChanged);
 
 private:
     float offset_ = 10.0f;
@@ -325,7 +328,7 @@ private:
 };
 
 class PuckerBloat : public ShapeOperator {
-    Q_OBJECT
+    W_OBJECT(PuckerBloat)
     Q_PROPERTY(float amount READ amount WRITE setAmount NOTIFY amountChanged)
 
 public:
@@ -374,14 +377,14 @@ public:
     }
 
 signals:
-    void amountChanged();
+    void amountChanged() W_SIGNAL(amountChanged);
 
 private:
     float amount_ = 0.0f;
 };
 
 class Twist : public ShapeOperator {
-    Q_OBJECT
+    W_OBJECT(Twist)
     Q_PROPERTY(float angle READ angle WRITE setAngle NOTIFY angleChanged)
 
 public:
@@ -429,14 +432,14 @@ public:
     }
 
 signals:
-    void angleChanged();
+    void angleChanged() W_SIGNAL(angleChanged);
 
 private:
     float angle_ = 0.0f;
 };
 
 class RoundedCorners : public ShapeOperator {
-    Q_OBJECT
+    W_OBJECT(RoundedCorners)
     Q_PROPERTY(float radius READ radius WRITE setRadius NOTIFY radiusChanged)
 
 public:
@@ -527,14 +530,14 @@ public:
     }
 
 signals:
-    void radiusChanged();
+    void radiusChanged() W_SIGNAL(radiusChanged);
 
 private:
     float radius_ = 8.0f;
 };
 
 class WigglePaths : public ShapeOperator {
-    Q_OBJECT
+    W_OBJECT(WigglePaths)
     Q_PROPERTY(float amount READ amount WRITE setAmount NOTIFY amountChanged)
     Q_PROPERTY(float frequency READ frequency WRITE setFrequency NOTIFY frequencyChanged)
 
@@ -624,8 +627,8 @@ public:
     }
 
 signals:
-    void amountChanged();
-    void frequencyChanged();
+    void amountChanged() W_SIGNAL(amountChanged);
+    void frequencyChanged() W_SIGNAL(frequencyChanged);
 
 private:
     float amount_ = 8.0f;
@@ -633,7 +636,7 @@ private:
 };
 
 class ZigZag : public ShapeOperator {
-    Q_OBJECT
+    W_OBJECT(ZigZag)
     Q_PROPERTY(float amount READ amount WRITE setAmount NOTIFY amountChanged)
     Q_PROPERTY(float frequency READ frequency WRITE setFrequency NOTIFY frequencyChanged)
 
@@ -720,8 +723,8 @@ public:
     }
 
 signals:
-    void amountChanged();
-    void frequencyChanged();
+    void amountChanged() W_SIGNAL(amountChanged);
+    void frequencyChanged() W_SIGNAL(frequencyChanged);
 
 private:
     float amount_ = 8.0f;
@@ -729,7 +732,7 @@ private:
 };
 
 class HandDrawnWobble : public ShapeOperator {
-    Q_OBJECT
+    W_OBJECT(HandDrawnWobble)
     Q_PROPERTY(float wobbleAmount READ wobbleAmount WRITE setWobbleAmount NOTIFY wobbleAmountChanged)
     Q_PROPERTY(float wobbleFrequency READ wobbleFrequency WRITE setWobbleFrequency NOTIFY wobbleFrequencyChanged)
     Q_PROPERTY(float pressureJitter READ pressureJitter WRITE setPressureJitter NOTIFY pressureJitterChanged)
@@ -891,10 +894,10 @@ public:
     }
 
 signals:
-    void wobbleAmountChanged();
-    void wobbleFrequencyChanged();
-    void pressureJitterChanged();
-    void gapProbabilityChanged();
+    void wobbleAmountChanged() W_SIGNAL(wobbleAmountChanged);
+    void wobbleFrequencyChanged() W_SIGNAL(wobbleFrequencyChanged);
+    void pressureJitterChanged() W_SIGNAL(pressureJitterChanged);
+    void gapProbabilityChanged() W_SIGNAL(gapProbabilityChanged);
 
 private:
     float wobbleAmount_ = 4.0f;
@@ -902,5 +905,14 @@ private:
     float pressureJitter_ = 0.4f;
     float gapProbability_ = 0.0f;
 };
+
+W_OBJECT_IMPL(MergePaths)
+W_OBJECT_IMPL(OffsetPaths)
+W_OBJECT_IMPL(PuckerBloat)
+W_OBJECT_IMPL(Twist)
+W_OBJECT_IMPL(RoundedCorners)
+W_OBJECT_IMPL(WigglePaths)
+W_OBJECT_IMPL(ZigZag)
+W_OBJECT_IMPL(HandDrawnWobble)
 
 } // namespace ArtifactCore

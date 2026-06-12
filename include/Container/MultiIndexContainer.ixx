@@ -32,8 +32,8 @@ class tst_QList;
 #include <regex>
 #include <random>
 #include <QHash>
+#include <QList>
 #include <QMultiHash>
-#include <QVector>
 export module Container.MultiIndex;
 
 import std;
@@ -50,7 +50,7 @@ export namespace ArtifactCore {
  template <typename Ptr, typename Id, typename TypeKey = std::type_index>
  class MultiIndexContainer {
  private:
-  QVector<Ptr> list_;               // 線形アクセス
+  QList<Ptr> list_;                 // 線形アクセス
   QHash<Id, Ptr> byId_;             // IDアクセス
   QMultiHash<TypeKey, Ptr> byType_; // 型アクセス
   mutable std::recursive_mutex mtx_;
@@ -135,7 +135,7 @@ export namespace ArtifactCore {
   }
 
   // 全件取得
-  const QVector<Ptr>& all() const { return list_; }
+  const QList<Ptr>& all() const { return list_; }
 
   // 削除
   void removeById(const Id& id) {

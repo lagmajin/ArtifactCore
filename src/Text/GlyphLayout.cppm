@@ -1,9 +1,11 @@
 module;
 #include <QFont>
 #include <QFontMetricsF>
+#include <QList>
 #include <QPointF>
 #include <QRectF>
 #include <QTextLayout>
+#include <QString>
 #include <QStringLiteral>
 #include <algorithm>
 #include <cmath>
@@ -23,6 +25,17 @@ import FloatRGBA;
 namespace ArtifactCore {
 
 namespace {
+
+std::u32string toU32String(const QString& text)
+{
+  const QList<uint> ucs4 = text.toUcs4();
+  std::u32string result;
+  result.reserve(static_cast<size_t>(ucs4.size()));
+  for (const uint ch : ucs4) {
+    result.push_back(static_cast<char32_t>(ch));
+  }
+  return result;
+}
 
 struct LayoutGlyph {
   char32_t code;
@@ -205,7 +218,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
     return result;
   }
 
-  const std::u32string u32text = text.toStdU32String();
+  const std::u32string u32text = toU32String(text);
   const std::vector<int> utf16Offsets = buildUtf16Offsets(u32text);
 
   float contentHeight = 0.0f;
@@ -391,7 +404,7 @@ TextLayoutEngine::layoutOnPath(const UniString &text,
   const QFont font = FontManager::makeFont(style, qText);
   const QFontMetricsF metrics(font);
   float totalTextWidth = 0.0f;
-  const std::u32string u32str = text.toStdU32String();
+  const std::u32string u32str = toU32String(text);
   for (char32_t code : u32str) totalTextWidth += charWidth(code, style);
   if (totalTextWidth < 1.0f) return result;
   double scale = available / (double)totalTextWidth;
