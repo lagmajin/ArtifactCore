@@ -14,6 +14,16 @@ import Frame.Rate;
 
 namespace ArtifactCore {
 
+namespace {
+
+constexpr float kPi = 3.14159265358979323846f;
+
+float clamp01(float value) {
+    return std::clamp(value, 0.0f, 1.0f);
+}
+
+} // namespace
+
 // ==================== TimeRemapProcessor ====================
 
 TimeRemapProcessor::TimeRemapProcessor() = default;
@@ -269,6 +279,30 @@ void TimeRemapProcessor::reset() {
     blendAmount_ = 0.5f;
 }
 
+TimeRemapProcessor TimeRemapProcessor::createSuperSlowMotion(double speedScale, double durationSeconds) {
+    TimeRemapProcessor proc;
+    const double safeSpeed = std::max(speedScale, 0.01);
+    const double safeDuration = std::max(durationSeconds, 0.0);
+
+    proc.setSourceDuration(safeDuration);
+    proc.setFrameBlendMode(FrameBlendMode::FrameMix);
+    proc.setFrameBlendAmount(0.85f);
+
+    TimeRemapKeyframe start;
+    start.outputTime = 0.0;
+    start.sourceTime = 0.0;
+    start.interpolation = TimeRemapKeyframe::Interpolation::Linear;
+    proc.addKeyframe(start);
+
+    TimeRemapKeyframe end;
+    end.outputTime = safeDuration / safeSpeed;
+    end.sourceTime = safeDuration;
+    end.interpolation = TimeRemapKeyframe::Interpolation::EaseInOut;
+    proc.addKeyframe(end);
+
+    return proc;
+}
+
 // ==================== AudioTimeStretchProcessor ====================
 
 AudioTimeStretchProcessor::AudioTimeStretchProcessor() = default;
@@ -481,6 +515,7 @@ QImage TimeRemapEffect::processFrameBlending(
     float blendForward = 0.0f;
     float blendBackward = 0.0f;
     int frameIndex = processFrame(outputTime, blendForward, blendBackward);
+    (void)frameIndex;
     
     if (mode == FrameBlendMode::FrameMix) {
         // Simple frame mixing
@@ -558,6 +593,7 @@ QImage TimeRemapEffect::applyMotionBlur(
 
 double TimeRemapEffect::getTimeStretchRatio(double outputTime) const {
     double speed = remap_.getSpeedAtTime(outputTime);
+    speed = std::max(std::abs(speed), 0.0001);
     return 1.0 / speed; // Speed > 1 means slow motion (stretch ratio < 1)
 }
 
@@ -565,6 +601,255 @@ void TimeRemapEffect::reset() {
     remap_.reset();
     enabled_ = true;
     hasAudio_ = false;
+}
+
+// ==================== SuperSlowMotionEffect ====================
+
+SuperSlowMotionEffect::SuperSlowMotionEffect() = default;
+SuperSlowMotionEffect::~SuperSlowMotionEffect() = default;
+
+void SuperSlowMotionEffect::setEnabled(bool enabled) {
+    effect_.setEnabled(enabled);
+}
+
+void SuperSlowMotionEffect::setHasAudio(bool hasAudio) {
+    effect_.setHasAudio(hasAudio);
+    effect_.audio().setPreservePitch(profile_.preservePitch);
+}
+
+void SuperSlowMotionEffect::setPreviewMode(bool preview) {
+    previewMode_ = preview;
+}
+
+void SuperSlowMotionEffect::setProfile(const SuperSlowMotionProfile& profile) {
+    profile_ = profile;
+    effect_.remap().setFrameBlendMode(profile_.blendMode);
+    effect_.remap().setFrameBlendAmount(profile_.blendAmount);
+    effect_.audio().setPreservePitch(profile_.preservePitch);
+    rebuildConstantSpeedRemap();
+}
+
+void SuperSlowMotionEffect::setSpeedScale(double speedScale) {
+    profile_.speedScale = std::max(speedScale, 0.01);
+    rebuildConstantSpeedRemap();
+}
+
+void SuperSlowMotionEffect::setSourceDuration(double seconds) {
+    effect_.remap().setSourceDuration(seconds);
+    rebuildConstantSpeedRemap();
+}
+
+void SuperSlowMotionEffect::setSourceFrameCount(int frames) {
+    effect_.remap().setSourceFrameCount(frames);
+    rebuildConstantSpeedRemap();
+}
+
+void SuperSlowMotionEffect::setFrameRate(const FrameRate& rate) {
+    effect_.remap().setFrameRate(rate);
+    rebuildConstantSpeedRemap();
+}
+
+void SuperSlowMotionEffect::rebuildConstantSpeedRemap() {
+    const double sourceDuration = effect_.remap().sourceDuration();
+    const double safeSpeed = std::max(profile_.speedScale, 0.01);
+    effect_.remap().clearKeyframes();
+    effect_.remap().setFrameBlendMode(profile_.blendMode);
+    effect_.remap().setFrameBlendAmount(profile_.blendAmount);
+
+    TimeRemapKeyframe start;
+    start.outputTime = 0.0;
+    start.sourceTime = 0.0;
+    start.interpolation = TimeRemapKeyframe::Interpolation::Linear;
+    effect_.remap().addKeyframe(start);
+
+    TimeRemapKeyframe end;
+    end.outputTime = sourceDuration / safeSpeed;
+    end.sourceTime = sourceDuration;
+    end.interpolation = TimeRemapKeyframe::Interpolation::EaseInOut;
+    effect_.remap().addKeyframe(end);
+
+    effect_.audio().setPreservePitch(profile_.preservePitch);
+}
+
+int SuperSlowMotionEffect::processFrame(
+    double outputTime,
+    float& blendForward,
+    float& blendBackward
+) {
+    return effect_.processFrame(outputTime, blendForward, blendBackward);
+}
+
+float SuperSlowMotionEffect::exposureWeight(float phase) const {
+    const float normalized = clamp01((phase + 0.5f) / 1.0f);
+    switch (profile_.exposureProfile) {
+        case TemporalExposureProfile::Rectangular:
+            return 1.0f;
+        case TemporalExposureProfile::Triangle: {
+            const float centered = 1.0f - std::abs(normalized * 2.0f - 1.0f);
+            return std::max(0.0f, centered);
+        }
+        case TemporalExposureProfile::Trapezoid: {
+            if (normalized >= 0.2f && normalized <= 0.8f) {
+                return 1.0f;
+            }
+            const float edge = normalized < 0.2f ? normalized / 0.2f : (1.0f - normalized) / 0.2f;
+            return std::max(0.0f, edge);
+        }
+        case TemporalExposureProfile::Cosine:
+        default: {
+            const float centered = std::cos((normalized - 0.5f) * kPi);
+            return std::max(0.0f, centered);
+        }
+    }
+}
+
+QImage SuperSlowMotionEffect::blendFrames(
+    const QImage& currentFrame,
+    const QImage& nextFrame,
+    const QImage& prevFrame,
+    int sampleCount
+) const {
+    if (currentFrame.isNull()) {
+        return currentFrame;
+    }
+
+    if (sampleCount <= 1) {
+        return currentFrame;
+    }
+
+    const int samples = std::clamp(sampleCount, 2, 32);
+    QVector<float> weights;
+    weights.reserve(samples);
+
+    float totalWeight = 0.0f;
+    for (int i = 0; i < samples; ++i) {
+        const float t = samples == 1 ? 0.0f : static_cast<float>(i) / static_cast<float>(samples - 1);
+        const float phase = profile_.shutterPhase + (t - 0.5f) * profile_.shutterAngle;
+        const float weight = exposureWeight(phase);
+        weights.push_back(weight);
+        totalWeight += weight;
+    }
+
+    if (totalWeight <= 0.0f) {
+        totalWeight = 1.0f;
+    }
+
+    QImage result = currentFrame.copy();
+    result.fill(Qt::transparent);
+
+    QPainter painter(&result);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+
+    for (int i = 0; i < samples; ++i) {
+        const float t = samples == 1 ? 0.0f : static_cast<float>(i) / static_cast<float>(samples - 1);
+        const float phase = profile_.shutterPhase + (t - 0.5f) * profile_.shutterAngle;
+        const float normalizedWeight = weights[i] / totalWeight;
+        const float neighborWeight = normalizedWeight * profile_.blendAmount;
+
+        if (phase < 0.0f) {
+            const float local = clamp01((-phase) / std::max(profile_.shutterAngle, 0.001f));
+            const float prevWeight = neighborWeight * local;
+            const float currentWeight = normalizedWeight - prevWeight;
+
+            painter.setOpacity(currentWeight);
+            painter.drawImage(0, 0, currentFrame);
+
+            if (prevWeight > 0.0f && !prevFrame.isNull()) {
+                painter.setOpacity(prevWeight);
+                painter.drawImage(0, 0, prevFrame);
+            }
+        } else {
+            const float local = clamp01(phase / std::max(profile_.shutterAngle, 0.001f));
+            const float nextWeight = neighborWeight * local;
+            const float currentWeight = normalizedWeight - nextWeight;
+
+            painter.setOpacity(currentWeight);
+            painter.drawImage(0, 0, currentFrame);
+
+            if (nextWeight > 0.0f && !nextFrame.isNull()) {
+                painter.setOpacity(nextWeight);
+                painter.drawImage(0, 0, nextFrame);
+            }
+        }
+    }
+
+    return result;
+}
+
+QImage SuperSlowMotionEffect::processFrameBlending(
+    double outputTime,
+    const QImage& currentFrame,
+    const QImage& nextFrame,
+    const QImage& prevFrame,
+    int64_t frameNumber
+) {
+    if (currentFrame.isNull() || !isEnabled()) {
+        return currentFrame;
+    }
+
+    if (profile_.blendMode == FrameBlendMode::None) {
+        return currentFrame;
+    }
+
+    if (!effect_.needsFrameBlending(outputTime)) {
+        return currentFrame;
+    }
+
+    const int sampleCount = recommendedSampleCount();
+    if (profile_.blendMode == FrameBlendMode::MotionBlur) {
+        return blendFrames(currentFrame, nextFrame, prevFrame, sampleCount);
+    }
+
+    if (profile_.blendMode == FrameBlendMode::FrameMix) {
+        return blendFrames(currentFrame, nextFrame, prevFrame, sampleCount);
+    }
+
+    return effect_.processFrameBlending(outputTime, currentFrame, nextFrame, prevFrame, frameNumber);
+}
+
+double SuperSlowMotionEffect::getTimeStretchRatio(double outputTime) const {
+    return effect_.getTimeStretchRatio(outputTime);
+}
+
+int SuperSlowMotionEffect::recommendedSampleCount() const {
+    const int baseSamples = previewMode_ ? profile_.previewSamples : profile_.finalSamples;
+    if (!profile_.adaptiveSampling) {
+        return std::clamp(baseSamples, 2, 32);
+    }
+
+    const double slowFactor = std::clamp(1.0 / std::max(profile_.speedScale, 0.01), 1.0, 8.0);
+    const double boosted = static_cast<double>(baseSamples) * (0.5 + 0.5 * slowFactor);
+    return std::clamp(static_cast<int>(std::round(boosted)), 2, 32);
+}
+
+SuperSlowMotionEffect SuperSlowMotionEffect::createPreset(double speedScale, bool previewMode) {
+    SuperSlowMotionEffect effect;
+    SuperSlowMotionProfile profile;
+    profile.speedScale = std::max(speedScale, 0.01);
+    profile.blendMode = FrameBlendMode::FrameMix;
+    profile.exposureProfile = TemporalExposureProfile::Triangle;
+    profile.shutterAngle = 0.5f;
+    profile.shutterPhase = -0.25f;
+    profile.blendAmount = 0.85f;
+    profile.previewSamples = 3;
+    profile.finalSamples = 8;
+    profile.adaptiveSampling = true;
+    profile.preservePitch = true;
+
+    effect.setProfile(profile);
+    effect.setPreviewMode(previewMode);
+    effect.rebuildConstantSpeedRemap();
+    return effect;
+}
+
+void SuperSlowMotionEffect::reset() {
+    effect_.reset();
+    previewMode_ = true;
+    profile_ = SuperSlowMotionProfile{};
+    effect_.remap().setFrameBlendMode(profile_.blendMode);
+    effect_.remap().setFrameBlendAmount(profile_.blendAmount);
+    effect_.audio().setPreservePitch(profile_.preservePitch);
+    rebuildConstantSpeedRemap();
 }
 
 } // namespace ArtifactCore

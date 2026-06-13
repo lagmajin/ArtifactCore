@@ -34,6 +34,8 @@ class tst_QList;
 #include <regex>
 #include <random>
 #include <QObject>
+#include <QImage>
+#include <QPointF>
 #include <QVector>
 #include <QPair>
 export module Time.TimeRemap;
@@ -73,6 +75,28 @@ enum class FrameBlendMode {
     FrameMix,       // Mix between two frames
     MotionBlur,     // Motion blur simulation
     OpticalFlow     // Optical flow interpolation (future)
+};
+
+// Temporal exposure profile for slow-motion integration
+enum class TemporalExposureProfile {
+    Rectangular,    // Uniform weighting across the shutter window
+    Triangle,       // Strongest at center, fades toward the edges
+    Trapezoid,      // Flat center with softer edges
+    Cosine          // Smooth cosine-shaped exposure
+};
+
+// Configuration for super slow-motion playback / preview
+struct SuperSlowMotionProfile {
+    double speedScale = 0.25;              // 1.0 = normal, 0.25 = 4x slow motion
+    FrameBlendMode blendMode = FrameBlendMode::FrameMix;
+    TemporalExposureProfile exposureProfile = TemporalExposureProfile::Triangle;
+    float shutterAngle = 0.5f;             // 0.0 ~ 1.0
+    float shutterPhase = -0.25f;           // -0.5 ~ 0.5
+    float blendAmount = 0.85f;             // 0.0 ~ 1.0
+    int previewSamples = 3;
+    int finalSamples = 8;
+    bool adaptiveSampling = true;
+    bool preservePitch = true;
 };
 
 // Time remap processor
@@ -128,6 +152,7 @@ public:
     static TimeRemapProcessor createRampDown(double startSpeed, double endSpeed);
     static TimeRemapProcessor createHoldAt(double time, double holdDuration);
     static TimeRemapProcessor createReverse();
+    static TimeRemapProcessor createSuperSlowMotion(double speedScale, double durationSeconds = 10.0);
     
     // Reset
     void reset();
@@ -267,6 +292,80 @@ private:
     AudioTimeStretchProcessor audio_;
     bool enabled_ = true;
     bool hasAudio_ = false;
+};
+
+// Higher-level super slow-motion effect wrapper
+class LIBRARY_DLL_API SuperSlowMotionEffect {
+public:
+    SuperSlowMotionEffect();
+    ~SuperSlowMotionEffect();
+
+    TimeRemapEffect& effect() { return effect_; }
+    const TimeRemapEffect& effect() const { return effect_; }
+
+    TimeRemapProcessor& remap() { return effect_.remap(); }
+    const TimeRemapProcessor& remap() const { return effect_.remap(); }
+
+    AudioTimeStretchProcessor& audio() { return effect_.audio(); }
+    const AudioTimeStretchProcessor& audio() const { return effect_.audio(); }
+
+    void setEnabled(bool enabled);
+    bool isEnabled() const { return effect_.isEnabled(); }
+
+    void setHasAudio(bool hasAudio);
+    bool hasAudio() const { return effect_.hasAudio(); }
+
+    void setPreviewMode(bool preview);
+    bool previewMode() const { return previewMode_; }
+
+    void setProfile(const SuperSlowMotionProfile& profile);
+    const SuperSlowMotionProfile& profile() const { return profile_; }
+
+    void setSpeedScale(double speedScale);
+    double speedScale() const { return profile_.speedScale; }
+
+    void setSourceDuration(double seconds);
+    void setSourceFrameCount(int frames);
+    void setFrameRate(const FrameRate& rate);
+
+    void rebuildConstantSpeedRemap();
+
+    int processFrame(
+        double outputTime,
+        float& blendForward,
+        float& blendBackward
+    );
+
+    QImage processFrameBlending(
+        double outputTime,
+        const QImage& currentFrame,
+        const QImage& nextFrame,
+        const QImage& prevFrame,
+        int64_t frameNumber
+    );
+
+    double getTimeStretchRatio(double outputTime) const;
+    int recommendedSampleCount() const;
+
+    static SuperSlowMotionEffect createPreset(
+        double speedScale = 0.25,
+        bool previewMode = true
+    );
+
+    void reset();
+
+private:
+    float exposureWeight(float phase) const;
+    QImage blendFrames(
+        const QImage& currentFrame,
+        const QImage& nextFrame,
+        const QImage& prevFrame,
+        int sampleCount
+    ) const;
+
+    TimeRemapEffect effect_;
+    SuperSlowMotionProfile profile_;
+    bool previewMode_ = true;
 };
 
 } // namespace ArtifactCore
