@@ -77,6 +77,13 @@ public:
   int substepCount_ = 4;
   double adaptiveTolerance_ = 0.001;
 
+  // Adaptive Physics Step (Phase 3)
+  // stepSize の上下限（秒）。速度が大きいほど小さいステップを使う。
+  double maxAdaptiveStepSec_ = 1.0 / 60.0;   // 既定: 60fps 相当の上限
+  double minAdaptiveStepSec_ = 1.0 / 960.0;  // 既定: 960fps 相当の下限
+  double adaptiveSpeedGain_  = 1.0;          // step = max/(1 + speed*gain) の gain
+  mutable int lastAdaptiveSplitCount_ = 0;   // Phase 5 診断用
+
   ExpressionValue evaluateNode(const std::shared_ptr<ExprNode> &node);
 };
 
@@ -589,7 +596,70 @@ void ExpressionEvaluator::setAdaptiveTolerance(double tol) {
 }
 
 double ExpressionEvaluator::adaptiveTolerance() const {
-    return impl_->adaptiveTolerance_;
+  return impl_->adaptiveTolerance_;
+}
+
+// --- Adaptive Physics Step (Phase 3) ---
+
+void ExpressionEvaluator::setMaxAdaptiveStepSec(double sec) {
+  // min と max の大小関係が崩れないようクランプする。
+  impl_->maxAdaptiveStepSec_ = std::max(1e-7, sec);
+  if (impl_->maxAdaptiveStepSec_ < impl_->minAdaptiveStepSec_) {
+    impl_->minAdaptiveStepSec_ = impl_->maxAdaptiveStepSec_ * 0.5;
+  }
+}
+
+double ExpressionEvaluator::maxAdaptiveStepSec() const {
+  return impl_->maxAdaptiveStepSec_;
+}
+
+void ExpressionEvaluator::setMinAdaptiveStepSec(double sec) {
+  impl_->minAdaptiveStepSec_ = std::max(1e-9, sec);
+  if (impl_->minAdaptiveStepSec_ > impl_->maxAdaptiveStepSec_) {
+    impl_->maxAdaptiveStepSec_ = impl_->minAdaptiveStepSec_ * 2.0;
+  }
+}
+
+double ExpressionEvaluator::minAdaptiveStepSec() const {
+  return impl_->minAdaptiveStepSec_;
+}
+
+int ExpressionEvaluator::lastAdaptiveSplitCount() const {
+  return impl_->lastAdaptiveSplitCount_;
+}
+
+// 任意時刻での |dy/dt| を中央差分で推定する。
+// ステップ幅 h は小さすぎると丸め誤差が支配的になり、大きすぎると離散化誤差が増える。
+// 既定で maxStep * 0.25 を使い、min で下限を保証する。
+double ExpressionEvaluator::estimateSpeedAtTime(const std::shared_ptr<ExprNode>& node, double timeSec) {
+  double h = std::max(impl_->minAdaptiveStepSec_ * 4.0, impl_->maxAdaptiveStepSec_ * 0.25);
+  const ExpressionValue vp = evaluateASTAtTime(node, timeSec + h);
+  const ExpressionValue vm = evaluateASTAtTime(node, timeSec - h);
+  double speed = 0.0;
+  if (vp.isNumber() && vm.isNumber()) {
+    speed = std::abs((vp.asNumber() - vm.asNumber()) / (2.0 * h));
+  } else if (vp.isVector() && vm.isVector()) {
+    const auto& va = vp.asVector();
+    const auto& vb = vm.asVector();
+    double acc = 0.0;
+    const size_t n = std::min(va.size(), vb.size());
+    for (size_t i = 0; i < n; ++i) {
+      const double d = (va[i] - vb[i]) / (2.0 * h);
+      acc += d * d;
+    }
+    speed = std::sqrt(acc);
+  }
+  return speed;
+}
+
+double ExpressionEvaluator::estimateSpeedAtTime(const std::string& expression, double timeSec) {
+  impl_->error_.clear();
+  auto ast = impl_->parser_.parse(expression);
+  if (impl_->parser_.hasError()) {
+    impl_->error_ = impl_->parser_.getError();
+    return 0.0;
+  }
+  return estimateSpeedAtTime(ast, timeSec);
 }
 
 ExpressionValue ExpressionEvaluator::evaluateAtTime(const std::string& expression, double timeSec) {
@@ -658,27 +728,89 @@ ExpressionEvaluator::evaluateOverRange(
         }
     }
     else if (mode == EvaluationMode::AdaptiveStep) {
-        // Adaptive refinement: sample at start/end, subdivide where difference exceeds tolerance
+        // Adaptive step with speed-aware sizing + half-step error estimation.
+        // 純関数前提（time 変数のみに依存する式）で動作する。
+        // 区間 [t1, t2] を:
+        //   1) 速度推定から初期ステップサイズを決定
+        //   2) 半ステップ誤差推定（1段階 vs 2段階評価の差）で収束判定
+        //   3) 収束しなければ再帰的に細分化（minStep で打ち切り）
+        impl_->lastAdaptiveSplitCount_ = 0;
+
+        // 数値微分のために AST を再利用（文字列再パースを避ける）。
+        auto ast = impl_->parser_.parse(expression);
+        if (impl_->parser_.hasError()) {
+            impl_->error_ = impl_->parser_.getError();
+            return results;
+        }
+
         const double tol = impl_->adaptiveTolerance_;
-        std::function<void(double, const ExpressionValue&, double, const ExpressionValue&)> adapt;
-        adapt = [&](double t1, const ExpressionValue& v1, double t2, const ExpressionValue& v2) {
-            const double tMid = (t1 + t2) * 0.5;
-            const ExpressionValue vMid = evaluateAtTime(expression, tMid);
-            if (vMid.isNumber() && std::abs(vMid.asNumber() - v1.asNumber()) > tol &&
-                std::abs(vMid.asNumber() - v2.asNumber()) > tol && (tMid - t1) > 1e-12) {
-                adapt(t1, v1, tMid, vMid);
-                adapt(tMid, vMid, t2, v2);
-            } else {
-                if (results.empty() || std::abs(results.back().first - t1) > 1e-12) {
-                    results.emplace_back(t1, v1);
+        const double minStep = impl_->minAdaptiveStepSec_;
+        const double maxStep = impl_->maxAdaptiveStepSec_;
+        const double gain   = impl_->adaptiveSpeedGain_;
+
+        // 2つの ExpressionValue の「差の大きさ」を返す。数値とベクトルに対応。
+        auto valueDiff = [](const ExpressionValue& a, const ExpressionValue& b) -> double {
+            if (a.isNumber() && b.isNumber()) {
+                return std::abs(a.asNumber() - b.asNumber());
+            }
+            if (a.isVector() && b.isVector()) {
+                const auto& va = a.asVector();
+                const auto& vb = b.asVector();
+                double acc = 0.0;
+                const size_t n = std::min(va.size(), vb.size());
+                for (size_t i = 0; i < n; ++i) {
+                    acc += (va[i] - vb[i]) * (va[i] - vb[i]);
                 }
-                results.emplace_back(tMid, vMid);
-                results.emplace_back(t2, v2);
+                return std::sqrt(acc);
+            }
+            return 0.0;
+        };
+
+        // 区間を適応的に歩く。t1 < t2 を仮定。
+        std::function<void(double, double)> walk;
+        walk = [&](double t1, double t2) {
+            const double span = t2 - t1;
+            const double tMid = (t1 + t2) * 0.5;
+
+            // 速度推定から目標ステップサイズを決める。速い変化ほど細かく。
+            const double speed = estimateSpeedAtTime(ast, tMid);
+            const double desired = std::clamp(maxStep / (1.0 + speed * gain), minStep, maxStep);
+
+            if (span <= desired) {
+                // 十分小さい: 半ステップ誤差推定で収束判定。
+                // 粗評価: t1 → t2 を1段階（線形）。
+                // 細評価: t1 → tMid → t2 を2段階。
+                const ExpressionValue v1 = evaluateASTAtTime(ast, t1);
+                const ExpressionValue vMid = evaluateASTAtTime(ast, tMid);
+                const ExpressionValue v2 = evaluateASTAtTime(ast, t2);
+                // 線形外挿と中点評価の差で誤差を推定する。
+                const ExpressionValue vLin = interpolateValue(v1, v2, 0.5);
+                const double err = valueDiff(vLin, vMid);
+
+                if (err <= tol || span <= minStep) {
+                    // 収束（または最小ステップ到達）: 3点を記録。
+                    if (results.empty() || std::abs(results.back().first - t1) > 1e-12) {
+                        results.emplace_back(t1, v1);
+                    }
+                    results.emplace_back(tMid, vMid);
+                    results.emplace_back(t2, v2);
+                } else {
+                    // 収束しない: 半分に分割して再帰。
+                    ++impl_->lastAdaptiveSplitCount_;
+                    walk(t1, tMid);
+                    walk(tMid, t2);
+                }
+            } else {
+                // span が desired より大きい: desired に近いステップで分割。
+                ++impl_->lastAdaptiveSplitCount_;
+                const double step = std::max(desired, minStep);
+                const double tBreak = std::min(t2 - minStep, t1 + step);
+                walk(t1, tBreak);
+                walk(tBreak, t2);
             }
         };
-        const ExpressionValue v0 = evaluateAtTime(expression, startTimeSec);
-        const ExpressionValue vN = evaluateAtTime(expression, endTimeSec);
-        adapt(startTimeSec, v0, endTimeSec, vN);
+
+        walk(startTimeSec, endTimeSec);
     }
 
     return results;

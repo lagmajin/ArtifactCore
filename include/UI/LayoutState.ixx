@@ -16,7 +16,11 @@ export namespace ArtifactCore
   QString layoutKey;
   QByteArray geometry;
   QByteArray state;
-  int version = 1;
+  // ADS (Advanced Docking System) のレイアウト状態。
+  // CDockManager::saveState() の戻り値を格納し、restoreState() で復元する。
+  // QMainWindow::saveState() には ADS の dock 配置が含まれないため、別途保持する。
+  QByteArray dockState;
+  int version = 2;
 
   UiLayoutState() = default;
   explicit UiLayoutState(QString key) : layoutKey(std::move(key)) {}

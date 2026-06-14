@@ -120,6 +120,25 @@ public:
     void setAdaptiveTolerance(double tol);
     double adaptiveTolerance() const;
 
+    // --- Adaptive Physics Step (Phase 3) ---
+    // AdaptiveStep モードで使用するステップサイズの上下限（秒）。
+    // 速度 |dy/dt| が大きい区間ほど細かいステップになる:
+    //   stepSize = clamp(maxStep / (1 + speed * k), minStep, maxStep)
+    // 収束判定は半ステップ誤差推定（1段階 vs 2段階評価の差が tol 以下）で行う。
+    void setMaxAdaptiveStepSec(double sec);
+    double maxAdaptiveStepSec() const;
+    void setMinAdaptiveStepSec(double sec);
+    double minAdaptiveStepSec() const;
+
+    // 直近の evaluateOverRange(AdaptiveStep) で発生した細分化回数。Phase 5 診断用。
+    int lastAdaptiveSplitCount() const;
+
+    // 任意時刻での式の時間微分 |dy/dt| を数値的に推定する（中央差分）。
+    // 純関数前提（time 変数のみに依存）の式で意味を持つ。
+    // 状態依存の式（物理積分）には適用できない点に注意。
+    double estimateSpeedAtTime(const std::shared_ptr<ExprNode>& node, double timeSec);
+    double estimateSpeedAtTime(const std::string& expression, double timeSec);
+
     // Evaluate expression at an arbitrary time point (seconds)
     ExpressionValue evaluateAtTime(const std::string& expression, double timeSec);
 
