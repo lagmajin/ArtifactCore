@@ -4,7 +4,7 @@ module;
 export module ImageProcessing:ChromaSpreadGlow;
 
 import Image.ImageF32x4_RGBA;
-import FloatRGBA;
+import Particle;
 
 export namespace ArtifactCore {
 

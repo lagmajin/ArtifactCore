@@ -3,6 +3,7 @@
 
 #include <QDebug>
 #include <QImage>
+#include <QtGlobal>
 #include <cstring>
 #include <cstdint>
 #include <memory>
@@ -78,6 +79,63 @@ CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsCtx, int
     dst[0] = out.bytes.data();
     dstLinesize[0] = out.strideBytes;
     sws_scale(swsCtx, frame->data, frame->linesize, 0, height, dst, dstLinesize);
+    return out;
+}
+
+CpuVideoFrame makeCpuVideoFrameFromDownloadedFrame(AVFrame* frame, int64_t pts)
+{
+    CpuVideoFrame out;
+    if (!frame || frame->width <= 0 || frame->height <= 0) {
+        return out;
+    }
+
+    SwsContext* swsCtx = sws_getContext(frame->width, frame->height,
+                                        static_cast<AVPixelFormat>(frame->format),
+                                        frame->width, frame->height,
+                                        AV_PIX_FMT_RGB24,
+                                        SWS_BILINEAR, nullptr, nullptr, nullptr);
+    if (!swsCtx) {
+        return out;
+    }
+
+    out.meta.width = frame->width;
+    out.meta.height = frame->height;
+    out.meta.pts = pts;
+    out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
+    out.strideBytes = frame->width * 3;
+    out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(frame->height));
+
+    uint8_t* dst[4] = {};
+    int dstLinesize[4] = {};
+    dst[0] = out.bytes.data();
+    dstLinesize[0] = out.strideBytes;
+    sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize);
+    sws_freeContext(swsCtx);
+    return out;
+}
+
+CpuVideoFrame downloadHwFrameToCpuVideoFrame(AVFrame* hwFrame, int64_t pts)
+{
+    CpuVideoFrame out;
+    if (!hwFrame) {
+        return out;
+    }
+
+    AVFrame* cpuFrame = av_frame_alloc();
+    if (!cpuFrame) {
+        return out;
+    }
+
+    const int transferResult = av_hwframe_transfer_data(cpuFrame, hwFrame, 0);
+    if (transferResult < 0) {
+        qWarning() << "[MediaImageFrameDecoder] Vulkan frame download failed:"
+                   << ffmpegErrorString(transferResult);
+        av_frame_free(&cpuFrame);
+        return out;
+    }
+
+    out = makeCpuVideoFrameFromDownloadedFrame(cpuFrame, pts);
+    av_frame_free(&cpuFrame);
     return out;
 }
 
@@ -181,6 +239,36 @@ GpuVideoFrame makeGpuVideoFrameFromFrame(AVFrame* frame)
     handle.planeCount = planeCount > 0 ? planeCount : 1u;
     out.handle = handle;
     return out;
+}
+
+bool canPresentGpuFrameDirectly(const GpuVideoFrame& frame)
+{
+    if (!frame.isValid()) {
+        return false;
+    }
+    const auto* handle = std::get_if<VulkanVideoFrameHandle>(&frame.handle);
+    if (!handle || handle->planeCount != 1u) {
+        return false;
+    }
+    switch (frame.meta.pixelFormat) {
+    case VideoFramePixelFormat::RGBA8:
+    case VideoFramePixelFormat::BGRA8:
+    case VideoFramePixelFormat::RGBA32F:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool directVulkanVideoFramesEnabled()
+{
+    const QString value = qEnvironmentVariable("ARTIFACT_ENABLE_VULKAN_VIDEO_DIRECT")
+                              .trimmed()
+                              .toLower();
+    return value == QStringLiteral("1") ||
+           value == QStringLiteral("true") ||
+           value == QStringLiteral("on") ||
+           value == QStringLiteral("yes");
 }
 
 void freeHwDeviceContext(AVBufferRef*& ref)
@@ -396,6 +484,13 @@ DecodedVideoFrame MediaImageFrameDecoder::decodeFrameRaw(AVPacket* packet) {
         lastPts_ = pts;
         if (frame->format == AV_PIX_FMT_VULKAN) {
             GpuVideoFrame out = makeGpuVideoFrameFromFrame(frame);
+            if (!directVulkanVideoFramesEnabled() || !canPresentGpuFrameDirectly(out)) {
+                CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(frame, pts);
+                av_frame_unref(frame);
+                av_frame_free(&frame);
+                return cpu.isValid() ? DecodedVideoFrame{std::move(cpu)}
+                                     : DecodedVideoFrame{std::monostate{}};
+            }
             av_frame_unref(frame);
             av_frame_free(&frame);
             return out;
@@ -482,6 +577,13 @@ DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
     lastPts_ = pts;
     if (frame->format == AV_PIX_FMT_VULKAN) {
         GpuVideoFrame out = makeGpuVideoFrameFromFrame(frame);
+        if (!directVulkanVideoFramesEnabled() || !canPresentGpuFrameDirectly(out)) {
+            CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(frame, pts);
+            av_frame_unref(frame);
+            av_frame_free(&frame);
+            return cpu.isValid() ? DecodedVideoFrame{std::move(cpu)}
+                                 : DecodedVideoFrame{std::monostate{}};
+        }
         av_frame_unref(frame);
         av_frame_free(&frame);
         return out;

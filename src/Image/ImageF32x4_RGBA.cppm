@@ -350,8 +350,8 @@ namespace ArtifactCore {
       cv::cvtColor(mat, tmp, cv::COLOR_BGR2RGBA);
       tmp.convertTo(tmp, CV_32F);
     } else if (mat.type() == CV_32FC4) {
-      // zero-copy: directly take ownership of the provided float RGBA mat
-      impl_->mat_ = mat; // shares the underlying buffer (refcounted)
+      // Copy here to avoid aliasing caller-owned temporary buffers.
+      impl_->mat_ = mat.clone();
       return;
     } else {
       // Fallback: convert to RGBA 8-bit then to float
@@ -380,7 +380,7 @@ namespace ArtifactCore {
     return;
    }
    cv::Mat mat(height, width, CV_32FC4, const_cast<float*>(data));
-   setFromCVMat(mat);
+   impl_->mat_ = mat.clone();
   }
 
   void ImageF32x4_RGBA::setFromRGBA8(const std::uint8_t* data, int width, int height)

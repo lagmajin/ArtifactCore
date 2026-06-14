@@ -59,6 +59,14 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("TimelineJumpToNextKeyframe");
     case ShortcutId::TimelineJumpToPreviousKeyframe:
         return QStringLiteral("TimelineJumpToPreviousKeyframe");
+    case ShortcutId::LayerDeleteSelected:
+        return QStringLiteral("LayerDeleteSelected");
+    case ShortcutId::TimelineZoomIn:
+        return QStringLiteral("TimelineZoomIn");
+    case ShortcutId::TimelineZoomOut:
+        return QStringLiteral("TimelineZoomOut");
+    case ShortcutId::TimelineZoomReset:
+        return QStringLiteral("TimelineZoomReset");
     case ShortcutId::ImportPlacementNextSizeMode:
         return QStringLiteral("ImportPlacementNextSizeMode");
     case ShortcutId::ImportPlacementPreviousSizeMode:
@@ -123,6 +131,14 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Timeline Jump to Next Keyframe");
     case ShortcutId::TimelineJumpToPreviousKeyframe:
         return QStringLiteral("Timeline Jump to Previous Keyframe");
+    case ShortcutId::LayerDeleteSelected:
+        return QStringLiteral("Delete Selected Layers");
+    case ShortcutId::TimelineZoomIn:
+        return QStringLiteral("Timeline Zoom In");
+    case ShortcutId::TimelineZoomOut:
+        return QStringLiteral("Timeline Zoom Out");
+    case ShortcutId::TimelineZoomReset:
+        return QStringLiteral("Timeline Zoom Reset");
     case ShortcutId::ImportPlacementNextSizeMode:
         return QStringLiteral("Import Placement Next Size Mode");
     case ShortcutId::ImportPlacementPreviousSizeMode:
@@ -158,6 +174,10 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::TimelineJumpToLastKeyframe,
         ShortcutId::TimelineJumpToNextKeyframe,
         ShortcutId::TimelineJumpToPreviousKeyframe,
+        ShortcutId::LayerDeleteSelected,
+        ShortcutId::TimelineZoomIn,
+        ShortcutId::TimelineZoomOut,
+        ShortcutId::TimelineZoomReset,
         ShortcutId::ImportPlacementNextSizeMode,
         ShortcutId::ImportPlacementPreviousSizeMode,
         ShortcutId::ImportPlacementConfirm,
@@ -178,12 +198,16 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::TimelinePasteKeyframesAtPlayhead)] = QKeySequence(Qt::CTRL | Qt::Key_V);
     defaults_[index(ShortcutId::TimelineSelectAllKeyframes)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_A);
     defaults_[index(ShortcutId::TimelineAddKeyframeAtPlayhead)] = QKeySequence(Qt::Key_Insert);
-    defaults_[index(ShortcutId::TimelineRemoveKeyframeAtPlayhead)] = QKeySequence(QKeySequence::Delete);
-    defaults_[index(ShortcutId::TimelineCleanKeyframes)] = QKeySequence(Qt::Key_Delete);
+    defaults_[index(ShortcutId::TimelineRemoveKeyframeAtPlayhead)] = QKeySequence(Qt::Key_Backspace);
+    defaults_[index(ShortcutId::TimelineCleanKeyframes)] = QKeySequence(Qt::CTRL | Qt::Key_Delete);
     defaults_[index(ShortcutId::TimelineJumpToFirstKeyframe)] = QKeySequence(Qt::CTRL | Qt::Key_Home);
     defaults_[index(ShortcutId::TimelineJumpToLastKeyframe)] = QKeySequence(Qt::CTRL | Qt::Key_End);
     defaults_[index(ShortcutId::TimelineJumpToNextKeyframe)] = QKeySequence(Qt::CTRL | Qt::Key_PageDown);
     defaults_[index(ShortcutId::TimelineJumpToPreviousKeyframe)] = QKeySequence(Qt::CTRL | Qt::Key_PageUp);
+    defaults_[index(ShortcutId::LayerDeleteSelected)] = QKeySequence(QKeySequence::Delete);
+    defaults_[index(ShortcutId::TimelineZoomIn)] = QKeySequence(Qt::CTRL | Qt::Key_Equal);
+    defaults_[index(ShortcutId::TimelineZoomOut)] = QKeySequence(Qt::CTRL | Qt::Key_Minus);
+    defaults_[index(ShortcutId::TimelineZoomReset)] = QKeySequence(Qt::CTRL | Qt::Key_0);
     defaults_[index(ShortcutId::ImportPlacementNextSizeMode)] = QKeySequence(Qt::Key_S);
     defaults_[index(ShortcutId::ImportPlacementPreviousSizeMode)] = QKeySequence(Qt::SHIFT | Qt::Key_S);
     defaults_[index(ShortcutId::ImportPlacementConfirm)] = QKeySequence(Qt::Key_Return);
