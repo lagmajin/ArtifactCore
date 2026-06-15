@@ -479,3 +479,16 @@ if(Python3_FOUND)
         message(STATUS "Python scripting enabled: pybind11 + Python ${Python3_VERSION}")
     endif()
 endif()
+
+# AngelScript scripting support (Unity-MonoBehaviour-style layer components).
+# Provided by vcpkg (angelscript[addons]). When the package is found, the
+# ARTIFACT_HAS_ANGELSCRIPT macro enables the real implementation; otherwise
+# AngelScriptEngine compiles as a no-op stub.
+find_package(Angelscript CONFIG QUIET)
+if(Angelscript_FOUND)
+    target_link_libraries(ArtifactCore PUBLIC Angelscript::angelscript)
+    target_compile_definitions(ArtifactCore PRIVATE ARTIFACT_HAS_ANGELSCRIPT=1)
+    message(STATUS "AngelScript scripting enabled: Angelscript ${Angelscript_VERSION}")
+else()
+    message(STATUS "AngelScript not found (AngelScriptEngine will be a stub)")
+endif()
