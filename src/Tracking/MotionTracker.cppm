@@ -311,6 +311,104 @@ public:
         Q_UNUSED(point);
         return QPointF(0, 0);
     }
+
+    // NCC テンプレートマッチング (cv::matchTemplate + サブピクセル parabolic fit)
+    // prevFrame から point を中心に templateSize x templateSize のテンプレートを切り出し、
+    // currFrame の point 周囲 searchSize x searchSize の領域で NCC マッチングを行う。
+    // 成功時は subpixel 精度の位置と confidence を返す。
+    struct NCCResult {
+        QPointF position;   // subpixel 精度の追跡結果位置
+        double confidence; // 0.0〜1.0 (NCC スコア)
+        bool success = false;
+    };
+
+    NCCResult computeNCCMatch(const QImage& prevFrame, const QImage& currFrame,
+                              const QPointF& point,
+                              int templateSize = 32, int searchSize = 64) {
+        NCCResult result;
+
+        cv::Mat prevGray = qimageToMat(prevFrame);
+        cv::Mat currGray = qimageToMat(currFrame);
+
+        const int halfT = templateSize / 2;
+        const int halfS = searchSize / 2;
+
+        // テンプレート ROI のクリップ
+        const int px = static_cast<int>(std::round(point.x()));
+        const int py = static_cast<int>(std::round(point.y()));
+        const int tX1 = std::max(0, px - halfT);
+        const int tY1 = std::max(0, py - halfT);
+        const int tX2 = std::min(prevGray.cols, px + halfT);
+        const int tY2 = std::min(prevGray.rows, py + halfT);
+
+        if (tX2 - tX1 < 4 || tY2 - tY1 < 4) return result;
+
+        cv::Mat templ = prevGray(cv::Rect(tX1, tY1, tX2 - tX1, tY2 - tY1)).clone();
+
+        // 探索 ROI のクリップ
+        const int sX1 = std::max(0, px - halfS);
+        const int sY1 = std::max(0, py - halfS);
+        const int sX2 = std::min(currGray.cols, px + halfS);
+        const int sY2 = std::min(currGray.rows, py + halfS);
+
+        if (sX2 - sX1 < templ.cols + 1 || sY2 - sY1 < templ.rows + 1) return result;
+
+        cv::Mat searchROI = currGray(cv::Rect(sX1, sY1, sX2 - sX1, sY2 - sY1));
+
+        cv::Mat matchResult;
+        try {
+            cv::matchTemplate(searchROI, templ, matchResult, cv::TM_CCOEFF_NORMED);
+        } catch (...) {
+            return result;
+        }
+
+        double minVal = 0.0, maxVal = 0.0;
+        cv::Point minLoc, maxLoc;
+        cv::minMaxLoc(matchResult, &minVal, &maxVal, &minLoc, &maxLoc);
+
+        // NCC スコアを confidence に
+        result.confidence = std::clamp(maxVal, 0.0, 1.0);
+        if (result.confidence < 0.1) {
+            result.success = false;
+            return result;
+        }
+
+        // サブピクセル精度: 3x3 近傍の parabolic fit
+        double subX = static_cast<double>(maxLoc.x);
+        double subY = static_cast<double>(maxLoc.y);
+
+        const int mw = matchResult.cols;
+        const int mh = matchResult.rows;
+
+        if (settings.subpixelAccuracy && maxLoc.x > 0 && maxLoc.x < mw - 1
+            && maxLoc.y > 0 && maxLoc.y < mh - 1) {
+            // X 方向 parabolic fit
+            const double vL = matchResult.at<float>(maxLoc.y, maxLoc.x - 1);
+            const double vC = matchResult.at<float>(maxLoc.y, maxLoc.x);
+            const double vR = matchResult.at<float>(maxLoc.y, maxLoc.x + 1);
+            const double denomX = 2.0 * (2.0 * vC - vL - vR);
+            if (std::abs(denomX) > 1e-10) {
+                subX += 0.5 * (vL - vR) / denomX;
+            }
+
+            // Y 方向 parabolic fit
+            const double vU = matchResult.at<float>(maxLoc.y - 1, maxLoc.x);
+            const double vD = matchResult.at<float>(maxLoc.y + 1, maxLoc.x);
+            const double denomY = 2.0 * (2.0 * vC - vU - vD);
+            if (std::abs(denomY) > 1e-10) {
+                subY += 0.5 * (vU - vD) / denomY;
+            }
+        }
+
+        // matchResult 座標 → 検索 ROI 座標 → 画像座標
+        // matchResult の (subX, subY) はテンプレート左上を基準とするので、
+        // テンプレート中心位置を計算
+        const double templCX = static_cast<double>(templ.cols) / 2.0;
+        const double templCY = static_cast<double>(templ.rows) / 2.0;
+        result.position = QPointF(sX1 + subX + templCX, sY1 + subY + templCY);
+        result.success = true;
+        return result;
+    }
     
     // 特徴点検出
     std::vector<QPointF> detectFeatures(const QImage& frame, int maxFeatures, double minDist) {
@@ -475,11 +573,11 @@ void MotionTracker::setFrame(double time, const QImage& frame) {
 bool MotionTracker::trackForward(double fromTime, double toTime) {
     auto it1 = impl_->frameBuffer.find(fromTime);
     auto it2 = impl_->frameBuffer.find(toTime);
-    
+
     if (it1 == impl_->frameBuffer.end() || it2 == impl_->frameBuffer.end()) {
         return false;
     }
-    
+
     // トラッカー種別に応じた処理
     if (impl_->type == TrackerType::Planar && !impl_->regions.empty()) {
         std::array<double, 9> h = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
@@ -494,29 +592,53 @@ bool MotionTracker::trackForward(double fromTime, double toTime) {
         }
     }
 
-    // オプティカルフロー計算
-    for (auto& point : impl_->currentPoints) {
-        QPointF flow = impl_->computeOpticalFlow(it1.value(), it2.value(), point.position);
-        point.position += flow;
+    // NCC テンプレートマッチング (NormalizedCrossCorrelation / TemplateMatch)
+    const bool useNCC = (impl_->settings.method == TrackingMethod::NormalizedCrossCorrelation
+                      || impl_->settings.method == TrackingMethod::TemplateMatch);
+
+    if (useNCC) {
+        const int templateSize = impl_->settings.windowSize;
+        const int searchSize = templateSize * 2;
+
+        for (auto& point : impl_->currentPoints) {
+            auto ncc = impl_->computeNCCMatch(
+                it1.value(), it2.value(), point.position,
+                templateSize, searchSize);
+            if (ncc.success) {
+                QPointF prevPos = point.position;
+                point.position = ncc.position;
+                point.velocity = ncc.position - prevPos;
+                point.confidence = ncc.confidence;
+            } else {
+                point.active = false;
+                point.confidence = 0.0;
+            }
+        }
+    } else {
+        // オプティカルフロー計算 (既存のフォールバック)
+        for (auto& point : impl_->currentPoints) {
+            QPointF flow = impl_->computeOpticalFlow(it1.value(), it2.value(), point.position);
+            point.position += flow;
+        }
     }
-    
+
     // 結果保存
     TrackFrame frame;
     frame.time = toTime;
     frame.points = impl_->currentPoints;
     impl_->result.setFrame(std::move(frame));
-    
+
     return true;
 }
 
 bool MotionTracker::trackBackward(double fromTime, double toTime) {
     auto it1 = impl_->frameBuffer.find(fromTime);
     auto it2 = impl_->frameBuffer.find(toTime);
-    
+
     if (it1 == impl_->frameBuffer.end() || it2 == impl_->frameBuffer.end()) {
         return false;
     }
-    
+
     // トラッカー種別に応じた処理
     if (impl_->type == TrackerType::Planar && !impl_->regions.empty()) {
         std::array<double, 9> h = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
@@ -531,17 +653,41 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
         }
     }
 
-    // 逆方向トラッキング
-    for (auto& point : impl_->currentPoints) {
-        QPointF flow = impl_->computeOpticalFlow(it1.value(), it2.value(), point.position);
-        point.position -= flow;
+    // NCC テンプレートマッチング (NormalizedCrossCorrelation / TemplateMatch)
+    const bool useNCC = (impl_->settings.method == TrackingMethod::NormalizedCrossCorrelation
+                      || impl_->settings.method == TrackingMethod::TemplateMatch);
+
+    if (useNCC) {
+        const int templateSize = impl_->settings.windowSize;
+        const int searchSize = templateSize * 2;
+
+        for (auto& point : impl_->currentPoints) {
+            auto ncc = impl_->computeNCCMatch(
+                it2.value(), it1.value(), point.position,
+                templateSize, searchSize);
+            if (ncc.success) {
+                QPointF prevPos = point.position;
+                point.position = ncc.position;
+                point.velocity = ncc.position - prevPos;
+                point.confidence = ncc.confidence;
+            } else {
+                point.active = false;
+                point.confidence = 0.0;
+            }
+        }
+    } else {
+        // 逆方向トラッキング (既存のフォールバック)
+        for (auto& point : impl_->currentPoints) {
+            QPointF flow = impl_->computeOpticalFlow(it1.value(), it2.value(), point.position);
+            point.position -= flow;
+        }
     }
-    
+
     TrackFrame frame;
     frame.time = toTime;
     frame.points = impl_->currentPoints;
     impl_->result.setFrame(std::move(frame));
-    
+
     return true;
 }
 

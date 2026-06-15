@@ -16,10 +16,11 @@ export namespace ArtifactCore {
 
 /// トラッキング方法
 enum class TrackingMethod {
-    OpticalFlow,    ///< オプティカルフロー（高精度）
-    FeatureBased,   ///< 特徴点ベース（高速）
-    TemplateMatch,  ///< テンプレートマッチング
-    Hybrid          ///< ハイブリッド
+    OpticalFlow,               ///< オプティカルフロー（高精度）
+    FeatureBased,              ///< 特徴点ベース（高速）
+    TemplateMatch,              ///< テンプレートマッチング
+    NormalizedCrossCorrelation, ///< NCC テンプレートマッチング（サブピクセル精度）
+    Hybrid                     ///< ハイブリッド
 };
 
 /// トラッキング品質
