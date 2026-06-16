@@ -79,6 +79,10 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ImportPlacementReset");
     case ShortcutId::RepeatLastAction:
         return QStringLiteral("RepeatLastAction");
+    case ShortcutId::TimelineJumpToInPoint:
+        return QStringLiteral("TimelineJumpToInPoint");
+    case ShortcutId::TimelineJumpToOutPoint:
+        return QStringLiteral("TimelineJumpToOutPoint");
     case ShortcutId::Count:
         break;
     }
@@ -153,6 +157,10 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Import Placement Reset");
     case ShortcutId::RepeatLastAction:
         return QStringLiteral("Repeat Last Action");
+    case ShortcutId::TimelineJumpToInPoint:
+        return QStringLiteral("Timeline Jump to In Point");
+    case ShortcutId::TimelineJumpToOutPoint:
+        return QStringLiteral("Timeline Jump to Out Point");
     case ShortcutId::Count:
         break;
     }
@@ -188,6 +196,8 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::ImportPlacementCancel,
         ShortcutId::ImportPlacementReset,
         ShortcutId::RepeatLastAction,
+        ShortcutId::TimelineJumpToInPoint,
+        ShortcutId::TimelineJumpToOutPoint,
     };
 }
 
@@ -219,6 +229,8 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::ImportPlacementCancel)] = QKeySequence(Qt::Key_Escape);
     defaults_[index(ShortcutId::ImportPlacementReset)] = QKeySequence(Qt::Key_R);
     defaults_[index(ShortcutId::RepeatLastAction)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R);
+    defaults_[index(ShortcutId::TimelineJumpToInPoint)] = QKeySequence(Qt::Key_Home);
+    defaults_[index(ShortcutId::TimelineJumpToOutPoint)] = QKeySequence(Qt::Key_End);
 
     overrides_.fill(QKeySequence());
 }

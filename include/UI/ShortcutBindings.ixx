@@ -37,7 +37,9 @@ enum class ShortcutId {
     ImportPlacementCancel = 23,
     ImportPlacementReset = 24,
     RepeatLastAction = 25,
-    Count = 26
+    TimelineJumpToInPoint = 26,
+    TimelineJumpToOutPoint = 27,
+    Count = 28
 };
 
 QString shortcutDisplayName(ShortcutId id);
