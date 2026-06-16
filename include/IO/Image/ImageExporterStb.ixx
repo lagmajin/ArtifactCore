@@ -33,9 +33,10 @@ class tst_QList;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QVector>
+
 export module IO.Image.Stb;
 
-#include <QVector>
 
 
 

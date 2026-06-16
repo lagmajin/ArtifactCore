@@ -4,7 +4,7 @@ module;
 #ifdef ARTIFACT_HAS_ANGELSCRIPT
 #include <angelscript.h>
 // addon: std::string support, so scripts can call log("...") with strings.
-#include <scriptstdstring/scriptstdstring.h>
+#include <angelscript/scriptstdstring/scriptstdstring.h>
 #endif
 
 #include <mutex>
