@@ -36,7 +36,8 @@ enum class ShortcutId {
     ImportPlacementConfirm = 22,
     ImportPlacementCancel = 23,
     ImportPlacementReset = 24,
-    Count = 25
+    RepeatLastAction = 25,
+    Count = 26
 };
 
 QString shortcutDisplayName(ShortcutId id);

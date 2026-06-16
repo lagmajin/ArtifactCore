@@ -81,6 +81,15 @@ void ArtifactAppSettings::setRecentProjectPaths(const QStringList& paths) {
     Q_EMIT settingsChanged();
 }
 
+QVariantList ArtifactAppSettings::recentCompositionEntries() const {
+    return impl_->store.value(QStringLiteral("File/RecentCompositions"), QVariantList()).toList();
+}
+
+void ArtifactAppSettings::setRecentCompositionEntries(const QVariantList& entries) {
+    impl_->store.setValue(QStringLiteral("File/RecentCompositions"), entries);
+    Q_EMIT settingsChanged();
+}
+
 QStringList ArtifactAppSettings::recentContentsViewerSourcePaths() const {
     return impl_->store.value(QStringLiteral("ContentsViewer/RecentSourcePaths"), QStringList()).toStringList();
 }

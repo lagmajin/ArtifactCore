@@ -31,6 +31,9 @@ public:
     QStringList recentProjectPaths() const;
     void setRecentProjectPaths(const QStringList& paths);
 
+    QVariantList recentCompositionEntries() const;
+    void setRecentCompositionEntries(const QVariantList& entries);
+
     QStringList recentContentsViewerSourcePaths() const;
     void setRecentContentsViewerSourcePaths(const QStringList& paths);
     QString lastContentsViewerSourcePath() const;
