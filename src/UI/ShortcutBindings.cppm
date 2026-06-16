@@ -89,6 +89,10 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("CompositionNext");
     case ShortcutId::CompositionPrevious:
         return QStringLiteral("CompositionPrevious");
+    case ShortcutId::TimelineSnapInToStart:
+        return QStringLiteral("TimelineSnapInToStart");
+    case ShortcutId::TimelineSnapOutToEnd:
+        return QStringLiteral("TimelineSnapOutToEnd");
     case ShortcutId::Count:
         break;
     }
@@ -173,6 +177,10 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Next Composition");
     case ShortcutId::CompositionPrevious:
         return QStringLiteral("Previous Composition");
+    case ShortcutId::TimelineSnapInToStart:
+        return QStringLiteral("Timeline Snap In to Start");
+    case ShortcutId::TimelineSnapOutToEnd:
+        return QStringLiteral("Timeline Snap Out to End");
     case ShortcutId::Count:
         break;
     }
@@ -213,6 +221,8 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::TimelineSoloSelected,
         ShortcutId::CompositionNext,
         ShortcutId::CompositionPrevious,
+        ShortcutId::TimelineSnapInToStart,
+        ShortcutId::TimelineSnapOutToEnd,
     };
 }
 
@@ -249,6 +259,8 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::TimelineSoloSelected)] = QKeySequence(Qt::Key_S);
     defaults_[index(ShortcutId::CompositionNext)] = QKeySequence(Qt::ALT | Qt::Key_BracketRight);
     defaults_[index(ShortcutId::CompositionPrevious)] = QKeySequence(Qt::ALT | Qt::Key_BracketLeft);
+    defaults_[index(ShortcutId::TimelineSnapInToStart)] = QKeySequence(Qt::SHIFT | Qt::Key_Home);
+    defaults_[index(ShortcutId::TimelineSnapOutToEnd)] = QKeySequence(Qt::SHIFT | Qt::Key_End);
 
     overrides_.fill(QKeySequence());
 }

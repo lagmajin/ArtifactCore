@@ -42,7 +42,9 @@ enum class ShortcutId {
     TimelineSoloSelected = 28,
     CompositionNext = 29,
     CompositionPrevious = 30,
-    Count = 31
+    TimelineSnapInToStart = 31,
+    TimelineSnapOutToEnd = 32,
+    Count = 33
 };
 
 QString shortcutDisplayName(ShortcutId id);
