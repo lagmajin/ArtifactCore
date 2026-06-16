@@ -90,6 +90,15 @@ void ArtifactAppSettings::setRecentCompositionEntries(const QVariantList& entrie
     Q_EMIT settingsChanged();
 }
 
+QString ArtifactAppSettings::recentCompositionPresetLabel() const {
+    return impl_->store.valueString(QStringLiteral("File/RecentCompositionPreset"), QString());
+}
+
+void ArtifactAppSettings::setRecentCompositionPresetLabel(const QString& label) {
+    impl_->store.setValue(QStringLiteral("File/RecentCompositionPreset"), label);
+    Q_EMIT settingsChanged();
+}
+
 QStringList ArtifactAppSettings::recentContentsViewerSourcePaths() const {
     return impl_->store.value(QStringLiteral("ContentsViewer/RecentSourcePaths"), QStringList()).toStringList();
 }

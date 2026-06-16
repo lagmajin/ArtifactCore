@@ -34,6 +34,12 @@ public:
     QVariantList recentCompositionEntries() const;
     void setRecentCompositionEntries(const QVariantList& entries);
 
+    // Last composition preset chosen in the File > New Composition dialog.
+    // Empty when the user has not picked one yet, or when the preset
+    // they picked is no longer available in the dialog.
+    QString recentCompositionPresetLabel() const;
+    void setRecentCompositionPresetLabel(const QString& label);
+
     QStringList recentContentsViewerSourcePaths() const;
     void setRecentContentsViewerSourcePaths(const QStringList& paths);
     QString lastContentsViewerSourcePath() const;
