@@ -83,6 +83,12 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("TimelineJumpToInPoint");
     case ShortcutId::TimelineJumpToOutPoint:
         return QStringLiteral("TimelineJumpToOutPoint");
+    case ShortcutId::TimelineSoloSelected:
+        return QStringLiteral("TimelineSoloSelected");
+    case ShortcutId::CompositionNext:
+        return QStringLiteral("CompositionNext");
+    case ShortcutId::CompositionPrevious:
+        return QStringLiteral("CompositionPrevious");
     case ShortcutId::Count:
         break;
     }
@@ -161,6 +167,12 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Timeline Jump to In Point");
     case ShortcutId::TimelineJumpToOutPoint:
         return QStringLiteral("Timeline Jump to Out Point");
+    case ShortcutId::TimelineSoloSelected:
+        return QStringLiteral("Timeline Solo Selected");
+    case ShortcutId::CompositionNext:
+        return QStringLiteral("Next Composition");
+    case ShortcutId::CompositionPrevious:
+        return QStringLiteral("Previous Composition");
     case ShortcutId::Count:
         break;
     }
@@ -198,6 +210,9 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::RepeatLastAction,
         ShortcutId::TimelineJumpToInPoint,
         ShortcutId::TimelineJumpToOutPoint,
+        ShortcutId::TimelineSoloSelected,
+        ShortcutId::CompositionNext,
+        ShortcutId::CompositionPrevious,
     };
 }
 
@@ -231,6 +246,9 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::RepeatLastAction)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R);
     defaults_[index(ShortcutId::TimelineJumpToInPoint)] = QKeySequence(Qt::Key_Home);
     defaults_[index(ShortcutId::TimelineJumpToOutPoint)] = QKeySequence(Qt::Key_End);
+    defaults_[index(ShortcutId::TimelineSoloSelected)] = QKeySequence(Qt::Key_S);
+    defaults_[index(ShortcutId::CompositionNext)] = QKeySequence(Qt::ALT | Qt::Key_BracketRight);
+    defaults_[index(ShortcutId::CompositionPrevious)] = QKeySequence(Qt::ALT | Qt::Key_BracketLeft);
 
     overrides_.fill(QKeySequence());
 }
