@@ -2,6 +2,7 @@ module;
 #include <algorithm>
 #include <utility>
 #include <memory>
+#include <limits>
 #include <QString>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -166,11 +167,17 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
     if (type == QStringLiteral("keyframes")) {
         outEntry.type = ClipboardType::Keyframes;
         outEntry.mimeType = kKeyframeMime;
+        outEntry.sourceLayerId = obj.value(QStringLiteral("sourceLayerId")).toString();
         outEntry.sourcePropertyPath = obj.value(QStringLiteral("propertyPath")).toString();
+        outEntry.data[QStringLiteral("sourceFrameStart")] = obj.value(QStringLiteral("sourceFrameStart"));
+        outEntry.data[QStringLiteral("sourceFrameEnd")] = obj.value(QStringLiteral("sourceFrameEnd"));
         const QJsonArray keyframes = obj.value(QStringLiteral("keyframes")).toArray();
+        const QString sourceLabel = outEntry.sourcePropertyPath.isEmpty()
+                                        ? QStringLiteral("timeline")
+                                        : outEntry.sourcePropertyPath;
         outEntry.description = QStringLiteral("%1 keyframes on %2")
                                    .arg(keyframes.size())
-                                   .arg(outEntry.sourcePropertyPath);
+                                   .arg(sourceLabel);
         return true;
     }
     if (type == QStringLiteral("property")) {
@@ -289,8 +296,24 @@ QString ClipboardManager::pasteEffectSourceLayerId() const {
 void ClipboardManager::copyKeyframes(const QString& propertyPath, const QJsonArray& keyframes, const QString& layerId) {
     QJsonObject clipObj;
     clipObj = makeEnvelope(QStringLiteral("keyframes"), clipObj);
+    clipObj[QStringLiteral("sourceLayerId")] = layerId;
     clipObj[QStringLiteral("propertyPath")] = propertyPath;
     clipObj[QStringLiteral("keyframes")] = keyframes;
+    qint64 minFrame = std::numeric_limits<qint64>::max();
+    qint64 maxFrame = std::numeric_limits<qint64>::min();
+    for (const auto& value : keyframes) {
+        if (!value.isObject()) {
+            continue;
+        }
+        const QJsonObject keyframe = value.toObject();
+        const qint64 frame = keyframe.value(QStringLiteral("frame")).toVariant().toLongLong();
+        minFrame = std::min(minFrame, frame);
+        maxFrame = std::max(maxFrame, frame);
+    }
+    if (minFrame != std::numeric_limits<qint64>::max()) {
+        clipObj[QStringLiteral("sourceFrameStart")] = minFrame;
+        clipObj[QStringLiteral("sourceFrameEnd")] = maxFrame;
+    }
 
     internalClip_.type = ClipboardType::Keyframes;
     internalClip_.mimeType = kKeyframeMime;
@@ -514,6 +537,13 @@ void ClipboardManager::syncFromSystemClipboard() {
         cachedLayers_ = layers;
     } else {
         cachedLayers_ = {};
+    }
+
+    if (internalClip_.type != ClipboardType::Keyframes) {
+        internalClip_.sourceLayerId.clear();
+        internalClip_.sourcePropertyPath.clear();
+        internalClip_.data.remove(QStringLiteral("sourceFrameStart"));
+        internalClip_.data.remove(QStringLiteral("sourceFrameEnd"));
     }
 }
 

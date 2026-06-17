@@ -22,6 +22,7 @@ import Graphics.Effect.Creative.Kaleidoscope;
 import Graphics.Effect.Creative.LightPressure;
 import Graphics.Effect.Creative.Mirror;
 import Graphics.Effect.Creative.PigmentSeparation;
+import Graphics.Effect.Creative.ColorVibrance;
 import Graphics.Effect.Creative.Pixelate;
 import Graphics.Effect.Creative.Posterize;
 import Graphics.Effect.Creative.SurfaceMemory;
@@ -55,6 +56,7 @@ inline std::shared_ptr<CreativeEffect> CreativeEffectFactory::create(const std::
     if (name == "Emboss") return std::make_shared<EmbossEffect>();
     if (name == "Solarize") return std::make_shared<SolarizeEffect>();
     if (name == "ChromaticAberration") return std::make_shared<ChromaticAberrationEffect>();
+    if (name == "ColorVibrance" || name == "VC Color Vibrance") return std::make_shared<ColorVibranceEffect>();
 
     auto* tracker = FallbackTracker::instance();
     auto policy = tracker->policy(FallbackCategory::Effect);
@@ -89,7 +91,8 @@ inline std::vector<std::string> CreativeEffectFactory::getAvailableEffects() {
         "TemporalFossil",
         "Emboss",
         "Solarize",
-        "ChromaticAberration"
+        "ChromaticAberration",
+        "VC Color Vibrance"
     };
 }
 

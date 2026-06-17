@@ -1,10 +1,11 @@
 ﻿module;
 #include <utility>
-export module Utils.Timer;
-
 #include <QElapsedTimer>
 #include <QDebug>
 #include <QString>
+export module Utils.Timer;
+
+
 
 
 

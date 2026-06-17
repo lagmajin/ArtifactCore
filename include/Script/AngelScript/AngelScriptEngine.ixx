@@ -21,7 +21,7 @@ export namespace ArtifactCore {
  * Features:
  *  - Create / discard an asIScriptEngine instance (singleton, Pimpl)
  *  - Compile a script module from source
- *  - Execute a free function `void main()` in a compiled module
+ *  - Execute a free function in a compiled module
  *  - Register host functions (log/print) before compilation
  *  - Capture script output via callback
  *  - Stubbable: when ARTIFACT_HAS_ANGELSCRIPT is undefined, compiles as a no-op
@@ -72,6 +72,10 @@ public:
 
     /// Release a previously compiled module by name.
     void discardModule(const std::string& moduleName);
+
+    /// Execute a free function by declaration in `moduleName`.
+    /// Example: `void main()` or `void Update(float dt)`.
+    bool runFunction(const std::string& moduleName, const std::string& functionDecl);
 
     /// Execute the free function `void main()` in `moduleName`.
     /// Returns false if the module or function is missing, or on runtime error.

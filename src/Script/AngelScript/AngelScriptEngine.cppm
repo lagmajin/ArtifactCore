@@ -215,7 +215,8 @@ void AngelScriptEngine::discardModule(const std::string& moduleName) {
 #endif
 }
 
-bool AngelScriptEngine::runMain(const std::string& moduleName) {
+bool AngelScriptEngine::runFunction(const std::string& moduleName,
+                                    const std::string& functionDecl) {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     impl_->lastError_.clear();
 
@@ -231,9 +232,10 @@ bool AngelScriptEngine::runMain(const std::string& moduleName) {
         return false;
     }
 
-    asIScriptFunction* fn = mod->GetFunctionByDecl("void main()");
+    asIScriptFunction* fn = mod->GetFunctionByDecl(functionDecl.c_str());
     if (!fn) {
-        impl_->setError("AngelScriptEngine: 'void main()' not found in " + moduleName);
+        impl_->setError("AngelScriptEngine: function not found: " + functionDecl +
+                        " in " + moduleName);
         return false;
     }
 
@@ -262,9 +264,14 @@ bool AngelScriptEngine::runMain(const std::string& moduleName) {
     return true;
 #else
     (void)moduleName;
+    (void)functionDecl;
     impl_->setError("AngelScriptEngine: built without ARTIFACT_HAS_ANGELSCRIPT (stub)");
     return false;
 #endif
+}
+
+bool AngelScriptEngine::runMain(const std::string& moduleName) {
+    return runFunction(moduleName, "void main()");
 }
 
 // ============================================================================

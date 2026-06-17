@@ -36,6 +36,7 @@ export import Graphics.Effect.Creative.OldTV;
 export import Graphics.Effect.Creative.TemporalFossil;
 export import Graphics.Effect.Creative.PigmentSeparation;
 export import Graphics.Effect.Creative.SurfaceMemory;
+export import Graphics.Effect.Creative.ColorVibrance;
 
 export namespace ArtifactCore
 {

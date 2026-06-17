@@ -322,4 +322,54 @@ float4 main(PSInput input) : SV_TARGET {
 }
 )";
 
+// VC Color Vibrance PS
+LIBRARY_DLL_API const QByteArray g_colorVibrancePS = R"(
+Texture2D    g_texture  : register(t0);
+SamplerState g_sampler  : register(s0);
+
+cbuffer ColorCorrectionCB : register(b0) {
+    float vibranceAmount;
+    float saturationAmount;
+    float colorBoost;
+    float matteAmount;
+    float matteThreshold;
+    float matteSoftness;
+    float padding0;
+    float padding1;
+};
+
+float luma(float3 c) {
+    return dot(c, float3(0.299f, 0.587f, 0.114f));
+}
+
+float saturationOf(float3 c) {
+    float cmax = max(c.r, max(c.g, c.b));
+    float cmin = min(c.r, min(c.g, c.b));
+    return cmax - cmin;
+}
+
+float vibranceWeight(float saturation, float vibrance) {
+    return 1.0f + vibrance * (1.0f - saturation);
+}
+
+float4 main(PSInput input) : SV_TARGET {
+    float4 color = g_texture.Sample(g_sampler, input.texCoord);
+    float sat = saturationOf(color.rgb);
+    float lum = luma(color.rgb);
+    float boost = max(colorBoost, 0.0f);
+    float combined = max(0.0f, boost * vibranceWeight(sat, vibranceAmount) * (1.0f + saturationAmount));
+
+    color.r = saturate(lum + (color.r - lum) * combined);
+    color.g = saturate(lum + (color.g - lum) * combined);
+    color.b = saturate(lum + (color.b - lum) * combined);
+
+    if (matteAmount > 0.0f) {
+        float matte = saturate((sat - matteThreshold) / max(matteSoftness, 1e-4f));
+        color.a = saturate(lerp(color.a, matte, matteAmount));
+    }
+
+    return color;
+}
+)";
+
 } // namespace ArtifactCore
