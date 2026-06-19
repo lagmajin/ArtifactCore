@@ -73,7 +73,7 @@ PluginState ArtifactPluginRegistry::pluginState(const std::string& id) const {
     return PluginState::Discovered;
 }
 
-std::vector<PluginDescriptor> ArtifactPluginRegistry::pluginsOfCategory(PluginCategory category) const {
+NamedVector<PluginDescriptor> ArtifactPluginRegistry::pluginsOfCategory(PluginCategory category) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto result = makeNamedVector<PluginDescriptor>(ContainerName{"PluginCategorySnapshot"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& [id, entry] : entries_) {
@@ -93,7 +93,7 @@ std::optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::st
     return std::nullopt;
 }
 
-std::vector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {
+NamedVector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto result = makeNamedVector<PluginDescriptor>(ContainerName{"PluginRegistrySnapshot"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& [id, entry] : entries_) {
@@ -102,7 +102,7 @@ std::vector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {
     return result.toStdVector();
 }
 
-std::vector<PluginDescriptor> ArtifactPluginRegistry::activePlugins() const {
+NamedVector<PluginDescriptor> ArtifactPluginRegistry::activePlugins() const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto result = makeNamedVector<PluginDescriptor>(ContainerName{"ActivePluginSnapshot"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& id : active_) {

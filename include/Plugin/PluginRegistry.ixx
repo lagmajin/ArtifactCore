@@ -29,10 +29,10 @@ public:
     bool isActive(const std::string& id) const;
     PluginState pluginState(const std::string& id) const;
 
-    std::vector<PluginDescriptor> pluginsOfCategory(PluginCategory category) const;
+    NamedVector<PluginDescriptor> pluginsOfCategory(PluginCategory category) const;
     std::optional<PluginDescriptor> pluginById(const std::string& id) const;
-    std::vector<PluginDescriptor> allPlugins() const;
-    std::vector<PluginDescriptor> activePlugins() const;
+    NamedVector<PluginDescriptor> allPlugins() const;
+    NamedVector<PluginDescriptor> activePlugins() const;
 
 private:
     ArtifactPluginRegistry() = default;
