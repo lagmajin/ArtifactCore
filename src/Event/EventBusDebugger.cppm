@@ -173,7 +173,7 @@ std::string EventBusDebugger::cleanName(std::string_view raw)
 }
 
 // ------------------------------------------------------------------ fireLog
-std::vector<FireEntry> EventBusDebugger::fireLog(bool dupesOnly) const
+NamedVector<FireEntry> EventBusDebugger::fireLog(bool dupesOnly) const
 {
     std::lock_guard lock(mutex_);
     if (!dupesOnly) return log_.toStdVector();
@@ -186,7 +186,7 @@ std::vector<FireEntry> EventBusDebugger::fireLog(bool dupesOnly) const
 }
 
 // ------------------------------------------------------------------ subscriberSnapshot
-std::vector<SubscriberInfo> EventBusDebugger::subscriberSnapshot() const
+NamedVector<SubscriberInfo> EventBusDebugger::subscriberSnapshot() const
 {
     auto out = makeNamedVector<SubscriberInfo>(ContainerName{"EventBusSubscribers"}, ARTIFACT_CONTAINER_HERE);
 
@@ -236,7 +236,7 @@ std::vector<SubscriberInfo> EventBusDebugger::subscriberSnapshot() const
 }
 
 // ------------------------------------------------------------------ frequencySnapshot
-std::vector<FrequencyEntry> EventBusDebugger::frequencySnapshot() const
+NamedVector<FrequencyEntry> EventBusDebugger::frequencySnapshot() const
 {
     std::lock_guard lock(mutex_);
     const double nowMs_ = nowMs();
@@ -270,7 +270,7 @@ std::vector<FrequencyEntry> EventBusDebugger::frequencySnapshot() const
 }
 
 // ------------------------------------------------------------------ perEventStats
-std::vector<PerEventStats> EventBusDebugger::perEventStats() const
+NamedVector<PerEventStats> EventBusDebugger::perEventStats() const
 {
     std::lock_guard lock(mutex_);
     const double now = nowMs();

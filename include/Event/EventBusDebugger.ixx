@@ -82,10 +82,10 @@ public:
 
     void clearLog();
 
-    [[nodiscard]] std::vector<FireEntry>       fireLog(bool dupesOnly = false) const;
-    [[nodiscard]] std::vector<SubscriberInfo>  subscriberSnapshot() const;
-    [[nodiscard]] std::vector<FrequencyEntry>  frequencySnapshot() const;
-    [[nodiscard]] std::vector<PerEventStats>   perEventStats() const;
+    [[nodiscard]] NamedVector<FireEntry>       fireLog(bool dupesOnly = false) const;
+    [[nodiscard]] NamedVector<SubscriberInfo>  subscriberSnapshot() const;
+    [[nodiscard]] NamedVector<FrequencyEntry>  frequencySnapshot() const;
+    [[nodiscard]] NamedVector<PerEventStats>   perEventStats() const;
     [[nodiscard]] GlobalStats                  globalStats() const;
 
 private:
