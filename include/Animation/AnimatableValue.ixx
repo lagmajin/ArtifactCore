@@ -7,6 +7,7 @@
 #include <vector>
 export module Animation.Value;
 
+import Container.NamedVector;
 import Core.KeyFrame;
 import Frame.Position;
 import Math.Interpolate;
@@ -56,7 +57,7 @@ export struct SpringState {
  template<typename T>
  class AnimatableValueT {
  private:
-  std::vector<KeyFrameT<T>> keyframes_;
+  NamedVector<KeyFrameT<T>> keyframes_{makeNamedVector<KeyFrameT<T>>(ContainerName{"AnimatableKeyframes"})};
   T currentValue_{};
   mutable size_t lastCachedIndex_ = 0; // Temporal Coherence用のキャッシュ
 
@@ -134,7 +135,7 @@ export struct SpringState {
 
   // L[t[ǉ
   void addKeyFrame(const FramePosition& frame, const T& value) {
-   keyframes_.push_back({ frame, value });
+   keyframes_.add({ frame, value });
    std::sort(keyframes_.begin(), keyframes_.end(),
  [](auto& a, auto& b) { return a.frame < b.frame; });
    invalidateCache();
@@ -209,17 +210,17 @@ export struct SpringState {
   }
   
   // ���ׂẴL�[�t���[�����擾�i�ǂݎ���p�j
-  const std::vector<KeyFrameT<T>>& getKeyFrames() const {
-   return keyframes_;
+  std::vector<KeyFrameT<T>> getKeyFrames() const {
+   return keyframes_.toStdVector();
   }
 
   std::vector<FramePosition> getKeyFrameFrames() const {
-   std::vector<FramePosition> frames;
+   NamedVector<FramePosition> frames{makeNamedVector<FramePosition>(ContainerName{"AnimatableKeyframeFrames"})};
    frames.reserve(keyframes_.size());
    for (const auto& kf : keyframes_) {
-    frames.push_back(kf.frame);
+    frames.add(kf.frame);
    }
-   return frames;
+   return frames.toStdVector();
   }
 
   

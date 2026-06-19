@@ -9,6 +9,7 @@ module;
 
 export module Shape.TrimPaths;
 
+import Container.NamedVector;
 import Shape.Operator;
 import Shape.Path;
 import Shape.Types;
@@ -100,7 +101,7 @@ public:
      * @brief パスをトリムする
      */
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"TrimPathsResult"})};
         if (inputPaths.empty()) return result;
 
         double s = static_cast<double>(start_) / 100.0;
@@ -156,7 +157,7 @@ public:
                 processSimultaneousRange(inputPaths, pathLengths, 0.0, targetEnd, result);
             }
         }
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -185,8 +186,11 @@ private:
         return totalLen;
     }
 
-    void processSinglePath(const ShapePath& path, double t_start, double t_end, std::vector<ShapePath>& result) const {
-        std::vector<BezierSegment> segments = path.toSegments();
+    void processSinglePath(const ShapePath& path, double t_start, double t_end, NamedVector<ShapePath>& result) const {
+        NamedVector<BezierSegment> segments{makeNamedVector<BezierSegment>(ContainerName{"TrimPathsSegments"})};
+        for (const auto& seg : path.toSegments()) {
+            segments.add(seg);
+        }
         if (segments.empty()) return;
 
         double totalLen = calculatePathLength(path);
@@ -199,25 +203,25 @@ private:
         double targetEnd = t_end * totalLen;
 
         if (targetStart <= targetEnd) {
-            std::vector<BezierSegment> trimmed = trimSegments(segments, targetStart, targetEnd);
+            auto trimmed = trimSegments(segments.toStdVector(), targetStart, targetEnd);
             if (!trimmed.empty()) {
                 ShapePath trimmedPath = segmentsToPath(trimmed);
                 trimmedPath.setClosed(false);
-                result.push_back(trimmedPath);
+                result.add(trimmedPath);
             }
         } else {
-            std::vector<BezierSegment> trimmed1 = trimSegments(segments, targetStart, totalLen);
-            std::vector<BezierSegment> trimmed2 = trimSegments(segments, 0.0, targetEnd);
+            auto trimmed1 = trimSegments(segments.toStdVector(), targetStart, totalLen);
+            auto trimmed2 = trimSegments(segments.toStdVector(), 0.0, targetEnd);
 
             if (!trimmed1.empty()) {
                 ShapePath trimmedPath1 = segmentsToPath(trimmed1);
                 trimmedPath1.setClosed(false);
-                result.push_back(trimmedPath1);
+                result.add(trimmedPath1);
             }
             if (!trimmed2.empty()) {
                 ShapePath trimmedPath2 = segmentsToPath(trimmed2);
                 trimmedPath2.setClosed(false);
-                result.push_back(trimmedPath2);
+                result.add(trimmedPath2);
             }
         }
     }
@@ -225,7 +229,7 @@ private:
     void processSimultaneousRange(const std::vector<ShapePath>& inputPaths,
                                   const std::vector<double>& pathLengths,
                                   double targetStart, double targetEnd,
-                                  std::vector<ShapePath>& result) const {
+                                  NamedVector<ShapePath>& result) const {
         double currentLen = 0.0;
         for (size_t i = 0; i < inputPaths.size(); ++i) {
             double pathLen = pathLengths[i];
@@ -238,12 +242,12 @@ private:
             double overlapEnd = std::min(pathEnd, targetEnd);
 
             if (overlapStart < overlapEnd) {
-                std::vector<BezierSegment> segments = inputPaths[i].toSegments();
-                std::vector<BezierSegment> trimmed = trimSegments(segments, overlapStart - pathStart, overlapEnd - pathStart);
+                auto segments = inputPaths[i].toSegments();
+                auto trimmed = trimSegments(segments, overlapStart - pathStart, overlapEnd - pathStart);
                 if (!trimmed.empty()) {
                     ShapePath trimmedPath = segmentsToPath(trimmed);
                     trimmedPath.setClosed(false);
-                    result.push_back(trimmedPath);
+                    result.add(trimmedPath);
                 }
             }
             currentLen = pathEnd;
@@ -307,7 +311,7 @@ private:
     }
 
     static std::vector<BezierSegment> trimSegments(const std::vector<BezierSegment>& segments, double targetStart, double targetEnd) {
-        std::vector<BezierSegment> result;
+        NamedVector<BezierSegment> result{makeNamedVector<BezierSegment>(ContainerName{"TrimPathsTrimmedSegments"})};
         if (targetStart >= targetEnd) return result;
 
         double currentLen = 0.0;
@@ -331,11 +335,11 @@ private:
             if (overlapStart < overlapEnd) {
                 double t0 = (overlapStart - segStart) / segLen;
                 double t1 = (overlapEnd - segStart) / segLen;
-                result.push_back(sliceSegment(seg, t0, t1));
+                result.add(sliceSegment(seg, t0, t1));
             }
             currentLen = segEnd;
         }
-        return result;
+        return result.toStdVector();
     }
 
     static ShapePath segmentsToPath(const std::vector<BezierSegment>& segments) {

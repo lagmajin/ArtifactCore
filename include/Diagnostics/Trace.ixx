@@ -14,6 +14,7 @@ class tst_QList;
 
 export module Core.Diagnostics.Trace;
 
+import Container.NamedVector;
 import Frame.Debug;
 
 export namespace ArtifactCore {
@@ -86,23 +87,23 @@ struct TraceThreadRecord {
 
 struct TraceFrameLaneRecord {
     QString laneName;
-    QVector<TraceScopeRecord> scopes;
+    NamedVector<TraceScopeRecord> scopes{makeNamedVector<TraceScopeRecord>(ContainerName{"TraceLaneScopes"})};
 };
 
 struct TraceFrameTimelineRecord {
     int frameIndex = -1;
     qint64 frameStartNs = 0;
     qint64 frameEndNs = 0;
-    QVector<TraceFrameLaneRecord> lanes;
+    NamedVector<TraceFrameLaneRecord> lanes{makeNamedVector<TraceFrameLaneRecord>(ContainerName{"TraceFrameLanes"})};
 };
 
 struct TraceSnapshot {
-    QVector<TraceCrashRecord> crashes;
-    QVector<TraceScopeRecord> scopes;
-    QVector<TraceLockRecord> locks;
-    QVector<TraceThreadRecord> threads;
+    NamedVector<TraceCrashRecord> crashes{makeNamedVector<TraceCrashRecord>(ContainerName{"TraceCrashes"})};
+    NamedVector<TraceScopeRecord> scopes{makeNamedVector<TraceScopeRecord>(ContainerName{"TraceScopes"})};
+    NamedVector<TraceLockRecord> locks{makeNamedVector<TraceLockRecord>(ContainerName{"TraceLocks"})};
+    NamedVector<TraceThreadRecord> threads{makeNamedVector<TraceThreadRecord>(ContainerName{"TraceThreads"})};
     QVector<TraceFrameTimelineRecord> frames;
-    QVector<TraceEventRecord> events;
+    NamedVector<TraceEventRecord> events{makeNamedVector<TraceEventRecord>(ContainerName{"TraceEvents"})};
 };
 
 inline QString toString(TraceDomain domain)
@@ -254,9 +255,9 @@ inline QJsonObject toJson(const TraceFrameLaneRecord& record)
     QJsonObject json;
     json.insert(QStringLiteral("laneName"), record.laneName);
     QJsonArray scopesJson;
-    for (const auto& scope : record.scopes) {
+    record.scopes.each([&](const auto& scope) {
         scopesJson.append(toJson(scope));
-    }
+    });
     json.insert(QStringLiteral("scopes"), scopesJson);
     return json;
 }
@@ -266,7 +267,7 @@ inline TraceFrameLaneRecord traceFrameLaneRecordFromJson(const QJsonObject& json
     TraceFrameLaneRecord record;
     record.laneName = json.value(QStringLiteral("laneName")).toString();
     for (const auto& value : json.value(QStringLiteral("scopes")).toArray()) {
-        record.scopes.push_back(traceScopeRecordFromJson(value.toObject()));
+        record.scopes.add(traceScopeRecordFromJson(value.toObject()));
     }
     return record;
 }
@@ -278,9 +279,9 @@ inline QJsonObject toJson(const TraceFrameTimelineRecord& record)
     json.insert(QStringLiteral("frameStartNs"), static_cast<double>(record.frameStartNs));
     json.insert(QStringLiteral("frameEndNs"), static_cast<double>(record.frameEndNs));
     QJsonArray lanesJson;
-    for (const auto& lane : record.lanes) {
+    record.lanes.each([&](const auto& lane) {
         lanesJson.append(toJson(lane));
-    }
+    });
     json.insert(QStringLiteral("lanes"), lanesJson);
     return json;
 }
@@ -292,7 +293,7 @@ inline TraceFrameTimelineRecord traceFrameTimelineRecordFromJson(const QJsonObje
     record.frameStartNs = static_cast<qint64>(json.value(QStringLiteral("frameStartNs")).toDouble());
     record.frameEndNs = static_cast<qint64>(json.value(QStringLiteral("frameEndNs")).toDouble());
     for (const auto& value : json.value(QStringLiteral("lanes")).toArray()) {
-        record.lanes.push_back(traceFrameLaneRecordFromJson(value.toObject()));
+        record.lanes.add(traceFrameLaneRecordFromJson(value.toObject()));
     }
     return record;
 }
@@ -331,21 +332,21 @@ inline QJsonObject toJson(const TraceSnapshot& snapshot)
 {
     QJsonObject json;
     QJsonArray crashesJson;
-    for (const auto& crash : snapshot.crashes) {
+    snapshot.crashes.each([&](const auto& crash) {
         crashesJson.append(toJson(crash));
-    }
+    });
     json.insert(QStringLiteral("crashes"), crashesJson);
 
     QJsonArray scopesJson;
-    for (const auto& scope : snapshot.scopes) {
+    snapshot.scopes.each([&](const auto& scope) {
         scopesJson.append(toJson(scope));
-    }
+    });
     json.insert(QStringLiteral("scopes"), scopesJson);
 
     QJsonArray locksJson;
-    for (const auto& lock : snapshot.locks) {
+    snapshot.locks.each([&](const auto& lock) {
         locksJson.append(toJson(lock));
-    }
+    });
     json.insert(QStringLiteral("locks"), locksJson);
 
     QJsonArray threadsJson;
@@ -361,9 +362,9 @@ inline QJsonObject toJson(const TraceSnapshot& snapshot)
     json.insert(QStringLiteral("frames"), framesJson);
 
     QJsonArray eventsJson;
-    for (const auto& event : snapshot.events) {
+    snapshot.events.each([&](const auto& event) {
         eventsJson.append(toJson(event));
-    }
+    });
     json.insert(QStringLiteral("events"), eventsJson);
     return json;
 }
@@ -372,22 +373,22 @@ inline TraceSnapshot traceSnapshotFromJson(const QJsonObject& json)
 {
     TraceSnapshot snapshot;
     for (const auto& value : json.value(QStringLiteral("crashes")).toArray()) {
-        snapshot.crashes.push_back(traceCrashRecordFromJson(value.toObject()));
+        snapshot.crashes.add(traceCrashRecordFromJson(value.toObject()));
     }
     for (const auto& value : json.value(QStringLiteral("scopes")).toArray()) {
-        snapshot.scopes.push_back(traceScopeRecordFromJson(value.toObject()));
+        snapshot.scopes.add(traceScopeRecordFromJson(value.toObject()));
     }
     for (const auto& value : json.value(QStringLiteral("locks")).toArray()) {
-        snapshot.locks.push_back(traceLockRecordFromJson(value.toObject()));
+        snapshot.locks.add(traceLockRecordFromJson(value.toObject()));
     }
     for (const auto& value : json.value(QStringLiteral("threads")).toArray()) {
-        snapshot.threads.push_back(traceThreadRecordFromJson(value.toObject()));
+        snapshot.threads.add(traceThreadRecordFromJson(value.toObject()));
     }
     for (const auto& value : json.value(QStringLiteral("frames")).toArray()) {
         snapshot.frames.push_back(traceFrameTimelineRecordFromJson(value.toObject()));
     }
     for (const auto& value : json.value(QStringLiteral("events")).toArray()) {
-        snapshot.events.push_back(traceEventRecordFromJson(value.toObject()));
+        snapshot.events.add(traceEventRecordFromJson(value.toObject()));
     }
     return snapshot;
 }
@@ -425,8 +426,8 @@ public:
     void recordScope(const TraceScopeRecord& scope)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        snapshot_.scopes.push_back(scope);
-        snapshot_.events.push_back(makeScopeEvent(scope));
+        snapshot_.scopes.add(scope);
+        snapshot_.events.add(makeScopeEvent(scope));
         trimToLimit(snapshot_.scopes, kMaxScopeRecords);
         trimToLimit(snapshot_.events, kMaxEventRecords);
         updateThreadLocked(scope.threadId, QString(), 1, 0, 0);
@@ -435,8 +436,8 @@ public:
     void recordCrash(const TraceCrashRecord& crash)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        snapshot_.crashes.push_back(crash);
-        snapshot_.events.push_back(makeCrashEvent(crash));
+        snapshot_.crashes.add(crash);
+        snapshot_.events.add(makeCrashEvent(crash));
         trimToLimit(snapshot_.crashes, kMaxCrashRecords);
         trimToLimit(snapshot_.events, kMaxEventRecords);
         updateThreadLocked(crash.threadId, crash.threadName, 0, 0, 1);
@@ -445,8 +446,8 @@ public:
     void recordLock(const TraceLockRecord& lock)
     {
         std::lock_guard<std::mutex> guard(mutex_);
-        snapshot_.locks.push_back(lock);
-        snapshot_.events.push_back(makeLockEvent(lock));
+        snapshot_.locks.add(lock);
+        snapshot_.events.add(makeLockEvent(lock));
         trimToLimit(snapshot_.locks, kMaxLockRecords);
         trimToLimit(snapshot_.events, kMaxEventRecords);
         updateThreadLocked(lock.threadId, QString(), 0, 1, 0);
@@ -498,7 +499,7 @@ public:
     {
         std::lock_guard<std::mutex> lock(mutex_);
         snapshot_.frames.push_back(frame);
-        snapshot_.events.push_back(makeFrameEvent(frame));
+        snapshot_.events.add(makeFrameEvent(frame));
         trimToLimit(snapshot_.frames, kMaxFrameRecords);
         trimToLimit(snapshot_.events, kMaxEventRecords);
     }
@@ -605,8 +606,8 @@ private:
             scope.endNs = scope.startNs + pass.durationUs * 1000LL;
             scope.threadId = 0;
             scope.frameIndex = frame.frameIndex;
-            lane.scopes.push_back(scope);
-            frame.lanes.push_back(lane);
+            lane.scopes.add(scope);
+            frame.lanes.add(lane);
             totalDurationUs += pass.durationUs;
         }
 
@@ -645,20 +646,22 @@ private:
             thread.lockCount = lockDelta;
             thread.crashCount = crashDelta;
             const int index = snapshot_.threads.size();
-            snapshot_.threads.push_back(thread);
+            snapshot_.threads.add(thread);
             threadIndexById_.insert(key, index);
             return;
         }
 
         const int index = it.value();
         if (index >= 0 && index < snapshot_.threads.size()) {
-            auto& thread = snapshot_.threads[index];
+            auto thread = snapshot_.threads[index];
             if (thread.threadName.isEmpty()) {
                 thread.threadName = threadName.isEmpty() ? currentThreadName() : threadName;
             }
             thread.scopeCount += scopeDelta;
             thread.lockCount += lockDelta;
             thread.crashCount += crashDelta;
+            snapshot_.threads.removeAt(static_cast<std::size_t>(index));
+            snapshot_.threads.insert(static_cast<std::size_t>(index), thread);
         }
     }
 
@@ -680,23 +683,25 @@ private:
             thread.lastLockAcquired = acquired;
             thread.lastLockNs = timestampNs;
             const int index = snapshot_.threads.size();
-            snapshot_.threads.push_back(thread);
+            snapshot_.threads.add(thread);
             threadIndexById_.insert(key, index);
             return;
         }
 
         const int index = it.value();
         if (index >= 0 && index < snapshot_.threads.size()) {
-            auto& thread = snapshot_.threads[index];
+            auto thread = snapshot_.threads[index];
             thread.lockDepth = std::max(0, thread.lockDepth + (acquired ? 1 : -1));
             thread.lastMutexName = mutexName;
             thread.lastLockAcquired = acquired;
             thread.lastLockNs = timestampNs;
+            snapshot_.threads.removeAt(static_cast<std::size_t>(index));
+            snapshot_.threads.insert(static_cast<std::size_t>(index), thread);
         }
     }
 
     template <typename T>
-    static void trimToLimit(QVector<T>& records, int limit)
+    static void trimToLimit(NamedVector<T>& records, int limit)
     {
         while (records.size() > limit) {
             records.removeFirst();

@@ -11,6 +11,7 @@ module;
 export module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 

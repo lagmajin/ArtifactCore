@@ -11,6 +11,9 @@ module;
 
 export module Core.Diagnostics.FallbackPolicy;
 
+import Container.Debug;
+import Container.NamedVector;
+
 export namespace ArtifactCore {
 
 export enum class FallbackCategory {
@@ -91,7 +94,7 @@ public:
 private:
     FallbackTracker() = default;
 
-    std::vector<FallbackEvent> events_;
+    NamedVector<FallbackEvent> events_{makeNamedVector<FallbackEvent>(ContainerName{"FallbackEvents"}, ARTIFACT_CONTAINER_HERE)};
     bool warningsEnabled_ = true;
     FallbackPolicy fontPolicy_{FallbackPolicy::defaultFont()};
     FallbackPolicy imagePolicy_{FallbackPolicy::defaultImage()};

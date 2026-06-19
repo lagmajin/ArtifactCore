@@ -44,6 +44,8 @@
 #include <random>
 module Core.Mask.RotoMask;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // ============================================================================
@@ -339,20 +341,20 @@ RotoVertex RotoMask::getVertex(VertexID id, double time) const {
 }
 
 std::vector<RotoVertex> RotoMask::sampleVertices(double time) const {
-    std::vector<RotoVertex> result;
+    NamedVector<RotoVertex> result{makeNamedVector<RotoVertex>(ContainerName{"RotoMaskSampleVertices"})};
     // ID順にソート（追加順を維持）
     std::vector<std::pair<int, VertexData>> sorted(impl_->vertices.begin(), impl_->vertices.end());
     std::sort(sorted.begin(), sorted.end(), 
               [](const auto& a, const auto& b) { return a.first < b.first; });
     
     for (const auto& pair : sorted) {
-        result.push_back(RotoVertex(
+        result.add(RotoVertex(
             pair.second.position.valueAt(time),
             pair.second.inTangent.valueAt(time),
             pair.second.outTangent.valueAt(time)
         ));
     }
-    return result;
+    return result.toStdVector();
 }
 
 // ========================================

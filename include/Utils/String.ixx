@@ -1,14 +1,27 @@
 ﻿module;
 class tst_QList;
 #include <utility>
-#include <Qstring>
+#include <QString>
 #include <QVector>
 #include <qminmax.h>
 #include <algorithm>
+#include <string>
 
 export module Utils.String;
 
 export namespace ArtifactCore {
+
+ inline QString toQString(const QString& value) {
+  return value;
+ }
+
+ inline QString toQString(const std::string& value) {
+  return QString::fromStdString(value);
+ }
+
+ inline QString toQString(const char* value) {
+  return QString::fromUtf8(value);
+ }
 
  int calculateLevenshteinDistance(const QString& s1, const QString& s2) {
   const int len1 = s1.length();

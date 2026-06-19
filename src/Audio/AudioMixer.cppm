@@ -12,6 +12,7 @@
 
 module Audio.Mixer;
 
+import Container.NamedVector;
 import Audio.Bus;
 import Audio.Segment;
 import Memory.TrackedPtr;
@@ -30,7 +31,7 @@ struct AudioMixer::Impl {
     std::vector<SideChainSend> sends;
 
     std::vector<std::shared_ptr<AudioBus>> getSortedBuses() {
-        std::vector<std::shared_ptr<AudioBus>> result;
+        NamedVector<std::shared_ptr<AudioBus>> result{makeNamedVector<std::shared_ptr<AudioBus>>(ContainerName{"AudioMixerSortedBuses"})};
         std::set<std::shared_ptr<AudioBus>> visited;
         std::set<std::shared_ptr<AudioBus>> visiting;
 
@@ -57,14 +58,14 @@ struct AudioMixer::Impl {
 
             visiting.erase(bus);
             visited.insert(bus);
-            result.push_back(bus);
+            result.add(bus);
         };
 
         for (const auto& bus : buses) {
             visit(bus);
         }
 
-        return result;
+        return result.toStdVector();
     }
 };
 
@@ -83,15 +84,15 @@ int AudioMixer::busCount() const
 
 std::vector<std::string> AudioMixer::busNames() const
 {
-    std::vector<std::string> result;
+    NamedVector<std::string> result{makeNamedVector<std::string>(ContainerName{"AudioMixerBusNames"})};
     result.reserve(impl_->buses.size());
     for (const auto& bus : impl_->buses) {
         if (!bus) {
             continue;
         }
-        result.push_back(static_cast<std::string>(bus->getName()));
+        result.add(static_cast<std::string>(bus->getName()));
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::shared_ptr<AudioBus> AudioMixer::findBusByName(const std::string& name) const
@@ -109,12 +110,12 @@ std::shared_ptr<AudioBus> AudioMixer::findBusByName(const std::string& name) con
 
 std::vector<std::shared_ptr<AudioBus>> AudioMixer::getAllBuses() const
 {
-    std::vector<std::shared_ptr<AudioBus>> result;
+    NamedVector<std::shared_ptr<AudioBus>> result{makeNamedVector<std::shared_ptr<AudioBus>>(ContainerName{"AudioMixerAllBuses"})};
     result.reserve(impl_->buses.size());
     for (const auto& bus : impl_->buses) {
-        if (bus) result.push_back(bus);
+        if (bus) result.add(bus);
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::shared_ptr<AudioBus> AudioMixer::getRoutingTarget(std::shared_ptr<AudioBus> bus) const
@@ -128,13 +129,13 @@ std::shared_ptr<AudioBus> AudioMixer::getRoutingTarget(std::shared_ptr<AudioBus>
 
 std::vector<std::pair<std::shared_ptr<AudioBus>, float>> AudioMixer::getSideChainSends(std::shared_ptr<AudioBus> bus) const
 {
-    std::vector<std::pair<std::shared_ptr<AudioBus>, float>> result;
+    NamedVector<std::pair<std::shared_ptr<AudioBus>, float>> result{makeNamedVector<std::pair<std::shared_ptr<AudioBus>, float>>(ContainerName{"AudioMixerSideChainSends"})};
     for (const auto& send : impl_->sends) {
         if (send.source == bus) {
-            result.emplace_back(send.target, send.amount);
+            result.add({send.target, send.amount});
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 QJsonObject AudioMixer::serialize() const {

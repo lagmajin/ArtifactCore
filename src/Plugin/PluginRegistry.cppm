@@ -10,6 +10,7 @@ module;
 module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -74,13 +75,13 @@ PluginState ArtifactPluginRegistry::pluginState(const std::string& id) const {
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::pluginsOfCategory(PluginCategory category) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<PluginDescriptor> result;
+    auto result = makeNamedVector<PluginDescriptor>(ContainerName{"PluginCategorySnapshot"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& [id, entry] : entries_) {
         if (entry.descriptor.category == category) {
-            result.push_back(entry.descriptor);
+            result.add(entry.descriptor);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::string& id) const {
@@ -94,23 +95,23 @@ std::optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::st
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<PluginDescriptor> result;
+    auto result = makeNamedVector<PluginDescriptor>(ContainerName{"PluginRegistrySnapshot"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& [id, entry] : entries_) {
-        result.push_back(entry.descriptor);
+        result.add(entry.descriptor);
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::activePlugins() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<PluginDescriptor> result;
+    auto result = makeNamedVector<PluginDescriptor>(ContainerName{"ActivePluginSnapshot"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& id : active_) {
         auto it = entries_.find(id);
         if (it != entries_.end()) {
-            result.push_back(it->second.descriptor);
+            result.add(it->second.descriptor);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 } // namespace ArtifactCore

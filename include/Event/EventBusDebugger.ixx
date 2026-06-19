@@ -12,6 +12,8 @@
 #include <vector>
 export module ArtifactCore.Event.EventBusDebugger;
 
+import Container.NamedVector;
+
 export import Event.Bus;
 
 export namespace ArtifactCore {
@@ -107,7 +109,7 @@ private:
     };
 
     mutable std::mutex   mutex_;
-    std::vector<FireEntry>                               log_;
+    NamedVector<FireEntry>                               log_{makeNamedVector<FireEntry>(ContainerName{"EventBusLog"})};
     mutable std::unordered_map<std::type_index, PerEventState, std::hash<std::type_index>> perEvent_;
 
     EventBus*    attachedBus_   = nullptr;

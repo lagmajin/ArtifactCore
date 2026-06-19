@@ -7,6 +7,8 @@ module;
 
 export module Frame.SkipTracker;
 
+import Container.NamedVector;
+
 export namespace ArtifactCore {
 
 export enum class FrameSkipReason {
@@ -61,7 +63,7 @@ private:
     int skipCount_ = 0;
     int consecutiveSkips_ = 0;
     FrameDispatchEvent current_;
-    QVector<FrameDispatchEvent> history_;
+    NamedVector<FrameDispatchEvent> history_{makeNamedVector<FrameDispatchEvent>(ContainerName{"FrameSkipHistory"}, ARTIFACT_CONTAINER_HERE)};
     static constexpr int kMaxHistory = 200;
 };
 

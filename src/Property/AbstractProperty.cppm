@@ -108,6 +108,7 @@ public:
 
     QString m_expression;
     std::vector<KeyFrame> m_keyFrames;
+    std::vector<EnvelopeTrack> m_envelopes;
 
     QVariant m_externalOverride;
     bool     m_hasExternalOverride = false;
@@ -288,6 +289,68 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
     }
 
     QVariant baseValue = interpolateValue(time);
+    for (const auto& envelope : pImpl->m_envelopes) {
+        if (!envelope.enabled) {
+            continue;
+        }
+        if (!envelope.targetPropertyPath.isEmpty() && envelope.targetPropertyPath != pImpl->m_name) {
+            continue;
+        }
+
+        const double t = time.toDouble();
+        const double start = envelope.startTime.toDouble();
+        const double end = envelope.endTime.toDouble();
+
+        double alpha = 0.0;
+        if (end > start) {
+            switch (envelope.scope) {
+            case EnvelopeScope::Absolute:
+            case EnvelopeScope::Entry:
+                alpha = std::clamp((t - start) / (end - start), 0.0, 1.0);
+                break;
+            case EnvelopeScope::Exit:
+                alpha = std::clamp((end - t) / (end - start), 0.0, 1.0);
+                break;
+            }
+        } else {
+            switch (envelope.scope) {
+            case EnvelopeScope::Absolute:
+            case EnvelopeScope::Entry:
+                alpha = t >= start ? 1.0 : 0.0;
+                break;
+            case EnvelopeScope::Exit:
+                alpha = t <= start ? 1.0 : 0.0;
+                break;
+            }
+        }
+
+        const double strength = std::clamp(envelope.strength, 0.0, 1.0);
+        const double factor = std::clamp(alpha * strength, 0.0, 1.0);
+
+        switch (envelope.mode) {
+        case EnvelopeMode::Override:
+            if (pImpl->m_type == PropertyType::Float || pImpl->m_type == PropertyType::Integer) {
+                const double startValue = pImpl->m_defaultValue.isValid() ? pImpl->m_defaultValue.toDouble() : baseValue.toDouble();
+                const double current = baseValue.toDouble();
+                baseValue = QVariant(startValue + (current - startValue) * (1.0 - factor));
+            }
+            break;
+        case EnvelopeMode::Add:
+            if (pImpl->m_type == PropertyType::Float) {
+                baseValue = QVariant(baseValue.toDouble() + factor);
+            } else if (pImpl->m_type == PropertyType::Integer) {
+                baseValue = QVariant(baseValue.toInt() + static_cast<int>(std::round(factor)));
+            }
+            break;
+        case EnvelopeMode::Multiply:
+            if (pImpl->m_type == PropertyType::Float) {
+                baseValue = QVariant(baseValue.toDouble() * (1.0 - factor + factor * strength));
+            } else if (pImpl->m_type == PropertyType::Integer) {
+                baseValue = QVariant(static_cast<int>(std::round(baseValue.toInt() * (1.0 - factor + factor * strength))));
+            }
+            break;
+        }
+    }
     if (evaluator && hasExpression()) {
         try {
             // AE-like context injection
@@ -311,6 +374,32 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
         }
     }
     return baseValue;
+}
+
+void AbstractProperty::addEnvelope(const EnvelopeTrack& envelope) {
+    pImpl->m_envelopes.push_back(envelope);
+}
+
+void AbstractProperty::addEnvelopePreset(const EnvelopePreset& preset) {
+    for (const auto& track : preset.tracks) {
+        EnvelopeTrack applied = track;
+        if (!preset.targetPropertyPath.isEmpty() && applied.targetPropertyPath.isEmpty()) {
+            applied.targetPropertyPath = preset.targetPropertyPath;
+        }
+        pImpl->m_envelopes.push_back(applied);
+    }
+}
+
+void AbstractProperty::clearEnvelopes() {
+    pImpl->m_envelopes.clear();
+}
+
+std::vector<EnvelopeTrack> AbstractProperty::getEnvelopes() const {
+    return pImpl->m_envelopes;
+}
+
+bool AbstractProperty::hasEnvelopes() const {
+    return !pImpl->m_envelopes.empty();
 }
 
 // -----------------------------------------------------------------------
@@ -643,6 +732,139 @@ void AbstractProperty::setExternalNormalizedValue(double normalized) {
     } else if (pImpl->m_type == PropertyType::Boolean) {
         setExternalOverride(normalized > 0.5);
     }
+}
+
+EnvelopePreset makeBlurInEnvelopePreset(QString targetPropertyPath,
+                                        RationalTime startTime,
+                                        RationalTime endTime,
+                                        double strength)
+{
+    return EnvelopePreset::make(
+        QStringLiteral("Blur In"),
+        std::move(targetPropertyPath),
+        {
+            EnvelopeTrack::makeEntry(QString{}, startTime, endTime, EnvelopeMode::Override, strength)
+        });
+}
+
+EnvelopePreset makeBlurOutEnvelopePreset(QString targetPropertyPath,
+                                         RationalTime startTime,
+                                         RationalTime endTime,
+                                         double strength)
+{
+    return EnvelopePreset::make(
+        QStringLiteral("Blur Out"),
+        std::move(targetPropertyPath),
+        {
+            EnvelopeTrack::makeExit(QString{}, startTime, endTime, EnvelopeMode::Override, strength)
+        });
+}
+
+EnvelopePreset makeSaturationOutEnvelopePreset(QString targetPropertyPath,
+                                               RationalTime startTime,
+                                               RationalTime endTime,
+                                               double strength)
+{
+    return EnvelopePreset::make(
+        QStringLiteral("Fade Saturation Out"),
+        std::move(targetPropertyPath),
+        {
+            EnvelopeTrack::makeExit(QString{}, startTime, endTime, EnvelopeMode::Multiply, strength)
+        });
+}
+
+EnvelopePreset makeGlowInEnvelopePreset(QString targetPropertyPath,
+                                        RationalTime startTime,
+                                        RationalTime endTime,
+                                        double strength)
+{
+    return EnvelopePreset::make(
+        QStringLiteral("Glow In"),
+        std::move(targetPropertyPath),
+        {
+            EnvelopeTrack::makeEntry(QString{}, startTime, endTime, EnvelopeMode::Add, strength)
+        });
+}
+
+EnvelopePreset makeExposureOutEnvelopePreset(QString targetPropertyPath,
+                                             RationalTime startTime,
+                                             RationalTime endTime,
+                                             double strength)
+{
+    return EnvelopePreset::make(
+        QStringLiteral("Exposure Out"),
+        std::move(targetPropertyPath),
+        {
+            EnvelopeTrack::makeExit(QString{}, startTime, endTime, EnvelopeMode::Multiply, strength)
+        });
+}
+
+EnvelopePreset makeBlurInOutEnvelopePreset(QString targetPropertyPath,
+                                           RationalTime inStartTime,
+                                           RationalTime inEndTime,
+                                           RationalTime outStartTime,
+                                           RationalTime outEndTime,
+                                           double inStrength,
+                                           double outStrength)
+{
+    return EnvelopePreset::make(
+        QStringLiteral("Blur In/Out"),
+        std::move(targetPropertyPath),
+        {
+            EnvelopeTrack::makeEntry(QString{}, inStartTime, inEndTime, EnvelopeMode::Override, inStrength),
+            EnvelopeTrack::makeExit(QString{}, outStartTime, outEndTime, EnvelopeMode::Override, outStrength)
+        });
+}
+
+EnvelopePreset makeGlowInOutEnvelopePreset(QString targetPropertyPath,
+                                           RationalTime inStartTime,
+                                           RationalTime inEndTime,
+                                           RationalTime outStartTime,
+                                           RationalTime outEndTime,
+                                           double inStrength,
+                                           double outStrength)
+{
+    return EnvelopePreset::make(
+        QStringLiteral("Glow In/Out"),
+        std::move(targetPropertyPath),
+        {
+            EnvelopeTrack::makeEntry(QString{}, inStartTime, inEndTime, EnvelopeMode::Add, inStrength),
+            EnvelopeTrack::makeExit(QString{}, outStartTime, outEndTime, EnvelopeMode::Multiply, outStrength)
+        });
+}
+
+EnvelopePreset makeExposureInOutEnvelopePreset(QString targetPropertyPath,
+                                               RationalTime inStartTime,
+                                               RationalTime inEndTime,
+                                               RationalTime outStartTime,
+                                               RationalTime outEndTime,
+                                               double inStrength,
+                                               double outStrength)
+{
+    return EnvelopePreset::make(
+        QStringLiteral("Exposure In/Out"),
+        std::move(targetPropertyPath),
+        {
+            EnvelopeTrack::makeEntry(QString{}, inStartTime, inEndTime, EnvelopeMode::Override, inStrength),
+            EnvelopeTrack::makeExit(QString{}, outStartTime, outEndTime, EnvelopeMode::Multiply, outStrength)
+        });
+}
+
+EnvelopePreset makeOpacityFadeInOutEnvelopePreset(QString targetPropertyPath,
+                                                  RationalTime inStartTime,
+                                                  RationalTime inEndTime,
+                                                  RationalTime outStartTime,
+                                                  RationalTime outEndTime,
+                                                  double inStrength,
+                                                  double outStrength)
+{
+    return EnvelopePreset::make(
+        QStringLiteral("Opacity Fade In/Out"),
+        std::move(targetPropertyPath),
+        {
+            EnvelopeTrack::makeEntry(QString{}, inStartTime, inEndTime, EnvelopeMode::Multiply, inStrength),
+            EnvelopeTrack::makeExit(QString{}, outStartTime, outEndTime, EnvelopeMode::Multiply, outStrength)
+        });
 }
 
 } // namespace ArtifactCore

@@ -51,6 +51,8 @@
 #include <opencv2/opencv.hpp>
 module Tracking.MotionTracker;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // ============================================================================
@@ -129,14 +131,14 @@ QPointF TrackResult::averagePosition(double time) const {
 }
 
 std::vector<QPointF> TrackResult::motionPath(int pointId) const {
-    std::vector<QPointF> path;
+    NamedVector<QPointF> path{makeNamedVector<QPointF>(ContainerName{"TrackResultMotionPath"})};
     for (const auto& frame : frames) {
         const TrackPoint* p = frame.findPoint(pointId);
         if (p) {
-            path.push_back(p->position);
+            path.add(p->position);
         }
     }
-    return path;
+    return path.toStdVector();
 }
 
 void TrackResult::normalize() {
@@ -157,12 +159,14 @@ void TrackResult::normalize() {
         isValid = false;
     }
 
-    std::sort(failureFrames.begin(), failureFrames.end());
-    failureFrames.erase(std::unique(failureFrames.begin(), failureFrames.end(),
-                                    [](double lhs, double rhs) {
-                                        return std::abs(lhs - rhs) < 1e-9;
-                                    }),
-                        failureFrames.end());
+    auto uniqueFailures = failureFrames.toStdVector();
+    std::sort(uniqueFailures.begin(), uniqueFailures.end());
+    uniqueFailures.erase(std::unique(uniqueFailures.begin(), uniqueFailures.end(),
+                                     [](double lhs, double rhs) {
+                                         return std::abs(lhs - rhs) < 1e-9;
+                                     }),
+                         uniqueFailures.end());
+    failureFrames = NamedVector<double>::fromStdVector(ContainerName{"TrackResultFailures"}, std::move(uniqueFailures));
 }
 
 void TrackResult::setFrame(TrackFrame frame) {
@@ -174,7 +178,8 @@ void TrackResult::setFrame(TrackFrame frame) {
     if (it != frames.end() && std::abs(it->time - frame.time) < 1e-9) {
         *it = std::move(frame);
     } else {
-        frames.insert(it, std::move(frame));
+        const std::size_t index = static_cast<std::size_t>(std::distance(frames.begin(), it));
+        frames.insert(index, std::move(frame));
     }
     normalize();
 }
@@ -182,7 +187,7 @@ void TrackResult::setFrame(TrackFrame frame) {
 void TrackResult::addFailureFrame(double time) {
     auto it = std::lower_bound(failureFrames.begin(), failureFrames.end(), time);
     if (it == failureFrames.end() || std::abs(*it - time) >= 1e-9) {
-        failureFrames.insert(it, time);
+        failureFrames.insert(static_cast<std::size_t>(std::distance(failureFrames.begin(), it)), time);
     }
 }
 
@@ -626,11 +631,11 @@ QPointF MotionTracker::pointPositionAt(int pointId, double time) const {
 
 std::vector<QPointF> MotionTracker::allPointPositionsAt(double time) const {
     TrackFrame frame = impl_->result.interpolateAt(time);
-    std::vector<QPointF> positions;
+    NamedVector<QPointF> positions{makeNamedVector<QPointF>(ContainerName{"MotionTrackerPositions"})};
     for (const auto& p : frame.points) {
-        positions.push_back(p.position);
+        positions.add(p.position);
     }
-    return positions;
+    return positions.toStdVector();
 }
 
 QPointF MotionTracker::displacementAt(double time) const {
@@ -659,14 +664,14 @@ std::vector<QPointF> MotionTracker::motionPath(int pointId) const {
 }
 
 std::vector<std::pair<double, QPointF>> MotionTracker::exportKeyframes(int pointId) const {
-    std::vector<std::pair<double, QPointF>> keyframes;
+    NamedVector<std::pair<double, QPointF>> keyframes{makeNamedVector<std::pair<double, QPointF>>(ContainerName{"MotionTrackerKeyframes"})};
     for (const auto& frame : impl_->result.frames) {
         const TrackPoint* p = frame.findPoint(pointId);
         if (p) {
-            keyframes.push_back({frame.time, p->position});
+            keyframes.add({frame.time, p->position});
         }
     }
-    return keyframes;
+    return keyframes.toStdVector();
 }
 
 bool MotionTracker::hasResult() const {
@@ -696,13 +701,13 @@ double MotionTracker::qualityScore() const {
 }
 
 std::vector<double> MotionTracker::problemFrames() const {
-    std::vector<double> problems;
+    NamedVector<double> problems{makeNamedVector<double>(ContainerName{"MotionTrackerProblemFrames"})};
     for (const auto& frame : impl_->result.frames) {
         if (frame.overallConfidence < impl_->settings.confidenceThreshold) {
-            problems.push_back(frame.time);
+            problems.add(frame.time);
         }
     }
-    return problems;
+    return problems.toStdVector();
 }
 
 QPointF MotionTracker::averageVelocity() const {
@@ -993,7 +998,7 @@ bool MotionTracker::fromJson(const QString& json) {
             p.active = pointObj["active"].toBool();
             frame.points.push_back(p);
         }
-        impl_->result.frames.push_back(frame);
+        impl_->result.frames.add(std::move(frame));
     }
 
     if (root.contains("failureFrames") && root["failureFrames"].isArray()) {
@@ -1052,11 +1057,11 @@ void TrackerManager::clearTrackers() {
 
 std::vector<MotionTracker*> TrackerManager::allTrackers() {
     auto qlist = impl_->trackers.values();
-    std::vector<MotionTracker*> result;
+    NamedVector<MotionTracker*> result{makeNamedVector<MotionTracker*>(ContainerName{"TrackerManagerAllTrackers"})};
     for (auto* tracker : qlist) {
-        result.push_back(tracker);
+        result.add(tracker);
     }
-    return result;
+    return result.toStdVector();
 }
 
 

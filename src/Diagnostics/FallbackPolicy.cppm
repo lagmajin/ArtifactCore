@@ -6,6 +6,8 @@ module;
 
 module Core.Diagnostics.FallbackPolicy;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 FallbackTracker* FallbackTracker::instance() {
@@ -14,7 +16,7 @@ FallbackTracker* FallbackTracker::instance() {
 }
 
 void FallbackTracker::record(const FallbackEvent& event) {
-    events_.push_back(event);
+    events_.add(event);
     if (event.isWarning && warningsEnabled_) {
         qWarning() << "[FallbackTracker]" << event.message
                    << "original=" << event.originalId
@@ -37,27 +39,27 @@ void FallbackTracker::record(FallbackCategory category, FallbackAction action,
 }
 
 std::vector<FallbackEvent> FallbackTracker::getEvents() const {
-    return events_;
+    return events_.toStdVector();
 }
 
 std::vector<FallbackEvent> FallbackTracker::getEventsByCategory(FallbackCategory category) const {
-    std::vector<FallbackEvent> result;
+    auto result = makeNamedVector<FallbackEvent>(ContainerName{"FallbackEventsByCategory"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& e : events_) {
         if (e.category == category) {
-            result.push_back(e);
+            result.add(e);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::vector<FallbackEvent> FallbackTracker::getEventsSince(const QDateTime& since) const {
-    std::vector<FallbackEvent> result;
+    auto result = makeNamedVector<FallbackEvent>(ContainerName{"FallbackEventsSince"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& e : events_) {
         if (e.timestamp >= since) {
-            result.push_back(e);
+            result.add(e);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 void FallbackTracker::clear() {

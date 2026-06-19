@@ -8,6 +8,7 @@
 #include <QtCore/QJsonObject>
 module Frame.Range;
 
+import Container.NamedVector;
 import Frame.Position;
 import Frame.Offset;
 import Frame.Rate;
@@ -277,42 +278,42 @@ namespace ArtifactCore {
  }
 
  std::vector<int64_t> FrameRange::frames() const {
-  std::vector<int64_t> result;
+  NamedVector<int64_t> result{makeNamedVector<int64_t>(ContainerName{"FrameRangeFrames"})};
   int64_t count = duration() + 1;
   
   if (count <= 0 || count > 1000000) {  // ���S�̂��ߏ��
-   return result;
+   return result.toStdVector();
   }
   
   result.reserve(static_cast<size_t>(count));
   for (int64_t i = impl_->start_; i <= impl_->end_; ++i) {
-   result.push_back(i);
+   result.add(i);
   }
   
-  return result;
+  return result.toStdVector();
  }
 
  std::vector<int64_t> FrameRange::uniformSample(int count) const {
-  std::vector<int64_t> result;
+  NamedVector<int64_t> result{makeNamedVector<int64_t>(ContainerName{"FrameRangeUniformSample"})};
   
   if (count <= 0 || !isValid()) {
-   return result;
+   return result.toStdVector();
   }
   
   result.reserve(count);
   int64_t dur = duration();
   
   if (dur == 0) {
-   result.push_back(impl_->start_);
-   return result;
+   result.add(impl_->start_);
+   return result.toStdVector();
   }
   
   for (int i = 0; i < count; ++i) {
    int64_t frame = impl_->start_ + (dur * i) / count;
-   result.push_back(frame);
+   result.add(frame);
   }
   
-  return result;
+  return result.toStdVector();
  }
 
  // ���ԕϊ�

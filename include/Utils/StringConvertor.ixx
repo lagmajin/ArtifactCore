@@ -1,6 +1,7 @@
 ﻿module;
 class tst_QList;
 #include <utility>
+#include <QByteArray>
 #include <QVector>
 #include <QString>
 #include <string>

@@ -9,6 +9,7 @@ module;
 #include <QJsonValue>
 export module Layer.Matte;
 
+import Container.NamedVector;
 import Utils.Id;
 import FloatRGBA;
 import Image.ImageF32x4_RGBA;
@@ -170,7 +171,7 @@ public:
 
     void clear() { nodes_.clear(); }
 
-    const std::vector<MatteNode>& nodes() const { return nodes_; }
+    const NamedVector<MatteNode>& nodes() const { return nodes_; }
 
     MatteStackMode stackMode() const { return stackMode_; }
     void setStackMode(MatteStackMode mode) { stackMode_ = mode; }
@@ -183,13 +184,13 @@ public:
     }
 
     std::vector<Id> sourceLayerIds() const {
-        std::vector<Id> ids;
+        NamedVector<Id> ids{makeNamedVector<Id>(ContainerName{"MatteStackSourceLayerIds"})};
         for (const auto& n : nodes_) {
             if (n.isEnabled() && !n.sourceLayerId().isNil()) {
-                ids.push_back(n.sourceLayerId());
+                ids.add(n.sourceLayerId());
             }
         }
-        return ids;
+        return ids.toStdVector();
     }
 
     bool hasCycleWithLayer(const Id& layerId) const {
@@ -234,7 +235,7 @@ public:
     }
 
 private:
-    std::vector<MatteNode> nodes_;
+    NamedVector<MatteNode> nodes_{makeNamedVector<MatteNode>(ContainerName{"MatteStackNodes"})};
     MatteStackMode stackMode_;
 };
 

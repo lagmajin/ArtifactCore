@@ -7,6 +7,8 @@ module;
 
 module Frame.SkipTracker;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 FrameSkipTracker* FrameSkipTracker::instance() {
@@ -39,9 +41,9 @@ void FrameSkipTracker::displayFrame(int64_t frame) {
         consecutiveSkips_ = 0;
     }
 
-    history_.push_back(current_);
+    history_.add(current_);
     if (history_.size() > kMaxHistory) {
-        history_.erase(history_.begin());
+        history_.removeAt(0);
     }
 
     if (current_.skipped) {
@@ -65,9 +67,9 @@ void FrameSkipTracker::recordSkip(int64_t requestedFrame, int64_t fallbackFrame,
 
     ++skipCount_;
     ++consecutiveSkips_;
-    history_.push_back(event);
+    history_.add(event);
     if (history_.size() > kMaxHistory) {
-        history_.erase(history_.begin());
+        history_.removeAt(0);
     }
 
     qWarning() << "[FrameSkipTracker] recorded skip: requested="
@@ -84,21 +86,23 @@ QVector<FrameDispatchEvent> FrameSkipTracker::recentEvents(int count) const {
     if (history_.isEmpty()) return {};
     const qsizetype n = history_.size();
     int start = n > count ? static_cast<int>(n - count) : 0;
-    QVector<FrameDispatchEvent> result;
+    NamedVector<FrameDispatchEvent> result{makeNamedVector<FrameDispatchEvent>(ContainerName{"FrameSkipRecentEvents"})};
     for (int i = start; i < history_.size(); ++i) {
-        result.push_back(history_[i]);
+        if (const auto* event = history_.at(static_cast<std::size_t>(i))) {
+            result.add(*event);
+        }
     }
-    return result;
+    return result.toStdVector();
 }
 
 QVector<FrameDispatchEvent> FrameSkipTracker::skippedFrames() const {
-    QVector<FrameDispatchEvent> result;
-    for (const auto& e : history_) {
+    NamedVector<FrameDispatchEvent> result{makeNamedVector<FrameDispatchEvent>(ContainerName{"FrameSkipSkippedFrames"})};
+    history_.each([&](const auto& e) {
         if (e.skipped) {
-            result.push_back(e);
+            result.add(e);
         }
-    }
-    return result;
+    });
+    return result.toStdVector();
 }
 
 void FrameSkipTracker::reset() {

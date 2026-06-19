@@ -13,6 +13,7 @@ module;
 
 module Core.Diagnostics.ValidationRules;
 
+import Container.NamedVector;
 import Artifact.Composition.Abstract;
 import Artifact.Layer.Abstract;
 import Artifact.Layer.Composition;
@@ -71,9 +72,9 @@ QString layerDisplayName(const Artifact::ArtifactAbstractLayerPtr& layer)
 
 } // namespace
 
-auto MissingFileValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+auto MissingFileValidationRule::validate(const void* project) -> NamedVector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    auto diagnostics = makeNamedVector<ProjectDiagnostic>(ContainerName{"MissingFileDiagnostics"}, ARTIFACT_CONTAINER_HERE);
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
     if (!projectPtr) {
         return diagnostics;
@@ -131,9 +132,9 @@ auto MissingFileValidationRule::validate(const void* project) -> std::vector<Pro
     return diagnostics;
 }
 
-auto CircularDependencyValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+auto CircularDependencyValidationRule::validate(const void* project) -> NamedVector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    auto diagnostics = makeNamedVector<ProjectDiagnostic>(ContainerName{"CircularDependencyDiagnostics"}, ARTIFACT_CONTAINER_HERE);
 
     for (const auto& cycle : detectCycles(project)) {
         diagnostics.push_back(ProjectDiagnostic::createCircularDependency(cycle));
@@ -142,9 +143,9 @@ auto CircularDependencyValidationRule::validate(const void* project) -> std::vec
     return diagnostics;
 }
 
-auto CircularDependencyValidationRule::detectCycles(const void* project) -> std::vector<QString>
+auto CircularDependencyValidationRule::detectCycles(const void* project) -> NamedVector<QString>
 {
-    std::vector<QString> cycles;
+    auto cycles = makeNamedVector<QString>(ContainerName{"CircularDependencyCycles"}, ARTIFACT_CONTAINER_HERE);
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
     if (!projectPtr) {
         return cycles;
@@ -237,9 +238,9 @@ auto CircularDependencyValidationRule::detectCycles(const void* project) -> std:
     return cycles;
 }
 
-auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+auto MatteReferenceValidationRule::validate(const void* project) -> NamedVector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    auto diagnostics = makeNamedVector<ProjectDiagnostic>(ContainerName{"MatteReferenceDiagnostics"}, ARTIFACT_CONTAINER_HERE);
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
     if (!projectPtr) {
         return diagnostics;
@@ -399,9 +400,9 @@ auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<
     return diagnostics;
 }
 
-auto ExpressionValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+auto ExpressionValidationRule::validate(const void* project) -> NamedVector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    auto diagnostics = makeNamedVector<ProjectDiagnostic>(ContainerName{"ExpressionDiagnostics"}, ARTIFACT_CONTAINER_HERE);
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
     if (!projectPtr) return diagnostics;
 
@@ -449,9 +450,9 @@ auto ExpressionValidationRule::validate(const void* project) -> std::vector<Proj
     return diagnostics;
 }
 
-auto PerformanceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
+auto PerformanceValidationRule::validate(const void* project) -> NamedVector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    auto diagnostics = makeNamedVector<ProjectDiagnostic>(ContainerName{"PerformanceDiagnostics"}, ARTIFACT_CONTAINER_HERE);
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
     if (!projectPtr) {
         return diagnostics;

@@ -15,6 +15,7 @@ module;
 
 module Text.ShapingBackend;
 
+import Container.NamedVector;
 import std;
 import Font.FreeFont;
 import Text.LayoutContract;
@@ -533,9 +534,9 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
                                               const QFont& font,
                                               const ParagraphStyle& paragraph)
 {
-  std::vector<GlyphItem> result;
+  NamedVector<GlyphItem> result{makeNamedVector<GlyphItem>(ContainerName{"TextShapingGlyphs"})};
   if (text.isEmpty()) {
-    return result;
+    return result.toStdVector();
   }
 
   QTextLayout layout(text, font);
@@ -574,7 +575,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
   layout.endLayout();
 
   if (lines.empty()) {
-    return result;
+    return result.toStdVector();
   }
 
   const std::u32string u32text = toU32String(text);
@@ -688,7 +689,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
       item.bounds = QRectF(xOffset + localX + extraAdvance, y,
                            glyphWidth + ((shouldJustify && whitespace) ? justifyStep : 0.0f),
                            line.height);
-      result.push_back(item);
+      result.add(item);
 
       if (shouldJustify && whitespace) {
         extraAdvance += justifyStep;
@@ -702,16 +703,16 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
     }
   }
 
-  return result;
+  return result.toStdVector();
 }
 
 std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
                                                       const QFont& font,
                                                       const ParagraphStyle& paragraph)
 {
-  std::vector<GlyphItem> result;
+  NamedVector<GlyphItem> result{makeNamedVector<GlyphItem>(ContainerName{"TextShapingVerticalGlyphs"})};
   if (text.isEmpty()) {
-    return result;
+    return result.toStdVector();
   }
 
   const QFontMetricsF metrics(font);
@@ -788,7 +789,7 @@ std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
         item.offsetOpacity = 1.0f;
         item.bounds = QRectF(inlineStartX + inlineAdvance * static_cast<float>(runIndex),
                              columnTop + y, inlineAdvance, glyphHeight);
-        result.push_back(item);
+        result.add(item);
       }
       y += glyphHeight;
       i += static_cast<size_t>(tcyRunLength - 1);
@@ -811,11 +812,11 @@ std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
     item.offsetScale = 1.0f;
     item.offsetOpacity = 1.0f;
     item.bounds = QRectF(x, columnTop + y, boxWidth, glyphHeight);
-    result.push_back(item);
+    result.add(item);
     y += glyphHeight;
   }
 
-  return result;
+  return result.toStdVector();
 }
 
 void appendRubyOverlays(std::vector<GlyphItem>& glyphs,

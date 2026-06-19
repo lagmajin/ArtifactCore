@@ -58,6 +58,137 @@ enum class PropertyType {
     ObjectReference  // ID 参照
 };
 
+enum class EnvelopeMode {
+    Override,
+    Add,
+    Multiply
+};
+
+enum class EnvelopeScope {
+    Absolute,
+    Entry,
+    Exit
+};
+
+struct EnvelopeTrack {
+    QString targetPropertyPath;
+    EnvelopeScope scope = EnvelopeScope::Absolute;
+    EnvelopeMode mode = EnvelopeMode::Override;
+    RationalTime startTime;
+    RationalTime endTime;
+    double strength = 1.0;
+    bool enabled = true;
+
+    static EnvelopeTrack makeAbsolute(QString targetPropertyPath,
+                                      RationalTime startTime,
+                                      RationalTime endTime,
+                                      EnvelopeMode mode = EnvelopeMode::Override,
+                                      double strength = 1.0)
+    {
+        EnvelopeTrack track;
+        track.targetPropertyPath = std::move(targetPropertyPath);
+        track.scope = EnvelopeScope::Absolute;
+        track.mode = mode;
+        track.startTime = startTime;
+        track.endTime = endTime;
+        track.strength = strength;
+        return track;
+    }
+
+    static EnvelopeTrack makeEntry(QString targetPropertyPath,
+                                   RationalTime startTime,
+                                   RationalTime endTime,
+                                   EnvelopeMode mode = EnvelopeMode::Override,
+                                   double strength = 1.0)
+    {
+        EnvelopeTrack track = makeAbsolute(std::move(targetPropertyPath), startTime, endTime, mode, strength);
+        track.scope = EnvelopeScope::Entry;
+        return track;
+    }
+
+    static EnvelopeTrack makeExit(QString targetPropertyPath,
+                                  RationalTime startTime,
+                                  RationalTime endTime,
+                                  EnvelopeMode mode = EnvelopeMode::Override,
+                                  double strength = 1.0)
+    {
+        EnvelopeTrack track = makeAbsolute(std::move(targetPropertyPath), startTime, endTime, mode, strength);
+        track.scope = EnvelopeScope::Exit;
+        return track;
+    }
+};
+
+struct EnvelopePreset {
+    QString name;
+    QString targetPropertyPath;
+    std::vector<EnvelopeTrack> tracks;
+
+    static EnvelopePreset make(QString name,
+                               QString targetPropertyPath,
+                               std::vector<EnvelopeTrack> tracks)
+    {
+        EnvelopePreset preset;
+        preset.name = std::move(name);
+        preset.targetPropertyPath = std::move(targetPropertyPath);
+        preset.tracks = std::move(tracks);
+        return preset;
+    }
+
+    void addTrack(const EnvelopeTrack& track)
+    {
+        tracks.push_back(track);
+    }
+};
+
+EnvelopePreset makeBlurInEnvelopePreset(QString targetPropertyPath,
+                                        RationalTime startTime,
+                                        RationalTime endTime,
+                                        double strength = 1.0);
+EnvelopePreset makeBlurOutEnvelopePreset(QString targetPropertyPath,
+                                         RationalTime startTime,
+                                         RationalTime endTime,
+                                         double strength = 1.0);
+EnvelopePreset makeSaturationOutEnvelopePreset(QString targetPropertyPath,
+                                               RationalTime startTime,
+                                               RationalTime endTime,
+                                               double strength = 1.0);
+EnvelopePreset makeGlowInEnvelopePreset(QString targetPropertyPath,
+                                        RationalTime startTime,
+                                        RationalTime endTime,
+                                        double strength = 1.0);
+EnvelopePreset makeExposureOutEnvelopePreset(QString targetPropertyPath,
+                                             RationalTime startTime,
+                                             RationalTime endTime,
+                                             double strength = 1.0);
+EnvelopePreset makeBlurInOutEnvelopePreset(QString targetPropertyPath,
+                                           RationalTime inStartTime,
+                                           RationalTime inEndTime,
+                                           RationalTime outStartTime,
+                                           RationalTime outEndTime,
+                                           double inStrength = 1.0,
+                                           double outStrength = 1.0);
+EnvelopePreset makeGlowInOutEnvelopePreset(QString targetPropertyPath,
+                                           RationalTime inStartTime,
+                                           RationalTime inEndTime,
+                                           RationalTime outStartTime,
+                                           RationalTime outEndTime,
+                                           double inStrength = 1.0,
+                                           double outStrength = 1.0);
+EnvelopePreset makeExposureInOutEnvelopePreset(QString targetPropertyPath,
+                                               RationalTime inStartTime,
+                                               RationalTime inEndTime,
+                                               RationalTime outStartTime,
+                                               RationalTime outEndTime,
+                                               double inStrength = 1.0,
+                                               double outStrength = 1.0);
+EnvelopePreset makeOpacityFadeInOutEnvelopePreset(QString targetPropertyPath,
+                                                  RationalTime inStartTime,
+                                                  RationalTime inEndTime,
+                                                  RationalTime outStartTime,
+                                                  RationalTime outEndTime,
+                                                  double inStrength = 1.0,
+                                                  double outStrength = 1.0);
+
 struct KeyFrame {
     enum class Anchor {
         Absolute = 0,
@@ -158,6 +289,13 @@ public:
     QString getExpression() const;
     bool hasExpression() const;
     QVariant evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator = nullptr) const;
+
+    // Envelope support
+    void addEnvelope(const EnvelopeTrack& envelope);
+    void addEnvelopePreset(const EnvelopePreset& preset);
+    void clearEnvelopes();
+    std::vector<EnvelopeTrack> getEnvelopes() const;
+    bool hasEnvelopes() const;
 
     // KeyFrame operations
     void addKeyFrame(const RationalTime& time, const QVariant& value);

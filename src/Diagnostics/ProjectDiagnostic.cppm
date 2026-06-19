@@ -6,6 +6,8 @@
 
 module Core.Diagnostics.ProjectDiagnostic;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // ============================================================================
@@ -97,64 +99,108 @@ auto ProjectDiagnostic::createPerformanceWarning(const QString& message, const Q
 // ============================================================================
 
 void DiagnosticResult::addDiagnostic(const ProjectDiagnostic& diagnostic) {
-    diagnostics_.push_back(diagnostic);
+    diagnostics_.add(diagnostic);
 }
 
 void DiagnosticResult::addDiagnostics(const std::vector<ProjectDiagnostic>& diagnostics) {
-    diagnostics_.insert(diagnostics_.end(), diagnostics.begin(), diagnostics.end());
+    for (const auto& diagnostic : diagnostics) {
+        diagnostics_.add(diagnostic);
+    }
+}
+
+void DiagnosticResult::addDiagnostics(const NamedVector<ProjectDiagnostic>& diagnostics) {
+    diagnostics.each([&](const auto& diagnostic) {
+        diagnostics_.add(diagnostic);
+    });
 }
 
 void DiagnosticResult::clear() {
     diagnostics_.clear();
 }
 
+auto DiagnosticResult::getDiagnostics() const -> std::vector<ProjectDiagnostic> {
+    auto result = makeNamedVector<ProjectDiagnostic>(ContainerName{"ProjectDiagnosticsSnapshot"});
+    result.reserve(diagnostics_.count());
+    diagnostics_.each([&](const auto& diagnostic) {
+        result.add(diagnostic);
+    });
+    return result.toStdVector();
+}
+
 auto DiagnosticResult::getErrorCount() const -> int {
-    return static_cast<int>(std::count_if(diagnostics_.begin(), diagnostics_.end(),
-        [](const auto& d) { return d.getSeverity() == DiagnosticSeverity::Error; }));
+    int count = 0;
+    diagnostics_.each([&](const auto& d) {
+        if (d.getSeverity() == DiagnosticSeverity::Error) {
+            ++count;
+        }
+    });
+    return count;
 }
 
 auto DiagnosticResult::getWarningCount() const -> int {
-    return static_cast<int>(std::count_if(diagnostics_.begin(), diagnostics_.end(),
-        [](const auto& d) { return d.getSeverity() == DiagnosticSeverity::Warning; }));
+    int count = 0;
+    diagnostics_.each([&](const auto& d) {
+        if (d.getSeverity() == DiagnosticSeverity::Warning) {
+            ++count;
+        }
+    });
+    return count;
 }
 
 auto DiagnosticResult::getInfoCount() const -> int {
-    return static_cast<int>(std::count_if(diagnostics_.begin(), diagnostics_.end(),
-        [](const auto& d) { return d.getSeverity() == DiagnosticSeverity::Info; }));
+    int count = 0;
+    diagnostics_.each([&](const auto& d) {
+        if (d.getSeverity() == DiagnosticSeverity::Info) {
+            ++count;
+        }
+    });
+    return count;
 }
 
 auto DiagnosticResult::getErrors() const -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> result;
-    std::copy_if(diagnostics_.begin(), diagnostics_.end(), std::back_inserter(result),
-        [](const auto& d) { return d.getSeverity() == DiagnosticSeverity::Error; });
-    return result;
+    auto result = makeNamedVector<ProjectDiagnostic>(ContainerName{"ProjectDiagnosticsErrors"});
+    diagnostics_.each([&](const auto& d) {
+        if (d.getSeverity() == DiagnosticSeverity::Error) {
+            result.add(d);
+        }
+    });
+    return result.toStdVector();
 }
 
 auto DiagnosticResult::getWarnings() const -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> result;
-    std::copy_if(diagnostics_.begin(), diagnostics_.end(), std::back_inserter(result),
-        [](const auto& d) { return d.getSeverity() == DiagnosticSeverity::Warning; });
-    return result;
+    auto result = makeNamedVector<ProjectDiagnostic>(ContainerName{"ProjectDiagnosticsWarnings"});
+    diagnostics_.each([&](const auto& d) {
+        if (d.getSeverity() == DiagnosticSeverity::Warning) {
+            result.add(d);
+        }
+    });
+    return result.toStdVector();
 }
 
 auto DiagnosticResult::getByCategory(DiagnosticCategory category) const -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> result;
-    std::copy_if(diagnostics_.begin(), diagnostics_.end(), std::back_inserter(result),
-        [category](const auto& d) { return d.getCategory() == category; });
-    return result;
+    auto result = makeNamedVector<ProjectDiagnostic>(ContainerName{"ProjectDiagnosticsByCategory"});
+    diagnostics_.each([&](const auto& d) {
+        if (d.getCategory() == category) {
+            result.add(d);
+        }
+    });
+    return result.toStdVector();
 }
 
 auto DiagnosticResult::getBySource(const QString& layerId, const QString& compId) const -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> result;
-    std::copy_if(diagnostics_.begin(), diagnostics_.end(), std::back_inserter(result),
-        [&layerId, &compId](const auto& d) {
-            return d.getSourceLayerId() == layerId || d.getSourceCompId() == compId;
-        });
-    return result;
+    auto result = makeNamedVector<ProjectDiagnostic>(ContainerName{"ProjectDiagnosticsBySource"});
+    diagnostics_.each([&](const auto& d) {
+        if (d.getSourceLayerId() == layerId || d.getSourceCompId() == compId) {
+            result.add(d);
+        }
+    });
+    return result.toStdVector();
 }
 
 void DiagnosticResult::merge(const DiagnosticResult& other) {
-    diagnostics_.insert(diagnostics_.end(), other.diagnostics_.begin(), other.diagnostics_.end());
+    other.diagnostics_.each([&](const auto& diagnostic) {
+        diagnostics_.add(diagnostic);
+    });
 }
 
 } // namespace ArtifactCore

@@ -7,6 +7,8 @@
 
 module Audio.Analyze;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 AudioAnalyzer::AudioAnalyzer(int fftSize) : fftSize_(fftSize) {
@@ -93,12 +95,13 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
     float maxAbs = 0.0f;
     
     // ステレオならミックスして処理するか、全チャンネル平均
-    std::vector<float> monoData(frames, 0.0f);
+    NamedVector<float> monoData{makeNamedVector<float>(ContainerName{"AudioAnalyzerMonoData"})};
+    monoData.resize(static_cast<std::size_t>(frames));
     for (int c = 0; c < channels; ++c) {
         const float* data = segment.constData(c);
         for (int i = 0; i < frames; ++i) {
             float s = data[i];
-            monoData[i] += s;
+            *monoData.at(static_cast<std::size_t>(i)) += s;
             sumSq += s * s;
             maxAbs = std::max(maxAbs, std::abs(s));
         }
@@ -115,7 +118,7 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
     int copyLen = std::min(frames, n);
     float invChannels = 1.0f / channels;
     for (int i = 0; i < copyLen; ++i) {
-        fftData[i] = std::complex<float>(monoData[i] * invChannels * window_[i], 0.0f);
+        fftData[i] = std::complex<float>(*monoData.at(static_cast<std::size_t>(i)) * invChannels * window_[i], 0.0f);
     }
     
     computeFFT(fftData);

@@ -64,6 +64,20 @@ public:
  LayerID(const Id& other) : Id(other) {}
 };
 
+class LIBRARY_DLL_API AssetID : public Id {
+public:
+ using Id::Id;
+ AssetID() = default;
+ AssetID(const Id& other) : Id(other) {}
+};
+
+class LIBRARY_DLL_API ProjectID : public Id {
+public:
+ using Id::Id;
+ ProjectID() = default;
+ ProjectID(const Id& other) : Id(other) {}
+};
+
 
 
 inline uint qHash(const Id& key, uint seed = 0) noexcept

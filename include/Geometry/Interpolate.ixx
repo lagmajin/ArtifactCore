@@ -33,6 +33,8 @@
 
 export module Math.Interpolate;
 
+import Container.NamedVector;
+
 export namespace ArtifactCore {
 
 using InterpFunc = std::function<float(float)>;
@@ -313,7 +315,7 @@ public:
   void clear() { keyframes_.clear(); }
 
   void addKeyframe(const KeyframeEntry& kf) {
-    keyframes_.push_back(kf);
+    keyframes_.add(kf);
     std::sort(keyframes_.begin(), keyframes_.end(),
               [](const KeyframeEntry& a, const KeyframeEntry& b) {
                 return a.time < b.time;
@@ -356,12 +358,12 @@ public:
     return (v2 - v1) / epsilon;
   }
 
-  const std::vector<KeyframeEntry>& keyframes() const { return keyframes_; }
+  std::vector<KeyframeEntry> keyframes() const { return keyframes_.toStdVector(); }
   bool isEmpty() const { return keyframes_.empty(); }
   size_t size() const { return keyframes_.size(); }
 
 private:
-  std::vector<KeyframeEntry> keyframes_;
+  NamedVector<KeyframeEntry> keyframes_{makeNamedVector<KeyframeEntry>(ContainerName{"GeometryKeyframes"})};
 };
 
 }; // namespace ArtifactCore

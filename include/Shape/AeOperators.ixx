@@ -16,6 +16,7 @@ module;
 
 export module Shape.AeOperators;
 
+import Container.NamedVector;
 import Shape.Operator;
 import Shape.Path;
 import Shape.Types;
@@ -184,9 +185,9 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"MergePathsResult"})};
         if (inputPaths.empty()) {
-            return result;
+            return result.toStdVector();
         }
 
         QPainterPath combined = inputPaths.front().toPainterPath();
@@ -207,9 +208,9 @@ public:
 
         combined = combined.simplified();
         if (!combined.isEmpty()) {
-            result.push_back(ShapePath::fromPainterPath(combined));
+            result.add(ShapePath::fromPainterPath(combined));
         }
-        return result;
+        return result.toStdVector();
     }
 
     void modeChanged() W_SIGNAL(modeChanged);
@@ -286,7 +287,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"OffsetPathsResult"})};
         if (inputPaths.empty() || std::abs(offset_) <= 1e-6f) {
             return inputPaths;
         }
@@ -309,11 +310,11 @@ public:
             offsetPath = offsetPath.simplified();
 
             if (!offsetPath.isEmpty()) {
-                result.push_back(ShapePath::fromPainterPath(offsetPath));
+                result.add(ShapePath::fromPainterPath(offsetPath));
             }
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -363,17 +364,17 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"PuckerBloatResult"})};
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
             const QPointF center = path.boundingRect().center();
             const double maxRadius = detail::maxRadiusFromCenter(path, center);
             const double strength = std::clamp(static_cast<double>(amount_) / 100.0, -1.0, 1.0);
-            result.push_back(detail::warpPath(path, center, maxRadius, strength, 0.0));
+            result.add(detail::warpPath(path, center, maxRadius, strength, 0.0));
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -419,16 +420,16 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"TwistResult"})};
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
             const QPointF center = path.boundingRect().center();
             const double maxRadius = detail::maxRadiusFromCenter(path, center);
-            result.push_back(detail::warpPath(path, center, maxRadius, 0.0, static_cast<double>(angle_)));
+            result.add(detail::warpPath(path, center, maxRadius, 0.0, static_cast<double>(angle_)));
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -474,14 +475,14 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"RoundedCornersResult"})};
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
             QPainterPath rounded;
             const auto segments = path.toSegments();
             if (segments.empty()) {
-                result.push_back(path);
+                result.add(path);
                 continue;
             }
 
@@ -523,10 +524,10 @@ public:
             if (path.isClosed()) {
                 rounded.closeSubpath();
             }
-            result.push_back(ShapePath::fromPainterPath(rounded.simplified()));
+            result.add(ShapePath::fromPainterPath(rounded.simplified()));
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -585,7 +586,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"WigglePathsResult"})};
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
@@ -596,7 +597,7 @@ public:
             ShapePath warped;
             const auto segments = path.toSegments();
             if (segments.empty()) {
-                result.push_back(path);
+                result.add(path);
                 continue;
             }
 
@@ -620,10 +621,10 @@ public:
             if (path.isClosed()) {
                 warped.close();
             }
-            result.push_back(warped);
+            result.add(warped);
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -684,13 +685,13 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"ZigZagResult"})};
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
             const auto segments = path.toSegments();
             if (segments.empty()) {
-                result.push_back(path);
+                result.add(path);
                 continue;
             }
 
@@ -716,10 +717,10 @@ public:
             if (path.isClosed()) {
                 warped.close();
             }
-            result.push_back(warped);
+            result.add(warped);
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -794,7 +795,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"HandDrawnWobbleResult"})};
         result.reserve(inputPaths.size());
 
         // 簡易ハッシュベースの疑似乱数（シード固定で再現性確保）
@@ -829,7 +830,7 @@ public:
         for (const auto& path : inputPaths) {
             const auto segments = path.toSegments();
             if (segments.empty()) {
-                result.push_back(path);
+                result.add(path);
                 continue;
             }
 
@@ -887,10 +888,10 @@ public:
             if (path.isClosed()) {
                 warped.close();
             }
-            result.push_back(warped);
+            result.add(warped);
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:

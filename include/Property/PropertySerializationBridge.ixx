@@ -29,6 +29,7 @@ struct SerializedProperty {
     QJsonValue value;
     QString expression;
     QJsonArray keyframes;
+    QJsonArray envelopes;
     QJsonObject metadata;
 };
 
@@ -150,6 +151,23 @@ public:
             }
         }
 
+        const auto envelopes = property->getEnvelopes();
+        if (!envelopes.empty()) {
+            for (const auto& envelope : envelopes) {
+                QJsonObject envObj;
+                envObj[QStringLiteral("targetPropertyPath")] = envelope.targetPropertyPath;
+                envObj[QStringLiteral("scope")] = static_cast<int>(envelope.scope);
+                envObj[QStringLiteral("mode")] = static_cast<int>(envelope.mode);
+                envObj[QStringLiteral("startTimeValue")] = envelope.startTime.value();
+                envObj[QStringLiteral("startTimeScale")] = envelope.startTime.scale();
+                envObj[QStringLiteral("endTimeValue")] = envelope.endTime.value();
+                envObj[QStringLiteral("endTimeScale")] = envelope.endTime.scale();
+                envObj[QStringLiteral("strength")] = envelope.strength;
+                envObj[QStringLiteral("enabled")] = envelope.enabled;
+                sp.envelopes.append(envObj);
+            }
+        }
+
         const auto meta = property->metadata();
         if (!meta.displayLabel.isEmpty() || !meta.unit.isEmpty() || !meta.tooltip.isEmpty()) {
             QJsonObject metaObj;
@@ -216,6 +234,28 @@ public:
                 property->setKeyFrameColorLabelAt(time, colorLabel);
             }
         }
+
+        if (!sp.envelopes.isEmpty()) {
+            property->clearEnvelopes();
+            for (const QJsonValue& envVal : sp.envelopes) {
+                const QJsonObject envObj = envVal.toObject();
+                EnvelopeTrack envelope;
+                envelope.targetPropertyPath = envObj.value(QStringLiteral("targetPropertyPath")).toString();
+                envelope.scope = static_cast<EnvelopeScope>(
+                    envObj.value(QStringLiteral("scope")).toInt(static_cast<int>(EnvelopeScope::Absolute)));
+                envelope.mode = static_cast<EnvelopeMode>(
+                    envObj.value(QStringLiteral("mode")).toInt(static_cast<int>(EnvelopeMode::Override)));
+                envelope.startTime = RationalTime(
+                    envObj.value(QStringLiteral("startTimeValue")).toInteger(),
+                    envObj.value(QStringLiteral("startTimeScale")).toInteger(1));
+                envelope.endTime = RationalTime(
+                    envObj.value(QStringLiteral("endTimeValue")).toInteger(),
+                    envObj.value(QStringLiteral("endTimeScale")).toInteger(1));
+                envelope.strength = envObj.value(QStringLiteral("strength")).toDouble(1.0);
+                envelope.enabled = envObj.value(QStringLiteral("enabled")).toBool(true);
+                property->addEnvelope(envelope);
+            }
+        }
     }
 
     static SerializedOwner serializeOwner(const PropertyPath& ownerPath,
@@ -261,6 +301,9 @@ public:
             if (!sp.keyframes.isEmpty()) {
                 pobj[QStringLiteral("keyframes")] = sp.keyframes;
             }
+            if (!sp.envelopes.isEmpty()) {
+                pobj[QStringLiteral("envelopes")] = sp.envelopes;
+            }
             if (!sp.metadata.isEmpty()) {
                 pobj[QStringLiteral("metadata")] = sp.metadata;
             }
@@ -289,6 +332,7 @@ public:
             sp.value = pobj.value(QStringLiteral("value"));
             sp.expression = pobj.value(QStringLiteral("expression")).toString();
             sp.keyframes = pobj.value(QStringLiteral("keyframes")).toArray();
+            sp.envelopes = pobj.value(QStringLiteral("envelopes")).toArray();
             sp.metadata = pobj.value(QStringLiteral("metadata")).toObject();
             so.properties.push_back(std::move(sp));
         }

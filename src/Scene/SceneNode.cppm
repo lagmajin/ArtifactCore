@@ -13,6 +13,7 @@ class tst_QList;
 
 module Scene.SceneNode;
 
+import Container.NamedVector;
 import Mesh;
 import Material.Material;
 import Utils.String.UniString;
@@ -105,21 +106,23 @@ SceneNode* SceneNode::parent() const { return impl_->parent_; }
 
 std::vector<SceneNode*> SceneNode::children() const
 {
- std::vector<SceneNode*> result;
+ NamedVector<SceneNode*> result{makeNamedVector<SceneNode*>(ContainerName{"SceneNodeChildren"})};
  result.reserve(impl_->children_.size());
- for (auto& c : impl_->children_) result.push_back(c.get());
- return result;
+ for (auto& c : impl_->children_) result.add(c.get());
+ return result.toStdVector();
 }
 
 std::vector<SceneNode*> SceneNode::descendants() const
 {
- std::vector<SceneNode*> result;
+ NamedVector<SceneNode*> result{makeNamedVector<SceneNode*>(ContainerName{"SceneNodeDescendants"})};
  for (auto& c : impl_->children_) {
-  result.push_back(c.get());
+  result.add(c.get());
   auto sub = c->descendants();
-  result.insert(result.end(), sub.begin(), sub.end());
+  for (auto* node : sub) {
+   result.add(node);
+  }
  }
- return result;
+ return result.toStdVector();
 }
 
 QString SceneNode::path() const
