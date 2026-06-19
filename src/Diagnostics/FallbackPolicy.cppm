@@ -38,11 +38,11 @@ void FallbackTracker::record(FallbackCategory category, FallbackAction action,
     record(event);
 }
 
-std::vector<FallbackEvent> FallbackTracker::getEvents() const {
+NamedVector<FallbackEvent> FallbackTracker::getEvents() const {
     return events_.toStdVector();
 }
 
-std::vector<FallbackEvent> FallbackTracker::getEventsByCategory(FallbackCategory category) const {
+NamedVector<FallbackEvent> FallbackTracker::getEventsByCategory(FallbackCategory category) const {
     auto result = makeNamedVector<FallbackEvent>(ContainerName{"FallbackEventsByCategory"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& e : events_) {
         if (e.category == category) {
@@ -52,7 +52,7 @@ std::vector<FallbackEvent> FallbackTracker::getEventsByCategory(FallbackCategory
     return result.toStdVector();
 }
 
-std::vector<FallbackEvent> FallbackTracker::getEventsSince(const QDateTime& since) const {
+NamedVector<FallbackEvent> FallbackTracker::getEventsSince(const QDateTime& since) const {
     auto result = makeNamedVector<FallbackEvent>(ContainerName{"FallbackEventsSince"}, ARTIFACT_CONTAINER_HERE);
     for (const auto& e : events_) {
         if (e.timestamp >= since) {

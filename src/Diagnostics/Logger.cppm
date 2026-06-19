@@ -129,7 +129,7 @@ void Logger::uninstall() {
     }
 }
 
-std::vector<LogMessage> Logger::getLogs() const {
+NamedVector<LogMessage> Logger::getLogs() const {
     // Return a copy so callers never observe the live vector after the lock is released.
     std::lock_guard<std::mutex> lock(mutex_);
     return logs_;

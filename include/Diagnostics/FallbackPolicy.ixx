@@ -76,9 +76,9 @@ public:
                 const QString& originalId, const QString& resolvedId,
                 const QString& message = "");
 
-    std::vector<FallbackEvent> getEvents() const;
-    std::vector<FallbackEvent> getEventsByCategory(FallbackCategory category) const;
-    std::vector<FallbackEvent> getEventsSince(const QDateTime& since) const;
+    NamedVector<FallbackEvent> getEvents() const;
+    NamedVector<FallbackEvent> getEventsByCategory(FallbackCategory category) const;
+    NamedVector<FallbackEvent> getEventsSince(const QDateTime& since) const;
     void clear();
 
     int totalCount() const;

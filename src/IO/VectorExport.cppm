@@ -6,6 +6,7 @@ module;
 #include <QTextStream>
 #include <QPointF>
 #include <QRectF>
+#include <QSize>
 #include <QTransform>
 #include <cmath>
 #include <vector>
@@ -227,6 +228,130 @@ QString CssAnimationExporter::generateCss(
     out << QStringLiteral("}\n");
 
     return css;
+}
+
+static QString escapeHtmlText(const QString& text)
+{
+    QString escaped = text;
+    escaped.replace('&', QStringLiteral("&amp;"));
+    escaped.replace('<', QStringLiteral("&lt;"));
+    escaped.replace('>', QStringLiteral("&gt;"));
+    escaped.replace('"', QStringLiteral("&quot;"));
+    return escaped;
+}
+
+QString HtmlPlayerWriter::generateHtml(const HtmlPlayerData& data)
+{
+    return generateFromSequence(data.title, data.compositionSize, data.css, data.svgMarkup);
+}
+
+QString HtmlPlayerWriter::generateFromSequence(const QString& title,
+                                               const QSize& compositionSize,
+                                               const QString& css,
+                                               const QString& svgMarkup)
+{
+    QString html;
+    QTextStream out(&html);
+    const QString safeTitle = escapeHtmlText(title.isEmpty() ? QStringLiteral("Artifact Web Export") : title);
+    out << QStringLiteral("<!doctype html>\n<html lang=\"en\">\n<head>\n");
+    out << QStringLiteral("<meta charset=\"utf-8\">\n");
+    out << QStringLiteral("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
+    out << QStringLiteral("<title>%1</title>\n").arg(safeTitle);
+    out << QStringLiteral("<style>\n");
+    out << QStringLiteral("html,body{margin:0;height:100%%;background:#101318;color:#f3f6fb;font-family:system-ui,sans-serif;}\n");
+    out << QStringLiteral(".frame{display:grid;place-items:center;min-height:100vh;padding:24px;box-sizing:border-box;}\n");
+    out << QStringLiteral(".composition{position:relative;width:min(100%%, %1px);aspect-ratio:%1/%2;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.35);border-radius:18px;background:#0a0d12;}\n")
+               .arg(compositionSize.width())
+               .arg(compositionSize.height());
+    out << css << '\n';
+    out << QStringLiteral("</style>\n</head>\n<body>\n<div class=\"frame\">\n");
+    out << QStringLiteral("<div class=\"composition\">\n");
+    out << svgMarkup << '\n';
+    out << QStringLiteral("</div>\n</div>\n</body>\n</html>\n");
+    return html;
+}
+
+QString HtmlPlayerWriter::generateFrameSequencePlayer(const QString& title,
+                                                      const QSize& compositionSize,
+                                                      const QStringList& frameFiles,
+                                                      double durationSec)
+{
+    const QString safeTitle = escapeHtmlText(title.isEmpty() ? QStringLiteral("Artifact Web Export") : title);
+    const int frameCount = std::max(1, frameFiles.size());
+    const double fps = durationSec > 0.0
+                           ? static_cast<double>(frameCount) / durationSec
+                           : 30.0;
+
+    QString css;
+    QTextStream out(&css);
+    out << QStringLiteral(".player{position:relative;width:100%%;height:100%%;display:grid;grid-template-rows:1fr auto;gap:12px;padding:16px;box-sizing:border-box;}\n");
+    out << QStringLiteral(".stage{position:relative;min-height:0;border-radius:14px;overflow:hidden;background:linear-gradient(180deg,#0d1016,#07090d);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);}\n");
+    out << QStringLiteral(".stage img{position:absolute;inset:0;width:100%%;height:100%%;object-fit:contain;opacity:0;transition:opacity 120ms linear;}\n");
+    out << QStringLiteral(".stage img.is-active{opacity:1;}\n");
+    out << QStringLiteral(".hud{display:flex;justify-content:space-between;align-items:center;gap:12px;font:500 12px/1.2 system-ui,sans-serif;color:#d8e1ee;opacity:.9;}\n");
+    out << QStringLiteral(".hud strong{font-size:13px;color:#f4f7fb;}\n");
+    out << QStringLiteral(".timeline{appearance:none;width:100%%;height:6px;border-radius:999px;background:#232834;outline:none;}\n");
+    out << QStringLiteral(".timeline::-webkit-slider-thumb{appearance:none;width:16px;height:16px;border-radius:50%%;background:#83aef5;border:2px solid #eaf2ff;box-shadow:0 0 0 3px rgba(131,174,245,.18);}\n");
+    out << QStringLiteral(".timeline::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%%;background:#83aef5;}\n");
+    out << QStringLiteral(".help{font-size:11px;opacity:.72;}\n");
+    out << QStringLiteral("button{border:0;border-radius:999px;padding:8px 12px;background:#20324c;color:#f4f7fb;font-weight:600;cursor:pointer;}\n");
+    out << QStringLiteral("button:hover{background:#29405f;}\n");
+    out << QStringLiteral("@media (max-width: 720px){.player{padding:12px}.hud{flex-direction:column;align-items:flex-start}.help{display:none}}\n");
+    out << QStringLiteral(":root{--frame-count:%1;}\n").arg(frameCount);
+
+    QString framesMarkup;
+    QTextStream ms(&framesMarkup);
+    if (frameFiles.isEmpty()) {
+        ms << QStringLiteral("<div style=\"position:absolute;inset:0;display:grid;place-items:center;color:#dfe7f2;font:500 14px system-ui,sans-serif;\">No frames available</div>\n");
+    } else {
+        for (int i = 0; i < frameFiles.size(); ++i) {
+            ms << QStringLiteral("<img class=\"frame-%1%2\" src=\"%3\" alt=\"frame %1\" data-index=\"%1\">\n")
+                  .arg(i)
+                  .arg(i == 0 ? QStringLiteral(" is-active") : QString())
+                  .arg(escapeHtmlText(frameFiles[i]));
+        }
+    }
+
+    QString script;
+    QTextStream js(&script);
+    js << QStringLiteral("(function(){\n");
+    js << QStringLiteral("const frames=[...document.querySelectorAll('.stage img')];\n");
+    js << QStringLiteral("const slider=document.querySelector('.timeline');\n");
+    js << QStringLiteral("const label=document.querySelector('[data-frame-label]');\n");
+    js << QStringLiteral("const total=Math.max(1, frames.length);\n");
+    js << QStringLiteral("let current=0;\n");
+    js << QStringLiteral("function show(index){\n");
+    js << QStringLiteral("  current=(index+total)%total;\n");
+    js << QStringLiteral("  frames.forEach((img,i)=>img.classList.toggle('is-active', i===current));\n");
+    js << QStringLiteral("  if (slider) slider.value=String(current);\n");
+    js << QStringLiteral("  if (label) label.textContent=`Frame ${current+1}/${total}`;\n");
+    js << QStringLiteral("}\n");
+    js << QStringLiteral("if (slider){slider.max=String(total-1);slider.value='0';slider.addEventListener('input',e=>show(Number(e.target.value)||0));}\n");
+    js << QStringLiteral("document.querySelector('[data-prev]')?.addEventListener('click',()=>show(current-1));\n");
+    js << QStringLiteral("document.querySelector('[data-next]')?.addEventListener('click',()=>show(current+1));\n");
+    js << QStringLiteral("window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')show(current-1); if(e.key==='ArrowRight')show(current+1);});\n");
+    js << QStringLiteral("const rate=%1;\n").arg(fps, 0, 'f', 3);
+    js << QStringLiteral("let timer=setInterval(()=>show(current+1), Math.max(33, 1000/rate));\n");
+    js << QStringLiteral("document.addEventListener('visibilitychange',()=>{clearInterval(timer); if(!document.hidden){timer=setInterval(()=>show(current+1), Math.max(33, 1000/rate));}});\n");
+    js << QStringLiteral("show(0);\n");
+    js << QStringLiteral("})();\n");
+
+    QString body;
+    QTextStream bodyOut(&body);
+    bodyOut << QStringLiteral("<div class=\"player\">\n");
+    bodyOut << QStringLiteral("<div class=\"stage\">\n%1</div>\n").arg(framesMarkup);
+    bodyOut << QStringLiteral("<div class=\"hud\">\n");
+    bodyOut << QStringLiteral("<div><strong>%1</strong><div class=\"help\">Arrow keys or slider to inspect frames</div></div>\n").arg(safeTitle);
+    bodyOut << QStringLiteral("<div data-frame-label>Frame 1/%1</div>\n").arg(frameCount);
+    bodyOut << QStringLiteral("<div style=\"display:flex;gap:8px;align-items:center;\">\n");
+    bodyOut << QStringLiteral("<button type=\"button\" data-prev>Prev</button>\n");
+    bodyOut << QStringLiteral("<button type=\"button\" data-next>Next</button>\n");
+    bodyOut << QStringLiteral("</div>\n");
+    bodyOut << QStringLiteral("</div>\n");
+    bodyOut << QStringLiteral("<input class=\"timeline\" type=\"range\" min=\"0\" max=\"%1\" value=\"0\" aria-label=\"frame timeline\">\n").arg(std::max(0, frameCount - 1));
+    bodyOut << QStringLiteral("</div>\n");
+
+    return generateFromSequence(safeTitle, compositionSize, css + QStringLiteral("\n") + QStringLiteral(""), body + QStringLiteral("<script>\n") + script + QStringLiteral("</script>\n"));
 }
 
 } // namespace ArtifactCore

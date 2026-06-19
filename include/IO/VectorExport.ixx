@@ -32,6 +32,13 @@ struct CssAnimationData {
     std::vector<CssKeyframeProperty> properties;
 };
 
+struct HtmlPlayerData {
+    QString title;
+    QSize compositionSize;
+    QString css;
+    QString svgMarkup;
+};
+
 class SvgFrameExporter {
 public:
     static QString exportLayerToSvg(const ShapeLayer& layer, const QTransform& transform = QTransform());
@@ -54,6 +61,19 @@ public:
 
     static QString generateCss(const CssAnimationData& data,
                                const QSize& compositionSize);
+};
+
+class HtmlPlayerWriter {
+public:
+    static QString generateHtml(const HtmlPlayerData& data);
+    static QString generateFromSequence(const QString& title,
+                                       const QSize& compositionSize,
+                                       const QString& css,
+                                       const QString& svgMarkup);
+    static QString generateFrameSequencePlayer(const QString& title,
+                                               const QSize& compositionSize,
+                                               const QStringList& frameFiles,
+                                               double durationSec);
 };
 
 } // namespace ArtifactCore
