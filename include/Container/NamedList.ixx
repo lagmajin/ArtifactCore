@@ -333,16 +333,16 @@ public:
     return hit;
   }
 
-  NamedVector<ContainerElementSample> debugSample(std::size_t limit = 4) const
+  std::vector<ContainerElementSample> debugSample(std::size_t limit = 4) const
   {
-    NamedVector<ContainerElementSample> samples{ContainerName{"ContainerElementSamples"}};
+    std::vector<ContainerElementSample> samples;
     const auto sampleCount = values_.size() < limit ? values_.size() : limit;
     std::size_t index = 0;
     for (const auto& value : values_) {
       if (index >= sampleCount) {
         break;
       }
-      samples.add(ContainerElementSample{
+      samples.push_back(ContainerElementSample{
         index,
         static_cast<const void*>(&value),
         "sample"

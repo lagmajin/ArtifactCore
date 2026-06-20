@@ -12,8 +12,6 @@
 #include <vector>
 module ArtifactCore.Event.EventBusDebugger;
 
-import Container.NamedVector;
-
 namespace ArtifactCore {
 
 static double nowMs()
@@ -173,22 +171,22 @@ std::string EventBusDebugger::cleanName(std::string_view raw)
 }
 
 // ------------------------------------------------------------------ fireLog
-NamedVector<FireEntry> EventBusDebugger::fireLog(bool dupesOnly) const
+std::vector<FireEntry> EventBusDebugger::fireLog(bool dupesOnly) const
 {
     std::lock_guard lock(mutex_);
-    if (!dupesOnly) return log_.toStdVector();
-    auto out = makeNamedVector<FireEntry>(ContainerName{"EventBusFireLog"}, ARTIFACT_CONTAINER_HERE);
+    if (!dupesOnly) return log_;
+    std::vector<FireEntry> out;
     out.reserve(log_.size());
     for (const auto& e : log_) {
-        if (e.isDuplicate) out.add(e);
+        if (e.isDuplicate) out.push_back(e);
     }
     return out;
 }
 
 // ------------------------------------------------------------------ subscriberSnapshot
-NamedVector<SubscriberInfo> EventBusDebugger::subscriberSnapshot() const
+std::vector<SubscriberInfo> EventBusDebugger::subscriberSnapshot() const
 {
-    auto out = makeNamedVector<SubscriberInfo>(ContainerName{"EventBusSubscribers"}, ARTIFACT_CONTAINER_HERE);
+    std::vector<SubscriberInfo> out;
 
     EventBus* bus = nullptr;
     {
@@ -227,7 +225,7 @@ NamedVector<SubscriberInfo> EventBusDebugger::subscriberSnapshot() const
 
     out.reserve(byType.size());
     for (auto& [t, info] : byType) {
-        out.add(std::move(info));
+        out.push_back(std::move(info));
     }
     std::sort(out.begin(), out.end(), [](const SubscriberInfo& a, const SubscriberInfo& b) {
         return a.eventName < b.eventName;
@@ -236,14 +234,14 @@ NamedVector<SubscriberInfo> EventBusDebugger::subscriberSnapshot() const
 }
 
 // ------------------------------------------------------------------ frequencySnapshot
-NamedVector<FrequencyEntry> EventBusDebugger::frequencySnapshot() const
+std::vector<FrequencyEntry> EventBusDebugger::frequencySnapshot() const
 {
     std::lock_guard lock(mutex_);
     const double nowMs_ = nowMs();
     const double cutoff = nowMs_ - (kFreqWindowSec * 1000.0);
     const double thresh = highFreqThresh_;
 
-    auto out = makeNamedVector<FrequencyEntry>(ContainerName{"EventBusFrequency"}, ARTIFACT_CONTAINER_HERE);
+    std::vector<FrequencyEntry> out;
     out.reserve(perEvent_.size());
 
     for (const auto& [type, state] : perEvent_) {
@@ -261,22 +259,22 @@ NamedVector<FrequencyEntry> EventBusDebugger::frequencySnapshot() const
         fe.firesPerSec = fps;
         fe.totalFires  = state.totalFires;
         fe.isHighFreq  = fps >= thresh;
-        out.add(std::move(fe));
+        out.push_back(std::move(fe));
     }
     std::sort(out.begin(), out.end(), [](const FrequencyEntry& a, const FrequencyEntry& b) {
         return a.firesPerSec > b.firesPerSec;
     });
-    return out.toStdVector();
+    return out;
 }
 
 // ------------------------------------------------------------------ perEventStats
-NamedVector<PerEventStats> EventBusDebugger::perEventStats() const
+std::vector<PerEventStats> EventBusDebugger::perEventStats() const
 {
     std::lock_guard lock(mutex_);
     const double now = nowMs();
     const double cutoff = now - (kFreqWindowSec * 1000.0);
 
-    auto out = makeNamedVector<PerEventStats>(ContainerName{"EventBusStats"}, ARTIFACT_CONTAINER_HERE);
+    std::vector<PerEventStats> out;
     out.reserve(perEvent_.size());
 
     for (const auto& [type, state] : perEvent_) {
@@ -299,12 +297,12 @@ NamedVector<PerEventStats> EventBusDebugger::perEventStats() const
             ? (state.durationUsTotal / static_cast<std::int64_t>(state.durationCount))
             : 0;
         s.isSlowAvg = (slowThreshUs_ > 0) && (s.avgDurationUs >= slowThreshUs_);
-        out.add(std::move(s));
+        out.push_back(std::move(s));
     }
     std::sort(out.begin(), out.end(), [](const PerEventStats& a, const PerEventStats& b) {
         return a.totalFires > b.totalFires;
     });
-    return out.toStdVector();
+    return out;
 }
 
 // ------------------------------------------------------------------ globalStats

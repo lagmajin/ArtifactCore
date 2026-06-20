@@ -5,8 +5,6 @@
 
 module Core.Diagnostics.DiagnosticEngine;
 
-import Container.NamedVector;
-
 namespace ArtifactCore {
 
 // ============================================================================
@@ -15,15 +13,15 @@ namespace ArtifactCore {
 
 void ValidationRuleRegistry::registerRule(std::unique_ptr<IValidationRule> rule) {
     if (!rule) return;
-    rules_.add(std::move(rule));
+    rules_.push_back(std::move(rule));
 }
 
 void ValidationRuleRegistry::unregisterRule(const QString& name) {
     std::size_t index = 0;
-    while (index < rules_.count()) {
-        const auto* rule = rules_.at(index);
+    while (index < rules_.size()) {
+        const auto& rule = rules_[index];
         if (rule && rule->name() == name) {
-            rules_.removeAt(index);
+            rules_.erase(rules_.begin() + static_cast<std::ptrdiff_t>(index));
             continue;
         }
         ++index;
@@ -35,21 +33,20 @@ void ValidationRuleRegistry::clearRules() {
 }
 
 auto ValidationRuleRegistry::getRule(const QString& name) -> IValidationRule* {
-    IValidationRule* found = nullptr;
-    rules_.each([&](const auto& rule) {
-        if (!found && rule && rule->name() == name) {
-            found = rule.get();
+    for (const auto& rule : rules_) {
+        if (rule && rule->name() == name) {
+            return rule.get();
         }
-    });
-    return found;
+    }
+    return nullptr;
 }
 
 void ValidationRuleRegistry::setRuleEnabled(const QString& name, bool enabled) {
-    rules_.mutableEach([&](auto& rule) {
+    for (auto& rule : rules_) {
         if (rule && rule->name() == name) {
             rule->setEnabled(enabled);
         }
-    });
+    }
 }
 
 // ============================================================================
@@ -61,13 +58,13 @@ DiagnosticEngine::DiagnosticEngine() = default;
 auto DiagnosticEngine::validateAll(const void* project) -> DiagnosticResult {
     DiagnosticResult result;
 
-    ruleRegistry_.getRules().each([&](const auto& rule) {
+    for (const auto& rule : ruleRegistry_.getRules()) {
         if (!rule || !rule->enabled()) {
-            return;
+            continue;
         }
         auto diagnostics = rule->validate(project);
         result.addDiagnostics(diagnostics);
-    });
+    }
 
     // キャッシュ
     cachedResult_ = result;

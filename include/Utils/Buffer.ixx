@@ -59,7 +59,8 @@ inline BufferView toBufferView(const QString& value) {
 }
 
 inline BufferView toBufferView(QStringView value) {
-  return BufferView(value.data(), value.size());
+  return BufferView(reinterpret_cast<const char*>(value.data()),
+                    static_cast<int>(value.size() * sizeof(QChar)));
 }
 
 inline BufferView toBufferView(const QByteArray& value) {

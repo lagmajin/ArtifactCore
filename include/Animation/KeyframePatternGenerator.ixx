@@ -10,11 +10,11 @@ module;
 
 export module Animation.KeyframePatternGenerator;
 
-import Property.Abstract;
-import Math.Interpolate;
 import Time.Rational;
 
 export namespace ArtifactCore {
+
+enum class InterpolationType : int;
 
 enum class KeyframePatternPreset {
   Stagger,
@@ -53,7 +53,18 @@ struct KeyframePatternRequest {
 };
 
 struct KeyframePatternResult {
-  QVector<KeyFrame> keyframes;
+  struct Keyframe {
+    RationalTime time;
+    QVariant value;
+    InterpolationType interpolation = static_cast<InterpolationType>(0);
+    float cp1_x = 0.42f;
+    float cp1_y = 0.0f;
+    float cp2_x = 0.58f;
+    float cp2_y = 1.0f;
+    bool roving = false;
+  };
+
+  QVector<Keyframe> keyframes;
   QString warning;
 };
 
@@ -97,9 +108,9 @@ inline QVariant numericLikeVariant(const QVariant &templateValue, double value) 
   }
 }
 
-inline KeyFrame makeKeyFrame(double frame, const QVariant &value,
-                             int frameScale, InterpolationType interpolation = InterpolationType::Linear) {
-  KeyFrame keyframe;
+inline KeyframePatternResult::Keyframe makeKeyFrame(double frame, const QVariant &value,
+                             int frameScale, InterpolationType interpolation = static_cast<InterpolationType>(0)) {
+  KeyframePatternResult::Keyframe keyframe;
   keyframe.time = RationalTime(static_cast<int64_t>(std::llround(frame)),
                                static_cast<int64_t>(std::max(1, frameScale)));
   keyframe.value = value;
@@ -125,12 +136,12 @@ inline QVariant numericTarget(const KeyframePatternRequest &request,
   return numericLikeVariant(baseValue, safeDouble(baseValue) + request.amplitude);
 }
 
-inline void appendSampledCurve(QVector<KeyFrame> &out,
+inline void appendSampledCurve(QVector<KeyframePatternResult::Keyframe> &out,
                                const KeyframePatternRequest &request,
                                const QVariant &baseValue,
                                const QVariant &targetValue,
                                auto &&valueForAlpha,
-                               InterpolationType interpolation = InterpolationType::Linear,
+                               InterpolationType interpolation = static_cast<InterpolationType>(0),
                                int sampleCount = -1) {
   const int samples = std::max(2, sampleCount >= 0 ? sampleCount : request.sampleCount);
   const double start = request.startFrame;
@@ -143,13 +154,13 @@ inline void appendSampledCurve(QVector<KeyFrame> &out,
   }
 }
 
-inline void appendRamp(QVector<KeyFrame> &out, const KeyframePatternRequest &request,
+inline void appendRamp(QVector<KeyframePatternResult::Keyframe> &out, const KeyframePatternRequest &request,
                        const QVariant &baseValue, const QVariant &targetValue,
                        double startOffset = 0.0) {
   out.push_back(makeKeyFrame(request.startFrame + startOffset, baseValue,
-                             request.frameScale, InterpolationType::Linear));
+                             request.frameScale, static_cast<InterpolationType>(0)));
   out.push_back(makeKeyFrame(request.endFrame + startOffset, targetValue,
-                             request.frameScale, InterpolationType::Linear));
+                             request.frameScale, static_cast<InterpolationType>(0)));
 }
 
 inline QVariant waveValue(double alpha, const QVariant &baseValue, const QVariant &targetValue,
@@ -244,25 +255,38 @@ inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePa
     const double end = std::max(request.startFrame + 1.0, request.endFrame);
     const double mid = start + (end - start) * 0.5;
     result.keyframes.push_back(detail::makeKeyFrame(start, baseValue, request.frameScale,
-                                                    InterpolationType::EaseOut));
+                                                    static_cast<InterpolationType>(4)));
     result.keyframes.push_back(detail::makeKeyFrame(start + (end - start) * 0.25, targetValue,
-                                                    request.frameScale, InterpolationType::EaseInOut));
+                                                    request.frameScale, static_cast<InterpolationType>(5)));
     result.keyframes.push_back(detail::makeKeyFrame(mid, targetValue,
-                                                    request.frameScale, InterpolationType::EaseInOut));
+                                                    request.frameScale, static_cast<InterpolationType>(5)));
     result.keyframes.push_back(detail::makeKeyFrame(end, baseValue,
-                                                    request.frameScale, InterpolationType::EaseIn));
+                                                    request.frameScale, static_cast<InterpolationType>(3)));
     break;
   }
   case KeyframePatternPreset::Bounce: {
     detail::appendSampledCurve(
         result.keyframes, request, baseValue, targetValue,
         [&](double alpha, const QVariant &from, const QVariant &to) {
+          double eased = 0.0;
+          if (alpha < (1.0 / 2.75)) {
+            eased = 7.5625 * alpha * alpha;
+          } else if (alpha < (2.0 / 2.75)) {
+            const double shifted = alpha - (1.5 / 2.75);
+            eased = 7.5625 * shifted * shifted + 0.75;
+          } else if (alpha < (2.5 / 2.75)) {
+            const double shifted = alpha - (2.25 / 2.75);
+            eased = 7.5625 * shifted * shifted + 0.9375;
+          } else {
+            const double shifted = alpha - (2.625 / 2.75);
+            eased = 7.5625 * shifted * shifted + 0.984375;
+          }
+          const double startValue = detail::safeDouble(from);
+          const double endValue = detail::safeDouble(to);
           return detail::numericLikeVariant(
-              from, ArtifactCore::interpolate(detail::safeDouble(from),
-                                              detail::safeDouble(to), static_cast<float>(alpha),
-                                              InterpolationType::BounceOut));
+              from, startValue + (endValue - startValue) * eased);
         },
-        InterpolationType::Linear, std::max(5, request.sampleCount));
+        static_cast<InterpolationType>(0), std::max(5, request.sampleCount));
     break;
   }
   case KeyframePatternPreset::Shake: {
@@ -274,7 +298,7 @@ inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePa
       const double alpha = samples == 1 ? 1.0 : static_cast<double>(i) / static_cast<double>(samples - 1);
       const double frame = start + (end - start) * alpha;
       result.keyframes.push_back(detail::makeKeyFrame(frame, detail::shakeValue(rng, baseValue, request.amplitude),
-                                                       request.frameScale, InterpolationType::Linear));
+                                                       request.frameScale, static_cast<InterpolationType>(0)));
     }
     break;
   }
@@ -286,7 +310,7 @@ inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePa
           return detail::waveValue(alpha, from, to, request.amplitude,
                                    std::max(1.0, request.cycles), request.phase);
         },
-        InterpolationType::Linear, std::max(6, request.sampleCount));
+        static_cast<InterpolationType>(0), std::max(6, request.sampleCount));
     break;
   }
   case KeyframePatternPreset::Step: {
@@ -301,7 +325,7 @@ inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePa
       result.keyframes.push_back(detail::makeKeyFrame(frame,
                                                        detail::numericLikeVariant(baseValue, value),
                                                        request.frameScale,
-                                                       InterpolationType::Constant));
+                                                       static_cast<InterpolationType>(1)));
     }
     break;
   }
@@ -315,7 +339,7 @@ inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePa
       const double frame = start + (end - start) * alpha;
       result.keyframes.push_back(detail::makeKeyFrame(
           frame, detail::randomHoldValue(rng, baseValue, request.amplitude),
-          request.frameScale, InterpolationType::Constant));
+          request.frameScale, static_cast<InterpolationType>(1)));
     }
     break;
   }
@@ -323,12 +347,15 @@ inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePa
     detail::appendSampledCurve(
         result.keyframes, request, baseValue, targetValue,
         [&](double alpha, const QVariant &from, const QVariant &to) {
+          constexpr double s = 1.70158;
+          const double shifted = alpha - 1.0;
+          const double eased = shifted * shifted * ((s + 1.0) * shifted + s) + 1.0;
+          const double startValue = detail::safeDouble(from);
+          const double endValue = detail::safeDouble(to);
           return detail::numericLikeVariant(
-              from, ArtifactCore::interpolate(detail::safeDouble(from),
-                                              detail::safeDouble(to), static_cast<float>(alpha),
-                                              InterpolationType::BackOut));
+              from, startValue + (endValue - startValue) * eased);
         },
-        InterpolationType::Linear, std::max(5, request.sampleCount));
+        static_cast<InterpolationType>(0), std::max(5, request.sampleCount));
     break;
   }
   case KeyframePatternPreset::Settle: {
@@ -338,7 +365,7 @@ inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePa
           return detail::settleValue(alpha, from, to, request.amplitude,
                                      request.damping, request.settleOscillation);
         },
-        InterpolationType::Linear, std::max(6, request.sampleCount));
+        static_cast<InterpolationType>(0), std::max(6, request.sampleCount));
     break;
   }
   case KeyframePatternPreset::BeatSync: {
@@ -354,11 +381,11 @@ inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePa
         break;
       }
       result.keyframes.push_back(detail::makeKeyFrame(beatStart, baseValue, request.frameScale,
-                                                      InterpolationType::Constant));
+                                                      static_cast<InterpolationType>(1)));
       result.keyframes.push_back(detail::makeKeyFrame(beatMid, targetValue, request.frameScale,
-                                                      InterpolationType::EaseOut));
+                                                      static_cast<InterpolationType>(4)));
       result.keyframes.push_back(detail::makeKeyFrame(std::min(beatEnd, end), baseValue,
-                                                      request.frameScale, InterpolationType::Constant));
+                                                      request.frameScale, static_cast<InterpolationType>(1)));
     }
     break;
   }

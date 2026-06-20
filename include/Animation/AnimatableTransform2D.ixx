@@ -4,8 +4,6 @@
 
 export module Animation.Transform2D;
 
-import Animation.Value;
-
 export namespace ArtifactCore {
 
  class AnimatableTransform2D {

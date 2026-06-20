@@ -7,7 +7,6 @@ export module Core.Diagnostics.ValidationRules;
 
 import Core.Diagnostics.ProjectDiagnostic;
 import Core.Diagnostics.DiagnosticEngine;
-import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -20,7 +19,7 @@ public:
         name_ = "MissingFileValidation";
     }
 
-    auto validate(const void* project) -> NamedVector<ProjectDiagnostic> override;
+    auto validate(const void* project) -> std::vector<ProjectDiagnostic> override;
 };
 
 /// <summary>
@@ -32,11 +31,11 @@ public:
         name_ = "CircularDependencyValidation";
     }
 
-    auto validate(const void* project) -> NamedVector<ProjectDiagnostic> override;
+    auto validate(const void* project) -> std::vector<ProjectDiagnostic> override;
 
 private:
     // DFSで循環依存を検出
-    auto detectCycles(const void* project) -> NamedVector<QString>;
+    auto detectCycles(const void* project) -> std::vector<QString>;
 };
 
 /// <summary>
@@ -48,7 +47,7 @@ public:
         name_ = "MatteReferenceValidation";
     }
 
-    auto validate(const void* project) -> NamedVector<ProjectDiagnostic> override;
+    auto validate(const void* project) -> std::vector<ProjectDiagnostic> override;
 };
 
 /// <summary>
@@ -60,7 +59,7 @@ public:
         name_ = "ExpressionValidation";
     }
 
-    auto validate(const void* project) -> NamedVector<ProjectDiagnostic> override;
+    auto validate(const void* project) -> std::vector<ProjectDiagnostic> override;
 };
 
 /// <summary>
@@ -72,7 +71,7 @@ public:
         name_ = "PerformanceValidation";
     }
 
-    auto validate(const void* project) -> NamedVector<ProjectDiagnostic> override;
+    auto validate(const void* project) -> std::vector<ProjectDiagnostic> override;
 };
 
 } // namespace ArtifactCore

@@ -9,7 +9,6 @@ module;
 
 module Shape.Group:Impl;
 
-import Container.NamedVector;
 import Shape.Group;
 import Shape.TrimPaths;
 import Shape.Repeater;
@@ -89,12 +88,12 @@ ShapeElement* ShapeGroup::childAt(int index) const {
 }
 
 std::vector<ShapeElement*> ShapeGroup::children() const {
-    NamedVector<ShapeElement*> result{makeNamedVector<ShapeElement*>(ContainerName{"ShapeGroupChildren"})};
+    std::vector<ShapeElement*> result;
     result.reserve(children_.size());
     for (const auto& child : children_) {
-        result.add(child.get());
+        result.push_back(child.get());
     }
-    return result.toStdVector();
+    return result;
 }
 
 int ShapeGroup::indexOf(ShapeElement* child) const {

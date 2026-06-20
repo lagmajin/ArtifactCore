@@ -14,7 +14,6 @@
 
 module Shape.Path:Impl;
 
-import Container.NamedVector;
 import Shape.Path;
 import Shape.Types;
 import Math;
@@ -658,14 +657,14 @@ QPointF ShapePath::quadPointAtLength(const QPointF& p0, const QPointF& p1, const
 
 std::vector<ShapePath> ShapePath::subpaths() const
 {
-    NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"ShapePathSubpaths"})};
+    std::vector<ShapePath> result;
     if (impl_->commands_.empty()) return result;
 
     ShapePath current;
     for (const auto& cmd : impl_->commands_) {
         if (cmd.type == PathCommandType::MoveTo) {
             if (!current.impl_->commands_.empty()) {
-                result.add(std::move(current));
+                result.push_back(std::move(current));
                 current = ShapePath();
             }
             current.impl_->commands_.push_back(cmd);
@@ -674,8 +673,8 @@ std::vector<ShapePath> ShapePath::subpaths() const
         }
     }
     if (!current.impl_->commands_.empty())
-        result.add(std::move(current));
-    return result.toStdVector();
+        result.push_back(std::move(current));
+    return result;
 }
 
 // ========================================
@@ -684,7 +683,7 @@ std::vector<ShapePath> ShapePath::subpaths() const
 
 std::vector<QPointF> ShapePath::sampleEquidistant(int count) const
 {
-    NamedVector<QPointF> result{makeNamedVector<QPointF>(ContainerName{"ShapePathSampleEquidistant"})};
+    std::vector<QPointF> result;
     if (impl_->commands_.empty() || count < 2) return result;
 
     QPainterPath qpath = toPainterPath();
@@ -693,16 +692,16 @@ std::vector<QPointF> ShapePath::sampleEquidistant(int count) const
     const double totalLen = qpath.length();
     if (totalLen < 1e-9) {
         result.resize(count, QPointF(0, 0));
-        return result.toStdVector();
+        return result;
     }
 
     result.reserve(count);
     for (int i = 0; i < count; ++i) {
         const double t = qpath.percentAtLength(
             static_cast<double>(i) / (count - 1) * totalLen);
-        result.add(qpath.pointAtPercent(t));
+        result.push_back(qpath.pointAtPercent(t));
     }
-    return result.toStdVector();
+    return result;
 }
 
 // ========================================

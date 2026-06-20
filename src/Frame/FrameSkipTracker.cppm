@@ -7,8 +7,6 @@ module;
 
 module Frame.SkipTracker;
 
-import Container.NamedVector;
-
 namespace ArtifactCore {
 
 FrameSkipTracker* FrameSkipTracker::instance() {
@@ -41,9 +39,9 @@ void FrameSkipTracker::displayFrame(int64_t frame) {
         consecutiveSkips_ = 0;
     }
 
-    history_.add(current_);
+    history_.append(current_);
     if (history_.size() > kMaxHistory) {
-        history_.removeAt(0);
+        history_.removeFirst();
     }
 
     if (current_.skipped) {
@@ -67,9 +65,9 @@ void FrameSkipTracker::recordSkip(int64_t requestedFrame, int64_t fallbackFrame,
 
     ++skipCount_;
     ++consecutiveSkips_;
-    history_.add(event);
+    history_.append(event);
     if (history_.size() > kMaxHistory) {
-        history_.removeAt(0);
+        history_.removeFirst();
     }
 
     qWarning() << "[FrameSkipTracker] recorded skip: requested="
@@ -85,24 +83,24 @@ FrameDispatchEvent FrameSkipTracker::lastEvent() const {
 QVector<FrameDispatchEvent> FrameSkipTracker::recentEvents(int count) const {
     if (history_.isEmpty()) return {};
     const qsizetype n = history_.size();
-    int start = n > count ? static_cast<int>(n - count) : 0;
-    NamedVector<FrameDispatchEvent> result{makeNamedVector<FrameDispatchEvent>(ContainerName{"FrameSkipRecentEvents"})};
+    const int clampedCount = std::max(count, 0);
+    int start = n > clampedCount ? static_cast<int>(n - clampedCount) : 0;
+    QVector<FrameDispatchEvent> result;
+    result.reserve(n - start);
     for (int i = start; i < history_.size(); ++i) {
-        if (const auto* event = history_.at(static_cast<std::size_t>(i))) {
-            result.add(*event);
-        }
+        result.append(history_.at(i));
     }
-    return result.toStdVector();
+    return result;
 }
 
 QVector<FrameDispatchEvent> FrameSkipTracker::skippedFrames() const {
-    NamedVector<FrameDispatchEvent> result{makeNamedVector<FrameDispatchEvent>(ContainerName{"FrameSkipSkippedFrames"})};
-    history_.each([&](const auto& e) {
+    QVector<FrameDispatchEvent> result;
+    for (const auto& e : history_) {
         if (e.skipped) {
-            result.add(e);
+            result.append(e);
         }
-    });
-    return result.toStdVector();
+    }
+    return result;
 }
 
 void FrameSkipTracker::reset() {

@@ -8,7 +8,6 @@ module;
 
 export module Shape.Repeater;
 
-import Container.NamedVector;
 import Shape.Operator;
 import Shape.Path;
 
@@ -133,7 +132,7 @@ public:
      * @brief パスを複製して累積変形を適用する
      */
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override {
-        NamedVector<ShapePath> result{makeNamedVector<ShapePath>(ContainerName{"RepeaterResult"})};
+        std::vector<ShapePath> result;
         if (copies_ <= 0 || inputPaths.empty()) return inputPaths;
 
         result.reserve(inputPaths.size() * copies_);
@@ -159,10 +158,10 @@ public:
                 ShapePath copyPath = path.clone();
                 copyPath.transform(matrix);
                 copyPath.setOpacity(path.opacity() * opacityMult);
-                result.add(copyPath);
+                result.push_back(copyPath);
             }
         }
-        return result.toStdVector();
+        return result;
     }
 
     void copiesChanged() {}

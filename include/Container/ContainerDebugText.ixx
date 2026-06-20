@@ -2,14 +2,16 @@ module;
 #include <cstdint>
 #include <string>
 #include <typeinfo>
+#include <vector>
 
 export module Container.Debug.Text;
 
 import Container.Debug;
-import Container.NamedVector;
 import Container.NamedList;
 
 export namespace ArtifactCore {
+
+inline std::string toDebugText(const ContainerElementSample& sample);
 
 inline std::string toDebugText(const ContainerDebugInfo& info)
 {
@@ -69,8 +71,8 @@ inline std::string toDebugText(const ContainerDebugSnapshot& snapshot)
   }
   if (snapshot.hasSamples()) {
     text += " sample0=";
-    if (const auto* sample = snapshot.samples.front()) {
-      text += toDebugText(*sample);
+    if (!snapshot.samples.empty()) {
+      text += toDebugText(snapshot.samples.front());
     }
   }
   return text;
@@ -89,30 +91,31 @@ inline std::string toDebugText(const ContainerWatchHit& hit)
   return text;
 }
 
+template <typename T>
+inline std::string toDebugText(const NamedList<T>& values)
+{
+  return toDebugText(values.debugSnapshot());
+}
+
+template <typename T>
+inline std::string toDebugText(const std::vector<T>& values)
+{
+  std::string text = "std::vector[size=" + std::to_string(values.size()) + "]";
+  return text;
+}
+
 inline std::string toDebugText(const ContainerElementSample& sample)
 {
   std::string text;
   text += "sample[";
   text += std::to_string(sample.index);
   text += "]@";
-  text += std::to_string(static_cast<std::uintptr_t>(sample.address));
+  text += std::to_string(reinterpret_cast<std::uintptr_t>(sample.address));
   if (sample.note && sample.note[0] != '\0') {
     text += " ";
     text += sample.note;
   }
   return text;
-}
-
-template <typename T>
-inline std::string toDebugText(const NamedVector<T>& values)
-{
-  return toDebugText(values.debugSnapshot());
-}
-
-template <typename T>
-inline std::string toDebugText(const NamedList<T>& values)
-{
-  return toDebugText(values.debugSnapshot());
 }
 
 }

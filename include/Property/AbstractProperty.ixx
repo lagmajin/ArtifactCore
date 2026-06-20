@@ -42,6 +42,7 @@ import Utils.String.UniString;
 import Frame.Position;
 import Property.Types;
 import Math.Interpolate;
+import Animation.Transform3D;
 
 import Script.Expression.Evaluator;
 import Script.Expression.Value;
@@ -304,6 +305,21 @@ public:
                      float cp1_x, float cp1_y, float cp2_x, float cp2_y);
     void addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation,
                      float cp1_x, float cp1_y, float cp2_x, float cp2_y, bool roving);
+    void addKeyFrame(const RationalTime& time, const QVariant& value, int interpolation,
+                     float cp1_x, float cp1_y, float cp2_x, float cp2_y, bool roving)
+    {
+        addKeyFrame(time, value, static_cast<InterpolationType>(interpolation),
+                    cp1_x, cp1_y, cp2_x, cp2_y, roving);
+    }
+    template <typename TInterpolation>
+    requires std::is_enum_v<TInterpolation>
+    void addKeyFrame(const RationalTime& time, const QVariant& value,
+                     TInterpolation interpolation,
+                     float cp1_x, float cp1_y, float cp2_x, float cp2_y, bool roving)
+    {
+        addKeyFrame(time, value, static_cast<InterpolationType>(interpolation),
+                    cp1_x, cp1_y, cp2_x, cp2_y, roving);
+    }
     void setKeyFrameAnchorAt(const RationalTime& time, KeyFrame::Anchor anchor);
     KeyFrame::Anchor getKeyFrameAnchorAt(const RationalTime& time) const;
     void setKeyFrameColorLabelAt(const RationalTime& time, KeyFrame::ColorLabel label);

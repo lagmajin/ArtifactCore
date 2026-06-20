@@ -12,8 +12,6 @@
 
 export module Tracking.MotionTracker;
 
-import Container.NamedVector;
-
 export namespace ArtifactCore {
 
 /// トラッキング方法
@@ -73,8 +71,8 @@ struct TrackResult {
     QString sourceName;                 ///< 元ソース名
     QString sourcePath;                 ///< 元ソースパス
     QString sourceType;                 ///< 元ソース種別
-    NamedVector<TrackFrame> frames{makeNamedVector<TrackFrame>(ContainerName{"TrackResultFrames"})};     ///< フレームごとのデータ
-    NamedVector<double> failureFrames{makeNamedVector<double>(ContainerName{"TrackResultFailures"})};  ///< 失敗したフレーム時刻
+    std::vector<TrackFrame> frames;     ///< フレームごとのデータ
+    std::vector<double> failureFrames;  ///< 失敗したフレーム時刻
     double startTime = 0.0;             ///< 開始時間
     double endTime = 0.0;               ///< 終了時間
     bool isValid = false;               ///< 有効かどうか

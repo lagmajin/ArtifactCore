@@ -16,8 +16,6 @@
 #include <sstream>
 export module ArtifactCore.Utils.PerformanceProfiler;
 
-import Container.NamedVector;
-
 namespace ArtifactCore {
 
 /**
@@ -44,9 +42,9 @@ public:
         samples_[name] = { name, durationMs, std::chrono::system_clock::now() };
         
         // Keep a short history for trend analysis if needed
-        history_[name].add(durationMs);
+        history_[name].push_back(durationMs);
         if (history_[name].size() > 100) {
-            history_[name].removeFirst();
+            history_[name].pop_front();
         }
     }
 
@@ -57,13 +55,14 @@ public:
 
     std::vector<double> getHistory(const std::string& name) {
         std::lock_guard<std::mutex> lock(mutex_);
-        return history_[name].toStdVector();
+        const auto& history = history_[name];
+        return std::vector<double>(history.begin(), history.end());
     }
 
 private:
     std::mutex mutex_;
     std::map<std::string, PerformanceSample> samples_;
-    std::map<std::string, NamedVector<double>> history_;
+    std::map<std::string, std::deque<double>> history_;
 };
 
 /**
@@ -402,7 +401,7 @@ public:
 
     std::vector<StartupEvent> events() const {
         std::lock_guard<std::mutex> lock(mutex_);
-        return events_.toStdVector();
+        return events_;
     }
 
     void clear() {
@@ -442,7 +441,7 @@ public:
 
 private:
     mutable std::mutex mutex_;
-    NamedVector<StartupEvent> events_{makeNamedVector<StartupEvent>(ContainerName{"StartupProfilerEvents"})};
+    std::vector<StartupEvent> events_;
 };
 
 export class ScopedStartupTimer {

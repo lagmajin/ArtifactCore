@@ -7,8 +7,6 @@ module;
 #include <QDebug>
 module Core.Mask.PathMorph;
 
-import Container.NamedVector;
-
 namespace ArtifactCore {
 
 // -----------------------------------------------------------------------
@@ -31,9 +29,9 @@ QPointF cubicPoint(const QPointF& p0, const QPointF& p1,
 // QPainterPath を個別サブパスに分解（各サブパスは連続する点列として返す）
 std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
 {
-    NamedVector<std::vector<QPointF>> subpaths{makeNamedVector<std::vector<QPointF>>(ContainerName{"PathMorphSubpaths"})};
+    std::vector<std::vector<QPointF>> subpaths;
     if (path.isEmpty())
-        return subpaths.toStdVector();
+        return subpaths;
 
     const int n = path.elementCount();
     int i = 0;
@@ -44,9 +42,9 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
             continue;
         }
 
-            NamedVector<QPointF> points{makeNamedVector<QPointF>(ContainerName{"PathMorphPoints"})};
+            std::vector<QPointF> points;
             const QPointF startPt(path.elementAt(i).x, path.elementAt(i).y);
-            points.add(startPt);
+            points.push_back(startPt);
         ++i;
 
         while (i < n) {
@@ -55,7 +53,7 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
                 break;
 
             if (e.type == QPainterPath::LineToElement) {
-                points.add(QPointF(e.x, e.y));
+                points.push_back(QPointF(e.x, e.y));
                 ++i;
             }
             else if (e.type == QPainterPath::CurveToElement) {
@@ -68,7 +66,7 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
                 const QPointF p0 = points.empty() ? startPt : points.back();
                 for (int s = 1; s <= 8; ++s) {
                     const float t = static_cast<float>(s) / 8.0f;
-                    points.add(cubicPoint(p0, c1, c2, end, t));
+                    points.push_back(cubicPoint(p0, c1, c2, end, t));
                 }
             }
             else {
@@ -78,8 +76,8 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
 
         // 閉じているかチェック（最終点≈始点）
         if (points.size() >= 2) {
-            const double dx = points.back().x() - startPt.x();
-            const double dy = points.back().y() - startPt.y();
+            double dx = points.back().x() - startPt.x();
+            double dy = points.back().y() - startPt.y();
             const bool closed = (dx * dx + dy * dy) < 0.0001;
 
             if (closed && points.size() >= 2) {
@@ -88,10 +86,10 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
         }
 
         if (points.size() >= 2)
-            subpaths.add(points.toStdVector());
+            subpaths.push_back(points);
     }
 
-    return subpaths.toStdVector();
+    return subpaths;
 }
 
 // 点列を targetCount 点に等距離リサンプリング
@@ -120,7 +118,7 @@ std::vector<QPointF> resampleEquidistant(
         return std::vector<QPointF>(targetCount, src.front());
     }
 
-    NamedVector<QPointF> result{makeNamedVector<QPointF>(ContainerName{"PathMorphResampled"})};
+    std::vector<QPointF> result;
     for (int i = 0; i < targetCount; ++i) {
         const float target = static_cast<float>(i) / (targetCount - 1) * totalLen;
 
@@ -139,10 +137,10 @@ std::vector<QPointF> resampleEquidistant(
         float t = (segLen > 1e-6f) ? (target - arcLen[lo]) / segLen : 0.0f;
         t = std::clamp(t, 0.0f, 1.0f);
 
-        result.add(src[lo] + (src[hi] - src[lo]) * t);
+        result.push_back(src[lo] + (src[hi] - src[lo]) * t);
     }
 
-    return result.toStdVector();
+    return result;
 }
 
 } // anonymous namespace

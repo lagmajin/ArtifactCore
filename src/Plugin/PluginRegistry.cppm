@@ -10,7 +10,6 @@ module;
 module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
-import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -73,15 +72,15 @@ PluginState ArtifactPluginRegistry::pluginState(const std::string& id) const {
     return PluginState::Discovered;
 }
 
-NamedVector<PluginDescriptor> ArtifactPluginRegistry::pluginsOfCategory(PluginCategory category) const {
+std::vector<PluginDescriptor> ArtifactPluginRegistry::pluginsOfCategory(PluginCategory category) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto result = makeNamedVector<PluginDescriptor>(ContainerName{"PluginCategorySnapshot"}, ARTIFACT_CONTAINER_HERE);
+    std::vector<PluginDescriptor> result;
     for (const auto& [id, entry] : entries_) {
         if (entry.descriptor.category == category) {
-            result.add(entry.descriptor);
+            result.push_back(entry.descriptor);
         }
     }
-    return result.toStdVector();
+    return result;
 }
 
 std::optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::string& id) const {
@@ -93,25 +92,27 @@ std::optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::st
     return std::nullopt;
 }
 
-NamedVector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {
+std::vector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto result = makeNamedVector<PluginDescriptor>(ContainerName{"PluginRegistrySnapshot"}, ARTIFACT_CONTAINER_HERE);
+    std::vector<PluginDescriptor> result;
+    result.reserve(entries_.size());
     for (const auto& [id, entry] : entries_) {
-        result.add(entry.descriptor);
+        result.push_back(entry.descriptor);
     }
-    return result.toStdVector();
+    return result;
 }
 
-NamedVector<PluginDescriptor> ArtifactPluginRegistry::activePlugins() const {
+std::vector<PluginDescriptor> ArtifactPluginRegistry::activePlugins() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto result = makeNamedVector<PluginDescriptor>(ContainerName{"ActivePluginSnapshot"}, ARTIFACT_CONTAINER_HERE);
+    std::vector<PluginDescriptor> result;
+    result.reserve(active_.size());
     for (const auto& id : active_) {
         auto it = entries_.find(id);
         if (it != entries_.end()) {
-            result.add(it->second.descriptor);
+            result.push_back(it->second.descriptor);
         }
     }
-    return result.toStdVector();
+    return result;
 }
 
 } // namespace ArtifactCore

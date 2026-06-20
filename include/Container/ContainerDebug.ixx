@@ -1,10 +1,9 @@
 module;
 #include <cstddef>
 #include <string>
+#include <vector>
 
 export module Container.Debug;
-
-import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -106,7 +105,7 @@ struct ContainerDebugSnapshot {
   ContainerSourceLocation lastMutatedAt;
   ContainerSourceLocation lastFailedAccessAt;
   ContainerMutationRecord lastMutation;
-  NamedVector<ContainerElementSample> samples{ContainerName{"ContainerDebugSamples"}};
+  std::vector<ContainerElementSample> samples;
 
   constexpr bool isEmpty() const noexcept
   {

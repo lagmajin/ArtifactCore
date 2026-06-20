@@ -8,7 +8,6 @@
 
 export module Core.Diagnostics.DiagnosticEngine;
 
-import Container.NamedVector;
 import Core.Diagnostics.ProjectDiagnostic;
 // import Core.Define; // Module not found
 
@@ -25,7 +24,7 @@ public:
     auto enabled() const -> bool { return enabled_; }
     void setEnabled(bool enabled) { enabled_ = enabled; }
 
-    virtual auto validate(const void* project) -> NamedVector<ProjectDiagnostic> = 0;
+    virtual auto validate(const void* project) -> std::vector<ProjectDiagnostic> = 0;
 
 protected:
     QString name_;
@@ -41,13 +40,13 @@ public:
     void unregisterRule(const QString& name);
     void clearRules();
 
-    auto getRules() const -> const NamedVector<std::unique_ptr<IValidationRule>>& { return rules_; }
+    auto getRules() const -> const std::vector<std::unique_ptr<IValidationRule>>& { return rules_; }
     auto getRule(const QString& name) -> IValidationRule*;
 
     void setRuleEnabled(const QString& name, bool enabled);
 
 private:
-    NamedVector<std::unique_ptr<IValidationRule>> rules_{makeNamedVector<std::unique_ptr<IValidationRule>>(ContainerName{"ValidationRules"})};
+    std::vector<std::unique_ptr<IValidationRule>> rules_;
 };
 
 /// <summary>

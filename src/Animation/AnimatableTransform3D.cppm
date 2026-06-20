@@ -38,7 +38,6 @@
 module Animation.Transform3D;
 
 import Animation.Value;
-import Math.Interpolate;
 //import Graphics.CBuffer.Constants;
 
 namespace ArtifactCore

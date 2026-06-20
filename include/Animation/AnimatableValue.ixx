@@ -1,19 +1,19 @@
 ﻿module;
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iterator>
 #include <utility>
 #include <vector>
 export module Animation.Value;
 
-import Container.NamedVector;
-import Core.KeyFrame;
 import Frame.Position;
-import Math.Interpolate;
 
 
 export namespace ArtifactCore {
+
+enum class InterpolationType : int;
 
 // �w���p�[�֐��F���`��Ԃ̌W���v�Z
 inline float calculateT(const FramePosition& start, const FramePosition& end, const FramePosition& current) {
@@ -38,8 +38,64 @@ template<typename T>
 struct KeyFrameT {
  FramePosition frame;
  T value;
- InterpolationType interpolation = InterpolationType::Linear;
+ InterpolationType interpolation = static_cast<InterpolationType>(0);
 };
+
+inline float interpolationAlpha(float alpha, InterpolationType type) {
+ switch (static_cast<int>(type)) {
+ case 1:
+  return alpha < 1.0f ? 0.0f : 1.0f;
+ case 3:
+  return alpha * alpha;
+ case 4: {
+  const float u = 1.0f - alpha;
+  return 1.0f - (u * u);
+ }
+ case 5:
+  if (alpha < 0.5f) {
+   return 2.0f * alpha * alpha;
+  }
+  return 1.0f - std::pow(-2.0f * alpha + 2.0f, 2.0f) * 0.5f;
+ case 12:
+  return std::sin((alpha * 3.14159265f) * 0.5f);
+ case 8:
+  return 1.0f - std::pow(1.0f - alpha, 3.0f);
+ case 16:
+  if (alpha < (1.0f / 2.75f)) {
+   return 7.5625f * alpha * alpha;
+  } else if (alpha < (2.0f / 2.75f)) {
+   alpha -= (1.5f / 2.75f);
+   return 7.5625f * alpha * alpha + 0.75f;
+  } else if (alpha < (2.5f / 2.75f)) {
+   alpha -= (2.25f / 2.75f);
+   return 7.5625f * alpha * alpha + 0.9375f;
+  }
+  alpha -= (2.625f / 2.75f);
+  return 7.5625f * alpha * alpha + 0.984375f;
+ case 19:
+  if (alpha <= 0.0f) return 0.0f;
+  if (alpha >= 1.0f) return 1.0f;
+  return std::pow(2.0f, -10.0f * alpha) *
+             std::sin((alpha - 0.075f) * (2.0f * 3.14159265f) / 0.3f) +
+         1.0f;
+ case 22: {
+  const float s = 1.70158f;
+  alpha -= 1.0f;
+  return alpha * alpha * ((s + 1.0f) * alpha + s) + 1.0f;
+ }
+ default:
+  return alpha;
+ }
+}
+
+template<typename T>
+inline T interpolateValue(const T& start, const T& end, float alpha, InterpolationType type) {
+ if (static_cast<int>(type) == 1) {
+  return alpha < 1.0f ? start : end;
+ }
+ const float eased = interpolationAlpha(alpha, type);
+ return start + (end - start) * eased;
+}
 
 // 物理演算用のランタイム状態
 export struct SpringState {
@@ -57,7 +113,7 @@ export struct SpringState {
  template<typename T>
  class AnimatableValueT {
  private:
-  NamedVector<KeyFrameT<T>> keyframes_{makeNamedVector<KeyFrameT<T>>(ContainerName{"AnimatableKeyframes"})};
+  std::vector<KeyFrameT<T>> keyframes_;
   T currentValue_{};
   mutable size_t lastCachedIndex_ = 0; // Temporal Coherence用のキャッシュ
 
@@ -93,13 +149,13 @@ export struct SpringState {
 
        if (frame >= kfPrev.frame && frame < kfNext.frame) {
            float t = calculateT(kfPrev.frame, kfNext.frame, frame);
-           return interpolate(kfPrev.value, kfNext.value, t, kfPrev.interpolation);
+           return interpolateValue(kfPrev.value, kfNext.value, t, kfPrev.interpolation);
        }
        if (lastCachedIndex_ + 2 < n && frame >= kfNext.frame && frame < keyframes_[lastCachedIndex_ + 2].frame) {
            lastCachedIndex_++;
            const auto& kfNext2 = keyframes_[lastCachedIndex_ + 1];
            float t = calculateT(kfNext.frame, kfNext2.frame, frame);
-           return interpolate(kfNext.value, kfNext2.value, t, kfNext.interpolation);
+           return interpolateValue(kfNext.value, kfNext2.value, t, kfNext.interpolation);
        }
    }
 
@@ -112,7 +168,7 @@ export struct SpringState {
    lastCachedIndex_ = std::distance(keyframes_.begin(), prev);
 
    float t = calculateT(prev->frame, next->frame, frame);
-   return interpolate(prev->value, next->value, t, prev->interpolation);
+   return interpolateValue(prev->value, next->value, t, prev->interpolation);
   }
 
   // 物理ベースの評価 (Spring-Damper)
@@ -135,7 +191,7 @@ export struct SpringState {
 
   // L[t[ǉ
   void addKeyFrame(const FramePosition& frame, const T& value) {
-   keyframes_.add({ frame, value });
+   keyframes_.push_back({ frame, value });
    std::sort(keyframes_.begin(), keyframes_.end(),
  [](auto& a, auto& b) { return a.frame < b.frame; });
    invalidateCache();
@@ -194,7 +250,7 @@ export struct SpringState {
   InterpolationType getKeyFrameInterpolationAt(const FramePosition& frame) const {
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
-   if (it == keyframes_.end()) return InterpolationType::Linear;
+   if (it == keyframes_.end()) return static_cast<InterpolationType>(0);
    return it->interpolation;
   }
   
@@ -211,16 +267,16 @@ export struct SpringState {
   
   // ���ׂẴL�[�t���[�����擾�i�ǂݎ���p�j
   std::vector<KeyFrameT<T>> getKeyFrames() const {
-   return keyframes_.toStdVector();
+   return keyframes_;
   }
 
   std::vector<FramePosition> getKeyFrameFrames() const {
-   NamedVector<FramePosition> frames{makeNamedVector<FramePosition>(ContainerName{"AnimatableKeyframeFrames"})};
+   std::vector<FramePosition> frames;
    frames.reserve(keyframes_.size());
    for (const auto& kf : keyframes_) {
-    frames.add(kf.frame);
+    frames.push_back(kf.frame);
    }
-   return frames.toStdVector();
+   return frames;
   }
 
   

@@ -50,10 +50,6 @@ export namespace ArtifactCore {
    Modified
  };
 
-class LIBRARY_DLL_API AssetID : public Id { public:
-  using Id::Id;
- };
-
  class LIBRARY_DLL_API AssetMeta {
  private:
   std::map<UniString, UniString> data;

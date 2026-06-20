@@ -11,9 +11,6 @@ module;
 
 export module Core.Diagnostics.FallbackPolicy;
 
-import Container.Debug;
-import Container.NamedVector;
-
 export namespace ArtifactCore {
 
 export enum class FallbackCategory {
@@ -76,9 +73,9 @@ public:
                 const QString& originalId, const QString& resolvedId,
                 const QString& message = "");
 
-    NamedVector<FallbackEvent> getEvents() const;
-    NamedVector<FallbackEvent> getEventsByCategory(FallbackCategory category) const;
-    NamedVector<FallbackEvent> getEventsSince(const QDateTime& since) const;
+    std::vector<FallbackEvent> getEvents() const;
+    std::vector<FallbackEvent> getEventsByCategory(FallbackCategory category) const;
+    std::vector<FallbackEvent> getEventsSince(const QDateTime& since) const;
     void clear();
 
     int totalCount() const;
@@ -94,7 +91,7 @@ public:
 private:
     FallbackTracker() = default;
 
-    NamedVector<FallbackEvent> events_{makeNamedVector<FallbackEvent>(ContainerName{"FallbackEvents"}, ARTIFACT_CONTAINER_HERE)};
+    std::vector<FallbackEvent> events_;
     bool warningsEnabled_ = true;
     FallbackPolicy fontPolicy_{FallbackPolicy::defaultFont()};
     FallbackPolicy imagePolicy_{FallbackPolicy::defaultImage()};

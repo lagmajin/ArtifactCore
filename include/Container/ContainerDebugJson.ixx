@@ -81,9 +81,9 @@ inline QJsonObject toJson(const ContainerDebugSnapshot& snapshot)
   json.insert(QStringLiteral("lastFailedAccessAt"), toJson(snapshot.lastFailedAccessAt));
   json.insert(QStringLiteral("lastMutation"), toJson(snapshot.lastMutation));
   QJsonArray samples;
-  snapshot.samples.each([&](const auto& sample) {
+  for (const auto& sample : snapshot.samples) {
     samples.append(toJson(sample));
-  });
+  }
   json.insert(QStringLiteral("samples"), samples);
   return json;
 }

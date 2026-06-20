@@ -9,8 +9,6 @@
 
 export module Core.Diagnostics.ProjectDiagnostic;
 
-import Container.NamedVector;
-
 // import Core.Define; // Module not found
 // import Core.Layer.LayerTypes; // Module not found
 
@@ -115,11 +113,10 @@ public:
 
     void addDiagnostic(const ProjectDiagnostic& diagnostic);
     void addDiagnostics(const std::vector<ProjectDiagnostic>& diagnostics);
-    void addDiagnostics(const NamedVector<ProjectDiagnostic>& diagnostics);
     void clear();
 
     auto getDiagnostics() const -> std::vector<ProjectDiagnostic>;
-    auto diagnostics() const -> const NamedVector<ProjectDiagnostic>& { return diagnostics_; }
+    auto diagnostics() const -> const std::vector<ProjectDiagnostic>& { return diagnostics_; }
     auto getErrorCount() const -> int;
     auto getWarningCount() const -> int;
     auto getInfoCount() const -> int;
@@ -136,7 +133,7 @@ public:
     void merge(const DiagnosticResult& other);
 
 private:
-    NamedVector<ProjectDiagnostic> diagnostics_{makeNamedVector<ProjectDiagnostic>(ContainerName{"ProjectDiagnostics"})};
+    std::vector<ProjectDiagnostic> diagnostics_;
 };
 
 } // namespace ArtifactCore

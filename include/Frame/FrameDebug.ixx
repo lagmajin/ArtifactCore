@@ -9,9 +9,7 @@
 
 export module Frame.Debug;
 
-import Container.NamedVector;
 import Frame.Position;
-import Frame.Range;
 
 export namespace ArtifactCore {
 
@@ -105,8 +103,8 @@ struct FrameDebugPassRecord {
     FrameDebugPassKind kind = FrameDebugPassKind::Unknown;
     FrameDebugPassStatus status = FrameDebugPassStatus::Unknown;
     std::int64_t durationUs = 0;
-    NamedVector<FrameDebugAttachmentRecord> inputs{makeNamedVector<FrameDebugAttachmentRecord>(ContainerName{"FrameDebugPassInputs"}, ARTIFACT_CONTAINER_HERE)};
-    NamedVector<FrameDebugAttachmentRecord> outputs{makeNamedVector<FrameDebugAttachmentRecord>(ContainerName{"FrameDebugPassOutputs"}, ARTIFACT_CONTAINER_HERE)};
+    std::vector<FrameDebugAttachmentRecord> inputs;
+    std::vector<FrameDebugAttachmentRecord> outputs;
     QString note;
 
     [[nodiscard]] QJsonObject toJson() const;
@@ -139,9 +137,9 @@ struct FrameDebugSnapshot {
     RenderCostStats renderCost;
     FrameDebugCompareMode compareMode = FrameDebugCompareMode::Disabled;
     QString compareTargetId;
-    NamedVector<FrameDebugPassRecord> passes{makeNamedVector<FrameDebugPassRecord>(ContainerName{"FrameDebugPasses"}, ARTIFACT_CONTAINER_HERE)};
-    NamedVector<FrameDebugResourceRecord> resources{makeNamedVector<FrameDebugResourceRecord>(ContainerName{"FrameDebugResources"}, ARTIFACT_CONTAINER_HERE)};
-    NamedVector<FrameDebugAttachmentRecord> attachments{makeNamedVector<FrameDebugAttachmentRecord>(ContainerName{"FrameDebugAttachments"}, ARTIFACT_CONTAINER_HERE)};
+    std::vector<FrameDebugPassRecord> passes;
+    std::vector<FrameDebugResourceRecord> resources;
+    std::vector<FrameDebugAttachmentRecord> attachments;
     bool failed = false;
     QString failureReason;
 
@@ -165,7 +163,7 @@ struct FrameDebugBundle {
     QString label;
     std::int64_t createdAtMs = 0;
     FrameDebugCapture capture;
-    NamedVector<FrameDebugCapture> history{makeNamedVector<FrameDebugCapture>(ContainerName{"FrameDebugHistory"}, ARTIFACT_CONTAINER_HERE)};
+    std::vector<FrameDebugCapture> history;
 
     [[nodiscard]] QJsonObject toJson() const;
     static FrameDebugBundle fromJson(const QJsonObject& json);
@@ -370,10 +368,10 @@ inline FrameDebugPassRecord FrameDebugPassRecord::fromJson(const QJsonObject& js
     record.note = json.value(QStringLiteral("note")).toString();
 
     for (const auto& value : json.value(QStringLiteral("inputs")).toArray()) {
-        record.inputs.add(FrameDebugAttachmentRecord::fromJson(value.toObject()));
+        record.inputs.push_back(FrameDebugAttachmentRecord::fromJson(value.toObject()));
     }
     for (const auto& value : json.value(QStringLiteral("outputs")).toArray()) {
-        record.outputs.add(FrameDebugAttachmentRecord::fromJson(value.toObject()));
+        record.outputs.push_back(FrameDebugAttachmentRecord::fromJson(value.toObject()));
     }
     return record;
 }
@@ -469,13 +467,13 @@ inline FrameDebugSnapshot FrameDebugSnapshot::fromJson(const QJsonObject& json)
     snapshot.failureReason = json.value(QStringLiteral("failureReason")).toString();
 
     for (const auto& value : json.value(QStringLiteral("passes")).toArray()) {
-        snapshot.passes.add(FrameDebugPassRecord::fromJson(value.toObject()));
+        snapshot.passes.push_back(FrameDebugPassRecord::fromJson(value.toObject()));
     }
     for (const auto& value : json.value(QStringLiteral("resources")).toArray()) {
-        snapshot.resources.add(FrameDebugResourceRecord::fromJson(value.toObject()));
+        snapshot.resources.push_back(FrameDebugResourceRecord::fromJson(value.toObject()));
     }
     for (const auto& value : json.value(QStringLiteral("attachments")).toArray()) {
-        snapshot.attachments.add(FrameDebugAttachmentRecord::fromJson(value.toObject()));
+        snapshot.attachments.push_back(FrameDebugAttachmentRecord::fromJson(value.toObject()));
     }
     return snapshot;
 }
@@ -511,9 +509,9 @@ inline QJsonObject FrameDebugBundle::toJson() const
     json.insert(QStringLiteral("capture"), capture.toJson());
 
     QJsonArray historyJson;
-    history.each([&](const auto& entry) {
+    for (const auto& entry : history) {
         historyJson.append(entry.toJson());
-    });
+    }
     json.insert(QStringLiteral("history"), historyJson);
     return json;
 }
@@ -527,7 +525,7 @@ inline FrameDebugBundle FrameDebugBundle::fromJson(const QJsonObject& json)
     bundle.capture = FrameDebugCapture::fromJson(json.value(QStringLiteral("capture")).toObject());
 
     for (const auto& value : json.value(QStringLiteral("history")).toArray()) {
-        bundle.history.add(FrameDebugCapture::fromJson(value.toObject()));
+        bundle.history.push_back(FrameDebugCapture::fromJson(value.toObject()));
     }
     return bundle;
 }

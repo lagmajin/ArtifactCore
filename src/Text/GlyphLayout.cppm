@@ -15,7 +15,6 @@ module;
 
 module Text.GlyphLayout;
 
-import Container.NamedVector;
 import Text.Style;
 import Text.LayoutContract;
 import Text.ShapingBackend;
@@ -173,9 +172,9 @@ QTextOption::WrapMode wrapModeForParagraph(const ParagraphStyle &paragraph) {
 std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
                                               const QFont &font,
                                               const ParagraphStyle &paragraph) {
-  NamedVector<GlyphItem> result{makeNamedVector<GlyphItem>(ContainerName{"GlyphLayoutItems"})};
+  std::vector<GlyphItem> result;
   if (text.isEmpty()) {
-    return result.toStdVector();
+    return result;
   }
 
   QTextLayout layout(text, font);
@@ -216,7 +215,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
   layout.endLayout();
 
   if (lines.empty()) {
-    return result.toStdVector();
+    return result;
   }
 
   const std::u32string u32text = toU32String(text);
@@ -328,7 +327,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
       item.bounds = QRectF(xOffset + localX + extraAdvance, y,
                            glyphWidth + ((shouldJustify && whitespace) ? justifyStep : 0.0f),
                            line.height);
-      result.add(item);
+      result.push_back(item);
 
       if (shouldJustify && whitespace) {
         extraAdvance += justifyStep;
@@ -342,7 +341,7 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString &text,
     }
   }
 
-  return result.toStdVector();
+  return result;
 }
 
 } // namespace

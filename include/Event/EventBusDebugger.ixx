@@ -12,8 +12,6 @@
 #include <vector>
 export module ArtifactCore.Event.EventBusDebugger;
 
-import Container.NamedVector;
-
 export import Event.Bus;
 
 export namespace ArtifactCore {
@@ -82,10 +80,10 @@ public:
 
     void clearLog();
 
-    [[nodiscard]] NamedVector<FireEntry>       fireLog(bool dupesOnly = false) const;
-    [[nodiscard]] NamedVector<SubscriberInfo>  subscriberSnapshot() const;
-    [[nodiscard]] NamedVector<FrequencyEntry>  frequencySnapshot() const;
-    [[nodiscard]] NamedVector<PerEventStats>   perEventStats() const;
+    [[nodiscard]] std::vector<FireEntry>       fireLog(bool dupesOnly = false) const;
+    [[nodiscard]] std::vector<SubscriberInfo>  subscriberSnapshot() const;
+    [[nodiscard]] std::vector<FrequencyEntry>  frequencySnapshot() const;
+    [[nodiscard]] std::vector<PerEventStats>   perEventStats() const;
     [[nodiscard]] GlobalStats                  globalStats() const;
 
 private:
@@ -109,7 +107,7 @@ private:
     };
 
     mutable std::mutex   mutex_;
-    NamedVector<FireEntry>                               log_{makeNamedVector<FireEntry>(ContainerName{"EventBusLog"})};
+    std::vector<FireEntry>                               log_;
     mutable std::unordered_map<std::type_index, PerEventState, std::hash<std::type_index>> perEvent_;
 
     EventBus*    attachedBus_   = nullptr;

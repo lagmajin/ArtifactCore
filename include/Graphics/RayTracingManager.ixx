@@ -10,7 +10,6 @@
 
 export module Graphics.RayTracingManager;
 
-import Graphics;
 import Utils.String.UniString;
 
 export namespace ArtifactCore {

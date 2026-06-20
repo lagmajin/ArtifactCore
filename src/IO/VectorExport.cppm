@@ -8,6 +8,7 @@ module;
 #include <QRectF>
 #include <QSize>
 #include <QTransform>
+#include <algorithm>
 #include <cmath>
 #include <vector>
 #include <memory>
@@ -277,7 +278,7 @@ QString HtmlPlayerWriter::generateFrameSequencePlayer(const QString& title,
                                                       double durationSec)
 {
     const QString safeTitle = escapeHtmlText(title.isEmpty() ? QStringLiteral("Artifact Web Export") : title);
-    const int frameCount = std::max(1, frameFiles.size());
+    const int frameCount = (std::max)(1, static_cast<int>(frameFiles.size()));
     const double fps = durationSec > 0.0
                            ? static_cast<double>(frameCount) / durationSec
                            : 30.0;

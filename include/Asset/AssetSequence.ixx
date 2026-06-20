@@ -12,7 +12,6 @@
 
 export module Asset.Sequence;
 
-import Container.NamedVector;
 
 // ================================================================
 // M-AB-2 Asset Browser Sequence Grouping — Phase 1: Detection Core
@@ -80,8 +79,8 @@ struct SequenceGroup {
 // Result from detectSequences()
 // ----------------------------------------------------------------
 struct SequenceDetectionResult {
-    NamedVector<SequenceGroup>  sequences{makeNamedVector<SequenceGroup>(ContainerName{"AssetSequenceGroups"})};   // found groups (≥2 frames)
-    NamedVector<std::string>    singles{makeNamedVector<std::string>(ContainerName{"AssetSequenceSingles"})};     // files that aren't in any group
+    std::vector<SequenceGroup>  sequences;   // found groups (≥2 frames)
+    std::vector<std::string>    singles;     // files that aren't in any group
 };
 
 // ----------------------------------------------------------------
@@ -189,7 +188,7 @@ inline SequenceDetectionResult detectSequences(
         for (const auto& [frame, fn] : frames) {
             grp.filenames.push_back(fn);
         }
-        result.sequences.add(std::move(grp));
+        result.sequences.push_back(std::move(grp));
     }
 
     // Merge unparsed into singles

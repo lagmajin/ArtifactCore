@@ -8,9 +8,9 @@
 
 export module Animation.EasingCurveUtil;
 
-import Math.Interpolate;
-
 export namespace ArtifactCore {
+
+enum class InterpolationType : int;
 
 export enum class EasingType {
     Hold,
@@ -82,7 +82,24 @@ export inline float evaluateEasing(EasingType type, float t) noexcept
         }
         return std::pow(2.0f, 10.0f * (t - 1.0f));
     case EasingType::Bezier:
-        return bezierEvaluate(t, 0.42f, 0.0f, 0.58f, 1.0f);
+        {
+            float x = t;
+            for (int i = 0; i < 4; ++i) {
+                const float x2 = x * x;
+                const float mt = 1.0f - x;
+                const float mt2 = mt * mt;
+                const float dx = 3.0f * mt2 * 0.42f + 6.0f * mt * x * (0.58f - 0.42f) +
+                                 3.0f * x2 * (1.0f - 0.58f);
+                if (std::abs(dx) < 1e-6f) {
+                    break;
+                }
+                const float cx = mt2 * mt + 3.0f * mt2 * x * 0.42f +
+                                 3.0f * mt * x2 * 0.58f + x2 * x;
+                x -= (cx - t) / dx;
+            }
+            const float mt = 1.0f - x;
+            return 3.0f * mt * x * x + x * x * x;
+        }
     }
 
     return t;
@@ -92,23 +109,23 @@ export inline InterpolationType easingTypeToInterpolation(EasingType type) noexc
 {
     switch (type) {
     case EasingType::Hold:
-        return InterpolationType::Constant;
+        return static_cast<InterpolationType>(1);
     case EasingType::Linear:
-        return InterpolationType::Linear;
+        return static_cast<InterpolationType>(0);
     case EasingType::EaseIn:
-        return InterpolationType::EaseIn;
+        return static_cast<InterpolationType>(3);
     case EasingType::EaseOut:
-        return InterpolationType::EaseOut;
+        return static_cast<InterpolationType>(4);
     case EasingType::EaseInOut:
-        return InterpolationType::EaseInOut;
+        return static_cast<InterpolationType>(5);
     case EasingType::Back:
-        return InterpolationType::BackOut;
+        return static_cast<InterpolationType>(22);
     case EasingType::Expo:
-        return InterpolationType::Exponential;
+        return static_cast<InterpolationType>(10);
     case EasingType::Bezier:
-        return InterpolationType::Bezier;
+        return static_cast<InterpolationType>(24);
     }
-    return InterpolationType::Linear;
+    return static_cast<InterpolationType>(0);
 }
 
 export inline std::vector<EasingCandidate> defaultEasingCandidates()

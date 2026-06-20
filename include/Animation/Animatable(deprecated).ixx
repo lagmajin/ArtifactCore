@@ -31,7 +31,7 @@
 #include <random>
 export module Animation.Animatable;
 
-import Core.KeyFrame;
+import Frame.Position;
 
 export namespace ArtifactCore {
 

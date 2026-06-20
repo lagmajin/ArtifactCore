@@ -11,7 +11,6 @@ module;
 export module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
-import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -29,10 +28,10 @@ public:
     bool isActive(const std::string& id) const;
     PluginState pluginState(const std::string& id) const;
 
-    NamedVector<PluginDescriptor> pluginsOfCategory(PluginCategory category) const;
+    std::vector<PluginDescriptor> pluginsOfCategory(PluginCategory category) const;
     std::optional<PluginDescriptor> pluginById(const std::string& id) const;
-    NamedVector<PluginDescriptor> allPlugins() const;
-    NamedVector<PluginDescriptor> activePlugins() const;
+    std::vector<PluginDescriptor> allPlugins() const;
+    std::vector<PluginDescriptor> activePlugins() const;
 
 private:
     ArtifactPluginRegistry() = default;

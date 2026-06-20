@@ -8,8 +8,6 @@
 
 export module Core.Diagnostics.SessionLedger;
 
-import Container.NamedVector;
-
 export namespace ArtifactCore {
 
 enum class SessionEntryKind {
@@ -66,7 +64,7 @@ public:
     {}
 
     void addEntry(const SessionLedgerEntry& entry) {
-        entries_.add(entry);
+        entries_.push_back(entry);
     }
 
     void recordProjectOpened(const QString& projectId, const QString& projectName) {
@@ -132,22 +130,22 @@ public:
     }
 
     void addRecoveryPoint(const RecoveryPoint& point) {
-        recoveryPoints_.add(point);
+        recoveryPoints_.push_back(point);
     }
 
     const QString& sessionId() const { return sessionId_; }
     qint64 startTimeMs() const { return startTimeMs_; }
-    const NamedVector<SessionLedgerEntry>& entries() const { return entries_; }
-    const NamedVector<RecoveryPoint>& recoveryPoints() const { return recoveryPoints_; }
+    const std::vector<SessionLedgerEntry>& entries() const { return entries_; }
+    const std::vector<RecoveryPoint>& recoveryPoints() const { return recoveryPoints_; }
 
     std::vector<SessionLedgerEntry> recoverableEntries() const {
-        auto result = makeNamedVector<SessionLedgerEntry>(ContainerName{"SessionRecoverableEntries"});
+        std::vector<SessionLedgerEntry> result;
         for (const auto& e : entries_) {
             if (e.isRecoverable) {
-                result.add(e);
+                result.push_back(e);
             }
         }
-        return result.toStdVector();
+        return result;
     }
 
     void clear() {
@@ -172,8 +170,8 @@ private:
 
     QString sessionId_;
     qint64 startTimeMs_ = 0;
-    NamedVector<SessionLedgerEntry> entries_{makeNamedVector<SessionLedgerEntry>(ContainerName{"SessionEntries"})};
-    NamedVector<RecoveryPoint> recoveryPoints_{makeNamedVector<RecoveryPoint>(ContainerName{"RecoveryPoints"})};
+    std::vector<SessionLedgerEntry> entries_;
+    std::vector<RecoveryPoint> recoveryPoints_;
 };
 
 } // namespace ArtifactCore

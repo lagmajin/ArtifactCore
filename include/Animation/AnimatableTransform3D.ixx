@@ -35,15 +35,13 @@
 
 export module Animation.Transform3D;
 
-import Animation.Value;
-import Animation.Transform2D;
 import Time.Rational;
-import Math.Interpolate;
-import Property.Abstract;
 
 export namespace ArtifactCore
 {
  using namespace Diligent;
+
+ enum class InterpolationType : int;
 
   struct Transform3DSnapshot {
     float positionX = 0.0f;

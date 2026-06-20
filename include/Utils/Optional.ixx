@@ -328,66 +328,6 @@ inline bool StateExists(const std::optional<T>& value) noexcept
 }
 
 template <typename T>
-inline bool HasState(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
-inline bool IsSet(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
-inline bool HasPresence(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
-inline bool IsPresentValue(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
-inline bool HasDataValue(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
-inline bool IsAvailable(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
-inline bool HasAnyValue(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
-inline bool IsThereValue(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
-inline bool IsPresentData(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
-inline bool HasPresentData(const std::optional<T>& value) noexcept
-{
- return HasValue(value);
-}
-
-template <typename T>
 inline bool HasStoredValue(const std::optional<T>& value) noexcept
 {
  return HasValue(value);
