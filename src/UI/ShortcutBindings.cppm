@@ -39,6 +39,8 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ZoomTool");
     case ShortcutId::RotateTool:
         return QStringLiteral("RotateTool");
+    case ShortcutId::PlaybackToggle:
+        return QStringLiteral("PlaybackToggle");
     case ShortcutId::TimelineCopySelectedKeyframes:
         return QStringLiteral("TimelineCopySelectedKeyframes");
     case ShortcutId::TimelinePasteKeyframesAtPlayhead:
@@ -111,6 +113,8 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Zoom Tool");
     case ShortcutId::RotateTool:
         return QStringLiteral("Rotate Tool");
+    case ShortcutId::PlaybackToggle:
+        return QStringLiteral("Playback Toggle");
     case ShortcutId::TimelineCopySelectedKeyframes:
         return QStringLiteral("Timeline Copy Selected Keyframes");
     case ShortcutId::TimelinePasteKeyframesAtPlayhead:
@@ -164,6 +168,7 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::HandTool,
         ShortcutId::ZoomTool,
         ShortcutId::RotateTool,
+        ShortcutId::PlaybackToggle,
         ShortcutId::TimelineCopySelectedKeyframes,
         ShortcutId::TimelinePasteKeyframesAtPlayhead,
         ShortcutId::TimelineSelectAllKeyframes,
@@ -194,6 +199,7 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::HandTool)] = QKeySequence(Qt::Key_H);
     defaults_[index(ShortcutId::ZoomTool)] = QKeySequence(Qt::Key_Z);
     defaults_[index(ShortcutId::RotateTool)] = QKeySequence(Qt::Key_W);
+    defaults_[index(ShortcutId::PlaybackToggle)] = QKeySequence(Qt::Key_Space);
     defaults_[index(ShortcutId::TimelineCopySelectedKeyframes)] = QKeySequence(Qt::CTRL | Qt::Key_C);
     defaults_[index(ShortcutId::TimelinePasteKeyframesAtPlayhead)] = QKeySequence(Qt::CTRL | Qt::Key_V);
     defaults_[index(ShortcutId::TimelineSelectAllKeyframes)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_A);
