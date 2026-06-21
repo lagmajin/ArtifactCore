@@ -91,6 +91,7 @@ export namespace ArtifactCore
   float positionY() const;
   float positionZ() const;
   float rotation() const;
+  float initialRotation() const;
   float scaleX() const;
   float scaleY() const;
   float anchorX() const;

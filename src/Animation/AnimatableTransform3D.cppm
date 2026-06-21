@@ -150,6 +150,12 @@ void AnimatableTransform3D::setInitialScale(const RationalTime& time, float xs, 
   impl_->currentScaleY_ = ys;
 }
 
+void AnimatableTransform3D::setInitialRotation(const RationalTime& time, float angle)
+{
+  impl_->initialRotation_ = angle;
+  impl_->currentRotation_ = angle;
+}
+
 void AnimatableTransform3D::setInitialPosition(const RationalTime& time, float px, float py)
 {
   impl_->initialX_ = px;
@@ -207,6 +213,11 @@ float AnimatableTransform3D::positionZ() const
 float AnimatableTransform3D::rotation() const
 {
   return impl_->currentRotation_;
+}
+
+float AnimatableTransform3D::initialRotation() const
+{
+  return impl_->initialRotation_;
 }
 
 float AnimatableTransform3D::scaleX() const

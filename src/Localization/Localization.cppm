@@ -11,6 +11,7 @@
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QDebug>
+#include <QLocale>
 
 module Core.Localization;
 
@@ -49,6 +50,22 @@ LocalizationManager& LocalizationManager::instance() {
 }
 
 void LocalizationManager::setLanguage(LocaleLanguage lang) {
+    if (lang == LocaleLanguage::Auto) {
+        const QLocale sys = QLocale::system();
+        switch (sys.language()) {
+            case QLocale::Japanese:
+                lang = LocaleLanguage::Japanese;
+                break;
+            case QLocale::Chinese:
+                lang = sys.name().startsWith(QStringLiteral("zh_TW"))
+                    ? LocaleLanguage::ChineseTraditional
+                    : LocaleLanguage::ChineseSimplified;
+                break;
+            default:
+                lang = LocaleLanguage::English;
+                break;
+        }
+    }
     impl_->currentLang_ = lang;
     qDebug() << "[Localization] Language set to:" << static_cast<int>(lang);
 }

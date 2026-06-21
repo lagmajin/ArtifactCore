@@ -30,6 +30,51 @@ QJsonValue jsonValueFromVariant(const QVariant& value)
     return QJsonValue::fromVariant(value);
 }
 
+QJsonArray templateSlotsObjectToArray(const QJsonObject& templateSlots)
+{
+    QJsonArray slots;
+    for (auto it = templateSlots.begin(); it != templateSlots.end(); ++it) {
+        if (!it.value().isObject()) {
+            continue;
+        }
+        QJsonObject slot = it.value().toObject();
+        if (!slot.contains(QStringLiteral("slotId"))) {
+            slot.insert(QStringLiteral("slotId"), it.key());
+        }
+        if (!slot.contains(QStringLiteral("displayName"))) {
+            slot.insert(QStringLiteral("displayName"), it.key());
+        }
+        if (!slot.contains(QStringLiteral("role"))) {
+            slot.insert(QStringLiteral("role"), static_cast<int>(ParametricCompositionSlotRole::Input));
+        }
+        if (!slot.contains(QStringLiteral("kind"))) {
+            slot.insert(QStringLiteral("kind"), static_cast<int>(ParametricCompositionSlotKind::SourceLayer));
+        }
+        if (!slot.contains(QStringLiteral("valueType"))) {
+            slot.insert(QStringLiteral("valueType"), QStringLiteral("RGBA"));
+        }
+        slots.append(slot);
+    }
+    return slots;
+}
+
+QJsonArray templateSlotsToValuesArray(const QJsonObject& templateSlots)
+{
+    QJsonArray values;
+    for (auto it = templateSlots.begin(); it != templateSlots.end(); ++it) {
+        if (!it.value().isObject()) {
+            continue;
+        }
+        const QJsonObject slot = it.value().toObject();
+        QJsonObject entry;
+        entry.insert(QStringLiteral("slotId"), slot.value(QStringLiteral("slotId")).toString(it.key()));
+        entry.insert(QStringLiteral("slotName"), slot.value(QStringLiteral("displayName")).toString(it.key()));
+        entry.insert(QStringLiteral("value"), slot.value(QStringLiteral("defaultValue")));
+        values.append(entry);
+    }
+    return values;
+}
+
 } // namespace
 
 QJsonObject ParametricCompositionSlot::toJson() const
@@ -214,6 +259,10 @@ QJsonObject ParametricCompositionBundle::toJson() const
     obj.insert(QStringLiteral("bundleTitle"), bundleTitle);
     obj.insert(QStringLiteral("definition"), definition);
     obj.insert(QStringLiteral("instance"), instance);
+    if (!definition.contains(QStringLiteral("slots")) &&
+        definition.contains(QStringLiteral("templateSlots"))) {
+        obj.insert(QStringLiteral("templateSlots"), definition.value(QStringLiteral("templateSlots")));
+    }
     return obj;
 }
 
@@ -229,6 +278,19 @@ ParametricCompositionBundle ParametricCompositionBundle::fromJson(const QJsonObj
     bundle.metadata.remove(QStringLiteral("bundleTitle"));
     bundle.metadata.remove(QStringLiteral("definition"));
     bundle.metadata.remove(QStringLiteral("instance"));
+    if (bundle.definition.isEmpty() && obj.contains(QStringLiteral("templateSlots"))) {
+        const QJsonObject templateSlots = obj.value(QStringLiteral("templateSlots")).toObject();
+        if (!templateSlots.isEmpty()) {
+            bundle.definition.insert(QStringLiteral("slots"), templateSlotsObjectToArray(templateSlots));
+            bundle.definition.insert(QStringLiteral("templateSlots"), templateSlots);
+            if (!bundle.instance.contains(QStringLiteral("slotValues"))) {
+                bundle.instance.insert(QStringLiteral("slotValues"), templateSlotsToValuesArray(templateSlots));
+            }
+        }
+    }
+    if (bundle.instance.isEmpty() && obj.contains(QStringLiteral("slotValues"))) {
+        bundle.instance.insert(QStringLiteral("slotValues"), obj.value(QStringLiteral("slotValues")));
+    }
     return bundle;
 }
 
@@ -241,6 +303,14 @@ QJsonObject parametricCompositionBundleToCompositionJson(const ParametricComposi
     if (compositionJson.isEmpty()) {
         return {};
     }
+    if (!compositionJson.contains(QStringLiteral("slots")) &&
+        compositionJson.contains(QStringLiteral("templateSlots"))) {
+        const QJsonObject templateSlots = compositionJson.value(QStringLiteral("templateSlots")).toObject();
+        compositionJson.insert(QStringLiteral("slots"), templateSlotsObjectToArray(templateSlots));
+        if (!compositionJson.contains(QStringLiteral("slotValues"))) {
+            compositionJson.insert(QStringLiteral("slotValues"), templateSlotsToValuesArray(templateSlots));
+        }
+    }
     if (!bundle.bundleTitle.isEmpty()) {
         compositionJson.insert(QStringLiteral("displayName"), bundle.bundleTitle);
     }
@@ -248,6 +318,10 @@ QJsonObject parametricCompositionBundleToCompositionJson(const ParametricComposi
     compositionJson.insert(QStringLiteral("bundleMetadata"), bundle.metadata);
     if (!bundle.instance.isEmpty()) {
         compositionJson.insert(QStringLiteral("instance"), bundle.instance);
+    }
+    if (bundle.instance.contains(QStringLiteral("slotValues")) &&
+        !compositionJson.contains(QStringLiteral("slotValues"))) {
+        compositionJson.insert(QStringLiteral("slotValues"), bundle.instance.value(QStringLiteral("slotValues")));
     }
     return compositionJson;
 }
@@ -312,14 +386,29 @@ const QVector<ParametricCompositionSlot>& ParametricCompositionDefinition::slotD
     return slots_;
 }
 
-const QVector<ParametricCompositionSlot>& ParametricCompositionDefinition::inputSlots() const
+QVector<ParametricCompositionSlot> ParametricCompositionDefinition::inputSlots() const
 {
-    return slots_;
+    return slotsByRole(ParametricCompositionSlotRole::Input);
 }
 
 QVector<ParametricCompositionSlot> ParametricCompositionDefinition::outputSlots() const
 {
     return slotsByRole(ParametricCompositionSlotRole::Output);
+}
+
+const ParametricCompositionSlot* ParametricCompositionDefinition::slot(const QString& slotId) const
+{
+    for (const auto& item : slots_) {
+        if (item.slotId == slotId) {
+            return &item;
+        }
+    }
+    return nullptr;
+}
+
+bool ParametricCompositionDefinition::hasSlot(const QString& slotId) const
+{
+    return slot(slotId) != nullptr;
 }
 
 const QVector<ParametricCompositionParameter>& ParametricCompositionDefinition::parameters() const
@@ -343,8 +432,28 @@ bool ParametricCompositionDefinition::addSlot(const ParametricCompositionSlot& s
 
 bool ParametricCompositionDefinition::setSlot(const ParametricCompositionSlot& slot)
 {
-    slots_.clear();
-    return addSlot(slot);
+    if (slot.slotId.isEmpty()) {
+        return false;
+    }
+    for (auto& existing : slots_) {
+        if (existing.slotId == slot.slotId) {
+            existing = slot;
+            return true;
+        }
+    }
+    slots_.append(slot);
+    return true;
+}
+
+bool ParametricCompositionDefinition::removeSlot(const QString& slotId)
+{
+    for (auto it = slots_.begin(); it != slots_.end(); ++it) {
+        if (it->slotId == slotId) {
+            slots_.erase(it);
+            return true;
+        }
+    }
+    return false;
 }
 
 void ParametricCompositionDefinition::clearSlots()
@@ -444,6 +553,12 @@ bool ParametricCompositionDefinition::validate(QString* errorMessage) const
             }
             return false;
         }
+        if (slot.slotId.isEmpty()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("ParametricComposition slotId cannot be empty.");
+            }
+            return false;
+        }
     }
     QMap<QString, bool> seenParameters;
     for (const auto& parameterItem : parameters_) {
@@ -504,6 +619,15 @@ ParametricCompositionDefinition ParametricCompositionDefinition::fromJson(const 
     for (const auto& paramValue : params) {
         if (paramValue.isObject()) {
             definition.parameters_.append(ParametricCompositionParameter::fromJson(paramValue.toObject()));
+        }
+    }
+    if (definition.slots_.isEmpty() && obj.contains(QStringLiteral("templateSlots"))) {
+        const QJsonObject templateSlots = obj.value(QStringLiteral("templateSlots")).toObject();
+        const auto slotsArray = templateSlotsObjectToArray(templateSlots);
+        for (const auto& slotValue : slotsArray) {
+            if (slotValue.isObject()) {
+                definition.slots_.append(ParametricCompositionSlot::fromJson(slotValue.toObject()));
+            }
         }
     }
     return definition;

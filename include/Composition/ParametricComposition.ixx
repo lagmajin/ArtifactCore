@@ -177,12 +177,15 @@ public:
     void setDisplayName(const QString& name);
 
     const QVector<ParametricCompositionSlot>& slotDefinitions() const;
-    const QVector<ParametricCompositionSlot>& inputSlots() const;
+    QVector<ParametricCompositionSlot> inputSlots() const;
     QVector<ParametricCompositionSlot> outputSlots() const;
+    const ParametricCompositionSlot* slot(const QString& slotId) const;
+    bool hasSlot(const QString& slotId) const;
     const QVector<ParametricCompositionParameter>& parameters() const;
 
     bool addSlot(const ParametricCompositionSlot& slot);
     bool setSlot(const ParametricCompositionSlot& slot);
+    bool removeSlot(const QString& slotId);
     void clearSlots();
     QVector<ParametricCompositionSlot> slotsByRole(ParametricCompositionSlotRole role) const;
 
