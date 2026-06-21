@@ -98,13 +98,27 @@ struct FrameDebugResourceRecord {
     static FrameDebugResourceRecord fromJson(const QJsonObject& json);
 };
 
+struct FrameDebugBindingRecord {
+    QString key;
+    QString value;
+    QString stage;
+    QString note;
+
+    [[nodiscard]] QJsonObject toJson() const;
+    static FrameDebugBindingRecord fromJson(const QJsonObject& json);
+};
+
 struct FrameDebugPassRecord {
     QString name;
     FrameDebugPassKind kind = FrameDebugPassKind::Unknown;
     FrameDebugPassStatus status = FrameDebugPassStatus::Unknown;
     std::int64_t durationUs = 0;
+    QString backend;
+    QString shaderName;
+    QString previewResourceLabel;
     std::vector<FrameDebugAttachmentRecord> inputs;
     std::vector<FrameDebugAttachmentRecord> outputs;
+    std::vector<FrameDebugBindingRecord> debugBindings;
     QString note;
 
     [[nodiscard]] QJsonObject toJson() const;
@@ -335,6 +349,26 @@ inline FrameDebugResourceRecord FrameDebugResourceRecord::fromJson(const QJsonOb
     return record;
 }
 
+inline QJsonObject FrameDebugBindingRecord::toJson() const
+{
+    QJsonObject json;
+    json.insert(QStringLiteral("key"), key);
+    json.insert(QStringLiteral("value"), value);
+    json.insert(QStringLiteral("stage"), stage);
+    json.insert(QStringLiteral("note"), note);
+    return json;
+}
+
+inline FrameDebugBindingRecord FrameDebugBindingRecord::fromJson(const QJsonObject& json)
+{
+    FrameDebugBindingRecord record;
+    record.key = json.value(QStringLiteral("key")).toString();
+    record.value = json.value(QStringLiteral("value")).toString();
+    record.stage = json.value(QStringLiteral("stage")).toString();
+    record.note = json.value(QStringLiteral("note")).toString();
+    return record;
+}
+
 inline QJsonObject FrameDebugPassRecord::toJson() const
 {
     QJsonObject json;
@@ -342,6 +376,9 @@ inline QJsonObject FrameDebugPassRecord::toJson() const
     json.insert(QStringLiteral("kind"), toString(kind));
     json.insert(QStringLiteral("status"), toString(status));
     json.insert(QStringLiteral("durationUs"), static_cast<double>(durationUs));
+    json.insert(QStringLiteral("backend"), backend);
+    json.insert(QStringLiteral("shaderName"), shaderName);
+    json.insert(QStringLiteral("previewResourceLabel"), previewResourceLabel);
     json.insert(QStringLiteral("note"), note);
 
     QJsonArray inputsJson;
@@ -355,6 +392,12 @@ inline QJsonObject FrameDebugPassRecord::toJson() const
         outputsJson.append(output.toJson());
     }
     json.insert(QStringLiteral("outputs"), outputsJson);
+
+    QJsonArray bindingsJson;
+    for (const auto& binding : debugBindings) {
+        bindingsJson.append(binding.toJson());
+    }
+    json.insert(QStringLiteral("debugBindings"), bindingsJson);
     return json;
 }
 
@@ -365,6 +408,9 @@ inline FrameDebugPassRecord FrameDebugPassRecord::fromJson(const QJsonObject& js
     record.kind = passKindFromString(json.value(QStringLiteral("kind")).toString());
     record.status = passStatusFromString(json.value(QStringLiteral("status")).toString());
     record.durationUs = static_cast<std::int64_t>(json.value(QStringLiteral("durationUs")).toDouble());
+    record.backend = json.value(QStringLiteral("backend")).toString();
+    record.shaderName = json.value(QStringLiteral("shaderName")).toString();
+    record.previewResourceLabel = json.value(QStringLiteral("previewResourceLabel")).toString();
     record.note = json.value(QStringLiteral("note")).toString();
 
     for (const auto& value : json.value(QStringLiteral("inputs")).toArray()) {
@@ -372,6 +418,9 @@ inline FrameDebugPassRecord FrameDebugPassRecord::fromJson(const QJsonObject& js
     }
     for (const auto& value : json.value(QStringLiteral("outputs")).toArray()) {
         record.outputs.push_back(FrameDebugAttachmentRecord::fromJson(value.toObject()));
+    }
+    for (const auto& value : json.value(QStringLiteral("debugBindings")).toArray()) {
+        record.debugBindings.push_back(FrameDebugBindingRecord::fromJson(value.toObject()));
     }
     return record;
 }
