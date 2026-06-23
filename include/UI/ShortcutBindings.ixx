@@ -32,12 +32,15 @@ enum class ShortcutId {
     TimelineZoomIn = 18,
     TimelineZoomOut = 19,
     TimelineZoomReset = 20,
-    ImportPlacementNextSizeMode = 21,
-    ImportPlacementPreviousSizeMode = 22,
-    ImportPlacementConfirm = 23,
-    ImportPlacementCancel = 24,
-    ImportPlacementReset = 25,
-    Count = 26
+    TimelineEaseIn = 21,
+    TimelineEaseOut = 22,
+    TimelineEaseInOut = 23,
+    ImportPlacementNextSizeMode = 24,
+    ImportPlacementPreviousSizeMode = 25,
+    ImportPlacementConfirm = 26,
+    ImportPlacementCancel = 27,
+    ImportPlacementReset = 28,
+    Count = 29
 };
 
 QString shortcutDisplayName(ShortcutId id);

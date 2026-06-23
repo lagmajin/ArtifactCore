@@ -10,6 +10,8 @@
 
 module Transform.Hlper;
 
+import Math.Matrix4x4;
+
 namespace ArtifactCore
 {
 
@@ -71,6 +73,38 @@ namespace ArtifactCore
                                                     const QMatrix4x4& parent)
  {
   return parent * local;
+ }
+
+ LIBRARY_DLL_API Matrix4x4 makeLayerMatrix4x4(double positionX, double positionY,
+                                              double positionZ,
+                                              double rotationZDegrees,
+                                              double scaleX, double scaleY,
+                                              double scaleZ,
+                                              double anchorX, double anchorY,
+                                              double anchorZ)
+ {
+  const Matrix4x4 translate =
+      Matrix4x4::translation(static_cast<float>(positionX),
+                             static_cast<float>(positionY),
+                             static_cast<float>(positionZ));
+  const Matrix4x4 rotate =
+      Matrix4x4::rotationZ(static_cast<float>(rotationZDegrees));
+  const Matrix4x4 scale =
+      Matrix4x4::scale(static_cast<float>(scaleX), static_cast<float>(scaleY),
+                       static_cast<float>(scaleZ));
+  const Matrix4x4 anchor =
+      Matrix4x4::translation(static_cast<float>(-anchorX),
+                             static_cast<float>(-anchorY),
+                             static_cast<float>(-anchorZ));
+  return Matrix4x4::multiply(translate,
+                             Matrix4x4::multiply(rotate,
+                                                 Matrix4x4::multiply(scale, anchor)));
+ }
+
+ LIBRARY_DLL_API Matrix4x4 combineLayerMatrix4x4(const Matrix4x4& local,
+                                                 const Matrix4x4& parent)
+ {
+  return Matrix4x4::multiply(local, parent);
  }
 
 };

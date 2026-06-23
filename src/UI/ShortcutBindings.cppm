@@ -69,6 +69,12 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("TimelineZoomOut");
     case ShortcutId::TimelineZoomReset:
         return QStringLiteral("TimelineZoomReset");
+    case ShortcutId::TimelineEaseIn:
+        return QStringLiteral("TimelineEaseIn");
+    case ShortcutId::TimelineEaseOut:
+        return QStringLiteral("TimelineEaseOut");
+    case ShortcutId::TimelineEaseInOut:
+        return QStringLiteral("TimelineEaseInOut");
     case ShortcutId::ImportPlacementNextSizeMode:
         return QStringLiteral("ImportPlacementNextSizeMode");
     case ShortcutId::ImportPlacementPreviousSizeMode:
@@ -143,6 +149,12 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Timeline Zoom Out");
     case ShortcutId::TimelineZoomReset:
         return QStringLiteral("Timeline Zoom Reset");
+    case ShortcutId::TimelineEaseIn:
+        return QStringLiteral("Timeline Ease In");
+    case ShortcutId::TimelineEaseOut:
+        return QStringLiteral("Timeline Ease Out");
+    case ShortcutId::TimelineEaseInOut:
+        return QStringLiteral("Timeline Ease In/Out");
     case ShortcutId::ImportPlacementNextSizeMode:
         return QStringLiteral("Import Placement Next Size Mode");
     case ShortcutId::ImportPlacementPreviousSizeMode:
@@ -183,6 +195,9 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::TimelineZoomIn,
         ShortcutId::TimelineZoomOut,
         ShortcutId::TimelineZoomReset,
+        ShortcutId::TimelineEaseIn,
+        ShortcutId::TimelineEaseOut,
+        ShortcutId::TimelineEaseInOut,
         ShortcutId::ImportPlacementNextSizeMode,
         ShortcutId::ImportPlacementPreviousSizeMode,
         ShortcutId::ImportPlacementConfirm,
@@ -214,6 +229,9 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::TimelineZoomIn)] = QKeySequence(Qt::CTRL | Qt::Key_Equal);
     defaults_[index(ShortcutId::TimelineZoomOut)] = QKeySequence(Qt::CTRL | Qt::Key_Minus);
     defaults_[index(ShortcutId::TimelineZoomReset)] = QKeySequence(Qt::CTRL | Qt::Key_0);
+    defaults_[index(ShortcutId::TimelineEaseIn)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_2);
+    defaults_[index(ShortcutId::TimelineEaseOut)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_3);
+    defaults_[index(ShortcutId::TimelineEaseInOut)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_4);
     defaults_[index(ShortcutId::ImportPlacementNextSizeMode)] = QKeySequence(Qt::Key_S);
     defaults_[index(ShortcutId::ImportPlacementPreviousSizeMode)] = QKeySequence(Qt::SHIFT | Qt::Key_S);
     defaults_[index(ShortcutId::ImportPlacementConfirm)] = QKeySequence(Qt::Key_Return);

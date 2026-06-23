@@ -32,7 +32,7 @@ QJsonValue jsonValueFromVariant(const QVariant& value)
 
 QJsonArray templateSlotsObjectToArray(const QJsonObject& templateSlots)
 {
-    QJsonArray slots;
+    QJsonArray slotArray;
     for (auto it = templateSlots.begin(); it != templateSlots.end(); ++it) {
         if (!it.value().isObject()) {
             continue;
@@ -53,9 +53,9 @@ QJsonArray templateSlotsObjectToArray(const QJsonObject& templateSlots)
         if (!slot.contains(QStringLiteral("valueType"))) {
             slot.insert(QStringLiteral("valueType"), QStringLiteral("RGBA"));
         }
-        slots.append(slot);
+        slotArray.append(slot);
     }
-    return slots;
+    return slotArray;
 }
 
 QJsonArray templateSlotsToValuesArray(const QJsonObject& templateSlots)

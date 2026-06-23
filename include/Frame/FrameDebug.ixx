@@ -1,6 +1,7 @@
 ﻿module;
 
 #include <cstdint>
+#include <QImage>
 #include <QString>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -108,6 +109,16 @@ struct FrameDebugBindingRecord {
     static FrameDebugBindingRecord fromJson(const QJsonObject& json);
 };
 
+struct FrameDebugImagePreviewRecord {
+    QString key;
+    QString label;
+    QString note;
+    QImage beforeImage;
+    QImage afterImage;
+    QImage alphaImage;
+    QImage diffImage;
+};
+
 struct FrameDebugPassRecord {
     QString name;
     FrameDebugPassKind kind = FrameDebugPassKind::Unknown;
@@ -154,6 +165,7 @@ struct FrameDebugSnapshot {
     std::vector<FrameDebugPassRecord> passes;
     std::vector<FrameDebugResourceRecord> resources;
     std::vector<FrameDebugAttachmentRecord> attachments;
+    std::vector<FrameDebugImagePreviewRecord> previews;
     bool failed = false;
     QString failureReason;
 

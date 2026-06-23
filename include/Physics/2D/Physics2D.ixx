@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <box2d/box2d.h>
 #include <memory>
 #include <vector>
@@ -43,12 +43,12 @@ export namespace ArtifactCore {
 
     // ─────────────────────────────────────────────────────────
     // RigidBody2D
-    // Box2D v3のb2BodyIdをラップし、MoGraphデータと同期するためのクラス
+    // Box2D v3のb2BodyIdをラップし、Clonerデータと同期するためのクラス
     // ─────────────────────────────────────────────────────────
     class RigidBody2D {
     public:
         b2BodyId bodyId;
-        int cloneIndex = -1; // MoGraphの何番目のクローンとリンクしているか
+        int cloneIndex = -1; // Clonerの何番目のクローンとリンクしているか
         
         QVector2D position() const {
             if (!b2Body_IsValid(bodyId)) return {0,0};
@@ -122,3 +122,4 @@ export namespace ArtifactCore {
     };
 
 }
+

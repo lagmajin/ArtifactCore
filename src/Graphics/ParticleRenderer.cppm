@@ -39,8 +39,14 @@ struct ParticleData {
 StructuredBuffer<ParticleData> g_Particles : register(t0);
 
 cbuffer Constants : register(b0) {
-    float4x4 ViewMatrix;
-    float4x4 ProjMatrix;
+    float4 ViewRow0;
+    float4 ViewRow1;
+    float4 ViewRow2;
+    float4 ViewRow3;
+    float4 ProjRow0;
+    float4 ProjRow1;
+    float4 ProjRow2;
+    float4 ProjRow3;
     float DeltaTime;
 };
 
@@ -64,8 +70,12 @@ PS_Input VSMain(VS_Input In) {
     PS_Input Out;
     ParticleData p = g_Particles[In.InstanceID];
     
-    // View space billboard
-    float4 viewPos = mul(float4(p.position, 1.0), ViewMatrix);
+    float4 localPos = float4(p.position, 1.0);
+    float4 viewPos = float4(
+        dot(localPos, ViewRow0),
+        dot(localPos, ViewRow1),
+        dot(localPos, ViewRow2),
+        dot(localPos, ViewRow3));
     
     // Rotation (degrees to radians)
     float rad = p.rotation * 3.14159265 / 180.0;
@@ -81,7 +91,11 @@ PS_Input VSMain(VS_Input In) {
     
     viewPos.xy += rotatedOffset;
     
-    Out.Pos = mul(viewPos, ProjMatrix);
+    Out.Pos = float4(
+        dot(viewPos, ProjRow0),
+        dot(viewPos, ProjRow1),
+        dot(viewPos, ProjRow2),
+        dot(viewPos, ProjRow3));
     Out.UV = c_Offsets[In.VertexID] + 0.5;
     Out.Color = p.color;
     
@@ -174,6 +188,10 @@ void ParticleRenderer::createPSO() {
     RT0.SrcBlend    = BLEND_FACTOR_SRC_ALPHA;
     RT0.DestBlend   = BLEND_FACTOR_ONE; // Additive
     RT0.BlendOp     = BLEND_OPERATION_ADD;
+    RT0.SrcBlendAlpha  = BLEND_FACTOR_ONE;
+    RT0.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
+    RT0.BlendOpAlpha   = BLEND_OPERATION_ADD;
+    RT0.RenderTargetWriteMask = COLOR_MASK_ALL;
 
     // Compile Shaders (output-param style per new GPUComputeContext API)
     RefCntAutoPtr<IShader> vs, ps;

@@ -10,6 +10,7 @@
 export module Transform.Hlper;
 
 import Transform;
+import Math.Matrix4x4;
 
 export namespace ArtifactCore
 {
@@ -36,6 +37,17 @@ LIBRARY_DLL_API QMatrix4x4 makeLayerTransform3D(double positionX, double positio
 
 LIBRARY_DLL_API QMatrix4x4 combineLayerTransform3D(const QMatrix4x4& local,
                                                    const QMatrix4x4& parent);
+
+LIBRARY_DLL_API Matrix4x4 makeLayerMatrix4x4(double positionX, double positionY,
+                                             double positionZ,
+                                             double rotationZDegrees,
+                                             double scaleX, double scaleY,
+                                             double scaleZ,
+                                             double anchorX, double anchorY,
+                                             double anchorZ);
+
+LIBRARY_DLL_API Matrix4x4 combineLayerMatrix4x4(const Matrix4x4& local,
+                                                const Matrix4x4& parent);
 
 
 
