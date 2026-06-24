@@ -34,6 +34,7 @@ export enum class DiagnosticCategory {
     Performance,    // パフォーマンス
     File,           // ファイル
     Configuration,  // 設定
+    Audio,          // オーディオ（スクラブなど）
     Custom          // カスタム
 };
 

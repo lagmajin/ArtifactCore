@@ -27,6 +27,7 @@ import Graphics.Effect.Creative.Pixelate;
 import Graphics.Effect.Creative.Posterize;
 import Graphics.Effect.Creative.SurfaceMemory;
 import Graphics.Effect.Creative.TemporalFossil;
+import Graphics.Effect.Creative.OldTV;
 
 export namespace ArtifactCore {
 
@@ -56,6 +57,7 @@ inline std::shared_ptr<CreativeEffect> CreativeEffectFactory::create(const std::
     if (name == "Emboss") return std::make_shared<EmbossEffect>();
     if (name == "Solarize") return std::make_shared<SolarizeEffect>();
     if (name == "ChromaticAberration") return std::make_shared<ChromaticAberrationEffect>();
+    if (name == "OldTV" || name == "Old TV / CRT") return std::make_shared<OldTVEffect>();
     if (name == "ColorVibrance" || name == "VC Color Vibrance") return std::make_shared<ColorVibranceEffect>();
 
     auto* tracker = FallbackTracker::instance();
@@ -82,6 +84,7 @@ inline std::vector<std::string> CreativeEffectFactory::getAvailableEffects() {
         "DepthMelt",
         "Kaleidoscope",
         "LightPressure",
+        "OldTV",
         "Mirror",
         "EdgeEcho",
         "PigmentSeparation",

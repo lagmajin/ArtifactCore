@@ -29,8 +29,10 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 export module ImageProcessing.Shader;
 import Graphics.Compute;
+import Graphics.GPUcomputeContext;
 
 export namespace ArtifactCore {
 
@@ -111,7 +113,7 @@ export namespace ArtifactCore {
   int dispatchGroupCountX(int width) const;
   int dispatchGroupCountY(int height) const;
   ComputePipelineDesc toComputePipelineDesc() const;
-  ComputePipelineDesc toComputePipelineDesc(std::vector<ShaderResourceVariableDesc>& variables) const;
+  ComputePipelineDesc toComputePipelineDesc(std::vector<Diligent::ShaderResourceVariableDesc>& variables) const;
  };
 
  class SinglePassShader {
@@ -141,7 +143,7 @@ export namespace ArtifactCore {
   static std::unique_ptr<ComputeExecutor> buildComputeExecutor(
    GpuContext& context,
    const SinglePassShaderSource& source,
-   std::vector<ShaderResourceVariableDesc>& variables,
+   std::vector<Diligent::ShaderResourceVariableDesc>& variables,
    bool initializeStaticResources = true);
   static SinglePassShaderSource buildPassthroughImageComputeShader(std::string shaderName = "ArtifactPassthroughImageEffect");
   void addEffect();

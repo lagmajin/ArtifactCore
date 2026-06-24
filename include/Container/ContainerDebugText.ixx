@@ -8,6 +8,9 @@ export module Container.Debug.Text;
 
 import Container.Debug;
 import Container.NamedList;
+import Container.SmallVector;
+import Container.NameMap;
+import Container.IdMap;
 
 export namespace ArtifactCore {
 
@@ -89,6 +92,24 @@ inline std::string toDebugText(const ContainerWatchHit& hit)
   text += " -> ";
   text += toDebugText(hit.snapshot);
   return text;
+}
+
+template <typename T, std::size_t N>
+inline std::string toDebugText(const SmallVector<T, N>& values)
+{
+  return toDebugText(values.debugSnapshot());
+}
+
+template <typename K, typename V>
+inline std::string toDebugText(const NameMap<K, V>& values)
+{
+  return toDebugText(values.debugSnapshot());
+}
+
+template <typename K, typename V>
+inline std::string toDebugText(const IdMap<K, V>& values)
+{
+  return toDebugText(values.debugSnapshot());
 }
 
 template <typename T>

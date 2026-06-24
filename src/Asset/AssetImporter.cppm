@@ -32,7 +32,8 @@ bool AssetImporter::isSupported(const QString& extension) {
         "ai", "pdf", "eps", "svg",
         "mp4", "mov", "avi", "mkv",
         "wav", "mp3", "flac", "aac",
-        "obj", "fbx", "abc", "glb", "gltf"
+        "obj", "fbx", "abc", "glb", "gltf",
+        "json"
     };
     
     return supported.contains(ext);
@@ -44,6 +45,9 @@ AssetType AssetImporter::detectType(const QString& filePath) {
     const VectorSourceKind vectorKind = vectorSourceKindForExtension(QFileInfo(filePath).suffix());
     
     if (vectorKind != VectorSourceKind::Unknown || ft == FileType::Document) {
+        return AssetType::Data;
+    }
+    if (ft == FileType::Text) {
         return AssetType::Data;
     }
 

@@ -8,7 +8,7 @@ set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
 # ---------------------------------------------------------------------------
 
 # 全てのソース候補を収集
-file(GLOB_RECURSE POTENTIAL_SOURCES CONFIGURE_DEPENDS 
+file(GLOB_RECURSE POTENTIAL_SOURCES 
     "src/*.cpp" "src/*.cppm" "src/*.ixx"
     "src/**/*.cpp" "src/**/*.cppm" "src/**/*.ixx"
     "include/*.ixx" "include/*.cppm"
@@ -27,11 +27,7 @@ foreach(file_path ${POTENTIAL_SOURCES})
        file_path MATCHES "/Halide/" OR
        file_path MATCHES "hostfxr" OR
        file_path MATCHES "\\.bak$" OR
-       file_path MATCHES "src/Graphics/Effect/HalftoneEffect\\.cppm" OR
-       file_path MATCHES "src/Graphics/Effect/MirrorEffect\\.cppm" OR
-       file_path MATCHES "src/Graphics/Effect/KaleidoscopeEffect\\.cppm" OR
-       file_path MATCHES "src/Graphics/Effect/CreativeEffectFactory\\.cppm" OR
-       file_path MATCHES "src/Graphics/Effect/OldTVEffect\\.cppm" OR
+
        file_path MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
        file_path MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
@@ -116,6 +112,9 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactAtomic.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactHashMap.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactOptional.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/SmallVector.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/NameMap.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/IdMap.ixx"
 )
     list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
     if(_artifact_force_module_index EQUAL -1)
@@ -236,6 +235,9 @@ target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system Boost::iost
 # would shadow volk's writable global symbols with read-only import thunks)
 find_package(Vulkan REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC Vulkan::Headers)
+
+find_package(OpenXR REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC OpenXR::headers)
 
 # ggml-vulkan shader generation needs a real glslc executable.
 # Some environments resolve Vulkan_GLSLC_EXECUTABLE to a vcpkg path that does

@@ -32,11 +32,12 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-export module Core.AI.ImageMathDescriptions;
 #include <QString>
 #include <QStringList>
 #include <QVector3D>
 #include <QColor>
+
+export module Core.AI.ImageMathDescriptions;
 
 
 

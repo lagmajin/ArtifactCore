@@ -71,22 +71,22 @@
 - CPU reference / HLSL backend split
 - CPU/HLSL diff test harness
 
-### C-GFX-2 Creative Effect Pack
-- `Halftone`
-- `Posterize`
-- `Pixelate`
-- `Mirror`
-- `Kaleidoscope`
-- `Fisheye`
-- `Glitch`
-- `OldTV`
-- `TemporalFossil`
-- `PigmentSeparation`
-- `SurfaceMemory`
-- `DepthMelt`
-- `EdgeEcho`
-- `LightPressure`
-- 進捗: exploratory backlog から `TemporalFossil` / `PigmentSeparation` / `SurfaceMemory` / `DepthMelt` / `EdgeEcho` / `LightPressure` の CPU reference 実装を追加した
+### C-GFX-2 Creative Effect Pack ✅
+- `Halftone` — ✅
+- `Posterize` — ✅
+- `Pixelate` — ✅
+- `Mirror` — ✅
+- `Kaleidoscope` — ✅
+- `Fisheye` — ✅
+- `Glitch` — ✅
+- `OldTV` — ✅ (2026-06-24 build exclusion解除 + Factory登録)
+- `TemporalFossil` — ✅
+- `PigmentSeparation` — ✅
+- `SurfaceMemory` — ✅
+- `DepthMelt` — ✅
+- `EdgeEcho` — ✅
+- `LightPressure` — ✅
+- 全14エフェクトのCPU reference実装完了（2026-06-24）
 
 ### C-GFX-3 Shader / Compute Utility Cleanup
 - shader helper

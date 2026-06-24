@@ -2,7 +2,9 @@
 #include <utility>
 #include <cmath>
 #include <algorithm>
+#include <QMatrix4x4>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 export module Core.Camera;
@@ -11,6 +13,12 @@ import Float3;
 
 export namespace ArtifactCore
 {
+
+ enum class StereoMode : int {
+  Mono = 0,
+  TopBottom = 1,
+  SideBySide = 2,
+ };
 
  /// 3D DCC-style camera with orbit, pan, zoom, and projection.
  class Camera {
@@ -101,6 +109,32 @@ export namespace ArtifactCore
   float aspect_ = 16.0f / 9.0f;
   float nearZ_ = 0.1f;
   float farZ_  = 1000.0f;
+ };
+
+ struct StereoCamera {
+  QMatrix4x4 leftEyeView;
+  QMatrix4x4 rightEyeView;
+  QMatrix4x4 projection;
+  float ipd = 0.064f;
+  float nearPlane = 0.1f;
+  float farPlane = 1000.0f;
+
+  static StereoCamera fromHmd(const QMatrix4x4& hmdPose,
+                              float ipdValue = 0.064f,
+                              float nearValue = 0.1f,
+                              float farValue = 1000.0f)
+  {
+   StereoCamera camera;
+   camera.ipd = ipdValue;
+   camera.nearPlane = nearValue;
+   camera.farPlane = farValue;
+
+   QMatrix4x4 eyeOffset;
+   eyeOffset.translate(ipdValue * 0.5f, 0.0f, 0.0f);
+   camera.leftEyeView = (hmdPose * eyeOffset).inverted();
+   camera.rightEyeView = (hmdPose * eyeOffset.inverted()).inverted();
+   return camera;
+  }
  };
 
 };

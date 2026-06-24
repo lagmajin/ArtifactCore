@@ -306,22 +306,85 @@ public:
         }
     }
 
-    // オプティカルフロー計算（簡易実装）
+    // NCC ベースのオプティカルフロー計算
     QPointF computeOpticalFlow(const QImage& prev, const QImage& curr, const QPointF& point) {
-        // 簡易的な実装（実際はOpenCVなどを使用）
-        Q_UNUSED(prev);
-        Q_UNUSED(curr);
-        Q_UNUSED(point);
-        return QPointF(0, 0);
+        const int templateSize = 21;
+        const int searchRadius = 31;
+        const int halfTmpl = templateSize / 2;
+        const int halfSearch = searchRadius;
+
+        cv::Mat prevGray = qimageToMat(prev);
+        cv::Mat currGray = qimageToMat(curr);
+
+        int cx = static_cast<int>(std::round(point.x()));
+        int cy = static_cast<int>(std::round(point.y()));
+
+        int tx = cx - halfTmpl;
+        int ty = cy - halfTmpl;
+        if (tx < 0 || ty < 0 || tx + templateSize > prevGray.cols || ty + templateSize > prevGray.rows) {
+            return QPointF(0, 0);
+        }
+        cv::Mat tmpl = prevGray(cv::Rect(tx, ty, templateSize, templateSize)).clone();
+
+        int sx = cx - halfSearch;
+        int sy = cy - halfSearch;
+        sx = std::max(0, sx);
+        sy = std::max(0, sy);
+        int sw = std::min(halfSearch * 2, currGray.cols - sx);
+        int sh = std::min(halfSearch * 2, currGray.rows - sy);
+        if (sw < templateSize || sh < templateSize) {
+            return QPointF(0, 0);
+        }
+
+        cv::Mat searchRegion = currGray(cv::Rect(sx, sy, sw, sh));
+        cv::Mat resultMap;
+        cv::matchTemplate(searchRegion, tmpl, resultMap, cv::TM_CCORR_NORMED);
+
+        double minVal, maxVal;
+        cv::Point minLoc, maxLoc;
+        cv::minMaxLoc(resultMap, &minVal, &maxVal, &minLoc, &maxLoc);
+
+        float peakX = static_cast<float>(sx + maxLoc.x + halfTmpl);
+        float peakY = static_cast<float>(sy + maxLoc.y + halfTmpl);
+
+        // sub-pixel (parabola fit)
+        if (maxLoc.x > 0 && maxLoc.x < resultMap.cols - 1 &&
+            maxLoc.y > 0 && maxLoc.y < resultMap.rows - 1) {
+            auto v = [&](int dx, int dy) -> float {
+                return resultMap.at<float>(maxLoc.y + dy, maxLoc.x + dx);
+            };
+            float c0 = v(0, 0);
+            float cx1 = v(-1, 0), cx2 = v(1, 0);
+            float cy1 = v(0, -1), cy2 = v(0, 1);
+            float dx = (cx2 - cx1) / (2.0f * (2.0f * c0 - cx1 - cx2 + 1e-6f));
+            float dy = (cy2 - cy1) / (2.0f * (2.0f * c0 - cy1 - cy2 + 1e-6f));
+            if (std::isfinite(dx) && std::isfinite(dy)) {
+                peakX += dx;
+                peakY += dy;
+            }
+        }
+
+        float conf = static_cast<float>(maxVal);
+        if (conf < settings.confidenceThreshold) {
+            return QPointF(0, 0);
+        }
+
+        return QPointF(peakX - static_cast<float>(point.x()),
+                       peakY - static_cast<float>(point.y()));
     }
     
-    // 特徴点検出
+    // 特徴点検出 (Shi-Tomasi / goodFeaturesToTrack)
     std::vector<QPointF> detectFeatures(const QImage& frame, int maxFeatures, double minDist) {
         std::vector<QPointF> features;
-        // 簡易実装（実際はOpenCVのgoodFeaturesToTrackなど）
-        Q_UNUSED(frame);
-        Q_UNUSED(maxFeatures);
-        Q_UNUSED(minDist);
+        cv::Mat gray = qimageToMat(frame);
+        std::vector<cv::Point2f> corners;
+        cv::goodFeaturesToTrack(gray, corners, maxFeatures, 0.01, minDist, cv::Mat(), 3, false, 0.04);
+        features.reserve(corners.size());
+        for (const auto& pt : corners) {
+            if (pt.x >= 0 && pt.y >= 0) {
+                features.emplace_back(pt.x, pt.y);
+            }
+        }
         return features;
     }
 };

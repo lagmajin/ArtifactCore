@@ -6,11 +6,13 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h>
 
 module ImageProcessing.Shader;
 import Graphics.Compute;
 
 namespace ArtifactCore {
+ using namespace Diligent;
 
  class SinglePassShader::Impl {
  private:
@@ -157,16 +159,16 @@ namespace ArtifactCore {
   return desc;
  }
 
- ComputePipelineDesc SinglePassShaderSource::toComputePipelineDesc(std::vector<ShaderResourceVariableDesc>& variables) const
+ ComputePipelineDesc SinglePassShaderSource::toComputePipelineDesc(std::vector<Diligent::ShaderResourceVariableDesc>& variables) const
  {
   variables.clear();
   variables.reserve(bindings.size());
   for (const SinglePassShaderBinding& binding : bindings)
   {
-   auto variableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+   auto variableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
    if (binding.mutablePerDispatch)
    {
-    variableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+    variableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
    }
 
    switch (binding.kind)
@@ -399,7 +401,7 @@ namespace ArtifactCore {
  std::unique_ptr<ComputeExecutor> SinglePassShader::buildComputeExecutor(
   GpuContext& context,
   const SinglePassShaderSource& source,
-  std::vector<ShaderResourceVariableDesc>& variables,
+  std::vector<Diligent::ShaderResourceVariableDesc>& variables,
   bool initializeStaticResources)
  {
   auto executor = std::make_unique<ComputeExecutor>(context);
