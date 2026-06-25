@@ -1,5 +1,6 @@
 ﻿module;
 #include <utility>
+#include <cstdint>
 #include <QImage>
 #include <QPainter>
 #include <vector>
@@ -203,6 +204,173 @@ public:
 
         painter.end();
         return hist;
+    }
+
+    // ============================================================
+    // GPU bin-data renderers (consume raw uint32[] from ScopeComputer)
+    // ============================================================
+
+    /// Render vectorscope from GPU-computed bin data.
+    /// bins must be size*size uint32_t values (count per scope coordinate).
+    static QImage renderVectorscopeFromBins(const uint32_t* bins, int size) {
+        QImage scope(size, size, QImage::Format_ARGB32_Premultiplied);
+        scope.fill(QColor(0, 0, 0, 220));
+
+        if (!bins || size <= 0) return scope;
+
+        // Find max bin for normalization
+        uint32_t maxBin = 1;
+        for (int i = 0; i < size * size; ++i) {
+            if (bins[i] > maxBin) maxBin = bins[i];
+        }
+
+        const float invMax = 1.0f / static_cast<float>(maxBin);
+
+        // Render bins as intensity dots
+        for (int y = 0; y < size; ++y) {
+            auto* line = reinterpret_cast<QRgb*>(scope.scanLine(y));
+            for (int x = 0; x < size; ++x) {
+                uint32_t count = bins[y * size + x];
+                if (count == 0) continue;
+                float intensity = static_cast<float>(count) * invMax;
+                int val = static_cast<int>(intensity * 200.0f + 55.0f);
+                val = std::min(val, 255);
+                QRgb existing = line[x];
+                int a = std::min(255, qAlpha(existing) + val);
+                int r = std::min(255, qRed(existing) + val);
+                int g = std::min(255, qGreen(existing) + val);
+                int b = std::min(255, qBlue(existing) + val);
+                line[x] = qRgba(r, g, b, a);
+            }
+        }
+
+        // Graticule
+        QPainter painter(&scope);
+        painter.setRenderHint(QPainter::Antialiasing);
+        const int cx = size / 2;
+        const int cy = size / 2;
+        const float radius = static_cast<float>(size) * 0.45f;
+
+        painter.setPen(QPen(QColor(60, 60, 60), 1));
+        painter.drawEllipse(QPointF(cx, cy), radius, radius);
+        painter.setPen(QPen(QColor(40, 40, 40), 1, Qt::DotLine));
+        painter.drawEllipse(QPointF(cx, cy), radius * 0.75f, radius * 0.75f);
+        painter.drawEllipse(QPointF(cx, cy), radius * 0.50f, radius * 0.50f);
+        painter.drawEllipse(QPointF(cx, cy), radius * 0.25f, radius * 0.25f);
+        painter.setPen(QPen(QColor(80, 80, 80, 120), 1));
+        painter.drawLine(cx, 0, cx, size);
+        painter.drawLine(0, cy, size, cy);
+
+        // Color target labels
+        struct Target { const char* name; float cb; float cr; QColor color; };
+        const Target targets[] = {
+            {"R", -0.169f, 0.500f, QColor(180, 60, 60)},
+            {"G", -0.331f, -0.419f, QColor(60, 180, 60)},
+            {"B", 0.500f, -0.081f, QColor(60, 60, 180)},
+            {"Cy", 0.331f, -0.500f, QColor(60, 180, 180)},
+            {"Mg", 0.169f, 0.419f, QColor(180, 60, 180)},
+            {"Yl", -0.500f, 0.081f, QColor(180, 180, 60)},
+        };
+        const float r90 = radius * 0.9f;
+        painter.setFont(QFont("Consolas", 7));
+        for (const auto& t : targets) {
+            int tx = cx + static_cast<int>(t.cb * r90 * 2.0f);
+            int ty = cy - static_cast<int>(t.cr * r90 * 2.0f);
+            painter.setPen(QPen(t.color, 1));
+            painter.drawRect(tx - 3, ty - 3, 6, 6);
+            painter.drawText(tx + 6, ty + 3, t.name);
+        }
+
+        painter.end();
+        return scope;
+    }
+
+    /// Render waveform from GPU-computed bin data.
+    /// bins must be width*height uint32_t values (count per column/luma).
+    static QImage renderWaveformFromBins(const uint32_t* bins,
+                                         int width, int height) {
+        QImage scope(width, height, QImage::Format_ARGB32_Premultiplied);
+        scope.fill(QColor(0, 0, 0, 220));
+
+        if (!bins || width <= 0 || height <= 0) return scope;
+
+        uint32_t maxBin = 1;
+        for (int i = 0; i < width * height; ++i) {
+            if (bins[i] > maxBin) maxBin = bins[i];
+        }
+
+        const float invMax = 1.0f / static_cast<float>(maxBin);
+
+        for (int y = 0; y < height; ++y) {
+            auto* line = reinterpret_cast<QRgb*>(scope.scanLine(y));
+            for (int x = 0; x < width; ++x) {
+                uint32_t count = bins[y * width + x];
+                if (count == 0) continue;
+                float intensity = static_cast<float>(count) * invMax;
+                int val = static_cast<int>(intensity * 255);
+                val = std::min(val, 255);
+                line[x] = qRgba(val, val, 255, val);
+            }
+        }
+
+        QPainter painter(&scope);
+        painter.setPen(QPen(QColor(80, 80, 80, 120), 1));
+        for (int i = 0; i <= 4; ++i) {
+            int gy = (height * i) / 4;
+            painter.drawLine(0, gy, width, gy);
+        }
+        painter.end();
+        return scope;
+    }
+
+    /// Render parade from GPU-computed bin data.
+    /// bins: [R pane][G pane][B pane], each pane is width*height uint32_t.
+    /// Total buffer size: 3 * width * height.
+    static QImage renderParadeFromBins(const uint32_t* bins,
+                                       int width, int height) {
+        int totalW = width * 3;
+        QImage scope(totalW, height, QImage::Format_ARGB32_Premultiplied);
+        scope.fill(QColor(0, 0, 0, 220));
+
+        if (!bins || width <= 0 || height <= 0) return scope;
+
+        uint32_t maxBin = 1;
+        for (int i = 0; i < 3 * width * height; ++i) {
+            if (bins[i] > maxBin) maxBin = bins[i];
+        }
+
+        const float invMax = 1.0f / static_cast<float>(maxBin);
+        const int pane = width * height;
+
+        auto drawPane = [&](int paneOffset, QRgb color) {
+            for (int y = 0; y < height; ++y) {
+                auto* line = reinterpret_cast<QRgb*>(scope.scanLine(y));
+                for (int x = 0; x < width; ++x) {
+                    uint32_t count = bins[paneOffset + y * width + x];
+                    if (count == 0) continue;
+                    float intensity = static_cast<float>(count) * invMax;
+                    int a = std::min(255, static_cast<int>(intensity * 255));
+                    line[x + paneOffset / pane * width] = qRgba(
+                        qRed(color), qGreen(color), qBlue(color), a);
+                }
+            }
+        };
+
+        drawPane(0 * pane, qRgba(255, 80, 80, 255));
+        drawPane(1 * pane, qRgba(80, 255, 80, 255));
+        drawPane(2 * pane, qRgba(80, 80, 255, 255));
+
+        QPainter painter(&scope);
+        painter.setPen(QPen(QColor(80, 80, 80, 120), 1));
+        for (int i = 0; i <= 4; ++i) {
+            int gy = (height * i) / 4;
+            painter.drawLine(0, gy, totalW, gy);
+        }
+        for (int p = 1; p < 3; ++p) {
+            painter.drawLine(p * width, 0, p * width, height);
+        }
+        painter.end();
+        return scope;
     }
 };
 
