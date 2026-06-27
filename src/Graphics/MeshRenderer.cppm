@@ -99,6 +99,7 @@ struct PSInput {
     float4 Pos   : SV_Position;
     float3 Normal : NORMAL;
     float2 UV    : TEXCOORD0;
+    float Mode   : TEXCOORD1;
     float4 Color : COLOR;
 };
 
@@ -131,6 +132,7 @@ PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
     Out.Normal = mul(In.normal, rotMat);
     
     Out.UV = In.uv;
+    Out.Mode = inst.timeOffset;
     Out.Color = inst.color * inst.weight; // weight acts as alpha multiplier
     return Out;
 }
@@ -141,6 +143,7 @@ struct PSInput {
     float4 Pos   : SV_Position;
     float3 Normal : NORMAL;
     float2 UV    : TEXCOORD0;
+    float Mode   : TEXCOORD1;
     float4 Color : COLOR;
 };
 
@@ -152,6 +155,13 @@ float4 PSMain(PSInput In) : SV_Target {
     float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, In.UV);
     float4 opacitySample = g_OpacityTexture.Sample(g_BaseColorSampler, In.UV);
     float4 baseColor = baseSample * In.Color;
+    if (In.Mode > 1.5 && In.Mode < 2.5) {
+        float3 normalColor = normalize(In.Normal) * 0.5 + 0.5;
+        return float4(normalColor, baseColor.a * opacitySample.a);
+    }
+    if (In.Mode > 0.5 && In.Mode < 1.5) {
+        return float4(baseColor.rgb, baseColor.a * opacitySample.a);
+    }
 
     // Simple lighting
     float3 lightDir = normalize(float3(0.5, 0.8, 1.0));

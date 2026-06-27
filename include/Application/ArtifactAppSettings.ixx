@@ -51,6 +51,8 @@ public:
 
     int dockTabFontPointSize() const;
     void setDockTabFontPointSize(int pointSize);
+    bool layerCacheEnabled() const;
+    void setLayerCacheEnabled(bool enable);
 
     // --- Composition View Defaults ---
     float compositionCheckerboardSize() const;

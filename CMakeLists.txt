@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30)
+﻿cmake_minimum_required(VERSION 3.30)
 project(ArtifactCore)
 
 set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
@@ -94,6 +94,7 @@ endforeach()
 # module unit is only provided as `module M:Impl;`, so register the known shape
 # partitions explicitly to keep FILE_SET CXX_MODULES complete.
 foreach(_artifact_force_module IN ITEMS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Geometry/Procedural3DGenerators.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeOperator.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/TrimPaths.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/Repeater.ixx"
@@ -107,6 +108,7 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateSlot.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateLock.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/ParametricComposition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Simulation/PyroSimulation.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/SharedPtr.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/ArtifactArray.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactAtomic.cppm"
@@ -121,6 +123,26 @@ foreach(_artifact_force_module IN ITEMS
         list(APPEND CORE_MODULES "${_artifact_force_module}")
     endif()
 endforeach()
+
+# Procedural3DGenerators.cppm is the implementation unit for the explicitly
+# registered public generator module above.
+list(FIND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/Procedural3DGenerators.cppm" _procedural_3d_impl_idx)
+if(_procedural_3d_impl_idx EQUAL -1)
+    list(APPEND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/Procedural3DGenerators.cppm")
+endif()
+
+# LUT3DComputer.cppm is the implementation unit for the interface declared in
+# include/Graphics/Compute/LUT3DComputer.ixx. Keep it as a private source so it
+# does not generate a second module interface unit.
+list(FIND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics/Compute/LUT3DComputer.cppm" _lut3d_computer_impl_idx)
+if(_lut3d_computer_impl_idx EQUAL -1)
+    list(APPEND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics/Compute/LUT3DComputer.cppm")
+endif()
+
+list(FIND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/PyroSimulation.cppm" _pyro_simulation_impl_idx)
+if(_pyro_simulation_impl_idx EQUAL -1)
+    list(APPEND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/PyroSimulation.cppm")
+endif()
 
 # ---------------------------------------------------------------------------
 # ターゲット定義

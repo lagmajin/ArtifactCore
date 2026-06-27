@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <vector>
 #include <cstdint>
@@ -25,6 +25,33 @@ struct ParticleVertex {
     float rotation = 0.0f;
     float age = 0.0f;
     float lifetime = 1.0f;
+    int spriteFrame = 0;
+    int spriteRows = 1;
+    int spriteCols = 1;
+};
+
+enum class ParticleBlendPolicy : std::uint32_t {
+    Additive = 0,
+    Subtractive = 1,
+    Alpha = 2,
+    Screen = 3,
+    Multiply = 4
+};
+
+enum class ParticleBillboardPolicy : std::uint32_t {
+    None = 0,
+    ScreenAligned = 1,
+    ViewPlane = 2,
+    VelocityAligned = 3
+};
+
+struct ParticleRenderOptions {
+    ParticleBlendPolicy blend = ParticleBlendPolicy::Additive;
+    ParticleBillboardPolicy billboard = ParticleBillboardPolicy::ScreenAligned;
+    bool depthTest = false;
+    bool depthWrite = false;
+
+    bool operator==(const ParticleRenderOptions&) const = default;
 };
 
 /**
@@ -33,6 +60,7 @@ struct ParticleVertex {
 struct ParticleRenderData {
     std::vector<ParticleVertex> particles;
     int64_t frameNumber = 0;
+    ParticleRenderOptions options;
 };
 
 } // namespace ArtifactCore

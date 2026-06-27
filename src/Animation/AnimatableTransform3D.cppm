@@ -1,6 +1,7 @@
 ﻿module;
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include <cmath>
+#include <QPointF>
 
 #include <iostream>
 #include <vector>
@@ -71,6 +72,7 @@ class AnimatableTransform3D::Impl
 {
 public:
   bool isZVisible = false;
+  bool autoOrient_ = false;
 
   float initialX_ = 0, initialY_ = 0, initialZ_ = 0;
   float initialScaleX_ = 1, initialScaleY_ = 1;
@@ -154,6 +156,16 @@ void AnimatableTransform3D::setInitialRotation(const RationalTime& time, float a
 {
   impl_->initialRotation_ = angle;
   impl_->currentRotation_ = angle;
+}
+
+void AnimatableTransform3D::setAutoOrient(bool enabled)
+{
+  impl_->autoOrient_ = enabled;
+}
+
+bool AnimatableTransform3D::isAutoOrient() const
+{
+  return impl_->autoOrient_;
 }
 
 void AnimatableTransform3D::setInitialPosition(const RationalTime& time, float px, float py)
@@ -280,6 +292,40 @@ float AnimatableTransform3D::positionZAt(const RationalTime& time) const
 
 float AnimatableTransform3D::rotationAt(const RationalTime& time) const
 {
+  if (impl_->autoOrient_) {
+    const auto posTimes = getPositionKeyFrameTimes();
+    if (posTimes.size() < 2) {
+      return impl_->currentRotation_;
+    }
+
+    FramePosition targetFrame(time.rescaledTo(24));
+    int64_t target = targetFrame.framePosition();
+
+    int64_t prevFrame = posTimes.front().rescaledTo(24);
+    int64_t nextFrame = posTimes.back().rescaledTo(24);
+    for (const auto& pt : posTimes) {
+      int64_t f = pt.rescaledTo(24);
+      if (f <= target) prevFrame = f;
+      if (f >= target && nextFrame >= target) {
+        nextFrame = f;
+        break;
+      }
+    }
+    if (nextFrame < target) nextFrame = target;
+
+    const QPointF prev(impl_->x_.at(FramePosition(prevFrame)),
+                       impl_->y_.at(FramePosition(prevFrame)));
+    const QPointF next(impl_->x_.at(FramePosition(nextFrame)),
+                       impl_->y_.at(FramePosition(nextFrame)));
+    const float dx = next.x() - prev.x();
+    const float dy = next.y() - prev.y();
+    if (std::abs(dx) < 1e-4f && std::abs(dy) < 1e-4f) {
+      return impl_->currentRotation_;
+    }
+    float angle = std::atan2(dy, dx) * 180.0f / 3.14159265358979323846f;
+    return angle;
+  }
+
   FramePosition frame(time.rescaledTo(24));
   return impl_->rotation_.at(frame);
 }

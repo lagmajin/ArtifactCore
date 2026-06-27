@@ -81,7 +81,10 @@ enum class TransitionKind : quint8 {
     Flip,
     Cube,
     Doors,
-    LightLeak
+    LightLeak,
+    GradientWipe,
+    IrisWipe,
+    BlockDissolve
 };
 
 enum class TrimMode : quint8 {

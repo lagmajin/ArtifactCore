@@ -5,6 +5,8 @@ module;
 #include <QObject>
 #include <QPointF>
 #include <QTransform>
+#include <wobjectdefs.h>
+#include <wobjectimpl.h>
 
 export module Shape.Repeater;
 
@@ -20,6 +22,7 @@ export namespace ArtifactCore {
  * AEのシェイプレイヤーにある「リピーター」と同等の機能。
  */
 class Repeater : public ShapeOperator {
+    W_OBJECT(Repeater)
 public:
     explicit Repeater(QObject* parent = nullptr)
         : ShapeOperator(ShapeOperatorType::Repeater, parent) {}
@@ -183,5 +186,7 @@ private:
     float startOpacity_ = 1.0f;
     float endOpacity_ = 1.0f;
 };
+
+W_OBJECT_IMPL(Repeater)
 
 } // namespace ArtifactCore

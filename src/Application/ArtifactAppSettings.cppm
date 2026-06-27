@@ -162,6 +162,15 @@ void ArtifactAppSettings::setDockTabFontPointSize(int pointSize) {
     Q_EMIT settingsChanged();
 }
 
+bool ArtifactAppSettings::layerCacheEnabled() const {
+    return impl_->store.valueBool(QStringLiteral("Render/LayerCacheEnabled"), true);
+}
+
+void ArtifactAppSettings::setLayerCacheEnabled(bool enable) {
+    impl_->store.setValue(QStringLiteral("Render/LayerCacheEnabled"), enable);
+    Q_EMIT settingsChanged();
+}
+
 float ArtifactAppSettings::compositionCheckerboardSize() const {
     return impl_->store.value("UI/CompositionCheckerboardSize", 16.0).toFloat();
 }

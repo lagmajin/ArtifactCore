@@ -7,13 +7,13 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
-export module Graphics.Compute.LUT3DComputer;
+module Graphics.Compute.LUT3DComputer;
 
 import Graphics.Compute;
 import Graphics.GPUcomputeContext;
 import Graphics.Shader.Compute.HLSL.LUT3D;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
 using namespace Diligent;
 
@@ -52,7 +52,10 @@ void LUT3DGPUComputer::uploadLUT(IDeviceContext *pContext,
                                   const float *data, int size) {
   if (!data || size < 2 || size > 256) return;
 
-  auto *device = context_.device();
+  auto *device = context_.RenderDevice();
+  if (!device) {
+    return;
+  }
   lutSize_ = size;
 
   // Build RGBA texels from RGB input
@@ -84,7 +87,7 @@ void LUT3DGPUComputer::uploadLUT(IDeviceContext *pContext,
   texDesc.Width = static_cast<Uint32>(size);
   texDesc.Height = static_cast<Uint32>(size);
   texDesc.Depth = static_cast<Uint32>(size);
-  texDesc.Format = TEX_FORMAT_R32G32B32A32_FLOAT;
+  texDesc.Format = TEX_FORMAT_RGBA32_FLOAT;
   texDesc.Usage = USAGE_IMMUTABLE;
   texDesc.BindFlags = BIND_SHADER_RESOURCE;
 

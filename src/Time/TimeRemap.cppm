@@ -8,9 +8,12 @@
 #include <QtCore/QPointF>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 module Time.TimeRemap;
 
 import Frame.Rate;
+import Analyze.OpticalFlow;
 
 namespace ArtifactCore {
 
@@ -548,8 +551,132 @@ QImage TimeRemapEffect::processFrameBlending(
     }
     
     if (mode == FrameBlendMode::OpticalFlow) {
-        // Optical flow is future work - keep the current frame as a safe fallback.
-        return currentFrame;
+        if (prevFrame.isNull() && nextFrame.isNull()) {
+            return currentFrame;
+        }
+
+        bool hasPrev = !prevFrame.isNull() && prevFrame.size() == currentFrame.size();
+        bool hasNext = !nextFrame.isNull() && nextFrame.size() == currentFrame.size();
+        if (!hasPrev && !hasNext) {
+            return currentFrame;
+        }
+
+        try {
+            auto qimgToCv = [](const QImage& img) -> cv::Mat {
+                QImage conv = img.convertToFormat(QImage::Format_RGBA8888);
+                cv::Mat rgba(conv.height(), conv.width(), CV_8UC4,
+                             const_cast<uchar*>(conv.bits()), conv.bytesPerLine());
+                cv::Mat bgr;
+                cv::cvtColor(rgba, bgr, cv::COLOR_RGBA2BGR);
+                return bgr;
+            };
+
+            auto cvToQImage = [](const cv::Mat& bgr) -> QImage {
+                cv::Mat rgba;
+                cv::cvtColor(bgr, rgba, cv::COLOR_BGR2RGBA);
+                return QImage(rgba.data, rgba.cols, rgba.rows,
+                              static_cast<int>(rgba.step), QImage::Format_RGBA8888).copy();
+            };
+
+            OpticalFlowEngine flowEngine;
+            flowEngine.pyr_scale = 0.5;
+            flowEngine.levels = 3;
+            flowEngine.winsize = 15;
+            flowEngine.iterations = 3;
+            flowEngine.poly_n = 5;
+            flowEngine.poly_sigma = 1.2;
+
+            cv::Mat currCv = qimgToCv(currentFrame);
+            int w = currCv.cols;
+            int h = currCv.rows;
+
+            cv::Mat accumCv = cv::Mat::zeros(h, w, CV_32FC3);
+            float totalWeight = 0.0f;
+
+            // Warp prev frame forward using backward flow (prev->curr)
+            if (hasPrev && blendBackward > 0.0f) {
+                cv::Mat prevCv = qimgToCv(prevFrame);
+                OpticalFlowResult flowResult = flowEngine.compute(prevCv, currCv);
+                const cv::Mat& flow = flowResult.getFlowMat();
+
+                cv::Mat warped(h, w, CV_32FC3, cv::Scalar(0, 0, 0));
+                for (int y = 0; y < h; ++y) {
+                    for (int x = 0; x < w; ++x) {
+                        cv::Vec2f fv = flow.at<cv::Vec2f>(y, x);
+                        float sx = static_cast<float>(x) + fv[0];
+                        float sy = static_cast<float>(y) + fv[1];
+                        int ix = std::clamp(static_cast<int>(sx), 0, w - 1);
+                        int iy = std::clamp(static_cast<int>(sy), 0, h - 1);
+                        cv::Vec3b p = currCv.at<cv::Vec3b>(iy, ix);
+                        warped.at<cv::Vec3f>(y, x) = cv::Vec3f(p[0], p[1], p[2]);
+                    }
+                }
+
+                for (int y = 0; y < h; ++y) {
+                    for (int x = 0; x < w; ++x) {
+                        accumCv.at<cv::Vec3f>(y, x) +=
+                            warped.at<cv::Vec3f>(y, x) * blendBackward;
+                    }
+                }
+                totalWeight += blendBackward;
+            }
+
+            // Warp next frame backward using forward flow (curr->next)
+            if (hasNext && blendForward > 0.0f) {
+                cv::Mat nextCv = qimgToCv(nextFrame);
+                OpticalFlowResult flowResult = flowEngine.compute(currCv, nextCv);
+                const cv::Mat& flow = flowResult.getFlowMat();
+
+                cv::Mat warped(h, w, CV_32FC3, cv::Scalar(0, 0, 0));
+                for (int y = 0; y < h; ++y) {
+                    for (int x = 0; x < w; ++x) {
+                        cv::Vec2f fv = flow.at<cv::Vec2f>(y, x);
+                        float sx = static_cast<float>(x) + fv[0];
+                        float sy = static_cast<float>(y) + fv[1];
+                        int ix = std::clamp(static_cast<int>(sx), 0, w - 1);
+                        int iy = std::clamp(static_cast<int>(sy), 0, h - 1);
+                        cv::Vec3b p = nextCv.at<cv::Vec3b>(iy, ix);
+                        warped.at<cv::Vec3f>(y, x) = cv::Vec3f(p[0], p[1], p[2]);
+                    }
+                }
+
+                for (int y = 0; y < h; ++y) {
+                    for (int x = 0; x < w; ++x) {
+                        accumCv.at<cv::Vec3f>(y, x) +=
+                            warped.at<cv::Vec3f>(y, x) * blendForward;
+                    }
+                }
+                totalWeight += blendForward;
+            }
+
+            // Blend original frame
+            if (totalWeight < 1.0f) {
+                float remaining = 1.0f - totalWeight;
+                for (int y = 0; y < h; ++y) {
+                    for (int x = 0; x < w; ++x) {
+                        cv::Vec3b p = currCv.at<cv::Vec3b>(y, x);
+                        accumCv.at<cv::Vec3f>(y, x) +=
+                            cv::Vec3f(p[0], p[1], p[2]) * remaining;
+                    }
+                }
+            }
+
+            // Normalize and convert back
+            cv::Mat resultCv(h, w, CV_8UC3);
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    cv::Vec3f v = accumCv.at<cv::Vec3f>(y, x);
+                    resultCv.at<cv::Vec3b>(y, x) = cv::Vec3b(
+                        std::clamp(static_cast<int>(v[0]), 0, 255),
+                        std::clamp(static_cast<int>(v[1]), 0, 255),
+                        std::clamp(static_cast<int>(v[2]), 0, 255));
+                }
+            }
+
+            return cvToQImage(resultCv);
+        } catch (...) {
+            return currentFrame;
+        }
     }
     
     return currentFrame;

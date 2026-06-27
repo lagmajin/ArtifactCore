@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -65,6 +65,7 @@ public:
      * @brief CPUプールのデータをGPU構造化バッファへアップロード
      */
     void updateBuffer(const ParticleRenderData& data);
+    void setRenderOptions(const ParticleRenderOptions& options);
     size_t lastUploadedParticleCount() const;
 
     /**
@@ -89,14 +90,16 @@ private:
     Impl* pImpl_ = nullptr;
     size_t maxParticles_ = 0;
     size_t lastUploadedParticleCount_ = 0;
+    ParticleRenderOptions renderOptions_;
 
     struct ShaderConstants {
         float viewMatrix[16];
         float projMatrix[16];
         float deltaTime;
-        float padding[3];
+        int billboardMode;
+        float padding[2];
     };
-    ShaderConstants constants_;
+    ShaderConstants constants_{};
     ArtifactCore::RenderCostStats* frameCostStats_ = nullptr;
     QString debugState_;
 

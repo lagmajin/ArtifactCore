@@ -6,6 +6,8 @@ module;
 #include <QPainterPath>
 #include <QPainterPathStroker>
 #include <QPointF>
+#include <wobjectdefs.h>
+#include <wobjectimpl.h>
 
 export module Shape.TrimPaths;
 
@@ -30,6 +32,7 @@ export enum class TrimMode {
  * AEのシェイプレイヤーにある「トリムパス」と同等の機能。
  */
 class TrimPaths : public ShapeOperator {
+    W_OBJECT(TrimPaths)
     Q_PROPERTY(float start READ start WRITE setStart NOTIFY startChanged)
     Q_PROPERTY(float end READ end WRITE setEnd NOTIFY endChanged)
     Q_PROPERTY(float offset READ offset WRITE setOffset NOTIFY offsetChanged)
@@ -353,5 +356,7 @@ private:
         return path;
     }
 };
+
+W_OBJECT_IMPL(TrimPaths)
 
 } // namespace ArtifactCore

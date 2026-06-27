@@ -100,6 +100,12 @@
 - collision / lifetime / dissolve
 - CPU reference / GPU backend split
 
+### C-SIM-1 Pyro Volume Simulation Core
+- density / temperature / fuel / velocity の voxel field
+- CPU reference solver / deterministic frame cache
+- GPU compute backend / renderer snapshot contract
+- 詳細は `MILESTONE_PYRO_VOLUME_SIMULATION_CORE_2026-06-27.md`
+
 ## Layer / Composition Core
 
 ### C-TXT-1 Text Style Foundation

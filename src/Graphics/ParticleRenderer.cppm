@@ -1,4 +1,7 @@
-﻿module;
+module;
+#include <algorithm>
+#include <array>
+#include <cstring>
 #include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
@@ -48,6 +51,8 @@ cbuffer Constants : register(b0) {
     float4 ProjRow2;
     float4 ProjRow3;
     float DeltaTime;
+    int BillboardMode;
+    float2 Padding;
 };
 
 struct VS_Input {
@@ -78,7 +83,11 @@ PS_Input VSMain(VS_Input In) {
         dot(localPos, ViewRow3));
     
     // Rotation (degrees to radians)
-    float rad = p.rotation * 3.14159265 / 180.0;
+    float rotationDegrees = p.rotation;
+    if (BillboardMode == 3 && dot(p.velocity.xy, p.velocity.xy) > 0.000001) {
+        rotationDegrees += atan2(p.velocity.y, p.velocity.x) * 180.0 / 3.14159265;
+    }
+    float rad = rotationDegrees * 3.14159265 / 180.0;
     float cosR = cos(rad);
     float sinR = sin(rad);
     
@@ -89,7 +98,16 @@ PS_Input VSMain(VS_Input In) {
     rotatedOffset.x = localOffset.x * cosR - localOffset.y * sinR;
     rotatedOffset.y = localOffset.x * sinR + localOffset.y * cosR;
     
-    viewPos.xy += rotatedOffset;
+    if (BillboardMode == 0) {
+        localPos.xy += rotatedOffset;
+        viewPos = float4(
+            dot(localPos, ViewRow0),
+            dot(localPos, ViewRow1),
+            dot(localPos, ViewRow2),
+            dot(localPos, ViewRow3));
+    } else {
+        viewPos.xy += rotatedOffset;
+    }
     
     Out.Pos = float4(
         dot(viewPos, ProjRow0),
@@ -132,6 +150,7 @@ ParticleRenderer::~ParticleRenderer()
 
 void ParticleRenderer::initialize(size_t maxParticles) {
     maxParticles_ = maxParticles;
+    constants_.billboardMode = static_cast<int>(renderOptions_.billboard);
     debugState_ = QStringLiteral("state=initialize max=%1").arg(static_cast<qulonglong>(maxParticles_));
     createBuffers();
     createPSO();
@@ -172,6 +191,8 @@ void ParticleRenderer::createBuffers() {
 
 void ParticleRenderer::createPSO() {
     auto pDevice = context_.RenderDevice();
+    pImpl_->pSRB_.Release();
+    pImpl_->pPSO_.Release();
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
     
     PSOCreateInfo.PSODesc.Name = "Particle Rendering PSO";
@@ -182,15 +203,34 @@ void ParticleRenderer::createPSO() {
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = DefaultParticleRTVFormat;
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = false;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = false;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = renderOptions_.depthTest;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = renderOptions_.depthWrite;
     
     // Alpha blending (Additive by default for many particle effects, or Normal)
     auto& RT0 = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
     RT0.BlendEnable = true;
-    RT0.SrcBlend    = BLEND_FACTOR_SRC_ALPHA;
-    RT0.DestBlend   = BLEND_FACTOR_ONE; // Additive
-    RT0.BlendOp     = BLEND_OPERATION_ADD;
+    RT0.SrcBlend = BLEND_FACTOR_SRC_ALPHA;
+    RT0.DestBlend = BLEND_FACTOR_ONE;
+    RT0.BlendOp = BLEND_OPERATION_ADD;
+    switch (renderOptions_.blend) {
+    case ParticleBlendPolicy::Subtractive:
+        RT0.BlendOp = BLEND_OPERATION_REV_SUBTRACT;
+        break;
+    case ParticleBlendPolicy::Alpha:
+        RT0.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
+        break;
+    case ParticleBlendPolicy::Screen:
+        RT0.SrcBlend = BLEND_FACTOR_ONE;
+        RT0.DestBlend = BLEND_FACTOR_INV_SRC_COLOR;
+        break;
+    case ParticleBlendPolicy::Multiply:
+        RT0.SrcBlend = BLEND_FACTOR_DEST_COLOR;
+        RT0.DestBlend = BLEND_FACTOR_ZERO;
+        break;
+    case ParticleBlendPolicy::Additive:
+    default:
+        break;
+    }
     RT0.SrcBlendAlpha  = BLEND_FACTOR_ONE;
     RT0.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
     RT0.BlendOpAlpha   = BLEND_OPERATION_ADD;
@@ -236,13 +276,17 @@ void ParticleRenderer::createPSO() {
     }
     pConstVar->Set(pImpl_->pConstantBuffer_);
     pImpl_->pPSO_->CreateShaderResourceBinding(&pImpl_->pSRB_, true);
-    debugState_ = QStringLiteral("state=pso-ready max=%1 pso=%2 srb=%3 blend=additive format=rgba8-srgb")
+    debugState_ = QStringLiteral("state=pso-ready max=%1 pso=%2 srb=%3 blend=%4 depthTest=%5 depthWrite=%6 format=rgba8-srgb")
                       .arg(static_cast<qulonglong>(maxParticles_))
                       .arg(pImpl_->pPSO_ ? 1 : 0)
-                      .arg(pImpl_->pSRB_ ? 1 : 0);
+                      .arg(pImpl_->pSRB_ ? 1 : 0)
+                      .arg(static_cast<int>(renderOptions_.blend))
+                      .arg(renderOptions_.depthTest ? 1 : 0)
+                      .arg(renderOptions_.depthWrite ? 1 : 0);
 }
 
 void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
+    setRenderOptions(data.options);
     if (data.particles.empty()) {
         lastUploadedParticleCount_ = 0;
         debugState_ = QStringLiteral("state=update-empty count=0");
@@ -276,6 +320,18 @@ void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
                       .arg(static_cast<qulonglong>(maxParticles_));
     if (frameCostStats_) {
         ++frameCostStats_->bufferUpdates;
+    }
+}
+
+void ParticleRenderer::setRenderOptions(const ParticleRenderOptions& options)
+{
+    if (renderOptions_ == options) {
+        return;
+    }
+    renderOptions_ = options;
+    constants_.billboardMode = static_cast<int>(renderOptions_.billboard);
+    if (maxParticles_ > 0) {
+        createPSO();
     }
 }
 
@@ -355,8 +411,12 @@ void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
         ++frameCostStats_->drawCalls;
     }
     pContext->Draw(drawAttrs);
-    debugState_ = QStringLiteral("state=drawn active=%1 vertices=4 blend=additive")
-                      .arg(static_cast<qulonglong>(activeCount));
+    debugState_ = QStringLiteral("state=drawn active=%1 vertices=4 blend=%2 depthTest=%3 depthWrite=%4 billboard=%5")
+                      .arg(static_cast<qulonglong>(activeCount))
+                      .arg(static_cast<int>(renderOptions_.blend))
+                      .arg(renderOptions_.depthTest ? 1 : 0)
+                      .arg(renderOptions_.depthWrite ? 1 : 0)
+                      .arg(static_cast<int>(renderOptions_.billboard));
 }
 
 void ParticleRenderer::setProjectionMatrix(const float* matrix) {
