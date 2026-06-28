@@ -368,6 +368,42 @@ void ArtifactAppSettings::setTimelineFrameBlendingActive(bool enable) {
     Q_EMIT settingsChanged();
 }
 
+QString ArtifactAppSettings::accessibilityHandedness() const {
+    const QString value = impl_->store.valueString(QStringLiteral("Accessibility/Handedness"), QStringLiteral("right"));
+    const QString normalized = value.trimmed().toLower();
+    if (normalized == QStringLiteral("left") || normalized == QStringLiteral("right")) {
+        return normalized;
+    }
+    return QStringLiteral("right");
+}
+
+void ArtifactAppSettings::setAccessibilityHandedness(const QString& value) {
+    QString normalized = value.trimmed().toLower();
+    if (normalized != QStringLiteral("left") && normalized != QStringLiteral("right")) {
+        normalized = QStringLiteral("right");
+    }
+    impl_->store.setValue(QStringLiteral("Accessibility/Handedness"), normalized);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::accessibilityPreferLargeTargets() const {
+    return impl_->store.valueBool(QStringLiteral("Accessibility/PreferLargeTargets"), false);
+}
+
+void ArtifactAppSettings::setAccessibilityPreferLargeTargets(bool enable) {
+    impl_->store.setValue(QStringLiteral("Accessibility/PreferLargeTargets"), enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::accessibilityPreferHighContrastHints() const {
+    return impl_->store.valueBool(QStringLiteral("Accessibility/PreferHighContrastHints"), false);
+}
+
+void ArtifactAppSettings::setAccessibilityPreferHighContrastHints(bool enable) {
+    impl_->store.setValue(QStringLiteral("Accessibility/PreferHighContrastHints"), enable);
+    Q_EMIT settingsChanged();
+}
+
 QString ArtifactAppSettings::themeName() const {
     return impl_->store.valueString("UI/ThemeName", "Maya");
 }

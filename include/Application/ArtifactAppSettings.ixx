@@ -90,6 +90,20 @@ public:
     bool timelineFrameBlendingActive() const;
     void setTimelineFrameBlendingActive(bool enable);
 
+    // --- Accessibility Settings ---
+    QString accessibilityHandedness() const;
+    void setAccessibilityHandedness(const QString& value);
+    bool accessibilityPreferLargeTargets() const;
+    void setAccessibilityPreferLargeTargets(bool enable);
+    bool accessibilityPreferHighContrastHints() const;
+    void setAccessibilityPreferHighContrastHints(bool enable);
+    int accessibilityFontScalePercent() const;
+    void setAccessibilityFontScalePercent(int percent);
+    QString accessibilityColorDeficiencyMode() const;
+    void setAccessibilityColorDeficiencyMode(const QString& mode);
+    bool accessibilityReduceHoverDependency() const;
+    void setAccessibilityReduceHoverDependency(bool enable);
+
     // --- Import / Preview Defaults ---
     QString importDefaultFrameRateText() const;
     void setImportDefaultFrameRateText(const QString& value);

@@ -79,11 +79,16 @@ export namespace ArtifactCore
 
   inline void setInitalAngle(const RationalTime& time, float angle) { setInitialRotation(time, angle); }
 
-   void setPosition(const RationalTime& time, float x, float y);
-   void setPositionZ(const RationalTime& time, float z);
-   void setAnchor(const RationalTime& time, float x, float y, float z = 0.0f);
-   void setRotation(const RationalTime& time, float degrees);
-   void setScale(const RationalTime& time, float xs, float ys);
+  void setPosition(const RationalTime& time, float x, float y);
+  void setPositionZ(const RationalTime& time, float z);
+  void setAnchor(const RationalTime& time, float x, float y, float z = 0.0f);
+  void setRotation(const RationalTime& time, float degrees);
+  void setScale(const RationalTime& time, float xs, float ys);
+  void setCurrentPosition(float x, float y);
+  void setCurrentPositionZ(float z);
+  void setCurrentRotation(float degrees);
+  void setCurrentScale(float xs, float ys);
+  void setCurrentAnchor(float x, float y, float z = 0.0f);
 
   void setAutoOrient(bool enabled);
   bool isAutoOrient() const;

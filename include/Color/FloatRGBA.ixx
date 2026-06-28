@@ -4,9 +4,9 @@
 #include <utility>
 export module FloatRGBA;
 
-export namespace ArtifactCore {
+import Color.Float;
 
- class FloatColor;
+export namespace ArtifactCore {
 
  //class FloatRGBAPrivate;
 

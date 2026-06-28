@@ -40,6 +40,8 @@ struct LIBRARY_DLL_API FractureSettings {
  int debrisCount = 48;
  float impulseStrength = 120.0f;
  float angularStrength = 8.0f;
+ float crackThreshold = 1.0f;
+ float shatterThreshold = 2.5f;
  float gravity = 0.0f;
  float damping = 0.985f;
  float lifetimeMin = 0.8f;
@@ -83,6 +85,40 @@ struct LIBRARY_DLL_API FractureResult {
  bool valid = false;
 };
 
+enum class FractureStateKind : quint8 {
+ Intact = 0,
+ Cracked,
+ Shattered,
+};
+
+struct LIBRARY_DLL_API FractureImpact {
+ float impulse = 0.0f;
+ float stress = 0.0f;
+ float speed = 0.0f;
+ float area = 1.0f;
+};
+
+struct LIBRARY_DLL_API FractureShardMotion {
+ QVector3D position{0.0f, 0.0f, 0.0f};
+ QVector3D velocity{0.0f, 0.0f, 0.0f};
+ QVector3D angularVelocity{0.0f, 0.0f, 0.0f};
+ float rotation = 0.0f;
+ float scale = 1.0f;
+ float opacity = 1.0f;
+ float age = 0.0f;
+ float lifetime = 1.0f;
+ bool active = true;
+ bool debris = false;
+};
+
+struct LIBRARY_DLL_API FractureState {
+ FractureStateKind kind = FractureStateKind::Intact;
+ float damage = 0.0f;
+ float lastImpact = 0.0f;
+ float crackProgress = 0.0f;
+ std::vector<FractureShardMotion> shards;
+};
+
 class LIBRARY_DLL_API FractureEffect {
 public:
  FractureEffect();
@@ -105,18 +141,25 @@ public:
  void setImpactPoint(const QPointF& point);
  QPointF impactPoint() const;
 
- void setImpactNormal(const QVector3D& normal);
- QVector3D impactNormal() const;
+    void setImpactNormal(const QVector3D& normal);
+    QVector3D impactNormal() const;
 
- bool generate();
- void update(float deltaSeconds);
+    bool generate();
+    void update(float deltaSeconds);
 
- bool hasResult() const;
- const FractureResult& result() const;
- const std::vector<FractureShard>& shards() const;
- const std::vector<Particle>& debris() const;
+    bool hasResult() const;
+    const FractureResult& result() const;
+    const std::vector<FractureShard>& shards() const;
+    const std::vector<Particle>& debris() const;
 
- QString errorString() const;
+    // Impact shatter
+    void applyImpact(const FractureImpact& impact);
+    void shatterAt(const QPointF& point, float force);
+    FractureState& fractureState();
+    const FractureState& fractureState() const;
+    bool isShattered() const;
+
+    QString errorString() const;
 
 private:
  class Impl;
@@ -132,5 +175,10 @@ LIBRARY_DLL_API QPolygonF makeFracturePolygonFromRadialCell(
  float innerInset,
  float outerInset);
 LIBRARY_DLL_API FractureSettings makeFracturePreset(FracturePreset preset);
+LIBRARY_DLL_API void resetFractureState(FractureState& state) noexcept;
+LIBRARY_DLL_API void applyFractureImpact(FractureState& state, const FractureSettings& settings, const FractureImpact& impact) noexcept;
+LIBRARY_DLL_API bool shouldShatter(const FractureState& state, const FractureSettings& settings) noexcept;
+LIBRARY_DLL_API void primeFractureShardMotion(FractureState& state, const FractureSettings& settings, const FractureImpact& impact, const QRectF& sourceBounds) noexcept;
+LIBRARY_DLL_API void stepFractureShardMotion(FractureShardMotion& shard, float deltaSeconds, const FractureSettings& settings) noexcept;
 
 } // namespace ArtifactCore

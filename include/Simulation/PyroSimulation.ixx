@@ -222,6 +222,18 @@ public:
     [[nodiscard]] PyroConstScalarFieldView divergenceView() const noexcept;
     [[nodiscard]] PyroVectorFieldView velocityView() noexcept;
     [[nodiscard]] PyroConstVectorFieldView velocityView() const noexcept;
+    [[nodiscard]] std::vector<float>& densityStorage() noexcept { return density_; }
+    [[nodiscard]] const std::vector<float>& densityStorage() const noexcept { return density_; }
+    [[nodiscard]] std::vector<float>& temperatureStorage() noexcept { return temperature_; }
+    [[nodiscard]] const std::vector<float>& temperatureStorage() const noexcept { return temperature_; }
+    [[nodiscard]] std::vector<float>& fuelStorage() noexcept { return fuel_; }
+    [[nodiscard]] const std::vector<float>& fuelStorage() const noexcept { return fuel_; }
+    [[nodiscard]] std::vector<float>& pressureStorage() noexcept { return pressure_; }
+    [[nodiscard]] const std::vector<float>& pressureStorage() const noexcept { return pressure_; }
+    [[nodiscard]] std::vector<float>& divergenceStorage() noexcept { return divergence_; }
+    [[nodiscard]] const std::vector<float>& divergenceStorage() const noexcept { return divergence_; }
+    [[nodiscard]] std::vector<PyroVec3>& velocityStorage() noexcept { return velocity_; }
+    [[nodiscard]] const std::vector<PyroVec3>& velocityStorage() const noexcept { return velocity_; }
     [[nodiscard]] PyroMemoryEstimate estimateMemory() const noexcept;
     [[nodiscard]] float sampleScalar(const PyroConstScalarFieldView& view, const PyroVec3& position, PyroBoundaryMode boundaryMode) const noexcept;
     [[nodiscard]] PyroVec3 sampleVector(const PyroConstVectorFieldView& view, const PyroVec3& position, PyroBoundaryMode boundaryMode) const noexcept;

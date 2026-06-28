@@ -229,6 +229,37 @@ public:
                                      const FillSettings& fill = FillSettings(),
                                      const StrokeSettings& stroke = StrokeSettings());
 
+    enum class ArrowDirection {
+        Up,
+        Down,
+        Left,
+        Right,
+        UpLeft,
+        UpRight,
+        DownLeft,
+        DownRight
+    };
+
+    static ShapeLayer createArrow(const QRectF& bounds,
+                                  ArrowDirection direction = ArrowDirection::Right,
+                                  double headRatio = 0.3,
+                                  double headWidthRatio = 1.0,
+                                  const FillSettings& fill = FillSettings(),
+                                  const StrokeSettings& stroke = StrokeSettings());
+    static ShapeLayer createHeart(const QRectF& bounds,
+                                  const FillSettings& fill = FillSettings(),
+                                  const StrokeSettings& stroke = StrokeSettings());
+    static ShapeLayer createDiamond(const QRectF& bounds,
+                                    const FillSettings& fill = FillSettings(),
+                                    const StrokeSettings& stroke = StrokeSettings());
+    static ShapeLayer createGear(const QRectF& bounds, int teeth = 8,
+                                 double innerRadiusRatio = 0.72,
+                                 const FillSettings& fill = FillSettings(),
+                                 const StrokeSettings& stroke = StrokeSettings());
+    static ShapeLayer createCross(const QRectF& bounds, double armRatio = 0.32,
+                                  const FillSettings& fill = FillSettings(),
+                                  const StrokeSettings& stroke = StrokeSettings());
+
 private:
     class Impl;
     Impl* impl_;

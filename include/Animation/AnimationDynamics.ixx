@@ -41,9 +41,9 @@ struct DynVec3 {
 // DynamicsPreset — named tuning bundles
 // ────────────────────────────────────────────
 struct DynamicsPreset {
-    float stiffness;  // spring constant k  [N/m]
-    float damping;    // damping coefficient c [N·s/m]
-    float mass;       // virtual mass m [kg]
+    float stiffness = 80.0f;  // spring constant k  [N/m]
+    float damping = 16.0f;    // damping coefficient c [N·s/m]
+    float mass = 1.0f;        // virtual mass m [kg]
 
     /// Classic smooth follow (critically damped feel)
     static constexpr DynamicsPreset Smooth()  noexcept { return {80.0f,  16.0f, 1.0f}; }
@@ -287,6 +287,36 @@ struct DynamicsChannel1D {
         restPos          = snappedPosition;
         springState      = {};
         lagState         = {};
+    }
+};
+
+struct DynamicsChannel2D {
+    DynamicsChannel1D x;
+    DynamicsChannel1D y;
+
+    DynVec2 update(DynVec2 target, float dt) noexcept {
+        return {x.update(target.x, dt), y.update(target.y, dt)};
+    }
+
+    void reset(DynVec2 snappedPosition) noexcept {
+        x.reset(snappedPosition.x);
+        y.reset(snappedPosition.y);
+    }
+};
+
+struct DynamicsChannel3D {
+    DynamicsChannel1D x;
+    DynamicsChannel1D y;
+    DynamicsChannel1D z;
+
+    DynVec3 update(DynVec3 target, float dt) noexcept {
+        return {x.update(target.x, dt), y.update(target.y, dt), z.update(target.z, dt)};
+    }
+
+    void reset(DynVec3 snappedPosition) noexcept {
+        x.reset(snappedPosition.x);
+        y.reset(snappedPosition.y);
+        z.reset(snappedPosition.z);
     }
 };
 

@@ -5,8 +5,6 @@
 
 export module Color.Float;
 
-import FloatRGBA;
-
 export namespace ArtifactCore {
 
 class HSV;

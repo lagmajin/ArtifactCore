@@ -1,8 +1,9 @@
 ﻿module;
 #include <utility>
+#include <wobjectdefs.h>
 export module Playback.State;
 
-#include <wobjectdefs.h>
+
 
 export namespace ArtifactCore {
 

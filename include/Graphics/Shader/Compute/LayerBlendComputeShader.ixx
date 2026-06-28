@@ -120,7 +120,7 @@ LIBRARY_DLL_API const QByteArray addBlendShaderText = QByteArray(blendShaderHead
 void main(uint3 id : SV_DispatchThreadID)
 {
     LOAD_BLEND_PIXELS
-    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, saturate(dstColor + srcColor));
+    float3 blended = ComposeBlend(srcColor, srcA, dst.rgb, dst.a, dstColor + srcColor);
     float outA = OutAlpha(srcA, dst.a);
     OutTex[id.xy] = float4(blended, outA);
 }

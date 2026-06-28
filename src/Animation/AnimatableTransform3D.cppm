@@ -176,6 +176,35 @@ void AnimatableTransform3D::setInitialPosition(const RationalTime& time, float p
   impl_->currentY_ = py;
 }
 
+void AnimatableTransform3D::setCurrentPosition(float x, float y)
+{
+  impl_->currentX_ = x;
+  impl_->currentY_ = y;
+}
+
+void AnimatableTransform3D::setCurrentPositionZ(float z)
+{
+  impl_->currentZ_ = z;
+}
+
+void AnimatableTransform3D::setCurrentRotation(float degrees)
+{
+  impl_->currentRotation_ = degrees;
+}
+
+void AnimatableTransform3D::setCurrentScale(float xs, float ys)
+{
+  impl_->currentScaleX_ = xs;
+  impl_->currentScaleY_ = ys;
+}
+
+void AnimatableTransform3D::setCurrentAnchor(float x, float y, float z)
+{
+  impl_->anchorX_.setCurrent(x);
+  impl_->anchorY_.setCurrent(y);
+  impl_->anchorZ_.setCurrent(z);
+}
+
 void AnimatableTransform3D::setPosition(const RationalTime& time, float x, float y)
 {
   FramePosition frame(time.rescaledTo(24));

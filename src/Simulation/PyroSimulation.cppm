@@ -726,10 +726,10 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
                     pos.y - velocity.values[idx].y * dt,
                     pos.z - velocity.values[idx].z * dt
                 };
-                density.values[idx] = sampleScalar({std::span<const float>(densityPrev), resolution}, backtrace, domain_.boundaryMode);
-                temperature.values[idx] = sampleScalar({std::span<const float>(temperaturePrev), resolution}, backtrace, domain_.boundaryMode);
-                fuel.values[idx] = sampleScalar({std::span<const float>(fuelPrev), resolution}, backtrace, domain_.boundaryMode);
-                velocity.values[idx] = sampleVector({std::span<const PyroVec3>(velocityPrev), resolution}, backtrace, domain_.boundaryMode);
+                density.values[idx] = fields_.sampleScalar({std::span<const float>(densityPrev), resolution}, backtrace, domain_.boundaryMode);
+                temperature.values[idx] = fields_.sampleScalar({std::span<const float>(temperaturePrev), resolution}, backtrace, domain_.boundaryMode);
+                fuel.values[idx] = fields_.sampleScalar({std::span<const float>(fuelPrev), resolution}, backtrace, domain_.boundaryMode);
+                velocity.values[idx] = fields_.sampleVector({std::span<const PyroVec3>(velocityPrev), resolution}, backtrace, domain_.boundaryMode);
                 divergence.values[idx] = 0.0f;
                 pressure.values[idx] = 0.0f;
             }

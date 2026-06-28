@@ -859,6 +859,31 @@ ShapeLayer ShapeLayer::createEmpty()
     return ShapeLayer();
 }
 
+namespace {
+
+ShapePath makePolygonPath(const std::vector<QPointF>& points)
+{
+    ShapePath path;
+    path.setPolygon(points, true);
+    return path;
+}
+
+QPointF rotatePoint(const QPointF& point, const QPointF& center, double radians)
+{
+    const double s = std::sin(radians);
+    const double c = std::cos(radians);
+    const double dx = point.x() - center.x();
+    const double dy = point.y() - center.y();
+    return QPointF(center.x() + dx * c - dy * s, center.y() + dx * s + dy * c);
+}
+
+double pi()
+{
+    return std::acos(-1.0);
+}
+
+} // namespace
+
 ShapeLayer ShapeLayer::createRectangle(const QRectF& rect, const FillSettings& fill, const StrokeSettings& stroke)
 {
     ShapeLayer layer;
@@ -925,9 +950,151 @@ ShapeLayer ShapeLayer::createPolygon(const std::vector<QPointF>& points,
                                      const FillSettings& fill, const StrokeSettings& stroke)
 {
     ShapeLayer layer;
-    ShapePath path;
-    path.setPolygon(points, true);
+    ShapePath path = makePolygonPath(points);
     auto shape = std::make_unique<PathShape>(path);
+    shape->setFill(fill);
+    shape->setStroke(stroke);
+    layer.addShape(std::move(shape));
+    return layer;
+}
+
+ShapeLayer ShapeLayer::createArrow(const QRectF& bounds, ArrowDirection direction, double headRatio,
+                                   double headWidthRatio, const FillSettings& fill, const StrokeSettings& stroke)
+{
+    const QRectF rect = bounds.normalized();
+    const QPointF center = rect.center();
+    const double headLen = std::clamp(rect.width() * headRatio, 0.0, rect.width());
+    const double shaftHalf = std::max(1.0, rect.height() * 0.14);
+    const double headHalf = std::max(shaftHalf, rect.height() * 0.5 * headWidthRatio);
+
+    std::vector<QPointF> points;
+    points.reserve(7);
+    points.emplace_back(rect.left(), center.y() - shaftHalf);
+    points.emplace_back(rect.right() - headLen, center.y() - shaftHalf);
+    points.emplace_back(rect.right() - headLen, rect.top() - (headHalf - shaftHalf) * 0.5);
+    points.emplace_back(rect.right(), center.y());
+    points.emplace_back(rect.right() - headLen, rect.bottom() + (headHalf - shaftHalf) * 0.5);
+    points.emplace_back(rect.right() - headLen, center.y() + shaftHalf);
+    points.emplace_back(rect.left(), center.y() + shaftHalf);
+
+    auto rotateDirection = [&](double radians) {
+        if (radians == 0.0) {
+            return points;
+        }
+        std::vector<QPointF> rotated;
+        rotated.reserve(points.size());
+        for (const auto& p : points) {
+            rotated.push_back(rotatePoint(p, center, radians));
+        }
+        return rotated;
+    };
+
+    double radians = 0.0;
+    switch (direction) {
+    case ArrowDirection::Up: radians = -pi() * 0.5; break;
+    case ArrowDirection::Down: radians = pi() * 0.5; break;
+    case ArrowDirection::Left: radians = pi(); break;
+    case ArrowDirection::Right: radians = 0.0; break;
+    case ArrowDirection::UpLeft: radians = -pi() * 0.75; break;
+    case ArrowDirection::UpRight: radians = -pi() * 0.25; break;
+    case ArrowDirection::DownLeft: radians = pi() * 0.75; break;
+    case ArrowDirection::DownRight: radians = pi() * 0.25; break;
+    }
+
+    ShapeLayer layer;
+    ShapePath path = makePolygonPath(rotateDirection(radians));
+    auto shape = std::make_unique<PathShape>(path);
+    shape->setFill(fill);
+    shape->setStroke(stroke);
+    layer.addShape(std::move(shape));
+    return layer;
+}
+
+ShapeLayer ShapeLayer::createHeart(const QRectF& bounds, const FillSettings& fill, const StrokeSettings& stroke)
+{
+    const QRectF rect = bounds.normalized();
+    QPainterPath path;
+    const QPointF c = rect.center();
+    const double w = rect.width();
+    const double h = rect.height();
+    path.moveTo(c.x(), rect.bottom());
+    path.cubicTo(rect.right(), c.y() + h * 0.10, rect.right() - w * 0.06, rect.top() + h * 0.28, c.x(), rect.top() + h * 0.40);
+    path.cubicTo(rect.left() + w * 0.06, rect.top() + h * 0.28, rect.left(), c.y() + h * 0.10, c.x(), rect.bottom());
+    ShapeLayer layer;
+    auto shape = std::make_unique<PathShape>(ShapePath::fromPainterPath(path));
+    shape->setFill(fill);
+    shape->setStroke(stroke);
+    layer.addShape(std::move(shape));
+    return layer;
+}
+
+ShapeLayer ShapeLayer::createDiamond(const QRectF& bounds, const FillSettings& fill, const StrokeSettings& stroke)
+{
+    const QRectF rect = bounds.normalized();
+    std::vector<QPointF> points = {
+        QPointF(rect.center().x(), rect.top()),
+        QPointF(rect.right(), rect.center().y()),
+        QPointF(rect.center().x(), rect.bottom()),
+        QPointF(rect.left(), rect.center().y())
+    };
+    ShapeLayer layer;
+    auto shape = std::make_unique<PathShape>(makePolygonPath(points));
+    shape->setFill(fill);
+    shape->setStroke(stroke);
+    layer.addShape(std::move(shape));
+    return layer;
+}
+
+ShapeLayer ShapeLayer::createGear(const QRectF& bounds, int teeth, double innerRadiusRatio,
+                                  const FillSettings& fill, const StrokeSettings& stroke)
+{
+    const QRectF rect = bounds.normalized();
+    const QPointF center = rect.center();
+    const double outerRadius = std::min(rect.width(), rect.height()) * 0.5;
+    const double innerRadius = outerRadius * std::clamp(innerRadiusRatio, 0.1, 0.95);
+    const int toothCount = std::max(3, teeth);
+    std::vector<QPointF> points;
+    points.reserve(toothCount * 2);
+    for (int i = 0; i < toothCount * 2; ++i) {
+        const bool outer = (i % 2) == 0;
+        const double angle = (static_cast<double>(i) / (toothCount * 2)) * (2.0 * pi()) - pi() * 0.5;
+        const double radius = outer ? outerRadius : innerRadius;
+        points.emplace_back(center.x() + std::cos(angle) * radius,
+                            center.y() + std::sin(angle) * radius);
+    }
+    ShapeLayer layer;
+    auto shape = std::make_unique<PathShape>(makePolygonPath(points));
+    shape->setFill(fill);
+    shape->setStroke(stroke);
+    layer.addShape(std::move(shape));
+    return layer;
+}
+
+ShapeLayer ShapeLayer::createCross(const QRectF& bounds, double armRatio,
+                                   const FillSettings& fill, const StrokeSettings& stroke)
+{
+    const QRectF rect = bounds.normalized();
+    const QPointF center = rect.center();
+    const double halfW = rect.width() * 0.5;
+    const double halfH = rect.height() * 0.5;
+    const double armX = std::clamp(rect.width() * armRatio, 0.0, halfW);
+    const double armY = std::clamp(rect.height() * armRatio, 0.0, halfH);
+    std::vector<QPointF> points = {
+        QPointF(center.x() - armX, rect.top()),
+        QPointF(center.x() + armX, rect.top()),
+        QPointF(center.x() + armX, center.y() - armY),
+        QPointF(rect.right(), center.y() - armY),
+        QPointF(rect.right(), center.y() + armY),
+        QPointF(center.x() + armX, center.y() + armY),
+        QPointF(center.x() + armX, rect.bottom()),
+        QPointF(center.x() - armX, rect.bottom()),
+        QPointF(center.x() - armX, center.y() + armY),
+        QPointF(rect.left(), center.y() + armY),
+        QPointF(rect.left(), center.y() - armY),
+        QPointF(center.x() - armX, center.y() - armY)
+    };
+    ShapeLayer layer;
+    auto shape = std::make_unique<PathShape>(makePolygonPath(points));
     shape->setFill(fill);
     shape->setStroke(stroke);
     layer.addShape(std::move(shape));

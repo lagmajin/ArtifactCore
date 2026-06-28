@@ -14,11 +14,11 @@
 #include <cmath>
 #include <limits>
 
-import std;
-
 module Geometry.Fracture;
 
+import std;
 import Memory.TrackedPtr;
+import Physics.Fracture;
 
 namespace ArtifactCore {
 
@@ -322,6 +322,7 @@ public:
  QPointF impactPoint;
  QVector3D impactNormal{0.0f, 0.0f, 1.0f};
  FractureResult result;
+ FractureState state;
  QString error;
  bool hasExplicitBounds = false;
  bool hasImpactPoint = false;
@@ -428,9 +429,29 @@ bool FractureEffect::generate() {
   case FracturePattern::Grid:
    generated = generateGridPolygons(bounds, remaining, rng, impl_->settings.cellJitter);
    break;
-  case FracturePattern::Voronoi:
-   generated = generateHybridPolygons(bounds, pivot, remaining, rng, impl_->settings.edgeJitter);
+  case FracturePattern::Voronoi: {
+   // Real Voronoi via FractureEngine
+   std::vector<QVector2D> boundsVec;
+   boundsVec.emplace_back(static_cast<float>(bounds.left()),  static_cast<float>(bounds.top()));
+   boundsVec.emplace_back(static_cast<float>(bounds.right()), static_cast<float>(bounds.top()));
+   boundsVec.emplace_back(static_cast<float>(bounds.right()), static_cast<float>(bounds.bottom()));
+   boundsVec.emplace_back(static_cast<float>(bounds.left()),  static_cast<float>(bounds.bottom()));
+   std::vector<QVector2D> seeds;
+   seeds.reserve(static_cast<size_t>(remaining));
+   for (int s = 0; s < remaining; ++s) {
+    seeds.emplace_back(
+     randomRange(rng, static_cast<float>(bounds.left()),  static_cast<float>(bounds.right())),
+     randomRange(rng, static_cast<float>(bounds.top()),   static_cast<float>(bounds.bottom())));
+   }
+   auto voronoiFragments = FractureEngine::voronoiFracture(boundsVec, seeds);
+   for (const auto& frag : voronoiFragments) {
+    if (frag.vertices.size() < 3) continue;
+    QPolygonF poly;
+    for (const auto& v : frag.vertices) poly << QPointF(v.x(), v.y());
+    generated.push_back(poly);
+   }
    break;
+  }
   case FracturePattern::Hybrid:
    generated = generateHybridPolygons(bounds, pivot, remaining, rng, impl_->settings.edgeJitter * 1.2f);
    break;
@@ -570,6 +591,31 @@ const std::vector<Particle>& FractureEffect::debris() const {
  return impl_->result.debris;
 }
 
+void FractureEffect::applyImpact(const FractureImpact& impact) {
+ ArtifactCore::applyFractureImpact(impl_->state, impl_->settings, impact);
+ if (shouldShatter(impl_->state, impl_->settings)) {
+  ArtifactCore::primeFractureShardMotion(
+   impl_->state, impl_->settings, impact, impl_->sourceBounds);
+ }
+}
+
+void FractureEffect::shatterAt(const QPointF& point, float force) {
+ impl_->impactPoint = point;
+ impl_->hasImpactPoint = true;
+ FractureImpact impact;
+ impact.impulse = force;
+ impact.speed = force * 0.1f;
+ impact.stress = force * 0.05f;
+ applyImpact(impact);
+}
+
+FractureState& FractureEffect::fractureState() { return impl_->state; }
+const FractureState& FractureEffect::fractureState() const { return impl_->state; }
+
+bool FractureEffect::isShattered() const {
+ return impl_->state.kind == FractureStateKind::Shattered;
+}
+
 QString FractureEffect::errorString() const {
  return impl_->error;
 }
@@ -613,11 +659,13 @@ FractureSettings makeFracturePreset(FracturePreset preset) {
   settings.angularStrength = 12.0f;
   settings.lifetimeMin = 0.45f;
   settings.lifetimeMax = 1.6f;
-  settings.debrisLifetimeMin = 0.15f;
-  settings.debrisLifetimeMax = 0.9f;
-  settings.edgeJitter = 0.22f;
-  settings.debrisRatio = 0.65f;
-  settings.protectedCenterRadius = 24.0f;
+ settings.debrisLifetimeMin = 0.15f;
+ settings.debrisLifetimeMax = 0.9f;
+ settings.crackThreshold = 0.45f;
+ settings.shatterThreshold = 1.0f;
+ settings.edgeJitter = 0.22f;
+ settings.debrisRatio = 0.65f;
+ settings.protectedCenterRadius = 24.0f;
   break;
  case FracturePreset::Concrete:
   settings.pattern = FracturePattern::Hybrid;
@@ -627,9 +675,11 @@ FractureSettings makeFracturePreset(FracturePreset preset) {
   settings.angularStrength = 8.0f;
   settings.lifetimeMin = 0.8f;
   settings.lifetimeMax = 2.6f;
-  settings.debrisLifetimeMin = 0.2f;
-  settings.debrisLifetimeMax = 1.4f;
-  settings.edgeJitter = 0.14f;
+ settings.debrisLifetimeMin = 0.2f;
+ settings.debrisLifetimeMax = 1.4f;
+ settings.crackThreshold = 0.9f;
+ settings.shatterThreshold = 2.0f;
+ settings.edgeJitter = 0.14f;
   settings.cellJitter = 0.18f;
   settings.debrisRatio = 0.45f;
   settings.protectedCenterRadius = 18.0f;
@@ -642,9 +692,11 @@ FractureSettings makeFracturePreset(FracturePreset preset) {
   settings.angularStrength = 5.0f;
   settings.lifetimeMin = 1.0f;
   settings.lifetimeMax = 3.2f;
-  settings.debrisLifetimeMin = 0.25f;
-  settings.debrisLifetimeMax = 1.2f;
-  settings.edgeJitter = 0.08f;
+ settings.debrisLifetimeMin = 0.25f;
+ settings.debrisLifetimeMax = 1.2f;
+ settings.crackThreshold = 1.2f;
+ settings.shatterThreshold = 2.8f;
+ settings.edgeJitter = 0.08f;
   settings.cellJitter = 0.10f;
   settings.debrisRatio = 0.28f;
   settings.protectedCenterRadius = 10.0f;
@@ -657,9 +709,11 @@ FractureSettings makeFracturePreset(FracturePreset preset) {
   settings.angularStrength = 4.0f;
   settings.lifetimeMin = 1.6f;
   settings.lifetimeMax = 4.0f;
-  settings.debrisLifetimeMin = 0.35f;
-  settings.debrisLifetimeMax = 1.6f;
-  settings.edgeJitter = 0.04f;
+ settings.debrisLifetimeMin = 0.35f;
+ settings.debrisLifetimeMax = 1.6f;
+ settings.crackThreshold = 1.8f;
+ settings.shatterThreshold = 4.2f;
+ settings.edgeJitter = 0.04f;
   settings.cellJitter = 0.05f;
   settings.debrisRatio = 0.18f;
   settings.protectedCenterRadius = 8.0f;
@@ -673,9 +727,11 @@ FractureSettings makeFracturePreset(FracturePreset preset) {
   settings.angularStrength = 6.5f;
   settings.lifetimeMin = 0.9f;
   settings.lifetimeMax = 2.2f;
-  settings.debrisLifetimeMin = 0.2f;
-  settings.debrisLifetimeMax = 1.1f;
-  settings.edgeJitter = 0.11f;
+ settings.debrisLifetimeMin = 0.2f;
+ settings.debrisLifetimeMax = 1.1f;
+ settings.crackThreshold = 0.8f;
+ settings.shatterThreshold = 1.8f;
+ settings.edgeJitter = 0.11f;
   settings.cellJitter = 0.15f;
   settings.debrisRatio = 0.25f;
   settings.protectedCenterRadius = 14.0f;
@@ -688,9 +744,11 @@ FractureSettings makeFracturePreset(FracturePreset preset) {
   settings.angularStrength = 16.0f;
   settings.lifetimeMin = 0.18f;
   settings.lifetimeMax = 0.75f;
-  settings.debrisLifetimeMin = 0.08f;
-  settings.debrisLifetimeMax = 0.45f;
-  settings.edgeJitter = 0.28f;
+ settings.debrisLifetimeMin = 0.08f;
+ settings.debrisLifetimeMax = 0.45f;
+ settings.crackThreshold = 0.2f;
+ settings.shatterThreshold = 0.55f;
+ settings.edgeJitter = 0.28f;
   settings.cellJitter = 0.22f;
   settings.debrisRatio = 0.9f;
   settings.protectedCenterRadius = 6.0f;
@@ -698,6 +756,103 @@ FractureSettings makeFracturePreset(FracturePreset preset) {
   break;
  }
  return settings;
+}
+
+void resetFractureState(FractureState& state) noexcept {
+ state = {};
+}
+
+void applyFractureImpact(FractureState& state, const FractureSettings& settings, const FractureImpact& impact) noexcept {
+ const float severity = std::max(0.0f, impact.impulse + impact.stress + impact.speed * 0.25f);
+ state.lastImpact = severity;
+ state.damage += severity;
+ state.crackProgress = std::min(1.0f, state.damage / std::max(settings.crackThreshold, 0.0001f));
+ if (state.kind == FractureStateKind::Intact && state.damage >= settings.crackThreshold) {
+  state.kind = FractureStateKind::Cracked;
+ }
+ if (state.damage >= settings.shatterThreshold) {
+  state.kind = FractureStateKind::Shattered;
+ }
+}
+
+bool shouldShatter(const FractureState& state, const FractureSettings& settings) noexcept {
+ return state.kind == FractureStateKind::Shattered || state.damage >= settings.shatterThreshold;
+}
+
+void primeFractureShardMotion(FractureState& state,
+                              const FractureSettings& settings,
+                              const FractureImpact& impact,
+                              const QRectF& sourceBounds) noexcept {
+ if (!shouldShatter(state, settings) || !sourceBounds.isValid()) {
+  return;
+ }
+
+ if (!state.shards.empty()) {
+  return;
+ }
+
+ const int shardCount = std::max(1, settings.shardCount);
+ state.shards.reserve(static_cast<size_t>(shardCount));
+
+ const QPointF center = sourceBounds.center();
+ const float extent = std::max(1.0f, static_cast<float>(std::max(sourceBounds.width(), sourceBounds.height())));
+ const float impulseScale = std::max(0.0f, impact.impulse) * std::max(0.0f, settings.impulseStrength);
+ const float baseSpeed = std::max(15.0f, impulseScale * 0.18f);
+ std::mt19937 rng(settings.seed ? settings.seed : 0x6d2b79f5u);
+
+ for (int i = 0; i < shardCount; ++i) {
+  const float t = static_cast<float>(i) / static_cast<float>(shardCount);
+  const float angle = kTwoPi * t + randomRange(rng, -settings.edgeJitter, settings.edgeJitter);
+  const float radius = randomRange(rng, 0.08f, 0.48f) * extent;
+
+  FractureShardMotion shard;
+  shard.position = QVector3D(
+      static_cast<float>(center.x() + std::cos(angle) * radius),
+      static_cast<float>(center.y() + std::sin(angle) * radius),
+      0.0f);
+  const QVector3D dir = normalizeOrFallback(
+      QVector3D(shard.position.x() - static_cast<float>(center.x()),
+                shard.position.y() - static_cast<float>(center.y()),
+                randomRange(rng, -0.08f, 0.08f)),
+      QVector3D(std::cos(angle), std::sin(angle), 0.2f));
+  shard.velocity = dir * randomRange(rng, baseSpeed * 0.4f, baseSpeed);
+  shard.angularVelocity = QVector3D(
+      randomRange(rng, -settings.angularStrength, settings.angularStrength),
+      randomRange(rng, -settings.angularStrength, settings.angularStrength),
+      randomRange(rng, -settings.angularStrength * 1.8f, settings.angularStrength * 1.8f));
+  shard.rotation = randomRange(rng, 0.0f, 360.0f);
+  shard.scale = randomRange(rng, 0.75f, 1.0f);
+  shard.opacity = 1.0f;
+  shard.age = 0.0f;
+  shard.lifetime = randomRange(rng, settings.lifetimeMin, settings.lifetimeMax);
+  shard.active = true;
+  shard.debris = false;
+  state.shards.push_back(shard);
+ }
+}
+
+void stepFractureShardMotion(FractureShardMotion& shard, float deltaSeconds, const FractureSettings& settings) noexcept {
+ if (!shard.active) {
+  return;
+ }
+
+ const float dt = std::clamp(deltaSeconds, 0.0f, 0.1f);
+ shard.age += dt;
+ if (shard.age >= shard.lifetime) {
+  shard.active = false;
+  shard.opacity = 0.0f;
+  return;
+ }
+
+ shard.velocity.setY(shard.velocity.y() + settings.gravity * dt);
+ shard.velocity *= settings.damping;
+ shard.position += shard.velocity * dt;
+ shard.rotation += shard.angularVelocity.z() * dt;
+ shard.angularVelocity *= settings.damping;
+
+ const float lifeT = std::clamp(shard.age / std::max(shard.lifetime, 0.0001f), 0.0f, 1.0f);
+ shard.opacity = 1.0f - lifeT;
+ shard.scale = std::max(0.0f, 1.0f - lifeT * 0.15f);
 }
 
 } // namespace ArtifactCore
