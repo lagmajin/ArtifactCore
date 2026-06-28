@@ -63,7 +63,17 @@ enum class BlendMode {
     PinLight,       // ピンライト
     VividLight,     // ビビッドライト
     LinearLight,    // リニアライト
-    HardMix         // ハードミックス
+    HardMix,        // ハードミックス
+    Dissolve,
+    DancingDissolve,
+    ClassicColorBurn,
+    LinearDodge,
+    ClassicColorDodge,
+    ClassicDifference,
+    StencilAlpha,
+    StencilLuma,
+    SilhouetteAlpha,
+    SilhouetteLuma
 };
 
 // ブレンド処理ユーティリティ (CPU向け)

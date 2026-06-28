@@ -12,6 +12,54 @@ import Color.Luminance;
 
 namespace ArtifactCore {
 
+namespace {
+
+inline float clamp01(const float value) {
+    return std::clamp(value, 0.0f, 1.0f);
+}
+
+inline float outAlpha(const float srcAlpha, const float dstAlpha) {
+    return srcAlpha + dstAlpha * (1.0f - srcAlpha);
+}
+
+inline FloatColor composeBlendResult(const FloatColor& base,
+                                     const FloatColor& blendColor,
+                                     const float srcAlpha,
+                                     const FloatColor& blendedStraight) {
+    const float dstAlpha = clamp01(base.a());
+    const float outA = outAlpha(srcAlpha, dstAlpha);
+    const float premulR =
+        base.r() * dstAlpha * (1.0f - srcAlpha) +
+        (blendedStraight.r() * dstAlpha + blendColor.r() * (1.0f - dstAlpha)) * srcAlpha;
+    const float premulG =
+        base.g() * dstAlpha * (1.0f - srcAlpha) +
+        (blendedStraight.g() * dstAlpha + blendColor.g() * (1.0f - dstAlpha)) * srcAlpha;
+    const float premulB =
+        base.b() * dstAlpha * (1.0f - srcAlpha) +
+        (blendedStraight.b() * dstAlpha + blendColor.b() * (1.0f - dstAlpha)) * srcAlpha;
+    if (outA <= 1e-6f) {
+        return FloatColor(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+    return FloatColor(clamp01(premulR / outA),
+                      clamp01(premulG / outA),
+                      clamp01(premulB / outA),
+                      outA);
+}
+
+inline FloatColor applyStencilLikeBlend(const FloatColor& base,
+                                        const float factor) {
+    const float clampedFactor = clamp01(factor);
+    return FloatColor(base.r(), base.g(), base.b(), clamp01(base.a() * clampedFactor));
+}
+
+inline FloatColor applySilhouetteLikeBlend(const FloatColor& base,
+                                           const float factor) {
+    const float clampedFactor = clamp01(1.0f - factor);
+    return FloatColor(base.r(), base.g(), base.b(), clamp01(base.a() * clampedFactor));
+}
+
+} // namespace
+
 // --- Helper macros/inline functions ---
 inline float ColorBlendMode::blendAdd(float b, float f) {
     return std::min(b + f, 1.0f);
@@ -84,18 +132,16 @@ inline float ColorBlendMode::blendHardMix(float b, float f) {
 // Main Blend Logic
 // -------------------------------------------------------------
 FloatColor ColorBlendMode::blend(const FloatColor& base, const FloatColor& blendColor, BlendMode mode, float opacity) {
-    if (opacity <= 0.0f) return base;
-    
-    // RGBベースのブレンドモード処理
+    const float srcAlpha = clamp01(opacity);
+    if (srcAlpha <= 0.0f) return base;
+
     auto applyBlend = [&](float (blendFunc)(float, float)) -> FloatColor {
-        float outR = base.r() + opacity * (blendFunc(base.r(), blendColor.r()) - base.r());
-        float outG = base.g() + opacity * (blendFunc(base.g(), blendColor.g()) - base.g());
-        float outB = base.b() + opacity * (blendFunc(base.b(), blendColor.b()) - base.b());
-        
-        // Alpha補間: srcOverの基本ブレンド alpha = blendA + baseA*(1-blendA)
-        // ここでのopacityは全体の影響度合い
-        float outA = base.a(); // 今回はAlphaBlend計算を簡略化してRGB成分にフォーカス
-        return FloatColor(outR, outG, outB, outA);
+        const FloatColor blendedStraight(
+            clamp01(blendFunc(base.r(), blendColor.r())),
+            clamp01(blendFunc(base.g(), blendColor.g())),
+            clamp01(blendFunc(base.b(), blendColor.b())),
+            1.0f);
+        return composeBlendResult(base, blendColor, srcAlpha, blendedStraight);
     };
 
     switch (mode) {
@@ -119,37 +165,53 @@ FloatColor ColorBlendMode::blend(const FloatColor& base, const FloatColor& blend
     case BlendMode::VividLight:   return applyBlend(blendVividLight);
     case BlendMode::LinearLight:  return applyBlend(blendLinearLight);
     case BlendMode::HardMix:      return applyBlend(blendHardMix);
+    case BlendMode::ClassicColorBurn: return applyBlend(blendColorBurn);
+    case BlendMode::LinearDodge:      return applyBlend(blendAdd);
+    case BlendMode::ClassicColorDodge:return applyBlend(blendColorDodge);
+    case BlendMode::ClassicDifference:return applyBlend(blendDifference);
     
-    // HSL Component Blend Modes
     case BlendMode::Hue:
     case BlendMode::Saturation:
     case BlendMode::Color:
     case BlendMode::Luminosity:
     {
-        auto hsvBase = ColorConversion::RGBToHSV(base.r(), base.g(), base.b());
-        auto hsvBlend = ColorConversion::RGBToHSV(blendColor.r(), blendColor.g(), blendColor.b());
-        
-        HSVColor resultHsv = hsvBase;
-        
+        HSLColor baseHsl = ColorConversion::RGBToHSL(base.r(), base.g(), base.b());
+        HSLColor blendHsl = ColorConversion::RGBToHSL(blendColor.r(), blendColor.g(), blendColor.b());
+        HSLColor resultHsl = baseHsl;
+
         if (mode == BlendMode::Hue || mode == BlendMode::Color) {
-            resultHsv.h = hsvBlend.h;
+            resultHsl.h = blendHsl.h;
         }
         if (mode == BlendMode::Saturation || mode == BlendMode::Color) {
-            resultHsv.s = hsvBlend.s;
+            resultHsl.s = blendHsl.s;
         }
         if (mode == BlendMode::Luminosity) {
-            // 単純化のため輝度要素のみブレンドのVで置換
-            // 本格的な輝度ブレンドアルゴリズムは Luma 変換を経由します
-            resultHsv.v = hsvBlend.v;
+            resultHsl.l = blendHsl.l;
         }
-        
-        auto rgb = ColorConversion::HSVToRGB(resultHsv);
-        float outR = base.r() + opacity * (rgb[0] - base.r());
-        float outG = base.g() + opacity * (rgb[1] - base.g());
-        float outB = base.b() + opacity * (rgb[2] - base.b());
-        return FloatColor(outR, outG, outB, base.a());
+        const auto rgb = ColorConversion::HSLToRGB(resultHsl);
+        return composeBlendResult(
+            base, blendColor, srcAlpha,
+            FloatColor(clamp01(rgb[0]), clamp01(rgb[1]), clamp01(rgb[2]), 1.0f));
     }
-    
+
+    case BlendMode::Dissolve:
+    case BlendMode::DancingDissolve:
+        return composeBlendResult(base, blendColor, srcAlpha, blendColor);
+    case BlendMode::StencilAlpha:
+        return applyStencilLikeBlend(base, srcAlpha);
+    case BlendMode::StencilLuma:
+        return applyStencilLikeBlend(
+            base, clamp01(ColorLuminance::calculate(blendColor.r(), blendColor.g(),
+                                                    blendColor.b()) *
+                          srcAlpha));
+    case BlendMode::SilhouetteAlpha:
+        return applySilhouetteLikeBlend(base, srcAlpha);
+    case BlendMode::SilhouetteLuma:
+        return applySilhouetteLikeBlend(
+            base, clamp01(ColorLuminance::calculate(blendColor.r(), blendColor.g(),
+                                                    blendColor.b()) *
+                          srcAlpha));
+
     default:
         return base;
     }
