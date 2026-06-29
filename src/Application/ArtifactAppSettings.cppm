@@ -404,6 +404,41 @@ void ArtifactAppSettings::setAccessibilityPreferHighContrastHints(bool enable) {
     Q_EMIT settingsChanged();
 }
 
+int ArtifactAppSettings::accessibilityFontScalePercent() const {
+    return std::clamp(impl_->store.valueInt64(QStringLiteral("Accessibility/FontScalePercent"), 100), 100L, 200L);
+}
+
+void ArtifactAppSettings::setAccessibilityFontScalePercent(int percent) {
+    impl_->store.setValue(QStringLiteral("Accessibility/FontScalePercent"), std::clamp(percent, 100, 200));
+    Q_EMIT settingsChanged();
+}
+
+QString ArtifactAppSettings::accessibilityColorDeficiencyMode() const {
+    const QString mode = impl_->store.valueString(QStringLiteral("Accessibility/ColorDeficiencyMode"), QStringLiteral("none"));
+    if (mode == QStringLiteral("protanopia") || mode == QStringLiteral("deuteranopia") || mode == QStringLiteral("tritanopia")) {
+        return mode;
+    }
+    return QStringLiteral("none");
+}
+
+void ArtifactAppSettings::setAccessibilityColorDeficiencyMode(const QString& mode) {
+    QString normalized = mode.trimmed().toLower();
+    if (normalized != QStringLiteral("protanopia") && normalized != QStringLiteral("deuteranopia") && normalized != QStringLiteral("tritanopia")) {
+        normalized = QStringLiteral("none");
+    }
+    impl_->store.setValue(QStringLiteral("Accessibility/ColorDeficiencyMode"), normalized);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::accessibilityReduceHoverDependency() const {
+    return impl_->store.valueBool(QStringLiteral("Accessibility/ReduceHoverDependency"), false);
+}
+
+void ArtifactAppSettings::setAccessibilityReduceHoverDependency(bool enable) {
+    impl_->store.setValue(QStringLiteral("Accessibility/ReduceHoverDependency"), enable);
+    Q_EMIT settingsChanged();
+}
+
 QString ArtifactAppSettings::themeName() const {
     return impl_->store.valueString("UI/ThemeName", "Maya");
 }
