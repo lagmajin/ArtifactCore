@@ -117,6 +117,12 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/SmallVector.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/NameMap.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/IdMap.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Physics/SandSim2D.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Graphics/SandGPUCompute.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactSpan.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactFunction.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactVariant.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactUtility.ixx"
 )
     list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
     if(_artifact_force_module_index EQUAL -1)
@@ -142,6 +148,16 @@ endif()
 list(FIND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/PyroSimulation.cppm" _pyro_simulation_impl_idx)
 if(_pyro_simulation_impl_idx EQUAL -1)
     list(APPEND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/PyroSimulation.cppm")
+endif()
+
+list(FIND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Physics/SandSim2D.cppm" _sand_sim_impl_idx)
+if(_sand_sim_impl_idx EQUAL -1)
+    list(APPEND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Physics/SandSim2D.cppm")
+endif()
+
+list(FIND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics/SandGPUCompute.cppm" _sand_gpu_impl_idx)
+if(_sand_gpu_impl_idx EQUAL -1)
+    list(APPEND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics/SandGPUCompute.cppm")
 endif()
 
 # ---------------------------------------------------------------------------

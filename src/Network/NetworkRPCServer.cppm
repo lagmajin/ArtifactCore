@@ -11,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QTimer>
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
 #include <QDateTime>
@@ -129,7 +130,7 @@ public:
         sendJson(socket, resp);
 
         if (onWorkerConnected_) {
-            onWorkerConnected_(workerInfo(workerId));
+            onWorkerConnected_(NetworkPCServer::instance().workerInfo(workerId));
         }
     }
 

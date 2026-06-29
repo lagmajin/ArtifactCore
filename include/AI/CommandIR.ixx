@@ -42,7 +42,7 @@ struct CommandResult {
     }
 };
 
-static inline CommandResult commandResultFromVariantMap(const QVariantMap& map)
+inline CommandResult commandResultFromVariantMap(const QVariantMap& map)
 {
     CommandResult result;
     result.success = map.value(QStringLiteral("success")).toBool();

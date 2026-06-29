@@ -5,8 +5,10 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
+#include <DiligentCore/Common/interface/BasicMath.hpp>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QString>
+#include <QDebug>
 #include <cstring>
 
 module Graphics.BoidsCompute;
@@ -323,9 +325,9 @@ void BoidsGPUCompute::uploadAgents(const std::vector<float3>& positions,
         p.data[15] = 0;
     }
 
-    auto pDevice = context_.RenderDevice();
-    pDevice->UpdateBuffer(pImpl_->pAgentBuffer_, 0, sizeof(PackedBoid) * count,
-                          packed.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    auto pContext = context_.DeviceContext();
+    pContext->UpdateBuffer(pImpl_->pAgentBuffer_, 0, sizeof(PackedBoid) * count,
+                           packed.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     constants_.agentCount = static_cast<uint32_t>(count);
 }
 
@@ -344,9 +346,9 @@ void BoidsGPUCompute::uploadObstacles(const std::vector<float3>& centers,
         packed[i].data[3] = radii[i];
     }
 
-    auto pDevice = context_.RenderDevice();
-    pDevice->UpdateBuffer(pImpl_->pObstacleBuffer_, 0, sizeof(PackedObstacle) * count,
-                          packed.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    auto pContext = context_.DeviceContext();
+    pContext->UpdateBuffer(pImpl_->pObstacleBuffer_, 0, sizeof(PackedObstacle) * count,
+                           packed.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     obstacleCount_ = static_cast<uint32_t>(count);
     constants_.obstacleCount = obstacleCount_;
 }

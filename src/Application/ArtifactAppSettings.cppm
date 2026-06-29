@@ -405,7 +405,8 @@ void ArtifactAppSettings::setAccessibilityPreferHighContrastHints(bool enable) {
 }
 
 int ArtifactAppSettings::accessibilityFontScalePercent() const {
-    return std::clamp(impl_->store.valueInt64(QStringLiteral("Accessibility/FontScalePercent"), 100), 100L, 200L);
+    const qlonglong value = impl_->store.valueInt64(QStringLiteral("Accessibility/FontScalePercent"), 100);
+    return static_cast<int>(std::clamp<qlonglong>(value, 100, 200));
 }
 
 void ArtifactAppSettings::setAccessibilityFontScalePercent(int percent) {

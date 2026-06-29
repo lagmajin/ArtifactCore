@@ -32,6 +32,10 @@ export struct MpmVec2 {
     }
 };
 
+inline MpmVec2 operator*(float s, const MpmVec2& v) noexcept {
+    return v * s;
+}
+
 export struct MpmMat2 {
     float m00 = 1.0f, m01 = 0.0f;
     float m10 = 0.0f, m11 = 1.0f;
@@ -199,7 +203,7 @@ private:
     static float weight(float x, float dx);
     static float dweight(float x, float dx);
     static MpmMat2 polarDecomposition(const MpmMat2& F);
-    static MpmMat2 firstPiolaKirchhoff(const MpmMat2& Fe);
+    MpmMat2 firstPiolaKirchhoff(const MpmMat2& Fe);
 };
 
 } // namespace ArtifactCore

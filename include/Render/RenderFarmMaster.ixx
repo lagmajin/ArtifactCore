@@ -4,6 +4,7 @@ module;
 #include <vector>
 #include <functional>
 #include <atomic>
+#include <QStringList>
 #include "../Define/DllExportMacro.hpp"
 
 export module Render.Farm.Master;

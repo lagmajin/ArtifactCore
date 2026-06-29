@@ -81,4 +81,21 @@ constexpr T clamp(T value, U minVal, U maxVal) noexcept {
     return artifactMax(static_cast<T>(minVal), artifactMin(value, static_cast<T>(maxVal)));
 }
 
+template<typename T>
+constexpr T artifactLerp(T a, T b, T t) noexcept {
+    static_assert(std::is_arithmetic_v<T>, "artifactLerp requires arithmetic type");
+    if constexpr (std::is_floating_point_v<T>) {
+        if (std::isnan(a)) return b;
+        if (std::isnan(b)) return a;
+        if (std::isnan(t)) return a;
+    }
+    return a + t * (b - a);
+}
+
+template<typename T, typename U>
+constexpr auto artifactLerp(T a, T b, U t) noexcept -> decltype(a + b) {
+    using Common = std::common_type_t<T, U>;
+    return artifactLerp(static_cast<Common>(a), static_cast<Common>(b), static_cast<Common>(t));
+}
+
 } // namespace ArtifactCore

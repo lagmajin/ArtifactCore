@@ -5,7 +5,8 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
-#include "../../Define/DllExportMacro.hpp"
+#include <DiligentCore/Common/interface/BasicMath.hpp>
+#include "../Define/DllExportMacro.hpp"
 #include <vector>
 
 export module Graphics.BoidsCompute;
