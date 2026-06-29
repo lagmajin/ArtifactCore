@@ -123,24 +123,21 @@ public:
     // -- Local rendering --
     void executeLocalRange(const RenderJobRequest& request, const FrameRange& subRange,
                            std::atomic<int>& checkpointCounter) {
-        auto& pool = ThreadPool::globalInstance();
         for (int frame = subRange.startFrame; frame < subRange.endFrame; frame += subRange.step) {
             if (cancelled_) break;
 
-            int frameIndex = frame - request.range.startFrame;
             int attempt = 0;
 
             do {
                 if (cancelled_) break;
 
                 bool ok = false;
-                pool.enqueueTask([this, &request, frame, &ok]() {
-                    if (cancelled_) return;
-                    try {
-                        if (request.renderFrame) request.renderFrame(frame);
-                        ok = true;
-                    } catch (...) {}
-                });
+                try {
+                    if (request.renderFrame) {
+                        request.renderFrame(frame);
+                    }
+                    ok = true;
+                } catch (...) {}
 
                 if (ok) {
                     totalProgress_.completed.fetch_add(1);
@@ -261,7 +258,7 @@ public:
             std::atomic<int> checkpointCounter{ 0 };
 
             for (const auto& subRange : subRanges) {
-                farmTasks_.run([this, &request, subRange, &checkpointCounter]() {
+                farmTasks_.run([this, request, subRange, &checkpointCounter]() {
                     executeLocalRange(request, subRange, checkpointCounter);
                 });
             }
@@ -326,7 +323,7 @@ int RenderFarmMaster::workerCount() const {
 
 void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
     if (impl_->busy_) return;
-    impl_->farmTasks_.run([this, &request]() {
+    impl_->farmTasks_.run([this, request]() {
         impl_->executeJob(request);
     });
 }

@@ -39,38 +39,28 @@ public:
         failed_.store(0);
         totalFrames_ = subRange.count();
 
-        auto& pool = ThreadPool::globalInstance();
-
         for (int frame = subRange.startFrame; frame < subRange.endFrame; frame += subRange.step) {
             if (cancelled_) break;
 
-            pool.enqueueTask([this, &request, frame]() {
-                if (cancelled_) return;
-                try {
-                    if (request.renderFrame) {
-                        request.renderFrame(frame);
-                    }
-                    completed_.fetch_add(1);
+            try {
+                if (request.renderFrame) {
+                    request.renderFrame(frame);
                 }
-                catch (...) {
-                    failed_.fetch_add(1);
-                }
-                if (onProgress_) {
-                    RenderJobProgress p;
-                    p.completedFrames.store(completed_.load());
-                    p.failedFrames.store(failed_.load());
-                    p.totalFrames = totalFrames_;
-                    onProgress_(p);
-                }
-            });
+                completed_.fetch_add(1);
+            }
+            catch (...) {
+                failed_.fetch_add(1);
+            }
+            if (onProgress_) {
+                RenderJobProgress p;
+                p.completedFrames.store(completed_.load());
+                p.failedFrames.store(failed_.load());
+                p.totalFrames = totalFrames_;
+                onProgress_(p);
+            }
         }
 
-        if (cancelled_) {
-            state_.store(WorkerState::Cancelled);
-            return;
-        }
-
-        state_.store(WorkerState::Completed);
+        state_.store(cancelled_ ? WorkerState::Cancelled : WorkerState::Completed);
 
         RenderJobResult result;
         int c = completed_.load();

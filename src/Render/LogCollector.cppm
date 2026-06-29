@@ -25,15 +25,19 @@ struct LogCollector::Impl {
     LogCollector::LogCallback callback;
 
     void appendEntry(const LogEntry& entry) {
-        std::lock_guard lock(mutex);
-        entries.push_back(entry);
-        if (callback) {
-            callback(entry);
+        LogCollector::LogCallback callbackCopy;
+        {
+            std::lock_guard lock(mutex);
+            entries.push_back(entry);
+            callbackCopy = callback;
+            flushCounter++;
+            if (flushCounter >= flushThreshold) {
+                flushCounter = 0;
+                // schedule flush — we do it in the next writeLogFile call
+            }
         }
-        flushCounter++;
-        if (flushCounter >= flushThreshold) {
-            flushCounter = 0;
-            // schedule flush — we do it in the next writeLogFile call
+        if (callbackCopy) {
+            callbackCopy(entry);
         }
     }
 

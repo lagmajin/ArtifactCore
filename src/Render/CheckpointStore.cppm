@@ -141,7 +141,7 @@ QStringList CheckpointStore::listCheckpoints() const {
     QStringList entries = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
     QStringList results;
     for (const auto& entry : entries) {
-        if (checkpointFilePath(impl_->basePath_, entry).contains("checkpoint.json")) {
+        if (QFile::exists(checkpointFilePath(impl_->basePath_, entry))) {
             results.append(entry);
         }
     }
