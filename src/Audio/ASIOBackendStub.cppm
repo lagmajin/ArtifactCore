@@ -75,6 +75,11 @@ void ASIOBackendStub::start(AudioCallback callback) {
     qDebug() << "[ASIOBackendStub] Started";
 }
 
+void ASIOBackendStub::requestStop() {
+    impl_->wasapi_->requestStop();
+    qDebug() << "[ASIOBackendStub] Requested stop";
+}
+
 void ASIOBackendStub::stop() {
     if (!impl_->isOpen_) {
         return;

@@ -43,6 +43,7 @@ struct AudioBackendFormat {
   virtual void close() = 0;
   virtual void start(AudioCallback callback) = 0;
   virtual void stop() = 0;
+  virtual void requestStop() {}
 
   // Query helpers
   virtual bool isActive() const = 0;

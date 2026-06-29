@@ -24,6 +24,7 @@ public:
   void close() override;
   void start(AudioCallback callback) override;
   void stop() override;
+  void requestStop() override;
 
   bool isActive() const override;
   AudioBackendFormat currentFormat() const override;
