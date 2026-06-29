@@ -368,6 +368,18 @@ void AudioRenderer::start() {
   }
 }
 
+void AudioRenderer::requestStop() {
+  if (impl_ && impl_->active.exchange(false, std::memory_order_acq_rel)) {
+    const size_t count = ++impl_->stopCount;
+    qDebug() << "[AudioRenderer] requestStop"
+             << "count=" << count;
+    impl_->backend->requestStop();
+    if (impl_->ringBuffer) {
+      impl_->ringBuffer->clear();
+    }
+  }
+}
+
 void AudioRenderer::stop() {
   if (impl_ && impl_->active.exchange(false, std::memory_order_acq_rel)) {
     const size_t count = ++impl_->stopCount;

@@ -59,6 +59,7 @@ struct AudioLevelData {
    */
   void start();
   void stop();
+  void requestStop();
   bool isActive() const;
 
   /**

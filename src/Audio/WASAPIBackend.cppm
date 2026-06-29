@@ -350,6 +350,27 @@ void WASAPIBackend::start(AudioCallback callback) {
   impl_->renderThread = std::thread([this]() { impl_->renderLoop(); });
 }
 
+void WASAPIBackend::requestStop() {
+  if (!impl_) {
+    return;
+  }
+
+  if (!impl_->active.load() && !impl_->renderThread.joinable()) {
+    return;
+  }
+  impl_->stopRequested = true;
+  if (impl_->stopEvent) {
+    SetEvent(impl_->stopEvent);
+  }
+  if (impl_->audioEvent) {
+    SetEvent(impl_->audioEvent);
+  }
+  if (impl_->renderThread.joinable() && !impl_->stopJoined.exchange(true)) {
+    impl_->renderThread.detach();
+  }
+  impl_->active = false;
+}
+
 void WASAPIBackend::stop() {
   if (!impl_) {
     return;
