@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:Emboss;
+module ImageProcessing;
+import :Emboss;
 
 namespace ArtifactCore {
 

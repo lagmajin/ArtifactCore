@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:BroadcastColors;
+module ImageProcessing;
+import :BroadcastColors;
 
 namespace ArtifactCore {
 

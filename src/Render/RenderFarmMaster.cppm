@@ -8,12 +8,16 @@ module;
 #include <atomic>
 #include <chrono>
 #include <random>
+#include <string>
 #include <QString>
 #include <QStringList>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QDateTime>
+#ifdef emit
+#undef emit
+#endif
 #include <tbb/tbb.h>
 
 module Render.Farm.Master;
@@ -28,6 +32,32 @@ namespace ArtifactCore {
 struct WorkerProgress {
     std::atomic<int> completed{ 0 };
     std::atomic<int> failed{ 0 };
+
+    WorkerProgress() = default;
+
+    WorkerProgress(const WorkerProgress& other)
+        : completed(other.completed.load())
+        , failed(other.failed.load()) {}
+
+    WorkerProgress& operator=(const WorkerProgress& other) {
+        if (this != &other) {
+            completed.store(other.completed.load());
+            failed.store(other.failed.load());
+        }
+        return *this;
+    }
+
+    WorkerProgress(WorkerProgress&& other) noexcept
+        : completed(other.completed.load())
+        , failed(other.failed.load()) {}
+
+    WorkerProgress& operator=(WorkerProgress&& other) noexcept {
+        if (this != &other) {
+            completed.store(other.completed.load());
+            failed.store(other.failed.load());
+        }
+        return *this;
+    }
 };
 
 struct RemoteJobSlice {
@@ -54,7 +84,7 @@ public:
     RenderFarmProgressCallback onProgress_;
     std::function<void(const RenderJobResult&)> onCompleted_;
 
-    std::vector<std::atomic<int>> frameAttempts_;
+    std::vector<int> frameAttempts_;
     std::mutex frameAttemptsMutex_;
 
     tbb::task_group farmTasks_;

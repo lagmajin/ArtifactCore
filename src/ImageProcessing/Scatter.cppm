@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <random>
 
-module ImageProcessing:Scatter;
+module ImageProcessing;
+import :Scatter;
 
 namespace ArtifactCore {
 

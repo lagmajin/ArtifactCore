@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:LumaKey;
+module ImageProcessing;
+import :LumaKey;
 
 import Particle;
 import Image.ImageF32x4_RGBA;

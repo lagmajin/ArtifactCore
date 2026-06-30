@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:Threshold;
+module ImageProcessing;
+import :Threshold;
 
 import Particle;
 import Image.ImageF32x4_RGBA;

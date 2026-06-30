@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:LeaveColor;
+module ImageProcessing;
+import :LeaveColor;
 
 namespace ArtifactCore {
 

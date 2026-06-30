@@ -14,17 +14,17 @@ template<typename R, typename... Args>
 using Invoker = R(*)(void*, Args...);
 
 template<typename F, typename R, typename... Args>
-static R invokeStub(void* ptr, Args... args) {
+R invokeStub(void* ptr, Args... args) {
     return (*static_cast<F*>(ptr))(std::forward<Args>(args)...);
 }
 
 template<typename F>
-static void destroyStub(void* ptr) {
+void destroyStub(void* ptr) {
     static_cast<F*>(ptr)->~F();
 }
 
 template<typename F>
-static void moveStub(void* src, void* dst) {
+void moveStub(void* src, void* dst) {
     ::new (dst) F(std::move(*static_cast<F*>(src)));
 }
 

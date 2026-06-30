@@ -8,13 +8,13 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
-export module Graphics.Compute.HalftoneComputer;
+module Graphics.Compute.HalftoneComputer;
 
 import Graphics.Compute;
 import Graphics.GPUcomputeContext;
 import Graphics.Shader.Compute.HLSL.Halftone;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
 using namespace Diligent;
 

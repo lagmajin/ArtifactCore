@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.30)
 project(ArtifactCore)
 
 set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
@@ -7,86 +7,107 @@ set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
 # ソース収集とモジュール分類
 # ---------------------------------------------------------------------------
 
-# 全てのソース候補を収集
-file(GLOB_RECURSE POTENTIAL_SOURCES 
-    "src/*.cpp" "src/*.cppm" "src/*.ixx"
-    "src/**/*.cpp" "src/**/*.cppm" "src/**/*.ixx"
-    "include/*.ixx" "include/*.cppm"
-    "include/**/*.ixx" "include/**/*.cppm"
+# 拡張子ベースの分類:
+#   .ixx → 常にモジュールインターフェース（内容スキャン不要）
+#   .cpp → 常に実装ファイル（内容スキャン不要）
+#   .cppm → export module の有無をスキャンして振り分け
+file(GLOB_RECURSE IXX_FILES
+    "include/*.ixx" "include/**/*.ixx"
+    "src/*.ixx" "src/**/*.ixx"
     "NetworkRPCServer.ixx"
+)
+file(GLOB_RECURSE CPP_FILES
+    "src/*.cpp" "src/**/*.cpp"
+)
+file(GLOB_RECURSE CPPM_FILES
+    "include/*.cppm" "include/**/*.cppm"
+    "src/*.cppm" "src/**/*.cppm"
 )
 
 set(CORE_MODULES "")
 set(CORE_IMPL "")
 set(_PROVIDED_MODULES "")
 
-foreach(file_path ${POTENTIAL_SOURCES})
-    # 除外チェック
-    if(file_path MATCHES "stashed_broken_modules" OR
-       file_path MATCHES "disabled_modules" OR
-       file_path MATCHES "/Halide/" OR
-       file_path MATCHES "hostfxr" OR
-       file_path MATCHES "\\.bak$" OR
+# アーカイブ除外フィルター
+function(_artifact_exclude_check file_path result_var)
+    if("${file_path}" MATCHES "stashed_broken_modules" OR
+       "${file_path}" MATCHES "disabled_modules" OR
+       "${file_path}" MATCHES "[/\\\\]Halide[/\\\\]" OR
+       "${file_path}" MATCHES "hostfxr" OR
+       "${file_path}" MATCHES "\\.bak$" OR
+       "${file_path}" MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
+       "${file_path}" MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
+       "${file_path}" MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
+       "${file_path}" MATCHES "src/Diagnostics/ValidationRules\\.cppm" OR
+       "${file_path}" MATCHES "src/Animation/EasingCurveUtil\\.cppm" OR
+       "${file_path}" MATCHES "src/Graphics/Compute/CurveComputer\\.cppm" OR
+       "${file_path}" MATCHES "src/Graphics/Compute/DuotoneComputer\\.cppm" OR
+       "${file_path}" MATCHES "src/Graphics/Compute/EchoBlendComputer\\.cppm" OR
+       "${file_path}" MATCHES "src/Graphics/Compute/EdgeEchoComputer\\.cppm" OR
+       "${file_path}" MATCHES "src/Graphics/Compute/HalftoneComputer\\.cppm" OR
+       "${file_path}" MATCHES "src/Graphics/Compute/Histogram\\.cppm" OR
+       "${file_path}" MATCHES "src/Graphics/Compute/ScopeComputer\\.cppm" OR
+       "${file_path}" MATCHES "SpinTransition\\.cppm$" OR
+       "${file_path}" MATCHES "src/ImageProcessing/AnamorphicFlare\\.cppm" OR
+       "${file_path}" MATCHES "include/Diagnostics/ValidationRules\\.ixx" OR
+       "${file_path}" MATCHES "include[/\\\\]Asset[/\\\\]AsseetImporter\\.ixx" OR
+       "${file_path}" MATCHES "src/Image/FFmpegEncoder\\.Test\\.cppm" OR
+       "${file_path}" MATCHES "src/Render/SoftwareRayTracer\\.Test\\.cppm" OR
+       "${file_path}" MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
+        set(${result_var} TRUE PARENT_SCOPE)
+    else()
+        set(${result_var} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
 
-       file_path MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
-       file_path MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
-       file_path MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
-       # ValidationRules depends on Artifact project modules and is built there
-       # once the app layer wires it in; keeping it out of ArtifactCore avoids a
-       # cross-project module dependency cycle.
-       file_path MATCHES "src/Diagnostics/ValidationRules\\.cppm" OR
-       file_path MATCHES "include/Diagnostics/ValidationRules\\.ixx" OR
-       file_path MATCHES "include[/\\\\]Asset[/\\\\]AsseetImporter\\.ixx" OR
-file_path MATCHES "src/Image/FFmpegEncoder\\.Test\\.cppm" OR
-        file_path MATCHES "src/Render/SoftwareRayTracer\\.Test\\.cppm" OR
-        file_path MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
+# .ixx → モジュールインターフェース（内容スキャン不要）
+foreach(file_path ${IXX_FILES})
+    _artifact_exclude_check("${file_path}" _excluded)
+    if(_excluded)
+        continue()
+    endif()
+    list(APPEND CORE_MODULES "${file_path}")
+endforeach()
+
+# .cpp → 実装ファイル（内容スキャン不要）
+foreach(file_path ${CPP_FILES})
+    _artifact_exclude_check("${file_path}" _excluded)
+    if(_excluded)
+        continue()
+    endif()
+    list(APPEND CORE_IMPL "${file_path}")
+endforeach()
+
+# .cppm → export module スキャンで振り分け
+foreach(file_path ${CPPM_FILES})
+    _artifact_exclude_check("${file_path}" _excluded)
+    if(_excluded)
         continue()
     endif()
 
-    # ファイルの内容を確認してモジュールの種類を判定
-    # 以前の 4096 バイト制限では、大量の include の後に export module がある場合に
-    # 検出に失敗することがあったため、制限を 32KB に拡大します。
     file(READ "${file_path}" raw_content LIMIT 32768)
-    
-    # コメントを除去して誤判定を防ぐ
-    # ※ CMake の REGEX REPLACE は最短一致ではないため、注意が必要ですが、
-    #    ここでは大まかな判定用なので許容します。
     string(REGEX REPLACE "//[^\n]*" "" content "${raw_content}")
-    # 改行を含むコメントも大まかに除去
     string(REGEX REPLACE "/\\*.*\\*/" "" content "${content}")
 
-    set(is_mod_interface_or_partition FALSE)
-    set(found_mod_name "")
-
-    # 1. インターフェース判定: export module M;
-    # より柔軟な正規表現を使用します（セミコロンの前の空白を許容）
+    set(_mod_name "")
     if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
-        set(is_mod_interface_or_partition TRUE)
-        set(found_mod_name "${CMAKE_MATCH_1}")
-    # 2. パーティション判定: module M:P; (コロンを含む)
+        set(_mod_name "${CMAKE_MATCH_1}")
     elseif(content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
-        set(is_mod_interface_or_partition TRUE)
-        set(found_mod_name "${CMAKE_MATCH_1}")
+        set(_mod_name "${CMAKE_MATCH_1}")
     endif()
 
-    if(is_mod_interface_or_partition)
-        # 重複チェック (同一モジュール名を提供するファイルが複数あると Ninja が止まる)
-        list(FIND _PROVIDED_MODULES "${found_mod_name}" _mod_idx)
+    if(_mod_name STREQUAL "")
+        list(APPEND CORE_IMPL "${file_path}")
+    elseif(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+[a-zA-Z0-9\\._:]+[ \t\r\n]*;")
+        list(FIND _PROVIDED_MODULES "${_mod_name}" _mod_idx)
         if(_mod_idx EQUAL -1)
             list(APPEND CORE_MODULES "${file_path}")
-            list(APPEND _PROVIDED_MODULES "${found_mod_name}")
-            # message(STATUS "Module detected: ${found_mod_name} (${file_path})")
+            list(APPEND _PROVIDED_MODULES "${_mod_name}")
         else()
-            # 重複モジュールを通常ソースに落とすと
-            # 「provides module but not in FILE_SET CXX_MODULES」を誘発するため除外する
-            message(WARNING "Duplicate module name detected: ${found_mod_name} in ${file_path} (skipped)")
+            message(WARNING "Duplicate module name detected: ${_mod_name} in ${file_path} (skipped)")
         endif()
     else()
-        # 通常のソースファイル (module M; または非モジュール)
-        string(LENGTH "${raw_content}" content_len)
-        if(content_len GREATER 0)
-            list(APPEND CORE_IMPL "${file_path}")
-        endif()
+        list(APPEND CORE_IMPL "${file_path}")
     endif()
 endforeach()
 
@@ -109,6 +130,8 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateLock.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/ParametricComposition.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Simulation/PyroSimulation.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/ImageBuffer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/SharedPtr.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/ArtifactArray.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactAtomic.cppm"

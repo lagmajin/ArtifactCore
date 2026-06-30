@@ -3,7 +3,8 @@ module;
 #include <cmath>
 #include <vector>
 
-module ImageProcessing:Duotone;
+module ImageProcessing;
+import :Duotone;
 
 import Particle;
 import Image.ImageF32x4_RGBA;

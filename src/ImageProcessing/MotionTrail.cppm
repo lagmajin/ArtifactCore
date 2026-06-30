@@ -1,9 +1,11 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <vector>
 
-module ImageProcessing:MotionTrail;
+module ImageProcessing;
+import :MotionTrail;
 
 import Particle;
 import Image.ImageF32x4_RGBA;

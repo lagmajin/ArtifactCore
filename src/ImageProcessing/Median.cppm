@@ -3,7 +3,8 @@ module;
 #include <cmath>
 #include <vector>
 
-module ImageProcessing:Median;
+module ImageProcessing;
+import :Median;
 
 import Particle;
 import Image.ImageF32x4_RGBA;

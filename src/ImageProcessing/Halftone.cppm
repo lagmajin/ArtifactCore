@@ -1,13 +1,12 @@
 module;
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range.h>
-module ImageProcessing:Halftone;
 #include <algorithm>
 #include <cmath>
 #include <vector>
 #include <array>
-
-
+module ImageProcessing;
+import :Halftone;
 import Particle;
 import Image.ImageF32x4_RGBA;
 

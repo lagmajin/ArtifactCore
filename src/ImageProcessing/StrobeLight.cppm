@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:StrobeLight;
+module ImageProcessing;
+import :StrobeLight;
 
 namespace ArtifactCore {
 

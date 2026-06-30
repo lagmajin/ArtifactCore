@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:ChromaKey;
+module ImageProcessing;
+import :ChromaKey;
 
 namespace ArtifactCore {
 

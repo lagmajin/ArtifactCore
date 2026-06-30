@@ -7,13 +7,13 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
-export module Graphics.Compute.DuotoneComputer;
+module Graphics.Compute.DuotoneComputer;
 
 import Graphics.Compute;
 import Graphics.GPUcomputeContext;
 import Graphics.Shader.Compute.HLSL.Duotone;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
 using namespace Diligent;
 

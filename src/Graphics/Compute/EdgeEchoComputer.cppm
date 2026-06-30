@@ -7,13 +7,13 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
-export module Graphics.Compute.EdgeEchoComputer;
+module Graphics.Compute.EdgeEchoComputer;
 
 import Graphics.Compute;
 import Graphics.GPUcomputeContext;
 import Graphics.Shader.Compute.HLSL.EdgeEcho;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
 using namespace Diligent;
 

@@ -58,17 +58,17 @@ using MoveFn = void(*)(void* src, void* dst);
 using CopyFn = void(*)(const void* src, void* dst);
 
 template<typename T>
-static void destroyImpl(void* ptr) {
+void destroyImpl(void* ptr) {
     static_cast<T*>(ptr)->~T();
 }
 
 template<typename T>
-static void moveImpl(void* src, void* dst) {
+void moveImpl(void* src, void* dst) {
     ::new (dst) T(std::move(*static_cast<T*>(src)));
 }
 
 template<typename T>
-static void copyImpl(const void* src, void* dst) {
+void copyImpl(const void* src, void* dst) {
     ::new (dst) T(*static_cast<const T*>(src));
 }
 

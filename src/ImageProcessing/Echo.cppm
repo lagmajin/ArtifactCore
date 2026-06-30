@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:Echo;
+module ImageProcessing;
+import :Echo;
 
 namespace ArtifactCore {
 

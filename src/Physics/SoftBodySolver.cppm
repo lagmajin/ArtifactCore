@@ -244,7 +244,6 @@ public:
     void clearVolumeTriangles() { volumeTriangles_.clear(); }
     void setPressureStiffness(float stiffness) { pressureStiffness_ = std::clamp(stiffness, 0.0f, 1.0f); }
     float pressureStiffness() const { return pressureStiffness_; }
-    const std::vector<SoftBodyVolumeTriangle>& getVolumeTriangles() const { return volumeTriangles_; }
 
     // ─── Wind / Turbulence ───
     void setWind(float dirX, float dirY, float strength) {

@@ -5,22 +5,22 @@
 #include <QString>
 #include <vector>
 
-export module Animation.EasingCurveUtil;
+module Animation.EasingCurveUtil;
 
 import Math.Interpolate;
 
 namespace ArtifactCore {
 
-export struct EasingCandidate {
+struct EasingCandidate {
     EasingType type;
     QString name;
 };
 
-export inline float clampUnit(float t) {
+inline float clampUnit(float t) {
     return std::clamp(t, 0.0f, 1.0f);
 }
 
-export QString easingTypeToString(EasingType type) {
+QString easingTypeToString(EasingType type) {
     switch (type) {
         case EasingType::Linear: return "Linear";
         case EasingType::EaseInQuad: return "Ease In (Quad)";
@@ -42,7 +42,7 @@ export QString easingTypeToString(EasingType type) {
     }
 }
 
-export InterpolationType easingTypeToInterpolation(EasingType type) {
+InterpolationType easingTypeToInterpolation(EasingType type) {
     switch (type) {
         case EasingType::Linear: return InterpolationType::Linear;
         case EasingType::EaseInQuad:
@@ -67,7 +67,7 @@ export InterpolationType easingTypeToInterpolation(EasingType type) {
     }
 }
 
-export std::vector<EasingCandidate> defaultEasingCandidates() {
+std::vector<EasingCandidate> defaultEasingCandidates() {
     return {
         { EasingType::Linear, "Linear" },
         { EasingType::EaseInQuad, "Ease In" },
@@ -78,7 +78,7 @@ export std::vector<EasingCandidate> defaultEasingCandidates() {
     };
 }
 
-export double evaluateEasing(EasingType type, double t) {
+double evaluateEasing(EasingType type, double t) {
     t = std::clamp(t, 0.0, 1.0);
     
     switch (type) {

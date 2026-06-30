@@ -1,12 +1,11 @@
 module;
-#include <tbb/parallel_for.h>
-#include <tbb/blocked_range.h>
-module ImageProcessing:AnamorphicFlare;
 #include <algorithm>
 #include <cmath>
 #include <vector>
-
-
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+module ImageProcessing;
+import :AnamorphicFlare;
 import Particle;
 import Image.ImageF32x4_RGBA;
 

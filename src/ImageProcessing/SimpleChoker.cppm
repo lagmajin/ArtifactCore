@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:SimpleChoker;
+module ImageProcessing;
+import :SimpleChoker;
 
 namespace ArtifactCore {
 

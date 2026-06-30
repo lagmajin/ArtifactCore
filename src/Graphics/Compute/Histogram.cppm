@@ -7,13 +7,13 @@
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
 
-export module Graphics.Compute.Histogram;
+module Graphics.Compute.Histogram;
 
 import Graphics.Compute;
 import Graphics.GPUcomputeContext;
 import Graphics.Shader.Compute.HLSL.Histogram;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
 using namespace Diligent;
 

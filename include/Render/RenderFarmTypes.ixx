@@ -62,6 +62,36 @@ struct RenderJobProgress {
     std::atomic<int> failedFrames{ 0 };
     int totalFrames = 0;
 
+    RenderJobProgress() = default;
+
+    RenderJobProgress(const RenderJobProgress& other)
+        : completedFrames(other.completedFrames.load())
+        , failedFrames(other.failedFrames.load())
+        , totalFrames(other.totalFrames) {}
+
+    RenderJobProgress& operator=(const RenderJobProgress& other) {
+        if (this != &other) {
+            completedFrames.store(other.completedFrames.load());
+            failedFrames.store(other.failedFrames.load());
+            totalFrames = other.totalFrames;
+        }
+        return *this;
+    }
+
+    RenderJobProgress(RenderJobProgress&& other) noexcept
+        : completedFrames(other.completedFrames.load())
+        , failedFrames(other.failedFrames.load())
+        , totalFrames(other.totalFrames) {}
+
+    RenderJobProgress& operator=(RenderJobProgress&& other) noexcept {
+        if (this != &other) {
+            completedFrames.store(other.completedFrames.load());
+            failedFrames.store(other.failedFrames.load());
+            totalFrames = other.totalFrames;
+        }
+        return *this;
+    }
+
     float progress() const {
         return totalFrames > 0
             ? static_cast<float>(completedFrames) / static_cast<float>(totalFrames)

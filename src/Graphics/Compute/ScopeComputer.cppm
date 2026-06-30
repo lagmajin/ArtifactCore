@@ -9,7 +9,7 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
-export module Graphics.Compute.ScopeComputer;
+module Graphics.Compute.ScopeComputer;
 
 import Graphics.Compute;
 import Graphics.GPUcomputeContext;
@@ -17,7 +17,7 @@ import Graphics.Shader.Compute.HLSL.ScopeVectorscope;
 import Graphics.Shader.Compute.HLSL.ScopeWaveform;
 import Graphics.Shader.Compute.HLSL.ScopeParade;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
 using namespace Diligent;
 

@@ -4,7 +4,7 @@ module;
 #include <algorithm>
 #include <array>
 
-export module Video.Transitions.SpinTransition;
+module Video.Transitions.SpinTransition;
 
 import NLE.Core;
 import Video.TransitionFactory;

@@ -5,7 +5,8 @@ module;
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range.h>
 
-module ImageProcessing:TiltShift;
+module ImageProcessing;
+import :TiltShift;
 
 import Particle;
 import Image.ImageF32x4_RGBA;
@@ -118,4 +119,3 @@ void TiltShift::process(ImageF32x4_RGBA& image, const TiltShiftSettings& setting
 }
 
 } // namespace ArtifactCore
-

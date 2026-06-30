@@ -2,7 +2,8 @@ module;
 #include <algorithm>
 #include <cmath>
 
-module ImageProcessing:PosterizeTime;
+module ImageProcessing;
+import :PosterizeTime;
 
 namespace ArtifactCore {
 
