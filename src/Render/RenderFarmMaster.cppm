@@ -9,6 +9,7 @@ module;
 #include <chrono>
 #include <random>
 #include <string>
+#include <condition_variable>
 #include <QString>
 #include <QStringList>
 #include <QJsonObject>
@@ -62,9 +63,10 @@ struct WorkerProgress {
 
 struct RemoteJobSlice {
     QString workerId;
-    FrameRange range;
+    RenderFrameRange range;
     bool assigned = false;
     bool completed = false;
+    int framesCompleted_ = 0;  // how many individual frames reported done
 };
 
 class RenderFarmMaster::Impl {
@@ -98,14 +100,19 @@ public:
     bool rpcRunning_ = false;
     std::vector<RemoteJobSlice> remoteSlices_;
     std::mutex remoteMutex_;
+    std::atomic<int> remoteCompleted_{0};
+    int totalRemoteFrames_ = 0;
+    std::mutex remoteWaitMutex_;
+    std::condition_variable remoteCv_;
+    std::function<void(const QString&, int, bool)> onRemoteFrameResult_;
 
     explicit Impl(int workerCount)
         : workerCount_(workerCount > 0 ? workerCount : std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2))
         , checkpointStore_(std::make_unique<CheckpointStore>())
     {}
 
-    std::vector<FrameRange> splitRange(const FrameRange& range, int parts) const {
-        std::vector<FrameRange> subRanges;
+    std::vector<RenderFrameRange> splitRange(const RenderFrameRange& range, int parts) const {
+        std::vector<RenderFrameRange> subRanges;
         if (parts <= 0 || range.count() <= 0) return subRanges;
 
         int totalFrames = range.count();
@@ -133,7 +140,7 @@ public:
         finalResult_.failures.addFailure(frame, 1, "Render failed");
     }
 
-    void saveCheckpoint() {
+    void saveCheckpoint(int baseFrame = 0) {
         if (checkpointPolicy_.mode == CheckpointPolicy::Mode::Disabled) return;
         if (currentJobId_.isEmpty()) return;
 
@@ -142,7 +149,7 @@ public:
 
         CheckpointInfo cp;
         cp.jobId = currentJobId_;
-        cp.completedUpToFrame = completed;
+        cp.completedUpToFrame = baseFrame + completed;  // absolute frame (exclusive)
         cp.totalFrames = totalFrames_;
         cp.failures = finalResult_.failures;
         cp.updatedAt = QDateTime::currentDateTime();
@@ -151,7 +158,7 @@ public:
     }
 
     // -- Local rendering --
-    void executeLocalRange(const RenderJobRequest& request, const FrameRange& subRange,
+    void executeLocalRange(const RenderJobRequest& request, const RenderFrameRange& subRange,
                            std::atomic<int>& checkpointCounter) {
         for (int frame = subRange.startFrame; frame < subRange.endFrame; frame += subRange.step) {
             if (cancelled_) break;
@@ -189,7 +196,7 @@ public:
             if (checkpointPolicy_.mode == CheckpointPolicy::Mode::EveryNFrames) {
                 int c = ++checkpointCounter;
                 if (c >= checkpointPolicy_.interval) {
-                    saveCheckpoint();
+                    saveCheckpoint(request.range.startFrame);
                     checkpointCounter = 0;
                 }
             }
@@ -249,6 +256,14 @@ public:
         busy_ = true;
         cancelled_ = false;
 
+        // Clear remote state from previous job
+        {
+            std::lock_guard<std::mutex> lock(remoteMutex_);
+            remoteSlices_.clear();
+        }
+        remoteCompleted_ = 0;
+        totalRemoteFrames_ = 0;
+
         currentJobId_ = request.jobId.isEmpty()
             ? QString::number(QDateTime::currentMSecsSinceEpoch())
             : request.jobId;
@@ -265,11 +280,24 @@ public:
             frameAttempts_.resize(total);
         }
 
+        // Checkpoint restore: pick up from last completed frame
+        int restoreUpTo = -1;
+        if (checkpointPolicy_.mode != CheckpointPolicy::Mode::Disabled && !currentJobId_.isEmpty()) {
+            auto existing = checkpointStore_->load(currentJobId_);
+            if (existing) {
+                restoreUpTo = std::min(existing->completedUpToFrame, request.range.endFrame);
+                int alreadyDone = std::max(0, restoreUpTo - request.range.startFrame);
+                totalProgress_.completed.store(alreadyDone);
+                totalFrames_ = std::max(totalFrames_, existing->totalFrames);
+                finalResult_.failures = existing->failures;
+            }
+        }
+
         // Assign remote slices first
         assignRemoteSlices(request);
 
         // Determine local range (exclude remote slices)
-        FrameRange localRange = request.range;
+        RenderFrameRange localRange = request.range;
         {
             std::lock_guard<std::mutex> lock(remoteMutex_);
             for (const auto& slice : remoteSlices_) {
@@ -280,6 +308,11 @@ public:
                     localRange.endFrame = std::min(localRange.endFrame, slice.range.startFrame);
                 }
             }
+        }
+
+        // Skip frames already covered by checkpoint
+        if (restoreUpTo > 0 && restoreUpTo > localRange.startFrame) {
+            localRange.startFrame = restoreUpTo;
         }
 
         // Local rendering
@@ -295,10 +328,10 @@ public:
         }
 
         farmTasks_.wait();
-        saveCheckpoint();
 
-        // Collect remote results
+        // Collect remote results before checkpoint so the checkpoint includes remote progress
         collectRemoteResults();
+        saveCheckpoint(request.range.startFrame);
 
         if (!cancelled_) {
             RenderJobResult result;
@@ -323,14 +356,62 @@ public:
     }
 
     void collectRemoteResults() {
-        std::lock_guard<std::mutex> lock(remoteMutex_);
-        for (auto& slice : remoteSlices_) {
-            if (!slice.assigned) continue;
-            // In Phase 4, we assume remote workers completed.
-            // Future: wait for result callback from worker.
-            int frames = slice.range.count();
-            totalProgress_.completed.fetch_add(frames);
-            slice.completed = true;
+        if (remoteSlices_.empty()) return;
+
+        int totalRemote = 0;
+        {
+            std::lock_guard<std::mutex> lock(remoteMutex_);
+            for (const auto& slice : remoteSlices_)
+                totalRemote += slice.range.count();
+        }
+        totalRemoteFrames_ = totalRemote;
+        remoteCompleted_ = 0;
+
+        // Wait for all remote results with a generous timeout (10 min)
+        {
+            std::unique_lock<std::mutex> waitLock(remoteWaitMutex_);
+            if (!remoteCv_.wait_for(waitLock,
+                    std::chrono::minutes(10),
+                    [this]() {
+                        return remoteCompleted_.load() >= totalRemoteFrames_ ||
+                               cancelled_.load();
+                    })) {
+                // Timeout: mark all incomplete as failures (skip already-reported)
+                std::lock_guard<std::mutex> lock(remoteMutex_);
+                for (auto& slice : remoteSlices_) {
+                    int total = slice.range.count();
+                    int done = slice.framesCompleted_;
+                    int remaining = total - done;
+                    for (int i = 0; i < remaining; ++i) {
+                        int absFrame = slice.range.startFrame + (done + i) * slice.range.step;
+                        markFrameFailed(absFrame);
+                    }
+                }
+                return;
+            }
+        }
+
+        // Mark any uncompleted remote frames as failures.
+        // Frames already reported via onRemoteFrameResult_ are already counted
+        // in totalProgress_.completed, so we only charge the remainder.
+        int failCount = 0;
+        {
+            std::lock_guard<std::mutex> lock(remoteMutex_);
+            for (const auto& slice : remoteSlices_) {
+                int total = slice.range.count();
+                int done = slice.framesCompleted_;
+                int remaining = total - done;
+                if (remaining > 0) {
+                    for (int i = 0; i < remaining; ++i) {
+                        int absFrame = slice.range.startFrame + (done + i) * slice.range.step;
+                        markFrameFailed(absFrame);
+                    }
+                    failCount += remaining;
+                }
+            }
+        }
+        if (failCount > 0) {
+            finalResult_.errorMessage += QStringLiteral("; %1 remote frames failed").arg(failCount);
         }
     }
 };
@@ -411,17 +492,64 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
     });
 
     rpc.setOnWorkerDisconnected([this](const QString& workerId) {
-        // Mark worker's incomplete slices for reassignment
+        // Unblock collectRemoteResults by accounting for remaining frames from the dead worker.
+        // collectRemoteResults will mark incomplete slices as failures.
         std::lock_guard<std::mutex> lock(impl_->remoteMutex_);
         for (auto& slice : impl_->remoteSlices_) {
             if (slice.workerId == workerId && !slice.completed) {
-                slice.assigned = false;
+                int remaining = slice.range.count() - slice.framesCompleted_;
+                if (remaining > 0)
+                    impl_->remoteCompleted_.fetch_add(remaining);
             }
         }
+        impl_->remoteCv_.notify_all();
     });
 
     rpc.setOnWorkerHeartbeat([](const QString&) {
         // Heartbeat received - worker is alive
+    });
+
+    // Handle incoming RPC from workers: frameCompleted / frameFailed
+    impl_->onRemoteFrameResult_ = [this](const QString& workerId, int frame, bool success) {
+        if (success) {
+            impl_->totalProgress_.completed.fetch_add(1);
+        } else {
+            impl_->markFrameFailed(frame);
+        }
+        impl_->remoteCompleted_.fetch_add(1);
+        // Mark the slice that contains this frame as completed
+        {
+            std::lock_guard<std::mutex> lock(impl_->remoteMutex_);
+            for (auto& slice : impl_->remoteSlices_) {
+                if (slice.workerId == workerId &&
+                    frame >= slice.range.startFrame &&
+                    frame < slice.range.endFrame) {
+                    ++slice.framesCompleted_;
+                    if (slice.framesCompleted_ >= slice.range.count())
+                        slice.completed = true;
+                    break;
+                }
+            }
+        }
+        impl_->remoteCv_.notify_all();
+    };
+
+    rpc.setOnRequest([this](const QString& method, const QJsonObject& params) -> QJsonObject {
+        if (method == QStringLiteral("frameCompleted")) {
+            QString workerId = params["workerId"].toString();
+            int frame = params["frame"].toInt(-1);
+            if (impl_->onRemoteFrameResult_ && frame >= 0)
+                impl_->onRemoteFrameResult_(workerId, frame, true);
+            return {{"status", "ok"}};
+        }
+        if (method == QStringLiteral("frameFailed")) {
+            QString workerId = params["workerId"].toString();
+            int frame = params["frame"].toInt(-1);
+            if (impl_->onRemoteFrameResult_ && frame >= 0)
+                impl_->onRemoteFrameResult_(workerId, frame, false);
+            return {{"status", "ok"}};
+        }
+        return {{"status", "unknown_method"}};
     });
 
     if (port == 0) port = 9876;

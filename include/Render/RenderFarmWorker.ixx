@@ -22,7 +22,7 @@ public:
 
     int id() const;
 
-    void start(const RenderJobRequest& request, const FrameRange& subRange);
+    void start(const RenderJobRequest& request, const RenderFrameRange& subRange);
     void cancel();
     bool isBusy() const;
 

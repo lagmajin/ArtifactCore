@@ -31,7 +31,7 @@ public:
 
     explicit Impl(int id) : id_(id) {}
 
-    void execute(const RenderJobRequest& request, const FrameRange& subRange) {
+    void execute(const RenderJobRequest& request, const RenderFrameRange& subRange) {
         state_.store(WorkerState::Rendering);
         cancelled_ = false;
 
@@ -91,7 +91,7 @@ int RenderFarmWorker::id() const {
     return impl_->id_;
 }
 
-void RenderFarmWorker::start(const RenderJobRequest& request, const FrameRange& subRange) {
+void RenderFarmWorker::start(const RenderJobRequest& request, const RenderFrameRange& subRange) {
     if (impl_->state_ == WorkerState::Rendering) return;
     impl_->execute(request, subRange);
 }

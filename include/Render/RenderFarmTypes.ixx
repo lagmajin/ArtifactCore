@@ -15,7 +15,7 @@ import Utils.Id;
 
 export namespace ArtifactCore {
 
-struct FrameRange {
+struct RenderFrameRange {
     int startFrame = 0;
     int endFrame = 0;
     int step = 1;
@@ -29,7 +29,7 @@ struct FrameRange {
         return frame >= startFrame && frame < endFrame;
     }
 
-    FrameRange intersect(const FrameRange& other) const {
+    RenderFrameRange intersect(const RenderFrameRange& other) const {
         return { std::max(startFrame, other.startFrame),
                  std::min(endFrame, other.endFrame),
                  std::max(step, other.step) };
@@ -48,7 +48,7 @@ enum class WorkerState {
 struct RenderJobRequest {
     ArtifactCore::Id compositionId;
     QString compositionName;
-    FrameRange range;
+    RenderFrameRange range;
     QString outputPath;
     bool enableAudio = false;
 
