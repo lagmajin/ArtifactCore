@@ -467,6 +467,71 @@ void ArtifactAppSettings::setRenderThreadCount(int count) {
     Q_EMIT settingsChanged();
 }
 
+// -- Render Farm Settings --
+
+bool ArtifactAppSettings::farmEnabled() const {
+    return impl_->store.valueBool("Render/FarmEnabled", true);
+}
+
+void ArtifactAppSettings::setFarmEnabled(bool enable) {
+    impl_->store.setValue("Render/FarmEnabled", enable);
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::farmWorkerCount() const {
+    return (int)impl_->store.valueInt64("Render/FarmWorkerCount", 0);
+}
+
+void ArtifactAppSettings::setFarmWorkerCount(int count) {
+    impl_->store.setValue("Render/FarmWorkerCount", std::max(0, count));
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::farmRetryMaxAttempts() const {
+    return (int)impl_->store.valueInt64("Render/FarmRetryMaxAttempts", 3);
+}
+
+void ArtifactAppSettings::setFarmRetryMaxAttempts(int attempts) {
+    impl_->store.setValue("Render/FarmRetryMaxAttempts", std::max(1, attempts));
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::farmRetryInitialBackoffMs() const {
+    return (int)impl_->store.valueInt64("Render/FarmRetryInitialBackoffMs", 2000);
+}
+
+void ArtifactAppSettings::setFarmRetryInitialBackoffMs(int ms) {
+    impl_->store.setValue("Render/FarmRetryInitialBackoffMs", std::max(100, ms));
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::farmRetryMaxBackoffMs() const {
+    return (int)impl_->store.valueInt64("Render/FarmRetryMaxBackoffMs", 60000);
+}
+
+void ArtifactAppSettings::setFarmRetryMaxBackoffMs(int ms) {
+    impl_->store.setValue("Render/FarmRetryMaxBackoffMs", std::max(static_cast<qlonglong>(ms), impl_->store.valueInt64("Render/FarmRetryInitialBackoffMs", 2000)));
+    Q_EMIT settingsChanged();
+}
+
+unsigned short ArtifactAppSettings::farmRpcPort() const {
+    return (unsigned short)impl_->store.valueInt64("Render/FarmRpcPort", 9876);
+}
+
+void ArtifactAppSettings::setFarmRpcPort(unsigned short port) {
+    impl_->store.setValue("Render/FarmRpcPort", (int)port);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::farmAllowRemote() const {
+    return impl_->store.valueBool("Render/FarmAllowRemote", false);
+}
+
+void ArtifactAppSettings::setFarmAllowRemote(bool allow) {
+    impl_->store.setValue("Render/FarmAllowRemote", allow);
+    Q_EMIT settingsChanged();
+}
+
 bool ArtifactAppSettings::toolbarShowGrid() const {
     return impl_->store.valueBool("UI/Toolbar/ShowGrid", true);
 }

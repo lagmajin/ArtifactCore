@@ -169,6 +169,22 @@ public:
     bool toolbarShowGuide() const;
     void setToolbarShowGuide(bool enable);
 
+    // --- Render Farm Settings ---
+    bool farmEnabled() const;
+    void setFarmEnabled(bool enable);
+    int farmWorkerCount() const;
+    void setFarmWorkerCount(int count);
+    int farmRetryMaxAttempts() const;
+    void setFarmRetryMaxAttempts(int attempts);
+    int farmRetryInitialBackoffMs() const;
+    void setFarmRetryInitialBackoffMs(int ms);
+    int farmRetryMaxBackoffMs() const;
+    void setFarmRetryMaxBackoffMs(int ms);
+    unsigned short farmRpcPort() const;
+    void setFarmRpcPort(unsigned short port);
+    bool farmAllowRemote() const;
+    void setFarmAllowRemote(bool allow);
+
     // --- Runtime States (Not persisted) ---
     bool isSafeMode() const;
     void setSafeMode(bool enable);

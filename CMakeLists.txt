@@ -15,6 +15,7 @@ file(GLOB_RECURSE IXX_FILES
     "include/*.ixx" "include/**/*.ixx"
     "src/*.ixx" "src/**/*.ixx"
     "NetworkRPCServer.ixx"
+    "NetworkRPCClient.ixx"
 )
 file(GLOB_RECURSE CPP_FILES
     "src/*.cpp" "src/**/*.cpp"

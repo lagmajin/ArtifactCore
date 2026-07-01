@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <memory>
 #include <optional>
+#include <mutex>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -21,6 +22,7 @@ namespace ArtifactCore {
 
 class CheckpointStore::Impl {
 public:
+    mutable std::mutex mutex_;
     QString basePath_;
 
     QString jobDir(const QString& jobId) const {
@@ -95,14 +97,17 @@ CheckpointStore::CheckpointStore()
 CheckpointStore::~CheckpointStore() = default;
 
 void CheckpointStore::setBasePath(const QString& path) {
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
     impl_->basePath_ = path;
 }
 
 QString CheckpointStore::basePath() const {
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
     return impl_->basePath_;
 }
 
 bool CheckpointStore::save(const CheckpointInfo& checkpoint) {
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
     QString dir = impl_->jobDir(checkpoint.jobId);
     if (!impl_->ensureDir(dir)) return false;
 
@@ -116,6 +121,7 @@ bool CheckpointStore::save(const CheckpointInfo& checkpoint) {
 }
 
 std::optional<CheckpointInfo> CheckpointStore::load(const QString& jobId) {
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
     QString path = impl_->filePath(jobId);
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) return std::nullopt;
@@ -130,11 +136,13 @@ std::optional<CheckpointInfo> CheckpointStore::load(const QString& jobId) {
 }
 
 bool CheckpointStore::remove(const QString& jobId) {
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
     QString path = impl_->filePath(jobId);
     return QFile::remove(path);
 }
 
 QStringList CheckpointStore::listCheckpoints() const {
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
     QDir dir(impl_->basePath_);
     if (!dir.exists()) return {};
 
@@ -149,6 +157,7 @@ QStringList CheckpointStore::listCheckpoints() const {
 }
 
 bool CheckpointStore::checkpointExists(const QString& jobId) const {
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
     return QFile::exists(impl_->filePath(jobId));
 }
 
