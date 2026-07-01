@@ -34,11 +34,11 @@ namespace ArtifactCore {
   return loadFromFile(filepath.toQString());
  }
 
- bool SimpleWav::loadFromFile(const QString& filePath)
- {
-  if (!impl_) {
-   return false;
-  }
+  bool SimpleWav::loadFromFile(const QString& filePath, int64_t maxFrames)
+  {
+   if (!impl_) {
+    return false;
+   }
 
   impl_->pcmData.clear();
   impl_->totalFrames = 0;
@@ -95,8 +95,13 @@ namespace ArtifactCore {
      file.seek(file.pos() + remaining);
     }
    } else if (std::memcmp(chunkId, "data", 4) == 0) {
-    dataChunk.resize(static_cast<int>(chunkSize));
-    if (in.readRawData(dataChunk.data(), static_cast<int>(chunkSize)) != static_cast<int>(chunkSize)) {
+    int64_t readBytes = chunkSize;
+    if (maxFrames > 0 && channelCount > 0 && bitsPerSample > 0) {
+     int64_t frameBytes = maxFrames * channelCount * (bitsPerSample / 8);
+     readBytes = std::min(readBytes, frameBytes);
+    }
+    dataChunk.resize(static_cast<int>(readBytes));
+    if (in.readRawData(dataChunk.data(), static_cast<int>(readBytes)) != static_cast<int>(readBytes)) {
      qWarning() << "[SimpleWav] failed reading data chunk for" << filePath;
      return false;
     }

@@ -19,7 +19,7 @@ AudioCache::AudioCache()
 
 bool AudioCache::getCached(int64_t frameNumber, AudioSegment& out)
 {
-    QReadLocker locker(&lock_);
+    QWriteLocker locker(&lock_);  // lastAccess mutation requires exclusive lock
     
     auto it = cache_.find(frameNumber);
     if (it != cache_.end()) {

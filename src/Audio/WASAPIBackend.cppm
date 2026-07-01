@@ -157,7 +157,7 @@ public:
         auto *out = reinterpret_cast<std::int16_t *>(data);
         for (size_t i = 0; i < sampleCount; ++i) {
           const float sample = std::clamp(temp[i], -1.0f, 1.0f);
-          out[i] = static_cast<std::int16_t>(std::lround(sample * 32767.0f));
+          out[i] = static_cast<std::int16_t>(std::lround(sample * 32768.0f));
         }
       }
 

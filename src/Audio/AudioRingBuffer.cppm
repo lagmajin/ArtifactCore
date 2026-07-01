@@ -29,6 +29,16 @@ namespace ArtifactCore {
         std::atomic<std::uint32_t> clearGeneration_{0};
         std::uint32_t lastClearGen_ = 0; // consumer-side; no atomic needed
 
+        void ensureChannels(int channels) {
+            if (channels > static_cast<int>(channels_.size())) {
+                std::size_t old = channels_.size();
+                channels_.resize(channels);
+                for (std::size_t i = old; i < static_cast<std::size_t>(channels); ++i) {
+                    channels_[i].resize(capacity_);
+                }
+            }
+        }
+
     public:
         explicit Impl(std::size_t capacity = 48000 * 8) : capacity_(capacity) {
             channels_.resize(channelCount_);
@@ -65,6 +75,13 @@ namespace ArtifactCore {
             const std::uint64_t w = writeCount_.load(std::memory_order_relaxed);
             if (static_cast<std::size_t>(w - r) + frames > capacity_) {
                 return false;
+            }
+
+            // Dynamically grow channel count to match input
+            int writeCh = std::max(data.channelCount(), 1);
+            if (writeCh > channelCount_) {
+                channelCount_ = writeCh;
+                ensureChannels(channelCount_);
             }
 
             for (int ch = 0; ch < channelCount_; ++ch) {
@@ -134,6 +151,7 @@ namespace ArtifactCore {
                     std::memcpy(data.channelData[ch].data() + firstChunk, &channels_[ch][0], (readFrames - firstChunk) * sizeof(float));
                 }
             }
+            data.layout = AudioChannelLayout::Stereo; // default; caller may override
             readCount_.store(r + readFrames, std::memory_order_release);
             return true;
         }

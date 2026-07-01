@@ -118,11 +118,151 @@ public:
                 {QStringLiteral("type"), QStringLiteral("add_effect")},
                 {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId"), QStringLiteral("effectType")}},
                 {QStringLiteral("description"), QStringLiteral("Add an effect to a layer")}
-            }
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("create_layer")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("layerType"), QStringLiteral("layerName")}},
+                {QStringLiteral("description"), QStringLiteral("Create a new layer (solid/text/null) in the current composition")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("delete_layer")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId")}},
+                {QStringLiteral("description"), QStringLiteral("Remove a layer from the current composition")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("set_layer_visible")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId"), QStringLiteral("visible")}},
+                {QStringLiteral("description"), QStringLiteral("Show or hide a layer")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("set_layer_blend_mode")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId"), QStringLiteral("blendMode")}},
+                {QStringLiteral("description"), QStringLiteral("Set the blend mode of a layer")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("set_layer_opacity")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId"), QStringLiteral("opacity")}},
+                {QStringLiteral("description"), QStringLiteral("Set the opacity of a layer (0-100)")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("set_playback_state")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("state")}},
+                {QStringLiteral("description"), QStringLiteral("Control playback: play/pause/stop/seek to frame")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("export_composition")},
+                {QStringLiteral("required"), QVariantList{}},
+                {QStringLiteral("description"), QStringLiteral("Add the current composition to the render queue")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("remove_effect")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId"), QStringLiteral("effectIndex")}},
+                {QStringLiteral("description"), QStringLiteral("Remove an effect from a layer by index")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("get_scene_info")},
+                {QStringLiteral("required"), QVariantList{}},
+                {QStringLiteral("description"), QStringLiteral("Return a full JSON snapshot of the current project, composition, and layers for AI context awareness")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("get_layer_info")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId")}},
+                {QStringLiteral("description"), QStringLiteral("Return position/scale/rotation/opacity and effects for a specific layer")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("create_composition")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("name")}},
+                {QStringLiteral("description"), QStringLiteral("Create a new composition with optional width/height")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("switch_composition")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("compositionId")}},
+                {QStringLiteral("description"), QStringLiteral("Switch the active composition by ID")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("import_asset")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("filePaths[]")}},
+                {QStringLiteral("description"), QStringLiteral("Import media files (image/video/audio) into the project")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("duplicate_layer")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId")}},
+                {QStringLiteral("description"), QStringLiteral("Duplicate a layer in the current composition")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("group_layers")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("layerIds[]"), QStringLiteral("groupName")}},
+                {QStringLiteral("description"), QStringLiteral("Group multiple layers into a pre-composition")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("set_layer_parent")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId"), QStringLiteral("parentLayerId")}},
+                {QStringLiteral("description"), QStringLiteral("Set parent layer for hierarchical transform")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("split_layer")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId")}},
+                {QStringLiteral("description"), QStringLiteral("Split a layer into two at the current playback time")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("get_keyframes")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId")}},
+                {QStringLiteral("description"), QStringLiteral("Get all keyframes for a layer's property path")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("delete_keyframe")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId"), QStringLiteral("target.propertyPath"), QStringLiteral("frame")}},
+                {QStringLiteral("description"), QStringLiteral("Delete a specific keyframe at a given frame number")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("set_work_area")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("startFrame"), QStringLiteral("endFrame")}},
+                {QStringLiteral("description"), QStringLiteral("Set the work area (in/out points) for the active composition")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("add_marker")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("frame"), QStringLiteral("label")}},
+                {QStringLiteral("description"), QStringLiteral("Add a timeline marker at a frame with a label")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("set_effect_parameter")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId"), QStringLiteral("effectIndex"), QStringLiteral("paramName"), QStringLiteral("value")}},
+                {QStringLiteral("description"), QStringLiteral("Set a parameter value on an effect by layer ID and effect index")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("set_effect_enabled")},
+                {QStringLiteral("required"), QVariantList{QStringLiteral("target.layerId"), QStringLiteral("effectIndex"), QStringLiteral("enabled")}},
+                {QStringLiteral("description"), QStringLiteral("Enable or disable a specific effect on a layer")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("list_available_effects")},
+                {QStringLiteral("required"), QVariantList{}},
+                {QStringLiteral("description"), QStringLiteral("List all registered effect types that can be added to a layer")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("start_render_queue")},
+                {QStringLiteral("required"), QVariantList{}},
+                {QStringLiteral("description"), QStringLiteral("Start all pending render queue jobs")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("get_render_status")},
+                {QStringLiteral("required"), QVariantList{}},
+                {QStringLiteral("description"), QStringLiteral("Get status and progress of all render queue jobs")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("list_compositions")},
+                {QStringLiteral("required"), QVariantList{}},
+                {QStringLiteral("description"), QStringLiteral("List all compositions in the current project")}
+            },
+            QVariantMap{
+                {QStringLiteral("type"), QStringLiteral("list_project_items")},
+                {QStringLiteral("required"), QVariantList{}},
+                {QStringLiteral("description"), QStringLiteral("List all items (assets, compositions, folders) in the project panel")}
+            },
         };
     }
 
-    static bool isSupportedType(const QString& type)
+    static bool     static bool isSupportedType(const QString& type)
     {
         const QString normalized = type.trimmed();
         if (normalized.isEmpty()) {
@@ -133,7 +273,53 @@ public:
                normalized == QStringLiteral("batch_set_keyframes") ||
                normalized == QStringLiteral("move_layer") ||
                normalized == QStringLiteral("rename_layer") ||
-               normalized == QStringLiteral("add_effect");
+               normalized == QStringLiteral("add_effect") ||
+               normalized == QStringLiteral("create_layer") ||
+               normalized == QStringLiteral("delete_layer") ||
+               normalized == QStringLiteral("set_layer_visible") ||
+               normalized == QStringLiteral("set_layer_blend_mode") ||
+               normalized == QStringLiteral("set_layer_opacity") ||
+               normalized == QStringLiteral("set_playback_state") ||
+               normalized == QStringLiteral("export_composition") ||
+               normalized == QStringLiteral("remove_effect") ||
+               normalized == QStringLiteral("get_scene_info") ||
+               normalized == QStringLiteral("get_layer_info") ||
+               normalized == QStringLiteral("create_composition") ||
+               normalized == QStringLiteral("switch_composition") ||
+               normalized == QStringLiteral("import_asset") ||
+               normalized == QStringLiteral("duplicate_layer") ||
+               normalized == QStringLiteral("group_layers") ||
+               normalized == QStringLiteral("set_layer_parent") ||
+               normalized == QStringLiteral("split_layer") ||
+               normalized == QStringLiteral("get_keyframes") ||
+               normalized == QStringLiteral("delete_keyframe") ||
+               normalized == QStringLiteral("set_work_area") ||
+               normalized == QStringLiteral("add_marker") ||
+               normalized == QStringLiteral("set_effect_parameter") ||
+               normalized == QStringLiteral("set_effect_enabled") ||
+               normalized == QStringLiteral("list_available_effects") ||
+               normalized == QStringLiteral("start_render_queue") ||
+               normalized == QStringLiteral("get_render_status") ||
+               normalized == QStringLiteral("list_compositions") ||
+               normalized == QStringLiteral("list_project_items");
+    }
+        if (normalized.isEmpty()) {
+            return false;
+        }
+        return normalized == QStringLiteral("set_property") ||
+               normalized == QStringLiteral("set_keyframes") ||
+               normalized == QStringLiteral("batch_set_keyframes") ||
+               normalized == QStringLiteral("move_layer") ||
+               normalized == QStringLiteral("rename_layer") ||
+               normalized == QStringLiteral("add_effect") ||
+               normalized == QStringLiteral("create_layer") ||
+               normalized == QStringLiteral("delete_layer") ||
+               normalized == QStringLiteral("set_layer_visible") ||
+               normalized == QStringLiteral("set_layer_blend_mode") ||
+               normalized == QStringLiteral("set_layer_opacity") ||
+               normalized == QStringLiteral("set_playback_state") ||
+               normalized == QStringLiteral("export_composition") ||
+               normalized == QStringLiteral("remove_effect");
     }
 
     static QVariantList requiredFieldsFor(const QString& type)
@@ -180,6 +366,90 @@ public:
         }
         if (normalized == QStringLiteral("add_effect")) {
             return QStringLiteral("Add Effect");
+        }
+        if (normalized == QStringLiteral("create_layer")) {
+            return QStringLiteral("Create Layer");
+        }
+        if (normalized == QStringLiteral("delete_layer")) {
+            return QStringLiteral("Delete Layer");
+        }
+        if (normalized == QStringLiteral("set_layer_visible")) {
+            return QStringLiteral("Set Layer Visibility");
+        }
+        if (normalized == QStringLiteral("set_layer_blend_mode")) {
+            return QStringLiteral("Set Blend Mode");
+        }
+        if (normalized == QStringLiteral("set_layer_opacity")) {
+            return QStringLiteral("Set Layer Opacity");
+        }
+        if (normalized == QStringLiteral("set_playback_state")) {
+            return QStringLiteral("Set Playback State");
+        }
+        if (normalized == QStringLiteral("export_composition")) {
+            return QStringLiteral("Export Composition");
+        }
+        if (normalized == QStringLiteral("remove_effect")) {
+            return QStringLiteral("Remove Effect");
+        }
+        if (normalized == QStringLiteral("get_scene_info")) {
+            return QStringLiteral("Get Scene Info");
+        }
+        if (normalized == QStringLiteral("get_layer_info")) {
+            return QStringLiteral("Get Layer Info");
+        }
+        if (normalized == QStringLiteral("create_composition")) {
+            return QStringLiteral("Create Composition");
+        }
+        if (normalized == QStringLiteral("switch_composition")) {
+            return QStringLiteral("Switch Composition");
+        }
+        if (normalized == QStringLiteral("import_asset")) {
+            return QStringLiteral("Import Asset");
+        }
+        if (normalized == QStringLiteral("duplicate_layer")) {
+            return QStringLiteral("Duplicate Layer");
+        }
+        if (normalized == QStringLiteral("group_layers")) {
+            return QStringLiteral("Group Layers");
+        }
+        if (normalized == QStringLiteral("set_layer_parent")) {
+            return QStringLiteral("Set Layer Parent");
+        }
+        if (normalized == QStringLiteral("split_layer")) {
+            return QStringLiteral("Split Layer");
+        }
+        if (normalized == QStringLiteral("get_keyframes")) {
+            return QStringLiteral("Get Keyframes");
+        }
+        if (normalized == QStringLiteral("delete_keyframe")) {
+            return QStringLiteral("Delete Keyframe");
+        }
+        if (normalized == QStringLiteral("set_work_area")) {
+            return QStringLiteral("Set Work Area");
+        }
+        if (normalized == QStringLiteral("add_marker")) {
+            return QStringLiteral("Add Marker");
+        }
+        if (normalized == QStringLiteral("set_effect_parameter")) {
+            return QStringLiteral("Set Effect Parameter");
+        }
+        if (normalized == QStringLiteral("set_effect_enabled")) {
+            return QStringLiteral("Set Effect Enabled");
+        }
+        if (normalized == QStringLiteral("list_available_effects")) {
+            return QStringLiteral("List Available Effects");
+        }
+        if (normalized == QStringLiteral("start_render_queue")) {
+            return QStringLiteral("Start Render Queue");
+        }
+        if (normalized == QStringLiteral("get_render_status")) {
+            return QStringLiteral("Get Render Status");
+        }
+        if (normalized == QStringLiteral("list_compositions")) {
+            return QStringLiteral("List Compositions");
+        }
+        if (normalized == QStringLiteral("list_project_items")) {
+            return QStringLiteral("List Project Items");
         }
         return QStringLiteral("Command");
     }

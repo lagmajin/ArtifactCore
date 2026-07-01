@@ -10,11 +10,92 @@
 
 module Graphics.LayerBlendPipeline;
 
+namespace {
+inline constexpr const char* kMatteTrackSource = R"(
+cbuffer MatteTrackParams : register(b0)
+{
+    uint  g_MatteCount;
+    uint  g_MatteMode0;
+    uint  g_MatteMode1;
+    uint  g_MatteMode2;
+    uint  g_StackMode;
+    uint  g_LumaMode;
+    float g_Opacity;
+    float _pad0;
+};
+
+Texture2D<float4>  g_LayerTex  : register(t0);
+Texture2D<float4>  g_MatteSrc0 : register(t1);
+Texture2D<float4>  g_MatteSrc1 : register(t2);
+Texture2D<float4>  g_MatteSrc2 : register(t3);
+RWTexture2D<float4> g_OutTex    : register(u0);
+
+static const float3 kLumaRec601 = float3(0.299f, 0.587f, 0.114f);
+static const float3 kLumaRec709 = float3(0.2126f, 0.7152f, 0.0722f);
+
+float extractMask(float4 color, uint mode, float3 lumaCoeffs)
+{
+    float mask;
+    if (mode == 0 || mode == 2) {
+        mask = color.a;
+    } else {
+        mask = dot(color.rgb, lumaCoeffs);
+    }
+    if (mode == 2 || mode == 3) {
+        mask = 1.0f - mask;
+    }
+    return saturate(mask);
+}
+
+float combineMasks(float a, float b, uint mode)
+{
+    if (mode == 0) return saturate(a + b);
+    if (mode == 1) return min(a, b);
+    return saturate(a - b);
+}
+
+[numthreads(16, 16, 1)]
+void MatteTrackCS(uint3 id : SV_DispatchThreadID)
+{
+    uint2 dims;
+    g_OutTex.GetDimensions(dims.x, dims.y);
+    if (id.x >= dims.x || id.y >= dims.y) return;
+
+    float3 lumaCoeffs = (g_LumaMode == 1) ? kLumaRec709 : kLumaRec601;
+    float combinedMask = 1.0f;
+
+    [branch] if (g_MatteCount > 0) {
+        float4 matteColor = g_MatteSrc0.Load(int3(id.xy, 0));
+        combinedMask = extractMask(matteColor, g_MatteMode0, lumaCoeffs);
+    }
+
+    [branch] if (g_MatteCount > 1) {
+        float4 matteColor = g_MatteSrc1.Load(int3(id.xy, 0));
+        float mask = extractMask(matteColor, g_MatteMode1, lumaCoeffs);
+        combinedMask = combineMasks(combinedMask, mask, g_StackMode);
+    }
+
+    [branch] if (g_MatteCount > 2) {
+        float4 matteColor = g_MatteSrc2.Load(int3(id.xy, 0));
+        float mask = extractMask(matteColor, g_MatteMode2, lumaCoeffs);
+        combinedMask = combineMasks(combinedMask, mask, g_StackMode);
+    }
+
+    combinedMask *= g_Opacity;
+
+    float4 layerColor = g_LayerTex.Load(int3(id.xy, 0));
+    g_OutTex[id.xy] = float4(layerColor.rgb * combinedMask, layerColor.a * combinedMask);
+}
+)";
+inline constexpr const char* kMatteTrackEntryPoint = "MatteTrackCS";
+}
+
 namespace ArtifactCore {
 
 struct LayerBlendPipeline::Impl
 {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pBlendCB_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pMatteTrackCB_;
 };
 
 LayerBlendPipeline::LayerBlendPipeline(std::shared_ptr<GpuContext> context)
@@ -31,6 +112,7 @@ bool LayerBlendPipeline::initialize()
 {
  if (!createConstantBuffer()) return false;
  if (!createExecutors()) return false;
+ if (!createMatteTrackExecutor()) return false;
  qDebug() << "[LayerBlendPipeline] Initialized with" << executors_.size() << "blend modes";
  return true;
 }
@@ -49,12 +131,25 @@ bool LayerBlendPipeline::createConstantBuffer()
  // [Fix 1] USAGE_DYNAMIC には CPU_ACCESS_WRITE が必須
  buffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
 
- pDevice->CreateBuffer(buffDesc, nullptr, &pImpl_->pBlendCB_);
- if (!pImpl_->pBlendCB_) {
-  qWarning() << "[LayerBlendPipeline] Failed to create constant buffer";
-  return false;
- }
- return true;
+  pDevice->CreateBuffer(buffDesc, nullptr, &pImpl_->pBlendCB_);
+  if (!pImpl_->pBlendCB_) {
+   qWarning() << "[LayerBlendPipeline] Failed to create constant buffer";
+   return false;
+  }
+
+  BufferDesc mtDesc;
+  mtDesc.Name           = "MatteTrackParams CB";
+  mtDesc.Usage          = USAGE_DYNAMIC;
+  mtDesc.Size           = sizeof(MatteTrackParams);
+  mtDesc.BindFlags      = BIND_UNIFORM_BUFFER;
+  mtDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+  pDevice->CreateBuffer(mtDesc, nullptr, &pImpl_->pMatteTrackCB_);
+  if (!pImpl_->pMatteTrackCB_) {
+   qWarning() << "[LayerBlendPipeline] Failed to create matte track constant buffer";
+   return false;
+  }
+
+  return true;
 }
 
 bool LayerBlendPipeline::createExecutors()
@@ -130,10 +225,91 @@ bool LayerBlendPipeline::createExecutors()
  return !executors_.empty();
 }
 
+bool LayerBlendPipeline::createMatteTrackExecutor()
+{
+    static ShaderResourceVariableDesc vars[] = {
+        {SHADER_TYPE_COMPUTE, "g_LayerTex",  SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, "g_MatteSrc0", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, "g_MatteSrc1", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, "g_MatteSrc2", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, "g_OutTex",    SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    };
+    matteTrackExecutor_ = std::make_unique<ComputeExecutor>(*context_);
+    ComputePipelineDesc desc;
+    desc.name = "MatteTrack PSO";
+    desc.shaderSource = kMatteTrackSource;
+    desc.entryPoint = kMatteTrackEntryPoint;
+    desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+    desc.variables = vars;
+    desc.variableCount = 5;
+    desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+    if (!matteTrackExecutor_->build(desc)) {
+        qWarning() << "[LayerBlendPipeline] MatteTrack PSO build failed";
+        matteTrackExecutor_.reset();
+        return false;
+    }
+    if (pImpl_->pMatteTrackCB_) {
+        matteTrackExecutor_->setBuffer("MatteTrackParams", pImpl_->pMatteTrackCB_);
+    }
+    if (!matteTrackExecutor_->createShaderResourceBinding(true)) {
+        qWarning() << "[LayerBlendPipeline] MatteTrack SRB creation failed";
+        matteTrackExecutor_.reset();
+        return false;
+    }
+    return true;
+}
+
+bool LayerBlendPipeline::applyTrackMatte(
+    IDeviceContext* ctx,
+    ITextureView* layerSRV,
+    ITextureView* matteSrc0SRV,
+    ITextureView* matteSrc1SRV,
+    ITextureView* matteSrc2SRV,
+    ITextureView* outUAV,
+    const MatteTrackParams& params,
+    Uint32 width,
+    Uint32 height)
+{
+    if (!ctx || !layerSRV || !matteSrc0SRV || !outUAV) {
+        qWarning() << "[LayerBlendPipeline::applyTrackMatte] invalid input";
+        return false;
+    }
+    if (!matteTrackExecutor_ || !matteTrackExecutor_->ready()) {
+        qWarning() << "[LayerBlendPipeline::applyTrackMatte] executor not ready";
+        return false;
+    }
+    if (!pImpl_->pMatteTrackCB_) {
+        qWarning() << "[LayerBlendPipeline::applyTrackMatte] constant buffer not initialized";
+        return false;
+    }
+
+    // Write constant buffer
+    void* pData = nullptr;
+    ctx->MapBuffer(pImpl_->pMatteTrackCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+    if (pData) {
+        memcpy(pData, &params, sizeof(MatteTrackParams));
+        ctx->UnmapBuffer(pImpl_->pMatteTrackCB_, MAP_WRITE);
+    }
+
+    matteTrackExecutor_->setTextureView("g_LayerTex", layerSRV);
+    matteTrackExecutor_->setTextureView("g_MatteSrc0", matteSrc0SRV);
+    matteTrackExecutor_->setTextureView("g_MatteSrc1", matteSrc1SRV);
+    matteTrackExecutor_->setTextureView("g_MatteSrc2", matteSrc2SRV);
+    matteTrackExecutor_->setTextureView("g_OutTex", outUAV);
+
+    DispatchComputeAttribs attribs;
+    attribs.ThreadGroupCountX = (width + 15) / 16;
+    attribs.ThreadGroupCountY = (height + 15) / 16;
+    attribs.ThreadGroupCountZ = 1;
+    matteTrackExecutor_->dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    return true;
+}
+
 bool LayerBlendPipeline::ready() const
 {
  return !executors_.empty() && pImpl_->pBlendCB_ && layerToFloatExecutor_ &&
-        layerToFloatExecutor_->ready();
+        layerToFloatExecutor_->ready() && matteTrackExecutor_ &&
+        matteTrackExecutor_->ready();
 }
 
 bool LayerBlendPipeline::convertLayerToFloat(

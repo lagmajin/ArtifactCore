@@ -151,7 +151,7 @@ public:
             auto* out = reinterpret_cast<qint16*>(data);
             for (int i = 0; i < frames * channels; ++i) {
                 const float sample = std::clamp(tempBuffer[i], -1.0f, 1.0f);
-                out[i] = static_cast<qint16>(std::lround(sample * 32767.0f));
+                out[i] = static_cast<qint16>(std::lround(sample * 32768.0f));
             }
             return static_cast<qint64>(frames) * channels * static_cast<qint64>(sizeof(qint16));
         }

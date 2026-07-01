@@ -33,6 +33,13 @@ public:
     
     float getGainReduction() const;
 
+    std::string effectType() const override { return "compressor"; }
+    std::vector<EffectParameter> getParameters() const override;
+    void setParameterValue(const std::string& id, float value) override;
+    float getParameterValue(const std::string& id) const override;
+    QJsonObject toJson() const override;
+    void fromJson(const QJsonObject& obj) override;
+
 private:
     float thresholdDb_ = -20.0f;
     float ratio_ = 4.0f;
@@ -41,6 +48,7 @@ private:
     bool sideChainEnabled_ = false;
 
     float envelope_ = 0.0f; // process() ループ内で連続書き換え（同一スレッド）
+    float lastSampleRate_ = 0.0f; // サンプルレート変化検出用（バス間リーク防止）
     std::atomic<float> currentGainReduction_{1.0f}; // UI スレッドからの読み込み用
 };
 

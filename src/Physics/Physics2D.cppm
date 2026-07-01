@@ -92,6 +92,19 @@ namespace ArtifactCore {
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
     }
 
+    void Physics2D::addStaticCircle(float x, float y, float radius, float friction) {
+        if (!b2World_IsValid(impl_->worldId)) return;
+
+        b2BodyDef bodyDef = b2DefaultBodyDef();
+        bodyDef.position = {x, y};
+        bodyDef.type = b2_staticBody;
+        b2BodyId bodyId = b2CreateBody(impl_->worldId, &bodyDef);
+
+        b2Circle circle = { {0.0f, 0.0f}, radius };
+        b2ShapeDef shapeDef = b2DefaultShapeDef();
+        b2CreateCircleShape(bodyId, &shapeDef, &circle);
+    }
+
     std::shared_ptr<RigidBody2D> Physics2D::addDynamicBox(float x, float y, float width, float height, float density, float friction, float restitution) {
         if (!b2World_IsValid(impl_->worldId)) return nullptr;
 
@@ -136,6 +149,21 @@ namespace ArtifactCore {
         impl_->bodies.push_back(rb);
         
         return rb;
+    }
+
+    void Physics2D::removeBody(const std::shared_ptr<RigidBody2D>& body) {
+        if (!body || !b2Body_IsValid(body->getId()) || !b2World_IsValid(impl_->worldId)) return;
+
+        const b2BodyId bodyId = body->getId();
+        b2DestroyBody(bodyId);
+        impl_->bodies.erase(
+            std::remove_if(
+                impl_->bodies.begin(),
+                impl_->bodies.end(),
+                [&](const std::shared_ptr<RigidBody2D>& candidate) {
+                    return !candidate || candidate.get() == body.get();
+                }),
+            impl_->bodies.end());
     }
 
     std::shared_ptr<RigidBody2D> Physics2D::addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic, float density) {

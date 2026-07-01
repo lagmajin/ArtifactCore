@@ -38,6 +38,7 @@ enum class ParametricCompositionSlotKind {
     RGBA,
     Alpha,
     MotionPath,
+    Bool,
     Control,
     Event
 };
@@ -121,7 +122,7 @@ struct ParametricCompositionRenderContext {
 
 struct ParametricCompositionCacheKey {
     QString definitionId;
-    QByteArray inputFrameHash;
+    QMap<QString, QByteArray> inputFrameHashes;
     QByteArray parameterHash;
     qint64 timeKey = 0;
 
@@ -131,9 +132,10 @@ struct ParametricCompositionCacheKey {
 
 struct ParametricCompositionEvaluation {
     ImageF32x4_RGBA image;
-    ParametricCompositionCacheKey cacheKey;
-    bool usedTransparentFallback = false;
+    QMap<QString, ImageF32x4_RGBA> resolvedInputs;
     bool inputResolved = false;
+    bool usedTransparentFallback = false;
+    ParametricCompositionCacheKey cacheKey;
 };
 
 struct ParametricCompositionBundle {
@@ -214,10 +216,14 @@ public:
     std::shared_ptr<const ParametricCompositionDefinition> definition() const;
     void setDefinition(std::shared_ptr<const ParametricCompositionDefinition> definition);
 
-    const ParametricCompositionInputBinding& inputBinding() const;
-    void setInputBinding(const ParametricCompositionInputBinding& binding);
-    void clearInputBinding();
-    bool isInputConnected() const;
+    const QVector<ParametricCompositionInputBinding>& inputBindings() const;
+    void addInputBinding(const ParametricCompositionInputBinding& binding);
+    void setInputBinding(int index, const ParametricCompositionInputBinding& binding);
+    void removeInputBinding(int index);
+    void clearInputBindings();
+    int inputBindingCount() const;
+    bool isInputConnected(int index) const;
+    bool hasAnyInputConnected() const;
 
     QVariant parameterValue(const QString& key, const QVariant& fallback = QVariant()) const;
     void setParameterOverride(const QString& key, const QVariant& value);
@@ -257,7 +263,7 @@ private:
     static QByteArray hashVariantMap(const QMap<QString, QVariant>& values);
 
     std::shared_ptr<const ParametricCompositionDefinition> definition_;
-    ParametricCompositionInputBinding inputBinding_;
+    QVector<ParametricCompositionInputBinding> inputBindings_;
     QMap<QString, QVariant> parameterOverrides_;
 };
 

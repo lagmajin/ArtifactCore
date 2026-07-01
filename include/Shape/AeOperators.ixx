@@ -149,7 +149,9 @@ public:
     enum Mode {
         Add = 0,
         Subtract = 1,
-        Intersect = 2
+        Intersect = 2,
+        Difference = 3,
+        Merge = 4
     };
 
     explicit MergePaths(QObject* parent = nullptr)
@@ -158,7 +160,7 @@ public:
     int mode() const { return static_cast<int>(mode_); }
     void setMode(int mode)
     {
-        const Mode next = static_cast<Mode>(std::clamp(mode, 0, 2));
+        const Mode next = static_cast<Mode>(std::clamp(mode, 0, 4));
         if (mode_ != next) {
             mode_ = next;
             emit modeChanged();
@@ -201,6 +203,14 @@ public:
                 break;
             case Intersect:
                 combined = combined.intersected(path);
+                break;
+            case Difference:
+                // XOR = united - intersected
+                combined = combined.united(path).subtracted(combined.intersected(path));
+                break;
+            case Merge:
+                // 単純結合: 複数パスをそのまま結合
+                combined.addPath(path);
                 break;
             }
         }

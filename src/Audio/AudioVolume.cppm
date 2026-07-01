@@ -18,7 +18,7 @@ public:
  float volume = 1.0f;
  bool muted = false;
 
- explicit Impl(float vol = 1.0f) : volume(std::clamp(vol, 0.0f, 1.0f)), muted(false) {}
+  explicit Impl(float vol = 1.0f) : volume(std::clamp(vol, 0.0f, 2.0f)), muted(false) {}
  ~Impl() = default;
 };
 
@@ -51,7 +51,7 @@ float AudioVolume::volume() const
 
 void AudioVolume::setVolume(float v)
 {
- impl_->volume = std::clamp(v, 0.0f, 1.0f);
+  impl_->volume = std::clamp(v, 0.0f, 2.0f);
 }
 
 float AudioVolume::toDecibels() const

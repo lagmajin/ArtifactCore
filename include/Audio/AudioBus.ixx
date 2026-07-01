@@ -89,6 +89,14 @@ export namespace ArtifactCore {
 		AudioSegment& getOutputBuffer();
 		const AudioSegment& getSideChainBuffer() const;
 
+		// Sidechain source (bus name whose output feeds this bus's sidechain)
+		void setSidechainSource(const std::string& busName);
+		std::string getSidechainSource() const;
+
+		// Serialization
+		QJsonObject toJson() const;
+		void fromJson(const QJsonObject& obj);
+
 		// Metering
 		float getPeakLevel(int channelIndex) const;
 		float getRMSLevel(int channelIndex) const;

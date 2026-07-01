@@ -245,9 +245,14 @@ bool ParametricCompositionCacheKey::isValid() const
 
 QString ParametricCompositionCacheKey::toString() const
 {
+    QCryptographicHash combinedHash(QCryptographicHash::Sha256);
+    for (auto it = inputFrameHashes.cbegin(); it != inputFrameHashes.cend(); ++it) {
+        combinedHash.addData(it.key().toUtf8());
+        combinedHash.addData(it.value());
+    }
     return QStringLiteral("%1|%2|%3|%4")
         .arg(definitionId)
-        .arg(QString::fromLatin1(inputFrameHash.toHex()))
+        .arg(QString::fromLatin1(combinedHash.result().toHex()))
         .arg(QString::fromLatin1(parameterHash.toHex()))
         .arg(timeKey);
 }
@@ -522,9 +527,9 @@ bool ParametricCompositionDefinition::validate(QString* errorMessage) const
     }
     const auto inputOnlySlots = slotsByRole(ParametricCompositionSlotRole::Input);
     const auto outputOnlySlots = slotsByRole(ParametricCompositionSlotRole::Output);
-    if (inputOnlySlots.size() != 1) {
+    if (inputOnlySlots.isEmpty()) {
         if (errorMessage) {
-            *errorMessage = QStringLiteral("ParametricComposition requires exactly one input slot.");
+            *errorMessage = QStringLiteral("ParametricComposition requires at least one input slot.");
         }
         return false;
     }
@@ -648,24 +653,54 @@ void ParametricCompositionInstance::setDefinition(std::shared_ptr<const Parametr
     definition_ = std::move(definition);
 }
 
-const ParametricCompositionInputBinding& ParametricCompositionInstance::inputBinding() const
+const QVector<ParametricCompositionInputBinding>& ParametricCompositionInstance::inputBindings() const
 {
-    return inputBinding_;
+    return inputBindings_;
 }
 
-void ParametricCompositionInstance::setInputBinding(const ParametricCompositionInputBinding& binding)
+void ParametricCompositionInstance::addInputBinding(const ParametricCompositionInputBinding& binding)
 {
-    inputBinding_ = binding;
+    inputBindings_.append(binding);
 }
 
-void ParametricCompositionInstance::clearInputBinding()
+void ParametricCompositionInstance::setInputBinding(int index, const ParametricCompositionInputBinding& binding)
 {
-    inputBinding_ = {};
+    if (index >= 0 && index < inputBindings_.size()) {
+        inputBindings_[index] = binding;
+    }
 }
 
-bool ParametricCompositionInstance::isInputConnected() const
+void ParametricCompositionInstance::removeInputBinding(int index)
 {
-    return inputBinding_.isConnected();
+    if (index >= 0 && index < inputBindings_.size()) {
+        inputBindings_.removeAt(index);
+    }
+}
+
+void ParametricCompositionInstance::clearInputBindings()
+{
+    inputBindings_.clear();
+}
+
+int ParametricCompositionInstance::inputBindingCount() const
+{
+    return inputBindings_.size();
+}
+
+bool ParametricCompositionInstance::isInputConnected(int index) const
+{
+    if (index >= 0 && index < inputBindings_.size()) {
+        return inputBindings_[index].isConnected();
+    }
+    return false;
+}
+
+bool ParametricCompositionInstance::hasAnyInputConnected() const
+{
+    for (const auto& b : inputBindings_) {
+        if (b.isConnected()) return true;
+    }
+    return false;
 }
 
 QVariant ParametricCompositionInstance::parameterValue(const QString& key, const QVariant& fallback) const
@@ -772,7 +807,12 @@ QByteArray ParametricCompositionInstance::inputFrameHash(
     const ParametricCompositionInputResolver& resolver) const
 {
     const ParametricCompositionEvaluation evaluation = evaluate(context, resolver);
-    return evaluation.cacheKey.inputFrameHash;
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    for (auto it = evaluation.cacheKey.inputFrameHashes.cbegin(); it != evaluation.cacheKey.inputFrameHashes.cend(); ++it) {
+        hash.addData(it.key().toUtf8());
+        hash.addData(it.value());
+    }
+    return hash.result();
 }
 
 ParametricCompositionCacheKey ParametricCompositionInstance::cacheKey(
@@ -799,29 +839,35 @@ ParametricCompositionEvaluation ParametricCompositionInstance::evaluate(
     ParametricCompositionEvaluation evaluation;
     const QSize targetSize = context.outputSize.isValid() ? context.outputSize : QSize(1, 1);
 
-    ImageF32x4_RGBA resolvedImage;
-    bool resolved = false;
-    if (inputBinding_.isConnected()) {
+    bool anyResolved = false;
+
+    for (const auto& inputBinding : inputBindings_) {
+        if (!inputBinding.isConnected()) {
+            continue;
+        }
+        if (inputBinding.kind == ParametricCompositionSlotKind::Bool) {
+            continue;
+        }
+
+        ImageF32x4_RGBA resolved;
+
         if (resolver.resolve) {
-            const std::optional<ImageF32x4_RGBA> candidate = resolver.resolve(inputBinding_, context);
+            const std::optional<ImageF32x4_RGBA> candidate = resolver.resolve(inputBinding, context);
             if (candidate.has_value() && !candidate->isEmpty()) {
-                resolvedImage = *candidate;
-                resolved = true;
+                resolved = *candidate;
             }
         }
 
-        if (!resolved) {
-            switch (inputBinding_.kind) {
+        if (resolved.isEmpty()) {
+            switch (inputBinding.kind) {
             case ParametricCompositionSlotKind::Image:
-                if (!inputBinding_.image.isEmpty()) {
-                    resolvedImage = inputBinding_.image;
-                    resolved = true;
+                if (!inputBinding.image.isEmpty()) {
+                    resolved = inputBinding.image;
                 }
                 break;
             case ParametricCompositionSlotKind::Matte:
-                if (!inputBinding_.matte.isEmpty()) {
-                    resolvedImage = inputBinding_.matte;
-                    resolved = true;
+                if (!inputBinding.matte.isEmpty()) {
+                    resolved = inputBinding.matte;
                 }
                 break;
             case ParametricCompositionSlotKind::Text:
@@ -829,29 +875,40 @@ ParametricCompositionEvaluation ParametricCompositionInstance::evaluate(
             case ParametricCompositionSlotKind::RGBA:
             case ParametricCompositionSlotKind::Alpha:
             case ParametricCompositionSlotKind::MotionPath:
+            case ParametricCompositionSlotKind::Bool:
             case ParametricCompositionSlotKind::Control:
             case ParametricCompositionSlotKind::Event:
                 break;
             }
         }
+
+        if (!resolved.isEmpty()) {
+            if (targetSize.isValid() && targetSize.width() > 0 && targetSize.height() > 0 &&
+                (resolved.width() != targetSize.width() || resolved.height() != targetSize.height())) {
+                resolved.resize(targetSize.width(), targetSize.height());
+            }
+            evaluation.resolvedInputs.insert(inputBinding.slotId, resolved);
+            anyResolved = true;
+        }
     }
 
-    if (resolved) {
-        if (targetSize.isValid() && targetSize.width() > 0 && targetSize.height() > 0 &&
-            (resolvedImage.width() != targetSize.width() || resolvedImage.height() != targetSize.height())) {
-            resolvedImage.resize(targetSize.width(), targetSize.height());
-        }
-        evaluation.image = resolvedImage;
+    if (anyResolved) {
+        evaluation.image = evaluation.resolvedInputs.cbegin().value();
     } else {
         evaluation.image = makeTransparent(targetSize);
         evaluation.usedTransparentFallback = true;
     }
 
-    evaluation.inputResolved = resolved;
+    evaluation.inputResolved = anyResolved;
     evaluation.cacheKey.definitionId = definition_ ? definition_->definitionId() : QString();
-    evaluation.cacheKey.inputFrameHash =
-        resolved ? hashImage(resolvedImage)
-                 : QByteArrayLiteral("transparent-rgba");
+
+    for (auto it = evaluation.resolvedInputs.cbegin(); it != evaluation.resolvedInputs.cend(); ++it) {
+        evaluation.cacheKey.inputFrameHashes.insert(it.key(), hashImage(it.value()));
+    }
+    if (evaluation.cacheKey.inputFrameHashes.isEmpty()) {
+        evaluation.cacheKey.inputFrameHashes.insert(QStringLiteral("_transparent"), QByteArrayLiteral("transparent-rgba"));
+    }
+
     evaluation.cacheKey.parameterHash = parameterHash();
     evaluation.cacheKey.timeKey = context.timeKey();
     return evaluation;
@@ -867,7 +924,11 @@ ImageF32x4_RGBA ParametricCompositionInstance::render(
 QJsonObject ParametricCompositionInstance::toJson() const
 {
     QJsonObject obj;
-    obj.insert(QStringLiteral("inputBinding"), inputBinding_.toJson());
+    QJsonArray bindingArray;
+    for (const auto& b : inputBindings_) {
+        bindingArray.append(b.toJson());
+    }
+    obj.insert(QStringLiteral("inputBindings"), bindingArray);
 
     QJsonObject overrides;
     for (auto it = parameterOverrides_.cbegin(); it != parameterOverrides_.cend(); ++it) {
@@ -885,7 +946,15 @@ ParametricCompositionInstance ParametricCompositionInstance::fromJson(
     std::shared_ptr<const ParametricCompositionDefinition> definition)
 {
     ParametricCompositionInstance instance(std::move(definition));
-    instance.inputBinding_ = ParametricCompositionInputBinding::fromJson(obj.value(QStringLiteral("inputBinding")).toObject());
+    const QJsonArray bindingArray = obj.value(QStringLiteral("inputBindings")).toArray();
+    for (const auto& bv : bindingArray) {
+        instance.inputBindings_.append(
+            ParametricCompositionInputBinding::fromJson(bv.toObject()));
+    }
+    if (instance.inputBindings_.isEmpty() && obj.contains(QStringLiteral("inputBinding"))) {
+        instance.inputBindings_.append(
+            ParametricCompositionInputBinding::fromJson(obj.value(QStringLiteral("inputBinding")).toObject()));
+    }
 
     const QJsonObject overrides = obj.value(QStringLiteral("parameterOverrides")).toObject();
     for (auto it = overrides.begin(); it != overrides.end(); ++it) {

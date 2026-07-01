@@ -9,6 +9,7 @@ module;
 export module Physics.System;
 
 import Physics.Fluid;
+import Physics2D;
 import Physics.SoftBody;
 import Memory.TrackedPtr;
 import Utils.Id;
@@ -96,6 +97,31 @@ public:
     }
 
     /**
+     * @brief レイヤー用 rigid body world を生成して登録する
+     */
+    std::shared_ptr<Physics2D> createRigidWorld(LayerID layerId) {
+        auto world = std::make_shared<Physics2D>();
+        rigidWorlds_[layerId] = world;
+        return world;
+    }
+
+    /**
+     * @brief レイヤー用 rigid body world を取得する
+     */
+    std::shared_ptr<Physics2D> getRigidWorld(LayerID layerId) {
+        auto it = rigidWorlds_.find(layerId);
+        if (it != rigidWorlds_.end()) return it->second;
+        return nullptr;
+    }
+
+    /**
+     * @brief レイヤー用 rigid body world を解除する
+     */
+    void unregisterRigidWorld(LayerID layerId) {
+        rigidWorlds_.erase(layerId);
+    }
+
+    /**
      * @brief レイヤー用ソフトボディソルバーを解除する
      */
     void unregisterSoftBody(LayerID layerId) {
@@ -159,6 +185,12 @@ public:
             }
             sb->update(dt, gravityX, gravityY);
         }
+
+        for (auto& [id, world] : rigidWorlds_) {
+            if (world) {
+                world->step(dt);
+            }
+        }
     }
 
     /**
@@ -168,6 +200,7 @@ public:
         fluidSolver_.reset();
         softBodies_.clear();
         softBodyColliders_.clear();
+        rigidWorlds_.clear();
     }
 
 private:
@@ -180,6 +213,7 @@ private:
     std::unique_ptr<FluidSolver2D> fluidSolver_;
     std::map<LayerID, std::shared_ptr<SoftBodySolver>> softBodies_;
     std::map<LayerID, std::vector<SoftBodyCollider>> softBodyColliders_;
+    std::map<LayerID, std::shared_ptr<Physics2D>> rigidWorlds_;
 };
 
 } // namespace ArtifactCore

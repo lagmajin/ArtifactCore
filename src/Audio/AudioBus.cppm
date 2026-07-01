@@ -46,8 +46,8 @@ import Memory.TrackedPtr;
 namespace ArtifactCore {
 
 	struct MeterState {
-		float peak = 0.0f;
-		float rms = 0.0f;
+		std::atomic<float> peak{0.0f};
+		std::atomic<float> rms{0.0f};
 	};
 
 	class AudioBus::Impl {
@@ -62,10 +62,9 @@ namespace ArtifactCore {
 		
 		std::vector<std::shared_ptr<AudioEffect>> effects_;
 
-		std::vector<MeterState> meters_; // std::vector from 
+		std::vector<MeterState> meters_;
 
 		float getLinearGain() const {
-			// -144dB as floor
 			if (volumeDb_ <= -144.0f) return 0.0f;
 			return std::pow(10.0f, volumeDb_ / 20.0f);
 		}
@@ -73,6 +72,7 @@ namespace ArtifactCore {
 		AudioSegment mainBuffer_;
 		AudioSegment sideChainBuffer_;
 		mutable std::unique_ptr<AudioDownMixer> downMixer_;
+		std::string sidechainSource_;
 
 		AudioDownMixer& getDownMixer() const {
 			if (!downMixer_) downMixer_ = std::make_unique<AudioDownMixer>();
@@ -113,7 +113,7 @@ namespace ArtifactCore {
 
 	void AudioBus::setVolume(float db)
 	{
-		impl_->volumeDb_ = db;
+		impl_->volumeDb_ = std::clamp(db, -144.0f, 24.0f);
 	}
 
 	float AudioBus::getVolume() const
@@ -208,7 +208,8 @@ namespace ArtifactCore {
 		if (impl_->mute_) {
 			for (int c = 0; c < channels; ++c) {
 				segment.channelData[c].fill(0.0f);
-				impl_->meters_[c] = { 0.0f, 0.0f };
+				impl_->meters_[c].peak.store(0.0f, std::memory_order_relaxed);
+				impl_->meters_[c].rms.store(0.0f, std::memory_order_relaxed);
 			}
 			return;
 		}
@@ -237,19 +238,37 @@ namespace ArtifactCore {
 			float peak = 0.0f;
 			float sumSq = 0.0f;
 
-			// Basic processing loop with metering
-			// TODO: SIMD optimization
+			// Gain apply — auto‑vectorized by MSVC at /O2 (ivdep = no alias)
+			__pragma(loop(ivdep))
 			for (int i = 0; i < samples; ++i) {
 				data[i] *= channelGain;
-				
+			}
+
+			// Metering (reduction makes auto‑vectorization harder; keep separate)
+			for (int i = 0; i < samples; ++i) {
 				float val = data[i];
 				float absVal = std::abs(val);
 				if (absVal > peak) peak = absVal;
 				sumSq += val * val;
 			}
 
-			impl_->meters_[c].peak = peak;
-			impl_->meters_[c].rms = (samples > 0) ? std::sqrt(sumSq / samples) : 0.0f;
+			impl_->meters_[c].peak.store(peak, std::memory_order_relaxed);
+			impl_->meters_[c].rms.store(samples > 0 ? std::sqrt(sumSq / samples) : 0.0f, std::memory_order_relaxed);
+
+			// Soft-clip after metering to catch accumulation overflow
+			if (peak > 0.9f) {
+				for (int i = 0; i < samples; ++i) {
+					float& s = data[i];
+					float absS = std::abs(s);
+					if (absS > 0.9f) {
+						float t = (absS - 0.9f) / 0.1f;
+						// Pade [2/2] approximation of tanh:  x*(27+x²)/(27+9x²)
+						float t2 = t * t;
+						float fastTanh = t * (27.0f + t2) / (27.0f + 9.0f * t2);
+						s = (s >= 0.0f ? 1.0f : -1.0f) * (0.9f + 0.1f * fastTanh);
+					}
+				}
+			}
 		}
 	}
 
@@ -341,13 +360,13 @@ namespace ArtifactCore {
 	float AudioBus::getPeakLevel(int channelIndex) const
 	{
 		if (channelIndex < 0 || channelIndex >= impl_->meters_.size()) return 0.0f;
-		return impl_->meters_[channelIndex].peak;
+		return impl_->meters_[channelIndex].peak.load(std::memory_order_relaxed);
 	}
 
 	float AudioBus::getRMSLevel(int channelIndex) const
 	{
 		if (channelIndex < 0 || channelIndex >= impl_->meters_.size()) return 0.0f;
-		return impl_->meters_[channelIndex].rms;
+		return impl_->meters_[channelIndex].rms.load(std::memory_order_relaxed);
 	}
 
 	float AudioBus::getGainReduction() const
@@ -358,6 +377,49 @@ namespace ArtifactCore {
 			}
 		}
 		return 1.0f; // No reduction
+	}
+
+	void AudioBus::setSidechainSource(const std::string& busName)
+	{
+		impl_->sidechainSource_ = busName;
+	}
+
+	std::string AudioBus::getSidechainSource() const
+	{
+		return impl_->sidechainSource_;
+	}
+
+	QJsonObject AudioBus::toJson() const
+	{
+		QJsonObject obj;
+		obj["name"] = QString::fromStdString(impl_->name_.toStdString());
+		obj["volume_db"] = impl_->volumeDb_;
+		obj["pan"] = impl_->pan_;
+		obj["mute"] = impl_->mute_;
+		obj["solo"] = impl_->solo_;
+		obj["sidechain_source"] = QString::fromStdString(impl_->sidechainSource_);
+
+		QJsonArray effects;
+		for (size_t i = 0; i < impl_->effects_.size(); ++i) {
+			auto& eff = impl_->effects_[i];
+			QJsonObject effectObj = eff->toJson();
+			effectObj["slot"] = static_cast<int>(i);
+			effects.append(effectObj);
+		}
+		obj["effects"] = effects;
+
+		return obj;
+	}
+
+	void AudioBus::fromJson(const QJsonObject& obj)
+	{
+		impl_->volumeDb_ = obj["volume_db"].toDouble(0.0);
+		impl_->pan_ = obj["pan"].toDouble(0.0);
+		impl_->mute_ = obj["mute"].toBool(false);
+		impl_->solo_ = obj["solo"].toBool(false);
+		impl_->sidechainSource_ = obj["sidechain_source"].toString().toStdString();
+		// Note: effects are loaded externally using the manager+factory pattern
+		// because the bus doesn't own a manager reference
 	}
 
 };

@@ -20,8 +20,8 @@ export namespace ArtifactCore {
  public:
   SimpleWav();
   ~SimpleWav();
-  bool loadFromFile(const QString& filePath);
-  bool loadFromFile(const UniString& filepath);
+  bool loadFromFile(const QString& filePath, int64_t maxFrames = -1);
+  bool loadFromFile(const UniString& filepath, int64_t maxFrames = -1);
   int sampleRate() const;
   int bitDepth() const;
   int channelCount() const;
