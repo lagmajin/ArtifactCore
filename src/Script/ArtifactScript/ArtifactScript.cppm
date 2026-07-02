@@ -33,6 +33,7 @@ std::optional<ArtifactScriptHook> hookFromName(std::string_view name) {
     if (name == "OnEnable") return ArtifactScriptHook::OnEnable;
     if (name == "OnDisable") return ArtifactScriptHook::OnDisable;
     if (name == "OnUpdate") return ArtifactScriptHook::OnUpdate;
+    if (name == "OnEvaluate") return ArtifactScriptHook::OnUpdate;
     if (name == "OnDestroy") return ArtifactScriptHook::OnDestroy;
     return std::nullopt;
 }
