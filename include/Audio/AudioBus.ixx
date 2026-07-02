@@ -29,6 +29,7 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QJsonObject>
 export module Audio.Bus;
 
 import Utils.Id;

@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <QDebug>
 #include <QString>
 #include <QtMultimedia/QAudioDevice>
@@ -24,6 +24,8 @@ import Audio.Backend.ASIOStub;
 import Audio.Backend.Qt;
 import Audio.Segment;
 import Audio.RingBuffer;
+import Audio.DownMixer;
+
 import Memory.TrackedPtr;
 import ArtifactCore.Utils.PerformanceProfiler;
 
@@ -72,6 +74,11 @@ struct AudioRenderer::Impl {
   std::atomic<int> levelCallbackCounter{0}; // Throttle callback frequency
 
   // We'll use 48kHz Stereo as our internal processing format for the renderer
+ // Preferred channel count for output (user-configurable, default 2 = stereo)
+ int preferredChannels = 2;
+ // Auto-downmix: when true, multi-channel segments are downmixed to device channel count
+ bool autoDownmix = true;
+
   int sampleRate = 48000;
   int channels = 2;
   AudioBackendType backendType = AudioBackendType::Auto;
@@ -167,19 +174,19 @@ struct AudioRenderer::Impl {
       int leftCount = 0;
       int rightCount = 0;
 
-for (int i = 0; i < availableFrames; ++i) {
-         for (int ch = 0; ch < channelsRequested; ++ch) {
-           float sample = 0.0f;
-           if (readBuffer_.channelCount() > ch &&
-               i < readBuffer_.channelData[ch].size()) {
-             sample = readBuffer_.channelData[ch][i];
-           } else if (readBuffer_.channelCount() == 1 &&
-                      i < readBuffer_.channelData[0].size()) {
-             sample = readBuffer_.channelData[0][i];
-           }
+      for (int i = 0; i < availableFrames; ++i) {
+        for (int ch = 0; ch < channelsRequested; ++ch) {
+          float sample = 0.0f;
+          if (readBuffer_.channelCount() > ch &&
+              i < readBuffer_.channelData[ch].size()) {
+            sample = readBuffer_.channelData[ch][i];
+          } else if (readBuffer_.channelCount() == 1 &&
+                     i < readBuffer_.channelData[0].size()) {
+            sample = readBuffer_.channelData[0][i];
+          }
 
-           sample *= volume;
-           sample = std::clamp(sample, -1.0f, 1.0f);
+          sample *= volume;
+          sample = std::clamp(sample, -1.0f, 1.0f);
 
           if (availableFrames < frames) {
             const int fadeStart = std::max(0, availableFrames - 64);
@@ -272,15 +279,21 @@ bool AudioRenderer::openDevice(const QString &deviceName) {
     }
   }
 
+  // Use preferred channel count when requesting format from device
+  const int requestChannels = std::max(1, impl_->preferredChannels);
   QAudioFormat format;
   format.setSampleRate(impl_->sampleRate);
-  format.setChannelCount(impl_->channels);
+  format.setChannelCount(requestChannels);
   format.setSampleFormat(QAudioFormat::Float);
 
   if (!device.isFormatSupported(format)) {
     format = device.preferredFormat();
     impl_->sampleRate = format.sampleRate();
     impl_->channels = format.channelCount();
+    qDebug() << "[AudioRenderer] device does not support" << requestChannels
+             << "channels, falling back to device default" << impl_->channels;
+  } else {
+    impl_->channels = requestChannels;
   }
 
   const AudioBackendFormat backendFormat = toBackendFormat(format);
@@ -420,13 +433,30 @@ bool AudioRenderer::isMute() const { return impl_ ? impl_->isMute.load(std::memo
 
 void AudioRenderer::enqueue(const AudioSegment &segment) {
   if (impl_ && impl_->ringBuffer) {
-    if (!impl_->ringBuffer->write(segment)) {
+    const AudioSegment* writeSeg = &segment;
+    AudioSegment downmixed;
+
+    if (impl_->autoDownmix && impl_->channels > 0 &&
+        segment.channelCount() > impl_->channels) {
+      AudioDownMixer downmixer;
+      if (impl_->channels == 2) {
+        downmixer.setTargetLayout(AudioChannelLayout::Stereo);
+      } else if (impl_->channels == 1) {
+        downmixer.setTargetLayout(AudioChannelLayout::Mono);
+      }
+      if (impl_->channels == 2 || impl_->channels == 1) {
+        downmixed = downmixer.process(segment);
+        writeSeg = &downmixed;
+      }
+    }
+
+    if (!impl_->ringBuffer->write(*writeSeg)) {
       const size_t count = ++impl_->overflowCount;
       if (count <= 8) {
         qWarning() << "[AudioRenderer] ring buffer overflow"
-                   << "frames=" << segment.frameCount()
-                   << "sampleRate=" << segment.sampleRate
-                   << "channels=" << segment.channelCount();
+                   << "frames=" << writeSeg->frameCount()
+                   << "sampleRate=" << writeSeg->sampleRate
+                   << "channels=" << writeSeg->channelCount();
       }
     }
   }
@@ -529,6 +559,32 @@ void AudioRenderer::setLevelCallback(std::function<void(const AudioLevelData&)> 
     }
     impl_->levelCallbackCounter.store(0, std::memory_order_relaxed);
   }
+}
+
+
+
+void AudioRenderer::setPreferredChannelCount(int channels) {
+  if (impl_) {
+    impl_->preferredChannels = std::clamp(channels, 1, 8);
+  }
+}
+
+int AudioRenderer::preferredChannelCount() const {
+  return impl_ ? impl_->preferredChannels : 2;
+}
+
+int AudioRenderer::actualChannelCount() const {
+  return channelCount();
+}
+
+void AudioRenderer::setAutoDownmix(bool enabled) {
+  if (impl_) {
+    impl_->autoDownmix = enabled;
+  }
+}
+
+bool AudioRenderer::isAutoDownmix() const {
+  return impl_ ? impl_->autoDownmix : true;
 }
 
 } // namespace ArtifactCore

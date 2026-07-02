@@ -33,6 +33,8 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QJsonArray>
+#include <QJsonObject>
 module Audio.Bus;
 
 import Utils.String.UniString;
@@ -46,8 +48,8 @@ import Memory.TrackedPtr;
 namespace ArtifactCore {
 
 	struct MeterState {
-		std::atomic<float> peak{0.0f};
-		std::atomic<float> rms{0.0f};
+		float peak = 0.0f;
+		float rms = 0.0f;
 	};
 
 	class AudioBus::Impl {
@@ -208,8 +210,8 @@ namespace ArtifactCore {
 		if (impl_->mute_) {
 			for (int c = 0; c < channels; ++c) {
 				segment.channelData[c].fill(0.0f);
-				impl_->meters_[c].peak.store(0.0f, std::memory_order_relaxed);
-				impl_->meters_[c].rms.store(0.0f, std::memory_order_relaxed);
+				impl_->meters_[c].peak = 0.0f;
+				impl_->meters_[c].rms = 0.0f;
 			}
 			return;
 		}
@@ -252,8 +254,8 @@ namespace ArtifactCore {
 				sumSq += val * val;
 			}
 
-			impl_->meters_[c].peak.store(peak, std::memory_order_relaxed);
-			impl_->meters_[c].rms.store(samples > 0 ? std::sqrt(sumSq / samples) : 0.0f, std::memory_order_relaxed);
+			impl_->meters_[c].peak = peak;
+			impl_->meters_[c].rms = samples > 0 ? std::sqrt(sumSq / samples) : 0.0f;
 
 			// Soft-clip after metering to catch accumulation overflow
 			if (peak > 0.9f) {
@@ -360,13 +362,13 @@ namespace ArtifactCore {
 	float AudioBus::getPeakLevel(int channelIndex) const
 	{
 		if (channelIndex < 0 || channelIndex >= impl_->meters_.size()) return 0.0f;
-		return impl_->meters_[channelIndex].peak.load(std::memory_order_relaxed);
+		return impl_->meters_[channelIndex].peak;
 	}
 
 	float AudioBus::getRMSLevel(int channelIndex) const
 	{
 		if (channelIndex < 0 || channelIndex >= impl_->meters_.size()) return 0.0f;
-		return impl_->meters_[channelIndex].rms.load(std::memory_order_relaxed);
+		return impl_->meters_[channelIndex].rms;
 	}
 
 	float AudioBus::getGainReduction() const
@@ -392,7 +394,7 @@ namespace ArtifactCore {
 	QJsonObject AudioBus::toJson() const
 	{
 		QJsonObject obj;
-		obj["name"] = QString::fromStdString(impl_->name_.toStdString());
+		obj["name"] = impl_->name_.toQString();
 		obj["volume_db"] = impl_->volumeDb_;
 		obj["pan"] = impl_->pan_;
 		obj["mute"] = impl_->mute_;

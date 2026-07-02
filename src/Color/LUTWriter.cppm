@@ -7,6 +7,8 @@ module;
 
 module Color.LUTWriter;
 
+import Color.LUT;
+
 namespace ArtifactCore {
 
 static QByteArray writeCubeFormat(const float* data, int size)
@@ -59,10 +61,11 @@ QByteArray exportLUTToMemory(const float* data, int size, LUTFormat format)
     switch (format) {
     case LUTFormat::Cube:
         return writeCubeFormat(data, size);
-    case LUTFormat::Discreet3DL:
+    case LUTFormat::_3dl:
         return writeDiscreet3dlFormat(data, size);
+    default:
+        return QByteArray();
     }
-    return QByteArray();
 }
 
 bool writeLUTToFile(const QString& path, const float* data, int size,

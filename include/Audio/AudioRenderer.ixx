@@ -63,6 +63,29 @@ struct AudioLevelData {
   bool isActive() const;
 
   /**
+   * @brief Set preferred output channel count (default: 2 for stereo).
+   *        Must be called before openDevice() to take effect.
+   */
+  void setPreferredChannelCount(int channels);
+  int preferredChannelCount() const;
+
+  /**
+   * @brief Actual channel count of the opened device.
+   *        This is what the backend/hardware provides.
+   */
+  int actualChannelCount() const;
+
+  /**
+   * @brief Enable or disable automatic downmix.
+   *        When enabled and enqueued segment has more channels than
+   *        the device supports, AudioDownMixer will convert it.
+   *        Default: true
+   */
+  void setAutoDownmix(bool enabled);
+  bool isAutoDownmix() const;
+
+
+  /**
    * @brief Master controls
    */
   void setMasterVolume(float db);

@@ -29,9 +29,9 @@ namespace ArtifactCore {
   delete impl_;
  }
 
- bool SimpleWav::loadFromFile(const UniString& filepath)
+ bool SimpleWav::loadFromFile(const UniString& filepath, int64_t maxFrames)
  {
-  return loadFromFile(filepath.toQString());
+  return loadFromFile(filepath.toQString(), maxFrames);
  }
 
   bool SimpleWav::loadFromFile(const QString& filePath, int64_t maxFrames)

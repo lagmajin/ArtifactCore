@@ -31,6 +31,10 @@ export namespace ArtifactCore {
   void setCenterMixLevel(float level = 0.7071f); // -3dB default
   void setLFEMixLevel(float level = 0.7071f);
   void setSurroundMixLevel(float level = 0.5f); // -6dB default
+  void setBackMixLevel(float level = 0.5f);     // 7.1 back channel -6dB default
+  float backMixLevel() const;
+
+
 
   /**
    * @brief Process and return the downmixed segment

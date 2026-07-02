@@ -111,7 +111,7 @@ export namespace ArtifactCore {
 
         void setTransform(const QVector2D& pos, float angle) {
             if (b2Body_IsValid(bodyId)) {
-                b2Body_SetTransform(bodyId, b2Vec2{pos.x(), pos.y()}, angle);
+                b2Body_SetTransform(bodyId, b2Vec2{pos.x(), pos.y()}, b2MakeRot(angle));
             }
         }
 

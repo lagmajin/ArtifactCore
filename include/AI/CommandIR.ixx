@@ -262,7 +262,7 @@ public:
         };
     }
 
-    static bool     static bool isSupportedType(const QString& type)
+    static bool isSupportedType(const QString& type)
     {
         const QString normalized = type.trimmed();
         if (normalized.isEmpty()) {
@@ -302,24 +302,6 @@ public:
                normalized == QStringLiteral("get_render_status") ||
                normalized == QStringLiteral("list_compositions") ||
                normalized == QStringLiteral("list_project_items");
-    }
-        if (normalized.isEmpty()) {
-            return false;
-        }
-        return normalized == QStringLiteral("set_property") ||
-               normalized == QStringLiteral("set_keyframes") ||
-               normalized == QStringLiteral("batch_set_keyframes") ||
-               normalized == QStringLiteral("move_layer") ||
-               normalized == QStringLiteral("rename_layer") ||
-               normalized == QStringLiteral("add_effect") ||
-               normalized == QStringLiteral("create_layer") ||
-               normalized == QStringLiteral("delete_layer") ||
-               normalized == QStringLiteral("set_layer_visible") ||
-               normalized == QStringLiteral("set_layer_blend_mode") ||
-               normalized == QStringLiteral("set_layer_opacity") ||
-               normalized == QStringLiteral("set_playback_state") ||
-               normalized == QStringLiteral("export_composition") ||
-               normalized == QStringLiteral("remove_effect");
     }
 
     static QVariantList requiredFieldsFor(const QString& type)

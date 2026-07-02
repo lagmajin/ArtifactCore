@@ -147,6 +147,7 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactFunction.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactVariant.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactUtility.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Color/LUTWriter.ixx"
 )
     list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
     if(_artifact_force_module_index EQUAL -1)
@@ -300,6 +301,9 @@ target_link_libraries(ArtifactCore PUBLIC Vulkan::Headers)
 
 find_package(OpenXR REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC OpenXR::headers)
+
+find_package(box2d CONFIG REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC box2d::box2d)
 
 # ggml-vulkan shader generation needs a real glslc executable.
 # Some environments resolve Vulkan_GLSLC_EXECUTABLE to a vcpkg path that does

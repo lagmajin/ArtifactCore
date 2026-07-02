@@ -63,6 +63,15 @@ OCIOConfig::~OCIOConfig()
 // ---------------------------------------------------------------------------
 // Load / Save
 // ---------------------------------------------------------------------------
+bool OCIOConfig::isValid() const
+{
+    return impl_ != nullptr &&
+           (!impl_->colorSpaces_.isEmpty() ||
+            !impl_->roles_.isEmpty() ||
+            !impl_->displayViews_.isEmpty() ||
+            !impl_->workingSpace_.isEmpty());
+}
+
 bool OCIOConfig::loadFromFile(const QString& path)
 {
     impl_->configFilePath_ = path;
@@ -663,4 +672,3 @@ void OCIOConfig::setConfigFilePath(const QString& path) { impl_->configFilePath_
 QString OCIOConfig::lastError() const { return impl_->lastError_; }
 
 } // namespace ArtifactCore
-

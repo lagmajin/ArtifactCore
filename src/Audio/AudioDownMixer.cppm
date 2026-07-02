@@ -13,6 +13,7 @@ struct AudioDownMixer::Impl {
     float centerMixLevel_ = 0.7071f;
     float lfeMixLevel_ = 0.7071f;
     float surroundMixLevel_ = 0.5f;
+    float backMixLevel_ = 0.5f;  // 7.1 back channel mix (-6dB default)
 };
 
 AudioDownMixer::AudioDownMixer() : impl_(new Impl()) {}
@@ -39,6 +40,14 @@ void AudioDownMixer::setLFEMixLevel(float level) {
 
 void AudioDownMixer::setSurroundMixLevel(float level) {
     impl_->surroundMixLevel_ = level;
+}
+
+void AudioDownMixer::setBackMixLevel(float level) {
+    impl_->backMixLevel_ = level;
+}
+
+float AudioDownMixer::backMixLevel() const {
+    return impl_->backMixLevel_;
 }
 
 AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
@@ -82,6 +91,31 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
             const float* mono = source.constData(0);
             std::copy(mono, mono + frames, output.channelData[0].begin());
             std::copy(mono, mono + frames, output.channelData[1].begin());
+        }
+        else if (source.layout == AudioChannelLayout::Surround71 && source.channelCount() >= 8) {
+            // 7.1 -> Stereo (ITU-R BS.775)
+            const float* l   = source.constData(0);
+            const float* r   = source.constData(1);
+            const float* c   = source.constData(2);
+            const float* lfe = source.constData(3);
+            const float* ls  = source.constData(4);
+            const float* rs  = source.constData(5);
+            const float* lb  = source.constData(6);
+            const float* rb  = source.constData(7);
+
+            float* outL = output.channelData[0].data();
+            float* outR = output.channelData[1].data();
+
+            for (int i = 0; i < frames; ++i) {
+                float center = c[i] * impl_->centerMixLevel_;
+                float lfeSample = lfe[i] * impl_->lfeMixLevel_;
+                outL[i] = l[i] + center + lfeSample
+                       + (ls[i] * impl_->surroundMixLevel_)
+                       + (lb[i] * impl_->backMixLevel_);
+                outR[i] = r[i] + center + lfeSample
+                       + (rs[i] * impl_->surroundMixLevel_)
+                       + (rb[i] * impl_->backMixLevel_);
+            }
         }
         else {
             // Fallback: Copy first two channels if available, or fill with zero
