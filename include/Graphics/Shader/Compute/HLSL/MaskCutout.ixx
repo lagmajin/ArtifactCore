@@ -1,8 +1,9 @@
 ﻿module;
 #include <utility>
+#include <QByteArray>
 export module Graphics.Shader.Compute.HLSL.MaskCutout;
 
-#include <QByteArray>
+
 
 export namespace ArtifactCore {
 

@@ -9,6 +9,7 @@
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QString>
+#include <QColor>
 #include <QDebug>
 #include <QFileInfo>
 
@@ -149,18 +150,33 @@ struct PSInput {
 
 Texture2D g_BaseColorTexture : register(t0);
 Texture2D g_OpacityTexture : register(t1);
+Texture2D g_EmissionTexture : register(t2);
 SamplerState g_BaseColorSampler : register(s0);
+
+cbuffer MaterialParams : register(b1) {
+    float4 EmissionColorStrength;
+};
 
 float4 PSMain(PSInput In) : SV_Target {
     float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, In.UV);
     float4 opacitySample = g_OpacityTexture.Sample(g_BaseColorSampler, In.UV);
+    float4 emissionSample = g_EmissionTexture.Sample(g_BaseColorSampler, In.UV);
     float4 baseColor = baseSample * In.Color;
+    float emissionStrength = max(EmissionColorStrength.a, 0.0);
     if (In.Mode > 1.5 && In.Mode < 2.5) {
         float3 normalColor = normalize(In.Normal) * 0.5 + 0.5;
         return float4(normalColor, baseColor.a * opacitySample.a);
     }
     if (In.Mode > 0.5 && In.Mode < 1.5) {
         return float4(baseColor.rgb, baseColor.a * opacitySample.a);
+    }
+    if (In.Mode > 3.5 && In.Mode < 4.5) {
+        float3 emissionColor =
+            emissionSample.rgb * EmissionColorStrength.rgb * emissionStrength;
+        return float4(emissionColor, baseColor.a * opacitySample.a);
+    }
+    if (In.Mode > 4.5 && In.Mode < 6.5) {
+        return float4(In.Color.rgb, 1.0);
     }
 
     // Simple lighting
@@ -184,6 +200,8 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pBaseColorTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pOpacityTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pOpacityTextureSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pEmissionTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pEmissionTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ISampler>               pBaseColorSampler_;
     
     // Instance data buffer
@@ -191,12 +209,15 @@ struct MeshRenderer::Impl {
     
     // Constant buffer for view/proj matrices
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pConstantBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMaterialBuffer_;
     
     size_t vertexCount_ = 0;
     size_t indexCount_ = 0;
     size_t maxInstances_ = 0;
     QString baseColorTexturePath_;
     QString opacityTexturePath_;
+    QString emissionTexturePath_;
+    float emissionColorStrength_[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 MeshRenderer::MeshRenderer(GpuContext& context)
@@ -293,6 +314,16 @@ void MeshRenderer::createBuffers()
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pConstantBuffer_);
     }
+    {
+        BufferDesc BuffDesc;
+        BuffDesc.Name              = "Mesh Material CB";
+        BuffDesc.Usage             = USAGE_DYNAMIC;
+        BuffDesc.Size              = sizeof(float) * 4;
+        BuffDesc.BindFlags         = BIND_UNIFORM_BUFFER;
+        BuffDesc.CPUAccessFlags    = CPU_ACCESS_WRITE;
+        BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pMaterialBuffer_);
+    }
 
     if (!pImpl_->pBaseColorSampler_) {
         SamplerDesc samplerDesc;
@@ -352,6 +383,29 @@ void MeshRenderer::createBuffers()
         if (pImpl_->pOpacityTexture_) {
             pImpl_->pOpacityTextureSRV_ =
                 pImpl_->pOpacityTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        }
+    }
+    if (!pImpl_->pEmissionTexture_) {
+        const Uint8 whitePixel[4] = {255, 255, 255, 255};
+        TextureDesc texDesc;
+        texDesc.Name = "MeshRenderer_EmissionWhiteTexture";
+        texDesc.Type = RESOURCE_DIM_TEX_2D;
+        texDesc.Width = 1;
+        texDesc.Height = 1;
+        texDesc.MipLevels = 1;
+        texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+        texDesc.Usage = USAGE_IMMUTABLE;
+        texDesc.BindFlags = BIND_SHADER_RESOURCE;
+        TextureSubResData subRes;
+        subRes.pData = whitePixel;
+        subRes.Stride = 4;
+        TextureData initData;
+        initData.pSubResources = &subRes;
+        initData.NumSubresources = 1;
+        pDevice->CreateTexture(texDesc, &initData, &pImpl_->pEmissionTexture_);
+        if (pImpl_->pEmissionTexture_) {
+            pImpl_->pEmissionTextureSRV_ =
+                pImpl_->pEmissionTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
         }
     }
 }
@@ -418,10 +472,11 @@ void MeshRenderer::createPSO()
     // Resource layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     
-    static std::array<ShaderResourceVariableDesc, 4> Vars = {{
+    static std::array<ShaderResourceVariableDesc, 5> Vars = {{
         {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_OpacityTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_EmissionTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorSampler", SHADER_RESOURCE_VARIABLE_TYPE_STATIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -440,11 +495,17 @@ void MeshRenderer::createPSO()
     if (pConstVar) {
         pConstVar->Set(pImpl_->pConstantBuffer_);
     }
+    if (auto* pMaterialVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "MaterialParams")) {
+        pMaterialVar->Set(pImpl_->pMaterialBuffer_);
+    }
     if (auto* texVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorTexture")) {
         texVar->Set(pImpl_->pBaseColorTextureSRV_);
     }
     if (auto* opacityVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_OpacityTexture")) {
         opacityVar->Set(pImpl_->pOpacityTextureSRV_);
+    }
+    if (auto* emissionVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_EmissionTexture")) {
+        emissionVar->Set(pImpl_->pEmissionTextureSRV_);
     }
     if (auto* sampVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorSampler")) {
         sampVar->Set(pImpl_->pBaseColorSampler_);
@@ -510,6 +571,13 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
         if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     }
+    pData = nullptr;
+    pContext->MapBuffer(pImpl_->pMaterialBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+    if (pData) {
+        memcpy(pData, pImpl_->emissionColorStrength_, sizeof(float) * 4);
+        pContext->UnmapBuffer(pImpl_->pMaterialBuffer_, MAP_WRITE);
+        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    }
     
     // Bind instance buffer SRV
     if (pImpl_->pSRB_) {
@@ -522,6 +590,9 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         }
         if (auto* opacityVar = pImpl_->pSRB_->GetVariableByName(SHADER_TYPE_PIXEL, "g_OpacityTexture")) {
             opacityVar->Set(pImpl_->pOpacityTextureSRV_);
+        }
+        if (auto* emissionVar = pImpl_->pSRB_->GetVariableByName(SHADER_TYPE_PIXEL, "g_EmissionTexture")) {
+            emissionVar->Set(pImpl_->pEmissionTextureSRV_);
         }
         if (auto* sampVar = pImpl_->pSRB_->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorSampler")) {
             sampVar->Set(pImpl_->pBaseColorSampler_);
@@ -679,6 +750,113 @@ void MeshRenderer::clearBaseColorTexture()
         pImpl_->pBaseColorTextureSRV_ =
             pImpl_->pBaseColorTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     }
+}
+
+void MeshRenderer::setEmissionTexture(const QString& path)
+{
+    const QString newPath = path.trimmed();
+    auto pDevice = context_.RenderDevice();
+    if (newPath == pImpl_->emissionTexturePath_ && pImpl_->pEmissionTextureSRV_) {
+        return;
+    }
+
+    if (newPath.isEmpty() || !pDevice) {
+        clearEmissionTexture();
+        return;
+    }
+
+    pImpl_->emissionTexturePath_ = newPath;
+
+    ArtifactCore::ImageImporter importer;
+    if (!importer.open(pImpl_->emissionTexturePath_)) {
+        qWarning() << "[MeshRenderer] Failed to open emission texture path:" << pImpl_->emissionTexturePath_;
+        clearEmissionTexture();
+        return;
+    }
+
+    const ArtifactCore::RawImage rawImage = importer.readImage();
+    if (!rawImage.isValid() || rawImage.width <= 0 || rawImage.height <= 0) {
+        qWarning() << "[MeshRenderer] Failed to read emission texture image:" << pImpl_->emissionTexturePath_;
+        clearEmissionTexture();
+        return;
+    }
+
+    TextureDesc texDesc;
+    texDesc.Name = "MeshRenderer_EmissionTexture";
+    texDesc.Type = RESOURCE_DIM_TEX_2D;
+    texDesc.Width = static_cast<Uint32>(rawImage.width);
+    texDesc.Height = static_cast<Uint32>(rawImage.height);
+    texDesc.MipLevels = 1;
+    texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+    texDesc.Usage = USAGE_IMMUTABLE;
+    texDesc.BindFlags = BIND_SHADER_RESOURCE;
+
+    QVector<quint8> rgba8 = expandTextureToRgba8(rawImage, false);
+    if (rgba8.isEmpty()) {
+        qWarning() << "[MeshRenderer] Unsupported emission texture pixel type:"
+                   << pImpl_->emissionTexturePath_
+                   << rawImage.pixelType;
+        clearEmissionTexture();
+        return;
+    }
+
+    TextureSubResData subRes;
+    subRes.pData = rgba8.constData();
+    subRes.Stride = static_cast<Uint64>(rawImage.width * 4);
+
+    TextureData initData;
+    initData.pSubResources = &subRes;
+    initData.NumSubresources = 1;
+
+    pDevice->CreateTexture(texDesc, &initData, &pImpl_->pEmissionTexture_);
+    if (pImpl_->pEmissionTexture_) {
+        pImpl_->pEmissionTextureSRV_ =
+            pImpl_->pEmissionTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+}
+
+void MeshRenderer::clearEmissionTexture()
+{
+    if (pImpl_->emissionTexturePath_.isEmpty() && pImpl_->pEmissionTextureSRV_) {
+        return;
+    }
+    pImpl_->emissionTexturePath_.clear();
+    auto pDevice = context_.RenderDevice();
+    if (!pDevice) {
+        pImpl_->pEmissionTexture_ = nullptr;
+        pImpl_->pEmissionTextureSRV_ = nullptr;
+        return;
+    }
+
+    const Uint8 whitePixel[4] = {255, 255, 255, 255};
+    TextureDesc texDesc;
+    texDesc.Name = "MeshRenderer_EmissionWhiteTexture";
+    texDesc.Type = RESOURCE_DIM_TEX_2D;
+    texDesc.Width = 1;
+    texDesc.Height = 1;
+    texDesc.MipLevels = 1;
+    texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+    texDesc.Usage = USAGE_IMMUTABLE;
+    texDesc.BindFlags = BIND_SHADER_RESOURCE;
+    TextureSubResData subRes;
+    subRes.pData = whitePixel;
+    subRes.Stride = 4;
+    TextureData initData;
+    initData.pSubResources = &subRes;
+    initData.NumSubresources = 1;
+    pDevice->CreateTexture(texDesc, &initData, &pImpl_->pEmissionTexture_);
+    if (pImpl_->pEmissionTexture_) {
+        pImpl_->pEmissionTextureSRV_ =
+            pImpl_->pEmissionTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+}
+
+void MeshRenderer::setEmissionColor(const QColor& color, float strength)
+{
+    pImpl_->emissionColorStrength_[0] = color.redF();
+    pImpl_->emissionColorStrength_[1] = color.greenF();
+    pImpl_->emissionColorStrength_[2] = color.blueF();
+    pImpl_->emissionColorStrength_[3] = std::max(strength, 0.0f);
 }
 
 void MeshRenderer::setOpacityTexture(const QString& path)

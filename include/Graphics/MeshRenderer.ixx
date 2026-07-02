@@ -5,6 +5,7 @@
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <QColor>
 #include "../Define/DllExportMacro.hpp"
 #include <vector>
 #include <string>
@@ -80,6 +81,9 @@ public:
      */
     void setBaseColorTexture(const QString& path);
     void clearBaseColorTexture();
+    void setEmissionTexture(const QString& path);
+    void clearEmissionTexture();
+    void setEmissionColor(const QColor& color, float strength);
 
     /**
      * @brief Set an opacity texture to modulate mesh alpha.

@@ -1,5 +1,4 @@
 ﻿module;
-class tst_QList;
 #include <memory>
 #include <utility>
 
@@ -11,6 +10,7 @@ class tst_QList;
 #include <QFile>
 #include <QFileInfo>
 #include <QIODevice>
+#include <QRegularExpression>
 #include <QString>
 #include <QStringView>
 #include <QVector2D>
@@ -435,6 +435,370 @@ public:
     detectTexturesFromTinyObj(path, reader);
     return mesh;
   }
+
+  static QVector3D parseUsdVec3fTuple(QStringView tupleText, bool* okOut = nullptr)
+  {
+    const QStringList parts =
+        tupleText.toString().split(QChar(','), Qt::SkipEmptyParts);
+    if (parts.size() != 3) {
+      if (okOut) {
+        *okOut = false;
+      }
+      return {};
+    }
+
+    bool okX = false;
+    bool okY = false;
+    bool okZ = false;
+    const float x = parts[0].trimmed().toFloat(&okX);
+    const float y = parts[1].trimmed().toFloat(&okY);
+    const float z = parts[2].trimmed().toFloat(&okZ);
+    const bool ok = okX && okY && okZ;
+    if (okOut) {
+      *okOut = ok;
+    }
+    return ok ? QVector3D(x, y, z) : QVector3D{};
+  }
+
+  static QVector<QVector3D> parseUsdVec3fArray(const QString& text,
+                                               bool* okOut = nullptr)
+  {
+    QVector<QVector3D> result;
+    const QRegularExpression tupleRegex(
+        QStringLiteral(R"(\(\s*([^()]+?)\s*\))"));
+    auto it = tupleRegex.globalMatch(text);
+    while (it.hasNext()) {
+      const auto match = it.next();
+      bool tupleOk = false;
+      const QVector3D value =
+          parseUsdVec3fTuple(match.capturedView(1), &tupleOk);
+      if (!tupleOk) {
+        if (okOut) {
+          *okOut = false;
+        }
+        return {};
+      }
+      result.push_back(value);
+    }
+    if (okOut) {
+      *okOut = !result.isEmpty();
+    }
+    return result;
+  }
+
+  static QVector2D parseUsdVec2fTuple(QStringView tupleText, bool* okOut = nullptr)
+  {
+    const QStringList parts =
+        tupleText.toString().split(QChar(','), Qt::SkipEmptyParts);
+    if (parts.size() != 2) {
+      if (okOut) {
+        *okOut = false;
+      }
+      return {};
+    }
+
+    bool okX = false;
+    bool okY = false;
+    const float x = parts[0].trimmed().toFloat(&okX);
+    const float y = parts[1].trimmed().toFloat(&okY);
+    const bool ok = okX && okY;
+    if (okOut) {
+      *okOut = ok;
+    }
+    return ok ? QVector2D(x, y) : QVector2D{};
+  }
+
+  static QVector<QVector2D> parseUsdVec2fArray(const QString& text,
+                                               bool* okOut = nullptr)
+  {
+    QVector<QVector2D> result;
+    const QRegularExpression tupleRegex(
+        QStringLiteral(R"(\(\s*([^()]+?)\s*\))"));
+    auto it = tupleRegex.globalMatch(text);
+    while (it.hasNext()) {
+      const auto match = it.next();
+      bool tupleOk = false;
+      const QVector2D value =
+          parseUsdVec2fTuple(match.capturedView(1), &tupleOk);
+      if (!tupleOk) {
+        if (okOut) {
+          *okOut = false;
+        }
+        return {};
+      }
+      result.push_back(value);
+    }
+    if (okOut) {
+      *okOut = !result.isEmpty();
+    }
+    return result;
+  }
+
+  static QVector<int> parseUsdIntArray(const QString& text, bool* okOut = nullptr)
+  {
+    QVector<int> result;
+    const QStringList parts =
+        text.split(QRegularExpression(QStringLiteral(R"([\s,]+)")),
+                   Qt::SkipEmptyParts);
+    result.reserve(parts.size());
+    for (const QString& part : parts) {
+      bool valueOk = false;
+      const int value = part.trimmed().toInt(&valueOk);
+      if (!valueOk) {
+        if (okOut) {
+          *okOut = false;
+        }
+        return {};
+      }
+      result.push_back(value);
+    }
+    if (okOut) {
+      *okOut = !result.isEmpty();
+    }
+    return result;
+  }
+
+  static QVector3D computePolygonNormal(const QVector<QVector3D>& polygonPositions)
+  {
+    if (polygonPositions.size() < 3) {
+      return QVector3D(0.0f, 0.0f, 1.0f);
+    }
+
+    QVector3D normal(0.0f, 0.0f, 0.0f);
+    const QVector3D origin = polygonPositions[0];
+    for (int i = 1; i + 1 < polygonPositions.size(); ++i) {
+      const QVector3D a = polygonPositions[i] - origin;
+      const QVector3D b = polygonPositions[i + 1] - origin;
+      normal += QVector3D::crossProduct(a, b);
+    }
+
+    if (normal.lengthSquared() <= 1e-12f) {
+      return QVector3D(0.0f, 0.0f, 1.0f);
+    }
+    return normal.normalized();
+  }
+
+  std::shared_ptr<Mesh> loadWithUsda(const QString& path) {
+    lastBackend_ = MeshImporter::Backend::Usda;
+    lastError_.clear();
+    lastBaseColorTexture_.clear();
+    lastMetallicRoughnessTexture_.clear();
+    lastNormalTexture_.clear();
+    lastEmissionTexture_.clear();
+    lastOcclusionTexture_.clear();
+    lastOpacityTexture_.clear();
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      lastError_ = QStringLiteral("usda: failed to open file");
+      return nullptr;
+    }
+
+    const QString text = QString::fromUtf8(file.readAll());
+    if (!text.contains(QStringLiteral("#usda"))) {
+      lastError_ = QStringLiteral("usda: missing #usda header");
+      return nullptr;
+    }
+
+    const QRegularExpression meshBlockRegex(
+        QStringLiteral(R"(def\s+Mesh\s+"[^"]+"\s*\{([\s\S]*?)\n\})"));
+    const auto meshBlockMatch = meshBlockRegex.match(text);
+    if (!meshBlockMatch.hasMatch()) {
+      lastError_ = QStringLiteral("usda: no Mesh prim found");
+      return nullptr;
+    }
+
+    const QString meshBlock = meshBlockMatch.captured(1);
+    const QRegularExpression pointsRegex(
+        QStringLiteral(R"(point3f\[\]\s+points\s*=\s*\[([\s\S]*?)\])"));
+    const QRegularExpression faceCountsRegex(
+        QStringLiteral(R"(int\[\]\s+faceVertexCounts\s*=\s*\[([\s\S]*?)\])"));
+    const QRegularExpression faceIndicesRegex(
+        QStringLiteral(R"(int\[\]\s+faceVertexIndices\s*=\s*\[([\s\S]*?)\])"));
+    const QRegularExpression normalsRegex(
+        QStringLiteral(R"(normal3f\[\]\s+normals\s*=\s*\[([\s\S]*?)\])"));
+    const QRegularExpression normalInterpolationRegex(
+        QStringLiteral("uniform\\s+token\\s+normals:interpolation\\s*=\\s*\"([^\"]+)\""));
+    const QRegularExpression stRegex(
+        QStringLiteral(R"((?:texCoord2f|float2)\[\]\s+primvars:st\s*=\s*\[([\s\S]*?)\])"));
+    const QRegularExpression stInterpolationRegex(
+        QStringLiteral("uniform\\s+token\\s+primvars:st:interpolation\\s*=\\s*\"([^\"]+)\""));
+
+    const auto pointsMatch = pointsRegex.match(meshBlock);
+    const auto faceCountsMatch = faceCountsRegex.match(meshBlock);
+    const auto faceIndicesMatch = faceIndicesRegex.match(meshBlock);
+    if (!pointsMatch.hasMatch() || !faceCountsMatch.hasMatch() ||
+        !faceIndicesMatch.hasMatch()) {
+      lastError_ = QStringLiteral(
+          "usda: Mesh prim is missing points or face topology arrays");
+      return nullptr;
+    }
+
+    bool pointsOk = false;
+    bool countsOk = false;
+    bool indicesOk = false;
+    const QVector<QVector3D> positions =
+        parseUsdVec3fArray(pointsMatch.captured(1), &pointsOk);
+    const QVector<int> faceCounts =
+        parseUsdIntArray(faceCountsMatch.captured(1), &countsOk);
+    const QVector<int> faceIndices =
+        parseUsdIntArray(faceIndicesMatch.captured(1), &indicesOk);
+    if (!pointsOk || !countsOk || !indicesOk || positions.isEmpty() ||
+        faceCounts.isEmpty() || faceIndices.isEmpty()) {
+      lastError_ = QStringLiteral("usda: failed to parse mesh arrays");
+      return nullptr;
+    }
+
+    QVector<QVector3D> importedNormals;
+    QVector<QVector2D> importedUvs;
+    QString normalsInterpolation;
+    QString stInterpolation;
+
+    const auto normalsMatch = normalsRegex.match(meshBlock);
+    if (normalsMatch.hasMatch()) {
+      bool normalsOk = false;
+      importedNormals = parseUsdVec3fArray(normalsMatch.captured(1), &normalsOk);
+      if (!normalsOk) {
+        lastError_ = QStringLiteral("usda: failed to parse normals");
+        return nullptr;
+      }
+      const auto interpolationMatch = normalInterpolationRegex.match(meshBlock);
+      normalsInterpolation = interpolationMatch.hasMatch()
+                                 ? interpolationMatch.captured(1).trimmed()
+                                 : QStringLiteral("vertex");
+    }
+
+    const auto stMatch = stRegex.match(meshBlock);
+    if (stMatch.hasMatch()) {
+      bool stOk = false;
+      importedUvs = parseUsdVec2fArray(stMatch.captured(1), &stOk);
+      if (!stOk) {
+        lastError_ = QStringLiteral("usda: failed to parse primvars:st");
+        return nullptr;
+      }
+      const auto interpolationMatch = stInterpolationRegex.match(meshBlock);
+      stInterpolation = interpolationMatch.hasMatch()
+                            ? interpolationMatch.captured(1).trimmed()
+                            : QStringLiteral("vertex");
+    }
+
+    int expectedIndexCount = 0;
+    for (int count : faceCounts) {
+      if (count < 3) {
+        lastError_ = QStringLiteral(
+            "usda: faceVertexCounts contains a face with fewer than 3 vertices");
+        return nullptr;
+      }
+      expectedIndexCount += count;
+    }
+    if (expectedIndexCount != faceIndices.size()) {
+      lastError_ = QStringLiteral("usda: face topology array lengths do not match");
+      return nullptr;
+    }
+
+    const bool normalsArePerVertex =
+        !importedNormals.isEmpty() &&
+        importedNormals.size() == positions.size() &&
+        (normalsInterpolation.isEmpty() ||
+         normalsInterpolation == QStringLiteral("vertex") ||
+         normalsInterpolation == QStringLiteral("varying"));
+    const bool normalsAreFaceVarying =
+        !importedNormals.isEmpty() &&
+        importedNormals.size() == faceIndices.size() &&
+        normalsInterpolation == QStringLiteral("faceVarying");
+    const bool uvsArePerVertex =
+        !importedUvs.isEmpty() &&
+        importedUvs.size() == positions.size() &&
+        (stInterpolation.isEmpty() || stInterpolation == QStringLiteral("vertex") ||
+         stInterpolation == QStringLiteral("varying"));
+    const bool uvsAreFaceVarying =
+        !importedUvs.isEmpty() &&
+        importedUvs.size() == faceIndices.size() &&
+        stInterpolation == QStringLiteral("faceVarying");
+    const bool needsFaceVaryingExpansion =
+        normalsAreFaceVarying || uvsAreFaceVarying;
+
+    auto mesh = std::make_shared<Mesh>();
+    const int meshVertexCount = needsFaceVaryingExpansion
+                                    ? faceIndices.size()
+                                    : positions.size();
+    mesh->setVertexCount(meshVertexCount);
+    auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
+    auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
+    std::shared_ptr<MeshAttribute<QVector2D>> uvAttr;
+    if (uvsArePerVertex || uvsAreFaceVarying) {
+      uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    }
+
+    const bool shouldGenerateNormals =
+        (!normalsArePerVertex && !normalsAreFaceVarying);
+    int indexOffset = 0;
+    for (int faceVertexCount : faceCounts) {
+      QVector<int> polygon;
+      QVector<QVector3D> polygonPositions;
+      polygon.reserve(faceVertexCount);
+      polygonPositions.reserve(faceVertexCount);
+
+      for (int i = 0; i < faceVertexCount; ++i) {
+        const int sourceVertexIndex = faceIndices[indexOffset];
+        if (sourceVertexIndex < 0 || sourceVertexIndex >= positions.size()) {
+          lastError_ = QStringLiteral(
+              "usda: faceVertexIndices contains an out-of-range vertex index");
+          return nullptr;
+        }
+
+        const int meshVertexIndex =
+            needsFaceVaryingExpansion ? indexOffset : sourceVertexIndex;
+        polygon.push_back(meshVertexIndex);
+        polygonPositions.push_back(positions[sourceVertexIndex]);
+        (*posAttr)[meshVertexIndex] = positions[sourceVertexIndex];
+
+        if (normalsArePerVertex) {
+          (*normAttr)[meshVertexIndex] = importedNormals[sourceVertexIndex];
+        } else if (normalsAreFaceVarying) {
+          (*normAttr)[meshVertexIndex] = importedNormals[indexOffset];
+        } else {
+          (*normAttr)[meshVertexIndex] = QVector3D(0.0f, 0.0f, 0.0f);
+        }
+
+        if (uvAttr) {
+          if (uvsArePerVertex) {
+            (*uvAttr)[meshVertexIndex] = importedUvs[sourceVertexIndex];
+          } else if (uvsAreFaceVarying) {
+            (*uvAttr)[meshVertexIndex] = importedUvs[indexOffset];
+          } else {
+            (*uvAttr)[meshVertexIndex] = QVector2D(0.0f, 0.0f);
+          }
+        }
+
+        ++indexOffset;
+      }
+
+      if (shouldGenerateNormals) {
+        const QVector3D polygonNormal = computePolygonNormal(polygonPositions);
+        for (int vertexIndex : polygon) {
+          (*normAttr)[vertexIndex] += polygonNormal;
+        }
+      }
+
+      mesh->addPolygon(polygon);
+    }
+
+    if (shouldGenerateNormals) {
+      for (int i = 0; i < normAttr->size(); ++i) {
+        QVector3D normal = (*normAttr)[i];
+        if (normal.lengthSquared() <= 1e-12f) {
+          normal = QVector3D(0.0f, 0.0f, 1.0f);
+        } else {
+          normal.normalize();
+        }
+        (*normAttr)[i] = normal;
+      }
+    }
+
+    mesh->updateBounds();
+    return mesh;
+  }
   std::shared_ptr<Mesh> loadPMD(const QString &path) {
     lastBackend_ = MeshImporter::Backend::PMD;
     lastError_.clear();
@@ -548,6 +912,34 @@ std::shared_ptr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
 
   if (ext == QStringLiteral("pmd") || ext == QStringLiteral("pmx")) {
     return impl_->loadPMD(qpath);
+  }
+
+  if (ext == QStringLiteral("usda")) {
+    return impl_->loadWithUsda(qpath);
+  }
+
+  if (ext == QStringLiteral("usd")) {
+    QFile usdFile(qpath);
+    if (usdFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      const QByteArray header = usdFile.read(64);
+      if (header.contains("#usda")) {
+        return impl_->loadWithUsda(qpath);
+      }
+    }
+    qWarning() << "USD import requested but no binary/OpenUSD runtime is wired into MeshImporter:" << qpath;
+    impl_->lastError_ = QStringLiteral(
+        "USD import for .usd requires either ASCII USDA content or an OpenUSD runtime. "
+        "This build only supports the ASCII USDA subset.");
+    return nullptr;
+  }
+
+  if (ext == QStringLiteral("usdc") || ext == QStringLiteral("usdz")) {
+    qWarning() << "USD import requested but no USD runtime is wired into MeshImporter:" << qpath;
+    impl_->lastError_ = QStringLiteral(
+        "USD import is not wired into this build yet (%1). "
+        "This build currently supports ASCII USDA only; USDC/USDZ still require OpenUSD integration.")
+                            .arg(QStringView{ext});
+    return nullptr;
   }
 
   qWarning() << "Unsupported mesh format:" << ext;

@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <future>
 #include <memory>
@@ -12,6 +12,7 @@
 export module IO.ImageExporter;
 
 import Image.ExportOptions;
+import Image.MultiChannelImage;
 
 export namespace ArtifactCore {
 
@@ -36,6 +37,10 @@ public:
     ImageExportResult write(const QImage& image, const QString& filePath, const ImageExportOptions& options);
     std::future<ImageExportResult> writeAsync(const OIIO::ImageBuf& image, const QString& filePath, const ImageExportOptions& options);
     std::future<ImageExportResult> writeAsync(const QImage& image, const QString& filePath, const ImageExportOptions& options);
+
+    // Multi-channel (AOV) export: writes named channels to EXR / multi-channel formats
+    ImageExportResult writeMultiChannel(const MultiChannelImage& multiImage, const QString& filePath, const ImageExportOptions& options);
+    std::future<ImageExportResult> writeMultiChannelAsync(const MultiChannelImage& multiImage, const QString& filePath, const ImageExportOptions& options);
 
     // Test methods (used in AppMain)
     ImageExportResult testWrite();

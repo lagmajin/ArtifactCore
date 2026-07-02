@@ -27,6 +27,9 @@ enum class ChannelType {
     VelocityY,      //速度 Y
     ObjectId,       //オブジェクトID (Selection/Masking)
     MaterialId,     //マテリアルID
+    AlbedoR,        //アルベド / ベースカラー R
+    AlbedoG,        //アルベド / ベースカラー G
+    AlbedoB,        //アルベド / ベースカラー B
     Emission,       //発光チャンネル
     Custom          //ユーザー定義チャンネル
 };

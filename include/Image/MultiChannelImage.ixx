@@ -247,6 +247,9 @@ inline void MultiChannelImage::copyFrom(const VideoFrame& frame)
   copyIfPresent(ChannelType::VelocityY);
   copyIfPresent(ChannelType::ObjectId);
   copyIfPresent(ChannelType::MaterialId);
+  copyIfPresent(ChannelType::AlbedoR);
+  copyIfPresent(ChannelType::AlbedoG);
+  copyIfPresent(ChannelType::AlbedoB);
   copyIfPresent(ChannelType::Emission);
   copyIfPresent(ChannelType::Custom);
 }

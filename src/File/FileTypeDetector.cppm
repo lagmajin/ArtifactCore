@@ -78,7 +78,8 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
   if (suffix == "obj" || suffix == "fbx" || suffix == "gltf" ||
       suffix == "glb" || suffix == "stl" || suffix == "blend" ||
       suffix == "dae" || suffix == "abc" || suffix == "usd" ||
-      suffix == "usdz" || suffix == "pmd" || suffix == "pmx") {
+      suffix == "usda" || suffix == "usdc" || suffix == "usdz" ||
+      suffix == "pmd" || suffix == "pmx") {
     return FileType::Model3D;
   }
 
@@ -183,8 +184,20 @@ FileType FileTypeDetector::detect(const QString &filePath) const {
   FileType extType = impl_->detectByExtension(filePath);
   FileType magicType = impl_->detectByMagicNumber(filePath);
 
-  // Prefer magic number if not unknown, else use extension
-  if (magicType != FileType::Unknown) {
+  // Preserve known semantic types from the extension. Many 3D and container
+  // formats do not expose a stable magic number and would otherwise regress to
+  // Binary/Text despite the UI intentionally treating them as importable media.
+  switch (extType) {
+  case FileType::Model3D:
+  case FileType::Video:
+  case FileType::Audio:
+  case FileType::Archive:
+    return extType;
+  default:
+    break;
+  }
+
+  if (magicType != FileType::Unknown && magicType != FileType::Binary) {
     return magicType;
   }
   return extType;

@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <QImage>
 #include <QString>
@@ -22,6 +22,7 @@ module IO.ImageExporter;
 
 import Image.ExportOptions;
 import Image.Utils;
+import Image.MultiChannelImage;
 
 namespace ArtifactCore {
 
@@ -309,6 +310,99 @@ std::future<ImageExportResult> ImageExporter::writeAsync(const QImage& image, co
 
     std::thread([this, image, filePath, options, promise]() {
         ImageExportResult result = write(image, filePath, options);
+        promise->set_value(result);
+    }).detach();
+
+    return future;
+}
+
+namespace {
+QString channelTypeToOIIOName(ChannelType type) {
+    switch (type) {
+    case ChannelType::Red: return QStringLiteral("R");
+    case ChannelType::Green: return QStringLiteral("G");
+    case ChannelType::Blue: return QStringLiteral("B");
+    case ChannelType::Alpha: return QStringLiteral("A");
+    case ChannelType::Depth: return QStringLiteral("Depth");
+    case ChannelType::NormalX: return QStringLiteral("Normal.X");
+    case ChannelType::NormalY: return QStringLiteral("Normal.Y");
+    case ChannelType::NormalZ: return QStringLiteral("Normal.Z");
+    case ChannelType::VelocityX: return QStringLiteral("Velocity.X");
+    case ChannelType::VelocityY: return QStringLiteral("Velocity.Y");
+    case ChannelType::ObjectId: return QStringLiteral("ObjectId");
+    case ChannelType::MaterialId: return QStringLiteral("MaterialId");
+    case ChannelType::AlbedoR: return QStringLiteral("Albedo.R");
+    case ChannelType::AlbedoG: return QStringLiteral("Albedo.G");
+    case ChannelType::AlbedoB: return QStringLiteral("Albedo.B");
+    case ChannelType::Emission: return QStringLiteral("Emission");
+    case ChannelType::Custom: return QStringLiteral("Custom");
+    default: return QStringLiteral("Unknown");
+    }
+}
+} // namespace
+
+ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& multiImage, const QString& filePath, const ImageExportOptions& options)
+{
+    using namespace OIIO;
+    if (multiImage.isEmpty()) {
+        return makeError("validate", "MultiChannelImage is empty.");
+    }
+    const int width = multiImage.width();
+    const int height = multiImage.height();
+
+    // Collect enabled channels with their OIIO names
+    const auto types = multiImage.channelTypes();
+    std::vector<QString> channelNames;
+    std::vector<std::shared_ptr<const VideoChannel>> channelData;
+    for (const auto& type : types) {
+        auto ch = multiImage.getChannel(type);
+        if (!ch || !ch->data()) continue;
+        channelNames.push_back(channelTypeToOIIOName(type));
+        channelData.push_back(ch);
+    }
+    if (channelNames.size() < 3) {
+        return makeError("validate", "Need at least 3 channels for multi-channel export.");
+    }
+    const int nch = static_cast<int>(channelNames.size());
+
+    // Create ImageSpec with named channels
+    const TypeDesc writeType = resolveWriteType(filePath, options);
+    ImageSpec spec(width, height, nch, writeType);
+    spec.channelnames.clear();
+    for (int i = 0; i < nch; ++i) {
+        spec.channelnames.push_back(channelNames[i].toStdString());
+    }
+    // Apply compression etc from options
+    if (!options.compression.isEmpty()) {
+        spec.attribute("compression", options.compression.toStdString());
+    }
+    if (options.compressionQuality >= 0) {
+        spec.attribute("CompressionQuality", options.compressionQuality);
+    }
+    spec.set_colorspace(options.colorSpace.toStdString());
+
+    // Build interleaved pixel buffer
+    const size_t pixelCount = static_cast<size_t>(width) * height;
+    std::vector<float> interleaved(pixelCount * nch, 0.0f);
+    for (size_t p = 0; p < pixelCount; ++p) {
+        for (int c = 0; c < nch; ++c) {
+            interleaved[p * nch + c] = channelData[c]->data()[p];
+        }
+    }
+
+    // Wrap in ImageBuf and write
+    ImageBuf imageBuf(spec, interleaved.data());
+    return encodeImageBufToPath(imageBuf, filePath, options);
+}
+
+std::future<ImageExportResult> ImageExporter::writeMultiChannelAsync(const MultiChannelImage& multiImage, const QString& filePath, const ImageExportOptions& options)
+{
+    auto promise = std::make_shared<std::promise<ImageExportResult>>();
+    std::future<ImageExportResult> future = promise->get_future();
+    auto imageCopy = std::make_shared<MultiChannelImage>(multiImage);
+
+    std::thread([this, imageCopy, filePath, options, promise]() {
+        ImageExportResult result = writeMultiChannel(*imageCopy, filePath, options);
         promise->set_value(result);
     }).detach();
 

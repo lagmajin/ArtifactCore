@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
 #include <memory>
@@ -123,3 +123,4 @@ struct AudioLevelData {
  };
 
 } // namespace ArtifactCore
+
