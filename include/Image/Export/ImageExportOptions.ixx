@@ -2,6 +2,7 @@
 #include <utility>
 #include <OpenImageIO/imageio.h>
 #include <OpenImageIO/typedesc.h>
+#include <QMap>
 #include <QString>
 
 export module Image.ExportOptions;
@@ -18,6 +19,7 @@ struct ImageExportOptions {
     int tileHeight = 0;
     QString creator;
     QString copyright;
+    QMap<QString, QString> stringAttributes;
 };
 
 }

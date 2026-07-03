@@ -98,6 +98,7 @@ struct VSInput {
 
 struct PSInput {
     float4 Pos   : SV_Position;
+    float4 PrevPos : TEXCOORD2;
     float3 Normal : NORMAL;
     float2 UV    : TEXCOORD0;
     float Mode   : TEXCOORD1;
@@ -106,6 +107,7 @@ struct PSInput {
 
 struct InstanceData {
     float4x4 transform;
+    float4x4 previousTransform;
     float4 color;
     float weight;
     float timeOffset;
@@ -117,6 +119,8 @@ StructuredBuffer<InstanceData> g_Instances : register(t0);
 cbuffer Constants : register(b0) {
     float4x4 ViewMatrix;
     float4x4 ProjMatrix;
+    float4x4 PrevViewMatrix;
+    float4x4 PrevProjMatrix;
 };
 
 PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
@@ -127,6 +131,9 @@ PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
     float4 worldPos = mul(float4(In.pos, 1.0), inst.transform);
     float4 viewPos = mul(worldPos, ViewMatrix);
     Out.Pos = mul(viewPos, ProjMatrix);
+    float4 prevWorldPos = mul(float4(In.pos, 1.0), inst.previousTransform);
+    float4 prevViewPos = mul(prevWorldPos, PrevViewMatrix);
+    Out.PrevPos = mul(prevViewPos, PrevProjMatrix);
     
     // Transform normal (use upper-left 3x3 of transform)
     float3x3 rotMat = (float3x3)inst.transform;
@@ -178,6 +185,12 @@ float4 PSMain(PSInput In) : SV_Target {
     if (In.Mode > 4.5 && In.Mode < 6.5) {
         return float4(In.Color.rgb, 1.0);
     }
+    if (In.Mode > 6.5 && In.Mode < 7.5) {
+        float2 currNdc = In.Pos.xy / max(In.Pos.w, 1e-5);
+        float2 prevNdc = In.PrevPos.xy / max(In.PrevPos.w, 1e-5);
+        float2 velocity = (currNdc - prevNdc) * float2(0.5, -0.5);
+        return float4(velocity * 0.5 + 0.5, 0.5, 1.0);
+    }
 
     // Simple lighting
     float3 lightDir = normalize(float3(0.5, 0.8, 1.0));
@@ -223,6 +236,16 @@ struct MeshRenderer::Impl {
 MeshRenderer::MeshRenderer(GpuContext& context)
     : context_(context), pImpl_(new Impl())
 {
+    static const float identity[16] = {
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    };
+    transpose4x4(identity, constants_.viewMatrix);
+    transpose4x4(identity, constants_.projMatrix);
+    transpose4x4(identity, constants_.prevViewMatrix);
+    transpose4x4(identity, constants_.prevProjMatrix);
 }
 
 MeshRenderer::~MeshRenderer()
@@ -651,6 +674,16 @@ void MeshRenderer::setViewMatrix(const float* matrix)
 void MeshRenderer::setProjectionMatrix(const float* matrix)
 {
     transpose4x4(matrix, constants_.projMatrix);
+}
+
+void MeshRenderer::setPreviousViewMatrix(const float* matrix)
+{
+    transpose4x4(matrix, constants_.prevViewMatrix);
+}
+
+void MeshRenderer::setPreviousProjectionMatrix(const float* matrix)
+{
+    transpose4x4(matrix, constants_.prevProjMatrix);
 }
 
 void MeshRenderer::setBaseColorTexture(const QString& path)

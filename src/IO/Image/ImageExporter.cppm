@@ -339,6 +339,31 @@ QString channelTypeToOIIOName(ChannelType type) {
     default: return QStringLiteral("Unknown");
     }
 }
+
+void applyStringAttributes(OIIO::ImageSpec& spec,
+                           const ArtifactCore::ImageExportOptions& options) {
+    if (!options.creator.trimmed().isEmpty()) {
+        spec.attribute("Software", options.creator.toStdString());
+    }
+    if (!options.copyright.trimmed().isEmpty()) {
+        spec.attribute("Copyright", options.copyright.toStdString());
+    }
+    for (auto it = options.stringAttributes.constBegin();
+         it != options.stringAttributes.constEnd(); ++it) {
+        if (it.key().trimmed().isEmpty()) {
+            continue;
+        }
+        spec.attribute(it.key().toStdString(), it.value().toStdString());
+    }
+}
+
+bool hasCryptomatteLayer(const ArtifactCore::ImageExportOptions& options,
+                         const QString& standardId)
+{
+    const QString prefix = QStringLiteral("cryptomatte/%1/").arg(standardId);
+    return options.stringAttributes.contains(prefix + QStringLiteral("name")) &&
+           options.stringAttributes.contains(prefix + QStringLiteral("manifest"));
+}
 } // namespace
 
 ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& multiImage, const QString& filePath, const ImageExportOptions& options)
@@ -349,17 +374,59 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
     }
     const int width = multiImage.width();
     const int height = multiImage.height();
+    const size_t pixelCount = static_cast<size_t>(width) * height;
 
     // Collect enabled channels with their OIIO names
     const auto types = multiImage.channelTypes();
     std::vector<QString> channelNames;
     std::vector<std::shared_ptr<const VideoChannel>> channelData;
+    std::vector<int> syntheticChannelIndices;
     for (const auto& type : types) {
         auto ch = multiImage.getChannel(type);
         if (!ch || !ch->data()) continue;
         channelNames.push_back(channelTypeToOIIOName(type));
         channelData.push_back(ch);
+        syntheticChannelIndices.push_back(-1);
     }
+
+    std::vector<std::vector<float>> syntheticStorage;
+    auto appendDraftCryptomatteChannels =
+        [&](ChannelType type, const QString& standardId, const QString& layerName) {
+            if (!hasCryptomatteLayer(options, standardId)) {
+                return;
+            }
+            auto sourceChannel = multiImage.getChannel(type);
+            if (!sourceChannel || !sourceChannel->data() || sourceChannel->size() == 0) {
+                return;
+            }
+
+            constexpr const char* kSuffixes[] = {"R", "G", "B", "A"};
+            for (int component = 0; component < 4; ++component) {
+                syntheticStorage.emplace_back(pixelCount, 0.0f);
+                const int syntheticIndex =
+                    static_cast<int>(syntheticStorage.size()) - 1;
+                auto& dst = syntheticStorage.back();
+                for (std::size_t i = 0; i < pixelCount; ++i) {
+                    if (component == 0) {
+                        dst[i] = sourceChannel->data()[i];
+                    } else if (component == 1) {
+                        dst[i] = sourceChannel->data()[i] > 0.0f ? 1.0f : 0.0f;
+                    }
+                }
+                channelNames.push_back(
+                    QStringLiteral("%1.%2")
+                        .arg(layerName, QString::fromLatin1(kSuffixes[component])));
+                channelData.push_back(std::shared_ptr<const VideoChannel>());
+                syntheticChannelIndices.push_back(syntheticIndex);
+            }
+        };
+    appendDraftCryptomatteChannels(ChannelType::ObjectId,
+                                   QStringLiteral("00000000"),
+                                   QStringLiteral("CryptoObject00"));
+    appendDraftCryptomatteChannels(ChannelType::MaterialId,
+                                   QStringLiteral("00000001"),
+                                   QStringLiteral("CryptoMaterial00"));
+
     if (channelNames.size() < 3) {
         return makeError("validate", "Need at least 3 channels for multi-channel export.");
     }
@@ -380,13 +447,22 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
         spec.attribute("CompressionQuality", options.compressionQuality);
     }
     spec.set_colorspace(options.colorSpace.toStdString());
+    applyStringAttributes(spec, options);
 
     // Build interleaved pixel buffer
-    const size_t pixelCount = static_cast<size_t>(width) * height;
     std::vector<float> interleaved(pixelCount * nch, 0.0f);
     for (size_t p = 0; p < pixelCount; ++p) {
         for (int c = 0; c < nch; ++c) {
-            interleaved[p * nch + c] = channelData[c]->data()[p];
+            if (channelData[c]) {
+                interleaved[p * nch + c] = channelData[c]->data()[p];
+                continue;
+            }
+
+            const int syntheticIndex = syntheticChannelIndices[c];
+            if (syntheticIndex >= 0 &&
+                syntheticIndex < static_cast<int>(syntheticStorage.size())) {
+                interleaved[p * nch + c] = syntheticStorage[syntheticIndex][p];
+            }
         }
     }
 

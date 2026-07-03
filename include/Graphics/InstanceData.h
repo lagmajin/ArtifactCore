@@ -11,10 +11,11 @@ namespace ArtifactCore {
 
 struct InstanceData {
     float transform[16];   // 4x4 matrix, column-major
+    float previousTransform[16]; // Previous frame 4x4 matrix, column-major
     float color[4];        // RGBA
     float weight;          // Effector influence (0.0 - 1.0)
     float timeOffset;      // Time remap offset in seconds
-    float padding[2];     // 16-byte alignment (total 64 bytes)
+    float padding[2];
 };
 
 } // namespace ArtifactCore

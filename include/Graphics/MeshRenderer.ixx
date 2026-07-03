@@ -114,6 +114,8 @@ public:
     // Matrix setters
     void setViewMatrix(const float* matrix);   // float[16]
     void setProjectionMatrix(const float* matrix); // float[16]
+    void setPreviousViewMatrix(const float* matrix); // float[16]
+    void setPreviousProjectionMatrix(const float* matrix); // float[16]
 
 private:
     GpuContext& context_;
@@ -126,6 +128,8 @@ private:
     struct ShaderConstants {
         float viewMatrix[16];
         float projMatrix[16];
+        float prevViewMatrix[16];
+        float prevProjMatrix[16];
     };
     ShaderConstants constants_;
     ArtifactCore::RenderCostStats* frameCostStats_ = nullptr;
