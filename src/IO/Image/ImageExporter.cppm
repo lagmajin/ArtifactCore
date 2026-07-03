@@ -390,6 +390,7 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
     }
 
     std::vector<std::vector<float>> syntheticStorage;
+    const auto alphaChannel = multiImage.getChannel(ChannelType::Alpha);
     auto appendDraftCryptomatteChannels =
         [&](ChannelType type, const QString& standardId, const QString& layerName) {
             if (!hasCryptomatteLayer(options, standardId)) {
@@ -410,7 +411,12 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
                     if (component == 0) {
                         dst[i] = sourceChannel->data()[i];
                     } else if (component == 1) {
-                        dst[i] = sourceChannel->data()[i] > 0.0f ? 1.0f : 0.0f;
+                        const float coverage =
+                            (alphaChannel && alphaChannel->data() &&
+                             alphaChannel->size() > i)
+                                ? std::clamp(alphaChannel->data()[i], 0.0f, 1.0f)
+                                : (sourceChannel->data()[i] > 0.0f ? 1.0f : 0.0f);
+                        dst[i] = sourceChannel->data()[i] > 0.0f ? coverage : 0.0f;
                     }
                 }
                 channelNames.push_back(

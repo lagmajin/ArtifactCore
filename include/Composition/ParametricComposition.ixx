@@ -78,6 +78,25 @@ struct ParametricCompositionParameter {
     static ParametricCompositionParameter fromJson(const QJsonObject& obj);
 };
 
+struct ParametricCompositionPublishedControl {
+    QString controlId;
+    QString sourceParameterKey;
+    QString displayName;
+    QString group;
+    int order = 0;
+    QString valueType;
+    QVariant defaultValue;
+    QVariant minimumValue;
+    QVariant maximumValue;
+    QStringList enumChoices;
+    bool readOnly = false;
+    bool hidden = false;
+    bool required = false;
+
+    QJsonObject toJson() const;
+    static ParametricCompositionPublishedControl fromJson(const QJsonObject& obj);
+};
+
 struct ParametricCompositionInputBinding {
     ParametricCompositionSlotKind kind = ParametricCompositionSlotKind::SourceLayer;
     bool connected = false;
@@ -149,6 +168,17 @@ struct ParametricCompositionBundle {
     static ParametricCompositionBundle fromJson(const QJsonObject& obj);
 };
 
+struct ParametricCompositionDataBinding {
+    QString columnKey;
+    QString targetParameterKey;
+    QString targetPublishedControlId;
+    QVariant fallbackValue;
+    bool enabled = true;
+
+    QJsonObject toJson() const;
+    static ParametricCompositionDataBinding fromJson(const QJsonObject& obj);
+};
+
 QJsonObject parametricCompositionBundleToCompositionJson(const ParametricCompositionBundle& bundle);
 
 class ParametricCompositionDefinition;
@@ -184,6 +214,8 @@ public:
     const ParametricCompositionSlot* slot(const QString& slotId) const;
     bool hasSlot(const QString& slotId) const;
     const QVector<ParametricCompositionParameter>& parameters() const;
+    const QVector<ParametricCompositionPublishedControl>& publishedControls() const;
+    const QVector<ParametricCompositionDataBinding>& dataBindings() const;
 
     bool addSlot(const ParametricCompositionSlot& slot);
     bool setSlot(const ParametricCompositionSlot& slot);
@@ -195,6 +227,14 @@ public:
     bool removeParameter(const QString& key);
     bool hasParameter(const QString& key) const;
     const ParametricCompositionParameter* parameter(const QString& key) const;
+    bool addPublishedControl(const ParametricCompositionPublishedControl& control);
+    bool setPublishedControl(const ParametricCompositionPublishedControl& control);
+    bool removePublishedControl(const QString& controlId);
+    bool hasPublishedControl(const QString& controlId) const;
+    const ParametricCompositionPublishedControl* publishedControl(const QString& controlId) const;
+    bool addDataBinding(const ParametricCompositionDataBinding& binding);
+    bool setDataBinding(const ParametricCompositionDataBinding& binding);
+    bool removeDataBinding(const QString& columnKey);
 
     bool validate(QString* errorMessage = nullptr) const;
 
@@ -206,6 +246,8 @@ private:
     QString displayName_;
     QVector<ParametricCompositionSlot> slots_;
     QVector<ParametricCompositionParameter> parameters_;
+    QVector<ParametricCompositionPublishedControl> publishedControls_;
+    QVector<ParametricCompositionDataBinding> dataBindings_;
 };
 
 class ParametricCompositionInstance {
@@ -229,6 +271,11 @@ public:
     void setParameterOverride(const QString& key, const QVariant& value);
     void clearParameterOverride(const QString& key);
     const QMap<QString, QVariant>& parameterOverrides() const;
+    QVariant publishedControlValue(const QString& controlId, const QVariant& fallback = QVariant()) const;
+    void setPublishedControlOverride(const QString& controlId, const QVariant& value);
+    void clearPublishedControlOverride(const QString& controlId);
+    void applyDataRow(const QVariantMap& rowValues);
+    QVariantMap dataRowValues() const;
 
     QMap<QString, QVariant> resolvedParameters() const;
     QByteArray parameterHash() const;
@@ -265,6 +312,7 @@ private:
     std::shared_ptr<const ParametricCompositionDefinition> definition_;
     QVector<ParametricCompositionInputBinding> inputBindings_;
     QMap<QString, QVariant> parameterOverrides_;
+    QVariantMap dataRowValues_;
 };
 
 } // namespace ArtifactCore

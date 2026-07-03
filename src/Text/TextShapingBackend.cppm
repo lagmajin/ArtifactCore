@@ -192,6 +192,21 @@ bool isPunctuationCodepoint(const char32_t code)
   }
 }
 
+bool isHangingPunctuationCodepoint(const char32_t code)
+{
+  switch (code) {
+  case U'。':
+  case U'、':
+  case U'，':
+  case U'．':
+  case U',':
+  case U'.':
+    return true;
+  default:
+    return false;
+  }
+}
+
 bool isBracketCodepoint(const char32_t code)
 {
   switch (code) {
@@ -234,6 +249,147 @@ bool isJapaneseBracket(const char32_t code)
 {
   return code == U'「' || code == U'」' || code == U'『' || code == U'』' ||
          code == U'【' || code == U'】';
+}
+
+bool isJapaneseMiddleDotLikeCodepoint(const char32_t code)
+{
+  return code == U'・' || code == U'：' || code == U'；' || code == U':' ||
+         code == U';';
+}
+
+bool isJapaneseSmallKanaCodepoint(const char32_t code)
+{
+  switch (code) {
+  case U'ぁ':
+  case U'ぃ':
+  case U'ぅ':
+  case U'ぇ':
+  case U'ぉ':
+  case U'っ':
+  case U'ゃ':
+  case U'ゅ':
+  case U'ょ':
+  case U'ゎ':
+  case U'ァ':
+  case U'ィ':
+  case U'ゥ':
+  case U'ェ':
+  case U'ォ':
+  case U'ッ':
+  case U'ャ':
+  case U'ュ':
+  case U'ョ':
+  case U'ヮ':
+    return true;
+  default:
+    return false;
+  }
+}
+
+struct BreakPolicy {
+  bool breakBeforeAllowed = true;
+  bool breakAfterAllowed = true;
+  bool hangingAllowed = false;
+  bool keepWithPreviousInVerticalFlow = false;
+};
+
+bool isCjkCodepoint(const char32_t code)
+{
+  return (code >= 0x3040 && code <= 0x30FF) ||
+         (code >= 0x3400 && code <= 0x9FFF) ||
+         (code >= 0xF900 && code <= 0xFAFF) ||
+         (code >= 0xFF00 && code <= 0xFFEF);
+}
+
+bool localeStartsWith(const QString& locale, const QString& prefix)
+{
+  return locale.startsWith(prefix, Qt::CaseInsensitive);
+}
+
+bool isJapaneseLocale(const QString& locale)
+{
+  return localeStartsWith(locale, QStringLiteral("ja"));
+}
+
+bool isChineseLocale(const QString& locale)
+{
+  return localeStartsWith(locale, QStringLiteral("zh"));
+}
+
+bool isKinsokuForbiddenLineStartForJapanese(const char32_t code)
+{
+  return isPunctuationCodepoint(code) || isClosingBracketCodepoint(code) ||
+         isJapaneseSmallKanaCodepoint(code) || code == U'ー' || code == U'〜' ||
+         code == U'…' || code == U'―';
+}
+
+bool isKinsokuForbiddenLineStartForChinese(const char32_t code)
+{
+  return isPunctuationCodepoint(code) || isClosingBracketCodepoint(code);
+}
+
+bool isKinsokuForbiddenLineEndForCjk(const char32_t code)
+{
+  return isOpeningBracketCodepoint(code);
+}
+
+bool allowsHangingPunctuationForCjk(const char32_t code)
+{
+  return isHangingPunctuationCodepoint(code);
+}
+
+BreakPolicy breakPolicyForCodepoint(const char32_t code,
+                                    const QString& locale)
+{
+  Q_UNUSED(locale);
+
+  BreakPolicy policy;
+  const QString script = scriptTagForCodepoint(code);
+  const bool cjk = isCjkCodepoint(code) || script == QStringLiteral("Hani");
+
+  if (cjk) {
+    const bool japaneseLocale = isJapaneseLocale(locale);
+    const bool chineseLocale = isChineseLocale(locale);
+    const bool forbiddenLineStart =
+        japaneseLocale ? isKinsokuForbiddenLineStartForJapanese(code)
+                       : (chineseLocale ? isKinsokuForbiddenLineStartForChinese(code)
+                                        : (isPunctuationCodepoint(code) ||
+                                           isClosingBracketCodepoint(code) ||
+                                           isJapaneseSmallKanaCodepoint(code)));
+    policy.breakBeforeAllowed = !forbiddenLineStart;
+    policy.breakAfterAllowed = !isKinsokuForbiddenLineEndForCjk(code);
+    policy.hangingAllowed = allowsHangingPunctuationForCjk(code);
+    policy.keepWithPreviousInVerticalFlow = forbiddenLineStart;
+    return policy;
+  }
+
+  if (script == QStringLiteral("Thai") || script == QStringLiteral("Deva") ||
+      script == QStringLiteral("Beng") || script == QStringLiteral("Guru") ||
+      script == QStringLiteral("Gujr") || script == QStringLiteral("Orya") ||
+      script == QStringLiteral("Taml") || script == QStringLiteral("Telu") ||
+      script == QStringLiteral("Knda") || script == QStringLiteral("Mlym") ||
+      script == QStringLiteral("Sinh") || script == QStringLiteral("Khmr") ||
+      script == QStringLiteral("Mymr") || script == QStringLiteral("Laoo") ||
+      script == QStringLiteral("Tibt")) {
+    policy.keepWithPreviousInVerticalFlow = false;
+    policy.hangingAllowed = false;
+    return policy;
+  }
+
+  if (script == QStringLiteral("Arab") || script == QStringLiteral("Hebr") ||
+      script == QStringLiteral("Rtl")) {
+    policy.breakBeforeAllowed = !isClosingBracketCodepoint(code);
+    policy.breakAfterAllowed = !isOpeningBracketCodepoint(code);
+    policy.hangingAllowed = false;
+    policy.keepWithPreviousInVerticalFlow = !policy.breakBeforeAllowed;
+    return policy;
+  }
+
+  policy.breakBeforeAllowed = !isClosingBracketCodepoint(code);
+  policy.breakAfterAllowed = !isOpeningBracketCodepoint(code);
+  policy.hangingAllowed = isHangingPunctuationCodepoint(code);
+  policy.keepWithPreviousInVerticalFlow = !policy.breakBeforeAllowed;
+  return policy;
 }
 
 float verticalRotationForCodepoint(const char32_t code)
@@ -324,6 +480,8 @@ TextLayoutContract buildContract(const QString& text,
 
   for (int i = 0; i < static_cast<int>(u32text.size()); ++i) {
     const char32_t code = u32text[static_cast<size_t>(i)];
+    const BreakPolicy breakPolicy =
+        breakPolicyForCodepoint(code, request.locale);
     if (code == U'\r') {
       flushScriptRun(i);
       flushLineRun(i, request.writingMode == TextWritingMode::Vertical);
@@ -376,7 +534,7 @@ TextLayoutContract buildContract(const QString& text,
           .logicalStart = i,
           .logicalLength = 1,
           .kind = QStringLiteral("punctuation"),
-          .hangingAllowed = true,
+          .hangingAllowed = breakPolicy.hangingAllowed,
           .rotateInVertical = !isJapaneseVerticalPunctuation(code),
       });
     }
@@ -391,9 +549,8 @@ TextLayoutContract buildContract(const QString& text,
     contract.kinsokuBoundaryInfos.push_back(TextKinsokuBoundaryInfo{
         .logicalStart = i,
         .logicalLength = 1,
-        .breakBeforeAllowed = !isPunctuationCodepoint(code) &&
-                              !isClosingBracketCodepoint(code),
-        .breakAfterAllowed = !isOpeningBracketCodepoint(code),
+        .breakBeforeAllowed = breakPolicy.breakBeforeAllowed,
+        .breakAfterAllowed = breakPolicy.breakAfterAllowed,
     });
   }
   flushScriptRun(static_cast<int>(u32text.size()));
@@ -424,6 +581,32 @@ TextLayoutContract buildContract(const QString& text,
       } else {
         ++i;
       }
+    }
+  }
+  contract.kinsokuViolationCount = 0;
+  for (TextLineRun& lineRun : contract.lineRuns) {
+    lineRun.startsWithKinsokuForbidden = false;
+    lineRun.endsWithKinsokuForbidden = false;
+    if (lineRun.logicalLength <= 0) {
+      continue;
+    }
+
+    const int start = lineRun.logicalStart;
+    const int end = lineRun.logicalStart + lineRun.logicalLength - 1;
+    if (start >= 0 && start < static_cast<int>(u32text.size())) {
+      const BreakPolicy startPolicy = breakPolicyForCodepoint(
+          u32text[static_cast<size_t>(start)], request.locale);
+      lineRun.startsWithKinsokuForbidden = !startPolicy.breakBeforeAllowed;
+    }
+    if (end >= 0 && end < static_cast<int>(u32text.size())) {
+      const BreakPolicy endPolicy = breakPolicyForCodepoint(
+          u32text[static_cast<size_t>(end)], request.locale);
+      lineRun.endsWithKinsokuForbidden = !endPolicy.breakAfterAllowed;
+    }
+
+    if (lineRun.startsWithKinsokuForbidden ||
+        lineRun.endsWithKinsokuForbidden) {
+      ++contract.kinsokuViolationCount;
     }
   }
   return contract;
@@ -707,7 +890,8 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
 
 std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
                                                       const QFont& font,
-                                                      const ParagraphStyle& paragraph)
+                                                      const ParagraphStyle& paragraph,
+                                                      const QString& locale)
 {
   std::vector<GlyphItem> result;
   if (text.isEmpty()) {
@@ -728,6 +912,7 @@ std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
   int columnIndex = 0;
   for (size_t i = 0; i < u32text.size(); ++i) {
     const char32_t code = u32text[i];
+    const BreakPolicy breakPolicy = breakPolicyForCodepoint(code, locale);
     if (isLineBreak(code)) {
       ++columnIndex;
       x = -static_cast<float>(columnIndex) * columnAdvance;
@@ -748,16 +933,24 @@ std::vector<GlyphItem> layoutVerticalWithQtTextLayout(const QString& text,
     const QString sample = QString::fromUcs4(&code, 1);
     const float glyphHeight = static_cast<float>(std::max<qreal>(lineHeight, metrics.height()));
     const float glyphWidth = static_cast<float>(std::max<qreal>(metrics.horizontalAdvance(sample), metrics.horizontalAdvance(QStringLiteral(" "))));
-    const bool punctuation = isPunctuationCodepoint(code);
-    const bool bracket = isBracketCodepoint(code);
-    const float rotation = verticalRotationForCodepoint(code);
-    const float boxWidth = punctuation
-                               ? (isJapaneseVerticalPunctuation(code) ? glyphWidth : glyphWidth * 0.9f)
-                               : (bracket ? glyphWidth * 0.95f : glyphWidth);
+      const bool punctuation = isPunctuationCodepoint(code);
+      const bool bracket = isBracketCodepoint(code);
+      const float rotation = verticalRotationForCodepoint(code);
+      const float boxWidth = punctuation
+                               ? (isJapaneseVerticalPunctuation(code)
+                                      ? glyphWidth
+                                      : (breakPolicy.hangingAllowed
+                                             ? glyphWidth * 0.82f
+                                             : glyphWidth * 0.9f))
+                               : (bracket ? glyphWidth * 0.95f
+                                          : (isJapaneseMiddleDotLikeCodepoint(code)
+                                                 ? glyphWidth * 0.9f
+                                                 : glyphWidth));
 
     if (y + glyphHeight > boxHeight && y > 0.0f) {
-      if (isPunctuationCodepoint(code) || isClosingBracketCodepoint(code)) {
-        // Kinsoku fallback: keep forbidden line-start characters in the current column.
+      if (breakPolicy.keepWithPreviousInVerticalFlow) {
+        // Kinsoku fallback: keep line-start-forbidden characters in the
+        // current column when possible.
       } else {
         ++columnIndex;
         x = -static_cast<float>(columnIndex) * columnAdvance;
@@ -915,7 +1108,8 @@ TextShapingResult QtShapingBackend::shape(const TextShapingRequest& request)
   const QFont font = FontManager::makeFont(request.style, qText);
   std::vector<GlyphItem> glyphs =
       request.writingMode == TextWritingMode::Vertical
-          ? layoutVerticalWithQtTextLayout(qText, font, request.paragraph)
+          ? layoutVerticalWithQtTextLayout(qText, font, request.paragraph,
+                                           request.locale)
           : layoutWithQtTextLayout(qText, font, request.paragraph);
   if (request.writingMode == TextWritingMode::Vertical) {
     appendRubyOverlays(glyphs, request, font);

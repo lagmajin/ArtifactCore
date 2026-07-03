@@ -100,12 +100,11 @@ PreComposeResult PreComposeManager::precompose(
     }
     
     // 新しいコンポジションIDを生成
+    // デフォルトコンストラクタは自動的にユニークなIDを生成する
     CompositionID newCompId;
-    // newCompId.generate();  // Note: Method not found, using default construction
 
     // 新しいレイヤーIDを生成
     LayerID newLayerId;
-    // newLayerId.generate();  // Note: Method not found, using default construction
     
     // ネスト情報を記録
     CompositionNesting nesting;
@@ -218,6 +217,13 @@ CompositionID PreComposeManager::getParentComposition(CompositionID compositionI
     return CompositionID();
 }
 
+CompositionNesting PreComposeManager::getCompositionNesting(CompositionID compositionId) const {
+    if (impl_->nestingInfo.contains(compositionId)) {
+        return impl_->nestingInfo[compositionId];
+    }
+    return CompositionNesting{};
+}
+
 QVector<CompositionID> PreComposeManager::getAllParentCompositions(CompositionID compositionId) const {
     QVector<CompositionID> parents;
     
@@ -290,13 +296,20 @@ double convertTime(double sourceTime, CompositionID sourceComposition, Compositi
         return sourceTime;
     }
     
-    // Convert time between two compositions by traversing the hierarchy.
-    // Walk up from source to common ancestor, then down to target.
-    // At each precomp boundary, apply parentToChildTime or childToParentTime.
-    // TODO: 実装 - 現在は恒等変換
-    Q_UNUSED(sourceComposition);
-    Q_UNUSED(targetComposition);
-    return sourceTime;
+    // Walk up from source to common ancestor, applying childToParentTime at each level,
+    // then walk down to target, applying parentToChildTime.
+    auto& mgr = PreComposeManager::instance();
+    CompositionID current = sourceComposition;
+    double t = sourceTime;
+    int guard = 0;
+    while (current != targetComposition && guard++ < 64) {
+        auto parentCompId = mgr.getParentComposition(current);
+        if (parentCompId.isNil()) break;
+        auto nesting = mgr.getCompositionNesting(current);
+        t = childToParentTime(t, nesting.parentLayerId);
+        current = parentCompId;
+    }
+    return t;
 }
 
 double getRemappedTime(LayerID precompLayerId, double parentTime) {

@@ -33,8 +33,10 @@ export struct GlyphItem {
 
   bool hasColorOverride = false;
   FloatRGBA fillColorOverride;
+  float fillColorOverrideWeight = 1.0f;
   bool hasStrokeOverride = false;
   FloatRGBA strokeColorOverride;
+  float strokeColorOverrideWeight = 1.0f;
   float offsetStrokeWidth = 0.0f;
   float offsetBlur = 0.0f;
 
@@ -86,6 +88,8 @@ export struct TextLineRun {
   int visualOrder = 0;
   int lineIndex = 0;
   bool isVerticalColumn = false;
+  bool startsWithKinsokuForbidden = false;
+  bool endsWithKinsokuForbidden = false;
 };
 
 export struct TextRubyAttachment {
@@ -136,6 +140,7 @@ export struct TextLayoutContract {
   QVector<TextPunctuationRun> punctuationRuns;
   QVector<TextBracketOrientationRun> bracketOrientationRuns;
   QVector<TextKinsokuBoundaryInfo> kinsokuBoundaryInfos;
+  int kinsokuViolationCount = 0;
 };
 
 } // namespace ArtifactCore

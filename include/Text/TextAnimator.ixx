@@ -1,6 +1,7 @@
 ﻿module;
 #include <QPointF>
 #include <QString>
+#include <QVector>
 #include <algorithm>
 #include <cmath>
 #include <span>
@@ -67,6 +68,24 @@ export struct RangeSelector {
   float easeLow = 0.0f;
 };
 
+export enum class TextSelectorOrder {
+  Logical,
+  Visual
+};
+
+export struct SelectorEvaluationContext {
+  QString sourceText;
+  std::span<const GlyphItem> glyphs;
+  TextSelectorOrder order = TextSelectorOrder::Logical;
+};
+
+export struct SelectorResult {
+  SelectorUnits units = SelectorUnits::Percentage;
+  TextSelectorOrder order = TextSelectorOrder::Logical;
+  QVector<float> weights;
+  QString diagnostic;
+};
+
 // ウィグリーセレクター（ランダムに動かす）
 export struct WigglySelector {
   bool enabled = false;
@@ -99,6 +118,10 @@ export struct AnimatorProperties {
 
 export class TextAnimatorEngine {
 public:
+  static SelectorResult evaluateSelector(
+      const SelectorEvaluationContext &context,
+      const RangeSelector &selector);
+
   static float calculateWeight(int index, int totalCount,
                                const RangeSelector &selector);
 
@@ -122,7 +145,9 @@ public:
   static void applyAnimator(std::vector<GlyphItem> &glyphs,
                             const RangeSelector &selector,
                             const WigglySelector &wiggly,
-                            const AnimatorProperties &props, float time);
+                            const AnimatorProperties &props,
+                            float time,
+                            std::span<const float> extraWeights = {});
 
   // 複数アニメーター合成版 (後方互換 100%)
   static void applyAnimatorStack(
@@ -130,7 +155,17 @@ public:
       std::span<
           const std::tuple<RangeSelector, WigglySelector, AnimatorProperties>>
           stack,
-      float time);
+      float time,
+      std::span<const float> extraWeights = {});
+
+  static void applyAnimatorStack(
+      std::vector<GlyphItem> &glyphs,
+      std::span<
+          const std::tuple<RangeSelector, WigglySelector, AnimatorProperties>>
+          stack,
+      float time,
+      const QString &sourceText,
+      std::span<const float> extraWeights = {});
 };
 
 } // namespace ArtifactCore

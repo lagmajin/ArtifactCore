@@ -125,6 +125,69 @@ ParametricCompositionParameter ParametricCompositionParameter::fromJson(const QJ
     return parameter;
 }
 
+QJsonObject ParametricCompositionPublishedControl::toJson() const
+{
+    QJsonObject obj;
+    obj.insert(QStringLiteral("controlId"), controlId);
+    obj.insert(QStringLiteral("sourceParameterKey"), sourceParameterKey);
+    obj.insert(QStringLiteral("displayName"), displayName);
+    obj.insert(QStringLiteral("group"), group);
+    obj.insert(QStringLiteral("order"), order);
+    obj.insert(QStringLiteral("valueType"), valueType);
+    obj.insert(QStringLiteral("defaultValue"), jsonValueFromVariant(defaultValue));
+    obj.insert(QStringLiteral("minimumValue"), jsonValueFromVariant(minimumValue));
+    obj.insert(QStringLiteral("maximumValue"), jsonValueFromVariant(maximumValue));
+    obj.insert(QStringLiteral("enumChoices"), QJsonArray::fromStringList(enumChoices));
+    obj.insert(QStringLiteral("readOnly"), readOnly);
+    obj.insert(QStringLiteral("hidden"), hidden);
+    obj.insert(QStringLiteral("required"), required);
+    return obj;
+}
+
+ParametricCompositionPublishedControl ParametricCompositionPublishedControl::fromJson(const QJsonObject& obj)
+{
+    ParametricCompositionPublishedControl control;
+    control.controlId = obj.value(QStringLiteral("controlId")).toString();
+    control.sourceParameterKey = obj.value(QStringLiteral("sourceParameterKey")).toString();
+    control.displayName = obj.value(QStringLiteral("displayName")).toString();
+    control.group = obj.value(QStringLiteral("group")).toString();
+    control.order = obj.value(QStringLiteral("order")).toInt(0);
+    control.valueType = obj.value(QStringLiteral("valueType")).toString();
+    control.defaultValue = variantFromJsonValue(obj.value(QStringLiteral("defaultValue")));
+    control.minimumValue = variantFromJsonValue(obj.value(QStringLiteral("minimumValue")));
+    control.maximumValue = variantFromJsonValue(obj.value(QStringLiteral("maximumValue")));
+    const QJsonArray enumChoices = obj.value(QStringLiteral("enumChoices")).toArray();
+    for (const auto& value : enumChoices) {
+        control.enumChoices.append(value.toString());
+    }
+    control.readOnly = obj.value(QStringLiteral("readOnly")).toBool(false);
+    control.hidden = obj.value(QStringLiteral("hidden")).toBool(false);
+    control.required = obj.value(QStringLiteral("required")).toBool(false);
+    return control;
+}
+
+QJsonObject ParametricCompositionDataBinding::toJson() const
+{
+    QJsonObject obj;
+    obj.insert(QStringLiteral("columnKey"), columnKey);
+    obj.insert(QStringLiteral("targetParameterKey"), targetParameterKey);
+    obj.insert(QStringLiteral("targetPublishedControlId"), targetPublishedControlId);
+    obj.insert(QStringLiteral("fallbackValue"), jsonValueFromVariant(fallbackValue));
+    obj.insert(QStringLiteral("enabled"), enabled);
+    return obj;
+}
+
+ParametricCompositionDataBinding ParametricCompositionDataBinding::fromJson(const QJsonObject& obj)
+{
+    ParametricCompositionDataBinding binding;
+    binding.columnKey = obj.value(QStringLiteral("columnKey")).toString();
+    binding.targetParameterKey = obj.value(QStringLiteral("targetParameterKey")).toString();
+    binding.targetPublishedControlId = obj.value(QStringLiteral("targetPublishedControlId")).toString();
+    binding.fallbackValue = variantFromJsonValue(obj.value(QStringLiteral("fallbackValue")));
+    binding.enabled = obj.value(QStringLiteral("enabled")).toBool(true);
+    return binding;
+}
+
 ParametricCompositionInputBinding ParametricCompositionInputBinding::fromSourceLayer(
     const LayerID& layerId,
     const QString& slot,
@@ -421,6 +484,16 @@ const QVector<ParametricCompositionParameter>& ParametricCompositionDefinition::
     return parameters_;
 }
 
+const QVector<ParametricCompositionPublishedControl>& ParametricCompositionDefinition::publishedControls() const
+{
+    return publishedControls_;
+}
+
+const QVector<ParametricCompositionDataBinding>& ParametricCompositionDefinition::dataBindings() const
+{
+    return dataBindings_;
+}
+
 bool ParametricCompositionDefinition::addSlot(const ParametricCompositionSlot& slot)
 {
     if (slot.slotId.isEmpty()) {
@@ -517,6 +590,101 @@ const ParametricCompositionParameter* ParametricCompositionDefinition::parameter
     return nullptr;
 }
 
+bool ParametricCompositionDefinition::addPublishedControl(const ParametricCompositionPublishedControl& control)
+{
+    if (control.controlId.isEmpty() || control.sourceParameterKey.isEmpty()) {
+        return false;
+    }
+    for (const auto& existing : publishedControls_) {
+        if (existing.controlId == control.controlId) {
+            return false;
+        }
+    }
+    publishedControls_.append(control);
+    return true;
+}
+
+bool ParametricCompositionDefinition::setPublishedControl(const ParametricCompositionPublishedControl& control)
+{
+    if (control.controlId.isEmpty() || control.sourceParameterKey.isEmpty()) {
+        return false;
+    }
+    for (auto& existing : publishedControls_) {
+        if (existing.controlId == control.controlId) {
+            existing = control;
+            return true;
+        }
+    }
+    publishedControls_.append(control);
+    return true;
+}
+
+bool ParametricCompositionDefinition::removePublishedControl(const QString& controlId)
+{
+    for (auto it = publishedControls_.begin(); it != publishedControls_.end(); ++it) {
+        if (it->controlId == controlId) {
+            publishedControls_.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ParametricCompositionDefinition::hasPublishedControl(const QString& controlId) const
+{
+    return publishedControl(controlId) != nullptr;
+}
+
+const ParametricCompositionPublishedControl* ParametricCompositionDefinition::publishedControl(const QString& controlId) const
+{
+    for (const auto& item : publishedControls_) {
+        if (item.controlId == controlId) {
+            return &item;
+        }
+    }
+    return nullptr;
+}
+
+bool ParametricCompositionDefinition::addDataBinding(const ParametricCompositionDataBinding& binding)
+{
+    if (binding.columnKey.isEmpty()) {
+        return false;
+    }
+    for (const auto& existing : dataBindings_) {
+        if (existing.columnKey == binding.columnKey) {
+            return false;
+        }
+    }
+    dataBindings_.append(binding);
+    return true;
+}
+
+bool ParametricCompositionDefinition::setDataBinding(const ParametricCompositionDataBinding& binding)
+{
+    if (binding.columnKey.isEmpty()) {
+        return false;
+    }
+    for (auto& existing : dataBindings_) {
+        if (existing.columnKey == binding.columnKey) {
+            existing = binding;
+            return true;
+        }
+    }
+    dataBindings_.append(binding);
+    return true;
+}
+
+bool ParametricCompositionDefinition::removeDataBinding(const QString& columnKey)
+{
+    for (auto it = dataBindings_.begin(); it != dataBindings_.end(); ++it) {
+        if (it->columnKey == columnKey) {
+            dataBindings_.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ParametricCompositionDefinition::validate(QString* errorMessage) const
 {
     if (definitionId_.isEmpty()) {
@@ -581,6 +749,48 @@ bool ParametricCompositionDefinition::validate(QString* errorMessage) const
         }
         seenParameters.insert(parameterItem.key, true);
     }
+    QMap<QString, bool> seenControls;
+    for (const auto& controlItem : publishedControls_) {
+        if (controlItem.controlId.isEmpty()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("ParametricComposition published controlId cannot be empty.");
+            }
+            return false;
+        }
+        if (controlItem.sourceParameterKey.isEmpty()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Published control sourceParameterKey cannot be empty.");
+            }
+            return false;
+        }
+        if (seenControls.contains(controlItem.controlId)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Duplicate ParametricComposition published controlId: %1").arg(controlItem.controlId);
+            }
+            return false;
+        }
+        if (!seenParameters.contains(controlItem.sourceParameterKey)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Published control sourceParameterKey not found: %1").arg(controlItem.sourceParameterKey);
+            }
+            return false;
+        }
+        seenControls.insert(controlItem.controlId, true);
+    }
+    for (const auto& binding : dataBindings_) {
+        if (binding.columnKey.isEmpty()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("ParametricComposition data binding columnKey cannot be empty.");
+            }
+            return false;
+        }
+        if (binding.targetParameterKey.isEmpty() && binding.targetPublishedControlId.isEmpty()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("ParametricComposition data binding needs a target.");
+            }
+            return false;
+        }
+    }
     return true;
 }
 
@@ -602,6 +812,17 @@ QJsonObject ParametricCompositionDefinition::toJson() const
         params.append(parameter.toJson());
     }
     obj.insert(QStringLiteral("parameters"), params);
+
+    QJsonArray publishedControls;
+    for (const auto& control : publishedControls_) {
+        publishedControls.append(control.toJson());
+    }
+    obj.insert(QStringLiteral("publishedControls"), publishedControls);
+    QJsonArray dataBindings;
+    for (const auto& binding : dataBindings_) {
+        dataBindings.append(binding.toJson());
+    }
+    obj.insert(QStringLiteral("dataBindings"), dataBindings);
     return obj;
 }
 
@@ -626,6 +847,20 @@ ParametricCompositionDefinition ParametricCompositionDefinition::fromJson(const 
             definition.parameters_.append(ParametricCompositionParameter::fromJson(paramValue.toObject()));
         }
     }
+
+    const QJsonArray publishedControls = obj.value(QStringLiteral("publishedControls")).toArray();
+    for (const auto& controlValue : publishedControls) {
+        if (controlValue.isObject()) {
+            definition.publishedControls_.append(ParametricCompositionPublishedControl::fromJson(controlValue.toObject()));
+        }
+    }
+    const QJsonArray dataBindings = obj.value(QStringLiteral("dataBindings")).toArray();
+    for (const auto& bindingValue : dataBindings) {
+        if (bindingValue.isObject()) {
+            definition.dataBindings_.append(ParametricCompositionDataBinding::fromJson(bindingValue.toObject()));
+        }
+    }
+
     if (definition.slots_.isEmpty() && obj.contains(QStringLiteral("templateSlots"))) {
         const QJsonObject templateSlots = obj.value(QStringLiteral("templateSlots")).toObject();
         const auto slotsArray = templateSlotsObjectToArray(templateSlots);
@@ -746,6 +981,72 @@ void ParametricCompositionInstance::clearParameterOverride(const QString& key)
 const QMap<QString, QVariant>& ParametricCompositionInstance::parameterOverrides() const
 {
     return parameterOverrides_;
+}
+
+QVariant ParametricCompositionInstance::publishedControlValue(const QString& controlId, const QVariant& fallback) const
+{
+    if (!definition_) {
+        return fallback;
+    }
+    const auto* control = definition_->publishedControl(controlId);
+    if (!control) {
+        return fallback;
+    }
+    const QVariant controlFallback = control->defaultValue.isValid() ? control->defaultValue : fallback;
+    return parameterValue(control->sourceParameterKey, controlFallback);
+}
+
+void ParametricCompositionInstance::setPublishedControlOverride(const QString& controlId, const QVariant& value)
+{
+    if (!definition_) {
+        return;
+    }
+    const auto* control = definition_->publishedControl(controlId);
+    if (!control || control->readOnly) {
+        return;
+    }
+    setParameterOverride(control->sourceParameterKey, value);
+}
+
+void ParametricCompositionInstance::clearPublishedControlOverride(const QString& controlId)
+{
+    if (!definition_) {
+        return;
+    }
+    const auto* control = definition_->publishedControl(controlId);
+    if (!control) {
+        return;
+    }
+    clearParameterOverride(control->sourceParameterKey);
+}
+
+void ParametricCompositionInstance::applyDataRow(const QVariantMap& rowValues)
+{
+    dataRowValues_ = rowValues;
+    if (!definition_) {
+        return;
+    }
+
+    for (const auto& binding : definition_->dataBindings()) {
+        if (!binding.enabled || binding.columnKey.isEmpty()) {
+            continue;
+        }
+        const QVariant value =
+            rowValues.contains(binding.columnKey)
+                ? rowValues.value(binding.columnKey)
+                : binding.fallbackValue;
+
+        if (!binding.targetPublishedControlId.isEmpty()) {
+            setPublishedControlOverride(binding.targetPublishedControlId, value);
+        } else if (!binding.targetParameterKey.isEmpty()) {
+            setParameterOverride(binding.targetParameterKey, value);
+        }
+    }
+}
+
+QVariantMap ParametricCompositionInstance::dataRowValues() const
+{
+    return dataRowValues_;
 }
 
 QMap<QString, QVariant> ParametricCompositionInstance::resolvedParameters() const
@@ -935,6 +1236,7 @@ QJsonObject ParametricCompositionInstance::toJson() const
         overrides.insert(it.key(), jsonValueFromVariant(it.value()));
     }
     obj.insert(QStringLiteral("parameterOverrides"), overrides);
+    obj.insert(QStringLiteral("dataRowValues"), QJsonObject::fromVariantMap(dataRowValues_));
     if (definition_) {
         obj.insert(QStringLiteral("definitionId"), definition_->definitionId());
     }
@@ -960,6 +1262,7 @@ ParametricCompositionInstance ParametricCompositionInstance::fromJson(
     for (auto it = overrides.begin(); it != overrides.end(); ++it) {
         instance.parameterOverrides_.insert(it.key(), it.value().toVariant());
     }
+    instance.dataRowValues_ = obj.value(QStringLiteral("dataRowValues")).toObject().toVariantMap();
     return instance;
 }
 

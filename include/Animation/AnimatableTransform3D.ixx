@@ -41,6 +41,8 @@ export namespace ArtifactCore
 {
  using namespace Diligent;
 
+ enum class AutoOrientMode : int;
+
  enum class InterpolationType : int;
 
   struct Transform3DSnapshot {
@@ -92,6 +94,8 @@ export namespace ArtifactCore
 
   void setAutoOrient(bool enabled);
   bool isAutoOrient() const;
+  void setAutoOrientMode(AutoOrientMode mode);
+  AutoOrientMode autoOrientMode() const;
 
   size_t size() const;
 

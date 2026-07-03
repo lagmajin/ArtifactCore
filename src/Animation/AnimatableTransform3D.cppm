@@ -45,6 +45,12 @@ namespace ArtifactCore
 {
 using namespace Diligent;
 
+enum class AutoOrientMode : int {
+  Off = 0,
+  AlongPath = 1,
+  AlongPathAtFrameStart = 2,
+};
+
 namespace {
 
 template <typename... AnimatableValues>
@@ -72,7 +78,7 @@ class AnimatableTransform3D::Impl
 {
 public:
   bool isZVisible = false;
-  bool autoOrient_ = false;
+  AutoOrientMode autoOrientMode_ = AutoOrientMode::Off;
 
   float initialX_ = 0, initialY_ = 0, initialZ_ = 0;
   float initialScaleX_ = 1, initialScaleY_ = 1;
@@ -160,12 +166,22 @@ void AnimatableTransform3D::setInitialRotation(const RationalTime& time, float a
 
 void AnimatableTransform3D::setAutoOrient(bool enabled)
 {
-  impl_->autoOrient_ = enabled;
+  impl_->autoOrientMode_ = enabled ? AutoOrientMode::AlongPath : AutoOrientMode::Off;
 }
 
 bool AnimatableTransform3D::isAutoOrient() const
 {
-  return impl_->autoOrient_;
+  return impl_->autoOrientMode_ != AutoOrientMode::Off;
+}
+
+void AnimatableTransform3D::setAutoOrientMode(AutoOrientMode mode)
+{
+  impl_->autoOrientMode_ = mode;
+}
+
+AutoOrientMode AnimatableTransform3D::autoOrientMode() const
+{
+  return impl_->autoOrientMode_;
 }
 
 void AnimatableTransform3D::setInitialPosition(const RationalTime& time, float px, float py)
@@ -321,7 +337,7 @@ float AnimatableTransform3D::positionZAt(const RationalTime& time) const
 
 float AnimatableTransform3D::rotationAt(const RationalTime& time) const
 {
-  if (impl_->autoOrient_) {
+  if (impl_->autoOrientMode_ != AutoOrientMode::Off) {
     const auto posTimes = getPositionKeyFrameTimes();
     if (posTimes.size() < 2) {
       return impl_->currentRotation_;
@@ -332,15 +348,20 @@ float AnimatableTransform3D::rotationAt(const RationalTime& time) const
 
     int64_t prevFrame = posTimes.front().rescaledTo(24);
     int64_t nextFrame = posTimes.back().rescaledTo(24);
-    for (const auto& pt : posTimes) {
-      int64_t f = pt.rescaledTo(24);
-      if (f <= target) prevFrame = f;
-      if (f >= target && nextFrame >= target) {
-        nextFrame = f;
-        break;
+    if (impl_->autoOrientMode_ == AutoOrientMode::AlongPathAtFrameStart) {
+      prevFrame = posTimes.front().rescaledTo(24);
+      nextFrame = posTimes.size() > 1 ? posTimes[1].rescaledTo(24) : prevFrame;
+    } else {
+      for (const auto& pt : posTimes) {
+        int64_t f = pt.rescaledTo(24);
+        if (f <= target) prevFrame = f;
+        if (f >= target && nextFrame >= target) {
+          nextFrame = f;
+          break;
+        }
       }
+      if (nextFrame < target) nextFrame = target;
     }
-    if (nextFrame < target) nextFrame = target;
 
     const QPointF prev(impl_->x_.at(FramePosition(prevFrame)),
                        impl_->y_.at(FramePosition(prevFrame)));

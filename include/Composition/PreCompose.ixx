@@ -1,6 +1,4 @@
 ﻿module;
-class tst_QList;
-
 #include <memory>
 
 #include <iostream>
@@ -44,6 +42,17 @@ export namespace ArtifactCore {
 /// 前方宣言
 class Composition;
 class Layer;
+
+/// コンポジションネスト情報
+struct CompositionNesting {
+    CompositionID compositionId;         ///< このコンポジション
+    CompositionID parentCompositionId;   ///< 親コンポジション（ルートなら無効）
+    LayerID parentLayerId;               ///< 親コンポジション内のレイヤーID
+    int nestingLevel;                    ///< ネスト階層（ルート=0）
+    
+    /// ルートコンポジションかどうか
+    bool isRoot() const { return parentCompositionId.isNil(); }
+};
 
 /// プリコンポーズオプション
 struct PreComposeOptions {
@@ -123,8 +132,9 @@ public:
     /// コンポジションのネスト階層を取得
     QVector<CompositionID> getCompositionHierarchy(CompositionID compositionId) const;
     
-    /// 親コンポジションを取得
+    /// コンポジションのネスト情報を取得（parentLayerId を含む）
     CompositionID getParentComposition(CompositionID compositionId) const;
+    CompositionNesting getCompositionNesting(CompositionID compositionId) const;
     
     /// 全親コンポジションを取得（ルートまで）
     QVector<CompositionID> getAllParentCompositions(CompositionID compositionId) const;
@@ -150,17 +160,6 @@ private:
     
     class Impl;
     Impl* impl_;
-};
-
-/// コンポジションネスト情報
-struct CompositionNesting {
-    CompositionID compositionId;         ///< このコンポジション
-    CompositionID parentCompositionId;   ///< 親コンポジション（ルートなら無効）
-    LayerID parentLayerId;               ///< 親コンポジション内のレイヤーID
-    int nestingLevel;                    ///< ネスト階層（ルート=0）
-    
-    /// ルートコンポジションかどうか
-    bool isRoot() const { return parentCompositionId.isNil(); }
 };
 
 /// ネストしたコンポジションの時間変換ユーティリティ
