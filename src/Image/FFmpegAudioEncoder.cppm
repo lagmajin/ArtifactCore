@@ -101,7 +101,9 @@ bool FFmpegAudioEncoder::muxAudioWithVideo(
     const QString& audioPath,
     const QString& outputPath,
     const QString& audioCodec,
-    int audioBitrate)
+    int audioBitrate,
+    int outputChannels,
+    int outputSampleRate)
 {
     // 入力ファイルを開く
     AVFormatContext* videoFmtCtx = nullptr;
@@ -195,6 +197,7 @@ bool FFmpegAudioEncoder::muxAudioWithVideo(
     else if (targetCodec == "opus") audioCodecId = AV_CODEC_ID_OPUS;
     else if (targetCodec == "flac") audioCodecId = AV_CODEC_ID_FLAC;
     else if (targetCodec == "vorbis") audioCodecId = AV_CODEC_ID_VORBIS;
+    else if (targetCodec == "pcm_s24le" || targetCodec == "pcm") audioCodecId = AV_CODEC_ID_PCM_S24LE;
 
     const AVCodec* aEncoder = avcodec_find_encoder(audioCodecId);
     if (!aEncoder) {
@@ -222,14 +225,19 @@ bool FFmpegAudioEncoder::muxAudioWithVideo(
     }
 
     AVCodecContext* aEncoderCtx = avcodec_alloc_context3(aEncoder);
-    aEncoderCtx->sample_rate = aDecoderCtx->sample_rate;
+    aEncoderCtx->sample_rate = outputSampleRate > 0
+        ? outputSampleRate
+        : aDecoderCtx->sample_rate;
     if (audioBitrate > 0) {
         aEncoderCtx->bit_rate = audioBitrate;
     } else {
         aEncoderCtx->bit_rate = 128000;
     }
 
-    av_channel_layout_default(&aEncoderCtx->ch_layout, aDecoderCtx->ch_layout.nb_channels);
+    const int targetChannels = outputChannels > 0
+        ? outputChannels
+        : aDecoderCtx->ch_layout.nb_channels;
+    av_channel_layout_default(&aEncoderCtx->ch_layout, targetChannels);
 
     if (aEncoder->sample_fmts) {
         aEncoderCtx->sample_fmt = aEncoder->sample_fmts[0];
@@ -450,6 +458,7 @@ bool FFmpegAudioEncoder::encodeAudio(
     else if (codec == "opus") codecId = AV_CODEC_ID_OPUS;
     else if (codec == "flac") codecId = AV_CODEC_ID_FLAC;
     else if (codec == "vorbis") codecId = AV_CODEC_ID_VORBIS;
+    else if (codec == "pcm_s24le" || codec == "pcm") codecId = AV_CODEC_ID_PCM_S24LE;
 
     const AVCodec* aEncoder = avcodec_find_encoder(codecId);
     if (!aEncoder) {

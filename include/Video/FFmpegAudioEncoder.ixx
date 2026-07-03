@@ -31,7 +31,9 @@ export namespace ArtifactCore {
             const QString& audioPath,
             const QString& outputPath,
             const QString& audioCodec = "aac",
-            int audioBitrate = 0);
+            int audioBitrate = 0,
+            int outputChannels = 0,
+            int outputSampleRate = 0);
 
         static bool encodeAudio(
             const QString& inputPath,
