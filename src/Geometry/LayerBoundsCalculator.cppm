@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <QPointF>
 #include <QMatrix4x4> // Qt6 or Qt5 

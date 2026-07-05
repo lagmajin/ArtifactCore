@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 
 #include <QtGui/QMatrix4x4>
@@ -17,6 +17,7 @@ namespace ArtifactCore
   constexpr float kMinSnapDuration = 0.01f;
   constexpr float kMaxSnapDuration = 2.0f;
   constexpr float kSqrtHalf = 0.70710678f;
+  constexpr float kCornerThreshold = 0.5f;
 
   QQuaternion lookRotation(const QVector3D& forward, const QVector3D& upHint = QVector3D(0.0f, 1.0f, 0.0f))
   {
@@ -44,9 +45,15 @@ namespace ArtifactCore
  {
  }
 
- void ViewOrientationNavigator::setCurrentOrientation(const QQuaternion& orientation)
- {
+void ViewOrientationNavigator::setCurrentOrientation(const QQuaternion& orientation)
+{
   current_ = orientation.normalized();
+  const auto candidate = resolveHotspotFromDirection(
+   current_.rotatedVector(QVector3D(0.0f, 0.0f, 1.0f)));
+  const QQuaternion candidateOrientation = orientationForHotspot(candidate);
+  const float alignment = std::abs(
+   QQuaternion::dotProduct(current_, candidateOrientation));
+  hotspot_ = alignment >= 0.999f ? candidate : ViewOrientationHotspot::None;
   if (!animating_)
   {
    start_ = current_;
@@ -147,6 +154,28 @@ namespace ArtifactCore
    return d.y() >= 0.0f ? ViewOrientationHotspot::Top : ViewOrientationHotspot::Bottom;
   }
 
+  if (ax >= kCornerThreshold && ay >= kCornerThreshold && az >= kCornerThreshold)
+  {
+   if (d.z() >= 0.0f)
+   {
+    if (d.y() >= 0.0f)
+    {
+     return d.x() >= 0.0f ? ViewOrientationHotspot::FrontTopRight
+                          : ViewOrientationHotspot::FrontTopLeft;
+    }
+    return d.x() >= 0.0f ? ViewOrientationHotspot::FrontBottomRight
+                         : ViewOrientationHotspot::FrontBottomLeft;
+   }
+
+   if (d.y() >= 0.0f)
+   {
+    return d.x() >= 0.0f ? ViewOrientationHotspot::BackTopRight
+                         : ViewOrientationHotspot::BackTopLeft;
+   }
+   return d.x() >= 0.0f ? ViewOrientationHotspot::BackBottomRight
+                        : ViewOrientationHotspot::BackBottomLeft;
+  }
+
   if (d.z() >= 0.0f)
   {
    if (d.y() >= 0.0f && az >= ax) return ViewOrientationHotspot::FrontTop;
@@ -184,6 +213,14 @@ namespace ArtifactCore
   case ViewOrientationHotspot::LeftBottom: return lookRotation(QVector3D(-1.0f, -1.0f, 0.0f));
   case ViewOrientationHotspot::RightTop: return lookRotation(QVector3D(1.0f, 1.0f, 0.0f));
   case ViewOrientationHotspot::RightBottom: return lookRotation(QVector3D(1.0f, -1.0f, 0.0f));
+  case ViewOrientationHotspot::FrontTopLeft: return lookRotation(QVector3D(-1.0f, 1.0f, -1.0f));
+  case ViewOrientationHotspot::FrontTopRight: return lookRotation(QVector3D(1.0f, 1.0f, -1.0f));
+  case ViewOrientationHotspot::FrontBottomLeft: return lookRotation(QVector3D(-1.0f, -1.0f, -1.0f));
+  case ViewOrientationHotspot::FrontBottomRight: return lookRotation(QVector3D(1.0f, -1.0f, -1.0f));
+  case ViewOrientationHotspot::BackTopLeft: return lookRotation(QVector3D(-1.0f, 1.0f, 1.0f));
+  case ViewOrientationHotspot::BackTopRight: return lookRotation(QVector3D(1.0f, 1.0f, 1.0f));
+  case ViewOrientationHotspot::BackBottomLeft: return lookRotation(QVector3D(-1.0f, -1.0f, 1.0f));
+  case ViewOrientationHotspot::BackBottomRight: return lookRotation(QVector3D(1.0f, -1.0f, 1.0f));
 
   case ViewOrientationHotspot::None:
   default:

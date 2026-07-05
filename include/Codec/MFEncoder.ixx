@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mfreadwrite.h>

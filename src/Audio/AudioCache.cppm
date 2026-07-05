@@ -1,4 +1,4 @@
-﻿module;
+module;
 class tst_QList;
 #include <QDateTime>
 #include <QDebug>

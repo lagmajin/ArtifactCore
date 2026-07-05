@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <QtGui/QQuaternion>
 #include <QtGui/QVector3D>
@@ -27,7 +27,15 @@ export namespace ArtifactCore
   LeftTop,
   LeftBottom,
   RightTop,
-  RightBottom
+  RightBottom,
+  FrontTopLeft,
+  FrontTopRight,
+  FrontBottomLeft,
+  FrontBottomRight,
+  BackTopLeft,
+  BackTopRight,
+  BackBottomLeft,
+  BackBottomRight
  };
 
  class ViewOrientationNavigator

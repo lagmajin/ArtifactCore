@@ -1,4 +1,4 @@
-﻿module;
+module;
 //#include "../../include/Asset/AbstractAssetFile.hpp"
 
 #include <iostream>

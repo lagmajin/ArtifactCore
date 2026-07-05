@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <QTime>
 #include "../Define/DllExportMacro.hpp"

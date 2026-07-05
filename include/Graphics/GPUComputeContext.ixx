@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <QUuid>
 #include <DiligentCore/Platforms/interface/PlatformDefinitions.h>

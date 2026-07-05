@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <QtCore/QFile>
 extern "C" {

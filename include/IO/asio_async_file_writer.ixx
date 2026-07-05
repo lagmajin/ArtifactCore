@@ -1,4 +1,4 @@
-﻿module;
+module;
 class tst_QList;
 #include <boost/asio.hpp>
 #include <boost/asio/thread_pool.hpp> 

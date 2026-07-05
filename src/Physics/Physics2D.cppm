@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <box2d/box2d.h>
 #include <vector>
 #include <memory>

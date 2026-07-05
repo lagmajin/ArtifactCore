@@ -11,8 +11,6 @@ module;
 
 module CLAP.Host;
 
-import CLAP.Host;
-
 namespace clap {
 
 namespace fs = std::filesystem;

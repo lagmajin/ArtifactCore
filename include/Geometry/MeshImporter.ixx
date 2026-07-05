@@ -1,4 +1,4 @@
-﻿module;
+module;
 //#include <assimp/>
 #include <memory>
 #include <iostream>

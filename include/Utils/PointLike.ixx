@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <concepts>
 #include <utility>
 export module Utils.Point.Like;

@@ -1,4 +1,4 @@
-﻿
+
 module;
 #include <utility>
 #include "../Image/FloatImage.hpp"

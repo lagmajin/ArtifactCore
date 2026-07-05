@@ -1,19 +1,22 @@
 module;
 
 #include <initializer_list>
+#include <memory>
 #include <optional>
 #include <type_traits>
 #include <utility>
 
 export module Core.ArtifactOptional;
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
 struct ArtifactNullOpt {
     explicit constexpr ArtifactNullOpt(int) {}
 };
 
 inline constexpr ArtifactNullOpt ArtifactNullopt{0};
+
+inline constexpr ArtifactNullOpt Nullopt{0};
 
 template<typename T>
 class ArtifactOptional {
@@ -177,6 +180,99 @@ private:
         contained_.~T();
     }
 };
+
+template<typename T>
+class ArtifactOptional<T&> {
+public:
+    using value_type = T;
+
+    ArtifactOptional() noexcept = default;
+    explicit ArtifactOptional(ArtifactNullOpt) noexcept {}
+    ArtifactOptional(T& value) noexcept : ptr_(std::addressof(value)) {}
+    ArtifactOptional(const ArtifactOptional&) noexcept = default;
+    ArtifactOptional(ArtifactOptional&&) noexcept = default;
+
+    ArtifactOptional& operator=(const ArtifactOptional&) noexcept = default;
+    ArtifactOptional& operator=(ArtifactOptional&&) noexcept = default;
+
+    ArtifactOptional& operator=(ArtifactNullOpt) noexcept {
+        reset();
+        return *this;
+    }
+
+    ArtifactOptional& operator=(T& value) noexcept {
+        ptr_ = std::addressof(value);
+        return *this;
+    }
+
+    T& operator*() const noexcept { return *ptr_; }
+    T* operator->() const noexcept { return ptr_; }
+
+    T& value() const {
+        if (!ptr_) throw std::bad_optional_access();
+        return *ptr_;
+    }
+
+    T& value_or(T& defaultValue) const noexcept {
+        return ptr_ ? *ptr_ : defaultValue;
+    }
+
+    bool has_value() const noexcept { return ptr_ != nullptr; }
+    explicit operator bool() const noexcept { return has_value(); }
+
+    void reset() noexcept { ptr_ = nullptr; }
+
+private:
+    T* ptr_ = nullptr;
+};
+
+template<typename T>
+class ArtifactOptional<const T&> {
+public:
+    using value_type = const T;
+
+    ArtifactOptional() noexcept = default;
+    explicit ArtifactOptional(ArtifactNullOpt) noexcept {}
+    ArtifactOptional(const T& value) noexcept : ptr_(std::addressof(value)) {}
+    ArtifactOptional(const ArtifactOptional&) noexcept = default;
+    ArtifactOptional(ArtifactOptional&&) noexcept = default;
+
+    ArtifactOptional& operator=(const ArtifactOptional&) noexcept = default;
+    ArtifactOptional& operator=(ArtifactOptional&&) noexcept = default;
+
+    ArtifactOptional& operator=(ArtifactNullOpt) noexcept {
+        reset();
+        return *this;
+    }
+
+    ArtifactOptional& operator=(const T& value) noexcept {
+        ptr_ = std::addressof(value);
+        return *this;
+    }
+
+    const T& operator*() const noexcept { return *ptr_; }
+    const T* operator->() const noexcept { return ptr_; }
+
+    const T& value() const {
+        if (!ptr_) throw std::bad_optional_access();
+        return *ptr_;
+    }
+
+    const T& value_or(const T& defaultValue) const noexcept {
+        return ptr_ ? *ptr_ : defaultValue;
+    }
+
+    bool has_value() const noexcept { return ptr_ != nullptr; }
+    explicit operator bool() const noexcept { return has_value(); }
+
+    void reset() noexcept { ptr_ = nullptr; }
+
+private:
+    const T* ptr_ = nullptr;
+};
+
+template<typename T>
+using Optional = ArtifactOptional<T>;
 
 template<typename T, typename... Args>
 inline ArtifactOptional<T> make_optional(Args&&... args) {

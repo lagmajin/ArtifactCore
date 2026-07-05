@@ -1,4 +1,4 @@
-﻿module;
+module;
 //#include <utility>
 //#include <unordered_map>
 export module Render.Statics;

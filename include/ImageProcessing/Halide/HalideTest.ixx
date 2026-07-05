@@ -1,4 +1,4 @@
-﻿
+
 module;
 #include <Halide.h>
 #include "../../Define/DllExportMacro.hpp"

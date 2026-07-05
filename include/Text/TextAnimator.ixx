@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <QPointF>
 #include <QString>
 #include <QVector>

@@ -1,4 +1,4 @@
-﻿module;
+module;
 
 #include <QPointF>
 #include <QVector3D>

@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <cctype>
 #include <algorithm>
 #include <map>

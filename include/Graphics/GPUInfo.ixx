@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <QString>
 #include <boost/mpl/aux_/na_fwd.hpp>

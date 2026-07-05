@@ -1,4 +1,4 @@
-﻿// ReSharper disable All
+// ReSharper disable All
 module;
 
 #include "../Define/DllExportMacro.hpp"

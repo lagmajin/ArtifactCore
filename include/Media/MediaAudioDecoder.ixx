@@ -1,4 +1,4 @@
-﻿module;
+module;
 #define QT_NO_KEYWORDS
 #include <QByteArray>
 #include <QString>

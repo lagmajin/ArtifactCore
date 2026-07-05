@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <type_traits>
 #include <glm/glm.hpp>
 #include "../Define/DllExportMacro.hpp"

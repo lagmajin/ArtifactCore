@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <numeric>
 #include <memory>
 #include <QString>

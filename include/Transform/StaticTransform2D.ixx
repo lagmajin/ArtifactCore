@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <stdint.h>
 #include <QtGui/QtGui>
 

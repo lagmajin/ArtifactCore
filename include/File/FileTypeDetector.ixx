@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <QString>
 
 export module File.TypeDetector;

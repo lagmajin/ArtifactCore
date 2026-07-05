@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include <cmath>
 #include <QPointF>

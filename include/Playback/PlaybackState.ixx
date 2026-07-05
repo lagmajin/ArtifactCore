@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #include <wobjectdefs.h>
 export module Playback.State;

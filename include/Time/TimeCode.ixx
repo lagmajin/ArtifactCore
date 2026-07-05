@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <QDir>
 #include <QString>
 #include "../Define/DllExportMacro.hpp"

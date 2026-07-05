@@ -1,4 +1,4 @@
-﻿export module Common;
+export module Common;
 
 export namespace ArtifactCore
 {

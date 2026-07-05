@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <QFile>
 #include <QIODevice>
 #include <QFileInfo>

@@ -1,4 +1,4 @@
-﻿module;
+module;
 // ReSharper disable All
 
 

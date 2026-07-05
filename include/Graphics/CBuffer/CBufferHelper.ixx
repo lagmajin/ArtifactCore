@@ -1,4 +1,4 @@
-﻿module;
+module;
 // RefCntAutoPtr.hpp intentionally NOT in GMF (MSVC 14.51 C1116 workaround)
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>

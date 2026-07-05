@@ -1,4 +1,4 @@
-﻿
+
 module;
 #include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>

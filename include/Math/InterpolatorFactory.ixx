@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <QVector3D>
 #include <iostream>
 #include <vector>

@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include "../../include/Define/DllExportMacro.hpp"
 #include <QThread>
 #include <QThreadPool>

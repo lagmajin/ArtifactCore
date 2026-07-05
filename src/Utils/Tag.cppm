@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <utility>
 #define QT_NO_KEYWORDS
 #include <QString>
