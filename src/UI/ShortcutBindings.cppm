@@ -702,10 +702,10 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::AnimationShowGraphEditor)] = QKeySequence(Qt::SHIFT | Qt::Key_F3);
     defaults_[index(ShortcutId::AnimationToggleValueGraph)] = QKeySequence(Qt::ALT | Qt::Key_G);
     defaults_[index(ShortcutId::AnimationToggleVelocityGraph)] = QKeySequence(Qt::ALT | Qt::SHIFT | Qt::Key_G);
-    defaults_[index(ShortcutId::AnimationGoToNextKeyframe)] = QKeySequence(Qt::Key_K);
-    defaults_[index(ShortcutId::AnimationGoToPreviousKeyframe)] = QKeySequence(Qt::Key_J);
-    defaults_[index(ShortcutId::AnimationGoToFirstKeyframe)] = QKeySequence(Qt::SHIFT | Qt::Key_J);
-    defaults_[index(ShortcutId::AnimationGoToLastKeyframe)] = QKeySequence(Qt::SHIFT | Qt::Key_K);
+    defaults_[index(ShortcutId::AnimationGoToNextKeyframe)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K);
+    defaults_[index(ShortcutId::AnimationGoToPreviousKeyframe)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_J);
+    defaults_[index(ShortcutId::AnimationGoToFirstKeyframe)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Home);
+    defaults_[index(ShortcutId::AnimationGoToLastKeyframe)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_End);
     defaults_[index(ShortcutId::EffectShowInspector)] = QKeySequence(Qt::Key_F3);
     defaults_[index(ShortcutId::CompositionCreate)] = QKeySequence(Qt::CTRL | Qt::Key_N);
     defaults_[index(ShortcutId::CompositionColor)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_B);
