@@ -211,50 +211,72 @@ public:
             property->setExpression(sp.expression);
         }
 
-        if (!sp.keyframes.isEmpty()) {
-            property->clearKeyFrames();
-            for (const QJsonValue& kfVal : sp.keyframes) {
-                const QJsonObject kfObj = kfVal.toObject();
-                RationalTime time(
-                    kfObj.value(QStringLiteral("timeValue")).toInteger(),
-                    kfObj.value(QStringLiteral("timeScale")).toInteger());
-                InterpolationType interpolation = static_cast<InterpolationType>(kfObj.value(QStringLiteral("interpolation")).toInt(static_cast<int>(InterpolationType::Linear)));
-                float cp1_x = kfObj.value(QStringLiteral("cp1_x")).toDouble(0.42);
-                float cp1_y = kfObj.value(QStringLiteral("cp1_y")).toDouble(0.0);
-                float cp2_x = kfObj.value(QStringLiteral("cp2_x")).toDouble(0.58);
-                float cp2_y = kfObj.value(QStringLiteral("cp2_y")).toDouble(1.0);
-                const bool roving = kfObj.value(QStringLiteral("roving")).toBool(false);
-                const auto anchor = static_cast<KeyFrame::Anchor>(
-                    kfObj.value(QStringLiteral("anchor")).toInt(static_cast<int>(KeyFrame::Anchor::Absolute)));
-                const auto colorLabel = static_cast<KeyFrame::ColorLabel>(
-                    kfObj.value(QStringLiteral("colorLabel")).toInt(static_cast<int>(KeyFrame::ColorLabel::None)));
-                const QJsonValue val = kfObj.value(QStringLiteral("value"));
-                property->addKeyFrame(time, val.toVariant(), interpolation, cp1_x, cp1_y, cp2_x, cp2_y, roving);
-                property->setKeyFrameAnchorAt(time, anchor);
-                property->setKeyFrameColorLabelAt(time, colorLabel);
-            }
+        property->clearKeyFrames();
+        for (const QJsonValue& kfVal : sp.keyframes) {
+            const QJsonObject kfObj = kfVal.toObject();
+            RationalTime time(
+                kfObj.value(QStringLiteral("timeValue")).toInteger(),
+                kfObj.value(QStringLiteral("timeScale")).toInteger());
+            InterpolationType interpolation = static_cast<InterpolationType>(kfObj.value(QStringLiteral("interpolation")).toInt(static_cast<int>(InterpolationType::Linear)));
+            float cp1_x = kfObj.value(QStringLiteral("cp1_x")).toDouble(0.42);
+            float cp1_y = kfObj.value(QStringLiteral("cp1_y")).toDouble(0.0);
+            float cp2_x = kfObj.value(QStringLiteral("cp2_x")).toDouble(0.58);
+            float cp2_y = kfObj.value(QStringLiteral("cp2_y")).toDouble(1.0);
+            const bool roving = kfObj.value(QStringLiteral("roving")).toBool(false);
+            const auto anchor = static_cast<KeyFrame::Anchor>(
+                kfObj.value(QStringLiteral("anchor")).toInt(static_cast<int>(KeyFrame::Anchor::Absolute)));
+            const auto colorLabel = static_cast<KeyFrame::ColorLabel>(
+                kfObj.value(QStringLiteral("colorLabel")).toInt(static_cast<int>(KeyFrame::ColorLabel::None)));
+            const QJsonValue val = kfObj.value(QStringLiteral("value"));
+            property->addKeyFrame(time, val.toVariant(), interpolation, cp1_x, cp1_y, cp2_x, cp2_y, roving);
+            property->setKeyFrameAnchorAt(time, anchor);
+            property->setKeyFrameColorLabelAt(time, colorLabel);
         }
 
-        if (!sp.envelopes.isEmpty()) {
-            property->clearEnvelopes();
-            for (const QJsonValue& envVal : sp.envelopes) {
-                const QJsonObject envObj = envVal.toObject();
-                EnvelopeTrack envelope;
-                envelope.targetPropertyPath = envObj.value(QStringLiteral("targetPropertyPath")).toString();
-                envelope.scope = static_cast<EnvelopeScope>(
-                    envObj.value(QStringLiteral("scope")).toInt(static_cast<int>(EnvelopeScope::Absolute)));
-                envelope.mode = static_cast<EnvelopeMode>(
-                    envObj.value(QStringLiteral("mode")).toInt(static_cast<int>(EnvelopeMode::Override)));
-                envelope.startTime = RationalTime(
-                    envObj.value(QStringLiteral("startTimeValue")).toInteger(),
-                    envObj.value(QStringLiteral("startTimeScale")).toInteger(1));
-                envelope.endTime = RationalTime(
-                    envObj.value(QStringLiteral("endTimeValue")).toInteger(),
-                    envObj.value(QStringLiteral("endTimeScale")).toInteger(1));
-                envelope.strength = envObj.value(QStringLiteral("strength")).toDouble(1.0);
-                envelope.enabled = envObj.value(QStringLiteral("enabled")).toBool(true);
-                property->addEnvelope(envelope);
+        property->clearEnvelopes();
+        for (const QJsonValue& envVal : sp.envelopes) {
+            const QJsonObject envObj = envVal.toObject();
+            EnvelopeTrack envelope;
+            envelope.targetPropertyPath = envObj.value(QStringLiteral("targetPropertyPath")).toString();
+            envelope.scope = static_cast<EnvelopeScope>(
+                envObj.value(QStringLiteral("scope")).toInt(static_cast<int>(EnvelopeScope::Absolute)));
+            envelope.mode = static_cast<EnvelopeMode>(
+                envObj.value(QStringLiteral("mode")).toInt(static_cast<int>(EnvelopeMode::Override)));
+            envelope.startTime = RationalTime(
+                envObj.value(QStringLiteral("startTimeValue")).toInteger(),
+                envObj.value(QStringLiteral("startTimeScale")).toInteger(1));
+            envelope.endTime = RationalTime(
+                envObj.value(QStringLiteral("endTimeValue")).toInteger(),
+                envObj.value(QStringLiteral("endTimeScale")).toInteger(1));
+            envelope.strength = envObj.value(QStringLiteral("strength")).toDouble(1.0);
+            envelope.enabled = envObj.value(QStringLiteral("enabled")).toBool(true);
+            property->addEnvelope(envelope);
+        }
+
+        if (!sp.metadata.isEmpty()) {
+            PropertyMetadata meta = property->metadata();
+            if (sp.metadata.contains(QStringLiteral("displayLabel"))) {
+                meta.displayLabel = sp.metadata.value(QStringLiteral("displayLabel")).toString();
             }
+            if (sp.metadata.contains(QStringLiteral("unit"))) {
+                meta.unit = sp.metadata.value(QStringLiteral("unit")).toString();
+            }
+            if (sp.metadata.contains(QStringLiteral("tooltip"))) {
+                meta.tooltip = sp.metadata.value(QStringLiteral("tooltip")).toString();
+            }
+            if (sp.metadata.contains(QStringLiteral("hardMin"))) {
+                meta.hardMin = sp.metadata.value(QStringLiteral("hardMin")).toVariant();
+            }
+            if (sp.metadata.contains(QStringLiteral("hardMax"))) {
+                meta.hardMax = sp.metadata.value(QStringLiteral("hardMax")).toVariant();
+            }
+            if (sp.metadata.contains(QStringLiteral("softMin"))) {
+                meta.softMin = sp.metadata.value(QStringLiteral("softMin")).toVariant();
+            }
+            if (sp.metadata.contains(QStringLiteral("softMax"))) {
+                meta.softMax = sp.metadata.value(QStringLiteral("softMax")).toVariant();
+            }
+            property->setMetadata(meta);
         }
     }
 

@@ -189,6 +189,10 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ViewShowRulers");
     case ShortcutId::ViewSecondaryPreview:
         return QStringLiteral("ViewSecondaryPreview");
+    case ShortcutId::ViewToggleXRay:
+        return QStringLiteral("ViewToggleXRay");
+    case ShortcutId::ViewToggleIsolation:
+        return QStringLiteral("ViewToggleIsolation");
     case ShortcutId::RenderAddCurrentToQueue:
         return QStringLiteral("RenderAddCurrentToQueue");
     case ShortcutId::RenderShowQueue:
@@ -441,6 +445,10 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("View Show Rulers");
     case ShortcutId::ViewSecondaryPreview:
         return QStringLiteral("View Secondary Preview");
+    case ShortcutId::ViewToggleXRay:
+        return QStringLiteral("View Toggle X-Ray");
+    case ShortcutId::ViewToggleIsolation:
+        return QStringLiteral("View Toggle Isolation");
     case ShortcutId::RenderAddCurrentToQueue:
         return QStringLiteral("Render Add Current To Queue");
     case ShortcutId::RenderShowQueue:
@@ -599,6 +607,8 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::ViewSnapToGuides,
         ShortcutId::ViewShowRulers,
         ShortcutId::ViewSecondaryPreview,
+        ShortcutId::ViewToggleXRay,
+        ShortcutId::ViewToggleIsolation,
         ShortcutId::RenderAddCurrentToQueue,
         ShortcutId::RenderShowQueue,
         ShortcutId::RenderShowManager,
@@ -719,6 +729,8 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::ViewSnapToGuides)] = QKeySequence(QStringLiteral("Ctrl+Shift+;"));
     defaults_[index(ShortcutId::ViewShowRulers)] = QKeySequence(QStringLiteral("Ctrl+R"));
     defaults_[index(ShortcutId::ViewSecondaryPreview)] = QKeySequence(Qt::Key_F12);
+    defaults_[index(ShortcutId::ViewToggleXRay)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X);
+    defaults_[index(ShortcutId::ViewToggleIsolation)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_I);
     defaults_[index(ShortcutId::RenderAddCurrentToQueue)] = QKeySequence(Qt::CTRL | Qt::Key_M);
     defaults_[index(ShortcutId::RenderShowQueue)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_R);
     defaults_[index(ShortcutId::RenderShowManager)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R);
