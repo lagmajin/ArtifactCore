@@ -128,7 +128,12 @@ enum class ShortcutId {
     ImportPlacementConfirm = 114,
     ImportPlacementCancel = 115,
     ImportPlacementReset = 116,
-    Count = 117
+    ViewUndo = 117,
+    ViewRedo = 118,
+    WorkCursorPlace = 119,
+    WorkCursorCenter = 120,
+    WorkCursorClear = 121,
+    Count = 122
 };
 
 QString shortcutDisplayName(ShortcutId id);

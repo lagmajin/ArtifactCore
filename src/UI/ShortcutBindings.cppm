@@ -261,6 +261,16 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ImportPlacementCancel");
     case ShortcutId::ImportPlacementReset:
         return QStringLiteral("ImportPlacementReset");
+    case ShortcutId::ViewUndo:
+        return QStringLiteral("ViewUndo");
+    case ShortcutId::ViewRedo:
+        return QStringLiteral("ViewRedo");
+    case ShortcutId::WorkCursorPlace:
+        return QStringLiteral("WorkCursorPlace");
+    case ShortcutId::WorkCursorCenter:
+        return QStringLiteral("WorkCursorCenter");
+    case ShortcutId::WorkCursorClear:
+        return QStringLiteral("WorkCursorClear");
     case ShortcutId::Count:
         break;
     }
@@ -517,6 +527,16 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Import Placement Cancel");
     case ShortcutId::ImportPlacementReset:
         return QStringLiteral("Import Placement Reset");
+    case ShortcutId::ViewUndo:
+        return QStringLiteral("View Undo");
+    case ShortcutId::ViewRedo:
+        return QStringLiteral("View Redo");
+    case ShortcutId::WorkCursorPlace:
+        return QStringLiteral("Place Work Cursor");
+    case ShortcutId::WorkCursorCenter:
+        return QStringLiteral("Center Work Cursor");
+    case ShortcutId::WorkCursorClear:
+        return QStringLiteral("Clear Work Cursor");
     case ShortcutId::Count:
         break;
     }
@@ -643,6 +663,11 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::ImportPlacementConfirm,
         ShortcutId::ImportPlacementCancel,
         ShortcutId::ImportPlacementReset,
+        ShortcutId::ViewUndo,
+        ShortcutId::ViewRedo,
+        ShortcutId::WorkCursorPlace,
+        ShortcutId::WorkCursorCenter,
+        ShortcutId::WorkCursorClear,
     };
 }
 
@@ -765,6 +790,11 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::ImportPlacementConfirm)] = QKeySequence(Qt::Key_Return);
     defaults_[index(ShortcutId::ImportPlacementCancel)] = QKeySequence(Qt::Key_Escape);
     defaults_[index(ShortcutId::ImportPlacementReset)] = QKeySequence(Qt::Key_R);
+    defaults_[index(ShortcutId::ViewUndo)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Z);
+    defaults_[index(ShortcutId::ViewRedo)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Y);
+    defaults_[index(ShortcutId::WorkCursorPlace)] = QKeySequence(Qt::ALT | Qt::Key_C);
+    defaults_[index(ShortcutId::WorkCursorCenter)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_C);
+    defaults_[index(ShortcutId::WorkCursorClear)] = QKeySequence(Qt::ALT | Qt::SHIFT | Qt::Key_C);
 
     overrides_.fill(QKeySequence());
 }
