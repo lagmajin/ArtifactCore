@@ -11,6 +11,8 @@ module;
 
 export module Script.ArtifactScript;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
 enum class ArtifactScriptValueType {
@@ -120,7 +122,11 @@ using ArtifactScriptSerializedFields = std::unordered_map<std::string, ArtifactS
 
 class ArtifactScriptComponent {
 public:
+    void setScriptClass(const ZeroString& className);
     void setScriptClass(std::string className);
+    void setScriptClass(std::string_view className);
+    void setScriptClass(const char* className);
+    const ZeroString& scriptClassZero() const;
     const std::string& scriptClass() const;
 
     ArtifactScriptSerializedFields& publicFields();
@@ -128,7 +134,7 @@ public:
     void applyDefaults(const ArtifactScriptDefinition& definition);
 
 private:
-    std::string scriptClass_;
+    ZeroString scriptClass_;
     ArtifactScriptSerializedFields publicFields_;
 };
 

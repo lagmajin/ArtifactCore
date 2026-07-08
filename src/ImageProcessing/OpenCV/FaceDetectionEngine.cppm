@@ -8,6 +8,7 @@ class tst_QList;
 #include <QImage>
 #include <QRect>
 #include <QVector>
+#include <QByteArray>
 #include <QString>
 #include <QStringView>
 #include <QStringList>
@@ -55,7 +56,8 @@ public:
             return false;
         }
 
-        haarLoaded_ = haarCascade_.load(haarCascadePath_.toStdString());
+        const QByteArray haarCascadePathUtf8 = haarCascadePath_.toUtf8();
+        haarLoaded_ = haarCascade_.load(haarCascadePathUtf8.constData());
         if (!haarLoaded_) {
             lastError_ = QStringLiteral("Failed to load Haar cascade: %1").arg(QStringView{haarCascadePath_});
         }
@@ -69,9 +71,11 @@ public:
         }
 
         try {
-            dnnNet_ = cv::dnn::readNetFromTensorflow(dnnModelPath_.toStdString(), dnnConfigPath_.toStdString());
+            const QByteArray dnnModelPathUtf8 = dnnModelPath_.toUtf8();
+            const QByteArray dnnConfigPathUtf8 = dnnConfigPath_.toUtf8();
+            dnnNet_ = cv::dnn::readNetFromTensorflow(dnnModelPathUtf8.constData(), dnnConfigPathUtf8.constData());
             if (dnnNet_.empty()) {
-                dnnNet_ = cv::dnn::readNetFromCaffe(dnnConfigPath_.toStdString(), dnnModelPath_.toStdString());
+                dnnNet_ = cv::dnn::readNetFromCaffe(dnnConfigPathUtf8.constData(), dnnModelPathUtf8.constData());
             }
             dnnLoaded_ = !dnnNet_.empty();
         } catch (const cv::Exception& e) {

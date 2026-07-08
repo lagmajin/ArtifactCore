@@ -28,9 +28,9 @@ namespace ArtifactCore {
 
  // Id::Impl のQStringからのコンストラクタ - UUID文字列をパース
  Id::Impl::Impl(const QString& s) {
-  std::string s_std = s.toStdString();
   try {
-   value_ = boost::uuids::string_generator()(s_std);
+   const QByteArray utf8 = s.toUtf8();
+   value_ = boost::uuids::string_generator()(utf8.constData());
   }
   catch (const std::runtime_error& e) {
    qWarning() << "Error parsing UUID QString:" << s << "-" << e.what();
@@ -98,7 +98,7 @@ QString Id::toString() const {
   if (!impl_) {
    return QString();
   }
-  return QString::fromStdString(boost::uuids::to_string(impl_->value_));
+  return QString::fromUtf8(boost::uuids::to_string(impl_->value_).c_str());
 }
 
  // UUIDが空（nil）であるかチェック

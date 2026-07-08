@@ -1,4 +1,5 @@
 module;
+#include <QByteArray>
 #include <QString>
 #include <QStringView>
 #include <string_view>
@@ -14,13 +15,15 @@ inline QString toQString(StringView view) {
 }
 
 inline std::string toStdString(StringView view) {
-  return view.toString().toStdString();
+  const QByteArray utf8 = view.toString().toUtf8();
+  return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
 }
 
 inline std::string_view toStdStringView(StringView view) {
   const QString text = view.toString();
   static thread_local std::string storage;
-  storage = text.toStdString();
+  const QByteArray utf8 = text.toUtf8();
+  storage.assign(utf8.constData(), static_cast<size_t>(utf8.size()));
   return std::string_view(storage);
 }
 

@@ -26,6 +26,7 @@ enum class ClipboardType {
     Layer,          // レイヤー全体
     Effect,         // エフェクト設定
     Keyframes,      // キーフレーム範囲
+    KeyframeEasing, // キーフレーム easing / interpolation
     PropertyValue,  // プロパティ値
     ProjectItems,   // Project View の item snapshot
     ProjectBundle,  // Inter-process project bundle
@@ -72,6 +73,10 @@ public:
     bool hasKeyframeData() const;
     QJsonArray pasteKeyframes() const;
     QString pasteKeyframesPropertyPath() const;
+    void copyKeyframeEasing(const QString& propertyPath, const QJsonArray& easing, const QString& layerId);
+    bool hasKeyframeEasingData() const;
+    QJsonArray pasteKeyframeEasing() const;
+    QString pasteKeyframeEasingPropertyPath() const;
 
     // --- Property Value Operations ---
     void copyPropertyValue(const QString& propertyPath, const QVariant& value, const QString& layerId);
@@ -110,6 +115,7 @@ private:
     static constexpr const char* kLayerMime = "application/x-artifact-layer";
     static constexpr const char* kEffectMime = "application/x-artifact-effect";
     static constexpr const char* kKeyframeMime = "application/x-artifact-keyframe";
+    static constexpr const char* kKeyframeEasingMime = "application/x-artifact-keyframe-easing";
     static constexpr const char* kPropertyMime = "application/x-artifact-property";
     static constexpr const char* kProjectItemsMime = "application/x-artifact-project-items";
     static constexpr const char* kProjectBundleMime = "application/x-artifact-project-bundle";
@@ -177,6 +183,21 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
                                         : outEntry.sourcePropertyPath;
         outEntry.description = QStringLiteral("%1 keyframes on %2")
                                    .arg(keyframes.size())
+                                   .arg(sourceLabel);
+        return true;
+    }
+    if (type == QStringLiteral("keyframe-easing")) {
+        outEntry.type = ClipboardType::KeyframeEasing;
+        outEntry.mimeType = kKeyframeEasingMime;
+        outEntry.sourceLayerId = obj.value(QStringLiteral("sourceLayerId")).toString();
+        outEntry.sourcePropertyPath = obj.value(QStringLiteral("propertyPath")).toString();
+        const QJsonArray easing = obj.value(QStringLiteral("easing")).toArray();
+        const QString sourceLabel = outEntry.sourcePropertyPath.isEmpty()
+                                        ? QStringLiteral("timeline")
+                                        : outEntry.sourcePropertyPath;
+        outEntry.description = QStringLiteral("%1 easing block%2 on %3")
+                                   .arg(easing.size())
+                                   .arg(easing.size() == 1 ? QString() : QStringLiteral("s"))
                                    .arg(sourceLabel);
         return true;
     }
@@ -335,6 +356,39 @@ QJsonArray ClipboardManager::pasteKeyframes() const {
 }
 
 QString ClipboardManager::pasteKeyframesPropertyPath() const {
+    return internalClip_.sourcePropertyPath;
+}
+
+void ClipboardManager::copyKeyframeEasing(const QString& propertyPath, const QJsonArray& easing, const QString& layerId) {
+    QJsonObject clipObj;
+    clipObj = makeEnvelope(QStringLiteral("keyframe-easing"), clipObj);
+    clipObj[QStringLiteral("sourceLayerId")] = layerId;
+    clipObj[QStringLiteral("propertyPath")] = propertyPath;
+    clipObj[QStringLiteral("easing")] = easing;
+
+    internalClip_.type = ClipboardType::KeyframeEasing;
+    internalClip_.mimeType = kKeyframeEasingMime;
+    internalClip_.data = clipObj;
+    internalClip_.description = QStringLiteral("%1 easing block%2 on %3")
+                                   .arg(easing.size())
+                                   .arg(easing.size() == 1 ? QString() : QStringLiteral("s"))
+                                   .arg(propertyPath);
+    internalClip_.sourceLayerId = layerId;
+    internalClip_.sourcePropertyPath = propertyPath;
+
+    syncToSystemClipboard();
+}
+
+bool ClipboardManager::hasKeyframeEasingData() const {
+    return internalClip_.type == ClipboardType::KeyframeEasing;
+}
+
+QJsonArray ClipboardManager::pasteKeyframeEasing() const {
+    if (internalClip_.type != ClipboardType::KeyframeEasing) return {};
+    return internalClip_.data[QStringLiteral("easing")].toArray();
+}
+
+QString ClipboardManager::pasteKeyframeEasingPropertyPath() const {
     return internalClip_.sourcePropertyPath;
 }
 

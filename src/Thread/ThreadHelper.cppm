@@ -174,7 +174,7 @@ QString currentProcessThreadDebugString()
 }
 
 ScopedThreadName::ScopedThreadName(const std::string& name)
-    : ScopedThreadName(QString::fromStdString(name))
+    : ScopedThreadName(QString::fromUtf8(name.data(), static_cast<int>(name.size())))
 {
 }
 
@@ -196,7 +196,7 @@ ScopedThreadName::~ScopedThreadName()
 void setCurrentThreadName(const std::string& name)
  {
   if (auto* thread = QThread::currentThread()) {
-    thread->setObjectName(QString::fromStdString(name));
+    thread->setObjectName(QString::fromUtf8(name.data(), static_cast<int>(name.size())));
   }
  }
 

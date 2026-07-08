@@ -14,6 +14,7 @@ module;
 #include <QDebug>
 #include <QFileInfo>
 #include <QImage>
+#include <QByteArray>
 #include <QString>
 
 module IO.Async.ImageWriterManager;
@@ -150,7 +151,7 @@ void AsyncImageWriterManager::Impl::performImageWrite(std::string filepath_str, 
         return;
     }
 
-    const QString filepath = QString::fromStdString(filepath_str);
+    const QString filepath = QString::fromUtf8(filepath_str.data(), static_cast<int>(filepath_str.size()));
     if (filepath.isEmpty() || !image) {
         return;
     }
@@ -176,9 +177,9 @@ void AsyncImageWriterManager::Impl::enqueueImageWrite(const QString& filepath, R
         return;
     }
 
-    const std::string filepathUtf8 = filepath.toStdString();
+    const QByteArray filepathUtf8 = filepath.toUtf8();
     boost::asio::post(thread_pool_, [this, filepathUtf8, image = std::move(image)]() mutable {
-        performImageWrite(filepathUtf8, std::move(image));
+        performImageWrite(std::string(filepathUtf8.constData()), std::move(image));
     });
 }
 

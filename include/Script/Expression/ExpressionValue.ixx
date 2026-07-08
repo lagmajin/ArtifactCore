@@ -23,6 +23,7 @@ module;
 #include <variant>
 #include <any>
 #include <atomic>
+#include <string_view>
 #include <queue>
 #include <deque>
 #include <list>
@@ -31,6 +32,8 @@ module;
 #include <regex>
 #include <random>
 export module Script.Expression.Value;
+
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -59,6 +62,8 @@ public:
     ExpressionValue(double x, double y, double z, double w);
     explicit ExpressionValue(const std::vector<ExpressionValue>& array);
     explicit ExpressionValue(const std::string& str);
+    explicit ExpressionValue(const ZeroString& str);
+    explicit ExpressionValue(std::string_view str);
     explicit ExpressionValue(const std::map<std::string, ExpressionValue>& object);
     ExpressionValue(const ExpressionValue& other);
     ExpressionValue(ExpressionValue&& other) noexcept;
@@ -79,6 +84,7 @@ public:
     double asNumber() const;
     std::vector<double> asVector() const;
     std::vector<ExpressionValue> asArray() const;
+    ZeroString asZeroString() const;
     std::string asString() const;
 
     // Vector component access
@@ -109,6 +115,7 @@ public:
     bool operator>=(const ExpressionValue& rhs) const;
 
     // String representation for debugging
+    ZeroString toZeroString() const;
     std::string toString() const;
 
     // Vector operations

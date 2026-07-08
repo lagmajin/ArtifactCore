@@ -40,6 +40,7 @@ module;
 #include <random>
 module Property.Abstract;
 
+import Core.ArtifactString;
 import Script.Expression.Evaluator;
 import Script.Expression.Value;
 import Math.Interpolate;
@@ -60,7 +61,7 @@ namespace {
             case PropertyType::Float: return ExpressionValue(v.toDouble());
             case PropertyType::Integer: return ExpressionValue(v.toDouble()); 
             case PropertyType::Boolean: return ExpressionValue(v.toBool() ? 1.0 : 0.0);
-            case PropertyType::String: return ExpressionValue(v.toString().toStdString());
+            case PropertyType::String: return ExpressionValue(ZeroString(v.toString().toUtf8().constData()));
             case PropertyType::Color: {
                 QColor c = v.value<QColor>();
                 return ExpressionValue(c.redF(), c.greenF(), c.blueF(), c.alphaF());
@@ -74,7 +75,10 @@ namespace {
             case PropertyType::Float: return QVariant(ev.asNumber());
             case PropertyType::Integer: return QVariant(static_cast<int>(std::round(ev.asNumber())));
             case PropertyType::Boolean: return QVariant(ev.asNumber() > 0.5);
-            case PropertyType::String: return QVariant(QString::fromStdString(ev.asString()));
+            case PropertyType::String: {
+                const ZeroString text = ev.asZeroString();
+                return QVariant(QString::fromUtf8(text.data(), static_cast<int>(text.length())));
+            }
             case PropertyType::Color: {
                 if (ev.isVector() || ev.isArray()) {
                      return QVariant::fromValue(QColor::fromRgbF(
@@ -360,16 +364,16 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
             evaluator->setVariable("time", ExpressionValue(time.toDouble()));
             evaluator->setVariable("frameRate", ExpressionValue(frameRate));
 
-            ExpressionValue result = evaluator->evaluate(pImpl->m_expression.toStdString());
+            ExpressionValue result = evaluator->evaluate(ZeroString(pImpl->m_expression.toUtf8().constData()));
             if (!evaluator->hasError()) {
                 return expressionValueToQVariant(result, pImpl->m_type);
             } else {
                 // If error, return baseValue as fallback
-                std::cerr << "Expression error in property " << pImpl->m_name.toStdString() 
+                std::cerr << "Expression error in property " << pImpl->m_name.toUtf8().constData()
                           << ": " << evaluator->getError() << std::endl;
             }
         } catch (const std::exception& e) {
-            std::cerr << "Expression exception in property " << pImpl->m_name.toStdString() 
+            std::cerr << "Expression exception in property " << pImpl->m_name.toUtf8().constData()
                       << ": " << e.what() << std::endl;
         }
     }

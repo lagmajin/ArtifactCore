@@ -112,7 +112,7 @@ LIBRARY_DLL_API cv::Mat findAndLoadImageInAppDir(const QString& image_filename, 
 
  qDebug() << "image founded:" << foundPath;
 
- cv::Mat loadedCvMat = cv::imread(foundPath.toStdString());
+ cv::Mat loadedCvMat = cv::imread(foundPath.toUtf8().constData());
  if (loadedCvMat.empty()) {
   qWarning() << "OpenCVでの画像ロードに失敗しました:" << foundPath;
   return cv::Mat();

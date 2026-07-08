@@ -380,12 +380,12 @@ private:
       if (cancelToken.IsCancelled()) {
         newState = TaskState::Cancelled;
         snapshot.state = TaskState::Cancelled;
-      } else {
+        } else {
         // その他のエラー
         newState = TaskState::Failed;
         snapshot.state = TaskState::Failed;
         snapshot.error = TaskError::FromException(
-            QString::fromStdString(e.what()), "runtime");
+            QString::fromUtf8(e.what()), "runtime");
       }
 
       snapshot.endTime = std::chrono::steady_clock::now();

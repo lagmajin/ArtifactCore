@@ -296,13 +296,13 @@ namespace ArtifactCore {
   QString name = codecName.toQString();
   const AVCodec* codec = avcodec_find_decoder_by_name(name.toUtf8().constData());
   if (!codec) {
-   impl_->lastError_ = UniString(std::string("Decoder not found: ") + name.toStdString());
+   impl_->lastError_ = UniString(QStringLiteral("Decoder not found: ") + name);
    return false;
   }
 
   impl_->codecContext_ = avcodec_alloc_context3(codec);
   if (!impl_->codecContext_) {
-   impl_->lastError_ = UniString(std::string("Failed to allocate codec context"));
+   impl_->lastError_ = UniString(QStringLiteral("Failed to allocate codec context"));
    return false;
   }
 
@@ -313,7 +313,7 @@ namespace ArtifactCore {
   if (avcodec_open2(impl_->codecContext_, codec, &codecOpts) < 0) {
    av_dict_free(&codecOpts);
    avcodec_free_context(&impl_->codecContext_);
-   impl_->lastError_ = UniString(std::string("Failed to open codec"));
+   impl_->lastError_ = UniString(QStringLiteral("Failed to open codec"));
    return false;
   }
   av_dict_free(&codecOpts);

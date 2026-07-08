@@ -36,11 +36,13 @@ module;
 #include <utility>
 #include <variant>
 #include <vector>
+#include <string_view>
 
 module Script.Expression.Evaluator;
 
 import Script.Expression.Value;
 import Script.Expression.Parser;
+import Core.ArtifactString;
 import Math.Noise;
 
 namespace ArtifactCore {
@@ -51,7 +53,7 @@ public:
   std::map<std::string, ExpressionValue> variables_;
   std::map<std::string, BuiltinFunction> functions_;
   ExpressionParser parser_;
-  std::string error_;
+  ZeroString error_;
   std::atomic<bool> cancelRequested_ = false;
 
   // Recursion safety
@@ -136,16 +138,16 @@ static double easeOutCurve(double t) {
 ExpressionValue
 ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
   if (!node) {
-    error_ = "Null AST node";
+    error_ = ZeroString("Null AST node");
     return ExpressionValue();
   }
 
   if (currentDepth_ >= recursionDepthLimit_) {
-    error_ = "Recursion depth limit exceeded (" + std::to_string(recursionDepthLimit_) + ")";
+    error_ = ZeroString("Recursion depth limit exceeded (") + std::to_string(recursionDepthLimit_) + ")";
     return ExpressionValue();
   }
   if (evaluationCount_ >= evaluationBudget_) {
-    error_ = "Evaluation budget exceeded (" + std::to_string(evaluationBudget_) + ")";
+    error_ = ZeroString("Evaluation budget exceeded (") + std::to_string(evaluationBudget_) + ")";
     return ExpressionValue();
   }
 
@@ -160,7 +162,7 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
   // Memoization
   if (memoizationEnabled_ && node) {
     size_t nodeHash = reinterpret_cast<size_t>(node.get()) ^
-                      std::hash<std::string>{}(error_);
+                      std::hash<std::string_view>{}(std::string_view{error_.data(), error_.length()});
     auto memoIt = memoCache_.find(nodeHash);
     if (memoIt != memoCache_.end()) {
       return memoIt->second;
@@ -183,7 +185,7 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
     auto it = variables_.find(name);
     if (it != variables_.end())
       return it->second;
-    error_ = "Undefined variable: " + name;
+    error_ = ZeroString("Undefined variable: ") + std::string_view(name);
     return ExpressionValue();
   }
 
@@ -214,7 +216,7 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
 
   case ExprNodeType::ArrayAccess: {
     if (node->childCount() < 2) {
-      error_ = "Invalid array access";
+      error_ = ZeroString("Invalid array access");
       return ExpressionValue();
     }
     auto array = evaluateNode(node->child(0));
@@ -225,7 +227,7 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
 
   case ExprNodeType::PropertyAccess: {
     if (node->childCount() < 1) {
-      error_ = "Invalid property access";
+      error_ = ZeroString("Invalid property access");
       return ExpressionValue();
     }
 
@@ -236,7 +238,7 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
       if (base.hasProperty(prop)) {
         return base.property(prop);
       }
-      error_ = "Undefined property: " + prop;
+      error_ = ZeroString("Undefined property: ") + std::string_view(prop);
       return ExpressionValue();
     }
 
@@ -252,16 +254,16 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
     }
 
     if (base.isString() && prop == "length") {
-      return ExpressionValue(static_cast<double>(base.asString().size()));
+      return ExpressionValue(static_cast<double>(base.asZeroString().length()));
     }
 
-    error_ = "Unsupported property access: " + prop;
+    error_ = ZeroString("Unsupported property access: ") + std::string_view(prop);
     return ExpressionValue();
   }
 
   case ExprNodeType::BinaryOp: {
     if (node->childCount() < 2) {
-      error_ = "Binary operator requires two operands";
+      error_ = ZeroString("Binary operator requires two operands");
       return ExpressionValue();
     }
     auto left = evaluateNode(node->child(0));
@@ -302,13 +304,13 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
       return ExpressionValue(
           (left.asNumber() != 0.0 || right.asNumber() != 0.0) ? 1.0 : 0.0);
 
-    error_ = std::string("Unknown binary operator: ") + op;
+    error_ = ZeroString("Unknown binary operator: ") + std::string_view(op);
     return ExpressionValue();
   }
 
   case ExprNodeType::UnaryOp: {
     if (node->childCount() == 0) {
-      error_ = "Unary operator requires one operand";
+      error_ = ZeroString("Unary operator requires one operand");
       return ExpressionValue();
     }
     auto operand = evaluateNode(node->child(0));
@@ -318,7 +320,7 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
     if (opu == "!" || opu == "not")
       return ExpressionValue(operand.asNumber() == 0.0 ? 1.0 : 0.0);
 
-    error_ = std::string("Unknown unary operator: ") + opu;
+    error_ = ZeroString("Unknown unary operator: ") + std::string_view(opu);
     return ExpressionValue();
   }
 
@@ -326,7 +328,7 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
     auto fname = node->stringValue();
     auto it = functions_.find(fname);
     if (it == functions_.end()) {
-      error_ = "Undefined function: " + fname;
+      error_ = ZeroString("Undefined function: ") + std::string_view(fname);
       return ExpressionValue();
     }
     std::vector<ExpressionValue> args;
@@ -340,7 +342,7 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
 
   case ExprNodeType::MethodCall: {
     if (node->childCount() < 1) {
-      error_ = "Invalid method call";
+      error_ = ZeroString("Invalid method call");
       return ExpressionValue();
     }
 
@@ -354,12 +356,12 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
     if (base.isObject() && method == "layer") {
       auto layersValue = base.property("layers");
       if (!layersValue.isArray()) {
-        error_ = "thisComp.layer() requires a layers catalog";
+        error_ = ZeroString("thisComp.layer() requires a layers catalog");
         return ExpressionValue();
       }
 
       if (args.empty()) {
-        error_ = "thisComp.layer() requires an argument";
+        error_ = ZeroString("thisComp.layer() requires an argument");
         return ExpressionValue();
       }
 
@@ -371,24 +373,24 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
         }
       }
 
-      const std::string wantedName = args[0].asString();
+      const ZeroString wantedName = args[0].asZeroString();
       for (const auto& layer : layers) {
-        if (layer.isObject() && layer.hasProperty("name") && layer.property("name").asString() == wantedName) {
+        if (layer.isObject() && layer.hasProperty("name") && layer.property("name").asZeroString() == wantedName) {
           return layer;
         }
       }
 
-      error_ = "Layer not found: " + wantedName;
+      error_ = ZeroString("Layer not found: ") + std::string_view(wantedName);
       return ExpressionValue();
     }
 
-    error_ = "Unsupported method call: " + method;
+    error_ = ZeroString("Unsupported method call: ") + std::string_view(method);
     return ExpressionValue();
   }
 
   case ExprNodeType::Conditional: {
     if (node->childCount() < 3) {
-      error_ = "Ternary operator requires three operands";
+      error_ = ZeroString("Ternary operator requires three operands");
       return ExpressionValue();
     }
     auto condition = evaluateNode(node->child(0));
@@ -398,7 +400,7 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
   }
 
   default:
-    error_ = "Unknown node type";
+    error_ = ZeroString("Unknown node type");
     return ExpressionValue();
   }
 }
@@ -434,6 +436,10 @@ ExpressionValue ExpressionEvaluator::evaluate(const std::string &expression) {
     return ExpressionValue();
   }
   return evaluateAST(ast);
+}
+
+ExpressionValue ExpressionEvaluator::evaluate(const ZeroString& expression) {
+  return evaluate(std::string(expression.data(), expression.length()));
 }
 
 ExpressionValue
@@ -561,7 +567,12 @@ void ExpressionEvaluator::clearMemoCache() {
     impl_->memoCache_.clear();
 }
 
-std::string ExpressionEvaluator::getError() const { return impl_->error_; }
+ZeroString ExpressionEvaluator::getErrorZero() const { return impl_->error_; }
+
+std::string ExpressionEvaluator::getError() const {
+  const ZeroString text = getErrorZero();
+  return std::string(text.data(), text.length());
+}
 
 bool ExpressionEvaluator::hasError() const { return !impl_->error_.empty(); }
 

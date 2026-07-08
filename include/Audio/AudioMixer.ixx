@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
 #include <QJsonObject>
+#include <QString>
 #include <memory>
 #include <string>
 #include <vector>
@@ -10,6 +11,8 @@ export module Audio.Mixer;
 
 import Audio.Bus;
 import Audio.Segment;
+import Core.ArtifactString;
+import Utils.String.UniString;
 
 export namespace ArtifactCore {
 
@@ -19,7 +22,10 @@ public:
     ~AudioMixer();
 
     // バス管理
+    std::shared_ptr<AudioBus> createBus(const ZeroString& name);
     std::shared_ptr<AudioBus> createBus(const std::string& name);
+    std::shared_ptr<AudioBus> createBus(const QString& name);
+    std::shared_ptr<AudioBus> createBus(const UniString& name);
     void removeBus(std::shared_ptr<AudioBus> bus);
     
     // ルーティング設定
@@ -36,8 +42,12 @@ public:
 
     std::shared_ptr<AudioBus> getMasterBus() const { return masterBus_; }
     int busCount() const;
+    std::vector<ZeroString> busNamesZero() const;
     std::vector<std::string> busNames() const;
+    std::shared_ptr<AudioBus> findBusByName(const ZeroString& name) const;
     std::shared_ptr<AudioBus> findBusByName(const std::string& name) const;
+    std::shared_ptr<AudioBus> findBusByName(const QString& name) const;
+    std::shared_ptr<AudioBus> findBusByName(const UniString& name) const;
 
     std::vector<std::shared_ptr<AudioBus>> getAllBuses() const;
     std::shared_ptr<AudioBus> getRoutingTarget(std::shared_ptr<AudioBus> bus) const;

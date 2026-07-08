@@ -384,6 +384,7 @@ InputBinding* KeyMap::addBinding(int key,
     auto* binding = new InputBinding(action->id(), this);
     binding->setKeyCode(key);
     binding->setModifiers(modifiers);
+    binding->setRequiredModifiers(modifiers);
     binding->setName(action->name());
     binding->setDescription(description.isEmpty() ? action->description() : description);
     binding->setActionId(action->id());
@@ -405,7 +406,15 @@ InputBinding* KeyMap::addBinding(const QString& keySequence,
                                 Action* action,
                                 const QString& description) {
     QKeySequence seq(keySequence);
-    return addBinding(seq[0], InputEvent::Modifiers(), action, description);
+    if (seq.isEmpty()) {
+        return nullptr;
+    }
+
+    const int combined = seq[0];
+    const int key = combined & ~int(Qt::KeyboardModifierMask);
+    const auto modifiers = toInputModifiers(
+        Qt::KeyboardModifiers(combined & int(Qt::KeyboardModifierMask)));
+    return addBinding(key, modifiers, action, description);
 }
 
 void KeyMap::removeBinding(InputBinding* binding) {

@@ -13,8 +13,9 @@ module;
 #include <mutex>
 #include <map>
 #include <vector>
-#include <sstream>
 export module ArtifactCore.Utils.PerformanceProfiler;
+
+import Core.ArtifactString;
 
 namespace ArtifactCore {
 
@@ -290,21 +291,46 @@ public:
     double scopeWarningThresholdMs() const { return scopeWarningThresholdMs_; }
     int eventSpamThreshold() const { return eventSpamThreshold_; }
 
-    std::string generateDiagnosticReport(int histN) const {
-        std::ostringstream oss;
+    ZeroString generateDiagnosticReportZero(int histN) const {
+        ZeroString text;
         const auto last = lastFrameSnapshot();
         const auto fstats = computeFrameStats(histN);
-        oss << "Profiler report\n";
-        oss << "  enabled=" << (enabled_ ? "true" : "false") << '\n';
-        oss << "  lastFrameMs=" << (static_cast<double>(last.frameDurationNs) / 1e6) << '\n';
-        oss << "  avgMs=" << fstats.avgMs << " p95Ms=" << fstats.p95Ms << " maxMs=" << fstats.maxMs << '\n';
-        oss << "  scopes=" << last.scopes.size() << " events=" << last.eventCounts.size() << '\n';
+        text += "Profiler report\n";
+        text += "  enabled=";
+        text += enabled_ ? "true" : "false";
+        text += '\n';
+        text += "  lastFrameMs=";
+        text += std::to_string(static_cast<double>(last.frameDurationNs) / 1e6);
+        text += '\n';
+        text += "  avgMs=";
+        text += std::to_string(fstats.avgMs);
+        text += " p95Ms=";
+        text += std::to_string(fstats.p95Ms);
+        text += " maxMs=";
+        text += std::to_string(fstats.maxMs);
+        text += '\n';
+        text += "  scopes=";
+        text += std::to_string(last.scopes.size());
+        text += " events=";
+        text += std::to_string(last.eventCounts.size());
+        text += '\n';
         for (const auto& name : knownTimerNames()) {
             const auto st = timerStats(name, histN);
-            oss << "  timer " << name << " avgMs=" << st.avgMs
-                << " p95Ms=" << st.p95Ms << " samples=" << st.samples << '\n';
+            text += "  timer ";
+            text += name;
+            text += " avgMs=";
+            text += std::to_string(st.avgMs);
+            text += " p95Ms=";
+            text += std::to_string(st.p95Ms);
+            text += " samples=";
+            text += std::to_string(st.samples);
+            text += '\n';
         }
-        return oss.str();
+        return text;
+    }
+
+    std::string generateDiagnosticReport(int histN) const {
+        return generateDiagnosticReportZero(histN);
     }
 
 private:
@@ -420,23 +446,39 @@ public:
         return total;
     }
 
-    std::string generateReport() const {
+    ZeroString generateReportZero() const {
         std::lock_guard<std::mutex> lock(mutex_);
-        std::ostringstream oss;
-        oss << "=== Startup Profile ===\n";
+        ZeroString text;
+        text += "=== Startup Profile ===\n";
         double sum = 0.0;
         for (const auto& e : events_) {
-            oss << "  " << e.name << ": " << e.durationMs << " ms";
-            if (e.threadCount > 0)
-                oss << " (threads=" << e.threadCount << ")";
-            if (e.itemCount > 0)
-                oss << " (items=" << e.itemCount << ")";
-            oss << "\n";
+            text += "  ";
+            text += e.name;
+            text += ": ";
+            text += std::to_string(e.durationMs);
+            text += " ms";
+            if (e.threadCount > 0) {
+                text += " (threads=";
+                text += std::to_string(e.threadCount);
+                text += ")";
+            }
+            if (e.itemCount > 0) {
+                text += " (items=";
+                text += std::to_string(e.itemCount);
+                text += ")";
+            }
+            text += "\n";
             if (e.phase != StartupPhase::TotalStartup)
                 sum += e.durationMs;
         }
-        oss << "  --- sum (excl. total): " << sum << " ms\n";
-        return oss.str();
+        text += "  --- sum (excl. total): ";
+        text += std::to_string(sum);
+        text += " ms\n";
+        return text;
+    }
+
+    std::string generateReport() const {
+        return generateReportZero();
     }
 
 private:

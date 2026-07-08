@@ -25,6 +25,7 @@ module;
 #include <variant>
 #include <any>
 #include <atomic>
+#include <string_view>
 #include <condition_variable>
 #include <queue>
 #include <deque>
@@ -35,6 +36,8 @@ module;
 #include <random>
 module Script.Expression.Value;
 
+import Core.ArtifactString;
+
 namespace ArtifactCore {
 
 class ExpressionValue::Impl {
@@ -43,7 +46,7 @@ public:
     double number_ = 0.0;
     std::vector<double> vector_;
     std::vector<ExpressionValue> array_;
-    std::string string_;
+    ZeroString string_;
     std::map<std::string, ExpressionValue> object_;
 };
 
@@ -75,6 +78,16 @@ ExpressionValue::ExpressionValue(const std::vector<ExpressionValue>& array) : im
 }
 
 ExpressionValue::ExpressionValue(const std::string& str) : impl_(new Impl()) {
+    impl_->type_ = ExprValueType::String;
+    impl_->string_ = str;
+}
+
+ExpressionValue::ExpressionValue(const ZeroString& str) : impl_(new Impl()) {
+    impl_->type_ = ExprValueType::String;
+    impl_->string_ = str;
+}
+
+ExpressionValue::ExpressionValue(std::string_view str) : impl_(new Impl()) {
     impl_->type_ = ExprValueType::String;
     impl_->string_ = str;
 }
@@ -155,9 +168,13 @@ std::vector<ExpressionValue> ExpressionValue::asArray() const {
     return {};
 }
 
-std::string ExpressionValue::asString() const {
+ZeroString ExpressionValue::asZeroString() const {
     if (impl_->type_ == ExprValueType::String) return impl_->string_;
-    return toString();
+    return toZeroString();
+}
+
+std::string ExpressionValue::asString() const {
+    return std::string(asZeroString().data(), asZeroString().length());
 }
 
 double ExpressionValue::x() const { return impl_->vector_.size() > 0 ? impl_->vector_[0] : 0.0; }
@@ -329,15 +346,20 @@ bool ExpressionValue::operator>=(const ExpressionValue& rhs) const {
 }
 
 std::string ExpressionValue::toString() const {
+    const ZeroString text = toZeroString();
+    return std::string(text.data(), text.length());
+}
+
+ZeroString ExpressionValue::toZeroString() const {
     switch (impl_->type_) {
     case ExprValueType::Null:
-        return "null";
+        return ZeroString("null");
     case ExprValueType::Number:
-        return std::to_string(impl_->number_);
+        return ZeroString(std::to_string(impl_->number_));
     case ExprValueType::Vec2:
     case ExprValueType::Vec3:
     case ExprValueType::Vec4: {
-        std::string result = "[";
+        ZeroString result = "[";
         for (size_t i = 0; i < impl_->vector_.size(); ++i) {
             if (i > 0) result += ", ";
             result += std::to_string(impl_->vector_[i]);
@@ -346,29 +368,36 @@ std::string ExpressionValue::toString() const {
         return result;
     }
     case ExprValueType::Array: {
-        std::string result = "[";
+        ZeroString result = "[";
         for (size_t i = 0; i < impl_->array_.size(); ++i) {
             if (i > 0) result += ", ";
-            result += impl_->array_[i].toString();
+            result += impl_->array_[i].toZeroString();
         }
         result += "]";
         return result;
     }
     case ExprValueType::String:
-        return "\"" + impl_->string_ + "\"";
+    {
+        ZeroString result = "\"";
+        result += impl_->string_;
+        result += "\"";
+        return result;
+    }
     case ExprValueType::Object: {
-        std::string result = "{";
+        ZeroString result = "{";
         bool first = true;
         for (const auto& kv : impl_->object_) {
             if (!first) result += ", ";
             first = false;
-            result += kv.first + ": " + kv.second.toString();
+            result += kv.first;
+            result += ": ";
+            result += kv.second.toZeroString();
         }
         result += "}";
         return result;
     }
     }
-    return "";
+    return ZeroString();
 }
 
 ExpressionValue ExpressionValue::normalized() const {

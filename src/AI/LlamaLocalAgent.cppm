@@ -11,6 +11,7 @@ module;
 #include <QStringList>
 #include <QStringView>
 #include <QFileInfo>
+#include <string_view>
 
 module Core.AI.LlamaAgent;
 import std;
@@ -183,6 +184,11 @@ using LlamaContextPtr = std::unique_ptr<llama_context, LlamaDeleter<llama_contex
 using LlamaSamplerPtr = std::unique_ptr<llama_sampler, LlamaDeleter<llama_sampler, llama_sampler_free>>;
 
 QString utf8ToQString(const std::string& text)
+{
+    return QString::fromUtf8(text.data(), static_cast<int>(text.size()));
+}
+
+QString utf8ToQString(std::string_view text)
 {
     return QString::fromUtf8(text.data(), static_cast<int>(text.size()));
 }
@@ -492,7 +498,7 @@ QString sampleWithModel(
             return {};
         }
 
-        const QString prompt = utf8ToQString(std::string(promptBuffer.data(), static_cast<size_t>(formattedLen)));
+        const QString prompt = utf8ToQString(std::string_view(promptBuffer.data(), static_cast<size_t>(formattedLen)));
         const std::vector<llama_token> tokens = tokenizePrompt(vocab, prompt);
         if (tokens.empty()) {
             if (errorOut) {

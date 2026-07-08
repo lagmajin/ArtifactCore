@@ -2,16 +2,19 @@ module;
 #include <algorithm>
 #include <cctype>
 #include <charconv>
-#include <sstream>
+#include <cstdlib>
 #include <string>
+#include <string_view>
 
 module Script.ArtifactScript;
+
+import Core.ArtifactString;
 
 namespace ArtifactCore {
 
 namespace {
 
-std::string trim(std::string_view text) {
+ZeroString trim(std::string_view text) {
     std::size_t begin = 0;
     while (begin < text.size() && std::isspace(static_cast<unsigned char>(text[begin]))) {
         ++begin;
@@ -20,7 +23,7 @@ std::string trim(std::string_view text) {
     while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1]))) {
         --end;
     }
-    return std::string(text.substr(begin, end - begin));
+    return ZeroString(text.data() + begin, end - begin);
 }
 
 bool starts_with(std::string_view text, std::string_view prefix) {
@@ -38,23 +41,23 @@ std::optional<ArtifactScriptHook> hookFromName(std::string_view name) {
 }
 
 ArtifactScriptValue parseDefaultValue(std::string_view text, ArtifactScriptValueType type) {
-    const std::string value = trim(text);
+    const ZeroString value = trim(text);
     switch (type) {
     case ArtifactScriptValueType::Bool:
-        return value == "true";
+        return std::string_view(value) == "true";
     case ArtifactScriptValueType::Int: {
         std::int64_t parsed = 0;
         const auto* begin = value.data();
-        const auto* end = value.data() + value.size();
+        const auto* end = value.data() + value.length();
         std::from_chars(begin, end, parsed);
         return parsed;
     }
     case ArtifactScriptValueType::Float:
-        return std::stod(value);
+        return std::strtod(value.data(), nullptr);
     case ArtifactScriptValueType::String:
-        return value.size() >= 2 && value.front() == '"' && value.back() == '"'
-            ? value.substr(1, value.size() - 2)
-            : value;
+        return value.length() >= 2 && value.data()[0] == '"' && value.data()[value.length() - 1] == '"'
+            ? std::string(std::string_view(value.data() + 1, value.length() - 2))
+            : std::string(value.data(), value.length());
     default:
         return std::monostate{};
     }
@@ -80,15 +83,19 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
     ArtifactScriptDefinition def;
     def.source = std::string(source);
 
-    std::istringstream stream(def.source);
-    std::string line;
+    std::string_view sourceView = def.source;
     std::size_t lineNo = 0;
     bool inClass = false;
 
-    while (std::getline(stream, line)) {
+    for (std::size_t pos = 0; pos < sourceView.size();) {
+        const std::size_t end = sourceView.find('\n', pos);
+        const std::size_t lineEnd = end == std::string_view::npos ? sourceView.size() : end;
+        const std::string_view line(sourceView.data() + pos, lineEnd - pos);
+        const std::size_t nextPos = end == std::string_view::npos ? sourceView.size() : end + 1;
         ++lineNo;
-        const std::string trimmed = trim(line);
-        if (trimmed.empty()) {
+        const ZeroString trimmed = trim(line);
+        if (trimmed.isEmpty()) {
+            pos = nextPos;
             continue;
         }
 
@@ -96,64 +103,74 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             if (starts_with(trimmed, "class ")) {
                 const auto colon = trimmed.find(':');
                 const auto brace = trimmed.find('{');
-                const std::size_t nameEnd = colon == std::string::npos ? brace : colon;
-                if (nameEnd == std::string::npos) {
+                const std::size_t nameEnd = colon == static_cast<std::size_t>(-1) ? brace : colon;
+                if (nameEnd == static_cast<std::size_t>(-1)) {
                     def.diagnostics.push_back({lineNo, 1, "class declaration is incomplete"});
+                    pos = nextPos;
                     continue;
                 }
-                def.rootClass.name = trim(trimmed.substr(6, nameEnd - 6));
-                def.rootClass.derivesFromBehaviour = trimmed.find("ArtifactBehaviour") != std::string::npos;
+                const ZeroString className = trim(trimmed.substr(6, nameEnd - 6));
+                def.rootClass.name = std::string(className.data(), className.length());
+                def.rootClass.derivesFromBehaviour = trimmed.contains("ArtifactBehaviour");
                 inClass = true;
+                pos = nextPos;
                 continue;
             }
+            pos = nextPos;
             continue;
         }
 
         if (trimmed == "}" || trimmed == "};") {
             inClass = false;
+            pos = nextPos;
             continue;
         }
 
         const bool isPublic = starts_with(trimmed, "public ");
         const bool isPrivate = starts_with(trimmed, "private ");
         const bool isField = isPublic || isPrivate;
-        const bool isMethod = trimmed.find('(') != std::string::npos && trimmed.find(')') != std::string::npos;
+        const bool isMethod = trimmed.find('(') != static_cast<std::size_t>(-1) && trimmed.find(')') != static_cast<std::size_t>(-1);
 
         if (isField) {
-            const std::string body = trim(trimmed.substr(isPublic ? 7 : 8));
+            const ZeroString body = trim(trimmed.substr(isPublic ? 7 : 8));
             const auto space = body.find(' ');
             const auto eq = body.find('=');
-            if (space == std::string::npos) {
+            if (space == static_cast<std::size_t>(-1)) {
                 def.diagnostics.push_back({lineNo, 1, "field declaration is incomplete"});
+                pos = nextPos;
                 continue;
             }
-            const std::string typeName = body.substr(0, space);
-            const std::string namePart = trim(body.substr(space + 1, eq == std::string::npos ? std::string::npos : eq - space - 1));
+            const ZeroString typeName = body.substr(0, space);
+            const ZeroString namePart = trim(body.substr(space + 1, eq == std::string::npos ? std::string::npos : eq - space - 1));
             ArtifactScriptField field;
-            field.name = namePart;
+            field.name = std::string(namePart.data(), namePart.length());
             field.isPublic = isPublic;
             field.type = parseFieldType(typeName);
-            if (eq != std::string::npos) {
+            if (eq != static_cast<std::size_t>(-1)) {
                 field.defaultValue = parseDefaultValue(body.substr(eq + 1), field.type);
             }
             def.rootClass.fields.push_back(std::move(field));
+            pos = nextPos;
             continue;
         }
 
         if (isMethod) {
             ArtifactScriptMethod method;
             const auto paren = trimmed.find('(');
-            const std::string before = trim(trimmed.substr(0, paren));
-            const auto space = before.find_last_of(' ');
-            method.name = space == std::string::npos ? before : trim(before.substr(space + 1));
+            const ZeroString before = trim(trimmed.substr(0, paren));
+            const auto space = before.lastIndexOf(' ');
+            const ZeroString methodName = space < 0 ? before : trim(before.substr(static_cast<std::size_t>(space + 1)));
+            method.name = std::string(methodName.data(), methodName.length());
             method.parameters.clear();
             if (const auto hook = hookFromName(method.name)) {
                 method.isLifecycleHook = true;
                 method.hook = *hook;
             }
             def.rootClass.methods.push_back(std::move(method));
+            pos = nextPos;
             continue;
         }
+        pos = nextPos;
     }
 
     if (def.rootClass.name.empty()) {
@@ -163,12 +180,30 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
     return def;
 }
 
+void ArtifactScriptComponent::setScriptClass(const ZeroString& className) {
+    scriptClass_ = className;
+}
+
 void ArtifactScriptComponent::setScriptClass(std::string className) {
-    scriptClass_ = std::move(className);
+    scriptClass_ = ZeroString(std::move(className));
+}
+
+void ArtifactScriptComponent::setScriptClass(std::string_view className) {
+    scriptClass_ = className;
+}
+
+void ArtifactScriptComponent::setScriptClass(const char* className) {
+    scriptClass_ = className;
+}
+
+const ZeroString& ArtifactScriptComponent::scriptClassZero() const {
+    return scriptClass_;
 }
 
 const std::string& ArtifactScriptComponent::scriptClass() const {
-    return scriptClass_;
+    static thread_local std::string cache;
+    cache.assign(scriptClass_.data(), scriptClass_.length());
+    return cache;
 }
 
 ArtifactScriptSerializedFields& ArtifactScriptComponent::publicFields() {
@@ -180,7 +215,7 @@ const ArtifactScriptSerializedFields& ArtifactScriptComponent::publicFields() co
 }
 
 void ArtifactScriptComponent::applyDefaults(const ArtifactScriptDefinition& definition) {
-    if (!scriptClass_.empty() && !definition.rootClass.name.empty() && scriptClass_ != definition.rootClass.name) {
+    if (!scriptClass_.isEmpty() && !definition.rootClass.name.empty() && std::string(scriptClass_.data(), scriptClass_.length()) != definition.rootClass.name) {
         return;
     }
 

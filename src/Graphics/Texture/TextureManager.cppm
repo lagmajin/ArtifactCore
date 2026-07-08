@@ -50,8 +50,8 @@ namespace ArtifactCore
  {
   ITexture* texture = nullptr;
   TextureDesc desc;
-  std::string nameStr = name.toStdString();
-  desc.Name        = nameStr.c_str();
+  const QByteArray nameUtf8 = name.toUtf8();
+  desc.Name        = nameUtf8.constData();
   desc.Type        = RESOURCE_DIM_TEX_2D;
   desc.Width       = static_cast<Uint32>(size.width());
   desc.Height      = static_cast<Uint32>(size.height());

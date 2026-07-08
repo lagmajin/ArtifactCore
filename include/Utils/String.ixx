@@ -16,7 +16,7 @@ export namespace ArtifactCore {
  }
 
  inline QString toQString(const std::string& value) {
-  return QString::fromStdString(value);
+  return QString::fromUtf8(value.data(), static_cast<int>(value.size()));
  }
 
  inline QString toQString(const char* value) {

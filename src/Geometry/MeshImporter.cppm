@@ -10,6 +10,7 @@ module;
 #include <QFile>
 #include <QFileInfo>
 #include <QIODevice>
+#include <QByteArray>
 #include <QRegularExpression>
 #include <QString>
 #include <QStringView>
@@ -164,7 +165,7 @@ public:
     for (const auto& material : materials) {
       const auto assignTexture = [&](const std::string& path, auto&& setter,
                                      const char* label) {
-        const QString candidate = QString::fromStdString(path);
+        const QString candidate = QString::fromUtf8(path.data(), static_cast<int>(path.size()));
         if (candidate.isEmpty()) {
           return;
         }
@@ -245,8 +246,9 @@ public:
     opts.space_conversion = UFBX_SPACE_CONVERSION_MODIFY_GEOMETRY;
 
     ufbx_error error;
+    const QByteArray pathUtf8 = path.toUtf8();
     ufbx_scene *scene =
-        ufbx_load_file(path.toStdString().c_str(), &opts, &error);
+        ufbx_load_file(pathUtf8.constData(), &opts, &error);
 
     if (!scene) {
       lastError_ =
@@ -334,17 +336,18 @@ public:
     config.triangulate = false;
 
     tinyobj::ObjReader reader;
-    if (!reader.ParseFromFile(path.toStdString(), config)) {
+    const QByteArray pathUtf8 = path.toUtf8();
+    if (!reader.ParseFromFile(pathUtf8.constData(), config)) {
       const auto &err = reader.Error();
       const auto &warn = reader.Warning();
       if (!warn.empty()) {
-        qWarning() << "tinyobj warning:" << QString::fromStdString(warn);
+        qWarning() << "tinyobj warning:" << QString::fromUtf8(warn.data(), static_cast<int>(warn.size()));
       }
       if (!err.empty()) {
         lastError_ = QStringLiteral("tinyobj: %1")
-                         .arg(QStringView{QString::fromStdString(err)});
+                         .arg(QStringView{QString::fromUtf8(err.data(), static_cast<int>(err.size()))});
         qWarning() << "tinyobj failed to load:" << path << "-"
-                   << QString::fromStdString(err);
+                   << QString::fromUtf8(err.data(), static_cast<int>(err.size()));
       } else {
         lastError_ = QStringLiteral("tinyobj: unknown error");
         qWarning() << "tinyobj failed to load:" << path;

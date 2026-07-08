@@ -3,11 +3,12 @@ module;
 #include <vector>
 #include <string>
 #include <fstream>
-#include <sstream>
+#include <charconv>
+#include <cctype>
 #include <algorithm>
 #include <filesystem>
-#include <iostream>
 #include <iomanip>
+#include <string_view>
 
 module Color.Swatch;
 
@@ -130,13 +131,29 @@ bool ColorSwatch::importGPL(const std::filesystem::path& path) {
         }
         if (line.find("Columns:") == 0) continue;
 
-        std::istringstream iss(line);
-        int r, g, b;
-        if (iss >> r >> g >> b) {
-            std::string entryName;
-            std::getline(iss, entryName);
-            // 余分な空白を除去
-            entryName.erase(0, entryName.find_first_not_of(" \t"));
+        std::string_view view(line);
+        int r = 0;
+        int g = 0;
+        int b = 0;
+        const char* cursor = view.data();
+        const char* end = view.data() + view.size();
+        auto parseInt = [&](int& out) -> bool {
+            while (cursor < end && std::isspace(static_cast<unsigned char>(*cursor))) {
+                ++cursor;
+            }
+            const char* start = cursor;
+            auto [ptr, ec] = std::from_chars(start, end, out);
+            if (ec != std::errc()) {
+                return false;
+            }
+            cursor = ptr;
+            return true;
+        };
+        if (parseInt(r) && parseInt(g) && parseInt(b)) {
+            while (cursor < end && std::isspace(static_cast<unsigned char>(*cursor))) {
+                ++cursor;
+            }
+            const std::string entryName = cursor < end ? std::string(cursor, static_cast<size_t>(end - cursor)) : std::string();
             addColor(FloatColor(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f), entryName);
         }
     }

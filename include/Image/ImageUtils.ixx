@@ -18,7 +18,7 @@ inline OIIO::ImageSpec makeSpec(int width, int height, const ImageExportOptions&
     ImageSpec spec(width, height, nchannels, opt.dataType);
     
     if (!opt.compression.isEmpty()) {
-        spec.attribute("compression", opt.compression.toStdString());
+        spec.attribute("compression", opt.compression.toUtf8().constData());
     }
     
     if (opt.compressionQuality >= 0) {
@@ -30,14 +30,14 @@ inline OIIO::ImageSpec makeSpec(int width, int height, const ImageExportOptions&
         spec.tile_height = opt.tileHeight;
     }
 
-    spec.set_colorspace(opt.colorSpace.toStdString());
+    spec.set_colorspace(opt.colorSpace.toUtf8().constData());
     
     if (!opt.creator.isEmpty()) {
-        spec.attribute("Artist", opt.creator.toStdString());
+        spec.attribute("Artist", opt.creator.toUtf8().constData());
     }
     
     if (!opt.copyright.isEmpty()) {
-        spec.attribute("Copyright", opt.copyright.toStdString());
+        spec.attribute("Copyright", opt.copyright.toUtf8().constData());
     }
 
     return spec;

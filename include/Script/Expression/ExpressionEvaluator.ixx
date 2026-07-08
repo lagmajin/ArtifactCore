@@ -64,6 +64,7 @@ public:
 
     // Evaluate expression string
     ExpressionValue evaluate(const std::string& expression);
+    ExpressionValue evaluate(const ZeroString& expression);
     
     // Evaluate parsed AST
     ExpressionValue evaluateAST(const std::shared_ptr<ExprNode>& node);
@@ -81,6 +82,7 @@ public:
     void registerStandardFunctions();
 
     // Error handling
+    ZeroString getErrorZero() const;
     std::string getError() const;
     bool hasError() const;
 

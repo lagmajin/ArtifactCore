@@ -48,7 +48,8 @@ public:
     // Serialization
     virtual QJsonObject toJson() const {
         QJsonObject obj;
-        obj["type"] = QString::fromStdString(effectType());
+        const std::string type = effectType();
+        obj["type"] = QString::fromUtf8(type.data(), static_cast<int>(type.size()));
         obj["bypass"] = bypass_;
         return obj;
     }

@@ -113,7 +113,7 @@ namespace ArtifactCore {
  UniString::UniString(const std::string& str) :impl_(new Impl())
  {
   // Convert std::string to QString
-  impl_->str_ = QString::fromStdString(str);
+  impl_->str_ = QString::fromUtf8(str.data(), static_cast<int>(str.size()));
  }
 
  UniString::UniString(const char* str) :impl_(new Impl())

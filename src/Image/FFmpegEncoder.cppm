@@ -693,7 +693,8 @@ public:
             }
 
             using namespace OIIO;
-            std::unique_ptr<ImageOutput> out = ImageOutput::create(outputPath.toStdString());
+            const QByteArray outputPathUtf8 = outputPath.toUtf8();
+            std::unique_ptr<ImageOutput> out = ImageOutput::create(outputPathUtf8.constData());
             if (!out) {
                 lastError_ = QStringLiteral("Failed to create EXR output: %1").arg(outputPath);
                 return false;
@@ -701,22 +702,22 @@ public:
 
             ImageSpec spec(image.width(), image.height(), 4, TypeDesc::FLOAT);
             spec.channelnames = {"R", "G", "B", "A"};
-            if (!out->open(outputPath.toStdString(), spec)) {
+            if (!out->open(outputPathUtf8.constData(), spec)) {
                 lastError_ = QStringLiteral("Failed to open EXR output: %1 (%2)")
-                                 .arg(outputPath, QString::fromStdString(out->geterror()));
+                                 .arg(outputPath, QString::fromUtf8(out->geterror()));
                 return false;
             }
 
             if (!out->write_image(TypeDesc::FLOAT, srcData)) {
                 lastError_ = QStringLiteral("Failed to write EXR frame: %1")
-                                 .arg(QString::fromStdString(out->geterror()));
+                                 .arg(QString::fromUtf8(out->geterror()));
                 out->close();
                 return false;
             }
 
             if (!out->close()) {
                 lastError_ = QStringLiteral("Failed to close EXR output: %1")
-                                 .arg(QString::fromStdString(out->geterror()));
+                                 .arg(QString::fromUtf8(out->geterror()));
                 return false;
             }
 

@@ -15,11 +15,14 @@ namespace py = pybind11;
 #include <vector>
 #include <unordered_map>
 #include <functional>
-#include <sstream>
 #include <fstream>
+#include <iterator>
+#include <string_view>
 #include <iostream>
 
 module Script.Python.Engine;
+
+import Core.ArtifactString;
 
 namespace ArtifactCore {
 
@@ -30,7 +33,7 @@ namespace ArtifactCore {
 class PythonEngine::Impl {
 public:
     bool initialized_ = false;
-    std::string lastError_;
+    ZeroString lastError_;
     OutputCallback outputCallback_;
     mutable std::mutex mutex_;
 
@@ -38,7 +41,7 @@ public:
     std::unordered_map<std::string, PyCppFunction> registeredFunctions_;
 
     // Interactive console state
-    std::string consoleBuffer_;
+    ZeroString consoleBuffer_;
 
 #ifdef ARTIFACT_HAS_PYTHON
     std::unique_ptr<py::scoped_interpreter> guard_;
@@ -55,7 +58,23 @@ public:
         }
     }
 
-    void setError(const std::string& err) {
+    void captureOutput(const ZeroString& text, bool isError) {
+        if (outputCallback_) {
+            outputCallback_(std::string(text), isError);
+        }
+    }
+
+    void setError(const char* err) {
+        lastError_ = err;
+        captureOutput(lastError_, true);
+    }
+
+    void setError(std::string_view err) {
+        lastError_ = err;
+        captureOutput(lastError_, true);
+    }
+
+    void setError(const ZeroString& err) {
         lastError_ = err;
         captureOutput(err, true);
     }
@@ -144,16 +163,16 @@ sys.stderr = _ArtifactOut(True)
         return true;
 
     } catch (const py::error_already_set& e) {
-        impl_->setError(std::string("Python init error: ") + e.what());
+        impl_->setError(ZeroString("Python init error: ") + std::string_view(e.what()));
         return false;
     } catch (const std::exception& e) {
-        impl_->setError(std::string("Python init error: ") + e.what());
+        impl_->setError(ZeroString("Python init error: ") + std::string_view(e.what()));
         return false;
     }
 
 #else
     impl_->setError("Python support not compiled (ARTIFACT_HAS_PYTHON not defined). "
-                     "Install pybind11 and define ARTIFACT_HAS_PYTHON to enable.");
+                    "Install pybind11 and define ARTIFACT_HAS_PYTHON to enable.");
     return false;
 #endif
 }
@@ -206,7 +225,7 @@ bool PythonEngine::execute(const std::string& code) {
         return false;
     }
 #else
-    impl_->setError("Python not available");
+        impl_->setError("Python not available");
     return false;
 #endif
 }
@@ -214,12 +233,13 @@ bool PythonEngine::execute(const std::string& code) {
 bool PythonEngine::executeFile(const std::string& filePath) {
     std::ifstream file(filePath);
     if (!file.is_open()) {
-        impl_->setError("Cannot open file: " + filePath);
+        ZeroString error = "Cannot open file: ";
+        error += filePath;
+        impl_->setError(error);
         return false;
     }
-    std::ostringstream ss;
-    ss << file.rdbuf();
-    return execute(ss.str());
+    std::string code((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    return execute(code);
 }
 
 std::string PythonEngine::evaluate(const std::string& expression) {
@@ -386,14 +406,16 @@ void PythonEngine::clearError() { impl_->lastError_.clear(); }
 bool PythonEngine::pushConsoleLine(const std::string& line) {
     if (!impl_->initialized_) return false;
 
-    impl_->consoleBuffer_ += line + "\n";
+    impl_->consoleBuffer_ += line;
+    impl_->consoleBuffer_ += '\n';
 
 #ifdef ARTIFACT_HAS_PYTHON
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     try {
         // Try to compile the accumulated buffer
         auto code = py::module_::import("code");
-        auto compileResult = code.attr("compile_command")(impl_->consoleBuffer_, "<console>", "exec");
+        std::string_view consoleText = impl_->consoleBuffer_;
+        auto compileResult = code.attr("compile_command")(consoleText, "<console>", "exec");
 
         if (compileResult.is_none()) {
             // Incomplete input - need more
@@ -401,7 +423,7 @@ bool PythonEngine::pushConsoleLine(const std::string& line) {
         }
 
         // Complete statement - execute
-        py::exec(impl_->consoleBuffer_, impl_->globals_);
+        py::exec(consoleText, impl_->globals_);
 
         // Flush output
         auto sys = py::module_::import("sys");

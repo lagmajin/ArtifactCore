@@ -109,7 +109,10 @@ void LocalizationManager::addTranslation(LocaleLanguage lang, const QString& key
 }
 
 bool LocalizationManager::loadFromFile(const std::string& path, LocaleLanguage lang) {
-    QString qPath = QString::fromStdString(path);
+    return loadFromFile(QString::fromUtf8(path.data(), static_cast<int>(path.size())), lang);
+}
+
+bool LocalizationManager::loadFromFile(const QString& qPath, LocaleLanguage lang) {
     QFile file(qPath);
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning() << "[Localization] Failed to open:" << qPath;
@@ -144,7 +147,7 @@ bool LocalizationManager::loadFromDirectory(const QString& dirPath) {
     // 英語をデフォルトフォールバックとしてロード
     QString enPath = dir.filePath("en.json");
     if (QFile::exists(enPath)) {
-        loadFromFile(enPath.toStdString(), LocaleLanguage::English);
+        loadFromFile(enPath, LocaleLanguage::English);
         impl_->fallback_ = impl_->translations_[LocaleLanguage::English];
     }
 
@@ -162,7 +165,7 @@ bool LocalizationManager::loadFromDirectory(const QString& dirPath) {
         else continue; // サポート外の言語
 
         if (lang != LocaleLanguage::English) {
-            loadFromFile(fi.absoluteFilePath().toStdString(), lang);
+            loadFromFile(fi.absoluteFilePath(), lang);
         }
     }
     return true;

@@ -3,12 +3,14 @@ module;
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <mutex>
-#include <sstream>
 #include <utility>
 
 module Script.Runtime;
+
+import Core.ArtifactString;
 
 namespace ArtifactCore {
 
@@ -160,16 +162,16 @@ std::pair<std::size_t, std::size_t> lineColumnForOffset(const std::string& sourc
     return {line, column};
 }
 
-std::string joinStrings(const std::vector<ExpressionValue>& values)
+ZeroString joinStrings(const std::vector<ExpressionValue>& values)
 {
-    std::ostringstream stream;
+    ZeroString text;
     for (std::size_t i = 0; i < values.size(); ++i) {
         if (i > 0) {
-            stream << ", ";
+            text += ", ";
         }
-        stream << values[i].asString();
+        text += values[i].asZeroString();
     }
-    return stream.str();
+    return text;
 }
 
 } // namespace
@@ -187,25 +189,25 @@ public:
     Impl()
     {
         evaluator_.registerFunction("log", [this](const std::vector<ExpressionValue>& args, const ExpressionEvaluator*) {
-            const std::string message = joinStrings(args);
+            const ZeroString text = joinStrings(args);
             if (logger_) {
-                logger_(message, ScriptLogLevel::Info);
+                logger_(std::string(text), ScriptLogLevel::Info);
             }
-            return ExpressionValue(message);
+            return ExpressionValue(text);
         });
         evaluator_.registerFunction("warn", [this](const std::vector<ExpressionValue>& args, const ExpressionEvaluator*) {
-            const std::string message = joinStrings(args);
+            const ZeroString text = joinStrings(args);
             if (logger_) {
-                logger_(message, ScriptLogLevel::Warning);
+                logger_(std::string(text), ScriptLogLevel::Warning);
             }
-            return ExpressionValue(message);
+            return ExpressionValue(text);
         });
         evaluator_.registerFunction("error", [this](const std::vector<ExpressionValue>& args, const ExpressionEvaluator*) {
-            const std::string message = joinStrings(args);
+            const ZeroString text = joinStrings(args);
             if (logger_) {
-                logger_(message, ScriptLogLevel::Error);
+                logger_(std::string(text), ScriptLogLevel::Error);
             }
-            return ExpressionValue(message);
+            return ExpressionValue(text);
         });
         syncParserStyle();
     }
@@ -276,7 +278,25 @@ public:
     }
 
     void fail(ScriptExecutionResult& result,
+              const char* message,
+              std::size_t position = std::string::npos,
+              std::size_t length = 0,
+              const std::string& source = std::string())
+    {
+        fail(result, ZeroString(message), position, length, source);
+    }
+
+    void fail(ScriptExecutionResult& result,
               const std::string& message,
+              std::size_t position = std::string::npos,
+              std::size_t length = 0,
+              const std::string& source = std::string())
+    {
+        fail(result, ZeroString(message), position, length, source);
+    }
+
+    void fail(ScriptExecutionResult& result,
+              const ZeroString& message,
               std::size_t position = std::string::npos,
               std::size_t length = 0,
               const std::string& source = std::string())
@@ -419,7 +439,7 @@ ScriptExecutionResult ScriptRuntime::execute(const std::string& source)
         return result;
     }
 
-    std::ostringstream output;
+    ZeroString output;
     bool wroteOutput = false;
 
     for (const auto& statement : statements) {
@@ -438,7 +458,7 @@ ScriptExecutionResult ScriptRuntime::execute(const std::string& source)
         auto value = impl_->evaluator_.evaluateAST(ast);
         if (impl_->evaluator_.hasError()) {
             impl_->fail(result,
-                        impl_->evaluator_.getError(),
+                        impl_->evaluator_.getErrorZero(),
                         statement.offset,
                         statement.text.size(),
                         source);
@@ -447,15 +467,15 @@ ScriptExecutionResult ScriptRuntime::execute(const std::string& source)
 
         if (!value.isNull()) {
             if (wroteOutput) {
-                output << '\n';
+                output += '\n';
             }
-            output << value.toString();
+            output += value.toZeroString();
             wroteOutput = true;
         }
     }
 
     result.success = true;
-    result.output = output.str();
+    result.output = output;
     result.error.clear();
     result.errorPosition = std::string::npos;
     result.errorLength = 0;
@@ -470,13 +490,14 @@ ScriptExecutionResult ScriptRuntime::executeFile(const std::filesystem::path& pa
     std::ifstream file(path);
     if (!file.is_open()) {
         ScriptExecutionResult result;
-        impl_->fail(result, "Cannot open script file: " + path.string(), std::string::npos, 0, {});
+        ZeroString error = "Cannot open script file: ";
+        error += path.string();
+        impl_->fail(result, error, std::string::npos, 0, {});
         return result;
     }
 
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return execute(buffer.str());
+    std::string code((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    return execute(code);
 }
 
 ScriptExecutionResult ScriptRuntime::lastResult() const

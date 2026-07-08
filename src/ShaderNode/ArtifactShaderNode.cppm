@@ -1,12 +1,14 @@
 module;
 #include <utility>
 #include <string>
+#include <string_view>
 #include <memory>
 #include <vector>
 #include <format>
-#include <sstream>
 
 module Artifact.ShaderNode.Core;
+
+import Core.ArtifactString;
 
 namespace Artifact {
 namespace ShaderNode {
@@ -101,7 +103,7 @@ namespace ShaderNode {
     }
 
     std::string NodeGraph::compileHLSL() const {
-        std::string hlslCode = "// ShaderNode Auto-Generated HLSL\n\n";
+        ZeroString hlslCode = "// ShaderNode Auto-Generated HLSL\n\n";
         hlslCode += "float4 main_shader() {\n";
         
         auto sortedNodes = getTopologicalOrder();
@@ -109,17 +111,25 @@ namespace ShaderNode {
             // For inputs, resolve their variables before generating the node code
             for (auto& inPin : node->inputs) {
                 Pin* source = getConnectedInput(inPin.get());
-                std::string varName = std::format("{}{}", node->id, inPin->name);
-                std::string valCode = source ? std::format("{}_out", source->owner->id) : inPin->getDefaultValueString();
-                hlslCode += std::format("    float4 {} = {};\n", varName, valCode);
+                ZeroString varName = std::format("{}{}", node->id, inPin->name);
+                ZeroString valCode = source ? std::format("{}_out", source->owner->id) : inPin->getDefaultValueString();
+                hlslCode += std::format("    float4 {} = {};\n", std::string_view(varName), std::string_view(valCode));
             }
             // Generate node's own code
-            std::string nodeCode = node->generateHLSL();
-            // Indent lines
-            std::istringstream stream(nodeCode);
-            std::string line;
-            while(std::getline(stream, line)) {
-                hlslCode += "    " + line + "\n";
+            ZeroString nodeCode = node->generateHLSL();
+            // Indent lines without materializing a separate stream buffer.
+            std::string_view nodeView = nodeCode;
+            size_t start = 0;
+            while (start < nodeView.size()) {
+                const size_t end = nodeView.find('\n', start);
+                const size_t lineEnd = (end == std::string_view::npos) ? nodeView.size() : end;
+                hlslCode += "    ";
+                hlslCode.append(nodeView.data() + start, lineEnd - start);
+                hlslCode += "\n";
+                if (end == std::string_view::npos) {
+                    break;
+                }
+                start = end + 1;
             }
         }
         hlslCode += "}\n";

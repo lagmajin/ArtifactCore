@@ -319,6 +319,104 @@ void ArtifactAppSettings::setTimelineAllowOverscroll(bool enable) {
     Q_EMIT settingsChanged();
 }
 
+bool ArtifactAppSettings::timelineAutoKeyEnabled() const {
+    return impl_->store.valueBool("UI/Timeline/AutoKeyEnabled", false);
+}
+
+void ArtifactAppSettings::setTimelineAutoKeyEnabled(bool enable) {
+    impl_->store.setValue("UI/Timeline/AutoKeyEnabled", enable);
+    Q_EMIT settingsChanged();
+}
+
+QString ArtifactAppSettings::timelineAutoKeyScopeText() const {
+    const QString scope =
+        impl_->store.valueString(QStringLiteral("UI/Timeline/AutoKeyScope"),
+                                 QStringLiteral("Global"));
+    const QString normalized = scope.trimmed();
+    if (normalized.compare(QStringLiteral("Selected Layers"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Selected Layers");
+    }
+    if (normalized.compare(QStringLiteral("Current Layer"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Current Layer");
+    }
+    return QStringLiteral("Global");
+}
+
+void ArtifactAppSettings::setTimelineAutoKeyScopeText(const QString& value) {
+    const QString normalized = value.trimmed();
+    const QString scope =
+        normalized.compare(QStringLiteral("Selected Layers"), Qt::CaseInsensitive) == 0
+            ? QStringLiteral("Selected Layers")
+            : normalized.compare(QStringLiteral("Current Layer"), Qt::CaseInsensitive) == 0
+                  ? QStringLiteral("Current Layer")
+                  : QStringLiteral("Global");
+    impl_->store.setValue(QStringLiteral("UI/Timeline/AutoKeyScope"), scope);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::timelineGhostingEnabled() const {
+    return impl_->store.valueBool("UI/Timeline/GhostingEnabled", false);
+}
+
+void ArtifactAppSettings::setTimelineGhostingEnabled(bool enable) {
+    impl_->store.setValue("UI/Timeline/GhostingEnabled", enable);
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::timelineGhostingFrameCount() const {
+    return static_cast<int>(impl_->store.valueInt64("UI/Timeline/GhostingFrameCount", 3));
+}
+
+void ArtifactAppSettings::setTimelineGhostingFrameCount(int count) {
+    impl_->store.setValue("UI/Timeline/GhostingFrameCount", std::clamp(count, 1, 5));
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::timelineGhostingOpacity() const {
+    return static_cast<int>(impl_->store.valueInt64("UI/Timeline/GhostingOpacity", 18));
+}
+
+void ArtifactAppSettings::setTimelineGhostingOpacity(int percent) {
+    impl_->store.setValue("UI/Timeline/GhostingOpacity", std::clamp(percent, 4, 40));
+    Q_EMIT settingsChanged();
+}
+
+QString ArtifactAppSettings::timelineKeyingSetModeText() const {
+    const QString mode =
+        impl_->store.valueString(QStringLiteral("UI/Timeline/KeyingSetMode"),
+                                 QStringLiteral("All Keyable"));
+    const QString normalized = mode.trimmed();
+    if (normalized.compare(QStringLiteral("Transform Only"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Transform Only");
+    }
+    if (normalized.compare(QStringLiteral("Custom"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Custom");
+    }
+    return QStringLiteral("All Keyable");
+}
+
+void ArtifactAppSettings::setTimelineKeyingSetModeText(const QString& value) {
+    const QString normalized = value.trimmed();
+    const QString mode =
+        normalized.compare(QStringLiteral("Transform Only"), Qt::CaseInsensitive) == 0
+            ? QStringLiteral("Transform Only")
+            : normalized.compare(QStringLiteral("Custom"), Qt::CaseInsensitive) == 0
+                  ? QStringLiteral("Custom")
+                  : QStringLiteral("All Keyable");
+    impl_->store.setValue(QStringLiteral("UI/Timeline/KeyingSetMode"), mode);
+    Q_EMIT settingsChanged();
+}
+
+QStringList ArtifactAppSettings::timelineCustomKeyingSetPropertyPaths() const {
+    return impl_->store.value(QStringLiteral("UI/Timeline/CustomKeyingSetPropertyPaths"),
+                              QStringList()).toStringList();
+}
+
+void ArtifactAppSettings::setTimelineCustomKeyingSetPropertyPaths(const QStringList& paths) {
+    impl_->store.setValue(QStringLiteral("UI/Timeline/CustomKeyingSetPropertyPaths"), paths);
+    Q_EMIT settingsChanged();
+}
+
 bool ArtifactAppSettings::timelineShyActive() const {
     return impl_->store.valueBool("UI/Timeline/ShyActive", false);
 }

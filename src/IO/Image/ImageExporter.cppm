@@ -7,6 +7,7 @@ module;
 #include <QFileInfo>
 #include <QDir>
 #include <QDateTime>
+#include <QByteArray>
 #include <QRandomGenerator>
 #include <QObject>
 #include <wobjectimpl.h>
@@ -94,7 +95,8 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
                                     const ImageExportOptions& options)
 {
     using namespace OIIO;
-    std::unique_ptr<ImageOutput> out = ImageOutput::create(filePath.toStdString());
+    const QByteArray filePathUtf8 = filePath.toUtf8();
+    std::unique_ptr<ImageOutput> out = ImageOutput::create(filePathUtf8.constData());
     if (!out) {
         return makeError("encode.create", "Could not create ImageOutput for: " + filePath);
     }
@@ -105,8 +107,8 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
     const TypeDesc writeType = resolveWriteType(filePath, options);
     spec.format = writeType;
 
-    if (!out->open(filePath.toStdString(), spec)) {
-        return makeError("encode.open", "Could not open output: " + QString::fromStdString(out->geterror()));
+    if (!out->open(filePathUtf8.constData(), spec)) {
+        return makeError("encode.open", "Could not open output: " + QString::fromUtf8(out->geterror()));
     }
 
     std::vector<float> pixelsF32;
@@ -131,13 +133,13 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
     }
 
     if (!out->write_image(writeType, writeData)) {
-        const QString err = QString::fromStdString(out->geterror());
+        const QString err = QString::fromUtf8(out->geterror());
         out->close();
         return makeError("encode.write", "Could not write image: " + err);
     }
 
     if (!out->close()) {
-        return makeError("encode.close", "Failed to close output: " + QString::fromStdString(out->geterror()));
+        return makeError("encode.close", "Failed to close output: " + QString::fromUtf8(out->geterror()));
     }
 
     return ImageExportResult{true, {}, {}};
@@ -157,7 +159,8 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
         return makeError("prepare", "Input ImageBuf must have at least 3 channels.");
     }
 
-    std::unique_ptr<ImageOutput> out = ImageOutput::create(filePath.toStdString());
+    const QByteArray filePathUtf8 = filePath.toUtf8();
+    std::unique_ptr<ImageOutput> out = ImageOutput::create(filePathUtf8.constData());
     if (!out) {
         return makeError("encode.create", "Could not create ImageOutput for: " + filePath);
     }
@@ -170,8 +173,8 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
     const TypeDesc writeType = resolveWriteType(filePath, options);
     spec.format = writeType;
 
-    if (!out->open(filePath.toStdString(), spec)) {
-        return makeError("encode.open", "Could not open output: " + QString::fromStdString(out->geterror()));
+    if (!out->open(filePathUtf8.constData(), spec)) {
+        return makeError("encode.open", "Could not open output: " + QString::fromUtf8(out->geterror()));
     }
 
     const std::size_t pixelCount = static_cast<std::size_t>(spec.width) * static_cast<std::size_t>(spec.height);
@@ -187,13 +190,13 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
     }
 
     if (!out->write_image(writeType, packed.data())) {
-        const QString err = QString::fromStdString(out->geterror());
+        const QString err = QString::fromUtf8(out->geterror());
         out->close();
         return makeError("encode.write", "Could not write image: " + err);
     }
 
     if (!out->close()) {
-        return makeError("encode.close", "Failed to close output: " + QString::fromStdString(out->geterror()));
+        return makeError("encode.close", "Failed to close output: " + QString::fromUtf8(out->geterror()));
     }
 
     return ImageExportResult{true, {}, {}};
@@ -343,17 +346,17 @@ QString channelTypeToOIIOName(ChannelType type) {
 void applyStringAttributes(OIIO::ImageSpec& spec,
                            const ArtifactCore::ImageExportOptions& options) {
     if (!options.creator.trimmed().isEmpty()) {
-        spec.attribute("Software", options.creator.toStdString());
+        spec.attribute("Software", options.creator.toUtf8().constData());
     }
     if (!options.copyright.trimmed().isEmpty()) {
-        spec.attribute("Copyright", options.copyright.toStdString());
+        spec.attribute("Copyright", options.copyright.toUtf8().constData());
     }
     for (auto it = options.stringAttributes.constBegin();
          it != options.stringAttributes.constEnd(); ++it) {
         if (it.key().trimmed().isEmpty()) {
             continue;
         }
-        spec.attribute(it.key().toStdString(), it.value().toStdString());
+        spec.attribute(it.key().toUtf8().constData(), it.value().toUtf8().constData());
     }
 }
 
@@ -443,16 +446,16 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
     ImageSpec spec(width, height, nch, writeType);
     spec.channelnames.clear();
     for (int i = 0; i < nch; ++i) {
-        spec.channelnames.push_back(channelNames[i].toStdString());
+        spec.channelnames.push_back(channelNames[i].toUtf8().constData());
     }
     // Apply compression etc from options
     if (!options.compression.isEmpty()) {
-        spec.attribute("compression", options.compression.toStdString());
+        spec.attribute("compression", options.compression.toUtf8().constData());
     }
     if (options.compressionQuality >= 0) {
         spec.attribute("CompressionQuality", options.compressionQuality);
     }
-    spec.set_colorspace(options.colorSpace.toStdString());
+    spec.set_colorspace(options.colorSpace.toUtf8().constData());
     applyStringAttributes(spec, options);
 
     // Build interleaved pixel buffer

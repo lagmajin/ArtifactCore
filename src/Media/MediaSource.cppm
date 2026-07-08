@@ -29,7 +29,6 @@ extern "C" {
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <stdexcept>
 #include <type_traits>
 #include <variant>
@@ -47,10 +46,10 @@ module MediaSource;
 
 namespace ArtifactCore {
 
-static std::string av_strerror_string(int errnum) {
+static QString av_strerror_string(int errnum) {
     char errbuf[AV_ERROR_MAX_STRING_SIZE];
     av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, errnum);
-    return std::string(errbuf);
+    return QString::fromUtf8(errbuf);
 }
 
 MediaSource::MediaSource() {
@@ -67,7 +66,8 @@ bool MediaSource::open(const QString& url) {
     lastError_.clear();
 
     // [Fix 1] Windows バックスラッシュを / に正規化して FFmpeg に渡す
-    const std::string pathUtf8 = QString(url).replace(QLatin1Char('\\'), QLatin1Char('/')).toUtf8().toStdString();
+    const QString normalizedUrl = url;
+    const QByteArray pathUtf8 = normalizedUrl.replace(QLatin1Char('\\'), QLatin1Char('/')).toUtf8();
 
     // [Fix 2] FFmpeg に渡す前にファイル存在を確認（エラー理由を明確化）
     if (!QFileInfo::exists(url)) {
@@ -84,17 +84,15 @@ bool MediaSource::open(const QString& url) {
     }
 
     // [Fix 3] avformat_open_input のエラーコードを av_strerror で出力
-    int ret = avformat_open_input(&formatContext_, pathUtf8.c_str(), nullptr, nullptr);
+    int ret = avformat_open_input(&formatContext_, pathUtf8.constData(), nullptr, nullptr);
     if (ret < 0) {
-        char errbuf[AV_ERROR_MAX_STRING_SIZE];
-        av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
         lastError_ = QStringLiteral("avformat_open_input failed: %1 (%2)")
-                         .arg(QString::fromUtf8(errbuf))
+                         .arg(av_strerror_string(ret))
                          .arg(ret);
         qCritical() << "[MediaSource] avformat_open_input failed:"
                     << "path=" << url
                     << "errcode=" << ret
-                    << "msg=" << errbuf;
+                    << "msg=" << av_strerror_string(ret);
         avformat_free_context(formatContext_);
         formatContext_ = nullptr;
         return false;
@@ -116,14 +114,12 @@ bool MediaSource::open(const QString& url) {
         for (auto& d : streamOpts) av_dict_free(&d);
     }
     if (ret < 0) {
-        char errbuf[AV_ERROR_MAX_STRING_SIZE];
-        av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
         lastError_ = QStringLiteral("avformat_find_stream_info failed: %1 (%2)")
-                         .arg(QString::fromUtf8(errbuf))
+                         .arg(av_strerror_string(ret))
                          .arg(ret);
         qCritical() << "[MediaSource] avformat_find_stream_info failed:"
                     << "path=" << url
-                    << "msg=" << errbuf;
+                    << "msg=" << av_strerror_string(ret);
         avformat_close_input(&formatContext_);
         formatContext_ = nullptr;
         return false;
@@ -163,7 +159,7 @@ bool MediaSource::seek(int64_t timestampMs) {
     if (ret < 0) {
         qWarning() << "[MediaSource] av_seek_frame failed, retrying with avformat_seek_file"
                    << "timestampMs=" << timestampMs
-                   << "err=" << av_strerror_string(ret).c_str();
+                   << "err=" << av_strerror_string(ret);
         const int64_t offset = av_rescale_q(2, AVRational{1, 1}, stream->time_base);
         const int64_t minTs = std::max<int64_t>(0, ts - offset);
         const int64_t maxTs = ts + offset;
@@ -173,10 +169,10 @@ bool MediaSource::seek(int64_t timestampMs) {
     if (ret < 0) {
         lastError_ = QStringLiteral("seek failed at %1 ms: %2")
                          .arg(timestampMs)
-                         .arg(QString::fromStdString(av_strerror_string(ret)));
+                         .arg(av_strerror_string(ret));
         qWarning() << "[MediaSource] seek failed:"
                    << "timestampMs=" << timestampMs
-                   << "err=" << av_strerror_string(ret).c_str();
+                   << "err=" << av_strerror_string(ret);
         return false;
     }
 
@@ -248,9 +244,8 @@ static bool isLongGopCodec(AVCodecID id) {
 VideoProbeResult probeVideoFile(const QString& filePath) {
     VideoProbeResult result;
 
-    const std::string pathUtf8 = QString(filePath)
-        .replace(QLatin1Char('\\'), QLatin1Char('/'))
-        .toUtf8().toStdString();
+    const QString normalizedPath = filePath;
+    const QByteArray pathUtf8 = normalizedPath.replace(QLatin1Char('\\'), QLatin1Char('/')).toUtf8();
 
     AVFormatContext* fmtCtx = avformat_alloc_context();
     if (!fmtCtx) {
@@ -258,11 +253,9 @@ VideoProbeResult probeVideoFile(const QString& filePath) {
         return result;
     }
 
-    int ret = avformat_open_input(&fmtCtx, pathUtf8.c_str(), nullptr, nullptr);
+    int ret = avformat_open_input(&fmtCtx, pathUtf8.constData(), nullptr, nullptr);
     if (ret < 0) {
-        char errbuf[AV_ERROR_MAX_STRING_SIZE];
-        av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
-        result.probeError = QStringLiteral("avformat_open_input failed: %1").arg(errbuf);
+        result.probeError = QStringLiteral("avformat_open_input failed: %1").arg(av_strerror_string(ret));
         avformat_free_context(fmtCtx);
         return result;
     }

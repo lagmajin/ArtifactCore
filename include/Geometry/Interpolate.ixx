@@ -117,12 +117,36 @@ struct EaseIn {
 };
 
 // Back補間 (Overshoot)
+struct BackIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    const float s = 1.70158f;
+    return start + (end - start) * (alpha * alpha * ((s + 1.0f) * alpha - s));
+  }
+};
+
+// Back補間 (Overshoot)
 struct BackOut {
   template <typename T>
   T operator()(const T &start, const T &end, float alpha) const {
     const float s = 1.70158f;
     alpha = alpha - 1.0f;
     alpha = (alpha * alpha * ((s + 1.0f) * alpha + s) + 1.0f);
+    return start + (end - start) * alpha;
+  }
+};
+
+struct BackInOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    const float s = 1.70158f * 1.525f;
+    if (alpha < 0.5f) {
+      const float u = alpha * 2.0f;
+      alpha = 0.5f * (u * u * ((s + 1.0f) * u - s));
+    } else {
+      const float u = alpha * 2.0f - 2.0f;
+      alpha = 0.5f * (u * u * ((s + 1.0f) * u + s) + 2.0f);
+    }
     return start + (end - start) * alpha;
   }
 };
@@ -147,6 +171,25 @@ struct BounceOut {
   }
 };
 
+struct BounceIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    return start + (end - start) * (1.0f - BounceOut()(0.0f, 1.0f, 1.0f - alpha));
+  }
+};
+
+struct BounceInOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    if (alpha < 0.5f) {
+      const float u = 1.0f - 2.0f * alpha;
+      return start + (end - start) * (0.5f * (1.0f - BounceOut()(0.0f, 1.0f, u)));
+    }
+    const float u = 2.0f * alpha - 1.0f;
+    return start + (end - start) * (0.5f * BounceOut()(0.0f, 1.0f, u) + 0.5f);
+  }
+};
+
 // Elastic補間 (Rubber band)
 struct ElasticOut {
   template <typename T>
@@ -160,6 +203,44 @@ struct ElasticOut {
     float val = (std::pow(2.0f, -10.0f * alpha) *
                      std::sin((alpha - s) * (2.0f * 3.14159265f) / p) +
                  1.0f);
+    return start + (end - start) * val;
+  }
+};
+
+struct ElasticIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    if (alpha <= 0.0f)
+      return start;
+    if (alpha >= 1.0f)
+      return end;
+    const float p = 0.3f;
+    const float s = p / 4.0f;
+    float val = -std::pow(2.0f, 10.0f * (alpha - 1.0f)) *
+                std::sin((alpha - 1.0f - s) * (2.0f * 3.14159265f) / p);
+    return start + (end - start) * val;
+  }
+};
+
+struct ElasticInOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    if (alpha <= 0.0f)
+      return start;
+    if (alpha >= 1.0f)
+      return end;
+    const float p = 0.45f;
+    const float s = p / 4.0f;
+    float val;
+    if (alpha < 0.5f) {
+      const float x = alpha * 2.0f;
+      val = -0.5f * std::pow(2.0f, 10.0f * (x - 1.0f)) *
+            std::sin((x - 1.0f - s) * (2.0f * 3.14159265f) / p);
+    } else {
+      const float x = alpha * 2.0f - 1.0f;
+      val = std::pow(2.0f, -10.0f * x) *
+            std::sin((x - s) * (2.0f * 3.14159265f) / p) * 0.5f + 0.5f;
+    }
     return start + (end - start) * val;
   }
 };
@@ -247,16 +328,28 @@ T interpolate(const T &start, const T &end, float alpha,
     return EaseOut()(start, end, alpha);
   case InterpolationType::EaseInOut:
     return EaseInOut()(start, end, alpha);
+  case InterpolationType::BounceIn:
+    return BounceIn()(start, end, alpha);
+  case InterpolationType::BounceOut:
+    return BounceOut()(start, end, alpha);
+  case InterpolationType::BounceInOut:
+    return BounceInOut()(start, end, alpha);
+  case InterpolationType::ElasticIn:
+    return ElasticIn()(start, end, alpha);
+  case InterpolationType::ElasticOut:
+    return ElasticOut()(start, end, alpha);
+  case InterpolationType::ElasticInOut:
+    return ElasticInOut()(start, end, alpha);
+  case InterpolationType::BackIn:
+    return BackIn()(start, end, alpha);
+  case InterpolationType::BackOut:
+    return BackOut()(start, end, alpha);
+  case InterpolationType::BackInOut:
+    return BackInOut()(start, end, alpha);
   case InterpolationType::Sine:
     return SineOut()(start, end, alpha);
   case InterpolationType::Cubic:
     return CubicOut()(start, end, alpha);
-  case InterpolationType::BackOut:
-    return BackOut()(start, end, alpha);
-  case InterpolationType::BounceOut:
-    return BounceOut()(start, end, alpha);
-  case InterpolationType::ElasticOut:
-    return ElasticOut()(start, end, alpha);
   case InterpolationType::Bezier:
     return start; // bezier requires control points — use bezierInterpolate()
   default:

@@ -2,14 +2,15 @@ module;
 #include <utility>
 #include <algorithm>
 #include <cctype>
-#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h>
 
 module ImageProcessing.Shader;
 import Graphics.Compute;
+import Core.ArtifactString;
 
 namespace ArtifactCore {
  using namespace Diligent;
@@ -93,49 +94,65 @@ namespace ArtifactCore {
    return hash;
   }
 
-  std::string makeCacheKey(const SinglePassShaderSource& source)
+  ZeroString makeCacheKey(const SinglePassShaderSource& source)
   {
-   std::ostringstream key;
-   key << source.name << ":";
-   key << source.entryPoint << ":";
-   key << source.threadGroupSizeX << "x" << source.threadGroupSizeY << ":";
-   key << source.sourceHash;
-   return key.str();
+   ZeroString key = source.name;
+   key += ":";
+   key += source.entryPoint;
+   key += ":";
+   key += std::to_string(source.threadGroupSizeX);
+   key += "x";
+   key += std::to_string(source.threadGroupSizeY);
+   key += ":";
+   key += std::to_string(source.sourceHash);
+   return key;
   }
 
-  void appendIndented(std::ostringstream& out, const std::string& text, const char* indent)
+  void appendIndented(ZeroString& out, const std::string& text, const char* indent)
   {
-   std::istringstream lines(text);
-   std::string line;
-   while (std::getline(lines, line))
+   std::string_view remaining(text);
+   while (!remaining.empty())
    {
-    out << indent << line << "\n";
+    const auto newline = remaining.find('\n');
+    const std::string_view line = newline == std::string_view::npos ? remaining : remaining.substr(0, newline);
+    out += indent;
+    out += line;
+    out += "\n";
+    if (newline == std::string_view::npos)
+    {
+     break;
+    }
+    remaining.remove_prefix(newline + 1);
    }
   }
 
-  std::string buildChainPixelBody(const std::vector<SinglePassShaderStage>& stages)
+  ZeroString buildChainPixelBody(const std::vector<SinglePassShaderStage>& stages)
   {
    if (stages.empty())
    {
-    return "return src;";
+    return ZeroString("return src;");
    }
 
-   std::ostringstream body;
-   body << "float4 color = src;\n";
+   ZeroString body = "float4 color = src;\n";
    for (const SinglePassShaderStage& stage : stages)
    {
       const std::string stageName = sanitizeIdentifier(stage.name, "stage");
-      body << "\n";
-      body << "// stage: " << stageName << "\n";
-      appendIndented(body, stage.body, "");
+      body += "\n";
+     body += "// stage: ";
+     body += stageName;
+     body += "\n";
+     appendIndented(body, stage.body, "");
    }
-   body << "\nreturn color;";
-   return body.str();
+   body += "\nreturn color;";
+   return body;
   }
 
-  std::string makeStageBody(const std::string& expression)
+  ZeroString makeStageBody(const std::string& expression)
   {
-   return "color = " + expression + ";";
+   ZeroString body = "color = ";
+   body += expression;
+   body += ";";
+   return body;
   }
  }
 
@@ -251,59 +268,92 @@ namespace ArtifactCore {
    source.bindings.push_back({constants, SinglePassShaderBindingKind::Constants, false});
   }
 
-  std::ostringstream hlsl;
-  hlsl << "// ArtifactStudio generated single-pass image compute shader\n";
-  hlsl << "// Name: " << source.name << "\n\n";
-  hlsl << "Texture2D<float4> " << inputTexture << " : register(t0);\n";
-  hlsl << "RWTexture2D<float4> " << outputTexture << " : register(u0);\n";
+  ZeroString hlsl;
+  hlsl += "// ArtifactStudio generated single-pass image compute shader\n";
+  hlsl += "// Name: ";
+  hlsl += source.name;
+  hlsl += "\n\n";
+  hlsl += "Texture2D<float4> ";
+  hlsl += inputTexture;
+  hlsl += " : register(t0);\n";
+  hlsl += "RWTexture2D<float4> ";
+  hlsl += outputTexture;
+  hlsl += " : register(u0);\n";
   if (options.useSampler)
   {
-   hlsl << "SamplerState " << sampler << " : register(s0);\n";
+   hlsl += "SamplerState ";
+   hlsl += sampler;
+   hlsl += " : register(s0);\n";
   }
 
   if (!options.parameters.empty())
   {
-   hlsl << "\ncbuffer " << constants << " : register(b0)\n{\n";
+   hlsl += "\ncbuffer ";
+   hlsl += constants;
+   hlsl += " : register(b0)\n{\n";
    for (const SinglePassShaderParameter& parameter : options.parameters)
    {
-    hlsl << "    " << parameterTypeName(parameter.type) << " "
-         << sanitizeIdentifier(parameter.name, "param") << ";\n";
+    hlsl += "    ";
+    hlsl += parameterTypeName(parameter.type);
+    hlsl += " ";
+    hlsl += sanitizeIdentifier(parameter.name, "param");
+    hlsl += ";\n";
    }
-   hlsl << "};\n";
+   hlsl += "};\n";
   }
 
-  hlsl << "\nfloat4 " << pixelFunctionName << "(float4 src, uint2 pixel";
+  hlsl += "\nfloat4 ";
+  hlsl += pixelFunctionName;
+  hlsl += "(float4 src, uint2 pixel";
   if (options.includeUv)
   {
-   hlsl << ", float2 uv";
+   hlsl += ", float2 uv";
   }
-  hlsl << ")\n{\n";
+  hlsl += ")\n{\n";
   appendIndented(hlsl, options.pixelBody, "    ");
-  hlsl << "}\n\n";
+  hlsl += "}\n\n";
 
-  hlsl << "[numthreads(" << source.threadGroupSizeX << ", " << source.threadGroupSizeY << ", 1)]\n";
-  hlsl << "void " << source.entryPoint << "(uint3 dispatchThreadId : SV_DispatchThreadID)\n{\n";
-  hlsl << "    uint width;\n";
-  hlsl << "    uint height;\n";
-  hlsl << "    " << outputTexture << ".GetDimensions(width, height);\n";
-  hlsl << "    uint2 pixel = dispatchThreadId.xy;\n";
-  hlsl << "    if (pixel.x >= width || pixel.y >= height)\n";
-  hlsl << "    {\n";
-  hlsl << "        return;\n";
-  hlsl << "    }\n\n";
-  hlsl << "    float4 src = " << inputTexture << ".Load(int3(pixel, 0));\n";
+  hlsl += "[numthreads(";
+  hlsl += std::to_string(source.threadGroupSizeX);
+  hlsl += ", ";
+  hlsl += std::to_string(source.threadGroupSizeY);
+  hlsl += ", 1)]\n";
+  hlsl += "void ";
+  hlsl += source.entryPoint;
+  hlsl += "(uint3 dispatchThreadId : SV_DispatchThreadID)\n{\n";
+  hlsl += "    uint width;\n";
+  hlsl += "    uint height;\n";
+  hlsl += "    ";
+  hlsl += outputTexture;
+  hlsl += ".GetDimensions(width, height);\n";
+  hlsl += "    uint2 pixel = dispatchThreadId.xy;\n";
+  hlsl += "    if (pixel.x >= width || pixel.y >= height)\n";
+  hlsl += "    {\n";
+  hlsl += "        return;\n";
+  hlsl += "    }\n\n";
+  hlsl += "    float4 src = ";
+  hlsl += inputTexture;
+  hlsl += ".Load(int3(pixel, 0));\n";
   if (options.includeUv)
   {
-   hlsl << "    float2 uv = (float2(pixel) + 0.5f) / float2(width, height);\n";
-   hlsl << "    " << outputTexture << "[pixel] = " << pixelFunctionName << "(src, pixel, uv);\n";
+   hlsl += "    float2 uv = (float2(pixel) + 0.5f) / float2(width, height);\n";
+   hlsl += "    ";
+   hlsl += outputTexture;
+   hlsl += "[pixel] = ";
+   hlsl += pixelFunctionName;
+   hlsl += "(src, pixel, uv);\n";
   }
   else
   {
-   hlsl << "    " << outputTexture << "[pixel] = " << pixelFunctionName << "(src, pixel);\n";
+   hlsl += "    ";
+   hlsl += outputTexture;
+   hlsl += "[pixel] = ";
+   hlsl += pixelFunctionName;
+   hlsl += "(src, pixel);\n";
   }
-  hlsl << "}\n";
+  hlsl += "}\n";
 
-  source.hlsl = hlsl.str();
+  source.hlsl = hlsl;
   source.sourceHash = stableHash(source.hlsl);
   source.cacheKey = makeCacheKey(source);
   return source;

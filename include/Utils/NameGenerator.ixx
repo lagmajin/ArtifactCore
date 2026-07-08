@@ -4,6 +4,8 @@ module;
 #include <string>
 export module Utils.NameGenerator;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore
 {
 
@@ -12,10 +14,9 @@ export namespace ArtifactCore
  private:
   class Impl;
   Impl* impl_;
-
-  std::string pattern_;
   int width_ = 0;
 
+  ZeroString makeCandidateZero(const std::string& base, int n) const;
   std::string makeCandidate(const std::string& base, int n) const;
 
  public:

@@ -34,6 +34,7 @@ export module Audio.Bus;
 
 import Utils.Id;
 import Utils.String.Like;
+import Core.ArtifactString;
 import Utils.String.UniString;
 import Audio.Segment;
 import Audio.Panner;
@@ -50,8 +51,10 @@ export namespace ArtifactCore {
 		AudioBus();
 		virtual ~AudioBus();
 
+		void setName(const ZeroString& name);
 		void setName(const UniString& name);
-		UniString getName() const;
+		ZeroString getName() const;
+		UniString getNameUni() const;
 
 		void setLayout(AudioChannelLayout layout);
 		AudioChannelLayout getLayout() const;
@@ -91,7 +94,10 @@ export namespace ArtifactCore {
 		const AudioSegment& getSideChainBuffer() const;
 
 		// Sidechain source (bus name whose output feeds this bus's sidechain)
+		void setSidechainSource(const ZeroString& busName);
 		void setSidechainSource(const std::string& busName);
+		void setSidechainSource(const UniString& busName);
+		ZeroString getSidechainSourceZero() const;
 		std::string getSidechainSource() const;
 
 		// Serialization

@@ -38,6 +38,8 @@ module;
 module Audio.Bus;
 
 import Utils.String.UniString;
+import Core.ArtifactString;
+import Utils.String.Like;
 import Audio.Segment;
 import Audio.DownMixer;
 import Audio.Effect;
@@ -54,7 +56,7 @@ namespace ArtifactCore {
 
 	class AudioBus::Impl {
 	public:
-		UniString name_;
+		ZeroString name_;
 		AudioChannelLayout layout_ = AudioChannelLayout::Stereo;
 		float volumeDb_ = 0.0f;
 		float pan_ = 0.0f;
@@ -74,7 +76,7 @@ namespace ArtifactCore {
 		AudioSegment mainBuffer_;
 		AudioSegment sideChainBuffer_;
 		mutable std::unique_ptr<AudioDownMixer> downMixer_;
-		std::string sidechainSource_;
+		ZeroString sidechainSource_;
 
 		AudioDownMixer& getDownMixer() const {
 			if (!downMixer_) downMixer_ = std::make_unique<AudioDownMixer>();
@@ -93,14 +95,24 @@ namespace ArtifactCore {
 		delete impl_;
 	}
 
-	void AudioBus::setName(const UniString& name)
+	void AudioBus::setName(const ZeroString& name)
 	{
 		impl_->name_ = name;
 	}
 
-	UniString AudioBus::getName() const
+	void AudioBus::setName(const UniString& name)
+	{
+		impl_->name_ = ZeroString(name.toQString().toUtf8().constData());
+	}
+
+	ZeroString AudioBus::getName() const
 	{
 		return impl_->name_;
+	}
+
+	UniString AudioBus::getNameUni() const
+	{
+		return UniString(impl_->name_.data());
 	}
 
 	void AudioBus::setLayout(AudioChannelLayout layout)
@@ -386,7 +398,22 @@ namespace ArtifactCore {
 		impl_->sidechainSource_ = busName;
 	}
 
+	void AudioBus::setSidechainSource(const ZeroString& busName)
+	{
+		impl_->sidechainSource_ = busName;
+	}
+
+	void AudioBus::setSidechainSource(const UniString& busName)
+	{
+		impl_->sidechainSource_ = ZeroString(static_cast<std::string>(busName));
+	}
+
 	std::string AudioBus::getSidechainSource() const
+	{
+		return std::string(impl_->sidechainSource_.data(), impl_->sidechainSource_.length());
+	}
+
+	ZeroString AudioBus::getSidechainSourceZero() const
 	{
 		return impl_->sidechainSource_;
 	}
@@ -394,12 +421,12 @@ namespace ArtifactCore {
 	QJsonObject AudioBus::toJson() const
 	{
 		QJsonObject obj;
-		obj["name"] = impl_->name_.toQString();
+		obj["name"] = toQString(impl_->name_);
 		obj["volume_db"] = impl_->volumeDb_;
 		obj["pan"] = impl_->pan_;
 		obj["mute"] = impl_->mute_;
 		obj["solo"] = impl_->solo_;
-		obj["sidechain_source"] = QString::fromStdString(impl_->sidechainSource_);
+		obj["sidechain_source"] = toQString(impl_->sidechainSource_);
 
 		QJsonArray effects;
 		for (size_t i = 0; i < impl_->effects_.size(); ++i) {
@@ -419,7 +446,7 @@ namespace ArtifactCore {
 		impl_->pan_ = obj["pan"].toDouble(0.0);
 		impl_->mute_ = obj["mute"].toBool(false);
 		impl_->solo_ = obj["solo"].toBool(false);
-		impl_->sidechainSource_ = obj["sidechain_source"].toString().toStdString();
+		impl_->sidechainSource_ = ZeroString(obj["sidechain_source"].toString().toUtf8().constData());
 		// Note: effects are loaded externally using the manager+factory pattern
 		// because the bus doesn't own a manager reference
 	}

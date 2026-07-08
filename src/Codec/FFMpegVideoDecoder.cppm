@@ -49,14 +49,10 @@ import Video.VideoFrame;
 
 namespace ArtifactCore {
 
-static std::string av_strerror_string(int errnum) {
+static QString av_error_qstring(int errnum) {
   char errbuf[AV_ERROR_MAX_STRING_SIZE];
   av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, errnum);
-  return std::string(errbuf);
-}
-
-static QString av_error_qstring(int errnum) {
-  return QString::fromStdString(av_strerror_string(errnum));
+  return QString::fromUtf8(errbuf);
 }
 
 static AVDictionary* makeSingleThreadStreamInfoOptions() {

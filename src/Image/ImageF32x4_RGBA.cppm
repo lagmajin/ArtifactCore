@@ -162,8 +162,8 @@ namespace ArtifactCore {
 
  bool ImageF32x4_RGBA::load(const QString& path)
  {
-  const std::string utf8Path = path.toUtf8().toStdString();
-  OIIO::ImageBuf source(utf8Path);
+  const QByteArray utf8Path = path.toUtf8();
+  OIIO::ImageBuf source(utf8Path.constData());
   if (source.read(0, 0, true, OIIO::TypeDesc::FLOAT)) {
     OIIO::ImageBuf oriented = OIIO::ImageBufAlgo::reorient(source);
     const OIIO::ImageSpec& spec = oriented.spec();

@@ -52,8 +52,8 @@ RawImage loadRawImageViaOIIO(const QString& filePath)
         return image;
     }
 
-    const std::string utf8Path = filePath.toUtf8().toStdString();
-    OIIO::ImageBuf source(utf8Path);
+    const QByteArray utf8Path = filePath.toUtf8();
+    OIIO::ImageBuf source(utf8Path.constData());
     const OIIO::TypeDesc readType = chooseReadType(filePath);
     if (!source.read(0, 0, true, readType)) {
         return image;

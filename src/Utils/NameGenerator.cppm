@@ -10,6 +10,7 @@ module;
 #include <memory>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <functional>
 #include <optional>
 #include <utility>
@@ -19,7 +20,6 @@ module;
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <stdexcept>
 #include <type_traits>
 #include <variant>
@@ -35,39 +35,55 @@ module;
 #include <random>
 module Utils.NameGenerator;
 
+import Core.ArtifactString;
+
 namespace ArtifactCore
 {
+ namespace {
+ ZeroString formatPaddedNumber(int value, int width)
+ {
+  char buffer[32];
+  if (width > 0) {
+   std::snprintf(buffer, sizeof(buffer), "%0*d", width, value);
+  } else {
+   std::snprintf(buffer, sizeof(buffer), "%d", value);
+  }
+  return ZeroString(buffer);
+ }
+ }
+
  class PatternNameGenerator::Impl
  {
  public:
   std::unordered_map<std::string, int> counters;
   std::unordered_set<std::string> usedNames;
-  std::string pattern_;
+  ZeroString pattern_;
   int width_ = 0;
  };
 	
- std::string PatternNameGenerator::makeCandidate(const std::string& base, int n) const
+ ZeroString PatternNameGenerator::makeCandidateZero(const std::string& base, int n) const
  {
-  std::ostringstream oss;
-  std::string s = pattern_;
+  ZeroString s = impl_->pattern_;
   size_t pos = s.find("(\\name)");
-  if (pos != std::string::npos)
-   s.replace(pos, 7, base);
+  if (pos != static_cast<size_t>(-1))
+   s.replace(pos, 7, base.c_str());
   pos = s.find("***");
-  if (pos != std::string::npos)
+ if (pos != static_cast<size_t>(-1))
   {
-   oss.str("");
-   if (width_ > 0)
-	oss << std::setw(width_) << std::setfill('0') << n;
-   else
-	oss << n;
-   s.replace(pos, 3, oss.str());
+   const ZeroString replacement = formatPaddedNumber(n, width_);
+   s.replace(pos, 3, replacement.data());
   }
   return s;
  }
 
- PatternNameGenerator::PatternNameGenerator(const std::string& pattern, int zeroPad /*= 0*/):impl_(new Impl()),  pattern_(pattern), width_(zeroPad)
+ std::string PatternNameGenerator::makeCandidate(const std::string& base, int n) const
  {
+  return makeCandidateZero(base, n);
+ }
+
+  PatternNameGenerator::PatternNameGenerator(const std::string& pattern, int zeroPad /*= 0*/):impl_(new Impl()), width_(zeroPad)
+  {
+  impl_->pattern_ = pattern;
 
  }
 
@@ -79,15 +95,17 @@ namespace ArtifactCore
  std::string PatternNameGenerator::Generate(const std::string& baseName)
  {
   int n = impl_->counters[baseName] + 1;
-  std::string candidate;
+  ZeroString candidate;
+  std::string candidateStd;
   do
   {
-   candidate = makeCandidate(baseName, n);
+   candidate = makeCandidateZero(baseName, n);
+   candidateStd = candidate;
    n++;
-  } while (impl_->usedNames.count(candidate) > 0);
+  } while (impl_->usedNames.count(candidateStd) > 0);
   impl_->counters[baseName] = n - 1;
-  impl_->usedNames.insert(candidate);
-  return candidate;
+  impl_->usedNames.insert(candidateStd);
+  return candidateStd;
  }
 
  void PatternNameGenerator::Release(const std::string& name)

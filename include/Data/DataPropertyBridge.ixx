@@ -1,6 +1,9 @@
 module;
 
+#include <algorithm>
+#include <cctype>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 #include <memory>
@@ -8,6 +11,7 @@ module;
 
 export module Data.DataPropertyBridge;
 
+import Core.ArtifactString;
 import Data.DataTable;
 import Data.DataSource;
 import Data.CsvDataSource;
@@ -44,41 +48,45 @@ public:
         }
 
         const auto& table = source->table();
-        std::string ownerPath = "data." + sanitizePath(uri);
-        const QString ownerPathQ = QString::fromStdString(ownerPath);
+        ZeroString ownerPath = ZeroString("data.") + sanitizePath(uri);
+        const QString ownerPathQ = QString::fromUtf8(ownerPath.data(), static_cast<int>(ownerPath.length()));
 
         auto group = std::make_shared<PropertyGroup>();
-        group->setName(QString::fromStdString(uri));
+        group->setName(QString::fromUtf8(uri.data(), static_cast<int>(uri.length())));
 
         auto path = PropertyPath(ownerPathQ);
 
         for (int c = 0; c < table.columnCount(); ++c) {
             auto colName = table.columnName(c);
             auto prop = std::make_shared<AbstractProperty>();
-            const QString colNameQ = QString::fromStdString(colName);
+            const QString colNameQ = QString::fromUtf8(colName.data(), static_cast<int>(colName.length()));
             prop->setName(colNameQ);
             prop->setType(PropertyType::String);
             prop->setDisplayLabel(colNameQ);
 
-            std::string preview;
+            ZeroString preview;
             for (int r = 0; r < std::min(table.rowCount(), 3); ++r) {
                 if (r > 0) preview += ", ";
                 preview += table.getString(r, c);
             }
             if (table.rowCount() > 3) preview += "...";
-            prop->setValue(QString::fromStdString(preview));
+            prop->setValue(QString::fromUtf8(preview.data(), static_cast<int>(preview.length())));
 
             group->addProperty(prop);
         }
 
-        globalPropertyRegistry().registerOwnerSnapshot(ownerPathQ, QString::fromStdString(uri), QString("Data"), *group);
+        globalPropertyRegistry().registerOwnerSnapshot(
+            ownerPathQ,
+            QString::fromUtf8(uri.data(), static_cast<int>(uri.length())),
+            QString("Data"),
+            *group);
         registeredSources_[uri] = source;
     }
 
     static void unregisterSource(const std::string& uri) {
         std::lock_guard<std::mutex> lock(mutex_);
-        std::string ownerPath = "data." + sanitizePath(uri);
-        globalPropertyRegistry().unregisterOwner(QString::fromStdString(ownerPath));
+        ZeroString ownerPath = ZeroString("data.") + sanitizePath(uri);
+        globalPropertyRegistry().unregisterOwner(QString::fromUtf8(ownerPath.data(), static_cast<int>(ownerPath.length())));
         registeredSources_.erase(uri);
         DataCache::instance().invalidate(uri);
         FileWatcher::instance().unwatch(uri);
@@ -116,8 +124,8 @@ public:
     }
 
 private:
-    static std::string sanitizePath(const std::string& s) {
-        std::string result;
+    static ZeroString sanitizePath(std::string_view s) {
+        ZeroString result;
         result.reserve(s.size());
         for (char c : s) {
             if (c == '/' || c == '\\') result += '.';
@@ -125,6 +133,10 @@ private:
             else if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '.') result += c;
         }
         return result;
+    }
+
+    static ZeroString sanitizePath(StringView s) {
+        return sanitizePath(std::string_view(s.data(), s.length()));
     }
 
     static std::unordered_map<std::string, DataSourcePtr> registeredSources_;

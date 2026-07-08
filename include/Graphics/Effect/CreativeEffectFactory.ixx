@@ -64,14 +64,16 @@ inline std::shared_ptr<CreativeEffect> CreativeEffectFactory::create(const std::
     auto policy = tracker->policy(FallbackCategory::Effect);
     if (policy.action == FallbackAction::Bypass) {
         tracker->record(FallbackCategory::Effect, FallbackAction::Bypass,
-                       QString::fromStdString(name), "[effect bypassed]",
+                       QString::fromUtf8(name.data(), static_cast<int>(name.length())), "[effect bypassed]",
                        policy.warningMessage);
-        qWarning() << "[CreativeEffectFactory] unsupported effect, bypassing:" << QString::fromStdString(name);
+        qWarning() << "[CreativeEffectFactory] unsupported effect, bypassing:"
+                   << QString::fromUtf8(name.data(), static_cast<int>(name.length()));
     } else {
         tracker->record(FallbackCategory::Effect, FallbackAction::Fallback,
-                       QString::fromStdString(name), "[null]",
+                       QString::fromUtf8(name.data(), static_cast<int>(name.length())), "[null]",
                        "Unsupported effect, returning null");
-        qWarning() << "[CreativeEffectFactory] unsupported effect:" << QString::fromStdString(name);
+        qWarning() << "[CreativeEffectFactory] unsupported effect:"
+                   << QString::fromUtf8(name.data(), static_cast<int>(name.length()));
     }
     return nullptr;
  }
