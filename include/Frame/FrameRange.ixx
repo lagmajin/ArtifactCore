@@ -6,6 +6,7 @@ module;
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
 
+#include <limits>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -41,6 +42,7 @@ export module Frame.Range;
 import Frame.Position;
 import Frame.Offset;
 import Frame.Rate;
+import Time.Rational;
 
 export namespace ArtifactCore {
 
@@ -75,6 +77,7 @@ export namespace ArtifactCore {
   int64_t end() const;
   int64_t duration() const;  // length() ̃GCAX
   int64_t length() const;
+  int64_t frameCount() const;
   
   FramePosition startPosition() const;
   FramePosition endPosition() const;
@@ -145,6 +148,8 @@ export namespace ArtifactCore {
   // ԕϊ
   double durationSeconds(double fps) const;
   double durationSeconds(const FrameRate& rate) const;
+  RationalTime durationRationalTime(int64_t fps) const;
+  RationalTime durationRationalTime(const FrameRate& rate) const;
   
   QString toTimecode(double fps) const;  // "00:00:10:00" - "00:00:20:00"
   QString toTimecode(const FrameRate& rate) const;
@@ -169,6 +174,7 @@ export namespace ArtifactCore {
   static FrameRange infinite();    // ͈
   static FrameRange zero();        // 0͈̔
   static FrameRange fromDuration(int64_t start, int64_t duration);
+  static FrameRange fromFrameCount(int64_t start, int64_t frameCount);
  };
 
  // GCAX

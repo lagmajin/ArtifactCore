@@ -21,6 +21,7 @@ export namespace ArtifactCore {
   double toSeconds() const;
   // w肵XP[ifpsȂǁjɕϊۂvalueԂ
   int64_t rescaledTo(int64_t newScale) const;
+  int64_t toFrameCount(int64_t fps) const;
 
   // --- ZqI[o[[h (Ԃ̌vZɕK{) ---
   RationalTime operator+(const RationalTime& other) const;
@@ -36,6 +37,7 @@ export namespace ArtifactCore {
   // --- [eBeB ---
   // b琶 (œK؂scaleݒA: 100000)
   static RationalTime fromSeconds(double seconds);
+  static RationalTime fromFrameCount(int64_t frames, int64_t fps);
  };
 
 

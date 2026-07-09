@@ -90,6 +90,14 @@ int64_t RationalTime::rescaledTo(int64_t newScale) const
  return (impl_->value_ * newScale) / impl_->scale_;
 }
 
+int64_t RationalTime::toFrameCount(int64_t fps) const
+{
+ if (fps <= 0) {
+  return 0;
+ }
+ return rescaledTo(fps);
+}
+
 RationalTime RationalTime::operator+(const RationalTime& other) const
 {
  if (impl_->scale_ == other.impl_->scale_) {
@@ -139,6 +147,14 @@ RationalTime RationalTime::fromSeconds(double seconds)
  constexpr int64_t defaultScale = 10000000;
  const int64_t value = static_cast<int64_t>(std::round(seconds * defaultScale));
  return RationalTime(value, defaultScale);
+}
+
+RationalTime RationalTime::fromFrameCount(int64_t frames, int64_t fps)
+{
+ if (fps <= 0) {
+  fps = 1;
+ }
+ return RationalTime(frames, fps);
 }
 
 }

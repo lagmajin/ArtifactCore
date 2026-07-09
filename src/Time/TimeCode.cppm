@@ -143,13 +143,13 @@ RationalTime TimeCode::toRationalTime() const
 {
  int64_t scale = static_cast<int64_t>(impl_->fps);
  if (scale <= 0) scale = 30;
- return RationalTime(static_cast<int64_t>(impl_->totalFrames), scale);
+ return RationalTime::fromFrameCount(static_cast<int64_t>(impl_->totalFrames), scale);
 }
 
 TimeCode TimeCode::fromRationalTime(const RationalTime& rt, double fps)
 {
  if (fps <= 0.0) fps = 30.0;
- const int64_t frameCount = rt.rescaledTo(static_cast<int64_t>(fps));
+ const int64_t frameCount = rt.toFrameCount(static_cast<int64_t>(fps));
  return TimeCode(static_cast<int>(frameCount), fps);
 }
 
@@ -157,7 +157,7 @@ void TimeCode::setFromRationalTime(const RationalTime& rt)
 {
  int64_t scale = static_cast<int64_t>(impl_->fps);
  if (scale <= 0) scale = 30;
- impl_->totalFrames = static_cast<int>(rt.rescaledTo(scale));
+ impl_->totalFrames = static_cast<int>(rt.toFrameCount(scale));
 }
 
 }

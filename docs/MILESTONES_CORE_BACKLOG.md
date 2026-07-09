@@ -36,6 +36,9 @@
 - `FrameRange`
 - `RationalTime`
 - frame/time API の使い分け整理
+- 進捗: `RationalTime::toFrameCount()` / `fromFrameCount()` を追加
+- 進捗: `FrameRange::frameCount()` / `fromFrameCount()` / `durationRationalTime()` を追加
+- 進捗: `TimeCode` と `AnimatableTransform3D` を新しい frame/time 変換 API に寄せた
 
 ### C-VID-3 Preview Quality Controls
 - preview quality
