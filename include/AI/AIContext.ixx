@@ -5,10 +5,9 @@ module;
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDateTime>
+#include <vector>
 
 export module Core.AI.Context;
-
-import std;
 
 export namespace ArtifactCore {
 
@@ -16,7 +15,7 @@ export namespace ArtifactCore {
  * @brief AIに渡すためのアプリケーションの文脈（コンテキスト）を表現するクラス。
  * ローカルAIがこのデータを収集し、必要に応じてクラウドAIへ送るペイロードの基礎となります。
  */
-class AIContext {
+export class AIContext {
 public:
     enum class ActionType {
         SelectLayer,

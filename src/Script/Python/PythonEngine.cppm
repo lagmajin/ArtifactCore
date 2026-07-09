@@ -7,7 +7,6 @@ module;
 #include <pybind11/pybind11.h>
 #include <pybind11/embed.h>
 #include <pybind11/stl.h>
-namespace py = pybind11;
 #endif
 
 #include <mutex>
@@ -23,6 +22,10 @@ namespace py = pybind11;
 module Script.Python.Engine;
 
 import Core.ArtifactString;
+
+#ifdef ARTIFACT_HAS_PYTHON
+namespace py = pybind11;
+#endif
 
 namespace ArtifactCore {
 
@@ -65,7 +68,7 @@ public:
     }
 
     void setError(const char* err) {
-        lastError_ = err;
+        lastError_ = ZeroString(err);
         captureOutput(lastError_, true);
     }
 
@@ -395,8 +398,10 @@ void PythonEngine::setOutputCallback(OutputCallback callback) {
 // Error Handling
 // ============================================================================
 
-std::string PythonEngine::getLastError() const { return impl_->lastError_; }
-bool PythonEngine::hasError() const { return !impl_->lastError_.empty(); }
+std::string PythonEngine::getLastError() const {
+    return std::string(impl_->lastError_.data(), impl_->lastError_.length());
+}
+bool PythonEngine::hasError() const { return impl_->lastError_.length() != 0; }
 void PythonEngine::clearError() { impl_->lastError_.clear(); }
 
 // ============================================================================

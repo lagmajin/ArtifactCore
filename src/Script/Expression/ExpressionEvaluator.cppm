@@ -143,11 +143,15 @@ ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
   }
 
   if (currentDepth_ >= recursionDepthLimit_) {
-    error_ = ZeroString("Recursion depth limit exceeded (") + std::to_string(recursionDepthLimit_) + ")";
+    error_ = ZeroString("Recursion depth limit exceeded (");
+    error_ += ZeroString(std::to_string(recursionDepthLimit_));
+    error_ += ZeroString(")");
     return ExpressionValue();
   }
   if (evaluationCount_ >= evaluationBudget_) {
-    error_ = ZeroString("Evaluation budget exceeded (") + std::to_string(evaluationBudget_) + ")";
+    error_ = ZeroString("Evaluation budget exceeded (");
+    error_ += ZeroString(std::to_string(evaluationBudget_));
+    error_ += ZeroString(")");
     return ExpressionValue();
   }
 
@@ -432,7 +436,7 @@ ExpressionValue ExpressionEvaluator::evaluate(const std::string &expression) {
   impl_->error_.clear();
   auto ast = impl_->parser_.parse(expression);
   if (impl_->parser_.hasError()) {
-    impl_->error_ = impl_->parser_.getError();
+    impl_->error_ = ZeroString(impl_->parser_.getError());
     return ExpressionValue();
   }
   return evaluateAST(ast);
@@ -574,7 +578,7 @@ std::string ExpressionEvaluator::getError() const {
   return std::string(text.data(), text.length());
 }
 
-bool ExpressionEvaluator::hasError() const { return !impl_->error_.empty(); }
+bool ExpressionEvaluator::hasError() const { return impl_->error_.length() != 0; }
 
 // --- Time Evaluation Contract ---
 
@@ -667,7 +671,7 @@ double ExpressionEvaluator::estimateSpeedAtTime(const std::string& expression, d
   impl_->error_.clear();
   auto ast = impl_->parser_.parse(expression);
   if (impl_->parser_.hasError()) {
-    impl_->error_ = impl_->parser_.getError();
+    impl_->error_ = ZeroString(impl_->parser_.getError());
     return 0.0;
   }
   return estimateSpeedAtTime(ast, timeSec);
@@ -677,7 +681,7 @@ ExpressionValue ExpressionEvaluator::evaluateAtTime(const std::string& expressio
     impl_->error_.clear();
     auto ast = impl_->parser_.parse(expression);
     if (impl_->parser_.hasError()) {
-        impl_->error_ = impl_->parser_.getError();
+        impl_->error_ = ZeroString(impl_->parser_.getError());
         return ExpressionValue();
     }
     return evaluateASTAtTime(ast, timeSec);
@@ -750,7 +754,7 @@ ExpressionEvaluator::evaluateOverRange(
         // 数値微分のために AST を再利用（文字列再パースを避ける）。
         auto ast = impl_->parser_.parse(expression);
         if (impl_->parser_.hasError()) {
-            impl_->error_ = impl_->parser_.getError();
+            impl_->error_ = ZeroString(impl_->parser_.getError());
             return results;
         }
 

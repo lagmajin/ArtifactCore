@@ -311,7 +311,7 @@ public:
             result.errorColumn = column;
         }
         if (logger_) {
-            logger_(message, ScriptLogLevel::Error);
+            logger_(std::string(message.data(), message.length()), ScriptLogLevel::Error);
         }
         lastResult_ = result;
     }

@@ -61,10 +61,14 @@ struct VolumeAABB {
 };
 
 struct VolumeScalarField {
-    const float* data = nullptr;
+    float* data = nullptr;
     VolumeResolution resolution{};
 
     [[nodiscard]] bool empty() const noexcept { return data == nullptr || !resolution.valid(); }
+
+    [[nodiscard]] float& at(int x, int y, int z) noexcept {
+        return data[resolution.indexOf(x, y, z)];
+    }
 
     [[nodiscard]] float at(int x, int y, int z) const noexcept {
         return data[resolution.indexOf(x, y, z)];
@@ -74,10 +78,14 @@ struct VolumeScalarField {
 };
 
 struct VolumeVectorField {
-    const Vec3* data = nullptr;
+    Vec3* data = nullptr;
     VolumeResolution resolution{};
 
     [[nodiscard]] bool empty() const noexcept { return data == nullptr || !resolution.valid(); }
+
+    [[nodiscard]] Vec3& at(int x, int y, int z) noexcept {
+        return data[resolution.indexOf(x, y, z)];
+    }
 
     [[nodiscard]] const Vec3& at(int x, int y, int z) const noexcept {
         return data[resolution.indexOf(x, y, z)];

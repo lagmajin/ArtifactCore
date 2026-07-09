@@ -330,7 +330,8 @@ public:
     }
 
     std::string generateDiagnosticReport(int histN) const {
-        return generateDiagnosticReportZero(histN);
+        const ZeroString text = generateDiagnosticReportZero(histN);
+        return std::string(text.data(), text.length());
     }
 
 private:
@@ -478,7 +479,8 @@ public:
     }
 
     std::string generateReport() const {
-        return generateReportZero();
+        const ZeroString text = generateReportZero();
+        return std::string(text.data(), text.length());
     }
 
 private:

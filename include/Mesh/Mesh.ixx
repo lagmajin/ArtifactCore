@@ -34,6 +34,7 @@ class tst_QList;
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <limits>
 #include <type_traits>
 #include <variant>
 #include <any>
@@ -174,6 +175,43 @@ export namespace ArtifactCore {
             QVector<unsigned int> indices;
         };
         RenderData generateRenderData() const;
+
+        struct MeshletLODConfig {
+            int maxTrianglesPerMeshlet = 64;
+            int maxLODLevels = 4;
+            float lodSwitchPixels = 96.0f;
+        };
+
+        struct Meshlet {
+            unsigned int firstIndex = 0;
+            unsigned int indexCount = 0;
+            QVector3D boundsMin;
+            QVector3D boundsMax;
+            QVector3D boundsCenter;
+            float boundsRadius = 0.0f;
+            int sourceTriangleCount = 0;
+        };
+
+        struct MeshletLODLevel {
+            int level = 0;
+            int meshletOffset = 0;
+            int meshletCount = 0;
+            unsigned int firstIndex = 0;
+            unsigned int indexCount = 0;
+            int triangleStride = 1;
+            float switchDistancePixels = 0.0f;
+        };
+
+        struct MeshletLODData {
+            RenderData renderData;
+            QVector<unsigned int> lodIndices;
+            QVector<Meshlet> meshlets;
+            QVector<MeshletLODLevel> levels;
+            bool isValid() const { return !renderData.positions.isEmpty() && !lodIndices.isEmpty() && !meshlets.isEmpty(); }
+        };
+
+        MeshletLODData generateMeshletLODData(const MeshletLODConfig& config = {}) const;
+        static int chooseMeshletLODLevel(const MeshletLODData& data, float projectedRadiusPixels);
 
         // 5. ボーン/モーフ (Deformer)
         // デフォーマは動的アトリビュート "boneWeights", "blendShape_X" などとして表現可能

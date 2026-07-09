@@ -3,12 +3,9 @@ module;
 #include <QDebug>
 #include <QString>
 #include <QFileInfo>
-
-extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/error.h>
-}
 
 #include <iostream>
 #include <vector>
@@ -66,7 +63,7 @@ bool MediaSource::open(const QString& url) {
     lastError_.clear();
 
     // [Fix 1] Windows バックスラッシュを / に正規化して FFmpeg に渡す
-    const QString normalizedUrl = url;
+    QString normalizedUrl = url;
     const QByteArray pathUtf8 = normalizedUrl.replace(QLatin1Char('\\'), QLatin1Char('/')).toUtf8();
 
     // [Fix 2] FFmpeg に渡す前にファイル存在を確認（エラー理由を明確化）
@@ -244,8 +241,8 @@ static bool isLongGopCodec(AVCodecID id) {
 VideoProbeResult probeVideoFile(const QString& filePath) {
     VideoProbeResult result;
 
-    const QString normalizedPath = filePath;
-    const QByteArray pathUtf8 = normalizedPath.replace(QLatin1Char('\\'), QLatin1Char('/')).toUtf8();
+    QString normalizedPath = filePath;
+    QByteArray pathUtf8 = normalizedPath.replace(QLatin1Char('\\'), QLatin1Char('/')).toUtf8();
 
     AVFormatContext* fmtCtx = avformat_alloc_context();
     if (!fmtCtx) {

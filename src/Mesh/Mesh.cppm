@@ -31,6 +31,7 @@ class tst_QList;
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <limits>
 #include <type_traits>
 #include <variant>
 #include <any>
@@ -48,6 +49,8 @@ module Mesh;
 namespace ArtifactCore {
 
 namespace {
+constexpr int kTriangleIndexCount = 3;
+
 int resolveObjIndex(const QString& token, const int elementCount)
 {
     bool ok = false;
@@ -63,6 +66,72 @@ int resolveObjIndex(const QString& token, const int elementCount)
     }
 
     return (index >= 0 && index < elementCount) ? index : -1;
+}
+
+Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
+                                         const QVector<unsigned int>& indices,
+                                         const int firstIndex,
+                                         const int indexCount,
+                                         const int triangleStride)
+{
+    Mesh::Meshlet meshlet;
+    meshlet.firstIndex = static_cast<unsigned int>(firstIndex);
+    meshlet.indexCount = static_cast<unsigned int>(indexCount);
+    meshlet.sourceTriangleCount = (indexCount / kTriangleIndexCount) * triangleStride;
+
+    QVector3D boundsMin(std::numeric_limits<float>::max(),
+                        std::numeric_limits<float>::max(),
+                        std::numeric_limits<float>::max());
+    QVector3D boundsMax(std::numeric_limits<float>::lowest(),
+                        std::numeric_limits<float>::lowest(),
+                        std::numeric_limits<float>::lowest());
+
+    bool hasVertex = false;
+    const int endIndex = firstIndex + indexCount;
+    for (int indexOffset = firstIndex; indexOffset < endIndex; ++indexOffset) {
+        if (indexOffset < 0 || indexOffset >= indices.size()) {
+            continue;
+        }
+
+        const unsigned int vertexIndex = indices[indexOffset];
+        if (vertexIndex >= static_cast<unsigned int>(renderData.positions.size())) {
+            continue;
+        }
+
+        const QVector3D& p = renderData.positions[static_cast<int>(vertexIndex)];
+        boundsMin.setX(std::min(boundsMin.x(), p.x()));
+        boundsMin.setY(std::min(boundsMin.y(), p.y()));
+        boundsMin.setZ(std::min(boundsMin.z(), p.z()));
+        boundsMax.setX(std::max(boundsMax.x(), p.x()));
+        boundsMax.setY(std::max(boundsMax.y(), p.y()));
+        boundsMax.setZ(std::max(boundsMax.z(), p.z()));
+        hasVertex = true;
+    }
+
+    if (!hasVertex) {
+        return meshlet;
+    }
+
+    meshlet.boundsMin = boundsMin;
+    meshlet.boundsMax = boundsMax;
+    meshlet.boundsCenter = (boundsMin + boundsMax) * 0.5f;
+    meshlet.boundsRadius = 0.0f;
+    for (int indexOffset = firstIndex; indexOffset < endIndex; ++indexOffset) {
+        if (indexOffset < 0 || indexOffset >= indices.size()) {
+            continue;
+        }
+
+        const unsigned int vertexIndex = indices[indexOffset];
+        if (vertexIndex >= static_cast<unsigned int>(renderData.positions.size())) {
+            continue;
+        }
+
+        meshlet.boundsRadius = std::max(
+            meshlet.boundsRadius,
+            (renderData.positions[static_cast<int>(vertexIndex)] - meshlet.boundsCenter).length());
+    }
+
+    return meshlet;
 }
 }
 
@@ -278,6 +347,76 @@ int resolveObjIndex(const QString& token, const int elementCount)
         }
 
         return data;
+    }
+
+    Mesh::MeshletLODData Mesh::generateMeshletLODData(const MeshletLODConfig& config) const
+    {
+        MeshletLODData data;
+        data.renderData = generateRenderData();
+        const int triangleCount = data.renderData.indices.size() / kTriangleIndexCount;
+        if (triangleCount <= 0 || data.renderData.positions.isEmpty()) {
+            return data;
+        }
+
+        const int maxTrianglesPerMeshlet = std::max(1, config.maxTrianglesPerMeshlet);
+        const int maxLODLevels = std::max(1, config.maxLODLevels);
+        int triangleStride = 1;
+
+        for (int level = 0; level < maxLODLevels; ++level) {
+            const int levelOffset = data.meshlets.size();
+            const int levelFirstIndex = data.lodIndices.size();
+            const int trianglesPerMeshlet = maxTrianglesPerMeshlet;
+
+            for (int triangle = 0; triangle < triangleCount; triangle += triangleStride) {
+                const int sourceIndex = triangle * kTriangleIndexCount;
+                data.lodIndices.push_back(data.renderData.indices[sourceIndex + 0]);
+                data.lodIndices.push_back(data.renderData.indices[sourceIndex + 1]);
+                data.lodIndices.push_back(data.renderData.indices[sourceIndex + 2]);
+            }
+
+            const int levelIndexCount = data.lodIndices.size() - levelFirstIndex;
+            const int meshletIndexCount = trianglesPerMeshlet * kTriangleIndexCount;
+            for (int firstIndex = levelFirstIndex; firstIndex < levelFirstIndex + levelIndexCount; firstIndex += meshletIndexCount) {
+                const int remainingIndices = (levelFirstIndex + levelIndexCount) - firstIndex;
+                const int indexCount = std::min(meshletIndexCount, remainingIndices);
+                data.meshlets.push_back(
+                    buildMeshletFromIndexRange(data.renderData, data.lodIndices, firstIndex, indexCount, triangleStride));
+            }
+
+            MeshletLODLevel lodLevel;
+            lodLevel.level = level;
+            lodLevel.meshletOffset = levelOffset;
+            lodLevel.meshletCount = data.meshlets.size() - levelOffset;
+            lodLevel.firstIndex = static_cast<unsigned int>(levelFirstIndex);
+            lodLevel.indexCount = static_cast<unsigned int>(levelIndexCount);
+            lodLevel.triangleStride = triangleStride;
+            lodLevel.switchDistancePixels = config.lodSwitchPixels / static_cast<float>(triangleStride);
+            data.levels.push_back(lodLevel);
+
+            if (triangleStride >= triangleCount) {
+                break;
+            }
+
+            triangleStride *= 2;
+        }
+
+        return data;
+    }
+
+    int Mesh::chooseMeshletLODLevel(const MeshletLODData& data, const float projectedRadiusPixels)
+    {
+        if (data.levels.isEmpty()) {
+            return 0;
+        }
+
+        int selectedLevel = data.levels.front().level;
+        for (const MeshletLODLevel& level : data.levels) {
+            if (projectedRadiusPixels <= level.switchDistancePixels) {
+                selectedLevel = level.level;
+            }
+        }
+
+        return selectedLevel;
     }
 
     void Mesh::applySkinning(const QVector<QMatrix4x4>& boneMatrices) {

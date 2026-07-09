@@ -79,7 +79,7 @@ ExpressionValue::ExpressionValue(const std::vector<ExpressionValue>& array) : im
 
 ExpressionValue::ExpressionValue(const std::string& str) : impl_(new Impl()) {
     impl_->type_ = ExprValueType::String;
-    impl_->string_ = str;
+    impl_->string_ = ZeroString(str);
 }
 
 ExpressionValue::ExpressionValue(const ZeroString& str) : impl_(new Impl()) {

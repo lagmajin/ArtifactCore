@@ -395,7 +395,7 @@ namespace ArtifactCore {
 
 	void AudioBus::setSidechainSource(const std::string& busName)
 	{
-		impl_->sidechainSource_ = busName;
+		impl_->sidechainSource_ = ZeroString(busName);
 	}
 
 	void AudioBus::setSidechainSource(const ZeroString& busName)

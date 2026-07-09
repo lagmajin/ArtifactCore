@@ -103,7 +103,7 @@ namespace ShaderNode {
     }
 
     std::string NodeGraph::compileHLSL() const {
-        ZeroString hlslCode = "// ShaderNode Auto-Generated HLSL\n\n";
+        ArtifactCore::ZeroString hlslCode = "// ShaderNode Auto-Generated HLSL\n\n";
         hlslCode += "float4 main_shader() {\n";
         
         auto sortedNodes = getTopologicalOrder();
@@ -111,12 +111,12 @@ namespace ShaderNode {
             // For inputs, resolve their variables before generating the node code
             for (auto& inPin : node->inputs) {
                 Pin* source = getConnectedInput(inPin.get());
-                ZeroString varName = std::format("{}{}", node->id, inPin->name);
-                ZeroString valCode = source ? std::format("{}_out", source->owner->id) : inPin->getDefaultValueString();
+                ArtifactCore::ZeroString varName = std::format("{}{}", node->id, inPin->name);
+                ArtifactCore::ZeroString valCode = source ? std::format("{}_out", source->owner->id) : inPin->getDefaultValueString();
                 hlslCode += std::format("    float4 {} = {};\n", std::string_view(varName), std::string_view(valCode));
             }
             // Generate node's own code
-            ZeroString nodeCode = node->generateHLSL();
+            ArtifactCore::ZeroString nodeCode = node->generateHLSL();
             // Indent lines without materializing a separate stream buffer.
             std::string_view nodeView = nodeCode;
             size_t start = 0;
@@ -133,7 +133,7 @@ namespace ShaderNode {
             }
         }
         hlslCode += "}\n";
-        return hlslCode;
+        return std::string(hlslCode.data(), hlslCode.length());
     }
 
 } // namespace ShaderNode

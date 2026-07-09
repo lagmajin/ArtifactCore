@@ -78,12 +78,13 @@ namespace ArtifactCore
 
  std::string PatternNameGenerator::makeCandidate(const std::string& base, int n) const
  {
-  return makeCandidateZero(base, n);
+  const ZeroString candidate = makeCandidateZero(base, n);
+  return std::string(candidate.data(), candidate.length());
  }
 
   PatternNameGenerator::PatternNameGenerator(const std::string& pattern, int zeroPad /*= 0*/):impl_(new Impl()), width_(zeroPad)
   {
-  impl_->pattern_ = pattern;
+  impl_->pattern_ = ZeroString(pattern);
 
  }
 
@@ -100,7 +101,7 @@ namespace ArtifactCore
   do
   {
    candidate = makeCandidateZero(baseName, n);
-   candidateStd = candidate;
+   candidateStd = std::string(candidate.data(), candidate.length());
    n++;
   } while (impl_->usedNames.count(candidateStd) > 0);
   impl_->counters[baseName] = n - 1;

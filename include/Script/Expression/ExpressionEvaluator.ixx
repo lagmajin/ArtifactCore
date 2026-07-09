@@ -35,6 +35,7 @@ export module Script.Expression.Evaluator;
 import Script.Expression.Value;
 import Script.Expression.Parser;
 import Audio.Segment;
+import Core.ArtifactString;
 
 
 export namespace ArtifactCore {
@@ -47,13 +48,13 @@ export enum class EvaluationMode {
     FixedMicrostep  = 3   // Fixed number of substeps per frame
 };
 
-class ExpressionEvaluator;
+export class ExpressionEvaluator;
 
 // Built-in function signature
-using BuiltinFunction = std::function<ExpressionValue(const std::vector<ExpressionValue>&, const ExpressionEvaluator*)>;
+export using BuiltinFunction = std::function<ExpressionValue(const std::vector<ExpressionValue>&, const ExpressionEvaluator*)>;
 
 // Expression evaluator with context
-class ExpressionEvaluator {
+export class ExpressionEvaluator {
 private:
     class Impl;
     Impl* impl_;
@@ -157,7 +158,7 @@ public:
 };
 
 // Standard built-in functions (AE-style)
-namespace BuiltinFunctions {
+export namespace BuiltinFunctions {
     // Math functions
     ExpressionValue Sin(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Cos(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);

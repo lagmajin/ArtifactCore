@@ -88,7 +88,7 @@ inline Grad3 grad3(std::uint32_t hash) noexcept {
     return grad3Table[hash % 12u];
 }
 
-float perlinNoise2D(float x, float y, std::uint32_t seed) noexcept {
+float perlinNoise2DImpl(float x, float y, std::uint32_t seed) noexcept {
     const int xi = fastFloor(x);
     const int yi = fastFloor(y);
     const float xf = x - static_cast<float>(xi);
@@ -111,7 +111,7 @@ float perlinNoise2D(float x, float y, std::uint32_t seed) noexcept {
     return lerp(nx0, nx1, v) * 0.5f + 0.5f;
 }
 
-float perlinNoise3D(float x, float y, float z, std::uint32_t seed) noexcept {
+float perlinNoise3DImpl(float x, float y, float z, std::uint32_t seed) noexcept {
     const int xi = fastFloor(x);
     const int yi = fastFloor(y);
     const int zi = fastFloor(z);
@@ -256,7 +256,7 @@ float simplexNoise3D(float x, float y, float z, std::uint32_t seed) noexcept {
     return 32.0f * n + 0.5f;
 }
 
-float worleyNoise2D(float x, float y, std::uint32_t seed, bool inverse) noexcept {
+float worleyNoise2DImpl(float x, float y, std::uint32_t seed, bool inverse) noexcept {
     const int cx = fastFloor(x);
     const int cy = fastFloor(y);
     float minDistSq = std::numeric_limits<float>::max();
@@ -277,7 +277,7 @@ float worleyNoise2D(float x, float y, std::uint32_t seed, bool inverse) noexcept
     return inverse ? 1.0f - std::min(result, 1.0f) : std::min(result, 1.0f);
 }
 
-float worleyNoise3D(float x, float y, float z, std::uint32_t seed, bool inverse) noexcept {
+float worleyNoise3DImpl(float x, float y, float z, std::uint32_t seed, bool inverse) noexcept {
     const int cx = fastFloor(x);
     const int cy = fastFloor(y);
     const int cz = fastFloor(z);
@@ -304,6 +304,22 @@ float worleyNoise3D(float x, float y, float z, std::uint32_t seed, bool inverse)
 }
 
 } // anonymous namespace
+
+float perlinNoise2D(float x, float y, std::uint32_t seed) noexcept {
+    return perlinNoise2DImpl(x, y, seed);
+}
+
+float perlinNoise3D(float x, float y, float z, std::uint32_t seed) noexcept {
+    return perlinNoise3DImpl(x, y, z, seed);
+}
+
+float worleyNoise2D(float x, float y, std::uint32_t seed, bool inverse) noexcept {
+    return worleyNoise2DImpl(x, y, seed, inverse);
+}
+
+float worleyNoise3D(float x, float y, float z, std::uint32_t seed, bool inverse) noexcept {
+    return worleyNoise3DImpl(x, y, z, seed, inverse);
+}
 
 float fbm2D(float x, float y, const NoiseSettings& settings) noexcept {
     float value = 0.0f;

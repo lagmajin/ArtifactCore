@@ -379,9 +379,10 @@ Color CPUVolumeRenderer::raymarch(const Ray& ray) const noexcept {
 
 ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
     ImageBuffer buffer(width, height);
-    camera.setViewport(static_cast<float>(width), static_cast<float>(height));
+    Camera renderCamera = camera;
+    renderCamera.setViewport(static_cast<float>(width), static_cast<float>(height));
 
-    const int dofSamples = camera.aperture > 0.0f ? 4 : 1;
+    const int dofSamples = renderCamera.aperture > 0.0f ? 4 : 1;
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -392,16 +393,16 @@ ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
                 const float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(height);
 
                 if (dofSamples == 1) {
-                    pixelColor = raymarch(camera.getRay(u, v));
+                    pixelColor = raymarch(renderCamera.getRay(u, v));
                 } else {
                     const float goldenAngle = 2.39996323f;
                     const float theta = static_cast<float>(s) * goldenAngle;
                     const float radius = std::sqrt(static_cast<float>(s) + 0.5f) / std::max(std::sqrt(static_cast<float>(dofSamples)), 1.0f);
                     float lensU = std::cos(theta) * radius;
                     float lensV = std::sin(theta) * radius;
-                    pixelColor.x += raymarch(camera.getRayDOF(u, v, lensU, lensV)).x;
-                    pixelColor.y += raymarch(camera.getRayDOF(u, v, lensU, lensV)).y;
-                    pixelColor.z += raymarch(camera.getRayDOF(u, v, lensU, lensV)).z;
+                    pixelColor.x += raymarch(renderCamera.getRayDOF(u, v, lensU, lensV)).x;
+                    pixelColor.y += raymarch(renderCamera.getRayDOF(u, v, lensU, lensV)).y;
+                    pixelColor.z += raymarch(renderCamera.getRayDOF(u, v, lensU, lensV)).z;
                 }
             }
 

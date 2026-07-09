@@ -193,7 +193,7 @@ void ArtifactScriptComponent::setScriptClass(std::string_view className) {
 }
 
 void ArtifactScriptComponent::setScriptClass(const char* className) {
-    scriptClass_ = className;
+    scriptClass_ = ZeroString(className);
 }
 
 const ZeroString& ArtifactScriptComponent::scriptClassZero() const {

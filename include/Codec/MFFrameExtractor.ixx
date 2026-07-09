@@ -4,10 +4,13 @@ module;
 #include <mfreadwrite.h>
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+#include <cstddef>
 
 export module Codec.MFFrameExtractor;
-
-import std;
 
 
 
