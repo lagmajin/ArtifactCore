@@ -39,6 +39,10 @@ function(_artifact_exclude_check file_path result_var)
        "${file_path}" MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
        "${file_path}" MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
        "${file_path}" MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
+       "${file_path}" MATCHES "src/ImageProcessing/OpenCV/FilmGrain\\.cppm" OR
+       "${file_path}" MATCHES "include/ImageProcessing/OpenCV/G-API/" OR
+       "${file_path}" MATCHES "include/Image/Blur/BlurGAPI\\.cpp" OR
+       "${file_path}" MATCHES "include/XR/OpenXR\\.ixx" OR
        "${file_path}" MATCHES "src/Diagnostics/ValidationRules\\.cppm" OR
        "${file_path}" MATCHES "src/Animation/EasingCurveUtil\\.cppm" OR
        "${file_path}" MATCHES "src/Graphics/Compute/CurveComputer\\.cppm" OR
@@ -194,8 +198,13 @@ set_target_properties(ArtifactCore PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
-    CXX_MODULE_STD ON
 )
+
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCore PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCore PROPERTY CXX_MODULE_STD OFF)
+endif()
 
 # MSVC specific C++23 modules settings
 if(ARTIFACT_FRONTEND_MSVC)
@@ -285,6 +294,9 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network)
 
 find_package(OpenCV REQUIRED)
+if(OpenCV_INCLUDE_DIRS)
+    target_include_directories(ArtifactCore PUBLIC ${OpenCV_INCLUDE_DIRS})
+endif()
 target_link_libraries(ArtifactCore PUBLIC ${OpenCV_LIBS})
 
 find_package(SDL2 REQUIRED)
@@ -299,8 +311,13 @@ target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system Boost::iost
 find_package(Vulkan REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC Vulkan::Headers)
 
-find_package(OpenXR REQUIRED)
-target_link_libraries(ArtifactCore PUBLIC OpenXR::headers)
+find_package(OpenXR QUIET)
+if(OpenXR_FOUND)
+    target_link_libraries(ArtifactCore PUBLIC OpenXR::headers)
+else()
+    list(REMOVE_ITEM CORE_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/XR/OpenXR.ixx")
+    message(STATUS "OpenXR not found; building without optional XR support")
+endif()
 
 find_package(box2d CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC box2d::box2d)
@@ -355,37 +372,45 @@ unset(SENTENCEPIECE_LIBRARY_DEBUG     CACHE)
 
 find_path(SENTENCEPIECE_INCLUDE_DIR
     NAMES sentencepiece_processor.h
-    REQUIRED
 )
-# Derive the vcpkg triplet prefix from the include directory (…/x64-windows/include → …/x64-windows)
-get_filename_component(_sp_prefix "${SENTENCEPIECE_INCLUDE_DIR}" DIRECTORY)
-find_library(SENTENCEPIECE_LIBRARY_RELEASE
-    NAMES sentencepiece
-    PATHS "${_sp_prefix}/lib"
-    NO_DEFAULT_PATH
-    REQUIRED
-)
-find_library(SENTENCEPIECE_LIBRARY_DEBUG
-    NAMES sentencepiece
-    PATHS "${_sp_prefix}/debug/lib"
-    NO_DEFAULT_PATH
-    REQUIRED
-)
+if(SENTENCEPIECE_INCLUDE_DIR)
+    # Derive the vcpkg triplet prefix from the include directory
+    # (…/x64-windows/include → …/x64-windows)
+    get_filename_component(_sp_prefix "${SENTENCEPIECE_INCLUDE_DIR}" DIRECTORY)
+    find_library(SENTENCEPIECE_LIBRARY_RELEASE
+        NAMES sentencepiece
+        PATHS "${_sp_prefix}/lib"
+        NO_DEFAULT_PATH
+    )
+    find_library(SENTENCEPIECE_LIBRARY_DEBUG
+        NAMES sentencepiece
+        PATHS "${_sp_prefix}/debug/lib"
+        NO_DEFAULT_PATH
+    )
+endif()
 
-add_library(sentencepiece::sentencepiece STATIC IMPORTED GLOBAL)
-set_target_properties(sentencepiece::sentencepiece PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${SENTENCEPIECE_INCLUDE_DIR}"
-    IMPORTED_LOCATION_RELEASE "${SENTENCEPIECE_LIBRARY_RELEASE}"
-    IMPORTED_LOCATION_DEBUG   "${SENTENCEPIECE_LIBRARY_DEBUG}"
-    INTERFACE_LINK_LIBRARIES  "protobuf::libprotobuf;absl::abseil_dll;absl::flags"
-)
-target_link_libraries(ArtifactCore PUBLIC sentencepiece::sentencepiece)
-
-find_package(onnxruntime CONFIG REQUIRED)
-if(TARGET onnxruntime::onnxruntime)
-    target_link_libraries(ArtifactCore PUBLIC onnxruntime::onnxruntime)
+if(SENTENCEPIECE_INCLUDE_DIR AND SENTENCEPIECE_LIBRARY_RELEASE AND SENTENCEPIECE_LIBRARY_DEBUG)
+    add_library(sentencepiece::sentencepiece STATIC IMPORTED GLOBAL)
+    set_target_properties(sentencepiece::sentencepiece PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${SENTENCEPIECE_INCLUDE_DIR}"
+        IMPORTED_LOCATION_RELEASE "${SENTENCEPIECE_LIBRARY_RELEASE}"
+        IMPORTED_LOCATION_DEBUG   "${SENTENCEPIECE_LIBRARY_DEBUG}"
+        INTERFACE_LINK_LIBRARIES  "protobuf::libprotobuf;absl::abseil_dll;absl::flags"
+    )
+    target_link_libraries(ArtifactCore PUBLIC sentencepiece::sentencepiece)
 else()
+    message(STATUS "sentencepiece not found; building without optional sentencepiece integration")
+endif()
+
+find_package(onnxruntime CONFIG QUIET)
+if(TARGET onnxruntime::onnxruntime AND TARGET sentencepiece::sentencepiece)
+    target_link_libraries(ArtifactCore PUBLIC onnxruntime::onnxruntime)
+    target_compile_definitions(ArtifactCore PRIVATE ARTIFACT_HAS_ONNX_DML_BACKEND=1)
+elseif(TARGET onnxruntime AND TARGET sentencepiece::sentencepiece)
     target_link_libraries(ArtifactCore PUBLIC onnxruntime)
+    target_compile_definitions(ArtifactCore PRIVATE ARTIFACT_HAS_ONNX_DML_BACKEND=1)
+else()
+    message(STATUS "onnxruntime or sentencepiece not found; building ONNX DirectML backend stub")
 endif()
 
 # llama.cpp
@@ -432,6 +457,9 @@ endif()
 
 if(TARGET llama)
     target_link_libraries(ArtifactCore PUBLIC llama)
+    if(MSVC)
+        target_compile_options(llama PRIVATE /Zc:char8_t-)
+    endif()
 
     function(_artifact_align_llama_output target_name)
         if(TARGET ${target_name})

@@ -1,9 +1,11 @@
 module;
 #include <utility>
-#include <sentencepiece_processor.h>
-#include <onnxruntime_cxx_api.h>
-#include <onnxruntime_c_api.h>
-#include <onnxruntime/dml_provider_factory.h>
+#if defined(ARTIFACT_HAS_ONNX_DML_BACKEND)
+#  include <sentencepiece_processor.h>
+#  include <onnxruntime_cxx_api.h>
+#  include <onnxruntime_c_api.h>
+#  include <onnxruntime/dml_provider_factory.h>
+#endif
 #include <vector>
 #include <string>
 #include <memory>
@@ -27,6 +29,8 @@ import Core.AI.Context;
 import Memory.TrackedPtr;
 
 namespace ArtifactCore {
+
+#if defined(ARTIFACT_HAS_ONNX_DML_BACKEND)
 
 namespace {
 
@@ -548,5 +552,77 @@ QString OnnxDmlLocalAgent::generateChatResponseStreaming(
     }
     return response.trimmed();
 }
+
+#else
+
+class OnnxDmlLocalAgent::Impl {
+public:
+    QString lastErrorMessage =
+        QStringLiteral("ONNX DirectML backend is unavailable in this build.");
+};
+
+OnnxDmlLocalAgent::OnnxDmlLocalAgent() : impl_(std::make_unique<Impl>()) {}
+OnnxDmlLocalAgent::~OnnxDmlLocalAgent() = default;
+
+QString OnnxDmlLocalAgent::lastError() const
+{
+    return impl_ ? impl_->lastErrorMessage : QString();
+}
+
+bool OnnxDmlLocalAgent::initialize(const QString&)
+{
+    impl_->lastErrorMessage =
+        QStringLiteral("ONNX Runtime and SentencePiece were not found at configure time.");
+    return false;
+}
+
+QString OnnxDmlLocalAgent::analyzeContext(const AIContext&)
+{
+    return {};
+}
+
+QString OnnxDmlLocalAgent::predictParameter(const QString&, const AIContext&)
+{
+    return {};
+}
+
+bool OnnxDmlLocalAgent::requiresCloudEscalation(const QString&, const AIContext&)
+{
+    return true;
+}
+
+LocalAnalysisResult OnnxDmlLocalAgent::analyzeUserQuestion(const QString&, const AIContext&)
+{
+    LocalAnalysisResult result;
+    result.intent = QStringLiteral("unknown");
+    result.requiresCloud = true;
+    result.localAnswer = impl_->lastErrorMessage;
+    result.confidence = 0.0f;
+    return result;
+}
+
+QString OnnxDmlLocalAgent::generateChatResponse(
+    const QString&,
+    const QString&,
+    const AIContext&)
+{
+    return {};
+}
+
+QString OnnxDmlLocalAgent::generateChatResponseStreaming(
+    const QString&,
+    const QString&,
+    const AIContext&,
+    const std::function<bool(const QString& piece)>&)
+{
+    return {};
+}
+
+QString OnnxDmlLocalAgent::filterSensitiveInfo(const QString& text)
+{
+    return text;
+}
+
+#endif
 
 } // namespace ArtifactCore
