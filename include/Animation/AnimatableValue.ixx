@@ -196,6 +196,14 @@ export struct SpringState {
   }
 
   // L[t[ǉ
+  void normalizeKeyFrames() {
+   std::sort(keyframes_.begin(), keyframes_.end(),
+    [](const auto& a, const auto& b) { return a.frame < b.frame; });
+   keyframes_.erase(std::unique(keyframes_.begin(), keyframes_.end(),
+    [](const auto& a, const auto& b) { return a.frame == b.frame; }),
+    keyframes_.end());
+  }
+
   void addKeyFrame(const FramePosition& frame, const T& value) {
    std::unique_lock lock(mutex_);
    // Keep the same invariant as AbstractProperty: one keyframe per time.
@@ -207,11 +215,7 @@ export struct SpringState {
     return;
    }
    keyframes_.push_back({ frame, value });
-   std::sort(keyframes_.begin(), keyframes_.end(),
- [](auto& a, auto& b) { return a.frame < b.frame; });
-   keyframes_.erase(std::unique(keyframes_.begin(), keyframes_.end(),
-    [](const auto& a, const auto& b) { return a.frame == b.frame; }),
-    keyframes_.end());
+   normalizeKeyFrames();
   }
 
   // ============================================
@@ -253,11 +257,7 @@ export struct SpringState {
     [&to](const auto& kf) { return kf.frame == to; }), keyframes_.end());
    moved.frame = to;
    keyframes_.push_back(std::move(moved));
-   std::sort(keyframes_.begin(), keyframes_.end(),
-    [](auto& a, auto& b) { return a.frame < b.frame; });
-   keyframes_.erase(std::unique(keyframes_.begin(), keyframes_.end(),
-    [](const auto& a, const auto& b) { return a.frame == b.frame; }),
-    keyframes_.end());
+   normalizeKeyFrames();
    return true;
   }
 

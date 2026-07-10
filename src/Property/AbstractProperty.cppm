@@ -526,10 +526,24 @@ bool AbstractProperty::hasEnvelopes() const {
 // -----------------------------------------------------------------------
 namespace {
 bool sameKeyFrameTime(const RationalTime& lhs, const RationalTime& rhs) {
-    // Compare in seconds so equivalent times with different rational scales
-    // address the same keyframe. Keep a small tolerance for the double-based
-    // conversion used by RationalTime::toSeconds().
-    return std::abs(lhs.toSeconds() - rhs.toSeconds()) <= 1.0e-9;
+    return lhs == rhs;
+}
+
+bool keyFrameTimeLess(const RationalTime& lhs, const RationalTime& rhs) {
+    return lhs < rhs;
+}
+
+void normalizeKeyFrames(std::vector<KeyFrame>& keyFrames) {
+    std::sort(keyFrames.begin(), keyFrames.end(),
+        [](const KeyFrame& a, const KeyFrame& b) {
+            return keyFrameTimeLess(a.time, b.time);
+        });
+    keyFrames.erase(
+        std::unique(keyFrames.begin(), keyFrames.end(),
+            [](const KeyFrame& lhs, const KeyFrame& rhs) {
+                return sameKeyFrameTime(lhs.time, rhs.time);
+            }),
+        keyFrames.end());
 }
 }
 
@@ -582,10 +596,7 @@ void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& val
     kf.anchor = KeyFrame::Anchor::Absolute;
     kf.colorLabel = KeyFrame::ColorLabel::None;
     pImpl->m_keyFrames.push_back(kf);
-    std::sort(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [](const KeyFrame& a, const KeyFrame& b) {
-            return a.time < b.time;
-        });
+    normalizeKeyFrames(pImpl->m_keyFrames);
 }
 
 void AbstractProperty::setKeyFrameAnchorAt(const RationalTime& time, KeyFrame::Anchor anchor) {
@@ -663,14 +674,7 @@ void AbstractProperty::retimeKeyFramesForLayerPointChange(const RationalTime& ol
         kf.time = RationalTime(targetValue, targetScale);
     }
 
-    std::sort(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [](const KeyFrame& a, const KeyFrame& b) { return a.time < b.time; });
-    pImpl->m_keyFrames.erase(
-        std::unique(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-            [](const KeyFrame& lhs, const KeyFrame& rhs) {
-                return sameKeyFrameTime(lhs.time, rhs.time);
-            }),
-        pImpl->m_keyFrames.end());
+    normalizeKeyFrames(pImpl->m_keyFrames);
 }
 
 void AbstractProperty::removeKeyFrame(const RationalTime& time) {
@@ -679,6 +683,7 @@ void AbstractProperty::removeKeyFrame(const RationalTime& time) {
         [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
     if (it != pImpl->m_keyFrames.end()) {
         pImpl->m_keyFrames.erase(it);
+        normalizeKeyFrames(pImpl->m_keyFrames);
     }
 }
 
