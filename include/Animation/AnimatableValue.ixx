@@ -6,6 +6,8 @@ module;
 #include <iterator>
 #include <utility>
 #include <vector>
+#include <shared_mutex>
+#include <mutex>
 export module Animation.Value;
 
 import Frame.Position;
@@ -115,25 +117,47 @@ export struct SpringState {
  private:
   std::vector<KeyFrameT<T>> keyframes_;
   T currentValue_{};
-  mutable size_t lastCachedIndex_ = 0; // Temporal Coherence用のキャッシュ
-
-  void invalidateCache() {
-   lastCachedIndex_ = 0;
-  }
-
+  mutable std::shared_mutex mutex_;
  public:
   AnimatableValueT() = default;
+  AnimatableValueT(const AnimatableValueT& other) {
+   std::shared_lock lock(other.mutex_);
+   keyframes_ = other.keyframes_;
+   currentValue_ = other.currentValue_;
+  }
+  AnimatableValueT& operator=(const AnimatableValueT& other) {
+   if (this == &other) return *this;
+   std::scoped_lock lock(mutex_, other.mutex_);
+   keyframes_ = other.keyframes_;
+   currentValue_ = other.currentValue_;
+   return *this;
+  }
+  AnimatableValueT(AnimatableValueT&& other) noexcept {
+   std::unique_lock lock(other.mutex_);
+   keyframes_ = std::move(other.keyframes_);
+   currentValue_ = std::move(other.currentValue_);
+  }
+  AnimatableValueT& operator=(AnimatableValueT&& other) noexcept {
+   if (this == &other) return *this;
+   std::scoped_lock lock(mutex_, other.mutex_);
+   keyframes_ = std::move(other.keyframes_);
+   currentValue_ = std::move(other.currentValue_);
+   return *this;
+  }
 
   // ݒliL[t[Ȃj
   void setCurrent(const T& v) {
+   std::unique_lock lock(mutex_);
    currentValue_ = v;
   }
 
-  const T& current() const {
+  T current() const {
+   std::shared_lock lock(mutex_);
    return currentValue_;
   }
 
   T at(const FramePosition& frame) const {
+   std::shared_lock lock(mutex_);
    if (keyframes_.empty()) return currentValue_;
    if (keyframes_.size() == 1) return keyframes_[0].value;
 
@@ -141,32 +165,14 @@ export struct SpringState {
    if (frame <= keyframes_.front().frame) return keyframes_.front().value;
    if (frame >= keyframes_.back().frame) return keyframes_.back().value;
 
-   // 2. Temporal Coherence Optimization
+   // 2. Binary search. Evaluation is const and deliberately has no mutable
+   // cache: these values are evaluated concurrently by UI and render paths.
    size_t n = keyframes_.size();
-   if (lastCachedIndex_ < n - 1) {
-       const auto& kfPrev = keyframes_[lastCachedIndex_];
-       const auto& kfNext = keyframes_[lastCachedIndex_ + 1];
-
-       if (frame >= kfPrev.frame && frame < kfNext.frame) {
-           float t = calculateT(kfPrev.frame, kfNext.frame, frame);
-           return interpolateValue(kfPrev.value, kfNext.value, t, kfPrev.interpolation);
-       }
-       if (lastCachedIndex_ + 2 < n && frame >= kfNext.frame && frame < keyframes_[lastCachedIndex_ + 2].frame) {
-           lastCachedIndex_++;
-           const auto& kfNext2 = keyframes_[lastCachedIndex_ + 1];
-           float t = calculateT(kfNext.frame, kfNext2.frame, frame);
-           return interpolateValue(kfNext.value, kfNext2.value, t, kfNext.interpolation);
-       }
-   }
-
-   // 3. Fallback: Binary Search
    auto it = std::lower_bound(keyframes_.begin(), keyframes_.end(), frame,
  [](const auto& kf, const auto& f) { return kf.frame < f; });
 
    auto next = it;
    auto prev = std::prev(it);
-   lastCachedIndex_ = std::distance(keyframes_.begin(), prev);
-
    float t = calculateT(prev->frame, next->frame, frame);
    return interpolateValue(prev->value, next->value, t, prev->interpolation);
   }
@@ -191,10 +197,21 @@ export struct SpringState {
 
   // L[t[ǉ
   void addKeyFrame(const FramePosition& frame, const T& value) {
+   std::unique_lock lock(mutex_);
+   // Keep the same invariant as AbstractProperty: one keyframe per time.
+   // Replacing in place also preserves the existing interpolation mode.
+   auto existing = std::find_if(keyframes_.begin(), keyframes_.end(),
+    [&frame](const auto& kf) { return kf.frame == frame; });
+   if (existing != keyframes_.end()) {
+    existing->value = value;
+    return;
+   }
    keyframes_.push_back({ frame, value });
    std::sort(keyframes_.begin(), keyframes_.end(),
  [](auto& a, auto& b) { return a.frame < b.frame; });
-   invalidateCache();
+   keyframes_.erase(std::unique(keyframes_.begin(), keyframes_.end(),
+    [](const auto& a, const auto& b) { return a.frame == b.frame; }),
+    keyframes_.end());
   }
 
   // ============================================
@@ -203,6 +220,7 @@ export struct SpringState {
   
   // �w��t���[���ɃL�[�t���[�������݂��邩
   bool hasKeyFrameAt(const FramePosition& frame) const {
+   std::shared_lock lock(mutex_);
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    return it != keyframes_.end();
@@ -210,28 +228,41 @@ export struct SpringState {
   
   // �w��t���[���̃L�[�t���[�����폜
   void removeKeyFrameAt(const FramePosition& frame) {
+   std::unique_lock lock(mutex_);
    auto it = std::remove_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    keyframes_.erase(it, keyframes_.end());
-   invalidateCache();
   }
 
   bool moveKeyFrame(const FramePosition& from, const FramePosition& to) {
-   if (from == to) return hasKeyFrameAt(from);
+   std::unique_lock lock(mutex_);
+   if (from == to) {
+    return std::find_if(keyframes_.begin(), keyframes_.end(),
+      [&from](const auto& kf) { return kf.frame == from; }) != keyframes_.end();
+   }
 
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&from](const auto& kf) { return kf.frame == from; });
    if (it == keyframes_.end()) return false;
 
-   removeKeyFrameAt(to);
-   it->frame = to;
+   // Removing the destination can invalidate `it` (especially when the
+   // destination is after the source), so copy the source before erasing.
+   KeyFrameT<T> moved = *it;
+   keyframes_.erase(it);
+   keyframes_.erase(std::remove_if(keyframes_.begin(), keyframes_.end(),
+    [&to](const auto& kf) { return kf.frame == to; }), keyframes_.end());
+   moved.frame = to;
+   keyframes_.push_back(std::move(moved));
    std::sort(keyframes_.begin(), keyframes_.end(),
     [](auto& a, auto& b) { return a.frame < b.frame; });
-   invalidateCache();
+   keyframes_.erase(std::unique(keyframes_.begin(), keyframes_.end(),
+    [](const auto& a, const auto& b) { return a.frame == b.frame; }),
+    keyframes_.end());
    return true;
   }
 
   bool setKeyFrameInterpolationAt(const FramePosition& frame, InterpolationType interpolation) {
+   std::unique_lock lock(mutex_);
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (it == keyframes_.end()) return false;
@@ -240,6 +271,7 @@ export struct SpringState {
   }
 
   bool setKeyFrameValueAt(const FramePosition& frame, const T& value) {
+   std::unique_lock lock(mutex_);
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (it == keyframes_.end()) return false;
@@ -248,6 +280,7 @@ export struct SpringState {
   }
 
   InterpolationType getKeyFrameInterpolationAt(const FramePosition& frame) const {
+   std::shared_lock lock(mutex_);
    auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (it == keyframes_.end()) return static_cast<InterpolationType>(0);
@@ -256,21 +289,24 @@ export struct SpringState {
   
   // ���ׂẴL�[�t���[�����N���A
   void clearKeyFrames() {
+   std::unique_lock lock(mutex_);
    keyframes_.clear();
-   invalidateCache();
   }
   
   // �L�[�t���[�������擾
   size_t getKeyFrameCount() const {
+   std::shared_lock lock(mutex_);
    return keyframes_.size();
   }
   
   // ���ׂẴL�[�t���[�����擾�i�ǂݎ���p�j
   std::vector<KeyFrameT<T>> getKeyFrames() const {
+   std::shared_lock lock(mutex_);
    return keyframes_;
   }
 
   std::vector<FramePosition> getKeyFrameFrames() const {
+   std::shared_lock lock(mutex_);
    std::vector<FramePosition> frames;
    frames.reserve(keyframes_.size());
    for (const auto& kf : keyframes_) {

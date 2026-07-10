@@ -70,6 +70,10 @@ CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsCtx, int
     out.meta.width = width;
     out.meta.height = height;
     out.meta.pts = pts;
+    out.meta.color.colorSpace = static_cast<int>(frame->colorspace);
+    out.meta.color.colorRange = static_cast<int>(frame->color_range);
+    out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
+    out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
     out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
     out.strideBytes = width * 3;
     out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(height));

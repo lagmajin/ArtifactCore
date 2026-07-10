@@ -255,6 +255,8 @@ public:
     QVariant getDefaultValue() const;
     QVariant getMinValue() const;
     QVariant getMaxValue() const;
+    QString lastError() const;
+    void clearLastError();
     bool isAnimatable() const;
     QColor getColorValue() const;
     PropertyMetadata metadata() const;

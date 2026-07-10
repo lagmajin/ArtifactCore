@@ -20,6 +20,7 @@ module;
 #include <utility>
 #include <array>
 #include <mutex>
+#include <shared_mutex>
 #include <thread>
 #include <chrono>
 #include <filesystem>
@@ -55,6 +56,34 @@ namespace ArtifactCore {
 // Conversion Helpers
 // -----------------------------------------------------------------------
 namespace {
+    bool isFiniteVariant(const QVariant& value) {
+        if (!value.isValid()) return false;
+        const int typeId = value.metaType().id();
+        if (typeId == QMetaType::Double || typeId == QMetaType::Float ||
+            typeId == QMetaType::Int || typeId == QMetaType::LongLong ||
+            typeId == QMetaType::UInt || typeId == QMetaType::ULongLong) {
+            return std::isfinite(value.toDouble());
+        }
+        return true;
+    }
+
+    bool isCompatiblePropertyValue(PropertyType type, const QVariant& value) {
+        if (!isFiniteVariant(value)) return false;
+        switch (type) {
+        case PropertyType::Float:
+        case PropertyType::Integer:
+            return value.canConvert<double>();
+        case PropertyType::Boolean:
+            return value.metaType().id() == QMetaType::Bool;
+        case PropertyType::Color:
+            return value.canConvert<QColor>();
+        case PropertyType::String:
+        case PropertyType::ObjectReference:
+            return value.canConvert<QString>();
+        }
+        return false;
+    }
+
     ExpressionValue qvariantToExpressionValue(const QVariant& v, PropertyType type) {
         if (!v.isValid()) return ExpressionValue();
         switch (type) {
@@ -100,6 +129,26 @@ namespace {
 // -----------------------------------------------------------------------
 class AbstractProperty::Impl {
 public:
+    Impl() = default;
+    Impl(const Impl& other) {
+        std::shared_lock lock(other.m_mutex);
+        m_name = other.m_name;
+        m_type = other.m_type;
+        m_value = other.m_value;
+        m_defaultValue = other.m_defaultValue;
+        m_minValue = other.m_minValue;
+        m_maxValue = other.m_maxValue;
+        m_animatable = other.m_animatable;
+        m_displayPriority = other.m_displayPriority;
+        m_metadata = other.m_metadata;
+        m_expression = other.m_expression;
+        m_keyFrames = other.m_keyFrames;
+        m_envelopes = other.m_envelopes;
+        m_externalOverride = other.m_externalOverride;
+        m_hasExternalOverride = other.m_hasExternalOverride;
+        m_lastError = other.m_lastError;
+    }
+
     QString       m_name;
     PropertyType  m_type           = PropertyType::Float;
     QVariant      m_value;
@@ -116,6 +165,8 @@ public:
 
     QVariant m_externalOverride;
     bool     m_hasExternalOverride = false;
+    QString  m_lastError;
+    mutable std::shared_mutex m_mutex;
 };
 
 // Constructor / Destructor
@@ -157,38 +208,57 @@ AbstractProperty& AbstractProperty::operator=(AbstractProperty&& other) noexcept
 // Getters
 // -----------------------------------------------------------------------
 QString AbstractProperty::getName() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_name;
 }
 
 PropertyType AbstractProperty::getType() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_type;
 }
 
 QVariant AbstractProperty::getValue() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_value;
 }
 
 QVariant AbstractProperty::getDefaultValue() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_defaultValue;
 }
 
 QVariant AbstractProperty::getMinValue() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_minValue;
 }
 
 QVariant AbstractProperty::getMaxValue() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_maxValue;
 }
 
+QString AbstractProperty::lastError() const {
+    std::shared_lock lock(pImpl->m_mutex);
+    return pImpl->m_lastError;
+}
+
+void AbstractProperty::clearLastError() {
+    std::unique_lock lock(pImpl->m_mutex);
+    pImpl->m_lastError.clear();
+}
+
 bool AbstractProperty::isAnimatable() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_animatable;
 }
 
 QColor AbstractProperty::getColorValue() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_value.value<QColor>();
 }
 
 PropertyMetadata AbstractProperty::metadata() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_metadata;
 }
 
@@ -196,10 +266,12 @@ PropertyMetadata AbstractProperty::metadata() const {
 // Setters
 // -----------------------------------------------------------------------
 void AbstractProperty::setName(const QString& name) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_name = name;
 }
 
 void AbstractProperty::setType(PropertyType type) {
+    std::unique_lock lock(pImpl->m_mutex);
     if (pImpl->m_type != type) {
         pImpl->m_type = type;
         pImpl->m_keyFrames.clear();
@@ -207,31 +279,45 @@ void AbstractProperty::setType(PropertyType type) {
 }
 
 void AbstractProperty::setValue(const QVariant& value) {
+    std::unique_lock lock(pImpl->m_mutex);
+    pImpl->m_lastError.clear();
+    if (!isCompatiblePropertyValue(pImpl->m_type, value)) {
+        pImpl->m_lastError = QStringLiteral("Incompatible or non-finite property value");
+        std::clog << "[AbstractProperty] rejected incompatible or non-finite value for '"
+                  << pImpl->m_name.toStdString() << "'\n";
+        return;
+    }
     pImpl->m_value = value;
     clampValue();
 }
 
 void AbstractProperty::setDefaultValue(const QVariant& value) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_defaultValue = value;
 }
 
 void AbstractProperty::setMinValue(const QVariant& value) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_minValue = value;
 }
 
 void AbstractProperty::setMaxValue(const QVariant& value) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_maxValue = value;
 }
 
 void AbstractProperty::setAnimatable(bool animatable) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_animatable = animatable;
 }
 
 void AbstractProperty::setColorValue(const QColor& color) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_value = QVariant::fromValue(color);
 }
 
 void AbstractProperty::setMetadata(const PropertyMetadata& metadata) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_metadata = metadata;
 }
 
@@ -240,23 +326,28 @@ void AbstractProperty::setDisplayLabel(const QString& label) {
 }
 
 void AbstractProperty::setUnit(const QString& unit) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_metadata.unit = unit;
 }
 
 void AbstractProperty::setTooltip(const QString& tooltip) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_metadata.tooltip = tooltip;
 }
 
 void AbstractProperty::setStep(const QVariant& step) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_metadata.step = step;
 }
 
 void AbstractProperty::setHardRange(const QVariant& minValue, const QVariant& maxValue) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_metadata.hardMin = minValue;
     pImpl->m_metadata.hardMax = maxValue;
 }
 
 void AbstractProperty::setSoftRange(const QVariant& minValue, const QVariant& maxValue) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_metadata.softMin = minValue;
     pImpl->m_metadata.softMax = maxValue;
 }
@@ -276,28 +367,47 @@ int AbstractProperty::displayPriority() const {
 // Expression support
 // -----------------------------------------------------------------------
 void AbstractProperty::setExpression(const QString& expression) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_expression = expression;
 }
 
 QString AbstractProperty::getExpression() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_expression;
 }
 
 bool AbstractProperty::hasExpression() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return !pImpl->m_expression.isEmpty();
 }
 
 QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator) const {
-    if (pImpl->m_hasExternalOverride) {
-        return pImpl->m_externalOverride;
+    {
+        std::shared_lock lock(pImpl->m_mutex);
+        if (pImpl->m_hasExternalOverride) {
+            return pImpl->m_externalOverride;
+        }
     }
 
     QVariant baseValue = interpolateValue(time);
-    for (const auto& envelope : pImpl->m_envelopes) {
+    std::vector<EnvelopeTrack> envelopes;
+    PropertyType propertyType;
+    QVariant defaultValue;
+    QString propertyName;
+    QString expression;
+    {
+        std::shared_lock lock(pImpl->m_mutex);
+        envelopes = pImpl->m_envelopes;
+        propertyType = pImpl->m_type;
+        defaultValue = pImpl->m_defaultValue;
+        propertyName = pImpl->m_name;
+        expression = pImpl->m_expression;
+    }
+    for (const auto& envelope : envelopes) {
         if (!envelope.enabled) {
             continue;
         }
-        if (!envelope.targetPropertyPath.isEmpty() && envelope.targetPropertyPath != pImpl->m_name) {
+        if (!envelope.targetPropertyPath.isEmpty() && envelope.targetPropertyPath != propertyName) {
             continue;
         }
 
@@ -333,47 +443,47 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
 
         switch (envelope.mode) {
         case EnvelopeMode::Override:
-            if (pImpl->m_type == PropertyType::Float || pImpl->m_type == PropertyType::Integer) {
-                const double startValue = pImpl->m_defaultValue.isValid() ? pImpl->m_defaultValue.toDouble() : baseValue.toDouble();
+            if (propertyType == PropertyType::Float || propertyType == PropertyType::Integer) {
+                const double startValue = defaultValue.isValid() ? defaultValue.toDouble() : baseValue.toDouble();
                 const double current = baseValue.toDouble();
                 baseValue = QVariant(startValue + (current - startValue) * (1.0 - factor));
             }
             break;
         case EnvelopeMode::Add:
-            if (pImpl->m_type == PropertyType::Float) {
+            if (propertyType == PropertyType::Float) {
                 baseValue = QVariant(baseValue.toDouble() + factor);
-            } else if (pImpl->m_type == PropertyType::Integer) {
+            } else if (propertyType == PropertyType::Integer) {
                 baseValue = QVariant(baseValue.toInt() + static_cast<int>(std::round(factor)));
             }
             break;
         case EnvelopeMode::Multiply:
-            if (pImpl->m_type == PropertyType::Float) {
+            if (propertyType == PropertyType::Float) {
                 baseValue = QVariant(baseValue.toDouble() * (1.0 - factor + factor * strength));
-            } else if (pImpl->m_type == PropertyType::Integer) {
+            } else if (propertyType == PropertyType::Integer) {
                 baseValue = QVariant(static_cast<int>(std::round(baseValue.toInt() * (1.0 - factor + factor * strength))));
             }
             break;
         }
     }
-    if (evaluator && hasExpression()) {
+    if (evaluator && !expression.isEmpty()) {
         try {
             // AE-like context injection
             const double frameRate = static_cast<double>(time.scale());
             evaluator->setFrameRate(frameRate);
-            evaluator->setVariable("value", qvariantToExpressionValue(baseValue, pImpl->m_type));
+            evaluator->setVariable("value", qvariantToExpressionValue(baseValue, propertyType));
             evaluator->setVariable("time", ExpressionValue(time.toDouble()));
             evaluator->setVariable("frameRate", ExpressionValue(frameRate));
 
-            ExpressionValue result = evaluator->evaluate(ZeroString(pImpl->m_expression.toUtf8().constData()));
+            ExpressionValue result = evaluator->evaluate(ZeroString(expression.toUtf8().constData()));
             if (!evaluator->hasError()) {
-                return expressionValueToQVariant(result, pImpl->m_type);
+                return expressionValueToQVariant(result, propertyType);
             } else {
                 // If error, return baseValue as fallback
-                std::cerr << "Expression error in property " << pImpl->m_name.toUtf8().constData()
+                std::cerr << "Expression error in property " << propertyName.toUtf8().constData()
                           << ": " << evaluator->getError() << std::endl;
             }
         } catch (const std::exception& e) {
-            std::cerr << "Expression exception in property " << pImpl->m_name.toUtf8().constData()
+            std::cerr << "Expression exception in property " << propertyName.toUtf8().constData()
                       << ": " << e.what() << std::endl;
         }
     }
@@ -381,10 +491,12 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
 }
 
 void AbstractProperty::addEnvelope(const EnvelopeTrack& envelope) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_envelopes.push_back(envelope);
 }
 
 void AbstractProperty::addEnvelopePreset(const EnvelopePreset& preset) {
+    std::unique_lock lock(pImpl->m_mutex);
     for (const auto& track : preset.tracks) {
         EnvelopeTrack applied = track;
         if (!preset.targetPropertyPath.isEmpty() && applied.targetPropertyPath.isEmpty()) {
@@ -395,20 +507,32 @@ void AbstractProperty::addEnvelopePreset(const EnvelopePreset& preset) {
 }
 
 void AbstractProperty::clearEnvelopes() {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_envelopes.clear();
 }
 
 std::vector<EnvelopeTrack> AbstractProperty::getEnvelopes() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_envelopes;
 }
 
 bool AbstractProperty::hasEnvelopes() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return !pImpl->m_envelopes.empty();
 }
 
 // -----------------------------------------------------------------------
 // KeyFrame operations
 // -----------------------------------------------------------------------
+namespace {
+bool sameKeyFrameTime(const RationalTime& lhs, const RationalTime& rhs) {
+    // Compare in seconds so equivalent times with different rational scales
+    // address the same keyframe. Keep a small tolerance for the double-based
+    // conversion used by RationalTime::toSeconds().
+    return std::abs(lhs.toSeconds() - rhs.toSeconds()) <= 1.0e-9;
+}
+}
+
 void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value) {
     addKeyFrame(time, value, InterpolationType::Linear);
 }
@@ -424,8 +548,18 @@ void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& val
 
 void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation,
                                     float cp1_x, float cp1_y, float cp2_x, float cp2_y, bool roving) {
+    std::unique_lock lock(pImpl->m_mutex);
+    pImpl->m_lastError.clear();
+    if (!isCompatiblePropertyValue(pImpl->m_type, value) ||
+        !std::isfinite(cp1_x) || !std::isfinite(cp1_y) ||
+        !std::isfinite(cp2_x) || !std::isfinite(cp2_y)) {
+        pImpl->m_lastError = QStringLiteral("Invalid or non-finite keyframe value");
+        std::clog << "[AbstractProperty] rejected invalid keyframe for '"
+                  << pImpl->m_name.toStdString() << "'\n";
+        return;
+    }
     for (auto& kf : pImpl->m_keyFrames) {
-        if (kf.time == time) {
+        if (sameKeyFrameTime(kf.time, time)) {
             kf.value = value;
             kf.interpolation = interpolation;
             kf.cp1_x = cp1_x;
@@ -455,23 +589,26 @@ void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& val
 }
 
 void AbstractProperty::setKeyFrameAnchorAt(const RationalTime& time, KeyFrame::Anchor anchor) {
+    std::unique_lock lock(pImpl->m_mutex);
     auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [&time](const KeyFrame& kf) { return kf.time == time; });
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
     if (it != pImpl->m_keyFrames.end()) {
         it->anchor = anchor;
     }
 }
 
 KeyFrame::Anchor AbstractProperty::getKeyFrameAnchorAt(const RationalTime& time) const {
+    std::shared_lock lock(pImpl->m_mutex);
     auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [&time](const KeyFrame& kf) { return kf.time == time; });
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
     return it != pImpl->m_keyFrames.end() ? it->anchor : KeyFrame::Anchor::Absolute;
 }
 
 void AbstractProperty::setKeyFrameColorLabelAt(const RationalTime& time,
                                                KeyFrame::ColorLabel label) {
+    std::unique_lock lock(pImpl->m_mutex);
     auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [&time](const KeyFrame& kf) { return kf.time == time; });
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
     if (it != pImpl->m_keyFrames.end()) {
         it->colorLabel = label;
     }
@@ -479,8 +616,9 @@ void AbstractProperty::setKeyFrameColorLabelAt(const RationalTime& time,
 
 KeyFrame::ColorLabel AbstractProperty::getKeyFrameColorLabelAt(
     const RationalTime& time) const {
+    std::shared_lock lock(pImpl->m_mutex);
     auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [&time](const KeyFrame& kf) { return kf.time == time; });
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
     return it != pImpl->m_keyFrames.end() ? it->colorLabel : KeyFrame::ColorLabel::None;
 }
 
@@ -488,6 +626,7 @@ void AbstractProperty::retimeKeyFramesForLayerPointChange(const RationalTime& ol
                                                           const RationalTime& oldOutPoint,
                                                           const RationalTime& newInPoint,
                                                           const RationalTime& newOutPoint) {
+    std::unique_lock lock(pImpl->m_mutex);
     const double oldIn = oldInPoint.toDouble();
     const double oldOut = oldOutPoint.toDouble();
     const double newIn = newInPoint.toDouble();
@@ -514,37 +653,55 @@ void AbstractProperty::retimeKeyFramesForLayerPointChange(const RationalTime& ol
             }
             break;
         }
-        kf.time = RationalTime::fromSeconds(newTime);
+        // Keep retimed values on the destination timeline's rational scale.
+        // Reconstructing through RationalTime::fromSeconds() uses its fixed
+        // default scale and introduces avoidable frame drift on non-default
+        // timelines.
+        const int64_t targetScale = std::max<int64_t>(1, newInPoint.scale());
+        const int64_t targetValue = static_cast<int64_t>(std::llround(
+            newTime * static_cast<double>(targetScale)));
+        kf.time = RationalTime(targetValue, targetScale);
     }
 
     std::sort(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
         [](const KeyFrame& a, const KeyFrame& b) { return a.time < b.time; });
+    pImpl->m_keyFrames.erase(
+        std::unique(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+            [](const KeyFrame& lhs, const KeyFrame& rhs) {
+                return sameKeyFrameTime(lhs.time, rhs.time);
+            }),
+        pImpl->m_keyFrames.end());
 }
 
 void AbstractProperty::removeKeyFrame(const RationalTime& time) {
+    std::unique_lock lock(pImpl->m_mutex);
     auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [&time](const KeyFrame& kf) { return kf.time == time; });
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
     if (it != pImpl->m_keyFrames.end()) {
         pImpl->m_keyFrames.erase(it);
     }
 }
 
 void AbstractProperty::clearKeyFrames() {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_keyFrames.clear();
 }
 
 std::vector<KeyFrame> AbstractProperty::getKeyFrames() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_keyFrames;
 }
 
 bool AbstractProperty::hasKeyFrameAt(const RationalTime& time) const {
+    std::shared_lock lock(pImpl->m_mutex);
     return std::any_of(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [&time](const KeyFrame& kf) { return kf.time == time; });
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
 }
 
 bool AbstractProperty::setKeyFrameRovingAt(const RationalTime& time, bool roving) {
+    std::unique_lock lock(pImpl->m_mutex);
     auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [&time](const KeyFrame& kf) { return kf.time == time; });
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
     if (it == pImpl->m_keyFrames.end()) {
         return false;
     }
@@ -553,8 +710,9 @@ bool AbstractProperty::setKeyFrameRovingAt(const RationalTime& time, bool roving
 }
 
 bool AbstractProperty::getKeyFrameRovingAt(const RationalTime& time) const {
+    std::shared_lock lock(pImpl->m_mutex);
     auto it = std::find_if(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
-        [&time](const KeyFrame& kf) { return kf.time == time; });
+        [&time](const KeyFrame& kf) { return sameKeyFrameTime(kf.time, time); });
     if (it == pImpl->m_keyFrames.end()) {
         return false;
     }
@@ -562,6 +720,7 @@ bool AbstractProperty::getKeyFrameRovingAt(const RationalTime& time) const {
 }
 
 QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
+    std::shared_lock lock(pImpl->m_mutex);
     if (pImpl->m_keyFrames.empty()) {
         return pImpl->m_value;
     }
@@ -704,16 +863,19 @@ bool AbstractProperty::isValueInRange(const QVariant& value) const {
 }
 
 void AbstractProperty::setExternalOverride(const QVariant& value) {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_externalOverride = value;
     pImpl->m_hasExternalOverride = true;
 }
 
 void AbstractProperty::clearExternalOverride() {
+    std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_hasExternalOverride = false;
     pImpl->m_externalOverride = QVariant();
 }
 
 bool AbstractProperty::hasExternalOverride() const {
+    std::shared_lock lock(pImpl->m_mutex);
     return pImpl->m_hasExternalOverride;
 }
 
