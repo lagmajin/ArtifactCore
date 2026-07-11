@@ -44,6 +44,13 @@ namespace ArtifactCore {
   delete impl_;
  }
 
+ void AssetManager::resetSourceRegistry()
+ {
+  QMutexLocker locker(&impl_->mutex);
+  impl_->sources.clear();
+  impl_->decodedPayloads.clear();
+ }
+
  QUuid AssetManager::acquireSource(const QString& path, AssetType type)
  {
   const QUuid assetId = AssetDatabase::instance().registerAsset(path, type);
