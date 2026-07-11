@@ -47,6 +47,17 @@ export struct SoftBodyWind {
     float turbulenceFrequency = 1.0f;
 };
 
+export struct SoftBodySnapshot {
+    std::vector<SoftBodyPoint> points;
+    std::vector<SoftBodyConstraint> constraints;
+    std::vector<SoftBodyVolumeTriangle> volumeTriangles;
+    SoftBodyWind wind;
+    float turbulenceTime = 0.0f;
+    float accumulatedTime = 0.0f;
+    int gridColumns = 0;
+    int gridRows = 0;
+};
+
 /**
  * @brief ソフトボディの衝突対象
  */
@@ -92,6 +103,59 @@ public:
         collisionDamping_ = std::clamp(damping, 0.0f, 1.0f);
     }
 
+    void setFixedTimeStep(float seconds) {
+        fixedTimeStep_ = std::clamp(seconds, 1.0f / 1000.0f, 1.0f / 15.0f);
+    }
+
+    float fixedTimeStep() const { return fixedTimeStep_; }
+
+    void setMaxSubsteps(int count) {
+        maxSubsteps_ = std::clamp(count, 1, 32);
+    }
+
+    int maxSubsteps() const { return maxSubsteps_; }
+
+    SoftBodySnapshot snapshot() const {
+        return {points_, constraints_, volumeTriangles_, wind_,
+                turbulenceTime_, accumulatedTime_, gridColumns_, gridRows_};
+    }
+
+    bool canRestoreSnapshot(const SoftBodySnapshot& snapshot) const {
+        const auto hasValidPoint = [&snapshot](int index) {
+            return index >= 0 &&
+                   index < static_cast<int>(snapshot.points.size());
+        };
+        for (const auto& constraint : snapshot.constraints) {
+            if (!hasValidPoint(constraint.p1Idx) ||
+                !hasValidPoint(constraint.p2Idx)) {
+                return false;
+            }
+        }
+        if (snapshot.gridColumns < 0 || snapshot.gridRows < 0 ||
+            (snapshot.gridColumns > 0 && snapshot.gridRows > 0 &&
+             snapshot.points.size() != static_cast<std::size_t>(
+                 snapshot.gridColumns * snapshot.gridRows))) {
+            return false;
+        }
+        return true;
+    }
+
+    bool restoreSnapshot(const SoftBodySnapshot& snapshot) {
+        if (!canRestoreSnapshot(snapshot)) {
+            return false;
+        }
+        points_ = snapshot.points;
+        constraints_ = snapshot.constraints;
+        volumeTriangles_ = snapshot.volumeTriangles;
+        wind_ = snapshot.wind;
+        turbulenceTime_ = snapshot.turbulenceTime;
+        accumulatedTime_ = std::clamp(snapshot.accumulatedTime, 0.0f,
+                                      fixedTimeStep_ * static_cast<float>(maxSubsteps_));
+        gridColumns_ = snapshot.gridColumns;
+        gridRows_ = snapshot.gridRows;
+        return true;
+    }
+
     void addPoint(float x, float y, float mass = 1.0f, bool pinned = false) {
         points_.push_back({x, y, x, y, mass, pinned});
     }
@@ -126,6 +190,8 @@ public:
 
         const int safeColumns = std::max(2, columns);
         const int safeRows = std::max(2, rows);
+        gridColumns_ = safeColumns;
+        gridRows_ = safeRows;
         const float stepX = width / static_cast<float>(safeColumns - 1);
         const float stepY = height / static_cast<float>(safeRows - 1);
         const int baseIndex = static_cast<int>(points_.size());
@@ -258,7 +324,26 @@ public:
     /**
      * @brief シミュレーションを 1 ステップ進める
      */
-    void update(float dt, float gravityX, float gravityY, int iterations = 5) {
+    void update(float elapsedSeconds, float gravityX, float gravityY, int iterations = 5) {
+        if (points_.empty() || elapsedSeconds <= 0.0f) return;
+
+        // Keep simulation results stable across 24/30/60 fps playback and
+        // cap catch-up work instead of allowing a delayed frame to explode.
+        const float maximumAccumulatedTime =
+            fixedTimeStep_ * static_cast<float>(maxSubsteps_);
+        accumulatedTime_ = std::min(
+            accumulatedTime_ + std::min(elapsedSeconds, maximumAccumulatedTime),
+            maximumAccumulatedTime);
+        int substeps = 0;
+        while (accumulatedTime_ + 1e-6f >= fixedTimeStep_ &&
+               substeps < maxSubsteps_) {
+            simulateStep(fixedTimeStep_, gravityX, gravityY, iterations);
+            accumulatedTime_ -= fixedTimeStep_;
+            ++substeps;
+        }
+    }
+
+    void simulateStep(float dt, float gravityX, float gravityY, int iterations = 5) {
         if (points_.empty()) return;
         if (dt <= 0.0f) return;
 
@@ -483,12 +568,17 @@ public:
         colliders_.clear();
         volumeTriangles_.clear();
         wind_ = {};
+        gridColumns_ = 0;
+        gridRows_ = 0;
+        accumulatedTime_ = 0.0f;
     }
 
     const std::vector<SoftBodyPoint>& getPoints() const { return points_; }
     const std::vector<SoftBodyConstraint>& getConstraints() const { return constraints_; }
     const std::vector<SoftBodyCollider>& getColliders() const { return colliders_; }
     const std::vector<SoftBodyVolumeTriangle>& getVolumeTriangles() const { return volumeTriangles_; }
+    int gridColumns() const { return gridColumns_; }
+    int gridRows() const { return gridRows_; }
 
 private:
     void resolveColliders(SoftBodyPoint& p) {
@@ -580,6 +670,11 @@ private:
     float pressureStiffness_ = 0.0f;
     SoftBodyWind wind_;
     float turbulenceTime_ = 0.0f;
+    float fixedTimeStep_ = 1.0f / 120.0f;
+    float accumulatedTime_ = 0.0f;
+    int maxSubsteps_ = 8;
+    int gridColumns_ = 0;
+    int gridRows_ = 0;
 };
 
 } // namespace ArtifactCore

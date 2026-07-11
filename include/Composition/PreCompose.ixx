@@ -118,6 +118,13 @@ public:
         LayerID precompLayerId,
         const UnprecomposeOptions& options = UnprecomposeOptions{}
     );
+
+    /// 解除したプリコンポーズ状態を元に戻す
+    bool restorePrecompose(
+        CompositionID parentCompositionId,
+        LayerID precompLayerId,
+        CompositionID childCompositionId
+    );
     
     // ========================================
     // ユーティリティ

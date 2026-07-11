@@ -1,5 +1,7 @@
 module;
 #include <optional>
+#include <cstdint>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -18,12 +20,75 @@ enum class ErrorCode {
   Failed
 };
 
+inline constexpr const char* errorCodeName(ErrorCode code) noexcept
+{
+  switch (code) {
+  case ErrorCode::None: return "none";
+  case ErrorCode::Unknown: return "unknown";
+  case ErrorCode::InvalidArgument: return "invalid_argument";
+  case ErrorCode::NotFound: return "not_found";
+  case ErrorCode::AlreadyExists: return "already_exists";
+  case ErrorCode::Busy: return "busy";
+  case ErrorCode::Cancelled: return "cancelled";
+  case ErrorCode::Failed: return "failed";
+  }
+  return "unknown";
+}
+
+struct SourceLocation {
+  const char* file = "";
+  const char* function = "";
+  int line = 0;
+
+  bool hasValue() const noexcept
+  {
+    return file != nullptr && file[0] != '\0' && line > 0;
+  }
+};
+
+struct ErrorContext {
+  ErrorCode code = ErrorCode::None;
+  std::string message;
+  std::string operation;
+  std::string objectId;
+  SourceLocation location;
+  std::uint64_t traceId = 0;
+};
+
+inline constexpr SourceLocation sourceLocation(
+    const char* file, const char* function, int line) noexcept
+{
+  return SourceLocation{file, function, line};
+}
+
+#define ARTIFACT_CORE_SOURCE_LOCATION \
+  ::ArtifactCore::sourceLocation(__FILE__, __func__, __LINE__)
+
 struct Status {
   bool success{false};
   ErrorCode error{ErrorCode::None};
+  ErrorContext context{};
 
-  static constexpr Status ok() noexcept { return {true, ErrorCode::None}; }
-  static constexpr Status fail(ErrorCode code = ErrorCode::Failed) noexcept { return {false, code}; }
+  static Status ok() noexcept { return {true, ErrorCode::None, {}}; }
+  static Status fail(ErrorCode code = ErrorCode::Failed) noexcept {
+    return {false, code, ErrorContext{.code = code}};
+  }
+  static Status fail(ErrorCode code,
+                     std::string message,
+                     std::string operation = {},
+                     std::string objectId = {},
+                     SourceLocation location = {}) {
+    return fail(ErrorContext{
+        .code = code,
+        .message = std::move(message),
+        .operation = std::move(operation),
+        .objectId = std::move(objectId),
+        .location = location});
+  }
+  static Status fail(ErrorContext context) noexcept {
+    context.code = context.code == ErrorCode::None ? ErrorCode::Failed : context.code;
+    return {false, context.code, std::move(context)};
+  }
   explicit constexpr operator bool() const noexcept { return success; }
 };
 
@@ -37,6 +102,20 @@ class Result {
 
   static Result ok(T value) { return Result(std::move(value)); }
   static Result fail(ErrorCode code = ErrorCode::Failed) { return Result(Status::fail(code)); }
+  static Result fail(ErrorCode code,
+                     std::string message,
+                     std::string operation = {},
+                     std::string objectId = {},
+                     SourceLocation location = {}) {
+    return Result(Status::fail(code,
+                                std::move(message),
+                                std::move(operation),
+                                std::move(objectId),
+                                location));
+  }
+  static Result fail(ErrorContext context) {
+    return Result(Status::fail(std::move(context)));
+  }
 
   bool success() const noexcept { return status_.success; }
   bool isOk() const noexcept { return success(); }
@@ -48,6 +127,7 @@ class Result {
   ErrorCode error() const noexcept { return status_.error; }
   explicit operator bool() const noexcept { return success(); }
   const Status& status() const noexcept { return status_; }
+  const ErrorContext& errorContext() const noexcept { return status_.context; }
 
   T& value() & { return *value_; }
   const T& value() const& { return *value_; }
@@ -144,6 +224,12 @@ template <typename T>
 inline Result<T> MakeFailedResult(ErrorCode code = ErrorCode::Failed)
 {
  return Result<T>(Status::fail(code));
+}
+
+template <typename T>
+inline Result<T> MakeFailedResult(ErrorContext context)
+{
+ return Result<T>(Status::fail(std::move(context)));
 }
 
 template <typename T>

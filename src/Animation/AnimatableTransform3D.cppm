@@ -93,6 +93,7 @@ public:
   AnimatableValueT<float> anchorX_;
   AnimatableValueT<float> anchorY_;
   AnimatableValueT<float> anchorZ_;
+  std::map<int64_t, PositionSpatialTangents> positionSpatialTangents_;
 
   float currentX_ = 0.0f;
   float currentY_ = 0.0f;
@@ -100,6 +101,68 @@ public:
   float currentRotation_ = 0.0f;
   float currentScaleX_ = 1.0f;
   float currentScaleY_ = 1.0f;
+
+  std::optional<float2> spatialPositionAt(const FramePosition& frame) const {
+    const auto xFrames = x_.getKeyFrames();
+    const auto yFrames = y_.getKeyFrames();
+    if (xFrames.size() < 2 || yFrames.size() < 2) {
+      return std::nullopt;
+    }
+    const auto nextX = std::lower_bound(
+        xFrames.begin(), xFrames.end(), frame,
+        [](const auto& keyframe, const FramePosition& value) {
+          return keyframe.frame < value;
+        });
+    if (nextX == xFrames.begin() || nextX == xFrames.end() ||
+        nextX->frame == frame) {
+      return std::nullopt;
+    }
+    const auto previousX = std::prev(nextX);
+    const auto findY = [&yFrames](const FramePosition& keyframe) {
+      return std::find_if(yFrames.begin(), yFrames.end(),
+                          [&keyframe](const auto& candidate) {
+                            return candidate.frame == keyframe;
+                          });
+    };
+    const auto previousY = findY(previousX->frame);
+    const auto nextY = findY(nextX->frame);
+    if (previousY == yFrames.end() || nextY == yFrames.end()) {
+      return std::nullopt;
+    }
+    const auto previousTangent =
+        positionSpatialTangents_.find(previousX->frame.framePosition());
+    const auto nextTangent =
+        positionSpatialTangents_.find(nextX->frame.framePosition());
+    if (previousTangent == positionSpatialTangents_.end() &&
+        nextTangent == positionSpatialTangents_.end()) {
+      return std::nullopt;
+    }
+    const float duration = static_cast<float>(
+        nextX->frame.framePosition() - previousX->frame.framePosition());
+    if (duration <= 0.0f) {
+      return std::nullopt;
+    }
+    const float t = std::clamp(
+        static_cast<float>(frame.framePosition() -
+                           previousX->frame.framePosition()) / duration,
+        0.0f, 1.0f);
+    const float u = 1.0f - t;
+    const float2 p0{previousX->value, previousY->value};
+    const float2 p3{nextX->value, nextY->value};
+    const float2 out = previousTangent == positionSpatialTangents_.end()
+                           ? float2{0.0f, 0.0f}
+                           : previousTangent->second.outTangent;
+    const float2 in = nextTangent == positionSpatialTangents_.end()
+                          ? float2{0.0f, 0.0f}
+                          : nextTangent->second.inTangent;
+    const float2 p1{p0.x + out.x, p0.y + out.y};
+    const float2 p2{p3.x + in.x, p3.y + in.y};
+    return float2{
+        u * u * u * p0.x + 3.0f * u * u * t * p1.x +
+            3.0f * u * t * t * p2.x + t * t * t * p3.x,
+        u * u * u * p0.y + 3.0f * u * u * t * p1.y +
+            3.0f * u * t * t * p2.y + t * t * t * p3.y};
+  }
 
   Impl() {
     // Scale defaults to 1.0f so "no keyframes" still means "unchanged size".
@@ -320,12 +383,18 @@ void AnimatableTransform3D::setScale(const RationalTime& time, float xs, float y
 float AnimatableTransform3D::positionXAt(const RationalTime& time) const
 {
   FramePosition frame(time.rescaledTo(24));
+  if (const auto spatial = impl_->spatialPositionAt(frame)) {
+    return spatial->x;
+  }
   return impl_->x_.at(frame);
 }
 
 float AnimatableTransform3D::positionYAt(const RationalTime& time) const
 {
   FramePosition frame(time.rescaledTo(24));
+  if (const auto spatial = impl_->spatialPositionAt(frame)) {
+    return spatial->y;
+  }
   return impl_->y_.at(frame);
 }
 
@@ -638,6 +707,29 @@ bool AnimatableTransform3D::setPositionKeyFrameInterpolationAt(
   return xOk || yOk;
 }
 
+bool AnimatableTransform3D::setPositionKeyFrameSpatialTangentsAt(
+    const RationalTime& time, const PositionSpatialTangents& tangents)
+{
+  const FramePosition frame(time.rescaledTo(24));
+  if (!impl_->x_.hasKeyFrameAt(frame) && !impl_->y_.hasKeyFrameAt(frame)) {
+    return false;
+  }
+  impl_->positionSpatialTangents_[frame.framePosition()] = tangents;
+  return true;
+}
+
+bool AnimatableTransform3D::positionKeyFrameSpatialTangentsAt(
+    const RationalTime& time, PositionSpatialTangents& tangents) const
+{
+  const FramePosition frame(time.rescaledTo(24));
+  const auto it = impl_->positionSpatialTangents_.find(frame.framePosition());
+  if (it == impl_->positionSpatialTangents_.end()) {
+    return false;
+  }
+  tangents = it->second;
+  return true;
+}
+
 InterpolationType AnimatableTransform3D::positionXKeyFrameInterpolationAt(
     const RationalTime& time) const
 {
@@ -657,12 +749,14 @@ void AnimatableTransform3D::removePositionKeyFrameAt(const RationalTime& time)
   FramePosition frame(time.rescaledTo(24));
   impl_->x_.removeKeyFrameAt(frame);
   impl_->y_.removeKeyFrameAt(frame);
+  impl_->positionSpatialTangents_.erase(frame.framePosition());
 }
 
 void AnimatableTransform3D::clearPositionKeyFrames()
 {
   impl_->x_.clearKeyFrames();
   impl_->y_.clearKeyFrames();
+  impl_->positionSpatialTangents_.clear();
 }
 
 size_t AnimatableTransform3D::getPositionKeyFrameCount() const

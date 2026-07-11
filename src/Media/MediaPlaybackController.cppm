@@ -162,8 +162,10 @@ QString decodedVideoFrameSummary(const DecodedVideoFrame& decoded) {
 class MediaPlaybackController::Impl {
  public:
   MediaSource* mediaSource_ = nullptr;
+  MediaSource* directMediaSource_ = nullptr;
   MediaReader* mediaReader_ = nullptr;
   MediaImageFrameDecoder* videoDecoder_ = nullptr;
+  MediaImageFrameDecoder* directVideoDecoder_ = nullptr;
   MediaAudioDecoder* audioDecoder_ = nullptr;
   MFFrameExtractor* mfExtractor_ = nullptr;
 
@@ -194,6 +196,11 @@ class MediaPlaybackController::Impl {
   QString lastError_;
   MediaMetaData metadata_;
   std::mutex directDecodeMutex_;
+  QString directMediaUrl_;
+  VkInstance vulkanInstance_{};
+  VkPhysicalDevice vulkanPhysicalDevice_{};
+  VkDevice vulkanDevice_{};
+  uint32_t vulkanQueueFamilyIndex_ = 0;
 
   Impl()
       : mediaSource_(new MediaSource()),
@@ -204,10 +211,44 @@ class MediaPlaybackController::Impl {
 
   ~Impl() {
     delete audioDecoder_;
+    delete directVideoDecoder_;
     delete videoDecoder_;
     delete mediaReader_;
+    delete directMediaSource_;
     delete mediaSource_;
     delete mfExtractor_;
+  }
+
+  bool ensureDirectDecodeResources() {
+    if (directMediaSource_ && directMediaSource_->isOpen() && directVideoDecoder_) {
+      return true;
+    }
+    if (directMediaUrl_.isEmpty()) {
+      return false;
+    }
+
+    auto source = std::make_unique<MediaSource>();
+    auto decoder = std::make_unique<MediaImageFrameDecoder>();
+    if (vulkanDevice_) {
+      decoder->setVulkanDevice(vulkanInstance_, vulkanPhysicalDevice_, vulkanDevice_,
+                               vulkanQueueFamilyIndex_);
+    }
+    if (!source->open(directMediaUrl_)) {
+      return false;
+    }
+    AVFormatContext* ctx = source->getFormatContext();
+    if (!ctx) {
+      return false;
+    }
+    for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
+      AVCodecParameters* params = ctx->streams[i]->codecpar;
+      if (params->codec_type == AVMEDIA_TYPE_VIDEO && decoder->initialize(params)) {
+        directMediaSource_ = source.release();
+        directVideoDecoder_ = decoder.release();
+        return true;
+      }
+    }
+    return false;
   }
 
   DecodedVideoFrame decodeVideoFrameDirectAtFrameRaw(int64_t frameNumber) {
@@ -221,36 +262,32 @@ class MediaPlaybackController::Impl {
       return std::monostate{};
     }
 
-    if (!mediaSource_ || !mediaSource_->isOpen() || !videoDecoder_ || fps_ <= 0.0 || videoStreamIndex_ < 0) {
+    std::lock_guard<std::mutex> lock(directDecodeMutex_);
+    if (!ensureDirectDecodeResources() || fps_ <= 0.0 || videoStreamIndex_ < 0) {
       lastError_ = QStringLiteral("FFmpeg direct decode invalid state: media=%1 decoder=%2 fps=%3 videoStreamIndex=%4")
-          .arg(QStringView{mediaSource_ && mediaSource_->isOpen() ? QStringLiteral("open") : QStringLiteral("closed")})
-          .arg(QStringView{videoDecoder_ ? QStringLiteral("ok") : QStringLiteral("null")})
+          .arg(QStringView{directMediaSource_ && directMediaSource_->isOpen() ? QStringLiteral("open") : QStringLiteral("closed")})
+          .arg(QStringView{directVideoDecoder_ ? QStringLiteral("ok") : QStringLiteral("null")})
           .arg(fps_)
           .arg(videoStreamIndex_);
       qWarning() << "[MediaPlayback] direct decode skipped: invalid state"
-                 << "mediaSource_=" << (mediaSource_ && mediaSource_->isOpen() ? "open" : "closed")
-                 << "videoDecoder_=" << (videoDecoder_ ? "ok" : "null")
+                 << "directMediaSource_=" << (directMediaSource_ && directMediaSource_->isOpen() ? "open" : "closed")
+                 << "directVideoDecoder_=" << (directVideoDecoder_ ? "ok" : "null")
                  << "fps_=" << fps_
                  << "videoStreamIndex_=" << videoStreamIndex_;
       return std::monostate{};
     }
 
-    std::lock_guard<std::mutex> lock(directDecodeMutex_);
-
-    const bool wasPlaying = state_ == PlaybackState::Playing;
-
     const int64_t targetMs = static_cast<int64_t>((frameNumber / fps_) * 1000.0);
-    if (!prepareFfmpegSeekReset(targetMs, false)) {
+    if (!directMediaSource_->seek(targetMs)) {
       lastError_ = QStringLiteral("FFmpeg direct decode seek failed at %1 ms").arg(targetMs);
       qWarning() << "[MediaPlayback] direct decode seek failed:" << targetMs << "ms";
-      restoreFfmpegReaderState(wasPlaying);
       return std::monostate{};
     }
+    directVideoDecoder_->flush();
 
-    if (auto ctx = mediaSource_->getFormatContext(); !ctx) {
+    if (auto ctx = directMediaSource_->getFormatContext(); !ctx) {
       lastError_ = QStringLiteral("FFmpeg direct decode failed: no format context");
       qWarning() << "[MediaPlayback] direct decode failed: no format context";
-      restoreFfmpegReaderState(wasPlaying);
       return std::monostate{};
     }
 
@@ -258,7 +295,6 @@ class MediaPlaybackController::Impl {
     if (!pkt) {
       lastError_ = QStringLiteral("FFmpeg direct decode failed: packet alloc");
       qWarning() << "[MediaPlayback] direct decode failed: packet alloc";
-      restoreFfmpegReaderState(wasPlaying);
       return std::monostate{};
     }
 
@@ -268,7 +304,7 @@ class MediaPlaybackController::Impl {
         (videoTimeBase_.den > 0)
             ? av_rescale_q(targetMs, AVRational{1, 1000}, videoTimeBase_)
             : AV_NOPTS_VALUE;
-    AVFormatContext* ctx = mediaSource_->getFormatContext();
+    AVFormatContext* ctx = directMediaSource_->getFormatContext();
     const int maxPackets = std::max(512, videoPacketWaitAttempts_ * 8);
     int packetsRead = 0;
     bool hitEof = false;
@@ -277,7 +313,7 @@ class MediaPlaybackController::Impl {
     // Helper: drain decoded frames from the video decoder
     auto drainFrames = [&]() {
       while (true) {
-        DecodedVideoFrame decoded = videoDecoder_->receiveFrameRaw();
+        DecodedVideoFrame decoded = directVideoDecoder_->receiveFrameRaw();
         if (isDecodedVideoFrameUsable(decoded)) {
           lastDecodedFrame = decoded;
           const int64_t decodedPts = decodedVideoFramePts(decoded);
@@ -298,7 +334,7 @@ class MediaPlaybackController::Impl {
         lastReadError = readRet;
         if (readRet == AVERROR_EOF) {
           // Flush decoder to retrieve remaining buffered frames
-          videoDecoder_->sendPacket(nullptr);
+          directVideoDecoder_->sendPacket(nullptr);
           drainFrames();
         }
         hitEof = true;
@@ -307,11 +343,11 @@ class MediaPlaybackController::Impl {
       ++packetsRead;
 
       if (pkt->stream_index == videoStreamIndex_) {
-        int ret = videoDecoder_->sendPacket(pkt);
+        int ret = directVideoDecoder_->sendPacket(pkt);
         if (ret == AVERROR(EAGAIN)) {
           drainFrames();
           if (isDecodedVideoFrameUsable(result)) break;
-          ret = videoDecoder_->sendPacket(pkt);
+          ret = directVideoDecoder_->sendPacket(pkt);
         }
         av_packet_unref(pkt);
         if (ret < 0) {
@@ -326,11 +362,6 @@ class MediaPlaybackController::Impl {
     }
 
     av_packet_free(&pkt);
-
-    currentPositionMs_ = targetMs;
-    currentFrame_ = frameNumber;
-
-    restoreFfmpegReaderState(wasPlaying);
 
     if (!isDecodedVideoFrameUsable(result) && isDecodedVideoFrameUsable(lastDecodedFrame)) {
       result = lastDecodedFrame;
@@ -823,7 +854,15 @@ static PlaybackBackend& backendFor(DecoderBackend backend) {
   if (!impl_ || !impl_->videoDecoder_) {
     return;
   }
+  std::lock_guard<std::mutex> directLock(impl_->directDecodeMutex_);
+  impl_->vulkanInstance_ = instance;
+  impl_->vulkanPhysicalDevice_ = physicalDevice;
+  impl_->vulkanDevice_ = device;
+  impl_->vulkanQueueFamilyIndex_ = queueFamilyIndex;
   impl_->videoDecoder_->setVulkanDevice(instance, physicalDevice, device, queueFamilyIndex);
+  if (impl_->directVideoDecoder_) {
+    impl_->directVideoDecoder_->setVulkanDevice(instance, physicalDevice, device, queueFamilyIndex);
+  }
 
   if (impl_->backend_ == DecoderBackend::FFmpeg && isMediaOpen() && !impl_->metadata_.filePath.isEmpty()) {
     const QString reopenPath = impl_->metadata_.filePath;
@@ -960,107 +999,8 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameRaw(int64_t frame
 }
 
 DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t frameNumber) {
-  if (!impl_) return std::monostate{};
-
-  if (impl_->backend_ == DecoderBackend::MediaFoundation) {
-    if (!impl_->mfExtractor_ || !impl_->mfExtractor_->isOpen()) {
-      impl_->lastError_ = QStringLiteral("MF extractor is closed");
-      return std::monostate{};
-    }
-    auto frame = impl_->mfExtractor_->extractFrameAtIndex(frameNumber);
-    if (!frame || !frame->isValid()) {
-      impl_->lastError_ = impl_->mfExtractor_->lastError();
-      return std::monostate{};
-    }
-    impl_->currentFrame_ = frameNumber;
-    if (impl_->fps_ > 0.0) {
-      impl_->currentPositionMs_ = static_cast<int64_t>((impl_->currentFrame_ / impl_->fps_) * 1000.0);
-    }
-    impl_->lastError_.clear();
-    return makeCpuVideoFrameFromExtractedFrame(*frame);
-  }
-
-  if (!impl_->mediaSource_ || !impl_->mediaSource_->isOpen() || !impl_->videoDecoder_ || impl_->fps_ <= 0.0 || impl_->videoStreamIndex_ < 0) {
-    impl_->lastError_ = QStringLiteral("FFmpeg raw direct decode invalid state");
-    return std::monostate{};
-  }
-
-  std::lock_guard<std::mutex> lock(impl_->directDecodeMutex_);
-
-  const bool wasPlaying = impl_->state_ == PlaybackState::Playing;
-  const int64_t targetMs = static_cast<int64_t>((frameNumber / impl_->fps_) * 1000.0);
-  if (!impl_->prepareFfmpegSeekReset(targetMs, false)) {
-    impl_->lastError_ = QStringLiteral("FFmpeg raw direct decode seek failed at %1 ms").arg(targetMs);
-    impl_->restoreFfmpegReaderState(wasPlaying);
-    return std::monostate{};
-  }
-
-  AVPacket* pkt = av_packet_alloc();
-  if (!pkt) {
-    impl_->lastError_ = QStringLiteral("FFmpeg raw direct decode packet alloc failed");
-    impl_->restoreFfmpegReaderState(wasPlaying);
-    return std::monostate{};
-  }
-
-  DecodedVideoFrame result = std::monostate{};
-  const int maxPackets = std::max(512, impl_->videoPacketWaitAttempts_ * 8);
-  int packetsRead = 0;
-  AVFormatContext* ctx = impl_->mediaSource_->getFormatContext();
-
-  while (packetsRead < maxPackets) {
-    const int readRet = av_read_frame(ctx, pkt);
-    if (readRet < 0) {
-      if (readRet == AVERROR_EOF) {
-        impl_->videoDecoder_->sendPacket(nullptr);
-        while (true) {
-          DecodedVideoFrame decoded = impl_->videoDecoder_->receiveFrameRaw();
-          if (isDecodedVideoFrameUsable(decoded)) {
-            result = decoded;
-            break;
-          }
-          break;
-        }
-      }
-      break;
-    }
-    ++packetsRead;
-
-    if (pkt->stream_index == impl_->videoStreamIndex_) {
-      int ret = impl_->videoDecoder_->sendPacket(pkt);
-      av_packet_unref(pkt);
-      if (ret < 0) {
-        impl_->lastError_ = QStringLiteral("FFmpeg raw direct decode sendPacket failed: %1").arg(ret);
-        break;
-      }
-
-      while (true) {
-        DecodedVideoFrame decoded = impl_->videoDecoder_->receiveFrameRaw();
-        if (isDecodedVideoFrameUsable(decoded)) {
-          result = decoded;
-          break;
-        }
-        break;
-      }
-
-      if (isDecodedVideoFrameUsable(result)) {
-        break;
-      }
-    } else {
-      av_packet_unref(pkt);
-    }
-  }
-
-  av_packet_free(&pkt);
-  impl_->restoreFfmpegReaderState(wasPlaying);
-
-  if (isDecodedVideoFrameUsable(result)) {
-    impl_->currentFrame_ = frameNumber;
-    impl_->currentPositionMs_ = targetMs;
-    impl_->lastError_.clear();
-    return result;
-  }
-
-  return std::monostate{};
+  return impl_ ? impl_->decodeVideoFrameDirectAtFrameRaw(frameNumber)
+               : DecodedVideoFrame{std::monostate{}};
 }
 
 	 QImage MediaPlaybackController::getNextVideoFrame() {
@@ -1338,6 +1278,7 @@ bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QStr
         }
       }
     }
+    impl.directMediaUrl_ = foundVideoStream ? url : QString();
     impl.resetMetadata(url);
     impl.updatePlaybackInfo();
     // [Fix 2] updatePlaybackInfo 後の videoStreamIndex_ を確認。
@@ -1384,9 +1325,20 @@ void FFmpegPlaybackBackend::close(MediaPlaybackController::Impl& impl) {
   if (impl.mediaSource_) {
     impl.mediaSource_->close();
   }
+  if (impl.directMediaSource_) {
+    impl.directMediaSource_->close();
+    delete impl.directMediaSource_;
+    impl.directMediaSource_ = nullptr;
+  }
   if (impl.videoDecoder_) {
     impl.videoDecoder_->flush();
   }
+  if (impl.directVideoDecoder_) {
+    impl.directVideoDecoder_->flush();
+    delete impl.directVideoDecoder_;
+    impl.directVideoDecoder_ = nullptr;
+  }
+  impl.directMediaUrl_.clear();
   if (impl.audioDecoder_) {
     impl.audioDecoder_->flush();
   }

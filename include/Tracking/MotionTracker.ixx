@@ -9,6 +9,11 @@ module;
 #include <array>
 #include <memory>
 #include <functional>
+#include <utility>
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <opencv2/core/mat.hpp>
 
 export module Tracking.MotionTracker;
 
@@ -143,6 +148,99 @@ struct TrackRegion {
     QPointF center() const;
 };
 
+/// カメラ solve に使用する 3D/2D 対応点。
+struct CameraCorrespondence {
+    std::array<double, 3> worldPosition{};
+    QPointF imagePosition;
+    double weight = 1.0;
+};
+
+struct CameraSolveSettings {
+    double focalLengthX = 1.0;
+    double focalLengthY = 1.0;
+    double principalPointX = 0.0;
+    double principalPointY = 0.0;
+    std::array<double, 8> distortion{}; ///< k1, k2, p1, p2, k3...k6.
+    double reprojectionError = 3.0;
+    double confidence = 0.995;
+    int iterations = 200;
+    bool useExtrinsicGuess = false;
+};
+
+struct CameraPose {
+    std::array<double, 3> rotation{};     ///< Rodrigues rotation vector.
+    std::array<double, 3> translation{};  ///< World-to-camera translation.
+};
+
+struct CameraSolveResult {
+    bool valid = false;
+    CameraPose pose;
+    double meanReprojectionError = 0.0;
+    double maxReprojectionError = 0.0;
+    std::vector<int> inlierIndices;
+    QString diagnostic;
+};
+
+struct CameraPoseFrame {
+    double time = 0.0;
+    CameraPose pose;
+    double meanReprojectionError = 0.0;
+    double maxReprojectionError = 0.0;
+    bool valid = false;
+    QString diagnostic;
+};
+
+struct CameraPoseStream {
+    int schemaVersion = 1;
+    CameraSolveSettings solveSettings;
+    bool cancelled = false;
+    std::vector<CameraPoseFrame> frames;
+    int validFrameCount() const;
+    int failedFrameCount() const;
+    double averageReprojectionError() const;
+    /// Interpolate between neighboring valid poses; returns false when no valid pose exists.
+    bool interpolatePoseAt(double time, CameraPoseFrame& out) const;
+    void normalize();
+};
+
+/// Solve a calibrated camera pose from world/image correspondences.
+/// The function is side-effect free with respect to project/layer state.
+CameraSolveResult solveCameraPose(
+    const std::vector<CameraCorrespondence>& correspondences,
+    const CameraSolveSettings& settings = CameraSolveSettings());
+
+CameraPoseStream solveCameraPoseStream(
+    const std::vector<std::pair<double, std::vector<CameraCorrespondence>>>& samples,
+    const CameraSolveSettings& settings = CameraSolveSettings());
+
+QString cameraPoseStreamToJson(const CameraPoseStream& stream);
+bool cameraPoseStreamFromJson(const QString& json, CameraPoseStream& stream);
+
+class CameraSolveJob {
+public:
+    using Samples = std::vector<std::pair<double, std::vector<CameraCorrespondence>>>;
+    using ProgressCallback = std::function<void(double)>;
+
+    CameraSolveJob() = default;
+    ~CameraSolveJob();
+    CameraSolveJob(const CameraSolveJob&) = delete;
+    CameraSolveJob& operator=(const CameraSolveJob&) = delete;
+
+    bool start(Samples samples, CameraSolveSettings settings,
+               ProgressCallback progress = nullptr);
+    void cancel();
+    void wait();
+    bool isRunning() const;
+    CameraPoseStream result() const;
+
+private:
+    mutable std::mutex mutex_;
+    std::thread worker_;
+    std::atomic_bool cancelRequested_{false};
+    bool running_ = false;
+    CameraPoseStream result_;
+};
+
 /// モーショントラッカー
 class MotionTracker {
 public:
@@ -178,12 +276,14 @@ public:
     
     // トラッキング実行
     void setFrame(double time, const QImage& frame);
+    void setFrame(double time, const cv::Mat& frame);
     bool trackForward(double fromTime, double toTime);
     bool trackBackward(double fromTime, double toTime);
     bool trackRange(double startTime, double endTime, 
                     std::function<bool(double progress)> progressCallback = nullptr);
     bool trackAll(std::function<bool(double progress)> progressCallback = nullptr);
     void stopTracking();
+    bool isTracking() const;
     void resetTracking();
     void clearTrackingData();
     

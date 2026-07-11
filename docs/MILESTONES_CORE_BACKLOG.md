@@ -228,6 +228,21 @@
 ### C-ARC-5 Deterministic Snapshot & Capability Contract
 - render / playback / export / AI / audio の入力 state を snapshot で固定する
 - backend capability を typed contract として公開する
+
+### C-ARC-7 Core-native Diagnostics & Qt Boundary
+- `ErrorContext` 付き `Result`
+- Core-native `DiagnosticEvent` / `DiagnosticSnapshot` / `DiagnosticRecorder`
+- Crash report parser と起動後Snapshot変換
+- Qt Loggerへの明示Adapter
+- 公開Core moduleのQt依存境界チェック
+- 詳細は `CORE_NATIVE_DIAGNOSTICS_PLAN_2026-07-11.md`
+
+### C-ARC-8 Core-native String / Encoding Boundary
+- UTF-8／UTF-16変換契約
+- Core-native split / join / trim / numeric parse
+- Core-native path separator / relative-path safety boundary
+- QString Adapterを境界へ隔離
+- 詳細は `CORE_NATIVE_STRING_BOUNDARY_PLAN_2026-07-11.md`
 - `MFR` / backend fallback / reproducible export の前提を作る
 
 ### C-ARC-6 Typed Background Task Runtime

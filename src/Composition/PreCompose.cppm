@@ -42,6 +42,8 @@ class tst_QList;
 module Composition.PreCompose;
 
 import Utils.Id;
+import Artifact.Service.Project;
+import Artifact.Layer.Abstract;
 
 namespace ArtifactCore {
 
@@ -180,6 +182,34 @@ bool PreComposeManager::unprecompose(
     return true;
 }
 
+bool PreComposeManager::restorePrecompose(
+    CompositionID parentCompositionId,
+    LayerID precompLayerId,
+    CompositionID childCompositionId)
+{
+    if (!impl_ || parentCompositionId.isNil() || precompLayerId.isNil() ||
+        childCompositionId.isNil()) {
+        return false;
+    }
+
+    impl_->layerSourceMap[precompLayerId] = childCompositionId;
+
+    CompositionNesting nesting;
+    nesting.compositionId = childCompositionId;
+    nesting.parentCompositionId = parentCompositionId;
+    nesting.parentLayerId = precompLayerId;
+    nesting.nestingLevel = 0;
+    auto parentInfo = impl_->nestingInfo.find(parentCompositionId);
+    if (parentInfo != impl_->nestingInfo.end()) {
+        nesting.nestingLevel = parentInfo->nestingLevel + 1;
+    }
+    impl_->nestingInfo[childCompositionId] = nesting;
+    auto& children = impl_->nestingMap[parentCompositionId];
+    children.removeAll(childCompositionId);
+    children.append(childCompositionId);
+    return true;
+}
+
 // ========================================
 // ユーティリティ
 // ========================================
@@ -271,24 +301,35 @@ bool PreComposeManager::autoNamingEnabled() const {
 
 namespace NestedTimeUtils {
 
+namespace {
+std::shared_ptr<ArtifactAbstractLayer> precomposeLayerForId(const LayerID& precompLayerId) {
+    auto* service = ArtifactProjectService::instance();
+    if (!service || precompLayerId.isNil()) {
+        return nullptr;
+    }
+    auto comp = service->currentComposition().lock();
+    if (!comp) {
+        return nullptr;
+    }
+    return comp->layerById(precompLayerId);
+}
+}
+
 double parentToChildTime(double parentTime, LayerID precompLayerId) {
-    // Pre-compose layer transformation: parentTime -> childTime
-    // The precomp layer defines a time window [inPoint, outPoint] placed at startTime.
-    //   where startTime is the precomp layer startTime property,
-    //   and inPointOffset = min(layer.inPoint, 0) adjusts for negative in-points.
-    //   The formula maps parent timeline position into the precomp child local time.
-    // childTime = parentTime - startTime + inPointOffset
-    // TODO: 実際のレイヤーから startTime / inPoint オフセットを取得して適用
-    Q_UNUSED(precompLayerId);
-    // 現在は単純な恒等変換
-    return parentTime;
+    const auto layer = precomposeLayerForId(precompLayerId);
+    if (!layer) {
+        return parentTime;
+    }
+    const double startFrame = static_cast<double>(layer->startTime().framePosition());
+    return layer->getSourceFrameAtCompFrame(static_cast<int64_t>(std::llround(parentTime))) - startFrame;
 }
 
 double childToParentTime(double childTime, LayerID precompLayerId) {
-    // 逆変換: parentTime = childTime + startTime - inPointOffset
-    // TODO: 実際のレイヤーから startTime / inPoint オフセットを取得して適用
-    Q_UNUSED(precompLayerId);
-    return childTime;
+    const auto layer = precomposeLayerForId(precompLayerId);
+    if (!layer) {
+        return childTime;
+    }
+    return childTime + static_cast<double>(layer->startTime().framePosition());
 }
 
 double convertTime(double sourceTime, CompositionID sourceComposition, CompositionID targetComposition) {
@@ -313,10 +354,7 @@ double convertTime(double sourceTime, CompositionID sourceComposition, Compositi
 }
 
 double getRemappedTime(LayerID precompLayerId, double parentTime) {
-    // remappedTime = timeRemap(parentToChildTime(parentTime))
-    // TODO: レイヤーのtimeRemapプロパティを参照（現状はbest-effortスタブ）
-    Q_UNUSED(precompLayerId);
-    return parentTime;
+    return parentToChildTime(parentTime, precompLayerId);
 }
 
 } // namespace NestedTimeUtils
@@ -381,13 +419,19 @@ public:
     {}
     
     bool execute() override {
-        return PreComposeManager::instance().unprecompose(compositionId_, layerId_, options_);
+        auto& mgr = PreComposeManager::instance();
+        if (childCompositionId_.isNil()) {
+            childCompositionId_ = mgr.getSourceCompositionId(layerId_);
+        }
+        return mgr.unprecompose(compositionId_, layerId_, options_);
     }
     
     bool undo() override {
-        // 元に戻すには再度プリコンポーズが必要
-        // 簡易実装：常に成功とする
-        return true;
+        if (compositionId_.isNil() || layerId_.isNil() || childCompositionId_.isNil()) {
+            return false;
+        }
+        return PreComposeManager::instance().restorePrecompose(
+            compositionId_, layerId_, childCompositionId_);
     }
     
     bool redo() override {
@@ -404,6 +448,7 @@ private:
     CompositionID compositionId_;
     LayerID layerId_;
     UnprecomposeOptions options_;
+    CompositionID childCompositionId_;
 };
 
 } // anonymous namespace

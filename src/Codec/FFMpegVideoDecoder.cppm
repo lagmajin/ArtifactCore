@@ -46,6 +46,7 @@ extern "C" {
 }
 
 import Video.VideoFrame;
+import Core.Diagnostics.Recorder;
 
 namespace ArtifactCore {
 
@@ -107,6 +108,11 @@ class FFmpegVideoDecoder::Impl {
 };
 
 bool FFmpegVideoDecoder::Impl::openFile(const QString& path) {
+  DiagnosticScope diagnosticScope(
+      "FFmpegDecoder",
+      "openFile",
+      path.toStdString(),
+      {__FILE__, __func__, __LINE__});
   closeFile();
 
   formatContext = avformat_alloc_context();
@@ -228,6 +234,7 @@ bool FFmpegVideoDecoder::Impl::openFile(const QString& path) {
   }
 
   qDebug() << "FFmpegDecoder::Impl::openFile: Successfully opened file:" << path;
+  diagnosticScope.finish(true);
   return true;
 }
 
@@ -257,6 +264,11 @@ void FFmpegVideoDecoder::Impl::closeFile() {
 }
 
 DecodedVideoFrame FFmpegVideoDecoder::Impl::decodeNextVideoFrameRaw() {
+  DiagnosticScope diagnosticScope(
+      "FFmpegDecoder",
+      "decodeNextVideoFrame",
+      {},
+      {__FILE__, __func__, __LINE__});
   bool sentDrain = false;
 
   while (true) {
@@ -265,6 +277,7 @@ DecodedVideoFrame FFmpegVideoDecoder::Impl::decodeNextVideoFrameRaw() {
       const int64_t pts = frame->best_effort_timestamp != AV_NOPTS_VALUE ? frame->best_effort_timestamp : frame->pts;
       CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, codecContext->width, codecContext->height, pts);
       av_frame_unref(frame);
+      diagnosticScope.finish(true);
       return out;
     }
 
@@ -300,10 +313,16 @@ DecodedVideoFrame FFmpegVideoDecoder::Impl::decodeNextVideoFrameRaw() {
   }
 
   av_frame_unref(frame);
+  diagnosticScope.finish(true, "no frame available");
   return std::monostate{};
 }
 
 void FFmpegVideoDecoder::Impl::seekByFrameNumber(int64_t frameNumber) {
+  DiagnosticScope diagnosticScope(
+      "FFmpegDecoder",
+      "seekByFrameNumber",
+      std::to_string(frameNumber),
+      {__FILE__, __func__, __LINE__});
   if (!formatContext || videoStreamIndex < 0) {
     return;
   }
@@ -325,9 +344,15 @@ void FFmpegVideoDecoder::Impl::seekByFrameNumber(int64_t frameNumber) {
   }
 
   avcodec_flush_buffers(codecContext);
+  diagnosticScope.finish(true);
 }
 
 void FFmpegVideoDecoder::Impl::seekByTimestamp(int64_t timestampMs) {
+  DiagnosticScope diagnosticScope(
+      "FFmpegDecoder",
+      "seekByTimestamp",
+      std::to_string(timestampMs),
+      {__FILE__, __func__, __LINE__});
   if (!formatContext || !codecContext || videoStreamIndex < 0) {
     return;
   }
@@ -342,12 +367,19 @@ void FFmpegVideoDecoder::Impl::seekByTimestamp(int64_t timestampMs) {
   }
 
   avcodec_flush_buffers(codecContext);
+  diagnosticScope.finish(true);
 }
 
 void FFmpegVideoDecoder::Impl::flush() {
+  DiagnosticScope diagnosticScope(
+      "FFmpegDecoder",
+      "flush",
+      {},
+      {__FILE__, __func__, __LINE__});
   if (codecContext) {
     avcodec_flush_buffers(codecContext);
   }
+  diagnosticScope.finish(true);
 }
 
 FFmpegVideoDecoder::FFmpegVideoDecoder() noexcept : impl_(new Impl()) {}

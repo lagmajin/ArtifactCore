@@ -61,6 +61,12 @@ export namespace ArtifactCore
     float2 anchorCanvasPosition = float2{0.0f, 0.0f};
   };
 
+  struct PositionSpatialTangents {
+    float2 inTangent = float2{0.0f, 0.0f};
+    float2 outTangent = float2{0.0f, 0.0f};
+    bool linked = true;
+  };
+
  class LIBRARY_DLL_API AnimatableTransform3D
  {
  private:
@@ -136,6 +142,10 @@ export namespace ArtifactCore
   bool setPositionKeyFrameInterpolationAt(const RationalTime& time,
                                          InterpolationType xInterpolation,
                                          InterpolationType yInterpolation);
+  bool setPositionKeyFrameSpatialTangentsAt(
+      const RationalTime& time, const PositionSpatialTangents& tangents);
+  bool positionKeyFrameSpatialTangentsAt(
+      const RationalTime& time, PositionSpatialTangents& tangents) const;
   InterpolationType positionXKeyFrameInterpolationAt(const RationalTime& time) const;
   InterpolationType positionYKeyFrameInterpolationAt(const RationalTime& time) const;
   

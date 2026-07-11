@@ -166,6 +166,54 @@ void Logger::appendLog(LogLevel level, const QString& message, const QString& co
     Q_EMIT logAdded(static_cast<int>(level), message, context, logMsg.timestamp);
 }
 
+void Logger::appendDiagnostic(const DiagnosticEvent& event)
+{
+    LogLevel level = LogLevel::Info;
+    switch (event.severity) {
+    case CoreDiagnosticSeverity::Info: level = LogLevel::Info; break;
+    case CoreDiagnosticSeverity::Warning: level = LogLevel::Warning; break;
+    case CoreDiagnosticSeverity::Error: level = LogLevel::Error; break;
+    case CoreDiagnosticSeverity::Fatal: level = LogLevel::Fatal; break;
+    }
+
+    const QString message = QStringLiteral("[%1] %2")
+        .arg(QString::fromStdString(event.code),
+             QString::fromStdString(event.message));
+    const QString context = QStringLiteral(
+        "%1/%2 object=%3 seq=%6 frame=%7 trace=%8 durationNs=%9 (%4:%5 function=%10)")
+        .arg(QString::fromStdString(event.component),
+             QString::fromStdString(event.operation),
+             QString::fromStdString(event.objectId),
+             event.location.file ? QString::fromUtf8(event.location.file) : QString(),
+             QString::number(event.location.line),
+             QString::number(event.sequence),
+             QString::number(event.frameIndex),
+             QString::number(event.traceId),
+             QString::number(event.durationNs),
+             event.location.function ? QString::fromUtf8(event.location.function) : QString());
+    appendLog(level, message, context);
+}
+
+void Logger::appendDiagnostics(const DiagnosticSnapshot& snapshot)
+{
+    if (snapshot.eventsTruncated) {
+        const QString context = QStringLiteral("firstSeq=%1 lastSeq=%2")
+            .arg(QString::number(snapshot.firstSequence),
+                 QString::number(snapshot.lastSequence));
+        appendLog(LogLevel::Warning,
+                  QStringLiteral("[diagnostics.truncated] event history was truncated"),
+                  context);
+    }
+    for (const auto& event : snapshot.recentEvents) {
+        appendDiagnostic(event);
+    }
+}
+
+void Logger::flushDiagnostics(DiagnosticRecorder& recorder)
+{
+    appendDiagnostics(recorder.drainSnapshot("CoreDiagnostics"));
+}
+
 bool Logger::ensureLogFileReady()
 {
     if (fileLoggingEnabled_ && logFile_.isOpen()) {

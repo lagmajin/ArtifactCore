@@ -1,6 +1,7 @@
 module;
 
 #include <QString>
+#include <QByteArray>
 
 #include <iostream>
 #include <vector>
@@ -188,7 +189,8 @@ namespace ArtifactCore {
 
  UniString::operator std::string() const
  {
-  return std::string(toStdU16String().begin(), toStdU16String().end());
+  const QByteArray utf8 = impl_->str_.toUtf8();
+  return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
  }
 
  size_t UniString::length() const

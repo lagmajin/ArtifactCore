@@ -10,6 +10,9 @@ module;
 
 export module Diagnostics.Logger;
 
+import Core.Diagnostics.Snapshot;
+import Core.Diagnostics.Recorder;
+
 export namespace ArtifactCore {
 
 enum class LogLevel {
@@ -39,6 +42,9 @@ public:
     void clearLogs();
 
     void appendLog(LogLevel level, const QString& message, const QString& context = "");
+    void appendDiagnostic(const DiagnosticEvent& event);
+    void appendDiagnostics(const DiagnosticSnapshot& snapshot);
+    void flushDiagnostics(DiagnosticRecorder& recorder);
 
     void logAdded(int level, const QString& message, const QString& context, const QDateTime& timestamp)
     W_SIGNAL(logAdded, level, message, context, timestamp)

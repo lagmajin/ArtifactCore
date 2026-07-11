@@ -113,6 +113,35 @@ void MpmSolver2D::setFracture(float maxPlasticStrain, float fractureEnergy) {
     fractureEnergy_   = std::max(0.0f, fractureEnergy);
 }
 
+void MpmSolver2D::applyMaterialPreset(MpmMaterialPreset preset) {
+    switch (preset) {
+    case MpmMaterialPreset::Flesh:
+        setMaterial(2.5e4f, 0.47f);
+        setPlasticity(1.2e3f, 0.03f);
+        setFracture(2.0f, 0.0f);
+        setDamping(0.08f);
+        break;
+    case MpmMaterialPreset::Foam:
+        setMaterial(8.0e3f, 0.22f);
+        setPlasticity(4.0e2f, 0.18f);
+        setFracture(1.4f, 0.0f);
+        setDamping(0.16f);
+        break;
+    case MpmMaterialPreset::HardRubber:
+        setMaterial(1.8e5f, 0.46f);
+        setPlasticity(5.0e4f, 0.0f);
+        setFracture(5.0f, 0.0f);
+        setDamping(0.025f);
+        break;
+    case MpmMaterialPreset::Wood:
+        setMaterial(9.0e5f, 0.28f);
+        setPlasticity(7.5e3f, 0.08f);
+        setFracture(0.35f, 0.018f);
+        setDamping(0.035f);
+        break;
+    }
+}
+
 void MpmSolver2D::setBoundary(float xmin, float ymin, float xmax, float ymax) {
     bxmin_ = xmin; bymin_ = ymin;
     bxmax_ = xmax; bymax_ = ymax;
@@ -122,6 +151,9 @@ void MpmSolver2D::setBoundary(float xmin, float ymin, float xmax, float ymax) {
 void MpmSolver2D::clear() {
     particles_.clear();
     fracturedIndices_.clear();
+    colliders_.clear();
+    particleGridColumns_ = 0;
+    particleGridRows_ = 0;
 }
 
 int MpmSolver2D::activeCount() const noexcept {
@@ -135,12 +167,44 @@ void MpmSolver2D::clearFractureEvents() {
     fracturedIndices_.clear();
 }
 
+MpmSnapshot2D MpmSolver2D::snapshot() const {
+    return {particles_, fracturedIndices_, gridOrigin_, accumulatedTime_,
+            particleGridColumns_, particleGridRows_};
+}
+
+bool MpmSolver2D::canRestoreSnapshot(const MpmSnapshot2D& snapshot) const noexcept {
+    if (snapshot.particleGridColumns < 0 || snapshot.particleGridRows < 0) {
+        return false;
+    }
+    if (snapshot.particleGridColumns > 0 && snapshot.particleGridRows > 0 &&
+        snapshot.particles.size() != static_cast<std::size_t>(
+            snapshot.particleGridColumns * snapshot.particleGridRows)) {
+        return false;
+    }
+    return std::isfinite(snapshot.gridOrigin.x) && std::isfinite(snapshot.gridOrigin.y) &&
+           std::isfinite(snapshot.accumulatedTime);
+}
+
+bool MpmSolver2D::restoreSnapshot(const MpmSnapshot2D& snapshot) {
+    if (!canRestoreSnapshot(snapshot)) return false;
+    particles_ = snapshot.particles;
+    fracturedIndices_ = snapshot.fracturedIndices;
+    gridOrigin_ = snapshot.gridOrigin;
+    accumulatedTime_ = std::clamp(snapshot.accumulatedTime, 0.0f,
+                                  fixedDt_ * static_cast<float>(maxSubsteps_));
+    particleGridColumns_ = snapshot.particleGridColumns;
+    particleGridRows_ = snapshot.particleGridRows;
+    return true;
+}
+
 // ---- particle generation ----
 
 void MpmSolver2D::addParticlesGrid(float cx, float cy, float w, float h,
                                    int cols, int rows, float density) {
     int nc = std::max(1, cols);
     int nr = std::max(1, rows);
+    particleGridColumns_ = nc;
+    particleGridRows_ = nr;
     float stepX = (nc > 1) ? w / static_cast<float>(nc - 1) : 0.0f;
     float stepY = (nr > 1) ? h / static_cast<float>(nr - 1) : 0.0f;
     float startX = cx - w * 0.5f;
@@ -210,8 +274,8 @@ void MpmSolver2D::particleToGrid() {
         if (!p.active) continue;
 
         // cell index
-        float fx = p.pos.x * inv;
-        float fy = p.pos.y * inv;
+        float fx = (p.pos.x - gridOrigin_.x) * inv;
+        float fy = (p.pos.y - gridOrigin_.y) * inv;
         int ix = static_cast<int>(std::floor(fx));
         int iy = static_cast<int>(std::floor(fy));
 
@@ -221,14 +285,14 @@ void MpmSolver2D::particleToGrid() {
                 int nj = iy + dj;
                 if (ni < 0 || ni >= nx_ || nj < 0 || nj >= ny_) continue;
 
-                float rx = p.pos.x - (static_cast<float>(ni) + 0.5f) * dx;
-                float ry = p.pos.y - (static_cast<float>(nj) + 0.5f) * dx;
+                float rx = p.pos.x - (gridOrigin_.x + (static_cast<float>(ni) + 0.5f) * dx);
+                float ry = p.pos.y - (gridOrigin_.y + (static_cast<float>(nj) + 0.5f) * dx);
                 float w  = weight(rx, dx) * weight(ry, dx);
 
                 if (w <= 0.0f) continue;
 
-                MpmVec2 nodePos{ (static_cast<float>(ni) + 0.5f) * dx,
-                                 (static_cast<float>(nj) + 0.5f) * dx };
+                MpmVec2 nodePos{ gridOrigin_.x + (static_cast<float>(ni) + 0.5f) * dx,
+                                 gridOrigin_.y + (static_cast<float>(nj) + 0.5f) * dx };
                 MpmVec2 diff = nodePos - p.pos;
                 MpmVec2 apicContrib = p.C * diff;
 
@@ -252,8 +316,8 @@ void MpmSolver2D::computeGridForces() {
         MpmMat2 Fe = p.F * p.Fp.inverse();
         MpmMat2 P  = firstPiolaKirchhoff(Fe);
 
-        float fx = p.pos.x * inv;
-        float fy = p.pos.y * inv;
+        float fx = (p.pos.x - gridOrigin_.x) * inv;
+        float fy = (p.pos.y - gridOrigin_.y) * inv;
         int ix = static_cast<int>(std::floor(fx));
         int iy = static_cast<int>(std::floor(fy));
 
@@ -263,8 +327,8 @@ void MpmSolver2D::computeGridForces() {
                 int nj = iy + dj;
                 if (ni < 0 || ni >= nx_ || nj < 0 || nj >= ny_) continue;
 
-                float rx = p.pos.x - (static_cast<float>(ni) + 0.5f) * dx;
-                float ry = p.pos.y - (static_cast<float>(nj) + 0.5f) * dx;
+                float rx = p.pos.x - (gridOrigin_.x + (static_cast<float>(ni) + 0.5f) * dx);
+                float ry = p.pos.y - (gridOrigin_.y + (static_cast<float>(nj) + 0.5f) * dx);
                 float w  = weight(rx, dx);
                 float dwx = dweight(rx, dx);
                 float dwy = dweight(ry, dx);
@@ -321,8 +385,8 @@ void MpmSolver2D::gridToParticle(float dt) {
     for (auto& p : particles_) {
         if (!p.active) continue;
 
-        float fx = p.pos.x * inv;
-        float fy = p.pos.y * inv;
+        float fx = (p.pos.x - gridOrigin_.x) * inv;
+        float fy = (p.pos.y - gridOrigin_.y) * inv;
         int ix = static_cast<int>(std::floor(fx));
         int iy = static_cast<int>(std::floor(fy));
 
@@ -335,8 +399,8 @@ void MpmSolver2D::gridToParticle(float dt) {
                 int nj = iy + dj;
                 if (ni < 0 || ni >= nx_ || nj < 0 || nj >= ny_) continue;
 
-                float rx = p.pos.x - (static_cast<float>(ni) + 0.5f) * dx;
-                float ry = p.pos.y - (static_cast<float>(nj) + 0.5f) * dx;
+                float rx = p.pos.x - (gridOrigin_.x + (static_cast<float>(ni) + 0.5f) * dx);
+                float ry = p.pos.y - (gridOrigin_.y + (static_cast<float>(nj) + 0.5f) * dx);
                 float w  = weight(rx, dx) * weight(ry, dx);
 
                 if (w <= 0.0f) continue;
@@ -348,8 +412,8 @@ void MpmSolver2D::gridToParticle(float dt) {
                 MpmVec2 vNode = node.vel / node.mass;
                 newVel += w * vNode;
 
-                MpmVec2 diff{ (static_cast<float>(ni) + 0.5f) * dx - p.pos.x,
-                              (static_cast<float>(nj) + 0.5f) * dx - p.pos.y };
+                MpmVec2 diff{ gridOrigin_.x + (static_cast<float>(ni) + 0.5f) * dx - p.pos.x,
+                              gridOrigin_.y + (static_cast<float>(nj) + 0.5f) * dx - p.pos.y };
 
                 // APIC C update: outer product * w * 4/dx^2
                 newC.m00 += w * vNode.x * diff.x * dScale;
@@ -375,8 +439,8 @@ void MpmSolver2D::updateDeformationGradient(float dt) {
     for (auto& p : particles_) {
         if (!p.active) continue;
 
-        float fx = p.pos.x * inv;
-        float fy = p.pos.y * inv;
+        float fx = (p.pos.x - gridOrigin_.x) * inv;
+        float fy = (p.pos.y - gridOrigin_.y) * inv;
         int ix = static_cast<int>(std::floor(fx));
         int iy = static_cast<int>(std::floor(fy));
 
@@ -388,8 +452,8 @@ void MpmSolver2D::updateDeformationGradient(float dt) {
                 int nj = iy + dj;
                 if (ni < 0 || ni >= nx_ || nj < 0 || nj >= ny_) continue;
 
-                float rx = p.pos.x - (static_cast<float>(ni) + 0.5f) * dx;
-                float ry = p.pos.y - (static_cast<float>(nj) + 0.5f) * dx;
+                float rx = p.pos.x - (gridOrigin_.x + (static_cast<float>(ni) + 0.5f) * dx);
+                float ry = p.pos.y - (gridOrigin_.y + (static_cast<float>(nj) + 0.5f) * dx);
                 float dwx = dweight(rx, dx);
                 float dwy = dweight(ry, dx);
                 float w  = weight(rx, dx);
@@ -564,8 +628,8 @@ void MpmSolver2D::applyBoundaryConditions() {
             auto& node = grid_[idx];
             if (node.mass <= 0.0f) continue;
 
-            MpmVec2 pos{ (static_cast<float>(i) + 0.5f) * cellSize_,
-                         (static_cast<float>(j) + 0.5f) * cellSize_ };
+            MpmVec2 pos{ gridOrigin_.x + (static_cast<float>(i) + 0.5f) * cellSize_,
+                         gridOrigin_.y + (static_cast<float>(j) + 0.5f) * cellSize_ };
 
             MpmVec2 v = node.vel / node.mass;
 
@@ -591,6 +655,69 @@ void MpmSolver2D::applyBoundaryConditions() {
             }
 
             node.vel = v * node.mass;
+        }
+    }
+}
+
+void MpmSolver2D::resolveColliders() {
+    for (auto& particle : particles_) {
+        if (!particle.active) continue;
+        for (const auto& collider : colliders_) {
+            if (!collider.enabled) continue;
+            const float friction = std::clamp(collider.friction, 0.0f, 1.0f);
+            const float restitution = std::clamp(collider.restitution, 0.0f, 1.0f);
+            if (collider.type == MpmCollider2D::Type::Plane) {
+                if (particle.pos.y < collider.y) {
+                    particle.pos.y = collider.y;
+                    particle.vel.y = std::abs(particle.vel.y) * restitution;
+                    particle.vel.x *= 1.0f - friction;
+                }
+                continue;
+            }
+            if (collider.type == MpmCollider2D::Type::Circle) {
+                const float dx = particle.pos.x - collider.x;
+                const float dy = particle.pos.y - collider.y;
+                const float radius = std::max(0.0f, collider.radius);
+                const float distanceSq = dx * dx + dy * dy;
+                if (distanceSq >= radius * radius || distanceSq <= 1e-8f) continue;
+                const float distance = std::sqrt(distanceSq);
+                const float nx = dx / distance;
+                const float ny = dy / distance;
+                particle.pos.x = collider.x + nx * radius;
+                particle.pos.y = collider.y + ny * radius;
+                const float normalVelocity = particle.vel.x * nx + particle.vel.y * ny;
+                if (normalVelocity < 0.0f) {
+                    particle.vel.x -= (1.0f + restitution) * normalVelocity * nx;
+                    particle.vel.y -= (1.0f + restitution) * normalVelocity * ny;
+                }
+                particle.vel.x *= 1.0f - friction;
+                particle.vel.y *= 1.0f - friction;
+                continue;
+            }
+            const float halfWidth = std::max(0.0f, collider.width * 0.5f);
+            const float halfHeight = std::max(0.0f, collider.height * 0.5f);
+            const float minX = collider.x - halfWidth;
+            const float maxX = collider.x + halfWidth;
+            const float minY = collider.y - halfHeight;
+            const float maxY = collider.y + halfHeight;
+            if (particle.pos.x < minX || particle.pos.x > maxX ||
+                particle.pos.y < minY || particle.pos.y > maxY) continue;
+            const float left = particle.pos.x - minX;
+            const float right = maxX - particle.pos.x;
+            const float bottom = particle.pos.y - minY;
+            const float top = maxY - particle.pos.y;
+            const float minimum = std::min({left, right, bottom, top});
+            if (minimum == left || minimum == right) {
+                particle.pos.x = minimum == left ? minX : maxX;
+                particle.vel.x = (minimum == left ? -1.0f : 1.0f) *
+                                 std::abs(particle.vel.x) * restitution;
+                particle.vel.y *= 1.0f - friction;
+            } else {
+                particle.pos.y = minimum == bottom ? minY : maxY;
+                particle.vel.y = (minimum == bottom ? -1.0f : 1.0f) *
+                                 std::abs(particle.vel.y) * restitution;
+                particle.vel.x *= 1.0f - friction;
+            }
         }
     }
 }
@@ -621,8 +748,22 @@ void MpmSolver2D::addBodyForce(float fx, float fy) {
 
 // ---- main update ----
 
-void MpmSolver2D::update(float dt) {
-    float h = (dt > 0.0f) ? std::min(dt, fixedDt_) : fixedDt_;
+void MpmSolver2D::update(float elapsedSeconds) {
+    if (elapsedSeconds <= 0.0f) return;
+    const float maxAccumulated = fixedDt_ * static_cast<float>(maxSubsteps_);
+    accumulatedTime_ = std::min(accumulatedTime_ +
+                                    std::min(elapsedSeconds, maxAccumulated),
+                                maxAccumulated);
+    int substeps = 0;
+    while (accumulatedTime_ + 1e-8f >= fixedDt_ &&
+           substeps < maxSubsteps_) {
+        stepOnce(fixedDt_);
+        accumulatedTime_ -= fixedDt_;
+        ++substeps;
+    }
+}
+
+void MpmSolver2D::stepOnce(float h) {
 
     resetGrid();
     particleToGrid();
@@ -633,6 +774,7 @@ void MpmSolver2D::update(float dt) {
     gridToParticle(h);
     updateDeformationGradient(h);
     applyPlasticity();
+    resolveColliders();
     checkFracture();
 
     // particle-level boundary

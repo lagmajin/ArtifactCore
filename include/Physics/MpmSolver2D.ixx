@@ -4,6 +4,7 @@ module;
 #include <algorithm>
 #include <limits>
 #include <cstdint>
+#include <cstddef>
 
 export module Physics.Mpm2D;
 
@@ -92,12 +93,41 @@ export struct MpmParticle2D {
     float    r = 0.8f, g = 0.3f, b = 0.2f; // base colour
 };
 
+export struct MpmSnapshot2D {
+    std::vector<MpmParticle2D> particles;
+    std::vector<int> fracturedIndices;
+    MpmVec2 gridOrigin;
+    float accumulatedTime = 0.0f;
+    int particleGridColumns = 0;
+    int particleGridRows = 0;
+};
+
+export struct MpmCollider2D {
+    enum class Type : std::uint8_t { Plane, Box, Circle };
+    Type type = Type::Plane;
+    float x = 0.0f;
+    float y = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    float radius = 0.0f;
+    float restitution = 0.1f;
+    float friction = 0.2f;
+    bool enabled = true;
+};
+
 // ---------- grid node ----------
 
 struct MpmGridNode {
     float   mass = 0.0f;
     MpmVec2 vel;
     MpmVec2 force;
+};
+
+export enum class MpmMaterialPreset : std::uint8_t {
+    Flesh,
+    Foam,
+    HardRubber,
+    Wood,
 };
 
 // ---------- solver ----------
@@ -109,12 +139,15 @@ public:
 
     // ---- configuration ----
     void setGrid(float cellSize, int nx, int ny);
+    void setGridOrigin(float x, float y) noexcept { gridOrigin_ = {x, y}; }
     void setMaterial(float youngModulus, float poissonRatio);
     void setPlasticity(float yieldStress, float hardening);
     void setFracture(float maxPlasticStrain, float fractureEnergy = 0.0f);
+    void applyMaterialPreset(MpmMaterialPreset preset);
     void setDamping(float damping) { damping_ = std::clamp(damping, 0.0f, 1.0f); }
     void setGravity(float gx, float gy) { gravityX_ = gx; gravityY_ = gy; }
     void setTimeStep(float dt) { fixedDt_ = dt; }
+    void setMaxSubsteps(int count) { maxSubsteps_ = std::clamp(count, 1, 1024); }
 
     // ---- particle population ----
     void addParticlesGrid(float cx, float cy, float w, float h, int cols, int rows, float density = 1000.0f);
@@ -131,6 +164,8 @@ public:
     // ---- collision ----
     void setBoundary(float xmin, float ymin, float xmax, float ymax);
     void setBoundaryFriction(float friction) { boundaryFriction_ = std::clamp(friction, 0.0f, 1.0f); }
+    void addCollider(const MpmCollider2D& collider) { colliders_.push_back(collider); }
+    void clearColliders() { colliders_.clear(); }
 
     // ---- access ----
     int particleCount() const noexcept { return static_cast<int>(particles_.size()); }
@@ -145,6 +180,11 @@ public:
     float cellSize() const noexcept { return cellSize_; }
     int gridNx() const noexcept { return nx_; }
     int gridNy() const noexcept { return ny_; }
+    int particleGridColumns() const noexcept { return particleGridColumns_; }
+    int particleGridRows() const noexcept { return particleGridRows_; }
+    MpmSnapshot2D snapshot() const;
+    bool canRestoreSnapshot(const MpmSnapshot2D& snapshot) const noexcept;
+    bool restoreSnapshot(const MpmSnapshot2D& snapshot);
 
     // ---- tuning ----
     void setParticlesPerCell(int ppc) { ppc_ = std::max(2, ppc); }
@@ -152,6 +192,7 @@ public:
 private:
     // grid
     float cellSize_ = 1.0f;
+    MpmVec2 gridOrigin_;
     int nx_ = 32, ny_ = 32;
     int ppc_ = 4; // particles per cell per dimension
     std::vector<MpmGridNode> grid_;
@@ -159,6 +200,9 @@ private:
     // particles
     std::vector<MpmParticle2D> particles_;
     std::vector<int> fracturedIndices_;
+    std::vector<MpmCollider2D> colliders_;
+    int particleGridColumns_ = 0;
+    int particleGridRows_ = 0;
 
     // material
     float E_    = 1e6f;  // Young's modulus
@@ -181,6 +225,8 @@ private:
 
     // time
     float fixedDt_ = 1.0e-4f;
+    float accumulatedTime_ = 0.0f;
+    int maxSubsteps_ = 512;
 
     // boundary
     bool  hasBoundary_ = false;
@@ -199,6 +245,8 @@ private:
     void applyPlasticity();
     void checkFracture();
     void applyBoundaryConditions();
+    void resolveColliders();
+    void stepOnce(float dt);
 
     static float weight(float x, float dx);
     static float dweight(float x, float dx);
