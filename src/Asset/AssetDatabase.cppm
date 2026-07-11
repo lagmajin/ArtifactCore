@@ -6,6 +6,7 @@ class tst_QList;
 #include <QMap>
 #include <QList>
 #include <QFileInfo>
+#include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -16,20 +17,44 @@ module Asset.Database;
 
 namespace ArtifactCore {
 
+namespace {
+QString normalizedAssetPath(const QString& path) {
+    const QString trimmed = path.trimmed();
+    if (trimmed.isEmpty()) {
+        return {};
+    }
+
+    const QFileInfo info(trimmed);
+    QString normalized = info.canonicalFilePath();
+    if (normalized.isEmpty()) {
+        normalized = info.absoluteFilePath();
+    }
+    normalized = QDir::cleanPath(normalized);
+#ifdef Q_OS_WIN
+    normalized = normalized.toCaseFolded();
+#endif
+    return normalized;
+}
+}
+
 QUuid AssetDatabase::registerAsset(const QString& path, AssetType type) {
-    if (pathToId_.contains(path)) {
-        return pathToId_[path];
+    const QString identity = normalizedAssetPath(path);
+    if (identity.isEmpty()) {
+        return {};
+    }
+    if (pathToId_.contains(identity)) {
+        return pathToId_[identity];
     }
 
     QUuid id = QUuid::createUuid();
     AssetInfo info;
     info.id = id;
-    info.absolutePath = path;
-    info.name = QFileInfo(path).fileName();
+    info.absolutePath = identity;
+    info.name = QFileInfo(identity).fileName();
     info.type = type;
 
     assets_[id] = info;
-    pathToId_[path] = id;
+    pathToId_[identity] = id;
     
     return id;
 }
@@ -46,7 +71,7 @@ AssetInfo AssetDatabase::getAssetInfo(const QUuid& id) const {
 }
 
 QUuid AssetDatabase::findAssetByPath(const QString& path) const {
-    return pathToId_.value(path);
+    return pathToId_.value(normalizedAssetPath(path));
 }
 
 QList<AssetInfo> AssetDatabase::findAssetsByType(AssetType type) const {
@@ -76,9 +101,16 @@ bool AssetDatabase::load(const QString& databasePath) {
         AssetInfo info;
         info.id = QUuid::fromString(obj["id"].toString());
         info.name = obj["name"].toString();
-        info.absolutePath = obj["path"].toString();
+        info.absolutePath = normalizedAssetPath(obj["path"].toString());
         info.type = static_cast<AssetType>(obj["type"].toInt());
         
+        if (info.id.isNull() || info.absolutePath.isEmpty()) {
+            continue;
+        }
+        const auto existingId = pathToId_.value(info.absolutePath);
+        if (!existingId.isNull()) {
+            continue;
+        }
         assets_[info.id] = info;
         pathToId_[info.absolutePath] = info.id;
     }
