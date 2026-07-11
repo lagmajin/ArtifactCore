@@ -7,6 +7,7 @@ module;
 #include <QJsonObject>
 #include <QJsonValue>
 #include <algorithm>
+#include <vector>
 
 module Asset.Manager;
 
@@ -261,11 +262,19 @@ namespace ArtifactCore {
    return false;
   }
 
-  bool valid = true;
+  struct PendingSource {
+   QUuid preferredId;
+   QUuid originId;
+   QString path;
+   AssetType type = AssetType::Unknown;
+   std::uint64_t version = 0;
+   bool localized = false;
+  };
+  std::vector<PendingSource> pending;
+  pending.reserve(sourcesValue.toArray().size());
   for (const QJsonValue& value : sourcesValue.toArray()) {
    if (!value.isObject()) {
-    valid = false;
-    continue;
+    return false;
    }
    const QJsonObject source = value.toObject();
    const QUuid preferredId(source.value(QStringLiteral("id")).toString());
@@ -279,23 +288,38 @@ namespace ArtifactCore {
                                      .toString().toULongLong(&versionOk);
    if (preferredId.isNull() || (localized && originId.isNull()) ||
        path.trimmed().isEmpty() || !versionOk || version == 0) {
-    valid = false;
-    continue;
+    return false;
    }
-   const QUuid databaseId = localized && !originId.isNull() ? originId : preferredId;
-   const QUuid originAssetId = AssetDatabase::instance().registerAsset(
-       path, type, databaseId);
-   const QUuid assetId = localized ? preferredId : originAssetId;
-   if (assetId.isNull()) {
-    valid = false;
-    continue;
-   }
-   QMutexLocker locker(&impl_->mutex);
-   auto& state = impl_->sources[assetId];
-   state.version = std::max(state.version, version);
-   state.originAssetId = originAssetId;
+   pending.push_back({preferredId, originId, path, type, version, localized});
   }
-  return valid;
+
+  std::vector<PendingSource> resolved;
+  resolved.reserve(pending.size());
+  for (const PendingSource& entry : pending) {
+   const QUuid databaseId = entry.localized && !entry.originId.isNull()
+                                ? entry.originId
+                                : entry.preferredId;
+   const QUuid originAssetId = AssetDatabase::instance().registerAsset(
+       entry.path, entry.type, databaseId);
+   const QUuid assetId = entry.localized ? entry.preferredId : originAssetId;
+   if (assetId.isNull()) {
+    return false;
+   }
+   PendingSource resolvedEntry = entry;
+   resolvedEntry.originId = originAssetId;
+   resolved.push_back(resolvedEntry);
+  }
+
+  {
+   QMutexLocker locker(&impl_->mutex);
+   for (const PendingSource& entry : resolved) {
+    const QUuid assetId = entry.localized ? entry.preferredId : entry.originId;
+    auto& state = impl_->sources[assetId];
+    state.version = std::max(state.version, entry.version);
+    state.originAssetId = entry.originId;
+   }
+  }
+  return true;
  }
 
  QJsonArray AssetManager::sourceHealthSnapshot() const
