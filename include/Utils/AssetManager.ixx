@@ -3,6 +3,7 @@ module;
 #include <QString>
 #include <QUuid>
 #include <cstdint>
+#include <memory>
 export module Asset.Manager;
 
 import AssetType;
@@ -26,6 +27,12 @@ export namespace ArtifactCore {
    int useCount(const QUuid& assetId) const;
    std::uint64_t sourceVersion(const QUuid& assetId) const;
    std::uint64_t invalidateSource(const QUuid& assetId);
+   std::shared_ptr<void> decodedPayload(
+       const QUuid& assetId, std::uint64_t version,
+       const QString& representation) const;
+   std::shared_ptr<void> publishDecodedPayload(
+       const QUuid& assetId, std::uint64_t version,
+       const QString& representation, std::shared_ptr<void> payload);
  };
 
 };
