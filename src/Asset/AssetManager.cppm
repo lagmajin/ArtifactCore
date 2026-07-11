@@ -289,6 +289,7 @@ namespace ArtifactCore {
    const std::uint64_t version = source.value(QStringLiteral("version"))
                                      .toString().toULongLong(&versionOk);
    if (preferredId.isNull() || (localized && originId.isNull()) ||
+       (!localized && !originId.isNull() && originId != preferredId) ||
        path.trimmed().isEmpty() || !versionOk || version == 0) {
     return false;
    }
