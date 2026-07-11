@@ -250,6 +250,12 @@ namespace ArtifactCore {
   if (snapshot.isEmpty()) {
    return true;
   }
+  const QJsonValue schemaValue = snapshot.value(QStringLiteral("schemaVersion"));
+  if (!schemaValue.isUndefined() &&
+      (!schemaValue.isDouble() || schemaValue.toInt(-1) > 2 ||
+       schemaValue.toInt(-1) < 1)) {
+   return false;
+  }
   const QJsonValue sourcesValue = snapshot.value(QStringLiteral("sources"));
   if (!sourcesValue.isArray()) {
    return false;
