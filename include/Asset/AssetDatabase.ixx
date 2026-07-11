@@ -39,6 +39,7 @@ public:
 
     // Asset Management
     QUuid registerAsset(const QString& path, AssetType type);
+    QUuid registerAsset(const QString& path, AssetType type, const QUuid& preferredId);
     void unregisterAsset(const QUuid& id);
     
     // Recovery

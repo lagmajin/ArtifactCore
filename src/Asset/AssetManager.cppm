@@ -3,6 +3,10 @@ module;
 #include <QHash>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <algorithm>
 
 module Asset.Manager;
 
@@ -148,6 +152,69 @@ namespace ArtifactCore {
   }
   impl_->decodedPayloads.insert(key, payload);
   return payload;
+ }
+
+ QJsonObject AssetManager::sourceRegistrySnapshot() const
+ {
+  QJsonArray sources;
+  QMutexLocker locker(&impl_->mutex);
+  for (auto it = impl_->sources.cbegin(); it != impl_->sources.cend(); ++it) {
+   const auto info = AssetDatabase::instance().getAssetInfo(it.key());
+   if (info.id.isNull() || info.absolutePath.isEmpty()) {
+    continue;
+   }
+   QJsonObject source;
+   source.insert(QStringLiteral("id"), info.id.toString(QUuid::WithoutBraces));
+   source.insert(QStringLiteral("path"), info.absolutePath);
+   source.insert(QStringLiteral("type"), static_cast<int>(info.type));
+   source.insert(QStringLiteral("version"), QString::number(it->version));
+   sources.append(source);
+  }
+  QJsonObject snapshot;
+  snapshot.insert(QStringLiteral("schemaVersion"), 1);
+  snapshot.insert(QStringLiteral("sources"), sources);
+  return snapshot;
+ }
+
+ bool AssetManager::restoreSourceRegistrySnapshot(const QJsonObject& snapshot)
+ {
+  if (snapshot.isEmpty()) {
+   return true;
+  }
+  const QJsonValue sourcesValue = snapshot.value(QStringLiteral("sources"));
+  if (!sourcesValue.isArray()) {
+   return false;
+  }
+
+  bool valid = true;
+  for (const QJsonValue& value : sourcesValue.toArray()) {
+   if (!value.isObject()) {
+    valid = false;
+    continue;
+   }
+   const QJsonObject source = value.toObject();
+   const QUuid preferredId(source.value(QStringLiteral("id")).toString());
+   const QString path = source.value(QStringLiteral("path")).toString();
+   const auto type = static_cast<AssetType>(
+       source.value(QStringLiteral("type")).toInt(static_cast<int>(AssetType::Unknown)));
+   bool versionOk = false;
+   const std::uint64_t version = source.value(QStringLiteral("version"))
+                                     .toString().toULongLong(&versionOk);
+   if (preferredId.isNull() || path.trimmed().isEmpty() || !versionOk || version == 0) {
+    valid = false;
+    continue;
+   }
+   const QUuid assetId = AssetDatabase::instance().registerAsset(
+       path, type, preferredId);
+   if (assetId.isNull()) {
+    valid = false;
+    continue;
+   }
+   QMutexLocker locker(&impl_->mutex);
+   auto& state = impl_->sources[assetId];
+   state.version = std::max(state.version, version);
+  }
+  return valid;
  }
 
 };

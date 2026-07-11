@@ -38,6 +38,11 @@ QString normalizedAssetPath(const QString& path) {
 }
 
 QUuid AssetDatabase::registerAsset(const QString& path, AssetType type) {
+    return registerAsset(path, type, {});
+}
+
+QUuid AssetDatabase::registerAsset(const QString& path, AssetType type,
+                                   const QUuid& preferredId) {
     const QString identity = normalizedAssetPath(path);
     if (identity.isEmpty()) {
         return {};
@@ -46,7 +51,10 @@ QUuid AssetDatabase::registerAsset(const QString& path, AssetType type) {
         return pathToId_[identity];
     }
 
-    QUuid id = QUuid::createUuid();
+    QUuid id = preferredId.isNull() ? QUuid::createUuid() : preferredId;
+    if (assets_.contains(id) && assets_[id].absolutePath != identity) {
+        id = QUuid::createUuid();
+    }
     AssetInfo info;
     info.id = id;
     info.absolutePath = identity;

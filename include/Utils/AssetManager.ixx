@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <QString>
 #include <QUuid>
+#include <QJsonObject>
 #include <cstdint>
 #include <memory>
 export module Asset.Manager;
@@ -33,6 +34,8 @@ export namespace ArtifactCore {
    std::shared_ptr<void> publishDecodedPayload(
        const QUuid& assetId, std::uint64_t version,
        const QString& representation, std::shared_ptr<void> payload);
+   QJsonObject sourceRegistrySnapshot() const;
+   bool restoreSourceRegistrySnapshot(const QJsonObject& snapshot);
  };
 
 };
