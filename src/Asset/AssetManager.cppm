@@ -6,6 +6,7 @@ module;
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QSet>
 #include <algorithm>
 #include <vector>
 
@@ -272,6 +273,7 @@ namespace ArtifactCore {
   };
   std::vector<PendingSource> pending;
   pending.reserve(sourcesValue.toArray().size());
+  QSet<QUuid> seenPreferredIds;
   for (const QJsonValue& value : sourcesValue.toArray()) {
    if (!value.isObject()) {
     return false;
@@ -290,6 +292,10 @@ namespace ArtifactCore {
        path.trimmed().isEmpty() || !versionOk || version == 0) {
     return false;
    }
+   if (seenPreferredIds.contains(preferredId)) {
+    return false;
+   }
+   seenPreferredIds.insert(preferredId);
    pending.push_back({preferredId, originId, path, type, version, localized});
   }
 
