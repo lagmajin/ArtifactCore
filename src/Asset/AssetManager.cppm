@@ -19,6 +19,7 @@ namespace ArtifactCore {
   struct SourceState {
    int useCount = 0;
    std::uint64_t version = 1;
+   QUuid originAssetId;
   };
 
   mutable QMutex mutex;
@@ -51,6 +52,9 @@ namespace ArtifactCore {
   }
   QMutexLocker locker(&impl_->mutex);
   auto& state = impl_->sources[assetId];
+  if (state.originAssetId.isNull()) {
+   state.originAssetId = assetId;
+  }
   ++state.useCount;
   return assetId;
  }
@@ -67,6 +71,61 @@ namespace ArtifactCore {
   }
   --it->useCount;
   return true;
+ }
+
+ QUuid AssetManager::localizeSource(const QUuid& assetId)
+ {
+  if (assetId.isNull()) {
+   return {};
+  }
+  QMutexLocker locker(&impl_->mutex);
+  auto sourceIt = impl_->sources.find(assetId);
+  if (sourceIt == impl_->sources.end() || sourceIt->useCount <= 0) {
+   return {};
+  }
+
+  const QUuid localizedId = QUuid::createUuid();
+  Impl::SourceState localized = sourceIt.value();
+  localized.useCount = 1;
+  if (localized.originAssetId.isNull()) {
+   localized.originAssetId = assetId;
+  }
+  --sourceIt->useCount;
+  impl_->sources.insert(localizedId, localized);
+
+  const QString oldPrefix = assetId.toString(QUuid::WithoutBraces) + QStringLiteral(":");
+  const QString newPrefix = localizedId.toString(QUuid::WithoutBraces) + QStringLiteral(":");
+  QHash<QString, std::weak_ptr<void>> payloadCopies;
+  for (auto payloadIt = impl_->decodedPayloads.cbegin();
+       payloadIt != impl_->decodedPayloads.cend(); ++payloadIt) {
+   if (payloadIt.key().startsWith(oldPrefix)) {
+    payloadCopies.insert(newPrefix + payloadIt.key().mid(oldPrefix.size()),
+                         payloadIt.value());
+   }
+  }
+  for (auto it = payloadCopies.cbegin(); it != payloadCopies.cend(); ++it) {
+   impl_->decodedPayloads.insert(it.key(), it.value());
+  }
+  return localizedId;
+ }
+
+ bool AssetManager::acquireExistingSource(const QUuid& assetId)
+ {
+  QMutexLocker locker(&impl_->mutex);
+  auto it = impl_->sources.find(assetId);
+  if (it == impl_->sources.end()) {
+   return false;
+  }
+  ++it->useCount;
+  return true;
+ }
+
+ bool AssetManager::isLocalizedSource(const QUuid& assetId) const
+ {
+  QMutexLocker locker(&impl_->mutex);
+  const auto it = impl_->sources.constFind(assetId);
+  return it != impl_->sources.cend() && !it->originAssetId.isNull() &&
+         it->originAssetId != assetId;
  }
 
  QUuid AssetManager::sourceId(const QString& path) const
@@ -159,19 +218,22 @@ namespace ArtifactCore {
   QJsonArray sources;
   QMutexLocker locker(&impl_->mutex);
   for (auto it = impl_->sources.cbegin(); it != impl_->sources.cend(); ++it) {
-   const auto info = AssetDatabase::instance().getAssetInfo(it.key());
+   const QUuid originId = it->originAssetId.isNull() ? it.key() : it->originAssetId;
+   const auto info = AssetDatabase::instance().getAssetInfo(originId);
    if (info.id.isNull() || info.absolutePath.isEmpty()) {
     continue;
    }
    QJsonObject source;
-   source.insert(QStringLiteral("id"), info.id.toString(QUuid::WithoutBraces));
+   source.insert(QStringLiteral("id"), it.key().toString(QUuid::WithoutBraces));
+   source.insert(QStringLiteral("originId"), originId.toString(QUuid::WithoutBraces));
+   source.insert(QStringLiteral("localized"), originId != it.key());
    source.insert(QStringLiteral("path"), info.absolutePath);
    source.insert(QStringLiteral("type"), static_cast<int>(info.type));
    source.insert(QStringLiteral("version"), QString::number(it->version));
    sources.append(source);
   }
   QJsonObject snapshot;
-  snapshot.insert(QStringLiteral("schemaVersion"), 1);
+  snapshot.insert(QStringLiteral("schemaVersion"), 2);
   snapshot.insert(QStringLiteral("sources"), sources);
   return snapshot;
  }
@@ -194,18 +256,23 @@ namespace ArtifactCore {
    }
    const QJsonObject source = value.toObject();
    const QUuid preferredId(source.value(QStringLiteral("id")).toString());
+   const QUuid originId(source.value(QStringLiteral("originId")).toString());
+   const bool localized = source.value(QStringLiteral("localized")).toBool(false);
    const QString path = source.value(QStringLiteral("path")).toString();
    const auto type = static_cast<AssetType>(
        source.value(QStringLiteral("type")).toInt(static_cast<int>(AssetType::Unknown)));
    bool versionOk = false;
    const std::uint64_t version = source.value(QStringLiteral("version"))
                                      .toString().toULongLong(&versionOk);
-   if (preferredId.isNull() || path.trimmed().isEmpty() || !versionOk || version == 0) {
+   if (preferredId.isNull() || (localized && originId.isNull()) ||
+       path.trimmed().isEmpty() || !versionOk || version == 0) {
     valid = false;
     continue;
    }
-   const QUuid assetId = AssetDatabase::instance().registerAsset(
-       path, type, preferredId);
+   const QUuid databaseId = localized && !originId.isNull() ? originId : preferredId;
+   const QUuid originAssetId = AssetDatabase::instance().registerAsset(
+       path, type, databaseId);
+   const QUuid assetId = localized ? preferredId : originAssetId;
    if (assetId.isNull()) {
     valid = false;
     continue;
@@ -213,6 +280,7 @@ namespace ArtifactCore {
    QMutexLocker locker(&impl_->mutex);
    auto& state = impl_->sources[assetId];
    state.version = std::max(state.version, version);
+   state.originAssetId = originAssetId;
   }
   return valid;
  }
@@ -222,11 +290,12 @@ namespace ArtifactCore {
   QJsonArray health;
   QMutexLocker locker(&impl_->mutex);
   for (auto it = impl_->sources.cbegin(); it != impl_->sources.cend(); ++it) {
-   const auto info = AssetDatabase::instance().getAssetInfo(it.key());
+   const QUuid originId = it->originAssetId.isNull() ? it.key() : it->originAssetId;
+   const auto info = AssetDatabase::instance().getAssetInfo(originId);
    if (info.id.isNull() || info.absolutePath.isEmpty()) {
     continue;
    }
-   const QString prefix = info.id.toString(QUuid::WithoutBraces) + QStringLiteral(":");
+   const QString prefix = it.key().toString(QUuid::WithoutBraces) + QStringLiteral(":");
    int livePayloadCount = 0;
    for (auto payloadIt = impl_->decodedPayloads.cbegin();
         payloadIt != impl_->decodedPayloads.cend(); ++payloadIt) {
@@ -235,12 +304,13 @@ namespace ArtifactCore {
     }
    }
    QJsonObject source;
-   source.insert(QStringLiteral("id"), info.id.toString(QUuid::WithoutBraces));
+   source.insert(QStringLiteral("id"), it.key().toString(QUuid::WithoutBraces));
    source.insert(QStringLiteral("path"), info.absolutePath);
    source.insert(QStringLiteral("type"), static_cast<int>(info.type));
    source.insert(QStringLiteral("version"), QString::number(it->version));
    source.insert(QStringLiteral("useCount"), it->useCount);
    source.insert(QStringLiteral("livePayloadCount"), livePayloadCount);
+   source.insert(QStringLiteral("localized"), originId != it.key());
    health.append(source);
   }
   return health;

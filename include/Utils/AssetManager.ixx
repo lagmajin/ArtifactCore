@@ -25,6 +25,9 @@ export namespace ArtifactCore {
 
    QUuid acquireSource(const QString& path, AssetType type);
    bool releaseSource(const QUuid& assetId);
+   QUuid localizeSource(const QUuid& assetId);
+   bool acquireExistingSource(const QUuid& assetId);
+   bool isLocalizedSource(const QUuid& assetId) const;
    QUuid sourceId(const QString& path) const;
    int useCount(const QUuid& assetId) const;
    std::uint64_t sourceVersion(const QUuid& assetId) const;
