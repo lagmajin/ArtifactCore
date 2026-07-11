@@ -8,6 +8,7 @@ module;
 #include <QJsonValue>
 #include <QSet>
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 module Asset.Manager;
@@ -253,10 +254,12 @@ namespace ArtifactCore {
    return true;
   }
   const QJsonValue schemaValue = snapshot.value(QStringLiteral("schemaVersion"));
-  if (!schemaValue.isUndefined() &&
-      (!schemaValue.isDouble() || schemaValue.toInt(-1) > 2 ||
-       schemaValue.toInt(-1) < 1)) {
-   return false;
+  if (!schemaValue.isUndefined()) {
+   const double schemaNumber = schemaValue.toDouble(-1.0);
+   if (!schemaValue.isDouble() || schemaNumber < 1.0 || schemaNumber > 2.0 ||
+       schemaNumber != std::floor(schemaNumber)) {
+    return false;
+   }
   }
   const QJsonValue sourcesValue = snapshot.value(QStringLiteral("sources"));
   if (!sourcesValue.isArray()) {
