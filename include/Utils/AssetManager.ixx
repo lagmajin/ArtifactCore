@@ -3,6 +3,7 @@ module;
 #include <QString>
 #include <QUuid>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <cstdint>
 #include <memory>
 export module Asset.Manager;
@@ -36,6 +37,7 @@ export namespace ArtifactCore {
        const QString& representation, std::shared_ptr<void> payload);
    QJsonObject sourceRegistrySnapshot() const;
    bool restoreSourceRegistrySnapshot(const QJsonObject& snapshot);
+   QJsonArray sourceHealthSnapshot() const;
  };
 
 };

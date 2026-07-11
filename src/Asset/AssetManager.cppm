@@ -217,4 +217,33 @@ namespace ArtifactCore {
   return valid;
  }
 
+ QJsonArray AssetManager::sourceHealthSnapshot() const
+ {
+  QJsonArray health;
+  QMutexLocker locker(&impl_->mutex);
+  for (auto it = impl_->sources.cbegin(); it != impl_->sources.cend(); ++it) {
+   const auto info = AssetDatabase::instance().getAssetInfo(it.key());
+   if (info.id.isNull() || info.absolutePath.isEmpty()) {
+    continue;
+   }
+   const QString prefix = info.id.toString(QUuid::WithoutBraces) + QStringLiteral(":");
+   int livePayloadCount = 0;
+   for (auto payloadIt = impl_->decodedPayloads.cbegin();
+        payloadIt != impl_->decodedPayloads.cend(); ++payloadIt) {
+    if (payloadIt.key().startsWith(prefix) && !payloadIt.value().expired()) {
+     ++livePayloadCount;
+    }
+   }
+   QJsonObject source;
+   source.insert(QStringLiteral("id"), info.id.toString(QUuid::WithoutBraces));
+   source.insert(QStringLiteral("path"), info.absolutePath);
+   source.insert(QStringLiteral("type"), static_cast<int>(info.type));
+   source.insert(QStringLiteral("version"), QString::number(it->version));
+   source.insert(QStringLiteral("useCount"), it->useCount);
+   source.insert(QStringLiteral("livePayloadCount"), livePayloadCount);
+   health.append(source);
+  }
+  return health;
+ }
+
 };
