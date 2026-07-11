@@ -302,6 +302,7 @@ namespace ArtifactCore {
 
   std::vector<PendingSource> resolved;
   resolved.reserve(pending.size());
+  QSet<QUuid> seenResolvedIds;
   for (const PendingSource& entry : pending) {
    const QUuid databaseId = entry.localized && !entry.originId.isNull()
                                 ? entry.originId
@@ -312,6 +313,10 @@ namespace ArtifactCore {
    if (assetId.isNull()) {
     return false;
    }
+   if (seenResolvedIds.contains(assetId)) {
+    return false;
+   }
+   seenResolvedIds.insert(assetId);
    PendingSource resolvedEntry = entry;
    resolvedEntry.originId = originAssetId;
    resolved.push_back(resolvedEntry);
