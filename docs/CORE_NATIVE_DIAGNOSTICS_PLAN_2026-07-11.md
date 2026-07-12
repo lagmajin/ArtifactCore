@@ -57,9 +57,9 @@ Core-native診断APIでは `QString`、`QDateTime`、`QVector`、`QHash`、`QObj
 
 ## Next work
 
-1. Qt LoggerからCore `DiagnosticEvent` へのAdapter
-2. CrashHandlerは例外フィルタ内でRecorderを直接呼ばず、クラッシュレポートを起動後にAdapterで取り込む
+1. ~~Qt LoggerからCore `DiagnosticEvent` へのAdapter~~ ✅ (`Logger::recordDiagnostic` を追加: Qt log エントリを Core `DiagnosticRecorder` へ逆投入。severity マッピングと `file:line` コンテキスト解析を含む。自己検証 `loggerReverseAdapterContractTest` と `check_core_diagnostics_contract.ps1` 登録済み)
+2. ~~CrashHandlerは例外フィルタ内でRecorderを直接呼ばず、クラッシュレポートを起動後にAdapterで取り込む~~ ✅ (`CrashHandler::ingestPendingReports` / `pendingReportPaths` を追加。例外フィルタは引き続きファイル書き込み＋コールバックのみで Recorder に直接触れず、起動後に `loadCrashReportSnapshot` 経由で Core `DiagnosticRecorder` へ取り込む。`AppMain` の startup 直後に呼び出しを接続。自己検証 `crashHandlerIngestContractTest` と `check_core_diagnostics_contract.ps1` 登録済み)
 3. `ProjectDiagnostic` のCore-native値型化
-4. `check_core_qt_boundary` による公開moduleの依存検査
-5. 既存 `qWarning()` の高価値経路から段階移行
+4. ~~`check_core_qt_boundary` による公開moduleの依存検査~~ ✅ (`tools/check_core_qt_boundary.ps1` を新規追加。Core-native 公開 module を再帰走査し、module 宣言以降の purview に Qt 依存が混入していないかを検査。GMF の Qt 依存は境界 Adapter として許容。検査対象は `$coreNativeModules` の明示リストで管理し、新規 Core-native 化 module は追加していく。`check_core_contracts.ps1` のゲートに統合済み)
+5. 既存 `qWarning()` の高価値経路から段階移行 (`recordDiagnostic` を経由させる)
 6. 既存の個別 `.Test.cppm` 配置に合わせたRecorder／parserの自己検証ケース追加

@@ -46,6 +46,10 @@ public:
     void appendDiagnostics(const DiagnosticSnapshot& snapshot);
     void flushDiagnostics(DiagnosticRecorder& recorder);
 
+    void recordDiagnostic(LogLevel level,
+                          const QString& message,
+                          const QString& context = "");
+
     void logAdded(int level, const QString& message, const QString& context, const QDateTime& timestamp)
     W_SIGNAL(logAdded, level, message, context, timestamp)
 

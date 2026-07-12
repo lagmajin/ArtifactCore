@@ -4,7 +4,8 @@ $checks = @(
     "check_core_native_boundary.ps1",
     "check_core_module_hygiene.ps1",
     "check_core_diagnostics_contract.ps1",
-    "check_core_string_boundary.ps1"
+    "check_core_string_boundary.ps1",
+    "check_core_qt_boundary.ps1"
 )
 
 foreach ($check in $checks) {

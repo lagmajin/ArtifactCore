@@ -27,6 +27,10 @@ export namespace ArtifactCore {
   using CrashCallback = std::function<void(const QString& crashReportPath)>;
   static void setCrashCallback(CrashCallback callback);
 
+  using CrashReportPaths = std::vector<QString>;
+  static CrashReportPaths pendingReportPaths(const QString& crashDir = QString());
+  static void ingestPendingReports(const QString& crashDir = QString());
+
  private:
   static LONG WINAPI unhandledExceptionFilter(EXCEPTION_POINTERS* exceptionInfo);
   static QString generateCrashReport(EXCEPTION_POINTERS* exceptionInfo);

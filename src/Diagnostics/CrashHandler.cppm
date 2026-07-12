@@ -15,6 +15,8 @@ module;
 module Diagnostics.CrashHandler;
 
 import std;
+import Core.Diagnostics.CrashReportParser;
+import Core.Diagnostics.Recorder;
 
 namespace ArtifactCore {
 
@@ -255,5 +257,45 @@ QString CrashHandler::crashDirectory()
  const QString appData = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
  return QDir(appData).filePath(QStringLiteral("CrashDumps"));
 }
+
+CrashHandler::CrashReportPaths CrashHandler::pendingReportPaths(const QString& crashDir)
+{
+ const QString dir = crashDir.isEmpty() ? crashDir_ : crashDir;
+ if (dir.isEmpty()) return {};
+
+ CrashReportPaths paths;
+ QDir iterator(dir);
+ iterator.setFilter(QDir::Files);
+ iterator.setNameFilters(QStringList{QStringLiteral("crash_*.log")});
+ iterator.setSorting(QDir::Time | QDir::Reversed);
+ for (const QFileInfo& info : iterator.entryInfoList()) {
+  paths.push_back(info.absoluteFilePath());
+ }
+ return paths;
+}
+
+void CrashHandler::ingestPendingReports(const QString& crashDir)
+{
+ const QString dir = crashDir.isEmpty() ? crashDir_ : crashDir;
+ if (dir.isEmpty()) {
+  qWarning() << "[CrashHandler] ingestPendingReports: crash dir unknown";
+  return;
+ }
+
+ auto& recorder = DiagnosticRecorder::instance();
+ for (const QString& reportPath : pendingReportPaths(dir)) {
+  const std::string pathUtf8 = reportPath.toStdString();
+  auto snapshot = loadCrashReportSnapshot(pathUtf8);
+  if (!snapshot) {
+   recorder.record(CoreDiagnosticSeverity::Warning,
+                   "crash.ingest_failed",
+                   "could not parse pending crash report",
+                   "CrashHandler", "ingestPendingReports", pathUtf8);
+   continue;
+  }
+  for (const DiagnosticEvent& event : snapshot.value().recentEvents) {
+   recorder.record(event);
+  }
+ }
 
 }

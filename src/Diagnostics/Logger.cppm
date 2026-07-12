@@ -1,4 +1,6 @@
 module;
+#include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 #include <mutex>
@@ -212,6 +214,45 @@ void Logger::appendDiagnostics(const DiagnosticSnapshot& snapshot)
 void Logger::flushDiagnostics(DiagnosticRecorder& recorder)
 {
     appendDiagnostics(recorder.drainSnapshot("CoreDiagnostics"));
+}
+
+void Logger::recordDiagnostic(LogLevel level,
+                               const QString& message,
+                               const QString& context)
+{
+    if (!DiagnosticRecorder::instance().isEnabled()) {
+        return;
+    }
+
+    CoreDiagnosticSeverity severity = CoreDiagnosticSeverity::Info;
+    switch (level) {
+    case LogLevel::Debug:
+    case LogLevel::Info:
+        severity = CoreDiagnosticSeverity::Info;
+        break;
+    case LogLevel::Warning:
+        severity = CoreDiagnosticSeverity::Warning;
+        break;
+    case LogLevel::Error:
+    case LogLevel::Fatal:
+        severity = CoreDiagnosticSeverity::Error;
+        break;
+    }
+
+    const QString code = QStringLiteral("qt.log.%1")
+        .arg(QString::fromUtf8(diagnosticSeverityName(severity)));
+
+    const std::string contextStd = context.toStdString();
+    auto event = makeDiagnosticEvent(
+        severity,
+        code.toStdString(),
+        message.toStdString(),
+        "QtLogger",
+        contextStd.empty() ? std::string("log") : contextStd,
+        {},
+        {});
+
+    DiagnosticRecorder::instance().record(std::move(event));
 }
 
 bool Logger::ensureLogFileReady()

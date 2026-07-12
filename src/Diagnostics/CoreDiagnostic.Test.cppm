@@ -1,4 +1,5 @@
 module;
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <span>
@@ -8,6 +9,8 @@ module Core.Diagnostics.Test;
 import Core.Diagnostics.CrashReportParser;
 import Core.Diagnostics.Recorder;
 import Core.Diagnostics.Snapshot;
+import Diagnostics.Logger;
+import Diagnostics.CrashHandler;
 import Utils.Text.Encoding;
 import Utils.Text.Number;
 import Utils.Text.Path;
@@ -267,6 +270,74 @@ bool pathContractTest()
          invalid.errorContext().operation == "path.normalizeSeparators";
 }
 
+bool crashHandlerIngestContractTest()
+{
+  auto& recorder = DiagnosticRecorder::instance();
+  const bool wasEnabled = recorder.isEnabled();
+  recorder.setEnabled(true);
+  recorder.clear();
+
+  const std::string dir = std::filesystem::temp_directory_path().string() +
+                          "/artifact_crash_ingest_test";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+
+  constexpr std::string_view report =
+      "=== Artifact Crash Report ===\n"
+      "Timestamp: 2026-07-11T12:00:00\n"
+      "--- Exception ---\n"
+      "Code: 0xC0000005\n"
+      "Type: Access Violation\n"
+      "Operation: Read\n"
+      "Address: 0x1234\n"
+      "Exception Address: 0x5678\n"
+      "--- Stack Trace ---\n"
+      "frame 0\n"
+      "--- System Info ---\n"
+      "OS: Windows\n";
+  const std::string reportPath = dir + "/crash_20260711_120000.log";
+  {
+    std::ofstream out(reportPath, std::ios::binary);
+    out << report;
+  }
+
+  const auto pending = CrashHandler::pendingReportPaths(QString::fromStdString(dir));
+  CrashHandler::ingestPendingReports(QString::fromStdString(dir));
+
+  const auto events = recorder.snapshot();
+  recorder.clear();
+  recorder.setEnabled(wasEnabled);
+  std::filesystem::remove_all(dir);
+
+  bool foundFatal = false;
+  for (const auto& event : events) {
+    if (event.severity == CoreDiagnosticSeverity::Fatal &&
+        event.code == "crash.0xC0000005") {
+      foundFatal = true;
+    }
+  }
+  return pending.size() == 1 && foundFatal;
+}
+
+bool loggerReverseAdapterContractTest()
+{
+  auto& recorder = DiagnosticRecorder::instance();
+  recorder.clear();
+  const bool wasEnabled = recorder.isEnabled();
+  recorder.setEnabled(true);
+
+  Logger::instance()->recordDiagnostic(LogLevel::Error, QStringLiteral("disk write failed"));
+  const auto events = recorder.snapshot();
+  recorder.clear();
+  recorder.setEnabled(wasEnabled);
+
+  return events.size() == 1 &&
+         events.front().severity == CoreDiagnosticSeverity::Error &&
+         events.front().code == "qt.log.error" &&
+         events.front().component == "QtLogger" &&
+         events.front().message == "disk write failed";
+}
+
 bool runAllCoreDiagnosticTests()
 {
   return snapshotJsonContractTest() &&
@@ -283,7 +354,9 @@ bool runAllCoreDiagnosticTests()
          bomDetectionContractTest() &&
          stringViewContractTest() &&
          numericParsingContractTest() &&
-         pathContractTest();
+         pathContractTest() &&
+         loggerReverseAdapterContractTest() &&
+         crashHandlerIngestContractTest();
 }
 
 } // namespace ArtifactCore::DiagnosticsTest

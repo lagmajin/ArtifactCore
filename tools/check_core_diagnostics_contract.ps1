@@ -12,6 +12,7 @@ $contracts = @(
     @{ File = "include/Diagnostics/CoreCrashReportParser.ixx"; Pattern = "ARTIFACT_CORE_SOURCE_LOCATION"; Name = "Crash parser source location" },
     @{ File = "include/Diagnostics/CoreCrashReportParser.ixx"; Pattern = "Crash report path is empty"; Name = "Crash parser empty path" },
     @{ File = "include/Diagnostics/Logger.ixx"; Pattern = "flushDiagnostics"; Name = "Qt Logger adapter" },
+    @{ File = "include/Diagnostics/Logger.ixx"; Pattern = "recordDiagnostic"; Name = "Qt Logger reverse adapter" },
     @{ File = "src/Diagnostics/Logger.cppm"; Pattern = "trace=%8"; Name = "Logger trace context" },
     @{ File = "src/Diagnostics/Logger.cppm"; Pattern = "function=%10"; Name = "Logger function context" },
     @{ File = "src/Codec/FFMpegVideoDecoder.cppm"; Pattern = "DiagnosticScope"; Name = "FFmpeg diagnostic connection" },
@@ -29,7 +30,10 @@ $contracts = @(
     @{ File = "src/Codec/FFMpegVideoDecoder.cppm"; Pattern = '"flush"'; Name = "Decoder flush scope" },
     @{ File = "src/Diagnostics/CoreDiagnostic.Test.cppm"; Pattern = "runAllCoreDiagnosticTests"; Name = "Diagnostic test runner" },
     @{ File = "src/Diagnostics/CoreDiagnostic.Test.cppm"; Pattern = "utf8EncodingContractTest"; Name = "UTF-8 contract test" },
-    @{ File = "src/Diagnostics/CoreDiagnostic.Test.cppm"; Pattern = "bomDetectionContractTest"; Name = "BOM contract test" }
+    @{ File = "src/Diagnostics/CoreDiagnostic.Test.cppm"; Pattern = "bomDetectionContractTest"; Name = "BOM contract test" },
+    @{ File = "src/Diagnostics/CoreDiagnostic.Test.cppm"; Pattern = "loggerReverseAdapterContractTest"; Name = "Qt Logger reverse adapter test" },
+    @{ File = "include/Diagnostics/CrashHandler.ixx"; Pattern = "ingestPendingReports"; Name = "CrashHandler post-startup ingest adapter" },
+    @{ File = "src/Diagnostics/CoreDiagnostic.Test.cppm"; Pattern = "crashHandlerIngestContractTest"; Name = "CrashHandler ingest contract test" }
 )
 
 $failures = @()
