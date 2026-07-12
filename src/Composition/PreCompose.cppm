@@ -1,5 +1,4 @@
 module;
-class tst_QList;
 
 #include <memory>
 
@@ -39,11 +38,37 @@ class tst_QList;
 #include <QString>
 #include <QVector>
 #include <QMap>
+
 module Composition.PreCompose;
 
+import Frame.Position;
 import Utils.Id;
-import Artifact.Service.Project;
-import Artifact.Layer.Abstract;
+
+namespace Artifact {
+class ArtifactAbstractComposition;
+class ArtifactAbstractLayer;
+class ArtifactProjectService;
+using ArtifactAbstractLayerPtr = std::shared_ptr<ArtifactAbstractLayer>;
+using ArtifactCompositionPtr = std::shared_ptr<ArtifactAbstractComposition>;
+using ArtifactCompositionWeakPtr = std::weak_ptr<ArtifactAbstractComposition>;
+
+class ArtifactAbstractLayer {
+public:
+    ArtifactCore::FramePosition startTime() const;
+    double getSourceFrameAtCompFrame(std::int64_t compFrame) const;
+};
+
+class ArtifactAbstractComposition {
+public:
+    ArtifactAbstractLayerPtr layerById(const ArtifactCore::LayerID& id) const;
+};
+
+class ArtifactProjectService {
+public:
+    static ArtifactProjectService* instance();
+    ArtifactCompositionWeakPtr currentComposition();
+};
+}
 
 namespace ArtifactCore {
 
@@ -302,8 +327,8 @@ bool PreComposeManager::autoNamingEnabled() const {
 namespace NestedTimeUtils {
 
 namespace {
-std::shared_ptr<ArtifactAbstractLayer> precomposeLayerForId(const LayerID& precompLayerId) {
-    auto* service = ArtifactProjectService::instance();
+std::shared_ptr<Artifact::ArtifactAbstractLayer> precomposeLayerForId(const LayerID& precompLayerId) {
+    auto* service = Artifact::ArtifactProjectService::instance();
     if (!service || precompLayerId.isNil()) {
         return nullptr;
     }

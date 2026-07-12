@@ -113,7 +113,7 @@ inline Result<CrashReportSummary> parseCrashReportFile(const std::string& filePa
         .code = ErrorCode::InvalidArgument,
         .message = "Crash report path is empty",
         .operation = "parseCrashReportFile",
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
   std::ifstream file(filePath, std::ios::binary);
   if (!file) {
@@ -122,7 +122,7 @@ inline Result<CrashReportSummary> parseCrashReportFile(const std::string& filePa
         .message = "Crash report could not be opened",
         .operation = "parseCrashReportFile",
         .objectId = filePath,
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
 
   std::ostringstream contents;
@@ -134,7 +134,7 @@ inline Result<CrashReportSummary> parseCrashReportFile(const std::string& filePa
         .message = "Crash report format is not recognized",
         .operation = "parseCrashReportFile",
         .objectId = filePath,
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
   return Result<CrashReportSummary>::ok(summary);
 }

@@ -1,10 +1,12 @@
 module;
 #include <filesystem>
+#include <fstream>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <span>
 
-module Core.Diagnostics.Test;
+export module Core.Diagnostics.Test;
 
 import Core.Diagnostics.CrashReportParser;
 import Core.Diagnostics.Recorder;
@@ -154,7 +156,7 @@ bool resultContextFactoryContractTest()
 {
   const auto failure = Result<int>::fail(
       ErrorCode::Busy, "queue is busy", "queue.push", "queue-1",
-      ARTIFACT_CORE_SOURCE_LOCATION);
+      sourceLocation(__FILE__, __func__, __LINE__));
   return !failure && failure.errorContext().code == ErrorCode::Busy &&
          failure.errorContext().operation == "queue.push" &&
          failure.errorContext().objectId == "queue-1" &&
@@ -185,7 +187,7 @@ bool recorderDeltaContractTest()
   recorder.record(CoreDiagnosticSeverity::Info, "three", "3", "Delta", "run");
   const auto delta = recorder.snapshotSince(cursor - 1, "Delta");
   recorder.setMaxEvents(256);
-  return delta.eventsTruncated && delta.count() == 2 &&
+  return delta.eventsTruncated && delta.recentEvents.size() == 2 &&
          delta.lastSequence > delta.firstSequence &&
          delta.lastOperation == "run" &&
          delta.recentEvents.front().component == "Delta" &&

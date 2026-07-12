@@ -73,7 +73,7 @@ public:
 
     void fromJson(const QJsonObject& object) {
         entries_.clear();
-        for (auto it = object.cbegin(); it != object.cend(); ++it) {
+        for (auto it = object.constBegin(); it != object.constEnd(); ++it) {
             if (!it.value().isObject()) continue;
             const QJsonObject value = it.value().toObject();
             FontLicenseEntry entry;

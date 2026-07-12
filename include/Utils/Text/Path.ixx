@@ -30,7 +30,7 @@ inline Result<std::string> normalizePathSeparators(std::string_view value,
         .message = "path contains NUL",
         .operation = "path.normalizeSeparators",
         .objectId = std::move(objectId),
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
   std::string result;
   result.reserve(value.size());

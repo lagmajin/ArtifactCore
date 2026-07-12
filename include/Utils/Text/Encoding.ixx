@@ -153,7 +153,7 @@ inline Result<std::string> fromUtf8Checked(std::string_view value)
                    std::to_string(*invalidOffset),
         .operation = "encoding.fromUtf8Checked",
         .objectId = std::to_string(*invalidOffset),
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
   return Result<std::string>::ok(std::string(value));
 }
@@ -179,7 +179,7 @@ inline Result<std::u32string> toUtf32Checked(std::string_view value)
                    std::to_string(*invalidOffset),
         .operation = "encoding.toUtf32Checked",
         .objectId = std::to_string(*invalidOffset),
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
 
   std::u32string result;

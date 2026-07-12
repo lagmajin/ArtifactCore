@@ -21,7 +21,7 @@ inline Result<std::int64_t> parseInt64(std::string_view value,
         .message = "integer input is empty",
         .operation = "number.parseInt64",
         .objectId = std::move(objectId),
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
   std::int64_t parsed = 0;
   const auto result = std::from_chars(value.data(), value.data() + value.size(), parsed);
@@ -31,7 +31,7 @@ inline Result<std::int64_t> parseInt64(std::string_view value,
         .message = "invalid integer input",
         .operation = "number.parseInt64",
         .objectId = std::move(objectId),
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
   return Result<std::int64_t>::ok(parsed);
 }
@@ -45,7 +45,7 @@ inline Result<std::uint64_t> parseUInt64(std::string_view value,
         .message = "unsigned integer input is empty",
         .operation = "number.parseUInt64",
         .objectId = std::move(objectId),
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
   std::uint64_t parsed = 0;
   const auto result = std::from_chars(value.data(), value.data() + value.size(), parsed);
@@ -55,7 +55,7 @@ inline Result<std::uint64_t> parseUInt64(std::string_view value,
         .message = "invalid unsigned integer input",
         .operation = "number.parseUInt64",
         .objectId = std::move(objectId),
-        .location = ARTIFACT_CORE_SOURCE_LOCATION});
+        .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
   return Result<std::uint64_t>::ok(parsed);
 }
@@ -70,7 +70,7 @@ inline Result<bool> parseBool(std::string_view value,
       .message = "invalid boolean input",
       .operation = "number.parseBool",
       .objectId = std::move(objectId),
-      .location = ARTIFACT_CORE_SOURCE_LOCATION});
+      .location = sourceLocation(__FILE__, __func__, __LINE__)});
 }
 
 } // namespace ArtifactCore
