@@ -44,32 +44,6 @@ module Composition.PreCompose;
 import Frame.Position;
 import Utils.Id;
 
-namespace Artifact {
-class ArtifactAbstractComposition;
-class ArtifactAbstractLayer;
-class ArtifactProjectService;
-using ArtifactAbstractLayerPtr = std::shared_ptr<ArtifactAbstractLayer>;
-using ArtifactCompositionPtr = std::shared_ptr<ArtifactAbstractComposition>;
-using ArtifactCompositionWeakPtr = std::weak_ptr<ArtifactAbstractComposition>;
-
-class ArtifactAbstractLayer {
-public:
-    ArtifactCore::FramePosition startTime() const;
-    double getSourceFrameAtCompFrame(std::int64_t compFrame) const;
-};
-
-class ArtifactAbstractComposition {
-public:
-    ArtifactAbstractLayerPtr layerById(const ArtifactCore::LayerID& id) const;
-};
-
-class ArtifactProjectService {
-public:
-    static ArtifactProjectService* instance();
-    ArtifactCompositionWeakPtr currentComposition();
-};
-}
-
 namespace ArtifactCore {
 
 // ============================================================================
@@ -87,6 +61,7 @@ public:
     
     // レイヤー -> 元コンポジションのマッピング
     QMap<LayerID, CompositionID> layerSourceMap;
+    QMap<LayerID, double> layerStartFrameMap;
     
     // コンポジション -> ネスト情報
     QMap<CompositionID, CompositionNesting> nestingInfo;
@@ -159,6 +134,7 @@ PreComposeResult PreComposeManager::precompose(
     // プリコンポーズレイヤーとしてマーク
     // impl_->precomposeLayers.insert(newLayerId);
     impl_->layerSourceMap[newLayerId] = newCompId;
+    impl_->layerStartFrameMap[newLayerId] = 0.0;
     
     return result;
 }
@@ -187,6 +163,7 @@ bool PreComposeManager::unprecompose(
 
     const CompositionID childCompId = *sourceIt;
     impl_->layerSourceMap.erase(sourceIt);
+    impl_->layerStartFrameMap.remove(precompLayerId);
     impl_->nestingInfo.remove(childCompId);
 
     auto parentIt = impl_->nestingMap.find(compositionId);
@@ -245,6 +222,22 @@ bool PreComposeManager::isPrecomposeLayer(LayerID layerId) const {
 
 CompositionID PreComposeManager::getSourceCompositionId(LayerID precompLayerId) const {
     return impl_->layerSourceMap.value(precompLayerId);
+}
+
+void PreComposeManager::setPrecomposeLayerStartFrame(
+    LayerID precompLayerId, double startFrame) {
+    if (!impl_ || precompLayerId.isNil() || !std::isfinite(startFrame)) {
+        return;
+    }
+    impl_->layerStartFrameMap[precompLayerId] = startFrame;
+}
+
+double PreComposeManager::precomposeLayerStartFrame(
+    LayerID precompLayerId) const {
+    if (!impl_ || precompLayerId.isNil()) {
+        return 0.0;
+    }
+    return impl_->layerStartFrameMap.value(precompLayerId, 0.0);
 }
 
 QVector<CompositionID> PreComposeManager::getCompositionHierarchy(CompositionID compositionId) const {
@@ -326,54 +319,76 @@ bool PreComposeManager::autoNamingEnabled() const {
 
 namespace NestedTimeUtils {
 
-namespace {
-std::shared_ptr<Artifact::ArtifactAbstractLayer> precomposeLayerForId(const LayerID& precompLayerId) {
-    auto* service = Artifact::ArtifactProjectService::instance();
-    if (!service || precompLayerId.isNil()) {
-        return nullptr;
-    }
-    auto comp = service->currentComposition().lock();
-    if (!comp) {
-        return nullptr;
-    }
-    return comp->layerById(precompLayerId);
-}
-}
-
 double parentToChildTime(double parentTime, LayerID precompLayerId) {
-    const auto layer = precomposeLayerForId(precompLayerId);
-    if (!layer) {
-        return parentTime;
-    }
-    const double startFrame = static_cast<double>(layer->startTime().framePosition());
-    return layer->getSourceFrameAtCompFrame(static_cast<int64_t>(std::llround(parentTime))) - startFrame;
+    const double startFrame =
+        PreComposeManager::instance().precomposeLayerStartFrame(precompLayerId);
+    return parentTime - startFrame;
 }
 
 double childToParentTime(double childTime, LayerID precompLayerId) {
-    const auto layer = precomposeLayerForId(precompLayerId);
-    if (!layer) {
-        return childTime;
-    }
-    return childTime + static_cast<double>(layer->startTime().framePosition());
+    return childTime +
+           PreComposeManager::instance().precomposeLayerStartFrame(
+               precompLayerId);
 }
 
 double convertTime(double sourceTime, CompositionID sourceComposition, CompositionID targetComposition) {
     if (sourceComposition == targetComposition) {
         return sourceTime;
     }
-    
-    // Walk up from source to common ancestor, applying childToParentTime at each level,
-    // then walk down to target, applying parentToChildTime.
+
     auto& mgr = PreComposeManager::instance();
+    QVector<CompositionID> sourceToRoot;
+    QVector<CompositionID> targetToRoot;
+    auto collectToRoot = [&mgr](CompositionID start) {
+        QVector<CompositionID> result;
+        CompositionID current = start;
+        int guard = 0;
+        while (!current.isNil() && guard++ < 64) {
+            result.append(current);
+            current = mgr.getParentComposition(current);
+        }
+        return result;
+    };
+    sourceToRoot = collectToRoot(sourceComposition);
+    targetToRoot = collectToRoot(targetComposition);
+
+    CompositionID commonAncestor;
+    for (const auto& candidate : sourceToRoot) {
+        if (targetToRoot.contains(candidate)) {
+            commonAncestor = candidate;
+            break;
+        }
+    }
+    if (commonAncestor.isNil()) {
+        return sourceTime;
+    }
+
     CompositionID current = sourceComposition;
     double t = sourceTime;
     int guard = 0;
-    while (current != targetComposition && guard++ < 64) {
+    while (current != commonAncestor && guard++ < 64) {
         auto parentCompId = mgr.getParentComposition(current);
-        if (parentCompId.isNil()) break;
+        if (parentCompId.isNil()) {
+            return sourceTime;
+        }
         auto nesting = mgr.getCompositionNesting(current);
         t = childToParentTime(t, nesting.parentLayerId);
         current = parentCompId;
+    }
+
+    QVector<CompositionID> downwardChildren;
+    current = targetComposition;
+    guard = 0;
+    while (current != commonAncestor && guard++ < 64) {
+        downwardChildren.prepend(current);
+        current = mgr.getParentComposition(current);
+        if (current.isNil()) {
+            return sourceTime;
+        }
+    }
+    for (const auto& child : downwardChildren) {
+        const auto nesting = mgr.getCompositionNesting(child);
+        t = parentToChildTime(t, nesting.parentLayerId);
     }
     return t;
 }

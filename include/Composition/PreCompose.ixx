@@ -135,6 +135,12 @@ public:
     
     /// プリコンポーズレイヤーの元コンポジションID取得
     CompositionID getSourceCompositionId(LayerID precompLayerId) const;
+
+    /// Application layerからprecomp layerの時間境界を登録する。
+    /// CoreはUI/serviceへ依存せず、このsnapshotだけでnested timeを変換する。
+    void setPrecomposeLayerStartFrame(LayerID precompLayerId,
+                                      double startFrame);
+    double precomposeLayerStartFrame(LayerID precompLayerId) const;
     
     /// コンポジションのネスト階層を取得
     QVector<CompositionID> getCompositionHierarchy(CompositionID compositionId) const;
