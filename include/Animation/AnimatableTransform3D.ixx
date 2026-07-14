@@ -1,49 +1,19 @@
 module;
-#include <mfidl.h>
+#include <cstddef>
+#include <vector>
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include "../Define/DllExportMacro.hpp"
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
-#include <memory>
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <optional>
-#include <utility>
-#include <array>
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
-#include <variant>
-#include <any>
-#include <atomic>
-#include <queue>
-#include <deque>
-#include <list>
-#include <tuple>
-#include <numeric>
-#include <regex>
-#include <random>
 
 export module Animation.Transform3D;
 
 import Time.Rational;
+import Math.Interpolate;
 
 export namespace ArtifactCore
 {
  using namespace Diligent;
 
  enum class AutoOrientMode : int;
-
- enum class InterpolationType : int;
 
   struct Transform3DSnapshot {
     float positionX = 0.0f;
@@ -146,6 +116,8 @@ export namespace ArtifactCore
       const RationalTime& time, const PositionSpatialTangents& tangents);
   bool positionKeyFrameSpatialTangentsAt(
       const RationalTime& time, PositionSpatialTangents& tangents) const;
+  bool hasPositionSpatialTangents() const;
+  bool removePositionKeyFrameSpatialTangentsAt(const RationalTime& time);
   InterpolationType positionXKeyFrameInterpolationAt(const RationalTime& time) const;
   InterpolationType positionYKeyFrameInterpolationAt(const RationalTime& time) const;
   

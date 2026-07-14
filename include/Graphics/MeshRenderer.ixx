@@ -3,6 +3,7 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineStateCache.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QColor>
@@ -41,6 +42,7 @@ export module Graphics.MeshRenderer;
 
 import Graphics.GPUcomputeContext;
 import Frame.Debug;
+import Core.Light;
 
 export namespace ArtifactCore {
 
@@ -64,6 +66,7 @@ public:
     void initialize(size_t maxInstances, size_t vertexCount, size_t indexCount);
     
     void setFrameCostStats(ArtifactCore::RenderCostStats* stats);
+    void setPipelineStateCache(IPipelineStateCache* cache);
 
     /**
      * @brief Upload mesh geometry to GPU buffers
@@ -84,6 +87,13 @@ public:
     void setEmissionTexture(const QString& path);
     void clearEmissionTexture();
     void setEmissionColor(const QColor& color, float strength);
+    void setPbrFactors(float metallic, float roughness,
+                       float normalStrength, float occlusionStrength);
+    void setMetallicRoughnessTexture(const QString& path);
+    void setNormalTexture(const QString& path);
+    void setOcclusionTexture(const QString& path);
+    void setSceneLights(const std::vector<Light>& lights);
+    void setTransparentPass(bool transparent);
 
     /**
      * @brief Set an opacity texture to modulate mesh alpha.

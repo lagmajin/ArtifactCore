@@ -1,4 +1,5 @@
 module;
+#include <QString>
 #include <filesystem>
 #include <fstream>
 #include <ostream>

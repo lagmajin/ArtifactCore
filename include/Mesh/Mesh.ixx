@@ -39,6 +39,7 @@ class tst_QList;
 #include <variant>
 #include <any>
 #include <atomic>
+#include <cstdint>
 #include <queue>
 #include <deque>
 #include <list>
@@ -133,6 +134,7 @@ export namespace ArtifactCore {
 
         Mesh& operator=(const Mesh& other);
         Mesh& operator=(Mesh&& other) noexcept;
+        std::uint64_t revision() const;
 
         // 1. トポロジー構築 (N-gon対応)
         // Mayaのように、頂点のリストと、それらを結ぶ「面（ポリゴン）」のリストで構成

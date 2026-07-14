@@ -27,6 +27,7 @@ class tst_QList;
 #include <mutex>
 #include <thread>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -145,6 +146,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
 
         QVector3D minBounds;
         QVector3D maxBounds;
+        std::uint64_t revision = 1;
 
         Impl() {}
         ~Impl() {}
@@ -164,21 +166,30 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
 
     Mesh& Mesh::operator=(const Mesh& other) {
         if (this != &other) {
+            const auto nextRevision = impl_->revision + 1;
             *impl_ = *other.impl_;
+            impl_->revision = nextRevision;
         }
         return *this;
     }
 
     Mesh& Mesh::operator=(Mesh&& other) noexcept {
         if (this != &other) {
+            const auto nextRevision = impl_ ? impl_->revision + 1 : 1;
             delete impl_;
             impl_ = other.impl_;
             other.impl_ = nullptr;
+            if (impl_) impl_->revision = nextRevision;
         }
         return *this;
     }
 
+    std::uint64_t Mesh::revision() const {
+        return impl_ ? impl_->revision : 0;
+    }
+
     void Mesh::setVertexCount(int count) {
+        ++impl_->revision;
         impl_->vertexAttrs.setElementCount(count);
     }
 
@@ -187,6 +198,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
     }
 
     int Mesh::addPolygon(const QVector<int>& vertexIndices) {
+        ++impl_->revision;
         impl_->polygons.push_back(vertexIndices);
         impl_->faceAttrs.setElementCount(impl_->polygons.size());
         return impl_->polygons.size() - 1;
@@ -196,13 +208,13 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         return impl_->polygons.size();
     }
 
-    AttributeContainer& Mesh::vertexAttributes() { return impl_->vertexAttrs; }
+    AttributeContainer& Mesh::vertexAttributes() { ++impl_->revision; return impl_->vertexAttrs; }
     const AttributeContainer& Mesh::vertexAttributes() const { return impl_->vertexAttrs; }
 
-    AttributeContainer& Mesh::faceAttributes() { return impl_->faceAttrs; }
+    AttributeContainer& Mesh::faceAttributes() { ++impl_->revision; return impl_->faceAttrs; }
     const AttributeContainer& Mesh::faceAttributes() const { return impl_->faceAttrs; }
 
-    AttributeContainer& Mesh::faceVertexAttributes() { return impl_->faceVertexAttrs; }
+    AttributeContainer& Mesh::faceVertexAttributes() { ++impl_->revision; return impl_->faceVertexAttrs; }
     const AttributeContainer& Mesh::faceVertexAttributes() const { return impl_->faceVertexAttrs; }
 
     QVector<int> Mesh::getConnectedPolygons(int vertexIndex) const {
@@ -426,6 +438,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         auto weightAttr = impl_->vertexAttrs.get<BoneWeight>("boneWeights");
 
         if (!posAttr || !weightAttr || boneMatrices.isEmpty()) return;
+        ++impl_->revision;
 
         // Linear Blend Skinning (LBS) の評価
         for (int i = 0; i < impl_->vertexAttrs.elementCount(); ++i) {
@@ -488,6 +501,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
 
     bool Mesh::loadFromFile(const QString& filePath)
     {
+        ++impl_->revision;
         const QString trimmed = filePath.trimmed();
         if (trimmed.isEmpty()) {
             return false;
@@ -646,6 +660,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
     }
 
     void Mesh::clear() {
+        ++impl_->revision;
         impl_->vertexAttrs.setElementCount(0);
         impl_->faceAttrs.setElementCount(0);
         impl_->faceVertexAttrs.setElementCount(0);

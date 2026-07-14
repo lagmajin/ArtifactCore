@@ -1,41 +1,15 @@
 module;
 #include <DiligentCore/Common/interface/BasicMath.hpp>
-#include <cmath>
-#include <QPointF>
-
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
-#include <memory>
 #include <algorithm>
 #include <cmath>
-#include <functional>
+#include <cstdint>
+#include <iterator>
+#include <map>
+#include <set>
 #include <optional>
-#include <utility>
-#include <array>
-#include <mutex>
-#include <thread>
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
-#include <variant>
-#include <any>
-#include <atomic>
-#include <condition_variable>
-#include <queue>
-#include <deque>
-#include <list>
-#include <tuple>
-#include <numeric>
-#include <regex>
-#include <random>
+#include <vector>
+#include <QPointF>
+
 module Animation.Transform3D;
 
 import Animation.Value;
@@ -728,6 +702,18 @@ bool AnimatableTransform3D::positionKeyFrameSpatialTangentsAt(
   }
   tangents = it->second;
   return true;
+}
+
+bool AnimatableTransform3D::hasPositionSpatialTangents() const
+{
+  return !impl_->positionSpatialTangents_.empty();
+}
+
+bool AnimatableTransform3D::removePositionKeyFrameSpatialTangentsAt(
+    const RationalTime& time)
+{
+  const FramePosition frame(time.rescaledTo(24));
+  return impl_->positionSpatialTangents_.erase(frame.framePosition()) > 0;
 }
 
 InterpolationType AnimatableTransform3D::positionXKeyFrameInterpolationAt(

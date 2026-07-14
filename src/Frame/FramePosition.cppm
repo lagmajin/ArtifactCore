@@ -2,6 +2,8 @@ module;
 #include <utility>
 
 #include <cstdint>
+#include <cmath>
+#include <limits>
 module Frame.Position;
 
 namespace ArtifactCore {
@@ -134,6 +136,32 @@ bool FramePosition::operator>(const FramePosition& other) const
 bool FramePosition::operator>=(const FramePosition& other) const
 {
  return !(*this < other);
+}
+
+double FramePosition::toSeconds(double fps) const
+{
+ if (!impl_ || fps <= 0.0) {
+  return 0.0;
+ }
+ return static_cast<double>(impl_->frame) / fps;
+}
+
+FramePosition FramePosition::fromSeconds(double seconds, double fps)
+{
+ if (fps <= 0.0) {
+  return FramePosition(0);
+ }
+ return FramePosition(static_cast<int64_t>(std::llround(seconds * fps)));
+}
+
+FramePosition FramePosition::min()
+{
+ return FramePosition(std::numeric_limits<int64_t>::min());
+}
+
+FramePosition FramePosition::max()
+{
+ return FramePosition(std::numeric_limits<int64_t>::max());
 }
 
 }

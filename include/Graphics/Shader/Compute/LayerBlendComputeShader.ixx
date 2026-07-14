@@ -264,9 +264,12 @@ void main(uint3 id : SV_DispatchThreadID)
 LIBRARY_DLL_API const QByteArray softLightBlendShaderText = QByteArray(blendShaderHeader) + R"(
 float SoftLightChannel(float base, float blend)
 {
+    float d = (base <= 0.25)
+        ? ((16.0 * base - 12.0) * base + 4.0) * base
+        : sqrt(base);
     return (blend < 0.5)
         ? base - (1.0 - 2.0 * blend) * base * (1.0 - base)
-        : base + (2.0 * blend - 1.0) * (sqrt(base) - base);
+        : base + (2.0 * blend - 1.0) * (d - base);
 }
 
 float3 SoftLight(float3 base, float3 blend)
@@ -511,9 +514,7 @@ void main(uint3 id : SV_DispatchThreadID)
     float4 dst = DstTex[id.xy];
     float srcA = saturate(src.a * opacity);
     float r = float(pcgHash(id.xy & 0xFFFF)) / 4294967296.0;
-    float3 blended = (r < srcA) ? src.rgb : dst.rgb;
-    float outA = (r < srcA) ? srcA : dst.a;
-    OutTex[id.xy] = float4(blended * outA, outA);
+    OutTex[id.xy] = (r < srcA) ? float4(src.rgb, 1.0) : dst;
 }
 )";
 
@@ -535,9 +536,7 @@ void main(uint3 id : SV_DispatchThreadID)
     float srcA = saturate(src.a * opacity);
     uint frameSeed = uint(opacity * 1000.0);
     float r = float(dcgHash(id.xy & 0xFFFF, frameSeed)) / 4294967296.0;
-    float3 blended = (r < srcA) ? src.rgb : dst.rgb;
-    float outA = (r < srcA) ? srcA : dst.a;
-    OutTex[id.xy] = float4(blended * outA, outA);
+    OutTex[id.xy] = (r < srcA) ? float4(src.rgb, 1.0) : dst;
 }
 )";
 

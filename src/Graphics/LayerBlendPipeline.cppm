@@ -112,9 +112,13 @@ bool LayerBlendPipeline::initialize()
 {
  if (!createConstantBuffer()) return false;
  if (!createExecutors()) return false;
- if (!createMatteTrackExecutor()) return false;
- qDebug() << "[LayerBlendPipeline] Initialized with" << executors_.size() << "blend modes";
- return true;
+ const bool matteTrackReady = createMatteTrackExecutor();
+ if (!matteTrackReady) {
+  qWarning() << "[LayerBlendPipeline] standard blend ready without track matte capability";
+ }
+ qDebug() << "[LayerBlendPipeline] Initialized with" << executors_.size()
+          << "blend modes; matteTrackReady=" << matteTrackReady;
+ return ready();
 }
 
 bool LayerBlendPipeline::createConstantBuffer()
@@ -145,8 +149,7 @@ bool LayerBlendPipeline::createConstantBuffer()
   mtDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
   pDevice->CreateBuffer(mtDesc, nullptr, &pImpl_->pMatteTrackCB_);
   if (!pImpl_->pMatteTrackCB_) {
-   qWarning() << "[LayerBlendPipeline] Failed to create matte track constant buffer";
-   return false;
+   qWarning() << "[LayerBlendPipeline] Failed to create optional matte track constant buffer";
   }
 
   return true;
@@ -227,6 +230,9 @@ bool LayerBlendPipeline::createExecutors()
 
 bool LayerBlendPipeline::createMatteTrackExecutor()
 {
+    if (!pImpl_->pMatteTrackCB_) {
+        return false;
+    }
     static ShaderResourceVariableDesc vars[] = {
         {SHADER_TYPE_COMPUTE, "g_LayerTex",  SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_MatteSrc0", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -308,8 +314,7 @@ bool LayerBlendPipeline::applyTrackMatte(
 bool LayerBlendPipeline::ready() const
 {
  return !executors_.empty() && pImpl_->pBlendCB_ && layerToFloatExecutor_ &&
-        layerToFloatExecutor_->ready() && matteTrackExecutor_ &&
-        matteTrackExecutor_->ready();
+        layerToFloatExecutor_->ready();
 }
 
 bool LayerBlendPipeline::convertLayerToFloat(
@@ -329,6 +334,27 @@ bool LayerBlendPipeline::convertLayerToFloat(
               << "executor=" << static_cast<bool>(layerToFloatExecutor_)
               << "width=" << width
               << "height=" << height;
+  return false;
+ }
+
+ const auto* srcTexture = srcSRV->GetTexture();
+ const auto* outTexture = outUAV->GetTexture();
+ if (!srcTexture || !outTexture || srcTexture == outTexture) {
+  qCritical() << "[LayerBlendPipeline::convertLayerToFloat] invalid resource alias";
+  return false;
+ }
+
+ const auto& srcDesc = srcTexture->GetDesc();
+ const auto& outDesc = outTexture->GetDesc();
+ if (srcDesc.Width != width || srcDesc.Height != height ||
+     outDesc.Width != width || outDesc.Height != height ||
+     outDesc.Format != TEX_FORMAT_RGBA32_FLOAT) {
+  qCritical() << "[LayerBlendPipeline::convertLayerToFloat] texture contract mismatch"
+              << "requested=" << width << "x" << height
+              << "src=" << srcDesc.Width << "x" << srcDesc.Height
+              << "srcFormat=" << static_cast<int>(srcDesc.Format)
+              << "out=" << outDesc.Width << "x" << outDesc.Height
+              << "outFormat=" << static_cast<int>(outDesc.Format);
   return false;
  }
 
@@ -371,15 +397,38 @@ bool LayerBlendPipeline::blend(
   return false;
  }
 
+ const auto* srcTexture = srcSRV->GetTexture();
+ const auto* dstTexture = dstSRV->GetTexture();
+ const auto* outTexture = outUAV->GetTexture();
+ if (!srcTexture || !dstTexture || !outTexture ||
+     srcTexture == outTexture || dstTexture == outTexture) {
+  qCritical() << "[LayerBlendPipeline::blend] invalid resource contract";
+  return false;
+ }
+
+ const auto& srcDesc = srcTexture->GetDesc();
+ const auto& dstDesc = dstTexture->GetDesc();
+ const auto& outDesc = outTexture->GetDesc();
+ const bool dimensionsMatch =
+     srcDesc.Width == dstDesc.Width && srcDesc.Height == dstDesc.Height &&
+     srcDesc.Width == outDesc.Width && srcDesc.Height == outDesc.Height;
+ const bool formatsMatch =
+     srcDesc.Format == TEX_FORMAT_RGBA32_FLOAT &&
+     dstDesc.Format == TEX_FORMAT_RGBA32_FLOAT &&
+     outDesc.Format == TEX_FORMAT_RGBA32_FLOAT;
+ if (!dimensionsMatch || !formatsMatch) {
+  qCritical() << "[LayerBlendPipeline::blend] canonical texture contract mismatch"
+              << "srcFormat=" << static_cast<int>(srcDesc.Format)
+              << "dstFormat=" << static_cast<int>(dstDesc.Format)
+              << "outFormat=" << static_cast<int>(outDesc.Format);
+  return false;
+ }
+
  auto it = executors_.find(mode);
  if (it == executors_.end()) {
-  qWarning() << "[LayerBlendPipeline::blend] No executor for mode" << static_cast<int>(mode)
-             << "- falling back to Normal";
-  it = executors_.find(BlendMode::Normal);
-  if (it == executors_.end()) {
-   qCritical() << "[LayerBlendPipeline::blend] No Normal fallback executor available!";
-   return false;
-  }
+  qCritical() << "[LayerBlendPipeline::blend] No executor for requested mode"
+              << static_cast<int>(mode);
+  return false;
  }
 
  auto& exec = *it->second.executor;
@@ -397,7 +446,8 @@ bool LayerBlendPipeline::blend(
   memcpy(pData, &currentParams_, sizeof(BlendParams));
   ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
  } else {
-  qWarning() << "[LayerBlendPipeline::blend] MapBuffer failed - opacity may be wrong";
+  qCritical() << "[LayerBlendPipeline::blend] MapBuffer failed";
+  return false;
  }
 
  exec.setTextureView("SrcTex", srcSRV);

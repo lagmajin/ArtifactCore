@@ -197,6 +197,7 @@ class MediaPlaybackController::Impl {
   MediaMetaData metadata_;
   std::mutex directDecodeMutex_;
   QString directMediaUrl_;
+  int64_t directDecodeCursorFrame_ = -1;
   VkInstance vulkanInstance_{};
   VkPhysicalDevice vulkanPhysicalDevice_{};
   VkDevice vulkanDevice_{};
@@ -245,6 +246,7 @@ class MediaPlaybackController::Impl {
       if (params->codec_type == AVMEDIA_TYPE_VIDEO && decoder->initialize(params)) {
         directMediaSource_ = source.release();
         directVideoDecoder_ = decoder.release();
+        directDecodeCursorFrame_ = -1;
         return true;
       }
     }
@@ -278,12 +280,20 @@ class MediaPlaybackController::Impl {
     }
 
     const int64_t targetMs = static_cast<int64_t>((frameNumber / fps_) * 1000.0);
-    if (!directMediaSource_->seek(targetMs)) {
-      lastError_ = QStringLiteral("FFmpeg direct decode seek failed at %1 ms").arg(targetMs);
-      qWarning() << "[MediaPlayback] direct decode seek failed:" << targetMs << "ms";
-      return std::monostate{};
+    constexpr int64_t kMaxSequentialFrameGap = 8;
+    const int64_t forwardGap = frameNumber - directDecodeCursorFrame_;
+    const bool canContinueSequentially = directDecodeCursorFrame_ >= 0
+        && forwardGap > 0
+        && forwardGap <= kMaxSequentialFrameGap;
+    if (!canContinueSequentially) {
+      if (!directMediaSource_->seek(targetMs)) {
+        directDecodeCursorFrame_ = -1;
+        lastError_ = QStringLiteral("FFmpeg direct decode seek failed at %1 ms").arg(targetMs);
+        qWarning() << "[MediaPlayback] direct decode seek failed:" << targetMs << "ms";
+        return std::monostate{};
+      }
+      directVideoDecoder_->flush();
     }
-    directVideoDecoder_->flush();
 
     if (auto ctx = directMediaSource_->getFormatContext(); !ctx) {
       lastError_ = QStringLiteral("FFmpeg direct decode failed: no format context");
@@ -328,6 +338,10 @@ class MediaPlaybackController::Impl {
       }
     };
 
+    if (canContinueSequentially) {
+      drainFrames();
+    }
+
     while (packetsRead < maxPackets && !isDecodedVideoFrameUsable(result)) {
       const int readRet = av_read_frame(ctx, pkt);
       if (readRet < 0) {
@@ -368,6 +382,7 @@ class MediaPlaybackController::Impl {
     }
 
     if (!isDecodedVideoFrameUsable(result)) {
+      directDecodeCursorFrame_ = -1;
       lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 videoStreamIndex=%5 packetsRead=%6 maxPackets=%7 eof=%8 readError=%9")
           .arg(frameNumber)
           .arg(targetMs)
@@ -388,9 +403,11 @@ class MediaPlaybackController::Impl {
                  << "eof=" << hitEof
                  << "readError=" << lastReadError;
     } else {
+      directDecodeCursorFrame_ = frameNumber;
       lastError_.clear();
       qDebug() << "[MediaPlayback] direct decode ok"
                << "frame=" << frameNumber
+               << "mode=" << (canContinueSequentially ? "sequential" : "seek")
                << "targetMs=" << targetMs
                << "targetPts=" << targetPts
                << "decoded=" << decodedVideoFrameSummary(result);
@@ -1338,6 +1355,7 @@ void FFmpegPlaybackBackend::close(MediaPlaybackController::Impl& impl) {
     delete impl.directVideoDecoder_;
     impl.directVideoDecoder_ = nullptr;
   }
+  impl.directDecodeCursorFrame_ = -1;
   impl.directMediaUrl_.clear();
   if (impl.audioDecoder_) {
     impl.audioDecoder_->flush();

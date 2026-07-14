@@ -3,9 +3,11 @@ module;
 #include <QDebug>
 #include <QString>
 #include <QFileInfo>
+extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/error.h>
+}
 
 #include <iostream>
 #include <vector>
