@@ -332,10 +332,6 @@ void AudioMixer::process(AudioSegment& finalOutput) {
     const auto sorted = impl_->getSortedBuses();
 
     for (const auto& bus : sorted) {
-        bus->clearInput(frames, sampleRate);
-    }
-
-    for (const auto& bus : sorted) {
         bus->process(bus->getOutputBuffer());
 
         auto it = impl_->routing.find(bus);
