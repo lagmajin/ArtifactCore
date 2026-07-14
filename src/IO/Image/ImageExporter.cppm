@@ -387,6 +387,14 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
     for (const auto& type : types) {
         auto ch = multiImage.getChannel(type);
         if (!ch || !ch->data()) continue;
+        if (ch->size() != pixelCount) {
+            return makeError(
+                "validate",
+                QStringLiteral("Channel %1 has %2 samples; expected %3.")
+                    .arg(channelTypeToOIIOName(type))
+                    .arg(static_cast<qulonglong>(ch->size()))
+                    .arg(static_cast<qulonglong>(pixelCount)));
+        }
         channelNames.push_back(channelTypeToOIIOName(type));
         channelData.push_back(ch);
         syntheticChannelIndices.push_back(-1);
@@ -436,8 +444,8 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
                                    QStringLiteral("00000001"),
                                    QStringLiteral("CryptoMaterial00"));
 
-    if (channelNames.size() < 3) {
-        return makeError("validate", "Need at least 3 channels for multi-channel export.");
+    if (channelNames.empty()) {
+        return makeError("validate", "Need at least one channel for multi-channel export.");
     }
     const int nch = static_cast<int>(channelNames.size());
 
