@@ -510,6 +510,18 @@ void MeshRenderer::initialize(size_t maxInstances, size_t vertexCount, size_t in
     createPSO();
 }
 
+void MeshRenderer::setRenderTargetFormat(TEXTURE_FORMAT format)
+{
+    if (format == TEX_FORMAT_UNKNOWN || renderTargetFormat_ == format) {
+        return;
+    }
+
+    renderTargetFormat_ = format;
+    if (maxInstances_ > 0) {
+        createPSO();
+    }
+}
+
 void MeshRenderer::setFrameCostStats(ArtifactCore::RenderCostStats* stats)
 {
     frameCostStats_ = stats;
@@ -740,7 +752,10 @@ void MeshRenderer::createPSO()
     // Triangle list for mesh rendering
     PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-    PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = DefaultParticleRTVFormat; // Reuse particle RTV format
+    // Meshes are drawn both to the SDR swap-chain surface and to the floating
+    // point composition pipeline. A PSO must match the currently bound color
+    // attachment; reusing the particle's fixed SDR format breaks the latter.
+    PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = renderTargetFormat_;
     PSOCreateInfo.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
     
     // Alpha blending

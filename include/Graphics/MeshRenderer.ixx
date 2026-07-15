@@ -64,6 +64,12 @@ public:
      * @param indexCount Number of indices in the mesh (0 for non-indexed)
      */
     void initialize(size_t maxInstances, size_t vertexCount, size_t indexCount);
+
+    /**
+     * @brief Select the color attachment format used when creating mesh PSOs.
+     *        Call this before drawing to a different render target format.
+     */
+    void setRenderTargetFormat(Diligent::TEXTURE_FORMAT format);
     
     void setFrameCostStats(ArtifactCore::RenderCostStats* stats);
     void setPipelineStateCache(IPipelineStateCache* cache);
@@ -134,6 +140,8 @@ private:
     size_t maxInstances_ = 0;
     size_t vertexCount_ = 0;
     size_t indexCount_ = 0;
+    Diligent::TEXTURE_FORMAT renderTargetFormat_ =
+        Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
 
     struct ShaderConstants {
         float viewMatrix[16];
