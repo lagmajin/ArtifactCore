@@ -437,6 +437,13 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pSRB_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pTransparentPSO_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentSRB_;
+    struct PipelineSet {
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> opaquePSO;
+        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> opaqueSRB;
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> transparentPSO;
+        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> transparentSRB;
+    };
+    std::map<Diligent::TEXTURE_FORMAT, PipelineSet> pipelineSets_;
     bool transparentPass_ = false;
     
     // Mesh geometry buffers
@@ -517,6 +524,14 @@ void MeshRenderer::setRenderTargetFormat(TEXTURE_FORMAT format)
     }
 
     renderTargetFormat_ = format;
+    if (const auto cached = pImpl_->pipelineSets_.find(format);
+        cached != pImpl_->pipelineSets_.end()) {
+        pImpl_->pPSO_ = cached->second.opaquePSO;
+        pImpl_->pSRB_ = cached->second.opaqueSRB;
+        pImpl_->pTransparentPSO_ = cached->second.transparentPSO;
+        pImpl_->pTransparentSRB_ = cached->second.transparentSRB;
+        return;
+    }
     if (maxInstances_ > 0) {
         createPSO();
     }
@@ -856,6 +871,9 @@ void MeshRenderer::createPSO()
     };
     initializeBindings(pImpl_->pPSO_, pImpl_->pSRB_);
     initializeBindings(pImpl_->pTransparentPSO_, pImpl_->pTransparentSRB_);
+    pImpl_->pipelineSets_[renderTargetFormat_] = {
+        pImpl_->pPSO_, pImpl_->pSRB_, pImpl_->pTransparentPSO_,
+        pImpl_->pTransparentSRB_};
 }
 
 void MeshRenderer::updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
