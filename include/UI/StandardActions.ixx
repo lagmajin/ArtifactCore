@@ -77,7 +77,7 @@ public:
         addLayer->setShortcutText("Ctrl+Alt+Y");
 
         auto* delLayer = am->registerAction("artifact.layer.delete", "Delete Layer", "Delete selected layers", "Layer");
-        delLayer->setShortcutText("Ctrl+Alt+Del");
+        delLayer->setShortcutText("Delete");
 
         auto* moveUp = am->registerAction("artifact.layer.move_up", "Move Layer Up", "Bring layer to front", "Layer");
         moveUp->setShortcutText("Ctrl+Alt+Up");

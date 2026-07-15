@@ -601,15 +601,28 @@ void main(uint3 id : SV_DispatchThreadID)
 }
 )";
 
+// MatteSource is currently an RGBA8_UNORM upload of display-encoded source
+// pixels. Decode RGB before luma evaluation so gradient mattes are evaluated
+// in the same scene-linear space as the layer surface.
+LIBRARY_DLL_API const QByteArray matteSrgbToLinearHelper = QByteArray(R"(
+float3 matteSrgbToLinear(float3 value)
+{
+    float3 cutoff = step(value, float3(0.04045, 0.04045, 0.04045));
+    float3 low = value / 12.92;
+    float3 high = pow((value + 0.055) / 1.055, 2.4);
+    return lerp(high, low, cutoff);
+}
+)");
+
 // -------- Stencil Luma --------
-LIBRARY_DLL_API const QByteArray stencilLumaBlendShaderText = QByteArray(blendShaderHeader) + R"(
+LIBRARY_DLL_API const QByteArray stencilLumaBlendShaderText = QByteArray(blendShaderHeader) + matteSrgbToLinearHelper + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
     CHECK_BOUNDS
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
-    float luma = dot(src.rgb, float3(0.299, 0.587, 0.114));
+    float luma = dot(matteSrgbToLinear(src.rgb), float3(0.2126, 0.7152, 0.0722));
     float factor = saturate(luma * opacity);
     OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
 }
@@ -629,14 +642,14 @@ void main(uint3 id : SV_DispatchThreadID)
 )";
 
 // -------- Silhouette Luma --------
-LIBRARY_DLL_API const QByteArray silhouetteLumaBlendShaderText = QByteArray(blendShaderHeader) + R"(
+LIBRARY_DLL_API const QByteArray silhouetteLumaBlendShaderText = QByteArray(blendShaderHeader) + matteSrgbToLinearHelper + R"(
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
     CHECK_BOUNDS
     float4 src = SrcTex[id.xy];
     float4 dst = DstTex[id.xy];
-    float luma = dot(src.rgb, float3(0.299, 0.587, 0.114));
+    float luma = dot(matteSrgbToLinear(src.rgb), float3(0.2126, 0.7152, 0.0722));
     float factor = 1.0 - saturate(luma * opacity);
     OutTex[id.xy] = float4(dst.rgb * factor, dst.a * factor);
 }

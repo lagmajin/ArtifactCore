@@ -662,8 +662,12 @@ bool InputOperator::processKeyPress(QWidget* widget, int key, Qt::KeyboardModifi
         if (context.isEmpty() || context == impl_->activeContext_ ||
             context == QStringLiteral("Global")) {
             if (auto* binding = findMatchingBinding(keyMap, key, inputModifiers)) {
+                const auto callback = binding->callback();
+                if (!callback) {
+                    return processKeyPress(key, inputModifiers);
+                }
                 emit keyPressed(key, inputModifiers);
-                binding->callback();
+                callback();
                 emit actionExecuted(binding->actionId());
                 emit binding->activated();
                 return true;
@@ -691,8 +695,12 @@ bool InputOperator::processKeyPress(int key, InputEvent::Modifiers modifiers) {
         }
         
         auto* binding = keyMap->findBinding(key, modifiers);
-        if (binding && binding->callback()) {
-            binding->callback();
+        if (binding) {
+            const auto callback = binding->callback();
+            if (!callback) {
+                continue;
+            }
+            callback();
             emit actionExecuted(binding->actionId());
             emit binding->activated();
             return true;

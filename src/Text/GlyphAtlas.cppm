@@ -1,9 +1,7 @@
 module;
 #include <QFont>
 #include <QFontDatabase>
-#include <QFontMetricsF>
 #include <QImage>
-#include <QPainter>
 #include <QRawFont>
 #include <QString>
 #include <algorithm>
@@ -139,15 +137,14 @@ GlyphRect GlyphAtlas::acquire(const GlyphKey &key, const QFont &font) {
     }
   }
 
-  // atlas に書き込む
-  {
-    QPainter p(&atlasImage_);
-    p.setCompositionMode(QPainter::CompositionMode_Source);
-    p.drawImage(px, py, glyphRgba);
+  // atlas に直接コピーする。glyph asset生成境界でQtのcomposition pathを
+  // 通さず、RGBA8の所有バッファへ明示的に書き込む。
+  for (int y = 0; y < gh; ++y) {
+    std::memcpy(atlasImage_.scanLine(py + y) + px * 4,
+                glyphRgba.constScanLine(y), static_cast<size_t>(gw) * 4u);
   }
 
   // メトリクスを収集
-  QFontMetricsF fm(font);
   const QRectF br = rawFont.boundingRect(gindex);
 
   GlyphRect rect;

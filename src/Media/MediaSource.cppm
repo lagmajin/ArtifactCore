@@ -153,6 +153,9 @@ bool MediaSource::seek(int64_t timestampMs) {
 
     AVStream* stream = formatContext_->streams[streamIndex];
     int64_t ts = av_rescale_q(timestampMs, AVRational{1, 1000}, stream->time_base);
+    const int64_t streamOrigin =
+        stream->start_time != AV_NOPTS_VALUE ? stream->start_time : 0;
+    ts += streamOrigin;
 
     int ret = av_seek_frame(formatContext_, streamIndex, ts, AVSEEK_FLAG_BACKWARD);
     if (ret < 0) {
@@ -160,7 +163,7 @@ bool MediaSource::seek(int64_t timestampMs) {
                    << "timestampMs=" << timestampMs
                    << "err=" << av_strerror_string(ret);
         const int64_t offset = av_rescale_q(2, AVRational{1, 1}, stream->time_base);
-        const int64_t minTs = std::max<int64_t>(0, ts - offset);
+        const int64_t minTs = std::max<int64_t>(streamOrigin, ts - offset);
         const int64_t maxTs = ts + offset;
         ret = avformat_seek_file(formatContext_, streamIndex, minTs, ts, maxTs, AVSEEK_FLAG_BACKWARD);
     }

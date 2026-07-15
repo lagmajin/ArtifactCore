@@ -198,6 +198,8 @@ class MediaPlaybackController::Impl {
   std::mutex directDecodeMutex_;
   QString directMediaUrl_;
   int64_t directDecodeCursorFrame_ = -1;
+  int directVideoStreamIndex_ = -1;
+  AVRational directVideoTimeBase_ = {1, 1000};
   VkInstance vulkanInstance_{};
   VkPhysicalDevice vulkanPhysicalDevice_{};
   VkDevice vulkanDevice_{};
@@ -247,6 +249,8 @@ class MediaPlaybackController::Impl {
         directMediaSource_ = source.release();
         directVideoDecoder_ = decoder.release();
         directDecodeCursorFrame_ = -1;
+        directVideoStreamIndex_ = static_cast<int>(i);
+        directVideoTimeBase_ = ctx->streams[i]->time_base;
         return true;
       }
     }
@@ -265,17 +269,17 @@ class MediaPlaybackController::Impl {
     }
 
     std::lock_guard<std::mutex> lock(directDecodeMutex_);
-    if (!ensureDirectDecodeResources() || fps_ <= 0.0 || videoStreamIndex_ < 0) {
-      lastError_ = QStringLiteral("FFmpeg direct decode invalid state: media=%1 decoder=%2 fps=%3 videoStreamIndex=%4")
+    if (!ensureDirectDecodeResources() || fps_ <= 0.0 || directVideoStreamIndex_ < 0) {
+      lastError_ = QStringLiteral("FFmpeg direct decode invalid state: media=%1 decoder=%2 fps=%3 directVideoStreamIndex=%4")
           .arg(QStringView{directMediaSource_ && directMediaSource_->isOpen() ? QStringLiteral("open") : QStringLiteral("closed")})
           .arg(QStringView{directVideoDecoder_ ? QStringLiteral("ok") : QStringLiteral("null")})
           .arg(fps_)
-          .arg(videoStreamIndex_);
+          .arg(directVideoStreamIndex_);
       qWarning() << "[MediaPlayback] direct decode skipped: invalid state"
                  << "directMediaSource_=" << (directMediaSource_ && directMediaSource_->isOpen() ? "open" : "closed")
                  << "directVideoDecoder_=" << (directVideoDecoder_ ? "ok" : "null")
                  << "fps_=" << fps_
-                 << "videoStreamIndex_=" << videoStreamIndex_;
+                 << "directVideoStreamIndex_=" << directVideoStreamIndex_;
       return std::monostate{};
     }
 
@@ -310,11 +314,20 @@ class MediaPlaybackController::Impl {
 
     DecodedVideoFrame result = std::monostate{};
     DecodedVideoFrame lastDecodedFrame = std::monostate{};
-    const int64_t targetPts =
-        (videoTimeBase_.den > 0)
-            ? av_rescale_q(targetMs, AVRational{1, 1000}, videoTimeBase_)
-            : AV_NOPTS_VALUE;
     AVFormatContext* ctx = directMediaSource_->getFormatContext();
+    const AVStream* directVideoStream =
+        directVideoStreamIndex_ >= 0 &&
+                directVideoStreamIndex_ < static_cast<int>(ctx->nb_streams)
+            ? ctx->streams[directVideoStreamIndex_]
+            : nullptr;
+    int64_t targetPts =
+        (directVideoTimeBase_.den > 0)
+            ? av_rescale_q(targetMs, AVRational{1, 1000}, directVideoTimeBase_)
+            : AV_NOPTS_VALUE;
+    if (targetPts != AV_NOPTS_VALUE && directVideoStream &&
+        directVideoStream->start_time != AV_NOPTS_VALUE) {
+      targetPts += directVideoStream->start_time;
+    }
     const int maxPackets = std::max(512, videoPacketWaitAttempts_ * 8);
     int packetsRead = 0;
     bool hitEof = false;
@@ -356,7 +369,7 @@ class MediaPlaybackController::Impl {
       }
       ++packetsRead;
 
-      if (pkt->stream_index == videoStreamIndex_) {
+      if (pkt->stream_index == directVideoStreamIndex_) {
         int ret = directVideoDecoder_->sendPacket(pkt);
         if (ret == AVERROR(EAGAIN)) {
           drainFrames();
@@ -383,12 +396,12 @@ class MediaPlaybackController::Impl {
 
     if (!isDecodedVideoFrameUsable(result)) {
       directDecodeCursorFrame_ = -1;
-      lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 videoStreamIndex=%5 packetsRead=%6 maxPackets=%7 eof=%8 readError=%9")
+      lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 directVideoStreamIndex=%5 packetsRead=%6 maxPackets=%7 eof=%8 readError=%9")
           .arg(frameNumber)
           .arg(targetMs)
           .arg(targetPts)
           .arg(fps_)
-          .arg(videoStreamIndex_)
+          .arg(directVideoStreamIndex_)
           .arg(packetsRead)
           .arg(maxPackets)
           .arg(hitEof ? QStringLiteral("true") : QStringLiteral("false"))
@@ -397,7 +410,7 @@ class MediaPlaybackController::Impl {
                  << "targetMs=" << targetMs
                  << "targetPts=" << targetPts
                  << "fps=" << fps_
-                 << "videoStreamIndex=" << videoStreamIndex_
+                 << "directVideoStreamIndex=" << directVideoStreamIndex_
                  << "packetsRead=" << packetsRead
                  << "maxPackets=" << maxPackets
                  << "eof=" << hitEof
@@ -435,16 +448,31 @@ class MediaPlaybackController::Impl {
     durationMs_ = ctx->duration / 1000;
     fps_ = 0.0;
     totalFrames_ = 0;
+    videoStreamIndex_ = -1;
+    videoTimeBase_ = AVRational{1, 1000};
     for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
       if (ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-        videoStreamIndex_ = i;
-        videoTimeBase_ = ctx->streams[i]->time_base;
-        AVRational fr = ctx->streams[i]->avg_frame_rate;
-        if (fr.den > 0) {
+        AVStream* stream = ctx->streams[i];
+        videoStreamIndex_ = static_cast<int>(i);
+        videoTimeBase_ = stream->time_base;
+        AVRational fr = stream->avg_frame_rate;
+        if (fr.num <= 0 || fr.den <= 0) {
+          fr = av_guess_frame_rate(ctx, stream, nullptr);
+        }
+        if (fr.num <= 0 || fr.den <= 0) {
+          fr = stream->r_frame_rate;
+        }
+        if (fr.num > 0 && fr.den > 0) {
           fps_ = static_cast<double>(fr.num) / fr.den;
-          if (durationMs_ > 0 && fps_ > 0) {
-            totalFrames_ = static_cast<int64_t>((durationMs_ / 1000.0) * fps_);
-          }
+        } else if (stream->nb_frames > 0 && durationMs_ > 0) {
+          fps_ = static_cast<double>(stream->nb_frames) /
+                 (static_cast<double>(durationMs_) / 1000.0);
+        }
+        if (stream->nb_frames > 0) {
+          totalFrames_ = stream->nb_frames;
+        } else if (durationMs_ > 0 && fps_ > 0.0) {
+          totalFrames_ = static_cast<int64_t>(
+              std::llround((durationMs_ / 1000.0) * fps_));
         }
         break;
       }
@@ -563,7 +591,7 @@ class MediaPlaybackController::Impl {
     metadata_.streams.clear();
     metadata_.streams.reserve(ctx->nb_streams);
     for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
-      const AVStream* stream = ctx->streams[i];
+      AVStream* stream = ctx->streams[i];
       const AVCodecParameters* params = stream->codecpar;
       StreamInfo streamInfo;
       streamInfo.index = static_cast<int>(i);
@@ -574,10 +602,24 @@ class MediaPlaybackController::Impl {
         case AVMEDIA_TYPE_VIDEO:
           streamInfo.type = MediaType::Video;
           streamInfo.resolution = QSize(params->width, params->height);
-          if (stream->avg_frame_rate.den > 0) {
-            streamInfo.frameRate = av_q2d(stream->avg_frame_rate);
+          {
+            AVRational frameRate = stream->avg_frame_rate;
+            if (frameRate.num <= 0 || frameRate.den <= 0) {
+              frameRate = av_guess_frame_rate(ctx, stream, nullptr);
+            }
+            if (frameRate.num <= 0 || frameRate.den <= 0) {
+              frameRate = stream->r_frame_rate;
+            }
+            if (frameRate.num > 0 && frameRate.den > 0) {
+              streamInfo.frameRate = av_q2d(frameRate);
+            }
           }
           streamInfo.frameCount = stream->nb_frames;
+          if (streamInfo.frameCount <= 0 && streamInfo.frameRate > 0.0 &&
+              streamInfo.duration > 0.0) {
+            streamInfo.frameCount = static_cast<int64_t>(
+                std::llround(streamInfo.duration * streamInfo.frameRate));
+          }
           if (params->codec_id != AV_CODEC_ID_NONE) {
             const AVCodecDescriptor* desc = avcodec_descriptor_get(params->codec_id);
             if (desc) {
@@ -1356,6 +1398,8 @@ void FFmpegPlaybackBackend::close(MediaPlaybackController::Impl& impl) {
     impl.directVideoDecoder_ = nullptr;
   }
   impl.directDecodeCursorFrame_ = -1;
+  impl.directVideoStreamIndex_ = -1;
+  impl.directVideoTimeBase_ = AVRational{1, 1000};
   impl.directMediaUrl_.clear();
   if (impl.audioDecoder_) {
     impl.audioDecoder_->flush();

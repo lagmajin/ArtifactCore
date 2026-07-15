@@ -141,9 +141,9 @@ bool loadLinearTexture(ArtifactCore::GpuContext& context, const QString& path,
 
 const char* MeshVSSource = R"(
 struct VSInput {
-    float3 pos    : POSITION;
-    float3 normal : NORMAL;
-    float2 uv     : TEXCOORD0;
+    float3 pos    : ATTRIB0;
+    float3 normal : ATTRIB1;
+    float2 uv     : ATTRIB2;
 };
 
 struct PSInput {
@@ -238,8 +238,8 @@ struct SceneLight {
 
 cbuffer SceneLighting : register(b2) {
     SceneLight SceneLights[8];
-    uint SceneLightCount;
-    float3 SceneCameraPosition;
+    uint4 SceneLightingMeta;
+    float4 SceneCameraPosition;
 };
 
 float3 applyNormalMap(float3 position, float3 geometricNormal, float2 uv,
@@ -312,15 +312,15 @@ float4 PSMain(PSInput In) : SV_Target {
     }
 
     float4 solidBase = (In.Mode > 7.5 && In.Mode < 8.5) ? In.Color : baseColor;
-    if (SceneLightCount > 0) {
-        float3 cameraDelta = SceneCameraPosition - In.WorldPosition;
+    if (SceneLightingMeta.x > 0) {
+        float3 cameraDelta = SceneCameraPosition.xyz - In.WorldPosition;
         float3 viewDirection = cameraDelta *
             rsqrt(max(dot(cameraDelta, cameraDelta), 1e-8));
         float3 directColor = float3(0.0, 0.0, 0.0);
         float3 ambientColor = float3(0.0, 0.0, 0.0);
         float3 F0 = lerp(float3(0.04, 0.04, 0.04), solidBase.rgb, metallic);
         [loop]
-        for (uint lightIndex = 0; lightIndex < min(SceneLightCount, 8u); ++lightIndex) {
+        for (uint lightIndex = 0; lightIndex < min(SceneLightingMeta.x, 8u); ++lightIndex) {
             SceneLight light = SceneLights[lightIndex];
             uint lightType = (uint)(light.PositionType.w + 0.5);
             float3 radiance = light.ColorAttenuationConstant.rgb *
@@ -417,8 +417,8 @@ struct MeshRenderer::Impl {
 
     struct SceneLightingConstants {
         SceneLightGpu lights[MaxSceneLights] = {};
-        std::uint32_t lightCount = 0;
-        float cameraPosition[3] = {};
+        std::uint32_t lightingMeta[4] = {};
+        float cameraPosition[4] = {};
     };
 
     struct MaterialConstants {
@@ -429,7 +429,7 @@ struct MeshRenderer::Impl {
 
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 16);
     static_assert(sizeof(SceneLightingConstants) ==
-                  sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 4);
+                  sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
     static_assert(sizeof(MaterialConstants) == sizeof(float) * 12);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
@@ -789,21 +789,21 @@ void MeshRenderer::createPSO()
     PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = 3;
     std::array<LayoutElement, 3> layoutElements;
     // Position
-    layoutElements[0].HLSLSemantic = "POSITION";
+    layoutElements[0].HLSLSemantic = "ATTRIB0";
     layoutElements[0].InputIndex = 0;
     layoutElements[0].BufferSlot = 0;
     layoutElements[0].NumComponents = 3;
     layoutElements[0].ValueType = VT_FLOAT32;
     layoutElements[0].IsNormalized = false;
     // Normal
-    layoutElements[1].HLSLSemantic = "NORMAL";
+    layoutElements[1].HLSLSemantic = "ATTRIB1";
     layoutElements[1].InputIndex = 1;
     layoutElements[1].BufferSlot = 1;
     layoutElements[1].NumComponents = 3;
     layoutElements[1].ValueType = VT_FLOAT32;
     layoutElements[1].IsNormalized = false;
     // UV
-    layoutElements[2].HLSLSemantic = "TEXCOORD";
+    layoutElements[2].HLSLSemantic = "ATTRIB2";
     layoutElements[2].InputIndex = 2;
     layoutElements[2].BufferSlot = 2;
     layoutElements[2].NumComponents = 2;
@@ -1042,6 +1042,7 @@ void MeshRenderer::setViewMatrix(const float* matrix)
             -(matrix[4] * tx + matrix[5] * ty + matrix[6] * tz);
         pImpl_->sceneLighting_.cameraPosition[2] =
             -(matrix[8] * tx + matrix[9] * ty + matrix[10] * tz);
+        pImpl_->sceneLighting_.cameraPosition[3] = 0.0f;
     }
 }
 
@@ -1064,15 +1065,15 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
 {
     std::fill(std::begin(pImpl_->sceneLighting_.lights),
               std::end(pImpl_->sceneLighting_.lights), Impl::SceneLightGpu{});
-    pImpl_->sceneLighting_.lightCount = 0;
+    pImpl_->sceneLighting_.lightingMeta[0] = 0;
     for (const auto& light : lights) {
         if (!light.enabled() ||
-            pImpl_->sceneLighting_.lightCount >= Impl::MaxSceneLights) {
+            pImpl_->sceneLighting_.lightingMeta[0] >= Impl::MaxSceneLights) {
             continue;
         }
 
         auto& gpuLight =
-            pImpl_->sceneLighting_.lights[pImpl_->sceneLighting_.lightCount++];
+            pImpl_->sceneLighting_.lights[pImpl_->sceneLighting_.lightingMeta[0]++];
         const auto position = light.position();
         const auto direction = light.direction();
         const auto color = light.color();
