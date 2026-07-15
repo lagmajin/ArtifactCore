@@ -16,7 +16,7 @@ export namespace ArtifactCore {
   Ambisonics  // 球面調和関数（VRなどで利用）
  };
 
- enum class ChannelType {
+ enum class AudioChannelType {
   Left, Right, Center, LFE, LeftSurround, RightSurround,
   LeftBack, RightBack, TopFrontLeft, TopFrontRight, // 10ch用など
   Unknown

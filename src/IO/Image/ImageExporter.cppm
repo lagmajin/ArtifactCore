@@ -483,9 +483,45 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
         }
     }
 
-    // Wrap in ImageBuf and write
-    ImageBuf imageBuf(spec, interleaved.data());
-    return encodeImageBufToPath(imageBuf, filePath, options);
+    // Do not route multi-channel data through encodeImageBufToPath(). That
+    // helper intentionally writes display images (3/4 channels), whereas an
+    // EXR may contain an arbitrary number of named channels. Asking OIIO to
+    // read ROI::All() from such an ImageBuf after allocating only 4 channels
+    // causes an out-of-bounds copy in ImageBuf::get_pixels().
+    const QString tempPath = makeTemporaryPathNear(filePath);
+    const QByteArray tempPathUtf8 = tempPath.toUtf8();
+    std::unique_ptr<ImageOutput> out = ImageOutput::create(tempPathUtf8.constData());
+    if (!out) {
+        return makeError("encode.create",
+                         "Could not create ImageOutput for: " + filePath);
+    }
+    if (!out->open(tempPathUtf8.constData(), spec)) {
+        return makeError("encode.open",
+                         "Could not open output: " +
+                             QString::fromUtf8(out->geterror()));
+    }
+    // interleaved is float regardless of the destination storage type; OIIO
+    // performs the conversion requested by spec.format while retaining every
+    // named channel in the EXR.
+    if (!out->write_image(TypeDesc::FLOAT, interleaved.data())) {
+        const QString error = QString::fromUtf8(out->geterror());
+        out->close();
+        QFile::remove(tempPath);
+        return makeError("encode.write", "Could not write image: " + error);
+    }
+    if (!out->close()) {
+        QFile::remove(tempPath);
+        return makeError("encode.close",
+                         "Failed to close output: " +
+                             QString::fromUtf8(out->geterror()));
+    }
+
+    ImageExportResult committed = commitAtomically(tempPath, filePath);
+    if (!committed.success) {
+        QFile::remove(tempPath);
+        return committed;
+    }
+    return ImageExportResult{true, {}, {}};
 }
 
 std::future<ImageExportResult> ImageExporter::writeMultiChannelAsync(const MultiChannelImage& multiImage, const QString& filePath, const ImageExportOptions& options)
