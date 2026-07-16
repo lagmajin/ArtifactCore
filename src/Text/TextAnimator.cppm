@@ -284,8 +284,12 @@ float TextAnimatorEngine::calculateWeightForGlyph(const GlyphItem& glyph,
             break;
         case SelectorUnits::Percentage:
         default:
-            positionIndex = glyphIndex;
-            totalCount = glyphCount;
+            // Percentage is the default authoring mode and must not split a
+            // grapheme (combining marks, emoji ZWJ, variation selectors).
+            positionIndex = glyph.clusterIndex >= 0
+                                ? glyph.clusterIndex
+                                : glyphIndex;
+            totalCount = clusterCount > 0 ? clusterCount : glyphCount;
             break;
     }
 
@@ -355,7 +359,13 @@ void TextAnimatorEngine::applyAnimator(
                                                        tagCount, selector);
         
         // ウィグリーの重み
-        float wigglyWeight = wiggly.enabled ? calculateWigglyWeight(i, time, wiggly) : 1.0f;
+        const int animationIndex = glyphs[i].clusterIndex >= 0
+                                       ? glyphs[i].clusterIndex
+                                       : i;
+        float wigglyWeight = wiggly.enabled
+                                 ? calculateWigglyWeight(animationIndex, time,
+                                                        wiggly)
+                                 : 1.0f;
         
         // 最終的な「適用度」
         float totalWeight = selectorWeight * wigglyWeight;
@@ -366,9 +376,14 @@ void TextAnimatorEngine::applyAnimator(
         // トラッキング（累積シフト）
         glyphs[i].offsetPosition.setX(glyphs[i].offsetPosition.x() + cumulativeTracking);
         
+        const bool clusterEndsHere =
+            i + 1 >= n || glyphs[i].clusterIndex < 0 ||
+            glyphs[i + 1].clusterIndex != glyphs[i].clusterIndex;
         if (std::abs(totalWeight) < 0.0001f) {
             // トラッキングだけは更新し続ける
-            cumulativeTracking += props.tracking * totalWeight;
+            if (clusterEndsHere) {
+                cumulativeTracking += props.tracking * totalWeight;
+            }
             continue;
         }
 
@@ -383,7 +398,9 @@ void TextAnimatorEngine::applyAnimator(
         glyphs[i].offsetZ += props.z * totalWeight;
 
         // トラッキングの累積（文字ごとの個別適用）
-        cumulativeTracking += props.tracking * totalWeight;
+        if (clusterEndsHere) {
+            cumulativeTracking += props.tracking * totalWeight;
+        }
 
         // カラーとストローク
         if (props.colorEnabled) {

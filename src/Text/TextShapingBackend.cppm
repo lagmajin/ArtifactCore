@@ -5,6 +5,7 @@ module;
 #include <QList>
 #include <QPointF>
 #include <QRectF>
+#include <QTextBoundaryFinder>
 #include <QTextLayout>
 #include <QString>
 #include <QStringLiteral>
@@ -438,6 +439,71 @@ TextLayoutContract buildContract(const QString& text,
       .visualOrder = 0,
   });
 
+  const int textUtf16Length = static_cast<int>(text.size());
+  std::vector<int> utf16ToCodepoint(
+      static_cast<size_t>(textUtf16Length + 1), 0);
+  int codepointCursor = 0;
+  for (int utf16Cursor = 0; utf16Cursor < textUtf16Length;) {
+    const int unitCount = text.at(utf16Cursor).isHighSurrogate() &&
+                                  utf16Cursor + 1 < textUtf16Length &&
+                                  text.at(utf16Cursor + 1).isLowSurrogate()
+                              ? 2
+                              : 1;
+    for (int unit = 0; unit < unitCount; ++unit) {
+      utf16ToCodepoint[static_cast<size_t>(utf16Cursor + unit)] =
+          codepointCursor;
+    }
+    utf16Cursor += unitCount;
+    ++codepointCursor;
+    utf16ToCodepoint[static_cast<size_t>(utf16Cursor)] = codepointCursor;
+  }
+
+  QTextBoundaryFinder graphemeFinder(QTextBoundaryFinder::Grapheme, text);
+  graphemeFinder.toStart();
+  int graphemeStartUtf16 = 0;
+  int graphemeIndex = 0;
+  while (true) {
+    const int graphemeEndUtf16 = graphemeFinder.toNextBoundary();
+    if (graphemeEndUtf16 < 0) {
+      break;
+    }
+    const int logicalStart = utf16ToCodepoint[static_cast<size_t>(
+        std::clamp(graphemeStartUtf16, 0, textUtf16Length))];
+    const int logicalEnd = utf16ToCodepoint[static_cast<size_t>(
+        std::clamp(graphemeEndUtf16, 0, textUtf16Length))];
+    const int logicalLength = std::max(0, logicalEnd - logicalStart);
+    if (logicalLength > 0 && logicalStart < static_cast<int>(u32text.size())) {
+      const QString graphemeText =
+          text.mid(graphemeStartUtf16,
+                   graphemeEndUtf16 - graphemeStartUtf16);
+      bool emojiSequence = false;
+      for (const uint code : graphemeText.toUcs4()) {
+        emojiSequence = emojiSequence ||
+                        (code >= 0x1F300 && code <= 0x1FAFF) ||
+                        code == 0x200D || code == 0xFE0F;
+      }
+      const char32_t firstCode =
+          u32text[static_cast<size_t>(logicalStart)];
+      const QString scriptTag = scriptTagForCodepoint(firstCode);
+      contract.clusters.push_back(TextClusterSpan{
+          .logicalStart = logicalStart,
+          .logicalLength = logicalLength,
+          .visualStart = graphemeIndex,
+          .visualLength = 1,
+          .clusterId = QStringLiteral("cluster_%1_%2")
+                           .arg(logicalStart)
+                           .arg(logicalLength),
+          .selectorTag = scriptTag,
+          .stableTokenId = stableTokenIdForCodepoint(firstCode, logicalStart),
+          .scriptTag = scriptTag,
+          .isLigature = false,
+          .isEmojiSequence = emojiSequence,
+      });
+      ++graphemeIndex;
+    }
+    graphemeStartUtf16 = graphemeEndUtf16;
+  }
+
   int lineStart = 0;
   int lineIndex = 0;
   int scriptStart = 0;
@@ -514,21 +580,6 @@ TextLayoutContract buildContract(const QString& text,
       currentScriptDirection = scriptDirection;
       currentScriptComplex = scriptComplex;
     }
-    const bool isEmojiSequence = code >= 0x1F300 && code <= 0x1FAFF;
-    const bool isLigature = false;
-    contract.clusters.push_back(TextClusterSpan{
-        .logicalStart = i,
-        .logicalLength = 1,
-        .visualStart = i,
-        .visualLength = 1,
-        .clusterId = QStringLiteral("cluster_%1").arg(i),
-        .selectorTag = scriptTagForCodepoint(code),
-        .stableTokenId = stableTokenIdForCodepoint(code, i),
-        .scriptTag = scriptTagForCodepoint(code),
-        .isLigature = isLigature,
-        .isEmojiSequence = isEmojiSequence,
-    });
-
     if (isPunctuationCodepoint(code)) {
       contract.punctuationRuns.push_back(TextPunctuationRun{
           .logicalStart = i,
@@ -1085,15 +1136,43 @@ void appendRubyOverlays(std::vector<GlyphItem>& glyphs,
   }
 }
 
-TextShapingResult makeIdentityResult(const std::vector<GlyphItem>& glyphs,
+TextShapingResult makeIdentityResult(std::vector<GlyphItem> glyphs,
                                      const TextShapingRequest& request)
 {
   TextShapingResult result;
-  result.glyphs = glyphs;
   result.contract = buildContract(request.text, request);
-  result.logicalToVisual.reserve(static_cast<int>(glyphs.size()));
-  result.visualToLogical.reserve(static_cast<int>(glyphs.size()));
-  for (int i = 0; i < static_cast<int>(glyphs.size()); ++i) {
+  const int glyphCount = static_cast<int>(glyphs.size());
+  std::vector<int> logicalToCluster(
+      static_cast<size_t>(request.text.toUcs4().size()), -1);
+  for (int clusterIndex = 0;
+       clusterIndex < result.contract.clusters.size(); ++clusterIndex) {
+    const auto& cluster = result.contract.clusters.at(clusterIndex);
+    const int logicalEnd = cluster.logicalStart + cluster.logicalLength;
+    for (int logical = cluster.logicalStart; logical < logicalEnd; ++logical) {
+      if (logical >= 0 && logical < static_cast<int>(logicalToCluster.size())) {
+        logicalToCluster[static_cast<size_t>(logical)] = clusterIndex;
+      }
+    }
+  }
+  for (auto& glyph : glyphs) {
+    if (glyph.index >= 0 &&
+        glyph.index < static_cast<int>(logicalToCluster.size())) {
+      const int clusterIndex =
+          logicalToCluster[static_cast<size_t>(glyph.index)];
+      if (clusterIndex < 0) {
+        continue;
+      }
+      const auto& cluster = result.contract.clusters.at(clusterIndex);
+      glyph.clusterIndex = clusterIndex;
+      glyph.clusterId = cluster.clusterId;
+      glyph.selectorTag = cluster.selectorTag;
+      glyph.stableTokenId = cluster.stableTokenId;
+    }
+  }
+  result.glyphs = std::move(glyphs);
+  result.logicalToVisual.reserve(glyphCount);
+  result.visualToLogical.reserve(glyphCount);
+  for (int i = 0; i < glyphCount; ++i) {
     result.logicalToVisual.push_back(i);
     result.visualToLogical.push_back(i);
   }
