@@ -54,6 +54,14 @@ struct CompositionNesting {
     bool isRoot() const { return parentCompositionId.isNil(); }
 };
 
+/// プリコンポーズレイヤー逆引き用の参照情報
+/// parentLayerId がスタレな CompositionNesting とは別に、実際のプリコンポーズ
+/// レイヤーIDと親コンポジションIDの対を保持する。
+struct PrecompLayerRef {
+    CompositionID parentCompId;       ///< 親コンポジション
+    LayerID precompLayerId;           ///< 親内のプリコンポーズレイヤー
+};
+
 /// プリコンポーズオプション
 struct PreComposeOptions {
     QString name;                       ///< 新規コンポジション名
@@ -128,6 +136,13 @@ public:
     
     /// プリコンポーズレイヤーの元コンポジションID取得
     CompositionID getSourceCompositionId(LayerID precompLayerId) const;
+    
+    /// 実プリコンポーズレイヤーを登録（parentCompositionId も正しい値で更新）。
+    /// ArtifactProjectService の precompose 経路で、実レイヤー作成直後に呼ぶ。
+    void registerPrecompLayer(CompositionID parentCompId, LayerID precompLayerId, CompositionID childCompId);
+    
+    /// 子コンポジションを参照する全プリコンポーズレイヤーを逆引きする。
+    QVector<PrecompLayerRef> getPrecompLayersForChild(CompositionID childCompId) const;
     
     /// コンポジションのネスト階層を取得
     QVector<CompositionID> getCompositionHierarchy(CompositionID compositionId) const;
