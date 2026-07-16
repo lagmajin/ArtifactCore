@@ -66,6 +66,9 @@ public:
     // コンポジション -> ネスト情報
     QMap<CompositionID, CompositionNesting> nestingInfo;
 
+    // 子コンポジション -> プリコンポーズレイヤーID（逆索引）
+    QMultiMap<CompositionID, LayerID> childSourceMap;
+
     // プリコンポーズレイヤー判定用
     // QSet<LayerID> precomposeLayers; // Note: Requires QT_FORWARD_DECLARE_CLASS or proper include
 };
@@ -164,6 +167,7 @@ bool PreComposeManager::unprecompose(
     const CompositionID childCompId = *sourceIt;
     impl_->layerSourceMap.erase(sourceIt);
     impl_->layerStartFrameMap.remove(precompLayerId);
+    impl_->childSourceMap.remove(childCompId);
     impl_->nestingInfo.remove(childCompId);
 
     auto parentIt = impl_->nestingMap.find(compositionId);
@@ -238,6 +242,48 @@ double PreComposeManager::precomposeLayerStartFrame(
         return 0.0;
     }
     return impl_->layerStartFrameMap.value(precompLayerId, 0.0);
+}
+
+void PreComposeManager::registerPrecompLayer(CompositionID parentCompId,
+                                             LayerID precompLayerId,
+                                             CompositionID childCompId) {
+    if (!impl_ || precompLayerId.isNil() || childCompId.isNil() || parentCompId.isNil()) {
+        return;
+    }
+    // 実レイヤー作成後に呼ばれる。スタレな bookkeeping を正しい値で上書きする。
+    impl_->layerSourceMap[precompLayerId] = childCompId;
+    impl_->childSourceMap.insert(childCompId, precompLayerId);
+    CompositionNesting nesting;
+    nesting.compositionId = childCompId;
+    nesting.parentCompositionId = parentCompId;
+    nesting.parentLayerId = precompLayerId;
+    const int newLevel = impl_->nestingInfo.contains(parentCompId)
+                             ? impl_->nestingInfo[parentCompId].nestingLevel + 1
+                             : 1;
+    nesting.nestingLevel = newLevel;
+    impl_->nestingInfo[childCompId] = nesting;
+    if (!impl_->nestingMap.contains(parentCompId)) {
+        impl_->nestingMap[parentCompId] = QVector<CompositionID>();
+    }
+    if (!impl_->nestingMap[parentCompId].contains(childCompId)) {
+        impl_->nestingMap[parentCompId].append(childCompId);
+    }
+}
+
+QVector<PrecompLayerRef> PreComposeManager::getPrecompLayersForChild(
+    CompositionID childCompId) const {
+    QVector<PrecompLayerRef> refs;
+    if (!impl_) {
+        return refs;
+    }
+    const auto parentCompId = impl_->nestingInfo.contains(childCompId)
+                                  ? impl_->nestingInfo[childCompId].parentCompositionId
+                                  : CompositionID();
+    const auto layerIds = impl_->childSourceMap.values(childCompId);
+    for (const auto& layerId : layerIds) {
+        refs.append(PrecompLayerRef{parentCompId, layerId});
+    }
+    return refs;
 }
 
 QVector<CompositionID> PreComposeManager::getCompositionHierarchy(CompositionID compositionId) const {

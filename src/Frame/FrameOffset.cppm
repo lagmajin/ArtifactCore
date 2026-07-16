@@ -136,14 +136,14 @@ RationalTime FrameOffset::toRationalTime(const FrameRate& rate) const
 {
  int64_t scale = static_cast<int64_t>(rate.framerate());
  if (scale <= 0) scale = 30;
- return RationalTime(static_cast<int64_t>(value()), scale);
+ return RationalTime::fromFrameCount(static_cast<int64_t>(value()), scale);
 }
 
 FrameOffset FrameOffset::fromRationalTime(const RationalTime& rt, const FrameRate& rate)
 {
  int64_t fps = static_cast<int64_t>(rate.framerate());
  if (fps <= 0) fps = 30;
- int64_t frames = rt.rescaledTo(fps);
+ int64_t frames = rt.toFrameCount(fps);
  return FrameOffset(static_cast<int>(frames));
 }
 

@@ -3,6 +3,7 @@ module;
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <string>
 #include <QtCore/QString>
 #include <QtCore/QJsonObject>
@@ -12,6 +13,7 @@ import Container.NamedVector;
 import Frame.Position;
 import Frame.Offset;
 import Frame.Rate;
+import Time.Rational;
 
 namespace ArtifactCore {
 
@@ -107,6 +109,13 @@ namespace ArtifactCore {
 
  int64_t FrameRange::length() const {
   return impl_->duration();
+ }
+
+ int64_t FrameRange::frameCount() const {
+  if (!isValid() || isInfinite()) {
+   return 0;
+  }
+  return impl_->duration() + 1;
  }
 
  FramePosition FrameRange::startPosition() const {
@@ -279,7 +288,7 @@ namespace ArtifactCore {
 
  std::vector<int64_t> FrameRange::frames() const {
   NamedVector<int64_t> result{makeNamedVector<int64_t>(ContainerName{"FrameRangeFrames"})};
-  int64_t count = duration() + 1;
+  int64_t count = frameCount();
   
   if (count <= 0 || count > 1000000) {  // ���S�̂��ߏ��
    return result.toStdVector();
@@ -325,6 +334,17 @@ namespace ArtifactCore {
 
  double FrameRange::durationSeconds(const FrameRate& rate) const {
   return durationSeconds(rate.framerate());
+ }
+
+ RationalTime FrameRange::durationRationalTime(int64_t fps) const {
+  if (fps <= 0 || !isValid() || isInfinite()) {
+   return RationalTime();
+  }
+  return RationalTime::fromFrameCount(duration(), fps);
+ }
+
+ RationalTime FrameRange::durationRationalTime(const FrameRate& rate) const {
+  return durationRationalTime(static_cast<int64_t>(rate.framerate()));
  }
 
  QString FrameRange::toTimecode(double fps) const {
@@ -442,6 +462,10 @@ namespace ArtifactCore {
 
  FrameRange FrameRange::fromDuration(int64_t start, int64_t duration) {
   return FrameRange(start, start + duration);
+ }
+
+ FrameRange FrameRange::fromFrameCount(int64_t start, int64_t frameCount) {
+  return fromDuration(start, frameCount);
  }
 
 }
