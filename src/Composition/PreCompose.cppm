@@ -199,6 +199,7 @@ bool PreComposeManager::restorePrecompose(
     }
 
     impl_->layerSourceMap[precompLayerId] = childCompositionId;
+    impl_->childSourceMap.insert(childCompositionId, precompLayerId);
 
     CompositionNesting nesting;
     nesting.compositionId = childCompositionId;
