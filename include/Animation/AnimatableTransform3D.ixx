@@ -22,6 +22,7 @@ export namespace ArtifactCore
     float rotation = 0.0f;
     float scaleX = 1.0f;
     float scaleY = 1.0f;
+    float scaleZ = 1.0f;
     float anchorX = 0.0f;
     float anchorY = 0.0f;
     float anchorZ = 0.0f;
@@ -62,6 +63,7 @@ export namespace ArtifactCore
   void setAnchor(const RationalTime& time, float x, float y, float z = 0.0f);
   void setRotation(const RationalTime& time, float degrees);
   void setScale(const RationalTime& time, float xs, float ys);
+  void setScale(const RationalTime& time, float xs, float ys, float zs);
   void setCurrentPosition(float x, float y);
   void setCurrentPositionZ(float z);
   void setCurrentRotation(float degrees);
@@ -82,6 +84,7 @@ export namespace ArtifactCore
   float initialRotation() const;
   float scaleX() const;
   float scaleY() const;
+  float scaleZ() const;
   float anchorX() const;
   float anchorY() const;
   float anchorZ() const;

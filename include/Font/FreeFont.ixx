@@ -3,6 +3,7 @@ module;
 
 #include <vector>
 #include <algorithm>
+#include <cmath>
 
 #include <QString>
 #include <QStringList>
@@ -151,7 +152,17 @@ public:
  {
   const QString preferred = preferredFamily.trimmed();
   if (!preferred.isEmpty() && isFamilyAvailable(preferred)) {
-   return preferred;
+   QFont preferredFont(preferred);
+   bool needsCjkFallback = false;
+   for (const QChar ch : sampleText) {
+    if (containsCjkCharacters(QString(ch)) && !preferredFont.supportsCharacter(ch)) {
+     needsCjkFallback = true;
+     break;
+    }
+   }
+   if (!needsCjkFallback) {
+    return preferred;
+   }
   }
 
   if (containsCjkCharacters(sampleText)) {
@@ -184,6 +195,7 @@ public:
   font.setStrikeOut(style.strikethrough);
   font.setCapitalization(style.allCaps ? QFont::AllUppercase : QFont::MixedCase);
   font.setLetterSpacing(QFont::AbsoluteSpacing, style.tracking);
+  font.setStretch(std::clamp(static_cast<int>(std::lround(style.fontStretch)), 50, 200));
   return font;
  }
 };

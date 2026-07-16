@@ -34,6 +34,7 @@ export struct TextStyle {
   float fontSize = 60.0f;
   float pixelSize = 60.0f;
   float tracking = 0.0f;
+  float fontStretch = 100.0f;
   float leading = -1.0f;
   FontWeight fontWeight = FontWeight::Normal;
   FontStyle fontStyle = FontStyle::Normal;

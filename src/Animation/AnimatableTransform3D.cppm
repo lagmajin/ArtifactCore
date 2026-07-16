@@ -56,6 +56,7 @@ public:
 
   float initialX_ = 0, initialY_ = 0, initialZ_ = 0;
   float initialScaleX_ = 1, initialScaleY_ = 1;
+  float initialScaleZ_ = 1;
   float initialRotation_ = 0;
 
   AnimatableValueT<float> x_;
@@ -64,6 +65,7 @@ public:
   AnimatableValueT<float> rotation_;
   AnimatableValueT<float> scaleX_;
   AnimatableValueT<float> scaleY_;
+  AnimatableValueT<float> scaleZ_;
   AnimatableValueT<float> anchorX_;
   AnimatableValueT<float> anchorY_;
   AnimatableValueT<float> anchorZ_;
@@ -75,6 +77,7 @@ public:
   float currentRotation_ = 0.0f;
   float currentScaleX_ = 1.0f;
   float currentScaleY_ = 1.0f;
+  float currentScaleZ_ = 1.0f;
 
   std::optional<float2> spatialPositionAt(const FramePosition& frame) const {
     const auto xFrames = x_.getKeyFrames();
@@ -142,6 +145,7 @@ public:
     // Scale defaults to 1.0f so "no keyframes" still means "unchanged size".
     scaleX_.setCurrent(1.0f);
     scaleY_.setCurrent(1.0f);
+    scaleZ_.setCurrent(1.0f);
   }
   ~Impl() = default;
   Impl(const Impl& other) = default;
@@ -324,6 +328,11 @@ float AnimatableTransform3D::scaleY() const
   return impl_->currentScaleY_;
 }
 
+float AnimatableTransform3D::scaleZ() const
+{
+  return impl_->currentScaleZ_;
+}
+
 float AnimatableTransform3D::anchorX() const
 {
   return impl_->anchorX_.current();
@@ -349,6 +358,14 @@ void AnimatableTransform3D::setScale(const RationalTime& time, float xs, float y
   impl_->scaleY_.addKeyFrame(frame, ys);
   impl_->currentScaleX_ = xs;
   impl_->currentScaleY_ = ys;
+}
+
+void AnimatableTransform3D::setScale(const RationalTime& time, float xs, float ys, float zs)
+{
+  setScale(time, xs, ys);
+  FramePosition frame(time.toFrameCount(24));
+  impl_->scaleZ_.addKeyFrame(frame, zs);
+  impl_->currentScaleZ_ = zs;
 }
 
 // ============================================
@@ -462,7 +479,7 @@ float4x4 AnimatableTransform3D::getMatrix() const
   float4x4 matrix = float4x4::Identity();
   
   // 1. �X�P�[���s��
-  float4x4 scaleMatrix = float4x4::Scale(impl_->currentScaleX_, impl_->currentScaleY_, 1.0f);
+  float4x4 scaleMatrix = float4x4::Scale(impl_->currentScaleX_, impl_->currentScaleY_, impl_->currentScaleZ_);
   
   // 2. ��]�s��iZ����]�A�x�����烉�W�A���֕ϊ��j
   float radians = impl_->currentRotation_ * 3.14159265358979323846f / 180.0f;
@@ -526,7 +543,7 @@ float4x4 AnimatableTransform3D::getMatrixAt(const RationalTime& time) const
   float4x4 matrix = float4x4::Identity();
   
   // 1. �X�P�[���s��
-  float4x4 scaleMatrix = float4x4::Scale(sx, sy, 1.0f);
+  float4x4 scaleMatrix = float4x4::Scale(sx, sy, impl_->scaleZ_.at(frame));
   
   // 2. ��]�s��iZ����]�A�x�����烉�W�A���֕ϊ��j
   float radians = rot * 3.14159265358979323846f / 180.0f;
@@ -559,6 +576,7 @@ float4x4 AnimatableTransform3D::getAllMatrixAt(const RationalTime& time) const
   float orot = impl_->rotation_.at(frame);
   float osx = impl_->scaleX_.at(frame);
   float osy = impl_->scaleY_.at(frame);
+  float osz = impl_->scaleZ_.at(frame);
   float ax = impl_->anchorX_.at(frame);
   float ay = impl_->anchorY_.at(frame);
   float az = impl_->anchorZ_.at(frame);
@@ -570,9 +588,10 @@ float4x4 AnimatableTransform3D::getAllMatrixAt(const RationalTime& time) const
   float finalRot = impl_->initialRotation_ + orot;
   float finalScaleX = impl_->initialScaleX_ * osx; // Multiplicative scale
   float finalScaleY = impl_->initialScaleY_ * osy;
+  float finalScaleZ = impl_->initialScaleZ_ * osz;
 
   // 3. Construct Final Matrix (T * R * S * A)
-  float4x4 scaleMatrix = float4x4::Scale(finalScaleX, finalScaleY, 1.0f);
+  float4x4 scaleMatrix = float4x4::Scale(finalScaleX, finalScaleY, finalScaleZ);
 
   float radians = finalRot * 3.14159265358979323846f / 180.0f;
   float cosR = std::cos(radians);
@@ -599,6 +618,7 @@ Transform3DSnapshot AnimatableTransform3D::snapshot() const
   snapshot.rotation = impl_->currentRotation_;
   snapshot.scaleX = impl_->currentScaleX_;
   snapshot.scaleY = impl_->currentScaleY_;
+  snapshot.scaleZ = impl_->currentScaleZ_;
   snapshot.anchorX = impl_->anchorX_.current();
   snapshot.anchorY = impl_->anchorY_.current();
   snapshot.anchorZ = impl_->anchorZ_.current();
@@ -619,6 +639,7 @@ Transform3DSnapshot AnimatableTransform3D::snapshotAt(const RationalTime& time) 
   snapshot.rotation = impl_->initialRotation_ + impl_->rotation_.at(frame);
   snapshot.scaleX = impl_->initialScaleX_ * impl_->scaleX_.at(frame);
   snapshot.scaleY = impl_->initialScaleY_ * impl_->scaleY_.at(frame);
+  snapshot.scaleZ = impl_->initialScaleZ_ * impl_->scaleZ_.at(frame);
   snapshot.anchorX = impl_->anchorX_.at(frame);
   snapshot.anchorY = impl_->anchorY_.at(frame);
   snapshot.anchorZ = impl_->anchorZ_.at(frame);
