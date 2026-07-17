@@ -1,5 +1,6 @@
 module;
 #include <cstdint>
+#include <vector>
 #include "../Define/DllExportMacro.hpp"
 
 export module Graphics.GIResources;
@@ -67,6 +68,76 @@ struct GIResourceDescriptor {
     std::uint32_t width = 0;
     std::uint32_t height = 0;
     std::uint32_t channels = 1;
+};
+
+enum class GIPassKind : std::uint8_t {
+    Reconstruct,
+    ScreenSpaceGather,
+    DepthPyramid,
+    BilateralDenoise,
+    TemporalResolve,
+    Composite
+};
+
+struct GIPassDescriptor {
+    GIPassKind kind = GIPassKind::Reconstruct;
+    GIResourceKind input = GIResourceKind::Depth;
+    GIResourceKind output = GIResourceKind::IndirectLighting;
+    std::uint32_t sampleCount = 0;
+    bool requiresHistory = false;
+};
+
+class LIBRARY_DLL_API GIExecutionPlan {
+public:
+    static GIExecutionPlan forSettings(const GISettings& settings)
+    {
+        GIExecutionPlan plan;
+        if (!settings.enabled || settings.mode == GIMode::Disabled) return plan;
+
+        plan.passes_.push_back({GIPassKind::Reconstruct,
+                                GIResourceKind::Depth,
+                                GIResourceKind::Normal,
+                                0,
+                                false});
+        if (settings.mode == GIMode::Quality) {
+            plan.passes_.push_back({GIPassKind::DepthPyramid,
+                                    GIResourceKind::Depth,
+                                    GIResourceKind::Depth,
+                                    0,
+                                    false});
+        }
+        plan.passes_.push_back({GIPassKind::ScreenSpaceGather,
+                                GIResourceKind::Normal,
+                                GIResourceKind::IndirectLighting,
+                                settings.sampleCount,
+                                false});
+
+        if (settings.mode == GIMode::Quality) {
+            plan.passes_.push_back({GIPassKind::BilateralDenoise,
+                                    GIResourceKind::IndirectLighting,
+                                    GIResourceKind::IndirectLighting,
+                                    0,
+                                    false});
+        }
+
+        plan.passes_.push_back({GIPassKind::TemporalResolve,
+                                GIResourceKind::IndirectLighting,
+                                GIResourceKind::History,
+                                0,
+                                true});
+        plan.passes_.push_back({GIPassKind::Composite,
+                                GIResourceKind::History,
+                                GIResourceKind::DirectLighting,
+                                0,
+                                true});
+        return plan;
+    }
+
+    const std::vector<GIPassDescriptor>& passes() const noexcept { return passes_; }
+    bool empty() const noexcept { return passes_.empty(); }
+
+private:
+    std::vector<GIPassDescriptor> passes_;
 };
 
 class LIBRARY_DLL_API GIFrameResources {
