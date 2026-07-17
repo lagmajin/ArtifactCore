@@ -83,17 +83,40 @@ public:
     bool isValid() const noexcept
     {
         for (const auto& operation : operations_) {
+            const auto expectedInputs = [&]() -> std::size_t {
+                switch (operation.kind) {
+                    case PointwiseOperationKind::Input:
+                    case PointwiseOperationKind::Constant: return 0;
+                    case PointwiseOperationKind::Saturate: return 1;
+                    case PointwiseOperationKind::Add:
+                    case PointwiseOperationKind::Multiply: return 2;
+                    case PointwiseOperationKind::Lerp:
+                    case PointwiseOperationKind::Select: return 3;
+                }
+                return 0;
+            }();
+            if (operation.inputs.size() != expectedInputs) return false;
+
             for (const auto& input : operation.inputs) {
                 bool produced = false;
+                PointwiseValueType inputType = PointwiseValueType::Float4;
                 for (const auto& prior : operations_) {
                     if (prior.id == operation.id) break;
                     if (prior.output.id == input.id) {
                         produced = true;
+                        inputType = prior.output.type;
                         break;
                     }
                 }
-                if (!produced) {
+                if (!produced || inputType != input.type) {
                     return false;
+                }
+            }
+
+            if (operation.kind != PointwiseOperationKind::Input &&
+                operation.kind != PointwiseOperationKind::Constant) {
+                for (const auto& input : operation.inputs) {
+                    if (input.type != operation.output.type) return false;
                 }
             }
         }
