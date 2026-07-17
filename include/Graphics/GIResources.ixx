@@ -163,15 +163,23 @@ public:
     std::vector<GIResourceKind> requiredResources() const
     {
         std::vector<GIResourceKind> result;
-        const auto appendUnique = [&result](const GIResourceKind kind) {
+        std::vector<GIResourceKind> produced;
+        const auto contains = [](const std::vector<GIResourceKind>& values,
+                                 const GIResourceKind kind) {
+            for (const auto value : values) {
+                if (value == kind) return true;
+            }
+            return false;
+        };
+        const auto appendUnique = [&result, &contains](const GIResourceKind kind) {
             for (const auto existing : result) {
                 if (existing == kind) return;
             }
             result.push_back(kind);
         };
         for (const auto& pass : passes_) {
-            appendUnique(pass.input);
-            appendUnique(pass.output);
+            if (!contains(produced, pass.input)) appendUnique(pass.input);
+            if (!contains(produced, pass.output)) produced.push_back(pass.output);
         }
         return result;
     }
@@ -277,6 +285,24 @@ public:
         accumulation_.beginFrame(frame, cameraCut);
     }
 
+    void provideResource(const GIResourceKind kind) noexcept
+    {
+        providedResources_ |= resourceBit(kind);
+    }
+
+    bool hasResource(const GIResourceKind kind) const noexcept
+    {
+        return (providedResources_ & resourceBit(kind)) != 0;
+    }
+
+    bool resourcesReady() const noexcept
+    {
+        for (const auto required : plan_.requiredResources()) {
+            if (!hasResource(required)) return false;
+        }
+        return plan_.empty() || resources_.valid();
+    }
+
     void commitHistory() noexcept { accumulation_.commitHistory(); }
     bool historyReady() const noexcept { return accumulation_.historyValid(); }
     const GISettings& settings() const noexcept { return settings_; }
@@ -288,10 +314,16 @@ public:
     std::uint32_t workingHeight() const noexcept { return resources_.workingHeight(settings_); }
 
 private:
+    static std::uint32_t resourceBit(const GIResourceKind kind) noexcept
+    {
+        return 1u << static_cast<std::uint32_t>(kind);
+    }
+
     GISettings settings_;
     GIFrameResources resources_;
     GIAccumulationState accumulation_;
     GIExecutionPlan plan_;
+    std::uint32_t providedResources_ = 0;
 };
 
 }
