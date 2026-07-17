@@ -52,6 +52,7 @@ public:
         operation.output = {operation.id, type};
         operation.semantic = std::move(semantic);
         operations_.push_back(operation);
+        outputId_ = operation.id;
         return operation.output;
     }
 
@@ -64,6 +65,7 @@ public:
         operation.output = {operation.id, type};
         operation.literal = std::move(hlslLiteral);
         operations_.push_back(operation);
+        outputId_ = operation.id;
         return operation.output;
     }
 
@@ -77,6 +79,7 @@ public:
         operation.output = {operation.id, outputType};
         operation.inputs = std::move(inputs);
         operations_.push_back(operation);
+        outputId_ = operation.id;
         return operation.output;
     }
 
@@ -125,6 +128,14 @@ public:
 
     std::size_t operationCount() const noexcept { return operations_.size(); }
     const std::vector<PointwiseOperation>& operations() const noexcept { return operations_; }
+    void setOutput(const PointwiseValue value) noexcept { outputId_ = value.id; }
+    PointwiseValue finalValue() const noexcept
+    {
+        for (const auto& operation : operations_) {
+            if (operation.output.id == outputId_) return operation.output;
+        }
+        return {};
+    }
 
     std::string emitHlslBody() const
     {
@@ -198,7 +209,7 @@ public:
         return result;
     }
 
-    void clear() noexcept { operations_.clear(); nextId_ = 1; }
+    void clear() noexcept { operations_.clear(); nextId_ = 1; outputId_ = 0; }
 
 private:
     static std::string valueName(const std::uint32_t id)
@@ -222,6 +233,7 @@ private:
 
     std::vector<PointwiseOperation> operations_;
     std::uint32_t nextId_ = 1;
+    std::uint32_t outputId_ = 0;
 };
 
 }
