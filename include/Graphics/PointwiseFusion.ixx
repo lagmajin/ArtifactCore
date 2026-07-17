@@ -143,13 +143,14 @@ public:
         result.reserve(operations_.size() * 48);
         for (const auto& operation : operations_) {
             const auto outputName = valueName(operation.output.id);
+            const auto outputType = typeName(operation.output.type);
             if (operation.kind == PointwiseOperationKind::Input) {
-                result += "    float4 " + outputName + " = " + sanitizeIdentifier(operation.semantic) + ";\n";
+                result += "    " + outputType + " " + outputName + " = " + sanitizeIdentifier(operation.semantic) + ";\n";
                 continue;
             }
 
             if (operation.inputs.empty()) {
-                result += "    float4 " + outputName + " = 0.0.xxxx;\n";
+                result += "    " + outputType + " " + outputName + " = 0;\n";
                 continue;
             }
 
@@ -188,19 +189,19 @@ public:
                     break;
             }
             if (expression.empty()) expression = "0.0.xxxx";
-            result += "    float4 " + outputName + " = " + expression + ";\n";
+            result += "    " + outputType + " " + outputName + " = " + expression + ";\n";
         }
         return result;
     }
 
     std::string emitHlslFunction(std::string functionName, PointwiseValue output) const
     {
-        std::string result = "float4 " + sanitizeIdentifier(functionName) + "(";
+        std::string result = typeName(output.type) + " " + sanitizeIdentifier(functionName) + "(";
         bool first = true;
         for (const auto& operation : operations_) {
             if (operation.kind != PointwiseOperationKind::Input) continue;
             if (!first) result += ", ";
-            result += "float4 " + sanitizeIdentifier(operation.semantic);
+            result += typeName(operation.output.type) + " " + sanitizeIdentifier(operation.semantic);
             first = false;
         }
         result += ")\n{\n";
@@ -212,6 +213,17 @@ public:
     void clear() noexcept { operations_.clear(); nextId_ = 1; outputId_ = 0; }
 
 private:
+    static const char* typeName(const PointwiseValueType type) noexcept
+    {
+        switch (type) {
+            case PointwiseValueType::Float1: return "float";
+            case PointwiseValueType::Float2: return "float2";
+            case PointwiseValueType::Float3: return "float3";
+            case PointwiseValueType::Float4:
+            default: return "float4";
+        }
+    }
+
     static std::string valueName(const std::uint32_t id)
     {
         return "value_" + std::to_string(id);
