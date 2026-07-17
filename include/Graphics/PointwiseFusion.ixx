@@ -81,9 +81,83 @@ public:
 
     std::size_t operationCount() const noexcept { return operations_.size(); }
     const std::vector<PointwiseOperation>& operations() const noexcept { return operations_; }
+
+    std::string emitHlslBody() const
+    {
+        std::string result;
+        result.reserve(operations_.size() * 48);
+        for (const auto& operation : operations_) {
+            const auto outputName = valueName(operation.output.id);
+            if (operation.kind == PointwiseOperationKind::Input) {
+                result += "    float4 " + outputName + " = " + sanitizeIdentifier(operation.semantic) + ";\n";
+                continue;
+            }
+
+            if (operation.inputs.empty()) {
+                result += "    float4 " + outputName + " = 0.0.xxxx;\n";
+                continue;
+            }
+
+            std::string expression;
+            switch (operation.kind) {
+                case PointwiseOperationKind::Add:
+                    expression = valueName(operation.inputs[0].id);
+                    if (operation.inputs.size() > 1) expression += " + " + valueName(operation.inputs[1].id);
+                    break;
+                case PointwiseOperationKind::Multiply:
+                    expression = valueName(operation.inputs[0].id);
+                    if (operation.inputs.size() > 1) expression += " * " + valueName(operation.inputs[1].id);
+                    break;
+                case PointwiseOperationKind::Lerp:
+                    if (operation.inputs.size() >= 3) {
+                        expression = "lerp(" + valueName(operation.inputs[0].id) + ", " +
+                                     valueName(operation.inputs[1].id) + ", " +
+                                     valueName(operation.inputs[2].id) + ")";
+                    }
+                    break;
+                case PointwiseOperationKind::Saturate:
+                    expression = "saturate(" + valueName(operation.inputs[0].id) + ")";
+                    break;
+                case PointwiseOperationKind::Select:
+                    if (operation.inputs.size() >= 3) {
+                        expression = "(" + valueName(operation.inputs[0].id) + " != 0.0.xxxx ? " +
+                                     valueName(operation.inputs[1].id) + " : " +
+                                     valueName(operation.inputs[2].id) + ")";
+                    }
+                    break;
+                case PointwiseOperationKind::Input:
+                case PointwiseOperationKind::Constant:
+                    expression = "0.0.xxxx";
+                    break;
+            }
+            if (expression.empty()) expression = "0.0.xxxx";
+            result += "    float4 " + outputName + " = " + expression + ";\n";
+        }
+        return result;
+    }
+
     void clear() noexcept { operations_.clear(); nextId_ = 1; }
 
 private:
+    static std::string valueName(const std::uint32_t id)
+    {
+        return "value_" + std::to_string(id);
+    }
+
+    static std::string sanitizeIdentifier(const std::string& value)
+    {
+        std::string result;
+        for (const char character : value) {
+            const bool valid = (character >= 'a' && character <= 'z') ||
+                               (character >= 'A' && character <= 'Z') ||
+                               (character >= '0' && character <= '9') || character == '_';
+            result += valid ? character : '_';
+        }
+        if (result.empty()) result = "input";
+        if (result.front() >= '0' && result.front() <= '9') result.insert(result.begin(), '_');
+        return result;
+    }
+
     std::vector<PointwiseOperation> operations_;
     std::uint32_t nextId_ = 1;
 };
