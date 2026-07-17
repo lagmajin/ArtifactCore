@@ -211,4 +211,44 @@ private:
     bool historyValid_ = false;
 };
 
+class LIBRARY_DLL_API GIFrameContext {
+public:
+    explicit GIFrameContext(GISettings settings = GISettings::fast())
+        : settings_(settings), plan_(GIExecutionPlan::forSettings(settings))
+    {}
+
+    void configure(GISettings settings)
+    {
+        settings_ = settings;
+        plan_ = GIExecutionPlan::forSettings(settings_);
+        accumulation_.reset();
+    }
+
+    void resize(std::uint32_t width, std::uint32_t height)
+    {
+        if (resources_.width() != width || resources_.height() != height) {
+            resources_.resize(width, height);
+            accumulation_.reset();
+        }
+    }
+
+    void beginFrame(std::uint64_t frame, bool cameraCut = false) noexcept
+    {
+        accumulation_.beginFrame(frame, cameraCut);
+    }
+
+    void commitHistory() noexcept { accumulation_.commitHistory(); }
+    const GISettings& settings() const noexcept { return settings_; }
+    const GIExecutionPlan& plan() const noexcept { return plan_; }
+    const GIFrameResources& resources() const noexcept { return resources_; }
+    GIFrameResources& resources() noexcept { return resources_; }
+    const GIAccumulationState& accumulation() const noexcept { return accumulation_; }
+
+private:
+    GISettings settings_;
+    GIFrameResources resources_;
+    GIAccumulationState accumulation_;
+    GIExecutionPlan plan_;
+};
+
 }
