@@ -30,11 +30,10 @@
 
 ## 現在の範囲
 
-契約と CPU 側管理のみ。Composition、GI、Pointwise Fusion、Diligent resource/barrier、実描画パスへの接続は未着手。
+契約と CPU 側管理に加え、GI execution plan と Pointwise Fusion を Render Graph pass へ変換する adapter、および GI 用 Temporal History key adapter を追加済み。Composition、Diligent resource/barrier、実描画パスへの接続は未着手。
 
 ## 次段階
 
 1. Composition evaluator から dirty-only Render Index snapshot を生成する adapter
-2. GI execution plan と Pointwise Fusion を Render Graph pass へ変換する adapter
-3. Diligent texture/buffer ownership と Temporal History resource token の接続
-4. diagnostics に pass order / lifetime / invalidation reason を公開
+2. Diligent texture/buffer ownership と Temporal History resource token の接続
+3. diagnostics に pass order / lifetime / invalidation reason を公開
