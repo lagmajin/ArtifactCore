@@ -160,6 +160,22 @@ public:
         return 0;
     }
 
+    std::vector<GIResourceKind> requiredResources() const
+    {
+        std::vector<GIResourceKind> result;
+        const auto appendUnique = [&result](const GIResourceKind kind) {
+            for (const auto existing : result) {
+                if (existing == kind) return;
+            }
+            result.push_back(kind);
+        };
+        for (const auto& pass : passes_) {
+            appendUnique(pass.input);
+            appendUnique(pass.output);
+        }
+        return result;
+    }
+
 private:
     std::vector<GIPassDescriptor> passes_;
 };
@@ -268,6 +284,8 @@ public:
     const GIFrameResources& resources() const noexcept { return resources_; }
     GIFrameResources& resources() noexcept { return resources_; }
     const GIAccumulationState& accumulation() const noexcept { return accumulation_; }
+    std::uint32_t workingWidth() const noexcept { return resources_.workingWidth(settings_); }
+    std::uint32_t workingHeight() const noexcept { return resources_.workingHeight(settings_); }
 
 private:
     GISettings settings_;
