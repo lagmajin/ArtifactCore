@@ -38,6 +38,7 @@ struct PointwiseOperation {
     PointwiseValue output{};
     std::vector<PointwiseValue> inputs;
     std::string semantic;
+    std::string literal;
     bool fusible = true;
 };
 
@@ -50,6 +51,18 @@ public:
         operation.kind = PointwiseOperationKind::Input;
         operation.output = {operation.id, type};
         operation.semantic = std::move(semantic);
+        operations_.push_back(operation);
+        return operation.output;
+    }
+
+    PointwiseValue addConstant(std::string hlslLiteral,
+                               PointwiseValueType type = PointwiseValueType::Float4)
+    {
+        PointwiseOperation operation;
+        operation.id = nextId_++;
+        operation.kind = PointwiseOperationKind::Constant;
+        operation.output = {operation.id, type};
+        operation.literal = std::move(hlslLiteral);
         operations_.push_back(operation);
         return operation.output;
     }
@@ -71,7 +84,15 @@ public:
     {
         for (const auto& operation : operations_) {
             for (const auto& input : operation.inputs) {
-                if (input.id >= nextId_ || input.id == operation.id) {
+                bool produced = false;
+                for (const auto& prior : operations_) {
+                    if (prior.id == operation.id) break;
+                    if (prior.output.id == input.id) {
+                        produced = true;
+                        break;
+                    }
+                }
+                if (!produced) {
                     return false;
                 }
             }
@@ -126,8 +147,10 @@ public:
                     }
                     break;
                 case PointwiseOperationKind::Input:
-                case PointwiseOperationKind::Constant:
                     expression = "0.0.xxxx";
+                    break;
+                case PointwiseOperationKind::Constant:
+                    expression = operation.literal.empty() ? "0.0.xxxx" : operation.literal;
                     break;
             }
             if (expression.empty()) expression = "0.0.xxxx";
