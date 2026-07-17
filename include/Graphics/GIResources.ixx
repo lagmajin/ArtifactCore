@@ -15,12 +15,51 @@ enum class GIResourceKind : std::uint8_t {
     History
 };
 
+enum class GIMode : std::uint8_t {
+    Disabled,
+    Fast,
+    Quality
+};
+
 struct GISettings {
     float radius = 1.0f;
     float intensity = 1.0f;
     float temporalWeight = 0.9f;
     std::uint32_t sampleCount = 8;
+    float resolutionScale = 1.0f;
+    GIMode mode = GIMode::Fast;
     bool enabled = true;
+
+    static GISettings fast()
+    {
+        GISettings settings;
+        settings.mode = GIMode::Fast;
+        settings.sampleCount = 4;
+        settings.radius = 0.75f;
+        settings.temporalWeight = 0.85f;
+        settings.resolutionScale = 0.5f;
+        return settings;
+    }
+
+    static GISettings quality()
+    {
+        GISettings settings;
+        settings.mode = GIMode::Quality;
+        settings.sampleCount = 24;
+        settings.radius = 1.5f;
+        settings.temporalWeight = 0.94f;
+        settings.resolutionScale = 1.0f;
+        return settings;
+    }
+
+    static GISettings disabled()
+    {
+        GISettings settings;
+        settings.mode = GIMode::Disabled;
+        settings.enabled = false;
+        settings.sampleCount = 0;
+        return settings;
+    }
 };
 
 struct GIResourceDescriptor {
@@ -44,6 +83,16 @@ public:
     std::uint32_t height() const noexcept { return height_; }
     std::uint64_t generation() const noexcept { return generation_; }
 
+    std::uint32_t workingWidth(const GISettings& settings) const noexcept
+    {
+        return scaledDimension(width_, settings.resolutionScale);
+    }
+
+    std::uint32_t workingHeight(const GISettings& settings) const noexcept
+    {
+        return scaledDimension(height_, settings.resolutionScale);
+    }
+
     GIResourceDescriptor descriptor(GIResourceKind kind) const noexcept
     {
         const auto channels = kind == GIResourceKind::Normal ||
@@ -55,6 +104,13 @@ public:
     }
 
 private:
+    static std::uint32_t scaledDimension(const std::uint32_t value, const float scale) noexcept
+    {
+        if (value == 0 || scale <= 0.0f) return 0;
+        const auto scaled = static_cast<std::uint32_t>(static_cast<float>(value) * scale);
+        return scaled == 0 ? 1 : scaled;
+    }
+
     std::uint32_t width_ = 0;
     std::uint32_t height_ = 0;
     std::uint64_t generation_ = 0;
