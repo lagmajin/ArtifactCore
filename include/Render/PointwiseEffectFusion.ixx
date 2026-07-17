@@ -5,6 +5,7 @@ module;
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 export module Artifact.Render.PointwiseEffectFusion;
@@ -303,5 +304,76 @@ private:
         }
     }
 };
+
+struct PointwiseFusionDiagnostics {
+    std::size_t fusedSegmentCount = 0;
+    std::size_t fallbackSegmentCount = 0;
+    std::size_t fusedNodeCount = 0;
+    std::vector<std::string> messages;
+};
+
+class PointwiseShaderCache {
+public:
+    const PointwiseGeneratedShader* find(const PointwiseCompileKey& key) const {
+        const auto it = entries_.find(key.toString());
+        return it == entries_.end() ? nullptr : &it->second;
+    }
+
+    const PointwiseGeneratedShader& getOrGenerate(
+        std::string_view backend,
+        std::string_view targetFormat,
+        const std::vector<PointwiseEffectNode>& nodes,
+        const PointwiseFusionSegment& segment) {
+        const PointwiseCompileKey key =
+            PointwiseEffectFusion::makeCompileKey(backend, targetFormat, nodes, segment);
+        const std::string keyText = key.toString();
+        if (const auto it = entries_.find(keyText); it != entries_.end()) {
+            ++hitCount_;
+            return it->second;
+        }
+        ++missCount_;
+        auto generated = PointwiseEffectFusion::generatePixelShader(
+            backend, targetFormat, nodes, segment);
+        auto [it, inserted] = entries_.emplace(std::move(keyText), std::move(generated));
+        (void)inserted;
+        return it->second;
+    }
+
+    void clear() {
+        entries_.clear();
+        hitCount_ = 0;
+        missCount_ = 0;
+    }
+
+    std::size_t entryCount() const { return entries_.size(); }
+    std::uint64_t hitCount() const { return hitCount_; }
+    std::uint64_t missCount() const { return missCount_; }
+
+private:
+    std::unordered_map<std::string, PointwiseGeneratedShader> entries_;
+    std::uint64_t hitCount_ = 0;
+    std::uint64_t missCount_ = 0;
+};
+
+inline PointwiseFusionDiagnostics describePointwiseFusion(
+    const std::vector<PointwiseEffectNode>& nodes,
+    PointwiseAlphaMode initialAlpha = PointwiseAlphaMode::Premultiplied) {
+    PointwiseFusionDiagnostics result;
+    for (const auto& segment : PointwiseEffectFusion::segment(nodes, initialAlpha)) {
+        if (segment.isFused) {
+            ++result.fusedSegmentCount;
+            result.fusedNodeCount += segment.nodeCount;
+            result.messages.push_back(
+                "fused nodes " + std::to_string(segment.firstNode) + "-" +
+                std::to_string(segment.firstNode + segment.nodeCount - 1));
+        } else {
+            ++result.fallbackSegmentCount;
+            result.messages.push_back(
+                "pass boundary at node " + std::to_string(segment.firstNode) + ": " +
+                (segment.fallbackReason.empty() ? "single pointwise node" : segment.fallbackReason));
+        }
+    }
+    return result;
+}
 
 } // namespace ArtifactCore
