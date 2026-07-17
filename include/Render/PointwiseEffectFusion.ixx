@@ -262,7 +262,18 @@ public:
         PointwiseAlphaMode alpha = segment.inputAlpha;
         const std::size_t end = segment.firstNode + segment.nodeCount;
         for (std::size_t i = segment.firstNode; i < end; ++i) {
+            if (requiresStraightColor(nodes[i].kind) && alpha == PointwiseAlphaMode::Premultiplied) {
+                hlsl << "  color.rgb = ToStraight(color);\n";
+                alpha = PointwiseAlphaMode::Straight;
+            }
             appendNodeHlsl(hlsl, nodes[i], alpha);
+        }
+        if (alpha != segment.outputAlpha) {
+            if (segment.outputAlpha == PointwiseAlphaMode::Premultiplied) {
+                hlsl << "  color.rgb = ToPremultiplied(color.rgb, color.a);\n";
+            } else {
+                hlsl << "  color.rgb = ToStraight(color);\n";
+            }
         }
         hlsl << "  return color;\n}\n";
         result.source = hlsl.str();
@@ -270,6 +281,28 @@ public:
     }
 
 private:
+    static bool requiresStraightColor(PointwiseNodeKind kind) {
+        switch (kind) {
+        case PointwiseNodeKind::Exposure:
+        case PointwiseNodeKind::Gamma:
+        case PointwiseNodeKind::Contrast:
+        case PointwiseNodeKind::Levels:
+        case PointwiseNodeKind::Saturation:
+        case PointwiseNodeKind::Tint:
+        case PointwiseNodeKind::Lut3D:
+        case PointwiseNodeKind::Posterize:
+        case PointwiseNodeKind::Threshold:
+            return true;
+        case PointwiseNodeKind::Blend:
+        case PointwiseNodeKind::AlphaConvert:
+        case PointwiseNodeKind::Neighborhood:
+        case PointwiseNodeKind::Temporal:
+        case PointwiseNodeKind::CpuBoundary:
+            return false;
+        }
+        return false;
+    }
+
     static std::string boundaryReason(PointwiseNodeKind kind) {
         switch (kind) {
         case PointwiseNodeKind::Neighborhood: return "neighborhood sampling requires a pass boundary";
@@ -331,10 +364,20 @@ private:
                 hlsl << "    color.rgb = 1.0 - (1.0 - color.rgb) * (1.0 - background.rgb);\n";
                 break;
             case PointwiseBlendMode::Normal:
-                hlsl << "    color.rgb = lerp(background.rgb, color.rgb, color.a);\n";
+                if (alpha == PointwiseAlphaMode::Premultiplied) {
+                    hlsl << "    color.rgb = color.rgb + background.rgb * (1.0 - color.a);\n";
+                    hlsl << "    color.a = color.a + background.a * (1.0 - color.a);\n";
+                } else {
+                    hlsl << "    float outputAlpha = color.a + background.a * (1.0 - color.a);\n";
+                    hlsl << "    color.rgb = (color.rgb * color.a + background.rgb * background.a * (1.0 - color.a)) / max(outputAlpha, 1e-6);\n";
+                    hlsl << "    color.a = outputAlpha;\n";
+                }
                 break;
             }
-            hlsl << "    color.a = max(color.a, background.a); }\n";
+            if (node.blendMode != PointwiseBlendMode::Normal) {
+                hlsl << "    color.a = max(color.a, background.a);\n";
+            }
+            hlsl << "  }\n";
             break;
         case PointwiseNodeKind::AlphaConvert:
             if (alpha == PointwiseAlphaMode::Premultiplied) {
