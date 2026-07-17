@@ -136,6 +136,30 @@ public:
     const std::vector<GIPassDescriptor>& passes() const noexcept { return passes_; }
     bool empty() const noexcept { return passes_.empty(); }
 
+    bool contains(const GIPassKind kind) const noexcept
+    {
+        for (const auto& pass : passes_) {
+            if (pass.kind == kind) return true;
+        }
+        return false;
+    }
+
+    bool requiresHistory() const noexcept
+    {
+        for (const auto& pass : passes_) {
+            if (pass.requiresHistory) return true;
+        }
+        return false;
+    }
+
+    std::uint32_t gatherSampleCount() const noexcept
+    {
+        for (const auto& pass : passes_) {
+            if (pass.kind == GIPassKind::ScreenSpaceGather) return pass.sampleCount;
+        }
+        return 0;
+    }
+
 private:
     std::vector<GIPassDescriptor> passes_;
 };
@@ -238,6 +262,7 @@ public:
     }
 
     void commitHistory() noexcept { accumulation_.commitHistory(); }
+    bool historyReady() const noexcept { return accumulation_.historyValid(); }
     const GISettings& settings() const noexcept { return settings_; }
     const GIExecutionPlan& plan() const noexcept { return plan_; }
     const GIFrameResources& resources() const noexcept { return resources_; }
