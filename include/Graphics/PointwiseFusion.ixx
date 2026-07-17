@@ -136,6 +136,22 @@ public:
         return result;
     }
 
+    std::string emitHlslFunction(std::string functionName, PointwiseValue output) const
+    {
+        std::string result = "float4 " + sanitizeIdentifier(functionName) + "(";
+        bool first = true;
+        for (const auto& operation : operations_) {
+            if (operation.kind != PointwiseOperationKind::Input) continue;
+            if (!first) result += ", ";
+            result += "float4 " + sanitizeIdentifier(operation.semantic);
+            first = false;
+        }
+        result += ")\n{\n";
+        result += emitHlslBody();
+        result += "    return " + valueName(output.id) + ";\n}\n";
+        return result;
+    }
+
     void clear() noexcept { operations_.clear(); nextId_ = 1; }
 
 private:
