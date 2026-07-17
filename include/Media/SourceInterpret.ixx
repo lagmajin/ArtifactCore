@@ -42,7 +42,16 @@ struct SourceInterpretOverride {
     double frameRate = 0.0;          // 0.0 = use source default
     double pixelAspectRatio = 1.0;
     bool loopEnabled = false;
+    // Empty means: keep the source metadata detected by the importer.
+    // Non-empty values are explicit user interpretation choices and must be
+    // applied by the color pipeline, never guessed by the importer.
+    QString inputColorSpace;
+    QString inputTransferFunction;
     bool isActive = false;           // true if any override is set
+
+    bool hasColorOverride() const {
+        return !inputColorSpace.isEmpty() || !inputTransferFunction.isEmpty();
+    }
 };
 
 } // namespace ArtifactCore

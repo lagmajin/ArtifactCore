@@ -61,16 +61,21 @@ bool MaskPathRasterizerPipeline::initialize()
         return false;
     }
 
+    if (!pImpl_->pParamsCB_) {
+        return false;
+    }
+
+    // Static resources must be assigned before the SRB snapshots them.
+    if (!executor_.setBuffer("RasterizerParams", pImpl_->pParamsCB_)) {
+        qWarning() << "[MaskPathRasterizerPipeline] failed to bind RasterizerParams";
+        return false;
+    }
+
     if (!executor_.createShaderResourceBinding(true)) {
         qWarning() << "[MaskPathRasterizerPipeline] failed to create SRB";
         return false;
     }
 
-    if (!pImpl_->pParamsCB_) {
-        return false;
-    }
-
-    executor_.setBuffer("RasterizerParams", pImpl_->pParamsCB_);
     return true;
 }
 

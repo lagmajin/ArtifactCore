@@ -155,12 +155,19 @@ void GradientRampProcessor::apply(float* pixels, int width, int height) const {
     }
 
     for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            float* pixel = pixels + (static_cast<size_t>(y) * static_cast<size_t>(width) +
-                                     static_cast<size_t>(x)) * 4u;
-            applyGradientPixel(settings_, static_cast<float>(x), static_cast<float>(y),
-                               width, height, pixel[0], pixel[1], pixel[2], pixel[3]);
-        }
+        applyRow(pixels, width, height, y);
+    }
+}
+
+void GradientRampProcessor::applyRow(float* pixels, int width, int height, int y) const {
+    if (!pixels || width <= 0 || height <= 0 || y < 0 || y >= height) {
+        return;
+    }
+    for (int x = 0; x < width; ++x) {
+        float* pixel = pixels + (static_cast<size_t>(y) * static_cast<size_t>(width) +
+                                 static_cast<size_t>(x)) * 4u;
+        applyGradientPixel(settings_, static_cast<float>(x), static_cast<float>(y),
+                           width, height, pixel[0], pixel[1], pixel[2], pixel[3]);
     }
 }
 

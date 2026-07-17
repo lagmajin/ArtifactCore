@@ -42,7 +42,37 @@ OIIO::TypeDesc chooseReadType(const QString& filePath)
     if (suffix == QStringLiteral("exr")) {
         return OIIO::TypeDesc::FLOAT;
     }
+    if (suffix == QStringLiteral("tif") || suffix == QStringLiteral("tiff") ||
+        suffix == QStringLiteral("png")) {
+        return OIIO::TypeDesc::UINT16;
+    }
     return OIIO::TypeDesc::UINT8;
+}
+
+QString findStringAttribute(const OIIO::ImageSpec& spec, const char* name)
+{
+    const OIIO::ParamValue* attr = spec.find_attribute(name, OIIO::TypeDesc::STRING);
+    return attr ? QString::fromUtf8(attr->get_string()) : QString();
+}
+
+void populateProfessionalMetadata(const OIIO::ImageSpec& spec, RawImage& image)
+{
+    image.colorSpace = findStringAttribute(spec, "oiio:ColorSpace");
+    if (image.colorSpace.isEmpty()) image.colorSpace = findStringAttribute(spec, "Colorspace");
+    image.transferFunction = findStringAttribute(spec, "TransferFunction");
+    image.primaries = findStringAttribute(spec, "chromaticities");
+    image.bitsPerChannel = spec.format == OIIO::TypeDesc::FLOAT ? 32 : spec.format.size() * 8;
+
+    const QString combined = (image.colorSpace + QLatin1Char(' ') + image.transferFunction).toLower();
+    image.isLogEncoded = combined.contains(QStringLiteral("log")) ||
+                         combined.contains(QStringLiteral("acescc")) ||
+                         combined.contains(QStringLiteral("acescct"));
+    image.isHDR = image.isLogEncoded || spec.format == OIIO::TypeDesc::FLOAT ||
+                  image.colorSpace.contains(QStringLiteral("2020"), Qt::CaseInsensitive) ||
+                  image.colorSpace.contains(QStringLiteral("aces"), Qt::CaseInsensitive);
+    image.metadata.insert(QStringLiteral("oiio:ColorSpace"), image.colorSpace);
+    image.metadata.insert(QStringLiteral("TransferFunction"), image.transferFunction);
+    image.metadata.insert(QStringLiteral("Primaries"), image.primaries);
 }
 
 RawImage loadRawImageViaOIIO(const QString& filePath)
@@ -86,9 +116,13 @@ RawImage loadRawImageViaOIIO(const QString& filePath)
     image.width = spec.width;
     image.height = spec.height;
     image.channels = 4;
+    populateProfessionalMetadata(spec, image);
     if (readType == OIIO::TypeDesc::FLOAT) {
         image.pixelType = QStringLiteral("float");
         image.data.resize(spec.width * spec.height * 4 * static_cast<int>(sizeof(float)));
+    } else if (readType == OIIO::TypeDesc::UINT16) {
+        image.pixelType = QStringLiteral("uint16");
+        image.data.resize(spec.width * spec.height * 4 * static_cast<int>(sizeof(quint16)));
     } else {
         image.pixelType = QStringLiteral("uint8");
         image.data.resize(spec.width * spec.height * 4);

@@ -32,6 +32,7 @@ public:
 
     QImage apply(const QImage& source) const;
     void apply(float* pixels, int width, int height) const;
+    void applyRow(float* pixels, int width, int height, int y) const;
 
 private:
     SolidFillSettings settings_;

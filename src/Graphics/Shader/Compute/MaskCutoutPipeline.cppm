@@ -60,16 +60,21 @@ bool MaskCutoutPipeline::initialize()
         return false;
     }
 
+    if (!pImpl_->pMaskParamsCB_) {
+        return false;
+    }
+
+    // Static resources must be assigned before the SRB snapshots them.
+    if (!executor_.setBuffer("MaskParams", pImpl_->pMaskParamsCB_)) {
+        qWarning() << "[MaskCutoutPipeline] failed to bind MaskParams";
+        return false;
+    }
+
     if (!executor_.createShaderResourceBinding(true)) {
         qWarning() << "[MaskCutoutPipeline] failed to create SRB";
         return false;
     }
 
-    if (!pImpl_->pMaskParamsCB_) {
-        return false;
-    }
-
-    executor_.setBuffer("MaskParams", pImpl_->pMaskParamsCB_);
     return true;
 }
 

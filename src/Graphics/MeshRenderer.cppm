@@ -234,6 +234,7 @@ struct SceneLight {
     float4 DirectionIntensity;
     float4 ColorAttenuationConstant;
     float4 AttenuationSpot;
+    float4 AreaSize;
 };
 
 cbuffer SceneLighting : register(b2) {
@@ -352,6 +353,17 @@ float4 PSMain(PSInput In) : SV_Target {
                     attenuation *= saturate((spotCos - outerCos) /
                                             max(innerCos - outerCos, 1e-4));
                 }
+                if (lightType == 4u) {
+                    float areaScale = light.AreaSize.z > 0.5
+                        ? 3.14159265 * light.AreaSize.x * light.AreaSize.x * 0.25
+                        : light.AreaSize.x * light.AreaSize.y;
+                    areaScale = max(areaScale, 1.0);
+                    float distanceScale = max(distanceToLight * distanceToLight, 1.0);
+                    attenuation *= min(1.0, areaScale / distanceScale);
+                    float3 areaForward = normalize(light.DirectionIntensity.xyz);
+                    float facing = saturate(dot(-lightDirection, areaForward));
+                    attenuation *= facing;
+                }
             }
             float NdotL = saturate(dot(worldNormal, lightDirection));
             if (NdotL <= 0.0) {
@@ -413,6 +425,7 @@ struct MeshRenderer::Impl {
         float directionIntensity[4] = {};
         float colorAttenuationConstant[4] = {};
         float attenuationSpot[4] = {};
+        float areaSize[4] = {};
     };
 
     struct SceneLightingConstants {
@@ -427,7 +440,7 @@ struct MeshRenderer::Impl {
         float pbrTextureFlags[4] = {};
     };
 
-    static_assert(sizeof(SceneLightGpu) == sizeof(float) * 16);
+    static_assert(sizeof(SceneLightGpu) == sizeof(float) * 20);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
     static_assert(sizeof(MaterialConstants) == sizeof(float) * 12);
@@ -1097,6 +1110,9 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
         gpuLight.attenuationSpot[3] =
             std::cos(light.spotOuterCutoff() *
                      std::numbers::pi_v<float> / 180.0f);
+        gpuLight.areaSize[0] = light.areaWidth();
+        gpuLight.areaSize[1] = light.areaHeight();
+        gpuLight.areaSize[2] = static_cast<float>(light.areaShape());
     }
 }
 

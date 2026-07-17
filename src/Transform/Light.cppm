@@ -81,6 +81,17 @@ void Light::setRange(float range)
  attenQuadratic_ = 75.0f / (range * range);
 }
 
+void Light::setAreaSize(float width, float height)
+{
+ areaWidth_ = std::max(width, 1.0f);
+ areaHeight_ = std::max(height, 1.0f);
+}
+
+void Light::setAreaShape(int shape)
+{
+ areaShape_ = std::clamp(shape, 0, 1);
+}
+
 // --- Spot cone ---
 
 void Light::setCutoff(float innerDegrees, float outerDegrees)

@@ -99,11 +99,18 @@ void SolidFillProcessor::apply(float* pixels, int width, int height) const {
     }
 
     for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            float* pixel = pixels + (static_cast<size_t>(y) * static_cast<size_t>(width) +
-                                     static_cast<size_t>(x)) * 4u;
-            applyFillPixel(settings_, pixel[0], pixel[1], pixel[2], pixel[3]);
-        }
+        applyRow(pixels, width, height, y);
+    }
+}
+
+void SolidFillProcessor::applyRow(float* pixels, int width, int height, int y) const {
+    if (!pixels || width <= 0 || height <= 0 || y < 0 || y >= height) {
+        return;
+    }
+    for (int x = 0; x < width; ++x) {
+        float* pixel = pixels + (static_cast<size_t>(y) * static_cast<size_t>(width) +
+                                 static_cast<size_t>(x)) * 4u;
+        applyFillPixel(settings_, pixel[0], pixel[1], pixel[2], pixel[3]);
     }
 }
 

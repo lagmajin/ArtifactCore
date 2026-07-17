@@ -14,7 +14,8 @@ export namespace ArtifactCore
   Directional,  // 無限遠の平行光源 (太陽光)
   Point,        // 全方向に放射する点光源
   Spot,         // 円錐形のスポットライト
-  Ambient       // 環境光 (方向なし、均等照明)
+  Ambient,      // 環境光 (方向なし、均等照明)
+  Area          // 面光源（矩形近似）
  };
 
  /// 3D DCC-style light source.
@@ -59,6 +60,11 @@ export namespace ArtifactCore
 
   // Preset attenuation by effective range
   void setRange(float range);
+  float areaWidth() const { return areaWidth_; }
+  float areaHeight() const { return areaHeight_; }
+  int areaShape() const { return areaShape_; }
+  void setAreaSize(float width, float height);
+  void setAreaShape(int shape);
 
   // --- Spot cone (Spot only) ---
 
@@ -108,6 +114,9 @@ export namespace ArtifactCore
   float spotInnerDeg_ = 30.0f;
   float spotOuterDeg_ = 45.0f;
   bool enabled_ = true;
+  float areaWidth_ = 100.0f;
+  float areaHeight_ = 100.0f;
+  int areaShape_ = 0;
  };
 
 };

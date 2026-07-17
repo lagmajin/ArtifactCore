@@ -35,6 +35,7 @@ class tst_QList;
 #include <random>
 #include <QVector>
 #include <QString>
+#include <QMap>
 export module Image.Raw;
 
 export namespace ArtifactCore {
@@ -44,6 +45,17 @@ export namespace ArtifactCore {
   int height = 0;
   int channels = 0;
   QString pixelType; // std::string から QString へ変更
+
+  // Professional-source interpretation metadata. Pixel values remain raw;
+  // display/working-space conversion is performed by the color pipeline.
+  QString colorSpace;
+  QString transferFunction;
+  QString primaries;
+  QString chromaSubsampling;
+  int bitsPerChannel = 0;
+  bool isHDR = false;
+  bool isLogEncoded = false;
+  QMap<QString, QString> metadata;
 
   // 生のピクセルデータ。std::vector<uint8_t> から QVector<quint8> へ変更
   QVector<quint8> data; // quint8 は Qt の unsigned char
