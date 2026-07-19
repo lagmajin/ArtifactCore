@@ -36,6 +36,7 @@ export module Image.ImageF32x4_RGBA;
 import Size;
 import FloatRGBA;
 import ImageInterface;
+import Graphics.SurfaceColorContract;
 
 
 export namespace ArtifactCore {
@@ -56,6 +57,8 @@ export namespace ArtifactCore {
   float* rgba32fData();
   const std::uint8_t* rgba8Data() const;
   std::uint8_t* rgba8Data();
+  SurfaceColorDescriptor colorDescriptor() const noexcept;
+  void setColorDescriptor(const SurfaceColorDescriptor& descriptor) noexcept;
   void fill(const FloatRGBA& rgba);
   bool load(const QString& path);
   bool save(const QString& path) const;
@@ -78,8 +81,14 @@ export namespace ArtifactCore {
   ImageF32x4_RGBA crop(int x, int y, int width, int height) const;
   // Set from an existing OpenCV Mat (various types supported)
   void setFromCVMat(const cv::Mat& mat);
+  void setFromCVMat(const cv::Mat& mat,
+                    const SurfaceColorDescriptor& descriptor);
   void setFromRGBA32F(const float* data, int width, int height);
+  void setFromRGBA32F(const float* data, int width, int height,
+                      const SurfaceColorDescriptor& descriptor);
   void setFromRGBA8(const std::uint8_t* data, int width, int height);
+  void setFromRGBA8(const std::uint8_t* data, int width, int height,
+                    const SurfaceColorDescriptor& descriptor);
   
   // ブレンディング
   void alphaBlend(const ImageF32x4_RGBA& overlay, float opacity = 1.0f);

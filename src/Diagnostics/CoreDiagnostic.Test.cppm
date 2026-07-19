@@ -6,6 +6,9 @@ module;
 #include <string>
 #include <string_view>
 #include <span>
+#include <array>
+#include <cmath>
+#include <cstring>
 
 export module Core.Diagnostics.Test;
 
@@ -18,6 +21,8 @@ import Utils.Text.Encoding;
 import Utils.Text.Number;
 import Utils.Text.Path;
 import Utils.Text.String;
+import Graphics.SurfaceColorContract;
+import Image.SurfacePixelConversion;
 
 namespace ArtifactCore::DiagnosticsTest {
 
@@ -254,6 +259,54 @@ bool numericParsingContractTest()
          invalid.errorContext().location.hasValue();
 }
 
+bool surfacePixelConversionContractTest()
+{
+  constexpr std::array<float, 8> rgbaSrgbStraight = {
+      0.5f, 0.25f, 0.125f, 0.5f,
+      1.0f, 0.5f, 0.25f, 0.0f};
+  auto rgbaSrgbFloat = SurfaceColorDescriptor::legacyOpenCvBgra32Float();
+  rgbaSrgbFloat.channelOrder = SurfaceChannelOrder::RGBA;
+  const auto linear = convertSurfacePixels(
+      rgbaSrgbStraight.data(), nullptr, 2, 1,
+      rgbaSrgbFloat,
+      SurfacePixelTarget::Rgba32LinearStraight);
+  if (!linear.isValid() || !linear.descriptor.isFullySpecified() ||
+      linear.bytes.size() != sizeof(rgbaSrgbStraight)) {
+    return false;
+  }
+
+  std::array<float, 8> converted{};
+  std::memcpy(converted.data(), linear.bytes.data(), linear.bytes.size());
+  const auto closeTo = [](float actual, float expected) {
+    return std::abs(actual - expected) <= 1.0e-5f;
+  };
+  if (!closeTo(converted[0], 0.21404114f) ||
+      !closeTo(converted[1], 0.05087609f) ||
+      !closeTo(converted[2], 0.01434987f) ||
+      !closeTo(converted[3], 0.5f) ||
+      converted[4] != 0.0f || converted[5] != 0.0f ||
+      converted[6] != 0.0f || converted[7] != 0.0f) {
+    return false;
+  }
+
+  constexpr std::array<float, 4> bgraLinearPremultiplied = {
+      0.125f, 0.25f, 0.375f, 0.5f};
+  auto bgraDescriptor = SurfaceColorDescriptor::canonicalLinearPremultiplied();
+  bgraDescriptor.channelOrder = SurfaceChannelOrder::BGRA;
+  const auto reordered = convertSurfacePixels(
+      bgraLinearPremultiplied.data(), nullptr, 1, 1, bgraDescriptor,
+      SurfacePixelTarget::Rgba32LinearStraight);
+  if (!reordered.isValid()) {
+    return false;
+  }
+  std::array<float, 4> reorderedPixel{};
+  std::memcpy(reorderedPixel.data(), reordered.bytes.data(), reordered.bytes.size());
+  return closeTo(reorderedPixel[0], 0.75f) &&
+         closeTo(reorderedPixel[1], 0.5f) &&
+         closeTo(reorderedPixel[2], 0.25f) &&
+         closeTo(reorderedPixel[3], 0.5f);
+}
+
 bool pathContractTest()
 {
   const auto normalized = normalizePathSeparators("C:\\\\work\\\\asset.mov", "asset.path");
@@ -357,6 +410,7 @@ bool runAllCoreDiagnosticTests()
          bomDetectionContractTest() &&
          stringViewContractTest() &&
          numericParsingContractTest() &&
+         surfacePixelConversionContractTest() &&
          pathContractTest() &&
          loggerReverseAdapterContractTest() &&
          crashHandlerIngestContractTest();
