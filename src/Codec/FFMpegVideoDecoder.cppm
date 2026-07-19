@@ -36,7 +36,6 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-module Codec.FFmpegVideoDecoder;
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -44,6 +43,8 @@ extern "C" {
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
 }
+
+module Codec.FFmpegVideoDecoder;
 
 import Video.VideoFrame;
 import Core.Diagnostics.Recorder;
@@ -76,8 +77,8 @@ static CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsC
   out.meta.height = height;
   out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
   out.meta.pts = pts;
-  out.meta.color.colorSpace = static_cast<int>(frame->colorspace);
-  out.meta.color.colorRange = static_cast<int>(frame->color_range);
+  out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
+  out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
   out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
   out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
   out.strideBytes = width * 3;

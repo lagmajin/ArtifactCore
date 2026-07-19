@@ -114,6 +114,16 @@ inline ZeroString toDebugTextZero(const ContainerDebugSnapshot& snapshot) {
   text += std::to_string(snapshot.counters.readCount);
   text += " failed=";
   text += std::to_string(snapshot.counters.failedAccessCount);
+  text += " added=";
+  text += std::to_string(snapshot.counters.addedCount);
+  text += " removed=";
+  text += std::to_string(snapshot.counters.removedCount);
+  text += " capacityChanges=";
+  text += std::to_string(snapshot.counters.capacityChangeCount);
+  text += " peakCapacity=";
+  text += std::to_string(snapshot.counters.maxCapacitySeen);
+  text += " peakBytes=";
+  text += std::to_string(snapshot.counters.maxApproximateBytesSeen);
   text += " samples=";
   text += std::to_string(snapshot.samples.size());
   if (snapshot.createdAt.file && snapshot.createdAt.file[0] != '\0') {

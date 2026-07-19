@@ -2,6 +2,7 @@ module;
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <queue>
 #include <string>
@@ -29,6 +30,7 @@ struct RenderPassHandle {
 enum class RenderResourceKind : std::uint8_t { Texture, Buffer };
 enum class RenderResourceLifetime : std::uint8_t { Transient, Persistent, External };
 enum class RenderPassQueue : std::uint8_t { Graphics, Compute, Copy };
+enum class RenderDiagnosticPassState : std::uint8_t { Scheduled, Disabled, Blocked };
 
 struct RenderResourceDescriptor {
     std::string name;
@@ -60,6 +62,33 @@ struct CompiledRenderGraph {
     std::string error;
     std::vector<RenderPassHandle> passOrder;
     std::vector<RenderResourceLifetimeRange> lifetimes;
+};
+
+struct RenderDiagnosticResourceRecord {
+    RenderResourceHandle handle;
+    RenderResourceDescriptor descriptor;
+    std::size_t firstPass = 0;
+    std::size_t lastPass = 0;
+    bool used = false;
+};
+
+struct RenderDiagnosticPassRecord {
+    RenderPassHandle handle;
+    RenderPassDescriptor descriptor;
+    RenderDiagnosticPassState state = RenderDiagnosticPassState::Blocked;
+    std::size_t executionOrder = 0;
+    std::uint64_t gpuDurationUs = 0;
+    std::uint64_t gpuSampleExecutionId = 0;
+    bool gpuTimingAvailable = false;
+};
+
+struct RenderGraphDiagnosticSnapshot {
+    std::uint64_t executionId = 0;
+    bool valid = false;
+    std::string error;
+    std::uint64_t estimatedResourceBytes = 0;
+    std::vector<RenderDiagnosticPassRecord> passes;
+    std::vector<RenderDiagnosticResourceRecord> resources;
 };
 
 class LIBRARY_DLL_API RenderGraph {
@@ -166,6 +195,66 @@ public:
         }
         result.valid = true;
         return result;
+    }
+
+    RenderGraphDiagnosticSnapshot diagnosticSnapshot(
+        const CompiledRenderGraph& compiled,
+        const std::uint64_t executionId = 0) const
+    {
+        RenderGraphDiagnosticSnapshot snapshot;
+        snapshot.executionId = executionId;
+        snapshot.valid = compiled.valid;
+        snapshot.error = compiled.error;
+        snapshot.passes.reserve(passes_.size());
+        snapshot.resources.reserve(resources_.size());
+
+        for (const auto& item : passes_) {
+            RenderDiagnosticPassRecord record;
+            record.handle = item.handle;
+            record.descriptor = item.descriptor;
+            if (!item.descriptor.enabled) {
+                record.state = RenderDiagnosticPassState::Disabled;
+            } else {
+                const auto position = std::find(compiled.passOrder.begin(),
+                                                compiled.passOrder.end(),
+                                                item.handle);
+                if (position != compiled.passOrder.end()) {
+                    record.state = RenderDiagnosticPassState::Scheduled;
+                    record.executionOrder = static_cast<std::size_t>(
+                        std::distance(compiled.passOrder.begin(), position));
+                }
+            }
+            snapshot.passes.push_back(std::move(record));
+        }
+
+        for (const auto& item : resources_) {
+            RenderDiagnosticResourceRecord record;
+            record.handle = item.handle;
+            record.descriptor = item.descriptor;
+            const auto lifetime = std::find_if(
+                compiled.lifetimes.begin(),
+                compiled.lifetimes.end(),
+                [&item](const RenderResourceLifetimeRange& range) {
+                    return range.resource == item.handle;
+                });
+            if (lifetime != compiled.lifetimes.end()) {
+                record.firstPass = lifetime->firstPass;
+                record.lastPass = lifetime->lastPass;
+                record.used = true;
+                const auto remaining = std::numeric_limits<std::uint64_t>::max()
+                    - snapshot.estimatedResourceBytes;
+                snapshot.estimatedResourceBytes += std::min(item.descriptor.byteSize,
+                                                            remaining);
+            }
+            snapshot.resources.push_back(std::move(record));
+        }
+        return snapshot;
+    }
+
+    RenderGraphDiagnosticSnapshot compileDiagnosticSnapshot(
+        const std::uint64_t executionId = 0) const
+    {
+        return diagnosticSnapshot(compile(), executionId);
     }
 
     void clear()

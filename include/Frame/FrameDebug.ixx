@@ -6,11 +6,13 @@ module;
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <utility>
 #include <vector>
 
 export module Frame.Debug;
 
 import Frame.Position;
+import Graphics.RenderGraph;
 
 export namespace ArtifactCore {
 
@@ -39,6 +41,11 @@ enum class FrameDebugCompareMode {
     Next,
     CaptureId
 };
+
+inline QJsonObject renderGraphDiagnosticToJson(
+    const RenderGraphDiagnosticSnapshot& snapshot);
+inline RenderGraphDiagnosticSnapshot renderGraphDiagnosticFromJson(
+    const QJsonObject& json);
 
 struct RenderCostStats {
     std::uint64_t drawCalls = 0;
@@ -159,6 +166,8 @@ struct FrameDebugSnapshot {
     double renderLastFrameMs = 0.0;
     double renderAverageFrameMs = 0.0;
     double renderGpuFrameMs = 0.0;
+    bool renderGpuTimingAvailable = false;
+    std::uint64_t renderGpuTimingExecutionId = 0;
     RenderCostStats renderCost;
     FrameDebugCompareMode compareMode = FrameDebugCompareMode::Disabled;
     QString compareTargetId;
@@ -166,6 +175,8 @@ struct FrameDebugSnapshot {
     std::vector<FrameDebugResourceRecord> resources;
     std::vector<FrameDebugAttachmentRecord> attachments;
     std::vector<FrameDebugImagePreviewRecord> previews;
+    RenderGraphDiagnosticSnapshot renderGraphDiagnostic;
+    bool hasRenderGraphDiagnostic = false;
     bool failed = false;
     QString failureReason;
 
@@ -462,6 +473,9 @@ inline QJsonObject FrameDebugSnapshot::toJson() const
     json.insert(QStringLiteral("renderLastFrameMs"), renderLastFrameMs);
     json.insert(QStringLiteral("renderAverageFrameMs"), renderAverageFrameMs);
     json.insert(QStringLiteral("renderGpuFrameMs"), renderGpuFrameMs);
+    json.insert(QStringLiteral("renderGpuTimingAvailable"), renderGpuTimingAvailable);
+    json.insert(QStringLiteral("renderGpuTimingExecutionId"),
+                QString::number(renderGpuTimingExecutionId));
     json.insert(QStringLiteral("renderDrawCalls"), static_cast<double>(renderCost.drawCalls));
     json.insert(QStringLiteral("renderIndexedDrawCalls"), static_cast<double>(renderCost.indexedDrawCalls));
     json.insert(QStringLiteral("renderPsoSwitches"), static_cast<double>(renderCost.psoSwitches));
@@ -469,6 +483,11 @@ inline QJsonObject FrameDebugSnapshot::toJson() const
     json.insert(QStringLiteral("renderBufferUpdates"), static_cast<double>(renderCost.bufferUpdates));
     json.insert(QStringLiteral("compareMode"), toString(compareMode));
     json.insert(QStringLiteral("compareTargetId"), compareTargetId);
+    json.insert(QStringLiteral("hasRenderGraphDiagnostic"), hasRenderGraphDiagnostic);
+    if (hasRenderGraphDiagnostic) {
+        json.insert(QStringLiteral("renderGraphDiagnostic"),
+                    renderGraphDiagnosticToJson(renderGraphDiagnostic));
+    }
     json.insert(QStringLiteral("failed"), failed);
     json.insert(QStringLiteral("failureReason"), failureReason);
 
@@ -517,6 +536,10 @@ inline FrameDebugSnapshot FrameDebugSnapshot::fromJson(const QJsonObject& json)
     snapshot.renderLastFrameMs = json.value(QStringLiteral("renderLastFrameMs")).toDouble();
     snapshot.renderAverageFrameMs = json.value(QStringLiteral("renderAverageFrameMs")).toDouble();
     snapshot.renderGpuFrameMs = json.value(QStringLiteral("renderGpuFrameMs")).toDouble();
+    snapshot.renderGpuTimingAvailable = json.value(
+        QStringLiteral("renderGpuTimingAvailable")).toBool();
+    snapshot.renderGpuTimingExecutionId = json.value(
+        QStringLiteral("renderGpuTimingExecutionId")).toString().toULongLong();
     snapshot.renderCost.drawCalls = static_cast<std::uint64_t>(json.value(QStringLiteral("renderDrawCalls")).toDouble());
     snapshot.renderCost.indexedDrawCalls = static_cast<std::uint64_t>(json.value(QStringLiteral("renderIndexedDrawCalls")).toDouble());
     snapshot.renderCost.psoSwitches = static_cast<std::uint64_t>(json.value(QStringLiteral("renderPsoSwitches")).toDouble());
@@ -524,6 +547,12 @@ inline FrameDebugSnapshot FrameDebugSnapshot::fromJson(const QJsonObject& json)
     snapshot.renderCost.bufferUpdates = static_cast<std::uint64_t>(json.value(QStringLiteral("renderBufferUpdates")).toDouble());
     snapshot.compareMode = compareModeFromString(json.value(QStringLiteral("compareMode")).toString());
     snapshot.compareTargetId = json.value(QStringLiteral("compareTargetId")).toString();
+    snapshot.hasRenderGraphDiagnostic = json.value(
+        QStringLiteral("hasRenderGraphDiagnostic")).toBool();
+    if (snapshot.hasRenderGraphDiagnostic) {
+        snapshot.renderGraphDiagnostic = renderGraphDiagnosticFromJson(
+            json.value(QStringLiteral("renderGraphDiagnostic")).toObject());
+    }
     snapshot.failed = json.value(QStringLiteral("failed")).toBool();
     snapshot.failureReason = json.value(QStringLiteral("failureReason")).toString();
 
@@ -589,6 +618,193 @@ inline FrameDebugBundle FrameDebugBundle::fromJson(const QJsonObject& json)
         bundle.history.push_back(FrameDebugCapture::fromJson(value.toObject()));
     }
     return bundle;
+}
+
+inline QString toString(const RenderResourceKind kind)
+{
+    return kind == RenderResourceKind::Texture
+        ? QStringLiteral("Texture")
+        : QStringLiteral("Buffer");
+}
+
+inline QString toString(const RenderResourceLifetime lifetime)
+{
+    switch (lifetime) {
+    case RenderResourceLifetime::Persistent: return QStringLiteral("Persistent");
+    case RenderResourceLifetime::External: return QStringLiteral("External");
+    default: return QStringLiteral("Transient");
+    }
+}
+
+inline QString toString(const RenderPassQueue queue)
+{
+    switch (queue) {
+    case RenderPassQueue::Compute: return QStringLiteral("Compute");
+    case RenderPassQueue::Copy: return QStringLiteral("Copy");
+    default: return QStringLiteral("Graphics");
+    }
+}
+
+inline QString toString(const RenderDiagnosticPassState state)
+{
+    switch (state) {
+    case RenderDiagnosticPassState::Scheduled: return QStringLiteral("Scheduled");
+    case RenderDiagnosticPassState::Disabled: return QStringLiteral("Disabled");
+    default: return QStringLiteral("Blocked");
+    }
+}
+
+inline QJsonObject renderGraphDiagnosticToJson(
+    const RenderGraphDiagnosticSnapshot& snapshot)
+{
+    QJsonObject json;
+    json.insert(QStringLiteral("executionId"), QString::number(snapshot.executionId));
+    json.insert(QStringLiteral("valid"), snapshot.valid);
+    json.insert(QStringLiteral("error"), QString::fromStdString(snapshot.error));
+    json.insert(QStringLiteral("estimatedResourceBytes"),
+                QString::number(snapshot.estimatedResourceBytes));
+
+    QJsonArray passesJson;
+    for (const auto& pass : snapshot.passes) {
+        QJsonObject passJson;
+        passJson.insert(QStringLiteral("id"), static_cast<int>(pass.handle.id));
+        passJson.insert(QStringLiteral("name"), QString::fromStdString(pass.descriptor.name));
+        passJson.insert(QStringLiteral("queue"), toString(pass.descriptor.queue));
+        passJson.insert(QStringLiteral("state"), toString(pass.state));
+        passJson.insert(QStringLiteral("executionOrder"),
+                        static_cast<qint64>(pass.executionOrder));
+        passJson.insert(QStringLiteral("gpuDurationUs"), QString::number(pass.gpuDurationUs));
+        passJson.insert(QStringLiteral("gpuSampleExecutionId"),
+                        QString::number(pass.gpuSampleExecutionId));
+        passJson.insert(QStringLiteral("gpuTimingAvailable"), pass.gpuTimingAvailable);
+
+        QJsonArray readsJson;
+        for (const auto handle : pass.descriptor.reads) {
+            readsJson.append(static_cast<int>(handle.id));
+        }
+        passJson.insert(QStringLiteral("reads"), readsJson);
+
+        QJsonArray writesJson;
+        for (const auto handle : pass.descriptor.writes) {
+            writesJson.append(static_cast<int>(handle.id));
+        }
+        passJson.insert(QStringLiteral("writes"), writesJson);
+        passesJson.append(passJson);
+    }
+    json.insert(QStringLiteral("passes"), passesJson);
+
+    QJsonArray resourcesJson;
+    for (const auto& resource : snapshot.resources) {
+        QJsonObject resourceJson;
+        resourceJson.insert(QStringLiteral("id"), static_cast<int>(resource.handle.id));
+        resourceJson.insert(QStringLiteral("name"),
+                            QString::fromStdString(resource.descriptor.name));
+        resourceJson.insert(QStringLiteral("kind"), toString(resource.descriptor.kind));
+        resourceJson.insert(QStringLiteral("lifetime"),
+                            toString(resource.descriptor.lifetime));
+        resourceJson.insert(QStringLiteral("width"),
+                            static_cast<int>(resource.descriptor.width));
+        resourceJson.insert(QStringLiteral("height"),
+                            static_cast<int>(resource.descriptor.height));
+        resourceJson.insert(QStringLiteral("depth"),
+                            static_cast<int>(resource.descriptor.depth));
+        resourceJson.insert(QStringLiteral("format"),
+                            static_cast<int>(resource.descriptor.format));
+        resourceJson.insert(QStringLiteral("byteSize"),
+                            QString::number(resource.descriptor.byteSize));
+        resourceJson.insert(QStringLiteral("used"), resource.used);
+        if (resource.used) {
+            resourceJson.insert(QStringLiteral("firstPass"),
+                                static_cast<qint64>(resource.firstPass));
+            resourceJson.insert(QStringLiteral("lastPass"),
+                                static_cast<qint64>(resource.lastPass));
+        }
+        resourcesJson.append(resourceJson);
+    }
+    json.insert(QStringLiteral("resources"), resourcesJson);
+    return json;
+}
+
+inline RenderGraphDiagnosticSnapshot renderGraphDiagnosticFromJson(
+    const QJsonObject& json)
+{
+    RenderGraphDiagnosticSnapshot snapshot;
+    snapshot.executionId = json.value(QStringLiteral("executionId")).toString().toULongLong();
+    snapshot.valid = json.value(QStringLiteral("valid")).toBool();
+    snapshot.error = json.value(QStringLiteral("error")).toString().toStdString();
+    snapshot.estimatedResourceBytes = json.value(
+        QStringLiteral("estimatedResourceBytes")).toString().toULongLong();
+
+    for (const auto& value : json.value(QStringLiteral("passes")).toArray()) {
+        const auto passJson = value.toObject();
+        RenderDiagnosticPassRecord pass;
+        pass.handle.id = static_cast<std::uint32_t>(passJson.value(
+            QStringLiteral("id")).toInt());
+        pass.descriptor.name = passJson.value(QStringLiteral("name")).toString().toStdString();
+        const auto queue = passJson.value(QStringLiteral("queue")).toString();
+        if (queue == QStringLiteral("Compute")) pass.descriptor.queue = RenderPassQueue::Compute;
+        else if (queue == QStringLiteral("Copy")) pass.descriptor.queue = RenderPassQueue::Copy;
+        else pass.descriptor.queue = RenderPassQueue::Graphics;
+        const auto state = passJson.value(QStringLiteral("state")).toString();
+        if (state == QStringLiteral("Scheduled")) {
+            pass.state = RenderDiagnosticPassState::Scheduled;
+        } else if (state == QStringLiteral("Disabled")) {
+            pass.state = RenderDiagnosticPassState::Disabled;
+        } else {
+            pass.state = RenderDiagnosticPassState::Blocked;
+        }
+        pass.executionOrder = static_cast<std::size_t>(passJson.value(
+            QStringLiteral("executionOrder")).toDouble());
+        pass.gpuDurationUs = passJson.value(QStringLiteral("gpuDurationUs")).toString().toULongLong();
+        pass.gpuSampleExecutionId = passJson.value(
+            QStringLiteral("gpuSampleExecutionId")).toString().toULongLong();
+        pass.gpuTimingAvailable = passJson.value(
+            QStringLiteral("gpuTimingAvailable")).toBool();
+        for (const auto read : passJson.value(QStringLiteral("reads")).toArray()) {
+            pass.descriptor.reads.push_back({static_cast<std::uint32_t>(read.toInt())});
+        }
+        for (const auto write : passJson.value(QStringLiteral("writes")).toArray()) {
+            pass.descriptor.writes.push_back({static_cast<std::uint32_t>(write.toInt())});
+        }
+        pass.descriptor.enabled = pass.state != RenderDiagnosticPassState::Disabled;
+        snapshot.passes.push_back(std::move(pass));
+    }
+
+    for (const auto& value : json.value(QStringLiteral("resources")).toArray()) {
+        const auto resourceJson = value.toObject();
+        RenderDiagnosticResourceRecord resource;
+        resource.handle.id = static_cast<std::uint32_t>(resourceJson.value(
+            QStringLiteral("id")).toInt());
+        resource.descriptor.name = resourceJson.value(
+            QStringLiteral("name")).toString().toStdString();
+        resource.descriptor.kind = resourceJson.value(QStringLiteral("kind")).toString()
+            == QStringLiteral("Buffer") ? RenderResourceKind::Buffer : RenderResourceKind::Texture;
+        const auto lifetime = resourceJson.value(QStringLiteral("lifetime")).toString();
+        if (lifetime == QStringLiteral("Persistent")) {
+            resource.descriptor.lifetime = RenderResourceLifetime::Persistent;
+        } else if (lifetime == QStringLiteral("External")) {
+            resource.descriptor.lifetime = RenderResourceLifetime::External;
+        } else {
+            resource.descriptor.lifetime = RenderResourceLifetime::Transient;
+        }
+        resource.descriptor.width = static_cast<std::uint32_t>(resourceJson.value(
+            QStringLiteral("width")).toInt());
+        resource.descriptor.height = static_cast<std::uint32_t>(resourceJson.value(
+            QStringLiteral("height")).toInt());
+        resource.descriptor.depth = static_cast<std::uint32_t>(resourceJson.value(
+            QStringLiteral("depth")).toInt(1));
+        resource.descriptor.format = static_cast<std::uint32_t>(resourceJson.value(
+            QStringLiteral("format")).toInt());
+        resource.descriptor.byteSize = resourceJson.value(
+            QStringLiteral("byteSize")).toString().toULongLong();
+        resource.used = resourceJson.value(QStringLiteral("used")).toBool();
+        resource.firstPass = static_cast<std::size_t>(resourceJson.value(
+            QStringLiteral("firstPass")).toDouble());
+        resource.lastPass = static_cast<std::size_t>(resourceJson.value(
+            QStringLiteral("lastPass")).toDouble());
+        snapshot.resources.push_back(std::move(resource));
+    }
+    return snapshot;
 }
 
 } // namespace ArtifactCore

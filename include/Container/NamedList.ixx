@@ -156,7 +156,12 @@ public:
 
   const T* first() const noexcept
   {
-    return values_.empty() ? nullptr : &values_.front();
+    if (values_.empty()) {
+      bumpFailedAccess();
+      return nullptr;
+    }
+    ++counters_.readCount;
+    return &values_.front();
   }
 
   T* last() noexcept
@@ -171,7 +176,12 @@ public:
 
   const T* last() const noexcept
   {
-    return values_.empty() ? nullptr : &values_.back();
+    if (values_.empty()) {
+      bumpFailedAccess();
+      return nullptr;
+    }
+    ++counters_.readCount;
+    return &values_.back();
   }
 
   T* front() noexcept
@@ -236,6 +246,24 @@ public:
       }
     }
     return false;
+  }
+
+  bool removeOne(const T& value)
+  {
+    for (auto it = values_.begin(); it != values_.end(); ++it) {
+      if (*it == value) {
+        const auto before = values_.size();
+        values_.erase(it);
+        recordMutation("removeOne", before, values_.size());
+        return true;
+      }
+    }
+    return false;
+  }
+
+  std::size_t removeAll(const T& value)
+  {
+    return removeIf([&value](const T& item) { return item == value; });
   }
 
   template <typename Predicate>
@@ -397,6 +425,20 @@ public:
     return counters_;
   }
 
+  ContainerDebugCheckpoint debugCheckpoint() const noexcept
+  {
+    return ContainerDebugCheckpoint{counters_.version, counters_.readCount, counters_.failedAccessCount};
+  }
+
+  template <typename Callback>
+  bool watchSince(const ContainerDebugCheckpoint& checkpoint, Callback&& callback) const
+  {
+    const bool hit = counters_.version != checkpoint.version
+      || counters_.failedAccessCount != checkpoint.failedAccessCount;
+    if (hit) callback(ContainerWatchHit{"list-changed-since-checkpoint", createdAt_, debugSnapshot()});
+    return hit;
+  }
+
   const ContainerMutationRecord& lastMutation() const noexcept
   {
     return lastMutation_;
@@ -425,6 +467,11 @@ private:
     if (after > counters_.maxCountSeen) {
       counters_.maxCountSeen = after;
     }
+    if (after > before) counters_.addedCount += after - before;
+    if (before > after) counters_.removedCount += before - after;
+    if (after > counters_.maxCapacitySeen) counters_.maxCapacitySeen = after;
+    const auto approximateBytes = after * (sizeof(T) + 2 * sizeof(void*));
+    if (approximateBytes > counters_.maxApproximateBytesSeen) counters_.maxApproximateBytesSeen = approximateBytes;
     lastMutatedAt_ = createdAt_;
     lastMutation_ = ContainerMutationRecord{
       operation,
@@ -437,7 +484,7 @@ private:
     pushMutation(lastMutation_);
   }
 
-  void bumpFailedAccess() noexcept
+  void bumpFailedAccess() const noexcept
   {
     ++counters_.failedAccessCount;
     lastFailedAccessAt_ = createdAt_;
@@ -459,7 +506,7 @@ private:
   mutable ContainerDebugCounters counters_{};
   ContainerSourceLocation createdAt_{};
   ContainerSourceLocation lastMutatedAt_{};
-  ContainerSourceLocation lastFailedAccessAt_{};
+  mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
   std::vector<ContainerMutationRecord> mutationHistory_;
 };

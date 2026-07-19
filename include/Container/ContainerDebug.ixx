@@ -49,6 +49,17 @@ struct ContainerDebugCounters {
   std::size_t readCount = 0;
   std::size_t failedAccessCount = 0;
   std::size_t maxCountSeen = 0;
+  std::size_t addedCount = 0;
+  std::size_t removedCount = 0;
+  std::size_t capacityChangeCount = 0;
+  std::size_t maxCapacitySeen = 0;
+  std::size_t maxApproximateBytesSeen = 0;
+};
+
+struct ContainerDebugCheckpoint {
+  std::size_t version = 0;
+  std::size_t readCount = 0;
+  std::size_t failedAccessCount = 0;
 };
 
 struct ContainerMutationRecord {

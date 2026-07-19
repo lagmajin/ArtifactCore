@@ -51,6 +51,10 @@ CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& source) {
     out.meta.width = rgba.width();
     out.meta.height = rgba.height();
     out.meta.pixelFormat = VideoFramePixelFormat::RGBA8;
+    out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
+    out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
+    out.meta.color.colorPrimaries = static_cast<int>(AVCOL_PRI_BT709);
+    out.meta.color.colorTransfer = static_cast<int>(AVCOL_TRC_IEC61966_2_1);
     out.strideBytes = rgba.bytesPerLine();
     out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(out.meta.height));
     for (int y = 0; y < out.meta.height; ++y) {
@@ -70,8 +74,8 @@ CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsCtx, int
     out.meta.width = width;
     out.meta.height = height;
     out.meta.pts = pts;
-    out.meta.color.colorSpace = static_cast<int>(frame->colorspace);
-    out.meta.color.colorRange = static_cast<int>(frame->color_range);
+    out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
+    out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
     out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
     out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
     out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
@@ -102,18 +106,8 @@ CpuVideoFrame makeCpuVideoFrameFromDownloadedFrame(AVFrame* frame, int64_t pts)
         return out;
     }
 
-    out.meta.width = frame->width;
-    out.meta.height = frame->height;
-    out.meta.pts = pts;
-    out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
-    out.strideBytes = frame->width * 3;
-    out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(frame->height));
-
-    uint8_t* dst[4] = {};
-    int dstLinesize[4] = {};
-    dst[0] = out.bytes.data();
-    dstLinesize[0] = out.strideBytes;
-    sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize);
+    out = makeCpuVideoFrameFromFrame(
+        frame, swsCtx, frame->width, frame->height, pts);
     sws_freeContext(swsCtx);
     return out;
 }
@@ -230,6 +224,10 @@ GpuVideoFrame makeGpuVideoFrameFromFrame(AVFrame* frame)
         ? frame->best_effort_timestamp
         : frame->pts;
     out.meta.pixelFormat = pixelFormat;
+    out.meta.color.colorSpace = static_cast<int>(frame->colorspace);
+    out.meta.color.colorRange = static_cast<int>(frame->color_range);
+    out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
+    out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
     out.storage = VideoFrameStorageKind::VulkanImage;
     out.lifetime = frameRef;
 

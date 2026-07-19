@@ -88,6 +88,7 @@ public:
     ++counters_.readCount;
     auto it = values_.find(key);
     if (it == values_.end()) {
+      bumpFailedAccess();
       return nullptr;
     }
     return &it->second;
@@ -117,6 +118,49 @@ public:
   void add(const K& key, const V& value)
   {
     insert(key, value);
+  }
+
+  V value(const K& key, V defaultValue = V{}) const
+  {
+    ++counters_.readCount;
+    const auto it = values_.find(key);
+    return it == values_.end() ? std::move(defaultValue) : it->second;
+  }
+
+  template <typename... Args>
+  std::pair<V*, bool> tryEmplace(const K& key, Args&&... args)
+  {
+    const auto before = values_.size();
+    auto [it, inserted] = values_.try_emplace(key, std::forward<Args>(args)...);
+    if (inserted) recordMutation("tryEmplace", before, values_.size());
+    return {&it->second, inserted};
+  }
+
+  bool tryTake(const K& key, V& result)
+  {
+    auto it = values_.find(key);
+    if (it == values_.end()) {
+      bumpFailedAccess();
+      return false;
+    }
+    const auto before = values_.size();
+    result = std::move(it->second);
+    values_.erase(it);
+    recordMutation("tryTake", before, values_.size());
+    return true;
+  }
+
+  template <typename Predicate>
+  std::size_t removeIf(Predicate&& predicate)
+  {
+    const auto before = values_.size();
+    for (auto it = values_.begin(); it != values_.end();) {
+      if (predicate(it->first, it->second)) it = values_.erase(it);
+      else ++it;
+    }
+    const auto removed = before - values_.size();
+    if (removed != 0) recordMutation("removeIf", before, values_.size());
+    return removed;
   }
 
   bool remove(const K& key)
@@ -239,6 +283,20 @@ public:
     return counters_;
   }
 
+  ContainerDebugCheckpoint debugCheckpoint() const noexcept
+  {
+    return ContainerDebugCheckpoint{counters_.version, counters_.readCount, counters_.failedAccessCount};
+  }
+
+  template <typename Callback>
+  bool watchSince(const ContainerDebugCheckpoint& checkpoint, Callback&& callback) const
+  {
+    const bool hit = counters_.version != checkpoint.version
+      || counters_.failedAccessCount != checkpoint.failedAccessCount;
+    if (hit) callback(ContainerWatchHit{"namemap-changed-since-checkpoint", createdAt_, debugSnapshot()});
+    return hit;
+  }
+
   const ContainerMutationRecord& lastMutation() const noexcept
   {
     return lastMutation_;
@@ -323,6 +381,12 @@ private:
   {
     ++counters_.version;
     ++counters_.mutationCount;
+    if (after > counters_.maxCountSeen) counters_.maxCountSeen = after;
+    if (after > before) counters_.addedCount += after - before;
+    if (before > after) counters_.removedCount += before - after;
+    if (after > counters_.maxCapacitySeen) counters_.maxCapacitySeen = after;
+    const auto approximateBytes = after * (sizeof(K) + sizeof(V) + 3 * sizeof(void*));
+    if (approximateBytes > counters_.maxApproximateBytesSeen) counters_.maxApproximateBytesSeen = approximateBytes;
     lastMutatedAt_ = createdAt_;
     lastMutation_ = ContainerMutationRecord{
       operation,
@@ -335,7 +399,7 @@ private:
     pushMutation(lastMutation_);
   }
 
-  void bumpFailedAccess() noexcept
+  void bumpFailedAccess() const noexcept
   {
     ++counters_.failedAccessCount;
     lastFailedAccessAt_ = createdAt_;
@@ -364,7 +428,7 @@ private:
   mutable ContainerDebugCounters counters_{};
   ContainerSourceLocation createdAt_{};
   ContainerSourceLocation lastMutatedAt_{};
-  ContainerSourceLocation lastFailedAccessAt_{};
+  mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
   std::vector<ContainerMutationRecord> mutationHistory_;
 };

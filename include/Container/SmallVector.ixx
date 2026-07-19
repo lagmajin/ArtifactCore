@@ -335,6 +335,7 @@ public:
   const T* at(std::size_t index) const noexcept
   {
     if (!hasIndex(index)) {
+      bumpFailedAccess();
       return nullptr;
     }
     return &data_[index];
@@ -363,6 +364,7 @@ public:
   const T* first() const noexcept
   {
     if (isEmpty()) {
+      bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
@@ -382,6 +384,7 @@ public:
   const T* last() const noexcept
   {
     if (isEmpty()) {
+      bumpFailedAccess();
       return nullptr;
     }
     ++counters_.readCount;
@@ -419,6 +422,30 @@ public:
     shiftLeft(index + 1, 1);
     --size_;
     recordMutation("removeAt", before, size_);
+    return true;
+  }
+
+  bool replace(std::size_t index, const T& value)
+  {
+    if (!hasIndex(index)) {
+      bumpFailedAccess();
+      return false;
+    }
+    data_[index] = value;
+    recordMutation("replace", size_, size_);
+    return true;
+  }
+
+  bool swapItemsAt(std::size_t firstIndex, std::size_t secondIndex)
+  {
+    if (!hasIndex(firstIndex) || !hasIndex(secondIndex)) {
+      bumpFailedAccess();
+      return false;
+    }
+    if (firstIndex != secondIndex) {
+      std::swap(data_[firstIndex], data_[secondIndex]);
+      recordMutation("swapItemsAt", size_, size_);
+    }
     return true;
   }
 
@@ -513,6 +540,69 @@ public:
     return false;
   }
 
+  std::ptrdiff_t indexOf(const T& value, std::size_t from = 0) const
+  {
+    ++counters_.readCount;
+    for (std::size_t index = from; index < size_; ++index) {
+      if (data_[index] == value) return static_cast<std::ptrdiff_t>(index);
+    }
+    return -1;
+  }
+
+  std::ptrdiff_t lastIndexOf(const T& value) const
+  {
+    ++counters_.readCount;
+    for (std::size_t index = size_; index > 0; --index) {
+      if (data_[index - 1] == value) return static_cast<std::ptrdiff_t>(index - 1);
+    }
+    return -1;
+  }
+
+  bool startsWith(const T& value) const
+  {
+    ++counters_.readCount;
+    return size_ != 0 && data_[0] == value;
+  }
+
+  bool endsWith(const T& value) const
+  {
+    ++counters_.readCount;
+    return size_ != 0 && data_[size_ - 1] == value;
+  }
+
+  bool removeOne(const T& value)
+  {
+    const auto index = indexOf(value);
+    return index >= 0 && removeAt(static_cast<std::size_t>(index));
+  }
+
+  std::size_t removeAll(const T& value)
+  {
+    return removeIf([&value](const T& item) { return item == value; });
+  }
+
+  template <typename Predicate>
+  std::size_t removeIf(Predicate&& predicate)
+  {
+    const auto before = size_;
+    std::size_t writeIndex = 0;
+    for (std::size_t readIndex = 0; readIndex < size_; ++readIndex) {
+      if (!predicate(data_[readIndex])) {
+        if (writeIndex != readIndex) data_[writeIndex] = std::move(data_[readIndex]);
+        ++writeIndex;
+      }
+    }
+    destroyRange(writeIndex, size_);
+    size_ = writeIndex;
+    const auto removed = before - size_;
+    if (removed != 0) recordMutation("removeIf", before, size_);
+    return removed;
+  }
+
+  T* data() noexcept { return data_; }
+  const T* data() const noexcept { return data_; }
+  const T* constData() const noexcept { return data_; }
+
   std::vector<T> toStdVector() const
   {
     std::vector<T> result;
@@ -600,6 +690,20 @@ public:
   const ContainerDebugCounters& counters() const noexcept
   {
     return counters_;
+  }
+
+  ContainerDebugCheckpoint debugCheckpoint() const noexcept
+  {
+    return ContainerDebugCheckpoint{counters_.version, counters_.readCount, counters_.failedAccessCount};
+  }
+
+  template <typename Callback>
+  bool watchSince(const ContainerDebugCheckpoint& checkpoint, Callback&& callback) const
+  {
+    const bool hit = counters_.version != checkpoint.version
+      || counters_.failedAccessCount != checkpoint.failedAccessCount;
+    if (hit) callback(ContainerWatchHit{"smallvector-changed-since-checkpoint", createdAt_, debugSnapshot()});
+    return hit;
   }
 
   const ContainerMutationRecord& lastMutation() const noexcept
@@ -740,6 +844,16 @@ private:
   {
     ++counters_.version;
     ++counters_.mutationCount;
+    if (after > counters_.maxCountSeen) counters_.maxCountSeen = after;
+    if (after > before) counters_.addedCount += after - before;
+    if (before > after) counters_.removedCount += before - after;
+    if (capacity_ != observedCapacity_) {
+      ++counters_.capacityChangeCount;
+      observedCapacity_ = capacity_;
+    }
+    if (capacity_ > counters_.maxCapacitySeen) counters_.maxCapacitySeen = capacity_;
+    const auto approximateBytes = capacity_ * sizeof(T);
+    if (approximateBytes > counters_.maxApproximateBytesSeen) counters_.maxApproximateBytesSeen = approximateBytes;
     lastMutatedAt_ = createdAt_;
     lastMutation_ = ContainerMutationRecord{
       operation,
@@ -752,7 +866,7 @@ private:
     pushMutation(lastMutation_);
   }
 
-  void bumpFailedAccess() noexcept
+  void bumpFailedAccess() const noexcept
   {
     ++counters_.failedAccessCount;
     lastFailedAccessAt_ = createdAt_;
@@ -779,9 +893,10 @@ private:
   mutable ContainerDebugCounters counters_{};
   ContainerSourceLocation createdAt_{};
   ContainerSourceLocation lastMutatedAt_{};
-  ContainerSourceLocation lastFailedAccessAt_{};
+  mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
   std::vector<ContainerMutationRecord> mutationHistory_;
+  std::size_t observedCapacity_ = kInlineCapacity;
 };
 
 template <typename T, std::size_t N = 4>

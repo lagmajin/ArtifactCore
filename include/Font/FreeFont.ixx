@@ -9,6 +9,7 @@ module;
 #include <QStringList>
 #include <QFont>
 #include <QFontDatabase>
+#include <QRawFont>
 #include <QDebug>
 #include <QDateTime>
 
@@ -151,11 +152,12 @@ public:
  static QString resolvedFamilyForText(const QString& preferredFamily, const QString& sampleText)
  {
   const QString preferred = preferredFamily.trimmed();
-  if (!preferred.isEmpty() && isFamilyAvailable(preferred)) {
+   if (!preferred.isEmpty() && isFamilyAvailable(preferred)) {
    QFont preferredFont(preferred);
+   const QRawFont rawFont = QRawFont::fromFont(preferredFont, QFontDatabase::Any);
    bool needsCjkFallback = false;
    for (const QChar ch : sampleText) {
-    if (containsCjkCharacters(QString(ch)) && !preferredFont.supportsCharacter(ch)) {
+    if (containsCjkCharacters(QString(ch)) && (!rawFont.isValid() || !rawFont.supportsCharacter(ch))) {
      needsCjkFallback = true;
      break;
     }

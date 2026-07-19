@@ -48,6 +48,8 @@ module Image.ImageF32x4_RGBA;
 
 import FloatRGBA;
 import CvUtils;
+import Graphics.SurfaceColorContract;
+import Image.SurfacePixelConversion;
 
 namespace ArtifactCore {
 
@@ -56,6 +58,7 @@ namespace ArtifactCore {
 
  public:
   cv::Mat mat_;
+  SurfaceColorDescriptor colorDescriptor_ = SurfaceColorDescriptor::unknown();
   int32_t width() const;
   int32_t height() const;
   Impl();
@@ -110,7 +113,8 @@ namespace ArtifactCore {
  }
 
  ImageF32x4_RGBA::Impl::Impl(const FloatRGBA& rgba, int width, int height)
-  : mat_(height, width, CV_32FC4)
+  : mat_(height, width, CV_32FC4),
+    colorDescriptor_(SurfaceColorDescriptor::unknownRgba32Float())
  {
   cv::Vec4f color(rgba.r(), rgba.g(), rgba.b(), rgba.a()); // Assuming FloatRGBA is RGBA
   mat_.setTo(color);
@@ -123,7 +127,7 @@ namespace ArtifactCore {
  }
 
  ImageF32x4_RGBA::Impl::Impl(const Impl& other)
-  : mat_(other.mat_.clone())
+  : mat_(other.mat_.clone()), colorDescriptor_(other.colorDescriptor_)
  {
 
  }
@@ -132,6 +136,7 @@ namespace ArtifactCore {
  {
   if (this != &other) {
     mat_ = other.mat_.clone();
+    colorDescriptor_ = other.colorDescriptor_;
   }
   return *this;
  }
@@ -154,10 +159,13 @@ namespace ArtifactCore {
 
  }
 
- void ImageF32x4_RGBA::fill(const FloatRGBA& rgba)
- {
-  cv::Vec4f color(rgba.r(), rgba.g(), rgba.b(), rgba.a());
-  impl_->mat_.setTo(color);
+  void ImageF32x4_RGBA::fill(const FloatRGBA& rgba)
+  {
+   cv::Vec4f color(rgba.r(), rgba.g(), rgba.b(), rgba.a());
+   impl_->mat_.setTo(color);
+   if (impl_->colorDescriptor_.channelOrder == SurfaceChannelOrder::Unknown) {
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownRgba32Float();
+   }
  }
 
  bool ImageF32x4_RGBA::load(const QString& path)
@@ -188,7 +196,7 @@ namespace ArtifactCore {
 
       cv::Mat mat(spec.height, spec.width, CV_32FC4);
       if (rgba.get_pixels(OIIO::ROI::All(), OIIO::TypeDesc::FLOAT, mat.ptr<float>())) {
-        setFromCVMat(mat);
+        setFromCVMat(mat, SurfaceColorDescriptor::unknownRgba32Float());
         return true;
       }
     }
@@ -196,7 +204,12 @@ namespace ArtifactCore {
 
   QImage img(path);
   if (img.isNull()) return false;
-  setFromCVMat(CvUtils::qImageToCvMat(img));
+  const QImage encodedPremultiplied =
+      img.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+  setFromCVMat(
+      CvUtils::qImageToCvMat(encodedPremultiplied),
+      SurfaceColorDescriptor::legacyOpenCvBgra32Float(
+          TransferFunction::sRGB, SurfaceAlphaMode::Premultiplied));
   return true;
  }
 
@@ -304,9 +317,31 @@ namespace ArtifactCore {
    return impl_->mat_.ptr<std::uint8_t>();
   }
 
+  SurfaceColorDescriptor ImageF32x4_RGBA::colorDescriptor() const noexcept
+  {
+   return impl_->colorDescriptor_;
+  }
+
+  void ImageF32x4_RGBA::setColorDescriptor(
+      const SurfaceColorDescriptor& descriptor) noexcept
+  {
+   impl_->colorDescriptor_ = descriptor;
+  }
+
   QImage ImageF32x4_RGBA::toQImage() const
   {
-   return CvUtils::cvMatToQImage(impl_->mat_);
+   const SurfacePixelBuffer converted = convertSurfacePixels(
+       rgba32fData(), rgba8Data(), width(), height(), impl_->colorDescriptor_,
+       SurfacePixelTarget::Rgba8SrgbStraight);
+   if (!converted.isValid()) {
+    return QImage();
+   }
+   const QImage image(converted.bytes.data(),
+                      static_cast<int>(converted.width),
+                      static_cast<int>(converted.height),
+                      static_cast<qsizetype>(converted.rowStride),
+                      QImage::Format_RGBA8888);
+   return image.copy();
   }
 
   void ImageF32x4_RGBA::fillAlpha(float alpha/*=1.0f*/)
@@ -327,6 +362,8 @@ namespace ArtifactCore {
   void ImageF32x4_RGBA::setFromCVMat(const cv::Mat& mat)
   {
     if (mat.empty()) return;
+
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
 
     cv::Mat tmp;
     // Convert various types to CV_32FC4 (RGBA float)
@@ -373,30 +410,64 @@ namespace ArtifactCore {
     }
   }
 
+  void ImageF32x4_RGBA::setFromCVMat(
+      const cv::Mat& mat, const SurfaceColorDescriptor& descriptor)
+  {
+    setFromCVMat(mat);
+    if (!mat.empty()) {
+      impl_->colorDescriptor_ = descriptor;
+    }
+  }
+
   void ImageF32x4_RGBA::setFromRGBA32F(const float* data, int width, int height)
   {
    if (!data || width <= 0 || height <= 0) {
     impl_->mat_.release();
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
     return;
    }
    cv::Mat mat(height, width, CV_32FC4, const_cast<float*>(data));
    impl_->mat_ = mat.clone();
+   impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownRgba32Float();
+  }
+
+  void ImageF32x4_RGBA::setFromRGBA32F(
+      const float* data, int width, int height,
+      const SurfaceColorDescriptor& descriptor)
+  {
+   setFromRGBA32F(data, width, height);
+   if (data && width > 0 && height > 0) {
+    impl_->colorDescriptor_ = descriptor;
+   }
   }
 
   void ImageF32x4_RGBA::setFromRGBA8(const std::uint8_t* data, int width, int height)
   {
    if (!data || width <= 0 || height <= 0) {
     impl_->mat_.release();
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
     return;
    }
    cv::Mat mat(height, width, CV_8UC4, const_cast<std::uint8_t*>(data));
    setFromCVMat(mat);
+   impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownRgba32Float();
+  }
+
+  void ImageF32x4_RGBA::setFromRGBA8(
+      const std::uint8_t* data, int width, int height,
+      const SurfaceColorDescriptor& descriptor)
+  {
+   setFromRGBA8(data, width, height);
+   if (data && width > 0 && height > 0) {
+    impl_->colorDescriptor_ = descriptor;
+   }
   }
 
   ImageF32x4_RGBA ImageF32x4_RGBA::DeepCopy() const
   {
    ImageF32x4_RGBA copy;
    copy.impl_->mat_ = impl_->mat_.clone();
+   copy.impl_->colorDescriptor_ = impl_->colorDescriptor_;
    return copy;
   }
 
@@ -433,6 +504,7 @@ namespace ArtifactCore {
    
    cv::Rect roi(x, y, cropWidth, cropHeight);
    result.impl_->mat_ = impl_->mat_(roi).clone();
+   result.impl_->colorDescriptor_ = impl_->colorDescriptor_;
    
    return result;
   }
@@ -483,6 +555,10 @@ namespace ArtifactCore {
    }
    
    cv::addWeighted(impl_->mat_, 1.0f - weight, other.impl_->mat_, weight, 0.0, result.impl_->mat_);
+   result.impl_->colorDescriptor_ =
+       impl_->colorDescriptor_ == other.impl_->colorDescriptor_
+           ? impl_->colorDescriptor_
+           : SurfaceColorDescriptor::unknown();
    
    return result;
   }

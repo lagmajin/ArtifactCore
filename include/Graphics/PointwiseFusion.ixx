@@ -145,12 +145,12 @@ public:
             const auto outputName = valueName(operation.output.id);
             const auto outputType = typeName(operation.output.type);
             if (operation.kind == PointwiseOperationKind::Input) {
-                result += "    " + outputType + " " + outputName + " = " + sanitizeIdentifier(operation.semantic) + ";\n";
+                result += std::string("    ") + outputType + " " + outputName + " = " + sanitizeIdentifier(operation.semantic) + ";\n";
                 continue;
             }
 
             if (operation.inputs.empty()) {
-                result += "    " + outputType + " " + outputName + " = 0;\n";
+                result += std::string("    ") + outputType + " " + outputName + " = 0;\n";
                 continue;
             }
 
@@ -189,19 +189,19 @@ public:
                     break;
             }
             if (expression.empty()) expression = "0.0.xxxx";
-            result += "    " + outputType + " " + outputName + " = " + expression + ";\n";
+            result += std::string("    ") + outputType + " " + outputName + " = " + expression + ";\n";
         }
         return result;
     }
 
     std::string emitHlslFunction(std::string functionName, PointwiseValue output) const
     {
-        std::string result = typeName(output.type) + " " + sanitizeIdentifier(functionName) + "(";
+        std::string result = std::string(typeName(output.type)) + " " + sanitizeIdentifier(functionName) + "(";
         bool first = true;
         for (const auto& operation : operations_) {
             if (operation.kind != PointwiseOperationKind::Input) continue;
             if (!first) result += ", ";
-            result += typeName(operation.output.type) + " " + sanitizeIdentifier(operation.semantic);
+            result += std::string(typeName(operation.output.type)) + " " + sanitizeIdentifier(operation.semantic);
             first = false;
         }
         result += ")\n{\n";

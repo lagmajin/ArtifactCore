@@ -46,7 +46,6 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-module MediaPlaybackController;
 
 extern "C" {
 #include <libavutil/error.h>
@@ -54,6 +53,8 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 }
+
+module MediaPlaybackController;
 
 import ArtifactCore.Utils.PerformanceProfiler;
 import Video.VideoFrame;
@@ -72,6 +73,10 @@ CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& image) {
   out.meta.width = rgb.width();
   out.meta.height = rgb.height();
   out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
+  out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
+  out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
+  out.meta.color.colorPrimaries = static_cast<int>(AVCOL_PRI_BT709);
+  out.meta.color.colorTransfer = static_cast<int>(AVCOL_TRC_IEC61966_2_1);
   out.strideBytes = rgb.bytesPerLine();
   out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(out.meta.height));
   for (int y = 0; y < out.meta.height; ++y) {
@@ -92,6 +97,8 @@ CpuVideoFrame makeCpuVideoFrameFromExtractedFrame(const ExtractedFrame& frame) {
   out.meta.height = frame.height;
   out.meta.pts = frame.timestamp;
   out.meta.pixelFormat = VideoFramePixelFormat::RGBA8;
+  out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
+  out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
   out.strideBytes = frame.stride > 0 ? frame.stride : frame.width * 4;
   out.bytes = frame.data;
   return out;
@@ -142,17 +149,19 @@ int64_t decodedVideoFramePts(const DecodedVideoFrame& decoded) {
 
 QString decodedVideoFrameSummary(const DecodedVideoFrame& decoded) {
   if (const auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
-    return QStringLiteral("cpu %1x%2 fmt=%3")
+    return QStringLiteral("cpu %1x%2 fmt=%3 pts=%4")
         .arg(cpu->meta.width)
         .arg(cpu->meta.height)
-        .arg(static_cast<int>(cpu->meta.pixelFormat));
+        .arg(static_cast<int>(cpu->meta.pixelFormat))
+        .arg(cpu->meta.pts);
   }
   if (const auto* gpu = std::get_if<GpuVideoFrame>(&decoded)) {
-    return QStringLiteral("gpu %1x%2 fmt=%3 storage=%4")
+    return QStringLiteral("gpu %1x%2 fmt=%3 storage=%4 pts=%5")
         .arg(gpu->meta.width)
         .arg(gpu->meta.height)
         .arg(static_cast<int>(gpu->meta.pixelFormat))
-        .arg(static_cast<int>(gpu->storage));
+        .arg(static_cast<int>(gpu->storage))
+        .arg(gpu->meta.pts);
   }
   return QStringLiteral("empty");
 }
@@ -200,6 +209,14 @@ class MediaPlaybackController::Impl {
   int64_t directDecodeCursorFrame_ = -1;
   int directVideoStreamIndex_ = -1;
   AVRational directVideoTimeBase_ = {1, 1000};
+  AVRational directVideoFrameRate_ = {0, 1};
+  int64_t directLastResultPts_ = AV_NOPTS_VALUE;
+  int64_t directLastObservedPts_ = AV_NOPTS_VALUE;
+  int64_t directPreviousFrameDurationPts_ = AV_NOPTS_VALUE;
+  int directVariableDurationChangeCount_ = 0;
+  bool directVariableFrameRate_ = false;
+  int64_t directPacketEagainCount_ = 0;
+  std::unordered_map<int64_t, int64_t> directFramePtsIndex_;
   VkInstance vulkanInstance_{};
   VkPhysicalDevice vulkanPhysicalDevice_{};
   VkDevice vulkanDevice_{};
@@ -246,11 +263,40 @@ class MediaPlaybackController::Impl {
     for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
       AVCodecParameters* params = ctx->streams[i]->codecpar;
       if (params->codec_type == AVMEDIA_TYPE_VIDEO && decoder->initialize(params)) {
+        AVStream* directStream = ctx->streams[i];
+        AVRational frameRate = directStream->avg_frame_rate;
+        if (frameRate.num <= 0 || frameRate.den <= 0) {
+          frameRate = av_guess_frame_rate(ctx, directStream, nullptr);
+        }
+        if (frameRate.num <= 0 || frameRate.den <= 0) {
+          frameRate = directStream->r_frame_rate;
+        }
         directMediaSource_ = source.release();
         directVideoDecoder_ = decoder.release();
         directDecodeCursorFrame_ = -1;
         directVideoStreamIndex_ = static_cast<int>(i);
-        directVideoTimeBase_ = ctx->streams[i]->time_base;
+        directVideoTimeBase_ = directStream->time_base;
+        directVideoFrameRate_ = frameRate;
+        directLastResultPts_ = AV_NOPTS_VALUE;
+        directLastObservedPts_ = AV_NOPTS_VALUE;
+        directPreviousFrameDurationPts_ = AV_NOPTS_VALUE;
+        directVariableDurationChangeCount_ = 0;
+        directPacketEagainCount_ = 0;
+        directFramePtsIndex_.clear();
+        // Match MLT's coarse avg/r-rate hint; decoded PTS deltas below provide
+        // the runtime confirmation for streams whose container rates look CFR.
+        const int averageRateDenominator = directStream->avg_frame_rate.den;
+        directVariableFrameRate_ =
+            directStream->avg_frame_rate.num > 0 &&
+            directStream->avg_frame_rate.den > 0 &&
+            directStream->r_frame_rate.num > 0 &&
+            directStream->r_frame_rate.den > 0 &&
+            averageRateDenominator != 1 &&
+            averageRateDenominator != 2 &&
+            averageRateDenominator != 125 &&
+            averageRateDenominator != 1001 &&
+            av_cmp_q(directStream->avg_frame_rate,
+                     directStream->r_frame_rate) != 0;
         return true;
       }
     }
@@ -283,7 +329,50 @@ class MediaPlaybackController::Impl {
       return std::monostate{};
     }
 
-    const int64_t targetMs = static_cast<int64_t>((frameNumber / fps_) * 1000.0);
+    const bool hasRationalFrameRate =
+        directVideoFrameRate_.num > 0 && directVideoFrameRate_.den > 0;
+    const AVRational frameDuration = hasRationalFrameRate
+        ? av_inv_q(directVideoFrameRate_)
+        : av_d2q(1.0 / fps_, 1000000);
+    AVFormatContext* ctx = directMediaSource_->getFormatContext();
+    if (!ctx) {
+      lastError_ = QStringLiteral("FFmpeg direct decode failed: no format context");
+      qWarning() << "[MediaPlayback] direct decode failed: no format context";
+      return std::monostate{};
+    }
+    const AVStream* directVideoStream =
+        directVideoStreamIndex_ >= 0 &&
+                directVideoStreamIndex_ < static_cast<int>(ctx->nb_streams)
+            ? ctx->streams[directVideoStreamIndex_]
+            : nullptr;
+    if (!directVideoStream) {
+      lastError_ = QStringLiteral("FFmpeg direct decode failed: invalid video stream");
+      return std::monostate{};
+    }
+    int64_t targetPts =
+        (directVideoTimeBase_.num > 0 && directVideoTimeBase_.den > 0)
+            ? av_rescale_q(frameNumber, frameDuration, directVideoTimeBase_)
+            : AV_NOPTS_VALUE;
+    if (targetPts != AV_NOPTS_VALUE &&
+        directVideoStream->start_time != AV_NOPTS_VALUE) {
+      targetPts += directVideoStream->start_time;
+    }
+    if (const auto indexedPts = directFramePtsIndex_.find(frameNumber);
+        indexedPts != directFramePtsIndex_.end()) {
+      targetPts = indexedPts->second;
+    }
+    int64_t targetMs = av_rescale_q(
+        frameNumber, frameDuration, AVRational{1, 1000});
+    if (targetPts != AV_NOPTS_VALUE && directVideoTimeBase_.num > 0 &&
+        directVideoTimeBase_.den > 0) {
+      int64_t relativeTargetPts = targetPts;
+      if (directVideoStream->start_time != AV_NOPTS_VALUE) {
+        relativeTargetPts -= directVideoStream->start_time;
+      }
+      targetMs = av_rescale_q(relativeTargetPts, directVideoTimeBase_,
+                              AVRational{1, 1000});
+    }
+    targetMs = std::max<int64_t>(0, targetMs);
     constexpr int64_t kMaxSequentialFrameGap = 8;
     const int64_t forwardGap = frameNumber - directDecodeCursorFrame_;
     const bool canContinueSequentially = directDecodeCursorFrame_ >= 0
@@ -297,12 +386,9 @@ class MediaPlaybackController::Impl {
         return std::monostate{};
       }
       directVideoDecoder_->flush();
-    }
-
-    if (auto ctx = directMediaSource_->getFormatContext(); !ctx) {
-      lastError_ = QStringLiteral("FFmpeg direct decode failed: no format context");
-      qWarning() << "[MediaPlayback] direct decode failed: no format context";
-      return std::monostate{};
+      directDecodeCursorFrame_ = -1;
+      directLastResultPts_ = AV_NOPTS_VALUE;
+      directLastObservedPts_ = AV_NOPTS_VALUE;
     }
 
     AVPacket* pkt = av_packet_alloc();
@@ -313,46 +399,65 @@ class MediaPlaybackController::Impl {
     }
 
     DecodedVideoFrame result = std::monostate{};
-    DecodedVideoFrame lastDecodedFrame = std::monostate{};
-    AVFormatContext* ctx = directMediaSource_->getFormatContext();
-    const AVStream* directVideoStream =
-        directVideoStreamIndex_ >= 0 &&
-                directVideoStreamIndex_ < static_cast<int>(ctx->nb_streams)
-            ? ctx->streams[directVideoStreamIndex_]
-            : nullptr;
-    int64_t targetPts =
-        (directVideoTimeBase_.den > 0)
-            ? av_rescale_q(targetMs, AVRational{1, 1000}, directVideoTimeBase_)
-            : AV_NOPTS_VALUE;
-    if (targetPts != AV_NOPTS_VALUE && directVideoStream &&
-        directVideoStream->start_time != AV_NOPTS_VALUE) {
-      targetPts += directVideoStream->start_time;
-    }
     const int maxPackets = std::max(512, videoPacketWaitAttempts_ * 8);
     int packetsRead = 0;
     bool hitEof = false;
     int lastReadError = 0;
+    int64_t sequentialFramesRemaining =
+        canContinueSequentially ? forwardGap : 0;
+
+    auto observeDecodedPts = [&](int64_t decodedPts) {
+      if (decodedPts == AV_NOPTS_VALUE) {
+        return;
+      }
+      if (directLastObservedPts_ != AV_NOPTS_VALUE &&
+          decodedPts > directLastObservedPts_) {
+        const int64_t frameDurationPts =
+            decodedPts - directLastObservedPts_;
+        if (directPreviousFrameDurationPts_ != AV_NOPTS_VALUE &&
+            frameDurationPts != directPreviousFrameDurationPts_) {
+          ++directVariableDurationChangeCount_;
+          constexpr int kVariableFrameRateChangeThreshold = 3;
+          if (directVariableDurationChangeCount_ >=
+              kVariableFrameRateChangeThreshold) {
+            directVariableFrameRate_ = true;
+          }
+        }
+        directPreviousFrameDurationPts_ = frameDurationPts;
+      }
+      directLastObservedPts_ = decodedPts;
+    };
 
     // Helper: drain decoded frames from the video decoder
-    auto drainFrames = [&]() {
+    auto drainFrames = [&](bool stopAfterFirstFrame) {
+      bool receivedFrame = false;
       while (true) {
         DecodedVideoFrame decoded = directVideoDecoder_->receiveFrameRaw();
         if (isDecodedVideoFrameUsable(decoded)) {
-          lastDecodedFrame = decoded;
+          receivedFrame = true;
           const int64_t decodedPts = decodedVideoFramePts(decoded);
-          if (targetPts == AV_NOPTS_VALUE || decodedPts == AV_NOPTS_VALUE ||
-              decodedPts >= targetPts) {
+          observeDecodedPts(decodedPts);
+          if (canContinueSequentially) {
+            if (sequentialFramesRemaining > 0 &&
+                --sequentialFramesRemaining == 0) {
+              result = decoded;
+            }
+          } else if (!isDecodedVideoFrameUsable(result) &&
+                     (targetPts == AV_NOPTS_VALUE ||
+                      decodedPts == AV_NOPTS_VALUE ||
+                      decodedPts >= targetPts)) {
             result = decoded;
-            break;
           }
+          if (stopAfterFirstFrame || isDecodedVideoFrameUsable(result)) break;
         } else {
           break;
         }
       }
+      return receivedFrame;
     };
 
     if (canContinueSequentially) {
-      drainFrames();
+      drainFrames(false);
     }
 
     while (packetsRead < maxPackets && !isDecodedVideoFrameUsable(result)) {
@@ -361,8 +466,19 @@ class MediaPlaybackController::Impl {
         lastReadError = readRet;
         if (readRet == AVERROR_EOF) {
           // Flush decoder to retrieve remaining buffered frames
-          directVideoDecoder_->sendPacket(nullptr);
-          drainFrames();
+          int flushRet = directVideoDecoder_->sendPacket(nullptr);
+          while (flushRet == AVERROR(EAGAIN)) {
+            ++directPacketEagainCount_;
+            if (!drainFrames(true)) break;
+            flushRet = directVideoDecoder_->sendPacket(nullptr);
+          }
+          if (flushRet >= 0 || flushRet == AVERROR_EOF) {
+            if (!isDecodedVideoFrameUsable(result)) {
+              drainFrames(false);
+            }
+          } else if (flushRet != AVERROR(EAGAIN)) {
+            lastReadError = flushRet;
+          }
         }
         hitEof = true;
         break;
@@ -371,9 +487,11 @@ class MediaPlaybackController::Impl {
 
       if (pkt->stream_index == directVideoStreamIndex_) {
         int ret = directVideoDecoder_->sendPacket(pkt);
-        if (ret == AVERROR(EAGAIN)) {
-          drainFrames();
-          if (isDecodedVideoFrameUsable(result)) break;
+        while (ret == AVERROR(EAGAIN)) {
+          ++directPacketEagainCount_;
+          // The packet was not accepted. Retain it, receive output, and retry
+          // the same packet before releasing its storage.
+          if (!drainFrames(true)) break;
           ret = directVideoDecoder_->sendPacket(pkt);
         }
         av_packet_unref(pkt);
@@ -382,7 +500,9 @@ class MediaPlaybackController::Impl {
           qWarning() << "[MediaPlayback] sendPacket failed:" << ret;
           break;
         }
-        drainFrames();
+        if (!isDecodedVideoFrameUsable(result)) {
+          drainFrames(false);
+        }
       } else {
         av_packet_unref(pkt);
       }
@@ -390,13 +510,11 @@ class MediaPlaybackController::Impl {
 
     av_packet_free(&pkt);
 
-    if (!isDecodedVideoFrameUsable(result) && isDecodedVideoFrameUsable(lastDecodedFrame)) {
-      result = lastDecodedFrame;
-    }
-
+    // Exact-frame decode must not relabel an earlier frame as the requested
+    // frame. Presentation-level last-good fallback is handled by VideoLayer.
     if (!isDecodedVideoFrameUsable(result)) {
       directDecodeCursorFrame_ = -1;
-      lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 directVideoStreamIndex=%5 packetsRead=%6 maxPackets=%7 eof=%8 readError=%9")
+      lastError_ = QStringLiteral("FFmpeg direct decode failed for frame %1 targetMs=%2 targetPts=%3 fps=%4 directVideoStreamIndex=%5 packetsRead=%6 maxPackets=%7 eof=%8 readError=%9 sequentialRemaining=%10 lastObservedPts=%11 vfr=%12")
           .arg(frameNumber)
           .arg(targetMs)
           .arg(targetPts)
@@ -405,7 +523,11 @@ class MediaPlaybackController::Impl {
           .arg(packetsRead)
           .arg(maxPackets)
           .arg(hitEof ? QStringLiteral("true") : QStringLiteral("false"))
-          .arg(lastReadError);
+          .arg(lastReadError)
+          .arg(sequentialFramesRemaining)
+          .arg(directLastObservedPts_)
+          .arg(directVariableFrameRate_ ? QStringLiteral("true")
+                                        : QStringLiteral("false"));
       qWarning() << "[MediaPlayback] direct decode failed for frame" << frameNumber
                  << "targetMs=" << targetMs
                  << "targetPts=" << targetPts
@@ -414,15 +536,27 @@ class MediaPlaybackController::Impl {
                  << "packetsRead=" << packetsRead
                  << "maxPackets=" << maxPackets
                  << "eof=" << hitEof
-                 << "readError=" << lastReadError;
+                 << "readError=" << lastReadError
+                 << "sequentialRemaining=" << sequentialFramesRemaining
+                 << "lastObservedPts=" << directLastObservedPts_
+                 << "vfr=" << directVariableFrameRate_;
     } else {
       directDecodeCursorFrame_ = frameNumber;
+      directLastResultPts_ = decodedVideoFramePts(result);
+      if (directLastResultPts_ != AV_NOPTS_VALUE) {
+        directFramePtsIndex_.insert_or_assign(frameNumber,
+                                              directLastResultPts_);
+      }
       lastError_.clear();
       qDebug() << "[MediaPlayback] direct decode ok"
                << "frame=" << frameNumber
                << "mode=" << (canContinueSequentially ? "sequential" : "seek")
                << "targetMs=" << targetMs
                << "targetPts=" << targetPts
+               << "decodedPts=" << directLastResultPts_
+               << "vfr=" << directVariableFrameRate_
+               << "eagain=" << directPacketEagainCount_
+               << "ptsIndex=" << directFramePtsIndex_.size()
                << "decoded=" << decodedVideoFrameSummary(result);
     }
     return result;
@@ -1248,7 +1382,7 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t
    return QStringLiteral("MediaPlaybackController impl=null");
   }
 
-  return QStringLiteral("backend=%1 open=%2 state=%3 fps=%4 frame=%5/%6 posMs=%7 durationMs=%8 videoStreamIndex=%9 waitAttempts=%10 lastError=%11")
+  return QStringLiteral("backend=%1 open=%2 state=%3 fps=%4 frame=%5/%6 posMs=%7 durationMs=%8 videoStreamIndex=%9 waitAttempts=%10 directCursor=%11 directPts=%12 directVfr=%13 vfrChanges=%14 eagain=%15 lastError=%16")
       .arg(impl_->backend_ == DecoderBackend::MediaFoundation ? QStringLiteral("MediaFoundation")
                                                               : QStringLiteral("FFmpeg"))
       .arg(isMediaOpen() ? QStringLiteral("true") : QStringLiteral("false"))
@@ -1260,6 +1394,14 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t
       .arg(impl_->durationMs_)
       .arg(impl_->videoStreamIndex_)
       .arg(impl_->videoPacketWaitAttempts_)
+      .arg(impl_->directDecodeCursorFrame_)
+      .arg(impl_->directLastResultPts_ == AV_NOPTS_VALUE
+               ? QStringLiteral("nop")
+               : QString::number(impl_->directLastResultPts_))
+      .arg(impl_->directVariableFrameRate_ ? QStringLiteral("true")
+                                           : QStringLiteral("false"))
+      .arg(impl_->directVariableDurationChangeCount_)
+      .arg(impl_->directPacketEagainCount_)
       .arg(impl_->lastError_);
  }
 
@@ -1400,6 +1542,14 @@ void FFmpegPlaybackBackend::close(MediaPlaybackController::Impl& impl) {
   impl.directDecodeCursorFrame_ = -1;
   impl.directVideoStreamIndex_ = -1;
   impl.directVideoTimeBase_ = AVRational{1, 1000};
+  impl.directVideoFrameRate_ = AVRational{0, 1};
+  impl.directLastResultPts_ = AV_NOPTS_VALUE;
+  impl.directLastObservedPts_ = AV_NOPTS_VALUE;
+  impl.directPreviousFrameDurationPts_ = AV_NOPTS_VALUE;
+  impl.directVariableDurationChangeCount_ = 0;
+  impl.directVariableFrameRate_ = false;
+  impl.directPacketEagainCount_ = 0;
+  impl.directFramePtsIndex_.clear();
   impl.directMediaUrl_.clear();
   if (impl.audioDecoder_) {
     impl.audioDecoder_->flush();

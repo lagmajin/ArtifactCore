@@ -34,6 +34,11 @@ inline QJsonObject toJson(const ContainerDebugCounters& counters)
   json.insert(QStringLiteral("readCount"), static_cast<double>(counters.readCount));
   json.insert(QStringLiteral("failedAccessCount"), static_cast<double>(counters.failedAccessCount));
   json.insert(QStringLiteral("maxCountSeen"), static_cast<double>(counters.maxCountSeen));
+  json.insert(QStringLiteral("addedCount"), static_cast<double>(counters.addedCount));
+  json.insert(QStringLiteral("removedCount"), static_cast<double>(counters.removedCount));
+  json.insert(QStringLiteral("capacityChangeCount"), static_cast<double>(counters.capacityChangeCount));
+  json.insert(QStringLiteral("maxCapacitySeen"), static_cast<double>(counters.maxCapacitySeen));
+  json.insert(QStringLiteral("maxApproximateBytesSeen"), static_cast<double>(counters.maxApproximateBytesSeen));
   return json;
 }
 
