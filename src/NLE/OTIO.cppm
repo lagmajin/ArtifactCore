@@ -2,6 +2,7 @@ module;
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QColor>
 #include <QString>
 #include <QVector>
 
@@ -109,6 +110,21 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
         });
     }
 
+    QJsonArray markers;
+    for (const MarkerId& markerId : sequence->markers) {
+        const Marker* marker = store.marker(markerId);
+        if (!marker) continue;
+        markers.append(QJsonObject{
+            {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Marker.2")},
+            {QStringLiteral("name"), marker->name},
+            {QStringLiteral("marked_range"), timeRange(FrameRange::fromDuration(marker->position.framePosition(), 1), rate)},
+            {QStringLiteral("color"), marker->color.name(QColor::HexArgb)},
+            {QStringLiteral("comment"), marker->note},
+            {QStringLiteral("metadata"), QJsonObject{
+                {QStringLiteral("artifactMarkerId"), QString::number(marker->id.value)}}}
+        });
+    }
+
     return QJsonObject{
         {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Timeline.1")},
         {QStringLiteral("name"), sequence->name},
@@ -117,6 +133,7 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
         {QStringLiteral("tracks"), QJsonObject{
             {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Stack.1")},
             {QStringLiteral("children"), trackChildren}}},
+        {QStringLiteral("markers"), markers},
         {QStringLiteral("metadata"), QJsonObject{
             {QStringLiteral("artifactSequenceId"), QString::number(sequence->id.value)},
             {QStringLiteral("artifactRateNumerator"), sequence->timeBase.numerator},
@@ -142,6 +159,20 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
     timeBase.dropFrame = metadata.value(QStringLiteral("artifactDropFrame")).toBool(false);
     const SequenceId sequenceId = store.createSequence(timeline.value(QStringLiteral("name")).toString(), timeBase);
     if (importedSequenceId) *importedSequenceId = sequenceId;
+
+    for (const QJsonValue& markerValue : timeline.value(QStringLiteral("markers")).toArray()) {
+        const QJsonObject markerObject = markerValue.toObject();
+        const QJsonObject markedRange = markerObject.value(QStringLiteral("marked_range")).toObject();
+        const qint64 position = static_cast<qint64>(markedRange.value(QStringLiteral("start_time")).toObject()
+            .value(QStringLiteral("value")).toDouble());
+        QColor color(markerObject.value(QStringLiteral("color")).toString());
+        if (!color.isValid()) color = QColor(Qt::yellow);
+        store.createMarker(sequenceId,
+                           FramePosition(position),
+                           markerObject.value(QStringLiteral("name")).toString(),
+                           markerObject.value(QStringLiteral("comment")).toString(),
+                           color);
+    }
 
     const QJsonArray tracks = timeline.value(QStringLiteral("tracks")).toObject().value(QStringLiteral("children")).toArray();
     for (const QJsonValue& trackValue : tracks) {
