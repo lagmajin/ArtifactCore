@@ -47,6 +47,22 @@ TrackKind parseTrackKind(const QString& value)
     return TrackKind::Video;
 }
 
+QString transitionName(const TransitionKind kind)
+{
+    switch (kind) {
+    case TransitionKind::Cut: return QStringLiteral("Cut");
+    case TransitionKind::Dissolve: return QStringLiteral("Dissolve");
+    default: return QStringLiteral("Crossfade");
+    }
+}
+
+TransitionKind parseTransitionKind(const QString& value)
+{
+    if (value.compare(QStringLiteral("Cut"), Qt::CaseInsensitive) == 0) return TransitionKind::Cut;
+    if (value.compare(QStringLiteral("Dissolve"), Qt::CaseInsensitive) == 0) return TransitionKind::Dissolve;
+    return TransitionKind::Crossfade;
+}
+
 } // namespace
 
 QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
@@ -96,6 +112,21 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
                 {QStringLiteral("media_reference"), mediaReference},
                 {QStringLiteral("metadata"), metadata}
             });
+            for (const TransitionId& transitionId : track->transitions) {
+                const Transition* transition = store.transition(transitionId);
+                if (!transition || transition->leftClipId != clip->id) continue;
+                const qint64 halfDuration = static_cast<qint64>(transition->duration / 2.0);
+                children.append(QJsonObject{
+                    {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Transition.1")},
+                    {QStringLiteral("name"), transitionName(transition->kind)},
+                    {QStringLiteral("transition_type"), transitionName(transition->kind)},
+                    {QStringLiteral("in_offset"), rationalTime(halfDuration, rate)},
+                    {QStringLiteral("out_offset"), rationalTime(transition->duration - halfDuration, rate)},
+                    {QStringLiteral("metadata"), QJsonObject{
+                        {QStringLiteral("artifactTransitionId"), QString::number(transition->id.value)},
+                        {QStringLiteral("artifactKind"), static_cast<int>(transition->kind)}}}
+                });
+            }
             cursor = qMax(cursor, clipStart + clip->timelineRange.duration());
         }
         trackChildren.append(QJsonObject{
@@ -182,6 +213,8 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
                                                   trackObject.value(QStringLiteral("name")).toString());
         const QJsonArray clips = trackObject.value(QStringLiteral("children")).toArray();
         qint64 cursor = 0;
+        ClipId previousClipId;
+        QJsonObject pendingTransition;
         for (const QJsonValue& clipValue : clips) {
             const QJsonObject clipObject = clipValue.toObject();
             const QString schema = clipObject.value(QStringLiteral("OTIO_SCHEMA")).toString();
@@ -189,6 +222,10 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
                 const qint64 gapDuration = static_cast<qint64>(clipObject.value(QStringLiteral("duration")).toObject()
                     .value(QStringLiteral("value")).toDouble());
                 cursor += qMax<qint64>(0, gapDuration);
+                continue;
+            }
+            if (schema.startsWith(QStringLiteral("Transition."))) {
+                pendingTransition = clipObject;
                 continue;
             }
             if (!schema.startsWith(QStringLiteral("Clip."))) {
@@ -212,9 +249,25 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
             draft.timelineRange = FrameRange::fromDuration(cursor, durationValue);
             draft.trimRange = draft.sourceRange;
             draft.name = clipObject.value(QStringLiteral("name")).toString();
-            if (!store.addClip(sequenceId, trackId, draft) && warnings) {
+            const ClipId importedClipId = store.addClip(sequenceId, trackId, draft);
+            if (!importedClipId.isValid() && warnings) {
                 warnings->push_back(QStringLiteral("Failed to import clip: %1").arg(draft.name));
             }
+            if (importedClipId.isValid() && previousClipId.isValid() && !pendingTransition.isEmpty()) {
+                const qint64 inOffset = static_cast<qint64>(pendingTransition.value(QStringLiteral("in_offset"))
+                    .toObject().value(QStringLiteral("value")).toDouble());
+                const qint64 outOffset = static_cast<qint64>(pendingTransition.value(QStringLiteral("out_offset"))
+                    .toObject().value(QStringLiteral("value")).toDouble());
+                const double duration = static_cast<double>(inOffset + outOffset);
+                const TransitionKind kind = parseTransitionKind(
+                    pendingTransition.value(QStringLiteral("transition_type")).toString());
+                store.createTransition(trackId, previousClipId, importedClipId,
+                                       FrameRange::fromDuration(qMax<qint64>(0, cursor - inOffset),
+                                                                qMax<qint64>(1, static_cast<qint64>(duration))),
+                                       kind, duration);
+                pendingTransition = {};
+            }
+            if (importedClipId.isValid()) previousClipId = importedClipId;
             cursor += qMax<qint64>(0, durationValue);
         }
     }
