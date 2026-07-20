@@ -369,6 +369,18 @@ target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
 find_package(OpenImageIO REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC OpenImageIO::OpenImageIO)
 
+# OpenVDB is optional. The native Pyro snapshot path remains available when
+# OpenVDB is not installed, while VDB-backed volume sources can use it when
+# the package is present.
+find_package(OpenVDB CONFIG QUIET)
+if(TARGET OpenVDB::openvdb)
+    target_link_libraries(ArtifactCore PUBLIC OpenVDB::openvdb)
+    target_compile_definitions(ArtifactCore PUBLIC ARTIFACTCORE_HAS_OPENVDB=1)
+elseif(TARGET openvdb::openvdb)
+    target_link_libraries(ArtifactCore PUBLIC openvdb::openvdb)
+    target_compile_definitions(ArtifactCore PUBLIC ARTIFACTCORE_HAS_OPENVDB=1)
+endif()
+
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC glm::glm)
 
