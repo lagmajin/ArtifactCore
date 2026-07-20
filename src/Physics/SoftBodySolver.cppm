@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <vector>
+#include <cstdint>
 #include <cmath>
 #include <algorithm>
 #include <tbb/parallel_for.h>
@@ -605,6 +606,29 @@ public:
             }
         }
         return vertices;
+    }
+
+    std::vector<std::uint32_t> getGridTriangleIndices() const {
+        std::vector<std::uint32_t> indices;
+        if (gridColumns_ < 2 || gridRows_ < 2 ||
+            points_.size() != static_cast<std::size_t>(gridColumns_ * gridRows_)) {
+            return indices;
+        }
+        indices.reserve(static_cast<std::size_t>((gridColumns_ - 1) *
+                                                 (gridRows_ - 1) * 6));
+        const auto index = [this](int x, int y) {
+            return static_cast<std::uint32_t>(y * gridColumns_ + x);
+        };
+        for (int y = 0; y + 1 < gridRows_; ++y) {
+            for (int x = 0; x + 1 < gridColumns_; ++x) {
+                const std::uint32_t p0 = index(x, y);
+                const std::uint32_t p1 = index(x + 1, y);
+                const std::uint32_t p2 = index(x + 1, y + 1);
+                const std::uint32_t p3 = index(x, y + 1);
+                indices.insert(indices.end(), {p0, p1, p2, p0, p2, p3});
+            }
+        }
+        return indices;
     }
 
 private:
