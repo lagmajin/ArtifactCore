@@ -63,9 +63,18 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
         if (!track) continue;
 
         QJsonArray children;
+        qint64 cursor = 0;
         for (const ClipId& clipId : track->clipOrder) {
             const Clip* clip = store.clip(clipId);
             if (!clip) continue;
+            const qint64 clipStart = clip->timelineRange.start();
+            if (clipStart > cursor) {
+                children.append(QJsonObject{
+                    {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Gap.1")},
+                    {QStringLiteral("name"), QStringLiteral("Gap")},
+                    {QStringLiteral("duration"), rationalTime(clipStart - cursor, rate)}
+                });
+            }
             const SourceRef* source = store.source(clip->sourceId);
             QJsonObject metadata{
                 {QStringLiteral("artifactClipId"), QString::number(clip->id.value)},
@@ -86,6 +95,7 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
                 {QStringLiteral("media_reference"), mediaReference},
                 {QStringLiteral("metadata"), metadata}
             });
+            cursor = qMax(cursor, clipStart + clip->timelineRange.duration());
         }
         trackChildren.append(QJsonObject{
             {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Track.1")},
@@ -140,8 +150,20 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
                                                   parseTrackKind(trackObject.value(QStringLiteral("kind")).toString()),
                                                   trackObject.value(QStringLiteral("name")).toString());
         const QJsonArray clips = trackObject.value(QStringLiteral("children")).toArray();
+        qint64 cursor = 0;
         for (const QJsonValue& clipValue : clips) {
             const QJsonObject clipObject = clipValue.toObject();
+            const QString schema = clipObject.value(QStringLiteral("OTIO_SCHEMA")).toString();
+            if (schema.startsWith(QStringLiteral("Gap."))) {
+                const qint64 gapDuration = static_cast<qint64>(clipObject.value(QStringLiteral("duration")).toObject()
+                    .value(QStringLiteral("value")).toDouble());
+                cursor += qMax<qint64>(0, gapDuration);
+                continue;
+            }
+            if (!schema.startsWith(QStringLiteral("Clip."))) {
+                if (warnings) warnings->push_back(QStringLiteral("Skipped unsupported OTIO child in track"));
+                continue;
+            }
             const QJsonObject sourceRangeObject = clipObject.value(QStringLiteral("source_range")).toObject();
             const QJsonObject sourceStart = sourceRangeObject.value(QStringLiteral("start_time")).toObject();
             const QJsonObject sourceDuration = sourceRangeObject.value(QStringLiteral("duration")).toObject();
@@ -156,12 +178,13 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
             ClipDraft draft;
             draft.sourceId = sourceId;
             draft.sourceRange = FrameRange::fromDuration(sourceStartValue, durationValue);
-            draft.timelineRange = FrameRange::fromDuration(0, durationValue);
+            draft.timelineRange = FrameRange::fromDuration(cursor, durationValue);
             draft.trimRange = draft.sourceRange;
             draft.name = clipObject.value(QStringLiteral("name")).toString();
             if (!store.addClip(sequenceId, trackId, draft) && warnings) {
                 warnings->push_back(QStringLiteral("Failed to import clip: %1").arg(draft.name));
             }
+            cursor += qMax<qint64>(0, durationValue);
         }
     }
     return true;
