@@ -25,6 +25,9 @@ struct OpenVDBVolumeReference {
 
 struct OpenVDBVolumeMetadata {
     bool loaded = false;
+    bool densityGridFound = false;
+    bool temperatureGridFound = false;
+    bool velocityGridFound = false;
     QString error;
     QVector3D boundsMin;
     QVector3D boundsMax;

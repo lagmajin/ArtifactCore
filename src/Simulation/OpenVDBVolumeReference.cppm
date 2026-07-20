@@ -29,8 +29,15 @@ OpenVDBVolumeMetadata inspectOpenVDBVolume(const OpenVDBVolumeReference& referen
         }
         file.close();
         result.loaded = !result.gridNames.empty();
+        for (const auto& name : result.gridNames) {
+            result.densityGridFound = result.densityGridFound || name == reference.densityGrid;
+            result.temperatureGridFound = result.temperatureGridFound || name == reference.temperatureGrid;
+            result.velocityGridFound = result.velocityGridFound || name == reference.velocityGrid;
+        }
         if (!result.loaded) {
             result.error = QStringLiteral("OpenVDB file contains no grids");
+        } else if (!result.densityGridFound) {
+            result.error = QStringLiteral("OpenVDB density grid was not found: %1").arg(reference.densityGrid);
         }
     } catch (const std::exception& error) {
         result.error = QString::fromUtf8(error.what());
