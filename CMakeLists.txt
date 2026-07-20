@@ -142,6 +142,7 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactHashMap.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactOptional.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostics/CoreDiagnostic.Test.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/SmallVector.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/NameMap.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/IdMap.ixx"
