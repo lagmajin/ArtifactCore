@@ -5,6 +5,8 @@ module;
 
 export module Core.Simulation.OpenVDBVolumeReference;
 
+import Core.Simulation.Pyro;
+
 export namespace ArtifactCore {
 
 struct OpenVDBVolumeReference {
@@ -49,5 +51,6 @@ struct OpenVDBScalarSnapshot {
 
 OpenVDBVolumeMetadata inspectOpenVDBVolume(const OpenVDBVolumeReference& reference);
 OpenVDBScalarSnapshot loadOpenVDBDensitySnapshot(const OpenVDBVolumeReference& reference);
+bool copyOpenVDBDensityToPyro(const OpenVDBScalarSnapshot& snapshot, PyroFieldSet& fields);
 
 } // namespace ArtifactCore

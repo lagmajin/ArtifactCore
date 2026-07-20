@@ -111,4 +111,19 @@ OpenVDBScalarSnapshot loadOpenVDBDensitySnapshot(const OpenVDBVolumeReference& r
     return result;
 }
 
+bool copyOpenVDBDensityToPyro(const OpenVDBScalarSnapshot& snapshot, PyroFieldSet& fields)
+{
+    if (!snapshot.valid || snapshot.width <= 0 || snapshot.height <= 0 || snapshot.depth <= 0) {
+        return false;
+    }
+    const std::size_t expected = static_cast<std::size_t>(snapshot.width) *
+        static_cast<std::size_t>(snapshot.height) * static_cast<std::size_t>(snapshot.depth);
+    if (snapshot.values.size() != expected) {
+        return false;
+    }
+    fields.resize(PyroResolution{snapshot.width, snapshot.height, snapshot.depth});
+    fields.densityStorage() = snapshot.values;
+    return true;
+}
+
 } // namespace ArtifactCore
