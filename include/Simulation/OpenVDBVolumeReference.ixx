@@ -34,6 +34,20 @@ struct OpenVDBVolumeMetadata {
     std::vector<QString> gridNames;
 };
 
+struct OpenVDBScalarSnapshot {
+    bool valid = false;
+    QString error;
+    int width = 0;
+    int height = 0;
+    int depth = 0;
+    QVector3D origin;
+    QVector3D voxelSize = QVector3D(1.0f, 1.0f, 1.0f);
+    std::vector<float> values;
+
+    bool empty() const noexcept { return values.empty(); }
+};
+
 OpenVDBVolumeMetadata inspectOpenVDBVolume(const OpenVDBVolumeReference& reference);
+OpenVDBScalarSnapshot loadOpenVDBDensitySnapshot(const OpenVDBVolumeReference& reference);
 
 } // namespace ArtifactCore
