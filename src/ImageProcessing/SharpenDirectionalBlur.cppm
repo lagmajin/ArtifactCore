@@ -677,13 +677,66 @@ QImage BlurEffect::apply(const QImage& source) const {
             return effect.applyAsMotionBlur(source, impl_->settings.angle, impl_->settings.radius);
         }
         case BlurEffectSettings::Type::Box: {
-            // ボックスブラー
-            int r = static_cast<int>(impl_->settings.radius);
-            std::vector<double> kernel(2 * r + 1, 1.0 / (2 * r + 1));
+            // Sliding-window box blur.  The running sum means that the cost
+            // per pixel is independent of the radius (two passes: X then Y).
+            const int radius = std::max(0, static_cast<int>(impl_->settings.radius));
+            if (radius == 0 || source.isNull()) return source;
+
+            const int width = source.width();
+            const int height = source.height();
+            const float scale = 1.0f / static_cast<float>(2 * radius + 1);
             QImage temp(source.size(), QImage::Format_ARGB32);
             QImage result(source.size(), QImage::Format_ARGB32);
-            convolveHorizontal(source, temp, kernel, r);
-            convolveVertical(temp, result, kernel, r);
+
+            auto clampIndex = [](int value, int limit) {
+                return std::clamp(value, 0, limit - 1);
+            };
+
+            for (int y = 0; y < height; ++y) {
+                const QRgb* src = reinterpret_cast<const QRgb*>(source.constScanLine(y));
+                QRgb* dst = reinterpret_cast<QRgb*>(temp.scanLine(y));
+                std::int64_t sumA = 0, sumR = 0, sumG = 0, sumB = 0;
+
+                for (int k = -radius; k <= radius; ++k) {
+                    const QRgb p = src[clampIndex(k, width)];
+                    sumA += qAlpha(p); sumR += qRed(p);
+                    sumG += qGreen(p); sumB += qBlue(p);
+                }
+                for (int x = 0; x < width; ++x) {
+                    dst[x] = qRgba(static_cast<int>(sumR * scale),
+                                   static_cast<int>(sumG * scale),
+                                   static_cast<int>(sumB * scale),
+                                   static_cast<int>(sumA * scale));
+                    const QRgb leaving = src[clampIndex(x - radius, width)];
+                    const QRgb entering = src[clampIndex(x + radius + 1, width)];
+                    sumA += qAlpha(entering) - qAlpha(leaving);
+                    sumR += qRed(entering) - qRed(leaving);
+                    sumG += qGreen(entering) - qGreen(leaving);
+                    sumB += qBlue(entering) - qBlue(leaving);
+                }
+            }
+
+            for (int x = 0; x < width; ++x) {
+                std::int64_t sumA = 0, sumR = 0, sumG = 0, sumB = 0;
+                for (int k = -radius; k <= radius; ++k) {
+                    const QRgb p = reinterpret_cast<const QRgb*>(temp.constScanLine(clampIndex(k, height)))[x];
+                    sumA += qAlpha(p); sumR += qRed(p);
+                    sumG += qGreen(p); sumB += qBlue(p);
+                }
+                for (int y = 0; y < height; ++y) {
+                    QRgb* dst = reinterpret_cast<QRgb*>(result.scanLine(y));
+                    dst[x] = qRgba(static_cast<int>(sumR * scale),
+                                   static_cast<int>(sumG * scale),
+                                   static_cast<int>(sumB * scale),
+                                   static_cast<int>(sumA * scale));
+                    const QRgb leaving = reinterpret_cast<const QRgb*>(temp.constScanLine(clampIndex(y - radius, height)))[x];
+                    const QRgb entering = reinterpret_cast<const QRgb*>(temp.constScanLine(clampIndex(y + radius + 1, height)))[x];
+                    sumA += qAlpha(entering) - qAlpha(leaving);
+                    sumR += qRed(entering) - qRed(leaving);
+                    sumG += qGreen(entering) - qGreen(leaving);
+                    sumB += qBlue(entering) - qBlue(leaving);
+                }
+            }
             return result;
         }
         case BlurEffectSettings::Type::Bilateral: {

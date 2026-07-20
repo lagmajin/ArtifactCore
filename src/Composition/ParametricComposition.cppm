@@ -30,6 +30,19 @@ QJsonValue jsonValueFromVariant(const QVariant& value)
     return QJsonValue::fromVariant(value);
 }
 
+void addLengthPrefixedInputHash(QCryptographicHash& hash,
+                                const QString& inputId,
+                                const QByteArray& frameHash)
+{
+    const QByteArray encodedInputId = inputId.toUtf8();
+    const quint64 inputIdSize = static_cast<quint64>(encodedInputId.size());
+    const quint64 frameHashSize = static_cast<quint64>(frameHash.size());
+    hash.addData(reinterpret_cast<const char*>(&inputIdSize), sizeof(inputIdSize));
+    hash.addData(encodedInputId);
+    hash.addData(reinterpret_cast<const char*>(&frameHashSize), sizeof(frameHashSize));
+    hash.addData(frameHash);
+}
+
 QJsonArray templateSlotsObjectToArray(const QJsonObject& templateSlots)
 {
     QJsonArray slotArray;
@@ -310,10 +323,13 @@ QString ParametricCompositionCacheKey::toString() const
 {
     QCryptographicHash combinedHash(QCryptographicHash::Sha256);
     for (auto it = inputFrameHashes.cbegin(); it != inputFrameHashes.cend(); ++it) {
-        combinedHash.addData(it.key().toUtf8());
-        combinedHash.addData(it.value());
+        // Encode boundaries explicitly.  Concatenating raw key/value bytes
+        // allows distinct input maps to produce the same digest stream.
+        addLengthPrefixedInputHash(combinedHash, it.key(), it.value());
     }
-    return QStringLiteral("%1|%2|%3|%4")
+    // Bump the cache-key schema whenever the serialized hash stream changes.
+    // This prevents stale entries created by older clients from being reused.
+    return QStringLiteral("pcache-v2|%1|%2|%3|%4")
         .arg(definitionId)
         .arg(QString::fromLatin1(combinedHash.result().toHex()))
         .arg(QString::fromLatin1(parameterHash.toHex()))
@@ -1110,8 +1126,7 @@ QByteArray ParametricCompositionInstance::inputFrameHash(
     const ParametricCompositionEvaluation evaluation = evaluate(context, resolver);
     QCryptographicHash hash(QCryptographicHash::Sha256);
     for (auto it = evaluation.cacheKey.inputFrameHashes.cbegin(); it != evaluation.cacheKey.inputFrameHashes.cend(); ++it) {
-        hash.addData(it.key().toUtf8());
-        hash.addData(it.value());
+        addLengthPrefixedInputHash(hash, it.key(), it.value());
     }
     return hash.result();
 }

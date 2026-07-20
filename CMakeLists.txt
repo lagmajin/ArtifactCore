@@ -38,7 +38,6 @@ function(_artifact_exclude_check file_path result_var)
        "${file_path}" MATCHES "\\.bak$" OR
        "${file_path}" MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
        "${file_path}" MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
-       "${file_path}" MATCHES "src/ImageProcessing/OpenCV/AntiAliasing\\.ixx" OR
        "${file_path}" MATCHES "src/ImageProcessing/OpenCV/FilmGrain\\.cppm" OR
        "${file_path}" MATCHES "include/ImageProcessing/OpenCV/G-API/" OR
        "${file_path}" MATCHES "include/Image/Blur/BlurGAPI\\.cpp" OR
@@ -302,6 +301,23 @@ if(OpenCV_INCLUDE_DIRS)
     target_include_directories(ArtifactCore PUBLIC ${OpenCV_INCLUDE_DIRS})
 endif()
 target_link_libraries(ArtifactCore PUBLIC ${OpenCV_LIBS})
+
+# Optional libvips backend.  Keep image-sequence and real-time paths on the
+# existing OpenCV/QImage implementation unless libvips is explicitly
+# available through the host package manager.
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(LIBVIPS QUIET IMPORTED_TARGET vips-cpp)
+    if(LIBVIPS_FOUND)
+        target_link_libraries(ArtifactCore PUBLIC PkgConfig::LIBVIPS)
+        target_compile_definitions(ArtifactCore PUBLIC ARTIFACT_HAS_LIBVIPS=1)
+        message(STATUS "libvips detected; optional image backend enabled")
+    else()
+        message(STATUS "libvips not detected; using existing image backend")
+    endif()
+else()
+    message(STATUS "PkgConfig not detected; libvips backend disabled")
+endif()
 
 find_package(SDL2 REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC SDL2::SDL2)
