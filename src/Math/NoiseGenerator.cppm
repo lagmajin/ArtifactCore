@@ -2,6 +2,7 @@ module;
 
 #include <cmath>
 #include <algorithm>
+#include <array>
 #include <vector>
 #include <numeric>
 #include <random>
@@ -160,6 +161,87 @@ float NoiseGenerator::worley(float x, float y, float z) {
         }
     }
     return minDist;
+}
+
+NoiseField::NoiseField(unsigned int seed)
+{
+    setSeed(seed);
+}
+
+void NoiseField::setSeed(unsigned int seed)
+{
+    seed_ = seed;
+    std::array<int, 256> permutation{};
+    std::iota(permutation.begin(), permutation.end(), 0);
+    std::default_random_engine engine(seed);
+    std::shuffle(permutation.begin(), permutation.end(), engine);
+    for (int i = 0; i < 256; ++i) {
+        permutation_[static_cast<std::size_t>(i)] = permutation[static_cast<std::size_t>(i)];
+        permutation_[static_cast<std::size_t>(i + 256)] = permutation[static_cast<std::size_t>(i)];
+    }
+}
+
+float NoiseField::fade(float t) noexcept
+{
+    return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+}
+
+float NoiseField::lerp(float t, float a, float b) noexcept
+{
+    return a + t * (b - a);
+}
+
+float NoiseField::grad(int hash, float x, float y, float z) noexcept
+{
+    const int h = hash & 15;
+    const float u = h < 8 ? x : y;
+    const float v = h < 4 ? y : (h == 12 || h == 14 ? x : z);
+    return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
+}
+
+float NoiseField::perlin(float x, float y, float z) const noexcept
+{
+    const int X = static_cast<int>(std::floor(x)) & 255;
+    const int Y = static_cast<int>(std::floor(y)) & 255;
+    const int Z = static_cast<int>(std::floor(z)) & 255;
+    x -= std::floor(x);
+    y -= std::floor(y);
+    z -= std::floor(z);
+    const float u = fade(x);
+    const float v = fade(y);
+    const float w = fade(z);
+    const int A = permutation_[X] + Y;
+    const int AA = permutation_[A] + Z;
+    const int AB = permutation_[A + 1] + Z;
+    const int B = permutation_[X + 1] + Y;
+    const int BA = permutation_[B] + Z;
+    const int BB = permutation_[B + 1] + Z;
+    return lerp(w,
+        lerp(v, lerp(u, grad(permutation_[AA], x, y, z),
+                         grad(permutation_[BA], x - 1.0f, y, z)),
+                  lerp(u, grad(permutation_[AB], x, y - 1.0f, z),
+                         grad(permutation_[BB], x - 1.0f, y - 1.0f, z))),
+        lerp(v, lerp(u, grad(permutation_[AA + 1], x, y, z - 1.0f),
+                         grad(permutation_[BA + 1], x - 1.0f, y, z - 1.0f)),
+                  lerp(u, grad(permutation_[AB + 1], x, y - 1.0f, z - 1.0f),
+                         grad(permutation_[BB + 1], x - 1.0f, y - 1.0f, z - 1.0f))));
+}
+
+float NoiseField::fractal(float x, float y, float z, int octaves,
+                          float persistence, float lacunarity) const noexcept
+{
+    if (octaves <= 0) return 0.0f;
+    float total = 0.0f;
+    float amplitude = 1.0f;
+    float frequency = 1.0f;
+    float normalizer = 0.0f;
+    for (int i = 0; i < octaves; ++i) {
+        total += perlin(x * frequency, y * frequency, z * frequency) * amplitude;
+        normalizer += amplitude;
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+    return normalizer > 0.0f ? total / normalizer : 0.0f;
 }
 
 // ============================================================

@@ -1,6 +1,7 @@
 module;
 
 #include "../Define/DllExportMacro.hpp"
+#include <array>
 
 #include <iostream>
 #include <vector>
@@ -70,6 +71,27 @@ private:
     static float fade(float t);
     static float lerp(float t, float a, float b);
     static float grad(int hash, float x, float y, float z);
+};
+
+// Value-type noise field. Unlike NoiseGenerator's legacy process-wide seed,
+// each instance owns its permutation table and can be evaluated concurrently.
+class LIBRARY_DLL_API NoiseField {
+public:
+    explicit NoiseField(unsigned int seed = 42);
+
+    void setSeed(unsigned int seed);
+    unsigned int seed() const noexcept { return seed_; }
+    float perlin(float x, float y, float z) const noexcept;
+    float fractal(float x, float y, float z, int octaves = 4,
+                  float persistence = 0.5f, float lacunarity = 2.0f) const noexcept;
+
+private:
+    static float fade(float t) noexcept;
+    static float lerp(float t, float a, float b) noexcept;
+    static float grad(int hash, float x, float y, float z) noexcept;
+
+    std::array<int, 512> permutation_{};
+    unsigned int seed_ = 42;
 };
 
 } // namespace ArtifactCore

@@ -47,6 +47,13 @@ export struct SoftBodyWind {
     float turbulenceFrequency = 1.0f;
 };
 
+export struct SoftBodyUVVertex {
+    float x = 0.0f;
+    float y = 0.0f;
+    float u = 0.0f;
+    float v = 0.0f;
+};
+
 export struct SoftBodySnapshot {
     std::vector<SoftBodyPoint> points;
     std::vector<SoftBodyConstraint> constraints;
@@ -579,6 +586,26 @@ public:
     const std::vector<SoftBodyVolumeTriangle>& getVolumeTriangles() const { return volumeTriangles_; }
     int gridColumns() const { return gridColumns_; }
     int gridRows() const { return gridRows_; }
+
+    std::vector<SoftBodyUVVertex> getUVVertices() const {
+        std::vector<SoftBodyUVVertex> vertices;
+        if (gridColumns_ < 2 || gridRows_ < 2 ||
+            points_.size() != static_cast<std::size_t>(gridColumns_ * gridRows_)) {
+            return vertices;
+        }
+        vertices.reserve(points_.size());
+        const float invColumns = 1.0f / static_cast<float>(gridColumns_ - 1);
+        const float invRows = 1.0f / static_cast<float>(gridRows_ - 1);
+        for (int y = 0; y < gridRows_; ++y) {
+            for (int x = 0; x < gridColumns_; ++x) {
+                const auto& point = points_[static_cast<std::size_t>(y * gridColumns_ + x)];
+                vertices.push_back({point.x, point.y,
+                                    static_cast<float>(x) * invColumns,
+                                    static_cast<float>(y) * invRows});
+            }
+        }
+        return vertices;
+    }
 
 private:
     void resolveColliders(SoftBodyPoint& p) {
