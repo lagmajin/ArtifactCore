@@ -1,6 +1,7 @@
 module;
 #include <QString>
 #include <QVector3D>
+#include <vector>
 
 export module Core.Simulation.OpenVDBVolumeReference;
 
@@ -21,5 +22,15 @@ struct OpenVDBVolumeReference {
         return enabled && !filePath.trimmed().isEmpty();
     }
 };
+
+struct OpenVDBVolumeMetadata {
+    bool loaded = false;
+    QString error;
+    QVector3D boundsMin;
+    QVector3D boundsMax;
+    std::vector<QString> gridNames;
+};
+
+OpenVDBVolumeMetadata inspectOpenVDBVolume(const OpenVDBVolumeReference& reference);
 
 } // namespace ArtifactCore
