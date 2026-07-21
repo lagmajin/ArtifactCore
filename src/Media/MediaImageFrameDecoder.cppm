@@ -34,13 +34,6 @@ QString ffmpegErrorString(int err) {
     return QString::fromLatin1(buffer);
 }
 
-AVDictionary* makeSingleThreadCodecOpenOptions() {
-    AVDictionary* opts = nullptr;
-    av_dict_set(&opts, "threads", "1", 0);
-    av_dict_set(&opts, "thread_type", "0", 0);
-    return opts;
-}
-
 CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& source) {
     if (source.isNull()) {
         return {};
@@ -65,28 +58,37 @@ CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& source) {
     return out;
 }
 
-CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsCtx, int width, int height, int64_t pts) {
+CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext*& swsCtx, int64_t pts) {
     CpuVideoFrame out;
-    if (!frame || !swsCtx || width <= 0 || height <= 0) {
+    if (!frame || frame->width <= 0 || frame->height <= 0) {
         return out;
     }
 
-    out.meta.width = width;
-    out.meta.height = height;
+    swsCtx = sws_getCachedContext(swsCtx,
+                                  frame->width, frame->height,
+                                  static_cast<AVPixelFormat>(frame->format),
+                                  frame->width, frame->height, AV_PIX_FMT_RGB24,
+                                  SWS_BILINEAR, nullptr, nullptr, nullptr);
+    if (!swsCtx) {
+        return out;
+    }
+
+    out.meta.width = frame->width;
+    out.meta.height = frame->height;
     out.meta.pts = pts;
     out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
     out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
     out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
     out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
     out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
-    out.strideBytes = width * 3;
-    out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(height));
+    out.strideBytes = frame->width * 3;
+    out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(frame->height));
 
     uint8_t* dst[4] = {};
     int dstLinesize[4] = {};
     dst[0] = out.bytes.data();
     dstLinesize[0] = out.strideBytes;
-    sws_scale(swsCtx, frame->data, frame->linesize, 0, height, dst, dstLinesize);
+    sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize);
     return out;
 }
 
@@ -264,13 +266,12 @@ bool canPresentGpuFrameDirectly(const GpuVideoFrame& frame)
 
 bool directVulkanVideoFramesEnabled()
 {
-    const QString value = qEnvironmentVariable("ARTIFACT_ENABLE_VULKAN_VIDEO_DIRECT")
-                              .trimmed()
-                              .toLower();
-    return value == QStringLiteral("1") ||
-           value == QStringLiteral("true") ||
-           value == QStringLiteral("on") ||
-           value == QStringLiteral("yes");
+    // AVVkFrame exposes a timeline semaphore that must be waited and re-signaled
+    // for every queue submission.  The current Diligent bridge imports only the
+    // VkImage, so enabling direct presentation would race the decoder queue.
+    // Keep the explicit opt-in disabled until that ownership/synchronization
+    // bridge exists; hardware frames are downloaded through the safe path below.
+    return false;
 }
 
 void freeHwDeviceContext(AVBufferRef*& ref)
@@ -369,18 +370,13 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
         return false;
     }
 
-    // Avoid auto-spawning multiple FFmpeg decode workers for single-frame probes.
-    codecContext_->thread_count = 1;
-    codecContext_->thread_type = 0;
     codecContext_->get_format = chooseBestDecoderPixelFormat;
 
     if (hwDeviceCtx_) {
         codecContext_->hw_device_ctx = av_buffer_ref(hwDeviceCtx_);
     }
 
-    AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
-    int ret = avcodec_open2(codecContext_, codec, &codecOpts);
-    av_dict_free(&codecOpts);
+    int ret = avcodec_open2(codecContext_, codec, nullptr);
     if (ret < 0) {
         qWarning() << "[MediaImageFrameDecoder] initialize failed: could not open codec"
                    << "codec=" << codec->name
@@ -436,16 +432,25 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
             ? frame->best_effort_timestamp
             : frame->pts;
 
-        if (frame->format == AV_PIX_FMT_VULKAN || !swsCtx_) {
+        if (frame->format == AV_PIX_FMT_VULKAN) {
             av_frame_unref(frame);
             continue;
         }
 
-        QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGB888);
+        swsCtx_ = sws_getCachedContext(swsCtx_,
+                                       frame->width, frame->height,
+                                       static_cast<AVPixelFormat>(frame->format),
+                                       frame->width, frame->height, AV_PIX_FMT_RGB24,
+                                       SWS_BILINEAR, nullptr, nullptr, nullptr);
+        if (!swsCtx_) {
+            av_frame_unref(frame);
+            continue;
+        }
+        QImage img(frame->width, frame->height, QImage::Format_RGB888);
         uint8_t* dst[4];
         int dstLinesize[4];
         av_image_fill_arrays(dst, dstLinesize, img.bits(), AV_PIX_FMT_RGB24, img.width(), img.height(), 1);
-        sws_scale(swsCtx_, frame->data, frame->linesize, 0, codecContext_->height, dst, dstLinesize);
+        sws_scale(swsCtx_, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize);
         result = img;
         av_frame_unref(frame);
     }
@@ -497,12 +502,7 @@ DecodedVideoFrame MediaImageFrameDecoder::decodeFrameRaw(AVPacket* packet) {
             av_frame_free(&frame);
             return out;
         }
-        if (!swsCtx_) {
-            av_frame_unref(frame);
-            av_frame_free(&frame);
-            return std::monostate{};
-        }
-        CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, codecContext_->width, codecContext_->height, pts);
+        CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, pts);
         av_frame_unref(frame);
         av_frame_free(&frame);
         return out;
@@ -538,16 +538,25 @@ QImage MediaImageFrameDecoder::receiveFrame() {
         ? frame->best_effort_timestamp
         : frame->pts;
 
-    if (frame->format == AV_PIX_FMT_VULKAN || !swsCtx_) {
+    if (frame->format == AV_PIX_FMT_VULKAN) {
         av_frame_free(&frame);
         return QImage();
     }
 
-    QImage img(codecContext_->width, codecContext_->height, QImage::Format_RGB888);
+    swsCtx_ = sws_getCachedContext(swsCtx_,
+                                   frame->width, frame->height,
+                                   static_cast<AVPixelFormat>(frame->format),
+                                   frame->width, frame->height, AV_PIX_FMT_RGB24,
+                                   SWS_BILINEAR, nullptr, nullptr, nullptr);
+    if (!swsCtx_) {
+        av_frame_free(&frame);
+        return QImage();
+    }
+    QImage img(frame->width, frame->height, QImage::Format_RGB888);
     uint8_t* dst[4];
     int dstLinesize[4];
     av_image_fill_arrays(dst, dstLinesize, img.bits(), AV_PIX_FMT_RGB24, img.width(), img.height(), 1);
-    sws_scale(swsCtx_, frame->data, frame->linesize, 0, codecContext_->height, dst, dstLinesize);
+    sws_scale(swsCtx_, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize);
 
     av_frame_free(&frame);
     return img;
@@ -590,12 +599,7 @@ DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
         av_frame_free(&frame);
         return out;
     }
-    if (!swsCtx_) {
-        av_frame_unref(frame);
-        av_frame_free(&frame);
-        return std::monostate{};
-    }
-    CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, codecContext_->width, codecContext_->height, pts);
+    CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, pts);
     av_frame_unref(frame);
     av_frame_free(&frame);
     return out;

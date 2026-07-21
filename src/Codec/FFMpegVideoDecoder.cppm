@@ -57,20 +57,6 @@ static QString av_error_qstring(int errnum) {
   return QString::fromUtf8(errbuf);
 }
 
-static AVDictionary* makeSingleThreadStreamInfoOptions() {
-  AVDictionary* opts = nullptr;
-  av_dict_set(&opts, "threads", "1", 0);
-  av_dict_set(&opts, "thread_type", "0", 0);
-  return opts;
-}
-
-static AVDictionary* makeSingleThreadCodecOpenOptions() {
-  AVDictionary* opts = nullptr;
-  av_dict_set(&opts, "threads", "1", 0);
-  av_dict_set(&opts, "thread_type", "0", 0);
-  return opts;
-}
-
 static CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsCtx, int width, int height, int64_t pts) {
   CpuVideoFrame out;
   out.meta.width = width;
@@ -129,15 +115,12 @@ bool FFmpegVideoDecoder::Impl::openFile(const QString& path) {
     return false;
   }
 
-  AVDictionary* streamInfoOpts = makeSingleThreadStreamInfoOptions();
-  if (avformat_find_stream_info(formatContext, &streamInfoOpts) < 0) {
-    av_dict_free(&streamInfoOpts);
+  if (avformat_find_stream_info(formatContext, nullptr) < 0) {
     qWarning() << "FFmpegDecoder::Impl::openFile: Failed to find stream info.";
     avformat_close_input(&formatContext);
     formatContext = nullptr;
     return false;
   }
-  av_dict_free(&streamInfoOpts);
 
   AVCodecParameters* codecParameters = nullptr;
   for (unsigned int i = 0; i < formatContext->nb_streams; ++i) {
@@ -180,12 +163,7 @@ bool FFmpegVideoDecoder::Impl::openFile(const QString& path) {
     return false;
   }
 
-  codecContext->thread_count = 1;
-  codecContext->thread_type = 0;
-
-  AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
-  if (avcodec_open2(codecContext, codec, &codecOpts) < 0) {
-    av_dict_free(&codecOpts);
+  if (avcodec_open2(codecContext, codec, nullptr) < 0) {
     qWarning() << "FFmpegDecoder::Impl::openFile: Failed to open codec.";
     avcodec_free_context(&codecContext);
     codecContext = nullptr;
@@ -193,8 +171,6 @@ bool FFmpegVideoDecoder::Impl::openFile(const QString& path) {
     formatContext = nullptr;
     return false;
   }
-  av_dict_free(&codecOpts);
-
   packet = av_packet_alloc();
   if (!packet) {
     qWarning() << "FFmpegDecoder::Impl::openFile: Failed to allocate AVPacket.";
@@ -344,6 +320,7 @@ void FFmpegVideoDecoder::Impl::seekByFrameNumber(int64_t frameNumber) {
     return;
   }
 
+  avformat_flush(formatContext);
   avcodec_flush_buffers(codecContext);
   diagnosticScope.finish(true);
 }
@@ -362,11 +339,12 @@ void FFmpegVideoDecoder::Impl::seekByTimestamp(int64_t timestampMs) {
   AVRational tb = stream->time_base;
   const int64_t ts = av_rescale_q(timestampMs, AVRational{ 1, 1000 }, tb);
 
-  if (av_seek_frame(formatContext, videoStreamIndex, ts, AVSEEK_FLAG_ANY) < 0) {
+  if (av_seek_frame(formatContext, videoStreamIndex, ts, AVSEEK_FLAG_BACKWARD) < 0) {
     qWarning() << "av_seek_frame failed";
     return;
   }
 
+  avformat_flush(formatContext);
   avcodec_flush_buffers(codecContext);
   diagnosticScope.finish(true);
 }

@@ -65,6 +65,15 @@ export namespace ArtifactCore
    Uint32 height
   );
 
+  bool displayComponent(
+   IDeviceContext* ctx,
+   ITextureView* srcSRV,
+   ITextureView* outUAV,
+   Uint32 component,
+   Uint32 width,
+   Uint32 height
+  );
+
   bool blendDirect(
    IDeviceContext* ctx,
    ITextureView* srcSRV,
@@ -114,6 +123,7 @@ export namespace ArtifactCore
   class Impl;
   Impl* pImpl_ = nullptr;
   std::unique_ptr<ComputeExecutor> layerToFloatExecutor_;
+  std::unique_ptr<ComputeExecutor> channelComponentDisplayExecutor_;
   std::map<BlendMode, BlendExecutor> executors_;
   BlendParams currentParams_{};
   std::unique_ptr<ComputeExecutor> matteTrackExecutor_;

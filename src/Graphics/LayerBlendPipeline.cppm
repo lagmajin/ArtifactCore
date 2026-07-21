@@ -176,6 +176,28 @@ bool LayerBlendPipeline::createExecutors()
   layerToFloatExecutor_.reset();
  }
 
+ static ShaderResourceVariableDesc channelComponentDisplayVars[] = {
+  {SHADER_TYPE_COMPUTE, "SrcTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+ };
+ channelComponentDisplayExecutor_ = std::make_unique<ComputeExecutor>(*context_);
+ ComputePipelineDesc channelComponentDisplayDesc;
+ channelComponentDisplayDesc.name = "Channel Component Display PSO";
+ channelComponentDisplayDesc.shaderSource =
+     channelComponentDisplayShaderText.constData();
+ channelComponentDisplayDesc.entryPoint = "main";
+ channelComponentDisplayDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+ channelComponentDisplayDesc.variables = channelComponentDisplayVars;
+ channelComponentDisplayDesc.variableCount = 2;
+ channelComponentDisplayDesc.defaultVariableType =
+     SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+ if (!channelComponentDisplayExecutor_->build(channelComponentDisplayDesc) ||
+     !channelComponentDisplayExecutor_->setBuffer("BlendParams", pImpl_->pBlendCB_) ||
+     !channelComponentDisplayExecutor_->createShaderResourceBinding(true)) {
+  qWarning() << "[LayerBlendPipeline] channel component display PSO build failed";
+  channelComponentDisplayExecutor_.reset();
+ }
+
  // [Fix A] Vars[] の変数名はシェーダに合わせて "OutTex" を宣言
  static ShaderResourceVariableDesc Vars[] = {
   {SHADER_TYPE_COMPUTE, "SrcTex",      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -348,7 +370,8 @@ bool LayerBlendPipeline::convertLayerToFloat(
  const auto& outDesc = outTexture->GetDesc();
  if (srcDesc.Width != width || srcDesc.Height != height ||
      outDesc.Width != width || outDesc.Height != height ||
-     outDesc.Format != TEX_FORMAT_RGBA32_FLOAT) {
+     (outDesc.Format != TEX_FORMAT_RGBA32_FLOAT &&
+      outDesc.Format != TEX_FORMAT_RGBA16_FLOAT)) {
   qCritical() << "[LayerBlendPipeline::convertLayerToFloat] texture contract mismatch"
               << "requested=" << width << "x" << height
               << "src=" << srcDesc.Width << "x" << srcDesc.Height
@@ -363,6 +386,60 @@ bool LayerBlendPipeline::convertLayerToFloat(
 
  auto attribs = ComputeExecutor::makeDispatchAttribs(width, height, 1, 8, 8, 1);
  layerToFloatExecutor_->dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+ return true;
+}
+
+bool LayerBlendPipeline::displayComponent(
+ IDeviceContext* ctx,
+ ITextureView* srcSRV,
+ ITextureView* outUAV,
+ Uint32 component,
+ Uint32 width,
+ Uint32 height
+)
+{
+ if (!ctx || !srcSRV || !outUAV || !channelComponentDisplayExecutor_ ||
+     !channelComponentDisplayExecutor_->ready() || !pImpl_->pBlendCB_ ||
+     component > 3 || width == 0 || height == 0) {
+  return false;
+ }
+
+ const auto* srcTexture = srcSRV->GetTexture();
+ const auto* outTexture = outUAV->GetTexture();
+ if (!srcTexture || !outTexture || srcTexture == outTexture) {
+  return false;
+ }
+
+ const auto& srcDesc = srcTexture->GetDesc();
+ const auto& outDesc = outTexture->GetDesc();
+ const bool formatsMatch =
+     (srcDesc.Format == TEX_FORMAT_RGBA32_FLOAT ||
+      srcDesc.Format == TEX_FORMAT_RGBA16_FLOAT) &&
+     outDesc.Format == srcDesc.Format;
+ if (srcDesc.Width != width || srcDesc.Height != height ||
+     outDesc.Width != width || outDesc.Height != height || !formatsMatch) {
+  return false;
+ }
+
+ BlendParams displayParams;
+ displayParams.blendMode = component;
+ void* pData = nullptr;
+ ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+ if (!pData) {
+  return false;
+ }
+ memcpy(pData, &displayParams, sizeof(displayParams));
+ ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
+
+ if (!channelComponentDisplayExecutor_->setTextureView("SrcTex", srcSRV) ||
+     !channelComponentDisplayExecutor_->setTextureView("OutTex", outUAV)) {
+  return false;
+ }
+
+ const auto attribs =
+     ComputeExecutor::makeDispatchAttribs(width, height, 1, 8, 8, 1);
+ channelComponentDisplayExecutor_->dispatch(
+     ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
  return true;
 }
 
@@ -413,9 +490,10 @@ bool LayerBlendPipeline::blend(
      srcDesc.Width == dstDesc.Width && srcDesc.Height == dstDesc.Height &&
      srcDesc.Width == outDesc.Width && srcDesc.Height == outDesc.Height;
  const bool formatsMatch =
-     srcDesc.Format == TEX_FORMAT_RGBA32_FLOAT &&
-     dstDesc.Format == TEX_FORMAT_RGBA32_FLOAT &&
-     outDesc.Format == TEX_FORMAT_RGBA32_FLOAT;
+     (srcDesc.Format == TEX_FORMAT_RGBA32_FLOAT ||
+      srcDesc.Format == TEX_FORMAT_RGBA16_FLOAT) &&
+     dstDesc.Format == srcDesc.Format &&
+     outDesc.Format == srcDesc.Format;
  if (!dimensionsMatch || !formatsMatch) {
   qCritical() << "[LayerBlendPipeline::blend] canonical texture contract mismatch"
               << "srcFormat=" << static_cast<int>(srcDesc.Format)

@@ -100,6 +100,29 @@ void main(uint3 id : SV_DispatchThreadID)
 }
 )";
 
+LIBRARY_DLL_API const QByteArray channelComponentDisplayShaderText = R"(
+Texture2D<float4> SrcTex : register(t0);
+RWTexture2D<float4> OutTex : register(u0);
+
+cbuffer BlendParams : register(b0)
+{
+    float opacity;
+    uint component;
+    float2 _pad;
+};
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    uint outWidth, outHeight;
+    OutTex.GetDimensions(outWidth, outHeight);
+    if (id.x >= outWidth || id.y >= outHeight) return;
+
+    const float value = saturate(SrcTex[id.xy][min(component, 3u)]);
+    OutTex[id.xy] = float4(value, value, value, 1.0);
+}
+)";
+
 // =====================================================================
 // Individual Shaders
 // =====================================================================
