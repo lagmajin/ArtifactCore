@@ -9,6 +9,7 @@ module;
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QUndoStack>
+#include <functional>
 
 export module Command.Session;
 
@@ -25,6 +26,8 @@ export namespace ArtifactCore
     public:
         EditSession(QObject* parent = nullptr) : QObject(parent) {}
 
+        using BroadcastCallback = std::function<void(const QJsonObject&)>;
+
         /**
          * @brief コマンドを実行し、履歴に追加する
          */
@@ -36,6 +39,7 @@ export namespace ArtifactCore
             logEntry.insert(QStringLiteral("data"), QJsonValue(command->serialize()));
             historyLog_.push_back(logEntry);
 
+            if (broadcastCallback_) broadcastCallback_(logEntry);
             undoStack_.push(static_cast<QUndoCommand*>(command.release())); // 所有権の委譲
         }
 
@@ -53,8 +57,11 @@ export namespace ArtifactCore
             return arr;
         }
 
+        void setBroadcastCallback(BroadcastCallback cb) { broadcastCallback_ = std::move(cb); }
+
     private:
         QUndoStack undoStack_;
         std::vector<QJsonObject> historyLog_;
+        BroadcastCallback broadcastCallback_;
     };
 }

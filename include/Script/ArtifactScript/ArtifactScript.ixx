@@ -92,8 +92,91 @@ struct ArtifactScriptMethod {
     std::vector<std::string> parameters;
     bool isLifecycleHook = false;
     ArtifactScriptHook hook = ArtifactScriptHook::OnUpdate;
+    ArtifactScriptMethodBodyPtr body;  // compiled method body
 };
 
+
+// ─── AST Node Types ───
+
+enum class ArtifactScriptBinaryOp {
+    Add, Sub, Mul, Div, Mod,
+    Eq, Neq, Lt, Gt, Le, Ge,
+    And, Or
+};
+
+enum class ArtifactScriptUnaryOp {
+    Neg, Not
+};
+
+struct ArtifactScriptExpr;
+using ArtifactScriptExprPtr = std::unique_ptr<ArtifactScriptExpr>;
+
+struct ArtifactScriptExpr {
+    enum class Kind { Literal, Variable, Binary, Unary, Call, FieldAccess };
+    Kind kind = Kind::Literal;
+
+    // Literal
+    ArtifactScriptValue literalValue;
+
+    // Variable / FieldAccess
+    std::string variableName;
+
+    // Binary
+    ArtifactScriptBinaryOp binaryOp;
+    ArtifactScriptExprPtr left;
+    ArtifactScriptExprPtr right;
+
+    // Unary
+    ArtifactScriptUnaryOp unaryOp;
+    ArtifactScriptExprPtr operand;
+
+    // Call
+    std::string callName;
+    std::vector<ArtifactScriptExprPtr> callArgs;
+};
+
+struct ArtifactScriptStmt;
+using ArtifactScriptStmtPtr = std::unique_ptr<ArtifactScriptStmt>;
+
+struct ArtifactScriptStmt {
+    enum class Kind { Expr, Assign, If, Return, Block, Decl, While };
+    Kind kind = Kind::Expr;
+
+    // Expr
+    ArtifactScriptExprPtr expr;
+
+    // Assign
+    std::string assignTarget;
+    ArtifactScriptExprPtr assignValue;
+
+    // If
+    ArtifactScriptExprPtr ifCond;
+    ArtifactScriptStmtPtr ifThen;
+    ArtifactScriptStmtPtr ifElse;
+
+    // Block
+    std::vector<ArtifactScriptStmtPtr> blockStmts;
+
+    // Decl: variable declaration ("float x = expr")
+    std::string declName;
+    ArtifactScriptValueType declType = ArtifactScriptValueType::Float;
+    ArtifactScriptExprPtr declInit;
+
+    // While: while loop
+    ArtifactScriptExprPtr whileCond;
+    ArtifactScriptStmtPtr whileBody;
+};
+
+// Per-method compiled body
+struct ArtifactScriptMethodBody {
+    std::vector<ArtifactScriptStmtPtr> statements;
+    std::vector<std::string> parameters;
+};
+
+// Make ArtifactScriptMethod hold a body
+using ArtifactScriptMethodBodyPtr = std::unique_ptr<ArtifactScriptMethodBody>;
+
+// Extend ArtifactScriptMethod with compiled body
 struct ArtifactScriptClass {
     std::string name;
     bool derivesFromBehaviour = false;
@@ -157,6 +240,44 @@ private:
     ArtifactScriptDefinition definition_;
     const ArtifactScriptComponent* component_ = nullptr;
     std::optional<ArtifactScriptHook> lastInvokedHook_;
+};
+
+// ─── Evaluator ───
+
+class ArtifactScriptEvaluator {
+public:
+    ArtifactScriptEvaluator();
+    bool execute(const ArtifactScriptMethodBody& body,
+                 const std::vector<ArtifactScriptValue>& args,
+                 ArtifactScriptSerializedFields& fields);
+    std::string getLastError() const;
+    bool hasError() const;
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+// ─── Hot Reload ───
+
+struct ArtifactScriptReloadResult {
+    bool success = false;
+    std::string errorMessage;
+    ArtifactScriptDefinition definition;
+    ArtifactScriptSerializedFields migratedFields;
+};
+
+class ArtifactScriptHotReload {
+public:
+    ArtifactScriptHotReload();
+    ArtifactScriptReloadResult reload(std::string_view newSource,
+                                       const ArtifactScriptDefinition* previousDef,
+                                       const ArtifactScriptSerializedFields* previousFields);
+    bool watchFile(const std::string& path);
+    void unwatchFile(const std::string& path);
+    std::vector<std::string> pollChanges();
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 }

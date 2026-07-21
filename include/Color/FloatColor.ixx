@@ -1,6 +1,6 @@
 module;
 #include "../Define/DllExportMacro.hpp"
-#include <memory>
+ 
 #include <utility>
 
 export module Color.Float;
@@ -26,8 +26,8 @@ enum class NamedColor {
 
 class LIBRARY_DLL_API FloatColor {
 private:
-  class Impl;
-  Impl *impl_;
+ 
+    float r_ = 0.0f, g_ = 0.0f, b_ = 0.0f, a_ = 1.0f;
 
 public:
   FloatColor();

@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <future>
 #include <chrono>
+#include <thread>
 
 module Script.Engine.BuiltinVM;
 
@@ -66,6 +67,7 @@ ExpressionValue BuiltinScriptVM::evaluate(const std::string& expression, ScriptC
         } else {
             // Timeout - request cancel on evaluator if supported
             impl_->evaluator_.requestCancel();
+            std::thread([f = std::move(fut)]() mutable { f.wait(); }).detach();
             result = ExpressionValue();
         }
     } else {

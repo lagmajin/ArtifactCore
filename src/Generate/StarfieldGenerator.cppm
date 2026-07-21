@@ -201,56 +201,6 @@ void StarfieldGenerator::generateStarDistribution(unsigned int seed) {
     }
 }
 
-// ----- グレア -----
-
-void StarfieldGenerator::applyGlare(float* pixels, int cx, int cy, float brightness, float r, float g, float b) {
-    if (!glareEnabled_ || brightness <= glareThreshold_) return;
-    float spikeLen = 10.0f + brightness * 20.0f, spikeWidth = 1.0f + brightness * 1.5f;
-    int ilen = static_cast<int>(spikeLen);
-    // 水平
-    for (int dx = -ilen; dx <= ilen; ++dx) {
-        int px = cx + dx; if (px < 0 || px >= width_) continue;
-        float d = std::abs(static_cast<float>(dx));
-        float a = std::exp(-d * d / (spikeLen * spikeLen * 0.3f)) * brightness * 0.3f;
-        for (int dy = -static_cast<int>(spikeWidth); dy <= static_cast<int>(spikeWidth); ++dy) {
-            int py = cy + dy; if (py < 0 || py >= height_) continue;
-            float fa = a * std::max(0.0f, 1.0f - std::abs(dy) / spikeWidth);
-            int idx = (py * width_ + px) * 4;
-            pixels[idx+0]=std::min(1.0f,pixels[idx+0]+r*fa);
-            pixels[idx+1]=std::min(1.0f,pixels[idx+1]+g*fa);
-            pixels[idx+2]=std::min(1.0f,pixels[idx+2]+b*fa);
-        }
-    }
-    // 垂直 (やや短く)
-    float vl = spikeLen * 0.7f; int vlen = static_cast<int>(vl);
-    for (int dy = -vlen; dy <= vlen; ++dy) {
-        int py = cy + dy; if (py < 0 || py >= height_) continue;
-        float d = std::abs(static_cast<float>(dy));
-        float a = std::exp(-d * d / (vl * vl * 0.3f)) * brightness * 0.2f;
-        for (int dx = -static_cast<int>(spikeWidth); dx <= static_cast<int>(spikeWidth); ++dx) {
-            int px = cx + dx; if (px < 0 || px >= width_) continue;
-            float fa = a * std::max(0.0f, 1.0f - std::abs(dx) / spikeWidth);
-            int idx = (py * width_ + px) * 4;
-            pixels[idx+0]=std::min(1.0f,pixels[idx+0]+r*fa);
-            pixels[idx+1]=std::min(1.0f,pixels[idx+1]+g*fa);
-            pixels[idx+2]=std::min(1.0f,pixels[idx+2]+b*fa);
-        }
-    }
-    // ハロー
-    float hr = 3.0f + brightness * 8.0f; int hR = static_cast<int>(hr);
-    for (int dy = -hR; dy <= hR; ++dy) for (int dx = -hR; dx <= hR; ++dx) {
-        int px = cx + dx, py = cy + dy;
-        if (px < 0 || px >= width_ || py < 0 || py >= height_) continue;
-        float d = std::sqrt(static_cast<float>(dx*dx+dy*dy));
-        float a = std::exp(-d*d/(hr*hr*0.15f)) * brightness * 0.15f;
-        int idx = (py*width_+px)*4;
-        pixels[idx+0]=std::min(1.0f,pixels[idx+0]+r*a);
-        pixels[idx+1]=std::min(1.0f,pixels[idx+1]+g*a);
-        pixels[idx+2]=std::min(1.0f,pixels[idx+2]+b*a);
-    }
-}
-
-
 // ----- レンダリング -----
 
 void StarfieldGenerator::renderStars(float* pixels, float time) {
@@ -574,5 +524,4 @@ void StarfieldGenerator::applyGlare(float* pixels, int cx, int cy, float brightn
 }
 
 } // namespace ArtifactCore
-
 

@@ -45,6 +45,7 @@ namespace ArtifactCore
  float Saturation::saturation() const 
 {
    
+   std::lock_guard<std::mutex> lock(impl_->mutex_);
   return impl_->value_;
  }
 
@@ -52,6 +53,7 @@ namespace ArtifactCore
  {
   float constrained = std::clamp(s, -1.0f, 1.0f);
    
+   std::lock_guard<std::mutex> lock(impl_->mutex_);
   impl_->value_ = constrained;
  }
 
