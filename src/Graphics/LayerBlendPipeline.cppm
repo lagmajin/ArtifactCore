@@ -1,5 +1,6 @@
 module;
 #include <utility>
+#include <cstring>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -96,6 +97,7 @@ struct LayerBlendPipeline::Impl
 {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pBlendCB_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMatteTrackCB_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pPointwiseParamsCB_;
 };
 
 LayerBlendPipeline::LayerBlendPipeline(std::shared_ptr<GpuContext> context)
@@ -330,6 +332,145 @@ bool LayerBlendPipeline::applyTrackMatte(
     attribs.ThreadGroupCountY = (height + 15) / 16;
     attribs.ThreadGroupCountZ = 1;
     matteTrackExecutor_->dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+ return true;
+}
+
+bool LayerBlendPipeline::applyPointwise(
+    IDeviceContext* ctx,
+    ITextureView* srcSRV,
+    ITextureView* outUAV,
+    IBuffer* parameterBuffer,
+    const PointwiseComputePlan& plan,
+    ITextureView* backgroundSRV,
+    ITextureView* lutSRV,
+    ITextureView* historySRV)
+{
+    if (!ctx || !context_ || !srcSRV || !outUAV || !parameterBuffer || !plan.valid()) {
+        return false;
+    }
+
+    ShaderResourceVariableDesc variables[6] = {
+        {SHADER_TYPE_COMPUTE, "PointwiseParameters", SHADER_RESOURCE_VARIABLE_TYPE_STATIC},
+        {SHADER_TYPE_COMPUTE, "SourceTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, "OutputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    };
+    Uint32 variableCount = 3;
+    if (plan.shader.key.requiresBackground) {
+        variables[variableCount++] = {
+            SHADER_TYPE_COMPUTE, "BackgroundTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+    }
+    if (plan.shader.key.requiresLut) {
+        variables[variableCount++] = {
+            SHADER_TYPE_COMPUTE, "LutTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+    }
+    if (plan.shader.key.requiresHistory) {
+        variables[variableCount++] = {
+            SHADER_TYPE_COMPUTE, "HistoryTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+    }
+
+    const std::string pipelineKey = plan.shader.key.toString();
+    if (!pointwiseExecutor_ || pointwisePipelineKey_ != pipelineKey) {
+        pointwiseExecutor_ = std::make_unique<ComputeExecutor>(*context_);
+        ComputePipelineDesc desc;
+        desc.name = plan.shader.diagnosticName.empty()
+            ? "PointwiseFusionCS"
+            : plan.shader.diagnosticName.c_str();
+        desc.shaderSource = plan.shader.source.c_str();
+        desc.entryPoint = plan.shader.entryPoint.c_str();
+        desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+        desc.variables = variables;
+        desc.variableCount = variableCount;
+        desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC;
+
+        if (!pointwiseExecutor_->build(desc) ||
+            !pointwiseExecutor_->createShaderResourceBinding(true)) {
+            pointwiseExecutor_.reset();
+            pointwisePipelineKey_.clear();
+            return false;
+        }
+        pointwisePipelineKey_ = pipelineKey;
+    }
+
+    if (!pointwiseExecutor_->setBuffer(plan.parameterBuffer.c_str(), parameterBuffer) ||
+        !pointwiseExecutor_->setTextureView(plan.sourceResource.c_str(), srcSRV) ||
+        !pointwiseExecutor_->setTextureView(plan.outputResource.c_str(), outUAV)) {
+        return false;
+    }
+
+    if (plan.shader.key.requiresBackground) {
+        if (!backgroundSRV ||
+            !pointwiseExecutor_->setTextureView(plan.backgroundResource.c_str(), backgroundSRV)) {
+            pointwiseExecutor_.reset();
+            return false;
+        }
+    }
+    if (plan.shader.key.requiresHistory) {
+        if (!historySRV ||
+            !pointwiseExecutor_->setTextureView(plan.historyResource.c_str(), historySRV)) {
+            pointwiseExecutor_.reset();
+            return false;
+        }
+    }
+    if (plan.shader.key.requiresLut) {
+        if (!lutSRV ||
+            !pointwiseExecutor_->setTextureView(plan.lutResource.c_str(), lutSRV)) {
+            pointwiseExecutor_.reset();
+            return false;
+        }
+    }
+
+    pointwiseExecutor_->dispatch(
+        ctx,
+        ComputeExecutor::makeDispatchAttribs(
+            plan.width, plan.height, 1, plan.groupSizeX, plan.groupSizeY, 1),
+        RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    return true;
+}
+
+IBuffer* LayerBlendPipeline::createPointwiseParameterBuffer()
+{
+    if (!context_ || !pImpl_) {
+        return nullptr;
+    }
+    if (pImpl_->pPointwiseParamsCB_) {
+        return pImpl_->pPointwiseParamsCB_;
+    }
+    auto device = context_->RenderDevice();
+    if (!device) {
+        return nullptr;
+    }
+    BufferDesc desc;
+    desc.Name = "PointwiseParameters CB";
+    desc.Usage = USAGE_DYNAMIC;
+    desc.Size = static_cast<Uint32>(
+        sizeof(float) * 4 * PointwiseEffectStack::kParameterSlotCount);
+    desc.BindFlags = BIND_UNIFORM_BUFFER;
+    desc.CPUAccessFlags = CPU_ACCESS_WRITE;
+    device->CreateBuffer(desc, nullptr, &pImpl_->pPointwiseParamsCB_);
+    return pImpl_->pPointwiseParamsCB_;
+}
+
+bool LayerBlendPipeline::updatePointwiseParameters(
+    IDeviceContext* ctx,
+    const PointwiseEffectStack& stack)
+{
+    if (!ctx || !stack.validate().valid) {
+        return false;
+    }
+    IBuffer* buffer = createPointwiseParameterBuffer();
+    if (!buffer) {
+        return false;
+    }
+    void* mapped = nullptr;
+    ctx->MapBuffer(buffer, MAP_WRITE, MAP_FLAG_DISCARD, mapped);
+    if (!mapped) {
+        return false;
+    }
+    std::memcpy(
+        mapped,
+        stack.parameters().data(),
+        sizeof(float) * 4 * PointwiseEffectStack::kParameterSlotCount);
+    ctx->UnmapBuffer(buffer, MAP_WRITE);
     return true;
 }
 

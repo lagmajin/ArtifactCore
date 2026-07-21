@@ -1,5 +1,6 @@
 module;
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <sstream>
@@ -19,11 +20,22 @@ enum class PointwiseNodeKind : std::uint8_t {
     Levels,
     Saturation,
     Tint,
+    HueRotate,
+    ColorTemperature,
+    Clamp,
     Lut3D,
     Blend,
     AlphaConvert,
     Posterize,
     Threshold,
+    NeighborhoodBlur,
+    Neighborhood,
+    Temporal,
+    CpuBoundary,
+};
+
+enum class EffectExecutionDomain : std::uint8_t {
+    Pointwise,
     Neighborhood,
     Temporal,
     CpuBoundary,
@@ -75,7 +87,8 @@ struct PointwiseCompileKey {
         key << backend << '|' << targetFormat << '|'
             << static_cast<unsigned>(alphaMode) << '|'
             << (requiresBackground ? 'B' : '-')
-            << (requiresLut ? 'L' : '-');
+            << (requiresLut ? 'L' : '-')
+            << (requiresHistory ? 'H' : '-');
         for (std::size_t i = 0; i < orderedNodeKinds.size(); ++i) {
             key << '|' << static_cast<unsigned>(orderedNodeKinds[i])
                 << (i < staticSpecializations.size() && staticSpecializations[i] ? 'S' : 'D');
@@ -86,9 +99,88 @@ struct PointwiseCompileKey {
 
 struct PointwiseGeneratedShader {
     PointwiseCompileKey key;
-    std::string entryPoint = "PointwiseFusionPS";
+    std::string entryPoint = "PointwiseFusionCS";
     std::string source;
     std::string diagnosticName;
+};
+
+struct PointwiseComputePlan {
+    PointwiseGeneratedShader shader;
+    std::string sourceResource = "SourceTexture";
+    std::string outputResource = "OutputTexture";
+    std::string backgroundResource = "BackgroundTexture";
+    std::string lutResource = "LutTexture";
+    std::string historyResource = "HistoryTexture";
+    std::string parameterBuffer = "PointwiseParameters";
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::uint32_t groupSizeX = 16;
+    std::uint32_t groupSizeY = 16;
+
+    std::uint32_t dispatchX() const {
+        return (width + groupSizeX - 1) / groupSizeX;
+    }
+
+    std::uint32_t dispatchY() const {
+        return (height + groupSizeY - 1) / groupSizeY;
+    }
+
+    bool valid() const {
+        return !shader.source.empty() && !shader.entryPoint.empty() &&
+               width > 0 && height > 0 && groupSizeX > 0 && groupSizeY > 0;
+    }
+};
+
+struct EffectDomainSegment {
+    std::size_t firstNode = 0;
+    std::size_t nodeCount = 0;
+    EffectExecutionDomain domain = EffectExecutionDomain::CpuBoundary;
+};
+
+struct PointwiseStackValidation {
+    bool valid = true;
+    std::vector<std::string> errors;
+};
+
+class PointwiseEffectStack {
+public:
+    static constexpr std::size_t kParameterSlotCount = 64;
+
+    std::uint32_t addNode(
+        PointwiseNodeKind kind,
+        std::uint32_t parameterIndex = 0,
+        PointwiseBlendMode blendMode = PointwiseBlendMode::Normal) {
+        nodes_.push_back({kind, parameterIndex, blendMode});
+        return static_cast<std::uint32_t>(nodes_.size() - 1);
+    }
+
+    bool setParameter(std::uint32_t slot, const std::array<float, 4>& value) {
+        if (slot >= kParameterSlotCount) {
+            return false;
+        }
+        parameters_[slot] = value;
+        return true;
+    }
+
+    bool setParameter(std::uint32_t slot, float x, float y = 0.0f,
+                      float z = 0.0f, float w = 0.0f) {
+        return setParameter(slot, {x, y, z, w});
+    }
+
+    const std::vector<PointwiseEffectNode>& nodes() const { return nodes_; }
+    const std::array<std::array<float, 4>, kParameterSlotCount>& parameters() const {
+        return parameters_;
+    }
+
+    std::vector<EffectDomainSegment> domainSegments() const;
+    PointwiseStackValidation validate() const;
+
+    std::vector<PointwiseFusionSegment> segments(
+        PointwiseAlphaMode initialAlpha = PointwiseAlphaMode::Premultiplied) const;
+
+private:
+    std::vector<PointwiseEffectNode> nodes_;
+    std::array<std::array<float, 4>, kParameterSlotCount> parameters_{};
 };
 
 struct PointwiseFusionValidation {
@@ -96,31 +188,69 @@ struct PointwiseFusionValidation {
     std::vector<std::string> errors;
 };
 
+struct PointwiseParameterContract {
+    std::size_t slotCount = 1;
+    std::string semantic;
+};
+
+struct PointwiseNodeDescriptor {
+    PointwiseParameterContract parameters;
+    EffectExecutionDomain domain = EffectExecutionDomain::CpuBoundary;
+    bool pointwise = false;
+    bool requiresStraightAlpha = false;
+    bool requiresBackground = false;
+    bool requiresLut = false;
+    bool requiresHistory = false;
+};
+
 class PointwiseEffectFusion {
 public:
+    static PointwiseNodeDescriptor descriptor(PointwiseNodeKind kind) {
+        switch (kind) {
+        case PointwiseNodeKind::Exposure:
+        case PointwiseNodeKind::Gamma:
+        case PointwiseNodeKind::Contrast:
+        case PointwiseNodeKind::Saturation:
+        case PointwiseNodeKind::Tint:
+        case PointwiseNodeKind::HueRotate:
+        case PointwiseNodeKind::ColorTemperature:
+        case PointwiseNodeKind::Posterize:
+        case PointwiseNodeKind::Threshold:
+            return {{1, "node-specific scalar/vector parameters"}, EffectExecutionDomain::Pointwise, true, true, false, false};
+        case PointwiseNodeKind::Levels:
+            return {{2, "x=min, y=max"}, EffectExecutionDomain::Pointwise, true, true, false, false};
+        case PointwiseNodeKind::Clamp:
+            return {{2, "x=min, next-slot.x=max"}, EffectExecutionDomain::Pointwise, true, true, false, false};
+        case PointwiseNodeKind::Lut3D:
+            return {{1, "x=LUT blend amount"}, EffectExecutionDomain::Pointwise, true, true, false, true};
+        case PointwiseNodeKind::Blend:
+            return {{1, "x=blend opacity"}, EffectExecutionDomain::Pointwise, true, false, true, false};
+        case PointwiseNodeKind::AlphaConvert:
+            return {{1, "node-specific scalar/vector parameters"}, EffectExecutionDomain::Pointwise, true, false, false, false};
+        case PointwiseNodeKind::NeighborhoodBlur:
+        case PointwiseNodeKind::Neighborhood:
+            return {{1, "node-specific scalar/vector parameters"}, EffectExecutionDomain::Neighborhood, false, false, false, false};
+        case PointwiseNodeKind::Temporal:
+            return {{1, "node-specific scalar/vector parameters"}, EffectExecutionDomain::Temporal, false, false, false, false};
+        case PointwiseNodeKind::CpuBoundary:
+            return {{1, "node-specific scalar/vector parameters"}, EffectExecutionDomain::CpuBoundary, false, false, false, false};
+        }
+        return {};
+    }
+
+    static PointwiseParameterContract parameterContract(PointwiseNodeKind kind) {
+        return descriptor(kind).parameters;
+    }
+
+    static EffectExecutionDomain executionDomain(PointwiseNodeKind kind) {
+        return descriptor(kind).domain;
+    }
+
     static bool isPointwise(const PointwiseEffectNode& node) {
         if (!node.enabled) {
             return false;
         }
-        switch (node.kind) {
-        case PointwiseNodeKind::Exposure:
-        case PointwiseNodeKind::Gamma:
-        case PointwiseNodeKind::Contrast:
-        case PointwiseNodeKind::Levels:
-        case PointwiseNodeKind::Saturation:
-        case PointwiseNodeKind::Tint:
-        case PointwiseNodeKind::Lut3D:
-        case PointwiseNodeKind::Blend:
-        case PointwiseNodeKind::AlphaConvert:
-        case PointwiseNodeKind::Posterize:
-        case PointwiseNodeKind::Threshold:
-            return true;
-        case PointwiseNodeKind::Neighborhood:
-        case PointwiseNodeKind::Temporal:
-        case PointwiseNodeKind::CpuBoundary:
-            return false;
-        }
-        return false;
+        return descriptor(node.kind).pointwise;
     }
 
     static std::vector<PointwiseFusionSegment> segment(
@@ -136,9 +266,10 @@ public:
             segment.inputAlpha = alpha;
             while (index < nodes.size() && isPointwise(nodes[index])) {
                 const auto& node = nodes[index];
-                segment.requiresBackground |= node.kind == PointwiseNodeKind::Blend ||
+                const PointwiseNodeDescriptor metadata = descriptor(node.kind);
+                segment.requiresBackground |= metadata.requiresBackground ||
                                               node.requiresBackground;
-                segment.requiresLut |= node.kind == PointwiseNodeKind::Lut3D;
+                segment.requiresLut |= metadata.requiresLut;
                 if (node.kind == PointwiseNodeKind::AlphaConvert) {
                     alpha = alpha == PointwiseAlphaMode::Straight
                         ? PointwiseAlphaMode::Premultiplied
@@ -206,19 +337,19 @@ public:
                 result.errors.push_back("node " + std::to_string(i) + " is not pointwise");
                 continue;
             }
-            if (node.parameterIndex >= 64) {
+            const PointwiseNodeDescriptor metadata = descriptor(node.kind);
+            const PointwiseParameterContract contract = metadata.parameters;
+            if (node.parameterIndex >= 64 || contract.slotCount > 64 - node.parameterIndex) {
                 result.valid = false;
-                result.errors.push_back("node " + std::to_string(i) + " exceeds the parameter buffer");
+                result.errors.push_back("node " + std::to_string(i) + " exceeds the parameter buffer (needs "
+                                        + std::to_string(contract.slotCount) + " slot(s): "
+                                        + contract.semantic + ")");
             }
-            if (node.kind == PointwiseNodeKind::Levels && node.parameterIndex >= 63) {
-                result.valid = false;
-                result.errors.push_back("levels node " + std::to_string(i) + " needs two parameter slots");
-            }
-            if (node.kind == PointwiseNodeKind::Blend && !segment.requiresBackground) {
+            if (metadata.requiresBackground && !segment.requiresBackground) {
                 result.valid = false;
                 result.errors.push_back("blend node requires a background SRV");
             }
-            if (node.kind == PointwiseNodeKind::Lut3D && !segment.requiresLut) {
+            if (metadata.requiresLut && !segment.requiresLut) {
                 result.valid = false;
                 result.errors.push_back("LUT node requires a 3D LUT SRV");
             }
@@ -226,7 +357,7 @@ public:
         return result;
     }
 
-    static PointwiseGeneratedShader generatePixelShader(
+    static PointwiseGeneratedShader generateComputeShader(
         std::string_view backend,
         std::string_view targetFormat,
         const std::vector<PointwiseEffectNode>& nodes,
@@ -245,20 +376,27 @@ public:
         std::ostringstream hlsl;
         hlsl << "// Generated by ArtifactCore PointwiseEffectFusion.\n";
         hlsl << "// " << result.diagnosticName << "\n";
-        hlsl << "Texture2D SourceTexture : register(t0);\n";
+        hlsl << "Texture2D<float4> SourceTexture : register(t0);\n";
         unsigned textureRegister = 1;
         if (segment.requiresBackground) {
-            hlsl << "Texture2D BackgroundTexture : register(t" << textureRegister++ << ");\n";
+            hlsl << "Texture2D<float4> BackgroundTexture : register(t" << textureRegister++ << ");\n";
         }
         if (segment.requiresLut) {
-            hlsl << "Texture3D LutTexture : register(t" << textureRegister++ << ");\n";
+            hlsl << "Texture3D<float4> LutTexture : register(t" << textureRegister++ << ");\n";
         }
-        hlsl << "SamplerState LinearSampler : register(s0);\n";
+        if (segment.requiresLut) {
+            hlsl << "SamplerState LinearSampler : register(s0);\n";
+        }
         hlsl << "cbuffer PointwiseParameters : register(b0) { float4 Parameters[64]; };\n";
         hlsl << "float3 ToStraight(float4 c) { return c.rgb / max(c.a, 1e-6); }\n";
         hlsl << "float3 ToPremultiplied(float3 c, float a) { return c * a; }\n";
-        hlsl << "float4 PointwiseFusionPS(float4 position : SV_POSITION, float2 uv : TEXCOORD0) : SV_TARGET {\n";
-        hlsl << "  float4 color = SourceTexture.Sample(LinearSampler, uv);\n";
+        hlsl << "RWTexture2D<float4> OutputTexture : register(u0);\n";
+        hlsl << "[numthreads(16, 16, 1)]\n";
+        hlsl << "void PointwiseFusionCS(uint3 dispatchId : SV_DispatchThreadID) {\n";
+        hlsl << "  uint width, height; OutputTexture.GetDimensions(width, height);\n";
+        hlsl << "  if (dispatchId.x >= width || dispatchId.y >= height) return;\n";
+        hlsl << "  uint2 pixel = dispatchId.xy;\n";
+        hlsl << "  float4 color = SourceTexture.Load(int3(pixel, 0));\n";
         PointwiseAlphaMode alpha = segment.inputAlpha;
         const std::size_t end = segment.firstNode + segment.nodeCount;
         for (std::size_t i = segment.firstNode; i < end; ++i) {
@@ -275,36 +413,130 @@ public:
                 hlsl << "  color.rgb = ToStraight(color);\n";
             }
         }
-        hlsl << "  return color;\n}\n";
+        hlsl << "  OutputTexture[pixel] = color;\n}\n";
         result.source = hlsl.str();
         return result;
     }
 
+    static PointwiseComputePlan makeComputePlan(
+        std::string_view backend,
+        std::string_view targetFormat,
+        const std::vector<PointwiseEffectNode>& nodes,
+        const PointwiseFusionSegment& segment,
+        std::uint32_t width,
+        std::uint32_t height) {
+        PointwiseComputePlan plan;
+        plan.shader = generateComputeShader(backend, targetFormat, nodes, segment);
+        plan.width = width;
+        plan.height = height;
+        return plan;
+    }
+
+    static PointwiseGeneratedShader generateNeighborhoodBlurShader(
+        std::string_view backend,
+        std::string_view targetFormat) {
+        PointwiseGeneratedShader result;
+        result.key.backend = std::string(backend);
+        result.key.targetFormat = std::string(targetFormat);
+        result.key.orderedNodeKinds = {PointwiseNodeKind::NeighborhoodBlur};
+        result.entryPoint = "NeighborhoodBlurCS";
+        result.diagnosticName = "NeighborhoodBlurCS";
+        result.source = R"hlsl(
+Texture2D<float4> SourceTexture : register(t0);
+RWTexture2D<float4> OutputTexture : register(u0);
+cbuffer NeighborhoodParameters : register(b0) { float4 Parameters[64]; };
+
+[numthreads(16, 16, 1)]
+void NeighborhoodBlurCS(uint3 dispatchId : SV_DispatchThreadID)
+{
+    uint width, height;
+    OutputTexture.GetDimensions(width, height);
+    if (dispatchId.x >= width || dispatchId.y >= height) return;
+
+    int2 pixel = int2(dispatchId.xy);
+    float4 sum = 0.0;
+    float weight = 0.0;
+    [unroll] for (int y = -1; y <= 1; ++y) {
+        [unroll] for (int x = -1; x <= 1; ++x) {
+            int2 samplePixel = clamp(pixel + int2(x, y), int2(0, 0), int2(width - 1, height - 1));
+            float sampleWeight = (x == 0 && y == 0) ? 2.0 : 1.0;
+            sum += SourceTexture.Load(int3(samplePixel, 0)) * sampleWeight;
+            weight += sampleWeight;
+        }
+    }
+    float strength = saturate(Parameters[0].x);
+    float4 blurred = sum / max(weight, 1e-5);
+    OutputTexture[dispatchId.xy] = lerp(SourceTexture.Load(int3(pixel, 0)), blurred, strength);
+}
+)hlsl";
+        return result;
+    }
+
+    static PointwiseComputePlan makeNeighborhoodBlurPlan(
+        std::string_view backend,
+        std::string_view targetFormat,
+        std::uint32_t width,
+        std::uint32_t height) {
+        PointwiseComputePlan plan;
+        plan.shader = generateNeighborhoodBlurShader(backend, targetFormat);
+        plan.parameterBuffer = "NeighborhoodParameters";
+        plan.width = width;
+        plan.height = height;
+        return plan;
+    }
+
+    static PointwiseGeneratedShader generateTemporalBlendShader(
+        std::string_view backend,
+        std::string_view targetFormat) {
+        PointwiseGeneratedShader result;
+        result.key.backend = std::string(backend);
+        result.key.targetFormat = std::string(targetFormat);
+        result.key.orderedNodeKinds = {PointwiseNodeKind::Temporal};
+        result.key.requiresHistory = true;
+        result.entryPoint = "TemporalBlendCS";
+        result.diagnosticName = "TemporalBlendCS";
+        result.source = R"hlsl(
+Texture2D<float4> SourceTexture : register(t0);
+Texture2D<float4> HistoryTexture : register(t1);
+RWTexture2D<float4> OutputTexture : register(u0);
+cbuffer TemporalParameters : register(b0) { float4 Parameters[64]; };
+
+[numthreads(16, 16, 1)]
+void TemporalBlendCS(uint3 dispatchId : SV_DispatchThreadID)
+{
+    uint width, height;
+    OutputTexture.GetDimensions(width, height);
+    if (dispatchId.x >= width || dispatchId.y >= height) return;
+    int3 pixel = int3(dispatchId.xy, 0);
+    float historyAmount = saturate(Parameters[0].x);
+    OutputTexture[dispatchId.xy] = lerp(
+        SourceTexture.Load(pixel), HistoryTexture.Load(pixel), historyAmount);
+}
+)hlsl";
+        return result;
+    }
+
+    static PointwiseComputePlan makeTemporalBlendPlan(
+        std::string_view backend,
+        std::string_view targetFormat,
+        std::uint32_t width,
+        std::uint32_t height) {
+        PointwiseComputePlan plan;
+        plan.shader = generateTemporalBlendShader(backend, targetFormat);
+        plan.parameterBuffer = "TemporalParameters";
+        plan.width = width;
+        plan.height = height;
+        return plan;
+    }
+
 private:
     static bool requiresStraightColor(PointwiseNodeKind kind) {
-        switch (kind) {
-        case PointwiseNodeKind::Exposure:
-        case PointwiseNodeKind::Gamma:
-        case PointwiseNodeKind::Contrast:
-        case PointwiseNodeKind::Levels:
-        case PointwiseNodeKind::Saturation:
-        case PointwiseNodeKind::Tint:
-        case PointwiseNodeKind::Lut3D:
-        case PointwiseNodeKind::Posterize:
-        case PointwiseNodeKind::Threshold:
-            return true;
-        case PointwiseNodeKind::Blend:
-        case PointwiseNodeKind::AlphaConvert:
-        case PointwiseNodeKind::Neighborhood:
-        case PointwiseNodeKind::Temporal:
-        case PointwiseNodeKind::CpuBoundary:
-            return false;
-        }
-        return false;
+        return descriptor(kind).requiresStraightAlpha;
     }
 
     static std::string boundaryReason(PointwiseNodeKind kind) {
         switch (kind) {
+        case PointwiseNodeKind::NeighborhoodBlur:
         case PointwiseNodeKind::Neighborhood: return "neighborhood sampling requires a pass boundary";
         case PointwiseNodeKind::Temporal: return "temporal history requires a pass boundary";
         case PointwiseNodeKind::CpuBoundary: return "CPU boundary requires a pass boundary";
@@ -348,11 +580,26 @@ private:
         case PointwiseNodeKind::Tint:
             hlsl << "  color.rgb *= " << p << ".rgb;\n";
             break;
+        case PointwiseNodeKind::HueRotate:
+            hlsl << "  { float angle = " << p << ".x; float s = sin(angle); float c = cos(angle);\n";
+            hlsl << "    float3x3 hue = float3x3(c + (1.0 - c) / 3.0, (1.0 - c) / 3.0 - s / 1.7320508, (1.0 - c) / 3.0 + s / 1.7320508,\n";
+            hlsl << "      (1.0 - c) / 3.0 + s / 1.7320508, c + (1.0 - c) / 3.0, (1.0 - c) / 3.0 - s / 1.7320508,\n";
+            hlsl << "      (1.0 - c) / 3.0 - s / 1.7320508, (1.0 - c) / 3.0 + s / 1.7320508, c + (1.0 - c) / 3.0);\n";
+            hlsl << "    color.rgb = mul(hue, color.rgb); }\n";
+            break;
+        case PointwiseNodeKind::ColorTemperature:
+            hlsl << "  { float temperature = " << p << ".x; float tint = " << p << ".y;\n";
+            hlsl << "    color.rgb *= float3(1.0 + temperature * 0.10, 1.0 + tint * 0.04, 1.0 - temperature * 0.10); }\n";
+            break;
+        case PointwiseNodeKind::Clamp:
+            hlsl << "  color.rgb = clamp(color.rgb, " << p << ".xxx, Parameters["
+                 << node.parameterIndex + 1 << "].xxx);\n";
+            break;
         case PointwiseNodeKind::Lut3D:
             hlsl << "  color.rgb = lerp(color.rgb, LutTexture.SampleLevel(LinearSampler, saturate(color.rgb), 0).rgb, " << p << ".x);\n";
             break;
         case PointwiseNodeKind::Blend:
-            hlsl << "  { float4 background = BackgroundTexture.Sample(LinearSampler, uv);\n";
+            hlsl << "  { float4 background = BackgroundTexture.Load(int3(pixel, 0));\n";
             switch (node.blendMode) {
             case PointwiseBlendMode::Add:
                 hlsl << "    color.rgb += background.rgb;\n";
@@ -394,6 +641,7 @@ private:
         case PointwiseNodeKind::Threshold:
             hlsl << "  { float value = step(" << p << ".x, dot(color.rgb, float3(0.2126, 0.7152, 0.0722))); color.rgb = float3(value, value, value); }\n";
             break;
+        case PointwiseNodeKind::NeighborhoodBlur:
         case PointwiseNodeKind::Neighborhood:
         case PointwiseNodeKind::Temporal:
         case PointwiseNodeKind::CpuBoundary:
@@ -401,6 +649,48 @@ private:
         }
     }
 };
+
+inline std::vector<PointwiseFusionSegment> PointwiseEffectStack::segments(
+    PointwiseAlphaMode initialAlpha) const {
+    return PointwiseEffectFusion::segment(nodes_, initialAlpha);
+}
+
+inline std::vector<EffectDomainSegment> PointwiseEffectStack::domainSegments() const {
+    std::vector<EffectDomainSegment> result;
+    std::size_t index = 0;
+    while (index < nodes_.size()) {
+        const EffectExecutionDomain domain =
+            PointwiseEffectFusion::executionDomain(nodes_[index].kind);
+        const std::size_t start = index++;
+        while (index < nodes_.size() &&
+               PointwiseEffectFusion::executionDomain(nodes_[index].kind) == domain) {
+            ++index;
+        }
+        result.push_back({start, index - start, domain});
+    }
+    return result;
+}
+
+inline PointwiseStackValidation PointwiseEffectStack::validate() const {
+    PointwiseStackValidation result;
+    for (std::size_t i = 0; i < nodes_.size(); ++i) {
+        const auto& node = nodes_[i];
+        const auto metadata = PointwiseEffectFusion::descriptor(node.kind);
+        if (node.parameterIndex >= kParameterSlotCount ||
+            metadata.parameters.slotCount > kParameterSlotCount - node.parameterIndex) {
+            result.valid = false;
+            result.errors.push_back(
+                "node " + std::to_string(i) + " exceeds parameter contract: " +
+                metadata.parameters.semantic);
+        }
+        if (metadata.domain == EffectExecutionDomain::Pointwise && !metadata.pointwise) {
+            result.valid = false;
+            result.errors.push_back(
+                "node " + std::to_string(i) + " has an inconsistent pointwise descriptor");
+        }
+    }
+    return result;
+}
 
 struct PointwiseFusionDiagnostics {
     std::size_t fusedSegmentCount = 0;
@@ -429,11 +719,99 @@ public:
             return it->second;
         }
         ++missCount_;
-        auto generated = PointwiseEffectFusion::generatePixelShader(
+        auto generated = PointwiseEffectFusion::generateComputeShader(
             backend, targetFormat, nodes, segment);
         auto [it, inserted] = entries_.emplace(std::move(keyText), std::move(generated));
         (void)inserted;
         return it->second;
+    }
+
+    PointwiseComputePlan makeComputePlan(
+        std::string_view backend,
+        std::string_view targetFormat,
+        const std::vector<PointwiseEffectNode>& nodes,
+        const PointwiseFusionSegment& segment,
+        std::uint32_t width,
+        std::uint32_t height) {
+        PointwiseComputePlan plan;
+        const PointwiseCompileKey key =
+            PointwiseEffectFusion::makeCompileKey(backend, targetFormat, nodes, segment);
+        const std::string keyText = key.toString();
+        if (const auto it = entries_.find(keyText); it != entries_.end()) {
+            ++hitCount_;
+            plan.shader = it->second;
+        } else {
+            ++missCount_;
+            auto generated = PointwiseEffectFusion::generateComputeShader(
+                backend, targetFormat, nodes, segment);
+            auto [it, inserted] = entries_.emplace(keyText, std::move(generated));
+            (void)inserted;
+            plan.shader = it->second;
+        }
+        plan.width = width;
+        plan.height = height;
+        return plan;
+    }
+
+    PointwiseComputePlan makeComputePlan(
+        std::string_view backend,
+        std::string_view targetFormat,
+        const PointwiseEffectStack& stack,
+        const PointwiseFusionSegment& segment,
+        std::uint32_t width,
+        std::uint32_t height) {
+        return makeComputePlan(
+            backend, targetFormat, stack.nodes(), segment, width, height);
+    }
+
+    PointwiseComputePlan makeNeighborhoodBlurPlan(
+        std::string_view backend,
+        std::string_view targetFormat,
+        std::uint32_t width,
+        std::uint32_t height) {
+        PointwiseComputePlan plan;
+        const std::string keyText = std::string(backend) + "|" +
+            std::string(targetFormat) + "|NeighborhoodBlur";
+        if (const auto it = entries_.find(keyText); it != entries_.end()) {
+            ++hitCount_;
+            plan.shader = it->second;
+        } else {
+            ++missCount_;
+            auto generated = PointwiseEffectFusion::generateNeighborhoodBlurShader(
+                backend, targetFormat);
+            auto [it, inserted] = entries_.emplace(keyText, std::move(generated));
+            (void)inserted;
+            plan.shader = it->second;
+        }
+        plan.parameterBuffer = "NeighborhoodParameters";
+        plan.width = width;
+        plan.height = height;
+        return plan;
+    }
+
+    PointwiseComputePlan makeTemporalBlendPlan(
+        std::string_view backend,
+        std::string_view targetFormat,
+        std::uint32_t width,
+        std::uint32_t height) {
+        PointwiseComputePlan plan;
+        const std::string keyText = std::string(backend) + "|" +
+            std::string(targetFormat) + "|TemporalBlend";
+        if (const auto it = entries_.find(keyText); it != entries_.end()) {
+            ++hitCount_;
+            plan.shader = it->second;
+        } else {
+            ++missCount_;
+            auto generated = PointwiseEffectFusion::generateTemporalBlendShader(
+                backend, targetFormat);
+            auto [it, inserted] = entries_.emplace(keyText, std::move(generated));
+            (void)inserted;
+            plan.shader = it->second;
+        }
+        plan.parameterBuffer = "TemporalParameters";
+        plan.width = width;
+        plan.height = height;
+        return plan;
     }
 
     void clear() {

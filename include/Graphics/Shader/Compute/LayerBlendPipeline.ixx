@@ -10,10 +10,12 @@ module;
 #include "../../../Define/DllExportMacro.hpp"
 #include <map>
 #include <memory>
+#include <string>
 
 export module Graphics.LayerBlendPipeline;
 
 import Graphics.Compute;
+import Artifact.Render.PointwiseEffectFusion;
 import Graphics.Shader.Compute.HLSL.Blend;
 import Graphics.GPUcomputeContext;
 import Layer.Blend;
@@ -107,6 +109,23 @@ export namespace ArtifactCore
    Uint32 height
   );
 
+  bool applyPointwise(
+   IDeviceContext* ctx,
+   ITextureView* srcSRV,
+   ITextureView* outUAV,
+   IBuffer* parameterBuffer,
+   const PointwiseComputePlan& plan,
+   ITextureView* backgroundSRV = nullptr,
+   ITextureView* lutSRV = nullptr,
+   ITextureView* historySRV = nullptr
+  );
+
+  IBuffer* createPointwiseParameterBuffer();
+  bool updatePointwiseParameters(
+   IDeviceContext* ctx,
+   const PointwiseEffectStack& stack
+  );
+
   bool ready() const;
 
  private:
@@ -127,6 +146,8 @@ export namespace ArtifactCore
   std::map<BlendMode, BlendExecutor> executors_;
   BlendParams currentParams_{};
   std::unique_ptr<ComputeExecutor> matteTrackExecutor_;
+  std::unique_ptr<ComputeExecutor> pointwiseExecutor_;
+  std::string pointwisePipelineKey_;
  };
 
 }
