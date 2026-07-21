@@ -97,21 +97,10 @@ bool MediaSource::open(const QString& url) {
         return false;
     }
 
-    // Constrain stream probing: limit probe duration and disable decoder threading.
-    // probesize/analyzeduration are format-level; set on the context directly.
-    formatContext_->probesize = 2000000;
-    formatContext_->max_analyze_duration = 2000000;
-    // Build a per-stream codec options array — avformat_find_stream_info expects nb_streams entries.
-    {
-        const unsigned nbStreams = formatContext_->nb_streams;
-        std::vector<AVDictionary*> streamOpts(nbStreams, nullptr);
-        for (unsigned i = 0; i < nbStreams; ++i) {
-            av_dict_set(&streamOpts[i], "threads", "1", 0);
-            av_dict_set(&streamOpts[i], "thread_type", "0", 0);
-        }
-        ret = avformat_find_stream_info(formatContext_, nbStreams > 0 ? streamOpts.data() : nullptr);
-        for (auto& d : streamOpts) av_dict_free(&d);
-    }
+    // Let FFmpeg probe enough data to establish reliable stream timing and
+    // codec parameters.  A fixed short probe is not sufficient for long-GOP
+    // or VFR media and can leave the preview with incomplete metadata.
+    ret = avformat_find_stream_info(formatContext_, nullptr);
     if (ret < 0) {
         lastError_ = QStringLiteral("avformat_find_stream_info failed: %1 (%2)")
                          .arg(av_strerror_string(ret))
