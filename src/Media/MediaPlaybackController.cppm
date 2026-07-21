@@ -1484,6 +1484,21 @@ QImage FFmpegPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& i
       }
     }
     if (!pkt) {
+      // The decoder can still own delayed B-frames after the demuxer reaches
+      // EOF.  Enter drain mode once and present those frames before notifying
+      // the playback layer that the media has ended.
+      const int drainRet = impl.videoDecoder_->sendPacket(nullptr);
+      if (drainRet >= 0 || drainRet == AVERROR_EOF) {
+        while (true) {
+          DecodedVideoFrame drained = impl.videoDecoder_->receiveFrameRaw();
+          if (!isDecodedVideoFrameUsable(drained)) {
+            break;
+          }
+          if (auto image = presentDecodedFrame(std::move(drained)); image.has_value()) {
+            return *image;
+          }
+        }
+      }
       impl.notifyEndOfMedia();
       return QImage();
     }
