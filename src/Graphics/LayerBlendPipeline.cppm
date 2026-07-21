@@ -348,7 +348,8 @@ bool LayerBlendPipeline::convertLayerToFloat(
  const auto& outDesc = outTexture->GetDesc();
  if (srcDesc.Width != width || srcDesc.Height != height ||
      outDesc.Width != width || outDesc.Height != height ||
-     outDesc.Format != TEX_FORMAT_RGBA32_FLOAT) {
+     (outDesc.Format != TEX_FORMAT_RGBA32_FLOAT &&
+      outDesc.Format != TEX_FORMAT_RGBA16_FLOAT)) {
   qCritical() << "[LayerBlendPipeline::convertLayerToFloat] texture contract mismatch"
               << "requested=" << width << "x" << height
               << "src=" << srcDesc.Width << "x" << srcDesc.Height
@@ -413,9 +414,10 @@ bool LayerBlendPipeline::blend(
      srcDesc.Width == dstDesc.Width && srcDesc.Height == dstDesc.Height &&
      srcDesc.Width == outDesc.Width && srcDesc.Height == outDesc.Height;
  const bool formatsMatch =
-     srcDesc.Format == TEX_FORMAT_RGBA32_FLOAT &&
-     dstDesc.Format == TEX_FORMAT_RGBA32_FLOAT &&
-     outDesc.Format == TEX_FORMAT_RGBA32_FLOAT;
+     (srcDesc.Format == TEX_FORMAT_RGBA32_FLOAT ||
+      srcDesc.Format == TEX_FORMAT_RGBA16_FLOAT) &&
+     dstDesc.Format == srcDesc.Format &&
+     outDesc.Format == srcDesc.Format;
  if (!dimensionsMatch || !formatsMatch) {
   qCritical() << "[LayerBlendPipeline::blend] canonical texture contract mismatch"
               << "srcFormat=" << static_cast<int>(srcDesc.Format)
