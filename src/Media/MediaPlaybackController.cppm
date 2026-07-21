@@ -283,7 +283,10 @@ class MediaPlaybackController::Impl {
       return std::monostate{};
     }
 
-    const int64_t targetMs = static_cast<int64_t>((frameNumber / fps_) * 1000.0);
+    const AVRational timelineRate = av_d2q(fps_, 100000);
+    const int64_t targetMs = timelineRate.num > 0
+        ? av_rescale_q(frameNumber, av_inv_q(timelineRate), AVRational{1, 1000})
+        : 0;
     constexpr int64_t kMaxSequentialFrameGap = 8;
     const int64_t forwardGap = frameNumber - directDecodeCursorFrame_;
     const bool canContinueSequentially = directDecodeCursorFrame_ >= 0
@@ -320,9 +323,12 @@ class MediaPlaybackController::Impl {
                 directVideoStreamIndex_ < static_cast<int>(ctx->nb_streams)
             ? ctx->streams[directVideoStreamIndex_]
             : nullptr;
+    const AVRational sourceRate = directVideoStream && directVideoStream->avg_frame_rate.num > 0
+        ? directVideoStream->avg_frame_rate
+        : timelineRate;
     int64_t targetPts =
-        (directVideoTimeBase_.den > 0)
-            ? av_rescale_q(targetMs, AVRational{1, 1000}, directVideoTimeBase_)
+        (directVideoTimeBase_.den > 0 && sourceRate.num > 0)
+            ? av_rescale_q(frameNumber, av_inv_q(sourceRate), directVideoTimeBase_)
             : AV_NOPTS_VALUE;
     if (targetPts != AV_NOPTS_VALUE && directVideoStream &&
         directVideoStream->start_time != AV_NOPTS_VALUE) {
@@ -1440,6 +1446,32 @@ QImage FFmpegPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& i
 
   impl.mediaReader_->start();
   while (true) {
+    auto presentDecodedFrame = [&](DecodedVideoFrame&& decoded) -> std::optional<QImage> {
+      if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
+        ++impl.currentFrame_;
+        if (impl.fps_ > 0.0) {
+          impl.currentPositionMs_ = static_cast<int64_t>((impl.currentFrame_ / impl.fps_) * 1000.0);
+        }
+        impl.notifyPositionChanged(impl.currentPositionMs_);
+        return makeQImageFromCpuVideoFrame(*cpu);
+      }
+      if (std::holds_alternative<GpuVideoFrame>(decoded)) {
+        impl.notifyError(QStringLiteral("FFmpeg backend produced a GPU video frame that the Qt preview path cannot present yet"));
+        qWarning() << "[FFmpegBackend] getNextVideoFrame produced unsupported GPU frame"
+                   << "frame=" << impl.currentFrame_
+                   << "positionMs=" << impl.currentPositionMs_;
+        return QImage();
+      }
+      return std::nullopt;
+    };
+
+    // Always drain output before taking another input packet.  A packet may
+    // produce several frames, and libavcodec requires draining after EAGAIN
+    // before retrying the same packet.
+    if (auto image = presentDecodedFrame(impl.videoDecoder_->receiveFrameRaw()); image.has_value()) {
+      return *image;
+    }
+
     AVPacket* pkt = nullptr;
     for (int attempt = 0; attempt < impl.videoPacketWaitAttempts_ && !pkt; ++attempt) {
       pkt = impl.mediaReader_->getNextPacket(StreamType::Video);
@@ -1456,27 +1488,27 @@ QImage FFmpegPlaybackBackend::getNextVideoFrame(MediaPlaybackController::Impl& i
       return QImage();
     }
 
-    DecodedVideoFrame decoded = impl.videoDecoder_->decodeFrameRaw(pkt);
-    av_packet_free(&pkt);
-    if (auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
-      ++impl.currentFrame_;
-      if (impl.fps_ > 0.0) {
-        impl.currentPositionMs_ = static_cast<int64_t>((impl.currentFrame_ / impl.fps_) * 1000.0);
+    DecodedVideoFrame decoded = std::monostate{};
+    int sendRet = impl.videoDecoder_->sendPacket(pkt);
+    while (sendRet == AVERROR(EAGAIN)) {
+      DecodedVideoFrame drained = impl.videoDecoder_->receiveFrameRaw();
+      if (isDecodedVideoFrameUsable(drained) && !isDecodedVideoFrameUsable(decoded)) {
+        decoded = std::move(drained);
       }
-      impl.notifyPositionChanged(impl.currentPositionMs_);
-      return makeQImageFromCpuVideoFrame(*cpu);
+      if (!isDecodedVideoFrameUsable(drained)) {
+        break;
+      }
+      sendRet = impl.videoDecoder_->sendPacket(pkt);
     }
-    if (std::holds_alternative<GpuVideoFrame>(decoded)) {
-      impl.notifyError(QStringLiteral("FFmpeg backend produced a GPU video frame that the Qt preview path cannot present yet"));
-      qWarning() << "[FFmpegBackend] getNextVideoFrame produced unsupported GPU frame"
-                 << "frame=" << impl.currentFrame_
-                 << "positionMs=" << impl.currentPositionMs_;
+    av_packet_free(&pkt);
+    if (sendRet < 0) {
+      impl.notifyError(QStringLiteral("FFmpeg backend failed to submit video packet: %1").arg(sendRet));
+      qWarning() << "[FFmpegBackend] sendPacket failed:" << sendRet;
       return QImage();
     }
-    impl.notifyError(QStringLiteral("FFmpeg backend decoded an empty video frame"));
-    qWarning() << "[FFmpegBackend] getNextVideoFrame produced empty decoded frame"
-               << "frame=" << impl.currentFrame_
-               << "positionMs=" << impl.currentPositionMs_;
+    if (auto image = presentDecodedFrame(std::move(decoded)); image.has_value()) {
+      return *image;
+    }
   }
 }
 

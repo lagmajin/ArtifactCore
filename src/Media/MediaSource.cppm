@@ -178,6 +178,10 @@ bool MediaSource::seek(int64_t timestampMs) {
         return false;
     }
 
+    // Discard demuxer-side buffered packets before the decoder is flushed by
+    // the caller.  Otherwise a seek can feed packets from the previous cursor
+    // into the new decode sequence.
+    avformat_flush(formatContext_);
     lastError_.clear();
     return true;
 }

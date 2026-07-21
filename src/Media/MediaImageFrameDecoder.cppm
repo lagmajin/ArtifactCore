@@ -266,13 +266,12 @@ bool canPresentGpuFrameDirectly(const GpuVideoFrame& frame)
 
 bool directVulkanVideoFramesEnabled()
 {
-    const QString value = qEnvironmentVariable("ARTIFACT_ENABLE_VULKAN_VIDEO_DIRECT")
-                              .trimmed()
-                              .toLower();
-    return value == QStringLiteral("1") ||
-           value == QStringLiteral("true") ||
-           value == QStringLiteral("on") ||
-           value == QStringLiteral("yes");
+    // AVVkFrame exposes a timeline semaphore that must be waited and re-signaled
+    // for every queue submission.  The current Diligent bridge imports only the
+    // VkImage, so enabling direct presentation would race the decoder queue.
+    // Keep the explicit opt-in disabled until that ownership/synchronization
+    // bridge exists; hardware frames are downloaded through the safe path below.
+    return false;
 }
 
 void freeHwDeviceContext(AVBufferRef*& ref)

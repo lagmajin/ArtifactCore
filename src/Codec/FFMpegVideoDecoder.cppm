@@ -343,6 +343,7 @@ void FFmpegVideoDecoder::Impl::seekByFrameNumber(int64_t frameNumber) {
     return;
   }
 
+  avformat_flush(formatContext);
   avcodec_flush_buffers(codecContext);
   diagnosticScope.finish(true);
 }
@@ -361,11 +362,12 @@ void FFmpegVideoDecoder::Impl::seekByTimestamp(int64_t timestampMs) {
   AVRational tb = stream->time_base;
   const int64_t ts = av_rescale_q(timestampMs, AVRational{ 1, 1000 }, tb);
 
-  if (av_seek_frame(formatContext, videoStreamIndex, ts, AVSEEK_FLAG_ANY) < 0) {
+  if (av_seek_frame(formatContext, videoStreamIndex, ts, AVSEEK_FLAG_BACKWARD) < 0) {
     qWarning() << "av_seek_frame failed";
     return;
   }
 
+  avformat_flush(formatContext);
   avcodec_flush_buffers(codecContext);
   diagnosticScope.finish(true);
 }
