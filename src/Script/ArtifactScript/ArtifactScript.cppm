@@ -8,6 +8,8 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <unordered_map>
 
 #include <memory>
@@ -65,6 +67,22 @@ ArtifactScriptValue parseDefaultValue(std::string_view text, ArtifactScriptValue
         return value.length() >= 2 && value.data()[0] == '"' && value.data()[value.length() - 1] == '"'
             ? std::string(std::string_view(value.data() + 1, value.length() - 2))
             : std::string(value.data(), value.length());
+    case ArtifactScriptValueType::Array: {
+        auto array = std::make_shared<ArtifactScriptArray>();
+        std::string_view source(value.data(), value.length());
+        if (source.size() >= 2 && source.front() == '[' && source.back() == ']') {
+            source = source.substr(1, source.size() - 2);
+            std::size_t begin = 0;
+            while (begin < source.size()) {
+                const auto comma = source.find(',', begin);
+                const auto token = trim(source.substr(begin, comma == std::string_view::npos ? std::string_view::npos : comma - begin));
+                if (!token.isEmpty()) array->values.emplace_back(std::strtod(token.data(), nullptr));
+                if (comma == std::string_view::npos) break;
+                begin = comma + 1;
+            }
+        }
+        return array;
+    }
     default:
         return std::monostate{};
     }
@@ -81,6 +99,7 @@ ArtifactScriptValueType parseFieldType(std::string_view typeName) {
     if (typeName == "Color") return ArtifactScriptValueType::Color;
     if (typeName == "ObjectRef") return ArtifactScriptValueType::ObjectRef;
     if (typeName == "AssetRef") return ArtifactScriptValueType::AssetRef;
+    if (typeName == "Array" || typeName == "array") return ArtifactScriptValueType::Array;
     return ArtifactScriptValueType::Null;
 }
 
@@ -99,6 +118,17 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
     skipWS(c); if (c.pos >= c.len) return nullptr;
     auto e = std::make_unique<ArtifactScriptExpr>();
     if (c.src[c.pos] == '(') { c.pos++; e = parseExpr(c); matchCh(c, ')'); return e; }
+    if (c.src[c.pos] == '[') {
+        ++c.pos; e->kind = ArtifactScriptExpr::Kind::ArrayLiteral;
+        if (!matchCh(c, ']')) {
+            do {
+                auto element = parseExpr(c);
+                if (element) e->arrayElements.push_back(std::move(element));
+            } while (matchCh(c, ','));
+            matchCh(c, ']');
+        }
+        return e;
+    }
     if (c.src[c.pos] == '"') { c.pos++; size_t s = c.pos; while (c.pos < c.len && c.src[c.pos] != '"') ++c.pos;
         e->kind = ArtifactScriptExpr::Kind::Literal; e->literalValue = std::string(c.src.substr(s, c.pos - s)); c.pos++; return e; }
     if (c.src[c.pos] == '-' || c.src[c.pos] == '!') { e->kind = ArtifactScriptExpr::Kind::Unary;
@@ -110,6 +140,14 @@ ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
     std::string id = parseId(c); if (id.empty()) return nullptr;
     if (matchCh(c, '(')) { e->kind = ArtifactScriptExpr::Kind::Call; e->callName = id;
         if (!matchCh(c, ')')) { do { auto a = parseExpr(c); if (a) e->callArgs.push_back(std::move(a)); } while (matchCh(c, ',')); matchCh(c, ')'); } return e; }
+    if (matchCh(c, '[')) {
+        e->kind = ArtifactScriptExpr::Kind::Index;
+        e->indexTarget = std::make_unique<ArtifactScriptExpr>();
+        e->indexTarget->kind = ArtifactScriptExpr::Kind::Variable;
+        e->indexTarget->variableName = id;
+        e->indexExpr = parseExpr(c); matchCh(c, ']');
+        return e;
+    }
     e->kind = ArtifactScriptExpr::Kind::Variable; e->variableName = id; return e;
 }
 
@@ -151,6 +189,14 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         if (matchKw(c, "else")) s->ifElse = parseStmt(c); return s; }
     if (matchKw(c, "while")) { matchCh(c, '('); auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::While;
         s->whileCond = parseExpr(c); matchCh(c, ')'); s->whileBody = parseStmt(c); return s; }
+    if (matchKw(c, "for")) {
+        matchCh(c, '(');
+        auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::For;
+        if (!matchCh(c, ';')) s->forInit = parseStmt(c);
+        s->forCond = parseExpr(c); matchCh(c, ';');
+        if (!matchCh(c, ')')) { s->forIncrement = parseStmt(c); matchCh(c, ')'); }
+        s->forBody = parseStmt(c); return s;
+    }
     if (matchKw(c, "return")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Return;
         auto e = parseExpr(c); if (e) s->expr = std::move(e); matchCh(c, ';'); return s; }
     if (matchCh(c, '{')) { auto b = std::make_unique<ArtifactScriptStmt>(); b->kind = ArtifactScriptStmt::Kind::Block;
@@ -159,11 +205,19 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
     // Variable declaration: "float x" or "float x = expr"
     std::string id = parseId(c);
     if (id.empty()) { matchCh(c, ';'); return std::make_unique<ArtifactScriptStmt>(); }
-    if (id == "float" || id == "int" || id == "bool" || id == "string") {
+    if (id == "float" || id == "int" || id == "bool" || id == "string" || id == "Array" || id == "array") {
         auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Decl;
         s->declType = parseFieldType(id); s->declName = parseId(c);
         if (matchCh(c, '=')) s->declInit = parseExpr(c);
         matchCh(c, ';'); return s;
+    }
+    if (matchCh(c, '[')) {
+        auto index = parseExpr(c); matchCh(c, ']');
+        if (matchCh(c, '=')) {
+            auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
+            s->assignTarget = id; s->assignIndex = std::move(index); s->assignValue = parseExpr(c); matchCh(c, ';'); return s;
+        }
+        c.pos -= id.size();
     }
     if (matchCh(c, '=')) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
         s->assignTarget = id; s->assignValue = parseExpr(c); matchCh(c, ';'); return s; }
@@ -251,6 +305,8 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             field.type = parseFieldType(typeName);
             if (eq != static_cast<std::size_t>(-1)) {
                 field.defaultValue = parseDefaultValue(body.substr(eq + 1), field.type);
+            } else if (field.type == ArtifactScriptValueType::Array) {
+                field.defaultValue = std::make_shared<ArtifactScriptArray>();
             }
             def.rootClass.fields.push_back(std::move(field));
             pos = nextPos;
@@ -422,11 +478,16 @@ bool ArtifactScriptInstance::wasHookInvoked(ArtifactScriptHook hook) const {
 class ArtifactScriptEvaluator::Impl {
 public:
     std::string error_;
-    ArtifactScriptValue evalExpr(const ArtifactScriptExpr*, const ArtifactScriptSerializedFields&);
+    ArtifactScriptValue returnValue_{};
+    bool returned_ = false;
+    const ArtifactScriptDefinition* activeDefinition_ = nullptr;
+    int callDepth_ = 0;
+    ArtifactScriptValue evalExpr(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const std::unordered_map<std::string, ArtifactScriptValue>&);
     ArtifactScriptValue evalBinary(ArtifactScriptBinaryOp, const ArtifactScriptValue&, const ArtifactScriptValue&);
     ArtifactScriptValue evalUnary(ArtifactScriptUnaryOp, const ArtifactScriptValue&);
-    ArtifactScriptValue evalCall(const ArtifactScriptExpr*, const ArtifactScriptSerializedFields&);
+    ArtifactScriptValue evalCall(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const std::unordered_map<std::string, ArtifactScriptValue>&);
     bool execStmt(const ArtifactScriptStmt*, ArtifactScriptSerializedFields&, std::unordered_map<std::string, ArtifactScriptValue>& locals);
+    ArtifactScriptValue callUserMethod(std::string_view, const std::vector<ArtifactScriptValue>&, ArtifactScriptSerializedFields&);
 };
 
 ArtifactScriptEvaluator::ArtifactScriptEvaluator() : impl_(std::make_unique<Impl>()) {}
@@ -434,21 +495,43 @@ ArtifactScriptEvaluator::ArtifactScriptEvaluator() : impl_(std::make_unique<Impl
 bool ArtifactScriptEvaluator::execute(const ArtifactScriptMethodBody& body,
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
-    const ArtifactScriptExpr* e, const ArtifactScriptSerializedFields& fields) {
+    const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
+    const std::unordered_map<std::string, ArtifactScriptValue>& locals) {
     if (!e) { error_ = "null expr"; return {}; }
     switch (e->kind) {
     case ArtifactScriptExpr::Kind::Literal: return e->literalValue;
+    case ArtifactScriptExpr::Kind::ArrayLiteral: {
+        auto array = std::make_shared<ArtifactScriptArray>();
+        for (const auto& element : e->arrayElements)
+            array->values.push_back(evalExpr(element.get(), fields, locals));
+        return array;
+    }
     case ArtifactScriptExpr::Kind::Variable: {
+        auto local = locals.find(e->variableName);
+        if (local != locals.end()) return local->second;
         auto it = fields.find(e->variableName);
         if (it != fields.end()) return it->second;
         error_ = "undefined: " + e->variableName; return {};
     }
     case ArtifactScriptExpr::Kind::Binary:
-        return evalBinary(e->binaryOp, evalExpr(e->left.get(), fields), evalExpr(e->right.get(), fields));
+        return evalBinary(e->binaryOp, evalExpr(e->left.get(), fields, locals), evalExpr(e->right.get(), fields, locals));
     case ArtifactScriptExpr::Kind::Unary:
-        return evalUnary(e->unaryOp, evalExpr(e->operand.get(), fields));
+        return evalUnary(e->unaryOp, evalExpr(e->operand.get(), fields, locals));
     case ArtifactScriptExpr::Kind::Call:
         return evalCall(e, fields, locals);
+    case ArtifactScriptExpr::Kind::Index: {
+        const auto arrayValue = evalExpr(e->indexTarget.get(), fields, locals);
+        const auto indexValue = evalExpr(e->indexExpr.get(), fields, locals);
+        if (!std::holds_alternative<ArtifactScriptArrayPtr>(arrayValue) ||
+            (!std::holds_alternative<double>(indexValue) && !std::holds_alternative<std::int64_t>(indexValue))) {
+            error_ = "invalid array access"; return {};
+        }
+        const auto& array = std::get<ArtifactScriptArrayPtr>(arrayValue);
+        const auto index = static_cast<std::size_t>(std::holds_alternative<double>(indexValue)
+            ? std::get<double>(indexValue) : std::get<std::int64_t>(indexValue));
+        if (!array || index >= array->values.size()) { error_ = "array index out of range"; return {}; }
+        return array->values[index];
+    }
     default: return {};
     }
 }
@@ -495,7 +578,8 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 }
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
-    const ArtifactScriptExpr* e, const ArtifactScriptSerializedFields& fields) {
+    const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
+    const std::unordered_map<std::string, ArtifactScriptValue>& locals) {
     std::vector<ArtifactScriptValue> args;
     for (auto& a : e->callArgs) args.push_back(evalExpr(a.get(), fields, locals));
     if (!error_.empty()) return {};
@@ -504,7 +588,58 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         if (std::holds_alternative<std::int64_t>(v)) return (double)std::get<std::int64_t>(v);
         return 0.0;
     };
+    if (e->callName == "array" && args.empty())
+        return std::make_shared<ArtifactScriptArray>();
     if (e->callName == "print" || e->callName == "log") return {};
+    if (e->callName == "size" && args.size() == 1 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+        return static_cast<std::int64_t>(array ? array->values.size() : 0);
+    }
+    if (e->callName == "push" && args.size() == 2 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+        if (!array) { error_ = "push on null array"; return {}; }
+        array->values.push_back(args[1]);
+        return static_cast<std::int64_t>(array->values.size());
+    }
+    if (e->callName == "clear" && args.size() == 1 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+        if (!array) { error_ = "clear on null array"; return {}; }
+        array->values.clear();
+        return static_cast<std::int64_t>(0);
+    }
+    if (e->callName == "empty" && args.size() == 1 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+        return !array || array->values.empty();
+    }
+    if (e->callName == "pop" && args.size() == 1 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+        if (!array || array->values.empty()) { error_ = "pop from empty array"; return {}; }
+        auto value = array->values.back();
+        array->values.pop_back();
+        return value;
+    }
+    if ((e->callName == "contains" || e->callName == "indexOf") && args.size() == 2 &&
+        std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
+        const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
+        if (!array) return e->callName == "contains" ? ArtifactScriptValue(false) : ArtifactScriptValue(std::int64_t(-1));
+        for (std::size_t i = 0; i < array->values.size(); ++i) {
+            const auto& item = array->values[i];
+            bool equal = false;
+            if (item.index() == args[1].index()) {
+                if (std::holds_alternative<double>(item)) equal = std::get<double>(item) == num(args[1]);
+                else if (std::holds_alternative<std::int64_t>(item)) equal = std::get<std::int64_t>(item) == static_cast<std::int64_t>(num(args[1]));
+                else if (std::holds_alternative<std::string>(item)) equal = std::get<std::string>(item) == std::get<std::string>(args[1]);
+                else if (std::holds_alternative<bool>(item)) equal = std::get<bool>(item) == std::get<bool>(args[1]);
+            }
+            if (equal) return e->callName == "contains" ? ArtifactScriptValue(true) : ArtifactScriptValue(static_cast<std::int64_t>(i));
+        }
+        return e->callName == "contains" ? ArtifactScriptValue(false) : ArtifactScriptValue(std::int64_t(-1));
+    }
     if (e->callName == "abs" && !args.empty()) return std::abs(num(args[0]));
     if (e->callName == "min" && args.size() >= 2) return std::min(num(args[0]), num(args[1]));
     if (e->callName == "max" && args.size() >= 2) return std::max(num(args[0]), num(args[1]));
@@ -514,11 +649,47 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     }
     if (e->callName == "sin" && !args.empty()) return std::sin(num(args[0]));
     if (e->callName == "cos" && !args.empty()) return std::cos(num(args[0]));
+    if (activeDefinition_) {
+        const auto method = std::find_if(activeDefinition_->rootClass.methods.begin(), activeDefinition_->rootClass.methods.end(),
+            [&](const ArtifactScriptMethod& candidate) { return candidate.name == e->callName; });
+        if (method != activeDefinition_->rootClass.methods.end())
+            return callUserMethod(e->callName, args, fields);
+    }
     error_ = "unknown function: " + e->callName; return {};
 }
 
+ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
+    std::string_view name, const std::vector<ArtifactScriptValue>& args,
+    ArtifactScriptSerializedFields& fields) {
+    constexpr int kMaxCallDepth = 64;
+    if (callDepth_ >= kMaxCallDepth) {
+        error_ = "script call depth limit";
+        return {};
+    }
+    const auto method = std::find_if(activeDefinition_->rootClass.methods.begin(), activeDefinition_->rootClass.methods.end(),
+        [&](const ArtifactScriptMethod& candidate) { return candidate.name == name; });
+    if (method == activeDefinition_->rootClass.methods.end() || !method->body) return {};
+    std::unordered_map<std::string, ArtifactScriptValue> locals;
+    for (std::size_t i = 0; i < args.size() && i < method->parameters.size(); ++i)
+        locals[method->parameters[i]] = args[i];
+    const auto previousReturn = returnValue_;
+    const bool previousReturned = returned_;
+    ++callDepth_;
+    returnValue_ = {};
+    returned_ = false;
+    for (const auto& statement : method->body->statements) {
+        if (!execStmt(statement.get(), fields, locals) || returned_) break;
+    }
+    const auto result = returnValue_;
+    --callDepth_;
+    returnValue_ = previousReturn;
+    returned_ = previousReturned;
+    return result;
+}
+
 bool ArtifactScriptEvaluator::Impl::execStmt(
-    const ArtifactScriptStmt* s, ArtifactScriptSerializedFields& fields) {
+    const ArtifactScriptStmt* s, ArtifactScriptSerializedFields& fields,
+    std::unordered_map<std::string, ArtifactScriptValue>& locals) {
     if (!s) return true;
     switch (s->kind) {
     case ArtifactScriptStmt::Kind::Expr:
@@ -526,13 +697,35 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
     case ArtifactScriptStmt::Kind::Assign: {
         auto v = evalExpr(s->assignValue.get(), fields, locals);
         if (!error_.empty()) return false;
+        if (s->assignIndex) {
+            auto target = locals.find(s->assignTarget);
+            if (target == locals.end()) {
+                auto field = fields.find(s->assignTarget);
+                if (field == fields.end()) { error_ = "undefined array: " + s->assignTarget; return false; }
+                target = locals.emplace(s->assignTarget, field->second).first;
+            }
+            auto indexValue = evalExpr(s->assignIndex.get(), fields, locals);
+            if (!std::holds_alternative<ArtifactScriptArrayPtr>(target->second) ||
+                (!std::holds_alternative<double>(indexValue) && !std::holds_alternative<std::int64_t>(indexValue))) {
+                error_ = "invalid array assignment"; return false;
+            }
+            const auto& array = std::get<ArtifactScriptArrayPtr>(target->second);
+            const auto index = static_cast<std::size_t>(std::holds_alternative<double>(indexValue)
+                ? std::get<double>(indexValue) : std::get<std::int64_t>(indexValue));
+            if (!array || index >= array->values.size()) { error_ = "array index out of range"; return false; }
+            array->values[index] = v;
+            return true;
+        }
         auto lit = locals.find(s->assignTarget); if (lit != locals.end()) { lit->second = v; return true; }
         fields[s->assignTarget] = v; return true;
     }
     case ArtifactScriptStmt::Kind::Decl: {
         ArtifactScriptValue init;
         if (s->declInit) init = evalExpr(s->declInit.get(), fields, locals);
-        locals[s->declName] = s->declInit ? init : ArtifactScriptValue{};
+        else if (s->declType == ArtifactScriptValueType::Array)
+            init = std::make_shared<ArtifactScriptArray>();
+        locals[s->declName] = (s->declInit || s->declType == ArtifactScriptValueType::Array)
+            ? init : ArtifactScriptValue{};
         return error_.empty(); }
     case ArtifactScriptStmt::Kind::While: {
         int iter = 0;
@@ -543,14 +736,29 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                    : std::holds_alternative<std::int64_t>(cond) ? std::get<std::int64_t>(cond) != 0 : false);
             if (!t) break;
             if (!execStmt(s->whileBody.get(), fields, locals)) return false; ++iter; }
-        if (iter >= 10000) { error_ = \"loop limit\"; return false; } return true; }
+        if (iter >= 10000) { error_ = "loop limit"; return false; } return true; }
+    case ArtifactScriptStmt::Kind::For: {
+        if (s->forInit && !execStmt(s->forInit.get(), fields, locals)) return false;
+        int iter = 0;
+        while (iter < 10000) {
+            auto cond = evalExpr(s->forCond.get(), fields, locals);
+            const bool truthy = std::holds_alternative<bool>(cond) ? std::get<bool>(cond)
+                : (std::holds_alternative<double>(cond) ? std::get<double>(cond) != 0.0
+                   : std::holds_alternative<std::int64_t>(cond) ? std::get<std::int64_t>(cond) != 0 : false);
+            if (!truthy) break;
+            if (s->forBody && !execStmt(s->forBody.get(), fields, locals)) return false;
+            if (s->forIncrement && !execStmt(s->forIncrement.get(), fields, locals)) return false;
+            ++iter;
+        }
+        if (iter >= 10000) { error_ = "loop limit"; return false; }
+        return true; }
     case ArtifactScriptStmt::Kind::If: {
         auto cond = evalExpr(s->ifCond.get(), fields, locals);
         bool t = std::holds_alternative<bool>(cond) ? std::get<bool>(cond)
             : (std::holds_alternative<double>(cond) ? std::get<double>(cond) != 0.0
                : std::holds_alternative<std::int64_t>(cond) ? std::get<std::int64_t>(cond) != 0 : false);
-        if (t) return execStmt(s->ifThen.get(), fields);
-        if (s->ifElse) return execStmt(s->ifElse.get(), fields);
+        if (t) return execStmt(s->ifThen.get(), fields, locals);
+        if (s->ifElse) return execStmt(s->ifElse.get(), fields, locals);
         return true;
     }
 
@@ -559,7 +767,12 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
 class ArtifactScriptHotReload::Impl {
 public:
     struct WatchEntry { std::string path; std::int64_t lastModified = 0; };
+    struct FileEntry {
+        ArtifactScriptDefinition definition;
+        ArtifactScriptSerializedFields fields;
+    };
     std::vector<WatchEntry> watches_;
+    std::unordered_map<std::string, FileEntry> files_;
 };
 
 ArtifactScriptHotReload::ArtifactScriptHotReload() : impl_(std::make_unique<Impl>()) {}
@@ -598,8 +811,10 @@ ArtifactScriptReloadResult ArtifactScriptHotReload::reload(
 
 bool ArtifactScriptHotReload::watchFile(const std::string& path) {
     for (auto& w : impl_->watches_) if (w.path == path) return true;
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec) || ec) return false;
     Impl::WatchEntry e; e.path = path;
-    if (auto t = std::filesystem::last_write_time(path); t.time_since_epoch().count() > 0)
+    if (auto t = std::filesystem::last_write_time(path, ec); !ec && t.time_since_epoch().count() > 0)
         e.lastModified = std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()).count();
     impl_->watches_.push_back(e); return true;
 }
@@ -620,21 +835,101 @@ std::vector<std::string> ArtifactScriptHotReload::pollChanges() {
     }
     return changed;
 }
-    case ArtifactScriptStmt::Kind::Return: return true;
+
+bool ArtifactScriptHotReload::addFile(
+    const std::string& path, const ArtifactScriptSerializedFields& initialFields) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input) return false;
+    const std::string source((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    auto result = reload(source, nullptr, &initialFields);
+    if (!result.success) return false;
+    for (const auto& [name, value] : initialFields) {
+        for (const auto& field : result.definition.rootClass.fields) {
+            if (field.isPublic && field.name == name) {
+                result.migratedFields[name] = value;
+                break;
+            }
+        }
+    }
+    impl_->files_[path] = Impl::FileEntry{std::move(result.definition), std::move(result.migratedFields)};
+    return watchFile(path);
+}
+
+void ArtifactScriptHotReload::removeFile(const std::string& path) {
+    unwatchFile(path);
+    impl_->files_.erase(path);
+}
+
+std::vector<ArtifactScriptFileReload> ArtifactScriptHotReload::reloadChanged() {
+    std::vector<ArtifactScriptFileReload> reloaded;
+    for (const auto& path : pollChanges()) {
+        auto it = impl_->files_.find(path);
+        if (it == impl_->files_.end()) continue;
+        std::ifstream input(path, std::ios::binary);
+        if (!input) continue;
+        const std::string source((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+        auto result = reload(source, &it->second.definition, &it->second.fields);
+        reloaded.push_back(ArtifactScriptFileReload{path, std::move(result)});
+        if (reloaded.back().result.success) {
+            it->second.definition = ArtifactScriptParser{}.parse(source);
+            it->second.fields = reloaded.back().result.migratedFields;
+        }
+    }
+    return reloaded;
+}
+
+const ArtifactScriptDefinition* ArtifactScriptHotReload::definitionFor(const std::string& path) const {
+    const auto it = impl_->files_.find(path);
+    return it == impl_->files_.end() ? nullptr : &it->second.definition;
+}
+
+const ArtifactScriptSerializedFields* ArtifactScriptHotReload::fieldsFor(const std::string& path) const {
+    const auto it = impl_->files_.find(path);
+    return it == impl_->files_.end() ? nullptr : &it->second.fields;
+}
+    case ArtifactScriptStmt::Kind::Return:
+        returnValue_ = s->expr ? evalExpr(s->expr.get(), fields, locals) : ArtifactScriptValue{};
+        returned_ = true;
+        return error_.empty();
     case ArtifactScriptStmt::Kind::Block:
-        for (auto& st : s->blockStmts) if (!execStmt(st.get(), fields)) return false;
+        for (auto& st : s->blockStmts) {
+            if (!execStmt(st.get(), fields, locals)) return false;
+            if (returned_) break;
+        }
         return true;
     }
     return true;
 }
 
+ArtifactScriptValue ArtifactScriptEvaluator::executeMethod(
+    const ArtifactScriptDefinition& definition, std::string_view methodName,
+    const std::vector<ArtifactScriptValue>& args, ArtifactScriptSerializedFields& fields) {
+    const auto it = std::find_if(definition.rootClass.methods.begin(), definition.rootClass.methods.end(),
+        [&](const ArtifactScriptMethod& method) { return method.name == methodName; });
+    if (it == definition.rootClass.methods.end() || !it->body) {
+        impl_->error_ = "unknown method: " + std::string(methodName);
+        return {};
+    }
+    impl_->error_.clear();
+    impl_->activeDefinition_ = &definition;
+    impl_->callDepth_ = 0;
+    impl_->returnValue_ = {};
+    impl_->returned_ = false;
+    if (!execute(*it->body, args, fields)) return {};
+    return impl_->returnValue_;
+}
+
                                        const std::vector<ArtifactScriptValue>& args,
                                        ArtifactScriptSerializedFields& fields) {
+    impl_->error_.clear();
+    impl_->returnValue_ = {};
+    impl_->returned_ = false;
     for (size_t i = 0; i < args.size() && i < body.parameters.size(); ++i)
         fields[body.parameters[i]] = args[i];
+    std::unordered_map<std::string, ArtifactScriptValue> locals;
     for (auto& st : body.statements)
-        std::unordered_map<std::string, ArtifactScriptValue> locals;
         if (!impl_->execStmt(st.get(), fields, locals)) return false;
+        else if (impl_->returned_) break;
     return true;
 }
 std::string ArtifactScriptEvaluator::getLastError() const { return impl_->error_; }

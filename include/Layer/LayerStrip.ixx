@@ -41,19 +41,31 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   LayerStrip();
+  LayerStrip(int32_t startFrame, int32_t endFrame);
   ~LayerStrip();
+
+  // In/Out point setters (existing API)
   void SetStartFrame(int32_t frame);
   void SetEndFrame(int32_t frame);
+
+  // Convenience
+  void SetRange(int32_t startFrame, int32_t endFrame);
+
+  // In/Out point getters
+  int32_t StartFrame() const;
+  int32_t EndFrame() const;
+
+  // Duration (end - start)
+  int32_t Duration() const;
+
+  // Validation
+  bool IsValid() const;  // start <= end
+
+  // Frame containment test
+  bool ContainsFrame(int32_t frame) const;
+
+  // Shift the entire strip
+  void Shift(int32_t offset);
  };
-
-
-
-
-
-
-
-
-
-
 
 };

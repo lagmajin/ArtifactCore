@@ -68,24 +68,29 @@ import Transform;
   Layer2D();
   ~Layer2D();
   
-  // Transform2D 関連
+  // Transform2D 
   StaticTransform2D transform2D() const;
+  void setTransform2D(const StaticTransform2D& t);
   ImageF32x4_RGBA transformedLayer();
   
-  // Opacity 関連
+  // Opacity 
   float opacity() const;
   void setOpacity(float value);
   
-  // Blend/Matte 関連
+  // Blend/Matte 
   BlendMode blendMode() const;
   void setBlendMode(BlendMode mode);
    MatteMode matteMode() const;
    void setMatteMode(MatteMode mode);
    const MatteStack& matteStack() const;
    void setMatteStack(const MatteStack& stack);
+
+  // Image data
+  void setImage(const ImageF32x4_RGBA& image);
+  ImageF32x4_RGBA image() const;
  };
 
 
 
 
-};
+ };

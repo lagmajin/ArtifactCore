@@ -8,6 +8,7 @@ module;
 #include <variant>
 #include <optional>
 #include <utility>
+#include <memory>
 
 export module Script.ArtifactScript;
 
@@ -27,6 +28,7 @@ enum class ArtifactScriptValueType {
     Color,
     ObjectRef,
     AssetRef
+    ,Array
 };
 
 enum class ArtifactScriptHook {
@@ -67,6 +69,9 @@ struct ArtifactScriptRef {
     std::string id;
 };
 
+struct ArtifactScriptArray;
+using ArtifactScriptArrayPtr = std::shared_ptr<ArtifactScriptArray>;
+
 using ArtifactScriptValue = std::variant<
     std::monostate,
     bool,
@@ -77,8 +82,13 @@ using ArtifactScriptValue = std::variant<
     ArtifactScriptVec3,
     ArtifactScriptVec4,
     ArtifactScriptColor,
-    ArtifactScriptRef
+    ArtifactScriptRef,
+    ArtifactScriptArrayPtr
 >;
+
+struct ArtifactScriptArray {
+    std::vector<ArtifactScriptValue> values;
+};
 
 struct ArtifactScriptField {
     std::string name;
@@ -112,7 +122,7 @@ struct ArtifactScriptExpr;
 using ArtifactScriptExprPtr = std::unique_ptr<ArtifactScriptExpr>;
 
 struct ArtifactScriptExpr {
-    enum class Kind { Literal, Variable, Binary, Unary, Call, FieldAccess };
+    enum class Kind { Literal, Variable, Binary, Unary, Call, FieldAccess, Index, ArrayLiteral };
     Kind kind = Kind::Literal;
 
     // Literal
@@ -133,13 +143,18 @@ struct ArtifactScriptExpr {
     // Call
     std::string callName;
     std::vector<ArtifactScriptExprPtr> callArgs;
+
+    // Index access: array[index]
+    ArtifactScriptExprPtr indexTarget;
+    ArtifactScriptExprPtr indexExpr;
+    std::vector<ArtifactScriptExprPtr> arrayElements;
 };
 
 struct ArtifactScriptStmt;
 using ArtifactScriptStmtPtr = std::unique_ptr<ArtifactScriptStmt>;
 
 struct ArtifactScriptStmt {
-    enum class Kind { Expr, Assign, If, Return, Block, Decl, While };
+    enum class Kind { Expr, Assign, If, Return, Block, Decl, While, For };
     Kind kind = Kind::Expr;
 
     // Expr
@@ -148,6 +163,7 @@ struct ArtifactScriptStmt {
     // Assign
     std::string assignTarget;
     ArtifactScriptExprPtr assignValue;
+    ArtifactScriptExprPtr assignIndex;
 
     // If
     ArtifactScriptExprPtr ifCond;
@@ -165,6 +181,11 @@ struct ArtifactScriptStmt {
     // While: while loop
     ArtifactScriptExprPtr whileCond;
     ArtifactScriptStmtPtr whileBody;
+
+    ArtifactScriptStmtPtr forInit;
+    ArtifactScriptExprPtr forCond;
+    ArtifactScriptStmtPtr forIncrement;
+    ArtifactScriptStmtPtr forBody;
 };
 
 // Per-method compiled body
@@ -250,6 +271,10 @@ public:
     bool execute(const ArtifactScriptMethodBody& body,
                  const std::vector<ArtifactScriptValue>& args,
                  ArtifactScriptSerializedFields& fields);
+    ArtifactScriptValue executeMethod(const ArtifactScriptDefinition& definition,
+                                      std::string_view methodName,
+                                      const std::vector<ArtifactScriptValue>& args,
+                                      ArtifactScriptSerializedFields& fields);
     std::string getLastError() const;
     bool hasError() const;
 private:
@@ -266,6 +291,11 @@ struct ArtifactScriptReloadResult {
     ArtifactScriptSerializedFields migratedFields;
 };
 
+struct ArtifactScriptFileReload {
+    std::string path;
+    ArtifactScriptReloadResult result;
+};
+
 class ArtifactScriptHotReload {
 public:
     ArtifactScriptHotReload();
@@ -275,6 +305,12 @@ public:
     bool watchFile(const std::string& path);
     void unwatchFile(const std::string& path);
     std::vector<std::string> pollChanges();
+    bool addFile(const std::string& path,
+                 const ArtifactScriptSerializedFields& initialFields = {});
+    void removeFile(const std::string& path);
+    std::vector<ArtifactScriptFileReload> reloadChanged();
+    const ArtifactScriptDefinition* definitionFor(const std::string& path) const;
+    const ArtifactScriptSerializedFields* fieldsFor(const std::string& path) const;
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;

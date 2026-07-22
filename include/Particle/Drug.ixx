@@ -1,16 +1,8 @@
+module;
+#include <utility>
+
 export module Drug;
 
-export namespace ArtifactCore
-{
- ;
-
-
-
-
-
-
-
-
-
-
-};
+// DragForce is fully defined in Particle.System;
+// this module re-exports it for direct import convenience.
+export import Particle.System;
