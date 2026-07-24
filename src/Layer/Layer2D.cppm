@@ -73,7 +73,7 @@ namespace ArtifactCore {
    cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0, 0));
 
   ImageF32x4_RGBA result;
-  result.setFromCVMat(dst);
+  result.setFromCVMat(dst, impl_->rgbaImage.colorDescriptor());
   return result;
  }
 
