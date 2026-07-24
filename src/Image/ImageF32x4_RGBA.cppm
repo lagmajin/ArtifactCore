@@ -363,7 +363,12 @@ namespace ArtifactCore {
   {
     if (mat.empty()) return;
 
-    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknown();
+    // CV_32FC4 is the canonical in-memory RGBA float representation. Keep
+    // the descriptor explicit even when the caller does not provide source
+    // primaries/transfer metadata; downstream upload paths can then apply
+    // their documented boundary conversion instead of treating the buffer as
+    // an unknown channel layout.
+    impl_->colorDescriptor_ = SurfaceColorDescriptor::unknownRgba32Float();
 
     cv::Mat tmp;
     // Convert various types to CV_32FC4 (RGBA float)

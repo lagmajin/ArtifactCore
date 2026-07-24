@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iterator>
 #include <unordered_map>
+#include <variant>
 
 #include <memory>
 #include <functional>
@@ -113,6 +114,8 @@ void skipWS(ParseCtx& c) { while (c.pos < c.len && std::isspace(static_cast<unsi
 bool matchCh(ParseCtx& c, char ch) { skipWS(c); if (c.pos < c.len && c.src[c.pos] == ch) { ++c.pos; return true; } return false; }
 bool matchKw(ParseCtx& c, const char* wd) { skipWS(c); size_t n = std::strlen(wd); if (c.pos + n <= c.len && c.src.substr(c.pos, n) == wd && (c.pos + n >= c.len || !std::isalnum(static_cast<unsigned char>(c.src[c.pos + n])))) { c.pos += n; return true; } return false; }
 std::string parseId(ParseCtx& c) { skipWS(c); size_t s = c.pos; while (c.pos < c.len && (std::isalnum(static_cast<unsigned char>(c.src[c.pos])) || c.src[c.pos] == '_')) ++c.pos; return std::string(c.src.substr(s, c.pos - s)); }
+ArtifactScriptExprPtr parseExpr(ParseCtx& c);
+double parseNum(ParseCtx& c);
 
 ArtifactScriptExprPtr parsePrimary(ParseCtx& c) {
     skipWS(c); if (c.pos >= c.len) return nullptr;
@@ -248,7 +251,7 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
         const std::size_t end = sourceView.find('\n', pos);
         const std::size_t lineEnd = end == std::string_view::npos ? sourceView.size() : end;
         const std::string_view line(sourceView.data() + pos, lineEnd - pos);
-        const std::size_t nextPos = end == std::string_view::npos ? sourceView.size() : end + 1;
+        std::size_t nextPos = end == std::string_view::npos ? sourceView.size() : end + 1;
         ++lineNo;
         const ZeroString trimmed = trim(line);
         if (trimmed.isEmpty()) {
@@ -324,6 +327,7 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             if (const auto hook = hookFromName(method.name)) {
                 method.isLifecycleHook = true;
                 method.hook = *hook;
+            }
             // Parse method body if present
             std::string bodyText;
             size_t bodyStart = trimmed.find('{');
@@ -367,6 +371,7 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             def.rootClass.methods.push_back(std::move(method));
             pos = nextPos;
             continue;
+        }
     }
 
     if (def.rootClass.name.empty()) {
@@ -492,7 +497,25 @@ public:
 
 ArtifactScriptEvaluator::ArtifactScriptEvaluator() : impl_(std::make_unique<Impl>()) {}
 
-bool ArtifactScriptEvaluator::execute(const ArtifactScriptMethodBody& body,
+ArtifactScriptEvaluator::~ArtifactScriptEvaluator() noexcept = default;
+
+bool ArtifactScriptEvaluator::execute(
+    const ArtifactScriptMethodBody& body,
+    const std::vector<ArtifactScriptValue>& args,
+    ArtifactScriptSerializedFields& fields) {
+    impl_->error_.clear();
+    impl_->returnValue_ = {};
+    impl_->returned_ = false;
+    for (std::size_t i = 0; i < args.size() && i < body.parameters.size(); ++i) {
+        fields[body.parameters[i]] = args[i];
+    }
+    std::unordered_map<std::string, ArtifactScriptValue> locals;
+    for (auto& st : body.statements) {
+        if (!impl_->execStmt(st.get(), fields, locals)) return false;
+        if (impl_->returned_) break;
+    }
+    return impl_->error_.empty();
+}
 
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
     const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
@@ -761,6 +784,20 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         if (s->ifElse) return execStmt(s->ifElse.get(), fields, locals);
         return true;
     }
+    case ArtifactScriptStmt::Kind::Return:
+        returnValue_ = s->expr ? evalExpr(s->expr.get(), fields, locals)
+                               : ArtifactScriptValue{};
+        returned_ = true;
+        return error_.empty();
+    case ArtifactScriptStmt::Kind::Block:
+        for (auto& st : s->blockStmts) {
+            if (!execStmt(st.get(), fields, locals)) return false;
+            if (returned_) break;
+        }
+        return true;
+    }
+    return true;
+}
 
 // ─── Hot Reload ───
 
@@ -776,6 +813,8 @@ public:
 };
 
 ArtifactScriptHotReload::ArtifactScriptHotReload() : impl_(std::make_unique<Impl>()) {}
+
+ArtifactScriptHotReload::~ArtifactScriptHotReload() noexcept = default;
 
 ArtifactScriptReloadResult ArtifactScriptHotReload::reload(
     std::string_view newSource, const ArtifactScriptDefinition* prevDef,
@@ -887,20 +926,6 @@ const ArtifactScriptSerializedFields* ArtifactScriptHotReload::fieldsFor(const s
     const auto it = impl_->files_.find(path);
     return it == impl_->files_.end() ? nullptr : &it->second.fields;
 }
-    case ArtifactScriptStmt::Kind::Return:
-        returnValue_ = s->expr ? evalExpr(s->expr.get(), fields, locals) : ArtifactScriptValue{};
-        returned_ = true;
-        return error_.empty();
-    case ArtifactScriptStmt::Kind::Block:
-        for (auto& st : s->blockStmts) {
-            if (!execStmt(st.get(), fields, locals)) return false;
-            if (returned_) break;
-        }
-        return true;
-    }
-    return true;
-}
-
 ArtifactScriptValue ArtifactScriptEvaluator::executeMethod(
     const ArtifactScriptDefinition& definition, std::string_view methodName,
     const std::vector<ArtifactScriptValue>& args, ArtifactScriptSerializedFields& fields) {
@@ -919,19 +944,6 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeMethod(
     return impl_->returnValue_;
 }
 
-                                       const std::vector<ArtifactScriptValue>& args,
-                                       ArtifactScriptSerializedFields& fields) {
-    impl_->error_.clear();
-    impl_->returnValue_ = {};
-    impl_->returned_ = false;
-    for (size_t i = 0; i < args.size() && i < body.parameters.size(); ++i)
-        fields[body.parameters[i]] = args[i];
-    std::unordered_map<std::string, ArtifactScriptValue> locals;
-    for (auto& st : body.statements)
-        if (!impl_->execStmt(st.get(), fields, locals)) return false;
-        else if (impl_->returned_) break;
-    return true;
-}
 std::string ArtifactScriptEvaluator::getLastError() const { return impl_->error_; }
 bool ArtifactScriptEvaluator::hasError() const { return !impl_->error_.empty(); }
 

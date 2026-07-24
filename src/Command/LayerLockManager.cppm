@@ -88,9 +88,10 @@ bool LayerLockManager::isLocked(const QString& layerId) const
 
 const LayerLockInfo* LayerLockManager::lockInfo(const QString& layerId) const
 {
-    if (!locks_.contains(layerId)) return nullptr;
-    if (locks_[layerId].isExpired(lockTimeoutMs_)) return nullptr;
-    return &locks_[layerId];
+    const auto it = locks_.constFind(layerId);
+    if (it == locks_.constEnd()) return nullptr;
+    if (it.value().isExpired(lockTimeoutMs_)) return nullptr;
+    return &it.value();
 }
 
 QList<LayerLockInfo> LayerLockManager::activeLocks() const

@@ -90,6 +90,16 @@ struct ArtifactScriptArray {
     std::vector<ArtifactScriptValue> values;
 };
 
+struct ArtifactScriptStmt;
+using ArtifactScriptStmtPtr = std::unique_ptr<ArtifactScriptStmt>;
+
+struct ArtifactScriptMethodBody {
+    std::vector<ArtifactScriptStmtPtr> statements;
+    std::vector<std::string> parameters;
+};
+
+using ArtifactScriptMethodBodyPtr = std::unique_ptr<ArtifactScriptMethodBody>;
+
 struct ArtifactScriptField {
     std::string name;
     bool isPublic = true;
@@ -103,6 +113,12 @@ struct ArtifactScriptMethod {
     bool isLifecycleHook = false;
     ArtifactScriptHook hook = ArtifactScriptHook::OnUpdate;
     ArtifactScriptMethodBodyPtr body;  // compiled method body
+
+    ArtifactScriptMethod() = default;
+    ArtifactScriptMethod(const ArtifactScriptMethod&) = delete;
+    ArtifactScriptMethod& operator=(const ArtifactScriptMethod&) = delete;
+    ArtifactScriptMethod(ArtifactScriptMethod&&) noexcept = default;
+    ArtifactScriptMethod& operator=(ArtifactScriptMethod&&) noexcept = default;
 };
 
 
@@ -150,9 +166,6 @@ struct ArtifactScriptExpr {
     std::vector<ArtifactScriptExprPtr> arrayElements;
 };
 
-struct ArtifactScriptStmt;
-using ArtifactScriptStmtPtr = std::unique_ptr<ArtifactScriptStmt>;
-
 struct ArtifactScriptStmt {
     enum class Kind { Expr, Assign, If, Return, Block, Decl, While, For };
     Kind kind = Kind::Expr;
@@ -188,21 +201,18 @@ struct ArtifactScriptStmt {
     ArtifactScriptStmtPtr forBody;
 };
 
-// Per-method compiled body
-struct ArtifactScriptMethodBody {
-    std::vector<ArtifactScriptStmtPtr> statements;
-    std::vector<std::string> parameters;
-};
-
-// Make ArtifactScriptMethod hold a body
-using ArtifactScriptMethodBodyPtr = std::unique_ptr<ArtifactScriptMethodBody>;
-
 // Extend ArtifactScriptMethod with compiled body
 struct ArtifactScriptClass {
     std::string name;
     bool derivesFromBehaviour = false;
     std::vector<ArtifactScriptField> fields;
     std::vector<ArtifactScriptMethod> methods;
+
+    ArtifactScriptClass() = default;
+    ArtifactScriptClass(const ArtifactScriptClass&) = delete;
+    ArtifactScriptClass& operator=(const ArtifactScriptClass&) = delete;
+    ArtifactScriptClass(ArtifactScriptClass&&) noexcept = default;
+    ArtifactScriptClass& operator=(ArtifactScriptClass&&) noexcept = default;
 };
 
 struct ArtifactScriptDiagnostic {
@@ -215,6 +225,12 @@ struct ArtifactScriptDefinition {
     std::string source;
     ArtifactScriptClass rootClass;
     std::vector<ArtifactScriptDiagnostic> diagnostics;
+
+    ArtifactScriptDefinition() = default;
+    ArtifactScriptDefinition(const ArtifactScriptDefinition&) = delete;
+    ArtifactScriptDefinition& operator=(const ArtifactScriptDefinition&) = delete;
+    ArtifactScriptDefinition(ArtifactScriptDefinition&&) noexcept = default;
+    ArtifactScriptDefinition& operator=(ArtifactScriptDefinition&&) noexcept = default;
 };
 
 class ArtifactScriptParser {
@@ -268,6 +284,7 @@ private:
 class ArtifactScriptEvaluator {
 public:
     ArtifactScriptEvaluator();
+    ~ArtifactScriptEvaluator() noexcept;
     bool execute(const ArtifactScriptMethodBody& body,
                  const std::vector<ArtifactScriptValue>& args,
                  ArtifactScriptSerializedFields& fields);
@@ -299,6 +316,7 @@ struct ArtifactScriptFileReload {
 class ArtifactScriptHotReload {
 public:
     ArtifactScriptHotReload();
+    ~ArtifactScriptHotReload() noexcept;
     ArtifactScriptReloadResult reload(std::string_view newSource,
                                        const ArtifactScriptDefinition* previousDef,
                                        const ArtifactScriptSerializedFields* previousFields);

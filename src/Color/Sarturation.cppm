@@ -12,6 +12,7 @@ namespace ArtifactCore
  class Saturation::Impl
  {
  private:
+  friend class Saturation;
   std::mutex mutex_;
  public:
   Impl();

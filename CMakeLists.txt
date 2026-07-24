@@ -71,6 +71,15 @@ foreach(file_path ${IXX_FILES})
         continue()
     endif()
     list(APPEND CORE_MODULES "${file_path}")
+
+    # Keep the public module names available while classifying .cppm files.
+    # A .cppm that repeats an interface module name is an implementation
+    # unit, even when it uses the legacy `export module M;` spelling.
+    file(READ "${file_path}" ixx_content LIMIT 32768)
+    string(REGEX REPLACE "//[^\n]*" "" ixx_content "${ixx_content}")
+    if(ixx_content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
+        list(APPEND _PROVIDED_MODULES "${CMAKE_MATCH_1}")
+    endif()
 endforeach()
 
 # .cpp → 実装ファイル（内容スキャン不要）
@@ -108,7 +117,7 @@ foreach(file_path ${CPPM_FILES})
             list(APPEND CORE_MODULES "${file_path}")
             list(APPEND _PROVIDED_MODULES "${_mod_name}")
         else()
-            message(WARNING "Duplicate module name detected: ${_mod_name} in ${file_path} (skipped)")
+            list(APPEND CORE_IMPL "${file_path}")
         endif()
     else()
         list(APPEND CORE_IMPL "${file_path}")
@@ -211,7 +220,7 @@ endif()
 
 # MSVC specific C++23 modules settings
 if(ARTIFACT_FRONTEND_MSVC)
-    target_compile_options(ArtifactCore PRIVATE /WX-)
+    target_compile_options(ArtifactCore PRIVATE /WX- /wd5050)
     # Enable C++23 standard (latest)
     target_compile_options(ArtifactCore PRIVATE /std:c++latest)
     # Enable modules support
@@ -293,8 +302,8 @@ endif()
 # ---------------------------------------------------------------------------
 # 外部ライブラリ探索
 # ---------------------------------------------------------------------------
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
-target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network WebSockets)
+target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::WebSockets)
 
 find_package(OpenCV REQUIRED)
 if(OpenCV_INCLUDE_DIRS)

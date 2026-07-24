@@ -15,6 +15,7 @@ export namespace ArtifactCore {
 
 enum class PointwiseNodeKind : std::uint8_t {
     Exposure,
+    Offset,
     Gamma,
     Contrast,
     Levels,
@@ -69,6 +70,7 @@ struct PointwiseFusionSegment {
     PointwiseAlphaMode outputAlpha = PointwiseAlphaMode::Premultiplied;
     bool requiresBackground = false;
     bool requiresLut = false;
+    bool requiresHistory = false;
     bool isFused = false;
     std::string fallbackReason;
 };
@@ -81,6 +83,7 @@ struct PointwiseCompileKey {
     std::vector<bool> staticSpecializations;
     bool requiresBackground = false;
     bool requiresLut = false;
+    bool requiresHistory = false;
 
     std::string toString() const {
         std::ostringstream key;
@@ -208,6 +211,7 @@ public:
     static PointwiseNodeDescriptor descriptor(PointwiseNodeKind kind) {
         switch (kind) {
         case PointwiseNodeKind::Exposure:
+        case PointwiseNodeKind::Offset:
         case PointwiseNodeKind::Gamma:
         case PointwiseNodeKind::Contrast:
         case PointwiseNodeKind::Saturation:
@@ -308,6 +312,7 @@ public:
         key.alphaMode = segment.inputAlpha;
         key.requiresBackground = segment.requiresBackground;
         key.requiresLut = segment.requiresLut;
+        key.requiresHistory = segment.requiresHistory;
         if (segment.firstNode > nodes.size()) {
             return key;
         }
@@ -564,6 +569,9 @@ private:
         case PointwiseNodeKind::Exposure:
             hlsl << "  color.rgb *= exp2(" << p << ".x);\n";
             break;
+        case PointwiseNodeKind::Offset:
+            hlsl << "  color.rgb += " << p << ".xxx;\n";
+            break;
         case PointwiseNodeKind::Gamma:
             hlsl << "  color.rgb = pow(max(color.rgb, 0.0), 1.0 / max(" << p << ".xxx, 1e-4));\n";
             break;
@@ -744,9 +752,9 @@ public:
             ++missCount_;
             auto generated = PointwiseEffectFusion::generateComputeShader(
                 backend, targetFormat, nodes, segment);
-            auto [it, inserted] = entries_.emplace(keyText, std::move(generated));
+            auto [insertedIt, inserted] = entries_.emplace(keyText, std::move(generated));
             (void)inserted;
-            plan.shader = it->second;
+            plan.shader = insertedIt->second;
         }
         plan.width = width;
         plan.height = height;
@@ -779,9 +787,9 @@ public:
             ++missCount_;
             auto generated = PointwiseEffectFusion::generateNeighborhoodBlurShader(
                 backend, targetFormat);
-            auto [it, inserted] = entries_.emplace(keyText, std::move(generated));
+            auto [insertedIt, inserted] = entries_.emplace(keyText, std::move(generated));
             (void)inserted;
-            plan.shader = it->second;
+            plan.shader = insertedIt->second;
         }
         plan.parameterBuffer = "NeighborhoodParameters";
         plan.width = width;
@@ -804,9 +812,9 @@ public:
             ++missCount_;
             auto generated = PointwiseEffectFusion::generateTemporalBlendShader(
                 backend, targetFormat);
-            auto [it, inserted] = entries_.emplace(keyText, std::move(generated));
+            auto [insertedIt, inserted] = entries_.emplace(keyText, std::move(generated));
             (void)inserted;
-            plan.shader = it->second;
+            plan.shader = insertedIt->second;
         }
         plan.parameterBuffer = "TemporalParameters";
         plan.width = width;

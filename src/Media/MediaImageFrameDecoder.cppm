@@ -108,8 +108,7 @@ CpuVideoFrame makeCpuVideoFrameFromDownloadedFrame(AVFrame* frame, int64_t pts)
         return out;
     }
 
-    out = makeCpuVideoFrameFromFrame(
-        frame, swsCtx, frame->width, frame->height, pts);
+    out = makeCpuVideoFrameFromFrame(frame, swsCtx, pts);
     sws_freeContext(swsCtx);
     return out;
 }

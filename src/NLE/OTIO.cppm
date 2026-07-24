@@ -8,6 +8,9 @@ module;
 
 module NLE.OTIO;
 
+import NLE.Core;
+import Frame.Range;
+
 namespace ArtifactCore::NLE {
 namespace {
 
