@@ -318,5 +318,68 @@ export struct SpringState {
   
  };
 
+export enum class AnimationLayerBlendMode : std::uint8_t {
+  Additive,
+  Override
+};
+
+export struct AnimationLayerState {
+  AnimationLayerBlendMode blendMode = AnimationLayerBlendMode::Additive;
+  float weight = 1.0f;
+  bool muted = false;
+  bool solo = false;
+};
+
+// Non-destructive property stack used by animation-layer clients. The base
+// value remains untouched; additive layers contribute a weighted delta from
+// the base and override layers blend toward their evaluated value.
+template<typename T>
+class AnimationLayerStackT {
+public:
+  struct Layer {
+    AnimationLayerState state;
+    AnimatableValueT<T> values;
+  };
+
+  explicit AnimationLayerStackT(const T& base = T{}) : base_(base) {}
+
+  void setBase(const T& value) { base_.setCurrent(value); }
+  T base(const FramePosition& frame) const { return base_.at(frame); }
+
+  std::size_t layerCount() const { return layers_.size(); }
+  Layer& layer(std::size_t index) { return layers_.at(index); }
+  const Layer& layer(std::size_t index) const { return layers_.at(index); }
+  std::size_t addLayer(const AnimationLayerState& state = {}) {
+    layers_.push_back(Layer{state, AnimatableValueT<T>{}});
+    return layers_.size() - 1;
+  }
+  void removeLayer(std::size_t index) {
+    if (index < layers_.size()) layers_.erase(layers_.begin() + static_cast<std::ptrdiff_t>(index));
+  }
+
+  T evaluate(const FramePosition& frame) const {
+    const bool hasSolo = std::any_of(layers_.begin(), layers_.end(),
+                                     [](const Layer& layer) { return layer.state.solo && !layer.state.muted; });
+    T result = base_.at(frame);
+    const T baseValue = result;
+    for (const auto& layer : layers_) {
+      if (layer.state.muted || (hasSolo && !layer.state.solo)) continue;
+      const float weight = std::clamp(layer.state.weight, 0.0f, 1.0f);
+      if (weight <= 0.0f) continue;
+      const T value = layer.values.at(frame);
+      if (layer.state.blendMode == AnimationLayerBlendMode::Additive) {
+        result = result + (value - baseValue) * weight;
+      } else {
+        result = result + (value - result) * weight;
+      }
+    }
+    return result;
+  }
+
+private:
+  AnimatableValueT<T> base_;
+  std::vector<Layer> layers_;
+};
+
 
 };
