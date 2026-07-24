@@ -8,6 +8,11 @@ module;
 #include <vector>
 #include <shared_mutex>
 #include <mutex>
+#include <type_traits>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QString>
 export module Animation.Value;
 
 import Frame.Position;
@@ -356,6 +361,7 @@ public:
   void removeLayer(std::size_t index) {
     if (index < layers_.size()) layers_.erase(layers_.begin() + static_cast<std::ptrdiff_t>(index));
   }
+  void clear() { layers_.clear(); }
 
   T evaluate(const FramePosition& frame) const {
     const bool hasSolo = std::any_of(layers_.begin(), layers_.end(),
@@ -374,6 +380,60 @@ public:
       }
     }
     return result;
+  }
+
+  QJsonObject toJson() const {
+    QJsonObject object;
+    if constexpr (std::is_same_v<T, float>) {
+      object[QStringLiteral("base")] = static_cast<double>(base_.current());
+      QJsonArray layers;
+      for (const auto& layer : layers_) {
+        QJsonObject layerObject;
+        layerObject[QStringLiteral("mode")] =
+            layer.state.blendMode == AnimationLayerBlendMode::Override ? QStringLiteral("override")
+                                                                         : QStringLiteral("additive");
+        layerObject[QStringLiteral("weight")] = static_cast<double>(layer.state.weight);
+        layerObject[QStringLiteral("muted")] = layer.state.muted;
+        layerObject[QStringLiteral("solo")] = layer.state.solo;
+        QJsonArray keyframes;
+        for (const auto& keyframe : layer.values.getKeyFrames()) {
+          QJsonObject keyframeObject;
+          keyframeObject[QStringLiteral("frame")] =
+              static_cast<qint64>(keyframe.frame.framePosition());
+          keyframeObject[QStringLiteral("value")] = static_cast<double>(keyframe.value);
+          keyframes.append(keyframeObject);
+        }
+        layerObject[QStringLiteral("keyframes")] = keyframes;
+        layers.append(layerObject);
+      }
+      object[QStringLiteral("layers")] = layers;
+    }
+    return object;
+  }
+
+  void fromJson(const QJsonObject& object) {
+    if constexpr (std::is_same_v<T, float>) {
+      base_.setCurrent(static_cast<float>(object.value(QStringLiteral("base")).toDouble()));
+      layers_.clear();
+      const QJsonArray layers = object.value(QStringLiteral("layers")).toArray();
+      for (const auto& value : layers) {
+        const QJsonObject layerObject = value.toObject();
+        AnimationLayerState state;
+        state.blendMode = layerObject.value(QStringLiteral("mode")).toString() == QStringLiteral("override")
+                              ? AnimationLayerBlendMode::Override
+                              : AnimationLayerBlendMode::Additive;
+        state.weight = static_cast<float>(layerObject.value(QStringLiteral("weight")).toDouble(1.0));
+        state.muted = layerObject.value(QStringLiteral("muted")).toBool(false);
+        state.solo = layerObject.value(QStringLiteral("solo")).toBool(false);
+        const std::size_t index = addLayer(state);
+        for (const auto& keyframeValue : layerObject.value(QStringLiteral("keyframes")).toArray()) {
+          const QJsonObject keyframe = keyframeValue.toObject();
+          layers_[index].values.addKeyFrame(
+              FramePosition(keyframe.value(QStringLiteral("frame")).toInteger()),
+              static_cast<float>(keyframe.value(QStringLiteral("value")).toDouble()));
+        }
+      }
+    }
   }
 
 private:
