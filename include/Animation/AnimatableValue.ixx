@@ -404,6 +404,8 @@ public:
           keyframeObject[QStringLiteral("frame")] =
               static_cast<qint64>(keyframe.frame.framePosition());
           keyframeObject[QStringLiteral("value")] = static_cast<double>(keyframe.value);
+          keyframeObject[QStringLiteral("interpolation")] =
+              static_cast<int>(keyframe.interpolation);
           keyframes.append(keyframeObject);
         }
         layerObject[QStringLiteral("keyframes")] = keyframes;
@@ -431,9 +433,13 @@ public:
         const std::size_t index = addLayer(state);
         for (const auto& keyframeValue : layerObject.value(QStringLiteral("keyframes")).toArray()) {
           const QJsonObject keyframe = keyframeValue.toObject();
+          const FramePosition frame(
+              keyframe.value(QStringLiteral("frame")).toInteger());
           layers_[index].values.addKeyFrame(
-              FramePosition(keyframe.value(QStringLiteral("frame")).toInteger()),
-              static_cast<float>(keyframe.value(QStringLiteral("value")).toDouble()));
+              frame, static_cast<float>(keyframe.value(QStringLiteral("value")).toDouble()));
+          layers_[index].values.setKeyFrameInterpolationAt(
+              frame, static_cast<InterpolationType>(
+                         keyframe.value(QStringLiteral("interpolation")).toInt(0)));
         }
       }
     }
