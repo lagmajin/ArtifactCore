@@ -333,7 +333,7 @@ export struct AnimationLayerState {
 // Non-destructive property stack used by animation-layer clients. The base
 // value remains untouched; additive layers contribute a weighted delta from
 // the base and override layers blend toward their evaluated value.
-template<typename T>
+export template<typename T>
 class AnimationLayerStackT {
 public:
   struct Layer {
