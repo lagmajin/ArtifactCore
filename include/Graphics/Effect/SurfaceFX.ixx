@@ -63,17 +63,17 @@ struct LIBRARY_DLL_API SurfaceFXElement {
         SurfaceFXElement result;
         result.id = json.value(QStringLiteral("id")).toString();
         result.type = typeFromName(json.value(QStringLiteral("type")).toString());
-        result.x = json.value(QStringLiteral("x")).toDouble(result.x);
-        result.y = json.value(QStringLiteral("y")).toDouble(result.y);
-        result.width = json.value(QStringLiteral("width")).toDouble(result.width);
-        result.height = json.value(QStringLiteral("height")).toDouble(result.height);
-        result.rotation = json.value(QStringLiteral("rotation")).toDouble(result.rotation);
-        result.intensity = json.value(QStringLiteral("intensity")).toDouble(result.intensity);
-        result.opacity = json.value(QStringLiteral("opacity")).toDouble(result.opacity);
-        result.roughness = json.value(QStringLiteral("roughness")).toDouble(result.roughness);
+        result.x = std::clamp(static_cast<float>(json.value(QStringLiteral("x")).toDouble(result.x)), 0.0f, 1.0f);
+        result.y = std::clamp(static_cast<float>(json.value(QStringLiteral("y")).toDouble(result.y)), 0.0f, 1.0f);
+        result.width = std::clamp(static_cast<float>(json.value(QStringLiteral("width")).toDouble(result.width)), 0.0f, 1.0f);
+        result.height = std::clamp(static_cast<float>(json.value(QStringLiteral("height")).toDouble(result.height)), 0.0f, 1.0f);
+        result.rotation = static_cast<float>(json.value(QStringLiteral("rotation")).toDouble(result.rotation));
+        result.intensity = std::clamp(static_cast<float>(json.value(QStringLiteral("intensity")).toDouble(result.intensity)), 0.0f, 4.0f);
+        result.opacity = std::clamp(static_cast<float>(json.value(QStringLiteral("opacity")).toDouble(result.opacity)), 0.0f, 1.0f);
+        result.roughness = std::clamp(static_cast<float>(json.value(QStringLiteral("roughness")).toDouble(result.roughness)), 0.0f, 1.0f);
         result.seedOffset = json.value(QStringLiteral("seedOffset")).toInt(result.seedOffset);
-        result.inTime = json.value(QStringLiteral("inTime")).toDouble(result.inTime);
-        result.outTime = json.value(QStringLiteral("outTime")).toDouble(result.outTime);
+        result.inTime = std::max(0.0f, static_cast<float>(json.value(QStringLiteral("inTime")).toDouble(result.inTime)));
+        result.outTime = static_cast<float>(json.value(QStringLiteral("outTime")).toDouble(result.outTime));
         return result;
     }
 
@@ -126,11 +126,11 @@ struct LIBRARY_DLL_API SurfaceFXData {
     static SurfaceFXData fromJson(const QJsonObject& json) {
         SurfaceFXData result;
         result.anchorType = anchorFromName(json.value(QStringLiteral("anchorType")).toString());
-        result.anchorX = json.value(QStringLiteral("anchorX")).toDouble(result.anchorX);
-        result.anchorY = json.value(QStringLiteral("anchorY")).toDouble(result.anchorY);
-        result.anchorWidth = json.value(QStringLiteral("anchorWidth")).toDouble(result.anchorWidth);
-        result.anchorHeight = json.value(QStringLiteral("anchorHeight")).toDouble(result.anchorHeight);
-        result.feather = json.value(QStringLiteral("feather")).toDouble(result.feather);
+        result.anchorX = std::clamp(static_cast<float>(json.value(QStringLiteral("anchorX")).toDouble(result.anchorX)), 0.0f, 1.0f);
+        result.anchorY = std::clamp(static_cast<float>(json.value(QStringLiteral("anchorY")).toDouble(result.anchorY)), 0.0f, 1.0f);
+        result.anchorWidth = std::clamp(static_cast<float>(json.value(QStringLiteral("anchorWidth")).toDouble(result.anchorWidth)), 0.0f, 1.0f);
+        result.anchorHeight = std::clamp(static_cast<float>(json.value(QStringLiteral("anchorHeight")).toDouble(result.anchorHeight)), 0.0f, 1.0f);
+        result.feather = std::clamp(static_cast<float>(json.value(QStringLiteral("feather")).toDouble(result.feather)), 0.0f, 1.0f);
         result.fieldSeed = json.value(QStringLiteral("fieldSeed")).toInt(result.fieldSeed);
         for (const auto& value : json.value(QStringLiteral("elements")).toArray())
             result.elements.push_back(SurfaceFXElement::fromJson(value.toObject()));
