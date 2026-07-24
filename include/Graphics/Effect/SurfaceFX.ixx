@@ -132,8 +132,22 @@ struct LIBRARY_DLL_API SurfaceFXData {
         result.anchorHeight = std::clamp(static_cast<float>(json.value(QStringLiteral("anchorHeight")).toDouble(result.anchorHeight)), 0.0f, 1.0f);
         result.feather = std::clamp(static_cast<float>(json.value(QStringLiteral("feather")).toDouble(result.feather)), 0.0f, 1.0f);
         result.fieldSeed = json.value(QStringLiteral("fieldSeed")).toInt(result.fieldSeed);
+        result.anchorWidth = std::min(result.anchorWidth, 1.0f - result.anchorX);
+        result.anchorHeight = std::min(result.anchorHeight, 1.0f - result.anchorY);
         for (const auto& value : json.value(QStringLiteral("elements")).toArray())
             result.elements.push_back(SurfaceFXElement::fromJson(value.toObject()));
+        for (auto& element : result.elements) {
+            element.x = std::clamp(element.x, result.anchorX,
+                                   result.anchorX + result.anchorWidth);
+            element.y = std::clamp(element.y, result.anchorY,
+                                   result.anchorY + result.anchorHeight);
+            element.width = std::clamp(element.width, 0.0f,
+                                       result.anchorX + result.anchorWidth - element.x);
+            element.height = std::clamp(element.height, 0.0f,
+                                        result.anchorY + result.anchorHeight - element.y);
+            if (element.outTime >= 0.0f && element.outTime < element.inTime)
+                element.outTime = element.inTime;
+        }
         return result;
     }
 
