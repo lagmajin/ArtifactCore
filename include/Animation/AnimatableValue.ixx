@@ -364,10 +364,13 @@ public:
   void clear() { layers_.clear(); }
 
   T evaluate(const FramePosition& frame) const {
+    return evaluateWithBase(frame, base_.at(frame));
+  }
+
+  T evaluateWithBase(const FramePosition& frame, const T& baseValue) const {
     const bool hasSolo = std::any_of(layers_.begin(), layers_.end(),
                                      [](const Layer& layer) { return layer.state.solo && !layer.state.muted; });
-    T result = base_.at(frame);
-    const T baseValue = result;
+    T result = baseValue;
     for (const auto& layer : layers_) {
       if (layer.state.muted || (hasSolo && !layer.state.solo)) continue;
       const float weight = std::clamp(layer.state.weight, 0.0f, 1.0f);
