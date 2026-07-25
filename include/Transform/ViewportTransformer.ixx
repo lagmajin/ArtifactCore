@@ -59,6 +59,8 @@ export namespace ArtifactCore {
         void SetCanvasSize(float w, float h);
         void SetPan(float x, float y);
         void SetZoom(float zoom);
+        void SetRotation(float degrees);
+        float GetRotation() const;
         void PanBy(float dx, float dy);
  
         // 高度な操作
@@ -91,7 +93,7 @@ export namespace ArtifactCore {
             float2 scale;       // スケール（通常 1.0）
             float2 screenSize;  // ビューポート解像度
             float  zoom;        // ズーム倍率
-            float  padding;
+            float  rotation;
         };
         ViewportCB GetViewportCB() const;
 

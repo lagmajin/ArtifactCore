@@ -49,15 +49,30 @@ namespace ArtifactCore {
         float2 canvasSize = {1920, 1080};
         float2 pan = {0, 0};
         float zoom = 1.0f;
+        float rotation = 0.0f;
+
+        float2 rotate(float2 point, float degrees) const {
+            const float radians = degrees * 0.01745329251994329577f;
+            const float c = std::cos(radians);
+            const float s = std::sin(radians);
+            return {point.x * c - point.y * s, point.x * s + point.y * c};
+        }
 
         float2 CanvasToViewport(float2 canvasPos) const {
-            // (Pos * Zoom) + Pan
-            return { (canvasPos.x * zoom) + pan.x, (canvasPos.y * zoom) + pan.y };
+            const float2 center = {canvasSize.x * 0.5f, canvasSize.y * 0.5f};
+            const float2 relative = {canvasPos.x - center.x, canvasPos.y - center.y};
+            const float2 rotated = rotate(relative, rotation);
+            return {(rotated.x + center.x) * zoom + pan.x,
+                    (rotated.y + center.y) * zoom + pan.y};
         }
 
         float2 ViewportToCanvas(float2 viewportPos) const {
-            // (Pos - Pan) / Zoom
-            return { (viewportPos.x - pan.x) / zoom, (viewportPos.y - pan.y) / zoom };
+            const float2 center = {canvasSize.x * 0.5f, canvasSize.y * 0.5f};
+            const float2 zoomed = {(viewportPos.x - pan.x) / zoom,
+                                   (viewportPos.y - pan.y) / zoom};
+            const float2 relative = {zoomed.x - center.x, zoomed.y - center.y};
+            const float2 unrotated = rotate(relative, -rotation);
+            return {unrotated.x + center.x, unrotated.y + center.y};
         }
 
         float2 CanvasToNDC(float2 canvasPos) const {
@@ -93,6 +108,8 @@ namespace ArtifactCore {
     void ViewportTransformer::SetCanvasSize(float w, float h) { impl_->canvasSize = {w, h}; }
     void ViewportTransformer::SetPan(float x, float y) { impl_->pan = {x, y}; }
     void ViewportTransformer::SetZoom(float zoom) { impl_->zoom = std::max(0.001f, zoom); }
+    void ViewportTransformer::SetRotation(float degrees) { impl_->rotation = std::clamp(degrees, -180.0f, 180.0f); }
+    float ViewportTransformer::GetRotation() const { return impl_->rotation; }
  
     void ViewportTransformer::PanBy(float dx, float dy) {
         impl_->pan.x += dx;
@@ -102,6 +119,7 @@ namespace ArtifactCore {
     void ViewportTransformer::ResetView() {
         impl_->pan = {0, 0};
         impl_->zoom = 1.0f;
+        impl_->rotation = 0.0f;
     }
 
     void ViewportTransformer::ZoomAroundViewportPoint(float2 viewportPos, float newZoom) {
@@ -172,6 +190,6 @@ namespace ArtifactCore {
     float2 ViewportTransformer::CanvasToNDC(float2 canvasPos) const { return impl_->CanvasToNDC(canvasPos); }
 
     ViewportTransformer::ViewportCB ViewportTransformer::GetViewportCB() const {
-        return { impl_->pan, {1.0f, 1.0f}, impl_->viewportSize, impl_->zoom, 0.0f };
+        return { impl_->pan, {1.0f, 1.0f}, impl_->viewportSize, impl_->zoom, impl_->rotation };
     }
 }
