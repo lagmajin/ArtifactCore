@@ -17,6 +17,8 @@ export module ArtifactCore.Rig2D;
 
 import Utils.Id;
 import Time.Rational;
+import Animation.Value;
+import Frame.Position;
 
 export namespace ArtifactCore {
 
@@ -25,6 +27,11 @@ struct BoneTransform {
     QVector2D position = {0.0f, 0.0f};
     float rotation = 0.0f;           // 度単位
     QVector2D scale = {1.0f, 1.0f};
+
+    // AnimatableValueT<T> が必要とする演算子
+    BoneTransform operator+(const BoneTransform& other) const;
+    BoneTransform operator-(const BoneTransform& other) const;
+    BoneTransform operator*(float scalar) const;
 };
 
 enum class RigControlKind {
@@ -79,8 +86,15 @@ public:
     float length() const { return length_; }
     void setLength(float length) { length_ = length; }
 
-    // 評価境界。現時点では静的ローカル変換を返し、将来のキー/制約評価をここへ集約する。
+    // 評価。キーフレームがあれば時間補間、なければ静的ローカル変換を返す。
     BoneTransform evaluate(const RationalTime& time) const;
+
+    // キーフレーム管理
+    void addKeyFrame(const FramePosition& frame, const BoneTransform& transform);
+    void removeKeyFrameAt(const FramePosition& frame);
+    bool hasKeyFrameAt(const FramePosition& frame) const;
+    size_t keyFrameCount() const;
+    void clearKeyFrames();
 
     QJsonObject toJson() const;
     void fromJson(const QJsonObject& object);
@@ -97,6 +111,7 @@ private:
     BoneTransform resolvedTransform_;
     QMatrix4x4 globalMatrix_;
     float length_ = 50.0f;
+    AnimatableValueT<BoneTransform> keyframes_;
 };
 
 class RigControl2D {

@@ -4,6 +4,7 @@ module;
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QDateTime>
+#include <QUuid>
 #include <QDebug>
 #include <wobjectimpl.h>
 #include <deque>
@@ -75,6 +76,7 @@ public:
     CollabConnectionState state = CollabConnectionState::Disconnected;
     JoinMessage joinInfo;
     QString serverUrl;
+    QString sessionId;
     std::deque<std::function<void()>> pendingQueue;
     int reconnectAttempt = 0;
     static constexpr int kMaxQueue = 256, kMaxReconnect = 6;
@@ -109,6 +111,7 @@ W_OBJECT_IMPL(CollaborationWebSocket)
 CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
     : QObject(parent), impl_(new Impl())
 {
+    impl_->sessionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     auto* s = this;
     QObject::connect(&impl_->ws, &QWebSocket::connected, s, [s, this]() {
         impl_->reconnectAttempt = 0; impl_->reconnectTimer.stop();
@@ -177,6 +180,17 @@ CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
                 }
             } else if (t == QStringLiteral("error")) {
                 Q_EMIT s->protocolError(o.value(QStringLiteral("message")).toString());
+            // --- Rule sync (Collaborate.Protocol) ---
+            } else if (t == QStringLiteral("rule_added")) {
+                Q_EMIT s->ruleAdded(o.value(QStringLiteral("ruleId")).toString(),
+                    QString::fromUtf8(QJsonDocument(o.value(QStringLiteral("payload")).toObject()).toJson(QJsonDocument::Compact)));
+            } else if (t == QStringLiteral("rule_removed")) {
+                Q_EMIT s->ruleRemoved(o.value(QStringLiteral("ruleId")).toString());
+            } else if (t == QStringLiteral("rule_updated")) {
+                Q_EMIT s->ruleUpdated(o.value(QStringLiteral("ruleId")).toString(),
+                    QString::fromUtf8(QJsonDocument(o.value(QStringLiteral("payload")).toObject()).toJson(QJsonDocument::Compact)));
+            } else if (t == QStringLiteral("rule_executed")) {
+                Q_EMIT s->ruleExecuted(o.value(QStringLiteral("ruleId")).toString());
             }
         });
     impl_->heartbeatTimer.setSingleShot(false);
@@ -245,6 +259,24 @@ void CollaborationWebSocket::sendPresence(const PresenceMessage& pres) {
         impl_->ws.sendTextMessage(
             QString::fromUtf8(QJsonDocument(pres.toJson()).toJson(QJsonDocument::Compact)));
     });
+}
+
+void CollaborationWebSocket::sendRuleSync(const QString& type, const QString& ruleId, const QString& payload) {
+    impl_->sendOrQueue(this, [this, type, ruleId, payload]() {
+        QJsonObject obj;
+        obj[QStringLiteral("type")] = type;
+        obj[QStringLiteral("ruleId")] = ruleId;
+        obj[QStringLiteral("sessionId")] = impl_->sessionId;
+        if (!payload.isEmpty()) {
+            obj[QStringLiteral("payload")] = QJsonDocument::fromJson(payload.toUtf8()).object();
+        }
+        impl_->ws.sendTextMessage(
+            QString::fromUtf8(QJsonDocument(obj).toJson(QJsonDocument::Compact)));
+    });
+}
+
+QString CollaborationWebSocket::sessionId() const {
+    return impl_->sessionId;
 }
 
 } // namespace ArtifactCore

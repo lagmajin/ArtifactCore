@@ -90,6 +90,12 @@ public:
     void sendLockRelease(const LockReleaseMessage& rel);
     void sendPresence(const PresenceMessage& pres);
 
+    // --- Rule sync (CollaborationProtocol) ---
+    void sendRuleSync(const QString& type, const QString& ruleId, const QString& payload);
+
+    // --- Session ---
+    QString sessionId() const;
+
 public:
     // --- Incoming signals ---
     void remoteOperation(const OperationMessage& op)
@@ -110,6 +116,16 @@ public:
         W_SIGNAL(connectionStateChanged, state);
     void protocolError(const QString& message)
         W_SIGNAL(protocolError, message);
+
+    // --- Rule sync signals ---
+    void ruleAdded(const QString& ruleId, const QString& payload)
+        W_SIGNAL(ruleAdded, ruleId, payload);
+    void ruleRemoved(const QString& ruleId)
+        W_SIGNAL(ruleRemoved, ruleId);
+    void ruleUpdated(const QString& ruleId, const QString& payload)
+        W_SIGNAL(ruleUpdated, ruleId, payload);
+    void ruleExecuted(const QString& ruleId)
+        W_SIGNAL(ruleExecuted, ruleId);
 
 private:
     class Impl;

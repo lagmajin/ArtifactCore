@@ -22,6 +22,8 @@ module ArtifactCore.Rig2D;
 
 import Utils.Id;
 import Time.Rational;
+import Animation.Value;
+import Frame.Position;
 
 namespace ArtifactCore {
 
@@ -189,6 +191,17 @@ QString channelNameForMap(const QString& channel) {
 
 } // namespace
 
+// BoneTransform arithmetic (for AnimatableValueT interpolation)
+BoneTransform BoneTransform::operator+(const BoneTransform& other) const {
+    return { position + other.position, rotation + other.rotation, scale + other.scale };
+}
+BoneTransform BoneTransform::operator-(const BoneTransform& other) const {
+    return { position - other.position, rotation - other.rotation, scale - other.scale };
+}
+BoneTransform BoneTransform::operator*(float scalar) const {
+    return { position * scalar, rotation * scalar, scale * scalar };
+}
+
 // ─────────────────────────────────────────────────────────
 // Bone2D 実装
 // ─────────────────────────────────────────────────────────
@@ -220,8 +233,32 @@ void Bone2D::removeChild(Bone2D* child) {
 }
 
 BoneTransform Bone2D::evaluate(const RationalTime& time) const {
-    Q_UNUSED(time);
+    if (keyframes_.getKeyFrameCount() > 0) {
+        // FramePosition に変換（fps=30 は現状の Layer 側と合わせる。将来は fps を Rig2D が持つ）
+        const FramePosition pos(time.toFrameCount(30));
+        return keyframes_.at(pos);
+    }
     return localTransform_;
+}
+
+void Bone2D::addKeyFrame(const FramePosition& frame, const BoneTransform& transform) {
+    keyframes_.addKeyFrame(frame, transform);
+}
+
+void Bone2D::removeKeyFrameAt(const FramePosition& frame) {
+    keyframes_.removeKeyFrameAt(frame);
+}
+
+bool Bone2D::hasKeyFrameAt(const FramePosition& frame) const {
+    return keyframes_.hasKeyFrameAt(frame);
+}
+
+size_t Bone2D::keyFrameCount() const {
+    return keyframes_.getKeyFrameCount();
+}
+
+void Bone2D::clearKeyFrames() {
+    keyframes_.clearKeyFrames();
 }
 
 QJsonObject Bone2D::toJson() const {
@@ -232,6 +269,18 @@ QJsonObject Bone2D::toJson() const {
     object["localTransform"] = transformToJson(localTransform_);
     if (parent_) {
         object["parentId"] = parent_->id().toString();
+    }
+    const auto kfs = keyframes_.getKeyFrames();
+    if (!kfs.empty()) {
+        QJsonArray kfArray;
+        for (const auto& kf : kfs) {
+            QJsonObject kfObj;
+            kfObj["frame"] = static_cast<qint64>(kf.frame.framePosition());
+            kfObj["transform"] = transformToJson(kf.value);
+            kfObj["interpolation"] = static_cast<int>(kf.interpolation);
+            kfArray.append(kfObj);
+        }
+        object["keyframes"] = kfArray;
     }
     return object;
 }
@@ -245,6 +294,22 @@ void Bone2D::fromJson(const QJsonObject& object) {
     length_ = static_cast<float>(object.value("length").toDouble(length_));
     localTransform_ = transformFromJson(object.value("localTransform"), localTransform_);
     resolvedTransform_ = localTransform_;
+
+    // キーフレーム復元
+    const QJsonValue kfVal = object.value("keyframes");
+    if (kfVal.isArray()) {
+        const QJsonArray kfArray = kfVal.toArray();
+        for (const auto& elem : kfArray) {
+            if (!elem.isObject()) continue;
+            const QJsonObject kfObj = elem.toObject();
+            const FramePosition frame(kfObj.value("frame").toInteger());
+            const BoneTransform bt = transformFromJson(kfObj.value("transform"), BoneTransform{});
+            keyframes_.addKeyFrame(frame, bt);
+            keyframes_.setKeyFrameInterpolationAt(
+                frame,
+                static_cast<InterpolationType>(kfObj.value("interpolation").toInt(0)));
+        }
+    }
 }
 
 void Bone2D::updateHierarchy() {
@@ -795,7 +860,9 @@ void TwoBoneIKConstraint2D::evaluate(RigEvaluationContext2D& context)
         const float cosAngle1 = clampDouble((len1 * len1 + dist * dist - len2 * len2) / (2.0f * len1 * std::max(dist, 0.001f)), -1.0, 1.0);
         const float angle1 = std::acos(cosAngle1);
         const float baseAngle = std::atan2(targetPos.y() - p1.y(), targetPos.x() - p1.x());
-        jointPos = p1 + QVector2D(std::cos(baseAngle + angle1), std::sin(baseAngle + angle1)) * len1;
+        // poleAngle_ の符号でエルボーの向きを決定（>0 = 反時計回り, <0 = 時計回り）
+        const float sign = (poleAngle_ >= 0.0f) ? 1.0f : -1.0f;
+        jointPos = p1 + QVector2D(std::cos(baseAngle + sign * angle1), std::sin(baseAngle + sign * angle1)) * len1;
         effectorPos = targetPos;
     }
 
