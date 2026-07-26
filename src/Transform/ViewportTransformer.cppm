@@ -35,10 +35,10 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-#include <QDebug>
 module Core.Transform.Viewport;
 
 import Core.Scale.Zoom;
+import Diagnostics.Logger;
 
 namespace ArtifactCore {
     using namespace Diligent;
@@ -148,11 +148,12 @@ namespace ArtifactCore {
         impl_->pan.x = (impl_->viewportSize.x - (impl_->canvasSize.x * impl_->zoom)) * 0.5f;
         impl_->pan.y = (impl_->viewportSize.y - (impl_->canvasSize.y * impl_->zoom)) * 0.5f;
 
-        qDebug() << "[ViewportTransformer] FitCanvasToViewport:"
-                 << "viewport=" << impl_->viewportSize.x << "x" << impl_->viewportSize.y
-                 << "canvas=" << impl_->canvasSize.x << "x" << impl_->canvasSize.y
-                 << "zoom=" << impl_->zoom
-                 << "pan=(" << impl_->pan.x << "," << impl_->pan.y << ")";
+        Logger::instance()->tryFastLogFormat(
+            LogLevel::Debug, LogCategory::RenderVP, 0xffffffffu,
+            "FitCanvasToViewport viewport=%.1fx%.1f canvas=%.1fx%.1f zoom=%.5f pan=(%.1f,%.1f)",
+            impl_->viewportSize.x, impl_->viewportSize.y,
+            impl_->canvasSize.x, impl_->canvasSize.y, impl_->zoom,
+            impl_->pan.x, impl_->pan.y);
     }
 
     void ViewportTransformer::FillCanvasToViewport(float margin) {
@@ -173,11 +174,12 @@ namespace ArtifactCore {
         impl_->pan.x = (impl_->viewportSize.x - (impl_->canvasSize.x * impl_->zoom)) * 0.5f;
         impl_->pan.y = (impl_->viewportSize.y - (impl_->canvasSize.y * impl_->zoom)) * 0.5f;
 
-        qDebug() << "[ViewportTransformer] FillCanvasToViewport:"
-                 << "viewport=" << impl_->viewportSize.x << "x" << impl_->viewportSize.y
-                 << "canvas=" << impl_->canvasSize.x << "x" << impl_->canvasSize.y
-                 << "zoom=" << impl_->zoom
-                 << "pan=(" << impl_->pan.x << "," << impl_->pan.y << ")";
+        Logger::instance()->tryFastLogFormat(
+            LogLevel::Debug, LogCategory::RenderVP, 0xffffffffu,
+            "FillCanvasToViewport viewport=%.1fx%.1f canvas=%.1fx%.1f zoom=%.5f pan=(%.1f,%.1f)",
+            impl_->viewportSize.x, impl_->viewportSize.y,
+            impl_->canvasSize.x, impl_->canvasSize.y, impl_->zoom,
+            impl_->pan.x, impl_->pan.y);
     }
 
     float2 ViewportTransformer::GetViewportSize() const { return impl_->viewportSize; }

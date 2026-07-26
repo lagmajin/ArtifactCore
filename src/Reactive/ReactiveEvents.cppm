@@ -1,5 +1,7 @@
 module;
 #include <utility>
+#include <algorithm>
+#include <cmath>
 #include <QString>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -226,4 +228,165 @@ std::vector<ReactiveRule> ReactiveRule::fromJsonArray(const QString& jsonArray) 
     return rules;
 }
 
+// ============================================================
+// ReactiveEngine 実装
+// ============================================================
+
+void ReactiveEngine::addRule(const ReactiveRule& rule) {
+    for (auto& r : rules_) {
+        if (r.id == rule.id) {
+            r = rule;
+            fired_.remove(rule.id);
+            lastFiredFrame_.remove(rule.id);
+            fireAccumulator_.remove(rule.id);
+            cooldownRemaining_.remove(rule.id);
+            return;
+        }
+    }
+    rules_.push_back(rule);
 }
+
+void ReactiveEngine::removeRule(const QString& ruleId) {
+    rules_.erase(std::remove_if(rules_.begin(), rules_.end(),
+        [&](const auto& r) { return r.id == ruleId; }), rules_.end());
+    fired_.remove(ruleId);
+    lastFiredFrame_.remove(ruleId);
+    fireAccumulator_.remove(ruleId);
+    cooldownRemaining_.remove(ruleId);
+}
+
+void ReactiveEngine::clearRules() {
+    rules_.clear();
+    fired_.clear();
+    lastFiredFrame_.clear();
+    fireAccumulator_.clear();
+    cooldownRemaining_.clear();
+    prevActive_.clear();
+    prevValues_.clear();
+    prevFrame_ = -1;
+}
+
+size_t ReactiveEngine::ruleCount() const { return rules_.size(); }
+std::vector<ReactiveRule> ReactiveEngine::rules() const { return rules_; }
+
+std::vector<TriggerEvent> ReactiveEngine::evaluate(const ReactiveEvaluationContext& ctx) {
+    std::vector<TriggerEvent> results;
+
+    for (auto& rule : rules_) {
+        if (!rule.enabled) continue;
+        if (rule.once && fired_.value(rule.id, false)) continue;
+
+        float& cd = cooldownRemaining_[rule.id];
+        if (cd > 0.0f) {
+            cd -= ctx.deltaTime;
+            if (cd > 0.0f) continue;
+            cd = 0.0f;
+        }
+
+        const auto& tc = rule.trigger;
+        bool conditionMet = false;
+
+        switch (tc.type) {
+        case TriggerEventType::OnStart:
+            if (!tc.sourceLayerId.isEmpty() && ctx.layerInPoint)
+                conditionMet = (ctx.currentFrame >= ctx.layerInPoint(tc.sourceLayerId))
+                    && !prevActive_.value(tc.sourceLayerId, false);
+            break;
+        case TriggerEventType::OnEnd:
+            if (!tc.sourceLayerId.isEmpty() && ctx.layerOutPoint)
+                conditionMet = (ctx.currentFrame >= ctx.layerOutPoint(tc.sourceLayerId))
+                    && prevActive_.value(tc.sourceLayerId, true);
+            break;
+        case TriggerEventType::OnEnterRange:
+            if (!tc.sourceLayerId.isEmpty() && ctx.layerIsActive) {
+                bool now = ctx.layerIsActive(tc.sourceLayerId);
+                conditionMet = now && !prevActive_.value(tc.sourceLayerId, false);
+            }
+            break;
+        case TriggerEventType::OnExitRange:
+            if (!tc.sourceLayerId.isEmpty() && ctx.layerIsActive) {
+                bool now = ctx.layerIsActive(tc.sourceLayerId);
+                conditionMet = !now && prevActive_.value(tc.sourceLayerId, false);
+            }
+            break;
+        case TriggerEventType::OnLoop:
+            conditionMet = (prevFrame_ >= 0) && (ctx.currentFrame < prevFrame_);
+            break;
+        case TriggerEventType::OnContact:
+        case TriggerEventType::OnSeparation:
+        case TriggerEventType::OnProximity:
+            // TBD — needs layerBounds callback in evaluation context
+            conditionMet = false;
+            break;
+        case TriggerEventType::OnValueExceed:
+            if (!tc.sourceLayerId.isEmpty() && ctx.layerPropertyValue) {
+                double now = ctx.layerPropertyValue(tc.sourceLayerId, tc.propertyPath).toDouble();
+                QString key = tc.sourceLayerId + "." + tc.propertyPath;
+                double prev = prevValues_.value(key, now);
+                conditionMet = (now > tc.valueThreshold) && (prev <= tc.valueThreshold);
+                prevValues_[key] = now;
+            }
+            break;
+        case TriggerEventType::OnValueDrop:
+            if (!tc.sourceLayerId.isEmpty() && ctx.layerPropertyValue) {
+                double now = ctx.layerPropertyValue(tc.sourceLayerId, tc.propertyPath).toDouble();
+                QString key = tc.sourceLayerId + "." + tc.propertyPath;
+                double prev = prevValues_.value(key, now);
+                conditionMet = (now < tc.valueThreshold) && (prev >= tc.valueThreshold);
+                prevValues_[key] = now;
+            }
+            break;
+        case TriggerEventType::OnValueCross:
+            if (!tc.sourceLayerId.isEmpty() && ctx.layerPropertyValue) {
+                double now = ctx.layerPropertyValue(tc.sourceLayerId, tc.propertyPath).toDouble();
+                QString key = tc.sourceLayerId + "." + tc.propertyPath;
+                double prev = prevValues_.value(key, now);
+                conditionMet = ((now - tc.valueThreshold) * (prev - tc.valueThreshold)) < 0.0;
+                prevValues_[key] = now;
+            }
+            break;
+        case TriggerEventType::OnFrame:
+            conditionMet = (ctx.currentFrame == tc.frameNumber);
+            break;
+        default:
+            break;
+        }
+
+        if (!conditionMet) continue;
+
+        // delay
+        if (rule.delay > 0.0f) {
+            float& acc = fireAccumulator_[rule.id];
+            acc += ctx.deltaTime;
+            if (acc < rule.delay) continue;
+            acc = 0.0f;
+        }
+
+        // fire
+        fired_[rule.id] = true;
+        lastFiredFrame_[rule.id] = ctx.currentFrame;
+        if (rule.cooldown > 0.0f)
+            cooldownRemaining_[rule.id] = rule.cooldown;
+
+        TriggerEvent ev;
+        ev.type = tc.type;
+        ev.ruleId = rule.id;
+        ev.sourceLayerId = tc.sourceLayerId;
+        ev.targetLayerId = tc.targetLayerId;
+        ev.frame = ctx.currentFrame;
+        ev.deltaTime = ctx.deltaTime;
+        results.push_back(ev);
+    }
+
+    // save prev-frame state
+    for (const auto& rule : rules_) {
+        const auto& tc = rule.trigger;
+        if (!tc.sourceLayerId.isEmpty() && ctx.layerIsActive)
+            prevActive_[tc.sourceLayerId] = ctx.layerIsActive(tc.sourceLayerId);
+    }
+    prevFrame_ = ctx.currentFrame;
+
+    return results;
+}
+
+} // namespace ArtifactCore

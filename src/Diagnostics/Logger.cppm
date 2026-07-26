@@ -13,6 +13,14 @@ module;
 #include <QString>
 #include <QDateTime>
 #include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <cstdio>
+#include <cstdarg>
+#include <chrono>
+#include <thread>
+#include <algorithm>
+#include <functional>
 #include <wobjectimpl.h>
 
 module Diagnostics.Logger;
@@ -86,7 +94,9 @@ Logger* Logger::instance() {
     return &logger;
 }
 
-Logger::Logger(QObject* parent) : QObject(parent) {}
+Logger::Logger(QObject* parent) : QObject(parent) {
+    for (auto& enabled : categoryEnabled_) enabled.store(true, std::memory_order_relaxed);
+}
 
 Logger::~Logger() {
     uninstall();
@@ -161,11 +171,177 @@ void Logger::appendLog(LogLevel level, const QString& message, const QString& co
         }
 
         if (fileLoggingEnabled_) {
-            writeLineToLogFile(formatLogLine(logMsg));
+            if (logFileFormat_ == LogFileFormat::JsonLines) {
+                QJsonObject json;
+                json.insert(QStringLiteral("timestamp"), logMsg.timestamp.toString(Qt::ISODateWithMs));
+                json.insert(QStringLiteral("level"), levelName(logMsg.level));
+                json.insert(QStringLiteral("message"), logMsg.message);
+                if (!logMsg.context.isEmpty()) json.insert(QStringLiteral("context"), logMsg.context);
+                writeLineToLogFile(QString::fromUtf8(
+                    QJsonDocument(json).toJson(QJsonDocument::Compact)));
+            } else {
+                writeLineToLogFile(formatLogLine(logMsg));
+            }
         }
     }
 
     Q_EMIT logAdded(static_cast<int>(level), message, context, logMsg.timestamp);
+}
+
+void Logger::setFileLoggingEnabled(bool enabled)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    fileLoggingRequested_ = enabled;
+    if (enabled) {
+        if (fileLoggingRequested_) ensureLogFileReady();
+    } else if (logFile_.isOpen()) {
+        logFile_.flush();
+        logFile_.close();
+        fileLoggingEnabled_ = false;
+    }
+}
+
+void Logger::setLogFilePath(const QString& path)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (logFile_.isOpen()) logFile_.close();
+    logFilePath_ = path;
+    fileLoggingEnabled_ = false;
+    if (installed_ && fileLoggingRequested_ && !logFilePath_.isEmpty()) ensureLogFileReady();
+}
+
+QString Logger::logFilePath() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return logFilePath_;
+}
+
+void Logger::setMaxLogFileBytes(std::uint64_t bytes) noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    maxLogFileBytes_ = std::max<std::uint64_t>(bytes, 64ull * 1024ull);
+}
+
+void Logger::setLogFileFormat(LogFileFormat format) noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    logFileFormat_ = format;
+}
+
+LogFileFormat Logger::logFileFormat() const noexcept
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return logFileFormat_;
+}
+
+void Logger::flushFile()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (logFile_.isOpen()) logFile_.flush();
+}
+
+static QString categoryName(LogCategory category)
+{
+    switch (category) {
+    case LogCategory::General: return QStringLiteral("General");
+    case LogCategory::App: return QStringLiteral("App");
+    case LogCategory::Project: return QStringLiteral("Project");
+    case LogCategory::Timeline: return QStringLiteral("Timeline");
+    case LogCategory::RenderVP: return QStringLiteral("Render.VP");
+    case LogCategory::RenderGPU: return QStringLiteral("Render.GPU");
+    case LogCategory::RenderPass: return QStringLiteral("Render.Pass");
+    case LogCategory::RenderResource: return QStringLiteral("Render.Resource");
+    case LogCategory::MediaDecode: return QStringLiteral("Media.Decode");
+    case LogCategory::NetworkFarm: return QStringLiteral("Network.Farm");
+    case LogCategory::ScriptRuntime: return QStringLiteral("Script.Runtime");
+    case LogCategory::Diagnostics: return QStringLiteral("Diagnostics");
+    }
+    return QStringLiteral("General");
+}
+
+bool Logger::tryFastLog(LogLevel level, LogCategory category, const char* message,
+                        std::uint32_t frame) noexcept
+{
+    if (!message) return false;
+    if (!isCategoryEnabled(category)) return false;
+    while (fastLogProducerLock_.test_and_set(std::memory_order_acquire)) {
+        std::this_thread::yield();
+    }
+    const auto write = fastLogWrite_.load(std::memory_order_relaxed);
+    const auto read = fastLogRead_.load(std::memory_order_acquire);
+    if (write - read >= fastLogCapacity_) {
+        fastLogDropped_.fetch_add(1, std::memory_order_relaxed);
+        fastLogProducerLock_.clear(std::memory_order_release);
+        return false;
+    }
+
+    auto& record = fastLogBuffer_[write % fastLogCapacity_];
+    record.timestampTicks = static_cast<std::uint64_t>(
+        std::chrono::steady_clock::now().time_since_epoch().count());
+    record.category = static_cast<std::uint32_t>(category);
+    record.threadId = static_cast<std::uint32_t>(
+        std::hash<std::thread::id>{}(std::this_thread::get_id()));
+    record.frame = frame;
+    record.level = static_cast<std::uint16_t>(level);
+    const int written = std::snprintf(record.message.data(), record.message.size(), "%s", message);
+    record.length = static_cast<std::uint16_t>(written > 0
+        ? std::min<int>(written, static_cast<int>(record.message.size() - 1)) : 0);
+    fastLogWrite_.store(write + 1, std::memory_order_release);
+    fastLogProducerLock_.clear(std::memory_order_release);
+    return true;
+}
+
+bool Logger::tryFastLogFormat(LogLevel level, LogCategory category, std::uint32_t frame,
+                              const char* format, ...) noexcept
+{
+    if (!format || !isCategoryEnabled(category)) return false;
+
+    char message[192]{};
+    va_list args;
+    va_start(args, format);
+    const int written = std::vsnprintf(message, sizeof(message), format, args);
+    va_end(args);
+    if (written < 0) return false;
+    return tryFastLog(level, category, message, frame);
+}
+
+void Logger::setCategoryEnabled(LogCategory category, bool enabled) noexcept
+{
+    const auto index = static_cast<std::size_t>(category);
+    if (index < categoryEnabled_.size()) {
+        categoryEnabled_[index].store(enabled, std::memory_order_relaxed);
+    }
+}
+
+bool Logger::isCategoryEnabled(LogCategory category) const noexcept
+{
+    const auto index = static_cast<std::size_t>(category);
+    return index < categoryEnabled_.size()
+        && categoryEnabled_[index].load(std::memory_order_relaxed);
+}
+
+std::size_t Logger::drainFastLogs(std::size_t maxRecords)
+{
+    std::size_t drained = 0;
+    while (drained < maxRecords) {
+        const auto read = fastLogRead_.load(std::memory_order_relaxed);
+        const auto write = fastLogWrite_.load(std::memory_order_acquire);
+        if (read >= write) break;
+        const auto& record = fastLogBuffer_[read % fastLogCapacity_];
+        const QString message = QString::fromUtf8(record.message.data(), record.length);
+        const QString context = QStringLiteral("category=%1 thread=%2 frame=%3")
+            .arg(categoryName(static_cast<LogCategory>(record.category)))
+            .arg(record.threadId).arg(record.frame == 0xffffffffu ? -1 : record.frame);
+        appendLog(static_cast<LogLevel>(record.level), message, context);
+        fastLogRead_.store(read + 1, std::memory_order_release);
+        ++drained;
+    }
+    return drained;
+}
+
+std::uint64_t Logger::droppedFastLogCount() const noexcept
+{
+    return fastLogDropped_.load(std::memory_order_relaxed);
 }
 
 void Logger::appendDiagnostic(const DiagnosticEvent& event)
@@ -261,7 +437,7 @@ bool Logger::ensureLogFileReady()
         return true;
     }
 
-    logFilePath_ = defaultLogFilePath();
+    if (logFilePath_.isEmpty()) logFilePath_ = defaultLogFilePath();
     QDir dir = QFileInfo(logFilePath_).dir();
     if (!dir.exists() && !dir.mkpath(QStringLiteral("."))) {
         fileLoggingEnabled_ = false;
@@ -269,6 +445,12 @@ bool Logger::ensureLogFileReady()
     }
 
     logFile_.setFileName(logFilePath_);
+    if (QFileInfo::exists(logFilePath_)
+        && static_cast<std::uint64_t>(QFileInfo(logFilePath_).size()) >= maxLogFileBytes_) {
+        const QString rotatedPath = logFilePath_ + QStringLiteral(".1");
+        QFile::remove(rotatedPath);
+        QFile::rename(logFilePath_, rotatedPath);
+    }
     if (!logFile_.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
         fileLoggingEnabled_ = false;
         return false;

@@ -28,7 +28,8 @@ bool AssetImporter::isSupported(const QString& extension) {
     
     // Simple list of supported extensions
     static const QStringList supported = {
-        "jpg", "jpeg", "png", "tga", "exr", "tif", "tiff", "psd", "psb",
+        "jpg", "jpeg", "png", "bmp", "gif", "tga", "exr", "hdr", "tif", "tiff",
+        "webp", "ico", "dds", "ktx", "psd", "psb",
         "ai", "pdf", "eps", "svg",
         "mp4", "mov", "avi", "mkv",
         "wav", "mp3", "flac", "aac",

@@ -6,6 +6,63 @@ module;
 #include <vector>
 #include <array>
 
+// ─────────────────────────────────────────────────────────
+// Minimal CLAP C API structs — clap.h 非依存
+// ─────────────────────────────────────────────────────────
+struct clap_plugin_descriptor {
+    const char* clap_version;
+    const char* id;
+    const char* name;
+    const char* vendor;
+    const char* url;
+    const char* manual_url;
+    const char* support_url;
+    const char* version;
+    const char* description;
+    const char** features;
+};
+
+struct clap_host {
+    void* host_data;
+    // 必要に応じて拡張 (timer, request_restart 等)
+};
+
+struct clap_process {
+    void* reserved[2];           // in/out events
+    uint32_t frames_count;
+    uint32_t frame_offset;
+    float* audio_inputs[2];       // deinterleaved: [0]=左 [1]=右
+    float* audio_outputs[2];
+    uint32_t audio_inputs_count;
+    uint32_t audio_outputs_count;
+    double transport;
+};
+
+struct clap_plugin {
+    const clap_plugin_descriptor* desc;
+    void* plugin_data;
+    bool (*init)(const struct clap_plugin*);
+    void (*destroy)(const struct clap_plugin*);
+    bool (*activate)(const struct clap_plugin*, double sample_rate,
+                     uint32_t min_frames, uint32_t max_frames);
+    void (*deactivate)(const struct clap_plugin*);
+    bool (*start_processing)(const struct clap_plugin*);
+    void (*stop_processing)(const struct clap_plugin*);
+    bool (*process)(const struct clap_plugin*, const struct clap_process*);
+    const void* (*get_extension)(const struct clap_plugin*, const char* id);
+    void (*on_main_thread)(const struct clap_plugin*);
+};
+
+struct clap_plugin_entry {
+    uint32_t clap_version;
+    bool (*init)(const char* plugin_path);
+    void (*deinit)();
+    uint32_t (*get_plugin_count)();
+    const clap_plugin_descriptor* (*get_plugin_descriptor)(uint32_t index);
+    const clap_plugin* (*create_plugin)(const struct clap_host* host, uint32_t index);
+    void (*destroy_plugin)(const struct clap_plugin* plugin);
+};
+
 export module CLAP.Host;
 
 import Audio.Segment;
@@ -106,7 +163,8 @@ struct Process {
 };
 
 // === プラグインエントリポイント ===
-using PluginEntryProc = bool (*)(const struct PluginDescriptor*);
+// CLAP DLL は const clap_plugin_entry* clap_entry をエクスポートする
+// 関数ポインタとして解決する: const clap_plugin_entry* (*)()
 
 // === プラグインインスタンス ===
 class Plugin {
@@ -178,6 +236,42 @@ public:
 };
 
 // === ホスト（プラグインローダー兼マネージャ）===
+
+// 具象プラグインインスタンス — ロード済み clap_plugin をラップ
+class PluginInstance : public Plugin {
+public:
+    PluginInstance(const struct clap_plugin* plugin,
+                   const PluginDescriptor& desc,
+                   const struct clap_plugin_entry* entry);
+    ~PluginInstance() override;
+
+    bool init() override;
+    void destroy() override;
+    bool activate(float64 sampleRate, uint32 minFrameCount,
+                  uint32 maxFrameCount) override;
+    void deactivate() override;
+    bool startProcessing() override;
+    void stopProcessing() override;
+    bool process(const Process& process) override;
+    const void* getExtension(const char* id) override;
+    const PluginDescriptor& descriptor() const override { return desc_; }
+
+    // パラメータ
+    uint32 paramsCount() const override;
+    bool paramInfo(uint32 index, void* info) const override;
+    double paramValue(uint32 paramId) const override;
+    bool paramSetValue(uint32 paramId, double value) override;
+    bool paramGetDisplay(uint32 paramId, char* buf, uint32 size) const override;
+
+private:
+    const struct clap_plugin* plugin_;
+    PluginDescriptor desc_;
+    const struct clap_plugin_entry* entry_;
+    // clap_plugin_params 拡張 (遅延解決)
+    void* paramExt_ = nullptr;
+    bool resolveParamExt();
+};
+
 class Host {
 public:
     Host();

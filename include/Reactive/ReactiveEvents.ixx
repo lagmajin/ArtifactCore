@@ -1,7 +1,10 @@
 module;
 #include <utility>
+#include <functional>
 #include <QString>
 #include <QVariant>
+#include <QRectF>
+#include <QHash>
 #include <vector>
 #include <cstdint>
 
@@ -183,5 +186,55 @@ const char* triggerEventTypeName(TriggerEventType type);
 const char* reactionTypeName(ReactionType type);
 TriggerEventType triggerEventTypeFromName(const QString& name);
 ReactionType reactionTypeFromName(const QString& name);
+
+// ============================================================
+// Reactive Evaluation Context — layer-agnostic callbacks
+// ============================================================
+
+struct ReactiveEvaluationContext {
+    int64_t currentFrame = 0;
+    float deltaTime = 0.0f;
+
+    // (layerId, propertyPath) → current value
+    std::function<QVariant(QString,QString)> layerPropertyValue;
+    // layerId → is layer within its active range?
+    std::function<bool(QString)> layerIsActive;
+    // layerId → inPoint frame
+    std::function<int64_t(QString)> layerInPoint;
+    // layerId → outPoint frame
+    std::function<int64_t(QString)> layerOutPoint;
+};
+
+// ============================================================
+// Reactive Engine — evaluates rules each frame
+// ============================================================
+
+class ReactiveEngine {
+public:
+    ReactiveEngine() = default;
+
+    void addRule(const ReactiveRule& rule);
+    void removeRule(const QString& ruleId);
+    void clearRules();
+    size_t ruleCount() const;
+    std::vector<ReactiveRule> rules() const;
+
+    // Evaluate all rules. Returns fired TriggerEvents.
+    // Called once per frame.
+    std::vector<TriggerEvent> evaluate(const ReactiveEvaluationContext& ctx);
+
+private:
+    std::vector<ReactiveRule> rules_;
+    // Per-rule runtime state (not serialized)
+    QHash<QString, bool> fired_;
+    QHash<QString, int64_t> lastFiredFrame_;
+    QHash<QString, float> fireAccumulator_;
+    QHash<QString, float> cooldownRemaining_;
+
+    // Previous-frame state for edge detection
+    QHash<QString, bool> prevActive_;
+    QHash<QString, double> prevValues_;
+    int64_t prevFrame_ = -1;
+};
 
 }
