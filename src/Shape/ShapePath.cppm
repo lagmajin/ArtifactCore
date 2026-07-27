@@ -415,29 +415,47 @@ bool ShapePath::contains(const QPointF& point) const {
 }
 
 QPointF ShapePath::pointAtPercent(double t) const {
-    if (impl_->commands_.empty()) return QPointF();
-    QPainterPath path = toPainterPath();
-    if (path.isEmpty()) return QPointF();
-    return path.pointAtPercent(std::clamp(t, 0.0, 1.0));
+    const double total = length();
+    if (total <= 0.0) {
+        const auto segments = flatten();
+        return segments.empty() ? QPointF() : segments.front().p0;
+    }
+    return pointAtLength(std::clamp(t, 0.0, 1.0) * total);
 }
 
 double ShapePath::length() const {
     double total = 0.0;
-    for (const auto& segment : toSegments()) {
-        total += cubicApproxLength(segment.p0, segment.p1, segment.p2, segment.p3);
+    for (const auto& segment : flatten()) {
+        total += std::hypot(segment.p1.x() - segment.p0.x(),
+                            segment.p1.y() - segment.p0.y());
     }
     return total;
 }
 
 QPointF ShapePath::pointAtLength(double length) const {
-    if (impl_->commands_.empty()) return QPointF();
-    QPainterPath path = toPainterPath();
-    if (path.isEmpty()) return QPointF();
-    const double total = path.length();
-    if (total <= 0.0) {
-        return path.pointAtPercent(0.0);
+    const auto segments = flatten();
+    if (segments.empty()) return QPointF();
+
+    double total = 0.0;
+    for (const auto& segment : segments) {
+        total += std::hypot(segment.p1.x() - segment.p0.x(),
+                            segment.p1.y() - segment.p0.y());
     }
-    return path.pointAtPercent(path.percentAtLength(std::clamp(length, 0.0, total)));
+    if (total <= 0.0) return segments.front().p0;
+
+    double remaining = std::clamp(length, 0.0, total);
+    for (const auto& segment : segments) {
+        const double dx = segment.p1.x() - segment.p0.x();
+        const double dy = segment.p1.y() - segment.p0.y();
+        const double segmentLength = std::hypot(dx, dy);
+        if (segmentLength <= 0.0) continue;
+        if (remaining <= segmentLength) {
+            const double ratio = remaining / segmentLength;
+            return segment.p0 + (segment.p1 - segment.p0) * ratio;
+        }
+        remaining -= segmentLength;
+    }
+    return segments.back().p1;
 }
 
 std::vector<BezierSegment> ShapePath::toSegments() const {
