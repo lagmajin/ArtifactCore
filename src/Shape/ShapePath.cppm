@@ -411,7 +411,12 @@ void ShapePath::setPolygon(const std::vector<QPointF>& points, bool closed) {
 
 void ShapePath::setStar(const QPointF& center, int points, double outerRadius, double innerRadius) {
     clear();
-    if (points < 2) return;
+    if (points < 2 || !std::isfinite(center.x()) || !std::isfinite(center.y()) ||
+        !std::isfinite(outerRadius) || !std::isfinite(innerRadius) ||
+        outerRadius <= 0.0) return;
+
+    outerRadius = std::abs(outerRadius);
+    innerRadius = std::clamp(std::abs(innerRadius), 0.0, outerRadius);
 
     const double angleStep = std::numbers::pi / points;
     const double startAngle = -std::numbers::pi / 2;
