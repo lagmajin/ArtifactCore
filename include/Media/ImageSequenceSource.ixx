@@ -5,6 +5,7 @@ module;
 #include <QList>
 #include <QSize>
 #include <QString>
+#include <QtGlobal>
 
 #include "../Define/DllExportMacro.hpp"
 
@@ -37,6 +38,11 @@ public:
     QImage frameAt(qint64 frameIndex) const override;
 
     void setFrameRate(double fps);
+
+    // Bounded decoded-frame cache diagnostics and control.
+    quint64 frameCacheHitCount() const;
+    quint64 frameCacheMissCount() const;
+    void clearFrameCache();
 
 private:
     struct FrameEntry;

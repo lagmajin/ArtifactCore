@@ -40,6 +40,8 @@ struct ImageSequenceSource::Impl {
     qint64 currentFrameIndex = 0;
     QHash<qint64, CachedFrame> frameCache;
     QList<qint64> frameCacheOrder;
+    quint64 frameCacheHits = 0;
+    quint64 frameCacheMisses = 0;
     bool open = false;
 };
 
@@ -178,6 +180,8 @@ bool ImageSequenceSource::open(const QString& uri)
     impl_->frames = std::move(frames);
     impl_->frameCache.clear();
     impl_->frameCacheOrder.clear();
+    impl_->frameCacheHits = 0;
+    impl_->frameCacheMisses = 0;
     impl_->frameRate = 24.0;
     impl_->currentFrameIndex = 0;
     impl_->open = true;
@@ -198,6 +202,8 @@ void ImageSequenceSource::close()
     impl_->frames.clear();
     impl_->frameCache.clear();
     impl_->frameCacheOrder.clear();
+    impl_->frameCacheHits = 0;
+    impl_->frameCacheMisses = 0;
     impl_->frameSize = QSize();
     impl_->currentFrameIndex = 0;
     impl_->frameRate = 24.0;
@@ -291,10 +297,13 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
         cached != impl_->frameCache.cend() &&
         cached->fileSize == sourceInfo.size() &&
         cached->lastModifiedMs == sourceInfo.lastModified().toMSecsSinceEpoch()) {
+        ++impl_->frameCacheHits;
         impl_->frameCacheOrder.removeAll(frameIndex);
         impl_->frameCacheOrder.push_back(frameIndex);
         return cached->image;
     }
+
+    ++impl_->frameCacheMisses;
 
     QImageReader reader(entry.path);
     QImage image = reader.read();
@@ -322,6 +331,27 @@ void ImageSequenceSource::setFrameRate(double fps)
     }
 
     impl_->frameRate = fps > 0.0 ? fps : 24.0;
+}
+
+quint64 ImageSequenceSource::frameCacheHitCount() const
+{
+    return impl_ ? impl_->frameCacheHits : 0;
+}
+
+quint64 ImageSequenceSource::frameCacheMissCount() const
+{
+    return impl_ ? impl_->frameCacheMisses : 0;
+}
+
+void ImageSequenceSource::clearFrameCache()
+{
+    if (!impl_) {
+        return;
+    }
+    impl_->frameCache.clear();
+    impl_->frameCacheOrder.clear();
+    impl_->frameCacheHits = 0;
+    impl_->frameCacheMisses = 0;
 }
 
 } // namespace ArtifactCore
