@@ -445,6 +445,7 @@ std::vector<BezierSegment> ShapePath::toSegments() const {
     if (cmds.empty()) return segments;
 
     QPointF currentPos;  // 現在のパス位置
+    QPointF subpathStart; // 現在のサブパス始点
     bool hasCurrent = false;
 
     for (size_t i = 0; i < cmds.size(); ++i) {
@@ -452,6 +453,7 @@ std::vector<BezierSegment> ShapePath::toSegments() const {
         switch (cmd.type) {
             case PathCommandType::MoveTo:
                 currentPos = cmd.points[0];
+                subpathStart = currentPos;
                 hasCurrent = true;
                 break;
             case PathCommandType::LineTo: {
@@ -478,6 +480,11 @@ std::vector<BezierSegment> ShapePath::toSegments() const {
                 break;
             }
             case PathCommandType::Close:
+                if (hasCurrent && currentPos != subpathStart) {
+                    segments.push_back(BezierSegment{
+                        currentPos, currentPos, subpathStart, subpathStart});
+                }
+                currentPos = subpathStart;
                 hasCurrent = false;
                 break;
         }
