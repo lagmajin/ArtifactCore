@@ -300,6 +300,28 @@ qint64 ImageSequenceSource::frameCount() const
     return impl_ ? impl_->frames.size() : 0;
 }
 
+qint64 ImageSequenceSource::sourceFrameNumberAt(qint64 sequenceIndex) const
+{
+    if (!impl_ || sequenceIndex < 0 ||
+        sequenceIndex >= impl_->frames.size()) {
+        return -1;
+    }
+    return impl_->frames.at(sequenceIndex).frameIndex;
+}
+
+qint64 ImageSequenceSource::sequenceIndexForSourceFrame(qint64 frameNumber) const
+{
+    if (!impl_) {
+        return -1;
+    }
+    for (qint64 index = 0; index < impl_->frames.size(); ++index) {
+        if (impl_->frames.at(index).frameIndex == frameNumber) {
+            return index;
+        }
+    }
+    return -1;
+}
+
 QSize ImageSequenceSource::frameSize() const
 {
     return impl_ ? impl_->frameSize : QSize();

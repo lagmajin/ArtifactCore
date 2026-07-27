@@ -32,6 +32,8 @@ public:
     bool seek(qint64 frameIndex) override;
     qint64 currentFrameIndex() const override;
     qint64 frameCount() const override;
+    qint64 sourceFrameNumberAt(qint64 sequenceIndex) const;
+    qint64 sequenceIndexForSourceFrame(qint64 frameNumber) const;
     QSize frameSize() const override;
     double frameRate() const override;
 
