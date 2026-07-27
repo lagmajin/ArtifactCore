@@ -10,6 +10,7 @@ module;
 #include <numeric>
 #include <iterator>
 #include <cfloat>
+#include <limits>
 #include <numbers>
 
 module Shape.Path:Impl;
@@ -501,6 +502,59 @@ std::vector<BezierSegment> ShapePath::toSegments() const {
         }
     }
     return segments;
+}
+
+std::vector<BezierSegment> ShapePath::flatten(double tolerance) const {
+    std::vector<BezierSegment> flattened;
+    if (!std::isfinite(tolerance) || tolerance <= 0.0) tolerance = 0.25;
+
+    const auto distanceToChord = [](const QPointF& point,
+                                    const QPointF& start,
+                                    const QPointF& end) {
+        const double dx = end.x() - start.x();
+        const double dy = end.y() - start.y();
+        const double lengthSquared = dx * dx + dy * dy;
+        if (lengthSquared <= std::numeric_limits<double>::epsilon()) {
+            return std::hypot(point.x() - start.x(), point.y() - start.y());
+        }
+        const double cross = dx * (point.y() - start.y()) -
+                             dy * (point.x() - start.x());
+        return std::abs(cross) / std::sqrt(lengthSquared);
+    };
+
+    const auto appendLine = [&](const QPointF& start, const QPointF& end) {
+        if (std::isfinite(start.x()) && std::isfinite(start.y()) &&
+            std::isfinite(end.x()) && std::isfinite(end.y())) {
+            flattened.push_back(BezierSegment{start, start, end, end});
+        }
+    };
+
+    const auto flattenSegment = [&](const BezierSegment& segment) {
+        std::function<void(const BezierSegment&, int)> subdivide;
+        subdivide = [&](const BezierSegment& current, int depth) {
+            const double error = std::max(
+                distanceToChord(current.cp1, current.p0, current.p1),
+                distanceToChord(current.cp2, current.p0, current.p1));
+            if (error <= tolerance || depth >= 16) {
+                appendLine(current.p0, current.p1);
+                return;
+            }
+
+            const QPointF p01 = (current.p0 + current.cp1) * 0.5;
+            const QPointF p12 = (current.cp1 + current.cp2) * 0.5;
+            const QPointF p23 = (current.cp2 + current.p1) * 0.5;
+            const QPointF p012 = (p01 + p12) * 0.5;
+            const QPointF p123 = (p12 + p23) * 0.5;
+            const QPointF midpoint = (p012 + p123) * 0.5;
+
+            subdivide(BezierSegment{current.p0, p01, p012, midpoint}, depth + 1);
+            subdivide(BezierSegment{midpoint, p123, p23, current.p1}, depth + 1);
+        };
+        subdivide(segment, 0);
+    };
+
+    for (const auto& segment : toSegments()) flattenSegment(segment);
+    return flattened;
 }
 
 // ========================================

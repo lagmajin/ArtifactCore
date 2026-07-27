@@ -107,6 +107,8 @@ public:
     double length() const;
     QPointF pointAtLength(double length) const;
     std::vector<BezierSegment> toSegments() const;
+    /// Bézier セグメントを指定 tolerance の直線セグメントへ平坦化する。
+    std::vector<BezierSegment> flatten(double tolerance = 0.25) const;
 
     /// パラメータ t における接線ベクトル（正規化済み）
     QPointF tangentAtPercent(double t) const;
