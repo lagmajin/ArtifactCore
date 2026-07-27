@@ -1213,6 +1213,7 @@ QJsonObject ShapePath::toJson() const
 {
     QJsonObject obj;
     obj["name"] = name();
+    obj["opacity"] = opacity();
 
     QJsonArray cmdArr;
     for (const auto& cmd : impl_->commands_) {
@@ -1236,6 +1237,7 @@ ShapePath ShapePath::fromJson(const QJsonObject& obj)
 {
     ShapePath path;
     path.setName(obj["name"].toString());
+    if (obj.contains("opacity")) path.setOpacity(obj["opacity"].toDouble());
 
     const QJsonArray cmdArr = obj["commands"].toArray();
     for (const auto& val : cmdArr) {
