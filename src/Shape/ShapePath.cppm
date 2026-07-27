@@ -488,7 +488,9 @@ double ShapePath::opacity() const {
 }
 
 void ShapePath::setOpacity(double opacity) {
-    impl_->opacity_ = opacity;
+    impl_->opacity_ = std::isfinite(opacity)
+        ? std::clamp(opacity, 0.0, 1.0)
+        : 1.0;
 }
 
 bool ShapePath::isEmpty() const {
