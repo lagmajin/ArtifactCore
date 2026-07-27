@@ -447,30 +447,41 @@ std::vector<BezierSegment> ShapePath::toSegments() const {
     QPointF currentPos;  // 現在のパス位置
     QPointF subpathStart; // 現在のサブパス始点
     bool hasCurrent = false;
+    const auto finite = [](const QPointF& point) {
+        return std::isfinite(point.x()) && std::isfinite(point.y());
+    };
 
     for (size_t i = 0; i < cmds.size(); ++i) {
         const auto& cmd = cmds[i];
         switch (cmd.type) {
             case PathCommandType::MoveTo:
+                if (!finite(cmd.points[0])) {
+                    hasCurrent = false;
+                    break;
+                }
                 currentPos = cmd.points[0];
                 subpathStart = currentPos;
                 hasCurrent = true;
                 break;
             case PathCommandType::LineTo: {
-                QPointF start = hasCurrent ? currentPos : QPointF(0, 0);
                 QPointF end = cmd.points[0];
+                if (!hasCurrent || !finite(end)) break;
+                QPointF start = currentPos;
                 segments.push_back(BezierSegment{start, start, end, end});
                 currentPos = end;
                 break;
             }
             case PathCommandType::CubicTo: {
-                QPointF start = hasCurrent ? currentPos : QPointF(0, 0);
+                if (!hasCurrent || !finite(cmd.points[0]) ||
+                    !finite(cmd.points[1]) || !finite(cmd.points[2])) break;
+                QPointF start = currentPos;
                 segments.push_back(BezierSegment{start, cmd.points[0], cmd.points[1], cmd.points[2]});
                 currentPos = cmd.points[2];
                 break;
             }
             case PathCommandType::QuadTo: {
-                QPointF start = hasCurrent ? currentPos : QPointF(0, 0);
+                if (!hasCurrent || !finite(cmd.points[0]) || !finite(cmd.points[1])) break;
+                QPointF start = currentPos;
                 QPointF cp = cmd.points[0];
                 QPointF end = cmd.points[1];
                 QPointF cp1 = start + 2.0 / 3.0 * (cp - start);
