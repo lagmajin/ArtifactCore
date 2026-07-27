@@ -258,6 +258,9 @@ bool ImageSequenceSource::seek(qint64 frameIndex)
     }
 
     impl_->currentFrameIndex = frameIndex;
+    if (frameIndex + 1 < impl_->frames.size()) {
+        prefetchFrame(frameIndex + 1);
+    }
     return true;
 }
 
@@ -351,6 +354,13 @@ int ImageSequenceSource::frameCacheEntryCount() const
 int ImageSequenceSource::frameCacheCapacity() const
 {
     return kFrameCacheCapacity;
+}
+
+void ImageSequenceSource::prefetchFrame(qint64 frameIndex) const
+{
+    // Route prefetch through frameAt so validation, invalidation, LRU order,
+    // and hit/miss diagnostics remain identical to an on-demand read.
+    (void)frameAt(frameIndex);
 }
 
 void ImageSequenceSource::clearFrameCache()

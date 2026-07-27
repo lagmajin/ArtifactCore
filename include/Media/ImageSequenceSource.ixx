@@ -44,6 +44,7 @@ public:
     quint64 frameCacheMissCount() const;
     int frameCacheEntryCount() const;
     int frameCacheCapacity() const;
+    void prefetchFrame(qint64 frameIndex) const;
     void clearFrameCache();
 
 private:
