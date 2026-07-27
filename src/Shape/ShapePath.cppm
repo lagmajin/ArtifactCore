@@ -40,7 +40,40 @@ public:
     void invalidate() const { dirty_ = true; }
 
     QRectF computeBounds() const {
-        return toPainterPath().boundingRect();
+        // Keep bounds independent from QPainterPath.  Including Bézier control
+        // points is conservative and stable for cache invalidation; a later
+        // tessellation pass can provide tighter renderer bounds when needed.
+        bool hasPoint = false;
+        double minX = 0.0;
+        double minY = 0.0;
+        double maxX = 0.0;
+        double maxY = 0.0;
+
+        const auto include = [&](const QPointF& point) {
+            const double x = point.x();
+            const double y = point.y();
+            if (!std::isfinite(x) || !std::isfinite(y)) return;
+            if (!hasPoint) {
+                minX = maxX = x;
+                minY = maxY = y;
+                hasPoint = true;
+                return;
+            }
+            minX = std::min(minX, x);
+            minY = std::min(minY, y);
+            maxX = std::max(maxX, x);
+            maxY = std::max(maxY, y);
+        };
+
+        for (const auto& command : commands_) {
+            const int pointCount = command.type == PathCommandType::MoveTo ||
+                    command.type == PathCommandType::LineTo ? 1 :
+                    command.type == PathCommandType::QuadTo ? 2 :
+                    command.type == PathCommandType::CubicTo ? 3 : 0;
+            for (int i = 0; i < pointCount; ++i) include(command.points[i]);
+        }
+
+        return hasPoint ? QRectF(QPointF(minX, minY), QPointF(maxX, maxY)) : QRectF();
     }
 
     // 現在のパスを QPainterPath に変換
