@@ -911,14 +911,16 @@ QPointF ShapePath::centroid() const
 
 QPointF ShapePath::tangentAtPercent(double t) const
 {
-    QPainterPath qpath = toPainterPath();
-    if (qpath.isEmpty()) return {};
+    const double total = length();
+    if (total <= 0.0) return {};
 
-    const double epsilon = 0.001;
-    t = std::clamp(t, epsilon, 1.0 - epsilon);
-
-    const QPointF p0 = qpath.pointAtPercent(t - epsilon);
-    const QPointF p1 = qpath.pointAtPercent(t + epsilon);
+    t = std::clamp(t, 0.0, 1.0);
+    const double epsilon = std::max(total * 0.001, 1e-6);
+    const double center = t * total;
+    const double before = std::max(0.0, center - epsilon);
+    const double after = std::min(total, center + epsilon);
+    const QPointF p0 = pointAtLength(before);
+    const QPointF p1 = pointAtLength(after);
     QPointF dir = p1 - p0;
 
     const double len = std::sqrt(dir.x() * dir.x() + dir.y() * dir.y());
