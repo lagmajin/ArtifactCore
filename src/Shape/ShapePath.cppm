@@ -735,30 +735,81 @@ void ShapePath::reverse() {
     std::vector<PathCommand> reversed;
     reversed.reserve(impl_->commands_.size());
 
-    for (auto it = impl_->commands_.rbegin(); it != impl_->commands_.rend(); ++it) {
-        const PathCommand& cmd = *it;
-        switch (cmd.type) {
-            case PathCommandType::MoveTo:
-                reversed.push_back(cmd);
-                break;
-            case PathCommandType::LineTo:
-                reversed.push_back(cmd);
-                break;
-            case PathCommandType::CubicTo: {
-                PathCommand newCmd(PathCommandType::CubicTo, cmd.points[2], cmd.points[1], cmd.points[0]);
-                reversed.push_back(newCmd);
-                break;
+    struct Segment {
+        PathCommandType type;
+        QPointF start;
+        QPointF end;
+        QPointF control1;
+        QPointF control2;
+    };
+
+    const auto reverseSubpath = [&reversed](const std::vector<PathCommand>& commands) {
+        if (commands.empty() || commands.front().type != PathCommandType::MoveTo) return;
+
+        QPointF current = commands.front().points[0];
+        std::vector<Segment> segments;
+        bool closed = false;
+        for (size_t i = 1; i < commands.size(); ++i) {
+            const auto& command = commands[i];
+            if (command.type == PathCommandType::Close) {
+                closed = true;
+                continue;
             }
-            case PathCommandType::QuadTo: {
-                PathCommand newCmd(PathCommandType::QuadTo, cmd.points[1], cmd.points[0]);
-                reversed.push_back(newCmd);
-                break;
+            Segment segment{command.type, current, current, {}, {}};
+            switch (command.type) {
+                case PathCommandType::LineTo:
+                    segment.end = command.points[0];
+                    break;
+                case PathCommandType::QuadTo:
+                    segment.control1 = command.points[0];
+                    segment.end = command.points[1];
+                    break;
+                case PathCommandType::CubicTo:
+                    segment.control1 = command.points[0];
+                    segment.control2 = command.points[1];
+                    segment.end = command.points[2];
+                    break;
+                case PathCommandType::MoveTo:
+                case PathCommandType::Close:
+                    continue;
             }
-            case PathCommandType::Close:
-                reversed.push_back(cmd);
-                break;
+            segments.push_back(segment);
+            current = segment.end;
         }
+        if (segments.empty()) return;
+
+        reversed.push_back(PathCommand{PathCommandType::MoveTo, segments.back().end});
+        for (auto it = segments.rbegin(); it != segments.rend(); ++it) {
+            switch (it->type) {
+                case PathCommandType::LineTo:
+                    reversed.push_back(PathCommand{PathCommandType::LineTo, it->start});
+                    break;
+                case PathCommandType::QuadTo:
+                    reversed.push_back(PathCommand{PathCommandType::QuadTo,
+                                                   it->control1, it->start});
+                    break;
+                case PathCommandType::CubicTo:
+                    reversed.push_back(PathCommand{PathCommandType::CubicTo,
+                                                   it->control2, it->control1,
+                                                   it->start});
+                    break;
+                case PathCommandType::MoveTo:
+                case PathCommandType::Close:
+                    break;
+            }
+        }
+        if (closed) reversed.push_back(PathCommand{PathCommandType::Close});
+    };
+
+    std::vector<PathCommand> subpath;
+    for (const auto& command : impl_->commands_) {
+        if (command.type == PathCommandType::MoveTo && !subpath.empty()) {
+            reverseSubpath(subpath);
+            subpath.clear();
+        }
+        subpath.push_back(command);
     }
+    reverseSubpath(subpath);
     impl_->commands_ = std::move(reversed);
     impl_->invalidate();
 }
