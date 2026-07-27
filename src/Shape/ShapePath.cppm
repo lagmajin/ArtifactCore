@@ -391,11 +391,20 @@ void ShapePath::setEllipse(double cx, double cy, double rx, double ry) {
 
 void ShapePath::setPolygon(const std::vector<QPointF>& points, bool closed) {
     clear();
-    if (points.empty()) return;
+    if (points.size() < 2) return;
 
-    moveTo(points[0]);
-    for (size_t i = 1; i < points.size(); ++i) {
-        lineTo(points[i]);
+    std::vector<QPointF> finitePoints;
+    finitePoints.reserve(points.size());
+    for (const auto& point : points) {
+        if (std::isfinite(point.x()) && std::isfinite(point.y())) {
+            finitePoints.push_back(point);
+        }
+    }
+    if (finitePoints.size() < 2) return;
+
+    moveTo(finitePoints[0]);
+    for (size_t i = 1; i < finitePoints.size(); ++i) {
+        lineTo(finitePoints[i]);
     }
     if (closed) close();
 }
