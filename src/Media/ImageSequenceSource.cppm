@@ -195,10 +195,17 @@ bool ImageSequenceSource::open(const QString& uri)
     impl_->currentFrameIndex = 0;
     impl_->open = true;
 
-    QImageReader reader(impl_->frames.front().path);
-    impl_->frameSize = reader.size().isValid() ? reader.size() : QImage(impl_->frames.front().path).size();
-    if (impl_->frameSize.isEmpty()) {
-        impl_->frameSize = QSize(0, 0);
+    impl_->frameSize = QSize();
+    for (const auto& frame : impl_->frames) {
+        QImageReader reader(frame.path);
+        QSize candidateSize = reader.size();
+        if (!candidateSize.isValid() || candidateSize.isEmpty()) {
+            candidateSize = QImage(frame.path).size();
+        }
+        if (candidateSize.isValid() && !candidateSize.isEmpty()) {
+            impl_->frameSize = candidateSize;
+            break;
+        }
     }
 
     return true;
