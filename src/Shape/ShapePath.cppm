@@ -1087,15 +1087,36 @@ double ShapePath::area() const
 
 QPointF ShapePath::centroid() const
 {
+    double area2 = 0.0;
+    double centroidXNumerator = 0.0;
+    double centroidYNumerator = 0.0;
+    for (const auto& subpath : subpaths()) {
+        if (!subpath.isClosed()) continue;
+        const auto sampled = subpath.sampleEquidistant(256);
+        if (sampled.size() < 3) continue;
+        for (size_t i = 0; i < sampled.size(); ++i) {
+            const auto& p0 = sampled[i];
+            const auto& p1 = sampled[(i + 1) % sampled.size()];
+            const double cross = p0.x() * p1.y() - p1.x() * p0.y();
+            area2 += cross;
+            centroidXNumerator += (p0.x() + p1.x()) * cross;
+            centroidYNumerator += (p0.y() + p1.y()) * cross;
+        }
+    }
+    if (std::abs(area2) > 1e-12) {
+        return QPointF(centroidXNumerator / (3.0 * area2),
+                       centroidYNumerator / (3.0 * area2));
+    }
+
     const auto sampled = sampleEquidistant(256);
     if (sampled.empty()) return {};
-
-    double cx = 0.0, cy = 0.0;
-    for (const auto& p : sampled) {
-        cx += p.x();
-        cy += p.y();
+    double averageX = 0.0;
+    double averageY = 0.0;
+    for (const auto& point : sampled) {
+        averageX += point.x();
+        averageY += point.y();
     }
-    return QPointF(cx / sampled.size(), cy / sampled.size());
+    return QPointF(averageX / sampled.size(), averageY / sampled.size());
 }
 
 // ========================================
