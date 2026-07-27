@@ -523,8 +523,7 @@ bool ShapePath::contains(const QPointF& point) const {
     int winding = 0;
     constexpr double boundaryEpsilon = 1e-9;
     std::vector<BezierSegment> fillSegments;
-    for (const auto& subpath : subpaths()) {
-        auto segments = subpath.flatten();
+    for (auto segments : flattenSubpaths()) {
         if (segments.empty()) continue;
         const QPointF first = segments.front().p0;
         const QPointF last = segments.back().p1;
@@ -717,6 +716,15 @@ std::vector<BezierSegment> ShapePath::flatten(double tolerance) const {
 
     for (const auto& segment : toSegments()) flattenSegment(segment);
     return flattened;
+}
+
+std::vector<std::vector<BezierSegment>> ShapePath::flattenSubpaths(double tolerance) const {
+    std::vector<std::vector<BezierSegment>> result;
+    for (const auto& subpath : subpaths()) {
+        auto flattened = subpath.flatten(tolerance);
+        if (!flattened.empty()) result.push_back(std::move(flattened));
+    }
+    return result;
 }
 
 // ========================================

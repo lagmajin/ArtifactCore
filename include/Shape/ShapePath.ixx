@@ -109,6 +109,9 @@ public:
     std::vector<BezierSegment> toSegments() const;
     /// Bézier セグメントを指定 tolerance の直線セグメントへ平坦化する。
     std::vector<BezierSegment> flatten(double tolerance = 0.25) const;
+    /// サブパス境界を保持した Bézier flatten 結果を返す。
+    std::vector<std::vector<BezierSegment>> flattenSubpaths(
+        double tolerance = 0.25) const;
 
     /// パラメータ t における接線ベクトル（正規化済み）
     QPointF tangentAtPercent(double t) const;
