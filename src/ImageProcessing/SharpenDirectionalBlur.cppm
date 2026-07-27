@@ -43,6 +43,8 @@ module;
 #include <QPointF>
 module ImageProcessing.SharpenDirectionalBlur;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 using namespace BlurSharpenUtils;
@@ -80,7 +82,7 @@ void BlurSharpenUtils::convolveHorizontal(
     const int width = source.width();
     const int height = source.height();
     
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         const QRgb* srcLine = reinterpret_cast<const QRgb*>(source.scanLine(y));
         QRgb* dstLine = reinterpret_cast<QRgb*>(dest.scanLine(y));
         
@@ -104,7 +106,7 @@ void BlurSharpenUtils::convolveHorizontal(
                 static_cast<int>(std::clamp(a, 0.0, 255.0))
             );
         }
-    }
+    });
 }
 
 void BlurSharpenUtils::convolveVertical(
@@ -116,7 +118,7 @@ void BlurSharpenUtils::convolveVertical(
     const int width = source.width();
     const int height = source.height();
     
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         QRgb* dstLine = reinterpret_cast<QRgb*>(dest.scanLine(y));
         
         for (int x = 0; x < width; ++x) {
@@ -140,7 +142,7 @@ void BlurSharpenUtils::convolveVertical(
                 static_cast<int>(std::clamp(a, 0.0, 255.0))
             );
         }
-    }
+    });
 }
 
 QImage BlurSharpenUtils::convolve2D(
@@ -156,7 +158,7 @@ QImage BlurSharpenUtils::convolve2D(
     const int width = source.width();
     const int height = source.height();
     
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         QRgb* dstLine = reinterpret_cast<QRgb*>(result.scanLine(y));
         
         for (int x = 0; x < width; ++x) {
@@ -182,7 +184,7 @@ QImage BlurSharpenUtils::convolve2D(
                 static_cast<int>(std::clamp(b, 0.0, 255.0))
             );
         }
-    }
+    });
     
     return result;
 }
@@ -253,7 +255,7 @@ QImage UnsharpMaskEffect::blendImages(
     const int width = original.width();
     const int height = original.height();
     
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         const QRgb* origLine = reinterpret_cast<const QRgb*>(original.scanLine(y));
         const QRgb* blurLine = reinterpret_cast<const QRgb*>(blurred.scanLine(y));
         QRgb* resultLine = reinterpret_cast<QRgb*>(result.scanLine(y));
@@ -286,7 +288,7 @@ QImage UnsharpMaskEffect::blendImages(
             
             resultLine[x] = qRgba(r, g, b, a);
         }
-    }
+    });
     
     return result;
 }
@@ -450,7 +452,7 @@ QImage DirectionalBlurEffect::blurInDirection(
     const double radius = impl_->settings.radius;
     const double stepSize = radius / steps;
     
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         QRgb* resultLine = reinterpret_cast<QRgb*>(result.scanLine(y));
         
         for (int x = 0; x < width; ++x) {
@@ -499,7 +501,7 @@ QImage DirectionalBlurEffect::blurInDirection(
                 static_cast<int>(sumA / count)
             );
         }
-    }
+    });
     
     return result;
 }
@@ -556,24 +558,29 @@ QImage RadialBlurEffect::apply(const QImage& source) const {
     const int quality = impl_->settings.quality;
     const double angleStep = impl_->settings.angle / quality;
     const double zoomFactor = impl_->settings.zoom / quality;
+    const int sampleCount = std::max(0, quality * 2 + 1);
+    std::vector<double> sampleCos(static_cast<std::size_t>(sampleCount));
+    std::vector<double> sampleSin(static_cast<std::size_t>(sampleCount));
+    for (int q = -quality; q <= quality; ++q) {
+        const double angle = q * angleStep * M_PI / 180.0;
+        sampleCos[static_cast<std::size_t>(q + quality)] = std::cos(angle);
+        sampleSin[static_cast<std::size_t>(q + quality)] = std::sin(angle);
+    }
     
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         const QRgb* srcLine = reinterpret_cast<const QRgb*>(source.scanLine(y));
         QRgb* dstLine = reinterpret_cast<QRgb*>(result.scanLine(y));
         
         for (int x = 0; x < width; ++x) {
             double sumR = 0, sumG = 0, sumB = 0, sumA = 0;
             int count = 0;
+            const double dx = x - cx;
+            const double dy = y - cy;
             
             for (int q = -quality; q <= quality; ++q) {
-                double dx = x - cx;
-                double dy = y - cy;
-                double dist = std::sqrt(dx * dx + dy * dy);
-                
-                // 回転
-                double angle = q * angleStep * M_PI / 180.0;
-                double cosA = std::cos(angle);
-                double sinA = std::sin(angle);
+                const std::size_t sampleIndex = static_cast<std::size_t>(q + quality);
+                const double cosA = sampleCos[sampleIndex];
+                const double sinA = sampleSin[sampleIndex];
                 
                 double rx = dx * cosA - dy * sinA;
                 double ry = dx * sinA + dy * cosA;
@@ -607,7 +614,7 @@ QImage RadialBlurEffect::apply(const QImage& source) const {
                 dstLine[x] = srcLine[x];
             }
         }
-    }
+    });
     
     return result;
 }
@@ -692,7 +699,7 @@ QImage BlurEffect::apply(const QImage& source) const {
                 return std::clamp(value, 0, limit - 1);
             };
 
-            for (int y = 0; y < height; ++y) {
+            Parallel::For(0, height, width * height, [&](int y) {
                 const QRgb* src = reinterpret_cast<const QRgb*>(source.constScanLine(y));
                 QRgb* dst = reinterpret_cast<QRgb*>(temp.scanLine(y));
                 std::int64_t sumA = 0, sumR = 0, sumG = 0, sumB = 0;
@@ -714,9 +721,9 @@ QImage BlurEffect::apply(const QImage& source) const {
                     sumG += qGreen(entering) - qGreen(leaving);
                     sumB += qBlue(entering) - qBlue(leaving);
                 }
-            }
+            });
 
-            for (int x = 0; x < width; ++x) {
+            Parallel::For(0, width, width * height, [&](int x) {
                 std::int64_t sumA = 0, sumR = 0, sumG = 0, sumB = 0;
                 for (int k = -radius; k <= radius; ++k) {
                     const QRgb p = reinterpret_cast<const QRgb*>(temp.constScanLine(clampIndex(k, height)))[x];
@@ -736,7 +743,7 @@ QImage BlurEffect::apply(const QImage& source) const {
                     sumG += qGreen(entering) - qGreen(leaving);
                     sumB += qBlue(entering) - qBlue(leaving);
                 }
-            }
+            });
             return result;
         }
         case BlurEffectSettings::Type::Bilateral: {

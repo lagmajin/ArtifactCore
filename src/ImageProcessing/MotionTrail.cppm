@@ -6,6 +6,7 @@ module;
 
 module ImageProcessing;
 import :MotionTrail;
+import Core.Parallel;
 
 import Particle;
 import Image.ImageF32x4_RGBA;
@@ -56,8 +57,11 @@ void MotionTrail::process(float4* buffer, int width, int height, const MotionTra
     float intensity = std::clamp(settings.intensity, 0.0f, 1.0f);
 
     // 2. Perform temporal blending
-    for (size_t i = 0; i < total_pixels; ++i) {
-        size_t offset = i * 4;
+    Parallel::For(0, height, width * height, [&](int y) {
+        const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
+        for (int x = 0; x < width; ++x) {
+            const size_t i = rowStart + static_cast<size_t>(x);
+            size_t offset = i * 4;
         
         float r_cur = current_raw[offset + 0];
         float g_cur = current_raw[offset + 1];
@@ -118,7 +122,8 @@ void MotionTrail::process(float4* buffer, int width, int height, const MotionTra
         history_raw[offset + 1] = g_out;
         history_raw[offset + 2] = b_out;
         history_raw[offset + 3] = a_out;
-    }
+        }
+    });
 }
 
 void MotionTrail::process(ImageF32x4_RGBA& image, const MotionTrailSettings& settings) {

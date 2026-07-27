@@ -5,6 +5,7 @@ module;
 module Graphics.Effect.Creative.Mirror;
 
 import Channel;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -34,8 +35,14 @@ void MirrorEffect::process(VideoFrame& frame, const CreativeEffectContext&) {
     const float ang = angle();
     const float nx = std::cos(ang);
     const float ny = std::sin(ang);
+    float* rData = r_ch->data();
+    float* gData = g_ch->data();
+    float* bData = b_ch->data();
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
+        float* rRow = rData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* gRow = gData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* bRow = bData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
             const float dx = x - cx;
             const float dy = y - cy;
@@ -47,15 +54,15 @@ void MirrorEffect::process(VideoFrame& frame, const CreativeEffectContext&) {
 
                 const int isx = std::clamp((int)sx, 0, w - 1);
                 const int isy = std::clamp((int)sy, 0, h - 1);
-                const int idx = y * w + x;
+                const int idx = x;
                 const int sidx = isy * w + isx;
 
-                r_ch->data()[idx] = r_old[sidx];
-                g_ch->data()[idx] = g_old[sidx];
-                b_ch->data()[idx] = b_old[sidx];
+                rRow[idx] = r_old[sidx];
+                gRow[idx] = g_old[sidx];
+                bRow[idx] = b_old[sidx];
             }
         }
-    }
+    });
 }
 
 }

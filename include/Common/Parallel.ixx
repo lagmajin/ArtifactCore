@@ -1,19 +1,14 @@
 module;
-#include <utility>
-#include <vector>
-#include <functional>
-#include <future>
-#include <algorithm>
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
 #include "../Define/DllExportMacro.hpp"
 
 export module Core.Parallel;
 
-import Core.ThreadPool;
-
 export namespace ArtifactCore {
 
     /**
-     * @brief スレッドプールを活用した高速な並列 for ループ
+     * @brief TBB task schedulerを活用した高速な並列 for ループ
      * 画像の各行（Y座標）ごとの処理などを大幅に加速させます。
      */
     class LIBRARY_DLL_API Parallel {
@@ -27,43 +22,48 @@ export namespace ArtifactCore {
         template<typename Function>
         static void For(int start, int end, Function func) {
             if (start >= end) return;
-            
-            int total = end - start;
-            int numThreads = std::thread::hardware_concurrency();
-            if (numThreads <= 0) numThreads = 1;
-            
-            // タスクが少なすぎる場合はシングルスレッドで処理
-            if (total < numThreads * 4) {
+
+            constexpr int kParallelRangeThreshold = 64;
+            if (end - start < kParallelRangeThreshold) {
                 for (int i = start; i < end; ++i) {
                     func(i);
                 }
                 return;
             }
 
-            int chunkSize = (total + numThreads - 1) / numThreads;
-            
-            std::vector<std::future<void>> futures;
-            futures.reserve(numThreads);
-            
-            auto& pool = ThreadPool::globalInstance();
-            
-            for (int i = 0; i < numThreads; ++i) {
-                int chunkStart = start + i * chunkSize;
-                int chunkEnd = std::min(chunkStart + chunkSize, end);
-                
-                if (chunkStart >= chunkEnd) break;
-                
-                futures.push_back(pool.enqueue([chunkStart, chunkEnd, &func]() {
-                    for (int j = chunkStart; j < chunkEnd; ++j) {
-                        func(j);
+            tbb::parallel_for(
+                tbb::blocked_range<int>(start, end, 16),
+                [&](const tbb::blocked_range<int>& range) {
+                    for (int i = range.begin(); i != range.end(); ++i) {
+                        func(i);
                     }
-                }));
+                });
+        }
+
+        /**
+         * @brief 反復回数が少なくても、各反復の仕事量を示して並列化できます
+         * @param workItems 1反復あたりではなく、範囲全体のおおよその仕事量
+         */
+        template<typename Function>
+        static void For(int start, int end, int workItems, Function func) {
+            if (start >= end) return;
+
+            constexpr int kParallelRangeThreshold = 64;
+            constexpr int kParallelWorkThreshold = 4096;
+            if (end - start < kParallelRangeThreshold || workItems < kParallelWorkThreshold) {
+                for (int i = start; i < end; ++i) {
+                    func(i);
+                }
+                return;
             }
-            
-            // 全スレッドの終了を待機
-            for (auto& f : futures) {
-                f.wait();
-            }
+
+            tbb::parallel_for(
+                tbb::blocked_range<int>(start, end, 16),
+                [&](const tbb::blocked_range<int>& range) {
+                    for (int i = range.begin(); i != range.end(); ++i) {
+                        func(i);
+                    }
+                });
         }
     };
 

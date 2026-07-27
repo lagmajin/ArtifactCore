@@ -7,6 +7,7 @@ module;
 module Color.AutoMatch;
 
 import Image.ImageF32x4_RGBA;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -81,14 +82,35 @@ struct ChannelStats {
 
 static ChannelStats computeChannelStats(const float* data, int count) {
     ChannelStats s;
+    constexpr int kChunkSize = 4096;
+    const int chunkCount = (count + kChunkSize - 1) / kChunkSize;
+    std::vector<double> partialSums(static_cast<size_t>(chunkCount), 0.0);
+    Parallel::For(0, chunkCount, srcTotal, [&](int chunk) {
+        const int begin = chunk * kChunkSize;
+        const int end = std::min(count, begin + kChunkSize);
+        double sum = 0.0;
+        for (int i = begin; i < end; ++i) sum += data[i];
+        partialSums[static_cast<size_t>(chunk)] = sum;
+    });
+
     double sum = 0.0;
-    for (int i = 0; i < count; ++i) sum += data[i];
+    for (double partial : partialSums) sum += partial;
     s.mean = sum / std::max(1, count);
+
+    std::vector<double> partialSquaredSums(static_cast<size_t>(chunkCount), 0.0);
+    Parallel::For(0, chunkCount, srcTotal, [&](int chunk) {
+        const int begin = chunk * kChunkSize;
+        const int end = std::min(count, begin + kChunkSize);
+        double sqSum = 0.0;
+        for (int i = begin; i < end; ++i) {
+            const double d = data[i] - s.mean;
+            sqSum += d * d;
+        }
+        partialSquaredSums[static_cast<size_t>(chunk)] = sqSum;
+    });
+
     double sqSum = 0.0;
-    for (int i = 0; i < count; ++i) {
-        double d = data[i] - s.mean;
-        sqSum += d * d;
-    }
+    for (double partial : partialSquaredSums) sqSum += partial;
     s.stddev = std::sqrt(sqSum / std::max(1, count));
     if (s.stddev < 0.0001) s.stddev = 0.0001;
     return s;
@@ -105,18 +127,18 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
     const int refTotal = refWidth * refHeight;
 
     std::vector<float> srcL(srcTotal), srcA(srcTotal), srcB(srcTotal);
-    for (int i = 0; i < srcTotal; ++i) {
+    Parallel::For(0, srcTotal, srcTotal, [&](int i) {
         int idx = i * 4;
         rgbToLab(srcPixels[idx], srcPixels[idx + 1], srcPixels[idx + 2],
                  srcL[i], srcA[i], srcB[i]);
-    }
+    });
 
     std::vector<float> refL(refTotal), refA(refTotal), refB(refTotal);
-    for (int i = 0; i < refTotal; ++i) {
+    Parallel::For(0, refTotal, refTotal, [&](int i) {
         int idx = i * 4;
         rgbToLab(refPixels[idx], refPixels[idx + 1], refPixels[idx + 2],
                  refL[i], refA[i], refB[i]);
-    }
+    });
 
     auto srcStatsL = computeChannelStats(srcL.data(), srcTotal);
     auto srcStatsA = computeChannelStats(srcA.data(), srcTotal);
@@ -126,7 +148,7 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
     auto refStatsA = computeChannelStats(refA.data(), refTotal);
     auto refStatsB = computeChannelStats(refB.data(), refTotal);
 
-    for (int i = 0; i < srcTotal; ++i) {
+    Parallel::For(0, srcTotal, srcTotal, [&](int i) {
         float newL = static_cast<float>(
             (srcL[i] - srcStatsL.mean) * (refStatsL.stddev / srcStatsL.stddev) + refStatsL.mean);
         float newA = static_cast<float>(
@@ -141,7 +163,7 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
         int idx = i * 4;
         labToRgb(finalL, finalA, finalB_lab,
                  srcPixels[idx], srcPixels[idx + 1], srcPixels[idx + 2]);
-    }
+    });
 }
 
 // ============================================================
@@ -155,16 +177,16 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
     const int refTotal = refWidth * refHeight;
 
     std::vector<float> srcR(srcTotal), srcG(srcTotal), srcBch(srcTotal);
-    for (int i = 0; i < srcTotal; ++i) {
+    Parallel::For(0, srcTotal, srcTotal, [&](int i) {
         int idx = i * 4;
         srcR[i] = srcPixels[idx]; srcG[i] = srcPixels[idx + 1]; srcBch[i] = srcPixels[idx + 2];
-    }
+    });
 
     std::vector<float> refR(refTotal), refG(refTotal), refBch(refTotal);
-    for (int i = 0; i < refTotal; ++i) {
+    Parallel::For(0, refTotal, refTotal, [&](int i) {
         int idx = i * 4;
         refR[i] = refPixels[idx]; refG[i] = refPixels[idx + 1]; refBch[i] = refPixels[idx + 2];
-    }
+    });
 
     auto sR = computeChannelStats(srcR.data(), srcTotal);
     auto sG = computeChannelStats(srcG.data(), srcTotal);
@@ -174,7 +196,7 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
     auto rG = computeChannelStats(refG.data(), refTotal);
     auto rB = computeChannelStats(refBch.data(), refTotal);
 
-    for (int i = 0; i < srcTotal; ++i) {
+    Parallel::For(0, srcTotal, srcTotal, [&](int i) {
         int idx = i * 4;
         float newR = static_cast<float>((srcPixels[idx]     - sR.mean) * (rR.stddev / sR.stddev) + rR.mean);
         float newG = static_cast<float>((srcPixels[idx + 1] - sG.mean) * (rG.stddev / sG.stddev) + rG.mean);
@@ -183,7 +205,7 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
         srcPixels[idx]     = srcPixels[idx]     + (newR - srcPixels[idx])     * intensity;
         srcPixels[idx + 1] = srcPixels[idx + 1] + (newG - srcPixels[idx + 1]) * intensity;
         srcPixels[idx + 2] = srcPixels[idx + 2] + (newB - srcPixels[idx + 2]) * intensity;
-    }
+    });
 }
 
 // ============================================================
@@ -191,10 +213,25 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
 // ============================================================
 
 static void buildCDF(const float* channel, int count, float cdf[256]) {
-    int hist[256] = {};
-    for (int i = 0; i < count; ++i) {
-        int bin = std::clamp(static_cast<int>(channel[i] * 255.0f), 0, 255);
-        hist[bin]++;
+    constexpr int kChunkSize = 4096;
+    const int chunkCount = (count + kChunkSize - 1) / kChunkSize;
+    std::vector<std::array<int, 256>> partialHist(static_cast<size_t>(chunkCount));
+    Parallel::For(0, chunkCount, srcTotal, [&](int chunk) {
+        auto& hist = partialHist[static_cast<size_t>(chunk)];
+        hist.fill(0);
+        const int begin = chunk * kChunkSize;
+        const int end = std::min(count, begin + kChunkSize);
+        for (int i = begin; i < end; ++i) {
+            const int bin = std::clamp(static_cast<int>(channel[i] * 255.0f), 0, 255);
+            ++hist[static_cast<size_t>(bin)];
+        }
+    });
+
+    std::array<int, 256> hist{};
+    for (const auto& partial : partialHist) {
+        for (int bin = 0; bin < 256; ++bin) {
+            hist[static_cast<size_t>(bin)] += partial[static_cast<size_t>(bin)];
+        }
     }
     float invCount = 1.0f / std::max(1, count);
     cdf[0] = hist[0] * invCount;
@@ -224,17 +261,17 @@ void AutoColorMatcher::histogramMatch(float* srcPixels, int srcWidth, int srcHei
 
     for (int ch = 0; ch < 3; ++ch) {
         std::vector<float> srcCh(srcTotal), refCh(refTotal);
-        for (int i = 0; i < srcTotal; ++i) srcCh[i] = srcPixels[i * 4 + ch];
-        for (int i = 0; i < refTotal; ++i) refCh[i] = refPixels[i * 4 + ch];
+        Parallel::For(0, srcTotal, srcTotal, [&](int i) { srcCh[i] = srcPixels[i * 4 + ch]; });
+        Parallel::For(0, refTotal, refTotal, [&](int i) { refCh[i] = refPixels[i * 4 + ch]; });
 
         float srcCDF[256], refCDF[256];
         buildCDF(srcCh.data(), srcTotal, srcCDF);
         buildCDF(refCh.data(), refTotal, refCDF);
 
-        for (int i = 0; i < srcTotal; ++i) {
+        Parallel::For(0, srcTotal, srcTotal, [&](int i) {
             float matched = matchCDF(srcPixels[i * 4 + ch], srcCDF, refCDF);
             srcPixels[i * 4 + ch] = srcPixels[i * 4 + ch] + (matched - srcPixels[i * 4 + ch]) * intensity;
-        }
+        });
     }
 }
 
@@ -270,8 +307,8 @@ AutoColorMatcher::MatchResult AutoColorMatcher::computeMatch(
 
     for (int ch = 0; ch < 3; ++ch) {
         std::vector<float> srcCh(srcTotal), refCh(refTotal);
-        for (int i = 0; i < srcTotal; ++i) srcCh[i] = srcPixels[i * 4 + ch];
-        for (int i = 0; i < refTotal; ++i) refCh[i] = refPixels[i * 4 + ch];
+        Parallel::For(0, srcTotal, srcTotal, [&](int i) { srcCh[i] = srcPixels[i * 4 + ch]; });
+        Parallel::For(0, refTotal, refTotal, [&](int i) { refCh[i] = refPixels[i * 4 + ch]; });
 
         auto srcStats = computeChannelStats(srcCh.data(), srcTotal);
         auto refStats = computeChannelStats(refCh.data(), refTotal);
@@ -298,7 +335,7 @@ AutoColorMatcher::MatchResult AutoColorMatcher::computeMatch(
 void AutoColorMatcher::applyMatch(float* pixels, int width, int height,
                                     const MatchResult& result, float intensity) {
     const int total = width * height;
-    for (int i = 0; i < total; ++i) {
+    Parallel::For(0, total, total, [&](int i) {
         int idx = i * 4;
         float r = pixels[idx] * result.scaleR + result.offsetR;
         float g = pixels[idx + 1] * result.scaleG + result.offsetG;
@@ -307,7 +344,7 @@ void AutoColorMatcher::applyMatch(float* pixels, int width, int height,
         pixels[idx]     = pixels[idx]     + (r - pixels[idx])     * intensity;
         pixels[idx + 1] = pixels[idx + 1] + (g - pixels[idx + 1]) * intensity;
         pixels[idx + 2] = pixels[idx + 2] + (b - pixels[idx + 2]) * intensity;
-    }
+    });
 }
 
 // ============================================================

@@ -5,6 +5,8 @@ module;
 
 module Render.AtmosphereFog;
 
+import Core.Parallel;
+
 namespace ArtifactCore::RayTrace {
 
 namespace {
@@ -115,24 +117,27 @@ ImageBuffer AtmosphereFogRenderer::applyToImage(const ImageBuffer& depthBuffer, 
     const int w = std::min(depthBuffer.width, colorBuffer.width);
     const int h = std::min(depthBuffer.height, colorBuffer.height);
 
-    for (int y = 0; y < h; ++y) {
+Parallel::For(0, h, w * h, [&](int y) {
+        const std::uint8_t* depthRow = depthBuffer.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w) * 3u;
+        const std::uint8_t* colorRow = colorBuffer.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w) * 3u;
+        std::uint8_t* resultRow = result.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w) * 3u;
         for (int x = 0; x < w; ++x) {
-            const auto offset = static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x);
-            const float depth = static_cast<float>(depthBuffer.pixels[offset * 3 + 0]) / 255.0f;
+            const auto pixelOffset = static_cast<std::size_t>(x) * 3u;
+            const float depth = static_cast<float>(depthRow[pixelOffset]) / 255.0f;
 
             Color pixel{
-                static_cast<float>(colorBuffer.pixels[offset * 3 + 0]) / 255.0f,
-                static_cast<float>(colorBuffer.pixels[offset * 3 + 1]) / 255.0f,
-                static_cast<float>(colorBuffer.pixels[offset * 3 + 2]) / 255.0f,
+                static_cast<float>(colorRow[pixelOffset + 0]) / 255.0f,
+                static_cast<float>(colorRow[pixelOffset + 1]) / 255.0f,
+                static_cast<float>(colorRow[pixelOffset + 2]) / 255.0f,
             };
 
             const auto fogged = applyToPixel(pixel, depth * farPlane, nearPlane, farPlane);
 
-            result.pixels[offset * 3 + 0] = static_cast<std::uint8_t>(std::clamp(fogged.x * 255.999f, 0.0f, 255.0f));
-            result.pixels[offset * 3 + 1] = static_cast<std::uint8_t>(std::clamp(fogged.y * 255.999f, 0.0f, 255.0f));
-            result.pixels[offset * 3 + 2] = static_cast<std::uint8_t>(std::clamp(fogged.z * 255.999f, 0.0f, 255.0f));
+            resultRow[pixelOffset + 0] = static_cast<std::uint8_t>(std::clamp(fogged.x * 255.999f, 0.0f, 255.0f));
+            resultRow[pixelOffset + 1] = static_cast<std::uint8_t>(std::clamp(fogged.y * 255.999f, 0.0f, 255.0f));
+            resultRow[pixelOffset + 2] = static_cast<std::uint8_t>(std::clamp(fogged.z * 255.999f, 0.0f, 255.0f));
         }
-    }
+    });
 
     return result;
 }

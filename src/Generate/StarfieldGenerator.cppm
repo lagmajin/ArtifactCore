@@ -7,6 +7,8 @@ module;
 #include <tuple>
 module StarfieldGenerator;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 // ============================================================
@@ -237,7 +239,9 @@ void StarfieldGenerator::renderNebulae(float* pixels) {
     for (auto& neb : nebulae_) {
         float invW = 1.0f / width_, invH = 1.0f / height_;
         float nrx = 1.0f / neb.radiusX, nry = 1.0f / neb.radiusY;
-        for (int y = 0; y < height_; ++y) for (int x = 0; x < width_; ++x) {
+        Parallel::For(0, height_, width_ * height_, [&](int y) {
+            float* row = pixels + static_cast<std::size_t>(y) * static_cast<std::size_t>(width_) * 4u;
+            for (int x = 0; x < width_; ++x) {
             float nx = (x * invW - neb.centerX) * nrx;
             float ny = (y * invH - neb.centerY) * nry;
             float dn = nx * nx + ny * ny;
@@ -245,12 +249,13 @@ void StarfieldGenerator::renderNebulae(float* pixels) {
             float fb = fbm(nx * 3.0f + 0.5f, ny * 3.0f, 5, 99991u);
             a *= 0.5f + 0.5f * fb;
             if (a > 0.001f) {
-                int idx = (y*width_+x)*4;
-                pixels[idx+0] = std::min(1.0f, pixels[idx+0] + neb.r * a);
-                pixels[idx+1] = std::min(1.0f, pixels[idx+1] + neb.g * a);
-                pixels[idx+2] = std::min(1.0f, pixels[idx+2] + neb.b * a);
+                float* pixel = row + static_cast<std::size_t>(x) * 4u;
+                pixel[0] = std::min(1.0f, pixel[0] + neb.r * a);
+                pixel[1] = std::min(1.0f, pixel[1] + neb.g * a);
+                pixel[2] = std::min(1.0f, pixel[2] + neb.b * a);
             }
-        }
+            }
+        });
     }
 }
 
@@ -295,7 +300,16 @@ void StarfieldGenerator::renderShootingStars(float* pixels, float time) {
 
 void StarfieldGenerator::generate(float* pixels, float time) {
     if (stars_.empty()) generateStarDistribution(impl_->rng());
-    for (int i = 0; i < width_ * height_ * 4; ++i) pixels[i] = backgroundLevel_;
+    Parallel::For(0, height_, width_ * height_, [&](int y) {
+        float* row = pixels + static_cast<std::size_t>(y) * width_ * 4u;
+        for (int x = 0; x < width_; ++x) {
+            float* pixel = row + static_cast<std::size_t>(x) * 4u;
+            pixel[0] = backgroundLevel_;
+            pixel[1] = backgroundLevel_;
+            pixel[2] = backgroundLevel_;
+            pixel[3] = backgroundLevel_;
+        }
+    });
 
     if (galaxyEnabled_) renderGalaxy(pixels);
     renderNebulae(pixels);
@@ -330,7 +344,9 @@ void StarfieldGenerator::renderGalaxy(float* pixels) {
     float rMax = galaxyRadius_ * std::max(width_, height_);
     int armCount = galaxyArmCount_;
 
-    for (int y = 0; y < height_; ++y) for (int x = 0; x < width_; ++x) {
+    Parallel::For(0, height_, width_ * height_, [&](int y) {
+        float* row = pixels + static_cast<std::size_t>(y) * static_cast<std::size_t>(width_) * 4u;
+        for (int x = 0; x < width_; ++x) {
         float dx = x - cx, dy = y - cy;
         float rx = dx * std::cos(galaxyTilt_) - dy * std::sin(galaxyTilt_);
         float ry = dx * std::sin(galaxyTilt_) + dy * std::cos(galaxyTilt_);
@@ -351,13 +367,14 @@ void StarfieldGenerator::renderGalaxy(float* pixels) {
         float bulge = std::exp(-dist * dist / (rMax * rMax * 0.02f)) * 0.6f;
         float totalAlpha = std::max(armAlpha, bulge);
         if (totalAlpha > 0.001f) {
-            int idx = (y * width_ + x) * 4;
+            float* pixel = row + static_cast<std::size_t>(x) * 4u;
             float br = 1.0f - dist / rMax;
-            pixels[idx+0] = std::min(1.0f, pixels[idx+0] + (0.85f + 0.15f * br) * totalAlpha);
-            pixels[idx+1] = std::min(1.0f, pixels[idx+1] + (0.75f + 0.25f * br) * totalAlpha);
-            pixels[idx+2] = std::min(1.0f, pixels[idx+2] + (0.5f + 0.5f * br) * totalAlpha);
+            pixel[0] = std::min(1.0f, pixel[0] + (0.85f + 0.15f * br) * totalAlpha);
+            pixel[1] = std::min(1.0f, pixel[1] + (0.75f + 0.25f * br) * totalAlpha);
+            pixel[2] = std::min(1.0f, pixel[2] + (0.5f + 0.5f * br) * totalAlpha);
         }
-    }
+        }
+    });
 }
 
 void StarfieldGenerator::drawDisc(float* pixels, float cx, float cy, float radius,

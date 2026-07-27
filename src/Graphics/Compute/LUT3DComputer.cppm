@@ -12,6 +12,7 @@ module Graphics.Compute.LUT3DComputer;
 import Graphics.Compute;
 import Graphics.GPUcomputeContext;
 import Graphics.Shader.Compute.HLSL.LUT3D;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -61,12 +62,12 @@ void LUT3DGPUComputer::uploadLUT(IDeviceContext *pContext,
   // Build RGBA texels from RGB input
   int totalVoxels = size * size * size;
   std::vector<float> rgba(static_cast<size_t>(totalVoxels) * 4);
-  for (int i = 0; i < totalVoxels; ++i) {
+  Parallel::For(0, totalVoxels, totalVoxels, [&](int i) {
     rgba[i * 4 + 0] = data[i * 3 + 0];
     rgba[i * 4 + 1] = data[i * 3 + 1];
     rgba[i * 4 + 2] = data[i * 3 + 2];
     rgba[i * 4 + 3] = 1.0f;
-  }
+  });
 
   Box box;
   box.MinX = 0; box.MinY = 0; box.MinZ = 0;

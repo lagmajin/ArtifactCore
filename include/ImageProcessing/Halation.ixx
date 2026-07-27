@@ -7,6 +7,7 @@ module;
 export module ArtifactCore.ImageProcessing.Halation;
 
 import Particle; // For float3, float4 definitions
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -36,7 +37,7 @@ public:
         
         // 1. Threshold & Extract Highlights with Red bias
         std::vector<float4> highlights(width * height);
-        for (int i = 0; i < width * height; ++i) {
+        Parallel::For(0, width * height, width * height, [&](int i) {
             float lum = source[i].x * 0.299f + source[i].y * 0.587f + source[i].z * 0.114f;
             if (lum > settings.threshold) {
                 float weight = std::clamp((lum - settings.threshold) / (1.0f - settings.threshold + 0.001f), 0.0f, 1.0f);
@@ -45,7 +46,7 @@ public:
             } else {
                 highlights[i] = {0, 0, 0, 0};
             }
-        }
+        });
 
         // 2. Dual-Layer Diffusion (Simulating film layers)
         // Red scatters much wider than Green/Blue
@@ -53,11 +54,11 @@ public:
         diffuse(highlights.data(), width, height, settings.spread, 0.0f, 0.1f, 0.05f); // Minor Green/Blue scattering
 
         // 3. Composite back with Bloom-like additive blending
-        for (int i = 0; i < width * height; ++i) {
+        Parallel::For(0, width * height, width * height, [&](int i) {
             buffer[i].x += highlights[i].x * settings.intensity;
             buffer[i].y += highlights[i].y * settings.intensity;
             buffer[i].z += highlights[i].z * settings.intensity;
-        }
+        });
     }
 
 private:
@@ -68,7 +69,7 @@ private:
         
         std::vector<float4> temp(w * h);
         // Horizontal Pass
-        for (int y = 0; y < h; ++y) {
+        Parallel::For(0, h, w * h, [&](int y) {
             for (int x = 0; x < w; ++x) {
                 float4 sum{0,0,0,0};
                 int count = 0;
@@ -81,9 +82,9 @@ private:
                 }
                 temp[y * w + x] = {sum.x / count, sum.y / count, sum.z / count, 0};
             }
-        }
+        });
         // Vertical Pass + Channel Multiply
-        for (int x = 0; x < w; ++x) {
+        Parallel::For(0, w, w * h, [&](int x) {
             for (int y = 0; y < h; ++y) {
                 float4 sum{0,0,0,0};
                 int count = 0;
@@ -98,7 +99,7 @@ private:
                 data[y * w + x].y = (sum.y / count) * gM;
                 data[y * w + x].z = (sum.z / count) * bM;
             }
-        }
+        });
     }
 };
 

@@ -10,6 +10,8 @@ module;
 
 module Core.Simulation.Pyro;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 namespace {
@@ -571,7 +573,7 @@ void PyroSimulation::applyCombustion(float deltaSeconds) {
     const float heatRelease = 1.4f;
     const float smokeYield = 0.9f;
 
-    for (int z = 0; z < resolution.depth; ++z) {
+    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -586,7 +588,7 @@ void PyroSimulation::applyCombustion(float deltaSeconds) {
                 velocity.values[idx].y += burned * 0.15f;
             }
         }
-    }
+    });
 }
 
 void PyroSimulation::applyVorticityConfinement(float deltaSeconds) {
@@ -651,7 +653,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
     const auto fuelPrev = fields_.fuelStorage();
     const auto velocityPrev = fields_.velocityStorage();
 
-    for (int z = 0; z < resolution.depth; ++z) {
+    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -665,7 +667,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
                 velocity.values[idx].z *= std::max(0.0f, 1.0f - settings_.dissipation * dt);
             }
         }
-    }
+    });
 
     for (const auto& source : sources_) {
         if (!source.enabled || !isInsideDomain(source.position)) {
@@ -701,18 +703,18 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
 
     applyCombustion(dt);
 
-    for (int z = 0; z < resolution.depth; ++z) {
+    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
                 velocity.values[idx].y += temperature.values[idx] * settings_.buoyancy * dt;
             }
         }
-    }
+    });
 
     applyVorticityConfinement(dt);
 
-    for (int z = 0; z < resolution.depth; ++z) {
+    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -734,7 +736,7 @@ void PyroSimulation::integrateStep(float deltaSeconds) {
                 pressure.values[idx] = 0.0f;
             }
         }
-    }
+    });
 
     computeDivergence();
     solvePressure(std::max(1, static_cast<int>(settings_.pressureIterations)));
@@ -767,7 +769,7 @@ void PyroSimulation::computeDivergence() {
     auto divergence = fields_.divergenceView();
     const auto velocity = fields_.velocityView();
 
-    for (int z = 0; z < resolution.depth; ++z) {
+    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -786,7 +788,7 @@ void PyroSimulation::computeDivergence() {
                 divergence.values[idx] = ((vxp.x - vxm.x) + (vyp.y - vym.y) + (vzp.z - vzm.z)) * 0.5f;
             }
         }
-    }
+    });
 }
 
 void PyroSimulation::solvePressure(int iterations) {
@@ -824,7 +826,7 @@ void PyroSimulation::projectVelocity() {
     auto pressure = fields_.pressureView();
     auto velocity = fields_.velocityView();
 
-    for (int z = 0; z < resolution.depth; ++z) {
+    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -842,7 +844,7 @@ void PyroSimulation::projectVelocity() {
                 velocity.values[idx].z -= gradZ * 0.5f;
             }
         }
-    }
+    });
 }
 
 PyroFrameSnapshot PyroSimulation::snapshot() const {

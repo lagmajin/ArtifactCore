@@ -4,6 +4,7 @@ module;
 
 module ImageProcessing;
 import :SimpleChoker;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -11,7 +12,7 @@ void SimpleChoker::process(float4* buffer, int width, int height, const SimpleCh
     auto* tmp = new float4[width * height];
     std::copy_n(buffer, width * height, tmp);
     int r = std::max(1, s.radius);
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float minA = 1.0f, maxA = 0.0f;
             for (int dy = -r; dy <= r; ++dy) {
@@ -32,7 +33,7 @@ void SimpleChoker::process(float4* buffer, int width, int height, const SimpleCh
                 dst.w = tmp[y * width + x].w * (1.0f - t) + maxA * t;
             }
         }
-    }
+    });
     delete[] tmp;
 }
 

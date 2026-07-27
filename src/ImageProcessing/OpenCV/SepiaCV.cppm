@@ -5,6 +5,8 @@ module;
 
 module ImageProcessing.Sepia;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 
@@ -19,7 +21,7 @@ namespace ArtifactCore {
 	  {0.393f, 0.769f, 0.189f}
   };
 
-  for (int y = 0; y < src.rows; ++y) {
+  Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
    const cv::Vec4f* src_row = src.ptr<cv::Vec4f>(y);
    cv::Vec4f* dst_row = dst.ptr<cv::Vec4f>(y);
 
@@ -38,7 +40,7 @@ namespace ArtifactCore {
 	 px[3] // alpha͂̂܂
 	);
    }
-  }
+  });
 
   return dst;
  }

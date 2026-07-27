@@ -8,6 +8,7 @@ module ImageProcessing;
 import :AnamorphicFlare;
 import Particle;
 import Image.ImageF32x4_RGBA;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -24,9 +25,8 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
     float4 tint = settings.tint;
 
     // 1. Extract highlights exceeding threshold
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, total_pixels),
-        [&](const tbb::blocked_range<size_t>& range) {
-            for (size_t i = range.begin(); i < range.end(); ++i) {
+    Parallel::For(0, static_cast<int>(total_pixels), static_cast<int>(total_pixels), [&](int index) {
+            const size_t i = static_cast<size_t>(index);
                 float4 pixel = original[i];
                 float luminance = pixel.x * 0.299f + pixel.y * 0.587f + pixel.z * 0.114f;
                 if (luminance > threshold) {
@@ -34,16 +34,13 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
                     float scale = (luminance - threshold) / (1.0f - threshold + 0.001f);
                     highlights[i] = float4{pixel.x * scale, pixel.y * scale, pixel.z * scale, pixel.w};
                 }
-            }
-        });
+    });
 
     std::vector<float4> streaks(total_pixels, float4{0.0f, 0.0f, 0.0f, 0.0f});
 
     // 2. Horizontal streak propagation pass (O(N) left-to-right & right-to-left decay sweep)
     // Rows are independent - each row processes its own scanline
-    tbb::parallel_for(tbb::blocked_range<int>(0, height),
-        [&](const tbb::blocked_range<int>& rows) {
-            for (int y = rows.begin(); y < rows.end(); ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
                 int row_offset = y * width;
 
                 // Left-to-right sweep
@@ -75,13 +72,11 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
                     streaks[idx].y = std::max(streaks[idx].y, streak.y);
                     streaks[idx].z = std::max(streaks[idx].z, streak.z);
                 }
-            }
-        });
+    });
 
     // 3. Composite the anamorphic flares onto the original image (Additive Blend)
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, total_pixels),
-        [&](const tbb::blocked_range<size_t>& range) {
-            for (size_t i = range.begin(); i < range.end(); ++i) {
+    Parallel::For(0, static_cast<int>(total_pixels), static_cast<int>(total_pixels), [&](int index) {
+            const size_t i = static_cast<size_t>(index);
                 float4 orig_pixel = original[i];
                 float4 streak_pixel = streaks[i];
 
@@ -95,8 +90,7 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
                 buffer[i].y = std::clamp(orig_pixel.y + g_flare, 0.0f, 1.0f);
                 buffer[i].z = std::clamp(orig_pixel.z + b_flare, 0.0f, 1.0f);
                 buffer[i].w = orig_pixel.w; // Preserve original alpha
-            }
-        });
+    });
 }
 
 void AnamorphicFlare::process(ImageF32x4_RGBA& image, const AnamorphicFlareSettings& settings) {

@@ -7,6 +7,7 @@ module;
 module Graphics.Effect.Creative.Fisheye;
 
 import Channel;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -37,8 +38,14 @@ void FisheyeEffect::process(VideoFrame& frame, const CreativeEffectContext& cont
     float z = zoom();
     
     float maxDist = std::sqrt(cx*cx + cy*cy);
+    float* rData = r_ch->data();
+    float* gData = g_ch->data();
+    float* bData = b_ch->data();
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
+        float* rRow = rData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* gRow = gData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* bRow = bData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
             float dx = (x - cx) / maxDist;
             float dy = (y - cy) / maxDist;
@@ -53,14 +60,13 @@ void FisheyeEffect::process(VideoFrame& frame, const CreativeEffectContext& cont
             
             int isx = std::clamp((int)sx, 0, w - 1);
             int isy = std::clamp((int)sy, 0, h - 1);
-            int idx = y * w + x;
             int sidx = isy * w + isx;
             
-            r_ch->data()[idx] = r_old[sidx];
-            g_ch->data()[idx] = g_old[sidx];
-            b_ch->data()[idx] = b_old[sidx];
+            rRow[x] = r_old[sidx];
+            gRow[x] = g_old[sidx];
+            bRow[x] = b_old[sidx];
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

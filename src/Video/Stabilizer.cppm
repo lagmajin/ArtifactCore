@@ -49,6 +49,7 @@ module;
 module Video.Stabilizer;
 
 import Frame.Position;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -246,36 +247,54 @@ QImage VideoStabilizer::getStabilizedFrame(int index) const {
 
 QVector<QPointF> VideoStabilizer::detectFeatures(const QImage& frame) const {
     QVector<QPointF> features;
-    
-    int w = frame.width();
-    int h = frame.height();
-    
-    for (int y = params_.featureParams.blockSize; y < h - params_.featureParams.blockSize; y += 2) {
-        for (int x = params_.featureParams.blockSize; x < w - params_.featureParams.blockSize; x += 2) {
+    const QImage source = (frame.format() == QImage::Format_RGB32 ||
+                           frame.format() == QImage::Format_ARGB32)
+        ? frame
+        : frame.convertToFormat(QImage::Format_ARGB32);
+
+    int w = source.width();
+    int h = source.height();
+    const int blockSize = params_.featureParams.blockSize;
+    const double qualityLevel = params_.featureParams.qualityLevel;
+    std::vector<QVector<QPointF>> featuresByRow(static_cast<size_t>(h));
+
+    Parallel::For(blockSize, h - blockSize, w * h, [&](int y) {
+        if ((y - blockSize) % 2 != 0) return;
+        auto& rowFeatures = featuresByRow[static_cast<size_t>(y)];
+        for (int x = blockSize; x < w - blockSize; x += 2) {
             double cornerResponse = 0.0;
-            
+
             int dx = 0, dy = 0;
-            for (int ky = -params_.featureParams.blockSize; ky <= params_.featureParams.blockSize; ky++) {
+            for (int ky = -blockSize; ky <= blockSize; ky++) {
+                const auto* previousRow = reinterpret_cast<const QRgb*>(source.constScanLine(y + ky));
+                const auto* currentRow = previousRow;
+                const auto* nextRow = previousRow;
                 for (int kx = -params_.featureParams.blockSize; kx <= params_.featureParams.blockSize; kx++) {
-                    QRgb prev = frame.pixel(x + kx - 1, y + ky);
-                    QRgb curr = frame.pixel(x + kx, y + ky);
-                    QRgb next = frame.pixel(x + kx + 1, y + ky);
-                    
+                    QRgb prev = previousRow[x + kx - 1];
+                    QRgb curr = currentRow[x + kx];
+                    QRgb next = nextRow[x + kx + 1];
+
                     int r = qRed(curr) - qRed(prev);
                     dx += r * r;
-                    
+
                     r = qBlue(curr) - qBlue(prev);
                     dy += r * r;
                 }
             }
-            
+
             double det = dx * dy - pow(dx + dy, 2);
-            if (det > params_.featureParams.qualityLevel) {
-                features.append(QPointF(x, y));
+            if (det > qualityLevel) {
+                rowFeatures.append(QPointF(x, y));
             }
         }
+    });
+
+    for (const auto& rowFeatures : featuresByRow) {
+        for (const auto& feature : rowFeatures) {
+            features.append(feature);
+        }
     }
-    
+
     return features;
 }
 
@@ -286,12 +305,24 @@ QVector<int> VideoStabilizer::trackFeatures(
     QVector<QPointF>& currFeatures
 ) const {
     QVector<int> matches;
-    
-    for (int i = 0; i < prevFeatures.size(); i++) {
+    const QImage previousSource = (prevFrame.format() == QImage::Format_RGB32 ||
+                                   prevFrame.format() == QImage::Format_ARGB32)
+        ? prevFrame
+        : prevFrame.convertToFormat(QImage::Format_ARGB32);
+    const QImage currentSource = (currFrame.format() == QImage::Format_RGB32 ||
+                                  currFrame.format() == QImage::Format_ARGB32)
+        ? currFrame
+        : currFrame.convertToFormat(QImage::Format_ARGB32);
+
+    struct FeatureMatch {
         QPointF bestMatch;
         double bestDistance = 1e9;
         int matchIdx = -1;
-        
+    };
+    const int featureCount = prevFeatures.size();
+    std::vector<FeatureMatch> featureMatches(static_cast<size_t>(featureCount));
+    Parallel::For(0, featureCount, 4096, [&](int i) {
+        auto& result = featureMatches[static_cast<size_t>(i)];
         const int searchWindow = 15;
         int px = prevFeatures[i].x();
         int py = prevFeatures[i].y();
@@ -301,7 +332,7 @@ QVector<int> VideoStabilizer::trackFeatures(
                 int cx = px + dx;
                 int cy = py + dy;
                 
-                if (cx < 0 || cx >= currFrame.width() || cy < 0 || cy >= currFrame.height()) {
+                if (cx < 0 || cx >= currentSource.width() || cy < 0 || cy >= currentSource.height()) {
                     continue;
                 }
                 
@@ -315,16 +346,18 @@ QVector<int> VideoStabilizer::trackFeatures(
                         int x2 = cx + bx;
                         int y2 = cy + by;
                         
-                        if (x1 < 0 || x1 >= prevFrame.width() || y1 < 0 || y1 >= prevFrame.height()) {
+                        if (x1 < 0 || x1 >= previousSource.width() || y1 < 0 || y1 >= previousSource.height()) {
                             continue;
                         }
                         
-                        if (x2 < 0 || x2 >= currFrame.width() || y2 < 0 || y2 >= currFrame.height()) {
+                        if (x2 < 0 || x2 >= currentSource.width() || y2 < 0 || y2 >= currentSource.height()) {
                             continue;
                         }
                         
-                        QRgb rgb1 = prevFrame.pixel(x1, y1);
-                        QRgb rgb2 = currFrame.pixel(x2, y2);
+                        const auto* previousRow = reinterpret_cast<const QRgb*>(previousSource.constScanLine(y1));
+                        const auto* currentRow = reinterpret_cast<const QRgb*>(currentSource.constScanLine(y2));
+                        QRgb rgb1 = previousRow[x1];
+                        QRgb rgb2 = currentRow[x2];
                         
                         distance += pow(qRed(rgb1) - qRed(rgb2), 2) +
                                    pow(qGreen(rgb1) - qGreen(rgb2), 2) +
@@ -332,17 +365,20 @@ QVector<int> VideoStabilizer::trackFeatures(
                     }
                 }
                 
-                if (distance < bestDistance) {
-                    bestDistance = distance;
-                    bestMatch = QPointF(cx, cy);
-                    matchIdx = i;
+                if (distance < result.bestDistance) {
+                    result.bestDistance = distance;
+                    result.bestMatch = QPointF(cx, cy);
+                    result.matchIdx = i;
                 }
             }
         }
-        
-        if (bestDistance < 20000) {
-            currFeatures.append(bestMatch);
-            matches.append(matchIdx);
+
+    });
+
+    for (const auto& result : featureMatches) {
+        if (result.bestDistance < 20000) {
+            currFeatures.append(result.bestMatch);
+            matches.append(result.matchIdx);
         }
     }
     
@@ -399,12 +435,17 @@ QImage VideoStabilizer::transformImage(
     const QSize& outputSize
 ) const {
     QImage result(outputSize, QImage::Format_RGB32);
+    const QImage source = (image.format() == QImage::Format_RGB32 ||
+                           image.format() == QImage::Format_ARGB32)
+        ? image
+        : image.convertToFormat(QImage::Format_ARGB32);
     int w = outputSize.width();
     int h = outputSize.height();
     
     QMatrix3x3 transform = motion.toMatrix();
     
-    for (int y = 0; y < h; y++) {
+    Parallel::For(0, h, w * h, [&](int y) {
+        auto* resultRow = reinterpret_cast<QRgb*>(result.scanLine(y));
         for (int x = 0; x < w; x++) {
             QVector3D inputPt(x - outputSize.width() / 2.0f, y - outputSize.height() / 2.0f, 1.0f);
             QVector3D transformed(
@@ -416,14 +457,17 @@ QImage VideoStabilizer::transformImage(
             double srcX = transformed.x();
             double srcY = transformed.y();
             
-            if (srcX >= 0 && srcX < image.width() && srcY >= 0 && srcY < image.height()) {
-                result.setPixel(x, y, image.pixel(srcX, srcY));
+            if (srcX >= 0 && srcX < source.width() && srcY >= 0 && srcY < source.height()) {
+                const int sourceX = static_cast<int>(srcX);
+                const int sourceY = static_cast<int>(srcY);
+                resultRow[x] = reinterpret_cast<const QRgb*>(source.constScanLine(sourceY))[sourceX];
             } else if (params_.borderFill > 0.0) {
-                QRgb borderPixel = getBorderPixel(image, srcX, srcY);
-                result.setPixel(x, y, borderPixel);
+                const int borderX = std::clamp(static_cast<int>(srcX), 0, source.width() - 1);
+                const int borderY = std::clamp(static_cast<int>(srcY), 0, source.height() - 1);
+                resultRow[x] = reinterpret_cast<const QRgb*>(source.constScanLine(borderY))[borderX];
             }
         }
-    }
+    });
     
     return result;
 }

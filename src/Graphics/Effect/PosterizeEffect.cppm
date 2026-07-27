@@ -7,6 +7,7 @@ module;
 module Graphics.Effect.Creative.Posterize;
 
 import Channel;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -27,14 +28,17 @@ void PosterizeEffect::process(VideoFrame& frame, const CreativeEffectContext& co
     int h = frame.height();
     
     float n = std::max(2.0f, levels());
+    float* rData = r_ch->data();
+    float* gData = g_ch->data();
+    float* bData = b_ch->data();
 
-    for (int i = 0; i < w * h; ++i) {
+    Parallel::For(0, w * h, w * h, [&](int i) {
         // 階調を減らす (Quantization)
         // [0.0, 1.0] -> [0.0, n-1] -> floor -> [0.0, 1.0]
-        r_ch->data()[i] = std::floor(r_ch->data()[i] * (n - 1.0f) + 0.5f) / (n - 1.0f);
-        g_ch->data()[i] = std::floor(g_ch->data()[i] * (n - 1.0f) + 0.5f) / (n - 1.0f);
-        b_ch->data()[i] = std::floor(b_ch->data()[i] * (n - 1.0f) + 0.5f) / (n - 1.0f);
-    }
+        rData[i] = std::floor(rData[i] * (n - 1.0f) + 0.5f) / (n - 1.0f);
+        gData[i] = std::floor(gData[i] * (n - 1.0f) + 0.5f) / (n - 1.0f);
+        bData[i] = std::floor(bData[i] * (n - 1.0f) + 0.5f) / (n - 1.0f);
+    });
 }
 
 } // namespace ArtifactCore

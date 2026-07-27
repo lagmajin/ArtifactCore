@@ -2,6 +2,8 @@ module;
 #include <utility>
 #include <algorithm>
 #include <vector>
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
 #include <QJsonObject>
@@ -283,30 +285,47 @@ inline MatteEvaluationResult evaluateMatteStack(
         ++sourceIndex;
 
         std::vector<float> matteMask(pixelCount, 0.0f);
-        for (size_t i = 0; i < pixelCount; ++i) {
-            float v = (i < sourceAlpha.size()) ? sourceAlpha[i] : 0.0f;
-            if (MatteModeUtils::isInverted(node.mode())) {
-                v = 1.0f - v;
+        const bool invertSource = MatteModeUtils::isInverted(node.mode());
+        const auto buildMatteMask = [&](const tbb::blocked_range<size_t>& range) {
+            for (size_t i = range.begin(); i != range.end(); ++i) {
+                float v = (i < sourceAlpha.size()) ? sourceAlpha[i] : 0.0f;
+                if (invertSource) {
+                    v = 1.0f - v;
+                }
+                matteMask[i] = std::clamp(v, 0.0f, 1.0f);
             }
-            matteMask[i] = std::clamp(v, 0.0f, 1.0f);
+        };
+        if (pixelCount >= 256u * 1024u) {
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, pixelCount, 4096),
+                              buildMatteMask);
+        } else {
+            buildMatteMask(tbb::blocked_range<size_t>(0, pixelCount));
         }
 
-        switch (stack.stackMode()) {
-        case MatteStackMode::Add:
-            for (size_t i = 0; i < pixelCount; ++i) {
-                result.alphaMask[i] = std::min(1.0f, result.alphaMask[i] + matteMask[i]);
+        const MatteStackMode stackMode = stack.stackMode();
+        const auto combineMatteMask = [&](const tbb::blocked_range<size_t>& range) {
+            for (size_t i = range.begin(); i != range.end(); ++i) {
+                switch (stackMode) {
+                case MatteStackMode::Add:
+                    result.alphaMask[i] =
+                        std::min(1.0f, result.alphaMask[i] + matteMask[i]);
+                    break;
+                case MatteStackMode::Common:
+                    result.alphaMask[i] =
+                        std::min(result.alphaMask[i], matteMask[i]);
+                    break;
+                case MatteStackMode::Subtract:
+                    result.alphaMask[i] =
+                        std::max(0.0f, result.alphaMask[i] - matteMask[i]);
+                    break;
+                }
             }
-            break;
-        case MatteStackMode::Common:
-            for (size_t i = 0; i < pixelCount; ++i) {
-                result.alphaMask[i] = std::min(result.alphaMask[i], matteMask[i]);
-            }
-            break;
-        case MatteStackMode::Subtract:
-            for (size_t i = 0; i < pixelCount; ++i) {
-                result.alphaMask[i] = std::max(0.0f, result.alphaMask[i] - matteMask[i]);
-            }
-            break;
+        };
+        if (pixelCount >= 256u * 1024u) {
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, pixelCount, 4096),
+                              combineMatteMask);
+        } else {
+            combineMatteMask(tbb::blocked_range<size_t>(0, pixelCount));
         }
     }
 

@@ -19,10 +19,65 @@ module Graphics.MeshRenderer;
 import std;
 import Frame.Debug;
 import Graphics.ParticleData;
+import Graphics.Compute;
 import IO.ImageImporter;
 import Image.Raw;
 
 namespace ArtifactCore {
+
+struct MeshCullConstants {
+    float viewMatrix[16] = {};
+    float projMatrix[16] = {};
+    Uint32 inputCount = 0;
+    Uint32 outputCapacity = 0;
+    float boundsRadius = 0.0f;
+    float padding = 0.0f;
+};
+
+const char* MeshCullCSSource = R"(
+struct InstanceData {
+    float4x4 transform;
+    float4x4 previousTransform;
+    float4 color;
+    float weight;
+    float timeOffset;
+    float2 padding;
+};
+StructuredBuffer<InstanceData> g_Input : register(t0);
+RWStructuredBuffer<InstanceData> g_Output : register(u0);
+RWStructuredBuffer<uint> g_Args : register(u1);
+cbuffer CullConstants : register(b0) {
+    float4x4 ViewMatrix;
+    float4x4 ProjMatrix;
+    uint InputCount;
+    uint OutputCapacity;
+    float BoundsRadius;
+    float Padding;
+};
+[numthreads(64, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= InputCount) return;
+    InstanceData inst = g_Input[id.x];
+    if (inst.weight <= 0.0 || inst.color.a <= 0.0) return;
+    float4 worldCenter = mul(float4(0.0, 0.0, 0.0, 1.0), inst.transform);
+    float4 viewCenter = mul(worldCenter, ViewMatrix);
+    float4 clip = mul(viewCenter, ProjMatrix);
+    float3 sx = float3(inst.transform[0][0], inst.transform[0][1], inst.transform[0][2]);
+    float3 sy = float3(inst.transform[1][0], inst.transform[1][1], inst.transform[1][2]);
+    float3 sz = float3(inst.transform[2][0], inst.transform[2][1], inst.transform[2][2]);
+    float scale = max(length(sx), max(length(sy), length(sz)));
+    float projectionScale = max(abs(ProjMatrix[0][0]), abs(ProjMatrix[1][1]));
+    float margin = max(0.001, BoundsRadius * scale * projectionScale);
+    bool visible = clip.w > 0.00001 &&
+        clip.x >= -clip.w - margin && clip.x <= clip.w + margin &&
+        clip.y >= -clip.w - margin && clip.y <= clip.w + margin &&
+        clip.z >= -margin && clip.z <= clip.w + margin;
+    if (!visible) return;
+    uint dst;
+    InterlockedAdd(g_Args[1], 1, dst);
+    if (dst < OutputCapacity) g_Output[dst] = inst;
+}
+)";
 
 namespace {
 void transpose4x4(const float* src, float* dst)
@@ -482,6 +537,15 @@ struct MeshRenderer::Impl {
     
     // Instance data buffer
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pInstanceBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pIndirectArgsBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pCompactedInstanceBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pCullConstantsBuffer_;
+    std::unique_ptr<ComputeExecutor>                           pCullExecutor_;
+    bool indirectDrawSupported_ = false;
+    bool gpuCullReady_ = false;
+    bool gpuCullActive_ = false;
+    size_t uploadedInstanceCount_ = 0;
+    float geometryBoundsRadius_ = 0.0f;
     
     // Constant buffer for view/proj matrices
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pConstantBuffer_;
@@ -504,6 +568,7 @@ struct MeshRenderer::Impl {
 MeshRenderer::MeshRenderer(GpuContext& context)
     : context_(context), pImpl_(new Impl())
 {
+    pImpl_->pCullExecutor_ = std::make_unique<ComputeExecutor>(context_);
     static const float identity[16] = {
         1, 0, 0, 0,
         0, 1, 0, 0,
@@ -563,6 +628,8 @@ void MeshRenderer::setPipelineStateCache(IPipelineStateCache* cache)
 void MeshRenderer::createBuffers()
 {
     auto pDevice = context_.RenderDevice();
+    pImpl_->gpuCullReady_ = false;
+    pImpl_->gpuCullActive_ = false;
     
     // 1. Position buffer (always needed)
     if (vertexCount_ > 0) {
@@ -617,6 +684,38 @@ void MeshRenderer::createBuffers()
         BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
         BuffDesc.ElementByteStride = sizeof(InstanceData);
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pInstanceBuffer_);
+        BuffDesc.Name = "Compacted Instance Structured Buffer";
+        BuffDesc.BindFlags = BIND_SHADER_RESOURCE | BIND_UNORDERED_ACCESS;
+        pDevice->CreateBuffer(
+            BuffDesc, nullptr, &pImpl_->pCompactedInstanceBuffer_);
+    }
+    pImpl_->indirectDrawSupported_ =
+        (pDevice->GetAdapterInfo().DrawCommand.CapFlags &
+         DRAW_COMMAND_CAP_FLAG_DRAW_INDIRECT) != 0;
+    if (pImpl_->indirectDrawSupported_) {
+        BufferDesc BuffDesc;
+        BuffDesc.Name = "Mesh Indirect Draw Args";
+        BuffDesc.Usage = USAGE_DEFAULT;
+        BuffDesc.Size = sizeof(Uint32) * 5;
+        BuffDesc.BindFlags =
+            BIND_INDIRECT_DRAW_ARGS | BIND_UNORDERED_ACCESS;
+        BuffDesc.CPUAccessFlags = CPU_ACCESS_NONE;
+        BuffDesc.Mode = BUFFER_MODE_STRUCTURED;
+        BuffDesc.ElementByteStride = sizeof(Uint32);
+        pDevice->CreateBuffer(
+            BuffDesc, nullptr, &pImpl_->pIndirectArgsBuffer_);
+        pImpl_->indirectDrawSupported_ =
+            pImpl_->pIndirectArgsBuffer_ != nullptr;
+    }
+    {
+        BufferDesc BuffDesc;
+        BuffDesc.Name = "Mesh Cull Constants";
+        BuffDesc.Usage = USAGE_DYNAMIC;
+        BuffDesc.Size = sizeof(MeshCullConstants);
+        BuffDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(
+            BuffDesc, nullptr, &pImpl_->pCullConstantsBuffer_);
     }
     
     // 6. Constant buffer
@@ -884,6 +983,26 @@ void MeshRenderer::createPSO()
     };
     initializeBindings(pImpl_->pPSO_, pImpl_->pSRB_);
     initializeBindings(pImpl_->pTransparentPSO_, pImpl_->pTransparentSRB_);
+    if (!pImpl_->gpuCullReady_) {
+        static std::array<ShaderResourceVariableDesc, 3> CullVars = {{
+            {SHADER_TYPE_COMPUTE, "g_Input", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_COMPUTE, "g_Output", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_COMPUTE, "g_Args", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+        }};
+        ComputePipelineDesc cullDesc;
+        cullDesc.name = "Mesh GPU Visibility Cull";
+        cullDesc.shaderSource = MeshCullCSSource;
+        cullDesc.entryPoint = "CSMain";
+        cullDesc.variables = CullVars.data();
+        cullDesc.variableCount = static_cast<Uint32>(CullVars.size());
+        cullDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+        pImpl_->gpuCullReady_ =
+            pImpl_->pCullExecutor_ &&
+            pImpl_->pCullExecutor_->build(cullDesc) &&
+            pImpl_->pCullExecutor_->setBuffer(
+                "CullConstants", pImpl_->pCullConstantsBuffer_) &&
+            pImpl_->pCullExecutor_->createShaderResourceBinding(true);
+    }
     pImpl_->pipelineSets_[renderTargetFormat_] = {
         pImpl_->pPSO_, pImpl_->pSRB_, pImpl_->pTransparentPSO_,
         pImpl_->pTransparentSRB_};
@@ -898,6 +1017,15 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
         pContext->UpdateBuffer(pImpl_->pPositionBuffer_, 0, sizeof(float) * 3 * vertexCount_,
                               positions, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+        float maxRadiusSquared = 0.0f;
+        for (size_t i = 0; i < vertexCount_; ++i) {
+            const float x = positions[i * 3u + 0u];
+            const float y = positions[i * 3u + 1u];
+            const float z = positions[i * 3u + 2u];
+            maxRadiusSquared =
+                std::max(maxRadiusSquared, x * x + y * y + z * z);
+        }
+        pImpl_->geometryBoundsRadius_ = std::sqrt(maxRadiusSquared);
     }
 
     if (normals && pImpl_->pNormalBuffer_) {
@@ -925,6 +1053,7 @@ void MeshRenderer::updateInstanceData(const InstanceData* instances, size_t coun
     
     auto pContext = context_.DeviceContext();
     size_t uploadSize = sizeof(InstanceData) * std::min(count, maxInstances_);
+    pImpl_->uploadedInstanceCount_ = std::min(count, maxInstances_);
     
     pContext->UpdateBuffer(pImpl_->pInstanceBuffer_, 0, uploadSize,
                           instances, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -969,11 +1098,75 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     }
     
+    pImpl_->gpuCullActive_ =
+        pImpl_->gpuCullReady_ && pImpl_->indirectDrawSupported_ &&
+        !pImpl_->transparentPass_ && pImpl_->pCompactedInstanceBuffer_ &&
+        pImpl_->pIndirectArgsBuffer_ &&
+        pImpl_->uploadedInstanceCount_ >= 64 &&
+        pImpl_->geometryBoundsRadius_ > 0.0f;
+    if (pImpl_->gpuCullActive_) {
+        const Uint32 args[5] = {
+            static_cast<Uint32>(
+                pImpl_->pIndexBuffer_ && indexCount_ > 0
+                    ? indexCount_ : vertexCount_),
+            0u, 0u, 0u, 0u
+        };
+        pContext->UpdateBuffer(
+            pImpl_->pIndirectArgsBuffer_, 0, sizeof(args), args,
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        MeshCullConstants cullConstants;
+        std::memcpy(cullConstants.viewMatrix, constants_.viewMatrix,
+                    sizeof(cullConstants.viewMatrix));
+        std::memcpy(cullConstants.projMatrix, constants_.projMatrix,
+                    sizeof(cullConstants.projMatrix));
+        cullConstants.inputCount =
+            static_cast<Uint32>(pImpl_->uploadedInstanceCount_);
+        cullConstants.outputCapacity = static_cast<Uint32>(maxInstances_);
+        cullConstants.boundsRadius = pImpl_->geometryBoundsRadius_;
+        void* cullData = nullptr;
+        pContext->MapBuffer(
+            pImpl_->pCullConstantsBuffer_, MAP_WRITE, MAP_FLAG_DISCARD,
+            cullData);
+        if (cullData) {
+            std::memcpy(cullData, &cullConstants, sizeof(cullConstants));
+            pContext->UnmapBuffer(
+                pImpl_->pCullConstantsBuffer_, MAP_WRITE);
+        } else {
+            pImpl_->gpuCullActive_ = false;
+        }
+        if (pImpl_->gpuCullActive_) {
+            const bool inputBound = pImpl_->pCullExecutor_->setBufferView(
+                "g_Input", pImpl_->pInstanceBuffer_->GetDefaultView(
+                               BUFFER_VIEW_SHADER_RESOURCE));
+            const bool outputBound = pImpl_->pCullExecutor_->setBufferView(
+                "g_Output", pImpl_->pCompactedInstanceBuffer_->GetDefaultView(
+                                BUFFER_VIEW_UNORDERED_ACCESS));
+            const bool argsBound = pImpl_->pCullExecutor_->setBufferView(
+                "g_Args", pImpl_->pIndirectArgsBuffer_->GetDefaultView(
+                              BUFFER_VIEW_UNORDERED_ACCESS));
+            pImpl_->gpuCullActive_ =
+                inputBound && outputBound && argsBound;
+            if (pImpl_->gpuCullActive_) {
+                DispatchComputeAttribs dispatch;
+                dispatch.ThreadGroupCountX =
+                    (static_cast<Uint32>(pImpl_->uploadedInstanceCount_) +
+                     63u) / 64u;
+                pImpl_->pCullExecutor_->dispatch(
+                    pContext, dispatch,
+                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            }
+        }
+    }
+
     // Bind instance buffer SRV
     if (activeSRB) {
         auto* pVar = activeSRB->GetVariableByName(SHADER_TYPE_VERTEX, "g_Instances");
         if (pVar) {
-            pVar->Set(pImpl_->pInstanceBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+            auto* drawInstanceBuffer = pImpl_->gpuCullActive_
+                ? pImpl_->pCompactedInstanceBuffer_.RawPtr()
+                : pImpl_->pInstanceBuffer_.RawPtr();
+            pVar->Set(drawInstanceBuffer->GetDefaultView(
+                BUFFER_VIEW_SHADER_RESOURCE));
         }
         if (auto* texVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorTexture")) {
             texVar->Set(pImpl_->pBaseColorTextureSRV_);
@@ -1020,25 +1213,69 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
 
 void MeshRenderer::draw(IDeviceContext* pContext, size_t instanceCount)
 {
-    if (instanceCount == 0) return;
+    if (!pContext || instanceCount == 0) return;
+    instanceCount = std::min(instanceCount, maxInstances_);
+    const bool useIndirect =
+        pImpl_->indirectDrawSupported_ && pImpl_->pIndirectArgsBuffer_ &&
+        instanceCount >= 64;
     
     if (pImpl_->pIndexBuffer_ && indexCount_ > 0) {
-        // Indexed instanced draw
-        DrawIndexedAttribs drawAttrs;
-        drawAttrs.NumIndices  = (Uint32)indexCount_;
-        drawAttrs.NumInstances = (Uint32)instanceCount;
-        drawAttrs.IndexType   = VT_UINT32;
-        drawAttrs.Flags       = DRAW_FLAG_NONE;
         if (frameCostStats_) ++frameCostStats_->drawCalls;
-        pContext->DrawIndexed(drawAttrs);
+        if (pImpl_->gpuCullActive_) {
+            DrawIndexedIndirectAttribs drawAttrs{
+                VT_UINT32, pImpl_->pIndirectArgsBuffer_, DRAW_FLAG_NONE,
+                1, 0, sizeof(Uint32) * 5,
+                RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+            pContext->DrawIndexedIndirect(drawAttrs);
+        } else if (useIndirect) {
+            const Uint32 args[5] = {
+                static_cast<Uint32>(indexCount_),
+                static_cast<Uint32>(instanceCount), 0u, 0u, 0u
+            };
+            pContext->UpdateBuffer(
+                pImpl_->pIndirectArgsBuffer_, 0, sizeof(args), args,
+                RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+            DrawIndexedIndirectAttribs drawAttrs{
+                VT_UINT32, pImpl_->pIndirectArgsBuffer_, DRAW_FLAG_NONE,
+                1, 0, sizeof(args), RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+            pContext->DrawIndexedIndirect(drawAttrs);
+        } else {
+            DrawIndexedAttribs drawAttrs;
+            drawAttrs.NumIndices = static_cast<Uint32>(indexCount_);
+            drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
+            drawAttrs.IndexType = VT_UINT32;
+            drawAttrs.Flags = DRAW_FLAG_NONE;
+            pContext->DrawIndexed(drawAttrs);
+        }
     } else if (vertexCount_ > 0) {
-        // Non-indexed instanced draw
-        DrawAttribs drawAttrs;
-        drawAttrs.NumVertices  = (Uint32)vertexCount_;
-        drawAttrs.NumInstances = (Uint32)instanceCount;
-        drawAttrs.Flags        = DRAW_FLAG_NONE;
         if (frameCostStats_) ++frameCostStats_->drawCalls;
-        pContext->Draw(drawAttrs);
+        if (pImpl_->gpuCullActive_) {
+            DrawIndirectAttribs drawAttrs{
+                pImpl_->pIndirectArgsBuffer_, DRAW_FLAG_NONE, 1, 0,
+                sizeof(Uint32) * 4,
+                RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+            pContext->DrawIndirect(drawAttrs);
+        } else if (useIndirect) {
+            const Uint32 args[4] = {
+                static_cast<Uint32>(vertexCount_),
+                static_cast<Uint32>(instanceCount), 0u, 0u
+            };
+            pContext->UpdateBuffer(
+                pImpl_->pIndirectArgsBuffer_, 0, sizeof(args), args,
+                RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+            DrawIndirectAttribs drawAttrs{
+                pImpl_->pIndirectArgsBuffer_, DRAW_FLAG_NONE, 1, 0,
+                sizeof(args), RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+            pContext->DrawIndirect(drawAttrs);
+        } else {
+            DrawAttribs drawAttrs;
+            drawAttrs.NumVertices = static_cast<Uint32>(vertexCount_);
+            drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
+            drawAttrs.Flags = DRAW_FLAG_NONE;
+            pContext->Draw(drawAttrs);
+        }
     }
 }
 

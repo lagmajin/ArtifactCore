@@ -7,6 +7,7 @@ module;
 module ImageProcessing;
 
 import :StructureTensor;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -67,7 +68,7 @@ TensorField StructureTensor::analyzeMat(const void* cvMatPtr, float rGaussianWid
     field.magnitude.resize(static_cast<size_t>(w) * h, 0.0f);
 
     // 6. Eigenvalue analysis per pixel
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         const float* pJxx = Jxx.ptr<float>(y);
         const float* pJyy = Jyy.ptr<float>(y);
         const float* pJxy = Jxy.ptr<float>(y);
@@ -109,7 +110,7 @@ TensorField StructureTensor::analyzeMat(const void* cvMatPtr, float rGaussianWid
             field.coherence[idx] = coh;
             field.magnitude[idx] = std::sqrt(l1);
         }
-    }
+    });
 
     return field;
 }

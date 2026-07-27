@@ -16,6 +16,7 @@ module Graphics.ParticleRenderer;
 
 import std;
 import Frame.Debug;
+import Graphics.Compute;
 
 namespace ArtifactCore {
 
@@ -25,7 +26,68 @@ struct ParticleRenderer::Impl
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pSRB_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pParticleBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pConstantBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pIndirectArgsBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pCompactedParticleBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pCullConstantsBuffer_;
+    std::unique_ptr<ComputeExecutor>                           pCullExecutor_;
+    bool indirectDrawSupported_ = false;
+    bool gpuCullReady_ = false;
+    bool gpuCullActive_ = false;
 };
+
+struct ParticleCullConstants {
+    float viewMatrix[16] = {};
+    float projMatrix[16] = {};
+    Uint32 inputCount = 0;
+    Uint32 outputCapacity = 0;
+    Uint32 padding[2] = {};
+};
+
+const char* ParticleCullCSSource = R"(
+struct ParticleData {
+    float3 position;
+    float3 velocity;
+    float4 color;
+    float size;
+    float stretch;
+    float rotation;
+    float age;
+    float lifetime;
+    int spriteFrame;
+    int spriteRows;
+    int spriteCols;
+};
+StructuredBuffer<ParticleData> g_Input : register(t0);
+RWStructuredBuffer<ParticleData> g_Output : register(u0);
+RWStructuredBuffer<uint> g_Args : register(u1);
+cbuffer CullConstants : register(b0) {
+    float4 ViewRow0; float4 ViewRow1; float4 ViewRow2; float4 ViewRow3;
+    float4 ProjRow0; float4 ProjRow1; float4 ProjRow2; float4 ProjRow3;
+    uint InputCount;
+    uint OutputCapacity;
+    uint2 Padding;
+};
+[numthreads(64, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= InputCount) return;
+    ParticleData p = g_Input[id.x];
+    if (p.age >= p.lifetime || p.color.a <= 0.0 || p.size <= 0.0) return;
+    float4 localPos = float4(p.position, 1.0);
+    float4 viewPos = float4(dot(localPos, ViewRow0), dot(localPos, ViewRow1),
+                           dot(localPos, ViewRow2), dot(localPos, ViewRow3));
+    float4 clip = float4(dot(viewPos, ProjRow0), dot(viewPos, ProjRow1),
+                         dot(viewPos, ProjRow2), dot(viewPos, ProjRow3));
+    float margin = max(2.0, p.size * max(1.0, p.stretch) * 6.0);
+    bool visible = clip.w > 0.00001 &&
+        clip.x >= -clip.w - margin && clip.x <= clip.w + margin &&
+        clip.y >= -clip.w - margin && clip.y <= clip.w + margin &&
+        clip.z >= -margin && clip.z <= clip.w + margin;
+    if (!visible) return;
+    uint dst;
+    InterlockedAdd(g_Args[1], 1, dst);
+    if (dst < OutputCapacity) g_Output[dst] = p;
+}
+)";
 
 const char* ParticleVSSource = R"(
 struct ParticleData {
@@ -141,6 +203,7 @@ float4 PSMain(PS_Input In) : SV_Target {
 ParticleRenderer::ParticleRenderer(GpuContext& context)
     : context_(context), pImpl_(new Impl())
 {
+    pImpl_->pCullExecutor_ = std::make_unique<ComputeExecutor>(context_);
     debugState_ = QStringLiteral("state=constructed");
 }
 ParticleRenderer::~ParticleRenderer()
@@ -163,6 +226,8 @@ void ParticleRenderer::setFrameCostStats(ArtifactCore::RenderCostStats* stats)
 
 void ParticleRenderer::createBuffers() {
     auto pDevice = context_.RenderDevice();
+    pImpl_->gpuCullReady_ = false;
+    pImpl_->gpuCullActive_ = false;
 
     // 1. Particle Structured Buffer
     BufferDesc BuffDesc;
@@ -173,6 +238,10 @@ void ParticleRenderer::createBuffers() {
     BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
     BuffDesc.ElementByteStride = sizeof(ParticleVertex);
     pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pParticleBuffer_);
+    BuffDesc.Name = "Particle Compacted Structured Buffer";
+    BuffDesc.BindFlags = BIND_SHADER_RESOURCE | BIND_UNORDERED_ACCESS;
+    pDevice->CreateBuffer(
+        BuffDesc, nullptr, &pImpl_->pCompactedParticleBuffer_);
 
     // 2. Constant Buffer
     BuffDesc.Name              = "Particle Constants CB";
@@ -183,6 +252,32 @@ void ParticleRenderer::createBuffers() {
     BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
     BuffDesc.ElementByteStride = 0;
     pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pConstantBuffer_);
+    pImpl_->indirectDrawSupported_ =
+        (pDevice->GetAdapterInfo().DrawCommand.CapFlags &
+         DRAW_COMMAND_CAP_FLAG_DRAW_INDIRECT) != 0;
+    if (pImpl_->indirectDrawSupported_) {
+        BufferDesc indirectDesc;
+        indirectDesc.Name = "Particle Indirect Draw Args";
+        indirectDesc.Usage = USAGE_DEFAULT;
+        indirectDesc.Size = sizeof(Uint32) * 4;
+        indirectDesc.BindFlags =
+            BIND_INDIRECT_DRAW_ARGS | BIND_UNORDERED_ACCESS;
+        indirectDesc.CPUAccessFlags = CPU_ACCESS_NONE;
+        indirectDesc.Mode = BUFFER_MODE_STRUCTURED;
+        indirectDesc.ElementByteStride = sizeof(Uint32);
+        pDevice->CreateBuffer(
+            indirectDesc, nullptr, &pImpl_->pIndirectArgsBuffer_);
+        pImpl_->indirectDrawSupported_ =
+            pImpl_->pIndirectArgsBuffer_ != nullptr;
+    }
+    BufferDesc cullConstantsDesc;
+    cullConstantsDesc.Name = "Particle Cull Constants";
+    cullConstantsDesc.Usage = USAGE_DYNAMIC;
+    cullConstantsDesc.Size = sizeof(ParticleCullConstants);
+    cullConstantsDesc.BindFlags = BIND_UNIFORM_BUFFER;
+    cullConstantsDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+    pDevice->CreateBuffer(
+        cullConstantsDesc, nullptr, &pImpl_->pCullConstantsBuffer_);
     debugState_ = QStringLiteral("state=buffers-ready max=%1 particleBuffer=%2 constantBuffer=%3")
                       .arg(static_cast<qulonglong>(maxParticles_))
                       .arg(pImpl_->pParticleBuffer_ ? 1 : 0)
@@ -276,6 +371,24 @@ void ParticleRenderer::createPSO() {
     }
     pConstVar->Set(pImpl_->pConstantBuffer_);
     pImpl_->pPSO_->CreateShaderResourceBinding(&pImpl_->pSRB_, true);
+    static std::array<ShaderResourceVariableDesc, 3> CullVars = {{
+        {SHADER_TYPE_COMPUTE, "g_Input", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, "g_Output", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, "g_Args", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+    }};
+    ComputePipelineDesc cullDesc;
+    cullDesc.name = "Particle GPU Visibility Cull";
+    cullDesc.shaderSource = ParticleCullCSSource;
+    cullDesc.entryPoint = "CSMain";
+    cullDesc.variables = CullVars.data();
+    cullDesc.variableCount = static_cast<Uint32>(CullVars.size());
+    cullDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+    pImpl_->gpuCullReady_ =
+        pImpl_->pCullExecutor_ &&
+        pImpl_->pCullExecutor_->build(cullDesc) &&
+        pImpl_->pCullExecutor_->setBuffer(
+            "CullConstants", pImpl_->pCullConstantsBuffer_) &&
+        pImpl_->pCullExecutor_->createShaderResourceBinding(true);
     debugState_ = QStringLiteral("state=pso-ready max=%1 pso=%2 srb=%3 blend=%4 depthTest=%5 depthWrite=%6 format=rgba8-srgb")
                       .arg(static_cast<qulonglong>(maxParticles_))
                       .arg(pImpl_->pPSO_ ? 1 : 0)
@@ -366,9 +479,67 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
         }
     }
 
+    pImpl_->gpuCullActive_ =
+        pImpl_->gpuCullReady_ && pImpl_->indirectDrawSupported_ &&
+        pImpl_->pCompactedParticleBuffer_ && pImpl_->pIndirectArgsBuffer_ &&
+        lastUploadedParticleCount_ >= 64 &&
+        renderOptions_.blend == ParticleBlendPolicy::Additive;
+    if (pImpl_->gpuCullActive_) {
+        const Uint32 args[4] = {4u, 0u, 0u, 0u};
+        pContext->UpdateBuffer(
+            pImpl_->pIndirectArgsBuffer_, 0, sizeof(args), args,
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        ParticleCullConstants cullConstants;
+        std::memcpy(cullConstants.viewMatrix, constants_.viewMatrix,
+                    sizeof(cullConstants.viewMatrix));
+        std::memcpy(cullConstants.projMatrix, constants_.projMatrix,
+                    sizeof(cullConstants.projMatrix));
+        cullConstants.inputCount =
+            static_cast<Uint32>(lastUploadedParticleCount_);
+        cullConstants.outputCapacity = static_cast<Uint32>(maxParticles_);
+        void* cullData = nullptr;
+        pContext->MapBuffer(
+            pImpl_->pCullConstantsBuffer_, MAP_WRITE, MAP_FLAG_DISCARD,
+            cullData);
+        if (cullData) {
+            std::memcpy(cullData, &cullConstants, sizeof(cullConstants));
+            pContext->UnmapBuffer(
+                pImpl_->pCullConstantsBuffer_, MAP_WRITE);
+        } else {
+            pImpl_->gpuCullActive_ = false;
+        }
+        if (pImpl_->gpuCullActive_) {
+            const bool inputBound = pImpl_->pCullExecutor_->setBufferView(
+                "g_Input", pImpl_->pParticleBuffer_->GetDefaultView(
+                               BUFFER_VIEW_SHADER_RESOURCE));
+            const bool outputBound = pImpl_->pCullExecutor_->setBufferView(
+                "g_Output", pImpl_->pCompactedParticleBuffer_->GetDefaultView(
+                                BUFFER_VIEW_UNORDERED_ACCESS));
+            const bool argsBound = pImpl_->pCullExecutor_->setBufferView(
+                "g_Args", pImpl_->pIndirectArgsBuffer_->GetDefaultView(
+                              BUFFER_VIEW_UNORDERED_ACCESS));
+            pImpl_->gpuCullActive_ =
+                inputBound && outputBound && argsBound;
+            if (pImpl_->gpuCullActive_) {
+                DispatchComputeAttribs dispatch;
+                dispatch.ThreadGroupCountX =
+                    (static_cast<Uint32>(lastUploadedParticleCount_) + 63u) /
+                    64u;
+                pImpl_->pCullExecutor_->dispatch(
+                    pContext, dispatch,
+                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            }
+        }
+    }
+
     // Set SRV
     auto* pParticleVar = pImpl_->pSRB_->GetVariableByName(SHADER_TYPE_VERTEX, "g_Particles");
-    auto* pParticleSRV = pImpl_->pParticleBuffer_ ? pImpl_->pParticleBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE) : nullptr;
+    auto* drawParticleBuffer = pImpl_->gpuCullActive_
+        ? pImpl_->pCompactedParticleBuffer_.RawPtr()
+        : pImpl_->pParticleBuffer_.RawPtr();
+    auto* pParticleSRV = drawParticleBuffer
+        ? drawParticleBuffer->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE)
+        : nullptr;
     if (!pParticleVar || !pParticleSRV) {
         debugState_ = QStringLiteral("state=prepare-skipped particleVar=%1 particleSRV=%2")
                           .arg(pParticleVar ? 1 : 0)
@@ -402,17 +573,45 @@ void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
         return;
     }
     
-    DrawAttribs drawAttrs;
-    drawAttrs.NumVertices  = 4;
-    drawAttrs.NumInstances = (Uint32)activeCount;
-    // drawAttrs.Flags        = DRAW_FLAG_VERIFY_ALL;
-    drawAttrs.Flags        = DRAW_FLAG_NONE;
     if (frameCostStats_) {
         ++frameCostStats_->drawCalls;
     }
-    pContext->Draw(drawAttrs);
-    debugState_ = QStringLiteral("state=drawn active=%1 vertices=4 blend=%2 depthTest=%3 depthWrite=%4 billboard=%5")
+    const bool useIndirect =
+        pImpl_->indirectDrawSupported_ && pImpl_->pIndirectArgsBuffer_ &&
+        activeCount >= 64;
+    if (pImpl_->gpuCullActive_) {
+        DrawIndirectAttribs drawAttrs{
+            pImpl_->pIndirectArgsBuffer_, DRAW_FLAG_NONE, 1, 0,
+            sizeof(Uint32) * 4,
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+        pContext->DrawIndirect(drawAttrs);
+    } else if (useIndirect) {
+        const Uint32 args[4] = {
+            4u, static_cast<Uint32>(activeCount), 0u, 0u
+        };
+        pContext->UpdateBuffer(
+            pImpl_->pIndirectArgsBuffer_, 0, sizeof(args), args,
+            RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (frameCostStats_) {
+            ++frameCostStats_->bufferUpdates;
+        }
+        DrawIndirectAttribs drawAttrs{
+            pImpl_->pIndirectArgsBuffer_, DRAW_FLAG_NONE, 1, 0,
+            sizeof(args), RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+        pContext->DrawIndirect(drawAttrs);
+    } else {
+        DrawAttribs drawAttrs;
+        drawAttrs.NumVertices = 4;
+        drawAttrs.NumInstances = static_cast<Uint32>(activeCount);
+        drawAttrs.Flags = DRAW_FLAG_NONE;
+        pContext->Draw(drawAttrs);
+    }
+    debugState_ = QStringLiteral("state=drawn active=%1 vertices=4 submission=%2 blend=%3 depthTest=%4 depthWrite=%5 billboard=%6")
                       .arg(static_cast<qulonglong>(activeCount))
+                      .arg(pImpl_->gpuCullActive_
+                               ? QStringLiteral("gpu-cull-indirect")
+                               : (useIndirect ? QStringLiteral("indirect")
+                                              : QStringLiteral("direct")))
                       .arg(static_cast<int>(renderOptions_.blend))
                       .arg(renderOptions_.depthTest ? 1 : 0)
                       .arg(renderOptions_.depthWrite ? 1 : 0)

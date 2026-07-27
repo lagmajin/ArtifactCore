@@ -6,6 +6,7 @@ module;
 #include <utility>
 module ImageProcessing;
 import :Halide;
+import Core.Parallel;
 namespace ArtifactCore {
  using namespace Halide;
 
@@ -39,12 +40,12 @@ namespace ArtifactCore {
 
   // Planar buffer �ɕϊ� (c,x,y)
   Buffer<float> input(4, w, h);
-  for (int y = 0; y < h; ++y) {
+  Parallel::For(0, h, w * h, [&](int y) {
    const cv::Vec4f* row = rgba32f.ptr<cv::Vec4f>(y);
    for (int x = 0; x < w; ++x)
 	for (int c = 0; c < 4; ++c)
 	 input(c, x, y) = row[x][c];
-  }
+  });
 
   // Halide Func �ɓn��
   Func inputFunc("inputFunc");
@@ -59,12 +60,12 @@ namespace ArtifactCore {
 
   // OpenCV �ɖ߂�
   cv::Mat output(h, w, CV_32FC4);
-  for (int y = 0; y < h; ++y) {
+  Parallel::For(0, h, w * h, [&](int y) {
    cv::Vec4f* row = output.ptr<cv::Vec4f>(y);
    for (int x = 0; x < w; ++x)
 	for (int c = 0; c < 4; ++c)
 	 row[x][c] = outBuf(c, x, y);
-  }
+  });
 
   return output;
  }
@@ -78,14 +79,14 @@ namespace ArtifactCore {
 
   // 1. cv::Mat -> Halide::Buffer<float> (c, x, y)
   Halide::Buffer<float> buffer(4, w, h);
-  for (int y = 0; y < h; ++y) {
+  Parallel::For(0, h, w * h, [&](int y) {
    const cv::Vec4f* row = inputRGBA32F.ptr<cv::Vec4f>(y);
    for (int x = 0; x < w; ++x) {
 	for (int c = 0; c < 4; ++c) {
 	 buffer(c, x, y) = row[x][c];
 	}
    }
-  }
+  });
 
   // 2. �������Ȃ�Halide�֐��쐬
   Halide::Func identity("identity");
@@ -98,14 +99,14 @@ namespace ArtifactCore {
 
   // 4. Halide::Buffer -> cv::Mat
   cv::Mat output(h, w, CV_32FC4);
-  for (int y = 0; y < h; ++y) {
+  Parallel::For(0, h, w * h, [&](int y) {
    cv::Vec4f* outRow = output.ptr<cv::Vec4f>(y);
    for (int x = 0; x < w; ++x) {
 	for (int c = 0; c < 4; ++c) {
 	 outRow[x][c] = outputBuffer(c, x, y);
 	}
    }
-  }
+  });
 
   return output;
  }

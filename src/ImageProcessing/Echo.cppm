@@ -4,6 +4,7 @@ module;
 
 module ImageProcessing;
 import :Echo;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -40,21 +41,23 @@ void Echo::process(float4* buffer, int width, int height, const EchoSettings& s)
         int idx = (writePos_ - 1 - i + ringCapacity_) % ringCapacity_;
         float weight = (i == 0) ? 1.0f : s.startingIntensity * std::pow(s.decay, static_cast<float>(i - 1));
         float4* src = ringBuffer_.data() + idx * frameSize;
-        for (size_t j = 0; j < frameSize; ++j) {
+        Parallel::For(0, static_cast<int>(frameSize), static_cast<int>(frameSize), [&](int index) {
+            const size_t j = static_cast<size_t>(index);
             buffer[j].x += src[j].x * weight;
             buffer[j].y += src[j].y * weight;
             buffer[j].z += src[j].z * weight;
             buffer[j].w += src[j].w * weight;
-        }
+        });
     }
 
     float inv = 1.0f / (1.0f + s.startingIntensity * (1.0f - std::pow(s.decay, static_cast<float>(frameCount_ - 1))) / std::max(1.0f - s.decay, 0.001f));
-    for (size_t j = 0; j < frameSize; ++j) {
+    Parallel::For(0, static_cast<int>(frameSize), static_cast<int>(frameSize), [&](int index) {
+        const size_t j = static_cast<size_t>(index);
         buffer[j].x = std::clamp(buffer[j].x * inv, 0.0f, 1.0f);
         buffer[j].y = std::clamp(buffer[j].y * inv, 0.0f, 1.0f);
         buffer[j].z = std::clamp(buffer[j].z * inv, 0.0f, 1.0f);
         buffer[j].w = std::clamp(buffer[j].w * inv, 0.0f, 1.0f);
-    }
+    });
 }
 
 void Echo::process(ImageF32x4_RGBA& image, const EchoSettings& settings) {

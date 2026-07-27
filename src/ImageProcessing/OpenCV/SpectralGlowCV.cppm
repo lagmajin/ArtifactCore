@@ -37,6 +37,8 @@ module;
 #include <QElapsedTimer>
 module ImageProcessing.SpectralGlow;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 
@@ -88,7 +90,7 @@ namespace ArtifactCore {
 
   // === 4. グロー元画像を構築（色 × マスク）===
   cv::Mat glowSrc(mat.size(), CV_32FC3, cv::Scalar(0, 0, 0));
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    const float* mrow = mask.ptr<float>(y);
    const uchar* nrow = noise.ptr<uchar>(y);
@@ -99,7 +101,7 @@ namespace ArtifactCore {
 	if (mrow[x] > 0.0f)
 	 grow[x] = glowColors[nrow[x]] * mrow[x];
    }
-  }
+  });
 
   // === 5. ブラー処理で発光感 ===
   cv::Mat glowBlurred;
@@ -110,7 +112,7 @@ namespace ArtifactCore {
   glowBlurred *= glowStrength;
 
   // === 7. 元のBGRA画像に加算合成 ===
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    cv::Vec4f* mrow = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* grow = glowBlurred.ptr<cv::Vec3f>(y);
@@ -122,7 +124,7 @@ namespace ArtifactCore {
 	mrow[x][2] = std::min(mrow[x][2] + grow[x][2], 1.0f); // R
 	// A はそのまま保持
    }
-  }
+  });
  }
 
  void SpectralGlow::Process2(cv::Mat& mat)
@@ -140,7 +142,7 @@ namespace ArtifactCore {
   cv::Mat green = red.clone();
   cv::Mat blue = red.clone();
 
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = red.ptr<float>(y);
@@ -157,7 +159,7 @@ namespace ArtifactCore {
 	 b[x] = v;
 	}
    }
-  }
+  });
 
   // === 3. 位置シフト（プリズムずらし）===
   auto shift = [](const cv::Mat& src, int dx, int dy) -> cv::Mat {
@@ -185,7 +187,7 @@ namespace ArtifactCore {
   glow *= 0.15f;
 
   // === 6. 元画像に加算合成 ===
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    cv::Vec4f* mrow = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* grow = glow.ptr<cv::Vec3f>(y);
@@ -197,7 +199,7 @@ namespace ArtifactCore {
 	mrow[x][2] = std::min(mrow[x][2] + grow[x][2], 1.0f); // R
 	// Aそのまま
    }
-  }
+  });
  }
 
  void SpectralGlow::Process3(cv::Mat& mat)
@@ -215,7 +217,7 @@ namespace ArtifactCore {
   cv::Mat green = red.clone();
   cv::Mat blue = red.clone();
 
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = red.ptr<float>(y);
@@ -231,7 +233,7 @@ namespace ArtifactCore {
 	 b[x] = v;
 	}
    }
-  }
+  });
 
   // 3. チャネルずらし関数
   auto shift = [](const cv::Mat& src, int dx, int dy) -> cv::Mat {
@@ -263,7 +265,7 @@ namespace ArtifactCore {
   glow *= 0.15f;
 
   // 8. 元画像に加算（clamp）
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    cv::Vec4f* row = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* glow_row = glow.ptr<cv::Vec3f>(y);
@@ -274,7 +276,7 @@ namespace ArtifactCore {
 	row[x][2] = std::min(row[x][2] + glow_row[x][2], 1.0f); // R
 	// alpha unchanged
    }
-  }
+  });
  }
 
  void SpectralGlow::Process4(cv::Mat& mat)
@@ -295,20 +297,21 @@ namespace ArtifactCore {
   cv::phase(grad_x, grad_y, angle, true); // 角度0-360度
 
   // 4. 画像全体の平均勾配方向を計算
-  double sum_sin = 0, sum_cos = 0;
-  int count = 0;
-  for (int y = 0; y < angle.rows; ++y)
+  std::vector<double> rowSin(static_cast<size_t>(angle.rows), 0.0);
+  std::vector<double> rowCos(static_cast<size_t>(angle.rows), 0.0);
+  Parallel::For(0, angle.rows, angle.rows * angle.cols, [&](int y)
   {
    const float* a = angle.ptr<float>(y);
    for (int x = 0; x < angle.cols; ++x)
    {
-	float deg = a[x];
-	float rad = deg * (float)(CV_PI / 180.0);
-	sum_cos += std::cos(rad);
-	sum_sin += std::sin(rad);
-	++count;
+	float rad = a[x] * (float)(CV_PI / 180.0);
+	rowCos[static_cast<size_t>(y)] += std::cos(rad);
+	rowSin[static_cast<size_t>(y)] += std::sin(rad);
    }
-  }
+  });
+  double sum_sin = std::accumulate(rowSin.begin(), rowSin.end(), 0.0);
+  double sum_cos = std::accumulate(rowCos.begin(), rowCos.end(), 0.0);
+  int count = angle.rows * angle.cols;
   float avg_rad = std::atan2(sum_sin / count, sum_cos / count);
 
   // にじみ方向は勾配に垂直だから
@@ -331,7 +334,7 @@ namespace ArtifactCore {
   cv::Mat green = red.clone();
   cv::Mat blue = red.clone();
 
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = red.ptr<float>(y);
@@ -347,7 +350,7 @@ namespace ArtifactCore {
 	 b[x] = v;
 	}
    }
-  }
+  });
 
   // 9. シフト関数（浮動小数オフセット対応）
   auto shiftFloat = [&](const cv::Mat& src, float dx, float dy) -> cv::Mat {
@@ -379,7 +382,7 @@ namespace ArtifactCore {
   glow *= 0.12f;
 
   // 14. 加算合成（clamp）
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    cv::Vec4f* row = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* glow_row = glow.ptr<cv::Vec3f>(y);
@@ -390,7 +393,7 @@ namespace ArtifactCore {
 	row[x][2] = std::min(row[x][2] + glow_row[x][2], 1.0f);
 	// alpha はそのまま
    }
-  }
+  });
  }
 
  void SpectralGlow::ElegantGlow(cv::Mat& mat)
@@ -414,20 +417,21 @@ namespace ArtifactCore {
   cv::phase(grad_x, grad_y, angle, true); // 0-360度
 
   // 4. 画像全体の平均勾配方向
-  double sum_sin = 0, sum_cos = 0;
-  int count = 0;
-  for (int y = 0; y < angle.rows; ++y)
+  std::vector<double> rowSin(static_cast<size_t>(angle.rows), 0.0);
+  std::vector<double> rowCos(static_cast<size_t>(angle.rows), 0.0);
+  Parallel::For(0, angle.rows, angle.rows * angle.cols, [&](int y)
   {
    const float* a = angle.ptr<float>(y);
    for (int x = 0; x < angle.cols; ++x)
    {
-	float deg = a[x];
-	float rad = deg * (float)(CV_PI / 180.0);
-	sum_cos += std::cos(rad);
-	sum_sin += std::sin(rad);
-	++count;
+	float rad = a[x] * (float)(CV_PI / 180.0);
+	rowCos[static_cast<size_t>(y)] += std::cos(rad);
+	rowSin[static_cast<size_t>(y)] += std::sin(rad);
    }
-  }
+  });
+  double sum_sin = std::accumulate(rowSin.begin(), rowSin.end(), 0.0);
+  double sum_cos = std::accumulate(rowCos.begin(), rowCos.end(), 0.0);
+  int count = angle.rows * angle.cols;
   float avg_rad = std::atan2(sum_sin / count, sum_cos / count);
   float glow_dir_rad = avg_rad + (float)(CV_PI / 2.0);
 
@@ -447,7 +451,7 @@ namespace ArtifactCore {
   cv::Mat green = red.clone();
   cv::Mat blue = red.clone();
 
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = red.ptr<float>(y);
@@ -463,7 +467,7 @@ namespace ArtifactCore {
 	 b[x] = v;
 	}
    }
-  }
+  });
 
   // 5. マルチスケール用のσリスト
   std::vector<double> blurSigmas = { 6.0, 12.0, 24.0 };
@@ -500,7 +504,7 @@ namespace ArtifactCore {
   glowTotal *= 1.2f;
 
   // 7. 元画像に加算（clamp）
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    cv::Vec4f* row = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* glow_row = glowTotal.ptr<cv::Vec3f>(y);
@@ -511,7 +515,7 @@ namespace ArtifactCore {
 	row[x][2] = std::min(row[x][2] + glow_row[x][2], 1.0f);
 	// alphaはそのまま
    }
-  }
+  });
   qint64 elapsed = timer.elapsed();  // 単位: ミリ秒
   qDebug() << "処理時間:" << elapsed << "ms";
 
@@ -557,18 +561,21 @@ namespace ArtifactCore {
   cv::phase(grad_x, grad_y, angle, true);
 
   // 4. 全体の平均勾配方向を計算し、色ずらし基本方向を決める
-  double sum_sin = 0, sum_cos = 0;
-  int count = angle.rows * angle.cols;
-  for (int y = 0; y < angle.rows; ++y)
+  std::vector<double> rowSin(static_cast<size_t>(angle.rows), 0.0);
+  std::vector<double> rowCos(static_cast<size_t>(angle.rows), 0.0);
+  Parallel::For(0, angle.rows, angle.rows * angle.cols, [&](int y)
   {
    const float* a = angle.ptr<float>(y);
    for (int x = 0; x < angle.cols; ++x)
    {
 	float rad = a[x] * static_cast<float>(CV_PI / 180.0);
-	sum_cos += std::cos(rad);
-	sum_sin += std::sin(rad);
+	rowCos[static_cast<size_t>(y)] += std::cos(rad);
+	rowSin[static_cast<size_t>(y)] += std::sin(rad);
    }
-  }
+  });
+  double sum_sin = std::accumulate(rowSin.begin(), rowSin.end(), 0.0);
+  double sum_cos = std::accumulate(rowCos.begin(), rowCos.end(), 0.0);
+  int count = angle.rows * angle.cols;
   float avg_rad = std::atan2(sum_sin / count, sum_cos / count);
   float glow_dir_rad = avg_rad + static_cast<float>(CV_PI / 2.0);
 
@@ -583,7 +590,7 @@ namespace ArtifactCore {
   cv::Mat blueMask = redMask.clone();
 
   // 7. maskを元に各チャネルのマスク作成（全体は同じだが後で変えてもOK）
-  for (int y = 0; y < mask.rows; ++y)
+  Parallel::For(0, mask.rows, mask.rows * mask.cols, [&](int y)
   {
    const float* m = mask.ptr<float>(y);
    float* r = redMask.ptr<float>(y);
@@ -596,7 +603,7 @@ namespace ArtifactCore {
 	g[x] = v;
 	b[x] = v;
    }
-  }
+  });
 
   // 8. シフト関数
   auto shiftFloat = [&](const cv::Mat& src, float dx, float dy) -> cv::Mat {
@@ -657,7 +664,7 @@ namespace ArtifactCore {
   glowTotal *= 1.7f;
 
   // 14. 元画像に加算（clamp）
-  for (int y = 0; y < mat.rows; ++y)
+  Parallel::For(0, mat.rows, mat.rows * mat.cols, [&](int y)
   {
    cv::Vec4f* row = mat.ptr<cv::Vec4f>(y);
    const cv::Vec3f* glowRow = glowTotal.ptr<cv::Vec3f>(y);
@@ -668,7 +675,7 @@ namespace ArtifactCore {
 	row[x][2] = std::min(row[x][2] + glowRow[x][2], 1.0f);
 	// アルファは変えず
    }
-  }
+  });
  }
 
 };

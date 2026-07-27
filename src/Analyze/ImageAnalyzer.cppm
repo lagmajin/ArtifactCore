@@ -1,4 +1,6 @@
 module;
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_reduce.h>
 #include <cmath>
 #include <algorithm>
 #include <array>
@@ -38,6 +40,22 @@ module;
 module Analyze.Histogram;
 
 namespace ArtifactCore {
+
+namespace {
+
+struct ChannelAccum {
+    int histogram[256]{};
+    float min = 1.0f;
+    float max = 0.0f;
+};
+
+struct RGBAccum {
+    double r = 0.0;
+    double g = 0.0;
+    double b = 0.0;
+};
+
+}
 
 // ============================================================
 // Internal: compute stats from raw histogram
@@ -101,18 +119,38 @@ ChannelStatistics ImageAnalyzer::analyzeChannel(const float* pixels, int width, 
     stats.min = 1.0f;
     stats.max = 0.0f;
 
-    for (int i = 0; i < total; ++i) {
-        float val = std::clamp(pixels[i * 4 + channel], 0.0f, 1.0f);
-
-        // Update min/max
-        if (val < stats.min) stats.min = val;
-        if (val > stats.max) stats.max = val;
-
-        // Bin into histogram
-        int bin = static_cast<int>(val * 255.0f);
-        bin = std::clamp(bin, 0, 255);
-        stats.rawHistogram[bin]++;
+    ChannelAccum accumulated{};
+    if (total < 4096) {
+        for (int i = 0; i < total; ++i) {
+            float val = std::clamp(pixels[i * 4 + channel], 0.0f, 1.0f);
+            accumulated.min = std::min(accumulated.min, val);
+            accumulated.max = std::max(accumulated.max, val);
+            int bin = std::clamp(static_cast<int>(val * 255.0f), 0, 255);
+            ++accumulated.histogram[bin];
+        }
+    } else {
+      accumulated = tbb::parallel_reduce(
+        tbb::blocked_range<int>(0, total), ChannelAccum{},
+        [&](const tbb::blocked_range<int>& range, ChannelAccum local) {
+            for (int i = range.begin(); i != range.end(); ++i) {
+                float val = std::clamp(pixels[i * 4 + channel], 0.0f, 1.0f);
+                local.min = std::min(local.min, val);
+                local.max = std::max(local.max, val);
+                int bin = std::clamp(static_cast<int>(val * 255.0f), 0, 255);
+                ++local.histogram[bin];
+            }
+            return local;
+        },
+        [](ChannelAccum left, const ChannelAccum& right) {
+            for (int i = 0; i < 256; ++i) left.histogram[i] += right.histogram[i];
+            left.min = std::min(left.min, right.min);
+            left.max = std::max(left.max, right.max);
+            return left;
+        });
     }
+    stats.min = accumulated.min;
+    stats.max = accumulated.max;
+    std::copy(accumulated.histogram, accumulated.histogram + 256, stats.rawHistogram);
 
     computeStats(stats);
     return stats;
@@ -125,20 +163,44 @@ ChannelStatistics ImageAnalyzer::analyzeLuminance(const float* pixels, int width
     stats.min = 1.0f;
     stats.max = 0.0f;
 
-    for (int i = 0; i < total; ++i) {
-        int idx = i * 4;
-        float r = pixels[idx + 0];
-        float g = pixels[idx + 1];
-        float b = pixels[idx + 2];
-        // Rec.709 luminance
-        float lum = std::clamp(0.2126f * r + 0.7152f * g + 0.0722f * b, 0.0f, 1.0f);
-
-        if (lum < stats.min) stats.min = lum;
-        if (lum > stats.max) stats.max = lum;
-
-        int bin = std::clamp(static_cast<int>(lum * 255.0f), 0, 255);
-        stats.rawHistogram[bin]++;
+    ChannelAccum accumulated{};
+    if (total < 4096) {
+        for (int i = 0; i < total; ++i) {
+            int idx = i * 4;
+            float lum = std::clamp(0.2126f * pixels[idx + 0] +
+                                   0.7152f * pixels[idx + 1] +
+                                   0.0722f * pixels[idx + 2], 0.0f, 1.0f);
+            accumulated.min = std::min(accumulated.min, lum);
+            accumulated.max = std::max(accumulated.max, lum);
+            int bin = std::clamp(static_cast<int>(lum * 255.0f), 0, 255);
+            ++accumulated.histogram[bin];
+        }
+    } else {
+      accumulated = tbb::parallel_reduce(
+        tbb::blocked_range<int>(0, total), ChannelAccum{},
+        [&](const tbb::blocked_range<int>& range, ChannelAccum local) {
+            for (int i = range.begin(); i != range.end(); ++i) {
+                int idx = i * 4;
+                float lum = std::clamp(0.2126f * pixels[idx + 0] +
+                                       0.7152f * pixels[idx + 1] +
+                                       0.0722f * pixels[idx + 2], 0.0f, 1.0f);
+                local.min = std::min(local.min, lum);
+                local.max = std::max(local.max, lum);
+                int bin = std::clamp(static_cast<int>(lum * 255.0f), 0, 255);
+                ++local.histogram[bin];
+            }
+            return local;
+        },
+        [](ChannelAccum left, const ChannelAccum& right) {
+            for (int i = 0; i < 256; ++i) left.histogram[i] += right.histogram[i];
+            left.min = std::min(left.min, right.min);
+            left.max = std::max(left.max, right.max);
+            return left;
+        });
     }
+    stats.min = accumulated.min;
+    stats.max = accumulated.max;
+    std::copy(accumulated.histogram, accumulated.histogram + 256, stats.rawHistogram);
 
     computeStats(stats);
     return stats;
@@ -158,11 +220,25 @@ float ImageAnalyzer::autoExposureEV(const float* pixels, int width, int height) 
     // Calculate average luminance
     const int total = width * height;
     double sumLum = 0.0;
-    for (int i = 0; i < total; ++i) {
-        int idx = i * 4;
-        float lum = 0.2126f * pixels[idx] + 0.7152f * pixels[idx + 1] + 0.0722f * pixels[idx + 2];
-        lum = std::max(lum, 0.0001f); // Avoid log(0)
-        sumLum += std::log2(lum);
+    if (total < 4096) {
+        for (int i = 0; i < total; ++i) {
+            int idx = i * 4;
+            float lum = 0.2126f * pixels[idx] + 0.7152f * pixels[idx + 1] +
+                        0.0722f * pixels[idx + 2];
+            sumLum += std::log2(std::max(lum, 0.0001f));
+        }
+    } else {
+        sumLum = tbb::parallel_reduce(
+            tbb::blocked_range<int>(0, total), 0.0,
+            [&](const tbb::blocked_range<int>& range, double local) {
+                for (int i = range.begin(); i != range.end(); ++i) {
+                    int idx = i * 4;
+                    float lum = 0.2126f * pixels[idx] + 0.7152f * pixels[idx + 1] + 0.0722f * pixels[idx + 2];
+                    local += std::log2(std::max(lum, 0.0001f));
+                }
+                return local;
+            },
+            std::plus<double>{});
     }
 
     float avgLogLum = static_cast<float>(sumLum / total);
@@ -180,14 +256,36 @@ std::array<float, 3> ImageAnalyzer::autoWhiteBalance(const float* pixels, int wi
     // Grey World assumption:
     // Average of all pixels should be grey → compute per-channel multipliers
     const int total = width * height;
-    double sumR = 0, sumG = 0, sumB = 0;
-
-    for (int i = 0; i < total; ++i) {
-        int idx = i * 4;
-        sumR += pixels[idx + 0];
-        sumG += pixels[idx + 1];
-        sumB += pixels[idx + 2];
+    RGBAccum sums{};
+    if (total < 4096) {
+        for (int i = 0; i < total; ++i) {
+            int idx = i * 4;
+            sums.r += pixels[idx + 0];
+            sums.g += pixels[idx + 1];
+            sums.b += pixels[idx + 2];
+        }
+    } else {
+        sums = tbb::parallel_reduce(
+            tbb::blocked_range<int>(0, total), RGBAccum{},
+            [&](const tbb::blocked_range<int>& range, RGBAccum local) {
+                for (int i = range.begin(); i != range.end(); ++i) {
+                    int idx = i * 4;
+                    local.r += pixels[idx + 0];
+                    local.g += pixels[idx + 1];
+                    local.b += pixels[idx + 2];
+                }
+                return local;
+            },
+            [](RGBAccum left, const RGBAccum& right) {
+                left.r += right.r;
+                left.g += right.g;
+                left.b += right.b;
+                return left;
+            });
     }
+    const double sumR = sums.r;
+    const double sumG = sums.g;
+    const double sumB = sums.b;
 
     double avgR = sumR / total;
     double avgG = sumG / total;

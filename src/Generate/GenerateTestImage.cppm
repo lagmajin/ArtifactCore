@@ -36,6 +36,8 @@ module;
 #include <random>
 module GenerateTestImage;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 static void setPixel(float* pixels, int width, int x, int y,
@@ -78,13 +80,13 @@ void TestImageGenerator::colorBars(float* pixels, int width, int height) {
         {0.0f,  0.0f,  0.75f},  // Blue
     };
     int barCount = 7;
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             int barIdx = x * barCount / width;
             barIdx = std::clamp(barIdx, 0, barCount - 1);
             setPixel(pixels, width, x, y, bars[barIdx][0], bars[barIdx][1], bars[barIdx][2]);
         }
-    }
+    });
 }
 
 void TestImageGenerator::colorBars100(float* pixels, int width, int height) {
@@ -93,35 +95,35 @@ void TestImageGenerator::colorBars100(float* pixels, int width, int height) {
         {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f},
     };
     int barCount = 7;
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             int barIdx = std::clamp(x * barCount / width, 0, barCount - 1);
             setPixel(pixels, width, x, y, bars[barIdx][0], bars[barIdx][1], bars[barIdx][2]);
         }
-    }
+    });
 }
 
 void TestImageGenerator::horizontalGradient(float* pixels, int width, int height) {
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float v = static_cast<float>(x) / std::max(1, width - 1);
             setPixel(pixels, width, x, y, v, v, v);
         }
-    }
+    });
 }
 
 void TestImageGenerator::verticalGradient(float* pixels, int width, int height) {
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         float v = static_cast<float>(y) / std::max(1, height - 1);
         for (int x = 0; x < width; ++x) {
             setPixel(pixels, width, x, y, v, v, v);
         }
-    }
+    });
 }
 
 void TestImageGenerator::rgbGradient(float* pixels, int width, int height) {
     int third = width / 3;
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         float bright = 1.0f - static_cast<float>(y) / std::max(1, height - 1);
         for (int x = 0; x < width; ++x) {
             if (x < third)
@@ -131,60 +133,60 @@ void TestImageGenerator::rgbGradient(float* pixels, int width, int height) {
             else
                 setPixel(pixels, width, x, y, 0.0f, 0.0f, bright);
         }
-    }
+    });
 }
 
 void TestImageGenerator::checkerboard(float* pixels, int width, int height, int cellSize) {
     if (cellSize < 1) cellSize = 1;
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             bool isWhite = ((x / cellSize) + (y / cellSize)) % 2 == 0;
             float v = isWhite ? 0.8f : 0.2f;
             setPixel(pixels, width, x, y, v, v, v);
         }
-    }
+    });
 }
 
 void TestImageGenerator::zoneSystem(float* pixels, int width, int height) {
     const int zones = 11; // Zone 0 (black) to Zone X (white)
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             int zone = x * zones / width;
             zone = std::clamp(zone, 0, zones - 1);
             float v = static_cast<float>(zone) / static_cast<float>(zones - 1);
             setPixel(pixels, width, x, y, v, v, v);
         }
-    }
+    });
 }
 
 void TestImageGenerator::solidColor(float* pixels, int width, int height,
                                      float r, float g, float b, float a) {
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             setPixel(pixels, width, x, y, r, g, b, a);
         }
-    }
+    });
 }
 
 void TestImageGenerator::radialGradient(float* pixels, int width, int height) {
     float cx = width * 0.5f;
     float cy = height * 0.5f;
     float maxR = std::sqrt(cx * cx + cy * cy);
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float dx = x - cx, dy = y - cy;
             float dist = std::sqrt(dx * dx + dy * dy);
             float v = 1.0f - std::clamp(dist / maxR, 0.0f, 1.0f);
             setPixel(pixels, width, x, y, v, v, v);
         }
-    }
+    });
 }
 
 void TestImageGenerator::colorWheel(float* pixels, int width, int height) {
     float cx = width * 0.5f;
     float cy = height * 0.5f;
     float maxR = std::min(cx, cy);
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float dx = x - cx, dy = y - cy;
             float dist = std::sqrt(dx * dx + dy * dy);
@@ -198,7 +200,7 @@ void TestImageGenerator::colorWheel(float* pixels, int width, int height) {
                 setPixel(pixels, width, x, y, r, g, b);
             }
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

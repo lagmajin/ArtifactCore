@@ -6,6 +6,7 @@ module;
 
 module ImageProcessing;
 import :EdgeEcho;
+import Core.Parallel;
 
 import Particle;
 import Image.ImageF32x4_RGBA;
@@ -55,7 +56,7 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
     float edge_thresh = std::max(settings.edgeThreshold, 0.001f);
 
     // 2. Sobel edge detection pass (on luminance of current frame)
-    for (int y = 1; y < height - 1; ++y) {
+    Parallel::For(1, height - 1, width * (height - 2), [&](int y) {
         for (int x = 1; x < width - 1; ++x) {
             float g_x = 0.0f;
             float g_y = 0.0f;
@@ -81,7 +82,7 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
                 current_edges[y * width + x] = std::clamp((magnitude - edge_thresh) / (1.0f - edge_thresh), 0.0f, 1.0f);
             }
         }
-    }
+    });
 
     // Temporary buffer to calculate the warped new history
     std::vector<float> next_history(total_pixels, 0.0f);
@@ -89,13 +90,19 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
     float wave_amp = settings.waveAmp;
     float wave_freq = settings.waveFreq;
     float time_val = settings.timeEvolution;
+    std::vector<float> waveOffsets(static_cast<std::size_t>(width));
+    for (int x = 0; x < width; ++x) {
+        waveOffsets[static_cast<std::size_t>(x)] =
+            wave_amp * std::sin(kTwoPi * wave_freq *
+                                (static_cast<float>(x) / static_cast<float>(width)) +
+                                time_val);
+    }
 
     // 3. Temporal wave warping pass (warp previous history outline)
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             // Apply sinusoidal offset to vertical sampling coordinate
-            float nx = static_cast<float>(x);
-            float ny = static_cast<float>(y) + wave_amp * std::sin(kTwoPi * wave_freq * (nx / width) + time_val);
+            float ny = static_cast<float>(y) + waveOffsets[static_cast<std::size_t>(x)];
 
             // Bilinear sample from previous history outline (channel 0 stores outline strength)
             int y0 = std::clamp(static_cast<int>(std::floor(ny)), 0, height - 1);
@@ -110,30 +117,38 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
             float next_val = std::max(current_edges[y * width + x], prev_his_decayed);
             next_history[y * width + x] = next_val;
         }
-    }
+    });
 
     // 4. Update the history buffer for the next frame
-    for (size_t i = 0; i < total_pixels; ++i) {
-        float val = next_history[i];
-        history_raw[i * 4 + 0] = val;
-        history_raw[i * 4 + 1] = val;
-        history_raw[i * 4 + 2] = val;
-        history_raw[i * 4 + 3] = 1.0f;
-    }
+    Parallel::For(0, height, width * height, [&](int y) {
+        const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
+        for (int x = 0; x < width; ++x) {
+            const size_t i = rowStart + static_cast<size_t>(x);
+            const float val = next_history[i];
+            history_raw[i * 4 + 0] = val;
+            history_raw[i * 4 + 1] = val;
+            history_raw[i * 4 + 2] = val;
+            history_raw[i * 4 + 3] = 1.0f;
+        }
+    });
 
     // 5. Composite EdgeEcho onto original image
     float4 echo_color = settings.echoColor;
-    for (size_t i = 0; i < total_pixels; ++i) {
-        float outline_strength = next_history[i];
-        if (outline_strength > 0.001f) {
-            float4 orig_pixel = original[i];
-            
-            // Additive combination with neon glow overlay
-            buffer[i].x = std::clamp(orig_pixel.x + echo_color.x * outline_strength, 0.0f, 1.0f);
-            buffer[i].y = std::clamp(orig_pixel.y + echo_color.y * outline_strength, 0.0f, 1.0f);
-            buffer[i].z = std::clamp(orig_pixel.z + echo_color.z * outline_strength, 0.0f, 1.0f);
+    Parallel::For(0, height, width * height, [&](int y) {
+        const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
+        for (int x = 0; x < width; ++x) {
+            const size_t i = rowStart + static_cast<size_t>(x);
+            const float outline_strength = next_history[i];
+            if (outline_strength > 0.001f) {
+                const float4 orig_pixel = original[i];
+
+                // Additive combination with neon glow overlay
+                buffer[i].x = std::clamp(orig_pixel.x + echo_color.x * outline_strength, 0.0f, 1.0f);
+                buffer[i].y = std::clamp(orig_pixel.y + echo_color.y * outline_strength, 0.0f, 1.0f);
+                buffer[i].z = std::clamp(orig_pixel.z + echo_color.z * outline_strength, 0.0f, 1.0f);
+            }
         }
-    }
+    });
 }
 
 void EdgeEcho::process(ImageF32x4_RGBA& image, const EdgeEchoSettings& settings) {

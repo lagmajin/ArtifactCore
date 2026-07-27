@@ -8,6 +8,7 @@ module;
 module ImageProcessing;
 
 import :NeuromorphicDisplace;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -45,9 +46,10 @@ void NeuromorphicDisplace::process(ImageF32x4_RGBA& image, const NeuromorphicDis
     cv::Mat dstMat = cv::Mat::zeros(h, w, CV_32FC4);
 
     // 3. Loop over all pixels to perform displacement and lighting
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         const float* pGradX = gradX.ptr<float>(y);
         const float* pGradY = gradY.ptr<float>(y);
+        const cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
         cv::Vec4f* dstRow = dstMat.ptr<cv::Vec4f>(y);
 
         for (int x = 0; x < w; ++x) {
@@ -83,10 +85,10 @@ void NeuromorphicDisplace::process(ImageF32x4_RGBA& image, const NeuromorphicDis
             float w_dx = cx - x0;
             float w_dy = cy - y0;
 
-            const cv::Vec4f& p00 = srcMat.at<cv::Vec4f>(y0, x0);
-            const cv::Vec4f& p10 = srcMat.at<cv::Vec4f>(y0, x1);
-            const cv::Vec4f& p01 = srcMat.at<cv::Vec4f>(y1, x0);
-            const cv::Vec4f& p11 = srcMat.at<cv::Vec4f>(y1, x1);
+            const cv::Vec4f& p00 = srcMat.ptr<cv::Vec4f>(y0)[x0];
+            const cv::Vec4f& p10 = srcMat.ptr<cv::Vec4f>(y0)[x1];
+            const cv::Vec4f& p01 = srcMat.ptr<cv::Vec4f>(y1)[x0];
+            const cv::Vec4f& p11 = srcMat.ptr<cv::Vec4f>(y1)[x1];
 
             cv::Vec4f refractColor = p00 * ((1.0f - w_dx) * (1.0f - w_dy)) +
                                      p10 * (w_dx * (1.0f - w_dy)) +
@@ -133,10 +135,10 @@ void NeuromorphicDisplace::process(ImageF32x4_RGBA& image, const NeuromorphicDis
             );
 
             // Blend with original input
-            const cv::Vec4f& original = srcMat.at<cv::Vec4f>(y, x);
+            const cv::Vec4f& original = srcRow[x];
             dstRow[x] = original * (1.0f - settings.blend) + shadedColor * settings.blend;
         }
-    }
+    });
 
     image.setFromCVMat(dstMat);
 }

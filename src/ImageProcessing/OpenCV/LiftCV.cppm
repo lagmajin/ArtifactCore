@@ -5,6 +5,8 @@ module;
 #include <opencv2/opencv.hpp>
 module LiftCV;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 cv::Mat liftGammaGain(const cv::Mat& input,
@@ -30,10 +32,12 @@ cv::Mat liftGammaGain(const cv::Mat& input,
         invGamma[c] = (gamma[c] > 0.001f) ? (1.0f / gamma[c]) : 1000.0f;
     }
 
-    for (int y = 0; y < src.rows; ++y) {
+    Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+        const float* sourceRow = src.ptr<float>(y);
+        float* resultRow = result.ptr<float>(y);
         for (int x = 0; x < src.cols; ++x) {
             for (int c = 0; c < std::min(ch, 3); ++c) {
-                float val = src.ptr<float>(y)[x * ch + c];
+                float val = sourceRow[x * ch + c];
 
                 // Lift: offset shadows (adds to black level)
                 val = val + lift[c] * (1.0f - val);
@@ -45,14 +49,14 @@ cv::Mat liftGammaGain(const cv::Mat& input,
                 val = val * gain[c];
 
                 // Clamp
-                result.ptr<float>(y)[x * ch + c] = std::min(1.0f, std::max(0.0f, val));
+                resultRow[x * ch + c] = std::min(1.0f, std::max(0.0f, val));
             }
             // Preserve alpha
             if (ch == 4) {
-                result.ptr<float>(y)[x * ch + 3] = src.ptr<float>(y)[x * ch + 3];
+                resultRow[x * ch + 3] = sourceRow[x * ch + 3];
             }
         }
-    }
+    });
 
     if (!wasFloat) {
         result.convertTo(result, input.depth(), 255.0);

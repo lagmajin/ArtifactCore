@@ -9,6 +9,7 @@ module ImageProcessing;
 
 import :AnisotropicFlowBlur;
 import :StructureTensor;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -29,7 +30,8 @@ void AnisotropicFlowBlur::process(ImageF32x4_RGBA& image, const AnisotropicFlowB
     const int steps = 9; // Number of samples along the line (must be odd)
     const int halfSteps = steps / 2;
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
+        const cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
         cv::Vec4f* dstRow = dstMat.ptr<cv::Vec4f>(y);
         for (int x = 0; x < w; ++x) {
             size_t idx = static_cast<size_t>(y * w + x);
@@ -45,7 +47,7 @@ void AnisotropicFlowBlur::process(ImageF32x4_RGBA& image, const AnisotropicFlowB
 
             if (u_len <= 0.5f) {
                 // Return original pixel if no blur is applied
-                dstRow[x] = srcMat.at<cv::Vec4f>(y, x);
+                dstRow[x] = srcRow[x];
                 continue;
             }
 
@@ -78,10 +80,10 @@ void AnisotropicFlowBlur::process(ImageF32x4_RGBA& image, const AnisotropicFlowB
                 float dx = clampedX - x0;
                 float dy = clampedY - y0;
 
-                cv::Vec4f p00 = srcMat.at<cv::Vec4f>(y0, x0);
-                cv::Vec4f p10 = srcMat.at<cv::Vec4f>(y0, x1);
-                cv::Vec4f p01 = srcMat.at<cv::Vec4f>(y1, x0);
-                cv::Vec4f p11 = srcMat.at<cv::Vec4f>(y1, x1);
+                cv::Vec4f p00 = srcMat.ptr<cv::Vec4f>(y0)[x0];
+                cv::Vec4f p10 = srcMat.ptr<cv::Vec4f>(y0)[x1];
+                cv::Vec4f p01 = srcMat.ptr<cv::Vec4f>(y1)[x0];
+                cv::Vec4f p11 = srcMat.ptr<cv::Vec4f>(y1)[x1];
 
                 cv::Vec4f interpolated = p00 * ((1.0f - dx) * (1.0f - dy)) +
                                          p10 * (dx * (1.0f - dy)) +
@@ -97,10 +99,10 @@ void AnisotropicFlowBlur::process(ImageF32x4_RGBA& image, const AnisotropicFlowB
             if (weightSum > 0.0f) {
                 dstRow[x] = accum / weightSum;
             } else {
-                dstRow[x] = srcMat.at<cv::Vec4f>(y, x);
+                dstRow[x] = srcRow[x];
             }
         }
-    }
+    });
 
     image.setFromCVMat(dstMat);
 }

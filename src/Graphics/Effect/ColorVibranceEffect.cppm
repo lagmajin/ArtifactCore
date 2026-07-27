@@ -5,6 +5,8 @@ module;
 
 module Graphics.Effect.Creative.ColorVibrance;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 namespace {
@@ -71,7 +73,8 @@ void ColorVibranceEffect::process(VideoFrame& frame, const CreativeEffectContext
     auto* bData = bCh->data();
     auto* aData = aCh ? aCh->data() : nullptr;
 
-    for (std::size_t i = 0; i < count; ++i) {
+    Parallel::For(0, static_cast<int>(count), static_cast<int>(count), [&](int index) {
+        const std::size_t i = static_cast<std::size_t>(index);
         const float r = rData[i];
         const float g = gData[i];
         const float b = bData[i];
@@ -95,7 +98,7 @@ void ColorVibranceEffect::process(VideoFrame& frame, const CreativeEffectContext
             const float matte = clamp01(matteBase);
             aData[i] = clamp01(std::lerp(aData[i], matte, matteMix));
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

@@ -19,6 +19,7 @@ module;
 module Render.GPURayTracer;
 
 import Graphics.GPUcomputeContext;
+import Core.Parallel;
 
 namespace ArtifactCore::RayTrace
 {
@@ -232,13 +233,13 @@ public:
         if (!initialized || !device || !context || !sbt)
         {
             // Fail safe fallback render (CPU side)
-            for (int y = 0; y < height; ++y)
+            Parallel::For(0, height, width * height, [&](int y)
             {
                 for (int x = 0; x < width; ++x)
                 {
                     buffer.setPixel(x, y, Color(0.1f, 0.2f, 0.4f), 1);
                 }
-            }
+            });
             return;
         }
 
@@ -275,7 +276,7 @@ public:
             const uint8_t* srcPixels = reinterpret_cast<const uint8_t*>(mappedData.pData);
             if (srcPixels)
             {
-                for (int y = 0; y < height; ++y)
+                Parallel::For(0, height, width * height, [&](int y)
                 {
                     for (int x = 0; x < width; ++x)
                     {
@@ -285,7 +286,7 @@ public:
                         float b = srcPixels[srcIdx + 2] / 255.0f;
                         buffer.setPixel(x, y, Color(r, g, b), 1);
                     }
-                }
+                });
             }
             context->UnmapTextureSubresource(stagingTexture, 0, 0);
         }

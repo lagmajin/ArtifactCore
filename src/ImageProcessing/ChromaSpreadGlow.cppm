@@ -8,6 +8,7 @@ module ImageProcessing;
 
 import :ChromaSpreadGlow;
 import :ChromaSpread;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -20,7 +21,7 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
 
     // 1. Extract Bright Areas (Thresholding)
     cv::Mat brightMat = cv::Mat::zeros(h, w, CV_32FC4);
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         const cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
         cv::Vec4f* brightRow = brightMat.ptr<cv::Vec4f>(y);
         for (int x = 0; x < w; ++x) {
@@ -35,7 +36,7 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
                 brightRow[x] = cv::Vec4f(0.0f, 0.0f, 0.0f, 0.0f);
             }
         }
-    }
+    });
 
     // 2. Apply Gaussian Blur to the bright areas
     if (settings.glowRadius > 0.0f) {
@@ -60,7 +61,7 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
     float tintG = settings.tintColor.y * settings.intensity;
     float tintR = settings.tintColor.z * settings.intensity;
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
         const cv::Vec4f* glowRow = brightMat.ptr<cv::Vec4f>(y);
 
@@ -73,7 +74,7 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
             src[1] = std::clamp(src[1] + glow[1] * tintG, 0.0f, 1.0f); // Green
             src[2] = std::clamp(src[2] + glow[2] * tintR, 0.0f, 1.0f); // Red
         }
-    }
+    });
 
     image.setFromCVMat(srcMat);
 }

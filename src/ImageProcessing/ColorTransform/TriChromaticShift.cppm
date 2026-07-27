@@ -6,6 +6,7 @@ module;
 module ImageProcessing.ColorTransform.TriChromaticShift;
 
 import Particle;
+import Core.Parallel;
 import FloatRGBA;
 import Image.ImageF32x4_RGBA;
 
@@ -186,15 +187,19 @@ void TriChromaticProcessor::apply(float4* buffer, int width, int height) const {
     if (!buffer || width <= 0 || height <= 0 || settings_.masterStrength <= 0.0)
         return;
 
-    for (int i = 0; i < width * height; ++i) {
-        double r = buffer[i].x;
-        double g = buffer[i].y;
-        double b = buffer[i].z;
-        applyPixel(r, g, b);
-        buffer[i].x = static_cast<float>(r);
-        buffer[i].y = static_cast<float>(g);
-        buffer[i].z = static_cast<float>(b);
-    }
+    Parallel::For(0, height, width * height, [&](int y) {
+        const int rowBase = y * width;
+        for (int x = 0; x < width; ++x) {
+            auto& pixel = buffer[rowBase + x];
+            double r = pixel.x;
+            double g = pixel.y;
+            double b = pixel.z;
+            applyPixel(r, g, b);
+            pixel.x = static_cast<float>(r);
+            pixel.y = static_cast<float>(g);
+            pixel.z = static_cast<float>(b);
+        }
+    });
 }
 
 void TriChromaticProcessor::apply(ImageF32x4_RGBA& image) const {

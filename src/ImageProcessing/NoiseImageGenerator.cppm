@@ -40,8 +40,19 @@ import :Noise;
 
 
 import Math.Noise;
+import Core.Parallel;
 
 namespace ArtifactCore {
+
+namespace {
+
+void prepareNoiseTable() {
+    // NoiseGenerator lazily initializes its shared permutation table.
+    // Complete that one-time write before worker threads start reading it.
+    (void)NoiseGenerator::perlin(0.0f, 0.0f, 0.0f);
+}
+
+}
 
 static void setPixelRGBA(float* pixels, int width, int x, int y,
                           float r, float g, float b, float a = 1.0f) {
@@ -52,7 +63,8 @@ static void setPixelRGBA(float* pixels, int width, int x, int y,
 
 void NoiseImageGenerator::perlinNoise(float* pixels, int width, int height,
                                        float scale, float offsetX, float offsetY) {
-    for (int y = 0; y < height; ++y) {
+    prepareNoiseTable();
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float nx = static_cast<float>(x) / width * scale + offsetX;
             float ny = static_cast<float>(y) / height * scale + offsetY;
@@ -60,11 +72,12 @@ void NoiseImageGenerator::perlinNoise(float* pixels, int width, int height,
             val = std::clamp(val, 0.0f, 1.0f);
             setPixelRGBA(pixels, width, x, y, val, val, val);
         }
-    }
+    });
 }
 
 void NoiseImageGenerator::perlinNoiseColor(float* pixels, int width, int height, float scale) {
-    for (int y = 0; y < height; ++y) {
+    prepareNoiseTable();
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float nx = static_cast<float>(x) / width * scale;
             float ny = static_cast<float>(y) / height * scale;
@@ -76,13 +89,14 @@ void NoiseImageGenerator::perlinNoiseColor(float* pixels, int width, int height,
                          std::clamp(g, 0.0f, 1.0f),
                          std::clamp(b, 0.0f, 1.0f));
         }
-    }
+    });
 }
 
 void NoiseImageGenerator::fractalNoise(float* pixels, int width, int height,
                                         float scale, int octaves,
                                         float persistence, float lacunarity) {
-    for (int y = 0; y < height; ++y) {
+    prepareNoiseTable();
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float nx = static_cast<float>(x) / width * scale;
             float ny = static_cast<float>(y) / height * scale;
@@ -91,11 +105,11 @@ void NoiseImageGenerator::fractalNoise(float* pixels, int width, int height,
             val = std::clamp(val, 0.0f, 1.0f);
             setPixelRGBA(pixels, width, x, y, val, val, val);
         }
-    }
+    });
 }
 
 void NoiseImageGenerator::worleyNoise(float* pixels, int width, int height, float scale) {
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float nx = static_cast<float>(x) / width * scale;
             float ny = static_cast<float>(y) / height * scale;
@@ -103,12 +117,13 @@ void NoiseImageGenerator::worleyNoise(float* pixels, int width, int height, floa
             val = std::clamp(val, 0.0f, 1.0f);
             setPixelRGBA(pixels, width, x, y, val, val, val);
         }
-    }
+    });
 }
 
 void NoiseImageGenerator::turbulence(float* pixels, int width, int height,
                                       float scale, int octaves) {
-    for (int y = 0; y < height; ++y) {
+    prepareNoiseTable();
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float nx = static_cast<float>(x) / width * scale;
             float ny = static_cast<float>(y) / height * scale;
@@ -126,12 +141,13 @@ void NoiseImageGenerator::turbulence(float* pixels, int width, int height,
             val = std::clamp(val, 0.0f, 1.0f);
             setPixelRGBA(pixels, width, x, y, val, val, val);
         }
-    }
+    });
 }
 
 void NoiseImageGenerator::cloudTexture(float* pixels, int width, int height,
                                         float scale, float coverage) {
-    for (int y = 0; y < height; ++y) {
+    prepareNoiseTable();
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float nx = static_cast<float>(x) / width * scale;
             float ny = static_cast<float>(y) / height * scale;
@@ -144,13 +160,14 @@ void NoiseImageGenerator::cloudTexture(float* pixels, int width, int height,
             val = val * val * (3.0f - 2.0f * val);
             setPixelRGBA(pixels, width, x, y, val, val, val);
         }
-    }
+    });
 }
 
 void NoiseImageGenerator::woodGrain(float* pixels, int width, int height,
                                      float scale, float ringFrequency) {
     float cx = width * 0.5f, cy = height * 0.5f;
-    for (int y = 0; y < height; ++y) {
+    prepareNoiseTable();
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float nx = static_cast<float>(x) / width * scale;
             float ny = static_cast<float>(y) / height * scale;
@@ -165,12 +182,13 @@ void NoiseImageGenerator::woodGrain(float* pixels, int width, int height,
             float b = 0.1f + rings * 0.1f;
             setPixelRGBA(pixels, width, x, y, r, g, b);
         }
-    }
+    });
 }
 
 void NoiseImageGenerator::marble(float* pixels, int width, int height,
                                   float scale, float stripeFrequency) {
-    for (int y = 0; y < height; ++y) {
+    prepareNoiseTable();
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             float nx = static_cast<float>(x) / width * scale;
             float ny = static_cast<float>(y) / height * scale;
@@ -182,7 +200,7 @@ void NoiseImageGenerator::marble(float* pixels, int width, int height,
             float b = 0.95f - val * 0.15f;
             setPixelRGBA(pixels, width, x, y, r, g, b);
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

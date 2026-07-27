@@ -4,6 +4,7 @@ module;
 
 module ImageProcessing;
 import :StrobeLight;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -16,13 +17,16 @@ void StrobeLight::process(float4* buffer, int width, int height, const StrobeLig
     int framesOn = std::max(1, static_cast<int>(framesPerCycle * s.duration));
     bool strobeOn = (frameCounter_ % framesPerCycle) < framesOn;
     if (strobeOn) {
-        for (int i = 0; i < width * height; ++i) {
-            auto& px = buffer[i];
-            px.x = px.x * s.blendWithOriginal + s.color.x * (1.0f - s.blendWithOriginal);
-            px.y = px.y * s.blendWithOriginal + s.color.y * (1.0f - s.blendWithOriginal);
-            px.z = px.z * s.blendWithOriginal + s.color.z * (1.0f - s.blendWithOriginal);
-            px.w = px.w * s.blendWithOriginal + s.color.w * (1.0f - s.blendWithOriginal);
-        }
+        Parallel::For(0, height, width * height, [&](int y) {
+            const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
+            for (int x = 0; x < width; ++x) {
+                auto& px = buffer[rowStart + static_cast<size_t>(x)];
+                px.x = px.x * s.blendWithOriginal + s.color.x * (1.0f - s.blendWithOriginal);
+                px.y = px.y * s.blendWithOriginal + s.color.y * (1.0f - s.blendWithOriginal);
+                px.z = px.z * s.blendWithOriginal + s.color.z * (1.0f - s.blendWithOriginal);
+                px.w = px.w * s.blendWithOriginal + s.color.w * (1.0f - s.blendWithOriginal);
+            }
+        });
     }
     ++frameCounter_;
 }

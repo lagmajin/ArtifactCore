@@ -6,9 +6,6 @@ module;
 #include <vector>
 #include <cmath>
 
-#include <tbb/parallel_for.h>
-#include <tbb/blocked_range.h>
-
 export module Render.SoftwareRayTracer;
 
 import Render.Vector3D;
@@ -19,6 +16,7 @@ import Render.Hittable;
 import Render.Material;
 import Render.ImageBuffer;
 import Render.IRayTracer;
+import Core.Parallel;
 
 export namespace ArtifactCore::RayTrace
 {
@@ -249,24 +247,7 @@ public:
         ImageBuffer img(imageWidth, imageHeight);
 
         camera.setViewport(static_cast<float>(imageWidth), static_cast<float>(imageHeight));
-
-        for (int j = imageHeight - 1; j >= 0; --j)
-        {
-            for (int i = 0; i < imageWidth; ++i)
-            {
-                Color pixelColor(0, 0, 0);
-                for (int s = 0; s < samplesPerPixel; ++s)
-                {
-                    float u = (i + randomFloat()) / (imageWidth - 1);
-                    float v = (j + randomFloat()) / (imageHeight - 1);
-
-                    Ray r = camera.getRay(u, v);
-                    pixelColor = pixelColor + rayColor(r, world, maxDepth);
-                }
-                img.setPixel(i, j, pixelColor, samplesPerPixel);
-            }
-        }
-
+        renderParallel(img);
         return img;
     }
 
@@ -301,15 +282,11 @@ public:
             }
         };
 
-        tbb::parallel_for(tbb::blocked_range<int>(0, imageHeight),
-            [&](const tbb::blocked_range<int>& range)
-            {
-                for (int j = range.begin(); j != range.end(); ++j)
-                {
-                    RowRange row{ j, imageWidth, imageHeight, samplesPerPixel, maxDepth, camera, world, img };
-                    row();
-                }
-            });
+        Parallel::For(0, imageHeight, imageWidth * imageHeight, [&](int j)
+        {
+            RowRange row{ j, imageWidth, imageHeight, samplesPerPixel, maxDepth, camera, world, img };
+            row();
+        });
     }
 };
 

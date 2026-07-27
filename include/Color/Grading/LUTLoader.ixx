@@ -12,6 +12,8 @@ module;
 #include <QDebug>
 export module Color.Grading.LUTLoader;
 
+import Core.Parallel;
+
 export namespace ArtifactCore {
 
 // ============================================================
@@ -48,7 +50,7 @@ public:
         const float scale = static_cast<float>(size_ - 1);
         const float inv255 = 1.0f / 255.0f;
 
-        for (int y = 0; y < h; ++y) {
+        Parallel::For(0, h, w * h, [&](int y) {
             uint8_t* row = result.scanLine(y);
             for (int x = 0; x < w; ++x) {
                 int idx = x * 4;
@@ -97,7 +99,7 @@ public:
                 row[idx + 1] = static_cast<uint8_t>(std::clamp(c[1] * 255.0f, 0.0f, 255.0f));
                 row[idx + 2] = static_cast<uint8_t>(std::clamp(c[2] * 255.0f, 0.0f, 255.0f));
             }
-        }
+        });
 
         return result;
     }

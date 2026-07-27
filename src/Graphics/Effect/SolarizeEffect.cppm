@@ -2,6 +2,7 @@ module Graphics.Effect.Creative.Solarize;
 
 import Graphics.Effect.Creative;
 import Channel;
+import Core.Parallel;
 import std;
 
 namespace ArtifactCore {
@@ -23,13 +24,13 @@ void SolarizeEffect::process(VideoFrame& frame, const CreativeEffectContext&) {
     const float th = std::clamp(threshold(), 0.0f, 1.0f);
 
     auto apply = [&](float* data) {
-        for (int i = 0; i < w * h; ++i) {
+        Parallel::For(0, w * h, w * h, [&](int i) {
             float v = data[i];
             if (v > th) {
                 v = 1.0f - (v - th) / std::max(1e-5f, 1.0f - th);
             }
             data[i] = std::clamp(v, 0.0f, 1.0f);
-        }
+        });
     };
 
     apply(r_ch->data());

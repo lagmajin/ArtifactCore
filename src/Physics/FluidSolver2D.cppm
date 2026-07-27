@@ -100,7 +100,7 @@ void FluidSolver2D::linSolve(int b, std::vector<float>& x, const std::vector<flo
         // Red-black Gauss-Seidel keeps convergence behavior while enabling safe row-parallel updates.
         for (int k = 0; k < iterations; ++k) {
             for (int parity = 0; parity < 2; ++parity) {
-                tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+                tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1, 16),
                     [&](const tbb::blocked_range<int>& rows) {
                         for (int j = rows.begin(); j < rows.end(); ++j) {
                             int iStart = 1 + ((j + parity) & 1);
@@ -135,7 +135,7 @@ void FluidSolver2D::diffuse(int b, std::vector<float>& x, const std::vector<floa
 void FluidSolver2D::project(std::vector<float>& vx, std::vector<float>& vy, std::vector<float>& p, std::vector<float>& div) {
     const float invScale = 1.0f / std::sqrt(static_cast<float>(width_ * height_));
     if (useParallelPath()) {
-        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1, 16),
             [&](const tbb::blocked_range<int>& rows) {
                 for (int j = rows.begin(); j < rows.end(); ++j) {
                     for (int i = 1; i < width_ - 1; ++i) {
@@ -157,7 +157,7 @@ void FluidSolver2D::project(std::vector<float>& vx, std::vector<float>& vy, std:
     linSolve(0, p, div, 1, 4);
 
     if (useParallelPath()) {
-        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1, 16),
             [&](const tbb::blocked_range<int>& rows) {
                 for (int j = rows.begin(); j < rows.end(); ++j) {
                     for (int i = 1; i < width_ - 1; ++i) {
@@ -183,7 +183,7 @@ void FluidSolver2D::vorticityConfinement(std::vector<float>& vx, std::vector<flo
 
     // 1. Calculate Curl (Vorticity)
     if (useParallelPath()) {
-        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1, 16),
             [&](const tbb::blocked_range<int>& rows) {
                 for (int j = rows.begin(); j < rows.end(); ++j) {
                     for (int i = 1; i < width_ - 1; ++i) {
@@ -205,7 +205,7 @@ void FluidSolver2D::vorticityConfinement(std::vector<float>& vx, std::vector<flo
 
     // 2. Apply confinement force
     if (useParallelPath()) {
-        tbb::parallel_for(tbb::blocked_range<int>(2, height_ - 2),
+        tbb::parallel_for(tbb::blocked_range<int>(2, height_ - 2, 16),
             [&](const tbb::blocked_range<int>& rows) {
                 for (int j = rows.begin(); j < rows.end(); ++j) {
                     for (int i = 2; i < width_ - 2; ++i) {
@@ -277,7 +277,7 @@ void FluidSolver2D::advect(int b, std::vector<float>& d, const std::vector<float
     };
 
     if (useParallelPath()) {
-        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1),
+        tbb::parallel_for(tbb::blocked_range<int>(1, height_ - 1, 16),
             [&](const tbb::blocked_range<int>& rows) {
                 advectRows(rows.begin(), rows.end());
             });
@@ -290,9 +290,19 @@ void FluidSolver2D::advect(int b, std::vector<float>& d, const std::vector<float
 void FluidSolver2D::update(float dt) {
     // Apply Buoyancy (Thermal Convection)
     if (buoyancyFactor_ != 0.0f) {
-        for (int i = 0; i < size_; ++i) {
-            // Density acts as heat, creating upward velocity
-            vy_[i] -= density_[i] * buoyancyFactor_ * dt;
+        const auto applyBuoyancy = [&](int begin, int end) {
+            for (int i = begin; i < end; ++i) {
+                // Density acts as heat, creating upward velocity
+                vy_[i] -= density_[i] * buoyancyFactor_ * dt;
+            }
+        };
+        if (useParallelPath()) {
+            tbb::parallel_for(tbb::blocked_range<int>(0, size_, 256),
+                [&](const tbb::blocked_range<int>& range) {
+                    applyBuoyancy(range.begin(), range.end());
+                });
+        } else {
+            applyBuoyancy(0, size_);
         }
     }
 
