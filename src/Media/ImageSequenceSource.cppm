@@ -313,13 +313,20 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
     const auto& entry = impl_->frames.at(frameIndex);
     const QFileInfo sourceInfo(entry.path);
     if (const auto cached = impl_->frameCache.constFind(frameIndex);
-        cached != impl_->frameCache.cend() &&
-        cached->fileSize == sourceInfo.size() &&
-        cached->lastModifiedMs == sourceInfo.lastModified().toMSecsSinceEpoch()) {
-        ++impl_->frameCacheHits;
+        cached != impl_->frameCache.cend()) {
+        const qint64 lastModifiedMs =
+            sourceInfo.lastModified().toMSecsSinceEpoch();
+        if (cached->fileSize == sourceInfo.size() &&
+            cached->lastModifiedMs == lastModifiedMs) {
+            ++impl_->frameCacheHits;
+            impl_->frameCacheOrder.removeAll(frameIndex);
+            impl_->frameCacheOrder.push_back(frameIndex);
+            return cached->image;
+        }
+        // A same-path replacement invalidates the old decoded frame even when
+        // the replacement later turns out to be unreadable.
+        impl_->frameCache.remove(frameIndex);
         impl_->frameCacheOrder.removeAll(frameIndex);
-        impl_->frameCacheOrder.push_back(frameIndex);
-        return cached->image;
     }
 
     ++impl_->frameCacheMisses;
