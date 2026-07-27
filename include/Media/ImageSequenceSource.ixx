@@ -30,6 +30,7 @@ public:
     SourceMetadata metadata() const override;
 
     bool seek(qint64 frameIndex) override;
+    bool seekSourceFrame(qint64 frameNumber);
     qint64 currentFrameIndex() const override;
     qint64 frameCount() const override;
     qint64 sourceFrameNumberAt(qint64 sequenceIndex) const;

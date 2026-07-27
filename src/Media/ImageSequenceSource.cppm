@@ -290,6 +290,12 @@ bool ImageSequenceSource::seek(qint64 frameIndex)
     return true;
 }
 
+bool ImageSequenceSource::seekSourceFrame(qint64 frameNumber)
+{
+    const qint64 sequenceIndex = sequenceIndexForSourceFrame(frameNumber);
+    return sequenceIndex >= 0 && seek(sequenceIndex);
+}
+
 qint64 ImageSequenceSource::currentFrameIndex() const
 {
     return impl_ ? impl_->currentFrameIndex : 0;
