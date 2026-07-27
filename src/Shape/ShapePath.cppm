@@ -482,8 +482,32 @@ QRectF ShapePath::boundingRect() const {
 }
 
 bool ShapePath::contains(const QPointF& point) const {
-    QPainterPath path = toPainterPath();
-    return path.contains(point);
+    if (!std::isfinite(point.x()) || !std::isfinite(point.y())) return false;
+
+    int winding = 0;
+    constexpr double boundaryEpsilon = 1e-9;
+    for (const auto& segment : flatten()) {
+        const QPointF a = segment.p0;
+        const QPointF b = segment.p1;
+        const double dx = b.x() - a.x();
+        const double dy = b.y() - a.y();
+        const double cross = dx * (point.y() - a.y()) -
+                             dy * (point.x() - a.x());
+        const double projection = (point.x() - a.x()) * dx +
+                                  (point.y() - a.y()) * dy;
+        const double lengthSquared = dx * dx + dy * dy;
+        if (lengthSquared > 0.0 && std::abs(cross) <= boundaryEpsilon &&
+            projection >= 0.0 && projection <= lengthSquared) {
+            return true;
+        }
+
+        if (a.y() <= point.y()) {
+            if (b.y() > point.y() && cross > 0.0) ++winding;
+        } else if (b.y() <= point.y() && cross < 0.0) {
+            --winding;
+        }
+    }
+    return winding != 0;
 }
 
 QPointF ShapePath::pointAtPercent(double t) const {
