@@ -336,14 +336,16 @@ void ShapePath::setRectangle(double x, double y, double width, double height) {
 void ShapePath::setRoundedRect(const QRectF& rect, double radiusX, double radiusY) {
     clear();
     if (!std::isfinite(rect.x()) || !std::isfinite(rect.y()) ||
-        !std::isfinite(rect.width()) || !std::isfinite(rect.height())) return;
+        !std::isfinite(rect.width()) || !std::isfinite(rect.height()) ||
+        !std::isfinite(radiusX) || !std::isfinite(radiusY)) return;
 
-    const double left = rect.left();
-    const double top = rect.top();
-    const double right = rect.right();
-    const double bottom = rect.bottom();
-    const double rx = std::clamp(std::abs(radiusX), 0.0, rect.width() / 2.0);
-    const double ry = std::clamp(std::abs(radiusY), 0.0, rect.height() / 2.0);
+    const QRectF normalized = rect.normalized();
+    const double left = normalized.left();
+    const double top = normalized.top();
+    const double right = normalized.right();
+    const double bottom = normalized.bottom();
+    const double rx = std::clamp(std::abs(radiusX), 0.0, normalized.width() / 2.0);
+    const double ry = std::clamp(std::abs(radiusY), 0.0, normalized.height() / 2.0);
     if (rx <= 0.0 || ry <= 0.0) {
         setRectangle(rect);
         return;
