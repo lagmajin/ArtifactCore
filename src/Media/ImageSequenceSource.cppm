@@ -3,6 +3,7 @@ class tst_QList;
 #include <utility>
 #include <algorithm>
 #include <memory>
+#include <limits>
 
 #include <QDir>
 #include <QFileInfo>
@@ -260,6 +261,13 @@ SourceMetadata ImageSequenceSource::metadata() const
     metadata.frameCount = impl_->frames.size();
     metadata.frameStart = impl_->frames.front().frameIndex;
     metadata.frameEnd = impl_->frames.back().frameIndex;
+    if (metadata.frameEnd >= metadata.frameStart &&
+        metadata.frameEnd - metadata.frameStart <
+            std::numeric_limits<qint64>::max()) {
+        const qint64 span = metadata.frameEnd - metadata.frameStart + 1;
+        metadata.missingFrameCount =
+            std::max<qint64>(0, span - metadata.frameCount);
+    }
     metadata.hasVideo = !impl_->frames.isEmpty();
     metadata.isSequence = impl_->frames.size() > 1;
     return metadata;

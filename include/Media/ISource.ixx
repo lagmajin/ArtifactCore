@@ -25,6 +25,7 @@ struct LIBRARY_DLL_API SourceMetadata {
     qint64 frameCount = 0;
     qint64 frameStart = 0;
     qint64 frameEnd = 0;
+    qint64 missingFrameCount = 0;
     bool hasVideo = false;
     bool hasAudio = false;
     bool isSequence = false;
