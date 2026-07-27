@@ -111,6 +111,11 @@ enum class PathCommandType {
     Close       ///< パス閉じる
 };
 
+enum class PathFillRule {
+    Winding = 0,
+    EvenOdd = 1
+};
+
 /// パスコマンド
 struct PathCommand {
     PathCommandType type;

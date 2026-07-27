@@ -29,6 +29,7 @@ class ShapePath::Impl {
 public:
     QString name_;
     std::vector<PathCommand> commands_;
+    PathFillRule fillRule_ = PathFillRule::Winding;
     double opacity_ = 1.0;
     mutable QRectF cachedBounds_;
     mutable bool dirty_ = true;
@@ -583,6 +584,15 @@ void ShapePath::setOpacity(double opacity) {
         : 1.0;
 }
 
+PathFillRule ShapePath::fillRule() const {
+    return impl_->fillRule_;
+}
+
+void ShapePath::setFillRule(PathFillRule rule) {
+    impl_->fillRule_ = rule == PathFillRule::EvenOdd
+        ? PathFillRule::EvenOdd : PathFillRule::Winding;
+}
+
 bool ShapePath::isEmpty() const {
     return impl_->commands_.empty();
 }
@@ -644,7 +654,7 @@ bool ShapePath::contains(const QPointF& point) const {
             --winding;
         }
     }
-    return winding != 0;
+    return fillRule() == PathFillRule::EvenOdd ? (winding % 2 != 0) : winding != 0;
 }
 
 QPointF ShapePath::pointAtPercent(double t) const {
@@ -1315,6 +1325,7 @@ QJsonObject ShapePath::toJson() const
     QJsonObject obj;
     obj["name"] = name();
     obj["opacity"] = opacity();
+    obj["fillRule"] = static_cast<int>(fillRule());
 
     QJsonArray cmdArr;
     for (const auto& cmd : impl_->commands_) {
@@ -1343,6 +1354,9 @@ ShapePath ShapePath::fromJson(const QJsonObject& obj)
     ShapePath path;
     path.setName(obj["name"].toString());
     if (obj.contains("opacity")) path.setOpacity(obj["opacity"].toDouble());
+    if (obj.contains("fillRule")) {
+        path.setFillRule(static_cast<PathFillRule>(obj["fillRule"].toInt()));
+    }
 
     const QJsonArray cmdArr = obj["commands"].toArray();
     for (const auto& val : cmdArr) {

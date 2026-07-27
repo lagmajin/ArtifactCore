@@ -91,6 +91,8 @@ public:
     void setName(const QString& name);
     bool isClosed() const;
     void setClosed(bool closed);
+    PathFillRule fillRule() const;
+    void setFillRule(PathFillRule rule);
     double opacity() const;
     void setOpacity(double opacity);
     bool isEmpty() const;
