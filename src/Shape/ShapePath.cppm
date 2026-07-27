@@ -215,6 +215,7 @@ void ShapePath::clear() {
 }
 
 void ShapePath::moveTo(const QPointF& point) {
+    if (!std::isfinite(point.x()) || !std::isfinite(point.y())) return;
     impl_->commands_.push_back(PathCommand{PathCommandType::MoveTo, point});
     impl_->invalidate();
 }
@@ -224,6 +225,7 @@ void ShapePath::moveTo(double x, double y) {
 }
 
 void ShapePath::lineTo(const QPointF& point) {
+    if (!std::isfinite(point.x()) || !std::isfinite(point.y())) return;
     impl_->commands_.push_back(PathCommand{PathCommandType::LineTo, point});
     impl_->invalidate();
 }
@@ -233,6 +235,9 @@ void ShapePath::lineTo(double x, double y) {
 }
 
 void ShapePath::cubicTo(const QPointF& control1, const QPointF& control2, const QPointF& end) {
+    if (!std::isfinite(control1.x()) || !std::isfinite(control1.y()) ||
+        !std::isfinite(control2.x()) || !std::isfinite(control2.y()) ||
+        !std::isfinite(end.x()) || !std::isfinite(end.y())) return;
     impl_->commands_.push_back(PathCommand{PathCommandType::CubicTo, control1, control2, end});
     impl_->invalidate();
 }
@@ -242,6 +247,8 @@ void ShapePath::cubicTo(double c1x, double c1y, double c2x, double c2y, double e
 }
 
 void ShapePath::quadTo(const QPointF& control, const QPointF& end) {
+    if (!std::isfinite(control.x()) || !std::isfinite(control.y()) ||
+        !std::isfinite(end.x()) || !std::isfinite(end.y())) return;
     impl_->commands_.push_back(PathCommand{PathCommandType::QuadTo, control, end});
     impl_->invalidate();
 }
