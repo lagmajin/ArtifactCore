@@ -41,9 +41,6 @@ public:
     void invalidate() const { dirty_ = true; }
 
     QRectF computeBounds() const {
-        // Keep bounds independent from QPainterPath.  Including Bézier control
-        // points is conservative and stable for cache invalidation; a later
-        // tessellation pass can provide tighter renderer bounds when needed.
         bool hasPoint = false;
         double minX = 0.0;
         double minY = 0.0;
@@ -66,12 +63,102 @@ public:
             maxY = std::max(maxY, y);
         };
 
+        const auto quadPoint = [](const QPointF& p0, const QPointF& p1,
+                                  const QPointF& p2, double t) {
+            const double u = 1.0 - t;
+            return u * u * p0 + 2.0 * u * t * p1 + t * t * p2;
+        };
+        const auto cubicPoint = [](const QPointF& p0, const QPointF& p1,
+                                   const QPointF& p2, const QPointF& p3,
+                                   double t) {
+            const double u = 1.0 - t;
+            return u * u * u * p0 + 3.0 * u * u * t * p1 +
+                   3.0 * u * t * t * p2 + t * t * t * p3;
+        };
+        const auto includeRoot = [](double root, const auto& includeAt) {
+            if (std::isfinite(root) && root > 0.0 && root < 1.0) includeAt(root);
+        };
+
+        const auto quadRoots = [&](double p0, double p1, double p2,
+                                   const auto& includeAt) {
+            const double denominator = p0 - 2.0 * p1 + p2;
+            if (std::abs(denominator) <= 1e-12) return;
+            includeRoot((p0 - p1) / denominator, includeAt);
+        };
+
+        const auto cubicRoots = [&](double p0, double p1, double p2, double p3,
+                                    const auto& includeAt) {
+            const double a = -p0 + 3.0 * p1 - 3.0 * p2 + p3;
+            const double b = 2.0 * (p0 - 2.0 * p1 + p2);
+            const double c = p1 - p0;
+            if (std::abs(a) <= 1e-12) {
+                if (std::abs(b) > 1e-12) includeRoot(-c / b, includeAt);
+                return;
+            }
+            const double discriminant = b * b - 4.0 * a * c;
+            if (discriminant < 0.0) return;
+            const double root = std::sqrt(std::max(0.0, discriminant));
+            includeRoot((-b + root) / (2.0 * a), includeAt);
+            includeRoot((-b - root) / (2.0 * a), includeAt);
+        };
+
+        QPointF current;
+        bool hasCurrent = false;
+
         for (const auto& command : commands_) {
-            const int pointCount = command.type == PathCommandType::MoveTo ||
-                    command.type == PathCommandType::LineTo ? 1 :
-                    command.type == PathCommandType::QuadTo ? 2 :
-                    command.type == PathCommandType::CubicTo ? 3 : 0;
-            for (int i = 0; i < pointCount; ++i) include(command.points[i]);
+            switch (command.type) {
+                case PathCommandType::MoveTo:
+                    current = command.points[0];
+                    hasCurrent = true;
+                    include(current);
+                    break;
+                case PathCommandType::LineTo:
+                    if (!hasCurrent) break;
+                    include(current);
+                    include(command.points[0]);
+                    current = command.points[0];
+                    break;
+                case PathCommandType::QuadTo:
+                    if (!hasCurrent) break;
+                    include(current);
+                    include(command.points[0]);
+                    include(command.points[1]);
+                    quadRoots(current.x(), command.points[0].x(),
+                              command.points[1].x(), [&](double t) {
+                                  include(quadPoint(current, command.points[0],
+                                                    command.points[1], t));
+                              });
+                    quadRoots(current.y(), command.points[0].y(),
+                              command.points[1].y(), [&](double t) {
+                                  include(quadPoint(current, command.points[0],
+                                                    command.points[1], t));
+                              });
+                    current = command.points[1];
+                    break;
+                case PathCommandType::CubicTo:
+                    if (!hasCurrent) break;
+                    include(current);
+                    include(command.points[2]);
+                    cubicRoots(current.x(), command.points[0].x(),
+                               command.points[1].x(), command.points[2].x(),
+                               [&](double t) {
+                                   include(cubicPoint(current, command.points[0],
+                                                      command.points[1],
+                                                      command.points[2], t));
+                               });
+                    cubicRoots(current.y(), command.points[0].y(),
+                               command.points[1].y(), command.points[2].y(),
+                               [&](double t) {
+                                   include(cubicPoint(current, command.points[0],
+                                                      command.points[1],
+                                                      command.points[2], t));
+                               });
+                    current = command.points[2];
+                    break;
+                case PathCommandType::Close:
+                    hasCurrent = false;
+                    break;
+            }
         }
 
         return hasPoint ? QRectF(QPointF(minX, minY), QPointF(maxX, maxY)) : QRectF();
