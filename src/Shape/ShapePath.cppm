@@ -1222,7 +1222,11 @@ QJsonObject ShapePath::toJson() const
         QJsonObject c;
         c["type"] = static_cast<int>(cmd.type);
         QJsonArray pts;
-        for (int i = 0; i < 3; ++i) {
+        const int pointCount = cmd.type == PathCommandType::MoveTo ||
+                cmd.type == PathCommandType::LineTo ? 1 :
+                cmd.type == PathCommandType::CubicTo ? 3 :
+                cmd.type == PathCommandType::QuadTo ? 2 : 0;
+        for (int i = 0; i < pointCount; ++i) {
             QJsonArray pt;
             pt.append(cmd.points[i].x());
             pt.append(cmd.points[i].y());
