@@ -1242,15 +1242,39 @@ ShapePath ShapePath::fromJson(const QJsonObject& obj)
         const QJsonObject c = val.toObject();
         const int type = c["type"].toInt();
         const QJsonArray pts = c["pts"].toArray();
+        if (type < static_cast<int>(PathCommandType::MoveTo) ||
+            type > static_cast<int>(PathCommandType::Close)) continue;
 
-        PathCommand cmd{static_cast<PathCommandType>(type)};
-        for (int i = 0; i < std::min(3, static_cast<int>(pts.size())); ++i) {
-            const QJsonArray pt = pts[i].toArray();
-            cmd.points[i] = QPointF(pt[0].toDouble(), pt[1].toDouble());
+        const auto pointAt = [&pts](int index, QPointF& point) {
+            if (index < 0 || index >= pts.size()) return false;
+            const QJsonArray value = pts[index].toArray();
+            if (value.size() < 2) return false;
+            point = QPointF(value[0].toDouble(), value[1].toDouble());
+            return std::isfinite(point.x()) && std::isfinite(point.y());
+        };
+
+        QPointF p0;
+        QPointF p1;
+        QPointF p2;
+        switch (static_cast<PathCommandType>(type)) {
+            case PathCommandType::MoveTo:
+                if (pointAt(0, p0)) path.moveTo(p0);
+                break;
+            case PathCommandType::LineTo:
+                if (pointAt(0, p0)) path.lineTo(p0);
+                break;
+            case PathCommandType::CubicTo:
+                if (pointAt(0, p0) && pointAt(1, p1) && pointAt(2, p2))
+                    path.cubicTo(p0, p1, p2);
+                break;
+            case PathCommandType::QuadTo:
+                if (pointAt(0, p0) && pointAt(1, p1)) path.quadTo(p0, p1);
+                break;
+            case PathCommandType::Close:
+                path.close();
+                break;
         }
-        path.impl_->commands_.push_back(cmd);
     }
-    path.impl_->invalidate();
     return path;
 }
 
