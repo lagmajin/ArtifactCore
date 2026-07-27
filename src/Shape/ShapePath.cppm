@@ -812,20 +812,18 @@ std::vector<QPointF> ShapePath::sampleEquidistant(int count) const
     std::vector<QPointF> result;
     if (impl_->commands_.empty() || count < 2) return result;
 
-    QPainterPath qpath = toPainterPath();
-    if (qpath.isEmpty()) return result;
-
-    const double totalLen = qpath.length();
+    const double totalLen = length();
     if (totalLen < 1e-9) {
-        result.resize(count, QPointF(0, 0));
+        const auto segments = flatten();
+        const QPointF point = segments.empty() ? QPointF() : segments.front().p0;
+        result.resize(count, point);
         return result;
     }
 
     result.reserve(count);
     for (int i = 0; i < count; ++i) {
-        const double t = qpath.percentAtLength(
-            static_cast<double>(i) / (count - 1) * totalLen);
-        result.push_back(qpath.pointAtPercent(t));
+        result.push_back(pointAtLength(
+            static_cast<double>(i) / (count - 1) * totalLen));
     }
     return result;
 }
