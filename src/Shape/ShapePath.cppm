@@ -359,10 +359,14 @@ void ShapePath::setRoundedRect(const QRectF& rect, double radiusX, double radius
 
 void ShapePath::setEllipse(const QRectF& rect) {
     clear();
-    const double cx = rect.center().x();
-    const double cy = rect.center().y();
-    const double rx = rect.width() / 2.0;
-    const double ry = rect.height() / 2.0;
+    if (!std::isfinite(rect.x()) || !std::isfinite(rect.y()) ||
+        !std::isfinite(rect.width()) || !std::isfinite(rect.height())) return;
+    const QRectF normalized = rect.normalized();
+    const double cx = normalized.center().x();
+    const double cy = normalized.center().y();
+    const double rx = normalized.width() / 2.0;
+    const double ry = normalized.height() / 2.0;
+    if (rx <= 0.0 || ry <= 0.0) return;
 
     // 楕円のベジェ近似（Kenneth I. Joy の近似係数）
     const double k = 0.5522847498;
