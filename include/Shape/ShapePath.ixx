@@ -114,6 +114,8 @@ public:
     /// サブパス境界を保持した Bézier flatten 結果を返す。
     std::vector<std::vector<BezierSegment>> flattenSubpaths(
         double tolerance = 0.25) const;
+    /// 単一の閉じた輪郭を三角形列へ変換する。複数輪郭は空結果。
+    std::vector<PathTriangle> triangulateSimple(double tolerance = 0.25) const;
 
     /// パラメータ t における接線ベクトル（正規化済み）
     QPointF tangentAtPercent(double t) const;

@@ -832,6 +832,69 @@ std::vector<std::vector<BezierSegment>> ShapePath::flattenSubpaths(double tolera
     return result;
 }
 
+std::vector<PathTriangle> ShapePath::triangulateSimple(double tolerance) const {
+    std::vector<PathTriangle> triangles;
+    const auto subpaths = flattenSubpaths(tolerance);
+    if (subpaths.size() != 1 || subpaths.front().size() < 3 || !isClosed()) return triangles;
+
+    std::vector<QPointF> polygon;
+    polygon.reserve(subpaths.front().size());
+    for (const auto& segment : subpaths.front()) polygon.push_back(segment.p0);
+    if (polygon.size() >= 2 && polygon.front() == polygon.back()) polygon.pop_back();
+    if (polygon.size() < 3) return triangles;
+
+    const auto cross = [](const QPointF& a, const QPointF& b, const QPointF& c) {
+        return (b.x() - a.x()) * (c.y() - a.y()) -
+               (b.y() - a.y()) * (c.x() - a.x());
+    };
+    double signedArea = 0.0;
+    for (size_t i = 0; i < polygon.size(); ++i) {
+        const auto& a = polygon[i];
+        const auto& b = polygon[(i + 1) % polygon.size()];
+        signedArea += a.x() * b.y() - b.x() * a.y();
+    }
+    if (std::abs(signedArea) <= 1e-9) return triangles;
+
+    std::vector<size_t> indices(polygon.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    const bool ccw = signedArea > 0.0;
+    const auto inside = [&](const QPointF& point, const QPointF& a,
+                            const QPointF& b, const QPointF& c) {
+        const double c0 = cross(a, b, point);
+        const double c1 = cross(b, c, point);
+        const double c2 = cross(c, a, point);
+        return ccw ? c0 >= -1e-9 && c1 >= -1e-9 && c2 >= -1e-9
+                   : c0 <= 1e-9 && c1 <= 1e-9 && c2 <= 1e-9;
+    };
+
+    size_t guard = 0;
+    while (indices.size() > 2 && guard++ < polygon.size() * polygon.size()) {
+        bool clipped = false;
+        for (size_t i = 0; i < indices.size(); ++i) {
+            const size_t prev = indices[(i + indices.size() - 1) % indices.size()];
+            const size_t curr = indices[i];
+            const size_t next = indices[(i + 1) % indices.size()];
+            const double turn = cross(polygon[prev], polygon[curr], polygon[next]);
+            if ((ccw && turn <= 1e-9) || (!ccw && turn >= -1e-9)) continue;
+            bool containsVertex = false;
+            for (const size_t candidate : indices) {
+                if (candidate == prev || candidate == curr || candidate == next) continue;
+                if (inside(polygon[candidate], polygon[prev], polygon[curr], polygon[next])) {
+                    containsVertex = true;
+                    break;
+                }
+            }
+            if (containsVertex) continue;
+            triangles.push_back(PathTriangle{polygon[prev], polygon[curr], polygon[next]});
+            indices.erase(indices.begin() + static_cast<std::ptrdiff_t>(i));
+            clipped = true;
+            break;
+        }
+        if (!clipped) return {};
+    }
+    return triangles;
+}
+
 // ========================================
 // 変換
 // ========================================
