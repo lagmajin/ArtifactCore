@@ -427,6 +427,7 @@ void ShapePath::setStar(const QPointF& center, int points, double outerRadius, d
         !std::isfinite(outerRadius) || !std::isfinite(innerRadius) ||
         outerRadius <= 0.0) return;
 
+    points = std::min(points, 4096);
     outerRadius = std::abs(outerRadius);
     innerRadius = std::clamp(std::abs(innerRadius), 0.0, outerRadius);
 
