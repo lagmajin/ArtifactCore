@@ -258,6 +258,8 @@ SourceMetadata ImageSequenceSource::metadata() const
     metadata.frameSize = impl_->frameSize;
     metadata.frameRate = impl_->frameRate;
     metadata.frameCount = impl_->frames.size();
+    metadata.frameStart = impl_->frames.front().frameIndex;
+    metadata.frameEnd = impl_->frames.back().frameIndex;
     metadata.hasVideo = !impl_->frames.isEmpty();
     metadata.isSequence = impl_->frames.size() > 1;
     return metadata;
