@@ -343,6 +343,16 @@ quint64 ImageSequenceSource::frameCacheMissCount() const
     return impl_ ? impl_->frameCacheMisses : 0;
 }
 
+int ImageSequenceSource::frameCacheEntryCount() const
+{
+    return impl_ ? impl_->frameCache.size() : 0;
+}
+
+int ImageSequenceSource::frameCacheCapacity() const
+{
+    return kFrameCacheCapacity;
+}
+
 void ImageSequenceSource::clearFrameCache()
 {
     if (!impl_) {

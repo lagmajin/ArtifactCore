@@ -42,6 +42,8 @@ public:
     // Bounded decoded-frame cache diagnostics and control.
     quint64 frameCacheHitCount() const;
     quint64 frameCacheMissCount() const;
+    int frameCacheEntryCount() const;
+    int frameCacheCapacity() const;
     void clearFrameCache();
 
 private:
