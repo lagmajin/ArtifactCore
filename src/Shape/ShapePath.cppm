@@ -317,10 +317,14 @@ void ShapePath::arcTo(const QRectF& rect, double startAngle, double sweepAngle) 
 
 void ShapePath::setRectangle(const QRectF& rect) {
     clear();
-    moveTo(rect.topLeft());
-    lineTo(rect.topRight());
-    lineTo(rect.bottomRight());
-    lineTo(rect.bottomLeft());
+    if (!std::isfinite(rect.x()) || !std::isfinite(rect.y()) ||
+        !std::isfinite(rect.width()) || !std::isfinite(rect.height())) return;
+    const QRectF normalized = rect.normalized();
+    if (normalized.width() <= 0.0 || normalized.height() <= 0.0) return;
+    moveTo(normalized.topLeft());
+    lineTo(normalized.topRight());
+    lineTo(normalized.bottomRight());
+    lineTo(normalized.bottomLeft());
     close();
 }
 
