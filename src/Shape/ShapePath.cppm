@@ -168,6 +168,8 @@ public:
     // 現在のパスを QPainterPath に変換
     QPainterPath toPainterPath() const {
         QPainterPath path;
+        path.setFillRule(fillRule_ == PathFillRule::EvenOdd
+                             ? Qt::OddEvenFill : Qt::WindingFill);
         if (commands_.empty()) return path;
 
         QPointF current(0, 0);
@@ -204,6 +206,8 @@ public:
     // QPainterPath から ShapePath を構築
     static ShapePath fromPainterPath(const QPainterPath& path) {
         ShapePath result;
+        result.impl_->fillRule_ = path.fillRule() == Qt::OddEvenFill
+            ? PathFillRule::EvenOdd : PathFillRule::Winding;
         const int count = path.elementCount();
         if (count == 0) return result;
 
