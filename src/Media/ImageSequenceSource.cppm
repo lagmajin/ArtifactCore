@@ -4,6 +4,7 @@ class tst_QList;
 #include <algorithm>
 #include <memory>
 #include <limits>
+#include <iterator>
 
 #include <QDir>
 #include <QFileInfo>
@@ -320,10 +321,13 @@ qint64 ImageSequenceSource::sequenceIndexForSourceFrame(qint64 frameNumber) cons
     if (!impl_) {
         return -1;
     }
-    for (qint64 index = 0; index < impl_->frames.size(); ++index) {
-        if (impl_->frames.at(index).frameIndex == frameNumber) {
-            return index;
-        }
+    const auto it = std::lower_bound(
+        impl_->frames.cbegin(), impl_->frames.cend(), frameNumber,
+        [](const FrameEntry& entry, qint64 value) {
+            return entry.frameIndex < value;
+        });
+    if (it != impl_->frames.cend() && it->frameIndex == frameNumber) {
+        return std::distance(impl_->frames.cbegin(), it);
     }
     return -1;
 }
