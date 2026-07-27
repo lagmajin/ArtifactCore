@@ -55,8 +55,10 @@ struct PluginLibrary {
             handle = nullptr;
             return false;
         }
-        // CLAP entry は DLL から const clap_plugin_entry* へのポインタとしてエクスポートされる
-        entry = *static_cast<const clap_plugin_entry**>(sym);
+        // CLAP entry は DLL から構造体オブジェクトとしてエクスポートされる。
+        // GetProcAddress の戻り値は Windows の関数ポインタ型なので、オブジェクトの
+        // アドレスへ reinterpret_cast する。
+        entry = reinterpret_cast<const clap_plugin_entry*>(sym);
         if (!entry || !entry->init) {
             entry = nullptr;
 #ifdef _WIN32
@@ -90,8 +92,8 @@ static PluginDescriptor makeDescriptor(const clap_plugin_descriptor* cd) {
     if (cd->name) pd.name = cd->name;
     if (cd->vendor) pd.vendor = cd->vendor;
     if (cd->url) pd.url = cd->url;
-    if (cd->manual_url) pd.manual_url = cd->manual_url;
-    if (cd->support_url) pd.support_url = cd->support_url;
+    if (cd->manual_url) pd.manualUrl = cd->manual_url;
+    if (cd->support_url) pd.supportUrl = cd->support_url;
     if (cd->version) pd.version = cd->version;
     if (cd->description) pd.description = cd->description;
     if (cd->features) {

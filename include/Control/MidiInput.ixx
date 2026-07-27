@@ -48,6 +48,9 @@ public:
     /// デバイスが開いているか
     bool isOpen() const;
 
+    // WinMM callback implementation needs to refer to the opaque state type.
+    class Impl;
+
     /// CC 値が到着したときのシグナル
     void ccReceived(int channel, int controller, int value)
         W_SIGNAL(ccReceived, channel, controller, value);
@@ -57,7 +60,6 @@ public:
         W_SIGNAL(noteOnReceived, channel, note, velocity);
 
 private:
-    class Impl;
     Impl* impl_;
 };
 

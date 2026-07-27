@@ -125,6 +125,7 @@ export struct SpringState {
   mutable std::shared_mutex mutex_;
  public:
   AnimatableValueT() = default;
+  explicit AnimatableValueT(const T& initial) : currentValue_(initial) {}
   AnimatableValueT(const AnimatableValueT& other) {
    std::shared_lock lock(other.mutex_);
    keyframes_ = other.keyframes_;

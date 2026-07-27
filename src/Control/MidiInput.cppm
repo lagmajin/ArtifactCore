@@ -21,43 +21,6 @@ module Control.Midi.Input;
 namespace ArtifactCore {
 
 // ─────────────────────────────────────────────────────────
-// WinMM MIDI コールバック
-// ─────────────────────────────────────────────────────────
-#ifdef _WIN32
-void CALLBACK MidiInProc(HMIDIIN hMidiIn, UINT wMsg, DWORD_PTR dwInstance,
-                         DWORD_PTR dwParam1, DWORD_PTR dwParam2)
-{
-    auto* self = reinterpret_cast<MidiInput::Impl*>(dwInstance);
-    if (!self) return;
-
-    if (wMsg == MIM_DATA) {
-        uint8_t status  = static_cast<uint8_t>(dwParam1 & 0xFF);
-        uint8_t data1   = static_cast<uint8_t>((dwParam1 >> 8) & 0xFF);
-        uint8_t data2   = static_cast<uint8_t>((dwParam1 >> 16) & 0xFF);
-        uint8_t channel = status & 0x0F;
-        uint8_t msgType = status & 0xF0;
-
-        if (msgType == 0xB0) {
-            // Control Change
-            self->enqueue([self, channel, data1, data2]() {
-                if (self->owner)
-                    Q_EMIT self->owner->ccReceived(channel, data1, data2);
-            });
-        } else if (msgType == 0x90 && data2 > 0) {
-            // Note On
-            self->enqueue([self, channel, data1, data2]() {
-                if (self->owner)
-                    Q_EMIT self->owner->noteOnReceived(channel, data1, data2);
-            });
-        } else if (msgType == 0x80 || (msgType == 0x90 && data2 == 0)) {
-            // Note Off (or velocity=0 treated as note off)
-            // For now we don't emit note off — can be added if needed
-        }
-    }
-}
-#endif
-
-// ─────────────────────────────────────────────────────────
 // MidiInput::Impl
 // ─────────────────────────────────────────────────────────
 class MidiInput::Impl {
@@ -88,6 +51,38 @@ public:
         for (auto& fn : copy) fn();
     }
 };
+
+// ─────────────────────────────────────────────────────────
+// WinMM MIDI コールバック
+// ─────────────────────────────────────────────────────────
+#ifdef _WIN32
+void CALLBACK MidiInProc(HMIDIIN hMidiIn, UINT wMsg, DWORD_PTR dwInstance,
+                         DWORD_PTR dwParam1, DWORD_PTR dwParam2)
+{
+    auto* self = reinterpret_cast<MidiInput::Impl*>(dwInstance);
+    if (!self) return;
+
+    if (wMsg == MIM_DATA) {
+        uint8_t status  = static_cast<uint8_t>(dwParam1 & 0xFF);
+        uint8_t data1   = static_cast<uint8_t>((dwParam1 >> 8) & 0xFF);
+        uint8_t data2   = static_cast<uint8_t>((dwParam1 >> 16) & 0xFF);
+        uint8_t channel = status & 0x0F;
+        uint8_t msgType = status & 0xF0;
+
+        if (msgType == 0xB0) {
+            self->enqueue([self, channel, data1, data2]() {
+                if (self->owner)
+                    Q_EMIT self->owner->ccReceived(channel, data1, data2);
+            });
+        } else if (msgType == 0x90 && data2 > 0) {
+            self->enqueue([self, channel, data1, data2]() {
+                if (self->owner)
+                    Q_EMIT self->owner->noteOnReceived(channel, data1, data2);
+            });
+        }
+    }
+}
+#endif
 
 W_OBJECT_IMPL(MidiInput)
 
@@ -140,7 +135,7 @@ bool MidiInput::openDevice(uint32_t deviceId) {
 #ifdef _WIN32
     MMRESULT res = midiInOpen(&impl_->hMidiIn_, deviceId,
                                reinterpret_cast<DWORD_PTR>(MidiInProc),
-                               reinterpret_cast<DWORD_PTR>(impl_.get()),
+                               reinterpret_cast<DWORD_PTR>(impl_),
                                CALLBACK_FUNCTION);
     if (res != MMSYSERR_NOERROR) return false;
 

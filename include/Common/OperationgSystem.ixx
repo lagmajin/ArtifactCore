@@ -1,9 +1,9 @@
 module;
 #include <utility>
-
+#include <QtCore/QOperatingSystemVersion>
 export module OperatingSystem;
 
-#include <QtCore/QOperatingSystemVersion>
+
 
 
 namespace ArtifactCore {
