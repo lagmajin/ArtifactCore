@@ -1064,16 +1064,21 @@ ShapePath ShapePath::interpolate(
 
 double ShapePath::area() const
 {
-    const auto sampled = sampleEquidistant(256);
-    if (sampled.size() < 3) return 0.0;
+    double totalArea = 0.0;
+    for (const auto& subpath : subpaths()) {
+        if (!subpath.isClosed()) continue;
+        const auto sampled = subpath.sampleEquidistant(256);
+        if (sampled.size() < 3) continue;
 
-    double a = 0.0;
-    for (size_t i = 0; i < sampled.size(); ++i) {
-        const auto& p0 = sampled[i];
-        const auto& p1 = sampled[(i + 1) % sampled.size()];
-        a += p0.x() * p1.y() - p1.x() * p0.y();
+        double subpathArea = 0.0;
+        for (size_t i = 0; i < sampled.size(); ++i) {
+            const auto& p0 = sampled[i];
+            const auto& p1 = sampled[(i + 1) % sampled.size()];
+            subpathArea += p0.x() * p1.y() - p1.x() * p0.y();
+        }
+        totalArea += subpathArea * 0.5;
     }
-    return a * 0.5;
+    return totalArea;
 }
 
 // ========================================
