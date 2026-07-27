@@ -329,9 +329,32 @@ void ShapePath::setRectangle(double x, double y, double width, double height) {
 }
 
 void ShapePath::setRoundedRect(const QRectF& rect, double radiusX, double radiusY) {
-    QPainterPath path;
-    path.addRoundedRect(rect, radiusX, radiusY);
-    *this = fromPainterPath(path);
+    clear();
+    if (!std::isfinite(rect.x()) || !std::isfinite(rect.y()) ||
+        !std::isfinite(rect.width()) || !std::isfinite(rect.height())) return;
+
+    const double left = rect.left();
+    const double top = rect.top();
+    const double right = rect.right();
+    const double bottom = rect.bottom();
+    const double rx = std::clamp(std::abs(radiusX), 0.0, rect.width() / 2.0);
+    const double ry = std::clamp(std::abs(radiusY), 0.0, rect.height() / 2.0);
+    if (rx <= 0.0 || ry <= 0.0) {
+        setRectangle(rect);
+        return;
+    }
+
+    moveTo(left + rx, top);
+    lineTo(right - rx, top);
+    arcTo(QRectF(right - 2.0 * rx, top, 2.0 * rx, 2.0 * ry), 90.0, -90.0);
+    lineTo(right, bottom - ry);
+    arcTo(QRectF(right - 2.0 * rx, bottom - 2.0 * ry,
+                 2.0 * rx, 2.0 * ry), 0.0, -90.0);
+    lineTo(left + rx, bottom);
+    arcTo(QRectF(left, bottom - 2.0 * ry, 2.0 * rx, 2.0 * ry), -90.0, -90.0);
+    lineTo(left, top + ry);
+    arcTo(QRectF(left, top, 2.0 * rx, 2.0 * ry), 180.0, -90.0);
+    close();
 }
 
 void ShapePath::setEllipse(const QRectF& rect) {
