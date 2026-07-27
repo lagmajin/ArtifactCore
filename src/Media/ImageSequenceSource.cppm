@@ -1,6 +1,8 @@
 module;
 class tst_QList;
 #include <utility>
+#include <algorithm>
+#include <memory>
 
 #include <QDir>
 #include <QFileInfo>
