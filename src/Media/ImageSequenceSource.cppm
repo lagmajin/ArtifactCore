@@ -26,13 +26,19 @@ struct ImageSequenceSource::FrameEntry {
 };
 
 struct ImageSequenceSource::Impl {
+    struct CachedFrame {
+        QImage image;
+        qint64 fileSize = -1;
+        qint64 lastModifiedMs = 0;
+    };
+
     QString uri;
     QString displayName;
     QVector<FrameEntry> frames;
     QSize frameSize;
     double frameRate = 24.0;
     qint64 currentFrameIndex = 0;
-    QHash<qint64, QImage> frameCache;
+    QHash<qint64, CachedFrame> frameCache;
     QList<qint64> frameCacheOrder;
     bool open = false;
 };
@@ -279,20 +285,27 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
         return {};
     }
 
+    const auto& entry = impl_->frames.at(frameIndex);
+    const QFileInfo sourceInfo(entry.path);
     if (const auto cached = impl_->frameCache.constFind(frameIndex);
-        cached != impl_->frameCache.cend()) {
+        cached != impl_->frameCache.cend() &&
+        cached->fileSize == sourceInfo.size() &&
+        cached->lastModifiedMs == sourceInfo.lastModified().toMSecsSinceEpoch()) {
         impl_->frameCacheOrder.removeAll(frameIndex);
         impl_->frameCacheOrder.push_back(frameIndex);
-        return cached.value();
+        return cached->image;
     }
 
-    const auto& entry = impl_->frames.at(frameIndex);
     QImageReader reader(entry.path);
     QImage image = reader.read();
     if (image.isNull()) {
         return {};
     }
-    impl_->frameCache.insert(frameIndex, image);
+    ImageSequenceSource::Impl::CachedFrame cachedFrame;
+    cachedFrame.image = image;
+    cachedFrame.fileSize = sourceInfo.size();
+    cachedFrame.lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
+    impl_->frameCache.insert(frameIndex, std::move(cachedFrame));
     impl_->frameCacheOrder.removeAll(frameIndex);
     impl_->frameCacheOrder.push_back(frameIndex);
     while (impl_->frameCacheOrder.size() > kFrameCacheCapacity) {
