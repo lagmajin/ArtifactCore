@@ -156,6 +156,7 @@ inline SequenceDetectionResult detectSequences(
     int minFrames = 2)
 {
     using namespace detail;
+    minFrames = std::max(2, minFrames);
 
     // Map from GroupKey → [(frame, filename)]
     std::map<GroupKey, std::vector<std::pair<int64_t, std::string>>> buckets;
