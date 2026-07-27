@@ -421,8 +421,11 @@ QPointF ShapePath::pointAtPercent(double t) const {
 }
 
 double ShapePath::length() const {
-    QPainterPath path = toPainterPath();
-    return path.length();
+    double total = 0.0;
+    for (const auto& segment : toSegments()) {
+        total += cubicApproxLength(segment.p0, segment.p1, segment.p2, segment.p3);
+    }
+    return total;
 }
 
 QPointF ShapePath::pointAtLength(double length) const {
