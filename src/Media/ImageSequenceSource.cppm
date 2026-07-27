@@ -5,6 +5,8 @@ class tst_QList;
 #include <QDir>
 #include <QFileInfo>
 #include <QImageReader>
+#include <QHash>
+#include <QList>
 #include <QRegularExpression>
 #include <QSet>
 #include <QVector>
@@ -30,8 +32,12 @@ struct ImageSequenceSource::Impl {
     QSize frameSize;
     double frameRate = 24.0;
     qint64 currentFrameIndex = 0;
+    QHash<qint64, QImage> frameCache;
+    QList<qint64> frameCacheOrder;
     bool open = false;
 };
+
+constexpr int kFrameCacheCapacity = 8;
 
 namespace {
 
@@ -164,6 +170,8 @@ bool ImageSequenceSource::open(const QString& uri)
     });
 
     impl_->frames = std::move(frames);
+    impl_->frameCache.clear();
+    impl_->frameCacheOrder.clear();
     impl_->frameRate = 24.0;
     impl_->currentFrameIndex = 0;
     impl_->open = true;
@@ -182,6 +190,8 @@ void ImageSequenceSource::close()
     impl_->uri.clear();
     impl_->displayName.clear();
     impl_->frames.clear();
+    impl_->frameCache.clear();
+    impl_->frameCacheOrder.clear();
     impl_->frameSize = QSize();
     impl_->currentFrameIndex = 0;
     impl_->frameRate = 24.0;
@@ -269,11 +279,25 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
         return {};
     }
 
+    if (const auto cached = impl_->frameCache.constFind(frameIndex);
+        cached != impl_->frameCache.cend()) {
+        impl_->frameCacheOrder.removeAll(frameIndex);
+        impl_->frameCacheOrder.push_back(frameIndex);
+        return cached.value();
+    }
+
     const auto& entry = impl_->frames.at(frameIndex);
     QImageReader reader(entry.path);
     QImage image = reader.read();
     if (image.isNull()) {
         return {};
+    }
+    impl_->frameCache.insert(frameIndex, image);
+    impl_->frameCacheOrder.removeAll(frameIndex);
+    impl_->frameCacheOrder.push_back(frameIndex);
+    while (impl_->frameCacheOrder.size() > kFrameCacheCapacity) {
+        const qint64 oldest = impl_->frameCacheOrder.takeFirst();
+        impl_->frameCache.remove(oldest);
     }
     return image;
 }

@@ -1,6 +1,8 @@
 module;
 #include <utility>
 #include <QImage>
+#include <QHash>
+#include <QList>
 #include <QSize>
 #include <QString>
 

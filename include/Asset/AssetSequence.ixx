@@ -178,17 +178,42 @@ inline SequenceDetectionResult detectSequences(
             continue;
         }
 
-        SequenceGroup grp;
-        grp.prefix     = key.prefix;
-        grp.suffix     = key.suffix;
-        grp.padding    = key.padding;
-        grp.firstFrame = frames.front().first;
-        grp.lastFrame  = frames.back().first;
-        grp.filenames.reserve(frames.size());
-        for (const auto& [frame, fn] : frames) {
-            grp.filenames.push_back(fn);
+        // Split on gaps so each reported group is a truly consecutive run.
+        // This keeps the sequence contract deterministic for importers and
+        // avoids presenting missing frames as available media.
+        std::vector<std::pair<int64_t, std::string>> run;
+        run.reserve(frames.size());
+
+        const auto flushRun = [&]() {
+            if (static_cast<int>(run.size()) < minFrames) {
+                for (const auto& [frame, fn] : run) {
+                    result.singles.push_back(fn);
+                }
+                run.clear();
+                return;
+            }
+
+            SequenceGroup grp;
+            grp.prefix     = key.prefix;
+            grp.suffix     = key.suffix;
+            grp.padding    = key.padding;
+            grp.firstFrame = run.front().first;
+            grp.lastFrame  = run.back().first;
+            grp.filenames.reserve(run.size());
+            for (const auto& [frame, fn] : run) {
+                grp.filenames.push_back(fn);
+            }
+            result.sequences.push_back(std::move(grp));
+            run.clear();
+        };
+
+        for (const auto& frame : frames) {
+            if (!run.empty() && frame.first != run.back().first + 1) {
+                flushRun();
+            }
+            run.push_back(frame);
         }
-        result.sequences.push_back(std::move(grp));
+        flushRun();
     }
 
     // Merge unparsed into singles
