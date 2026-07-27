@@ -753,9 +753,15 @@ void ShapePath::reverse() {
 
 void ShapePath::addPath(const ShapePath& other) {
     if (other.isEmpty()) return;
-    QPainterPath combined = toPainterPath();
-    combined.addPath(other.toPainterPath());
-    *this = fromPainterPath(combined);
+    if (this == &other) {
+        const auto commands = other.impl_->commands_;
+        impl_->commands_.insert(impl_->commands_.end(), commands.begin(), commands.end());
+    } else {
+        impl_->commands_.insert(impl_->commands_.end(),
+                                other.impl_->commands_.begin(),
+                                other.impl_->commands_.end());
+    }
+    impl_->invalidate();
 }
 
 void ShapePath::simplify() {
