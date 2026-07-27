@@ -74,7 +74,8 @@ bool isSupportedImageFile(const QFileInfo& info)
     return formats.contains(suffix);
 }
 
-bool parseSequencePattern(const QString& fileName, QString* prefix, QString* suffix)
+bool parseSequencePattern(const QString& fileName, QString* prefix, QString* suffix,
+                          int* padding)
 {
     static const QRegularExpression rx(QStringLiteral("^(.*?)(\\d+)(\\.[^.]+)$"));
     const auto match = rx.match(fileName);
@@ -84,6 +85,7 @@ bool parseSequencePattern(const QString& fileName, QString* prefix, QString* suf
 
     if (prefix) *prefix = match.captured(1);
     if (suffix) *suffix = match.captured(3);
+    if (padding) *padding = match.captured(2).size();
     return true;
 }
 
@@ -128,14 +130,19 @@ bool ImageSequenceSource::open(const QString& uri)
 
         QString prefix;
         QString suffix;
+        int padding = 0;
 
-        const bool hasNumericPattern = parseSequencePattern(info.fileName(), &prefix, &suffix);
+        const bool hasNumericPattern = parseSequencePattern(
+            info.fileName(), &prefix, &suffix, &padding);
         const QDir dir = info.dir();
 
         if (hasNumericPattern) {
             const QString escapedPrefix = QRegularExpression::escape(prefix);
             const QString escapedSuffix = QRegularExpression::escape(suffix);
-            const QString pattern = QStringLiteral("^%1(\\d+)%2$").arg(escapedPrefix, escapedSuffix);
+            const QString pattern = QStringLiteral("^%1(\\d{%2})%3$")
+                .arg(escapedPrefix)
+                .arg(padding)
+                .arg(escapedSuffix);
             const QRegularExpression rx(pattern);
             const auto entries = dir.entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
             for (const auto& candidate : entries) {
