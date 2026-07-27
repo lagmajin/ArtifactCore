@@ -263,10 +263,11 @@ void ShapePath::arcTo(const QRectF& rect, double startAngle, double sweepAngle) 
         return;
     }
 
-    const double cx = rect.center().x();
-    const double cy = rect.center().y();
-    const double rx = rect.width() / 2.0;
-    const double ry = rect.height() / 2.0;
+    const QRectF normalized = rect.normalized();
+    const double cx = normalized.center().x();
+    const double cy = normalized.center().y();
+    const double rx = normalized.width() / 2.0;
+    const double ry = normalized.height() / 2.0;
     const int segmentCount = std::max(1, static_cast<int>(std::ceil(
         std::abs(sweepAngle) / 90.0)));
     const double delta = sweepAngle / segmentCount;
