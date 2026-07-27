@@ -376,6 +376,19 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
     QImageReader reader(entry.path);
     QImage image = reader.read();
     if (image.isNull()) {
+        // Keep a negative result in the same bounded cache.  Broken or
+        // temporarily unreadable frames should not be decoded again on every
+        // scrub until the file changes.
+        ImageSequenceSource::Impl::CachedFrame failedFrame;
+        failedFrame.fileSize = sourceInfo.size();
+        failedFrame.lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
+        impl_->frameCache.insert(frameIndex, std::move(failedFrame));
+        impl_->frameCacheOrder.removeAll(frameIndex);
+        impl_->frameCacheOrder.push_back(frameIndex);
+        while (impl_->frameCacheOrder.size() > kFrameCacheCapacity) {
+            const qint64 oldest = impl_->frameCacheOrder.takeFirst();
+            impl_->frameCache.remove(oldest);
+        }
         return {};
     }
     ImageSequenceSource::Impl::CachedFrame cachedFrame;
