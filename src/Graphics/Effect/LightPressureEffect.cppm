@@ -7,6 +7,7 @@ module;
 module Graphics.Effect.Creative.LightPressure;
 
 import Channel;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -77,10 +78,14 @@ void LightPressureEffect::process(VideoFrame& frame, const CreativeEffectContext
     const float spreadStrength = spread();
     const float compressionStrength = compression();
     const float time = static_cast<float>(context.time);
+    float* rData = rCh->data();
+    float* gData = gCh->data();
+    float* bData = bCh->data();
 
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
+        const std::size_t rowBase = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
         for (int x = 0; x < width; ++x) {
-            const int idx = y * width + x;
+            const std::size_t idx = rowBase + static_cast<std::size_t>(x);
 
             const float lC = luminanceAt(srcR, srcG, srcB, width, height, static_cast<float>(x), static_cast<float>(y));
             const float lL = luminanceAt(srcR, srcG, srcB, width, height, static_cast<float>(x - 1), static_cast<float>(y));
@@ -123,11 +128,11 @@ void LightPressureEffect::process(VideoFrame& frame, const CreativeEffectContext
             const float bloom = clamp01((glow1 + glow2 + glow3) / 3.0f * bloomStrength * bright);
             const float highlight = bloom * (0.7f + spreadStrength * 0.3f);
 
-            rCh->data()[idx] = clamp01(std::lerp(srcR[idx], warpedR + highlight, force));
-            gCh->data()[idx] = clamp01(std::lerp(srcG[idx], warpedG + highlight, force));
-            bCh->data()[idx] = clamp01(std::lerp(srcB[idx], warpedB + highlight, force));
+            rData[idx] = clamp01(std::lerp(srcR[idx], warpedR + highlight, force));
+            gData[idx] = clamp01(std::lerp(srcG[idx], warpedG + highlight, force));
+            bData[idx] = clamp01(std::lerp(srcB[idx], warpedB + highlight, force));
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

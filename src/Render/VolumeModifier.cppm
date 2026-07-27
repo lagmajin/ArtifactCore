@@ -6,6 +6,8 @@ module;
 
 module Render.VolumeModifier;
 
+import Core.Parallel;
+
 namespace ArtifactCore::RayTrace {
 
 VolumeModifier::VolumeModifier(ModifierKind kind) {
@@ -53,16 +55,22 @@ void VolumeModifier::applyTurbulenceDisplace(VolumeScalarField& field) const noe
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
     std::vector<float> original(res.cellCount());
-    for (int z = 0; z < res.depth; ++z) {
+    const auto sliceStride = static_cast<std::size_t>(res.width) * res.height;
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
         for (int y = 0; y < res.height; ++y) {
+            const auto rowBase = static_cast<std::size_t>(z) * sliceStride +
+                                 static_cast<std::size_t>(y) * res.width;
             for (int x = 0; x < res.width; ++x) {
-                original[res.indexOf(x, y, z)] = field.at(x, y, z);
+                const auto index = rowBase + static_cast<std::size_t>(x);
+                original[index] = field.data[index];
             }
         }
-    }
+    });
 
-    for (int z = 0; z < res.depth; ++z) {
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
         for (int y = 0; y < res.height; ++y) {
+            const auto rowBase = static_cast<std::size_t>(z) * sliceStride +
+                                 static_cast<std::size_t>(y) * res.width;
             for (int x = 0; x < res.width; ++x) {
                 const float fx = static_cast<float>(x) * invW + props_.center.x;
                 const float fy = static_cast<float>(y) * invH + props_.center.y;
@@ -79,10 +87,13 @@ void VolumeModifier::applyTurbulenceDisplace(VolumeScalarField& field) const noe
                 const int iy = std::clamp(static_cast<int>(sampleY), 0, res.height - 1);
                 const int iz = std::clamp(static_cast<int>(sampleZ), 0, res.depth - 1);
 
-                field.at(x, y, z) = original[res.indexOf(ix, iy, iz)];
+                field.data[rowBase + static_cast<std::size_t>(x)] =
+                    original[static_cast<std::size_t>(iz) * sliceStride +
+                             static_cast<std::size_t>(iy) * res.width +
+                             static_cast<std::size_t>(ix)];
             }
         }
-    }
+    });
 }
 
 void VolumeModifier::applySmooth(VolumeScalarField& field) const noexcept {
@@ -90,16 +101,22 @@ void VolumeModifier::applySmooth(VolumeScalarField& field) const noexcept {
     const auto res = field.resolution;
 
     std::vector<float> original(res.cellCount());
-    for (int z = 0; z < res.depth; ++z) {
+    const auto sliceStride = static_cast<std::size_t>(res.width) * res.height;
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
         for (int y = 0; y < res.height; ++y) {
+            const auto rowBase = static_cast<std::size_t>(z) * sliceStride +
+                                 static_cast<std::size_t>(y) * res.width;
             for (int x = 0; x < res.width; ++x) {
-                original[res.indexOf(x, y, z)] = field.at(x, y, z);
+                const auto index = rowBase + static_cast<std::size_t>(x);
+                original[index] = field.data[index];
             }
         }
-    }
+    });
 
-    for (int z = 0; z < res.depth; ++z) {
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
         for (int y = 0; y < res.height; ++y) {
+            const auto rowBase = static_cast<std::size_t>(z) * sliceStride +
+                                 static_cast<std::size_t>(y) * res.width;
             for (int x = 0; x < res.width; ++x) {
                 float sum = 0.0f;
                 int count = 0;
@@ -112,51 +129,64 @@ void VolumeModifier::applySmooth(VolumeScalarField& field) const noexcept {
                         for (int dx = -1; dx <= 1; ++dx) {
                             const int nx = x + dx;
                             if (nx < 0 || nx >= res.width) continue;
-                            sum += original[res.indexOf(nx, ny, nz)];
+                            sum += original[static_cast<std::size_t>(nz) * sliceStride +
+                                             static_cast<std::size_t>(ny) * res.width +
+                                             static_cast<std::size_t>(nx)];
                             ++count;
                         }
                     }
                 }
-                field.at(x, y, z) = sum / static_cast<float>(count);
+                field.data[rowBase + static_cast<std::size_t>(x)] =
+                    sum / static_cast<float>(count);
             }
         }
-    }
+    });
 }
 
 void VolumeModifier::applyClamp(VolumeScalarField& field) const noexcept {
     if (field.empty()) return;
     const auto res = field.resolution;
-    for (int z = 0; z < res.depth; ++z) {
+    const auto sliceStride = static_cast<std::size_t>(res.width) * res.height;
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
         for (int y = 0; y < res.height; ++y) {
+            const auto rowBase = static_cast<std::size_t>(z) * sliceStride +
+                                 static_cast<std::size_t>(y) * res.width;
             for (int x = 0; x < res.width; ++x) {
-                field.at(x, y, z) = std::clamp(field.at(x, y, z), props_.minValue, props_.maxValue);
+                const auto index = rowBase + static_cast<std::size_t>(x);
+                field.data[index] = std::clamp(field.data[index], props_.minValue, props_.maxValue);
             }
         }
-    }
+    });
 }
 
 void VolumeModifier::applyMultiply(VolumeScalarField& field) const noexcept {
     if (field.empty()) return;
     const auto res = field.resolution;
-    for (int z = 0; z < res.depth; ++z) {
+    const auto sliceStride = static_cast<std::size_t>(res.width) * res.height;
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
         for (int y = 0; y < res.height; ++y) {
+            const auto rowBase = static_cast<std::size_t>(z) * sliceStride +
+                                 static_cast<std::size_t>(y) * res.width;
             for (int x = 0; x < res.width; ++x) {
-                field.at(x, y, z) *= props_.multiplier;
+                field.data[rowBase + static_cast<std::size_t>(x)] *= props_.multiplier;
             }
         }
-    }
+    });
 }
 
 void VolumeModifier::applyAdd(VolumeScalarField& field) const noexcept {
     if (field.empty()) return;
     const auto res = field.resolution;
-    for (int z = 0; z < res.depth; ++z) {
+    const auto sliceStride = static_cast<std::size_t>(res.width) * res.height;
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
         for (int y = 0; y < res.height; ++y) {
+            const auto rowBase = static_cast<std::size_t>(z) * sliceStride +
+                                 static_cast<std::size_t>(y) * res.width;
             for (int x = 0; x < res.width; ++x) {
-                field.at(x, y, z) += props_.addend;
+                field.data[rowBase + static_cast<std::size_t>(x)] += props_.addend;
             }
         }
-    }
+    });
 }
 
 void VolumeModifierStack::addModifier(ModifierKind kind, const ModifierProperties& props) {

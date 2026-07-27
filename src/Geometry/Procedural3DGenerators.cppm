@@ -8,6 +8,8 @@ module;
 
 module Procedural3DGenerators;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 namespace {
@@ -135,7 +137,7 @@ void Procedural3DGenerators::computeTerrainNormal(Procedural3DMeshData& mesh, in
         return static_cast<std::size_t>(y * (columns + 1) + x);
     };
 
-    for (int y = 0; y <= rows; ++y) {
+    Parallel::For(0, rows + 1, (rows + 1) * (columns + 1), [&](int y) {
         for (int x = 0; x <= columns; ++x) {
             const std::size_t i = idxAt(x, y);
             const int xl = std::max(0, x - 1);
@@ -162,7 +164,7 @@ void Procedural3DGenerators::computeTerrainNormal(Procedural3DMeshData& mesh, in
             mesh.vertices[i].ny = ny / len;
             mesh.vertices[i].nz = 1.0f / len;
         }
-    }
+    });
 }
 
 Procedural3DMeshData Procedural3DGenerators::generateTerrain(const TerrainSettings& settings, float timeSeconds)
@@ -178,27 +180,35 @@ Procedural3DMeshData Procedural3DGenerators::generateTerrain(const TerrainSettin
     const float amplitude = std::max(0.0f, settings.noiseAmplitude);
     const int octaves = clampGridCount(settings.noiseOctaves, 1, 12);
 
-    mesh.vertices.reserve(static_cast<std::size_t>((columns + 1) * (rows + 1)));
-    mesh.indices.reserve(static_cast<std::size_t>(columns * rows * 6));
+    const int vertexColumns = columns + 1;
+    const int vertexRows = rows + 1;
+    mesh.vertices.resize(static_cast<std::size_t>(vertexColumns * vertexRows));
+    mesh.indices.resize(static_cast<std::size_t>(columns * rows * 6));
 
     const float invColumns = 1.0f / static_cast<float>(columns);
     const float invRows = 1.0f / static_cast<float>(rows);
+    const float seedOffsetX = static_cast<float>((settings.seed * 1664525u + 1013904223u) & 0xffffu) / 4096.0f;
+    const float seedOffsetY = static_cast<float>((settings.seed * 22695477u + 1u) & 0xffffu) / 4096.0f;
+    const bool hasHeightMap =
+        settings.heightSource == TerrainHeightSource::ImageLuminance &&
+        settings.heightSampleWidth > 0 &&
+        settings.heightSampleHeight > 0 &&
+        !settings.heightSamples.empty();
+    const float sourceGain =
+        settings.heightSource == TerrainHeightSource::AudioAmplitude
+        ? (settings.audioAvailable
+               ? std::clamp(settings.audioAmplitude, 0.0f, 1.0f)
+               : 1.0f)
+        : 1.0f;
 
-    for (int y = 0; y <= rows; ++y) {
+    ArtifactCore::Parallel::For(0, vertexRows, vertexRows * vertexColumns, [&](int y) {
         const float v = static_cast<float>(y) * invRows;
         const float py = (v - 0.5f) * sizeY;
         for (int x = 0; x <= columns; ++x) {
             const float u = static_cast<float>(x) * invColumns;
             const float px = (u - 0.5f) * sizeX;
-            const float seedOffsetX = static_cast<float>((settings.seed * 1664525u + 1013904223u) & 0xffffu) / 4096.0f;
-            const float seedOffsetY = static_cast<float>((settings.seed * 22695477u + 1u) & 0xffffu) / 4096.0f;
             const float sampleX = px * noiseScale + seedOffsetX;
             const float sampleY = py * noiseScale + seedOffsetY;
-            const bool hasHeightMap =
-                settings.heightSource == TerrainHeightSource::ImageLuminance &&
-                settings.heightSampleWidth > 0 &&
-                settings.heightSampleHeight > 0 &&
-                !settings.heightSamples.empty();
             const float proceduralNoise = NoiseGenerator::fractal(
                 sampleX,
                 sampleY,
@@ -209,12 +219,6 @@ Procedural3DMeshData Procedural3DGenerators::generateTerrain(const TerrainSettin
             const float n = hasHeightMap
                 ? sampleHeightMap(settings, u, v)
                 : proceduralNoise;
-            const float sourceGain =
-                settings.heightSource == TerrainHeightSource::AudioAmplitude
-                ? (settings.audioAvailable
-                       ? std::clamp(settings.audioAmplitude, 0.0f, 1.0f)
-                       : 1.0f)
-                : 1.0f;
             const float z =
                 (n * 2.0f - 1.0f) * amplitude * height * sourceGain;
             float textureU = u;
@@ -231,25 +235,26 @@ Procedural3DMeshData Procedural3DGenerators::generateTerrain(const TerrainSettin
                     0.0f,
                     1.0f);
             }
-            mesh.vertices.push_back(
-                {px, py, z, 0.0f, 0.0f, 1.0f, textureU, textureV});
+            mesh.vertices[static_cast<std::size_t>(y * vertexColumns + x)] =
+                {px, py, z, 0.0f, 0.0f, 1.0f, textureU, textureV};
         }
-    }
+    });
 
-    for (int y = 0; y < rows; ++y) {
+    ArtifactCore::Parallel::For(0, rows, rows * columns, [&](int y) {
         for (int x = 0; x < columns; ++x) {
             const std::uint32_t i0 = static_cast<std::uint32_t>(y * (columns + 1) + x);
             const std::uint32_t i1 = i0 + 1u;
             const std::uint32_t i2 = static_cast<std::uint32_t>((y + 1) * (columns + 1) + x);
             const std::uint32_t i3 = i2 + 1u;
-            mesh.indices.push_back(i0);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i3);
+            const std::size_t base = static_cast<std::size_t>(y * columns + x) * 6u;
+            mesh.indices[base + 0] = i0;
+            mesh.indices[base + 1] = i2;
+            mesh.indices[base + 2] = i1;
+            mesh.indices[base + 3] = i1;
+            mesh.indices[base + 4] = i2;
+            mesh.indices[base + 5] = i3;
         }
-    }
+    });
 
     computeTerrainNormal(mesh, columns, rows);
     return mesh;
@@ -404,21 +409,23 @@ Procedural3DMeshData Procedural3DGenerators::generatePathTube(const PathTubeSett
         }
     }
 
-    for (int i = 0; i < pathSamples - 1; ++i) {
-        const int edgeCount = ribbon ? 1 : sides;
+    const int edgeCount = ribbon ? 1 : sides;
+    mesh.indices.resize(static_cast<std::size_t>((pathSamples - 1) * edgeCount * 6));
+    ArtifactCore::Parallel::For(0, pathSamples - 1, (pathSamples - 1) * edgeCount, [&](int i) {
         for (int s = 0; s < edgeCount; ++s) {
             const std::uint32_t i0 = static_cast<std::uint32_t>(i * sides + s);
             const std::uint32_t i1 = static_cast<std::uint32_t>(i * sides + (ribbon ? s + 1 : (s + 1) % sides));
             const std::uint32_t i2 = static_cast<std::uint32_t>((i + 1) * sides + s);
             const std::uint32_t i3 = static_cast<std::uint32_t>((i + 1) * sides + (ribbon ? s + 1 : (s + 1) % sides));
-            mesh.indices.push_back(i0);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i3);
+            const std::size_t base = static_cast<std::size_t>(i * edgeCount + s) * 6u;
+            mesh.indices[base + 0] = i0;
+            mesh.indices[base + 1] = i2;
+            mesh.indices[base + 2] = i1;
+            mesh.indices[base + 3] = i1;
+            mesh.indices[base + 4] = i2;
+            mesh.indices[base + 5] = i3;
         }
-    }
+    });
 
     return mesh;
 }

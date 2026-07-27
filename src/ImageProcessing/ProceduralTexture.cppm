@@ -7,7 +7,6 @@ module;
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <thread>
 #include <vector>
 
 #include <opencv2/core/mat.hpp>
@@ -26,6 +25,7 @@ module ImageProcessing.ProceduralTexture;
 
 import Graphics.Compute;
 import Graphics.Shader.Compute.HLSL.ProceduralTexture;
+import Core.Parallel;
 import Memory.TrackedPtr;
 
 namespace ArtifactCore
@@ -476,8 +476,9 @@ static void fillOutputs(const ProceduralTextureSettings& settings,
         output.rgba8.resize(pixelCount * 4);
     }
 
-    for (size_t i = 0; i < pixelCount; ++i)
+    Parallel::For(0, static_cast<int>(pixelCount), static_cast<int>(pixelCount), [&](int index)
     {
+        const size_t i = static_cast<size_t>(index);
         const float v = clamp01(values[i]);
         if (!output.rgba32f.empty())
         {
@@ -496,7 +497,7 @@ static void fillOutputs(const ProceduralTextureSettings& settings,
             output.rgba8[o + 2] = c;
             output.rgba8[o + 3] = 255u;
         }
-    }
+    });
 }
 
 } // namespace
@@ -556,27 +557,9 @@ ProceduralTextureOutput ProceduralTextureGenerator::generate(const ProceduralTex
         }
     };
 
-    if (settings.parallel && output.height >= 64)
+    if (settings.parallel && pixelCount >= 4096u)
     {
-        const unsigned int hardware = std::max(1u, std::thread::hardware_concurrency());
-        const int threadCount = std::min<int>(static_cast<int>(hardware), output.height);
-        std::vector<std::thread> threads;
-        threads.reserve(static_cast<size_t>(threadCount));
-        const int stripe = (output.height + threadCount - 1) / threadCount;
-        for (int i = 0; i < threadCount; ++i)
-        {
-            const int y0 = i * stripe;
-            const int y1 = std::min(output.height, y0 + stripe);
-            if (y0 >= y1)
-            {
-                break;
-            }
-            threads.emplace_back(worker, y0, y1);
-        }
-        for (auto& t : threads)
-        {
-            t.join();
-        }
+        Parallel::For(0, output.height, static_cast<int>(pixelCount), [&](int y) { worker(y, y + 1); });
     }
     else
     {
@@ -589,10 +572,10 @@ ProceduralTextureOutput ProceduralTextureGenerator::generate(const ProceduralTex
         const float minValue = *minIt;
         const float maxValue = *maxIt;
         const float denom = std::max(maxValue - minValue, 1e-6f);
-        for (float& v : values)
-        {
+        Parallel::For(0, static_cast<int>(values.size()), static_cast<int>(values.size()), [&](int index) {
+            float& v = values[static_cast<size_t>(index)];
             v = clamp01((v - minValue) / denom);
-        }
+        });
     }
 
     fillOutputs(settings, values, output);

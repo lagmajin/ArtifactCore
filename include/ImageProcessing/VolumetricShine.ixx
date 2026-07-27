@@ -8,6 +8,7 @@ export module ArtifactCore.ImageProcessing.VolumetricShine;
 
 import Particle; // For float2, float3, float4 definitions
 import ArtifactCore.Utils.PerformanceProfiler;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -36,7 +37,7 @@ public:
         std::vector<float4> original(buffer, buffer + width * height);
         float2 center{settings.sourcePos.x * width, settings.sourcePos.y * height};
 
-        for (int y = 0; y < height; ++y) {
+        Parallel::For(0, height, width * height, [&](int y) {
             for (int x = 0; x < width; ++x) {
                 float2 current{static_cast<float>(x), static_cast<float>(y)};
                 float2 dir{current.x - center.x, current.y - center.y};
@@ -73,7 +74,7 @@ public:
                 buffer[y * width + x].y += (shineColor.y / settings.samples) * settings.tint.y;
                 buffer[y * width + x].z += (shineColor.z / settings.samples) * settings.tint.z;
             }
-        }
+        });
     }
 };
 

@@ -2,8 +2,11 @@ module;
 #include <utility>
 #include <random>
 #include <cmath>
+#include <vector>
 #include <opencv2/opencv.hpp>
 module Noise;
+
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -30,18 +33,21 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
             if (monochrome) {
                 cv::Mat noiseMono(src.size(), CV_32F);
                 for (int y = 0; y < src.rows; ++y) {
+                    float* noiseRow = noiseMono.ptr<float>(y);
                     for (int x = 0; x < src.cols; ++x) {
-                        noiseMono.at<float>(y, x) = gaussian(rng);
+                        noiseRow[x] = gaussian(rng);
                     }
                 }
-                for (int y = 0; y < src.rows; ++y) {
+                Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+                    const float* noiseRow = noiseMono.ptr<float>(y);
+                    float* resultRow = result.ptr<float>(y);
                     for (int x = 0; x < src.cols; ++x) {
-                        float n = noiseMono.at<float>(y, x);
+                        const float n = noiseRow[x];
                         for (int c = 0; c < std::min(ch, 3); ++c) {
-                            result.ptr<float>(y)[x * ch + c] += n;
+                            resultRow[x * ch + c] += n;
                         }
                     }
-                }
+                });
             } else {
                 cv::Mat noise(src.size(), src.type());
                 cv::randn(noise, 0.0, amount);
@@ -57,18 +63,23 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
         }
         case NoiseType::SaltAndPepper: {
             float prob = amount * 0.05f;
-            for (int y = 0; y < src.rows; ++y) {
+            std::vector<float> randomValues(static_cast<size_t>(src.rows) * static_cast<size_t>(src.cols));
+            for (float& value : randomValues) {
+                value = uniform(rng) + amount;
+            }
+            Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+                float* resultRow = result.ptr<float>(y);
                 for (int x = 0; x < src.cols; ++x) {
-                    float r = uniform(rng) + amount;
+                    const float r = randomValues[static_cast<size_t>(y) * static_cast<size_t>(src.cols) + static_cast<size_t>(x)];
                     if (r < prob) {
                         for (int c = 0; c < std::min(ch, 3); ++c)
-                            result.ptr<float>(y)[x * ch + c] = 0.0f;
+                            resultRow[x * ch + c] = 0.0f;
                     } else if (r > (2.0f * amount - prob)) {
                         for (int c = 0; c < std::min(ch, 3); ++c)
-                            result.ptr<float>(y)[x * ch + c] = 1.0f;
+                            resultRow[x * ch + c] = 1.0f;
                     }
                 }
-            }
+            });
             break;
         }
         case NoiseType::Perlin: {
@@ -83,18 +94,32 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
                 noise += octaveNoise;
                 scale *= 0.5f;
             }
-            for (int y = 0; y < src.rows; ++y) {
-                for (int x = 0; x < src.cols; ++x) {
-                    float n = noise.at<float>(y, x);
-                    if (monochrome) {
-                        for (int c = 0; c < std::min(ch, 3); ++c)
-                            result.ptr<float>(y)[x * ch + c] += n;
-                    } else {
-                        for (int c = 0; c < ch; ++c)
-                            result.ptr<float>(y)[x * ch + c] += n * (0.8f + 0.4f * uniform(rng) / amount);
-                    }
+            std::vector<float> randomValues;
+            if (!monochrome) {
+                randomValues.resize(static_cast<size_t>(src.rows) *
+                                    static_cast<size_t>(src.cols) *
+                                    static_cast<size_t>(ch));
+                for (float& value : randomValues) {
+                    value = uniform(rng);
                 }
             }
+            Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+                float* resultRow = result.ptr<float>(y);
+                const float* noiseRow = noise.ptr<float>(y);
+                for (int x = 0; x < src.cols; ++x) {
+                    const float n = noiseRow[x];
+                    if (monochrome) {
+                        for (int c = 0; c < std::min(ch, 3); ++c)
+                            resultRow[x * ch + c] += n;
+                    } else {
+                        const size_t randomBase =
+                            (static_cast<size_t>(y) * static_cast<size_t>(src.cols) +
+                             static_cast<size_t>(x)) * static_cast<size_t>(ch);
+                        for (int c = 0; c < ch; ++c)
+                            resultRow[x * ch + c] += n * (0.8f + 0.4f * randomValues[randomBase + static_cast<size_t>(c)] / amount);
+                    }
+                }
+            });
             break;
         }
         case NoiseType::FilmGrain: {
@@ -106,22 +131,38 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
                 gray = src;
             }
 
-            for (int y = 0; y < src.rows; ++y) {
-                for (int x = 0; x < src.cols; ++x) {
-                    float lum = gray.at<float>(y, x);
-                    // More grain in midtones, less in shadows and highlights
-                    float grainAmount = amount * 4.0f * lum * (1.0f - lum);
-                    float n = gaussian(rng) * grainAmount;
-
-                    if (monochrome) {
-                        for (int c = 0; c < std::min(ch, 3); ++c)
-                            result.ptr<float>(y)[x * ch + c] += n;
-                    } else {
-                        for (int c = 0; c < std::min(ch, 3); ++c)
-                            result.ptr<float>(y)[x * ch + c] += gaussian(rng) * grainAmount;
+            const size_t pixelCount = static_cast<size_t>(src.rows) * static_cast<size_t>(src.cols);
+            const size_t channelCount = static_cast<size_t>(std::min(ch, 3));
+            const size_t randomStride = monochrome ? 1ull : 1ull + channelCount;
+            std::vector<float> randomValues(pixelCount * randomStride);
+            for (size_t pixel = 0; pixel < pixelCount; ++pixel) {
+                randomValues[pixel * randomStride] = gaussian(rng);
+                if (!monochrome) {
+                    for (size_t c = 0; c < channelCount; ++c) {
+                        randomValues[pixel * randomStride + 1ull + c] = gaussian(rng);
                     }
                 }
             }
+            Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
+                float* resultRow = result.ptr<float>(y);
+                const float* grayRow = gray.ptr<float>(y);
+                for (int x = 0; x < src.cols; ++x) {
+                    const size_t pixel = static_cast<size_t>(y) * static_cast<size_t>(src.cols) + static_cast<size_t>(x);
+                    const float lum = grayRow[x];
+                    // More grain in midtones, less in shadows and highlights
+                    const float grainAmount = amount * 4.0f * lum * (1.0f - lum);
+                    const float n = randomValues[pixel * randomStride] * grainAmount;
+
+                    if (monochrome) {
+                        for (int c = 0; c < std::min(ch, 3); ++c)
+                            resultRow[x * ch + c] += n;
+                    } else {
+                        for (size_t c = 0; c < channelCount; ++c)
+                            resultRow[x * ch + static_cast<int>(c)] +=
+                                randomValues[pixel * randomStride + 1ull + c] * grainAmount;
+                    }
+                }
+            });
             break;
         }
     }

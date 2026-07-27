@@ -1,15 +1,19 @@
 module;
 #include <algorithm>
 #include <random>
+#include <vector>
 
 module ImageProcessing;
 import :Scatter;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
 void Scatter::process(float4* buffer, int width, int height, const ScatterSettings& s) {
-    auto* tmp = new float4[width * height];
-    std::copy_n(buffer, width * height, tmp);
+    const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+    std::vector<float4> tmp(pixelCount);
+    std::copy_n(buffer, pixelCount, tmp.data());
+    std::vector<size_t> sourceIndices(pixelCount);
     std::mt19937 rng(static_cast<unsigned>(s.seed));
     float inv = 1.0f / 65535.0f;
     for (int y = 0; y < height; ++y) {
@@ -18,10 +22,16 @@ void Scatter::process(float4* buffer, int width, int height, const ScatterSettin
             float oy = (static_cast<float>(rng() & 0xFFFF) * inv * 2.0f - 1.0f) * s.amount;
             int sx = std::clamp(static_cast<int>(x + ox), 0, width - 1);
             int sy = std::clamp(static_cast<int>(y + oy), 0, height - 1);
-            buffer[y * width + x] = tmp[sy * width + sx];
+            sourceIndices[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)] =
+                static_cast<size_t>(sy) * static_cast<size_t>(width) + static_cast<size_t>(sx);
         }
     }
-    delete[] tmp;
+    Parallel::For(0, height, width * height, [&](int y) {
+        for (int x = 0; x < width; ++x) {
+            const size_t index = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
+            buffer[index] = tmp[sourceIndices[index]];
+        }
+    });
 }
 
 void Scatter::process(ImageF32x4_RGBA& image, const ScatterSettings& settings) {

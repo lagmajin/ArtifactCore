@@ -7,6 +7,7 @@ module;
 module ImageProcessing;
 
 import :ChromaSpread;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -51,7 +52,7 @@ void ChromaSpread::processMat(void* cvMatPtr, const ChromaSpreadSettings& settin
         cv::Mat mapX(h, w, CV_32FC1);
         cv::Mat mapY(h, w, CV_32FC1);
 
-        for (int y = 0; y < h; ++y) {
+        Parallel::For(0, h, w * h, [&](int y) {
             float* ptrX = mapX.ptr<float>(y);
             float* ptrY = mapY.ptr<float>(y);
             for (int x = 0; x < w; ++x) {
@@ -63,7 +64,7 @@ void ChromaSpread::processMat(void* cvMatPtr, const ChromaSpreadSettings& settin
                 ptrX[x] = rx + sx;
                 ptrY[x] = ry + sy;
             }
-        }
+        });
         cv::remap(src, dst, mapX, mapY, cv::INTER_LINEAR, cv::BORDER_REPLICATE);
     };
 

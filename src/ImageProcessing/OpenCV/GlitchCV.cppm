@@ -6,6 +6,8 @@ module;
 #include <opencv2/opencv.hpp>
 module ImageProcessing.GlitchCV;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 cv::Mat glitchEffect(const cv::Mat& input, const GlitchParams& params) {
@@ -29,20 +31,27 @@ cv::Mat glitchEffect(const cv::Mat& input, const GlitchParams& params) {
 
         for (int y = startRow; y < startRow + height && y < input.rows; ++y) {
             cv::Mat row = result.row(y).clone();
-            for (int x = 0; x < input.cols; ++x) {
-                int srcX = x - shift;
-                if (srcX < 0) srcX += input.cols;
-                if (srcX >= input.cols) srcX -= input.cols;
-
-                if (input.depth() == CV_32F) {
-                    int ch = input.channels();
+            const int ch = input.channels();
+            if (input.depth() == CV_32F) {
+                const float* sourceRow = row.ptr<float>(0);
+                float* destinationRow = result.ptr<float>(y);
+                for (int x = 0; x < input.cols; ++x) {
+                    int srcX = x - shift;
+                    if (srcX < 0) srcX += input.cols;
+                    if (srcX >= input.cols) srcX -= input.cols;
                     for (int c = 0; c < ch; ++c) {
-                        result.ptr<float>(y)[x * ch + c] = row.ptr<float>(0)[srcX * ch + c];
+                        destinationRow[x * ch + c] = sourceRow[srcX * ch + c];
                     }
-                } else {
-                    int ch = input.channels();
+                }
+            } else {
+                const uchar* sourceRow = row.ptr<uchar>(0);
+                uchar* destinationRow = result.ptr<uchar>(y);
+                for (int x = 0; x < input.cols; ++x) {
+                    int srcX = x - shift;
+                    if (srcX < 0) srcX += input.cols;
+                    if (srcX >= input.cols) srcX -= input.cols;
                     for (int c = 0; c < ch; ++c) {
-                        result.ptr<uchar>(y)[x * ch + c] = row.ptr<uchar>(0)[srcX * ch + c];
+                        destinationRow[x * ch + c] = sourceRow[srcX * ch + c];
                     }
                 }
             }
@@ -56,10 +65,11 @@ cv::Mat glitchEffect(const cv::Mat& input, const GlitchParams& params) {
 
     // 3. Scanline overlay
     if (params.scanlines > 0.0f) {
-        for (int y = 0; y < result.rows; y += 2) {
+        Parallel::For(0, (result.rows + 1) / 2, result.rows * result.cols, [&](int scanline) {
+            const int y = scanline * 2;
             cv::Mat row = result.row(y);
             row *= (1.0f - params.scanlines * 0.5f);
-        }
+        });
     }
 
     // 4. Random noise

@@ -40,6 +40,7 @@ module ImageProcessing;
 
 
 import :Monochrome;
+import Core.Parallel;
 
 
 
@@ -65,9 +66,11 @@ namespace ArtifactCore {
 
   cv::Mat gray(src_bgr.size(), CV_8UC1);
 
-  for (int y = 0; y < src_bgr.rows; ++y) {
+  Parallel::For(0, src_bgr.rows, src_bgr.rows * src_bgr.cols, [&](int y) {
+   const cv::Vec3b* srcRow = src_bgr.ptr<cv::Vec3b>(y);
+   uchar* dstRow = gray.ptr<uchar>(y);
    for (int x = 0; x < src_bgr.cols; ++x) {
-	cv::Vec3b bgr = src_bgr.at<cv::Vec3b>(y, x);
+	cv::Vec3b bgr = srcRow[x];
 
 	// BGR �� RGB���K���i0-1�j
 	float r_srgb = bgr[2] / 255.0f;
@@ -86,9 +89,9 @@ namespace ArtifactCore {
 	float y_srgb = linearToSrgb(y_lin);
 
 	// 0-255�ɕϊ�
-	gray.at<uchar>(y, x) = static_cast<uchar>(std::round(y_srgb * 255.0f));
+	dstRow[x] = static_cast<uchar>(std::round(y_srgb * 255.0f));
    }
-  }
+  });
 
   return gray;
  }

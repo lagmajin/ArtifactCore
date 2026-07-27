@@ -101,14 +101,15 @@ namespace ArtifactCore {
    return FloatRGBA(); // 範囲外は透明を返す
   }
   
-  cv::Vec4f pixel = mat_.at<cv::Vec4f>(y, x);
+  const cv::Vec4f pixel = mat_.ptr<cv::Vec4f>(y)[x];
   return FloatRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
  }
 
  void ImageF32x4_RGBA::Impl::setPixel(int x, int y, const FloatRGBA& color)
  {
   if (x >= 0 && x < mat_.cols && y >= 0 && y < mat_.rows) {
-   mat_.at<cv::Vec4f>(y, x) = cv::Vec4f(color.r(), color.g(), color.b(), color.a());
+   mat_.ptr<cv::Vec4f>(y)[x] =
+       cv::Vec4f(color.r(), color.g(), color.b(), color.a());
   }
  }
 

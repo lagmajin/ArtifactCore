@@ -5,6 +5,7 @@ module;
 
 module ImageProcessing;
 import :Median;
+import Core.Parallel;
 
 import Particle;
 import Image.ImageF32x4_RGBA;
@@ -25,7 +26,7 @@ void sort3(float v[9]) {
 }
 
 void median3x3(const float4* src, float4* dst, int w, int h) {
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         for (int x = 0; x < w; ++x) {
             float r[9], g[9], b[9], a[9];
             int idx = 0;
@@ -41,7 +42,7 @@ void median3x3(const float4* src, float4* dst, int w, int h) {
             sort3(r); sort3(g); sort3(b); sort3(a);
             dst[static_cast<size_t>(y) * w + static_cast<size_t>(x)] = { r[4], g[4], b[4], a[4] };
         }
-    }
+    });
 }
 
 } // anonymous namespace

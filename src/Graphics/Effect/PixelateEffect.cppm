@@ -6,6 +6,7 @@ module;
 module Graphics.Effect.Creative.Pixelate;
 
 import Channel;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -26,8 +27,13 @@ void PixelateEffect::process(VideoFrame& frame, const CreativeEffectContext& con
     int h = frame.height();
     
     int size = static_cast<int>(std::max(1.0f, blockSize()));
+    float* rData = r_ch->data();
+    float* gData = g_ch->data();
+    float* bData = b_ch->data();
 
-    for (int by = 0; by < h; by += size) {
+    const int blockRows = (h + size - 1) / size;
+    Parallel::For(0, blockRows, w * h, [&](int blockY) {
+        const int by = blockY * size;
         for (int bx = 0; bx < w; bx += size) {
             
             // ブロック内の平均色を取得 (簡易化のため左上を採用してもいいが、平均の方が綺麗)
@@ -35,11 +41,12 @@ void PixelateEffect::process(VideoFrame& frame, const CreativeEffectContext& con
             int count = 0;
 
             for (int y = by; y < by + size && y < h; ++y) {
+                const std::size_t rowBase = static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
                 for (int x = bx; x < bx + size && x < w; ++x) {
-                    int idx = y * w + x;
-                    r_sum += r_ch->data()[idx];
-                    g_sum += g_ch->data()[idx];
-                    b_sum += b_ch->data()[idx];
+                    const std::size_t idx = rowBase + static_cast<std::size_t>(x);
+                    r_sum += rData[idx];
+                    g_sum += gData[idx];
+                    b_sum += bData[idx];
                     count++;
                 }
             }
@@ -50,15 +57,16 @@ void PixelateEffect::process(VideoFrame& frame, const CreativeEffectContext& con
 
             // ブロック全体を平均色で塗りつぶす
             for (int y = by; y < by + size && y < h; ++y) {
+                const std::size_t rowBase = static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
                 for (int x = bx; x < bx + size && x < w; ++x) {
-                    int idx = y * w + x;
-                    r_ch->data()[idx] = r_avg;
-                    g_ch->data()[idx] = g_avg;
-                    b_ch->data()[idx] = b_avg;
+                    const std::size_t idx = rowBase + static_cast<std::size_t>(x);
+                    rData[idx] = r_avg;
+                    gData[idx] = g_avg;
+                    bData[idx] = b_avg;
                 }
             }
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

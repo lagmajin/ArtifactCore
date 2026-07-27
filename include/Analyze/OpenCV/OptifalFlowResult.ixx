@@ -35,6 +35,8 @@ module;
 #include <opencv2/opencv.hpp>
 export module Analyze.OpticalFlow;
 
+import Core.Parallel;
+
 export namespace ArtifactCore {
 
     class OpticalFlowResult {
@@ -80,15 +82,29 @@ export namespace ArtifactCore {
             cv::Mat magnitude, angle;
             cv::cartToPolar(channels[0], channels[1], magnitude, angle, true); // angle in degrees
 
-            for (int y = 0; y < angle.rows; ++y) {
-                for (int x = 0; x < angle.cols; ++x) {
-                    float a = angle.at<float>(y, x);
-                    float m = magnitude.at<float>(y, x);
-                    
-                    if (m > 0.5f) { // 動きが小さいものは無視
-                        int bin = static_cast<int>(a / (360.0f / bins)) % bins;
-                        hist[bin]++;
+            constexpr int kChunkSize = 4096;
+            const int chunkCount = (angle.rows + kChunkSize - 1) / kChunkSize;
+            std::vector<std::vector<int>> partialHist(
+                static_cast<size_t>(chunkCount), std::vector<int>(bins, 0));
+            Parallel::For(0, chunkCount, angle.rows * angle.cols, [&](int chunk) {
+                const int begin = chunk * kChunkSize;
+                const int end = std::min(angle.rows, begin + kChunkSize);
+                auto& localHist = partialHist[static_cast<size_t>(chunk)];
+                for (int y = begin; y < end; ++y) {
+                    for (int x = 0; x < angle.cols; ++x) {
+                        const float a = angle.at<float>(y, x);
+                        const float m = magnitude.at<float>(y, x);
+
+                        if (m > 0.5f) { // 動きが小さいものは無視
+                            const int bin = static_cast<int>(a / (360.0f / bins)) % bins;
+                            ++localHist[static_cast<size_t>(bin)];
+                        }
                     }
+                }
+            });
+            for (const auto& localHist : partialHist) {
+                for (int bin = 0; bin < bins; ++bin) {
+                    hist[static_cast<size_t>(bin)] += localHist[static_cast<size_t>(bin)];
                 }
             }
             return hist;

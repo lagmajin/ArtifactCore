@@ -41,6 +41,7 @@ module;
 #include <QVector>
 
 module ImageProcessing.ColorTransform.LevelsCurves;
+import Core.Parallel;
 
 
 namespace ArtifactCore {
@@ -172,9 +173,7 @@ QImage LevelsEffect::apply(const QImage& source) const {
     
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
     
-    tbb::parallel_for(tbb::blocked_range<int>(0, result.height()),
-        [&](const tbb::blocked_range<int>& rows) {
-            for (int y = rows.begin(); y < rows.end(); ++y) {
+    Parallel::For(0, result.height(), result.width() * result.height(), [&](int y) {
                 QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
                 for (int x = 0; x < result.width(); ++x) {
                     int r = qRed(line[x]);
@@ -184,8 +183,7 @@ QImage LevelsEffect::apply(const QImage& source) const {
                     
                     line[x] = qRgba(impl_->lutR[r], impl_->lutG[g], impl_->lutB[b], a);
                 }
-            }
-        });
+    });
     
     return result;
 }
@@ -215,11 +213,8 @@ QVector<int> LevelsEffect::calculateHistogram(const QImage& image, int channel) 
     const int hist_h = converted.height();
     const int hist_w = converted.width();
     
-    // parallel_reduce: each row range accumulates its own local histogram
-    std::vector<int> merged_hist = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, hist_h),
-        std::vector<int>(256, 0),
-        [&](const tbb::blocked_range<int>& rows, std::vector<int> local) {
+    const auto accumulateRows = [&](const tbb::blocked_range<int>& rows,
+                                    std::vector<int> local) {
             for (int y = rows.begin(); y < rows.end(); ++y) {
                 const QRgb* line = reinterpret_cast<const QRgb*>(converted.scanLine(y));
                 for (int x = 0; x < hist_w; ++x) {
@@ -237,13 +232,23 @@ QVector<int> LevelsEffect::calculateHistogram(const QImage& image, int channel) 
                 }
             }
             return local;
-        },
-        [](const std::vector<int>& a, const std::vector<int>& b) {
+        };
+    const auto combineHistograms = [](const std::vector<int>& a,
+                                      const std::vector<int>& b) {
             std::vector<int> result(256);
             for (int i = 0; i < 256; ++i) result[i] = a[i] + b[i];
             return result;
-        }
-    );
+        };
+
+    std::vector<int> merged_hist;
+    if (static_cast<std::size_t>(hist_h) * hist_w < 4096u) {
+        merged_hist = accumulateRows(
+            tbb::blocked_range<int>(0, hist_h), std::vector<int>(256, 0));
+    } else {
+        merged_hist = tbb::parallel_reduce(
+            tbb::blocked_range<int>(0, hist_h), std::vector<int>(256, 0),
+            accumulateRows, combineHistograms);
+    }
     
     QVector<int> histogram(256);
     for (int i = 0; i < 256; ++i) histogram[i] = merged_hist[i];
@@ -544,9 +549,7 @@ QImage CurvesEffect::apply(const QImage& source) const {
     
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
     
-        tbb::parallel_for(tbb::blocked_range<int>(0, result.height()),
-        [&](const tbb::blocked_range<int>& rows) {
-            for (int y = rows.begin(); y < rows.end(); ++y) {
+    Parallel::For(0, result.height(), result.width() * result.height(), [&](int y) {
                 QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
                 for (int x = 0; x < result.width(); ++x) {
                     int r = qRed(line[x]);
@@ -556,8 +559,7 @@ QImage CurvesEffect::apply(const QImage& source) const {
                     
                     line[x] = qRgba(impl_->lutR[r], impl_->lutG[g], impl_->lutB[b], a);
                 }
-            }
-        });
+    });
     
     return result;
 }

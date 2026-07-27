@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <cstdint>
+#include <array>
 #include <QImage>
 #include <QPainter>
 #include <vector>
@@ -8,6 +9,8 @@ module;
 #include <cmath>
 
 export module Color.Grading.ColorScopes;
+
+import Core.Parallel;
 
 export namespace ArtifactCore {
 
@@ -42,16 +45,51 @@ public:
         // Build waveform data: brightness at each horizontal position
         std::vector<std::vector<int>> waveform(width, std::vector<int>(height, 0));
 
-        for (int y = 0; y < sh; ++y) {
-            const uint8_t* row = img.constScanLine(y);
-            for (int x = 0; x < sw; ++x) {
-                int idx = x * 4;
-                // Luminance: 0.299R + 0.587G + 0.114B
-                int lum = static_cast<int>(0.299f * row[idx] + 0.587f * row[idx + 1] + 0.114f * row[idx + 2]);
-                int sx = (x * width) / sw;
-                int sy = (lum * (height - 1)) / 255;
-                if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
-                    waveform[sx][sy]++;
+        constexpr int kRowsPerChunk = 64;
+        const int chunkCount = (sh + kRowsPerChunk - 1) / kRowsPerChunk;
+        const int workerCount = static_cast<size_t>(sw) * sh >= 256u * 1024u
+            ? chunkCount : 1;
+        if (workerCount == 1) {
+            for (int y = 0; y < sh; ++y) {
+                const uint8_t* row = img.constScanLine(y);
+                for (int x = 0; x < sw; ++x) {
+                    int idx = x * 4;
+                    // Luminance: 0.299R + 0.587G + 0.114B
+                    int lum = static_cast<int>(0.299f * row[idx] + 0.587f * row[idx + 1] + 0.114f * row[idx + 2]);
+                    int sx = (x * width) / sw;
+                    int sy = (lum * (height - 1)) / 255;
+                    if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+                        waveform[sx][sy]++;
+                    }
+                }
+            }
+        } else {
+            std::vector<std::vector<int>> partialWaveforms(
+                workerCount, std::vector<int>(static_cast<size_t>(width) * height, 0));
+
+            Parallel::For(0, workerCount, sw * sh, [&](int chunk) {
+                const int yBegin = chunk * kRowsPerChunk;
+                const int yEnd = std::min(sh, yBegin + kRowsPerChunk);
+                auto& local = partialWaveforms[chunk];
+                for (int y = yBegin; y < yEnd; ++y) {
+                    const uint8_t* row = img.constScanLine(y);
+                    for (int x = 0; x < sw; ++x) {
+                        int idx = x * 4;
+                        int lum = static_cast<int>(0.299f * row[idx] + 0.587f * row[idx + 1] + 0.114f * row[idx + 2]);
+                        int sx = (x * width) / sw;
+                        int sy = (lum * (height - 1)) / 255;
+                        if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+                            local[static_cast<size_t>(sx) * height + sy]++;
+                        }
+                    }
+                }
+            });
+
+            for (const auto& local : partialWaveforms) {
+                for (int x = 0; x < width; ++x) {
+                    for (int y = 0; y < height; ++y) {
+                        waveform[x][y] += local[static_cast<size_t>(x) * height + y];
+                    }
                 }
             }
         }
@@ -153,15 +191,42 @@ public:
         // Build histograms for R, G, B, Luma
         std::array<int, 256> rHist{}, gHist{}, bHist{}, lHist{};
 
-        for (int y = 0; y < sh; ++y) {
-            const uint8_t* row = img.constScanLine(y);
-            for (int x = 0; x < sw; ++x) {
-                int idx = x * 4;
-                rHist[row[idx]]++;
-                gHist[row[idx + 1]]++;
-                bHist[row[idx + 2]]++;
-                int lum = static_cast<int>(0.299f * row[idx] + 0.587f * row[idx + 1] + 0.114f * row[idx + 2]);
-                lHist[std::clamp(lum, 0, 255)]++;
+        constexpr int kRowsPerChunk = 64;
+        const int chunkCount = (sh + kRowsPerChunk - 1) / kRowsPerChunk;
+        const int workerCount = static_cast<size_t>(sw) * sh >= 256u * 1024u
+            ? chunkCount : 1;
+        struct HistogramChunk {
+            std::array<int, 256> r{};
+            std::array<int, 256> g{};
+            std::array<int, 256> b{};
+            std::array<int, 256> l{};
+        };
+        std::vector<HistogramChunk> partialHist(workerCount);
+
+        Parallel::For(0, workerCount, sw * sh, [&](int chunk) {
+            const int yBegin = chunk * kRowsPerChunk;
+            const int yEnd = workerCount == 1
+                ? sh : std::min(sh, yBegin + kRowsPerChunk);
+            auto& local = partialHist[chunk];
+            for (int y = yBegin; y < yEnd; ++y) {
+                const uint8_t* row = img.constScanLine(y);
+                for (int x = 0; x < sw; ++x) {
+                    int idx = x * 4;
+                    local.r[row[idx]]++;
+                    local.g[row[idx + 1]]++;
+                    local.b[row[idx + 2]]++;
+                    int lum = static_cast<int>(0.299f * row[idx] + 0.587f * row[idx + 1] + 0.114f * row[idx + 2]);
+                    local.l[std::clamp(lum, 0, 255)]++;
+                }
+            }
+        });
+
+        for (const auto& local : partialHist) {
+            for (int i = 0; i < 256; ++i) {
+                rHist[i] += local.r[i];
+                gHist[i] += local.g[i];
+                bHist[i] += local.b[i];
+                lHist[i] += local.l[i];
             }
         }
 
@@ -227,8 +292,10 @@ public:
         const float invMax = 1.0f / static_cast<float>(maxBin);
 
         // Render bins as intensity dots
-        for (int y = 0; y < size; ++y) {
-            auto* line = reinterpret_cast<QRgb*>(scope.scanLine(y));
+        auto* scopeBits = scope.bits();
+        const int scopeStride = scope.bytesPerLine();
+        Parallel::For(0, size, size * size, [&](int y) {
+            auto* line = reinterpret_cast<QRgb*>(scopeBits + y * scopeStride);
             for (int x = 0; x < size; ++x) {
                 uint32_t count = bins[y * size + x];
                 if (count == 0) continue;
@@ -242,7 +309,7 @@ public:
                 int b = std::min(255, qBlue(existing) + val);
                 line[x] = qRgba(r, g, b, a);
             }
-        }
+        });
 
         // Graticule
         QPainter painter(&scope);
@@ -301,8 +368,10 @@ public:
 
         const float invMax = 1.0f / static_cast<float>(maxBin);
 
-        for (int y = 0; y < height; ++y) {
-            auto* line = reinterpret_cast<QRgb*>(scope.scanLine(y));
+        auto* scopeBits = scope.bits();
+        const int scopeStride = scope.bytesPerLine();
+        Parallel::For(0, height, width * height, [&](int y) {
+            auto* line = reinterpret_cast<QRgb*>(scopeBits + y * scopeStride);
             for (int x = 0; x < width; ++x) {
                 uint32_t count = bins[y * width + x];
                 if (count == 0) continue;
@@ -311,7 +380,7 @@ public:
                 val = std::min(val, 255);
                 line[x] = qRgba(val, val, 255, val);
             }
-        }
+        });
 
         QPainter painter(&scope);
         painter.setPen(QPen(QColor(80, 80, 80, 120), 1));
@@ -341,10 +410,12 @@ public:
 
         const float invMax = 1.0f / static_cast<float>(maxBin);
         const int pane = width * height;
+        auto* scopeBits = scope.bits();
+        const int scopeStride = scope.bytesPerLine();
 
         auto drawPane = [&](int paneOffset, QRgb color) {
-            for (int y = 0; y < height; ++y) {
-                auto* line = reinterpret_cast<QRgb*>(scope.scanLine(y));
+            Parallel::For(0, height, width * height, [&](int y) {
+                auto* line = reinterpret_cast<QRgb*>(scopeBits + y * scopeStride);
                 for (int x = 0; x < width; ++x) {
                     uint32_t count = bins[paneOffset + y * width + x];
                     if (count == 0) continue;
@@ -353,7 +424,7 @@ public:
                     line[x + paneOffset / pane * width] = qRgba(
                         qRed(color), qGreen(color), qBlue(color), a);
                 }
-            }
+            });
         };
 
         drawPane(0 * pane, qRgba(255, 80, 80, 255));

@@ -6,6 +6,7 @@ module;
 #include <QColor>
 #include <QImage>
 module ImageProcessing.ColorTransform.ColorBalance;
+import Core.Parallel;
 
 
 namespace ArtifactCore {
@@ -66,9 +67,7 @@ QImage ColorBalanceProcessor::apply(const QImage& source) const {
     }
 
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
-    tbb::parallel_for(tbb::blocked_range<int>(0, result.height()),
-        [&](const tbb::blocked_range<int>& rows) {
-            for (int y = rows.begin(); y < rows.end(); ++y) {
+    Parallel::For(0, result.height(), result.width() * result.height(), [&](int y) {
                 auto* scanLine = reinterpret_cast<QRgb*>(result.scanLine(y));
                 for (int x = 0; x < result.width(); ++x) {
                     float r = qRed(scanLine[x]) / 255.0f;
@@ -83,8 +82,7 @@ QImage ColorBalanceProcessor::apply(const QImage& source) const {
                         static_cast<int>(std::clamp(a * 255.0f, 0.0f, 255.0f))
                     );
                 }
-            }
-        });
+    });
 
     return result;
 }

@@ -14,6 +14,7 @@ module Time.TimeRemap;
 
 import Frame.Rate;
 import Analyze.OpticalFlow;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -600,24 +601,27 @@ QImage TimeRemapEffect::processFrameBlending(
                 const cv::Mat& flow = flowResult.getFlowMat();
 
                 cv::Mat warped(h, w, CV_32FC3, cv::Scalar(0, 0, 0));
-                for (int y = 0; y < h; ++y) {
+                Parallel::For(0, h, w * h, [&](int y) {
+                    const auto* flowRow = flow.ptr<cv::Vec2f>(y);
+                    auto* warpedRow = warped.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
-                        cv::Vec2f fv = flow.at<cv::Vec2f>(y, x);
+                        cv::Vec2f fv = flowRow[x];
                         float sx = static_cast<float>(x) + fv[0];
                         float sy = static_cast<float>(y) + fv[1];
                         int ix = std::clamp(static_cast<int>(sx), 0, w - 1);
                         int iy = std::clamp(static_cast<int>(sy), 0, h - 1);
-                        cv::Vec3b p = currCv.at<cv::Vec3b>(iy, ix);
-                        warped.at<cv::Vec3f>(y, x) = cv::Vec3f(p[0], p[1], p[2]);
+                        const cv::Vec3b p = currCv.ptr<cv::Vec3b>(iy)[ix];
+                        warpedRow[x] = cv::Vec3f(p[0], p[1], p[2]);
                     }
-                }
+                });
 
-                for (int y = 0; y < h; ++y) {
+                Parallel::For(0, h, w * h, [&](int y) {
+                    const auto* warpedRow = warped.ptr<cv::Vec3f>(y);
+                    auto* accumRow = accumCv.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
-                        accumCv.at<cv::Vec3f>(y, x) +=
-                            warped.at<cv::Vec3f>(y, x) * blendBackward;
+                        accumRow[x] += warpedRow[x] * blendBackward;
                     }
-                }
+                });
                 totalWeight += blendBackward;
             }
 
@@ -628,50 +632,56 @@ QImage TimeRemapEffect::processFrameBlending(
                 const cv::Mat& flow = flowResult.getFlowMat();
 
                 cv::Mat warped(h, w, CV_32FC3, cv::Scalar(0, 0, 0));
-                for (int y = 0; y < h; ++y) {
+                Parallel::For(0, h, w * h, [&](int y) {
+                    const auto* flowRow = flow.ptr<cv::Vec2f>(y);
+                    auto* warpedRow = warped.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
-                        cv::Vec2f fv = flow.at<cv::Vec2f>(y, x);
+                        cv::Vec2f fv = flowRow[x];
                         float sx = static_cast<float>(x) + fv[0];
                         float sy = static_cast<float>(y) + fv[1];
                         int ix = std::clamp(static_cast<int>(sx), 0, w - 1);
                         int iy = std::clamp(static_cast<int>(sy), 0, h - 1);
-                        cv::Vec3b p = nextCv.at<cv::Vec3b>(iy, ix);
-                        warped.at<cv::Vec3f>(y, x) = cv::Vec3f(p[0], p[1], p[2]);
+                        const cv::Vec3b p = nextCv.ptr<cv::Vec3b>(iy)[ix];
+                        warpedRow[x] = cv::Vec3f(p[0], p[1], p[2]);
                     }
-                }
+                });
 
-                for (int y = 0; y < h; ++y) {
+                Parallel::For(0, h, w * h, [&](int y) {
+                    const auto* warpedRow = warped.ptr<cv::Vec3f>(y);
+                    auto* accumRow = accumCv.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
-                        accumCv.at<cv::Vec3f>(y, x) +=
-                            warped.at<cv::Vec3f>(y, x) * blendForward;
+                        accumRow[x] += warpedRow[x] * blendForward;
                     }
-                }
+                });
                 totalWeight += blendForward;
             }
 
             // Blend original frame
             if (totalWeight < 1.0f) {
                 float remaining = 1.0f - totalWeight;
-                for (int y = 0; y < h; ++y) {
+                Parallel::For(0, h, w * h, [&](int y) {
+                    const auto* currRow = currCv.ptr<cv::Vec3b>(y);
+                    auto* accumRow = accumCv.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
-                        cv::Vec3b p = currCv.at<cv::Vec3b>(y, x);
-                        accumCv.at<cv::Vec3f>(y, x) +=
-                            cv::Vec3f(p[0], p[1], p[2]) * remaining;
+                        const cv::Vec3b p = currRow[x];
+                        accumRow[x] += cv::Vec3f(p[0], p[1], p[2]) * remaining;
                     }
-                }
+                });
             }
 
             // Normalize and convert back
             cv::Mat resultCv(h, w, CV_8UC3);
-            for (int y = 0; y < h; ++y) {
+            Parallel::For(0, h, w * h, [&](int y) {
+                const auto* accumRow = accumCv.ptr<cv::Vec3f>(y);
+                auto* resultRow = resultCv.ptr<cv::Vec3b>(y);
                 for (int x = 0; x < w; ++x) {
-                    cv::Vec3f v = accumCv.at<cv::Vec3f>(y, x);
-                    resultCv.at<cv::Vec3b>(y, x) = cv::Vec3b(
+                    const cv::Vec3f v = accumRow[x];
+                    resultRow[x] = cv::Vec3b(
                         std::clamp(static_cast<int>(v[0]), 0, 255),
                         std::clamp(static_cast<int>(v[1]), 0, 255),
                         std::clamp(static_cast<int>(v[2]), 0, 255));
                 }
-            }
+            });
 
             return cvToQImage(resultCv);
         } catch (...) {

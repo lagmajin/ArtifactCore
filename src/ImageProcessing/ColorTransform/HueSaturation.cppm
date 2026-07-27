@@ -9,6 +9,8 @@ module;
 
 module ImageProcessing.ColorTransform.HueSaturation;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 // ============================================================================
@@ -131,7 +133,7 @@ HueSaturationSettings HueSaturationEffect::settings() const {
 QImage HueSaturationEffect::apply(const QImage& source) const {
     QImage result = source.convertToFormat(QImage::Format_RGB32);
     
-    for (int y = 0; y < result.height(); ++y) {
+    Parallel::For(0, result.height(), result.width() * result.height(), [&](int y) {
         QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
         for (int x = 0; x < result.width(); ++x) {
             QColor color(line[x]);
@@ -144,7 +146,7 @@ QImage HueSaturationEffect::apply(const QImage& source) const {
             color.setRgbF(r, g, b);
             line[x] = color.rgb();
         }
-    }
+    });
     
     return result;
 }

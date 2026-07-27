@@ -7,6 +7,8 @@ module;
 
 module Render.MeshToVolume;
 
+import Core.Parallel;
+
 namespace ArtifactCore::RayTrace {
 
 namespace {
@@ -172,8 +174,10 @@ bool MeshToVolumeConverter::convertToScalarField(const VolumeAABB& bounds, Volum
     const float voxelDiag = std::sqrt(extent.x * extent.x + extent.y * extent.y + extent.z * extent.z)
         * std::sqrt(invW * invW + invH * invH + invD * invD) * 0.5f;
 
-    for (int z = 0; z < res.depth; ++z) {
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+        float* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
+            float* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);
             for (int x = 0; x < res.width; ++x) {
                 const Vec3 worldPos{
                     bounds.min.x + (static_cast<float>(x) + 0.5f) * invW * extent.x,
@@ -188,10 +192,10 @@ bool MeshToVolumeConverter::convertToScalarField(const VolumeAABB& bounds, Volum
 
                 const bool inside = settings_.fillInterior && pointInsideMesh(worldPos);
                 const float signedDist = inside ? -minDist : minDist;
-                field.at(x, y, z) = signedDistanceToVolumeDensity(signedDist, settings_);
+                row[x] = signedDistanceToVolumeDensity(signedDist, settings_);
             }
         }
-    }
+    });
 
     return true;
 }

@@ -10,10 +10,12 @@ class tst_QList;
 #include <QString>
 #include <QStringView>
 #include <QVariant>
+#include <vector>
 
 module Core.AI.ObjectDetector;
 
 import Image.ImageF32x4_RGBA;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -77,18 +79,32 @@ QList<Detection> ObjectDetector::detect(const ImageF32x4_RGBA& image) {
 
     QList<Detection> results;
 
+    struct BrightestPixel {
+        int x = 0;
+        int value = -1;
+    };
+    std::vector<BrightestPixel> rowBest(static_cast<size_t>(gray.height()));
+    Parallel::For(0, gray.height(), gray.width() * gray.height(), [&](int y) {
+        const uchar *row = gray.constScanLine(y);
+        auto& brightest = rowBest[static_cast<size_t>(y)];
+        for (int x = 0; x < gray.width(); ++x) {
+            const int value = row[x];
+            if (value > brightest.value) {
+                brightest.value = value;
+                brightest.x = x;
+            }
+        }
+    });
+
     int bestX = 0;
     int bestY = 0;
     int bestValue = -1;
     for (int y = 0; y < gray.height(); ++y) {
-        const uchar *row = gray.constScanLine(y);
-        for (int x = 0; x < gray.width(); ++x) {
-            const int value = row[x];
-            if (value > bestValue) {
-                bestValue = value;
-                bestX = x;
-                bestY = y;
-            }
+        const auto& brightest = rowBest[static_cast<size_t>(y)];
+        if (brightest.value > bestValue) {
+            bestValue = brightest.value;
+            bestX = brightest.x;
+            bestY = y;
         }
     }
 

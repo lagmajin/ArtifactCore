@@ -6,6 +6,8 @@ module;
 
 module ImageProcessing.FluidVisualizer;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 float4 FluidVisualizer::sampleGradient(float t, const Style& style) {
@@ -40,7 +42,7 @@ void FluidVisualizer::render(float4* buffer, int width, int height, const FluidS
     float gx = static_cast<float>(fluid.width()) / width;
     float gy = static_cast<float>(fluid.height()) / height;
 
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             int ix = static_cast<int>(x * gx);
             int iy = static_cast<int>(y * gy);
@@ -96,7 +98,7 @@ void FluidVisualizer::render(float4* buffer, int width, int height, const FluidS
             buffer[y * width + x].z = warped.z + col.z * col.w * style.glowIntensity + specular;
             buffer[y * width + x].w = std::max(warped.w, col.w);
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

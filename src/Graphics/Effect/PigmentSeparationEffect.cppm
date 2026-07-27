@@ -7,6 +7,7 @@ module;
 module Graphics.Effect.Creative.PigmentSeparation;
 
 import Channel;
+import Core.Parallel;
 import Math.Noise;
 
 namespace ArtifactCore {
@@ -79,10 +80,15 @@ void PigmentSeparationEffect::process(VideoFrame& frame, const CreativeEffectCon
     const float flowAmount = flow();
     const float grainAmount = granulation();
     const float time = static_cast<float>(context.time);
+    float* rData = rCh->data();
+    float* gData = gCh->data();
+    float* bData = bCh->data();
 
-    for (int y = 0; y < height; ++y) {
+    (void)NoiseGenerator::perlin(0.0f, 0.0f, 0.0f);
+    Parallel::For(0, height, width * height, [&](int y) {
+        const std::size_t rowBase = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
         for (int x = 0; x < width; ++x) {
-            const int idx = y * width + x;
+            const std::size_t idx = rowBase + static_cast<std::size_t>(x);
 
             const float currentR = sourceR[idx];
             const float currentG = sourceG[idx];
@@ -130,11 +136,11 @@ void PigmentSeparationEffect::process(VideoFrame& frame, const CreativeEffectCon
             const float mixedB = std::lerp(blueSample, bleedB, bleedAmount * wetMask * 0.55f);
 
             const float finalMix = clamp01(0.28f + spreadAmount * 0.42f + wetMask * 0.25f);
-            rCh->data()[idx] = clamp01(std::lerp(currentR, mixedR * paper, finalMix));
-            gCh->data()[idx] = clamp01(std::lerp(currentG, mixedG * paper, finalMix));
-            bCh->data()[idx] = clamp01(std::lerp(currentB, mixedB * paper, finalMix));
+            rData[idx] = clamp01(std::lerp(currentR, mixedR * paper, finalMix));
+            gData[idx] = clamp01(std::lerp(currentG, mixedG * paper, finalMix));
+            bData[idx] = clamp01(std::lerp(currentB, mixedB * paper, finalMix));
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

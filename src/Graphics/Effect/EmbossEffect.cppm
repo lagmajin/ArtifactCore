@@ -2,6 +2,7 @@ module Graphics.Effect.Creative.Emboss;
 
 import Graphics.Effect.Creative;
 import Channel;
+import Core.Parallel;
 import std;
 
 namespace ArtifactCore {
@@ -29,7 +30,7 @@ void EmbossEffect::process(VideoFrame& frame, const CreativeEffectContext&) {
 
     auto apply_emboss = [&](float* data) {
         std::vector<float> out(static_cast<size_t>(w) * static_cast<size_t>(h));
-        for (int y = 0; y < h; ++y) {
+        Parallel::For(0, h, w * h, [&](int y) {
             for (int x = 0; x < w; ++x) {
                 const int ix = x + dx;
                 const int iy = y + dy;
@@ -43,7 +44,7 @@ void EmbossEffect::process(VideoFrame& frame, const CreativeEffectContext&) {
                 if (ht > 0.0f) diff *= ht;
                 out[y * w + x] = std::clamp(0.5f + diff, 0.0f, 1.0f);
             }
-        }
+        });
         std::copy(out.begin(), out.end(), data);
     };
 

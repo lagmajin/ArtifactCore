@@ -9,6 +9,8 @@ module;
 
 module Render.NoiseField;
 
+import Core.Parallel;
+
 namespace ArtifactCore::RayTrace {
 
 namespace {
@@ -475,16 +477,18 @@ void fillScalarFieldFBM(VolumeScalarField& field, const NoiseSettings& settings)
     const float invH = res.height > 1 ? 1.0f / static_cast<float>(res.height) : 1.0f;
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
-    for (int z = 0; z < res.depth; ++z) {
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+        float* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
+            float* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);
             for (int x = 0; x < res.width; ++x) {
                 const float fx = static_cast<float>(x) * invW;
                 const float fy = static_cast<float>(y) * invH;
                 const float fz = static_cast<float>(z) * invD;
-                field.at(x, y, z) = fbm3D(fx, fy, fz, settings);
+                row[x] = fbm3D(fx, fy, fz, settings);
             }
         }
-    }
+    });
 }
 
 void fillScalarFieldTurbulence(VolumeScalarField& field, const NoiseSettings& settings) noexcept {
@@ -494,16 +498,18 @@ void fillScalarFieldTurbulence(VolumeScalarField& field, const NoiseSettings& se
     const float invH = res.height > 1 ? 1.0f / static_cast<float>(res.height) : 1.0f;
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
-    for (int z = 0; z < res.depth; ++z) {
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+        float* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
+            float* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);
             for (int x = 0; x < res.width; ++x) {
                 const float fx = static_cast<float>(x) * invW;
                 const float fy = static_cast<float>(y) * invH;
                 const float fz = static_cast<float>(z) * invD;
-                field.at(x, y, z) = turbulence3D(fx, fy, fz, settings);
+                row[x] = turbulence3D(fx, fy, fz, settings);
             }
         }
-    }
+    });
 }
 
 void fillScalarFieldWorley(VolumeScalarField& field, bool inverse, std::uint32_t seed) noexcept {
@@ -513,16 +519,18 @@ void fillScalarFieldWorley(VolumeScalarField& field, bool inverse, std::uint32_t
     const float invH = res.height > 1 ? 1.0f / static_cast<float>(res.height) : 1.0f;
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
-    for (int z = 0; z < res.depth; ++z) {
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+        float* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
+            float* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);
             for (int x = 0; x < res.width; ++x) {
                 const float fx = static_cast<float>(x) * invW;
                 const float fy = static_cast<float>(y) * invH;
                 const float fz = static_cast<float>(z) * invD;
-                field.at(x, y, z) = worleyNoise3D(fx, fy, fz, seed, inverse);
+                row[x] = worleyNoise3D(fx, fy, fz, seed, inverse);
             }
         }
-    }
+    });
 }
 
 void fillVectorFieldCurl(VolumeVectorField& field, const NoiseSettings& settings) noexcept {
@@ -532,16 +540,18 @@ void fillVectorFieldCurl(VolumeVectorField& field, const NoiseSettings& settings
     const float invH = res.height > 1 ? 1.0f / static_cast<float>(res.height) : 1.0f;
     const float invD = res.depth > 1 ? 1.0f / static_cast<float>(res.depth) : 1.0f;
 
-    for (int z = 0; z < res.depth; ++z) {
+    Parallel::For(0, res.depth, res.width * res.height, [&](int z) {
+        Vec3* slice = field.data + static_cast<std::size_t>(z) * static_cast<std::size_t>(res.width) * static_cast<std::size_t>(res.height);
         for (int y = 0; y < res.height; ++y) {
+            Vec3* row = slice + static_cast<std::size_t>(y) * static_cast<std::size_t>(res.width);
             for (int x = 0; x < res.width; ++x) {
                 const float fx = static_cast<float>(x) * invW;
                 const float fy = static_cast<float>(y) * invH;
                 const float fz = static_cast<float>(z) * invD;
-                field.at(x, y, z) = curlNoise3D(fx, fy, fz, settings);
+                row[x] = curlNoise3D(fx, fy, fz, settings);
             }
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore::RayTrace

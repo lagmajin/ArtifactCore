@@ -6,6 +6,8 @@ module;
 
 module ImageProcessing.ColorTransform.GradientRamp;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 namespace {
@@ -128,7 +130,7 @@ QImage GradientRampProcessor::apply(const QImage& source) const {
     const int width = result.width();
     const int height = result.height();
 
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         auto* line = reinterpret_cast<QRgb*>(result.scanLine(y));
         for (int x = 0; x < width; ++x) {
             float r = qRed(line[x]) / 255.0f;
@@ -154,15 +156,15 @@ void GradientRampProcessor::apply(float* pixels, int width, int height) const {
         return;
     }
 
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         applyRow(pixels, width, height, y);
-    }
+    });
 }
 
 void GradientRampProcessor::applyRow(float* pixels, int width, int height, int y) const {
     if (!pixels || width <= 0 || height <= 0 || y < 0 || y >= height) {
         return;
-    }
+    });
     for (int x = 0; x < width; ++x) {
         float* pixel = pixels + (static_cast<size_t>(y) * static_cast<size_t>(width) +
                                  static_cast<size_t>(x)) * 4u;

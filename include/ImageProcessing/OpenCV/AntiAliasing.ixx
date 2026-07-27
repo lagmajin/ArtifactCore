@@ -6,6 +6,8 @@ module;
 #include <opencv2/opencv.hpp>
 export module ImageProcessing:AntiAliasing;
 
+import Core.Parallel;
+
 export namespace ArtifactCore {
 
     /**
@@ -53,7 +55,7 @@ export namespace ArtifactCore {
 
         cv::Mat result = input.clone();
         const int channels = input.channels();
-        for (int y = 0; y < input.rows; ++y) {
+        Parallel::For(0, input.rows, input.rows * input.cols, [&](int y) {
             for (int x = 0; x < input.cols; ++x) {
                 const float mask =
                     std::min(1.0f, edgeMaskFloat.at<float>(y, x) * strength);
@@ -74,7 +76,7 @@ export namespace ArtifactCore {
                     }
                 }
             }
-        }
+        });
         return result;
     }
 

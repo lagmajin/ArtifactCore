@@ -11,6 +11,8 @@ module;
 
 module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 class OpenCVPuppetEngine::Impl {
@@ -86,7 +88,8 @@ public:
 
         // 深度(Z-Depth)の計算: IDW (Inverse Distance Weighting)
         if (!overlapPins.empty()) {
-            for (size_t i = 0; i < initialMesh.vertices.size(); ++i) {
+            Parallel::For(0, static_cast<int>(initialMesh.vertices.size()), static_cast<int>(initialMesh.vertices.size()), [&](int index) {
+                const size_t i = static_cast<size_t>(index);
                 cv::Point2f v = initialMesh.vertices[i];
                 float depth_sum = 0.0f;
                 float w_sum = 0.0f;
@@ -97,17 +100,19 @@ public:
                     w_sum += w;
                 }
                 deformedMesh.zDepth[i] = w_sum > 0 ? (depth_sum / w_sum) : 0.0f;
-            }
+            });
         } else {
-            for (size_t i = 0; i < deformedMesh.zDepth.size(); ++i) {
+            Parallel::For(0, static_cast<int>(deformedMesh.zDepth.size()), static_cast<int>(deformedMesh.zDepth.size()), [&](int index) {
+                const size_t i = static_cast<size_t>(index);
                 deformedMesh.zDepth[i] = 0.0f;
-            }
+            });
         }
 
         if (npins == 0) return;
 
         // Moving Least Squares (剛体を保つSimilitude変形)
-        for (size_t i = 0; i < initialMesh.vertices.size(); ++i) {
+        Parallel::For(0, static_cast<int>(initialMesh.vertices.size()), static_cast<int>(initialMesh.vertices.size()), [&](int index) {
+            const size_t i = static_cast<size_t>(index);
             cv::Point2f v = initialMesh.vertices[i];
             
             std::vector<float> w(npins);
@@ -158,7 +163,7 @@ public:
             }
             
             deformedMesh.vertices[i] = new_v;
-        }
+        });
     }
 };
 

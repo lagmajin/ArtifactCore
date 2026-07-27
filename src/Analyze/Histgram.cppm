@@ -1,4 +1,6 @@
 module;
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_reduce.h>
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include <iostream>
@@ -48,22 +50,43 @@ void Histgram::Impl::calculate(const cv::Mat& image) {
     // Calculate histogram for each channel
     for (int ch = 0; ch < channels; ++ch) {
         std::vector<int> hist(histSize_, 0);
-        for (int y = 0; y < image.rows; ++y) {
-            for (int x = 0; x < image.cols; ++x) {
-                int value = 0;
-                if (channels == 1) {
-                    value = image.at<uchar>(y, x);
-                } else if (channels == 3) {
-                    cv::Vec3b pixel = image.at<cv::Vec3b>(y, x);
-                    value = pixel[ch];
-                } else if (channels == 4) {
-                    cv::Vec4b pixel = image.at<cv::Vec4b>(y, x);
-                    value = pixel[ch];
-                }
-                if (value >= 0 && value < histSize_) {
-                    hist[value]++;
+        if (static_cast<std::size_t>(image.rows) * image.cols < 4096u) {
+            for (int y = 0; y < image.rows; ++y) {
+                for (int x = 0; x < image.cols; ++x) {
+                    int value = 0;
+                    if (channels == 1) {
+                        value = image.ptr<uchar>(y)[x];
+                    } else if (channels == 3) {
+                        value = image.ptr<cv::Vec3b>(y)[x][ch];
+                    } else if (channels == 4) {
+                        value = image.ptr<cv::Vec4b>(y)[x][ch];
+                    }
+                    if (value >= 0 && value < histSize_) ++hist[value];
                 }
             }
+        } else {
+          hist = tbb::parallel_reduce(
+            tbb::blocked_range<int>(0, image.rows), std::vector<int>(histSize_, 0),
+            [&](const tbb::blocked_range<int>& range, std::vector<int> local) {
+                for (int y = range.begin(); y != range.end(); ++y) {
+                    for (int x = 0; x < image.cols; ++x) {
+                        int value = 0;
+                        if (channels == 1) {
+                            value = image.ptr<uchar>(y)[x];
+                        } else if (channels == 3) {
+                            value = image.ptr<cv::Vec3b>(y)[x][ch];
+                        } else if (channels == 4) {
+                            value = image.ptr<cv::Vec4b>(y)[x][ch];
+                        }
+                        if (value >= 0 && value < histSize_) ++local[value];
+                    }
+                }
+                return local;
+            },
+            [](std::vector<int> left, const std::vector<int>& right) {
+                for (std::size_t i = 0; i < left.size(); ++i) left[i] += right[i];
+                return left;
+            });
         }
         bins_[ch] = hist;
     }

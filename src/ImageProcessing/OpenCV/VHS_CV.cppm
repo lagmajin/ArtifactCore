@@ -5,6 +5,8 @@ module;
 #include <opencv2/opencv.hpp>
 module VHS_CV;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
@@ -89,6 +91,7 @@ cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
     // 3. Horizontal line wobble (tracking error simulation)
     if (params.wobble > 0.0f || params.trackingError > 0.0f) {
         cv::Mat wobbled = result.clone();
+        std::vector<int> shifts(result.rows, 0);
         for (int y = 0; y < result.rows; ++y) {
             float wobbleOffset = std::sin(y * 0.03f + dist01(rng) * 6.28f) * params.wobble * 3.0f;
             float trackingOffset = 0.0f;
@@ -98,19 +101,23 @@ cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
                 trackingOffset = (dist01(rng) - 0.5f) * params.trackingError * 30.0f;
             }
 
-            int shift = static_cast<int>(wobbleOffset + trackingOffset);
-            if (shift == 0) continue;
+            shifts[y] = static_cast<int>(wobbleOffset + trackingOffset);
+        }
 
+        Parallel::For(0, result.rows, result.rows * result.cols, [&](int y) {
+            const int shift = shifts[y];
+            if (shift == 0) return;
+
+            const int ch = result.channels();
+            const float* srcRow = result.ptr<float>(y);
+            float* dstRow = wobbled.ptr<float>(y);
             for (int x = 0; x < result.cols; ++x) {
-                int srcX = x - shift;
-                srcX = std::max(0, std::min(result.cols - 1, srcX));
-
-                int ch = result.channels();
+                const int srcX = std::max(0, std::min(result.cols - 1, x - shift));
                 for (int c = 0; c < ch; ++c) {
-                    wobbled.ptr<float>(y)[x * ch + c] = result.ptr<float>(y)[srcX * ch + c];
+                    dstRow[x * ch + c] = srcRow[srcX * ch + c];
                 }
             }
-        }
+        });
         result = wobbled;
     }
 
@@ -149,13 +156,21 @@ cv::Mat scanlineOverlay(const cv::Mat& input, float gap, float intensity) {
     cv::Mat result = input.clone();
     int step = std::max(1, static_cast<int>(gap));
 
-    for (int y = 0; y < result.rows; y += step) {
-        cv::Mat row = result.row(y);
-        if (result.depth() == CV_32F) {
-            row *= (1.0f - intensity);
-        } else {
+    if (result.depth() == CV_32F) {
+        Parallel::For(0, result.rows, result.rows * result.cols, [&](int y) {
+            if (y % step != 0) return;
+            float* row = result.ptr<float>(y);
+            const int count = result.cols * result.channels();
+            for (int i = 0; i < count; ++i) {
+                row[i] *= (1.0f - intensity);
+            }
+        });
+    } else {
+        const int scanlineCount = (result.rows + step - 1) / step;
+        Parallel::For(0, scanlineCount, scanlineCount * result.cols, [&](int index) {
+            cv::Mat row = result.row(index * step);
             row *= (1.0 - static_cast<double>(intensity));
-        }
+        });
     }
 
     return result;

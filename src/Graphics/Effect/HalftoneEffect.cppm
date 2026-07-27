@@ -5,6 +5,7 @@ module;
 module Graphics.Effect.Creative.Halftone;
 
 import Channel;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -30,12 +31,16 @@ void HalftoneEffect::process(VideoFrame& frame, const CreativeEffectContext&) {
     const float ang = dotAngle();
     const float cosA = std::cos(ang);
     const float sinA = std::sin(ang);
+    float* rData = r_ch->data();
+    float* gData = g_ch->data();
+    float* bData = b_ch->data();
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
+        float* rRow = rData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* gRow = gData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* bRow = bData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
-            const int idx = y * w + x;
-
-            const float lum = 0.299f * r_ch->data()[idx] + 0.587f * g_ch->data()[idx] + 0.114f * b_ch->data()[idx];
+            const float lum = 0.299f * rRow[x] + 0.587f * gRow[x] + 0.114f * bRow[x];
             const float rx = (float)x * cosA - (float)y * sinA;
             const float ry = (float)x * sinA + (float)y * cosA;
 
@@ -53,11 +58,11 @@ void HalftoneEffect::process(VideoFrame& frame, const CreativeEffectContext&) {
             const float smoothFactor = 1.0f;
             const float val = std::clamp((dist - dotRadius) / smoothFactor + 0.5f, 0.0f, 1.0f);
 
-            r_ch->data()[idx] = val;
-            g_ch->data()[idx] = val;
-            b_ch->data()[idx] = val;
+            rRow[x] = val;
+            gRow[x] = val;
+            bRow[x] = val;
         }
-    }
+    });
 }
 
 }

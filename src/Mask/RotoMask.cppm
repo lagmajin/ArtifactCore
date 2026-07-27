@@ -45,6 +45,7 @@ module;
 module Core.Mask.RotoMask;
 
 import Container.NamedVector;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -499,7 +500,7 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
     
     // 簡易的なラスタライズ（スキャンライン）
     // 実際の実装ではOpenCVなどを使用
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         for (int x = 0; x < width; ++x) {
             // ポイントインポリゴンテスト
             bool inside = false;
@@ -513,7 +514,7 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
             }
             outData[y * width + x] = inside ? 1.0f : 0.0f;
         }
-    }
+    });
     
     // フェザー適用（簡易）
     float f = feather(time);
@@ -531,16 +532,16 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
     // 不透明度適用
     float op = opacity(time);
     if (op < 1.0f) {
-        for (int i = 0; i < width * height; ++i) {
+        Parallel::For(0, width * height, width * height, [&](int i) {
             outData[i] *= op;
-        }
+        });
     }
     
     // 反転
     if (impl_->inverted) {
-        for (int i = 0; i < width * height; ++i) {
+        Parallel::For(0, width * height, width * height, [&](int i) {
             outData[i] = 1.0f - outData[i];
-        }
+        });
     }
 }
 

@@ -41,6 +41,7 @@ export module ArtifactCore.Crowd.Boids;
 import Particle;
 import Math.SpatialGrid;
 import Graphics.ParticleData;
+import Core.Parallel;
 
 export namespace ArtifactCore {
 
@@ -455,7 +456,8 @@ export namespace ArtifactCore {
 
             // LOD: assign levels and decide which agents to skip
             lodFrameCount_++;
-            for (size_t i = 0; i < agents_.size(); ++i) {
+            Parallel::For(0, static_cast<int>(agents_.size()), static_cast<int>(agents_.size()), [&](int index) {
+                const size_t i = static_cast<size_t>(index);
                 float dx = agents_[i].position.x - cameraPosition.x;
                 float dy = agents_[i].position.y - cameraPosition.y;
                 float dz = agents_[i].position.z - cameraPosition.z;
@@ -468,11 +470,12 @@ export namespace ArtifactCore {
                 int skipFrames = (newLod == 2) ? 4 : (newLod == 1) ? 2 : 1;
                 lodSkipCounter_[i]--;
                 if (lodSkipCounter_[i] <= 0) lodSkipCounter_[i] = 0;
-            }
+            });
 
-            std::vector<float3> positions;
-            positions.reserve(agents_.size());
-            for (const auto& a : agents_) positions.push_back(a.position);
+            std::vector<float3> positions(agents_.size());
+            Parallel::For(0, static_cast<int>(agents_.size()), static_cast<int>(agents_.size()), [&](int index) {
+                positions[static_cast<size_t>(index)] = agents_[static_cast<size_t>(index)].position;
+            });
             grid_->build(positions);
 
             // Advance waypoint if applicable

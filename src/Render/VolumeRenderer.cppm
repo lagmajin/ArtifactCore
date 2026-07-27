@@ -6,6 +6,8 @@ module;
 
 module Render.VolumeRenderer;
 
+import Core.Parallel;
+
 namespace ArtifactCore::RayTrace {
 
 namespace {
@@ -384,7 +386,8 @@ ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
 
     const int dofSamples = renderCamera.aperture > 0.0f ? 4 : 1;
 
-    for (int y = 0; y < height; ++y) {
+Parallel::For(0, height, width * height, [&](int y) {
+        std::uint8_t* row = buffer.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 3u;
         for (int x = 0; x < width; ++x) {
             Color pixelColor{0.0f, 0.0f, 0.0f};
 
@@ -400,9 +403,10 @@ ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
                     const float radius = std::sqrt(static_cast<float>(s) + 0.5f) / std::max(std::sqrt(static_cast<float>(dofSamples)), 1.0f);
                     float lensU = std::cos(theta) * radius;
                     float lensV = std::sin(theta) * radius;
-                    pixelColor.x += raymarch(renderCamera.getRayDOF(u, v, lensU, lensV)).x;
-                    pixelColor.y += raymarch(renderCamera.getRayDOF(u, v, lensU, lensV)).y;
-                    pixelColor.z += raymarch(renderCamera.getRayDOF(u, v, lensU, lensV)).z;
+                    const auto sample = raymarch(renderCamera.getRayDOF(u, v, lensU, lensV));
+                    pixelColor.x += sample.x;
+                    pixelColor.y += sample.y;
+                    pixelColor.z += sample.z;
                 }
             }
 
@@ -413,12 +417,12 @@ ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
                 pixelColor.z *= invSamples;
             }
 
-            const auto offset = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 3ull + static_cast<std::size_t>(x) * 3ull;
-            buffer.pixels[offset + 0] = static_cast<std::uint8_t>(std::clamp(pixelColor.x * 255.999f, 0.0f, 255.0f));
-            buffer.pixels[offset + 1] = static_cast<std::uint8_t>(std::clamp(pixelColor.y * 255.999f, 0.0f, 255.0f));
-            buffer.pixels[offset + 2] = static_cast<std::uint8_t>(std::clamp(pixelColor.z * 255.999f, 0.0f, 255.0f));
+            std::uint8_t* pixel = row + static_cast<std::size_t>(x) * 3u;
+            pixel[0] = static_cast<std::uint8_t>(std::clamp(pixelColor.x * 255.999f, 0.0f, 255.0f));
+            pixel[1] = static_cast<std::uint8_t>(std::clamp(pixelColor.y * 255.999f, 0.0f, 255.0f));
+            pixel[2] = static_cast<std::uint8_t>(std::clamp(pixelColor.z * 255.999f, 0.0f, 255.0f));
         }
-    }
+    });
 
     return buffer;
 }

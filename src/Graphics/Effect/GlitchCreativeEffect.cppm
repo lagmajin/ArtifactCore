@@ -9,6 +9,7 @@ module;
 module Graphics.Effect.Creative.Glitch;
 
 import Channel;
+import Core.Parallel;
 import Math.Noise;
 
 namespace ArtifactCore {
@@ -41,8 +42,16 @@ void GlitchCreativeEffect::process(VideoFrame& frame, const CreativeEffectContex
 
     float amount = glitchAmount();
     float split = rgbSplit();
+    float* rData = r->data();
+    float* gData = g->data();
+    float* bData = b->data();
 
-    for (int y = 0; y < h; ++y) {
+    (void)NoiseGenerator::perlin(0.0f, 0.0f, 0.0f);
+    Parallel::For(0, h, w * h, [&](int y) {
+        float* rRow = rData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* gRow = gData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* bRow = bData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        const std::size_t sourceRow = static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         // 水平ラインごとのズレ (グリッチ特有の走査線ズレ)
         float lineNoise = NoiseGenerator::perlin(y * 0.1f, time * 20.0f);
         float xOffset = 0.0f;
@@ -60,18 +69,17 @@ void GlitchCreativeEffect::process(VideoFrame& frame, const CreativeEffectContex
             int gx = srcX;
             int bx = std::clamp((int)(srcX + split * 15.0f * amount), 0, w - 1);
 
-            int idx = y * w + x;
-            r->data()[idx] = r_old[y * w + rx];
-            g->data()[idx] = g_old[y * w + gx];
-            b->data()[idx] = b_old[y * w + bx];
+            rRow[x] = r_old[sourceRow + static_cast<std::size_t>(rx)];
+            gRow[x] = g_old[sourceRow + static_cast<std::size_t>(gx)];
+            bRow[x] = b_old[sourceRow + static_cast<std::size_t>(bx)];
 
             // 3. 粒子のノイズ (Grain) をほんの少し載せる
             float grain = (NoiseGenerator::perlin(x * 0.5f, y * 0.5f, time * 50.0f) - 0.5f) * 0.05f;
-            r->data()[idx] += grain;
-            g->data()[idx] += grain;
-            b->data()[idx] += grain;
+            rRow[x] += grain;
+            gRow[x] += grain;
+            bRow[x] += grain;
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

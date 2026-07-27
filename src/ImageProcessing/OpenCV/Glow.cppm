@@ -11,6 +11,7 @@ module;
 module Glow;
 
 import Image;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -293,7 +294,7 @@ namespace ArtifactCore {
   cv::Mat prob_map = cv::Mat::zeros(height, width, CV_32FC1); // float型グレースケール
 
   // ラインの中心から離れるほど確率が低くなるようにグラデーションを作成
-  for (int x = 0; x < width; ++x) {
+  Parallel::For(0, width, width * height, [&](int x) {
    float dist_from_center = std::abs(x - x_center);
    if (dist_from_center < line_width / 2.0) {
 	// ラインの中心に近いほど確率を高くする
@@ -303,7 +304,7 @@ namespace ArtifactCore {
    else {
 	prob_map.col(x).setTo(0.0f); // ラインの範囲外は0
    }
-  }
+  });
   // 少しぼかして滑らかにする (オプション)
   cv::GaussianBlur(prob_map, prob_map, cv::Size(3, 3), 0);
   // 確率を0.0-1.0に正規化 (setToで最大1.0になるように設定していれば不要な場合も)
@@ -327,7 +328,7 @@ namespace ArtifactCore {
 
    if (x < 0 || x >= width || y < 0 || y >= height) continue;
 
-   float probability = prob_map.at<float>(y, x);
+   const float probability = prob_map.ptr<float>(y)[x];
 
    if (dis(gen) < probability) {
 	cv::circle(image, cv::Point(x, y), point_size, point_color, -1, cv::LINE_AA);

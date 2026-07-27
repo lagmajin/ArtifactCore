@@ -13,6 +13,8 @@ module;
 
 module Graphics.BoidsCompute;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 const char* BoidsUpdateCSSource = R"(
@@ -300,7 +302,8 @@ void BoidsGPUCompute::uploadAgents(const std::vector<float3>& positions,
     // color:   r,g,b,unused
     struct PackedBoid { float data[16]; };
     std::vector<PackedBoid> packed(count);
-    for (size_t i = 0; i < count; ++i) {
+    Parallel::For(0, static_cast<int>(count), static_cast<int>(count), [&](int index) {
+        const size_t i = static_cast<size_t>(index);
         auto& p = packed[i];
         p.data[0] = positions[i].x;
         p.data[1] = positions[i].y;
@@ -323,7 +326,7 @@ void BoidsGPUCompute::uploadAgents(const std::vector<float3>& positions,
         p.data[13] = 0.6f;                 // color.g
         p.data[14] = 1.0f;                 // color.b
         p.data[15] = 0;
-    }
+    });
 
     auto pContext = context_.DeviceContext();
     pContext->UpdateBuffer(pImpl_->pAgentBuffer_, 0, sizeof(PackedBoid) * count,
@@ -339,12 +342,13 @@ void BoidsGPUCompute::uploadObstacles(const std::vector<float3>& centers,
 
     struct PackedObstacle { float data[4]; };
     std::vector<PackedObstacle> packed(count);
-    for (size_t i = 0; i < count; ++i) {
+    Parallel::For(0, static_cast<int>(count), static_cast<int>(count), [&](int index) {
+        const size_t i = static_cast<size_t>(index);
         packed[i].data[0] = centers[i].x;
         packed[i].data[1] = centers[i].y;
         packed[i].data[2] = centers[i].z;
         packed[i].data[3] = radii[i];
-    }
+    });
 
     auto pContext = context_.DeviceContext();
     pContext->UpdateBuffer(pImpl_->pObstacleBuffer_, 0, sizeof(PackedObstacle) * count,

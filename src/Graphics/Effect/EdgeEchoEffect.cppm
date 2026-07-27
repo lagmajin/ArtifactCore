@@ -7,6 +7,7 @@ module;
 module Graphics.Effect.Creative.EdgeEcho;
 
 import Channel;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -77,10 +78,17 @@ void EdgeEchoEffect::process(VideoFrame& frame, const CreativeEffectContext& con
     const float thicknessPx = thickness();
     const int echoSteps = std::max(1, static_cast<int>(std::round(echoCount())));
     const float tintAmount = tint();
+    float* rData = rCh->data();
+    float* gData = gCh->data();
+    float* bData = bCh->data();
 
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
+        const std::size_t rowBase = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
+        float* rRow = rData + rowBase;
+        float* gRow = gData + rowBase;
+        float* bRow = bData + rowBase;
         for (int x = 0; x < width; ++x) {
-            const int idx = y * width + x;
+            const std::size_t idx = rowBase + static_cast<std::size_t>(x);
 
             const float lC = luminanceAt(srcR, srcG, srcB, width, height, static_cast<float>(x), static_cast<float>(y));
             const float lL = luminanceAt(srcR, srcG, srcB, width, height, static_cast<float>(x - 1), static_cast<float>(y));
@@ -128,11 +136,11 @@ void EdgeEchoEffect::process(VideoFrame& frame, const CreativeEffectContext& con
             const float softG = echoG / totalWeight;
             const float softB = echoB / totalWeight;
 
-            rCh->data()[idx] = clamp01(std::lerp(srcR[idx], softR + edgeStrength * tintAmount, edgeMix));
-            gCh->data()[idx] = clamp01(std::lerp(srcG[idx], softG + edgeStrength * tintAmount * 0.6f, edgeMix));
-            bCh->data()[idx] = clamp01(std::lerp(srcB[idx], softB + edgeStrength * tintAmount, edgeMix));
+            rRow[x] = clamp01(std::lerp(srcR[idx], softR + edgeStrength * tintAmount, edgeMix));
+            gRow[x] = clamp01(std::lerp(srcG[idx], softG + edgeStrength * tintAmount * 0.6f, edgeMix));
+            bRow[x] = clamp01(std::lerp(srcB[idx], softB + edgeStrength * tintAmount, edgeMix));
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

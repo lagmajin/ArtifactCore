@@ -9,6 +9,7 @@ module ImageProcessing;
 
 import :VectorFlowGlitch;
 import :StructureTensor;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -27,8 +28,11 @@ void VectorFlowGlitch::process(ImageF32x4_RGBA& image, const VectorFlowGlitchSet
     cv::Mat dstMat = cv::Mat::zeros(h, w, CV_32FC4);
 
     // 2. Process each pixel and displace along structural direction
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         cv::Vec4f* dstRow = dstMat.ptr<cv::Vec4f>(y);
+        const cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
+        const float noiseFactor = std::sin(y * settings.frequency + settings.seed) *
+                                  std::cos(y * (settings.frequency * 0.43f) - settings.seed * 3.14f);
 
         for (int x = 0; x < w; ++x) {
             size_t idx = static_cast<size_t>(y * w + x);
@@ -36,13 +40,10 @@ void VectorFlowGlitch::process(ImageF32x4_RGBA& image, const VectorFlowGlitchSet
             float coherence = field.coherence[idx];
 
             // Slicing noise function based on vertical coordinate and random seed
-            float noiseFactor = std::sin(y * settings.frequency + settings.seed) * 
-                                std::cos(y * (settings.frequency * 0.43f) - settings.seed * 3.14f);
-            
             // Introduce sharp discontinuities (slicing spikes)
             if (std::abs(noiseFactor) < 0.2f) {
                 // Skip displacement for non-glitched bands
-                dstRow[x] = srcMat.at<cv::Vec4f>(y, x);
+                dstRow[x] = srcRow[x];
                 continue;
             }
 
@@ -86,10 +87,10 @@ void VectorFlowGlitch::process(ImageF32x4_RGBA& image, const VectorFlowGlitchSet
                 float dx = cx - x0;
                 float dy = cy - y0;
 
-                const cv::Vec4f& p00 = srcMat.at<cv::Vec4f>(y0, x0);
-                const cv::Vec4f& p10 = srcMat.at<cv::Vec4f>(y0, x1);
-                const cv::Vec4f& p01 = srcMat.at<cv::Vec4f>(y1, x0);
-                const cv::Vec4f& p11 = srcMat.at<cv::Vec4f>(y1, x1);
+                const cv::Vec4f& p00 = srcMat.ptr<cv::Vec4f>(y0)[x0];
+                const cv::Vec4f& p10 = srcMat.ptr<cv::Vec4f>(y0)[x1];
+                const cv::Vec4f& p01 = srcMat.ptr<cv::Vec4f>(y1)[x0];
+                const cv::Vec4f& p11 = srcMat.ptr<cv::Vec4f>(y1)[x1];
 
                 return p00[chIdx] * ((1.0f - dx) * (1.0f - dy)) +
                        p10[chIdx] * (dx * (1.0f - dy)) +
@@ -106,7 +107,7 @@ void VectorFlowGlitch::process(ImageF32x4_RGBA& image, const VectorFlowGlitchSet
 
             dstRow[x] = cv::Vec4f(b, g, r, a);
         }
-    }
+    });
 
     image.setFromCVMat(dstMat);
 }

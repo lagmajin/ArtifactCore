@@ -7,6 +7,7 @@ module;
 module Graphics.Effect.Creative.SurfaceMemory;
 
 import Channel;
+import Core.Parallel;
 import Math.Noise;
 
 namespace ArtifactCore {
@@ -106,9 +107,15 @@ void SurfaceMemoryEffect::process(VideoFrame& frame, const CreativeEffectContext
     std::vector<float> nextMemoryG = memoryG_;
     std::vector<float> nextMemoryB = memoryB_;
 
-    for (int y = 0; y < height; ++y) {
+    // NoiseGenerator initializes its shared permutation table lazily.
+    (void)NoiseGenerator::perlin(0.0f, 0.0f, 0.0f);
+    float* rData = rCh->data();
+    float* gData = gCh->data();
+    float* bData = bCh->data();
+    Parallel::For(0, height, width * height, [&](int y) {
+        const std::size_t rowBase = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
         for (int x = 0; x < width; ++x) {
-            const int idx = y * width + x;
+            const std::size_t idx = rowBase + static_cast<std::size_t>(x);
 
             const float srcR = sourceR[idx];
             const float srcG = sourceG[idx];
@@ -140,11 +147,11 @@ void SurfaceMemoryEffect::process(VideoFrame& frame, const CreativeEffectContext
             const float residue = retentionAmount * (0.22f + textureStrength * 0.28f + (1.0f - writeMask) * 0.30f);
             const float textureMix = 0.65f + surfacePattern * textureStrength * 0.35f;
 
-            rCh->data()[idx] = clamp01(std::lerp(srcR, nextMemoryR[idx] * textureMix, residue));
-            gCh->data()[idx] = clamp01(std::lerp(srcG, nextMemoryG[idx] * textureMix, residue));
-            bCh->data()[idx] = clamp01(std::lerp(srcB, nextMemoryB[idx] * textureMix, residue));
+            rData[idx] = clamp01(std::lerp(srcR, nextMemoryR[idx] * textureMix, residue));
+            gData[idx] = clamp01(std::lerp(srcG, nextMemoryG[idx] * textureMix, residue));
+            bData[idx] = clamp01(std::lerp(srcB, nextMemoryB[idx] * textureMix, residue));
         }
-    }
+    });
 
     memoryR_ = std::move(nextMemoryR);
     memoryG_ = std::move(nextMemoryG);

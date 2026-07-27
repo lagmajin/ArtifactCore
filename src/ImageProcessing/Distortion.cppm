@@ -1,16 +1,18 @@
 module;
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range.h>
-module ImageProcessing.Distortion;
 #include <utility>
 #include <cmath>
 #include <algorithm>
 #include <functional>
 #include <cstdint>
 
+module ImageProcessing.Distortion;
+
 
 import FloatRGBA;
 import Image.ImageF32x4_RGBA;
+import Core.Parallel;
 
 namespace ArtifactCore
 {
@@ -55,15 +57,16 @@ FloatRGBA sampleBilinear(const ImageF32x4_RGBA& src, float sx, float sy)
  float fx = sx - x0;
  float fy = sy - y0;
 
- auto c00 = src.getPixel(x0, y0);
- auto c10 = src.getPixel(x1, y0);
- auto c01 = src.getPixel(x0, y1);
- auto c11 = src.getPixel(x1, y1);
+ const float* pixels = src.rgba32fData();
+ const float* c00 = pixels + (static_cast<size_t>(y0) * w + x0) * 4u;
+ const float* c10 = pixels + (static_cast<size_t>(y0) * w + x1) * 4u;
+ const float* c01 = pixels + (static_cast<size_t>(y1) * w + x0) * 4u;
+ const float* c11 = pixels + (static_cast<size_t>(y1) * w + x1) * 4u;
 
- float r = lerpF(lerpF(c00.r(), c10.r(), fx), lerpF(c01.r(), c11.r(), fx), fy);
- float g = lerpF(lerpF(c00.g(), c10.g(), fx), lerpF(c01.g(), c11.g(), fx), fy);
- float b = lerpF(lerpF(c00.b(), c10.b(), fx), lerpF(c01.b(), c11.b(), fx), fy);
- float a = lerpF(lerpF(c00.a(), c10.a(), fx), lerpF(c01.a(), c11.a(), fx), fy);
+ float r = lerpF(lerpF(c00[0], c10[0], fx), lerpF(c01[0], c11[0], fx), fy);
+ float g = lerpF(lerpF(c00[1], c10[1], fx), lerpF(c01[1], c11[1], fx), fy);
+ float b = lerpF(lerpF(c00[2], c10[2], fx), lerpF(c01[2], c11[2], fx), fy);
+ float a = lerpF(lerpF(c00[3], c10[3], fx), lerpF(c01[3], c11[3], fx), fy);
 
  return FloatRGBA{ r, g, b, a };
 }
@@ -79,7 +82,9 @@ FloatRGBA sampleNearest(const ImageF32x4_RGBA& src, float sx, float sy)
  if (x < 0) x += w;
  if (y < 0) y += h;
 
- return src.getPixel(x, y);
+ const float* pixel = src.rgba32fData() +
+     (static_cast<size_t>(y) * w + x) * 4u;
+ return FloatRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
 }
 
 // === Apply displacement ===
@@ -95,20 +100,60 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
 
  dst.resize(w, h);
 
- auto sampler = bilinear ? sampleBilinear : sampleNearest;
+ const float* sourcePixels = src.rgba32fData();
+ float* destinationPixels = dst.rgba32fData();
+ auto sampleRaw = [&](float sx, float sy) {
+    if (bilinear) {
+        sx = std::fmod(sx, static_cast<float>(w));
+        if (sx < 0.0f) sx += w;
+        sy = std::fmod(sy, static_cast<float>(h));
+        if (sy < 0.0f) sy += h;
 
- tbb::parallel_for(tbb::blocked_range<int>(0, h),
-  [&](const tbb::blocked_range<int>& rows) {
-   for (int y = rows.begin(); y < rows.end(); ++y) {
+        const int x0 = static_cast<int>(sx);
+        const int y0 = static_cast<int>(sy);
+        const int x1 = (x0 + 1) % w;
+        const int y1 = (y0 + 1) % h;
+        const float fx = sx - x0;
+        const float fy = sy - y0;
+        const float* c00 = sourcePixels +
+            (static_cast<size_t>(y0) * w + x0) * 4u;
+        const float* c10 = sourcePixels +
+            (static_cast<size_t>(y0) * w + x1) * 4u;
+        const float* c01 = sourcePixels +
+            (static_cast<size_t>(y1) * w + x0) * 4u;
+        const float* c11 = sourcePixels +
+            (static_cast<size_t>(y1) * w + x1) * 4u;
+        return FloatRGBA(
+            lerpF(lerpF(c00[0], c10[0], fx), lerpF(c01[0], c11[0], fx), fy),
+            lerpF(lerpF(c00[1], c10[1], fx), lerpF(c01[1], c11[1], fx), fy),
+            lerpF(lerpF(c00[2], c10[2], fx), lerpF(c01[2], c11[2], fx), fy),
+            lerpF(lerpF(c00[3], c10[3], fx), lerpF(c01[3], c11[3], fx), fy));
+    }
+
+    int x = static_cast<int>(sx + 0.5f) % w;
+    int y = static_cast<int>(sy + 0.5f) % h;
+    if (x < 0) x += w;
+    if (y < 0) y += h;
+    const float* pixel = sourcePixels +
+        (static_cast<size_t>(y) * w + x) * 4u;
+    return FloatRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
+ };
+
+ Parallel::For(0, h, w * h, [&](int y) {
     float sy = static_cast<float>(y);
     for (int x = 0; x < w; ++x) {
      float sx = static_cast<float>(x);
      float outSX = sx, outSY = sy;
      func(sx, sy, static_cast<float>(w), static_cast<float>(h), outSX, outSY);
-     dst.setPixel(x, y, sampler(src, outSX, outSY));
+     const FloatRGBA pixel = sampleRaw(outSX, outSY);
+     float* destination = destinationPixels +
+         (static_cast<size_t>(y) * w + x) * 4u;
+     destination[0] = pixel.r();
+     destination[1] = pixel.g();
+     destination[2] = pixel.b();
+     destination[3] = pixel.a();
     }
-   }
-  });
+ });
 }
 
 // === Value noise ===

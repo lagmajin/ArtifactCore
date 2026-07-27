@@ -7,6 +7,7 @@ module;
 module Graphics.Effect.Creative.TemporalFossil;
 
 import Channel;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -92,10 +93,14 @@ void TemporalFossilEffect::process(VideoFrame& frame, const CreativeEffectContex
     const float decayValue = decay();
     const float threshold = edgeThreshold();
     const float chroma = chromaEcho();
+    float* rData = rCh->data();
+    float* gData = gCh->data();
+    float* bData = bCh->data();
 
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
+        const std::size_t rowBase = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
         for (int x = 0; x < width; ++x) {
-            const int idx = y * width + x;
+            const std::size_t idx = rowBase + static_cast<std::size_t>(x);
 
             const float currentLuma = sourceR[idx] * kLumaR + sourceG[idx] * kLumaG + sourceB[idx] * kLumaB;
             const float previousLuma = previousR_[idx] * kLumaR + previousG_[idx] * kLumaG + previousB_[idx] * kLumaB;
@@ -119,11 +124,11 @@ void TemporalFossilEffect::process(VideoFrame& frame, const CreativeEffectContex
             const float echoedB = std::lerp(fossilB_[idx], fossilR_[idx], chroma * 0.35f);
             const float blend = persist * activation;
 
-            rCh->data()[idx] = clamp01(std::lerp(sourceR[idx], echoedR, blend));
-            gCh->data()[idx] = clamp01(std::lerp(sourceG[idx], echoedG, blend));
-            bCh->data()[idx] = clamp01(std::lerp(sourceB[idx], echoedB, blend));
+            rData[idx] = clamp01(std::lerp(sourceR[idx], echoedR, blend));
+            gData[idx] = clamp01(std::lerp(sourceG[idx], echoedG, blend));
+            bData[idx] = clamp01(std::lerp(sourceB[idx], echoedB, blend));
         }
-    }
+    });
 
     previousR_ = std::move(sourceR);
     previousG_ = std::move(sourceG);

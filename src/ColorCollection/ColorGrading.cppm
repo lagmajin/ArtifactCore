@@ -36,6 +36,7 @@ module;
 module ColorCollection.ColorGrading;
 
 import Color.ColorSpace;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -190,10 +191,10 @@ void ColorWheelsProcessor::processPixel(float& r, float& g, float& b) {
 }
 
 void ColorWheelsProcessor::process(float* pixels, int width, int height) {
-    for (int i = 0; i < width * height; i++) {
+    Parallel::For(0, width * height, width * height, [&](int i) {
         float* pixel = pixels + i * 4;
         processPixel(pixel[0], pixel[1], pixel[2]);
-    }
+    });
 }
 
 ColorWheelsProcessor ColorWheelsProcessor::createWarmLook() {
@@ -306,10 +307,10 @@ void ColorCurves::processPixel(float& r, float& g, float& b) {
 
 void ColorCurves::process(float* pixels, int width, int height) {
     if (!lutValid_) buildLUT();
-    for (int i = 0; i < width * height; i++) {
+    Parallel::For(0, width * height, width * height, [&](int i) {
         float* pixel = pixels + i * 4;
         processPixel(pixel[0], pixel[1], pixel[2]);
-    }
+    });
 }
 
 void ColorCurves::reset() {
@@ -351,10 +352,21 @@ void ColorGrader::processPixel(float& r, float& g, float& b) {
 
 void ColorGrader::process(float* pixels, int width, int height) {
     if (!enabled_) return;
-    for (int i = 0; i < width * height; i++) {
+    // Keep the legacy per-pixel level synchronization path serial: processPixel is public,
+    // and the assignment must not race with the parallel default-level path.
+    if (!levels_.isDefault()) {
+        for (int i = 0; i < width * height; i++) {
+            float* pixel = pixels + i * 4;
+            processPixel(pixel[0], pixel[1], pixel[2]);
+        }
+        return;
+    }
+    // Ensure the LUT is initialized before processPixel is called concurrently.
+    curvesProcessor_.buildLUT();
+    Parallel::For(0, width * height, width * height, [&](int i) {
         float* pixel = pixels + i * 4;
         processPixel(pixel[0], pixel[1], pixel[2]);
-    }
+    });
 }
 
 ColorGrader ColorGrader::createFilmLook() {

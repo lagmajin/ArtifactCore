@@ -2,6 +2,7 @@ module Graphics.Effect.Creative.ChromaticAberration;
 
 import Graphics.Effect.Creative;
 import Channel;
+import Core.Parallel;
 import std;
 
 namespace ArtifactCore {
@@ -31,13 +32,15 @@ void ChromaticAberrationEffect::process(VideoFrame& frame, const CreativeEffectC
     const int shiftB_y = -shiftR_y;
 
     auto shift_channel = [&](float* dst, const float* src, int sx, int sy) {
-        for (int y = 0; y < h; ++y) {
+        Parallel::For(0, h, w * h, [&](int y) {
+            float* dstRow = dst + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
             for (int x = 0; x < w; ++x) {
                 const int src_x = std::clamp(x + sx, 0, w - 1);
                 const int src_y = std::clamp(y + sy, 0, h - 1);
-                dst[y * w + x] = src[src_y * w + src_x];
+                dstRow[x] = src[static_cast<std::size_t>(src_y) * static_cast<std::size_t>(w) +
+                                 static_cast<std::size_t>(src_x)];
             }
-        }
+        });
     };
 
     std::vector<float> r_tmp(static_cast<size_t>(w) * static_cast<size_t>(h));

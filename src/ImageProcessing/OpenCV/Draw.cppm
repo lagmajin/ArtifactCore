@@ -9,6 +9,8 @@ module;
 
 module Draw;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
  LIBRARY_DLL_API void drawStar5(cv::Mat& img,
@@ -47,9 +49,9 @@ namespace ArtifactCore {
   for (int i = 0; i < it.count; ++i, ++it) {
    for (int dy = -thickness / 2; dy <= thickness / 2; ++dy) {
 	for (int dx = -thickness / 2; dx <= thickness / 2; ++dx) {
-	 cv::Point pt = it.pos() + cv::Point(dx, dy);
-	 if (pt.inside(cv::Rect(0, 0, img.cols, img.rows))) {
-	  cv::Vec4f& dst = img.at<cv::Vec4f>(pt);
+	cv::Point pt = it.pos() + cv::Point(dx, dy);
+	if (pt.inside(cv::Rect(0, 0, img.cols, img.rows))) {
+	 cv::Vec4f& dst = img.ptr<cv::Vec4f>(pt.y)[pt.x];
 	  dst = color; // 必要ならαブレンドや加算合成に変更可
 	 }
 	}
@@ -66,13 +68,13 @@ namespace ArtifactCore {
   cv::fillPoly(mask, pts_all, 255, cv::LINE_AA);
 
   // 塗りつぶし（マスクされた部分を色で埋める）
-  for (int y = 0; y < img.rows; ++y) {
+  Parallel::For(0, img.rows, img.rows * img.cols, [&](int y) {
    const uchar* mrow = mask.ptr<uchar>(y);
    cv::Vec4f* drow = img.ptr<cv::Vec4f>(y);
    for (int x = 0; x < img.cols; ++x) {
 	if (mrow[x]) drow[x] = fillColor;
    }
-  }
+  });
  }
 
 

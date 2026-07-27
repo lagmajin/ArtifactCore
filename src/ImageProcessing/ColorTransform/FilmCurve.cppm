@@ -8,6 +8,8 @@ module;
 
 module ImageProcessing.ColorTransform.FilmCurve;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 // ============================================================================
@@ -34,7 +36,7 @@ auto FilmCurveProcessor::apply(const QImage& source) const -> QImage {
     const int width = result.width();
     const int height = result.height();
 
-    for (int y = 0; y < height; ++y) {
+    Parallel::For(0, height, width * height, [&](int y) {
         auto* scanLine = reinterpret_cast<QRgb*>(result.scanLine(y));
         for (int x = 0; x < width; ++x) {
             float r = qRed(scanLine[x]) / 255.0f;
@@ -51,7 +53,7 @@ auto FilmCurveProcessor::apply(const QImage& source) const -> QImage {
                 static_cast<int>(std::clamp(a * 255.0f, 0.0f, 255.0f))
             );
         }
-    }
+    });
 
     return result;
 }

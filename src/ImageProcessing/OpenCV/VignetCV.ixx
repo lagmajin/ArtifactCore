@@ -7,6 +7,7 @@ module;
 module ImageProcessing;
 
 import :Vignette;
+import Core.Parallel;
 
 
 
@@ -18,14 +19,15 @@ namespace ArtifactCore {
   float cx = input.cols / 2.0f;
   float cy = input.rows / 2.0f;
   float maxDist = std::sqrt(cx * cx + cy * cy);
-  for (int y = 0; y < input.rows; ++y) {
+  Parallel::For(0, input.rows, input.rows * input.cols, [&](int y) {
+   float* maskRow = mask.ptr<float>(y);
    for (int x = 0; x < input.cols; ++x) {
 	float dx = x - cx;
 	float dy = y - cy;
 	float dist = std::sqrt(dx * dx + dy * dy);
-	mask.at<float>(y, x) = 1.0f - (dist / maxDist) * 0.6f;
+	maskRow[x] = 1.0f - (dist / maxDist) * 0.6f;
    }
-  }
+  });
   std::vector<cv::Mat> channels;
   input.convertTo(input, CV_32F, 1.0 / 255.0);
   cv::split(input, channels);

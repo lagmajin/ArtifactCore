@@ -8,6 +8,7 @@ module;
 module Graphics.Effect.Creative.OldTV;
 
 import Channel;
+import Core.Parallel;
 import Math.Noise;
 
 namespace ArtifactCore {
@@ -44,8 +45,15 @@ void OldTVEffect::process(VideoFrame& frame, const CreativeEffectContext& contex
     float cx = w * 0.5f;
     float cy = h * 0.5f;
     float maxDist = std::sqrt(cx*cx + cy*cy);
+    float* rData = r_ch->data();
+    float* gData = g_ch->data();
+    float* bData = b_ch->data();
 
-    for (int y = 0; y < h; ++y) {
+    (void)NoiseGenerator::perlin(0.0f, 0.0f, 0.0f);
+    Parallel::For(0, h, w * h, [&](int y) {
+        float* rRow = rData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* gRow = gData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* bRow = bData + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         // 全体のちらつき (Flicker)
         float globalNoise = (NoiseGenerator::perlin(time * 50.0f) - 0.5f) * flic;
         
@@ -70,7 +78,8 @@ void OldTVEffect::process(VideoFrame& frame, const CreativeEffectContext& contex
             auto getVal = [&](const std::vector<float>& src, float fx, float fy) {
                 int isx = std::clamp((int)fx, 0, w - 1);
                 int isy = std::clamp((int)fy, 0, h - 1);
-                return src[isy * w + isx];
+                return src[static_cast<std::size_t>(isy) * static_cast<std::size_t>(w) +
+                           static_cast<std::size_t>(isx)];
             };
 
             float finalR = getVal(r_old, sx - splitX, sy);
@@ -84,12 +93,11 @@ void OldTVEffect::process(VideoFrame& frame, const CreativeEffectContext& contex
             // 4. White Noise (Grain)
             float grain = (NoiseGenerator::perlin(x * 10.0f, y * 10.0f, time * 60.0f) - 0.5f) * 0.05f * flic;
 
-            int idx = y * w + x;
-            r_ch->data()[idx] = (finalR + globalNoise + grain) * sl;
-            g_ch->data()[idx] = (finalG + globalNoise + grain) * sl;
-            b_ch->data()[idx] = (finalB + globalNoise + grain) * sl;
+            rRow[x] = (finalR + globalNoise + grain) * sl;
+            gRow[x] = (finalG + globalNoise + grain) * sl;
+            bRow[x] = (finalB + globalNoise + grain) * sl;
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore

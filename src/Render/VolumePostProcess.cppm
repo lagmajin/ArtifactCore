@@ -6,6 +6,8 @@ module;
 
 module Render.VolumePostProcess;
 
+import Core.Parallel;
+
 namespace ArtifactCore::RayTrace {
 
 namespace {
@@ -70,47 +72,55 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
     const auto& bloom = settings_.bloom;
 
     std::vector<float> lum(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-    for (int y = 0; y < h; ++y) {
+Parallel::For(0, h, w * h, [&](int y) {
+        const auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
+        float* lumRow = lum.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
-            const float l = pixelLuminance(image, x, y);
-            lum[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x)] = std::max(0.0f, l - bloom.threshold);
+            const float l = (static_cast<float>(row[x * 3 + 0]) * 0.2126f +
+                             static_cast<float>(row[x * 3 + 1]) * 0.7152f +
+                             static_cast<float>(row[x * 3 + 2]) * 0.0722f) / 255.0f;
+            lumRow[x] = std::max(0.0f, l - bloom.threshold);
         }
-    }
+    });
 
     const int radius = std::max(1, static_cast<int>(bloom.radius * static_cast<float>(std::min(w, h))));
     std::vector<float> blurred(lum.size());
 
     for (int iter = 0; iter < bloom.iterations; ++iter) {
-        for (int y = 0; y < h; ++y) {
+Parallel::For(0, h, w * h, [&](int y) {
+            float* blurredRow = blurred.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
             for (int x = 0; x < w; ++x) {
                 float sum = 0.0f;
                 int count = 0;
                 for (int dy = -radius; dy <= radius; ++dy) {
                     const int ny = y + dy;
                     if (ny < 0 || ny >= h) continue;
+                    const float* lumRow = lum.data() + static_cast<std::size_t>(ny) * static_cast<std::size_t>(w);
                     for (int dx = -radius; dx <= radius; ++dx) {
                         const int nx = x + dx;
                         if (nx < 0 || nx >= w) continue;
-                        sum += lum[static_cast<std::size_t>(ny) * static_cast<std::size_t>(w) + static_cast<std::size_t>(nx)];
+                        sum += lumRow[nx];
                         ++count;
                     }
                 }
-                blurred[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x)] = sum / static_cast<float>(count);
+                blurredRow[x] = sum / static_cast<float>(count);
             }
-        }
-        std::copy(blurred.begin(), blurred.end(), lum.begin());
+        });
+        Parallel::For(0, static_cast<int>(lum.size()), static_cast<int>(lum.size()), [&](int index) {
+            lum[static_cast<size_t>(index)] = blurred[static_cast<size_t>(index)];
+        });
     }
 
-    for (int y = 0; y < h; ++y) {
+Parallel::For(0, h, w * h, [&](int y) {
+        auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
+        const float* blurredRow = blurred.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
-            const float add = blurred[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x)] * bloom.intensity;
-            auto c = pixelColor(image, x, y);
-            c.x = clamp01(c.x + add);
-            c.y = clamp01(c.y + add);
-            c.z = clamp01(c.z + add);
-            setPixel(image, x, y, c);
+            const float add = blurredRow[x] * bloom.intensity;
+            row[x * 3 + 0] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 0] / 255.0f + add) * 255.999f);
+            row[x * 3 + 1] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 1] / 255.0f + add) * 255.999f);
+            row[x * 3 + 2] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 2] / 255.0f + add) * 255.999f);
         }
-    }
+    });
 }
 
 void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
@@ -122,36 +132,52 @@ void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
 
     const float brightnessThreshold = 0.8f;
     std::vector<float> lum(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-    for (int y = 0; y < h; ++y) {
+Parallel::For(0, h, w * h, [&](int y) {
+        const auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         for (int x = 0; x < w; ++x) {
-            lum[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x)] = std::max(0.0f, pixelLuminance(image, x, y) - brightnessThreshold);
+            const float l = (static_cast<float>(row[x * 3 + 0]) * 0.2126f +
+                             static_cast<float>(row[x * 3 + 1]) * 0.7152f +
+                             static_cast<float>(row[x * 3 + 2]) * 0.0722f) / 255.0f;
+            lum[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x)] = std::max(0.0f, l - brightnessThreshold);
         }
-    }
+    });
 
     const float baseAngle = glare.angleOffset * 3.14159265f / 180.0f;
     const int streakLen = std::max(1, static_cast<int>(glare.streakLength * static_cast<float>(std::max(w, h))));
+    const int streakCount = std::max(0, glare.streakCount);
+    std::vector<float> streakCos(static_cast<std::size_t>(streakCount));
+    std::vector<float> streakSin(static_cast<std::size_t>(streakCount));
+    for (int i = 0; i < streakCount; ++i) {
+        const float angle = baseAngle + static_cast<float>(i) * 2.0f * 3.14159265f /
+                            static_cast<float>(streakCount);
+        streakCos[static_cast<std::size_t>(i)] = std::cos(angle);
+        streakSin[static_cast<std::size_t>(i)] = std::sin(angle);
+    }
+    std::vector<float> streakFalloff(static_cast<std::size_t>(streakLen + 1));
+    for (int s = 1; s <= streakLen; ++s) {
+        streakFalloff[static_cast<std::size_t>(s)] =
+            1.0f - static_cast<float>(s) / static_cast<float>(streakLen + 1);
+    }
 
-    for (int y = 0; y < h; ++y) {
+Parallel::For(0, h, w * h, [&](int y) {
+        auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         for (int x = 0; x < w; ++x) {
             float streakAccum = 0.0f;
-            for (int i = 0; i < glare.streakCount; ++i) {
-                const float angle = baseAngle + static_cast<float>(i) * 2.0f * 3.14159265f / static_cast<float>(glare.streakCount);
+            for (int i = 0; i < streakCount; ++i) {
                 for (int s = 1; s <= streakLen; ++s) {
-                    const int sx = x + static_cast<int>(std::cos(angle) * static_cast<float>(s));
-                    const int sy = y + static_cast<int>(std::sin(angle) * static_cast<float>(s));
+                    const int sx = x + static_cast<int>(streakCos[static_cast<std::size_t>(i)] * static_cast<float>(s));
+                    const int sy = y + static_cast<int>(streakSin[static_cast<std::size_t>(i)] * static_cast<float>(s));
                     if (sx < 0 || sy < 0 || sx >= w || sy >= h) break;
-                    const float falloff = 1.0f - static_cast<float>(s) / static_cast<float>(streakLen + 1);
-                    streakAccum += lum[static_cast<std::size_t>(sy) * static_cast<std::size_t>(w) + static_cast<std::size_t>(sx)] * falloff;
+                    const float* lumRow = lum.data() + static_cast<std::size_t>(sy) * static_cast<std::size_t>(w);
+                    streakAccum += lumRow[sx] * streakFalloff[static_cast<std::size_t>(s)];
                 }
             }
             const float add = streakAccum * glare.intensity;
-            auto c = pixelColor(image, x, y);
-            c.x = clamp01(c.x + add);
-            c.y = clamp01(c.y + add * 0.9f);
-            c.z = clamp01(c.z + add * 0.7f);
-            setPixel(image, x, y, c);
+            row[x * 3 + 0] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 0] / 255.0f + add) * 255.999f);
+            row[x * 3 + 1] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 1] / 255.0f + add * 0.9f) * 255.999f);
+            row[x * 3 + 2] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 2] / 255.0f + add * 0.7f) * 255.999f);
         }
-    }
+    });
 }
 
 void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcept {
@@ -163,74 +189,97 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
     std::vector<float> origG(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
     std::vector<float> origB(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
 
-    for (int y = 0; y < h; ++y) {
+Parallel::For(0, h, w * h, [&](int y) {
+        const auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
+        float* origRRow = origR.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* origGRow = origG.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        float* origBRow = origB.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
-            const auto c = pixelColor(image, x, y);
-            const auto idx = static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x);
-            origR[idx] = c.x;
-            origG[idx] = c.y;
-            origB[idx] = c.z;
+            origRRow[x] = static_cast<float>(row[x * 3 + 0]) / 255.0f;
+            origGRow[x] = static_cast<float>(row[x * 3 + 1]) / 255.0f;
+            origBRow[x] = static_cast<float>(row[x * 3 + 2]) / 255.0f;
         }
-    }
+    });
 
     const float spatialDenom = 2.0f * dn.spatialSigma * dn.spatialSigma;
     const float rangeDenom = 2.0f * dn.rangeSigma * dn.rangeSigma;
+    const int filterRadius = dn.filterRadius;
+    const int kernelRadius = std::max(0, filterRadius);
+    const int kernelSize = kernelRadius * 2 + 1;
+    std::vector<float> spatialWeights(static_cast<std::size_t>(kernelSize) *
+                                      static_cast<std::size_t>(kernelSize));
+    for (int dy = -kernelRadius; dy <= kernelRadius; ++dy) {
+        for (int dx = -kernelRadius; dx <= kernelRadius; ++dx) {
+            spatialWeights[static_cast<std::size_t>(dy + kernelRadius) *
+                           static_cast<std::size_t>(kernelSize) +
+                           static_cast<std::size_t>(dx + kernelRadius)] =
+                std::exp(-static_cast<float>(dx * dx + dy * dy) / spatialDenom);
+        }
+    }
 
-    for (int y = 0; y < h; ++y) {
+Parallel::For(0, h, w * h, [&](int y) {
+        auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
+        const float* origRRow = origR.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        const float* origGRow = origG.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+        const float* origBRow = origB.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
-            const auto centerIdx = static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x);
-            const float centerR = origR[centerIdx];
-            const float centerG = origG[centerIdx];
-            const float centerB = origB[centerIdx];
+            const float centerR = origRRow[x];
+            const float centerG = origGRow[x];
+            const float centerB = origBRow[x];
 
             float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f;
             float weightSum = 0.0f;
 
-            for (int dy = -dn.filterRadius; dy <= dn.filterRadius; ++dy) {
+            for (int dy = -filterRadius; dy <= filterRadius; ++dy) {
                 const int ny = y + dy;
                 if (ny < 0 || ny >= h) continue;
-                for (int dx = -dn.filterRadius; dx <= dn.filterRadius; ++dx) {
+                const float* origRNeighbor = origR.data() + static_cast<std::size_t>(ny) * static_cast<std::size_t>(w);
+                const float* origGNeighbor = origG.data() + static_cast<std::size_t>(ny) * static_cast<std::size_t>(w);
+                const float* origBNeighbor = origB.data() + static_cast<std::size_t>(ny) * static_cast<std::size_t>(w);
+                for (int dx = -filterRadius; dx <= filterRadius; ++dx) {
                     const int nx = x + dx;
                     if (nx < 0 || nx >= w) continue;
 
-                    const float spatialWeight = std::exp(-static_cast<float>(dx * dx + dy * dy) / spatialDenom);
+                    const float spatialWeight = spatialWeights[
+                        static_cast<std::size_t>(dy + kernelRadius) *
+                        static_cast<std::size_t>(kernelSize) +
+                        static_cast<std::size_t>(dx + kernelRadius)];
 
-                    const auto idx = static_cast<std::size_t>(ny) * static_cast<std::size_t>(w) + static_cast<std::size_t>(nx);
-                    const float dr = origR[idx] - centerR;
-                    const float dg = origG[idx] - centerG;
-                    const float db = origB[idx] - centerB;
+                    const float dr = origRNeighbor[nx] - centerR;
+                    const float dg = origGNeighbor[nx] - centerG;
+                    const float db = origBNeighbor[nx] - centerB;
                     const float rangeWeight = std::exp(-(dr * dr + dg * dg + db * db) / rangeDenom);
 
                     const float weight = spatialWeight * rangeWeight;
-                    sumR += origR[idx] * weight;
-                    sumG += origG[idx] * weight;
-                    sumB += origB[idx] * weight;
+                    sumR += origRNeighbor[nx] * weight;
+                    sumG += origGNeighbor[nx] * weight;
+                    sumB += origBNeighbor[nx] * weight;
                     weightSum += weight;
                 }
             }
 
-            setPixel(image, x, y, {
-                sumR / std::max(weightSum, 1e-10f),
-                sumG / std::max(weightSum, 1e-10f),
-                sumB / std::max(weightSum, 1e-10f)
-            });
+            const float invWeight = 1.0f / std::max(weightSum, 1e-10f);
+            row[x * 3 + 0] = static_cast<std::uint8_t>(std::clamp(sumR * invWeight * 255.999f, 0.0f, 255.0f));
+            row[x * 3 + 1] = static_cast<std::uint8_t>(std::clamp(sumG * invWeight * 255.999f, 0.0f, 255.0f));
+            row[x * 3 + 2] = static_cast<std::uint8_t>(std::clamp(sumB * invWeight * 255.999f, 0.0f, 255.0f));
         }
-    }
+    });
 }
 
 void VolumePostProcessor::applyExposureGamma(ImageBuffer& image) const noexcept {
     const int w = image.width;
     const int h = image.height;
+    const float exposure = settings_.exposure;
+    const float inverseGamma = 1.0f / settings_.gamma;
 
-    for (int y = 0; y < h; ++y) {
+Parallel::For(0, h, w * h, [&](int y) {
+        auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         for (int x = 0; x < w; ++x) {
-            auto c = pixelColor(image, x, y);
-            c.x = std::pow(clamp01(c.x * settings_.exposure), 1.0f / settings_.gamma);
-            c.y = std::pow(clamp01(c.y * settings_.exposure), 1.0f / settings_.gamma);
-            c.z = std::pow(clamp01(c.z * settings_.exposure), 1.0f / settings_.gamma);
-            setPixel(image, x, y, c);
+            row[x * 3 + 0] = static_cast<std::uint8_t>(std::pow(clamp01(row[x * 3 + 0] / 255.0f * exposure), inverseGamma) * 255.999f);
+            row[x * 3 + 1] = static_cast<std::uint8_t>(std::pow(clamp01(row[x * 3 + 1] / 255.0f * exposure), inverseGamma) * 255.999f);
+            row[x * 3 + 2] = static_cast<std::uint8_t>(std::pow(clamp01(row[x * 3 + 2] / 255.0f * exposure), inverseGamma) * 255.999f);
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore::RayTrace
