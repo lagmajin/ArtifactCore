@@ -671,6 +671,7 @@ std::vector<BezierSegment> ShapePath::toSegments() const {
 std::vector<BezierSegment> ShapePath::flatten(double tolerance) const {
     std::vector<BezierSegment> flattened;
     if (!std::isfinite(tolerance) || tolerance <= 0.0) tolerance = 0.25;
+    tolerance = std::clamp(tolerance, 1e-6, 1e6);
 
     const auto distanceToChord = [](const QPointF& point,
                                     const QPointF& start,
