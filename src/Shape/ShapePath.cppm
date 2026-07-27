@@ -256,10 +256,59 @@ void ShapePath::close() {
 }
 
 void ShapePath::arcTo(const QRectF& rect, double startAngle, double sweepAngle) {
-    // 現在のパスをQPainterPathに変換
-    QPainterPath current = toPainterPath();
-    current.arcTo(rect, startAngle, sweepAngle);
-    *this = fromPainterPath(current);
+    if (!std::isfinite(startAngle) || !std::isfinite(sweepAngle) ||
+        !std::isfinite(rect.x()) || !std::isfinite(rect.y()) ||
+        !std::isfinite(rect.width()) || !std::isfinite(rect.height()) ||
+        rect.width() == 0.0 || rect.height() == 0.0 || sweepAngle == 0.0) {
+        return;
+    }
+
+    const double cx = rect.center().x();
+    const double cy = rect.center().y();
+    const double rx = rect.width() / 2.0;
+    const double ry = rect.height() / 2.0;
+    const int segmentCount = std::max(1, static_cast<int>(std::ceil(
+        std::abs(sweepAngle) / 90.0)));
+    const double delta = sweepAngle / segmentCount;
+    const double radiansPerDegree = std::numbers::pi / 180.0;
+
+    const auto pointAt = [&](double degrees) {
+        const double radians = degrees * radiansPerDegree;
+        return QPointF(cx + rx * std::cos(radians),
+                       cy - ry * std::sin(radians));
+    };
+    const auto tangentAt = [&](double degrees) {
+        const double radians = degrees * radiansPerDegree;
+        return QPointF(-rx * std::sin(radians),
+                       -ry * std::cos(radians));
+    };
+
+    const QPointF first = pointAt(startAngle);
+    if (impl_->commands_.empty()) {
+        moveTo(first);
+    } else {
+        const auto& last = impl_->commands_.back();
+        if (last.type == PathCommandType::Close) {
+            moveTo(first);
+        } else {
+            const QPointF current = last.type == PathCommandType::CubicTo
+                ? last.points[2]
+                : last.type == PathCommandType::QuadTo ? last.points[1] : last.points[0];
+            if (current != first) lineTo(first);
+        }
+    }
+
+    for (int i = 0; i < segmentCount; ++i) {
+        const double a0 = startAngle + delta * i;
+        const double a1 = a0 + delta;
+        const double radians = delta * radiansPerDegree;
+        const double factor = 4.0 / 3.0 * std::tan(radians / 4.0);
+        const QPointF p0 = pointAt(a0);
+        const QPointF p1 = pointAt(a1);
+        const QPointF t0 = tangentAt(a0);
+        const QPointF t1 = tangentAt(a1);
+        cubicTo(p0 + t0 * factor, p1 - t1 * factor, p1);
+    }
 }
 
 // ========================================
