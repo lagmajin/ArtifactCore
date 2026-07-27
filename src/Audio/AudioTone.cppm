@@ -58,13 +58,13 @@ std::vector<EffectParameter> AudioTone::getParameters() const {
     };
 }
 
-void AudioTone::setParameterValue(const std::string& id, float value) {
+void AudioTone::setParameterValue(const String& id, float value) {
     if (id == "frequency") frequency_ = value;
     else if (id == "amplitude") amplitude_ = value;
     else if (id == "wave_type") waveType_ = static_cast<WaveType>(static_cast<int>(value));
 }
 
-float AudioTone::getParameterValue(const std::string& id) const {
+float AudioTone::getParameterValue(const String& id) const {
     if (id == "frequency") return frequency_;
     if (id == "amplitude") return amplitude_;
     if (id == "wave_type") return static_cast<float>(waveType_);

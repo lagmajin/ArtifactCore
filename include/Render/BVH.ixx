@@ -7,6 +7,8 @@ module;
 
 export module Render.BVH;
 
+import Memory.SharedPtr;
+
 import Render.Vector3D;
 import Render.Ray;
 import Render.Hittable;
@@ -105,7 +107,7 @@ public:
     }
 };
 
-using BVHNodePtr = std::shared_ptr<BVHNode>;
+using BVHNodePtr = SharedPtr<BVHNode>;
 
 struct BVHBuildNode
 {
@@ -136,7 +138,7 @@ BVHNodePtr buildBVHTree(std::vector<HittablePtr>& objects, size_t start, size_t 
     if (start + 1 == end)
     {
         AABB box(Vec3(-1000), Vec3(1000));
-        return std::make_shared<BVHNode>(objects[start], box);
+        return makeShared<BVHNode>(objects[start], box);
     }
 
     AABB bounds;
@@ -182,7 +184,7 @@ BVHNodePtr buildBVHTree(std::vector<HittablePtr>& objects, size_t start, size_t 
     if (!leftNode) return rightNode;
     if (!rightNode) return leftNode;
 
-    BVHNodePtr node = std::make_shared<BVHNode>();
+    BVHNodePtr node = makeShared<BVHNode>();
     node->left = leftNode;
     node->right = rightNode;
     node->isLeaf = false;

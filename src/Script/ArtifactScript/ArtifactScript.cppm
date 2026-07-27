@@ -1,4 +1,4 @@
-﻿module;
+module;
 #include <algorithm>
 #include <cctype>
 #include <charconv>
@@ -19,6 +19,7 @@
 module Script.ArtifactScript;
 
 import Core.ArtifactString;
+import Memory.SharedPtr;
 
 namespace ArtifactCore {
 
@@ -69,7 +70,7 @@ ArtifactScriptValue parseDefaultValue(std::string_view text, ArtifactScriptValue
             ? std::string(std::string_view(value.data() + 1, value.length() - 2))
             : std::string(value.data(), value.length());
     case ArtifactScriptValueType::Array: {
-        auto array = std::make_shared<ArtifactScriptArray>();
+        auto array = makeShared<ArtifactScriptArray>();
         std::string_view source(value.data(), value.length());
         if (source.size() >= 2 && source.front() == '[' && source.back() == ']') {
             source = source.substr(1, source.size() - 2);
@@ -309,7 +310,7 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             if (eq != static_cast<std::size_t>(-1)) {
                 field.defaultValue = parseDefaultValue(body.substr(eq + 1), field.type);
             } else if (field.type == ArtifactScriptValueType::Array) {
-                field.defaultValue = std::make_shared<ArtifactScriptArray>();
+                field.defaultValue = makeShared<ArtifactScriptArray>();
             }
             def.rootClass.fields.push_back(std::move(field));
             pos = nextPos;
@@ -524,7 +525,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
     switch (e->kind) {
     case ArtifactScriptExpr::Kind::Literal: return e->literalValue;
     case ArtifactScriptExpr::Kind::ArrayLiteral: {
-        auto array = std::make_shared<ArtifactScriptArray>();
+        auto array = makeShared<ArtifactScriptArray>();
         for (const auto& element : e->arrayElements)
             array->values.push_back(evalExpr(element.get(), fields, locals));
         return array;
@@ -612,7 +613,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         return 0.0;
     };
     if (e->callName == "array" && args.empty())
-        return std::make_shared<ArtifactScriptArray>();
+        return makeShared<ArtifactScriptArray>();
     if (e->callName == "print" || e->callName == "log") return {};
     if (e->callName == "size" && args.size() == 1 &&
         std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
@@ -746,7 +747,7 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
         ArtifactScriptValue init;
         if (s->declInit) init = evalExpr(s->declInit.get(), fields, locals);
         else if (s->declType == ArtifactScriptValueType::Array)
-            init = std::make_shared<ArtifactScriptArray>();
+            init = makeShared<ArtifactScriptArray>();
         locals[s->declName] = (s->declInit || s->declType == ArtifactScriptValueType::Array)
             ? init : ArtifactScriptValue{};
         return error_.empty(); }

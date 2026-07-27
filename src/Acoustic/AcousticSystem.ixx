@@ -16,6 +16,7 @@ import Artifact.Acoustic.WindModel;
 import Artifact.Acoustic.FrictionModel;
 import Artifact.Acoustic.Spatial;
 import Memory.TrackedPtr;
+import Memory.SharedPtr;
 
 export namespace Artifact::Acoustic {
 
@@ -26,8 +27,8 @@ export namespace Artifact::Acoustic {
             m_materialLibrary["Wood"] = { 0.6f, 0.4f, 2.0f };
             m_materialLibrary["Glass"] = { 2.5f, 1.0f, 0.2f };
 
-            m_rain = std::make_shared<RainModel>();
-            m_wind = std::make_shared<WindModel>();
+            m_rain = makeShared<RainModel>();
+            m_wind = makeShared<WindModel>();
             m_spatial = std::make_unique<SpatialCalculator>();
         }
 
@@ -135,8 +136,8 @@ export namespace Artifact::Acoustic {
         std::map<std::uint32_t, std::unique_ptr<FrictionModel>> m_frictionModels;
         std::map<std::uint32_t, SpatialState> m_layerSpatial;
         
-        std::shared_ptr<RainModel> m_rain;
-        std::shared_ptr<WindModel> m_wind;
+        SharedPtr<RainModel> m_rain;
+        SharedPtr<WindModel> m_wind;
         std::unique_ptr<SpatialCalculator> m_spatial;
     };
 }

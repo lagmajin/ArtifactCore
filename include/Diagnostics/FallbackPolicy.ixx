@@ -4,12 +4,13 @@ module;
 #include <vector>
 #include <memory>
 #include <functional>
-#include <optional>
 #include <QString>
 #include <QDebug>
 #include <QDateTime>
 
 export module Core.Diagnostics.FallbackPolicy;
+
+import Utils.Optional;
 
 export namespace ArtifactCore {
 
@@ -102,8 +103,8 @@ private:
 // --- inline helpers ---
 
 template<typename T>
-inline std::optional<T> tryFallbackPolicy(FallbackCategory category,
-    std::function<std::optional<T>()> resolver,
+inline Optional<T> tryFallbackPolicy(FallbackCategory category,
+    std::function<Optional<T>()> resolver,
     std::function<T()> fallback,
     const QString& originalId)
 {
@@ -129,13 +130,13 @@ inline std::optional<T> tryFallbackPolicy(FallbackCategory category,
     if (policy.action == FallbackAction::Bypass) {
         tracker->record({QDateTime::currentDateTime(), category, FallbackAction::Bypass,
                        originalId, "[bypass]", policy.warningMessage, policy.logWarning});
-        return std::nullopt;
+        return {};
     }
 
     if (policy.action == FallbackAction::Strict) {
         tracker->record({QDateTime::currentDateTime(), category, FallbackAction::Strict,
                        originalId, "", "Resource missing and policy is strict", true});
-        return std::nullopt;
+        return {};
     }
 
     T fallbackResult = fallback();

@@ -116,7 +116,7 @@ std::vector<MidiInput::DeviceInfo> MidiInput::enumerateDevices() {
             if (len > 0) {
                 std::vector<char> buf(static_cast<size_t>(len));
                 WideCharToMultiByte(CP_UTF8, 0, caps.szPname, -1, buf.data(), len, nullptr, nullptr);
-                info.name = buf.data();
+            info.name = String(buf.data());
             }
             info.maxChannels = 16;
             info.isAvailable = true;

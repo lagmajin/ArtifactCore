@@ -14,6 +14,7 @@ module;
 module Asset.Manager;
 
 import Asset.Database;
+import Memory.SharedPtr;
 
 namespace ArtifactCore {
 
@@ -27,7 +28,7 @@ namespace ArtifactCore {
 
   mutable QMutex mutex;
   QHash<QUuid, SourceState> sources;
-  QHash<QString, std::weak_ptr<void>> decodedPayloads;
+  QHash<QString, WeakPtr<void>> decodedPayloads;
   Impl() = default;
   ~Impl() = default;
  };
@@ -105,7 +106,7 @@ namespace ArtifactCore {
 
   const QString oldPrefix = assetId.toString(QUuid::WithoutBraces) + QStringLiteral(":");
   const QString newPrefix = localizedId.toString(QUuid::WithoutBraces) + QStringLiteral(":");
-  QHash<QString, std::weak_ptr<void>> payloadCopies;
+  QHash<QString, WeakPtr<void>> payloadCopies;
   for (auto payloadIt = impl_->decodedPayloads.cbegin();
        payloadIt != impl_->decodedPayloads.cend(); ++payloadIt) {
    if (payloadIt.key().startsWith(oldPrefix)) {
@@ -186,7 +187,7 @@ namespace ArtifactCore {
  }
  }
 
- std::shared_ptr<void> AssetManager::decodedPayload(
+ SharedPtr<void> AssetManager::decodedPayload(
      const QUuid& assetId, std::uint64_t version,
      const QString& representation) const
  {
@@ -196,13 +197,13 @@ namespace ArtifactCore {
   QMutexLocker locker(&impl_->mutex);
   const auto it = impl_->decodedPayloads.constFind(
       decodedPayloadKey(assetId, version, representation));
-  return it == impl_->decodedPayloads.cend() ? std::shared_ptr<void>{}
-                                             : it->lock();
- }
+  return it == impl_->decodedPayloads.cend() ? SharedPtr<void>{}
+                                             : SharedPtr<void>(it->lock());
+}
 
- std::shared_ptr<void> AssetManager::publishDecodedPayload(
+ SharedPtr<void> AssetManager::publishDecodedPayload(
      const QUuid& assetId, std::uint64_t version,
-     const QString& representation, std::shared_ptr<void> payload)
+     const QString& representation, SharedPtr<void> payload)
  {
   const QString normalizedRepresentation = representation.trimmed();
   if (assetId.isNull() || version == 0 || normalizedRepresentation.isEmpty() ||
@@ -217,9 +218,9 @@ namespace ArtifactCore {
   const QString key = decodedPayloadKey(assetId, version, normalizedRepresentation);
   const auto existing = impl_->decodedPayloads.value(key).lock();
   if (existing) {
-   return existing;
+   return SharedPtr<void>(existing);
   }
-  impl_->decodedPayloads.insert(key, payload);
+  impl_->decodedPayloads.insert(key, payload.lock());
   return payload;
  }
 

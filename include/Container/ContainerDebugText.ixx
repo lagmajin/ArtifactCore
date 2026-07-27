@@ -1,6 +1,5 @@
 module;
 #include <cstdint>
-#include <string>
 #include <typeinfo>
 #include <vector>
 
@@ -30,45 +29,45 @@ inline ZeroString toDebugTextZero(const NamedList<T>& values);
 template <typename T>
 inline ZeroString toDebugTextZero(const std::vector<T>& values);
 
-inline std::string toDebugText(const ContainerElementSample& sample) {
-  return std::string(toDebugTextZero(sample));
+inline String toDebugText(const ContainerElementSample& sample) {
+  return String(toDebugTextZero(sample));
 }
 
-inline std::string toDebugText(const ContainerDebugInfo& info) {
-  return std::string(toDebugTextZero(info));
+inline String toDebugText(const ContainerDebugInfo& info) {
+  return String(toDebugTextZero(info));
 }
 
-inline std::string toDebugText(const ContainerDebugSnapshot& snapshot) {
-  return std::string(toDebugTextZero(snapshot));
+inline String toDebugText(const ContainerDebugSnapshot& snapshot) {
+  return String(toDebugTextZero(snapshot));
 }
 
-inline std::string toDebugText(const ContainerWatchHit& hit) {
-  return std::string(toDebugTextZero(hit));
+inline String toDebugText(const ContainerWatchHit& hit) {
+  return String(toDebugTextZero(hit));
 }
 
 template <typename T, std::size_t N>
-inline std::string toDebugText(const SmallVector<T, N>& values) {
-  return std::string(toDebugTextZero(values));
+inline String toDebugText(const SmallVector<T, N>& values) {
+  return String(toDebugTextZero(values));
 }
 
 template <typename K, typename V>
-inline std::string toDebugText(const NameMap<K, V>& values) {
-  return std::string(toDebugTextZero(values));
+inline String toDebugText(const NameMap<K, V>& values) {
+  return String(toDebugTextZero(values));
 }
 
 template <typename K, typename V>
-inline std::string toDebugText(const IdMap<K, V>& values) {
-  return std::string(toDebugTextZero(values));
+inline String toDebugText(const IdMap<K, V>& values) {
+  return String(toDebugTextZero(values));
 }
 
 template <typename T>
-inline std::string toDebugText(const NamedList<T>& values) {
-  return std::string(toDebugTextZero(values));
+inline String toDebugText(const NamedList<T>& values) {
+  return String(toDebugTextZero(values));
 }
 
 template <typename T>
-inline std::string toDebugText(const std::vector<T>& values) {
-  return std::string(toDebugTextZero(values));
+inline String toDebugText(const std::vector<T>& values) {
+  return String(toDebugTextZero(values));
 }
 
 inline ZeroString toDebugTextZero(const ContainerElementSample& sample) {

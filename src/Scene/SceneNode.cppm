@@ -25,14 +25,14 @@ class SceneNode::Impl {
 public:
  UniString name_ = "Node";
  SceneNode* parent_ = nullptr;
- std::vector<std::shared_ptr<SceneNode>> children_;
+ std::vector<SharedPtr<SceneNode>> children_;
 
  QVector3D position_ = { 0, 0, 0 };
  QQuaternion rotation_;
  QVector3D scale_ = { 1, 1, 1 };
 
- std::shared_ptr<Mesh> mesh_;
- std::shared_ptr<Material> material_;
+ SharedPtr<Mesh> mesh_;
+ SharedPtr<Material> material_;
  bool visible_ = true;
 
  mutable QMatrix4x4 cachedWorld_;
@@ -65,7 +65,7 @@ void SceneNode::setName(const UniString& name) { impl_->name_ = name; }
 UniString SceneNode::name() const { return impl_->name_; }
 
 // Hierarchy
-void SceneNode::addChild(std::shared_ptr<SceneNode> child)
+void SceneNode::addChild(SharedPtr<SceneNode> child)
 {
  if (!child) return;
  if (child->impl_->parent_) {
@@ -81,7 +81,7 @@ void SceneNode::removeChild(const SceneNode* child)
  if (!child) return;
  auto& ch = impl_->children_;
  ch.erase(std::remove_if(ch.begin(), ch.end(),
-  [child](const std::shared_ptr<SceneNode>& c) { return c.get() == child; }),
+  [child](const SharedPtr<SceneNode>& c) { return c.get() == child.get(); }),
   ch.end());
 }
 
@@ -206,10 +206,10 @@ QVector3D SceneNode::worldPosition() const
 }
 
 // Content
-void SceneNode::setMesh(std::shared_ptr<Mesh> mesh) { impl_->mesh_ = mesh; }
-std::shared_ptr<Mesh> SceneNode::mesh() const { return impl_->mesh_; }
-void SceneNode::setMaterial(std::shared_ptr<Material> material) { impl_->material_ = material; }
-std::shared_ptr<Material> SceneNode::material() const { return impl_->material_; }
+void SceneNode::setMesh(SharedPtr<Mesh> mesh) { impl_->mesh_ = mesh; }
+SharedPtr<Mesh> SceneNode::mesh() const { return impl_->mesh_; }
+void SceneNode::setMaterial(SharedPtr<Material> material) { impl_->material_ = material; }
+SharedPtr<Material> SceneNode::material() const { return impl_->material_; }
 
 // Visibility
 void SceneNode::setVisible(bool visible) { impl_->visible_ = visible; }

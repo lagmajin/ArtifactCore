@@ -34,6 +34,9 @@ module;
 #include <random>
 export module ArtifactCore.Core.Simulation;
 
+import Memory.SharedPtr;
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
     /**
@@ -46,7 +49,7 @@ export namespace ArtifactCore {
         virtual void update(double deltaTime) = 0;
         virtual void reset() = 0;
         
-        virtual const std::string& getName() const = 0;
+        virtual const String& getName() const = 0;
         virtual void setPaused(bool paused) = 0;
         virtual bool isPaused() const = 0;
     };
@@ -61,7 +64,7 @@ export namespace ArtifactCore {
             return inst;
         }
 
-        void addSystem(std::shared_ptr<ISimulationSystem> system) {
+        void addSystem(SharedPtr<ISimulationSystem> system) {
             systems_.push_back(system);
         }
 
@@ -80,7 +83,7 @@ export namespace ArtifactCore {
         }
 
     private:
-        std::vector<std::shared_ptr<ISimulationSystem>> systems_;
+        std::vector<SharedPtr<ISimulationSystem>> systems_;
     };
 
 }

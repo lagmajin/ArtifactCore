@@ -24,6 +24,7 @@ module MediaImageFrameDecoder;
 
 import Video.VideoFrame;
 import Core.Parallel;
+import Memory.SharedPtr;
 
 
 namespace ArtifactCore {
@@ -188,7 +189,7 @@ GpuVideoFrame makeGpuVideoFrameFromFrame(AVFrame* frame)
         return out;
     }
 
-    const auto frameRef = std::shared_ptr<void>(
+    auto frameRef = makeShared<void>(
         av_frame_clone(frame),
         [](void* ptr) {
             AVFrame* cloned = static_cast<AVFrame*>(ptr);

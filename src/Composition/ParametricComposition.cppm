@@ -889,17 +889,17 @@ ParametricCompositionDefinition ParametricCompositionDefinition::fromJson(const 
     return definition;
 }
 
-ParametricCompositionInstance::ParametricCompositionInstance(std::shared_ptr<const ParametricCompositionDefinition> definition)
+ParametricCompositionInstance::ParametricCompositionInstance(SharedPtr<const ParametricCompositionDefinition> definition)
     : definition_(std::move(definition))
 {
 }
 
-std::shared_ptr<const ParametricCompositionDefinition> ParametricCompositionInstance::definition() const
+SharedPtr<const ParametricCompositionDefinition> ParametricCompositionInstance::definition() const
 {
     return definition_;
 }
 
-void ParametricCompositionInstance::setDefinition(std::shared_ptr<const ParametricCompositionDefinition> definition)
+void ParametricCompositionInstance::setDefinition(SharedPtr<const ParametricCompositionDefinition> definition)
 {
     definition_ = std::move(definition);
 }
@@ -1260,7 +1260,7 @@ QJsonObject ParametricCompositionInstance::toJson() const
 
 ParametricCompositionInstance ParametricCompositionInstance::fromJson(
     const QJsonObject& obj,
-    std::shared_ptr<const ParametricCompositionDefinition> definition)
+    SharedPtr<const ParametricCompositionDefinition> definition)
 {
     ParametricCompositionInstance instance(std::move(definition));
     const QJsonArray bindingArray = obj.value(QStringLiteral("inputBindings")).toArray();

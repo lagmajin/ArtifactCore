@@ -216,10 +216,10 @@ void ParticleEmitter::update(double dt, ParticlePool<>& pool) {
 class ParticleSystem::Impl {
 public:
     ParticlePool<> pool_;
-    std::vector<std::shared_ptr<ParticleEmitter>> emitters_;
-    std::vector<std::shared_ptr<ForceField>> forceFields_;
-    std::vector<std::shared_ptr<ParticleCollider>> colliders_;
-    std::vector<std::shared_ptr<ParticleConstraint>> constraints_;
+    std::vector<SharedPtr<ParticleEmitter>> emitters_;
+    std::vector<SharedPtr<ForceField>> forceFields_;
+    std::vector<SharedPtr<ParticleCollider>> colliders_;
+    std::vector<SharedPtr<ParticleConstraint>> constraints_;
     
     size_t maxParticles_ = 100000;
     double simulationSpeed_ = 1.0;
@@ -252,7 +252,7 @@ ParticleSystem& ParticleSystem::operator=(ParticleSystem&& other) noexcept {
     return *this;
 }
 
-void ParticleSystem::addEmitter(std::shared_ptr<ParticleEmitter> emitter) {
+void ParticleSystem::addEmitter(SharedPtr<ParticleEmitter> emitter) {
     impl_->emitters_.push_back(emitter);
 }
 
@@ -266,7 +266,7 @@ void ParticleSystem::removeEmitter(const std::string& id) {
 void ParticleSystem::clearEmitters() { impl_->emitters_.clear(); }
 size_t ParticleSystem::emitterCount() const { return impl_->emitters_.size(); }
 
-void ParticleSystem::addForceField(std::shared_ptr<ForceField> field) {
+void ParticleSystem::addForceField(SharedPtr<ForceField> field) {
     impl_->forceFields_.push_back(field);
 }
 
@@ -280,7 +280,7 @@ void ParticleSystem::removeForceField(const std::string& id) {
 void ParticleSystem::clearForceFields() { impl_->forceFields_.clear(); }
 size_t ParticleSystem::forceFieldCount() const { return impl_->forceFields_.size(); }
 
-void ParticleSystem::addCollider(std::shared_ptr<ParticleCollider> collider) {
+void ParticleSystem::addCollider(SharedPtr<ParticleCollider> collider) {
     impl_->colliders_.push_back(collider);
 }
 
@@ -294,7 +294,7 @@ void ParticleSystem::removeCollider(const std::string& id) {
 void ParticleSystem::clearColliders() { impl_->colliders_.clear(); }
 size_t ParticleSystem::colliderCount() const { return impl_->colliders_.size(); }
 
-void ParticleSystem::addConstraint(std::shared_ptr<ParticleConstraint> constraint) {
+void ParticleSystem::addConstraint(SharedPtr<ParticleConstraint> constraint) {
     impl_->constraints_.push_back(constraint);
 }
 

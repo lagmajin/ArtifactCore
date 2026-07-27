@@ -8,6 +8,7 @@ export module Data.TypedColumn;
 
 import Data.ColumnType;
 import Data.TypeInference;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -15,21 +16,21 @@ class TypedColumn {
 public:
     TypedColumn() = default;
 
-    TypedColumn(const std::string& name, const std::vector<std::string>& rawValues)
+    TypedColumn(const String& name, const std::vector<String>& rawValues)
         : name_(name)
     {
         type_ = TypeInference::inferFromValues(rawValues);
         values_.reserve(rawValues.size());
         for (const auto& v : rawValues) {
-            values_.push_back(parseValue(v));
+            values_.push_back(parseValue(toStdString(v)));
         }
     }
 
-    const std::string& name() const { return name_; }
+    const String& name() const { return name_; }
     ColumnType type() const { return type_; }
     int size() const { return static_cast<int>(values_.size()); }
 
-    std::string getString(int row) const {
+    String getString(int row) const {
         if (row < 0 || row >= size()) return "";
         return valueToString(values_[row]);
     }
@@ -51,7 +52,7 @@ public:
 
 private:
     struct ParsedValue {
-        std::string strVal;
+        String strVal;
         int64_t intVal = 0;
         double floatVal = 0.0;
         bool boolVal = false;
@@ -59,7 +60,7 @@ private:
 
     ParsedValue parseValue(const std::string& s) const {
         ParsedValue pv;
-        pv.strVal = s;
+        pv.strVal = String(s);
 
         switch (type_) {
         case ColumnType::Int:
@@ -82,12 +83,12 @@ private:
         return pv;
     }
 
-    std::string valueToString(const ParsedValue& v) const { return v.strVal; }
+    String valueToString(const ParsedValue& v) const { return v.strVal; }
     int64_t valueToInt(const ParsedValue& v) const { return v.intVal; }
     double valueToFloat(const ParsedValue& v) const { return v.floatVal; }
     bool valueToBool(const ParsedValue& v) const { return v.boolVal; }
 
-    std::string name_;
+    String name_;
     ColumnType type_ = ColumnType::Unknown;
     std::vector<ParsedValue> values_;
 };

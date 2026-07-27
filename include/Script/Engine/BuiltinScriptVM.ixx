@@ -31,6 +31,8 @@ module;
 #include <random>
 export module Script.Engine.BuiltinVM;
 
+import Memory.SharedPtr;
+
 import Script.Expression.Value;
 import Script.Expression.Evaluator;
 import Script.Expression.Parser;
@@ -53,7 +55,7 @@ export namespace ArtifactCore {
   // Evaluate expression
   ExpressionValue evaluate(const std::string& expression);
   // Evaluate a parsed AST directly (caller may use ScriptContext to parse/cache AST)
-  ExpressionValue evaluateAST(const std::shared_ptr<ExprNode>& ast);
+  ExpressionValue evaluateAST(const SharedPtr<ExprNode>& ast);
   
   // Evaluate with ScriptContext and optional timeout (ms). timeoutMs <= 0 means no timeout.
   ExpressionValue evaluate(const std::string& expression, ScriptContext& context, int timeoutMs = 0);
@@ -67,7 +69,7 @@ export namespace ArtifactCore {
   bool hasError() const;
  };
 
- typedef std::shared_ptr<BuiltinScriptVM> BuiltinScriptVMPtr;
- typedef std::weak_ptr<BuiltinScriptVM>	  BuiltinScriptVMWeakPtr;
+ typedef SharedPtr<BuiltinScriptVM> BuiltinScriptVMPtr;
+ typedef WeakPtr<BuiltinScriptVM>	  BuiltinScriptVMWeakPtr;
 
 };

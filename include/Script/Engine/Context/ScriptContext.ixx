@@ -32,6 +32,8 @@ module;
 #include <random>
 export module Script.Engine.Context;
 
+import Memory.SharedPtr;
+
 import Script.Expression.Parser;
 import Script.Expression.Value;
 
@@ -40,8 +42,8 @@ export namespace ArtifactCore {
 
  class ScriptContext;
 
- typedef std::shared_ptr<ScriptContext> ScriptContextPtr;
- typedef std::weak_ptr<ScriptContext> ScriptContextWeakPtr;
+ typedef SharedPtr<ScriptContext> ScriptContextPtr;
+ typedef WeakPtr<ScriptContext> ScriptContextWeakPtr;
 
  class ScriptContext
  {
@@ -59,7 +61,7 @@ export namespace ArtifactCore {
   bool hasVariable(const std::string& name) const;
 
   // AST cache: parse or get cached AST for an expression string
-  std::shared_ptr<ExprNode> getOrParseAST(const std::string& expression);
+  SharedPtr<ExprNode> getOrParseAST(const std::string& expression);
   
   // Clear cache / variables
   void clear();

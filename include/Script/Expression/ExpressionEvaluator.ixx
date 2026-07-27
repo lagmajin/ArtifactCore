@@ -32,6 +32,8 @@ module;
 #include <random>
 export module Script.Expression.Evaluator;
 
+import Memory.SharedPtr;
+
 import Script.Expression.Value;
 import Script.Expression.Parser;
 import Audio.Segment;
@@ -68,7 +70,7 @@ public:
     ExpressionValue evaluate(const ZeroString& expression);
     
     // Evaluate parsed AST
-    ExpressionValue evaluateAST(const std::shared_ptr<ExprNode>& node);
+    ExpressionValue evaluateAST(const SharedPtr<ExprNode>& node);
 
     // Variable management
     void setVariable(const std::string& name, const ExpressionValue& value);
@@ -139,14 +141,14 @@ public:
     // 任意時刻での式の時間微分 |dy/dt| を数値的に推定する（中央差分）。
     // 純関数前提（time 変数のみに依存）の式で意味を持つ。
     // 状態依存の式（物理積分）には適用できない点に注意。
-    double estimateSpeedAtTime(const std::shared_ptr<ExprNode>& node, double timeSec);
+    double estimateSpeedAtTime(const SharedPtr<ExprNode>& node, double timeSec);
     double estimateSpeedAtTime(const std::string& expression, double timeSec);
 
     // Evaluate expression at an arbitrary time point (seconds)
     ExpressionValue evaluateAtTime(const std::string& expression, double timeSec);
 
     // Evaluate pre-parsed AST at an arbitrary time point (seconds)
-    ExpressionValue evaluateASTAtTime(const std::shared_ptr<ExprNode>& node, double timeSec);
+    ExpressionValue evaluateASTAtTime(const SharedPtr<ExprNode>& node, double timeSec);
 
     // Evaluate expression over a time range using current evaluation mode
     // Returns vector of (time, value) pairs sampled according to the mode

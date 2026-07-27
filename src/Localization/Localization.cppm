@@ -108,8 +108,8 @@ void LocalizationManager::addTranslation(LocaleLanguage lang, const QString& key
     impl_->translations_[lang][key] = value;
 }
 
-bool LocalizationManager::loadFromFile(const std::string& path, LocaleLanguage lang) {
-    return loadFromFile(QString::fromUtf8(path.data(), static_cast<int>(path.size())), lang);
+bool LocalizationManager::loadFromFile(const String& path, LocaleLanguage lang) {
+    return loadFromFile(QString::fromUtf8(path.data(), static_cast<int>(path.length())), lang);
 }
 
 bool LocalizationManager::loadFromFile(const QString& qPath, LocaleLanguage lang) {

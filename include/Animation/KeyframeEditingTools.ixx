@@ -6,7 +6,6 @@ module;
 #include <limits>
 #include <numeric>
 #include <random>
-#include <string>
 #include <vector>
 
 #include <QVector>
@@ -15,6 +14,7 @@ export module Animation.KeyframeEditingTools;
 
 import Math.Interpolate;
 import Audio.Segment;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -109,7 +109,7 @@ public:
                                         double frame);
 
     static std::vector<KeyframePoint> expressionToKeyframes(
-        const std::string& expression,
+        const String& expression,
         double frameRate,
         double startFrame,
         double endFrame,

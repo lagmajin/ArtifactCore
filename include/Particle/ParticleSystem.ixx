@@ -43,6 +43,7 @@ export module Particle.System;
 
 import Particle;
 import Mesh;
+import Memory.SharedPtr;
 import Physics.Fluid;
 import Physics2D;
 import Audio.Analyze;
@@ -560,7 +561,7 @@ public:
     const std::vector<SubEmitterConfig>& getSubEmitters() const { return subEmitters_; }
 
     // ジオメトリ・レイヤーソース
-    void setMeshSource(std::shared_ptr<Mesh> mesh) { meshSource_ = mesh; }
+    void setMeshSource(SharedPtr<Mesh> mesh) { meshSource_ = std::move(mesh); }
     void setLayerSource(void* texture) { layerSource_ = texture; } // placeholder
     void setColorInheritance(float amount) { colorInheritance_ = amount; }
 
@@ -577,7 +578,7 @@ protected:
     std::vector<SubEmitterConfig> subEmitters_;
     
     // Geometry sources
-    std::shared_ptr<Mesh> meshSource_;
+    SharedPtr<Mesh> meshSource_;
     void* layerSource_ = nullptr;
     float colorInheritance_ = 0.0f;
 
@@ -737,25 +738,25 @@ public:
     ParticleSystem& operator=(ParticleSystem&&) noexcept;
 
     // エミッター管理
-    void addEmitter(std::shared_ptr<ParticleEmitter> emitter);
+    void addEmitter(SharedPtr<ParticleEmitter> emitter);
     void removeEmitter(const std::string& id);
     void clearEmitters();
     size_t emitterCount() const;
 
     // 力場管理
-    void addForceField(std::shared_ptr<ForceField> field);
+    void addForceField(SharedPtr<ForceField> field);
     void removeForceField(const std::string& id);
     void clearForceFields();
     size_t forceFieldCount() const;
 
     // コリジョン管理
-    void addCollider(std::shared_ptr<ParticleCollider> collider);
+    void addCollider(SharedPtr<ParticleCollider> collider);
     void removeCollider(const std::string& id);
     void clearColliders();
     size_t colliderCount() const;
 
     // 拘束管理
-    void addConstraint(std::shared_ptr<ParticleConstraint> constraint);
+    void addConstraint(SharedPtr<ParticleConstraint> constraint);
     void clearConstraints();
 
     // シミュレーション

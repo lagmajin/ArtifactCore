@@ -895,6 +895,313 @@ std::vector<PathTriangle> ShapePath::triangulateSimple(double tolerance) const {
     return triangles;
 }
 
+namespace {
+
+struct RayCrossings {
+    int winding = 0;
+    int crossings = 0;
+};
+
+// 点から +x 方向のレイと閉輪郭の交差を数える（winding と交差回数）。
+RayCrossings contourRayCrossings(const std::vector<QPointF>& contour,
+                                 const QPointF& point) {
+    RayCrossings result;
+    const size_t count = contour.size();
+    for (size_t i = 0; i < count; ++i) {
+        const QPointF& a = contour[i];
+        const QPointF& b = contour[(i + 1) % count];
+        const double cross = (b.x() - a.x()) * (point.y() - a.y()) -
+                             (b.y() - a.y()) * (point.x() - a.x());
+        if (a.y() <= point.y()) {
+            if (b.y() > point.y() && cross > 0.0) {
+                ++result.winding;
+                ++result.crossings;
+            }
+        } else if (b.y() <= point.y() && cross < 0.0) {
+            --result.winding;
+            ++result.crossings;
+        }
+    }
+    return result;
+}
+
+bool fillRuleFilled(PathFillRule rule, const RayCrossings& hits) {
+    return rule == PathFillRule::EvenOdd ? (hits.crossings % 2) != 0
+                                         : hits.winding != 0;
+}
+
+double contourSignedArea(const std::vector<QPointF>& contour) {
+    double area = 0.0;
+    for (size_t i = 0; i < contour.size(); ++i) {
+        const QPointF& a = contour[i];
+        const QPointF& b = contour[(i + 1) % contour.size()];
+        area += a.x() * b.y() - b.x() * a.y();
+    }
+    return area * 0.5;
+}
+
+double triangleCross(const QPointF& a, const QPointF& b, const QPointF& c) {
+    return (b.x() - a.x()) * (c.y() - a.y()) -
+           (b.y() - a.y()) * (c.x() - a.x());
+}
+
+bool pointInTriangleInclusive(const QPointF& point, const QPointF& a,
+                              const QPointF& b, const QPointF& c) {
+    const double d0 = triangleCross(a, b, point);
+    const double d1 = triangleCross(b, c, point);
+    const double d2 = triangleCross(c, a, point);
+    const bool hasNeg = d0 < 0.0 || d1 < 0.0 || d2 < 0.0;
+    const bool hasPos = d0 > 0.0 || d1 > 0.0 || d2 > 0.0;
+    return !(hasNeg && hasPos);
+}
+
+// 輪郭の内部点を ear の重心候補から探す。
+bool contourInteriorPoint(const std::vector<QPointF>& contour,
+                          QPointF* interior) {
+    const size_t count = contour.size();
+    for (size_t i = 0; i < count; ++i) {
+        const QPointF& prev = contour[(i + count - 1) % count];
+        const QPointF& curr = contour[i];
+        const QPointF& next = contour[(i + 1) % count];
+        const QPointF candidate((prev.x() + curr.x() + next.x()) / 3.0,
+                                (prev.y() + curr.y() + next.y()) / 3.0);
+        if (contourRayCrossings(contour, candidate).winding != 0) {
+            *interior = candidate;
+            return true;
+        }
+    }
+    return false;
+}
+
+// CCW 前提の ear clipping。ブリッジ由来の重複頂点・共線頂点を許容する。
+bool earClipContour(const std::vector<QPointF>& polygon,
+                    std::vector<PathTriangle>* triangles) {
+    if (polygon.size() < 3) return false;
+    std::vector<size_t> indices(polygon.size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    size_t guard = 0;
+    const size_t guardLimit = polygon.size() * polygon.size() + 16;
+    while (indices.size() > 2 && guard++ < guardLimit) {
+        bool clipped = false;
+        for (size_t i = 0; i < indices.size(); ++i) {
+            const QPointF& a =
+                polygon[indices[(i + indices.size() - 1) % indices.size()]];
+            const QPointF& b = polygon[indices[i]];
+            const QPointF& c = polygon[indices[(i + 1) % indices.size()]];
+            const double turn = triangleCross(a, b, c);
+            if (std::abs(turn) <= 1e-12) {
+                // 退化した頂点（ブリッジの折り返し・共線）は三角形を出さずに除去。
+                indices.erase(indices.begin() + static_cast<std::ptrdiff_t>(i));
+                clipped = true;
+                break;
+            }
+            if (turn < 0.0) continue;  // reflex（CCW 前提）
+            bool containsVertex = false;
+            for (const size_t candidate : indices) {
+                const QPointF& point = polygon[candidate];
+                if (point == a || point == b || point == c) continue;
+                if (pointInTriangleInclusive(point, a, b, c)) {
+                    containsVertex = true;
+                    break;
+                }
+            }
+            if (containsVertex) continue;
+            triangles->push_back(PathTriangle{a, b, c});
+            indices.erase(indices.begin() + static_cast<std::ptrdiff_t>(i));
+            clipped = true;
+            break;
+        }
+        if (!clipped) return false;
+    }
+    return indices.size() <= 2;
+}
+
+// 穴輪郭（CW）を外輪郭（CCW）へゼロ幅ブリッジで接続して 1 本の輪郭にする。
+bool mergeHoleIntoOuter(std::vector<QPointF>* outer,
+                        const std::vector<QPointF>& hole) {
+    if (outer->size() < 3 || hole.size() < 3) return false;
+
+    size_t holeIndex = 0;
+    for (size_t i = 1; i < hole.size(); ++i) {
+        if (hole[i].x() > hole[holeIndex].x()) holeIndex = i;
+    }
+    const QPointF m = hole[holeIndex];
+
+    // +x レイと外輪郭エッジの最近交点を探す。
+    constexpr size_t npos = std::numeric_limits<size_t>::max();
+    double bestX = std::numeric_limits<double>::max();
+    size_t bestEdge = npos;
+    const size_t count = outer->size();
+    for (size_t i = 0; i < count; ++i) {
+        const QPointF& a = (*outer)[i];
+        const QPointF& b = (*outer)[(i + 1) % count];
+        if ((a.y() > m.y()) == (b.y() > m.y())) continue;
+        const double t = (m.y() - a.y()) / (b.y() - a.y());
+        const double x = a.x() + t * (b.x() - a.x());
+        if (x >= m.x() && x < bestX) {
+            bestX = x;
+            bestEdge = i;
+        }
+    }
+    if (bestEdge == npos) return false;
+    const QPointF intersection(bestX, m.y());
+
+    // 初期候補は交差エッジのうち x が大きい端点。三角形 (m, I, P) 内に
+    // reflex 頂点があれば、+x に最も近い角度の頂点へブリッジ先を置き換える。
+    const QPointF& edgeA = (*outer)[bestEdge];
+    const QPointF& edgeB = (*outer)[(bestEdge + 1) % count];
+    size_t bridgeIndex =
+        (edgeA.x() > edgeB.x()) ? bestEdge : (bestEdge + 1) % count;
+    const QPointF initialTarget = (*outer)[bridgeIndex];
+
+    double bestMetric = std::numeric_limits<double>::max();
+    for (size_t i = 0; i < count; ++i) {
+        if (i == bridgeIndex) continue;
+        const QPointF& candidate = (*outer)[i];
+        if (candidate.x() < m.x()) continue;
+        const QPointF& prev = (*outer)[(i + count - 1) % count];
+        const QPointF& next = (*outer)[(i + 1) % count];
+        if (triangleCross(prev, candidate, next) >= 0.0) continue;  // 凸は対象外
+        if (!pointInTriangleInclusive(candidate, m, intersection,
+                                      initialTarget)) {
+            continue;
+        }
+        const double dx = candidate.x() - m.x();
+        if (dx <= 0.0) continue;
+        const double metric = std::abs(candidate.y() - m.y()) / dx;
+        if (metric < bestMetric) {
+            bestMetric = metric;
+            bridgeIndex = i;
+        }
+    }
+
+    std::vector<QPointF> merged;
+    merged.reserve(outer->size() + hole.size() + 2);
+    for (size_t i = 0; i <= bridgeIndex; ++i) merged.push_back((*outer)[i]);
+    for (size_t i = 0; i <= hole.size(); ++i) {
+        merged.push_back(hole[(holeIndex + i) % hole.size()]);
+    }
+    merged.push_back((*outer)[bridgeIndex]);
+    for (size_t i = bridgeIndex + 1; i < count; ++i) {
+        merged.push_back((*outer)[i]);
+    }
+    *outer = std::move(merged);
+    return true;
+}
+
+}  // namespace
+
+std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
+    struct FillContour {
+        std::vector<QPointF> points;
+        double area = 0.0;
+        QPointF interior;
+        double maxX = 0.0;
+    };
+
+    std::vector<PathTriangle> triangles;
+    const auto flattenedSubpaths = flattenSubpaths(tolerance);
+    if (flattenedSubpaths.empty()) return triangles;
+
+    // fill は contains() と同じく、閉じていないサブパスも暗黙に閉じて扱う。
+    std::vector<FillContour> contours;
+    contours.reserve(flattenedSubpaths.size());
+    for (const auto& segments : flattenedSubpaths) {
+        FillContour contour;
+        contour.points.reserve(segments.size());
+        for (const auto& segment : segments) contour.points.push_back(segment.p0);
+        if (!segments.empty() && segments.back().p1 != segments.front().p0) {
+            contour.points.push_back(segments.back().p1);
+        }
+        if (contour.points.size() >= 2 &&
+            contour.points.front() == contour.points.back()) {
+            contour.points.pop_back();
+        }
+        if (contour.points.size() < 3) continue;
+        contour.area = contourSignedArea(contour.points);
+        if (std::abs(contour.area) <= 1e-9) continue;
+        if (!contourInteriorPoint(contour.points, &contour.interior)) continue;
+        contour.maxX = contour.points.front().x();
+        for (const auto& point : contour.points) {
+            contour.maxX = std::max(contour.maxX, point.x());
+        }
+        contours.push_back(std::move(contour));
+    }
+    if (contours.empty()) return triangles;
+
+    // fill rule に基づいて外輪郭／穴／冗長輪郭を分類する。
+    const PathFillRule rule = fillRule();
+    std::vector<size_t> outers;
+    std::vector<size_t> holes;
+    for (size_t i = 0; i < contours.size(); ++i) {
+        RayCrossings total;
+        RayCrossings own;
+        for (size_t j = 0; j < contours.size(); ++j) {
+            const RayCrossings hits =
+                contourRayCrossings(contours[j].points, contours[i].interior);
+            total.winding += hits.winding;
+            total.crossings += hits.crossings;
+            if (j == i) own = hits;
+        }
+        const bool filledInside = fillRuleFilled(rule, total);
+        const RayCrossings outside{total.winding - own.winding,
+                                   total.crossings - own.crossings};
+        const bool filledOutside = fillRuleFilled(rule, outside);
+        if (filledInside && !filledOutside) {
+            outers.push_back(i);
+        } else if (!filledInside && filledOutside) {
+            holes.push_back(i);
+        }
+        // 両側 filled（冗長輪郭）と両側 unfilled は描画へ寄与しない。
+    }
+    if (outers.empty()) return triangles;
+
+    // 穴を最も内側（最小面積）の外輪郭へ割り当てる。
+    std::vector<std::vector<size_t>> holesByOuter(outers.size());
+    for (const size_t holeIndex : holes) {
+        size_t parent = std::numeric_limits<size_t>::max();
+        double parentArea = std::numeric_limits<double>::max();
+        for (size_t o = 0; o < outers.size(); ++o) {
+            const FillContour& outer = contours[outers[o]];
+            if (contourRayCrossings(outer.points,
+                                    contours[holeIndex].interior).winding == 0) {
+                continue;
+            }
+            const double area = std::abs(outer.area);
+            if (area < parentArea) {
+                parentArea = area;
+                parent = o;
+            }
+        }
+        if (parent == std::numeric_limits<size_t>::max()) continue;
+        holesByOuter[parent].push_back(holeIndex);
+    }
+
+    for (size_t o = 0; o < outers.size(); ++o) {
+        FillContour& outer = contours[outers[o]];
+        std::vector<QPointF> polygon = outer.points;
+        if (outer.area < 0.0) std::reverse(polygon.begin(), polygon.end());
+
+        // ブリッジ同士の交差を避けるため、穴は最大 x の降順で接続する。
+        std::vector<size_t>& holeIndices = holesByOuter[o];
+        std::sort(holeIndices.begin(), holeIndices.end(),
+                  [&](size_t lhs, size_t rhs) {
+                      return contours[lhs].maxX > contours[rhs].maxX;
+                  });
+        for (const size_t holeIndex : holeIndices) {
+            std::vector<QPointF> holePolygon = contours[holeIndex].points;
+            if (contours[holeIndex].area > 0.0) {
+                std::reverse(holePolygon.begin(), holePolygon.end());
+            }
+            if (!mergeHoleIntoOuter(&polygon, holePolygon)) return {};
+        }
+
+        if (!earClipContour(polygon, &triangles)) return {};
+    }
+    return triangles;
+}
+
 // ========================================
 // 変換
 // ========================================

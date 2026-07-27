@@ -14,6 +14,7 @@ export module Scene.SceneNode;
 import Mesh;
 import Material.Material;
 import Utils.String.UniString;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore
 {
@@ -34,7 +35,7 @@ export namespace ArtifactCore
 
   // --- Hierarchy ---
 
-  void addChild(std::shared_ptr<SceneNode> child);
+  void addChild(SharedPtr<SceneNode> child);
   void removeChild(const SceneNode* child);
   void removeFromParent();
   int childCount() const;
@@ -73,10 +74,10 @@ export namespace ArtifactCore
 
   // --- Content ---
 
-  void setMesh(std::shared_ptr<Mesh> mesh);
-  std::shared_ptr<Mesh> mesh() const;
-  void setMaterial(std::shared_ptr<Material> material);
-  std::shared_ptr<Material> material() const;
+  void setMesh(SharedPtr<Mesh> mesh);
+  SharedPtr<Mesh> mesh() const;
+  void setMaterial(SharedPtr<Material> material);
+  SharedPtr<Material> material() const;
 
   // --- Visibility ---
 

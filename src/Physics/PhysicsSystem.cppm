@@ -17,6 +17,7 @@ import Physics2D;
 import Physics.SoftBody;
 import Physics.Mpm2D;
 import Memory.TrackedPtr;
+import Memory.SharedPtr;
 import Utils.Id;
 
 namespace ArtifactCore {
@@ -55,7 +56,7 @@ public:
     /**
      * @brief レイヤー固有のソフトボディソルバーを登録する
      */
-    void registerSoftBody(LayerID layerId, std::shared_ptr<SoftBodySolver> solver) {
+    void registerSoftBody(LayerID layerId, SharedPtr<SoftBodySolver> solver) {
         softBodies_[layerId] = solver;
         softBodySnapshots_.erase(layerId);
     }
@@ -63,8 +64,8 @@ public:
     /**
      * @brief レイヤー用ソフトボディソルバーを生成して登録する
      */
-    std::shared_ptr<SoftBodySolver> createSoftBody(LayerID layerId) {
-        auto solver = std::make_shared<SoftBodySolver>();
+    SharedPtr<SoftBodySolver> createSoftBody(LayerID layerId) {
+        auto solver = makeShared<SoftBodySolver>();
         softBodies_[layerId] = solver;
         softBodySnapshots_.erase(layerId);
         return solver;
@@ -73,7 +74,7 @@ public:
     /**
      * @brief レイヤー用ソフトボディを格子で初期化する
      */
-    std::shared_ptr<SoftBodySolver> createSoftBodyGrid(
+    SharedPtr<SoftBodySolver> createSoftBodyGrid(
         LayerID layerId,
         float left,
         float top,
@@ -94,7 +95,7 @@ public:
     /**
      * @brief レイヤー用ソフトボディをチェーンで初期化する
      */
-    std::shared_ptr<SoftBodySolver> createSoftBodyChain(
+    SharedPtr<SoftBodySolver> createSoftBodyChain(
         LayerID layerId,
         float startX,
         float startY,
@@ -109,16 +110,16 @@ public:
         return solver;
     }
 
-    std::shared_ptr<MpmSolver2D> createMaterialSolver(
+    SharedPtr<MpmSolver2D> createMaterialSolver(
         LayerID layerId, MpmMaterialPreset preset = MpmMaterialPreset::Flesh) {
-        auto solver = std::make_shared<MpmSolver2D>();
+        auto solver = makeShared<MpmSolver2D>();
         solver->applyMaterialPreset(preset);
         materialSolvers_[layerId] = solver;
         materialSnapshots_.erase(layerId);
         return solver;
     }
 
-    std::shared_ptr<MpmSolver2D> createMaterialGrid(
+    SharedPtr<MpmSolver2D> createMaterialGrid(
         LayerID layerId,
         float left, float top, float width, float height,
         int columns = 20, int rows = 20,
@@ -141,7 +142,7 @@ public:
         return solver;
     }
 
-    std::shared_ptr<MpmSolver2D> getMaterialSolver(LayerID layerId) {
+    SharedPtr<MpmSolver2D> getMaterialSolver(LayerID layerId) {
         auto it = materialSolvers_.find(layerId);
         return it != materialSolvers_.end() ? it->second : nullptr;
     }
@@ -170,8 +171,8 @@ public:
     /**
      * @brief レイヤー用 rigid body world を生成して登録する
      */
-    std::shared_ptr<Physics2D> createRigidWorld(LayerID layerId) {
-        auto world = std::make_shared<Physics2D>();
+    SharedPtr<Physics2D> createRigidWorld(LayerID layerId) {
+        auto world = makeShared<Physics2D>();
         rigidWorlds_[layerId] = world;
         return world;
     }
@@ -179,7 +180,7 @@ public:
     /**
      * @brief レイヤー用 rigid body world を取得する
      */
-    std::shared_ptr<Physics2D> getRigidWorld(LayerID layerId) {
+    SharedPtr<Physics2D> getRigidWorld(LayerID layerId) {
         auto it = rigidWorlds_.find(layerId);
         if (it != rigidWorlds_.end()) return it->second;
         return nullptr;
@@ -218,7 +219,7 @@ public:
     /**
      * @brief 指定したレイヤーのソフトボディソルバーを取得する
      */
-    std::shared_ptr<SoftBodySolver> getSoftBody(LayerID layerId) {
+    SharedPtr<SoftBodySolver> getSoftBody(LayerID layerId) {
         auto it = softBodies_.find(layerId);
         if (it != softBodies_.end()) return it->second;
         return nullptr;
@@ -352,13 +353,13 @@ private:
     PhysicsSystem& operator=(const PhysicsSystem&) = delete;
     
     std::unique_ptr<FluidSolver2D> fluidSolver_;
-    std::map<LayerID, std::shared_ptr<SoftBodySolver>> softBodies_;
+    std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
     std::map<LayerID, std::vector<SoftBodyCollider>> softBodyColliders_;
     std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
-    std::map<LayerID, std::shared_ptr<MpmSolver2D>> materialSolvers_;
+    std::map<LayerID, SharedPtr<MpmSolver2D>> materialSolvers_;
     std::map<LayerID, std::map<int64_t, MpmSnapshot2D>> materialSnapshots_;
     std::vector<MaterialFractureEvent> pendingMaterialFractureEvents_;
-    std::map<LayerID, std::shared_ptr<Physics2D>> rigidWorlds_;
+    std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
     static constexpr std::size_t maxSoftBodySnapshotsPerLayer_ = 480;
     static constexpr std::size_t maxMaterialSnapshotsPerLayer_ = 480;
 };

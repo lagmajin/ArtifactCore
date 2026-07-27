@@ -6,13 +6,15 @@ module;
 #include <vector>
 #include <unordered_map>
 #include <variant>
-#include <optional>
 #include <utility>
 #include <memory>
 
 export module Script.ArtifactScript;
 
+import Memory.SharedPtr;
+
 import Core.ArtifactString;
+import Utils.Optional;
 
 export namespace ArtifactCore {
 
@@ -70,7 +72,7 @@ struct ArtifactScriptRef {
 };
 
 struct ArtifactScriptArray;
-using ArtifactScriptArrayPtr = std::shared_ptr<ArtifactScriptArray>;
+using ArtifactScriptArrayPtr = SharedPtr<ArtifactScriptArray>;
 
 using ArtifactScriptValue = std::variant<
     std::monostate,
@@ -276,7 +278,7 @@ public:
 private:
     ArtifactScriptDefinition definition_;
     const ArtifactScriptComponent* component_ = nullptr;
-    std::optional<ArtifactScriptHook> lastInvokedHook_;
+    Optional<ArtifactScriptHook> lastInvokedHook_;
 };
 
 // ─── Evaluator ───

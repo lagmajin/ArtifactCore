@@ -30,7 +30,7 @@ public:
     AudioParametricEQ();
     virtual ~AudioParametricEQ() = default;
 
-    std::string getName() const override { return "Parametric EQ"; }
+    String getName() const override { return "Parametric EQ"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // バンド操作

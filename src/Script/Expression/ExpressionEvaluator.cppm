@@ -40,6 +40,7 @@ module;
 
 module Script.Expression.Evaluator;
 
+import Memory.SharedPtr;
 import Script.Expression.Value;
 import Script.Expression.Parser;
 import Core.ArtifactString;
@@ -86,7 +87,7 @@ public:
   double adaptiveSpeedGain_  = 1.0;          // step = max/(1 + speed*gain) の gain
   mutable int lastAdaptiveSplitCount_ = 0;   // Phase 5 診断用
 
-  ExpressionValue evaluateNode(const std::shared_ptr<ExprNode> &node);
+  ExpressionValue evaluateNode(const SharedPtr<ExprNode> &node);
 };
 
 // Helper to merge variables
@@ -136,7 +137,7 @@ static double easeOutCurve(double t) {
 }
 
 ExpressionValue
-ExpressionEvaluator::Impl::evaluateNode(const std::shared_ptr<ExprNode> &node) {
+ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
   if (!node) {
     error_ = ZeroString("Null AST node");
     return ExpressionValue();
@@ -447,7 +448,7 @@ ExpressionValue ExpressionEvaluator::evaluate(const ZeroString& expression) {
 }
 
 ExpressionValue
-ExpressionEvaluator::evaluateAST(const std::shared_ptr<ExprNode> &node) {
+ExpressionEvaluator::evaluateAST(const SharedPtr<ExprNode> &node) {
   impl_->error_.clear();
   impl_->cancelRequested_ = false;
   return impl_->evaluateNode(node);
@@ -646,7 +647,7 @@ int ExpressionEvaluator::lastAdaptiveSplitCount() const {
 // 任意時刻での |dy/dt| を中央差分で推定する。
 // ステップ幅 h は小さすぎると丸め誤差が支配的になり、大きすぎると離散化誤差が増える。
 // 既定で maxStep * 0.25 を使い、min で下限を保証する。
-double ExpressionEvaluator::estimateSpeedAtTime(const std::shared_ptr<ExprNode>& node, double timeSec) {
+double ExpressionEvaluator::estimateSpeedAtTime(const SharedPtr<ExprNode>& node, double timeSec) {
   double h = std::max(impl_->minAdaptiveStepSec_ * 4.0, impl_->maxAdaptiveStepSec_ * 0.25);
   const ExpressionValue vp = evaluateASTAtTime(node, timeSec + h);
   const ExpressionValue vm = evaluateASTAtTime(node, timeSec - h);
@@ -687,7 +688,7 @@ ExpressionValue ExpressionEvaluator::evaluateAtTime(const std::string& expressio
     return evaluateASTAtTime(ast, timeSec);
 }
 
-ExpressionValue ExpressionEvaluator::evaluateASTAtTime(const std::shared_ptr<ExprNode>& node, double timeSec) {
+ExpressionValue ExpressionEvaluator::evaluateASTAtTime(const SharedPtr<ExprNode>& node, double timeSec) {
     impl_->error_.clear();
     impl_->cancelRequested_ = false;
 

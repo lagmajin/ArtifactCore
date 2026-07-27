@@ -2,10 +2,10 @@ module;
 
 #include <string>
 #include <vector>
-#include <optional>
-#include <memory>
 
 export module ArtifactCore.Plugin.Common;
+
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -27,14 +27,14 @@ enum class PluginState {
 };
 
 struct PluginDescriptor {
-    std::string id;
-    std::string displayName;
-    std::string version;
-    std::string author;
-    std::string description;
+    String id;
+    String displayName;
+    String version;
+    String author;
+    String description;
     PluginCategory category;
     int apiVersion = 1;
-    std::string pluginPath;
+    String pluginPath;
     PluginState state = PluginState::Discovered;
 };
 
@@ -45,12 +45,12 @@ enum class PluginLoadMode {
 };
 
 struct LoadResult {
-    std::string pluginPath;
-    std::string pluginId;
+    String pluginPath;
+    String pluginId;
     bool success = false;
-    std::string errorMessage;
+    String errorMessage;
     PluginLoadMode loadedMode = PluginLoadMode::Auto;
-    std::string subprocessId;
+    String subprocessId;
 };
 
 } // namespace ArtifactCore

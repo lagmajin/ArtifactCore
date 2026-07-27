@@ -173,8 +173,8 @@ ZeroString ExpressionValue::asZeroString() const {
     return toZeroString();
 }
 
-std::string ExpressionValue::asString() const {
-    return std::string(asZeroString().data(), asZeroString().length());
+String ExpressionValue::asString() const {
+    return String(asZeroString());
 }
 
 double ExpressionValue::x() const { return impl_->vector_.size() > 0 ? impl_->vector_[0] : 0.0; }
@@ -345,9 +345,9 @@ bool ExpressionValue::operator>=(const ExpressionValue& rhs) const {
     return !(*this < rhs);
 }
 
-std::string ExpressionValue::toString() const {
+String ExpressionValue::toString() const {
     const ZeroString text = toZeroString();
-    return std::string(text.data(), text.length());
+    return String(text);
 }
 
 ZeroString ExpressionValue::toZeroString() const {

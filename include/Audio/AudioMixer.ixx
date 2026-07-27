@@ -13,6 +13,7 @@ import Audio.Bus;
 import Audio.Segment;
 import Core.ArtifactString;
 import Utils.String.UniString;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -22,36 +23,36 @@ public:
     ~AudioMixer();
 
     // バス管理
-    std::shared_ptr<AudioBus> createBus(const ZeroString& name);
-    std::shared_ptr<AudioBus> createBus(const std::string& name);
-    std::shared_ptr<AudioBus> createBus(const QString& name);
-    std::shared_ptr<AudioBus> createBus(const UniString& name);
-    void removeBus(std::shared_ptr<AudioBus> bus);
+    SharedPtr<AudioBus> createBus(const ZeroString& name);
+    SharedPtr<AudioBus> createBus(const String& name);
+    SharedPtr<AudioBus> createBus(const QString& name);
+    SharedPtr<AudioBus> createBus(const UniString& name);
+    void removeBus(SharedPtr<AudioBus> bus);
     
     // ルーティング設定
-    void connect(std::shared_ptr<AudioBus> source, std::shared_ptr<AudioBus> target);
-    void disconnect(std::shared_ptr<AudioBus> source);
+    void connect(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target);
+    void disconnect(SharedPtr<AudioBus> source);
     
     // サイドチェーン設定 (パラレルな信号送信)
-    void addSideChainSend(std::shared_ptr<AudioBus> source, std::shared_ptr<AudioBus> target, float amount = 1.0f);
-    void removeSideChainSend(std::shared_ptr<AudioBus> source, std::shared_ptr<AudioBus> target);
+    void addSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target, float amount = 1.0f);
+    void removeSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target);
 
     // 全体の実行
     // グラフをトポロジカルソートして順次処理します
     void process(AudioSegment& finalOutput);
 
-    std::shared_ptr<AudioBus> getMasterBus() const { return masterBus_; }
+    SharedPtr<AudioBus> getMasterBus() const { return masterBus_; }
     int busCount() const;
     std::vector<ZeroString> busNamesZero() const;
-    std::vector<std::string> busNames() const;
-    std::shared_ptr<AudioBus> findBusByName(const ZeroString& name) const;
-    std::shared_ptr<AudioBus> findBusByName(const std::string& name) const;
-    std::shared_ptr<AudioBus> findBusByName(const QString& name) const;
-    std::shared_ptr<AudioBus> findBusByName(const UniString& name) const;
+    std::vector<String> busNames() const;
+    SharedPtr<AudioBus> findBusByName(const ZeroString& name) const;
+    SharedPtr<AudioBus> findBusByName(const String& name) const;
+    SharedPtr<AudioBus> findBusByName(const QString& name) const;
+    SharedPtr<AudioBus> findBusByName(const UniString& name) const;
 
-    std::vector<std::shared_ptr<AudioBus>> getAllBuses() const;
-    std::shared_ptr<AudioBus> getRoutingTarget(std::shared_ptr<AudioBus> bus) const;
-    std::vector<std::pair<std::shared_ptr<AudioBus>, float>> getSideChainSends(std::shared_ptr<AudioBus> bus) const;
+    std::vector<SharedPtr<AudioBus>> getAllBuses() const;
+    SharedPtr<AudioBus> getRoutingTarget(SharedPtr<AudioBus> bus) const;
+    std::vector<std::pair<SharedPtr<AudioBus>, float>> getSideChainSends(SharedPtr<AudioBus> bus) const;
 
     QJsonObject serialize() const;
     bool deserialize(const QJsonObject& data);
@@ -60,7 +61,7 @@ private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
     
-    std::shared_ptr<AudioBus> masterBus_;
+    SharedPtr<AudioBus> masterBus_;
 };
 
 } // namespace ArtifactCore

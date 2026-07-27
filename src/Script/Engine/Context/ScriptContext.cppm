@@ -37,6 +37,7 @@ module Script.Engine.Context;
 
 import Script.Expression.Parser;
 import Script.Expression.Value;
+import Memory.SharedPtr;
 
 namespace ArtifactCore {
 
@@ -44,7 +45,7 @@ class ScriptContext::Impl {
 public:
     std::mutex mutex_;
     std::unordered_map<std::string, ExpressionValue> variables_;
-    std::unordered_map<std::string, std::shared_ptr<ExprNode>> astCache_;
+    std::unordered_map<std::string, SharedPtr<ExprNode>> astCache_;
     ExpressionParser parser_;
 
     Impl() {}
@@ -81,7 +82,7 @@ bool ScriptContext::hasVariable(const std::string& name) const
     return impl_->variables_.find(name) != impl_->variables_.end();
 }
 
-std::shared_ptr<ExprNode> ScriptContext::getOrParseAST(const std::string& expression)
+SharedPtr<ExprNode> ScriptContext::getOrParseAST(const std::string& expression)
 {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     auto it = impl_->astCache_.find(expression);

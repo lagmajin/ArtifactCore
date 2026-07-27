@@ -23,7 +23,7 @@ public:
     AudioSpectrum();
     virtual ~AudioSpectrum() = default;
 
-    std::string getName() const override { return "Audio Spectrum"; }
+    String getName() const override { return "Audio Spectrum"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // 分析結果取得

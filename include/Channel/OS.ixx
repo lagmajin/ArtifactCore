@@ -1,8 +1,9 @@
 module;
 #include <utility>
-#include <string>
 
 export module OS;
+
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -46,8 +47,8 @@ public:
     }
 
     OSFamily family() const { return family_; }
-    std::string name() const { return name_; }
-    std::string version() const { return version_; }
+    String name() const { return name_; }
+    String version() const { return version_; }
     Architecture architecture() const { return arch_; }
     bool is64Bit() const { return arch_ == Architecture::x86_64 || arch_ == Architecture::ARM64; }
 
@@ -56,8 +57,8 @@ public:
 private:
     OSFamily family_ = OSFamily::Unknown;
     Architecture arch_ = Architecture::Unknown;
-    std::string name_;
-    std::string version_;
+    String name_;
+    String version_;
 };
 
 }

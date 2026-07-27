@@ -26,7 +26,7 @@ public:
     AudioChorus();
     virtual ~AudioChorus() = default;
 
-    std::string getName() const override { return "Chorus"; }
+    String getName() const override { return "Chorus"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     void setMode(Mode mode) { mode_ = mode; }
@@ -40,8 +40,8 @@ public:
     float getDepth() const { return depth_; }
 
     std::vector<EffectParameter> getParameters() const override;
-    void setParameterValue(const std::string& id, float value) override;
-    float getParameterValue(const std::string& id) const override;
+    void setParameterValue(const String& id, float value) override;
+    float getParameterValue(const String& id) const override;
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject& obj) override;
 

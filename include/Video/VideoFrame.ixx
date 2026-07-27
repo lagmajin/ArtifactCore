@@ -1,12 +1,13 @@
 module;
 #include <cstdint>
-#include <memory>
 #include <variant>
 #include <vector>
 
 #include "../Define/DllExportMacro.hpp"
 
 export module Video.VideoFrame;
+
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -72,7 +73,7 @@ struct GpuVideoFrame {
     VideoFrameMetadata meta;
     VideoFrameStorageKind storage = VideoFrameStorageKind::Unknown;
     std::variant<std::monostate, VulkanVideoFrameHandle> handle;
-    std::shared_ptr<void> lifetime;
+    SharedPtr<void> lifetime;
 
     bool isValid() const
     {

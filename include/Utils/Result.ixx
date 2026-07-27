@@ -7,7 +7,12 @@ module;
 
 export module Utils.Result;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
+
+template <typename T>
+using ResultOptional = std::optional<T>;
 
 enum class ErrorCode {
   None = 0,
@@ -74,15 +79,15 @@ struct Status {
     return {false, code, ErrorContext{.code = code}};
   }
   static Status fail(ErrorCode code,
-                     std::string message,
-                     std::string operation = {},
-                     std::string objectId = {},
+                     String message,
+                     String operation = {},
+                     String objectId = {},
                      SourceLocation location = {}) {
     return fail(ErrorContext{
         .code = code,
-        .message = std::move(message),
-        .operation = std::move(operation),
-        .objectId = std::move(objectId),
+        .message = toStdString(message),
+        .operation = toStdString(operation),
+        .objectId = toStdString(objectId),
         .location = location});
   }
   static Status fail(ErrorContext context) noexcept {
@@ -103,9 +108,9 @@ class Result {
   static Result ok(T value) { return Result(std::move(value)); }
   static Result fail(ErrorCode code = ErrorCode::Failed) { return Result(Status::fail(code)); }
   static Result fail(ErrorCode code,
-                     std::string message,
-                     std::string operation = {},
-                     std::string objectId = {},
+                     String message,
+                     String operation = {},
+                     String objectId = {},
                      SourceLocation location = {}) {
     return Result(Status::fail(code,
                                 std::move(message),
@@ -145,8 +150,8 @@ class Result {
     return value_.has_value() ? *value_ : static_cast<T>(fallbackFactory());
   }
 
-  const std::optional<T>& maybe() const noexcept { return value_; }
-  std::optional<T> toOptional() const { return value_; }
+  const ResultOptional<T>& maybe() const noexcept { return value_; }
+  ResultOptional<T> toOptional() const { return value_; }
   const T* getIfValue() const noexcept { return valuePtr(); }
 
   template <typename F>
@@ -194,7 +199,7 @@ class Result {
   const Status& getStatus() const noexcept { return status_; }
   bool statusOk() const noexcept { return static_cast<bool>(status_); }
   ErrorCode errorOr(ErrorCode fallback) const noexcept { return status_.success ? fallback : status_.error; }
-  const std::optional<T>& asOptional() const noexcept { return maybe(); }
+  const ResultOptional<T>& asOptional() const noexcept { return maybe(); }
   T valueOrDefault() const { return value_.has_value() ? *value_ : T{}; }
   T valueOrElse(const T& fallback) const { return value_.has_value() ? *value_ : fallback; }
   T* tryValue() noexcept { return valuePtr(); }
@@ -210,7 +215,7 @@ class Result {
   }
 
 private:
-  std::optional<T> value_;
+  ResultOptional<T> value_;
   Status status_{Status::fail()};
 };
 
@@ -233,7 +238,7 @@ inline Result<T> MakeFailedResult(ErrorContext context)
 }
 
 template <typename T>
-inline Result<T> FromOptional(const std::optional<T>& value, ErrorCode code = ErrorCode::Failed)
+inline Result<T> FromOptional(const ResultOptional<T>& value, ErrorCode code = ErrorCode::Failed)
 {
  if (!value.has_value()) {
   return Result<T>(Status::fail(code));

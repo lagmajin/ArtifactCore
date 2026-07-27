@@ -5,6 +5,7 @@ module;
 export module Text.Style;
 
 import Utils.String.UniString;
+import Utils.Optional;
 import FloatRGBA;
 
 export namespace ArtifactCore {
@@ -66,6 +67,6 @@ export struct ParagraphStyle {
   float boxHeight = 0.0f;
   float paragraphSpacing = 0.0f;
 
-  struct PathBinding { double startOffset=0.0; double endOffset=0.0; bool reversePath=false; bool alignToPath=true; bool operator==(const PathBinding &other) const = default; }; std::optional<PathBinding> pathBinding; bool operator==(const ParagraphStyle &other) const = default;
+  struct PathBinding { double startOffset=0.0; double endOffset=0.0; bool reversePath=false; bool alignToPath=true; bool operator==(const PathBinding &other) const = default; }; Optional<PathBinding> pathBinding; bool operator==(const ParagraphStyle &other) const = default;
 };
 } // namespace ArtifactCore

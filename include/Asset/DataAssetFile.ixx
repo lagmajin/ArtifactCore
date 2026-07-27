@@ -1,7 +1,6 @@
 module;
 
 #include <string>
-#include <memory>
 #include <filesystem>
 #include <vector>
 
@@ -14,6 +13,7 @@ import Data.CsvParser;
 import Data.DataTable;
 import Data.ColumnType;
 import Data.TypeInference;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -47,13 +47,13 @@ protected:
         std::string schema;
         for (int c = 0; c < table_.columnCount(); ++c) {
             if (c > 0) schema += ", ";
-            std::vector<std::string> colValues;
+            std::vector<String> colValues;
             colValues.reserve(table_.rowCount());
             for (int r = 0; r < table_.rowCount(); ++r) {
                 colValues.push_back(table_.getString(r, c));
             }
             auto inferredType = TypeInference::inferFromValues(colValues);
-            schema += table_.columnName(c) + ":" + columnTypeToString(inferredType);
+            schema += toStdString(table_.columnName(c)) + ":" + columnTypeToString(inferredType);
         }
         meta().setValue("schema", schema);
 

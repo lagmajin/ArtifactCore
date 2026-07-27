@@ -13,6 +13,7 @@ module;
 export module Source.ISource;
 
 import Utils.Id;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -156,8 +157,8 @@ private:
  SourceMetadata metadata_;
 };
 
-LIBRARY_DLL_API std::shared_ptr<ISource> makeFileSource(const QString& filePath);
-LIBRARY_DLL_API std::shared_ptr<ISource> makeGeneratedSource(QString displayName = QString(),
+LIBRARY_DLL_API SharedPtr<ISource> makeFileSource(const QString& filePath);
+LIBRARY_DLL_API SharedPtr<ISource> makeGeneratedSource(QString displayName = QString(),
                                                             QByteArray initialData = QByteArray(),
                                                             QString mimeType = QString(),
                                                             QSize sizeHint = QSize(),

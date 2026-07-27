@@ -9,12 +9,13 @@ module;
 export module Data.TypeInference;
 
 import Data.ColumnType;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
 class TypeInference {
 public:
-    static ColumnType inferFromValues(const std::vector<std::string>& values) {
+    static ColumnType inferFromValues(const std::vector<String>& values) {
         bool allBool = true;
         bool allInt = true;
         bool allFloat = true;
@@ -24,15 +25,16 @@ public:
         bool hasValid = false;
 
         for (const auto& v : values) {
-            if (v.empty()) continue;
+            if (v.isEmpty()) continue;
+            const std::string_view value(v.data(), v.length());
             hasValid = true;
 
-            if (allBool && !isBool(v)) allBool = false;
-            if (allInt && !isInt(v)) allInt = false;
-            if (allFloat && !isFloat(v)) allFloat = false;
-            if (allDate && !isDate(v)) allDate = false;
-            if (allTime && !isTime(v)) allTime = false;
-            if (allDateTime && !isDateTime(v)) allDateTime = false;
+            if (allBool && !isBool(value)) allBool = false;
+            if (allInt && !isInt(value)) allInt = false;
+            if (allFloat && !isFloat(value)) allFloat = false;
+            if (allDate && !isDate(value)) allDate = false;
+            if (allTime && !isTime(value)) allTime = false;
+            if (allDateTime && !isDateTime(value)) allDateTime = false;
 
             if (!allBool && !allInt && !allFloat && !allDate && !allTime && !allDateTime) {
                 return ColumnType::String;

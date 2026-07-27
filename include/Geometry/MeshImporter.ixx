@@ -36,6 +36,7 @@ module;
 export module MeshImporter;
 
 import Mesh;
+import Memory.SharedPtr;
 import Utils.String.UniString; // KvɉėL
 
 export namespace ArtifactCore {
@@ -61,7 +62,7 @@ public:
     MeshImporter& operator=(const MeshImporter&) = delete;
 
     // t@CMesh𐶐
-    std::shared_ptr<Mesh> importMeshFromFile(const UniString& path);
+    SharedPtr<Mesh> importMeshFromFile(const UniString& path);
     [[nodiscard]] Backend lastBackend() const;
     [[nodiscard]] QString lastError() const;
     [[nodiscard]] QString lastBaseColorTexture() const;

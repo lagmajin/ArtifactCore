@@ -14,7 +14,7 @@ namespace ArtifactCore {
 CreativeEffectManager::CreativeEffectManager() {}
 CreativeEffectManager::~CreativeEffectManager() = default;
 
-void CreativeEffectManager::addEffect(std::shared_ptr<CreativeEffect> effect) {
+void CreativeEffectManager::addEffect(SharedPtr<CreativeEffect> effect) {
     if (effect) {
         effectStack_.push_back(effect);
     }

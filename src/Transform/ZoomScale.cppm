@@ -111,7 +111,7 @@ bool ZoomScale2D::Impl::isDefault() const
  return scale_ == 1.0f;
 }
 
-std::string ZoomScale2D::Impl::toString() const
+ std::string ZoomScale2D::Impl::toString() const
 {
  return std::to_string(scale_);
 }
@@ -187,9 +187,9 @@ std::string ZoomScale2D::Impl::toString() const
   return impl_->isDefault();
  }
 
- std::string ZoomScale2D::toString() const
+ String ZoomScale2D::toString() const
  {
-  return impl_->toString();
+  return String(impl_->toString());
  }
 
  ZoomScale2D& ZoomScale2D::operator+=(float delta)

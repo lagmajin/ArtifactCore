@@ -8,6 +8,8 @@ module;
 
 export module Core.AI.LocalAgent;
 
+import Memory.SharedPtr;
+
 import Core.AI.Context;
 
 export namespace ArtifactCore {
@@ -105,6 +107,6 @@ public:
     virtual QString lastError() const { return {}; }
 };
 
-using LocalAIAgentPtr = std::shared_ptr<LocalAIAgent>;
+using LocalAIAgentPtr = SharedPtr<LocalAIAgent>;
 
 } // namespace ArtifactCore

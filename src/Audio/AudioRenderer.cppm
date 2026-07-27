@@ -12,6 +12,7 @@ module;
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <utility>
 
 module AudioRenderer;
@@ -67,10 +68,10 @@ struct AudioRenderer::Impl {
   std::atomic<size_t> stopCount{0};
   std::atomic<size_t> closeCount{0};
 
-  // Level metering — shared_ptr + atomic for lock-free read in audio callback.
-  // PERF: std::function + mutex はコールバック毎に mutex ロック + ハップ割り当てを発生させるため、
-  // atomic<shared_ptr> で参照を差し替え、読み側は load で参照する。
-  std::atomic<std::shared_ptr<std::function<void(const AudioLevelData&)>>> levelCallback_;
+  // Level metering — 2 スロットの SharedPtr を切り替えて、audio callback 側はロックなしで参照する。
+  SharedPtr<std::function<void(const AudioLevelData&)>> levelCallbackSlots_[2];
+  std::atomic<int> activeLevelCallbackSlot_{0};
+  std::mutex levelCallbackMutex_;
   std::atomic<int> levelCallbackCounter{0}; // Throttle callback frequency
 
   // We'll use 48kHz Stereo as our internal processing format for the renderer
@@ -213,7 +214,8 @@ struct AudioRenderer::Impl {
         }
       }
 
-      auto cb = levelCallback_.load(std::memory_order_acquire);
+      const int callbackSlot = activeLevelCallbackSlot_.load(std::memory_order_acquire);
+      auto cb = levelCallbackSlots_[callbackSlot];
       if (cb && availableFrames > 0) {
         const int counter = levelCallbackCounter.fetch_add(1, std::memory_order_relaxed) + 1;
         if (counter >= 4) {
@@ -544,19 +546,19 @@ bool AudioRenderer::openDevice(AudioBackendType type,
   return openDevice(deviceName);
 }
 
-// PERF: atomic<shared_ptr> で参照を差し替える。呼び出し側は非同期で安全に新しいコールバックを設定できる。
-// audioCallback 側は load でコピーせずに参照する。
+// PERF: 2 スロットの SharedPtr を切り替えて、audioCallback 側はロックせずに参照する。
 void AudioRenderer::setLevelCallback(std::function<void(const AudioLevelData&)> callback) {
   if (impl_) {
+    std::lock_guard<std::mutex> lock(impl_->levelCallbackMutex_);
+    const int currentSlot = impl_->activeLevelCallbackSlot_.load(std::memory_order_acquire);
+    const int nextSlot = 1 - currentSlot;
     if (callback) {
-      impl_->levelCallback_.store(
-          std::make_shared<std::function<void(const AudioLevelData&)>>(std::move(callback)),
-          std::memory_order_release);
+      impl_->levelCallbackSlots_[nextSlot] =
+          makeShared<std::function<void(const AudioLevelData&)>>(std::move(callback));
     } else {
-      impl_->levelCallback_.store(
-          std::shared_ptr<std::function<void(const AudioLevelData&)>>(),
-          std::memory_order_release);
+      impl_->levelCallbackSlots_[nextSlot] = nullptr;
     }
+    impl_->activeLevelCallbackSlot_.store(nextSlot, std::memory_order_release);
     impl_->levelCallbackCounter.store(0, std::memory_order_relaxed);
   }
 }

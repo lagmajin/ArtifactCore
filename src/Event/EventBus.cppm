@@ -16,16 +16,18 @@ module;
 
 module Event.Bus;
 
+import Memory.SharedPtr;
+
 namespace ArtifactCore {
 
 struct EventBus::Impl {
     struct Entry {
         mutable std::mutex mutex;
-        std::vector<std::shared_ptr<SubscriberRecord>> subscribers;
+        std::vector<SharedPtr<SubscriberRecord>> subscribers;
     };
 
     mutable std::mutex registryMutex;
-    std::unordered_map<std::type_index, std::shared_ptr<Entry>> registry;
+    std::unordered_map<std::type_index, SharedPtr<Entry>> registry;
 
     mutable std::mutex queueMutex;
     std::deque<QueuedEvent> queue;
@@ -39,17 +41,17 @@ struct EventBus::Impl {
     std::unordered_map<std::type_index, std::string> typeNames;
 };
 
-static void pruneInactive(std::vector<std::shared_ptr<EventBus::SubscriberRecord>>& subscribers)
+static void pruneInactive(std::vector<SharedPtr<EventBus::SubscriberRecord>>& subscribers)
 {
     subscribers.erase(std::remove_if(subscribers.begin(), subscribers.end(),
-        [](const std::shared_ptr<EventBus::SubscriberRecord>& record) {
+        [](const SharedPtr<EventBus::SubscriberRecord>& record) {
             return !record || !record->active.load(std::memory_order_acquire);
         }), subscribers.end());
 }
 
 static void disconnectRecordFromImpl(EventBus::Impl& impl, std::type_index type, std::size_t id)
 {
-    std::shared_ptr<EventBus::Impl::Entry> entry;
+    SharedPtr<EventBus::Impl::Entry> entry;
     {
         std::lock_guard<std::mutex> lock(impl.registryMutex);
         auto it = impl.registry.find(type);
@@ -68,7 +70,7 @@ static void disconnectRecordFromImpl(EventBus::Impl& impl, std::type_index type,
         std::lock_guard<std::mutex> lock(entry->mutex);
         auto& subscribers = entry->subscribers;
         subscribers.erase(std::remove_if(subscribers.begin(), subscribers.end(),
-            [id](const std::shared_ptr<EventBus::SubscriberRecord>& candidate) {
+            [id](const SharedPtr<EventBus::SubscriberRecord>& candidate) {
                 return !candidate || candidate->id == id || !candidate->active.load(std::memory_order_acquire);
             }), subscribers.end());
         entryEmpty = subscribers.empty();
@@ -83,7 +85,7 @@ static void disconnectRecordFromImpl(EventBus::Impl& impl, std::type_index type,
     }
 }
 
-EventBus::Subscription::Subscription(std::weak_ptr<Impl> impl, std::shared_ptr<SubscriberRecord> record) noexcept
+EventBus::Subscription::Subscription(WeakPtr<Impl> impl, SharedPtr<SubscriberRecord> record) noexcept
     : impl_(std::move(impl))
     , record_(std::move(record))
 {
@@ -128,7 +130,7 @@ bool EventBus::Subscription::connected() const noexcept
 }
 
 EventBus::EventBus()
-    : impl_(std::make_shared<Impl>())
+    : impl_(makeShared<Impl>())
 {
 }
 
@@ -139,17 +141,17 @@ EventBus::Subscription EventBus::subscribeRaw(std::type_index type, std::functio
         return {};
     }
 
-    auto record = std::make_shared<SubscriberRecord>();
+    auto record = makeShared<SubscriberRecord>();
     record->id = impl->nextSubscriberId.fetch_add(1, std::memory_order_relaxed);
     record->type = type;
     record->callback = std::move(callback);
 
-    std::shared_ptr<Impl::Entry> entry;
+    SharedPtr<Impl::Entry> entry;
     {
         std::lock_guard<std::mutex> lock(impl->registryMutex);
         auto& slot = impl->registry[type];
         if (!slot) {
-            slot = std::make_shared<Impl::Entry>();
+            slot = makeShared<Impl::Entry>();
         }
         entry = slot;
     }
@@ -171,7 +173,7 @@ std::size_t EventBus::publishRaw(std::type_index type, const void* payload,
         return 0;
     }
 
-    std::shared_ptr<Impl::Entry> entry;
+    SharedPtr<Impl::Entry> entry;
     {
         std::lock_guard<std::mutex> lock(impl->registryMutex);
         auto it = impl->registry.find(type);
@@ -181,7 +183,7 @@ std::size_t EventBus::publishRaw(std::type_index type, const void* payload,
         entry = it->second;
     }
 
-    std::vector<std::shared_ptr<SubscriberRecord>> snapshot;
+    std::vector<SharedPtr<SubscriberRecord>> snapshot;
     {
         std::lock_guard<std::mutex> lock(entry->mutex);
         snapshot = entry->subscribers;
@@ -220,7 +222,7 @@ std::size_t EventBus::publishRaw(std::type_index type, const void* payload,
     return delivered;
 }
 
-void EventBus::enqueueRaw(std::type_index type, std::shared_ptr<const void> payload,
+void EventBus::enqueueRaw(std::type_index type, SharedPtr<const void> payload,
                           void (*dispatch)(EventBus&, const void*, std::source_location),
                           EventPriority priority,
                           std::source_location origin)
@@ -246,7 +248,7 @@ std::size_t EventBus::subscriberCountRaw(std::type_index type) const noexcept
         return 0;
     }
 
-    std::shared_ptr<Impl::Entry> entry;
+    SharedPtr<Impl::Entry> entry;
     {
         std::lock_guard<std::mutex> lock(impl->registryMutex);
         auto it = impl->registry.find(type);
@@ -298,7 +300,7 @@ void EventBus::forEachRegisteredType(
     if (!impl) return;
 
     // Snapshot registry to avoid holding locks while calling fn
-    std::vector<std::pair<std::type_index, std::shared_ptr<Impl::Entry>>> snapshot;
+    std::vector<std::pair<std::type_index, SharedPtr<Impl::Entry>>> snapshot;
     {
         std::lock_guard<std::mutex> lock(impl->registryMutex);
         snapshot.reserve(impl->registry.size());

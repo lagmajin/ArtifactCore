@@ -2,6 +2,7 @@ export module Core.Thread.BackgroundTaskWorkerPool;
 
 import std;
 import Core.Thread.BackgroundTaskRuntime;
+import Memory.SharedPtr;
 // import Core.Event.EventBus; // Module not found
 
 namespace ArtifactCore {
@@ -129,7 +130,7 @@ public:
   /// <summary>
   /// Taskをキューに追加する
   /// </summary>
-  auto SubmitTask(std::shared_ptr<IBackgroundTask> task) -> TaskId {
+  auto SubmitTask(SharedPtr<IBackgroundTask> task) -> TaskId {
     std::lock_guard<std::mutex> lock(queueMutex_);
 
     if (pendingTasks_.size() >= config_.maxPendingTasks) {
@@ -204,7 +205,7 @@ public:
   /// <summary>
   /// EventBusを設定する（UI通知用）
   /// </summary>
-  void SetEventBus(std::shared_ptr<int> eventBus) {
+  void SetEventBus(SharedPtr<int> eventBus) {
     // eventBus_ = std::move(eventBus); // EventBus module missing
   }
 
@@ -244,7 +245,7 @@ public:
 private:
   struct PrioritizedTask {
     TaskPriority priority;
-    std::shared_ptr<IBackgroundTask> task;
+    SharedPtr<IBackgroundTask> task;
 
     auto operator<(const PrioritizedTask &other) const -> bool {
       return priority > other.priority; // 値が小さいほど高優先度
@@ -256,7 +257,7 @@ private:
   /// </summary>
   void WorkerLoop(int workerId) {
     while (running_.load()) {
-      std::shared_ptr<IBackgroundTask> task;
+      SharedPtr<IBackgroundTask> task;
 
       // Taskを取得
       {
@@ -304,7 +305,7 @@ private:
   /// <summary>
   /// Taskを実行する
   /// </summary>
-  void ExecuteTask(std::shared_ptr<IBackgroundTask> task, int workerId) {
+  void ExecuteTask(SharedPtr<IBackgroundTask> task, int workerId) {
     TaskId taskId = task->GetTaskId();
     TaskState oldState = TaskState::Scheduled;
     TaskState newState = TaskState::Running;
@@ -458,7 +459,7 @@ private:
   std::vector<std::thread> workers_;
   std::thread schedulerThread_;
 
-  std::deque<std::shared_ptr<IBackgroundTask>> pendingTasks_;
+  std::deque<SharedPtr<IBackgroundTask>> pendingTasks_;
   mutable std::mutex queueMutex_;
   std::condition_variable queueCV_;
 
@@ -468,7 +469,7 @@ private:
   std::unordered_map<TaskId, TaskSnapshot> snapshots_;
   mutable std::mutex snapshotsMutex_;
 
-  // std::shared_ptr<EventBus> eventBus_; // EventBus module missing
+  // SharedPtr<EventBus> eventBus_; // EventBus module missing
 };
 
 } // namespace ArtifactCore

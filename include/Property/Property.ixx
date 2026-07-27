@@ -6,7 +6,6 @@ class tst_QList;
 #include <QHash>
 #include <QVector>
 #include <QJsonObject>
-#include <memory>
 #include "../Define/DllExportMacro.hpp"
 
 export module Property;
@@ -15,101 +14,140 @@ import Property.Abstract;
 import Property.Group;
 import Property.Path;
 import Property.SerializationBridge;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
 /**
  * @brief AbstractProperty の便利な共有ポインタラッパークラス
  */
-class LIBRARY_DLL_API Property : public std::shared_ptr<AbstractProperty> {
+class LIBRARY_DLL_API Property {
 public:
-    using std::shared_ptr<AbstractProperty>::shared_ptr;
+    using element_type = AbstractProperty;
+
+    Property() = default;
+    Property(std::nullptr_t) noexcept {}
+    explicit Property(const SharedPtr<AbstractProperty>& property) noexcept : property_(property) {}
+    explicit Property(SharedPtr<AbstractProperty>&& property) noexcept : property_(std::move(property)) {}
 
     // 便利コンストラクタ群
     
     // Float
-    Property(const QString& name, float value) 
-        : std::shared_ptr<AbstractProperty>(std::make_shared<AbstractProperty>()) 
+    Property(const QString& name, float value)
+        : property_(makeShared<AbstractProperty>())
     {
-        (*this)->setName(name);
-        (*this)->setType(PropertyType::Float);
-        (*this)->setValue(value);
-        (*this)->setDefaultValue(value);
+        property_->setName(name);
+        property_->setType(PropertyType::Float);
+        property_->setValue(value);
+        property_->setDefaultValue(value);
     }
 
     Property(const QString& name, float value, float min, float max, const QString& unit = "")
-        : std::shared_ptr<AbstractProperty>(std::make_shared<AbstractProperty>())
+        : property_(makeShared<AbstractProperty>())
     {
-        (*this)->setName(name);
-        (*this)->setType(PropertyType::Float);
-        (*this)->setValue(value);
-        (*this)->setDefaultValue(value);
-        (*this)->setHardRange(min, max);
+        property_->setName(name);
+        property_->setType(PropertyType::Float);
+        property_->setValue(value);
+        property_->setDefaultValue(value);
+        property_->setHardRange(min, max);
         if (!unit.isEmpty()) {
-            (*this)->setUnit(unit);
+            property_->setUnit(unit);
         }
     }
 
     // Boolean
     Property(const QString& name, bool value)
-        : std::shared_ptr<AbstractProperty>(std::make_shared<AbstractProperty>())
+        : property_(makeShared<AbstractProperty>())
     {
-        (*this)->setName(name);
-        (*this)->setType(PropertyType::Boolean);
-        (*this)->setValue(value);
-        (*this)->setDefaultValue(value);
+        property_->setName(name);
+        property_->setType(PropertyType::Boolean);
+        property_->setValue(value);
+        property_->setDefaultValue(value);
     }
 
     // Integer
     Property(const QString& name, int value)
-        : std::shared_ptr<AbstractProperty>(std::make_shared<AbstractProperty>())
+        : property_(makeShared<AbstractProperty>())
     {
-        (*this)->setName(name);
-        (*this)->setType(PropertyType::Integer);
-        (*this)->setValue(value);
-        (*this)->setDefaultValue(value);
+        property_->setName(name);
+        property_->setType(PropertyType::Integer);
+        property_->setValue(value);
+        property_->setDefaultValue(value);
     }
 
     // String
     Property(const QString& name, const QString& value)
-        : std::shared_ptr<AbstractProperty>(std::make_shared<AbstractProperty>())
+        : property_(makeShared<AbstractProperty>())
     {
-        (*this)->setName(name);
-        (*this)->setType(PropertyType::String);
-        (*this)->setValue(value);
-        (*this)->setDefaultValue(value);
+        property_->setName(name);
+        property_->setType(PropertyType::String);
+        property_->setValue(value);
+        property_->setDefaultValue(value);
+    }
+
+    AbstractProperty* get() const noexcept
+    {
+        return property_.get();
+    }
+
+    AbstractProperty* operator->() const noexcept
+    {
+        return property_.get();
+    }
+
+    AbstractProperty& operator*() const noexcept
+    {
+        return *property_;
+    }
+
+    explicit operator bool() const noexcept
+    {
+        return static_cast<bool>(property_);
+    }
+
+    SharedPtr<AbstractProperty> shared() const noexcept
+    {
+        return property_;
+    }
+
+    operator SharedPtr<AbstractProperty>() const
+    {
+        return property_;
     }
 
     // Builder-style extensions for properties
     Property& setHardRange(double min, double max) {
-        (*this)->setHardRange(min, max);
+        property_->setHardRange(min, max);
         return *this;
     }
     
     Property& setSoftRange(double min, double max) {
-        (*this)->setSoftRange(min, max);
+        property_->setSoftRange(min, max);
         return *this;
     }
 
     Property& setStep(double step) {
-        (*this)->setStep(step);
+        property_->setStep(step);
         return *this;
     }
 
     Property& setUnit(const QString& unit) {
-        (*this)->setUnit(unit);
+        property_->setUnit(unit);
         return *this;
     }
 
     Property& setTooltip(const QString& tooltip) {
-        (*this)->setTooltip(tooltip);
+        property_->setTooltip(tooltip);
         return *this;
     }
 
     Property& setDisplayPriority(int priority) {
-        (*this)->setDisplayPriority(priority);
+        property_->setDisplayPriority(priority);
         return *this;
     }
+
+private:
+    SharedPtr<AbstractProperty> property_;
 };
 
 /**
@@ -186,7 +224,7 @@ class LIBRARY_DLL_API PropertyRegistry {
 public:
     struct Entry {
         PropertyOwnerDescriptor descriptor;
-        std::shared_ptr<PropertyGroup> group;
+        SharedPtr<PropertyGroup> group;
     };
 
     void clear()
@@ -200,7 +238,7 @@ public:
     }
 
     void registerOwner(const PropertyOwnerDescriptor& descriptor,
-                       const std::shared_ptr<PropertyGroup>& group)
+                       const SharedPtr<PropertyGroup>& group)
     {
         if (!group) {
             return;
@@ -216,7 +254,7 @@ public:
 
     void registerOwner(const PropertyOwnerDescriptor& descriptor, const PropertyGroup& group)
     {
-        registerOwner(descriptor, std::make_shared<PropertyGroup>(group));
+        registerOwner(descriptor, makeShared<PropertyGroup>(group));
     }
 
     void registerOwnerSnapshot(const QString& ownerPath,
@@ -258,7 +296,7 @@ public:
         return result;
     }
 
-    bool tryGetOwner(const QString& ownerPath, PropertyOwnerDescriptor* descriptor, std::shared_ptr<PropertyGroup>* group = nullptr) const
+    bool tryGetOwner(const QString& ownerPath, PropertyOwnerDescriptor* descriptor, SharedPtr<PropertyGroup>* group = nullptr) const
     {
         const auto it = entries_.find(ownerPath);
         if (it == entries_.end()) {
@@ -418,7 +456,7 @@ public:
         QString propertyName;
         QString propertyType;
         QVariant currentValue;
-        std::shared_ptr<AbstractProperty> property;
+        SharedPtr<AbstractProperty> property;
         bool isReadOnly = true;
         bool isValid = false;
     };
@@ -454,7 +492,7 @@ public:
 
         auto& registry = globalPropertyRegistry();
         PropertyOwnerDescriptor descriptor;
-        std::shared_ptr<PropertyGroup> group;
+        SharedPtr<PropertyGroup> group;
         if (!registry.tryGetOwner(ownerPath, &descriptor, &group)) {
             return result;
         }

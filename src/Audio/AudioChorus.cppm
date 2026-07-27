@@ -60,14 +60,14 @@ std::vector<EffectParameter> AudioChorus::getParameters() const {
     };
 }
 
-void AudioChorus::setParameterValue(const std::string& id, float value) {
+void AudioChorus::setParameterValue(const String& id, float value) {
     if (id == "rate") rate_ = value;
     else if (id == "depth") depth_ = value;
     else if (id == "feedback") feedback_ = value;
     else if (id == "delay_ms") baseDelayMs_ = value;
 }
 
-float AudioChorus::getParameterValue(const std::string& id) const {
+float AudioChorus::getParameterValue(const String& id) const {
     if (id == "rate") return rate_;
     if (id == "depth") return depth_;
     if (id == "feedback") return feedback_;

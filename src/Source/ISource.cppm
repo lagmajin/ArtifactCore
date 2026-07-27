@@ -8,6 +8,8 @@ module;
 
 module Source.ISource;
 
+import Memory.SharedPtr;
+
 namespace ArtifactCore {
 
 namespace {
@@ -289,20 +291,20 @@ void GeneratedSource::clearGenerator() {
  generator_ = {};
 }
 
-std::shared_ptr<ISource> makeFileSource(const QString& filePath) {
- return std::make_shared<FileSource>(filePath);
+SharedPtr<ISource> makeFileSource(const QString& filePath) {
+ return makeShared<FileSource>(filePath);
 }
 
-std::shared_ptr<ISource> makeGeneratedSource(QString displayName,
+SharedPtr<ISource> makeGeneratedSource(QString displayName,
                                              QByteArray initialData,
                                              QString mimeType,
                                              QSize sizeHint,
                                              GeneratedSource::Generator generator) {
- return std::make_shared<GeneratedSource>(std::move(displayName),
-                                          std::move(initialData),
-                                          std::move(mimeType),
-                                          sizeHint,
-                                          std::move(generator));
+ return makeShared<GeneratedSource>(std::move(displayName),
+                                    std::move(initialData),
+                                    std::move(mimeType),
+                                    sizeHint,
+                                    std::move(generator));
 }
 
 } // namespace ArtifactCore

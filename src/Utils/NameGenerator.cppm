@@ -61,12 +61,12 @@ namespace ArtifactCore
   int width_ = 0;
  };
 	
- ZeroString PatternNameGenerator::makeCandidateZero(const std::string& base, int n) const
+ ZeroString PatternNameGenerator::makeCandidateZero(const String& base, int n) const
  {
   ZeroString s = impl_->pattern_;
   size_t pos = s.find("(\\name)");
   if (pos != static_cast<size_t>(-1))
-   s.replace(pos, 7, base.c_str());
+   s.replace(pos, 7, base.data());
   pos = s.find("***");
  if (pos != static_cast<size_t>(-1))
   {
@@ -76,15 +76,15 @@ namespace ArtifactCore
   return s;
  }
 
- std::string PatternNameGenerator::makeCandidate(const std::string& base, int n) const
+ String PatternNameGenerator::makeCandidate(const String& base, int n) const
  {
   const ZeroString candidate = makeCandidateZero(base, n);
-  return std::string(candidate.data(), candidate.length());
+  return String(candidate.data(), candidate.length());
  }
 
-  PatternNameGenerator::PatternNameGenerator(const std::string& pattern, int zeroPad /*= 0*/):impl_(new Impl()), width_(zeroPad)
+  PatternNameGenerator::PatternNameGenerator(const String& pattern, int zeroPad /*= 0*/):impl_(new Impl()), width_(zeroPad)
   {
-  impl_->pattern_ = ZeroString(pattern);
+  impl_->pattern_ = ZeroString(toStdString(pattern));
 
  }
 
@@ -93,9 +93,10 @@ namespace ArtifactCore
   delete impl_;
  }
 
- std::string PatternNameGenerator::Generate(const std::string& baseName)
+ String PatternNameGenerator::Generate(const String& baseName)
  {
-  int n = impl_->counters[baseName] + 1;
+  const std::string baseStd = toStdString(baseName);
+  int n = impl_->counters[baseStd] + 1;
   ZeroString candidate;
   std::string candidateStd;
   do
@@ -104,14 +105,14 @@ namespace ArtifactCore
    candidateStd = std::string(candidate.data(), candidate.length());
    n++;
   } while (impl_->usedNames.count(candidateStd) > 0);
-  impl_->counters[baseName] = n - 1;
+  impl_->counters[baseStd] = n - 1;
   impl_->usedNames.insert(candidateStd);
-  return candidateStd;
+  return String(candidateStd);
  }
 
- void PatternNameGenerator::Release(const std::string& name)
+ void PatternNameGenerator::Release(const String& name)
  {
-  impl_->usedNames.erase(name);
+  impl_->usedNames.erase(toStdString(name));
  }
 
 };

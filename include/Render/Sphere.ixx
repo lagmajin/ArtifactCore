@@ -5,6 +5,8 @@ module;
 
 export module Render.Sphere;
 
+import Memory.SharedPtr;
+
 import Render.Vector3D;
 import Render.Ray;
 
@@ -50,6 +52,6 @@ struct Sphere
     }
 };
 
-using SpherePtr = std::shared_ptr<Sphere>;
+using SpherePtr = SharedPtr<Sphere>;
 
 } // namespace ArtifactCore::RayTrace

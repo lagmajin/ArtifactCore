@@ -1,7 +1,6 @@
 module;
 #include <utility>
 #include <memory>
-#include <optional>
 #include <QString>
 #include <QStringList>
 #include "../Define/DllExportMacro.hpp"
@@ -9,6 +8,7 @@ module;
 export module Render.Farm.Checkpoint;
 
 import Render.Farm.Types;
+import Utils.Optional;
 
 export namespace ArtifactCore {
 
@@ -24,7 +24,7 @@ public:
     QString basePath() const;
 
     bool save(const CheckpointInfo& checkpoint);
-    std::optional<CheckpointInfo> load(const QString& jobId);
+    Optional<CheckpointInfo> load(const QString& jobId);
     bool remove(const QString& jobId);
     QStringList listCheckpoints() const;
 

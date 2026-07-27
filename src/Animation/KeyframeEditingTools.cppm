@@ -559,16 +559,17 @@ private:
 } // anonymous namespace
 
 std::vector<KeyframePoint> KeyframeEditingTools::expressionToKeyframes(
-    const std::string& expression,
+    const String& expression,
     double frameRate,
     double startFrame,
     double endFrame,
     std::uint32_t seed)
 {
     std::vector<KeyframePoint> result;
-    if (expression.empty() || frameRate <= 0.0) return result;
+    if (expression.isEmpty() || frameRate <= 0.0) return result;
 
-    SimpleExprEval eval(expression);
+    const std::string expressionStd(expression.data(), expression.length());
+    SimpleExprEval eval(expressionStd);
     eval.variables["fps"] = frameRate;
 
     const size_t count = static_cast<size_t>(std::max(1.0, endFrame - startFrame + 1.0));

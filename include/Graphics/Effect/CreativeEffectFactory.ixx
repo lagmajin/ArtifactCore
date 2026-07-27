@@ -1,6 +1,5 @@
 module;
 #include <utility>
-#include <string>
 #include <vector>
 #include <memory>
 #include <QDebug>
@@ -9,6 +8,8 @@ module;
 export module Graphics.Effect.Creative.Factory;
 
 import Graphics.Effect.Creative;
+import Core.ArtifactString;
+import Memory.SharedPtr;
 import Core.Diagnostics.FallbackPolicy;
 import Graphics.Effect.Creative.Emboss;
 import Graphics.Effect.Creative.Fisheye;
@@ -36,29 +37,29 @@ export namespace ArtifactCore {
  */
 class LIBRARY_DLL_API CreativeEffectFactory {
 public:
-    static std::shared_ptr<CreativeEffect> create(const std::string& name);
-    static std::vector<std::string> getAvailableEffects();
+    static SharedPtr<CreativeEffect> create(const String& name);
+    static std::vector<String> getAvailableEffects();
 };
 
-inline std::shared_ptr<CreativeEffect> CreativeEffectFactory::create(const std::string& name) {
-    if (name == "Glitch") return std::make_shared<GlitchCreativeEffect>();
-    if (name == "Kaleidoscope") return std::make_shared<KaleidoscopeEffect>();
-    if (name == "Mirror") return std::make_shared<MirrorEffect>();
-    if (name == "Halftone") return std::make_shared<HalftoneEffect>();
-    if (name == "Pixelate") return std::make_shared<PixelateEffect>();
-    if (name == "Posterize") return std::make_shared<PosterizeEffect>();
-    if (name == "Fisheye") return std::make_shared<FisheyeEffect>();
-    if (name == "DepthMelt") return std::make_shared<DepthMeltEffect>();
-    if (name == "EdgeEcho") return std::make_shared<EdgeEchoEffect>();
-    if (name == "LightPressure") return std::make_shared<LightPressureEffect>();
-    if (name == "TemporalFossil") return std::make_shared<TemporalFossilEffect>();
-    if (name == "PigmentSeparation") return std::make_shared<PigmentSeparationEffect>();
-    if (name == "SurfaceMemory") return std::make_shared<SurfaceMemoryEffect>();
-    if (name == "Emboss") return std::make_shared<EmbossEffect>();
-    if (name == "Solarize") return std::make_shared<SolarizeEffect>();
-    if (name == "ChromaticAberration") return std::make_shared<ChromaticAberrationEffect>();
-    if (name == "OldTV" || name == "Old TV / CRT") return std::make_shared<OldTVEffect>();
-    if (name == "ColorVibrance" || name == "VC Color Vibrance") return std::make_shared<ColorVibranceEffect>();
+inline SharedPtr<CreativeEffect> CreativeEffectFactory::create(const String& name) {
+    if (name == "Glitch") return makeShared<GlitchCreativeEffect>();
+    if (name == "Kaleidoscope") return makeShared<KaleidoscopeEffect>();
+    if (name == "Mirror") return makeShared<MirrorEffect>();
+    if (name == "Halftone") return makeShared<HalftoneEffect>();
+    if (name == "Pixelate") return makeShared<PixelateEffect>();
+    if (name == "Posterize") return makeShared<PosterizeEffect>();
+    if (name == "Fisheye") return makeShared<FisheyeEffect>();
+    if (name == "DepthMelt") return makeShared<DepthMeltEffect>();
+    if (name == "EdgeEcho") return makeShared<EdgeEchoEffect>();
+    if (name == "LightPressure") return makeShared<LightPressureEffect>();
+    if (name == "TemporalFossil") return makeShared<TemporalFossilEffect>();
+    if (name == "PigmentSeparation") return makeShared<PigmentSeparationEffect>();
+    if (name == "SurfaceMemory") return makeShared<SurfaceMemoryEffect>();
+    if (name == "Emboss") return makeShared<EmbossEffect>();
+    if (name == "Solarize") return makeShared<SolarizeEffect>();
+    if (name == "ChromaticAberration") return makeShared<ChromaticAberrationEffect>();
+    if (name == "OldTV" || name == "Old TV / CRT") return makeShared<OldTVEffect>();
+    if (name == "ColorVibrance" || name == "VC Color Vibrance") return makeShared<ColorVibranceEffect>();
 
     auto* tracker = FallbackTracker::instance();
     auto policy = tracker->policy(FallbackCategory::Effect);
@@ -78,7 +79,7 @@ inline std::shared_ptr<CreativeEffect> CreativeEffectFactory::create(const std::
     return nullptr;
  }
 
-inline std::vector<std::string> CreativeEffectFactory::getAvailableEffects() {
+inline std::vector<String> CreativeEffectFactory::getAvailableEffects() {
     return {
         "Fisheye",
         "Glitch",

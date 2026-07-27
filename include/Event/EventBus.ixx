@@ -13,6 +13,8 @@ module;
 
 export module Event.Bus;
 
+import Memory.SharedPtr;
+
 export namespace ArtifactCore {
 
 class EventBus {
@@ -34,7 +36,7 @@ public:
 
     struct QueuedEvent {
         std::type_index type = std::type_index(typeid(void));
-        std::shared_ptr<const void> payload;
+        SharedPtr<const void> payload;
         void (*dispatch)(EventBus&, const void*, std::source_location) = nullptr;
         EventPriority priority = EventPriority::Normal;
         std::source_location origin = std::source_location::current();
@@ -62,10 +64,10 @@ public:
     private:
         friend class EventBus;
 
-        Subscription(std::weak_ptr<Impl> impl, std::shared_ptr<SubscriberRecord> record) noexcept;
+        Subscription(WeakPtr<Impl> impl, SharedPtr<SubscriberRecord> record) noexcept;
 
-        std::weak_ptr<Impl> impl_;
-        std::shared_ptr<SubscriberRecord> record_;
+        WeakPtr<Impl> impl_;
+        SharedPtr<SubscriberRecord> record_;
     };
 
     EventBus();
@@ -99,8 +101,8 @@ public:
     void post(EventPriority priority, Args&&... args,
               std::source_location origin = std::source_location::current()) {
         using EventType = std::remove_cvref_t<Event>;
-        auto payload = std::make_shared<EventType>(std::forward<Args>(args)...);
-        auto rawPayload = std::shared_ptr<const void>(payload, static_cast<const void*>(payload.get()));
+        auto payload = makeShared<EventType>(std::forward<Args>(args)...);
+        auto rawPayload = staticPointerCast<const void>(payload);
         enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>, priority, origin);
     }
 
@@ -115,8 +117,8 @@ public:
     void post(EventPriority priority, Event&& event,
               std::source_location origin = std::source_location::current()) {
         using EventType = std::remove_cvref_t<Event>;
-        auto payload = std::make_shared<EventType>(std::forward<Event>(event));
-        auto rawPayload = std::shared_ptr<const void>(payload, static_cast<const void*>(payload.get()));
+        auto payload = makeShared<EventType>(std::forward<Event>(event));
+        auto rawPayload = staticPointerCast<const void>(payload);
         enqueueRaw(std::type_index(typeid(EventType)), std::move(rawPayload), &EventBus::dispatchQueued<EventType>, priority, origin);
     }
 
@@ -144,13 +146,13 @@ public:
     }
 
 private:
-    std::shared_ptr<Impl> impl_;
+    SharedPtr<Impl> impl_;
 
     void registerTypeNameRaw(std::type_index type, const char* name);
     Subscription subscribeRaw(std::type_index type, std::function<void(const void*)> callback);
     std::size_t publishRaw(std::type_index type, const void* payload,
                            std::source_location origin = std::source_location::current()) const;
-    void enqueueRaw(std::type_index type, std::shared_ptr<const void> payload,
+    void enqueueRaw(std::type_index type, SharedPtr<const void> payload,
                     void (*dispatch)(EventBus&, const void*, std::source_location),
                     EventPriority priority = EventPriority::Normal,
                     std::source_location origin = std::source_location::current());

@@ -6,7 +6,6 @@ module;
 #include <cstdint>
 #include <mutex>
 #include <functional>
-#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -15,6 +14,7 @@ export module Core.Diagnostics.Recorder;
 
 import Core.Diagnostics.Snapshot;
 import Utils.Result;
+import Utils.Optional;
 
 export namespace ArtifactCore {
 
@@ -186,10 +186,10 @@ public:
     return result;
   }
 
-  std::optional<DiagnosticEvent> latest() const
+  Optional<DiagnosticEvent> latest() const
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (events_.empty()) return std::nullopt;
+    if (events_.empty()) return {};
     return events_.back();
   }
 

@@ -1,12 +1,11 @@
 module;
 #include <utility>
-#include <string>
 
 module Animation.Dynamics;
 
 namespace ArtifactCore {
 
-DynamicsPreset presetByName(const std::string& name)
+DynamicsPreset presetByName(const String& name)
 {
     if (name == "Smooth")  return DynamicsPreset::Smooth();
     if (name == "Bouncy")  return DynamicsPreset::Bouncy();
@@ -17,7 +16,7 @@ DynamicsPreset presetByName(const std::string& name)
     return DynamicsPreset::Smooth(); // fallback
 }
 
-const char* presetName(const DynamicsPreset& p) noexcept
+String presetName(const DynamicsPreset& p) noexcept
 {
     if (p.stiffness == 80.0f  && p.damping == 16.0f) return "Smooth";
     if (p.stiffness == 200.0f && p.damping ==  8.0f) return "Bouncy";

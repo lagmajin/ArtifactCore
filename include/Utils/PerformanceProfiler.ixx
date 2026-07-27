@@ -23,7 +23,7 @@ namespace ArtifactCore {
  * @brief Simple performance sample data
  */
 export struct PerformanceSample {
-    std::string name;
+    String name;
     double durationMs;
     std::chrono::system_clock::time_point timestamp;
 };
@@ -38,14 +38,15 @@ public:
         return inst;
     }
 
-    void recordSample(const std::string& name, double durationMs) {
+    void recordSample(const String& name, double durationMs) {
         std::lock_guard<std::mutex> lock(mutex_);
-        samples_[name] = { name, durationMs, std::chrono::system_clock::now() };
+        const std::string nameStd = toStdString(name);
+        samples_[nameStd] = { name, durationMs, std::chrono::system_clock::now() };
         
         // Keep a short history for trend analysis if needed
-        history_[name].push_back(durationMs);
-        if (history_[name].size() > 100) {
-            history_[name].pop_front();
+        history_[nameStd].push_back(durationMs);
+        if (history_[nameStd].size() > 100) {
+            history_[nameStd].pop_front();
         }
     }
 
@@ -54,9 +55,9 @@ public:
         return samples_;
     }
 
-    std::vector<double> getHistory(const std::string& name) {
+    std::vector<double> getHistory(const String& name) {
         std::lock_guard<std::mutex> lock(mutex_);
-        const auto& history = history_[name];
+        const auto& history = history_[toStdString(name)];
         return std::vector<double>(history.begin(), history.end());
     }
 
@@ -71,7 +72,7 @@ private:
  */
 export class ScopedPerformanceTimer {
 public:
-    ScopedPerformanceTimer(const std::string& name) 
+    ScopedPerformanceTimer(const String& name)
         : name_(name), start_(std::chrono::high_resolution_clock::now()) {}
 
     ~ScopedPerformanceTimer() {
@@ -81,7 +82,7 @@ public:
     }
 
 private:
-    std::string name_;
+    String name_;
     std::chrono::high_resolution_clock::time_point start_;
 };
 
@@ -98,7 +99,7 @@ export enum class ProfileCategory : std::uint8_t {
 
 export class ProfileTimer {
 public:
-    ProfileTimer(const std::string& name, ProfileCategory category)
+    ProfileTimer(const String& name, ProfileCategory category)
         : category_(category), timer_(name) {}
 
 private:
@@ -107,7 +108,7 @@ private:
 };
 
 export struct ScopeRecord {
-    std::string name;
+    String name;
     ProfileCategory category = ProfileCategory::Other;
     int depth = 0;
     std::int64_t durationNs = 0;
@@ -193,7 +194,7 @@ public:
         }
 
         ts.scopeStack.push_back(ActiveScope{
-            std::string(name),
+            String(name.data(), name.size()),
             category,
             std::chrono::high_resolution_clock::now(),
             static_cast<int>(ts.scopeStack.size())
@@ -258,7 +259,7 @@ public:
         return summarize<FrameStats>(values);
     }
 
-    ScopeStats computeScopeStats(const std::string& name, int histN) const {
+    ScopeStats computeScopeStats(const String& name, int histN) const {
         const auto frames = frameHistory(histN);
         std::vector<double> values;
         for (const auto& fr : frames) {
@@ -271,18 +272,18 @@ public:
         return summarize<ScopeStats>(values);
     }
 
-    std::vector<std::string> knownTimerNames() const {
+    std::vector<String> knownTimerNames() const {
         const auto latest = PerformanceRegistry::instance().getLatestSamples();
-        std::vector<std::string> names;
+        std::vector<String> names;
         names.reserve(latest.size());
         for (const auto& [name, sample] : latest) {
             (void)sample;
-            names.push_back(name);
+            names.emplace_back(name);
         }
         return names;
     }
 
-    ScopeStats timerStats(const std::string& name, int /*histN*/) const {
+    ScopeStats timerStats(const String& name, int /*histN*/) const {
         const auto history = PerformanceRegistry::instance().getHistory(name);
         std::vector<double> values(history.begin(), history.end());
         return summarize<ScopeStats>(values);
@@ -317,7 +318,7 @@ public:
         for (const auto& name : knownTimerNames()) {
             const auto st = timerStats(name, histN);
             text += "  timer ";
-            text += name;
+            text += toStdString(name);
             text += " avgMs=";
             text += std::to_string(st.avgMs);
             text += " p95Ms=";
@@ -329,14 +330,14 @@ public:
         return text;
     }
 
-    std::string generateDiagnosticReport(int histN) const {
+    String generateDiagnosticReport(int histN) const {
         const ZeroString text = generateDiagnosticReportZero(histN);
-        return std::string(text.data(), text.length());
+        return String(text.data(), text.length());
     }
 
 private:
     struct ActiveScope {
-        std::string name;
+        String name;
         ProfileCategory category = ProfileCategory::Other;
         std::chrono::high_resolution_clock::time_point start;
         int depth = 0;
@@ -402,7 +403,7 @@ export enum class StartupPhase : std::uint8_t {
 };
 
 export struct StartupEvent {
-    std::string name;
+    String name;
     StartupPhase phase = StartupPhase::Custom;
     double durationMs = 0.0;
     std::chrono::system_clock::time_point timestamp;
@@ -417,7 +418,7 @@ public:
         return inst;
     }
 
-    void recordEvent(const std::string& name, StartupPhase phase,
+    void recordEvent(const String& name, StartupPhase phase,
                      double durationMs, int threadCount = 0, int itemCount = 0) {
         std::lock_guard<std::mutex> lock(mutex_);
         events_.push_back(StartupEvent{
@@ -454,7 +455,7 @@ public:
         double sum = 0.0;
         for (const auto& e : events_) {
             text += "  ";
-            text += e.name;
+            text += toStdString(e.name);
             text += ": ";
             text += std::to_string(e.durationMs);
             text += " ms";
@@ -478,9 +479,9 @@ public:
         return text;
     }
 
-    std::string generateReport() const {
+    String generateReport() const {
         const ZeroString text = generateReportZero();
-        return std::string(text.data(), text.length());
+        return String(text.data(), text.length());
     }
 
 private:
@@ -490,7 +491,7 @@ private:
 
 export class ScopedStartupTimer {
 public:
-    ScopedStartupTimer(const std::string& name, StartupPhase phase,
+    ScopedStartupTimer(const String& name, StartupPhase phase,
                        int threadCount = 0, int itemCount = 0)
         : name_(name), phase_(phase),
           threadCount_(threadCount), itemCount_(itemCount),
@@ -507,7 +508,7 @@ public:
     ScopedStartupTimer& operator=(const ScopedStartupTimer&) = delete;
 
 private:
-    std::string name_;
+    String name_;
     StartupPhase phase_;
     int threadCount_;
     int itemCount_;

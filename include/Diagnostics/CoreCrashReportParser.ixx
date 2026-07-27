@@ -11,18 +11,19 @@ export module Core.Diagnostics.CrashReportParser;
 
 import Core.Diagnostics.Snapshot;
 import Utils.Result;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
 struct CrashReportSummary {
-  std::string timestamp;
-  std::string exceptionCode;
-  std::string exceptionType;
-  std::string operation;
-  std::string address;
-  std::string exceptionAddress;
-  std::string stackTrace;
-  std::string systemInfo;
+  String timestamp;
+  String exceptionCode;
+  String exceptionType;
+  String operation;
+  String address;
+  String exceptionAddress;
+  String stackTrace;
+  String systemInfo;
   bool parsed = false;
 };
 
@@ -52,27 +53,27 @@ inline CrashReportSummary parseCrashReport(std::string_view report)
     else if (line == "--- Stack Trace ---") section = Section::Stack;
     else if (line == "--- System Info ---") section = Section::System;
     else if (const auto value = crashReportValue(line, "Timestamp:"); !value.empty()) {
-      result.timestamp = std::string(value);
+      result.timestamp = String(value);
     } else if (section == Section::Exception) {
       if (const auto value = crashReportValue(line, "Code:"); !value.empty()) {
-        result.exceptionCode = std::string(value);
+        result.exceptionCode = String(value);
       } else if (const auto value = crashReportValue(line, "Type:"); !value.empty()) {
-        result.exceptionType = std::string(value);
+        result.exceptionType = String(value);
       } else if (const auto value = crashReportValue(line, "Operation:"); !value.empty()) {
-        result.operation = std::string(value);
+        result.operation = String(value);
       } else if (const auto value = crashReportValue(line, "Address:"); !value.empty()) {
-        result.address = std::string(value);
+        result.address = String(value);
       } else if (const auto value = crashReportValue(line, "Exception Address:"); !value.empty()) {
-        result.exceptionAddress = std::string(value);
+        result.exceptionAddress = String(value);
       }
     } else if (section == Section::Stack) {
       if (!line.empty()) {
-        if (!result.stackTrace.empty()) result.stackTrace.push_back('\n');
+        if (!result.stackTrace.empty()) result.stackTrace += '\n';
         result.stackTrace.append(line);
       }
     } else if (section == Section::System) {
       if (!line.empty()) {
-        if (!result.systemInfo.empty()) result.systemInfo.push_back('\n');
+        if (!result.systemInfo.empty()) result.systemInfo += '\n';
         result.systemInfo.append(line);
       }
     }
@@ -88,19 +89,19 @@ inline DiagnosticSnapshot crashReportToSnapshot(const CrashReportSummary& report
 {
   DiagnosticSnapshot snapshot;
   snapshot.component = "CrashHandler";
-  snapshot.objectId = report.exceptionAddress;
-  snapshot.state = report.exceptionType;
-  snapshot.lastOperation = report.operation;
+  snapshot.objectId = toStdString(report.exceptionAddress);
+  snapshot.state = toStdString(report.exceptionType);
+  snapshot.lastOperation = toStdString(report.operation);
   DiagnosticEvent event = makeDiagnosticEvent(
       CoreDiagnosticSeverity::Fatal,
-      report.exceptionCode.empty() ? "crash.unknown" :
-                                     "crash." + report.exceptionCode,
-      report.exceptionType.empty() ? "Unhandled exception" : report.exceptionType,
+      report.exceptionCode.empty() ? std::string("crash.unknown") :
+                                     std::string("crash.") + toStdString(report.exceptionCode),
+      report.exceptionType.empty() ? std::string("Unhandled exception") : toStdString(report.exceptionType),
       "CrashHandler",
-      report.operation.empty() ? "unhandledException" : report.operation,
-      report.exceptionAddress);
+      report.operation.empty() ? std::string("unhandledException") : toStdString(report.operation),
+      toStdString(report.exceptionAddress));
   if (!report.stackTrace.empty()) {
-    event.message += "\n" + report.stackTrace;
+    event.message += "\n" + toStdString(report.stackTrace);
   }
   snapshot.addEvent(std::move(event));
   return snapshot;

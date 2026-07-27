@@ -116,6 +116,8 @@ public:
         double tolerance = 0.25) const;
     /// 単一の閉じた輪郭を三角形列へ変換する。複数輪郭は空結果。
     std::vector<PathTriangle> triangulateSimple(double tolerance = 0.25) const;
+    /// fill rule と穴を考慮して複数輪郭を三角形列へ変換する。失敗時は空結果。
+    std::vector<PathTriangle> triangulate(double tolerance = 0.25) const;
 
     /// パラメータ t における接線ベクトル（正規化済み）
     QPointF tangentAtPercent(double t) const;

@@ -23,7 +23,7 @@ public:
     AudioWaveform();
     virtual ~AudioWaveform() = default;
 
-    std::string getName() const override { return "Audio Waveform"; }
+    String getName() const override { return "Audio Waveform"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // 波形取得

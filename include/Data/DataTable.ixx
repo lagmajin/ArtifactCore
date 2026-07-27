@@ -13,22 +13,23 @@ module;
 export module Data.DataTable;
 
 import Data.CsvParser;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
-using DataValue = std::variant<std::monostate, std::string, int64_t, double, bool>;
+using DataValue = std::variant<std::monostate, String, int64_t, double, bool>;
 
-inline std::string dataValueToString(const DataValue& v) {
+inline String dataValueToString(const DataValue& v) {
     if (std::holds_alternative<std::monostate>(v)) return "";
-    if (std::holds_alternative<std::string>(v)) return std::get<std::string>(v);
-    if (std::holds_alternative<int64_t>(v)) return std::to_string(std::get<int64_t>(v));
-    if (std::holds_alternative<double>(v)) return std::to_string(std::get<double>(v));
+    if (std::holds_alternative<String>(v)) return std::get<String>(v);
+    if (std::holds_alternative<int64_t>(v)) return String(std::to_string(std::get<int64_t>(v)));
+    if (std::holds_alternative<double>(v)) return String(std::to_string(std::get<double>(v)));
     if (std::holds_alternative<bool>(v)) return std::get<bool>(v) ? "true" : "false";
     return "";
 }
 
 struct ColumnSchema {
-    std::string name;
+    String name;
     int index = 0;
 };
 
@@ -41,24 +42,24 @@ public:
 
         if (csv.headers.empty()) {
             for (int i = 0; i < csv.columnCount; ++i) {
-                headers_.push_back(ColumnSchema{"col_" + std::to_string(i), i});
+                headers_.push_back(ColumnSchema{String("col_" + std::to_string(i)), i});
             }
         } else {
             for (int i = 0; i < csv.columnCount; ++i) {
-                headers_.push_back(ColumnSchema{csv.headers[i], i});
+                headers_.push_back(ColumnSchema{toStdString(csv.headers[i]), i});
             }
         }
 
         nameToIndex_.clear();
         for (int i = 0; i < static_cast<int>(headers_.size()); ++i) {
-            nameToIndex_[headers_[i].name] = i;
+            nameToIndex_[toStdString(headers_[i].name)] = i;
         }
 
         rows_.resize(csv.rowCount);
         for (int r = 0; r < csv.rowCount; ++r) {
             rows_[r].resize(csv.columnCount);
             for (int c = 0; c < csv.columnCount; ++c) {
-                rows_[r][c] = csv.rows[r][c];
+                rows_[r][c] = String(csv.rows[r][c]);
             }
         }
     }
@@ -68,13 +69,13 @@ public:
 
     const std::vector<ColumnSchema>& columns() const { return headers_; }
 
-    int columnIndexByName(const std::string& name) const {
-        auto it = nameToIndex_.find(name);
+    int columnIndexByName(const String& name) const {
+        auto it = nameToIndex_.find(toStdString(name));
         if (it != nameToIndex_.end()) return it->second;
         return -1;
     }
 
-    std::string columnName(int index) const {
+    String columnName(int index) const {
         if (index < 0 || index >= static_cast<int>(headers_.size())) return "";
         return headers_[index].name;
     }
@@ -86,19 +87,19 @@ public:
         return rows_[row][col];
     }
 
-    DataValue at(int row, const std::string& colName) const {
+    DataValue at(int row, const String& colName) const {
         int col = columnIndexByName(colName);
         if (col < 0) return std::monostate{};
         return at(row, col);
     }
 
-    std::string getString(int row, int col) const {
+    String getString(int row, int col) const {
         auto v = at(row, col);
-        if (std::holds_alternative<std::string>(v)) return std::get<std::string>(v);
+        if (std::holds_alternative<String>(v)) return std::get<String>(v);
         return dataValueToString(v);
     }
 
-    std::string getString(int row, const std::string& colName) const {
+    String getString(int row, const String& colName) const {
         int col = columnIndexByName(colName);
         if (col < 0) return "";
         return getString(row, col);
@@ -107,14 +108,14 @@ public:
     int64_t getInt(int row, int col, int64_t fallback = 0) const {
         auto v = at(row, col);
         if (std::holds_alternative<int64_t>(v)) return std::get<int64_t>(v);
-        if (std::holds_alternative<std::string>(v)) {
-            try { return std::stoll(std::get<std::string>(v)); } catch (...) {}
+        if (std::holds_alternative<String>(v)) {
+            try { return std::stoll(toStdString(std::get<String>(v))); } catch (...) {}
         }
         if (std::holds_alternative<double>(v)) return static_cast<int64_t>(std::get<double>(v));
         return fallback;
     }
 
-    int64_t getInt(int row, const std::string& colName, int64_t fallback = 0) const {
+    int64_t getInt(int row, const String& colName, int64_t fallback = 0) const {
         int col = columnIndexByName(colName);
         if (col < 0) return fallback;
         return getInt(row, col, fallback);
@@ -124,13 +125,13 @@ public:
         auto v = at(row, col);
         if (std::holds_alternative<double>(v)) return std::get<double>(v);
         if (std::holds_alternative<int64_t>(v)) return static_cast<double>(std::get<int64_t>(v));
-        if (std::holds_alternative<std::string>(v)) {
-            try { return std::stod(std::get<std::string>(v)); } catch (...) {}
+        if (std::holds_alternative<String>(v)) {
+            try { return std::stod(toStdString(std::get<String>(v))); } catch (...) {}
         }
         return fallback;
     }
 
-    double getFloat(int row, const std::string& colName, double fallback = 0.0) const {
+    double getFloat(int row, const String& colName, double fallback = 0.0) const {
         int col = columnIndexByName(colName);
         if (col < 0) return fallback;
         return getFloat(row, col, fallback);
@@ -139,8 +140,8 @@ public:
     bool getBool(int row, int col, bool fallback = false) const {
         auto v = at(row, col);
         if (std::holds_alternative<bool>(v)) return std::get<bool>(v);
-        if (std::holds_alternative<std::string>(v)) {
-            const auto& s = std::get<std::string>(v);
+        if (std::holds_alternative<String>(v)) {
+            const auto s = toStdString(std::get<String>(v));
             if (s == "true" || s == "1" || s == "yes") return true;
             if (s == "false" || s == "0" || s == "no") return false;
         }
@@ -148,7 +149,7 @@ public:
         return fallback;
     }
 
-    bool getBool(int row, const std::string& colName, bool fallback = false) const {
+    bool getBool(int row, const String& colName, bool fallback = false) const {
         int col = columnIndexByName(colName);
         if (col < 0) return fallback;
         return getBool(row, col, fallback);
@@ -170,11 +171,12 @@ public:
         rows_.push_back(rowData);
     }
 
-    void addColumn(const std::string& name) {
-        if (nameToIndex_.count(name) > 0) return;
+    void addColumn(const String& name) {
+        const std::string nameStd = toStdString(name);
+        if (nameToIndex_.count(nameStd) > 0) return;
         int idx = static_cast<int>(headers_.size());
-        headers_.push_back(ColumnSchema{name, idx});
-        nameToIndex_[name] = idx;
+        headers_.push_back(ColumnSchema{String(nameStd), idx});
+        nameToIndex_[nameStd] = idx;
         for (auto& row : rows_) {
             row.push_back(std::monostate{});
         }

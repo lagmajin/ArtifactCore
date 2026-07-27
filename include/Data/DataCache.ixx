@@ -2,7 +2,6 @@ module;
 
 #include <string>
 #include <unordered_map>
-#include <memory>
 #include <chrono>
 #include <vector>
 #include <algorithm>
@@ -13,6 +12,7 @@ export module Data.DataCache;
 
 import Data.DataTable;
 import Data.DataSource;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -37,10 +37,11 @@ public:
     void setTtlMs(int64_t ttl) { ttlMs_ = ttl; }
     int64_t ttlMs() const { return ttlMs_; }
 
-    DataSourcePtr get(const std::string& uri) {
+    DataSourcePtr get(const String& uri) {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        auto it = entries_.find(uri);
+        const std::string uriStd = toStdString(uri);
+        auto it = entries_.find(uriStd);
         if (it == entries_.end()) return nullptr;
 
         auto& entry = it->second;
@@ -58,7 +59,7 @@ public:
         return entry.source;
     }
 
-    void put(const std::string& uri, DataSourcePtr source, int64_t fileModifiedMs) {
+    void put(const String& uri, DataSourcePtr source, int64_t fileModifiedMs) {
         std::lock_guard<std::mutex> lock(mutex_);
 
         evictIfNeeded();
@@ -70,12 +71,12 @@ public:
         entry.fileModifiedMs = fileModifiedMs;
         entry.hitCount = 0;
 
-        entries_[uri] = std::move(entry);
+        entries_[toStdString(uri)] = std::move(entry);
     }
 
-    void invalidate(const std::string& uri) {
+    void invalidate(const String& uri) {
         std::lock_guard<std::mutex> lock(mutex_);
-        entries_.erase(uri);
+        entries_.erase(toStdString(uri));
     }
 
     void invalidateAll() {
@@ -83,9 +84,9 @@ public:
         entries_.clear();
     }
 
-    bool isStale(const std::string& uri, int64_t currentFileModifiedMs) const {
+    bool isStale(const String& uri, int64_t currentFileModifiedMs) const {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto it = entries_.find(uri);
+        auto it = entries_.find(toStdString(uri));
         if (it == entries_.end()) return true;
         return it->second.fileModifiedMs != currentFileModifiedMs;
     }

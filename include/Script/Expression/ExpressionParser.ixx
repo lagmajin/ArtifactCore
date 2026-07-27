@@ -32,6 +32,8 @@ module;
 #include <random>
 export module Script.Expression.Parser;
 
+import Memory.SharedPtr;
+
 import Script.Expression.Value;
 
 export namespace ArtifactCore {
@@ -75,14 +77,14 @@ public:
     ExprNodeType type() const;
     void setType(ExprNodeType type);
     // setters for builder (parser)
-    void setChildren(const std::vector<std::shared_ptr<ExprNode>>& children);
+    void setChildren(const std::vector<SharedPtr<ExprNode>>& children);
     void setOperatorSymbol(const std::string& op);
     void setNumberValue(double v);
     void setStringValue(const std::string& s);
     
     // Accessors for AST inspection (usable by other modules)
     std::size_t childCount() const;
-    std::shared_ptr<ExprNode> child(std::size_t index) const;
+    SharedPtr<ExprNode> child(std::size_t index) const;
     std::string operatorSymbol() const;
     double numberValue() const;
     std::string stringValue() const;
@@ -103,7 +105,7 @@ public:
     ExpressionLanguageStyle languageStyle() const;
 
     // Parse expression string into AST
-    std::shared_ptr<ExprNode> parse(const std::string& expression);
+    SharedPtr<ExprNode> parse(const std::string& expression);
     
     // Get last error message
     std::string getError() const;

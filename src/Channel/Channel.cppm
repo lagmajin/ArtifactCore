@@ -2,8 +2,6 @@ module;
 #include <utility>
 #include <vector>
 #include <algorithm>
-#include <string>
-#include <memory>
 #include <map>
 
 module Channel;
@@ -40,9 +38,9 @@ VideoFrame::VideoFrame(int width, int height) : width_(width), height_(height) {
 
 VideoFrame::~VideoFrame() = default;
 
-void VideoFrame::addChannel(ChannelType type, const std::string& name) {
+void VideoFrame::addChannel(ChannelType type, const String& name) {
     if (channels_.find(type) == channels_.end()) {
-        channels_[type] = std::make_shared<VideoChannel>(width_, height_);
+        channels_[type] = makeShared<VideoChannel>(width_, height_);
     }
 }
 
@@ -54,7 +52,7 @@ bool VideoFrame::hasChannel(ChannelType type) const {
     return channels_.find(type) != channels_.end();
 }
 
-std::shared_ptr<VideoChannel> VideoFrame::getChannel(ChannelType type) {
+SharedPtr<VideoChannel> VideoFrame::getChannel(ChannelType type) {
     auto it = channels_.find(type);
     if (it != channels_.end()) {
         return it->second;
@@ -62,7 +60,7 @@ std::shared_ptr<VideoChannel> VideoFrame::getChannel(ChannelType type) {
     return nullptr;
 }
 
-std::shared_ptr<const VideoChannel> VideoFrame::getChannel(ChannelType type) const {
+SharedPtr<const VideoChannel> VideoFrame::getChannel(ChannelType type) const {
     auto it = channels_.find(type);
     if (it != channels_.end()) {
         return it->second;

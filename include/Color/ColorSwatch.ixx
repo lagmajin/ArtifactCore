@@ -9,6 +9,7 @@ module;
 export module Color.Swatch;
 
 import Color.Float;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -17,10 +18,10 @@ export namespace ArtifactCore {
  */
 struct LIBRARY_DLL_API SwatchEntry {
     FloatColor color;
-    std::string name;
+    String name;
 
     SwatchEntry() = default;
-    SwatchEntry(const FloatColor& c, const std::string& n = "") : color(c), name(n) {}
+    SwatchEntry(const FloatColor& c, const String& n = "") : color(c), name(n) {}
 };
 
 /**
@@ -36,7 +37,7 @@ private:
 
 public:
     ColorSwatch();
-    explicit ColorSwatch(const std::string& name);
+    explicit ColorSwatch(const String& name);
     ~ColorSwatch();
 
     // コピー/ムーブ
@@ -46,14 +47,14 @@ public:
     ColorSwatch& operator=(ColorSwatch&& other) noexcept;
 
     // 基本情報
-    const std::string& getName() const;
-    void setName(const std::string& name);
+    const String& getName() const;
+    void setName(const String& name);
 
     // 要素アクセス
     size_t count() const;
     const SwatchEntry& at(size_t index) const;
     void addEntry(const SwatchEntry& entry);
-    void addColor(const FloatColor& color, const std::string& name = "");
+    void addColor(const FloatColor& color, const String& name = "");
     void removeAt(size_t index);
     void clear();
 

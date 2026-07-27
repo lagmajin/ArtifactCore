@@ -1,7 +1,6 @@
 module;
 
 #include <string>
-#include <memory>
 #include <filesystem>
 
 export module Data.CsvDataSource;
@@ -9,14 +8,15 @@ export module Data.CsvDataSource;
 import Data.CsvParser;
 import Data.DataTable;
 import Data.DataSource;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
 class CsvDataSource : public IDataSource {
 public:
-    explicit CsvDataSource(const std::string& uri)
+    explicit CsvDataSource(const String& uri)
         : uri_(uri)
-        , path_(uri)
+        , path_(toStdString(uri))
     {
         load_();
     }
@@ -51,9 +51,9 @@ public:
         return load_();
     }
 
-    bool isValid() const override { return lastError_.empty(); }
+    bool isValid() const override { return lastError_.isEmpty(); }
 
-    std::string lastError() const override { return lastError_; }
+    String lastError() const override { return lastError_; }
 
 private:
     bool load_() {
@@ -75,25 +75,25 @@ private:
         return true;
     }
 
-    std::string uri_;
+    String uri_;
     std::filesystem::path path_;
     DataTable table_;
-    std::string lastError_;
+    String lastError_;
 };
 
-inline DataSourcePtr makeCsvDataSource(const std::string& uri) {
-    return std::make_shared<CsvDataSource>(uri);
+inline DataSourcePtr makeCsvDataSource(const String& uri) {
+    return makeShared<CsvDataSource>(uri);
 }
 
 struct CsvDataSourceAutoRegister {
     CsvDataSourceAutoRegister() {
         DataSourceRegistry::instance().registerFormat(".csv", makeCsvDataSource);
-        DataSourceRegistry::instance().registerFormat(".tsv", [](const std::string& uri) {
+        DataSourceRegistry::instance().registerFormat(".tsv", [](const String& uri) {
             CsvParseOptions opts;
             opts.delimiter = CsvDelimiter::Tab;
-            auto result = CsvParser::parseFile(uri, opts);
+            auto result = CsvParser::parseFile(toStdString(uri), opts);
             if (!result.ok()) return DataSourcePtr{};
-            return DataSourcePtr(std::make_shared<CsvDataSource>(uri));
+            return makeShared<CsvDataSource>(uri);
         });
     }
 };

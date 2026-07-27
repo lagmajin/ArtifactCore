@@ -22,7 +22,7 @@ public:
     AudioStereoMixer();
     virtual ~AudioStereoMixer() = default;
 
-    std::string getName() const override { return "Stereo Mixer"; }
+    String getName() const override { return "Stereo Mixer"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // パラメータ

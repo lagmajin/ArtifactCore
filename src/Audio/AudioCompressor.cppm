@@ -75,7 +75,7 @@ std::vector<EffectParameter> AudioCompressor::getParameters() const {
     };
 }
 
-void AudioCompressor::setParameterValue(const std::string& id, float value) {
+void AudioCompressor::setParameterValue(const String& id, float value) {
     if (id == "threshold") thresholdDb_ = value;
     else if (id == "ratio") ratio_ = value;
     else if (id == "attack_ms") attackMs_ = value;
@@ -83,7 +83,7 @@ void AudioCompressor::setParameterValue(const std::string& id, float value) {
     else if (id == "sidechain") sideChainEnabled_ = (value > 0.5f);
 }
 
-float AudioCompressor::getParameterValue(const std::string& id) const {
+float AudioCompressor::getParameterValue(const String& id) const {
     if (id == "threshold") return thresholdDb_;
     if (id == "ratio") return ratio_;
     if (id == "attack_ms") return attackMs_;

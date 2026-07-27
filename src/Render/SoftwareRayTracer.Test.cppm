@@ -6,6 +6,7 @@ module;
 
 module Render.SoftwareRayTracer.Test;
 
+import Memory.SharedPtr;
 import Render.Vector3D;
 import Render.Ray;
 import Render.Camera;
@@ -47,7 +48,7 @@ bool raySphereIntersectionTest()
 bool lambertianMaterialTest()
 {
     HittableList world;
-    world.add(std::make_shared<SphereObject>(
+    world.add(makeShared<SphereObject>(
         Sphere(Vec3(0, 0, -5), 1.0f),
         Material::lambertian(Vec3(0.5f, 0.5f, 0.5f))
     ));

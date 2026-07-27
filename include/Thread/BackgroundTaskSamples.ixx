@@ -254,7 +254,7 @@ private:
 /// pool.Start();
 /// 
 /// // Taskをsubmit
-/// auto task = std::make_shared<RenderBackgroundTask>(RenderParams{
+/// auto task = makeShared<RenderBackgroundTask>(RenderParams{
 ///     .startFrame = 0,
 ///     .endFrame = 100,
 ///     .outputPath = "output.mp4"

@@ -7,6 +7,8 @@ module;
 
 export module VST3.Interfaces;
 
+import Core.ArtifactString;
+
 /// VST3 SDK 基本インターフェース定義（骨格）
 /// 実運用時は Steinberg VST3 SDK ヘッダを include すること
 export namespace Steinberg {
@@ -150,7 +152,7 @@ public:
     VST3Module() = default;
     ~VST3Module() { unload(); }
 
-    bool load(const std::string& path);
+    bool load(const ArtifactCore::String& path);
     void unload();
     IPluginFactory* getFactory() const { return factory_; }
     bool isValid() const { return factory_ != nullptr; }

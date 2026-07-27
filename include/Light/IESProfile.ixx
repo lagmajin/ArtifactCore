@@ -10,16 +10,18 @@ module;
 
 export module Light.IESProfile;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
 // ─── IES LM-63 Photometric Data ───
 
 struct IESHeader {
-    std::string manufacturer;
-    std::string luminaireCatalogNumber;
-    std::string luminaireDescription;
-    std::string lampCatalogNumber;
-    std::string lampDescription;
+    String manufacturer;
+    String luminaireCatalogNumber;
+    String luminaireDescription;
+    String lampCatalogNumber;
+    String lampDescription;
 
     int    numVerticalAngles = 0;
     int    numHorizontalAngles = 0;

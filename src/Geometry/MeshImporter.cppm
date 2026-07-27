@@ -23,6 +23,7 @@ module;
 module MeshImporter;
 
 import Mesh;
+import Memory.SharedPtr;
 import Utils.String.UniString;
 
 namespace ArtifactCore {
@@ -220,7 +221,7 @@ public:
     }
   }
 
-  std::shared_ptr<Mesh> loadWithUfbx(const QString &path) {
+  SharedPtr<Mesh> loadWithUfbx(const QString &path) {
     lastBackend_ = MeshImporter::Backend::Ufbx;
     lastError_.clear();
     lastBaseColorTexture_.clear();
@@ -260,7 +261,7 @@ public:
       return nullptr;
     }
 
-    auto mesh = std::make_shared<Mesh>();
+    auto mesh = makeShared<Mesh>();
     int totalVertices = 0;
     for (size_t i = 0; i < scene->meshes.count; ++i) {
       totalVertices += (int)scene->meshes[i]->num_indices;
@@ -323,7 +324,7 @@ public:
     return mesh;
   }
 
-  std::shared_ptr<Mesh> loadWithTinyObj(const QString &path) {
+  SharedPtr<Mesh> loadWithTinyObj(const QString &path) {
     lastBackend_ = MeshImporter::Backend::TinyObj;
     lastError_.clear();
     lastBaseColorTexture_.clear();
@@ -375,7 +376,7 @@ public:
       return nullptr;
     }
 
-    auto mesh = std::make_shared<Mesh>();
+    auto mesh = makeShared<Mesh>();
     mesh->setVertexCount(static_cast<int>(totalVertices));
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
     auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
@@ -581,7 +582,7 @@ public:
     return normal.normalized();
   }
 
-  std::shared_ptr<Mesh> loadWithUsda(const QString& path) {
+  SharedPtr<Mesh> loadWithUsda(const QString& path) {
     lastBackend_ = MeshImporter::Backend::Usda;
     lastError_.clear();
     lastBaseColorTexture_.clear();
@@ -721,14 +722,14 @@ public:
     const bool needsFaceVaryingExpansion =
         normalsAreFaceVarying || uvsAreFaceVarying;
 
-    auto mesh = std::make_shared<Mesh>();
+    auto mesh = makeShared<Mesh>();
     const int meshVertexCount = needsFaceVaryingExpansion
                                     ? faceIndices.size()
                                     : positions.size();
     mesh->setVertexCount(meshVertexCount);
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
     auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
-    std::shared_ptr<MeshAttribute<QVector2D>> uvAttr;
+    SharedPtr<MeshAttribute<QVector2D>> uvAttr;
     if (uvsArePerVertex || uvsAreFaceVarying) {
       uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
     }
@@ -802,7 +803,7 @@ public:
     mesh->updateBounds();
     return mesh;
   }
-  std::shared_ptr<Mesh> loadPMD(const QString &path) {
+  SharedPtr<Mesh> loadPMD(const QString &path) {
     lastBackend_ = MeshImporter::Backend::PMD;
     lastError_.clear();
     lastBaseColorTexture_.clear();
@@ -845,7 +846,7 @@ public:
       return nullptr;
     }
 
-    auto mesh = std::make_shared<Mesh>();
+    auto mesh = makeShared<Mesh>();
     mesh->setVertexCount(static_cast<int>(vertexCount));
 
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
@@ -890,7 +891,7 @@ public:
 MeshImporter::MeshImporter() : impl_(new Impl()) {}
 MeshImporter::~MeshImporter() { delete impl_; }
 
-std::shared_ptr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
+SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
   QString qpath = path.toQString();
   const QString ext = QFileInfo(qpath).suffix().toLower();
   impl_->lastBackend_ = MeshImporter::Backend::None;

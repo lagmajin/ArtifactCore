@@ -11,6 +11,7 @@ module;
 #include <vector>
 
 import Float3;
+import Core.ArtifactString;
 
 export module Core.Simulation.Pyro;
 
@@ -322,9 +323,9 @@ private:
     void projectVelocity();
 };
 
-[[nodiscard]] std::string toString(PyroBoundaryMode mode);
-[[nodiscard]] std::string toString(PyroBackendKind kind);
-[[nodiscard]] std::string toString(PyroFieldChannel channel);
+[[nodiscard]] String toString(PyroBoundaryMode mode);
+[[nodiscard]] String toString(PyroBackendKind kind);
+[[nodiscard]] String toString(PyroFieldChannel channel);
 [[nodiscard]] std::uint64_t hashSettings(const PyroSimulationSettings& settings) noexcept;
 [[nodiscard]] std::uint64_t estimatePyroMemoryBytes(const PyroResolution& resolution) noexcept;
 [[nodiscard]] PyroVec3 clampToDomain(const PyroDomain& domain, const PyroVec3& position) noexcept;

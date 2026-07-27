@@ -32,6 +32,8 @@ module;
 #include <QString>
 export module ASTNode;
 
+import Memory.SharedPtr;
+
 
 
 
@@ -53,7 +55,7 @@ export namespace ArtifactCore {
  };
 
  struct ArrayNode : Node {
-  std::vector<std::shared_ptr<Node>> elements;
+  std::vector<SharedPtr<Node>> elements;
  };
 
  struct VariableNode : Node {
@@ -62,19 +64,19 @@ export namespace ArtifactCore {
 
  struct BinaryNode : Node {
   std::string op; // "+", "-", "*", "/"
-  std::shared_ptr<Node> left;
-  std::shared_ptr<Node> right;
+  SharedPtr<Node> left;
+  SharedPtr<Node> right;
  };
 
  struct CallNode : Node {
   std::string funcName;
-  std::vector<std::shared_ptr<Node>> args;
+  std::vector<SharedPtr<Node>> args;
  };
 
  struct IfNode : Node {
-  std::shared_ptr<Node> condition;
-  std::shared_ptr<Node> thenBranch;
-  std::shared_ptr<Node> elseBranch;
+  SharedPtr<Node> condition;
+  SharedPtr<Node> thenBranch;
+  SharedPtr<Node> elseBranch;
  };
 
 

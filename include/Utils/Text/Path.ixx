@@ -9,6 +9,7 @@ module;
 export module Utils.Text.Path;
 
 import Utils.Result;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -21,15 +22,15 @@ inline bool isAbsolutePath(std::string_view value) noexcept
          value[1] == ':' && (value[2] == '/' || value[2] == '\\');
 }
 
-inline Result<std::string> normalizePathSeparators(std::string_view value,
-                                                    std::string objectId = {})
+inline Result<String> normalizePathSeparators(std::string_view value,
+                                               String objectId = {})
 {
   if (value.find('\0') != std::string_view::npos) {
-    return Result<std::string>::fail(ErrorContext{
+    return Result<String>::fail(ErrorContext{
         .code = ErrorCode::InvalidArgument,
         .message = "path contains NUL",
         .operation = "path.normalizeSeparators",
-        .objectId = std::move(objectId),
+        .objectId = toStdString(objectId),
         .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
   std::string result;
@@ -48,7 +49,7 @@ inline Result<std::string> normalizePathSeparators(std::string_view value,
     }
     previousSeparator = separator;
   }
-  return Result<std::string>::ok(std::move(result));
+  return Result<String>::ok(String(result));
 }
 
 inline bool hasParentTraversal(std::string_view value) noexcept

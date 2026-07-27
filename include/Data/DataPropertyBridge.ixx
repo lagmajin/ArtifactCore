@@ -6,7 +6,6 @@ module;
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-#include <memory>
 #include <mutex>
 
 export module Data.DataPropertyBridge;
@@ -21,12 +20,13 @@ import Property;
 import Property.Abstract;
 import Property.Group;
 import Property.Path;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
 class DataPropertyBridge {
 public:
-    static void registerDataSource(const std::string& uri) {
+    static void registerDataSource(const String& uri) {
         std::lock_guard<std::mutex> lock(mutex_);
 
         auto& cache = DataCache::instance();
@@ -42,7 +42,7 @@ public:
 
             cache.put(uri, source, fileMod);
 
-            FileWatcher::instance().watch(uri, [uri](const std::string&) {
+            FileWatcher::instance().watch(uri, [uri](const String&) {
                 DataCache::instance().invalidate(uri);
             });
         }
@@ -51,14 +51,14 @@ public:
         ZeroString ownerPath = ZeroString("data.") + sanitizePath(uri);
         const QString ownerPathQ = QString::fromUtf8(ownerPath.data(), static_cast<int>(ownerPath.length()));
 
-        auto group = std::make_shared<PropertyGroup>();
+        auto group = makeShared<PropertyGroup>();
         group->setName(QString::fromUtf8(uri.data(), static_cast<int>(uri.length())));
 
         auto path = PropertyPath(ownerPathQ);
 
         for (int c = 0; c < table.columnCount(); ++c) {
             auto colName = table.columnName(c);
-            auto prop = std::make_shared<AbstractProperty>();
+            auto prop = makeShared<AbstractProperty>();
             const QString colNameQ = QString::fromUtf8(colName.data(), static_cast<int>(colName.length()));
             prop->setName(colNameQ);
             prop->setType(PropertyType::String);
@@ -67,7 +67,7 @@ public:
             ZeroString preview;
             for (int r = 0; r < std::min(table.rowCount(), 3); ++r) {
                 if (r > 0) preview += ", ";
-                preview += table.getString(r, c);
+                preview += toStdString(table.getString(r, c));
             }
             if (table.rowCount() > 3) preview += "...";
             prop->setValue(QString::fromUtf8(preview.data(), static_cast<int>(preview.length())));
@@ -80,45 +80,45 @@ public:
             QString::fromUtf8(uri.data(), static_cast<int>(uri.length())),
             QString("Data"),
             *group);
-        registeredSources_[uri] = source;
+        registeredSources_[toStdString(uri)] = source;
     }
 
-    static void unregisterSource(const std::string& uri) {
+    static void unregisterSource(const String& uri) {
         std::lock_guard<std::mutex> lock(mutex_);
         ZeroString ownerPath = ZeroString("data.") + sanitizePath(uri);
         globalPropertyRegistry().unregisterOwner(QString::fromUtf8(ownerPath.data(), static_cast<int>(ownerPath.length())));
-        registeredSources_.erase(uri);
+        registeredSources_.erase(toStdString(uri));
         DataCache::instance().invalidate(uri);
         FileWatcher::instance().unwatch(uri);
     }
 
-    static std::vector<std::string> registeredUris() {
+    static std::vector<String> registeredUris() {
         std::lock_guard<std::mutex> lock(mutex_);
-        std::vector<std::string> uris;
+        std::vector<String> uris;
         uris.reserve(registeredSources_.size());
         for (const auto& [uri, _] : registeredSources_) {
-            uris.push_back(uri);
+            uris.emplace_back(uri);
         }
         return uris;
     }
 
-    static std::string getValue(const std::string& uri, int row, const std::string& column) {
+    static String getValue(const String& uri, int row, const String& column) {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto it = registeredSources_.find(uri);
+        auto it = registeredSources_.find(toStdString(uri));
         if (it == registeredSources_.end()) return "";
-        return it->second->table().getString(row, column);
+        return String(it->second->table().getString(row, toStdString(column)));
     }
 
-    static int getRowCount(const std::string& uri) {
+    static int getRowCount(const String& uri) {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto it = registeredSources_.find(uri);
+        auto it = registeredSources_.find(toStdString(uri));
         if (it == registeredSources_.end()) return 0;
         return it->second->table().rowCount();
     }
 
-    static int getColumnCount(const std::string& uri) {
+    static int getColumnCount(const String& uri) {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto it = registeredSources_.find(uri);
+        auto it = registeredSources_.find(toStdString(uri));
         if (it == registeredSources_.end()) return 0;
         return it->second->table().columnCount();
     }
@@ -136,6 +136,10 @@ private:
     }
 
     static ZeroString sanitizePath(StringView s) {
+        return sanitizePath(std::string_view(s.data(), s.length()));
+    }
+
+    static ZeroString sanitizePath(const String& s) {
         return sanitizePath(std::string_view(s.data(), s.length()));
     }
 

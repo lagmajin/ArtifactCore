@@ -100,7 +100,7 @@ struct LayerBlendPipeline::Impl
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pPointwiseParamsCB_;
 };
 
-LayerBlendPipeline::LayerBlendPipeline(std::shared_ptr<GpuContext> context)
+LayerBlendPipeline::LayerBlendPipeline(SharedPtr<GpuContext> context)
     : context_(std::move(context)), pImpl_(new Impl())
 {
 }

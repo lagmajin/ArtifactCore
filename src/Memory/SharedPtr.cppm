@@ -25,6 +25,9 @@ public:
     template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>
     SharedPtr(const std::shared_ptr<U>& ptr) noexcept : ptr_(ptr) {}
 
+    template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>
+    SharedPtr(const SharedPtr<U>& ptr) noexcept : ptr_(ptr.lock()) {}
+
     T* get() const noexcept { return ptr_.get(); }
     T* operator->() const noexcept { return ptr_.get(); }
     T& operator*() const noexcept { return *ptr_; }
@@ -48,6 +51,12 @@ public:
 
     SharedPtr& operator=(const std::shared_ptr<T>& ptr) noexcept {
         ptr_ = ptr;
+        return *this;
+    }
+
+    template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>
+    SharedPtr& operator=(const SharedPtr<U>& ptr) noexcept {
+        ptr_ = ptr.lock();
         return *this;
     }
 
@@ -124,6 +133,11 @@ inline SharedPtr<T> makeShared(Args&&... args) {
     return SharedPtr<T>(std::make_shared<T>(std::forward<Args>(args)...));
 }
 
+template<typename T, typename Deleter>
+inline SharedPtr<T> makeShared(T* ptr, Deleter&& deleter) {
+    return SharedPtr<T>(std::shared_ptr<T>(ptr, std::forward<Deleter>(deleter)));
+}
+
 template<typename T>
 inline SharedPtr<T> makeShared(const std::shared_ptr<T>& ptr) {
     return SharedPtr<T>(ptr);
@@ -132,6 +146,16 @@ inline SharedPtr<T> makeShared(const std::shared_ptr<T>& ptr) {
 template<typename T>
 inline SharedPtr<T> makeShared(std::shared_ptr<T>&& ptr) {
     return SharedPtr<T>(std::move(ptr));
+}
+
+template<typename T, typename U>
+inline SharedPtr<T> staticPointerCast(const SharedPtr<U>& ptr) noexcept {
+    return SharedPtr<T>(std::static_pointer_cast<T>(ptr.lock()));
+}
+
+template<typename T, typename U>
+inline SharedPtr<T> dynamicPointerCast(const SharedPtr<U>& ptr) noexcept {
+    return SharedPtr<T>(std::dynamic_pointer_cast<T>(ptr.lock()));
 }
 
 } // namespace Memory
@@ -145,6 +169,21 @@ using WeakPtr = Memory::WeakPtr<T>;
 export template<typename T, typename... Args>
 inline SharedPtr<T> makeShared(Args&&... args) {
     return Memory::makeShared<T>(std::forward<Args>(args)...);
+}
+
+export template<typename T, typename Deleter>
+inline SharedPtr<T> makeShared(T* ptr, Deleter&& deleter) {
+    return Memory::makeShared<T>(ptr, std::forward<Deleter>(deleter));
+}
+
+export template<typename T, typename U>
+inline SharedPtr<T> staticPointerCast(const SharedPtr<U>& ptr) noexcept {
+    return Memory::staticPointerCast<T>(ptr);
+}
+
+export template<typename T, typename U>
+inline SharedPtr<T> dynamicPointerCast(const SharedPtr<U>& ptr) noexcept {
+    return Memory::dynamicPointerCast<T>(ptr);
 }
 
 } // namespace ArtifactCore

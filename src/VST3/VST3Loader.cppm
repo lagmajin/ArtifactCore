@@ -15,16 +15,17 @@ namespace Steinberg {
 // ─────────────────────────────────────────────────────────
 // VST3 モジュール読み込み
 // ─────────────────────────────────────────────────────────
-bool VST3Module::load(const std::string& path)
+bool VST3Module::load(const ArtifactCore::String& path)
 {
-    if (!std::filesystem::exists(path)) {
-        std::cerr << "[VST3] File not found: " << path << std::endl;
+    const std::string pathStd = ArtifactCore::toStdString(path);
+    if (!std::filesystem::exists(pathStd)) {
+        std::cerr << "[VST3] File not found: " << pathStd << std::endl;
         return false;
     }
 
 #ifdef _WIN32
     moduleHandle_ = LoadLibraryW(
-        std::filesystem::path(path).wstring().c_str());
+        std::filesystem::path(pathStd).wstring().c_str());
     if (!moduleHandle_) {
         std::cerr << "[VST3] LoadLibrary failed: " << GetLastError() << std::endl;
         return false;
@@ -32,7 +33,7 @@ bool VST3Module::load(const std::string& path)
     getFactoryProc_ = reinterpret_cast<GetFactoryProc>(
         GetProcAddress(static_cast<HMODULE>(moduleHandle_), "GetPluginFactory"));
 #else
-    moduleHandle_ = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+    moduleHandle_ = dlopen(pathStd.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!moduleHandle_) {
         std::cerr << "[VST3] dlopen failed: " << dlerror() << std::endl;
         return false;

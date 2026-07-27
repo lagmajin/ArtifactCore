@@ -38,6 +38,8 @@ class tst_QList;
 #include <QMap>
 export module Image.Raw;
 
+import Memory.SharedPtr;
+
 export namespace ArtifactCore {
 
  struct RawImage {
@@ -73,6 +75,6 @@ export namespace ArtifactCore {
   int getPixelTypeSizeInBytes() const;
  };
 
- typedef std::shared_ptr<RawImage> RawImagePtr;
+ using RawImagePtr = SharedPtr<RawImage>;
 
 };

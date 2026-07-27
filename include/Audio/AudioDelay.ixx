@@ -25,7 +25,7 @@ public:
     AudioDelay();
     virtual ~AudioDelay() = default;
 
-    std::string getName() const override { return "Delay"; }
+    String getName() const override { return "Delay"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     void setDelayTimeMs(float ms) { delayTimeMs_ = ms; }
@@ -37,10 +37,10 @@ public:
     float getFeedback() const { return feedback_; }
     float getMix() const { return mix_; }
 
-    std::string effectType() const override { return "delay"; }
+    String effectType() const override { return "delay"; }
     std::vector<EffectParameter> getParameters() const override;
-    void setParameterValue(const std::string& id, float value) override;
-    float getParameterValue(const std::string& id) const override;
+    void setParameterValue(const String& id, float value) override;
+    float getParameterValue(const String& id) const override;
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject& obj) override;
 

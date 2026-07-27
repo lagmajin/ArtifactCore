@@ -7,7 +7,6 @@ module;
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
-#include <memory>
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -41,6 +40,7 @@ export module Asset.File;
 import Utils.Id;
 import Utils.String.UniString;
 import Container.MultiIndex;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -105,7 +105,7 @@ export namespace ArtifactCore {
 
  };
 
- typedef std::shared_ptr<AbstractAssetFile>  AbstractAssetFilePtr;
+ using AbstractAssetFilePtr = SharedPtr<AbstractAssetFile>;
  typedef MultiIndexContainer<AbstractAssetFilePtr, AssetID> AssetMultiIndexContainer;
 
 };

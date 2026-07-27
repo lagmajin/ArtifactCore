@@ -2,13 +2,13 @@ module;
 #include <utility>
 #include <vector>
 #include <string>
-#include <memory>
 #include "../Define/DllExportMacro.hpp"
 
 export module Graphics.Effect.Creative.Manager;
 
 import Graphics.Effect.Creative;
 import Channel;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -24,7 +24,7 @@ public:
     /**
      * @brief エフェクトをスタックに追加
      */
-    void addEffect(std::shared_ptr<CreativeEffect> effect);
+    void addEffect(SharedPtr<CreativeEffect> effect);
     
     /**
      * @brief 指定したインデックスのエフェクトを削除
@@ -41,10 +41,10 @@ public:
     /**
      * @brief エフェクト群を取得
      */
-    const std::vector<std::shared_ptr<CreativeEffect>>& getEffects() const { return effectStack_; }
+    const std::vector<SharedPtr<CreativeEffect>>& getEffects() const { return effectStack_; }
 
 private:
-    std::vector<std::shared_ptr<CreativeEffect>> effectStack_;
+    std::vector<SharedPtr<CreativeEffect>> effectStack_;
 };
 
 } // namespace ArtifactCore

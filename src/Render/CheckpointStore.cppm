@@ -17,6 +17,7 @@ module;
 module Render.Farm.Checkpoint;
 
 import Render.Farm.Types;
+import Utils.Optional;
 
 namespace ArtifactCore {
 
@@ -120,17 +121,17 @@ bool CheckpointStore::save(const CheckpointInfo& checkpoint) {
     return true;
 }
 
-std::optional<CheckpointInfo> CheckpointStore::load(const QString& jobId) {
+Optional<CheckpointInfo> CheckpointStore::load(const QString& jobId) {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     QString path = impl_->filePath(jobId);
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) return std::nullopt;
+    if (!file.open(QIODevice::ReadOnly)) return {};
 
     QByteArray data = file.readAll();
     file.close();
 
     QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (doc.isNull() || !doc.isObject()) return std::nullopt;
+    if (doc.isNull() || !doc.isObject()) return {};
 
     return impl_->fromJson(doc.object());
 }

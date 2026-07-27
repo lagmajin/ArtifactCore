@@ -9,6 +9,7 @@ module;
 export module Asset.Manager;
 
 import AssetType;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -33,12 +34,12 @@ export namespace ArtifactCore {
    int useCount(const QUuid& assetId) const;
    std::uint64_t sourceVersion(const QUuid& assetId) const;
    std::uint64_t invalidateSource(const QUuid& assetId);
-   std::shared_ptr<void> decodedPayload(
+   SharedPtr<void> decodedPayload(
        const QUuid& assetId, std::uint64_t version,
        const QString& representation) const;
-   std::shared_ptr<void> publishDecodedPayload(
+   SharedPtr<void> publishDecodedPayload(
        const QUuid& assetId, std::uint64_t version,
-       const QString& representation, std::shared_ptr<void> payload);
+       const QString& representation, SharedPtr<void> payload);
    QJsonObject sourceRegistrySnapshot() const;
    bool restoreSourceRegistrySnapshot(const QJsonObject& snapshot);
    QJsonArray sourceHealthSnapshot() const;

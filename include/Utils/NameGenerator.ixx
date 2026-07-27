@@ -1,7 +1,6 @@
 module;
 #include <utility>
 #include "../Define/DllExportMacro.hpp"
-#include <string>
 export module Utils.NameGenerator;
 
 import Core.ArtifactString;
@@ -16,19 +15,19 @@ export namespace ArtifactCore
   Impl* impl_;
   int width_ = 0;
 
-  ZeroString makeCandidateZero(const std::string& base, int n) const;
-  std::string makeCandidate(const std::string& base, int n) const;
+  ZeroString makeCandidateZero(const String& base, int n) const;
+  String makeCandidate(const String& base, int n) const;
 
  public:
-  PatternNameGenerator(const std::string& pattern, int zeroPad = 0);
+  PatternNameGenerator(const String& pattern, int zeroPad = 0);
   ~PatternNameGenerator();
 
   PatternNameGenerator(const PatternNameGenerator&) = delete;
   PatternNameGenerator& operator=(const PatternNameGenerator&) = delete;
 
-  std::string Generate(const std::string& baseName);
+  String Generate(const String& baseName);
 
-  void Release(const std::string& name);
+  void Release(const String& name);
  };
 
 

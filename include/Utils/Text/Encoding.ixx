@@ -1,7 +1,6 @@
 module;
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -9,6 +8,8 @@ module;
 export module Utils.Text.Encoding;
 
 import Utils.Result;
+import Utils.Optional;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -113,7 +114,7 @@ inline bool isValidUtf8(std::string_view value) noexcept
   return true;
 }
 
-inline std::optional<std::size_t> firstInvalidUtf8Offset(std::string_view value) noexcept
+inline Optional<std::size_t> firstInvalidUtf8Offset(std::string_view value) noexcept
 {
   const auto byteAt = [&value](std::size_t index) {
     return static_cast<std::uint8_t>(value[index]);
@@ -140,14 +141,14 @@ inline std::optional<std::size_t> firstInvalidUtf8Offset(std::string_view value)
     }
     index += length;
   }
-  return std::nullopt;
+  return {};
 }
 
-inline Result<std::string> fromUtf8Checked(std::string_view value)
+inline Result<String> fromUtf8Checked(std::string_view value)
 {
   if (const auto invalidOffset = firstInvalidUtf8Offset(value);
       invalidOffset.has_value()) {
-    return Result<std::string>::fail(ErrorContext{
+    return Result<String>::fail(ErrorContext{
         .code = ErrorCode::InvalidArgument,
         .message = "input contains invalid UTF-8 at byte " +
                    std::to_string(*invalidOffset),
@@ -155,16 +156,16 @@ inline Result<std::string> fromUtf8Checked(std::string_view value)
         .objectId = std::to_string(*invalidOffset),
         .location = sourceLocation(__FILE__, __func__, __LINE__)});
   }
-  return Result<std::string>::ok(std::string(value));
+  return Result<String>::ok(String(value.data(), value.size()));
 }
 
-inline Result<std::string> fromUtf8BomAware(std::string_view value)
+inline Result<String> fromUtf8BomAware(std::string_view value)
 {
   auto checked = fromUtf8Checked(stripBom(value));
   if (!checked) {
     auto context = checked.errorContext();
     context.operation = "encoding.fromUtf8BomAware";
-    return Result<std::string>::fail(std::move(context));
+    return Result<String>::fail(std::move(context));
   }
   return checked;
 }

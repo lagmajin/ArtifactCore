@@ -13,6 +13,8 @@ module;
 
 module CLAP.Host;
 
+import Memory.SharedPtr;
+
 namespace clap {
 
 namespace fs = std::filesystem;
@@ -202,7 +204,7 @@ class Host::Impl {
 public:
     std::vector<std::string> searchPaths;
     // ライブラリを生きたまま保持（プラグイン生存中のアンロード防止）
-    std::vector<std::shared_ptr<PluginLibrary>> libraries;
+    std::vector<SharedPtr<PluginLibrary>> libraries;
 };
 
 Host::Host() : impl_(new Impl()) {
@@ -241,7 +243,7 @@ Plugin* Host::loadPlugin(const std::string& path) {
         return nullptr;
     }
 
-    auto lib = std::make_shared<PluginLibrary>();
+    auto lib = makeShared<PluginLibrary>();
     if (!lib->load(path)) {
         std::cerr << "[CLAP] Failed to load: " << path << std::endl;
         return nullptr;

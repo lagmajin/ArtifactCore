@@ -21,7 +21,7 @@ public:
     AudioCompressor();
     virtual ~AudioCompressor() = default;
 
-    std::string getName() const override { return "Compressor"; }
+    String getName() const override { return "Compressor"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // パラメータ
@@ -33,10 +33,10 @@ public:
     
     float getGainReduction() const;
 
-    std::string effectType() const override { return "compressor"; }
+    String effectType() const override { return "compressor"; }
     std::vector<EffectParameter> getParameters() const override;
-    void setParameterValue(const std::string& id, float value) override;
-    float getParameterValue(const std::string& id) const override;
+    void setParameterValue(const String& id, float value) override;
+    float getParameterValue(const String& id) const override;
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject& obj) override;
 

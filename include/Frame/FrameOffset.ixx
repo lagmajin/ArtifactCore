@@ -36,6 +36,7 @@ export module Frame.Offset;
 import Frame.Rate;
 import Time.Rational;
 import Time.Code;
+import Core.ArtifactString;
 
 
 export namespace ArtifactCore {
@@ -90,7 +91,7 @@ export namespace ArtifactCore {
   bool isNegative() const;
   FrameOffset abs() const;
   FrameOffset negate() const;
-  std::string toString() const;
+  String toString() const;
   static FrameOffset fromString(const std::string& str);
 
   // Relation with other frame classes

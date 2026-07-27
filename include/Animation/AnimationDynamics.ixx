@@ -2,10 +2,11 @@ module;
 #include <utility>
 #include <cmath>
 #include <algorithm>
-#include <string>
 
 
 export module Animation.Dynamics;
+
+import Core.ArtifactString;
 
 // ============================================================
 // M-FE-10 Animation Dynamics Core — Phase 1: Solver Primitives
@@ -322,10 +323,10 @@ struct DynamicsChannel3D {
 
 /// Returns a built-in preset by name ("Smooth", "Bouncy", "Jelly", "Heavy", "Floaty", "Rigid").
 /// Falls back to Smooth for unknown names.
-export DynamicsPreset presetByName(const std::string& name);
+export DynamicsPreset presetByName(const String& name);
 
 /// Returns a human-readable name for a preset.
 /// Returns "Custom" if the parameters don't match any built-in preset.
-export const char* presetName(const DynamicsPreset& p) noexcept;
+export String presetName(const DynamicsPreset& p) noexcept;
 
 } // namespace ArtifactCore

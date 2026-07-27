@@ -47,6 +47,8 @@ class tst_QList;
 #include <random>
 module Mesh;
 
+import Memory.SharedPtr;
+
 namespace ArtifactCore {
 
 namespace {
@@ -240,10 +242,10 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         float weights[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     };
 
-    std::shared_ptr<Mesh> Mesh::createSubdivided(int level) const {
-        if (level <= 0 || impl_->polygons.empty()) return std::make_shared<Mesh>(*this);
+    SharedPtr<Mesh> Mesh::createSubdivided(int level) const {
+        if (level <= 0 || impl_->polygons.empty()) return makeShared<Mesh>(*this);
 
-        auto subdivided = std::make_shared<Mesh>();
+        auto subdivided = makeShared<Mesh>();
         auto posAttr = impl_->vertexAttrs.get<QVector3D>("position");
         auto normAttr = impl_->vertexAttrs.get<QVector3D>("normal");
         if (!posAttr) return subdivided;

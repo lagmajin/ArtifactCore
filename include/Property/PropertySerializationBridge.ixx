@@ -19,6 +19,7 @@ export module Property.SerializationBridge;
 import Property.Abstract;
 import Property.Group;
 import Property.Path;
+import Memory.SharedPtr;
 import Time.Rational;
 
 export namespace ArtifactCore {
@@ -284,7 +285,7 @@ public:
                                            const QString& displayName,
                                            const QString& ownerType,
                                            bool readOnly,
-                                           const std::shared_ptr<PropertyGroup>& group)
+                                           const SharedPtr<PropertyGroup>& group)
     {
         SerializedOwner so;
         so.ownerPath = ownerPath;

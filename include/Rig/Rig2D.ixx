@@ -16,6 +16,7 @@ class tst_QList;
 export module ArtifactCore.Rig2D;
 
 import Utils.Id;
+import Memory.SharedPtr;
 import Time.Rational;
 import Animation.Value;
 import Frame.Position;
@@ -205,7 +206,7 @@ public:
     void setEnabled(bool enabled) { enabled_ = enabled; }
 
     QJsonObject toJson() const;
-    static std::shared_ptr<RigPropertyBinding2D> fromJson(const QJsonObject& object);
+    static SharedPtr<RigPropertyBinding2D> fromJson(const QJsonObject& object);
 
 private:
     Id id_;
@@ -269,7 +270,7 @@ public:
     RigConstraintKind kind() const override { return RigConstraintKind::Parent; }
     void evaluate(RigEvaluationContext2D& context) override;
     QJsonObject toJson() const override;
-    static std::shared_ptr<ParentConstraint2D> fromJson(const QJsonObject& object);
+    static SharedPtr<ParentConstraint2D> fromJson(const QJsonObject& object);
 
     Id targetBoneId() const { return targetBoneId_; }
     void setTargetBoneId(const Id& id) { targetBoneId_ = id; }
@@ -292,7 +293,7 @@ public:
     RigConstraintKind kind() const override { return RigConstraintKind::MapRange; }
     void evaluate(RigEvaluationContext2D& context) override;
     QJsonObject toJson() const override;
-    static std::shared_ptr<MapRangeConstraint2D> fromJson(const QJsonObject& object);
+    static SharedPtr<MapRangeConstraint2D> fromJson(const QJsonObject& object);
 
     Id controlId() const { return controlId_; }
     void setControlId(const Id& id) { controlId_ = id; }
@@ -324,7 +325,7 @@ public:
     RigConstraintKind kind() const override { return RigConstraintKind::Aim; }
     void evaluate(RigEvaluationContext2D& context) override;
     QJsonObject toJson() const override;
-    static std::shared_ptr<AimConstraint2D> fromJson(const QJsonObject& object);
+    static SharedPtr<AimConstraint2D> fromJson(const QJsonObject& object);
 
     Id sourceBoneId() const { return sourceBoneId_; }
     void setSourceBoneId(const Id& id) { sourceBoneId_ = id; }
@@ -351,7 +352,7 @@ public:
     RigConstraintKind kind() const override { return RigConstraintKind::TwoBoneIK; }
     void evaluate(RigEvaluationContext2D& context) override;
     QJsonObject toJson() const override;
-    static std::shared_ptr<TwoBoneIKConstraint2D> fromJson(const QJsonObject& object);
+    static SharedPtr<TwoBoneIKConstraint2D> fromJson(const QJsonObject& object);
 
     Id upperBoneId() const { return upperBoneId_; }
     void setUpperBoneId(const Id& id) { upperBoneId_ = id; }
@@ -411,19 +412,19 @@ public:
     QVariant controlValue(const Id& id) const;
 
     // Constraint management
-    std::shared_ptr<RigConstraint2D> addConstraint(std::shared_ptr<RigConstraint2D> constraint);
+    SharedPtr<RigConstraint2D> addConstraint(SharedPtr<RigConstraint2D> constraint);
     bool removeConstraint(const Id& id);
-    std::shared_ptr<RigConstraint2D> findConstraint(const Id& id) const;
-    std::shared_ptr<RigConstraint2D> findConstraint(const QString& name) const;
+    SharedPtr<RigConstraint2D> findConstraint(const Id& id) const;
+    SharedPtr<RigConstraint2D> findConstraint(const QString& name) const;
     int constraintCount() const;
-    const QList<std::shared_ptr<RigConstraint2D>>& constraints() const { return constraints_; }
+    const QList<SharedPtr<RigConstraint2D>>& constraints() const { return constraints_; }
 
-    std::shared_ptr<RigPropertyBinding2D> addPropertyBinding(std::shared_ptr<RigPropertyBinding2D> binding);
+    SharedPtr<RigPropertyBinding2D> addPropertyBinding(SharedPtr<RigPropertyBinding2D> binding);
     bool removePropertyBinding(const Id& id);
-    std::shared_ptr<RigPropertyBinding2D> findPropertyBinding(const Id& id) const;
-    std::shared_ptr<RigPropertyBinding2D> findPropertyBinding(const QString& name) const;
+    SharedPtr<RigPropertyBinding2D> findPropertyBinding(const Id& id) const;
+    SharedPtr<RigPropertyBinding2D> findPropertyBinding(const QString& name) const;
     int propertyBindingCount() const;
-    const QList<std::shared_ptr<RigPropertyBinding2D>>& propertyBindings() const { return propertyBindings_; }
+    const QList<SharedPtr<RigPropertyBinding2D>>& propertyBindings() const { return propertyBindings_; }
 
     // 更新
     void update();
@@ -441,8 +442,8 @@ public:
 private:
     QList<Bone2D*> bones_;
     RigControlSet2D controlSet_;
-    QList<std::shared_ptr<RigConstraint2D>> constraints_;
-    QList<std::shared_ptr<RigPropertyBinding2D>> propertyBindings_;
+    QList<SharedPtr<RigConstraint2D>> constraints_;
+    QList<SharedPtr<RigPropertyBinding2D>> propertyBindings_;
     Bone2D* rootBone_ = nullptr;
 };
 

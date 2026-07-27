@@ -22,7 +22,7 @@ public:
     AudioHighLowPass();
     virtual ~AudioHighLowPass() = default;
 
-    std::string getName() const override { return "High-Low Pass"; }
+    String getName() const override { return "High-Low Pass"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // パラメータ

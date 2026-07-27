@@ -25,6 +25,7 @@ import Image.ExportOptions;
 import Image.Utils;
 import Image.MultiChannelImage;
 import Core.Parallel;
+import Memory.SharedPtr;
 
 namespace ArtifactCore {
 
@@ -295,9 +296,9 @@ ImageExportResult ImageExporter::write(const OIIO::ImageBuf& image, const QStrin
 
 std::future<ImageExportResult> ImageExporter::writeAsync(const OIIO::ImageBuf& image, const QString& filePath, const ImageExportOptions& options)
 {
-    auto promise = std::make_shared<std::promise<ImageExportResult>>();
+    auto promise = makeShared<std::promise<ImageExportResult>>();
     std::future<ImageExportResult> future = promise->get_future();
-    auto imageCopy = std::make_shared<OIIO::ImageBuf>();
+    auto imageCopy = makeShared<OIIO::ImageBuf>();
     imageCopy->copy(image);
 
     std::thread([this, imageCopy, filePath, options, promise]() {
@@ -310,7 +311,7 @@ std::future<ImageExportResult> ImageExporter::writeAsync(const OIIO::ImageBuf& i
 
 std::future<ImageExportResult> ImageExporter::writeAsync(const QImage& image, const QString& filePath, const ImageExportOptions& options)
 {
-    auto promise = std::make_shared<std::promise<ImageExportResult>>();
+    auto promise = makeShared<std::promise<ImageExportResult>>();
     std::future<ImageExportResult> future = promise->get_future();
 
     std::thread([this, image, filePath, options, promise]() {
@@ -384,7 +385,7 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
     // Collect enabled channels with their OIIO names
     const auto types = multiImage.channelTypes();
     std::vector<QString> channelNames;
-    std::vector<std::shared_ptr<const VideoChannel>> channelData;
+    std::vector<SharedPtr<const VideoChannel>> channelData;
     std::vector<int> syntheticChannelIndices;
     for (const auto& type : types) {
         auto ch = multiImage.getChannel(type);
@@ -436,7 +437,7 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
                 channelNames.push_back(
                     QStringLiteral("%1.%2")
                         .arg(layerName, QString::fromLatin1(kSuffixes[component])));
-                channelData.push_back(std::shared_ptr<const VideoChannel>());
+                channelData.push_back(nullptr);
                 syntheticChannelIndices.push_back(syntheticIndex);
             }
         };
@@ -530,9 +531,9 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
 
 std::future<ImageExportResult> ImageExporter::writeMultiChannelAsync(const MultiChannelImage& multiImage, const QString& filePath, const ImageExportOptions& options)
 {
-    auto promise = std::make_shared<std::promise<ImageExportResult>>();
+    auto promise = makeShared<std::promise<ImageExportResult>>();
     std::future<ImageExportResult> future = promise->get_future();
-    auto imageCopy = std::make_shared<MultiChannelImage>(multiImage);
+    auto imageCopy = makeShared<MultiChannelImage>(multiImage);
 
     std::thread([this, imageCopy, filePath, options, promise]() {
         ImageExportResult result = writeMultiChannel(*imageCopy, filePath, options);

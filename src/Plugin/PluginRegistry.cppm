@@ -1,6 +1,5 @@
 module;
 #include <mutex>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -10,6 +9,7 @@ module;
 module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
+import Utils.Optional;
 
 namespace ArtifactCore {
 
@@ -83,13 +83,13 @@ std::vector<PluginDescriptor> ArtifactPluginRegistry::pluginsOfCategory(PluginCa
     return result;
 }
 
-std::optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::string& id) const {
+Optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::string& id) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(id);
     if (it != entries_.end()) {
         return it->second.descriptor;
     }
-    return std::nullopt;
+    return {};
 }
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {

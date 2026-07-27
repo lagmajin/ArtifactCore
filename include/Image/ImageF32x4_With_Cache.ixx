@@ -35,6 +35,8 @@ module;
 #include <random>
 export module Image.ImageF32x4RGBAWithCache;
 
+import Memory.SharedPtr;
+
 import Image.ImageF32x4_RGBA;
 
 export namespace ArtifactCore
@@ -65,9 +67,9 @@ ImageF32x4RGBAWithCache& operator=(const ImageF32x4RGBAWithCache& other);
 
  };
 
-// Recommended: Use this typedef instead of std::shared_ptr<ImageF32x4RGBAWithCache>
-// Example: ImageF32x4RGBAWithCachePtr myImage = std::make_shared<ImageF32x4RGBAWithCache>();
-typedef std::shared_ptr<ImageF32x4RGBAWithCache> ImageF32x4RGBAWithCachePtr;
+// Recommended: Use this alias for shared image ownership.
+// Example: ImageF32x4RGBAWithCachePtr myImage = makeShared<ImageF32x4RGBAWithCache>();
+using ImageF32x4RGBAWithCachePtr = SharedPtr<ImageF32x4RGBAWithCache>;
 
 
 

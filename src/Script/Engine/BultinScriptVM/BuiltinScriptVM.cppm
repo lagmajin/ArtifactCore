@@ -9,6 +9,7 @@ module Script.Engine.BuiltinVM;
 import Script.Expression.Value;
 import Script.Expression.Evaluator;
 import Script.Engine.Context;
+import Memory.SharedPtr;
 
 namespace ArtifactCore {
 
@@ -81,7 +82,7 @@ ExpressionValue BuiltinScriptVM::evaluate(const std::string& expression, ScriptC
     return result;
 }
 
-ExpressionValue BuiltinScriptVM::evaluateAST(const std::shared_ptr<ExprNode>& ast)
+ExpressionValue BuiltinScriptVM::evaluateAST(const SharedPtr<ExprNode>& ast)
 {
     return impl_->evaluator_.evaluateAST(ast);
 }

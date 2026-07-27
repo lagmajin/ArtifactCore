@@ -22,7 +22,7 @@ public:
     AudioBassTreble();
     virtual ~AudioBassTreble() = default;
 
-    std::string getName() const override { return "Bass & Treble"; }
+    String getName() const override { return "Bass & Treble"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // パラメータ（dB単位）

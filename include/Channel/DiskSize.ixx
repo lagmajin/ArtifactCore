@@ -8,6 +8,8 @@ module;
 
 export module Disk.Size;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
 class DiskSize {
@@ -39,13 +41,13 @@ public:
     uint64_t availableBytes() const { return available_; }
     uint64_t usedBytes() const { return total_ > free_ ? total_ - free_ : 0; }
 
-    std::string totalFormatted() const { return formatBytes(total_); }
-    std::string freeFormatted() const { return formatBytes(free_); }
-    std::string availableFormatted() const { return formatBytes(available_); }
+    String totalFormatted() const { return formatBytes(total_); }
+    String freeFormatted() const { return formatBytes(free_); }
+    String availableFormatted() const { return formatBytes(available_); }
 
     bool isValid() const { return valid_; }
 
-    static std::string formatBytes(uint64_t bytes) {
+    static String formatBytes(uint64_t bytes) {
         const char* units[] = { "B", "KB", "MB", "GB", "TB" };
         int unit = 0;
         double size = static_cast<double>(bytes);
@@ -55,7 +57,7 @@ public:
         }
         std::ostringstream ss;
         ss << std::fixed << std::setprecision(1) << size << " " << units[unit];
-        return ss.str();
+        return String(ss.str());
     }
 
 private:

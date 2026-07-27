@@ -8,6 +8,7 @@ module;
 
 export module Render.SoftwareRayTracer;
 
+import Memory.SharedPtr;
 import Render.Vector3D;
 import Render.Ray;
 import Render.Camera;
@@ -171,25 +172,25 @@ public:
     {
         world.clear();
 
-        auto ground = std::make_shared<SphereObject>(
+        auto ground = makeShared<SphereObject>(
             Sphere{Vec3(0, -100.5f, -1), 100.0f},
             Material::lambertian(Vec3(0.8f, 0.8f, 0.0f))
         );
         world.add(ground);
 
-        auto center = std::make_shared<SphereObject>(
+        auto center = makeShared<SphereObject>(
             Sphere{Vec3(0, 0, -1.2f), 0.5f},
             Material::dielectric(1.5f)
         );
         world.add(center);
 
-        auto left = std::make_shared<SphereObject>(
+        auto left = makeShared<SphereObject>(
             Sphere{Vec3(-0.9f, 0, -1.2f), 0.5f},
             Material::lambertian(Vec3(0.1f, 0.2f, 0.5f))
         );
         world.add(left);
 
-        auto right = std::make_shared<SphereObject>(
+        auto right = makeShared<SphereObject>(
             Sphere{Vec3(0.9f, 0, -1.2f), 0.5f},
             Material::metal(Vec3(0.8f, 0.8f, 0.8f), 0.3f)
         );
@@ -200,7 +201,7 @@ public:
     {
         world.clear();
         
-        auto ground = std::make_shared<SphereObject>(
+        auto ground = makeShared<SphereObject>(
             Sphere{Vec3(0, -1000, 0), 1000},
             Material::lambertian(Vec3(0.5f, 0.5f, 0.5f))
         );
@@ -238,7 +239,7 @@ public:
                 break;
             }
 
-            world.add(std::make_shared<SphereObject>(s, mat));
+            world.add(makeShared<SphereObject>(s, mat));
         }
     }
 

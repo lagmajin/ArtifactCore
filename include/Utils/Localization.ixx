@@ -1,6 +1,5 @@
 module;
 #include <utility>
-#include <string>
 #include <unordered_map>
 #include <memory>
 #include <QString>
@@ -8,6 +7,7 @@ module;
 export module Core.Localization;
 
 import Utils.String.UniString;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -51,7 +51,7 @@ public:
     void addTranslation(LocaleLanguage lang, const QString& key, const QString& value);
 
     // 外部ファイルからロード
-    bool loadFromFile(const std::string& path, LocaleLanguage lang);
+    bool loadFromFile(const String& path, LocaleLanguage lang);
     bool loadFromFile(const QString& path, LocaleLanguage lang);
 
     // ディレクトリから全言語を一括ロード

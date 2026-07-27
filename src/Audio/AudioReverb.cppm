@@ -61,13 +61,13 @@ std::vector<EffectParameter> AudioReverb::getParameters() const {
     };
 }
 
-void AudioReverb::setParameterValue(const std::string& id, float value) {
+void AudioReverb::setParameterValue(const String& id, float value) {
     if (id == "decay") decay_ = value;
     else if (id == "mix") mix_ = value;
     else if (id == "size") size_ = value;
 }
 
-float AudioReverb::getParameterValue(const std::string& id) const {
+float AudioReverb::getParameterValue(const String& id) const {
     if (id == "decay") return decay_;
     if (id == "mix") return mix_;
     if (id == "size") return size_;

@@ -2,7 +2,6 @@ module;
 
 #include <functional>
 #include <memory>
-#include <optional>
 
 #include <QByteArray>
 #include <QCryptographicHash>
@@ -21,6 +20,8 @@ export module Composition.ParametricComposition;
 import FloatRGBA;
 import Image.ImageF32x4_RGBA;
 import Utils.Id;
+import Utils.Optional;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -190,7 +191,7 @@ ParametricCompositionDefinition makeDefaultParametricCompositionDefinition(
     QString outputSlotId = QStringLiteral("output"));
 
 struct ParametricCompositionInputResolver {
-    using Resolver = std::function<std::optional<ImageF32x4_RGBA>(
+    using Resolver = std::function<Optional<ImageF32x4_RGBA>(
         const ParametricCompositionInputBinding& binding,
         const ParametricCompositionRenderContext& context)>;
 
@@ -253,10 +254,10 @@ private:
 class ParametricCompositionInstance {
 public:
     ParametricCompositionInstance() = default;
-    explicit ParametricCompositionInstance(std::shared_ptr<const ParametricCompositionDefinition> definition);
+    explicit ParametricCompositionInstance(SharedPtr<const ParametricCompositionDefinition> definition);
 
-    std::shared_ptr<const ParametricCompositionDefinition> definition() const;
-    void setDefinition(std::shared_ptr<const ParametricCompositionDefinition> definition);
+    SharedPtr<const ParametricCompositionDefinition> definition() const;
+    void setDefinition(SharedPtr<const ParametricCompositionDefinition> definition);
 
     const QVector<ParametricCompositionInputBinding>& inputBindings() const;
     void addInputBinding(const ParametricCompositionInputBinding& binding);
@@ -301,7 +302,7 @@ public:
     QJsonObject toJson() const;
     static ParametricCompositionInstance fromJson(
         const QJsonObject& obj,
-        std::shared_ptr<const ParametricCompositionDefinition> definition = {}
+        SharedPtr<const ParametricCompositionDefinition> definition = {}
     );
 
 private:
@@ -309,7 +310,7 @@ private:
     static QByteArray hashImage(const ImageF32x4_RGBA& image);
     static QByteArray hashVariantMap(const QMap<QString, QVariant>& values);
 
-    std::shared_ptr<const ParametricCompositionDefinition> definition_;
+    SharedPtr<const ParametricCompositionDefinition> definition_;
     QVector<ParametricCompositionInputBinding> inputBindings_;
     QMap<QString, QVariant> parameterOverrides_;
     QVariantMap dataRowValues_;

@@ -39,6 +39,8 @@ module;
 #include <random>
 export module Physics2D;
 
+import Memory.SharedPtr;
+
 export namespace ArtifactCore {
 
     // ─────────────────────────────────────────────────────────
@@ -207,27 +209,26 @@ export namespace ArtifactCore {
         void addStaticCircle(float x, float y, float radius, float friction = 0.3f);
 
         // 動的な四角形(クローン等)の追加
-        std::shared_ptr<RigidBody2D> addDynamicBox(float x, float y, float width, float height, float density = 1.0f, float friction = 0.3f, float restitution = 0.5f);
+        SharedPtr<RigidBody2D> addDynamicBox(float x, float y, float width, float height, float density = 1.0f, float friction = 0.3f, float restitution = 0.5f);
         
         // 動的な円の追加
-        std::shared_ptr<RigidBody2D> addDynamicCircle(float x, float y, float radius, float density = 1.0f, float friction = 0.3f, float restitution = 0.5f);
+        SharedPtr<RigidBody2D> addDynamicCircle(float x, float y, float radius, float density = 1.0f, float friction = 0.3f, float restitution = 0.5f);
 
         // 複雑な形状(ポリゴン)の追加
-        std::shared_ptr<RigidBody2D> addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic = true, float density = 1.0f);
+        SharedPtr<RigidBody2D> addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic = true, float density = 1.0f);
 
         // 生成済みのボディを取り除く
-        void removeBody(const std::shared_ptr<RigidBody2D>& body);
+        void removeBody(const SharedPtr<RigidBody2D>& body);
 
         // ジョイントの追加
-        b2JointId addDistanceJoint(std::shared_ptr<RigidBody2D> bodyA, std::shared_ptr<RigidBody2D> bodyB, float length, float damping = 0.5f, float stiffness = 1.0f);
-        b2JointId addRevoluteJoint(std::shared_ptr<RigidBody2D> bodyA, std::shared_ptr<RigidBody2D> bodyB, QVector2D anchor);
+        b2JointId addDistanceJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, float length, float damping = 0.5f, float stiffness = 1.0f);
+        b2JointId addRevoluteJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, QVector2D anchor);
 
         // 状態のリセット
         void clear();
 
         // 登録されている全ボディを取得
-        std::vector<std::shared_ptr<RigidBody2D>> getBodies() const;
+        std::vector<SharedPtr<RigidBody2D>> getBodies() const;
     };
 
 }
-

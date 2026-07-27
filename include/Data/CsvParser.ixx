@@ -12,6 +12,8 @@ module;
 
 export module Data.CsvParser;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
 enum class CsvParseError {
@@ -66,10 +68,10 @@ struct CsvParseOptions {
 };
 
 struct CsvParseResult {
-    std::vector<std::vector<std::string>> rows;
-    std::vector<std::string> headers;
+    std::vector<std::vector<String>> rows;
+    std::vector<String> headers;
     CsvParseError error = CsvParseError::None;
-    std::string errorMessage;
+    String errorMessage;
     int rowCount = 0;
     int columnCount = 0;
 
@@ -150,10 +152,27 @@ public:
         }
 
         if (options.hasHeader && !rawRows.empty()) {
-            result.headers = std::move(rawRows[0]);
-            result.rows.assign(rawRows.begin() + 1, rawRows.end());
+            result.headers.reserve(rawRows[0].size());
+            for (const auto& header : rawRows[0]) {
+                result.headers.emplace_back(header);
+            }
+            result.rows.reserve(rawRows.size() - 1);
+            for (size_t rowIndex = 1; rowIndex < rawRows.size(); ++rowIndex) {
+                auto& outputRow = result.rows.emplace_back();
+                outputRow.reserve(rawRows[rowIndex].size());
+                for (const auto& value : rawRows[rowIndex]) {
+                    outputRow.emplace_back(value);
+                }
+            }
         } else {
-            result.rows = std::move(rawRows);
+            result.rows.reserve(rawRows.size());
+            for (const auto& rawRow : rawRows) {
+                auto& outputRow = result.rows.emplace_back();
+                outputRow.reserve(rawRow.size());
+                for (const auto& value : rawRow) {
+                    outputRow.emplace_back(value);
+                }
+            }
         }
 
         result.rowCount = static_cast<int>(result.rows.size());

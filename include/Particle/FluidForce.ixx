@@ -7,6 +7,7 @@ module;
 
 export module ArtifactCore.Particle.FluidForce;
 
+import Memory.SharedPtr;
 import Particle;
 import Particle.System;
 
@@ -70,7 +71,7 @@ export class FluidForceField : public ForceField {
 public:
     FluidForceField(int gridSize = 32) 
         : ForceField(Type::Turbulence), // Map to turbulence for now
-          fluid_(std::make_shared<FluidGrid>(gridSize)) {}
+          fluid_(makeShared<FluidGrid>(gridSize)) {}
 
     void apply(Particle& p, double dt) override {
         if (!enabled_) return;
@@ -100,7 +101,7 @@ public:
     void setViscosity(float viscosity) { viscosity_ = viscosity; }
 
 private:
-    std::shared_ptr<FluidGrid> fluid_;
+    SharedPtr<FluidGrid> fluid_;
     float influence_ = 1.0f;
     float viscosity_ = 0.1f;
 };

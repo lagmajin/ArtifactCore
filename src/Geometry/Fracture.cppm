@@ -316,7 +316,7 @@ static Particle makeDebrisParticle(const QPointF& origin,
 
 class FractureEffect::Impl {
 public:
- std::shared_ptr<Mesh> sourceMesh;
+ SharedPtr<Mesh> sourceMesh;
  QRectF sourceBounds;
  FractureSettings settings;
  QPointF impactPoint;
@@ -339,12 +339,12 @@ void FractureEffect::clear() {
  impl_->generated = false;
 }
 
-void FractureEffect::setSourceMesh(std::shared_ptr<Mesh> mesh) {
+void FractureEffect::setSourceMesh(SharedPtr<Mesh> mesh) {
  impl_->sourceMesh = std::move(mesh);
  impl_->generated = false;
 }
 
-std::shared_ptr<Mesh> FractureEffect::sourceMesh() const {
+SharedPtr<Mesh> FractureEffect::sourceMesh() const {
  return impl_->sourceMesh;
 }
 

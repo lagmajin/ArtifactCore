@@ -44,7 +44,7 @@ namespace ArtifactCore {
     public:
         b2Vec2 gravity;
         b2WorldId worldId;
-        std::vector<std::shared_ptr<RigidBody2D>> bodies;
+        std::vector<SharedPtr<RigidBody2D>> bodies;
 
         Impl() : gravity{0.0f, -9.8f} {
             b2WorldDef worldDef = b2DefaultWorldDef();
@@ -105,7 +105,7 @@ namespace ArtifactCore {
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
     }
 
-    std::shared_ptr<RigidBody2D> Physics2D::addDynamicBox(float x, float y, float width, float height, float density, float friction, float restitution) {
+    SharedPtr<RigidBody2D> Physics2D::addDynamicBox(float x, float y, float width, float height, float density, float friction, float restitution) {
         if (!b2World_IsValid(impl_->worldId)) return nullptr;
 
         b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -121,14 +121,14 @@ namespace ArtifactCore {
 
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
-        auto rb = std::make_shared<RigidBody2D>();
+        auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
         impl_->bodies.push_back(rb);
         
         return rb;
     }
 
-    std::shared_ptr<RigidBody2D> Physics2D::addDynamicCircle(float x, float y, float radius, float density, float friction, float restitution) {
+    SharedPtr<RigidBody2D> Physics2D::addDynamicCircle(float x, float y, float radius, float density, float friction, float restitution) {
         if (!b2World_IsValid(impl_->worldId)) return nullptr;
 
         b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -144,14 +144,14 @@ namespace ArtifactCore {
 
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
 
-        auto rb = std::make_shared<RigidBody2D>();
+        auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
         impl_->bodies.push_back(rb);
         
         return rb;
     }
 
-    void Physics2D::removeBody(const std::shared_ptr<RigidBody2D>& body) {
+    void Physics2D::removeBody(const SharedPtr<RigidBody2D>& body) {
         if (!body || !b2Body_IsValid(body->getId()) || !b2World_IsValid(impl_->worldId)) return;
 
         const b2BodyId bodyId = body->getId();
@@ -160,13 +160,13 @@ namespace ArtifactCore {
             std::remove_if(
                 impl_->bodies.begin(),
                 impl_->bodies.end(),
-                [&](const std::shared_ptr<RigidBody2D>& candidate) {
+                [&](const SharedPtr<RigidBody2D>& candidate) {
                     return !candidate || candidate.get() == body.get();
                 }),
             impl_->bodies.end());
     }
 
-    std::shared_ptr<RigidBody2D> Physics2D::addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic, float density) {
+    SharedPtr<RigidBody2D> Physics2D::addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic, float density) {
         if (!b2World_IsValid(impl_->worldId) || vertices.size() < 3) return nullptr;
 
         b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -185,13 +185,13 @@ namespace ArtifactCore {
         shapeDef.density = density;
         b2CreatePolygonShape(bodyId, &shapeDef, &poly);
 
-        auto rb = std::make_shared<RigidBody2D>();
+        auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
         impl_->bodies.push_back(rb);
         return rb;
     }
 
-    b2JointId Physics2D::addDistanceJoint(std::shared_ptr<RigidBody2D> bodyA, std::shared_ptr<RigidBody2D> bodyB, float length, float damping, float stiffness) {
+    b2JointId Physics2D::addDistanceJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, float length, float damping, float stiffness) {
         if (!b2Body_IsValid(bodyA->getId()) || !b2Body_IsValid(bodyB->getId())) return b2_nullJointId;
 
         b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
@@ -204,7 +204,7 @@ namespace ArtifactCore {
         return b2CreateDistanceJoint(impl_->worldId, &jointDef);
     }
 
-    b2JointId Physics2D::addRevoluteJoint(std::shared_ptr<RigidBody2D> bodyA, std::shared_ptr<RigidBody2D> bodyB, QVector2D anchor) {
+    b2JointId Physics2D::addRevoluteJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, QVector2D anchor) {
         if (!b2Body_IsValid(bodyA->getId()) || !b2Body_IsValid(bodyB->getId())) return b2_nullJointId;
 
         b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
@@ -226,7 +226,7 @@ namespace ArtifactCore {
         impl_->worldId = b2CreateWorld(&worldDef);
     }
 
-    std::vector<std::shared_ptr<RigidBody2D>> Physics2D::getBodies() const {
+    std::vector<SharedPtr<RigidBody2D>> Physics2D::getBodies() const {
         return impl_->bodies;
     }
 

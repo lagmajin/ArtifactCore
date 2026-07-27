@@ -868,7 +868,7 @@ PyroFrameSnapshot PyroSimulation::snapshot() const {
 
 PyroMemoryEstimate PyroSimulation::estimateMemory() const noexcept { return fields_.estimateMemory(); }
 
-std::string toString(PyroBoundaryMode mode) {
+String toString(PyroBoundaryMode mode) {
     switch (mode) {
     case PyroBoundaryMode::Open: return "open";
     case PyroBoundaryMode::Closed: return "closed";
@@ -876,7 +876,7 @@ std::string toString(PyroBoundaryMode mode) {
     return "unknown";
 }
 
-std::string toString(PyroBackendKind kind) {
+String toString(PyroBackendKind kind) {
     switch (kind) {
     case PyroBackendKind::CPUReference: return "cpu-reference";
     case PyroBackendKind::GPUCompute: return "gpu-compute";
@@ -884,7 +884,7 @@ std::string toString(PyroBackendKind kind) {
     return "unknown";
 }
 
-std::string toString(PyroFieldChannel channel) {
+String toString(PyroFieldChannel channel) {
     switch (channel) {
     case PyroFieldChannel::Density: return "density";
     case PyroFieldChannel::Temperature: return "temperature";

@@ -6,12 +6,14 @@ module;
 #include <regex>
 #include <algorithm>
 #include <filesystem>
-#include <optional>
 #include <cstdint>
 #include <exception>
 #include <map>
 
 export module Asset.Sequence;
+
+import Core.ArtifactString;
+import Utils.Optional;
 
 
 // ================================================================
@@ -30,49 +32,49 @@ export namespace ArtifactCore {
 // FrameToken — the decomposed parts of a sequenced filename
 // ----------------------------------------------------------------
 struct FrameToken {
-    std::string prefix;       // "image_"   "shotA."   "render-v003-"
+    String prefix;            // "image_"   "shotA."   "render-v003-"
     int64_t     frame   = 0;  // 1, 42, 1001
     int         padding = 0;  // zero-padding width (4 → "0001")
-    std::string suffix;       // ".png"  ".exr"  ".tif"
+    String suffix;            // ".png"  ".exr"  ".tif"
 };
 
 // ----------------------------------------------------------------
 // SequenceGroup — one logical image sequence
 // ----------------------------------------------------------------
 struct SequenceGroup {
-    std::string prefix;           // common prefix
-    std::string suffix;           // common extension
+    String prefix;                // common prefix
+    String suffix;                // common extension
     int         padding = 0;      // detected zero-padding
     int64_t     firstFrame = 0;
     int64_t     lastFrame  = 0;
-    std::vector<std::string> filenames;  // sorted, all members
+    std::vector<String> filenames;       // sorted, all members
 
     /// Display name: e.g.  "image_[0001-0100].png  (100 frames)"
-    std::string displayName() const
+    String displayName() const
     {
         char buf[512];
         std::snprintf(buf, sizeof(buf),
             "%s[%0*lld-%0*lld]%s  (%zu frames)",
-            prefix.c_str(),
+            toStdString(prefix).c_str(),
             padding, (long long)firstFrame,
             padding, (long long)lastFrame,
-            suffix.c_str(),
+            toStdString(suffix).c_str(),
             filenames.size());
-        return buf;
+        return String(buf);
     }
 
     /// Returns the representative filename (first frame).
-    const std::string& representative() const
+    String representative() const
     {
         return filenames.front();
     }
 
     /// Returns the printf-style path pattern, e.g.  "image_%04lld.png"
-    std::string pathPattern() const
+    String pathPattern() const
     {
         char widthSpec[16];
         std::snprintf(widthSpec, sizeof(widthSpec), "%%0%dlld", padding);
-        return prefix + widthSpec + suffix;
+        return String(toStdString(prefix) + widthSpec + toStdString(suffix));
     }
 };
 
@@ -81,7 +83,7 @@ struct SequenceGroup {
 // ----------------------------------------------------------------
 struct SequenceDetectionResult {
     std::vector<SequenceGroup>  sequences;   // found groups (≥2 frames)
-    std::vector<std::string>    singles;     // files that aren't in any group
+    std::vector<String>         singles;     // files that aren't in any group
 };
 
 // ----------------------------------------------------------------
@@ -97,7 +99,7 @@ namespace detail {
 //   "v003_render.tif"  → prefix="v003_render."  digits="" → no match (last digits are part of stem)
 // We intentionally anchor to the LAST digit run before the extension.
 
-inline std::optional<FrameToken> parseFrameToken(const std::string& filename)
+inline Optional<FrameToken> parseFrameToken(const String& filename)
 {
     // Pattern: (anything)(one-or-more-digits)(\.[a-zA-Z0-9]+)$
     static const std::regex kPattern(
@@ -105,21 +107,22 @@ inline std::optional<FrameToken> parseFrameToken(const std::string& filename)
         std::regex::ECMAScript | std::regex::optimize);
 
     std::smatch m;
-    if (!std::regex_match(filename, m, kPattern)) {
-        return std::nullopt;
+    const std::string filenameStd = toStdString(filename);
+    if (!std::regex_match(filenameStd, m, kPattern)) {
+        return {};
     }
 
     FrameToken tok;
-    tok.prefix  = m[1].str();
-    tok.suffix  = m[3].str();
+    tok.prefix  = String(m[1].str());
+    tok.suffix  = String(m[3].str());
     const std::string digits = m[2].str();
     if (digits.size() > 18) {
-        return std::nullopt;
+        return {};
     }
     try {
         tok.frame = std::stoll(digits);
     } catch (const std::exception&) {
-        return std::nullopt;
+        return {};
     }
     tok.padding = static_cast<int>(digits.size());
     return tok;
@@ -152,7 +155,7 @@ struct GroupKey {
 // files are demoted back to singles.
 // ----------------------------------------------------------------
 inline SequenceDetectionResult detectSequences(
-    const std::vector<std::string>& filenames,
+    const std::vector<String>& filenames,
     int minFrames = 2)
 {
     using namespace detail;
@@ -165,11 +168,11 @@ inline SequenceDetectionResult detectSequences(
     for (const auto& fn : filenames) {
         auto tok = parseFrameToken(fn);
         if (!tok) {
-            unparsed.push_back(fn);
+            unparsed.push_back(toStdString(fn));
             continue;
         }
-        GroupKey key{tok->prefix, tok->suffix, tok->padding};
-        buckets[key].emplace_back(tok->frame, fn);
+        GroupKey key{toStdString(tok->prefix), toStdString(tok->suffix), tok->padding};
+        buckets[key].emplace_back(tok->frame, toStdString(fn));
     }
 
     SequenceDetectionResult result;
@@ -182,7 +185,7 @@ inline SequenceDetectionResult detectSequences(
         if (static_cast<int>(frames.size()) < minFrames) {
             // Too few frames — treat as singles
             for (const auto& [frame, fn] : frames) {
-                result.singles.push_back(fn);
+                result.singles.emplace_back(fn);
             }
             continue;
         }
@@ -196,21 +199,21 @@ inline SequenceDetectionResult detectSequences(
         const auto flushRun = [&]() {
             if (static_cast<int>(run.size()) < minFrames) {
                 for (const auto& [frame, fn] : run) {
-                    result.singles.push_back(fn);
+                    result.singles.emplace_back(fn);
                 }
                 run.clear();
                 return;
             }
 
             SequenceGroup grp;
-            grp.prefix     = key.prefix;
-            grp.suffix     = key.suffix;
+            grp.prefix     = String(key.prefix);
+            grp.suffix     = String(key.suffix);
             grp.padding    = key.padding;
             grp.firstFrame = run.front().first;
             grp.lastFrame  = run.back().first;
             grp.filenames.reserve(run.size());
             for (const auto& [frame, fn] : run) {
-                grp.filenames.push_back(fn);
+                grp.filenames.emplace_back(fn);
             }
             result.sequences.push_back(std::move(grp));
             run.clear();
@@ -227,7 +230,7 @@ inline SequenceDetectionResult detectSequences(
 
     // Merge unparsed into singles
     for (auto& fn : unparsed) {
-        result.singles.push_back(fn);
+        result.singles.emplace_back(fn);
     }
 
     return result;
@@ -255,7 +258,12 @@ inline SequenceDetectionResult detectSequencesInDirectory(
         names.push_back(entry.path().filename().string());
     }
     std::sort(names.begin(), names.end());
-    return detectSequences(names, minFrames);
+    std::vector<String> coreNames;
+    coreNames.reserve(names.size());
+    for (const auto& name : names) {
+        coreNames.emplace_back(name);
+    }
+    return detectSequences(coreNames, minFrames);
 }
 
 } // namespace ArtifactCore

@@ -34,6 +34,8 @@ module;
 #include <random>
 export module Core.Scale.Zoom;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
  class LIBRARY_DLL_API ZoomScale2D {
@@ -61,7 +63,7 @@ export namespace ArtifactCore {
   // Utility
   void reset();
   bool isDefault() const;
-  std::string toString() const;
+  String toString() const;
 
   // Operators
   ZoomScale2D& operator+=(float delta);

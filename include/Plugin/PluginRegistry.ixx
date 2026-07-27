@@ -2,7 +2,6 @@ module;
 
 #include <string>
 #include <vector>
-#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <mutex>
@@ -11,6 +10,7 @@ module;
 export module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
+import Utils.Optional;
 
 export namespace ArtifactCore {
 
@@ -29,7 +29,7 @@ public:
     PluginState pluginState(const std::string& id) const;
 
     std::vector<PluginDescriptor> pluginsOfCategory(PluginCategory category) const;
-    std::optional<PluginDescriptor> pluginById(const std::string& id) const;
+    Optional<PluginDescriptor> pluginById(const std::string& id) const;
     std::vector<PluginDescriptor> allPlugins() const;
     std::vector<PluginDescriptor> activePlugins() const;
 

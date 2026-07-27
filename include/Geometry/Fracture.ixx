@@ -13,6 +13,7 @@ module;
 export module Geometry.Fracture;
 
 import Mesh;
+import Memory.SharedPtr;
 import Particle;
 import Utils.Id;
 
@@ -129,8 +130,8 @@ public:
 
  void clear();
 
- void setSourceMesh(std::shared_ptr<Mesh> mesh);
- std::shared_ptr<Mesh> sourceMesh() const;
+ void setSourceMesh(SharedPtr<Mesh> mesh);
+ SharedPtr<Mesh> sourceMesh() const;
 
  void setSourceBounds(const QRectF& bounds);
  QRectF sourceBounds() const;

@@ -1,12 +1,14 @@
 module;
 #include <utility>
 #include <vector>
-#include <string>
 #include <memory>
 #include <map>
 #include "../Define/DllExportMacro.hpp"
 
 export module Channel;
+
+import Core.ArtifactString;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -67,19 +69,19 @@ public:
     VideoFrame(int width, int height);
     ~VideoFrame();
 
-    void addChannel(ChannelType type, const std::string& name = "");
+    void addChannel(ChannelType type, const String& name = "");
     void removeChannel(ChannelType type);
     bool hasChannel(ChannelType type) const;
     
-    std::shared_ptr<VideoChannel> getChannel(ChannelType type);
-    std::shared_ptr<const VideoChannel> getChannel(ChannelType type) const;
+    SharedPtr<VideoChannel> getChannel(ChannelType type);
+    SharedPtr<const VideoChannel> getChannel(ChannelType type) const;
     
     int width() const { return width_; }
     int height() const { return height_; }
 
 private:
     int width_, height_;
-    std::map<ChannelType, std::shared_ptr<VideoChannel>> channels_;
+    std::map<ChannelType, SharedPtr<VideoChannel>> channels_;
 };
 
 } // namespace ArtifactCore

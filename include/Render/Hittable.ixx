@@ -5,6 +5,8 @@ module;
 
 export module Render.Hittable;
 
+import Memory.SharedPtr;
+
 import Render.Vector3D;
 import Render.Ray;
 import Render.Sphere;
@@ -21,7 +23,7 @@ public:
     virtual bool hit(const Ray& r, float ray_tmin, float ray_tmax, HitRecord& rec, const Material*& mat) const = 0;
 };
 
-using HittablePtr = std::shared_ptr<Hittable>;
+using HittablePtr = SharedPtr<Hittable>;
 
 class SphereObject : public Hittable
 {

@@ -109,7 +109,7 @@ bool FrameOffset::isPositive() const { return value() > 0; }
 bool FrameOffset::isNegative() const { return value() < 0; }
 FrameOffset FrameOffset::abs() const { return FrameOffset(std::abs(value())); }
 FrameOffset FrameOffset::negate() const { return FrameOffset(-value()); }
-std::string FrameOffset::toString() const { return std::to_string(value()); }
+String FrameOffset::toString() const { return String(std::to_string(value())); }
 
 FrameOffset FrameOffset::fromString(const std::string& str)
 {

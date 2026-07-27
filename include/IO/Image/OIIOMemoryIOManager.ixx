@@ -16,6 +16,8 @@ module;
 
 export module Image.Exporter.Memory.OIIO;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
  using namespace OIIO;
@@ -35,7 +37,7 @@ export namespace ArtifactCore {
   {
 
   }
-  MemoryProxy(const std::string &file,IOProxy::Mode mode) :IOProxy()
+  MemoryProxy(const String &file,IOProxy::Mode mode) :IOProxy()
   {
    
 

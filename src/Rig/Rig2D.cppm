@@ -21,6 +21,7 @@ class tst_QList;
 module ArtifactCore.Rig2D;
 
 import Utils.Id;
+import Memory.SharedPtr;
 import Time.Rational;
 import Animation.Value;
 import Frame.Position;
@@ -570,9 +571,9 @@ QJsonObject RigPropertyBinding2D::toJson() const
     return object;
 }
 
-std::shared_ptr<RigPropertyBinding2D> RigPropertyBinding2D::fromJson(const QJsonObject& object)
+SharedPtr<RigPropertyBinding2D> RigPropertyBinding2D::fromJson(const QJsonObject& object)
 {
-    auto binding = std::make_shared<RigPropertyBinding2D>();
+    auto binding = makeShared<RigPropertyBinding2D>();
     const QString idString = object.value("id").toString();
     if (!idString.isEmpty()) {
         binding->id_ = Id(idString);
@@ -640,9 +641,9 @@ QJsonObject ParentConstraint2D::toJson() const
     return object;
 }
 
-std::shared_ptr<ParentConstraint2D> ParentConstraint2D::fromJson(const QJsonObject& object)
+SharedPtr<ParentConstraint2D> ParentConstraint2D::fromJson(const QJsonObject& object)
 {
-    auto constraint = std::make_shared<ParentConstraint2D>();
+    auto constraint = makeShared<ParentConstraint2D>();
     const QString idString = object.value("id").toString();
     if (!idString.isEmpty()) {
         constraint->id_ = Id(idString);
@@ -720,9 +721,9 @@ QJsonObject MapRangeConstraint2D::toJson() const
     return object;
 }
 
-std::shared_ptr<MapRangeConstraint2D> MapRangeConstraint2D::fromJson(const QJsonObject& object)
+SharedPtr<MapRangeConstraint2D> MapRangeConstraint2D::fromJson(const QJsonObject& object)
 {
-    auto constraint = std::make_shared<MapRangeConstraint2D>();
+    auto constraint = makeShared<MapRangeConstraint2D>();
     const QString idString = object.value("id").toString();
     if (!idString.isEmpty()) {
         constraint->id_ = Id(idString);
@@ -792,9 +793,9 @@ QJsonObject AimConstraint2D::toJson() const
     return object;
 }
 
-std::shared_ptr<AimConstraint2D> AimConstraint2D::fromJson(const QJsonObject& object)
+SharedPtr<AimConstraint2D> AimConstraint2D::fromJson(const QJsonObject& object)
 {
-    auto constraint = std::make_shared<AimConstraint2D>();
+    auto constraint = makeShared<AimConstraint2D>();
     const QString idString = object.value("id").toString();
     if (!idString.isEmpty()) {
         constraint->id_ = Id(idString);
@@ -895,9 +896,9 @@ QJsonObject TwoBoneIKConstraint2D::toJson() const
     return object;
 }
 
-std::shared_ptr<TwoBoneIKConstraint2D> TwoBoneIKConstraint2D::fromJson(const QJsonObject& object)
+SharedPtr<TwoBoneIKConstraint2D> TwoBoneIKConstraint2D::fromJson(const QJsonObject& object)
 {
-    auto constraint = std::make_shared<TwoBoneIKConstraint2D>();
+    auto constraint = makeShared<TwoBoneIKConstraint2D>();
     const QString idString = object.value("id").toString();
     if (!idString.isEmpty()) {
         constraint->id_ = Id(idString);
@@ -1140,7 +1141,7 @@ QVariant Rig2D::controlValue(const Id& id) const
     return controlSet_.controlValue(id);
 }
 
-std::shared_ptr<RigConstraint2D> Rig2D::addConstraint(std::shared_ptr<RigConstraint2D> constraint)
+SharedPtr<RigConstraint2D> Rig2D::addConstraint(SharedPtr<RigConstraint2D> constraint)
 {
     if (!constraint) {
         return {};
@@ -1161,7 +1162,7 @@ bool Rig2D::removeConstraint(const Id& id)
     return false;
 }
 
-std::shared_ptr<RigConstraint2D> Rig2D::findConstraint(const Id& id) const
+SharedPtr<RigConstraint2D> Rig2D::findConstraint(const Id& id) const
 {
     for (const auto& constraint : constraints_) {
         if (constraint && constraint->id() == id) {
@@ -1171,7 +1172,7 @@ std::shared_ptr<RigConstraint2D> Rig2D::findConstraint(const Id& id) const
     return {};
 }
 
-std::shared_ptr<RigConstraint2D> Rig2D::findConstraint(const QString& name) const
+SharedPtr<RigConstraint2D> Rig2D::findConstraint(const QString& name) const
 {
     for (const auto& constraint : constraints_) {
         if (constraint && constraint->name() == name) {
@@ -1186,7 +1187,7 @@ int Rig2D::constraintCount() const
     return constraints_.size();
 }
 
-std::shared_ptr<RigPropertyBinding2D> Rig2D::addPropertyBinding(std::shared_ptr<RigPropertyBinding2D> binding)
+SharedPtr<RigPropertyBinding2D> Rig2D::addPropertyBinding(SharedPtr<RigPropertyBinding2D> binding)
 {
     if (!binding) {
         return {};
@@ -1207,7 +1208,7 @@ bool Rig2D::removePropertyBinding(const Id& id)
     return false;
 }
 
-std::shared_ptr<RigPropertyBinding2D> Rig2D::findPropertyBinding(const Id& id) const
+SharedPtr<RigPropertyBinding2D> Rig2D::findPropertyBinding(const Id& id) const
 {
     for (const auto& binding : propertyBindings_) {
         if (binding && binding->id() == id) {
@@ -1217,7 +1218,7 @@ std::shared_ptr<RigPropertyBinding2D> Rig2D::findPropertyBinding(const Id& id) c
     return {};
 }
 
-std::shared_ptr<RigPropertyBinding2D> Rig2D::findPropertyBinding(const QString& name) const
+SharedPtr<RigPropertyBinding2D> Rig2D::findPropertyBinding(const QString& name) const
 {
     for (const auto& binding : propertyBindings_) {
         if (binding && binding->name() == name) {

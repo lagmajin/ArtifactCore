@@ -39,6 +39,7 @@ import Utils.String.UniString;
 import Audio.Segment;
 import Audio.Panner;
 import Audio.Effect;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -77,10 +78,10 @@ export namespace ArtifactCore {
 		bool isSolo() const;
 
 		// Effect Rack (FX Slot)
-		void addEffect(std::shared_ptr<AudioEffect> effect);
+		void addEffect(SharedPtr<AudioEffect> effect);
 		void removeEffect(int index);
 		int getEffectCount() const;
-		std::shared_ptr<AudioEffect> getEffect(int index) const;
+		SharedPtr<AudioEffect> getEffect(int index) const;
 
 		// Process audio buffer in-place
 		void process(AudioSegment& segment);
@@ -95,10 +96,10 @@ export namespace ArtifactCore {
 
 		// Sidechain source (bus name whose output feeds this bus's sidechain)
 		void setSidechainSource(const ZeroString& busName);
-		void setSidechainSource(const std::string& busName);
+		void setSidechainSource(const String& busName);
 		void setSidechainSource(const UniString& busName);
 		ZeroString getSidechainSourceZero() const;
-		std::string getSidechainSource() const;
+		String getSidechainSource() const;
 
 		// Serialization
 		QJsonObject toJson() const;

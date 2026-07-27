@@ -7,6 +7,8 @@ module;
 
 export module Utils.Text.String;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
 inline bool isAsciiWhitespace(char value) noexcept
@@ -50,7 +52,7 @@ inline std::vector<std::string_view> splitView(std::string_view value, char sepa
   return result;
 }
 
-inline std::string join(std::span<const std::string_view> parts, char separator)
+inline String join(std::span<const std::string_view> parts, char separator)
 {
   std::size_t size = parts.empty() ? 0 : parts.size() - 1;
   for (const auto part : parts) size += part.size();
@@ -60,7 +62,7 @@ inline std::string join(std::span<const std::string_view> parts, char separator)
     if (index != 0) result.push_back(separator);
     result.append(parts[index]);
   }
-  return result;
+  return String(result);
 }
 
 } // namespace ArtifactCore

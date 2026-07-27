@@ -23,7 +23,7 @@ public:
     AudioReverb();
     virtual ~AudioReverb() = default;
 
-    std::string getName() const override { return "Reverb"; }
+    String getName() const override { return "Reverb"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     void setDecay(float d) { decay_ = d; }
@@ -34,8 +34,8 @@ public:
     float getMix() const { return mix_; }
 
     std::vector<EffectParameter> getParameters() const override;
-    void setParameterValue(const std::string& id, float value) override;
-    float getParameterValue(const std::string& id) const override;
+    void setParameterValue(const String& id, float value) override;
+    float getParameterValue(const String& id) const override;
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject& obj) override;
 

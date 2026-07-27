@@ -13,9 +13,11 @@ module;
 
 export module Data.FileWatcher;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
-using FileChangeCallback = std::function<void(const std::string& path)>;
+using FileChangeCallback = std::function<void(const String& path)>;
 
 struct WatchedFile {
     std::filesystem::path path;
@@ -30,13 +32,14 @@ public:
         return inst;
     }
 
-    void watch(const std::string& path, FileChangeCallback callback, int pollIntervalMs = 2000) {
-        std::filesystem::path p(path);
+    void watch(const String& path, FileChangeCallback callback, int pollIntervalMs = 2000) {
+        const std::string pathStd = toStdString(path);
+        std::filesystem::path p(pathStd);
         if (!std::filesystem::exists(p)) return;
 
         std::lock_guard<std::mutex> lock(mutex_);
 
-        auto it = watched_.find(path);
+        auto it = watched_.find(pathStd);
         if (it != watched_.end()) {
             it->second.callback = std::move(callback);
             return;
@@ -46,7 +49,7 @@ public:
         wf.path = p;
         wf.lastWrite = std::filesystem::last_write_time(p);
         wf.callback = std::move(callback);
-        watched_[path] = std::move(wf);
+        watched_[pathStd] = std::move(wf);
 
         if (!running_.load()) {
             running_.store(true);
@@ -57,9 +60,9 @@ public:
         }
     }
 
-    void unwatch(const std::string& path) {
+    void unwatch(const String& path) {
         std::lock_guard<std::mutex> lock(mutex_);
-        watched_.erase(path);
+        watched_.erase(toStdString(path));
     }
 
     void unwatchAll() {
@@ -68,9 +71,9 @@ public:
         running_.store(false);
     }
 
-    bool isWatching(const std::string& path) const {
+    bool isWatching(const String& path) const {
         std::lock_guard<std::mutex> lock(mutex_);
-        return watched_.count(path) > 0;
+        return watched_.count(toStdString(path)) > 0;
     }
 
 private:
@@ -80,7 +83,7 @@ private:
         while (running_.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
 
-            std::vector<std::pair<std::string, FileChangeCallback>> triggered;
+            std::vector<std::pair<String, FileChangeCallback>> triggered;
 
             {
                 std::lock_guard<std::mutex> lock(mutex_);
@@ -90,7 +93,7 @@ private:
                     auto currentWrite = std::filesystem::last_write_time(wf.path);
                     if (currentWrite != wf.lastWrite) {
                         wf.lastWrite = currentWrite;
-                        triggered.emplace_back(path, wf.callback);
+                        triggered.emplace_back(String(path), wf.callback);
                     }
                 }
             }

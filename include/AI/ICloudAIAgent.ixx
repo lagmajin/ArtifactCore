@@ -11,6 +11,8 @@ class tst_QList;
 
 export module Core.AI.CloudAgent;
 
+import Memory.SharedPtr;
+
 import Core.AI.Context;
 
 export namespace ArtifactCore {
@@ -90,7 +92,7 @@ public:
         const QString& model = {}) = 0;
 };
 
-using ICloudAIAgentPtr = std::shared_ptr<ICloudAIAgent>;
+using ICloudAIAgentPtr = SharedPtr<ICloudAIAgent>;
 
 class CloudAgentFactory {
 public:

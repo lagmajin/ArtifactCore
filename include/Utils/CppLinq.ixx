@@ -2,9 +2,10 @@ module;
 #include <utility>
 
 #include <ranges>
-#include <optional>
 
 export module CppLinq;
+
+import Utils.Optional;
 
 export namespace ArtifactCore {
 
@@ -27,11 +28,11 @@ export namespace ArtifactCore {
 
  // FirstOrDefault: 𖞂ŏ̗vfBȂ std::nullopt
  template <std::ranges::input_range R, typename Pred>
- auto FirstOrDefault(const R& range, Pred pred) -> std::optional<std::ranges::range_value_t<R>> {
+ auto FirstOrDefault(const R& range, Pred pred) -> Optional<std::ranges::range_value_t<R>> {
   for (auto&& v : range) {
    if (pred(v)) return v;
   }
-  return std::nullopt;
+  return {};
  }
 
  // Where: filter ̃GCAXiranges::views::filter ̂܂܁j

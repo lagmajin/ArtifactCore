@@ -5,6 +5,8 @@ module;
 
 export module Data.ColumnType;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
 enum class ColumnType {
@@ -32,7 +34,7 @@ inline const char* columnTypeToString(ColumnType t) {
     return "Unknown";
 }
 
-inline ColumnType columnTypeFromString(const std::string& s) {
+inline ColumnType columnTypeFromString(const String& s) {
     if (s == "String" || s == "string") return ColumnType::String;
     if (s == "Int" || s == "int" || s == "Integer" || s == "integer") return ColumnType::Int;
     if (s == "Float" || s == "float" || s == "Double" || s == "double" || s == "Number" || s == "number") return ColumnType::Float;

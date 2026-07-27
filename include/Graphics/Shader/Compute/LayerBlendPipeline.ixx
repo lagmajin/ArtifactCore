@@ -19,6 +19,7 @@ import Artifact.Render.PointwiseEffectFusion;
 import Graphics.Shader.Compute.HLSL.Blend;
 import Graphics.GPUcomputeContext;
 import Layer.Blend;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore
 {
@@ -45,7 +46,7 @@ export namespace ArtifactCore
  class LIBRARY_DLL_API LayerBlendPipeline
  {
  public:
-  explicit LayerBlendPipeline(std::shared_ptr<GpuContext> context);
+  explicit LayerBlendPipeline(SharedPtr<GpuContext> context);
   ~LayerBlendPipeline();
 
   bool initialize();
@@ -138,7 +139,7 @@ export namespace ArtifactCore
 
   bool createMatteTrackExecutor();
 
-  std::shared_ptr<GpuContext> context_;
+  SharedPtr<GpuContext> context_;
   class Impl;
   Impl* pImpl_ = nullptr;
   std::unique_ptr<ComputeExecutor> layerToFloatExecutor_;

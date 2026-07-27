@@ -3,7 +3,6 @@ module;
 #include <string>
 #include <string_view>
 #include <vector>
-#include <memory>
 #include <filesystem>
 #include <unordered_map>
 #include <functional>
@@ -12,6 +11,8 @@ export module Data.DataSource;
 
 import Data.DataTable;
 import Data.ColumnType;
+import Memory.SharedPtr;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -33,8 +34,8 @@ inline const char* dataSourceKindToString(DataSourceKind k) {
 }
 
 struct DataSourceInfo {
-    std::string uri;
-    std::string displayName;
+    String uri;
+    String displayName;
     DataSourceKind kind = DataSourceKind::Unknown;
     int64_t fileSize = 0;
     int64_t lastModified = 0;
@@ -50,11 +51,11 @@ public:
     virtual const DataTable& table() const = 0;
     virtual bool reload() = 0;
     virtual bool isValid() const = 0;
-    virtual std::string lastError() const = 0;
+    virtual String lastError() const = 0;
 };
 
-using DataSourcePtr = std::shared_ptr<IDataSource>;
-using DataSourceFactory = std::function<DataSourcePtr(const std::string& uri)>;
+using DataSourcePtr = SharedPtr<IDataSource>;
+using DataSourceFactory = std::function<DataSourcePtr(const String& uri)>;
 
 class DataSourceRegistry {
 public:
@@ -63,12 +64,13 @@ public:
         return inst;
     }
 
-    void registerFormat(const std::string& extension, DataSourceFactory factory) {
-        factories_[extension] = std::move(factory);
+    void registerFormat(const String& extension, DataSourceFactory factory) {
+        factories_[toStdString(extension)] = std::move(factory);
     }
 
-    DataSourcePtr open(const std::string& uri) {
-        std::string ext = extensionFromUri(uri);
+    DataSourcePtr open(const String& uri) {
+        const std::string uriStd = toStdString(uri);
+        std::string ext = extensionFromUri(uriStd);
         auto it = factories_.find(ext);
         if (it != factories_.end()) {
             return it->second(uri);
@@ -77,14 +79,14 @@ public:
     }
 
     DataSourcePtr open(const std::filesystem::path& path) {
-        return open(path.string());
+        return open(String(path.string()));
     }
 
-    std::vector<std::string> registeredExtensions() const {
-        std::vector<std::string> exts;
+    std::vector<String> registeredExtensions() const {
+        std::vector<String> exts;
         exts.reserve(factories_.size());
         for (const auto& [ext, _] : factories_) {
-            exts.push_back(ext);
+            exts.push_back(String(ext));
         }
         return exts;
     }

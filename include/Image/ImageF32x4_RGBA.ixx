@@ -108,6 +108,4 @@ export namespace ArtifactCore {
   Impl* impl_;
  };
 
-  //typedef std::shared_ptr<
-
 }

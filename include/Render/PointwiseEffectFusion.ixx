@@ -11,6 +11,8 @@ module;
 
 export module Artifact.Render.PointwiseEffectFusion;
 
+import Core.ArtifactString;
+
 export namespace ArtifactCore {
 
 enum class PointwiseNodeKind : std::uint8_t {
@@ -85,7 +87,7 @@ struct PointwiseCompileKey {
     bool requiresLut = false;
     bool requiresHistory = false;
 
-    std::string toString() const {
+    String toString() const {
         std::ostringstream key;
         key << backend << '|' << targetFormat << '|'
             << static_cast<unsigned>(alphaMode) << '|'
@@ -96,7 +98,7 @@ struct PointwiseCompileKey {
             key << '|' << static_cast<unsigned>(orderedNodeKinds[i])
                 << (i < staticSpecializations.size() && staticSpecializations[i] ? 'S' : 'D');
         }
-        return key.str();
+        return String(key.str());
     }
 };
 

@@ -49,6 +49,8 @@ class tst_QList;
 #include <random>
 export module Mesh;
 
+import Memory.SharedPtr;
+
 export namespace ArtifactCore {
 
     // ─────────────────────────────────────────────────────────
@@ -82,7 +84,7 @@ export namespace ArtifactCore {
     // ─────────────────────────────────────────────────────────
     class AttributeContainer {
     private:
-        std::unordered_map<std::string, std::shared_ptr<MeshAttributeBase>> attributes_;
+        std::unordered_map<std::string, SharedPtr<MeshAttributeBase>> attributes_;
         int elementCount_ = 0;
     public:
         void setElementCount(int count) {
@@ -94,18 +96,18 @@ export namespace ArtifactCore {
         int elementCount() const { return elementCount_; }
 
         template<typename T>
-        std::shared_ptr<MeshAttribute<T>> add(const std::string& name) {
-            auto attr = std::make_shared<MeshAttribute<T>>();
+        SharedPtr<MeshAttribute<T>> add(const std::string& name) {
+            auto attr = makeShared<MeshAttribute<T>>();
             attr->resize(elementCount_);
             attributes_[name] = attr;
             return attr;
         }
 
         template<typename T>
-        std::shared_ptr<MeshAttribute<T>> get(const std::string& name) const {
+        SharedPtr<MeshAttribute<T>> get(const std::string& name) const {
             auto it = attributes_.find(name);
             if (it != attributes_.end() && it->second->type() == typeid(T)) {
-                return std::static_pointer_cast<MeshAttribute<T>>(it->second);
+                return staticPointerCast<MeshAttribute<T>>(it->second);
             }
             return nullptr;
         }
@@ -167,7 +169,7 @@ export namespace ArtifactCore {
 
         // 4. サブディビジョンと非破壊モディファイアの基盤
         // サブディビジョンサーフェス（Catmull-Clark等）を適用した新しいメッシュを生成
-        std::shared_ptr<Mesh> createSubdivided(int level) const;
+        SharedPtr<Mesh> createSubdivided(int level) const;
         
         // レンダリング用（GPU用）に、すべてを三角形に分割したフラットな配列を生成する
         struct RenderData {

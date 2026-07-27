@@ -1,7 +1,6 @@
 module;
 #include <cstdint>
 #include <functional>
-#include <string>
 #include <vector>
 
 #include <QObject>
@@ -10,6 +9,8 @@ module;
 #include <wobjectdefs.h>
 
 export module Control.Midi.Input;
+
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
@@ -25,7 +26,7 @@ class MidiInput : public QObject {
 public:
     struct DeviceInfo {
         uint32_t id = 0;
-        std::string name;
+        String name;
         uint32_t maxChannels = 0;
         bool isAvailable = false;
     };

@@ -57,6 +57,7 @@ export import ImageProcessing.NegateCS;
 export import ImageProcessing.ScatterCS;
 export import ImageProcessing.SimpleChokerCS;
 import ImageF32x4;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
@@ -92,13 +93,13 @@ public:
 
     virtual EffectROI roiHint() const;
 
-    void setNext(std::shared_ptr<AbstractImageEffect> next) { next_ = std::move(next); }
-    std::shared_ptr<AbstractImageEffect> next() const { return next_; }
+    void setNext(SharedPtr<AbstractImageEffect> next) { next_ = std::move(next); }
+    SharedPtr<AbstractImageEffect> next() const { return next_; }
 
     void chainProcess(ImageF32x4_RGBA& image);
 
 protected:
-    std::shared_ptr<AbstractImageEffect> next_;
+    SharedPtr<AbstractImageEffect> next_;
     std::vector<std::pair<std::string, double>> paramValues_;
 
     bool findParamIndex(const std::string& name, size_t& idx) const;

@@ -85,7 +85,7 @@ public:
     std::vector<double> asVector() const;
     std::vector<ExpressionValue> asArray() const;
     ZeroString asZeroString() const;
-    std::string asString() const;
+    String asString() const;
 
     // Vector component access
     double x() const;
@@ -116,7 +116,7 @@ public:
 
     // String representation for debugging
     ZeroString toZeroString() const;
-    std::string toString() const;
+    String toString() const;
 
     // Vector operations
     ExpressionValue normalized() const;

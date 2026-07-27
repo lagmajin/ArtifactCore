@@ -64,7 +64,7 @@ namespace ArtifactCore {
 		bool mute_ = false;
 		bool solo_ = false;
 		
-		std::vector<std::shared_ptr<AudioEffect>> effects_;
+		std::vector<SharedPtr<AudioEffect>> effects_;
 
 		std::vector<MeterState> meters_;
 
@@ -175,7 +175,7 @@ namespace ArtifactCore {
 		return impl_->solo_;
 	}
 
-	void AudioBus::addEffect(std::shared_ptr<AudioEffect> effect)
+	void AudioBus::addEffect(SharedPtr<AudioEffect> effect)
 	{
 		impl_->effects_.push_back(effect);
 	}
@@ -192,7 +192,7 @@ namespace ArtifactCore {
 		return static_cast<int>(impl_->effects_.size());
 	}
 
-	std::shared_ptr<AudioEffect> AudioBus::getEffect(int index) const
+	SharedPtr<AudioEffect> AudioBus::getEffect(int index) const
 	{
 		if (index >= 0 && index < impl_->effects_.size()) {
 			return impl_->effects_[index];
@@ -385,17 +385,17 @@ namespace ArtifactCore {
 
 	float AudioBus::getGainReduction() const
 	{
-		for (auto& effect : impl_->effects_) {
-			if (auto comp = std::dynamic_pointer_cast<AudioCompressor>(effect)) {
-				return comp->getGainReduction();
-			}
+	for (auto& effect : impl_->effects_) {
+		if (auto comp = ArtifactCore::dynamicPointerCast<AudioCompressor>(effect)) {
+			return comp->getGainReduction();
 		}
+	}
 		return 1.0f; // No reduction
 	}
 
-	void AudioBus::setSidechainSource(const std::string& busName)
+	void AudioBus::setSidechainSource(const String& busName)
 	{
-		impl_->sidechainSource_ = ZeroString(busName);
+		impl_->sidechainSource_ = ZeroString(busName.data(), busName.length());
 	}
 
 	void AudioBus::setSidechainSource(const ZeroString& busName)
@@ -408,9 +408,9 @@ namespace ArtifactCore {
 		impl_->sidechainSource_ = ZeroString(static_cast<std::string>(busName));
 	}
 
-	std::string AudioBus::getSidechainSource() const
+	String AudioBus::getSidechainSource() const
 	{
-		return std::string(impl_->sidechainSource_.data(), impl_->sidechainSource_.length());
+		return String(impl_->sidechainSource_.data(), impl_->sidechainSource_.length());
 	}
 
 	ZeroString AudioBus::getSidechainSourceZero() const

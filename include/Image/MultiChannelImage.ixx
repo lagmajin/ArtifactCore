@@ -11,6 +11,7 @@ module;
 export module Image.MultiChannelImage;
 
 export import Channel;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore
 {
@@ -18,7 +19,7 @@ export namespace ArtifactCore
 class LIBRARY_DLL_API MultiChannelImage
 {
 public:
-  using ChannelMap = std::map<ChannelType, std::shared_ptr<VideoChannel>>;
+  using ChannelMap = std::map<ChannelType, SharedPtr<VideoChannel>>;
 
   MultiChannelImage();
   MultiChannelImage(int width, int height);
@@ -30,13 +31,13 @@ public:
 
   void resize(int width, int height);
   void clear(float value = 0.0f);
-  void addChannel(ChannelType type, const std::string& name = "");
+  void addChannel(ChannelType type, const String& name = "");
   void removeChannel(ChannelType type);
   bool hasChannel(ChannelType type) const;
   void clearChannel(ChannelType type, float value = 0.0f);
 
-  std::shared_ptr<VideoChannel> getChannel(ChannelType type);
-  std::shared_ptr<const VideoChannel> getChannel(ChannelType type) const;
+  SharedPtr<VideoChannel> getChannel(ChannelType type);
+  SharedPtr<const VideoChannel> getChannel(ChannelType type) const;
 
   int width() const;
   int height() const;
@@ -118,11 +119,11 @@ inline void MultiChannelImage::clear(float value)
   }
 }
 
-inline void MultiChannelImage::addChannel(ChannelType type, const std::string&)
+inline void MultiChannelImage::addChannel(ChannelType type, const String&)
 {
   auto it = channels_.find(type);
   if (it == channels_.end()) {
-    channels_.emplace(type, std::make_shared<VideoChannel>(width_, height_));
+    channels_.emplace(type, makeShared<VideoChannel>(width_, height_));
   }
 }
 
@@ -144,7 +145,7 @@ inline void MultiChannelImage::clearChannel(ChannelType type, float value)
   }
 }
 
-inline std::shared_ptr<VideoChannel> MultiChannelImage::getChannel(ChannelType type)
+inline SharedPtr<VideoChannel> MultiChannelImage::getChannel(ChannelType type)
 {
   auto it = channels_.find(type);
   if (it != channels_.end()) {
@@ -153,7 +154,7 @@ inline std::shared_ptr<VideoChannel> MultiChannelImage::getChannel(ChannelType t
   return nullptr;
 }
 
-inline std::shared_ptr<const VideoChannel> MultiChannelImage::getChannel(ChannelType type) const
+inline SharedPtr<const VideoChannel> MultiChannelImage::getChannel(ChannelType type) const
 {
   auto it = channels_.find(type);
   if (it != channels_.end()) {

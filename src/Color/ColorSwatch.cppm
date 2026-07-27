@@ -19,14 +19,14 @@ namespace ArtifactCore {
 
 class ColorSwatch::Impl {
 public:
-    std::string name;
+    String name;
     std::vector<SwatchEntry> entries;
 
-    Impl(const std::string& n = "New Palette") : name(n) {}
+    Impl(const String& n = "New Palette") : name(n) {}
 };
 
 ColorSwatch::ColorSwatch() : impl_(std::make_unique<Impl>()) {}
-ColorSwatch::ColorSwatch(const std::string& name) : impl_(std::make_unique<Impl>(name)) {}
+ColorSwatch::ColorSwatch(const String& name) : impl_(std::make_unique<Impl>(name)) {}
 
 ColorSwatch::~ColorSwatch() = default;
 
@@ -46,8 +46,8 @@ ColorSwatch& ColorSwatch::operator=(const ColorSwatch& other) {
 
 ColorSwatch& ColorSwatch::operator=(ColorSwatch&& other) noexcept = default;
 
-const std::string& ColorSwatch::getName() const { return impl_->name; }
-void ColorSwatch::setName(const std::string& name) { impl_->name = name; }
+const String& ColorSwatch::getName() const { return impl_->name; }
+void ColorSwatch::setName(const String& name) { impl_->name = name; }
 
 size_t ColorSwatch::count() const { return impl_->entries.size(); }
 const SwatchEntry& ColorSwatch::at(size_t index) const {
@@ -60,7 +60,7 @@ void ColorSwatch::addEntry(const SwatchEntry& entry) {
     impl_->entries.push_back(entry);
 }
 
-void ColorSwatch::addColor(const FloatColor& color, const std::string& name) {
+void ColorSwatch::addColor(const FloatColor& color, const String& name) {
     impl_->entries.emplace_back(color, name);
 }
 
@@ -165,7 +165,7 @@ bool ColorSwatch::exportGPL(const std::filesystem::path& path) const {
     if (!file.is_open()) return false;
 
     file << "GIMP Palette" << std::endl;
-    file << "Name: " << getName() << std::endl;
+    file << "Name: " << toStdString(getName()) << std::endl;
     file << "Columns: 0" << std::endl;
     file << "#" << std::endl;
 

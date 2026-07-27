@@ -60,13 +60,13 @@ std::vector<EffectParameter> AudioDelay::getParameters() const {
     };
 }
 
-void AudioDelay::setParameterValue(const std::string& id, float value) {
+void AudioDelay::setParameterValue(const String& id, float value) {
     if (id == "delay_ms") delayTimeMs_ = value;
     else if (id == "feedback") feedback_ = value;
     else if (id == "mix") mix_ = value;
 }
 
-float AudioDelay::getParameterValue(const std::string& id) const {
+float AudioDelay::getParameterValue(const String& id) const {
     if (id == "delay_ms") return delayTimeMs_;
     if (id == "feedback") return feedback_;
     if (id == "mix") return mix_;

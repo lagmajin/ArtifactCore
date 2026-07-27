@@ -13,12 +13,13 @@ module;
 export module ArtifactCore.Event.EventBusDebugger;
 
 export import Event.Bus;
+import Utils.Text.String;
 
 export namespace ArtifactCore {
 
 struct FireEntry {
     double       timestampMs    = 0.0;   // wall clock ms since debugger attach
-    std::string  eventName;
+    String       eventName;
     std::size_t  subscriberCount = 0;
     std::int64_t durationUs     = 0;
     std::source_location origin = std::source_location::current();
@@ -28,7 +29,7 @@ struct FireEntry {
 };
 
 struct SubscriberInfo {
-    std::string     eventName;
+    String          eventName;
     std::type_index typeIdx       = std::type_index(typeid(void));
     std::size_t     activeCount   = 0;
     bool            neverFired    = true;
@@ -37,7 +38,7 @@ struct SubscriberInfo {
 };
 
 struct FrequencyEntry {
-    std::string  eventName;
+    String         eventName;
     double       firesPerSec = 0.0;
     std::size_t  totalFires  = 0;
     bool         isHighFreq  = false;
@@ -45,7 +46,7 @@ struct FrequencyEntry {
 
 // Per-event aggregate statistics (returned by perEventStats()).
 struct PerEventStats {
-    std::string   eventName;
+    String        eventName;
     std::size_t   totalFires    = 0;
     double        firesPerSec   = 0.0;
     std::int64_t  avgDurationUs = 0;
@@ -60,7 +61,7 @@ struct GlobalStats {
     std::size_t  totalEventsFired    = 0;
     double       uptimeSec           = 0.0;
     double       overallEventsPerSec = 0.0;
-    std::string  slowestEventName;
+    String       slowestEventName;
     std::int64_t slowestMaxUs        = 0;
 };
 

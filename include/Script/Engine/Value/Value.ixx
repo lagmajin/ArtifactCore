@@ -35,6 +35,8 @@ module;
 #include <random>
 export module Script.Engine.Value;
 
+import Memory.SharedPtr;
+
 export namespace ArtifactCore {
 
  enum class ValueType {
@@ -49,8 +51,8 @@ export namespace ArtifactCore {
  struct Value;
 
  // z^ Value  shared_ptr Ŏ
- using ValueArray = std::vector<std::shared_ptr<Value>>;
- using FunctionCallback = std::function<std::shared_ptr<Value>(const ValueArray&)>;
+ using ValueArray = std::vector<SharedPtr<Value>>;
+ using FunctionCallback = std::function<SharedPtr<Value>(const ValueArray&)>;
 
  // Value NX
  struct LIBRARY_DLL_API Value {

@@ -15,6 +15,7 @@ module;
 module Core.AI.CloudAgent;
 
 import std;
+import Memory.SharedPtr;
 import Core.AI.Context;
 
 namespace ArtifactCore {
@@ -294,7 +295,7 @@ private:
 ICloudAIAgentPtr CloudAgentFactory::create(CloudProvider provider) {
     switch (provider) {
     case CloudProvider::OpenRouter:
-        return std::make_shared<OpenRouterAgent>();
+        return makeShared<OpenRouterAgent>();
     case CloudProvider::DirectAnthropic:
     case CloudProvider::DirectOpenAI:
     default:

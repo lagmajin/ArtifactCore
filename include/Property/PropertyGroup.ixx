@@ -38,10 +38,11 @@ module;
 export module Property.Group;
 
 import Property.Abstract;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
-using AbstractPropertyPtr = std::shared_ptr<AbstractProperty>;
+using AbstractPropertyPtr = SharedPtr<AbstractProperty>;
 
 class LIBRARY_DLL_API PropertyGroup {
 public:

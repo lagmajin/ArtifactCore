@@ -19,6 +19,7 @@ import Audio.Segment;
 import Core.ArtifactString;
 import Utils.String.Like;
 import Memory.TrackedPtr;
+import Memory.SharedPtr;
 
 namespace ArtifactCore {
 
@@ -37,23 +38,35 @@ ZeroString toZeroString(const UniString& text)
 }
 
 struct SideChainSend {
-    std::shared_ptr<AudioBus> source;
-    std::shared_ptr<AudioBus> target;
+    SharedPtr<AudioBus> source;
+    SharedPtr<AudioBus> target;
     float amount;
 };
 
 struct AudioMixer::Impl {
-    std::vector<std::shared_ptr<AudioBus>> buses;
-    std::map<std::shared_ptr<AudioBus>, std::shared_ptr<AudioBus>> routing;
+    std::vector<SharedPtr<AudioBus>> buses;
+    std::map<const AudioBus*, const AudioBus*> routing;
     std::vector<SideChainSend> sends;
 
-    std::vector<std::shared_ptr<AudioBus>> getSortedBuses() {
-        NamedVector<std::shared_ptr<AudioBus>> result{makeNamedVector<std::shared_ptr<AudioBus>>(ContainerName{"AudioMixerSortedBuses"})};
-        std::set<std::shared_ptr<AudioBus>> visited;
-        std::set<std::shared_ptr<AudioBus>> visiting;
+    SharedPtr<AudioBus> resolveBus(const AudioBus* bus) const {
+        if (!bus) {
+            return nullptr;
+        }
+        for (const auto& candidate : buses) {
+            if (candidate && candidate.get() == bus) {
+                return candidate;
+            }
+        }
+        return nullptr;
+    }
 
-        std::function<void(std::shared_ptr<AudioBus>)> visit = [&](const std::shared_ptr<AudioBus>& bus) {
-            if (visited.count(bus)) {
+    std::vector<SharedPtr<AudioBus>> getSortedBuses() {
+        NamedVector<SharedPtr<AudioBus>> result{makeNamedVector<SharedPtr<AudioBus>>(ContainerName{"AudioMixerSortedBuses"})};
+        std::set<const AudioBus*> visited;
+        std::set<const AudioBus*> visiting;
+
+        std::function<void(const AudioBus*)> visit = [&](const AudioBus* bus) {
+            if (!bus || visited.count(bus)) {
                 return;
             }
             if (visiting.count(bus)) {
@@ -68,18 +81,20 @@ struct AudioMixer::Impl {
                 }
             }
             for (const auto& send : sends) {
-                if (send.target == bus) {
-                    visit(send.source);
+                if (send.target && send.target.get() == bus) {
+                    visit(send.source.get());
                 }
             }
 
             visiting.erase(bus);
             visited.insert(bus);
-            result.add(bus);
+            if (auto resolved = resolveBus(bus)) {
+                result.add(resolved);
+            }
         };
 
         for (const auto& bus : buses) {
-            visit(bus);
+            visit(bus.get());
         }
 
         return result.toStdVector();
@@ -87,7 +102,7 @@ struct AudioMixer::Impl {
 };
 
 AudioMixer::AudioMixer() : impl_(std::make_unique<Impl>()) {
-    masterBus_ = std::make_shared<AudioBus>();
+    masterBus_ = makeShared<AudioBus>();
     masterBus_->setName(ZeroString("Master"));
     impl_->buses.push_back(masterBus_);
 }
@@ -99,13 +114,13 @@ int AudioMixer::busCount() const
     return static_cast<int>(impl_->buses.size());
 }
 
-std::vector<std::string> AudioMixer::busNames() const
+std::vector<String> AudioMixer::busNames() const
 {
     const auto namesZero = busNamesZero();
-    NamedVector<std::string> result{makeNamedVector<std::string>(ContainerName{"AudioMixerBusNames"})};
+    NamedVector<String> result{makeNamedVector<String>(ContainerName{"AudioMixerBusNames"})};
     result.reserve(namesZero.size());
     for (const auto& name : namesZero) {
-        result.add(std::string(name.data(), name.length()));
+        result.add(String(name.data(), name.length()));
     }
     return result.toStdVector();
 }
@@ -123,7 +138,7 @@ std::vector<ZeroString> AudioMixer::busNamesZero() const
     return result;
 }
 
-std::shared_ptr<AudioBus> AudioMixer::findBusByName(const ZeroString& name) const
+SharedPtr<AudioBus> AudioMixer::findBusByName(const ZeroString& name) const
 {
     for (const auto& bus : impl_->buses) {
         if (!bus) {
@@ -136,24 +151,24 @@ std::shared_ptr<AudioBus> AudioMixer::findBusByName(const ZeroString& name) cons
     return nullptr;
 }
 
-std::shared_ptr<AudioBus> AudioMixer::findBusByName(const std::string& name) const
+SharedPtr<AudioBus> AudioMixer::findBusByName(const String& name) const
 {
-    return findBusByName(ZeroString(name));
+    return findBusByName(ZeroString(ArtifactCore::toStdString(name)));
 }
 
-std::shared_ptr<AudioBus> AudioMixer::findBusByName(const QString& name) const
+SharedPtr<AudioBus> AudioMixer::findBusByName(const QString& name) const
 {
     return findBusByName(toZeroString(name));
 }
 
-std::shared_ptr<AudioBus> AudioMixer::findBusByName(const UniString& name) const
+SharedPtr<AudioBus> AudioMixer::findBusByName(const UniString& name) const
 {
     return findBusByName(toZeroString(name));
 }
 
-std::vector<std::shared_ptr<AudioBus>> AudioMixer::getAllBuses() const
+std::vector<SharedPtr<AudioBus>> AudioMixer::getAllBuses() const
 {
-    NamedVector<std::shared_ptr<AudioBus>> result{makeNamedVector<std::shared_ptr<AudioBus>>(ContainerName{"AudioMixerAllBuses"})};
+    NamedVector<SharedPtr<AudioBus>> result{makeNamedVector<SharedPtr<AudioBus>>(ContainerName{"AudioMixerAllBuses"})};
     result.reserve(impl_->buses.size());
     for (const auto& bus : impl_->buses) {
         if (bus) result.add(bus);
@@ -161,18 +176,18 @@ std::vector<std::shared_ptr<AudioBus>> AudioMixer::getAllBuses() const
     return result.toStdVector();
 }
 
-std::shared_ptr<AudioBus> AudioMixer::getRoutingTarget(std::shared_ptr<AudioBus> bus) const
+SharedPtr<AudioBus> AudioMixer::getRoutingTarget(SharedPtr<AudioBus> bus) const
 {
-    auto it = impl_->routing.find(bus);
+    auto it = impl_->routing.find(bus.get());
     if (it != impl_->routing.end()) {
-        return it->second;
+        return impl_->resolveBus(it->second);
     }
     return masterBus_;
 }
 
-std::vector<std::pair<std::shared_ptr<AudioBus>, float>> AudioMixer::getSideChainSends(std::shared_ptr<AudioBus> bus) const
+std::vector<std::pair<SharedPtr<AudioBus>, float>> AudioMixer::getSideChainSends(SharedPtr<AudioBus> bus) const
 {
-    NamedVector<std::pair<std::shared_ptr<AudioBus>, float>> result{makeNamedVector<std::pair<std::shared_ptr<AudioBus>, float>>(ContainerName{"AudioMixerSideChainSends"})};
+    NamedVector<std::pair<SharedPtr<AudioBus>, float>> result{makeNamedVector<std::pair<SharedPtr<AudioBus>, float>>(ContainerName{"AudioMixerSideChainSends"})};
     for (const auto& send : impl_->sends) {
         if (send.source == bus) {
             result.add({send.target, send.amount});
@@ -240,7 +255,7 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
         const QString targetName = busObj["target"].toString();
         const auto target = findBusByName(targetName);
         if (target) {
-            impl_->routing[bus] = target;
+            impl_->routing[bus.get()] = target.get();
         }
 
         const auto sendsArr = busObj["sends"].toArray();
@@ -258,35 +273,35 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
     return true;
 }
 
-std::shared_ptr<AudioBus> AudioMixer::createBus(const ZeroString& name) {
-    auto bus = std::make_shared<AudioBus>();
+SharedPtr<AudioBus> AudioMixer::createBus(const ZeroString& name) {
+    auto bus = makeShared<AudioBus>();
     bus->setName(name);
     impl_->buses.push_back(bus);
     connect(bus, masterBus_);
     return bus;
 }
 
-std::shared_ptr<AudioBus> AudioMixer::createBus(const std::string& name) {
-    return createBus(ZeroString(name));
+SharedPtr<AudioBus> AudioMixer::createBus(const String& name) {
+    return createBus(ZeroString(ArtifactCore::toStdString(name)));
 }
 
-std::shared_ptr<AudioBus> AudioMixer::createBus(const QString& name) {
+SharedPtr<AudioBus> AudioMixer::createBus(const QString& name) {
     return createBus(toZeroString(name));
 }
 
-std::shared_ptr<AudioBus> AudioMixer::createBus(const UniString& name) {
+SharedPtr<AudioBus> AudioMixer::createBus(const UniString& name) {
     return createBus(toZeroString(name));
 }
 
-void AudioMixer::removeBus(std::shared_ptr<AudioBus> bus) {
+void AudioMixer::removeBus(SharedPtr<AudioBus> bus) {
     if (bus == masterBus_) {
         return;
     }
 
-    impl_->routing.erase(bus);
+    impl_->routing.erase(bus.get());
     for (auto& pair : impl_->routing) {
-        if (pair.second == bus) {
-            pair.second = masterBus_;
+        if (pair.second == bus.get()) {
+            pair.second = masterBus_.get();
         }
     }
 
@@ -299,25 +314,25 @@ void AudioMixer::removeBus(std::shared_ptr<AudioBus> bus) {
     impl_->buses.erase(std::remove(impl_->buses.begin(), impl_->buses.end(), bus), impl_->buses.end());
 }
 
-void AudioMixer::connect(std::shared_ptr<AudioBus> source, std::shared_ptr<AudioBus> target) {
+void AudioMixer::connect(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) {
     if (source == target) {
         return;
     }
-    impl_->routing[source] = target;
+    impl_->routing[source.get()] = target.get();
 }
 
-void AudioMixer::disconnect(std::shared_ptr<AudioBus> source) {
-    impl_->routing.erase(source);
+void AudioMixer::disconnect(SharedPtr<AudioBus> source) {
+    impl_->routing.erase(source.get());
 }
 
-void AudioMixer::addSideChainSend(std::shared_ptr<AudioBus> source, std::shared_ptr<AudioBus> target, float amount) {
+void AudioMixer::addSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target, float amount) {
     if (source == target) {
         return;
     }
     impl_->sends.push_back({source, target, amount});
 }
 
-void AudioMixer::removeSideChainSend(std::shared_ptr<AudioBus> source, std::shared_ptr<AudioBus> target) {
+void AudioMixer::removeSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) {
     impl_->sends.erase(std::remove_if(impl_->sends.begin(), impl_->sends.end(),
         [&](const auto& send) {
             return send.source == source && send.target == target;
@@ -334,9 +349,11 @@ void AudioMixer::process(AudioSegment& finalOutput) {
     for (const auto& bus : sorted) {
         bus->process(bus->getOutputBuffer());
 
-        auto it = impl_->routing.find(bus);
+        auto it = impl_->routing.find(bus.get());
         if (it != impl_->routing.end() && it->second) {
-            it->second->addInput(bus->getOutputBuffer());
+            if (auto target = impl_->resolveBus(it->second)) {
+                target->addInput(bus->getOutputBuffer());
+            }
         }
 
         for (const auto& send : impl_->sends) {

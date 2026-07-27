@@ -37,6 +37,7 @@ module;
 export module IO.Async.ImageWriterManager;
 
 import Image;
+import Memory.SharedPtr;
 
 
 
@@ -58,11 +59,11 @@ export namespace ArtifactCore {
 
  };
 
- typedef std::shared_ptr<AsyncImageWriterManager> AsyncImageWriteManagerPtr;
+ using AsyncImageWriteManagerPtr = SharedPtr<AsyncImageWriterManager>;
 
 	AsyncImageWriteManagerPtr makeImageWriterManager()
  {
-  return std::make_shared<AsyncImageWriterManager>();
+  return makeShared<AsyncImageWriterManager>();
  }
 
 };
