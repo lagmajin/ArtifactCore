@@ -262,7 +262,7 @@ std::vector<ShapePath> ShapeGroup::processedPaths() const {
         const QTransform groupMatrix = parentMatrix * makeMatrix(group.transform());
         for (const auto& child : group.children_) {
             if (auto* pathShape = dynamic_cast<PathShape*>(child.get())) {
-                ShapePath path = ShapePath::fromPainterPath(pathShape->toPainterPath());
+                ShapePath path = pathShape->path();
                 path.transform(groupMatrix);
                 paths.push_back(path);
             } else if (auto* childGroup = dynamic_cast<ShapeGroup*>(child.get())) {

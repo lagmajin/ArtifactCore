@@ -91,6 +91,8 @@ public:
     void setName(const QString& name);
     bool isClosed() const;
     void setClosed(bool closed);
+    PathFillRule fillRule() const;
+    void setFillRule(PathFillRule rule);
     double opacity() const;
     void setOpacity(double opacity);
     bool isEmpty() const;
@@ -107,6 +109,13 @@ public:
     double length() const;
     QPointF pointAtLength(double length) const;
     std::vector<BezierSegment> toSegments() const;
+    /// Bézier セグメントを指定 tolerance の直線セグメントへ平坦化する。
+    std::vector<BezierSegment> flatten(double tolerance = 0.25) const;
+    /// サブパス境界を保持した Bézier flatten 結果を返す。
+    std::vector<std::vector<BezierSegment>> flattenSubpaths(
+        double tolerance = 0.25) const;
+    /// 単一の閉じた輪郭を三角形列へ変換する。複数輪郭は空結果。
+    std::vector<PathTriangle> triangulateSimple(double tolerance = 0.25) const;
 
     /// パラメータ t における接線ベクトル（正規化済み）
     QPointF tangentAtPercent(double t) const;

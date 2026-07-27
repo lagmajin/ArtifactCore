@@ -1,8 +1,11 @@
 module;
 #include <utility>
 #include <QImage>
+#include <QHash>
+#include <QList>
 #include <QSize>
 #include <QString>
+#include <QtGlobal>
 
 #include "../Define/DllExportMacro.hpp"
 
@@ -27,14 +30,25 @@ public:
     SourceMetadata metadata() const override;
 
     bool seek(qint64 frameIndex) override;
+    bool seekSourceFrame(qint64 frameNumber);
     qint64 currentFrameIndex() const override;
     qint64 frameCount() const override;
+    qint64 sourceFrameNumberAt(qint64 sequenceIndex) const;
+    qint64 sequenceIndexForSourceFrame(qint64 frameNumber) const;
     QSize frameSize() const override;
     double frameRate() const override;
 
     QImage frameAt(qint64 frameIndex) const override;
 
     void setFrameRate(double fps);
+
+    // Bounded decoded-frame cache diagnostics and control.
+    quint64 frameCacheHitCount() const;
+    quint64 frameCacheMissCount() const;
+    int frameCacheEntryCount() const;
+    int frameCacheCapacity() const;
+    void prefetchFrame(qint64 frameIndex) const;
+    void clearFrameCache();
 
 private:
     struct FrameEntry;

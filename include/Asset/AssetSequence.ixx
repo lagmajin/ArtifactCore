@@ -8,6 +8,7 @@ module;
 #include <filesystem>
 #include <optional>
 #include <cstdint>
+#include <exception>
 #include <map>
 
 export module Asset.Sequence;
@@ -112,7 +113,14 @@ inline std::optional<FrameToken> parseFrameToken(const std::string& filename)
     tok.prefix  = m[1].str();
     tok.suffix  = m[3].str();
     const std::string digits = m[2].str();
-    tok.frame   = std::stoll(digits);
+    if (digits.size() > 18) {
+        return std::nullopt;
+    }
+    try {
+        tok.frame = std::stoll(digits);
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
     tok.padding = static_cast<int>(digits.size());
     return tok;
 }
@@ -148,6 +156,7 @@ inline SequenceDetectionResult detectSequences(
     int minFrames = 2)
 {
     using namespace detail;
+    minFrames = std::max(2, minFrames);
 
     // Map from GroupKey → [(frame, filename)]
     std::map<GroupKey, std::vector<std::pair<int64_t, std::string>>> buckets;
@@ -178,17 +187,42 @@ inline SequenceDetectionResult detectSequences(
             continue;
         }
 
-        SequenceGroup grp;
-        grp.prefix     = key.prefix;
-        grp.suffix     = key.suffix;
-        grp.padding    = key.padding;
-        grp.firstFrame = frames.front().first;
-        grp.lastFrame  = frames.back().first;
-        grp.filenames.reserve(frames.size());
-        for (const auto& [frame, fn] : frames) {
-            grp.filenames.push_back(fn);
+        // Split on gaps so each reported group is a truly consecutive run.
+        // This keeps the sequence contract deterministic for importers and
+        // avoids presenting missing frames as available media.
+        std::vector<std::pair<int64_t, std::string>> run;
+        run.reserve(frames.size());
+
+        const auto flushRun = [&]() {
+            if (static_cast<int>(run.size()) < minFrames) {
+                for (const auto& [frame, fn] : run) {
+                    result.singles.push_back(fn);
+                }
+                run.clear();
+                return;
+            }
+
+            SequenceGroup grp;
+            grp.prefix     = key.prefix;
+            grp.suffix     = key.suffix;
+            grp.padding    = key.padding;
+            grp.firstFrame = run.front().first;
+            grp.lastFrame  = run.back().first;
+            grp.filenames.reserve(run.size());
+            for (const auto& [frame, fn] : run) {
+                grp.filenames.push_back(fn);
+            }
+            result.sequences.push_back(std::move(grp));
+            run.clear();
+        };
+
+        for (const auto& frame : frames) {
+            if (!run.empty() && frame.first != run.back().first + 1) {
+                flushRun();
+            }
+            run.push_back(frame);
         }
-        result.sequences.push_back(std::move(grp));
+        flushRun();
     }
 
     // Merge unparsed into singles

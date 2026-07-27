@@ -23,6 +23,9 @@ struct LIBRARY_DLL_API SourceMetadata {
     QSize frameSize;
     double frameRate = 0.0;
     qint64 frameCount = 0;
+    qint64 frameStart = 0;
+    qint64 frameEnd = 0;
+    qint64 missingFrameCount = 0;
     bool hasVideo = false;
     bool hasAudio = false;
     bool isSequence = false;

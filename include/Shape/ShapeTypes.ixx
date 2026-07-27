@@ -111,6 +111,17 @@ enum class PathCommandType {
     Close       ///< パス閉じる
 };
 
+struct PathTriangle {
+    QPointF p0;
+    QPointF p1;
+    QPointF p2;
+};
+
+enum class PathFillRule {
+    Winding = 0,
+    EvenOdd = 1
+};
+
 /// パスコマンド
 struct PathCommand {
     PathCommandType type;

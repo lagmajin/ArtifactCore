@@ -1,10 +1,16 @@
 module;
 class tst_QList;
 #include <utility>
+#include <algorithm>
+#include <memory>
+#include <limits>
+#include <iterator>
 
 #include <QDir>
 #include <QFileInfo>
 #include <QImageReader>
+#include <QHash>
+#include <QList>
 #include <QRegularExpression>
 #include <QSet>
 #include <QVector>
@@ -24,14 +30,26 @@ struct ImageSequenceSource::FrameEntry {
 };
 
 struct ImageSequenceSource::Impl {
+    struct CachedFrame {
+        QImage image;
+        qint64 fileSize = -1;
+        qint64 lastModifiedMs = 0;
+    };
+
     QString uri;
     QString displayName;
     QVector<FrameEntry> frames;
     QSize frameSize;
     double frameRate = 24.0;
     qint64 currentFrameIndex = 0;
+    QHash<qint64, CachedFrame> frameCache;
+    QList<qint64> frameCacheOrder;
+    quint64 frameCacheHits = 0;
+    quint64 frameCacheMisses = 0;
     bool open = false;
 };
+
+constexpr int kFrameCacheCapacity = 8;
 
 namespace {
 
@@ -58,7 +76,8 @@ bool isSupportedImageFile(const QFileInfo& info)
     return formats.contains(suffix);
 }
 
-bool parseSequencePattern(const QString& fileName, QString* prefix, QString* suffix)
+bool parseSequencePattern(const QString& fileName, QString* prefix, QString* suffix,
+                          int* padding)
 {
     static const QRegularExpression rx(QStringLiteral("^(.*?)(\\d+)(\\.[^.]+)$"));
     const auto match = rx.match(fileName);
@@ -68,6 +87,7 @@ bool parseSequencePattern(const QString& fileName, QString* prefix, QString* suf
 
     if (prefix) *prefix = match.captured(1);
     if (suffix) *suffix = match.captured(3);
+    if (padding) *padding = match.captured(2).size();
     return true;
 }
 
@@ -112,14 +132,19 @@ bool ImageSequenceSource::open(const QString& uri)
 
         QString prefix;
         QString suffix;
+        int padding = 0;
 
-        const bool hasNumericPattern = parseSequencePattern(info.fileName(), &prefix, &suffix);
+        const bool hasNumericPattern = parseSequencePattern(
+            info.fileName(), &prefix, &suffix, &padding);
         const QDir dir = info.dir();
 
         if (hasNumericPattern) {
             const QString escapedPrefix = QRegularExpression::escape(prefix);
             const QString escapedSuffix = QRegularExpression::escape(suffix);
-            const QString pattern = QStringLiteral("^%1(\\d+)%2$").arg(escapedPrefix, escapedSuffix);
+            const QString pattern = QStringLiteral("^%1(\\d{%2})%3$")
+                .arg(escapedPrefix)
+                .arg(padding)
+                .arg(escapedSuffix);
             const QRegularExpression rx(pattern);
             const auto entries = dir.entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
             for (const auto& candidate : entries) {
@@ -164,14 +189,25 @@ bool ImageSequenceSource::open(const QString& uri)
     });
 
     impl_->frames = std::move(frames);
+    impl_->frameCache.clear();
+    impl_->frameCacheOrder.clear();
+    impl_->frameCacheHits = 0;
+    impl_->frameCacheMisses = 0;
     impl_->frameRate = 24.0;
     impl_->currentFrameIndex = 0;
     impl_->open = true;
 
-    QImageReader reader(impl_->frames.front().path);
-    impl_->frameSize = reader.size().isValid() ? reader.size() : QImage(impl_->frames.front().path).size();
-    if (impl_->frameSize.isEmpty()) {
-        impl_->frameSize = QSize(0, 0);
+    impl_->frameSize = QSize();
+    for (const auto& frame : impl_->frames) {
+        QImageReader reader(frame.path);
+        QSize candidateSize = reader.size();
+        if (!candidateSize.isValid() || candidateSize.isEmpty()) {
+            candidateSize = QImage(frame.path).size();
+        }
+        if (candidateSize.isValid() && !candidateSize.isEmpty()) {
+            impl_->frameSize = candidateSize;
+            break;
+        }
     }
 
     return true;
@@ -182,6 +218,10 @@ void ImageSequenceSource::close()
     impl_->uri.clear();
     impl_->displayName.clear();
     impl_->frames.clear();
+    impl_->frameCache.clear();
+    impl_->frameCacheOrder.clear();
+    impl_->frameCacheHits = 0;
+    impl_->frameCacheMisses = 0;
     impl_->frameSize = QSize();
     impl_->currentFrameIndex = 0;
     impl_->frameRate = 24.0;
@@ -220,6 +260,15 @@ SourceMetadata ImageSequenceSource::metadata() const
     metadata.frameSize = impl_->frameSize;
     metadata.frameRate = impl_->frameRate;
     metadata.frameCount = impl_->frames.size();
+    metadata.frameStart = impl_->frames.front().frameIndex;
+    metadata.frameEnd = impl_->frames.back().frameIndex;
+    if (metadata.frameEnd >= metadata.frameStart &&
+        metadata.frameEnd - metadata.frameStart <
+            std::numeric_limits<qint64>::max()) {
+        const qint64 span = metadata.frameEnd - metadata.frameStart + 1;
+        metadata.missingFrameCount =
+            std::max<qint64>(0, span - metadata.frameCount);
+    }
     metadata.hasVideo = !impl_->frames.isEmpty();
     metadata.isSequence = impl_->frames.size() > 1;
     return metadata;
@@ -236,7 +285,16 @@ bool ImageSequenceSource::seek(qint64 frameIndex)
     }
 
     impl_->currentFrameIndex = frameIndex;
+    if (frameIndex + 1 < impl_->frames.size()) {
+        prefetchFrame(frameIndex + 1);
+    }
     return true;
+}
+
+bool ImageSequenceSource::seekSourceFrame(qint64 frameNumber)
+{
+    const qint64 sequenceIndex = sequenceIndexForSourceFrame(frameNumber);
+    return sequenceIndex >= 0 && seek(sequenceIndex);
 }
 
 qint64 ImageSequenceSource::currentFrameIndex() const
@@ -247,6 +305,31 @@ qint64 ImageSequenceSource::currentFrameIndex() const
 qint64 ImageSequenceSource::frameCount() const
 {
     return impl_ ? impl_->frames.size() : 0;
+}
+
+qint64 ImageSequenceSource::sourceFrameNumberAt(qint64 sequenceIndex) const
+{
+    if (!impl_ || sequenceIndex < 0 ||
+        sequenceIndex >= impl_->frames.size()) {
+        return -1;
+    }
+    return impl_->frames.at(sequenceIndex).frameIndex;
+}
+
+qint64 ImageSequenceSource::sequenceIndexForSourceFrame(qint64 frameNumber) const
+{
+    if (!impl_) {
+        return -1;
+    }
+    const auto it = std::lower_bound(
+        impl_->frames.cbegin(), impl_->frames.cend(), frameNumber,
+        [](const FrameEntry& entry, qint64 value) {
+            return entry.frameIndex < value;
+        });
+    if (it != impl_->frames.cend() && it->frameIndex == frameNumber) {
+        return std::distance(impl_->frames.cbegin(), it);
+    }
+    return -1;
 }
 
 QSize ImageSequenceSource::frameSize() const
@@ -270,10 +353,54 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
     }
 
     const auto& entry = impl_->frames.at(frameIndex);
+    const QFileInfo sourceInfo(entry.path);
+    if (const auto cached = impl_->frameCache.constFind(frameIndex);
+        cached != impl_->frameCache.cend()) {
+        const qint64 lastModifiedMs =
+            sourceInfo.lastModified().toMSecsSinceEpoch();
+        if (cached->fileSize == sourceInfo.size() &&
+            cached->lastModifiedMs == lastModifiedMs) {
+            ++impl_->frameCacheHits;
+            impl_->frameCacheOrder.removeAll(frameIndex);
+            impl_->frameCacheOrder.push_back(frameIndex);
+            return cached->image;
+        }
+        // A same-path replacement invalidates the old decoded frame even when
+        // the replacement later turns out to be unreadable.
+        impl_->frameCache.remove(frameIndex);
+        impl_->frameCacheOrder.removeAll(frameIndex);
+    }
+
+    ++impl_->frameCacheMisses;
+
     QImageReader reader(entry.path);
     QImage image = reader.read();
     if (image.isNull()) {
+        // Keep a negative result in the same bounded cache.  Broken or
+        // temporarily unreadable frames should not be decoded again on every
+        // scrub until the file changes.
+        ImageSequenceSource::Impl::CachedFrame failedFrame;
+        failedFrame.fileSize = sourceInfo.size();
+        failedFrame.lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
+        impl_->frameCache.insert(frameIndex, std::move(failedFrame));
+        impl_->frameCacheOrder.removeAll(frameIndex);
+        impl_->frameCacheOrder.push_back(frameIndex);
+        while (impl_->frameCacheOrder.size() > kFrameCacheCapacity) {
+            const qint64 oldest = impl_->frameCacheOrder.takeFirst();
+            impl_->frameCache.remove(oldest);
+        }
         return {};
+    }
+    ImageSequenceSource::Impl::CachedFrame cachedFrame;
+    cachedFrame.image = image;
+    cachedFrame.fileSize = sourceInfo.size();
+    cachedFrame.lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
+    impl_->frameCache.insert(frameIndex, std::move(cachedFrame));
+    impl_->frameCacheOrder.removeAll(frameIndex);
+    impl_->frameCacheOrder.push_back(frameIndex);
+    while (impl_->frameCacheOrder.size() > kFrameCacheCapacity) {
+        const qint64 oldest = impl_->frameCacheOrder.takeFirst();
+        impl_->frameCache.remove(oldest);
     }
     return image;
 }
@@ -285,6 +412,44 @@ void ImageSequenceSource::setFrameRate(double fps)
     }
 
     impl_->frameRate = fps > 0.0 ? fps : 24.0;
+}
+
+quint64 ImageSequenceSource::frameCacheHitCount() const
+{
+    return impl_ ? impl_->frameCacheHits : 0;
+}
+
+quint64 ImageSequenceSource::frameCacheMissCount() const
+{
+    return impl_ ? impl_->frameCacheMisses : 0;
+}
+
+int ImageSequenceSource::frameCacheEntryCount() const
+{
+    return impl_ ? impl_->frameCache.size() : 0;
+}
+
+int ImageSequenceSource::frameCacheCapacity() const
+{
+    return kFrameCacheCapacity;
+}
+
+void ImageSequenceSource::prefetchFrame(qint64 frameIndex) const
+{
+    // Route prefetch through frameAt so validation, invalidation, LRU order,
+    // and hit/miss diagnostics remain identical to an on-demand read.
+    (void)frameAt(frameIndex);
+}
+
+void ImageSequenceSource::clearFrameCache()
+{
+    if (!impl_) {
+        return;
+    }
+    impl_->frameCache.clear();
+    impl_->frameCacheOrder.clear();
+    impl_->frameCacheHits = 0;
+    impl_->frameCacheMisses = 0;
 }
 
 } // namespace ArtifactCore
