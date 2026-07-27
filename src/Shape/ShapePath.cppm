@@ -463,6 +463,8 @@ void ShapePath::setClosed(bool closed) {
     if (isClosed() == closed) return;
 
     if (closed) {
+        if (impl_->commands_.empty() ||
+            impl_->commands_.back().type == PathCommandType::MoveTo) return;
         close();
     } else {
         if (!impl_->commands_.empty() && impl_->commands_.back().type == PathCommandType::Close) {
