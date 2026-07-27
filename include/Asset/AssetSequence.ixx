@@ -8,6 +8,7 @@ module;
 #include <filesystem>
 #include <optional>
 #include <cstdint>
+#include <exception>
 #include <map>
 
 export module Asset.Sequence;
@@ -112,7 +113,14 @@ inline std::optional<FrameToken> parseFrameToken(const std::string& filename)
     tok.prefix  = m[1].str();
     tok.suffix  = m[3].str();
     const std::string digits = m[2].str();
-    tok.frame   = std::stoll(digits);
+    if (digits.size() > 18) {
+        return std::nullopt;
+    }
+    try {
+        tok.frame = std::stoll(digits);
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
     tok.padding = static_cast<int>(digits.size());
     return tok;
 }
