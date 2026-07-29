@@ -11,6 +11,8 @@ module;
 
 module Graphics.LayerBlendPipeline;
 
+import Core.ArtifactString;
+
 namespace {
 inline constexpr const char* kMatteTrackSource = R"(
 cbuffer MatteTrackParams : register(b0)
@@ -368,7 +370,7 @@ bool LayerBlendPipeline::applyPointwise(
             SHADER_TYPE_COMPUTE, "HistoryTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
     }
 
-    const std::string pipelineKey = plan.shader.key.toString();
+    const std::string pipelineKey = toStdString(plan.shader.key.toString());
     if (!pointwiseExecutor_ || pointwisePipelineKey_ != pipelineKey) {
         pointwiseExecutor_ = std::make_unique<ComputeExecutor>(*context_);
         ComputePipelineDesc desc;

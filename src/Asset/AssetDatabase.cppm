@@ -14,6 +14,7 @@ class tst_QList;
 #include <QIODevice>
 
 module Asset.Database;
+import Asset.Database;
 
 namespace ArtifactCore {
 

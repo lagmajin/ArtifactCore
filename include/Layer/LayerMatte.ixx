@@ -1,9 +1,8 @@
 module;
+#include <cstddef>
 #include <utility>
 #include <algorithm>
 #include <vector>
-#include <tbb/blocked_range.h>
-#include <tbb/parallel_for.h>
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
 #include <QJsonObject>
@@ -286,25 +285,19 @@ inline MatteEvaluationResult evaluateMatteStack(
 
         std::vector<float> matteMask(pixelCount, 0.0f);
         const bool invertSource = MatteModeUtils::isInverted(node.mode());
-        const auto buildMatteMask = [&](const tbb::blocked_range<size_t>& range) {
-            for (size_t i = range.begin(); i != range.end(); ++i) {
+        const auto buildMatteMask = [&](size_t i) {
                 float v = (i < sourceAlpha.size()) ? sourceAlpha[i] : 0.0f;
                 if (invertSource) {
                     v = 1.0f - v;
                 }
                 matteMask[i] = std::clamp(v, 0.0f, 1.0f);
-            }
         };
-        if (pixelCount >= 256u * 1024u) {
-            tbb::parallel_for(tbb::blocked_range<size_t>(0, pixelCount, 4096),
-                              buildMatteMask);
-        } else {
-            buildMatteMask(tbb::blocked_range<size_t>(0, pixelCount));
+        for (size_t i = 0; i < pixelCount; ++i) {
+            buildMatteMask(i);
         }
 
         const MatteStackMode stackMode = stack.stackMode();
-        const auto combineMatteMask = [&](const tbb::blocked_range<size_t>& range) {
-            for (size_t i = range.begin(); i != range.end(); ++i) {
+        const auto combineMatteMask = [&](size_t i) {
                 switch (stackMode) {
                 case MatteStackMode::Add:
                     result.alphaMask[i] =
@@ -319,13 +312,9 @@ inline MatteEvaluationResult evaluateMatteStack(
                         std::max(0.0f, result.alphaMask[i] - matteMask[i]);
                     break;
                 }
-            }
         };
-        if (pixelCount >= 256u * 1024u) {
-            tbb::parallel_for(tbb::blocked_range<size_t>(0, pixelCount, 4096),
-                              combineMatteMask);
-        } else {
-            combineMatteMask(tbb::blocked_range<size_t>(0, pixelCount));
+        for (size_t i = 0; i < pixelCount; ++i) {
+            combineMatteMask(i);
         }
     }
 

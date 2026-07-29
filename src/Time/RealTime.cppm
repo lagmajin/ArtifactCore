@@ -2,6 +2,7 @@ module;
 #include <utility>
 
 module Time.Real;
+import Time.Real;
 
 namespace ArtifactCore
 {

@@ -4,7 +4,6 @@ module;
 
 module ImageProcessing;
 import :LeaveColor;
-import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -19,7 +18,7 @@ static float luma(const float3& c) {
 
 void LeaveColor::process(float4* buffer, int width, int height, const LeaveColorSettings& s) {
     float3 kc = {s.keyColor.x, s.keyColor.y, s.keyColor.z};
-    Parallel::For(0, height, width * height, [&](int y) {
+    for (int y = 0; y < height; ++y) {
         const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
         for (int x = 0; x < width; ++x) {
             auto& px = buffer[rowStart + static_cast<size_t>(x)];
@@ -31,7 +30,7 @@ void LeaveColor::process(float4* buffer, int width, int height, const LeaveColor
             px.y = c.y + (gray - c.y) * mix * s.desaturateAmount;
             px.z = c.z + (gray - c.z) * mix * s.desaturateAmount;
         }
-    });
+    }
 }
 
 void LeaveColor::process(ImageF32x4_RGBA& image, const LeaveColorSettings& settings) {

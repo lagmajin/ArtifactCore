@@ -1,8 +1,8 @@
 module;
-class tst_QList;
 #include <utility>
 #include <memory>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 #include <QMatrix4x4>
 #include <QVector3D>
@@ -12,10 +12,12 @@ class tst_QList;
 #include <cmath>
 
 module Scene.SceneNode;
+import Scene.SceneNode;
 
 import Container.NamedVector;
 import Mesh;
 import Material.Material;
+import Memory.SharedPtr;
 import Utils.String.UniString;
 
 namespace ArtifactCore
@@ -78,11 +80,14 @@ void SceneNode::addChild(SharedPtr<SceneNode> child)
 
 void SceneNode::removeChild(const SceneNode* child)
 {
- if (!child) return;
- auto& ch = impl_->children_;
- ch.erase(std::remove_if(ch.begin(), ch.end(),
-  [child](const SharedPtr<SceneNode>& c) { return c.get() == child.get(); }),
-  ch.end());
+  if (!child) return;
+  auto& ch = impl_->children_;
+  for (auto it = ch.begin(); it != ch.end(); ++it) {
+   if (it->get() == child) {
+    ch.erase(it);
+    break;
+   }
+  }
 }
 
 void SceneNode::removeFromParent()

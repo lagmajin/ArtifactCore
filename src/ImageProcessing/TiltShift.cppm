@@ -2,8 +2,6 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <vector>
-#include <tbb/parallel_for.h>
-#include <tbb/blocked_range.h>
 
 module ImageProcessing;
 import :TiltShift;

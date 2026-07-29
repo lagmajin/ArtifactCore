@@ -36,6 +36,7 @@ module;
 #include <QJsonArray>
 #include <QJsonObject>
 module Audio.Bus;
+import Audio.Bus;
 
 import Utils.String.UniString;
 import Core.ArtifactString;
@@ -396,11 +397,6 @@ namespace ArtifactCore {
 	void AudioBus::setSidechainSource(const String& busName)
 	{
 		impl_->sidechainSource_ = ZeroString(busName.data(), busName.length());
-	}
-
-	void AudioBus::setSidechainSource(const ZeroString& busName)
-	{
-		impl_->sidechainSource_ = busName;
 	}
 
 	void AudioBus::setSidechainSource(const UniString& busName)

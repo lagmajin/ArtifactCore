@@ -1,7 +1,6 @@
 module;
 #define QT_NO_KEYWORDS
 //#include <folly/th>
-#include <tbb/tbb.h>
 //#include <absl/container/>
 #include <iostream>
 #include <vector>
@@ -40,6 +39,7 @@ module;
 // Qt headers must stay in the global fragment for module ABI stability.
 #include <QObject>
 #include <QCoreApplication>
+#include <QString>
 module Render.Queue.Manager;
 
 import Render.Settings;
@@ -57,11 +57,16 @@ namespace ArtifactCore {
 
     std::unique_ptr<RenderJobModel> jobModel;
     std::atomic_bool isRendering{ false };
-    tbb::task_group renderTasks;
+    std::thread renderThread_;
     RenderFrameFunc renderFrameFunc;
 
     Impl() : jobModel(std::make_unique<RenderJobModel>()) {}
-    ~Impl() { isRendering = false; renderTasks.wait(); }
+    ~Impl() {
+      isRendering = false;
+      if (renderThread_.joinable()) {
+        renderThread_.join();
+      }
+    }
 
     void processQueue();
     RenderSettings makeDefaultSettings() const;
@@ -156,10 +161,13 @@ namespace ArtifactCore {
    void RendererQueueManager::startRenderingAllQueue()
    {
     if (impl_->isRendering) return;
+    if (impl_->renderThread_.joinable()) {
+        impl_->renderThread_.join();
+    }
     impl_->isRendering = true;
     
-    // Use TBB task_group to run in background
-    impl_->renderTasks.run([this]() { 
+    // Run in a background thread.
+    impl_->renderThread_ = std::thread([this]() {
         impl_->processQueue(); 
     });
    }

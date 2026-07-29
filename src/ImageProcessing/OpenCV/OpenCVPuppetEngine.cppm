@@ -10,6 +10,7 @@ module;
 #include <opencv2/opencv.hpp>
 
 module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
+import ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
 
 import Core.Parallel;
 
@@ -130,7 +131,7 @@ public:
                 w[k] = pinWeights[k] / (dist2 + 1e-8f); 
                 sum_w += w[k];
             }
-            if (is_control_point) continue;
+            if (is_control_point) return;
 
             for (int k = 0; k < npins; ++k) {
                 w[k] /= sum_w;

@@ -5,6 +5,7 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.Spectrum;
+import Audio.Effect.Spectrum;
 
 import Audio.Effect;
 import Audio.Segment;

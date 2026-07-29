@@ -34,6 +34,7 @@ module;
 #include <regex>
 #include <random>
 module Layer.State;
+import Layer.State;
 
 namespace ArtifactCore {
 

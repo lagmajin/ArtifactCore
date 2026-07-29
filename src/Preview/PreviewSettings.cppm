@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 
 module Preview.Settings;
+import Preview.Settings;
 
 namespace ArtifactCore
 {

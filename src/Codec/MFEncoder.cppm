@@ -43,6 +43,7 @@ module ;
 
 
 module Codec.MFEncoder;
+import Codec.MFEncoder;
 
 namespace ArtifactCore {
 

@@ -1,5 +1,4 @@
 module;
-class tst_QList;
 #include <QString>
 #include <QDateTime>
 #include <QJsonArray>
@@ -15,6 +14,8 @@ class tst_QList;
 #include <vector>
 
 export module Core.Diagnostics.Trace;
+
+class tst_QList;
 
 import Frame.Debug;
 

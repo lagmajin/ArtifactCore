@@ -19,7 +19,6 @@ module;
 #ifdef emit
 #undef emit
 #endif
-#include <tbb/tbb.h>
 
 module Render.Farm.Master;
 
@@ -89,7 +88,7 @@ public:
     std::vector<int> frameAttempts_;
     std::mutex frameAttemptsMutex_;
 
-    tbb::task_group farmTasks_;
+    std::thread farmThread_;
     mutable std::mutex resultMutex_;
 
     QString currentJobId_;
@@ -110,6 +109,12 @@ public:
         : workerCount_(workerCount > 0 ? workerCount : std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2))
         , checkpointStore_(std::make_unique<CheckpointStore>())
     {}
+
+    ~Impl() {
+        if (farmThread_.joinable()) {
+            farmThread_.join();
+        }
+    }
 
     std::vector<RenderFrameRange> splitRange(const RenderFrameRange& range, int parts) const {
         std::vector<RenderFrameRange> subRanges;
@@ -320,14 +325,19 @@ public:
             auto subRanges = splitRange(localRange, workerCount_);
             std::atomic<int> checkpointCounter{ 0 };
 
+            std::vector<std::thread> workers;
+            workers.reserve(subRanges.size());
             for (const auto& subRange : subRanges) {
-                farmTasks_.run([this, request, subRange, &checkpointCounter]() {
+                workers.emplace_back([this, request, subRange, &checkpointCounter]() {
                     executeLocalRange(request, subRange, checkpointCounter);
                 });
             }
+            for (auto& worker : workers) {
+                if (worker.joinable()) {
+                    worker.join();
+                }
+            }
         }
-
-        farmTasks_.wait();
 
         // Collect remote results before checkpoint so the checkpoint includes remote progress
         collectRemoteResults();
@@ -434,7 +444,10 @@ int RenderFarmMaster::workerCount() const {
 
 void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
     if (impl_->busy_) return;
-    impl_->farmTasks_.run([this, request]() {
+    if (impl_->farmThread_.joinable()) {
+        impl_->farmThread_.join();
+    }
+    impl_->farmThread_ = std::thread([this, request]() {
         impl_->executeJob(request);
     });
 }

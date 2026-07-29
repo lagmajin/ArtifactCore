@@ -5,6 +5,7 @@ module;
 #include <QString>
 
 module UI.ShortcutBindings;
+import UI.ShortcutBindings;
 
 namespace ArtifactCore {
 

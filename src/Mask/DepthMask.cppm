@@ -3,6 +3,7 @@ module;
 #include <QVector3D>
 #include <QMatrix4x4>
 module Core.Mask.DepthMask;
+import Core.Mask.DepthMask;
 
 namespace ArtifactCore {
 

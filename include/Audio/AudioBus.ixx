@@ -95,7 +95,6 @@ export namespace ArtifactCore {
 		const AudioSegment& getSideChainBuffer() const;
 
 		// Sidechain source (bus name whose output feeds this bus's sidechain)
-		void setSidechainSource(const ZeroString& busName);
 		void setSidechainSource(const String& busName);
 		void setSidechainSource(const UniString& busName);
 		ZeroString getSidechainSourceZero() const;

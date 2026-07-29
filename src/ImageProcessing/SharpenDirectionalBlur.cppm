@@ -42,6 +42,7 @@ module;
 #include <QImage>
 #include <QPointF>
 module ImageProcessing.SharpenDirectionalBlur;
+import ImageProcessing.SharpenDirectionalBlur;
 
 import Core.Parallel;
 

@@ -23,7 +23,6 @@ extern "C" {
 module MediaImageFrameDecoder;
 
 import Video.VideoFrame;
-import Core.Parallel;
 import Memory.SharedPtr;
 
 
@@ -52,11 +51,11 @@ CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& source) {
     out.meta.color.colorTransfer = static_cast<int>(AVCOL_TRC_IEC61966_2_1);
     out.strideBytes = rgba.bytesPerLine();
     out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(out.meta.height));
-    Parallel::For(0, out.meta.height, out.meta.width * out.meta.height, [&](int y) {
+    for (int y = 0; y < out.meta.height; ++y) {
         const std::uint8_t* src = rgba.constScanLine(y);
         std::uint8_t* dst = out.bytes.data() + static_cast<size_t>(y) * static_cast<size_t>(out.strideBytes);
         std::memcpy(dst, src, static_cast<size_t>(out.strideBytes));
-    });
+    }
     return out;
 }
 
@@ -189,14 +188,14 @@ GpuVideoFrame makeGpuVideoFrameFromFrame(AVFrame* frame)
         return out;
     }
 
-    auto frameRef = makeShared<void>(
+    std::shared_ptr<AVFrame> clonedFrame(
         av_frame_clone(frame),
-        [](void* ptr) {
-            AVFrame* cloned = static_cast<AVFrame*>(ptr);
+        [](AVFrame* cloned) {
             if (cloned) {
                 av_frame_free(&cloned);
             }
         });
+    SharedPtr<void> frameRef(clonedFrame);
     if (!frameRef) {
         return out;
     }

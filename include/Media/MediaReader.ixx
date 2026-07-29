@@ -1,15 +1,16 @@
 module;
 #include <utility>
+#include <deque>
+#include <thread>
 #define QT_NO_KEYWORDS
 #include <QMutex>
+#include <QMutexLocker>
 #include <QWaitCondition>
 
 extern "C" {
 #include <libavformat/avformat.h>
 }
 
-#include <tbb/concurrent_queue.h>
-#include <tbb/task_group.h>
 export module MediaReader;
 
 import MediaSource;
@@ -25,9 +26,9 @@ enum class StreamType {
 class MediaReader {
 private:
     MediaSource* mediaSource_;
-    tbb::concurrent_queue<AVPacket*> videoQueue_;
-    tbb::concurrent_queue<AVPacket*> audioQueue_;
-    tbb::task_group taskGroup_;
+    std::deque<AVPacket*> videoQueue_;
+    std::deque<AVPacket*> audioQueue_;
+    std::thread workerThread_;
     QMutex mutex_;
     QWaitCondition condition_;
     bool isRunning_ = false;

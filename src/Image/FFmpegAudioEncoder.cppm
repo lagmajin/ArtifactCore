@@ -15,6 +15,7 @@ extern "C" {
 }
 
 module Media.Encoder.FFmpegAudioEncoder;
+import Media.Encoder.FFmpegAudioEncoder;
 
 namespace {
 

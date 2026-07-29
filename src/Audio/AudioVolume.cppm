@@ -5,6 +5,7 @@ module;
 #include <limits>
 
 module Audio.Volume;
+import Audio.Volume;
 
 import Utils.String.UniString;
 import Audio.Decibels;

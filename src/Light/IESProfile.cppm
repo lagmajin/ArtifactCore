@@ -11,8 +11,6 @@ module;
 
 module Light.IESProfile;
 
-import Core.Parallel;
-
 namespace ArtifactCore {
 
 // ─── Parser Helpers ───
@@ -140,7 +138,7 @@ void IESLutTexture::buildFromProfile(const IESProfile& profile) {
     if (!profile.isValid()) return;
     data.resize(width * height * 4, 0.0f);
     float invMax = 1.0f / std::max(profile.maxCandela, 1.0f);
-    Parallel::For(0, height, width * height, [&](int y) {
+    for (int y = 0; y < height; ++y) {
         float va = (float(y) + 0.5f) / float(height) * 180.0f;
         for (int x = 0; x < width; ++x) {
             float ha = (float(x) + 0.5f) / float(width) * 360.0f;
@@ -148,7 +146,7 @@ void IESLutTexture::buildFromProfile(const IESProfile& profile) {
             size_t idx = (y * width + x) * 4;
             data[idx]=data[idx+1]=data[idx+2]=cd; data[idx+3]=1.0f;
         }
-    });
+    }
 }
 
 } // namespace ArtifactCore

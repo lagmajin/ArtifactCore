@@ -138,22 +138,18 @@ std::vector<ZeroString> AudioMixer::busNamesZero() const
     return result;
 }
 
-SharedPtr<AudioBus> AudioMixer::findBusByName(const ZeroString& name) const
+SharedPtr<AudioBus> AudioMixer::findBusByName(const String& name) const
 {
+    const ZeroString lookupName(ArtifactCore::toStdString(name));
     for (const auto& bus : impl_->buses) {
         if (!bus) {
             continue;
         }
-        if (bus->getName() == name) {
+        if (bus->getName() == lookupName) {
             return bus;
         }
     }
     return nullptr;
-}
-
-SharedPtr<AudioBus> AudioMixer::findBusByName(const String& name) const
-{
-    return findBusByName(ZeroString(ArtifactCore::toStdString(name)));
 }
 
 SharedPtr<AudioBus> AudioMixer::findBusByName(const QString& name) const
@@ -273,16 +269,12 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
     return true;
 }
 
-SharedPtr<AudioBus> AudioMixer::createBus(const ZeroString& name) {
+SharedPtr<AudioBus> AudioMixer::createBus(const String& name) {
     auto bus = makeShared<AudioBus>();
     bus->setName(name);
     impl_->buses.push_back(bus);
     connect(bus, masterBus_);
     return bus;
-}
-
-SharedPtr<AudioBus> AudioMixer::createBus(const String& name) {
-    return createBus(ZeroString(ArtifactCore::toStdString(name)));
 }
 
 SharedPtr<AudioBus> AudioMixer::createBus(const QString& name) {

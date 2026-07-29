@@ -1,5 +1,4 @@
 module;
-class tst_QList;
 #include <typeindex>
 
 #include <iostream>
@@ -35,6 +34,8 @@ class tst_QList;
 #include <QList>
 #include <QMultiHash>
 export module Container.MultiIndex;
+
+class tst_QList;
 
 import std;
 

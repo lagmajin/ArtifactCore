@@ -10,8 +10,6 @@ module;
 
 export module Color.Grading.ColorScopes;
 
-import Core.Parallel;
-
 export namespace ArtifactCore {
 
 // ============================================================
@@ -67,7 +65,7 @@ public:
             std::vector<std::vector<int>> partialWaveforms(
                 workerCount, std::vector<int>(static_cast<size_t>(width) * height, 0));
 
-            Parallel::For(0, workerCount, sw * sh, [&](int chunk) {
+            for (int chunk = 0; chunk < workerCount; ++chunk) {
                 const int yBegin = chunk * kRowsPerChunk;
                 const int yEnd = std::min(sh, yBegin + kRowsPerChunk);
                 auto& local = partialWaveforms[chunk];
@@ -83,7 +81,7 @@ public:
                         }
                     }
                 }
-            });
+            }
 
             for (const auto& local : partialWaveforms) {
                 for (int x = 0; x < width; ++x) {
@@ -203,7 +201,7 @@ public:
         };
         std::vector<HistogramChunk> partialHist(workerCount);
 
-        Parallel::For(0, workerCount, sw * sh, [&](int chunk) {
+        for (int chunk = 0; chunk < workerCount; ++chunk) {
             const int yBegin = chunk * kRowsPerChunk;
             const int yEnd = workerCount == 1
                 ? sh : std::min(sh, yBegin + kRowsPerChunk);
@@ -219,7 +217,7 @@ public:
                     local.l[std::clamp(lum, 0, 255)]++;
                 }
             }
-        });
+        }
 
         for (const auto& local : partialHist) {
             for (int i = 0; i < 256; ++i) {
@@ -294,7 +292,7 @@ public:
         // Render bins as intensity dots
         auto* scopeBits = scope.bits();
         const int scopeStride = scope.bytesPerLine();
-        Parallel::For(0, size, size * size, [&](int y) {
+        for (int y = 0; y < size; ++y) {
             auto* line = reinterpret_cast<QRgb*>(scopeBits + y * scopeStride);
             for (int x = 0; x < size; ++x) {
                 uint32_t count = bins[y * size + x];
@@ -309,7 +307,7 @@ public:
                 int b = std::min(255, qBlue(existing) + val);
                 line[x] = qRgba(r, g, b, a);
             }
-        });
+        }
 
         // Graticule
         QPainter painter(&scope);
@@ -370,7 +368,7 @@ public:
 
         auto* scopeBits = scope.bits();
         const int scopeStride = scope.bytesPerLine();
-        Parallel::For(0, height, width * height, [&](int y) {
+        for (int y = 0; y < height; ++y) {
             auto* line = reinterpret_cast<QRgb*>(scopeBits + y * scopeStride);
             for (int x = 0; x < width; ++x) {
                 uint32_t count = bins[y * width + x];
@@ -380,7 +378,7 @@ public:
                 val = std::min(val, 255);
                 line[x] = qRgba(val, val, 255, val);
             }
-        });
+        }
 
         QPainter painter(&scope);
         painter.setPen(QPen(QColor(80, 80, 80, 120), 1));
@@ -414,7 +412,7 @@ public:
         const int scopeStride = scope.bytesPerLine();
 
         auto drawPane = [&](int paneOffset, QRgb color) {
-            Parallel::For(0, height, width * height, [&](int y) {
+            for (int y = 0; y < height; ++y) {
                 auto* line = reinterpret_cast<QRgb*>(scopeBits + y * scopeStride);
                 for (int x = 0; x < width; ++x) {
                     uint32_t count = bins[paneOffset + y * width + x];
@@ -424,7 +422,7 @@ public:
                     line[x + paneOffset / pane * width] = qRgba(
                         qRed(color), qGreen(color), qBlue(color), a);
                 }
-            });
+            }
         };
 
         drawPane(0 * pane, qRgba(255, 80, 80, 255));

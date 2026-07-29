@@ -5,8 +5,6 @@ module;
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <tbb/blocked_range.h>
-#include <tbb/parallel_for.h>
 #include <vector>
 
 export module Image.SurfacePixelConversion;
@@ -107,8 +105,7 @@ inline SurfacePixelBuffer convertSurfacePixels(
   const std::size_t pixelCount =
       static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
 
-  const auto convertRange = [&](const tbb::blocked_range<std::size_t> &range) {
-    for (std::size_t index = range.begin(); index != range.end(); ++index) {
+  const auto convertPixel = [&](std::size_t index) {
     float channels[4]{};
     if (sourceFloat) {
       for (int channel = 0; channel < 4; ++channel) {
@@ -170,14 +167,10 @@ inline SurfacePixelBuffer convertSurfacePixels(
                 std::clamp(encoded[channel], 0.0f, 1.0f) * 255.0f + 0.5f);
       }
     }
-    }
   };
 
-  if (pixelCount >= 256u * 1024u) {
-    tbb::parallel_for(
-        tbb::blocked_range<std::size_t>(0, pixelCount, 4096), convertRange);
-  } else {
-    convertRange(tbb::blocked_range<std::size_t>(0, pixelCount));
+  for (std::size_t index = 0; index < pixelCount; ++index) {
+    convertPixel(index);
   }
 
   return output;

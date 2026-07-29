@@ -18,6 +18,7 @@ module;
 #include <QString>
 
 module asio_async_file_writer;
+import asio_async_file_writer;
 
 namespace ArtifactCore {
 

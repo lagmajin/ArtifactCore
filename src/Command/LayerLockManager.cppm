@@ -5,6 +5,7 @@ module;
 #include <wobjectimpl.h>
 
 module Command.LayerLockManager;
+import Command.LayerLockManager;
 
 namespace ArtifactCore {
 

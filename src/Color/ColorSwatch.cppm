@@ -11,8 +11,10 @@ module;
 #include <string_view>
 
 module Color.Swatch;
+import Color.Swatch;
 
 import Color.Float;
+import Core.ArtifactString;
 import Memory.TrackedPtr;
 
 namespace ArtifactCore {
@@ -177,7 +179,7 @@ bool ColorSwatch::exportGPL(const std::filesystem::path& path) const {
         file << std::setw(3) << r << " " 
              << std::setw(3) << g << " " 
              << std::setw(3) << b << " " 
-             << entry.name << std::endl;
+             << toStdString(entry.name) << std::endl;
     }
 
     return true;

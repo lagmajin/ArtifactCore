@@ -9,6 +9,7 @@ module;
 module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
+import Core.ArtifactString;
 import Utils.Optional;
 
 namespace ArtifactCore {
@@ -23,7 +24,7 @@ void ArtifactPluginRegistry::registerPlugin(const PluginDescriptor& descriptor) 
     Entry entry;
     entry.descriptor = descriptor;
     entry.descriptor.state = PluginState::Registered;
-    entries_[descriptor.id] = std::move(entry);
+    entries_[toStdString(descriptor.id)] = std::move(entry);
 }
 
 void ArtifactPluginRegistry::unregisterPlugin(const std::string& id) {

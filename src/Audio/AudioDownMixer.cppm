@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <vector>
 module Audio.DownMixer;
+import Audio.DownMixer;
 
 import Audio.Segment;
 

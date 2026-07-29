@@ -3,6 +3,7 @@ module;
 #include <cmath>
 #include <QString>
 module Audio.Panner;
+import Audio.Panner;
 
 import Audio.Segment;
 

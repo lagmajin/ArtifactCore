@@ -6,6 +6,7 @@ module;
 #include <QString>
 
 module File.TypeDetector;
+import File.TypeDetector;
 
 namespace ArtifactCore {
 

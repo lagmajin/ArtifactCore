@@ -4,6 +4,7 @@ module;
 #include <algorithm>
 #include <limits>
 module Physics.Mpm2D;
+import Physics.Mpm2D;
 
 namespace ArtifactCore {
 

@@ -2,6 +2,7 @@ module;
 #include <utility>
 
 module Math.Rotation;
+import Math.Rotation;
 
 namespace ArtifactCore
 {

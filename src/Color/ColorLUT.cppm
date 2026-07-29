@@ -17,8 +17,7 @@ module;
 #include <QMap>
 
 module Color.LUT;
-
-import Core.Parallel;
+import Color.LUT;
 
 namespace ArtifactCore {
 
@@ -339,13 +338,12 @@ bool ColorLUT::loadFromImage(const QImage& image, int lutSize) {
     // HaldCLUTまたは通常画像からLUTデータを抽出
     float scale = 1.0f / 255.0f;
     
-    Parallel::For(0, lutSize, lutSize * lutSize * 3, [&](int z) {
+    for (int z = 0; z < lutSize; ++z) {
         for (int y = 0; y < lutSize; ++y) {
             for (int x = 0; x < lutSize; ++x) {
-                // 画像内の位置を計算（HaldCLUTレイアウト）
                 int px = x + (z % (image.width() / lutSize)) * lutSize;
                 int py = y + (z / (image.width() / lutSize)) * lutSize;
-                
+
                 const size_t index =
                     (static_cast<size_t>(z) * lutSize * lutSize +
                      static_cast<size_t>(y) * lutSize + x) * 3u;
@@ -362,7 +360,7 @@ bool ColorLUT::loadFromImage(const QImage& image, int lutSize) {
                 }
             }
         }
-    });
+    }
     
     impl_->valid = true;
     return true;
@@ -458,23 +456,22 @@ QImage ColorLUT::applyToImage(const QImage& source) const {
     
     auto* resultBits = result.bits();
     const int resultStride = result.bytesPerLine();
-    Parallel::For(0, result.height(), result.width() * result.height(), [&](int y) {
+    for (int y = 0; y < result.height(); ++y) {
         QRgb* line = reinterpret_cast<QRgb*>(resultBits + y * resultStride);
         for (int x = 0; x < result.width(); ++x) {
             float r = qRed(line[x]) / 255.0f;
             float g = qGreen(line[x]) / 255.0f;
             float b = qBlue(line[x]) / 255.0f;
-            
+
             apply(r, g, b);
-            
+
             line[x] = qRgba(
                 static_cast<int>(r * 255),
                 static_cast<int>(g * 255),
                 static_cast<int>(b * 255),
-                qAlpha(line[x])
-            );
+                qAlpha(line[x]));
         }
-    });
+    }
     
     return result;
 }
@@ -503,7 +500,7 @@ ColorLUT ColorLUT::createIdentity(int size) {
     lut.impl_->valid = true;
     lut.impl_->name = "Identity";
     
-    Parallel::For(0, size, size * size * 3, [&](int z) {
+    for (int z = 0; z < size; ++z) {
         for (int y = 0; y < size; ++y) {
             for (int x = 0; x < size; ++x) {
                 const size_t index =
@@ -512,13 +509,13 @@ ColorLUT ColorLUT::createIdentity(int size) {
                 float r = x / float(size - 1);
                 float g = y / float(size - 1);
                 float b = z / float(size - 1);
-                
+
                 lut.impl_->data[index + 0u] = r;
                 lut.impl_->data[index + 1u] = g;
                 lut.impl_->data[index + 2u] = b;
             }
         }
-    });
+    }
     
     return lut;
 }
@@ -528,34 +525,30 @@ ColorLUT ColorLUT::combine(const ColorLUT& other) const {
     
     ColorLUT result = createIdentity(impl_->size.dimX);
     
-    Parallel::For(0, result.impl_->size.dimZ,
-                  result.impl_->size.dimX * result.impl_->size.dimY * 3,
-                  [&](int z) {
+    for (int z = 0; z < result.impl_->size.dimZ; ++z) {
         for (int y = 0; y < result.impl_->size.dimY; ++y) {
             for (int x = 0; x < result.impl_->size.dimX; ++x) {
                 size_t idx = result.impl_->index(x, y, z);
-                
+
                 float r = impl_->data[idx];
                 float g = impl_->data[idx + 1];
                 float b = impl_->data[idx + 2];
-                
-                // 最初のLUTを適用
+
                 QVector3D v1 = impl_->trilinearInterpolation(
                     x / float(result.impl_->size.dimX - 1),
                     y / float(result.impl_->size.dimY - 1),
                     z / float(result.impl_->size.dimZ - 1)
                 );
-                
-                // 2番目のLUTを適用
+
                 float r2 = v1.x(), g2 = v1.y(), b2 = v1.z();
                 other.apply(r2, g2, b2);
-                
+
                 result.impl_->data[idx] = r2;
                 result.impl_->data[idx + 1] = g2;
                 result.impl_->data[idx + 2] = b2;
             }
         }
-    });
+    }
     
     return result;
 }
@@ -566,11 +559,10 @@ ColorLUT ColorLUT::withIntensity(float intensity) const {
     ColorLUT result = *this;
     ColorLUT identity = createIdentity(impl_->size.dimX);
     
-    Parallel::For(0, static_cast<int>(result.impl_->data.size()), static_cast<int>(result.impl_->data.size()), [&](int index) {
-        const size_t i = static_cast<size_t>(index);
-        result.impl_->data[i] = identity.impl_->data[i] * (1.0f - intensity) + 
+    for (size_t i = 0; i < result.impl_->data.size(); ++i) {
+        result.impl_->data[i] = identity.impl_->data[i] * (1.0f - intensity) +
                                 result.impl_->data[i] * intensity;
-    });
+    }
     
     return result;
 }

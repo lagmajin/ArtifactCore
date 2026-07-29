@@ -6,7 +6,9 @@ module;
 #include <QString>
 
 module Audio.LipSyncTrack;
+import Audio.LipSyncTrack;
 
+import Audio.Segment;
 import Audio.Analyze;
 import Audio.FormantExtractor;
 import Audio.SimpleWav;

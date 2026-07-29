@@ -71,7 +71,7 @@ struct CsvParseResult {
     std::vector<std::vector<String>> rows;
     std::vector<String> headers;
     CsvParseError error = CsvParseError::None;
-    String errorMessage;
+    std::string errorMessage;
     int rowCount = 0;
     int columnCount = 0;
 
@@ -87,7 +87,7 @@ public:
         std::ifstream file(path, std::ios::binary);
         if (!file.is_open()) {
             result.error = CsvParseError::FileNotFound;
-            result.errorMessage = "Cannot open file: " + path.string();
+            result.errorMessage = std::string("Cannot open file: ") + path.string();
             return result;
         }
 
@@ -144,9 +144,10 @@ public:
         for (size_t i = 1; i < rawRows.size(); ++i) {
             if (static_cast<int>(rawRows[i].size()) != expectedCols) {
                 result.error = CsvParseError::InconsistentColumnCount;
-                result.errorMessage = "Row " + std::to_string(i + 1) +
-                                      " has " + std::to_string(rawRows[i].size()) +
-                                      " columns, expected " + std::to_string(expectedCols);
+                result.errorMessage =
+                    std::string("Row ") + std::to_string(i + 1) +
+                    " has " + std::to_string(rawRows[i].size()) +
+                    " columns, expected " + std::to_string(expectedCols);
                 return result;
             }
         }

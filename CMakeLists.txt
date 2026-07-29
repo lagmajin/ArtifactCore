@@ -146,7 +146,6 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/ImageBuffer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/SharedPtr.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/ArtifactArray.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactAtomic.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactHashMap.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactOptional.cppm"
@@ -517,6 +516,13 @@ if(TARGET llama)
     _artifact_align_llama_output(ggml-cpu)
     _artifact_align_llama_output(ggml-metal)
     _artifact_align_llama_output(ggml-cuda)
+
+    foreach(_artifact_llama_target IN ITEMS llama ggml ggml-base ggml-cpu ggml-metal ggml-cuda)
+        if(TARGET ${_artifact_llama_target})
+            set_target_properties(${_artifact_llama_target} PROPERTIES
+                VS_GLOBAL_VcpkgApplocalDeps false)
+        endif()
+    endforeach()
 else()
     find_package(llama REQUIRED CONFIG)
     target_link_libraries(ArtifactCore PUBLIC llama)
@@ -557,20 +563,41 @@ set(_vcpkg_include_dir "${VCPKG_INSTALLED_DIR}/${_vcpkg_triplet}/include")
 message(STATUS "FFmpeg library dir: ${_vcpkg_lib_dir}")
 message(STATUS "FFmpeg debug lib dir: ${_vcpkg_debug_lib_dir}")
 
-# Link the FFmpeg libraries directly by full path
-# Use $<CONFIG:Debug> generator expression for config-specific linking
-target_link_libraries(ArtifactCore PUBLIC
-    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avcodec.lib>
-    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avcodec.lib>
-    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avformat.lib>
-    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avformat.lib>
-    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avutil.lib>
-    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avutil.lib>
-    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/swscale.lib>
-    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/swscale.lib>
-    $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/swresample.lib>
-    $<$<CONFIG:Release>:${_vcpkg_lib_dir}/swresample.lib>
-)
+# Link the FFmpeg libraries directly by full path.  Some vcpkg installations
+# provide only the release import libraries, even for a Debug application.
+# Do not emit references to non-existent debug libraries: Ninja/MSVC will
+# otherwise compile ArtifactCore successfully and fail at the final link.
+set(_artifact_ffmpeg_lib_names avcodec avformat avutil swscale swresample)
+set(_artifact_ffmpeg_debug_libs_available TRUE)
+foreach(_artifact_ffmpeg_lib_name IN LISTS _artifact_ffmpeg_lib_names)
+    if(NOT EXISTS "${_vcpkg_debug_lib_dir}/${_artifact_ffmpeg_lib_name}.lib")
+        set(_artifact_ffmpeg_debug_libs_available FALSE)
+    endif()
+endforeach()
+
+if(_artifact_ffmpeg_debug_libs_available)
+    target_link_libraries(ArtifactCore PUBLIC
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avcodec.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avcodec.lib>
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avformat.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avformat.lib>
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avutil.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avutil.lib>
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/swscale.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/swscale.lib>
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/swresample.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/swresample.lib>
+    )
+else()
+    target_link_libraries(ArtifactCore PUBLIC
+        "${_vcpkg_lib_dir}/avcodec.lib"
+        "${_vcpkg_lib_dir}/avformat.lib"
+        "${_vcpkg_lib_dir}/avutil.lib"
+        "${_vcpkg_lib_dir}/swscale.lib"
+        "${_vcpkg_lib_dir}/swresample.lib"
+    )
+    message(STATUS "FFmpeg debug import libraries not found; using release import libraries for all configurations")
+endif()
 
 # Add FFmpeg include directory
 target_include_directories(ArtifactCore PUBLIC ${_vcpkg_include_dir})

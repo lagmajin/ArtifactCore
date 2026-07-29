@@ -8,6 +8,7 @@ module;
 #include <boost/uuid/uuid_generators.hpp>
 
 module Utils.Id;
+import Utils.Id;
 
 namespace ArtifactCore {
 

@@ -4,7 +4,6 @@ module;
 
 module ImageProcessing;
 import :ChromaKey;
-import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -15,7 +14,7 @@ static float colorDist(const float3& a, const float3& b) {
 
 void ChromaKey::process(float4* buffer, int width, int height, const ChromaKeySettings& s) {
     float3 kc = {s.keyColor.x, s.keyColor.y, s.keyColor.z};
-    Parallel::For(0, height, width * height, [&](int y) {
+    for (int y = 0; y < height; ++y) {
         const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
         for (int x = 0; x < width; ++x) {
             auto& px = buffer[rowStart + static_cast<size_t>(x)];
@@ -24,7 +23,7 @@ void ChromaKey::process(float4* buffer, int width, int height, const ChromaKeySe
             float alpha = std::clamp((dist - s.tolerance) / std::max(s.softness, 0.001f), 0.0f, 1.0f);
             px.w = px.w * (1.0f - alpha);
         }
-    });
+    }
 }
 
 void ChromaKey::process(ImageF32x4_RGBA& image, const ChromaKeySettings& settings) {

@@ -4,10 +4,9 @@ module;
 #include <cstdint>
 #include <source_location>
 #include <utility>
+#include <QString>
 
 export module Core.Diagnostics.DebugIdentity;
-
-import <QString>;
 
 namespace Artifact::Diagnostics {
 

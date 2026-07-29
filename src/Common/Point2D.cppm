@@ -2,6 +2,7 @@ module;
 #include <utility>
 
 module Core.Point2D;
+import Core.Point2D;
 
 namespace ArtifactCore
 {

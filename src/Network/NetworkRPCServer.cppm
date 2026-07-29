@@ -18,6 +18,7 @@ module;
 #include <QDebug>
 
 module NetworkRPCServer;
+import NetworkRPCServer;
 
 namespace ArtifactCore {
 

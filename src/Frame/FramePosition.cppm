@@ -5,6 +5,7 @@ module;
 #include <cmath>
 #include <limits>
 module Frame.Position;
+import Frame.Position;
 
 namespace ArtifactCore {
 

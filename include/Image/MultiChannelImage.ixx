@@ -11,6 +11,7 @@ module;
 export module Image.MultiChannelImage;
 
 export import Channel;
+import Core.ArtifactString;
 import Memory.SharedPtr;
 
 export namespace ArtifactCore

@@ -42,7 +42,7 @@ export module Core.Point2D;
 export namespace ArtifactCore {
 
  template<typename T>
- concept Point2DF = requires(T p) {
+ concept Point2DLikeF = requires(T p) {
   { getX(p) } -> std::convertible_to<float>;
   { getY(p) } -> std::convertible_to<float>;
  };
@@ -71,7 +71,7 @@ export namespace ArtifactCore {
  };
 
  template<typename T>
- concept Point2DI = requires(T p) {
+ concept Point2DLikeI = requires(T p) {
   { getX(p) } -> std::convertible_to<int32_t>;
   { getY(p) } -> std::convertible_to<int32_t>;
  };

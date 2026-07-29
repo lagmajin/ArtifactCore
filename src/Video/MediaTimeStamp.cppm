@@ -2,6 +2,7 @@ module;
 #include <utility>
 
 module Media.TimeStamp;
+import Media.TimeStamp;
 
 namespace ArtifactCore {
 

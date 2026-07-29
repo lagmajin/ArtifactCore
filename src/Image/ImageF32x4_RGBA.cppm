@@ -1,6 +1,4 @@
 module;
-class tst_QList;
-
 
 #include <iostream>
 #include <vector>
@@ -50,6 +48,8 @@ import FloatRGBA;
 import CvUtils;
 import Graphics.SurfaceColorContract;
 import Image.SurfacePixelConversion;
+
+class tst_QList;
 
 namespace ArtifactCore {
 

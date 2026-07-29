@@ -52,6 +52,7 @@ constexpr int32_t UNMANAGEDCALLERSONLY_METHOD = 0;
 #endif // ARTIFACT_HAS_DOTNET
 
 module Script.CSharp.Engine;
+import Script.CSharp.Engine;
 
 namespace ArtifactCore {
 

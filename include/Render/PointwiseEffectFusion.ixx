@@ -712,7 +712,9 @@ struct PointwiseFusionDiagnostics {
 class PointwiseShaderCache {
 public:
     const PointwiseGeneratedShader* find(const PointwiseCompileKey& key) const {
-        const auto it = entries_.find(key.toString());
+        const String keyString = key.toString();
+        const std::string keyText = toStdString(keyString);
+        const auto it = entries_.find(keyText);
         return it == entries_.end() ? nullptr : &it->second;
     }
 
@@ -723,7 +725,7 @@ public:
         const PointwiseFusionSegment& segment) {
         const PointwiseCompileKey key =
             PointwiseEffectFusion::makeCompileKey(backend, targetFormat, nodes, segment);
-        const std::string keyText = key.toString();
+        const std::string keyText = toStdString(key.toString());
         if (const auto it = entries_.find(keyText); it != entries_.end()) {
             ++hitCount_;
             return it->second;
@@ -746,7 +748,7 @@ public:
         PointwiseComputePlan plan;
         const PointwiseCompileKey key =
             PointwiseEffectFusion::makeCompileKey(backend, targetFormat, nodes, segment);
-        const std::string keyText = key.toString();
+        const std::string keyText = toStdString(key.toString());
         if (const auto it = entries_.find(keyText); it != entries_.end()) {
             ++hitCount_;
             plan.shader = it->second;
