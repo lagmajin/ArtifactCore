@@ -28,14 +28,46 @@ struct DynVec2 {
     float x = 0.0f, y = 0.0f;
     DynVec2 operator+(const DynVec2& o) const noexcept { return {x + o.x, y + o.y}; }
     DynVec2 operator-(const DynVec2& o) const noexcept { return {x - o.x, y - o.y}; }
+    DynVec2 operator-() const noexcept { return {-x, -y}; }
     DynVec2 operator*(float s) const noexcept { return {x * s, y * s}; }
+    DynVec2 operator*(const DynVec2& o) const noexcept { return {x * o.x, y * o.y}; }
+    DynVec2 operator/(float s) const noexcept { return {x / s, y / s}; }
+    DynVec2 operator/(const DynVec2& o) const noexcept { return {x / o.x, y / o.y}; }
+    DynVec2& operator+=(const DynVec2& o) noexcept { x += o.x; y += o.y; return *this; }
+    DynVec2& operator-=(const DynVec2& o) noexcept { x -= o.x; y -= o.y; return *this; }
+    DynVec2& operator*=(float s) noexcept { x *= s; y *= s; return *this; }
+    DynVec2& operator*=(const DynVec2& o) noexcept { x *= o.x; y *= o.y; return *this; }
+    DynVec2& operator/=(float s) noexcept { x /= s; y /= s; return *this; }
+    DynVec2& operator/=(const DynVec2& o) noexcept { x /= o.x; y /= o.y; return *this; }
+    bool operator==(const DynVec2& o) const noexcept { return x == o.x && y == o.y; }
+    bool operator!=(const DynVec2& o) const noexcept { return !(*this == o); }
+    static DynVec2 lerp(const DynVec2& a, const DynVec2& b, float t) noexcept {
+        const float u = std::clamp(t, 0.0f, 1.0f);
+        return {a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u};
+    }
 };
 
 struct DynVec3 {
     float x = 0.0f, y = 0.0f, z = 0.0f;
     DynVec3 operator+(const DynVec3& o) const noexcept { return {x + o.x, y + o.y, z + o.z}; }
     DynVec3 operator-(const DynVec3& o) const noexcept { return {x - o.x, y - o.y, z - o.z}; }
+    DynVec3 operator-() const noexcept { return {-x, -y, -z}; }
     DynVec3 operator*(float s) const noexcept { return {x * s, y * s, z * s}; }
+    DynVec3 operator*(const DynVec3& o) const noexcept { return {x * o.x, y * o.y, z * o.z}; }
+    DynVec3 operator/(float s) const noexcept { return {x / s, y / s, z / s}; }
+    DynVec3 operator/(const DynVec3& o) const noexcept { return {x / o.x, y / o.y, z / o.z}; }
+    DynVec3& operator+=(const DynVec3& o) noexcept { x += o.x; y += o.y; z += o.z; return *this; }
+    DynVec3& operator-=(const DynVec3& o) noexcept { x -= o.x; y -= o.y; z -= o.z; return *this; }
+    DynVec3& operator*=(float s) noexcept { x *= s; y *= s; z *= s; return *this; }
+    DynVec3& operator*=(const DynVec3& o) noexcept { x *= o.x; y *= o.y; z *= o.z; return *this; }
+    DynVec3& operator/=(float s) noexcept { x /= s; y /= s; z /= s; return *this; }
+    DynVec3& operator/=(const DynVec3& o) noexcept { x /= o.x; y /= o.y; z /= o.z; return *this; }
+    bool operator==(const DynVec3& o) const noexcept { return x == o.x && y == o.y && z == o.z; }
+    bool operator!=(const DynVec3& o) const noexcept { return !(*this == o); }
+    static DynVec3 lerp(const DynVec3& a, const DynVec3& b, float t) noexcept {
+        const float u = std::clamp(t, 0.0f, 1.0f);
+        return {a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, a.z + (b.z - a.z) * u};
+    }
 };
 
 // ────────────────────────────────────────────

@@ -195,6 +195,7 @@ private:
 /// </summary>
 export struct TaskOptions {
   TaskPriority priority = TaskPriority::Normal;
+  TaskCategory taskCategory = TaskCategory::Custom;
   int maxConcurrency = 1;           // 並列実行数（0 = unlimited）
   bool allowsCancellation = true;   // キャンセル可能か
   std::vector<TaskId> dependencies; // 依存するtask id
@@ -267,6 +268,21 @@ public:
   /// Taskの状態スナップショットを返す
   /// </summary>
   auto GetSnapshot() const -> TaskSnapshot { return snapshot_; }
+
+  /// Initializes the shared snapshot before the task enters the queue.
+  void InitializeSnapshot() {
+    std::lock_guard<std::mutex> lock(snapshotMutex_);
+    const auto options = GetOptions();
+    snapshot_.id = taskId_;
+    snapshot_.state = TaskState::Pending;
+    snapshot_.category = options.taskCategory;
+    snapshot_.priority = options.priority;
+    snapshot_.name = options.name;
+    snapshot_.progress = {};
+    snapshot_.error = TaskError::None();
+    snapshot_.startTime = {};
+    snapshot_.endTime = {};
+  }
 
 protected:
   void UpdateSnapshot(std::function<void(TaskSnapshot &)> update) {

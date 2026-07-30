@@ -40,6 +40,15 @@ FloatColor FloatColor::operator-(const FloatColor& other) const {
 FloatColor FloatColor::operator*(float scalar) const {
   return FloatColor(r_ * scalar, g_ * scalar, b_ * scalar, a_ * scalar);
 }
+FloatColor FloatColor::operator*(const FloatColor& other) const {
+  return FloatColor(r_ * other.r_, g_ * other.g_, b_ * other.b_, a_ * other.a_);
+}
+FloatColor FloatColor::operator/(float scalar) const {
+  return FloatColor(r_ / scalar, g_ / scalar, b_ / scalar, a_ / scalar);
+}
+FloatColor FloatColor::operator/(const FloatColor& other) const {
+  return FloatColor(r_ / other.r_, g_ / other.g_, b_ / other.b_, a_ / other.a_);
+}
 FloatColor& FloatColor::operator+=(const FloatColor& other) {
   r_ += other.r_; g_ += other.g_; b_ += other.b_; a_ += other.a_; return *this;
 }
@@ -48,6 +57,42 @@ FloatColor& FloatColor::operator-=(const FloatColor& other) {
 }
 FloatColor& FloatColor::operator*=(float scalar) {
   r_ *= scalar; g_ *= scalar; b_ *= scalar; a_ *= scalar; return *this;
+}
+FloatColor& FloatColor::operator*=(const FloatColor& other) {
+  r_ *= other.r_; g_ *= other.g_; b_ *= other.b_; a_ *= other.a_; return *this;
+}
+FloatColor& FloatColor::operator/=(float scalar) {
+  r_ /= scalar; g_ /= scalar; b_ /= scalar; a_ /= scalar; return *this;
+}
+FloatColor& FloatColor::operator/=(const FloatColor& other) {
+  r_ /= other.r_; g_ /= other.g_; b_ /= other.b_; a_ /= other.a_; return *this;
+}
+FloatColor FloatColor::operator-() const {
+  return FloatColor(-r_, -g_, -b_, -a_);
+}
+
+bool FloatColor::operator==(const FloatColor& other) const {
+  return r_ == other.r_ && g_ == other.g_ && b_ == other.b_ && a_ == other.a_;
+}
+
+bool FloatColor::operator!=(const FloatColor& other) const {
+  return !(*this == other);
+}
+
+FloatColor FloatColor::lerp(const FloatColor& a, const FloatColor& b, float t) {
+  const float u = std::clamp(t, 0.0f, 1.0f);
+  return FloatColor(
+      a.r_ + (b.r_ - a.r_) * u,
+      a.g_ + (b.g_ - a.g_) * u,
+      a.b_ + (b.b_ - a.b_) * u,
+      a.a_ + (b.a_ - a.a_) * u);
+}
+
+bool FloatColor::approximatelyEqual(const FloatColor& other, float epsilon) const {
+  return std::fabs(r_ - other.r_) < epsilon &&
+         std::fabs(g_ - other.g_) < epsilon &&
+         std::fabs(b_ - other.b_) < epsilon &&
+         std::fabs(a_ - other.a_) < epsilon;
 }
 
 void FloatColor::clamp() {
@@ -62,8 +107,8 @@ float FloatColor::sumRGB() const     { return r_ + g_ + b_; }
 float FloatColor::sumRGBA() const    { return r_ + g_ + b_ + a_; }
 float FloatColor::averageRGBA() const { return (r_ + g_ + b_ + a_) / 4.f; }
 
-static bool approximatelyEqual(float a, float b, float epsilon = 1e-5f) {
-  return std::fabs(a - b) < epsilon;
+FloatColor operator*(float scalar, const FloatColor& color) {
+  return FloatColor(scalar * color.r(), scalar * color.g(), scalar * color.b(), scalar * color.a());
 }
 
 } // namespace ArtifactCore

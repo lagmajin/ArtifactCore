@@ -138,6 +138,11 @@ public:
     }
 
     TaskId id = task->GetTaskId();
+    task->InitializeSnapshot();
+    {
+      std::lock_guard<std::mutex> snapshotLock(snapshotsMutex_);
+      snapshots_[id] = task->GetSnapshot();
+    }
     pendingTasks_.push_back(std::move(task));
 
     // EventBusに通知
@@ -284,9 +289,32 @@ private:
         continue;
       }
 
+      if (config_.enableDependencyResolution && !DependenciesCompleted(task)) {
+        {
+          std::lock_guard<std::mutex> lock(queueMutex_);
+          pendingTasks_.push_back(std::move(task));
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        continue;
+      }
+
       // Taskを実行
       ExecuteTask(task, workerId);
     }
+  }
+
+  bool DependenciesCompleted(const SharedPtr<IBackgroundTask>& task) const {
+    for (const TaskId dependency : task->GetOptions().dependencies) {
+      const auto snapshot = GetTaskSnapshot(dependency);
+      if (snapshot.state == TaskState::Failed ||
+          snapshot.state == TaskState::Cancelled) {
+        return false;
+      }
+      if (snapshot.state != TaskState::Completed) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// <summary>
@@ -320,10 +348,7 @@ private:
     // Snapshot更新
     TaskSnapshot snapshot{.id = taskId,
                           .state = TaskState::Running,
-                          .category =
-                              task->GetOptions().priority != TaskPriority::Idle
-                                  ? TaskCategory::Custom
-                                  : TaskCategory::Custom,
+                          .category = task->GetOptions().taskCategory,
                           .priority = task->GetOptions().priority,
                           .progress = {},
                           .error = TaskError::None(),
@@ -359,6 +384,9 @@ private:
         }
       };
 
+      if (cancelToken.IsCancelled()) {
+        throw std::runtime_error("Task cancelled");
+      }
       task->Execute(cancelToken, reportProgress);
 
       // 完了

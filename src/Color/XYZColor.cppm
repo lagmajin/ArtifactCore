@@ -149,6 +149,67 @@ namespace ArtifactCore
   return *this;
  }
 
+ XYZColor XYZColor::operator+(const XYZColor& other) const
+ {
+  return XYZColor(impl_->X() + other.impl_->X(), impl_->Y() + other.impl_->Y(), impl_->Z() + other.impl_->Z());
+ }
+
+ XYZColor XYZColor::operator-(const XYZColor& other) const
+ {
+  return XYZColor(impl_->X() - other.impl_->X(), impl_->Y() - other.impl_->Y(), impl_->Z() - other.impl_->Z());
+ }
+
+ XYZColor XYZColor::operator*(float scalar) const
+ {
+  return XYZColor(impl_->X() * scalar, impl_->Y() * scalar, impl_->Z() * scalar);
+ }
+
+ XYZColor XYZColor::operator/(float scalar) const
+ {
+  return XYZColor(impl_->X() / scalar, impl_->Y() / scalar, impl_->Z() / scalar);
+ }
+
+ XYZColor& XYZColor::operator+=(const XYZColor& other)
+ {
+  impl_->setX(impl_->X() + other.impl_->X());
+  impl_->setY(impl_->Y() + other.impl_->Y());
+  impl_->setZ(impl_->Z() + other.impl_->Z());
+  return *this;
+ }
+
+ XYZColor& XYZColor::operator-=(const XYZColor& other)
+ {
+  impl_->setX(impl_->X() - other.impl_->X());
+  impl_->setY(impl_->Y() - other.impl_->Y());
+  impl_->setZ(impl_->Z() - other.impl_->Z());
+  return *this;
+ }
+
+ XYZColor& XYZColor::operator*=(float scalar)
+ {
+  impl_->setX(impl_->X() * scalar);
+  impl_->setY(impl_->Y() * scalar);
+  impl_->setZ(impl_->Z() * scalar);
+  return *this;
+ }
+
+ XYZColor& XYZColor::operator/=(float scalar)
+ {
+  impl_->setX(impl_->X() / scalar);
+  impl_->setY(impl_->Y() / scalar);
+  impl_->setZ(impl_->Z() / scalar);
+  return *this;
+ }
+
+ XYZColor XYZColor::lerp(const XYZColor& a, const XYZColor& b, float t)
+ {
+  const float u = std::clamp(t, 0.0f, 1.0f);
+  return XYZColor(
+      a.impl_->X() + (b.impl_->X() - a.impl_->X()) * u,
+      a.impl_->Y() + (b.impl_->Y() - a.impl_->Y()) * u,
+      a.impl_->Z() + (b.impl_->Z() - a.impl_->Z()) * u);
+ }
+
  bool XYZColor::operator==(const XYZColor& other) const
  {
   const float epsilon = 1e-6f;

@@ -29,8 +29,20 @@ export namespace ArtifactCore
   float luminance() const;          // L値をそのまま使用
   float deltaE(const LabColor& other) const;
   LabColor& operator=(const LabColor& other);
+
+  LabColor operator+(const LabColor& other) const;
+  LabColor operator-(const LabColor& other) const;
+  LabColor operator*(float scalar) const;
+  LabColor operator/(float scalar) const;
+  LabColor& operator+=(const LabColor& other);
+  LabColor& operator-=(const LabColor& other);
+  LabColor& operator*=(float scalar);
+  LabColor& operator/=(float scalar);
+
   bool operator==(const LabColor& other) const;
   bool operator!=(const LabColor& other) const;
+
+  static LabColor lerp(const LabColor& a, const LabColor& b, float t);
   FloatColor toFloatColor() const;
   static LabColor fromFloatColor(const FloatColor& color);
   UniString toString() const;

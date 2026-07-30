@@ -41,6 +41,14 @@ struct Vec3
     float length() const { return std::sqrt(lengthSq()); }
     Vec3 normalized() const { return *this / length(); }
 
+    bool operator==(const Vec3& v) const { return x == v.x && y == v.y && z == v.z; }
+    bool operator!=(const Vec3& v) const { return !(*this == v); }
+
+    static Vec3 lerp(const Vec3& a, const Vec3& b, float t) {
+        const float u = std::clamp(t, 0.0f, 1.0f);
+        return {a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, a.z + (b.z - a.z) * u};
+    }
+
     static Vec3 zero() { return { 0.0f, 0.0f, 0.0f }; }
     static Vec3 one() { return { 1.0f, 1.0f, 1.0f }; }
 

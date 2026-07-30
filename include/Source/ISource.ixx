@@ -21,6 +21,7 @@ enum class SourceKind : quint8 {
  Unknown = 0,
  File,
  Generated,
+ ImageSequence,
 };
 
 enum class SourceCapability : quint32 {
@@ -31,6 +32,7 @@ enum class SourceCapability : quint32 {
  Mutable = 1u << 3,
  Binary = 1u << 4,
  Text = 1u << 5,
+ FrameAccess = 1u << 6,
 };
 
 constexpr SourceCapability operator|(SourceCapability lhs, SourceCapability rhs) {
@@ -65,6 +67,18 @@ struct LIBRARY_DLL_API SourceMetadata {
  bool isLocalFile = true;
 };
 
+/// Stable, serialization-friendly identity and capability description for a
+/// source.  Consumers should use this instead of down-casting to FileSource
+/// or GeneratedSource when deciding how to display or cache a source.
+struct LIBRARY_DLL_API SourceDescriptor {
+ SourceKind kind = SourceKind::Unknown;
+ Id id;
+ QString uri;
+ QString mimeType;
+ SourceCapability capabilities = SourceCapability::None;
+ bool isValid = false;
+};
+
 class LIBRARY_DLL_API ISource {
 public:
  virtual ~ISource();
@@ -77,6 +91,10 @@ public:
  virtual bool exists() const = 0;
  virtual SourceCapability capabilities() const = 0;
  virtual SourceMetadata metadata() const = 0;
+ virtual SourceDescriptor descriptor() const {
+  return SourceDescriptor{kind(), sourceId(), uri(), metadata().mimeType,
+                          capabilities(), isValid()};
+ }
  virtual QByteArray readAll() const = 0;
  virtual bool reload() = 0;
  virtual bool relink(const QString& newUri) = 0;

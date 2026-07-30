@@ -146,6 +146,67 @@ namespace ArtifactCore
   return *this;
  }
 
+ LabColor LabColor::operator+(const LabColor& other) const
+ {
+  return LabColor(impl_->L() + other.impl_->L(), impl_->a() + other.impl_->a(), impl_->b() + other.impl_->b());
+ }
+
+ LabColor LabColor::operator-(const LabColor& other) const
+ {
+  return LabColor(impl_->L() - other.impl_->L(), impl_->a() - other.impl_->a(), impl_->b() - other.impl_->b());
+ }
+
+ LabColor LabColor::operator*(float scalar) const
+ {
+  return LabColor(impl_->L() * scalar, impl_->a() * scalar, impl_->b() * scalar);
+ }
+
+ LabColor LabColor::operator/(float scalar) const
+ {
+  return LabColor(impl_->L() / scalar, impl_->a() / scalar, impl_->b() / scalar);
+ }
+
+ LabColor& LabColor::operator+=(const LabColor& other)
+ {
+  impl_->setL(impl_->L() + other.impl_->L());
+  impl_->setA(impl_->a() + other.impl_->a());
+  impl_->setB(impl_->b() + other.impl_->b());
+  return *this;
+ }
+
+ LabColor& LabColor::operator-=(const LabColor& other)
+ {
+  impl_->setL(impl_->L() - other.impl_->L());
+  impl_->setA(impl_->a() - other.impl_->a());
+  impl_->setB(impl_->b() - other.impl_->b());
+  return *this;
+ }
+
+ LabColor& LabColor::operator*=(float scalar)
+ {
+  impl_->setL(impl_->L() * scalar);
+  impl_->setA(impl_->a() * scalar);
+  impl_->setB(impl_->b() * scalar);
+  return *this;
+ }
+
+ LabColor& LabColor::operator/=(float scalar)
+ {
+  impl_->setL(impl_->L() / scalar);
+  impl_->setA(impl_->a() / scalar);
+  impl_->setB(impl_->b() / scalar);
+  return *this;
+ }
+
+ LabColor LabColor::lerp(const LabColor& a, const LabColor& b, float t)
+ {
+  const float u = std::clamp(t, 0.0f, 1.0f);
+  return LabColor(
+      a.impl_->L() + (b.impl_->L() - a.impl_->L()) * u,
+      a.impl_->a() + (b.impl_->a() - a.impl_->a()) * u,
+      a.impl_->b() + (b.impl_->b() - a.impl_->b()) * u);
+ }
+
  bool LabColor::operator==(const LabColor& other) const
  {
   //イプシロンつかった比較

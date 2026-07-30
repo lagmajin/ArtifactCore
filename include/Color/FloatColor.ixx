@@ -66,9 +66,24 @@ public:
   FloatColor operator+(const FloatColor &other) const;
   FloatColor operator-(const FloatColor &other) const;
   FloatColor operator*(float scalar) const;
+  FloatColor operator*(const FloatColor &other) const;
+  FloatColor operator/(float scalar) const;
+  FloatColor operator/(const FloatColor &other) const;
   FloatColor &operator+=(const FloatColor &other);
   FloatColor &operator-=(const FloatColor &other);
   FloatColor &operator*=(float scalar);
+  FloatColor &operator*=(const FloatColor &other);
+  FloatColor &operator/=(float scalar);
+  FloatColor &operator/=(const FloatColor &other);
+  FloatColor operator-() const;
+
+  bool operator==(const FloatColor &other) const;
+  bool operator!=(const FloatColor &other) const;
+
+  static FloatColor lerp(const FloatColor &a, const FloatColor &b, float t);
+  bool approximatelyEqual(const FloatColor &other, float epsilon = 1e-5f) const;
 };
+
+FloatColor operator*(float scalar, const FloatColor &color);
 
 }; // namespace ArtifactCore

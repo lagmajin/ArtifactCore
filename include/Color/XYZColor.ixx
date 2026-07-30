@@ -62,8 +62,19 @@ export namespace ArtifactCore
 
   XYZColor& operator=(const XYZColor& other);
 
+  XYZColor operator+(const XYZColor& other) const;
+  XYZColor operator-(const XYZColor& other) const;
+  XYZColor operator*(float scalar) const;
+  XYZColor operator/(float scalar) const;
+  XYZColor& operator+=(const XYZColor& other);
+  XYZColor& operator-=(const XYZColor& other);
+  XYZColor& operator*=(float scalar);
+  XYZColor& operator/=(float scalar);
+
   bool operator==(const XYZColor& other) const;
   bool operator!=(const XYZColor& other) const;
+
+  static XYZColor lerp(const XYZColor& a, const XYZColor& b, float t);
 
   FloatColor toFloatColor() const;
   static XYZColor fromFloatColor(const FloatColor& color);

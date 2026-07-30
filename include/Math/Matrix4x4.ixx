@@ -61,6 +61,22 @@ struct Matrix4x4 {
     }
     return out;
   }
+
+  Matrix4x4 operator*(const Matrix4x4& b) const {
+    return multiply(*this, b);
+  }
+
+  Matrix4x4& operator*=(const Matrix4x4& b) {
+    *this = multiply(*this, b);
+    return *this;
+  }
+
+  bool operator==(const Matrix4x4& other) const {
+    return m == other.m;
+  }
+  bool operator!=(const Matrix4x4& other) const {
+    return !(*this == other);
+  }
 };
 
 } // namespace ArtifactCore

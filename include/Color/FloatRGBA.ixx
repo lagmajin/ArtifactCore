@@ -1,5 +1,6 @@
 module;
 
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
 export module FloatRGBA;
@@ -51,16 +52,57 @@ export namespace ArtifactCore {
    return (&r_)[index];
   }
 
-  // ZpZq
+  // Arithmetic operators
   FloatRGBA operator+(const FloatRGBA& rhs) const {
    return FloatRGBA(r_ + rhs.r_, g_ + rhs.g_, b_ + rhs.b_, a_ + rhs.a_);
   }
-
+  FloatRGBA operator-(const FloatRGBA& rhs) const {
+   return FloatRGBA(r_ - rhs.r_, g_ - rhs.g_, b_ - rhs.b_, a_ - rhs.a_);
+  }
+  FloatRGBA operator-() const {
+   return FloatRGBA(-r_, -g_, -b_, -a_);
+  }
   FloatRGBA operator*(float scalar) const {
    return FloatRGBA(r_ * scalar, g_ * scalar, b_ * scalar, a_ * scalar);
   }
+  FloatRGBA operator*(const FloatRGBA& rhs) const {
+   return FloatRGBA(r_ * rhs.r_, g_ * rhs.g_, b_ * rhs.b_, a_ * rhs.a_);
+  }
+  FloatRGBA operator/(float scalar) const {
+   return FloatRGBA(r_ / scalar, g_ / scalar, b_ / scalar, a_ / scalar);
+  }
+  FloatRGBA operator/(const FloatRGBA& rhs) const {
+   return FloatRGBA(r_ / rhs.r_, g_ / rhs.g_, b_ / rhs.b_, a_ / rhs.a_);
+  }
+  FloatRGBA& operator+=(const FloatRGBA& rhs) {
+   r_ += rhs.r_; g_ += rhs.g_; b_ += rhs.b_; a_ += rhs.a_; return *this;
+  }
+  FloatRGBA& operator-=(const FloatRGBA& rhs) {
+   r_ -= rhs.r_; g_ -= rhs.g_; b_ -= rhs.b_; a_ -= rhs.a_; return *this;
+  }
+  FloatRGBA& operator*=(float scalar) {
+   r_ *= scalar; g_ *= scalar; b_ *= scalar; a_ *= scalar; return *this;
+  }
+  FloatRGBA& operator*=(const FloatRGBA& rhs) {
+   r_ *= rhs.r_; g_ *= rhs.g_; b_ *= rhs.b_; a_ *= rhs.a_; return *this;
+  }
+  FloatRGBA& operator/=(float scalar) {
+   r_ /= scalar; g_ /= scalar; b_ /= scalar; a_ /= scalar; return *this;
+  }
+  FloatRGBA& operator/=(const FloatRGBA& rhs) {
+   r_ /= rhs.r_; g_ /= rhs.g_; b_ /= rhs.b_; a_ /= rhs.a_; return *this;
+  }
 
-  // Zq
+  static FloatRGBA lerp(const FloatRGBA& a, const FloatRGBA& b, float t) {
+   const float u = std::clamp(t, 0.0f, 1.0f);
+   return FloatRGBA(
+       a.r_ + (b.r_ - a.r_) * u,
+       a.g_ + (b.g_ - a.g_) * u,
+       a.b_ + (b.b_ - a.b_) * u,
+       a.a_ + (b.a_ - a.a_) * u);
+  }
+
+  // Assignment
   FloatRGBA& operator=(const FloatRGBA&) = default;
   FloatRGBA& operator=(FloatRGBA&&) = default;
 
