@@ -15,7 +15,6 @@ class tst_QList;
 module Core.AI.ObjectDetector;
 
 import Image.ImageF32x4_RGBA;
-import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -84,7 +83,7 @@ QList<Detection> ObjectDetector::detect(const ImageF32x4_RGBA& image) {
         int value = -1;
     };
     std::vector<BrightestPixel> rowBest(static_cast<size_t>(gray.height()));
-    Parallel::For(0, gray.height(), gray.width() * gray.height(), [&](int y) {
+    for (int y = 0; y < gray.height(); ++y) {
         const uchar *row = gray.constScanLine(y);
         auto& brightest = rowBest[static_cast<size_t>(y)];
         for (int x = 0; x < gray.width(); ++x) {
@@ -94,7 +93,7 @@ QList<Detection> ObjectDetector::detect(const ImageF32x4_RGBA& image) {
                 brightest.x = x;
             }
         }
-    });
+    }
 
     int bestX = 0;
     int bestY = 0;

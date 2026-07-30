@@ -1,5 +1,10 @@
 module;
 #include <utility>
+#include "../Define/DllExportMacro.hpp"
+#include <QtCore/QObject>
+#include <QtCore/QScopedPointer>
+#include <QString>
+#include <wobjectdefs.h>
 module Composition.Buffer;
 
 import FloatRGBA;

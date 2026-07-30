@@ -5,6 +5,7 @@ class tst_QList;
 #include <QUuid>
 
 module Graphics.ImageCache;
+import Graphics.ImageCache;
 
 namespace ArtifactCore {
 

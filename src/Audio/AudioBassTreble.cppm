@@ -4,6 +4,7 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.BassTreble;
+import Audio.Effect.BassTreble;
 
 import Audio.Effect;
 import Audio.Segment;

@@ -3,7 +3,6 @@ module;
 #include <vector>
 #include <algorithm>
 #include <numeric>
-#include <tbb/parallel_for.h>
 
 export module Render.BVH;
 

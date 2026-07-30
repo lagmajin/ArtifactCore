@@ -5,9 +5,8 @@ module;
 #include <cmath>
 #include <compare>
 
-class tst_QList;
-
 module Color.ColorSpace;
+import Color.ColorSpace;
 
 namespace ArtifactCore {
 

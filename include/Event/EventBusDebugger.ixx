@@ -13,6 +13,7 @@ module;
 export module ArtifactCore.Event.EventBusDebugger;
 
 export import Event.Bus;
+import Core.ArtifactString;
 import Utils.Text.String;
 
 export namespace ArtifactCore {

@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cmath>
 module Color.Float;
+import Color.Float;
 
 namespace ArtifactCore {
 

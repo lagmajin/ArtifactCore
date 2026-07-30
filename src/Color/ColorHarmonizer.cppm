@@ -1,5 +1,4 @@
 module;
-class tst_QList;
 #include <utility>
 
 #include <cmath>
@@ -7,8 +6,12 @@ class tst_QList;
 
 module Color.Harmonizer;
 
+import Color.Harmonizer;
+
 import Color.Float;
 import Color.Conversion;
+
+class tst_QList;
 
 namespace ArtifactCore {
 

@@ -2,6 +2,7 @@ module;
 #include <QString>
 
 module Audio.Render.Writer;
+import Audio.Render.Writer;
 
 namespace ArtifactCore {
 

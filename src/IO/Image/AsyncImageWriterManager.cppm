@@ -21,7 +21,6 @@ module IO.Async.ImageWriterManager;
 
 import IO.ImageExporter;
 import Image;
-import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -88,7 +87,7 @@ QImage convertRawImageToQImage(const RawImage& image)
     const std::size_t outStride = static_cast<std::size_t>(out.bytesPerLine());
     const std::size_t srcStride = static_cast<std::size_t>(image.channels) * static_cast<std::size_t>(pixelSize);
 
-    Parallel::For(0, image.height, image.width * image.height, [&](int y) {
+    for (int y = 0; y < image.height; ++y) {
         uchar* dstRow = outBytes + static_cast<std::size_t>(y) * outStride;
         const uchar* srcRow = srcBytes + static_cast<std::size_t>(y) * srcStride * static_cast<std::size_t>(image.width);
 
@@ -116,7 +115,7 @@ QImage convertRawImageToQImage(const RawImage& image)
             dstRow[x * 4 + 2] = static_cast<uchar>(std::lround(std::clamp(b, 0.0f, 1.0f) * 255.0f));
             dstRow[x * 4 + 3] = static_cast<uchar>(std::lround(std::clamp(a, 0.0f, 1.0f) * 255.0f));
         }
-    });
+    }
 
     return out;
 }

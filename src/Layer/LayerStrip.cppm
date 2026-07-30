@@ -3,6 +3,7 @@ module;
 #include <cstdint>
 
 module Layer.LayerStrip;
+import Layer.LayerStrip;
 
 namespace ArtifactCore {
 

@@ -6,6 +6,7 @@ module;
 #include <cstring>
 #include <vector>
 module Audio.RingBuffer;
+import Audio.RingBuffer;
 
 import Audio.Segment;
 

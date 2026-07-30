@@ -14,8 +14,6 @@ module Time.TimeRemap;
 
 import Frame.Rate;
 import Analyze.OpticalFlow;
-import Core.Parallel;
-
 namespace ArtifactCore {
 
 namespace {
@@ -601,7 +599,7 @@ QImage TimeRemapEffect::processFrameBlending(
                 const cv::Mat& flow = flowResult.getFlowMat();
 
                 cv::Mat warped(h, w, CV_32FC3, cv::Scalar(0, 0, 0));
-                Parallel::For(0, h, w * h, [&](int y) {
+                for (int y = 0; y < h; ++y) {
                     const auto* flowRow = flow.ptr<cv::Vec2f>(y);
                     auto* warpedRow = warped.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
@@ -613,15 +611,15 @@ QImage TimeRemapEffect::processFrameBlending(
                         const cv::Vec3b p = currCv.ptr<cv::Vec3b>(iy)[ix];
                         warpedRow[x] = cv::Vec3f(p[0], p[1], p[2]);
                     }
-                });
+                }
 
-                Parallel::For(0, h, w * h, [&](int y) {
+                for (int y = 0; y < h; ++y) {
                     const auto* warpedRow = warped.ptr<cv::Vec3f>(y);
                     auto* accumRow = accumCv.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
                         accumRow[x] += warpedRow[x] * blendBackward;
                     }
-                });
+                }
                 totalWeight += blendBackward;
             }
 
@@ -632,7 +630,7 @@ QImage TimeRemapEffect::processFrameBlending(
                 const cv::Mat& flow = flowResult.getFlowMat();
 
                 cv::Mat warped(h, w, CV_32FC3, cv::Scalar(0, 0, 0));
-                Parallel::For(0, h, w * h, [&](int y) {
+                for (int y = 0; y < h; ++y) {
                     const auto* flowRow = flow.ptr<cv::Vec2f>(y);
                     auto* warpedRow = warped.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
@@ -644,34 +642,34 @@ QImage TimeRemapEffect::processFrameBlending(
                         const cv::Vec3b p = nextCv.ptr<cv::Vec3b>(iy)[ix];
                         warpedRow[x] = cv::Vec3f(p[0], p[1], p[2]);
                     }
-                });
+                }
 
-                Parallel::For(0, h, w * h, [&](int y) {
+                for (int y = 0; y < h; ++y) {
                     const auto* warpedRow = warped.ptr<cv::Vec3f>(y);
                     auto* accumRow = accumCv.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
                         accumRow[x] += warpedRow[x] * blendForward;
                     }
-                });
+                }
                 totalWeight += blendForward;
             }
 
             // Blend original frame
             if (totalWeight < 1.0f) {
                 float remaining = 1.0f - totalWeight;
-                Parallel::For(0, h, w * h, [&](int y) {
+                for (int y = 0; y < h; ++y) {
                     const auto* currRow = currCv.ptr<cv::Vec3b>(y);
                     auto* accumRow = accumCv.ptr<cv::Vec3f>(y);
                     for (int x = 0; x < w; ++x) {
                         const cv::Vec3b p = currRow[x];
                         accumRow[x] += cv::Vec3f(p[0], p[1], p[2]) * remaining;
                     }
-                });
+                }
             }
 
             // Normalize and convert back
             cv::Mat resultCv(h, w, CV_8UC3);
-            Parallel::For(0, h, w * h, [&](int y) {
+            for (int y = 0; y < h; ++y) {
                 const auto* accumRow = accumCv.ptr<cv::Vec3f>(y);
                 auto* resultRow = resultCv.ptr<cv::Vec3b>(y);
                 for (int x = 0; x < w; ++x) {
@@ -681,7 +679,7 @@ QImage TimeRemapEffect::processFrameBlending(
                         std::clamp(static_cast<int>(v[1]), 0, 255),
                         std::clamp(static_cast<int>(v[2]), 0, 255));
                 }
-            });
+            }
 
             return cvToQImage(resultCv);
         } catch (...) {

@@ -16,6 +16,7 @@ module;
 #include <utility>
 
 module AudioRenderer;
+import AudioRenderer;
 
 import Audio.Backend;
 #ifdef _WIN32
@@ -27,6 +28,7 @@ import Audio.Segment;
 import Audio.RingBuffer;
 import Audio.DownMixer;
 
+import Memory.SharedPtr;
 import Memory.TrackedPtr;
 import ArtifactCore.Utils.PerformanceProfiler;
 

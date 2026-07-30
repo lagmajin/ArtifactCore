@@ -4,6 +4,7 @@ module;
 #include <mmsystem.h>
 
 module Platform.Power;
+import Platform.Power;
 
 namespace ArtifactCore
 {

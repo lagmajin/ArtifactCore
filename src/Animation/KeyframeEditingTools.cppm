@@ -16,6 +16,7 @@ module;
 #include <QVector>
 
 module Animation.KeyframeEditingTools;
+import Animation.KeyframeEditingTools;
 
 namespace ArtifactCore {
 

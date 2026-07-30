@@ -20,6 +20,9 @@ import Memory.SharedPtr;
 
 export namespace Artifact::Acoustic {
 
+    using ArtifactCore::SharedPtr;
+    using ArtifactCore::makeShared;
+
     export class AcousticSystem {
     public:
         AcousticSystem() {

@@ -62,6 +62,14 @@ public:
         }
         return *this;
     }
+    String& operator=(const std::string& s) {
+        assign(s.data(), s.size());
+        return *this;
+    }
+    String& operator=(const char* s) {
+        assign(s, s ? std::strlen(s) : 0);
+        return *this;
+    }
     String& operator=(std::string_view s) {
         assign(s.data(), s.size());
         return *this;

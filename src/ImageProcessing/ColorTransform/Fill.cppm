@@ -4,8 +4,7 @@ module;
 #include <QImage>
 
 module ImageProcessing.ColorTransform.Fill;
-
-import Core.Parallel;
+import ImageProcessing.ColorTransform.Fill;
 
 namespace ArtifactCore {
 
@@ -75,7 +74,7 @@ QImage SolidFillProcessor::apply(const QImage& source) const {
     const int width = result.width();
     const int height = result.height();
 
-    Parallel::For(0, height, width * height, [&](int y) {
+    for (int y = 0; y < height; ++y) {
         auto* line = reinterpret_cast<QRgb*>(result.scanLine(y));
         for (int x = 0; x < width; ++x) {
             float r = qRed(line[x]) / 255.0f;
@@ -87,8 +86,7 @@ QImage SolidFillProcessor::apply(const QImage& source) const {
                 static_cast<int>(std::clamp(r * 255.0f, 0.0f, 255.0f)),
                 static_cast<int>(std::clamp(g * 255.0f, 0.0f, 255.0f)),
                 static_cast<int>(std::clamp(b * 255.0f, 0.0f, 255.0f)),
-                static_cast<int>(std::clamp(a * 255.0f, 0.0f, 255.0f))
-            );
+                static_cast<int>(std::clamp(a * 255.0f, 0.0f, 255.0f)));
         }
     }
 
@@ -100,15 +98,15 @@ void SolidFillProcessor::apply(float* pixels, int width, int height) const {
         return;
     }
 
-    Parallel::For(0, height, width * height, [&](int y) {
+    for (int y = 0; y < height; ++y) {
         applyRow(pixels, width, height, y);
-    });
+    }
 }
 
 void SolidFillProcessor::applyRow(float* pixels, int width, int height, int y) const {
     if (!pixels || width <= 0 || height <= 0 || y < 0 || y >= height) {
         return;
-    });
+    }
     for (int x = 0; x < width; ++x) {
         float* pixel = pixels + (static_cast<size_t>(y) * static_cast<size_t>(width) +
                                  static_cast<size_t>(x)) * 4u;

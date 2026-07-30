@@ -6,8 +6,7 @@ module;
 #include <QImage>
 
 module ImageProcessing.ColorTransform.PhotoFilter;
-
-import Core.Parallel;
+import ImageProcessing.ColorTransform.PhotoFilter;
 
 namespace ArtifactCore {
 
@@ -69,7 +68,7 @@ QImage PhotoFilterProcessor::apply(const QImage& source) const {
     }
 
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
-    Parallel::For(0, result.height(), result.width() * result.height(), [&](int y) {
+    for (int y = 0; y < result.height(); ++y) {
         auto* scanLine = reinterpret_cast<QRgb*>(result.scanLine(y));
         for (int x = 0; x < result.width(); ++x) {
             float r = qRed(scanLine[x]) / 255.0f;
@@ -84,7 +83,7 @@ QImage PhotoFilterProcessor::apply(const QImage& source) const {
                 static_cast<int>(std::clamp(a * 255.0f, 0.0f, 255.0f))
             );
         }
-    });
+    }
 
     return result;
 }

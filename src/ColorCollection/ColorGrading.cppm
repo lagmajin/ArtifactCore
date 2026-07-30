@@ -35,8 +35,9 @@ module;
 #include <random>
 module ColorCollection.ColorGrading;
 
+import ColorCollection.ColorGrading;
+
 import Color.ColorSpace;
-import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -191,10 +192,10 @@ void ColorWheelsProcessor::processPixel(float& r, float& g, float& b) {
 }
 
 void ColorWheelsProcessor::process(float* pixels, int width, int height) {
-    Parallel::For(0, width * height, width * height, [&](int i) {
+    for (int i = 0; i < width * height; ++i) {
         float* pixel = pixels + i * 4;
         processPixel(pixel[0], pixel[1], pixel[2]);
-    });
+    }
 }
 
 ColorWheelsProcessor ColorWheelsProcessor::createWarmLook() {
@@ -307,10 +308,10 @@ void ColorCurves::processPixel(float& r, float& g, float& b) {
 
 void ColorCurves::process(float* pixels, int width, int height) {
     if (!lutValid_) buildLUT();
-    Parallel::For(0, width * height, width * height, [&](int i) {
+    for (int i = 0; i < width * height; ++i) {
         float* pixel = pixels + i * 4;
         processPixel(pixel[0], pixel[1], pixel[2]);
-    });
+    }
 }
 
 void ColorCurves::reset() {
@@ -363,10 +364,10 @@ void ColorGrader::process(float* pixels, int width, int height) {
     }
     // Ensure the LUT is initialized before processPixel is called concurrently.
     curvesProcessor_.buildLUT();
-    Parallel::For(0, width * height, width * height, [&](int i) {
+    for (int i = 0; i < width * height; ++i) {
         float* pixel = pixels + i * 4;
         processPixel(pixel[0], pixel[1], pixel[2]);
-    });
+    }
 }
 
 ColorGrader ColorGrader::createFilmLook() {

@@ -5,6 +5,7 @@ module;
 #include <QString>
 
 module Core.Diagnostics.ProjectDiagnostic;
+import Core.Diagnostics.ProjectDiagnostic;
 
 namespace ArtifactCore {
 

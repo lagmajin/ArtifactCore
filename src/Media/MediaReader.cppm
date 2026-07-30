@@ -3,8 +3,8 @@ module;
 
 #include <QDebug>
 #include <QMutex>
+#include <QMutexLocker>
 #include <QThread>
-#include <tbb/tbb.h>
 extern "C" {
 #include <libavformat/avformat.h>
 
@@ -67,12 +67,15 @@ MediaReader::MediaReader(MediaSource* source)
 
 MediaReader::~MediaReader() {
     stop();
-    // Clean up queues
-    AVPacket* pkt;
-    while (videoQueue_.try_pop(pkt)) {
+    QMutexLocker locker(&mutex_);
+    while (!videoQueue_.empty()) {
+        AVPacket* pkt = videoQueue_.front();
+        videoQueue_.pop_front();
         av_packet_free(&pkt);
     }
-    while (audioQueue_.try_pop(pkt)) {
+    while (!audioQueue_.empty()) {
+        AVPacket* pkt = audioQueue_.front();
+        audioQueue_.pop_front();
         av_packet_free(&pkt);
     }
 }
@@ -81,7 +84,7 @@ void MediaReader::start() {
     if (isRunning_) return;
     isRunning_ = true;
     isPaused_ = false;
-    taskGroup_.run([this]() { readLoop(); });
+    workerThread_ = std::thread([this]() { readLoop(); });
 }
 
 void MediaReader::pause() {
@@ -96,16 +99,24 @@ void MediaReader::stop() {
     isRunning_ = false;
     isPaused_ = false;
     condition_.wakeAll();
-    taskGroup_.wait();
+    if (workerThread_.joinable()) {
+        workerThread_.join();
+    }
 }
 
 AVPacket* MediaReader::getNextPacket(StreamType type) {
-    AVPacket* pkt = nullptr;
+    QMutexLocker locker(&mutex_);
+    std::deque<AVPacket*>* queue = nullptr;
     if (type == StreamType::Video) {
-        videoQueue_.try_pop(pkt);
+        queue = &videoQueue_;
     } else if (type == StreamType::Audio) {
-        audioQueue_.try_pop(pkt);
+        queue = &audioQueue_;
     }
+    if (!queue || queue->empty()) {
+        return nullptr;
+    }
+    AVPacket* pkt = queue->front();
+    queue->pop_front();
     return pkt;
 }
 
@@ -132,10 +143,12 @@ void MediaReader::readLoop() {
 
         if (packet->stream_index == videoStreamIndex_) {
             AVPacket* pkt = av_packet_clone(packet);
-            videoQueue_.push(pkt);
+            QMutexLocker locker(&mutex_);
+            videoQueue_.push_back(pkt);
         } else if (packet->stream_index == audioStreamIndex_) {
             AVPacket* pkt = av_packet_clone(packet);
-            audioQueue_.push(pkt);
+            QMutexLocker locker(&mutex_);
+            audioQueue_.push_back(pkt);
         }
 
         av_packet_unref(packet);

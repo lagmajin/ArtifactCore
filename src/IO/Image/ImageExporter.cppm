@@ -24,7 +24,6 @@ module IO.ImageExporter;
 import Image.ExportOptions;
 import Image.Utils;
 import Image.MultiChannelImage;
-import Core.Parallel;
 import Memory.SharedPtr;
 
 namespace ArtifactCore {
@@ -121,15 +120,14 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
 
         const auto* src = imageRGBA8.constBits();
         const std::size_t pixelCount = static_cast<std::size_t>(imageRGBA8.width()) * static_cast<std::size_t>(imageRGBA8.height());
-        Parallel::For(0, static_cast<int>(pixelCount), static_cast<int>(pixelCount), [&](int index) {
-            const std::size_t i = static_cast<std::size_t>(index);
+        for (std::size_t i = 0; i < pixelCount; ++i) {
             const std::size_t si = i * 4;
             const std::size_t di = i * 4;
             pixelsF32[di + 0] = static_cast<float>(src[si + 0]) / 255.0f;
             pixelsF32[di + 1] = static_cast<float>(src[si + 1]) / 255.0f;
             pixelsF32[di + 2] = static_cast<float>(src[si + 2]) / 255.0f;
             pixelsF32[di + 3] = static_cast<float>(src[si + 3]) / 255.0f;
-        });
+        }
         writeData = pixelsF32.data();
     } else {
         writeData = imageRGBA8.constBits();
@@ -421,8 +419,7 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
                 const int syntheticIndex =
                     static_cast<int>(syntheticStorage.size()) - 1;
                 auto& dst = syntheticStorage.back();
-                Parallel::For(0, static_cast<int>(pixelCount), static_cast<int>(pixelCount), [&](int index) {
-                    const std::size_t i = static_cast<std::size_t>(index);
+                for (std::size_t i = 0; i < pixelCount; ++i) {
                     if (component == 0) {
                         dst[i] = sourceChannel->data()[i];
                     } else if (component == 1) {
@@ -433,7 +430,7 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
                                 : (sourceChannel->data()[i] > 0.0f ? 1.0f : 0.0f);
                         dst[i] = sourceChannel->data()[i] > 0.0f ? coverage : 0.0f;
                     }
-                });
+                }
                 channelNames.push_back(
                     QStringLiteral("%1.%2")
                         .arg(layerName, QString::fromLatin1(kSuffixes[component])));
@@ -472,8 +469,7 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
 
     // Build interleaved pixel buffer
     std::vector<float> interleaved(pixelCount * nch, 0.0f);
-    Parallel::For(0, static_cast<int>(pixelCount), static_cast<int>(pixelCount), [&](int index) {
-        const size_t p = static_cast<size_t>(index);
+    for (std::size_t p = 0; p < pixelCount; ++p) {
         for (int c = 0; c < nch; ++c) {
             if (channelData[c]) {
                 interleaved[p * nch + c] = channelData[c]->data()[p];
@@ -486,7 +482,7 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
                 interleaved[p * nch + c] = syntheticStorage[syntheticIndex][p];
             }
         }
-    });
+    }
 
     // Do not route multi-channel data through encodeImageBufToPath(). That
     // helper intentionally writes display images (3/4 channels), whereas an

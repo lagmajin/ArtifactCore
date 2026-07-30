@@ -9,6 +9,7 @@ module;
 #include <QtNetwork/QTcpSocket>
 
 module NetworkRPCClient;
+import NetworkRPCClient;
 
 namespace ArtifactCore {
 

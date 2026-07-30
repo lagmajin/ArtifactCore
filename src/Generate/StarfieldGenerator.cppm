@@ -6,8 +6,7 @@ module;
 #include <array>
 #include <tuple>
 module StarfieldGenerator;
-
-import Core.Parallel;
+import StarfieldGenerator;
 
 namespace ArtifactCore {
 
@@ -239,23 +238,23 @@ void StarfieldGenerator::renderNebulae(float* pixels) {
     for (auto& neb : nebulae_) {
         float invW = 1.0f / width_, invH = 1.0f / height_;
         float nrx = 1.0f / neb.radiusX, nry = 1.0f / neb.radiusY;
-        Parallel::For(0, height_, width_ * height_, [&](int y) {
+        for (int y = 0; y < height_; ++y) {
             float* row = pixels + static_cast<std::size_t>(y) * static_cast<std::size_t>(width_) * 4u;
             for (int x = 0; x < width_; ++x) {
-            float nx = (x * invW - neb.centerX) * nrx;
-            float ny = (y * invH - neb.centerY) * nry;
-            float dn = nx * nx + ny * ny;
-            float a = std::exp(-dn * 2.0f) * neb.opacity * 0.3f;
-            float fb = fbm(nx * 3.0f + 0.5f, ny * 3.0f, 5, 99991u);
-            a *= 0.5f + 0.5f * fb;
-            if (a > 0.001f) {
-                float* pixel = row + static_cast<std::size_t>(x) * 4u;
-                pixel[0] = std::min(1.0f, pixel[0] + neb.r * a);
-                pixel[1] = std::min(1.0f, pixel[1] + neb.g * a);
-                pixel[2] = std::min(1.0f, pixel[2] + neb.b * a);
+                float nx = (x * invW - neb.centerX) * nrx;
+                float ny = (y * invH - neb.centerY) * nry;
+                float dn = nx * nx + ny * ny;
+                float a = std::exp(-dn * 2.0f) * neb.opacity * 0.3f;
+                float fb = fbm(nx * 3.0f + 0.5f, ny * 3.0f, 5, 99991u);
+                a *= 0.5f + 0.5f * fb;
+                if (a > 0.001f) {
+                    float* pixel = row + static_cast<std::size_t>(x) * 4u;
+                    pixel[0] = std::min(1.0f, pixel[0] + neb.r * a);
+                    pixel[1] = std::min(1.0f, pixel[1] + neb.g * a);
+                    pixel[2] = std::min(1.0f, pixel[2] + neb.b * a);
+                }
             }
-            }
-        });
+        }
     }
 }
 
@@ -300,7 +299,7 @@ void StarfieldGenerator::renderShootingStars(float* pixels, float time) {
 
 void StarfieldGenerator::generate(float* pixels, float time) {
     if (stars_.empty()) generateStarDistribution(impl_->rng());
-    Parallel::For(0, height_, width_ * height_, [&](int y) {
+    for (int y = 0; y < height_; ++y) {
         float* row = pixels + static_cast<std::size_t>(y) * width_ * 4u;
         for (int x = 0; x < width_; ++x) {
             float* pixel = row + static_cast<std::size_t>(x) * 4u;
@@ -309,7 +308,7 @@ void StarfieldGenerator::generate(float* pixels, float time) {
             pixel[2] = backgroundLevel_;
             pixel[3] = backgroundLevel_;
         }
-    });
+    }
 
     if (galaxyEnabled_) renderGalaxy(pixels);
     renderNebulae(pixels);
@@ -344,37 +343,37 @@ void StarfieldGenerator::renderGalaxy(float* pixels) {
     float rMax = galaxyRadius_ * std::max(width_, height_);
     int armCount = galaxyArmCount_;
 
-    Parallel::For(0, height_, width_ * height_, [&](int y) {
+    for (int y = 0; y < height_; ++y) {
         float* row = pixels + static_cast<std::size_t>(y) * static_cast<std::size_t>(width_) * 4u;
         for (int x = 0; x < width_; ++x) {
-        float dx = x - cx, dy = y - cy;
-        float rx = dx * std::cos(galaxyTilt_) - dy * std::sin(galaxyTilt_);
-        float ry = dx * std::sin(galaxyTilt_) + dy * std::cos(galaxyTilt_);
-        float dist = std::sqrt(rx * rx + ry * ry);
-        if (dist > rMax * 1.2f) continue;
-        float angle = std::atan2(ry, rx);
-        float spiral = angle + std::log(dist / (rMax * 0.1f + 1.0f)) * 2.0f;
-        float armFactor = 0.0f;
-        for (int a = 0; a < armCount; ++a) {
-            float phase = a * 6.283185f / armCount;
-            armFactor = std::max(armFactor, std::cos(spiral * armCount + phase));
+            float dx = x - cx, dy = y - cy;
+            float rx = dx * std::cos(galaxyTilt_) - dy * std::sin(galaxyTilt_);
+            float ry = dx * std::sin(galaxyTilt_) + dy * std::cos(galaxyTilt_);
+            float dist = std::sqrt(rx * rx + ry * ry);
+            if (dist > rMax * 1.2f) continue;
+            float angle = std::atan2(ry, rx);
+            float spiral = angle + std::log(dist / (rMax * 0.1f + 1.0f)) * 2.0f;
+            float armFactor = 0.0f;
+            for (int a = 0; a < armCount; ++a) {
+                float phase = a * 6.283185f / armCount;
+                armFactor = std::max(armFactor, std::cos(spiral * armCount + phase));
+            }
+            armFactor = (armFactor + 1.0f) * 0.5f;
+            float distFade = 1.0f - std::clamp(dist / rMax, 0.0f, 1.0f);
+            distFade *= distFade * 0.4f;
+            float armWidth = 0.15f + 0.1f * (1.0f - dist / rMax);
+            float armAlpha = std::exp(-(1.0f - armFactor) * (1.0f - armFactor) / (armWidth * armWidth)) * distFade;
+            float bulge = std::exp(-dist * dist / (rMax * rMax * 0.02f)) * 0.6f;
+            float totalAlpha = std::max(armAlpha, bulge);
+            if (totalAlpha > 0.001f) {
+                float* pixel = row + static_cast<std::size_t>(x) * 4u;
+                float br = 1.0f - dist / rMax;
+                pixel[0] = std::min(1.0f, pixel[0] + (0.85f + 0.15f * br) * totalAlpha);
+                pixel[1] = std::min(1.0f, pixel[1] + (0.75f + 0.25f * br) * totalAlpha);
+                pixel[2] = std::min(1.0f, pixel[2] + (0.5f + 0.5f * br) * totalAlpha);
+            }
         }
-        armFactor = (armFactor + 1.0f) * 0.5f;
-        float distFade = 1.0f - std::clamp(dist / rMax, 0.0f, 1.0f);
-        distFade *= distFade * 0.4f;
-        float armWidth = 0.15f + 0.1f * (1.0f - dist / rMax);
-        float armAlpha = std::exp(-(1.0f - armFactor) * (1.0f - armFactor) / (armWidth * armWidth)) * distFade;
-        float bulge = std::exp(-dist * dist / (rMax * rMax * 0.02f)) * 0.6f;
-        float totalAlpha = std::max(armAlpha, bulge);
-        if (totalAlpha > 0.001f) {
-            float* pixel = row + static_cast<std::size_t>(x) * 4u;
-            float br = 1.0f - dist / rMax;
-            pixel[0] = std::min(1.0f, pixel[0] + (0.85f + 0.15f * br) * totalAlpha);
-            pixel[1] = std::min(1.0f, pixel[1] + (0.75f + 0.25f * br) * totalAlpha);
-            pixel[2] = std::min(1.0f, pixel[2] + (0.5f + 0.5f * br) * totalAlpha);
-        }
-        }
-    });
+    }
 }
 
 void StarfieldGenerator::drawDisc(float* pixels, float cx, float cy, float radius,

@@ -10,6 +10,8 @@ module;
 
 module VST3.Interfaces;
 
+import Core.ArtifactString;
+
 namespace Steinberg {
 
 // ─────────────────────────────────────────────────────────
@@ -55,7 +57,7 @@ bool VST3Module::load(const ArtifactCore::String& path)
         return false;
     }
 
-    std::cout << "[VST3] Loaded: " << path
+    std::cout << "[VST3] Loaded: " << pathStd
               << " (" << factory_->countPlugins() << " plugins)" << std::endl;
     return true;
 }

@@ -9,6 +9,7 @@ module;
 #include <QString>
 
 module Codec.MFFrameExtractor;
+import Codec.MFFrameExtractor;
 
 import std;
 import Memory.TrackedPtr;

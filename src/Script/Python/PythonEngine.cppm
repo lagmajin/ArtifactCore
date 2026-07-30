@@ -20,6 +20,7 @@ module;
 #include <iostream>
 
 module Script.Python.Engine;
+import Script.Python.Engine;
 
 import Core.ArtifactString;
 

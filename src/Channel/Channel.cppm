@@ -5,6 +5,7 @@ module;
 #include <map>
 
 module Channel;
+import Channel;
 
 namespace ArtifactCore {
 

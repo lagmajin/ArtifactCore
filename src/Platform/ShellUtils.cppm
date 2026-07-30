@@ -12,6 +12,7 @@ module;
 #include <windows.h>
 #endif
 module Platform.ShellUtils;
+import Platform.ShellUtils;
 
 namespace ArtifactCore {
 

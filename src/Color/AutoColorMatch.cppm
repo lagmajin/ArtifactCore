@@ -85,7 +85,7 @@ static ChannelStats computeChannelStats(const float* data, int count) {
     constexpr int kChunkSize = 4096;
     const int chunkCount = (count + kChunkSize - 1) / kChunkSize;
     std::vector<double> partialSums(static_cast<size_t>(chunkCount), 0.0);
-    Parallel::For(0, chunkCount, srcTotal, [&](int chunk) {
+    Parallel::For(0, chunkCount, count, [&](int chunk) {
         const int begin = chunk * kChunkSize;
         const int end = std::min(count, begin + kChunkSize);
         double sum = 0.0;
@@ -98,7 +98,7 @@ static ChannelStats computeChannelStats(const float* data, int count) {
     s.mean = sum / std::max(1, count);
 
     std::vector<double> partialSquaredSums(static_cast<size_t>(chunkCount), 0.0);
-    Parallel::For(0, chunkCount, srcTotal, [&](int chunk) {
+    Parallel::For(0, chunkCount, count, [&](int chunk) {
         const int begin = chunk * kChunkSize;
         const int end = std::min(count, begin + kChunkSize);
         double sqSum = 0.0;
@@ -216,7 +216,7 @@ static void buildCDF(const float* channel, int count, float cdf[256]) {
     constexpr int kChunkSize = 4096;
     const int chunkCount = (count + kChunkSize - 1) / kChunkSize;
     std::vector<std::array<int, 256>> partialHist(static_cast<size_t>(chunkCount));
-    Parallel::For(0, chunkCount, srcTotal, [&](int chunk) {
+    Parallel::For(0, chunkCount, count, [&](int chunk) {
         auto& hist = partialHist[static_cast<size_t>(chunk)];
         hist.fill(0);
         const int begin = chunk * kChunkSize;

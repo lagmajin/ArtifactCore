@@ -4,7 +4,6 @@ module;
 
 module ImageProcessing;
 import :BroadcastColors;
-import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -12,7 +11,7 @@ void BroadcastColors::process(float4* buffer, int width, int height, const Broad
     float yLo = 16.0f / 255.0f, yHi = 235.0f / 255.0f;
     float uvLimit = 0.5f;
     float sat = 1.0f - s.reduceSaturation;
-    Parallel::For(0, height, width * height, [&](int row) {
+    for (int row = 0; row < height; ++row) {
         const int rowBase = row * width;
         for (int x = 0; x < width; ++x) {
             auto& px = buffer[rowBase + x];
@@ -26,7 +25,7 @@ void BroadcastColors::process(float4* buffer, int width, int height, const Broad
             px.y = std::clamp(y - 0.394f * u - 0.581f * v, 0.0f, 1.0f);
             px.z = std::clamp(y + 2.032f * u + 0.000f * v, 0.0f, 1.0f);
         }
-    });
+    }
 }
 
 void BroadcastColors::process(ImageF32x4_RGBA& image, const BroadcastColorsSettings& settings) {

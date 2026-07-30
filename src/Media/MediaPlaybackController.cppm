@@ -1121,7 +1121,7 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t
   ArtifactCore::ScopedPerformanceTimer timer("Audio/Controller/getNextAudioFrame");
   // Non-blocking: try to pop one audio packet without spinning.
   // The reader must already be running (started by play()).
-  // Spinning here blocks the UI thread and respawns TBB tasks on every pump tick.
+  // Spinning here blocks the UI thread and repeatedly pokes the packet reader.
   AVPacket* pkt = impl_->mediaReader_->getNextPacket(StreamType::Audio);
   if (!pkt) return QByteArray();
 

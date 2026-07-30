@@ -88,7 +88,7 @@ inline DataSourcePtr makeCsvDataSource(const String& uri) {
 struct CsvDataSourceAutoRegister {
     CsvDataSourceAutoRegister() {
         DataSourceRegistry::instance().registerFormat(".csv", makeCsvDataSource);
-        DataSourceRegistry::instance().registerFormat(".tsv", [](const String& uri) {
+        DataSourceRegistry::instance().registerFormat(".tsv", [](const String& uri) -> DataSourcePtr {
             CsvParseOptions opts;
             opts.delimiter = CsvDelimiter::Tab;
             auto result = CsvParser::parseFile(toStdString(uri), opts);

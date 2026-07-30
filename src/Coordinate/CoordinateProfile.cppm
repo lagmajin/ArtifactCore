@@ -7,6 +7,7 @@ module;
 #include <cmath>
 
 module Coordinate.Profile;
+import Coordinate.Profile;
 
 namespace ArtifactCore {
 

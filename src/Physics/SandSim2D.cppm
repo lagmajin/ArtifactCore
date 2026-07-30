@@ -4,6 +4,7 @@ module;
 #include <random>
 
 module Physics.SandSim2D;
+import Physics.SandSim2D;
 
 namespace ArtifactCore {
 

@@ -4,6 +4,7 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.StereoMixer;
+import Audio.Effect.StereoMixer;
 
 import Audio.Effect;
 import Audio.Segment;

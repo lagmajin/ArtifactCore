@@ -6,6 +6,7 @@ module;
 #include <QString>
 
 module Core.Composition.FinalEffect;
+import Core.Composition.FinalEffect;
 
 namespace ArtifactCore {
 

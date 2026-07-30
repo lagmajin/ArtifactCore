@@ -2,6 +2,7 @@ module;
 #include <utility>
 
 module Graphics.Texture;
+import Graphics.Texture;
 
 namespace ArtifactCore {
 

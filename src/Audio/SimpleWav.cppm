@@ -12,6 +12,8 @@ class tst_QList;
 
 module Audio.SimpleWav;
 
+import Audio.SimpleWav;
+
 namespace ArtifactCore {
 
  class SimpleWav::Impl {

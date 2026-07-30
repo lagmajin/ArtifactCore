@@ -7,8 +7,6 @@ module;
 
 export module Color.Grading.ColorCurves;
 
-import Core.Parallel;
-
 export namespace ArtifactCore {
 
 // ============================================================
@@ -149,7 +147,7 @@ public:
         const int w = result.width();
         const int h = result.height();
 
-        Parallel::For(0, h, w * h, [&](int y) {
+        for (int y = 0; y < h; ++y) {
             uint8_t* row = result.scanLine(y);
             for (int x = 0; x < w; ++x) {
                 int idx = x * 4;
@@ -163,7 +161,7 @@ public:
                     row[idx + 2] = blueLUT[masterLUT[row[idx + 2]]];
                 }
             }
-        });
+        }
 
         return result;
     }

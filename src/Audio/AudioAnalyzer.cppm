@@ -7,6 +7,8 @@ module;
 
 module Audio.Analyze;
 
+import Audio.Analyze;
+
 import Container.NamedVector;
 
 namespace ArtifactCore {

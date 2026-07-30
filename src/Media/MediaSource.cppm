@@ -42,6 +42,7 @@ extern "C" {
 #include <regex>
 #include <random>
 module MediaSource;
+import MediaSource;
 
 namespace ArtifactCore {
 

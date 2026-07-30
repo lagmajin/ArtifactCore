@@ -2,6 +2,7 @@ module;
 #include <QWebSocket>
 #include <QTimer>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QJsonArray>
 #include <QDateTime>
 #include <QUuid>
@@ -13,6 +14,7 @@ module;
 #include <cmath>
 
 module Network.CollaborationWebSocket;
+import Network.CollaborationWebSocket;
 
 namespace ArtifactCore {
 

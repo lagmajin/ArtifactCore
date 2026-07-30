@@ -5,8 +5,6 @@ module;
 #include <opencv2/opencv.hpp>
 module Core.Mask.VolumeMask;
 
-import Core.Parallel;
-
 namespace ArtifactCore {
 
 cv::Mat VolumeMaskGenerator::generateDistanceField(
@@ -60,7 +58,7 @@ cv::Mat VolumeMaskGenerator::computeAlphaMask(
         return t;
     };
 
-    Parallel::For(0, h, w * h, [&](int y) {
+    for (int y = 0; y < h; ++y) {
         const float* rowDist = distanceField.ptr<float>(y);
         float* rowAlpha = alpha.ptr<float>(y);
         for (int x = 0; x < w; ++x) {
@@ -74,7 +72,7 @@ cv::Mat VolumeMaskGenerator::computeAlphaMask(
             }
             rowAlpha[x] = a;
         }
-    });
+    }
 
     if (settings.invert) {
         cv::subtract(cv::Scalar(1.0f), alpha, alpha);

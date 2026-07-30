@@ -16,6 +16,7 @@ module;
 #include <iostream>
 
 module Script.AngelScript.Engine;
+import Script.AngelScript.Engine;
 
 namespace ArtifactCore {
 

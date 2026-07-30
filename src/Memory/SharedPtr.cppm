@@ -30,7 +30,9 @@ public:
 
     T* get() const noexcept { return ptr_.get(); }
     T* operator->() const noexcept { return ptr_.get(); }
-    T& operator*() const noexcept { return *ptr_; }
+    template<typename U = T>
+        requires (!std::is_void_v<U>)
+    std::add_lvalue_reference_t<U> operator*() const noexcept { return *ptr_; }
     explicit operator bool() const noexcept { return static_cast<bool>(ptr_); }
 
     std::shared_ptr<T> lock() const noexcept { return ptr_; }

@@ -15,6 +15,7 @@ class tst_QList;
 #include <QFileInfo>
 
 module ArtifactCore.ImageProcessing.FaceDetection;
+import ArtifactCore.ImageProcessing.FaceDetection;
 
 import CvUtils;
 import Memory.TrackedPtr;

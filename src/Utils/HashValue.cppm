@@ -5,6 +5,7 @@ module;
 #include <QCryptographicHash>
 #include <QFile>
 module Utils.HashValue;
+import Utils.HashValue;
 
 namespace ArtifactCore {
 

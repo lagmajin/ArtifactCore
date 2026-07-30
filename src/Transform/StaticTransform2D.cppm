@@ -4,6 +4,7 @@ module;
 #include <QtGui/QTransform>
 
 module Transform._2D;
+import Transform._2D;
 
 namespace ArtifactCore {
 

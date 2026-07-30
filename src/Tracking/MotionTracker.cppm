@@ -51,6 +51,7 @@ module;
 #include <random>
 #include <opencv2/opencv.hpp>
 module Tracking.MotionTracker;
+import Tracking.MotionTracker;
 
 namespace ArtifactCore {
 

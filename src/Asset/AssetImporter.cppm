@@ -6,6 +6,7 @@ module;
 #include <QUuid>
 
 module Asset.Importer;
+import Asset.Importer;
 
 import AssetType;
 import Asset.Database;

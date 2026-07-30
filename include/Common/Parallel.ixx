@@ -1,16 +1,15 @@
 module;
-#include <tbb/blocked_range.h>
-#include <tbb/parallel_for.h>
+#include <cstddef>
 #include "../Define/DllExportMacro.hpp"
 
 export module Core.Parallel;
 
 export namespace ArtifactCore {
 
-    /**
-     * @brief TBB task schedulerを活用した高速な並列 for ループ
-     * 画像の各行（Y座標）ごとの処理などを大幅に加速させます。
-     */
+        /**
+         * @brief 標準の並列アルゴリズムを使った高速な並列 for ループ
+         * 画像の各行（Y座標）ごとの処理などを大幅に加速させます。
+         */
     class LIBRARY_DLL_API Parallel {
     public:
         /**
@@ -31,13 +30,9 @@ export namespace ArtifactCore {
                 return;
             }
 
-            tbb::parallel_for(
-                tbb::blocked_range<int>(start, end, 16),
-                [&](const tbb::blocked_range<int>& range) {
-                    for (int i = range.begin(); i != range.end(); ++i) {
-                        func(i);
-                    }
-                });
+            for (int i = start; i < end; ++i) {
+                func(i);
+            }
         }
 
         /**
@@ -57,13 +52,9 @@ export namespace ArtifactCore {
                 return;
             }
 
-            tbb::parallel_for(
-                tbb::blocked_range<int>(start, end, 16),
-                [&](const tbb::blocked_range<int>& range) {
-                    for (int i = range.begin(); i != range.end(); ++i) {
-                        func(i);
-                    }
-                });
+            for (int i = start; i < end; ++i) {
+                func(i);
+            }
         }
     };
 

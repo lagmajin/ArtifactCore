@@ -11,6 +11,7 @@ module;
 #include <QDebug>
 
 module Color.OCIOConfig;
+import Color.OCIOConfig;
 
 namespace ArtifactCore {
 

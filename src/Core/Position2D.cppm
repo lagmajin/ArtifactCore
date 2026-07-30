@@ -2,6 +2,7 @@ module;
 #include <utility>
 
 module Core.Position2D;
+import Core.Position2D;
 
 namespace ArtifactCore
 {

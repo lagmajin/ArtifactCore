@@ -1,8 +1,6 @@
 module;
 #include <utility>
 #include <algorithm>
-#include <tbb/blocked_range.h>
-#include <tbb/parallel_for.h>
 
 module Layer.Matte;
 
@@ -123,58 +121,38 @@ ImageF32x4_RGBA MatteEvaluator::apply(const ImageF32x4_RGBA& source,
     const float* mattePixels = matteSample.rgba32fData();
     float* outputPixels = out.rgba32fData();
     if (sourcePixels && mattePixels && outputPixels) {
-        const auto applyContinuousRows =
-            [&](const tbb::blocked_range<int>& rows) {
-                for (int y = rows.begin(); y != rows.end(); ++y) {
-                    const float* sourceRow = sourcePixels +
-                        static_cast<std::size_t>(y) * width * 4u;
-                    const float* matteRow = mattePixels +
-                        static_cast<std::size_t>(y) * width * 4u;
-                    float* outputRow = outputPixels +
-                        static_cast<std::size_t>(y) * width * 4u;
-                    for (int x = 0; x < width; ++x) {
-                        const FloatRGBA mattePixel(
-                            matteRow[x * 4 + 0], matteRow[x * 4 + 1],
-                            matteRow[x * 4 + 2], matteRow[x * 4 + 3]);
-                        const float matteFactor =
-                            sample(mattePixel, settings.mode,
-                                   settings.luminanceStandard);
-                        const float combined =
-                            clamp01(matteFactor * settings.opacity);
-                        outputRow[x * 4 + 0] = sourceRow[x * 4 + 0] * combined;
-                        outputRow[x * 4 + 1] = sourceRow[x * 4 + 1] * combined;
-                        outputRow[x * 4 + 2] = sourceRow[x * 4 + 2] * combined;
-                        outputRow[x * 4 + 3] = sourceRow[x * 4 + 3] * combined;
-                    }
-                }
-            };
-        const std::size_t pixelCount = static_cast<std::size_t>(width) *
-                                       static_cast<std::size_t>(height);
-        if (pixelCount >= 256u * 1024u) {
-            tbb::parallel_for(tbb::blocked_range<int>(0, height, 16),
-                              applyContinuousRows);
-        } else {
-            applyContinuousRows(tbb::blocked_range<int>(0, height));
+        for (int y = 0; y < height; ++y) {
+            const float* sourceRow = sourcePixels +
+                static_cast<std::size_t>(y) * width * 4u;
+            const float* matteRow = mattePixels +
+                static_cast<std::size_t>(y) * width * 4u;
+            float* outputRow = outputPixels +
+                static_cast<std::size_t>(y) * width * 4u;
+            for (int x = 0; x < width; ++x) {
+                const FloatRGBA mattePixel(
+                    matteRow[x * 4 + 0], matteRow[x * 4 + 1],
+                    matteRow[x * 4 + 2], matteRow[x * 4 + 3]);
+                const float matteFactor =
+                    sample(mattePixel, settings.mode,
+                           settings.luminanceStandard);
+                const float combined =
+                    clamp01(matteFactor * settings.opacity);
+                outputRow[x * 4 + 0] = sourceRow[x * 4 + 0] * combined;
+                outputRow[x * 4 + 1] = sourceRow[x * 4 + 1] * combined;
+                outputRow[x * 4 + 2] = sourceRow[x * 4 + 2] * combined;
+                outputRow[x * 4 + 3] = sourceRow[x * 4 + 3] * combined;
+            }
         }
         return out;
     }
 
-    const auto applyRows = [&](const tbb::blocked_range<int>& rows) {
-      for (int y = rows.begin(); y != rows.end(); ++y) {
+    for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             const float matteFactor = sample(matteSample, x, y, settings.mode,
                                              settings.luminanceStandard);
             const float combined = clamp01(matteFactor * settings.opacity);
             out.setPixel(x, y, apply(source.getPixel(x, y), combined));
         }
-      }
-    };
-    const std::size_t pixelCount = static_cast<std::size_t>(width) *
-                                   static_cast<std::size_t>(height);
-    if (pixelCount >= 256u * 1024u) {
-        tbb::parallel_for(tbb::blocked_range<int>(0, height, 16), applyRows);
-    } else {
-        applyRows(tbb::blocked_range<int>(0, height));
     }
 
     return out;

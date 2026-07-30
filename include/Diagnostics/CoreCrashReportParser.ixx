@@ -68,12 +68,12 @@ inline CrashReportSummary parseCrashReport(std::string_view report)
       }
     } else if (section == Section::Stack) {
       if (!line.empty()) {
-        if (!result.stackTrace.empty()) result.stackTrace += '\n';
+        if (!result.stackTrace.isEmpty()) result.stackTrace += '\n';
         result.stackTrace.append(line);
       }
     } else if (section == Section::System) {
       if (!line.empty()) {
-        if (!result.systemInfo.empty()) result.systemInfo += '\n';
+        if (!result.systemInfo.isEmpty()) result.systemInfo += '\n';
         result.systemInfo.append(line);
       }
     }
@@ -94,13 +94,13 @@ inline DiagnosticSnapshot crashReportToSnapshot(const CrashReportSummary& report
   snapshot.lastOperation = toStdString(report.operation);
   DiagnosticEvent event = makeDiagnosticEvent(
       CoreDiagnosticSeverity::Fatal,
-      report.exceptionCode.empty() ? std::string("crash.unknown") :
+      report.exceptionCode.isEmpty() ? std::string("crash.unknown") :
                                      std::string("crash.") + toStdString(report.exceptionCode),
-      report.exceptionType.empty() ? std::string("Unhandled exception") : toStdString(report.exceptionType),
+      report.exceptionType.isEmpty() ? std::string("Unhandled exception") : toStdString(report.exceptionType),
       "CrashHandler",
-      report.operation.empty() ? std::string("unhandledException") : toStdString(report.operation),
+      report.operation.isEmpty() ? std::string("unhandledException") : toStdString(report.operation),
       toStdString(report.exceptionAddress));
-  if (!report.stackTrace.empty()) {
+  if (!report.stackTrace.isEmpty()) {
     event.message += "\n" + toStdString(report.stackTrace);
   }
   snapshot.addEvent(std::move(event));

@@ -1,5 +1,7 @@
 module;
 #include <utility>
+#include <string>
+#include <string_view>
 
 export module OS;
 
@@ -47,8 +49,8 @@ public:
     }
 
     OSFamily family() const { return family_; }
-    String name() const { return name_; }
-    String version() const { return version_; }
+    String name() const { return String(name_); }
+    String version() const { return String(version_); }
     Architecture architecture() const { return arch_; }
     bool is64Bit() const { return arch_ == Architecture::x86_64 || arch_ == Architecture::ARM64; }
 
@@ -57,8 +59,8 @@ public:
 private:
     OSFamily family_ = OSFamily::Unknown;
     Architecture arch_ = Architecture::Unknown;
-    String name_;
-    String version_;
+    std::string name_;
+    std::string version_;
 };
 
 }

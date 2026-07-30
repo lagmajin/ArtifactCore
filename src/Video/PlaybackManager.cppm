@@ -7,6 +7,7 @@ module;
 #include <wobjectimpl.h>
 
 module Video.PlaybackManager;
+import Video.PlaybackManager;
 
 namespace ArtifactCore {
 

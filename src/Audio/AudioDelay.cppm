@@ -6,6 +6,8 @@ module;
 
 module Audio.Effect.Delay;
 
+import Audio.Effect.Delay;
+
 import Audio.Effect;
 import Audio.Segment;
 import Audio.RingBuffer;

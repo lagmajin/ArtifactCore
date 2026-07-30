@@ -6,6 +6,7 @@ module;
 #include <cstdint>
 
 module Frame.SkipTracker;
+import Frame.SkipTracker;
 
 namespace ArtifactCore {
 

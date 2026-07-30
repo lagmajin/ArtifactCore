@@ -10,6 +10,8 @@ module;
 
 module Core.Simulation.OpenVDBVolumeReference;
 
+import Core.ArtifactString;
+
 namespace ArtifactCore {
 
 OpenVDBVolumeMetadata inspectOpenVDBVolume(const OpenVDBVolumeReference& reference)

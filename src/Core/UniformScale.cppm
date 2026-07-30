@@ -1,6 +1,7 @@
 module;
 #include <utility>
 module Core.UniformScale;
+import Core.UniformScale;
 
 namespace ArtifactCore
 {

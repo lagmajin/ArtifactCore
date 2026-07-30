@@ -3,19 +3,20 @@ module;
 #include <memory>
 #include <string>
 #include <vector>
+#include <QString>
 #include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect;
 
 import Audio.Segment;
-export import Utils.Text.String;
+import Core.ArtifactString;
 
 export namespace ArtifactCore {
 
 struct EffectParameter {
-    String id;
-    String displayName;
+    ArtifactCore::String id;
+    ArtifactCore::String displayName;
     float minValue = 0.0f;
     float maxValue = 1.0f;
     float defaultValue = 0.0f;
@@ -26,7 +27,7 @@ class LIBRARY_DLL_API AudioEffect {
 public:
     virtual ~AudioEffect() = default;
 
-    virtual String getName() const = 0;
+    virtual ArtifactCore::String getName() const = 0;
 
     virtual void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) = 0;
 
@@ -35,8 +36,8 @@ public:
 
     // Parameter introspection & control
     virtual std::vector<EffectParameter> getParameters() const { return {}; }
-    virtual void setParameterValue(const String& /*id*/, float /*value*/) {}
-    virtual float getParameterValue(const String& id) const {
+    virtual void setParameterValue(const ArtifactCore::String& /*id*/, float /*value*/) {}
+    virtual float getParameterValue(const ArtifactCore::String& id) const {
         for (auto& p : getParameters()) {
             if (p.id == id) return p.value;
         }
@@ -44,13 +45,13 @@ public:
     }
 
     // Factory ID used for serialization (e.g. "compressor", "delay", "reverb")
-    virtual String effectType() const { return "unknown"; }
+    virtual ArtifactCore::String effectType() const { return ArtifactCore::String("unknown"); }
 
     // Serialization
     virtual QJsonObject toJson() const {
         QJsonObject obj;
-        const std::string type = toStdString(effectType());
-        obj["type"] = QString::fromUtf8(type.data(), static_cast<int>(type.size()));
+        obj["type"] = QString::fromUtf8(
+            ArtifactCore::toStdString(effectType()).data());
         obj["bypass"] = bypass_;
         return obj;
     }

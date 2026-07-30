@@ -7,6 +7,7 @@ module;
 #include <algorithm>
 
 module Geometry.ResolutionRemap;
+import Geometry.ResolutionRemap;
 
 namespace ArtifactCore {
 

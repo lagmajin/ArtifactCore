@@ -5,6 +5,7 @@ module;
 #include <algorithm>
 #include <opencv2/opencv.hpp>
 module ImageProcessing.GlitchCV;
+import ImageProcessing.GlitchCV;
 
 import Core.Parallel;
 

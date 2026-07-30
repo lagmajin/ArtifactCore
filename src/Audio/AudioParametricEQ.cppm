@@ -4,6 +4,7 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.ParametricEQ;
+import Audio.Effect.ParametricEQ;
 
 import Audio.Effect;
 import Audio.Segment;
