@@ -68,6 +68,13 @@ public:
             col[QStringLiteral("a")] = c.alphaF();
             return col;
         }
+        case PropertyType::Point2D: {
+            const QPointF point = property->getValue().toPointF();
+            QJsonObject result;
+            result[QStringLiteral("x")] = point.x();
+            result[QStringLiteral("y")] = point.y();
+            return result;
+        }
         default:
             return QJsonValue::fromVariant(property->getValue());
         }
@@ -90,6 +97,14 @@ public:
                 c.setBlueF(static_cast<float>(col.value(QStringLiteral("b")).toDouble(0.0)));
                 c.setAlphaF(static_cast<float>(col.value(QStringLiteral("a")).toDouble(1.0)));
                 property->setColorValue(c);
+            }
+            return;
+        }
+        case PropertyType::Point2D: {
+            if (value.isObject()) {
+                const QJsonObject point = value.toObject();
+                property->setValue(QPointF(point.value(QStringLiteral("x")).toDouble(),
+                                           point.value(QStringLiteral("y")).toDouble()));
             }
             return;
         }

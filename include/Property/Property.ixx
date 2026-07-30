@@ -85,6 +85,16 @@ public:
         property_->setDefaultValue(value);
     }
 
+    // Point2D
+    Property(const QString& name, const QPointF& value)
+        : property_(makeShared<AbstractProperty>())
+    {
+        property_->setName(name);
+        property_->setType(PropertyType::Point2D);
+        property_->setValue(value);
+        property_->setDefaultValue(value);
+    }
+
     AbstractProperty* get() const noexcept
     {
         return property_.get();
@@ -213,6 +223,8 @@ inline QString propertyTypeToString(PropertyType type)
         return QStringLiteral("String");
     case PropertyType::ObjectReference:
         return QStringLiteral("ObjectReference");
+    case PropertyType::Point2D:
+        return QStringLiteral("Point2D");
     }
     return QStringLiteral("Unknown");
 }

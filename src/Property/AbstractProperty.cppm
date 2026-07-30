@@ -80,6 +80,8 @@ namespace {
         case PropertyType::String:
         case PropertyType::ObjectReference:
             return value.canConvert<QString>();
+        case PropertyType::Point2D:
+            return value.canConvert<QPointF>();
         }
         return false;
     }
@@ -94,6 +96,10 @@ namespace {
             case PropertyType::Color: {
                 QColor c = v.value<QColor>();
                 return ExpressionValue(c.redF(), c.greenF(), c.blueF(), c.alphaF());
+            }
+            case PropertyType::Point2D: {
+                const QPointF point = v.toPointF();
+                return ExpressionValue(point.x(), point.y());
             }
             default: return ExpressionValue();
         }

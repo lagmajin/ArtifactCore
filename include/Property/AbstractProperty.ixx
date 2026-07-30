@@ -56,7 +56,8 @@ enum class PropertyType {
     Boolean,
     Color,
     String,
-    ObjectReference  // ID 参照
+    ObjectReference, // ID 参照
+    Point2D           // 2D座標（QPointF）
 };
 
 enum class EnvelopeMode {
