@@ -6,6 +6,7 @@ module;
 #include <QJsonValue>
 #include <QVariant>
 #include <QColor>
+#include <QPointF>
 #include "../Define/DllExportMacro.hpp"
 
 #include <memory>

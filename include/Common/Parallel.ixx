@@ -1,5 +1,7 @@
 module;
 #include <cstddef>
+#include <functional>
+#include <utility>
 #include "../Define/DllExportMacro.hpp"
 
 export module Core.Parallel;
@@ -30,9 +32,7 @@ export namespace ArtifactCore {
                 return;
             }
 
-            for (int i = start; i < end; ++i) {
-                func(i);
-            }
+            ForErased(start, end, std::function<void(int)>(std::forward<Function>(func)));
         }
 
         /**
@@ -52,10 +52,11 @@ export namespace ArtifactCore {
                 return;
             }
 
-            for (int i = start; i < end; ++i) {
-                func(i);
-            }
+            ForErased(start, end, std::function<void(int)>(std::forward<Function>(func)));
         }
+
+    private:
+        static void ForErased(int start, int end, const std::function<void(int)>& func);
     };
 
 }
