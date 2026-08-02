@@ -3,6 +3,7 @@ module;
 #include <QString>
 #include <QStringList>
 #include <QDateTime>
+#include <QJsonObject>
 #include <functional>
 #include <atomic>
 #include <vector>
@@ -55,6 +56,8 @@ struct RenderJobRequest {
     // Zero keeps the farm's legacy unlimited behavior.
     int jobTimeoutMs = 0;
     int frameTimeoutMs = 0;
+    int priority = 0;
+    QJsonObject requiredCapabilities;
 
     // Returns true when the frame was rendered and committed successfully.
     // A false result is a retryable frame failure.

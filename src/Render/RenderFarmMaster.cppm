@@ -142,6 +142,21 @@ public:
         return currentAttempt < retryPolicy_.maxAttempts;
     }
 
+    bool workerMatches(const RemoteWorkerInfo& worker, const QJsonObject& requirements) const {
+        for (auto it = requirements.constBegin(); it != requirements.constEnd(); ++it) {
+            const QJsonValue actual = worker.capabilities.value(it.key());
+            if (actual.isString() && it.value().isString()) {
+                if (actual.toString().compare(it.value().toString(), Qt::CaseInsensitive) != 0)
+                    return false;
+            } else if (actual.isDouble() && it.value().isDouble()) {
+                if (actual.toDouble() < it.value().toDouble()) return false;
+            } else if (actual != it.value()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     void markFrameFailed(int frame) {
         totalProgress_.failed.fetch_add(1);
         std::lock_guard<std::mutex> lock(resultMutex_);
@@ -238,7 +253,7 @@ public:
         // Filter connected workers with valid IDs
         std::vector<RemoteWorkerInfo> activeWorkers;
         for (const auto& w : workers) {
-            if (!w.workerId.isEmpty() && w.connected)
+            if (!w.workerId.isEmpty() && w.connected && workerMatches(w, request.requiredCapabilities))
                 activeWorkers.push_back(w);
         }
         if (activeWorkers.empty()) return;
@@ -263,6 +278,7 @@ public:
                     jobJson["endFrame"] = allRanges[idx].endFrame;
                     jobJson["step"] = allRanges[idx].step;
                     jobJson["outputPath"] = request.outputPath;
+                    jobJson["priority"] = request.priority;
 
                     rpc.sendJobAssignment(activeWorkers[i].workerId, jobJson);
 
