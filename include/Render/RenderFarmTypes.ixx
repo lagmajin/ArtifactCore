@@ -52,7 +52,9 @@ struct RenderJobRequest {
     QString outputPath;
     bool enableAudio = false;
 
-    std::function<void(int frame)> renderFrame;
+    // Returns true when the frame was rendered and committed successfully.
+    // A false result is a retryable frame failure.
+    std::function<bool(int frame)> renderFrame;
 
     QString jobId;
 };

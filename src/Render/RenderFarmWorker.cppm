@@ -43,10 +43,12 @@ public:
             if (cancelled_) break;
 
             try {
-                if (request.renderFrame) {
-                    request.renderFrame(frame);
+                const bool ok = request.renderFrame && request.renderFrame(frame);
+                if (ok) {
+                    completed_.fetch_add(1);
+                } else {
+                    failed_.fetch_add(1);
                 }
-                completed_.fetch_add(1);
             }
             catch (...) {
                 failed_.fetch_add(1);

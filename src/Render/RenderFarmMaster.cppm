@@ -176,9 +176,8 @@ public:
                 bool ok = false;
                 try {
                     if (request.renderFrame) {
-                        request.renderFrame(frame);
+                        ok = request.renderFrame(frame);
                     }
-                    ok = true;
                 } catch (...) {}
 
                 if (ok) {
