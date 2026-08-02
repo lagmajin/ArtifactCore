@@ -30,6 +30,7 @@ public:
 
     std::map<QTcpSocket*, RemoteWorkerInfo> workers_;
     std::map<QString, QTcpSocket*> workerSockets_;
+    std::map<QTcpSocket*, QByteArray> readBuffers_;
     mutable std::mutex mutex_;
 
     WorkerConnectedCallback onWorkerConnected_;
@@ -78,6 +79,7 @@ public:
         {
             std::lock_guard<std::mutex> lock(mutex_);
             workers_[socket] = info;
+            readBuffers_[socket] = {};
         }
 
         QObject::connect(socket, &QTcpSocket::readyRead, [this, socket]() {
@@ -92,21 +94,26 @@ public:
     }
 
     void onData(QTcpSocket* socket) {
-        QByteArray data = socket->readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(data);
-        if (doc.isNull() || !doc.isObject()) return;
-
-        QJsonObject msg = doc.object();
-        QString method = msg["method"].toString();
-
-        if (method == "register") {
-            handleRegister(socket, msg);
-        }
-        else if (method == "heartbeat") {
-            handleHeartbeat(socket, msg);
-        }
-        else {
-            handleRpc(socket, msg);
+        auto& buffer = readBuffers_[socket];
+        buffer.append(socket->readAll());
+        while (true) {
+            const qsizetype newline = buffer.indexOf('\n');
+            if (newline < 0) break;
+            const QByteArray line = buffer.left(newline).trimmed();
+            buffer.remove(0, newline + 1);
+            if (line.isEmpty()) continue;
+            QJsonParseError parseError;
+            const QJsonDocument doc = QJsonDocument::fromJson(line, &parseError);
+            if (parseError.error != QJsonParseError::NoError || !doc.isObject()) continue;
+            const QJsonObject msg = doc.object();
+            const QString method = msg["method"].toString();
+            if (method == "register") {
+                handleRegister(socket, msg);
+            } else if (method == "heartbeat") {
+                handleHeartbeat(socket, msg);
+            } else {
+                handleRpc(socket, msg);
+            }
         }
     }
 
@@ -119,6 +126,7 @@ public:
             auto it = workers_.find(socket);
             if (it != workers_.end()) {
                 it->second.workerId = workerId;
+                it->second.capabilities = msg["params"].toObject()["capabilities"].toObject();
                 workerSockets_[workerId] = socket;
                 it->second.lastHeartbeat = QDateTime::currentMSecsSinceEpoch();
             }
@@ -174,6 +182,7 @@ public:
                 workerSockets_.erase(workerId);
                 workers_.erase(it);
             }
+            readBuffers_.erase(socket);
         }
         if (!workerId.isEmpty() && onWorkerDisconnected_)
             onWorkerDisconnected_(workerId);
@@ -220,6 +229,7 @@ public:
             }
             workers_.clear();
             workerSockets_.clear();
+            readBuffers_.clear();
         }
         if (server_->isListening())
             server_->close();

@@ -18,6 +18,7 @@ public:
     QTcpSocket* socket_ = nullptr;
     QTimer* heartbeatTimer_ = nullptr;
     QString workerId_;
+    QJsonObject capabilities_;
     bool connected_ = false;
     QByteArray readBuffer_;
 
@@ -73,6 +74,7 @@ public:
     void sendRegistration() {
         QJsonObject params;
         params["workerId"] = workerId_;
+        params["capabilities"] = capabilities_;
         sendMessage(QStringLiteral("register"), params);
         connected_ = true;
 
@@ -106,13 +108,14 @@ public:
         readBuffer_.append(socket_->readAll());
         // Process complete JSON lines
         while (true) {
-            int nl = readBuffer_.indexOf('\n');
+            const qsizetype nl = readBuffer_.indexOf('\n');
             if (nl < 0) break;
             QByteArray line = readBuffer_.left(nl).trimmed();
             readBuffer_.remove(0, nl + 1);
             if (line.isEmpty()) continue;
-            QJsonDocument doc = QJsonDocument::fromJson(line);
-            if (doc.isNull() || !doc.isObject()) continue;
+            QJsonParseError parseError;
+            const QJsonDocument doc = QJsonDocument::fromJson(line, &parseError);
+            if (parseError.error != QJsonParseError::NoError || !doc.isObject()) continue;
             handleMessage(doc.object());
         }
     }
@@ -159,6 +162,10 @@ bool NetworkRPCClient::isConnected() const {
 
 QString NetworkRPCClient::workerId() const {
     return impl_->workerId_;
+}
+
+void NetworkRPCClient::setCapabilities(const QJsonObject& capabilities) {
+    impl_->capabilities_ = capabilities;
 }
 
 void NetworkRPCClient::setOnJobAssigned(JobAssignedCallback cb) {

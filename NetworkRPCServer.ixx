@@ -19,6 +19,7 @@ struct RemoteWorkerInfo {
     qint64 lastHeartbeat = 0;
     bool connected = false;
     int assignedFrames = 0;
+    QJsonObject capabilities;
 };
 
 using WorkerConnectedCallback = std::function<void(const RemoteWorkerInfo&)>;
