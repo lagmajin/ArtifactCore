@@ -173,6 +173,18 @@ public:
         return {};
     }
 
+    QString validateOutputArtifact(const QString& outputPath) const {
+        const QString path = outputPath.trimmed();
+        if (path.isEmpty() || path.contains('%') || path.contains('*')
+            || path.contains(QStringLiteral("####"))) return {};
+        const QFileInfo info(path);
+        if (!info.exists())
+            return QStringLiteral("Render output was not created: %1").arg(path);
+        if (!info.isFile() || info.size() <= 0)
+            return QStringLiteral("Render output is empty or not a file: %1").arg(path);
+        return {};
+    }
+
     void markFrameFailed(int frame) {
         totalProgress_.failed.fetch_add(1);
         std::lock_guard<std::mutex> lock(resultMutex_);
@@ -420,6 +432,15 @@ public:
         collectRemoteResults();
         saveCheckpoint(request.range.startFrame);
 
+        if (!cancelled_ && totalProgress_.failed.load() == 0) {
+            const QString outputError = validateOutputArtifact(request.outputPath);
+            if (!outputError.isEmpty()) {
+                std::lock_guard<std::mutex> lock(resultMutex_);
+                finalResult_.errorMessage = outputError;
+                finalResult_.success = false;
+            }
+        }
+
         if (!cancelled_ || timedOut_) {
             RenderJobResult result;
             int c = totalProgress_.completed.load();
@@ -428,6 +449,10 @@ public:
             result.renderedFrames = c;
             result.failedFrames = f;
             result.failures = finalResult_.failures;
+            if (!finalResult_.errorMessage.isEmpty()) {
+                result.success = false;
+                result.errorMessage = finalResult_.errorMessage;
+            }
             if (f > 0) {
                 result.errorMessage = QString("%1 frames failed (%2 held)")
                     .arg(f).arg(result.failures.heldCount());
