@@ -342,41 +342,47 @@ public:
         // Assign remote slices first
         assignRemoteSlices(request);
 
-        // Determine local range (exclude remote slices)
-        RenderFrameRange localRange = request.range;
+        // Determine local ranges by subtracting every remote slice. Do not
+        // assume that remote slices are adjacent or that one contiguous local
+        // range remains after remote assignment.
+        std::vector<RenderFrameRange> localRanges{ request.range };
         {
             std::lock_guard<std::mutex> lock(remoteMutex_);
             for (const auto& slice : remoteSlices_) {
-                if (slice.range.startFrame <= localRange.startFrame) {
-                    localRange.startFrame = std::max(localRange.startFrame, slice.range.endFrame);
+                std::vector<RenderFrameRange> remaining;
+                for (const auto& candidate : localRanges) {
+                    const int overlapStart = std::max(candidate.startFrame, slice.range.startFrame);
+                    const int overlapEnd = std::min(candidate.endFrame, slice.range.endFrame);
+                    if (overlapStart >= overlapEnd) {
+                        remaining.push_back(candidate);
+                        continue;
+                    }
+                    if (candidate.startFrame < overlapStart)
+                        remaining.push_back({ candidate.startFrame, overlapStart, candidate.step });
+                    if (overlapEnd < candidate.endFrame)
+                        remaining.push_back({ overlapEnd, candidate.endFrame, candidate.step });
                 }
-                if (slice.range.endFrame >= localRange.endFrame) {
-                    localRange.endFrame = std::min(localRange.endFrame, slice.range.startFrame);
-                }
+                localRanges = std::move(remaining);
             }
         }
 
-        // Skip frames already covered by checkpoint
-        if (restoreUpTo > 0 && restoreUpTo > localRange.startFrame) {
-            localRange.startFrame = restoreUpTo;
-        }
-
-        // Local rendering
-        if (localRange.count() > 0) {
+        std::atomic<int> checkpointCounter{ 0 };
+        std::vector<std::thread> workers;
+        for (auto localRange : localRanges) {
+            if (restoreUpTo > 0 && restoreUpTo > localRange.startFrame)
+                localRange.startFrame = std::min(restoreUpTo, localRange.endFrame);
+            if (localRange.count() <= 0) continue;
             auto subRanges = splitRange(localRange, workerCount_);
-            std::atomic<int> checkpointCounter{ 0 };
-
-            std::vector<std::thread> workers;
-            workers.reserve(subRanges.size());
+            workers.reserve(workers.size() + subRanges.size());
             for (const auto& subRange : subRanges) {
                 workers.emplace_back([this, request, subRange, &checkpointCounter]() {
                     executeLocalRange(request, subRange, checkpointCounter);
                 });
             }
-            for (auto& worker : workers) {
-                if (worker.joinable()) {
-                    worker.join();
-                }
+        }
+        for (auto& worker : workers) {
+            if (worker.joinable()) {
+                worker.join();
             }
         }
 
