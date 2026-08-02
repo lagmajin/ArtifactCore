@@ -52,6 +52,10 @@ struct RenderJobRequest {
     QString outputPath;
     bool enableAudio = false;
 
+    // Zero keeps the farm's legacy unlimited behavior.
+    int jobTimeoutMs = 0;
+    int frameTimeoutMs = 0;
+
     // Returns true when the frame was rendered and committed successfully.
     // A false result is a retryable frame failure.
     std::function<bool(int frame)> renderFrame;

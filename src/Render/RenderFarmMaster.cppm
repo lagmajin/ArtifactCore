@@ -73,6 +73,7 @@ public:
     int workerCount_;
     std::atomic<bool> busy_{ false };
     std::atomic<bool> cancelled_{ false };
+    std::atomic<bool> timedOut_{ false };
 
     WorkerProgress totalProgress_;
     int totalFrames_ = 0;
@@ -90,6 +91,8 @@ public:
 
     std::thread farmThread_;
     mutable std::mutex resultMutex_;
+    std::chrono::steady_clock::time_point jobDeadline_{};
+    bool hasJobDeadline_ = false;
 
     QString currentJobId_;
 
@@ -166,19 +169,36 @@ public:
     void executeLocalRange(const RenderJobRequest& request, const RenderFrameRange& subRange,
                            std::atomic<int>& checkpointCounter) {
         for (int frame = subRange.startFrame; frame < subRange.endFrame; frame += subRange.step) {
-            if (cancelled_) break;
+            if (cancelled_ || (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)) {
+                if (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)
+                    timedOut_ = true;
+                cancelled_ = true;
+                break;
+            }
 
             int attempt = 0;
 
             do {
-                if (cancelled_) break;
+                if (cancelled_ || (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)) {
+                    if (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)
+                        timedOut_ = true;
+                    cancelled_ = true;
+                    break;
+                }
 
                 bool ok = false;
+                const auto frameStart = std::chrono::steady_clock::now();
                 try {
                     if (request.renderFrame) {
                         ok = request.renderFrame(frame);
                     }
                 } catch (...) {}
+
+                if (ok && request.frameTimeoutMs > 0) {
+                    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - frameStart).count();
+                    ok = elapsed <= request.frameTimeoutMs;
+                }
 
                 if (ok) {
                     totalProgress_.completed.fetch_add(1);
@@ -259,6 +279,12 @@ public:
     void executeJob(const RenderJobRequest& request) {
         busy_ = true;
         cancelled_ = false;
+        timedOut_ = false;
+        hasJobDeadline_ = request.jobTimeoutMs > 0;
+        if (hasJobDeadline_) {
+            jobDeadline_ = std::chrono::steady_clock::now()
+                + std::chrono::milliseconds(request.jobTimeoutMs);
+        }
 
         // Clear remote state from previous job
         {
@@ -342,7 +368,7 @@ public:
         collectRemoteResults();
         saveCheckpoint(request.range.startFrame);
 
-        if (!cancelled_) {
+        if (!cancelled_ || timedOut_) {
             RenderJobResult result;
             int c = totalProgress_.completed.load();
             int f = totalProgress_.failed.load();
@@ -353,6 +379,10 @@ public:
             if (f > 0) {
                 result.errorMessage = QString("%1 frames failed (%2 held)")
                     .arg(f).arg(result.failures.heldCount());
+            }
+            if (timedOut_) {
+                result.success = false;
+                result.errorMessage = QStringLiteral("Render farm job timed out");
             }
             {
                 std::lock_guard<std::mutex> lock(resultMutex_);
@@ -376,11 +406,15 @@ public:
         totalRemoteFrames_ = totalRemote;
         remoteCompleted_ = 0;
 
-        // Wait for all remote results with a generous timeout (10 min)
+        const auto waitDuration = hasJobDeadline_
+            ? std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::max(std::chrono::steady_clock::duration::zero(), jobDeadline_
+                    - std::chrono::steady_clock::now()))
+            : std::chrono::minutes(10);
         {
             std::unique_lock<std::mutex> waitLock(remoteWaitMutex_);
             if (!remoteCv_.wait_for(waitLock,
-                    std::chrono::minutes(10),
+                    waitDuration,
                     [this]() {
                         return remoteCompleted_.load() >= totalRemoteFrames_ ||
                                cancelled_.load();
