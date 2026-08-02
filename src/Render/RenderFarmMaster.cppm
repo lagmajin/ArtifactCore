@@ -16,6 +16,8 @@ module;
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QDateTime>
+#include <QDir>
+#include <QFileInfo>
 #ifdef emit
 #undef emit
 #endif
@@ -157,6 +159,20 @@ public:
         return true;
     }
 
+    QString validateOutputPath(const QString& outputPath) const {
+        const QString path = outputPath.trimmed();
+        if (path.isEmpty()) return {};
+        const QFileInfo info(path);
+        const QDir parent = info.dir();
+        if (!parent.exists())
+            return QStringLiteral("Output directory does not exist: %1").arg(parent.path());
+        if (!parent.isReadable())
+            return QStringLiteral("Output directory is not accessible: %1").arg(parent.path());
+        if (info.exists() && !info.isWritable())
+            return QStringLiteral("Output file is not writable: %1").arg(path);
+        return {};
+    }
+
     void markFrameFailed(int frame) {
         totalProgress_.failed.fetch_add(1);
         std::lock_guard<std::mutex> lock(resultMutex_);
@@ -296,6 +312,20 @@ public:
         busy_ = true;
         cancelled_ = false;
         timedOut_ = false;
+
+        const QString outputError = validateOutputPath(request.outputPath);
+        if (!outputError.isEmpty()) {
+            RenderJobResult result;
+            result.errorMessage = outputError;
+            {
+                std::lock_guard<std::mutex> lock(resultMutex_);
+                finalResult_ = result;
+            }
+            if (onCompleted_) onCompleted_(result);
+            busy_ = false;
+            return;
+        }
+
         hasJobDeadline_ = request.jobTimeoutMs > 0;
         if (hasJobDeadline_) {
             jobDeadline_ = std::chrono::steady_clock::now()
