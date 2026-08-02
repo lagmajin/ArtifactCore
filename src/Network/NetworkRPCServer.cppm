@@ -37,6 +37,7 @@ public:
     WorkerDisconnectedCallback onWorkerDisconnected_;
     WorkerHeartbeatCallback onWorkerHeartbeat_;
     RpcRequestHandler onRequest_;
+    QString authToken_;
 
     // Heartbeat: timer-based dead detection via QObject::connect + singleShot chain
     static constexpr qint64 HEARTBEAT_TIMEOUT_MS = 30000;
@@ -118,7 +119,12 @@ public:
     }
 
     void handleRegister(QTcpSocket* socket, const QJsonObject& msg) {
-        QString workerId = msg["params"].toObject()["workerId"].toString();
+        const QJsonObject params = msg["params"].toObject();
+        if (!authToken_.isEmpty() && params["authToken"].toString() != authToken_) {
+            socket->disconnectFromHost();
+            return;
+        }
+        QString workerId = params["workerId"].toString();
         if (workerId.isEmpty()) return;
 
         {
@@ -319,6 +325,7 @@ void NetworkPCServer::setOnWorkerConnected(WorkerConnectedCallback cb) { impl_->
 void NetworkPCServer::setOnWorkerDisconnected(WorkerDisconnectedCallback cb) { impl_->onWorkerDisconnected_ = std::move(cb); }
 void NetworkPCServer::setOnWorkerHeartbeat(WorkerHeartbeatCallback cb) { impl_->onWorkerHeartbeat_ = std::move(cb); }
 void NetworkPCServer::setOnRequest(RpcRequestHandler handler) { impl_->onRequest_ = std::move(handler); }
+void NetworkPCServer::setAuthToken(const QString& token) { impl_->authToken_ = token; }
 
 std::vector<RemoteWorkerInfo> NetworkPCServer::connectedWorkers() const {
     std::lock_guard<std::mutex> lock(impl_->mutex_);

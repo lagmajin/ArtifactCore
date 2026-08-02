@@ -659,6 +659,10 @@ void RenderFarmMaster::setAllowRemoteWorkers(bool allow) {
     impl_->allowRemote_ = allow;
 }
 
+void RenderFarmMaster::setRpcAuthToken(const QString& token) {
+    NetworkPCServer::instance().setAuthToken(token);
+}
+
 bool RenderFarmMaster::allowRemoteWorkers() const {
     return impl_->allowRemote_;
 }

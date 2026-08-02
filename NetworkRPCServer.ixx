@@ -53,6 +53,7 @@ public:
     void setOnWorkerDisconnected(WorkerDisconnectedCallback cb);
     void setOnWorkerHeartbeat(WorkerHeartbeatCallback cb);
     void setOnRequest(RpcRequestHandler handler);
+    void setAuthToken(const QString& token);
 
     // Worker management
     std::vector<RemoteWorkerInfo> connectedWorkers() const;

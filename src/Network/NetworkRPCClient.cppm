@@ -18,6 +18,7 @@ public:
     QTcpSocket* socket_ = nullptr;
     QTimer* heartbeatTimer_ = nullptr;
     QString workerId_;
+    QString authToken_;
     QJsonObject capabilities_;
     bool connected_ = false;
     QByteArray readBuffer_;
@@ -74,6 +75,7 @@ public:
     void sendRegistration() {
         QJsonObject params;
         params["workerId"] = workerId_;
+        if (!authToken_.isEmpty()) params["authToken"] = authToken_;
         params["capabilities"] = capabilities_;
         sendMessage(QStringLiteral("register"), params);
         connected_ = true;
@@ -162,6 +164,10 @@ bool NetworkRPCClient::isConnected() const {
 
 QString NetworkRPCClient::workerId() const {
     return impl_->workerId_;
+}
+
+void NetworkRPCClient::setAuthToken(const QString& token) {
+    impl_->authToken_ = token;
 }
 
 void NetworkRPCClient::setCapabilities(const QJsonObject& capabilities) {

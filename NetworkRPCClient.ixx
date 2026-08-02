@@ -22,6 +22,7 @@ public:
     void disconnect();
     bool isConnected() const;
     QString workerId() const;
+    void setAuthToken(const QString& token);
     void setCapabilities(const QJsonObject& capabilities);
 
     using JobAssignedCallback = std::function<void(const QJsonObject& jobData)>;
