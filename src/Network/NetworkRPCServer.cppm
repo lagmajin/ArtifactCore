@@ -369,6 +369,7 @@ public:
                     if (lines.isEmpty()) return;
                     const QList<QByteArray> requestLine = lines.front().trimmed().split(' ');
                     const qsizetype bodyOffset = request.indexOf("\r\n\r\n");
+                    if (bodyOffset < 0) return;
                     const QByteArray requestBody = bodyOffset >= 0
                         ? request.mid(bodyOffset + 4).trimmed() : QByteArray();
                     if (bodyOffset >= 0 && requestLine.size() >= 2 && requestLine[0] == "POST") {
