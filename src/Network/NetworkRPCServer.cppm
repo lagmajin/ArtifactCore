@@ -553,6 +553,7 @@ public:
                         ? metricsPayload : QJsonDocument(body).toJson(QJsonDocument::Compact);
                     const QByteArray response = "HTTP/1.1 " + QByteArray::number(statusCode)
                         + " " + statusText + "\r\nContent-Type: " + contentType + "\r\n"
+                        + "Cache-Control: no-store\r\n"
                         + "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
                         + "Access-Control-Allow-Headers: Authorization, Content-Type\r\n"
                         + "Content-Length: " + QByteArray::number(payload.size())
