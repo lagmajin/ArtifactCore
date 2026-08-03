@@ -985,8 +985,20 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                     } else if (requestLine[1].startsWith("/api/jobs/")) {
                         const QString requestedJobId = QString::fromUtf8(
                             requestLine[1].mid(QByteArray("/api/jobs/").size()));
-                        body = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
-                        if (body.value(QStringLiteral("jobId")).toString() != requestedJobId) {
+                        const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        if (status.value(QStringLiteral("jobId")).toString() == requestedJobId) {
+                            body = status;
+                        } else {
+                            const QJsonArray details = status.value(QStringLiteral("jobHistoryDetails")).toArray();
+                            for (const auto& value : details) {
+                                if (value.toObject().value(QStringLiteral("jobId")).toString()
+                                    == requestedJobId) {
+                                    body = value.toObject();
+                                    break;
+                                }
+                            }
+                        }
+                        if (body.isEmpty()) {
                             statusCode = 404;
                             statusText = "Not Found";
                             body = {{QStringLiteral("error"), QStringLiteral("job_not_found")}};
