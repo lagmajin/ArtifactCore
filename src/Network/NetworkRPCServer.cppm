@@ -361,14 +361,28 @@ public:
         QObject::connect(httpServer_, &QTcpServer::newConnection, [this]() {
             while (httpServer_->hasPendingConnections()) {
                 QTcpSocket* socket = httpServer_->nextPendingConnection();
-                QObject::connect(socket, &QTcpSocket::readyRead, [this, socket]() {
-                    const QByteArray request = socket->readAll();
+                auto requestBuffer = std::make_shared<QByteArray>();
+                QObject::connect(socket, &QTcpSocket::readyRead, [this, socket, requestBuffer]() {
+                    requestBuffer->append(socket->readAll());
+                    const QByteArray& request = *requestBuffer;
                     const QList<QByteArray> lines = request.split('\n');
                     if (lines.isEmpty()) return;
                     const QList<QByteArray> requestLine = lines.front().trimmed().split(' ');
                     const qsizetype bodyOffset = request.indexOf("\r\n\r\n");
                     const QByteArray requestBody = bodyOffset >= 0
                         ? request.mid(bodyOffset + 4).trimmed() : QByteArray();
+                    if (bodyOffset >= 0 && requestLine.size() >= 2 && requestLine[0] == "POST") {
+                        qsizetype contentLength = 0;
+                        for (const auto& line : lines) {
+                            const QByteArray prefix = "Content-Length:";
+                            if (line.left(prefix.size()).toLower() == prefix.toLower()) {
+                                contentLength = line.mid(prefix.size()).trimmed().toLongLong();
+                                break;
+                            }
+                        }
+                        if (contentLength > 0 && request.size() - bodyOffset - 4 < contentLength)
+                            return;
+                    }
                     const QByteArray authPrefix = "Authorization: Bearer ";
                     QByteArray authorization;
                     for (const auto& line : lines) {
