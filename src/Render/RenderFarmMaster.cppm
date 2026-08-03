@@ -915,6 +915,31 @@ bool RenderFarmMaster::cancelJob(const QString& jobId) {
     return true;
 }
 
+bool RenderFarmMaster::setQueuedJobPriority(const QString& jobId, int priority) {
+    const QString requestedId = jobId.trimmed();
+    std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+    const auto it = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+        [&requestedId](const RenderJobRequest& queued) {
+            return queued.jobId == requestedId;
+        });
+    if (it == impl_->pendingJobs_.end()) return false;
+    RenderJobRequest updated = *it;
+    updated.priority = priority;
+    impl_->pendingJobs_.erase(it);
+    const auto insertAt = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+        [&updated](const RenderJobRequest& queued) {
+            return queued.priority < updated.priority;
+        });
+    impl_->pendingJobs_.insert(insertAt, std::move(updated));
+    {
+        std::lock_guard<std::mutex> historyLock(impl_->jobHistoryMutex_);
+        const auto historyIt = impl_->jobHistory_.find(requestedId);
+        if (historyIt != impl_->jobHistory_.end())
+            historyIt->second.priority = priority;
+    }
+    return true;
+}
+
 void RenderFarmMaster::pause() {
     if (impl_->busy_) impl_->paused_ = true;
 }
@@ -1121,6 +1146,15 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             }
             cancelAll();
             return {{QStringLiteral("status"), QStringLiteral("cancel_requested")}};
+        }
+        if (method == QStringLiteral("setJobPriority")) {
+            const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
+            const int priority = params.value(QStringLiteral("priority")).toInt();
+            if (!setQueuedJobPriority(jobId, priority))
+                return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
+            return {{QStringLiteral("status"), QStringLiteral("updated")},
+                    {QStringLiteral("jobId"), jobId},
+                    {QStringLiteral("priority"), priority}};
         }
         if (method == QStringLiteral("pauseJob")) {
             if (!isBusy()) return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
