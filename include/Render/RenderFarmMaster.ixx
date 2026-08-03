@@ -6,6 +6,7 @@ module;
 #include <atomic>
 #include <QStringList>
 #include <QJsonArray>
+#include <QJsonObject>
 #include <optional>
 #include "../Define/DllExportMacro.hpp"
 
@@ -35,6 +36,7 @@ public:
     bool saveQueue(const QString& filePath) const;
     bool loadQueue(const QString& filePath);
     bool resubmitJob(const QString& jobId);
+    bool duplicateJob(const QString& jobId, const QJsonObject& overrides = {});
     QStringList jobHistory() const;
     bool submitTemplate(const QString& name);
     bool registerJobTemplate(const RenderJobTemplate& jobTemplate);

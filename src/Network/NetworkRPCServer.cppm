@@ -564,6 +564,35 @@ public:
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1].startsWith("/api/jobs/")
+                               && requestLine[1].endsWith("/duplicate")) {
+                        const QByteArray prefix = "/api/jobs/";
+                        const QByteArray suffix = "/duplicate";
+                        const QString requestedJobId = QString::fromUtf8(requestLine[1].mid(
+                            prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
+                        QJsonParseError parseError;
+                        QJsonObject overrides = QJsonDocument::fromJson(requestBody, &parseError).object();
+                        if (requestedJobId.isEmpty() || parseError.error != QJsonParseError::NoError) {
+                            statusCode = 400;
+                            statusText = "Bad Request";
+                            body = {{QStringLiteral("error"), QStringLiteral("invalid_duplicate_request")}};
+                        } else if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("duplicateJob"), overrides);
+                            if (body.value(QStringLiteral("status")).toString()
+                                == QStringLiteral("job_not_found_or_invalid")) {
+                                statusCode = 404;
+                                statusText = "Not Found";
+                            } else if (body.value(QStringLiteral("status")).toString()
+                                       == QStringLiteral("accepted")) {
+                                statusCode = 202;
+                                statusText = "Accepted";
+                            }
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1].startsWith("/api/jobs/")
                                && requestLine[1].endsWith("/resubmit")) {
                         const QByteArray prefix = "/api/jobs/";
                         const QByteArray suffix = "/resubmit";
@@ -880,6 +909,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
                                 QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume|resubmit"),
+                                QStringLiteral("POST /api/jobs/{jobId}/duplicate"),
                                 QStringLiteral("POST /api/jobs/{jobId}/priority"),
                                 QStringLiteral("POST /api/queue/clear"),
                                 QStringLiteral("GET /api/workers"),

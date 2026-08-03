@@ -869,6 +869,35 @@ bool RenderFarmMaster::resubmitJob(const QString& jobId) {
     return true;
 }
 
+bool RenderFarmMaster::duplicateJob(const QString& jobId, const QJsonObject& overrides) {
+    RenderJobRequest request;
+    const QString sourceId = jobId.trimmed();
+    {
+        std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
+        const auto it = impl_->jobHistory_.find(sourceId);
+        if (it == impl_->jobHistory_.end()) return false;
+        request = it->second;
+    }
+    request.jobId = overrides.value(QStringLiteral("jobId")).toString().trimmed();
+    if (request.jobId.isEmpty())
+        request.jobId = QStringLiteral("%1-copy-%2").arg(sourceId).arg(QDateTime::currentMSecsSinceEpoch());
+    if (overrides.contains(QStringLiteral("outputPath")))
+        request.outputPath = overrides.value(QStringLiteral("outputPath")).toString();
+    if (overrides.contains(QStringLiteral("priority")))
+        request.priority = overrides.value(QStringLiteral("priority")).toInt(request.priority);
+    if (overrides.contains(QStringLiteral("startFrame")))
+        request.range.startFrame = overrides.value(QStringLiteral("startFrame")).toInt(request.range.startFrame);
+    if (overrides.contains(QStringLiteral("endFrame")))
+        request.range.endFrame = overrides.value(QStringLiteral("endFrame")).toInt(request.range.endFrame);
+    if (overrides.contains(QStringLiteral("step")))
+        request.range.step = std::max(1, overrides.value(QStringLiteral("step")).toInt(request.range.step));
+    if (overrides.contains(QStringLiteral("requiredCapabilities")))
+        request.requiredCapabilities = overrides.value(QStringLiteral("requiredCapabilities")).toObject();
+    if (request.range.count() <= 0) return false;
+    submitJob(request);
+    return true;
+}
+
 QStringList RenderFarmMaster::jobHistory() const {
     QStringList ids;
     std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
@@ -1258,6 +1287,12 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             if (!jobHistory().contains(jobId))
                 return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
             resubmitJob(jobId);
+            return {{QStringLiteral("status"), QStringLiteral("accepted")}};
+        }
+        if (method == QStringLiteral("duplicateJob")) {
+            const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
+            if (!duplicateJob(jobId, params))
+                return {{QStringLiteral("status"), QStringLiteral("job_not_found_or_invalid")}};
             return {{QStringLiteral("status"), QStringLiteral("accepted")}};
         }
         if (method == QStringLiteral("cancelJob")) {
