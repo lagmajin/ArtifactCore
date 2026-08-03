@@ -217,8 +217,9 @@ public:
     }
 
     void handleHeartbeat(QTcpSocket* socket, const QJsonObject& msg) {
-        QString workerId = msg["params"].toObject()["workerId"].toString();
-        const qint64 sentAtMs = msg["params"].toObject()["sentAtMs"].toInteger(-1);
+        const QJsonObject params = msg["params"].toObject();
+        QString workerId = params["workerId"].toString();
+        const qint64 measuredRttMs = params["rttMs"].toInteger(-1);
         if (!workerId.isEmpty()) {
             bool registered = false;
             {
@@ -229,13 +230,20 @@ public:
                     auto wit = workers_.find(it->second);
                     if (wit != workers_.end()) {
                         wit->second.lastHeartbeat = QDateTime::currentMSecsSinceEpoch();
-                        wit->second.heartbeatLatencyMs = sentAtMs > 0
-                            ? std::max<qint64>(0, wit->second.lastHeartbeat - sentAtMs) : -1;
+                        if (measuredRttMs >= 0)
+                            wit->second.heartbeatLatencyMs = measuredRttMs;
                     }
                 }
             }
             if (registered && onWorkerHeartbeat_)
                 onWorkerHeartbeat_(workerId);
+            if (registered) {
+                QJsonObject response;
+                response["jsonrpc"] = "2.0";
+                response["id"] = msg["id"];
+                response["result"] = QJsonObject{{"status", "heartbeat"}};
+                sendJson(socket, response);
+            }
         }
     }
 

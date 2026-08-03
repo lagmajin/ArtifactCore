@@ -31,6 +31,8 @@ public:
     bool heartbeatConnectionInstalled_ = false;
     QByteArray readBuffer_;
     std::uint64_t nextRpcId_ = 1;
+    qint64 heartbeatSentAtMs_ = -1;
+    qint64 heartbeatRttMs_ = -1;
     bool tlsEnabled_ = false;
     QString caCertificateFile_;
 
@@ -123,6 +125,8 @@ public:
         QJsonObject params;
         params["workerId"] = workerId_;
         params["sentAtMs"] = QDateTime::currentMSecsSinceEpoch();
+        if (heartbeatRttMs_ >= 0) params["rttMs"] = heartbeatRttMs_;
+        heartbeatSentAtMs_ = params["sentAtMs"].toInteger();
         sendMessage(QStringLiteral("heartbeat"), params);
     }
 
@@ -164,6 +168,12 @@ public:
         if (method == QStringLiteral("assignJob")) {
             QJsonObject params = msg["params"].toObject();
             if (onJobAssigned_) onJobAssigned_(params);
+        }
+        const QJsonObject result = msg["result"].toObject();
+        if (result.value(QStringLiteral("status")).toString() == QStringLiteral("heartbeat")
+            && heartbeatSentAtMs_ > 0) {
+            heartbeatRttMs_ = std::max<qint64>(0,
+                QDateTime::currentMSecsSinceEpoch() - heartbeatSentAtMs_);
         }
         // Ignore RPC responses (result field) and other messages
     }
