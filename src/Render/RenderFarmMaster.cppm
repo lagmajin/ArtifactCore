@@ -120,6 +120,8 @@ public:
     std::function<void(const QString&, int, bool)> onRemoteFrameResult_;
     std::map<QString, RenderJobRequest> jobTemplates_;
     mutable std::mutex jobTemplatesMutex_;
+    std::map<QString, RenderJobRequest> jobHistory_;
+    mutable std::mutex jobHistoryMutex_;
 
     void emitProgress() {
         if (!onProgress_) return;
@@ -686,12 +688,42 @@ int RenderFarmMaster::workerCount() const {
 
 void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
     if (impl_->busy_) return;
+    RenderJobRequest tracked = request;
+    if (tracked.jobId.isEmpty())
+        tracked.jobId = QStringLiteral("farm-%1").arg(QDateTime::currentMSecsSinceEpoch());
+    {
+        std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
+        impl_->jobHistory_[tracked.jobId] = tracked;
+    }
     if (impl_->farmThread_.joinable()) {
         impl_->farmThread_.join();
     }
-    impl_->farmThread_ = std::thread([this, request]() {
-        impl_->executeJob(request);
+    impl_->farmThread_ = std::thread([this, tracked]() {
+        impl_->executeJob(tracked);
     });
+}
+
+bool RenderFarmMaster::resubmitJob(const QString& jobId) {
+    if (isBusy()) return false;
+    RenderJobRequest request;
+    {
+        std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
+        const auto it = impl_->jobHistory_.find(jobId.trimmed());
+        if (it == impl_->jobHistory_.end()) return false;
+        request = it->second;
+    }
+    request.jobId = QStringLiteral("%1-retry-%2")
+        .arg(jobId.trimmed()).arg(QDateTime::currentMSecsSinceEpoch());
+    submitJob(request);
+    return true;
+}
+
+QStringList RenderFarmMaster::jobHistory() const {
+    QStringList ids;
+    std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
+    for (const auto& [jobId, request] : impl_->jobHistory_)
+        ids.push_back(jobId);
+    return ids;
 }
 
 bool RenderFarmMaster::submitTemplate(const QString& name) {
@@ -926,6 +958,14 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
                 return {{QStringLiteral("status"), QStringLiteral("submit_failed")}};
             return {{QStringLiteral("status"), QStringLiteral("accepted")}};
         }
+        if (method == QStringLiteral("resubmitJob")) {
+            const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
+            if (!jobHistory().contains(jobId))
+                return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
+            if (!resubmitJob(jobId))
+                return {{QStringLiteral("status"), QStringLiteral("busy")}};
+            return {{QStringLiteral("status"), QStringLiteral("accepted")}};
+        }
         if (method == QStringLiteral("cancelJob")) {
             cancelAll();
             return {{QStringLiteral("status"), QStringLiteral("cancel_requested")}};
@@ -1055,6 +1095,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("busy"), busy},
             {QStringLiteral("paused"), paused},
             {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
+            {QStringLiteral("jobHistory"), QJsonArray::fromStringList(jobHistory())},
             {QStringLiteral("success"), !busy && result.success},
             {QStringLiteral("errorMessage"), busy ? QString() : result.errorMessage},
             {QStringLiteral("elapsedMs"), progress.elapsedMs},
