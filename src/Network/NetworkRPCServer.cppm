@@ -472,7 +472,7 @@ public:
                         statusCode = 405;
                         statusText = "Method Not Allowed";
                         body = {{QStringLiteral("error"), QStringLiteral("method_not_allowed")}};
-                    } else if (requestLine[1] == "/api/status") {
+                    } else if (requestLine[1] == "/api/status" || requestLine[1] == "/api/jobs") {
                         if (httpStatusProvider_) {
                             body = httpStatusProvider_();
                         } else {
@@ -498,6 +498,7 @@ public:
                             {QStringLiteral("endpoints"), QJsonArray{
                                 QStringLiteral("GET /api/health"),
                                 QStringLiteral("GET /api/status"),
+                                QStringLiteral("GET /api/jobs"),
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
