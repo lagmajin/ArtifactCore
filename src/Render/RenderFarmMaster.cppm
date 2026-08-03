@@ -1408,7 +1408,10 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
         }
         if (method == QStringLiteral("setAlertWebhookUrl")) {
             const QString url = params.value(QStringLiteral("url")).toString().trimmed();
-            if (!url.isEmpty() && !QUrl(url).isValid())
+            const QUrl parsedUrl(url);
+            if (!url.isEmpty() && (!parsedUrl.isValid()
+                                   || (parsedUrl.scheme() != QStringLiteral("http")
+                                       && parsedUrl.scheme() != QStringLiteral("https"))))
                 return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
             setAlertWebhookUrl(url);
             return {{QStringLiteral("status"), QStringLiteral("updated")},

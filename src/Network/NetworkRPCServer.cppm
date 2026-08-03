@@ -563,8 +563,11 @@ public:
                         QJsonParseError parseError;
                         const QJsonObject params = QJsonDocument::fromJson(requestBody, &parseError).object();
                         const QString url = params.value(QStringLiteral("url")).toString().trimmed();
+                        const QUrl parsedUrl(url);
                         if (parseError.error != QJsonParseError::NoError
-                            || (!url.isEmpty() && !QUrl(url).isValid())) {
+                            || (!url.isEmpty() && (!parsedUrl.isValid()
+                                || (parsedUrl.scheme() != QStringLiteral("http")
+                                    && parsedUrl.scheme() != QStringLiteral("https"))))) {
                             statusCode = 400;
                             statusText = "Bad Request";
                             body = {{QStringLiteral("error"), QStringLiteral("invalid_webhook_url")}};
