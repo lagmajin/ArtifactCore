@@ -501,10 +501,14 @@ public:
                                 requestObject.value(QStringLiteral("params")).toObject());
                             const QString rpcStatus = body.value(QStringLiteral("status")).toString();
                             if (rpcStatus == QStringLiteral("invalid_request")
-                                || rpcStatus == QStringLiteral("renderer_not_found")) {
+                                || rpcStatus == QStringLiteral("renderer_not_found")
+                                || rpcStatus == QStringLiteral("submit_failed")) {
                                 statusCode = 400;
                                 statusText = "Bad Request";
                             } else if (rpcStatus == QStringLiteral("job_not_found")) {
+                                statusCode = 404;
+                                statusText = "Not Found";
+                            } else if (rpcStatus == QStringLiteral("template_not_found")) {
                                 statusCode = 404;
                                 statusText = "Not Found";
                             } else if (rpcStatus == QStringLiteral("busy")) {

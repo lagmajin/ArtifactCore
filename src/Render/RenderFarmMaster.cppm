@@ -884,6 +884,18 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             return {{QStringLiteral("status"), QStringLiteral("accepted")},
                     {QStringLiteral("jobId"), request.jobId}};
         }
+        if (method == QStringLiteral("submitTemplate")) {
+            const QString name = params.value(QStringLiteral("name")).toString().trimmed();
+            const auto request = jobTemplate(name);
+            if (!request)
+                return {{QStringLiteral("status"), QStringLiteral("template_not_found")}};
+            if (isBusy())
+                return {{QStringLiteral("status"), QStringLiteral("busy")},
+                        {QStringLiteral("jobId"), impl_->currentJobId_}};
+            if (!submitTemplate(name))
+                return {{QStringLiteral("status"), QStringLiteral("submit_failed")}};
+            return {{QStringLiteral("status"), QStringLiteral("accepted")}};
+        }
         if (method == QStringLiteral("cancelJob")) {
             cancelAll();
             return {{QStringLiteral("status"), QStringLiteral("cancel_requested")}};
@@ -1011,6 +1023,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("status"), status},
             {QStringLiteral("busy"), busy},
             {QStringLiteral("paused"), paused},
+            {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
             {QStringLiteral("success"), !busy && result.success},
             {QStringLiteral("errorMessage"), busy ? QString() : result.errorMessage},
             {QStringLiteral("elapsedMs"), progress.elapsedMs},
