@@ -364,6 +364,11 @@ public:
                 auto requestBuffer = std::make_shared<QByteArray>();
                 QObject::connect(socket, &QTcpSocket::readyRead, [this, socket, requestBuffer]() {
                     requestBuffer->append(socket->readAll());
+                    constexpr qsizetype kMaxHttpRequestBytes = 1024 * 1024;
+                    if (requestBuffer->size() > kMaxHttpRequestBytes) {
+                        socket->disconnectFromHost();
+                        return;
+                    }
                     const QByteArray& request = *requestBuffer;
                     const QList<QByteArray> lines = request.split('\n');
                     if (lines.isEmpty()) return;
