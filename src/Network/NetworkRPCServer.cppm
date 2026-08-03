@@ -977,10 +977,23 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         }
                     } else if (requestLine[1] == "/api/queue") {
                         const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        const QJsonArray queuedIds = status.value(QStringLiteral("queuedJobIds")).toArray();
+                        const QJsonArray historyDetails = status.value(QStringLiteral("jobHistoryDetails")).toArray();
+                        QJsonArray queuedDetails;
+                        for (const auto& detail : historyDetails) {
+                            const QString jobId = detail.toObject().value(QStringLiteral("jobId")).toString();
+                            for (const auto& queuedId : queuedIds) {
+                                if (queuedId.toString() == jobId) {
+                                    queuedDetails.append(detail);
+                                    break;
+                                }
+                            }
+                        }
                         body = QJsonObject{
                             {QStringLiteral("queuedJobs"), status.value(QStringLiteral("queuedJobs")).toInt()},
-                            {QStringLiteral("queuedJobIds"), status.value(QStringLiteral("queuedJobIds")).toArray()},
-                            {QStringLiteral("queuedPriorities"), status.value(QStringLiteral("queuedPriorities")).toArray()}
+                            {QStringLiteral("queuedJobIds"), queuedIds},
+                            {QStringLiteral("queuedPriorities"), status.value(QStringLiteral("queuedPriorities")).toArray()},
+                            {QStringLiteral("jobs"), queuedDetails}
                         };
                     } else if (requestLine[1] == "/api/status"
                                || requestLine[1] == "/api/jobs"
