@@ -504,6 +504,9 @@ public:
                                 || rpcStatus == QStringLiteral("renderer_not_found")) {
                                 statusCode = 400;
                                 statusText = "Bad Request";
+                            } else if (rpcStatus == QStringLiteral("job_not_found")) {
+                                statusCode = 404;
+                                statusText = "Not Found";
                             } else if (rpcStatus == QStringLiteral("busy")) {
                                 statusCode = 409;
                                 statusText = "Conflict";
