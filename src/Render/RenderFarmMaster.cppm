@@ -307,6 +307,7 @@ public:
                     jobJson["step"] = allRanges[idx].step;
                     jobJson["outputPath"] = request.outputPath;
                     jobJson["priority"] = request.priority;
+                    jobJson["jobTimeoutMs"] = request.jobTimeoutMs;
                     if (!request.renderPayload.isEmpty())
                         jobJson["renderPayload"] = request.renderPayload;
                     if (!request.rendererExecutable.isEmpty())
