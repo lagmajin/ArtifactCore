@@ -784,6 +784,10 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             request.rendererExecutable = params.value(QStringLiteral("rendererExecutable")).toString();
             request.renderPayload = params.value(QStringLiteral("renderPayload")).toObject();
             request.requiredCapabilities = params.value(QStringLiteral("requiredCapabilities")).toObject();
+            const QString workerPool = params.value(QStringLiteral("workerPool")).toString().trimmed();
+            if (!workerPool.isEmpty()) {
+                request.requiredCapabilities[QStringLiteral("pool")] = workerPool;
+            }
             if (request.range.endFrame <= request.range.startFrame
                 || request.renderPayload.isEmpty() || request.rendererExecutable.isEmpty()) {
                 return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
