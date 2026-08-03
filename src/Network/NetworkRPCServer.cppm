@@ -749,7 +749,7 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
                                 QStringLiteral("GET /api/workers/{workerId}/logs"),
                                 QStringLiteral("POST /api/workers/{workerId}/maintenance"),
-                                QStringLiteral("POST /api/rpc (submitJob[compositionId, workerPool], cancelJob, setJobPriority)"),
+                                QStringLiteral("POST /api/rpc (submitJob[compositionId, workerPool], cancelJob, clearQueuedJobs, setJobPriority)"),
                                 QStringLiteral("GET /metrics")
                             }}
                         };

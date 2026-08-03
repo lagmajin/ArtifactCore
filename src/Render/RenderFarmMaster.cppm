@@ -915,6 +915,13 @@ bool RenderFarmMaster::cancelJob(const QString& jobId) {
     return true;
 }
 
+int RenderFarmMaster::clearQueuedJobs() {
+    std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+    const int removed = static_cast<int>(impl_->pendingJobs_.size());
+    impl_->pendingJobs_.clear();
+    return removed;
+}
+
 bool RenderFarmMaster::setQueuedJobPriority(const QString& jobId, int priority) {
     const QString requestedId = jobId.trimmed();
     std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
@@ -1146,6 +1153,10 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             }
             cancelAll();
             return {{QStringLiteral("status"), QStringLiteral("cancel_requested")}};
+        }
+        if (method == QStringLiteral("clearQueuedJobs")) {
+            return {{QStringLiteral("status"), QStringLiteral("cleared")},
+                    {QStringLiteral("removed"), clearQueuedJobs()}};
         }
         if (method == QStringLiteral("setJobPriority")) {
             const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
