@@ -448,9 +448,14 @@ public:
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1].startsWith("/api/jobs/")
-                               && requestLine[1].endsWith("/cancel")) {
+                               && (requestLine[1].endsWith("/cancel")
+                                   || requestLine[1].endsWith("/pause")
+                                   || requestLine[1].endsWith("/resume"))) {
                         const QByteArray prefix = "/api/jobs/";
-                        const QByteArray suffix = "/cancel";
+                        const QByteArray suffix = requestLine[1].endsWith("/cancel")
+                            ? QByteArray("/cancel")
+                            : (requestLine[1].endsWith("/pause")
+                                ? QByteArray("/pause") : QByteArray("/resume"));
                         const QString requestedJobId = QString::fromUtf8(requestLine[1].mid(
                             prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
                         const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
@@ -464,9 +469,15 @@ public:
                             statusText = "Service Unavailable";
                             body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
                         } else {
-                            body = onRequest_(QStringLiteral("cancelJob"), QJsonObject());
-                            if (body.value(QStringLiteral("status")).toString()
-                                == QStringLiteral("cancel_requested")) {
+                            const QString method = suffix == QByteArray("/cancel")
+                                ? QStringLiteral("cancelJob")
+                                : (suffix == QByteArray("/pause")
+                                    ? QStringLiteral("pauseJob") : QStringLiteral("resumeJob"));
+                            body = onRequest_(method, QJsonObject());
+                            const QString operationStatus = body.value(QStringLiteral("status")).toString();
+                            if (operationStatus == QStringLiteral("cancel_requested")
+                                || operationStatus == QStringLiteral("pause_requested")
+                                || operationStatus == QStringLiteral("resume_requested")) {
                                 statusCode = 202;
                                 statusText = "Accepted";
                             }
@@ -501,7 +512,9 @@ public:
                                 statusCode = 503;
                                 statusText = "Service Unavailable";
                             } else if (rpcStatus == QStringLiteral("accepted")
-                                       || rpcStatus == QStringLiteral("cancel_requested")) {
+                                       || rpcStatus == QStringLiteral("cancel_requested")
+                                       || rpcStatus == QStringLiteral("pause_requested")
+                                       || rpcStatus == QStringLiteral("resume_requested")) {
                                 statusCode = 202;
                                 statusText = "Accepted";
                             }
@@ -583,7 +596,7 @@ public:
                                 QStringLiteral("GET /api/jobs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
-                                QStringLiteral("POST /api/jobs/{jobId}/cancel"),
+                                QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume"),
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),
                                 QStringLiteral("GET /api/workers/{workerId}/health"),

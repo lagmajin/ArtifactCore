@@ -844,6 +844,18 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             cancelAll();
             return {{QStringLiteral("status"), QStringLiteral("cancel_requested")}};
         }
+        if (method == QStringLiteral("pauseJob")) {
+            if (!isBusy()) return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
+            pause();
+            return {{QStringLiteral("status"), QStringLiteral("pause_requested")},
+                    {QStringLiteral("jobId"), impl_->currentJobId_}};
+        }
+        if (method == QStringLiteral("resumeJob")) {
+            if (!isBusy()) return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
+            resume();
+            return {{QStringLiteral("status"), QStringLiteral("resume_requested")},
+                    {QStringLiteral("jobId"), impl_->currentJobId_}};
+        }
         if (method == QStringLiteral("frameCompleted")) {
             QString workerId = params["workerId"].toString();
             int frame = params["frame"].toInt(-1);
