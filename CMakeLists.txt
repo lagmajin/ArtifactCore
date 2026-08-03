@@ -157,6 +157,7 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Graphics/SandGPUCompute.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Graphics/SurfaceColorContract.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/SurfacePixelConversion.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/ImageSurfaceView.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/ImageUploadConversion.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactSpan.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactFunction.ixx"
@@ -375,6 +376,12 @@ target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
 # OpenImageIO
 find_package(OpenImageIO REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC OpenImageIO::OpenImageIO)
+
+# OpenColorIO is the authoritative color-management backend. Keep the
+# existing matrix-based fallback available in code, but make the production
+# dependency explicit instead of relying on OpenImageIO's transitive install.
+find_package(OpenColorIO CONFIG REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC OpenColorIO::OpenColorIO)
 
 # OpenVDB is optional. The native Pyro snapshot path remains available when
 # OpenVDB is not installed, while VDB-backed volume sources can use it when

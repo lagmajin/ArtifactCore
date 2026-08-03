@@ -8,7 +8,10 @@ module;
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QFile>
+#include <QFileInfo>
 #include <QDebug>
+#include <OpenColorIO/OpenColorIO.h>
+#include <exception>
 
 module Color.OCIOConfig;
 import Color.OCIOConfig;
@@ -87,6 +90,73 @@ bool OCIOConfig::loadFromFile(const QString& path)
     QByteArray data = file.readAll();
     file.close();
 
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    if (suffix == QStringLiteral("ocio")) {
+        try {
+            const auto ocioConfig = OCIO::Config::CreateFromFile(
+                path.toUtf8().constData());
+
+            impl_->roles_.clear();
+            impl_->colorSpaces_.clear();
+            impl_->displayViews_.clear();
+            impl_->activeDisplay_ = QString::fromUtf8(ocioConfig->getDefaultDisplay());
+            impl_->activeView_ = QString::fromUtf8(
+                ocioConfig->getDefaultView(ocioConfig->getDefaultDisplay()));
+            impl_->workingSpace_ = QString::fromUtf8(
+                ocioConfig->getRoleColorSpace(OCIO::ROLE_SCENE_LINEAR));
+
+            for (int i = 0; i < ocioConfig->getNumRoles(); ++i) {
+                const char* roleName = ocioConfig->getRoleName(i);
+                const char* colorSpace = roleName
+                    ? ocioConfig->getRoleColorSpace(roleName)
+                    : nullptr;
+                if (roleName && colorSpace) {
+                    impl_->roles_.append({QString::fromUtf8(roleName),
+                                          QString::fromUtf8(colorSpace)});
+                }
+            }
+
+            for (int i = 0; i < ocioConfig->getNumColorSpaces(); ++i) {
+                const char* name = ocioConfig->getColorSpaceNameByIndex(i);
+                if (name) {
+                    OCIOColorSpace colorSpace;
+                    colorSpace.name = QString::fromUtf8(name);
+                    impl_->colorSpaces_.append(colorSpace);
+                }
+            }
+            impl_->rebuildIndex();
+
+            for (int displayIndex = 0;
+                 displayIndex < ocioConfig->getNumDisplays(); ++displayIndex) {
+                const char* display = ocioConfig->getDisplay(displayIndex);
+                if (!display) continue;
+                for (int viewIndex = 0;
+                     viewIndex < ocioConfig->getNumViews(display); ++viewIndex) {
+                    const char* view = ocioConfig->getView(display, viewIndex);
+                    if (view) {
+                        const char* viewColorSpace =
+                            ocioConfig->getDisplayViewColorSpaceName(display, view);
+                        impl_->displayViews_.append({QString::fromUtf8(display),
+                                                     QString::fromUtf8(view),
+                                                     viewColorSpace
+                                                         ? QString::fromUtf8(viewColorSpace)
+                                                         : QString(),
+                                                     {}});
+                    }
+                }
+            }
+            return isValid();
+        } catch (const OCIO::Exception& error) {
+            impl_->lastError_ = QStringLiteral("OCIO config error: %1")
+                .arg(QString::fromUtf8(error.what()));
+            return false;
+        } catch (const std::exception& error) {
+            impl_->lastError_ = QStringLiteral("OCIO config error: %1")
+                .arg(QString::fromUtf8(error.what()));
+            return false;
+        }
+    }
+
     QJsonParseError parseError;
     QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
     if (parseError.error != QJsonParseError::NoError) {
@@ -105,6 +175,9 @@ bool OCIOConfig::loadFromFile(const QString& path)
 bool OCIOConfig::loadFromJson(const QJsonObject& json)
 {
     impl_->lastError_.clear();
+    if (json.contains(QStringLiteral("config_file_path"))) {
+        impl_->configFilePath_ = json.value(QStringLiteral("config_file_path")).toString();
+    }
 
     // Parse roles
     impl_->roles_.clear();
@@ -161,6 +234,10 @@ bool OCIOConfig::loadFromJson(const QJsonObject& json)
 QJsonObject OCIOConfig::toJson() const
 {
     QJsonObject json;
+
+    if (!impl_->configFilePath_.isEmpty()) {
+        json[QStringLiteral("config_file_path")] = impl_->configFilePath_;
+    }
 
     // Roles
     QJsonObject rolesObj;

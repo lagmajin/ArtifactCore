@@ -1,5 +1,7 @@
 module;
 #include <cstring>
+#include <cmath>
+#include <array>
 #include <vector>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
@@ -29,6 +31,8 @@ void LUT3DGPUComputer::initialize() {
 
 void LUT3DGPUComputer::createPipeline() {
   static ShaderResourceVariableDesc vars[] = {
+      {SHADER_TYPE_COMPUTE, "LUT3DParams",
+       SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_InputTexture",
        SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_LUT",
@@ -43,10 +47,21 @@ void LUT3DGPUComputer::createPipeline() {
   desc.entryPoint = Shaders::LUT3D::LUT3DEntryPoint;
   desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
   desc.variables = vars;
-  desc.variableCount = 3;
+  desc.variableCount = 4;
   desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
   executor_.build(desc);
   executor_.createShaderResourceBinding(true);
+
+  auto *device = context_.device();
+  if (device) {
+    BufferDesc cbDesc;
+    cbDesc.Name = "LUT3DParamsCB";
+    cbDesc.Usage = USAGE_DYNAMIC;
+    cbDesc.BindFlags = BIND_UNIFORM_BUFFER;
+    cbDesc.Size = sizeof(float) * 4;
+    cbDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+    device->CreateBuffer(cbDesc, nullptr, &pParamsCB_);
+  }
 }
 
 void LUT3DGPUComputer::uploadLUT(IDeviceContext *pContext,
@@ -103,6 +118,15 @@ void LUT3DGPUComputer::apply(IDeviceContext *pContext,
                               ITextureView *outputTexture) {
   if (!ready() || !inputTexture || !outputTexture || !hasLUT()) return;
 
+  void *pData = nullptr;
+  pContext->MapBuffer(pParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
+  if (pData) {
+    const float params[4] = {inputDomainMin_, inputDomainMax_, 0.0f, 0.0f};
+    std::memcpy(pData, params, sizeof(params));
+    pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
+  }
+
+  executor_.setBuffer("LUT3DParams", pParamsCB_);
   executor_.setTextureView("g_InputTexture", inputTexture);
   executor_.setTextureView("g_LUT", pLUTSRV_);
   executor_.setTextureView("g_OutputTexture", outputTexture);
@@ -114,8 +138,19 @@ void LUT3DGPUComputer::apply(IDeviceContext *pContext,
       ComputeExecutor::makeDispatchAttribs(width, height, 1, 16, 16, 1));
 }
 
+void LUT3DGPUComputer::setInputDomain(const float minValue,
+                                       const float maxValue) {
+  if (std::isfinite(minValue) && std::isfinite(maxValue) &&
+      maxValue > minValue) {
+    inputDomainMin_ = minValue;
+    inputDomainMax_ = maxValue;
+  }
+}
+
 bool LUT3DGPUComputer::hasLUT() const { return pLUTSRV_ != nullptr; }
-bool LUT3DGPUComputer::ready() const { return executor_.ready(); }
+bool LUT3DGPUComputer::ready() const {
+  return executor_.ready() && pParamsCB_;
+}
 int LUT3DGPUComputer::lutSize() const { return lutSize_; }
 
 } // namespace ArtifactCore

@@ -286,6 +286,41 @@ namespace ArtifactCore {
    return impl_->mat_;
   }
 
+  cv::Mat ImageF32x4_RGBA::toCanonicalRGBA32FC4() const
+  {
+   if (impl_->mat_.empty() || impl_->mat_.type() != CV_32FC4) {
+    return {};
+   }
+   if (impl_->colorDescriptor_.channelOrder ==
+       SurfaceChannelOrder::BGRA) {
+    cv::Mat rgba;
+    cv::cvtColor(impl_->mat_, rgba, cv::COLOR_BGRA2RGBA);
+    return rgba;
+   }
+   return impl_->mat_.clone();
+  }
+
+  cv::Mat ImageF32x4_RGBA::toCanonicalBGRA32FC4() const
+  {
+   if (impl_->mat_.empty() || impl_->mat_.type() != CV_32FC4) {
+    return {};
+   }
+   if (impl_->colorDescriptor_.channelOrder ==
+       SurfaceChannelOrder::BGRA) {
+    return impl_->mat_.clone();
+   }
+   cv::Mat bgra;
+   cv::cvtColor(impl_->mat_, bgra, cv::COLOR_RGBA2BGRA);
+   return bgra;
+  }
+
+  ImageSurfaceView ImageF32x4_RGBA::surfaceView() const noexcept
+  {
+   return {rgba32fData(), width(), height(),
+           static_cast<std::size_t>(width()) * 4u * sizeof(float),
+           SurfacePrecision::Float32, colorDescriptor()};
+  }
+
   const float* ImageF32x4_RGBA::rgba32fData() const
   {
    if (impl_->mat_.empty() || impl_->mat_.type() != CV_32FC4 || !impl_->mat_.isContinuous()) {

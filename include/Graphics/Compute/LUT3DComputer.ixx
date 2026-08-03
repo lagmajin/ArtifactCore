@@ -37,6 +37,10 @@ public:
              ITextureView *inputTexture,
              ITextureView *outputTexture);
 
+  /// Set the RGB input domain used to map pixels into the LUT coordinates.
+  /// Defaults to [0,1] for compatibility with existing LUT callers.
+  void setInputDomain(float minValue, float maxValue);
+
   bool hasLUT() const;
   bool ready() const;
   int lutSize() const;
@@ -47,6 +51,9 @@ private:
   RefCntAutoPtr<ITexture> pLUTTexture_;
   RefCntAutoPtr<ITextureView> pLUTSRV_;
   int lutSize_ = 0;
+  float inputDomainMin_ = 0.0f;
+  float inputDomainMax_ = 1.0f;
+  RefCntAutoPtr<IBuffer> pParamsCB_;
 
   void createPipeline();
 };

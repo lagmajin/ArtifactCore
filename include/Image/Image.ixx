@@ -4,6 +4,9 @@ export module Image;
 
 export import Image.PSDDocument;
 export import Image.ImageF32x4_RGBA;
+export import Image.ImageF16x4;
+export import Image.ImageSurfaceView;
+export import Image.GpuImageUpload;
 export import Image.MultiChannelImage;
 export import Image.ImageF32x4RGBAWithCache;
 export import Image.ImageYUV420;

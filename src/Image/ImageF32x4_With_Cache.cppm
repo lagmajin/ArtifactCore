@@ -119,10 +119,9 @@ namespace ArtifactCore
 
   if (m_bCpuDataDirty)
   {
-   // IMPORTANT: Review this function name and its actual implementation.
-   // If m_bCpuDataDirty means CPU has new data for GPU, this should be a 'GPU update' function.
-   // Example: m_pContext->UpdateTexture(m_pGpuTexture, 0, 0, 0, ...)
-   UpdateCpuDataFromGpuTexture();
+   // CPU dirty means that the GPU-side copy is stale. Do not read back from
+   // the GPU here; the actual upload remains an explicit operation until a
+   // device/context ownership contract is provided to this class.
   }
 
   // Transition the texture state to Unordered Access before using it as a UAV
@@ -132,7 +131,7 @@ namespace ArtifactCore
   if (m_pGpuTexture)
   {
    // GetDefaultView が ITextureView* を返す場合:
-   ITextureView* pView = m_pGpuTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+   ITextureView* pView = m_pGpuTexture->GetDefaultView(Diligent::TEXTURE_VIEW_UNORDERED_ACCESS);
    return RefCntAutoPtr<ITextureView>(pView); // 生ポインタをRefCntAutoPtrでラップ
   }
   else

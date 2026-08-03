@@ -113,6 +113,14 @@ struct SurfaceColorDescriptor {
     return descriptor;
   }
 
+  static constexpr SurfaceColorDescriptor linearStraightRgba16Float(
+      SurfaceColorPrimaries workingPrimaries =
+          SurfaceColorPrimaries::SRGB_Rec709_D65) noexcept {
+    auto descriptor = linearStraightRgba32Float(workingPrimaries);
+    descriptor.storage = SurfacePixelStorage::RGBA16Float;
+    return descriptor;
+  }
+
   static constexpr SurfaceColorDescriptor legacyOpenCvBgra32Float(
       TransferFunction sourceTransfer = TransferFunction::sRGB,
       SurfaceAlphaMode sourceAlpha = SurfaceAlphaMode::Straight) noexcept {

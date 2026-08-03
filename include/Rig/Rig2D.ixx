@@ -12,6 +12,8 @@ class tst_QList;
 #include <QVariant>
 #include <memory>
 #include <vector>
+#include <set>
+#include <map>
 
 export module ArtifactCore.Rig2D;
 
@@ -373,7 +375,230 @@ private:
     float poleAngle_ = 0.0f;
 };
 
+// ─────────────────────────────────────────────────────────
+// Smart Bone: 1つのボーン角度が複数ボーンを駆動 (Spine方式)
+// ─────────────────────────────────────────────────────────
+
+struct SmartBoneKey {
+    float driverAngle = 0.0f;
+    std::map<Id, BoneTransform> targetTransforms;
+    std::map<Id, QVector2D> meshOffsets;
+};
+
+class SmartBoneController {
+public:
+    SmartBoneController() = default;
+
+    void setDriverBone(const Id& boneId) { driverBoneId_ = boneId; }
+    Id driverBone() const { return driverBoneId_; }
+
+    void addKey(float driverAngle, const std::map<Id, BoneTransform>& targets) {
+        SmartBoneKey key;
+        key.driverAngle = driverAngle;
+        key.targetTransforms = targets;
+        keys_.push_back(key);
+        std::sort(keys_.begin(), keys_.end(),
+            [](const SmartBoneKey& a, const SmartBoneKey& b) { return a.driverAngle < b.driverAngle; });
+    }
+
+    void removeKey(float driverAngle) {
+        keys_.erase(std::remove_if(keys_.begin(), keys_.end(),
+            [driverAngle](const SmartBoneKey& k) { return std::abs(k.driverAngle - driverAngle) < 0.001f; }),
+            keys_.end());
+    }
+
+    void clearKeys() { keys_.clear(); }
+    size_t keyCount() const { return keys_.size(); }
+
+    void evaluate(float driverAngle, std::map<Id, BoneTransform>& outTargets) const {
+        if (keys_.empty()) return;
+        if (keys_.size() == 1) {
+            outTargets = keys_[0].targetTransforms;
+            return;
+        }
+        auto it = std::lower_bound(keys_.begin(), keys_.end(), driverAngle,
+            [](const SmartBoneKey& k, float v) { return k.driverAngle < v; });
+        if (it == keys_.begin()) {
+            outTargets = keys_.front().targetTransforms;
+        } else if (it == keys_.end()) {
+            outTargets = keys_.back().targetTransforms;
+        } else {
+            const auto& a = *(it - 1);
+            const auto& b = *it;
+            float span = b.driverAngle - a.driverAngle;
+            float t = std::abs(span) < 0.001f ? 0.0f : std::clamp((driverAngle - a.driverAngle) / span, 0.0f, 1.0f);
+            for (const auto& [id, btA] : a.targetTransforms) {
+                auto itB = b.targetTransforms.find(id);
+                if (itB == b.targetTransforms.end()) {
+                    outTargets[id] = btA;
+                } else {
+                    BoneTransform bt;
+                    bt.position = btA.position + (itB->second.position - btA.position) * t;
+                    bt.rotation = btA.rotation + (itB->second.rotation - btA.rotation) * t;
+                    bt.scale    = btA.scale    + (itB->second.scale    - btA.scale)    * t;
+                    outTargets[id] = bt;
+                }
+            }
+        }
+    }
+
+    QJsonObject toJson() const {
+        QJsonObject obj;
+        obj["driverBoneId"] = driverBoneId_.toString();
+        QJsonArray arr;
+        for (const auto& k : keys_) {
+            QJsonObject ko;
+            ko["angle"] = static_cast<double>(k.driverAngle);
+            QJsonObject to;
+            for (const auto& [id, bt] : k.targetTransforms) {
+                to[id.toString()] = transformToJson(bt);
+            }
+            ko["targets"] = to;
+            arr.append(ko);
+        }
+        obj["keys"] = arr;
+        return obj;
+    }
+
+    static SmartBoneController fromJson(const QJsonObject& obj) {
+        SmartBoneController ctrl;
+        ctrl.setDriverBone(Id(obj.value("driverBoneId").toString()));
+        for (const auto& v : obj.value("keys").toArray()) {
+            QJsonObject ko = v.toObject();
+            SmartBoneKey key;
+            key.driverAngle = static_cast<float>(ko.value("angle").toDouble());
+            QJsonObject to = ko.value("targets").toObject();
+            for (auto it = to.begin(); it != to.end(); ++it) {
+                key.targetTransforms[Id(it.key())] = transformFromJson(it.value(), BoneTransform{});
+            }
+            ctrl.keys_.push_back(key);
+        }
+        std::sort(ctrl.keys_.begin(), ctrl.keys_.end(),
+            [](const SmartBoneKey& a, const SmartBoneKey& b) { return a.driverAngle < b.driverAngle; });
+        return ctrl;
+    }
+
+private:
+    Id driverBoneId_;
+    std::vector<SmartBoneKey> keys_;
+};
+
+// ─────────────────────────────────────────────────────────
+// Skin2D: メッシュスキニング
+// ─────────────────────────────────────────────────────────
+
+struct SkinVertex {
+    QVector2D position;
+    QVector2D uv;
+    float weights[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+    int16_t boneIndices[4] = {0, -1, -1, -1};
+};
+
+class SkinMesh {
+public:
+    void setVertices(const std::vector<SkinVertex>& verts) { vertices_ = verts; restPositions_.clear(); for (const auto& v : vertices_) restPositions_.push_back(v.position); }
+    void setTriangles(const std::vector<uint32_t>& tris) { triangles_ = tris; }
+    const std::vector<SkinVertex>& vertices() const { return vertices_; }
+    const std::vector<uint32_t>& triangles() const { return triangles_; }
+    const std::vector<QVector2D>& restPositions() const { return restPositions_; }
+    int vertexCount() const { return static_cast<int>(vertices_.size()); }
+    int triangleCount() const { return static_cast<int>(triangles_.size()) / 3; }
+
+    void autoBind(Rig2D* rig, int maxBones = 4) {
+        if (!rig || vertices_.empty()) return;
+        std::vector<Bone2D*> bones;
+        for (auto* b : rig->bones()) { if (b && b->length() > 0.01f) bones.push_back(b); }
+        if (bones.empty()) return;
+        for (size_t vi = 0; vi < vertices_.size(); ++vi) {
+            std::vector<std::pair<float,int>> dists;
+            for (size_t bi = 0; bi < bones.size(); ++bi) {
+                QVector2D bp(bones[bi]->globalMatrix().column(3).x(), bones[bi]->globalMatrix().column(3).y());
+                float d = (vertices_[vi].position - bp).lengthSquared();
+                dists.push_back({d, static_cast<int>(bi)});
+            }
+            std::sort(dists.begin(), dists.end());
+            int count = std::min(maxBones, static_cast<int>(dists.size()));
+            float totalW = 0.0f;
+            for (int i = 0; i < count; ++i) {
+                float w = dists[i].first < 1e-8f ? 1.0f : 1.0f / std::max(dists[i].first, 1e-8f);
+                vertices_[vi].weights[i] = w;
+                vertices_[vi].boneIndices[i] = static_cast<int16_t>(dists[i].second);
+                totalW += w;
+            }
+            if (totalW > 1e-8f) {
+                for (int i = 0; i < count; ++i) vertices_[vi].weights[i] /= totalW;
+            }
+            for (int i = count; i < 4; ++i) { vertices_[vi].weights[i] = 0.0f; vertices_[vi].boneIndices[i] = -1; }
+        }
+    }
+
+    void deform(Rig2D* rig, std::vector<QVector2D>& outPositions) const {
+        outPositions.resize(vertices_.size());
+        if (!rig) return;
+        const auto& bones = rig->bones();
+        for (size_t i = 0; i < vertices_.size(); ++i) {
+            QVector2D p(0, 0);
+            for (int w = 0; w < 4; ++w) {
+                int bi = vertices_[i].boneIndices[w];
+                if (bi < 0 || bi >= static_cast<int>(bones.size()) || !bones[bi]) continue;
+                QMatrix4x4 m = bones[bi]->globalMatrix();
+                QVector2D bp(restPositions_[i].x() * m(0,0) + restPositions_[i].y() * m(0,1) + m(0,3),
+                             restPositions_[i].x() * m(1,0) + restPositions_[i].y() * m(1,1) + m(1,3));
+                p += bp * vertices_[i].weights[w];
+            }
+            outPositions[i] = p;
+        }
+    }
+
+    QJsonObject toJson() const {
+        QJsonObject obj;
+        QJsonArray va;
+        for (const auto& v : vertices_) {
+            QJsonObject vo;
+            vo["px"] = static_cast<double>(v.position.x());
+            vo["py"] = static_cast<double>(v.position.y());
+            vo["u"] = static_cast<double>(v.uv.x());
+            vo["v"] = static_cast<double>(v.uv.y());
+            QJsonArray wa, ba;
+            for (int i = 0; i < 4; ++i) { wa.append(static_cast<double>(v.weights[i])); ba.append(v.boneIndices[i]); }
+            vo["w"] = wa; vo["bi"] = ba;
+            va.append(vo);
+        }
+        obj["vertices"] = va;
+        QJsonArray ta;
+        for (auto t : triangles_) ta.append(static_cast<qint64>(t));
+        obj["triangles"] = ta;
+        return obj;
+    }
+
+    static SkinMesh fromJson(const QJsonObject& obj) {
+        SkinMesh m;
+        QJsonArray va = obj.value("vertices").toArray();
+        for (const auto& vv : va) {
+            QJsonObject vo = vv.toObject();
+            SkinVertex sv;
+            sv.position = QVector2D(static_cast<float>(vo.value("px").toDouble()), static_cast<float>(vo.value("py").toDouble()));
+            sv.uv = QVector2D(static_cast<float>(vo.value("u").toDouble()), static_cast<float>(vo.value("v").toDouble()));
+            QJsonArray wa = vo.value("w").toArray();
+            QJsonArray ba = vo.value("bi").toArray();
+            for (int i = 0; i < 4; ++i) { sv.weights[i] = static_cast<float>(wa[i].toDouble()); sv.boneIndices[i] = static_cast<int16_t>(ba[i].toInt()); }
+            m.vertices_.push_back(sv);
+        }
+        for (auto tv : obj.value("triangles").toArray()) m.triangles_.push_back(static_cast<uint32_t>(tv.toInteger()));
+        m.restPositions_.clear();
+        for (const auto& v : m.vertices_) m.restPositions_.push_back(v.position);
+        return m;
+    }
+
+private:
+    std::vector<SkinVertex> vertices_;
+    std::vector<uint32_t> triangles_;
+    std::vector<QVector2D> restPositions_;
+};
+
+// ─────────────────────────────────────────────────────────
 // 2Dリグシステム全体を管理
+// ─────────────────────────────────────────────────────────
 class Rig2D {
 public:
     Rig2D();
@@ -426,6 +651,22 @@ public:
     int propertyBindingCount() const;
     const QList<SharedPtr<RigPropertyBinding2D>>& propertyBindings() const { return propertyBindings_; }
 
+    // Smart Bones
+    SmartBoneController* addSmartBone() { smartBones_.push_back(SmartBoneController()); return &smartBones_.back(); }
+    void removeSmartBone(int index) { if (index >= 0 && static_cast<size_t>(index) < smartBones_.size()) smartBones_.erase(smartBones_.begin() + index); }
+    SmartBoneController* smartBone(int index) { return (index >= 0 && static_cast<size_t>(index) < smartBones_.size()) ? &smartBones_[index] : nullptr; }
+    int smartBoneCount() const { return static_cast<int>(smartBones_.size()); }
+    void evaluateSmartBones();
+
+    // Skin Mesh
+    SkinMesh* skinMesh() { return skinMesh_.get(); }
+    void setSkinMesh(std::unique_ptr<SkinMesh> mesh) { skinMesh_ = std::move(mesh); }
+    SkinMesh* createSkinMesh() { skinMesh_ = std::make_unique<SkinMesh>(); return skinMesh_.get(); }
+
+    // Pose
+    void setPoseName(const QString& name) { poseName_ = name; }
+    QString poseName() const { return poseName_; }
+
     // 更新
     void update();
     void evaluate(const RationalTime& time);
@@ -444,7 +685,85 @@ private:
     RigControlSet2D controlSet_;
     QList<SharedPtr<RigConstraint2D>> constraints_;
     QList<SharedPtr<RigPropertyBinding2D>> propertyBindings_;
+    std::vector<SmartBoneController> smartBones_;
+    std::unique_ptr<SkinMesh> skinMesh_;
+    QString poseName_;
     Bone2D* rootBone_ = nullptr;
 };
+
+// ─────────────────────────────────────────────────────────
+// Pose: リグ状態のスナップショット
+// ─────────────────────────────────────────────────────────
+
+struct PoseSnapshot {
+    QString name;
+    QString category;
+    std::map<Id, BoneTransform> boneTransforms;
+    std::map<Id, QVariant> controlValues;
+};
+
+inline PoseSnapshot capturePose(const Rig2D& rig) {
+    PoseSnapshot pose;
+    pose.name = rig.poseName();
+    for (const auto* bone : rig.bones()) {
+        if (!bone) continue;
+        pose.boneTransforms[bone->id()] = bone->localTransform();
+    }
+    for (const auto* ctrl : rig.controls()) {
+        if (!ctrl) continue;
+        pose.controlValues[ctrl->id()] = ctrl->value();
+    }
+    return pose;
+}
+
+inline void applyPose(Rig2D& rig, const PoseSnapshot& pose, float blendWeight = 1.0f) {
+    for (const auto& [id, bt] : pose.boneTransforms) {
+        Bone2D* bone = rig.findBone(id);
+        if (!bone) continue;
+        if (blendWeight >= 1.0f) {
+            bone->setLocalTransform(bt);
+        } else {
+            BoneTransform current = bone->localTransform();
+            current.position = current.position + (bt.position - current.position) * blendWeight;
+            current.rotation = current.rotation + (bt.rotation - current.rotation) * blendWeight;
+            current.scale    = current.scale    + (bt.scale    - current.scale)    * blendWeight;
+            bone->setLocalTransform(current);
+        }
+    }
+    for (const auto& [id, val] : pose.controlValues) {
+        RigControl2D* ctrl = rig.findControl(id);
+        if (!ctrl) continue;
+        ctrl->setValue(val);
+    }
+    rig.setPoseName(pose.name);
+}
+
+inline PoseSnapshot blendPoses(const PoseSnapshot& a, const PoseSnapshot& b, float t) {
+    PoseSnapshot result;
+    result.name = a.name + QStringLiteral(" -> ") + b.name;
+    std::set<Id> allIds;
+    for (const auto& [id, _] : a.boneTransforms) allIds.insert(id);
+    for (const auto& [id, _] : b.boneTransforms) allIds.insert(id);
+    for (const auto& id : allIds) {
+        auto itA = a.boneTransforms.find(id);
+        auto itB = b.boneTransforms.find(id);
+        if (itA == a.boneTransforms.end()) { result.boneTransforms[id] = itB->second; }
+        else if (itB == b.boneTransforms.end()) { result.boneTransforms[id] = itA->second; }
+        else {
+            BoneTransform bt;
+            bt.position = itA->second.position + (itB->second.position - itA->second.position) * t;
+            bt.rotation = itA->second.rotation + (itB->second.rotation - itA->second.rotation) * t;
+            bt.scale    = itA->second.scale    + (itB->second.scale    - itA->second.scale)    * t;
+            result.boneTransforms[id] = bt;
+        }
+    }
+    for (const auto& [id, val] : a.controlValues) {
+        auto itB = b.controlValues.find(id);
+        if (itB != b.controlValues.end() && val.canConvert<double>() && itB->second.canConvert<double>()) {
+            result.controlValues[id] = val.toDouble() + (itB->second.toDouble() - val.toDouble()) * t;
+        }
+    }
+    return result;
+}
 
 } // namespace ArtifactCore

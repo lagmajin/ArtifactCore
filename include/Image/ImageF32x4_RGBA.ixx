@@ -37,6 +37,7 @@ import Size;
 import FloatRGBA;
 import ImageInterface;
 import Graphics.SurfaceColorContract;
+import Image.ImageSurfaceView;
 
 
 export namespace ArtifactCore {
@@ -51,10 +52,25 @@ export namespace ArtifactCore {
   ~ImageF32x4_RGBA();
   
   // 基本操作
+  // NOTE: The class name describes the logical image contract. The backing
+  // CV_32FC4/CV_8UC4 memory follows colorDescriptor().channelOrder and may
+  // therefore be BGRA. Callers crossing a GPU RGBA texture boundary must
+  // normalize BGRA -> RGBA explicitly; these accessors do not reorder data.
   auto toCVMat() const -> cv::Mat;
+  // Returns a continuous CV_32FC4 copy in fixed logical R,G,B,A order.
+  // Unlike toCVMat(), this normalizes BGRA backing storage when necessary.
+  auto toCanonicalRGBA32FC4() const -> cv::Mat;
+  // Returns a continuous CV_32FC4 copy in fixed OpenCV B,G,R,A order.
+  // This is the migration target for CPU/OpenCV-oriented processing.
+  auto toCanonicalBGRA32FC4() const -> cv::Mat;
+  ImageSurfaceView surfaceView() const noexcept;
   QImage toQImage() const;
+  // Returns a pointer to contiguous 4-float pixels in backing-memory order,
+  // not guaranteed logical R,G,B,A order. Inspect colorDescriptor() first.
   const float* rgba32fData() const;
   float* rgba32fData();
+  // Returns a pointer to contiguous 4-byte pixels in backing-memory order,
+  // not guaranteed logical R,G,B,A order. Inspect colorDescriptor() first.
   const std::uint8_t* rgba8Data() const;
   std::uint8_t* rgba8Data();
   SurfaceColorDescriptor colorDescriptor() const noexcept;
@@ -79,10 +95,14 @@ export namespace ArtifactCore {
   void flipHorizontal();
   void flipVertical();
   ImageF32x4_RGBA crop(int x, int y, int width, int height) const;
-  // Set from an existing OpenCV Mat (various types supported)
+  // Set from an existing OpenCV Mat (various types supported). CV_32FC4 is
+  // copied as-is when passed directly; provide a descriptor when the Mat is
+  // BGRA or otherwise differs from canonical RGBA.
   void setFromCVMat(const cv::Mat& mat);
   void setFromCVMat(const cv::Mat& mat,
                     const SurfaceColorDescriptor& descriptor);
+  // Despite the historical name, the no-descriptor overload assumes the
+  // supplied memory is canonical RGBA. Use the descriptor overload for BGRA.
   void setFromRGBA32F(const float* data, int width, int height);
   void setFromRGBA32F(const float* data, int width, int height,
                       const SurfaceColorDescriptor& descriptor);

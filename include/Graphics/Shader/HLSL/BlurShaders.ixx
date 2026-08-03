@@ -71,11 +71,14 @@ float4 main(PSInput input) : SV_TARGET {
         sampleUV = clamp(sampleUV, float2(0.0, 0.0), float2(1.0, 1.0));
 
         float4 sample = g_texture.Sample(g_sampler, sampleUV);
-        result += sample * weight;
+        result.rgb += sample.rgb * sample.a * weight;
+        result.a += sample.a * weight;
         totalWeight += weight;
     }
 
-    return result / totalWeight;
+    result /= totalWeight;
+    if (result.a > 1e-5) result.rgb /= result.a;
+    return result;
 }
 )";
 
@@ -110,11 +113,14 @@ float4 main(PSInput input) : SV_TARGET {
         sampleUV = clamp(sampleUV, float2(0.0, 0.0), float2(1.0, 1.0));
 
         float4 sample = g_texture.Sample(g_sampler, sampleUV);
-        result += sample * weight;
+        result.rgb += sample.rgb * sample.a * weight;
+        result.a += sample.a * weight;
         totalWeight += weight;
     }
 
-    return result / totalWeight;
+    result /= totalWeight;
+    if (result.a > 1e-5) result.rgb /= result.a;
+    return result;
 }
 )";
 

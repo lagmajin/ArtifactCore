@@ -166,7 +166,7 @@ private:
         switch (transform) {
             case ACESInputTransform::sRGB_Encoded:       tf = TransferFunction::sRGB; break;
             case ACESInputTransform::Rec709_Encoded:     tf = TransferFunction::Rec709; break;
-            case ACESInputTransform::Rec2020_Encoded:    tf = TransferFunction::Gamma24; break;
+            case ACESInputTransform::Rec2020_Encoded:    tf = TransferFunction::Rec2020_10; break;
             case ACESInputTransform::P3_Encoded:         tf = TransferFunction::sRGB; break; // P3 は sRGB 同等の伝達関数
             case ACESInputTransform::sRGB_Linear:
             case ACESInputTransform::Linear_sRGB_Primaries:

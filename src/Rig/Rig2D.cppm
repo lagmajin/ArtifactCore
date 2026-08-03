@@ -17,6 +17,7 @@ class tst_QList;
 #include <cmath>
 #include <algorithm>
 #include <utility>
+#include <memory>
 
 module ArtifactCore.Rig2D;
 
@@ -1059,7 +1060,22 @@ void Rig2D::evaluate(const RationalTime& time) {
             constraint->evaluate(context);
         }
     }
+    evaluateSmartBones();
     update();
+}
+
+void Rig2D::evaluateSmartBones() {
+    for (auto& sb : smartBones_) {
+        if (sb.keyCount() == 0) continue;
+        Bone2D* driver = findBone(sb.driverBone());
+        if (!driver) continue;
+        std::map<Id, BoneTransform> targets;
+        sb.evaluate(driver->resolvedTransform().rotation, targets);
+        for (const auto& [id, bt] : targets) {
+            Bone2D* target = findBone(id);
+            if (target) target->setResolvedTransform(bt);
+        }
+    }
 }
 
 bool Rig2D::setBoneLocalTransform(const Id& id, const BoneTransform& transform) {
@@ -1271,6 +1287,17 @@ QJsonObject Rig2D::toJson() const {
         }
     }
     object["propertyBindings"] = propertyBindingsArray;
+    if (poseName_.size() > 0) object["poseName"] = poseName_;
+
+    QJsonArray smartBonesArray;
+    for (const auto& sb : smartBones_) {
+        smartBonesArray.append(sb.toJson());
+    }
+    object["smartBones"] = smartBonesArray;
+
+    if (skinMesh_) {
+        object["skinMesh"] = skinMesh_->toJson();
+    }
     return object;
 }
 
@@ -1329,6 +1356,18 @@ Rig2D Rig2D::fromJson(const QJsonObject& object) {
             continue;
         }
         rig.propertyBindings_.append(RigPropertyBinding2D::fromJson(value.toObject()));
+    }
+
+    for (const auto& v : object.value("smartBones").toArray()) {
+        rig.smartBones_.push_back(SmartBoneController::fromJson(v.toObject()));
+    }
+
+    if (object.contains("skinMesh")) {
+        rig.skinMesh_ = std::make_unique<SkinMesh>(SkinMesh::fromJson(object.value("skinMesh").toObject()));
+    }
+
+    if (object.contains("poseName")) {
+        rig.poseName_ = object.value("poseName").toString();
     }
 
     const QString rootBoneIdString = object.value("rootBoneId").toString();

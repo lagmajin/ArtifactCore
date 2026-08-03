@@ -10,6 +10,12 @@ Texture2D<float4> g_InputTexture : register(t0);
 Texture3D<float4> g_LUT : register(t1);
 RWTexture2D<float4> g_OutputTexture : register(u0);
 
+cbuffer LUT3DParams : register(b0)
+{
+    float2 g_InputDomain;
+    float2 _LUT3DParamsPadding;
+};
+
 [numthreads(16, 16, 1)]
 void LUT3DCS(uint3 id : SV_DispatchThreadID)
 {
@@ -23,7 +29,9 @@ void LUT3DCS(uint3 id : SV_DispatchThreadID)
     g_LUT.GetDimensions(width, height, depth);
     float scale = (float)depth - 1.0f;
 
-    float3 f = color.rgb * scale;
+    float3 normalized = (color.rgb - g_InputDomain.x) /
+                        max(1.0e-6f, g_InputDomain.y - g_InputDomain.x);
+    float3 f = normalized * scale;
     int3 i = (int3)f;
     float3 d = f - (float3)i;
     i = clamp(i, int3(0, 0, 0), int3((int)depth - 2, (int)depth - 2, (int)depth - 2));

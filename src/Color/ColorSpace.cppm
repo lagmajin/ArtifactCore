@@ -6,11 +6,25 @@ module;
 #include <compare>
 
 module Color.ColorSpace;
-import Color.ColorSpace;
+import Color.GamutConversion;
 
 namespace ArtifactCore {
 
 namespace {
+Gamut gamutFor(ColorSpace space)
+{
+    switch (space) {
+    case ColorSpace::Rec709: return Gamut::Rec709;
+    case ColorSpace::Rec2020: return Gamut::Rec2020;
+    case ColorSpace::P3: return Gamut::DCI_P3;
+    case ColorSpace::ACES_AP0: return Gamut::ACES_AP0;
+    case ColorSpace::ACES_AP1: return Gamut::ACES_AP1;
+    case ColorSpace::Linear:
+    case ColorSpace::sRGB:
+    default: return Gamut::sRGB;
+    }
+}
+
 constexpr std::array<float, 16> makeIdentityMatrix()
 {
     return {
@@ -201,20 +215,16 @@ std::array<float, 16> to4x4(const Mat3 &m)
 
 std::array<float, 16> ColorSpaceConverter::getConversionMatrix(ColorSpace from, ColorSpace to)
 {
-    if (from == to) {
-        return makeIdentityMatrix();
-    }
+    if (from == to) return makeIdentityMatrix();
 
-    const auto src = definitionFor(from);
-    const auto dst = definitionFor(to);
-
-    Mat3 srcToXyz = rgbToXyzMatrix(src.red, src.green, src.blue, src.white);
-    if (src.white.x != dst.white.x || src.white.y != dst.white.y) {
-        srcToXyz = multiply3(chromaticAdaptationBradford(src.white, dst.white), srcToXyz);
-    }
-
-    const Mat3 xyzToDst = invert3(rgbToXyzMatrix(dst.red, dst.green, dst.blue, dst.white));
-    return to4x4(multiply3(xyzToDst, srcToXyz));
+    const auto matrix = ColorGamutConversion::getConversionMatrix(
+        gamutFor(from), gamutFor(to));
+    return {
+        matrix[0][0], matrix[0][1], matrix[0][2], 0.0f,
+        matrix[1][0], matrix[1][1], matrix[1][2], 0.0f,
+        matrix[2][0], matrix[2][1], matrix[2][2], 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f,
+    };
 }
 
 float ColorSpaceConverter::applyGamma(float value, GammaFunction gamma)

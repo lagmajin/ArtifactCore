@@ -79,6 +79,27 @@ export namespace ArtifactCore
    return std::pow((encoded + 0.099f) / 1.099f, 1.0f / 0.45f);
   }
 
+  // === Rec.2020 10-bit OETF ===
+  // ITU-R BT.2020 uses the same power-law shape as BT.709 with the
+  // BT.2020 breakpoint and coefficients.
+  static float linearToRec2020(float linear) {
+   constexpr float alpha = 1.09929682680944f;
+   constexpr float beta = 0.018053968510807f;
+   linear = std::max(linear, 0.0f);
+   if (linear < beta)
+    return 4.5f * linear;
+   return alpha * std::pow(linear, 0.45f) - (alpha - 1.0f);
+  }
+
+  static float rec2020ToLinear(float encoded) {
+   constexpr float alpha = 1.09929682680944f;
+   constexpr float beta = 0.081242858298635f;
+   encoded = std::max(encoded, 0.0f);
+   if (encoded < beta)
+    return encoded / 4.5f;
+   return std::pow((encoded + alpha - 1.0f) / alpha, 1.0f / 0.45f);
+  }
+
   // === Rec.2084 PQ ===
 
   static constexpr float kPQ_m1 = 0.1593017578125f;    // 2610 / 16384
@@ -186,6 +207,71 @@ export namespace ArtifactCore
    return (slog3 - 95.0f) * 0.01125000f / (171.2102946929f - 95.0f);
   }
 
+  // === Kodak Cineon ===
+  // Normalized 10-bit printing-density encoding. The default black offset
+  // corresponds to Cineon code value 95.
+  static constexpr float kCineonBlackOffset = 0.0107977516232771f;
+
+  static float linearToCineon(float linear) {
+   const float value = std::max(linear, 0.0f);
+   return (685.0f + 300.0f * std::log10(
+       value * (1.0f - kCineonBlackOffset) + kCineonBlackOffset)) / 1023.0f;
+  }
+
+  static float cineonToLinear(float encoded) {
+   return (std::pow(10.0f, (1023.0f * encoded - 685.0f) / 300.0f) -
+           kCineonBlackOffset) / (1.0f - kCineonBlackOffset);
+  }
+
+  // === Canon Log 2 / Canon Log 3 ===
+  // Curves are expressed in normalized IRE units, as published by Canon.
+  static float linearToCanonLog2(float linear) {
+   constexpr float toe = 0.035388128f;
+   constexpr float slope = 0.281863093f;
+   constexpr float scale = 87.09937546f;
+   const float toeLinear = -(std::pow(10.0f, toe / slope) - 1.0f) / scale;
+   if (linear < toeLinear)
+    return -(slope * std::log10(-linear * scale + 1.0f) - toe);
+   return slope * std::log10(linear * scale + 1.0f) + toe;
+  }
+
+  static float canonLog2ToLinear(float encoded) {
+   constexpr float toe = 0.035388128f;
+   constexpr float slope = 0.281863093f;
+   constexpr float scale = 87.09937546f;
+   if (encoded < toe)
+    return -(std::pow(10.0f, (toe - encoded) / slope) - 1.0f) / scale;
+   return (std::pow(10.0f, (encoded - toe) / slope) - 1.0f) / scale;
+  }
+
+  static float linearToCanonLog3(float linear) {
+   constexpr float low = 0.04076162f;
+   constexpr float high = 0.105357102f;
+   constexpr float toe = 0.069886632f;
+   constexpr float slope = 0.42889912f;
+   constexpr float scale = 14.98325f;
+   const float lowLinear = -(std::pow(10.0f, (toe - low) / slope) - 1.0f) / scale;
+   const float highLinear = (high - 0.073059361f) / 2.3069815f;
+   if (linear < lowLinear)
+    return -(slope * std::log10(-linear * scale + 1.0f) - toe);
+   if (linear <= highLinear)
+    return 2.3069815f * linear + 0.073059361f;
+   return slope * std::log10(linear * scale + 1.0f) + toe;
+  }
+
+  static float canonLog3ToLinear(float encoded) {
+   constexpr float low = 0.04076162f;
+   constexpr float high = 0.105357102f;
+   constexpr float toe = 0.069886632f;
+   constexpr float slope = 0.42889912f;
+   constexpr float scale = 14.98325f;
+   if (encoded < low)
+    return -(std::pow(10.0f, (toe - encoded) / slope) - 1.0f) / scale;
+   if (encoded <= high)
+    return (encoded - 0.073059361f) / 2.3069815f;
+   return (std::pow(10.0f, (encoded - toe) / slope) - 1.0f) / scale;
+  }
+
   // === 汎用: 任意の TransferFunction で線形↔エンコード変換 ===
 
   static float encode(float linear, TransferFunction tf) {
@@ -195,12 +281,16 @@ export namespace ArtifactCore
     case TransferFunction::Gamma24:              return linearToGamma(linear, 2.4f);
     case TransferFunction::Gamma26:              return linearToGamma(linear, 2.6f);
     case TransferFunction::Rec709:               return linearToRec709(linear);
+    case TransferFunction::Rec2020_10:            return linearToRec2020(linear);
     case TransferFunction::Rec2084_PQ:           return linearToPQ(linear);
     case TransferFunction::HLG:                  return linearToHLG(linear);
     case TransferFunction::ACEScc:               return linearToACEScc(linear);
     case TransferFunction::ACEScct:              return linearToACEScct(linear);
     case TransferFunction::DaVinciIntermediate:  return linearToDaVinciIntermediate(linear);
     case TransferFunction::SonySLog3:            return linearToSLog3(linear);
+    case TransferFunction::Cineon:               return linearToCineon(linear);
+    case TransferFunction::CanonLog2:            return linearToCanonLog2(linear);
+    case TransferFunction::CanonLog3:            return linearToCanonLog3(linear);
     case TransferFunction::Linear:
     default:                                     return linear;
    }
@@ -213,12 +303,16 @@ export namespace ArtifactCore
     case TransferFunction::Gamma24:              return gammaToLinear(encoded, 2.4f);
     case TransferFunction::Gamma26:              return gammaToLinear(encoded, 2.6f);
     case TransferFunction::Rec709:               return rec709ToLinear(encoded);
+    case TransferFunction::Rec2020_10:            return rec2020ToLinear(encoded);
     case TransferFunction::Rec2084_PQ:           return pqToLinear(encoded);
     case TransferFunction::HLG:                  return hlgToLinear(encoded);
     case TransferFunction::ACEScc:               return acesccToLinear(encoded);
     case TransferFunction::ACEScct:              return acescctToLinear(encoded);
     case TransferFunction::DaVinciIntermediate:  return daVinciIntermediateToLinear(encoded);
     case TransferFunction::SonySLog3:            return sLog3ToLinear(encoded);
+    case TransferFunction::Cineon:               return cineonToLinear(encoded);
+    case TransferFunction::CanonLog2:            return canonLog2ToLinear(encoded);
+    case TransferFunction::CanonLog3:            return canonLog3ToLinear(encoded);
     case TransferFunction::Linear:
     default:                                     return encoded;
    }

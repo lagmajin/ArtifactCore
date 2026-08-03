@@ -15,6 +15,7 @@ export namespace ArtifactCore {
 
 enum class SurfacePixelTarget : std::uint8_t {
   Rgba8SrgbStraight,
+  Rgba16LinearStraight,
   Rgba32LinearStraight,
 };
 
@@ -56,6 +57,28 @@ inline float decodeToLinear(float value,
   return ColorTransferFunction::decode(value, descriptor.transfer);
 }
 
+inline std::uint16_t floatToHalf(float value) noexcept {
+  std::uint32_t bits = 0;
+  std::memcpy(&bits, &value, sizeof(bits));
+  const std::uint32_t sign = (bits >> 16u) & 0x8000u;
+  const std::uint32_t exponent = (bits >> 23u) & 0xffu;
+  const std::uint32_t mantissa = bits & 0x7fffffu;
+  if (exponent == 0xffu) {
+    return static_cast<std::uint16_t>(sign | 0x7c00u |
+                                      (mantissa ? 0x0200u : 0u));
+  }
+  const int halfExponent = static_cast<int>(exponent) - 127 + 15;
+  if (halfExponent >= 31) return static_cast<std::uint16_t>(sign | 0x7c00u);
+  if (halfExponent <= 0) {
+    if (halfExponent < -10) return static_cast<std::uint16_t>(sign);
+    const std::uint32_t shifted = (mantissa | 0x800000u) >> (1 - halfExponent);
+    return static_cast<std::uint16_t>(sign | ((shifted + 0x1000u) >> 13u));
+  }
+  return static_cast<std::uint16_t>(sign |
+                                    (static_cast<std::uint32_t>(halfExponent) << 10u) |
+                                    ((mantissa + 0x1000u) >> 13u));
+}
+
 inline bool supportedPrimaries(
     const SurfaceColorDescriptor &descriptor) noexcept {
   return descriptor.primaries == SurfaceColorPrimaries::Unknown ||
@@ -88,14 +111,16 @@ inline SurfacePixelBuffer convertSurfacePixels(
 
   output.width = static_cast<std::uint32_t>(width);
   output.height = static_cast<std::uint32_t>(height);
-  const bool outputFloat = target == SurfacePixelTarget::Rgba32LinearStraight;
+  const bool outputFloat = target != SurfacePixelTarget::Rgba8SrgbStraight;
+  const bool outputHalf = target == SurfacePixelTarget::Rgba16LinearStraight;
   output.rowStride = static_cast<std::uint64_t>(output.width) * 4u *
-                     (outputFloat ? sizeof(float) : sizeof(std::uint8_t));
-  output.bytes.resize(static_cast<std::size_t>(output.rowStride) *
-                      static_cast<std::size_t>(output.height));
-  output.descriptor = outputFloat
-                          ? SurfaceColorDescriptor::linearStraightRgba32Float()
-                          : SurfaceColorDescriptor::encodedSrgbRgba8Straight();
+                     (outputFloat ? (outputHalf ? sizeof(std::uint16_t) : sizeof(float))
+                                  : sizeof(std::uint8_t));
+  output.bytes.resize(static_cast<std::size_t>(output.rowStride) * static_cast<std::size_t>(output.height));
+  output.descriptor = outputHalf
+                          ? SurfaceColorDescriptor::linearStraightRgba16Float()
+                          : (outputFloat ? SurfaceColorDescriptor::linearStraightRgba32Float()
+                                         : SurfaceColorDescriptor::encodedSrgbRgba8Straight());
 
   const bool sourcePremultiplied =
       sourceDescriptor.alphaMode == SurfaceAlphaMode::Premultiplied;
@@ -152,7 +177,13 @@ inline SurfacePixelBuffer convertSurfacePixels(
     blue =
         SurfacePixelConversionDetail::decodeToLinear(blue, sourceDescriptor);
 
-    if (outputFloat) {
+    if (outputHalf) {
+      const float converted[4] = {red, green, blue, alpha};
+      auto *half = reinterpret_cast<std::uint16_t *>(output.bytes.data() + index * sizeof(converted) / 2u);
+      for (int channel = 0; channel < 4; ++channel) {
+        half[channel] = SurfacePixelConversionDetail::floatToHalf(converted[channel]);
+      }
+    } else if (outputFloat) {
       const float converted[4] = {red, green, blue, alpha};
       std::memcpy(output.bytes.data() + index * sizeof(converted), converted,
                   sizeof(converted));
