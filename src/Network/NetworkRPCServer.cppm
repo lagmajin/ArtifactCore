@@ -516,8 +516,11 @@ public:
                         const QString requestedJobId = QString::fromUtf8(requestLine[1].mid(
                             prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
                         const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
-                        if (requestedJobId.isEmpty()
-                            || status.value(QStringLiteral("jobId")).toString() != requestedJobId) {
+                        const bool cancelRequest = suffix == QByteArray("/cancel");
+                        const bool currentJob = status.value(QStringLiteral("jobId")).toString() == requestedJobId;
+                        const bool queuedJob = status.value(QStringLiteral("queuedJobIds")).toArray()
+                            .contains(requestedJobId);
+                        if (requestedJobId.isEmpty() || (!currentJob && !(cancelRequest && queuedJob))) {
                             statusCode = 404;
                             statusText = "Not Found";
                             body = {{QStringLiteral("error"), QStringLiteral("job_not_found")}};
@@ -530,7 +533,9 @@ public:
                                 ? QStringLiteral("cancelJob")
                                 : (suffix == QByteArray("/pause")
                                     ? QStringLiteral("pauseJob") : QStringLiteral("resumeJob"));
-                            body = onRequest_(method, QJsonObject());
+                            body = onRequest_(method, cancelRequest
+                                ? QJsonObject{{QStringLiteral("jobId"), requestedJobId}}
+                                : QJsonObject());
                             const QString operationStatus = body.value(QStringLiteral("status")).toString();
                             if (operationStatus == QStringLiteral("cancel_requested")
                                 || operationStatus == QStringLiteral("pause_requested")
@@ -640,7 +645,8 @@ h1{font-size:22px}pre{white-space:pre-wrap;color:#b9d7ff}button{margin-right:8px
 const status=await s.json(),workers=await w.json(),logs=await l.json();document.getElementById('status').innerHTML=
 '<b>Status:</b> '+status.status+' &nbsp; <b>Frames:</b> '+status.completedFrames+'/'+status.totalFrames+
 ' &nbsp; <b>ETA:</b> '+(status.estimatedRemainingMs??'—')+' ms'+
-' &nbsp; <b>Est. total:</b> '+(status.estimatedCostMs??'—')+' ms';
+' &nbsp; <b>Est. total:</b> '+(status.estimatedCostMs??'—')+' ms'+
+' &nbsp; <b>Queued:</b> '+(status.queuedJobs??0);
 document.getElementById('workers').textContent=JSON.stringify(workers,null,2);
 document.getElementById('history').textContent=JSON.stringify(status.jobHistory||[],null,2);
 document.getElementById('logs').textContent=JSON.stringify(logs.logs||[],null,2)}catch(e){

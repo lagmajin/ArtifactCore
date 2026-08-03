@@ -897,6 +897,24 @@ void RenderFarmMaster::cancelAll() {
     impl_->pauseCv_.notify_all();
 }
 
+bool RenderFarmMaster::cancelJob(const QString& jobId) {
+    const QString requestedId = jobId.trimmed();
+    if (requestedId.isEmpty()) return false;
+    if (impl_->currentJobId_ == requestedId && impl_->busy_) {
+        impl_->cancelled_ = true;
+        impl_->pauseCv_.notify_all();
+        return true;
+    }
+    std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+    const auto it = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+        [&requestedId](const RenderJobRequest& queued) {
+            return queued.jobId == requestedId;
+        });
+    if (it == impl_->pendingJobs_.end()) return false;
+    impl_->pendingJobs_.erase(it);
+    return true;
+}
+
 void RenderFarmMaster::pause() {
     if (impl_->busy_) impl_->paused_ = true;
 }
@@ -1094,6 +1112,13 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             return {{QStringLiteral("status"), QStringLiteral("accepted")}};
         }
         if (method == QStringLiteral("cancelJob")) {
+            const QString requestedJobId = params.value(QStringLiteral("jobId")).toString().trimmed();
+            if (!requestedJobId.isEmpty()) {
+                if (!cancelJob(requestedJobId))
+                    return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
+                return {{QStringLiteral("status"), QStringLiteral("cancel_requested")},
+                        {QStringLiteral("jobId"), requestedJobId}};
+            }
             cancelAll();
             return {{QStringLiteral("status"), QStringLiteral("cancel_requested")}};
         }
