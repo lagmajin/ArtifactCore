@@ -901,6 +901,49 @@ std::optional<RenderJobRequest> RenderFarmMaster::jobTemplate(const QString& nam
     return it->second;
 }
 
+bool RenderFarmMaster::saveJobTemplates(const QString& filePath) const {
+    const QString path = filePath.trimmed();
+    if (path.isEmpty()) return false;
+    QJsonArray templates;
+    {
+        std::lock_guard<std::mutex> lock(impl_->jobTemplatesMutex_);
+        for (const auto& [name, request] : impl_->jobTemplates_) {
+            if (request.renderPayload.isEmpty() || request.rendererExecutable.isEmpty()) continue;
+            QJsonObject entry = Impl::requestToJson(request);
+            entry[QStringLiteral("name")] = name;
+            templates.append(entry);
+        }
+    }
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    const QJsonObject document{{QStringLiteral("schemaVersion"), 1},
+                               {QStringLiteral("templates"), templates}};
+    if (file.write(QJsonDocument(document).toJson(QJsonDocument::Indented)) < 0)
+        return false;
+    return file.commit();
+}
+
+bool RenderFarmMaster::loadJobTemplates(const QString& filePath) {
+    const QString path = filePath.trimmed();
+    if (path.isEmpty()) return false;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) return false;
+    QJsonParseError error;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject()) return false;
+    const QJsonArray templates = document.object().value(QStringLiteral("templates")).toArray();
+    bool loaded = false;
+    for (const auto& value : templates) {
+        if (!value.isObject()) continue;
+        const QJsonObject object = value.toObject();
+        const auto request = Impl::requestFromJson(object);
+        const QString name = object.value(QStringLiteral("name")).toString().trimmed();
+        if (name.isEmpty() || !request) continue;
+        if (registerJobTemplate({name, *request})) loaded = true;
+    }
+    return loaded;
+}
+
 void RenderFarmMaster::cancelAll() {
     impl_->cancelled_ = true;
     QString persistencePath;

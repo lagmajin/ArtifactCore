@@ -41,6 +41,8 @@ public:
     bool removeJobTemplate(const QString& name);
     QStringList jobTemplateNames() const;
     std::optional<RenderJobRequest> jobTemplate(const QString& name) const;
+    bool saveJobTemplates(const QString& filePath) const;
+    bool loadJobTemplates(const QString& filePath);
     void cancelAll();
     void pause();
     void resume();
