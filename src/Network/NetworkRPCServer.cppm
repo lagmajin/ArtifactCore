@@ -570,7 +570,9 @@ public:
                         statusCode = 405;
                         statusText = "Method Not Allowed";
                         body = {{QStringLiteral("error"), QStringLiteral("method_not_allowed")}};
-                    } else if (requestLine[1] == "/api/status" || requestLine[1] == "/api/jobs") {
+                    } else if (requestLine[1] == "/api/status"
+                               || requestLine[1] == "/api/jobs"
+                               || requestLine[1] == "/api/history") {
                         if (httpStatusProvider_) {
                             body = httpStatusProvider_();
                         } else {
@@ -581,6 +583,12 @@ public:
                             }
                             body = {{QStringLiteral("status"), QStringLiteral("ok")},
                                     {QStringLiteral("workers"), workerCount}};
+                        }
+                        if (requestLine[1] == "/api/history") {
+                            body = QJsonObject{
+                                {QStringLiteral("jobHistory"),
+                                 body.value(QStringLiteral("jobHistory")).toArray()}
+                            };
                         }
                     } else if (requestLine[1].startsWith("/api/jobs/")) {
                         const QString requestedJobId = QString::fromUtf8(
@@ -609,6 +617,7 @@ public:
                                 QStringLiteral("GET /api/health"),
                                 QStringLiteral("GET /api/status"),
                                 QStringLiteral("GET /api/jobs"),
+                                QStringLiteral("GET /api/history"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
                                 QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume"),
