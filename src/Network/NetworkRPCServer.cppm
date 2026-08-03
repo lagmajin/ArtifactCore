@@ -172,12 +172,14 @@ public:
     void handleHeartbeat(QTcpSocket* socket, const QJsonObject& msg) {
         QString workerId = msg["params"].toObject()["workerId"].toString();
         if (!workerId.isEmpty()) {
-            std::lock_guard<std::mutex> lock(mutex_);
-            auto it = workerSockets_.find(workerId);
-            if (it != workerSockets_.end()) {
-                auto wit = workers_.find(it->second);
-                if (wit != workers_.end())
-                    wit->second.lastHeartbeat = QDateTime::currentMSecsSinceEpoch();
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                auto it = workerSockets_.find(workerId);
+                if (it != workerSockets_.end()) {
+                    auto wit = workers_.find(it->second);
+                    if (wit != workers_.end())
+                        wit->second.lastHeartbeat = QDateTime::currentMSecsSinceEpoch();
+                }
             }
             if (onWorkerHeartbeat_)
                 onWorkerHeartbeat_(workerId);
