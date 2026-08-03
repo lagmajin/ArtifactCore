@@ -1251,6 +1251,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
                         int workerCount = 0;
                         int healthyWorkerCount = 0;
+                        int busyWorkerCount = 0;
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
                             workerCount = static_cast<int>(workers_.size());
@@ -1262,6 +1263,8 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 if (worker.connected && heartbeatAgeMs >= 0
                                     && heartbeatAgeMs <= HEARTBEAT_TIMEOUT_MS)
                                     ++healthyWorkerCount;
+                                if (worker.connected && worker.assignedFrames > 0)
+                                    ++busyWorkerCount;
                             }
                         }
                         const auto metric = [&status](const QString& key, const QString& name) {
@@ -1271,6 +1274,11 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             "artifact_farm_workers " + QByteArray::number(workerCount) + "\n"
                             "# TYPE artifact_farm_healthy_workers gauge\n"
                             "artifact_farm_healthy_workers " + QByteArray::number(healthyWorkerCount) + "\n"
+                            "# TYPE artifact_farm_worker_utilization gauge\n"
+                            "artifact_farm_worker_utilization "
+                            + QByteArray::number(workerCount > 0
+                                ? static_cast<double>(busyWorkerCount) / workerCount : 0.0)
+                            + "\n"
                             "# TYPE artifact_farm_queued_jobs gauge\n"
                             + metric(QStringLiteral("queuedJobs"), QStringLiteral("artifact_farm_queued_jobs")) + "\n"
                             "# TYPE artifact_farm_worker_render_time_ms counter\n"
