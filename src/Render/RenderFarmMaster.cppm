@@ -918,6 +918,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("totalFrames"), progress.totalFrames},
             {QStringLiteral("remoteWorkers"), remoteWorkerCount()},
             {QStringLiteral("jobId"), impl_->currentJobId_},
+            {QStringLiteral("updatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
             {QStringLiteral("status"), status},
             {QStringLiteral("busy"), busy},
             {QStringLiteral("success"), !busy && result.success},
