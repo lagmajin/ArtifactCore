@@ -10,6 +10,7 @@ module;
 #include <random>
 #include <unordered_set>
 #include <map>
+#include <deque>
 #include <string>
 #include <condition_variable>
 #include <QString>
@@ -121,6 +122,7 @@ public:
     std::map<QString, RenderJobRequest> jobTemplates_;
     mutable std::mutex jobTemplatesMutex_;
     std::map<QString, RenderJobRequest> jobHistory_;
+    std::deque<QString> jobHistoryOrder_;
     mutable std::mutex jobHistoryMutex_;
 
     void emitProgress() {
@@ -693,7 +695,15 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
         tracked.jobId = QStringLiteral("farm-%1").arg(QDateTime::currentMSecsSinceEpoch());
     {
         std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
+        const auto existing = impl_->jobHistory_.find(tracked.jobId);
+        if (existing == impl_->jobHistory_.end())
+            impl_->jobHistoryOrder_.push_back(tracked.jobId);
         impl_->jobHistory_[tracked.jobId] = tracked;
+        while (impl_->jobHistoryOrder_.size() > 512) {
+            const QString oldest = impl_->jobHistoryOrder_.front();
+            impl_->jobHistoryOrder_.pop_front();
+            impl_->jobHistory_.erase(oldest);
+        }
     }
     if (impl_->farmThread_.joinable()) {
         impl_->farmThread_.join();
