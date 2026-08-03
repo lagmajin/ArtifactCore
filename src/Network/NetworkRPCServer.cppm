@@ -616,7 +616,8 @@ h1{font-size:22px}pre{white-space:pre-wrap;color:#b9d7ff}button{margin-right:8px
 <script>async function refresh(){try{const [s,w]=await Promise.all([fetch('/api/status'),fetch('/api/workers')]);
 const status=await s.json(),workers=await w.json();document.getElementById('status').innerHTML=
 '<b>Status:</b> '+status.status+' &nbsp; <b>Frames:</b> '+status.completedFrames+'/'+status.totalFrames+
-' &nbsp; <b>ETA:</b> '+(status.estimatedRemainingMs??'—')+' ms';
+' &nbsp; <b>ETA:</b> '+(status.estimatedRemainingMs??'—')+' ms'+
+' &nbsp; <b>Est. total:</b> '+(status.estimatedCostMs??'—')+' ms';
 document.getElementById('workers').textContent=JSON.stringify(workers,null,2);
 document.getElementById('history').textContent=JSON.stringify(status.jobHistory||[],null,2)}catch(e){
 document.getElementById('status').textContent='Dashboard unavailable: '+e}}refresh();setInterval(refresh,2000)</script>
@@ -767,6 +768,8 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                             + metric(QStringLiteral("elapsedMs"), QStringLiteral("artifact_farm_elapsed_ms")) + "\n"
                             "# TYPE artifact_farm_estimated_remaining_ms gauge\n"
                             + metric(QStringLiteral("estimatedRemainingMs"), QStringLiteral("artifact_farm_estimated_remaining_ms")) + "\n";
+                        metricsPayload += "# TYPE artifact_farm_estimated_cost_ms gauge\n"
+                            + metric(QStringLiteral("estimatedCostMs"), QStringLiteral("artifact_farm_estimated_cost_ms")) + "\n";
                         contentType = "text/plain; version=0.0.4";
                     } else {
                         statusCode = 404;

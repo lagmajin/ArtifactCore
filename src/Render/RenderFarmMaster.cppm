@@ -1109,6 +1109,11 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
         const auto result = this->result();
         const bool busy = isBusy();
         const bool paused = isPaused();
+        const qint64 estimatedCostMs = progress.completedFrames.load() > 0
+            ? static_cast<qint64>(
+                (static_cast<double>(progress.elapsedMs) / progress.completedFrames.load())
+                * progress.totalFrames)
+            : -1;
         const QString status = paused ? QStringLiteral("paused")
             : busy ? QStringLiteral("running")
             : (!result.errorMessage.isEmpty() ? QStringLiteral("failed")
@@ -1130,6 +1135,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("errorMessage"), busy ? QString() : result.errorMessage},
             {QStringLiteral("elapsedMs"), progress.elapsedMs},
             {QStringLiteral("estimatedRemainingMs"), progress.estimatedRemainingMs},
+            {QStringLiteral("estimatedCostMs"), estimatedCostMs},
             {QStringLiteral("workers"), remoteWorkerSnapshot()}
         };
     });
