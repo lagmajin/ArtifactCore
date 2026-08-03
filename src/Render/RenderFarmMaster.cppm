@@ -716,6 +716,23 @@ QStringList RenderFarmMaster::remoteWorkerIds() const {
     return ids;
 }
 
+QJsonArray RenderFarmMaster::remoteWorkerSnapshot() const {
+    QJsonArray snapshot;
+    for (const auto& worker : NetworkPCServer::instance().connectedWorkers()) {
+        snapshot.append(QJsonObject{
+            {QStringLiteral("workerId"), worker.workerId},
+            {QStringLiteral("address"), worker.address},
+            {QStringLiteral("assignedFrames"), worker.assignedFrames},
+            {QStringLiteral("completedFrames"), worker.completedFrames},
+            {QStringLiteral("failedFrames"), worker.failedFrames},
+            {QStringLiteral("currentFrame"), worker.currentFrame},
+            {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+            {QStringLiteral("capabilities"), worker.capabilities}
+        });
+    }
+    return snapshot;
+}
+
 void RenderFarmMaster::setAllowRemoteWorkers(bool allow) {
     impl_->allowRemote_ = allow;
 }

@@ -5,6 +5,7 @@ module;
 #include <functional>
 #include <atomic>
 #include <QStringList>
+#include <QJsonArray>
 #include "../Define/DllExportMacro.hpp"
 
 export module Render.Farm.Master;
@@ -48,6 +49,7 @@ public:
 
     int remoteWorkerCount() const;
     QStringList remoteWorkerIds() const;
+    QJsonArray remoteWorkerSnapshot() const;
 
     void setAllowRemoteWorkers(bool allow);
     bool allowRemoteWorkers() const;
