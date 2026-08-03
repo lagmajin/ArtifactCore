@@ -179,6 +179,19 @@ public:
                     }
                 }
                 if (!found) return false;
+            } else if (actual.isObject() && it.value().isObject()) {
+                const QJsonObject available = actual.toObject();
+                const QJsonObject required = it.value().toObject();
+                for (auto requiredIt = required.constBegin();
+                     requiredIt != required.constEnd(); ++requiredIt) {
+                    const QJsonValue candidate = available.value(requiredIt.key());
+                    if (candidate.isString() && requiredIt.value().isString()) {
+                        if (candidate.toString().compare(requiredIt.value().toString(), Qt::CaseInsensitive) != 0)
+                            return false;
+                    } else if (candidate != requiredIt.value()) {
+                        return false;
+                    }
+                }
             } else if (actual.isDouble() && it.value().isDouble()) {
                 if (actual.toDouble() < it.value().toDouble()) return false;
             } else if (actual != it.value()) {
