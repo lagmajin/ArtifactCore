@@ -416,6 +416,34 @@ public:
                         statusCode = 204;
                         statusText = "No Content";
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1] == "/api/jobs") {
+                        QJsonParseError parseError;
+                        const QJsonDocument document = QJsonDocument::fromJson(requestBody, &parseError);
+                        if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+                            statusCode = 400;
+                            statusText = "Bad Request";
+                            body = {{QStringLiteral("error"), QStringLiteral("invalid_job_request")}};
+                        } else if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("submitJob"), document.object());
+                            const QString jobStatus = body.value(QStringLiteral("status")).toString();
+                            if (jobStatus == QStringLiteral("invalid_request")
+                                || jobStatus == QStringLiteral("renderer_not_found")) {
+                                statusCode = 400;
+                                statusText = "Bad Request";
+                            } else if (jobStatus == QStringLiteral("busy")) {
+                                statusCode = 409;
+                                statusText = "Conflict";
+                            } else if (jobStatus == QStringLiteral("no_workers")
+                                       || jobStatus == QStringLiteral("remote_disabled")) {
+                                statusCode = 503;
+                                statusText = "Service Unavailable";
+                            }
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1].startsWith("/api/jobs/")
                                && requestLine[1].endsWith("/cancel")) {
                         const QByteArray prefix = "/api/jobs/";
@@ -542,6 +570,7 @@ public:
                                 QStringLiteral("GET /api/status"),
                                 QStringLiteral("GET /api/jobs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
+                                QStringLiteral("POST /api/jobs"),
                                 QStringLiteral("POST /api/jobs/{jobId}/cancel"),
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),
