@@ -465,6 +465,11 @@ public:
                             body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
                         } else {
                             body = onRequest_(QStringLiteral("cancelJob"), QJsonObject());
+                            if (body.value(QStringLiteral("status")).toString()
+                                == QStringLiteral("cancel_requested")) {
+                                statusCode = 202;
+                                statusText = "Accepted";
+                            }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1] == "/api/rpc") {
