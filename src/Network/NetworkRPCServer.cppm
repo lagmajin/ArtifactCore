@@ -474,6 +474,31 @@ public:
                             }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1].startsWith("/api/templates/")
+                               && requestLine[1].endsWith("/submit")) {
+                        const QByteArray prefix = "/api/templates/";
+                        const QByteArray suffix = "/submit";
+                        const QString name = QString::fromUtf8(requestLine[1].mid(
+                            prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
+                        if (name.isEmpty() || !onRequest_) {
+                            statusCode = name.isEmpty() ? 400 : 503;
+                            statusText = name.isEmpty() ? "Bad Request" : "Service Unavailable";
+                            body = {{QStringLiteral("error"), name.isEmpty()
+                                ? QStringLiteral("invalid_template_request")
+                                : QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("submitTemplate"),
+                                              {{QStringLiteral("name"), name}});
+                            const QString templateStatus = body.value(QStringLiteral("status")).toString();
+                            if (templateStatus == QStringLiteral("template_not_found")) {
+                                statusCode = 404;
+                                statusText = "Not Found";
+                            } else if (templateStatus == QStringLiteral("accepted")) {
+                                statusCode = 202;
+                                statusText = "Accepted";
+                            }
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1] == "/api/queue/clear") {
                         if (!onRequest_) {
                             statusCode = 503;
@@ -769,6 +794,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/history"),
                                 QStringLiteral("GET /api/queue"),
                                 QStringLiteral("GET /api/templates"),
+                                QStringLiteral("POST /api/templates/{name}/submit"),
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
