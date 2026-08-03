@@ -606,8 +606,11 @@ public:
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Render Farm</title>
 <style>body{font:14px system-ui;margin:24px;background:#15171b;color:#e8eaed}main{max-width:1100px;margin:auto}
 section{background:#20242b;border:1px solid #353b45;border-radius:8px;padding:16px;margin:12px 0}
-h1{font-size:22px}pre{white-space:pre-wrap;color:#b9d7ff}.ok{color:#8fe388}.bad{color:#ff9b9b}</style></head>
-<body><main><h1>Artifact Render Farm</h1><section><div id="status">Loading…</div></section>
+h1{font-size:22px}pre{white-space:pre-wrap;color:#b9d7ff}button{margin-right:8px;padding:6px 12px}
+.ok{color:#8fe388}.bad{color:#ff9b9b}</style></head>
+<body><main><h1>Artifact Render Farm</h1><section><div id="status">Loading…</div>
+<p><button onclick="operate('pause')">Pause</button><button onclick="operate('resume')">Resume</button>
+<button onclick="operate('cancel')">Cancel</button></p></section>
 <section><h2>Workers</h2><pre id="workers">Loading…</pre></section>
 <section><h2>Job history</h2><pre id="history">Loading…</pre></section></main>
 <script>async function refresh(){try{const [s,w]=await Promise.all([fetch('/api/status'),fetch('/api/workers')]);
@@ -617,6 +620,8 @@ const status=await s.json(),workers=await w.json();document.getElementById('stat
 document.getElementById('workers').textContent=JSON.stringify(workers,null,2);
 document.getElementById('history').textContent=JSON.stringify(status.jobHistory||[],null,2)}catch(e){
 document.getElementById('status').textContent='Dashboard unavailable: '+e}}refresh();setInterval(refresh,2000)</script>
+<script>async function operate(action){try{const s=await fetch('/api/status');const j=await s.json();if(!j.jobId)return;
+await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'});refresh()}catch(e){alert(e)}}</script>
 </body></html>)HTML";
                     } else if (requestLine[1] == "/api/status"
                                || requestLine[1] == "/api/jobs"
