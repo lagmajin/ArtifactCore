@@ -441,6 +441,9 @@ public:
                                        || jobStatus == QStringLiteral("remote_disabled")) {
                                 statusCode = 503;
                                 statusText = "Service Unavailable";
+                            } else if (jobStatus == QStringLiteral("accepted")) {
+                                statusCode = 202;
+                                statusText = "Accepted";
                             }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
@@ -492,6 +495,10 @@ public:
                                        || rpcStatus == QStringLiteral("remote_disabled")) {
                                 statusCode = 503;
                                 statusText = "Service Unavailable";
+                            } else if (rpcStatus == QStringLiteral("accepted")
+                                       || rpcStatus == QStringLiteral("cancel_requested")) {
+                                statusCode = 202;
+                                statusText = "Accepted";
                             }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
