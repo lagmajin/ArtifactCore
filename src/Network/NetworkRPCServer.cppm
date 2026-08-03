@@ -432,6 +432,8 @@ public:
                     const bool authorized = authToken_.isEmpty()
                         || authorization == authToken_.toUtf8();
                     QJsonObject body;
+                    QJsonArray responseArray;
+                    bool responseIsArray = false;
                     QByteArray contentType = "application/json";
                     QByteArray metricsPayload;
                     int statusCode = 200;
@@ -778,9 +780,9 @@ public:
                                && requestLine[1] == "/api/rpc") {
                         QJsonParseError parseError;
                         const QJsonDocument document = QJsonDocument::fromJson(requestBody, &parseError);
-                        const QJsonObject requestObject = document.object();
-                        const QString method = requestObject.value(QStringLiteral("method")).toString().trimmed();
-                        if (parseError.error != QJsonParseError::NoError || method.isEmpty()) {
+                        if (parseError.error != QJsonParseError::NoError || document.isNull()
+                            || (!document.isObject() && !document.isArray())
+                            || (document.isArray() && document.array().isEmpty())) {
                             statusCode = 400;
                             statusText = "Bad Request";
                             body = {{QStringLiteral("error"), QStringLiteral("invalid_rpc_request")}};
@@ -788,7 +790,31 @@ public:
                             statusCode = 503;
                             statusText = "Service Unavailable";
                             body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else if (document.isArray()) {
+                            responseIsArray = true;
+                            for (const auto& value : document.array()) {
+                                const QJsonObject requestObject = value.toObject();
+                                const QString method = requestObject.value(QStringLiteral("method")).toString().trimmed();
+                                QJsonObject result;
+                                if (requestObject.isEmpty() || method.isEmpty()) {
+                                    result = {{QStringLiteral("error"), QStringLiteral("invalid_rpc_request")}};
+                                    statusCode = 400;
+                                } else {
+                                    result = onRequest_(method,
+                                        requestObject.value(QStringLiteral("params")).toObject());
+                                }
+                                if (requestObject.contains(QStringLiteral("id")))
+                                    result[QStringLiteral("id")] = requestObject.value(QStringLiteral("id"));
+                                responseArray.append(result);
+                            }
                         } else {
+                            const QJsonObject requestObject = document.object();
+                            const QString method = requestObject.value(QStringLiteral("method")).toString().trimmed();
+                            if (method.isEmpty()) {
+                                statusCode = 400;
+                                statusText = "Bad Request";
+                                body = {{QStringLiteral("error"), QStringLiteral("invalid_rpc_request")}};
+                            } else {
                             body = onRequest_(method,
                                 requestObject.value(QStringLiteral("params")).toObject());
                             const QString rpcStatus = body.value(QStringLiteral("status")).toString();
@@ -816,6 +842,7 @@ public:
                                        || rpcStatus == QStringLiteral("resume_requested")) {
                                 statusCode = 202;
                                 statusText = "Accepted";
+                            }
                             }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
@@ -1051,7 +1078,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
                                 QStringLiteral("GET /api/workers/{workerId}/logs"),
                                 QStringLiteral("POST /api/workers/{workerId}/maintenance"),
-                                QStringLiteral("POST /api/rpc (submitJob[compositionId, workerPool, chunks], validateOutput, cancelJob, clearQueuedJobs, setJobPriority, setJobPriorities, duplicateJob, setFailureAlertThreshold)"),
+                                QStringLiteral("POST /api/rpc[batch] (submitJob[compositionId, workerPool, chunks], validateOutput, cancelJob, clearQueuedJobs, setJobPriority, setJobPriorities, duplicateJob, setFailureAlertThreshold)"),
                                 QStringLiteral("GET /metrics")
                             }}
                         };
@@ -1205,7 +1232,9 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         body = {{QStringLiteral("error"), QStringLiteral("not_found")}};
                     }
                     const QByteArray payload = contentType.startsWith("text/")
-                        ? metricsPayload : QJsonDocument(body).toJson(QJsonDocument::Compact);
+                        ? metricsPayload : (responseIsArray
+                            ? QJsonDocument(responseArray).toJson(QJsonDocument::Compact)
+                            : QJsonDocument(body).toJson(QJsonDocument::Compact));
                     const QByteArray response = "HTTP/1.1 " + QByteArray::number(statusCode)
                         + " " + statusText + "\r\nContent-Type: " + contentType + "\r\n"
                         + "Cache-Control: no-store\r\n"
