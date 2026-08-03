@@ -1374,12 +1374,18 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                 const auto resultIt = impl_->jobHistoryResults_.find(jobId);
                 if (resultIt == impl_->jobHistoryResults_.end()) {
                     historyDetails.append(QJsonObject{{QStringLiteral("jobId"), jobId},
-                                                      {QStringLiteral("status"), QStringLiteral("queued")}});
+                                                      {QStringLiteral("status"), QStringLiteral("queued")},
+                                                      {QStringLiteral("priority"), request.priority},
+                                                      {QStringLiteral("compositionId"), request.compositionId.toString()},
+                                                      {QStringLiteral("outputPath"), request.outputPath}});
                     continue;
                 }
                 const auto& result = resultIt->second;
                 historyDetails.append(QJsonObject{
                     {QStringLiteral("jobId"), jobId},
+                    {QStringLiteral("priority"), request.priority},
+                    {QStringLiteral("compositionId"), request.compositionId.toString()},
+                    {QStringLiteral("outputPath"), request.outputPath},
                     {QStringLiteral("status"), result.success ? QStringLiteral("completed")
                                                                 : QStringLiteral("failed")},
                     {QStringLiteral("success"), result.success},
