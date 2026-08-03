@@ -36,6 +36,7 @@ public:
     bool sendFrameFailed(int frame, const QString& error);
     bool sendWorkerProgress(int completedFrames, int failedFrames, int currentFrame,
                             qint64 renderTimeMs = 0);
+    bool sendWorkerLog(const QString& severity, const QString& message, int frame = -1);
 
 private:
     class Impl;

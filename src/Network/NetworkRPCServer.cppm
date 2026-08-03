@@ -65,6 +65,7 @@ public:
     std::map<QTcpSocket*, RemoteWorkerInfo> workers_;
     std::map<QString, QTcpSocket*> workerSockets_;
     std::map<QTcpSocket*, QByteArray> readBuffers_;
+    QJsonArray workerLogs_;
     mutable std::mutex mutex_;
 
     WorkerConnectedCallback onWorkerConnected_;
@@ -237,7 +238,8 @@ public:
         QJsonObject params = msg["params"].toObject();
         const bool workerScopedRequest = method == QStringLiteral("workerProgress")
             || method == QStringLiteral("frameCompleted")
-            || method == QStringLiteral("frameFailed");
+            || method == QStringLiteral("frameFailed")
+            || method == QStringLiteral("workerLog");
         bool workerIdentityValid = true;
         if (workerScopedRequest) {
             const QString workerId = params[QStringLiteral("workerId")].toString();
@@ -267,6 +269,20 @@ public:
                     workerIt->second.currentFrame = params[QStringLiteral("currentFrame")].toInt(-1);
                 }
             }
+        }
+        if (workerIdentityValid && method == QStringLiteral("workerLog")) {
+            const QString workerId = params[QStringLiteral("workerId")].toString();
+            QJsonObject entry{
+                {QStringLiteral("workerId"), workerId},
+                {QStringLiteral("severity"), params.value(QStringLiteral("severity")).toString()},
+                {QStringLiteral("message"), params.value(QStringLiteral("message")).toString()},
+                {QStringLiteral("frame"), params.value(QStringLiteral("frame")).toInt(-1)},
+                {QStringLiteral("timestamp"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}
+            };
+            std::lock_guard<std::mutex> lock(mutex_);
+            workerLogs_.append(entry);
+            while (workerLogs_.size() > 1000)
+                workerLogs_.removeFirst();
         }
         if (workerIdentityValid && (method == QStringLiteral("frameCompleted")
             || method == QStringLiteral("frameFailed"))) {
@@ -644,6 +660,9 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                                  body.value(QStringLiteral("jobHistory")).toArray()}
                             };
                         }
+                    } else if (requestLine[1] == "/api/logs") {
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        body = QJsonObject{{QStringLiteral("logs"), workerLogs_}};
                     } else if (requestLine[1].startsWith("/api/jobs/")) {
                         const QString requestedJobId = QString::fromUtf8(
                             requestLine[1].mid(QByteArray("/api/jobs/").size()));
@@ -673,6 +692,7 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                                 QStringLiteral("GET /api/status"),
                                 QStringLiteral("GET /api/jobs"),
                                 QStringLiteral("GET /api/history"),
+                                QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
                                 QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume|resubmit"),

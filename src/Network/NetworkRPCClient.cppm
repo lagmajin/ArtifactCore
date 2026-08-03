@@ -243,4 +243,15 @@ bool NetworkRPCClient::sendWorkerProgress(int completedFrames, int failedFrames,
     return true;
 }
 
+bool NetworkRPCClient::sendWorkerLog(const QString& severity, const QString& message, int frame) {
+    if (!impl_->connected_) return false;
+    QJsonObject params;
+    params[QStringLiteral("workerId")] = impl_->workerId_;
+    params[QStringLiteral("severity")] = severity;
+    params[QStringLiteral("message")] = message;
+    params[QStringLiteral("frame")] = frame;
+    impl_->sendMessage(QStringLiteral("workerLog"), params);
+    return true;
+}
+
 }
