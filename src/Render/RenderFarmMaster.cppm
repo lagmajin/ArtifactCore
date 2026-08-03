@@ -94,6 +94,8 @@ public:
 
     RenderFarmProgressCallback onProgress_;
     std::function<void(const RenderJobResult&)> onCompleted_;
+    RenderFarmAlertCallback onAlert_;
+    double failureAlertThreshold_ = 0.0;
 
     std::vector<int> frameAttempts_;
     std::mutex frameAttemptsMutex_;
@@ -143,6 +145,16 @@ public:
             progress.estimatedRemainingMs = 0;
         }
         onProgress_(progress);
+    }
+
+    void notifyCompleted(const RenderJobResult& result) {
+        if (onCompleted_) onCompleted_(result);
+        if (onAlert_ && failureAlertThreshold_ > 0.0 && totalFrames_ > 0) {
+            const double failureFraction = static_cast<double>(result.failedFrames)
+                / static_cast<double>(totalFrames_);
+            if (failureFraction >= failureAlertThreshold_)
+                onAlert_(QStringLiteral("failure_rate"), result);
+        }
     }
 
     explicit Impl(int workerCount)
@@ -466,7 +478,7 @@ public:
                 std::lock_guard<std::mutex> lock(resultMutex_);
                 finalResult_ = result;
             }
-            if (onCompleted_) onCompleted_(result);
+            notifyCompleted(result);
             lastElapsedMs_.store(std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - jobStartedAt_).count());
             busy_ = false;
@@ -601,7 +613,7 @@ public:
                 std::lock_guard<std::mutex> lock(resultMutex_);
                 finalResult_ = result;
             }
-            if (onCompleted_) onCompleted_(result);
+            notifyCompleted(result);
         }
 
         lastElapsedMs_.store(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -834,6 +846,14 @@ void RenderFarmMaster::setOnProgress(RenderFarmProgressCallback callback) {
 
 void RenderFarmMaster::setOnCompleted(std::function<void(const RenderJobResult&)> callback) {
     impl_->onCompleted_ = std::move(callback);
+}
+
+void RenderFarmMaster::setOnAlert(RenderFarmAlertCallback callback) {
+    impl_->onAlert_ = std::move(callback);
+}
+
+void RenderFarmMaster::setFailureAlertThreshold(double fraction) {
+    impl_->failureAlertThreshold_ = std::clamp(fraction, 0.0, 1.0);
 }
 
 void RenderFarmMaster::setRetryPolicy(const RetryPolicy& policy) {

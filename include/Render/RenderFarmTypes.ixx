@@ -229,5 +229,6 @@ struct RenderJobResult {
 };
 
 using RenderFarmProgressCallback = std::function<void(const RenderJobProgress&)>;
+using RenderFarmAlertCallback = std::function<void(const QString&, const RenderJobResult&)>;
 
 }
