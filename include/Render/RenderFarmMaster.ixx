@@ -29,6 +29,8 @@ public:
     int workerCount() const;
 
     void submitJob(const RenderJobRequest& request);
+    bool saveQueue(const QString& filePath) const;
+    bool loadQueue(const QString& filePath);
     bool resubmitJob(const QString& jobId);
     QStringList jobHistory() const;
     bool submitTemplate(const QString& name);

@@ -21,6 +21,7 @@ module;
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QSaveFile>
 #ifdef emit
 #undef emit
 #endif
@@ -157,6 +158,45 @@ public:
             if (failureFraction >= failureAlertThreshold_)
                 onAlert_(QStringLiteral("failure_rate"), result);
         }
+    }
+
+    static QJsonObject requestToJson(const RenderJobRequest& request) {
+        return QJsonObject{
+            {QStringLiteral("jobId"), request.jobId},
+            {QStringLiteral("compositionId"), request.compositionId.toString()},
+            {QStringLiteral("compositionName"), request.compositionName},
+            {QStringLiteral("startFrame"), request.range.startFrame},
+            {QStringLiteral("endFrame"), request.range.endFrame},
+            {QStringLiteral("step"), request.range.step},
+            {QStringLiteral("outputPath"), request.outputPath},
+            {QStringLiteral("priority"), request.priority},
+            {QStringLiteral("jobTimeoutMs"), request.jobTimeoutMs},
+            {QStringLiteral("frameTimeoutMs"), request.frameTimeoutMs},
+            {QStringLiteral("requiredCapabilities"), request.requiredCapabilities},
+            {QStringLiteral("renderPayload"), request.renderPayload},
+            {QStringLiteral("rendererExecutable"), request.rendererExecutable}
+        };
+    }
+
+    static std::optional<RenderJobRequest> requestFromJson(const QJsonObject& object) {
+        RenderJobRequest request;
+        request.jobId = object.value(QStringLiteral("jobId")).toString().trimmed();
+        request.compositionName = object.value(QStringLiteral("compositionName")).toString();
+        const QString compositionId = object.value(QStringLiteral("compositionId")).toString();
+        if (!compositionId.isEmpty()) request.compositionId = ArtifactCore::Id(compositionId);
+        request.range.startFrame = object.value(QStringLiteral("startFrame")).toInt();
+        request.range.endFrame = object.value(QStringLiteral("endFrame")).toInt();
+        request.range.step = std::max(1, object.value(QStringLiteral("step")).toInt(1));
+        request.outputPath = object.value(QStringLiteral("outputPath")).toString();
+        request.priority = object.value(QStringLiteral("priority")).toInt();
+        request.jobTimeoutMs = std::max(0, object.value(QStringLiteral("jobTimeoutMs")).toInt());
+        request.frameTimeoutMs = std::max(0, object.value(QStringLiteral("frameTimeoutMs")).toInt());
+        request.requiredCapabilities = object.value(QStringLiteral("requiredCapabilities")).toObject();
+        request.renderPayload = object.value(QStringLiteral("renderPayload")).toObject();
+        request.rendererExecutable = object.value(QStringLiteral("rendererExecutable")).toString();
+        if (request.range.count() <= 0 || request.renderPayload.isEmpty()
+            || request.rendererExecutable.isEmpty()) return std::nullopt;
+        return request;
     }
 
     explicit Impl(int workerCount)
@@ -743,6 +783,41 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
             impl_->executeJob(next);
         }
     });
+}
+
+bool RenderFarmMaster::saveQueue(const QString& filePath) const {
+    const QString path = filePath.trimmed();
+    if (path.isEmpty()) return false;
+    QJsonArray jobs;
+    {
+        std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+        for (const auto& job : impl_->pendingJobs_) {
+            if (!job.renderPayload.isEmpty() && !job.rendererExecutable.isEmpty())
+                jobs.append(Impl::requestToJson(job));
+        }
+    }
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    if (file.write(QJsonDocument(jobs).toJson(QJsonDocument::Indented)) < 0)
+        return false;
+    return file.commit();
+}
+
+bool RenderFarmMaster::loadQueue(const QString& filePath) {
+    QFile file(filePath.trimmed());
+    if (!file.open(QIODevice::ReadOnly)) return false;
+    QJsonParseError error;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
+    if (error.error != QJsonParseError::NoError || !document.isArray()) return false;
+    bool loaded = false;
+    for (const auto& value : document.array()) {
+        if (!value.isObject()) continue;
+        const auto request = Impl::requestFromJson(value.toObject());
+        if (!request) continue;
+        submitJob(*request);
+        loaded = true;
+    }
+    return loaded;
 }
 
 bool RenderFarmMaster::resubmitJob(const QString& jobId) {
