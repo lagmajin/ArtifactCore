@@ -412,6 +412,24 @@ public:
                         statusCode = 204;
                         statusText = "No Content";
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1] == "/api/rpc") {
+                        QJsonParseError parseError;
+                        const QJsonDocument document = QJsonDocument::fromJson(requestBody, &parseError);
+                        const QJsonObject requestObject = document.object();
+                        const QString method = requestObject.value(QStringLiteral("method")).toString().trimmed();
+                        if (parseError.error != QJsonParseError::NoError || method.isEmpty()) {
+                            statusCode = 400;
+                            statusText = "Bad Request";
+                            body = {{QStringLiteral("error"), QStringLiteral("invalid_rpc_request")}};
+                        } else if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(method,
+                                requestObject.value(QStringLiteral("params")).toObject());
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1].startsWith("/api/workers/")
                                && requestLine[1].endsWith("/maintenance")) {
                         const QByteArray prefix = "/api/workers/";
