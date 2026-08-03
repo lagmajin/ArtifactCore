@@ -69,6 +69,11 @@ struct RenderJobRequest {
     QString jobId;
 };
 
+struct RenderJobTemplate {
+    QString name;
+    RenderJobRequest request;
+};
+
 struct RenderJobProgress {
     std::atomic<int> completedFrames{ 0 };
     std::atomic<int> failedFrames{ 0 };

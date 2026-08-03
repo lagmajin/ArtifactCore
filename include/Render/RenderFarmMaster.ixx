@@ -6,6 +6,7 @@ module;
 #include <atomic>
 #include <QStringList>
 #include <QJsonArray>
+#include <optional>
 #include "../Define/DllExportMacro.hpp"
 
 export module Render.Farm.Master;
@@ -28,6 +29,10 @@ public:
     int workerCount() const;
 
     void submitJob(const RenderJobRequest& request);
+    bool registerJobTemplate(const RenderJobTemplate& jobTemplate);
+    bool removeJobTemplate(const QString& name);
+    QStringList jobTemplateNames() const;
+    std::optional<RenderJobRequest> jobTemplate(const QString& name) const;
     void cancelAll();
     void pause();
     void resume();

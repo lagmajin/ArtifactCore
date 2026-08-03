@@ -9,6 +9,7 @@ module;
 #include <chrono>
 #include <random>
 #include <unordered_set>
+#include <map>
 #include <string>
 #include <condition_variable>
 #include <QString>
@@ -117,6 +118,8 @@ public:
     std::mutex remoteWaitMutex_;
     std::condition_variable remoteCv_;
     std::function<void(const QString&, int, bool)> onRemoteFrameResult_;
+    std::map<QString, RenderJobRequest> jobTemplates_;
+    mutable std::mutex jobTemplatesMutex_;
 
     void emitProgress() {
         if (!onProgress_) return;
@@ -659,6 +662,35 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
     impl_->farmThread_ = std::thread([this, request]() {
         impl_->executeJob(request);
     });
+}
+
+bool RenderFarmMaster::registerJobTemplate(const RenderJobTemplate& jobTemplate) {
+    const QString name = jobTemplate.name.trimmed();
+    if (name.isEmpty() || jobTemplate.request.range.count() <= 0)
+        return false;
+    std::lock_guard<std::mutex> lock(impl_->jobTemplatesMutex_);
+    impl_->jobTemplates_[name] = jobTemplate.request;
+    return true;
+}
+
+bool RenderFarmMaster::removeJobTemplate(const QString& name) {
+    std::lock_guard<std::mutex> lock(impl_->jobTemplatesMutex_);
+    return impl_->jobTemplates_.erase(name.trimmed()) > 0;
+}
+
+QStringList RenderFarmMaster::jobTemplateNames() const {
+    QStringList names;
+    std::lock_guard<std::mutex> lock(impl_->jobTemplatesMutex_);
+    for (const auto& [name, request] : impl_->jobTemplates_)
+        names.push_back(name);
+    return names;
+}
+
+std::optional<RenderJobRequest> RenderFarmMaster::jobTemplate(const QString& name) const {
+    std::lock_guard<std::mutex> lock(impl_->jobTemplatesMutex_);
+    const auto it = impl_->jobTemplates_.find(name.trimmed());
+    if (it == impl_->jobTemplates_.end()) return std::nullopt;
+    return it->second;
 }
 
 void RenderFarmMaster::cancelAll() {
