@@ -1457,14 +1457,16 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             }
         }
         impl_->remoteCv_.notify_all();
-        if (unreportedFrames > 0 && impl_->onAlert_) {
+        if (unreportedFrames > 0
+            && (impl_->onAlert_ || !impl_->alertWebhookUrl_.trimmed().isEmpty())) {
             RenderJobResult alertResult;
             alertResult.success = false;
             alertResult.failedFrames = unreportedFrames;
             alertResult.errorMessage = QStringLiteral("Remote worker disconnected: %1").arg(workerId);
             impl_->lastAlertType_ = QStringLiteral("worker_disconnected");
             impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
-            impl_->onAlert_(QStringLiteral("worker_disconnected"), alertResult);
+            if (impl_->onAlert_)
+                impl_->onAlert_(QStringLiteral("worker_disconnected"), alertResult);
             impl_->postAlertWebhook(QStringLiteral("worker_disconnected"), alertResult);
         }
     });
