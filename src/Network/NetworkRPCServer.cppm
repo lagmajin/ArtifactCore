@@ -458,6 +458,31 @@ public:
                             });
                         }
                         body = {{QStringLiteral("workers"), workersJson}};
+                    } else if (requestLine[1].startsWith("/api/workers/")) {
+                        const QByteArray workerId = requestLine[1].mid(QByteArray("/api/workers/").size());
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        const auto socketIt = workerSockets_.find(QString::fromUtf8(workerId));
+                        const auto workerIt = socketIt == workerSockets_.end()
+                            ? workers_.end() : workers_.find(socketIt->second);
+                        if (workerIt == workers_.end()) {
+                            statusCode = 404;
+                            statusText = "Not Found";
+                            body = {{QStringLiteral("error"), QStringLiteral("worker_not_found")}};
+                        } else {
+                            const auto& worker = workerIt->second;
+                            body = QJsonObject{
+                                {QStringLiteral("workerId"), worker.workerId},
+                                {QStringLiteral("address"), worker.address},
+                                {QStringLiteral("state"), worker.state},
+                                {QStringLiteral("assignedFrames"), worker.assignedFrames},
+                                {QStringLiteral("completedFrames"), worker.completedFrames},
+                                {QStringLiteral("failedFrames"), worker.failedFrames},
+                                {QStringLiteral("renderTimeMs"), worker.renderTimeMs},
+                                {QStringLiteral("currentFrame"), worker.currentFrame},
+                                {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+                                {QStringLiteral("capabilities"), worker.capabilities}
+                            };
+                        }
                     } else if (requestLine[1] == "/metrics") {
                         QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
                         int workerCount = 0;
