@@ -478,6 +478,19 @@ public:
                         }
                         body = {{QStringLiteral("status"), QStringLiteral("ok")},
                                 {QStringLiteral("workers"), workerCount}};
+                    } else if (requestLine[1] == "/api/capabilities") {
+                        body = QJsonObject{
+                            {QStringLiteral("tls"), tlsEnabled_},
+                            {QStringLiteral("endpoints"), QJsonArray{
+                                QStringLiteral("GET /api/health"),
+                                QStringLiteral("GET /api/status"),
+                                QStringLiteral("GET /api/workers"),
+                                QStringLiteral("GET /api/workers/{workerId}"),
+                                QStringLiteral("POST /api/workers/{workerId}/maintenance"),
+                                QStringLiteral("POST /api/rpc"),
+                                QStringLiteral("GET /metrics")
+                            }}
+                        };
                     } else if (requestLine[1] == "/api/workers") {
                         QJsonArray workersJson;
                         std::lock_guard<std::mutex> lock(mutex_);
