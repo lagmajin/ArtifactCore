@@ -31,6 +31,7 @@ public:
 
     void submitJob(const RenderJobRequest& request);
     bool cancelJob(const QString& jobId);
+    int cancelJobs(const QStringList& jobIds);
     int clearQueuedJobs();
     bool setQueuedJobPriority(const QString& jobId, int priority);
     int setQueuedJobPriorities(const QStringList& jobIds, int priority);

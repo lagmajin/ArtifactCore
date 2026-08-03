@@ -551,6 +551,22 @@ public:
                             body = onRequest_(QStringLiteral("clearQueuedJobs"), QJsonObject());
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1] == "/api/queue/cancel") {
+                        QJsonParseError parseError;
+                        const QJsonObject params = QJsonDocument::fromJson(requestBody, &parseError).object();
+                        if (parseError.error != QJsonParseError::NoError
+                            || !params.value(QStringLiteral("jobIds")).isArray()) {
+                            statusCode = 400;
+                            statusText = "Bad Request";
+                            body = {{QStringLiteral("error"), QStringLiteral("invalid_cancel_request")}};
+                        } else if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("cancelJobs"), params);
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1] == "/api/queue/priority") {
                         QJsonParseError parseError;
                         const QJsonObject params = QJsonDocument::fromJson(requestBody, &parseError).object();
@@ -949,6 +965,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("POST /api/jobs/{jobId}/duplicate"),
                                 QStringLiteral("POST /api/jobs/{jobId}/priority"),
                                 QStringLiteral("POST /api/queue/priority"),
+                                QStringLiteral("POST /api/queue/cancel"),
                                 QStringLiteral("POST /api/queue/clear"),
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),

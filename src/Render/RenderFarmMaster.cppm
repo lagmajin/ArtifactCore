@@ -1025,6 +1025,13 @@ bool RenderFarmMaster::cancelJob(const QString& jobId) {
     return true;
 }
 
+int RenderFarmMaster::cancelJobs(const QStringList& jobIds) {
+    int cancelled = 0;
+    for (const QString& jobId : jobIds)
+        if (cancelJob(jobId)) ++cancelled;
+    return cancelled;
+}
+
 int RenderFarmMaster::clearQueuedJobs() {
     int removed = 0;
     QString persistencePath;
@@ -1333,6 +1340,16 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             }
             cancelAll();
             return {{QStringLiteral("status"), QStringLiteral("cancel_requested")}};
+        }
+        if (method == QStringLiteral("cancelJobs")) {
+            const QJsonArray ids = params.value(QStringLiteral("jobIds")).toArray();
+            QStringList jobIds;
+            for (const auto& value : ids) {
+                const QString jobId = value.toString().trimmed();
+                if (!jobId.isEmpty()) jobIds.push_back(jobId);
+            }
+            return {{QStringLiteral("status"), QStringLiteral("cancel_requested")},
+                    {QStringLiteral("cancelled"), cancelJobs(jobIds)}};
         }
         if (method == QStringLiteral("clearQueuedJobs")) {
             return {{QStringLiteral("status"), QStringLiteral("cleared")},
