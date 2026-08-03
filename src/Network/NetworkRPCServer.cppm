@@ -703,6 +703,7 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
+                                QStringLiteral("GET /api/workers/{workerId}/logs"),
                                 QStringLiteral("POST /api/workers/{workerId}/maintenance"),
                                 QStringLiteral("POST /api/rpc (submitJob[compositionId, workerPool], cancelJob)"),
                                 QStringLiteral("GET /metrics")
@@ -727,6 +728,23 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                             });
                         }
                         body = {{QStringLiteral("workers"), workersJson}};
+                    } else if (requestLine[1].startsWith("/api/workers/")
+                               && requestLine[1].endsWith("/logs")) {
+                        const QByteArray prefix = "/api/workers/";
+                        const QByteArray suffix = "/logs";
+                        const QString requestedWorkerId = QString::fromUtf8(requestLine[1].mid(
+                            prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
+                        QJsonArray logs;
+                        {
+                            std::lock_guard<std::mutex> lock(mutex_);
+                            for (const auto& value : workerLogs_) {
+                                if (value.toObject().value(QStringLiteral("workerId")).toString()
+                                    == requestedWorkerId)
+                                    logs.append(value);
+                            }
+                        }
+                        body = QJsonObject{{QStringLiteral("workerId"), requestedWorkerId},
+                                           {QStringLiteral("logs"), logs}};
                     } else if (requestLine[1].startsWith("/api/workers/")) {
                         const QByteArray workerPrefix = "/api/workers/";
                         const QByteArray healthSuffix = "/health";
