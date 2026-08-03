@@ -996,6 +996,10 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             body = {{QStringLiteral("status"), QStringLiteral("ok")},
                                     {QStringLiteral("workers"), workerCount}};
                         }
+                        if (requestLine[1] == "/api/jobs") {
+                            body[QStringLiteral("jobs")] = body.value(
+                                QStringLiteral("jobHistoryDetails")).toArray();
+                        }
                         if (requestLine[1] == "/api/history") {
                             body = QJsonObject{
                                 {QStringLiteral("jobHistory"),
