@@ -1788,8 +1788,19 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             for (const auto& [jobId, request] : impl_->jobHistory_) {
                 const auto resultIt = impl_->jobHistoryResults_.find(jobId);
                 if (resultIt == impl_->jobHistoryResults_.end()) {
+                    bool dependenciesReady = true;
+                    for (const QString& dependency : request.dependencies) {
+                        const auto dependencyResult = impl_->jobHistoryResults_.find(dependency);
+                        if (dependencyResult == impl_->jobHistoryResults_.end()
+                            || !dependencyResult->second.success) {
+                            dependenciesReady = false;
+                            break;
+                        }
+                    }
                     historyDetails.append(QJsonObject{{QStringLiteral("jobId"), jobId},
-                                                      {QStringLiteral("status"), QStringLiteral("queued")},
+                                                      {QStringLiteral("status"), dependenciesReady
+                                                          ? QStringLiteral("queued")
+                                                          : QStringLiteral("waiting_dependency")},
                                                       {QStringLiteral("priority"), request.priority},
                                                       {QStringLiteral("dependencies"), QJsonArray::fromStringList(request.dependencies)},
                                                       {QStringLiteral("jobPool"), request.jobPool},
