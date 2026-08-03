@@ -746,7 +746,8 @@ const status=await s.json(),workers=await w.json(),logs=await l.json();document.
 ' &nbsp; <b>ETA:</b> '+(status.estimatedRemainingMs??'—')+' ms'+
 ' &nbsp; <b>Est. total:</b> '+(status.estimatedCostMs??'—')+' ms'+
 ' &nbsp; <b>Queued:</b> '+(status.queuedJobs??0)+
-' &nbsp; <b>Alert:</b> '+(status.failureAlertThreshold??0);
+' &nbsp; <b>Alert:</b> '+(status.failureAlertThreshold??0)+
+' &nbsp; <b>Last alert:</b> '+(status.lastAlertType||'—')+' '+(status.lastAlertAt||'');
 document.getElementById('workers').textContent=JSON.stringify(workers,null,2);
 document.getElementById('queue').textContent=JSON.stringify(status.queuedJobIds||[],null,2)+'\n'+
 JSON.stringify(status.queuedPriorities||[],null,2);
