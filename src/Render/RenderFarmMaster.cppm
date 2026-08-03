@@ -77,7 +77,10 @@ public:
     int workerCount_;
     std::atomic<bool> busy_{ false };
     std::atomic<bool> cancelled_{ false };
+    std::atomic<bool> paused_{ false };
     std::atomic<bool> timedOut_{ false };
+    std::mutex pauseMutex_;
+    std::condition_variable pauseCv_;
 
     WorkerProgress totalProgress_;
     int totalFrames_ = 0;
@@ -282,6 +285,10 @@ public:
     void executeLocalRange(const RenderJobRequest& request, const RenderFrameRange& subRange,
                            std::atomic<int>& checkpointCounter) {
         for (int frame = subRange.startFrame; frame < subRange.endFrame; frame += subRange.step) {
+            {
+                std::unique_lock<std::mutex> lock(pauseMutex_);
+                pauseCv_.wait(lock, [this]() { return !paused_.load() || cancelled_.load(); });
+            }
             if (cancelled_ || (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)) {
                 if (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)
                     timedOut_ = true;
@@ -292,6 +299,10 @@ public:
             int attempt = 0;
 
             do {
+                {
+                    std::unique_lock<std::mutex> lock(pauseMutex_);
+                    pauseCv_.wait(lock, [this]() { return !paused_.load() || cancelled_.load(); });
+                }
                 if (cancelled_ || (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)) {
                     if (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)
                         timedOut_ = true;
@@ -406,6 +417,7 @@ public:
     void executeJob(const RenderJobRequest& request) {
         busy_ = true;
         cancelled_ = false;
+        paused_ = false;
         timedOut_ = false;
         jobStartedAt_ = std::chrono::steady_clock::now();
 
@@ -651,6 +663,20 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
 
 void RenderFarmMaster::cancelAll() {
     impl_->cancelled_ = true;
+    impl_->pauseCv_.notify_all();
+}
+
+void RenderFarmMaster::pause() {
+    if (impl_->busy_) impl_->paused_ = true;
+}
+
+void RenderFarmMaster::resume() {
+    impl_->paused_ = false;
+    impl_->pauseCv_.notify_all();
+}
+
+bool RenderFarmMaster::isPaused() const {
+    return impl_->paused_.load();
 }
 
 bool RenderFarmMaster::isBusy() const {

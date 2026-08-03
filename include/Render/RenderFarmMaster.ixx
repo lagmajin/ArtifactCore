@@ -29,6 +29,9 @@ public:
 
     void submitJob(const RenderJobRequest& request);
     void cancelAll();
+    void pause();
+    void resume();
+    bool isPaused() const;
     bool isBusy() const;
 
     RenderJobProgress overallProgress() const;
