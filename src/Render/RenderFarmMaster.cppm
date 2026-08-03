@@ -1720,7 +1720,10 @@ QStringList RenderFarmMaster::remoteWorkerIds() const {
 
 QJsonArray RenderFarmMaster::remoteWorkerSnapshot() const {
     QJsonArray snapshot;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
     for (const auto& worker : NetworkPCServer::instance().connectedWorkers()) {
+        const qint64 heartbeatAgeMs = worker.lastHeartbeat > 0
+            ? std::max<qint64>(0, now - worker.lastHeartbeat) : -1;
         snapshot.append(QJsonObject{
             {QStringLiteral("workerId"), worker.workerId},
             {QStringLiteral("address"), worker.address},
@@ -1732,6 +1735,9 @@ QJsonArray RenderFarmMaster::remoteWorkerSnapshot() const {
             {QStringLiteral("totalRenderTimeMs"), worker.totalRenderTimeMs},
             {QStringLiteral("currentFrame"), worker.currentFrame},
             {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+            {QStringLiteral("heartbeatAgeMs"), heartbeatAgeMs},
+            {QStringLiteral("healthy"), worker.connected && heartbeatAgeMs >= 0
+                && heartbeatAgeMs <= 30000},
             {QStringLiteral("capabilities"), worker.capabilities}
         });
     }
