@@ -1444,6 +1444,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("queuedJobs"), queuedJobs},
             {QStringLiteral("queuedJobIds"), queuedJobIds},
             {QStringLiteral("queuedPriorities"), queuedPriorities},
+            {QStringLiteral("failureAlertThreshold"), impl_->failureAlertThreshold_},
             {QStringLiteral("paused"), paused},
             {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
             {QStringLiteral("templateDetails"), templateDetails},
