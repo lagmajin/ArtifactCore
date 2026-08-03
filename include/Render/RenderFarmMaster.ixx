@@ -66,6 +66,7 @@ public:
     void setOnAlert(RenderFarmAlertCallback callback);
     void setFailureAlertThreshold(double fraction);
     void setQueuedJobAlertThreshold(int count);
+    void setAlertWebhookUrl(const QString& url);
     void clearLastAlert();
 
     // -- Out-of-process worker support (Phase 4) --

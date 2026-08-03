@@ -20,6 +20,7 @@ module;
 #include <QtNetwork/QSslKey>
 #include <QFile>
 #include <QDateTime>
+#include <QUrl>
 #include <QDebug>
 #include <cstdint>
 
@@ -558,6 +559,23 @@ public:
                             body = onRequest_(QStringLiteral("setQueuedJobAlertThreshold"), params);
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1] == "/api/alerts/webhook") {
+                        QJsonParseError parseError;
+                        const QJsonObject params = QJsonDocument::fromJson(requestBody, &parseError).object();
+                        const QString url = params.value(QStringLiteral("url")).toString().trimmed();
+                        if (parseError.error != QJsonParseError::NoError
+                            || (!url.isEmpty() && !QUrl(url).isValid())) {
+                            statusCode = 400;
+                            statusText = "Bad Request";
+                            body = {{QStringLiteral("error"), QStringLiteral("invalid_webhook_url")}};
+                        } else if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("setAlertWebhookUrl"), params);
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1] == "/api/queue/clear") {
                         if (!onRequest_) {
                             statusCode = 503;
@@ -995,6 +1013,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("DELETE /api/templates/{name}"),
                                 QStringLiteral("POST /api/alerts/failure-threshold"),
                                 QStringLiteral("POST /api/alerts/queue-depth"),
+                                QStringLiteral("POST /api/alerts/webhook"),
                                 QStringLiteral("POST /api/alerts/clear"),
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),

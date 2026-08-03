@@ -22,6 +22,12 @@ module;
 #include <QDir>
 #include <QFileInfo>
 #include <QSaveFile>
+#include <QCoreApplication>
+#include <QMetaObject>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QUrl>
 #ifdef emit
 #undef emit
 #endif
@@ -102,6 +108,24 @@ public:
     QDateTime lastAlertAt_;
     int lastAlertFailedFrames_ = 0;
     int lastAlertQueuedJobs_ = 0;
+    QString alertWebhookUrl_;
+
+    void postAlertWebhook(const QString& type, const RenderJobResult& result) {
+        const QString url = alertWebhookUrl_.trimmed();
+        QCoreApplication* app = QCoreApplication::instance();
+        if (url.isEmpty() || !app || !QUrl(url).isValid()) return;
+        const QJsonObject payload{
+            {QStringLiteral("text"), QStringLiteral("Artifact Render Farm alert: %1 (%2)")
+                .arg(type, result.errorMessage)}
+        };
+        QMetaObject::invokeMethod(app, [url, payload]() {
+            static QNetworkAccessManager manager;
+            QNetworkRequest request{QUrl(url)};
+            request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+            QNetworkReply* reply = manager.post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
+            QObject::connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
+        }, Qt::QueuedConnection);
+    }
 
     std::vector<int> frameAttempts_;
     std::mutex frameAttemptsMutex_;
@@ -172,6 +196,7 @@ public:
                 lastAlertAt_ = QDateTime::currentDateTimeUtc();
                 lastAlertFailedFrames_ = result.failedFrames;
                 onAlert_(QStringLiteral("failure_rate"), result);
+                postAlertWebhook(QStringLiteral("failure_rate"), result);
             }
         }
     }
@@ -800,6 +825,7 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
             RenderJobResult alertResult;
             alertResult.errorMessage = QStringLiteral("Queued jobs exceeded the configured threshold.");
             impl_->onAlert_(QStringLiteral("queue_depth"), alertResult);
+            impl_->postAlertWebhook(QStringLiteral("queue_depth"), alertResult);
         }
         return;
     }
@@ -1168,6 +1194,10 @@ void RenderFarmMaster::setQueuedJobAlertThreshold(int count) {
     impl_->queuedJobAlertThreshold_ = std::max(0, count);
 }
 
+void RenderFarmMaster::setAlertWebhookUrl(const QString& url) {
+    impl_->alertWebhookUrl_ = url.trimmed();
+}
+
 void RenderFarmMaster::clearLastAlert() {
     impl_->lastAlertType_.clear();
     impl_->lastAlertAt_ = QDateTime();
@@ -1345,6 +1375,14 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             setQueuedJobAlertThreshold(count);
             return {{QStringLiteral("status"), QStringLiteral("updated")},
                     {QStringLiteral("count"), count}};
+        }
+        if (method == QStringLiteral("setAlertWebhookUrl")) {
+            const QString url = params.value(QStringLiteral("url")).toString().trimmed();
+            if (!url.isEmpty() && !QUrl(url).isValid())
+                return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
+            setAlertWebhookUrl(url);
+            return {{QStringLiteral("status"), QStringLiteral("updated")},
+                    {QStringLiteral("configured"), !url.isEmpty()}};
         }
         if (method == QStringLiteral("clearLastAlert")) {
             clearLastAlert();
@@ -1607,6 +1645,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("queuedPriorities"), queuedPriorities},
             {QStringLiteral("failureAlertThreshold"), impl_->failureAlertThreshold_},
             {QStringLiteral("queuedJobAlertThreshold"), impl_->queuedJobAlertThreshold_},
+            {QStringLiteral("alertWebhookConfigured"), !impl_->alertWebhookUrl_.trimmed().isEmpty()},
             {QStringLiteral("lastAlertType"), impl_->lastAlertType_},
             {QStringLiteral("lastAlertAt"), impl_->lastAlertAt_.toString(Qt::ISODateWithMs)},
             {QStringLiteral("lastAlertFailedFrames"), impl_->lastAlertFailedFrames_},
