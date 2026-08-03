@@ -774,6 +774,8 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
                     .arg(QDateTime::currentMSecsSinceEpoch());
             }
             request.compositionName = params.value(QStringLiteral("compositionName")).toString();
+            const QString compositionId = params.value(QStringLiteral("compositionId")).toString().trimmed();
+            if (!compositionId.isEmpty()) request.compositionId = ArtifactCore::Id(compositionId);
             request.range.startFrame = params.value(QStringLiteral("startFrame")).toInt(0);
             request.range.endFrame = params.value(QStringLiteral("endFrame")).toInt(0);
             request.range.step = std::max(1, params.value(QStringLiteral("step")).toInt(1));
