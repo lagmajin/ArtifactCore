@@ -816,7 +816,10 @@ bool RenderFarmMaster::saveQueue(const QString& filePath) const {
 }
 
 bool RenderFarmMaster::loadQueue(const QString& filePath) {
-    QFile file(filePath.trimmed());
+    const QString path = filePath.trimmed();
+    if (path.isEmpty()) return false;
+    impl_->queuePersistenceFile_ = path;
+    QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) return false;
     QJsonParseError error;
     const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
