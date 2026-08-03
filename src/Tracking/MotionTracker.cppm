@@ -1280,6 +1280,11 @@ bool MotionTracker::trackForward(double fromTime, double toTime) {
             impl_->result.setFrame(std::move(frame));
             return true;
         }
+        // A planar tracker must not silently fall back to point optical flow:
+        // doing so would publish a successful result without a homography and
+        // make downstream CornerPin consumers apply the wrong motion model.
+        impl_->result.addFailureFrame(toTime);
+        return false;
     }
 
     // オプティカルフロー計算
@@ -1353,6 +1358,10 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
             impl_->result.setFrame(std::move(frame));
             return true;
         }
+        // Keep Planar mode strict for backward tracking as well.  A point-flow
+        // fallback would produce a result that cannot be consumed as a plane.
+        impl_->result.addFailureFrame(toTime);
+        return false;
     }
 
     // 逆方向トラッキング: 入力フレーム自体を逆順にして測定する。
@@ -1452,7 +1461,14 @@ bool MotionTracker::trackRange(double startTime, double endTime,
             previousTrackedTime = t;
         }
         if (!isFirstSample) {
-            trackForward(previousTrackedTime, t);
+            if (!trackForward(previousTrackedTime, t)) {
+                // Do not advance the session after a failed frame solve.  In
+                // particular, Planar mode deliberately rejects point-flow
+                // fallback, so ignoring this result would mark a partial
+                // track as successful.
+                impl_->shouldStop = true;
+                break;
+            }
             previousTrackedTime = t;
         }
         
