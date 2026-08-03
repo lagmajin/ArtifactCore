@@ -56,7 +56,7 @@ protected:
 class NetworkPCServer::Impl {
 public:
     FarmTcpServer* server_ = nullptr;
-    QTcpServer* httpServer_ = nullptr;
+    FarmTcpServer* httpServer_ = nullptr;
     unsigned short port_ = 0;
     unsigned short httpPort_ = 0;
     bool httpConnectionsSetup_ = false;
@@ -692,6 +692,9 @@ bool NetworkPCServer::setTlsCertificateFiles(const QString& certificateFile,
     impl_->server_->certificate = impl_->tlsCertificate_;
     impl_->server_->privateKey = impl_->tlsPrivateKey_;
     impl_->server_->tlsEnabled = true;
+    impl_->httpServer_->certificate = impl_->tlsCertificate_;
+    impl_->httpServer_->privateKey = impl_->tlsPrivateKey_;
+    impl_->httpServer_->tlsEnabled = true;
     return true;
 }
 
