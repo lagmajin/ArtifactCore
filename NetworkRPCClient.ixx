@@ -34,7 +34,8 @@ public:
 
     bool sendFrameCompleted(int frame);
     bool sendFrameFailed(int frame, const QString& error);
-    bool sendWorkerProgress(int completedFrames, int failedFrames, int currentFrame);
+    bool sendWorkerProgress(int completedFrames, int failedFrames, int currentFrame,
+                            qint64 renderTimeMs = 0);
 
 private:
     class Impl;

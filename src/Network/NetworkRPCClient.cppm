@@ -230,13 +230,15 @@ bool NetworkRPCClient::sendFrameFailed(int frame, const QString& error) {
     return impl_->sendFrameResult(QStringLiteral("frameFailed"), frame, error);
 }
 
-bool NetworkRPCClient::sendWorkerProgress(int completedFrames, int failedFrames, int currentFrame) {
+bool NetworkRPCClient::sendWorkerProgress(int completedFrames, int failedFrames, int currentFrame,
+                                          qint64 renderTimeMs) {
     if (!impl_->connected_) return false;
     QJsonObject params;
     params[QStringLiteral("workerId")] = impl_->workerId_;
     params[QStringLiteral("completedFrames")] = std::max(0, completedFrames);
     params[QStringLiteral("failedFrames")] = std::max(0, failedFrames);
     params[QStringLiteral("currentFrame")] = currentFrame;
+    params[QStringLiteral("renderTimeMs")] = std::max<qint64>(0, renderTimeMs);
     impl_->sendMessage(QStringLiteral("workerProgress"), params);
     return true;
 }

@@ -257,6 +257,8 @@ public:
                 if (workerIt != workers_.end()) {
                     workerIt->second.completedFrames = std::max(0, params[QStringLiteral("completedFrames")].toInt());
                     workerIt->second.failedFrames = std::max(0, params[QStringLiteral("failedFrames")].toInt());
+                    workerIt->second.renderTimeMs = std::max<qint64>(
+                        0, params[QStringLiteral("renderTimeMs")].toVariant().toLongLong());
                     workerIt->second.currentFrame = params[QStringLiteral("currentFrame")].toInt(-1);
                 }
             }
@@ -411,6 +413,7 @@ public:
                                 {QStringLiteral("assignedFrames"), worker.assignedFrames},
                                 {QStringLiteral("completedFrames"), worker.completedFrames},
                                 {QStringLiteral("failedFrames"), worker.failedFrames},
+                                {QStringLiteral("renderTimeMs"), worker.renderTimeMs},
                                 {QStringLiteral("currentFrame"), worker.currentFrame},
                                 {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
                                 {QStringLiteral("capabilities"), worker.capabilities}
