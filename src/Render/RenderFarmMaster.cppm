@@ -8,6 +8,7 @@ module;
 #include <atomic>
 #include <chrono>
 #include <random>
+#include <unordered_set>
 #include <string>
 #include <condition_variable>
 #include <QString>
@@ -68,6 +69,7 @@ struct RemoteJobSlice {
     bool assigned = false;
     bool completed = false;
     int framesCompleted_ = 0;  // how many individual frames reported done
+    std::unordered_set<int> reportedFrames;
 };
 
 class RenderFarmMaster::Impl {
@@ -642,6 +644,25 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
 
     // Handle incoming RPC from workers: frameCompleted / frameFailed
     impl_->onRemoteFrameResult_ = [this](const QString& workerId, int frame, bool success) {
+        {
+            std::lock_guard<std::mutex> lock(impl_->remoteMutex_);
+            bool accepted = false;
+            for (auto& slice : impl_->remoteSlices_) {
+                if (slice.workerId == workerId &&
+                    frame >= slice.range.startFrame &&
+                    frame < slice.range.endFrame &&
+                    ((frame - slice.range.startFrame) % slice.range.step) == 0) {
+                    accepted = slice.reportedFrames.insert(frame).second;
+                    if (accepted) {
+                        ++slice.framesCompleted_;
+                        if (slice.framesCompleted_ >= slice.range.count())
+                            slice.completed = true;
+                    }
+                    break;
+                }
+            }
+            if (!accepted) return;
+        }
         if (success) {
             impl_->totalProgress_.completed.fetch_add(1);
         } else {
@@ -649,19 +670,6 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
         }
         impl_->remoteCompleted_.fetch_add(1);
         // Mark the slice that contains this frame as completed
-        {
-            std::lock_guard<std::mutex> lock(impl_->remoteMutex_);
-            for (auto& slice : impl_->remoteSlices_) {
-                if (slice.workerId == workerId &&
-                    frame >= slice.range.startFrame &&
-                    frame < slice.range.endFrame) {
-                    ++slice.framesCompleted_;
-                    if (slice.framesCompleted_ >= slice.range.count())
-                        slice.completed = true;
-                    break;
-                }
-            }
-        }
         impl_->remoteCv_.notify_all();
     };
 
