@@ -1444,15 +1444,29 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
     rpc.setOnWorkerDisconnected([this](const QString& workerId) {
         // Unblock collectRemoteResults by accounting for remaining frames from the dead worker.
         // collectRemoteResults will mark incomplete slices as failures.
-        std::lock_guard<std::mutex> lock(impl_->remoteMutex_);
-        for (auto& slice : impl_->remoteSlices_) {
-            if (slice.workerId == workerId && !slice.completed) {
-                int remaining = slice.range.count() - slice.framesCompleted_;
-                if (remaining > 0)
-                    impl_->remoteCompleted_.fetch_add(remaining);
+        int unreportedFrames = 0;
+        {
+            std::lock_guard<std::mutex> lock(impl_->remoteMutex_);
+            for (auto& slice : impl_->remoteSlices_) {
+                if (slice.workerId == workerId && !slice.completed) {
+                    int remaining = slice.range.count() - slice.framesCompleted_;
+                    if (remaining > 0)
+                        impl_->remoteCompleted_.fetch_add(remaining);
+                    unreportedFrames += std::max(0, remaining);
+                }
             }
         }
         impl_->remoteCv_.notify_all();
+        if (unreportedFrames > 0 && impl_->onAlert_) {
+            RenderJobResult alertResult;
+            alertResult.success = false;
+            alertResult.failedFrames = unreportedFrames;
+            alertResult.errorMessage = QStringLiteral("Remote worker disconnected: %1").arg(workerId);
+            impl_->lastAlertType_ = QStringLiteral("worker_disconnected");
+            impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
+            impl_->onAlert_(QStringLiteral("worker_disconnected"), alertResult);
+            impl_->postAlertWebhook(QStringLiteral("worker_disconnected"), alertResult);
+        }
     });
 
     rpc.setOnWorkerHeartbeat([](const QString&) {
