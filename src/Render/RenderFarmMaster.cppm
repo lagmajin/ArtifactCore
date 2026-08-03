@@ -438,12 +438,14 @@ public:
     QJsonObject outputManifest(const QString& outputPath,
                                const RenderFrameRange& range) const {
         QJsonArray frames;
+        QJsonArray missingFrames;
         const bool sequence = outputPath.contains(QStringLiteral("####"))
             || outputPath.contains(QStringLiteral("%0"));
         if (sequence) {
             for (int frame = range.startFrame; frame < range.endFrame; frame += range.step) {
                 const QString path = frameOutputPath(outputPath, frame);
                 const QFileInfo info(path);
+                if (!info.isFile() || info.size() <= 0) missingFrames.append(frame);
                 frames.append(QJsonObject{{QStringLiteral("frame"), frame},
                                           {QStringLiteral("path"), path},
                                           {QStringLiteral("exists"), info.isFile()},
@@ -451,13 +453,16 @@ public:
             }
         } else {
             const QFileInfo info(outputPath);
+            if (!info.isFile() || info.size() <= 0) missingFrames.append(range.startFrame);
             frames.append(QJsonObject{{QStringLiteral("frame"), range.startFrame},
                                       {QStringLiteral("path"), outputPath},
                                       {QStringLiteral("exists"), info.isFile()},
                                       {QStringLiteral("sizeBytes"), info.isFile() ? info.size() : 0}});
         }
         return QJsonObject{{QStringLiteral("outputPath"), outputPath},
-                           {QStringLiteral("frames"), frames}};
+                           {QStringLiteral("frames"), frames},
+                           {QStringLiteral("missingFrames"), missingFrames},
+                           {QStringLiteral("complete"), missingFrames.isEmpty()}};
     }
 
     QString versionOutputPath(const QString& outputPath) const {
