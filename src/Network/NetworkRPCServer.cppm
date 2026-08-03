@@ -574,6 +574,8 @@ public:
                             "artifact_farm_workers " + QByteArray::number(workerCount) + "\n"
                             "# TYPE artifact_farm_busy gauge\n"
                             "artifact_farm_busy " + QByteArray::number(status.value(QStringLiteral("busy")).toBool() ? 1 : 0) + "\n"
+                            "# TYPE artifact_farm_success gauge\n"
+                            "artifact_farm_success " + QByteArray::number(status.value(QStringLiteral("success")).toBool() ? 1 : 0) + "\n"
                             "# TYPE artifact_farm_frames_completed gauge\n"
                             + metric(QStringLiteral("completedFrames"), QStringLiteral("artifact_farm_frames_completed")) + "\n"
                             "# TYPE artifact_farm_frames_failed gauge\n"
