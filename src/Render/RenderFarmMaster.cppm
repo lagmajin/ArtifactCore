@@ -1333,7 +1333,9 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             if (!workerPool.isEmpty()) {
                 request.requiredCapabilities[QStringLiteral("pool")] = workerPool;
             }
-            if (request.range.endFrame <= request.range.startFrame
+            const QJsonArray chunks = params.value(QStringLiteral("chunks")).toArray();
+            if ((!chunks.isEmpty() && request.range.count() < 0)
+                || (chunks.isEmpty() && request.range.endFrame <= request.range.startFrame)
                 || request.renderPayload.isEmpty() || request.rendererExecutable.isEmpty()) {
                 return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
             }
@@ -1348,6 +1350,26 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
                 return {{QStringLiteral("status"), QStringLiteral("no_workers")}};
             }
             const bool queued = isBusy();
+            if (!chunks.isEmpty()) {
+                QJsonArray jobIds;
+                int index = 0;
+                for (const auto& value : chunks) {
+                    const QJsonObject chunk = value.toObject();
+                    RenderJobRequest child = request;
+                    child.range.startFrame = chunk.value(QStringLiteral("startFrame")).toInt(-1);
+                    child.range.endFrame = chunk.value(QStringLiteral("endFrame")).toInt(-1);
+                    child.range.step = std::max(1, chunk.value(QStringLiteral("step")).toInt(request.range.step));
+                    if (child.range.count() <= 0)
+                        return {{QStringLiteral("status"), QStringLiteral("invalid_chunk")}};
+                    child.jobId = QStringLiteral("%1-chunk-%2").arg(request.jobId).arg(index++);
+                    submitJob(child);
+                    jobIds.append(child.jobId);
+                }
+                return {{QStringLiteral("status"), QStringLiteral("accepted")},
+                        {QStringLiteral("jobId"), request.jobId},
+                        {QStringLiteral("jobIds"), jobIds},
+                        {QStringLiteral("queued"), queued}};
+            }
             submitJob(request);
             return {{QStringLiteral("status"), QStringLiteral("accepted")},
                     {QStringLiteral("jobId"), request.jobId},
