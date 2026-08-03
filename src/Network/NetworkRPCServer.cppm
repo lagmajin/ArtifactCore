@@ -1109,14 +1109,29 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         }
                     } else if (requestLine[1] == "/api/health") {
                         int workerCount = 0;
+                        int healthyWorkerCount = 0;
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
                             workerCount = static_cast<int>(workers_.size());
-                            for (const auto& [_, worker] : workers_)
+                            const qint64 now = QDateTime::currentMSecsSinceEpoch();
+                            for (const auto& [_, worker] : workers_) {
                                 totalWorkerRenderTimeMs += worker.totalRenderTimeMs;
+                                const qint64 heartbeatAgeMs = worker.lastHeartbeat > 0
+                                    ? std::max<qint64>(0, now - worker.lastHeartbeat) : -1;
+                                if (worker.connected && heartbeatAgeMs >= 0
+                                    && heartbeatAgeMs <= HEARTBEAT_TIMEOUT_MS)
+                                    ++healthyWorkerCount;
+                            }
                         }
-                        body = {{QStringLiteral("status"), QStringLiteral("ok")},
-                                {QStringLiteral("workers"), workerCount}};
+                        const bool farmHealthy = workerCount == 0 || healthyWorkerCount > 0;
+                        if (!farmHealthy) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                        }
+                        body = {{QStringLiteral("status"), farmHealthy
+                                    ? QStringLiteral("ok") : QStringLiteral("unhealthy")},
+                                {QStringLiteral("workers"), workerCount},
+                                {QStringLiteral("healthyWorkers"), healthyWorkerCount}};
                     } else if (requestLine[1] == "/api/capabilities") {
                         body = QJsonObject{
                             {QStringLiteral("tls"), tlsEnabled_},
