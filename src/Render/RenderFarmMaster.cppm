@@ -104,6 +104,7 @@ public:
     std::thread farmThread_;
     std::deque<RenderJobRequest> pendingJobs_;
     mutable std::mutex pendingJobsMutex_;
+    mutable QString queuePersistenceFile_;
     mutable std::mutex resultMutex_;
     std::chrono::steady_clock::time_point jobDeadline_{};
     std::chrono::steady_clock::time_point jobStartedAt_{};
@@ -759,12 +760,17 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
         }
     }
     if (impl_->busy_) {
-        std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
-        const auto insertAt = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
-            [&tracked](const RenderJobRequest& queued) {
-                return queued.priority < tracked.priority;
-            });
-        impl_->pendingJobs_.insert(insertAt, tracked);
+        QString persistencePath;
+        {
+            std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+            const auto insertAt = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+                [&tracked](const RenderJobRequest& queued) {
+                    return queued.priority < tracked.priority;
+                });
+            impl_->pendingJobs_.insert(insertAt, tracked);
+            persistencePath = impl_->queuePersistenceFile_;
+        }
+        if (!persistencePath.isEmpty()) saveQueue(persistencePath);
         return;
     }
     if (impl_->farmThread_.joinable()) {
@@ -788,6 +794,7 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
 bool RenderFarmMaster::saveQueue(const QString& filePath) const {
     const QString path = filePath.trimmed();
     if (path.isEmpty()) return false;
+    impl_->queuePersistenceFile_ = path;
     QJsonArray jobs;
     {
         std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
