@@ -60,6 +60,7 @@ struct RenderJobRequest {
     int priority = 0;
     QStringList dependencies;
     QString jobPool;
+    QStringList allowedWorkerIds;
     QJsonObject requiredCapabilities;
     // Optional self-contained renderer job payload for out-of-process workers.
     QJsonObject renderPayload;

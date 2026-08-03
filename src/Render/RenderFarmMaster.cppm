@@ -219,6 +219,7 @@ public:
             {QStringLiteral("priority"), request.priority},
             {QStringLiteral("dependencies"), QJsonArray::fromStringList(request.dependencies)},
             {QStringLiteral("jobPool"), request.jobPool},
+            {QStringLiteral("allowedWorkerIds"), QJsonArray::fromStringList(request.allowedWorkerIds)},
             {QStringLiteral("jobTimeoutMs"), request.jobTimeoutMs},
             {QStringLiteral("frameTimeoutMs"), request.frameTimeoutMs},
             {QStringLiteral("requiredCapabilities"), request.requiredCapabilities},
@@ -243,6 +244,8 @@ public:
         for (const auto& dependency : object.value(QStringLiteral("dependencies")).toArray())
             request.dependencies.push_back(dependency.toString().trimmed());
         request.jobPool = object.value(QStringLiteral("jobPool")).toString().trimmed();
+        for (const auto& workerId : object.value(QStringLiteral("allowedWorkerIds")).toArray())
+            request.allowedWorkerIds.push_back(workerId.toString().trimmed());
         request.jobTimeoutMs = std::max(0, object.value(QStringLiteral("jobTimeoutMs")).toInt());
         request.frameTimeoutMs = std::max(0, object.value(QStringLiteral("frameTimeoutMs")).toInt());
         request.requiredCapabilities = object.value(QStringLiteral("requiredCapabilities")).toObject();
@@ -581,6 +584,7 @@ public:
         for (const auto& w : workers) {
             if (!w.workerId.isEmpty() && w.connected && w.assignedFrames == 0
                 && w.state == QStringLiteral("Idle")
+                && (request.allowedWorkerIds.isEmpty() || request.allowedWorkerIds.contains(w.workerId))
                 && workerMatches(w, request.requiredCapabilities))
                 activeWorkers.push_back(w);
         }
@@ -610,6 +614,7 @@ public:
                     jobJson["enableAudio"] = request.enableAudio;
                     jobJson["priority"] = request.priority;
                     jobJson["jobPool"] = request.jobPool;
+                    jobJson["allowedWorkerIds"] = QJsonArray::fromStringList(request.allowedWorkerIds);
                     jobJson["jobTimeoutMs"] = request.jobTimeoutMs;
                     jobJson["frameTimeoutMs"] = request.frameTimeoutMs;
                     jobJson["retryMaxAttempts"] = retryPolicy_.maxAttempts;
@@ -1454,6 +1459,8 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             request.priority = params.value(QStringLiteral("priority")).toInt(0);
             request.autoVersionOutput = params.value(QStringLiteral("autoVersionOutput")).toBool(false);
             request.jobPool = params.value(QStringLiteral("jobPool")).toString().trimmed();
+            for (const auto& workerId : params.value(QStringLiteral("allowedWorkerIds")).toArray())
+                request.allowedWorkerIds.push_back(workerId.toString().trimmed());
             request.jobTimeoutMs = std::max(0, params.value(QStringLiteral("jobTimeoutMs")).toInt(0));
             request.frameTimeoutMs = std::max(0, params.value(QStringLiteral("frameTimeoutMs")).toInt(0));
             for (const auto& dependency : params.value(QStringLiteral("dependencies")).toArray())
@@ -1756,6 +1763,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                                                       {QStringLiteral("priority"), request.priority},
                                                       {QStringLiteral("dependencies"), QJsonArray::fromStringList(request.dependencies)},
                                                       {QStringLiteral("jobPool"), request.jobPool},
+                                                      {QStringLiteral("allowedWorkerIds"), QJsonArray::fromStringList(request.allowedWorkerIds)},
                                                       {QStringLiteral("compositionId"), request.compositionId.toString()},
                                                       {QStringLiteral("outputPath"), request.outputPath},
                                                       {QStringLiteral("autoVersionOutput"), request.autoVersionOutput}});
@@ -1767,6 +1775,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                     {QStringLiteral("priority"), request.priority},
                     {QStringLiteral("dependencies"), QJsonArray::fromStringList(request.dependencies)},
                     {QStringLiteral("jobPool"), request.jobPool},
+                    {QStringLiteral("allowedWorkerIds"), QJsonArray::fromStringList(request.allowedWorkerIds)},
                     {QStringLiteral("compositionId"), request.compositionId.toString()},
                     {QStringLiteral("outputPath"), request.outputPath},
                     {QStringLiteral("autoVersionOutput"), request.autoVersionOutput},
@@ -1792,6 +1801,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                     {QStringLiteral("outputPath"), request.outputPath},
                     {QStringLiteral("jobPool"), request.jobPool},
                     {QStringLiteral("autoVersionOutput"), request.autoVersionOutput},
+                    {QStringLiteral("allowedWorkerIds"), QJsonArray::fromStringList(request.allowedWorkerIds)},
                     {QStringLiteral("requiredCapabilities"), request.requiredCapabilities}
                 });
             }
