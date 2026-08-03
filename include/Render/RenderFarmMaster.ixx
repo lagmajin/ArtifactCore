@@ -57,6 +57,10 @@ public:
     bool setRpcTlsCertificateFiles(const QString& certificateFile,
                                    const QString& privateKeyFile);
     bool setRemoteWorkerMaintenance(const QString& workerId, bool maintenance);
+    bool startHttpApi(unsigned short port = 0);
+    void stopHttpApi();
+    bool isHttpApiRunning() const;
+    unsigned short httpApiPort() const;
 
     static RenderFarmMaster& instance();
 

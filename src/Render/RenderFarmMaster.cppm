@@ -853,6 +853,22 @@ bool RenderFarmMaster::setRemoteWorkerMaintenance(const QString& workerId,
     return NetworkPCServer::instance().setWorkerMaintenance(workerId, maintenance);
 }
 
+bool RenderFarmMaster::startHttpApi(unsigned short port) {
+    return NetworkPCServer::instance().startHttpApi(port);
+}
+
+void RenderFarmMaster::stopHttpApi() {
+    NetworkPCServer::instance().stopHttpApi();
+}
+
+bool RenderFarmMaster::isHttpApiRunning() const {
+    return NetworkPCServer::instance().isHttpApiRunning();
+}
+
+unsigned short RenderFarmMaster::httpApiPort() const {
+    return NetworkPCServer::instance().httpApiPort();
+}
+
 bool RenderFarmMaster::allowRemoteWorkers() const {
     return impl_->allowRemote_;
 }

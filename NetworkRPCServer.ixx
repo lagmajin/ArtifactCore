@@ -59,6 +59,10 @@ public:
     void setOnRequest(RpcRequestHandler handler);
     void setAuthToken(const QString& token);
     bool setWorkerMaintenance(const QString& workerId, bool maintenance);
+    bool startHttpApi(unsigned short port = 0);
+    void stopHttpApi();
+    bool isHttpApiRunning() const;
+    unsigned short httpApiPort() const;
     bool setTlsCertificateFiles(const QString& certificateFile, const QString& privateKeyFile);
     bool tlsEnabled() const;
 

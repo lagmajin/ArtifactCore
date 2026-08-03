@@ -14,6 +14,7 @@ module;
 #include <QTimer>
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
+#include <QtNetwork/QHostAddress>
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslCertificate>
 #include <QtNetwork/QSslKey>
@@ -55,7 +56,10 @@ protected:
 class NetworkPCServer::Impl {
 public:
     FarmTcpServer* server_ = nullptr;
+    QTcpServer* httpServer_ = nullptr;
     unsigned short port_ = 0;
+    unsigned short httpPort_ = 0;
+    bool httpConnectionsSetup_ = false;
     bool running_ = false;
 
     std::map<QTcpSocket*, RemoteWorkerInfo> workers_;
@@ -79,11 +83,14 @@ public:
 
     Impl() {
         server_ = new FarmTcpServer();
+        httpServer_ = new QTcpServer();
     }
 
     ~Impl() {
         stopInternal();
+        stopHttpApi();
         delete server_;
+        delete httpServer_;
     }
 
     void setupConnections() {
@@ -337,6 +344,86 @@ public:
         }
         if (server_->isListening())
             server_->close();
+        stopHttpApi();
+    }
+
+    void stopHttpApi() {
+        if (httpServer_ && httpServer_->isListening()) httpServer_->close();
+        httpPort_ = 0;
+    }
+
+    void setupHttpApi() {
+        if (httpConnectionsSetup_) return;
+        httpConnectionsSetup_ = true;
+        QObject::connect(httpServer_, &QTcpServer::newConnection, [this]() {
+            while (httpServer_->hasPendingConnections()) {
+                QTcpSocket* socket = httpServer_->nextPendingConnection();
+                QObject::connect(socket, &QTcpSocket::readyRead, [this, socket]() {
+                    const QByteArray request = socket->readAll();
+                    const QList<QByteArray> lines = request.split('\n');
+                    if (lines.isEmpty()) return;
+                    const QList<QByteArray> requestLine = lines.front().trimmed().split(' ');
+                    const QByteArray authPrefix = "Authorization: Bearer ";
+                    QByteArray authorization;
+                    for (const auto& line : lines) {
+                        if (line.left(authPrefix.size()).toLower() == authPrefix.toLower()) {
+                            authorization = line.mid(authPrefix.size()).trimmed();
+                            break;
+                        }
+                    }
+                    const bool authorized = authToken_.isEmpty()
+                        || authorization == authToken_.toUtf8();
+                    QJsonObject body;
+                    int statusCode = 200;
+                    QByteArray statusText = "OK";
+                    if (!authorized) {
+                        statusCode = 401;
+                        statusText = "Unauthorized";
+                        body = {{QStringLiteral("error"), QStringLiteral("unauthorized")}};
+                    } else if (requestLine.size() < 2 || requestLine[0] != "GET") {
+                        statusCode = 405;
+                        statusText = "Method Not Allowed";
+                        body = {{QStringLiteral("error"), QStringLiteral("method_not_allowed")}};
+                    } else if (requestLine[1] == "/api/health") {
+                        int workerCount = 0;
+                        {
+                            std::lock_guard<std::mutex> lock(mutex_);
+                            workerCount = static_cast<int>(workers_.size());
+                        }
+                        body = {{QStringLiteral("status"), QStringLiteral("ok")},
+                                {QStringLiteral("workers"), workerCount}};
+                    } else if (requestLine[1] == "/api/workers") {
+                        QJsonArray workersJson;
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        for (const auto& [_, worker] : workers_) {
+                            workersJson.append(QJsonObject{
+                                {QStringLiteral("workerId"), worker.workerId},
+                                {QStringLiteral("address"), worker.address},
+                                {QStringLiteral("state"), worker.state},
+                                {QStringLiteral("assignedFrames"), worker.assignedFrames},
+                                {QStringLiteral("completedFrames"), worker.completedFrames},
+                                {QStringLiteral("failedFrames"), worker.failedFrames},
+                                {QStringLiteral("currentFrame"), worker.currentFrame},
+                                {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+                                {QStringLiteral("capabilities"), worker.capabilities}
+                            });
+                        }
+                        body = {{QStringLiteral("workers"), workersJson}};
+                    } else {
+                        statusCode = 404;
+                        statusText = "Not Found";
+                        body = {{QStringLiteral("error"), QStringLiteral("not_found")}};
+                    }
+                    const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
+                    const QByteArray response = "HTTP/1.1 " + QByteArray::number(statusCode)
+                        + " " + statusText + "\r\nContent-Type: application/json\r\n"
+                        + "Content-Length: " + QByteArray::number(payload.size())
+                        + "\r\nConnection: close\r\n\r\n" + payload;
+                    socket->write(response);
+                    socket->disconnectFromHost();
+                });
+            }
+        });
     }
 
     QTcpSocket* findSocket(const QString& workerId) const {
@@ -370,6 +457,20 @@ bool NetworkPCServer::start(unsigned short port) {
 void NetworkPCServer::stop() { impl_->stopInternal(); }
 bool NetworkPCServer::isRunning() const { return impl_->running_; }
 unsigned short NetworkPCServer::port() const { return impl_->port_; }
+
+bool NetworkPCServer::startHttpApi(unsigned short port) {
+    if (impl_->httpServer_->isListening()) return true;
+    if (port == 0) port = 9877;
+    if (!impl_->httpServer_->listen(QHostAddress::Any, port)) return false;
+    impl_->httpPort_ = impl_->httpServer_->serverPort();
+    impl_->setupHttpApi();
+    qDebug() << "[Farm] HTTP API on port" << impl_->httpPort_;
+    return true;
+}
+
+void NetworkPCServer::stopHttpApi() { impl_->stopHttpApi(); }
+bool NetworkPCServer::isHttpApiRunning() const { return impl_->httpServer_->isListening(); }
+unsigned short NetworkPCServer::httpApiPort() const { return impl_->httpPort_; }
 
 QString NetworkPCServer::call(const QString& function, const QStringList& args) {
     QJsonObject params;
