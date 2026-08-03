@@ -848,6 +848,11 @@ bool RenderFarmMaster::setRpcTlsCertificateFiles(
         certificateFile, privateKeyFile);
 }
 
+bool RenderFarmMaster::setRemoteWorkerMaintenance(const QString& workerId,
+                                                  bool maintenance) {
+    return NetworkPCServer::instance().setWorkerMaintenance(workerId, maintenance);
+}
+
 bool RenderFarmMaster::allowRemoteWorkers() const {
     return impl_->allowRemote_;
 }

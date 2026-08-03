@@ -435,6 +435,20 @@ void NetworkPCServer::setOnWorkerHeartbeat(WorkerHeartbeatCallback cb) { impl_->
 void NetworkPCServer::setOnRequest(RpcRequestHandler handler) { impl_->onRequest_ = std::move(handler); }
 void NetworkPCServer::setAuthToken(const QString& token) { impl_->authToken_ = token; }
 
+bool NetworkPCServer::setWorkerMaintenance(const QString& workerId, bool maintenance) {
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
+    const auto socketIt = impl_->workerSockets_.find(workerId);
+    if (socketIt == impl_->workerSockets_.end()) return false;
+    const auto workerIt = impl_->workers_.find(socketIt->second);
+    if (workerIt == impl_->workers_.end()) return false;
+    workerIt->second.capabilities[QStringLiteral("maintenance")] = maintenance;
+    if (workerIt->second.assignedFrames == 0) {
+        workerIt->second.state = maintenance ? QStringLiteral("Maintenance")
+                                             : QStringLiteral("Idle");
+    }
+    return true;
+}
+
 bool NetworkPCServer::setTlsCertificateFiles(const QString& certificateFile,
                                              const QString& privateKeyFile) {
     QFile certificateInput(certificateFile);

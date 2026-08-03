@@ -58,6 +58,7 @@ public:
     void setOnWorkerHeartbeat(WorkerHeartbeatCallback cb);
     void setOnRequest(RpcRequestHandler handler);
     void setAuthToken(const QString& token);
+    bool setWorkerMaintenance(const QString& workerId, bool maintenance);
     bool setTlsCertificateFiles(const QString& certificateFile, const QString& privateKeyFile);
     bool tlsEnabled() const;
 

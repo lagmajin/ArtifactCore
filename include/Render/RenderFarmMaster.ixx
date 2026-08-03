@@ -56,6 +56,7 @@ public:
     void setRpcAuthToken(const QString& token);
     bool setRpcTlsCertificateFiles(const QString& certificateFile,
                                    const QString& privateKeyFile);
+    bool setRemoteWorkerMaintenance(const QString& workerId, bool maintenance);
 
     static RenderFarmMaster& instance();
 
