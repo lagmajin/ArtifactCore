@@ -674,7 +674,7 @@ h1{font-size:22px}pre{white-space:pre-wrap;color:#b9d7ff}button{margin-right:8px
 .ok{color:#8fe388}.bad{color:#ff9b9b}</style></head>
 <body><main><h1>Artifact Render Farm</h1><section><div id="status">Loading…</div>
 <p><button onclick="operate('pause')">Pause</button><button onclick="operate('resume')">Resume</button>
-<button onclick="operate('cancel')">Cancel</button></p></section>
+<button onclick="operate('cancel')">Cancel</button><button onclick="clearQueue()">Clear queue</button></p></section>
 <section><h2>Queued jobs</h2><pre id="queue">Loading…</pre></section>
 <section><h2>Workers</h2><pre id="workers">Loading…</pre></section>
 <section><h2>Job history</h2><pre id="history">Loading…</pre></section>
@@ -693,6 +693,8 @@ document.getElementById('logs').textContent=JSON.stringify(logs.logs||[],null,2)
 document.getElementById('status').textContent='Dashboard unavailable: '+e}}refresh();setInterval(refresh,2000)</script>
 <script>async function operate(action){try{const s=await fetch('/api/status');const j=await s.json();if(!j.jobId)return;
 await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'});refresh()}catch(e){alert(e)}}</script>
+<script>async function clearQueue(){if(!confirm('Clear all queued jobs?'))return;
+await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
 </body></html>)HTML";
                     } else if (requestLine[1] == "/api/status"
                                || requestLine[1] == "/api/jobs"
