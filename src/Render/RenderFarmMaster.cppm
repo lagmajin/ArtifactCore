@@ -417,8 +417,9 @@ public:
                 continue;
             }
             const QFileInfo candidateInfo(candidate);
-            const QString wildcard = candidateInfo.fileName()
+            QString wildcard = candidateInfo.fileName()
                 .replace(QStringLiteral("####"), QStringLiteral("*"));
+            wildcard.replace(QRegularExpression(QStringLiteral("%0\\d+d")), QStringLiteral("*"));
             if (candidateInfo.dir().entryList({wildcard}, QDir::Files).isEmpty())
                 return candidate;
         }
