@@ -8,6 +8,7 @@ module;
 #include <QJsonObject>
 #include <QTimer>
 #include <QtNetwork/QTcpSocket>
+#include <cstdint>
 
 module NetworkRPCClient;
 import NetworkRPCClient;
@@ -25,6 +26,7 @@ public:
     bool signalConnectionsInstalled_ = false;
     bool heartbeatConnectionInstalled_ = false;
     QByteArray readBuffer_;
+    std::uint64_t nextRpcId_ = 1;
 
     JobAssignedCallback onJobAssigned_;
     DisconnectedCallback onDisconnected_;
@@ -111,7 +113,7 @@ public:
         msg["jsonrpc"] = "2.0";
         msg["method"] = method;
         msg["params"] = params;
-        msg["id"] = 1;
+        msg["id"] = static_cast<qint64>(nextRpcId_++);
         QByteArray data = QJsonDocument(msg).toJson(QJsonDocument::Compact) + "\n";
         socket_->write(data);
         socket_->flush();
