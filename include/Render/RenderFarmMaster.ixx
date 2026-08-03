@@ -33,6 +33,7 @@ public:
     bool cancelJob(const QString& jobId);
     int clearQueuedJobs();
     bool setQueuedJobPriority(const QString& jobId, int priority);
+    int setQueuedJobPriorities(const QStringList& jobIds, int priority);
     bool saveQueue(const QString& filePath) const;
     bool loadQueue(const QString& filePath);
     bool resubmitJob(const QString& jobId);

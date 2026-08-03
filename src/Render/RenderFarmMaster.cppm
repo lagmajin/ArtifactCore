@@ -1068,6 +1068,13 @@ bool RenderFarmMaster::setQueuedJobPriority(const QString& jobId, int priority) 
     return true;
 }
 
+int RenderFarmMaster::setQueuedJobPriorities(const QStringList& jobIds, int priority) {
+    int updated = 0;
+    for (const QString& jobId : jobIds)
+        if (setQueuedJobPriority(jobId, priority)) ++updated;
+    return updated;
+}
+
 void RenderFarmMaster::pause() {
     if (impl_->busy_) impl_->paused_ = true;
 }
@@ -1317,6 +1324,18 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
                 return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
             return {{QStringLiteral("status"), QStringLiteral("updated")},
                     {QStringLiteral("jobId"), jobId},
+                    {QStringLiteral("priority"), priority}};
+        }
+        if (method == QStringLiteral("setJobPriorities")) {
+            const QJsonArray ids = params.value(QStringLiteral("jobIds")).toArray();
+            QStringList jobIds;
+            for (const auto& value : ids) {
+                const QString jobId = value.toString().trimmed();
+                if (!jobId.isEmpty()) jobIds.push_back(jobId);
+            }
+            const int priority = params.value(QStringLiteral("priority")).toInt();
+            return {{QStringLiteral("status"), QStringLiteral("updated")},
+                    {QStringLiteral("updated"), setQueuedJobPriorities(jobIds, priority)},
                     {QStringLiteral("priority"), priority}};
         }
         if (method == QStringLiteral("pauseJob")) {
