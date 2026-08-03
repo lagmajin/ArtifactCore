@@ -889,6 +889,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("completedFrames"), progress.completedFrames.load()},
             {QStringLiteral("failedFrames"), progress.failedFrames.load()},
             {QStringLiteral("totalFrames"), progress.totalFrames},
+            {QStringLiteral("jobId"), impl_->currentJobId_},
             {QStringLiteral("busy"), isBusy()},
             {QStringLiteral("elapsedMs"), progress.elapsedMs},
             {QStringLiteral("estimatedRemainingMs"), progress.estimatedRemainingMs},
