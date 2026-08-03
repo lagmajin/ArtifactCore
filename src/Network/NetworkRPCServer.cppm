@@ -685,6 +685,25 @@ public:
                             body = {{QStringLiteral("workerId"), QString::fromUtf8(workerId)},
                                     {QStringLiteral("maintenance"), maintenance}};
                         }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "DELETE"
+                               && requestLine[1].startsWith("/api/templates/")) {
+                        const QString name = QString::fromUtf8(
+                            requestLine[1].mid(QByteArray("/api/templates/").size()));
+                        if (name.isEmpty() || !onRequest_) {
+                            statusCode = name.isEmpty() ? 400 : 503;
+                            statusText = name.isEmpty() ? "Bad Request" : "Service Unavailable";
+                            body = {{QStringLiteral("error"), name.isEmpty()
+                                ? QStringLiteral("invalid_template_request")
+                                : QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("removeTemplate"),
+                                              {{QStringLiteral("name"), name}});
+                            if (body.value(QStringLiteral("status")).toString()
+                                == QStringLiteral("template_not_found")) {
+                                statusCode = 404;
+                                statusText = "Not Found";
+                            }
+                        }
                     } else if (requestLine.size() < 2 || requestLine[0] != "GET") {
                         statusCode = 405;
                         statusText = "Method Not Allowed";
@@ -812,6 +831,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/templates"),
                                 QStringLiteral("GET /api/templates/{name}"),
                                 QStringLiteral("POST /api/templates/{name}/submit"),
+                                QStringLiteral("DELETE /api/templates/{name}"),
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),

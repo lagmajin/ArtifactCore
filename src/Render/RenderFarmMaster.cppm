@@ -1220,6 +1220,13 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
                 return {{QStringLiteral("status"), QStringLiteral("submit_failed")}};
             return {{QStringLiteral("status"), QStringLiteral("accepted")}};
         }
+        if (method == QStringLiteral("removeTemplate")) {
+            const QString name = params.value(QStringLiteral("name")).toString().trimmed();
+            if (!removeJobTemplate(name))
+                return {{QStringLiteral("status"), QStringLiteral("template_not_found")}};
+            return {{QStringLiteral("status"), QStringLiteral("removed")},
+                    {QStringLiteral("name"), name}};
+        }
         if (method == QStringLiteral("resubmitJob")) {
             const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
             if (!jobHistory().contains(jobId))
