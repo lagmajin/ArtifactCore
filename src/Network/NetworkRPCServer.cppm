@@ -121,11 +121,17 @@ public:
     void handleRegister(QTcpSocket* socket, const QJsonObject& msg) {
         const QJsonObject params = msg["params"].toObject();
         if (!authToken_.isEmpty() && params["authToken"].toString() != authToken_) {
+            qWarning() << "[Farm] Worker registration rejected: authentication failed"
+                       << socket->peerAddress().toString();
             socket->disconnectFromHost();
             return;
         }
         QString workerId = params["workerId"].toString();
-        if (workerId.isEmpty()) return;
+        if (workerId.isEmpty()) {
+            qWarning() << "[Farm] Worker registration rejected: missing worker id"
+                       << socket->peerAddress().toString();
+            return;
+        }
 
         {
             std::lock_guard<std::mutex> lock(mutex_);
