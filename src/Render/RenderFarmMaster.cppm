@@ -86,6 +86,7 @@ public:
     int workerCount_;
     std::atomic<bool> busy_{ false };
     std::atomic<bool> cancelled_{ false };
+    std::atomic<int> currentPriority_{ 0 };
     std::atomic<bool> paused_{ false };
     std::atomic<bool> timedOut_{ false };
     std::mutex pauseMutex_;
@@ -551,6 +552,7 @@ public:
 
     void executeJob(const RenderJobRequest& request) {
         busy_ = true;
+        currentPriority_.store(request.priority);
         cancelled_ = false;
         paused_ = false;
         timedOut_ = false;
@@ -804,6 +806,7 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
         }
     }
     if (impl_->busy_) {
+        const bool shouldPreempt = tracked.priority > impl_->currentPriority_.load();
         QString persistencePath;
         int queuedCount = 0;
         {
@@ -817,6 +820,10 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
             persistencePath = impl_->queuePersistenceFile_;
         }
         if (!persistencePath.isEmpty()) saveQueue(persistencePath);
+        if (shouldPreempt) {
+            impl_->cancelled_ = true;
+            impl_->pauseCv_.notify_all();
+        }
         if (impl_->onAlert_ && impl_->queuedJobAlertThreshold_ > 0
             && queuedCount >= impl_->queuedJobAlertThreshold_) {
             impl_->lastAlertType_ = QStringLiteral("queue_depth");
