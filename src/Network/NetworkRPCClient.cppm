@@ -44,6 +44,7 @@ public:
     bool connectToServer(const QString& host, unsigned short port, const QString& workerId) {
         if (connected_) return false;
         workerId_ = workerId;
+        readBuffer_.clear();
 
         QObject::connect(socket_, &QTcpSocket::connected, [this]() {
             sendRegistration();
@@ -71,6 +72,7 @@ public:
                 socket_->waitForDisconnected(1000);
         }
         connected_ = false;
+        readBuffer_.clear();
     }
 
     void sendRegistration() {
