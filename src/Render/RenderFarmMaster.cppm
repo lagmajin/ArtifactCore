@@ -1334,8 +1334,7 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
                 request.requiredCapabilities[QStringLiteral("pool")] = workerPool;
             }
             const QJsonArray chunks = params.value(QStringLiteral("chunks")).toArray();
-            if ((!chunks.isEmpty() && request.range.count() < 0)
-                || (chunks.isEmpty() && request.range.endFrame <= request.range.startFrame)
+            if ((chunks.isEmpty() && request.range.endFrame <= request.range.startFrame)
                 || request.renderPayload.isEmpty() || request.rendererExecutable.isEmpty()) {
                 return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
             }

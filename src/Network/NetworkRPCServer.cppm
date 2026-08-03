@@ -1036,7 +1036,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
                                 QStringLiteral("GET /api/workers/{workerId}/logs"),
                                 QStringLiteral("POST /api/workers/{workerId}/maintenance"),
-                                QStringLiteral("POST /api/rpc (submitJob[compositionId, workerPool], validateOutput, cancelJob, clearQueuedJobs, setJobPriority, setJobPriorities, duplicateJob, setFailureAlertThreshold)"),
+                                QStringLiteral("POST /api/rpc (submitJob[compositionId, workerPool, chunks], validateOutput, cancelJob, clearQueuedJobs, setJobPriority, setJobPriorities, duplicateJob, setFailureAlertThreshold)"),
                                 QStringLiteral("GET /metrics")
                             }}
                         };
