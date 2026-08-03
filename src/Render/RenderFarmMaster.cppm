@@ -175,6 +175,7 @@ public:
             {QStringLiteral("endFrame"), request.range.endFrame},
             {QStringLiteral("step"), request.range.step},
             {QStringLiteral("outputPath"), request.outputPath},
+            {QStringLiteral("enableAudio"), request.enableAudio},
             {QStringLiteral("priority"), request.priority},
             {QStringLiteral("jobTimeoutMs"), request.jobTimeoutMs},
             {QStringLiteral("frameTimeoutMs"), request.frameTimeoutMs},
@@ -194,6 +195,7 @@ public:
         request.range.endFrame = object.value(QStringLiteral("endFrame")).toInt();
         request.range.step = std::max(1, object.value(QStringLiteral("step")).toInt(1));
         request.outputPath = object.value(QStringLiteral("outputPath")).toString();
+        request.enableAudio = object.value(QStringLiteral("enableAudio")).toBool(false);
         request.priority = object.value(QStringLiteral("priority")).toInt();
         request.jobTimeoutMs = std::max(0, object.value(QStringLiteral("jobTimeoutMs")).toInt());
         request.frameTimeoutMs = std::max(0, object.value(QStringLiteral("frameTimeoutMs")).toInt());
