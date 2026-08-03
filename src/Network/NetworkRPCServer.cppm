@@ -204,7 +204,7 @@ public:
             if (!workerIdentityValid)
                 qWarning() << "[Farm] Ignoring worker-scoped RPC from unregistered socket";
         }
-        if (method == QStringLiteral("workerProgress")) {
+        if (workerIdentityValid && method == QStringLiteral("workerProgress")) {
             const QString workerId = params[QStringLiteral("workerId")].toString();
             std::lock_guard<std::mutex> lock(mutex_);
             const auto socketIt = workerSockets_.find(workerId);
@@ -217,8 +217,8 @@ public:
                 }
             }
         }
-        if (method == QStringLiteral("frameCompleted")
-            || method == QStringLiteral("frameFailed")) {
+        if (workerIdentityValid && (method == QStringLiteral("frameCompleted")
+            || method == QStringLiteral("frameFailed"))) {
             const QString workerId = params[QStringLiteral("workerId")].toString();
             std::lock_guard<std::mutex> lock(mutex_);
             const auto socketIt = workerSockets_.find(workerId);
