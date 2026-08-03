@@ -416,6 +416,26 @@ public:
                         statusCode = 204;
                         statusText = "No Content";
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1].startsWith("/api/jobs/")
+                               && requestLine[1].endsWith("/cancel")) {
+                        const QByteArray prefix = "/api/jobs/";
+                        const QByteArray suffix = "/cancel";
+                        const QString requestedJobId = QString::fromUtf8(requestLine[1].mid(
+                            prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
+                        const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        if (requestedJobId.isEmpty()
+                            || status.value(QStringLiteral("jobId")).toString() != requestedJobId) {
+                            statusCode = 404;
+                            statusText = "Not Found";
+                            body = {{QStringLiteral("error"), QStringLiteral("job_not_found")}};
+                        } else if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("cancelJob"), QJsonObject());
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1] == "/api/rpc") {
                         QJsonParseError parseError;
                         const QJsonDocument document = QJsonDocument::fromJson(requestBody, &parseError);
@@ -509,6 +529,7 @@ public:
                                 QStringLiteral("GET /api/status"),
                                 QStringLiteral("GET /api/jobs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
+                                QStringLiteral("POST /api/jobs/{jobId}/cancel"),
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
