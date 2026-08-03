@@ -60,6 +60,7 @@ public:
     void setOnCompleted(std::function<void(const RenderJobResult&)> callback);
     void setOnAlert(RenderFarmAlertCallback callback);
     void setFailureAlertThreshold(double fraction);
+    void clearLastAlert();
 
     // -- Out-of-process worker support (Phase 4) --
     bool startRpcServer(unsigned short port = 0);

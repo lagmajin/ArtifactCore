@@ -1101,6 +1101,12 @@ void RenderFarmMaster::setFailureAlertThreshold(double fraction) {
     impl_->failureAlertThreshold_ = std::clamp(fraction, 0.0, 1.0);
 }
 
+void RenderFarmMaster::clearLastAlert() {
+    impl_->lastAlertType_.clear();
+    impl_->lastAlertAt_ = QDateTime();
+    impl_->lastAlertFailedFrames_ = 0;
+}
+
 void RenderFarmMaster::setRetryPolicy(const RetryPolicy& policy) {
     impl_->retryPolicy_ = policy;
 }
@@ -1242,6 +1248,10 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             setFailureAlertThreshold(threshold);
             return {{QStringLiteral("status"), QStringLiteral("updated")},
                     {QStringLiteral("fraction"), threshold}};
+        }
+        if (method == QStringLiteral("clearLastAlert")) {
+            clearLastAlert();
+            return {{QStringLiteral("status"), QStringLiteral("cleared")}};
         }
         if (method == QStringLiteral("resubmitJob")) {
             const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();

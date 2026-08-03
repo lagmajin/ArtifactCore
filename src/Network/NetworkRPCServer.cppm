@@ -474,6 +474,15 @@ public:
                             }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1] == "/api/alerts/clear") {
+                        if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("clearLastAlert"), QJsonObject());
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1] == "/api/alerts/failure-threshold") {
                         QJsonParseError parseError;
                         const QJsonDocument document = QJsonDocument::fromJson(requestBody, &parseError);
@@ -864,6 +873,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("POST /api/templates/{name}/submit"),
                                 QStringLiteral("DELETE /api/templates/{name}"),
                                 QStringLiteral("POST /api/alerts/failure-threshold"),
+                                QStringLiteral("POST /api/alerts/clear"),
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
