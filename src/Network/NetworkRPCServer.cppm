@@ -628,14 +628,16 @@ h1{font-size:22px}pre{white-space:pre-wrap;color:#b9d7ff}button{margin-right:8px
 <p><button onclick="operate('pause')">Pause</button><button onclick="operate('resume')">Resume</button>
 <button onclick="operate('cancel')">Cancel</button></p></section>
 <section><h2>Workers</h2><pre id="workers">Loading…</pre></section>
-<section><h2>Job history</h2><pre id="history">Loading…</pre></section></main>
-<script>async function refresh(){try{const [s,w]=await Promise.all([fetch('/api/status'),fetch('/api/workers')]);
-const status=await s.json(),workers=await w.json();document.getElementById('status').innerHTML=
+<section><h2>Job history</h2><pre id="history">Loading…</pre></section>
+<section><h2>Worker logs</h2><pre id="logs">Loading…</pre></section></main>
+<script>async function refresh(){try{const [s,w,l]=await Promise.all([fetch('/api/status'),fetch('/api/workers'),fetch('/api/logs')]);
+const status=await s.json(),workers=await w.json(),logs=await l.json();document.getElementById('status').innerHTML=
 '<b>Status:</b> '+status.status+' &nbsp; <b>Frames:</b> '+status.completedFrames+'/'+status.totalFrames+
 ' &nbsp; <b>ETA:</b> '+(status.estimatedRemainingMs??'—')+' ms'+
 ' &nbsp; <b>Est. total:</b> '+(status.estimatedCostMs??'—')+' ms';
 document.getElementById('workers').textContent=JSON.stringify(workers,null,2);
-document.getElementById('history').textContent=JSON.stringify(status.jobHistory||[],null,2)}catch(e){
+document.getElementById('history').textContent=JSON.stringify(status.jobHistory||[],null,2);
+document.getElementById('logs').textContent=JSON.stringify(logs.logs||[],null,2)}catch(e){
 document.getElementById('status').textContent='Dashboard unavailable: '+e}}refresh();setInterval(refresh,2000)</script>
 <script>async function operate(action){try{const s=await fetch('/api/status');const j=await s.json();if(!j.jobId)return;
 await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'});refresh()}catch(e){alert(e)}}</script>
