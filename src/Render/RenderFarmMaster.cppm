@@ -87,6 +87,7 @@ public:
     std::atomic<bool> busy_{ false };
     std::atomic<bool> cancelled_{ false };
     std::atomic<int> currentPriority_{ 0 };
+    std::atomic<int> preemptionCount_{ 0 };
     std::atomic<bool> paused_{ false };
     std::atomic<bool> timedOut_{ false };
     std::mutex pauseMutex_;
@@ -821,6 +822,7 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
         }
         if (!persistencePath.isEmpty()) saveQueue(persistencePath);
         if (shouldPreempt) {
+            impl_->preemptionCount_.fetch_add(1);
             impl_->cancelled_ = true;
             impl_->pauseCv_.notify_all();
         }
@@ -1647,6 +1649,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("updatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
             {QStringLiteral("status"), status},
             {QStringLiteral("busy"), busy},
+            {QStringLiteral("preemptionCount"), impl_->preemptionCount_.load()},
             {QStringLiteral("queuedJobs"), queuedJobs},
             {QStringLiteral("queuedJobIds"), queuedJobIds},
             {QStringLiteral("queuedPriorities"), queuedPriorities},
