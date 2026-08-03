@@ -1105,6 +1105,10 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 : -1;
                             const bool healthy = worker.connected && heartbeatAgeMs >= 0
                                 && heartbeatAgeMs <= HEARTBEAT_TIMEOUT_MS;
+                            if (healthRequest && !healthy) {
+                                statusCode = 503;
+                                statusText = "Service Unavailable";
+                            }
                             body = healthRequest ? QJsonObject{
                                 {QStringLiteral("status"), healthy ? QStringLiteral("ok") : QStringLiteral("unhealthy")},
                                 {QStringLiteral("workerId"), worker.workerId},
