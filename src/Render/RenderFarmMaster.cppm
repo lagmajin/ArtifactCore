@@ -114,6 +114,26 @@ public:
     std::condition_variable remoteCv_;
     std::function<void(const QString&, int, bool)> onRemoteFrameResult_;
 
+    void emitProgress() {
+        if (!onProgress_) return;
+        RenderJobProgress progress;
+        progress.completedFrames.store(totalProgress_.completed.load());
+        progress.failedFrames.store(totalProgress_.failed.load());
+        progress.totalFrames = totalFrames_;
+        progress.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - jobStartedAt_).count();
+        const int processed = progress.completedFrames.load() +
+            progress.failedFrames.load();
+        if (processed > 0 && totalFrames_ > processed) {
+            progress.estimatedRemainingMs = static_cast<qint64>(
+                (static_cast<double>(progress.elapsedMs) / processed) *
+                (totalFrames_ - processed));
+        } else if (totalFrames_ <= processed) {
+            progress.estimatedRemainingMs = 0;
+        }
+        onProgress_(progress);
+    }
+
     explicit Impl(int workerCount)
         : workerCount_(workerCount > 0 ? workerCount : std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2))
         , checkpointStore_(std::make_unique<CheckpointStore>())
@@ -290,11 +310,13 @@ public:
 
                 if (ok) {
                     totalProgress_.completed.fetch_add(1);
+                    emitProgress();
                     break;
                 }
 
                 ++attempt;
                 markFrameFailed(frame);
+                emitProgress();
 
                 if (!shouldRetry(frame, attempt)) {
                     finalResult_.failures.setHeld(frame, true);
@@ -730,6 +752,7 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             impl_->markFrameFailed(frame);
         }
         impl_->remoteCompleted_.fetch_add(1);
+        impl_->emitProgress();
         // Mark the slice that contains this frame as completed
         impl_->remoteCv_.notify_all();
     };
