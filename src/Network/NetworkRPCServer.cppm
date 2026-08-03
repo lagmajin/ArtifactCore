@@ -484,6 +484,15 @@ public:
                             body = {{QStringLiteral("status"), QStringLiteral("ok")},
                                     {QStringLiteral("workers"), workerCount}};
                         }
+                    } else if (requestLine[1].startsWith("/api/jobs/")) {
+                        const QString requestedJobId = QString::fromUtf8(
+                            requestLine[1].mid(QByteArray("/api/jobs/").size()));
+                        body = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        if (body.value(QStringLiteral("jobId")).toString() != requestedJobId) {
+                            statusCode = 404;
+                            statusText = "Not Found";
+                            body = {{QStringLiteral("error"), QStringLiteral("job_not_found")}};
+                        }
                     } else if (requestLine[1] == "/api/health") {
                         int workerCount = 0;
                         {
@@ -499,6 +508,7 @@ public:
                                 QStringLiteral("GET /api/health"),
                                 QStringLiteral("GET /api/status"),
                                 QStringLiteral("GET /api/jobs"),
+                                QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
