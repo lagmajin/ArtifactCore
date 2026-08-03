@@ -696,6 +696,13 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
 <script>async function clearQueue(){if(!confirm('Clear all queued jobs?'))return;
 await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
 </body></html>)HTML";
+                    } else if (requestLine[1] == "/api/queue") {
+                        const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        body = QJsonObject{
+                            {QStringLiteral("queuedJobs"), status.value(QStringLiteral("queuedJobs")).toInt()},
+                            {QStringLiteral("queuedJobIds"), status.value(QStringLiteral("queuedJobIds")).toArray()},
+                            {QStringLiteral("queuedPriorities"), status.value(QStringLiteral("queuedPriorities")).toArray()}
+                        };
                     } else if (requestLine[1] == "/api/status"
                                || requestLine[1] == "/api/jobs"
                                || requestLine[1] == "/api/history") {
@@ -755,6 +762,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/status"),
                                 QStringLiteral("GET /api/jobs"),
                                 QStringLiteral("GET /api/history"),
+                                QStringLiteral("GET /api/queue"),
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
