@@ -474,6 +474,23 @@ public:
                             }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1] == "/api/alerts/failure-threshold") {
+                        QJsonParseError parseError;
+                        const QJsonDocument document = QJsonDocument::fromJson(requestBody, &parseError);
+                        const double fraction = document.object().value(QStringLiteral("fraction")).toDouble(-1.0);
+                        if (parseError.error != QJsonParseError::NoError || fraction < 0.0 || fraction > 1.0) {
+                            statusCode = 400;
+                            statusText = "Bad Request";
+                            body = {{QStringLiteral("error"), QStringLiteral("invalid_alert_threshold")}};
+                        } else if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("setFailureAlertThreshold"),
+                                              {{QStringLiteral("fraction"), fraction}});
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1].startsWith("/api/templates/")
                                && requestLine[1].endsWith("/submit")) {
                         const QByteArray prefix = "/api/templates/";
@@ -833,6 +850,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/templates/{name}"),
                                 QStringLiteral("POST /api/templates/{name}/submit"),
                                 QStringLiteral("DELETE /api/templates/{name}"),
+                                QStringLiteral("POST /api/alerts/failure-threshold"),
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
