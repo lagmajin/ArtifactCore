@@ -366,6 +366,9 @@ public:
                     const QList<QByteArray> lines = request.split('\n');
                     if (lines.isEmpty()) return;
                     const QList<QByteArray> requestLine = lines.front().trimmed().split(' ');
+                    const qsizetype bodyOffset = request.indexOf("\r\n\r\n");
+                    const QByteArray requestBody = bodyOffset >= 0
+                        ? request.mid(bodyOffset + 4).trimmed() : QByteArray();
                     const QByteArray authPrefix = "Authorization: Bearer ";
                     QByteArray authorization;
                     for (const auto& line : lines) {
@@ -388,6 +391,41 @@ public:
                     } else if (requestLine.size() >= 2 && requestLine[0] == "OPTIONS") {
                         statusCode = 204;
                         statusText = "No Content";
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1].startsWith("/api/workers/")
+                               && requestLine[1].endsWith("/maintenance")) {
+                        const QByteArray prefix = "/api/workers/";
+                        const QByteArray suffix = "/maintenance";
+                        const QByteArray workerId = requestLine[1].mid(
+                            prefix.size(), requestLine[1].size() - prefix.size() - suffix.size());
+                        QJsonParseError parseError;
+                        const QJsonDocument document = QJsonDocument::fromJson(requestBody, &parseError);
+                        const bool maintenance = document.isObject()
+                            && document.object().value(QStringLiteral("maintenance")).toBool(false);
+                        bool updated = false;
+                        if (parseError.error == QJsonParseError::NoError && !workerId.isEmpty()) {
+                            std::lock_guard<std::mutex> lock(mutex_);
+                            const auto socketIt = workerSockets_.find(QString::fromUtf8(workerId));
+                            if (socketIt != workerSockets_.end()) {
+                                const auto workerIt = workers_.find(socketIt->second);
+                                if (workerIt != workers_.end()) {
+                                    workerIt->second.capabilities[QStringLiteral("maintenance")] = maintenance;
+                                    if (workerIt->second.assignedFrames == 0) {
+                                        workerIt->second.state = maintenance
+                                            ? QStringLiteral("Maintenance") : QStringLiteral("Idle");
+                                    }
+                                    updated = true;
+                                }
+                            }
+                        }
+                        if (!updated) {
+                            statusCode = 404;
+                            statusText = "Not Found";
+                            body = {{QStringLiteral("error"), QStringLiteral("worker_not_found")}};
+                        } else {
+                            body = {{QStringLiteral("workerId"), QString::fromUtf8(workerId)},
+                                    {QStringLiteral("maintenance"), maintenance}};
+                        }
                     } else if (requestLine.size() < 2 || requestLine[0] != "GET") {
                         statusCode = 405;
                         statusText = "Method Not Allowed";
@@ -452,7 +490,7 @@ public:
                         ? metricsPayload : QJsonDocument(body).toJson(QJsonDocument::Compact);
                     const QByteArray response = "HTTP/1.1 " + QByteArray::number(statusCode)
                         + " " + statusText + "\r\nContent-Type: " + contentType + "\r\n"
-                        + "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, OPTIONS\r\n"
+                        + "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
                         + "Access-Control-Allow-Headers: Authorization, Content-Type\r\n"
                         + "Content-Length: " + QByteArray::number(payload.size())
                         + "\r\nConnection: close\r\n\r\n" + payload;
