@@ -191,6 +191,19 @@ public:
     void handleRpc(QTcpSocket* socket, const QJsonObject& msg) {
         QString method = msg["method"].toString();
         QJsonObject params = msg["params"].toObject();
+        const bool workerScopedRequest = method == QStringLiteral("workerProgress")
+            || method == QStringLiteral("frameCompleted")
+            || method == QStringLiteral("frameFailed");
+        bool workerIdentityValid = true;
+        if (workerScopedRequest) {
+            const QString workerId = params[QStringLiteral("workerId")].toString();
+            std::lock_guard<std::mutex> lock(mutex_);
+            const auto workerSocket = workerSockets_.find(workerId);
+            workerIdentityValid = workerSocket != workerSockets_.end()
+                && workerSocket->second == socket;
+            if (!workerIdentityValid)
+                qWarning() << "[Farm] Ignoring worker-scoped RPC from unregistered socket";
+        }
         if (method == QStringLiteral("workerProgress")) {
             const QString workerId = params[QStringLiteral("workerId")].toString();
             std::lock_guard<std::mutex> lock(mutex_);
@@ -223,7 +236,9 @@ public:
             }
         }
         QJsonObject result;
-        if (onRequest_)
+        if (!workerIdentityValid) {
+            result[QStringLiteral("status")] = QStringLiteral("rejected");
+        } else if (onRequest_)
             result = onRequest_(method, params);
 
         QJsonObject resp;
