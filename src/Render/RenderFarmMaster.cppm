@@ -283,7 +283,8 @@ public:
         // Filter connected workers with valid IDs
         std::vector<RemoteWorkerInfo> activeWorkers;
         for (const auto& w : workers) {
-            if (!w.workerId.isEmpty() && w.connected && workerMatches(w, request.requiredCapabilities))
+            if (!w.workerId.isEmpty() && w.connected && w.assignedFrames == 0
+                && workerMatches(w, request.requiredCapabilities))
                 activeWorkers.push_back(w);
         }
         if (activeWorkers.empty()) return;
