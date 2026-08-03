@@ -435,6 +435,7 @@ public:
                     QByteArray metricsPayload;
                     int statusCode = 200;
                     QByteArray statusText = "OK";
+                    qint64 totalWorkerRenderTimeMs = 0;
                     if (!authorized) {
                         statusCode = 401;
                         statusText = "Unauthorized";
@@ -850,7 +851,6 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         }
                     } else if (requestLine[1] == "/api/health") {
                         int workerCount = 0;
-                        qint64 totalWorkerRenderTimeMs = 0;
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
                             workerCount = static_cast<int>(workers_.size());
@@ -987,15 +987,27 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                     } else if (requestLine[1] == "/metrics") {
                         QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
                         int workerCount = 0;
+                        int healthyWorkerCount = 0;
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
                             workerCount = static_cast<int>(workers_.size());
+                            const qint64 now = QDateTime::currentMSecsSinceEpoch();
+                            for (const auto& [_, worker] : workers_) {
+                                totalWorkerRenderTimeMs += worker.totalRenderTimeMs;
+                                const qint64 heartbeatAgeMs = worker.lastHeartbeat > 0
+                                    ? std::max<qint64>(0, now - worker.lastHeartbeat) : -1;
+                                if (worker.connected && heartbeatAgeMs >= 0
+                                    && heartbeatAgeMs <= HEARTBEAT_TIMEOUT_MS)
+                                    ++healthyWorkerCount;
+                            }
                         }
                         const auto metric = [&status](const QString& key, const QString& name) {
                             return name.toUtf8() + " " + QByteArray::number(status.value(key).toDouble());
                         };
                         metricsPayload = "# TYPE artifact_farm_workers gauge\n"
                             "artifact_farm_workers " + QByteArray::number(workerCount) + "\n"
+                            "# TYPE artifact_farm_healthy_workers gauge\n"
+                            "artifact_farm_healthy_workers " + QByteArray::number(healthyWorkerCount) + "\n"
                             "# TYPE artifact_farm_queued_jobs gauge\n"
                             + metric(QStringLiteral("queuedJobs"), QStringLiteral("artifact_farm_queued_jobs")) + "\n"
                             "# TYPE artifact_farm_worker_render_time_ms counter\n"
