@@ -486,6 +486,7 @@ public:
                                 QStringLiteral("GET /api/status"),
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),
+                                QStringLiteral("GET /api/workers/{workerId}/health"),
                                 QStringLiteral("POST /api/workers/{workerId}/maintenance"),
                                 QStringLiteral("POST /api/rpc"),
                                 QStringLiteral("GET /metrics")
@@ -510,7 +511,13 @@ public:
                         }
                         body = {{QStringLiteral("workers"), workersJson}};
                     } else if (requestLine[1].startsWith("/api/workers/")) {
-                        const QByteArray workerId = requestLine[1].mid(QByteArray("/api/workers/").size());
+                        const QByteArray workerPrefix = "/api/workers/";
+                        const QByteArray healthSuffix = "/health";
+                        const bool healthRequest = requestLine[1].endsWith(healthSuffix);
+                        const QByteArray workerId = healthRequest
+                            ? requestLine[1].mid(workerPrefix.size(),
+                                requestLine[1].size() - workerPrefix.size() - healthSuffix.size())
+                            : requestLine[1].mid(workerPrefix.size());
                         std::lock_guard<std::mutex> lock(mutex_);
                         const auto socketIt = workerSockets_.find(QString::fromUtf8(workerId));
                         const auto workerIt = socketIt == workerSockets_.end()
@@ -521,7 +528,12 @@ public:
                             body = {{QStringLiteral("error"), QStringLiteral("worker_not_found")}};
                         } else {
                             const auto& worker = workerIt->second;
-                            body = QJsonObject{
+                            body = healthRequest ? QJsonObject{
+                                {QStringLiteral("status"), QStringLiteral("ok")},
+                                {QStringLiteral("workerId"), worker.workerId},
+                                {QStringLiteral("state"), worker.state},
+                                {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat}
+                            } : QJsonObject{
                                 {QStringLiteral("workerId"), worker.workerId},
                                 {QStringLiteral("address"), worker.address},
                                 {QStringLiteral("state"), worker.state},
