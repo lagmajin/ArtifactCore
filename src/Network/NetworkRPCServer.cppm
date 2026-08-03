@@ -251,16 +251,8 @@ public:
             }
         }
         for (auto* sock : dead) {
-            QString wid;
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                auto it = workers_.find(sock);
-                if (it != workers_.end()) wid = it->second.workerId;
-            }
-            qDebug() << "[Farm] Heartbeat timeout:" << wid;
+            qDebug() << "[Farm] Heartbeat timeout:" << sock->peerAddress().toString();
             sock->disconnectFromHost();
-            if (!wid.isEmpty() && onWorkerDisconnected_)
-                onWorkerDisconnected_(wid);
         }
     }
 
