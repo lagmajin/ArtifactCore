@@ -1126,9 +1126,15 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
         const auto result = this->result();
         const bool busy = isBusy();
         int queuedJobs = 0;
+        QJsonArray queuedJobIds;
+        QJsonArray queuedPriorities;
         {
             std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
             queuedJobs = static_cast<int>(impl_->pendingJobs_.size());
+            for (const auto& queued : impl_->pendingJobs_) {
+                queuedJobIds.append(queued.jobId);
+                queuedPriorities.append(queued.priority);
+            }
         }
         const bool paused = isPaused();
         const qint64 estimatedCostMs = progress.completedFrames.load() > 0
@@ -1151,6 +1157,8 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("status"), status},
             {QStringLiteral("busy"), busy},
             {QStringLiteral("queuedJobs"), queuedJobs},
+            {QStringLiteral("queuedJobIds"), queuedJobIds},
+            {QStringLiteral("queuedPriorities"), queuedPriorities},
             {QStringLiteral("paused"), paused},
             {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
             {QStringLiteral("jobHistory"), QJsonArray::fromStringList(jobHistory())},
