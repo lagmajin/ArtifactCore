@@ -101,6 +101,7 @@ public:
     bool hasJobDeadline_ = false;
 
     QString currentJobId_;
+    ArtifactCore::Id currentCompositionId_;
 
     // Phase 4: Remote worker support
     bool allowRemote_ = false;
@@ -440,6 +441,7 @@ public:
         currentJobId_ = request.jobId.isEmpty()
             ? QString::number(QDateTime::currentMSecsSinceEpoch())
             : request.jobId;
+        currentCompositionId_ = request.compositionId;
 
         totalProgress_ = WorkerProgress{};
         totalFrames_ = request.range.count();
@@ -920,6 +922,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("totalFrames"), progress.totalFrames},
             {QStringLiteral("remoteWorkers"), remoteWorkerCount()},
             {QStringLiteral("jobId"), impl_->currentJobId_},
+            {QStringLiteral("compositionId"), impl_->currentCompositionId_.toString()},
             {QStringLiteral("updatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
             {QStringLiteral("status"), status},
             {QStringLiteral("busy"), busy},
