@@ -21,6 +21,7 @@ module;
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QSet>
 #include <QSaveFile>
 #include <QCoreApplication>
 #include <QMetaObject>
@@ -353,6 +354,28 @@ public:
             const auto resultIt = jobHistoryResults_.find(dependency);
             if (resultIt != jobHistoryResults_.end() && !resultIt->second.success)
                 return true;
+        }
+        return false;
+    }
+
+    bool createsDependencyCycle(const RenderJobRequest& request) const {
+        std::lock_guard<std::mutex> lock(jobHistoryMutex_);
+        QSet<QString> visiting;
+        std::function<bool(const QString&)> visit = [&](const QString& jobId) {
+            if (jobId == request.jobId) return true;
+            if (visiting.contains(jobId)) return false;
+            visiting.insert(jobId);
+            const auto it = jobHistory_.find(jobId);
+            if (it != jobHistory_.end()) {
+                for (const QString& dependency : it->second.dependencies) {
+                    if (visit(dependency)) return true;
+                }
+            }
+            visiting.remove(jobId);
+            return false;
+        };
+        for (const QString& dependency : request.dependencies) {
+            if (visit(dependency)) return true;
         }
         return false;
     }
@@ -1408,6 +1431,7 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             }
             const QJsonArray chunks = params.value(QStringLiteral("chunks")).toArray();
             if (request.dependencies.contains(request.jobId)
+                || impl_->createsDependencyCycle(request)
                 || (chunks.isEmpty() && request.range.endFrame <= request.range.startFrame)
                 || request.renderPayload.isEmpty() || request.rendererExecutable.isEmpty()) {
                 return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
