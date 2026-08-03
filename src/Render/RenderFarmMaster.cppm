@@ -97,9 +97,11 @@ public:
     std::function<void(const RenderJobResult&)> onCompleted_;
     RenderFarmAlertCallback onAlert_;
     double failureAlertThreshold_ = 0.0;
+    int queuedJobAlertThreshold_ = 0;
     QString lastAlertType_;
     QDateTime lastAlertAt_;
     int lastAlertFailedFrames_ = 0;
+    int lastAlertQueuedJobs_ = 0;
 
     std::vector<int> frameAttempts_;
     std::mutex frameAttemptsMutex_;
@@ -778,6 +780,7 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
     }
     if (impl_->busy_) {
         QString persistencePath;
+        int queuedCount = 0;
         {
             std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
             const auto insertAt = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
@@ -785,9 +788,19 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
                     return queued.priority < tracked.priority;
                 });
             impl_->pendingJobs_.insert(insertAt, tracked);
+            queuedCount = static_cast<int>(impl_->pendingJobs_.size());
             persistencePath = impl_->queuePersistenceFile_;
         }
         if (!persistencePath.isEmpty()) saveQueue(persistencePath);
+        if (impl_->onAlert_ && impl_->queuedJobAlertThreshold_ > 0
+            && queuedCount >= impl_->queuedJobAlertThreshold_) {
+            impl_->lastAlertType_ = QStringLiteral("queue_depth");
+            impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
+            impl_->lastAlertQueuedJobs_ = queuedCount;
+            RenderJobResult alertResult;
+            alertResult.errorMessage = QStringLiteral("Queued jobs exceeded the configured threshold.");
+            impl_->onAlert_(QStringLiteral("queue_depth"), alertResult);
+        }
         return;
     }
     if (impl_->farmThread_.joinable()) {
@@ -1151,10 +1164,15 @@ void RenderFarmMaster::setFailureAlertThreshold(double fraction) {
     impl_->failureAlertThreshold_ = std::clamp(fraction, 0.0, 1.0);
 }
 
+void RenderFarmMaster::setQueuedJobAlertThreshold(int count) {
+    impl_->queuedJobAlertThreshold_ = std::max(0, count);
+}
+
 void RenderFarmMaster::clearLastAlert() {
     impl_->lastAlertType_.clear();
     impl_->lastAlertAt_ = QDateTime();
     impl_->lastAlertFailedFrames_ = 0;
+    impl_->lastAlertQueuedJobs_ = 0;
 }
 
 void RenderFarmMaster::setRetryPolicy(const RetryPolicy& policy) {
@@ -1319,6 +1337,14 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             setFailureAlertThreshold(threshold);
             return {{QStringLiteral("status"), QStringLiteral("updated")},
                     {QStringLiteral("fraction"), threshold}};
+        }
+        if (method == QStringLiteral("setQueuedJobAlertThreshold")) {
+            const int count = params.value(QStringLiteral("count")).toInt(-1);
+            if (count < 0)
+                return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
+            setQueuedJobAlertThreshold(count);
+            return {{QStringLiteral("status"), QStringLiteral("updated")},
+                    {QStringLiteral("count"), count}};
         }
         if (method == QStringLiteral("clearLastAlert")) {
             clearLastAlert();
@@ -1580,9 +1606,11 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("queuedJobIds"), queuedJobIds},
             {QStringLiteral("queuedPriorities"), queuedPriorities},
             {QStringLiteral("failureAlertThreshold"), impl_->failureAlertThreshold_},
+            {QStringLiteral("queuedJobAlertThreshold"), impl_->queuedJobAlertThreshold_},
             {QStringLiteral("lastAlertType"), impl_->lastAlertType_},
             {QStringLiteral("lastAlertAt"), impl_->lastAlertAt_.toString(Qt::ISODateWithMs)},
             {QStringLiteral("lastAlertFailedFrames"), impl_->lastAlertFailedFrames_},
+            {QStringLiteral("lastAlertQueuedJobs"), impl_->lastAlertQueuedJobs_},
             {QStringLiteral("paused"), paused},
             {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
             {QStringLiteral("templateDetails"), templateDetails},

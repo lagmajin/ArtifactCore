@@ -542,6 +542,22 @@ public:
                             }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1] == "/api/alerts/queue-depth") {
+                        QJsonParseError parseError;
+                        const QJsonObject params = QJsonDocument::fromJson(requestBody, &parseError).object();
+                        const int count = params.value(QStringLiteral("count")).toInt(-1);
+                        if (parseError.error != QJsonParseError::NoError || count < 0) {
+                            statusCode = 400;
+                            statusText = "Bad Request";
+                            body = {{QStringLiteral("error"), QStringLiteral("invalid_queue_alert_threshold")}};
+                        } else if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("setQueuedJobAlertThreshold"), params);
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1] == "/api/queue/clear") {
                         if (!onRequest_) {
                             statusCode = 503;
@@ -879,7 +895,11 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             {QStringLiteral("lastAlertType"), status.value(QStringLiteral("lastAlertType")).toString()},
                             {QStringLiteral("lastAlertAt"), status.value(QStringLiteral("lastAlertAt")).toString()},
                             {QStringLiteral("lastAlertFailedFrames"),
-                             status.value(QStringLiteral("lastAlertFailedFrames")).toInt()}
+                             status.value(QStringLiteral("lastAlertFailedFrames")).toInt()},
+                            {QStringLiteral("queuedJobAlertThreshold"),
+                             status.value(QStringLiteral("queuedJobAlertThreshold")).toInt()},
+                            {QStringLiteral("lastAlertQueuedJobs"),
+                             status.value(QStringLiteral("lastAlertQueuedJobs")).toInt()}
                         };
                     } else if (requestLine[1] == "/api/templates") {
                         const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
@@ -974,6 +994,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("POST /api/templates/{name}/submit"),
                                 QStringLiteral("DELETE /api/templates/{name}"),
                                 QStringLiteral("POST /api/alerts/failure-threshold"),
+                                QStringLiteral("POST /api/alerts/queue-depth"),
                                 QStringLiteral("POST /api/alerts/clear"),
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),

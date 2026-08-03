@@ -65,6 +65,7 @@ public:
     void setOnCompleted(std::function<void(const RenderJobResult&)> callback);
     void setOnAlert(RenderFarmAlertCallback callback);
     void setFailureAlertThreshold(double fraction);
+    void setQueuedJobAlertThreshold(int count);
     void clearLastAlert();
 
     // -- Out-of-process worker support (Phase 4) --
