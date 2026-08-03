@@ -895,6 +895,9 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         QJsonArray workersJson;
                         std::lock_guard<std::mutex> lock(mutex_);
                         for (const auto& [_, worker] : workers_) {
+                            const qint64 heartbeatAgeMs = worker.lastHeartbeat > 0
+                                ? std::max<qint64>(0, QDateTime::currentMSecsSinceEpoch() - worker.lastHeartbeat)
+                                : -1;
                             workersJson.append(QJsonObject{
                                 {QStringLiteral("workerId"), worker.workerId},
                                 {QStringLiteral("address"), worker.address},
@@ -906,6 +909,9 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 {QStringLiteral("totalRenderTimeMs"), worker.totalRenderTimeMs},
                                 {QStringLiteral("currentFrame"), worker.currentFrame},
                                 {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+                                {QStringLiteral("heartbeatAgeMs"), heartbeatAgeMs},
+                                {QStringLiteral("healthy"), worker.connected && heartbeatAgeMs >= 0
+                                    && heartbeatAgeMs <= HEARTBEAT_TIMEOUT_MS},
                                 {QStringLiteral("capabilities"), worker.capabilities}
                             });
                         }
@@ -950,11 +956,18 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             body = {{QStringLiteral("error"), QStringLiteral("worker_not_found")}};
                         } else {
                             const auto& worker = workerIt->second;
+                            const qint64 heartbeatAgeMs = worker.lastHeartbeat > 0
+                                ? std::max<qint64>(0, QDateTime::currentMSecsSinceEpoch() - worker.lastHeartbeat)
+                                : -1;
+                            const bool healthy = worker.connected && heartbeatAgeMs >= 0
+                                && heartbeatAgeMs <= HEARTBEAT_TIMEOUT_MS;
                             body = healthRequest ? QJsonObject{
-                                {QStringLiteral("status"), QStringLiteral("ok")},
+                                {QStringLiteral("status"), healthy ? QStringLiteral("ok") : QStringLiteral("unhealthy")},
                                 {QStringLiteral("workerId"), worker.workerId},
                                 {QStringLiteral("state"), worker.state},
-                                {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat}
+                                {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+                                {QStringLiteral("heartbeatAgeMs"), heartbeatAgeMs},
+                                {QStringLiteral("healthy"), healthy}
                             } : QJsonObject{
                                 {QStringLiteral("workerId"), worker.workerId},
                                 {QStringLiteral("address"), worker.address},
@@ -966,6 +979,8 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             {QStringLiteral("totalRenderTimeMs"), worker.totalRenderTimeMs},
                                 {QStringLiteral("currentFrame"), worker.currentFrame},
                                 {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+                                {QStringLiteral("heartbeatAgeMs"), heartbeatAgeMs},
+                                {QStringLiteral("healthy"), healthy},
                                 {QStringLiteral("capabilities"), worker.capabilities}
                             };
                         }
