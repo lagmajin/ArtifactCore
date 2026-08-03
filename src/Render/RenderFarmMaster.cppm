@@ -22,6 +22,7 @@ module;
 #include <QDir>
 #include <QFileInfo>
 #include <QSet>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QCoreApplication>
 #include <QMetaObject>
@@ -213,6 +214,7 @@ public:
             {QStringLiteral("endFrame"), request.range.endFrame},
             {QStringLiteral("step"), request.range.step},
             {QStringLiteral("outputPath"), request.outputPath},
+            {QStringLiteral("autoVersionOutput"), request.autoVersionOutput},
             {QStringLiteral("enableAudio"), request.enableAudio},
             {QStringLiteral("priority"), request.priority},
             {QStringLiteral("dependencies"), QJsonArray::fromStringList(request.dependencies)},
@@ -235,6 +237,7 @@ public:
         request.range.endFrame = object.value(QStringLiteral("endFrame")).toInt();
         request.range.step = std::max(1, object.value(QStringLiteral("step")).toInt(1));
         request.outputPath = object.value(QStringLiteral("outputPath")).toString();
+        request.autoVersionOutput = object.value(QStringLiteral("autoVersionOutput")).toBool(false);
         request.enableAudio = object.value(QStringLiteral("enableAudio")).toBool(false);
         request.priority = object.value(QStringLiteral("priority")).toInt();
         for (const auto& dependency : object.value(QStringLiteral("dependencies")).toArray())
@@ -395,6 +398,31 @@ public:
         if (info.exists() && !info.isWritable())
             return QStringLiteral("Output file is not writable: %1").arg(path);
         return {};
+    }
+
+    QString versionOutputPath(const QString& outputPath) const {
+        const QString path = outputPath.trimmed();
+        if (path.isEmpty()) return path;
+        const QFileInfo info(path);
+        const QString suffix = info.suffix();
+        const QString base = suffix.isEmpty()
+            ? path : path.left(path.size() - suffix.size() - 1);
+        for (int version = 1; version <= 9999; ++version) {
+            const QString candidate = QStringLiteral("%1_v%2%3")
+                .arg(base).arg(version, 3, 10, QChar('0'))
+                .arg(suffix.isEmpty() ? QString() : QStringLiteral(".") + suffix);
+            if (!candidate.contains(QStringLiteral("####"))
+                && !candidate.contains(QRegularExpression(QStringLiteral("%0\\d+d")))) {
+                if (!QFileInfo::exists(candidate)) return candidate;
+                continue;
+            }
+            const QFileInfo candidateInfo(candidate);
+            const QString wildcard = candidateInfo.fileName()
+                .replace(QStringLiteral("####"), QStringLiteral("*"));
+            if (candidateInfo.dir().entryList({wildcard}, QDir::Files).isEmpty())
+                return candidate;
+        }
+        return path;
     }
 
     QString validateOutputArtifact(const QString& outputPath,
@@ -577,6 +605,7 @@ public:
                     jobJson["endFrame"] = allRanges[idx].endFrame;
                     jobJson["step"] = allRanges[idx].step;
                     jobJson["outputPath"] = request.outputPath;
+                    jobJson["autoVersionOutput"] = request.autoVersionOutput;
                     jobJson["enableAudio"] = request.enableAudio;
                     jobJson["priority"] = request.priority;
                     jobJson["jobPool"] = request.jobPool;
@@ -843,6 +872,8 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
     RenderJobRequest tracked = request;
     if (tracked.jobId.isEmpty())
         tracked.jobId = QStringLiteral("farm-%1").arg(QDateTime::currentMSecsSinceEpoch());
+    if (tracked.autoVersionOutput)
+        tracked.outputPath = impl_->versionOutputPath(tracked.outputPath);
     {
         std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
         const auto existing = impl_->jobHistory_.find(tracked.jobId);
@@ -1420,6 +1451,7 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             request.range.endFrame = params.value(QStringLiteral("endFrame")).toInt(0);
             request.range.step = std::max(1, params.value(QStringLiteral("step")).toInt(1));
             request.priority = params.value(QStringLiteral("priority")).toInt(0);
+            request.autoVersionOutput = params.value(QStringLiteral("autoVersionOutput")).toBool(false);
             request.jobPool = params.value(QStringLiteral("jobPool")).toString().trimmed();
             request.jobTimeoutMs = std::max(0, params.value(QStringLiteral("jobTimeoutMs")).toInt(0));
             request.frameTimeoutMs = std::max(0, params.value(QStringLiteral("frameTimeoutMs")).toInt(0));
@@ -1724,7 +1756,8 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                                                       {QStringLiteral("dependencies"), QJsonArray::fromStringList(request.dependencies)},
                                                       {QStringLiteral("jobPool"), request.jobPool},
                                                       {QStringLiteral("compositionId"), request.compositionId.toString()},
-                                                      {QStringLiteral("outputPath"), request.outputPath}});
+                                                      {QStringLiteral("outputPath"), request.outputPath},
+                                                      {QStringLiteral("autoVersionOutput"), request.autoVersionOutput}});
                     continue;
                 }
                 const auto& result = resultIt->second;
@@ -1735,6 +1768,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                     {QStringLiteral("jobPool"), request.jobPool},
                     {QStringLiteral("compositionId"), request.compositionId.toString()},
                     {QStringLiteral("outputPath"), request.outputPath},
+                    {QStringLiteral("autoVersionOutput"), request.autoVersionOutput},
                     {QStringLiteral("status"), result.success ? QStringLiteral("completed")
                                                                 : QStringLiteral("failed")},
                     {QStringLiteral("success"), result.success},
@@ -1756,6 +1790,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                     {QStringLiteral("priority"), request.priority},
                     {QStringLiteral("outputPath"), request.outputPath},
                     {QStringLiteral("jobPool"), request.jobPool},
+                    {QStringLiteral("autoVersionOutput"), request.autoVersionOutput},
                     {QStringLiteral("requiredCapabilities"), request.requiredCapabilities}
                 });
             }

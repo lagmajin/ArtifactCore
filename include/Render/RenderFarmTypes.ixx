@@ -51,6 +51,7 @@ struct RenderJobRequest {
     QString compositionName;
     RenderFrameRange range;
     QString outputPath;
+    bool autoVersionOutput = false;
     bool enableAudio = false;
 
     // Zero keeps the farm's legacy unlimited behavior.
