@@ -307,6 +307,10 @@ public:
                     jobJson["step"] = allRanges[idx].step;
                     jobJson["outputPath"] = request.outputPath;
                     jobJson["priority"] = request.priority;
+                    if (!request.renderPayload.isEmpty())
+                        jobJson["renderPayload"] = request.renderPayload;
+                    if (!request.rendererExecutable.isEmpty())
+                        jobJson["rendererExecutable"] = request.rendererExecutable;
 
                     rpc.sendJobAssignment(activeWorkers[i].workerId, jobJson);
 

@@ -58,6 +58,9 @@ struct RenderJobRequest {
     int frameTimeoutMs = 0;
     int priority = 0;
     QJsonObject requiredCapabilities;
+    // Optional self-contained renderer job payload for out-of-process workers.
+    QJsonObject renderPayload;
+    QString rendererExecutable;
 
     // Returns true when the frame was rendered and committed successfully.
     // A false result is a retryable frame failure.
