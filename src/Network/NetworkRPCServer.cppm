@@ -502,7 +502,7 @@ public:
                                 QStringLiteral("GET /api/workers/{workerId}"),
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
                                 QStringLiteral("POST /api/workers/{workerId}/maintenance"),
-                                QStringLiteral("POST /api/rpc"),
+                                QStringLiteral("POST /api/rpc (submitJob, cancelJob)"),
                                 QStringLiteral("GET /metrics")
                             }}
                         };
