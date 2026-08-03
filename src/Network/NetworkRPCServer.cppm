@@ -375,6 +375,8 @@ public:
                     const bool authorized = authToken_.isEmpty()
                         || authorization == authToken_.toUtf8();
                     QJsonObject body;
+                    QByteArray contentType = "application/json";
+                    QByteArray metricsPayload;
                     int statusCode = 200;
                     QByteArray statusText = "OK";
                     if (!authorized) {
@@ -415,14 +417,38 @@ public:
                             });
                         }
                         body = {{QStringLiteral("workers"), workersJson}};
+                    } else if (requestLine[1] == "/metrics") {
+                        QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        int workerCount = 0;
+                        {
+                            std::lock_guard<std::mutex> lock(mutex_);
+                            workerCount = static_cast<int>(workers_.size());
+                        }
+                        const auto metric = [&status](const QString& key, const QString& name) {
+                            return name.toUtf8() + " " + QByteArray::number(status.value(key).toDouble());
+                        };
+                        metricsPayload = "# TYPE artifact_farm_workers gauge\n"
+                            "artifact_farm_workers " + QByteArray::number(workerCount) + "\n"
+                            "# TYPE artifact_farm_frames_completed gauge\n"
+                            + metric(QStringLiteral("completedFrames"), QStringLiteral("artifact_farm_frames_completed")) + "\n"
+                            "# TYPE artifact_farm_frames_failed gauge\n"
+                            + metric(QStringLiteral("failedFrames"), QStringLiteral("artifact_farm_frames_failed")) + "\n"
+                            "# TYPE artifact_farm_frames_total gauge\n"
+                            + metric(QStringLiteral("totalFrames"), QStringLiteral("artifact_farm_frames_total")) + "\n"
+                            "# TYPE artifact_farm_elapsed_ms gauge\n"
+                            + metric(QStringLiteral("elapsedMs"), QStringLiteral("artifact_farm_elapsed_ms")) + "\n"
+                            "# TYPE artifact_farm_estimated_remaining_ms gauge\n"
+                            + metric(QStringLiteral("estimatedRemainingMs"), QStringLiteral("artifact_farm_estimated_remaining_ms")) + "\n";
+                        contentType = "text/plain; version=0.0.4";
                     } else {
                         statusCode = 404;
                         statusText = "Not Found";
                         body = {{QStringLiteral("error"), QStringLiteral("not_found")}};
                     }
-                    const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
+                    const QByteArray payload = contentType.startsWith("text/")
+                        ? metricsPayload : QJsonDocument(body).toJson(QJsonDocument::Compact);
                     const QByteArray response = "HTTP/1.1 " + QByteArray::number(statusCode)
-                        + " " + statusText + "\r\nContent-Type: application/json\r\n"
+                        + " " + statusText + "\r\nContent-Type: " + contentType + "\r\n"
                         + "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, OPTIONS\r\n"
                         + "Access-Control-Allow-Headers: Authorization, Content-Type\r\n"
                         + "Content-Length: " + QByteArray::number(payload.size())
