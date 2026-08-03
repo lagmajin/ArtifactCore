@@ -309,6 +309,8 @@ public:
                     jobJson["priority"] = request.priority;
                     jobJson["jobTimeoutMs"] = request.jobTimeoutMs;
                     jobJson["frameTimeoutMs"] = request.frameTimeoutMs;
+                    jobJson["retryMaxAttempts"] = retryPolicy_.maxAttempts;
+                    jobJson["retryInitialBackoffMs"] = retryPolicy_.initialBackoffMs;
                     if (!request.renderPayload.isEmpty())
                         jobJson["renderPayload"] = request.renderPayload;
                     if (!request.rendererExecutable.isEmpty())
