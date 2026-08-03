@@ -84,7 +84,8 @@ public:
         } else {
             socket_->connectToHost(host, port);
         }
-        return socket_->waitForConnected(5000);
+        return tlsEnabled_ ? socket_->waitForEncrypted(5000)
+                           : socket_->waitForConnected(5000);
     }
 
     void disconnectInternal() {
