@@ -1309,6 +1309,25 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             return {{QStringLiteral("status"), QStringLiteral("ok")},
                     {QStringLiteral("outputPath"), outputPath}};
         }
+        if (method == QStringLiteral("verifyJobOutput")) {
+            const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
+            RenderJobRequest request;
+            {
+                std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
+                const auto it = impl_->jobHistory_.find(jobId);
+                if (it == impl_->jobHistory_.end())
+                    return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
+                request = it->second;
+            }
+            const QString error = impl_->validateOutputArtifact(request.outputPath, request.range);
+            if (!error.isEmpty())
+                return {{QStringLiteral("status"), QStringLiteral("invalid_output_artifact")},
+                        {QStringLiteral("jobId"), jobId},
+                        {QStringLiteral("error"), error}};
+            return {{QStringLiteral("status"), QStringLiteral("ok")},
+                    {QStringLiteral("jobId"), jobId},
+                    {QStringLiteral("outputPath"), request.outputPath}};
+        }
         if (method == QStringLiteral("submitJob")) {
             RenderJobRequest request;
             request.jobId = params.value(QStringLiteral("jobId")).toString().trimmed();

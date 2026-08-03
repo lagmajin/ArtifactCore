@@ -1029,6 +1029,28 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         for (int i = first; i < logCount; ++i)
                             logs.append(workerLogs_.at(i));
                         body = QJsonObject{{QStringLiteral("logs"), logs}};
+                    } else if (requestLine[1].startsWith("/api/jobs/")
+                               && requestLine[1].endsWith("/verify-output")) {
+                        const QByteArray prefix = "/api/jobs/";
+                        const QByteArray suffix = "/verify-output";
+                        const QString jobId = QString::fromUtf8(requestLine[1].mid(
+                            prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
+                        if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("verifyJobOutput"),
+                                              {{QStringLiteral("jobId"), jobId}});
+                            const QString resultStatus = body.value(QStringLiteral("status")).toString();
+                            if (resultStatus == QStringLiteral("job_not_found")) {
+                                statusCode = 404;
+                                statusText = "Not Found";
+                            } else if (resultStatus != QStringLiteral("ok")) {
+                                statusCode = 422;
+                                statusText = "Unprocessable Entity";
+                            }
+                        }
                     } else if (requestLine[1].startsWith("/api/jobs/")) {
                         const QString requestedJobId = QString::fromUtf8(
                             requestLine[1].mid(QByteArray("/api/jobs/").size()));
@@ -1081,6 +1103,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("POST /api/alerts/clear"),
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
+                                QStringLiteral("GET /api/jobs/{jobId}/verify-output"),
                                 QStringLiteral("POST /api/jobs"),
                                 QStringLiteral("POST /api/jobs/validate-output"),
                                 QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume|resubmit"),
