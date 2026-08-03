@@ -722,6 +722,7 @@ QJsonArray RenderFarmMaster::remoteWorkerSnapshot() const {
         snapshot.append(QJsonObject{
             {QStringLiteral("workerId"), worker.workerId},
             {QStringLiteral("address"), worker.address},
+            {QStringLiteral("state"), worker.state},
             {QStringLiteral("assignedFrames"), worker.assignedFrames},
             {QStringLiteral("completedFrames"), worker.completedFrames},
             {QStringLiteral("failedFrames"), worker.failedFrames},

@@ -190,6 +190,11 @@ public:
                 if (workerIt != workers_.end()) {
                     workerIt->second.assignedFrames = std::max(
                         0, workerIt->second.assignedFrames - 1);
+                    if (method == QStringLiteral("frameFailed")) {
+                        workerIt->second.state = QStringLiteral("Error");
+                    } else if (workerIt->second.assignedFrames == 0) {
+                        workerIt->second.state = QStringLiteral("Idle");
+                    }
                 }
             }
         }
@@ -332,7 +337,8 @@ bool NetworkPCServer::sendJobAssignment(const QString& wid, const QJsonObject& j
         if (it != impl_->workerSockets_.end()) {
             auto wit = impl_->workers_.find(it->second);
             if (wit != impl_->workers_.end())
-                wit->second.assignedFrames++;
+            wit->second.assignedFrames++;
+            wit->second.state = QStringLiteral("Rendering");
         }
     }
     return true;
