@@ -791,6 +791,10 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             if (remoteWorkerCount() <= 0) {
                 return {{QStringLiteral("status"), QStringLiteral("no_workers")}};
             }
+            if (isBusy()) {
+                return {{QStringLiteral("status"), QStringLiteral("busy")},
+                        {QStringLiteral("jobId"), impl_->currentJobId_}};
+            }
             submitJob(request);
             return {{QStringLiteral("status"), QStringLiteral("accepted")},
                     {QStringLiteral("jobId"), request.jobId}};
