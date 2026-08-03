@@ -29,6 +29,7 @@ public:
     int workerCount() const;
 
     void submitJob(const RenderJobRequest& request);
+    bool submitTemplate(const QString& name);
     bool registerJobTemplate(const RenderJobTemplate& jobTemplate);
     bool removeJobTemplate(const QString& name);
     QStringList jobTemplateNames() const;

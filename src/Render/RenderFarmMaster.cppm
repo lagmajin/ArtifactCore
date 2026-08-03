@@ -664,6 +664,18 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
     });
 }
 
+bool RenderFarmMaster::submitTemplate(const QString& name) {
+    const auto request = jobTemplate(name);
+    if (!request || isBusy()) return false;
+    RenderJobRequest submitted = *request;
+    if (submitted.jobId.isEmpty()) {
+        submitted.jobId = QStringLiteral("template-%1-%2")
+            .arg(name.trimmed()).arg(QDateTime::currentMSecsSinceEpoch());
+    }
+    submitJob(submitted);
+    return true;
+}
+
 bool RenderFarmMaster::registerJobTemplate(const RenderJobTemplate& jobTemplate) {
     const QString name = jobTemplate.name.trimmed();
     if (name.isEmpty() || jobTemplate.request.range.count() <= 0)
