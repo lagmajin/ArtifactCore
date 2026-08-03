@@ -1029,6 +1029,17 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         for (int i = first; i < logCount; ++i)
                             logs.append(workerLogs_.at(i));
                         body = QJsonObject{{QStringLiteral("logs"), logs}};
+                    } else if (requestLine[1].startsWith("/api/jobs/pool/")) {
+                        const QString pool = QString::fromUtf8(
+                            requestLine[1].mid(QByteArray("/api/jobs/pool/").size())).trimmed();
+                        const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        QJsonArray jobs;
+                        for (const auto& value : status.value(QStringLiteral("jobHistoryDetails")).toArray()) {
+                            if (value.toObject().value(QStringLiteral("jobPool")).toString() == pool)
+                                jobs.append(value);
+                        }
+                        body = QJsonObject{{QStringLiteral("jobPool"), pool},
+                                           {QStringLiteral("jobs"), jobs}};
                     } else if (requestLine[1].startsWith("/api/jobs/")
                                && requestLine[1].endsWith("/verify-output")) {
                         const QByteArray prefix = "/api/jobs/";
@@ -1090,6 +1101,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET / or /dashboard"),
                                 QStringLiteral("GET /api/status"),
                                 QStringLiteral("GET /api/jobs"),
+                                QStringLiteral("GET /api/jobs/pool/{pool}"),
                                 QStringLiteral("GET /api/history"),
                                 QStringLiteral("GET /api/queue"),
                                 QStringLiteral("GET /api/templates"),
