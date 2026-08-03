@@ -1293,6 +1293,12 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             + metric(QStringLiteral("failedFrames"), QStringLiteral("artifact_farm_frames_failed")) + "\n"
                             "# TYPE artifact_farm_frames_total gauge\n"
                             + metric(QStringLiteral("totalFrames"), QStringLiteral("artifact_farm_frames_total")) + "\n"
+                            "# TYPE artifact_farm_failure_rate gauge\n"
+                            "artifact_farm_failure_rate "
+                            + QByteArray::number(status.value(QStringLiteral("totalFrames")).toInt() > 0
+                                ? static_cast<double>(status.value(QStringLiteral("failedFrames")).toInt())
+                                    / status.value(QStringLiteral("totalFrames")).toInt() : 0.0)
+                            + "\n"
                             "# TYPE artifact_farm_elapsed_ms gauge\n"
                             + metric(QStringLiteral("elapsedMs"), QStringLiteral("artifact_farm_elapsed_ms")) + "\n"
                             "# TYPE artifact_farm_estimated_remaining_ms gauge\n"
