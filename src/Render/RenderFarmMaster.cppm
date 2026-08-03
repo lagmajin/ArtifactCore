@@ -491,6 +491,7 @@ public:
                     jobJson["endFrame"] = allRanges[idx].endFrame;
                     jobJson["step"] = allRanges[idx].step;
                     jobJson["outputPath"] = request.outputPath;
+                    jobJson["enableAudio"] = request.enableAudio;
                     jobJson["priority"] = request.priority;
                     jobJson["jobTimeoutMs"] = request.jobTimeoutMs;
                     jobJson["frameTimeoutMs"] = request.frameTimeoutMs;
