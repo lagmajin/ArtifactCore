@@ -670,7 +670,12 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                         }
                     } else if (requestLine[1] == "/api/logs") {
                         std::lock_guard<std::mutex> lock(mutex_);
-                        body = QJsonObject{{QStringLiteral("logs"), workerLogs_}};
+                        QJsonArray logs;
+                        const int logCount = static_cast<int>(workerLogs_.size());
+                        const int first = std::max(0, logCount - 200);
+                        for (int i = first; i < logCount; ++i)
+                            logs.append(workerLogs_.at(i));
+                        body = QJsonObject{{QStringLiteral("logs"), logs}};
                     } else if (requestLine[1].startsWith("/api/jobs/")) {
                         const QString requestedJobId = QString::fromUtf8(
                             requestLine[1].mid(QByteArray("/api/jobs/").size()));
@@ -747,8 +752,13 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                                     logs.append(value);
                             }
                         }
+                        const int logCount = static_cast<int>(logs.size());
+                        const int first = std::max(0, logCount - 200);
+                        QJsonArray recentLogs;
+                        for (int i = first; i < logCount; ++i)
+                            recentLogs.append(logs.at(i));
                         body = QJsonObject{{QStringLiteral("workerId"), requestedWorkerId},
-                                           {QStringLiteral("logs"), logs}};
+                                           {QStringLiteral("logs"), recentLogs}};
                     } else if (requestLine[1].startsWith("/api/workers/")) {
                         const QByteArray workerPrefix = "/api/workers/";
                         const QByteArray healthSuffix = "/health";
