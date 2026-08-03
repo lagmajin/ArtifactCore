@@ -272,10 +272,12 @@ public:
         }
         if (workerIdentityValid && method == QStringLiteral("workerLog")) {
             const QString workerId = params[QStringLiteral("workerId")].toString();
+            const QString severity = params.value(QStringLiteral("severity")).toString().trimmed();
+            const QString message = params.value(QStringLiteral("message")).toString().left(4096);
             QJsonObject entry{
                 {QStringLiteral("workerId"), workerId},
-                {QStringLiteral("severity"), params.value(QStringLiteral("severity")).toString()},
-                {QStringLiteral("message"), params.value(QStringLiteral("message")).toString()},
+                {QStringLiteral("severity"), severity.isEmpty() ? QStringLiteral("info") : severity},
+                {QStringLiteral("message"), message},
                 {QStringLiteral("frame"), params.value(QStringLiteral("frame")).toInt(-1)},
                 {QStringLiteral("timestamp"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}
             };
