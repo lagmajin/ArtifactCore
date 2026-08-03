@@ -416,6 +416,25 @@ public:
         return {};
     }
 
+    QString frameOutputPath(const QString& outputPath, int frame) const {
+        QString framePath = outputPath.trimmed();
+        if (framePath.contains(QStringLiteral("####"))) {
+            framePath.replace(QStringLiteral("####"),
+                              QStringLiteral("%1").arg(frame, 4, 10, QChar('0')));
+            return framePath;
+        }
+        const int tokenStart = framePath.indexOf(QStringLiteral("%0"));
+        if (tokenStart < 0) return {};
+        const int d = framePath.indexOf(QChar('d'), tokenStart + 2);
+        if (d <= tokenStart + 2) return {};
+        bool ok = false;
+        const int width = framePath.mid(tokenStart + 2, d - tokenStart - 2).toInt(&ok);
+        if (!ok || width <= 0) return {};
+        const QString token = framePath.mid(tokenStart, d - tokenStart + 1);
+        framePath.replace(token, QStringLiteral("%1").arg(frame, width, 10, QChar('0')));
+        return framePath;
+    }
+
     QString versionOutputPath(const QString& outputPath) const {
         const QString path = outputPath.trimmed();
         if (path.isEmpty()) return path;
@@ -524,6 +543,22 @@ public:
                     timedOut_ = true;
                 cancelled_ = true;
                 break;
+            }
+
+            const QString existingFramePath = frameOutputPath(request.outputPath, frame);
+            if (!existingFramePath.isEmpty()) {
+                const QFileInfo existingFrame(existingFramePath);
+                if (existingFrame.isFile() && existingFrame.size() > 0) {
+                    totalProgress_.completed.fetch_add(1);
+                    if (checkpointPolicy_.mode == CheckpointPolicy::Mode::EveryNFrames) {
+                        int c = ++checkpointCounter;
+                        if (c >= checkpointPolicy_.interval) {
+                            saveCheckpoint(frame);
+                            checkpointCounter = 0;
+                        }
+                    }
+                    continue;
+                }
             }
 
             int attempt = 0;
