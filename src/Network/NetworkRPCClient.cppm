@@ -23,6 +23,7 @@ public:
     QJsonObject capabilities_;
     bool connected_ = false;
     bool signalConnectionsInstalled_ = false;
+    bool heartbeatConnectionInstalled_ = false;
     QByteArray readBuffer_;
 
     JobAssignedCallback onJobAssigned_;
@@ -88,9 +89,12 @@ public:
         connected_ = true;
 
         // Start heartbeat timer
-        QObject::connect(heartbeatTimer_, &QTimer::timeout, [this]() {
-            sendHeartbeat();
-        });
+        if (!heartbeatConnectionInstalled_) {
+            QObject::connect(heartbeatTimer_, &QTimer::timeout, [this]() {
+                sendHeartbeat();
+            });
+            heartbeatConnectionInstalled_ = true;
+        }
         heartbeatTimer_->start(HEARTBEAT_INTERVAL_MS);
     }
 
