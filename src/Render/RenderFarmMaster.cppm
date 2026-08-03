@@ -152,6 +152,33 @@ public:
             if (actual.isString() && it.value().isString()) {
                 if (actual.toString().compare(it.value().toString(), Qt::CaseInsensitive) != 0)
                     return false;
+            } else if (actual.isArray() && it.value().isArray()) {
+                const QJsonArray available = actual.toArray();
+                for (const auto& required : it.value().toArray()) {
+                    bool found = false;
+                    for (const auto& candidate : available) {
+                        if (candidate.isString() && required.isString()
+                            && candidate.toString().compare(required.toString(), Qt::CaseInsensitive) == 0) {
+                            found = true;
+                            break;
+                        }
+                        if (candidate == required) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) return false;
+                }
+            } else if (actual.isArray() && it.value().isString()) {
+                bool found = false;
+                for (const auto& candidate : actual.toArray()) {
+                    if (candidate.isString()
+                        && candidate.toString().compare(it.value().toString(), Qt::CaseInsensitive) == 0) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) return false;
             } else if (actual.isDouble() && it.value().isDouble()) {
                 if (actual.toDouble() < it.value().toDouble()) return false;
             } else if (actual != it.value()) {
