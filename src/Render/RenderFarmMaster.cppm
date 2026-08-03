@@ -1813,6 +1813,7 @@ QJsonArray RenderFarmMaster::remoteWorkerSnapshot() const {
             {QStringLiteral("totalRenderTimeMs"), worker.totalRenderTimeMs},
             {QStringLiteral("currentFrame"), worker.currentFrame},
             {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+            {QStringLiteral("heartbeatLatencyMs"), worker.heartbeatLatencyMs},
             {QStringLiteral("heartbeatAgeMs"), heartbeatAgeMs},
             {QStringLiteral("healthy"), worker.connected && heartbeatAgeMs >= 0
                 && heartbeatAgeMs <= 30000},

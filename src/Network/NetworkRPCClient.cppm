@@ -11,6 +11,7 @@ module;
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslCertificate>
 #include <QFile>
+#include <QDateTime>
 #include <cstdint>
 
 module NetworkRPCClient;
@@ -121,6 +122,7 @@ public:
         if (!connected_) return;
         QJsonObject params;
         params["workerId"] = workerId_;
+        params["sentAtMs"] = QDateTime::currentMSecsSinceEpoch();
         sendMessage(QStringLiteral("heartbeat"), params);
     }
 

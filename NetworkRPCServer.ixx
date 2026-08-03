@@ -17,6 +17,7 @@ struct RemoteWorkerInfo {
     QString address;
     int port = 0;
     qint64 lastHeartbeat = 0;
+    qint64 heartbeatLatencyMs = -1;
     bool connected = false;
     QString state = QStringLiteral("Idle");
     int assignedFrames = 0;

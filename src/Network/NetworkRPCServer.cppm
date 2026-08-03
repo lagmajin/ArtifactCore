@@ -218,6 +218,7 @@ public:
 
     void handleHeartbeat(QTcpSocket* socket, const QJsonObject& msg) {
         QString workerId = msg["params"].toObject()["workerId"].toString();
+        const qint64 sentAtMs = msg["params"].toObject()["sentAtMs"].toInteger(-1);
         if (!workerId.isEmpty()) {
             bool registered = false;
             {
@@ -226,8 +227,11 @@ public:
                 if (it != workerSockets_.end() && it->second == socket) {
                     registered = true;
                     auto wit = workers_.find(it->second);
-                    if (wit != workers_.end())
+                    if (wit != workers_.end()) {
                         wit->second.lastHeartbeat = QDateTime::currentMSecsSinceEpoch();
+                        wit->second.heartbeatLatencyMs = sentAtMs > 0
+                            ? std::max<qint64>(0, wit->second.lastHeartbeat - sentAtMs) : -1;
+                    }
                 }
             }
             if (registered && onWorkerHeartbeat_)
@@ -1212,6 +1216,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 {QStringLiteral("totalRenderTimeMs"), worker.totalRenderTimeMs},
                                 {QStringLiteral("currentFrame"), worker.currentFrame},
                                 {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+                                {QStringLiteral("heartbeatLatencyMs"), worker.heartbeatLatencyMs},
                                 {QStringLiteral("heartbeatAgeMs"), heartbeatAgeMs},
                                 {QStringLiteral("healthy"), worker.connected && heartbeatAgeMs >= 0
                                     && heartbeatAgeMs <= HEARTBEAT_TIMEOUT_MS},
@@ -1273,6 +1278,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 {QStringLiteral("workerId"), worker.workerId},
                                 {QStringLiteral("state"), worker.state},
                                 {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+                                {QStringLiteral("heartbeatLatencyMs"), worker.heartbeatLatencyMs},
                                 {QStringLiteral("heartbeatAgeMs"), heartbeatAgeMs},
                                 {QStringLiteral("healthy"), healthy}
                             } : QJsonObject{
@@ -1286,6 +1292,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             {QStringLiteral("totalRenderTimeMs"), worker.totalRenderTimeMs},
                                 {QStringLiteral("currentFrame"), worker.currentFrame},
                                 {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
+                                {QStringLiteral("heartbeatLatencyMs"), worker.heartbeatLatencyMs},
                                 {QStringLiteral("heartbeatAgeMs"), heartbeatAgeMs},
                                 {QStringLiteral("healthy"), healthy},
                                 {QStringLiteral("capabilities"), worker.capabilities}
