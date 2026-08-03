@@ -135,6 +135,14 @@ public:
 
         {
             std::lock_guard<std::mutex> lock(mutex_);
+            const auto existingSocket = workerSockets_.find(workerId);
+            if (existingSocket != workerSockets_.end() && existingSocket->second != socket) {
+                qWarning() << "[Farm] Replacing stale worker connection:" << workerId;
+                readBuffers_.erase(existingSocket->second);
+                workers_.erase(existingSocket->second);
+                existingSocket->second->disconnectFromHost();
+                workerSockets_.erase(existingSocket);
+            }
             auto it = workers_.find(socket);
             if (it != workers_.end()) {
                 it->second.workerId = workerId;
