@@ -96,6 +96,7 @@ public:
     std::thread farmThread_;
     mutable std::mutex resultMutex_;
     std::chrono::steady_clock::time_point jobDeadline_{};
+    std::chrono::steady_clock::time_point jobStartedAt_{};
     bool hasJobDeadline_ = false;
 
     QString currentJobId_;
@@ -376,6 +377,7 @@ public:
         busy_ = true;
         cancelled_ = false;
         timedOut_ = false;
+        jobStartedAt_ = std::chrono::steady_clock::now();
 
         const QString outputError = validateOutputPath(request.outputPath);
         if (!outputError.isEmpty()) {
@@ -623,6 +625,20 @@ RenderJobProgress RenderFarmMaster::overallProgress() const {
     p.completedFrames.store(impl_->totalProgress_.completed.load());
     p.failedFrames.store(impl_->totalProgress_.failed.load());
     p.totalFrames = impl_->totalFrames_;
+    if (impl_->busy_) {
+        p.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - impl_->jobStartedAt_).count();
+    }
+    const int completed = p.completedFrames.load();
+    const int failed = p.failedFrames.load();
+    const int processed = completed + failed;
+    if (processed > 0 && p.totalFrames > processed && p.elapsedMs > 0) {
+        const double perFrameMs = static_cast<double>(p.elapsedMs) / processed;
+        p.estimatedRemainingMs = static_cast<qint64>(
+            perFrameMs * (p.totalFrames - processed));
+    } else if (p.totalFrames <= processed) {
+        p.estimatedRemainingMs = 0;
+    }
     return p;
 }
 

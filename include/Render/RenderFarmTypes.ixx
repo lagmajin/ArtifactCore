@@ -73,19 +73,25 @@ struct RenderJobProgress {
     std::atomic<int> completedFrames{ 0 };
     std::atomic<int> failedFrames{ 0 };
     int totalFrames = 0;
+    qint64 elapsedMs = 0;
+    qint64 estimatedRemainingMs = -1;
 
     RenderJobProgress() = default;
 
     RenderJobProgress(const RenderJobProgress& other)
         : completedFrames(other.completedFrames.load())
         , failedFrames(other.failedFrames.load())
-        , totalFrames(other.totalFrames) {}
+        , totalFrames(other.totalFrames)
+        , elapsedMs(other.elapsedMs)
+        , estimatedRemainingMs(other.estimatedRemainingMs) {}
 
     RenderJobProgress& operator=(const RenderJobProgress& other) {
         if (this != &other) {
             completedFrames.store(other.completedFrames.load());
             failedFrames.store(other.failedFrames.load());
             totalFrames = other.totalFrames;
+            elapsedMs = other.elapsedMs;
+            estimatedRemainingMs = other.estimatedRemainingMs;
         }
         return *this;
     }
@@ -93,13 +99,17 @@ struct RenderJobProgress {
     RenderJobProgress(RenderJobProgress&& other) noexcept
         : completedFrames(other.completedFrames.load())
         , failedFrames(other.failedFrames.load())
-        , totalFrames(other.totalFrames) {}
+        , totalFrames(other.totalFrames)
+        , elapsedMs(other.elapsedMs)
+        , estimatedRemainingMs(other.estimatedRemainingMs) {}
 
     RenderJobProgress& operator=(RenderJobProgress&& other) noexcept {
         if (this != &other) {
             completedFrames.store(other.completedFrames.load());
             failedFrames.store(other.failedFrames.load());
             totalFrames = other.totalFrames;
+            elapsedMs = other.elapsedMs;
+            estimatedRemainingMs = other.estimatedRemainingMs;
         }
         return *this;
     }
