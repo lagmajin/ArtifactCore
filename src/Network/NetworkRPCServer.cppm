@@ -713,7 +713,9 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         if (requestLine[1] == "/api/history") {
                             body = QJsonObject{
                                 {QStringLiteral("jobHistory"),
-                                 body.value(QStringLiteral("jobHistory")).toArray()}
+                                 body.value(QStringLiteral("jobHistory")).toArray()},
+                                {QStringLiteral("jobHistoryDetails"),
+                                 body.value(QStringLiteral("jobHistoryDetails")).toArray()}
                             };
                         }
                     } else if (requestLine[1] == "/api/logs") {
