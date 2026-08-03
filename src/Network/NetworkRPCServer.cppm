@@ -452,6 +452,19 @@ public:
                         } else {
                             body = onRequest_(method,
                                 requestObject.value(QStringLiteral("params")).toObject());
+                            const QString rpcStatus = body.value(QStringLiteral("status")).toString();
+                            if (rpcStatus == QStringLiteral("invalid_request")
+                                || rpcStatus == QStringLiteral("renderer_not_found")) {
+                                statusCode = 400;
+                                statusText = "Bad Request";
+                            } else if (rpcStatus == QStringLiteral("busy")) {
+                                statusCode = 409;
+                                statusText = "Conflict";
+                            } else if (rpcStatus == QStringLiteral("no_workers")
+                                       || rpcStatus == QStringLiteral("remote_disabled")) {
+                                statusCode = 503;
+                                statusText = "Service Unavailable";
+                            }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1].startsWith("/api/workers/")
