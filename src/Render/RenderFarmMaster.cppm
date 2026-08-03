@@ -1773,6 +1773,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
         int queuedJobs = 0;
         QJsonArray queuedJobIds;
         QJsonArray queuedPriorities;
+        int waitingDependencyJobs = 0;
         QJsonArray historyDetails;
         QJsonArray templateDetails;
         {
@@ -1797,6 +1798,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                             break;
                         }
                     }
+                    if (!dependenciesReady) ++waitingDependencyJobs;
                     historyDetails.append(QJsonObject{{QStringLiteral("jobId"), jobId},
                                                       {QStringLiteral("status"), dependenciesReady
                                                           ? QStringLiteral("queued")
@@ -1872,6 +1874,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("queuedJobs"), queuedJobs},
             {QStringLiteral("queuedJobIds"), queuedJobIds},
             {QStringLiteral("queuedPriorities"), queuedPriorities},
+            {QStringLiteral("waitingDependencyJobs"), waitingDependencyJobs},
             {QStringLiteral("failureAlertThreshold"), impl_->failureAlertThreshold_},
             {QStringLiteral("queuedJobAlertThreshold"), impl_->queuedJobAlertThreshold_},
             {QStringLiteral("alertWebhookConfigured"), !impl_->alertWebhookUrl_.trimmed().isEmpty()},
