@@ -897,14 +897,15 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
     NetworkPCServer::instance().setHttpStatusProvider([this]() {
         const auto progress = overallProgress();
         const auto result = this->result();
+        const bool busy = isBusy();
         return QJsonObject{
             {QStringLiteral("completedFrames"), progress.completedFrames.load()},
             {QStringLiteral("failedFrames"), progress.failedFrames.load()},
             {QStringLiteral("totalFrames"), progress.totalFrames},
             {QStringLiteral("jobId"), impl_->currentJobId_},
-            {QStringLiteral("busy"), isBusy()},
-            {QStringLiteral("success"), result.success},
-            {QStringLiteral("errorMessage"), result.errorMessage},
+            {QStringLiteral("busy"), busy},
+            {QStringLiteral("success"), !busy && result.success},
+            {QStringLiteral("errorMessage"), busy ? QString() : result.errorMessage},
             {QStringLiteral("elapsedMs"), progress.elapsedMs},
             {QStringLiteral("estimatedRemainingMs"), progress.estimatedRemainingMs},
             {QStringLiteral("workers"), remoteWorkerSnapshot()}
