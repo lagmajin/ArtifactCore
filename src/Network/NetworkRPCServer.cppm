@@ -853,6 +853,8 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                         };
                         metricsPayload = "# TYPE artifact_farm_workers gauge\n"
                             "artifact_farm_workers " + QByteArray::number(workerCount) + "\n"
+                            "# TYPE artifact_farm_queued_jobs gauge\n"
+                            + metric(QStringLiteral("queuedJobs"), QStringLiteral("artifact_farm_queued_jobs")) + "\n"
                             "# TYPE artifact_farm_worker_render_time_ms counter\n"
                             "artifact_farm_worker_render_time_ms " + QByteArray::number(totalWorkerRenderTimeMs) + "\n"
                             "# TYPE artifact_farm_busy gauge\n"
