@@ -902,11 +902,15 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
         const auto progress = overallProgress();
         const auto result = this->result();
         const bool busy = isBusy();
+        const QString status = busy ? QStringLiteral("running")
+            : (!result.errorMessage.isEmpty() ? QStringLiteral("failed")
+               : (result.success ? QStringLiteral("completed") : QStringLiteral("idle")));
         return QJsonObject{
             {QStringLiteral("completedFrames"), progress.completedFrames.load()},
             {QStringLiteral("failedFrames"), progress.failedFrames.load()},
             {QStringLiteral("totalFrames"), progress.totalFrames},
             {QStringLiteral("jobId"), impl_->currentJobId_},
+            {QStringLiteral("status"), status},
             {QStringLiteral("busy"), busy},
             {QStringLiteral("success"), !busy && result.success},
             {QStringLiteral("errorMessage"), busy ? QString() : result.errorMessage},
