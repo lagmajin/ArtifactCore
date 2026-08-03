@@ -22,6 +22,7 @@ public:
     QString authToken_;
     QJsonObject capabilities_;
     bool connected_ = false;
+    bool signalConnectionsInstalled_ = false;
     QByteArray readBuffer_;
 
     JobAssignedCallback onJobAssigned_;
@@ -46,19 +47,22 @@ public:
         workerId_ = workerId;
         readBuffer_.clear();
 
-        QObject::connect(socket_, &QTcpSocket::connected, [this]() {
-            sendRegistration();
-        });
+        if (!signalConnectionsInstalled_) {
+            QObject::connect(socket_, &QTcpSocket::connected, [this]() {
+                sendRegistration();
+            });
 
-        QObject::connect(socket_, &QTcpSocket::readyRead, [this]() {
-            onData();
-        });
+            QObject::connect(socket_, &QTcpSocket::readyRead, [this]() {
+                onData();
+            });
 
-        QObject::connect(socket_, &QTcpSocket::disconnected, [this]() {
-            connected_ = false;
-            if (heartbeatTimer_) heartbeatTimer_->stop();
-            if (onDisconnected_) onDisconnected_();
-        });
+            QObject::connect(socket_, &QTcpSocket::disconnected, [this]() {
+                connected_ = false;
+                if (heartbeatTimer_) heartbeatTimer_->stop();
+                if (onDisconnected_) onDisconnected_();
+            });
+            signalConnectionsInstalled_ = true;
+        }
 
         socket_->connectToHost(host, port);
         return socket_->waitForConnected(5000);
