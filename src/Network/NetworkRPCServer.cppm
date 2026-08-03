@@ -474,6 +474,15 @@ public:
                             }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1] == "/api/queue/clear") {
+                        if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("clearQueuedJobs"), QJsonObject());
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1].startsWith("/api/jobs/")
                                && requestLine[1].endsWith("/priority")) {
                         const QByteArray prefix = "/api/jobs/";
@@ -744,6 +753,7 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
                                 QStringLiteral("POST /api/jobs"),
                                 QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume|resubmit"),
                                 QStringLiteral("POST /api/jobs/{jobId}/priority"),
+                                QStringLiteral("POST /api/queue/clear"),
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
