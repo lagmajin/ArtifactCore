@@ -347,6 +347,16 @@ public:
         return true;
     }
 
+    bool dependencyFailed(const RenderJobRequest& request) const {
+        std::lock_guard<std::mutex> lock(jobHistoryMutex_);
+        for (const QString& dependency : request.dependencies) {
+            const auto resultIt = jobHistoryResults_.find(dependency);
+            if (resultIt != jobHistoryResults_.end() && !resultIt->second.success)
+                return true;
+        }
+        return false;
+    }
+
     QString validateOutputPath(const QString& outputPath) const {
         const QString path = outputPath.trimmed();
         if (path.isEmpty()) return {};
@@ -860,8 +870,30 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
         while (true) {
             RenderJobRequest next;
             QString persistencePath;
+            bool rejectedDependency = false;
             {
                 std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+                const auto blocked = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+                    [this](const RenderJobRequest& candidate) {
+                        return impl_->dependencyFailed(candidate);
+                    });
+                if (blocked != impl_->pendingJobs_.end()) {
+                    next = *blocked;
+                    impl_->pendingJobs_.erase(blocked);
+                    rejectedDependency = true;
+                }
+                if (rejectedDependency) {
+                    persistencePath = impl_->queuePersistenceFile_;
+                }
+                if (rejectedDependency) {
+                    std::lock_guard<std::mutex> historyLock(impl_->jobHistoryMutex_);
+                    RenderJobResult rejected;
+                    rejected.errorMessage = QStringLiteral("A dependency job failed.");
+                    impl_->jobHistoryResults_[next.jobId] = rejected;
+                }
+                if (rejectedDependency) {
+                    // Continue below after persisting the removal.
+                } else {
                 const auto ready = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
                     [this](const RenderJobRequest& candidate) {
                         return impl_->dependenciesSatisfied(candidate);
@@ -870,8 +902,10 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
                 next = *ready;
                 impl_->pendingJobs_.erase(ready);
                 persistencePath = impl_->queuePersistenceFile_;
+                }
             }
             if (!persistencePath.isEmpty()) saveQueue(persistencePath);
+            if (rejectedDependency) continue;
             impl_->executeJob(next);
         }
     });
