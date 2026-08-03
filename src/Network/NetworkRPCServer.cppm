@@ -472,8 +472,18 @@ public:
                         statusCode = 405;
                         statusText = "Method Not Allowed";
                         body = {{QStringLiteral("error"), QStringLiteral("method_not_allowed")}};
-                    } else if (requestLine[1] == "/api/status" && httpStatusProvider_) {
-                        body = httpStatusProvider_();
+                    } else if (requestLine[1] == "/api/status") {
+                        if (httpStatusProvider_) {
+                            body = httpStatusProvider_();
+                        } else {
+                            int workerCount = 0;
+                            {
+                                std::lock_guard<std::mutex> lock(mutex_);
+                                workerCount = static_cast<int>(workers_.size());
+                            }
+                            body = {{QStringLiteral("status"), QStringLiteral("ok")},
+                                    {QStringLiteral("workers"), workerCount}};
+                        }
                     } else if (requestLine[1] == "/api/health") {
                         int workerCount = 0;
                         {
