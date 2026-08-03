@@ -1275,6 +1275,12 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             + metric(QStringLiteral("queuedJobs"), QStringLiteral("artifact_farm_queued_jobs")) + "\n"
                             "# TYPE artifact_farm_worker_render_time_ms counter\n"
                             "artifact_farm_worker_render_time_ms " + QByteArray::number(totalWorkerRenderTimeMs) + "\n"
+                            "# TYPE artifact_farm_worker_render_time_avg_ms gauge\n"
+                            "artifact_farm_worker_render_time_avg_ms "
+                            + QByteArray::number(status.value(QStringLiteral("completedFrames")).toInt() > 0
+                                ? static_cast<double>(totalWorkerRenderTimeMs)
+                                    / status.value(QStringLiteral("completedFrames")).toInt() : 0.0)
+                            + "\n"
                             "# TYPE artifact_farm_busy gauge\n"
                             "artifact_farm_busy " + QByteArray::number(status.value(QStringLiteral("busy")).toBool() ? 1 : 0) + "\n"
                             "# TYPE artifact_farm_preemptions counter\n"
