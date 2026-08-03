@@ -798,7 +798,9 @@ bool RenderFarmMaster::saveQueue(const QString& filePath) const {
     }
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) return false;
-    if (file.write(QJsonDocument(jobs).toJson(QJsonDocument::Indented)) < 0)
+    const QJsonObject document{{QStringLiteral("schemaVersion"), 1},
+                               {QStringLiteral("jobs"), jobs}};
+    if (file.write(QJsonDocument(document).toJson(QJsonDocument::Indented)) < 0)
         return false;
     return file.commit();
 }
@@ -808,9 +810,12 @@ bool RenderFarmMaster::loadQueue(const QString& filePath) {
     if (!file.open(QIODevice::ReadOnly)) return false;
     QJsonParseError error;
     const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
-    if (error.error != QJsonParseError::NoError || !document.isArray()) return false;
+    if (error.error != QJsonParseError::NoError
+        || (!document.isArray() && !document.isObject())) return false;
+    const QJsonArray jobs = document.isArray()
+        ? document.array() : document.object().value(QStringLiteral("jobs")).toArray();
     bool loaded = false;
-    for (const auto& value : document.array()) {
+    for (const auto& value : jobs) {
         if (!value.isObject()) continue;
         const auto request = Impl::requestFromJson(value.toObject());
         if (!request) continue;
