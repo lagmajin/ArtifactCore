@@ -1217,6 +1217,27 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
     };
 
     rpc.setOnRequest([this](const QString& method, const QJsonObject& params) -> QJsonObject {
+        if (method == QStringLiteral("validateOutput")) {
+            RenderFrameRange range;
+            range.startFrame = params.value(QStringLiteral("startFrame")).toInt(0);
+            range.endFrame = params.value(QStringLiteral("endFrame")).toInt(0);
+            range.step = std::max(1, params.value(QStringLiteral("step")).toInt(1));
+            if (range.count() <= 0)
+                return {{QStringLiteral("status"), QStringLiteral("invalid_range")}};
+            const QString outputPath = params.value(QStringLiteral("outputPath")).toString();
+            const QString pathError = impl_->validateOutputPath(outputPath);
+            if (!pathError.isEmpty())
+                return {{QStringLiteral("status"), QStringLiteral("invalid_output_path")},
+                        {QStringLiteral("error"), pathError}};
+            if (params.value(QStringLiteral("checkExisting")).toBool(false)) {
+                const QString artifactError = impl_->validateOutputArtifact(outputPath, range);
+                if (!artifactError.isEmpty())
+                    return {{QStringLiteral("status"), QStringLiteral("invalid_output_artifact")},
+                            {QStringLiteral("error"), artifactError}};
+            }
+            return {{QStringLiteral("status"), QStringLiteral("ok")},
+                    {QStringLiteral("outputPath"), outputPath}};
+        }
         if (method == QStringLiteral("submitJob")) {
             RenderJobRequest request;
             request.jobId = params.value(QStringLiteral("jobId")).toString().trimmed();

@@ -475,6 +475,22 @@ public:
                             }
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1] == "/api/jobs/validate-output") {
+                        QJsonParseError parseError;
+                        const QJsonObject params = QJsonDocument::fromJson(requestBody, &parseError).object();
+                        if (parseError.error != QJsonParseError::NoError || !onRequest_) {
+                            statusCode = parseError.error != QJsonParseError::NoError ? 400 : 503;
+                            statusText = statusCode == 400 ? "Bad Request" : "Service Unavailable";
+                            body = {{QStringLiteral("error"), statusCode == 400
+                                ? QStringLiteral("invalid_json") : QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("validateOutput"), params);
+                            if (body.value(QStringLiteral("status")).toString() != QStringLiteral("ok")) {
+                                statusCode = 422;
+                                statusText = "Unprocessable Entity";
+                            }
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1] == "/api/alerts/clear") {
                         if (!onRequest_) {
                             statusCode = 503;
@@ -928,6 +944,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
+                                QStringLiteral("POST /api/jobs/validate-output"),
                                 QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume|resubmit"),
                                 QStringLiteral("POST /api/jobs/{jobId}/duplicate"),
                                 QStringLiteral("POST /api/jobs/{jobId}/priority"),
@@ -938,7 +955,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
                                 QStringLiteral("GET /api/workers/{workerId}/logs"),
                                 QStringLiteral("POST /api/workers/{workerId}/maintenance"),
-                                QStringLiteral("POST /api/rpc (submitJob[compositionId, workerPool], cancelJob, clearQueuedJobs, setJobPriority, setFailureAlertThreshold)"),
+                                QStringLiteral("POST /api/rpc (submitJob[compositionId, workerPool], validateOutput, cancelJob, clearQueuedJobs, setJobPriority, setJobPriorities, duplicateJob, setFailureAlertThreshold)"),
                                 QStringLiteral("GET /metrics")
                             }}
                         };
