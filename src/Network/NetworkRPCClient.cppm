@@ -8,6 +8,9 @@ module;
 #include <QJsonObject>
 #include <QTimer>
 #include <QtNetwork/QTcpSocket>
+#include <QtNetwork/QSslSocket>
+#include <QtNetwork/QSslCertificate>
+#include <QFile>
 #include <cstdint>
 
 module NetworkRPCClient;
@@ -17,7 +20,7 @@ namespace ArtifactCore {
 
 class NetworkRPCClient::Impl {
 public:
-    QTcpSocket* socket_ = nullptr;
+    QSslSocket* socket_ = nullptr;
     QTimer* heartbeatTimer_ = nullptr;
     QString workerId_;
     QString authToken_;
@@ -27,6 +30,8 @@ public:
     bool heartbeatConnectionInstalled_ = false;
     QByteArray readBuffer_;
     std::uint64_t nextRpcId_ = 1;
+    bool tlsEnabled_ = false;
+    QString caCertificateFile_;
 
     JobAssignedCallback onJobAssigned_;
     DisconnectedCallback onDisconnected_;
@@ -35,7 +40,7 @@ public:
     static constexpr qint64 HEARTBEAT_INTERVAL_MS = 5000;
 
     Impl() {
-        socket_ = new QTcpSocket();
+        socket_ = new QSslSocket();
         heartbeatTimer_ = new QTimer();
     }
 
@@ -67,7 +72,18 @@ public:
             signalConnectionsInstalled_ = true;
         }
 
-        socket_->connectToHost(host, port);
+        if (tlsEnabled_) {
+            if (!caCertificateFile_.isEmpty()) {
+                QFile caFile(caCertificateFile_);
+                if (caFile.open(QIODevice::ReadOnly)) {
+                    socket_->setCaCertificates(QSslCertificate::fromData(
+                        caFile.readAll(), QSsl::Pem));
+                }
+            }
+            socket_->connectToHostEncrypted(host, port);
+        } else {
+            socket_->connectToHost(host, port);
+        }
         return socket_->waitForConnected(5000);
     }
 
@@ -190,6 +206,11 @@ void NetworkRPCClient::setAuthToken(const QString& token) {
 
 void NetworkRPCClient::setCapabilities(const QJsonObject& capabilities) {
     impl_->capabilities_ = capabilities;
+}
+
+void NetworkRPCClient::setTlsEnabled(bool enabled, const QString& caCertificateFile) {
+    impl_->tlsEnabled_ = enabled;
+    impl_->caCertificateFile_ = caCertificateFile;
 }
 
 void NetworkRPCClient::setOnJobAssigned(JobAssignedCallback cb) {

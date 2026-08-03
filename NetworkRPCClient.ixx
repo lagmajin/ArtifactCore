@@ -24,6 +24,7 @@ public:
     QString workerId() const;
     void setAuthToken(const QString& token);
     void setCapabilities(const QJsonObject& capabilities);
+    void setTlsEnabled(bool enabled, const QString& caCertificateFile = {});
 
     using JobAssignedCallback = std::function<void(const QJsonObject& jobData)>;
     using DisconnectedCallback = std::function<void()>;

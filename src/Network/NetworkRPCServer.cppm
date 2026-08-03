@@ -14,6 +14,10 @@ module;
 #include <QTimer>
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
+#include <QtNetwork/QSslSocket>
+#include <QtNetwork/QSslCertificate>
+#include <QtNetwork/QSslKey>
+#include <QFile>
 #include <QDateTime>
 #include <QDebug>
 #include <cstdint>
@@ -23,9 +27,34 @@ import NetworkRPCServer;
 
 namespace ArtifactCore {
 
+class FarmTcpServer final : public QTcpServer {
+public:
+    QSslCertificate certificate;
+    QSslKey privateKey;
+    bool tlsEnabled = false;
+
+protected:
+    void incomingConnection(qintptr socketDescriptor) override {
+        if (!tlsEnabled) {
+            QTcpServer::incomingConnection(socketDescriptor);
+            return;
+        }
+        auto* socket = new QSslSocket(this);
+        socket->setLocalCertificate(certificate);
+        socket->setPrivateKey(privateKey);
+        if (!socket->setSocketDescriptor(socketDescriptor)) {
+            socket->deleteLater();
+            return;
+        }
+        socket->startServerEncryption();
+        addPendingConnection(socket);
+        Q_EMIT newConnection();
+    }
+};
+
 class NetworkPCServer::Impl {
 public:
-    QTcpServer* server_ = nullptr;
+    FarmTcpServer* server_ = nullptr;
     unsigned short port_ = 0;
     bool running_ = false;
 
@@ -40,13 +69,16 @@ public:
     RpcRequestHandler onRequest_;
     QString authToken_;
     std::uint64_t nextRpcId_ = 1;
+    QSslCertificate tlsCertificate_;
+    QSslKey tlsPrivateKey_;
+    bool tlsEnabled_ = false;
 
     // Heartbeat: timer-based dead detection via QObject::connect + singleShot chain
     static constexpr qint64 HEARTBEAT_TIMEOUT_MS = 30000;
     static constexpr qint64 HEARTBEAT_CHECK_INTERVAL_MS = 5000;
 
     Impl() {
-        server_ = new QTcpServer();
+        server_ = new FarmTcpServer();
     }
 
     ~Impl() {
@@ -400,6 +432,30 @@ void NetworkPCServer::setOnWorkerDisconnected(WorkerDisconnectedCallback cb) { i
 void NetworkPCServer::setOnWorkerHeartbeat(WorkerHeartbeatCallback cb) { impl_->onWorkerHeartbeat_ = std::move(cb); }
 void NetworkPCServer::setOnRequest(RpcRequestHandler handler) { impl_->onRequest_ = std::move(handler); }
 void NetworkPCServer::setAuthToken(const QString& token) { impl_->authToken_ = token; }
+
+bool NetworkPCServer::setTlsCertificateFiles(const QString& certificateFile,
+                                             const QString& privateKeyFile) {
+    QFile certificateInput(certificateFile);
+    QFile privateKeyInput(privateKeyFile);
+    if (!certificateInput.open(QIODevice::ReadOnly) ||
+        !privateKeyInput.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    const auto certificates = QSslCertificate::fromData(
+        certificateInput.readAll(), QSsl::Pem);
+    const QSslKey key(privateKeyInput.readAll(), QSsl::Rsa,
+                      QSsl::Pem, QSsl::PrivateKey);
+    if (certificates.isEmpty() || key.isNull()) return false;
+    impl_->tlsCertificate_ = certificates.front();
+    impl_->tlsPrivateKey_ = key;
+    impl_->tlsEnabled_ = true;
+    impl_->server_->certificate = impl_->tlsCertificate_;
+    impl_->server_->privateKey = impl_->tlsPrivateKey_;
+    impl_->server_->tlsEnabled = true;
+    return true;
+}
+
+bool NetworkPCServer::tlsEnabled() const { return impl_->tlsEnabled_; }
 
 std::vector<RemoteWorkerInfo> NetworkPCServer::connectedWorkers() const {
     std::lock_guard<std::mutex> lock(impl_->mutex_);

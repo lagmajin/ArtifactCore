@@ -790,6 +790,12 @@ void RenderFarmMaster::setRpcAuthToken(const QString& token) {
     NetworkPCServer::instance().setAuthToken(token);
 }
 
+bool RenderFarmMaster::setRpcTlsCertificateFiles(
+    const QString& certificateFile, const QString& privateKeyFile) {
+    return NetworkPCServer::instance().setTlsCertificateFiles(
+        certificateFile, privateKeyFile);
+}
+
 bool RenderFarmMaster::allowRemoteWorkers() const {
     return impl_->allowRemote_;
 }

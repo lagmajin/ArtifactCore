@@ -58,6 +58,8 @@ public:
     void setOnWorkerHeartbeat(WorkerHeartbeatCallback cb);
     void setOnRequest(RpcRequestHandler handler);
     void setAuthToken(const QString& token);
+    bool setTlsCertificateFiles(const QString& certificateFile, const QString& privateKeyFile);
+    bool tlsEnabled() const;
 
     // Worker management
     std::vector<RemoteWorkerInfo> connectedWorkers() const;
