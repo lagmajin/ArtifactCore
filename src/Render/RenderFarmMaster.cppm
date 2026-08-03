@@ -1227,6 +1227,14 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             return {{QStringLiteral("status"), QStringLiteral("removed")},
                     {QStringLiteral("name"), name}};
         }
+        if (method == QStringLiteral("setFailureAlertThreshold")) {
+            const double threshold = params.value(QStringLiteral("fraction")).toDouble(-1.0);
+            if (threshold < 0.0 || threshold > 1.0)
+                return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
+            setFailureAlertThreshold(threshold);
+            return {{QStringLiteral("status"), QStringLiteral("updated")},
+                    {QStringLiteral("fraction"), threshold}};
+        }
         if (method == QStringLiteral("resubmitJob")) {
             const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
             if (!jobHistory().contains(jobId))
