@@ -308,6 +308,7 @@ public:
                     jobJson["outputPath"] = request.outputPath;
                     jobJson["priority"] = request.priority;
                     jobJson["jobTimeoutMs"] = request.jobTimeoutMs;
+                    jobJson["frameTimeoutMs"] = request.frameTimeoutMs;
                     if (!request.renderPayload.isEmpty())
                         jobJson["renderPayload"] = request.renderPayload;
                     if (!request.rendererExecutable.isEmpty())
