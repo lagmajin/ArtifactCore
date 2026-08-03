@@ -500,6 +500,13 @@ public:
                 std::max(std::chrono::steady_clock::duration::zero(), jobDeadline_
                     - std::chrono::steady_clock::now()))
             : std::chrono::minutes(10);
+        const auto markUnreportedFrames = [this](const RemoteJobSlice& slice) {
+            for (int frame = slice.range.startFrame; frame < slice.range.endFrame;
+                 frame += slice.range.step) {
+                if (!slice.reportedFrames.contains(frame))
+                    markFrameFailed(frame);
+            }
+        };
         {
             std::unique_lock<std::mutex> waitLock(remoteWaitMutex_);
             if (!remoteCv_.wait_for(waitLock,
@@ -511,13 +518,7 @@ public:
                 // Timeout: mark all incomplete as failures (skip already-reported)
                 std::lock_guard<std::mutex> lock(remoteMutex_);
                 for (auto& slice : remoteSlices_) {
-                    int total = slice.range.count();
-                    int done = slice.framesCompleted_;
-                    int remaining = total - done;
-                    for (int i = 0; i < remaining; ++i) {
-                        int absFrame = slice.range.startFrame + (done + i) * slice.range.step;
-                        markFrameFailed(absFrame);
-                    }
+                    markUnreportedFrames(slice);
                 }
                 return;
             }
@@ -530,14 +531,9 @@ public:
         {
             std::lock_guard<std::mutex> lock(remoteMutex_);
             for (const auto& slice : remoteSlices_) {
-                int total = slice.range.count();
-                int done = slice.framesCompleted_;
-                int remaining = total - done;
+                int remaining = slice.range.count() - static_cast<int>(slice.reportedFrames.size());
                 if (remaining > 0) {
-                    for (int i = 0; i < remaining; ++i) {
-                        int absFrame = slice.range.startFrame + (done + i) * slice.range.step;
-                        markFrameFailed(absFrame);
-                    }
+                    markUnreportedFrames(slice);
                     failCount += remaining;
                 }
             }
