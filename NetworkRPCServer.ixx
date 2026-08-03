@@ -23,6 +23,7 @@ struct RemoteWorkerInfo {
     int completedFrames = 0;
     int failedFrames = 0;
     qint64 renderTimeMs = 0;
+    qint64 totalRenderTimeMs = 0;
     int currentFrame = -1;
     QJsonObject capabilities;
 };

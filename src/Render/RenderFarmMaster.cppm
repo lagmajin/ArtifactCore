@@ -975,6 +975,7 @@ QJsonArray RenderFarmMaster::remoteWorkerSnapshot() const {
             {QStringLiteral("completedFrames"), worker.completedFrames},
             {QStringLiteral("failedFrames"), worker.failedFrames},
             {QStringLiteral("renderTimeMs"), worker.renderTimeMs},
+            {QStringLiteral("totalRenderTimeMs"), worker.totalRenderTimeMs},
             {QStringLiteral("currentFrame"), worker.currentFrame},
             {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
             {QStringLiteral("capabilities"), worker.capabilities}

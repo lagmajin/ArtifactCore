@@ -257,8 +257,13 @@ public:
                 if (workerIt != workers_.end()) {
                     workerIt->second.completedFrames = std::max(0, params[QStringLiteral("completedFrames")].toInt());
                     workerIt->second.failedFrames = std::max(0, params[QStringLiteral("failedFrames")].toInt());
-                    workerIt->second.renderTimeMs = std::max<qint64>(
+                    const qint64 renderTimeMs = std::max<qint64>(
                         0, params[QStringLiteral("renderTimeMs")].toVariant().toLongLong());
+                    if (renderTimeMs > workerIt->second.renderTimeMs) {
+                        workerIt->second.totalRenderTimeMs +=
+                            renderTimeMs - workerIt->second.renderTimeMs;
+                    }
+                    workerIt->second.renderTimeMs = renderTimeMs;
                     workerIt->second.currentFrame = params[QStringLiteral("currentFrame")].toInt(-1);
                 }
             }
@@ -588,9 +593,12 @@ public:
                         }
                     } else if (requestLine[1] == "/api/health") {
                         int workerCount = 0;
+                        qint64 totalWorkerRenderTimeMs = 0;
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
                             workerCount = static_cast<int>(workers_.size());
+                            for (const auto& [_, worker] : workers_)
+                                totalWorkerRenderTimeMs += worker.totalRenderTimeMs;
                         }
                         body = {{QStringLiteral("status"), QStringLiteral("ok")},
                                 {QStringLiteral("workers"), workerCount}};
@@ -624,6 +632,7 @@ public:
                                 {QStringLiteral("completedFrames"), worker.completedFrames},
                                 {QStringLiteral("failedFrames"), worker.failedFrames},
                                 {QStringLiteral("renderTimeMs"), worker.renderTimeMs},
+                                {QStringLiteral("totalRenderTimeMs"), worker.totalRenderTimeMs},
                                 {QStringLiteral("currentFrame"), worker.currentFrame},
                                 {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
                                 {QStringLiteral("capabilities"), worker.capabilities}
@@ -660,7 +669,8 @@ public:
                                 {QStringLiteral("assignedFrames"), worker.assignedFrames},
                                 {QStringLiteral("completedFrames"), worker.completedFrames},
                                 {QStringLiteral("failedFrames"), worker.failedFrames},
-                                {QStringLiteral("renderTimeMs"), worker.renderTimeMs},
+                            {QStringLiteral("renderTimeMs"), worker.renderTimeMs},
+                            {QStringLiteral("totalRenderTimeMs"), worker.totalRenderTimeMs},
                                 {QStringLiteral("currentFrame"), worker.currentFrame},
                                 {QStringLiteral("lastHeartbeat"), worker.lastHeartbeat},
                                 {QStringLiteral("capabilities"), worker.capabilities}
@@ -678,6 +688,8 @@ public:
                         };
                         metricsPayload = "# TYPE artifact_farm_workers gauge\n"
                             "artifact_farm_workers " + QByteArray::number(workerCount) + "\n"
+                            "# TYPE artifact_farm_worker_render_time_ms counter\n"
+                            "artifact_farm_worker_render_time_ms " + QByteArray::number(totalWorkerRenderTimeMs) + "\n"
                             "# TYPE artifact_farm_busy gauge\n"
                             "artifact_farm_busy " + QByteArray::number(status.value(QStringLiteral("busy")).toBool() ? 1 : 0) + "\n"
                             "# TYPE artifact_farm_success gauge\n"
