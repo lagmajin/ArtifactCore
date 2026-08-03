@@ -453,6 +453,36 @@ public:
                         }
                     } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
                                && requestLine[1].startsWith("/api/jobs/")
+                               && requestLine[1].endsWith("/resubmit")) {
+                        const QByteArray prefix = "/api/jobs/";
+                        const QByteArray suffix = "/resubmit";
+                        const QString requestedJobId = QString::fromUtf8(requestLine[1].mid(
+                            prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
+                        const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        const bool knownJob = status.value(QStringLiteral("jobHistory")).toArray()
+                            .contains(requestedJobId);
+                        if (requestedJobId.isEmpty() || !knownJob) {
+                            statusCode = 404;
+                            statusText = "Not Found";
+                            body = {{QStringLiteral("error"), QStringLiteral("job_not_found")}};
+                        } else if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("resubmitJob"),
+                                              {{QStringLiteral("jobId"), requestedJobId}});
+                            const QString resubmitStatus = body.value(QStringLiteral("status")).toString();
+                            if (resubmitStatus == QStringLiteral("busy")) {
+                                statusCode = 409;
+                                statusText = "Conflict";
+                            } else if (resubmitStatus == QStringLiteral("accepted")) {
+                                statusCode = 202;
+                                statusText = "Accepted";
+                            }
+                        }
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "POST"
+                               && requestLine[1].startsWith("/api/jobs/")
                                && (requestLine[1].endsWith("/cancel")
                                    || requestLine[1].endsWith("/pause")
                                    || requestLine[1].endsWith("/resume"))) {
@@ -620,7 +650,7 @@ public:
                                 QStringLiteral("GET /api/history"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("POST /api/jobs"),
-                                QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume"),
+                                QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume|resubmit"),
                                 QStringLiteral("GET /api/workers"),
                                 QStringLiteral("GET /api/workers/{workerId}"),
                                 QStringLiteral("GET /api/workers/{workerId}/health"),
