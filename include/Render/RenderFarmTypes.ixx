@@ -228,6 +228,7 @@ struct RenderJobResult {
     bool success = false;
     int renderedFrames = 0;
     int failedFrames = 0;
+    qint64 elapsedMs = 0;
     QString errorMessage;
     FailureManifest failures;
 };

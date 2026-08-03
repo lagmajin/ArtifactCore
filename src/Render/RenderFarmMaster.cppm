@@ -186,21 +186,24 @@ public:
     }
 
     void notifyCompleted(const RenderJobResult& result) {
+        RenderJobResult trackedResult = result;
+        trackedResult.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - jobStartedAt_).count();
         {
             std::lock_guard<std::mutex> lock(jobHistoryMutex_);
-            if (!currentJobId_.isEmpty()) jobHistoryResults_[currentJobId_] = result;
+            if (!currentJobId_.isEmpty()) jobHistoryResults_[currentJobId_] = trackedResult;
         }
-        if (onCompleted_) onCompleted_(result);
+        if (onCompleted_) onCompleted_(trackedResult);
         if (onAlert_ && failureAlertThreshold_ > 0.0 && totalFrames_ > 0) {
-            const double failureFraction = static_cast<double>(result.failedFrames)
+            const double failureFraction = static_cast<double>(trackedResult.failedFrames)
                 / static_cast<double>(totalFrames_);
             if (failureFraction >= failureAlertThreshold_)
             {
                 lastAlertType_ = QStringLiteral("failure_rate");
                 lastAlertAt_ = QDateTime::currentDateTimeUtc();
-                lastAlertFailedFrames_ = result.failedFrames;
-                onAlert_(QStringLiteral("failure_rate"), result);
-                postAlertWebhook(QStringLiteral("failure_rate"), result);
+                lastAlertFailedFrames_ = trackedResult.failedFrames;
+                onAlert_(QStringLiteral("failure_rate"), trackedResult);
+                postAlertWebhook(QStringLiteral("failure_rate"), trackedResult);
             }
         }
     }
@@ -1793,6 +1796,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                     {QStringLiteral("success"), result.success},
                     {QStringLiteral("renderedFrames"), result.renderedFrames},
                     {QStringLiteral("failedFrames"), result.failedFrames},
+                    {QStringLiteral("elapsedMs"), result.elapsedMs},
                     {QStringLiteral("errorMessage"), result.errorMessage}
                 });
             }
