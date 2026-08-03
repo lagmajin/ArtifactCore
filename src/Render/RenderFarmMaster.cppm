@@ -780,12 +780,15 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
         impl_->executeJob(tracked);
         while (true) {
             RenderJobRequest next;
+            QString persistencePath;
             {
                 std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
                 if (impl_->pendingJobs_.empty()) break;
                 next = impl_->pendingJobs_.front();
                 impl_->pendingJobs_.pop_front();
+                persistencePath = impl_->queuePersistenceFile_;
             }
+            if (!persistencePath.isEmpty()) saveQueue(persistencePath);
             impl_->executeJob(next);
         }
     });
