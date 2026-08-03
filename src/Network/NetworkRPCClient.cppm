@@ -109,6 +109,11 @@ public:
 
     void onData() {
         readBuffer_.append(socket_->readAll());
+        constexpr qsizetype kMaxRpcMessageBytes = 16 * 1024 * 1024;
+        if (readBuffer_.size() > kMaxRpcMessageBytes) {
+            disconnectInternal();
+            return;
+        }
         // Process complete JSON lines
         while (true) {
             const qsizetype nl = readBuffer_.indexOf('\n');

@@ -97,6 +97,12 @@ public:
     void onData(QTcpSocket* socket) {
         auto& buffer = readBuffers_[socket];
         buffer.append(socket->readAll());
+        constexpr qsizetype kMaxRpcMessageBytes = 16 * 1024 * 1024;
+        if (buffer.size() > kMaxRpcMessageBytes) {
+            qWarning() << "[Farm] RPC message exceeds size limit:" << socket->peerAddress().toString();
+            socket->disconnectFromHost();
+            return;
+        }
         while (true) {
             const qsizetype newline = buffer.indexOf('\n');
             if (newline < 0) break;
