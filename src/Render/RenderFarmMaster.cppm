@@ -97,6 +97,9 @@ public:
     std::function<void(const RenderJobResult&)> onCompleted_;
     RenderFarmAlertCallback onAlert_;
     double failureAlertThreshold_ = 0.0;
+    QString lastAlertType_;
+    QDateTime lastAlertAt_;
+    int lastAlertFailedFrames_ = 0;
 
     std::vector<int> frameAttempts_;
     std::mutex frameAttemptsMutex_;
@@ -162,7 +165,12 @@ public:
             const double failureFraction = static_cast<double>(result.failedFrames)
                 / static_cast<double>(totalFrames_);
             if (failureFraction >= failureAlertThreshold_)
+            {
+                lastAlertType_ = QStringLiteral("failure_rate");
+                lastAlertAt_ = QDateTime::currentDateTimeUtc();
+                lastAlertFailedFrames_ = result.failedFrames;
                 onAlert_(QStringLiteral("failure_rate"), result);
+            }
         }
     }
 
@@ -1453,6 +1461,9 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("queuedJobIds"), queuedJobIds},
             {QStringLiteral("queuedPriorities"), queuedPriorities},
             {QStringLiteral("failureAlertThreshold"), impl_->failureAlertThreshold_},
+            {QStringLiteral("lastAlertType"), impl_->lastAlertType_},
+            {QStringLiteral("lastAlertAt"), impl_->lastAlertAt_.toString(Qt::ISODateWithMs)},
+            {QStringLiteral("lastAlertFailedFrames"), impl_->lastAlertFailedFrames_},
             {QStringLiteral("paused"), paused},
             {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
             {QStringLiteral("templateDetails"), templateDetails},
