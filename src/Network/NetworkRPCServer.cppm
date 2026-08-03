@@ -16,6 +16,7 @@ module;
 #include <QtNetwork/QTcpSocket>
 #include <QDateTime>
 #include <QDebug>
+#include <cstdint>
 
 module NetworkRPCServer;
 import NetworkRPCServer;
@@ -38,6 +39,7 @@ public:
     WorkerHeartbeatCallback onWorkerHeartbeat_;
     RpcRequestHandler onRequest_;
     QString authToken_;
+    std::uint64_t nextRpcId_ = 1;
 
     // Heartbeat: timer-based dead detection via QObject::connect + singleShot chain
     static constexpr qint64 HEARTBEAT_TIMEOUT_MS = 30000;
@@ -351,7 +353,8 @@ QString NetworkPCServer::callWorker(const QString& wid, const QString& method, c
     QTcpSocket* s = impl_->findSocket(wid);
     if (!s) return "{}";
     QJsonObject msg;
-    msg["jsonrpc"] = "2.0"; msg["method"] = method; msg["params"] = params; msg["id"] = 1;
+    msg["jsonrpc"] = "2.0"; msg["method"] = method; msg["params"] = params;
+    msg["id"] = static_cast<qint64>(impl_->nextRpcId_++);
     impl_->sendJson(s, msg);
     return "{}";
 }
@@ -360,7 +363,8 @@ bool NetworkPCServer::sendJobAssignment(const QString& wid, const QJsonObject& j
     QTcpSocket* s = impl_->findSocket(wid);
     if (!s) return false;
     QJsonObject msg;
-    msg["jsonrpc"] = "2.0"; msg["method"] = "assignJob"; msg["params"] = jobJson; msg["id"] = 1;
+    msg["jsonrpc"] = "2.0"; msg["method"] = "assignJob"; msg["params"] = jobJson;
+    msg["id"] = static_cast<qint64>(impl_->nextRpcId_++);
     impl_->sendJson(s, msg);
     {
         std::lock_guard<std::mutex> lock(impl_->mutex_);
