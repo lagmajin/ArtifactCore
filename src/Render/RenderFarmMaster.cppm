@@ -119,8 +119,15 @@ public:
         QCoreApplication* app = QCoreApplication::instance();
         if (url.isEmpty() || !app || !QUrl(url).isValid()) return;
         const QJsonObject payload{
-            {QStringLiteral("text"), QStringLiteral("Artifact Render Farm alert: %1 (%2)")
-                .arg(type, result.errorMessage)}
+            {QStringLiteral("text"), QStringLiteral("Artifact Render Farm: %1 (%2 frames, %3 ms)%4")
+                .arg(type).arg(result.renderedFrames).arg(result.elapsedMs)
+                .arg(result.errorMessage.isEmpty() ? QString() : QStringLiteral(" - ") + result.errorMessage)},
+            {QStringLiteral("type"), type},
+            {QStringLiteral("success"), result.success},
+            {QStringLiteral("renderedFrames"), result.renderedFrames},
+            {QStringLiteral("failedFrames"), result.failedFrames},
+            {QStringLiteral("elapsedMs"), result.elapsedMs},
+            {QStringLiteral("errorMessage"), result.errorMessage}
         };
         QMetaObject::invokeMethod(app, [url, payload]() {
             static QNetworkAccessManager manager;
@@ -194,6 +201,8 @@ public:
             if (!currentJobId_.isEmpty()) jobHistoryResults_[currentJobId_] = trackedResult;
         }
         if (onCompleted_) onCompleted_(trackedResult);
+        postAlertWebhook(trackedResult.success ? QStringLiteral("job_completed")
+                                                : QStringLiteral("job_failed"), trackedResult);
         if (onAlert_ && failureAlertThreshold_ > 0.0 && totalFrames_ > 0) {
             const double failureFraction = static_cast<double>(trackedResult.failedFrames)
                 / static_cast<double>(totalFrames_);
