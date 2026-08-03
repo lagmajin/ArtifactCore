@@ -951,7 +951,9 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
         const auto progress = overallProgress();
         const auto result = this->result();
         const bool busy = isBusy();
-        const QString status = busy ? QStringLiteral("running")
+        const bool paused = isPaused();
+        const QString status = paused ? QStringLiteral("paused")
+            : busy ? QStringLiteral("running")
             : (!result.errorMessage.isEmpty() ? QStringLiteral("failed")
                : (result.success ? QStringLiteral("completed") : QStringLiteral("idle")));
         return QJsonObject{
@@ -964,6 +966,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("updatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
             {QStringLiteral("status"), status},
             {QStringLiteral("busy"), busy},
+            {QStringLiteral("paused"), paused},
             {QStringLiteral("success"), !busy && result.success},
             {QStringLiteral("errorMessage"), busy ? QString() : result.errorMessage},
             {QStringLiteral("elapsedMs"), progress.elapsedMs},
