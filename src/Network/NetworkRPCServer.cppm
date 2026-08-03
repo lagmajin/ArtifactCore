@@ -674,7 +674,12 @@ public:
                         const QString requestedJobId = QString::fromUtf8(requestLine[1].mid(
                             prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
                         QJsonParseError parseError;
-                        QJsonObject overrides = QJsonDocument::fromJson(requestBody, &parseError).object();
+                        QJsonObject overrides;
+                        if (requestBody.isEmpty()) {
+                            parseError.error = QJsonParseError::NoError;
+                        } else {
+                            overrides = QJsonDocument::fromJson(requestBody, &parseError).object();
+                        }
                         if (requestedJobId.isEmpty() || parseError.error != QJsonParseError::NoError) {
                             statusCode = 400;
                             statusText = "Bad Request";
