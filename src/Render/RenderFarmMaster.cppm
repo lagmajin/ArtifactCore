@@ -854,11 +854,25 @@ bool RenderFarmMaster::setRemoteWorkerMaintenance(const QString& workerId,
 }
 
 bool RenderFarmMaster::startHttpApi(unsigned short port) {
-    return NetworkPCServer::instance().startHttpApi(port);
+    NetworkPCServer::instance().setHttpStatusProvider([this]() {
+        const auto progress = overallProgress();
+        return QJsonObject{
+            {QStringLiteral("completedFrames"), progress.completedFrames.load()},
+            {QStringLiteral("failedFrames"), progress.failedFrames.load()},
+            {QStringLiteral("totalFrames"), progress.totalFrames},
+            {QStringLiteral("elapsedMs"), progress.elapsedMs},
+            {QStringLiteral("estimatedRemainingMs"), progress.estimatedRemainingMs},
+            {QStringLiteral("workers"), remoteWorkerSnapshot()}
+        };
+    });
+    const bool started = NetworkPCServer::instance().startHttpApi(port);
+    if (!started) NetworkPCServer::instance().setHttpStatusProvider({});
+    return started;
 }
 
 void RenderFarmMaster::stopHttpApi() {
     NetworkPCServer::instance().stopHttpApi();
+    NetworkPCServer::instance().setHttpStatusProvider({});
 }
 
 bool RenderFarmMaster::isHttpApiRunning() const {

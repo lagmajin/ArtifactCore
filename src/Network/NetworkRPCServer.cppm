@@ -71,6 +71,7 @@ public:
     WorkerDisconnectedCallback onWorkerDisconnected_;
     WorkerHeartbeatCallback onWorkerHeartbeat_;
     RpcRequestHandler onRequest_;
+    HttpStatusProvider httpStatusProvider_;
     QString authToken_;
     std::uint64_t nextRpcId_ = 1;
     QSslCertificate tlsCertificate_;
@@ -380,10 +381,15 @@ public:
                         statusCode = 401;
                         statusText = "Unauthorized";
                         body = {{QStringLiteral("error"), QStringLiteral("unauthorized")}};
+                    } else if (requestLine.size() >= 2 && requestLine[0] == "OPTIONS") {
+                        statusCode = 204;
+                        statusText = "No Content";
                     } else if (requestLine.size() < 2 || requestLine[0] != "GET") {
                         statusCode = 405;
                         statusText = "Method Not Allowed";
                         body = {{QStringLiteral("error"), QStringLiteral("method_not_allowed")}};
+                    } else if (requestLine[1] == "/api/status" && httpStatusProvider_) {
+                        body = httpStatusProvider_();
                     } else if (requestLine[1] == "/api/health") {
                         int workerCount = 0;
                         {
@@ -417,6 +423,8 @@ public:
                     const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
                     const QByteArray response = "HTTP/1.1 " + QByteArray::number(statusCode)
                         + " " + statusText + "\r\nContent-Type: application/json\r\n"
+                        + "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, OPTIONS\r\n"
+                        + "Access-Control-Allow-Headers: Authorization, Content-Type\r\n"
                         + "Content-Length: " + QByteArray::number(payload.size())
                         + "\r\nConnection: close\r\n\r\n" + payload;
                     socket->write(response);
@@ -534,6 +542,9 @@ void NetworkPCServer::setOnWorkerConnected(WorkerConnectedCallback cb) { impl_->
 void NetworkPCServer::setOnWorkerDisconnected(WorkerDisconnectedCallback cb) { impl_->onWorkerDisconnected_ = std::move(cb); }
 void NetworkPCServer::setOnWorkerHeartbeat(WorkerHeartbeatCallback cb) { impl_->onWorkerHeartbeat_ = std::move(cb); }
 void NetworkPCServer::setOnRequest(RpcRequestHandler handler) { impl_->onRequest_ = std::move(handler); }
+void NetworkPCServer::setHttpStatusProvider(HttpStatusProvider provider) {
+    impl_->httpStatusProvider_ = std::move(provider);
+}
 void NetworkPCServer::setAuthToken(const QString& token) { impl_->authToken_ = token; }
 
 bool NetworkPCServer::setWorkerMaintenance(const QString& workerId, bool maintenance) {

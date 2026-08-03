@@ -30,6 +30,7 @@ using WorkerConnectedCallback = std::function<void(const RemoteWorkerInfo&)>;
 using WorkerDisconnectedCallback = std::function<void(const QString& workerId)>;
 using WorkerHeartbeatCallback = std::function<void(const QString& workerId)>;
 using RpcRequestHandler = std::function<QJsonObject(const QString& method, const QJsonObject& params)>;
+using HttpStatusProvider = std::function<QJsonObject()>;
 
 class NetworkPCServer
 {
@@ -57,6 +58,7 @@ public:
     void setOnWorkerDisconnected(WorkerDisconnectedCallback cb);
     void setOnWorkerHeartbeat(WorkerHeartbeatCallback cb);
     void setOnRequest(RpcRequestHandler handler);
+    void setHttpStatusProvider(HttpStatusProvider provider);
     void setAuthToken(const QString& token);
     bool setWorkerMaintenance(const QString& workerId, bool maintenance);
     bool startHttpApi(unsigned short port = 0);
