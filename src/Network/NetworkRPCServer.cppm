@@ -1304,6 +1304,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         int healthyWorkerCount = 0;
                         int busyWorkerCount = 0;
                         qint64 totalHeartbeatLatencyMs = 0;
+                        qint64 maxHeartbeatLatencyMs = -1;
                         int measuredHeartbeatWorkers = 0;
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
@@ -1313,6 +1314,8 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 totalWorkerRenderTimeMs += worker.totalRenderTimeMs;
                                 if (worker.heartbeatLatencyMs >= 0) {
                                     totalHeartbeatLatencyMs += worker.heartbeatLatencyMs;
+                                    maxHeartbeatLatencyMs = std::max(maxHeartbeatLatencyMs,
+                                                                     worker.heartbeatLatencyMs);
                                     ++measuredHeartbeatWorkers;
                                 }
                                 const qint64 heartbeatAgeMs = worker.lastHeartbeat > 0
@@ -1340,6 +1343,10 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             "artifact_farm_worker_heartbeat_latency_ms "
                             + QByteArray::number(measuredHeartbeatWorkers > 0
                                 ? static_cast<double>(totalHeartbeatLatencyMs) / measuredHeartbeatWorkers : 0.0)
+                            + "\n"
+                            "# TYPE artifact_farm_worker_heartbeat_latency_max_ms gauge\n"
+                            "artifact_farm_worker_heartbeat_latency_max_ms "
+                            + QByteArray::number(maxHeartbeatLatencyMs >= 0 ? maxHeartbeatLatencyMs : 0)
                             + "\n"
                             "# TYPE artifact_farm_queued_jobs gauge\n"
                             + metric(QStringLiteral("queuedJobs"), QStringLiteral("artifact_farm_queued_jobs")) + "\n"
