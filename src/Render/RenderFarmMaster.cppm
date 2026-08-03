@@ -101,6 +101,8 @@ public:
     std::mutex frameAttemptsMutex_;
 
     std::thread farmThread_;
+    std::deque<RenderJobRequest> pendingJobs_;
+    mutable std::mutex pendingJobsMutex_;
     mutable std::mutex resultMutex_;
     std::chrono::steady_clock::time_point jobDeadline_{};
     std::chrono::steady_clock::time_point jobStartedAt_{};
@@ -701,7 +703,6 @@ int RenderFarmMaster::workerCount() const {
 }
 
 void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
-    if (impl_->busy_) return;
     RenderJobRequest tracked = request;
     if (tracked.jobId.isEmpty())
         tracked.jobId = QStringLiteral("farm-%1").arg(QDateTime::currentMSecsSinceEpoch());
@@ -717,16 +718,30 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
             impl_->jobHistory_.erase(oldest);
         }
     }
+    if (impl_->busy_) {
+        std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+        impl_->pendingJobs_.push_back(tracked);
+        return;
+    }
     if (impl_->farmThread_.joinable()) {
         impl_->farmThread_.join();
     }
     impl_->farmThread_ = std::thread([this, tracked]() {
         impl_->executeJob(tracked);
+        while (true) {
+            RenderJobRequest next;
+            {
+                std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+                if (impl_->pendingJobs_.empty()) break;
+                next = impl_->pendingJobs_.front();
+                impl_->pendingJobs_.pop_front();
+            }
+            impl_->executeJob(next);
+        }
     });
 }
 
 bool RenderFarmMaster::resubmitJob(const QString& jobId) {
-    if (isBusy()) return false;
     RenderJobRequest request;
     {
         std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
@@ -750,7 +765,7 @@ QStringList RenderFarmMaster::jobHistory() const {
 
 bool RenderFarmMaster::submitTemplate(const QString& name) {
     const auto request = jobTemplate(name);
-    if (!request || isBusy()) return false;
+    if (!request) return false;
     RenderJobRequest submitted = *request;
     if (submitted.jobId.isEmpty()) {
         submitted.jobId = QStringLiteral("template-%1-%2")
@@ -791,6 +806,10 @@ std::optional<RenderJobRequest> RenderFarmMaster::jobTemplate(const QString& nam
 
 void RenderFarmMaster::cancelAll() {
     impl_->cancelled_ = true;
+    {
+        std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+        impl_->pendingJobs_.clear();
+    }
     impl_->pauseCv_.notify_all();
 }
 
@@ -968,22 +987,17 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             if (remoteWorkerCount() <= 0) {
                 return {{QStringLiteral("status"), QStringLiteral("no_workers")}};
             }
-            if (isBusy()) {
-                return {{QStringLiteral("status"), QStringLiteral("busy")},
-                        {QStringLiteral("jobId"), impl_->currentJobId_}};
-            }
+            const bool queued = isBusy();
             submitJob(request);
             return {{QStringLiteral("status"), QStringLiteral("accepted")},
-                    {QStringLiteral("jobId"), request.jobId}};
+                    {QStringLiteral("jobId"), request.jobId},
+                    {QStringLiteral("queued"), queued}};
         }
         if (method == QStringLiteral("submitTemplate")) {
             const QString name = params.value(QStringLiteral("name")).toString().trimmed();
             const auto request = jobTemplate(name);
             if (!request)
                 return {{QStringLiteral("status"), QStringLiteral("template_not_found")}};
-            if (isBusy())
-                return {{QStringLiteral("status"), QStringLiteral("busy")},
-                        {QStringLiteral("jobId"), impl_->currentJobId_}};
             if (!submitTemplate(name))
                 return {{QStringLiteral("status"), QStringLiteral("submit_failed")}};
             return {{QStringLiteral("status"), QStringLiteral("accepted")}};
@@ -992,8 +1006,7 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
             if (!jobHistory().contains(jobId))
                 return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
-            if (!resubmitJob(jobId))
-                return {{QStringLiteral("status"), QStringLiteral("busy")}};
+            resubmitJob(jobId);
             return {{QStringLiteral("status"), QStringLiteral("accepted")}};
         }
         if (method == QStringLiteral("cancelJob")) {
@@ -1108,6 +1121,11 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
         const auto progress = overallProgress();
         const auto result = this->result();
         const bool busy = isBusy();
+        int queuedJobs = 0;
+        {
+            std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+            queuedJobs = static_cast<int>(impl_->pendingJobs_.size());
+        }
         const bool paused = isPaused();
         const qint64 estimatedCostMs = progress.completedFrames.load() > 0
             ? static_cast<qint64>(
@@ -1128,6 +1146,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("updatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
             {QStringLiteral("status"), status},
             {QStringLiteral("busy"), busy},
+            {QStringLiteral("queuedJobs"), queuedJobs},
             {QStringLiteral("paused"), paused},
             {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
             {QStringLiteral("jobHistory"), QJsonArray::fromStringList(jobHistory())},
