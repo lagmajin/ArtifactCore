@@ -1363,6 +1363,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
         QJsonArray queuedJobIds;
         QJsonArray queuedPriorities;
         QJsonArray historyDetails;
+        QJsonArray templateDetails;
         {
             std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
             queuedJobs = static_cast<int>(impl_->pendingJobs_.size());
@@ -1398,6 +1399,21 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                 });
             }
         }
+        {
+            std::lock_guard<std::mutex> lock(impl_->jobTemplatesMutex_);
+            for (const auto& [name, request] : impl_->jobTemplates_) {
+                templateDetails.append(QJsonObject{
+                    {QStringLiteral("name"), name},
+                    {QStringLiteral("compositionId"), request.compositionId.toString()},
+                    {QStringLiteral("startFrame"), request.range.startFrame},
+                    {QStringLiteral("endFrame"), request.range.endFrame},
+                    {QStringLiteral("step"), request.range.step},
+                    {QStringLiteral("priority"), request.priority},
+                    {QStringLiteral("outputPath"), request.outputPath},
+                    {QStringLiteral("requiredCapabilities"), request.requiredCapabilities}
+                });
+            }
+        }
         const bool paused = isPaused();
         const qint64 estimatedCostMs = progress.completedFrames.load() > 0
             ? static_cast<qint64>(
@@ -1423,6 +1439,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("queuedPriorities"), queuedPriorities},
             {QStringLiteral("paused"), paused},
             {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
+            {QStringLiteral("templateDetails"), templateDetails},
             {QStringLiteral("jobHistory"), QJsonArray::fromStringList(jobHistory())},
             {QStringLiteral("jobHistoryDetails"), historyDetails},
             {QStringLiteral("success"), !busy && result.success},

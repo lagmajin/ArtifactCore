@@ -726,6 +726,22 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         body = QJsonObject{
                             {QStringLiteral("templates"), status.value(QStringLiteral("templates")).toArray()}
                         };
+                    } else if (requestLine[1].startsWith("/api/templates/")) {
+                        const QString name = QString::fromUtf8(
+                            requestLine[1].mid(QByteArray("/api/templates/").size()));
+                        const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        const QJsonArray details = status.value(QStringLiteral("templateDetails")).toArray();
+                        for (const auto& value : details) {
+                            if (value.toObject().value(QStringLiteral("name")).toString() == name) {
+                                body = value.toObject();
+                                break;
+                            }
+                        }
+                        if (body.isEmpty()) {
+                            statusCode = 404;
+                            statusText = "Not Found";
+                            body = {{QStringLiteral("error"), QStringLiteral("template_not_found")}};
+                        }
                     } else if (requestLine[1] == "/api/queue") {
                         const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
                         body = QJsonObject{
@@ -794,6 +810,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/history"),
                                 QStringLiteral("GET /api/queue"),
                                 QStringLiteral("GET /api/templates"),
+                                QStringLiteral("GET /api/templates/{name}"),
                                 QStringLiteral("POST /api/templates/{name}/submit"),
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
