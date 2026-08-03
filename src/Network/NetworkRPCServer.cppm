@@ -361,6 +361,10 @@ public:
         QObject::connect(httpServer_, &QTcpServer::newConnection, [this]() {
             while (httpServer_->hasPendingConnections()) {
                 QTcpSocket* socket = httpServer_->nextPendingConnection();
+                QTimer::singleShot(10000, socket, [socket]() {
+                    if (socket->state() != QAbstractSocket::UnconnectedState)
+                        socket->disconnectFromHost();
+                });
                 auto requestBuffer = std::make_shared<QByteArray>();
                 QObject::connect(socket, &QTcpSocket::readyRead, [this, socket, requestBuffer]() {
                     requestBuffer->append(socket->readAll());
