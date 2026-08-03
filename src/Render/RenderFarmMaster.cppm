@@ -354,6 +354,7 @@ public:
         std::vector<RemoteWorkerInfo> activeWorkers;
         for (const auto& w : workers) {
             if (!w.workerId.isEmpty() && w.connected && w.assignedFrames == 0
+                && w.state == QStringLiteral("Idle")
                 && workerMatches(w, request.requiredCapabilities))
                 activeWorkers.push_back(w);
         }

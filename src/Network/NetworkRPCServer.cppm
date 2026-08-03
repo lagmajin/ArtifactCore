@@ -187,6 +187,8 @@ public:
             if (it != workers_.end()) {
                 it->second.workerId = workerId;
                 it->second.capabilities = msg["params"].toObject()["capabilities"].toObject();
+                it->second.state = it->second.capabilities.value(QStringLiteral("maintenance")).toBool(false)
+                    ? QStringLiteral("Maintenance") : QStringLiteral("Idle");
                 workerSockets_[workerId] = socket;
                 it->second.lastHeartbeat = QDateTime::currentMSecsSinceEpoch();
             }
