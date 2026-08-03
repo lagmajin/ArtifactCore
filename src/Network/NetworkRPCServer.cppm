@@ -167,6 +167,19 @@ public:
     void handleRpc(QTcpSocket* socket, const QJsonObject& msg) {
         QString method = msg["method"].toString();
         QJsonObject params = msg["params"].toObject();
+        if (method == QStringLiteral("workerProgress")) {
+            const QString workerId = params[QStringLiteral("workerId")].toString();
+            std::lock_guard<std::mutex> lock(mutex_);
+            const auto socketIt = workerSockets_.find(workerId);
+            if (socketIt != workerSockets_.end()) {
+                const auto workerIt = workers_.find(socketIt->second);
+                if (workerIt != workers_.end()) {
+                    workerIt->second.completedFrames = std::max(0, params[QStringLiteral("completedFrames")].toInt());
+                    workerIt->second.failedFrames = std::max(0, params[QStringLiteral("failedFrames")].toInt());
+                    workerIt->second.currentFrame = params[QStringLiteral("currentFrame")].toInt(-1);
+                }
+            }
+        }
         if (method == QStringLiteral("frameCompleted")
             || method == QStringLiteral("frameFailed")) {
             const QString workerId = params[QStringLiteral("workerId")].toString();

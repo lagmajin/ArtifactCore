@@ -1,5 +1,6 @@
 module;
 #include <memory>
+#include <algorithm>
 #include <functional>
 #include <QString>
 #include <QByteArray>
@@ -188,6 +189,17 @@ bool NetworkRPCClient::sendFrameCompleted(int frame) {
 
 bool NetworkRPCClient::sendFrameFailed(int frame, const QString& error) {
     return impl_->sendFrameResult(QStringLiteral("frameFailed"), frame, error);
+}
+
+bool NetworkRPCClient::sendWorkerProgress(int completedFrames, int failedFrames, int currentFrame) {
+    if (!impl_->connected_) return false;
+    QJsonObject params;
+    params[QStringLiteral("workerId")] = impl_->workerId_;
+    params[QStringLiteral("completedFrames")] = std::max(0, completedFrames);
+    params[QStringLiteral("failedFrames")] = std::max(0, failedFrames);
+    params[QStringLiteral("currentFrame")] = currentFrame;
+    impl_->sendMessage(QStringLiteral("workerProgress"), params);
+    return true;
 }
 
 }

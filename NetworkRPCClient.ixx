@@ -33,6 +33,7 @@ public:
 
     bool sendFrameCompleted(int frame);
     bool sendFrameFailed(int frame, const QString& error);
+    bool sendWorkerProgress(int completedFrames, int failedFrames, int currentFrame);
 
 private:
     class Impl;

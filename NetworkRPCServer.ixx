@@ -19,6 +19,9 @@ struct RemoteWorkerInfo {
     qint64 lastHeartbeat = 0;
     bool connected = false;
     int assignedFrames = 0;
+    int completedFrames = 0;
+    int failedFrames = 0;
+    int currentFrame = -1;
     QJsonObject capabilities;
 };
 
