@@ -1065,6 +1065,25 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         body = QJsonObject{{QStringLiteral("jobPool"), pool},
                                            {QStringLiteral("jobs"), jobs}};
                     } else if (requestLine[1].startsWith("/api/jobs/")
+                               && requestLine[1].endsWith("/outputs")) {
+                        const QByteArray prefix = "/api/jobs/";
+                        const QByteArray suffix = "/outputs";
+                        const QString jobId = QString::fromUtf8(requestLine[1].mid(
+                            prefix.size(), requestLine[1].size() - prefix.size() - suffix.size()));
+                        if (!onRequest_) {
+                            statusCode = 503;
+                            statusText = "Service Unavailable";
+                            body = {{QStringLiteral("error"), QStringLiteral("rpc_handler_unavailable")}};
+                        } else {
+                            body = onRequest_(QStringLiteral("inspectJobOutput"),
+                                              {{QStringLiteral("jobId"), jobId}});
+                            if (body.value(QStringLiteral("status")).toString()
+                                == QStringLiteral("job_not_found")) {
+                                statusCode = 404;
+                                statusText = "Not Found";
+                            }
+                        }
+                    } else if (requestLine[1].startsWith("/api/jobs/")
                                && requestLine[1].endsWith("/verify-output")) {
                         const QByteArray prefix = "/api/jobs/";
                         const QByteArray suffix = "/verify-output";
@@ -1156,6 +1175,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/logs"),
                                 QStringLiteral("GET /api/jobs/{jobId}"),
                                 QStringLiteral("GET /api/jobs/{jobId}/verify-output"),
+                                QStringLiteral("GET /api/jobs/{jobId}/outputs"),
                                 QStringLiteral("POST /api/jobs"),
                                 QStringLiteral("POST /api/jobs/validate-output"),
                                 QStringLiteral("POST /api/jobs/{jobId}/cancel|pause|resume|resubmit"),

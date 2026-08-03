@@ -435,6 +435,31 @@ public:
         return framePath;
     }
 
+    QJsonObject outputManifest(const QString& outputPath,
+                               const RenderFrameRange& range) const {
+        QJsonArray frames;
+        const bool sequence = outputPath.contains(QStringLiteral("####"))
+            || outputPath.contains(QStringLiteral("%0"));
+        if (sequence) {
+            for (int frame = range.startFrame; frame < range.endFrame; frame += range.step) {
+                const QString path = frameOutputPath(outputPath, frame);
+                const QFileInfo info(path);
+                frames.append(QJsonObject{{QStringLiteral("frame"), frame},
+                                          {QStringLiteral("path"), path},
+                                          {QStringLiteral("exists"), info.isFile()},
+                                          {QStringLiteral("sizeBytes"), info.isFile() ? info.size() : 0}});
+            }
+        } else {
+            const QFileInfo info(outputPath);
+            frames.append(QJsonObject{{QStringLiteral("frame"), range.startFrame},
+                                      {QStringLiteral("path"), outputPath},
+                                      {QStringLiteral("exists"), info.isFile()},
+                                      {QStringLiteral("sizeBytes"), info.isFile() ? info.size() : 0}});
+        }
+        return QJsonObject{{QStringLiteral("outputPath"), outputPath},
+                           {QStringLiteral("frames"), frames}};
+    }
+
     QString versionOutputPath(const QString& outputPath) const {
         const QString path = outputPath.trimmed();
         if (path.isEmpty()) return path;
@@ -1501,6 +1526,17 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             return {{QStringLiteral("status"), QStringLiteral("ok")},
                     {QStringLiteral("jobId"), jobId},
                     {QStringLiteral("outputPath"), request.outputPath}};
+        }
+        if (method == QStringLiteral("inspectJobOutput")) {
+            const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
+            std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
+            const auto it = impl_->jobHistory_.find(jobId);
+            if (it == impl_->jobHistory_.end())
+                return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
+            QJsonObject manifest = impl_->outputManifest(it->second.outputPath, it->second.range);
+            manifest[QStringLiteral("status")] = QStringLiteral("ok");
+            manifest[QStringLiteral("jobId")] = jobId;
+            return manifest;
         }
         if (method == QStringLiteral("submitJob")) {
             RenderJobRequest request;
