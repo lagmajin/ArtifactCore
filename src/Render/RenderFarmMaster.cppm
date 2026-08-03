@@ -720,7 +720,11 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
     }
     if (impl_->busy_) {
         std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
-        impl_->pendingJobs_.push_back(tracked);
+        const auto insertAt = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+            [&tracked](const RenderJobRequest& queued) {
+                return queued.priority < tracked.priority;
+            });
+        impl_->pendingJobs_.insert(insertAt, tracked);
         return;
     }
     if (impl_->farmThread_.joinable()) {
