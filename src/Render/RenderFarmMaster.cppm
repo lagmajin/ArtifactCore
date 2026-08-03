@@ -766,6 +766,32 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
     };
 
     rpc.setOnRequest([this](const QString& method, const QJsonObject& params) -> QJsonObject {
+        if (method == QStringLiteral("submitJob")) {
+            RenderJobRequest request;
+            request.jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
+            request.compositionName = params.value(QStringLiteral("compositionName")).toString();
+            request.range.startFrame = params.value(QStringLiteral("startFrame")).toInt(0);
+            request.range.endFrame = params.value(QStringLiteral("endFrame")).toInt(0);
+            request.range.step = std::max(1, params.value(QStringLiteral("step")).toInt(1));
+            request.priority = params.value(QStringLiteral("priority")).toInt(0);
+            request.jobTimeoutMs = std::max(0, params.value(QStringLiteral("jobTimeoutMs")).toInt(0));
+            request.frameTimeoutMs = std::max(0, params.value(QStringLiteral("frameTimeoutMs")).toInt(0));
+            request.outputPath = params.value(QStringLiteral("outputPath")).toString();
+            request.rendererExecutable = params.value(QStringLiteral("rendererExecutable")).toString();
+            request.renderPayload = params.value(QStringLiteral("renderPayload")).toObject();
+            request.requiredCapabilities = params.value(QStringLiteral("requiredCapabilities")).toObject();
+            if (request.range.endFrame <= request.range.startFrame
+                || request.renderPayload.isEmpty() || request.rendererExecutable.isEmpty()) {
+                return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
+            }
+            submitJob(request);
+            return {{QStringLiteral("status"), QStringLiteral("accepted")},
+                    {QStringLiteral("jobId"), request.jobId}};
+        }
+        if (method == QStringLiteral("cancelJob")) {
+            cancelAll();
+            return {{QStringLiteral("status"), QStringLiteral("cancel_requested")}};
+        }
         if (method == QStringLiteral("frameCompleted")) {
             QString workerId = params["workerId"].toString();
             int frame = params["frame"].toInt(-1);
