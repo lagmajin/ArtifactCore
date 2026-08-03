@@ -123,6 +123,7 @@ public:
                 .arg(type).arg(result.renderedFrames).arg(result.elapsedMs)
                 .arg(result.errorMessage.isEmpty() ? QString() : QStringLiteral(" - ") + result.errorMessage)},
             {QStringLiteral("type"), type},
+            {QStringLiteral("jobId"), currentJobId_},
             {QStringLiteral("success"), result.success},
             {QStringLiteral("renderedFrames"), result.renderedFrames},
             {QStringLiteral("failedFrames"), result.failedFrames},
