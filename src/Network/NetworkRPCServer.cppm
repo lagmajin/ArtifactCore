@@ -11,6 +11,7 @@ module;
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QMap>
 #include <QTimer>
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
@@ -954,6 +955,20 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             {QStringLiteral("lastAlertQueuedJobs"),
                              status.value(QStringLiteral("lastAlertQueuedJobs")).toInt()}
                         };
+                    } else if (requestLine[1] == "/api/job-pools") {
+                        const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        QMap<QString, QJsonArray> grouped;
+                        for (const auto& value : status.value(QStringLiteral("jobHistoryDetails")).toArray()) {
+                            const QJsonObject job = value.toObject();
+                            const QString pool = job.value(QStringLiteral("jobPool")).toString();
+                            if (!pool.isEmpty()) grouped[pool].append(job.value(QStringLiteral("jobId")));
+                        }
+                        QJsonArray pools;
+                        for (auto it = grouped.cbegin(); it != grouped.cend(); ++it)
+                            pools.append(QJsonObject{{QStringLiteral("jobPool"), it.key()},
+                                                     {QStringLiteral("jobCount"), it.value().size()},
+                                                     {QStringLiteral("jobIds"), it.value()}});
+                        body = QJsonObject{{QStringLiteral("pools"), pools}};
                     } else if (requestLine[1] == "/api/templates") {
                         const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
                         body = QJsonObject{
@@ -1104,6 +1119,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/jobs/pool/{pool}"),
                                 QStringLiteral("GET /api/history"),
                                 QStringLiteral("GET /api/queue"),
+                                QStringLiteral("GET /api/job-pools"),
                                 QStringLiteral("GET /api/templates"),
                                 QStringLiteral("GET /api/alerts"),
                                 QStringLiteral("GET /api/templates/{name}"),
