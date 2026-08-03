@@ -906,8 +906,10 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
             impl_->jobHistoryResults_.erase(oldest);
         }
     }
-    if (impl_->busy_) {
-        const bool shouldPreempt = tracked.priority > impl_->currentPriority_.load();
+    const bool dependenciesReady = impl_->dependenciesSatisfied(tracked);
+    if (impl_->busy_ || !dependenciesReady) {
+        const bool shouldPreempt = impl_->busy_
+            && tracked.priority > impl_->currentPriority_.load();
         QString persistencePath;
         int queuedCount = 0;
         {
