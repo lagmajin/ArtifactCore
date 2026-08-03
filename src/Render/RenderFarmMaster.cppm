@@ -897,10 +897,13 @@ std::optional<RenderJobRequest> RenderFarmMaster::jobTemplate(const QString& nam
 
 void RenderFarmMaster::cancelAll() {
     impl_->cancelled_ = true;
+    QString persistencePath;
     {
         std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
         impl_->pendingJobs_.clear();
+        persistencePath = impl_->queuePersistenceFile_;
     }
+    if (!persistencePath.isEmpty()) saveQueue(persistencePath);
     impl_->pauseCv_.notify_all();
 }
 
@@ -912,45 +915,61 @@ bool RenderFarmMaster::cancelJob(const QString& jobId) {
         impl_->pauseCv_.notify_all();
         return true;
     }
-    std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
-    const auto it = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
-        [&requestedId](const RenderJobRequest& queued) {
-            return queued.jobId == requestedId;
-        });
-    if (it == impl_->pendingJobs_.end()) return false;
-    impl_->pendingJobs_.erase(it);
+    QString persistencePath;
+    {
+        std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+        const auto it = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+            [&requestedId](const RenderJobRequest& queued) {
+                return queued.jobId == requestedId;
+            });
+        if (it == impl_->pendingJobs_.end()) return false;
+        impl_->pendingJobs_.erase(it);
+        persistencePath = impl_->queuePersistenceFile_;
+    }
+    if (!persistencePath.isEmpty()) saveQueue(persistencePath);
     return true;
 }
 
 int RenderFarmMaster::clearQueuedJobs() {
-    std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
-    const int removed = static_cast<int>(impl_->pendingJobs_.size());
-    impl_->pendingJobs_.clear();
+    int removed = 0;
+    QString persistencePath;
+    {
+        std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+        removed = static_cast<int>(impl_->pendingJobs_.size());
+        impl_->pendingJobs_.clear();
+        persistencePath = impl_->queuePersistenceFile_;
+    }
+    if (!persistencePath.isEmpty()) saveQueue(persistencePath);
     return removed;
 }
 
 bool RenderFarmMaster::setQueuedJobPriority(const QString& jobId, int priority) {
     const QString requestedId = jobId.trimmed();
-    std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
-    const auto it = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
-        [&requestedId](const RenderJobRequest& queued) {
-            return queued.jobId == requestedId;
-        });
-    if (it == impl_->pendingJobs_.end()) return false;
-    RenderJobRequest updated = *it;
-    updated.priority = priority;
-    impl_->pendingJobs_.erase(it);
-    const auto insertAt = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
-        [&updated](const RenderJobRequest& queued) {
-            return queued.priority < updated.priority;
-        });
-    impl_->pendingJobs_.insert(insertAt, std::move(updated));
+    QString persistencePath;
+    {
+        std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
+        const auto it = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+            [&requestedId](const RenderJobRequest& queued) {
+                return queued.jobId == requestedId;
+            });
+        if (it == impl_->pendingJobs_.end()) return false;
+        RenderJobRequest updated = *it;
+        updated.priority = priority;
+        impl_->pendingJobs_.erase(it);
+        const auto insertAt = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+            [&updated](const RenderJobRequest& queued) {
+                return queued.priority < updated.priority;
+            });
+        impl_->pendingJobs_.insert(insertAt, std::move(updated));
+        persistencePath = impl_->queuePersistenceFile_;
+    }
     {
         std::lock_guard<std::mutex> historyLock(impl_->jobHistoryMutex_);
         const auto historyIt = impl_->jobHistory_.find(requestedId);
         if (historyIt != impl_->jobHistory_.end())
             historyIt->second.priority = priority;
     }
+    if (!persistencePath.isEmpty()) saveQueue(persistencePath);
     return true;
 }
 
