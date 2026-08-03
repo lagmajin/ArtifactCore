@@ -97,6 +97,7 @@ public:
     mutable std::mutex resultMutex_;
     std::chrono::steady_clock::time_point jobDeadline_{};
     std::chrono::steady_clock::time_point jobStartedAt_{};
+    std::atomic<qint64> lastElapsedMs_{ 0 };
     bool hasJobDeadline_ = false;
 
     QString currentJobId_;
@@ -388,6 +389,8 @@ public:
                 finalResult_ = result;
             }
             if (onCompleted_) onCompleted_(result);
+            lastElapsedMs_.store(std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - jobStartedAt_).count());
             busy_ = false;
             return;
         }
@@ -522,6 +525,8 @@ public:
             if (onCompleted_) onCompleted_(result);
         }
 
+        lastElapsedMs_.store(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - jobStartedAt_).count());
         busy_ = false;
     }
 
@@ -628,6 +633,8 @@ RenderJobProgress RenderFarmMaster::overallProgress() const {
     if (impl_->busy_) {
         p.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - impl_->jobStartedAt_).count();
+    } else {
+        p.elapsedMs = impl_->lastElapsedMs_.load();
     }
     const int completed = p.completedFrames.load();
     const int failed = p.failedFrames.load();
