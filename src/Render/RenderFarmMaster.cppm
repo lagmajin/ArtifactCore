@@ -168,7 +168,8 @@ public:
         const QDir parent = info.dir();
         if (!parent.exists())
             return QStringLiteral("Output directory does not exist: %1").arg(parent.path());
-        if (!parent.isReadable())
+        const QFileInfo parentInfo(parent.path());
+        if (!parent.isReadable() || !parentInfo.isWritable())
             return QStringLiteral("Output directory is not accessible: %1").arg(parent.path());
         if (info.exists() && !info.isWritable())
             return QStringLiteral("Output file is not writable: %1").arg(path);
