@@ -688,7 +688,7 @@ const status=await s.json(),workers=await w.json(),logs=await l.json();document.
 document.getElementById('workers').textContent=JSON.stringify(workers,null,2);
 document.getElementById('queue').textContent=JSON.stringify(status.queuedJobIds||[],null,2)+'\n'+
 JSON.stringify(status.queuedPriorities||[],null,2);
-document.getElementById('history').textContent=JSON.stringify(status.jobHistory||[],null,2);
+document.getElementById('history').textContent=JSON.stringify(status.jobHistoryDetails||status.jobHistory||[],null,2);
 document.getElementById('logs').textContent=JSON.stringify(logs.logs||[],null,2)}catch(e){
 document.getElementById('status').textContent='Dashboard unavailable: '+e}}refresh();setInterval(refresh,2000)</script>
 <script>async function operate(action){try{const s=await fetch('/api/status');const j=await s.json();if(!j.jobId)return;

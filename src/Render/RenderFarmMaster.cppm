@@ -128,6 +128,7 @@ public:
     std::map<QString, RenderJobRequest> jobTemplates_;
     mutable std::mutex jobTemplatesMutex_;
     std::map<QString, RenderJobRequest> jobHistory_;
+    std::map<QString, RenderJobResult> jobHistoryResults_;
     std::deque<QString> jobHistoryOrder_;
     mutable std::mutex jobHistoryMutex_;
 
@@ -152,6 +153,10 @@ public:
     }
 
     void notifyCompleted(const RenderJobResult& result) {
+        {
+            std::lock_guard<std::mutex> lock(jobHistoryMutex_);
+            if (!currentJobId_.isEmpty()) jobHistoryResults_[currentJobId_] = result;
+        }
         if (onCompleted_) onCompleted_(result);
         if (onAlert_ && failureAlertThreshold_ > 0.0 && totalFrames_ > 0) {
             const double failureFraction = static_cast<double>(result.failedFrames)
@@ -757,6 +762,7 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
             const QString oldest = impl_->jobHistoryOrder_.front();
             impl_->jobHistoryOrder_.pop_front();
             impl_->jobHistory_.erase(oldest);
+            impl_->jobHistoryResults_.erase(oldest);
         }
     }
     if (impl_->busy_) {
@@ -1353,12 +1359,34 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
         int queuedJobs = 0;
         QJsonArray queuedJobIds;
         QJsonArray queuedPriorities;
+        QJsonArray historyDetails;
         {
             std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
             queuedJobs = static_cast<int>(impl_->pendingJobs_.size());
             for (const auto& queued : impl_->pendingJobs_) {
                 queuedJobIds.append(queued.jobId);
                 queuedPriorities.append(queued.priority);
+            }
+        }
+        {
+            std::lock_guard<std::mutex> lock(impl_->jobHistoryMutex_);
+            for (const auto& [jobId, request] : impl_->jobHistory_) {
+                const auto resultIt = impl_->jobHistoryResults_.find(jobId);
+                if (resultIt == impl_->jobHistoryResults_.end()) {
+                    historyDetails.append(QJsonObject{{QStringLiteral("jobId"), jobId},
+                                                      {QStringLiteral("status"), QStringLiteral("queued")}});
+                    continue;
+                }
+                const auto& result = resultIt->second;
+                historyDetails.append(QJsonObject{
+                    {QStringLiteral("jobId"), jobId},
+                    {QStringLiteral("status"), result.success ? QStringLiteral("completed")
+                                                                : QStringLiteral("failed")},
+                    {QStringLiteral("success"), result.success},
+                    {QStringLiteral("renderedFrames"), result.renderedFrames},
+                    {QStringLiteral("failedFrames"), result.failedFrames},
+                    {QStringLiteral("errorMessage"), result.errorMessage}
+                });
             }
         }
         const bool paused = isPaused();
@@ -1387,6 +1415,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("paused"), paused},
             {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
             {QStringLiteral("jobHistory"), QJsonArray::fromStringList(jobHistory())},
+            {QStringLiteral("jobHistoryDetails"), historyDetails},
             {QStringLiteral("success"), !busy && result.success},
             {QStringLiteral("errorMessage"), busy ? QString() : result.errorMessage},
             {QStringLiteral("elapsedMs"), progress.elapsedMs},
