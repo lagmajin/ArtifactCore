@@ -625,7 +625,9 @@ RenderFarmMaster::RenderFarmMaster(int workerCount)
     : impl_(std::make_unique<Impl>(workerCount))
 {}
 
-RenderFarmMaster::~RenderFarmMaster() = default;
+RenderFarmMaster::~RenderFarmMaster() {
+    if (isHttpApiRunning()) stopHttpApi();
+}
 
 void RenderFarmMaster::setWorkerCount(int count) {
     impl_->workerCount_ = std::max(1, count);
