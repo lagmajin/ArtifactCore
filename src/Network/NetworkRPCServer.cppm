@@ -1303,12 +1303,18 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                         int workerCount = 0;
                         int healthyWorkerCount = 0;
                         int busyWorkerCount = 0;
+                        qint64 totalHeartbeatLatencyMs = 0;
+                        int measuredHeartbeatWorkers = 0;
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
                             workerCount = static_cast<int>(workers_.size());
                             const qint64 now = QDateTime::currentMSecsSinceEpoch();
                             for (const auto& [_, worker] : workers_) {
                                 totalWorkerRenderTimeMs += worker.totalRenderTimeMs;
+                                if (worker.heartbeatLatencyMs >= 0) {
+                                    totalHeartbeatLatencyMs += worker.heartbeatLatencyMs;
+                                    ++measuredHeartbeatWorkers;
+                                }
                                 const qint64 heartbeatAgeMs = worker.lastHeartbeat > 0
                                     ? std::max<qint64>(0, now - worker.lastHeartbeat) : -1;
                                 if (worker.connected && heartbeatAgeMs >= 0
@@ -1329,6 +1335,11 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                             "artifact_farm_worker_utilization "
                             + QByteArray::number(workerCount > 0
                                 ? static_cast<double>(busyWorkerCount) / workerCount : 0.0)
+                            + "\n"
+                            "# TYPE artifact_farm_worker_heartbeat_latency_ms gauge\n"
+                            "artifact_farm_worker_heartbeat_latency_ms "
+                            + QByteArray::number(measuredHeartbeatWorkers > 0
+                                ? static_cast<double>(totalHeartbeatLatencyMs) / measuredHeartbeatWorkers : 0.0)
                             + "\n"
                             "# TYPE artifact_farm_queued_jobs gauge\n"
                             + metric(QStringLiteral("queuedJobs"), QStringLiteral("artifact_farm_queued_jobs")) + "\n"
