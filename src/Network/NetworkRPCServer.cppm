@@ -675,6 +675,7 @@ h1{font-size:22px}pre{white-space:pre-wrap;color:#b9d7ff}button{margin-right:8px
 <body><main><h1>Artifact Render Farm</h1><section><div id="status">Loading…</div>
 <p><button onclick="operate('pause')">Pause</button><button onclick="operate('resume')">Resume</button>
 <button onclick="operate('cancel')">Cancel</button></p></section>
+<section><h2>Queued jobs</h2><pre id="queue">Loading…</pre></section>
 <section><h2>Workers</h2><pre id="workers">Loading…</pre></section>
 <section><h2>Job history</h2><pre id="history">Loading…</pre></section>
 <section><h2>Worker logs</h2><pre id="logs">Loading…</pre></section></main>
@@ -685,6 +686,8 @@ const status=await s.json(),workers=await w.json(),logs=await l.json();document.
 ' &nbsp; <b>Est. total:</b> '+(status.estimatedCostMs??'—')+' ms'+
 ' &nbsp; <b>Queued:</b> '+(status.queuedJobs??0);
 document.getElementById('workers').textContent=JSON.stringify(workers,null,2);
+document.getElementById('queue').textContent=JSON.stringify(status.queuedJobIds||[],null,2)+'\n'+
+JSON.stringify(status.queuedPriorities||[],null,2);
 document.getElementById('history').textContent=JSON.stringify(status.jobHistory||[],null,2);
 document.getElementById('logs').textContent=JSON.stringify(logs.logs||[],null,2)}catch(e){
 document.getElementById('status').textContent='Dashboard unavailable: '+e}}refresh();setInterval(refresh,2000)</script>
