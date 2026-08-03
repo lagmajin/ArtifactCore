@@ -368,8 +368,15 @@ bool NetworkPCServer::sendJobAssignment(const QString& wid, const QJsonObject& j
         if (it != impl_->workerSockets_.end()) {
             auto wit = impl_->workers_.find(it->second);
             if (wit != impl_->workers_.end())
-            wit->second.assignedFrames++;
-            wit->second.state = QStringLiteral("Rendering");
+            {
+                const int start = jobJson[QStringLiteral("startFrame")].toInt(0);
+                const int end = jobJson[QStringLiteral("endFrame")].toInt(0);
+                const int step = std::max(1, jobJson[QStringLiteral("step")].toInt(1));
+                const int frameCount = end > start ? (end - start + step - 1) / step : 0;
+                wit->second.assignedFrames += frameCount;
+                if (frameCount > 0)
+                    wit->second.state = QStringLiteral("Rendering");
+            }
         }
     }
     return true;
