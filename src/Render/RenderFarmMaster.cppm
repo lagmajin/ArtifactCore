@@ -769,6 +769,10 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
         if (method == QStringLiteral("submitJob")) {
             RenderJobRequest request;
             request.jobId = params.value(QStringLiteral("jobId")).toString().trimmed();
+            if (request.jobId.isEmpty()) {
+                request.jobId = QStringLiteral("farm-http-%1")
+                    .arg(QDateTime::currentMSecsSinceEpoch());
+            }
             request.compositionName = params.value(QStringLiteral("compositionName")).toString();
             request.range.startFrame = params.value(QStringLiteral("startFrame")).toInt(0);
             request.range.endFrame = params.value(QStringLiteral("endFrame")).toInt(0);
@@ -783,6 +787,9 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             if (request.range.endFrame <= request.range.startFrame
                 || request.renderPayload.isEmpty() || request.rendererExecutable.isEmpty()) {
                 return {{QStringLiteral("status"), QStringLiteral("invalid_request")}};
+            }
+            if (remoteWorkerCount() <= 0) {
+                return {{QStringLiteral("status"), QStringLiteral("no_workers")}};
             }
             submitJob(request);
             return {{QStringLiteral("status"), QStringLiteral("accepted")},
