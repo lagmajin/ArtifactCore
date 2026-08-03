@@ -250,10 +250,14 @@ public:
         return {};
     }
 
-    void markFrameFailed(int frame) {
-        totalProgress_.failed.fetch_add(1);
+    void recordFrameFailure(int frame) {
         std::lock_guard<std::mutex> lock(resultMutex_);
         finalResult_.failures.addFailure(frame, 1, "Render failed");
+    }
+
+    void markFrameFailed(int frame) {
+        totalProgress_.failed.fetch_add(1);
+        recordFrameFailure(frame);
     }
 
     void saveCheckpoint(int baseFrame = 0) {
@@ -315,11 +319,12 @@ public:
                 }
 
                 ++attempt;
-                markFrameFailed(frame);
-                emitProgress();
+                recordFrameFailure(frame);
 
                 if (!shouldRetry(frame, attempt)) {
+                    totalProgress_.failed.fetch_add(1);
                     finalResult_.failures.setHeld(frame, true);
+                    emitProgress();
                     break;
                 }
                 int backoff = retryPolicy_.backoffMs(attempt);
