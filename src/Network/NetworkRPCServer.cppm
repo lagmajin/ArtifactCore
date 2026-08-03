@@ -760,6 +760,16 @@ await fetch('/api/jobs/'+encodeURIComponent(j.jobId)+'/'+action,{method:'POST'})
 <script>async function clearQueue(){if(!confirm('Clear all queued jobs?'))return;
 await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
 </body></html>)HTML";
+                    } else if (requestLine[1] == "/api/alerts") {
+                        const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
+                        body = QJsonObject{
+                            {QStringLiteral("failureAlertThreshold"),
+                             status.value(QStringLiteral("failureAlertThreshold")).toDouble()},
+                            {QStringLiteral("lastAlertType"), status.value(QStringLiteral("lastAlertType")).toString()},
+                            {QStringLiteral("lastAlertAt"), status.value(QStringLiteral("lastAlertAt")).toString()},
+                            {QStringLiteral("lastAlertFailedFrames"),
+                             status.value(QStringLiteral("lastAlertFailedFrames")).toInt()}
+                        };
                     } else if (requestLine[1] == "/api/templates") {
                         const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
                         body = QJsonObject{
@@ -849,6 +859,7 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                                 QStringLiteral("GET /api/history"),
                                 QStringLiteral("GET /api/queue"),
                                 QStringLiteral("GET /api/templates"),
+                                QStringLiteral("GET /api/alerts"),
                                 QStringLiteral("GET /api/templates/{name}"),
                                 QStringLiteral("POST /api/templates/{name}/submit"),
                                 QStringLiteral("DELETE /api/templates/{name}"),
