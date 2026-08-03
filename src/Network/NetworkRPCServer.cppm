@@ -958,15 +958,24 @@ await fetch('/api/queue/clear',{method:'POST'});refresh()}</script>
                     } else if (requestLine[1] == "/api/job-pools") {
                         const QJsonObject status = httpStatusProvider_ ? httpStatusProvider_() : QJsonObject();
                         QMap<QString, QJsonArray> grouped;
+                        QMap<QString, qint64> elapsedByPool;
+                        QMap<QString, int> failedByPool;
                         for (const auto& value : status.value(QStringLiteral("jobHistoryDetails")).toArray()) {
                             const QJsonObject job = value.toObject();
                             const QString pool = job.value(QStringLiteral("jobPool")).toString();
-                            if (!pool.isEmpty()) grouped[pool].append(job.value(QStringLiteral("jobId")));
+                            if (!pool.isEmpty()) {
+                                grouped[pool].append(job.value(QStringLiteral("jobId")));
+                                elapsedByPool[pool] += job.value(QStringLiteral("elapsedMs")).toInteger();
+                                if (job.value(QStringLiteral("status")).toString() == QStringLiteral("failed"))
+                                    ++failedByPool[pool];
+                            }
                         }
                         QJsonArray pools;
                         for (auto it = grouped.cbegin(); it != grouped.cend(); ++it)
                             pools.append(QJsonObject{{QStringLiteral("jobPool"), it.key()},
                                                      {QStringLiteral("jobCount"), it.value().size()},
+                                                     {QStringLiteral("failedJobs"), failedByPool.value(it.key())},
+                                                     {QStringLiteral("elapsedMs"), elapsedByPool.value(it.key())},
                                                      {QStringLiteral("jobIds"), it.value()}});
                         body = QJsonObject{{QStringLiteral("pools"), pools}};
                     } else if (requestLine[1] == "/api/templates") {
