@@ -796,11 +796,11 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
                 && !QFileInfo(request.rendererExecutable).isFile()) {
                 return {{QStringLiteral("status"), QStringLiteral("renderer_not_found")}};
             }
-            if (remoteWorkerCount() <= 0) {
-                return {{QStringLiteral("status"), QStringLiteral("no_workers")}};
-            }
             if (!allowRemoteWorkers()) {
                 return {{QStringLiteral("status"), QStringLiteral("remote_disabled")}};
+            }
+            if (remoteWorkerCount() <= 0) {
+                return {{QStringLiteral("status"), QStringLiteral("no_workers")}};
             }
             if (isBusy()) {
                 return {{QStringLiteral("status"), QStringLiteral("busy")},
