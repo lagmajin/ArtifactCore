@@ -245,10 +245,40 @@ public:
         return {};
     }
 
-    QString validateOutputArtifact(const QString& outputPath) const {
+    QString validateOutputArtifact(const QString& outputPath,
+                                   const RenderFrameRange& range) const {
         const QString path = outputPath.trimmed();
-        if (path.isEmpty() || path.contains('%') || path.contains('*')
-            || path.contains(QStringLiteral("####"))) return {};
+        if (path.isEmpty()) return {};
+        const bool hashSequence = path.contains(QStringLiteral("####"));
+        int printfWidth = 0;
+        int printfTokenStart = path.indexOf(QStringLiteral("%0"));
+        if (printfTokenStart >= 0) {
+            const int d = path.indexOf(QChar('d'), printfTokenStart + 2);
+            if (d > printfTokenStart + 2) {
+                bool ok = false;
+                printfWidth = path.mid(printfTokenStart + 2, d - printfTokenStart - 2).toInt(&ok);
+                if (!ok || printfWidth <= 0) printfWidth = 0;
+            }
+        }
+        if (hashSequence || printfWidth > 0) {
+            for (int frame = range.startFrame; frame < range.endFrame; frame += range.step) {
+                QString framePath = path;
+                if (hashSequence) {
+                    framePath.replace(QStringLiteral("####"),
+                                      QStringLiteral("%1").arg(frame, 4, 10, QChar('0')));
+                } else {
+                    const QString token = path.mid(printfTokenStart, path.indexOf(QChar('d'), printfTokenStart) - printfTokenStart + 1);
+                    framePath.replace(token,
+                                      QStringLiteral("%1").arg(frame, printfWidth, 10, QChar('0')));
+                }
+                const QFileInfo frameInfo(framePath);
+                if (!frameInfo.isFile() || frameInfo.size() <= 0)
+                    return QStringLiteral("Missing or empty render output for frame %1: %2")
+                        .arg(frame).arg(framePath);
+            }
+            return {};
+        }
+        if (path.contains('%') || path.contains('*')) return {};
         const QFileInfo info(path);
         if (!info.exists())
             return QStringLiteral("Render output was not created: %1").arg(path);
@@ -535,7 +565,7 @@ public:
         saveCheckpoint(request.range.startFrame);
 
         if (!cancelled_ && totalProgress_.failed.load() == 0) {
-            const QString outputError = validateOutputArtifact(request.outputPath);
+            const QString outputError = validateOutputArtifact(request.outputPath, request.range);
             if (!outputError.isEmpty()) {
                 std::lock_guard<std::mutex> lock(resultMutex_);
                 finalResult_.errorMessage = outputError;
