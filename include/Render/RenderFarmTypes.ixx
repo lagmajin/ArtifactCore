@@ -57,6 +57,7 @@ struct RenderJobRequest {
     int jobTimeoutMs = 0;
     int frameTimeoutMs = 0;
     int priority = 0;
+    QStringList dependencies;
     QJsonObject requiredCapabilities;
     // Optional self-contained renderer job payload for out-of-process workers.
     QJsonObject renderPayload;

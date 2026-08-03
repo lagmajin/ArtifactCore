@@ -214,6 +214,7 @@ public:
             {QStringLiteral("outputPath"), request.outputPath},
             {QStringLiteral("enableAudio"), request.enableAudio},
             {QStringLiteral("priority"), request.priority},
+            {QStringLiteral("dependencies"), QJsonArray::fromStringList(request.dependencies)},
             {QStringLiteral("jobTimeoutMs"), request.jobTimeoutMs},
             {QStringLiteral("frameTimeoutMs"), request.frameTimeoutMs},
             {QStringLiteral("requiredCapabilities"), request.requiredCapabilities},
@@ -234,6 +235,8 @@ public:
         request.outputPath = object.value(QStringLiteral("outputPath")).toString();
         request.enableAudio = object.value(QStringLiteral("enableAudio")).toBool(false);
         request.priority = object.value(QStringLiteral("priority")).toInt();
+        for (const auto& dependency : object.value(QStringLiteral("dependencies")).toArray())
+            request.dependencies.push_back(dependency.toString().trimmed());
         request.jobTimeoutMs = std::max(0, object.value(QStringLiteral("jobTimeoutMs")).toInt());
         request.frameTimeoutMs = std::max(0, object.value(QStringLiteral("frameTimeoutMs")).toInt());
         request.requiredCapabilities = object.value(QStringLiteral("requiredCapabilities")).toObject();
@@ -329,6 +332,17 @@ public:
             } else if (actual != it.value()) {
                 return false;
             }
+        }
+        return true;
+    }
+
+    bool dependenciesSatisfied(const RenderJobRequest& request) const {
+        if (request.dependencies.isEmpty()) return true;
+        std::lock_guard<std::mutex> lock(jobHistoryMutex_);
+        for (const QString& dependency : request.dependencies) {
+            const auto resultIt = jobHistoryResults_.find(dependency);
+            if (resultIt == jobHistoryResults_.end() || !resultIt->second.success)
+                return false;
         }
         return true;
     }
@@ -848,9 +862,13 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
             QString persistencePath;
             {
                 std::lock_guard<std::mutex> lock(impl_->pendingJobsMutex_);
-                if (impl_->pendingJobs_.empty()) break;
-                next = impl_->pendingJobs_.front();
-                impl_->pendingJobs_.pop_front();
+                const auto ready = std::find_if(impl_->pendingJobs_.begin(), impl_->pendingJobs_.end(),
+                    [this](const RenderJobRequest& candidate) {
+                        return impl_->dependenciesSatisfied(candidate);
+                    });
+                if (ready == impl_->pendingJobs_.end()) break;
+                next = *ready;
+                impl_->pendingJobs_.erase(ready);
                 persistencePath = impl_->queuePersistenceFile_;
             }
             if (!persistencePath.isEmpty()) saveQueue(persistencePath);
@@ -1344,6 +1362,8 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             request.priority = params.value(QStringLiteral("priority")).toInt(0);
             request.jobTimeoutMs = std::max(0, params.value(QStringLiteral("jobTimeoutMs")).toInt(0));
             request.frameTimeoutMs = std::max(0, params.value(QStringLiteral("frameTimeoutMs")).toInt(0));
+            for (const auto& dependency : params.value(QStringLiteral("dependencies")).toArray())
+                request.dependencies.push_back(dependency.toString().trimmed());
             request.outputPath = params.value(QStringLiteral("outputPath")).toString();
             request.rendererExecutable = params.value(QStringLiteral("rendererExecutable")).toString();
             request.renderPayload = params.value(QStringLiteral("renderPayload")).toObject();
@@ -1638,6 +1658,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                     historyDetails.append(QJsonObject{{QStringLiteral("jobId"), jobId},
                                                       {QStringLiteral("status"), QStringLiteral("queued")},
                                                       {QStringLiteral("priority"), request.priority},
+                                                      {QStringLiteral("dependencies"), QJsonArray::fromStringList(request.dependencies)},
                                                       {QStringLiteral("compositionId"), request.compositionId.toString()},
                                                       {QStringLiteral("outputPath"), request.outputPath}});
                     continue;
@@ -1646,6 +1667,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
                 historyDetails.append(QJsonObject{
                     {QStringLiteral("jobId"), jobId},
                     {QStringLiteral("priority"), request.priority},
+                    {QStringLiteral("dependencies"), QJsonArray::fromStringList(request.dependencies)},
                     {QStringLiteral("compositionId"), request.compositionId.toString()},
                     {QStringLiteral("outputPath"), request.outputPath},
                     {QStringLiteral("status"), result.success ? QStringLiteral("completed")
