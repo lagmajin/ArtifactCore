@@ -869,6 +869,13 @@ bool RenderFarmMaster::resubmitJob(const QString& jobId) {
     return true;
 }
 
+int RenderFarmMaster::resubmitJobs(const QStringList& jobIds) {
+    int resubmitted = 0;
+    for (const QString& jobId : jobIds)
+        if (resubmitJob(jobId)) ++resubmitted;
+    return resubmitted;
+}
+
 bool RenderFarmMaster::duplicateJob(const QString& jobId, const QJsonObject& overrides) {
     RenderJobRequest request;
     const QString sourceId = jobId.trimmed();
@@ -1323,6 +1330,16 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
                 return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
             resubmitJob(jobId);
             return {{QStringLiteral("status"), QStringLiteral("accepted")}};
+        }
+        if (method == QStringLiteral("resubmitJobs")) {
+            const QJsonArray ids = params.value(QStringLiteral("jobIds")).toArray();
+            QStringList jobIds;
+            for (const auto& value : ids) {
+                const QString jobId = value.toString().trimmed();
+                if (!jobId.isEmpty()) jobIds.push_back(jobId);
+            }
+            return {{QStringLiteral("status"), QStringLiteral("accepted")},
+                    {QStringLiteral("resubmitted"), resubmitJobs(jobIds)}};
         }
         if (method == QStringLiteral("duplicateJob")) {
             const QString jobId = params.value(QStringLiteral("jobId")).toString().trimmed();

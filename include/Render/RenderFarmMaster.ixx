@@ -38,6 +38,7 @@ public:
     bool saveQueue(const QString& filePath) const;
     bool loadQueue(const QString& filePath);
     bool resubmitJob(const QString& jobId);
+    int resubmitJobs(const QStringList& jobIds);
     bool duplicateJob(const QString& jobId, const QJsonObject& overrides = {});
     QStringList jobHistory() const;
     bool submitTemplate(const QString& name);
