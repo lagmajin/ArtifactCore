@@ -1055,6 +1055,15 @@ bool RenderFarmMaster::duplicateJob(const QString& jobId, const QJsonObject& ove
         request.outputPath = overrides.value(QStringLiteral("outputPath")).toString();
     if (overrides.contains(QStringLiteral("priority")))
         request.priority = overrides.value(QStringLiteral("priority")).toInt(request.priority);
+    if (overrides.contains(QStringLiteral("jobPool")))
+        request.jobPool = overrides.value(QStringLiteral("jobPool")).toString().trimmed();
+    if (overrides.contains(QStringLiteral("allowedWorkerIds"))) {
+        request.allowedWorkerIds.clear();
+        for (const auto& workerId : overrides.value(QStringLiteral("allowedWorkerIds")).toArray())
+            request.allowedWorkerIds.push_back(workerId.toString().trimmed());
+    }
+    if (overrides.contains(QStringLiteral("autoVersionOutput")))
+        request.autoVersionOutput = overrides.value(QStringLiteral("autoVersionOutput")).toBool();
     if (overrides.contains(QStringLiteral("startFrame")))
         request.range.startFrame = overrides.value(QStringLiteral("startFrame")).toInt(request.range.startFrame);
     if (overrides.contains(QStringLiteral("endFrame")))
