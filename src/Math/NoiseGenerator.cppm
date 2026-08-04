@@ -42,7 +42,6 @@ module;
 #include <regex>
 #include <random>
 module Math.Noise;
-import Math.Noise;
 
 namespace ArtifactCore {
 

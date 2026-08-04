@@ -5,6 +5,7 @@ module;
 #include "../Define/DllExportMacro.hpp"
 #include <QMap>
 #include <QReadWriteLock>
+#include <functional>
 
 export module Audio.Cache;
 
@@ -28,6 +29,8 @@ struct CachedAudioFrame {
 export class LIBRARY_DLL_API AudioCache
 {
 public:
+    using PrefetchProvider = std::function<bool(int64_t, AudioSegment&)>;
+
     AudioCache();
     ~AudioCache() = default;
     
@@ -39,6 +42,7 @@ public:
     
     // プリフェッチ（バックグラウンドでキャッシュ）
     void prefetch(int64_t startFrame, int frameCount);
+    void setPrefetchProvider(PrefetchProvider provider);
     
     // 期限切れエントリのクリア
     void clearExpired(qint64 maxAgeMs = 30000);  // 30秒以上アクセスなし
@@ -48,7 +52,7 @@ public:
     size_t getMemoryUsage() const;  // バイト単位
     
     // 設定
-    void setMaxCacheFrames(int maxFrames) { maxCacheFrames_ = maxFrames; }
+    void setMaxCacheFrames(int maxFrames) { maxCacheFrames_ = std::max(1, maxFrames); }
     int getMaxCacheFrames() const { return maxCacheFrames_; }
     
     // クリア
@@ -59,6 +63,7 @@ private:
     mutable QReadWriteLock lock_;
     int maxCacheFrames_ = 300;  // デフォルト10秒分 (30fps)
     qint64 lastCleanupTime_ = 0;
+    PrefetchProvider prefetchProvider_;
     
     // LRU クリーンアップ
     void cleanupLRU();

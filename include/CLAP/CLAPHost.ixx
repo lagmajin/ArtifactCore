@@ -5,6 +5,8 @@ module;
 #include <string>
 #include <vector>
 #include <array>
+#include <algorithm>
+#include <cmath>
 
 // ─────────────────────────────────────────────────────────
 // Minimal CLAP C API structs — clap.h 非依存
@@ -24,11 +26,14 @@ struct clap_plugin_descriptor {
 
 struct clap_host {
     void* host_data;
-    // 必要に応じて拡張 (timer, request_restart 等)
+    const void* (*get_extension)(const struct clap_host*, const char*);
+    void (*request_restart)(const struct clap_host*);
+    void (*request_process)(const struct clap_host*);
+    void (*request_callback)(const struct clap_host*);
 };
 
 struct clap_process {
-    void* reserved[2];           // in/out events
+    const void* reserved[2];     // in/out events
     uint32_t frames_count;
     uint32_t frame_offset;
     float* audio_inputs[2];       // deinterleaved: [0]=左 [1]=右
@@ -36,6 +41,32 @@ struct clap_process {
     uint32_t audio_inputs_count;
     uint32_t audio_outputs_count;
     double transport;
+};
+
+struct clap_event_header {
+    uint32_t size;
+    uint32_t time;
+    uint16_t space_id;
+    uint16_t type;
+    uint32_t flags;
+};
+
+struct clap_event_param_value {
+    clap_event_header header;
+    void* cookie;
+    uint32_t param_id;
+    int16_t port_index;
+    int16_t channel;
+    int16_t key;
+    int16_t note_id;
+    double value;
+    double modulation;
+};
+
+struct clap_input_events {
+    void* context;
+    uint32_t (*size)(const clap_input_events* list);
+    const clap_event_header* (*get)(const clap_input_events* list, uint32_t index);
 };
 
 struct clap_plugin {
@@ -53,6 +84,31 @@ struct clap_plugin {
     void (*on_main_thread)(const struct clap_plugin*);
 };
 
+struct clap_param_info {
+    uint32_t id;
+    uint32_t flags;
+    uint32_t cookie;
+    char name[256];
+    char module[1024];
+    double min_value;
+    double max_value;
+    double default_value;
+};
+
+struct clap_plugin_params {
+    uint32_t (*count)(const clap_plugin* plugin);
+    bool (*get_info)(const clap_plugin* plugin, uint32_t param_index,
+                     clap_param_info* param_info);
+    bool (*get_value)(const clap_plugin* plugin, uint32_t param_id,
+                      double* value);
+    bool (*value_to_text)(const clap_plugin* plugin, uint32_t param_id,
+                          double value, char* out_buffer, uint32_t out_buffer_capacity);
+    bool (*text_to_value)(const clap_plugin* plugin, uint32_t param_id,
+                          const char* param_value_text, double* value);
+    void (*flush)(const clap_plugin* plugin, const void* in_events,
+                  const void* out_events);
+};
+
 struct clap_plugin_entry {
     uint32_t clap_version;
     bool (*init)(const char* plugin_path);
@@ -66,6 +122,7 @@ struct clap_plugin_entry {
 export module CLAP.Host;
 
 import Audio.Segment;
+import Audio.Effect;
 
 /// CLAP (CLever Audio Plugin) ホスト実装
 /// MIT License - clap.h 非依存のホスト側定義
@@ -95,6 +152,7 @@ struct PluginDescriptor {
 // === オーディオバッファ ===
 struct AudioBuffer {
     float* data32 = nullptr;  // インターリーブ or 個別チャンネル
+    std::array<float*, 2> channels{}; // deinterleaved channel pointers
     uint32 channelCount = 0;
     uint32 frameCount = 0;
     bool isConstantMask = false;
@@ -186,8 +244,18 @@ public:
                         uint32 frameOffset = 0) {
         uint32 ch = static_cast<uint32>(input.channelCount());
         uint32 frames = static_cast<uint32>(input.frameCount());
-        if (ch == 0 || frames == 0 || frames > kProcessMaxFrames) return false;
+        if (ch == 0 || ch > 2 || frames == 0 || frames > kProcessMaxFrames ||
+            input.channelData.size() < static_cast<int>(ch) ||
+            !std::isfinite(static_cast<double>(input.sampleRate)) ||
+            input.sampleRate <= 0.0f) return false;
+        for (uint32 channel = 0; channel < ch; ++channel) {
+            if (input.channelData[static_cast<int>(channel)].size() <
+                static_cast<int>(frames)) return false;
+        }
         output.channelData.resize(static_cast<int>(ch));
+        output.sampleRate = input.sampleRate;
+        output.layout = input.layout;
+        output.startFrame = input.startFrame + static_cast<qint64>(frameOffset);
         for (uint32 i = 0; i < ch; ++i)
             output.channelData[static_cast<int>(i)].resize(static_cast<int>(frames));
         AudioBuffer inBuf, outBuf;
@@ -195,6 +263,12 @@ public:
         inBuf.frameCount = frames;
         outBuf.channelCount = ch;
         outBuf.frameCount = frames;
+        for (uint32 channel = 0; channel < std::min<uint32>(ch, 2); ++channel) {
+            inBuf.channels[channel] = const_cast<float*>(input.channelData[static_cast<int>(channel)].constData());
+            outBuf.channels[channel] = output.channelData[static_cast<int>(channel)].data();
+        }
+        inBuf.data32 = ch > 0 ? inBuf.channels[0] : nullptr;
+        outBuf.data32 = ch > 0 ? outBuf.channels[0] : nullptr;
         Process proc;
         proc.framesCount = frames;
         proc.frameIndex = frameOffset;
@@ -235,6 +309,25 @@ public:
     }
 };
 
+class ClapEffect final : public ArtifactCore::AudioEffect {
+public:
+    explicit ClapEffect(Plugin* plugin, const ArtifactCore::String& name = ArtifactCore::String("CLAP Effect"));
+    ~ClapEffect() override;
+
+    ArtifactCore::String getName() const override { return name_; }
+    ArtifactCore::String effectType() const override { return ArtifactCore::String("clap"); }
+    void process(ArtifactCore::AudioSegment& segment,
+                 const ArtifactCore::AudioSegment* sideChain = nullptr) override;
+    std::vector<ArtifactCore::EffectParameter> getParameters() const override;
+    void setParameterValue(const ArtifactCore::String& id, float value) override;
+
+private:
+    Plugin* plugin_ = nullptr;
+    ArtifactCore::String name_;
+    bool active_ = false;
+    double activeSampleRate_ = 0.0;
+};
+
 // === ホスト（プラグインローダー兼マネージャ）===
 
 // 具象プラグインインスタンス — ロード済み clap_plugin をラップ
@@ -262,14 +355,24 @@ public:
     double paramValue(uint32 paramId) const override;
     bool paramSetValue(uint32 paramId, double value) override;
     bool paramGetDisplay(uint32 paramId, char* buf, uint32 size) const override;
+    bool paramGetInfo(uint32 index, ParamInfo& info) const override;
+    bool paramGetStringByValue(uint32 paramId, double value, char* buf, uint32 size) const override;
+    bool paramGetValueByString(uint32 paramId, const char* str, double& value) override;
 
 private:
+    struct PendingParam {
+        uint32 id = 0;
+        double value = 0.0;
+    };
     const struct clap_plugin* plugin_;
     PluginDescriptor desc_;
     const struct clap_plugin_entry* entry_;
+    bool active_ = false;
+    bool processing_ = false;
     // clap_plugin_params 拡張 (遅延解決)
     void* paramExt_ = nullptr;
     bool resolveParamExt();
+    mutable std::vector<PendingParam> pendingParams_;
 };
 
 class Host {
@@ -280,6 +383,9 @@ public:
     // プラグイン読み込み
     Plugin* loadPlugin(const std::string& path);
     void unloadPlugin(Plugin* plugin);
+    std::unique_ptr<ClapEffect> createEffect(
+        Plugin* plugin,
+        const ArtifactCore::String& name = ArtifactCore::String("CLAP Effect")) const;
     void unloadAll();
 
     // 検索パス管理

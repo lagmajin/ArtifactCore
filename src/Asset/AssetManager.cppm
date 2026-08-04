@@ -294,7 +294,9 @@ namespace ArtifactCore {
                                      .toString().toULongLong(&versionOk);
    if (preferredId.isNull() || (localized && originId.isNull()) ||
        (!localized && !originId.isNull() && originId != preferredId) ||
-       path.trimmed().isEmpty() || !versionOk || version == 0) {
+       path.trimmed().isEmpty() || !versionOk || version == 0 ||
+       static_cast<int>(type) <= static_cast<int>(AssetType::Unknown) ||
+       static_cast<int>(type) > static_cast<int>(AssetType::Data)) {
     return false;
    }
    if (seenPreferredIds.contains(preferredId)) {
@@ -315,6 +317,17 @@ namespace ArtifactCore {
        entry.path, entry.type, databaseId);
    const QUuid assetId = entry.localized ? entry.preferredId : originAssetId;
    if (assetId.isNull()) {
+    return false;
+   }
+   if (!entry.localized && originAssetId != entry.preferredId) {
+    return false;
+   }
+   if (entry.localized && assetId == originAssetId) {
+    return false;
+   }
+   const auto existingInfo = AssetDatabase::instance().getAssetInfo(assetId);
+   if (!existingInfo.id.isNull() && existingInfo.absolutePath !=
+       AssetDatabase::instance().getAssetInfo(originAssetId).absolutePath) {
     return false;
    }
    if (seenResolvedIds.contains(assetId)) {

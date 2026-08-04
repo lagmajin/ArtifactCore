@@ -23,7 +23,6 @@ module;
 #include <QRegularExpression>
 
 module Core.AI.OnnxDmlAgent;
-import Core.AI.OnnxDmlAgent;
 
 import std;
 import Core.AI.Context;

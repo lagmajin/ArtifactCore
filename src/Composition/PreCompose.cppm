@@ -1,6 +1,7 @@
 module;
 
 #include <memory>
+#include <QSet>
 
 #include <iostream>
 #include <vector>
@@ -99,6 +100,22 @@ PreComposeResult PreComposeManager::precompose(
 {
     PreComposeResult result;
     
+    if (!impl_ || parentCompositionId.isNil() || layerIds.isEmpty()) {
+        result.errorMessage = parentCompositionId.isNil()
+            ? QStringLiteral("Parent composition is invalid")
+            : QStringLiteral("No layers selected");
+        return result;
+    }
+
+    QSet<LayerID> uniqueLayerIds;
+    for (const auto& layerId : layerIds) {
+        if (layerId.isNil() || uniqueLayerIds.contains(layerId)) {
+            result.errorMessage = QStringLiteral("Layer selection contains an invalid or duplicate ID");
+            return result;
+        }
+        uniqueLayerIds.insert(layerId);
+    }
+
     if (layerIds.isEmpty()) {
         result.errorMessage = "No layers selected";
         return result;
@@ -137,6 +154,7 @@ PreComposeResult PreComposeManager::precompose(
     // プリコンポーズレイヤーとしてマーク
     // impl_->precomposeLayers.insert(newLayerId);
     impl_->layerSourceMap[newLayerId] = newCompId;
+    impl_->childSourceMap.insert(newCompId, newLayerId);
     impl_->layerStartFrameMap[newLayerId] = 0.0;
     
     return result;
@@ -367,18 +385,22 @@ bool PreComposeManager::autoNamingEnabled() const {
 namespace NestedTimeUtils {
 
 double parentToChildTime(double parentTime, LayerID precompLayerId) {
+    if (!std::isfinite(parentTime) || precompLayerId.isNil()) return 0.0;
     const double startFrame =
         PreComposeManager::instance().precomposeLayerStartFrame(precompLayerId);
-    return parentTime - startFrame;
+    return std::isfinite(startFrame) ? parentTime - startFrame : parentTime;
 }
 
 double childToParentTime(double childTime, LayerID precompLayerId) {
-    return childTime +
-           PreComposeManager::instance().precomposeLayerStartFrame(
-               precompLayerId);
+    if (!std::isfinite(childTime) || precompLayerId.isNil()) return 0.0;
+    const double startFrame =
+        PreComposeManager::instance().precomposeLayerStartFrame(precompLayerId);
+    return std::isfinite(startFrame) ? childTime + startFrame : childTime;
 }
 
 double convertTime(double sourceTime, CompositionID sourceComposition, CompositionID targetComposition) {
+    if (!std::isfinite(sourceTime) || sourceComposition.isNil() ||
+        targetComposition.isNil()) return 0.0;
     if (sourceComposition == targetComposition) {
         return sourceTime;
     }

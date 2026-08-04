@@ -21,6 +21,25 @@ public:
                                const QJsonObject& timeline,
                                SequenceId* importedSequenceId = nullptr,
                                QVector<QString>* warnings = nullptr);
+
+    static QVector<SubtitleCue> importSrt(const QString& text,
+                                          const TimeBase& timeBase = TimeBase{},
+                                          QVector<QString>* warnings = nullptr);
+    static QString exportSrt(const QVector<SubtitleCue>& cues,
+                             const TimeBase& timeBase = TimeBase{});
+    static bool importSrtIntoSequence(NLEProjectStore& store,
+                                      const SequenceId& sequenceId,
+                                      const QString& text,
+                                      QVector<QString>* warnings = nullptr);
+    static QString exportSrtFromSequence(const NLEProjectStore& store,
+                                         const SequenceId& sequenceId);
+    static bool importSrtFileIntoSequence(NLEProjectStore& store,
+                                           const SequenceId& sequenceId,
+                                           const QString& filePath,
+                                           QVector<QString>* warnings = nullptr);
+    static bool exportSrtFile(const NLEProjectStore& store,
+                              const SequenceId& sequenceId,
+                              const QString& filePath);
 };
 
 } // namespace ArtifactCore::NLE

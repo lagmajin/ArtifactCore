@@ -4,7 +4,6 @@ module;
 #include <algorithm>
 #include <limits>
 module Physics.Mpm2D;
-import Physics.Mpm2D;
 
 namespace ArtifactCore {
 
@@ -144,8 +143,19 @@ void MpmSolver2D::applyMaterialPreset(MpmMaterialPreset preset) {
 }
 
 void MpmSolver2D::setBoundary(float xmin, float ymin, float xmax, float ymax) {
-    bxmin_ = xmin; bymin_ = ymin;
-    bxmax_ = xmax; bymax_ = ymax;
+    if (!std::isfinite(xmin) || !std::isfinite(ymin) ||
+        !std::isfinite(xmax) || !std::isfinite(ymax)) {
+        hasBoundary_ = false;
+        return;
+    }
+    bxmin_ = std::min(xmin, xmax);
+    bymin_ = std::min(ymin, ymax);
+    bxmax_ = std::max(xmin, xmax);
+    bymax_ = std::max(ymin, ymax);
+    if (bxmax_ - bxmin_ < 1.0e-6f || bymax_ - bymin_ < 1.0e-6f) {
+        hasBoundary_ = false;
+        return;
+    }
     hasBoundary_ = true;
 }
 
@@ -202,6 +212,11 @@ bool MpmSolver2D::restoreSnapshot(const MpmSnapshot2D& snapshot) {
 
 void MpmSolver2D::addParticlesGrid(float cx, float cy, float w, float h,
                                    int cols, int rows, float density) {
+    if (!std::isfinite(cx) || !std::isfinite(cy) || !std::isfinite(w) ||
+        !std::isfinite(h) || !std::isfinite(density) || w <= 0.0f ||
+        h <= 0.0f || density <= 0.0f || cols <= 0 || rows <= 0) {
+        return;
+    }
     int nc = std::max(1, cols);
     int nr = std::max(1, rows);
     particleGridColumns_ = nc;
@@ -240,6 +255,10 @@ void MpmSolver2D::addParticlesGrid(float cx, float cy, float w, float h,
 
 void MpmSolver2D::addParticlesRandom(float cx, float cy, float radius,
                                      int count, float density) {
+    if (!std::isfinite(cx) || !std::isfinite(cy) || !std::isfinite(radius) ||
+        !std::isfinite(density) || radius <= 0.0f || density <= 0.0f || count <= 0) {
+        return;
+    }
     int n = std::max(1, count);
     float area   = 3.14159f * radius * radius;
     float totalVol = area * 1.0f;

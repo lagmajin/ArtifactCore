@@ -36,7 +36,6 @@ module;
 #include <QDebug>
 #include <QElapsedTimer>
 module ImageProcessing.SpectralGlow;
-import ImageProcessing.SpectralGlow;
 
 import Core.Parallel;
 

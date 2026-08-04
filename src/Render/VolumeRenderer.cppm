@@ -157,6 +157,18 @@ TransferFunction TransferFunction::makeExplosion() {
 
 void CPUVolumeRenderer::setVolumeData(const VolumeAABB& aabb, const VolumeFieldSet& fieldSet) {
     bounds = aabb;
+    const auto finiteOr = [](const float value, const float fallback) {
+        return std::isfinite(value) ? value : fallback;
+    };
+    bounds.min.x = finiteOr(bounds.min.x, 0.0f);
+    bounds.min.y = finiteOr(bounds.min.y, 0.0f);
+    bounds.min.z = finiteOr(bounds.min.z, 0.0f);
+    bounds.max.x = finiteOr(bounds.max.x, bounds.min.x + 1.0f);
+    bounds.max.y = finiteOr(bounds.max.y, bounds.min.y + 1.0f);
+    bounds.max.z = finiteOr(bounds.max.z, bounds.min.z + 1.0f);
+    if (bounds.max.x <= bounds.min.x) bounds.max.x = bounds.min.x + 1.0f;
+    if (bounds.max.y <= bounds.min.y) bounds.max.y = bounds.min.y + 1.0f;
+    if (bounds.max.z <= bounds.min.z) bounds.max.z = bounds.min.z + 1.0f;
     fields = fieldSet;
 }
 
@@ -426,6 +438,7 @@ ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
 }
 
 float normalizeStepToVoxel(float stepSize, const VolumeAABB& bounds, const VolumeResolution& resolution) noexcept {
+    if (!std::isfinite(stepSize) || stepSize <= 0.0f) stepSize = 0.01f;
     if (!resolution.valid()) return stepSize;
     const auto vs = bounds.voxelSize(resolution);
     const float voxelDiag = std::sqrt(vs.x * vs.x + vs.y * vs.y + vs.z * vs.z);

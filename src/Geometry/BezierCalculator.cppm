@@ -39,7 +39,6 @@ class tst_QList;
 #include <regex>
 #include <random>
 module Math.Bezier;
-import Math.Bezier;
 
 namespace ArtifactCore {
 

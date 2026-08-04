@@ -5,7 +5,6 @@ module;
 #include <cmath>
 
 module Audio.Decibels;
-import Audio.Decibels;
 
 import Utils.String.UniString;
 

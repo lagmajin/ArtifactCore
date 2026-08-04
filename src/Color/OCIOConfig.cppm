@@ -14,7 +14,6 @@ module;
 #include <exception>
 
 module Color.OCIOConfig;
-import Color.OCIOConfig;
 
 namespace ArtifactCore {
 
@@ -726,9 +725,27 @@ QStringList OCIOConfig::viewsForDisplay(const QString& display) const
 // Active configuration
 // ---------------------------------------------------------------------------
 QString OCIOConfig::activeDisplay() const { return impl_->activeDisplay_; }
-void OCIOConfig::setActiveDisplay(const QString& display) { impl_->activeDisplay_ = display; }
+void OCIOConfig::setActiveDisplay(const QString& display)
+{
+    if (display.isEmpty() || !displays().contains(display)) {
+        impl_->lastError_ = QStringLiteral("Unknown display: %1").arg(display);
+        return;
+    }
+    impl_->activeDisplay_ = display;
+    if (!viewsForDisplay(display).contains(impl_->activeView_)) {
+        impl_->activeView_ = viewsForDisplay(display).value(0);
+    }
+}
 QString OCIOConfig::activeView() const { return impl_->activeView_; }
-void OCIOConfig::setActiveView(const QString& view) { impl_->activeView_ = view; }
+void OCIOConfig::setActiveView(const QString& view)
+{
+    if (view.isEmpty() || !viewsForDisplay(impl_->activeDisplay_).contains(view)) {
+        impl_->lastError_ = QStringLiteral("Unknown view for display %1: %2")
+            .arg(impl_->activeDisplay_, view);
+        return;
+    }
+    impl_->activeView_ = view;
+}
 QString OCIOConfig::activeLooks() const { return impl_->activeLooks_; }
 void OCIOConfig::setActiveLooks(const QString& looks) { impl_->activeLooks_ = looks; }
 
@@ -736,7 +753,14 @@ void OCIOConfig::setActiveLooks(const QString& looks) { impl_->activeLooks_ = lo
 // Working space
 // ---------------------------------------------------------------------------
 QString OCIOConfig::workingSpace() const { return impl_->workingSpace_; }
-void OCIOConfig::setWorkingSpace(const QString& cs) { impl_->workingSpace_ = cs; }
+void OCIOConfig::setWorkingSpace(const QString& cs)
+{
+    if (cs.isEmpty() || !colorSpace(cs)) {
+        impl_->lastError_ = QStringLiteral("Unknown working color space: %1").arg(cs);
+        return;
+    }
+    impl_->workingSpace_ = cs;
+}
 
 // ---------------------------------------------------------------------------
 // Config path

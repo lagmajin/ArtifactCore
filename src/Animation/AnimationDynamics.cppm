@@ -2,7 +2,6 @@ module;
 #include <utility>
 
 module Animation.Dynamics;
-import Animation.Dynamics;
 import Core.ArtifactString;
 
 namespace ArtifactCore {

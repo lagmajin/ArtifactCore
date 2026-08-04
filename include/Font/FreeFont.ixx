@@ -49,7 +49,39 @@ public:
 
  static std::vector<FontDescriptor> availableFonts()
  {
-   return {};
+   std::vector<FontDescriptor> fonts;
+   const QStringList families = QFontDatabase::families();
+   for (const QString& family : families) {
+    const QStringList styles = QFontDatabase::styles(family);
+    if (styles.isEmpty()) {
+     FontDescriptor descriptor;
+     descriptor.family = family;
+     descriptor.style = QStringLiteral("Regular");
+     descriptor.isFixedPitch = QFontDatabase::isFixedPitch(family, QString());
+     descriptor.weight = QFontDatabase::weight(family, QString());
+     descriptor.italic = QFontDatabase::italic(family, QString());
+     fonts.push_back(std::move(descriptor));
+     continue;
+    }
+    for (const QString& style : styles) {
+     FontDescriptor descriptor;
+     descriptor.family = family;
+     descriptor.style = style;
+     descriptor.isFixedPitch = QFontDatabase::isFixedPitch(family, style);
+     descriptor.weight = QFontDatabase::weight(family, style);
+     descriptor.italic = QFontDatabase::italic(family, style);
+     fonts.push_back(std::move(descriptor));
+    }
+   }
+   std::sort(fonts.begin(), fonts.end(), [](const FontDescriptor& left,
+                                             const FontDescriptor& right) {
+    const int familyOrder = QString::compare(left.family, right.family,
+                                              Qt::CaseInsensitive);
+    return familyOrder != 0 ? familyOrder < 0
+                            : QString::compare(left.style, right.style,
+                                               Qt::CaseInsensitive) < 0;
+   });
+   return fonts;
  }
 
  static bool isFamilyAvailable(const QString& family)

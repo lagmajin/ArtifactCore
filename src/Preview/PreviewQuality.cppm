@@ -37,7 +37,6 @@ module;
 #include <regex>
 #include <random>
 module Preview.Quality;
-import Preview.Quality;
 
 namespace ArtifactCore {
 

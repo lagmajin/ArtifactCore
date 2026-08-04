@@ -52,6 +52,9 @@ export enum class EvaluationMode {
 
 export class ExpressionEvaluator;
 
+export using TemporalValueResolver =
+    std::function<ExpressionValue(const std::string&, double)>;
+
 // Built-in function signature
 export using BuiltinFunction = std::function<ExpressionValue(const std::vector<ExpressionValue>&, const ExpressionEvaluator*)>;
 
@@ -77,6 +80,9 @@ public:
     ExpressionValue getVariable(const std::string& name) const;
     bool hasVariable(const std::string& name) const;
     void clearVariables();
+    void setTemporalValueResolver(TemporalValueResolver resolver);
+    ExpressionValue resolveValueAtTime(const std::string& expression,
+                                       double timeSec) const;
 
     // Register built-in functions
     void registerFunction(const std::string& name, BuiltinFunction func);
@@ -189,11 +195,15 @@ export namespace BuiltinFunctions {
     ExpressionValue Ease(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue EaseIn(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue EaseOut(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue TimeToFrames(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue FramesToTime(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     
     // Random
     ExpressionValue Random(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue RandomSeeded(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Noise(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Wiggle(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue Smooth(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     
     // Array functions
     ExpressionValue Sum(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);

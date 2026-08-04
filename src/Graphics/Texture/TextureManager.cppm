@@ -6,7 +6,6 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 
 module Graphics.Texture.Manager;
-import Graphics.Texture.Manager;
 
 namespace ArtifactCore
 {

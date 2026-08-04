@@ -7,7 +7,6 @@ module;
 #include <QDateTime>
 
 module Media.Info;
-import Media.Info;
 
 namespace ArtifactCore {
 

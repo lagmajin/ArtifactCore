@@ -326,7 +326,14 @@ void PathShape::setFill(const FillSettings& fill) {
 }
 
 QRectF PathShape::boundingRect() const {
-    return toPainterPath().boundingRect();
+    QRectF bounds = toPainterPath().boundingRect();
+    const auto& strokeSettings = stroke();
+    if (strokeSettings.enabled && std::isfinite(strokeSettings.width) &&
+        strokeSettings.width > 0.0) {
+        const qreal padding = static_cast<qreal>(strokeSettings.width * 0.5);
+        bounds.adjust(-padding, -padding, padding, padding);
+    }
+    return bounds;
 }
 
 QPainterPath PathShape::toPainterPath() const {
@@ -339,9 +346,6 @@ QPainterPath PathShape::toPainterPath() const {
     matrix.scale(tf.scale.x, tf.scale.y);
     matrix.translate(-tf.anchor.x, -tf.anchor.y);
     qpath = matrix.map(qpath);
-
-    // ストローク設定が有効なら QPainterPathStroker で変換
-    // TODO: 実装
 
     // フィル設定は描画時に使用するため、ここではパスのみ返す
     return qpath;
@@ -401,12 +405,10 @@ std::unique_ptr<ShapeElement> RectanglePathShape::clone() const {
 
 void RectanglePathShape::updatePath() {
     if (cornerRadius_ > 0.0) {
-        // 角丸矩形（円弧）
-        PathShape::setPath(ShapePath()); // 一旦クリア
-        // TODO: 角丸矩形のパス構築
-        // 暫定：角丸なし矩形として設定
         ShapePath path;
-        path.setRectangle(rect_);
+        const double radius = std::min(
+            cornerRadius_, std::min(rect_.width(), rect_.height()) * 0.5);
+        path.setRoundedRect(rect_, radius, radius);
         PathShape::setPath(path);
     } else {
         ShapePath path;

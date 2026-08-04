@@ -17,7 +17,6 @@ module;
 #include <QMap>
 
 module Color.LUT;
-import Color.LUT;
 
 namespace ArtifactCore {
 
@@ -103,8 +102,24 @@ public:
 // ============================================================================
 
 ColorLUT::ColorLUT() : impl_(new Impl()) {
-    // 単位LUT作成
-    *this = createIdentity(33);
+    constexpr int defaultSize = 33;
+    impl_->size = {defaultSize, defaultSize, defaultSize};
+    impl_->data.resize(static_cast<size_t>(defaultSize) * defaultSize * defaultSize * 3u);
+    impl_->format = LUTFormat::Cube;
+    impl_->name = QStringLiteral("Identity");
+    impl_->valid = true;
+    for (int z = 0; z < defaultSize; ++z) {
+        for (int y = 0; y < defaultSize; ++y) {
+            for (int x = 0; x < defaultSize; ++x) {
+                const size_t index =
+                    (static_cast<size_t>(z) * defaultSize * defaultSize +
+                     static_cast<size_t>(y) * defaultSize + x) * 3u;
+                impl_->data[index] = x / float(defaultSize - 1);
+                impl_->data[index + 1u] = y / float(defaultSize - 1);
+                impl_->data[index + 2u] = z / float(defaultSize - 1);
+            }
+        }
+    }
 }
 
 ColorLUT::ColorLUT(const QString& filePath) : impl_(new Impl()) {
@@ -145,6 +160,8 @@ ColorLUT::~ColorLUT() {
 bool ColorLUT::load(const QString& filePath) {
     impl_->filePath = filePath;
     impl_->valid = false;
+    impl_->data.clear();
+    impl_->errorMessage.clear();
     
     // 拡張子でフォーマット判定
     QString ext = QFileInfo(filePath).suffix().toLower();
@@ -225,6 +242,22 @@ bool ColorLUT::loadFromCube(const QString& filePath) {
         int dim = static_cast<int>(std::round(std::cbrt(total)));
         impl_->size = {dim, dim, dim};
     }
+
+    const int expectedValues = impl_->size.totalPoints() * 3;
+    if (impl_->size.dimX < 2 || impl_->size.dimY < 2 || impl_->size.dimZ < 2 ||
+        impl_->size.dimX > 256 || impl_->size.dimY > 256 || impl_->size.dimZ > 256 ||
+        static_cast<int>(values.size()) != expectedValues) {
+        impl_->data.clear();
+        impl_->errorMessage = "Invalid or incomplete CUBE LUT data";
+        return false;
+    }
+    for (const float value : values) {
+        if (!std::isfinite(value)) {
+            impl_->data.clear();
+            impl_->errorMessage = "CUBE LUT contains a non-finite value";
+            return false;
+        }
+    }
     
     // データコピー
     impl_->data = std::move(values);
@@ -234,9 +267,8 @@ bool ColorLUT::loadFromCube(const QString& filePath) {
 }
 
 bool ColorLUT::loadFromCsp(const QString& filePath) {
-    // Cinespace形式（簡易実装）
     QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         impl_->errorMessage = "Cannot open file: " + filePath;
         return false;
     }
@@ -244,16 +276,79 @@ bool ColorLUT::loadFromCsp(const QString& filePath) {
     impl_->format = LUTFormat::Csp;
     impl_->name = QFileInfo(filePath).baseName();
     
-    // バイナリ読み込み
-    QByteArray data = file.readAll();
+    QTextStream in(&file);
+    std::vector<float> values;
+    int declaredSize = 0;
+    bool inData = false;
+    bool sawDataBlock = false;
+
+    while (!in.atEnd()) {
+        const QString line = in.readLine().trimmed();
+        if (line.isEmpty() || line.startsWith('#')) {
+            continue;
+        }
+        if (line.startsWith("BEGIN DATA", Qt::CaseInsensitive)) {
+            inData = true;
+            sawDataBlock = true;
+            continue;
+        }
+        if (line.startsWith("END DATA", Qt::CaseInsensitive)) {
+            inData = false;
+            continue;
+        }
+        if (line.startsWith("LUT_3D_SIZE", Qt::CaseInsensitive)) {
+            const auto parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+            if (parts.size() >= 2) {
+                bool ok = false;
+                declaredSize = parts[1].toInt(&ok);
+                if (!ok) {
+                    impl_->errorMessage = "Invalid CSP LUT size";
+                    return false;
+                }
+            }
+            continue;
+        }
+        if (!inData && sawDataBlock) {
+            continue;
+        }
+
+        const auto parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        if (parts.size() != 3) {
+            continue;
+        }
+        bool okR = false, okG = false, okB = false;
+        const float r = parts[0].toFloat(&okR);
+        const float g = parts[1].toFloat(&okG);
+        const float b = parts[2].toFloat(&okB);
+        if (!okR || !okG || !okB || !std::isfinite(r) ||
+            !std::isfinite(g) || !std::isfinite(b)) {
+            impl_->errorMessage = "Invalid CSP LUT sample";
+            return false;
+        }
+        values.push_back(r);
+        values.push_back(g);
+        values.push_back(b);
+    }
     file.close();
-    
-    // ヘッダーパース（簡易版）
-    // 実際のcsp形式はより複雑
-    
-    impl_->valid = false;
-    impl_->errorMessage = "CSP format not fully implemented";
-    return false;
+
+    if (declaredSize == 0) {
+        const int points = static_cast<int>(values.size() / 3);
+        declaredSize = static_cast<int>(std::round(std::cbrt(points)));
+    }
+    const int expected = declaredSize * declaredSize * declaredSize * 3;
+    if (declaredSize < 2 || declaredSize > 256 ||
+        static_cast<int>(values.size()) != expected) {
+        impl_->data.clear();
+        impl_->valid = false;
+        impl_->errorMessage = "Invalid or incomplete CSP LUT data";
+        return false;
+    }
+
+    impl_->size = {declaredSize, declaredSize, declaredSize};
+    impl_->data = std::move(values);
+    impl_->valid = true;
+    impl_->errorMessage.clear();
+    return true;
 }
 
 bool ColorLUT::loadFrom3dl(const QString& filePath) {
@@ -304,7 +399,33 @@ bool ColorLUT::loadFrom3dl(const QString& filePath) {
         dim = static_cast<int>(std::round(std::cbrt(total)));
         impl_->size = {dim, dim, dim};
     }
-    
+
+    const int expectedValues = impl_->size.totalPoints() * 3;
+    if (impl_->size.dimX < 2 || impl_->size.dimX > 256 ||
+        static_cast<int>(values.size()) != expectedValues) {
+        impl_->data.clear();
+        impl_->errorMessage = "Invalid or incomplete 3DL LUT data";
+        return false;
+    }
+    for (const float value : values) {
+        if (!std::isfinite(value) || value < 0.0f) {
+            impl_->data.clear();
+            impl_->errorMessage = "3DL LUT contains an invalid value";
+            return false;
+        }
+    }
+    const float maxValue = *std::max_element(values.begin(), values.end());
+    if (maxValue > 1.0f) {
+        if (maxValue <= 0.0f) {
+            impl_->data.clear();
+            impl_->errorMessage = "3DL LUT has an invalid value range";
+            return false;
+        }
+        for (float& value : values) {
+            value = std::clamp(value / maxValue, 0.0f, 1.0f);
+        }
+    }
+
     impl_->data = std::move(values);
     impl_->valid = !impl_->data.empty();
     
@@ -322,7 +443,7 @@ bool ColorLUT::loadFromHaldCLUT(const QString& imagePath) {
 }
 
 bool ColorLUT::loadFromImage(const QImage& image, int lutSize) {
-    if (image.isNull()) {
+    if (image.isNull() || lutSize < 2 || lutSize > 256) {
         impl_->errorMessage = "Invalid image";
         return false;
     }
@@ -331,6 +452,15 @@ bool ColorLUT::loadFromImage(const QImage& image, int lutSize) {
     impl_->size = {lutSize, lutSize, lutSize};
     
     QImage converted = image.convertToFormat(QImage::Format_RGB32);
+
+    const int tilesX = image.width() / lutSize;
+    const int tilesY = image.height() / lutSize;
+    if (tilesX <= 0 || tilesY <= 0 || tilesX * tilesY < lutSize) {
+        impl_->errorMessage = "Image is too small for the requested HaldCLUT size";
+        impl_->data.clear();
+        impl_->valid = false;
+        return false;
+    }
     
     int totalPoints = lutSize * lutSize * lutSize;
     impl_->data.resize(static_cast<size_t>(totalPoints) * 3u);
@@ -341,8 +471,8 @@ bool ColorLUT::loadFromImage(const QImage& image, int lutSize) {
     for (int z = 0; z < lutSize; ++z) {
         for (int y = 0; y < lutSize; ++y) {
             for (int x = 0; x < lutSize; ++x) {
-                int px = x + (z % (image.width() / lutSize)) * lutSize;
-                int py = y + (z / (image.width() / lutSize)) * lutSize;
+                int px = x + (z % tilesX) * lutSize;
+                int py = y + (z / tilesX) * lutSize;
 
                 const size_t index =
                     (static_cast<size_t>(z) * lutSize * lutSize +
@@ -437,16 +567,16 @@ void ColorLUT::apply(float& r, float& g, float& b) const {
     if (!impl_->valid) return;
     
     // クランプ
-    r = std::clamp(r, 0.0f, 1.0f);
-    g = std::clamp(g, 0.0f, 1.0f);
-    b = std::clamp(b, 0.0f, 1.0f);
+    r = std::clamp(std::isfinite(r) ? r : 0.0f, 0.0f, 1.0f);
+    g = std::clamp(std::isfinite(g) ? g : 0.0f, 0.0f, 1.0f);
+    b = std::clamp(std::isfinite(b) ? b : 0.0f, 0.0f, 1.0f);
     
     // 三線形補間でサンプリング
     QVector3D result = impl_->trilinearInterpolation(r, g, b);
     
-    r = result.x();
-    g = result.y();
-    b = result.z();
+    r = std::clamp(std::isfinite(result.x()) ? result.x() : 0.0f, 0.0f, 1.0f);
+    g = std::clamp(std::isfinite(result.y()) ? result.y() : 0.0f, 0.0f, 1.0f);
+    b = std::clamp(std::isfinite(result.z()) ? result.z() : 0.0f, 0.0f, 1.0f);
 }
 
 QImage ColorLUT::applyToImage(const QImage& source) const {
@@ -494,6 +624,9 @@ QColor ColorLUT::applyWithIntensity(const QColor& color, float intensity) const 
 // ========================================
 
 ColorLUT ColorLUT::createIdentity(int size) {
+    if (size < 2 || size > 256) {
+        size = 2;
+    }
     ColorLUT lut;
     lut.impl_->size = {size, size, size};
     lut.impl_->data.resize(static_cast<size_t>(size) * size * size * 3u);
@@ -555,7 +688,7 @@ ColorLUT ColorLUT::combine(const ColorLUT& other) const {
 
 ColorLUT ColorLUT::withIntensity(float intensity) const {
     if (!impl_->valid) return *this;
-    
+    intensity = std::isfinite(intensity) ? std::clamp(intensity, 0.0f, 1.0f) : 1.0f;
     ColorLUT result = *this;
     ColorLUT identity = createIdentity(impl_->size.dimX);
     
@@ -568,14 +701,35 @@ ColorLUT ColorLUT::withIntensity(float intensity) const {
 }
 
 ColorLUT ColorLUT::inverted() const {
-    // 逆変換の近似（完全な逆変換は計算コストが高い）
     if (!impl_->valid) return *this;
     
     ColorLUT result = createIdentity(impl_->size.dimX);
-    
-    // 各出力色に対して、最も近い入力色を探す（簡易実装）
-    // 完全な実装では反復的な最適化が必要
-    
+
+    // Solve LUT(input) ~= target by bounded fixed-point iteration. This
+    // avoids the quadratic cost of searching every source lattice point for
+    // every output point while still producing a useful inverse for smooth
+    // grading LUTs.
+    for (int z = 0; z < result.impl_->size.dimZ; ++z) {
+        for (int y = 0; y < result.impl_->size.dimY; ++y) {
+            for (int x = 0; x < result.impl_->size.dimX; ++x) {
+                const QVector3D target(
+                    x / float(result.impl_->size.dimX - 1),
+                    y / float(result.impl_->size.dimY - 1),
+                    z / float(result.impl_->size.dimZ - 1));
+                QVector3D candidate = target;
+                for (int iteration = 0; iteration < 8; ++iteration) {
+                    const QVector3D mapped = impl_->trilinearInterpolation(
+                        candidate.x(), candidate.y(), candidate.z());
+                    candidate += target - mapped;
+                    candidate.setX(std::clamp(candidate.x(), 0.0f, 1.0f));
+                    candidate.setY(std::clamp(candidate.y(), 0.0f, 1.0f));
+                    candidate.setZ(std::clamp(candidate.z(), 0.0f, 1.0f));
+                }
+                result.setValue(x, y, z, candidate);
+            }
+        }
+    }
+
     return result;
 }
 
@@ -584,6 +738,10 @@ ColorLUT ColorLUT::inverted() const {
 // ========================================
 
 QVector3D ColorLUT::getValue(int x, int y, int z) const {
+    if (x < 0 || x >= impl_->size.dimX || y < 0 || y >= impl_->size.dimY ||
+        z < 0 || z >= impl_->size.dimZ) {
+        return QVector3D();
+    }
     size_t idx = impl_->index(x, y, z);
     if (idx + 2 < impl_->data.size()) {
         return QVector3D(impl_->data[idx], impl_->data[idx + 1], impl_->data[idx + 2]);
@@ -592,11 +750,16 @@ QVector3D ColorLUT::getValue(int x, int y, int z) const {
 }
 
 void ColorLUT::setValue(int x, int y, int z, const QVector3D& rgb) {
+    if (x < 0 || x >= impl_->size.dimX || y < 0 || y >= impl_->size.dimY ||
+        z < 0 || z >= impl_->size.dimZ || !std::isfinite(rgb.x()) ||
+        !std::isfinite(rgb.y()) || !std::isfinite(rgb.z())) {
+        return;
+    }
     size_t idx = impl_->index(x, y, z);
     if (idx + 2 < impl_->data.size()) {
-        impl_->data[idx] = rgb.x();
-        impl_->data[idx + 1] = rgb.y();
-        impl_->data[idx + 2] = rgb.z();
+        impl_->data[idx] = std::clamp(rgb.x(), 0.0f, 1.0f);
+        impl_->data[idx + 1] = std::clamp(rgb.y(), 0.0f, 1.0f);
+        impl_->data[idx + 2] = std::clamp(rgb.z(), 0.0f, 1.0f);
     }
 }
 
@@ -606,7 +769,18 @@ float* ColorLUT::rawData() { return impl_->data.data(); }
 size_t ColorLUT::dataSize() const { return impl_->data.size() * sizeof(float); }
 
 QVector3D ColorLUT::sample(float r, float g, float b) const {
-    return impl_->trilinearInterpolation(r, g, b);
+    if (!impl_->valid || impl_->size.dimX < 2 || impl_->size.dimY < 2 ||
+        impl_->size.dimZ < 2) {
+        return QVector3D();
+    }
+    const auto safe = [](float value) {
+        return std::clamp(std::isfinite(value) ? value : 0.0f, 0.0f, 1.0f);
+    };
+    const QVector3D result = impl_->trilinearInterpolation(safe(r), safe(g), safe(b));
+    return QVector3D(
+        std::clamp(std::isfinite(result.x()) ? result.x() : 0.0f, 0.0f, 1.0f),
+        std::clamp(std::isfinite(result.y()) ? result.y() : 0.0f, 0.0f, 1.0f),
+        std::clamp(std::isfinite(result.z()) ? result.z() : 0.0f, 0.0f, 1.0f));
 }
 
 // ============================================================================
@@ -628,7 +802,11 @@ LUTManager& LUTManager::instance() {
 }
 
 void LUTManager::registerLUT(const QString& name, const ColorLUT& lut) {
-    impl_->luts[name] = lut;
+    const QString normalizedName = name.trimmed();
+    if (normalizedName.isEmpty() || !lut.isValid()) {
+        return;
+    }
+    impl_->luts[normalizedName] = lut;
 }
 
 ColorLUT LUTManager::getLUT(const QString& name) const {
@@ -653,12 +831,18 @@ void LUTManager::clear() {
 
 int LUTManager::loadFromDirectory(const QString& directoryPath) {
     QDir dir(directoryPath);
+    if (!dir.exists()) {
+        return 0;
+    }
     int count = 0;
     
     QStringList filters;
-    filters << "*.cube" << "*.Cube" << "*.CUBE";
+    filters << "*.cube" << "*.csp" << "*.3dl"
+            << "*.png" << "*.jpg" << "*.jpeg" << "*.tif" << "*.tiff";
     
-    for (const QFileInfo& info : dir.entryInfoList(filters)) {
+    const auto entries = dir.entryInfoList(filters, QDir::Files | QDir::Readable,
+                                           QDir::Name);
+    for (const QFileInfo& info : entries) {
         ColorLUT lut(info.absoluteFilePath());
         if (lut.isValid()) {
             registerLUT(info.baseName(), lut);

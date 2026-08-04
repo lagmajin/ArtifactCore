@@ -33,6 +33,11 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <cstdint>
+#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 export module Image.ImageF32x4RGBAWithCache;
 
 import Memory.SharedPtr;
@@ -52,9 +57,22 @@ explicit ImageF32x4RGBAWithCache(const ImageF32x4_RGBA& image);
 ImageF32x4RGBAWithCache(const ImageF32x4RGBAWithCache& other);
 ~ImageF32x4RGBAWithCache();
 ImageF32x4_RGBA& image() const;
+void SetCpuImage(const ImageF32x4_RGBA& image);
 
 void UpdateGpuTextureFromCpuData();
 void UpdateCpuDataFromGpuTexture();
+// Call after a compute/render pass writes through the UAV view.
+void MarkGpuDataDirty();
+// Returns the current shader-resource view, uploading CPU changes first.
+Diligent::RefCntAutoPtr<Diligent::ITextureView> GetGpuTextureSRV(
+    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context);
+// Returns the current unordered-access view, uploading CPU changes first.
+Diligent::RefCntAutoPtr<Diligent::ITextureView> GetGpuTextureUAV(
+    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context);
+void UpdateCpuRegion(const ImageF32x4_RGBA& source, int x, int y,
+                     uint32_t width, uint32_t height);
+void SetGpuResources(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+                     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context);
 
 int32_t width() const;
 int32_t height() const;

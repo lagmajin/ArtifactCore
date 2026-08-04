@@ -18,7 +18,6 @@ module;
 
 module Control.Midi.Input;
 
-import Control.Midi.Input;
 
 namespace ArtifactCore {
 

@@ -150,19 +150,25 @@ CssAnimationData CssAnimationExporter::extractAnimationData(
         CssKeyframeProperty prop;
         prop.propertyName = propName;
 
+        const auto& transform = layer.transform();
+        const QString transformValue = QStringLiteral(
+            "translate(%1px, %2px) rotate(%3deg) scale(%4, %5)")
+            .arg(transform.position.x, 0, 'f', 3)
+            .arg(transform.position.y, 0, 'f', 3)
+            .arg(transform.rotation, 0, 'f', 3)
+            .arg(transform.scale.x, 0, 'f', 3)
+            .arg(transform.scale.y, 0, 'f', 3);
         for (int f = startFrame; f <= endFrame; ++f) {
-            // We evaluate the layer at each frame to get the value
-            // For now, sample at 0%, 25%, 50%, 75%, 100% keyframes
-            // Full frame sampling would be done via the render queue loop
-            Q_UNUSED(f);
+            const double timeMs = frameRate > 0.0
+                ? (static_cast<double>(f - startFrame) / frameRate) * 1000.0
+                : 0.0;
+            prop.keyframes.emplace_back(static_cast<int>(std::llround(timeMs)),
+                                        transformValue);
         }
         data.properties.push_back(prop);
     };
 
     // Collect animatable properties from the layer
-    const auto& tf = layer.transform();
-    Q_UNUSED(tf);
-
     // Transform properties are always present
     addProperty(QStringLiteral("transform"));
 
@@ -210,7 +216,7 @@ QString CssAnimationExporter::generateCss(
 
         for (const auto& [frame, value] : prop.keyframes) {
             const double pct = data.durationSec > 0.0
-                ? (static_cast<double>(frame) / data.durationSec) * 100.0
+                ? (static_cast<double>(frame) / (data.durationSec * 1000.0)) * 100.0
                 : 0.0;
             out << QStringLiteral("  %1% { %2: %3; }\n")
                 .arg(pct, 0, 'f', 1)

@@ -32,23 +32,42 @@ TimeRemapProcessor::TimeRemapProcessor() = default;
 TimeRemapProcessor::~TimeRemapProcessor() = default;
 
 void TimeRemapProcessor::setSourceDuration(double seconds) {
-    sourceDuration_ = seconds;
-    sourceFrameCount_ = static_cast<int>(seconds * frameRate_.framerate());
+    const double safeDuration = std::isfinite(seconds) ? std::max(0.0, seconds) : 0.0;
+    const double safeRate = std::isfinite(frameRate_.framerate()) &&
+                            frameRate_.framerate() > 0.0
+        ? frameRate_.framerate() : 30.0;
+    sourceDuration_ = safeDuration;
+    sourceFrameCount_ = std::max(0, static_cast<int>(std::ceil(safeDuration * safeRate)));
 }
 
 void TimeRemapProcessor::setSourceFrameCount(int frames) {
-    sourceFrameCount_ = frames;
-    sourceDuration_ = static_cast<double>(frames) / frameRate_.framerate();
+    const int safeFrames = std::max(0, frames);
+    const double safeRate = std::isfinite(frameRate_.framerate()) &&
+                            frameRate_.framerate() > 0.0
+        ? frameRate_.framerate() : 30.0;
+    sourceFrameCount_ = safeFrames;
+    sourceDuration_ = static_cast<double>(safeFrames) / safeRate;
 }
 
 void TimeRemapProcessor::setFrameRate(const FrameRate& rate) {
     double oldDuration = sourceDuration_;
     frameRate_ = rate;
-    // Recalculate frames
-    sourceFrameCount_ = static_cast<int>(oldDuration * frameRate_.framerate());
+    const double safeRate = std::isfinite(frameRate_.framerate()) &&
+                            frameRate_.framerate() > 0.0
+        ? frameRate_.framerate() : 30.0;
+    sourceFrameCount_ = std::max(0, static_cast<int>(oldDuration * safeRate));
 }
 
 void TimeRemapProcessor::addKeyframe(const TimeRemapKeyframe& keyframe) {
+    if (!std::isfinite(keyframe.outputTime) || !std::isfinite(keyframe.sourceTime)) {
+        return;
+    }
+    for (auto& existing : keyframes_) {
+        if (existing.outputTime == keyframe.outputTime) {
+            existing = keyframe;
+            return;
+        }
+    }
     keyframes_.push_back(keyframe);
     // Sort by output time
     std::sort(keyframes_.begin(), keyframes_.end(), 
@@ -67,6 +86,13 @@ void TimeRemapProcessor::clearKeyframes() {
     keyframes_.clear();
 }
 
+void TimeRemapProcessor::setKeyframes(const QVector<TimeRemapKeyframe>& frames) {
+    keyframes_.clear();
+    for (const auto& keyframe : frames) {
+        addKeyframe(keyframe);
+    }
+}
+
 double TimeRemapProcessor::interpolateKeyframes(double outputTime) const {
     if (keyframes_.isEmpty()) {
         // Default: linear mapping
@@ -77,6 +103,13 @@ double TimeRemapProcessor::interpolateKeyframes(double outputTime) const {
         return keyframes_[0].sourceTime;
     }
     
+    if (outputTime <= keyframes_.front().outputTime) {
+        return keyframes_.front().sourceTime;
+    }
+    if (outputTime >= keyframes_.back().outputTime) {
+        return keyframes_.back().sourceTime;
+    }
+
     // Find surrounding keyframes
     int idx = 0;
     for (int i = 0; i < keyframes_.size() - 1; i++) {
@@ -91,7 +124,11 @@ double TimeRemapProcessor::interpolateKeyframes(double outputTime) const {
     const auto& k1 = keyframes_[idx + 1];
     
     // Normalized time between keyframes
-    double t = (outputTime - k0.outputTime) / (k1.outputTime - k0.outputTime);
+    const double outputSpan = k1.outputTime - k0.outputTime;
+    if (outputSpan <= 0.0) {
+        return k1.sourceTime;
+    }
+    double t = (outputTime - k0.outputTime) / outputSpan;
     t = std::clamp(t, 0.0, 1.0);
     
     // Apply easing
@@ -132,17 +169,18 @@ double TimeRemapProcessor::mapSourceToOutput(double sourceTime) const {
     // Inverse mapping - binary search
     if (keyframes_.isEmpty()) {
         // Linear: output = source * 10 / duration
-        return sourceTime * 10.0 / sourceDuration_;
+        return sourceDuration_ > 0.0 ? sourceTime * 10.0 / sourceDuration_ : 0.0;
     }
-    
+
     double low = 0;
     double high = keyframes_.last().outputTime;
+    const bool increasing = keyframes_.last().sourceTime >= keyframes_.front().sourceTime;
     
     for (int iter = 0; iter < 20; iter++) {
         double mid = (low + high) / 2;
         double mapped = interpolateKeyframes(mid);
         
-        if (mapped < sourceTime) {
+        if ((increasing && mapped < sourceTime) || (!increasing && mapped > sourceTime)) {
             low = mid;
         } else {
             high = mid;
@@ -154,7 +192,15 @@ double TimeRemapProcessor::mapSourceToOutput(double sourceTime) const {
 
 int TimeRemapProcessor::getSourceFrameIndex(double outputTime) const {
     double sourceTime = mapOutputToSource(outputTime);
-    return static_cast<int>(sourceTime * frameRate_.framerate());
+    const double safeRate = std::isfinite(frameRate_.framerate()) &&
+                            frameRate_.framerate() > 0.0
+        ? frameRate_.framerate() : 30.0;
+    if (!std::isfinite(sourceTime) || sourceFrameCount_ <= 0) {
+        return 0;
+    }
+    const int frameIndex = static_cast<int>(std::floor(
+        std::max(0.0, sourceTime) * safeRate));
+    return std::clamp(frameIndex, 0, std::max(0, sourceFrameCount_ - 1));
 }
 
 void TimeRemapProcessor::setFrameBlendMode(FrameBlendMode mode) {
@@ -175,14 +221,20 @@ double TimeRemapProcessor::getSpeedAtTime(double outputTime) const {
 }
 
 void TimeRemapProcessor::convertTimesToFrames() {
+    const double safeRate = std::isfinite(frameRate_.framerate()) &&
+                            frameRate_.framerate() > 0.0
+        ? frameRate_.framerate() : 30.0;
     for (auto& kf : keyframes_) {
-        kf.outputTime = kf.outputTime * frameRate_.framerate();
-        kf.sourceTime = kf.sourceTime * frameRate_.framerate();
+        kf.outputTime *= safeRate;
+        kf.sourceTime *= safeRate;
     }
 }
 
 void TimeRemapProcessor::convertFramesToTimes() {
-    float invRate = 1.0f / frameRate_.framerate();
+    const double safeRate = std::isfinite(frameRate_.framerate()) &&
+                            frameRate_.framerate() > 0.0
+        ? frameRate_.framerate() : 30.0;
+    const double invRate = 1.0 / safeRate;
     for (auto& kf : keyframes_) {
         kf.outputTime = kf.outputTime * invRate;
         kf.sourceTime = kf.sourceTime * invRate;
@@ -191,6 +243,8 @@ void TimeRemapProcessor::convertFramesToTimes() {
 
 TimeRemapProcessor TimeRemapProcessor::createConstantSpeed(double speed) {
     TimeRemapProcessor proc;
+    const double safeSpeed = std::isfinite(speed) && std::abs(speed) > 1.0e-6
+        ? speed : 1.0;
     TimeRemapKeyframe kf1;
     kf1.outputTime = 0;
     kf1.sourceTime = 0;
@@ -199,7 +253,7 @@ TimeRemapProcessor TimeRemapProcessor::createConstantSpeed(double speed) {
     
     TimeRemapKeyframe kf2;
     kf2.outputTime = 10.0; // 10 seconds
-    kf2.sourceTime = 10.0 / speed; // Duration = duration / speed
+    kf2.sourceTime = 10.0 / safeSpeed; // Duration = duration / speed
     kf2.interpolation = TimeRemapKeyframe::Interpolation::Linear;
     proc.addKeyframe(kf2);
     
@@ -208,6 +262,8 @@ TimeRemapProcessor TimeRemapProcessor::createConstantSpeed(double speed) {
 
 TimeRemapProcessor TimeRemapProcessor::createRampUp(double startSpeed, double endSpeed) {
     TimeRemapProcessor proc;
+    const double safeStart = std::isfinite(startSpeed) ? startSpeed : 1.0;
+    const double safeEnd = std::isfinite(endSpeed) ? endSpeed : safeStart;
     
     // Add keyframes at various points
     for (int i = 0; i <= 10; i++) {
@@ -215,9 +271,8 @@ TimeRemapProcessor TimeRemapProcessor::createRampUp(double startSpeed, double en
         kf.outputTime = i;
         double t = i / 10.0;
         // Integrate speed over time
-        double speed = startSpeed + (endSpeed - startSpeed) * t;
-        // Approximate source time
-        kf.sourceTime = i * speed;
+        // Integral of the linear speed ramp from 0 to output time i.
+        kf.sourceTime = safeStart * i + 0.5 * (safeEnd - safeStart) * i * t;
         kf.interpolation = TimeRemapKeyframe::Interpolation::EaseInOut;
         proc.addKeyframe(kf);
     }
@@ -311,11 +366,11 @@ AudioTimeStretchProcessor::AudioTimeStretchProcessor() = default;
 AudioTimeStretchProcessor::~AudioTimeStretchProcessor() = default;
 
 void AudioTimeStretchProcessor::setSampleRate(int sampleRate) {
-    sampleRate_ = sampleRate;
+    sampleRate_ = std::max(1, sampleRate);
 }
 
 void AudioTimeStretchProcessor::setChannels(int channels) {
-    channels_ = channels;
+    channels_ = std::max(1, channels);
 }
 
 void AudioTimeStretchProcessor::setPreservePitch(bool preserve) {
@@ -328,6 +383,10 @@ int AudioTimeStretchProcessor::processTimeStretch(
     double timeStretchRatio,
     float* outputSamples
 ) {
+    if (!inputSamples || !outputSamples || inputSampleCount <= 0 || channels_ <= 0 ||
+        !std::isfinite(timeStretchRatio) || timeStretchRatio <= 0.0) {
+        return 0;
+    }
     if (preservePitch_) {
         return processTimeStretchFFT(inputSamples, inputSampleCount, timeStretchRatio, outputSamples);
     } else {
@@ -341,12 +400,13 @@ int AudioTimeStretchProcessor::processTimeStretchSimple(
     double timeStretchRatio,
     float* outputSamples
 ) {
-    // Simple rate conversion
-    int outputSampleCount = static_cast<int>(inputSampleCount / timeStretchRatio);
+    const int outputSampleCount = std::max(1, static_cast<int>(std::ceil(
+        static_cast<double>(inputSampleCount) / timeStretchRatio)));
     
     for (int i = 0; i < outputSampleCount; i++) {
         double inputIndex = i * timeStretchRatio;
-        int idx = static_cast<int>(inputIndex);
+        const int idx = std::min(inputSampleCount - 1,
+                                 static_cast<int>(inputIndex));
         float frac = static_cast<float>(inputIndex - idx);
         
         // Linear interpolation between samples
@@ -356,7 +416,7 @@ int AudioTimeStretchProcessor::processTimeStretchSimple(
                     inputSamples[idx * channels_ + ch] * (1.0f - frac) +
                     inputSamples[(idx + 1) * channels_ + ch] * frac;
             }
-        } else if (idx < inputSampleCount) {
+        } else if (idx >= 0 && idx < inputSampleCount) {
             for (int ch = 0; ch < channels_; ch++) {
                 outputSamples[i * channels_ + ch] = inputSamples[idx * channels_ + ch];
             }
@@ -372,60 +432,57 @@ int AudioTimeStretchProcessor::processTimeStretchFFT(
     double timeStretchRatio,
     float* outputSamples
 ) {
-    // FFT-based time stretching (simplified implementation)
-    // For production, use libraries like SoundTouch or Rubber Band
-    
-    int outputSampleCount = static_cast<int>(inputSampleCount / timeStretchRatio);
-    
-    // Window size for FFT
-    const int windowSize = 2048;
-    const int hopSize = windowSize / 4;
-    
-    // Process in windows
-    int inputPos = 0;
-    int outputPos = 0;
-    
-    while (inputPos + windowSize < inputSampleCount) {
-        // Apply Hann window (simplified)
-        std::vector<float> windowedInput(windowSize * channels_);
-        
-        for (int i = 0; i < windowSize; i++) {
-            float window = 0.5f * (1.0f - std::cos(2.0f * 3.14159f * i / (windowSize - 1)));
-            for (int ch = 0; ch < channels_; ch++) {
-                windowedInput[i * channels_ + ch] = 
-                    inputSamples[(inputPos + i) * channels_ + ch] * window;
-            }
-        }
-        
-        // Copy to output (simplified - real implementation would do FFT processing)
-        for (int i = 0; i < windowSize && outputPos < outputSampleCount; i++) {
-            float fade = 1.0f;
-            if (i < hopSize) {
-                fade = static_cast<float>(i) / hopSize;
-            } else if (i > windowSize - hopSize) {
-                fade = static_cast<float>(windowSize - i) / hopSize;
-            }
-            
-            for (int ch = 0; ch < channels_; ch++) {
-                outputSamples[outputPos * channels_ + ch] = 
-                    windowedInput[i * channels_ + ch] * fade;
-            }
-            outputPos++;
-        }
-        
-        inputPos += hopSize;
+    if (!inputSamples || !outputSamples || inputSampleCount <= 0 || channels_ <= 0 ||
+        !std::isfinite(timeStretchRatio) || timeStretchRatio <= 0.0) {
+        return 0;
     }
-    
-    // Copy remaining samples
-    while (inputPos < inputSampleCount && outputPos < outputSampleCount) {
-        for (int ch = 0; ch < channels_; ch++) {
-            outputSamples[outputPos * channels_ + ch] = 
-                inputSamples[inputPos * channels_ + ch];
+
+    const int outputSampleCount = std::max(1, static_cast<int>(
+        std::ceil(static_cast<double>(inputSampleCount) / timeStretchRatio)));
+    constexpr int windowSize = 2048;
+    constexpr int analysisHop = windowSize / 4;
+    const int synthesisHop = std::max(1, static_cast<int>(
+        std::lround(static_cast<double>(analysisHop) / timeStretchRatio)));
+    const double pi = 3.14159265358979323846;
+
+    std::fill(outputSamples, outputSamples + outputSampleCount * channels_, 0.0f);
+    std::vector<float> overlapWeight(static_cast<std::size_t>(outputSampleCount), 0.0f);
+    std::vector<float> grain(static_cast<std::size_t>(windowSize * channels_), 0.0f);
+
+    for (int inputPos = 0, outputPos = 0;
+         inputPos < inputSampleCount && outputPos < outputSampleCount;
+         inputPos += analysisHop, outputPos += synthesisHop) {
+        for (int i = 0; i < windowSize; ++i) {
+            const int sourceIndex = std::min(inputSampleCount - 1, inputPos + i);
+            const float phase = static_cast<float>(i) / static_cast<float>(windowSize - 1);
+            const float window = 0.5f - 0.5f * std::cos(static_cast<float>(2.0 * pi) * phase);
+            for (int ch = 0; ch < channels_; ++ch) {
+                grain[static_cast<std::size_t>(i * channels_ + ch)] =
+                    inputSamples[sourceIndex * channels_ + ch] * window;
+            }
         }
-        outputPos++;
-        inputPos += static_cast<int>(timeStretchRatio);
+
+        const int writable = std::min(windowSize, outputSampleCount - outputPos);
+        for (int i = 0; i < writable; ++i) {
+            const int destination = outputPos + i;
+            const float phase = static_cast<float>(i) / static_cast<float>(windowSize - 1);
+            const float window = 0.5f - 0.5f * std::cos(static_cast<float>(2.0 * pi) * phase);
+            overlapWeight[static_cast<std::size_t>(destination)] += window;
+            for (int ch = 0; ch < channels_; ++ch) {
+                outputSamples[destination * channels_ + ch] +=
+                    grain[static_cast<std::size_t>(i * channels_ + ch)];
+            }
+        }
     }
-    
+
+    for (int frame = 0; frame < outputSampleCount; ++frame) {
+        const float weight = overlapWeight[static_cast<std::size_t>(frame)];
+        if (weight > 1.0e-6f) {
+            for (int ch = 0; ch < channels_; ++ch) {
+                outputSamples[frame * channels_ + ch] /= weight;
+            }
+        }
+    }
     return outputSampleCount;
 }
 
@@ -449,21 +506,30 @@ int TimeRemapEffect::processFrame(
 ) {
     blendForward = 0.0f;
     blendBackward = 0.0f;
+
+    const double safeRate = std::isfinite(remap_.frameRate().framerate()) &&
+                            remap_.frameRate().framerate() > 0.0
+        ? remap_.frameRate().framerate() : 30.0;
+    const double safeOutputTime = std::isfinite(outputTime) ? outputTime : 0.0;
     
     if (!enabled_) {
-        return static_cast<int>(outputTime * remap_.frameRate().framerate());
+        return std::max(0, static_cast<int>(safeOutputTime * safeRate));
     }
     
     // Get source time
-    double sourceTime = remap_.mapOutputToSource(outputTime);
+    double sourceTime = remap_.mapOutputToSource(safeOutputTime);
+    if (!std::isfinite(sourceTime)) {
+        sourceTime = 0.0;
+    }
     
     // Get frame index
-    int frameIndex = static_cast<int>(sourceTime * remap_.frameRate().framerate());
+    const int frameIndex = std::max(0, static_cast<int>(sourceTime * safeRate));
     
     // Handle frame blending for slow motion
     if (remap_.frameBlendMode() == FrameBlendMode::FrameMix) {
         // Calculate fractional part
-        float frac = static_cast<float>(sourceTime * remap_.frameRate().framerate() - frameIndex);
+        const float frac = std::clamp(static_cast<float>(
+            sourceTime * safeRate - frameIndex), 0.0f, 1.0f);
         
         // Blend with adjacent frames
         blendForward = frac * remap_.frameBlendAmount();
@@ -484,7 +550,11 @@ bool TimeRemapEffect::needsFrameBlending(double outputTime) const {
     }
     
     // Check if we're in slow motion (time stretch > 1.0)
-    double speed = remap_.getSpeedAtTime(outputTime);
+    const double speed = remap_.getSpeedAtTime(
+        std::isfinite(outputTime) ? outputTime : 0.0);
+    if (!std::isfinite(speed)) {
+        return false;
+    }
     if (std::abs(speed) < 1.0) {
         // Slow motion - blending needed
         return true;
@@ -544,9 +614,39 @@ QImage TimeRemapEffect::processFrameBlending(
     }
     
     if (mode == FrameBlendMode::MotionBlur) {
-        // Motion blur requires velocity information
-        // For now, return the current frame until a velocity source is wired in.
-        return currentFrame;
+        // Estimate image-space translation from adjacent frames when no
+        // transform velocity is available.  This keeps motion blur useful
+        // for footage and raster layers as well as animated transforms.
+        const QImage reference = !prevFrame.isNull() &&
+                prevFrame.size() == currentFrame.size()
+            ? prevFrame
+            : nextFrame;
+        if (reference.isNull() || reference.size() != currentFrame.size()) {
+            return currentFrame;
+        }
+
+        QImage referenceRgba = reference.convertToFormat(QImage::Format_RGBA8888);
+        QImage currentRgba = currentFrame.convertToFormat(QImage::Format_RGBA8888);
+        cv::Mat referenceMat(referenceRgba.height(), referenceRgba.width(), CV_8UC4,
+                             referenceRgba.bits(), referenceRgba.bytesPerLine());
+        cv::Mat currentMat(currentRgba.height(), currentRgba.width(), CV_8UC4,
+                           currentRgba.bits(), currentRgba.bytesPerLine());
+        cv::Mat referenceGray;
+        cv::Mat currentGray;
+        cv::cvtColor(referenceMat, referenceGray, cv::COLOR_RGBA2GRAY);
+        cv::cvtColor(currentMat, currentGray, cv::COLOR_RGBA2GRAY);
+        referenceGray.convertTo(referenceGray, CV_32F);
+        currentGray.convertTo(currentGray, CV_32F);
+
+        const cv::Point2d shift = cv::phaseCorrelate(referenceGray, currentGray);
+        if (!std::isfinite(shift.x) || !std::isfinite(shift.y)) {
+            return currentFrame;
+        }
+        const float direction = !prevFrame.isNull() ? 1.0f : -1.0f;
+        const QPointF velocity(direction * shift.x, direction * shift.y);
+        return applyMotionBlur(currentFrame, velocity,
+                               std::clamp(remap_.frameBlendAmount(), 0.0f, 1.0f),
+                               8);
     }
     
     if (mode == FrameBlendMode::OpticalFlow) {

@@ -6,7 +6,6 @@ module;
 #include <array>
 #include <tuple>
 module StarfieldGenerator;
-import StarfieldGenerator;
 
 namespace ArtifactCore {
 

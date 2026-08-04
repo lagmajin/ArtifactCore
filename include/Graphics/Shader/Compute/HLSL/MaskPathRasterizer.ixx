@@ -1,8 +1,7 @@
 module;
 #include <utility>
-export module Graphics.Shader.Compute.HLSL.MaskPathRasterizer;
-
 #include <QByteArray>
+export module Graphics.Shader.Compute.HLSL.MaskPathRasterizer;
 
 export namespace ArtifactCore {
 

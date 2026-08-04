@@ -98,7 +98,9 @@ inline std::vector<String> CreativeEffectFactory::getAvailableEffects() {
         "Emboss",
         "Solarize",
         "ChromaticAberration",
-        "VC Color Vibrance"
+        "ColorVibrance",
+        "VC Color Vibrance",
+        "Old TV / CRT"
     };
 }
 

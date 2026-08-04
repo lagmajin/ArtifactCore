@@ -38,7 +38,6 @@ module;
 #include <regex>
 #include <random>
 module Utils.Fingerprint;
-import Utils.Fingerprint;
 
 namespace ArtifactCore {
 

@@ -1,6 +1,7 @@
 module;
 class tst_QList;
 #include <iostream>
+#include <algorithm>
 #include <vector>
 #include <string>
 #include <map>
@@ -39,7 +40,8 @@ export namespace ArtifactCore
  struct WaveformData {
   QVector<float> minValues;
   QVector<float> maxValues;
-
+  bool isEmpty() const { return minValues.isEmpty() || maxValues.isEmpty(); }
+  int binCount() const { return std::min(minValues.size(), maxValues.size()); }
  };
 
  class AudioRasterizer
@@ -48,7 +50,9 @@ export namespace ArtifactCore
 
 
  public:
-
+  static WaveformData rasterize(const QVector<float>& samples, int binCount);
+  static WaveformData rasterizeInterleaved(const QVector<float>& samples,
+                                            int channels, int binCount);
 
  };
 

@@ -9,7 +9,6 @@ module;
 #include <cmath>
 
 module UI.View.Orientation.Navigator;
-import UI.View.Orientation.Navigator;
 
 namespace ArtifactCore
 {

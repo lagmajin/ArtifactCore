@@ -9,7 +9,6 @@ module;
 #include <thread>
 
 module Thread.PreciseTicker;
-import Thread.PreciseTicker;
 
 namespace ArtifactCore {
 

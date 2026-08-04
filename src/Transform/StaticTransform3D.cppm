@@ -2,7 +2,6 @@ module;
 #include <utility>
 
 module Transform._3D;
-import Transform._3D;
 
 namespace ArtifactCore {
 

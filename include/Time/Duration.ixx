@@ -1,8 +1,7 @@
 module;
 #include <utility>
-export module Duration;
-
 #include <QString>
+export module Duration;
 
 export namespace ArtifactCore {
 

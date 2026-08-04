@@ -8,7 +8,6 @@ module;
 #include <cmath>
 
 module Geometry.LayerBounds;
-import Geometry.LayerBounds;
 
 namespace ArtifactCore {
 

@@ -5,6 +5,7 @@ module;
 #include <QList>
 #include <QSize>
 #include <QString>
+#include <QStringList>
 #include <QtGlobal>
 
 #include "../Define/DllExportMacro.hpp"
@@ -21,6 +22,7 @@ public:
     ~ImageSequenceSource() override;
 
     bool open(const QString& uri) override;
+    bool openFramePaths(const QStringList& framePaths);
     void close() override;
     bool isOpen() const override;
 

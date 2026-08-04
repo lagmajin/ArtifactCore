@@ -60,6 +60,11 @@ public:
   void setColor(float red, float green, float blue, float alpha);
   void clamp();
 
+  /// Convert the RGB channels from sRGB encoding to scene-linear values.
+  FloatColor toLinear() const;
+  /// Convert the RGB channels from scene-linear values to sRGB encoding.
+  FloatColor fromLinear() const;
+
   FloatColor &operator=(const FloatColor &other);
   FloatColor &operator=(FloatColor &&other) noexcept;
 

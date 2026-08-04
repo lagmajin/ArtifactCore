@@ -3,6 +3,7 @@ module;
 
 
 #include "../Define/DllExportMacro.hpp"
+#include <cstdint>
 
 #include <iostream>
 #include <vector>
@@ -97,10 +98,13 @@ export namespace ArtifactCore {
 
  class FrameRateOffset {
  private:
+  std::int64_t value_ = 0;
 
  public:
-  explicit FrameRateOffset();
-  ~FrameRateOffset();
+  explicit FrameRateOffset(std::int64_t value = 0);
+  ~FrameRateOffset() = default;
+  std::int64_t value() const { return value_; }
+  void setValue(std::int64_t value) { value_ = value; }
  };
 
  bool operator==(const FrameRateOffset& offset1, const FrameRateOffset& offset2);

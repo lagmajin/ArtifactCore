@@ -2,7 +2,6 @@ module;
 #include <utility>
 
 module Media.TimeStamp;
-import Media.TimeStamp;
 
 namespace ArtifactCore {
 
@@ -25,13 +24,14 @@ namespace ArtifactCore {
  }
 
  MediaTimeStamp::MediaTimeStamp()
+  : impl_(new Impl())
  {
-
  }
 
  MediaTimeStamp::~MediaTimeStamp()
  {
-
+  delete impl_;
+  impl_ = nullptr;
  }
 
 };

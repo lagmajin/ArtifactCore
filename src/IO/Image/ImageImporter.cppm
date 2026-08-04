@@ -73,6 +73,18 @@ void populateProfessionalMetadata(const OIIO::ImageSpec& spec, RawImage& image)
     image.metadata.insert(QStringLiteral("oiio:ColorSpace"), image.colorSpace);
     image.metadata.insert(QStringLiteral("TransferFunction"), image.transferFunction);
     image.metadata.insert(QStringLiteral("Primaries"), image.primaries);
+
+    if (const OIIO::ParamValue* icc = spec.find_attribute(
+            "ICCProfile", OIIO::TypeDesc::UINT8)) {
+        const int byteCount = icc->datasize();
+        if (byteCount > 0 && icc->data()) {
+            image.iccProfileData = QByteArray(
+                static_cast<const char*>(icc->data()), byteCount);
+            image.metadata.insert(QStringLiteral("ICCProfile"),
+                                  QStringLiteral("embedded (%1 bytes)")
+                                      .arg(byteCount));
+        }
+    }
 }
 
 RawImage loadRawImageViaOIIO(const QString& filePath)

@@ -1,6 +1,7 @@
 module;
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -24,6 +25,15 @@ void ChromaSpread::processMat(void* cvMatPtr, const ChromaSpreadSettings& settin
 
     const int w = srcMat.cols;
     const int h = srcMat.rows;
+    const auto finiteOr = [](const float value, const float fallback) {
+        return std::isfinite(value) ? value : fallback;
+    };
+    const float redScale = std::max(0.001f, finiteOr(settings.redScale, 1.0f));
+    const float greenScale = std::max(0.001f, finiteOr(settings.greenScale, 1.0f));
+    const float blueScale = std::max(0.001f, finiteOr(settings.blueScale, 1.0f));
+    const float shiftAmount = finiteOr(settings.shiftAmount, 0.0f);
+    const float shiftAngle = finiteOr(settings.shiftAngle, 0.0f);
+    const int dispersionSteps = std::clamp(settings.dispersionSteps, 1, 64);
     const float cx = w * 0.5f;
     const float cy = h * 0.5f;
 
@@ -43,9 +53,9 @@ void ChromaSpread::processMat(void* cvMatPtr, const ChromaSpreadSettings& settin
     cv::Mat b_dst = cv::Mat::zeros(h, w, CV_32FC1);
 
     // Calculate linear shift vectors
-    const float rad = settings.shiftAngle * 3.14159265f / 180.0f;
-    const float shiftX = settings.shiftAmount * std::cos(rad);
-    const float shiftY = settings.shiftAmount * std::sin(rad);
+    const float rad = shiftAngle * 3.14159265f / 180.0f;
+    const float shiftX = shiftAmount * std::cos(rad);
+    const float shiftY = shiftAmount * std::sin(rad);
 
     auto remapChannel = [&](const cv::Mat& src, cv::Mat& dst, float scale, float sx, float sy) {
         cv::Mat mapX(h, w, CV_32FC1);
@@ -67,14 +77,14 @@ void ChromaSpread::processMat(void* cvMatPtr, const ChromaSpreadSettings& settin
         cv::remap(src, dst, mapX, mapY, cv::INTER_LINEAR, cv::BORDER_REPLICATE);
     };
 
-    if (settings.dispersionSteps <= 1) {
+    if (dispersionSteps <= 1) {
         // Direct transform
         // Red: shift positive, scale Red
-        remapChannel(r_src, r_dst, settings.redScale, shiftX, shiftY);
+        remapChannel(r_src, r_dst, redScale, shiftX, shiftY);
         // Green: centered, scale Green (usually 1.0)
-        remapChannel(g_src, g_dst, settings.greenScale, 0.0f, 0.0f);
+        remapChannel(g_src, g_dst, greenScale, 0.0f, 0.0f);
         // Blue: shift negative, scale Blue
-        remapChannel(b_src, b_dst, settings.blueScale, -shiftX, -shiftY);
+        remapChannel(b_src, b_dst, blueScale, -shiftX, -shiftY);
     } else {
         // Multi-spectral dispersion interpolation
         // Blend intermediate steps along the dispersion axis to generate a smooth prism trail.
@@ -82,12 +92,12 @@ void ChromaSpread::processMat(void* cvMatPtr, const ChromaSpreadSettings& settin
         cv::Mat g_accum = cv::Mat::zeros(h, w, CV_32FC1);
         cv::Mat b_accum = cv::Mat::zeros(h, w, CV_32FC1);
 
-        const int steps = settings.dispersionSteps;
+        const int steps = dispersionSteps;
         for (int i = 0; i < steps; ++i) {
             float t = static_cast<float>(i) / static_cast<float>(steps - 1); // 0.0 to 1.0
 
             // Interpolate scaling and shifting factors across spectrum
-            float curScale = settings.redScale * (1.0f - t) + settings.blueScale * t;
+            float curScale = redScale * (1.0f - t) + blueScale * t;
             float curSx = shiftX * (1.0f - 2.0f * t);
             float curSy = shiftY * (1.0f - 2.0f * t);
 

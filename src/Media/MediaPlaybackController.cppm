@@ -46,14 +46,14 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-module MediaPlaybackController;
-
 extern "C" {
 #include <libavutil/error.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 }
+
+module MediaPlaybackController;
 
 import ArtifactCore.Utils.PerformanceProfiler;
 import Video.VideoFrame;

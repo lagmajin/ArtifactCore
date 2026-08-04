@@ -24,7 +24,9 @@ export namespace ArtifactCore {
  *  - Execute a free function in a compiled module
  *  - Register host functions (log/print) before compilation
  *  - Capture script output via callback
- *  - Stubbable: when ARTIFACT_HAS_ANGELSCRIPT is undefined, compiles as a no-op
+ *  - Explicit SDK dependency: when ARTIFACT_HAS_ANGELSCRIPT is undefined,
+ *    initialization fails with a diagnostic instead of pretending to execute
+ *    scripts. The host can then offer its SDK installation/rebuild guidance.
  *
  * Usage:
  *   auto& as = AngelScriptEngine::instance();

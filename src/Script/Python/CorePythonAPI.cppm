@@ -9,6 +9,10 @@ import Script.Python.Engine;
 
 namespace ArtifactCore {
 
+namespace {
+CorePythonAPI::CompositionBridge g_compositionBridge;
+}
+
 void CorePythonAPI::registerAll() {
     auto& py = PythonEngine::instance();
     // Pre-create the artifact.core submodules
@@ -40,6 +44,23 @@ sys.modules['artifact.core'] = sys.modules['artifact'].core
     registerDSPAPI();
     registerSystemAPI();
     registerCompositionAPI();
+}
+
+void CorePythonAPI::setCompositionBridge(CompositionBridge bridge) {
+    g_compositionBridge = std::move(bridge);
+    if (!g_compositionBridge) return;
+    PythonEngine::instance().registerFunction(
+        "_workspace_invoke",
+        [](const std::vector<std::string>& args) -> std::string {
+            if (args.empty() || !g_compositionBridge) {
+                return "{\"success\":false,\"message\":\"Composition bridge unavailable\"}";
+            }
+            std::vector<std::string> parameters;
+            if (args.size() > 1) {
+                parameters.assign(args.begin() + 1, args.end());
+            }
+            return g_compositionBridge(args.front(), parameters);
+        });
 }
 
 void CorePythonAPI::registerMathAPI() {
@@ -168,49 +189,64 @@ void CorePythonAPI::registerCompositionAPI() {
 import artifact.core
 import json
 
-# Composition API - exposes workspace automation through Python
-# These are placeholders that call into WorkspaceAutomation::invokeMethod
+# Composition API - delegates to an optional host-provided bridge.
+def _invoke_workspace(method, *args):
+    bridge = getattr(artifact, "_workspace_invoke", None)
+    if bridge is None:
+        return {"success": False, "message": "Workspace automation bridge is not registered", "method": method}
+    try:
+        result = bridge(method, *args)
+        if isinstance(result, str):
+            try:
+                return json.loads(result)
+            except Exception:
+                return {"success": True, "value": result}
+        return result
+    except Exception as error:
+        return {"success": False, "message": str(error), "method": method}
 
 def _get_current_comp_id():
     """Get the ID of the currently active composition."""
-    # Placeholder - actual implementation would query the app
-    return ""
+    result = _invoke_workspace("currentCompositionSnapshot")
+    return result.get("id", "") if isinstance(result, dict) else result
 
 def _get_composition_list():
     """Get list of all compositions in the project."""
-    return []
+    result = _invoke_workspace("listCompositions")
+    return result.get("compositions", []) if isinstance(result, dict) else result
 
 def _create_composition(name, width=1920, height=1080):
     """Create a new composition."""
-    return {"success": False, "message": "Use WorkspaceAutomation.invokeMethod from Artifact UI"}
+    return _invoke_workspace("createComposition", name, width, height)
 
 def _set_work_area(start_frame, end_frame):
     """Set the work area (in/out points) for playback/export."""
-    return False
+    return _invoke_workspace("setWorkArea", start_frame, end_frame)
 
 def _get_playback_frame():
     """Get current playback head position in frames."""
-    return 0
+    result = _invoke_workspace("playbackGetCurrentFrame")
+    return result.get("value", 0) if isinstance(result, dict) else result
 
 def _set_playback_frame(frame):
     """Set playback head position."""
-    return False
+    return _invoke_workspace("playbackSetCurrentFrame", frame)
 
 def _playback_play():
     """Start playback."""
-    return False
+    return _invoke_workspace("playbackStart")
 
 def _playback_pause():
     """Pause playback."""
-    return False
+    return _invoke_workspace("playbackPause")
 
 def _playback_stop():
     """Stop playback and return to start."""
-    return False
+    return _invoke_workspace("playbackStop")
 
 def _export_comp(composition_id, output_path, fmt, codec, width, height, fps, bitrate):
     """Export a composition to file."""
-    return {"success": False, "message": "Exported via WorkspaceAutomation"}
+    return _invoke_workspace("exportComposition", composition_id, output_path, fmt, codec, width, height, fps, bitrate)
 
 artifact.core.composition.get_current_comp_id = _get_current_comp_id
 artifact.core.composition.get_composition_list = _get_composition_list

@@ -157,6 +157,7 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
     outEntry.data = obj;
 
     if (type == QStringLiteral("layer")) {
+        if (!obj.value(QStringLiteral("layers")).isArray()) return false;
         outEntry.type = ClipboardType::Layer;
         outEntry.mimeType = kLayerMime;
         outLayers = obj.value(QStringLiteral("layers")).toArray();
@@ -164,6 +165,7 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
         return true;
     }
     if (type == QStringLiteral("effect")) {
+        if (!obj.value(QStringLiteral("effect")).isObject()) return false;
         outEntry.type = ClipboardType::Effect;
         outEntry.mimeType = kEffectMime;
         outEntry.description = obj.value(QStringLiteral("effect")).toObject()
@@ -171,6 +173,9 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
         return true;
     }
     if (type == QStringLiteral("keyframes")) {
+        if (obj.value(QStringLiteral("propertyPath")).toString().trimmed().isEmpty() ||
+            !obj.value(QStringLiteral("keyframes")).isArray() ||
+            obj.value(QStringLiteral("keyframes")).toArray().isEmpty()) return false;
         outEntry.type = ClipboardType::Keyframes;
         outEntry.mimeType = kKeyframeMime;
         outEntry.sourceLayerId = obj.value(QStringLiteral("sourceLayerId")).toString();
@@ -187,6 +192,9 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
         return true;
     }
     if (type == QStringLiteral("keyframe-easing")) {
+        if (obj.value(QStringLiteral("propertyPath")).toString().trimmed().isEmpty() ||
+            !obj.value(QStringLiteral("easing")).isArray() ||
+            obj.value(QStringLiteral("easing")).toArray().isEmpty()) return false;
         outEntry.type = ClipboardType::KeyframeEasing;
         outEntry.mimeType = kKeyframeEasingMime;
         outEntry.sourceLayerId = obj.value(QStringLiteral("sourceLayerId")).toString();
@@ -202,6 +210,8 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
         return true;
     }
     if (type == QStringLiteral("property")) {
+        if (obj.value(QStringLiteral("propertyPath")).toString().trimmed().isEmpty() ||
+            !obj.contains(QStringLiteral("value"))) return false;
         outEntry.type = ClipboardType::PropertyValue;
         outEntry.mimeType = kPropertyMime;
         outEntry.sourcePropertyPath = obj.value(QStringLiteral("propertyPath")).toString();
@@ -211,6 +221,7 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
         return true;
     }
     if (type == QStringLiteral("project-items")) {
+        if (!obj.value(QStringLiteral("items")).isArray()) return false;
         outEntry.type = ClipboardType::ProjectItems;
         outEntry.mimeType = kProjectItemsMime;
         const QJsonArray items = obj.value(QStringLiteral("items")).toArray();
@@ -218,6 +229,7 @@ bool ClipboardManager::parseClipboardObject(const QJsonObject& obj, ClipboardEnt
         return true;
     }
     if (type == QStringLiteral("project-bundle")) {
+        if (!obj.value(QStringLiteral("items")).isArray()) return false;
         outEntry.type = ClipboardType::ProjectBundle;
         outEntry.mimeType = kProjectBundleMime;
         const QJsonArray items = obj.value(QStringLiteral("items")).toArray();
@@ -315,6 +327,7 @@ QString ClipboardManager::pasteEffectSourceLayerId() const {
 
 // --- Keyframes ---
 void ClipboardManager::copyKeyframes(const QString& propertyPath, const QJsonArray& keyframes, const QString& layerId) {
+    if (propertyPath.trimmed().isEmpty() || keyframes.isEmpty()) return;
     QJsonObject clipObj;
     clipObj = makeEnvelope(QStringLiteral("keyframes"), clipObj);
     clipObj[QStringLiteral("sourceLayerId")] = layerId;
@@ -360,6 +373,7 @@ QString ClipboardManager::pasteKeyframesPropertyPath() const {
 }
 
 void ClipboardManager::copyKeyframeEasing(const QString& propertyPath, const QJsonArray& easing, const QString& layerId) {
+    if (propertyPath.trimmed().isEmpty() || easing.isEmpty()) return;
     QJsonObject clipObj;
     clipObj = makeEnvelope(QStringLiteral("keyframe-easing"), clipObj);
     clipObj[QStringLiteral("sourceLayerId")] = layerId;
@@ -394,6 +408,7 @@ QString ClipboardManager::pasteKeyframeEasingPropertyPath() const {
 
 // --- Property Value ---
 void ClipboardManager::copyPropertyValue(const QString& propertyPath, const QVariant& value, const QString& layerId) {
+    if (propertyPath.trimmed().isEmpty() || !value.isValid()) return;
     QJsonObject clipObj;
     clipObj = makeEnvelope(QStringLiteral("property"), clipObj);
     clipObj[QStringLiteral("propertyPath")] = propertyPath;

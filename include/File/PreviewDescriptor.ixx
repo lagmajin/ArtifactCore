@@ -29,6 +29,7 @@ export namespace ArtifactCore {
   case FileType::Video:
   case FileType::Audio:
   case FileType::Text:
+  case FileType::Font:
   case FileType::Document:
   case FileType::Model3D:
    return true;

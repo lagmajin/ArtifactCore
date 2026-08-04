@@ -5,7 +5,6 @@ module;
 #include <utility>
 
 module Color.Conversion;
-import Color.Conversion;
 
 namespace ArtifactCore {
 

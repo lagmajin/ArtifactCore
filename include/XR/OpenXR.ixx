@@ -53,13 +53,18 @@ public:
       return false;
     }
 
-    XrInstanceProperties props{XR_TYPE_INSTANCE_PROPERTIES};
-    if (createInstance(&instance_) && xrGetInstanceProperties_(instance_, &props) == XR_SUCCESS) {
-      runtimeName_ = QString::fromLatin1(props.runtimeName);
-      instanceCreated_ = true;
-      return true;
+    if (!createInstance(&instance_)) {
+      runtimeName_ = QStringLiteral("OpenXR");
+      return false;
     }
-    runtimeName_ = QStringLiteral("OpenXR");
+
+    instanceCreated_ = true;
+    XrInstanceProperties props{XR_TYPE_INSTANCE_PROPERTIES};
+    if (xrGetInstanceProperties_(instance_, &props) == XR_SUCCESS) {
+      runtimeName_ = QString::fromLatin1(props.runtimeName);
+    } else {
+      runtimeName_ = QStringLiteral("OpenXR");
+    }
     return true;
 #else
     available_ = false;
@@ -72,13 +77,15 @@ public:
   {
     sessionActive_ = false;
 #if defined(_WIN32)
-    if (loaderHandle_) {
-      ::FreeLibrary(loaderHandle_);
-      loaderHandle_ = nullptr;
-    }
     if (instance_ != XR_NULL_HANDLE && xrDestroyInstance_) {
       xrDestroyInstance_(instance_);
       instance_ = XR_NULL_HANDLE;
+    }
+    // The destroy entry point belongs to the loader; release the loader only
+    // after the instance has been destroyed.
+    if (loaderHandle_) {
+      ::FreeLibrary(loaderHandle_);
+      loaderHandle_ = nullptr;
     }
 #endif
     available_ = false;

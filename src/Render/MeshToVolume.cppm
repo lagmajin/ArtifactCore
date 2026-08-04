@@ -48,6 +48,10 @@ void MeshToVolumeConverter::setMesh(const std::vector<SimpleTriangle>& triangles
 }
 
 void MeshToVolumeConverter::setMesh(const Triangle* triangles, std::size_t count) {
+    if (!triangles && count != 0) {
+        triangles_.clear();
+        return;
+    }
     triangles_.resize(count);
     for (std::size_t i = 0; i < count; ++i) {
         triangles_[i].v0 = triangles[i].v0;
@@ -58,6 +62,12 @@ void MeshToVolumeConverter::setMesh(const Triangle* triangles, std::size_t count
 
 void MeshToVolumeConverter::setSettings(const MeshToVolumeSettings& settings) {
     settings_ = settings;
+    settings_.surfaceThickness = std::isfinite(settings_.surfaceThickness)
+        ? std::max(1.0e-6f, settings_.surfaceThickness) : 0.05f;
+    settings_.interiorDensity = std::isfinite(settings_.interiorDensity)
+        ? std::max(0.0f, settings_.interiorDensity) : 1.0f;
+    settings_.surfaceFalloff = std::isfinite(settings_.surfaceFalloff)
+        ? std::max(1.0e-6f, settings_.surfaceFalloff) : 0.1f;
 }
 
 float MeshToVolumeConverter::pointToTriangleDistance(const Vec3& p, const SimpleTriangle& tri) const noexcept {
@@ -201,15 +211,22 @@ bool MeshToVolumeConverter::convertToScalarField(const VolumeAABB& bounds, Volum
 }
 
 float signedDistanceToVolumeDensity(float signedDist, const MeshToVolumeSettings& settings) noexcept {
-    if (signedDist > settings.surfaceThickness) return 0.0f;
+    if (!std::isfinite(signedDist)) return 0.0f;
+    const float surfaceThickness = std::isfinite(settings.surfaceThickness)
+        ? std::max(1.0e-6f, settings.surfaceThickness) : 0.05f;
+    const float surfaceFalloff = std::isfinite(settings.surfaceFalloff)
+        ? std::max(1.0e-6f, settings.surfaceFalloff) : 0.1f;
+    const float interiorDensity = std::isfinite(settings.interiorDensity)
+        ? std::max(0.0f, settings.interiorDensity) : 1.0f;
+    if (signedDist > surfaceThickness) return 0.0f;
 
     if (signedDist <= 0.0f) {
-        const float interior = settings.interiorDensity;
-        const float falloff = std::clamp(-signedDist / settings.surfaceFalloff, 0.0f, 1.0f);
+        const float interior = interiorDensity;
+        const float falloff = std::clamp(-signedDist / surfaceFalloff, 0.0f, 1.0f);
         return interior * falloff;
     }
 
-    const float falloff = std::clamp(1.0f - signedDist / settings.surfaceThickness, 0.0f, 1.0f);
+    const float falloff = std::clamp(1.0f - signedDist / surfaceThickness, 0.0f, 1.0f);
     return falloff;
 }
 

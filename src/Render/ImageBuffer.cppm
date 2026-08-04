@@ -15,7 +15,11 @@ namespace ArtifactCore::RayTrace
 
 void ImageBuffer::setPixel(int x, int y, const Color& color, int samplesPerPixel)
 {
-    float scale = 1.0f / samplesPerPixel;
+    if (x < 0 || y < 0 || x >= width || y >= height ||
+        pixels.size() < imagePixelBytes(width, height)) {
+        return;
+    }
+    const float scale = 1.0f / static_cast<float>(std::max(1, samplesPerPixel));
     int idx = (y * width + x) * 3;
     pixels[idx + 0] = static_cast<std::uint8_t>(std::clamp(std::sqrt(color.x) * scale, 0.0f, 0.999f) * 256);
     pixels[idx + 1] = static_cast<std::uint8_t>(std::clamp(std::sqrt(color.y) * scale, 0.0f, 0.999f) * 256);

@@ -2,7 +2,6 @@ module;
 #include <utility>
 
 module Video.GStreamerDecoder;
-import Video.GStreamerDecoder;
 
 namespace ArtifactCore {
 

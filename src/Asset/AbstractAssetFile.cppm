@@ -39,7 +39,6 @@ module;
 
 module Asset.File;
 
-import Asset.File;
 
 import Utils.Id;
 import Utils.String.UniString;

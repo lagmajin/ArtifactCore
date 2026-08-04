@@ -3,24 +3,25 @@ module;
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <limits>
 
 module Channel;
-import Channel;
 
 namespace ArtifactCore {
 
 // --- VideoChannel Implementation ---
 
-VideoChannel::VideoChannel(int width, int height) : width_(width), height_(height) {
-    data_.resize(static_cast<size_t>(width) * height, 0.0f);
+VideoChannel::VideoChannel(int width, int height)
+    : width_(std::max(0, width)), height_(std::max(0, height)) {
+    data_.resize(static_cast<size_t>(width_) * static_cast<size_t>(height_), 0.0f);
 }
 
 VideoChannel::~VideoChannel() = default;
 
 void VideoChannel::resize(int width, int height) {
-    width_ = width;
-    height_ = height;
-    data_.resize(static_cast<size_t>(width) * height);
+    width_ = std::max(0, width);
+    height_ = std::max(0, height);
+    data_.resize(static_cast<size_t>(width_) * static_cast<size_t>(height_));
 }
 
 void VideoChannel::clear(float value) {
@@ -29,7 +30,8 @@ void VideoChannel::clear(float value) {
 
 // --- VideoFrame Implementation ---
 
-VideoFrame::VideoFrame(int width, int height) : width_(width), height_(height) {
+VideoFrame::VideoFrame(int width, int height)
+    : width_(std::max(0, width)), height_(std::max(0, height)) {
     // デフォルトでRGBAを追加
     addChannel(ChannelType::Red);
     addChannel(ChannelType::Green);

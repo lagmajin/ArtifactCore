@@ -4,7 +4,6 @@ module;
 #include <QColor>
 #include <QImage>
 module ImageProcessing.ColorTransform.ColorBalance;
-import ImageProcessing.ColorTransform.ColorBalance;
 
 
 namespace ArtifactCore {

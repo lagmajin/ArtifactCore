@@ -3,7 +3,6 @@ module;
 #include <QRunnable>
 
 module Render.Worker;
-import Render.Worker;
 
 namespace ArtifactCore {
 

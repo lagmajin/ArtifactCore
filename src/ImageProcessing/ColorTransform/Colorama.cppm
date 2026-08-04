@@ -6,7 +6,6 @@ module;
 #include <QImage>
 
 module ImageProcessing.ColorTransform.Colorama;
-import ImageProcessing.ColorTransform.Colorama;
 
 namespace ArtifactCore {
 

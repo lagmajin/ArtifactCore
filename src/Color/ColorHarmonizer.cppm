@@ -6,7 +6,6 @@ module;
 
 module Color.Harmonizer;
 
-import Color.Harmonizer;
 
 import Color.Float;
 import Color.Conversion;

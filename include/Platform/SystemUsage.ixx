@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <cstdint>
+#include <algorithm>
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
@@ -34,7 +35,32 @@ public:
             totalPhys_ = memInfo.ullTotalPhys;
             availPhys_ = memInfo.ullAvailPhys;
         }
-        cpuUsage_ = 0.0f; // Requires more complex sampling; placeholder
+
+        FILETIME idleTime{};
+        FILETIME kernelTime{};
+        FILETIME userTime{};
+        if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
+            const auto toTicks = [](const FILETIME& value) -> uint64_t {
+                return (static_cast<uint64_t>(value.dwHighDateTime) << 32) |
+                       static_cast<uint64_t>(value.dwLowDateTime);
+            };
+            const uint64_t idle = toTicks(idleTime);
+            const uint64_t kernel = toTicks(kernelTime);
+            const uint64_t user = toTicks(userTime);
+            if (hasCpuSample_) {
+                const uint64_t idleDelta = idle - previousIdleTicks_;
+                const uint64_t totalDelta = (kernel - previousKernelTicks_) +
+                                             (user - previousUserTicks_);
+                cpuUsage_ = totalDelta > 0
+                    ? std::clamp(static_cast<float>(totalDelta - idleDelta) /
+                                 static_cast<float>(totalDelta), 0.0f, 1.0f)
+                    : cpuUsage_;
+            }
+            previousIdleTicks_ = idle;
+            previousKernelTicks_ = kernel;
+            previousUserTicks_ = user;
+            hasCpuSample_ = true;
+        }
 #else
         totalPhys_ = 0;
         availPhys_ = 0;
@@ -46,6 +72,12 @@ private:
     uint64_t totalPhys_ = 0;
     uint64_t availPhys_ = 0;
     float cpuUsage_ = 0.0f;
+#if defined(_WIN32) || defined(_WIN64)
+    uint64_t previousIdleTicks_ = 0;
+    uint64_t previousKernelTicks_ = 0;
+    uint64_t previousUserTicks_ = 0;
+    bool hasCpuSample_ = false;
+#endif
 };
 
 }

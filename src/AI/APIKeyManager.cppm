@@ -4,7 +4,6 @@ module;
 #include <QSettings>
 
 module Core.AI.APIKeyManager;
-import Core.AI.APIKeyManager;
 
 import std;
 import Core.AI.CloudAgent;

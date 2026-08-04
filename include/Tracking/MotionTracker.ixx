@@ -66,6 +66,8 @@ struct TrackFrame {
     TrackPoint* findPoint(int id);
     const TrackPoint* findPoint(int id) const;
     void sortPointsById();
+    bool projectPoint(const QPointF& source, QPointF& projected) const;
+    bool projectRect(const QRectF& source, std::array<QPointF, 4>& projected) const;
 };
 
 /// トラッキング結果
@@ -291,6 +293,12 @@ public:
     TrackResult result() const;
     QPointF pointPositionAt(int pointId, double time) const;
     std::vector<QPointF> allPointPositionsAt(double time) const;
+    bool projectRegionAt(double time, const QRectF& source,
+                         std::array<QPointF, 4>& projected) const;
+    /// 指定領域を全トラッキング結果へ投影した四隅キーフレームを返す。
+    /// 不正な時刻・座標・射影結果は出力から除外する。
+    std::vector<std::pair<double, std::array<QPointF, 4>>>
+    exportProjectedRegionKeyframes(const QRectF& source) const;
     QPointF displacementAt(double time) const;
     double rotationAt(double time) const;
     QPointF scaleAt(double time) const;

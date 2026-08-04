@@ -2,6 +2,7 @@ module;
 
 #include <cmath>
 #include <random>
+#include <cstdint>
 
 #include <algorithm>
 #include <any>
@@ -53,6 +54,7 @@ public:
   ExpressionEvaluator* owner_;
   std::map<std::string, ExpressionValue> variables_;
   std::map<std::string, BuiltinFunction> functions_;
+  TemporalValueResolver temporalValueResolver_;
   ExpressionParser parser_;
   ZeroString error_;
   std::atomic<bool> cancelRequested_ = false;
@@ -488,6 +490,17 @@ bool ExpressionEvaluator::hasVariable(const std::string &name) const {
 
 void ExpressionEvaluator::clearVariables() { impl_->variables_.clear(); }
 
+void ExpressionEvaluator::setTemporalValueResolver(
+    TemporalValueResolver resolver) {
+  impl_->temporalValueResolver_ = std::move(resolver);
+}
+
+ExpressionValue ExpressionEvaluator::resolveValueAtTime(
+    const std::string& expression, double timeSec) const {
+  if (!impl_->temporalValueResolver_) return ExpressionValue();
+  return impl_->temporalValueResolver_(expression, timeSec);
+}
+
 void ExpressionEvaluator::registerFunction(const std::string &name,
                                            BuiltinFunction func) {
   impl_->functions_[name] = func;
@@ -518,11 +531,15 @@ void ExpressionEvaluator::registerStandardFunctions() {
   registerFunction("ease", Ease);
   registerFunction("easeIn", EaseIn);
   registerFunction("easeOut", EaseOut);
+  registerFunction("timeToFrames", TimeToFrames);
+  registerFunction("framesToTime", FramesToTime);
   registerFunction("random", Random);
+  registerFunction("randomSeeded", RandomSeeded);
   registerFunction("noise", Noise);
   registerFunction("sum", Sum);
   registerFunction("average", Average);
   registerFunction("wiggle", Wiggle);
+  registerFunction("smooth", Smooth);
 
   // Audio
   registerFunction("audio_rms", AudioRMS);
@@ -1057,16 +1074,31 @@ ExpressionValue EaseOut(const std::vector<ExpressionValue> &args, const Expressi
   return ExpressionValue();
 }
 
-ExpressionValue Random(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
-  static std::mt19937 gen(std::random_device{}());
+ExpressionValue Random(const std::vector<ExpressionValue> &args,
+                       const ExpressionEvaluator *ctx) {
   double minV = 0.0, maxV = 1.0;
   if (args.size() == 1) maxV = args[0].asNumber();
   else if (args.size() >= 2) {
     minV = args[0].asNumber();
     maxV = args[1].asNumber();
   }
-  std::uniform_real_distribution<double> dis(minV, maxV);
-  return ExpressionValue(dis(gen));
+  if (!std::isfinite(minV) || !std::isfinite(maxV))
+    return ExpressionValue(0.0);
+  if (maxV < minV) std::swap(minV, maxV);
+
+  // Expressions are evaluated repeatedly during scrubbing and rendering.
+  // A process-global RNG made the same frame produce different pixels on
+  // every evaluation, defeating caching and making previews non-reproducible.
+  std::size_t seed = 0x9e3779b97f4a7c15ULL;
+  const auto mix = [&seed](const std::size_t value) {
+    seed ^= value + static_cast<std::size_t>(0x9e3779b97f4a7c15ULL) +
+            (seed << 6) + (seed >> 2);
+  };
+  if (ctx) mix(std::hash<double>{}(ctx->getVariable("time").asNumber()));
+  for (const auto& arg : args) mix(std::hash<double>{}(arg.asNumber()));
+  std::mt19937_64 generator(static_cast<std::uint64_t>(seed));
+  std::uniform_real_distribution<double> distribution(minV, maxV);
+  return ExpressionValue(distribution(generator));
 }
 
 ExpressionValue Noise(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
@@ -1076,6 +1108,36 @@ ExpressionValue Noise(const std::vector<ExpressionValue> &args, const Expression
   double z = args.size() > 2 ? args[2].asNumber() : 0.0;
   float val = NoiseGenerator::perlin(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
   return ExpressionValue(static_cast<double>(val));
+}
+
+ExpressionValue RandomSeeded(const std::vector<ExpressionValue>& args,
+                             const ExpressionEvaluator* ctx) {
+  if (args.empty() || !std::isfinite(args[0].asNumber()))
+    return ExpressionValue(0.0);
+  double minV = 0.0;
+  double maxV = 1.0;
+  if (args.size() == 2) {
+    maxV = args[1].asNumber();
+  } else if (args.size() >= 3) {
+    minV = args[1].asNumber();
+    maxV = args[2].asNumber();
+  }
+  if (!std::isfinite(minV) || !std::isfinite(maxV))
+    return ExpressionValue(0.0);
+  if (maxV < minV) std::swap(minV, maxV);
+
+  std::size_t seed = std::hash<double>{}(args[0].asNumber());
+  if (ctx) {
+    const double time = ctx->getVariable("time").asNumber();
+    if (std::isfinite(time)) {
+      seed ^= std::hash<double>{}(time) +
+              static_cast<std::size_t>(0x9e3779b97f4a7c15ULL) +
+              (seed << 6) + (seed >> 2);
+    }
+  }
+  std::mt19937_64 generator(static_cast<std::uint64_t>(seed));
+  return ExpressionValue(
+      std::uniform_real_distribution<double>(minV, maxV)(generator));
 }
 
 ExpressionValue Wiggle(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *ctx) {
@@ -1096,6 +1158,28 @@ ExpressionValue Wiggle(const std::vector<ExpressionValue> &args, const Expressio
    // Compute fractal Perlin noise
    double noise = NoiseGenerator::fractal(static_cast<float>(time * freq), 0.0f, 0.0f, octaves, persistence, lacunarity);
    return ExpressionValue(noise * amp);
+}
+
+ExpressionValue TimeToFrames(const std::vector<ExpressionValue>& args,
+                             const ExpressionEvaluator* ctx) {
+  const double time = args.empty()
+      ? (ctx ? ctx->getVariable("time").asNumber() : 0.0)
+      : args[0].asNumber();
+  const double fps = args.size() > 1 ? args[1].asNumber()
+                                     : (ctx ? ctx->frameRate() : 30.0);
+  if (!std::isfinite(time) || !std::isfinite(fps) || fps <= 0.0)
+    return ExpressionValue(0.0);
+  return ExpressionValue(std::round(time * fps));
+}
+
+ExpressionValue FramesToTime(const std::vector<ExpressionValue>& args,
+                             const ExpressionEvaluator* ctx) {
+  const double frames = args.empty() ? 0.0 : args[0].asNumber();
+  const double fps = args.size() > 1 ? args[1].asNumber()
+                                     : (ctx ? ctx->frameRate() : 30.0);
+  if (!std::isfinite(frames) || !std::isfinite(fps) || fps <= 0.0)
+    return ExpressionValue(0.0);
+  return ExpressionValue(frames / fps);
 }
 
 ExpressionValue Sum(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
@@ -1135,36 +1219,173 @@ ExpressionValue AudioHigh(const std::vector<ExpressionValue> &, const Expression
 
 ExpressionValue ValueAtTime(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx) {
   if (args.size() < 2 || !ctx) return ExpressionValue();
-  double t = args[0].asNumber();
-  // args[1] is the property/expression to evaluate at time t (placeholder — returns the time value)
-  // In a full implementation this would re-evaluate the target property at the given time
-  ctx->getVariable("time"); // verify time is accessible
-  return ExpressionValue(t);
+  const double time = args[0].asNumber();
+  if (args[1].isString()) {
+    const auto expression = args[1].asString();
+    const auto resolved = ctx->resolveValueAtTime(
+        std::string(expression.data(), expression.length()), time);
+    if (!resolved.isNull()) return resolved;
+  }
+  // Without a resolver, preserve the already evaluated target value.
+  return args[1];
+}
+
+namespace {
+ExpressionValue interpolateLoopValue(const ExpressionValue& a,
+                                      const ExpressionValue& b, double alpha) {
+  const double t = std::clamp(alpha, 0.0, 1.0);
+  return a + (b - a) * ExpressionValue(t);
+}
+
+ExpressionValue loopValue(const ExpressionEvaluator* ctx, bool loopIn,
+                          const std::string& mode, double duration,
+                          int keyframeCount = 0) {
+  if (!ctx) return ExpressionValue();
+  const ExpressionValue frames = ctx->getVariable("keyframes");
+  const auto entries = frames.isArray() ? frames.asArray() : std::vector<ExpressionValue>{};
+  const double now = ctx->getVariable("time").asNumber();
+  if (entries.empty()) return ctx->getVariable("value");
+  if (entries.size() == 1) return entries.front().property("value");
+
+  std::vector<double> times;
+  std::vector<ExpressionValue> values;
+  std::vector<std::pair<double, ExpressionValue>> keyed;
+  keyed.reserve(entries.size());
+  for (const auto& entry : entries) {
+    if (!entry.isObject() || !entry.hasProperty("time") || !entry.hasProperty("value"))
+      return ctx->getVariable("value");
+    const double time = entry.property("time").asNumber();
+    if (!std::isfinite(time)) return ctx->getVariable("value");
+    keyed.emplace_back(time, entry.property("value"));
+  }
+  std::stable_sort(keyed.begin(), keyed.end(),
+                  [](const auto& lhs, const auto& rhs) {
+                    return lhs.first < rhs.first;
+                  });
+  times.reserve(keyed.size());
+  values.reserve(keyed.size());
+  for (const auto& [time, value] : keyed) {
+    if (!times.empty() && std::abs(time - times.back()) < 1.0e-12)
+      return ctx->getVariable("value");
+    times.push_back(time);
+    values.push_back(value);
+  }
+  const size_t available = values.size();
+  const size_t requested = keyframeCount > 0
+      ? std::min(available, static_cast<size_t>(keyframeCount)) : available;
+  if (requested < 2) return ctx->getVariable("value");
+  const size_t first = loopIn ? 0 : available - requested;
+  const size_t last = loopIn ? requested - 1 : available - 1;
+  const double start = times[first];
+  const double end = times[last];
+  const double span = end - start;
+  if (!(span > 0.0) || !std::isfinite(span) ||
+      (loopIn ? now >= end : now <= start)) return ctx->getVariable("value");
+
+  const double requestedSpan = duration > 0.0 && std::isfinite(duration) ? duration : span;
+  const double boundary = loopIn ? start : end;
+  const double distance = loopIn ? (start - now) : (now - end);
+  if (distance < 0.0 || distance > requestedSpan) return ctx->getVariable("value");
+  const double cycles = std::floor(distance / span);
+  const double remainder = distance - cycles * span;
+  const bool reverse = mode == "pingpong" && (static_cast<long long>(cycles) & 1LL);
+  const double u = reverse ? 1.0 - remainder / span : remainder / span;
+  ExpressionValue result;
+  if (mode == "continue") {
+    const ExpressionValue slope = (values[last] - values[first]) / ExpressionValue(span);
+    result = loopIn ? values[first] - slope * ExpressionValue(distance)
+                    : values[last] + slope * ExpressionValue(distance);
+  } else {
+    result = interpolateLoopValue(values[first], values[last], u);
+    if (mode == "offset") {
+      const ExpressionValue offset = values[last] - values[first];
+      result = loopIn ? result - offset * ExpressionValue(cycles)
+                      : result + offset * ExpressionValue(cycles);
+    }
+  }
+  return result;
+}
 }
 
 ExpressionValue LoopIn(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx) {
-  if (args.empty() || !ctx) return ExpressionValue();
-  // args[0] = property value to loop, args[1] = num keyframes (optional)
-  // Simplified: returns the input value as-is with a loop mark
-  return args[0];
+  const std::string mode = !args.empty() && args[0].isString()
+      ? std::string(args[0].asString().data(), args[0].asString().length()) : "cycle";
+  const int keyframeCount = args.size() > 1
+      ? std::max(0, static_cast<int>(args[1].asNumber())) : 0;
+  return loopValue(ctx, true, mode, 0.0, keyframeCount);
 }
 
 ExpressionValue LoopOut(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx) {
-  if (args.empty() || !ctx) return ExpressionValue();
-  // args[0] = property value to loop
-  return args[0];
+  const std::string mode = !args.empty() && args[0].isString()
+      ? std::string(args[0].asString().data(), args[0].asString().length()) : "cycle";
+  const int keyframeCount = args.size() > 1
+      ? std::max(0, static_cast<int>(args[1].asNumber())) : 0;
+  return loopValue(ctx, false, mode, 0.0, keyframeCount);
 }
 
 ExpressionValue LoopInDuration(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx) {
-  if (args.size() < 2 || !ctx) return ExpressionValue();
-  // args[0] = property, args[1] = duration in seconds
-  return args[0];
+  const std::string mode = !args.empty() && args[0].isString()
+      ? std::string(args[0].asString().data(), args[0].asString().length()) : "cycle";
+  return loopValue(ctx, true, mode, args.size() > 1 ? args[1].asNumber() : 0.0);
 }
 
 ExpressionValue LoopOutDuration(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx) {
-  if (args.size() < 2 || !ctx) return ExpressionValue();
-  // args[0] = property, args[1] = duration in seconds
-  return args[0];
+  const std::string mode = !args.empty() && args[0].isString()
+      ? std::string(args[0].asString().data(), args[0].asString().length()) : "cycle";
+  return loopValue(ctx, false, mode, args.size() > 1 ? args[1].asNumber() : 0.0);
+}
+
+ExpressionValue Smooth(const std::vector<ExpressionValue>& args,
+                       const ExpressionEvaluator* ctx) {
+  if (!ctx) return ExpressionValue();
+  const auto keyframes = ctx->getVariable("keyframes");
+  if (!keyframes.isArray() || keyframes.asArray().empty())
+    return ctx->getVariable("value");
+
+  const double width = args.size() > 0 && std::isfinite(args[0].asNumber())
+      ? std::max(0.0, args[0].asNumber()) : 0.2;
+  const int sampleCount = std::clamp(
+      args.size() > 1 ? static_cast<int>(args[1].asNumber()) : 5, 1, 128);
+  const double center = args.size() > 2 && std::isfinite(args[2].asNumber())
+      ? args[2].asNumber() : ctx->getVariable("time").asNumber();
+  if (!std::isfinite(center)) return ctx->getVariable("value");
+
+  std::vector<std::pair<double, ExpressionValue>> keyed;
+  for (const auto& entry : keyframes.asArray()) {
+    if (!entry.isObject() || !entry.hasProperty("time") ||
+        !entry.hasProperty("value")) continue;
+    const double time = entry.property("time").asNumber();
+    if (std::isfinite(time)) keyed.emplace_back(time, entry.property("value"));
+  }
+  if (keyed.empty()) return ctx->getVariable("value");
+  std::stable_sort(keyed.begin(), keyed.end(),
+                   [](const auto& lhs, const auto& rhs) {
+                     return lhs.first < rhs.first;
+                   });
+
+  const auto sampleAt = [&keyed](double time) {
+    if (time <= keyed.front().first) return keyed.front().second;
+    if (time >= keyed.back().first) return keyed.back().second;
+    for (size_t i = 1; i < keyed.size(); ++i) {
+      if (time <= keyed[i].first) {
+        const double span = keyed[i].first - keyed[i - 1].first;
+        const double alpha = span > 0.0
+            ? (time - keyed[i - 1].first) / span : 0.0;
+        return keyed[i - 1].second +
+               (keyed[i].second - keyed[i - 1].second) *
+                   ExpressionValue(std::clamp(alpha, 0.0, 1.0));
+      }
+    }
+    return keyed.back().second;
+  };
+
+  ExpressionValue total(0.0);
+  for (int i = 0; i < sampleCount; ++i) {
+    const double alpha = sampleCount == 1
+        ? 0.5 : static_cast<double>(i) / (sampleCount - 1);
+    total = total + sampleAt(center + (alpha - 0.5) * width);
+  }
+  return total / ExpressionValue(static_cast<double>(sampleCount));
 }
 
 } // namespace BuiltinFunctions

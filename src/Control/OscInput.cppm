@@ -14,7 +14,6 @@ module;
 #include <QHostAddress>
 
 module Control.OSC.Input;
-import Control.OSC.Input;
 
 namespace ArtifactCore {
 

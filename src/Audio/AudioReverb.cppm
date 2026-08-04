@@ -5,7 +5,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.Reverb;
-import Audio.Effect.Reverb;
 
 import Audio.Effect;
 import Audio.Segment;

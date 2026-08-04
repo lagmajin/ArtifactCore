@@ -6,7 +6,6 @@ module;
 #include <QString>
 
 module File.TypeDetector;
-import File.TypeDetector;
 
 namespace ArtifactCore {
 
@@ -54,7 +53,7 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
   // Font
   if (suffix == "ttf" || suffix == "otf" || suffix == "woff" ||
       suffix == "woff2" || suffix == "eot") {
-    return FileType::Document; // Font maps to Document for now
+    return FileType::Font;
   }
   // Text
   if (suffix == "txt" || suffix == "md" || suffix == "json" ||
@@ -137,6 +136,12 @@ FileTypeDetector::Impl::detectByMagicNumber(const QString &filePath) const {
   // WAV
   if (header.startsWith("RIFF") && header.mid(8, 4) == "WAVE") {
     return FileType::Audio;
+  }
+  // TrueType, OpenType, Web Open Font Format
+  if ((header.size() >= 4 && header.left(4) == QByteArray::fromHex("00010000")) ||
+      header.startsWith("OTTO") || header.startsWith("wOFF") ||
+      header.startsWith("wOF2")) {
+    return FileType::Font;
   }
   // ZIP
   if (header.startsWith("PK\x03\x04")) {

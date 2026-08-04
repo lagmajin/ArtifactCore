@@ -22,12 +22,15 @@ import Core.AI.Describable;
 export namespace ArtifactCore {
 
 struct CommandSandboxResult {
+    bool dryRun = false;
+    bool validationPassed = false;
     bool allowed = false;
     bool started = false;
     bool finished = false;
     bool timedOut = false;
     bool outputTruncated = false;
     bool ok = false;
+    QVariantMap executionPlan;
     int exitCode = -1;
     QProcess::ExitStatus exitStatus = QProcess::CrashExit;
     qint64 elapsedMs = 0;
@@ -42,6 +45,9 @@ struct CommandSandboxResult {
     QJsonObject toJson() const
     {
         QJsonObject json;
+        json[QStringLiteral("dryRun")] = dryRun;
+        json[QStringLiteral("validationPassed")] = validationPassed;
+        json[QStringLiteral("executionPlan")] = executionPlan;
         json[QStringLiteral("allowed")] = allowed;
         json[QStringLiteral("started")] = started;
         json[QStringLiteral("finished")] = finished;
@@ -311,7 +317,7 @@ public:
     QVariant dryRun(const QString& requestedProgram, const QVariantList& arguments) const
     {
         const CommandExecutionPlan plan = preparePlan(requestedProgram, arguments);
-        return plan.toResult(false).toVariantMap();
+        return plan.toResult(false, true).toVariantMap();
     }
 
     QVariant run(const QString& requestedProgram, const QVariantList& arguments) const
@@ -396,15 +402,23 @@ private:
         QString workingDirectory;
         QString errorText;
 
-        CommandSandboxResult toResult(bool executionAttempted) const
+        CommandSandboxResult toResult(bool executionAttempted,
+                                      bool dryRunMode = false) const
         {
             CommandSandboxResult result;
+            result.dryRun = dryRunMode;
             result.allowed = allowed;
             result.requestedProgram = requestedProgram;
             result.resolvedProgram = resolvedProgram;
             result.arguments = arguments;
             result.workingDirectory = workingDirectory;
             result.errorText = errorText;
+            result.validationPassed = allowed;
+            result.executionPlan = {
+                {QStringLiteral("program"), resolvedProgram},
+                {QStringLiteral("arguments"), QVariant::fromValue(arguments)},
+                {QStringLiteral("workingDirectory"), workingDirectory}
+            };
             result.started = executionAttempted && allowed;
             return result;
         }

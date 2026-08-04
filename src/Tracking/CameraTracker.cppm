@@ -5,6 +5,7 @@ module;
 #include <QVector3D>
 #include <QImage>
 #include <cmath>
+#include <algorithm>
 #include <vector>
 #include <opencv2/opencv.hpp>
 
@@ -134,10 +135,12 @@ struct CameraTracker::Impl {
 CameraTracker::CameraTracker() : impl_(new Impl()) {}
 CameraTracker::~CameraTracker() { delete impl_; }
 
-void CameraTracker::setInitialFov(float fov) { impl_->fov = fov; }
+void CameraTracker::setInitialFov(float fov) {
+    impl_->fov = std::isfinite(fov) ? std::clamp(fov, 1.0f, 179.0f) : 45.0f;
+}
 
 void CameraTracker::addFrame(double time, const QImage& frame) {
-    if (frame.isNull()) {
+    if (!std::isfinite(time) || frame.isNull()) {
         return;
     }
 
@@ -147,7 +150,17 @@ void CameraTracker::addFrame(double time, const QImage& frame) {
     if (data.image.empty()) {
         return;
     }
-    impl_->frames.push_back(std::move(data));
+    auto insertAt = std::lower_bound(
+        impl_->frames.begin(), impl_->frames.end(), data.time,
+        [](const Impl::FrameData& existing, double value) {
+            return existing.time < value;
+        });
+    if (insertAt != impl_->frames.end() &&
+        std::abs(insertAt->time - data.time) < 1.0e-9) {
+        *insertAt = std::move(data);
+    } else {
+        impl_->frames.insert(insertAt, std::move(data));
+    }
 }
 
 CameraTrackResult CameraTracker::solve() {
@@ -162,7 +175,13 @@ CameraTrackResult CameraTracker::solve() {
         return result;
     }
 
-    const double focalLength = (width / 2.0) / std::tan(impl_->fov * 0.5 * CV_PI / 180.0);
+    const double fovRadians = std::clamp(static_cast<double>(impl_->fov), 1.0, 179.0) *
+                              0.5 * CV_PI / 180.0;
+    const double tangent = std::tan(fovRadians);
+    if (!std::isfinite(tangent) || std::abs(tangent) < 1.0e-9) {
+        return result;
+    }
+    const double focalLength = (width / 2.0) / tangent;
     const cv::Point2d principalPoint(width / 2.0, height / 2.0);
     const cv::Mat K = (cv::Mat_<double>(3, 3) << focalLength, 0.0, principalPoint.x,
                                                   0.0, focalLength, principalPoint.y,
@@ -183,6 +202,9 @@ CameraTrackResult CameraTracker::solve() {
     for (size_t frameIndex = 1; frameIndex < impl_->frames.size(); ++frameIndex) {
         const auto& prevFrame = impl_->frames[frameIndex - 1];
         const auto& curFrame = impl_->frames[frameIndex];
+        if (prevFrame.image.size() != curFrame.image.size()) {
+            continue;
+        }
 
         std::vector<cv::Point2f> prevPoints;
         cv::goodFeaturesToTrack(prevFrame.image, prevPoints, 1000, 0.01, 10.0);
@@ -269,13 +291,32 @@ CameraTrackResult CameraTracker::solve() {
         currentTcw = relativeR * currentTcw + relativeT;
         const cv::Mat P2 = makeProjectionMatrix(K, currentRcw, currentTcw);
 
+        std::vector<cv::Point2f> inlierPrev;
+        std::vector<cv::Point2f> inlierCur;
+        inlierPrev.reserve(matchedPrev.size());
+        inlierCur.reserve(matchedCur.size());
+        const bool hasInlierMask = !inlierMask.empty() &&
+                                   inlierMask.total() >= matchedPrev.size();
+        for (int index = 0; index < static_cast<int>(matchedPrev.size()); ++index) {
+            const uchar inlier = hasInlierMask
+                ? inlierMask.ptr<uchar>(0)[index] : 0;
+            if (!hasInlierMask || inlier == 0) {
+                continue;
+            }
+            inlierPrev.push_back(matchedPrev[static_cast<std::size_t>(index)]);
+            inlierCur.push_back(matchedCur[static_cast<std::size_t>(index)]);
+        }
+        if (inlierPrev.size() < 4) {
+            continue;
+        }
+
         cv::Mat pts4D;
-        cv::triangulatePoints(P1, P2, matchedPrev, matchedCur, pts4D);
+        cv::triangulatePoints(P1, P2, inlierPrev, inlierCur, pts4D);
 
         const int depth = pts4D.depth();
         for (int i = 0; i < pts4D.cols; ++i) {
             const double w = depth == CV_32F ? pts4D.at<float>(3, i) : pts4D.at<double>(3, i);
-            if (std::abs(w) <= 1e-8) {
+            if (!std::isfinite(w) || std::abs(w) <= 1e-8) {
                 continue;
             }
 
@@ -283,11 +324,21 @@ CameraTrackResult CameraTracker::solve() {
             const double y = depth == CV_32F ? pts4D.at<float>(1, i) : pts4D.at<double>(1, i);
             const double z = depth == CV_32F ? pts4D.at<float>(2, i) : pts4D.at<double>(2, i);
 
+            if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+                continue;
+            }
+            const double worldX = x / w;
+            const double worldY = y / w;
+            const double worldZ = z / w;
+            if (!std::isfinite(worldX) || !std::isfinite(worldY) ||
+                !std::isfinite(worldZ)) {
+                continue;
+            }
             CameraTrackPoint pt;
             pt.id = nextFeatureId++;
-            pt.position = QVector3D(static_cast<float>(x / w),
-                                    static_cast<float>(y / w),
-                                    static_cast<float>(z / w));
+            pt.position = QVector3D(static_cast<float>(worldX),
+                                    static_cast<float>(worldY),
+                                    static_cast<float>(worldZ));
             pt.isValid = true;
             result.featurePoints.push_back(pt);
         }
@@ -304,7 +355,28 @@ CameraTrackResult CameraTracker::solve() {
         solvedAnyStep = true;
     }
 
-    result.success = solvedAnyStep && result.cameraPath.size() >= 2;
+    result.cameraPath.erase(
+        std::remove_if(result.cameraPath.begin(), result.cameraPath.end(),
+            [](const CameraPose& pose) {
+                const auto finiteVector = [](const QVector3D& value) {
+                    return std::isfinite(value.x()) && std::isfinite(value.y()) &&
+                           std::isfinite(value.z());
+                };
+                return !std::isfinite(pose.time) ||
+                       !finiteVector(pose.position) ||
+                       !finiteVector(pose.rotation);
+            }),
+        result.cameraPath.end());
+    result.featurePoints.erase(
+        std::remove_if(result.featurePoints.begin(), result.featurePoints.end(),
+            [](const CameraTrackPoint& point) {
+                return !std::isfinite(point.position.x()) ||
+                       !std::isfinite(point.position.y()) ||
+                       !std::isfinite(point.position.z());
+            }),
+        result.featurePoints.end());
+    result.success = solvedAnyStep && result.cameraPath.size() >= 2 &&
+                     !result.featurePoints.empty();
     return result;
 }
 

@@ -47,6 +47,7 @@ import Render.JobModel;
 import Memory.TrackedPtr;
 import Utils.Id;
 import Core.ThreadPool;
+import Core.Render.MFR.Dispatcher;
 
 
 
@@ -92,8 +93,11 @@ namespace ArtifactCore {
 
   void RendererQueueManager::Impl::processQueue()
   {
+    struct RenderingStateGuard {
+      std::atomic_bool& state;
+      ~RenderingStateGuard() { state = false; }
+    } stateGuard{isRendering};
     auto& manager = RendererQueueManager::instance();
-    auto& pool = ThreadPool::globalInstance();
     int jobCount = jobModel->rowCount();
     
     for (int i = 0; i < jobCount; ++i) {
@@ -102,35 +106,42 @@ namespace ArtifactCore {
         auto* job = jobModel->jobAt(i);
         if (job->status != RenderJobStatus::Queued) continue;
 
+        if (!renderFrameFunc) {
+            jobModel->setJobStatus(i, RenderJobStatus::Error);
+            continue;
+        }
+
         jobModel->setJobStatus(i, RenderJobStatus::Rendering);
         
-        // ジョブの設定を取得（本来はRenderSettingsから取得）
-        int totalFrames = 300; // Mock: 10s at 30fps
-        std::atomic<int> completedFrames{0};
-
-        // 各フレームを並列にエンキュー
-        for (int frame = 0; frame < totalFrames; ++frame) {
-            if (!isRendering) break;
-
-            pool.enqueueTask([this, i, frame, totalFrames, &completedFrames, job]() {
-                if (!isRendering) return;
-                
-                // --- ACTUAL RENDERING CALL ---
-                if (renderFrameFunc) {
-                    renderFrameFunc(job->compositionId, frame, job->outputPath);
-                }
-                
-                int current = ++completedFrames;
-                jobModel->setJobProgress(i, (float)current / (float)totalFrames);
-                
-                if (current == totalFrames) {
-                    jobModel->setJobStatus(i, RenderJobStatus::Done);
-                }
+        ArtifactCore::Render::MFR::MFRJobConfig config;
+        config.startFrame = job->startFrame;
+        config.endFrame = job->endFrame;
+        config.frameStep = job->frameStep;
+        config.maxConcurrentFrames = job->multiFrameEnabled
+            ? job->mfrConcurrentFrames : 1;
+        config.maxMemoryMB = job->mfrMemoryLimitMB;
+        config.retryBackoffMs = job->mfrRetryBackoffMs;
+        config.maxRetryCount = 0;
+        config.continueOnError = false;
+        ArtifactCore::Render::MFR::MFRDispatcher dispatcher;
+        const auto mfrResult = dispatcher.executeBlocking(
+            config,
+            [this, job](int frame) {
+                if (!isRendering || !renderFrameFunc) return false;
+                renderFrameFunc(job->compositionId, frame, job->outputPath);
+                return true;
+            },
+            [this, i](const ArtifactCore::Render::MFR::MFRProgress& progress) {
+                jobModel->setJobProgress(i, progress.percentComplete() / 100.0f);
             });
+        if (!isRendering) {
+            jobModel->setJobStatus(i, RenderJobStatus::Canceled);
+        } else if (mfrResult.failedCount > 0) {
+            jobModel->setJobStatus(i, RenderJobStatus::Error);
+        } else if (isRendering && mfrResult.completedCount ==
+                   static_cast<int>(mfrResult.frames.size())) {
+            jobModel->setJobStatus(i, RenderJobStatus::Done);
         }
-        
-        // 全フレームの完了を待機（または次のジョブへ）
-        // pool.waitAll(); // ジョブごとに待機する場合
     }
   }
 
@@ -192,19 +203,32 @@ namespace ArtifactCore {
     impl_->jobModel->addJob(compositionId, name);
    }
 
+   void RendererQueueManager::addJob(const ArtifactCore::Id& compositionId,
+                                     const QString& name, int startFrame,
+                                     int endFrame, int frameStep)
+   {
+    impl_->jobModel->addJob(compositionId, name, startFrame, endFrame,
+                            frameStep);
+   }
+
+   bool RendererQueueManager::setJobMfrSettings(
+       int row, bool enabled, int maxConcurrentFrames,
+       std::size_t memoryLimitMB, int retryBackoffMs)
+   {
+    return impl_->jobModel->setJobMfrSettings(
+        row, enabled, maxConcurrentFrames, memoryLimitMB, retryBackoffMs);
+   }
+
+
+  RenderJobModel* RendererQueueManager::model()
+  {
+   return impl_->model();
+  }
 
 #ifdef _DEBUG
   void RendererQueueManager::testRendering()
   {
-
   }
-
-  RenderJobModel* RendererQueueManager::model()
-  {
-
-   return impl_->model();
-  }
-
 #endif
 
 

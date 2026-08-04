@@ -35,7 +35,6 @@ module;
 #include <regex>
 #include <random>
 module Command.Lambda;
-import Command.Lambda;
 
 namespace ArtifactCore {
 

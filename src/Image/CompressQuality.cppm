@@ -3,7 +3,6 @@ module;
 #include <QString>
 
 module CompressQuality;
-import CompressQuality;
 
 
 namespace ArtifactCore {

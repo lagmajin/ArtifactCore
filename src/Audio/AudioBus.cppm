@@ -36,7 +36,6 @@ module;
 #include <QJsonArray>
 #include <QJsonObject>
 module Audio.Bus;
-import Audio.Bus;
 
 import Utils.String.UniString;
 import Core.ArtifactString;
@@ -57,6 +56,7 @@ namespace ArtifactCore {
 
 	class AudioBus::Impl {
 	public:
+		Id id_;
 		ZeroString name_;
 		AudioChannelLayout layout_ = AudioChannelLayout::Stereo;
 		float volumeDb_ = 0.0f;
@@ -118,7 +118,18 @@ namespace ArtifactCore {
 
 	void AudioBus::setLayout(AudioChannelLayout layout)
 	{
-		impl_->layout_ = layout;
+		switch (layout) {
+			case AudioChannelLayout::Mono:
+			case AudioChannelLayout::Stereo:
+			case AudioChannelLayout::Surround51:
+			case AudioChannelLayout::Surround71:
+			case AudioChannelLayout::Custom10ch:
+				impl_->layout_ = layout;
+				break;
+			default:
+				impl_->layout_ = AudioChannelLayout::Stereo;
+				break;
+		}
 	}
 
 	AudioChannelLayout AudioBus::getLayout() const
@@ -128,7 +139,7 @@ namespace ArtifactCore {
 
 	void AudioBus::setVolume(float db)
 	{
-		impl_->volumeDb_ = std::clamp(db, -144.0f, 24.0f);
+		impl_->volumeDb_ = std::isfinite(db) ? std::clamp(db, -144.0f, 24.0f) : 0.0f;
 	}
 
 	float AudioBus::getVolume() const
@@ -138,7 +149,7 @@ namespace ArtifactCore {
 
 	void AudioBus::setPan(float pan)
 	{
-		impl_->pan_ = std::clamp(pan, -1.0f, 1.0f);
+		impl_->pan_ = std::isfinite(pan) ? std::clamp(pan, -1.0f, 1.0f) : 0.0f;
 	}
 
 	float AudioBus::getPan() const
@@ -178,7 +189,9 @@ namespace ArtifactCore {
 
 	void AudioBus::addEffect(SharedPtr<AudioEffect> effect)
 	{
-		impl_->effects_.push_back(effect);
+		if (effect) {
+			impl_->effects_.push_back(effect);
+		}
 	}
 
 	void AudioBus::removeEffect(int index)
@@ -209,7 +222,7 @@ namespace ArtifactCore {
 	{
 		// 1. Apply FX Rack FIRST (Pre-fader)
 		for (auto& effect : impl_->effects_) {
-			if (!effect->isBypassed()) {
+			if (effect && !effect->isBypassed()) {
 				effect->process(segment, &impl_->sideChainBuffer_);
 			}
 		}
@@ -244,19 +257,22 @@ namespace ArtifactCore {
 			}
 		}
 
-		int samples = (channels > 0) ? segment.channelData[0].size() : 0;
-
 		for (int c = 0; c < channels; ++c) {
 			float channelGain = linearGain * (c < channelGains.size() ? channelGains[c] : 1.0f);
 
 			float* data = segment.channelData[c].data();
+			const int samples = segment.channelData[c].size();
 			float peak = 0.0f;
 			float sumSq = 0.0f;
 
 			// Gain apply — auto‑vectorized by MSVC at /O2 (ivdep = no alias)
 			__pragma(loop(ivdep))
 			for (int i = 0; i < samples; ++i) {
-				data[i] *= channelGain;
+				if (!std::isfinite(data[i])) {
+					data[i] = 0.0f;
+				} else {
+					data[i] *= channelGain;
+				}
 			}
 
 			// Metering (reduction makes auto‑vectorization harder; keep separate)
@@ -317,6 +333,9 @@ namespace ArtifactCore {
 
 	void AudioBus::addInput(const AudioSegment& input, float localGain)
 	{
+		if (!std::isfinite(localGain)) {
+			return;
+		}
 		const AudioSegment* source = &input;
 		AudioSegment downmixed;
 
@@ -341,6 +360,9 @@ namespace ArtifactCore {
 
 	void AudioBus::addSideChain(const AudioSegment& input, float localGain)
 	{
+		if (!std::isfinite(localGain)) {
+			return;
+		}
 		const AudioSegment* source = &input;
 		AudioSegment downmixed;
 
@@ -386,12 +408,26 @@ namespace ArtifactCore {
 
 	float AudioBus::getGainReduction() const
 	{
+	float gainReduction = 1.0f;
 	for (auto& effect : impl_->effects_) {
 		if (auto comp = ArtifactCore::dynamicPointerCast<AudioCompressor>(effect)) {
-			return comp->getGainReduction();
+			const float reduction = comp->getGainReduction();
+			if (std::isfinite(reduction)) {
+				gainReduction = std::min(gainReduction, std::clamp(reduction, 0.0f, 1.0f));
+			}
 		}
 	}
-		return 1.0f; // No reduction
+
+	const Id& AudioBus::id() const
+	{
+		return impl_->id_;
+	}
+
+	void AudioBus::restoreId(const Id& id)
+	{
+		if (!id.isNil()) impl_->id_ = id;
+	}
+	return gainReduction; // No reduction = 1.0
 	}
 
 	void AudioBus::setSidechainSource(const String& busName)
@@ -417,9 +453,11 @@ namespace ArtifactCore {
 	QJsonObject AudioBus::toJson() const
 	{
 		QJsonObject obj;
+		obj["id"] = impl_->id_.toQString();
 		obj["name"] = toQString(impl_->name_);
 		obj["volume_db"] = impl_->volumeDb_;
 		obj["pan"] = impl_->pan_;
+		obj["layout"] = static_cast<int>(impl_->layout_);
 		obj["mute"] = impl_->mute_;
 		obj["solo"] = impl_->solo_;
 		obj["sidechain_source"] = toQString(impl_->sidechainSource_);
@@ -438,8 +476,18 @@ namespace ArtifactCore {
 
 	void AudioBus::fromJson(const QJsonObject& obj)
 	{
-		impl_->volumeDb_ = obj["volume_db"].toDouble(0.0);
-		impl_->pan_ = obj["pan"].toDouble(0.0);
+		if (obj.contains("id") && !obj["id"].toString().trimmed().isEmpty()) {
+			impl_->id_ = Id(obj["id"].toString());
+		}
+		if (obj.contains("name")) {
+			setName(ZeroString(obj["name"].toString().toUtf8().constData()));
+		}
+		setVolume(static_cast<float>(obj["volume_db"].toDouble(0.0)));
+		setPan(static_cast<float>(obj["pan"].toDouble(0.0)));
+		if (obj.contains("layout")) {
+			setLayout(static_cast<AudioChannelLayout>(obj["layout"].toInt(
+				static_cast<int>(AudioChannelLayout::Stereo))));
+		}
 		impl_->mute_ = obj["mute"].toBool(false);
 		impl_->solo_ = obj["solo"].toBool(false);
 		impl_->sidechainSource_ = ZeroString(obj["sidechain_source"].toString().toUtf8().constData());

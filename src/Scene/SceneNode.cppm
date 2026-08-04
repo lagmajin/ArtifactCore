@@ -12,7 +12,6 @@ module;
 #include <cmath>
 
 module Scene.SceneNode;
-import Scene.SceneNode;
 
 import Container.NamedVector;
 import Mesh;

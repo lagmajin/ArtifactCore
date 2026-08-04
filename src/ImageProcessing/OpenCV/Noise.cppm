@@ -5,7 +5,6 @@ module;
 #include <vector>
 #include <opencv2/opencv.hpp>
 module Noise;
-import Noise;
 
 import Core.Parallel;
 

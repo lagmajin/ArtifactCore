@@ -5,7 +5,6 @@ module;
 #include <QImage>
 
 module ImageProcessing.ColorTransform.GradientRamp;
-import ImageProcessing.ColorTransform.GradientRamp;
 
 namespace ArtifactCore {
 

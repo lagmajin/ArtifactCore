@@ -47,6 +47,7 @@ public:
     SharedPtr<AudioBus> findBusByName(const String& name) const;
     SharedPtr<AudioBus> findBusByName(const QString& name) const;
     SharedPtr<AudioBus> findBusByName(const UniString& name) const;
+    SharedPtr<AudioBus> findBusById(const Id& id) const;
 
     std::vector<SharedPtr<AudioBus>> getAllBuses() const;
     SharedPtr<AudioBus> getRoutingTarget(SharedPtr<AudioBus> bus) const;

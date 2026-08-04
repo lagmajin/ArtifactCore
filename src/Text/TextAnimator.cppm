@@ -6,6 +6,7 @@ module;
 #include <QPointF>
 #include <cmath>
 #include <algorithm>
+#include <numeric>
 #include <random>
 #include <numbers>
 #include <tuple>
@@ -208,7 +209,12 @@ float TextAnimatorEngine::calculateWeight(int index, int totalCount, const Range
     float position = 0.0f;
     switch (selector.units) {
         case SelectorUnits::Percentage:
-            position = ((float)index / totalCount) * 100.0f;
+            // Percentage selectors span the complete logical domain: the
+            // first item is 0% and the last item is 100%.
+            position = totalCount > 1
+                ? (static_cast<float>(index) /
+                   static_cast<float>(totalCount - 1)) * 100.0f
+                : 0.0f;
             break;
         case SelectorUnits::Index:
         case SelectorUnits::Cluster:
@@ -300,8 +306,16 @@ float TextAnimatorEngine::calculateWigglyWeight(int index, float time, const Wig
     if (!selector.enabled) return 1.0f;
 
     // 簡易的なノイズ生成
-    float phaseOffset = (float)index * (100.0f - selector.correlation) / 100.0f;
-    float t = time * selector.wigglesPerSecond + phaseOffset + selector.phase;
+    const float safeCorrelation = std::clamp(
+        std::isfinite(selector.correlation) ? selector.correlation : 50.0f,
+        0.0f, 100.0f);
+    const float safeRate = std::isfinite(selector.wigglesPerSecond)
+        ? std::max(0.0f, selector.wigglesPerSecond) : 0.0f;
+    const float safeTime = std::isfinite(time) ? time : 0.0f;
+    const float safePhase = std::isfinite(selector.phase) ? selector.phase : 0.0f;
+    const float phaseOffset = static_cast<float>(index) *
+                              (100.0f - safeCorrelation) / 100.0f;
+    const float t = safeTime * safeRate + phaseOffset + safePhase;
     
     std::mt19937 gen(selector.seed + (int)std::floor(t));
     std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
@@ -310,7 +324,59 @@ float TextAnimatorEngine::calculateWigglyWeight(int index, float time, const Wig
     float v2 = dis(gen);
     float fract = t - std::floor(t);
     
-    return v1 + (v2 - v1) * (0.5f - 0.5f * std::cos(fract * std::numbers::pi_v<float>));
+    const float value = v1 + (v2 - v1) *
+        (0.5f - 0.5f * std::cos(fract * std::numbers::pi_v<float>));
+    // Wiggly is an application weight, not a signed transform multiplier.
+    return std::clamp(0.5f + 0.5f * value, 0.0f, 1.0f);
+}
+
+std::vector<int> TextAnimatorEngine::createOrderMap(int totalCount,
+                                                     SelectorOrder order,
+                                                     int seed) {
+    if (totalCount <= 0) {
+        return {};
+    }
+
+    std::vector<int> result(static_cast<size_t>(totalCount));
+    std::iota(result.begin(), result.end(), 0);
+    switch (order) {
+    case SelectorOrder::Reverse:
+    case SelectorOrder::RightToLeft:
+        std::reverse(result.begin(), result.end());
+        break;
+    case SelectorOrder::RandomStable: {
+        std::mt19937 generator(static_cast<std::mt19937::result_type>(seed));
+        std::shuffle(result.begin(), result.end(), generator);
+        break;
+    }
+    case SelectorOrder::CenterOut: {
+        const float center = (static_cast<float>(totalCount) - 1.0f) * 0.5f;
+        std::stable_sort(result.begin(), result.end(), [center](int lhs, int rhs) {
+            const float lhsDistance = std::abs(static_cast<float>(lhs) - center);
+            const float rhsDistance = std::abs(static_cast<float>(rhs) - center);
+            return lhsDistance == rhsDistance ? lhs < rhs : lhsDistance < rhsDistance;
+        });
+        break;
+    }
+    case SelectorOrder::EdgeIn: {
+        result.clear();
+        result.reserve(static_cast<size_t>(totalCount));
+        int left = 0;
+        int right = totalCount - 1;
+        while (left <= right) {
+            result.push_back(left++);
+            if (left <= right) {
+                result.push_back(right--);
+            }
+        }
+        break;
+    }
+    case SelectorOrder::Natural:
+    case SelectorOrder::LeftToRight:
+    default:
+        break;
+    }
+    return result;
 }
 
 void TextAnimatorEngine::applyAnimator(

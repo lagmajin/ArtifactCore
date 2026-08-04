@@ -16,7 +16,9 @@ export struct FontDescriptor {
     int weight = 50; // QFont::Weight 相当
     bool italic = false;
 
-    bool isValid() const { return !fullPath.isEmpty(); }
+    // Installed system fonts may not expose a filesystem path through Qt.
+    // A family/style pair is still a valid logical font descriptor.
+    bool isValid() const { return !family.trimmed().isEmpty(); }
 };
 
 } // namespace ArtifactCore

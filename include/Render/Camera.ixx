@@ -1,5 +1,6 @@
 module;
 #include <utility>
+#include <algorithm>
 #include <cmath>
 #include <random>
 
@@ -36,6 +37,10 @@ public:
     Camera(float aspect, float vfov, float focusDist, float aperture_,
            const Point3& lookFrom, const Point3& lookAt, const Vec3& vup)
     {
+        aspect = std::isfinite(aspect) ? std::max(1.0e-4f, aspect) : 1.0f;
+        vfov = std::isfinite(vfov) ? std::clamp(vfov, 0.01f, 179.0f) : 90.0f;
+        focusDist = std::isfinite(focusDist) ? std::max(1.0e-4f, focusDist) : 1.0f;
+        aperture_ = std::isfinite(aperture_) ? std::max(0.0f, aperture_) : 0.0f;
         float theta = vfov * 3.14159265f / 180.0f;
         float h = std::tan(theta / 2.0f);
         viewportHeight = 2.0f * h;
@@ -68,15 +73,17 @@ public:
 
     void setViewport(float width, float height)
     {
+        width = std::isfinite(width) ? std::max(1.0f, width) : 1.0f;
+        height = std::isfinite(height) ? std::max(1.0f, height) : 1.0f;
         aspectRatio = width / height;
         viewportWidth = aspectRatio * viewportHeight;
     }
 
     void setDOF(float aperture_, float focusDist, float sensorWidth_ = 0.036f)
     {
-        aperture = aperture_;
-        focusDistance = focusDist;
-        sensorWidth = sensorWidth_;
+        aperture = std::isfinite(aperture_) ? std::max(0.0f, aperture_) : 0.0f;
+        focusDistance = std::isfinite(focusDist) ? std::max(1.0e-4f, focusDist) : 1.0f;
+        sensorWidth = std::isfinite(sensorWidth_) ? std::max(1.0e-5f, sensorWidth_) : 0.036f;
     }
 };
 

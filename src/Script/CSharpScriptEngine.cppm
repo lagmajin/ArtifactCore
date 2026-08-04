@@ -10,6 +10,8 @@ module;
 #include <functional>
 #include <iostream>
 #include <filesystem>
+#include <QProcess>
+#include <QString>
 
 // .NET ホスティング型 — hostfxr SDK 非依存の自己定義
 // coreclr_delegates.h / hostfxr.h が無くてもコンパイル可能にする
@@ -52,7 +54,6 @@ constexpr int32_t UNMANAGEDCALLERSONLY_METHOD = 0;
 #endif // ARTIFACT_HAS_DOTNET
 
 module Script.CSharp.Engine;
-import Script.CSharp.Engine;
 
 namespace ArtifactCore {
 
@@ -240,6 +241,8 @@ public:
     bool initialized_ = false;
     std::string lastError_;
     OutputCallback outputCallback_;
+    bool externalRuntime_ = false;
+    std::string externalExecutable_ = "dotnet";
 
     void setError(const std::string& msg) {
         lastError_ = msg;
@@ -273,8 +276,30 @@ bool CSharpScriptEngine::initialize(const std::string& dotnetRoot) {
     impl_->initialized_ = true;
     return true;
 #else
-    impl_->setError("CSharpScriptEngine: built without ARTIFACT_HAS_DOTNET (stub)");
-    return false;
+    std::string executablePath = dotnetRoot;
+    if (!executablePath.empty() && fs::is_directory(executablePath)) {
+#ifdef _WIN32
+        executablePath += "/dotnet.exe";
+#else
+        executablePath += "/dotnet";
+#endif
+    }
+    const QString executable = executablePath.empty()
+        ? QStringLiteral("dotnet") : QString::fromStdString(executablePath);
+    QProcess probe;
+    probe.setProgram(executable);
+    probe.setArguments({QStringLiteral("--version")});
+    probe.start();
+    if (!probe.waitForStarted(2000) || !probe.waitForFinished(5000) ||
+        probe.exitStatus() != QProcess::NormalExit || probe.exitCode() != 0) {
+        impl_->setError("CSharpScriptEngine: .NET runtime was not found");
+        return false;
+    }
+    impl_->externalExecutable_ = executable.toStdString();
+    impl_->externalRuntime_ = true;
+    impl_->initialized_ = true;
+    impl_->lastError_.clear();
+    return true;
 #endif
 }
 
@@ -283,6 +308,7 @@ void CSharpScriptEngine::finalize() {
     impl_->host.shutdown();
 #endif
     impl_->initialized_ = false;
+    impl_->externalRuntime_ = false;
     impl_->lastError_.clear();
 }
 
@@ -299,8 +325,28 @@ bool CSharpScriptEngine::execute(const std::string& assemblyPath) {
 #ifdef ARTIFACT_HAS_DOTNET
     return impl_->host.loadAssembly(assemblyPath);
 #else
-    impl_->setError("CSharpScriptEngine: built without ARTIFACT_HAS_DOTNET (stub)");
-    return false;
+    if (!impl_->externalRuntime_) return false;
+    QProcess process;
+    process.setProgram(QString::fromStdString(impl_->externalExecutable_));
+    process.setArguments({QString::fromStdString(assemblyPath)});
+    process.start();
+    if (!process.waitForStarted(2000) || !process.waitForFinished(30000)) {
+        impl_->setError("CSharpScriptEngine: external process did not finish");
+        process.kill();
+        return false;
+    }
+    const QByteArray output = process.readAllStandardOutput();
+    const QByteArray error = process.readAllStandardError();
+    if (!output.isEmpty() && impl_->outputCallback_)
+        impl_->outputCallback_(output.toStdString(), false);
+    if (!error.isEmpty() && impl_->outputCallback_)
+        impl_->outputCallback_(error.toStdString(), true);
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        impl_->setError(error.isEmpty() ? "CSharpScriptEngine: assembly execution failed"
+                                        : error.toStdString());
+        return false;
+    }
+    return true;
 #endif
 }
 
@@ -338,7 +384,7 @@ std::string CSharpScriptEngine::evaluate(const std::string& typeName,
             resultBuf, sizeof(resultBuf));
     return std::string(resultBuf);
 #else
-    impl_->setError("CSharpScriptEngine: built without ARTIFACT_HAS_DOTNET (stub)");
+    impl_->setError("CSharpScriptEngine: method evaluation requires the embedded hostfxr runtime");
     return "";
 #endif
 }

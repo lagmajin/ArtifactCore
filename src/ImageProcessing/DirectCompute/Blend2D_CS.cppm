@@ -3,7 +3,6 @@ module;
 
 #include <opencv2/opencv.hpp>
 module Blend2D_CS;
-import Blend2D_CS;
 
 namespace ArtifactCore {
 

@@ -8,6 +8,9 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <cstring>
+#include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <memory>
 
 module Graphics.GPUCompressionPipeline;
@@ -53,12 +56,23 @@ namespace ArtifactCore
     Uint32 width,
     Uint32 height
   ) {
-    if (!ready() || !ctx || !srcSRV || !compressedOutput) {
+    if (!ready() || !ctx || !srcSRV || !compressedOutput || width == 0 || height == 0) {
       return false;
     }
 
+    currentParams_.blockSize = std::max<Uint32>(8u, (currentParams_.blockSize + 7u) & ~7u);
+
     // Update params
-    currentParams_.numBlocks = (width * height * 4 + currentParams_.blockSize - 1) / currentParams_.blockSize;
+    const std::uint64_t byteCount = static_cast<std::uint64_t>(width) *
+                                    static_cast<std::uint64_t>(height) * 8u;
+    if (byteCount > std::numeric_limits<Uint32>::max() *
+                        static_cast<std::uint64_t>(currentParams_.blockSize)) {
+      return false;
+    }
+    currentParams_.width = width;
+    currentParams_.height = height;
+    currentParams_.numBlocks = static_cast<Uint32>(
+        (byteCount + currentParams_.blockSize - 1u) / currentParams_.blockSize);
     void* pData = nullptr;
     ctx->MapBuffer(pImpl_->pCompressionCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
     if (pData) {
@@ -89,12 +103,23 @@ namespace ArtifactCore
     Uint32 width,
     Uint32 height
   ) {
-    if (!ready() || !ctx || !compressedInput || !dstUAV) {
+    if (!ready() || !ctx || !compressedInput || !dstUAV || width == 0 || height == 0) {
       return false;
     }
 
+    currentParams_.blockSize = std::max<Uint32>(8u, (currentParams_.blockSize + 7u) & ~7u);
+
     // Update params
-    currentParams_.numBlocks = (width * height * 4 + currentParams_.blockSize - 1) / currentParams_.blockSize;
+    const std::uint64_t byteCount = static_cast<std::uint64_t>(width) *
+                                    static_cast<std::uint64_t>(height) * 8u;
+    if (byteCount > std::numeric_limits<Uint32>::max() *
+                        static_cast<std::uint64_t>(currentParams_.blockSize)) {
+      return false;
+    }
+    currentParams_.width = width;
+    currentParams_.height = height;
+    currentParams_.numBlocks = static_cast<Uint32>(
+        (byteCount + currentParams_.blockSize - 1u) / currentParams_.blockSize);
     void* pData = nullptr;
     ctx->MapBuffer(pImpl_->pCompressionCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
     if (pData) {

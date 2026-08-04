@@ -42,7 +42,6 @@ module;
 #include <QImage>
 #include <QPointF>
 module ImageProcessing.SharpenDirectionalBlur;
-import ImageProcessing.SharpenDirectionalBlur;
 
 import Core.Parallel;
 
@@ -748,9 +747,52 @@ QImage BlurEffect::apply(const QImage& source) const {
             return result;
         }
         case BlurEffectSettings::Type::Bilateral: {
-            // バイラテラルフィルタは簡易実装
-            // 実際はOpenCV等を使用
-            return source;
+            if (source.isNull()) return source;
+            const int radius = std::clamp(
+                static_cast<int>(std::ceil(impl_->settings.radius)), 1, 16);
+            const double spatialSigma = std::max(0.001, impl_->settings.spatialSigma);
+            const double colorSigma = std::max(0.001, impl_->settings.colorSigma);
+            const double spatialScale = -0.5 / (spatialSigma * spatialSigma);
+            const double colorScale = -0.5 / (colorSigma * colorSigma);
+            const QImage input = source.convertToFormat(QImage::Format_ARGB32);
+            QImage result(input.size(), QImage::Format_ARGB32);
+            const int width = input.width();
+            const int height = input.height();
+            Parallel::For(0, height, width * height, [&](int y) {
+                QRgb* output = reinterpret_cast<QRgb*>(result.scanLine(y));
+                for (int x = 0; x < width; ++x) {
+                    const QRgb center = reinterpret_cast<const QRgb*>(
+                        input.constScanLine(y))[x];
+                    double sumWeight = 0.0;
+                    double sumA = 0.0, sumR = 0.0, sumG = 0.0, sumB = 0.0;
+                    for (int dy = -radius; dy <= radius; ++dy) {
+                        const int sampleY = std::clamp(y + dy, 0, height - 1);
+                        const QRgb* row = reinterpret_cast<const QRgb*>(
+                            input.constScanLine(sampleY));
+                        for (int dx = -radius; dx <= radius; ++dx) {
+                            const QRgb sample = row[std::clamp(x + dx, 0, width - 1)];
+                            const double colorDistance =
+                                std::pow(static_cast<double>(qRed(sample) - qRed(center)), 2.0) +
+                                std::pow(static_cast<double>(qGreen(sample) - qGreen(center)), 2.0) +
+                                std::pow(static_cast<double>(qBlue(sample) - qBlue(center)), 2.0);
+                            const double spatialDistance = static_cast<double>(dx * dx + dy * dy);
+                            const double weight = std::exp(spatialDistance * spatialScale +
+                                                           colorDistance * colorScale);
+                            sumWeight += weight;
+                            sumA += qAlpha(sample) * weight;
+                            sumR += qRed(sample) * weight;
+                            sumG += qGreen(sample) * weight;
+                            sumB += qBlue(sample) * weight;
+                        }
+                    }
+                    const double divisor = sumWeight > 0.0 ? sumWeight : 1.0;
+                    output[x] = qRgba(static_cast<int>(std::clamp(sumR / divisor, 0.0, 255.0)),
+                                      static_cast<int>(std::clamp(sumG / divisor, 0.0, 255.0)),
+                                      static_cast<int>(std::clamp(sumB / divisor, 0.0, 255.0)),
+                                      static_cast<int>(std::clamp(sumA / divisor, 0.0, 255.0)));
+                }
+            });
+            return result;
         }
     }
     return source;

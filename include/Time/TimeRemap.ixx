@@ -121,7 +121,7 @@ public:
     void clearKeyframes();
     
     const QVector<TimeRemapKeyframe>& keyframes() const { return keyframes_; }
-    void setKeyframes(const QVector<TimeRemapKeyframe>& frames) { keyframes_ = frames; }
+    void setKeyframes(const QVector<TimeRemapKeyframe>& frames);
     
     // Get mapped source time for given output time
     double mapOutputToSource(double outputTime) const;
@@ -202,7 +202,7 @@ public:
         float* outputSamples
     );
     
-    // FFT-based time stretching (better quality)
+    // Windowed granular time stretching (pitch-preserving approximation)
     int processTimeStretchFFT(
         const float* inputSamples,
         int inputSampleCount,

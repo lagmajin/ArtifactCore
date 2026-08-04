@@ -67,6 +67,9 @@ bool VST3Module::load(const ArtifactCore::String& path)
 // ─────────────────────────────────────────────────────────
 void VST3Module::unload()
 {
+    if (factory_) {
+        factory_->release();
+    }
     factory_ = nullptr;
     getFactoryProc_ = nullptr;
 

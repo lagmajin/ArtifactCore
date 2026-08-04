@@ -7,7 +7,6 @@ module;
 #include <QColor>
 
 module ImageProcessing.ColorTransform.TonalSplit;
-import ImageProcessing.ColorTransform.TonalSplit;
 
 namespace ArtifactCore {
 

@@ -6,7 +6,6 @@ module;
 #include <QPainterPath>
 #include <QDebug>
 module Core.Mask.PathMorph;
-import Core.Mask.PathMorph;
 
 namespace ArtifactCore {
 

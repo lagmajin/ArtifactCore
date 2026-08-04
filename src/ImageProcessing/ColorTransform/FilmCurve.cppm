@@ -7,7 +7,6 @@ module;
 #include <QColor>
 
 module ImageProcessing.ColorTransform.FilmCurve;
-import ImageProcessing.ColorTransform.FilmCurve;
 
 namespace ArtifactCore {
 

@@ -14,7 +14,6 @@ module;
 #include <cmath>
 
 module Network.CollaborationWebSocket;
-import Network.CollaborationWebSocket;
 
 namespace ArtifactCore {
 

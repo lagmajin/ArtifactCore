@@ -63,6 +63,10 @@ public:
  void startRendering();
  void startRenderingAllQueue();
  void addJob(const ArtifactCore::Id& compositionId, const QString& name);
+ void addJob(const ArtifactCore::Id& compositionId, const QString& name,
+             int startFrame, int endFrame, int frameStep = 1);
+ bool setJobMfrSettings(int row, bool enabled, int maxConcurrentFrames,
+                        std::size_t memoryLimitMB, int retryBackoffMs = 0);
  void clearRenderQueue();
  bool isRenderNow() const;
 

@@ -5,7 +5,6 @@ module;
 #include <QImage>
 
 module ImageProcessing.ColorTransform.Tritone;
-import ImageProcessing.ColorTransform.Tritone;
 
 namespace ArtifactCore {
 

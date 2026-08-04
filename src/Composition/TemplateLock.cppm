@@ -5,7 +5,6 @@ module;
 #include <QJsonArray>
 
 module Composition.TemplateLock;
-import Composition.TemplateLock;
 
 namespace ArtifactCore {
 

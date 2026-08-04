@@ -35,7 +35,6 @@ module;
 #include <regex>
 #include <random>
 module Math.RotationTurns;
-import Math.RotationTurns;
 
 namespace ArtifactCore
 {

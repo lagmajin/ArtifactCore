@@ -2,6 +2,7 @@ module;
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 module ImageProcessing;
@@ -18,6 +19,20 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
     cv::Mat srcMat = image.toCVMat(); // CV_32FC4, BGRA
     const int w = srcMat.cols;
     const int h = srcMat.rows;
+    const auto finiteOr = [](const float value, const float fallback) {
+        return std::isfinite(value) ? value : fallback;
+    };
+    const float threshold = std::clamp(finiteOr(settings.threshold, 0.5f),
+                                       0.0f, 1.0f);
+    const float glowRadius = std::clamp(finiteOr(settings.glowRadius, 0.0f),
+                                        0.0f, 256.0f);
+    const float intensity = std::max(0.0f, finiteOr(settings.intensity, 1.0f));
+    const float aberrationScale = std::max(
+        0.001f, finiteOr(settings.aberrationScale, 1.02f));
+    const int dispersionSteps = std::clamp(settings.dispersionSteps, 1, 64);
+    const float tintB = finiteOr(settings.tintColor.x, 1.0f) * intensity;
+    const float tintG = finiteOr(settings.tintColor.y, 1.0f) * intensity;
+    const float tintR = finiteOr(settings.tintColor.z, 1.0f) * intensity;
 
     // 1. Extract Bright Areas (Thresholding)
     cv::Mat brightMat = cv::Mat::zeros(h, w, CV_32FC4);
@@ -30,7 +45,7 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
             // ImageF32x4_RGBA uses BGRA internally: pixel[0]=B, pixel[1]=G, pixel[2]=R
             float luma = 0.299f * pixel[2] + 0.587f * pixel[1] + 0.114f * pixel[0];
 
-            if (luma >= settings.threshold) {
+            if (luma >= threshold) {
                 brightRow[x] = pixel;
             } else {
                 brightRow[x] = cv::Vec4f(0.0f, 0.0f, 0.0f, 0.0f);
@@ -39,28 +54,24 @@ void ChromaSpreadGlow::process(ImageF32x4_RGBA& image, const ChromaSpreadGlowSet
     });
 
     // 2. Apply Gaussian Blur to the bright areas
-    if (settings.glowRadius > 0.0f) {
-        int ksize = static_cast<int>(std::round(settings.glowRadius * 3.0f)) * 2 + 1;
-        cv::GaussianBlur(brightMat, brightMat, cv::Size(ksize, ksize), settings.glowRadius);
+    if (glowRadius > 0.0f) {
+        int ksize = static_cast<int>(std::round(glowRadius * 3.0f)) * 2 + 1;
+        cv::GaussianBlur(brightMat, brightMat, cv::Size(ksize, ksize), glowRadius);
     }
 
     // 3. Apply Chromatic Dispersion using ChromaSpread utility
     ChromaSpread dispersion;
     ChromaSpreadSettings dispersionSettings;
-    dispersionSettings.redScale = settings.aberrationScale;
-    dispersionSettings.blueScale = 2.0f - settings.aberrationScale; // symmetrical scaling
+    dispersionSettings.redScale = aberrationScale;
+    dispersionSettings.blueScale = std::max(0.001f, 2.0f - aberrationScale); // symmetrical scaling
     dispersionSettings.greenScale = 1.0f;
-    dispersionSettings.dispersionSteps = settings.dispersionSteps;
-    dispersionSettings.shiftAmount = settings.glowRadius * 0.1f; // proportional translation shift
+    dispersionSettings.dispersionSteps = dispersionSteps;
+    dispersionSettings.shiftAmount = glowRadius * 0.1f; // proportional translation shift
     dispersionSettings.shiftAngle = 45.0f; // default shift direction angle
 
     dispersion.processMat(&brightMat, dispersionSettings);
 
     // 4. Tint & Additive Composite back onto srcMat
-    float tintB = settings.tintColor.x * settings.intensity; // Tint RGBA
-    float tintG = settings.tintColor.y * settings.intensity;
-    float tintR = settings.tintColor.z * settings.intensity;
-
     Parallel::For(0, h, w * h, [&](int y) {
         cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
         const cv::Vec4f* glowRow = brightMat.ptr<cv::Vec4f>(y);

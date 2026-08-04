@@ -44,6 +44,7 @@ public:
 
     float start() const { return start_; }
     void setStart(float s) { 
+        s = std::isfinite(s) ? std::clamp(s, 0.0f, 100.0f) : 0.0f;
         if (start_ != s) {
             start_ = s; 
             emit startChanged(); 
@@ -52,6 +53,7 @@ public:
 
     float end() const { return end_; }
     void setEnd(float e) { 
+        e = std::isfinite(e) ? std::clamp(e, 0.0f, 100.0f) : 100.0f;
         if (end_ != e) {
             end_ = e; 
             emit endChanged(); 
@@ -60,6 +62,7 @@ public:
 
     float offset() const { return offset_; }
     void setOffset(float o) { 
+        o = std::isfinite(o) ? o : 0.0f;
         if (offset_ != o) {
             offset_ = o; 
             emit offsetChanged(); 
@@ -68,6 +71,9 @@ public:
 
     TrimMode trimMode() const { return trimMode_; }
     void setTrimMode(TrimMode mode) {
+        if (mode != TrimMode::Individually && mode != TrimMode::Simultaneously) {
+            mode = TrimMode::Individually;
+        }
         if (trimMode_ != mode) {
             trimMode_ = mode;
             emit trimModeChanged();
@@ -93,9 +99,9 @@ public:
     }
 
     void fromJson(const QJsonObject& obj) override {
-        if (obj.contains("start")) setStart(obj["start"].toDouble());
-        if (obj.contains("end")) setEnd(obj["end"].toDouble());
-        if (obj.contains("offset")) setOffset(obj["offset"].toDouble());
+        if (obj.contains("start")) setStart(static_cast<float>(obj["start"].toDouble(start_)));
+        if (obj.contains("end")) setEnd(static_cast<float>(obj["end"].toDouble(end_)));
+        if (obj.contains("offset")) setOffset(static_cast<float>(obj["offset"].toDouble(offset_)));
         if (obj.contains("trimMode")) setTrimMode(static_cast<TrimMode>(obj["trimMode"].toInt()));
     }
 

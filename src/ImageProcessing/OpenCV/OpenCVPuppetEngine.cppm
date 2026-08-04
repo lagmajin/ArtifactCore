@@ -10,7 +10,6 @@ module;
 #include <opencv2/opencv.hpp>
 
 module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
-import ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
 
 import Core.Parallel;
 

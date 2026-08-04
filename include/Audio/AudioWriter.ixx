@@ -22,6 +22,7 @@ public:
     AudioWriter& operator=(const AudioWriter&) = delete;
 
     void openFile(const QString& path);
+    void setBitDepth(int bitDepth);
     void closeFile();
     void write(const AudioSegment& segment);
 

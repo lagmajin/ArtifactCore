@@ -14,6 +14,10 @@ module;
 #include <QtGui/QRgb>
 #include <QtGui/QMatrix3x3>
 #include <QtGui/QVector3D>
+#include <QtGui/QImageReader>
+#include <QtGui/QImageWriter>
+#include <QtCore/QFileInfo>
+#include <QtCore/QDir>
 
 #include <iostream>
 #include <string>
@@ -532,11 +536,50 @@ void BatchStabilizer::setParams(const StabilizerParams& params) {
 }
 
 bool BatchStabilizer::process() {
-    for (int i = 0; i < 100; i++) {
-        currentFrame_ = i;
-        emit progressChanged(i, 100);
+    if (inputFile_.trimmed().isEmpty() || outputFile_.trimmed().isEmpty()) {
+        return false;
     }
-    
+
+    const QFileInfo inputInfo(inputFile_);
+    const QFileInfo outputInfo(outputFile_);
+    if (!inputInfo.isFile() ||
+        inputInfo.absoluteFilePath() == outputInfo.absoluteFilePath()) {
+        return false;
+    }
+    if (!outputInfo.absoluteDir().exists() &&
+        !QDir().mkpath(outputInfo.absolutePath())) {
+        return false;
+    }
+
+    QImageReader reader(inputInfo.absoluteFilePath());
+    const QImage input = reader.read();
+    if (input.isNull()) {
+        return false;
+    }
+
+    currentFrame_ = 0;
+    totalFrames_ = 1;
+    emit progressChanged(0, totalFrames_);
+
+    VideoStabilizer stabilizer;
+    stabilizer.setParams(params_);
+    stabilizer.addFrame(input);
+    if (!stabilizer.stabilize()) {
+        return false;
+    }
+
+    const QImage output = stabilizer.getStabilizedFrame(0);
+    if (output.isNull()) {
+        return false;
+    }
+
+    QImageWriter writer(outputInfo.absoluteFilePath());
+    if (!writer.write(output)) {
+        return false;
+    }
+
+    currentFrame_ = 1;
+    emit progressChanged(currentFrame_, totalFrames_);
     emit stabilizationComplete();
     return true;
 }

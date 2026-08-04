@@ -6,7 +6,6 @@ module;
 #include <array>
 
 module Color.Luminance;
-import Color.Luminance;
 
 namespace ArtifactCore {
 

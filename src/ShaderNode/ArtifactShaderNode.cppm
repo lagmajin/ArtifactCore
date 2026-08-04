@@ -7,7 +7,6 @@ module;
 #include <format>
 
 module Artifact.ShaderNode.Core;
-import Artifact.ShaderNode.Core;
 
 import Core.ArtifactString;
 

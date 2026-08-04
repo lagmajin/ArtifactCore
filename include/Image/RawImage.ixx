@@ -36,6 +36,7 @@ class tst_QList;
 #include <QVector>
 #include <QString>
 #include <QMap>
+#include <QByteArray>
 export module Image.Raw;
 
 import Memory.SharedPtr;
@@ -58,6 +59,8 @@ export namespace ArtifactCore {
   bool isHDR = false;
   bool isLogEncoded = false;
   QMap<QString, QString> metadata;
+  // Embedded ICC payload, retained at the IO boundary for round-tripping.
+  QByteArray iccProfileData;
 
   // 生のピクセルデータ。std::vector<uint8_t> から QVector<quint8> へ変更
   QVector<quint8> data; // quint8 は Qt の unsigned char

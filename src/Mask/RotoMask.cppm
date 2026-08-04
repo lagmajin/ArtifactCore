@@ -69,6 +69,10 @@ struct KeyframeValue {
 template<typename T>
 class AnimatedValue {
 public:
+    void setDefaultInterpolation(RotoMask::Interpolation interpolation) {
+        defaultInterpolation_ = interpolation;
+    }
+
     void setValue(const T& val, double time) {
         // 既存のキーフレームを探す
         for (auto& kf : keyframes_) {
@@ -78,7 +82,7 @@ public:
             }
         }
         // 新しいキーフレームを追加
-        keyframes_.push_back({time, val});
+        keyframes_.push_back({time, val, defaultInterpolation_});
         std::sort(keyframes_.begin(), keyframes_.end());
     }
     
@@ -132,9 +136,30 @@ public:
             }
         }
     }
+
+    bool removeKeyframe(double time) {
+        const auto oldSize = keyframes_.size();
+        keyframes_.erase(std::remove_if(keyframes_.begin(), keyframes_.end(),
+            [time](const auto& keyframe) {
+                return std::abs(keyframe.time - time) < 0.0001;
+            }), keyframes_.end());
+        return oldSize != keyframes_.size();
+    }
+
+    void copyShiftedFrom(const AnimatedValue& source, double timeOffset) {
+        defaultValue_ = source.defaultValue_;
+        defaultInterpolation_ = source.defaultInterpolation_;
+        keyframes_.clear();
+        keyframes_.reserve(source.keyframes_.size());
+        for (const auto& keyframe : source.keyframes_) {
+            keyframes_.push_back({keyframe.time + timeOffset, keyframe.value,
+                                  keyframe.interpolation});
+        }
+    }
     
 private:
     T defaultValue_{};
+    RotoMask::Interpolation defaultInterpolation_ = RotoMask::Interpolation::Bezier;
     std::vector<KeyframeValue<T>> keyframes_;
     
     T interpolateLinear(const T& a, const T& b, double t) const {
@@ -460,8 +485,15 @@ void RotoMask::addKeyframe(double time) {
 }
 
 void RotoMask::removeKeyframe(double time) {
-    // 実装簡略化：各プロパティから該当時間のキーフレームを削除
-    // 詳細実装では各AnimatedValueにremoveKeyframeメソッドを追加
+    if (!std::isfinite(time)) return;
+    for (auto& pair : impl_->vertices) {
+        pair.second.position.removeKeyframe(time);
+        pair.second.inTangent.removeKeyframe(time);
+        pair.second.outTangent.removeKeyframe(time);
+    }
+    impl_->opacity.removeKeyframe(time);
+    impl_->feather.removeKeyframe(time);
+    impl_->expansion.removeKeyframe(time);
 }
 
 // ========================================
@@ -472,6 +504,18 @@ void RotoMask::setPositionInterpolation(VertexID id, Interpolation interp) {
     auto it = impl_->vertices.find(id);
     if (it != impl_->vertices.end()) {
         it->second.interpolation = interp;
+        it->second.position.setDefaultInterpolation(interp);
+        it->second.inTangent.setDefaultInterpolation(interp);
+        it->second.outTangent.setDefaultInterpolation(interp);
+        for (const double time : it->second.position.keyframeTimes()) {
+            it->second.position.setInterpolation(time, interp);
+        }
+        for (const double time : it->second.inTangent.keyframeTimes()) {
+            it->second.inTangent.setInterpolation(time, interp);
+        }
+        for (const double time : it->second.outTangent.keyframeTimes()) {
+            it->second.outTangent.setInterpolation(time, interp);
+        }
     }
 }
 
@@ -488,6 +532,7 @@ RotoMask::Interpolation RotoMask::positionInterpolation(VertexID id) const {
 // ========================================
 
 void RotoMask::rasterize(double time, int width, int height, float* outData) const {
+    if (!outData || width <= 0 || height <= 0) return;
     // 初期化
     std::fill(outData, outData + width * height, 0.0f);
     
@@ -516,19 +561,56 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
         }
     });
     
-    // フェザー適用（簡易）
+    // フェザー適用（分離ボックスぼかしで近似したガウシアン）
     float f = feather(time);
     if (f > 0.5f) {
-        // ガウシアンブラーを適用（簡易実装）
-        // 実際は別途実装
+        const int radius = std::clamp(static_cast<int>(std::ceil(f)), 1, 64);
+        const int diameter = radius * 2 + 1;
+        std::vector<float> horizontal(static_cast<size_t>(width) * height, 0.0f);
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                float sum = 0.0f;
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    sum += outData[y * width + std::clamp(x + dx, 0, width - 1)];
+                }
+                horizontal[y * width + x] = sum / static_cast<float>(diameter);
+            }
+        }
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                float sum = 0.0f;
+                for (int dy = -radius; dy <= radius; ++dy) {
+                    sum += horizontal[std::clamp(y + dy, 0, height - 1) * width + x];
+                }
+                outData[y * width + x] = sum / static_cast<float>(diameter);
+            }
+        }
     }
-    
+
     // 拡張/収縮
     float exp = expansion(time);
     if (std::abs(exp) > 0.5f) {
-        // モルフォロジー演算
+        const int radius = std::clamp(static_cast<int>(std::ceil(std::abs(exp))), 1, 64);
+        const int diameter = radius * 2 + 1;
+        std::vector<float> morphed(static_cast<size_t>(width) * height, 0.0f);
+        const bool dilate = exp > 0.0f;
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                float value = dilate ? 0.0f : 1.0f;
+                for (int dy = -radius; dy <= radius; ++dy) {
+                    for (int dx = -radius; dx <= radius; ++dx) {
+                        const float sample = outData[
+                            std::clamp(y + dy, 0, height - 1) * width +
+                            std::clamp(x + dx, 0, width - 1)];
+                        value = dilate ? std::max(value, sample) : std::min(value, sample);
+                    }
+                }
+                morphed[y * width + x] = value;
+            }
+        }
+        std::copy(morphed.begin(), morphed.end(), outData);
     }
-    
+
     // 不透明度適用
     float op = opacity(time);
     if (op < 1.0f) {
@@ -551,8 +633,8 @@ QRectF RotoMask::boundingBox(double time) const {
     
     qreal minX = std::numeric_limits<qreal>::max();
     qreal minY = std::numeric_limits<qreal>::max();
-    qreal maxX = std::numeric_limits<qreal>::min();
-    qreal maxY = std::numeric_limits<qreal>::min();
+    qreal maxX = std::numeric_limits<qreal>::lowest();
+    qreal maxY = std::numeric_limits<qreal>::lowest();
     
     for (const auto& v : verts) {
         minX = std::min(minX, v.position.x());
@@ -573,9 +655,27 @@ RotoMask RotoMask::clone() const {
 }
 
 void RotoMask::copyKeyframesFrom(const RotoMask& other, double timeOffset) {
-    // 簡易実装
-    Q_UNUSED(other);
-    Q_UNUSED(timeOffset);
+    if (!std::isfinite(timeOffset)) return;
+
+    impl_->closed = other.impl_->closed;
+    impl_->inverted = other.impl_->inverted;
+    impl_->mode = other.impl_->mode;
+    impl_->name = other.impl_->name;
+    impl_->opacity.copyShiftedFrom(other.impl_->opacity, timeOffset);
+    impl_->feather.copyShiftedFrom(other.impl_->feather, timeOffset);
+    impl_->expansion.copyShiftedFrom(other.impl_->expansion, timeOffset);
+
+    impl_->vertices.clear();
+    impl_->nextVertexID = other.impl_->nextVertexID;
+    for (const auto& [id, sourceVertex] : other.impl_->vertices) {
+        VertexData vertex;
+        vertex.id = id;
+        vertex.interpolation = sourceVertex.interpolation;
+        vertex.position.copyShiftedFrom(sourceVertex.position, timeOffset);
+        vertex.inTangent.copyShiftedFrom(sourceVertex.inTangent, timeOffset);
+        vertex.outTangent.copyShiftedFrom(sourceVertex.outTangent, timeOffset);
+        impl_->vertices.emplace(id, std::move(vertex));
+    }
 }
 
 void RotoMask::reverse() {

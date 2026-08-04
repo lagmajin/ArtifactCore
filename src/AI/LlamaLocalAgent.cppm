@@ -14,7 +14,6 @@ module;
 #include <string_view>
 
 module Core.AI.LlamaAgent;
-import Core.AI.LlamaAgent;
 import std;
 import Core.AI.Context;
 

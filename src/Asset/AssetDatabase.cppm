@@ -11,10 +11,10 @@ class tst_QList;
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QFile>
+#include <QSaveFile>
 #include <QIODevice>
 
 module Asset.Database;
-import Asset.Database;
 
 namespace ArtifactCore {
 
@@ -44,6 +44,11 @@ QUuid AssetDatabase::registerAsset(const QString& path, AssetType type) {
 
 QUuid AssetDatabase::registerAsset(const QString& path, AssetType type,
                                    const QUuid& preferredId) {
+    const int rawType = static_cast<int>(type);
+    if (rawType <= static_cast<int>(AssetType::Unknown) ||
+        rawType > static_cast<int>(AssetType::Data)) {
+        return {};
+    }
     const QString identity = normalizedAssetPath(path);
     if (identity.isEmpty()) {
         return {};
@@ -70,7 +75,10 @@ QUuid AssetDatabase::registerAsset(const QString& path, AssetType type,
 
 void AssetDatabase::unregisterAsset(const QUuid& id) {
     if (assets_.contains(id)) {
-        pathToId_.remove(assets_[id].absolutePath);
+        const QString path = assets_[id].absolutePath;
+        if (pathToId_.value(path) == id) {
+            pathToId_.remove(path);
+        }
         assets_.remove(id);
     }
 }
@@ -100,6 +108,7 @@ bool AssetDatabase::load(const QString& databasePath) {
     if (!file.open(QIODevice::ReadOnly)) return false;
 
     QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (doc.isNull() || !doc.isArray()) return false;
     QJsonArray array = doc.array();
 
     assets_.clear();
@@ -111,9 +120,26 @@ bool AssetDatabase::load(const QString& databasePath) {
         info.id = QUuid::fromString(obj["id"].toString());
         info.name = obj["name"].toString();
         info.absolutePath = normalizedAssetPath(obj["path"].toString());
-        info.type = static_cast<AssetType>(obj["type"].toInt());
+        const int rawType = obj["type"].toInt(static_cast<int>(AssetType::Unknown));
+        if (rawType <= static_cast<int>(AssetType::Unknown) ||
+            rawType > static_cast<int>(AssetType::Data)) {
+            continue;
+        }
+        info.type = static_cast<AssetType>(rawType);
+        const QJsonObject metadata = obj.value(QStringLiteral("metadata")).toObject();
+        for (auto it = metadata.cbegin(); it != metadata.cend(); ++it) {
+            if (it.value().isString()) {
+                info.metadata.insert(it.key(), it.value().toString());
+            }
+        }
         
         if (info.id.isNull() || info.absolutePath.isEmpty()) {
+            continue;
+        }
+        if (info.name.trimmed().isEmpty()) {
+            info.name = QFileInfo(info.absolutePath).fileName();
+        }
+        if (assets_.contains(info.id)) {
             continue;
         }
         const auto existingId = pathToId_.value(info.absolutePath);
@@ -134,14 +160,22 @@ bool AssetDatabase::save(const QString& databasePath) const {
         obj["name"] = info.name;
         obj["path"] = info.absolutePath;
         obj["type"] = static_cast<int>(info.type);
+        QJsonObject metadata;
+        for (auto it = info.metadata.cbegin(); it != info.metadata.cend(); ++it) {
+            metadata.insert(it.key(), it.value());
+        }
+        obj["metadata"] = metadata;
         array.append(obj);
     }
 
     QJsonDocument doc(array);
-    QFile file(databasePath);
-    if (!file.open(QIODevice::WriteOnly)) return false;
-    file.write(doc.toJson());
-    return true;
+    QSaveFile file(databasePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+    if (file.write(doc.toJson(QJsonDocument::Compact)) < 0) {
+        file.cancelWriting();
+        return false;
+    }
+    return file.commit();
 }
 
 } // namespace ArtifactCore

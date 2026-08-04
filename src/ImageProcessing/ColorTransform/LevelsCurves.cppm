@@ -38,7 +38,6 @@ module;
 #include <QVector>
 
 module ImageProcessing.ColorTransform.LevelsCurves;
-import ImageProcessing.ColorTransform.LevelsCurves;
 
 
 namespace ArtifactCore {

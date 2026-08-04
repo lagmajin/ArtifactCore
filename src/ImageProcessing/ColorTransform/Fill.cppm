@@ -4,7 +4,6 @@ module;
 #include <QImage>
 
 module ImageProcessing.ColorTransform.Fill;
-import ImageProcessing.ColorTransform.Fill;
 
 namespace ArtifactCore {
 

@@ -22,7 +22,7 @@ public:
         return true;
     }
 
-    // QString name() const override { return "Solid Color"; } // TODO: Re-evaluate name() method if needed by the interface
+    QString name() const override { return QStringLiteral("Solid Color"); }
 
     void setColor(const FloatRGBA& color) { color_ = color; }
     FloatRGBA color() const { return color_; }

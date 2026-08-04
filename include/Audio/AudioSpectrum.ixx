@@ -4,6 +4,8 @@ module;
 #include <vector>
 #include <memory>
 #include <atomic>
+#include <limits>
+#include <QtGlobal>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect.Spectrum;
@@ -29,6 +31,11 @@ public:
     // 分析結果取得
     const std::vector<float>& getSpectrum() const { return spectrum_; }
     const std::vector<float>& getWaveform() const { return waveform_; }
+
+    // Loudness metering (linear PCM, LUFS approximation).
+    // The values are updated by process() and are expressed in LUFS.
+    float getMomentaryLufs() const { return momentaryLufs_; }
+    float getIntegratedLufs() const { return integratedLufs_; }
     
     void setBins(int bins) { bins_ = bins; }
     int getBins() const { return bins_; }
@@ -40,6 +47,11 @@ private:
     std::atomic<bool> spectrumReady_{false};
     std::vector<float> spectrum_;
     std::vector<float> waveform_;
+    float momentaryLufs_ = -std::numeric_limits<float>::infinity();
+    float integratedLufs_ = -std::numeric_limits<float>::infinity();
+    double integratedEnergySum_ = 0.0;
+    qint64 integratedFrameCount_ = 0;
+    qint64 lastEndFrame_ = -1;
     
     // FFT（簡易実装）
     void computeFFT(const std::vector<float>& input, std::vector<float>& output);

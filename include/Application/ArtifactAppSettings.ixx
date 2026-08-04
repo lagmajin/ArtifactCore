@@ -101,6 +101,10 @@ public:
     void setTimelineGraphEditorModeText(const QString& value);
     bool timelineMotionBlurActive() const;
     void setTimelineMotionBlurActive(bool enable);
+    double timelineMotionBlurShutterAngle() const;
+    void setTimelineMotionBlurShutterAngle(double degrees);
+    int timelineMotionBlurSampleCount() const;
+    void setTimelineMotionBlurSampleCount(int count);
     bool timelineFrameBlendingActive() const;
     void setTimelineFrameBlendingActive(bool enable);
 

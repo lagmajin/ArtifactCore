@@ -8,7 +8,6 @@ module;
 #include <QColor>
 
 module ImageProcessing.ColorTransform.HueSaturation;
-import ImageProcessing.ColorTransform.HueSaturation;
 
 namespace ArtifactCore {
 

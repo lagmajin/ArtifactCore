@@ -1,5 +1,6 @@
 module;
 #include <utility>
+#include <cstddef>
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
 #include <QAbstractItemModel>
@@ -32,6 +33,13 @@ export namespace ArtifactCore {
   float progress = 0.0f; // 0.0 to 1.0
   QString outputPath;
   QString statusMessage;
+  int startFrame = 0;
+  int endFrame = 299;
+  int frameStep = 1;
+  bool multiFrameEnabled = true;
+  int mfrConcurrentFrames = 0;
+  std::size_t mfrMemoryLimitMB = 8192;
+  int mfrRetryBackoffMs = 0;
   // ... future: startTime, endTime
  };
 
@@ -68,6 +76,8 @@ export namespace ArtifactCore {
    
   // Job Management
   void addJob(const ArtifactCore::Id& compositionId, const QString& name);
+  void addJob(const ArtifactCore::Id& compositionId, const QString& name,
+              int startFrame, int endFrame, int frameStep = 1);
   void addJob(const QString& name, const QString& status, int progress, const QString& outputPath);
   void removeJob(int row);
   void clearJobs();
@@ -75,6 +85,9 @@ export namespace ArtifactCore {
 
   void setJobProgress(int row, float progress);
   void setJobStatus(int row, RenderJobStatus status);
+  bool setJobFrameRange(int row, int startFrame, int endFrame, int frameStep = 1);
+  bool setJobMfrSettings(int row, bool enabled, int maxConcurrentFrames,
+                         std::size_t memoryLimitMB, int retryBackoffMs = 0);
  };
 
 

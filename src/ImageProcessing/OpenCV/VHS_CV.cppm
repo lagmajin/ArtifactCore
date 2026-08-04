@@ -4,7 +4,6 @@ module;
 #include <cmath>
 #include <opencv2/opencv.hpp>
 module VHS_CV;
-import VHS_CV;
 
 import Core.Parallel;
 

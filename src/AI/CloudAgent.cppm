@@ -13,7 +13,6 @@ module;
 #include <QTimer>
 
 module Core.AI.CloudAgent;
-import Core.AI.CloudAgent;
 
 import std;
 import Memory.SharedPtr;

@@ -51,6 +51,8 @@ export namespace ArtifactCore {
 	public:
 		AudioBus();
 		virtual ~AudioBus();
+		const Id& id() const;
+		void restoreId(const Id& id);
 
 		void setName(const ZeroString& name);
 		void setName(const UniString& name);

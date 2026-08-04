@@ -6,7 +6,6 @@ module;
 #include <QUuid>
 
 module Asset.Importer;
-import Asset.Importer;
 
 import AssetType;
 import Asset.Database;
@@ -16,11 +15,14 @@ import Asset.VectorImport;
 namespace ArtifactCore {
 
 QUuid AssetImporter::importFile(const QString& filePath) {
-    QFileInfo info(filePath);
-    if (!info.exists()) return QUuid();
+    const QFileInfo info(filePath);
+    if (!info.exists() || !info.isFile()) return QUuid();
+    const QString absolutePath = info.absoluteFilePath();
+    if (!isSupported(info.suffix())) return QUuid();
 
-    AssetType type = detectType(filePath);
-    return AssetDatabase::instance().registerAsset(filePath, type);
+    const AssetType type = detectType(absolutePath);
+    if (type == AssetType::Unknown) return QUuid();
+    return AssetDatabase::instance().registerAsset(absolutePath, type);
 }
 
 bool AssetImporter::isSupported(const QString& extension) {
@@ -46,7 +48,8 @@ AssetType AssetImporter::detectType(const QString& filePath) {
     FileType ft = detector.detect(filePath);
     const VectorSourceKind vectorKind = vectorSourceKindForExtension(QFileInfo(filePath).suffix());
     
-    if (vectorKind != VectorSourceKind::Unknown || ft == FileType::Document) {
+    if (vectorKind != VectorSourceKind::Unknown || ft == FileType::Document ||
+        ft == FileType::Font) {
         return AssetType::Data;
     }
     if (ft == FileType::Text) {

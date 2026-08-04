@@ -15,6 +15,7 @@ module;
 #include <OpenImageIO/imagebuf.h>
 #include <future>
 #include <memory>
+#include <cmath>
 #include <thread>
 #include <vector>
 #include <algorithm>
@@ -37,6 +38,30 @@ ImageExportResult makeError(const QString& stage, const QString& message)
     result.errorStage = stage;
     result.errorMessage = message;
     return result;
+}
+
+bool applyICCProfile(OIIO::ImageSpec& spec, const ImageExportOptions& options,
+                     QString* errorMessage)
+{
+    QByteArray profile = options.iccProfileData;
+    if (profile.isEmpty() && !options.iccProfilePath.trimmed().isEmpty()) {
+        QFile file(options.iccProfilePath.trimmed());
+        if (!file.open(QIODevice::ReadOnly)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Could not read ICC profile: ") +
+                                file.errorString();
+            }
+            return false;
+        }
+        profile = file.readAll();
+    }
+    if (profile.isEmpty()) {
+        return true;
+    }
+
+    spec.attribute("ICCProfile", OIIO::TypeDesc::UINT8,
+                   profile.constData(), profile.size());
+    return true;
 }
 
 QString makeTemporaryPathNear(const QString& filePath)
@@ -107,6 +132,10 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
     spec.channelnames = {"R", "G", "B", "A"};
     const TypeDesc writeType = resolveWriteType(filePath, options);
     spec.format = writeType;
+    QString iccError;
+    if (!applyICCProfile(spec, options, &iccError)) {
+        return makeError("encode.metadata", iccError);
+    }
 
     if (!out->open(filePathUtf8.constData(), spec)) {
         return makeError("encode.open", "Could not open output: " + QString::fromUtf8(out->geterror()));
@@ -173,6 +202,10 @@ ImageExportResult encodeImageBufToPath(const OIIO::ImageBuf& imageBuf,
         : std::vector<std::string>{"R", "G", "B"};
     const TypeDesc writeType = resolveWriteType(filePath, options);
     spec.format = writeType;
+    QString iccError;
+    if (!applyICCProfile(spec, options, &iccError)) {
+        return makeError("encode.metadata", iccError);
+    }
 
     if (!out->open(filePathUtf8.constData(), spec)) {
         return makeError("encode.open", "Could not open output: " + QString::fromUtf8(out->geterror()));
@@ -465,6 +498,10 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
         spec.attribute("CompressionQuality", options.compressionQuality);
     }
     spec.set_colorspace(options.colorSpace.toUtf8().constData());
+    QString iccError;
+    if (!applyICCProfile(spec, options, &iccError)) {
+        return makeError("encode.metadata", iccError);
+    }
     applyStringAttributes(spec, options);
 
     // Build interleaved pixel buffer
@@ -472,14 +509,16 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
     for (std::size_t p = 0; p < pixelCount; ++p) {
         for (int c = 0; c < nch; ++c) {
             if (channelData[c]) {
-                interleaved[p * nch + c] = channelData[c]->data()[p];
+                const float value = channelData[c]->data()[p];
+                interleaved[p * nch + c] = std::isfinite(value) ? value : 0.0f;
                 continue;
             }
 
             const int syntheticIndex = syntheticChannelIndices[c];
             if (syntheticIndex >= 0 &&
                 syntheticIndex < static_cast<int>(syntheticStorage.size())) {
-                interleaved[p * nch + c] = syntheticStorage[syntheticIndex][p];
+                const float value = syntheticStorage[syntheticIndex][p];
+                interleaved[p * nch + c] = std::isfinite(value) ? value : 0.0f;
             }
         }
     }

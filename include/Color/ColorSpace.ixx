@@ -87,6 +87,12 @@ public:
     static float applyGamma(float value, GammaFunction gamma);
     static float removeGamma(float value, GammaFunction gamma);
 
+    // ACES fitted RRT+ODT-like display transform for scene-linear RGB.
+    // This dependency-free approximation is intended for preview/output
+    // fallback when a full OCIO processor is unavailable.
+    static std::array<float, 3> applyACESDisplayTransform(
+        const std::array<float, 3>& linearRgb, float exposure = 0.0f);
+
     // カラースペース情報
     static float getWhitePointX(ColorSpace space);
     static float getWhitePointY(ColorSpace space);

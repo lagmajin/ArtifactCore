@@ -1,6 +1,7 @@
 module;
 
 #include <vector>
+#include <algorithm>
 #include <cmath>
 #include <QObject>
 #include <QPointF>
@@ -121,14 +122,28 @@ public:
     }
 
     void fromJson(const QJsonObject& obj) override {
-        if (obj.contains("copies")) setCopies(obj["copies"].toInt());
-        if (obj.contains("offset")) setOffset(obj["offset"].toDouble());
-        if (obj.contains("anchorX")) setAnchorPoint(QPointF(obj["anchorX"].toDouble(), obj["anchorY"].toDouble()));
-        if (obj.contains("posX")) setPosition(QPointF(obj["posX"].toDouble(), obj["posY"].toDouble()));
-        if (obj.contains("scaleX")) setScale(QPointF(obj["scaleX"].toDouble(), obj["scaleY"].toDouble()));
-        if (obj.contains("rotation")) setRotation(obj["rotation"].toDouble());
-        if (obj.contains("startOpacity")) setStartOpacity(obj["startOpacity"].toDouble());
-        if (obj.contains("endOpacity")) setEndOpacity(obj["endOpacity"].toDouble());
+        const auto number = [&obj](const char* key, double fallback) {
+            const auto value = obj.value(QLatin1String(key));
+            const double result = value.toDouble(fallback);
+            return std::isfinite(result) ? result : fallback;
+        };
+        if (obj.contains("copies")) setCopies(std::clamp(obj["copies"].toInt(copies_), 0, 10000));
+        if (obj.contains("offset")) setOffset(static_cast<float>(number("offset", offset_)));
+        if (obj.contains("anchorX") || obj.contains("anchorY")) {
+            setAnchorPoint(QPointF(number("anchorX", anchorPoint_.x()),
+                                   number("anchorY", anchorPoint_.y())));
+        }
+        if (obj.contains("posX") || obj.contains("posY")) {
+            setPosition(QPointF(number("posX", position_.x()),
+                                number("posY", position_.y())));
+        }
+        if (obj.contains("scaleX") || obj.contains("scaleY")) {
+            setScale(QPointF(number("scaleX", scale_.x()),
+                             number("scaleY", scale_.y())));
+        }
+        if (obj.contains("rotation")) setRotation(static_cast<float>(number("rotation", rotation_)));
+        if (obj.contains("startOpacity")) setStartOpacity(static_cast<float>(std::clamp(number("startOpacity", startOpacity_), 0.0, 1.0)));
+        if (obj.contains("endOpacity")) setEndOpacity(static_cast<float>(std::clamp(number("endOpacity", endOpacity_), 0.0, 1.0)));
     }
 
     /**

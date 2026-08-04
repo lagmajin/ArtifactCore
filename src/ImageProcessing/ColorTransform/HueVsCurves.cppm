@@ -7,7 +7,6 @@ module;
 #include <QColor>
 
 module ImageProcessing.ColorTransform.HueVsCurves;
-import ImageProcessing.ColorTransform.HueVsCurves;
 
 namespace ArtifactCore {
 

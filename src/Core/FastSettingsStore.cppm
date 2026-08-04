@@ -13,7 +13,6 @@ module;
 #include <QStringList>
 
 module Core.FastSettingsStore;
-import Core.FastSettingsStore;
 
 import std;
 

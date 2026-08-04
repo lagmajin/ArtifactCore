@@ -145,8 +145,14 @@ public:
     void setFracture(float maxPlasticStrain, float fractureEnergy = 0.0f);
     void applyMaterialPreset(MpmMaterialPreset preset);
     void setDamping(float damping) { damping_ = std::clamp(damping, 0.0f, 1.0f); }
-    void setGravity(float gx, float gy) { gravityX_ = gx; gravityY_ = gy; }
-    void setTimeStep(float dt) { fixedDt_ = dt; }
+    void setGravity(float gx, float gy) {
+        gravityX_ = std::isfinite(gx) ? gx : 0.0f;
+        gravityY_ = std::isfinite(gy) ? gy : 980.0f;
+    }
+    void setTimeStep(float dt) {
+        if (std::isfinite(dt) && dt > 0.0f)
+            fixedDt_ = std::clamp(dt, 1.0e-6f, 0.1f);
+    }
     void setMaxSubsteps(int count) { maxSubsteps_ = std::clamp(count, 1, 1024); }
 
     // ---- particle population ----

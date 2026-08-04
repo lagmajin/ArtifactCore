@@ -5,7 +5,6 @@ module;
 #include <cmath>
 
 module Physics.Fracture;
-import Physics.Fracture;
 
 namespace ArtifactCore {
 

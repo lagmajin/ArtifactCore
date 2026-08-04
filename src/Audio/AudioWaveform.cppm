@@ -4,7 +4,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.Waveform;
-import Audio.Effect.Waveform;
 
 import Audio.Effect;
 import Audio.Segment;

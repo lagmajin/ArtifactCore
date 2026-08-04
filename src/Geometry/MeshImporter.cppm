@@ -278,6 +278,8 @@ public:
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
     auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
     auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    auto boneIndicesAttr = mesh->vertexAttributes().add<QVector4D>("boneIndices");
+    auto boneWeightsAttr = mesh->vertexAttributes().add<QVector4D>("boneWeights");
     auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
 
     int vertexOffset = 0;
@@ -866,16 +868,41 @@ public:
       (*normAttr)[i] = QVector3D(nx, ny, nz);
       (*uvAttr)[i] = QVector2D(u, 1.0f - v);
 
-      // Skip bone weight data for now
-      stream.skipRawData(6);
+      quint16 bone0 = 0;
+      quint16 bone1 = 0;
+      quint8 boneWeight = 0;
+      quint8 edgeFlag = 0;
+      stream >> bone0 >> bone1 >> boneWeight >> edgeFlag;
+      if (stream.status() != QDataStream::Ok) {
+        lastError_ = QStringLiteral("PMD: truncated vertex skin data");
+        return nullptr;
+      }
+      (void)edgeFlag;
+
+      const float firstWeight = std::clamp(
+          static_cast<float>(boneWeight) / 100.0f, 0.0f, 1.0f);
+      (*boneIndicesAttr)[i] = QVector4D(static_cast<float>(bone0),
+                                         static_cast<float>(bone1), -1.0f, -1.0f);
+      (*boneWeightsAttr)[i] = QVector4D(firstWeight, 1.0f - firstWeight,
+                                         0.0f, 0.0f);
     }
 
     quint32 faceCount;
     stream >> faceCount;
+    if (stream.status() != QDataStream::Ok || faceCount == 0 ||
+        faceCount > 3000000 || (faceCount % 3) != 0) {
+      lastError_ = QStringLiteral("PMD: invalid face index count");
+      return nullptr;
+    }
 
     for (quint32 i = 0; i < faceCount / 3; i++) {
       quint16 i0, i1, i2;
       stream >> i0 >> i1 >> i2;
+      if (stream.status() != QDataStream::Ok || i0 >= vertexCount ||
+          i1 >= vertexCount || i2 >= vertexCount) {
+        lastError_ = QStringLiteral("PMD: face index out of range");
+        return nullptr;
+      }
       mesh->addPolygon(
           {static_cast<int>(i0), static_cast<int>(i1), static_cast<int>(i2)});
     }

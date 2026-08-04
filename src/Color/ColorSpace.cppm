@@ -229,34 +229,112 @@ std::array<float, 16> ColorSpaceConverter::getConversionMatrix(ColorSpace from, 
 
 float ColorSpaceConverter::applyGamma(float value, GammaFunction gamma)
 {
+    const float safeValue = std::isfinite(value) ? value : 0.0f;
+    const auto signedPow = [](float x, float exponent) {
+        return std::copysign(std::pow(std::abs(x), exponent), x);
+    };
     switch (gamma) {
     case GammaFunction::Linear:
-        return value;
+        return safeValue;
     case GammaFunction::sRGB:
-        return value <= 0.0031308f ? value * 12.92f : 1.055f * std::pow(value, 1.0f / 2.4f) - 0.055f;
+        return safeValue < 0.0f ? safeValue * 12.92f
+             : safeValue <= 0.0031308f ? safeValue * 12.92f
+             : 1.055f * std::pow(safeValue, 1.0f / 2.4f) - 0.055f;
     case GammaFunction::Gamma22:
-        return std::pow(value, 1.0f / 2.2f);
+        return signedPow(safeValue, 1.0f / 2.2f);
     case GammaFunction::Gamma24:
-        return std::pow(value, 1.0f / 2.4f);
+        return signedPow(safeValue, 1.0f / 2.4f);
+    case GammaFunction::Gamma26:
+        return signedPow(safeValue, 1.0f / 2.6f);
+    case GammaFunction::PQ: {
+        constexpr float m1 = 2610.0f / 16384.0f;
+        constexpr float m2 = 2523.0f / 32.0f;
+        constexpr float c1 = 3424.0f / 4096.0f;
+        constexpr float c2 = 2413.0f / 128.0f;
+        constexpr float c3 = 2392.0f / 128.0f;
+        const float luminance = std::clamp(safeValue, 0.0f, 1.0f);
+        const float powered = std::pow(luminance, m1);
+        return std::pow((c1 + c2 * powered) / (1.0f + c3 * powered), m2);
+    }
+    case GammaFunction::HLG: {
+        constexpr float a = 0.17883277f;
+        constexpr float b = 0.28466892f;
+        constexpr float c = 0.55991073f;
+        const float luminance = std::clamp(safeValue, 0.0f, 1.0f);
+        return luminance <= (1.0f / 12.0f)
+            ? std::sqrt(3.0f * luminance)
+            : a * std::log(12.0f * luminance - b) + c;
+    }
     default:
-        return value;
+        return safeValue;
     }
 }
 
 float ColorSpaceConverter::removeGamma(float value, GammaFunction gamma)
 {
+    const float safeValue = std::isfinite(value) ? value : 0.0f;
+    const auto signedPow = [](float x, float exponent) {
+        return std::copysign(std::pow(std::abs(x), exponent), x);
+    };
     switch (gamma) {
     case GammaFunction::Linear:
-        return value;
+        return safeValue;
     case GammaFunction::sRGB:
-        return value <= 0.04045f ? value / 12.92f : std::pow((value + 0.055f) / 1.055f, 2.4f);
+        return safeValue < 0.0f ? safeValue / 12.92f
+             : safeValue <= 0.04045f ? safeValue / 12.92f
+             : std::pow((safeValue + 0.055f) / 1.055f, 2.4f);
     case GammaFunction::Gamma22:
-        return std::pow(value, 2.2f);
+        return signedPow(safeValue, 2.2f);
     case GammaFunction::Gamma24:
-        return std::pow(value, 2.4f);
-    default:
-        return value;
+        return signedPow(safeValue, 2.4f);
+    case GammaFunction::Gamma26:
+        return signedPow(safeValue, 2.6f);
+    case GammaFunction::PQ: {
+        constexpr float m1 = 2610.0f / 16384.0f;
+        constexpr float m2 = 2523.0f / 32.0f;
+        constexpr float c1 = 3424.0f / 4096.0f;
+        constexpr float c2 = 2413.0f / 128.0f;
+        constexpr float c3 = 2392.0f / 128.0f;
+        const float encoded = std::clamp(safeValue, 0.0f, 1.0f);
+        const float powered = std::pow(encoded, 1.0f / m2);
+        const float numerator = std::max(powered - c1, 0.0f);
+        const float denominator = c2 - c3 * powered;
+        return denominator > 1.0e-8f
+            ? std::pow(numerator / denominator, 1.0f / m1) : 0.0f;
     }
+    case GammaFunction::HLG: {
+        constexpr float a = 0.17883277f;
+        constexpr float b = 0.28466892f;
+        constexpr float c = 0.55991073f;
+        const float encoded = std::clamp(safeValue, 0.0f, 1.0f);
+        return encoded <= 0.5f
+            ? (encoded * encoded) / 3.0f
+            : (std::exp((encoded - c) / a) + b) / 12.0f;
+    }
+    default:
+        return safeValue;
+    }
+}
+
+std::array<float, 3> ColorSpaceConverter::applyACESDisplayTransform(
+    const std::array<float, 3>& linearRgb, float exposure)
+{
+    const float safeExposure = std::isfinite(exposure) ? exposure : 0.0f;
+    const float exposureScale = std::exp2(std::clamp(safeExposure, -16.0f, 16.0f));
+    std::array<float, 3> output{};
+
+    // ACES fitted curve (Stephen Hill / Narkowicz form), applied in the
+    // scene-linear working space. Negative and non-finite input is clamped
+    // before the display encoding so it cannot produce NaN output.
+    for (int i = 0; i < 3; ++i) {
+        const float x = std::max(0.0f, std::isfinite(linearRgb[i])
+            ? linearRgb[i] * exposureScale : 0.0f);
+        const float numerator = x * (x + 0.0245786f) - 0.000090537f;
+        const float denominator = x * (0.983729f * x + 0.4329510f) + 0.238081f;
+        const float mapped = denominator > 1.0e-8f ? numerator / denominator : 0.0f;
+        output[i] = std::clamp(mapped, 0.0f, 1.0f);
+    }
+    return output;
 }
 
 float ColorSpaceConverter::getWhitePointX(ColorSpace space)

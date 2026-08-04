@@ -36,7 +36,6 @@ module;
 #include <regex>
 #include <random>
 module Analyze.Histogram;
-import Analyze.Histogram;
 
 namespace ArtifactCore {
 

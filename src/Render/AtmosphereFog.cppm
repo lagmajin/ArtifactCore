@@ -30,6 +30,19 @@ inline Color lerpColor(const Color& a, const Color& b, float t) noexcept {
 
 void AtmosphereFogRenderer::setSettings(const AtmosphereFogSettings& settings) {
     settings_ = settings;
+    settings_.density = std::isfinite(settings_.density)
+        ? std::max(0.0f, settings_.density) : 0.0f;
+    settings_.heightFalloff = std::isfinite(settings_.heightFalloff)
+        ? std::max(0.0f, settings_.heightFalloff) : 0.0f;
+    settings_.absorption = std::isfinite(settings_.absorption)
+        ? std::max(0.0f, settings_.absorption) : 0.0f;
+    settings_.scattering = std::isfinite(settings_.scattering)
+        ? std::max(0.0f, settings_.scattering) : 0.0f;
+    settings_.sunIntensity = std::isfinite(settings_.sunIntensity)
+        ? std::max(0.0f, settings_.sunIntensity) : 0.0f;
+    settings_.samples = std::clamp(settings_.samples, 1, 4096);
+    settings_.maxDistance = std::isfinite(settings_.maxDistance)
+        ? std::max(0.0f, settings_.maxDistance) : 0.0f;
 }
 
 float AtmosphereFogRenderer::heightDensity(float height) const noexcept {
@@ -88,7 +101,9 @@ Color AtmosphereFogRenderer::evaluateFog(const Ray& ray, float tMax, const Color
 }
 
 Color AtmosphereFogRenderer::applyToPixel(const Color& pixelColor, float depth, float nearPlane, float farPlane) const noexcept {
-    if (!settings_.enabled || depth < nearPlane) return pixelColor;
+    if (!settings_.enabled || !std::isfinite(depth) ||
+        !std::isfinite(nearPlane) || !std::isfinite(farPlane) ||
+        farPlane <= nearPlane || depth < nearPlane) return pixelColor;
 
     const float clampedDepth = std::clamp(depth, nearPlane, farPlane);
     const float maxDist = std::min(settings_.maxDistance, farPlane - nearPlane);
@@ -111,7 +126,8 @@ Color AtmosphereFogRenderer::applyToPixel(const Color& pixelColor, float depth, 
 
 ImageBuffer AtmosphereFogRenderer::applyToImage(const ImageBuffer& depthBuffer, const ImageBuffer& colorBuffer,
                                                   float nearPlane, float farPlane) const noexcept {
-    if (!settings_.enabled) return colorBuffer;
+    if (!settings_.enabled || !std::isfinite(nearPlane) ||
+        !std::isfinite(farPlane) || farPlane <= nearPlane) return colorBuffer;
 
     ImageBuffer result = colorBuffer;
     const int w = std::min(depthBuffer.width, colorBuffer.width);

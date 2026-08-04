@@ -42,7 +42,6 @@ module;
 #include <regex>
 #include <random>
 module Transform.Scale2D;
-import Transform.Scale2D;
 
 namespace ArtifactCore {
  

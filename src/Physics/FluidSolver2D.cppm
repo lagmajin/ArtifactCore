@@ -5,7 +5,6 @@ module;
 #include <cmath>
 
 module Physics.Fluid;
-import Physics.Fluid;
 
 namespace ArtifactCore {
 

@@ -2,9 +2,8 @@ module;
 #include <utility>
 
 #include "../Define/DllExportMacro.hpp"
-export module Core.UniformScale;
-
 #include <QString>
+export module Core.UniformScale;
 
 
 export namespace ArtifactCore

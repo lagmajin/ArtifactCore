@@ -401,9 +401,11 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
     QVariant defaultValue;
     QString propertyName;
     QString expression;
+    std::vector<KeyFrame> keyframes;
     {
         std::shared_lock lock(pImpl->m_mutex);
         envelopes = pImpl->m_envelopes;
+        keyframes = pImpl->m_keyFrames;
         propertyType = pImpl->m_type;
         defaultValue = pImpl->m_defaultValue;
         propertyName = pImpl->m_name;
@@ -479,6 +481,19 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
             evaluator->setVariable("value", qvariantToExpressionValue(baseValue, propertyType));
             evaluator->setVariable("time", ExpressionValue(time.toDouble()));
             evaluator->setVariable("frameRate", ExpressionValue(frameRate));
+
+            // Provide the keyframe context consumed by AE-style loop functions.
+            // Keep this as evaluator variables so the expression API remains
+            // independent from AbstractProperty's concrete storage.
+            std::vector<ExpressionValue> loopKeyframes;
+            loopKeyframes.reserve(keyframes.size());
+            for (const auto& keyframe : keyframes) {
+                std::map<std::string, ExpressionValue> entry;
+                entry.emplace("time", ExpressionValue(keyframe.time.toDouble()));
+                entry.emplace("value", qvariantToExpressionValue(keyframe.value, propertyType));
+                loopKeyframes.emplace_back(ExpressionValue(entry));
+            }
+            evaluator->setVariable("keyframes", ExpressionValue(loopKeyframes));
 
             ExpressionValue result = evaluator->evaluate(ZeroString(expression.toUtf8().constData()));
             if (!evaluator->hasError()) {

@@ -348,25 +348,32 @@ namespace ArtifactCore {
  }
 
  QString FrameRange::toTimecode(double fps) const {
-  if (fps <= 0.0) return QString();
-  
-  auto startSec = impl_->start_ / fps;
-  auto endSec = impl_->end_ / fps;
-  
-  auto formatTime = [fps](double seconds) {
-   int hours = static_cast<int>(seconds / 3600);
-   int minutes = static_cast<int>((seconds - hours * 3600) / 60);
-   int secs = static_cast<int>(seconds - hours * 3600 - minutes * 60);
-   int frames = static_cast<int>((seconds - static_cast<int>(seconds)) * fps);
-   
-   return QString("%1:%2:%3:%4")
+  if (!std::isfinite(fps) || fps <= 0.0) return QString();
+
+  const int nominalFps = std::max(1, static_cast<int>(std::llround(fps)));
+  auto formatTime = [nominalFps](int64_t frame) {
+   const bool negative = frame < 0;
+   uint64_t absolute = negative
+       ? static_cast<uint64_t>(-(frame + 1)) + 1u
+       : static_cast<uint64_t>(frame);
+   const uint64_t framesPerHour = static_cast<uint64_t>(nominalFps) * 3600u;
+   const uint64_t framesPerMinute = static_cast<uint64_t>(nominalFps) * 60u;
+   const int hours = static_cast<int>(absolute / framesPerHour);
+   absolute %= framesPerHour;
+   const int minutes = static_cast<int>(absolute / framesPerMinute);
+   absolute %= framesPerMinute;
+   const int secs = static_cast<int>(absolute / static_cast<uint64_t>(nominalFps));
+   const int frames = static_cast<int>(absolute % static_cast<uint64_t>(nominalFps));
+
+   const QString code = QString("%1:%2:%3:%4")
     .arg(hours, 2, 10, QChar('0'))
     .arg(minutes, 2, 10, QChar('0'))
     .arg(secs, 2, 10, QChar('0'))
     .arg(frames, 2, 10, QChar('0'));
+   return negative ? QStringLiteral("-") + code : code;
   };
-  
-  return formatTime(startSec) + " - " + formatTime(endSec);
+
+  return formatTime(impl_->start_) + QStringLiteral(" - ") + formatTime(impl_->end_);
  }
 
  QString FrameRange::toTimecode(const FrameRate& rate) const {

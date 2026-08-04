@@ -72,6 +72,10 @@ public:
     // 3. 現在計算されているアルファマスク(0~255)を取得
     cv::Mat getCurrentMask() const;
 
+    // 現在のマスクから孤立点を除去し、穴を埋める後処理。
+    // radius は 0 の場合は何もせず、正数は楕円カーネル半径として扱う。
+    void refineCurrentMask(int radius = 1);
+
     // 現在のセッション（トラッキングキャッシュなど）をリセット
     void reset();
 };

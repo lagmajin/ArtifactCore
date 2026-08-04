@@ -3,7 +3,6 @@ module;
 #include <QDebug>
 
 module Core.AI.TieredAIManager;
-import Core.AI.TieredAIManager;
 
 import std;
 import Core.AI.Context;

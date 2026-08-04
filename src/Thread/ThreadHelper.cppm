@@ -15,7 +15,6 @@ module;
 #include <tlhelp32.h>
 #endif
 module Thread.Helper;
-import Thread.Helper;
 
 import std;
 

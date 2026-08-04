@@ -35,6 +35,10 @@ ASIOBackendStub::~ASIOBackendStub() {
 bool ASIOBackendStub::open(const AudioDeviceInfo& device,
                            const AudioBackendFormat& format)
 {
+    if (!device.isValid() || !format.isValid()) {
+        qWarning() << "[ASIOBackendStub] Invalid device or format";
+        return false;
+    }
     if (impl_->isOpen_) {
         qWarning() << "[ASIOBackendStub] Already open";
         return false;
@@ -64,7 +68,7 @@ void ASIOBackendStub::close() {
 }
 
 void ASIOBackendStub::start(AudioCallback callback) {
-    if (!impl_->isOpen_) {
+    if (!impl_->isOpen_ || !callback) {
         qWarning() << "[ASIOBackendStub] start() called but not open";
         return;
     }
@@ -99,7 +103,7 @@ AudioBackendFormat ASIOBackendStub::currentFormat() const {
 }
 
 QString ASIOBackendStub::backendName() const {
-    return QString::fromUtf8("ASIO(stub)");
+    return QString::fromUtf8("ASIO (WASAPI fallback)");
 }
 
 } // namespace ArtifactCore

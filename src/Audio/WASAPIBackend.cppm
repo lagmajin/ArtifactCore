@@ -194,6 +194,11 @@ bool WASAPIBackend::open(const AudioDeviceInfo &device,
                          const AudioBackendFormat &format) {
   close();
 
+  if (format.sampleRate < 8000 || format.sampleRate > 384000 ||
+      format.channelCount < 1 || format.channelCount > 8) {
+    return false;
+  }
+
   impl_->deviceName = device.description;
   impl_->currentFormat = format;
 
@@ -211,7 +216,40 @@ bool WASAPIBackend::open(const AudioDeviceInfo &device,
     return false;
   }
 
-  hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &impl_->device);
+  if (!device.description.isEmpty()) {
+    IMMDeviceCollection *collection = nullptr;
+    hr = enumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE,
+                                        &collection);
+    if (SUCCEEDED(hr) && collection) {
+      UINT count = 0;
+      collection->GetCount(&count);
+      for (UINT index = 0; index < count && !impl_->device; ++index) {
+        IMMDevice *candidate = nullptr;
+        if (FAILED(collection->Item(index, &candidate)) || !candidate) {
+          continue;
+        }
+        IPropertyStore *store = nullptr;
+        PROPVARIANT value;
+        PropVariantInit(&value);
+        if (SUCCEEDED(candidate->OpenPropertyStore(STGM_READ, &store)) &&
+            store && SUCCEEDED(store->GetValue(PKEY_Device_FriendlyName, &value)) &&
+            value.vt == VT_LPWSTR && value.pwszVal &&
+            QString::fromWCharArray(value.pwszVal) == device.description) {
+          impl_->device = candidate;
+          candidate = nullptr;
+        }
+        PropVariantClear(&value);
+        if (store) store->Release();
+        if (candidate) candidate->Release();
+      }
+      collection->Release();
+    }
+  }
+  if (!impl_->device) {
+    hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &impl_->device);
+  } else {
+    hr = S_OK;
+  }
   enumerator->Release();
   if (FAILED(hr) || !impl_->device) {
     impl_->releaseCom();

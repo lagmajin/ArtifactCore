@@ -457,6 +457,30 @@ void ArtifactAppSettings::setTimelineMotionBlurActive(bool enable) {
     Q_EMIT settingsChanged();
 }
 
+double ArtifactAppSettings::timelineMotionBlurShutterAngle() const {
+    return std::clamp(impl_->store.value(
+        QStringLiteral("UI/Timeline/MotionBlurShutterAngle"), 180.0).toDouble(),
+        0.0, 720.0);
+}
+
+void ArtifactAppSettings::setTimelineMotionBlurShutterAngle(double degrees) {
+    impl_->store.setValue(QStringLiteral("UI/Timeline/MotionBlurShutterAngle"),
+                          std::clamp(std::isfinite(degrees) ? degrees : 180.0,
+                                     0.0, 720.0));
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::timelineMotionBlurSampleCount() const {
+    return std::clamp(static_cast<int>(impl_->store.valueInt64(
+        QStringLiteral("UI/Timeline/MotionBlurSampleCount"), 8)), 1, 32);
+}
+
+void ArtifactAppSettings::setTimelineMotionBlurSampleCount(int count) {
+    impl_->store.setValue(QStringLiteral("UI/Timeline/MotionBlurSampleCount"),
+                          std::clamp(count, 1, 32));
+    Q_EMIT settingsChanged();
+}
+
 bool ArtifactAppSettings::timelineFrameBlendingActive() const {
     return impl_->store.valueBool("UI/Timeline/FrameBlendingActive", false);
 }

@@ -193,24 +193,25 @@ public:
 
         QPainterPath combined = inputPaths.front().toPainterPath();
         for (size_t i = 1; i < inputPaths.size(); ++i) {
-            const QPainterPath path = inputPaths[i].toPainterPath();
+            const QPainterPath lhs = combined;
+            const QPainterPath rhs = inputPaths[i].toPainterPath();
             switch (mode_) {
             case Add:
-                combined = combined.united(path);
+                combined = lhs.united(rhs);
                 break;
             case Subtract:
-                combined = combined.subtracted(path);
+                combined = lhs.subtracted(rhs);
                 break;
             case Intersect:
-                combined = combined.intersected(path);
+                combined = lhs.intersected(rhs);
                 break;
             case Difference:
-                // XOR = united - intersected
-                combined = combined.united(path).subtracted(combined.intersected(path));
+                // XOR = (A union B) - (A intersection B).
+                combined = lhs.united(rhs).subtracted(lhs.intersected(rhs));
                 break;
             case Merge:
                 // 単純結合: 複数パスをそのまま結合
-                combined.addPath(path);
+                combined.addPath(rhs);
                 break;
             }
         }

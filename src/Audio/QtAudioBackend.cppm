@@ -58,6 +58,10 @@ public:
     // AudioBackend interface
     bool open(const AudioDeviceInfo& device, const AudioBackendFormat& format) override {
         close();
+        if (format.sampleRate < 8000 || format.sampleRate > 384000 ||
+            format.channelCount < 1 || format.channelCount > 8) {
+            return false;
+        }
         
         format_ = format;
         QAudioFormat qtFormat;
@@ -66,7 +70,11 @@ public:
         qtFormat.setSampleFormat(format_.sampleFormat == AudioBackendSampleFormat::Float32
                                      ? QAudioFormat::Float
                                      : QAudioFormat::Int16);
-        audioSink_ = std::make_unique<QAudioSink>(resolveDevice(device), qtFormat);
+        const QAudioDevice resolvedDevice = resolveDevice(device);
+        if (resolvedDevice.isNull() || !resolvedDevice.isFormatSupported(qtFormat)) {
+            return false;
+        }
+        audioSink_ = std::make_unique<QAudioSink>(resolvedDevice, qtFormat);
         
         if (!QIODevice::open(QIODevice::ReadOnly)) {
             return false;
@@ -112,6 +120,9 @@ public:
 
     // QIODevice interface (called by QAudioSink to pull data)
     qint64 readData(char* data, qint64 maxlen) override {
+        if (!data || maxlen <= 0) {
+            return 0;
+        }
         AudioCallback callback;
         {
             QMutexLocker locker(&mutex_);
@@ -132,17 +143,24 @@ public:
 
         if (sampleFormat == AudioBackendSampleFormat::Float32) {
             const int sampleSize = static_cast<int>(sizeof(float));
-            const int frames = static_cast<int>(maxlen / (sampleSize * channels));
+            const qint64 frameBytes = static_cast<qint64>(sampleSize) * channels;
+            const int frames = static_cast<int>(maxlen / frameBytes);
             if (frames > 0) {
                 callback(reinterpret_cast<float*>(data), frames, channels);
+            }
+            const qint64 written = static_cast<qint64>(frames) * frameBytes;
+            if (written < maxlen) {
+                std::memset(data + written, 0, static_cast<size_t>(maxlen - written));
             }
             return maxlen;
         }
 
         if (sampleFormat == AudioBackendSampleFormat::Int16) {
-            const int frames = static_cast<int>(maxlen / (static_cast<int>(sizeof(qint16)) * channels));
+            const qint64 frameBytes = static_cast<qint64>(sizeof(qint16)) * channels;
+            const int frames = static_cast<int>(maxlen / frameBytes);
             if (frames <= 0) {
-                return 0;
+                std::memset(data, 0, static_cast<size_t>(maxlen));
+                return maxlen;
             }
 
             QVector<float> tempBuffer(frames * channels, 0.0f);
@@ -153,7 +171,11 @@ public:
                 const float sample = std::clamp(tempBuffer[i], -1.0f, 1.0f);
                 out[i] = static_cast<qint16>(std::lround(sample * 32768.0f));
             }
-            return static_cast<qint64>(frames) * channels * static_cast<qint64>(sizeof(qint16));
+            const qint64 written = static_cast<qint64>(frames) * frameBytes;
+            if (written < maxlen) {
+                std::memset(data + written, 0, static_cast<size_t>(maxlen - written));
+            }
+            return maxlen;
         }
 
         qWarning() << "[QtAudioBackend] Unsupported output sample format"

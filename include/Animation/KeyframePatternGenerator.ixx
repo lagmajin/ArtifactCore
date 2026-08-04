@@ -1,6 +1,7 @@
 module;
 
 #include <QMetaType>
+#include <QPointF>
 #include <QString>
 #include <QVariant>
 #include <QVector>
@@ -68,9 +69,20 @@ struct KeyframePatternResult {
   QString warning;
 };
 
+struct TrajectoryKeyframe {
+  RationalTime time;
+  QPointF value;
+};
+
 class KeyframePatternGenerator {
 public:
   static KeyframePatternResult generate(const KeyframePatternRequest &request);
+  // Convert a sampled 2D motion path into deterministic keyframe candidates.
+  // Invalid samples are ignored; the remaining path is linearly resampled to
+  // the requested frame count.
+  static QVector<TrajectoryKeyframe> generateFromTrajectory(
+      const QVector<QPointF> &trajectory, int startFrame, int numFrames,
+      int frameScale = 1);
   static QString presetLabel(KeyframePatternPreset preset);
 };
 
@@ -216,6 +228,42 @@ inline QString KeyframePatternGenerator::presetLabel(KeyframePatternPreset prese
   case KeyframePatternPreset::BeatSync: return QStringLiteral("Beat Sync");
   }
   return QStringLiteral("Pattern");
+}
+
+inline QVector<TrajectoryKeyframe> KeyframePatternGenerator::generateFromTrajectory(
+    const QVector<QPointF> &trajectory, const int startFrame, const int numFrames,
+    const int frameScale) {
+  QVector<QPointF> validSamples;
+  validSamples.reserve(trajectory.size());
+  for (const QPointF &sample : trajectory) {
+    if (std::isfinite(sample.x()) && std::isfinite(sample.y())) {
+      validSamples.push_back(sample);
+    }
+  }
+  if (validSamples.isEmpty() || numFrames <= 0) return {};
+
+  const int outputCount = std::max(1, numFrames);
+  const int maxSampleIndex = static_cast<int>(validSamples.size() - 1);
+  QVector<TrajectoryKeyframe> result;
+  result.reserve(outputCount);
+  for (int i = 0; i < outputCount; ++i) {
+    const double alpha = outputCount == 1
+                             ? 0.0
+                             : static_cast<double>(i) /
+                                   static_cast<double>(outputCount - 1);
+    const double sourcePosition = alpha * static_cast<double>(validSamples.size() - 1);
+    const int left = std::clamp(static_cast<int>(std::floor(sourcePosition)),
+                                0, maxSampleIndex);
+    const int right = std::min(left + 1, maxSampleIndex);
+    const double localAlpha = sourcePosition - static_cast<double>(left);
+    const QPointF value = validSamples[left] * (1.0 - localAlpha) +
+                          validSamples[right] * localAlpha;
+    result.push_back({RationalTime(static_cast<int64_t>(startFrame) +
+                                       static_cast<int64_t>(i),
+                                   static_cast<int64_t>(std::max(1, frameScale))),
+                      value});
+  }
+  return result;
 }
 
 inline KeyframePatternResult KeyframePatternGenerator::generate(const KeyframePatternRequest &request) {

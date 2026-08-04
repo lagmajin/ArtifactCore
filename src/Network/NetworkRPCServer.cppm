@@ -26,7 +26,6 @@ module;
 #include <cstdint>
 
 module NetworkRPCServer;
-import NetworkRPCServer;
 
 namespace ArtifactCore {
 

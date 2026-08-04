@@ -13,6 +13,7 @@ module;
 #include <optional>
 #include <utility>
 #include <array>
+#include <functional>
 //#include <mutex>
 //#include <thread>
 #include <chrono>
@@ -49,7 +50,11 @@ export namespace ArtifactCore {
  */
 class CorePythonAPI {
 public:
+    using CompositionBridge = std::function<std::string(
+        const std::string&, const std::vector<std::string>&)>;
+
     static void registerAll();
+    static void setCompositionBridge(CompositionBridge bridge);
 
 private:
     static void registerMathAPI();

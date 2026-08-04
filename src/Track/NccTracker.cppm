@@ -30,6 +30,18 @@ NccResult NccTracker::trackOneFrame(
 
     const int pw = prevFrame.width();
     const int ph = prevFrame.height();
+    if (pw <= 0 || ph <= 0 || currFrame.width() != pw || currFrame.height() != ph) {
+        return result;
+    }
+
+    const auto validBox = [](const NccBox& box) {
+        return std::isfinite(box.cx) && std::isfinite(box.cy) &&
+               std::isfinite(box.halfW) && std::isfinite(box.halfH) &&
+               box.halfW > 0.0f && box.halfH > 0.0f;
+    };
+    if (!validBox(innerBox) || !validBox(outerBox)) {
+        return result;
+    }
 
     const int tx = static_cast<int>(innerBox.cx - innerBox.halfW);
     const int ty = static_cast<int>(innerBox.cy - innerBox.halfH);
@@ -70,7 +82,9 @@ NccResult NccTracker::trackOneFrame(
     cv::Mat searchRegion = currGray(cv::Rect(searchX, searchY, searchW, searchH));
 
     cv::Mat resultMap;
-    cv::matchTemplate(searchRegion, tmpl, resultMap, cv::TM_CCORR_NORMED);
+    // Zero-mean normalized correlation is less sensitive to uniform
+    // exposure/black-level changes between consecutive frames.
+    cv::matchTemplate(searchRegion, tmpl, resultMap, cv::TM_CCOEFF_NORMED);
 
     double minVal, maxVal;
     cv::Point minLoc, maxLoc;
@@ -89,8 +103,12 @@ NccResult NccTracker::trackOneFrame(
         float cx1 = val(-1, 0), cx2 = val(1, 0);
         float cy1 = val(0, -1), cy2 = val(0, 1);
 
-        float dx = (cx2 - cx1) / (2.0f * (2.0f * c0 - cx1 - cx2));
-        float dy = (cy2 - cy1) / (2.0f * (2.0f * c0 - cy1 - cy2));
+        const float denomX = 2.0f * (2.0f * c0 - cx1 - cx2);
+        const float denomY = 2.0f * (2.0f * c0 - cy1 - cy2);
+        const float dx = std::abs(denomX) > 1.0e-6f
+            ? (cx2 - cx1) / denomX : 0.0f;
+        const float dy = std::abs(denomY) > 1.0e-6f
+            ? (cy2 - cy1) / denomY : 0.0f;
 
         if (std::isfinite(dx) && std::isfinite(dy)) {
             peakX += dx;
@@ -100,8 +118,10 @@ NccResult NccTracker::trackOneFrame(
 
     result.x = peakX;
     result.y = peakY;
-    result.confidence = confidence;
-    result.valid = (confidence > 0.3f);
+    result.confidence = std::isfinite(confidence)
+        ? std::clamp(confidence, 0.0f, 1.0f) : 0.0f;
+    result.valid = result.confidence > 0.3f &&
+                   std::isfinite(result.x) && std::isfinite(result.y);
     return result;
 }
 
@@ -114,25 +134,36 @@ void NccTracker::trackRange(
     bool subpixel)
 {
     results.clear();
-    if (frames.empty() || startIndex < 0 || endIndex >= static_cast<int>(frames.size()) || startIndex >= endIndex) {
+    if (frames.empty() || startIndex < 0 || endIndex >= static_cast<int>(frames.size()) ||
+        startIndex > endIndex) {
         return;
     }
 
     results.reserve(static_cast<size_t>(endIndex - startIndex + 1));
 
     NccBox currentInner = innerBox;
+    NccBox currentOuter = outerBox;
 
-    for (int i = startIndex; i <= endIndex; ++i) {
-        const ImageF32x4_RGBA& prev = (i == startIndex) ? frames[i] : frames[i - 1];
+    NccResult initial;
+    initial.x = currentInner.cx;
+    initial.y = currentInner.cy;
+    initial.confidence = 1.0f;
+    initial.valid = true;
+    results.push_back(initial);
+
+    for (int i = startIndex + 1; i <= endIndex; ++i) {
+        const ImageF32x4_RGBA& prev = frames[i - 1];
         const ImageF32x4_RGBA& curr = frames[i];
 
-        NccResult r = trackOneFrame(prev, curr, currentInner, outerBox, subpixel);
+        NccResult r = trackOneFrame(prev, curr, currentInner, currentOuter, subpixel);
 
         if (r.valid) {
             float dx = r.x - currentInner.cx;
             float dy = r.y - currentInner.cy;
             currentInner.cx = r.x;
             currentInner.cy = r.y;
+            currentOuter.cx += dx;
+            currentOuter.cy += dy;
         }
 
         results.push_back(r);
@@ -140,4 +171,3 @@ void NccTracker::trackRange(
 }
 
 }
-

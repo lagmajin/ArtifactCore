@@ -11,6 +11,8 @@ export import :Hint;
 export namespace ArtifactCore {
 
 
+ void allocConsole();
+ // Backward-compatible spelling retained for existing callers.
  void allocConsle();
 
 

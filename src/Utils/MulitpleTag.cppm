@@ -39,7 +39,6 @@ module;
 #include <regex>
 #include <random>
 module Utils.MultipleTag;
-import Utils.MultipleTag;
 
 namespace ArtifactCore {
 

@@ -76,6 +76,10 @@ public:
 
     void kill(size_t index) {
         if (index < particles_.size()) {
+            if (std::find(freeIndices_.begin(), freeIndices_.end(), index) !=
+                freeIndices_.end()) {
+                return;
+            }
             freeIndices_.push_back(index);
         }
     }
@@ -152,8 +156,18 @@ public:
     // フィールド形状設定
     void setShape(FieldShape shape) { shape_ = shape; }
     void setFalloff(FalloffType type) { falloff_ = type; }
-    void setSphere(float radius, float feather) { shape_ = FieldShape::Sphere; radius_ = radius; feather_ = feather; }
-    void setBox(float3 size, float feather) { shape_ = FieldShape::Box; size_ = size; feather_ = feather; }
+    void setSphere(float radius, float feather) {
+        shape_ = FieldShape::Sphere;
+        radius_ = std::isfinite(radius) ? std::max(0.0f, radius) : 0.0f;
+        feather_ = std::isfinite(feather) ? std::max(0.0f, feather) : 0.0f;
+    }
+    void setBox(float3 size, float feather) {
+        shape_ = FieldShape::Box;
+        size_ = {std::isfinite(size.x) ? std::max(0.0f, size.x) : 0.0f,
+                 std::isfinite(size.y) ? std::max(0.0f, size.y) : 0.0f,
+                 std::isfinite(size.z) ? std::max(0.0f, size.z) : 0.0f};
+        feather_ = std::isfinite(feather) ? std::max(0.0f, feather) : 0.0f;
+    }
 
 protected:
     Type type_;
@@ -181,7 +195,11 @@ public:
         p.velocity.z += gravity_.z * static_cast<float>(dt);
     }
 
-    void setGravity(float x, float y, float z) { gravity_ = {x, y, z}; }
+    void setGravity(float x, float y, float z) {
+        gravity_ = {std::isfinite(x) ? x : 0.0f,
+                    std::isfinite(y) ? y : -9.81f,
+                    std::isfinite(z) ? z : 0.0f};
+    }
     float3 getGravity() const { return gravity_; }
 
 private:
@@ -202,12 +220,13 @@ public:
     }
 
     void setDirection(float x, float y, float z) {
+        if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) return;
         float len = std::sqrt(x*x + y*y + z*z);
         if (len > 0.0f) {
             direction_ = {x/len, y/len, z/len};
         }
     }
-    void setStrength(float strength) { strength_ = strength; }
+    void setStrength(float strength) { strength_ = std::isfinite(strength) ? strength : 0.0f; }
     float getStrength() const { return strength_; }
 
 private:
@@ -230,7 +249,7 @@ public:
         p.velocity.z += dist(rng_) * strength;
     }
 
-    void setStrength(float strength) { strength_ = strength; }
+    void setStrength(float strength) { strength_ = std::isfinite(strength) ? strength : 0.0f; }
     float getStrength() const { return strength_; }
 
 private:
@@ -262,7 +281,7 @@ public:
     }
 
     void setCenter(float x, float y, float z) { center_ = {x, y, z}; }
-    void setStrength(float strength) { strength_ = strength; }
+    void setStrength(float strength) { strength_ = std::isfinite(strength) ? strength : 0.0f; }
 
 private:
     float3 center_{0.0f, 0.0f, 0.0f};
@@ -538,10 +557,15 @@ public:
     ParticleEmitter();
     virtual ~ParticleEmitter() = default;
 
-    void _emit(ParticlePool<>& pool, size_t count);
-    void update(double dt, ParticlePool<>& pool);
+    void _emit(ParticlePool<>& pool, size_t count, size_t maxParticles = 0);
+    void update(double dt, ParticlePool<>& pool, size_t maxParticles = 0);
 
-    void setConfig(const EmissionConfig& config) { config_ = config; }
+    void setConfig(const EmissionConfig& config) {
+        config_ = config;
+        accumulator_ = 0.0;
+        burstInitialized_ = false;
+        burstAccumulator_ = 0.0;
+    }
     const EmissionConfig& getConfig() const { return config_; }
 
     void setShape(Shape shape) { shape_ = shape; }
@@ -559,11 +583,21 @@ public:
     void addSubEmitter(const SubEmitterConfig& sub) { subEmitters_.push_back(sub); }
     void clearSubEmitters() { subEmitters_.clear(); }
     const std::vector<SubEmitterConfig>& getSubEmitters() const { return subEmitters_; }
+    std::uint64_t emitterToken() const {
+        return static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(this));
+    }
 
     // ジオメトリ・レイヤーソース
     void setMeshSource(SharedPtr<Mesh> mesh) { meshSource_ = std::move(mesh); }
-    void setLayerSource(void* texture) { layerSource_ = texture; } // placeholder
-    void setColorInheritance(float amount) { colorInheritance_ = amount; }
+    void setLayerSource(void* texture) { layerSource_ = texture; }
+    using LayerPositionSampler = std::function<float3(float, float)>;
+    void setLayerPositionSampler(LayerPositionSampler sampler) {
+        layerPositionSampler_ = std::move(sampler);
+    }
+    bool hasLayerPositionSampler() const { return static_cast<bool>(layerPositionSampler_); }
+    void setColorInheritance(float amount) {
+        colorInheritance_ = std::isfinite(amount) ? std::clamp(amount, 0.0f, 1.0f) : 0.0f;
+    }
 
 protected:
     virtual void initParticle(Particle& p);
@@ -580,9 +614,12 @@ protected:
     // Geometry sources
     SharedPtr<Mesh> meshSource_;
     void* layerSource_ = nullptr;
+    LayerPositionSampler layerPositionSampler_;
     float colorInheritance_ = 0.0f;
 
     double accumulator_ = 0.0;
+    double burstAccumulator_ = 0.0;
+    bool burstInitialized_ = false;
     mutable std::mt19937 rng_{std::random_device{}()};
 };
 

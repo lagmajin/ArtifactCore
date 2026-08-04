@@ -2,7 +2,6 @@ module;
 #include <utility>
 
 module Animation.Transform2D;
-import Animation.Transform2D;
 
 import Animation.Value;
 

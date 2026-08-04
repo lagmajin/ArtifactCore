@@ -16,7 +16,6 @@ module;
 #include <utility>
 
 module AudioRenderer;
-import AudioRenderer;
 
 import Audio.Backend;
 #ifdef _WIN32
@@ -416,8 +415,10 @@ bool AudioRenderer::isActive() const { return impl_ ? impl_->active.load(std::me
 
 void AudioRenderer::setMasterVolume(float db) {
   if (impl_) {
+    const float safeDb = std::isfinite(db) ? std::clamp(db, -144.0f, 24.0f)
+                                           : -144.0f;
     // Convert dB to linear gain
-    const float linear = (db <= -144.0f) ? 0.0f : std::pow(10.0f, db / 20.0f);
+    const float linear = (safeDb <= -144.0f) ? 0.0f : std::pow(10.0f, safeDb / 20.0f);
     impl_->masterVolumeLinear.store(linear, std::memory_order_release);
   }
 }
@@ -436,7 +437,15 @@ void AudioRenderer::setMute(bool mute) {
 bool AudioRenderer::isMute() const { return impl_ ? impl_->isMute.load(std::memory_order_acquire) : false; }
 
 void AudioRenderer::enqueue(const AudioSegment &segment) {
-  if (impl_ && impl_->ringBuffer) {
+  if (impl_ && impl_->ringBuffer && segment.frameCount() > 0 &&
+      segment.channelCount() > 0 && segment.sampleRate > 0.0f &&
+      std::isfinite(static_cast<double>(segment.sampleRate)) &&
+      segment.channelData.size() >= segment.channelCount()) {
+    for (int channel = 0; channel < segment.channelCount(); ++channel) {
+      if (segment.channelData[channel].size() < segment.frameCount()) {
+        return;
+      }
+    }
     const AudioSegment* writeSeg = &segment;
     AudioSegment downmixed;
 

@@ -4,7 +4,6 @@ module;
 #include <cstdint>
 
 module Time.Rational;
-import Time.Rational;
 
 namespace ArtifactCore {
 

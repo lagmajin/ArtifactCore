@@ -7,13 +7,23 @@ module;
 
 module Audio.Analyze;
 
-import Audio.Analyze;
 
 import Container.NamedVector;
 
 namespace ArtifactCore {
 
-AudioAnalyzer::AudioAnalyzer(int fftSize) : fftSize_(fftSize) {
+namespace {
+int normalizeFFTSize(int size) {
+    size = std::max(2, size);
+    int normalized = 1;
+    while (normalized < size && normalized < (1 << 30)) {
+        normalized <<= 1;
+    }
+    return normalized;
+}
+}
+
+AudioAnalyzer::AudioAnalyzer(int fftSize) : fftSize_(normalizeFFTSize(fftSize)) {
     initWindow();
 }
 
@@ -28,6 +38,7 @@ void AudioAnalyzer::initWindow() {
 }
 
 void AudioAnalyzer::setFFTSize(int size) {
+    size = normalizeFFTSize(size);
     if (fftSize_ != size) {
         fftSize_ = size;
         initWindow();

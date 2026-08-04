@@ -250,6 +250,14 @@ QJsonObject clipToJson(const Clip& clip)
     for (const MarkerId& id : clip.markers) {
         markers.append(QString::number(id.value));
     }
+    QJsonArray subtitles;
+    for (const SubtitleCue& cue : sequence.subtitles) {
+        subtitles.append(QJsonObject{
+            {QStringLiteral("start"), cue.range.start()},
+            {QStringLiteral("duration"), cue.range.duration()},
+            {QStringLiteral("text"), cue.text},
+            {QStringLiteral("name"), cue.name}});
+    }
     return QJsonObject{
         {QStringLiteral("id"), QString::number(clip.id.value)},
         {QStringLiteral("trackId"), QString::number(clip.trackId.value)},
@@ -265,6 +273,7 @@ QJsonObject clipToJson(const Clip& clip)
         {QStringLiteral("linkedGroupId"), QString::number(clip.linkedGroupId)},
         {QStringLiteral("attachedTransitions"), transitions},
         {QStringLiteral("markers"), markers},
+        {QStringLiteral("subtitles"), subtitles},
         {QStringLiteral("name"), clip.name}
     };
 }
@@ -378,6 +387,16 @@ Sequence sequenceFromJson(const QJsonObject& obj)
     }
     for (const QJsonValue& value : obj.value(QStringLiteral("markers")).toArray()) {
         sequence.markers.push_back(MarkerId::fromString(value.toString()));
+    }
+    for (const QJsonValue& value : obj.value(QStringLiteral("subtitles")).toArray()) {
+        const QJsonObject subtitle = value.toObject();
+        SubtitleCue cue;
+        cue.range = FrameRange::fromDuration(
+            subtitle.value(QStringLiteral("start")).toVariant().toLongLong(),
+            subtitle.value(QStringLiteral("duration")).toVariant().toLongLong());
+        cue.text = subtitle.value(QStringLiteral("text")).toString();
+        cue.name = subtitle.value(QStringLiteral("name")).toString();
+        sequence.subtitles.push_back(std::move(cue));
     }
     return sequence;
 }
@@ -1453,6 +1472,49 @@ NLEValidationReport NLEProjectStore::validate() const
     NLEValidationReport report;
     report.success = true;
 
+    for (const SequenceId& sequenceId : impl_->sequences.keys()) {
+        const Sequence* sequence = this->sequence(sequenceId);
+        if (!sequence) continue;
+        const QString subject = QStringLiteral("sequence:%1").arg(QString::number(sequenceId.value));
+        for (int index = 0; index < sequence->subtitles.size(); ++index) {
+            const SubtitleCue& cue = sequence->subtitles.at(index);
+            const QString cueSubject = QStringLiteral("%1:subtitle:%2").arg(subject).arg(index);
+            if (cue.range.start() < 0 || cue.range.duration() <= 0) {
+                report.success = false;
+                addIssue(report, QStringLiteral("invalid_subtitle_range"), cueSubject,
+                         QStringLiteral("Subtitle has a negative start or non-positive duration"));
+            }
+            if (cue.text.trimmed().isEmpty()) {
+                report.success = false;
+                addIssue(report, QStringLiteral("empty_subtitle"), cueSubject,
+                         QStringLiteral("Subtitle text is empty"));
+            }
+            if (sequence->duration.isValid() &&
+                cue.range.start() + cue.range.duration() >
+                    sequence->duration.start() + sequence->duration.duration()) {
+                report.success = false;
+                addIssue(report, QStringLiteral("subtitle_outside_sequence"), cueSubject,
+                         QStringLiteral("Subtitle extends beyond the sequence duration"));
+            }
+        }
+        for (int left = 0; left < sequence->subtitles.size(); ++left) {
+            const SubtitleCue& a = sequence->subtitles.at(left);
+            if (!a.range.isValid() || a.range.duration() <= 0) continue;
+            const qint64 aEnd = a.range.start() + a.range.duration();
+            for (int right = left + 1; right < sequence->subtitles.size(); ++right) {
+                const SubtitleCue& b = sequence->subtitles.at(right);
+                if (!b.range.isValid() || b.range.duration() <= 0) continue;
+                const qint64 bEnd = b.range.start() + b.range.duration();
+                if (a.range.start() < bEnd && b.range.start() < aEnd) {
+                    report.success = false;
+                    addIssue(report, QStringLiteral("overlapping_subtitles"), subject,
+                             QStringLiteral("Subtitle cues %1 and %2 overlap")
+                                 .arg(left).arg(right));
+                }
+            }
+        }
+    }
+
     for (const ClipId& clipId : impl_->clips.keys()) {
         const Clip* clip = this->clip(clipId);
         if (!clip) {
@@ -2172,6 +2234,75 @@ EditResult SequenceEditor::setTransitionKind(const TransitionId& transitionId, T
     if (const Track* track = store_->track(transition->trackId)) {
         result.touchedSequences.push_back(track->ownerSequenceId);
     }
+    return result;
+}
+
+EditResult SequenceEditor::addSubtitle(const SequenceId& sequenceId, const SubtitleCue& cue)
+{
+    EditResult result;
+    if (!store_) { result.message = QStringLiteral("No NLE store"); return result; }
+    Sequence* sequence = store_->sequence(sequenceId);
+    if (!sequence) { result.message = QStringLiteral("Sequence not found"); return result; }
+    if (!cue.range.isValid() || cue.range.duration() <= 0 || cue.text.trimmed().isEmpty()) {
+        result.message = QStringLiteral("Subtitle cue is invalid"); return result;
+    }
+    sequence->subtitles.push_back(cue);
+    std::sort(sequence->subtitles.begin(), sequence->subtitles.end(),
+              [](const SubtitleCue& a, const SubtitleCue& b) {
+                  if (a.range.start() != b.range.start()) return a.range.start() < b.range.start();
+                  return a.range.duration() < b.range.duration();
+              });
+    result.success = true;
+    result.touchedSequences.push_back(sequenceId);
+    return result;
+}
+
+EditResult SequenceEditor::updateSubtitle(const SequenceId& sequenceId, int index,
+                                          const SubtitleCue& cue)
+{
+    EditResult result;
+    if (!store_) { result.message = QStringLiteral("No NLE store"); return result; }
+    Sequence* sequence = store_->sequence(sequenceId);
+    if (!sequence) { result.message = QStringLiteral("Sequence not found"); return result; }
+    if (index < 0 || index >= sequence->subtitles.size() || !cue.range.isValid() ||
+        cue.range.duration() <= 0 || cue.text.trimmed().isEmpty()) {
+        result.message = QStringLiteral("Subtitle index or cue is invalid"); return result;
+    }
+    sequence->subtitles[index] = cue;
+    std::sort(sequence->subtitles.begin(), sequence->subtitles.end(),
+              [](const SubtitleCue& a, const SubtitleCue& b) {
+                  if (a.range.start() != b.range.start()) return a.range.start() < b.range.start();
+                  return a.range.duration() < b.range.duration();
+              });
+    result.success = true;
+    result.touchedSequences.push_back(sequenceId);
+    return result;
+}
+
+EditResult SequenceEditor::removeSubtitle(const SequenceId& sequenceId, int index)
+{
+    EditResult result;
+    if (!store_) { result.message = QStringLiteral("No NLE store"); return result; }
+    Sequence* sequence = store_->sequence(sequenceId);
+    if (!sequence) { result.message = QStringLiteral("Sequence not found"); return result; }
+    if (index < 0 || index >= sequence->subtitles.size()) {
+        result.message = QStringLiteral("Subtitle index is invalid"); return result;
+    }
+    sequence->subtitles.removeAt(index);
+    result.success = true;
+    result.touchedSequences.push_back(sequenceId);
+    return result;
+}
+
+EditResult SequenceEditor::clearSubtitles(const SequenceId& sequenceId)
+{
+    EditResult result;
+    if (!store_) { result.message = QStringLiteral("No NLE store"); return result; }
+    Sequence* sequence = store_->sequence(sequenceId);
+    if (!sequence) { result.message = QStringLiteral("Sequence not found"); return result; }
+    sequence->subtitles.clear();
+    result.success = true;
+    result.touchedSequences.push_back(sequenceId);
     return result;
 }
 

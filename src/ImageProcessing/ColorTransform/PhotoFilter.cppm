@@ -6,7 +6,6 @@ module;
 #include <QImage>
 
 module ImageProcessing.ColorTransform.PhotoFilter;
-import ImageProcessing.ColorTransform.PhotoFilter;
 
 namespace ArtifactCore {
 

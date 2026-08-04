@@ -134,6 +134,12 @@ struct LIBRARY_DLL_API Marker {
     QColor color = QColor(Qt::yellow);
 };
 
+struct LIBRARY_DLL_API SubtitleCue {
+    FrameRange range = FrameRange::zero();
+    QString text;
+    QString name;
+};
+
 struct LIBRARY_DLL_API Transition {
     TransitionId id;
     TrackId trackId;
@@ -201,6 +207,7 @@ struct LIBRARY_DLL_API Sequence {
     FrameRange duration = FrameRange::zero();
     QVector<TrackId> trackOrder;
     QVector<MarkerId> markers;
+    QVector<SubtitleCue> subtitles;
     QString defaultLayoutName;
     bool enabled = true;
     bool locked = false;
@@ -410,6 +417,10 @@ public:
     EditResult removeTransition(const TransitionId& transitionId);
     EditResult setTransitionDuration(const TransitionId& transitionId, double duration);
     EditResult setTransitionKind(const TransitionId& transitionId, TransitionKind kind);
+    EditResult addSubtitle(const SequenceId& sequenceId, const SubtitleCue& cue);
+    EditResult updateSubtitle(const SequenceId& sequenceId, int index, const SubtitleCue& cue);
+    EditResult removeSubtitle(const SequenceId& sequenceId, int index);
+    EditResult clearSubtitles(const SequenceId& sequenceId);
 
 private:
     NLEProjectStore* store_ = nullptr;

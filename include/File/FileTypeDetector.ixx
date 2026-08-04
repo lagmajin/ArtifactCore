@@ -11,6 +11,7 @@ export namespace ArtifactCore {
   Video,
   Audio,
   Text,
+  Font,
   Binary,
   Document,
   Archive,

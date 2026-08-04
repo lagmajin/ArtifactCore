@@ -5,6 +5,12 @@ module;
 #include <QColor>
 #include <QString>
 #include <QVector>
+#include <QRegularExpression>
+#include <QStringList>
+#include <cmath>
+#include <algorithm>
+#include <QFile>
+#include <QSaveFile>
 
 module NLE.OTIO;
 
@@ -158,6 +164,14 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
                 {QStringLiteral("artifactMarkerId"), QString::number(marker->id.value)}}}
         });
     }
+    QJsonArray subtitles;
+    for (const SubtitleCue& cue : sequence->subtitles) {
+        subtitles.append(QJsonObject{
+            {QStringLiteral("start"), cue.range.start()},
+            {QStringLiteral("duration"), cue.range.duration()},
+            {QStringLiteral("text"), cue.text},
+            {QStringLiteral("name"), cue.name}});
+    }
 
     return QJsonObject{
         {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Timeline.1")},
@@ -168,6 +182,7 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
             {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Stack.1")},
             {QStringLiteral("children"), trackChildren}}},
         {QStringLiteral("markers"), markers},
+        {QStringLiteral("subtitles"), subtitles},
         {QStringLiteral("metadata"), QJsonObject{
             {QStringLiteral("artifactSequenceId"), QString::number(sequence->id.value)},
             {QStringLiteral("artifactRateNumerator"), sequence->timeBase.numerator},
@@ -193,6 +208,20 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
     timeBase.dropFrame = metadata.value(QStringLiteral("artifactDropFrame")).toBool(false);
     const SequenceId sequenceId = store.createSequence(timeline.value(QStringLiteral("name")).toString(), timeBase);
     if (importedSequenceId) *importedSequenceId = sequenceId;
+    if (Sequence* importedSequence = store.sequence(sequenceId)) {
+        for (const QJsonValue& subtitleValue : timeline.value(QStringLiteral("subtitles")).toArray()) {
+            const QJsonObject subtitleObject = subtitleValue.toObject();
+            SubtitleCue cue;
+            cue.range = FrameRange::fromDuration(
+                subtitleObject.value(QStringLiteral("start")).toVariant().toLongLong(),
+                subtitleObject.value(QStringLiteral("duration")).toVariant().toLongLong());
+            cue.text = subtitleObject.value(QStringLiteral("text")).toString();
+            cue.name = subtitleObject.value(QStringLiteral("name")).toString();
+            if (cue.range.duration() > 0 && !cue.text.trimmed().isEmpty()) {
+                importedSequence->subtitles.push_back(std::move(cue));
+            }
+        }
+    }
 
     for (const QJsonValue& markerValue : timeline.value(QStringLiteral("markers")).toArray()) {
         const QJsonObject markerObject = markerValue.toObject();
@@ -275,6 +304,138 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
         }
     }
     return true;
+}
+
+QVector<SubtitleCue> OtioAdapter::importSrt(const QString& text,
+                                            const TimeBase& timeBase,
+                                            QVector<QString>* warnings)
+{
+    QVector<SubtitleCue> result;
+    const QString normalized = text.toUtf8().replace("\r\n", "\n").replace('\r', '\n');
+    const QStringList lines = QString::fromUtf8(normalized).split(QChar('\n'));
+    const QRegularExpression timing(
+        QStringLiteral(R"(^\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*$)"));
+    auto parseTime = [&timeBase](const QRegularExpressionMatch& match, int offset) -> qint64 {
+        const qint64 h = match.captured(offset).toLongLong();
+        const qint64 m = match.captured(offset + 1).toLongLong();
+        const qint64 s = match.captured(offset + 2).toLongLong();
+        const qint64 ms = match.captured(offset + 3).toLongLong();
+        const double frame = (static_cast<double>(h * 3600 + m * 60 + s) + ms / 1000.0) * timeBase.fps();
+        return static_cast<qint64>(std::llround(frame));
+    };
+    int line = 0;
+    while (line < lines.size()) {
+        while (line < lines.size() && lines[line].trimmed().isEmpty()) ++line;
+        if (line >= lines.size()) break;
+        ++line; // cue number (kept permissive for common SRT variants)
+        if (line >= lines.size()) break;
+        const auto match = timing.match(lines[line++]);
+        if (!match.hasMatch()) {
+            if (warnings) warnings->push_back(QStringLiteral("Invalid SRT timing near line %1").arg(line));
+            while (line < lines.size() && !lines[line].trimmed().isEmpty()) ++line;
+            continue;
+        }
+        QStringList payload;
+        while (line < lines.size() && !lines[line].trimmed().isEmpty()) payload.push_back(lines[line++]);
+        const qint64 start = parseTime(match, 1);
+        const qint64 end = parseTime(match, 5);
+        if (end <= start) {
+            if (warnings) warnings->push_back(QStringLiteral("SRT cue has non-positive duration near line %1").arg(line));
+            continue;
+        }
+        SubtitleCue cue;
+        cue.range = FrameRange::fromDuration(start, end - start);
+        cue.text = payload.join(QChar('\n')).trimmed();
+        cue.name = cue.text.section(QChar('\n'), 0, 0).left(64);
+        result.push_back(std::move(cue));
+    }
+    std::sort(result.begin(), result.end(), [](const SubtitleCue& a, const SubtitleCue& b) {
+        if (a.range.start() != b.range.start()) return a.range.start() < b.range.start();
+        return a.range.duration() < b.range.duration();
+    });
+    return result;
+}
+
+QString OtioAdapter::exportSrt(const QVector<SubtitleCue>& cues,
+                               const TimeBase& timeBase)
+{
+    auto formatTime = [&timeBase](qint64 frame) {
+        const qint64 totalMs = static_cast<qint64>(std::llround(
+            static_cast<double>(frame) * 1000.0 / timeBase.fps()));
+        const qint64 hours = totalMs / 3600000;
+        const qint64 minutes = (totalMs / 60000) % 60;
+        const qint64 seconds = (totalMs / 1000) % 60;
+        const qint64 millis = totalMs % 1000;
+        return QStringLiteral("%1:%2:%3,%4").arg(hours, 2, 10, QChar('0'))
+            .arg(minutes, 2, 10, QChar('0')).arg(seconds, 2, 10, QChar('0'))
+            .arg(millis, 3, 10, QChar('0'));
+    };
+    QString output;
+    QVector<SubtitleCue> ordered = cues;
+    std::sort(ordered.begin(), ordered.end(), [](const SubtitleCue& a, const SubtitleCue& b) {
+        if (a.range.start() != b.range.start()) return a.range.start() < b.range.start();
+        return a.range.duration() < b.range.duration();
+    });
+    int index = 1;
+    for (const SubtitleCue& cue : ordered) {
+        if (cue.range.duration() <= 0 || cue.text.trimmed().isEmpty()) continue;
+        output += QString::number(index++) + QStringLiteral("\n") +
+                  formatTime(cue.range.start()) + QStringLiteral(" --> ") +
+                  formatTime(cue.range.start() + cue.range.duration()) + QStringLiteral("\n") +
+                  cue.text.trimmed() + QStringLiteral("\n\n");
+    }
+    return output;
+}
+
+bool OtioAdapter::importSrtIntoSequence(NLEProjectStore& store,
+                                        const SequenceId& sequenceId,
+                                        const QString& text,
+                                        QVector<QString>* warnings)
+{
+    Sequence* sequence = store.sequence(sequenceId);
+    if (!sequence) {
+        if (warnings) warnings->push_back(QStringLiteral("Subtitle import target sequence not found"));
+        return false;
+    }
+    const QVector<SubtitleCue> imported = importSrt(text, sequence->timeBase, warnings);
+    sequence->subtitles = imported;
+    return true;
+}
+
+QString OtioAdapter::exportSrtFromSequence(const NLEProjectStore& store,
+                                           const SequenceId& sequenceId)
+{
+    const Sequence* sequence = store.sequence(sequenceId);
+    return sequence ? exportSrt(sequence->subtitles, sequence->timeBase) : QString();
+}
+
+bool OtioAdapter::importSrtFileIntoSequence(NLEProjectStore& store,
+                                            const SequenceId& sequenceId,
+                                            const QString& filePath,
+                                            QVector<QString>* warnings)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (warnings) warnings->push_back(QStringLiteral("Could not open SRT file: %1").arg(filePath));
+        return false;
+    }
+    return importSrtIntoSequence(store, sequenceId, QString::fromUtf8(file.readAll()), warnings);
+}
+
+bool OtioAdapter::exportSrtFile(const NLEProjectStore& store,
+                                const SequenceId& sequenceId,
+                                const QString& filePath)
+{
+    const QString text = exportSrtFromSequence(store, sequenceId);
+    if (text.isNull()) return false;
+    QSaveFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+    const QByteArray encoded = text.toUtf8();
+    if (file.write(encoded) != encoded.size()) {
+        file.cancelWriting();
+        return false;
+    }
+    return file.commit();
 }
 
 } // namespace ArtifactCore::NLE

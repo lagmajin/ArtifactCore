@@ -4,7 +4,6 @@ module;
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.HighLowPass;
-import Audio.Effect.HighLowPass;
 
 import Audio.Effect;
 import Audio.Segment;

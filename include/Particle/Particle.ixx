@@ -1,4 +1,5 @@
 module;
+#include <cstdint>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -119,6 +120,7 @@ export namespace ArtifactCore
 	
  struct Particle {
   std::uint64_t id = 0;
+  std::uint64_t emitterToken = 0;
   std::uint32_t seed = 0;
   std::uint32_t flags = 0;
   float age = 0.0f;

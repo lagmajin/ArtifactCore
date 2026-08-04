@@ -16,7 +16,6 @@ module;
 #include <iostream>
 
 module Script.AngelScript.Engine;
-import Script.AngelScript.Engine;
 
 namespace ArtifactCore {
 
@@ -130,7 +129,7 @@ bool AngelScriptEngine::initialize() {
     impl_->initialized_ = true;
     return true;
 #else
-    impl_->setError("AngelScriptEngine: built without ARTIFACT_HAS_ANGELSCRIPT (stub)");
+    impl_->setError("AngelScriptEngine: AngelScript SDK is not linked; rebuild with ARTIFACT_HAS_ANGELSCRIPT");
     return false;
 #endif
 }
@@ -200,7 +199,7 @@ bool AngelScriptEngine::compileModule(const std::string& moduleName,
 #else
     (void)moduleName;
     (void)source;
-    impl_->setError("AngelScriptEngine: built without ARTIFACT_HAS_ANGELSCRIPT (stub)");
+    impl_->setError("AngelScriptEngine: AngelScript SDK is not linked; compileModule is unavailable");
     return false;
 #endif
 }
@@ -266,7 +265,7 @@ bool AngelScriptEngine::runFunction(const std::string& moduleName,
 #else
     (void)moduleName;
     (void)functionDecl;
-    impl_->setError("AngelScriptEngine: built without ARTIFACT_HAS_ANGELSCRIPT (stub)");
+    impl_->setError("AngelScriptEngine: AngelScript SDK is not linked; runFunction is unavailable");
     return false;
 #endif
 }

@@ -20,11 +20,19 @@ ArtifactPluginRegistry& ArtifactPluginRegistry::instance() {
 }
 
 void ArtifactPluginRegistry::registerPlugin(const PluginDescriptor& descriptor) {
+    const std::string id = toStdString(descriptor.id);
+    const int category = static_cast<int>(descriptor.category);
+    if (id.empty() || category < static_cast<int>(PluginCategory::Effect) ||
+        category > static_cast<int>(PluginCategory::ImportExport) ||
+        descriptor.apiVersion <= 0) {
+        return;
+    }
     std::lock_guard<std::mutex> lock(mutex_);
+    active_.erase(id);
     Entry entry;
     entry.descriptor = descriptor;
     entry.descriptor.state = PluginState::Registered;
-    entries_[toStdString(descriptor.id)] = std::move(entry);
+    entries_[id] = std::move(entry);
 }
 
 void ArtifactPluginRegistry::unregisterPlugin(const std::string& id) {
@@ -39,7 +47,10 @@ void ArtifactPluginRegistry::unregisterPlugin(const std::string& id) {
 void ArtifactPluginRegistry::activatePlugin(const std::string& id) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = entries_.find(id);
-    if (it != entries_.end()) {
+    if (it != entries_.end() &&
+        (it->second.descriptor.state == PluginState::Registered ||
+         it->second.descriptor.state == PluginState::Inactive ||
+         it->second.descriptor.state == PluginState::Validated)) {
         it->second.descriptor.state = PluginState::Active;
         active_.insert(id);
     }

@@ -2,9 +2,9 @@ module;
 #include <utility>
 export module Frame.Time;
 
-export namespace ArtifactCore {
+import Time.Rational;
 
- class Time;
+export namespace ArtifactCore {
 
  class FrameTime {
  private:
@@ -12,11 +12,16 @@ export namespace ArtifactCore {
   Impl* impl_;
  public:
   explicit FrameTime(int frame = 0);
+  FrameTime(const FrameTime& other);
+  FrameTime(FrameTime&& other) noexcept;
+  FrameTime& operator=(const FrameTime& other);
+  FrameTime& operator=(FrameTime&& other) noexcept;
+  ~FrameTime();
 
   int frame() const;
   void setFrame(int f);
 
-  Time toTime(double fps) const;
+  RationalTime toTime(double fps) const;
 
   FrameTime operator+(int delta) const;
   FrameTime operator-(int delta) const;

@@ -11,7 +11,6 @@ module;
 #include <string_view>
 
 module Color.Swatch;
-import Color.Swatch;
 
 import Color.Float;
 import Core.ArtifactString;

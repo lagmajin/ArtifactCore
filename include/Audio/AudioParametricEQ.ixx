@@ -2,6 +2,8 @@ module;
 #include <utility>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cmath>
 #include <memory>
 #include <atomic>
 #include "../Define/DllExportMacro.hpp"
@@ -31,12 +33,24 @@ public:
     virtual ~AudioParametricEQ() = default;
 
     String getName() const override { return "Parametric EQ"; }
+    String effectType() const override { return String("parametric_eq"); }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
+    std::vector<EffectParameter> getParameters() const override;
+    void setParameterValue(const String& id, float value) override;
+    QJsonObject toJson() const override;
+    void fromJson(const QJsonObject& obj) override;
 
     // バンド操作
     void setBand(int index, const Band& band) {
         if (index >= 0 && index < static_cast<int>(bands_.size())) {
-            bands_[index] = band;
+            Band sanitized = band;
+            if (!std::isfinite(sanitized.frequency)) sanitized.frequency = 1000.0f;
+            if (!std::isfinite(sanitized.gainDb)) sanitized.gainDb = 0.0f;
+            if (!std::isfinite(sanitized.qFactor)) sanitized.qFactor = 1.0f;
+            sanitized.frequency = std::clamp(sanitized.frequency, 1.0f, 24000.0f);
+            sanitized.gainDb = std::clamp(sanitized.gainDb, -48.0f, 48.0f);
+            sanitized.qFactor = std::clamp(sanitized.qFactor, 0.1f, 10.0f);
+            bands_[index] = sanitized;
         }
     }
     Band getBand(int index) const {
@@ -46,7 +60,7 @@ public:
         return {};
     }
     void setBandCount(int count) {
-        bands_.resize(count);
+        bands_.resize(static_cast<size_t>(std::clamp(count, 0, 64)));
     }
     int getBandCount() const { return static_cast<int>(bands_.size()); }
 

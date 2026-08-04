@@ -35,7 +35,6 @@ module;
 #include <random>
 module ColorCollection.ColorGrading;
 
-import ColorCollection.ColorGrading;
 
 import Color.ColorSpace;
 

@@ -4,7 +4,6 @@ module;
 #include <QDir>
 
 module Composition.ExportMatrix;
-import Composition.ExportMatrix;
 
 namespace ArtifactCore {
 

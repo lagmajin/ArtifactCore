@@ -39,7 +39,6 @@ class tst_QList;
 #include <QDebug>
 #include <QVector>
 module Script.Builtin.Manager;
-import Script.Builtin.Manager;
 
 namespace ArtifactCore {
 

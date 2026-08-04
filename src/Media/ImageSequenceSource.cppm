@@ -213,6 +213,51 @@ bool ImageSequenceSource::open(const QString& uri)
     return true;
 }
 
+bool ImageSequenceSource::openFramePaths(const QStringList& framePaths)
+{
+    close();
+
+    QVector<FrameEntry> frames;
+    frames.reserve(framePaths.size());
+    for (const QString& rawPath : framePaths) {
+        const QFileInfo info(rawPath.trimmed());
+        if (!info.exists() || !info.isFile() || !isSupportedImageFile(info)) {
+            continue;
+        }
+        FrameEntry entry;
+        entry.frameIndex = frames.size();
+        entry.path = info.absoluteFilePath();
+        frames.push_back(std::move(entry));
+    }
+    if (frames.isEmpty()) {
+        return false;
+    }
+
+    impl_->uri = frames.front().path;
+    impl_->displayName = QFileInfo(impl_->uri).completeBaseName();
+    impl_->frames = std::move(frames);
+    impl_->frameCache.clear();
+    impl_->frameCacheOrder.clear();
+    impl_->frameCacheHits = 0;
+    impl_->frameCacheMisses = 0;
+    impl_->frameRate = 24.0;
+    impl_->currentFrameIndex = 0;
+    impl_->open = true;
+    impl_->frameSize = QSize();
+    for (const auto& frame : impl_->frames) {
+        QImageReader reader(frame.path);
+        QSize candidateSize = reader.size();
+        if (!candidateSize.isValid() || candidateSize.isEmpty()) {
+            candidateSize = QImage(frame.path).size();
+        }
+        if (candidateSize.isValid() && !candidateSize.isEmpty()) {
+            impl_->frameSize = candidateSize;
+            break;
+        }
+    }
+    return true;
+}
+
 void ImageSequenceSource::close()
 {
     impl_->uri.clear();

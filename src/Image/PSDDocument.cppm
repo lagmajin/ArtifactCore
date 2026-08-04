@@ -163,7 +163,26 @@ PsdLayerInfo parseLayerRecord(QDataStream& stream, QVector<QString>* warnings)
         quint32 rangesLength = 0;
         stream >> maskLength;
         if (maskLength > 0 && stream.device()) {
-            stream.device()->seek(stream.device()->pos() + static_cast<qint64>(maskLength));
+            const qint64 maskStart = stream.device()->pos();
+            const qint64 maskEnd = maskStart + static_cast<qint64>(maskLength);
+            if (maskEnd <= extraDataEnd && maskLength >= 18) {
+                qint32 top = 0;
+                qint32 left = 0;
+                qint32 bottom = 0;
+                qint32 right = 0;
+                quint8 defaultColor = 255;
+                quint8 maskFlags = 0;
+                stream >> top >> left >> bottom >> right >> defaultColor >> maskFlags;
+                if (stream.status() == QDataStream::Ok) {
+                    layer.hasMask = true;
+                    layer.maskBounds = QRect(left, top,
+                                             std::max<qint32>(0, right - left),
+                                             std::max<qint32>(0, bottom - top));
+                    layer.maskDefaultColor = defaultColor;
+                    layer.maskDisabled = (maskFlags & 0x02) != 0;
+                }
+            }
+            stream.device()->seek(maskEnd);
         }
         stream >> rangesLength;
         if (rangesLength > 0 && stream.device()) {
@@ -222,6 +241,49 @@ QString blendModeLabelFromKey(const QByteArray& key)
 RawImage loadFlattenedPreview(const QString& filePath, const PsdHeader& header)
 {
     return loadFlattenedPreviewViaOIIO(filePath, header);
+}
+
+RawImage loadLayerPreviewViaOIIO(const QString& filePath, const PsdHeader& header,
+                                 const int layerIndex)
+{
+    if (filePath.isEmpty() || layerIndex < 0) return {};
+    const QByteArray utf8Path = filePath.toUtf8();
+    OIIO::ImageBuf source(utf8Path.constData());
+    const OIIO::TypeDesc readType = chooseReadType(header);
+    // OIIO exposes PSD layer planes as subimages when the installed PSD
+    // reader provides them. Subimage 0 is the flattened image.
+    if (!source.read(layerIndex + 1, 0, true, readType)) return {};
+    const OIIO::ImageSpec& spec = source.spec();
+    if (spec.width <= 0 || spec.height <= 0 || spec.nchannels <= 0) return {};
+    OIIO::ImageBuf rgba;
+    if (spec.nchannels >= 4) {
+        const std::array<int, 4> channels{0, 1, 2, 3};
+        rgba = OIIO::ImageBufAlgo::channels(source, 4, channels);
+    } else if (spec.nchannels == 3) {
+        const std::array<int, 4> channels{0, 1, 2, -1};
+        const std::array<float, 4> values{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(source, 4, channels, values);
+    } else {
+        const std::array<int, 4> channels{0, 0, 0, -1};
+        const std::array<float, 4> values{0.0f, 0.0f, 0.0f, 1.0f};
+        rgba = OIIO::ImageBufAlgo::channels(source, 4, channels, values);
+    }
+    RawImage image;
+    image.width = spec.width;
+    image.height = spec.height;
+    image.channels = 4;
+    const int bytesPerChannel = readType == OIIO::TypeDesc::UINT16
+        ? static_cast<int>(sizeof(quint16))
+        : readType == OIIO::TypeDesc::FLOAT ? static_cast<int>(sizeof(float)) : 1;
+    const qint64 pixelCount = static_cast<qint64>(spec.width) * spec.height;
+    const qint64 byteCount = pixelCount * 4 * bytesPerChannel;
+    if (pixelCount <= 0 || byteCount <= 0 ||
+        byteCount > static_cast<qint64>(std::numeric_limits<int>::max())) return {};
+    image.pixelType = readType == OIIO::TypeDesc::UINT16 ? QStringLiteral("uint16")
+        : readType == OIIO::TypeDesc::FLOAT ? QStringLiteral("float") : QStringLiteral("uint8");
+    image.data.resize(static_cast<int>(byteCount));
+    if (!rgba.get_pixels(OIIO::ROI::All(), readType, image.data.data())) return {};
+    return image;
 }
 
 } // namespace
@@ -323,7 +385,11 @@ public:
                 const int layerCount = std::abs(layerCountSigned);
                 layers.reserve(layerCount);
                 for (int i = 0; i < layerCount; ++i) {
-                    layers.push_back(parseLayerRecord(stream, &warnings));
+                    PsdLayerInfo layer = parseLayerRecord(stream, &warnings);
+                    // OIIO exposes the flattened document as subimage 0 and
+                    // layer planes in the same parsed order after it.
+                    layer.subimageIndex = i + 1;
+                    layers.push_back(std::move(layer));
                 }
                 hasLayerMetadata = !layers.isEmpty();
             }
@@ -425,6 +491,15 @@ RawImage PsdDocument::flattenedPreview() const
         return {};
     }
     return loadFlattenedPreview(impl_->filePath, impl_->header);
+}
+
+RawImage PsdDocument::layerPreview(const int layerIndex) const
+{
+    if (!impl_ || !impl_->open || layerIndex < 0 ||
+        layerIndex >= impl_->layers.size()) return {};
+    const int subimageIndex = impl_->layers.at(layerIndex).subimageIndex;
+    if (subimageIndex <= 0) return {};
+    return loadLayerPreviewViaOIIO(impl_->filePath, impl_->header, subimageIndex - 1);
 }
 
 PsdCompression toPsdCompression(const quint16 value)

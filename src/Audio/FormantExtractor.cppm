@@ -6,7 +6,6 @@ module;
 #include <vector>
 
 module Audio.FormantExtractor;
-import Audio.FormantExtractor;
 
 import Audio.Analyze;
 

@@ -35,7 +35,6 @@ module;
 #include <regex>
 #include <random>
 module Analyze.Histgram;
-import Analyze.Histgram;
 
 namespace ArtifactCore {
 
@@ -46,37 +45,44 @@ void Histgram::Impl::calculate(const cv::Mat& image) {
     int channels = image.channels();
     bins_.resize(channels, std::vector<int>(histSize_, 0));
 
-    // Calculate histogram for each channel
+    if (image.depth() != CV_8U && image.depth() != CV_16U &&
+        image.depth() != CV_32F && image.depth() != CV_64F) {
+        bins_.clear();
+        return;
+    }
+
+    // Calculate histogram for each channel. Values are normalized to the
+    // public 256-bin range for all supported scalar image depths.
     for (int ch = 0; ch < channels; ++ch) {
         std::vector<int> hist(histSize_, 0);
-        if (static_cast<std::size_t>(image.rows) * image.cols < 4096u) {
-            for (int y = 0; y < image.rows; ++y) {
-                for (int x = 0; x < image.cols; ++x) {
-                    int value = 0;
-                    if (channels == 1) {
-                        value = image.ptr<uchar>(y)[x];
-                    } else if (channels == 3) {
-                        value = image.ptr<cv::Vec3b>(y)[x][ch];
-                    } else if (channels == 4) {
-                        value = image.ptr<cv::Vec4b>(y)[x][ch];
-                    }
-                    if (value >= 0 && value < histSize_) ++hist[value];
+        for (int y = 0; y < image.rows; ++y) {
+            for (int x = 0; x < image.cols; ++x) {
+                const int index = x * channels + ch;
+                int value = 0;
+                switch (image.depth()) {
+                case CV_8U:
+                    value = image.ptr<uchar>(y)[index];
+                    break;
+                case CV_16U:
+                    value = static_cast<int>(image.ptr<unsigned short>(y)[index] >> 8);
+                    break;
+                case CV_32F: {
+                    const float sample = image.ptr<float>(y)[index];
+                    value = static_cast<int>(std::lround(
+                        std::clamp(sample, 0.0f, 1.0f) * 255.0f));
+                    break;
                 }
+                case CV_64F: {
+                    const double sample = image.ptr<double>(y)[index];
+                    value = static_cast<int>(std::lround(
+                        std::clamp(sample, 0.0, 1.0) * 255.0));
+                    break;
+                }
+                default:
+                    break;
+                }
+                ++hist[value];
             }
-        } else {
-          for (int y = 0; y < image.rows; ++y) {
-              for (int x = 0; x < image.cols; ++x) {
-                  int value = 0;
-                  if (channels == 1) {
-                      value = image.ptr<uchar>(y)[x];
-                  } else if (channels == 3) {
-                      value = image.ptr<cv::Vec3b>(y)[x][ch];
-                  } else if (channels == 4) {
-                      value = image.ptr<cv::Vec4b>(y)[x][ch];
-                  }
-                  if (value >= 0 && value < histSize_) ++hist[value];
-              }
-          }
         }
         bins_[ch] = hist;
     }

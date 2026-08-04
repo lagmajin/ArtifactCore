@@ -125,6 +125,21 @@ namespace ArtifactCore {
     endInsertRows();
   }
 
+  void RenderJobModel::addJob(const Id& compositionId, const QString& name,
+                              int startFrame, int endFrame, int frameStep) {
+    if (endFrame < startFrame || frameStep <= 0) return;
+    beginInsertRows(QModelIndex(), static_cast<int>(impl_->jobs.size()),
+                    static_cast<int>(impl_->jobs.size()));
+    auto job = std::make_unique<RenderJob>();
+    job->compositionId = compositionId;
+    job->compositionName = name;
+    job->startFrame = startFrame;
+    job->endFrame = endFrame;
+    job->frameStep = frameStep;
+    impl_->jobs.push_back(std::move(job));
+    endInsertRows();
+  }
+
   namespace {
     RenderJobStatus parseRenderJobStatus(const QString& status)
     {
@@ -178,6 +193,35 @@ namespace ArtifactCore {
     if (row < 0 || row >= (int)impl_->jobs.size()) return;
     impl_->jobs[row]->status = status;
     emit dataChanged(index(row, 1), index(row, 1), {Qt::DisplayRole});
+  }
+
+  bool RenderJobModel::setJobFrameRange(int row, int startFrame,
+                                        int endFrame, int frameStep) {
+    if (row < 0 || row >= static_cast<int>(impl_->jobs.size()) ||
+        endFrame < startFrame || frameStep <= 0) {
+      return false;
+    }
+    auto& job = *impl_->jobs[static_cast<std::size_t>(row)];
+    job.startFrame = startFrame;
+    job.endFrame = endFrame;
+    job.frameStep = frameStep;
+    return true;
+  }
+
+  bool RenderJobModel::setJobMfrSettings(int row, bool enabled,
+                                         int maxConcurrentFrames,
+                                         std::size_t memoryLimitMB,
+                                         int retryBackoffMs) {
+    if (row < 0 || row >= static_cast<int>(impl_->jobs.size()) ||
+        maxConcurrentFrames < 0 || retryBackoffMs < 0) {
+      return false;
+    }
+    auto& job = *impl_->jobs[static_cast<std::size_t>(row)];
+    job.multiFrameEnabled = enabled;
+    job.mfrConcurrentFrames = maxConcurrentFrames;
+    job.mfrMemoryLimitMB = memoryLimitMB;
+    job.mfrRetryBackoffMs = retryBackoffMs;
+    return true;
   }
 
 

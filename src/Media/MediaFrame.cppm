@@ -2,7 +2,6 @@ module;
 #include <utility>
 #include <QString>
 module Media.MediaFrame;
-import Media.MediaFrame;
 
 //#include "../../include/Media/MediaFrame.hpp"
 

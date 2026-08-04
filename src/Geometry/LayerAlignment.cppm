@@ -3,7 +3,9 @@ module;
 #include <vector>
 #include <QRectF>
 #include <QPointF>
+#include <QtMath>
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <limits>
 
@@ -184,6 +186,85 @@ void LayerAlignment::distributeSpacing(
             currentPos += objects[i].bounds.height() + gap;
         }
     }
+}
+
+LayoutCollisionResult LayerAlignment::resolveCollisions(
+    std::vector<LayoutCollisionObject>& objects,
+    const QRectF& safeArea,
+    int maxPasses) {
+    LayoutCollisionResult result;
+    if (objects.empty() || !safeArea.isValid()) return result;
+    maxPasses = std::clamp(maxPasses, 1, 32);
+
+    for (auto& object : objects) {
+        if (!object.bounds.isValid() || !std::isfinite(object.scale) || object.scale <= 0.0)
+            object.scale = 1.0;
+    }
+    for (int pass = 0; pass < maxPasses; ++pass) {
+        bool changed = false;
+        std::stable_sort(objects.begin(), objects.end(), [](const auto& lhs, const auto& rhs) {
+            if (lhs.priority != rhs.priority) return lhs.priority > rhs.priority;
+            return lhs.id < rhs.id;
+        });
+        for (size_t i = 0; i < objects.size(); ++i) {
+            auto& current = objects[i];
+            if (!current.bounds.isValid()) continue;
+
+            // Keep every object inside the safe area before pairwise solving.
+            QPointF safeDelta;
+            if (current.bounds.left() < safeArea.left()) safeDelta.rx() += safeArea.left() - current.bounds.left();
+            if (current.bounds.right() > safeArea.right()) safeDelta.rx() -= current.bounds.right() - safeArea.right();
+            if (current.bounds.top() < safeArea.top()) safeDelta.ry() += safeArea.top() - current.bounds.top();
+            if (current.bounds.bottom() > safeArea.bottom()) safeDelta.ry() -= current.bounds.bottom() - safeArea.bottom();
+            if (current.movable && (!qFuzzyIsNull(safeDelta.x()) || !qFuzzyIsNull(safeDelta.y()))) {
+                current.bounds.translate(safeDelta);
+                current.currentPosition += safeDelta;
+                ++result.movedCount;
+                changed = true;
+            }
+
+            for (size_t j = i + 1; j < objects.size(); ++j) {
+                auto& other = objects[j];
+                if (!current.bounds.intersects(other.bounds)) continue;
+                auto* movable = current.priority <= other.priority ? &current : &other;
+                const QRectF overlap = current.bounds.intersected(other.bounds);
+                if (movable->scalable && overlap.width() > 0.0 && overlap.height() > 0.0) {
+                    const double widthScale = movable->bounds.width() > 0.0
+                        ? (movable->bounds.width() - overlap.width()) / movable->bounds.width() : 1.0;
+                    const double heightScale = movable->bounds.height() > 0.0
+                        ? (movable->bounds.height() - overlap.height()) / movable->bounds.height() : 1.0;
+                    const double nextScale = std::clamp(std::min(widthScale, heightScale), 0.5, 1.0);
+                    if (nextScale < movable->scale) {
+                        const QPointF center = movable->bounds.center();
+                        movable->scale = nextScale;
+                        movable->bounds.setSize(movable->bounds.size() * nextScale);
+                        movable->bounds.moveCenter(center);
+                        ++result.scaledCount;
+                        changed = true;
+                        continue;
+                    }
+                }
+                if (!movable->movable) {
+                    ++result.unresolvedCount;
+                    continue;
+                }
+                const double pushX = overlap.width();
+                const double pushY = overlap.height();
+                QPointF delta;
+                if (pushX <= pushY) delta.setX(movable->bounds.center().x() < other.bounds.center().x() ? -pushX : pushX);
+                else delta.setY(movable->bounds.center().y() < other.bounds.center().y() ? -pushY : pushY);
+                movable->bounds.translate(delta);
+                movable->currentPosition += delta;
+                ++result.movedCount;
+                changed = true;
+            }
+        }
+        if (!changed) break;
+    }
+    for (size_t i = 0; i < objects.size(); ++i)
+        for (size_t j = i + 1; j < objects.size(); ++j)
+            if (objects[i].bounds.intersects(objects[j].bounds)) ++result.unresolvedCount;
+    return result;
 }
 
 } // namespace ArtifactCore

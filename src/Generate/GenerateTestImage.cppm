@@ -35,7 +35,6 @@ module;
 #include <regex>
 #include <random>
 module GenerateTestImage;
-import GenerateTestImage;
 
 namespace ArtifactCore {
 

@@ -16,7 +16,6 @@ module;
 #include <QVector>
 
 module Animation.KeyframeEditingTools;
-import Animation.KeyframeEditingTools;
 
 namespace ArtifactCore {
 
@@ -79,9 +78,11 @@ bool KeyframeEditingTools::thinKeyframes(
             maxVal = std::max(maxVal, kf.value);
         }
         const double valueRange = maxVal - minVal;
+        const double tolerance = std::isfinite(request.tolerance)
+            ? std::max(0.0, request.tolerance) : 0.0;
         const double effectiveTol = (valueRange > 1e-10)
-            ? request.tolerance * valueRange
-            : request.tolerance;
+            ? tolerance * valueRange
+            : tolerance;
 
         for (size_t i = 1; i + 1 < keyframes.size(); ++i) {
             const auto& prev = keyframes[i - 1];
@@ -142,9 +143,17 @@ bool KeyframeEditingTools::scaleOffset(
 {
     if (keyframes.empty()) return false;
 
+    const auto finiteOr = [](double value, double fallback) {
+        return std::isfinite(value) ? value : fallback;
+    };
+    const double timeScale = finiteOr(request.timeScale, 1.0);
+    const double timeOffset = finiteOr(request.timeOffset, 0.0);
+    const double valueScale = finiteOr(request.valueScale, 1.0);
+    const double valueOffset = finiteOr(request.valueOffset, 0.0);
+
     for (auto& kf : keyframes) {
-        kf.frame = kf.frame * request.timeScale + request.timeOffset;
-        kf.value = kf.value * request.valueScale + request.valueOffset;
+        kf.frame = kf.frame * timeScale + timeOffset;
+        kf.value = kf.value * valueScale + valueOffset;
     }
 
     // Re-sort after time transform (may change order)
@@ -163,12 +172,13 @@ bool KeyframeEditingTools::randomize(
     std::vector<KeyframePoint>& keyframes,
     const RandomizeRequest& request)
 {
-    if (keyframes.empty() || request.amplitude == 0.0) return false;
+    if (keyframes.empty() || !std::isfinite(request.amplitude) ||
+        request.amplitude == 0.0) return false;
 
     std::mt19937 rng(request.seed != 0
         ? static_cast<std::mt19937::result_type>(request.seed)
         : std::mt19937::result_type{std::random_device{}()});
-    std::normal_distribution<double> dist(0.0, request.amplitude);
+    std::normal_distribution<double> dist(0.0, std::abs(request.amplitude));
 
     for (auto& kf : keyframes) {
         kf.value += dist(rng);
@@ -183,7 +193,9 @@ bool KeyframeEditingTools::smooth(
     std::vector<KeyframePoint>& keyframes,
     const SmoothRequest& request)
 {
-    if (keyframes.size() < 3 || request.windowSize < 2 || request.iterations < 1)
+    if (keyframes.size() < 3 || request.windowSize < 2 ||
+        request.windowSize > 100000 || request.iterations < 1 ||
+        request.iterations > 1000)
         return false;
 
     const int half = std::max(1, request.windowSize / 2);
@@ -234,15 +246,22 @@ std::vector<KeyframePoint> KeyframeEditingTools::audioToKeyframes(
     const auto& channel = audio.channelData[ch];
     const int totalSamples = channel.size();
 
-    const double endFrame = std::max(request.startFrame + 1.0, request.endFrame);
-    const double fps = std::max(1.0, request.frameRate);
+    const double startFrame = std::isfinite(request.startFrame) ? request.startFrame : 0.0;
+    const double requestedEnd = std::isfinite(request.endFrame)
+        ? request.endFrame : startFrame + 1.0;
+    const double endFrame = std::max(startFrame + 1.0, requestedEnd);
+    const double fps = std::isfinite(request.frameRate)
+        ? std::clamp(request.frameRate, 1.0, 1000.0) : 30.0;
 
-    const size_t count = static_cast<size_t>(std::llround(endFrame - request.startFrame)) + 1;
+    const size_t count = static_cast<size_t>(std::llround(endFrame - startFrame)) + 1;
     result.reserve(count);
 
     const double invFps = 1.0 / fps;
 
-    for (double frame = request.startFrame; frame <= endFrame; frame += 1.0) {
+    const double amplitudeScale = std::isfinite(request.amplitudeScale)
+        ? request.amplitudeScale : 1.0;
+    const double valueOffset = std::isfinite(request.offset) ? request.offset : 0.0;
+    for (double frame = startFrame; frame <= endFrame; frame += 1.0) {
         const double startTime = frame * invFps;
         const double endTime = (frame + 1.0) * invFps;
 
@@ -276,7 +295,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::audioToKeyframes(
 
         KeyframePoint kf;
         kf.frame = frame;
-        kf.value = request.offset + amplitude * request.amplitudeScale;
+        kf.value = valueOffset + amplitude * amplitudeScale;
         kf.interpolation = InterpolationType::Linear;
         result.push_back(kf);
     }
@@ -291,7 +310,26 @@ double KeyframeEditingTools::interpolateKeyframes(
     const std::vector<KeyframePoint>& keyframes,
     double frame)
 {
-    if (keyframes.empty()) return 0.0;
+    if (keyframes.empty() || !std::isfinite(frame)) return 0.0;
+
+    for (const auto& kf : keyframes) {
+        if (!std::isfinite(kf.frame) || !std::isfinite(kf.value)) return 0.0;
+    }
+
+    // lower_bound requires monotonic frame order. Keep the common sorted path
+    // allocation-free, but make editor-provided unordered selections safe.
+    if (!std::is_sorted(keyframes.begin(), keyframes.end(),
+                        [](const KeyframePoint& a, const KeyframePoint& b) {
+                            return a.frame < b.frame;
+                        })) {
+        auto ordered = keyframes;
+        std::stable_sort(ordered.begin(), ordered.end(),
+                         [](const KeyframePoint& a, const KeyframePoint& b) {
+                             return a.frame < b.frame;
+                         });
+        return interpolateKeyframes(ordered, frame);
+    }
+
     if (keyframes.size() == 1) return keyframes[0].value;
 
     if (frame <= keyframes.front().frame) return keyframes.front().value;
@@ -319,15 +357,33 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
     double targetBaseValue,
     double targetAmplitude)
 {
-    if (source.empty()) return {};
+    if (source.empty()
+        || !std::isfinite(targetStartFrame)
+        || !std::isfinite(targetEndFrame)
+        || !std::isfinite(targetBaseValue)
+        || !std::isfinite(targetAmplitude)) {
+        return {};
+    }
 
-    const double srcStart = source.front().frame;
-    const double srcEnd   = source.back().frame;
+    for (const auto& kf : source) {
+        if (!std::isfinite(kf.frame) || !std::isfinite(kf.value)) return {};
+    }
+
+    // Callers may provide keyframes from an unordered editor selection.
+    // Normalize the working order before deriving the source range.
+    std::vector<KeyframePoint> orderedSource = source;
+    std::stable_sort(orderedSource.begin(), orderedSource.end(),
+        [](const KeyframePoint& a, const KeyframePoint& b) {
+            return a.frame < b.frame;
+        });
+
+    const double srcStart = orderedSource.front().frame;
+    const double srcEnd   = orderedSource.back().frame;
     const double srcDuration = std::max(1.0, srcEnd - srcStart);
 
-    double srcMin = source.front().value;
-    double srcMax = source.front().value;
-    for (const auto& kf : source) {
+    double srcMin = orderedSource.front().value;
+    double srcMax = orderedSource.front().value;
+    for (const auto& kf : orderedSource) {
         srcMin = std::min(srcMin, kf.value);
         srcMax = std::max(srcMax, kf.value);
     }
@@ -335,9 +391,9 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
     const double tgtDuration = std::max(1.0, targetEndFrame - targetStartFrame);
 
     std::vector<KeyframePoint> result;
-    result.reserve(source.size());
+    result.reserve(orderedSource.size());
 
-    for (const auto& kf : source) {
+    for (const auto& kf : orderedSource) {
         KeyframePoint p;
         const double normTime = (kf.frame - srcStart) / srcDuration;
         p.frame = targetStartFrame + normTime * tgtDuration;
@@ -364,14 +420,23 @@ bool KeyframeEditingTools::quantizeToBeat(
 {
     if (keyframes.empty()) return false;
 
-    const double framesPerBeat = (request.bpm > 0.0)
-        ? 60.0 / request.bpm
+    if ((request.mirrorTime && !std::isfinite(request.mirrorCenter))
+        || (request.flipValue && !std::isfinite(request.flipCenter))) {
+        return false;
+    }
+    for (const auto& kf : keyframes) {
+        if (!std::isfinite(kf.frame) || !std::isfinite(kf.value)) return false;
+    }
+
+    const double framesPerBeat = (std::isfinite(request.bpm) && request.bpm > 0.0)
+        ? 60.0 / std::min(request.bpm, 100000.0)
         : 1.0;
+    const double offset = std::isfinite(request.offset) ? request.offset : 0.0;
 
     for (auto& kf : keyframes) {
         if (request.snapAll) {
-            const double beat = std::round((kf.frame - request.offset) / framesPerBeat);
-            kf.frame = request.offset + beat * framesPerBeat;
+            const double beat = std::round((kf.frame - offset) / framesPerBeat);
+            kf.frame = offset + beat * framesPerBeat;
         }
         kf.interpolation = request.interpolation;
     }
@@ -428,7 +493,18 @@ private:
             if (std::isdigit(static_cast<unsigned char>(c)) || c == '.') {
                 size_t end = pos_;
                 while (end < expr_.size() && (std::isdigit(static_cast<unsigned char>(expr_[end])) || expr_[end] == '.')) ++end;
-                tokens_.push_back({TokenType::Number, "", std::stod(expr_.substr(pos_, end - pos_))});
+                const std::string numberText = expr_.substr(pos_, end - pos_);
+                try {
+                    size_t parsed = 0;
+                    const double value = std::stod(numberText, &parsed);
+                    if (parsed != numberText.size() || !std::isfinite(value)) {
+                        tokens_.push_back({TokenType::Invalid, numberText, 0.0});
+                    } else {
+                        tokens_.push_back({TokenType::Number, "", value});
+                    }
+                } catch (const std::exception&) {
+                    tokens_.push_back({TokenType::Invalid, numberText, 0.0});
+                }
                 pos_ = end;
             } else if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
                 size_t end = pos_;
@@ -567,7 +643,11 @@ std::vector<KeyframePoint> KeyframeEditingTools::expressionToKeyframes(
     std::uint32_t seed)
 {
     std::vector<KeyframePoint> result;
-    if (expression.isEmpty() || frameRate <= 0.0) return result;
+    if (expression.isEmpty() || !std::isfinite(frameRate) || frameRate <= 0.0 ||
+        !std::isfinite(startFrame) || !std::isfinite(endFrame) || endFrame < startFrame) {
+        return result;
+    }
+    frameRate = std::clamp(frameRate, 1.0, 1000.0);
 
     const std::string expressionStd(expression.data(), expression.length());
     SimpleExprEval eval(expressionStd);
@@ -586,7 +666,8 @@ std::vector<KeyframePoint> KeyframeEditingTools::expressionToKeyframes(
         eval.variables["frame"] = frame;
         eval.variables["index"] = frame - startFrame;
 
-        const double val = eval.evaluate();
+        const double evaluated = eval.evaluate();
+        const double val = std::isfinite(evaluated) ? evaluated : 0.0;
         KeyframePoint kf;
         kf.frame = frame;
         kf.value = val;

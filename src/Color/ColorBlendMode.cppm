@@ -5,7 +5,6 @@ module;
 #include <algorithm>
 
 module Color.BlendMode;
-import Color.BlendMode;
 
 import Color.Float;
 import Color.Conversion;

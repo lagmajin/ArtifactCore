@@ -36,9 +36,8 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-export module Codec.MFEncoder;
-
 #include <QString>
+export module Codec.MFEncoder;
 
 
 

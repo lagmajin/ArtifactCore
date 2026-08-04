@@ -49,6 +49,9 @@ void GlyphAtlas::clear() {
 }
 
 bool GlyphAtlas::packGlyph(int w, int h, int &outX, int &outY) {
+  if (w <= 0 || h <= 0 || w > kAtlasSize || h > kAtlasSize) {
+    return false;
+  }
   const int paddedW = w + kPadding;
   const int paddedH = h + kPadding;
 

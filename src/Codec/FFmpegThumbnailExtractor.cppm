@@ -49,7 +49,6 @@ extern "C" {
 #pragma comment(lib, "swscale.lib")
 #pragma comment(lib, "swresample.lib")
 module Codec.Thumbnail.FFmpeg;
-import Codec.Thumbnail.FFmpeg;
 
 import Media.Info;
 
@@ -81,7 +80,7 @@ namespace ArtifactCore {
  public:
   
   QImage extractThumbnailInternal(const QString& videoFullPath);
-  QImage extractThumbnailFromTimeStamp();
+  QImage extractThumbnailFromTimeStamp(const QString& videoFullPath, qint64 timestampMs);
   ThumbnailExtractorResult extractThumbnail(const UniString& videoFullPath);
  };
 
@@ -198,6 +197,74 @@ namespace ArtifactCore {
   if (fmtCtx) avformat_close_input(&fmtCtx);
 
   return image;
+ }
+
+ QImage FFmpegThumbnailExtractor::Impl::extractThumbnailFromTimeStamp(
+     const QString& videoFullPath, qint64 timestampMs)
+ {
+  AVFormatContext* fmtCtx = nullptr;
+  AVCodecContext* codecCtx = nullptr;
+  AVFrame* frame = nullptr;
+  AVPacket* packet = nullptr;
+  SwsContext* swsCtx = nullptr;
+  QImage result;
+  const QByteArray pathBytes = videoFullPath.toUtf8();
+  if (avformat_open_input(&fmtCtx, pathBytes.constData(), nullptr, nullptr) != 0) return result;
+  AVDictionary* streamOpts = makeSingleThreadStreamInfoOptions();
+  if (avformat_find_stream_info(fmtCtx, &streamOpts) < 0) {
+   av_dict_free(&streamOpts); avformat_close_input(&fmtCtx); return result;
+  }
+  av_dict_free(&streamOpts);
+  const int streamIndex = av_find_best_stream(fmtCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+  if (streamIndex < 0) { avformat_close_input(&fmtCtx); return result; }
+  AVStream* stream = fmtCtx->streams[streamIndex];
+  const AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
+  if (!codec) { avformat_close_input(&fmtCtx); return result; }
+  codecCtx = avcodec_alloc_context3(codec);
+  if (!codecCtx || avcodec_parameters_to_context(codecCtx, stream->codecpar) < 0) {
+   if (codecCtx) avcodec_free_context(&codecCtx);
+   avformat_close_input(&fmtCtx); return result;
+  }
+  codecCtx->thread_count = 1; codecCtx->thread_type = 0;
+  AVDictionary* codecOpts = makeSingleThreadCodecOpenOptions();
+  const int openResult = avcodec_open2(codecCtx, codec, &codecOpts);
+  av_dict_free(&codecOpts);
+  if (openResult < 0) {
+   avcodec_free_context(&codecCtx); avformat_close_input(&fmtCtx); return result;
+  }
+  frame = av_frame_alloc(); packet = av_packet_alloc();
+  if (!frame || !packet) {
+   if (frame) av_frame_free(&frame); if (packet) av_packet_free(&packet);
+   avcodec_free_context(&codecCtx); avformat_close_input(&fmtCtx); return result;
+  }
+  const int64_t target = av_rescale_q(std::max<qint64>(0, timestampMs),
+                                      AVRational{1, 1000}, stream->time_base);
+  av_seek_frame(fmtCtx, streamIndex, target, AVSEEK_FLAG_BACKWARD);
+  avcodec_flush_buffers(codecCtx);
+  bool decoded = false;
+  while (av_read_frame(fmtCtx, packet) >= 0) {
+   if (packet->stream_index == streamIndex && avcodec_send_packet(codecCtx, packet) >= 0) {
+    if (avcodec_receive_frame(codecCtx, frame) >= 0) decoded = true;
+   }
+   av_packet_unref(packet);
+   if (decoded) break;
+  }
+  if (decoded) {
+   swsCtx = sws_getContext(frame->width, frame->height, codecCtx->pix_fmt,
+                           frame->width, frame->height, AV_PIX_FMT_RGB32,
+                           SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
+   if (swsCtx) {
+    QImage image(frame->width, frame->height, QImage::Format_RGB32);
+    uint8_t* dst[4] = {image.bits(), nullptr, nullptr, nullptr};
+    int dstLinesize[4] = {static_cast<int>(image.bytesPerLine()), 0, 0, 0};
+    sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize);
+    result = image.copy();
+   }
+  }
+  if (swsCtx) sws_freeContext(swsCtx);
+  av_packet_free(&packet); av_frame_free(&frame); avcodec_free_context(&codecCtx);
+  avformat_close_input(&fmtCtx);
+  return result;
  }
 
  ThumbnailExtractorResult FFmpegThumbnailExtractor::Impl::extractThumbnail(const UniString& videoFullPath)
@@ -380,14 +447,40 @@ namespace ArtifactCore {
 
  QImage FFmpegThumbnailExtractor::extractThumbnailAtTimestamp(const QString& videoPath, qint64 timestampMs)
  {
-
-  return QImage();
+  return impl_->extractThumbnailFromTimeStamp(videoPath, timestampMs);
  }
 
- QImage FFmpegThumbnailExtractor::extractEmbeddedThumbnail(const QString& videoPath)
- {
-  return QImage();
- }
+QImage FFmpegThumbnailExtractor::extractEmbeddedThumbnail(const QString& videoPath)
+{
+  AVFormatContext* fmtCtx = nullptr;
+  const QByteArray pathBytes = videoPath.toUtf8();
+  if (avformat_open_input(&fmtCtx, pathBytes.constData(), nullptr, nullptr) != 0) {
+    return {};
+  }
+
+  QImage result;
+  AVDictionary* options = makeSingleThreadStreamInfoOptions();
+  if (avformat_find_stream_info(fmtCtx, &options) >= 0) {
+    for (unsigned int index = 0; index < fmtCtx->nb_streams; ++index) {
+      AVStream* stream = fmtCtx->streams[index];
+      if (!stream || !(stream->disposition & AV_DISPOSITION_ATTACHED_PIC)) {
+        continue;
+      }
+      const AVPacket& packet = stream->attached_pic;
+      if (packet.data && packet.size > 0) {
+        QImage candidate;
+        if (candidate.loadFromData(QByteArray(
+                reinterpret_cast<const char*>(packet.data), packet.size))) {
+          result = candidate;
+          break;
+        }
+      }
+    }
+  }
+  av_dict_free(&options);
+  avformat_close_input(&fmtCtx);
+  return result;
+}
 
 ThumbnailExtractorResult FFmpegThumbnailExtractor::extractThumbnail(const UniString& str)
  {

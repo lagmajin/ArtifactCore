@@ -9,7 +9,6 @@ module;
 #include <QString>
 
 module Codec.MFFrameExtractor;
-import Codec.MFFrameExtractor;
 
 import std;
 import Memory.TrackedPtr;
@@ -299,23 +298,49 @@ namespace ArtifactCore {
    frame->height = outputHeight;
    frame->stride = stride;
    frame->timestamp = sampleTimestamp;
-   frame->frameNumber = static_cast<int>(sampleTimestamp * frameRate_ / 10000000);
+   frame->frameNumber = frameRate_ > 0.0
+       ? static_cast<int>(sampleTimestamp * frameRate_ / 10000000)
+       : 0;
    frame->data.resize(stride * outputHeight);
    
    // f[^Rs[iRGB32  RGBAj
    if (outputWidth == width_ && outputHeight == height_) {
     // TCYsv
-    std::memcpy(frame->data.data(), data, currentLength);
+    const size_t copySize = std::min<size_t>(currentLength, frame->data.size());
+    std::memcpy(frame->data.data(), data, copySize);
    } else {
-    // ȈՃTCYiۂɂ͂荂iȃTCYASYgpׂj
-    // TODO: 荂iȃTCY
-    std::memcpy(frame->data.data(), data, std::min<size_t>(currentLength, frame->data.size()));
+    // Media Foundation delivers a tightly packed BGRA/RGBA frame at the
+    // source dimensions.  Resample with nearest-neighbour here so the
+    // requested output dimensions do not produce a cropped or partially
+    // initialized frame.
+    const size_t sourceRowBytes = static_cast<size_t>(std::max(0, width_)) * 4u;
+    const size_t sourceBytes = sourceRowBytes * static_cast<size_t>(std::max(0, height_));
+    if (data && sourceRowBytes > 0 && sourceBytes <= currentLength) {
+      for (int y = 0; y < outputHeight; ++y) {
+        const int sourceY = std::min(height_ - 1,
+            static_cast<int>((static_cast<int64_t>(y) * height_) / outputHeight));
+        const BYTE* sourceRow = data + static_cast<size_t>(sourceY) * sourceRowBytes;
+        uint8_t* destinationRow = frame->data.data() + static_cast<size_t>(y) * stride;
+        for (int x = 0; x < outputWidth; ++x) {
+          const int sourceX = std::min(width_ - 1,
+              static_cast<int>((static_cast<int64_t>(x) * width_) / outputWidth));
+          std::memcpy(destinationRow + static_cast<size_t>(x) * 4u,
+                      sourceRow + static_cast<size_t>(sourceX) * 4u, 4u);
+        }
+      }
+    } else {
+      frame->data.clear();
+      lastError_ = "Invalid decoded frame dimensions";
+      return nullptr;
+    }
    }
    
    // tH[}bgϊ
    if (outputFormat_ != OutputFormat::RGBA) {
     convertFormat(frame->data, frame->width, frame->height, outputFormat_);
    }
+   frame->stride = frame->width *
+       ((outputFormat_ == OutputFormat::RGB || outputFormat_ == OutputFormat::BGR) ? 3 : 4);
    
    // vXV
    auto endTime = std::chrono::high_resolution_clock::now();

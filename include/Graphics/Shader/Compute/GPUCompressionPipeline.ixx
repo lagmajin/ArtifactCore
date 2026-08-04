@@ -20,11 +20,11 @@ export namespace ArtifactCore
 {
   using namespace Diligent;
 
-  struct CompressionParams {
+    struct CompressionParams {
     uint32_t blockSize = 4096;  // 4KB blocks
     uint32_t numBlocks = 0;
-    uint32_t _pad0 = 0;
-    uint32_t _pad1 = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
   };
 
   class LIBRARY_DLL_API GPUCompressionPipeline

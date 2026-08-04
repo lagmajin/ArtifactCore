@@ -16,6 +16,8 @@ class tst_QList;
 #include <QtGlobal>
 #include <cmath>
 #include <algorithm>
+#include <numeric>
+#include <limits>
 #include <utility>
 #include <memory>
 
@@ -204,6 +206,32 @@ BoneTransform BoneTransform::operator*(float scalar) const {
     return { position * scalar, rotation * scalar, scale * scalar };
 }
 
+QVector2D computeStretchyMidpoint(const QVector2D& rootPos,
+                                  const QVector2D& tipPos,
+                                  const StretchyLimbDescriptor& descriptor) {
+    const QVector2D delta = tipPos - rootPos;
+    const float distance = delta.length();
+    if (!std::isfinite(distance) || distance <= 1.0e-5f) {
+        return rootPos;
+    }
+
+    const QVector2D direction = delta / distance;
+    const QVector2D perpendicular(-direction.y(), direction.x());
+    const float restLength = std::isfinite(descriptor.restLength)
+        ? std::max(0.0f, descriptor.restLength) : distance;
+    const float stretchRatio = std::isfinite(descriptor.stretchRatio)
+        ? std::max(0.0f, descriptor.stretchRatio) : 1.0f;
+    const float bend = std::clamp(std::isfinite(descriptor.bend)
+                                      ? descriptor.bend : 0.0f,
+                                  -1.0f, 1.0f);
+    const float arcLength = restLength > 1.0e-5f
+        ? restLength * stretchRatio : distance;
+    const float bendAmplitude = descriptor.rubberhoseStyle
+        ? arcLength * 0.35f * bend
+        : arcLength * 0.25f * bend;
+    return rootPos + delta * 0.5f + perpendicular * bendAmplitude;
+}
+
 // ─────────────────────────────────────────────────────────
 // Bone2D 実装
 // ─────────────────────────────────────────────────────────
@@ -263,12 +291,27 @@ void Bone2D::clearKeyFrames() {
     keyframes_.clearKeyFrames();
 }
 
+void Bone2D::setRotationLimits(float minDegrees, float maxDegrees, bool enabled) {
+    if (!std::isfinite(minDegrees) || !std::isfinite(maxDegrees)) {
+        rotationLimitEnabled_ = false;
+        return;
+    }
+    rotationLimitMin_ = std::min(minDegrees, maxDegrees);
+    rotationLimitMax_ = std::max(minDegrees, maxDegrees);
+    rotationLimitEnabled_ = enabled;
+}
+
 QJsonObject Bone2D::toJson() const {
     QJsonObject object;
     object["id"] = id_.toString();
     object["name"] = name_;
     object["length"] = static_cast<double>(length_);
     object["localTransform"] = transformToJson(localTransform_);
+    if (rotationLimitEnabled_) {
+        object["rotationLimitEnabled"] = true;
+        object["rotationLimitMin"] = static_cast<double>(rotationLimitMin_);
+        object["rotationLimitMax"] = static_cast<double>(rotationLimitMax_);
+    }
     if (parent_) {
         object["parentId"] = parent_->id().toString();
     }
@@ -296,6 +339,13 @@ void Bone2D::fromJson(const QJsonObject& object) {
     length_ = static_cast<float>(object.value("length").toDouble(length_));
     localTransform_ = transformFromJson(object.value("localTransform"), localTransform_);
     resolvedTransform_ = localTransform_;
+    if (object.value("rotationLimitEnabled").toBool(false)) {
+        setRotationLimits(
+            static_cast<float>(object.value("rotationLimitMin").toDouble(-180.0)),
+            static_cast<float>(object.value("rotationLimitMax").toDouble(180.0)));
+    } else {
+        rotationLimitEnabled_ = false;
+    }
 
     // キーフレーム復元
     const QJsonValue kfVal = object.value("keyframes");
@@ -315,12 +365,18 @@ void Bone2D::fromJson(const QJsonObject& object) {
 }
 
 void Bone2D::updateHierarchy() {
+    BoneTransform evaluatedTransform = resolvedTransform_;
+    if (rotationLimitEnabled_) {
+        evaluatedTransform.rotation = std::clamp(
+            evaluatedTransform.rotation, rotationLimitMin_, rotationLimitMax_);
+    }
+
     // ローカル変換からローカル行列を構築
     QMatrix4x4 localMatrix;
     localMatrix.setToIdentity();
-    localMatrix.translate(resolvedTransform_.position.x(), resolvedTransform_.position.y(), 0.0f);
-    localMatrix.rotate(resolvedTransform_.rotation, 0.0f, 0.0f, 1.0f);
-    localMatrix.scale(resolvedTransform_.scale.x(), resolvedTransform_.scale.y(), 1.0f);
+    localMatrix.translate(evaluatedTransform.position.x(), evaluatedTransform.position.y(), 0.0f);
+    localMatrix.rotate(evaluatedTransform.rotation, 0.0f, 0.0f, 1.0f);
+    localMatrix.scale(evaluatedTransform.scale.x(), evaluatedTransform.scale.y(), 1.0f);
 
     // グローバル行列の計算
     if (parent_) {
@@ -350,10 +406,34 @@ RigControl2D::RigControl2D(const QString& name, RigControlKind kind)
 {
 }
 
+void RigControl2D::setValue(const QVariant& value)
+{
+    if (kind_ == RigControlKind::Point) {
+        const QVector2D point = value.canConvert<QVector2D>()
+            ? value.value<QVector2D>() : QVector2D();
+        const QVector2D minPoint = minValue_.canConvert<QVector2D>()
+            ? minValue_.value<QVector2D>() : QVector2D(-std::numeric_limits<float>::max(),
+                                                        -std::numeric_limits<float>::max());
+        const QVector2D maxPoint = maxValue_.canConvert<QVector2D>()
+            ? maxValue_.value<QVector2D>() : QVector2D(std::numeric_limits<float>::max(),
+                                                        std::numeric_limits<float>::max());
+        value_ = QVariant::fromValue(QVector2D(
+            std::clamp(point.x(), std::min(minPoint.x(), maxPoint.x()), std::max(minPoint.x(), maxPoint.x())),
+            std::clamp(point.y(), std::min(minPoint.y(), maxPoint.y()), std::max(minPoint.y(), maxPoint.y()))));
+        return;
+    }
+
+    const double numericValue = value.toDouble();
+    const double minimum = minValue_.isValid() ? minValue_.toDouble() : -std::numeric_limits<double>::max();
+    const double maximum = maxValue_.isValid() ? maxValue_.toDouble() : std::numeric_limits<double>::max();
+    value_ = std::clamp(numericValue, std::min(minimum, maximum), std::max(minimum, maximum));
+}
+
 void RigControl2D::setRange(const QVariant& minValue, const QVariant& maxValue)
 {
     minValue_ = minValue;
     maxValue_ = maxValue;
+    setValue(value_);
 }
 
 QJsonObject RigControl2D::toJson() const
@@ -382,7 +462,166 @@ RigControl2D RigControl2D::fromJson(const QJsonObject& object)
     control.value_ = controlValueFromJson(object.value("value").toObject(), control.kind_, QVariant());
     control.minValue_ = controlValueFromJson(object.value("minValue").toObject(), control.kind_, QVariant());
     control.maxValue_ = controlValueFromJson(object.value("maxValue").toObject(), control.kind_, QVariant());
+    control.setValue(control.value_);
     return control;
+}
+
+Id RigController2D::addKeyFrame(const QVector2D& position, const QString& label)
+{
+    ControllerKeyFrame2D frame;
+    frame.id = Id();
+    frame.position = position;
+    frame.label = label;
+    keyFrames_.push_back(frame);
+    return frame.id;
+}
+
+bool RigController2D::removeKeyFrame(const Id& id)
+{
+    const auto oldSize = keyFrames_.size();
+    keyFrames_.erase(std::remove_if(keyFrames_.begin(), keyFrames_.end(),
+                                    [&id](const ControllerKeyFrame2D& frame) { return frame.id == id; }),
+                     keyFrames_.end());
+    return keyFrames_.size() != oldSize;
+}
+
+bool RigController2D::updateKeyFramePosition(const Id& id, const QVector2D& position)
+{
+    for (auto& frame : keyFrames_) {
+        if (frame.id == id) {
+            frame.position = position;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool RigController2D::setKeyFrameProperty(const Id& keyFrameId, const Id& propertyId, const QVariant& value)
+{
+    for (auto& frame : keyFrames_) {
+        if (frame.id != keyFrameId) {
+            continue;
+        }
+        for (auto& property : frame.properties) {
+            if (property.propertyId == propertyId) {
+                property.value = value;
+                return true;
+            }
+        }
+        frame.properties.push_back({propertyId, value});
+        return true;
+    }
+    return false;
+}
+
+QVariant RigController2D::evaluateProperty(const Id& propertyId) const
+{
+    double totalWeight = 0.0;
+    double numericValue = 0.0;
+    QVector2D pointValue;
+    bool point = false;
+    for (const auto& frame : keyFrames_) {
+        for (const auto& property : frame.properties) {
+            if (property.propertyId != propertyId || !property.value.isValid()) {
+                continue;
+            }
+            const QVector2D delta = frame.position - currentValue_;
+            const double weight = 1.0 / std::max(1.0e-5, static_cast<double>(delta.lengthSquared()));
+            if (delta.lengthSquared() <= 1.0e-5f) {
+                return property.value;
+            }
+            if (property.value.canConvert<QVector2D>()) {
+                point = true;
+                pointValue += property.value.value<QVector2D>() * static_cast<float>(weight);
+            } else {
+                numericValue += property.value.toDouble() * weight;
+            }
+            totalWeight += weight;
+        }
+    }
+    if (totalWeight <= 0.0) {
+        return QVariant();
+    }
+    return point ? QVariant::fromValue(pointValue / static_cast<float>(totalWeight))
+                 : QVariant(numericValue / totalWeight);
+}
+
+std::vector<ControllerPropertySnapshot2D> RigController2D::evaluate() const
+{
+    std::vector<ControllerPropertySnapshot2D> result;
+    for (const auto& frame : keyFrames_) {
+        for (const auto& property : frame.properties) {
+            const auto existing = std::find_if(result.begin(), result.end(),
+                                               [&property](const auto& item) { return item.propertyId == property.propertyId; });
+            if (existing == result.end()) {
+                result.push_back({property.propertyId, evaluateProperty(property.propertyId)});
+            }
+        }
+    }
+    return result;
+}
+
+QJsonObject RigController2D::toJson() const
+{
+    QJsonObject object;
+    object["currentX"] = currentValue_.x();
+    object["currentY"] = currentValue_.y();
+    QJsonArray frames;
+    for (const auto& frame : keyFrames_) {
+        QJsonObject frameObject;
+        frameObject["id"] = frame.id.toString();
+        frameObject["x"] = frame.position.x();
+        frameObject["y"] = frame.position.y();
+        frameObject["label"] = frame.label;
+        QJsonArray properties;
+        for (const auto& property : frame.properties) {
+            QJsonObject propertyObject;
+            propertyObject["id"] = property.propertyId.toString();
+            if (property.value.canConvert<QVector2D>()) {
+                const auto point = property.value.value<QVector2D>();
+                propertyObject["type"] = "point";
+                propertyObject["x"] = point.x();
+                propertyObject["y"] = point.y();
+            } else {
+                propertyObject["type"] = "number";
+                propertyObject["value"] = property.value.toDouble();
+            }
+            properties.append(propertyObject);
+        }
+        frameObject["properties"] = properties;
+        frames.append(frameObject);
+    }
+    object["keyFrames"] = frames;
+    return object;
+}
+
+RigController2D RigController2D::fromJson(const QJsonObject& object)
+{
+    RigController2D controller;
+    controller.currentValue_ = QVector2D(static_cast<float>(object.value("currentX").toDouble()),
+                                         static_cast<float>(object.value("currentY").toDouble()));
+    for (const auto& frameValue : object.value("keyFrames").toArray()) {
+        const auto frameObject = frameValue.toObject();
+        ControllerKeyFrame2D frame;
+        frame.id = Id(frameObject.value("id").toString());
+        frame.position = QVector2D(static_cast<float>(frameObject.value("x").toDouble()),
+                                   static_cast<float>(frameObject.value("y").toDouble()));
+        frame.label = frameObject.value("label").toString();
+        for (const auto& propertyValue : frameObject.value("properties").toArray()) {
+            const auto propertyObject = propertyValue.toObject();
+            ControllerPropertySnapshot2D property;
+            property.propertyId = Id(propertyObject.value("id").toString());
+            if (propertyObject.value("type").toString() == "point") {
+                property.value = QVariant::fromValue(QVector2D(static_cast<float>(propertyObject.value("x").toDouble()),
+                                                               static_cast<float>(propertyObject.value("y").toDouble())));
+            } else {
+                property.value = propertyObject.value("value").toDouble();
+            }
+            frame.properties.push_back(property);
+        }
+        controller.keyFrames_.push_back(frame);
+    }
+    return controller;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -1385,7 +1624,8 @@ Rig2D Rig2D::fromJson(const QJsonObject& object) {
 // Two-Bone IK ソルバー
 // ─────────────────────────────────────────────────────────
 
-void Rig2D::solveTwoBoneIK(Bone2D* bone1, Bone2D* bone2, Bone2D* effector, const QVector2D& target) {
+void Rig2D::solveTwoBoneIK(Bone2D* bone1, Bone2D* bone2, Bone2D* effector,
+                           const QVector2D& target, const QVector2D* poleTarget) {
     if (!bone1 || !bone2 || !effector) return;
 
     // ボーンのグローバル位置を取得
@@ -1418,11 +1658,25 @@ void Rig2D::solveTwoBoneIK(Bone2D* bone1, Bone2D* bone2, Bone2D* effector, const
         float angle1 = std::acos(cosAngle1);
         float angle2 = std::acos(cosAngle2);
 
+        // Select the elbow/knee side from the optional pole target.  The
+        // historical behavior remains the positive-side bend when omitted.
+        float bendSign = 1.0f;
+        if (poleTarget) {
+            const QVector2D targetDirection = target - p1;
+            const QVector2D poleDirection = *poleTarget - p1;
+            const float cross = targetDirection.x() * poleDirection.y() -
+                                targetDirection.y() * poleDirection.x();
+            if (cross < 0.0f) {
+                bendSign = -1.0f;
+            }
+        }
+
         // 現在の角度から目標角度へ
         float baseAngle = std::atan2(target.y() - p1.y(), target.x() - p1.x());
 
         // 関節位置を計算
-        p2 = p1 + QVector2D(std::cos(baseAngle + angle1), std::sin(baseAngle + angle1)) * len1;
+        p2 = p1 + QVector2D(std::cos(baseAngle + bendSign * angle1),
+                            std::sin(baseAngle + bendSign * angle1)) * len1;
         p3 = target; // エフェクタは目標位置に到達
     }
 
@@ -1499,6 +1753,108 @@ void Rig2D::solveCCDIK(Bone2D* effector, const QVector2D& target, int iterations
                 return;
             }
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────
+// FABRIK ソルバー（Forward And Backward Reaching Inverse Kinematics）
+// ─────────────────────────────────────────────────────────
+
+void Rig2D::solveFABRIK(const QList<Bone2D*>& chain, const QVector2D& target,
+                        int iterations, float tolerance, Bone2D* poleTarget) {
+    if (chain.size() < 2 || iterations <= 0 || !std::isfinite(tolerance)) return;
+
+    QVector<QVector2D> positions;
+    QVector<float> lengths;
+    positions.reserve(chain.size());
+    lengths.reserve(chain.size() - 1);
+    for (Bone2D* bone : chain) {
+        if (!bone) return;
+        const auto column = bone->globalMatrix().column(3);
+        positions.push_back(QVector2D(column.x(), column.y()));
+    }
+    for (int i = 0; i + 1 < positions.size(); ++i) {
+        const float length = (positions[i + 1] - positions[i]).length();
+        if (!(length > 1.0e-5f) || !std::isfinite(length)) return;
+        lengths.push_back(length);
+    }
+
+    const QVector2D rootPosition = positions.front();
+    const float totalLength = std::accumulate(lengths.cbegin(), lengths.cend(), 0.0f);
+    const float rootDistance = (target - rootPosition).length();
+    if (rootDistance >= totalLength) {
+        const QVector2D direction = rootDistance > 1.0e-5f
+            ? (target - rootPosition).normalized() : QVector2D(1.0f, 0.0f);
+        for (int i = 1; i < positions.size(); ++i) {
+            positions[i] = positions[i - 1] + direction * lengths[i - 1];
+        }
+    } else {
+        const float safeTolerance = std::max(0.0f, tolerance);
+        for (int iteration = 0; iteration < iterations; ++iteration) {
+            // Forward reaching: pin the effector to the target.
+            positions.back() = target;
+            for (int i = positions.size() - 2; i >= 0; --i) {
+                const QVector2D delta = positions[i] - positions[i + 1];
+                const float distance = delta.length();
+                if (distance > 1.0e-5f) {
+                    positions[i] = positions[i + 1] + delta * (lengths[i] / distance);
+                }
+            }
+
+            // Backward reaching: pin the root to its original location.
+            positions.front() = rootPosition;
+            for (int i = 1; i < positions.size(); ++i) {
+                const QVector2D delta = positions[i] - positions[i - 1];
+                const float distance = delta.length();
+                if (distance > 1.0e-5f) {
+                    positions[i] = positions[i - 1] + delta * (lengths[i - 1] / distance);
+                }
+            }
+
+            if ((positions.back() - target).length() <= safeTolerance) break;
+        }
+    }
+
+    // Optional pole correction for intermediate joints.
+    if (poleTarget && chain.size() > 2) {
+        const auto poleColumn = poleTarget->globalMatrix().column(3);
+        const QVector2D pole(poleColumn.x(), poleColumn.y());
+        const QVector2D axis = positions.back() - positions.front();
+        const float axisLengthSquared = QVector2D::dotProduct(axis, axis);
+        if (axisLengthSquared > 1.0e-5f) {
+            const QVector2D axisUnit = axis / std::sqrt(axisLengthSquared);
+            const QVector2D poleProjection = positions.front() +
+                axisUnit * QVector2D::dotProduct(pole - positions.front(), axisUnit);
+            const QVector2D poleSide = pole - poleProjection;
+            for (int i = 1; i + 1 < positions.size(); ++i) {
+                const QVector2D jointProjection = positions.front() +
+                    axisUnit * QVector2D::dotProduct(positions[i] - positions.front(), axisUnit);
+                const QVector2D jointSide = positions[i] - jointProjection;
+                if (jointSide.lengthSquared() > 1.0e-5f && poleSide.lengthSquared() > 1.0e-5f) {
+                    positions[i] = jointProjection + poleSide.normalized() * jointSide.length();
+                }
+            }
+        }
+    }
+
+    // Convert solved world-space segment directions back to local rotations.
+    update();
+    for (int i = 0; i + 1 < chain.size(); ++i) {
+        const QVector2D direction = positions[i + 1] - positions[i];
+        if (direction.lengthSquared() <= 1.0e-5f) continue;
+        const float worldAngle = std::atan2(direction.y(), direction.x()) *
+            (180.0f / 3.14159265358979323846f);
+        float parentWorldAngle = 0.0f;
+        if (chain[i]->parent()) {
+            const QVector2D parentAxis(chain[i]->parent()->globalMatrix().column(0).x(),
+                                       chain[i]->parent()->globalMatrix().column(0).y());
+            parentWorldAngle = std::atan2(parentAxis.y(), parentAxis.x()) *
+                (180.0f / 3.14159265358979323846f);
+        }
+        BoneTransform transform = chain[i]->localTransform();
+        transform.rotation = worldAngle - parentWorldAngle;
+        chain[i]->setLocalTransform(transform);
+        update();
     }
 }
 

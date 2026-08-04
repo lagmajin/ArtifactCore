@@ -1,5 +1,6 @@
 module;
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <map>
 #include <memory>
@@ -162,6 +163,15 @@ SharedPtr<AudioBus> AudioMixer::findBusByName(const UniString& name) const
     return findBusByName(toZeroString(name));
 }
 
+SharedPtr<AudioBus> AudioMixer::findBusById(const Id& id) const
+{
+    if (id.isNil()) return nullptr;
+    const auto it = std::find_if(
+        impl_->buses.begin(), impl_->buses.end(),
+        [&id](const auto& bus) { return bus && bus->id() == id; });
+    return it == impl_->buses.end() ? nullptr : *it;
+}
+
 std::vector<SharedPtr<AudioBus>> AudioMixer::getAllBuses() const
 {
     NamedVector<SharedPtr<AudioBus>> result{makeNamedVector<SharedPtr<AudioBus>>(ContainerName{"AudioMixerAllBuses"})};
@@ -202,19 +212,25 @@ QJsonObject AudioMixer::serialize() const {
         }
 
         QJsonObject busObj;
+        busObj["id"] = bus->id().toQString();
         busObj["name"] = toQString(bus->getName());
         busObj["volume"] = bus->getVolume();
         busObj["pan"] = bus->getPan();
+        busObj["layout"] = static_cast<int>(bus->getLayout());
         busObj["mute"] = bus->isMute();
         busObj["solo"] = bus->isSolo();
 
         const auto target = getRoutingTarget(bus);
-        busObj["target"] = toQString(target->getName());
+        if (target) {
+            busObj["targetId"] = target->id().toQString();
+            busObj["target"] = toQString(target->getName());
+        }
 
         QJsonArray sendsArr;
         for (const auto& send : impl_->sends) {
             if (send.source == bus) {
                 QJsonObject sendObj;
+                sendObj["targetId"] = send.target->id().toQString();
                 sendObj["target"] = toQString(send.target->getName());
                 sendObj["amount"] = send.amount;
                 sendsArr.push_back(sendObj);
@@ -230,39 +246,94 @@ QJsonObject AudioMixer::serialize() const {
 }
 
 bool AudioMixer::deserialize(const QJsonObject& data) {
+    if (!data.value(QStringLiteral("buses")).isArray()) {
+        return false;
+    }
     impl_->routing.clear();
     impl_->sends.clear();
+    // Deserialization represents the complete mixer state. Remove buses that
+    // are not present in the incoming document instead of merging stale buses
+    // from the previously loaded composition.
+    impl_->buses.erase(
+        std::remove_if(impl_->buses.begin(), impl_->buses.end(),
+            [this](const auto& bus) { return bus && bus != masterBus_; }),
+        impl_->buses.end());
 
     const auto busesArr = data["buses"].toArray();
+    std::set<QString> serializedBusIds;
+    // Create all buses first. Routing targets are allowed to appear later in
+    // the serialized array, so resolving them during the first pass would
+    // silently drop valid connections.
     for (const auto& val : busesArr) {
         const auto busObj = val.toObject();
         const QString name = busObj["name"].toString();
 
-        auto bus = findBusByName(name);
+        if (name.trimmed().isEmpty()) {
+            continue;
+        }
+
+        const QString serializedId = busObj["id"].toString().trimmed();
+        if (!serializedId.isEmpty() &&
+            !serializedBusIds.insert(serializedId).second) {
+            continue;
+        }
+
+        SharedPtr<AudioBus> bus;
+        if (!serializedId.isEmpty()) {
+            const Id id(serializedId);
+            const auto idIt = std::find_if(
+                impl_->buses.begin(), impl_->buses.end(),
+                [&id](const auto& candidate) {
+                    return candidate && candidate->id() == id;
+                });
+            if (idIt != impl_->buses.end()) bus = *idIt;
+        }
+        if (!bus) bus = findBusByName(name);
         if (!bus) {
             bus = createBus(name);
         }
+        if (!bus) continue;
+        if (!serializedId.isEmpty()) bus->restoreId(Id(serializedId));
+        bus->setName(toZeroString(name));
 
         bus->setVolume(static_cast<float>(busObj["volume"].toDouble()));
         bus->setPan(static_cast<float>(busObj["pan"].toDouble()));
+        if (busObj.contains("layout")) {
+            bus->setLayout(static_cast<AudioChannelLayout>(busObj["layout"].toInt(
+                static_cast<int>(AudioChannelLayout::Stereo))));
+        }
         bus->setMute(busObj["mute"].toBool());
         bus->setSolo(busObj["solo"].toBool());
+    }
+
+    // Resolve graph edges only after every bus exists.
+    const auto findBusBySerializedId = [this](const QString& value) {
+        const QString trimmed = value.trimmed();
+        if (trimmed.isEmpty()) return SharedPtr<AudioBus>{};
+        return findBusById(Id(trimmed));
+    };
+    for (const auto& val : busesArr) {
+        const auto busObj = val.toObject();
+        const auto bus = findBusByName(busObj["name"].toString());
+        if (!bus) {
+            continue;
+        }
 
         const QString targetName = busObj["target"].toString();
-        const auto target = findBusByName(targetName);
-        if (target) {
-            impl_->routing[bus.get()] = target.get();
+        auto target = findBusBySerializedId(busObj["targetId"].toString());
+        if (!target) target = findBusByName(targetName);
+        if (target && target != bus) {
+            connect(bus, target);
         }
 
         const auto sendsArr = busObj["sends"].toArray();
         for (const auto& sVal : sendsArr) {
             const auto sendObj = sVal.toObject();
             const QString sTarget = sendObj["target"].toString();
-            const float sAmount = static_cast<float>(sendObj["amount"].toDouble());
-            const auto sBus = findBusByName(sTarget);
-            if (sBus) {
-                impl_->sends.push_back({bus, sBus, sAmount});
-            }
+            const float sAmount = static_cast<float>(sendObj["amount"].toDouble(1.0));
+            auto sBus = findBusBySerializedId(sendObj["targetId"].toString());
+            if (!sBus) sBus = findBusByName(sTarget);
+            if (sBus) addSideChainSend(bus, sBus, sAmount);
         }
     }
 
@@ -270,6 +341,9 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
 }
 
 SharedPtr<AudioBus> AudioMixer::createBus(const String& name) {
+    if (name.length() == 0 || findBusByName(name)) {
+        return nullptr;
+    }
     auto bus = makeShared<AudioBus>();
     bus->setName(name);
     impl_->buses.push_back(bus);
@@ -286,7 +360,7 @@ SharedPtr<AudioBus> AudioMixer::createBus(const UniString& name) {
 }
 
 void AudioMixer::removeBus(SharedPtr<AudioBus> bus) {
-    if (bus == masterBus_) {
+    if (!bus || bus == masterBus_ || !impl_->resolveBus(bus.get())) {
         return;
     }
 
@@ -307,8 +381,17 @@ void AudioMixer::removeBus(SharedPtr<AudioBus> bus) {
 }
 
 void AudioMixer::connect(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) {
-    if (source == target) {
+    if (!source || !target || source == target ||
+        !impl_->resolveBus(source.get()) || !impl_->resolveBus(target.get())) {
         return;
+    }
+    // Reject a route that would make the primary bus graph cyclic.
+    const AudioBus* cursor = target.get();
+    std::set<const AudioBus*> visited;
+    while (cursor && visited.insert(cursor).second) {
+        if (cursor == source.get()) return;
+        const auto it = impl_->routing.find(cursor);
+        cursor = it == impl_->routing.end() ? nullptr : it->second;
     }
     impl_->routing[source.get()] = target.get();
 }
@@ -318,7 +401,18 @@ void AudioMixer::disconnect(SharedPtr<AudioBus> source) {
 }
 
 void AudioMixer::addSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target, float amount) {
-    if (source == target) {
+    if (!source || !target || source == target || !std::isfinite(amount) ||
+        !impl_->resolveBus(source.get()) || !impl_->resolveBus(target.get())) {
+        return;
+    }
+    amount = std::clamp(amount, 0.0f, 1.0f);
+    const auto existing = std::find_if(
+        impl_->sends.begin(), impl_->sends.end(),
+        [&](const auto& send) {
+            return send.source == source && send.target == target;
+        });
+    if (existing != impl_->sends.end()) {
+        existing->amount = amount;
         return;
     }
     impl_->sends.push_back({source, target, amount});
@@ -335,6 +429,18 @@ void AudioMixer::removeSideChainSend(SharedPtr<AudioBus> source, SharedPtr<Audio
 void AudioMixer::process(AudioSegment& finalOutput) {
     const int frames = finalOutput.frameCount();
     const int sampleRate = finalOutput.sampleRate;
+
+    if (frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+
+    // AudioBus accumulates inputs, therefore every bus must start each block
+    // empty or the previous block will be mixed into the current one.
+    for (const auto& bus : impl_->buses) {
+        if (bus) {
+            bus->clearInput(frames, sampleRate);
+        }
+    }
 
     const auto sorted = impl_->getSortedBuses();
 

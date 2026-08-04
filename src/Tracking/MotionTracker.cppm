@@ -4,12 +4,16 @@ module;
 #include <QPointF>
 #include <QRectF>
 #include <QImage>
+#include <QColor>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QPainter>
 #include <QMap>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/video/tracking.hpp>
+#include <opencv2/video.hpp>
 #include <vector>
 #include <cmath>
 #include <numbers>
@@ -51,7 +55,6 @@ module;
 #include <random>
 #include <opencv2/opencv.hpp>
 module Tracking.MotionTracker;
-import Tracking.MotionTracker;
 
 namespace ArtifactCore {
 
@@ -80,6 +83,45 @@ void TrackFrame::sortPointsById() {
               });
 }
 
+bool TrackFrame::projectPoint(const QPointF& source, QPointF& projected) const {
+    if (!hasHomography || !std::isfinite(source.x()) ||
+        !std::isfinite(source.y())) {
+        return false;
+    }
+    const double x = source.x();
+    const double y = source.y();
+    const double denominator = homography[6] * x + homography[7] * y + homography[8];
+    if (!std::isfinite(denominator) || std::abs(denominator) <= 1.0e-12) {
+        return false;
+    }
+    const double projectedX = (homography[0] * x + homography[1] * y + homography[2]) /
+                              denominator;
+    const double projectedY = (homography[3] * x + homography[4] * y + homography[5]) /
+                              denominator;
+    if (!std::isfinite(projectedX) || !std::isfinite(projectedY)) return false;
+    projected = QPointF(projectedX, projectedY);
+    return true;
+}
+
+bool TrackFrame::projectRect(const QRectF& source,
+                             std::array<QPointF, 4>& projected) const {
+    if (!std::isfinite(source.left()) || !std::isfinite(source.top()) ||
+        !std::isfinite(source.right()) || !std::isfinite(source.bottom())) {
+        return false;
+    }
+    const std::array<QPointF, 4> corners = {
+        QPointF(source.left(), source.top()),
+        QPointF(source.right(), source.top()),
+        QPointF(source.right(), source.bottom()),
+        QPointF(source.left(), source.bottom())};
+    std::array<QPointF, 4> result;
+    for (std::size_t i = 0; i < corners.size(); ++i) {
+        if (!projectPoint(corners[i], result[i])) return false;
+    }
+    projected = result;
+    return true;
+}
+
 // ============================================================================
 // TrackResult 実装
 // ============================================================================
@@ -99,6 +141,7 @@ void recomputeFrameConfidence(TrackFrame& frame) {
 
 TrackFrame TrackResult::interpolateAt(double time) const {
     if (frames.empty()) return TrackFrame{};
+    if (!std::isfinite(time)) return TrackFrame{};
     
     // 境界外
     if (time <= frames.front().time) return frames.front();
@@ -107,7 +150,11 @@ TrackFrame TrackResult::interpolateAt(double time) const {
     // 補間
     for (size_t i = 0; i < frames.size() - 1; ++i) {
         if (time >= frames[i].time && time <= frames[i + 1].time) {
-            double t = (time - frames[i].time) / (frames[i + 1].time - frames[i].time);
+            const double span = frames[i + 1].time - frames[i].time;
+            if (span <= 1.0e-12) {
+                return frames[i + 1];
+            }
+            double t = (time - frames[i].time) / span;
             TrackFrame result;
             result.time = time;
             result.overallConfidence = frames[i].overallConfidence * (1 - t) + frames[i + 1].overallConfidence * t;
@@ -117,6 +164,14 @@ TrackFrame TrackResult::interpolateAt(double time) const {
                     result.homography[index] =
                         frames[i].homography[index] * (1 - t) +
                         frames[i + 1].homography[index] * t;
+                }
+                const double normalizer = result.homography[8];
+                if (!std::isfinite(normalizer) || std::abs(normalizer) < 1.0e-12) {
+                    result.hasHomography = false;
+                    result.homography = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                                         0.0, 0.0, 1.0};
+                } else {
+                    for (double& value : result.homography) value /= normalizer;
                 }
             }
             
@@ -326,8 +381,12 @@ CameraSolveResult solveCameraPose(
     }
     if (!std::isfinite(settings.focalLengthX) ||
         !std::isfinite(settings.focalLengthY) ||
+        !std::isfinite(settings.principalPointX) ||
+        !std::isfinite(settings.principalPointY) ||
         settings.focalLengthX <= 0.0 || settings.focalLengthY <= 0.0 ||
-        settings.iterations <= 0 || settings.reprojectionError <= 0.0 ||
+        settings.iterations <= 0 || settings.iterations > 100000 ||
+        !std::isfinite(settings.reprojectionError) ||
+        settings.reprojectionError <= 0.0 ||
         !std::isfinite(settings.confidence) || settings.confidence <= 0.0 ||
         settings.confidence > 1.0) {
         result.diagnostic = QStringLiteral("Camera intrinsics or RANSAC settings are invalid.");
@@ -350,7 +409,8 @@ CameraSolveResult solveCameraPose(
     pointWeights.reserve(correspondences.size());
     for (std::size_t sourceIndex = 0; sourceIndex < correspondences.size(); ++sourceIndex) {
         const auto& correspondence = correspondences[sourceIndex];
-        if (!std::isfinite(correspondence.weight) || correspondence.weight <= 0.0) {
+        if (!std::isfinite(correspondence.weight) ||
+            correspondence.weight <= 0.0 || correspondence.weight > 1.0e12) {
             continue;
         }
         if (!std::isfinite(correspondence.imagePosition.x()) ||
@@ -574,9 +634,11 @@ CameraPoseStream solveCameraPoseStream(
     const CameraSolveSettings& settings) {
     CameraPoseStream stream;
     stream.solveSettings = settings;
+    stream.normalize();
+    const CameraSolveSettings safeSettings = stream.solveSettings;
     stream.frames.reserve(samples.size());
     for (const auto& sample : samples) {
-        const CameraSolveResult solved = solveCameraPose(sample.second, settings);
+        const CameraSolveResult solved = solveCameraPose(sample.second, safeSettings);
         CameraPoseFrame frame;
         frame.time = sample.first;
         frame.pose = solved.pose;
@@ -740,6 +802,10 @@ bool CameraSolveJob::start(Samples samples, CameraSolveSettings settings,
         return false;
     }
     cancelRequested_.store(false);
+    CameraPoseStream normalizedSettings;
+    normalizedSettings.solveSettings = settings;
+    normalizedSettings.normalize();
+    settings = normalizedSettings.solveSettings;
     result_ = CameraPoseStream{};
     running_ = true;
     worker_ = std::thread([this, samples = std::move(samples), settings,
@@ -886,20 +952,100 @@ public:
                 denominator);
     }
 
+    QRectF projectedRegionBounds(const std::array<double, 9>& homography,
+                                 const QRectF& region) const {
+        const std::array<QPointF, 4> corners = {
+            QPointF(region.left(), region.top()),
+            QPointF(region.right(), region.top()),
+            QPointF(region.right(), region.bottom()),
+            QPointF(region.left(), region.bottom())};
+        QPointF first = applyHomography(homography, corners.front());
+        if (!std::isfinite(first.x()) || !std::isfinite(first.y())) return {};
+        double minX = first.x();
+        double maxX = first.x();
+        double minY = first.y();
+        double maxY = first.y();
+        for (std::size_t i = 1; i < corners.size(); ++i) {
+            const QPointF projected = applyHomography(homography, corners[i]);
+            if (!std::isfinite(projected.x()) || !std::isfinite(projected.y()))
+                return {};
+            minX = std::min(minX, projected.x());
+            maxX = std::max(maxX, projected.x());
+            minY = std::min(minY, projected.y());
+            maxY = std::max(maxY, projected.y());
+        }
+        return QRectF(minX, minY, maxX - minX, maxY - minY);
+    }
+
     // ECCを用いたプラナートラッキング (Homography)
     bool computePlanarHomography(const cv::Mat& prevImg, const cv::Mat& currImg, const QRectF& region, std::array<double, 9>& homographyOut, double& confidenceOut) {
         confidenceOut = 0.0;
         cv::Mat prev = normalizeFrame(prevImg);
         cv::Mat curr = normalizeFrame(currImg);
-        
+        if (prev.empty() || curr.empty() || prev.size() != curr.size()) {
+            return false;
+        }
         cv::Mat mask = cv::Mat::zeros(prev.size(), CV_8UC1);
-        cv::Rect roi(std::max(0, static_cast<int>(region.x())),
-                     std::max(0, static_cast<int>(region.y())),
-                     std::min(prev.cols - static_cast<int>(region.x()), static_cast<int>(region.width())),
-                     std::min(prev.rows - static_cast<int>(region.y()), static_cast<int>(region.height())));
-        
-        if(roi.width <= 0 || roi.height <= 0) return false;
+        const int left = std::clamp(static_cast<int>(std::floor(region.left())), 0, prev.cols);
+        const int top = std::clamp(static_cast<int>(std::floor(region.top())), 0, prev.rows);
+        const int right = std::clamp(static_cast<int>(std::ceil(region.right())), left, prev.cols);
+        const int bottom = std::clamp(static_cast<int>(std::ceil(region.bottom())), top, prev.rows);
+        const cv::Rect roi(left, top, right - left, bottom - top);
+        if (roi.width < 4 || roi.height < 4) return false;
         mask(roi) = 255;
+
+        const auto featureFallback = [&]() {
+            std::vector<cv::Point2f> previous;
+            cv::goodFeaturesToTrack(prev, previous,
+                                    std::clamp(settings.maxFeatures, 16, 512),
+                                    0.01, std::max(2.0, settings.minDistance), mask);
+            if (previous.size() < 4) return false;
+            std::vector<cv::Point2f> current;
+            std::vector<unsigned char> status;
+            std::vector<float> errors;
+            try {
+                cv::calcOpticalFlowPyrLK(
+                    prev, curr, previous, current, status, errors,
+                    cv::Size(std::max(5, settings.windowSize),
+                             std::max(5, settings.windowSize)),
+                    std::clamp(settings.maxPyramidLevel, 0, 8));
+            } catch (...) {
+                return false;
+            }
+            std::vector<cv::Point2f> src;
+            std::vector<cv::Point2f> dst;
+            for (std::size_t i = 0; i < previous.size() && i < current.size(); ++i) {
+                if (i >= status.size() || !status[i] ||
+                    !std::isfinite(current[i].x) || !std::isfinite(current[i].y)) continue;
+                src.push_back(previous[i]);
+                dst.push_back(current[i]);
+            }
+            if (src.size() < 4) return false;
+            cv::Mat inlierMask;
+            cv::Mat matrix = cv::findHomography(src, dst, cv::RANSAC, 3.0, inlierMask);
+            if (matrix.empty() || matrix.rows != 3 || matrix.cols != 3) return false;
+            if (matrix.type() != CV_64F) matrix.convertTo(matrix, CV_64F);
+            int inliers = 0;
+            for (int i = 0; i < inlierMask.rows; ++i)
+                if (inlierMask.at<unsigned char>(i, 0) != 0) ++inliers;
+            confidenceOut = static_cast<double>(inliers) /
+                            static_cast<double>(src.size());
+            for (int row = 0; row < 3; ++row) {
+                for (int col = 0; col < 3; ++col) {
+                    const double value = matrix.at<double>(row, col);
+                    if (!std::isfinite(value)) return false;
+                    homographyOut[row * 3 + col] = value;
+                }
+            }
+            const double normalizer = homographyOut[8];
+            if (std::abs(normalizer) < 1.0e-9 || !std::isfinite(normalizer))
+                return false;
+            for (double& value : homographyOut) {
+                value /= normalizer;
+                if (!std::isfinite(value)) return false;
+            }
+            return confidenceOut >= settings.confidenceThreshold;
+        };
         
         cv::Mat warpMatrix = cv::Mat::eye(3, 3, CV_32F);
         
@@ -909,17 +1055,31 @@ public:
         
         try {
             double ecc = cv::findTransformECC(prev, curr, warpMatrix, cv::MOTION_HOMOGRAPHY, criteria, mask);
-            if (ecc < 0) return false;
+            if (ecc < 0) return featureFallback();
             confidenceOut = std::clamp(ecc, 0.0, 1.0);
             
             for (int i=0; i<3; ++i) {
                 for (int j=0; j<3; ++j) {
-                    homographyOut[i*3 + j] = warpMatrix.at<float>(i, j);
+                    const double value = static_cast<double>(warpMatrix.at<float>(i, j));
+                    if (!std::isfinite(value)) return false;
+                    homographyOut[i*3 + j] = value;
                 }
             }
-            return true;
+            const double normalizer = homographyOut[8];
+            if (std::abs(normalizer) < 1.0e-9 || !std::isfinite(normalizer)) {
+                return false;
+            }
+            for (double& value : homographyOut) {
+                value /= normalizer;
+                if (!std::isfinite(value)) return false;
+            }
+            // A numerically valid ECC solution is not necessarily a usable
+            // track. Apply the same confidence gate as point tracking so
+            // callers never receive a successful planar result below the
+            // configured quality threshold.
+            return confidenceOut >= settings.confidenceThreshold || featureFallback();
         } catch (...) {
-            return false;
+            return featureFallback();
         }
     }
 
@@ -1106,12 +1266,16 @@ void MotionTracker::setSettings(const TrackerSettings& settings) {
     impl_->settings.type = static_cast<TrackerType>(
         std::clamp(static_cast<int>(impl_->settings.type), 0, 3));
     impl_->settings.maxFeatures = std::max(1, impl_->settings.maxFeatures);
-    impl_->settings.minDistance = std::max(1.0, impl_->settings.minDistance);
-    impl_->settings.windowSize = std::max(3, impl_->settings.windowSize | 1);
+    impl_->settings.minDistance = std::isfinite(impl_->settings.minDistance)
+        ? std::clamp(impl_->settings.minDistance, 1.0, 1000.0) : 10.0;
+    impl_->settings.windowSize = std::clamp(
+        std::max(3, impl_->settings.windowSize | 1), 3, 101);
     impl_->settings.maxPyramidLevel = std::clamp(impl_->settings.maxPyramidLevel, 0, 8);
     impl_->settings.confidenceThreshold =
-        std::clamp(impl_->settings.confidenceThreshold, 0.0, 1.0);
-    impl_->settings.errorThreshold = std::max(0.0, impl_->settings.errorThreshold);
+        std::isfinite(impl_->settings.confidenceThreshold)
+            ? std::clamp(impl_->settings.confidenceThreshold, 0.0, 1.0) : 0.5;
+    impl_->settings.errorThreshold = std::isfinite(impl_->settings.errorThreshold)
+        ? std::clamp(impl_->settings.errorThreshold, 0.0, 1.0e6) : 10.0;
     impl_->settings.subpixelIterations =
         std::max(1, impl_->settings.subpixelIterations);
 }
@@ -1257,7 +1421,11 @@ bool MotionTracker::trackForward(double fromTime, double toTime) {
     if (impl_->type == TrackerType::Planar && !impl_->regions.empty()) {
         std::array<double, 9> h = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
         double planarConfidence = 0.0;
-        if (impl_->computePlanarHomography(it1.value(), it2.value(), impl_->regions.front().bounds, h, planarConfidence)) {
+        QRectF trackingBounds = impl_->regions.front().bounds;
+        for (std::size_t regionIndex = 1; regionIndex < impl_->regions.size(); ++regionIndex) {
+            trackingBounds = trackingBounds.united(impl_->regions[regionIndex].bounds);
+        }
+        if (impl_->computePlanarHomography(it1.value(), it2.value(), trackingBounds, h, planarConfidence)) {
             for (auto& point : impl_->currentPoints) {
                 const QPointF previousPosition = point.position;
                 point.position = impl_->applyHomography(h, previousPosition);
@@ -1274,6 +1442,8 @@ bool MotionTracker::trackForward(double fromTime, double toTime) {
             frame.hasHomography = true;
             frame.points = impl_->currentPoints;
             frame.overallConfidence = planarConfidence;
+            const QRectF nextBounds = impl_->projectedRegionBounds(h, trackingBounds);
+            if (nextBounds.isValid()) impl_->regions.front().bounds = nextBounds;
             if (planarConfidence < impl_->settings.confidenceThreshold) {
                 impl_->result.addFailureFrame(toTime);
             }
@@ -1335,7 +1505,11 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
     if (impl_->type == TrackerType::Planar && !impl_->regions.empty()) {
         std::array<double, 9> h = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
         double planarConfidence = 0.0;
-        if (impl_->computePlanarHomography(it2.value(), it1.value(), impl_->regions.front().bounds, h, planarConfidence)) {
+        QRectF trackingBounds = impl_->regions.front().bounds;
+        for (std::size_t regionIndex = 1; regionIndex < impl_->regions.size(); ++regionIndex) {
+            trackingBounds = trackingBounds.united(impl_->regions[regionIndex].bounds);
+        }
+        if (impl_->computePlanarHomography(it2.value(), it1.value(), trackingBounds, h, planarConfidence)) {
             for (auto& point : impl_->currentPoints) {
                 const QPointF previousPosition = point.position;
                 point.position = impl_->applyHomography(h, previousPosition);
@@ -1352,6 +1526,8 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
             frame.hasHomography = true;
             frame.points = impl_->currentPoints;
             frame.overallConfidence = planarConfidence;
+            const QRectF nextBounds = impl_->projectedRegionBounds(h, trackingBounds);
+            if (nextBounds.isValid()) impl_->regions.front().bounds = nextBounds;
             if (planarConfidence < impl_->settings.confidenceThreshold) {
                 impl_->result.addFailureFrame(toTime);
             }
@@ -1546,6 +1722,46 @@ std::vector<QPointF> MotionTracker::allPointPositionsAt(double time) const {
         positions.push_back(p.position);
     }
     return positions;
+}
+
+bool MotionTracker::projectRegionAt(double time, const QRectF& source,
+                                    std::array<QPointF, 4>& projected) const {
+    if (!std::isfinite(time)) return false;
+    const TrackFrame frame = impl_->result.interpolateAt(time);
+    return frame.projectRect(source, projected);
+}
+
+std::vector<std::pair<double, std::array<QPointF, 4>>>
+MotionTracker::exportProjectedRegionKeyframes(const QRectF& source) const {
+    std::vector<std::pair<double, std::array<QPointF, 4>>> output;
+    if (!source.isValid() || !std::isfinite(source.x()) ||
+        !std::isfinite(source.y()) || !std::isfinite(source.width()) ||
+        !std::isfinite(source.height())) {
+        return output;
+    }
+
+    const auto frames = result();
+    output.reserve(frames.frames.size());
+    for (const auto& frame : frames.frames) {
+        if (!std::isfinite(frame.time)) {
+            continue;
+        }
+        std::array<QPointF, 4> projected{};
+        if (!frame.projectRect(source, projected)) {
+            continue;
+        }
+        bool finite = true;
+        for (const auto& point : projected) {
+            finite = finite && std::isfinite(point.x()) &&
+                     std::isfinite(point.y()) &&
+                     std::abs(point.x()) <= 1.0e9 &&
+                     std::abs(point.y()) <= 1.0e9;
+        }
+        if (finite) {
+            output.emplace_back(frame.time, projected);
+        }
+    }
+    return output;
 }
 
 QPointF MotionTracker::displacementAt(double time) const {
@@ -2180,24 +2396,99 @@ void TrackerManager::trackAllTrackers(double startTime, double endTime,
 
 namespace OpticalFlow {
 
+namespace {
+cv::Mat toGrayMat(const QImage& image)
+{
+    if (image.isNull()) {
+        return {};
+    }
+    const QImage gray = image.convertToFormat(QImage::Format_Grayscale8);
+    cv::Mat view(gray.height(), gray.width(), CV_8UC1,
+                 const_cast<uchar*>(gray.constBits()), gray.bytesPerLine());
+    return view.clone();
+}
+}
+
 std::vector<std::pair<QPointF, QPointF>> computeFlow(
     const QImage& frame1, 
     const QImage& frame2,
     const TrackerSettings& settings) 
 {
     std::vector<std::pair<QPointF, QPointF>> flow;
-    // 実際の実装ではOpenCVを使用
-    Q_UNUSED(frame1);
-    Q_UNUSED(frame2);
-    Q_UNUSED(settings);
+    const cv::Mat previous = toGrayMat(frame1);
+    const cv::Mat current = toGrayMat(frame2);
+    if (previous.empty() || current.empty() || previous.size() != current.size()) {
+        return flow;
+    }
+
+    std::vector<cv::Point2f> sourcePoints;
+    const cv::Rect region = settings.searchRegion.isEmpty()
+        ? cv::Rect(0, 0, previous.cols, previous.rows)
+        : cv::Rect(std::max(0, static_cast<int>(settings.searchRegion.left())),
+                   std::max(0, static_cast<int>(settings.searchRegion.top())),
+                   std::min(previous.cols, static_cast<int>(settings.searchRegion.width())),
+                   std::min(previous.rows, static_cast<int>(settings.searchRegion.height())));
+    cv::goodFeaturesToTrack(previous, sourcePoints,
+                            std::max(1, settings.maxFeatures), 0.01,
+                            std::max(1.0, settings.minDistance), cv::noArray(),
+                            3, false, 0.04);
+    if (sourcePoints.empty()) {
+        return flow;
+    }
+    if (region.width > 0 && region.height > 0 &&
+        (region.x != 0 || region.y != 0 || region.width != previous.cols ||
+         region.height != previous.rows)) {
+        sourcePoints.erase(std::remove_if(sourcePoints.begin(), sourcePoints.end(),
+            [&region](const cv::Point2f& point) { return !region.contains(point); }),
+            sourcePoints.end());
+    }
+    if (sourcePoints.empty()) {
+        return flow;
+    }
+
+    std::vector<cv::Point2f> destinationPoints;
+    std::vector<unsigned char> status;
+    std::vector<float> errors;
+    const int window = std::max(3, settings.windowSize | 1);
+    cv::calcOpticalFlowPyrLK(previous, current, sourcePoints, destinationPoints,
+                             status, errors, cv::Size(window, window),
+                             std::max(0, settings.maxPyramidLevel));
+    flow.reserve(destinationPoints.size());
+    for (size_t i = 0; i < destinationPoints.size(); ++i) {
+        if (status[i] && std::isfinite(errors[i]) &&
+            errors[i] <= std::max(0.0, settings.errorThreshold)) {
+            flow.emplace_back(QPointF(sourcePoints[i].x, sourcePoints[i].y),
+                              QPointF(destinationPoints[i].x, destinationPoints[i].y));
+        }
+    }
     return flow;
 }
 
 QImage computeDenseFlow(const QImage& frame1, const QImage& frame2) {
-    // Farnebackアルゴリズム等を使用
-    Q_UNUSED(frame1);
-    Q_UNUSED(frame2);
-    return QImage();
+    const cv::Mat previous = toGrayMat(frame1);
+    const cv::Mat current = toGrayMat(frame2);
+    if (previous.empty() || current.empty() || previous.size() != current.size()) {
+        return {};
+    }
+
+    cv::Mat flow;
+    cv::calcOpticalFlowFarneback(previous, current, flow, 0.5, 3, 15, 3, 5, 1.2, 0);
+    QImage result(frame1.size(), QImage::Format_RGB32);
+    result.fill(0);
+    for (int y = 0; y < flow.rows; ++y) {
+        const auto* source = flow.ptr<cv::Point2f>(y);
+        auto* destination = reinterpret_cast<QRgb*>(result.scanLine(y));
+        for (int x = 0; x < flow.cols; ++x) {
+            const float magnitude = std::hypot(source[x].x, source[x].y);
+            const float angle = std::atan2(source[x].y, source[x].x);
+            const float hue = (angle + static_cast<float>(std::numbers::pi)) /
+                              (2.0f * static_cast<float>(std::numbers::pi));
+            const float value = std::clamp(magnitude * 16.0f / 255.0f, 0.0f, 1.0f);
+            destination[x] = QColor::fromHsvF(hue, magnitude > 0.001f ? 1.0 : 0.0,
+                                               value).rgb();
+        }
+    }
+    return result;
 }
 
 QImage visualizeFlow(const std::vector<std::pair<QPointF, QPointF>>& flow, 
@@ -2210,7 +2501,7 @@ QImage visualizeFlow(const std::vector<std::pair<QPointF, QPointF>>& flow,
     painter.setPen(Qt::green);
     
     for (const auto& [start, end] : flow) {
-        painter.drawLine(start, start + end);
+        painter.drawLine(start, end);
     }
     return vis;
 }
@@ -2220,22 +2511,50 @@ QImage visualizeFlow(const std::vector<std::pair<QPointF, QPointF>>& flow,
 std::array<double, 9> MotionTracker::computeHomography(
     const std::vector<QPointF>& srcPoints,
     const std::vector<QPointF>& dstPoints) {
-    
-    if (srcPoints.size() < 4 || dstPoints.size() < 4) {
-        return {1, 0, 0, 0, 1, 0, 0, 0, 1};
+    const std::array<double, 9> identity{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    const std::size_t count = std::min(srcPoints.size(), dstPoints.size());
+    if (count < 4) {
+        return identity;
     }
 
     std::vector<cv::Point2f> srcFull, dstFull;
-    for (size_t i = 0; i < 4; ++i) {
-        srcFull.push_back(cv::Point2f(static_cast<float>(srcPoints[i].x()), static_cast<float>(srcPoints[i].y())));
-        dstFull.push_back(cv::Point2f(static_cast<float>(dstPoints[i].x()), static_cast<float>(dstPoints[i].y())));
+    srcFull.reserve(count);
+    dstFull.reserve(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        const double sx = srcPoints[i].x();
+        const double sy = srcPoints[i].y();
+        const double dx = dstPoints[i].x();
+        const double dy = dstPoints[i].y();
+        if (!std::isfinite(sx) || !std::isfinite(sy) ||
+            !std::isfinite(dx) || !std::isfinite(dy)) {
+            continue;
+        }
+        srcFull.emplace_back(static_cast<float>(sx), static_cast<float>(sy));
+        dstFull.emplace_back(static_cast<float>(dx), static_cast<float>(dy));
+    }
+    if (srcFull.size() < 4) {
+        return identity;
     }
 
-    cv::Mat H = cv::getPerspectiveTransform(srcFull, dstFull);
-    std::array<double, 9> resultMat;
+    cv::Mat inlierMask;
+    cv::Mat H = cv::findHomography(srcFull, dstFull, cv::RANSAC, 3.0, inlierMask);
+    if (H.empty() || H.rows != 3 || H.cols != 3) {
+        return identity;
+    }
+    H.convertTo(H, CV_64F);
+    const double normalizer = H.at<double>(2, 2);
+    if (!std::isfinite(normalizer) || std::abs(normalizer) < 1.0e-12) {
+        return identity;
+    }
+
+    std::array<double, 9> resultMat{};
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
-            resultMat[i * 3 + j] = H.at<double>(i, j);
+            const double value = H.at<double>(i, j) / normalizer;
+            if (!std::isfinite(value)) {
+                return identity;
+            }
+            resultMat[i * 3 + j] = value;
         }
     }
     return resultMat;

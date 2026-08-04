@@ -3,6 +3,8 @@ module;
 #include <string>
 #include <utility>
 #include <vector>
+#include <algorithm>
+#include <cmath>
 
 module ImageProcessing;
 
@@ -16,7 +18,12 @@ std::vector<EffectParamDef> AbstractImageEffect::parameters() const {
 void AbstractImageEffect::setParam(const std::string& name, double value) {
     size_t idx = 0;
     if (findParamIndex(name, idx)) {
-        paramValues_[idx].second = value;
+        const auto defs = parameters();
+        if (idx >= defs.size() || !std::isfinite(value)) return;
+        const auto& definition = defs[idx];
+        const double lower = std::min(definition.minValue, definition.maxValue);
+        const double upper = std::max(definition.minValue, definition.maxValue);
+        paramValues_[idx].second = std::clamp(value, lower, upper);
     }
 }
 

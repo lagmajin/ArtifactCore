@@ -64,6 +64,9 @@ struct PsdChannelInfo {
 };
 
 struct PsdLayerInfo {
+    // OpenImageIO subimage index for the decoded layer preview.
+    // Zero is reserved for the flattened document image.
+    int subimageIndex = -1;
     QRect bounds;
     QVector<PsdChannelInfo> channels;
     QString name;
@@ -71,6 +74,10 @@ struct PsdLayerInfo {
     QByteArray blendModeKey;
     quint8 opacity = 255;
     bool visible = true;
+    bool hasMask = false;
+    bool maskDisabled = false;
+    QRect maskBounds;
+    quint8 maskDefaultColor = 255;
     bool transparencyProtected = false;
     bool clipped = false;
 };
@@ -99,6 +106,7 @@ public:
 
     bool hasLayerMetadata() const;
     RawImage flattenedPreview() const;
+    RawImage layerPreview(int layerIndex) const;
 
 private:
     class Impl;

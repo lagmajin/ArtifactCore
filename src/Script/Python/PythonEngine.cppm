@@ -2,7 +2,8 @@ module;
 #include <utility>
 // pybind11-based embedded Python interpreter for Artifact
 // pybind11 wraps CPython C API with clean C++ semantics.
-// If pybind11 is not available, compiles as a no-op stub.
+// If pybind11 is not available, the implementation falls back to an external
+// Python process so the public engine contract remains usable in minimal builds.
 #ifdef ARTIFACT_HAS_PYTHON
 #include <pybind11/pybind11.h>
 #include <pybind11/embed.h>
@@ -18,9 +19,10 @@ module;
 #include <iterator>
 #include <string_view>
 #include <iostream>
+#include <QProcess>
+#include <QString>
 
 module Script.Python.Engine;
-import Script.Python.Engine;
 
 import Core.ArtifactString;
 
@@ -46,6 +48,18 @@ public:
 
     // Interactive console state
     ZeroString consoleBuffer_;
+    bool externalRuntime_ = false;
+    std::string externalExecutable_ = "python";
+    std::vector<std::string> externalSearchPaths_;
+    std::string externalPrelude_;
+    std::unordered_map<std::string, std::string> externalStringGlobals_;
+    std::unordered_map<std::string, int64_t> externalIntGlobals_;
+    std::unordered_map<std::string, double> externalFloatGlobals_;
+    std::unordered_map<std::string, bool> externalBoolGlobals_;
+
+    void setExternalValue(const std::string& name, const std::string& literal) {
+        if (!name.empty()) externalPrelude_ += name + " = " + literal + "\n";
+    }
 
 #ifdef ARTIFACT_HAS_PYTHON
     std::unique_ptr<py::scoped_interpreter> guard_;
@@ -175,9 +189,30 @@ sys.stderr = _ArtifactOut(True)
     }
 
 #else
-    impl_->setError("Python support not compiled (ARTIFACT_HAS_PYTHON not defined). "
-                    "Install pybind11 and define ARTIFACT_HAS_PYTHON to enable.");
-    return false;
+    std::string executablePath = pythonHome;
+    if (!executablePath.empty() && std::filesystem::is_directory(executablePath)) {
+#ifdef _WIN32
+        executablePath += "/python.exe";
+#else
+        executablePath += "/bin/python3";
+#endif
+    }
+    const QString executable = executablePath.empty()
+        ? QStringLiteral("python") : QString::fromStdString(executablePath);
+    QProcess probe;
+    probe.setProgram(executable);
+    probe.setArguments({QStringLiteral("--version")});
+    probe.start();
+    if (!probe.waitForStarted(2000) || !probe.waitForFinished(5000) ||
+        probe.exitStatus() != QProcess::NormalExit || probe.exitCode() != 0) {
+        impl_->setError("Python support unavailable: embedded pybind11 is not enabled and external Python was not found.");
+        return false;
+    }
+    impl_->externalExecutable_ = executable.toStdString();
+    impl_->externalRuntime_ = true;
+    impl_->initialized_ = true;
+    impl_->lastError_.clear();
+    return true;
 #endif
 }
 
@@ -192,6 +227,7 @@ void PythonEngine::finalize() {
 #endif
 
     impl_->initialized_ = false;
+    impl_->externalRuntime_ = false;
 }
 
 bool PythonEngine::isInitialized() const {
@@ -229,8 +265,47 @@ bool PythonEngine::execute(const std::string& code) {
         return false;
     }
 #else
-        impl_->setError("Python not available");
-    return false;
+    if (!impl_->externalRuntime_) {
+        impl_->setError("Python not initialized");
+        return false;
+    }
+    QProcess process;
+    process.setProgram(QString::fromStdString(impl_->externalExecutable_));
+    std::string externalCode;
+    for (const auto& path : impl_->externalSearchPaths_) {
+        std::string escaped = path;
+        size_t pos = 0;
+        while ((pos = escaped.find('\\', pos)) != std::string::npos) {
+            escaped.insert(pos, "\\");
+            pos += 2;
+        }
+        pos = 0;
+        while ((pos = escaped.find('"', pos)) != std::string::npos) {
+            escaped.insert(pos, "\\");
+            pos += 2;
+        }
+        externalCode += "import sys; sys.path.insert(0, \"" + escaped + "\");\n";
+    }
+    externalCode += impl_->externalPrelude_;
+    externalCode += code;
+    process.setArguments({QStringLiteral("-c"), QString::fromStdString(externalCode)});
+    process.start();
+    if (!process.waitForStarted(2000) || !process.waitForFinished(30000)) {
+        impl_->setError("External Python process did not finish");
+        process.kill();
+        return false;
+    }
+    const QByteArray stdoutData = process.readAllStandardOutput();
+    const QByteArray stderrData = process.readAllStandardError();
+    if (!stdoutData.isEmpty()) impl_->captureOutput(stdoutData.toStdString(), false);
+    if (!stderrData.isEmpty()) impl_->captureOutput(stderrData.toStdString(), true);
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        impl_->setError(stderrData.isEmpty() ? "External Python execution failed"
+                                             : stderrData.toStdString());
+        return false;
+    }
+    impl_->lastError_.clear();
+    return true;
 #endif
 }
 
@@ -258,7 +333,17 @@ std::string PythonEngine::evaluate(const std::string& expression) {
         return "";
     }
 #else
-    return "";
+    if (!impl_->externalRuntime_) return "";
+    QProcess process;
+    process.setProgram(QString::fromStdString(impl_->externalExecutable_));
+    const std::string script = impl_->externalPrelude_ +
+        "print(repr(" + expression + "))";
+    process.setArguments({QStringLiteral("-c"), QString::fromStdString(script)});
+    process.start();
+    if (!process.waitForStarted(2000) || !process.waitForFinished(30000) ||
+        process.exitCode() != 0) return "";
+    QByteArray output = process.readAllStandardOutput().trimmed();
+    return output.toStdString();
 #endif
 }
 
@@ -288,6 +373,13 @@ void PythonEngine::registerConstant(const std::string& name, const std::string& 
     if (impl_->initialized_) {
         impl_->artifactModule_.attr(name.c_str()) = value;
     }
+#else
+    std::string escaped = value;
+    size_t pos = 0;
+    while ((pos = escaped.find('\\', pos)) != std::string::npos) { escaped.insert(pos, "\\"); pos += 2; }
+    pos = 0;
+    while ((pos = escaped.find('"', pos)) != std::string::npos) { escaped.insert(pos, "\\"); pos += 2; }
+    impl_->setExternalValue(name, "\"" + escaped + "\"");
 #endif
 }
 
@@ -296,6 +388,8 @@ void PythonEngine::registerConstantInt(const std::string& name, int64_t value) {
     if (impl_->initialized_) {
         impl_->artifactModule_.attr(name.c_str()) = value;
     }
+#else
+    impl_->setExternalValue(name, std::to_string(value));
 #endif
 }
 
@@ -304,6 +398,8 @@ void PythonEngine::registerConstantFloat(const std::string& name, double value) 
     if (impl_->initialized_) {
         impl_->artifactModule_.attr(name.c_str()) = value;
     }
+#else
+    impl_->setExternalValue(name, std::to_string(value));
 #endif
 }
 
@@ -316,6 +412,9 @@ void PythonEngine::setGlobalString(const std::string& name, const std::string& v
     if (!impl_->initialized_) return;
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     impl_->globals_[name.c_str()] = value;
+#else
+    registerConstant(name, value);
+    impl_->externalStringGlobals_[name] = value;
 #endif
 }
 
@@ -324,6 +423,9 @@ void PythonEngine::setGlobalInt(const std::string& name, int64_t value) {
     if (!impl_->initialized_) return;
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     impl_->globals_[name.c_str()] = value;
+#else
+    impl_->setExternalValue(name, std::to_string(value));
+    impl_->externalIntGlobals_[name] = value;
 #endif
 }
 
@@ -332,6 +434,9 @@ void PythonEngine::setGlobalFloat(const std::string& name, double value) {
     if (!impl_->initialized_) return;
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     impl_->globals_[name.c_str()] = value;
+#else
+    impl_->setExternalValue(name, std::to_string(value));
+    impl_->externalFloatGlobals_[name] = value;
 #endif
 }
 
@@ -340,6 +445,9 @@ void PythonEngine::setGlobalBool(const std::string& name, bool value) {
     if (!impl_->initialized_) return;
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     impl_->globals_[name.c_str()] = value;
+#else
+    impl_->setExternalValue(name, value ? "True" : "False");
+    impl_->externalBoolGlobals_[name] = value;
 #endif
 }
 
@@ -351,7 +459,8 @@ std::string PythonEngine::getGlobalString(const std::string& name) const {
         return impl_->globals_[name.c_str()].cast<std::string>();
     } catch (...) {}
 #endif
-    return "";
+    auto it = impl_->externalStringGlobals_.find(name);
+    return it == impl_->externalStringGlobals_.end() ? std::string() : it->second;
 }
 
 int64_t PythonEngine::getGlobalInt(const std::string& name) const {
@@ -362,7 +471,8 @@ int64_t PythonEngine::getGlobalInt(const std::string& name) const {
         return impl_->globals_[name.c_str()].cast<int64_t>();
     } catch (...) {}
 #endif
-    return 0;
+    auto it = impl_->externalIntGlobals_.find(name);
+    return it == impl_->externalIntGlobals_.end() ? 0 : it->second;
 }
 
 double PythonEngine::getGlobalFloat(const std::string& name) const {
@@ -373,7 +483,8 @@ double PythonEngine::getGlobalFloat(const std::string& name) const {
         return impl_->globals_[name.c_str()].cast<double>();
     } catch (...) {}
 #endif
-    return 0.0;
+    auto it = impl_->externalFloatGlobals_.find(name);
+    return it == impl_->externalFloatGlobals_.end() ? 0.0 : it->second;
 }
 
 bool PythonEngine::getGlobalBool(const std::string& name) const {
@@ -384,7 +495,8 @@ bool PythonEngine::getGlobalBool(const std::string& name) const {
         return impl_->globals_[name.c_str()].cast<bool>();
     } catch (...) {}
 #endif
-    return false;
+    auto it = impl_->externalBoolGlobals_.find(name);
+    return it == impl_->externalBoolGlobals_.end() ? false : it->second;
 }
 
 // ============================================================================
@@ -445,8 +557,27 @@ bool PythonEngine::pushConsoleLine(const std::string& line) {
         return false;
     }
 #else
+    const std::string buffered = std::string(impl_->consoleBuffer_.data(),
+                                             impl_->consoleBuffer_.length());
+    int parenDepth = 0;
+    bool inSingle = false;
+    bool inDouble = false;
+    bool escaped = false;
+    for (const char ch : buffered) {
+        if (escaped) { escaped = false; continue; }
+        if ((inSingle || inDouble) && ch == '\\') { escaped = true; continue; }
+        if (!inDouble && ch == '\'') { inSingle = !inSingle; continue; }
+        if (!inSingle && ch == '"') { inDouble = !inDouble; continue; }
+        if (inSingle || inDouble) continue;
+        if (ch == '(' || ch == '[' || ch == '{') ++parenDepth;
+        if (ch == ')' || ch == ']' || ch == '}') parenDepth = std::max(0, parenDepth - 1);
+    }
+    const std::string trimmed = buffered.substr(buffered.find_last_not_of(" \t\r\n") + 1);
+    const bool blockContinues = !trimmed.empty() && trimmed.back() == ':';
+    const bool lineContinues = !trimmed.empty() && trimmed.back() == '\\';
+    if (parenDepth > 0 || inSingle || inDouble || blockContinues || lineContinues) return true;
     impl_->consoleBuffer_.clear();
-    return false;
+    return !execute(buffered);
 #endif
 }
 
@@ -464,6 +595,12 @@ void PythonEngine::addSearchPath(const std::string& path) {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     auto sys = py::module_::import("sys");
     sys.attr("path").attr("insert")(0, path);
+#else
+    if (!path.empty() && std::find(impl_->externalSearchPaths_.begin(),
+                                   impl_->externalSearchPaths_.end(), path) ==
+                            impl_->externalSearchPaths_.end()) {
+        impl_->externalSearchPaths_.push_back(path);
+    }
 #endif
 }
 
@@ -479,6 +616,8 @@ std::vector<std::string> PythonEngine::getSearchPaths() const {
             paths.push_back(item.cast<std::string>());
         }
     } catch (...) {}
+#else
+    paths = impl_->externalSearchPaths_;
 #endif
     return paths;
 }

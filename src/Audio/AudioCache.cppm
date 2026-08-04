@@ -4,6 +4,7 @@ class tst_QList;
 #include <QDebug>
 #include <QReadWriteLock>
 #include <QVector>
+#include <limits>
 
 module Audio.Cache;
 
@@ -33,6 +34,15 @@ bool AudioCache::getCached(int64_t frameNumber, AudioSegment& out)
 
 void AudioCache::addCache(int64_t frameNumber, AudioSegment&& pcm)
 {
+    if (frameNumber < 0 || pcm.frameCount() <= 0 || pcm.channelCount() <= 0 ||
+        pcm.channelData.size() < pcm.channelCount()) {
+        return;
+    }
+    for (int channel = 0; channel < pcm.channelCount(); ++channel) {
+        if (pcm.channelData[channel].size() < pcm.frameCount()) {
+            return;
+        }
+    }
     QWriteLocker locker(&lock_);
     
     // 既存エントリがある場合は置き換え
@@ -55,9 +65,40 @@ void AudioCache::addCache(int64_t frameNumber, AudioSegment&& pcm)
 
 void AudioCache::prefetch(int64_t startFrame, int frameCount)
 {
-    // プリフェッチは外部から呼び出される（デコード側で実装）
-    // ここではログ出力のみ
-    qDebug() << "[AudioCache] Prefetch requested:" << startFrame << "to" << (startFrame + frameCount - 1);
+    if (startFrame < 0 || frameCount <= 0) {
+        return;
+    }
+    PrefetchProvider provider;
+    {
+        QReadLocker locker(&lock_);
+        provider = prefetchProvider_;
+    }
+    if (!provider) {
+        return;
+    }
+    const int count = std::min(frameCount, 4096);
+    const int64_t available = std::numeric_limits<int64_t>::max() - startFrame;
+    const int safeCount = std::min<int64_t>(count, available + 1);
+    if (safeCount <= 0) return;
+    const int64_t endFrame = startFrame + static_cast<int64_t>(safeCount - 1);
+    qDebug() << "[AudioCache] Prefetch requested:" << startFrame << "to" << endFrame;
+    for (int index = 0; index < safeCount; ++index) {
+        AudioSegment decoded;
+        try {
+            const int64_t frame = startFrame + static_cast<int64_t>(index);
+            if (provider(frame, decoded)) {
+                addCache(frame, std::move(decoded));
+            }
+        } catch (...) {
+            qWarning() << "[AudioCache] Prefetch provider failed at index" << index;
+        }
+    }
+}
+
+void AudioCache::setPrefetchProvider(PrefetchProvider provider)
+{
+    QWriteLocker locker(&lock_);
+    prefetchProvider_ = std::move(provider);
 }
 
 void AudioCache::clearExpired(qint64 maxAgeMs)
@@ -65,7 +106,9 @@ void AudioCache::clearExpired(qint64 maxAgeMs)
     QWriteLocker locker(&lock_);
     
     qint64 now = QDateTime::currentMSecsSinceEpoch();
-    qint64 cutoffTime = now - maxAgeMs;
+    const qint64 safeAge = std::max<qint64>(0, maxAgeMs);
+    const qint64 cutoffTime = safeAge > now
+        ? std::numeric_limits<qint64>::min() : now - safeAge;
     
     auto it = cache_.begin();
     while (it != cache_.end()) {

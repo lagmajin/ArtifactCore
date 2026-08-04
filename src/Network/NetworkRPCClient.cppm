@@ -15,7 +15,6 @@ module;
 #include <cstdint>
 
 module NetworkRPCClient;
-import NetworkRPCClient;
 
 namespace ArtifactCore {
 

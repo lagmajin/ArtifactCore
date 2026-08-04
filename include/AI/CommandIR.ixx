@@ -1,8 +1,20 @@
 module;
 #include <QString>
+#include <QStringList>
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QIODevice>
+#include <QSaveFile>
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QMetaType>
+#include <vector>
 
 export module Core.AI.CommandIR;
 
@@ -39,6 +51,279 @@ struct CommandResult {
         result.insert(QStringLiteral("diagnostics"), diagnostics);
         result.insert(QStringLiteral("details"), details);
         return result;
+    }
+};
+
+enum class SafeWriteRiskLevel { Low, Medium, High };
+
+inline QString safeWriteRiskLevelName(SafeWriteRiskLevel level)
+{
+    switch (level) {
+    case SafeWriteRiskLevel::Low: return QStringLiteral("Low");
+    case SafeWriteRiskLevel::Medium: return QStringLiteral("Medium");
+    case SafeWriteRiskLevel::High: return QStringLiteral("High");
+    }
+    return QStringLiteral("High");
+}
+
+struct SafeWriteDryRunResult {
+    QString operationName;
+    QStringList targetIds;
+    SafeWriteRiskLevel riskLevel = SafeWriteRiskLevel::Low;
+    QVariantMap affectedCounts;
+    bool wouldChange = false;
+    bool wouldFail = false;
+    QStringList warnings;
+
+    bool isValid() const
+    {
+        return !operationName.trimmed().isEmpty() &&
+               !wouldFail &&
+               (riskLevel != SafeWriteRiskLevel::High || !warnings.isEmpty());
+    }
+
+    QVariantMap toVariantMap() const
+    {
+        return {
+            {QStringLiteral("operationName"), operationName},
+            {QStringLiteral("targetIds"), QVariant::fromValue(targetIds)},
+            {QStringLiteral("riskLevel"), safeWriteRiskLevelName(riskLevel)},
+            {QStringLiteral("affectedCounts"), affectedCounts},
+            {QStringLiteral("wouldChange"), wouldChange},
+            {QStringLiteral("wouldFail"), wouldFail},
+            {QStringLiteral("warnings"), QVariant::fromValue(warnings)}
+        };
+    }
+};
+
+struct SafeWriteConfirmationPayload {
+    QString operationName;
+    QStringList targetIds;
+    QString reason;
+    QString estimatedImpact;
+    bool undoAvailable = false;
+    QString previewMessage;
+    bool required = true;
+
+    bool isValid() const
+    {
+        return !operationName.trimmed().isEmpty() &&
+               (!required || (!reason.trimmed().isEmpty() &&
+                              !previewMessage.trimmed().isEmpty()));
+    }
+
+    QVariantMap toVariantMap() const
+    {
+        return {
+            {QStringLiteral("operationName"), operationName},
+            {QStringLiteral("targetIds"), QVariant::fromValue(targetIds)},
+            {QStringLiteral("reason"), reason},
+            {QStringLiteral("estimatedImpact"), estimatedImpact},
+            {QStringLiteral("undoAvailable"), undoAvailable},
+            {QStringLiteral("previewMessage"), previewMessage},
+            {QStringLiteral("required"), required}
+        };
+    }
+};
+
+struct SafeWriteExecutionPlan {
+    QVariantMap inputSnapshot;
+    SafeWriteDryRunResult dryRun;
+    SafeWriteConfirmationPayload confirmation;
+    QVariantList serviceCalls;
+    QVariantMap postExecutionSnapshot;
+
+    bool isValid() const
+    {
+        return dryRun.isValid() && confirmation.isValid() &&
+               confirmation.operationName == dryRun.operationName;
+    }
+
+    QVariantMap toVariantMap() const
+    {
+        return {
+            {QStringLiteral("inputSnapshot"), inputSnapshot},
+            {QStringLiteral("dryRun"), dryRun.toVariantMap()},
+            {QStringLiteral("confirmation"), confirmation.toVariantMap()},
+            {QStringLiteral("serviceCalls"), serviceCalls},
+            {QStringLiteral("postExecutionSnapshot"), postExecutionSnapshot}
+        };
+    }
+};
+
+struct SafeWriteFailureSummary {
+    QString code;
+    QString message;
+    QString retrySuggestion;
+    bool recoverable = false;
+
+    QVariantMap toVariantMap() const
+    {
+        return {
+            {QStringLiteral("code"), code},
+            {QStringLiteral("message"), message},
+            {QStringLiteral("retrySuggestion"), retrySuggestion},
+            {QStringLiteral("recoverable"), recoverable}
+        };
+    }
+};
+
+struct SafeWriteAuditEntry {
+    QString entryId;
+    QDateTime timestampUtc;
+    QString phase;
+    QString operationName;
+    QString status;
+    QVariantMap payload;
+    SafeWriteFailureSummary failure;
+
+    bool isValid() const
+    {
+        return !entryId.trimmed().isEmpty() &&
+               timestampUtc.isValid() &&
+               !phase.trimmed().isEmpty() &&
+               !operationName.trimmed().isEmpty() &&
+               !status.trimmed().isEmpty();
+    }
+
+    QVariantMap toVariantMap() const
+    {
+        return {
+            {QStringLiteral("entryId"), entryId},
+            {QStringLiteral("timestampUtc"), timestampUtc.toString(Qt::ISODateWithMs)},
+            {QStringLiteral("phase"), phase},
+            {QStringLiteral("operationName"), operationName},
+            {QStringLiteral("status"), status},
+            {QStringLiteral("payload"), payload},
+            {QStringLiteral("failure"), failure.toVariantMap()}
+        };
+    }
+};
+
+class SafeWriteAuditLog {
+public:
+    bool append(const SafeWriteAuditEntry& entry)
+    {
+        if (!entry.isValid()) return false;
+        entries_.push_back(entry);
+        return true;
+    }
+
+    void clear() { entries_.clear(); }
+
+    const std::vector<SafeWriteAuditEntry>& entries() const noexcept
+    {
+        return entries_;
+    }
+
+    QVariantList toVariantList() const
+    {
+        QVariantList result;
+        result.reserve(static_cast<int>(entries_.size()));
+        for (const auto& entry : entries_) {
+            result.push_back(entry.toVariantMap());
+        }
+        return result;
+    }
+
+    bool saveToFile(const QString& path, QString* error = nullptr) const
+    {
+        if (path.trimmed().isEmpty()) {
+            if (error) *error = QStringLiteral("Audit log path is empty.");
+            return false;
+        }
+        const QString directory = QFileInfo(path).absolutePath();
+        if (!directory.isEmpty() && !QDir().mkpath(directory)) {
+            if (error) *error = QStringLiteral("Failed to create audit log directory.");
+            return false;
+        }
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            if (error) *error = file.errorString();
+            return false;
+        }
+        QJsonArray array;
+        for (const auto& entry : entries_) {
+            if (entry.isValid()) array.append(QJsonObject::fromVariantMap(entry.toVariantMap()));
+        }
+        if (file.write(QJsonDocument(array).toJson(QJsonDocument::Indented)) < 0 ||
+            !file.commit()) {
+            if (error) *error = file.errorString();
+            return false;
+        }
+        return true;
+    }
+
+    bool loadFromFile(const QString& path, QString* error = nullptr)
+    {
+        if (path.trimmed().isEmpty()) {
+            if (error) *error = QStringLiteral("Audit log path is empty.");
+            return false;
+        }
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            if (error) *error = file.errorString();
+            return false;
+        }
+        QJsonParseError parseError;
+        const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
+        if (parseError.error != QJsonParseError::NoError || !document.isArray()) {
+            if (error) {
+                *error = parseError.error != QJsonParseError::NoError
+                    ? parseError.errorString()
+                    : QStringLiteral("Audit log root must be a JSON array.");
+            }
+            return false;
+        }
+        std::vector<SafeWriteAuditEntry> loaded;
+        for (const auto& value : document.array()) {
+            if (!value.isObject()) continue;
+            const QVariantMap map = value.toObject().toVariantMap();
+            SafeWriteAuditEntry entry;
+            entry.entryId = map.value(QStringLiteral("entryId")).toString();
+            entry.timestampUtc = QDateTime::fromString(
+                map.value(QStringLiteral("timestampUtc")).toString(), Qt::ISODateWithMs);
+            entry.phase = map.value(QStringLiteral("phase")).toString();
+            entry.operationName = map.value(QStringLiteral("operationName")).toString();
+            entry.status = map.value(QStringLiteral("status")).toString();
+            entry.payload = map.value(QStringLiteral("payload")).toMap();
+            const QVariantMap failure = map.value(QStringLiteral("failure")).toMap();
+            entry.failure.code = failure.value(QStringLiteral("code")).toString();
+            entry.failure.message = failure.value(QStringLiteral("message")).toString();
+            entry.failure.retrySuggestion = failure.value(QStringLiteral("retrySuggestion")).toString();
+            entry.failure.recoverable = failure.value(QStringLiteral("recoverable")).toBool();
+            if (entry.isValid()) loaded.push_back(std::move(entry));
+        }
+        entries_ = std::move(loaded);
+        return true;
+    }
+
+private:
+    std::vector<SafeWriteAuditEntry> entries_;
+};
+
+class SafeWriteRemovalGate {
+public:
+    static bool authorize(const SafeWriteDryRunResult& dryRun,
+                          const SafeWriteConfirmationPayload& confirmation,
+                          bool userConfirmed,
+                          QString* error = nullptr)
+    {
+        const auto reject = [error](const QString& message) {
+            if (error) *error = message;
+            return false;
+        };
+        if (!dryRun.isValid() || dryRun.riskLevel != SafeWriteRiskLevel::High) {
+            return reject(QStringLiteral("Removal requires a valid high-risk dry-run."));
+        }
+        if (!confirmation.isValid() ||
+            confirmation.operationName != dryRun.operationName) {
+            return reject(QStringLiteral("Removal confirmation does not match the dry-run."));
+        }
+        if (!userConfirmed) {
+            return reject(QStringLiteral("Explicit user confirmation is required."));
+        }
+        return true;
     }
 };
 
@@ -268,40 +553,12 @@ public:
         if (normalized.isEmpty()) {
             return false;
         }
-        return normalized == QStringLiteral("set_property") ||
-               normalized == QStringLiteral("set_keyframes") ||
-               normalized == QStringLiteral("batch_set_keyframes") ||
-               normalized == QStringLiteral("move_layer") ||
-               normalized == QStringLiteral("rename_layer") ||
-               normalized == QStringLiteral("add_effect") ||
-               normalized == QStringLiteral("create_layer") ||
-               normalized == QStringLiteral("delete_layer") ||
-               normalized == QStringLiteral("set_layer_visible") ||
-               normalized == QStringLiteral("set_layer_blend_mode") ||
-               normalized == QStringLiteral("set_layer_opacity") ||
-               normalized == QStringLiteral("set_playback_state") ||
-               normalized == QStringLiteral("export_composition") ||
-               normalized == QStringLiteral("remove_effect") ||
-               normalized == QStringLiteral("get_scene_info") ||
-               normalized == QStringLiteral("get_layer_info") ||
-               normalized == QStringLiteral("create_composition") ||
-               normalized == QStringLiteral("switch_composition") ||
-               normalized == QStringLiteral("import_asset") ||
-               normalized == QStringLiteral("duplicate_layer") ||
-               normalized == QStringLiteral("group_layers") ||
-               normalized == QStringLiteral("set_layer_parent") ||
-               normalized == QStringLiteral("split_layer") ||
-               normalized == QStringLiteral("get_keyframes") ||
-               normalized == QStringLiteral("delete_keyframe") ||
-               normalized == QStringLiteral("set_work_area") ||
-               normalized == QStringLiteral("add_marker") ||
-               normalized == QStringLiteral("set_effect_parameter") ||
-               normalized == QStringLiteral("set_effect_enabled") ||
-               normalized == QStringLiteral("list_available_effects") ||
-               normalized == QStringLiteral("start_render_queue") ||
-               normalized == QStringLiteral("get_render_status") ||
-               normalized == QStringLiteral("list_compositions") ||
-               normalized == QStringLiteral("list_project_items");
+        for (const QVariant& item : supportedCommands()) {
+            if (item.toMap().value(QStringLiteral("type")).toString() == normalized) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static QVariantList requiredFieldsFor(const QString& type)
@@ -476,9 +733,19 @@ public:
                     ok = false;
                     result.diagnostics.insert(field, QStringLiteral("missing"));
                 }
-            } else if (!request.arguments.contains(field)) {
-                ok = false;
-                result.diagnostics.insert(field, QStringLiteral("missing"));
+            } else {
+                const auto valueIt = request.arguments.constFind(field);
+                const bool missing = valueIt == request.arguments.constEnd();
+                const QVariant value = missing ? QVariant{} : valueIt.value();
+                const bool emptyString = value.metaType().id() == QMetaType::QString &&
+                                          value.toString().trimmed().isEmpty();
+                const bool emptyList = value.metaType().id() == QMetaType::QVariantList &&
+                                       value.toList().isEmpty();
+                if (missing || !value.isValid() || emptyString || emptyList) {
+                    ok = false;
+                    result.diagnostics.insert(
+                        field, missing ? QStringLiteral("missing") : QStringLiteral("empty"));
+                }
             }
         }
 

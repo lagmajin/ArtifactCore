@@ -5,7 +5,6 @@ module;
 #include <QImage>
 
 module ImageProcessing.ColorTransform.SelectiveColor;
-import ImageProcessing.ColorTransform.SelectiveColor;
 
 namespace ArtifactCore {
 
