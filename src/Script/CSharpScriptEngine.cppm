@@ -52,7 +52,6 @@ constexpr int32_t UNMANAGEDCALLERSONLY_METHOD = 0;
 #endif // ARTIFACT_HAS_DOTNET
 
 module Script.CSharp.Engine;
-import Script.CSharp.Engine;
 
 namespace ArtifactCore {
 
@@ -240,6 +239,7 @@ public:
     bool initialized_ = false;
     std::string lastError_;
     OutputCallback outputCallback_;
+    std::string scriptingAssemblyPath_;
 
     void setError(const std::string& msg) {
         lastError_ = msg;
@@ -297,7 +297,11 @@ bool CSharpScriptEngine::execute(const std::string& assemblyPath) {
     }
 
 #ifdef ARTIFACT_HAS_DOTNET
-    return impl_->host.loadAssembly(assemblyPath);
+    const bool loaded = impl_->host.loadAssembly(assemblyPath);
+    if (loaded && std::filesystem::path(assemblyPath).stem() == "Artifact.Scripting") {
+        impl_->scriptingAssemblyPath_ = assemblyPath;
+    }
+    return loaded;
 #else
     impl_->setError("CSharpScriptEngine: built without ARTIFACT_HAS_DOTNET (stub)");
     return false;
@@ -306,6 +310,55 @@ bool CSharpScriptEngine::execute(const std::string& assemblyPath) {
 
 bool CSharpScriptEngine::loadAssembly(const std::string& assemblyPath) {
     return execute(assemblyPath);
+}
+
+bool CSharpScriptEngine::executeScript(const std::string& code) {
+    if (!impl_->initialized_) {
+        impl_->setError("CSharpScriptEngine: not initialized");
+        return false;
+    }
+#ifdef ARTIFACT_HAS_DOTNET
+    if (impl_->scriptingAssemblyPath_.empty()) {
+        impl_->setError("CSharpScriptEngine: Artifact.Scripting.dll is not loaded");
+        return false;
+    }
+    const std::string result = evaluate("Artifact.Scripting.ArtifactScriptHost", "EvaluateCode", code);
+    if (result.empty() && hasError()) return false;
+    return true;
+#else
+    (void)code;
+    impl_->setError("CSharpScriptEngine: built without ARTIFACT_HAS_DOTNET (stub)");
+    return false;
+#endif
+}
+
+bool CSharpScriptEngine::executeScriptFile(const std::string& path) {
+    if (!impl_->initialized_) {
+        impl_->setError("CSharpScriptEngine: not initialized");
+        return false;
+    }
+#ifdef ARTIFACT_HAS_DOTNET
+    if (!std::filesystem::exists(path)) {
+        impl_->setError("CSharpScriptEngine: script file not found: " + path);
+        return false;
+    }
+    const std::string result = evaluate("Artifact.Scripting.ArtifactScriptHost", "ExecuteFile", path);
+    return !(result.empty() && hasError());
+#else
+    (void)path;
+    impl_->setError("CSharpScriptEngine: built without ARTIFACT_HAS_DOTNET (stub)");
+    return false;
+#endif
+}
+
+bool CSharpScriptEngine::executeScriptWithImports(const std::string& code,
+                                                  const std::vector<std::string>& imports) {
+    std::string source;
+    for (const auto& import : imports) {
+        source += "using " + import + ";\n";
+    }
+    source += code;
+    return executeScript(source);
 }
 
 std::string CSharpScriptEngine::evaluate(const std::string& typeName,

@@ -49,6 +49,12 @@ public:
     /// Load a C# assembly. Returns true on success.
     bool loadAssembly(const std::string& assemblyPath);
 
+    /// Evaluate a CSX source string through the Artifact.Scripting bootstrap.
+    bool executeScript(const std::string& code);
+    bool executeScriptFile(const std::string& path);
+    bool executeScriptWithImports(const std::string& code,
+                                  const std::vector<std::string>& imports);
+
     /// Evaluate a function in a loaded assembly. Returns the result as string.
     std::string evaluate(const std::string& typeName, const std::string& methodName, const std::string& argument = "");
 
