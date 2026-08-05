@@ -28,8 +28,35 @@ import Memory.SharedPtr;
 import Time.Rational;
 import Animation.Value;
 import Frame.Position;
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
 
 namespace ArtifactCore {
+
+namespace {
+const bool kRigSerializationRegistered = [] {
+    registerJsonSerializableType<RigControl2D>(QStringLiteral("RigControl2D"), 1);
+    registerJsonArraySerializableType<RigControlSet2D>(QStringLiteral("RigControlSet2D"), 1);
+    registerJsonSerializableType<RigController2D>(QStringLiteral("RigController2D"), 1);
+    registerJsonSerializableType<SmartBoneController>(QStringLiteral("SmartBoneController"), 1);
+    registerJsonSerializableType<SkinMesh>(QStringLiteral("SkinMesh"), 1);
+    registerJsonSerializableType<Rig2D>(QStringLiteral("Rig2D"), 1);
+    auto& migrations = SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("RigControl2D"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("RigControlSet2D"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("RigController2D"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("SmartBoneController"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("SkinMesh"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("Rig2D"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
 
 // ─────────────────────────────────────────────────────────
 // RigEvaluationContext2D 実装

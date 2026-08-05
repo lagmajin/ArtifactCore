@@ -52,8 +52,9 @@ inline bool isVectorDocumentType(FileType type)
 {
     switch (type) {
     case FileType::Document:
-    case FileType::Image:
         return true;
+    case FileType::Image:
+        return false;
     case FileType::Unknown:
     case FileType::Video:
     case FileType::Audio:
@@ -104,6 +105,24 @@ struct VectorImportResult {
         return importMode == VectorImportMode::EditablePartial ||
                !unsupportedFeatures.isEmpty() || !issues.isEmpty();
     }
+};
+
+inline VectorImportResult makeVectorImportResult(const QString& sourcePath);
+
+class VectorAssetFile {
+public:
+    explicit VectorAssetFile(const QString& sourcePath)
+        : sourcePath_(sourcePath), result_(makeVectorImportResult(sourcePath)) {}
+
+    const QString& sourcePath() const { return sourcePath_; }
+    const VectorImportResult& importResult() const { return result_; }
+    VectorSourceKind sourceKind() const { return result_.sourceKind; }
+    bool isReadable() const { return result_.readable; }
+    bool isEditable() const { return result_.editableReady; }
+
+private:
+    QString sourcePath_;
+    VectorImportResult result_;
 };
 
 inline VectorImportResult makeVectorImportResult(const QString& sourcePath)

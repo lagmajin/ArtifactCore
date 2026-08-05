@@ -10,6 +10,48 @@ module;
 
 module Composition.ParametricComposition;
 
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
+namespace {
+const bool kParametricSerializationRegistered = [] {
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ParametricCompositionSlot>(
+        QStringLiteral("ParametricCompositionSlot"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ParametricCompositionParameter>(
+        QStringLiteral("ParametricCompositionParameter"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ParametricCompositionPublishedControl>(
+        QStringLiteral("ParametricCompositionPublishedControl"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ParametricCompositionInputBinding>(
+        QStringLiteral("ParametricCompositionInputBinding"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ParametricCompositionBundle>(
+        QStringLiteral("ParametricCompositionBundle"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ParametricCompositionDataBinding>(
+        QStringLiteral("ParametricCompositionDataBinding"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ParametricCompositionDefinition>(
+        QStringLiteral("ParametricCompositionDefinition"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ParametricCompositionInstance>(
+        QStringLiteral("ParametricCompositionInstance"), 1);
+    auto& migrations = ArtifactCore::Serialization::SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("ParametricCompositionSlot"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ParametricCompositionParameter"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ParametricCompositionPublishedControl"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ParametricCompositionInputBinding"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ParametricCompositionBundle"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ParametricCompositionDataBinding"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ParametricCompositionDefinition"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ParametricCompositionInstance"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
+
 namespace ArtifactCore {
 
 namespace {

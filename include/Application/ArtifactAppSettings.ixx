@@ -9,7 +9,6 @@ module;
 export module Application.AppSettings;
 
 import Artifact.Grid.System;
-import Core.FastSettingsStore;
 
 namespace ArtifactCore {
 

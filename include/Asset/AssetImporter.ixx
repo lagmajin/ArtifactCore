@@ -6,6 +6,7 @@ module;
 export module Asset.Importer;
 
 import AssetType;
+import Asset.Import.Setting;
 
 export namespace ArtifactCore {
 
@@ -21,6 +22,8 @@ public:
      * @return UUID of the newly registered asset, or null UUID on failure
      */
     static QUuid importFile(const QString& filePath);
+    static QUuid importFile(const QString& filePath,
+                            const AssetImportSettings& settings);
 
     /**
      * @brief Check if a file extension is supported

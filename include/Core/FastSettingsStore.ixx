@@ -44,5 +44,6 @@ export namespace ArtifactCore
   bool isDirty() const;
   int pendingOperations() const;
   bool sync();
+  bool reload(bool discardLocalChanges = false);
  };
 }

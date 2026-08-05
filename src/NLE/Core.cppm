@@ -20,6 +20,20 @@ class tst_QList;
 
 module NLE.Core;
 
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
+namespace {
+const bool kTimeBaseSerializationRegistered = [] {
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::NLE::TimeBase>(
+        QStringLiteral("TimeBase"), 1);
+    ArtifactCore::Serialization::SchemaMigrationRegistry::instance().registerMigration(
+        QStringLiteral("TimeBase"), 0, 1,
+        [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
+
 namespace ArtifactCore::NLE {
 
 namespace {

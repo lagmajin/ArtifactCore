@@ -2,27 +2,193 @@ module;
 #include <algorithm>
 #include <QColor>
 #include <QString>
-#include <QStandardPaths>
-#include <QDir>
+#include <QPoint>
 #include <wobjectimpl.h>
 
 module Application.AppSettings;
 
 import Color.Float;
+import Configuration.ConfigLayer;
+import Configuration.ConfigSchema;
+import Configuration.LayeredConfigStore;
 
 namespace ArtifactCore {
 
 W_OBJECT_IMPL(ArtifactAppSettings)
 
+namespace {
+void registerBuiltInConfigSchema() {
+    auto& schema = ConfigSchema::instance();
+    schema.registerProperty({"General/AutoSaveInterval", "Automatic save interval in minutes", QVariant::Int, 5, 1, 120});
+    schema.registerProperty({"General/DefaultFontFamily", "Default application font family", QVariant::String, QStringLiteral("Segoe UI")});
+    schema.registerProperty({"General/LoadLastProject", "Load the last project on startup", QVariant::Bool, true});
+    schema.registerProperty({"UI/ThemeName", "Application theme preset", QVariant::String, QStringLiteral("Maya"), {}, {},
+                             {QStringLiteral("Default"), QStringLiteral("Maya"), QStringLiteral("Modo"), QStringLiteral("Studio"),
+                              QStringLiteral("Blender"), QStringLiteral("DaVinci"), QStringLiteral("3ds Max"),
+                              QStringLiteral("Nuke"), QStringLiteral("After Effects"), QStringLiteral("High Contrast")}, true, false});
+    schema.registerProperty({"UI/MenuBarFontScalePercent", "Menu bar font scale", QVariant::Int, 132, 50, 200});
+    schema.registerProperty({"UI/DockTabFontPointSize", "Dock tab font size", QVariant::Int, 16, 8, 30});
+    schema.registerProperty({"Render/LayerCacheEnabled", "Enable layer cache", QVariant::Bool, true});
+    schema.registerProperty({"Render/ThreadCount", "Render worker thread count", QVariant::Int, 0, 0, 256});
+    schema.registerProperty({"Render/FarmEnabled", "Enable render farm", QVariant::Bool, true});
+    schema.registerProperty({"Render/FarmWorkerCount", "Render farm worker count", QVariant::Int, 0, 0, 256});
+    schema.registerProperty({"Render/FarmRetryMaxAttempts", "Maximum render farm retries", QVariant::Int, 3, 1, 20});
+    schema.registerProperty({"Render/FarmAllowRemote", "Allow remote render farm workers", QVariant::Bool, false});
+    schema.registerProperty({"Render/FarmRetryInitialBackoffMs", "Initial render farm retry backoff", QVariant::Int, 2000, 100, 60000});
+    schema.registerProperty({"Render/FarmRetryMaxBackoffMs", "Maximum render farm retry backoff", QVariant::Int, 60000, 100, 300000});
+    schema.registerProperty({"Render/FarmRpcPort", "Render farm RPC port", QVariant::Int, 9876, 1, 65535});
+    schema.registerProperty({"UI/Toolbar/ShowGrid", "Show viewport grid", QVariant::Bool, true});
+    schema.registerProperty({"UI/Toolbar/ShowGuide", "Show viewport guides", QVariant::Bool, true});
+    schema.registerProperty({"UI/CompositionGrid/MajorInterval", "Composition grid major interval", QVariant::Double, 100.0, 1.0, 10000.0});
+    schema.registerProperty({"UI/CompositionGrid/Subdivisions", "Composition grid subdivisions", QVariant::Int, 4, 1, 32});
+    schema.registerProperty({"UI/CompositionGrid/ShowMajor", "Show major grid lines", QVariant::Bool, true});
+    schema.registerProperty({"UI/CompositionGrid/ShowMinor", "Show minor grid lines", QVariant::Bool, true});
+    schema.registerProperty({"UI/CompositionGrid/ShowAxis", "Show composition axes", QVariant::Bool, true});
+    schema.registerProperty({"UI/Composition/BackgroundMode", "Composition background mode", QVariant::Int, 1, 0, 3});
+    schema.registerProperty({"UI/Composition/ShowGrid", "Show composition grid", QVariant::Bool, false});
+    schema.registerProperty({"UI/Composition/ShowGuides", "Show composition guides", QVariant::Bool, false});
+    schema.registerProperty({"UI/Composition/ShowSafeMargins", "Show safe margins", QVariant::Bool, false});
+    schema.registerProperty({"UI/Composition/ShowAnchorCenterOverlay", "Show anchor center overlay", QVariant::Bool, false});
+    schema.registerProperty({"UI/Composition/ShowCameraFrustumOverlay", "Show camera frustum overlay", QVariant::Bool, false});
+    schema.registerProperty({"UI/Composition/ShowMotionPathOverlay", "Show motion path overlay", QVariant::Bool, false});
+    schema.registerProperty({"Viewport/RotationSnapDegrees", "Viewport rotation snap step", QVariant::Double, 45.0, 15.0, 90.0,
+                             {15.0, 30.0, 45.0, 90.0}});
+    schema.registerProperty({"AssetBrowser/StatusFilter", "Asset browser status filter", QVariant::String, QStringLiteral("all")});
+    schema.registerProperty({"AssetBrowser/FileTypeFilter", "Asset browser file type filter", QVariant::String, QStringLiteral("all")});
+    schema.registerProperty({"AssetBrowser/SortKey", "Asset browser sort key", QVariant::String, QStringLiteral("date")});
+    schema.registerProperty({"AssetBrowser/SortAscending", "Asset browser sort direction", QVariant::Bool, false});
+    schema.registerProperty({"AssetBrowser/CurrentDirectory", "Asset browser current directory", QVariant::String, QString()});
+    schema.registerProperty({"AssetBrowser/ViewMode", "Asset browser view mode", QVariant::Int, 0, 0, 1});
+    schema.registerProperty({"AssetBrowser/Favorites", "Asset browser favorite folders", QVariant::List, QVariantList{}});
+    schema.registerProperty({"AssetBrowser/Recent", "Asset browser recent folders", QVariant::List, QVariantList{}});
+    schema.registerProperty({"Viewport/AudioWaveformOverlay", "Show audio waveform overlay", QVariant::Bool, true});
+    schema.registerProperty({"Viewport/AudioSpectrumOverlay", "Show audio spectrum overlay", QVariant::Bool, true});
+    schema.registerProperty({"Viewport/RigOverlayVisible", "Show rig overlay", QVariant::Bool, false});
+    schema.registerProperty({"Viewport/RigWeight/Radius", "Rig weight brush radius", QVariant::Double, 36.0, 2.0, 500.0});
+    schema.registerProperty({"Viewport/RigWeight/Opacity", "Rig weight brush opacity", QVariant::Double, 0.35, 0.01, 1.0});
+    schema.registerProperty({"Viewport/RigWeight/Flow", "Rig weight brush flow", QVariant::Double, 1.0, 0.01, 1.0});
+    schema.registerProperty({"Viewport/LineDebug/RigBone", "Show rig bone debug lines", QVariant::Bool, true});
+    schema.registerProperty({"Viewport/LineDebug/RigControl", "Show rig control debug lines", QVariant::Bool, true});
+    schema.registerProperty({"Viewport/LineDebug/RigSkin", "Show rig skin debug lines", QVariant::Bool, true});
+    schema.registerProperty({"Viewport/TrackPoint/FeatureWidth", "Tracker feature width", QVariant::Double, 24.0, 4.0, 8192.0});
+    schema.registerProperty({"Viewport/TrackPoint/FeatureHeight", "Tracker feature height", QVariant::Double, 24.0, 4.0, 8192.0});
+    schema.registerProperty({"Viewport/TrackPoint/SearchWidth", "Tracker search width", QVariant::Double, 96.0, 6.0, 16384.0});
+    schema.registerProperty({"Viewport/TrackPoint/SearchHeight", "Tracker search height", QVariant::Double, 96.0, 6.0, 16384.0});
+    schema.registerProperty({"Viewport/Hud/Visible", "Show viewport toolboxes", QVariant::Bool, true});
+    schema.registerProperty({"Viewport/Hud/ToolOffset", "Viewport tool HUD offset", QVariant::Point, QPoint()});
+    schema.registerProperty({"Viewport/Hud/ZoomOffset", "Viewport zoom HUD offset", QVariant::Point, QPoint()});
+    schema.registerProperty({"Viewport/3DTransformClipboard", "3D transform clipboard", QVariant::List, QVariantList{}});
+    for (int slot = 1; slot <= 9; ++slot) {
+        schema.registerProperty({QStringLiteral("Viewport/RigPose/Slot%1").arg(slot),
+                                 QStringLiteral("Rig pose slot %1").arg(slot),
+                                 QVariant::Map, QVariantMap{}});
+    }
+    schema.registerProperty({"Viewport/MotionSketch/SampleRate", "Motion sketch sample rate", QVariant::Double, 30.0, 1.0, 240.0});
+    schema.registerProperty({"Viewport/MotionSketch/Smoothing", "Motion sketch smoothing", QVariant::Double, 50.0, 0.0, 100.0});
+    schema.registerProperty({"Viewport/MotionSketch/ShowWireframe", "Motion sketch wireframe", QVariant::Bool, false});
+    schema.registerProperty({"Viewport/MotionSketch/ShowBackground", "Motion sketch background", QVariant::Bool, true});
+    schema.registerProperty({"automation/recentCommands", "Recent command palette commands", QVariant::StringList, QStringList{}});
+    schema.registerProperty({"automation/favoriteCommands", "Pinned command palette commands", QVariant::StringList, QStringList{}});
+    schema.registerProperty({"automation/parameterRecipes", "Command palette parameter recipes", QVariant::ByteArray, QByteArray{}});
+    schema.registerProperty({"AI/AutoInitialize", "Automatically initialize AI", QVariant::Bool, false});
+    schema.registerProperty({"AI/Provider", "AI provider", QVariant::String, QStringLiteral("local")});
+    schema.registerProperty({"AI/ModelPath", "AI model path", QVariant::String, QString()});
+    schema.registerProperty({"AI/RecentModelPaths", "Recent AI model paths", QVariant::StringList, QStringList{}});
+    schema.registerProperty({"audio/outputDeviceName", "Audio output device", QVariant::String, QString()});
+    schema.registerProperty({"Asset/GenerateProxyOnImport", "Generate image proxy on import", QVariant::Bool, false});
+    schema.registerProperty({"Asset/ProxyWidth", "Image proxy width", QVariant::Int, 1920, 1, 16384});
+    schema.registerProperty({"Asset/ProxyHeight", "Image proxy height", QVariant::Int, 1080, 1, 16384});
+    schema.registerProperty({"Asset/ProxyJpegQuality", "Image proxy JPEG quality", QVariant::Int, 85, 1, 100});
+    schema.registerProperty({"UI/Composition/ShowDensityHeatmapOverlay", "Show density heatmap overlay", QVariant::Bool, false});
+    schema.registerProperty({"UI/Composition/ShowGizmoDuringDrag", "Show gizmo while dragging", QVariant::Bool, false});
+    schema.registerProperty({"UI/Timeline/AutoKeyEnabled", "Enable timeline auto-key", QVariant::Bool, false});
+    schema.registerProperty({"UI/Timeline/AutoKeyScope", "Timeline auto-key scope", QVariant::String, QStringLiteral("All Keyable"), {}, {},
+                             {QStringLiteral("Global"), QStringLiteral("Selected Layers"), QStringLiteral("Current Layer"), QStringLiteral("All Keyable")}});
+    schema.registerProperty({"UI/Timeline/GhostingEnabled", "Enable timeline ghosting", QVariant::Bool, false});
+    schema.registerProperty({"UI/Timeline/GhostingFrameCount", "Timeline ghosting frame count", QVariant::Int, 3, 1, 20});
+    schema.registerProperty({"UI/Timeline/GhostingOpacity", "Timeline ghosting opacity", QVariant::Int, 18, 4, 40});
+    schema.registerProperty({"UI/Timeline/GraphEditorActive", "Enable graph editor", QVariant::Bool, false});
+    schema.registerProperty({"UI/Timeline/GraphEditorMode", "Graph editor mode", QVariant::String, QStringLiteral("Value"), {}, {},
+                             {QStringLiteral("Value"), QStringLiteral("Speed")}});
+    schema.registerProperty({"UI/Timeline/MotionBlurActive", "Enable timeline motion blur", QVariant::Bool, false});
+    schema.registerProperty({"UI/Timeline/MotionBlurShutterAngle", "Motion blur shutter angle", QVariant::Double, 180.0, 0.0, 720.0});
+    schema.registerProperty({"UI/Timeline/MotionBlurSampleCount", "Motion blur sample count", QVariant::Int, 8, 1, 32});
+    schema.registerProperty({"UI/Timeline/AllowOverscroll", "Allow timeline overscroll", QVariant::Bool, false});
+    schema.registerProperty({"UI/Timeline/ShyActive", "Enable timeline shy mode", QVariant::Bool, false});
+    schema.registerProperty({"UI/Timeline/FrameBlendingActive", "Enable timeline frame blending", QVariant::Bool, false});
+    schema.registerProperty({"Accessibility/Handedness", "Interface handedness", QVariant::String, QStringLiteral("right"), {}, {},
+                             {QStringLiteral("left"), QStringLiteral("right")}});
+    schema.registerProperty({"Accessibility/FontScalePercent", "Accessibility font scale", QVariant::Int, 100, 100, 200});
+    schema.registerProperty({"Accessibility/ColorDeficiencyMode", "Color deficiency simulation mode", QVariant::String, QStringLiteral("none"), {}, {},
+                             {QStringLiteral("none"), QStringLiteral("protanopia"), QStringLiteral("deuteranopia"), QStringLiteral("tritanopia")}});
+    schema.registerProperty({"Import/DefaultFrameRateText", "Default import frame rate", QVariant::String, QStringLiteral("30 fps")});
+    schema.registerProperty({"Import/ColorSpaceText", "Default import color space", QVariant::String, QStringLiteral("sRGB")});
+    schema.registerProperty({"Import/AudioSampleRateText", "Default import audio sample rate", QVariant::String, QStringLiteral("48000 Hz")});
+    schema.registerProperty({"Import/AutoDetectAlpha", "Detect alpha during import", QVariant::Bool, true});
+    schema.registerProperty({"Import/InterpretFootage", "Interpret footage during import", QVariant::Bool, true});
+    schema.registerProperty({"Import/StillImageDurationSeconds", "Still image duration", QVariant::Int, 5, 1, 3600});
+    schema.registerProperty({"Import/CreateCompositionOnImport", "Create composition on import", QVariant::Bool, true});
+    schema.registerProperty({"Preview/QualityText", "Preview quality", QVariant::String, QStringLiteral("Adaptive")});
+    schema.registerProperty({"Preview/ResolutionPercent", "Preview resolution", QVariant::Int, 50, 25, 100});
+    schema.registerProperty({"Preview/EnableRamCache", "Enable RAM preview cache", QVariant::Bool, true});
+    schema.registerProperty({"Preview/CacheSizeMB", "Preview cache size", QVariant::Int, 4096, 512, 32768});
+    schema.registerProperty({"Preview/EnableDiskCache", "Enable disk preview cache", QVariant::Bool, false});
+    schema.registerProperty({"Preview/GenerateThumbnails", "Generate preview thumbnails", QVariant::Bool, true});
+    schema.registerProperty({"Preview/EnableGpuAcceleration", "Enable GPU preview acceleration", QVariant::Bool, true});
+    schema.registerProperty({"Preview/GpuDeviceText", "Preview GPU device", QVariant::String, QStringLiteral("Auto (Best Available)")});
+    schema.registerProperty({"Preview/ThumbnailQualityText", "Preview thumbnail quality", QVariant::String, QStringLiteral("Medium")});
+    schema.registerProperty({"Import/FieldOrderText", "Default import field order", QVariant::String, QStringLiteral("Progressive")});
+    schema.registerProperty({"UI/ThemePresetPath", "Custom theme preset path", QVariant::String, QString()});
+    schema.registerProperty({"UI/Timeline/KeyingSetMode", "Timeline keying set mode", QVariant::String, QStringLiteral("All Keyable"), {}, {},
+                             {QStringLiteral("All Keyable"), QStringLiteral("Transform Only"), QStringLiteral("Custom")}});
+    schema.registerProperty({"Accessibility/PreferLargeTargets", "Prefer larger UI targets", QVariant::Bool, false});
+    schema.registerProperty({"Accessibility/PreferHighContrastHints", "Prefer high contrast hints", QVariant::Bool, false});
+    schema.registerProperty({"Accessibility/ReduceHoverDependency", "Reduce hover-only interactions", QVariant::Bool, false});
+    schema.registerProperty({"File/RecentProjectPaths", "Recent project paths", QVariant::StringList, QStringList()});
+    schema.registerProperty({"ContentsViewer/RecentSourcePaths", "Recent contents viewer sources", QVariant::StringList, QStringList()});
+    schema.registerProperty({"ContentsViewer/LastSourcePath", "Last contents viewer source", QVariant::String, QString()});
+    schema.registerProperty({"ContentsViewer/CompareWipePercent", "Contents viewer compare wipe", QVariant::Int, 50, 0, 100});
+    schema.registerProperty({"ContentsViewer/CompareSidesSwapped", "Swap contents viewer compare sides", QVariant::Bool, false});
+    schema.registerProperty({"ContentsViewer/CompareSourceAPath", "Contents viewer compare source A", QVariant::String, QString()});
+    schema.registerProperty({"ContentsViewer/CompareSourceBPath", "Contents viewer compare source B", QVariant::String, QString()});
+    schema.registerProperty({"ContentsViewer/ViewerAssignment", "Contents viewer assignment", QVariant::Int, 1, 1, 4});
+    schema.registerProperty({"CreationDefaults/Json", "Layer creation defaults", QVariant::String, QString()});
+    schema.registerProperty({"ProjectDefaults/CompositionWidth", "Default composition width", QVariant::Int, 1920, 1, 16384});
+    schema.registerProperty({"ProjectDefaults/CompositionHeight", "Default composition height", QVariant::Int, 1080, 1, 16384});
+    schema.registerProperty({"ProjectDefaults/CompositionBackgroundColor", "Default composition background color", QVariant::String, QStringLiteral("#ff000000")});
+    schema.registerProperty({"ProjectDefaults/WorkspaceMode", "Default project workspace mode", QVariant::String, QStringLiteral("Default")});
+    schema.registerProperty({"ProjectDefaults/CompositionFrameRate", "Default composition frame rate", QVariant::Double, 30.0, 1.0, 240.0});
+    schema.registerProperty({"UI/CompositionCheckerboardSize", "Composition checkerboard size", QVariant::Double, 16.0, 1.0, 256.0});
+    schema.registerProperty({"UI/Timeline/CustomKeyingSetPropertyPaths", "Custom timeline keying paths", QVariant::StringList, QStringList()});
+    schema.registerProperty({"UI/CompositionGrid/MajorColorR", "Major grid red channel", QVariant::Double, 0.45, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/MajorColorG", "Major grid green channel", QVariant::Double, 0.45, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/MajorColorB", "Major grid blue channel", QVariant::Double, 0.45, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/MajorColorA", "Major grid alpha channel", QVariant::Double, 0.8, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/MinorColorR", "Minor grid red channel", QVariant::Double, 0.25, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/MinorColorG", "Minor grid green channel", QVariant::Double, 0.25, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/MinorColorB", "Minor grid blue channel", QVariant::Double, 0.25, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/MinorColorA", "Minor grid alpha channel", QVariant::Double, 0.4, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/AxisColorR", "Axis red channel", QVariant::Double, 0.9, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/AxisColorG", "Axis green channel", QVariant::Double, 0.3, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/AxisColorB", "Axis blue channel", QVariant::Double, 0.3, 0.0, 1.0});
+    schema.registerProperty({"UI/CompositionGrid/AxisColorA", "Axis alpha channel", QVariant::Double, 0.9, 0.0, 1.0});
+    schema.applyDefaultsToLayer(ConfigLayer::System);
+}
+}
+
 class ArtifactAppSettings::Impl {
 public:
-    FastSettingsStore store;
+    LayeredConfigStore& store;
     bool safeMode = false;
 
-    Impl() {
-        QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        QDir().mkpath(path);
-        store.open(QDir(path).filePath("app_settings.cbor"));
+    Impl() : store(LayeredConfigStore::instance()) {
+        registerBuiltInConfigSchema();
+        store.setValidator([](std::string_view key, const QVariant& value) {
+            const auto& schema = ConfigSchema::instance();
+            const auto* property = schema.find(key);
+            if (!property) return true;
+            return schema.validate(key, value).valid;
+        });
     }
 };
 

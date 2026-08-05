@@ -199,8 +199,10 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
         }
     }
 
-    const float spatialDenom = 2.0f * dn.spatialSigma * dn.spatialSigma;
-    const float rangeDenom = 2.0f * dn.rangeSigma * dn.rangeSigma;
+    const float safeSpatialSigma = std::max(std::abs(dn.spatialSigma), 1.0e-6f);
+    const float safeRangeSigma = std::max(std::abs(dn.rangeSigma), 1.0e-6f);
+    const float spatialDenom = 2.0f * safeSpatialSigma * safeSpatialSigma;
+    const float rangeDenom = 2.0f * safeRangeSigma * safeRangeSigma;
     const int filterRadius = dn.filterRadius;
     const int kernelRadius = std::max(0, filterRadius);
     const int kernelSize = kernelRadius * 2 + 1;
@@ -228,13 +230,13 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
             float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f;
             float weightSum = 0.0f;
 
-            for (int dy = -filterRadius; dy <= filterRadius; ++dy) {
+            for (int dy = -kernelRadius; dy <= kernelRadius; ++dy) {
                 const int ny = y + dy;
                 if (ny < 0 || ny >= h) continue;
                 const float* origRNeighbor = origR.data() + static_cast<std::size_t>(ny) * static_cast<std::size_t>(w);
                 const float* origGNeighbor = origG.data() + static_cast<std::size_t>(ny) * static_cast<std::size_t>(w);
                 const float* origBNeighbor = origB.data() + static_cast<std::size_t>(ny) * static_cast<std::size_t>(w);
-                for (int dx = -filterRadius; dx <= filterRadius; ++dx) {
+                for (int dx = -kernelRadius; dx <= kernelRadius; ++dx) {
                     const int nx = x + dx;
                     if (nx < 0 || nx >= w) continue;
 

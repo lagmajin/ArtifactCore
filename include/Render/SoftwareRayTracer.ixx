@@ -104,7 +104,8 @@ inline Color rayColor(const Ray& r, const Hittable& world, int depth)
         }
         case MaterialType::Dielectric:
         {
-            float refractionRatio = rec.frontFace ? (1.0f / mat->refIdx) : mat->refIdx;
+            const float safeRefIdx = std::max(std::abs(mat->refIdx), 1.0e-6f);
+            float refractionRatio = rec.frontFace ? (1.0f / safeRefIdx) : safeRefIdx;
             Vec3 unitDir = r.dir.normalized();
             float cosTheta = std::clamp(Vec3::dot(-unitDir, rec.normal), -1.0f, 1.0f);
             float sinTheta = std::sqrt(std::max(0.0f, 1.0f - cosTheta * cosTheta));

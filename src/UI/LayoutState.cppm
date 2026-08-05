@@ -9,9 +9,26 @@ module;
 module UI.Layout.State;
 
 import Core.FastSettingsStore;
+import Serialization.Registry;
+import Serialization.SchemaMigration;
 
 namespace ArtifactCore
 {
+ namespace {
+ const bool registeredUiLayoutState = [] {
+  Serialization::registerSerializableType<UiLayoutState>();
+  Serialization::SchemaMigrationRegistry::instance().registerMigration(
+      QStringLiteral("UiLayoutState"), 1, 2,
+      [](const QJsonObject& object) {
+       QJsonObject migrated = object;
+       if (!migrated.contains(QStringLiteral("dockState_b64")))
+        migrated.insert(QStringLiteral("dockState_b64"), QString());
+       migrated.insert(QStringLiteral("version"), 2);
+       return migrated;
+      });
+  return true;
+ }();
+ }
  bool UiLayoutState::isEmpty() const
  {
   return geometry.isEmpty() && state.isEmpty() && dockState.isEmpty();

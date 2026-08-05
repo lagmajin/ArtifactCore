@@ -373,4 +373,16 @@ int FastSettingsStore::pendingOperations() const
   std::unique_lock lock(impl_->mutex_);
   return impl_->syncUnlocked();
  }
+
+ bool FastSettingsStore::reload(bool discardLocalChanges)
+ {
+  if (!impl_) {
+    return false;
+  }
+  std::unique_lock lock(impl_->mutex_);
+  if (!impl_->opened_ || (!discardLocalChanges && impl_->dirty_)) {
+    return false;
+  }
+  return impl_->loadFromDiskUnlocked();
+ }
 }

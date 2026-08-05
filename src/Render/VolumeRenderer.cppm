@@ -189,6 +189,7 @@ Color CPUVolumeRenderer::evaluateVolumetricLights(const Vec3& worldPos, const Ve
 
     for (const auto& light : lights) {
         if (!light.enabled) continue;
+        if (!std::isfinite(light.range) || light.range <= 0.0f) continue;
 
         const Vec3 toLight{
             light.position.x - worldPos.x,

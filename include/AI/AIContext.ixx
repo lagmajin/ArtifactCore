@@ -9,6 +9,9 @@ module;
 
 export module Core.AI.Context;
 
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
 export namespace ArtifactCore {
 
 /**
@@ -181,5 +184,16 @@ private:
     QString userPrompt_;
     QString systemPrompt_;
 };
+
+namespace {
+inline const bool kAIContextSerializationRegistered = [] {
+    Serialization::registerJsonSerializableType<AIContext>(
+        QStringLiteral("AIContext"), 1);
+    auto& migrations = Serialization::SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("AIContext"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
 
 } // namespace ArtifactCore

@@ -33,7 +33,7 @@ public:
             if (it->isObject()) {
                 flattenJson(it->toObject(), key, out);
             } else if (it->isString()) {
-                out[QString(it.key())] = it->toString();
+                out[key] = it->toString();
             }
         }
     }
@@ -61,6 +61,13 @@ void LocalizationManager::setLanguage(LocaleLanguage lang) {
                     ? LocaleLanguage::ChineseTraditional
                     : LocaleLanguage::ChineseSimplified;
                 break;
+            case QLocale::Korean: lang = LocaleLanguage::Korean; break;
+            case QLocale::French: lang = LocaleLanguage::French; break;
+            case QLocale::German: lang = LocaleLanguage::German; break;
+            case QLocale::Spanish: lang = LocaleLanguage::Spanish; break;
+            case QLocale::Portuguese: lang = LocaleLanguage::Portuguese; break;
+            case QLocale::Russian: lang = LocaleLanguage::Russian; break;
+            case QLocale::Arabic: lang = LocaleLanguage::Arabic; break;
             default:
                 lang = LocaleLanguage::English;
                 break;
@@ -68,6 +75,22 @@ void LocalizationManager::setLanguage(LocaleLanguage lang) {
     }
     impl_->currentLang_ = lang;
     qDebug() << "[Localization] Language set to:" << static_cast<int>(lang);
+}
+
+void LocalizationManager::setLanguageCode(const QString& code) {
+    const QString normalized = code.trimmed().toLower().replace(QLatin1Char('_'), QLatin1Char('-'));
+    if (normalized.startsWith(QStringLiteral("ja"))) return setLanguage(LocaleLanguage::Japanese);
+    if (normalized.startsWith(QStringLiteral("zh-tw")) || normalized.startsWith(QStringLiteral("zh-hant")))
+        return setLanguage(LocaleLanguage::ChineseTraditional);
+    if (normalized.startsWith(QStringLiteral("zh"))) return setLanguage(LocaleLanguage::ChineseSimplified);
+    if (normalized.startsWith(QStringLiteral("ko"))) return setLanguage(LocaleLanguage::Korean);
+    if (normalized.startsWith(QStringLiteral("fr"))) return setLanguage(LocaleLanguage::French);
+    if (normalized.startsWith(QStringLiteral("de"))) return setLanguage(LocaleLanguage::German);
+    if (normalized.startsWith(QStringLiteral("es"))) return setLanguage(LocaleLanguage::Spanish);
+    if (normalized.startsWith(QStringLiteral("pt"))) return setLanguage(LocaleLanguage::Portuguese);
+    if (normalized.startsWith(QStringLiteral("ru"))) return setLanguage(LocaleLanguage::Russian);
+    if (normalized.startsWith(QStringLiteral("ar"))) return setLanguage(LocaleLanguage::Arabic);
+    setLanguage(LocaleLanguage::English);
 }
 
 LocaleLanguage LocalizationManager::language() const {
@@ -79,9 +102,55 @@ QString LocalizationManager::languageCode() const {
         case LocaleLanguage::Japanese: return "ja";
         case LocaleLanguage::ChineseSimplified: return "zh";
         case LocaleLanguage::ChineseTraditional: return "zh-TW";
+        case LocaleLanguage::Korean: return "ko";
+        case LocaleLanguage::French: return "fr";
+        case LocaleLanguage::German: return "de";
+        case LocaleLanguage::Spanish: return "es";
+        case LocaleLanguage::Portuguese: return "pt";
+        case LocaleLanguage::Russian: return "ru";
+        case LocaleLanguage::Arabic: return "ar";
         case LocaleLanguage::English: return "en";
         default: return "en";
     }
+}
+
+QStringList LocalizationManager::availableLocales() const {
+    QStringList result;
+    const auto appendIfLoaded = [&](LocaleLanguage lang) {
+        if (impl_->translations_.find(lang) == impl_->translations_.end()) {
+            return;
+        }
+        QString code;
+        switch (lang) {
+            case LocaleLanguage::English: code = QStringLiteral("en"); break;
+            case LocaleLanguage::Japanese: code = QStringLiteral("ja"); break;
+            case LocaleLanguage::ChineseSimplified: code = QStringLiteral("zh"); break;
+            case LocaleLanguage::ChineseTraditional: code = QStringLiteral("zh-TW"); break;
+            case LocaleLanguage::Korean: code = QStringLiteral("ko"); break;
+            case LocaleLanguage::French: code = QStringLiteral("fr"); break;
+            case LocaleLanguage::German: code = QStringLiteral("de"); break;
+            case LocaleLanguage::Spanish: code = QStringLiteral("es"); break;
+            case LocaleLanguage::Portuguese: code = QStringLiteral("pt"); break;
+            case LocaleLanguage::Russian: code = QStringLiteral("ru"); break;
+            case LocaleLanguage::Arabic: code = QStringLiteral("ar"); break;
+            case LocaleLanguage::Auto: break;
+        }
+        if (!code.isEmpty()) {
+            result.append(code);
+        }
+    };
+    appendIfLoaded(LocaleLanguage::English);
+    appendIfLoaded(LocaleLanguage::Japanese);
+    appendIfLoaded(LocaleLanguage::ChineseSimplified);
+    appendIfLoaded(LocaleLanguage::ChineseTraditional);
+    appendIfLoaded(LocaleLanguage::Korean);
+    appendIfLoaded(LocaleLanguage::French);
+    appendIfLoaded(LocaleLanguage::German);
+    appendIfLoaded(LocaleLanguage::Spanish);
+    appendIfLoaded(LocaleLanguage::Portuguese);
+    appendIfLoaded(LocaleLanguage::Russian);
+    appendIfLoaded(LocaleLanguage::Arabic);
+    return result;
 }
 
 QString LocalizationManager::translate(const QString& key) const {
@@ -161,6 +230,13 @@ bool LocalizationManager::loadFromDirectory(const QString& dirPath) {
         if (baseName == "ja") lang = LocaleLanguage::Japanese;
         else if (baseName == "zh" || baseName == "zh-CN") lang = LocaleLanguage::ChineseSimplified;
         else if (baseName == "zh-TW") lang = LocaleLanguage::ChineseTraditional;
+        else if (baseName == "ko") lang = LocaleLanguage::Korean;
+        else if (baseName == "fr") lang = LocaleLanguage::French;
+        else if (baseName == "de") lang = LocaleLanguage::German;
+        else if (baseName == "es") lang = LocaleLanguage::Spanish;
+        else if (baseName == "pt") lang = LocaleLanguage::Portuguese;
+        else if (baseName == "ru") lang = LocaleLanguage::Russian;
+        else if (baseName == "ar") lang = LocaleLanguage::Arabic;
         else if (baseName == "en") lang = LocaleLanguage::English;
         else continue; // サポート外の言語
 
@@ -169,6 +245,58 @@ bool LocalizationManager::loadFromDirectory(const QString& dirPath) {
         }
     }
     return true;
+}
+
+QStringList LocalizationManager::missingKeys() const {
+    QStringList result;
+    const auto langIt = impl_->translations_.find(impl_->currentLang_);
+    for (const auto& [key, value] : impl_->fallback_) {
+        (void)value;
+        if (langIt == impl_->translations_.end() ||
+            langIt->second.find(key) == langIt->second.end()) {
+            result.append(key);
+        }
+    }
+    result.sort();
+    return result;
+}
+
+QStringList LocalizationManager::untranslatedKeys() const {
+    QStringList result;
+    const auto langIt = impl_->translations_.find(impl_->currentLang_);
+    if (langIt == impl_->translations_.end()) {
+        return result;
+    }
+    for (const auto& [key, fallback] : impl_->fallback_) {
+        const auto valueIt = langIt->second.find(key);
+        if (valueIt != langIt->second.end() && valueIt->second == fallback) {
+            result.append(key);
+        }
+    }
+    result.sort();
+    return result;
+}
+
+QStringList LocalizationManager::loadedKeys() const {
+    QStringList result;
+    for (const auto& [key, value] : impl_->fallback_) {
+        (void)value;
+        result.append(key);
+    }
+    const auto langIt = impl_->translations_.find(impl_->currentLang_);
+    if (langIt != impl_->translations_.end()) {
+        for (const auto& [key, value] : langIt->second) {
+            (void)value;
+            if (!result.contains(key)) result.append(key);
+        }
+    }
+    result.sort();
+    return result;
+}
+
+void LocalizationManager::clearTranslations() {
+    impl_->translations_.clear();
+    impl_->fallback_.clear();
 }
 
 } // namespace ArtifactCore

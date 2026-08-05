@@ -1,6 +1,5 @@
 module;
 #include <utility>
-#include <QSettings>
 #include <QCoreApplication>
 #include <QProcessEnvironment>
 #include <QRegularExpressionMatch>

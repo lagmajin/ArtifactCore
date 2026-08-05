@@ -9,6 +9,9 @@ module;
 
 export module Graphics.Effect.SurfaceFX;
 
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
 export namespace ArtifactCore {
 
 enum class SurfaceFXAnchorType {
@@ -168,5 +171,20 @@ private:
         return SurfaceFXAnchorType::ScreenSpace;
     }
 };
+
+namespace {
+inline const bool kSurfaceFXSerializationRegistered = [] {
+    Serialization::registerJsonSerializableType<SurfaceFXElement>(
+        QStringLiteral("SurfaceFXElement"), 1);
+    Serialization::registerJsonSerializableType<SurfaceFXData>(
+        QStringLiteral("SurfaceFXData"), 1);
+    auto& migrations = Serialization::SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("SurfaceFXElement"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("SurfaceFXData"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
 
 } // namespace ArtifactCore

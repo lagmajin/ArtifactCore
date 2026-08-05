@@ -33,6 +33,10 @@ public:
     {
         for (int i = 0; i < 3; ++i)
         {
+            if (std::abs(r.dir[i]) < 1.0e-8f) {
+                if (r.origin[i] < min[i] || r.origin[i] > max[i]) return false;
+                continue;
+            }
             float invD = 1.0f / r.dir[i];
             float tMin = (min[i] - r.origin[i]) * invD;
             float tMax = (max[i] - r.origin[i]) * invD;

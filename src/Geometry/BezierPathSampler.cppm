@@ -99,6 +99,7 @@ float BezierPathSampler::calculatePathLength(const QVector<BezierPoint>& points,
 
 QVector<QPointF> BezierPathSampler::sampleEquidistant(const QVector<BezierPoint>& points, float segmentLength, bool closed) {
     QVector<QPointF> sampledPoints;
+    if (!std::isfinite(segmentLength) || segmentLength <= 0.0f) return sampledPoints;
     float totalLen = calculatePathLength(points, closed);
     if (totalLen <= 0.0f) return sampledPoints;
 
@@ -131,6 +132,8 @@ QVector<QPointF> BezierPathSampler::sampleByCount(const QVector<BezierPoint>& po
 QVector<QPointF> BezierPathSampler::sampleAdaptive(const QVector<BezierPoint>& points, float maxAngle, bool closed) {
     QVector<QPointF> result;
     if (points.size() < 2) return result;
+    if (!std::isfinite(maxAngle)) maxAngle = 0.15f;
+    maxAngle = std::max(maxAngle, 1.0e-6f);
 
     const int segmentCount = closed ? points.size() : points.size() - 1;
 

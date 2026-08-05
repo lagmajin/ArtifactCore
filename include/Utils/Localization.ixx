@@ -3,6 +3,7 @@ module;
 #include <unordered_map>
 #include <memory>
 #include <QString>
+#include <QStringList>
 
 export module Core.Localization;
 
@@ -19,6 +20,13 @@ enum class LocaleLanguage {
     Japanese,            // ja
     ChineseSimplified,   // zh-CN / zh
     ChineseTraditional,  // zh-TW
+    Korean,              // ko
+    French,              // fr
+    German,              // de
+    Spanish,             // es
+    Portuguese,          // pt
+    Russian,              // ru
+    Arabic,              // ar
     Auto                 // システム設定に従う
 };
 
@@ -40,8 +48,10 @@ public:
 
     // 言語の設定・取得
     void setLanguage(LocaleLanguage lang);
+    void setLanguageCode(const QString& code);
     LocaleLanguage language() const;
     QString languageCode() const;
+    QStringList availableLocales() const;
 
     // 翻訳の実行
     // キーが見つからない場合はキー自身を返す
@@ -56,6 +66,13 @@ public:
 
     // ディレクトリから全言語を一括ロード
     bool loadFromDirectory(const QString& dirPath);
+
+    // 現在の言語で未定義の英語キーを列挙
+    QStringList missingKeys() const;
+    // 現在の言語で英語フォールバックと同じ値のキーを列挙
+    QStringList untranslatedKeys() const;
+    QStringList loadedKeys() const;
+    void clearTranslations();
 };
 
 } // namespace ArtifactCore

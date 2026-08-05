@@ -1,12 +1,15 @@
 module;
 #include <QString>
 #include <QMap>
-#include <QSettings>
+#include <QDir>
+#include <QStandardPaths>
 
 module Core.AI.APIKeyManager;
 
 import std;
 import Core.AI.CloudAgent;
+import Configuration.ConfigLayer;
+import Configuration.LayeredConfigStore;
 
 namespace ArtifactCore {
 
@@ -27,6 +30,16 @@ QString providerProxyKey(CloudProvider provider) {
     case CloudProvider::DirectOpenAI: return QStringLiteral("ai/openai/proxy");
     default: return QStringLiteral("ai/unknown/proxy");
     }
+}
+
+LayeredConfigStore& settingsStore() {
+    auto& store = LayeredConfigStore::instance();
+    if (!store.isLoaded(ConfigLayer::User)) {
+        const QString path = QDir(QStandardPaths::writableLocation(
+            QStandardPaths::AppDataLocation)).filePath(QStringLiteral("settings.cbor"));
+        store.loadLayer(ConfigLayer::User, path);
+    }
+    return store;
 }
 } // namespace
 
@@ -68,30 +81,30 @@ QString APIKeyManager::getProxy(CloudProvider provider) const {
 }
 
 void APIKeyManager::saveToSettings() {
-    QSettings settings;
+    auto& settings = settingsStore();
     for (auto it = apiKeys_.constBegin(); it != apiKeys_.constEnd(); ++it) {
-        if (!it.value().isEmpty()) {
-            settings.setValue(providerKeyName(it.key()), it.value());
-        }
+        const QString key = providerKeyName(it.key());
+        if (it.value().isEmpty()) settings.removeValue(ConfigLayer::User, key.toStdString());
+        else settings.setValue(ConfigLayer::User, key.toStdString(), it.value());
     }
     for (auto it = proxies_.constBegin(); it != proxies_.constEnd(); ++it) {
-        if (!it.value().isEmpty()) {
-            settings.setValue(providerProxyKey(it.key()), it.value());
-        }
+        const QString key = providerProxyKey(it.key());
+        if (it.value().isEmpty()) settings.removeValue(ConfigLayer::User, key.toStdString());
+        else settings.setValue(ConfigLayer::User, key.toStdString(), it.value());
     }
-    settings.sync();
+    settings.saveLayer(ConfigLayer::User);
 }
 
 void APIKeyManager::loadFromSettings() {
-    QSettings settings;
+    auto& settings = settingsStore();
     for (int i = static_cast<int>(CloudProvider::OpenRouter);
          i <= static_cast<int>(CloudProvider::DirectOpenAI); ++i) {
         auto provider = static_cast<CloudProvider>(i);
-        const QString key = settings.value(providerKeyName(provider)).toString();
+        const QString key = settings.valueString(providerKeyName(provider).toStdString());
         if (!key.isEmpty()) {
             apiKeys_[provider] = key;
         }
-        const QString proxy = settings.value(providerProxyKey(provider)).toString();
+        const QString proxy = settings.valueString(providerProxyKey(provider).toStdString());
         if (!proxy.isEmpty()) {
             proxies_[provider] = proxy;
         }

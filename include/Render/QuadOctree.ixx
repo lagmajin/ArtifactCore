@@ -48,7 +48,15 @@ struct QuadCell
     {
         for (int i = 0; i < 3; ++i)
         {
-            float invD = 1.0f / r.dir[i];
+            const float direction = i == 0 ? r.dir.x : (i == 1 ? r.dir.y : r.dir.z);
+            const float origin = i == 0 ? r.origin.x : (i == 1 ? r.origin.y : r.origin.z);
+            const float slabMin = i == 0 ? minX : (i == 1 ? minY : minZ);
+            const float slabMax = i == 0 ? maxX : (i == 1 ? maxY : maxZ);
+            if (std::abs(direction) < 1.0e-8f) {
+                if (origin < slabMin || origin > slabMax) return false;
+                continue;
+            }
+            float invD = 1.0f / direction;
             float tMin = 0, tMax = 0;
             if (i == 0) { tMin = (minX - r.origin.x) * invD; tMax = (maxX - r.origin.x) * invD; }
             if (i == 1) { tMin = (minY - r.origin.y) * invD; tMax = (maxY - r.origin.y) * invD; }

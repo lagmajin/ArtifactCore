@@ -18,8 +18,20 @@ module Shape.Path:Impl;
 import Shape.Path;
 import Shape.Types;
 import Math;
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
 
 namespace ArtifactCore {
+
+namespace {
+const bool kShapePathSerializationRegistered = [] {
+    registerJsonSerializableType<ShapePath>(QStringLiteral("ShapePath"), 1);
+    auto& migrations = SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("ShapePath"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
 
 // ========================================
 // ShapePath::Impl 定義

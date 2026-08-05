@@ -5,6 +5,32 @@ module;
 
 module Composition.ExportMatrix;
 
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
+namespace {
+const bool kExportMatrixSerializationRegistered = [] {
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ExportPresetTarget>(
+        QStringLiteral("ExportPresetTarget"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ExportMatrixVariant>(
+        QStringLiteral("ExportMatrixVariant"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ExportMatrixCellRule>(
+        QStringLiteral("ExportMatrixCellRule"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ExportMatrix>(
+        QStringLiteral("ExportMatrix"), 1);
+    auto& migrations = ArtifactCore::Serialization::SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("ExportPresetTarget"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ExportMatrixVariant"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ExportMatrixCellRule"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("ExportMatrix"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
+
 namespace ArtifactCore {
 
 QJsonObject ExportPresetTarget::toJson() const {

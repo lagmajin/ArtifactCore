@@ -1,14 +1,29 @@
 module;
 
 #include <atomic>
+#include <algorithm>
 #include <cstdint>
 #include <source_location>
 #include <utility>
+#include <vector>
+#include <mutex>
 #include <QString>
 
 export module Core.Diagnostics.DebugIdentity;
 
 namespace Artifact::Diagnostics {
+
+export struct DebugIdentitySnapshot
+{
+    uint64_t id{0};
+    uint64_t ownerId{0};
+    QString typeName;
+    QString name;
+    QString ownerName;
+    QString creationFile;
+    QString creationFunction;
+    uint32_t creationLine{0};
+};
 
 export class DebugIdentity
 {
@@ -22,13 +37,34 @@ public:
           creationFunction_(QString::fromUtf8(location.function_name())),
           creationLine_(location.line())
     {
+        std::lock_guard lock(registryMutex());
+        registry().push_back(this);
     }
 
     DebugIdentity(const DebugIdentity&) = delete;
     DebugIdentity& operator=(const DebugIdentity&) = delete;
     DebugIdentity(DebugIdentity&&) = delete;
     DebugIdentity& operator=(DebugIdentity&&) = delete;
-    virtual ~DebugIdentity() = default;
+    virtual ~DebugIdentity()
+    {
+        std::lock_guard lock(registryMutex());
+        auto& entries = registry();
+        entries.erase(std::remove(entries.begin(), entries.end(), this), entries.end());
+    }
+
+    static std::vector<DebugIdentitySnapshot> snapshotAll()
+    {
+        std::lock_guard lock(registryMutex());
+        std::vector<DebugIdentitySnapshot> result;
+        result.reserve(registry().size());
+        for (const auto* identity : registry()) {
+            result.push_back(DebugIdentitySnapshot{
+                identity->debugId(), identity->debugOwnerId(), identity->debugTypeName(),
+                identity->debugName(), identity->debugOwnerName(), identity->creationFile(),
+                identity->creationFunction(), identity->creationLine()});
+        }
+        return result;
+    }
 
     uint64_t debugId() const noexcept { return id_; }
 
@@ -65,6 +101,18 @@ public:
     }
 
 private:
+    static std::vector<DebugIdentity*>& registry()
+    {
+        static std::vector<DebugIdentity*> entries;
+        return entries;
+    }
+
+    static std::mutex& registryMutex()
+    {
+        static std::mutex mutex;
+        return mutex;
+    }
+
     static uint64_t nextId() noexcept
     {
         return nextId_.fetch_add(1, std::memory_order_relaxed);

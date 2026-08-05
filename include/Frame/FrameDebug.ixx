@@ -13,6 +13,8 @@ export module Frame.Debug;
 
 import Frame.Position;
 import Graphics.RenderGraph;
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
 
 export namespace ArtifactCore {
 
@@ -808,3 +810,46 @@ inline RenderGraphDiagnosticSnapshot renderGraphDiagnosticFromJson(
 }
 
 } // namespace ArtifactCore
+
+namespace {
+const bool kFrameDebugSerializationRegistered = [] {
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameDebugTextureRef>(
+        QStringLiteral("FrameDebugTextureRef"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameDebugBufferRef>(
+        QStringLiteral("FrameDebugBufferRef"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameDebugAttachmentRecord>(
+        QStringLiteral("FrameDebugAttachmentRecord"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameDebugResourceRecord>(
+        QStringLiteral("FrameDebugResourceRecord"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameDebugBindingRecord>(
+        QStringLiteral("FrameDebugBindingRecord"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameDebugPassRecord>(
+        QStringLiteral("FrameDebugPassRecord"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameDebugSnapshot>(
+        QStringLiteral("FrameDebugSnapshot"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameDebugCapture>(
+        QStringLiteral("FrameDebugCapture"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameDebugBundle>(
+        QStringLiteral("FrameDebugBundle"), 1);
+    auto& migrations = ArtifactCore::Serialization::SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("FrameDebugTextureRef"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("FrameDebugBufferRef"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("FrameDebugAttachmentRecord"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("FrameDebugResourceRecord"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("FrameDebugBindingRecord"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("FrameDebugPassRecord"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("FrameDebugSnapshot"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("FrameDebugCapture"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("FrameDebugBundle"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}

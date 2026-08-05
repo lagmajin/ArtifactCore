@@ -14,6 +14,19 @@ import Frame.Position;
 import Frame.Offset;
 import Frame.Rate;
 import Time.Rational;
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
+namespace {
+const bool kFrameRangeSerializationRegistered = [] {
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameRange>(
+        QStringLiteral("FrameRange"), 1);
+    ArtifactCore::Serialization::SchemaMigrationRegistry::instance().registerMigration(
+        QStringLiteral("FrameRange"), 0, 1,
+        [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
 
 namespace ArtifactCore {
 

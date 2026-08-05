@@ -236,7 +236,9 @@ void StarfieldGenerator::renderStars(float* pixels, float time) {
 void StarfieldGenerator::renderNebulae(float* pixels) {
     for (auto& neb : nebulae_) {
         float invW = 1.0f / width_, invH = 1.0f / height_;
-        float nrx = 1.0f / neb.radiusX, nry = 1.0f / neb.radiusY;
+        const float safeRadiusX = std::max(std::abs(neb.radiusX), 1.0e-6f);
+        const float safeRadiusY = std::max(std::abs(neb.radiusY), 1.0e-6f);
+        float nrx = 1.0f / safeRadiusX, nry = 1.0f / safeRadiusY;
         for (int y = 0; y < height_; ++y) {
             float* row = pixels + static_cast<std::size_t>(y) * static_cast<std::size_t>(width_) * 4u;
             for (int x = 0; x < width_; ++x) {

@@ -303,7 +303,7 @@ endif()
 # 外部ライブラリ探索
 # ---------------------------------------------------------------------------
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network WebSockets)
-target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::WebSockets)
+target_link_libraries(ArtifactCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::WebSockets Qt6::Sql)
 
 find_package(OpenCV REQUIRED)
 if(OpenCV_INCLUDE_DIRS)

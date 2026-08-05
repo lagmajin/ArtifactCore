@@ -8,6 +8,24 @@ module;
 
 module Coordinate.Profile;
 
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
+namespace {
+const bool kCoordinateSerializationRegistered = [] {
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::CoordinateValue>(
+        QStringLiteral("CoordinateValue"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::CoordinateProfile>(
+        QStringLiteral("CoordinateProfile"), 1);
+    auto& migrations = ArtifactCore::Serialization::SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("CoordinateValue"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("CoordinateProfile"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
+
 namespace ArtifactCore {
 
 double CoordinateValue::resolve(double canvasSize, double safeSize, double gridSize) const {

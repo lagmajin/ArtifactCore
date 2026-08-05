@@ -186,6 +186,7 @@ export struct SpringState {
   // 物理ベースの評価 (Spring-Damper)
   float atSpring(const FramePosition& frame, float dt, SpringState& state) const {
       float target = static_cast<float>(at(frame));
+      if (!std::isfinite(target)) return state.currentValue;
       if (!state.initialized) {
           state.currentValue = target;
           state.velocity = 0.0f;
@@ -194,9 +195,14 @@ export struct SpringState {
       }
 
       // Semi-implicit Euler integration
-      float force = -state.stiffness * (state.currentValue - target) - state.damping * state.velocity;
-      state.velocity += (force / state.mass) * dt;
-      state.currentValue += state.velocity * dt;
+      const float safeDt = std::isfinite(dt) ? std::clamp(dt, 0.0001f, 0.1f) : 0.0001f;
+      const float safeStiffness = std::isfinite(state.stiffness) ? state.stiffness : 0.0f;
+      const float safeDamping = std::isfinite(state.damping) ? state.damping : 0.0f;
+      float force = -safeStiffness * (state.currentValue - target) - safeDamping * state.velocity;
+      const float safeMass = std::isfinite(state.mass)
+          ? std::max(std::abs(state.mass), 0.0001f) : 1.0f;
+      state.velocity += (force / safeMass) * safeDt;
+      state.currentValue += state.velocity * safeDt;
 
       return state.currentValue;
   }

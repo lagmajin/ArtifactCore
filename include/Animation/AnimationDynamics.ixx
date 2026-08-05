@@ -114,6 +114,7 @@ inline float springDamper1D(
     float dt,
     const DynamicsPreset& preset = DynamicsPreset::Smooth()) noexcept
 {
+    if (!std::isfinite(target)) return state.position;
     if (!state.seeded) {
         state.position = target;
         state.velocity = 0.0f;
@@ -126,10 +127,15 @@ inline float springDamper1D(
     //   a = F / m
     //   v += a * dt
     //   x += v * dt
-    const float dt_clamped = std::clamp(dt, 0.0001f, 0.1f);
-    const float force = -preset.stiffness * (state.position - target)
-                      -  preset.damping   *  state.velocity;
-    const float acc   = force / std::max(preset.mass, 0.001f);
+    const float dt_clamped = std::isfinite(dt)
+        ? std::clamp(dt, 0.0001f, 0.1f) : 0.0001f;
+    const float stiffness = std::isfinite(preset.stiffness) ? preset.stiffness : 0.0f;
+    const float damping = std::isfinite(preset.damping) ? preset.damping : 0.0f;
+    const float mass = std::isfinite(preset.mass)
+        ? std::max(std::abs(preset.mass), 0.001f) : 1.0f;
+    const float force = -stiffness * (state.position - target)
+                      -  damping   *  state.velocity;
+    const float acc   = force / mass;
     state.velocity   += acc * dt_clamped;
     state.position   += state.velocity * dt_clamped;
 

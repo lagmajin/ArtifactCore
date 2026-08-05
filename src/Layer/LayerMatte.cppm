@@ -6,8 +6,23 @@ module;
 module Layer.Matte;
 
 import std;
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
 
 namespace ArtifactCore {
+
+namespace {
+const bool kMatteSerializationRegistered = [] {
+    registerJsonSerializableType<MatteNode>(QStringLiteral("MatteNode"), 1);
+    registerJsonSerializableType<MatteStack>(QStringLiteral("MatteStack"), 1);
+    auto& migrations = SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("MatteNode"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("MatteStack"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
 
 namespace {
 constexpr float clamp01(float value) {

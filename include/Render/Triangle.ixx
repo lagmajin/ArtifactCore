@@ -1,5 +1,6 @@
 module;
 #include <utility>
+#include <cmath>
 
 export module Render.Triangle;
 
@@ -24,6 +25,7 @@ struct Triangle
     bool hit(const Ray& r, float ray_tmin, float ray_tmax, HitRecord& rec) const
     {
         float denom = Vec3::dot(normal, r.dir);
+        if (std::abs(denom) < 1.0e-8f) return false;
         float invDenom = 1.0f / denom;
 
         float t = Vec3::dot(v0 - r.origin, normal) * invDenom;
@@ -40,6 +42,7 @@ struct Triangle
         float d21 = Vec3::dot(bary, v2 - v0);
 
         float denomB = d00 * d11 - d01 * d01;
+        if (std::abs(denomB) < 1.0e-12f) return false;
         float v = (d11 * d20 - d01 * d21) / denomB;
         float w = (d00 * d21 - d01 * d20) / denomB;
         float u = 1.0f - v - w;

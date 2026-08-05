@@ -6,6 +6,28 @@ module;
 
 module Composition.TemplateLock;
 
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
+namespace {
+const bool kTemplateLockSerializationRegistered = [] {
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::ProtectedRegion>(
+        QStringLiteral("ProtectedRegion"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::EditableField>(
+        QStringLiteral("EditableField"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::TemplateLockSchema>(
+        QStringLiteral("TemplateLockSchema"), 1);
+    auto& migrations = ArtifactCore::Serialization::SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("ProtectedRegion"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("EditableField"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("TemplateLockSchema"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
+
 namespace ArtifactCore {
 
 QJsonObject ProtectedRegion::toJson() const {

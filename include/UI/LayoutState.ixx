@@ -7,10 +7,11 @@ module;
 export module UI.Layout.State;
 
 import Core.FastSettingsStore;
+import Serialization.ISerializable;
 
 export namespace ArtifactCore
 {
- class UiLayoutState
+ class UiLayoutState : public Serialization::ISerializable
  {
  public:
   QString layoutKey;
@@ -28,6 +29,10 @@ export namespace ArtifactCore
   bool isEmpty() const;
   QJsonObject toJson() const;
   static UiLayoutState fromJson(const QJsonObject& obj);
+  QJsonObject serialize() const override { return toJson(); }
+  bool deserialize(const QJsonObject& obj) override { *this = fromJson(obj); return true; }
+  QString typeName() const override { return QStringLiteral("UiLayoutState"); }
+  int schemaVersion() const override { return version; }
 
   void saveToSettings(QSettings& settings, const QString& prefix) const;
   static UiLayoutState loadFromSettings(QSettings& settings, const QString& prefix);

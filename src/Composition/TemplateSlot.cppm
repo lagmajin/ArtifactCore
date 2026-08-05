@@ -9,6 +9,27 @@ module Composition.TemplateSlot;
 
 import Utils.Id;
 import Composition.TemplateLock;
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
+namespace {
+const bool kTemplateSerializationRegistered = [] {
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::TemplateSlot>(
+        QStringLiteral("TemplateSlot"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::TemplateVariation>(
+        QStringLiteral("TemplateVariation"), 1);
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::OutputVariant>(
+        QStringLiteral("OutputVariant"), 1);
+    auto& migrations = ArtifactCore::Serialization::SchemaMigrationRegistry::instance();
+    migrations.registerMigration(QStringLiteral("TemplateSlot"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("TemplateVariation"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("OutputVariant"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
 
 namespace ArtifactCore {
 

@@ -9,6 +9,20 @@ class tst_QList;
 #include <utility>
 module Frame.Rate;
 
+import Serialization.JsonAdapter;
+import Serialization.SchemaMigration;
+
+namespace {
+const bool kFrameRateSerializationRegistered = [] {
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::FrameRate>(
+        QStringLiteral("FrameRate"), 1);
+    ArtifactCore::Serialization::SchemaMigrationRegistry::instance().registerMigration(
+        QStringLiteral("FrameRate"), 0, 1,
+        [](const QJsonObject& object) { return object; });
+    return true;
+}();
+}
+
 namespace ArtifactCore {
 
 class FrameRate::Impl {
