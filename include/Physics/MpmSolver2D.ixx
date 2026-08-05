@@ -143,6 +143,8 @@ public:
     void setMaterial(float youngModulus, float poissonRatio);
     void setPlasticity(float yieldStress, float hardening);
     void setFracture(float maxPlasticStrain, float fractureEnergy = 0.0f);
+    void setFractureEnabled(bool enabled) noexcept { fractureEnabled_ = enabled; }
+    bool fractureEnabled() const noexcept { return fractureEnabled_; }
     void applyMaterialPreset(MpmMaterialPreset preset);
     void setDamping(float damping) { damping_ = std::clamp(damping, 0.0f, 1.0f); }
     void setGravity(float gx, float gy) {
@@ -223,6 +225,7 @@ private:
     // fracture
     float maxPlasticStrain_ = 0.5f;
     float fractureEnergy_   = 0.0f;
+    bool fractureEnabled_ = true;
 
     // damping / gravity
     float damping_   = 0.0f;

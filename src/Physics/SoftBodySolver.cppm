@@ -121,6 +121,74 @@ public:
 
     int maxSubsteps() const { return maxSubsteps_; }
 
+    void reduceGridResolution(float scale) {
+        if (gridColumns_ < 3 || gridRows_ < 3 ||
+            points_.size() != static_cast<std::size_t>(gridColumns_ * gridRows_)) return;
+        scale = std::clamp(scale, 0.25f, 1.0f);
+        if (scale >= 0.999f || scale >= appliedGridLodScale_) return;
+
+        const auto oldPoints = points_;
+        if (!hasGridLodBackup_) {
+            gridLodBackupPoints_ = points_;
+            gridLodBackupConstraints_ = constraints_;
+            gridLodBackupVolumeTriangles_ = volumeTriangles_;
+            gridLodBackupColumns_ = gridColumns_;
+            gridLodBackupRows_ = gridRows_;
+            hasGridLodBackup_ = true;
+        }
+        const int oldColumns = gridColumns_;
+        const int oldRows = gridRows_;
+        const int newColumns = std::max(2, static_cast<int>(std::lround((oldColumns - 1) * scale)) + 1);
+        const int newRows = std::max(2, static_cast<int>(std::lround((oldRows - 1) * scale)) + 1);
+        std::vector<SoftBodyPoint> newPoints;
+        newPoints.reserve(static_cast<std::size_t>(newColumns * newRows));
+        for (int y = 0; y < newRows; ++y) {
+            const int sourceY = std::clamp(static_cast<int>(std::lround(
+                static_cast<float>(y) * static_cast<float>(oldRows - 1) /
+                static_cast<float>(newRows - 1))), 0, oldRows - 1);
+            for (int x = 0; x < newColumns; ++x) {
+                const int sourceX = std::clamp(static_cast<int>(std::lround(
+                    static_cast<float>(x) * static_cast<float>(oldColumns - 1) /
+                    static_cast<float>(newColumns - 1))), 0, oldColumns - 1);
+                newPoints.push_back(oldPoints[static_cast<std::size_t>(sourceY * oldColumns + sourceX)]);
+            }
+        }
+        points_ = std::move(newPoints);
+        constraints_.clear();
+        volumeTriangles_.clear();
+        gridColumns_ = newColumns;
+        gridRows_ = newRows;
+        const auto addGridConstraint = [this](int a, int b, float stiffness) {
+            addConstraint(a, b, stiffness);
+        };
+        for (int y = 0; y < newRows; ++y) {
+            for (int x = 0; x < newColumns; ++x) {
+                const int index = y * newColumns + x;
+                if (x + 1 < newColumns) addGridConstraint(index, index + 1, 1.0f);
+                if (y + 1 < newRows) addGridConstraint(index, index + newColumns, 1.0f);
+                if (x + 1 < newColumns && y + 1 < newRows) {
+                    addGridConstraint(index, index + newColumns + 1, 0.5f);
+                    addGridConstraint(index + 1, index + newColumns, 0.5f);
+                }
+            }
+        }
+        appliedGridLodScale_ = scale;
+    }
+
+    void restoreGridResolution() {
+        if (!hasGridLodBackup_) return;
+        points_ = std::move(gridLodBackupPoints_);
+        constraints_ = std::move(gridLodBackupConstraints_);
+        volumeTriangles_ = std::move(gridLodBackupVolumeTriangles_);
+        gridColumns_ = gridLodBackupColumns_;
+        gridRows_ = gridLodBackupRows_;
+        gridLodBackupPoints_.clear();
+        gridLodBackupConstraints_.clear();
+        gridLodBackupVolumeTriangles_.clear();
+        hasGridLodBackup_ = false;
+        appliedGridLodScale_ = 1.0f;
+    }
+
     SoftBodySnapshot snapshot() const {
         return {points_, constraints_, volumeTriangles_, wind_,
                 turbulenceTime_, accumulatedTime_, gridColumns_, gridRows_};
@@ -576,6 +644,13 @@ public:
         wind_ = {};
         gridColumns_ = 0;
         gridRows_ = 0;
+        appliedGridLodScale_ = 1.0f;
+        gridLodBackupPoints_.clear();
+        gridLodBackupConstraints_.clear();
+        gridLodBackupVolumeTriangles_.clear();
+        gridLodBackupColumns_ = 0;
+        gridLodBackupRows_ = 0;
+        hasGridLodBackup_ = false;
         accumulatedTime_ = 0.0f;
     }
 
@@ -724,6 +799,13 @@ private:
     int maxSubsteps_ = 8;
     int gridColumns_ = 0;
     int gridRows_ = 0;
+    float appliedGridLodScale_ = 1.0f;
+    std::vector<SoftBodyPoint> gridLodBackupPoints_;
+    std::vector<SoftBodyConstraint> gridLodBackupConstraints_;
+    std::vector<SoftBodyVolumeTriangle> gridLodBackupVolumeTriangles_;
+    int gridLodBackupColumns_ = 0;
+    int gridLodBackupRows_ = 0;
+    bool hasGridLodBackup_ = false;
 };
 
 } // namespace ArtifactCore

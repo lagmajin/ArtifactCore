@@ -53,6 +53,7 @@ public:
 
     int width() const { return width_; }
     int height() const { return height_; }
+    void setResolution(int width, int height);
 
     void setViscosity(float v) { viscosity_ = v; }
     void setDiffusion(float d) { diffusion_ = d; }

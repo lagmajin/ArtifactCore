@@ -21,6 +21,44 @@ FluidSolver2D::FluidSolver2D(int width, int height)
 
 FluidSolver2D::~FluidSolver2D() = default;
 
+void FluidSolver2D::setResolution(int width, int height) {
+    const int newWidth = std::max(4, width);
+    const int newHeight = std::max(4, height);
+    if (newWidth == width_ && newHeight == height_) return;
+    const int oldWidth = width_;
+    const int oldHeight = height_;
+    const auto oldDensity = density_;
+    const auto oldVx = vx_;
+    const auto oldVy = vy_;
+    width_ = newWidth;
+    height_ = newHeight;
+    size_ = width_ * height_;
+    density_.assign(size_, 0.0f);
+    densityPrev_.assign(size_, 0.0f);
+    vx_.assign(size_, 0.0f);
+    vy_.assign(size_, 0.0f);
+    vxPrev_.assign(size_, 0.0f);
+    vyPrev_.assign(size_, 0.0f);
+    curl_.assign(size_, 0.0f);
+    const auto sample = [oldWidth, oldHeight](const std::vector<float>& field, float x, float y) {
+        const int ix = std::clamp(static_cast<int>(std::lround(x)), 0, oldWidth - 1);
+        const int iy = std::clamp(static_cast<int>(std::lround(y)), 0, oldHeight - 1);
+        return field[ix + iy * oldWidth];
+    };
+    for (int y = 0; y < height_; ++y) {
+        const float sourceY = static_cast<float>(y) * static_cast<float>(oldHeight - 1) /
+                              static_cast<float>(height_ - 1);
+        for (int x = 0; x < width_; ++x) {
+            const float sourceX = static_cast<float>(x) * static_cast<float>(oldWidth - 1) /
+                                  static_cast<float>(width_ - 1);
+            const int index = IX(x, y);
+            density_[index] = sample(oldDensity, sourceX, sourceY);
+            vx_[index] = sample(oldVx, sourceX, sourceY);
+            vy_[index] = sample(oldVy, sourceX, sourceY);
+        }
+    }
+}
+
 void FluidSolver2D::reset() {
     std::fill(density_.begin(), density_.end(), 0.0f);
     std::fill(densityPrev_.begin(), densityPrev_.end(), 0.0f);

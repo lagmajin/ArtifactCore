@@ -609,6 +609,7 @@ void MpmSolver2D::applyPlasticity() {
 // ---- fracture ----
 
 void MpmSolver2D::checkFracture() {
+    if (!fractureEnabled_) return;
     for (int i = 0; i < static_cast<int>(particles_.size()); ++i) {
         auto& p = particles_[i];
         if (!p.active) continue;

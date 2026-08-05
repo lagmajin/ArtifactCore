@@ -28,6 +28,36 @@ export struct MaterialFractureEvent {
     int totalParticleCount = 0;
 };
 
+export enum class PhysicsLODLevel : std::uint8_t {
+    Full = 0,
+    Reduced = 1,
+    Minimal = 2,
+    Frozen = 3,
+};
+
+export struct PhysicsLODSettings {
+    PhysicsLODLevel level = PhysicsLODLevel::Full;
+    // 0 means update on every call. Positive values rate-limit simulation.
+    float targetHz = 0.0f;
+    // 0 means keep each solver's existing default.
+    int rigidBodySubSteps = 0;
+    int softBodyMaxSubSteps = 0;
+    int softBodyConstraintIterations = 0;
+    int softBodyCollisionIterations = 0;
+    float softBodyGridScale = 1.0f;
+    int fluidSolverIterations = 0;
+    float fluidResolutionScale = 1.0f;
+    int materialMaxSubSteps = 0;
+    bool disableFracture = false;
+    float fractureShardScale = 1.0f;
+    float fractureDebrisScale = 1.0f;
+    bool simplifyCollisionMesh = false;
+    bool disableSoftBodySelfCollision = false;
+    bool applySleepPolicy = false;
+    float sleepThreshold = 0.0f;
+    bool disableContinuousCollision = false;
+};
+
 /**
  * @brief 物理演算システム。コンポジション内のシミュレーションを統合管理する。
  * UIを持たない「Core」レイヤーでのシミュレーション実行を担う。
@@ -39,12 +69,66 @@ public:
         return inst;
     }
 
+    void setPhysicsLODSettings(const PhysicsLODSettings& settings) {
+        lodSettings_ = settings;
+        // Presets only fill unspecified values. Callers can override any
+        // individual budget while keeping the selected LOD level.
+        if (lodSettings_.level == PhysicsLODLevel::Reduced) {
+            if (lodSettings_.targetHz <= 0.0f) lodSettings_.targetHz = 30.0f;
+            if (lodSettings_.rigidBodySubSteps <= 0) lodSettings_.rigidBodySubSteps = 2;
+            if (lodSettings_.softBodyMaxSubSteps <= 0) lodSettings_.softBodyMaxSubSteps = 4;
+            if (lodSettings_.softBodyConstraintIterations <= 0) lodSettings_.softBodyConstraintIterations = 3;
+            if (lodSettings_.softBodyCollisionIterations <= 0) lodSettings_.softBodyCollisionIterations = 1;
+            if (lodSettings_.softBodyGridScale >= 1.0f) lodSettings_.softBodyGridScale = 0.75f;
+            if (lodSettings_.fluidSolverIterations <= 0) lodSettings_.fluidSolverIterations = 10;
+            if (lodSettings_.fluidResolutionScale >= 1.0f) lodSettings_.fluidResolutionScale = 0.5f;
+            if (lodSettings_.materialMaxSubSteps <= 0) lodSettings_.materialMaxSubSteps = 256;
+            lodSettings_.applySleepPolicy = true;
+            if (lodSettings_.sleepThreshold <= 0.0f) lodSettings_.sleepThreshold = 0.5f;
+        } else if (lodSettings_.level == PhysicsLODLevel::Minimal) {
+            if (lodSettings_.targetHz <= 0.0f) lodSettings_.targetHz = 15.0f;
+            if (lodSettings_.rigidBodySubSteps <= 0) lodSettings_.rigidBodySubSteps = 1;
+            if (lodSettings_.softBodyMaxSubSteps <= 0) lodSettings_.softBodyMaxSubSteps = 2;
+            if (lodSettings_.softBodyConstraintIterations <= 0) lodSettings_.softBodyConstraintIterations = 1;
+            if (lodSettings_.softBodyCollisionIterations <= 0) lodSettings_.softBodyCollisionIterations = 1;
+            if (lodSettings_.softBodyGridScale >= 1.0f) lodSettings_.softBodyGridScale = 0.5f;
+            if (lodSettings_.fluidSolverIterations <= 0) lodSettings_.fluidSolverIterations = 5;
+            if (lodSettings_.fluidResolutionScale >= 1.0f) lodSettings_.fluidResolutionScale = 0.25f;
+            if (lodSettings_.materialMaxSubSteps <= 0) lodSettings_.materialMaxSubSteps = 128;
+            lodSettings_.disableSoftBodySelfCollision = true;
+            lodSettings_.applySleepPolicy = true;
+            if (lodSettings_.sleepThreshold <= 0.0f) lodSettings_.sleepThreshold = 1.0f;
+            lodSettings_.disableContinuousCollision = true;
+            lodSettings_.simplifyCollisionMesh = true;
+            lodSettings_.disableFracture = true;
+            lodSettings_.fractureShardScale = 0.5f;
+            lodSettings_.fractureDebrisScale = 0.25f;
+        }
+        lodSettings_.targetHz = std::max(0.0f, lodSettings_.targetHz);
+        lodSettings_.rigidBodySubSteps = std::max(0, lodSettings_.rigidBodySubSteps);
+        lodSettings_.softBodyMaxSubSteps = std::max(0, lodSettings_.softBodyMaxSubSteps);
+        lodSettings_.softBodyConstraintIterations = std::max(0, lodSettings_.softBodyConstraintIterations);
+        lodSettings_.softBodyCollisionIterations = std::max(0, lodSettings_.softBodyCollisionIterations);
+        lodSettings_.softBodyGridScale = std::clamp(lodSettings_.softBodyGridScale, 0.25f, 1.0f);
+        lodSettings_.fluidSolverIterations = std::max(0, lodSettings_.fluidSolverIterations);
+        lodSettings_.fluidResolutionScale = std::clamp(lodSettings_.fluidResolutionScale, 0.125f, 1.0f);
+        lodSettings_.materialMaxSubSteps = std::max(0, lodSettings_.materialMaxSubSteps);
+        if (lodSettings_.targetHz <= 0.0f) {
+            lodAccumulator_ = 0.0f;
+        }
+    }
+
+    const PhysicsLODSettings& physicsLODSettings() const { return lodSettings_; }
+
     // --- Phase 2: Fluid Dynamics ---
     /**
      * @brief グローバルな流体シミュレーション（煙・炎等）を初期化する
      */
     void initFluid(int w, int h) {
         fluidSolver_ = std::make_unique<FluidSolver2D>(w, h);
+        fluidBaseWidth_ = std::max(4, w);
+        fluidBaseHeight_ = std::max(4, h);
+        appliedFluidResolutionScale_ = 1.0f;
     }
     
     /**
@@ -295,9 +379,31 @@ public:
      * @param gravity 重力加速度（デフォルト 9.8 [m/s^2]）
      */
     void update(float dt, float gravityX = 0.0f, float gravityY = 9.8f) {
+        if (dt <= 0.0f) return;
+
+        float simulationDt = dt;
+        if (lodSettings_.level == PhysicsLODLevel::Frozen) return;
+        if (lodSettings_.targetHz > 0.0f) {
+            lodAccumulator_ += dt;
+            const float interval = 1.0f / lodSettings_.targetHz;
+            if (lodAccumulator_ < interval) return;
+            simulationDt = std::min(lodAccumulator_, interval * 4.0f);
+            lodAccumulator_ = 0.0f;
+        }
+
         if (fluidSolver_) {
             // 流体は密度（熱）による浮力や粘性を考慮して更新
-            fluidSolver_->update(dt);
+            if (fluidBaseWidth_ > 0 && fluidBaseHeight_ > 0 &&
+                std::abs(appliedFluidResolutionScale_ - lodSettings_.fluidResolutionScale) > 1.0e-4f) {
+                fluidSolver_->setResolution(
+                    static_cast<int>(std::lround(static_cast<float>(fluidBaseWidth_) * lodSettings_.fluidResolutionScale)),
+                    static_cast<int>(std::lround(static_cast<float>(fluidBaseHeight_) * lodSettings_.fluidResolutionScale)));
+                appliedFluidResolutionScale_ = lodSettings_.fluidResolutionScale;
+            }
+            if (lodSettings_.fluidSolverIterations > 0) {
+                fluidSolver_->setSolverIterations(lodSettings_.fluidSolverIterations);
+            }
+            fluidSolver_->update(simulationDt);
         }
         
         for (auto& [id, sb] : softBodies_) {
@@ -309,12 +415,33 @@ public:
                     sb->addCollider(collider);
                 }
             }
-            sb->update(dt, gravityX, gravityY);
+            if (lodSettings_.softBodyMaxSubSteps > 0) {
+                sb->setMaxSubsteps(lodSettings_.softBodyMaxSubSteps);
+            }
+            if (lodSettings_.softBodyConstraintIterations > 0) {
+                sb->setConstraintIterations(lodSettings_.softBodyConstraintIterations);
+            }
+            if (lodSettings_.softBodyCollisionIterations > 0) {
+                sb->setCollisionIterations(lodSettings_.softBodyCollisionIterations);
+            }
+            if (lodSettings_.softBodyGridScale < 0.999f) {
+                sb->reduceGridResolution(lodSettings_.softBodyGridScale);
+            } else {
+                sb->restoreGridResolution();
+            }
+            if (lodSettings_.disableSoftBodySelfCollision) {
+                sb->setSelfCollisionEnabled(false);
+            }
+            sb->update(simulationDt, gravityX, gravityY);
         }
 
         for (auto& [id, solver] : materialSolvers_) {
             if (solver) {
-                solver->update(dt);
+                solver->setFractureEnabled(!lodSettings_.disableFracture);
+                if (lodSettings_.materialMaxSubSteps > 0) {
+                    solver->setMaxSubsteps(lodSettings_.materialMaxSubSteps);
+                }
+                solver->update(simulationDt);
                 const int fracturedCount = solver->fractureEventCount();
                 if (fracturedCount > 0) {
                     pendingMaterialFractureEvents_.push_back(
@@ -326,7 +453,25 @@ public:
 
         for (auto& [id, world] : rigidWorlds_) {
             if (world) {
-                world->step(dt);
+                if (lodSettings_.applySleepPolicy || lodSettings_.disableContinuousCollision) {
+                    for (const auto& body : world->getBodies()) {
+                        if (!body) continue;
+                        if (lodSettings_.applySleepPolicy) {
+                            body->enableSleep(true);
+                            body->setSleepThreshold(lodSettings_.sleepThreshold);
+                        }
+                        if (lodSettings_.disableContinuousCollision) {
+                            body->setContinuousCollision(false);
+                        }
+                        if (lodSettings_.simplifyCollisionMesh) {
+                            body->simplifyCollisionMesh();
+                        } else {
+                            body->restoreCollisionMesh();
+                        }
+                    }
+                }
+                world->step(simulationDt, lodSettings_.rigidBodySubSteps > 0
+                    ? lodSettings_.rigidBodySubSteps : 4);
             }
         }
     }
@@ -336,6 +481,9 @@ public:
      */
     void clear() {
         fluidSolver_.reset();
+        fluidBaseWidth_ = 0;
+        fluidBaseHeight_ = 0;
+        appliedFluidResolutionScale_ = 1.0f;
         softBodies_.clear();
         softBodyColliders_.clear();
         softBodySnapshots_.clear();
@@ -353,6 +501,9 @@ private:
     PhysicsSystem& operator=(const PhysicsSystem&) = delete;
     
     std::unique_ptr<FluidSolver2D> fluidSolver_;
+    int fluidBaseWidth_ = 0;
+    int fluidBaseHeight_ = 0;
+    float appliedFluidResolutionScale_ = 1.0f;
     std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
     std::map<LayerID, std::vector<SoftBodyCollider>> softBodyColliders_;
     std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
@@ -360,6 +511,8 @@ private:
     std::map<LayerID, std::map<int64_t, MpmSnapshot2D>> materialSnapshots_;
     std::vector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
+    PhysicsLODSettings lodSettings_;
+    float lodAccumulator_ = 0.0f;
     static constexpr std::size_t maxSoftBodySnapshotsPerLayer_ = 480;
     static constexpr std::size_t maxMaterialSnapshotsPerLayer_ = 480;
 };

@@ -477,7 +477,11 @@ bool FractureEffect::generate() {
   const float boundsWidth = static_cast<float>(bounds.width());
   const float boundsHeight = static_cast<float>(bounds.height());
   const float boundsDiag = std::max<float>(1.0f, std::sqrt(boundsWidth * boundsWidth + boundsHeight * boundsHeight));
- const int debrisCount = std::max(0, static_cast<int>(std::round(static_cast<float>(shardCount) * impl_->settings.debrisRatio)));
+ const int debrisCount = std::max(
+     0,
+     impl_->settings.debrisCount > 0
+         ? impl_->settings.debrisCount
+         : static_cast<int>(std::round(static_cast<float>(shardCount) * impl_->settings.debrisRatio)));
 
  for (size_t i = 0; i < polygons.size(); ++i) {
   const QPolygonF& poly = polygons[i];

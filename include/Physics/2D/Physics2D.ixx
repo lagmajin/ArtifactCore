@@ -147,6 +147,87 @@ export namespace ArtifactCore {
             }
         }
 
+        void enableSleep(bool enabled) {
+            if (b2Body_IsValid(bodyId)) {
+                b2Body_EnableSleep(bodyId, enabled);
+            }
+        }
+
+        void setSleepThreshold(float threshold) {
+            if (b2Body_IsValid(bodyId)) {
+                b2Body_SetSleepThreshold(bodyId, std::max(0.0f, threshold));
+            }
+        }
+
+        void setContinuousCollision(bool enabled) {
+            if (b2Body_IsValid(bodyId)) {
+                b2Body_SetBullet(bodyId, enabled);
+            }
+        }
+
+        void simplifyCollisionMesh() {
+            if (!b2Body_IsValid(bodyId) || collisionMeshSimplified_) return;
+            const int shapeCount = b2Body_GetShapeCount(bodyId);
+            if (shapeCount <= 0) return;
+            std::vector<b2ShapeId> shapes(static_cast<std::size_t>(shapeCount));
+            const int count = b2Body_GetShapes(bodyId, shapes.data(), shapeCount);
+            for (int i = 0; i < count; ++i) {
+                if (!b2Shape_IsValid(shapes[static_cast<std::size_t>(i)]) ||
+                    b2Shape_GetType(shapes[static_cast<std::size_t>(i)]) != b2_polygonShape) {
+                    continue;
+                }
+                const b2Polygon polygon = b2Shape_GetPolygon(shapes[static_cast<std::size_t>(i)]);
+                if (polygon.count < 3) continue;
+                float minX = polygon.vertices[0].x;
+                float maxX = minX;
+                float minY = polygon.vertices[0].y;
+                float maxY = minY;
+                for (int v = 1; v < polygon.count; ++v) {
+                    minX = std::min(minX, polygon.vertices[v].x);
+                    maxX = std::max(maxX, polygon.vertices[v].x);
+                    minY = std::min(minY, polygon.vertices[v].y);
+                    maxY = std::max(maxY, polygon.vertices[v].y);
+                }
+                const b2SurfaceMaterial material = b2Shape_GetSurfaceMaterial(shapes[static_cast<std::size_t>(i)]);
+                const float density = b2Shape_GetDensity(shapes[static_cast<std::size_t>(i)]);
+                collisionPolygonBackups_.push_back({polygon, material, density});
+                b2ShapeDef shapeDef = b2DefaultShapeDef();
+                shapeDef.density = density;
+                shapeDef.material = material;
+                b2DestroyShape(shapes[static_cast<std::size_t>(i)], false);
+                const b2Polygon box = b2MakeOffsetBox(
+                    std::max(0.001f, (maxX - minX) * 0.5f),
+                    std::max(0.001f, (maxY - minY) * 0.5f),
+                    b2Vec2{(minX + maxX) * 0.5f, (minY + maxY) * 0.5f},
+                    b2MakeRot(0.0f));
+                b2CreatePolygonShape(bodyId, &shapeDef, &box);
+            }
+            collisionMeshSimplified_ = true;
+            b2Body_ApplyMassFromShapes(bodyId);
+        }
+
+        void restoreCollisionMesh() {
+            if (!b2Body_IsValid(bodyId) || !collisionMeshSimplified_) return;
+            const int shapeCount = b2Body_GetShapeCount(bodyId);
+            std::vector<b2ShapeId> shapes(static_cast<std::size_t>(std::max(0, shapeCount)));
+            const int count = shapeCount > 0 ? b2Body_GetShapes(bodyId, shapes.data(), shapeCount) : 0;
+            for (int i = 0; i < count; ++i) {
+                const auto shape = shapes[static_cast<std::size_t>(i)];
+                if (b2Shape_IsValid(shape) && b2Shape_GetType(shape) == b2_polygonShape) {
+                    b2DestroyShape(shape, false);
+                }
+            }
+            for (const auto& backup : collisionPolygonBackups_) {
+                b2ShapeDef shapeDef = b2DefaultShapeDef();
+                shapeDef.density = backup.density;
+                shapeDef.material = backup.material;
+                b2CreatePolygonShape(bodyId, &shapeDef, &backup.polygon);
+            }
+            collisionPolygonBackups_.clear();
+            collisionMeshSimplified_ = false;
+            b2Body_ApplyMassFromShapes(bodyId);
+        }
+
         void setType(Type newType) {
             if (!b2Body_IsValid(bodyId)) return;
             b2BodyType box2dType = b2_staticBody;
@@ -181,6 +262,15 @@ export namespace ArtifactCore {
         }
 
         b2BodyId getId() const { return bodyId; }
+
+    private:
+        struct CollisionPolygonBackup {
+            b2Polygon polygon;
+            b2SurfaceMaterial material;
+            float density = 0.0f;
+        };
+        bool collisionMeshSimplified_ = false;
+        std::vector<CollisionPolygonBackup> collisionPolygonBackups_;
     };
 
     // ─────────────────────────────────────────────────────────
