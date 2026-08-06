@@ -44,6 +44,7 @@ module Property.Abstract;
 import Core.ArtifactString;
 import Script.Expression.Evaluator;
 import Script.Expression.Value;
+import Script.Engine.Context;
 import Math.Interpolate;
 
 
@@ -51,6 +52,13 @@ import Math.Interpolate;
 
 
 namespace ArtifactCore {
+
+namespace {
+    ScriptContext& propertyExpressionAstCache() {
+        static ScriptContext context;
+        return context;
+    }
+}
 
 // -----------------------------------------------------------------------
 // Conversion Helpers
@@ -495,7 +503,11 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
             }
             evaluator->setVariable("keyframes", ExpressionValue(loopKeyframes));
 
-            ExpressionValue result = evaluator->evaluate(ZeroString(expression.toUtf8().constData()));
+            const std::string expressionUtf8 = expression.toStdString();
+            const auto ast = propertyExpressionAstCache().getOrParseAST(expressionUtf8);
+            ExpressionValue result = ast
+                ? evaluator->evaluateAST(ast)
+                : evaluator->evaluate(ZeroString(expression.toUtf8().constData()));
             if (!evaluator->hasError()) {
                 return expressionValueToQVariant(result, propertyType);
             } else {
