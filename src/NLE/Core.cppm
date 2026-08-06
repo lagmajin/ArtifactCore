@@ -917,7 +917,10 @@ bool NLEProjectStore::relinkSource(const SourceId& sourceId, const QString& newU
     if (!displayName.isEmpty()) {
         source->displayName = displayName;
     }
-    source->online = true;
+    const QUrl uri(newUri);
+    const bool remoteUri = uri.isValid() && !uri.scheme().isEmpty() &&
+        uri.scheme().compare(QStringLiteral("file"), Qt::CaseInsensitive) != 0;
+    source->online = remoteUri || QFileInfo::exists(newUri);
     source->checksum.clear();
     return true;
 }
