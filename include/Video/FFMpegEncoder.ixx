@@ -26,6 +26,8 @@ export namespace ArtifactCore {
         int width = 1920;
         int height = 1080;
         double fps = 30.0;
+        long long startTimeCodeFrame = 0;
+        bool dropFrame = false;
         int bitrateKbps = 8000;
         QString videoCodec = "h264";
         QString container = "mp4";

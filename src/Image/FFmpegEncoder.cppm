@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <algorithm>
+#include <limits>
 #include <cstring>
 #include <QString>
 #include <QStringList>
@@ -17,6 +18,7 @@ extern "C" {
 #include <libavutil/imgutils.h>
 #include <libavutil/error.h>
 #include <libavutil/opt.h>
+#include <libavutil/dict.h>
 #include <libavutil/mastering_display_metadata.h>
 #include <libswscale/swscale.h>
 #ifdef __cplusplus
@@ -26,6 +28,7 @@ extern "C" {
 module Encoder.FFmpegEncoder;
 import Image;
 import :Impl;
+import Time.Code;
 
 namespace {
 
@@ -341,6 +344,21 @@ public:
                 lastError_ = QStringLiteral("Failed to open output file: %1 (%2)").arg(outputPath, ffmpegErrorString(ret));
                 return false;
             }
+        }
+
+        if (settings.startTimeCodeFrame >= 0) {
+            ArtifactCore::TimeCode startTimeCode(
+                static_cast<int>(std::min<long long>(
+                    settings.startTimeCodeFrame,
+                    static_cast<long long>(std::numeric_limits<int>::max()))),
+                settings.fps);
+            startTimeCode.setDropFrame(settings.dropFrame);
+            QString timecode = startTimeCode.toString();
+            if (settings.dropFrame) {
+                timecode[8] = QChar(';');
+            }
+            av_dict_set(&fmtCtx_->metadata, "timecode",
+                        timecode.toUtf8().constData(), 0);
         }
 
         // ヘッダー書き込み
