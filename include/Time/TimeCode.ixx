@@ -58,6 +58,8 @@ export namespace ArtifactCore {
 
   void setByFrame(int frame);
   void setByHMSF(int h, int m, int s, int f);
+  void setDropFrame(bool enabled);
+  bool isDropFrame() const;
 
   // ---- getters ----
   int frame() const;

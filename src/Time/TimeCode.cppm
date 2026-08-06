@@ -17,6 +17,7 @@ public:
  ~Impl();
  int totalFrames = 0;
  double fps = 30.0;
+ bool dropFrame = false;
  void fromHMSF(int h, int m, int s, int f);
 };
 
@@ -34,7 +35,13 @@ void TimeCode::Impl::fromHMSF(int h, int m, int s, int f)
  // 59.94 -> 60). Truncating the rate turns 29.97 into 29 and causes the
  // displayed timecode to drift against the actual frame timeline.
  const int nominalFps = std::max(1, static_cast<int>(std::lround(fps)));
- totalFrames = ((h * 3600 + m * 60 + s) * nominalFps) + f;
+ const int dropCount = dropFrame && (nominalFps == 30 || nominalFps == 60)
+     ? nominalFps / 15
+     : 0;
+ const int nominalFrame = ((h * 3600 + m * 60 + s) * nominalFps) + f;
+ const int totalMinutes = h * 60 + m;
+ const int droppedFrames = dropCount * (totalMinutes - totalMinutes / 10);
+ totalFrames = nominalFrame - droppedFrames;
 }
 
 TimeCode::TimeCode() : impl_(new Impl())
@@ -51,6 +58,17 @@ TimeCode::TimeCode(int h, int m, int s, int f, double fps) : impl_(new Impl())
 {
  impl_->fps = fps > 0.0 ? fps : 30.0;
  impl_->fromHMSF(h, m, s, f);
+}
+
+void TimeCode::setDropFrame(bool enabled)
+{
+ impl_->dropFrame = enabled &&
+     (std::lround(impl_->fps) == 30 || std::lround(impl_->fps) == 60);
+}
+
+bool TimeCode::isDropFrame() const
+{
+ return impl_->dropFrame;
 }
 
 TimeCode::TimeCode(TimeCode&& other) noexcept : impl_(other.impl_)
@@ -81,10 +99,29 @@ void TimeCode::toHMSF(int& h, int& m, int& s, int& f) const
  const double fps = impl_->fps;
  const int total_frames = impl_->totalFrames;
  const int nominalFps = std::max(1, static_cast<int>(std::lround(fps)));
- h = total_frames / (3600 * nominalFps);
- m = (total_frames / (60 * nominalFps)) % 60;
- s = (total_frames / nominalFps) % 60;
- f = total_frames % nominalFps;
+ if (!impl_->dropFrame || (nominalFps != 30 && nominalFps != 60)) {
+  h = total_frames / (3600 * nominalFps);
+  m = (total_frames / (60 * nominalFps)) % 60;
+  s = (total_frames / nominalFps) % 60;
+  f = total_frames % nominalFps;
+  return;
+ }
+
+ const int dropCount = nominalFps / 15;
+ const int framesPerMinute = nominalFps * 60;
+ const int framesPerTenMinutes = framesPerMinute * 10 - dropCount * 9;
+ const int nonNegativeFrames = std::max(0, total_frames);
+ const int tenMinuteBlocks = nonNegativeFrames / framesPerTenMinutes;
+ const int remainder = nonNegativeFrames % framesPerTenMinutes;
+ int nominalFrame = nonNegativeFrames + dropCount * 9 * tenMinuteBlocks;
+ if (remainder >= dropCount) {
+  nominalFrame += dropCount *
+      ((remainder - dropCount) / (framesPerMinute - dropCount) + 1);
+ }
+ h = nominalFrame / (3600 * nominalFps);
+ m = (nominalFrame / (60 * nominalFps)) % 60;
+ s = (nominalFrame / nominalFps) % 60;
+ f = nominalFrame % nominalFps;
 }
 
 std::string TimeCode::toStdString() const
