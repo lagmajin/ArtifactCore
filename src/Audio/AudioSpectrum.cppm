@@ -16,6 +16,14 @@ AudioSpectrum::AudioSpectrum() {
     waveform_.assign(1024, 0.0f);
 }
 
+float AudioSpectrum::normalizationGainDb(float targetLufs) const
+{
+    if (!std::isfinite(targetLufs) || !std::isfinite(integratedLufs_)) {
+        return 0.0f;
+    }
+    return targetLufs - integratedLufs_;
+}
+
 void AudioSpectrum::computeFFT(const std::vector<float>& input, std::vector<float>& output) {
     // 簡易DFT実装（FFTはQtMultimedia::QAudioSpectrum や外部ライブラリを推奨）
     const int n = static_cast<int>(std::min(input.size(), output.size() * 2));
@@ -44,6 +52,7 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
     // the RMS-to-LUFS reference used by BS.1770-style meters; filtering and
     // gating remain explicit future extensions of this core path.
     double sumSquared = 0.0;
+    float peak = 0.0f;
     int contributingChannels = 0;
     const bool hasLfe = segment.layout == AudioChannelLayout::Surround51 ||
                         segment.layout == AudioChannelLayout::Surround71;
@@ -54,7 +63,10 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
         if (channel.isEmpty()) continue;
         double channelSum = 0.0;
         for (const float sample : channel) {
-            if (std::isfinite(sample)) channelSum += static_cast<double>(sample) * sample;
+            if (std::isfinite(sample)) {
+                channelSum += static_cast<double>(sample) * sample;
+                peak = std::max(peak, std::abs(sample));
+            }
         }
         sumSquared += channelSum / static_cast<double>(channel.size());
         ++contributingChannels;
@@ -77,9 +89,13 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
             integratedEnergySum_ / static_cast<double>(std::max<qint64>(1, integratedFrameCount_));
         integratedLufs_ = static_cast<float>(
             -0.691 + 10.0 * std::log10(std::max(integratedMeanSquare, 1.0e-12)));
+        peakDb_ = peak > 1.0e-12f
+            ? static_cast<float>(20.0 * std::log10(peak))
+            : -std::numeric_limits<float>::infinity();
     } else {
         momentaryLufs_ = -std::numeric_limits<float>::infinity();
         integratedLufs_ = momentaryLufs_;
+        peakDb_ = momentaryLufs_;
     }
 
     // 波形取得（ダウンサンプル）

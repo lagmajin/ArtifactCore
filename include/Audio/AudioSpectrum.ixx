@@ -36,6 +36,8 @@ public:
     // The values are updated by process() and are expressed in LUFS.
     float getMomentaryLufs() const { return momentaryLufs_; }
     float getIntegratedLufs() const { return integratedLufs_; }
+    float getPeakDb() const { return peakDb_; }
+    float normalizationGainDb(float targetLufs) const;
     
     void setBins(int bins) { bins_ = bins; }
     int getBins() const { return bins_; }
@@ -49,6 +51,7 @@ private:
     std::vector<float> waveform_;
     float momentaryLufs_ = -std::numeric_limits<float>::infinity();
     float integratedLufs_ = -std::numeric_limits<float>::infinity();
+    float peakDb_ = -std::numeric_limits<float>::infinity();
     double integratedEnergySum_ = 0.0;
     qint64 integratedFrameCount_ = 0;
     qint64 lastEndFrame_ = -1;
