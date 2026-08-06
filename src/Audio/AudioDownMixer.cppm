@@ -50,6 +50,35 @@ float AudioDownMixer::backMixLevel() const {
     return impl_->backMixLevel_;
 }
 
+AudioSegment AudioDownMixer::processChannelMap(
+    const AudioSegment& source,
+    const QVector<int>& sourceChannelForOutput) const
+{
+    AudioSegment output;
+    output.sampleRate = source.sampleRate;
+    output.layout = impl_->targetLayout_;
+    output.startFrame = source.startFrame;
+    const int frames = source.frameCount();
+    if (frames <= 0 || sourceChannelForOutput.isEmpty()) {
+        return output;
+    }
+    output.channelData.resize(sourceChannelForOutput.size());
+    for (int outputChannel = 0;
+         outputChannel < sourceChannelForOutput.size();
+         ++outputChannel) {
+        auto& destination = output.channelData[outputChannel];
+        destination.fill(0.0f, frames);
+        const int sourceChannel = sourceChannelForOutput[outputChannel];
+        if (sourceChannel < 0 || sourceChannel >= source.channelCount()) {
+            continue;
+        }
+        const auto& input = source.channelData[sourceChannel];
+        const int copyFrames = std::min(frames, input.size());
+        std::copy_n(input.constData(), copyFrames, destination.begin());
+    }
+    return output;
+}
+
 AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
     if (source.layout == impl_->targetLayout_) {
         return source; // No conversion needed

@@ -34,6 +34,11 @@ export namespace ArtifactCore {
   void setBackMixLevel(float level = 0.5f);     // 7.1 back channel -6dB default
   float backMixLevel() const;
 
+  // Explicit output-channel mapping. Each entry is a source channel index;
+  // use -1 to emit silence for an unmapped output channel.
+  AudioSegment processChannelMap(const AudioSegment& source,
+                                 const QVector<int>& sourceChannelForOutput) const;
+
 
 
   /**
