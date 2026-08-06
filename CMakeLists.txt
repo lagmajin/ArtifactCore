@@ -653,3 +653,21 @@ if(Angelscript_FOUND)
 else()
     message(STATUS "AngelScript not found (AngelScriptEngine will be a stub)")
 endif()
+
+# C# scripting support (hostfxr, dynamically loaded).
+# CSharpScriptEngine keeps the hostfxr ABI declarations local, so no SDK
+# headers or link library are required.  Enable the embedded path only when
+# the .NET installation contains host/fxr; otherwise the external-process
+# fallback remains available.
+find_program(DOTNET_EXECUTABLE NAMES dotnet dotnet.exe)
+if(DOTNET_EXECUTABLE)
+    get_filename_component(_artifact_dotnet_root "${DOTNET_EXECUTABLE}" DIRECTORY)
+    if(EXISTS "${_artifact_dotnet_root}/host/fxr")
+        target_compile_definitions(ArtifactCore PRIVATE ARTIFACT_HAS_DOTNET=1)
+        message(STATUS "C# scripting enabled: hostfxr found under ${_artifact_dotnet_root}")
+    else()
+        message(STATUS "C# scripting disabled: .NET found but host/fxr is missing")
+    endif()
+else()
+    message(STATUS "C# scripting disabled: dotnet executable not found")
+endif()
