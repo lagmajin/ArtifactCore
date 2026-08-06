@@ -10,38 +10,50 @@ module;
 #include <functional>
 #include <iostream>
 #include <filesystem>
+#include <array>
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
 #include <QProcess>
 #include <QString>
+
+#ifdef _WIN32
+#define ARTIFACT_CDECL __cdecl
+using artifact_host_char_t = wchar_t;
+#else
+#define ARTIFACT_CDECL
+using artifact_host_char_t = char;
+#endif
 
 // .NET ホスティング型 — hostfxr SDK 非依存の自己定義
 // coreclr_delegates.h / hostfxr.h が無くてもコンパイル可能にする
 #ifdef ARTIFACT_HAS_DOTNET
 
 // hostfxr 関数ポインタ型
-using hostfxr_initialize_for_runtime_config_fn = int(__cdecl*)(
-    const wchar_t* runtime_config_path,
+using hostfxr_initialize_for_runtime_config_fn = int(ARTIFACT_CDECL*)(
+    const artifact_host_char_t* runtime_config_path,
     void* parameters,
     void** host_context_handle);
 
-using hostfxr_get_runtime_delegate_fn = int(__cdecl*)(
+using hostfxr_get_runtime_delegate_fn = int(ARTIFACT_CDECL*)(
     void* host_context_handle,
     int32_t type,
     void** delegate);
 
-using hostfxr_close_fn = int(__cdecl*)(
+using hostfxr_close_fn = int(ARTIFACT_CDECL*)(
     void* host_context_handle);
 
 // coreclr_delegates.h 相当
-using load_assembly_fn = int(__cdecl*)(
-    const wchar_t* assembly_path,
-    const wchar_t* assembly_name,
+using load_assembly_fn = int(ARTIFACT_CDECL*)(
+    const artifact_host_char_t* assembly_path,
+    const artifact_host_char_t* assembly_name,
     void* load_assembly_property_keys,
     void* load_assembly_property_values);
 
-using get_function_pointer_fn = int(__cdecl*)(
-    const wchar_t* type_name,
-    const wchar_t* method_name,
-    const void* delegate_type_interface,
+using get_function_pointer_fn = int(ARTIFACT_CDECL*)(
+    const artifact_host_char_t* type_name,
+    const artifact_host_char_t* method_name,
+    const artifact_host_char_t* delegate_type_name,
     const void* reserved,
     void* function_pointer_consumer,
     void** function_pointer);
@@ -139,23 +151,30 @@ public:
             return false;
         }
 
-        // runtimeconfig.json のパスをアセンブリパスから推測
-        std::string configPath = dllPath.parent_path().string() + "/" +
-                                 dllPath.stem().string() + ".runtimeconfig.json";
+        fs::path configPath = dllPath.parent_path() /
+                              (dllPath.stem().string() + ".runtimeconfig.json");
         if (!fs::exists(configPath)) {
-            lastError_ = "runtimeconfig.json not found: " + configPath;
-            return false;
+            std::error_code ec;
+            const fs::path executableConfig =
+                fs::current_path(ec) / "Artifact.runtimeconfig.json";
+            if (!ec && fs::exists(executableConfig)) {
+                configPath = executableConfig;
+            } else {
+                lastError_ = "runtimeconfig.json not found beside assembly: " +
+                             configPath.string();
+                return false;
+            }
         }
 
 #ifdef _WIN32
-        std::wstring configW = fs::path(configPath).wstring();
-        std::wstring assemblyW = fs::path(assemblyPath).wstring();
+        auto configNative = configPath.wstring();
+        auto assemblyNative = fs::path(assemblyPath).wstring();
 #else
-        std::wstring configW(configPath.begin(), configPath.end());
-        std::wstring assemblyW(assemblyPath.begin(), assemblyPath.end());
+        auto configNative = configPath.string();
+        auto assemblyNative = fs::path(assemblyPath).string();
 #endif
 
-        int rc = initRuntime_(configW.c_str(), nullptr, &hostContext_);
+        int rc = initRuntime_(configNative.c_str(), nullptr, &hostContext_);
         if (rc != 0 || !hostContext_) {
             lastError_ = "hostfxr_initialize_for_runtime_config failed: " + std::to_string(rc);
             return false;
@@ -163,6 +182,10 @@ public:
 
         rc = getDelegate_(hostContext_, hdt_load_assembly,
                           reinterpret_cast<void**>(&loadAssembly_));
+        if (rc != 0 || !loadAssembly_) {
+            lastError_ = "Failed to get load_assembly delegate: " + std::to_string(rc);
+            return false;
+        }
         rc = getDelegate_(hostContext_, hdt_get_function_pointer,
                           reinterpret_cast<void**>(&getFnPtr_));
 
@@ -171,7 +194,7 @@ public:
             return false;
         }
 
-        rc = loadAssembly_(assemblyW.c_str(), nullptr, nullptr, nullptr);
+        rc = loadAssembly_(assemblyNative.c_str(), nullptr, nullptr, nullptr);
         if (rc != 0) {
             lastError_ = "load_assembly failed: " + std::to_string(rc);
             return false;
@@ -185,18 +208,36 @@ public:
         if (!getFnPtr_) return nullptr;
         void* fn = nullptr;
 
-#ifdef _WIN32
-        std::wstring typeW(typeName.begin(), typeName.end());
-        std::wstring methodW(methodName.begin(), methodName.end());
-#else
-        std::wstring typeW(typeName.begin(), typeName.end());
-        std::wstring methodW(methodName.begin(), methodName.end());
-#endif
+        auto typeNative = fs::path(typeName).native();
+        auto methodNative = fs::path(methodName).native();
 
-        int rc = getFnPtr_(typeW.c_str(), methodW.c_str(),
-                           reinterpret_cast<const void*>(UNMANAGEDCALLERSONLY_METHOD),
+        int rc = getFnPtr_(typeNative.c_str(), methodNative.c_str(),
+                           nullptr,
                            nullptr, nullptr, &fn);
         return (rc == 0) ? fn : nullptr;
+    }
+
+    bool invokeUtf8(const std::string& typeName,
+                    const std::string& methodName,
+                    const std::string& argument,
+                    std::string& result) {
+        void* raw = getFunctionPointer(typeName, methodName);
+        if (!raw) {
+            lastError_ = "Failed to resolve native method: " + typeName + "." + methodName;
+            return false;
+        }
+
+        using NativeEntryPoint = int(ARTIFACT_CDECL*)(const void*, void*, int);
+        auto entryPoint = reinterpret_cast<NativeEntryPoint>(raw);
+        std::vector<char> buffer(64 * 1024, '\0');
+        const int rc = entryPoint(argument.data(), buffer.data(),
+                                  static_cast<int>(buffer.size()));
+        if (rc != 0) {
+            lastError_ = "Native C# method failed: " + std::to_string(rc);
+            return false;
+        }
+        result.assign(buffer.data());
+        return true;
     }
 
     void shutdown() {
@@ -209,6 +250,11 @@ public:
         if (libHandle_) dlclose(libHandle_);
 #endif
         libHandle_ = nullptr;
+        initRuntime_ = nullptr;
+        getDelegate_ = nullptr;
+        closeFn_ = nullptr;
+        loadAssembly_ = nullptr;
+        getFnPtr_ = nullptr;
         loaded_ = false;
     }
 
@@ -265,9 +311,22 @@ bool CSharpScriptEngine::initialize(const std::string& dotnetRoot) {
     if (impl_->initialized_) return true;
 
 #ifdef ARTIFACT_HAS_DOTNET
-    std::string root = dotnetRoot.empty()
-        ? "C:/Program Files/dotnet" // Windows default
-        : dotnetRoot;
+    std::string root = dotnetRoot;
+    if (root.empty()) {
+        if (const char* envRoot = std::getenv("DOTNET_ROOT"); envRoot && *envRoot)
+            root = envRoot;
+    }
+    if (root.empty()) {
+#ifdef _WIN32
+        root = "C:/Program Files/dotnet";
+#elif defined(__APPLE__)
+        root = "/usr/local/share/dotnet";
+#else
+        root = "/usr/share/dotnet";
+        if (!fs::exists(root))
+            root = "/usr/lib/dotnet";
+#endif
+    }
 
     if (!impl_->host.initialize(root)) {
         impl_->setError(impl_->host.lastError());
@@ -354,6 +413,67 @@ bool CSharpScriptEngine::loadAssembly(const std::string& assemblyPath) {
     return execute(assemblyPath);
 }
 
+bool CSharpScriptEngine::executeScript(const std::string& code) {
+#ifdef ARTIFACT_HAS_DOTNET
+    if (!impl_->initialized_) {
+        impl_->setError("CSharpScriptEngine: not initialized");
+        return false;
+    }
+
+    const std::array<fs::path, 3> candidates = {
+        fs::current_path() / "Artifact.Scripting.dll",
+        fs::current_path() / "scripts/dotnet/Artifact.Scripting/bin/Release/net8.0/Artifact.Scripting.dll",
+        fs::current_path() / "scripts/dotnet/Artifact.Scripting/bin/Debug/net8.0/Artifact.Scripting.dll"};
+    fs::path hostAssembly;
+    for (const auto& candidate : candidates) {
+        if (fs::exists(candidate)) {
+            hostAssembly = candidate;
+            break;
+        }
+    }
+    if (hostAssembly.empty() || !impl_->host.loadAssembly(hostAssembly.string())) {
+        impl_->setError(hostAssembly.empty()
+            ? "CSharpScriptEngine: Artifact.Scripting.dll was not found"
+            : impl_->host.lastError());
+        return false;
+    }
+
+    std::string result;
+    if (!impl_->host.invokeUtf8("ArtifactScriptHost", "EvaluateCode", code, result)) {
+        impl_->setError(impl_->host.lastError());
+        return false;
+    }
+    if (impl_->outputCallback_ && !result.empty())
+        impl_->outputCallback_(result, false);
+    return true;
+#else
+    impl_->setError("CSharpScriptEngine: CSX requires embedded hostfxr support");
+    return false;
+#endif
+}
+
+bool CSharpScriptEngine::executeScriptFile(const std::string& path) {
+    std::ifstream file(path);
+    if (!file) {
+        impl_->setError("CSharpScriptEngine: CSX file not found: " + path);
+        return false;
+    }
+    std::ostringstream contents;
+    contents << file.rdbuf();
+    return executeScript(contents.str());
+}
+
+bool CSharpScriptEngine::executeScriptWithImports(
+    const std::string& code, const std::vector<std::string>& imports) {
+    std::string source;
+    for (const auto& importName : imports) {
+        if (!importName.empty())
+            source += "using " + importName + ";\n";
+    }
+    source += code;
+    return executeScript(source);
+}
+
 std::string CSharpScriptEngine::evaluate(const std::string& typeName,
                                           const std::string& methodName,
                                           const std::string& argument) {
@@ -370,8 +490,10 @@ std::string CSharpScriptEngine::evaluate(const std::string& typeName,
     }
 
     // component_entry_point_fn シグネチャで呼び出し
-    using EntryPointFn = int(__cdecl*)(const wchar_t*, const wchar_t*,
-                                        const wchar_t*, const wchar_t*,
+    using EntryPointFn = int(ARTIFACT_CDECL*)(const artifact_host_char_t*,
+                                        const artifact_host_char_t*,
+                                        const artifact_host_char_t*,
+                                        const artifact_host_char_t*,
                                         void*, int);
     auto entryFn = reinterpret_cast<EntryPointFn>(fn);
 

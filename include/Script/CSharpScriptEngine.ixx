@@ -52,6 +52,12 @@ public:
     /// Evaluate a function in a loaded assembly. Returns the result as string.
     std::string evaluate(const std::string& typeName, const std::string& methodName, const std::string& argument = "");
 
+    /// Evaluate C# code through the bundled Roslyn scripting host.
+    bool executeScript(const std::string& code);
+    bool executeScriptFile(const std::string& path);
+    bool executeScriptWithImports(const std::string& code,
+                                   const std::vector<std::string>& imports);
+
     // === Output Capture ===
 
     using OutputCallback = std::function<void(const std::string& text, bool isError)>;
