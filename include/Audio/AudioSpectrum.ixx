@@ -37,6 +37,8 @@ public:
     float getMomentaryLufs() const { return momentaryLufs_; }
     float getIntegratedLufs() const { return integratedLufs_; }
     float getPeakDb() const { return peakDb_; }
+    // 4x linear-interpolated true-peak approximation; not ITU-R BS.1770 oversampling.
+    float getTruePeakDb() const { return truePeakDb_; }
     float normalizationGainDb(float targetLufs) const;
     
     void setBins(int bins) { bins_ = bins; }
@@ -52,6 +54,7 @@ private:
     float momentaryLufs_ = -std::numeric_limits<float>::infinity();
     float integratedLufs_ = -std::numeric_limits<float>::infinity();
     float peakDb_ = -std::numeric_limits<float>::infinity();
+    float truePeakDb_ = -std::numeric_limits<float>::infinity();
     double integratedEnergySum_ = 0.0;
     qint64 integratedFrameCount_ = 0;
     qint64 lastEndFrame_ = -1;
