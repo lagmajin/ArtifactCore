@@ -25,8 +25,13 @@ public:
     static QVector<SubtitleCue> importSrt(const QString& text,
                                           const TimeBase& timeBase = TimeBase{},
                                           QVector<QString>* warnings = nullptr);
+    static QVector<SubtitleCue> importWebVtt(const QString& text,
+                                              const TimeBase& timeBase = TimeBase{},
+                                              QVector<QString>* warnings = nullptr);
     static QString exportSrt(const QVector<SubtitleCue>& cues,
                              const TimeBase& timeBase = TimeBase{});
+    static QString exportWebVtt(const QVector<SubtitleCue>& cues,
+                                const TimeBase& timeBase = TimeBase{});
     static bool importSrtIntoSequence(NLEProjectStore& store,
                                       const SequenceId& sequenceId,
                                       const QString& text,

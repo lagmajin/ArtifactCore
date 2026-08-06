@@ -356,6 +356,46 @@ QVector<SubtitleCue> OtioAdapter::importSrt(const QString& text,
     return result;
 }
 
+QVector<SubtitleCue> OtioAdapter::importWebVtt(const QString& text,
+                                                const TimeBase& timeBase,
+                                                QVector<QString>* warnings)
+{
+    const QString normalized = text.toUtf8().replace("\r\n", "\n").replace('\r', '\n');
+    const QStringList lines = QString::fromUtf8(normalized).split(QChar('\n'));
+    QString srt;
+    int cueNumber = 1;
+    int line = 0;
+    while (line < lines.size()) {
+        while (line < lines.size() && lines[line].trimmed().isEmpty()) ++line;
+        if (line >= lines.size()) break;
+        const QString header = lines[line].trimmed();
+        if (header.compare(QStringLiteral("WEBVTT"), Qt::CaseInsensitive) == 0 ||
+            header.startsWith(QStringLiteral("NOTE"), Qt::CaseInsensitive) ||
+            header.startsWith(QStringLiteral("STYLE"), Qt::CaseInsensitive) ||
+            header.startsWith(QStringLiteral("REGION"), Qt::CaseInsensitive)) {
+            while (line < lines.size() && !lines[line].trimmed().isEmpty()) ++line;
+            continue;
+        }
+        if (!lines[line].contains(QStringLiteral("-->"))) {
+            ++line;
+            if (line >= lines.size()) break;
+        }
+        QString timing = lines[line++].trimmed();
+        if (!timing.contains(QStringLiteral("-->"))) {
+            if (warnings) warnings->push_back(QStringLiteral("Invalid WebVTT timing near line %1").arg(line));
+            while (line < lines.size() && !lines[line].trimmed().isEmpty()) ++line;
+            continue;
+        }
+        timing.replace(QRegularExpression(QStringLiteral("(\\d{2}:\\d{2}:\\d{2})\\.(\\d{3})")), QStringLiteral("\\1,\\2"));
+        srt += QString::number(cueNumber++) + QChar('\n') + timing + QChar('\n');
+        while (line < lines.size() && !lines[line].trimmed().isEmpty()) {
+            srt += lines[line++] + QChar('\n');
+        }
+        srt += QChar('\n');
+    }
+    return importSrt(srt, timeBase, warnings);
+}
+
 QString OtioAdapter::exportSrt(const QVector<SubtitleCue>& cues,
                                const TimeBase& timeBase)
 {
@@ -383,6 +423,26 @@ QString OtioAdapter::exportSrt(const QVector<SubtitleCue>& cues,
                   formatTime(cue.range.start()) + QStringLiteral(" --> ") +
                   formatTime(cue.range.start() + cue.range.duration()) + QStringLiteral("\n") +
                   cue.text.trimmed() + QStringLiteral("\n\n");
+    }
+    return output;
+}
+
+QString OtioAdapter::exportWebVtt(const QVector<SubtitleCue>& cues,
+                                  const TimeBase& timeBase)
+{
+    QString output = QStringLiteral("WEBVTT\n\n");
+    const QString srt = exportSrt(cues, timeBase);
+    const QStringList lines = srt.split(QChar('\n'));
+    for (const QString& line : lines) {
+        if (line.contains(QStringLiteral("-->"))) {
+            QString converted = line;
+            converted.replace(QRegularExpression(QStringLiteral("(\\d{2}:\\d{2}:\\d{2}),(\\d{3})")), QStringLiteral("\\1.\\2"));
+            output += converted + QChar('\n');
+        } else if (!line.trimmed().isEmpty() && line.trimmed().toInt() > 0) {
+            continue;
+        } else {
+            output += line + QChar('\n');
+        }
     }
     return output;
 }
