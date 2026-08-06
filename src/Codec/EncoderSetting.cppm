@@ -445,6 +445,16 @@ QVector<UniString> EncoderSettings::getValidationErrors() const
 {
     QVector<UniString> errors;
 
+    if (impl_->frameRate <= 0.0) {
+        errors.push_back(UniString(QString("Frame rate must be greater than zero")));
+    }
+    if (impl_->dropFrame &&
+        std::abs(impl_->frameRate - 29.97) > 0.01 &&
+        std::abs(impl_->frameRate - 59.94) > 0.01) {
+        errors.push_back(UniString(QString(
+            "Drop-frame timecode requires a 29.97 or 59.94 fps rate")));
+    }
+
     if (impl_->mode == OutputMode::AudioOnly) {
         if (impl_->aCodec == AudioCodec::None) {
             errors.push_back(UniString(QString("Audio codec must be set for audio-only mode")));
