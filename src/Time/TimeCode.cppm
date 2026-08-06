@@ -60,6 +60,26 @@ TimeCode::TimeCode(int h, int m, int s, int f, double fps) : impl_(new Impl())
  impl_->fromHMSF(h, m, s, f);
 }
 
+TimeCode::TimeCode(const TimeCode& other) : impl_(new Impl())
+{
+ impl_->totalFrames = other.impl_ ? other.impl_->totalFrames : 0;
+ impl_->fps = other.impl_ ? other.impl_->fps : 30.0;
+ impl_->dropFrame = other.impl_ && other.impl_->dropFrame;
+}
+
+TimeCode& TimeCode::operator=(const TimeCode& other)
+{
+ if (this != &other) {
+  if (!impl_) {
+   impl_ = new Impl();
+  }
+  impl_->totalFrames = other.impl_ ? other.impl_->totalFrames : 0;
+  impl_->fps = other.impl_ ? other.impl_->fps : 30.0;
+  impl_->dropFrame = other.impl_ && other.impl_->dropFrame;
+ }
+ return *this;
+}
+
 void TimeCode::setDropFrame(bool enabled)
 {
  impl_->dropFrame = enabled &&

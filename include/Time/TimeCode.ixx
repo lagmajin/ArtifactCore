@@ -50,8 +50,8 @@ export namespace ArtifactCore {
   TimeCode(int frame, double fps);
   TimeCode(int h, int m, int s, int f, double fps);
   ~TimeCode();
-  TimeCode(const TimeCode&) = delete;
-  TimeCode& operator=(const TimeCode&) = delete;
+  TimeCode(const TimeCode& other);
+  TimeCode& operator=(const TimeCode& other);
 
   TimeCode(TimeCode&&) noexcept;
   TimeCode& operator=(TimeCode&&) noexcept;
