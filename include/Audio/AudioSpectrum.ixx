@@ -40,6 +40,7 @@ public:
     // 4x linear-interpolated true-peak approximation; not ITU-R BS.1770 oversampling.
     float getTruePeakDb() const { return truePeakDb_; }
     float normalizationGainDb(float targetLufs) const;
+    bool normalizeToTargetLufs(AudioSegment& segment, float targetLufs);
     
     void setBins(int bins) { bins_ = bins; }
     int getBins() const { return bins_; }

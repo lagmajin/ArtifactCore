@@ -24,6 +24,27 @@ float AudioSpectrum::normalizationGainDb(float targetLufs) const
     return targetLufs - integratedLufs_;
 }
 
+bool AudioSpectrum::normalizeToTargetLufs(AudioSegment& segment, float targetLufs)
+{
+    process(segment);
+    const float gainDb = normalizationGainDb(targetLufs);
+    if (!std::isfinite(gainDb)) {
+        return false;
+    }
+    const float gain = std::pow(10.0f, gainDb / 20.0f);
+    if (!std::isfinite(gain) || gain <= 0.0f) {
+        return false;
+    }
+    for (auto& channel : segment.channelData) {
+        for (float& sample : channel) {
+            if (std::isfinite(sample)) {
+                sample *= gain;
+            }
+        }
+    }
+    return true;
+}
+
 void AudioSpectrum::computeFFT(const std::vector<float>& input, std::vector<float>& output) {
     // 簡易DFT実装（FFTはQtMultimedia::QAudioSpectrum や外部ライブラリを推奨）
     const int n = static_cast<int>(std::min(input.size(), output.size() * 2));
