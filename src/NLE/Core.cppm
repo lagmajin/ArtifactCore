@@ -12,10 +12,12 @@ class tst_QList;
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QDateTime>
+#include <QFileInfo>
 #include <QSize>
 #include <QString>
 #include <QVariant>
 #include <QVariantMap>
+#include <QUrl>
 #include <QVector>
 
 module NLE.Core;
@@ -938,6 +940,37 @@ bool NLEProjectStore::setSourceAvailability(const SourceId& sourceId, bool onlin
     }
     source->online = online;
     return true;
+}
+
+SourceAvailabilityReport NLEProjectStore::refreshSourceAvailability()
+{
+    SourceAvailabilityReport report;
+    if (!impl_) {
+        report.warnings.push_back(QStringLiteral("NLE store is not initialized"));
+        return report;
+    }
+    for (const SourceId& sourceId : impl_->sources.keys()) {
+        SourceRef* sourceRef = source(sourceId);
+        if (!sourceRef) {
+            continue;
+        }
+        const QUrl uri(sourceRef->uri);
+        const bool remoteUri = uri.isValid() && !uri.scheme().isEmpty() &&
+            uri.scheme().compare(QStringLiteral("file"), Qt::CaseInsensitive) != 0;
+        const bool online = remoteUri ||
+            (!sourceRef->uri.trimmed().isEmpty() && QFileInfo::exists(sourceRef->uri));
+        if (sourceRef->online != online) {
+            sourceRef->online = online;
+            report.changedSources.push_back(sourceId);
+        }
+        if (online) {
+            report.onlineSources.push_back(sourceId);
+        } else {
+            report.offlineSources.push_back(sourceId);
+        }
+    }
+    report.success = true;
+    return report;
 }
 
 ClipId NLEProjectStore::addClip(const SequenceId& sequenceId,

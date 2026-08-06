@@ -252,6 +252,14 @@ struct LIBRARY_DLL_API ConformReport {
     QVector<QString> warnings;
 };
 
+struct LIBRARY_DLL_API SourceAvailabilityReport {
+    bool success = false;
+    QVector<SourceId> onlineSources;
+    QVector<SourceId> offlineSources;
+    QVector<SourceId> changedSources;
+    QVector<QString> warnings;
+};
+
 struct LIBRARY_DLL_API ProjectStats {
     int sequenceCount = 0;
     int trackCount = 0;
@@ -315,6 +323,7 @@ public:
     bool setSourceProxy(const SourceId& sourceId, const QString& proxyUri,
                         const QString& proxyDisplayName = QString());
     bool setSourceAvailability(const SourceId& sourceId, bool online);
+    SourceAvailabilityReport refreshSourceAvailability();
 
     ClipId addClip(const SequenceId& sequenceId,
                    const TrackId& trackId,
