@@ -2,6 +2,7 @@ module;
 #include <QString>
 #include <QStringList>
 #include <cstdio>
+#include <cmath>
 #include <string>
 module Time.Code;
 
@@ -29,7 +30,11 @@ TimeCode::Impl::~Impl()
 
 void TimeCode::Impl::fromHMSF(int h, int m, int s, int f)
 {
- totalFrames = ((h * 3600 + m * 60 + s) * static_cast<int>(fps)) + f;
+ // Timecode labels use the nominal whole-frame rate (29.97 -> 30,
+ // 59.94 -> 60). Truncating the rate turns 29.97 into 29 and causes the
+ // displayed timecode to drift against the actual frame timeline.
+ const int nominalFps = std::max(1, static_cast<int>(std::lround(fps)));
+ totalFrames = ((h * 3600 + m * 60 + s) * nominalFps) + f;
 }
 
 TimeCode::TimeCode() : impl_(new Impl())
@@ -75,10 +80,11 @@ void TimeCode::toHMSF(int& h, int& m, int& s, int& f) const
 {
  const double fps = impl_->fps;
  const int total_frames = impl_->totalFrames;
- h = total_frames / static_cast<int>(3600 * fps);
- m = (total_frames / static_cast<int>(60 * fps)) % 60;
- s = (total_frames / static_cast<int>(fps)) % 60;
- f = total_frames % static_cast<int>(fps);
+ const int nominalFps = std::max(1, static_cast<int>(std::lround(fps)));
+ h = total_frames / (3600 * nominalFps);
+ m = (total_frames / (60 * nominalFps)) % 60;
+ s = (total_frames / nominalFps) % 60;
+ f = total_frames % nominalFps;
 }
 
 std::string TimeCode::toStdString() const
@@ -141,7 +147,7 @@ double TimeCode::toSeconds() const
 
 RationalTime TimeCode::toRationalTime() const
 {
- int64_t scale = static_cast<int64_t>(impl_->fps);
+ int64_t scale = static_cast<int64_t>(std::lround(impl_->fps));
  if (scale <= 0) scale = 30;
  return RationalTime::fromFrameCount(static_cast<int64_t>(impl_->totalFrames), scale);
 }
@@ -149,13 +155,13 @@ RationalTime TimeCode::toRationalTime() const
 TimeCode TimeCode::fromRationalTime(const RationalTime& rt, double fps)
 {
  if (fps <= 0.0) fps = 30.0;
- const int64_t frameCount = rt.toFrameCount(static_cast<int64_t>(fps));
+ const int64_t frameCount = rt.toFrameCount(static_cast<int64_t>(std::lround(fps)));
  return TimeCode(static_cast<int>(frameCount), fps);
 }
 
 void TimeCode::setFromRationalTime(const RationalTime& rt)
 {
- int64_t scale = static_cast<int64_t>(impl_->fps);
+ int64_t scale = static_cast<int64_t>(std::lround(impl_->fps));
  if (scale <= 0) scale = 30;
  impl_->totalFrames = static_cast<int>(rt.toFrameCount(scale));
 }
