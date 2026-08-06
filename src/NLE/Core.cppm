@@ -196,6 +196,7 @@ QJsonObject sourceRefToJson(const SourceRef& source)
         {QStringLiteral("mimeType"), source.mimeType},
         {QStringLiteral("online"), source.online},
         {QStringLiteral("proxyAvailable"), source.proxyAvailable},
+        {QStringLiteral("proxyOnline"), source.proxyOnline},
         {QStringLiteral("useProxy"), source.useProxy},
         {QStringLiteral("proxyUri"), source.proxyUri},
         {QStringLiteral("proxyDisplayName"), source.proxyDisplayName}
@@ -216,6 +217,7 @@ SourceRef sourceRefFromJson(const QJsonObject& obj)
     source.mimeType = obj.value(QStringLiteral("mimeType")).toString();
     source.online = obj.value(QStringLiteral("online")).toBool(true);
     source.proxyAvailable = obj.value(QStringLiteral("proxyAvailable")).toBool(false);
+    source.proxyOnline = obj.value(QStringLiteral("proxyOnline")).toBool(source.proxyAvailable);
     source.useProxy = obj.value(QStringLiteral("useProxy")).toBool(false);
     source.proxyUri = obj.value(QStringLiteral("proxyUri")).toString();
     source.proxyDisplayName = obj.value(QStringLiteral("proxyDisplayName")).toString();
@@ -929,6 +931,11 @@ bool NLEProjectStore::setSourceProxy(const SourceId& sourceId, const QString& pr
     source->proxyUri = proxyUri;
     source->proxyDisplayName = proxyDisplayName;
     source->proxyAvailable = !proxyUri.isEmpty();
+    const QUrl uri(proxyUri);
+    const bool remoteUri = uri.isValid() && !uri.scheme().isEmpty() &&
+        uri.scheme().compare(QStringLiteral("file"), Qt::CaseInsensitive) != 0;
+    source->proxyOnline = source->proxyAvailable &&
+        (remoteUri || QFileInfo::exists(proxyUri));
     return true;
 }
 
@@ -967,6 +974,14 @@ SourceAvailabilityReport NLEProjectStore::refreshSourceAvailability()
             report.onlineSources.push_back(sourceId);
         } else {
             report.offlineSources.push_back(sourceId);
+        }
+        if (sourceRef->proxyAvailable) {
+            const QUrl proxyUri(sourceRef->proxyUri);
+            const bool proxyRemote = proxyUri.isValid() && !proxyUri.scheme().isEmpty() &&
+                proxyUri.scheme().compare(QStringLiteral("file"), Qt::CaseInsensitive) != 0;
+            sourceRef->proxyOnline = proxyRemote || QFileInfo::exists(sourceRef->proxyUri);
+        } else {
+            sourceRef->proxyOnline = false;
         }
     }
     report.success = true;
@@ -2402,9 +2417,10 @@ ClipResolution ClipResolver::resolveClip(const ClipId& clipId) const
     }
 
     resolution.source = *source;
-    resolution.online = source->online;
-    resolution.useProxy = source->proxyAvailable && source->useProxy && !source->proxyUri.isEmpty();
-    if (!source->online) {
+    resolution.useProxy = source->proxyAvailable && source->proxyOnline &&
+        source->useProxy && !source->proxyUri.isEmpty();
+    resolution.online = source->online || resolution.useProxy;
+    if (!resolution.online) {
         resolution.diagnostic = QStringLiteral("Source is offline");
         return resolution;
     }

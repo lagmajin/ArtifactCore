@@ -106,6 +106,7 @@ struct LIBRARY_DLL_API SourceRef {
     QString mimeType;
     bool online = true;
     bool proxyAvailable = false;
+    bool proxyOnline = false;
     bool useProxy = false;
     QString proxyUri;
     QString proxyDisplayName;
