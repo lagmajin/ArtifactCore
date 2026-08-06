@@ -270,7 +270,11 @@ QJsonObject clipToJson(const Clip& clip)
             {QStringLiteral("start"), cue.range.start()},
             {QStringLiteral("duration"), cue.range.duration()},
             {QStringLiteral("text"), cue.text},
-            {QStringLiteral("name"), cue.name}});
+            {QStringLiteral("name"), cue.name},
+            {QStringLiteral("language"), cue.language},
+            {QStringLiteral("speaker"), cue.speaker},
+            {QStringLiteral("forced"), cue.forced},
+            {QStringLiteral("closedCaption"), cue.closedCaption}});
     }
     return QJsonObject{
         {QStringLiteral("id"), QString::number(clip.id.value)},
@@ -410,6 +414,10 @@ Sequence sequenceFromJson(const QJsonObject& obj)
             subtitle.value(QStringLiteral("duration")).toVariant().toLongLong());
         cue.text = subtitle.value(QStringLiteral("text")).toString();
         cue.name = subtitle.value(QStringLiteral("name")).toString();
+        cue.language = subtitle.value(QStringLiteral("language")).toString();
+        cue.speaker = subtitle.value(QStringLiteral("speaker")).toString();
+        cue.forced = subtitle.value(QStringLiteral("forced")).toBool(false);
+        cue.closedCaption = subtitle.value(QStringLiteral("closedCaption")).toBool(false);
         sequence.subtitles.push_back(std::move(cue));
     }
     return sequence;

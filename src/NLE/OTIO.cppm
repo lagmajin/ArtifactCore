@@ -170,7 +170,11 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
             {QStringLiteral("start"), cue.range.start()},
             {QStringLiteral("duration"), cue.range.duration()},
             {QStringLiteral("text"), cue.text},
-            {QStringLiteral("name"), cue.name}});
+            {QStringLiteral("name"), cue.name},
+            {QStringLiteral("language"), cue.language},
+            {QStringLiteral("speaker"), cue.speaker},
+            {QStringLiteral("forced"), cue.forced},
+            {QStringLiteral("closedCaption"), cue.closedCaption}});
     }
 
     return QJsonObject{
@@ -217,6 +221,10 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
                 subtitleObject.value(QStringLiteral("duration")).toVariant().toLongLong());
             cue.text = subtitleObject.value(QStringLiteral("text")).toString();
             cue.name = subtitleObject.value(QStringLiteral("name")).toString();
+            cue.language = subtitleObject.value(QStringLiteral("language")).toString();
+            cue.speaker = subtitleObject.value(QStringLiteral("speaker")).toString();
+            cue.forced = subtitleObject.value(QStringLiteral("forced")).toBool(false);
+            cue.closedCaption = subtitleObject.value(QStringLiteral("closedCaption")).toBool(false);
             if (cue.range.duration() > 0 && !cue.text.trimmed().isEmpty()) {
                 importedSequence->subtitles.push_back(std::move(cue));
             }

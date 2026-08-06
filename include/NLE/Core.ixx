@@ -138,6 +138,10 @@ struct LIBRARY_DLL_API SubtitleCue {
     FrameRange range = FrameRange::zero();
     QString text;
     QString name;
+    QString language;
+    QString speaker;
+    bool forced = false;
+    bool closedCaption = false;
 };
 
 struct LIBRARY_DLL_API Transition {
