@@ -181,6 +181,7 @@ export namespace ArtifactCore {
   QVector<VideoCodec> getAvailableVideoCodecs() const;
   QVector<VideoProfile> getAvailableProfiles() const;
   QVector<int> getStandardFrameRates() const;
+  QVector<double> getPreciseStandardFrameRates() const;
   
   bool isProfileValidForCodec(VideoCodec codec, VideoProfile profile) const;
   

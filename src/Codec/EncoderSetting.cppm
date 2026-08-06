@@ -546,7 +546,15 @@ QVector<VideoProfile> EncoderSettings::getAvailableProfiles() const
 
 QVector<int> EncoderSettings::getStandardFrameRates() const
 {
-    return QVector<int>{23, 24, 25, 30, 50, 60, 120};
+    // Integer values are nominal rates; use getPreciseStandardFrameRates()
+    // when the fractional 23.976/29.97/59.94 value must be preserved.
+    return QVector<int>{24, 25, 30, 50, 60, 120};
+}
+
+QVector<double> EncoderSettings::getPreciseStandardFrameRates() const
+{
+    return QVector<double>{23.976, 24.0, 25.0, 29.97, 30.0,
+                           50.0, 59.94, 60.0, 120.0};
 }
 
 bool EncoderSettings::isProfileValidForCodec(VideoCodec codec, VideoProfile profile) const
