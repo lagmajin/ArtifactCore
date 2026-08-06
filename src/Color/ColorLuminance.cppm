@@ -33,4 +33,23 @@ std::array<float, 3> ColorLuminance::toGrayscale(float r, float g, float b, Lumi
     return {y, y, y};
 }
 
+BroadcastSafeResult ColorLuminance::inspectBroadcastSafe(
+    float r, float g, float b, LuminanceStandard standard,
+    float legalBlack, float legalWhite, float channelMin, float channelMax) {
+    const float luminance = calculate(r, g, b, standard);
+    const bool invalidRange = !std::isfinite(r) || !std::isfinite(g) || !std::isfinite(b);
+    const bool luminanceViolation = invalidRange || luminance < legalBlack || luminance > legalWhite;
+    const bool gamutViolation = invalidRange || r < channelMin || r > channelMax ||
+        g < channelMin || g > channelMax || b < channelMin || b > channelMax;
+    return {luminance, luminanceViolation, gamutViolation};
+}
+
+std::array<float, 3> ColorLuminance::clampBroadcastSafe(
+    float r, float g, float b, float channelMin, float channelMax) {
+    const auto clamp = [channelMin, channelMax](float value) {
+        return std::clamp(std::isfinite(value) ? value : channelMin, channelMin, channelMax);
+    };
+    return {clamp(r), clamp(g), clamp(b)};
+}
+
 } // namespace ArtifactCore

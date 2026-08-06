@@ -42,6 +42,16 @@ enum class LuminanceStandard {
     Rec2020,   // UHDTV (0.2627R + 0.6780G + 0.0593B)
 };
 
+struct BroadcastSafeResult {
+    float luminance = 0.0f;
+    bool luminanceViolation = false;
+    bool gamutViolation = false;
+
+    bool hasViolation() const {
+        return luminanceViolation || gamutViolation;
+    }
+};
+
 class LIBRARY_DLL_API ColorLuminance {
 public:
     // 単純な加重平均による輝度計算 (0.0 - 1.0)
@@ -53,6 +63,20 @@ public:
 
     // 特定の標準に基づいたグレースケール値を返す (R=G=B=Y)
     static std::array<float, 3> toGrayscale(float r, float g, float b, LuminanceStandard standard = LuminanceStandard::Rec709);
+
+    // Encoded RGB legal-range inspection. This is not a full Y'CbCr gamut mapper.
+    static BroadcastSafeResult inspectBroadcastSafe(
+        float r, float g, float b,
+        LuminanceStandard standard = LuminanceStandard::Rec709,
+        float legalBlack = 16.0f / 255.0f,
+        float legalWhite = 235.0f / 255.0f,
+        float channelMin = 16.0f / 255.0f,
+        float channelMax = 235.0f / 255.0f);
+
+    static std::array<float, 3> clampBroadcastSafe(
+        float r, float g, float b,
+        float channelMin = 16.0f / 255.0f,
+        float channelMax = 235.0f / 255.0f);
 };
 
 } // namespace ArtifactCore
