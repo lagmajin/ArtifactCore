@@ -3,6 +3,8 @@ class tst_QList;
 
 #include <QVector>
 #include <QString>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include <iostream>
 #include <vector>
@@ -54,6 +56,8 @@ public:
     int width = 1920;
     int height = 1080;
     double frameRate = 60.0;
+    long long startTimeCodeFrame = 0;
+    bool dropFrame = false;
     int bitrateMbps = 10;
     int quality = 80;  // 0-100
     
@@ -160,6 +164,26 @@ void EncoderSettings::setFrameRate(double fps)
 double EncoderSettings::getFrameRate() const
 {
     return impl_->frameRate;
+}
+
+void EncoderSettings::setStartTimeCodeFrame(long long frame)
+{
+    impl_->startTimeCodeFrame = std::max(0LL, frame);
+}
+
+long long EncoderSettings::getStartTimeCodeFrame() const
+{
+    return impl_->startTimeCodeFrame;
+}
+
+void EncoderSettings::setDropFrame(bool enabled)
+{
+    impl_->dropFrame = enabled;
+}
+
+bool EncoderSettings::isDropFrame() const
+{
+    return impl_->dropFrame;
 }
 
 void EncoderSettings::setBitrate(int bitrateMbps)
@@ -444,25 +468,35 @@ QVector<UniString> EncoderSettings::getValidationErrors() const
 // --- VACY ---
 UniString EncoderSettings::serialize() const
 {
-    const QString json = QString("{\"width\":")
-        + QString::number(impl_->width)
-        + QString(",\"height\":")
-        + QString::number(impl_->height)
-        + QString(",\"fps\":")
-        + QString::number(impl_->frameRate, 'g', 9)
-        + QString(",\"bitrate\":")
-        + QString::number(impl_->bitrateMbps, 'g', 9)
-        + QString(",\"quality\":")
-        + QString::number(impl_->quality, 'g', 9)
-        + QString(",\"audioCodec\":")
-        + QString::number(static_cast<int>(impl_->aCodec))
-        + QString("}");
-    return UniString(json);
+    QJsonObject object;
+    object.insert(QStringLiteral("width"), impl_->width);
+    object.insert(QStringLiteral("height"), impl_->height);
+    object.insert(QStringLiteral("fps"), impl_->frameRate);
+    object.insert(QStringLiteral("bitrate"), impl_->bitrateMbps);
+    object.insert(QStringLiteral("quality"), impl_->quality);
+    object.insert(QStringLiteral("audioCodec"), static_cast<int>(impl_->aCodec));
+    object.insert(QStringLiteral("startTimeCodeFrame"),
+                  static_cast<qint64>(impl_->startTimeCodeFrame));
+    object.insert(QStringLiteral("dropFrame"), impl_->dropFrame);
+    return UniString(QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact)));
 }
 
 bool EncoderSettings::deserialize(const UniString& data)
 {
-    // ȈJSON p[T[i͏ȗAۂɂjsonCugpj
+    const QJsonDocument document = QJsonDocument::fromJson(
+        data.toQString().toUtf8());
+    if (!document.isObject()) {
+        return false;
+    }
+    const QJsonObject object = document.object();
+    if (object.contains(QStringLiteral("width"))) impl_->width = object.value(QStringLiteral("width")).toInt();
+    if (object.contains(QStringLiteral("height"))) impl_->height = object.value(QStringLiteral("height")).toInt();
+    if (object.contains(QStringLiteral("fps"))) impl_->frameRate = object.value(QStringLiteral("fps")).toDouble();
+    if (object.contains(QStringLiteral("bitrate"))) impl_->bitrateMbps = object.value(QStringLiteral("bitrate")).toInt();
+    if (object.contains(QStringLiteral("quality"))) impl_->quality = object.value(QStringLiteral("quality")).toInt();
+    if (object.contains(QStringLiteral("audioCodec"))) impl_->aCodec = static_cast<AudioCodec>(object.value(QStringLiteral("audioCodec")).toInt());
+    if (object.contains(QStringLiteral("startTimeCodeFrame"))) impl_->startTimeCodeFrame = std::max(0LL, object.value(QStringLiteral("startTimeCodeFrame")).toVariant().toLongLong());
+    if (object.contains(QStringLiteral("dropFrame"))) impl_->dropFrame = object.value(QStringLiteral("dropFrame")).toBool();
     return true;
 }
 

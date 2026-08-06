@@ -117,6 +117,11 @@ export namespace ArtifactCore {
   void setFrameRate(double fps);
   double getFrameRate() const;
 
+  void setStartTimeCodeFrame(long long frame);
+  long long getStartTimeCodeFrame() const;
+  void setDropFrame(bool enabled);
+  bool isDropFrame() const;
+
   void setBitrate(int bitrateMbps);
   int getBitrate() const;
 
