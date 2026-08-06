@@ -21,6 +21,9 @@ groupshared uint gs_Histogram[256];
 groupshared uint gs_HistogramR[256];
 groupshared uint gs_HistogramG[256];
 groupshared uint gs_HistogramB[256];
+groupshared uint gs_HighClipped;
+groupshared uint gs_LowClipped;
+groupshared uint gs_ChannelClipped;
 
 float luminance(float3 rgb)
 {
@@ -98,27 +101,50 @@ void HistogramRGBCS(uint3 groupId : SV_GroupID, uint3 threadId : SV_GroupThreadI
 }
 
 [numthreads(16, 16, 1)]
-void StatisticsCS(uint3 id : SV_DispatchThreadID)
+void StatisticsCS(uint3 id : SV_DispatchThreadID, uint3 groupThreadId : SV_GroupThreadID)
 {
+    if (all(groupThreadId == uint3(0, 0, 0))) {
+        gs_HighClipped = 0;
+        gs_LowClipped = 0;
+        gs_ChannelClipped = 0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+
     uint2 textureSize;
     g_InputTexture.GetDimensions(textureSize.x, textureSize.y);
-    if (id.x >= textureSize.x || id.y >= textureSize.y) {
-        return;
+    bool validPixel = id.x < textureSize.x && id.y < textureSize.y;
+
+    if (validPixel && g_RegionSize.x != 0u && g_RegionSize.y != 0u && !inRegion(id.xy)) {
+        validPixel = false;
     }
 
-    if (g_RegionSize.x != 0u && g_RegionSize.y != 0u && !inRegion(id.xy)) {
-        return;
+    if (validPixel) {
+        float4 c = g_InputTexture.Load(int3(id.xy, 0));
+        float l = luminance(c.rgb);
+
+        // Detect range loss before the histogram bin clamps the source value.
+        // Counts are accumulated once per thread group to limit atomics.
+        bool highClipped = any(c.rgb > 1.0f.xxx);
+        bool lowClipped = any(c.rgb < 0.0f.xxx);
+        bool channelClipped = highClipped || lowClipped;
+
+        uint bin = (uint)clamp(l * 255.0f, 0.0f, 255.0f);
+        InterlockedMin(g_OutputStatistics[0], bin);
+        InterlockedMax(g_OutputStatistics[1], bin);
+        InterlockedAdd(g_OutputStatistics[2], 1u);
+        InterlockedAdd(g_OutputStatistics[3], bin);
+        InterlockedAdd(g_OutputStatistics[4], bin * bin);
+        if (highClipped) InterlockedAdd(gs_HighClipped, 1u);
+        if (lowClipped) InterlockedAdd(gs_LowClipped, 1u);
+        if (channelClipped) InterlockedAdd(gs_ChannelClipped, 1u);
     }
 
-    float4 c = g_InputTexture.Load(int3(id.xy, 0));
-    float l = luminance(c.rgb);
-
-    uint bin = (uint)clamp(l * 255.0f, 0.0f, 255.0f);
-    InterlockedMin(g_OutputStatistics[0], bin);
-    InterlockedMax(g_OutputStatistics[1], bin);
-    InterlockedAdd(g_OutputStatistics[2], 1u);
-    InterlockedAdd(g_OutputStatistics[3], bin);
-    InterlockedAdd(g_OutputStatistics[4], bin * bin);
+    GroupMemoryBarrierWithGroupSync();
+    if (all(groupThreadId == uint3(0, 0, 0))) {
+        InterlockedAdd(g_OutputStatistics[5], gs_HighClipped);
+        InterlockedAdd(g_OutputStatistics[6], gs_LowClipped);
+        InterlockedAdd(g_OutputStatistics[7], gs_ChannelClipped);
+    }
 }
 )";
 

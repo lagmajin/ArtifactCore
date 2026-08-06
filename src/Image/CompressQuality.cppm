@@ -33,10 +33,11 @@ namespace ArtifactCore {
  {
 
  }
- CompressQuality::~CompressQuality()
- {
-
- }
+CompressQuality::~CompressQuality()
+{
+    delete impl_;
+    impl_ = nullptr;
+}
 
 
 

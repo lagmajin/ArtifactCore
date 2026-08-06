@@ -258,6 +258,8 @@ namespace ArtifactCore
 
 	ScatterCS::~ScatterCS()
 	{
+		delete impl_;
+		impl_ = nullptr;
 	}
 
 	 void ScatterCS::Process(cv::Mat& mat, float amount, int seed)

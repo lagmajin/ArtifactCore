@@ -134,10 +134,11 @@ namespace ArtifactCore {
   });
  }
 
- ImageYUV420::~ImageYUV420()
- {
-
- }
+ImageYUV420::~ImageYUV420()
+{
+    delete impl_;
+    impl_ = nullptr;
+}
 
 // Create from ImageF32x4_RGBA
 ImageYUV420 ImageYUV420::fromImage32xRGBA(const ImageF32x4_RGBA& rgba) {

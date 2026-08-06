@@ -258,6 +258,8 @@ namespace ArtifactCore
 
 	BroadcastColorsCS::~BroadcastColorsCS()
 	{
+		delete impl_;
+		impl_ = nullptr;
 	}
 
 	 void BroadcastColorsCS::Process(cv::Mat& mat, int standard, float reduceSaturation)

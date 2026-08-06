@@ -22,6 +22,9 @@ struct ImageHistogramStatistics {
   uint32_t sampleCount = 0;
   uint32_t sumBins = 0;
   uint64_t sumSquaredBins = 0;
+  uint32_t highClippedPixels = 0;
+  uint32_t lowClippedPixels = 0;
+  uint32_t channelClippedPixels = 0;
 };
 
 class LIBRARY_DLL_API HistogramComputer {
@@ -56,7 +59,7 @@ public:
 
   /**
    * @brief 指定領域または全体の代表統計を計算
-   * @param outputStatistics 出力バッファ: ImageHistogramStatistics 1件
+   * @param outputStatistics 出力バッファ: uint32_t[8]
    */
   void computeStatistics(IDeviceContext *pContext, ITextureView *inputTexture,
                          uint32_t x, uint32_t y, uint32_t width,

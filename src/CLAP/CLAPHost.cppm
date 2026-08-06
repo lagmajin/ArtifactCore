@@ -497,7 +497,11 @@ Host::Host() : impl_(new Impl()) {
 #endif
 }
 
-Host::~Host() { unloadAll(); }
+Host::~Host() {
+    unloadAll();
+    delete impl_;
+    impl_ = nullptr;
+}
 
 void Host::addSearchPath(const std::string& path) {
     impl_->searchPaths.push_back(path);

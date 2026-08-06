@@ -39,7 +39,8 @@ namespace ArtifactCore {
 
  GlowCS::~GlowCS()
  {
-
+  delete impl_;
+  impl_ = nullptr;
  }
 
  void GlowCS::Process(cv::Mat& mat, bool flip/*=false*/)

@@ -258,6 +258,8 @@ namespace ArtifactCore
 
 	ChromaKeyCS::~ChromaKeyCS()
 	{
+		delete impl_;
+		impl_ = nullptr;
 	}
 
 	 void ChromaKeyCS::Process(cv::Mat& mat, float keyR, float keyG, float keyB, float keyA, float tolerance, float softness)

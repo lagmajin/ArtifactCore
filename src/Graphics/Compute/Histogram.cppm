@@ -154,12 +154,13 @@ void HistogramComputer::computeStatistics(IDeviceContext *pContext,
     pContext->UnmapBuffer(pStatisticsParamsBuffer_, MAP_WRITE);
   }
 
-  uint32_t init[5] = {0xFFFFFFFFu, 0u, 0u, 0u, 0u};
+  uint32_t init[8] = {0xFFFFFFFFu, 0u, 0u, 0u,
+                     0u,          0u, 0u, 0u};
   void *outData = nullptr;
   pContext->MapBuffer(outputStatistics, MAP_WRITE, MAP_FLAG_DISCARD, outData);
   if (outData) {
     auto *dst = static_cast<uint32_t *>(outData);
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 8; ++i) {
       dst[i] = init[i];
     }
     pContext->UnmapBuffer(outputStatistics, MAP_WRITE);

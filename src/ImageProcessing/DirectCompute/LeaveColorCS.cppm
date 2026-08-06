@@ -258,6 +258,8 @@ namespace ArtifactCore
 
 	LeaveColorCS::~LeaveColorCS()
 	{
+		delete impl_;
+		impl_ = nullptr;
 	}
 
 	 void LeaveColorCS::Process(cv::Mat& mat, float keyR, float keyG, float keyB, float keyA, float tolerance, float softness, float desaturateAmount)

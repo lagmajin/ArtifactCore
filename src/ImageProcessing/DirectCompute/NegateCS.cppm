@@ -295,7 +295,8 @@ namespace ArtifactCore
 
  NegateCS::~NegateCS()
  {
-
+  delete impl_;
+  impl_ = nullptr;
  }
 
  void NegateCS::Process()

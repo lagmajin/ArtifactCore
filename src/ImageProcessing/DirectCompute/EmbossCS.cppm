@@ -258,6 +258,8 @@ namespace ArtifactCore
 
 	EmbossCS::~EmbossCS()
 	{
+		delete impl_;
+		impl_ = nullptr;
 	}
 
 	 void EmbossCS::Process(cv::Mat& mat, float intensity, float angle)

@@ -258,6 +258,8 @@ namespace ArtifactCore
 
 	SimpleChokerCS::~SimpleChokerCS()
 	{
+		delete impl_;
+		impl_ = nullptr;
 	}
 
 	 void SimpleChokerCS::Process(cv::Mat& mat, float choke, int radius)
