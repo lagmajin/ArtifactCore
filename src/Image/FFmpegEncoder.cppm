@@ -131,6 +131,12 @@ public:
             codecId = AV_CODEC_ID_HEVC;
         } else if (codecLower == "prores" || codecLower == "apple_prores") {
             codecId = AV_CODEC_ID_PRORES;
+        } else if (codecLower == "dnxhd" || codecLower == "dnxhr" ||
+                   codecLower == "dnx") {
+            codecId = AV_CODEC_ID_DNXHD;
+        } else if (codecLower == "xdcam" || codecLower == "xdcam_hd" ||
+                   codecLower == "mpeg2video") {
+            codecId = AV_CODEC_ID_MPEG2VIDEO;
         } else if (codecLower == "vp9" || codecLower == "libvpx-vp9" || codecLower == "vp9_qsv") {
             codecId = AV_CODEC_ID_VP9;
         } else if (codecLower == "mjpeg" || codecLower == "motion_jpeg") {
@@ -195,8 +201,9 @@ public:
         codecCtx_->codec_type = AVMEDIA_TYPE_VIDEO;
         codecCtx_->width = width_;
         codecCtx_->height = height_;
-        codecCtx_->time_base = AVRational{1, static_cast<int>(settings.fps)};
-        codecCtx_->framerate = AVRational{static_cast<int>(settings.fps), 1};
+        const AVRational preciseFrameRate = av_d2q(settings.fps, 1000000);
+        codecCtx_->time_base = av_inv_q(preciseFrameRate);
+        codecCtx_->framerate = preciseFrameRate;
         codecCtx_->gop_size = settings.gopSize;
         codecCtx_->max_b_frames = settings.maxBFrames;
 
@@ -208,6 +215,14 @@ public:
             } else {
                 codecCtx_->pix_fmt = AV_PIX_FMT_YUV422P10;
             }
+        } else if (codecId == AV_CODEC_ID_DNXHD) {
+            const QString profile = settings.profile.trimmed().toLower();
+            codecCtx_->pix_fmt = profile.contains("10") || profile.contains("444")
+                ? AV_PIX_FMT_YUV422P10
+                : AV_PIX_FMT_YUV422P;
+        } else if (codecId == AV_CODEC_ID_MPEG2VIDEO &&
+                   settings.videoCodec.toLower().contains("xdcam")) {
+            codecCtx_->pix_fmt = AV_PIX_FMT_YUV422P;
         } else if (isHdr && (codecId == AV_CODEC_ID_H264 || codecId == AV_CODEC_ID_HEVC || codecId == AV_CODEC_ID_VP9)) {
             // HDR 時は 10bit を試す。HEVC/V9 では P010 が一般的
             if (codecId == AV_CODEC_ID_HEVC) {
