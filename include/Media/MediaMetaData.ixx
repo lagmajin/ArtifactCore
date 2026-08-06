@@ -60,6 +60,8 @@ export namespace ArtifactCore {
   
   QString pixelFormat;            // sNZtH[}bgiFyuv420pj
   QString colorSpace;             // FԁiFbt709, bt2020j
+  QString colorPrimaries;         // bt709, bt2020, etc.
+  QString transferFunction;       // sRGB, HLG, PQ/ST2084, etc.
   QString colorRange;             // F͈́iFtv, pcj
   
   bool hasAlpha = false;          // At@`l̗L
