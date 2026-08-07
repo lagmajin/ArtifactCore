@@ -46,7 +46,7 @@ void HalftoneGPUComputer::createPipeline() {
 }
 
 void HalftoneGPUComputer::createBuffers() {
-    auto *device = context_.device();
+    auto *device = context_.RenderDevice();
     BufferDesc desc;
     desc.Name = "HalftoneParamsCB";
     desc.Usage = USAGE_DYNAMIC;

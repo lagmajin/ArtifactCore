@@ -10,7 +10,6 @@ export module Render.VolumePostProcess;
 
 import Render.Vector3D;
 import Render.ImageBuffer;
-import Render.VolumeRenderer;
 
 export namespace ArtifactCore::RayTrace {
 

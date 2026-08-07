@@ -4,6 +4,7 @@ module;
 #include <cstdint>
 #include <iterator>
 #include <vector>
+#include <string>
 
 module Export.Lottie.RigExporter;
 
@@ -156,7 +157,7 @@ bool appendRigToDocument(Rig2D& rig,
         if (!vertices.empty() && triangles.size() >= 3 && triangles.size() % 3 == 0) {
             LottieLayer skinLayer;
             skinLayer.ind = static_cast<int>(layers.size()) + 1;
-            skinLayer.nm = name.toStdString() + " Skin";
+            skinLayer.nm = name.toStdString() + std::string(" Skin");
             skinLayer.ty = 4;
             skinLayer.ip = startFrame;
             skinLayer.op = endFrame + 1;

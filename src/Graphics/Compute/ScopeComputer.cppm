@@ -100,7 +100,7 @@ void ScopeComputer::createPipelines() {
 }
 
 void ScopeComputer::createBuffers() {
-  auto *device = context_.device();
+  auto *device = context_.RenderDevice();
 
   auto makeCB = [&](const char *name) -> RefCntAutoPtr<IBuffer> {
     BufferDesc desc;

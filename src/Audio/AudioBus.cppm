@@ -417,6 +417,8 @@ namespace ArtifactCore {
 			}
 		}
 	}
+	return gainReduction; // No reduction = 1.0
+	}
 
 	const Id& AudioBus::id() const
 	{
@@ -427,9 +429,6 @@ namespace ArtifactCore {
 	{
 		if (!id.isNil()) impl_->id_ = id;
 	}
-	return gainReduction; // No reduction = 1.0
-	}
-
 	void AudioBus::setSidechainSource(const String& busName)
 	{
 		impl_->sidechainSource_ = ZeroString(busName.data(), busName.length());

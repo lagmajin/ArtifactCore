@@ -1,6 +1,7 @@
 module;
 #include <cstring>
 #include <QByteArray>
+#include <QString>
 
 module IPC.RenderFarmSharedBuffer;
 

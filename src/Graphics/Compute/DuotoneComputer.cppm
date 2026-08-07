@@ -45,7 +45,7 @@ void DuotoneGPUComputer::createPipeline() {
 }
 
 void DuotoneGPUComputer::createBuffers() {
-    auto *device = context_.device();
+  auto *device = context_.RenderDevice();
     BufferDesc desc;
     desc.Name = "DuotoneParamsCB";
     desc.Usage = USAGE_DYNAMIC;

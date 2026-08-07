@@ -23,7 +23,7 @@ bool PNGImage::loadHeader(const QByteArray& encoded) {
   if (encoded.size() < 33 || encoded.left(8) != QByteArray(signature, 8))
     return false;
   const char* ihdr = encoded.constData() + 8;
-  if (readBE32(ihdr) != 13 || QByteArray(ihdr + 4, 4) != QByteArrayLiteral("IHDR"))
+  if (readBE32(ihdr) != 13 || QByteArray(ihdr + 4, 4) != QByteArray("IHDR", 4))
     return false;
   const auto width = readBE32(ihdr + 8);
   const auto height = readBE32(ihdr + 12);

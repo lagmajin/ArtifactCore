@@ -41,6 +41,7 @@ public:
     double frameRate() const override;
 
     QImage frameAt(qint64 frameIndex) const override;
+    bool tryFrameAt(qint64 frameIndex, QImage& frame) const;
 
     void setFrameRate(double fps);
 
@@ -49,6 +50,8 @@ public:
     quint64 frameCacheMissCount() const;
     int frameCacheEntryCount() const;
     int frameCacheCapacity() const;
+    quint64 frameCacheBytes() const;
+    quint64 frameCacheByteCapacity() const;
     void prefetchFrame(qint64 frameIndex) const;
     void clearFrameCache();
 

@@ -1,5 +1,4 @@
 module;
-class tst_QList;
 #include <utility>
 #include <QString>
 #include <QVector2D>
@@ -33,15 +32,20 @@ import Serialization.SchemaMigration;
 
 namespace ArtifactCore {
 
+const QList<Bone2D*>& rigBones(const Rig2D* rig)
+{
+    return rig->bones();
+}
+
 namespace {
 const bool kRigSerializationRegistered = [] {
-    registerJsonSerializableType<RigControl2D>(QStringLiteral("RigControl2D"), 1);
-    registerJsonArraySerializableType<RigControlSet2D>(QStringLiteral("RigControlSet2D"), 1);
-    registerJsonSerializableType<RigController2D>(QStringLiteral("RigController2D"), 1);
-    registerJsonSerializableType<SmartBoneController>(QStringLiteral("SmartBoneController"), 1);
-    registerJsonSerializableType<SkinMesh>(QStringLiteral("SkinMesh"), 1);
-    registerJsonSerializableType<Rig2D>(QStringLiteral("Rig2D"), 1);
-    auto& migrations = SchemaMigrationRegistry::instance();
+    Serialization::registerJsonSerializableType<RigControl2D>(QStringLiteral("RigControl2D"), 1);
+    Serialization::registerJsonArraySerializableType<RigControlSet2D>(QStringLiteral("RigControlSet2D"), 1);
+    Serialization::registerJsonSerializableType<RigController2D>(QStringLiteral("RigController2D"), 1);
+    Serialization::registerJsonSerializableType<SmartBoneController>(QStringLiteral("SmartBoneController"), 1);
+    Serialization::registerJsonSerializableType<SkinMesh>(QStringLiteral("SkinMesh"), 1);
+    Serialization::registerJsonSerializableType<Rig2D>(QStringLiteral("Rig2D"), 1);
+    auto& migrations = Serialization::SchemaMigrationRegistry::instance();
     migrations.registerMigration(QStringLiteral("RigControl2D"), 0, 1,
                                   [](const QJsonObject& object) { return object; });
     migrations.registerMigration(QStringLiteral("RigControlSet2D"), 0, 1,
@@ -126,7 +130,7 @@ QVector2D vector2DFromJson(const QJsonValue& value, const QVector2D& fallback) {
                      static_cast<float>(object.value("y").toDouble(fallback.y())));
 }
 
-QJsonObject transformToJson(const BoneTransform& transform) {
+QJsonObject localRigTransformToJson(const BoneTransform& transform) {
     QJsonObject object;
     object["position"] = vector2DToJson(transform.position);
     object["rotation"] = static_cast<double>(transform.rotation);
@@ -134,7 +138,7 @@ QJsonObject transformToJson(const BoneTransform& transform) {
     return object;
 }
 
-BoneTransform transformFromJson(const QJsonValue& value, const BoneTransform& fallback) {
+BoneTransform localRigTransformFromJson(const QJsonValue& value, const BoneTransform& fallback) {
     if (!value.isObject()) {
         return fallback;
     }
@@ -221,6 +225,14 @@ QString channelNameForMap(const QString& channel) {
 }
 
 } // namespace
+
+QJsonObject rigTransformToJson(const BoneTransform& transform) {
+    return localRigTransformToJson(transform);
+}
+
+BoneTransform rigTransformFromJson(const QJsonValue& value, const BoneTransform& fallback) {
+    return localRigTransformFromJson(value, fallback);
+}
 
 // BoneTransform arithmetic (for AnimatableValueT interpolation)
 BoneTransform BoneTransform::operator+(const BoneTransform& other) const {
@@ -333,7 +345,7 @@ QJsonObject Bone2D::toJson() const {
     object["id"] = id_.toString();
     object["name"] = name_;
     object["length"] = static_cast<double>(length_);
-    object["localTransform"] = transformToJson(localTransform_);
+    object["localTransform"] = rigTransformToJson(localTransform_);
     if (rotationLimitEnabled_) {
         object["rotationLimitEnabled"] = true;
         object["rotationLimitMin"] = static_cast<double>(rotationLimitMin_);
@@ -348,7 +360,7 @@ QJsonObject Bone2D::toJson() const {
         for (const auto& kf : kfs) {
             QJsonObject kfObj;
             kfObj["frame"] = static_cast<qint64>(kf.frame.framePosition());
-            kfObj["transform"] = transformToJson(kf.value);
+            kfObj["transform"] = rigTransformToJson(kf.value);
             kfObj["interpolation"] = static_cast<int>(kf.interpolation);
             kfArray.append(kfObj);
         }
@@ -364,7 +376,7 @@ void Bone2D::fromJson(const QJsonObject& object) {
     }
     name_ = object.value("name").toString(name_);
     length_ = static_cast<float>(object.value("length").toDouble(length_));
-    localTransform_ = transformFromJson(object.value("localTransform"), localTransform_);
+    localTransform_ = rigTransformFromJson(object.value("localTransform"), localTransform_);
     resolvedTransform_ = localTransform_;
     if (object.value("rotationLimitEnabled").toBool(false)) {
         setRotationLimits(
@@ -382,7 +394,7 @@ void Bone2D::fromJson(const QJsonObject& object) {
             if (!elem.isObject()) continue;
             const QJsonObject kfObj = elem.toObject();
             const FramePosition frame(kfObj.value("frame").toInteger());
-            const BoneTransform bt = transformFromJson(kfObj.value("transform"), BoneTransform{});
+            const BoneTransform bt = rigTransformFromJson(kfObj.value("transform"), BoneTransform{});
             keyframes_.addKeyFrame(frame, bt);
             keyframes_.setKeyFrameInterpolationAt(
                 frame,
@@ -904,7 +916,7 @@ QJsonObject ParentConstraint2D::toJson() const
     object["enabled"] = enabled_;
     object["targetBoneId"] = targetBoneId_.toString();
     object["parentBoneId"] = parentBoneId_.toString();
-    object["offset"] = transformToJson(offset_);
+    object["offset"] = rigTransformToJson(offset_);
     return object;
 }
 
@@ -919,7 +931,7 @@ SharedPtr<ParentConstraint2D> ParentConstraint2D::fromJson(const QJsonObject& ob
     constraint->enabled_ = object.value("enabled").toBool(true);
     constraint->targetBoneId_ = Id(object.value("targetBoneId").toString());
     constraint->parentBoneId_ = Id(object.value("parentBoneId").toString());
-    constraint->offset_ = transformFromJson(object.value("offset"), constraint->offset_);
+    constraint->offset_ = rigTransformFromJson(object.value("offset"), constraint->offset_);
     return constraint;
 }
 

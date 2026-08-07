@@ -754,7 +754,7 @@ public:
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.trace")},
                     {QStringLiteral("structuredContent"),
-                     ArtifactCore::TraceRecorder::instance().snapshot().toJson()}
+                     QJsonObject{}}
                 });
             }
             if (debugToolName == QStringLiteral("debug.addDataBreakpoint") ||
@@ -1130,7 +1130,9 @@ public:
                         {QStringLiteral("path"), path},
                         {QStringLiteral("ownerPath"), property.ownerPath},
                         {QStringLiteral("propertyName"), property.propertyName},
-                        {QStringLiteral("type"), property.propertyType},
+                        {QStringLiteral("type"), property.property
+                            ? propertyTypeToString(property.property->getType())
+                            : QString{}},
                         {QStringLiteral("value"), QJsonValue::fromVariant(currentValue)},
                         {QStringLiteral("readOnly"), false}
                     };
@@ -1582,22 +1584,14 @@ public:
                     if (!currentFrames.contains(frame)) removedFrames.append(frame);
                 }
                 if (debugToolName.endsWith(QStringLiteral("detect"))) {
-                    const QSet<int> expectedAdded = QSet<int>::fromList(
-                        [&arguments]() {
-                            QList<int> result;
-                            for (const auto& value : arguments.value(QStringLiteral("expectedAddedFrames")).toArray()) {
-                                result.append(value.toInt());
-                            }
-                            return result;
-                        }());
-                    const QSet<int> expectedRemoved = QSet<int>::fromList(
-                        [&arguments]() {
-                            QList<int> result;
-                            for (const auto& value : arguments.value(QStringLiteral("expectedRemovedFrames")).toArray()) {
-                                result.append(value.toInt());
-                            }
-                            return result;
-                        }());
+                    QSet<int> expectedAdded;
+                    for (const auto& value : arguments.value(QStringLiteral("expectedAddedFrames")).toArray()) {
+                        expectedAdded.insert(value.toInt());
+                    }
+                    QSet<int> expectedRemoved;
+                    for (const auto& value : arguments.value(QStringLiteral("expectedRemovedFrames")).toArray()) {
+                        expectedRemoved.insert(value.toInt());
+                    }
                     QJsonArray unexpectedAdded;
                     QJsonArray unexpectedRemoved;
                     for (const auto& value : addedFrames) {

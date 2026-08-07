@@ -13,6 +13,8 @@ module;
 #include <OpenColorIO/OpenColorIO.h>
 #include <exception>
 
+namespace OCIO = OCIO_NAMESPACE;
+
 module Color.OCIOConfig;
 
 namespace ArtifactCore {

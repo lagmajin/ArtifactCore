@@ -22,7 +22,7 @@ import Color.Float;
 // PrimitiveRenderer2D is declared in Artifact; forward-declare to avoid
 // requiring the Artifact.Render.PrimitiveRenderer2D module at this header
 // level. The full module is used in implementation files where needed.
-namespace Artifact { class PrimitiveRenderer2D; }
+export namespace Artifact { class PrimitiveRenderer2D; }
 
 using namespace ArtifactCore;
 
@@ -467,13 +467,13 @@ inline GridSystem::GridLines GridSystem::computeVisibleLines() const {
 
     const auto& vt = view_;
     const float viewLeft = std::max(
-        vt.visibleCanvasRect.left(), settings_.visibleRangeStart);
+        static_cast<float>(vt.visibleCanvasRect.left()), settings_.visibleRangeStart);
     const float viewRight = std::min(
-        vt.visibleCanvasRect.right(), settings_.visibleRangeEnd);
+        static_cast<float>(vt.visibleCanvasRect.right()), settings_.visibleRangeEnd);
     const float viewTop = std::max(
-        vt.visibleCanvasRect.top(), settings_.visibleRangeStart);
+        static_cast<float>(vt.visibleCanvasRect.top()), settings_.visibleRangeStart);
     const float viewBottom = std::min(
-        vt.visibleCanvasRect.bottom(), settings_.visibleRangeEnd);
+        static_cast<float>(vt.visibleCanvasRect.bottom()), settings_.visibleRangeEnd);
     if (viewRight < viewLeft || viewBottom < viewTop) {
         return lines;
     }

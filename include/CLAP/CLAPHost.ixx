@@ -8,10 +8,12 @@ module;
 #include <algorithm>
 #include <cmath>
 
+export module CLAP.Host;
+
 // ─────────────────────────────────────────────────────────
 // Minimal CLAP C API structs — clap.h 非依存
 // ─────────────────────────────────────────────────────────
-struct clap_plugin_descriptor {
+export struct clap_plugin_descriptor {
     const char* clap_version;
     const char* id;
     const char* name;
@@ -24,7 +26,7 @@ struct clap_plugin_descriptor {
     const char** features;
 };
 
-struct clap_host {
+export struct clap_host {
     void* host_data;
     const void* (*get_extension)(const struct clap_host*, const char*);
     void (*request_restart)(const struct clap_host*);
@@ -32,7 +34,7 @@ struct clap_host {
     void (*request_callback)(const struct clap_host*);
 };
 
-struct clap_process {
+export struct clap_process {
     const void* reserved[2];     // in/out events
     uint32_t frames_count;
     uint32_t frame_offset;
@@ -43,7 +45,7 @@ struct clap_process {
     double transport;
 };
 
-struct clap_event_header {
+export struct clap_event_header {
     uint32_t size;
     uint32_t time;
     uint16_t space_id;
@@ -51,7 +53,7 @@ struct clap_event_header {
     uint32_t flags;
 };
 
-struct clap_event_param_value {
+export struct clap_event_param_value {
     clap_event_header header;
     void* cookie;
     uint32_t param_id;
@@ -63,13 +65,13 @@ struct clap_event_param_value {
     double modulation;
 };
 
-struct clap_input_events {
+export struct clap_input_events {
     void* context;
     uint32_t (*size)(const clap_input_events* list);
     const clap_event_header* (*get)(const clap_input_events* list, uint32_t index);
 };
 
-struct clap_plugin {
+export struct clap_plugin {
     const clap_plugin_descriptor* desc;
     void* plugin_data;
     bool (*init)(const struct clap_plugin*);
@@ -84,7 +86,7 @@ struct clap_plugin {
     void (*on_main_thread)(const struct clap_plugin*);
 };
 
-struct clap_param_info {
+export struct clap_param_info {
     uint32_t id;
     uint32_t flags;
     uint32_t cookie;
@@ -95,7 +97,7 @@ struct clap_param_info {
     double default_value;
 };
 
-struct clap_plugin_params {
+export struct clap_plugin_params {
     uint32_t (*count)(const clap_plugin* plugin);
     bool (*get_info)(const clap_plugin* plugin, uint32_t param_index,
                      clap_param_info* param_info);
@@ -109,7 +111,7 @@ struct clap_plugin_params {
                   const void* out_events);
 };
 
-struct clap_plugin_entry {
+export struct clap_plugin_entry {
     uint32_t clap_version;
     bool (*init)(const char* plugin_path);
     void (*deinit)();
@@ -118,8 +120,6 @@ struct clap_plugin_entry {
     const clap_plugin* (*create_plugin)(const struct clap_host* host, uint32_t index);
     void (*destroy_plugin)(const struct clap_plugin* plugin);
 };
-
-export module CLAP.Host;
 
 import Audio.Segment;
 import Audio.Effect;

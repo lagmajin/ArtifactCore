@@ -172,7 +172,6 @@ private:
     }
 };
 
-namespace {
 inline const bool kSurfaceFXSerializationRegistered = [] {
     Serialization::registerJsonSerializableType<SurfaceFXElement>(
         QStringLiteral("SurfaceFXElement"), 1);
@@ -185,6 +184,5 @@ inline const bool kSurfaceFXSerializationRegistered = [] {
                                   [](const QJsonObject& object) { return object; });
     return true;
 }();
-}
 
 } // namespace ArtifactCore

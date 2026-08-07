@@ -5,6 +5,7 @@ module;
 #include <QFileInfo>
 #include <OpenImageIO/imagebuf.h>
 #include <OpenImageIO/imagebufalgo.h>
+#include <OpenImageIO/imageio.h>
 
 module AssetConverter;
 
@@ -36,18 +37,30 @@ ArtifactAssetConverter::convert(const ConversionJob& job) const {
         const double scale = std::min(
             static_cast<double>(job.maxResolution.width()) / source.spec().width,
             static_cast<double>(job.maxResolution.height()) / source.spec().height);
-        output = OIIO::ImageBufAlgo::resize(
-            source, std::max(1, static_cast<int>(source.spec().width * scale)),
-            std::max(1, static_cast<int>(source.spec().height * scale)));
+        OIIO::ImageSpec resizedSpec = source.spec();
+        resizedSpec.width = std::max(1, static_cast<int>(source.spec().width * scale));
+        resizedSpec.height = std::max(1, static_cast<int>(source.spec().height * scale));
+        OIIO::ImageBuf resized(resizedSpec);
+        if (!OIIO::ImageBufAlgo::resize(resized, source)) {
+            result.errorMessage = oiioError(resized);
+            return result;
+        }
+        output = std::move(resized);
     }
     QDir().mkpath(QFileInfo(job.outputPath).absolutePath());
     OIIO::ImageSpec spec = output.spec();
     if (job.jpegQuality > 0 && job.jpegQuality <= 100)
         spec.attribute("jpeg:Quality", job.jpegQuality);
-    if (!output.write(job.outputPath.toUtf8().constData(), spec)) {
+    const QByteArray outputPath = job.outputPath.toUtf8();
+    std::unique_ptr<OIIO::ImageOutput> imageOutput =
+        OIIO::ImageOutput::create(outputPath.constData());
+    if (!imageOutput || !imageOutput->open(outputPath.constData(), spec) ||
+        !output.write(imageOutput.get())) {
         result.errorMessage = oiioError(output);
+        if (imageOutput) imageOutput->close();
         return result;
     }
+    imageOutput->close();
     result.success = true;
     result.outputSizeBytes = QFileInfo(job.outputPath).size();
     result.durationMs = QDateTime::currentMSecsSinceEpoch() - started;

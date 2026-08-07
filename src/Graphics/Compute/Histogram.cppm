@@ -71,7 +71,7 @@ void HistogramComputer::createBuffers() {
   buffDesc.Mode = BUFFER_MODE_STRUCTURED;
   buffDesc.ElementByteStride = sizeof(uint32_t);
 
-  context_.device()->CreateBuffer(buffDesc, nullptr, &pHistogramTempBuffer_);
+  context_.RenderDevice()->CreateBuffer(buffDesc, nullptr, &pHistogramTempBuffer_);
 
   BufferDesc statsDesc;
   statsDesc.Name = "HistogramStatisticsParams";
@@ -79,7 +79,7 @@ void HistogramComputer::createBuffers() {
   statsDesc.BindFlags = BIND_UNIFORM_BUFFER;
   statsDesc.Size = sizeof(uint32_t) * 5;
   statsDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-  context_.device()->CreateBuffer(statsDesc, nullptr, &pStatisticsParamsBuffer_);
+  context_.RenderDevice()->CreateBuffer(statsDesc, nullptr, &pStatisticsParamsBuffer_);
 }
 
 void HistogramComputer::computeLuminance(IDeviceContext *pContext,

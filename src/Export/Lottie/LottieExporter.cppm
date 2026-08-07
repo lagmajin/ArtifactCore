@@ -11,6 +11,7 @@ module;
 #include <QSaveFile>
 #include <QString>
 #include <algorithm>
+#include <any>
 #include <cmath>
 #include <unordered_map>
 
@@ -418,7 +419,7 @@ bool validShape(const std::any& item) {
                (merge->direction == 1 || merge->direction == -1);
     }
     if (const auto* fill = std::any_cast<LottieShapeFill>(&item)) {
-        return validPoint(fill->c) && validPoint(fill->o);
+        return validColor(fill->c) && validPoint(fill->o);
     }
     if (const auto* gradient = std::any_cast<LottieShapeGradient>(&item)) {
         return (gradient->gradientType == 1 || gradient->gradientType == 2) &&
@@ -427,7 +428,7 @@ bool validShape(const std::any& item) {
                validPoint(gradient->startPoint) && validPoint(gradient->endPoint);
     }
     if (const auto* stroke = std::any_cast<LottieShapeStroke>(&item)) {
-        return validPoint(stroke->c) && validPoint(stroke->o) && validPoint(stroke->w) &&
+        return validColor(stroke->c) && validPoint(stroke->o) && validPoint(stroke->w) &&
                (stroke->lineCap >= 1 && stroke->lineCap <= 3) &&
                (stroke->lineJoin >= 1 && stroke->lineJoin <= 3) &&
                std::isfinite(stroke->miterLimit) && stroke->miterLimit > 0.0 &&
@@ -920,7 +921,7 @@ std::optional<LottieDocument> LottieExporter::importFromFile(
             const QJsonArray keyframes = text.value(QStringLiteral("d"))
                 .toObject().value(QStringLiteral("k")).toArray();
             if (!keyframes.isEmpty()) {
-                const QJsonObject document = keyframes.front().toObject()
+            const QJsonObject document = keyframes.at(0).toObject()
                     .value(QStringLiteral("s")).toObject();
                 layer.text = document.value(QStringLiteral("t"))
                     .toString().toStdString();

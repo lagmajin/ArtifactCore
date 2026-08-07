@@ -268,18 +268,6 @@ QJsonObject clipToJson(const Clip& clip)
     for (const MarkerId& id : clip.markers) {
         markers.append(QString::number(id.value));
     }
-    QJsonArray subtitles;
-    for (const SubtitleCue& cue : sequence.subtitles) {
-        subtitles.append(QJsonObject{
-            {QStringLiteral("start"), cue.range.start()},
-            {QStringLiteral("duration"), cue.range.duration()},
-            {QStringLiteral("text"), cue.text},
-            {QStringLiteral("name"), cue.name},
-            {QStringLiteral("language"), cue.language},
-            {QStringLiteral("speaker"), cue.speaker},
-            {QStringLiteral("forced"), cue.forced},
-            {QStringLiteral("closedCaption"), cue.closedCaption}});
-    }
     return QJsonObject{
         {QStringLiteral("id"), QString::number(clip.id.value)},
         {QStringLiteral("trackId"), QString::number(clip.trackId.value)},
@@ -295,7 +283,6 @@ QJsonObject clipToJson(const Clip& clip)
         {QStringLiteral("linkedGroupId"), QString::number(clip.linkedGroupId)},
         {QStringLiteral("attachedTransitions"), transitions},
         {QStringLiteral("markers"), markers},
-        {QStringLiteral("subtitles"), subtitles},
         {QStringLiteral("name"), clip.name}
     };
 }
@@ -373,6 +360,18 @@ Track trackFromJson(const QJsonObject& obj)
 
 QJsonObject sequenceToJson(const Sequence& sequence)
 {
+    QJsonArray subtitles;
+    for (const SubtitleCue& cue : sequence.subtitles) {
+        subtitles.append(QJsonObject{
+            {QStringLiteral("start"), cue.range.start()},
+            {QStringLiteral("duration"), cue.range.duration()},
+            {QStringLiteral("text"), cue.text},
+            {QStringLiteral("name"), cue.name},
+            {QStringLiteral("language"), cue.language},
+            {QStringLiteral("speaker"), cue.speaker},
+            {QStringLiteral("forced"), cue.forced},
+            {QStringLiteral("closedCaption"), cue.closedCaption}});
+    }
     QJsonArray tracks;
     for (const TrackId& id : sequence.trackOrder) {
         tracks.append(QString::number(id.value));
@@ -388,6 +387,7 @@ QJsonObject sequenceToJson(const Sequence& sequence)
         {QStringLiteral("duration"), sequence.duration.toJson()},
         {QStringLiteral("trackOrder"), tracks},
         {QStringLiteral("markers"), markers},
+        {QStringLiteral("subtitles"), subtitles},
         {QStringLiteral("defaultLayoutName"), sequence.defaultLayoutName},
         {QStringLiteral("enabled"), sequence.enabled},
         {QStringLiteral("locked"), sequence.locked}

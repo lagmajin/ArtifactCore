@@ -87,7 +87,7 @@ void EdgeEchoGPUComputer::createPipelines() {
 }
 
 void EdgeEchoGPUComputer::createBuffers() {
-    auto *device = context_.device();
+    auto *device = context_.RenderDevice();
 
     auto makeCB = [&](const char* name, size_t size) -> RefCntAutoPtr<IBuffer> {
         BufferDesc desc;
@@ -109,7 +109,7 @@ void EdgeEchoGPUComputer::createBuffers() {
 void EdgeEchoGPUComputer::ensureTextures(IDeviceContext *pContext, int width, int height) {
     if (width == lastWidth_ && height == lastHeight_ && pEdgeTexture_) return;
 
-    auto *device = context_.device();
+    auto *device = context_.RenderDevice();
     lastWidth_ = width;
     lastHeight_ = height;
     hasHistory_ = false;

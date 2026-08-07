@@ -527,7 +527,7 @@ bool compositeDeepOverFlat(const DeepImageBuffer& source, const float* rgba,
                            float* output) {
     if (!output || !rgba || source.isEmpty() || !std::isfinite(depth) ||
         floatCount < static_cast<std::size_t>(source.width()) *
-                         static_cast<std::size_t>(source.height()) * 4u) ||
+                         static_cast<std::size_t>(source.height()) * 4u ||
         !source.toFlatRGBA(output, floatCount)) {
         return false;
     }

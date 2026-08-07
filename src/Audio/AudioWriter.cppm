@@ -102,7 +102,7 @@ void AudioWriter::write(const AudioSegment& segment) {
     const int channels = segment.channelCount();
     int frames = segment.frameCount();
     for (const auto& channel : segment.channelData) {
-        frames = std::min(frames, channel.size());
+        frames = std::min(frames, static_cast<int>(channel.size()));
     }
     if (channels <= 0 || frames <= 0) return;
     if (impl_->channelCount == 0) {

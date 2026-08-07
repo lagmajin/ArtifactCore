@@ -5,6 +5,8 @@ class tst_QList;
 #include <memory>
 #include <limits>
 #include <iterator>
+#include <atomic>
+#include <mutex>
 
 #include <QDir>
 #include <QFileInfo>
@@ -13,6 +15,7 @@ class tst_QList;
 #include <QList>
 #include <QRegularExpression>
 #include <QSet>
+#include <QThreadPool>
 #include <QVector>
 
 #include "../Define/DllExportMacro.hpp"
@@ -20,6 +23,7 @@ class tst_QList;
 module Media.ImageSequenceSource;
 
 import Memory.TrackedPtr;
+import Thread.Helper;
 
 namespace ArtifactCore {
 
@@ -29,11 +33,29 @@ struct ImageSequenceSource::FrameEntry {
     QSize size;
 };
 
+constexpr int kFrameCacheCapacity = 8;
+constexpr int kMaxPrefetchInFlight = 4;
+constexpr quint64 kFrameCacheByteCapacity = 256ull * 1024ull * 1024ull;
+
 struct ImageSequenceSource::Impl {
     struct CachedFrame {
         QImage image;
         qint64 fileSize = -1;
         qint64 lastModifiedMs = 0;
+    };
+
+    struct PrefetchedFrame {
+        QImage image;
+        qint64 fileSize = -1;
+        qint64 lastModifiedMs = 0;
+    };
+
+    struct AsyncPrefetchState {
+        std::mutex mutex;
+        std::atomic_uint64_t generation{1};
+        QHash<qint64, PrefetchedFrame> completed;
+        QList<qint64> completedOrder;
+        QSet<qint64> inFlight;
     };
 
     QString uri;
@@ -44,12 +66,50 @@ struct ImageSequenceSource::Impl {
     qint64 currentFrameIndex = 0;
     QHash<qint64, CachedFrame> frameCache;
     QList<qint64> frameCacheOrder;
+    mutable std::mutex frameCacheMutex;
+    quint64 frameCacheBytes = 0;
     quint64 frameCacheHits = 0;
     quint64 frameCacheMisses = 0;
+    std::shared_ptr<AsyncPrefetchState> prefetchState =
+        std::make_shared<AsyncPrefetchState>();
     bool open = false;
-};
 
-constexpr int kFrameCacheCapacity = 8;
+    void resetDecodedCache()
+    {
+        const std::scoped_lock lock(frameCacheMutex);
+        frameCache.clear();
+        frameCacheOrder.clear();
+        frameCacheBytes = 0;
+        frameCacheHits = 0;
+        frameCacheMisses = 0;
+    }
+
+    void storeDecodedFrame(qint64 frameIndex, CachedFrame frame)
+    {
+        const std::scoped_lock lock(frameCacheMutex);
+        if (const auto existing = frameCache.constFind(frameIndex);
+            existing != frameCache.cend()) {
+            frameCacheBytes -= std::min<quint64>(
+                frameCacheBytes,
+                static_cast<quint64>(existing->image.sizeInBytes()));
+        }
+        frameCacheBytes += static_cast<quint64>(frame.image.sizeInBytes());
+        frameCache.insert(frameIndex, std::move(frame));
+        frameCacheOrder.removeAll(frameIndex);
+        frameCacheOrder.push_back(frameIndex);
+        while (frameCacheOrder.size() > kFrameCacheCapacity ||
+               frameCacheBytes > kFrameCacheByteCapacity) {
+            const qint64 oldest = frameCacheOrder.takeFirst();
+            if (const auto oldestFrame = frameCache.constFind(oldest);
+                oldestFrame != frameCache.cend()) {
+                frameCacheBytes -= std::min<quint64>(
+                    frameCacheBytes,
+                    static_cast<quint64>(oldestFrame->image.sizeInBytes()));
+            }
+            frameCache.remove(oldest);
+        }
+    }
+};
 
 namespace {
 
@@ -89,6 +149,18 @@ bool parseSequencePattern(const QString& fileName, QString* prefix, QString* suf
     if (suffix) *suffix = match.captured(3);
     if (padding) *padding = match.captured(2).size();
     return true;
+}
+
+void resetPrefetchState(const auto& state)
+{
+    if (!state) {
+        return;
+    }
+    state->generation.fetch_add(1, std::memory_order_acq_rel);
+    const std::scoped_lock lock(state->mutex);
+    state->completed.clear();
+    state->completedOrder.clear();
+    state->inFlight.clear();
 }
 
 } // namespace
@@ -189,10 +261,8 @@ bool ImageSequenceSource::open(const QString& uri)
     });
 
     impl_->frames = std::move(frames);
-    impl_->frameCache.clear();
-    impl_->frameCacheOrder.clear();
-    impl_->frameCacheHits = 0;
-    impl_->frameCacheMisses = 0;
+    impl_->resetDecodedCache();
+    resetPrefetchState(impl_->prefetchState);
     impl_->frameRate = 24.0;
     impl_->currentFrameIndex = 0;
     impl_->open = true;
@@ -236,10 +306,8 @@ bool ImageSequenceSource::openFramePaths(const QStringList& framePaths)
     impl_->uri = frames.front().path;
     impl_->displayName = QFileInfo(impl_->uri).completeBaseName();
     impl_->frames = std::move(frames);
-    impl_->frameCache.clear();
-    impl_->frameCacheOrder.clear();
-    impl_->frameCacheHits = 0;
-    impl_->frameCacheMisses = 0;
+    impl_->resetDecodedCache();
+    resetPrefetchState(impl_->prefetchState);
     impl_->frameRate = 24.0;
     impl_->currentFrameIndex = 0;
     impl_->open = true;
@@ -263,10 +331,8 @@ void ImageSequenceSource::close()
     impl_->uri.clear();
     impl_->displayName.clear();
     impl_->frames.clear();
-    impl_->frameCache.clear();
-    impl_->frameCacheOrder.clear();
-    impl_->frameCacheHits = 0;
-    impl_->frameCacheMisses = 0;
+    impl_->resetDecodedCache();
+    resetPrefetchState(impl_->prefetchState);
     impl_->frameSize = QSize();
     impl_->currentFrameIndex = 0;
     impl_->frameRate = 24.0;
@@ -399,24 +465,52 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
 
     const auto& entry = impl_->frames.at(frameIndex);
     const QFileInfo sourceInfo(entry.path);
-    if (const auto cached = impl_->frameCache.constFind(frameIndex);
-        cached != impl_->frameCache.cend()) {
-        const qint64 lastModifiedMs =
-            sourceInfo.lastModified().toMSecsSinceEpoch();
-        if (cached->fileSize == sourceInfo.size() &&
-            cached->lastModifiedMs == lastModifiedMs) {
-            ++impl_->frameCacheHits;
-            impl_->frameCacheOrder.removeAll(frameIndex);
-            impl_->frameCacheOrder.push_back(frameIndex);
-            return cached->image;
+    const qint64 sourceSize = sourceInfo.size();
+    const qint64 lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
+
+    Impl::PrefetchedFrame prefetched;
+    bool hasPrefetched = false;
+    if (impl_->prefetchState) {
+        const std::scoped_lock lock(impl_->prefetchState->mutex);
+        const auto completed = impl_->prefetchState->completed.find(frameIndex);
+        if (completed != impl_->prefetchState->completed.end()) {
+            prefetched = std::move(completed.value());
+            impl_->prefetchState->completed.erase(completed);
+            impl_->prefetchState->completedOrder.removeAll(frameIndex);
+            impl_->prefetchState->inFlight.remove(frameIndex);
+            hasPrefetched = true;
         }
-        // A same-path replacement invalidates the old decoded frame even when
-        // the replacement later turns out to be unreadable.
-        impl_->frameCache.remove(frameIndex);
-        impl_->frameCacheOrder.removeAll(frameIndex);
+    }
+    if (hasPrefetched && prefetched.fileSize == sourceSize &&
+        prefetched.lastModifiedMs == lastModifiedMs) {
+        Impl::CachedFrame cachedFrame;
+        cachedFrame.image = std::move(prefetched.image);
+        cachedFrame.fileSize = prefetched.fileSize;
+        cachedFrame.lastModifiedMs = prefetched.lastModifiedMs;
+        const QImage result = cachedFrame.image;
+        impl_->storeDecodedFrame(frameIndex, std::move(cachedFrame));
+        return result;
     }
 
-    ++impl_->frameCacheMisses;
+    {
+        const std::scoped_lock lock(impl_->frameCacheMutex);
+        if (const auto cached = impl_->frameCache.constFind(frameIndex);
+            cached != impl_->frameCache.cend()) {
+            if (cached->fileSize == sourceSize &&
+                cached->lastModifiedMs == lastModifiedMs) {
+                ++impl_->frameCacheHits;
+                impl_->frameCacheOrder.removeAll(frameIndex);
+                impl_->frameCacheOrder.push_back(frameIndex);
+                return cached->image;
+            }
+            // A same-path replacement invalidates the old decoded frame even when
+            // the replacement later turns out to be unreadable.
+            impl_->frameCache.remove(frameIndex);
+            impl_->frameCacheOrder.removeAll(frameIndex);
+        }
+
+        ++impl_->frameCacheMisses;
+    }
 
     QImageReader reader(entry.path);
     QImage image = reader.read();
@@ -425,29 +519,83 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
         // temporarily unreadable frames should not be decoded again on every
         // scrub until the file changes.
         ImageSequenceSource::Impl::CachedFrame failedFrame;
-        failedFrame.fileSize = sourceInfo.size();
-        failedFrame.lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
-        impl_->frameCache.insert(frameIndex, std::move(failedFrame));
-        impl_->frameCacheOrder.removeAll(frameIndex);
-        impl_->frameCacheOrder.push_back(frameIndex);
-        while (impl_->frameCacheOrder.size() > kFrameCacheCapacity) {
-            const qint64 oldest = impl_->frameCacheOrder.takeFirst();
-            impl_->frameCache.remove(oldest);
-        }
+        failedFrame.fileSize = sourceSize;
+        failedFrame.lastModifiedMs = lastModifiedMs;
+        impl_->storeDecodedFrame(frameIndex, std::move(failedFrame));
         return {};
     }
     ImageSequenceSource::Impl::CachedFrame cachedFrame;
     cachedFrame.image = image;
-    cachedFrame.fileSize = sourceInfo.size();
-    cachedFrame.lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
-    impl_->frameCache.insert(frameIndex, std::move(cachedFrame));
-    impl_->frameCacheOrder.removeAll(frameIndex);
-    impl_->frameCacheOrder.push_back(frameIndex);
-    while (impl_->frameCacheOrder.size() > kFrameCacheCapacity) {
-        const qint64 oldest = impl_->frameCacheOrder.takeFirst();
-        impl_->frameCache.remove(oldest);
+    cachedFrame.fileSize = sourceSize;
+    cachedFrame.lastModifiedMs = lastModifiedMs;
+    impl_->storeDecodedFrame(frameIndex, std::move(cachedFrame));
+    if (impl_->prefetchState) {
+        const std::scoped_lock lock(impl_->prefetchState->mutex);
+        impl_->prefetchState->completed.remove(frameIndex);
+        impl_->prefetchState->completedOrder.removeAll(frameIndex);
+        impl_->prefetchState->inFlight.remove(frameIndex);
     }
     return image;
+}
+
+bool ImageSequenceSource::tryFrameAt(qint64 frameIndex, QImage& frame) const
+{
+    frame = {};
+    if (!impl_ || !impl_->prefetchState || frameIndex < 0 ||
+        frameIndex >= impl_->frames.size()) {
+        return false;
+    }
+
+    const QFileInfo sourceInfo(impl_->frames.at(frameIndex).path);
+    const qint64 sourceSize = sourceInfo.size();
+    const qint64 lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
+    Impl::PrefetchedFrame prefetched;
+    bool hasPrefetched = false;
+    {
+        const std::scoped_lock lock(impl_->prefetchState->mutex);
+        const auto completed = impl_->prefetchState->completed.find(frameIndex);
+        if (completed != impl_->prefetchState->completed.end()) {
+            prefetched = std::move(completed.value());
+            impl_->prefetchState->completed.erase(completed);
+            impl_->prefetchState->completedOrder.removeAll(frameIndex);
+            hasPrefetched = true;
+        }
+    }
+    if (hasPrefetched && prefetched.fileSize == sourceSize &&
+        prefetched.lastModifiedMs == lastModifiedMs) {
+        Impl::CachedFrame cached;
+        cached.image = std::move(prefetched.image);
+        cached.fileSize = prefetched.fileSize;
+        cached.lastModifiedMs = prefetched.lastModifiedMs;
+        frame = cached.image;
+        impl_->storeDecodedFrame(frameIndex, std::move(cached));
+        {
+            const std::scoped_lock lock(impl_->frameCacheMutex);
+            if (frame.isNull()) ++impl_->frameCacheMisses;
+            else ++impl_->frameCacheHits;
+        }
+        return !frame.isNull();
+    }
+
+    {
+        const std::scoped_lock lock(impl_->frameCacheMutex);
+        const auto cached = impl_->frameCache.find(frameIndex);
+        if (cached != impl_->frameCache.end()) {
+            if (cached->fileSize == sourceSize &&
+                cached->lastModifiedMs == lastModifiedMs) {
+                frame = cached->image;
+                impl_->frameCacheOrder.removeAll(frameIndex);
+                impl_->frameCacheOrder.push_back(frameIndex);
+                if (!frame.isNull()) ++impl_->frameCacheHits;
+                return !frame.isNull();
+            }
+            impl_->frameCache.erase(cached);
+            impl_->frameCacheOrder.removeAll(frameIndex);
+        }
+        ++impl_->frameCacheMisses;
+    }
+    prefetchFrame(frameIndex);
+    return false;
 }
 
 void ImageSequenceSource::setFrameRate(double fps)
@@ -461,17 +609,23 @@ void ImageSequenceSource::setFrameRate(double fps)
 
 quint64 ImageSequenceSource::frameCacheHitCount() const
 {
-    return impl_ ? impl_->frameCacheHits : 0;
+    if (!impl_) return 0;
+    const std::scoped_lock lock(impl_->frameCacheMutex);
+    return impl_->frameCacheHits;
 }
 
 quint64 ImageSequenceSource::frameCacheMissCount() const
 {
-    return impl_ ? impl_->frameCacheMisses : 0;
+    if (!impl_) return 0;
+    const std::scoped_lock lock(impl_->frameCacheMutex);
+    return impl_->frameCacheMisses;
 }
 
 int ImageSequenceSource::frameCacheEntryCount() const
 {
-    return impl_ ? impl_->frameCache.size() : 0;
+    if (!impl_) return 0;
+    const std::scoped_lock lock(impl_->frameCacheMutex);
+    return impl_->frameCache.size();
 }
 
 int ImageSequenceSource::frameCacheCapacity() const
@@ -479,11 +633,74 @@ int ImageSequenceSource::frameCacheCapacity() const
     return kFrameCacheCapacity;
 }
 
+quint64 ImageSequenceSource::frameCacheBytes() const
+{
+    if (!impl_) return 0;
+    const std::scoped_lock lock(impl_->frameCacheMutex);
+    return impl_->frameCacheBytes;
+}
+
+quint64 ImageSequenceSource::frameCacheByteCapacity() const
+{
+    return kFrameCacheByteCapacity;
+}
+
 void ImageSequenceSource::prefetchFrame(qint64 frameIndex) const
 {
-    // Route prefetch through frameAt so validation, invalidation, LRU order,
-    // and hit/miss diagnostics remain identical to an on-demand read.
-    (void)frameAt(frameIndex);
+    if (!impl_ || !impl_->prefetchState || frameIndex < 0 ||
+        frameIndex >= impl_->frames.size()) {
+        return;
+    }
+
+    {
+        const std::scoped_lock cacheLock(impl_->frameCacheMutex);
+        if (impl_->frameCache.contains(frameIndex)) {
+            return;
+        }
+    }
+
+    const auto state = impl_->prefetchState;
+    const std::uint64_t generation =
+        state->generation.load(std::memory_order_acquire);
+    const QString path = impl_->frames.at(frameIndex).path;
+    {
+        const std::scoped_lock lock(state->mutex);
+        if (state->inFlight.contains(frameIndex) ||
+            state->completed.contains(frameIndex)) {
+            return;
+        }
+        if (state->inFlight.size() >= kMaxPrefetchInFlight) {
+            return;
+        }
+        state->inFlight.insert(frameIndex);
+    }
+
+    sharedBackgroundThreadPool().start(
+        [state, generation, frameIndex, path]() {
+            ScopedThreadName threadName(
+                QStringLiteral("ImageSequence/prefetch:%1")
+                    .arg(QFileInfo(path).fileName()));
+            const QFileInfo sourceInfo(path);
+            QImageReader reader(path);
+            Impl::PrefetchedFrame result;
+            result.image = reader.read();
+            result.fileSize = sourceInfo.size();
+            result.lastModifiedMs =
+                sourceInfo.lastModified().toMSecsSinceEpoch();
+
+            const std::scoped_lock lock(state->mutex);
+            if (state->generation.load(std::memory_order_acquire) != generation) {
+                return;
+            }
+            state->inFlight.remove(frameIndex);
+            state->completed.insert(frameIndex, std::move(result));
+            state->completedOrder.removeAll(frameIndex);
+            state->completedOrder.push_back(frameIndex);
+            while (state->completedOrder.size() > kFrameCacheCapacity) {
+                const qint64 oldest = state->completedOrder.takeFirst();
+                state->completed.remove(oldest);
+            }
+        });
 }
 
 void ImageSequenceSource::clearFrameCache()
@@ -491,10 +708,8 @@ void ImageSequenceSource::clearFrameCache()
     if (!impl_) {
         return;
     }
-    impl_->frameCache.clear();
-    impl_->frameCacheOrder.clear();
-    impl_->frameCacheHits = 0;
-    impl_->frameCacheMisses = 0;
+    impl_->resetDecodedCache();
+    resetPrefetchState(impl_->prefetchState);
 }
 
 } // namespace ArtifactCore

@@ -165,10 +165,11 @@ void ParticleEmitter::initParticle(Particle& p) {
     
     // Velocity based on direction and spread
     float3 dir = randomDirection();
-    float speed = speedDist(rng_);
-    p.velocity.x = dir.x * speed;
-    p.velocity.y = dir.y * speed;
-    p.velocity.z = dir.z * speed;
+    std::uniform_real_distribution<float> velocitySpeedDist(speed.first, speed.second);
+    const float velocitySpeed = velocitySpeedDist(rng_);
+    p.velocity.x = dir.x * velocitySpeed;
+    p.velocity.y = dir.y * velocitySpeed;
+    p.velocity.z = dir.z * velocitySpeed;
     
     // Color
     p.color = config_.colorStart;

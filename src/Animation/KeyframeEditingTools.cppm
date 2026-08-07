@@ -420,10 +420,6 @@ bool KeyframeEditingTools::quantizeToBeat(
 {
     if (keyframes.empty()) return false;
 
-    if ((request.mirrorTime && !std::isfinite(request.mirrorCenter))
-        || (request.flipValue && !std::isfinite(request.flipCenter))) {
-        return false;
-    }
     for (const auto& kf : keyframes) {
         if (!std::isfinite(kf.frame) || !std::isfinite(kf.value)) return false;
     }

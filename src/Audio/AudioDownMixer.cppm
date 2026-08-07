@@ -73,7 +73,7 @@ AudioSegment AudioDownMixer::processChannelMap(
             continue;
         }
         const auto& input = source.channelData[sourceChannel];
-        const int copyFrames = std::min(frames, input.size());
+        const int copyFrames = std::min(frames, static_cast<int>(input.size()));
         std::copy_n(input.constData(), copyFrames, destination.begin());
     }
     return output;

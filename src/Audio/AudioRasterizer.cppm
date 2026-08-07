@@ -27,14 +27,14 @@ void appendRange(const QVector<float>& samples, int first, int last,
 WaveformData AudioRasterizer::rasterize(const QVector<float>& samples,
                                         const int binCount) {
   if (samples.isEmpty() || binCount <= 0) return {};
-  const int bins = std::min(binCount, samples.size());
+  const int bins = std::min(binCount, static_cast<int>(samples.size()));
   WaveformData result;
   result.minValues.reserve(bins);
   result.maxValues.reserve(bins);
   for (int bin = 0; bin < bins; ++bin) {
     const int first = (bin * samples.size()) / bins;
-    const int last = std::max(first + 1, ((bin + 1) * samples.size()) / bins);
-    appendRange(samples, first, std::min(last, samples.size()),
+    const int last = std::max(first + 1, ((bin + 1) * static_cast<int>(samples.size())) / bins);
+    appendRange(samples, first, std::min(last, static_cast<int>(samples.size())),
                 result.minValues, result.maxValues);
   }
   return result;

@@ -52,7 +52,7 @@ void LUT3DGPUComputer::createPipeline() {
   executor_.build(desc);
   executor_.createShaderResourceBinding(true);
 
-  auto *device = context_.device();
+  auto *device = context_.RenderDevice();
   if (device) {
     BufferDesc cbDesc;
     cbDesc.Name = "LUT3DParamsCB";

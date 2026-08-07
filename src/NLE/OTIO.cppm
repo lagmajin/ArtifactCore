@@ -320,7 +320,7 @@ QVector<SubtitleCue> OtioAdapter::importSrt(const QString& text,
 {
     QVector<SubtitleCue> result;
     const QString normalized = text.toUtf8().replace("\r\n", "\n").replace('\r', '\n');
-    const QStringList lines = QString::fromUtf8(normalized).split(QChar('\n'));
+    const QStringList lines = normalized.split(QChar('\n'));
     const QRegularExpression timing(
         QStringLiteral(R"(^\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*$)"));
     auto parseTime = [&timeBase](const QRegularExpressionMatch& match, int offset) -> qint64 {
@@ -369,7 +369,7 @@ QVector<SubtitleCue> OtioAdapter::importWebVtt(const QString& text,
                                                 QVector<QString>* warnings)
 {
     const QString normalized = text.toUtf8().replace("\r\n", "\n").replace('\r', '\n');
-    const QStringList lines = QString::fromUtf8(normalized).split(QChar('\n'));
+    const QStringList lines = normalized.split(QChar('\n'));
     QString srt;
     int cueNumber = 1;
     int line = 0;

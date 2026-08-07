@@ -226,7 +226,6 @@ QString readGgufArchitecture(const QString& modelPath, QString* errorOut = nullp
 {
     const std::string modelPathUtf8 = QStringToUtf8(modelPath);
     gguf_init_params params{};
-    params.no_alloc = true;
     params.ctx = nullptr;
 
     gguf_context* raw = gguf_init_from_file(modelPathUtf8.c_str(), params);
@@ -262,7 +261,7 @@ QString buildModelLoadDiagnostics(
 {
     return QStringLiteral(
                "path=%1 sizeMB=%2 arch=%3 supportsGpuOffload=%4 availableDevices=%5 gpuDevices=%6 preferredGpuIndex=%7 "
-               "mainGpu=%8 nGpuLayers=%9 splitMode=%10 useMmap=%11 useDirectIO=%12 useMlock=%13 checkTensors=%14 vocabOnly=%15")
+               "mainGpu=%8 nGpuLayers=%9 splitMode=%10 useMmap=%11 useMlock=%12 checkTensors=%13 vocabOnly=%14")
         .arg(modelPath)
         .arg(QString::number(modelInfo.size() / (1024.0 * 1024.0), 'f', 2))
         .arg(architecture.isEmpty() ? QStringLiteral("<unknown>") : architecture)
@@ -276,24 +275,9 @@ QString buildModelLoadDiagnostics(
         .arg(params.n_gpu_layers)
         .arg(static_cast<int>(params.split_mode))
         .arg(params.use_mmap ? QStringLiteral("true") : QStringLiteral("false"))
-        .arg(params.use_direct_io ? QStringLiteral("true") : QStringLiteral("false"))
         .arg(params.use_mlock ? QStringLiteral("true") : QStringLiteral("false"))
         .arg(params.check_tensors ? QStringLiteral("true") : QStringLiteral("false"))
         .arg(params.vocab_only ? QStringLiteral("true") : QStringLiteral("false"));
-}
-
-QString llamaParamsFitStatusToString(enum llama_params_fit_status status)
-{
-    switch (status) {
-    case LLAMA_PARAMS_FIT_STATUS_SUCCESS:
-        return QStringLiteral("success");
-    case LLAMA_PARAMS_FIT_STATUS_FAILURE:
-        return QStringLiteral("failure");
-    case LLAMA_PARAMS_FIT_STATUS_ERROR:
-        return QStringLiteral("error");
-    default:
-        return QStringLiteral("unknown");
-    }
 }
 
 QString buildContextSummary(const AIContext& context)
@@ -706,11 +690,9 @@ bool LlamaLocalAgent::initialize(const QString& modelPath) {
         ? static_cast<int32_t>(preferredGpuIndex)
         : -1;
     baseMparams.use_mmap = true;
-    baseMparams.use_direct_io = false;
     baseMparams.use_mlock = false;
     baseMparams.check_tensors = false;
     baseMparams.no_host = false;
-    baseMparams.no_alloc = false;
     baseMparams.vocab_only = false;
 
     llama_model_params loadMparams = baseMparams;

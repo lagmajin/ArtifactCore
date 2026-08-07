@@ -24,6 +24,10 @@ FramePosition::Impl::~Impl()
 {
 }
 
+FramePosition::FramePosition() : FramePosition(0)
+{
+}
+
 FramePosition::FramePosition(int framePosition) : impl_(new Impl(framePosition))
 {
 }

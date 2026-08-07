@@ -11,6 +11,7 @@ module;
 #include <thread>
 #include <utility>
 #include <vector>
+#include <QString>
 
 export module Core.Render.MFR.Dispatcher;
 

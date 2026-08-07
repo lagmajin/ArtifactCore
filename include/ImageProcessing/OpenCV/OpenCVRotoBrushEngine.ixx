@@ -31,7 +31,6 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-#include <opencv2/opencv.hpp>
 export module ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine;
 
 namespace ArtifactCore {
@@ -42,10 +41,15 @@ export enum class RotoBrushStrokeType {
     Background
 };
 
+export struct RotoBrushPoint {
+    int x = 0;
+    int y = 0;
+};
+
 // ユーザーがプレビュー画面で描いたストローク情報
 export struct RotoBrushStroke {
     RotoBrushStrokeType type;
-    std::vector<cv::Point> points;
+    std::vector<RotoBrushPoint> points;
     int thickness = 5;
 };
 
@@ -62,15 +66,15 @@ public:
 
     // 1. 初回フレームまたはユーザーがストロークを追加/修正したときの更新処理
     // 入力画像と、現在のフレームに描かれたすべてのストロークを元に、アルファマスクを生成します。
-    void updateBaseFrame(const cv::Mat& sourceImage, const std::vector<RotoBrushStroke>& strokes);
+    void updateBaseFrame(const void* sourceImage, const std::vector<RotoBrushStroke>& strokes);
 
     // 2. 次のフレームへのトラッキング伝播処理
     // 基準フレーム(baseImage)から次のフレーム(nextImage)へのオプティカルフローを計算し、
     // 前回のマスクを変形させて新しいフレーム用のマスクを高速に推定します。
-    void propagateToNextFrame(const cv::Mat& previousImage, const cv::Mat& currentImage);
+    void propagateToNextFrame(const void* previousImage, const void* currentImage);
 
     // 3. 現在計算されているアルファマスク(0~255)を取得
-    cv::Mat getCurrentMask() const;
+    const void* currentMask() const;
 
     // 現在のマスクから孤立点を除去し、穴を埋める後処理。
     // radius は 0 の場合は何もせず、正数は楕円カーネル半径として扱う。

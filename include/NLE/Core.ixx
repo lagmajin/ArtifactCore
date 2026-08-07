@@ -129,7 +129,7 @@ struct LIBRARY_DLL_API ClipDraft {
 struct LIBRARY_DLL_API Marker {
     MarkerId id;
     SequenceId sequenceId;
-    FramePosition position;
+    FramePosition position = FramePosition(0);
     QString name;
     QString note;
     QColor color = QColor(Qt::yellow);

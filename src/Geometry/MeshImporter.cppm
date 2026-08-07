@@ -278,8 +278,6 @@ public:
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
     auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
     auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
-    auto boneIndicesAttr = mesh->vertexAttributes().add<QVector4D>("boneIndices");
-    auto boneWeightsAttr = mesh->vertexAttributes().add<QVector4D>("boneWeights");
     auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
 
     int vertexOffset = 0;
@@ -852,6 +850,8 @@ public:
     mesh->setVertexCount(static_cast<int>(vertexCount));
 
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
+    auto boneIndicesAttr = mesh->vertexAttributes().add<QVector4D>("boneIndices");
+    auto boneWeightsAttr = mesh->vertexAttributes().add<QVector4D>("boneWeights");
     auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
     auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
 

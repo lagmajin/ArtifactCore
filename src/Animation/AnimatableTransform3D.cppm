@@ -13,17 +13,12 @@ module;
 module Animation.Transform3D;
 
 import Animation.Value;
+import Math.Interpolate;
 //import Graphics.CBuffer.Constants;
 
 namespace ArtifactCore
 {
 using namespace Diligent;
-
-enum class AutoOrientMode : int {
-  Off = 0,
-  AlongPath = 1,
-  AlongPathAtFrameStart = 2,
-};
 
 namespace {
 

@@ -17,6 +17,7 @@ module;
 #include <functional>
 #include <fstream>
 #include <iterator>
+#include <filesystem>
 #include <string_view>
 #include <iostream>
 #include <QProcess>
@@ -300,8 +301,11 @@ bool PythonEngine::execute(const std::string& code) {
     if (!stdoutData.isEmpty()) impl_->captureOutput(stdoutData.toStdString(), false);
     if (!stderrData.isEmpty()) impl_->captureOutput(stderrData.toStdString(), true);
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-        impl_->setError(stderrData.isEmpty() ? "External Python execution failed"
-                                             : stderrData.toStdString());
+        if (stderrData.isEmpty()) {
+            impl_->setError("External Python execution failed");
+        } else {
+            impl_->setError(std::string_view(stderrData.toStdString()));
+        }
         return false;
     }
     impl_->lastError_.clear();

@@ -16,11 +16,10 @@ module;
 export module Animation.Value;
 
 import Frame.Position;
+import Math.Interpolate;
 
 
 export namespace ArtifactCore {
-
-enum class InterpolationType : int;
 
 // �w���p�[�֐��F���`��Ԃ̌W���v�Z
 inline float calculateT(const FramePosition& start, const FramePosition& end, const FramePosition& current) {

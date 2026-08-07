@@ -13,7 +13,11 @@ export namespace ArtifactCore
 {
  using namespace Diligent;
 
- enum class AutoOrientMode : int;
+ enum class AutoOrientMode : int {
+   Off = 0,
+   AlongPath = 1,
+   AlongPathAtFrameStart = 2,
+ };
 
   struct Transform3DSnapshot {
     float positionX = 0.0f;

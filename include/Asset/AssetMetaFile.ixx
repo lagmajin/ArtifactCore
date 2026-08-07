@@ -52,3 +52,5 @@ private:
     QString assetPath_;
     QJsonObject data_;
 };
+
+} // namespace ArtifactCore

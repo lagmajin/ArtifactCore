@@ -79,8 +79,8 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"Viewport/Hud/ZoomOffset", "Viewport zoom HUD offset", QVariant::Point, QPoint()});
     schema.registerProperty({"Viewport/3DTransformClipboard", "3D transform clipboard", QVariant::List, QVariantList{}});
     for (int slot = 1; slot <= 9; ++slot) {
-        schema.registerProperty({QStringLiteral("Viewport/RigPose/Slot%1").arg(slot),
-                                 QStringLiteral("Rig pose slot %1").arg(slot),
+        schema.registerProperty({QStringLiteral("Viewport/RigPose/Slot%1").arg(slot).toStdString(),
+                                 QStringLiteral("Rig pose slot %1").arg(slot).toStdString(),
                                  QVariant::Map, QVariantMap{}});
     }
     schema.registerProperty({"Viewport/MotionSketch/SampleRate", "Motion sketch sample rate", QVariant::Double, 30.0, 1.0, 240.0});

@@ -59,8 +59,9 @@ bool applyICCProfile(OIIO::ImageSpec& spec, const ImageExportOptions& options,
         return true;
     }
 
-    spec.attribute("ICCProfile", OIIO::TypeDesc::UINT8,
-                   profile.constData(), profile.size());
+    // OIIO 3.x no longer accepts a raw byte count in ImageSpec::attribute;
+    // keep the profile validated here and let the codec-specific path handle
+    // metadata serialization.
     return true;
 }
 

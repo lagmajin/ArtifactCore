@@ -54,7 +54,7 @@ void EchoBlendGPUComputer::createPipeline() {
 }
 
 void EchoBlendGPUComputer::createBuffers() {
-    auto *device = context_.device();
+    auto *device = context_.RenderDevice();
     BufferDesc desc;
     desc.Name = "EchoBlendParamsCB";
     desc.Usage = USAGE_DYNAMIC;

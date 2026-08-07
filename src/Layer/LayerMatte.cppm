@@ -2,6 +2,8 @@ module;
 #include <utility>
 #include <algorithm>
 #include <cmath>
+#include <QJsonObject>
+#include <QString>
 
 module Layer.Matte;
 
@@ -13,9 +15,9 @@ namespace ArtifactCore {
 
 namespace {
 const bool kMatteSerializationRegistered = [] {
-    registerJsonSerializableType<MatteNode>(QStringLiteral("MatteNode"), 1);
-    registerJsonSerializableType<MatteStack>(QStringLiteral("MatteStack"), 1);
-    auto& migrations = SchemaMigrationRegistry::instance();
+    Serialization::registerJsonSerializableType<MatteNode>(QStringLiteral("MatteNode"), 1);
+    Serialization::registerJsonSerializableType<MatteStack>(QStringLiteral("MatteStack"), 1);
+    auto& migrations = Serialization::SchemaMigrationRegistry::instance();
     migrations.registerMigration(QStringLiteral("MatteNode"), 0, 1,
                                   [](const QJsonObject& object) { return object; });
     migrations.registerMigration(QStringLiteral("MatteStack"), 0, 1,

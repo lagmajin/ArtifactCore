@@ -65,9 +65,14 @@ OpenCVRotoBrushEngine::OpenCVRotoBrushEngine()
 OpenCVRotoBrushEngine::~OpenCVRotoBrushEngine() = default;
 
 void OpenCVRotoBrushEngine::updateBaseFrame(
-    const cv::Mat& sourceImage,
+    const void* sourceImagePtr,
     const std::vector<RotoBrushStroke>& strokes)
 {
+    if (!sourceImagePtr) {
+        reset();
+        return;
+    }
+    const auto& sourceImage = *static_cast<const cv::Mat*>(sourceImagePtr);
     if (!Impl::validImage(sourceImage)) {
         reset();
         return;
@@ -89,7 +94,7 @@ void OpenCVRotoBrushEngine::updateBaseFrame(
         for (const auto& point : stroke.points) {
             if (point.x >= 0 && point.y >= 0 &&
                 point.x < workingImage.cols && point.y < workingImage.rows) {
-                points.push_back(point);
+                points.emplace_back(point.x, point.y);
             }
         }
         if (points.empty()) continue;
@@ -99,11 +104,12 @@ void OpenCVRotoBrushEngine::updateBaseFrame(
         if (stroke.type == RotoBrushStrokeType::Foreground) hasForeground = true;
         else hasBackground = true;
         for (std::size_t i = 1; i < points.size(); ++i) {
-            cv::line(grabMask, points[i - 1], points[i],
+            cv::line(grabMask, cv::Point(points[i - 1].x, points[i - 1].y),
+                     cv::Point(points[i].x, points[i].y),
                      cv::Scalar(label), thickness, cv::LINE_AA);
         }
         if (points.size() == 1) {
-            cv::circle(grabMask, points.front(), thickness / 2,
+            cv::circle(grabMask, cv::Point(points.front().x, points.front().y), thickness / 2,
                        cv::Scalar(label), cv::FILLED, cv::LINE_AA);
         }
     }
@@ -135,11 +141,14 @@ void OpenCVRotoBrushEngine::updateBaseFrame(
             if (stroke.type != RotoBrushStrokeType::Foreground) continue;
             const int thickness = std::clamp(stroke.thickness, 1, 512);
             for (std::size_t i = 1; i < stroke.points.size(); ++i) {
-                cv::line(impl_->currentMask, stroke.points[i - 1], stroke.points[i],
+                cv::line(impl_->currentMask,
+                         cv::Point(stroke.points[i - 1].x, stroke.points[i - 1].y),
+                         cv::Point(stroke.points[i].x, stroke.points[i].y),
                          cv::Scalar(255), thickness, cv::LINE_AA);
             }
             if (stroke.points.size() == 1) {
-                cv::circle(impl_->currentMask, stroke.points.front(),
+                cv::circle(impl_->currentMask,
+                           cv::Point(stroke.points.front().x, stroke.points.front().y),
                            std::max(1, thickness / 2), cv::Scalar(255),
                            cv::FILLED, cv::LINE_AA);
             }
@@ -148,9 +157,12 @@ void OpenCVRotoBrushEngine::updateBaseFrame(
 }
 
 void OpenCVRotoBrushEngine::propagateToNextFrame(
-    const cv::Mat& previousImage,
-    const cv::Mat& currentImage)
+    const void* previousImagePtr,
+    const void* currentImagePtr)
 {
+    if (!previousImagePtr || !currentImagePtr) return;
+    const auto& previousImage = *static_cast<const cv::Mat*>(previousImagePtr);
+    const auto& currentImage = *static_cast<const cv::Mat*>(currentImagePtr);
     if (!Impl::validImage(previousImage) || !Impl::validImage(currentImage) ||
         impl_->currentMask.empty() || previousImage.size() != currentImage.size() ||
         previousImage.size() != impl_->currentMask.size()) {
@@ -190,8 +202,8 @@ void OpenCVRotoBrushEngine::propagateToNextFrame(
     }
 }
 
-cv::Mat OpenCVRotoBrushEngine::getCurrentMask() const {
-    return impl_->currentMask.clone();
+const void* OpenCVRotoBrushEngine::currentMask() const {
+    return &impl_->currentMask;
 }
 
 void OpenCVRotoBrushEngine::refineCurrentMask(int radius) {

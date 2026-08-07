@@ -513,6 +513,7 @@ struct MeshRenderer::Impl {
     };
     std::map<Diligent::TEXTURE_FORMAT, PipelineSet> pipelineSets_;
     bool transparentPass_ = false;
+    bool missingPipelineWarningIssued_ = false;
     
     // Mesh geometry buffers
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pPositionBuffer_;
@@ -1071,9 +1072,13 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
             ? pImpl_->pTransparentSRB_.RawPtr()
             : pImpl_->pSRB_.RawPtr();
     if (!activePSO || !activeSRB) {
-        qWarning("[MeshRenderer] prepare() called but PSO/SRB is null");
+        if (!pImpl_->missingPipelineWarningIssued_) {
+            qWarning("[MeshRenderer] draw skipped because PSO/SRB is unavailable");
+            pImpl_->missingPipelineWarningIssued_ = true;
+        }
         return;
     }
+    pImpl_->missingPipelineWarningIssued_ = false;
     
     // Update constants
     void* pData = nullptr;
@@ -1214,6 +1219,23 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
 void MeshRenderer::draw(IDeviceContext* pContext, size_t instanceCount)
 {
     if (!pContext || instanceCount == 0) return;
+
+    const IPipelineState* activePSO =
+        pImpl_->transparentPass_ && pImpl_->pTransparentPSO_
+            ? pImpl_->pTransparentPSO_.RawPtr()
+            : pImpl_->pPSO_.RawPtr();
+    const IShaderResourceBinding* activeSRB =
+        pImpl_->transparentPass_ && pImpl_->pTransparentSRB_
+            ? pImpl_->pTransparentSRB_.RawPtr()
+            : pImpl_->pSRB_.RawPtr();
+    if (!activePSO || !activeSRB) {
+        if (!pImpl_->missingPipelineWarningIssued_) {
+            qWarning("[MeshRenderer] draw skipped because PSO/SRB is unavailable");
+            pImpl_->missingPipelineWarningIssued_ = true;
+        }
+        return;
+    }
+
     instanceCount = std::min(instanceCount, maxInstances_);
     const bool useIndirect =
         pImpl_->indirectDrawSupported_ && pImpl_->pIndirectArgsBuffer_ &&

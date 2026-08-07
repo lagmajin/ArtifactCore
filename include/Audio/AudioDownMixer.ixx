@@ -1,5 +1,6 @@
 module;
 #include <utility>
+#include <QVector>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.DownMixer;

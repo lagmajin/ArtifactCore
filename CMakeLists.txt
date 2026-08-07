@@ -164,12 +164,37 @@ foreach(_artifact_force_module IN ITEMS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactVariant.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactUtility.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Color/LUTWriter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/ImageProcessing/Keying/IBKKeyer.ixx"
 )
     list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
     if(_artifact_force_module_index EQUAL -1)
         list(APPEND CORE_MODULES "${_artifact_force_module}")
     endif()
 endforeach()
+
+# These are implementation units for interface partitions already present in
+# the CXX_MODULES file set.  CMake's scanner treats the repeated partition
+# name as a second provider and emits duplicate IFC rules, so keep the source
+# private and let MSVC compile it without a separate dyndep scan.
+set_source_files_properties(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
+    PROPERTIES CXX_SCAN_FOR_MODULES OFF
+)
+if(MSVC)
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
+        PROPERTIES
+            COMPILE_OPTIONS "/reference;File:Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/File-Info.ifc"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/File/FileInfo.ixx.obj"
+    )
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
+        PROPERTIES
+            COMPILE_OPTIONS "/reference;Image:OpenEXR=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image-OpenEXR.ifc;/reference;Image.DeepImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.DeepImageBuffer.ifc"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/OpenEXR.ixx.obj;${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/DeepImageBuffer.ixx.obj"
+    )
+endif()
 
 # Procedural3DGenerators.cppm is the implementation unit for the explicitly
 # registered public generator module above.
@@ -462,7 +487,10 @@ endif()
 
 # llama.cpp
 set(ARTIFACT_LLAMA_CPP_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../libs/llama.cpp")
-if(NOT TARGET llama AND EXISTS "${ARTIFACT_LLAMA_CPP_SOURCE_DIR}/CMakeLists.txt")
+option(ARTIFACT_USE_BUNDLED_LLAMA_CPP
+    "Build the llama.cpp submodule instead of using the vcpkg llama-cpp package" OFF)
+set(_artifact_using_bundled_llama_cpp FALSE)
+if(ARTIFACT_USE_BUNDLED_LLAMA_CPP AND NOT TARGET llama AND EXISTS "${ARTIFACT_LLAMA_CPP_SOURCE_DIR}/CMakeLists.txt")
     set(_artifact_prev_scan_for_modules "${CMAKE_CXX_SCAN_FOR_MODULES}")
     set(_artifact_prev_build_shared_libs_defined FALSE)
     if(DEFINED BUILD_SHARED_LIBS)
@@ -493,6 +521,7 @@ if(NOT TARGET llama AND EXISTS "${ARTIFACT_LLAMA_CPP_SOURCE_DIR}/CMakeLists.txt"
     set(GGML_CCACHE OFF CACHE BOOL "" FORCE)
 
     add_subdirectory("${ARTIFACT_LLAMA_CPP_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/llama.cpp" EXCLUDE_FROM_ALL)
+    set(_artifact_using_bundled_llama_cpp TRUE)
 
     if(_artifact_prev_build_shared_libs_defined)
         set(BUILD_SHARED_LIBS "${_artifact_prev_build_shared_libs}" CACHE BOOL "" FORCE)
@@ -502,8 +531,7 @@ if(NOT TARGET llama AND EXISTS "${ARTIFACT_LLAMA_CPP_SOURCE_DIR}/CMakeLists.txt"
     set(CMAKE_CXX_SCAN_FOR_MODULES "${_artifact_prev_scan_for_modules}")
 endif()
 
-if(TARGET llama)
-    target_link_libraries(ArtifactCore PUBLIC llama)
+if(_artifact_using_bundled_llama_cpp AND TARGET llama)
     if(MSVC)
         target_compile_options(llama PRIVATE /Zc:char8_t-)
     endif()
@@ -530,10 +558,13 @@ if(TARGET llama)
                 VS_GLOBAL_VcpkgApplocalDeps false)
         endif()
     endforeach()
-else()
-    find_package(llama REQUIRED CONFIG)
-    target_link_libraries(ArtifactCore PUBLIC llama)
 endif()
+
+if(NOT TARGET llama)
+    find_package(llama REQUIRED CONFIG)
+endif()
+
+target_link_libraries(ArtifactCore PUBLIC llama)
 
 # ufbx (vendored)
 if(TARGET ufbx)

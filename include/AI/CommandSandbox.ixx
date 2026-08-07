@@ -47,7 +47,7 @@ struct CommandSandboxResult {
         QJsonObject json;
         json[QStringLiteral("dryRun")] = dryRun;
         json[QStringLiteral("validationPassed")] = validationPassed;
-        json[QStringLiteral("executionPlan")] = executionPlan;
+        json[QStringLiteral("executionPlan")] = QJsonObject::fromVariantMap(executionPlan);
         json[QStringLiteral("allowed")] = allowed;
         json[QStringLiteral("started")] = started;
         json[QStringLiteral("finished")] = finished;

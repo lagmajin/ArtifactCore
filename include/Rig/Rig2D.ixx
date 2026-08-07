@@ -1,5 +1,4 @@
 module;
-class tst_QList;
 #include <utility>
 #include <QString>
 #include <QVector2D>
@@ -38,6 +37,9 @@ struct BoneTransform {
     BoneTransform operator-(const BoneTransform& other) const;
     BoneTransform operator*(float scalar) const;
 };
+
+QJsonObject rigTransformToJson(const BoneTransform& transform);
+BoneTransform rigTransformFromJson(const QJsonValue& value, const BoneTransform& fallback);
 
 struct StretchyLimbDescriptor {
     float restLength = 0.0f;
@@ -177,6 +179,7 @@ private:
 };
 
 class Rig2D;
+const QList<Bone2D*>& rigBones(const Rig2D* rig);
 
 class RigControlSet2D {
 public:
@@ -522,7 +525,7 @@ public:
             ko["angle"] = static_cast<double>(k.driverAngle);
             QJsonObject to;
             for (const auto& [id, bt] : k.targetTransforms) {
-                to[id.toString()] = transformToJson(bt);
+                to[id.toString()] = rigTransformToJson(bt);
             }
             ko["targets"] = to;
             QJsonObject offsets;
@@ -548,7 +551,7 @@ public:
             key.driverAngle = static_cast<float>(ko.value("angle").toDouble());
             QJsonObject to = ko.value("targets").toObject();
             for (auto it = to.begin(); it != to.end(); ++it) {
-                key.targetTransforms[Id(it.key())] = transformFromJson(it.value(), BoneTransform{});
+                key.targetTransforms[Id(it.key())] = rigTransformFromJson(it.value(), BoneTransform{});
             }
             const QJsonObject offsets = ko.value("meshOffsets").toObject();
             for (auto it = offsets.begin(); it != offsets.end(); ++it) {
@@ -592,7 +595,7 @@ public:
 
     void autoBind(Rig2D* rig, int maxBones = 4) {
         if (!rig || vertices_.empty()) return;
-        const auto& bones = rig->bones();
+        const auto& bones = rigBones(rig);
         if (bones.isEmpty()) return;
         for (size_t vi = 0; vi < vertices_.size(); ++vi) {
             std::vector<std::pair<float,int>> dists;
@@ -623,7 +626,7 @@ public:
     void deform(Rig2D* rig, std::vector<QVector2D>& outPositions) const {
         outPositions.resize(vertices_.size());
         if (!rig) return;
-        const auto& bones = rig->bones();
+        const auto& bones = rigBones(rig);
         for (size_t i = 0; i < vertices_.size(); ++i) {
             QVector2D p(0, 0);
             float weightSum = 0.0f;

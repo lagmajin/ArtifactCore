@@ -10,6 +10,8 @@ module;
 
 export module ImageProcessing;
 
+export import :IBKKeyer;
+
 export import :Monochrome;
 export import :NegativeCV;
 export import :AffineTransform;

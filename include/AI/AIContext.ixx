@@ -185,15 +185,15 @@ private:
     QString systemPrompt_;
 };
 
+} // namespace ArtifactCore
+
 namespace {
 inline const bool kAIContextSerializationRegistered = [] {
-    Serialization::registerJsonSerializableType<AIContext>(
+    ArtifactCore::Serialization::registerJsonSerializableType<ArtifactCore::AIContext>(
         QStringLiteral("AIContext"), 1);
-    auto& migrations = Serialization::SchemaMigrationRegistry::instance();
+    auto& migrations = ArtifactCore::Serialization::SchemaMigrationRegistry::instance();
     migrations.registerMigration(QStringLiteral("AIContext"), 0, 1,
                                   [](const QJsonObject& object) { return object; });
     return true;
 }();
 }
-
-} // namespace ArtifactCore

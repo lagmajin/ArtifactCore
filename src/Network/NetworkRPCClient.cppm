@@ -10,6 +10,7 @@ module;
 #include <QtNetwork/QTcpSocket>
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslCertificate>
+#include <QtNetwork/QSslConfiguration>
 #include <QFile>
 #include <QDateTime>
 #include <cstdint>
@@ -78,8 +79,10 @@ public:
             if (!caCertificateFile_.isEmpty()) {
                 QFile caFile(caCertificateFile_);
                 if (caFile.open(QIODevice::ReadOnly)) {
-                    socket_->setCaCertificates(QSslCertificate::fromData(
+                    QSslConfiguration sslConfiguration = socket_->sslConfiguration();
+                    sslConfiguration.setCaCertificates(QSslCertificate::fromData(
                         caFile.readAll(), QSsl::Pem));
+                    socket_->setSslConfiguration(sslConfiguration);
                 }
             }
             socket_->connectToHostEncrypted(host, port);

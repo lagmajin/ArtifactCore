@@ -36,18 +36,14 @@ void LUT3DCS(uint3 id : SV_DispatchThreadID)
     float3 d = f - (float3)i;
     i = clamp(i, int3(0, 0, 0), int3((int)depth - 2, (int)depth - 2, (int)depth - 2));
 
-    auto load = [&](int x, int y, int z) -> float4 {
-        return g_LUT.Load(int4(x, y, z, 0));
-    };
-
-    float4 c000 = load(i.x,     i.y,     i.z);
-    float4 c100 = load(i.x + 1, i.y,     i.z);
-    float4 c010 = load(i.x,     i.y + 1, i.z);
-    float4 c110 = load(i.x + 1, i.y + 1, i.z);
-    float4 c001 = load(i.x,     i.y,     i.z + 1);
-    float4 c101 = load(i.x + 1, i.y,     i.z + 1);
-    float4 c011 = load(i.x,     i.y + 1, i.z + 1);
-    float4 c111 = load(i.x + 1, i.y + 1, i.z + 1);
+    float4 c000 = g_LUT.Load(int4(i.x,     i.y,     i.z,     0));
+    float4 c100 = g_LUT.Load(int4(i.x + 1, i.y,     i.z,     0));
+    float4 c010 = g_LUT.Load(int4(i.x,     i.y + 1, i.z,     0));
+    float4 c110 = g_LUT.Load(int4(i.x + 1, i.y + 1, i.z,     0));
+    float4 c001 = g_LUT.Load(int4(i.x,     i.y,     i.z + 1, 0));
+    float4 c101 = g_LUT.Load(int4(i.x + 1, i.y,     i.z + 1, 0));
+    float4 c011 = g_LUT.Load(int4(i.x,     i.y + 1, i.z + 1, 0));
+    float4 c111 = g_LUT.Load(int4(i.x + 1, i.y + 1, i.z + 1, 0));
 
     float4 c00 = lerp(c000, c100, d.x);
     float4 c10 = lerp(c010, c110, d.x);

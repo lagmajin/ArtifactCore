@@ -4,6 +4,7 @@ module;
 #include <QRectF>
 #include <QPainterPath>
 #include <QTransform>
+#include <QJsonArray>
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -25,8 +26,8 @@ namespace ArtifactCore {
 
 namespace {
 const bool kShapePathSerializationRegistered = [] {
-    registerJsonSerializableType<ShapePath>(QStringLiteral("ShapePath"), 1);
-    auto& migrations = SchemaMigrationRegistry::instance();
+    Serialization::registerJsonSerializableType<ShapePath>(QStringLiteral("ShapePath"), 1);
+    auto& migrations = Serialization::SchemaMigrationRegistry::instance();
     migrations.registerMigration(QStringLiteral("ShapePath"), 0, 1,
                                   [](const QJsonObject& object) { return object; });
     return true;

@@ -127,7 +127,7 @@ bool AssetDatabase::load(const QString& databasePath) {
         }
         info.type = static_cast<AssetType>(rawType);
         const QJsonObject metadata = obj.value(QStringLiteral("metadata")).toObject();
-        for (auto it = metadata.cbegin(); it != metadata.cend(); ++it) {
+        for (auto it = metadata.constBegin(); it != metadata.constEnd(); ++it) {
             if (it.value().isString()) {
                 info.metadata.insert(it.key(), it.value().toString());
             }

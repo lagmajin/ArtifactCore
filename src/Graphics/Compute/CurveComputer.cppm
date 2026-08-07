@@ -52,7 +52,7 @@ void CurveGPUComputer::createPipeline() {
 }
 
 void CurveGPUComputer::createBuffers() {
-  auto *device = context_.device();
+  auto *device = context_.RenderDevice();
 
   BufferDesc cbDesc;
   cbDesc.Name = "CurveParamsCB";

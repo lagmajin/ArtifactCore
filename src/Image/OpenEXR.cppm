@@ -67,7 +67,8 @@ bool OpenExr::readRGBA32F(const QString& path, std::vector<float>& rgba,
     height = spec.height;
     const std::size_t pixels = static_cast<std::size_t>(width) * height;
     std::vector<float> source(pixels * static_cast<std::size_t>(spec.nchannels), 0.0f);
-    if (!input->read_image(OIIO::TypeDesc::FLOAT, source.data())) {
+    if (!input->read_image(0, 0, 0, spec.nchannels,
+                           OIIO::TypeDesc::FLOAT, source.data())) {
         rgba.clear();
         width = height = 0;
         input->close();
@@ -151,23 +152,23 @@ bool OpenExr::writeDeepRGBA32F(
     const OIIO::TypeDesc channelTypes[] = {
         OIIO::TypeDesc::FLOAT, OIIO::TypeDesc::FLOAT, OIIO::TypeDesc::FLOAT,
         OIIO::TypeDesc::FLOAT, OIIO::TypeDesc::FLOAT};
-    const char* channelNames[] = {"Z", "R", "G", "B", "A"};
-    deep.init(5, channelTypes, channelNames);
+    const std::vector<std::string> channelNames = {"Z", "R", "G", "B", "A"};
+    deep.init(static_cast<int64_t>(pixelCount), 5, channelTypes, channelNames);
     for (std::size_t pixel = 0; pixel < pixelCount; ++pixel) {
         const auto& pixelSamples = samples[pixel];
-        deep.set_deep_samples(static_cast<int>(pixel),
-                              static_cast<int>(pixelSamples.size()));
+        deep.set_samples(static_cast<int64_t>(pixel),
+                         static_cast<int>(pixelSamples.size()));
         for (int sampleIndex = 0;
              sampleIndex < static_cast<int>(pixelSamples.size()); ++sampleIndex) {
             const auto& sample = pixelSamples[static_cast<std::size_t>(sampleIndex)];
-            deep.deep_value<float>(static_cast<int>(pixel), 0, sampleIndex) = sample.depth;
-            deep.deep_value<float>(static_cast<int>(pixel), 1, sampleIndex) = sample.red;
-            deep.deep_value<float>(static_cast<int>(pixel), 2, sampleIndex) = sample.green;
-            deep.deep_value<float>(static_cast<int>(pixel), 3, sampleIndex) = sample.blue;
-            deep.deep_value<float>(static_cast<int>(pixel), 4, sampleIndex) = sample.alpha;
+            deep.set_deep_value(static_cast<int64_t>(pixel), 0, sampleIndex, sample.depth);
+            deep.set_deep_value(static_cast<int64_t>(pixel), 1, sampleIndex, sample.red);
+            deep.set_deep_value(static_cast<int64_t>(pixel), 2, sampleIndex, sample.green);
+            deep.set_deep_value(static_cast<int64_t>(pixel), 3, sampleIndex, sample.blue);
+            deep.set_deep_value(static_cast<int64_t>(pixel), 4, sampleIndex, sample.alpha);
         }
     }
-    if (!output->open(utf8Path.constData(), spec) || !output->write_image(deep)) {
+    if (!output->open(utf8Path.constData(), spec) || !output->write_deep_image(deep)) {
         output->close();
         return false;
     }
@@ -222,7 +223,7 @@ bool OpenExr::readDeepRGBA32F(
     }
     const std::size_t pixelCount = widthSize * heightSize;
     OIIO::DeepData deep;
-    if (!input->read_image(deep)) {
+    if (!input->read_native_deep_image(0, 0, deep)) {
         input->close();
         return false;
     }
@@ -265,19 +266,19 @@ bool OpenExr::readDeepRGBA32F(
         for (int sampleIndex = 0; sampleIndex < count; ++sampleIndex) {
             auto& sample = samples[pixel][static_cast<std::size_t>(sampleIndex)];
             sample.depth = channelIndices[0] >= 0
-                ? deep.deep_value<float>(static_cast<int>(pixel), channelIndices[0], sampleIndex)
+                ? deep.deep_value(static_cast<int64_t>(pixel), channelIndices[0], sampleIndex)
                 : 0.0f;
             sample.red = channelIndices[1] >= 0
-                ? deep.deep_value<float>(static_cast<int>(pixel), channelIndices[1], sampleIndex)
+                ? deep.deep_value(static_cast<int64_t>(pixel), channelIndices[1], sampleIndex)
                 : 0.0f;
             sample.green = channelIndices[2] >= 0
-                ? deep.deep_value<float>(static_cast<int>(pixel), channelIndices[2], sampleIndex)
+                ? deep.deep_value(static_cast<int64_t>(pixel), channelIndices[2], sampleIndex)
                 : 0.0f;
             sample.blue = channelIndices[3] >= 0
-                ? deep.deep_value<float>(static_cast<int>(pixel), channelIndices[3], sampleIndex)
+                ? deep.deep_value(static_cast<int64_t>(pixel), channelIndices[3], sampleIndex)
                 : 0.0f;
             sample.alpha = channelIndices[4] >= 0
-                ? deep.deep_value<float>(static_cast<int>(pixel), channelIndices[4], sampleIndex)
+                ? deep.deep_value(static_cast<int64_t>(pixel), channelIndices[4], sampleIndex)
                 : 1.0f;
             if (!std::isfinite(sample.depth) || !std::isfinite(sample.red) ||
                 !std::isfinite(sample.green) || !std::isfinite(sample.blue) ||

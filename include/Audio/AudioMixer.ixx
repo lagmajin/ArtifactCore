@@ -9,9 +9,10 @@ module;
 
 export module Audio.Mixer;
 
-import Audio.Bus;
 import Audio.Segment;
+import Audio.Bus;
 import Core.ArtifactString;
+import Utils.Id;
 import Utils.String.UniString;
 import Memory.SharedPtr;
 
@@ -38,7 +39,7 @@ public:
 
     // 全体の実行
     // グラフをトポロジカルソートして順次処理します
-    void process(AudioSegment& finalOutput);
+    void process(ArtifactCore::AudioSegment& finalOutput);
 
     SharedPtr<AudioBus> getMasterBus() const { return masterBus_; }
     int busCount() const;

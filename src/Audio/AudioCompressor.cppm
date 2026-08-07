@@ -75,7 +75,8 @@ void AudioCompressor::process(AudioSegment& segment, const AudioSegment* sideCha
             if (i < segment.channelData[c].size()) segment.channelData[c][i] *= gain;
         }
 
-        currentGainReduction_ = std::min(currentGainReduction_, gain);
+        currentGainReduction_.store(
+            std::min(currentGainReduction_.load(), static_cast<float>(gain)));
     }
 }
 

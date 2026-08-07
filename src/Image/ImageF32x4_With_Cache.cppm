@@ -52,7 +52,7 @@ namespace ArtifactCore
 
   class ImageF32x4RGBAWithCache::Impl
  {
- private:
+ public:
   void CreateGpuTextureInternal(RefCntAutoPtr<IRenderDevice> pDevice, uint32_t width, uint32_t height);
   void UnionDirtyBox(Diligent::Box& currentBox, int x, int y, uint32_t width, uint32_t height);
   void ResetDirtyBox(Diligent::Box& box);

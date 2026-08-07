@@ -146,7 +146,7 @@ struct FrameDebugPassRecord {
 };
 
 struct FrameDebugSnapshot {
-    FramePosition frame;
+    FramePosition frame = FramePosition(0);
     std::int64_t timestampMs = 0;
     QString compositionName;
     QString renderBackend;

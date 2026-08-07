@@ -5,12 +5,14 @@ module;
 #include <QDir>
 #include <QFile>
 #include <QString>
+#include <memory>
 
 export module Serialization.ProjectSerializer;
 
 import Serialization.Document;
 import Serialization.SplitDocumentStore;
 import Serialization.Envelope;
+import Serialization.ISerializable;
 
 export namespace ArtifactCore::Serialization {
 
