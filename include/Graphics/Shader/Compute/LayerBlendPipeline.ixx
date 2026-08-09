@@ -30,6 +30,10 @@ export namespace ArtifactCore
    unsigned int blendMode = 0;
    float _pad0 = 0.0f;
    float _pad1 = 0.0f;
+   unsigned int displayMode = 0;
+   unsigned int displayComponentY = 1;
+   unsigned int displayComponentZ = 2;
+   unsigned int _displayPad = 0;
   };
 
   struct MatteTrackParams {
@@ -73,6 +77,17 @@ export namespace ArtifactCore
    ITextureView* srcSRV,
    ITextureView* outUAV,
    Uint32 component,
+   Uint32 width,
+   Uint32 height
+  );
+
+  bool displayComposite(
+   IDeviceContext* ctx,
+   ITextureView* srcSRV,
+   ITextureView* outUAV,
+   Uint32 mode,
+   Uint32 componentY,
+   Uint32 componentZ,
    Uint32 width,
    Uint32 height
   );

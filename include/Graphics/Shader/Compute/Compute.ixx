@@ -5,6 +5,7 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Shader.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include "../../../Define/DllExportMacro.hpp"
@@ -23,6 +24,8 @@ export namespace ArtifactCore
   const char* shaderSource = nullptr;
   const char* entryPoint = "CSMain";
   SHADER_SOURCE_LANGUAGE sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+  SHADER_COMPILER shaderCompiler = SHADER_COMPILER_DEFAULT;
+  ShaderVersion hlslVersion = {};
   const ShaderResourceVariableDesc* variables = nullptr;
   Uint32 variableCount = 0;
   SHADER_RESOURCE_VARIABLE_TYPE defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;

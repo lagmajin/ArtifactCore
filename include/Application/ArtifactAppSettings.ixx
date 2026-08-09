@@ -120,6 +120,16 @@ public:
     void setAccessibilityColorDeficiencyMode(const QString& mode);
     bool accessibilityReduceHoverDependency() const;
     void setAccessibilityReduceHoverDependency(bool enable);
+    bool accessibilityStickyKeysEnabled() const;
+    void setAccessibilityStickyKeysEnabled(bool enable);
+    QString accessibilityStickyKeysMode() const;
+    void setAccessibilityStickyKeysMode(const QString& mode);
+    bool accessibilitySingleHandModeEnabled() const;
+    void setAccessibilitySingleHandModeEnabled(bool enable);
+    bool accessibilityViewportMagnifierEnabled() const;
+    void setAccessibilityViewportMagnifierEnabled(bool enable);
+    int accessibilityViewportMagnifierScale() const;
+    void setAccessibilityViewportMagnifierScale(int scale);
 
     // --- Import / Preview Defaults ---
     QString importDefaultFrameRateText() const;

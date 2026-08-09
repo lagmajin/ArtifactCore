@@ -566,6 +566,7 @@ bool LayerBlendPipeline::displayComponent(
 
  BlendParams displayParams;
  displayParams.blendMode = component;
+ displayParams.displayMode = 0;
  void* pData = nullptr;
  ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
  if (!pData) {
@@ -583,6 +584,41 @@ bool LayerBlendPipeline::displayComponent(
      ComputeExecutor::makeDispatchAttribs(width, height, 1, 8, 8, 1);
  channelComponentDisplayExecutor_->dispatch(
      ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+ return true;
+}
+
+bool LayerBlendPipeline::displayComposite(
+ IDeviceContext* ctx, ITextureView* srcSRV, ITextureView* outUAV,
+ Uint32 mode, Uint32 componentY, Uint32 componentZ,
+ Uint32 width, Uint32 height)
+{
+ if (!ctx || !srcSRV || !outUAV || !channelComponentDisplayExecutor_ ||
+     !channelComponentDisplayExecutor_->ready() || !pImpl_->pBlendCB_ ||
+     mode < 1 || mode > 3 || width == 0 || height == 0) return false;
+ const auto* srcTexture = srcSRV->GetTexture();
+ const auto* outTexture = outUAV->GetTexture();
+ if (!srcTexture || !outTexture || srcTexture == outTexture) return false;
+ const auto& srcDesc = srcTexture->GetDesc();
+ const auto& outDesc = outTexture->GetDesc();
+ if (srcDesc.Width != width || srcDesc.Height != height ||
+     outDesc.Width != width || outDesc.Height != height ||
+     srcDesc.Format != outDesc.Format ||
+     (srcDesc.Format != TEX_FORMAT_RGBA16_FLOAT &&
+      srcDesc.Format != TEX_FORMAT_RGBA32_FLOAT)) return false;
+ BlendParams params;
+ params.displayMode = mode;
+ params.displayComponentY = componentY;
+ params.displayComponentZ = componentZ;
+ void* data = nullptr;
+ ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, data);
+ if (!data) return false;
+ memcpy(data, &params, sizeof(params));
+ ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
+ if (!channelComponentDisplayExecutor_->setTextureView("SrcTex", srcSRV) ||
+     !channelComponentDisplayExecutor_->setTextureView("OutTex", outUAV)) return false;
+ channelComponentDisplayExecutor_->dispatch(
+     ctx, ComputeExecutor::makeDispatchAttribs(width, height, 1, 8, 8, 1),
+     RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
  return true;
 }
 

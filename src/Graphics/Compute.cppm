@@ -66,6 +66,8 @@ namespace ArtifactCore
   shaderCI.EntryPoint = desc.entryPoint;
   shaderCI.Source = desc.shaderSource;
   shaderCI.SourceLanguage = desc.sourceLanguage;
+  shaderCI.ShaderCompiler = desc.shaderCompiler;
+  shaderCI.HLSLVersion = desc.hlslVersion;
 
   pImpl_->pComputeShader_ = nullptr;
   pDevice->CreateShader(shaderCI, &pImpl_->pComputeShader_);

@@ -4,6 +4,8 @@ module;
 #include <utility>
 #include <vector>
 #include <QPointF>
+#include <QRectF>
+#include <QSizeF>
 #include <cmath>
 #include <algorithm>
 #include <numeric>
@@ -47,6 +49,86 @@ std::vector<int> buildLogicalOrderRanks(
             rank;
     }
     return ranks;
+}
+
+bool isTextGroupSeparator(const char32_t code) {
+    return code == U' ' || code == U'\t' || code == U'\n' ||
+           code == U'\r';
+}
+
+std::vector<QPointF> buildAnchorPoints(
+    const std::vector<GlyphItem>& glyphs,
+    const AnchorPointGrouping grouping) {
+    std::vector<QPointF> anchors(glyphs.size());
+    if (glyphs.empty() || grouping == AnchorPointGrouping::Character) {
+        for (size_t i = 0; i < glyphs.size(); ++i) {
+            anchors[i] = glyphs[i].bounds.center();
+        }
+        return anchors;
+    }
+
+    std::vector<int> groupIds(glyphs.size(), 0);
+    int sequentialGroup = 0;
+    QString previousSpan;
+    for (size_t i = 0; i < glyphs.size(); ++i) {
+        const auto& glyph = glyphs[i];
+        switch (grouping) {
+        case AnchorPointGrouping::Cluster:
+            groupIds[i] = glyph.clusterIndex >= 0
+                              ? glyph.clusterIndex
+                              : static_cast<int>(i);
+            break;
+        case AnchorPointGrouping::Word:
+            if (isTextGroupSeparator(glyph.charCode)) {
+                groupIds[i] = -static_cast<int>(i) - 1;
+                ++sequentialGroup;
+            } else {
+                groupIds[i] = sequentialGroup;
+            }
+            break;
+        case AnchorPointGrouping::Line:
+            groupIds[i] = glyph.lineIndex >= 0 ? glyph.lineIndex : 0;
+            break;
+        case AnchorPointGrouping::Paragraph:
+            groupIds[i] = sequentialGroup;
+            if (glyph.charCode == U'\n' || glyph.charCode == U'\r') {
+                ++sequentialGroup;
+            }
+            break;
+        case AnchorPointGrouping::Span:
+            if (i > 0 && glyph.selectorTag != previousSpan) {
+                ++sequentialGroup;
+            }
+            groupIds[i] = sequentialGroup;
+            previousSpan = glyph.selectorTag;
+            break;
+        case AnchorPointGrouping::All:
+            groupIds[i] = 0;
+            break;
+        case AnchorPointGrouping::Character:
+        default:
+            groupIds[i] = static_cast<int>(i);
+            break;
+        }
+    }
+
+    QHash<int, QRectF> groupBounds;
+    for (size_t i = 0; i < glyphs.size(); ++i) {
+        QRectF bounds = glyphs[i].bounds;
+        if (!bounds.isValid()) {
+            bounds = QRectF(glyphs[i].basePosition, QSizeF(0.0, 0.0));
+        }
+        const int groupId = groupIds[i];
+        const auto it = groupBounds.constFind(groupId);
+        groupBounds.insert(groupId,
+                           it == groupBounds.cend()
+                               ? bounds
+                               : it.value().united(bounds));
+    }
+    for (size_t i = 0; i < glyphs.size(); ++i) {
+        anchors[i] = groupBounds.value(groupIds[i]).center();
+    }
+    return anchors;
 }
 
 std::vector<int> buildUtf16StartsPerCodepoint(const QString& text) {
@@ -173,6 +255,13 @@ SelectorResult TextAnimatorEngine::evaluateSelector(
 
     const int glyphCount = static_cast<int>(context.glyphs.size());
     const int tagCount = tagOrder.size();
+    const std::vector<int> selectorOrder =
+        createOrderMap(glyphCount, selector.order);
+    std::vector<int> selectorOrderRanks(static_cast<size_t>(glyphCount));
+    for (int rank = 0; rank < glyphCount; ++rank) {
+        selectorOrderRanks[static_cast<size_t>(
+            selectorOrder[static_cast<size_t>(rank)])] = rank;
+    }
     for (int i = 0; i < glyphCount; ++i) {
         if (!regexMatches[static_cast<qsizetype>(i)]) {
             continue;
@@ -184,9 +273,11 @@ SelectorResult TextAnimatorEngine::evaluateSelector(
             context.order == TextSelectorOrder::Logical
                 ? logicalOrderRanks[static_cast<size_t>(i)]
                 : i;
+        const int selectorOrderedGlyphIndex =
+            selectorOrderRanks[static_cast<size_t>(orderedGlyphIndex)];
         result.weights[static_cast<qsizetype>(i)] =
             calculateWeightForGlyph(
-                context.glyphs[static_cast<size_t>(i)], orderedGlyphIndex,
+                context.glyphs[static_cast<size_t>(i)], selectorOrderedGlyphIndex,
                 glyphCount,
                 clusterCount, lineCount, tagIndices[static_cast<size_t>(i)],
                 tagCount, rangeOnly);
@@ -388,6 +479,13 @@ void TextAnimatorEngine::applyAnimator(
     std::span<const float> extraWeights) {
     
     int n = (int)glyphs.size();
+    const std::vector<int> selectorOrder =
+        createOrderMap(n, selector.order);
+    std::vector<int> selectorOrderRanks(static_cast<size_t>(n));
+    for (int rank = 0; rank < n; ++rank) {
+        selectorOrderRanks[static_cast<size_t>(
+            selectorOrder[static_cast<size_t>(rank)])] = rank;
+    }
     int clusterCount = 0;
     int lineCount = 0;
     for (const auto& glyph : glyphs) {
@@ -416,10 +514,14 @@ void TextAnimatorEngine::applyAnimator(
         }
     }
     const int tagCount = tagOrder.size();
+    const std::vector<QPointF> anchorPoints =
+        buildAnchorPoints(glyphs, selector.anchorGrouping);
 
     for (int i = 0; i < n; ++i) {
         // セレクターの重み
-        float selectorWeight = calculateWeightForGlyph(glyphs[i], i, n,
+        float selectorWeight = calculateWeightForGlyph(
+                                                       glyphs[i],
+                                                       selectorOrderRanks[static_cast<size_t>(i)], n,
                                                        clusterCount, lineCount,
                                                        tagIndices[static_cast<size_t>(i)],
                                                        tagCount, selector);
@@ -452,6 +554,24 @@ void TextAnimatorEngine::applyAnimator(
             }
             continue;
         }
+
+        // Grouped scale/rotation move the glyph center around the shared
+        // anchor while the renderer keeps applying the local transform around
+        // the individual glyph center.
+        const QPointF glyphCenter = glyphs[i].bounds.center();
+        const QPointF relative =
+            glyphCenter - anchorPoints[static_cast<size_t>(i)];
+        const float weightedScale =
+            1.0f + (props.scale - 1.0f) * totalWeight;
+        const float radians = props.rotation * totalWeight *
+                              std::numbers::pi_v<float> / 180.0f;
+        const float cosine = std::cos(radians);
+        const float sine = std::sin(radians);
+        const QPointF scaled(relative.x() * weightedScale,
+                             relative.y() * weightedScale);
+        const QPointF transformed(scaled.x() * cosine - scaled.y() * sine,
+                                  scaled.x() * sine + scaled.y() * cosine);
+        glyphs[i].offsetPosition += transformed - relative;
 
         // トランスフォーム
         glyphs[i].offsetPosition += props.position * totalWeight;

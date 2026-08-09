@@ -52,6 +52,10 @@ cbuffer BlendParams : register(b0)
     float opacity;
     uint blendMode;
     float2 _pad;
+    uint displayMode;
+    uint displayComponentY;
+    uint displayComponentZ;
+    uint _displayPad;
 };
 
 #define CHECK_BOUNDS \
@@ -118,7 +122,22 @@ void main(uint3 id : SV_DispatchThreadID)
     OutTex.GetDimensions(outWidth, outHeight);
     if (id.x >= outWidth || id.y >= outHeight) return;
 
-    const float value = saturate(SrcTex[id.xy][min(component, 3u)]);
+    const float4 source = SrcTex[id.xy];
+    if (displayMode == 1u) {
+        OutTex[id.xy] = float4(source.rgb, 1.0);
+        return;
+    }
+    if (displayMode == 2u) {
+        OutTex[id.xy] = float4(source.rgb * 0.5 + 0.5, 1.0);
+        return;
+    }
+    if (displayMode == 3u) {
+        const float velocityX = source[min(displayComponentY, 3u)];
+        const float velocityY = source[min(displayComponentZ, 3u)];
+        OutTex[id.xy] = float4(velocityX, velocityY, 0.5, 1.0);
+        return;
+    }
+    const float value = saturate(source[min(component, 3u)]);
     OutTex[id.xy] = float4(value, value, value, 1.0);
 }
 )";

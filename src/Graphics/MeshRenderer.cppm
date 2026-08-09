@@ -298,8 +298,12 @@ cbuffer SceneLighting : register(b2) {
     float4 SceneCameraPosition;
 };
 
-float3 applyNormalMap(float3 position, float3 geometricNormal, float2 uv,
-                      float3 normalSample, float strength, float enabled) {
+// Keep this helper name distinct from the shader compiler's internal normal-map
+// lowering symbol.  The D3D12 compiler otherwise reports a spurious
+// potentially-uninitialized-variable warning for applyNormalMap while creating
+// the mesh PSO, and the PSO creation is rejected by the backend.
+float3 computeNormalMapped(float3 position, float3 geometricNormal, float2 uv,
+                           float3 normalSample, float strength, float enabled) {
     float3 N = normalize(geometricNormal);
     if (enabled < 0.5 || strength <= 0.0) {
         return N;
@@ -339,10 +343,10 @@ float4 PSMain(PSInput In) : SV_Target {
     float ao = lerp(1.0,
                     lerp(1.0, occlusionSample, saturate(PbrFactors.w)),
                     PbrTextureFlags.z);
-    float3 worldNormal = applyNormalMap(
+    float3 worldNormal = computeNormalMapped(
         In.WorldPosition, In.WorldNormal, In.UV, normalSample,
         PbrFactors.z, PbrTextureFlags.y);
-    float3 viewNormal = applyNormalMap(
+    float3 viewNormal = computeNormalMapped(
         In.ViewPosition, In.Normal, In.UV, normalSample,
         PbrFactors.z, PbrTextureFlags.y);
     if (In.Mode > 1.5 && In.Mode < 2.5) {
@@ -386,7 +390,7 @@ float4 PSMain(PSInput In) : SV_Target {
                 continue;
             }
 
-            float3 lightDirection;
+            float3 lightDirection = float3(0.0, 0.0, 1.0);
             float attenuation = 1.0;
             if (lightType == 0u) {
                 lightDirection = normalize(-light.DirectionIntensity.xyz);
@@ -629,6 +633,28 @@ void MeshRenderer::setPipelineStateCache(IPipelineStateCache* cache)
 void MeshRenderer::createBuffers()
 {
     auto pDevice = context_.RenderDevice();
+    if (!pDevice) {
+        return;
+    }
+
+    // initialize() may be called again when the mesh topology changes.
+    // Diligent requires every output RefCntAutoPtr to be empty before a new
+    // device object is written into it.
+    pImpl_->pPositionBuffer_.Release();
+    pImpl_->pNormalBuffer_.Release();
+    pImpl_->pUVBuffer_.Release();
+    pImpl_->pIndexBuffer_.Release();
+    pImpl_->pInstanceBuffer_.Release();
+    pImpl_->pCompactedInstanceBuffer_.Release();
+    pImpl_->pIndirectArgsBuffer_.Release();
+    pImpl_->pCullConstantsBuffer_.Release();
+    pImpl_->pConstantBuffer_.Release();
+    pImpl_->pMaterialBuffer_.Release();
+    pImpl_->pSceneLightingBuffer_.Release();
+    // Cached SRBs contain static bindings to the constant buffers above.
+    // They must not survive a buffer rebuild.
+    pImpl_->pipelineSets_.clear();
+
     pImpl_->gpuCullReady_ = false;
     pImpl_->gpuCullActive_ = false;
     
@@ -871,6 +897,18 @@ void MeshRenderer::createBuffers()
 void MeshRenderer::createPSO()
 {
     auto pDevice = context_.RenderDevice();
+    if (!pDevice) {
+        return;
+    }
+
+    // Diligent output parameters must be empty. createPSO() is also called
+    // when the active render-target format changes, so release the currently
+    // selected set before writing the new references.
+    pImpl_->pSRB_.Release();
+    pImpl_->pTransparentSRB_.Release();
+    pImpl_->pPSO_.Release();
+    pImpl_->pTransparentPSO_.Release();
+
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
     
     PSOCreateInfo.PSODesc.Name = "Mesh Instancing PSO";
@@ -902,21 +940,25 @@ void MeshRenderer::createPSO()
     PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = 3;
     std::array<LayoutElement, 3> layoutElements;
     // Position
-    layoutElements[0].HLSLSemantic = "ATTRIB0";
+    // D3D input layouts keep the semantic name and semantic index separate.
+    // The shader's ATTRIB0/1/2 declarations compile to name "ATTRIB" with
+    // indices 0/1/2.  Using "ATTRIB0" here creates a different semantic and
+    // makes CreateGraphicsPipelineState fail on D3D12.
+    layoutElements[0].HLSLSemantic = "ATTRIB";
     layoutElements[0].InputIndex = 0;
     layoutElements[0].BufferSlot = 0;
     layoutElements[0].NumComponents = 3;
     layoutElements[0].ValueType = VT_FLOAT32;
     layoutElements[0].IsNormalized = false;
     // Normal
-    layoutElements[1].HLSLSemantic = "ATTRIB1";
+    layoutElements[1].HLSLSemantic = "ATTRIB";
     layoutElements[1].InputIndex = 1;
     layoutElements[1].BufferSlot = 1;
     layoutElements[1].NumComponents = 3;
     layoutElements[1].ValueType = VT_FLOAT32;
     layoutElements[1].IsNormalized = false;
     // UV
-    layoutElements[2].HLSLSemantic = "ATTRIB2";
+    layoutElements[2].HLSLSemantic = "ATTRIB";
     layoutElements[2].InputIndex = 2;
     layoutElements[2].BufferSlot = 2;
     layoutElements[2].NumComponents = 2;

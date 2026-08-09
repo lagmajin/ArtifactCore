@@ -144,6 +144,12 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"Accessibility/PreferLargeTargets", "Prefer larger UI targets", QVariant::Bool, false});
     schema.registerProperty({"Accessibility/PreferHighContrastHints", "Prefer high contrast hints", QVariant::Bool, false});
     schema.registerProperty({"Accessibility/ReduceHoverDependency", "Reduce hover-only interactions", QVariant::Bool, false});
+    schema.registerProperty({"Accessibility/StickyKeysEnabled", "Enable sticky modifier keys", QVariant::Bool, false});
+    schema.registerProperty({"Accessibility/StickyKeysMode", "Sticky modifier key mode", QVariant::String, QStringLiteral("latch"), {}, {},
+                             {QStringLiteral("latch"), QStringLiteral("lock"), QStringLiteral("both")}});
+    schema.registerProperty({"Accessibility/SingleHandModeEnabled", "Enable single-hand modifier bindings", QVariant::Bool, false});
+    schema.registerProperty({"Accessibility/ViewportMagnifierEnabled", "Enable viewport magnifier", QVariant::Bool, false});
+    schema.registerProperty({"Accessibility/ViewportMagnifierScale", "Viewport magnifier scale", QVariant::Int, 2, 2, 8});
     schema.registerProperty({"File/RecentProjectPaths", "Recent project paths", QVariant::StringList, QStringList()});
     schema.registerProperty({"ContentsViewer/RecentSourcePaths", "Recent contents viewer sources", QVariant::StringList, QStringList()});
     schema.registerProperty({"ContentsViewer/LastSourcePath", "Last contents viewer source", QVariant::String, QString()});
@@ -725,6 +731,58 @@ bool ArtifactAppSettings::accessibilityReduceHoverDependency() const {
 
 void ArtifactAppSettings::setAccessibilityReduceHoverDependency(bool enable) {
     impl_->store.setValue(QStringLiteral("Accessibility/ReduceHoverDependency"), enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::accessibilityStickyKeysEnabled() const {
+    return impl_->store.valueBool(QStringLiteral("Accessibility/StickyKeysEnabled"), false);
+}
+
+void ArtifactAppSettings::setAccessibilityStickyKeysEnabled(bool enable) {
+    impl_->store.setValue(QStringLiteral("Accessibility/StickyKeysEnabled"), enable);
+    Q_EMIT settingsChanged();
+}
+
+QString ArtifactAppSettings::accessibilityStickyKeysMode() const {
+    const QString mode = impl_->store.valueString(
+        QStringLiteral("Accessibility/StickyKeysMode"), QStringLiteral("latch"));
+    return mode == QStringLiteral("lock") || mode == QStringLiteral("both")
+        ? mode : QStringLiteral("latch");
+}
+
+void ArtifactAppSettings::setAccessibilityStickyKeysMode(const QString& mode) {
+    const QString normalized = mode == QStringLiteral("lock") || mode == QStringLiteral("both")
+        ? mode : QStringLiteral("latch");
+    impl_->store.setValue(QStringLiteral("Accessibility/StickyKeysMode"), normalized);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::accessibilitySingleHandModeEnabled() const {
+    return impl_->store.valueBool(QStringLiteral("Accessibility/SingleHandModeEnabled"), false);
+}
+
+void ArtifactAppSettings::setAccessibilitySingleHandModeEnabled(bool enable) {
+    impl_->store.setValue(QStringLiteral("Accessibility/SingleHandModeEnabled"), enable);
+    Q_EMIT settingsChanged();
+}
+
+bool ArtifactAppSettings::accessibilityViewportMagnifierEnabled() const {
+    return impl_->store.valueBool(QStringLiteral("Accessibility/ViewportMagnifierEnabled"), false);
+}
+
+void ArtifactAppSettings::setAccessibilityViewportMagnifierEnabled(bool enable) {
+    impl_->store.setValue(QStringLiteral("Accessibility/ViewportMagnifierEnabled"), enable);
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::accessibilityViewportMagnifierScale() const {
+    return std::clamp(static_cast<int>(impl_->store.valueInt64(
+        QStringLiteral("Accessibility/ViewportMagnifierScale"), 2)), 2, 8);
+}
+
+void ArtifactAppSettings::setAccessibilityViewportMagnifierScale(int scale) {
+    impl_->store.setValue(QStringLiteral("Accessibility/ViewportMagnifierScale"),
+                          std::clamp(scale, 2, 8));
     Q_EMIT settingsChanged();
 }
 

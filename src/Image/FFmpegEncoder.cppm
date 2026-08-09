@@ -75,6 +75,7 @@ public:
     }
 
     bool open(const QString& outputPath, const FFmpegEncoderSettings& settings) {
+        lastError_.clear();
         if (isOpen_) {
             lastError_ = "Encoder is already open";
             return false;
@@ -905,16 +906,39 @@ public:
         }
 
         if (codecCtx_) {
-            avcodec_send_frame(codecCtx_, nullptr);
-            while (avcodec_receive_packet(codecCtx_, packet_) >= 0) {
+            const int flushResult = avcodec_send_frame(codecCtx_, nullptr);
+            if (flushResult < 0 && flushResult != AVERROR_EOF &&
+                lastError_.isEmpty()) {
+                lastError_ = QStringLiteral("Failed to flush encoder: %1")
+                    .arg(ffmpegErrorString(flushResult));
+            }
+            int receiveResult = 0;
+            while ((receiveResult =
+                        avcodec_receive_packet(codecCtx_, packet_)) >= 0) {
                 packet_->stream_index = stream_->index;
-                av_interleaved_write_frame(fmtCtx_, packet_);
+                const int writeResult =
+                    av_interleaved_write_frame(fmtCtx_, packet_);
+                if (writeResult < 0 && lastError_.isEmpty()) {
+                    lastError_ = QStringLiteral(
+                        "Failed to write delayed encoder packet: %1")
+                        .arg(ffmpegErrorString(writeResult));
+                }
                 av_packet_unref(packet_);
+            }
+            if (receiveResult < 0 && receiveResult != AVERROR_EOF &&
+                receiveResult != AVERROR(EAGAIN) && lastError_.isEmpty()) {
+                lastError_ = QStringLiteral(
+                    "Failed while draining encoder packets: %1")
+                    .arg(ffmpegErrorString(receiveResult));
             }
         }
 
         if (fmtCtx_) {
-            av_write_trailer(fmtCtx_);
+            const int trailerResult = av_write_trailer(fmtCtx_);
+            if (trailerResult < 0 && lastError_.isEmpty()) {
+                lastError_ = QStringLiteral("Failed to write output trailer: %1")
+                    .arg(ffmpegErrorString(trailerResult));
+            }
         }
 
         if (packet_) {
@@ -930,7 +954,11 @@ public:
             avcodec_free_context(&codecCtx_);
         }
         if (fmtCtx_ && !(fmtCtx_->oformat->flags & AVFMT_NOFILE)) {
-            avio_closep(&fmtCtx_->pb);
+            const int closeResult = avio_closep(&fmtCtx_->pb);
+            if (closeResult < 0 && lastError_.isEmpty()) {
+                lastError_ = QStringLiteral("Failed to close output stream: %1")
+                    .arg(ffmpegErrorString(closeResult));
+            }
         }
         if (fmtCtx_) {
             avformat_free_context(fmtCtx_);

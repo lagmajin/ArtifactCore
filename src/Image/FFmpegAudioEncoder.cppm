@@ -4,6 +4,7 @@ module;
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QDebug>
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -105,6 +106,29 @@ bool FFmpegAudioEncoder::muxAudioWithVideo(
     int outputChannels,
     int outputSampleRate)
 {
+    g_lastAudioError.clear();
+    qInfo() << "[FFmpegAudioEncoder][Mux] begin"
+            << "video=" << videoPath
+            << "audio=" << audioPath
+            << "output=" << outputPath
+            << "codec=" << audioCodec
+            << "bitrate=" << audioBitrate
+            << "channels=" << outputChannels
+            << "sampleRate=" << outputSampleRate;
+    struct MuxDiagnosticScope {
+        QString outputPath;
+        ~MuxDiagnosticScope() {
+            if (g_lastAudioError.isEmpty()) {
+                qInfo() << "[FFmpegAudioEncoder][Mux] completed"
+                        << "output=" << outputPath;
+            } else {
+                qWarning() << "[FFmpegAudioEncoder][Mux] failed"
+                           << "output=" << outputPath
+                           << "reason=" << g_lastAudioError;
+            }
+        }
+    } muxDiagnostic{outputPath};
+
     // 入力ファイルを開く
     AVFormatContext* videoFmtCtx = nullptr;
     int ret = avformat_open_input(&videoFmtCtx, videoPath.toUtf8().constData(), nullptr, nullptr);

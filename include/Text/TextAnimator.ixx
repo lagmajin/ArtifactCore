@@ -62,6 +62,8 @@ export struct RangeSelector {
   float offset = 0.0f;
   SelectorUnits units = SelectorUnits::Percentage;
   SelectorShape shape = SelectorShape::Square;
+  SelectorOrder order = SelectorOrder::Natural;
+  AnchorPointGrouping anchorGrouping = AnchorPointGrouping::Character;
   bool regexEnabled = false;
   QString selectorPattern;
   float easeHigh = 0.0f;
