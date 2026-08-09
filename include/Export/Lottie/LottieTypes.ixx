@@ -188,6 +188,7 @@ struct LottieLayer {
     std::string textFont = "Arial";
     double textFontSize = 24.0;
     std::vector<double> textColor{1.0, 1.0, 1.0};
+    int textAlignment = 0;
 };
 
 struct LottiePrecompAsset {

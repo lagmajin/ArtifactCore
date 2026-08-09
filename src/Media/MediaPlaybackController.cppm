@@ -474,6 +474,9 @@ class MediaPlaybackController::Impl {
           fps_ = static_cast<double>(stream->nb_frames) /
                  (static_cast<double>(durationMs_) / 1000.0);
         }
+        if (fps_ <= 0.0) {
+          fps_ = 30.0;
+        }
         if (stream->nb_frames > 0) {
           totalFrames_ = stream->nb_frames;
         } else if (durationMs_ > 0 && fps_ > 0.0) {

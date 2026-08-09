@@ -316,7 +316,7 @@ QJsonObject layer(const LottieLayer& value) {
         QJsonArray color;
         for (const double component : value.textColor) color.append(component);
         textDocument.insert(QStringLiteral("fc"), color);
-        textDocument.insert(QStringLiteral("j"), 0);
+        textDocument.insert(QStringLiteral("j"), std::clamp(value.textAlignment, 0, 3));
         textDocument.insert(QStringLiteral("tr"), 0);
         QJsonObject keyframe;
         keyframe.insert(QStringLiteral("t"), 0);

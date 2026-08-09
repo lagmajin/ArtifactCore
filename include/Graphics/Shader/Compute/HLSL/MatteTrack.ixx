@@ -8,7 +8,7 @@ export namespace ArtifactCore::Shaders::MatteTrack
 
 // Constants
 // matteMode: 0=Alpha, 1=Luminance, 2=AlphaInverted, 3=LuminanceInverted
-// stackMode: 0=Add, 1=Common(min), 2=Subtract
+// blendMode: 0=Add, 1=Intersect(min), 2=Subtract, 3=Difference
 inline constexpr const char* MatteTrackSource = R"(
 cbuffer MatteTrackParams : register(b0)
 {
@@ -16,10 +16,13 @@ cbuffer MatteTrackParams : register(b0)
     uint  g_MatteMode0;           // matte source 0 mode
     uint  g_MatteMode1;           // matte source 1 mode
     uint  g_MatteMode2;           // matte source 2 mode
-    uint  g_StackMode;            // combine mode across sources
+    uint  g_MatteBlendMode0;     // 0=Add, 1=Intersect, 2=Subtract, 3=Difference
+    uint  g_MatteBlendMode1;
+    uint  g_MatteBlendMode2;
     uint  g_LumaMode;             // 0=Rec.601, 1=Rec.709 (for luminance extraction)
-    float g_Opacity;              // master matte opacity [0,1]
-    float _pad0;
+    float g_MatteOpacity0;
+    float g_MatteOpacity1;
+    float g_MatteOpacity2;
 };
 
 Texture2D<float4>  g_LayerTex    : register(t0);
@@ -49,10 +52,11 @@ float extractMask(float4 color, uint mode, float3 lumaCoeffs)
 
 float combineMasks(float a, float b, uint mode)
 {
-    // mode: 0=Add, 1=Common(min), 2=Subtract
+    // mode: 0=Add, 1=Intersect(min), 2=Subtract, 3=Difference
     if (mode == 0) return saturate(a + b);
     if (mode == 1) return min(a, b);
-    return saturate(a - b); // Subtract
+    if (mode == 2) return saturate(a - b);
+    return abs(a - b);
 }
 
 [numthreads(16, 16, 1)]
@@ -69,23 +73,20 @@ void MatteTrackCS(uint3 id : SV_DispatchThreadID)
 
     [branch] if (g_MatteCount > 0) {
         float4 matteColor = g_MatteSrc0.Load(int3(id.xy, 0));
-        combinedMask = extractMask(matteColor, g_MatteMode0, lumaCoeffs);
+        combinedMask = extractMask(matteColor, g_MatteMode0, lumaCoeffs) * g_MatteOpacity0;
     }
 
     [branch] if (g_MatteCount > 1) {
         float4 matteColor = g_MatteSrc1.Load(int3(id.xy, 0));
-        float mask = extractMask(matteColor, g_MatteMode1, lumaCoeffs);
-        combinedMask = combineMasks(combinedMask, mask, g_StackMode);
+        float mask = extractMask(matteColor, g_MatteMode1, lumaCoeffs) * g_MatteOpacity1;
+        combinedMask = combineMasks(combinedMask, mask, g_MatteBlendMode1);
     }
 
     [branch] if (g_MatteCount > 2) {
         float4 matteColor = g_MatteSrc2.Load(int3(id.xy, 0));
-        float mask = extractMask(matteColor, g_MatteMode2, lumaCoeffs);
-        combinedMask = combineMasks(combinedMask, mask, g_StackMode);
+        float mask = extractMask(matteColor, g_MatteMode2, lumaCoeffs) * g_MatteOpacity2;
+        combinedMask = combineMasks(combinedMask, mask, g_MatteBlendMode2);
     }
-
-    // Apply opacity scalar
-    combinedMask *= g_Opacity;
 
     // Apply mask to layer (uniform premultiplied-alpha multiply)
     float4 layerColor = g_LayerTex.Load(int3(id.xy, 0));

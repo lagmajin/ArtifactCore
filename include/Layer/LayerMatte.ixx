@@ -136,9 +136,13 @@ public:
 
     static MatteNode fromJson(const QJsonObject& obj) {
         MatteNode node;
-        node.id_ = MatteNodeId(obj["id"].toString());
+        if (obj.contains(QStringLiteral("id"))) {
+            node.id_ = MatteNodeId(obj["id"].toString());
+        }
         node.sourceLayerId_ = Id(obj["sourceLayerId"].toString());
-        node.mode_ = MatteModeUtils::fromString(obj["mode"].toString());
+        if (obj.contains(QStringLiteral("mode"))) {
+            node.mode_ = MatteModeUtils::fromString(obj["mode"].toString());
+        }
         node.enabled_ = obj["enabled"].toBool(true);
         node.order_ = obj["order"].toInt(0);
         return node;
@@ -178,7 +182,7 @@ public:
 
     bool isEmpty() const {
         for (const auto& n : nodes_) {
-            if (n.isEnabled()) return false;
+            if (n.isEnabled() && !n.sourceLayerId().isNil()) return false;
         }
         return true;
     }
@@ -194,8 +198,12 @@ public:
     }
 
     bool hasCycleWithLayer(const Id& layerId) const {
+        if (layerId.isNil()) {
+            return false;
+        }
         for (const auto& n : nodes_) {
-            if (n.isEnabled() && n.sourceLayerId() == layerId) {
+            if (n.isEnabled() && !n.sourceLayerId().isNil() &&
+                n.sourceLayerId() == layerId) {
                 return true;
             }
         }
@@ -271,9 +279,10 @@ inline MatteEvaluationResult evaluateMatteStack(
 
     const auto& nodes = stack.nodes();
     int sourceIndex = 0;
+    bool hasCurrent = false;
 
     for (const auto& node : nodes) {
-        if (!node.isEnabled()) {
+        if (!node.isEnabled() || node.sourceLayerId().isNil()) {
             continue;
         }
         if (sourceIndex >= static_cast<int>(sources.size())) {
@@ -296,6 +305,12 @@ inline MatteEvaluationResult evaluateMatteStack(
             buildMatteMask(i);
         }
 
+        if (!hasCurrent) {
+            result.alphaMask = std::move(matteMask);
+            hasCurrent = true;
+            continue;
+        }
+
         const MatteStackMode stackMode = stack.stackMode();
         const auto combineMatteMask = [&](size_t i) {
                 switch (stackMode) {
@@ -316,6 +331,10 @@ inline MatteEvaluationResult evaluateMatteStack(
         for (size_t i = 0; i < pixelCount; ++i) {
             combineMatteMask(i);
         }
+    }
+
+    if (!hasCurrent) {
+        std::fill(result.alphaMask.begin(), result.alphaMask.end(), 1.0f);
     }
 
     return result;

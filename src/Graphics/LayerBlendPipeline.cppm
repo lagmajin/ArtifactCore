@@ -21,10 +21,13 @@ cbuffer MatteTrackParams : register(b0)
     uint  g_MatteMode0;
     uint  g_MatteMode1;
     uint  g_MatteMode2;
-    uint  g_StackMode;
+    uint  g_MatteBlendMode0;
+    uint  g_MatteBlendMode1;
+    uint  g_MatteBlendMode2;
     uint  g_LumaMode;
-    float g_Opacity;
-    float _pad0;
+    float g_MatteOpacity0;
+    float g_MatteOpacity1;
+    float g_MatteOpacity2;
 };
 
 Texture2D<float4>  g_LayerTex  : register(t0);
@@ -54,7 +57,8 @@ float combineMasks(float a, float b, uint mode)
 {
     if (mode == 0) return saturate(a + b);
     if (mode == 1) return min(a, b);
-    return saturate(a - b);
+    if (mode == 2) return saturate(a - b);
+    return abs(a - b);
 }
 
 [numthreads(16, 16, 1)]
@@ -69,22 +73,20 @@ void MatteTrackCS(uint3 id : SV_DispatchThreadID)
 
     [branch] if (g_MatteCount > 0) {
         float4 matteColor = g_MatteSrc0.Load(int3(id.xy, 0));
-        combinedMask = extractMask(matteColor, g_MatteMode0, lumaCoeffs);
+        combinedMask = extractMask(matteColor, g_MatteMode0, lumaCoeffs) * g_MatteOpacity0;
     }
 
     [branch] if (g_MatteCount > 1) {
         float4 matteColor = g_MatteSrc1.Load(int3(id.xy, 0));
-        float mask = extractMask(matteColor, g_MatteMode1, lumaCoeffs);
-        combinedMask = combineMasks(combinedMask, mask, g_StackMode);
+        float mask = extractMask(matteColor, g_MatteMode1, lumaCoeffs) * g_MatteOpacity1;
+        combinedMask = combineMasks(combinedMask, mask, g_MatteBlendMode1);
     }
 
     [branch] if (g_MatteCount > 2) {
         float4 matteColor = g_MatteSrc2.Load(int3(id.xy, 0));
-        float mask = extractMask(matteColor, g_MatteMode2, lumaCoeffs);
-        combinedMask = combineMasks(combinedMask, mask, g_StackMode);
+        float mask = extractMask(matteColor, g_MatteMode2, lumaCoeffs) * g_MatteOpacity2;
+        combinedMask = combineMasks(combinedMask, mask, g_MatteBlendMode2);
     }
-
-    combinedMask *= g_Opacity;
 
     float4 layerColor = g_LayerTex.Load(int3(id.xy, 0));
     g_OutTex[id.xy] = float4(layerColor.rgb * combinedMask, layerColor.a * combinedMask);

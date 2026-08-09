@@ -41,11 +41,18 @@ export namespace ArtifactCore
    unsigned int matteMode0 = 0;   // 0=Alpha, 1=Luma, 2=AlphaInv, 3=LumaInv
    unsigned int matteMode1 = 0;
    unsigned int matteMode2 = 0;
-   unsigned int stackMode = 0;    // 0=Add, 1=Common, 2=Subtract
-   unsigned int lumaMode = 0;     // 0=Rec.601, 1=Rec.709
-   float opacity = 1.0f;
-   float _pad0 = 0.0f;
+   unsigned int matteBlendMode0 = 0; // 0=Add, 1=Intersect, 2=Subtract, 3=Difference
+   unsigned int matteBlendMode1 = 0;
+   unsigned int matteBlendMode2 = 0;
+   unsigned int lumaMode = 0;        // 0=Rec.601, 1=Rec.709
+   float matteOpacity0 = 1.0f;
+   float matteOpacity1 = 1.0f;
+   float matteOpacity2 = 1.0f;
   };
+
+  // The HLSL MatteTrackParams cbuffer is three 16-byte registers (48 bytes).
+  static_assert(sizeof(MatteTrackParams) == 48,
+                "MatteTrackParams must match the HLSL constant buffer layout");
 
  class LIBRARY_DLL_API LayerBlendPipeline
  {

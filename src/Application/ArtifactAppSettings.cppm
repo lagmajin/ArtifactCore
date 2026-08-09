@@ -50,7 +50,7 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"UI/Composition/ShowSafeMargins", "Show safe margins", QVariant::Bool, false});
     schema.registerProperty({"UI/Composition/ShowAnchorCenterOverlay", "Show anchor center overlay", QVariant::Bool, false});
     schema.registerProperty({"UI/Composition/ShowCameraFrustumOverlay", "Show camera frustum overlay", QVariant::Bool, false});
-    schema.registerProperty({"UI/Composition/ShowMotionPathOverlay", "Show motion path overlay", QVariant::Bool, false});
+    schema.registerProperty({"UI/Composition/ShowMotionPathOverlay", "Show motion path overlay", QVariant::Bool, true});
     schema.registerProperty({"Viewport/RotationSnapDegrees", "Viewport rotation snap step", QVariant::Double, 45.0, 15.0, 90.0,
                              {15.0, 30.0, 45.0, 90.0}});
     schema.registerProperty({"AssetBrowser/StatusFilter", "Asset browser status filter", QVariant::String, QStringLiteral("all")});
@@ -456,7 +456,7 @@ void ArtifactAppSettings::setCompositionShowCameraFrustumOverlay(bool enable) {
 }
 
 bool ArtifactAppSettings::compositionShowMotionPathOverlay() const {
-    return impl_->store.valueBool("UI/Composition/ShowMotionPathOverlay", false);
+    return impl_->store.valueBool("UI/Composition/ShowMotionPathOverlay", true);
 }
 
 void ArtifactAppSettings::setCompositionShowMotionPathOverlay(bool enable) {

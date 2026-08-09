@@ -4,6 +4,7 @@ module;
 #include <vector>
 #include <memory>
 #include <functional>
+#include <mutex>
 #include <QString>
 #include <QDebug>
 #include <QDateTime>
@@ -86,12 +87,19 @@ public:
     void setPolicy(FallbackCategory category, const FallbackPolicy& policy);
     FallbackPolicy policy(FallbackCategory category) const;
 
-    bool warningsEnabled() const { return warningsEnabled_; }
-    void setWarningsEnabled(bool enabled) { warningsEnabled_ = enabled; }
+    bool warningsEnabled() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return warningsEnabled_;
+    }
+    void setWarningsEnabled(bool enabled) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        warningsEnabled_ = enabled;
+    }
 
 private:
     FallbackTracker() = default;
 
+    mutable std::mutex mutex_;
     std::vector<FallbackEvent> events_;
     bool warningsEnabled_ = true;
     FallbackPolicy fontPolicy_{FallbackPolicy::defaultFont()};

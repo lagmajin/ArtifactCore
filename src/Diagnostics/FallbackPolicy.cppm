@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <algorithm>
+#include <mutex>
 #include <QDateTime>
 #include <QDebug>
 
@@ -14,6 +15,7 @@ FallbackTracker* FallbackTracker::instance() {
 }
 
 void FallbackTracker::record(const FallbackEvent& event) {
+    std::lock_guard<std::mutex> lock(mutex_);
     events_.push_back(event);
     if (event.isWarning && warningsEnabled_) {
         qWarning() << "[FallbackTracker]" << event.message
@@ -37,10 +39,12 @@ void FallbackTracker::record(FallbackCategory category, FallbackAction action,
 }
 
 std::vector<FallbackEvent> FallbackTracker::getEvents() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return events_;
 }
 
 std::vector<FallbackEvent> FallbackTracker::getEventsByCategory(FallbackCategory category) const {
+    std::lock_guard<std::mutex> lock(mutex_);
     std::vector<FallbackEvent> result;
     for (const auto& e : events_) {
         if (e.category == category) {
@@ -51,6 +55,7 @@ std::vector<FallbackEvent> FallbackTracker::getEventsByCategory(FallbackCategory
 }
 
 std::vector<FallbackEvent> FallbackTracker::getEventsSince(const QDateTime& since) const {
+    std::lock_guard<std::mutex> lock(mutex_);
     std::vector<FallbackEvent> result;
     for (const auto& e : events_) {
         if (e.timestamp >= since) {
@@ -61,14 +66,17 @@ std::vector<FallbackEvent> FallbackTracker::getEventsSince(const QDateTime& sinc
 }
 
 void FallbackTracker::clear() {
+    std::lock_guard<std::mutex> lock(mutex_);
     events_.clear();
 }
 
 int FallbackTracker::totalCount() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return static_cast<int>(events_.size());
 }
 
 int FallbackTracker::countByCategory(FallbackCategory category) const {
+    std::lock_guard<std::mutex> lock(mutex_);
     int count = 0;
     for (const auto& e : events_) {
         if (e.category == category) ++count;
@@ -77,6 +85,7 @@ int FallbackTracker::countByCategory(FallbackCategory category) const {
 }
 
 bool FallbackTracker::hasWarnings() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     for (const auto& e : events_) {
         if (e.isWarning) return true;
     }
@@ -84,6 +93,7 @@ bool FallbackTracker::hasWarnings() const {
 }
 
 void FallbackTracker::setPolicy(FallbackCategory category, const FallbackPolicy& policy) {
+    std::lock_guard<std::mutex> lock(mutex_);
     switch (category) {
     case FallbackCategory::Font: fontPolicy_ = policy; break;
     case FallbackCategory::Image: imagePolicy_ = policy; break;
@@ -94,6 +104,7 @@ void FallbackTracker::setPolicy(FallbackCategory category, const FallbackPolicy&
 }
 
 FallbackPolicy FallbackTracker::policy(FallbackCategory category) const {
+    std::lock_guard<std::mutex> lock(mutex_);
     switch (category) {
     case FallbackCategory::Font: return fontPolicy_;
     case FallbackCategory::Image: return imagePolicy_;

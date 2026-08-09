@@ -78,9 +78,9 @@ float MatteEvaluator::combine(float current, float next, MatteStackMode mode)
         case MatteStackMode::Add:
             return clamp01(current + next);
         case MatteStackMode::Common:
-            return clamp01(current * next);
+            return std::min(current, next);
         case MatteStackMode::Subtract:
-            return clamp01(current * (1.0f - next));
+            return std::max(0.0f, current - next);
         default:
             return current;
     }

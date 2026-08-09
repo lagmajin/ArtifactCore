@@ -23,6 +23,7 @@ enum class DccStylePreset {
   MayaStyle,
   ModoStyle,
   StudioStyle,
+  CalmStyle,
   BlenderStyle,
   DaVinciStyle,
   _3dsMaxStyle,
@@ -61,6 +62,8 @@ QString LIBRARY_DLL_API themePresetKey(DccStylePreset preset) {
     return QStringLiteral("Modo");
   case DccStylePreset::StudioStyle:
     return QStringLiteral("Studio");
+  case DccStylePreset::CalmStyle:
+    return QStringLiteral("Calm");
   case DccStylePreset::BlenderStyle:
     return QStringLiteral("Blender");
   case DccStylePreset::DaVinciStyle:
@@ -99,6 +102,10 @@ DccStylePreset LIBRARY_DLL_API themePresetFromName(const QString& name) {
       key.compare(QStringLiteral("StudioStyle"), Qt::CaseInsensitive) == 0 ||
       key.compare(QStringLiteral("Dark"), Qt::CaseInsensitive) == 0) {
     return DccStylePreset::StudioStyle;
+  }
+  if (key.compare(QStringLiteral("Calm"), Qt::CaseInsensitive) == 0 ||
+      key.compare(QStringLiteral("CalmStyle"), Qt::CaseInsensitive) == 0) {
+    return DccStylePreset::CalmStyle;
   }
   if (key.compare(QStringLiteral("Blender"), Qt::CaseInsensitive) == 0 ||
       key.compare(QStringLiteral("BlenderStyle"), Qt::CaseInsensitive) == 0) {
@@ -247,6 +254,18 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
     theme.buttonColor = "#32363D";
     theme.buttonHoverColor = "#3A4048";
     theme.buttonPressedColor = "#292D33";
+    break;
+  case DccStylePreset::CalmStyle:
+    // Low-saturation, neutral-blue tokens for the sensory-friendly preset.
+    theme.accentColor = "#6A8CA0";
+    theme.textColor = "#C0C0C4";
+    theme.backgroundColor = "#2A2A2E";
+    theme.secondaryBackgroundColor = "#323238";
+    theme.selectionColor = "#506070";
+    theme.borderColor = "#46464C";
+    theme.buttonColor = "#35353B";
+    theme.buttonHoverColor = "#404049";
+    theme.buttonPressedColor = "#2E2E34";
     break;
   case DccStylePreset::BlenderStyle:
     theme.accentColor = "#F5792A";

@@ -331,60 +331,70 @@ auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<
                 }
             }
 
-            QSet<QString> visited;
-            QString currentId = layerId;
+            QSet<QString> path;
             QStringList chain;
-            bool hasCycle = false;
-
-            while (!currentId.isEmpty()) {
-                if (visited.contains(currentId)) {
-                    hasCycle = true;
-                    break;
+            const auto reportCycle = [&](const QString& cycleId) -> void {
+                const int cycleStart = chain.indexOf(cycleId);
+                if (cycleStart < 0) {
+                    return;
                 }
-                visited.insert(currentId);
-                chain.push_back(currentId);
+
+                QStringList cycleIds;
+                for (int i = cycleStart; i < chain.size(); ++i) {
+                    cycleIds.push_back(chain.at(i));
+                }
+                const QStringList sortedCycleIds = [&cycleIds] {
+                    QStringList sorted = cycleIds;
+                    std::sort(sorted.begin(), sorted.end());
+                    return sorted;
+                }();
+                const QString cycleKey = sortedCycleIds.join(QStringLiteral("|"));
+                if (reportedCycles.contains(cycleKey)) {
+                    return;
+                }
+                reportedCycles.insert(cycleKey);
+
+                QStringList cycleNames;
+                for (const auto& id : cycleIds) {
+                    const auto chainLayer = layerMap.value(id);
+                    cycleNames.push_back(chainLayer ? chainLayer->layerName() : id);
+                }
+                const auto closingLayer = layerMap.value(cycleId);
+                cycleNames.push_back(closingLayer ? closingLayer->layerName()
+                                                  : cycleId);
+                diagnostics.push_back(ProjectDiagnostic::createCircularDependency(
+                    cycleNames.join(QStringLiteral(" -> ")), compId));
+            };
+
+            const auto visit = [&](const QString& currentId,
+                                   const auto& self) -> void {
+                if (path.contains(currentId)) {
+                    reportCycle(currentId);
+                    return;
+                }
 
                 const auto currentLayer = layerMap.value(currentId);
                 if (!currentLayer) {
-                    break;
+                    return;
                 }
 
-                const auto refs = currentLayer->matteReferences();
-                QString nextId;
-                for (const auto& matteRef : refs) {
-                    if (matteRef.enabled && !matteRef.sourceLayerId.isNil()) {
-                        nextId = matteRef.sourceLayerId.toString();
-                        break;
+                path.insert(currentId);
+                chain.push_back(currentId);
+                for (const auto& matteRef : currentLayer->matteReferences()) {
+                    if (!matteRef.enabled || matteRef.sourceLayerId.isNil()) {
+                        continue;
                     }
+                    const QString nextId = matteRef.sourceLayerId.toString();
+                    if (!layerMap.contains(nextId) || nextId == currentId) {
+                        continue;
+                    }
+                    self(nextId, self);
                 }
+                chain.removeLast();
+                path.remove(currentId);
+            };
 
-                if (nextId.isEmpty()) {
-                    break;
-                }
-                currentId = nextId;
-            }
-
-            if (hasCycle) {
-                const int cycleStart = chain.indexOf(currentId);
-                QStringList cycleNames;
-                if (cycleStart >= 0) {
-                    for (int i = cycleStart; i < chain.size(); ++i) {
-                        const auto chainLayer = layerMap.value(chain.at(i));
-                        cycleNames.push_back(chainLayer ? chainLayer->layerName() : chain.at(i));
-                    }
-                } else {
-                    for (const auto& id : chain) {
-                        const auto chainLayer = layerMap.value(id);
-                        cycleNames.push_back(chainLayer ? chainLayer->layerName() : id);
-                    }
-                }
-                cycleNames.push_back(layerMap.value(currentId) ? layerMap.value(currentId)->layerName() : currentId);
-                const QString cycle = cycleNames.join(QStringLiteral(" -> "));
-                if (!reportedCycles.contains(cycle)) {
-                    reportedCycles.insert(cycle);
-                    diagnostics.push_back(ProjectDiagnostic::createCircularDependency(cycle, compId));
-                }
-            }
+            visit(layerId, visit);
         }
 
         for (auto* child : item->children) {
