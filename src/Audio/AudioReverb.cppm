@@ -49,8 +49,10 @@ void AudioReverb::process(AudioSegment& segment, const AudioSegment* /*sideChain
     }
     int totalComb = needed * 4;
     if (combBufSize_ < totalComb) {
-        combBuffers_.assign(totalComb, 0.0f);
+        combBuffers_.assign(static_cast<std::size_t>(totalComb) * 2, 0.0f);
         combBufSize_ = totalComb;
+        writePositions_[0] = 0;
+        writePositions_[1] = 0;
     }
     if (static_cast<int>(allpassBuffer_.size()) < needed) {
         allpassBuffer_.assign(needed, 0.0f);
@@ -61,16 +63,22 @@ void AudioReverb::process(AudioSegment& segment, const AudioSegment* /*sideChain
         const int samples = std::min(frames, segment.channelData[ch].size());
         if (samples <= 0) continue;
         float* data = segment.channelData[ch].data();
+        int& writePos = writePositions_[ch];
+        writePos %= needed;
+        const std::size_t channelOffset =
+            static_cast<std::size_t>(ch) * static_cast<std::size_t>(totalComb);
 
         for (int i = 0; i < samples; ++i) {
             const float input = std::isfinite(data[i]) ? data[i] : 0.0f;
             float output = 0.0f;
 
             for (int c = 0; c < 4; ++c) {
-                int idx = i % needed;
+                const int idx = writePos;
+                const std::size_t combOffset =
+                    channelOffset + static_cast<std::size_t>(c) * needed;
                 const float bufOut = saturateReverbSample(
-                    combBuffers_[c * needed + (idx + combDelays[c]) % needed]);
-                combBuffers_[c * needed + idx] = saturateReverbSample(
+                    combBuffers_[combOffset + (idx + combDelays[c]) % needed]);
+                combBuffers_[combOffset + idx] = saturateReverbSample(
                     bufOut + input * decay);
                 output = saturateReverbSample(output + bufOut);
             }
@@ -78,6 +86,7 @@ void AudioReverb::process(AudioSegment& segment, const AudioSegment* /*sideChain
 
             data[i] = saturateReverbSample(
                 input * (1.0f - mix) + output * mix);
+            writePos = (writePos + 1) % needed;
         }
     }
 }

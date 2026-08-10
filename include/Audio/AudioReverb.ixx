@@ -55,6 +55,7 @@ private:
     // Instance-safe buffers (was thread_local)
     std::vector<float> combBuffers_;
     int combBufSize_ = 0;
+    int writePositions_[2] = {0, 0};
     std::vector<float> allpassBuffer_;
 };
 
