@@ -42,7 +42,7 @@ public:
     float normalizationGainDb(float targetLufs) const;
     bool normalizeToTargetLufs(AudioSegment& segment, float targetLufs);
     
-    void setBins(int bins) { bins_ = bins; }
+    void setBins(int bins) { bins_ = bins > 0 ? bins : 1; }
     int getBins() const { return bins_; }
 
 private:

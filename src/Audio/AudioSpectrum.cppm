@@ -47,7 +47,15 @@ bool AudioSpectrum::normalizeToTargetLufs(AudioSegment& segment, float targetLuf
 
 void AudioSpectrum::computeFFT(const std::vector<float>& input, std::vector<float>& output) {
     // 簡易DFT実装（FFTはQtMultimedia::QAudioSpectrum や外部ライブラリを推奨）
+    if (input.empty() || output.empty()) {
+        std::fill(output.begin(), output.end(), 0.0f);
+        return;
+    }
     const int n = static_cast<int>(std::min(input.size(), output.size() * 2));
+    if (n <= 0) {
+        std::fill(output.begin(), output.end(), 0.0f);
+        return;
+    }
     const int halfN = n / 2;
     
     for (int k = 0; k < static_cast<int>(output.size()); ++k) {
@@ -65,7 +73,19 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
 
     const int channels = segment.channelCount();
     const int frames = segment.frameCount();
-    if (channels == 0 || frames == 0) return;
+    if (channels == 0 || frames == 0) {
+        spectrum_.assign(std::max(1, bins_), 0.0f);
+        waveform_.assign(1024, 0.0f);
+        momentaryLufs_ = -std::numeric_limits<float>::infinity();
+        integratedLufs_ = momentaryLufs_;
+        peakDb_ = momentaryLufs_;
+        truePeakDb_ = momentaryLufs_;
+        integratedEnergySum_ = 0.0;
+        integratedFrameCount_ = 0;
+        lastEndFrame_ = -1;
+        spectrumReady_.store(false, std::memory_order_release);
+        return;
+    }
 
     // Compute a deterministic loudness estimate from the non-LFE channels.
     // This keeps the meter useful for all existing AudioSegment layouts while
