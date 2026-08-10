@@ -76,10 +76,13 @@ void AudioAnalyzer::computeFFT(std::vector<std::complex<float>>& data) {
 }
 
 float AudioAnalyzer::getIntensity(const std::vector<float>& spectrum, float freqStart, float freqEnd, int sampleRate) {
-    if (spectrum.empty()) return 0.0f;
+    if (spectrum.empty() || sampleRate <= 0 ||
+        !std::isfinite(freqStart) || !std::isfinite(freqEnd) ||
+        freqStart > freqEnd) return 0.0f;
     
     int n = static_cast<int>(spectrum.size());
     float binSize = static_cast<float>(sampleRate) / (2.0f * (n - 1));
+    if (!std::isfinite(binSize) || binSize <= 0.0f) return 0.0f;
     
     int startIdx = static_cast<int>(freqStart / binSize);
     int endIdx = static_cast<int>(freqEnd / binSize);
@@ -104,7 +107,7 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
     if (frames == 0) return result;
 
     // 1. RMS と Peak の計算
-    float sumSq = 0.0f;
+    double sumSq = 0.0;
     float maxAbs = 0.0f;
     
     // ステレオならミックスして処理するか、全チャンネル平均
@@ -116,14 +119,17 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
             ? std::min(frames, segment.channelData[c].size())
             : 0;
         for (int i = 0; i < availableFrames; ++i) {
-            float s = data[i];
+            const float s = data[i];
+            if (!std::isfinite(s)) continue;
             *monoData.at(static_cast<std::size_t>(i)) += s;
-            sumSq += s * s;
+            sumSq += static_cast<double>(s) * s;
             maxAbs = std::max(maxAbs, std::abs(s));
         }
     }
-    
-    result.rms = std::sqrt(sumSq / (frames * channels));
+
+    const double sampleCount = static_cast<double>(frames) * channels;
+    if (sampleCount <= 0.0 || !std::isfinite(sampleCount)) return result;
+    result.rms = static_cast<float>(std::sqrt(sumSq / sampleCount));
     result.peak = maxAbs;
 
     // 2. FFT解析 (モノラルミックスで行う)

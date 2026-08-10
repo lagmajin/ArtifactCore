@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <utility>
 
@@ -32,8 +33,10 @@ WaveformData AudioRasterizer::rasterize(const QVector<float>& samples,
   result.minValues.reserve(bins);
   result.maxValues.reserve(bins);
   for (int bin = 0; bin < bins; ++bin) {
-    const int first = (bin * samples.size()) / bins;
-    const int last = std::max(first + 1, ((bin + 1) * static_cast<int>(samples.size())) / bins);
+    const int first = static_cast<int>(
+        (static_cast<std::int64_t>(bin) * samples.size()) / bins);
+    const int last = std::max(first + 1, static_cast<int>(
+        (static_cast<std::int64_t>(bin + 1) * samples.size()) / bins));
     appendRange(samples, first, std::min(last, static_cast<int>(samples.size())),
                 result.minValues, result.maxValues);
   }
@@ -50,9 +53,10 @@ WaveformData AudioRasterizer::rasterizeInterleaved(
   result.minValues.reserve(bins);
   result.maxValues.reserve(bins);
   for (int bin = 0; bin < bins; ++bin) {
-    const int firstFrame = (bin * frameCount) / bins;
-    const int lastFrame = std::max(firstFrame + 1,
-                                   ((bin + 1) * frameCount) / bins);
+    const int firstFrame = static_cast<int>(
+        (static_cast<std::int64_t>(bin) * frameCount) / bins);
+    const int lastFrame = std::max(firstFrame + 1, static_cast<int>(
+        (static_cast<std::int64_t>(bin + 1) * frameCount) / bins));
     float minValue = std::numeric_limits<float>::infinity();
     float maxValue = -std::numeric_limits<float>::infinity();
     for (int frame = firstFrame; frame < std::min(lastFrame, frameCount);
