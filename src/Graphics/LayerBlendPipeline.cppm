@@ -301,8 +301,8 @@ bool LayerBlendPipeline::applyTrackMatte(
 
     // Keep all declared SRV slots bound. Unused slots reuse source 0, while
     // the count checks above still require every actually sampled source.
-    const auto* safeMatteSrc1 = matteSrc1SRV ? matteSrc1SRV : matteSrc0SRV;
-    const auto* safeMatteSrc2 = matteSrc2SRV ? matteSrc2SRV : matteSrc0SRV;
+    auto* safeMatteSrc1 = matteSrc1SRV ? matteSrc1SRV : matteSrc0SRV;
+    auto* safeMatteSrc2 = matteSrc2SRV ? matteSrc2SRV : matteSrc0SRV;
     if (!matteTrackExecutor_->setTextureView("g_LayerTex", layerSRV) ||
         !matteTrackExecutor_->setBuffer("MatteTrackParams", pImpl_->pMatteTrackCB_) ||
         !matteTrackExecutor_->setTextureView("g_MatteSrc0", matteSrc0SRV) ||

@@ -5,6 +5,7 @@ module;
 #include <cstddef>
 #include <limits>
 #include <vector>
+#include <QtGlobal>
 
 module Audio.Analyze;
 
@@ -140,7 +141,8 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
     for (int c = 0; c < channels; ++c) {
         const float* data = segment.constData(c);
         const int availableFrames = data
-            ? std::min(frames, segment.channelData[c].size())
+            ? static_cast<int>(std::min<qsizetype>(
+                  static_cast<qsizetype>(frames), segment.channelData[c].size()))
             : 0;
         for (int i = 0; i < availableFrames; ++i) {
             const float s = data[i];
