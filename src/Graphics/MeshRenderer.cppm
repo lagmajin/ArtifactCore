@@ -1375,6 +1375,7 @@ void MeshRenderer::draw(IDeviceContext* pContext, size_t instanceCount)
 
 void MeshRenderer::setViewMatrix(const float* matrix)
 {
+    prepared_ = false;
     transpose4x4(matrix, constants_.viewMatrix);
     if (matrix) {
         const float tx = matrix[12];
@@ -1392,21 +1393,25 @@ void MeshRenderer::setViewMatrix(const float* matrix)
 
 void MeshRenderer::setProjectionMatrix(const float* matrix)
 {
+    prepared_ = false;
     transpose4x4(matrix, constants_.projMatrix);
 }
 
 void MeshRenderer::setPreviousViewMatrix(const float* matrix)
 {
+    prepared_ = false;
     transpose4x4(matrix, constants_.prevViewMatrix);
 }
 
 void MeshRenderer::setPreviousProjectionMatrix(const float* matrix)
 {
+    prepared_ = false;
     transpose4x4(matrix, constants_.prevProjMatrix);
 }
 
 void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
 {
+    prepared_ = false;
     std::fill(std::begin(pImpl_->sceneLighting_.lights),
               std::end(pImpl_->sceneLighting_.lights), Impl::SceneLightGpu{});
     pImpl_->sceneLighting_.lightingMeta[0] = 0;
@@ -1458,6 +1463,7 @@ void MeshRenderer::setTransparentPass(bool transparent)
 
 void MeshRenderer::setBaseColorTexture(const QString& path)
 {
+    prepared_ = false;
     const QString newPath = path.trimmed();
     auto pDevice = context_.RenderDevice();
     if (newPath == pImpl_->baseColorTexturePath_ && pImpl_->pBaseColorTextureSRV_) {
@@ -1521,6 +1527,7 @@ void MeshRenderer::setBaseColorTexture(const QString& path)
 
 void MeshRenderer::clearBaseColorTexture()
 {
+    prepared_ = false;
     if (pImpl_->baseColorTexturePath_.isEmpty() && pImpl_->pBaseColorTextureSRV_) {
         return;
     }
@@ -1557,6 +1564,7 @@ void MeshRenderer::clearBaseColorTexture()
 
 void MeshRenderer::setEmissionTexture(const QString& path)
 {
+    prepared_ = false;
     const QString newPath = path.trimmed();
     auto pDevice = context_.RenderDevice();
     if (newPath == pImpl_->emissionTexturePath_ && pImpl_->pEmissionTextureSRV_) {
@@ -1620,6 +1628,7 @@ void MeshRenderer::setEmissionTexture(const QString& path)
 
 void MeshRenderer::clearEmissionTexture()
 {
+    prepared_ = false;
     if (pImpl_->emissionTexturePath_.isEmpty() && pImpl_->pEmissionTextureSRV_) {
         return;
     }
@@ -1656,6 +1665,7 @@ void MeshRenderer::clearEmissionTexture()
 
 void MeshRenderer::setEmissionColor(const QColor& color, float strength)
 {
+    prepared_ = false;
     pImpl_->materialConstants_.emissionColorStrength[0] = color.redF();
     pImpl_->materialConstants_.emissionColorStrength[1] = color.greenF();
     pImpl_->materialConstants_.emissionColorStrength[2] = color.blueF();
@@ -1667,6 +1677,7 @@ void MeshRenderer::setPbrFactors(float metallic, float roughness,
                                  float normalStrength,
                                  float occlusionStrength)
 {
+    prepared_ = false;
     pImpl_->materialConstants_.pbrFactors[0] = std::clamp(metallic, 0.0f, 1.0f);
     pImpl_->materialConstants_.pbrFactors[1] = std::clamp(roughness, 0.0f, 1.0f);
     pImpl_->materialConstants_.pbrFactors[2] = std::max(normalStrength, 0.0f);
@@ -1676,6 +1687,7 @@ void MeshRenderer::setPbrFactors(float metallic, float roughness,
 
 void MeshRenderer::setMetallicRoughnessTexture(const QString& path)
 {
+    prepared_ = false;
     const QString newPath = path.trimmed();
     if (newPath.isEmpty() && pImpl_->metallicRoughnessTexturePath_.isEmpty() &&
         pImpl_->materialConstants_.pbrTextureFlags[0] < 0.5f) {
@@ -1704,6 +1716,7 @@ void MeshRenderer::setMetallicRoughnessTexture(const QString& path)
 
 void MeshRenderer::setNormalTexture(const QString& path)
 {
+    prepared_ = false;
     const QString newPath = path.trimmed();
     if (newPath.isEmpty() && pImpl_->normalTexturePath_.isEmpty() &&
         pImpl_->materialConstants_.pbrTextureFlags[1] < 0.5f) {
@@ -1731,6 +1744,7 @@ void MeshRenderer::setNormalTexture(const QString& path)
 
 void MeshRenderer::setOcclusionTexture(const QString& path)
 {
+    prepared_ = false;
     const QString newPath = path.trimmed();
     if (newPath.isEmpty() && pImpl_->occlusionTexturePath_.isEmpty() &&
         pImpl_->materialConstants_.pbrTextureFlags[2] < 0.5f) {
@@ -1759,6 +1773,7 @@ void MeshRenderer::setOcclusionTexture(const QString& path)
 
 void MeshRenderer::setOpacityTexture(const QString& path)
 {
+    prepared_ = false;
     const QString newPath = path.trimmed();
     auto pDevice = context_.RenderDevice();
     if (newPath == pImpl_->opacityTexturePath_ && pImpl_->pOpacityTextureSRV_) {
@@ -1822,6 +1837,7 @@ void MeshRenderer::setOpacityTexture(const QString& path)
 
 void MeshRenderer::clearOpacityTexture()
 {
+    prepared_ = false;
     if (pImpl_->opacityTexturePath_.isEmpty() && pImpl_->pOpacityTextureSRV_) {
         return;
     }
