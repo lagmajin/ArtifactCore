@@ -1,6 +1,8 @@
 module;
 #include <utility>
 #include <cstring>
+#include <algorithm>
+#include <cmath>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -15,6 +17,15 @@ import Core.ArtifactString;
 import Graphics.Shader.Compute.HLSL.MatteTrack;
 
 namespace ArtifactCore {
+
+namespace {
+
+float sanitizeBlendOpacity(const float opacity)
+{
+    return std::isfinite(opacity) ? std::clamp(opacity, 0.0f, 1.0f) : 1.0f;
+}
+
+}
 
 struct LayerBlendPipeline::Impl
 {
@@ -692,7 +703,7 @@ bool LayerBlendPipeline::blend(
   return false;
  }
 
- currentParams_.opacity   = opacity;
+ currentParams_.opacity   = sanitizeBlendOpacity(opacity);
  currentParams_.blendMode = static_cast<unsigned int>(mode);
 
  void* pData = nullptr;
@@ -784,7 +795,7 @@ bool LayerBlendPipeline::blendDirect(
   return false;
  }
 
- currentParams_.opacity = opacity;
+ currentParams_.opacity = sanitizeBlendOpacity(opacity);
  currentParams_.blendMode = static_cast<unsigned int>(mode);
 
  void* pData = nullptr;
