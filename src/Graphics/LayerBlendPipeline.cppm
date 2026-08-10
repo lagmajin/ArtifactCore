@@ -120,6 +120,7 @@ bool LayerBlendPipeline::createExecutors()
  }
 
  static ShaderResourceVariableDesc channelComponentDisplayVars[] = {
+  {SHADER_TYPE_COMPUTE, "BlendParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   {SHADER_TYPE_COMPUTE, "SrcTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
  };
@@ -131,11 +132,10 @@ bool LayerBlendPipeline::createExecutors()
  channelComponentDisplayDesc.entryPoint = "main";
  channelComponentDisplayDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
  channelComponentDisplayDesc.variables = channelComponentDisplayVars;
- channelComponentDisplayDesc.variableCount = 2;
+ channelComponentDisplayDesc.variableCount = 3;
  channelComponentDisplayDesc.defaultVariableType =
      SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
  if (!channelComponentDisplayExecutor_->build(channelComponentDisplayDesc) ||
-     !channelComponentDisplayExecutor_->setBuffer("BlendParams", pImpl_->pBlendCB_) ||
      !channelComponentDisplayExecutor_->createShaderResourceBinding(true)) {
   qWarning() << "[LayerBlendPipeline] channel component display PSO build failed";
   channelComponentDisplayExecutor_.reset();
@@ -143,6 +143,7 @@ bool LayerBlendPipeline::createExecutors()
 
  // [Fix A] Vars[] の変数名はシェーダに合わせて "OutTex" を宣言
  static ShaderResourceVariableDesc Vars[] = {
+  {SHADER_TYPE_COMPUTE, "BlendParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   {SHADER_TYPE_COMPUTE, "SrcTex",      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   {SHADER_TYPE_COMPUTE, "DstTex",      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   {SHADER_TYPE_COMPUTE, "OutTex",      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
@@ -161,7 +162,7 @@ bool LayerBlendPipeline::createExecutors()
   desc.entryPoint         = "main";
   desc.sourceLanguage     = SHADER_SOURCE_LANGUAGE_HLSL;
   desc.variables          = Vars;
-  desc.variableCount      = 3;
+  desc.variableCount      = 4;
   desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
   if (!entry.executor->build(desc)) {
@@ -170,10 +171,8 @@ bool LayerBlendPipeline::createExecutors()
    continue;
   }
 
-  if (!pImpl_->pBlendCB_ ||
-      !entry.executor->setBuffer("BlendParams", pImpl_->pBlendCB_)) {
-   qWarning() << "[LayerBlendPipeline] pBlendCB_ is null for blend mode" << static_cast<int>(mode)
-              << "or BlendParams binding failed";
+  if (!pImpl_->pBlendCB_) {
+   qWarning() << "[LayerBlendPipeline] pBlendCB_ is null for blend mode" << static_cast<int>(mode);
    ++failCount;
    continue;
   }
@@ -594,7 +593,8 @@ bool LayerBlendPipeline::displayComponent(
  memcpy(pData, &displayParams, sizeof(displayParams));
  ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
 
- if (!channelComponentDisplayExecutor_->setTextureView("SrcTex", srcSRV) ||
+ if (!channelComponentDisplayExecutor_->setBuffer("BlendParams", pImpl_->pBlendCB_) ||
+     !channelComponentDisplayExecutor_->setTextureView("SrcTex", srcSRV) ||
      !channelComponentDisplayExecutor_->setTextureView("OutTex", outUAV)) {
   return false;
  }
@@ -633,7 +633,8 @@ bool LayerBlendPipeline::displayComposite(
  if (!data) return false;
  memcpy(data, &params, sizeof(params));
  ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
- if (!channelComponentDisplayExecutor_->setTextureView("SrcTex", srcSRV) ||
+ if (!channelComponentDisplayExecutor_->setBuffer("BlendParams", pImpl_->pBlendCB_) ||
+     !channelComponentDisplayExecutor_->setTextureView("SrcTex", srcSRV) ||
      !channelComponentDisplayExecutor_->setTextureView("OutTex", outUAV)) return false;
  channelComponentDisplayExecutor_->dispatch(
      ctx, ComputeExecutor::makeDispatchAttribs(width, height, 1, 8, 8, 1),
@@ -726,7 +727,8 @@ bool LayerBlendPipeline::blend(
   return false;
  }
 
- if (!exec.setTextureView("SrcTex", srcSRV) ||
+ if (!exec.setBuffer("BlendParams", pImpl_->pBlendCB_) ||
+     !exec.setTextureView("SrcTex", srcSRV) ||
      !exec.setTextureView("DstTex", dstSRV) ||
      !exec.setTextureView("OutTex", outUAV)) {
   qCritical() << "[LayerBlendPipeline::blend] failed to bind texture views";
@@ -817,7 +819,8 @@ bool LayerBlendPipeline::blendDirect(
  memcpy(pData, &currentParams_, sizeof(BlendParams));
  ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
 
- if (!exec.setTextureView("SrcTex", srcSRV) ||
+ if (!exec.setBuffer("BlendParams", pImpl_->pBlendCB_) ||
+     !exec.setTextureView("SrcTex", srcSRV) ||
      !exec.setTextureView("DstTex", dstSRV) ||
      !exec.setTextureView("OutTex", outUAV)) {
   qCritical() << "[LayerBlendPipeline::blendDirect] failed to bind texture views";
