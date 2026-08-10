@@ -102,6 +102,7 @@ private:
     ShaderConstants constants_{};
     ArtifactCore::RenderCostStats* frameCostStats_ = nullptr;
     QString debugState_;
+    bool prepared_ = false;
 
     void createPSO();
     void createBuffers();

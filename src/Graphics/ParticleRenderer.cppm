@@ -474,6 +474,7 @@ size_t ParticleRenderer::lastUploadedParticleCount() const
 }
 
 void ParticleRenderer::prepare(IDeviceContext* pContext) {
+    prepared_ = false;
     if (!pContext || !pImpl_->pPSO_ || !pImpl_->pSRB_ || !pImpl_->pConstantBuffer_) {
         debugState_ = QStringLiteral("state=prepare-skipped ctx=%1 pso=%2 srb=%3 constantBuffer=%4")
                           .arg(pContext ? 1 : 0)
@@ -583,6 +584,7 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
         ++frameCostStats_->srbCommits;
     }
     pContext->CommitShaderResources(pImpl_->pSRB_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    prepared_ = true;
     debugState_ = QStringLiteral("state=prepared pso=1 srb=1 const=%1 view=%2 proj=%3")
                       .arg(pData ? 1 : 0)
                       .arg(constants_.viewMatrix[0] != 0.0f || constants_.viewMatrix[5] != 0.0f || constants_.viewMatrix[10] != 0.0f ? 1 : 0)
@@ -591,7 +593,8 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
 
 void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
     activeCount = std::min(activeCount, lastUploadedParticleCount_);
-    if (!pContext || activeCount == 0) {
+    if (!pContext || !prepared_ || !pImpl_->pPSO_ || !pImpl_->pSRB_ ||
+        !pImpl_->pParticleBuffer_ || activeCount == 0) {
         debugState_ = QStringLiteral("state=draw-skipped ctx=%1 active=%2 uploaded=%3")
                           .arg(pContext ? 1 : 0)
                           .arg(static_cast<qulonglong>(activeCount))
