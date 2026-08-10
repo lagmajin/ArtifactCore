@@ -78,6 +78,7 @@ public:
         audioSink_ = std::make_unique<QAudioSink>(resolvedDevice, qtFormat);
         
         if (!QIODevice::open(QIODevice::ReadOnly)) {
+            audioSink_.reset();
             return false;
         }
 
