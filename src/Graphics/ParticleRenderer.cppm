@@ -228,6 +228,15 @@ void ParticleRenderer::createBuffers() {
     auto pDevice = context_.RenderDevice();
     pImpl_->gpuCullReady_ = false;
     pImpl_->gpuCullActive_ = false;
+    if (!pDevice || maxParticles_ == 0) {
+        debugState_ = QStringLiteral("state=buffers-skipped device=%1 max=%2")
+                          .arg(pDevice ? 1 : 0)
+                          .arg(static_cast<qulonglong>(maxParticles_));
+        qWarning() << "[ParticleRenderer] createBuffers() skipped"
+                   << "device=" << (pDevice != nullptr)
+                   << "maxParticles=" << maxParticles_;
+        return;
+    }
 
     // 1. Particle Structured Buffer
     BufferDesc BuffDesc;
@@ -288,6 +297,17 @@ void ParticleRenderer::createPSO() {
     auto pDevice = context_.RenderDevice();
     pImpl_->pSRB_.Release();
     pImpl_->pPSO_.Release();
+    if (!pDevice || maxParticles_ == 0 || !pImpl_->pConstantBuffer_) {
+        debugState_ = QStringLiteral("state=pso-skipped device=%1 max=%2 constantBuffer=%3")
+                          .arg(pDevice ? 1 : 0)
+                          .arg(static_cast<qulonglong>(maxParticles_))
+                          .arg(pImpl_->pConstantBuffer_ ? 1 : 0);
+        qWarning() << "[ParticleRenderer] createPSO() skipped"
+                   << "device=" << (pDevice != nullptr)
+                   << "maxParticles=" << maxParticles_
+                   << "constantBuffer=" << (pImpl_->pConstantBuffer_ != nullptr);
+        return;
+    }
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
     
     PSOCreateInfo.PSODesc.Name = "Particle Rendering PSO";
