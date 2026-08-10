@@ -34,7 +34,7 @@ public:
     int getFFTSize() const { return fftSize_; }
 
 private:
-    void computeFFT(std::vector<std::complex<float>>& data);
+    void computeFFT(std::vector<std::complex<double>>& data);
     float getIntensity(const std::vector<float>& spectrum, float freqStart, float freqEnd, int sampleRate);
 
     int fftSize_ = 1024;

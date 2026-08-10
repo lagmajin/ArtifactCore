@@ -54,7 +54,7 @@ void AudioAnalyzer::setFFTSize(int size) {
 }
 
 // シンプルな Radix-2 FFT (Cooley-Tukey)
-void AudioAnalyzer::computeFFT(std::vector<std::complex<float>>& data) {
+void AudioAnalyzer::computeFFT(std::vector<std::complex<double>>& data) {
     int n = static_cast<int>(data.size());
     if (n <= 1) return;
 
@@ -68,13 +68,13 @@ void AudioAnalyzer::computeFFT(std::vector<std::complex<float>>& data) {
 
     // Cooley-Tukey
     for (int len = 2; len <= n; len <<= 1) {
-        float ang = 2.0f * 3.1415926535f / len;
-        std::complex<float> wlen(std::cos(ang), std::sin(ang));
+        const double ang = 2.0 * 3.14159265358979323846 / len;
+        std::complex<double> wlen(std::cos(ang), std::sin(ang));
         for (int i = 0; i < n; i += len) {
-            std::complex<float> w(1);
+            std::complex<double> w(1);
             for (int j = 0; j < len / 2; j++) {
-                std::complex<float> u = data[i + j];
-                std::complex<float> v = data[i + j + len / 2] * w;
+                std::complex<double> u = data[i + j];
+                std::complex<double> v = data[i + j + len / 2] * w;
                 data[i + j] = u + v;
                 data[i + j + len / 2] = u - v;
                 w *= wlen;
@@ -154,13 +154,16 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
 
     // 2. FFT解析 (モノラルミックスで行う)
     int n = fftSize_;
-    std::vector<std::complex<float>> fftData(n, 0.0f);
+    std::vector<std::complex<double>> fftData(n, 0.0);
     
     // データのコピーと窓関数の適用
     int copyLen = std::min(frames, n);
     float invChannels = 1.0f / channels;
     for (int i = 0; i < copyLen; ++i) {
-        fftData[i] = std::complex<float>(*monoData.at(static_cast<std::size_t>(i)) * invChannels * window_[i], 0.0f);
+        fftData[i] = std::complex<double>(
+            static_cast<double>(*monoData.at(static_cast<std::size_t>(i))) *
+                invChannels * window_[i],
+            0.0);
     }
     
     computeFFT(fftData);
@@ -168,8 +171,11 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
     // スペクトル強度の算出 (マグニチュード)
     result.spectrum.resize(n / 2 + 1);
     for (int i = 0; i <= n / 2; ++i) {
-        result.spectrum[i] = finiteOrZero(
-            std::abs(fftData[i]) / (n / 2));
+        const double magnitude = std::abs(fftData[i]) / (n / 2);
+        result.spectrum[i] = std::isfinite(magnitude)
+            ? static_cast<float>(std::min(
+                magnitude, static_cast<double>(std::numeric_limits<float>::max())))
+            : 0.0f;
     }
 
     // 3. 帯域ごとの強度算出
