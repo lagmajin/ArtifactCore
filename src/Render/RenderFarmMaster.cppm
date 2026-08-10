@@ -5,6 +5,7 @@ module;
 #include <thread>
 #include <mutex>
 #include <algorithm>
+#include <limits>
 #include <atomic>
 #include <chrono>
 #include <random>
@@ -291,7 +292,9 @@ public:
 
         for (int i = 0; i < parts && current < range.endFrame; ++i) {
             int chunkSize = baseChunk + (i < remainder ? 1 : 0);
-            int chunkEnd = std::min(current + chunkSize * range.step, range.endFrame);
+            const long long candidateEnd = static_cast<long long>(current) +
+                                           static_cast<long long>(chunkSize) * range.step;
+            int chunkEnd = static_cast<int>(std::min<long long>(candidateEnd, range.endFrame));
             subRanges.push_back({ current, chunkEnd, range.step });
             current = chunkEnd;
         }
@@ -563,7 +566,9 @@ public:
     // -- Local rendering --
     void executeLocalRange(const RenderJobRequest& request, const RenderFrameRange& subRange,
                            std::atomic<int>& checkpointCounter) {
-        for (int frame = subRange.startFrame; frame < subRange.endFrame; frame += subRange.step) {
+        for (int frame = subRange.startFrame; frame < subRange.endFrame;
+             frame = frame > std::numeric_limits<int>::max() - subRange.step
+                 ? subRange.endFrame : frame + subRange.step) {
             {
                 std::unique_lock<std::mutex> lock(pauseMutex_);
                 pauseCv_.wait(lock, [this]() { return !paused_.load() || cancelled_.load(); });
@@ -1423,7 +1428,11 @@ void RenderFarmMaster::setRetryPolicy(const RetryPolicy& policy) {
 }
 
 void RenderFarmMaster::setCheckpointPolicy(const CheckpointPolicy& policy) {
-    impl_->checkpointPolicy_ = policy;
+    CheckpointPolicy sanitized = policy;
+    if (sanitized.mode != CheckpointPolicy::Mode::Disabled) {
+        sanitized.interval = std::max(1, sanitized.interval);
+    }
+    impl_->checkpointPolicy_ = sanitized;
 }
 
 CheckpointStore* RenderFarmMaster::checkpointStore() const {

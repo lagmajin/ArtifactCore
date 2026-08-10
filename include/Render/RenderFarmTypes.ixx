@@ -26,7 +26,10 @@ struct RenderFrameRange {
 
     int count() const {
         if (endFrame <= startFrame || step <= 0) return 0;
-        return (endFrame - startFrame + step - 1) / step;
+        const long long span = static_cast<long long>(endFrame) - startFrame;
+        const long long count = (span + step - 1) / step;
+        return count > std::numeric_limits<int>::max()
+            ? std::numeric_limits<int>::max() : static_cast<int>(count);
     }
 
     bool contains(int frame) const {
