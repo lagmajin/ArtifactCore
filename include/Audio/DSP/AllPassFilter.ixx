@@ -1,5 +1,7 @@
 module;
 #include <utility>
+#include <algorithm>
+#include <cmath>
 export module Audio.DSP.AllPassFilter;
 
 import Audio.DSP.DelayLine;
@@ -25,13 +27,19 @@ namespace DSP {
         }
 
         void setParameters(float delayInSeconds, float feedback, float sampleRate) {
-            delayInSamples_ = delayInSeconds * sampleRate;
-            feedback_ = feedback;
+            const float requestedDelay = delayInSeconds * sampleRate;
+            delayInSamples_ = std::isfinite(requestedDelay) &&
+                              delayInSeconds >= 0.0f && sampleRate > 0.0f
+                ? requestedDelay : 0.0f;
+            feedback_ = std::clamp(
+                std::isfinite(feedback) ? feedback : 0.0f, -0.999f, 0.999f);
         }
 
         void setParametersSamples(float delayInSamples, float feedback) {
-            delayInSamples_ = delayInSamples;
-            feedback_ = feedback;
+            delayInSamples_ = std::isfinite(delayInSamples)
+                ? std::max(0.0f, delayInSamples) : 0.0f;
+            feedback_ = std::clamp(
+                std::isfinite(feedback) ? feedback : 0.0f, -0.999f, 0.999f);
         }
 
         /**

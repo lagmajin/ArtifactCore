@@ -3,6 +3,7 @@ module;
 #include <cmath>
 #include <cstdint>
 #include <algorithm>
+#include <limits>
 
 #include <iostream>
 #include <vector>
@@ -49,8 +50,19 @@ namespace DSP {
         FractionalDelayLine() : writeIndex_(0), sampleRate_(48000.0f) {}
 
         void initialize(float maxDelaySeconds, float sampleRate) {
-            sampleRate_ = sampleRate;
-            size_t bufferSize = static_cast<size_t>(std::ceil(maxDelaySeconds * sampleRate)) + 4; // Add padding
+            sampleRate_ = std::isfinite(sampleRate) && sampleRate > 0.0f
+                ? sampleRate : 48000.0f;
+            const double requestedSamples =
+                std::isfinite(maxDelaySeconds) && maxDelaySeconds > 0.0f
+                    ? static_cast<double>(maxDelaySeconds) * sampleRate_
+                    : 0.0;
+            if (requestedSamples >= static_cast<double>(
+                    std::numeric_limits<size_t>::max() - 4)) {
+                buffer_.clear();
+                writeIndex_ = 0;
+                return;
+            }
+            size_t bufferSize = static_cast<size_t>(std::ceil(requestedSamples)) + 4;
             buffer_.assign(bufferSize, 0.0f);
             writeIndex_ = 0;
         }
@@ -67,9 +79,9 @@ namespace DSP {
             if (buffer_.empty()) return 0.0f;
 
             // Ensure delay doesn't exceed buffer
-            float maxDelay = static_cast<float>(buffer_.size() - 2);
-            if (delayInSamples < 0.0f) delayInSamples = 0.0f;
-            if (delayInSamples > maxDelay) delayInSamples = maxDelay;
+            const float maxDelay = static_cast<float>(buffer_.size() - 2);
+            delayInSamples = std::isfinite(delayInSamples)
+                ? std::clamp(delayInSamples, 0.0f, maxDelay) : 0.0f;
 
             // Calculate exact read index
             int32_t intDelay = static_cast<int32_t>(delayInSamples);
