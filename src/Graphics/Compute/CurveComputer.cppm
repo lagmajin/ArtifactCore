@@ -25,6 +25,9 @@ CurveGPUComputer::CurveGPUComputer(GpuContext &context)
 CurveGPUComputer::~CurveGPUComputer() = default;
 
 void CurveGPUComputer::initialize() {
+  if (!context_.RenderDevice()) {
+    return;
+  }
   createPipeline();
   createBuffers();
 }
@@ -37,6 +40,8 @@ void CurveGPUComputer::createPipeline() {
        SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_OutputTexture",
        SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {SHADER_TYPE_COMPUTE, "CurveParams",
+       SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
   ComputePipelineDesc desc;
@@ -45,7 +50,7 @@ void CurveGPUComputer::createPipeline() {
   desc.entryPoint = Shaders::ColorCurves::ColorCurvesEntryPoint;
   desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
   desc.variables = vars;
-  desc.variableCount = 3;
+  desc.variableCount = 4;
   desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
   executor_.build(desc);
   executor_.createShaderResourceBinding(true);
@@ -53,6 +58,9 @@ void CurveGPUComputer::createPipeline() {
 
 void CurveGPUComputer::createBuffers() {
   auto *device = context_.RenderDevice();
+  if (!device) {
+    return;
+  }
 
   BufferDesc cbDesc;
   cbDesc.Name = "CurveParamsCB";
@@ -66,6 +74,7 @@ void CurveGPUComputer::createBuffers() {
   lutDesc.Name = "CurveLUTs";
   lutDesc.Usage = USAGE_DYNAMIC;
   lutDesc.BindFlags = BIND_SHADER_RESOURCE;
+  lutDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
   lutDesc.Size = static_cast<Uint64>(Shaders::ColorCurves::LUT_TOTAL_FLOATS) * sizeof(float);
   lutDesc.Mode = BUFFER_MODE_STRUCTURED;
   lutDesc.ElementByteStride = sizeof(float);
@@ -77,29 +86,36 @@ void CurveGPUComputer::apply(IDeviceContext *pContext,
                               ITextureView *outputTexture,
                               const float *luts,
                               bool masterOnly) {
-  if (!ready() || !inputTexture || !outputTexture || !luts) return;
+  if (!ready() || !pContext || !inputTexture || !inputTexture->GetTexture() ||
+      !outputTexture || !outputTexture->GetTexture() || !luts) {
+    return;
+  }
 
   // Write masterOnly flag
   void *pData = nullptr;
   pContext->MapBuffer(pParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-  if (pData) {
-    int params[4] = {masterOnly ? 1 : 0, 0, 0, 0};
-    std::memcpy(pData, params, sizeof(params));
-    pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
+  if (!pData) {
+    return;
   }
+  int params[4] = {masterOnly ? 1 : 0, 0, 0, 0};
+  std::memcpy(pData, params, sizeof(params));
+  pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
 
   // Upload LUT data
   pContext->MapBuffer(pLUTBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-  if (pData) {
-    std::memcpy(pData, luts,
-                static_cast<size_t>(Shaders::ColorCurves::LUT_TOTAL_FLOATS) * sizeof(float));
-    pContext->UnmapBuffer(pLUTBuffer_, MAP_WRITE);
+  if (!pData) {
+    return;
   }
+  std::memcpy(pData, luts,
+              static_cast<size_t>(Shaders::ColorCurves::LUT_TOTAL_FLOATS) * sizeof(float));
+  pContext->UnmapBuffer(pLUTBuffer_, MAP_WRITE);
 
-  executor_.setBuffer("CurveParams", pParamsCB_);
-  executor_.setBuffer("g_LUTs", pLUTBuffer_);
-  executor_.setTextureView("g_InputTexture", inputTexture);
-  executor_.setTextureView("g_OutputTexture", outputTexture);
+  if (!executor_.setBuffer("CurveParams", pParamsCB_) ||
+      !executor_.setBuffer("g_LUTs", pLUTBuffer_) ||
+      !executor_.setTextureView("g_InputTexture", inputTexture) ||
+      !executor_.setTextureView("g_OutputTexture", outputTexture)) {
+    return;
+  }
 
   const auto width = inputTexture->GetTexture()->GetDesc().Width;
   const auto height = inputTexture->GetTexture()->GetDesc().Height;

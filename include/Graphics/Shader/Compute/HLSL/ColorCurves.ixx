@@ -16,6 +16,11 @@ Texture2D<float4> g_InputTexture : register(t0);
 StructuredBuffer<float> g_LUTs : register(t1);
 RWTexture2D<float4> g_OutputTexture : register(u0);
 
+uint curveLutIndex(float value)
+{
+    return min((uint)clamp(value * 255.0f, 0.0f, 255.0f), 255u);
+}
+
 [numthreads(16, 16, 1)]
 void ColorCurvesCS(uint3 id : SV_DispatchThreadID)
 {
@@ -26,21 +31,21 @@ void ColorCurvesCS(uint3 id : SV_DispatchThreadID)
     float4 color = g_InputTexture.Load(int3(id.xy, 0));
 
     if (g_MasterOnly) {
-        color.r = g_LUTs[(uint)(color.r * 255.0f)];
-        color.g = g_LUTs[(uint)(color.g * 255.0f)];
-        color.b = g_LUTs[(uint)(color.b * 255.0f)];
+        color.r = g_LUTs[curveLutIndex(color.r)];
+        color.g = g_LUTs[curveLutIndex(color.g)];
+        color.b = g_LUTs[curveLutIndex(color.b)];
     } else {
-        uint rIdx = (uint)(color.r * 255.0f);
-        uint gIdx = (uint)(color.g * 255.0f);
-        uint bIdx = (uint)(color.b * 255.0f);
+        uint rIdx = curveLutIndex(color.r);
+        uint gIdx = curveLutIndex(color.g);
+        uint bIdx = curveLutIndex(color.b);
 
         float masterR = g_LUTs[rIdx];
         float masterG = g_LUTs[gIdx];
         float masterB = g_LUTs[bIdx];
 
-        uint rMapped = (uint)(masterR * 255.0f);
-        uint gMapped = (uint)(masterG * 255.0f);
-        uint bMapped = (uint)(masterB * 255.0f);
+        uint rMapped = curveLutIndex(masterR);
+        uint gMapped = curveLutIndex(masterG);
+        uint bMapped = curveLutIndex(masterB);
 
         color.r = g_LUTs[256u + rMapped];
         color.g = g_LUTs[512u + gMapped];
