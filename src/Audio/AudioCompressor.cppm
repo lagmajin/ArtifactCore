@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <QJsonObject>
 
 module Audio.Effect.Compressor;
@@ -8,6 +9,17 @@ module Audio.Effect.Compressor;
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float sanitizeCompressorSample(float sample)
+{
+    if (std::isfinite(sample)) return sample;
+    if (std::isnan(sample)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), sample);
+}
+
+}
 
 AudioCompressor::AudioCompressor() {}
 
@@ -51,8 +63,11 @@ void AudioCompressor::process(AudioSegment& segment, const AudioSegment* sideCha
                                         static_cast<int>(source->channelData.size()));
 
         for (int c = 0; c < detectorChannels; ++c) {
-            if (i < source->channelData[c].size())
-                detectorVal = std::max(detectorVal, std::abs(source->channelData[c][i]));
+            if (i < source->channelData[c].size()) {
+                const float sample = source->channelData[c][i];
+                const float absSample = std::isfinite(sample) ? std::abs(sample) : 0.0f;
+                detectorVal = std::max(detectorVal, absSample);
+            }
         }
 
         float envelope = envelope_;
@@ -72,7 +87,11 @@ void AudioCompressor::process(AudioSegment& segment, const AudioSegment* sideCha
         }
 
         for (int c = 0; c < channels; ++c) {
-            if (i < segment.channelData[c].size()) segment.channelData[c][i] *= gain;
+            if (i < segment.channelData[c].size()) {
+                const float sample = std::isfinite(segment.channelData[c][i])
+                    ? segment.channelData[c][i] : 0.0f;
+                segment.channelData[c][i] = sanitizeCompressorSample(sample * gain);
+            }
         }
 
         currentGainReduction_.store(
@@ -96,7 +115,7 @@ std::vector<EffectParameter> AudioCompressor::getParameters() const {
 
 void AudioCompressor::setParameterValue(const String& id, float value) {
     if (!std::isfinite(value)) return;
-    if (id == "threshold") thresholdDb_ = std::clamp(value, -120.0f, 20.0f);
+    if (id == "threshold") setThreshold(value);
     else if (id == "ratio") ratio_ = std::clamp(value, 1.0f, 20.0f);
     else if (id == "attack_ms") attackMs_ = std::clamp(value, 0.1f, 1000.0f);
     else if (id == "release_ms") releaseMs_ = std::clamp(value, 1.0f, 5000.0f);

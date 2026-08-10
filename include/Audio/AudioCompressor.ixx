@@ -3,6 +3,8 @@ module;
 #include <string>
 #include <memory>
 #include <vector>
+#include <algorithm>
+#include <cmath>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect.Compressor;
@@ -25,10 +27,10 @@ public:
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // パラメータ
-    void setThreshold(float db) { thresholdDb_ = db; }
-    void setRatio(float ratio) { ratio_ = ratio; }
-    void setAttack(float ms) { attackMs_ = ms; }
-    void setRelease(float ms) { releaseMs_ = ms; }
+    void setThreshold(float db) { thresholdDb_ = std::isfinite(db) ? std::clamp(db, -120.0f, 20.0f) : -20.0f; }
+    void setRatio(float ratio) { ratio_ = std::isfinite(ratio) ? std::clamp(ratio, 1.0f, 20.0f) : 4.0f; }
+    void setAttack(float ms) { attackMs_ = std::isfinite(ms) ? std::clamp(ms, 0.1f, 1000.0f) : 10.0f; }
+    void setRelease(float ms) { releaseMs_ = std::isfinite(ms) ? std::clamp(ms, 1.0f, 5000.0f) : 100.0f; }
     void setSideChain(bool enable) { sideChainEnabled_ = enable; }
     
     float getGainReduction() const;
