@@ -13,6 +13,7 @@ module;
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <limits>
 #include <utility>
 
 module AudioRenderer;
@@ -141,6 +142,11 @@ struct AudioRenderer::Impl {
     const auto cbStart = std::chrono::high_resolution_clock::now();
 
     if (!buffer || frames <= 0 || channelsRequested <= 0) {
+      return;
+    }
+    if (static_cast<size_t>(frames) >
+        std::numeric_limits<size_t>::max() /
+            static_cast<size_t>(channelsRequested)) {
       return;
     }
     const size_t outputSamples = static_cast<size_t>(frames) *
