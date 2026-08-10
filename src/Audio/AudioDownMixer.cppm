@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <algorithm>
+#include <cmath>
 #include <vector>
 module Audio.DownMixer;
 
@@ -31,19 +32,19 @@ AudioChannelLayout AudioDownMixer::targetLayout() const {
 }
 
 void AudioDownMixer::setCenterMixLevel(float level) {
-    impl_->centerMixLevel_ = level;
+    impl_->centerMixLevel_ = std::isfinite(level) ? level : 0.7071f;
 }
 
 void AudioDownMixer::setLFEMixLevel(float level) {
-    impl_->lfeMixLevel_ = level;
+    impl_->lfeMixLevel_ = std::isfinite(level) ? level : 0.7071f;
 }
 
 void AudioDownMixer::setSurroundMixLevel(float level) {
-    impl_->surroundMixLevel_ = level;
+    impl_->surroundMixLevel_ = std::isfinite(level) ? level : 0.5f;
 }
 
 void AudioDownMixer::setBackMixLevel(float level) {
-    impl_->backMixLevel_ = level;
+    impl_->backMixLevel_ = std::isfinite(level) ? level : 0.5f;
 }
 
 float AudioDownMixer::backMixLevel() const {
@@ -74,7 +75,9 @@ AudioSegment AudioDownMixer::processChannelMap(
         }
         const auto& input = source.channelData[sourceChannel];
         const int copyFrames = std::min(frames, static_cast<int>(input.size()));
-        std::copy_n(input.constData(), copyFrames, destination.begin());
+        for (int frame = 0; frame < copyFrames; ++frame) {
+            destination[frame] = std::isfinite(input[frame]) ? input[frame] : 0.0f;
+        }
     }
     return output;
 }
@@ -112,7 +115,10 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
     int frames = sourceFrames;
     if (frames <= 0) return output;
     const auto sampleAt = [](const auto& channel, int frame) {
-        return frame < static_cast<int>(channel.size()) ? channel[frame] : 0.0f;
+        if (frame < 0 || frame >= static_cast<int>(channel.size())) {
+            return 0.0f;
+        }
+        return std::isfinite(channel[frame]) ? channel[frame] : 0.0f;
     };
 
     if (impl_->targetLayout_ == AudioChannelLayout::Stereo) {
@@ -208,8 +214,10 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
                 const int copyFrames = std::min(
                     frames, static_cast<int>(input.size()));
                 if (copyFrames > 0) {
-                    std::copy_n(input.constData(), copyFrames,
-                                output.channelData[channel].begin());
+                    for (int frame = 0; frame < copyFrames; ++frame) {
+                        output.channelData[channel][frame] =
+                            std::isfinite(input[frame]) ? input[frame] : 0.0f;
+                    }
                 }
             }
             const auto& leftSurround = source.channelData[4];
@@ -242,8 +250,10 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
                 const int copyFrames = std::min(
                     frames, static_cast<int>(input.size()));
                 if (copyFrames > 0) {
-                    std::copy_n(input.constData(), copyFrames,
-                                output.channelData[channel].begin());
+                    for (int frame = 0; frame < copyFrames; ++frame) {
+                        output.channelData[channel][frame] =
+                            std::isfinite(input[frame]) ? input[frame] : 0.0f;
+                    }
                 }
             }
         }
