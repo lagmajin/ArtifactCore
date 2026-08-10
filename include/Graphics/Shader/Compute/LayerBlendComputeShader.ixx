@@ -111,8 +111,12 @@ RWTexture2D<float4> OutTex : register(u0);
 cbuffer BlendParams : register(b0)
 {
     float opacity;
-    uint component;
+    uint blendMode;
     float2 _pad;
+    uint displayMode;
+    uint displayComponentY;
+    uint displayComponentZ;
+    uint _displayPad;
 };
 
 [numthreads(8,8,1)]
@@ -137,7 +141,7 @@ void main(uint3 id : SV_DispatchThreadID)
         OutTex[id.xy] = float4(velocityX, velocityY, 0.5, 1.0);
         return;
     }
-    const float value = saturate(source[min(component, 3u)]);
+    const float value = saturate(source[min(blendMode, 3u)]);
     OutTex[id.xy] = float4(value, value, value, 1.0);
 }
 )";
