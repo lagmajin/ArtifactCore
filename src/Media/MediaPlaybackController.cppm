@@ -1133,6 +1133,26 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t
   return audio;
  }
 
+ bool MediaPlaybackController::setAudioOutputSampleRate(int sampleRate) {
+  if (!impl_ || !impl_->audioDecoder_ || sampleRate <= 0) {
+   return false;
+  }
+
+  const auto current = impl_->audioDecoder_->getResamplingConfig();
+  if (impl_->audioDecoder_->isResamplingEnabled() &&
+      current.targetSampleRate == sampleRate &&
+      current.targetChannels == 2 &&
+      current.targetFormat == AudioSampleFormat::Int16) {
+   return true;
+  }
+
+  ResamplingConfig config;
+  config.targetSampleRate = sampleRate;
+  config.targetChannels = 2;
+  config.targetFormat = AudioSampleFormat::Int16;
+  return impl_->audioDecoder_->enableResampling(config);
+ }
+
  PlaybackState MediaPlaybackController::getState() const {
   return impl_ ? impl_->state_ : PlaybackState::Stopped;
  }

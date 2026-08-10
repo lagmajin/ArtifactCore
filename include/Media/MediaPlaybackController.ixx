@@ -207,6 +207,9 @@ export namespace ArtifactCore {
   // ̃I[fBIt[擾
   QByteArray getNextAudioFrame();
 
+  // Set the PCM format returned by getNextAudioFrame().
+  bool setAudioOutputSampleRate(int sampleRate);
+
   // ---- Ԏ擾 ----
 
   // Đ
