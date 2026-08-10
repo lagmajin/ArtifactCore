@@ -814,12 +814,41 @@ bool LayerBlendPipeline::blendDirect(
  Uint32 height
 )
 {
- if (!ctx || !srcSRV || !dstSRV || !outUAV || width == 0 || height == 0) {
+ if (!ctx || !srcSRV || !dstSRV || !outUAV || !pImpl_->pBlendCB_ ||
+     width == 0 || height == 0) {
   qCritical() << "[LayerBlendPipeline::blendDirect] invalid input"
               << "ctx=" << static_cast<bool>(ctx)
               << "srcSRV=" << static_cast<bool>(srcSRV)
               << "dstSRV=" << static_cast<bool>(dstSRV)
               << "outUAV=" << static_cast<bool>(outUAV);
+ return false;
+ }
+
+ const auto* srcTexture = srcSRV->GetTexture();
+ const auto* dstTexture = dstSRV->GetTexture();
+ const auto* outTexture = outUAV->GetTexture();
+ if (!srcTexture || !dstTexture || !outTexture ||
+     srcTexture == outTexture || dstTexture == outTexture) {
+  qCritical() << "[LayerBlendPipeline::blendDirect] invalid resource alias";
+  return false;
+ }
+ const auto& srcDesc = srcTexture->GetDesc();
+ const auto& dstDesc = dstTexture->GetDesc();
+ const auto& outDesc = outTexture->GetDesc();
+ const bool dimensionsCoverRequest =
+     srcDesc.Width >= width && srcDesc.Height >= height &&
+     dstDesc.Width >= width && dstDesc.Height >= height &&
+     outDesc.Width >= width && outDesc.Height >= height;
+ const bool formatsMatch =
+     (srcDesc.Format == TEX_FORMAT_RGBA32_FLOAT ||
+      srcDesc.Format == TEX_FORMAT_RGBA16_FLOAT) &&
+     dstDesc.Format == srcDesc.Format && outDesc.Format == srcDesc.Format;
+ if (!dimensionsCoverRequest || !formatsMatch) {
+  qCritical() << "[LayerBlendPipeline::blendDirect] texture contract mismatch"
+              << "requested=" << width << "x" << height
+              << "src=" << srcDesc.Width << "x" << srcDesc.Height
+              << "dst=" << dstDesc.Width << "x" << dstDesc.Height
+              << "out=" << outDesc.Width << "x" << outDesc.Height;
   return false;
  }
 
