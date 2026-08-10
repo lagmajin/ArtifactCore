@@ -26,6 +26,7 @@ LUT3DGPUComputer::LUT3DGPUComputer(GpuContext &context)
 LUT3DGPUComputer::~LUT3DGPUComputer() = default;
 
 void LUT3DGPUComputer::initialize() {
+  if (!context_.RenderDevice()) return;
   createPipeline();
 }
 
@@ -107,35 +108,43 @@ void LUT3DGPUComputer::uploadLUT(IDeviceContext *pContext,
   texDesc.Usage = USAGE_IMMUTABLE;
   texDesc.BindFlags = BIND_SHADER_RESOURCE;
 
+  pLUTTexture_ = nullptr;
+  pLUTSRV_ = nullptr;
   device->CreateTexture(texDesc, &texData, &pLUTTexture_);
-  if (pLUTTexture_) {
-    pLUTSRV_ = pLUTTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+  if (!pLUTTexture_) return;
+  pLUTSRV_ = pLUTTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+  if (!pLUTSRV_) {
+    pLUTTexture_ = nullptr;
+    return;
   }
 }
 
 void LUT3DGPUComputer::apply(IDeviceContext *pContext,
                               ITextureView *inputTexture,
                               ITextureView *outputTexture) {
-  if (!ready() || !inputTexture || !outputTexture || !hasLUT()) return;
+  if (!ready() || !pContext || !inputTexture || !outputTexture || !hasLUT() ||
+      !inputTexture->GetTexture() || !outputTexture->GetTexture()) return;
+
+  const auto inputDesc = inputTexture->GetTexture()->GetDesc();
+  const auto outputDesc = outputTexture->GetTexture()->GetDesc();
+  if (inputDesc.Width == 0 || inputDesc.Height == 0 ||
+      outputDesc.Width == 0 || outputDesc.Height == 0 ||
+      inputDesc.Width != outputDesc.Width || inputDesc.Height != outputDesc.Height) return;
 
   void *pData = nullptr;
   pContext->MapBuffer(pParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-  if (pData) {
-    const float params[4] = {inputDomainMin_, inputDomainMax_, 0.0f, 0.0f};
-    std::memcpy(pData, params, sizeof(params));
-    pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
-  }
+  if (!pData) return;
+  const float params[4] = {inputDomainMin_, inputDomainMax_, 0.0f, 0.0f};
+  std::memcpy(pData, params, sizeof(params));
+  pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
 
-  executor_.setBuffer("LUT3DParams", pParamsCB_);
-  executor_.setTextureView("g_InputTexture", inputTexture);
-  executor_.setTextureView("g_LUT", pLUTSRV_);
-  executor_.setTextureView("g_OutputTexture", outputTexture);
-
-  const auto width = inputTexture->GetTexture()->GetDesc().Width;
-  const auto height = inputTexture->GetTexture()->GetDesc().Height;
+  if (!executor_.setBuffer("LUT3DParams", pParamsCB_) ||
+      !executor_.setTextureView("g_InputTexture", inputTexture) ||
+      !executor_.setTextureView("g_LUT", pLUTSRV_) ||
+      !executor_.setTextureView("g_OutputTexture", outputTexture)) return;
 
   executor_.dispatch(pContext,
-      ComputeExecutor::makeDispatchAttribs(width, height, 1, 16, 16, 1));
+      ComputeExecutor::makeDispatchAttribs(outputDesc.Width, outputDesc.Height, 1, 16, 16, 1));
 }
 
 void LUT3DGPUComputer::setInputDomain(const float minValue,
