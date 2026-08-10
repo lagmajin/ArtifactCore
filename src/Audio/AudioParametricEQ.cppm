@@ -108,7 +108,7 @@ std::vector<EffectParameter> AudioParametricEQ::getParameters() const {
         const std::string prefix = "band" + std::to_string(index) + ".";
         parameters.push_back({String(prefix + "frequency"), String(prefix + "Frequency"), 1.0f, 24000.0f, band.frequency, band.frequency});
         parameters.push_back({String(prefix + "gainDb"), String(prefix + "Gain (dB)"), -48.0f, 48.0f, band.gainDb, band.gainDb});
-        parameters.push_back({String(prefix + "qFactor"), String(prefix + "Q"), 0.1f, 10.0f, 1.0f, band.qFactor});
+        parameters.push_back({String(prefix + "qFactor"), String(prefix + "Q"), 0.1f, 10.0f, band.qFactor, band.qFactor});
     }
     return parameters;
 }
