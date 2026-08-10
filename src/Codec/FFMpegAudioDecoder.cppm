@@ -224,9 +224,16 @@ namespace ArtifactCore
   if (!fmtCtx_ || !codecCtx_ || audioStreamIndex_ < 0 ||
       !std::isfinite(seconds) || seconds < 0.0) return;
 
+  const double maxInt64 = static_cast<double>(std::numeric_limits<int64_t>::max() - 1);
+  const double maxTimestampSeconds = maxInt64 / static_cast<double>(AV_TIME_BASE);
+  const double maxFrameSeconds = maxInt64 / static_cast<double>(dstSampleRate_);
+  if (seconds >= std::min(maxTimestampSeconds, maxFrameSeconds)) return;
+
   AVRational tb = fmtCtx_->streams[audioStreamIndex_]->time_base;
+  const int64_t timestampUs = static_cast<int64_t>(
+      seconds * static_cast<double>(AV_TIME_BASE));
   int64_t target_ts = av_rescale_q(
-   static_cast<int64_t>(seconds * static_cast<double>(AV_TIME_BASE)),
+   timestampUs,
    AVRational{1, AV_TIME_BASE},
    tb
   );
@@ -234,7 +241,8 @@ namespace ArtifactCore
   if (av_seek_frame(fmtCtx_, audioStreamIndex_, target_ts, AVSEEK_FLAG_BACKWARD) >= 0) {
    flush();
    seekTargetSeconds_ = seconds;
-   seekTargetFrame_ = static_cast<qint64>(std::llround(std::max(0.0, seconds) * dstSampleRate_));
+   seekTargetFrame_ = static_cast<qint64>(
+       std::llround(seconds * static_cast<double>(dstSampleRate_)));
    nextExpectedFrame_ = seekTargetFrame_;
   }
  }
