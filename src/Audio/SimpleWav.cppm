@@ -86,6 +86,12 @@ namespace ArtifactCore {
     break;
    }
    in >> chunkSize;
+   const qint64 chunkDataStart = file.pos();
+   if (chunkDataStart < 0 || chunkDataStart > file.size() ||
+       static_cast<qint64>(chunkSize) > file.size() - chunkDataStart) {
+    qWarning() << "[SimpleWav] truncated chunk for" << filePath;
+    return false;
+   }
 
    if (std::memcmp(chunkId, "fmt ", 4) == 0) {
     if (chunkSize < 16) {
@@ -136,7 +142,9 @@ namespace ArtifactCore {
    }
 
    if (chunkSize & 1u) {
-    file.seek(file.pos() + 1);
+    if (!file.seek(file.pos() + 1)) {
+     return false;
+    }
    }
   }
 
