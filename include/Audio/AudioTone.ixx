@@ -4,6 +4,7 @@ module;
 #include <vector>
 #include <memory>
 #include <random>
+#include <cmath>
 #include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
@@ -29,8 +30,8 @@ public:
     String getName() const override { return "Tone"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
-    void setFrequency(float hz) { frequency_ = hz; }
-    void setAmplitude(float amp) { amplitude_ = amp; }
+    void setFrequency(float hz) { frequency_ = std::isfinite(hz) ? hz : 440.0f; }
+    void setAmplitude(float amp) { amplitude_ = std::isfinite(amp) ? amp : 0.2f; }
     void setWaveType(WaveType type) { waveType_ = type; }
 
     float getFrequency() const { return frequency_; }

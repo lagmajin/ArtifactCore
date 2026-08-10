@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <random>
 #include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
@@ -11,6 +12,17 @@ import Audio.Effect;
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float sanitizeToneSample(float sample)
+{
+    if (std::isfinite(sample)) return sample;
+    if (std::isnan(sample)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), sample);
+}
+
+}
 
 AudioTone::AudioTone() : phase_(0.0f) {}
 
@@ -52,7 +64,9 @@ void AudioTone::process(AudioSegment& segment, const AudioSegment* /*sideChain*/
                     sample = 0.0f;
                     break;
             }
-            data[i] += sample * amplitude;
+            const float input = std::isfinite(data[i]) ? data[i] : 0.0f;
+            data[i] = sanitizeToneSample(
+                input + sanitizeToneSample(sample * amplitude));
 
             phase_ += frequency / sampleRate;
             phase_ -= std::floor(phase_);
@@ -69,9 +83,12 @@ std::vector<EffectParameter> AudioTone::getParameters() const {
 }
 
 void AudioTone::setParameterValue(const String& id, float value) {
-    if (id == "frequency") frequency_ = value;
-    else if (id == "amplitude") amplitude_ = value;
-    else if (id == "wave_type") waveType_ = static_cast<WaveType>(static_cast<int>(value));
+    if (id == "frequency") setFrequency(value);
+    else if (id == "amplitude") setAmplitude(value);
+    else if (id == "wave_type" && std::isfinite(value)) {
+        const int waveType = static_cast<int>(std::clamp(value, 0.0f, 3.0f));
+        waveType_ = static_cast<WaveType>(waveType);
+    }
 }
 
 float AudioTone::getParameterValue(const String& id) const {
@@ -91,9 +108,10 @@ QJsonObject AudioTone::toJson() const {
 
 void AudioTone::fromJson(const QJsonObject& obj) {
     AudioEffect::fromJson(obj);
-    frequency_ = obj["frequency"].toDouble(440.0);
-    amplitude_ = obj["amplitude"].toDouble(0.2);
-    waveType_ = static_cast<WaveType>(obj["wave_type"].toInt(0));
+    setFrequency(static_cast<float>(obj["frequency"].toDouble(440.0)));
+    setAmplitude(static_cast<float>(obj["amplitude"].toDouble(0.2)));
+    const int waveType = std::clamp(obj["wave_type"].toInt(0), 0, 3);
+    waveType_ = static_cast<WaveType>(waveType);
 }
 
 } // namespace ArtifactCore
