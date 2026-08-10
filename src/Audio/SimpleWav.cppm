@@ -88,6 +88,10 @@ namespace ArtifactCore {
    in >> chunkSize;
 
    if (std::memcmp(chunkId, "fmt ", 4) == 0) {
+    if (chunkSize < 16) {
+     qWarning() << "[SimpleWav] truncated fmt chunk for" << filePath;
+     return false;
+    }
     quint32 byteRate = 0;
     quint16 blockAlign = 0;
     in >> audioFormat;
@@ -99,7 +103,9 @@ namespace ArtifactCore {
 
     const quint32 remaining = chunkSize > 16 ? chunkSize - 16 : 0;
     if (remaining > 0) {
-     file.seek(file.pos() + remaining);
+     if (!file.seek(file.pos() + static_cast<qint64>(remaining))) {
+      return false;
+     }
     }
    } else if (std::memcmp(chunkId, "data", 4) == 0) {
     int64_t readBytes = chunkSize;
@@ -119,6 +125,10 @@ namespace ArtifactCore {
     dataChunk.resize(static_cast<int>(readBytes));
     if (in.readRawData(dataChunk.data(), static_cast<int>(readBytes)) != static_cast<int>(readBytes)) {
      qWarning() << "[SimpleWav] failed reading data chunk for" << filePath;
+     return false;
+    }
+    if (readBytes < static_cast<int64_t>(chunkSize) &&
+        !file.seek(file.pos() + static_cast<qint64>(chunkSize) - readBytes)) {
      return false;
     }
    } else {
