@@ -43,6 +43,9 @@ void AudioChorus::process(AudioSegment& segment, const AudioSegment* /*sideChain
         static_cast<double>(baseDelayMs) * sampleRate / 1000.0;
     const int maxDelay = static_cast<int>(std::clamp(
         requestedMaxDelay, 0.0, 47999.0)) + 1;
+    if (frames > std::numeric_limits<int>::max() - maxDelay - 64) {
+        return;
+    }
     int needed = frames + maxDelay + 64;
     if (delayBufSize_ < needed) {
         delayBuffer_.resize(needed, 0.0f);

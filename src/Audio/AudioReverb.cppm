@@ -39,7 +39,14 @@ void AudioReverb::process(AudioSegment& segment, const AudioSegment* /*sideChain
 
     int combDelays[4] = {151, 307, 613, 1225};
     int maxDelay = 1225;
-    int needed = std::max(frames, maxDelay) + 64;
+    const int baseNeeded = std::max(frames, maxDelay);
+    if (baseNeeded > std::numeric_limits<int>::max() - 64) {
+        return;
+    }
+    const int needed = baseNeeded + 64;
+    if (needed > std::numeric_limits<int>::max() / 4) {
+        return;
+    }
     int totalComb = needed * 4;
     if (combBufSize_ < totalComb) {
         combBuffers_.assign(totalComb, 0.0f);
