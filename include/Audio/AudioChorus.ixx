@@ -5,6 +5,7 @@ module;
 #include <memory>
 #include <atomic>
 #include <cmath>
+#include <algorithm>
 #include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
@@ -31,10 +32,18 @@ public:
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     void setMode(Mode mode) { mode_ = mode; }
-    void setRate(float rate) { rate_ = std::isfinite(rate) ? rate : 0.0f; }
-    void setDepth(float depth) { depth_ = std::isfinite(depth) ? depth : 0.0f; }
-    void setFeedback(float fb) { feedback_ = std::isfinite(fb) ? fb : 0.0f; }
-    void setDelayMs(float ms) { baseDelayMs_ = std::isfinite(ms) ? ms : 0.0f; }
+    void setRate(float rate) {
+        rate_ = std::isfinite(rate) ? std::clamp(rate, 0.1f, 10.0f) : 1.5f;
+    }
+    void setDepth(float depth) {
+        depth_ = std::isfinite(depth) ? std::clamp(depth, 0.0f, 1.0f) : 0.5f;
+    }
+    void setFeedback(float fb) {
+        feedback_ = std::isfinite(fb) ? std::clamp(fb, -0.99f, 0.99f) : 0.3f;
+    }
+    void setDelayMs(float ms) {
+        baseDelayMs_ = std::isfinite(ms) ? std::clamp(ms, 1.0f, 50.0f) : 20.0f;
+    }
 
     Mode getMode() const { return mode_; }
     float getRate() const { return rate_; }

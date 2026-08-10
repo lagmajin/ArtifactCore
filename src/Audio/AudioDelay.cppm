@@ -86,10 +86,9 @@ std::vector<EffectParameter> AudioDelay::getParameters() const {
 }
 
 void AudioDelay::setParameterValue(const String& id, float value) {
-    if (!std::isfinite(value)) return;
-    if (id == "delay_ms") delayTimeMs_ = value;
-    else if (id == "feedback") feedback_ = value;
-    else if (id == "mix") mix_ = value;
+    if (id == "delay_ms") setDelayTimeMs(value);
+    else if (id == "feedback") setFeedback(value);
+    else if (id == "mix") setMix(value);
 }
 
 float AudioDelay::getParameterValue(const String& id) const {
