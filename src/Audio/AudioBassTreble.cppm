@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.BassTreble;
@@ -9,6 +10,17 @@ import Audio.Effect;
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float sanitizeBassTrebleSample(float sample)
+{
+    if (std::isfinite(sample)) return sample;
+    if (std::isnan(sample)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), sample);
+}
+
+}
 
 AudioBassTreble::AudioBassTreble() {
     // デフォルト係数を初期化
@@ -51,16 +63,20 @@ void AudioBassTreble::process(AudioSegment& segment, const AudioSegment* /*sideC
         const float lowCoeff = std::exp(-2.0f * 3.14159265f * bassFreq);
         const float highCoeff = std::exp(-2.0f * 3.14159265f * trebleFreq);
         
-        float lowState = data[0];
-        float highState = data[0];
+        float lowState = std::isfinite(data[0]) ? data[0] : 0.0f;
+        float highState = lowState;
         
         for (int i = 0; i < samples; ++i) {
+            const float input = std::isfinite(data[i]) ? data[i] : 0.0f;
             // ロー/ハイシェルフフィルタ
-            lowState = lowCoeff * lowState + (1.0f - lowCoeff) * data[i];
-            highState = highCoeff * highState + (1.0f - highCoeff) * data[i];
+            lowState = sanitizeBassTrebleSample(
+                lowCoeff * lowState + (1.0f - lowCoeff) * input);
+            highState = sanitizeBassTrebleSample(
+                highCoeff * highState + (1.0f - highCoeff) * input);
             
             // ベース+トレブル適用
-            data[i] = (lowState * bassGain + highState * trebleGain) * 0.5f;
+            data[i] = sanitizeBassTrebleSample(
+                (lowState * bassGain + highState * trebleGain) * 0.5f);
         }
     }
 }

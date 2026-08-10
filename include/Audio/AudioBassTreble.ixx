@@ -3,6 +3,8 @@ module;
 #include <string>
 #include <vector>
 #include <memory>
+#include <algorithm>
+#include <cmath>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect.BassTreble;
@@ -26,8 +28,8 @@ public:
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // パラメータ（dB単位）
-    void setBass(float db) { bassDb_ = db; }
-    void setTreble(float db) { trebleDb_ = db; }
+    void setBass(float db) { bassDb_ = std::isfinite(db) ? std::clamp(db, -24.0f, 24.0f) : 0.0f; }
+    void setTreble(float db) { trebleDb_ = std::isfinite(db) ? std::clamp(db, -24.0f, 24.0f) : 0.0f; }
     
     float getBass() const { return bassDb_; }
     float getTreble() const { return trebleDb_; }
