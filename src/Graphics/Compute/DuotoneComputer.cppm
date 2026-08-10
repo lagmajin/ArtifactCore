@@ -17,12 +17,29 @@ namespace ArtifactCore {
 
 using namespace Diligent;
 
+namespace {
+
+struct DuotoneConstantBuffer {
+    float shadow[4];
+    float highlight[4];
+    float blend;
+    float padding[3];
+};
+
+static_assert(sizeof(DuotoneConstantBuffer) == 48,
+              "Duotone constant buffer must match the HLSL layout");
+
+}
+
 DuotoneGPUComputer::DuotoneGPUComputer(GpuContext &context)
     : context_(context), executor_(context) {}
 
 DuotoneGPUComputer::~DuotoneGPUComputer() = default;
 
 void DuotoneGPUComputer::initialize() {
+    if (!context_.RenderDevice()) {
+        return;
+    }
     createPipeline();
     createBuffers();
 }
@@ -31,6 +48,7 @@ void DuotoneGPUComputer::createPipeline() {
     static ShaderResourceVariableDesc vars[] = {
         {SHADER_TYPE_COMPUTE, "g_InputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_OutputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, "DuotoneParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     ComputePipelineDesc desc;
     desc.name = "Duotone/Apply";
@@ -38,7 +56,7 @@ void DuotoneGPUComputer::createPipeline() {
     desc.entryPoint = Shaders::Duotone::DuotoneEntryPoint;
     desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     desc.variables = vars;
-    desc.variableCount = 2;
+    desc.variableCount = 3;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     executor_.build(desc);
     executor_.createShaderResourceBinding(true);
@@ -46,11 +64,14 @@ void DuotoneGPUComputer::createPipeline() {
 
 void DuotoneGPUComputer::createBuffers() {
   auto *device = context_.RenderDevice();
+    if (!device) {
+        return;
+    }
     BufferDesc desc;
     desc.Name = "DuotoneParamsCB";
     desc.Usage = USAGE_DYNAMIC;
     desc.BindFlags = BIND_UNIFORM_BUFFER;
-    desc.Size = sizeof(float) * 8 + sizeof(float); // shadow(4) + highlight(4) + blend(1), padded to 16 bytes
+    desc.Size = sizeof(DuotoneConstantBuffer);
     desc.CPUAccessFlags = CPU_ACCESS_WRITE;
     device->CreateBuffer(desc, nullptr, &pParamsCB_);
 }
@@ -59,23 +80,28 @@ void DuotoneGPUComputer::apply(IDeviceContext *pContext,
                                 ITextureView *inputTexture,
                                 ITextureView *outputTexture,
                                 const DuotoneGPUParams &params) {
-    if (!ready() || !inputTexture || !outputTexture) return;
+    if (!ready() || !pContext || !inputTexture || !inputTexture->GetTexture() ||
+        !outputTexture || !outputTexture->GetTexture()) {
+        return;
+    }
 
     void *pData = nullptr;
     pContext->MapBuffer(pParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        struct { float shadow[4]; float highlight[4]; float blend; float pad[3]; } cb;
-        std::memcpy(cb.shadow, params.shadowColor, sizeof(float) * 4);
-        std::memcpy(cb.highlight, params.highlightColor, sizeof(float) * 4);
-        cb.blend = params.blend;
-        cb.pad[0] = cb.pad[1] = cb.pad[2] = 0;
-        std::memcpy(pData, &cb, sizeof(cb));
-        pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
+    if (!pData) {
+        return;
     }
+    DuotoneConstantBuffer cb{};
+    std::memcpy(cb.shadow, params.shadowColor, sizeof(cb.shadow));
+    std::memcpy(cb.highlight, params.highlightColor, sizeof(cb.highlight));
+    cb.blend = params.blend;
+    std::memcpy(pData, &cb, sizeof(cb));
+    pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
 
-    executor_.setBuffer("DuotoneParams", pParamsCB_);
-    executor_.setTextureView("g_InputTexture", inputTexture);
-    executor_.setTextureView("g_OutputTexture", outputTexture);
+    if (!executor_.setBuffer("DuotoneParams", pParamsCB_) ||
+        !executor_.setTextureView("g_InputTexture", inputTexture) ||
+        !executor_.setTextureView("g_OutputTexture", outputTexture)) {
+        return;
+    }
 
     const auto w = outputTexture->GetTexture()->GetDesc().Width;
     const auto h = outputTexture->GetTexture()->GetDesc().Height;
