@@ -128,6 +128,13 @@ ImageBuffer AtmosphereFogRenderer::applyToImage(const ImageBuffer& depthBuffer, 
                                                   float nearPlane, float farPlane) const noexcept {
     if (!settings_.enabled || !std::isfinite(nearPlane) ||
         !std::isfinite(farPlane) || farPlane <= nearPlane) return colorBuffer;
+    const auto depthBytes = imagePixelBytes(depthBuffer.width, depthBuffer.height);
+    const auto colorBytes = imagePixelBytes(colorBuffer.width, colorBuffer.height);
+    if (depthBytes == 0 || colorBytes == 0 ||
+        depthBuffer.pixels.size() < depthBytes ||
+        colorBuffer.pixels.size() < colorBytes) {
+        return colorBuffer;
+    }
 
     ImageBuffer result = colorBuffer;
     const int w = std::min(depthBuffer.width, colorBuffer.width);
