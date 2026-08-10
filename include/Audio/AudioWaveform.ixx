@@ -4,6 +4,7 @@ module;
 #include <vector>
 #include <memory>
 #include <atomic>
+#include <algorithm>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect.Waveform;
@@ -29,7 +30,9 @@ public:
     // 波形取得
     const std::vector<float>& getWaveformData() const { return waveformData_; }
     int getResolution() const { return resolution_; }
-    void setResolution(int res) { resolution_ = res; }
+    void setResolution(int res) {
+        resolution_ = std::clamp(res, 1, 1 << 20);
+    }
 
 private:
     int resolution_ = 512;
