@@ -304,7 +304,11 @@ bool LayerBlendPipeline::applyTrackMatte(
     Uint32 width,
     Uint32 height)
 {
-    if (!ctx || !layerSRV || !matteSrc0SRV || !outUAV) {
+    if (!ctx || !layerSRV || !matteSrc0SRV || !outUAV ||
+        width == 0 || height == 0 || params.matteCount == 0 ||
+        params.matteCount > 3 ||
+        (params.matteCount > 1 && !matteSrc1SRV) ||
+        (params.matteCount > 2 && !matteSrc2SRV)) {
         qWarning() << "[LayerBlendPipeline::applyTrackMatte] invalid input";
         return false;
     }
@@ -325,11 +329,18 @@ bool LayerBlendPipeline::applyTrackMatte(
         ctx->UnmapBuffer(pImpl_->pMatteTrackCB_, MAP_WRITE);
     }
 
-    matteTrackExecutor_->setTextureView("g_LayerTex", layerSRV);
-    matteTrackExecutor_->setTextureView("g_MatteSrc0", matteSrc0SRV);
-    matteTrackExecutor_->setTextureView("g_MatteSrc1", matteSrc1SRV);
-    matteTrackExecutor_->setTextureView("g_MatteSrc2", matteSrc2SRV);
-    matteTrackExecutor_->setTextureView("g_OutTex", outUAV);
+    // Keep all declared SRV slots bound. Unused slots reuse source 0, while
+    // the count checks above still require every actually sampled source.
+    const auto* safeMatteSrc1 = matteSrc1SRV ? matteSrc1SRV : matteSrc0SRV;
+    const auto* safeMatteSrc2 = matteSrc2SRV ? matteSrc2SRV : matteSrc0SRV;
+    if (!matteTrackExecutor_->setTextureView("g_LayerTex", layerSRV) ||
+        !matteTrackExecutor_->setTextureView("g_MatteSrc0", matteSrc0SRV) ||
+        !matteTrackExecutor_->setTextureView("g_MatteSrc1", safeMatteSrc1) ||
+        !matteTrackExecutor_->setTextureView("g_MatteSrc2", safeMatteSrc2) ||
+        !matteTrackExecutor_->setTextureView("g_OutTex", outUAV)) {
+        qWarning() << "[LayerBlendPipeline::applyTrackMatte] failed to bind texture views";
+        return false;
+    }
 
     DispatchComputeAttribs attribs;
     attribs.ThreadGroupCountX = (width + 15) / 16;
