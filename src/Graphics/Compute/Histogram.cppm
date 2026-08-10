@@ -5,6 +5,8 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
+#include <cstdint>
+#include <cstring>
 
 
 module Graphics.Compute.Histogram;
@@ -17,6 +19,38 @@ namespace ArtifactCore {
 
 using namespace Diligent;
 
+namespace {
+
+bool hasHistogramInputs(IDeviceContext* context, ITextureView* input,
+                        IBuffer* output, const uint64_t elementCount)
+{
+  if (!context || !input || !input->GetTexture() || !output ||
+      output->GetDesc().Size < elementCount * sizeof(uint32_t)) {
+    return false;
+  }
+  const auto& inputDesc = input->GetTexture()->GetDesc();
+  return inputDesc.Width > 0 && inputDesc.Height > 0;
+}
+
+bool updateRegionParams(IDeviceContext* context, IBuffer* buffer, uint32_t x,
+                        uint32_t y, uint32_t width, uint32_t height)
+{
+  if (!context || !buffer) {
+    return false;
+  }
+  const uint32_t params[4] = {x, y, width, height};
+  void* data = nullptr;
+  context->MapBuffer(buffer, MAP_WRITE, MAP_FLAG_DISCARD, data);
+  if (!data) {
+    return false;
+  }
+  std::memcpy(data, params, sizeof(params));
+  context->UnmapBuffer(buffer, MAP_WRITE);
+  return true;
+}
+
+}
+
 HistogramComputer::HistogramComputer(GpuContext &context)
     : context_(context), executorLuminance_(context), executorRGB_(context),
       executorStatistics_(context) {}
@@ -24,6 +58,9 @@ HistogramComputer::HistogramComputer(GpuContext &context)
 HistogramComputer::~HistogramComputer() = default;
 
 void HistogramComputer::initialize() {
+  if (!context_.RenderDevice()) {
+    return;
+  }
   createPipelines();
   createBuffers();
 }
@@ -34,6 +71,7 @@ void HistogramComputer::createPipelines() {
       {SHADER_TYPE_COMPUTE, "g_OutputHistogram", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_OutputHistogramRGB", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_OutputStatistics", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {SHADER_TYPE_COMPUTE, "HistogramParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
   ComputePipelineDesc lumaDesc;
@@ -42,7 +80,7 @@ void HistogramComputer::createPipelines() {
   lumaDesc.entryPoint = Shaders::Histogram::HistogramLumaEntryPoint;
   lumaDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
   lumaDesc.variables = histogramVars;
-  lumaDesc.variableCount = 4;
+  lumaDesc.variableCount = 5;
   lumaDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
   ComputePipelineDesc rgbDesc = lumaDesc;
@@ -63,6 +101,10 @@ void HistogramComputer::createPipelines() {
 }
 
 void HistogramComputer::createBuffers() {
+  auto* device = context_.RenderDevice();
+  if (!device) {
+    return;
+  }
   BufferDesc buffDesc;
   buffDesc.Name = "HistogramTempBuffer";
   buffDesc.Usage = USAGE_DEFAULT;
@@ -71,7 +113,7 @@ void HistogramComputer::createBuffers() {
   buffDesc.Mode = BUFFER_MODE_STRUCTURED;
   buffDesc.ElementByteStride = sizeof(uint32_t);
 
-  context_.RenderDevice()->CreateBuffer(buffDesc, nullptr, &pHistogramTempBuffer_);
+  device->CreateBuffer(buffDesc, nullptr, &pHistogramTempBuffer_);
 
   BufferDesc statsDesc;
   statsDesc.Name = "HistogramStatisticsParams";
@@ -79,17 +121,30 @@ void HistogramComputer::createBuffers() {
   statsDesc.BindFlags = BIND_UNIFORM_BUFFER;
   statsDesc.Size = sizeof(uint32_t) * 5;
   statsDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-  context_.RenderDevice()->CreateBuffer(statsDesc, nullptr, &pStatisticsParamsBuffer_);
+  device->CreateBuffer(statsDesc, nullptr, &pStatisticsParamsBuffer_);
 }
 
 void HistogramComputer::computeLuminance(IDeviceContext *pContext,
                                          ITextureView *inputTexture,
                                          IBuffer *outputHistogram) {
-  if (!ready())
-    return;
+  computeLuminanceRegion(pContext, inputTexture, 0, 0, 0, 0,
+                         outputHistogram);
+}
 
-  executorLuminance_.setTextureView("g_InputTexture", inputTexture);
-  executorLuminance_.setBuffer("g_OutputHistogram", outputHistogram);
+void HistogramComputer::computeLuminanceRegion(
+    IDeviceContext *pContext, ITextureView *inputTexture, uint32_t x,
+    uint32_t y, uint32_t regionWidth, uint32_t regionHeight,
+    IBuffer *outputHistogram) {
+  if (!ready() || !hasHistogramInputs(pContext, inputTexture, outputHistogram,
+                                      BIN_COUNT) ||
+      !updateRegionParams(pContext, pStatisticsParamsBuffer_, x, y,
+                          regionWidth, regionHeight) ||
+      !executorLuminance_.setTextureView("g_InputTexture", inputTexture) ||
+      !executorLuminance_.setBuffer("g_OutputHistogram", outputHistogram) ||
+      !executorLuminance_.setBuffer("HistogramParams",
+                                    pStatisticsParamsBuffer_)) {
+    return;
+  }
 
   const auto width = inputTexture->GetTexture()->GetDesc().Width;
   const auto height = inputTexture->GetTexture()->GetDesc().Height;
@@ -103,23 +158,17 @@ void HistogramComputer::computeLuminance(IDeviceContext *pContext,
                                                      THREAD_GROUP_SIZE));
 }
 
-void HistogramComputer::computeLuminanceRegion(IDeviceContext *pContext,
-                                               ITextureView *inputTexture,
-                                               uint32_t x, uint32_t y,
-                                               uint32_t width, uint32_t height,
-                                               IBuffer *outputHistogram) {
-  // 領域指定版は後で実装
-  computeLuminance(pContext, inputTexture, outputHistogram);
-}
-
 void HistogramComputer::computeRGB(IDeviceContext *pContext,
                                    ITextureView *inputTexture,
                                    IBuffer *outputHistogram) {
-  if (!ready())
+  if (!ready() || !hasHistogramInputs(pContext, inputTexture, outputHistogram,
+                                      BIN_COUNT * 3ull) ||
+      !updateRegionParams(pContext, pStatisticsParamsBuffer_, 0, 0, 0, 0) ||
+      !executorRGB_.setTextureView("g_InputTexture", inputTexture) ||
+      !executorRGB_.setBuffer("g_OutputHistogramRGB", outputHistogram) ||
+      !executorRGB_.setBuffer("HistogramParams", pStatisticsParamsBuffer_)) {
     return;
-
-  executorRGB_.setTextureView("g_InputTexture", inputTexture);
-  executorRGB_.setBuffer("g_OutputHistogram", outputHistogram);
+  }
 
   const auto width = inputTexture->GetTexture()->GetDesc().Width;
   const auto height = inputTexture->GetTexture()->GetDesc().Height;
@@ -137,38 +186,36 @@ void HistogramComputer::computeStatistics(IDeviceContext *pContext,
                                           uint32_t x, uint32_t y,
                                           uint32_t width, uint32_t height,
                                           IBuffer *outputStatistics) {
-  if (!ready() || !inputTexture || !outputStatistics ||
+  if (!ready() ||
+      !hasHistogramInputs(pContext, inputTexture, outputStatistics, 8) ||
       !pStatisticsParamsBuffer_) {
     return;
   }
 
-  uint32_t params[4] = {x, y, width, height};
-  void *pData = nullptr;
-  pContext->MapBuffer(pStatisticsParamsBuffer_, MAP_WRITE, MAP_FLAG_DISCARD,
-                      pData);
-  if (pData) {
-    auto *dst = static_cast<uint32_t *>(pData);
-    for (int i = 0; i < 4; ++i) {
-      dst[i] = params[i];
-    }
-    pContext->UnmapBuffer(pStatisticsParamsBuffer_, MAP_WRITE);
+  if (!updateRegionParams(pContext, pStatisticsParamsBuffer_, x, y, width,
+                          height)) {
+    return;
   }
 
   uint32_t init[8] = {0xFFFFFFFFu, 0u, 0u, 0u,
                      0u,          0u, 0u, 0u};
   void *outData = nullptr;
   pContext->MapBuffer(outputStatistics, MAP_WRITE, MAP_FLAG_DISCARD, outData);
-  if (outData) {
-    auto *dst = static_cast<uint32_t *>(outData);
-    for (int i = 0; i < 8; ++i) {
-      dst[i] = init[i];
-    }
-    pContext->UnmapBuffer(outputStatistics, MAP_WRITE);
+  if (!outData) {
+    return;
   }
+  auto *dst = static_cast<uint32_t *>(outData);
+  for (int i = 0; i < 8; ++i) {
+    dst[i] = init[i];
+  }
+  pContext->UnmapBuffer(outputStatistics, MAP_WRITE);
 
-  executorStatistics_.setTextureView("g_InputTexture", inputTexture);
-  executorStatistics_.setBuffer("HistogramParams", pStatisticsParamsBuffer_);
-  executorStatistics_.setBuffer("g_OutputStatistics", outputStatistics);
+  if (!executorStatistics_.setTextureView("g_InputTexture", inputTexture) ||
+      !executorStatistics_.setBuffer("HistogramParams",
+                                     pStatisticsParamsBuffer_) ||
+      !executorStatistics_.setBuffer("g_OutputStatistics", outputStatistics)) {
+    return;
+  }
 
   const auto texWidth = inputTexture->GetTexture()->GetDesc().Width;
   const auto texHeight = inputTexture->GetTexture()->GetDesc().Height;
