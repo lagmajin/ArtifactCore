@@ -92,8 +92,15 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
         return 0;
     };
     const int expectedChannels = expectedChannelCount(impl_->targetLayout_);
+    const int sourceFrames = source.frameCount();
+    const bool uniformFrameShape = std::all_of(
+        source.channelData.cbegin(), source.channelData.cend(),
+        [sourceFrames](const auto& channel) {
+            return static_cast<int>(channel.size()) == sourceFrames;
+        });
     if (source.layout == impl_->targetLayout_ &&
-        (expectedChannels == 0 || source.channelCount() == expectedChannels)) {
+        (expectedChannels == 0 || source.channelCount() == expectedChannels) &&
+        uniformFrameShape) {
         return source; // No conversion needed
     }
 
@@ -102,7 +109,7 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
     output.layout = impl_->targetLayout_;
     output.startFrame = source.startFrame;
 
-    int frames = source.frameCount();
+    int frames = sourceFrames;
     if (frames <= 0) return output;
     const auto sampleAt = [](const auto& channel, int frame) {
         return frame < static_cast<int>(channel.size()) ? channel[frame] : 0.0f;
