@@ -56,7 +56,8 @@ namespace ArtifactCore
     Uint32 width,
     Uint32 height
   ) {
-    if (!ready() || !ctx || !srcSRV || !compressedOutput || width == 0 || height == 0) {
+    if (!ready() || !ctx || !srcSRV || !srcSRV->GetTexture() ||
+        !compressedOutput || width == 0 || height == 0) {
       return false;
     }
 
@@ -73,16 +74,23 @@ namespace ArtifactCore
     currentParams_.height = height;
     currentParams_.numBlocks = static_cast<Uint32>(
         (byteCount + currentParams_.blockSize - 1u) / currentParams_.blockSize);
+    const std::uint64_t outputBytes = static_cast<std::uint64_t>(currentParams_.numBlocks) *
+                                      currentParams_.blockSize;
+    if (compressedOutput->GetDesc().Size < outputBytes) return false;
+    const auto srcDesc = srcSRV->GetTexture()->GetDesc();
+    if (srcDesc.Width != width || srcDesc.Height != height) return false;
     void* pData = nullptr;
     ctx->MapBuffer(pImpl_->pCompressionCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-      memcpy(pData, &currentParams_, sizeof(CompressionParams));
-      ctx->UnmapBuffer(pImpl_->pCompressionCB_, MAP_WRITE);
-    }
+    if (!pData) return false;
+    memcpy(pData, &currentParams_, sizeof(CompressionParams));
+    ctx->UnmapBuffer(pImpl_->pCompressionCB_, MAP_WRITE);
 
     // Bind resources
-    compressExecutor_.executor->setTextureView("g_InputTexture", srcSRV);
-    compressExecutor_.executor->setBuffer("g_CompressedData", compressedOutput);
+    if (!compressExecutor_.executor->setBuffer("CompressionCB", pImpl_->pCompressionCB_) ||
+        !compressExecutor_.executor->setTextureView("g_InputTexture", srcSRV) ||
+        !compressExecutor_.executor->setBuffer("g_CompressedData", compressedOutput)) {
+      return false;
+    }
 
     // Dispatch
     const Uint32 numGroups = currentParams_.numBlocks;
@@ -103,7 +111,8 @@ namespace ArtifactCore
     Uint32 width,
     Uint32 height
   ) {
-    if (!ready() || !ctx || !compressedInput || !dstUAV || width == 0 || height == 0) {
+    if (!ready() || !ctx || !compressedInput || !dstUAV ||
+        !dstUAV->GetTexture() || width == 0 || height == 0) {
       return false;
     }
 
@@ -120,16 +129,23 @@ namespace ArtifactCore
     currentParams_.height = height;
     currentParams_.numBlocks = static_cast<Uint32>(
         (byteCount + currentParams_.blockSize - 1u) / currentParams_.blockSize);
+    const std::uint64_t inputBytes = static_cast<std::uint64_t>(currentParams_.numBlocks) *
+                                     currentParams_.blockSize;
+    if (compressedInput->GetDesc().Size < inputBytes) return false;
+    const auto dstDesc = dstUAV->GetTexture()->GetDesc();
+    if (dstDesc.Width != width || dstDesc.Height != height) return false;
     void* pData = nullptr;
     ctx->MapBuffer(pImpl_->pCompressionCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-      memcpy(pData, &currentParams_, sizeof(CompressionParams));
-      ctx->UnmapBuffer(pImpl_->pCompressionCB_, MAP_WRITE);
-    }
+    if (!pData) return false;
+    memcpy(pData, &currentParams_, sizeof(CompressionParams));
+    ctx->UnmapBuffer(pImpl_->pCompressionCB_, MAP_WRITE);
 
     // Bind resources
-    decompressExecutor_.executor->setBuffer("g_DecompressedData", compressedInput);
-    decompressExecutor_.executor->setTextureView("g_OutputTexture", dstUAV);
+    if (!decompressExecutor_.executor->setBuffer("CompressionCB", pImpl_->pCompressionCB_) ||
+        !decompressExecutor_.executor->setBuffer("g_DecompressedData", compressedInput) ||
+        !decompressExecutor_.executor->setTextureView("g_OutputTexture", dstUAV)) {
+      return false;
+    }
 
     // Dispatch
     const Uint32 numGroups = currentParams_.numBlocks;
@@ -168,6 +184,7 @@ namespace ArtifactCore
   {
     // Compress executor
     static ShaderResourceVariableDesc compressVars[] = {
+      {SHADER_TYPE_COMPUTE, "CompressionCB", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_InputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_CompressedData", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
@@ -178,16 +195,12 @@ namespace ArtifactCore
     compressDesc.entryPoint = Shaders::Compression::CompressEntryPoint;
     compressDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     compressDesc.variables = compressVars;
-    compressDesc.variableCount = 2;
+    compressDesc.variableCount = 3;
     compressDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
     compressExecutor_.executor = std::make_unique<ComputeExecutor>(context_);
     if (!compressExecutor_.executor->build(compressDesc)) {
       return false;
-    }
-
-    if (pImpl_->pCompressionCB_) {
-      compressExecutor_.executor->setBuffer("CompressionCB", pImpl_->pCompressionCB_);
     }
 
     if (!compressExecutor_.executor->createShaderResourceBinding(true)) {
@@ -196,6 +209,7 @@ namespace ArtifactCore
 
     // Decompress executor
     static ShaderResourceVariableDesc decompressVars[] = {
+      {SHADER_TYPE_COMPUTE, "CompressionCB", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_DecompressedData", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_OutputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
@@ -206,16 +220,12 @@ namespace ArtifactCore
     decompressDesc.entryPoint = Shaders::Compression::DecompressEntryPoint;
     decompressDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     decompressDesc.variables = decompressVars;
-    decompressDesc.variableCount = 2;
+    decompressDesc.variableCount = 3;
     decompressDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
     decompressExecutor_.executor = std::make_unique<ComputeExecutor>(context_);
     if (!decompressExecutor_.executor->build(decompressDesc)) {
       return false;
-    }
-
-    if (pImpl_->pCompressionCB_) {
-      decompressExecutor_.executor->setBuffer("CompressionCB", pImpl_->pCompressionCB_);
     }
 
     if (!decompressExecutor_.executor->createShaderResourceBinding(true)) {
