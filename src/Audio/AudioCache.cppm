@@ -34,7 +34,8 @@ bool AudioCache::getCached(int64_t frameNumber, AudioSegment& out)
 
 void AudioCache::addCache(int64_t frameNumber, AudioSegment&& pcm)
 {
-    if (frameNumber < 0 || pcm.frameCount() <= 0 || pcm.channelCount() <= 0 ||
+    if (frameNumber < 0 || pcm.sampleRate <= 0 || pcm.frameCount() <= 0 ||
+        pcm.channelCount() <= 0 ||
         pcm.channelData.size() < pcm.channelCount()) {
         return;
     }
