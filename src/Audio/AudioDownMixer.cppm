@@ -275,6 +275,24 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
                 }
             }
         }
+    } else if (impl_->targetLayout_ == AudioChannelLayout::Custom10ch) {
+        // Preserve the channels that are present when promoting a malformed
+        // or differently shaped source into the explicit 10-channel layout.
+        constexpr int targetChannels = 10;
+        output.channelData.resize(targetChannels);
+        for (auto& channel : output.channelData) {
+            channel.fill(0.0f, frames);
+        }
+
+        const int copyChannels = std::min(targetChannels, source.channelCount());
+        for (int channel = 0; channel < copyChannels; ++channel) {
+            const auto& input = source.channelData[channel];
+            const int copyFrames = std::min(frames, static_cast<int>(input.size()));
+            for (int frame = 0; frame < copyFrames; ++frame) {
+                output.channelData[channel][frame] =
+                    std::isfinite(input[frame]) ? input[frame] : 0.0f;
+            }
+        }
     }
 
     for (auto& channel : output.channelData) {
