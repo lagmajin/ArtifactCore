@@ -36,6 +36,26 @@ ZeroString toZeroString(const UniString& text)
     return ZeroString(static_cast<std::string>(text));
 }
 
+AudioBusKind legacyBusKind(const QString& name)
+{
+    return name.startsWith(QStringLiteral("layer_"))
+        ? AudioBusKind::Layer : AudioBusKind::Group;
+}
+
+AudioBusKind readBusKind(const QJsonObject& busObj, const QString& name)
+{
+    if (!busObj.contains(QStringLiteral("kind"))) {
+        return legacyBusKind(name);
+    }
+    const int value = busObj.value(QStringLiteral("kind")).toInt(
+        static_cast<int>(legacyBusKind(name)));
+    if (value < static_cast<int>(AudioBusKind::Layer) ||
+        value > static_cast<int>(AudioBusKind::Return)) {
+        return legacyBusKind(name);
+    }
+    return static_cast<AudioBusKind>(value);
+}
+
 }
 
 struct SideChainSend {
@@ -48,6 +68,7 @@ struct AudioMixer::Impl {
     std::vector<SharedPtr<AudioBus>> buses;
     std::map<const AudioBus*, const AudioBus*> routing;
     std::vector<SideChainSend> sends;
+    std::map<const AudioBus*, AudioBusKind> busKinds;
 
     SharedPtr<AudioBus> resolveBus(const AudioBus* bus) const {
         if (!bus) {
@@ -106,9 +127,38 @@ AudioMixer::AudioMixer() : impl_(std::make_unique<Impl>()) {
     masterBus_ = makeShared<AudioBus>();
     masterBus_->setName(ZeroString("Master"));
     impl_->buses.push_back(masterBus_);
+    impl_->busKinds[masterBus_.get()] = AudioBusKind::Master;
 }
 
 AudioMixer::~AudioMixer() = default;
+
+String AudioMixer::layerBusName(const Id& layerId) {
+    return String("layer_" + layerId.toString().toStdString());
+}
+
+QString AudioMixer::routingResultDescription(const AudioRoutingResult result) {
+    switch (result) {
+    case AudioRoutingResult::Applied:
+        return QStringLiteral("Routing updated.");
+    case AudioRoutingResult::NoRoute:
+        return QStringLiteral("The bus has no editable output route.");
+    case AudioRoutingResult::InvalidSource:
+        return QStringLiteral("The source bus is unavailable.");
+    case AudioRoutingResult::InvalidTarget:
+        return QStringLiteral("The destination bus is unavailable.");
+    case AudioRoutingResult::MasterSource:
+        return QStringLiteral("Master is the final output and cannot be routed as a source.");
+    case AudioRoutingResult::SelfRoute:
+        return QStringLiteral("A bus cannot route to itself.");
+    case AudioRoutingResult::CycleDetected:
+        return QStringLiteral("This route would create an audio routing cycle.");
+    case AudioRoutingResult::InvalidAmount:
+        return QStringLiteral("The send amount must be a finite value.");
+    case AudioRoutingResult::NoSend:
+        return QStringLiteral("The sidechain send no longer exists.");
+    }
+    return QStringLiteral("The routing operation could not be completed.");
+}
 
 int AudioMixer::busCount() const
 {
@@ -172,6 +222,15 @@ SharedPtr<AudioBus> AudioMixer::findBusById(const Id& id) const
     return it == impl_->buses.end() ? nullptr : *it;
 }
 
+AudioBusKind AudioMixer::busKind(SharedPtr<AudioBus> bus) const
+{
+    if (!bus || !impl_->resolveBus(bus.get())) {
+        return AudioBusKind::Group;
+    }
+    const auto it = impl_->busKinds.find(bus.get());
+    return it == impl_->busKinds.end() ? AudioBusKind::Group : it->second;
+}
+
 std::vector<SharedPtr<AudioBus>> AudioMixer::getAllBuses() const
 {
     NamedVector<SharedPtr<AudioBus>> result{makeNamedVector<SharedPtr<AudioBus>>(ContainerName{"AudioMixerAllBuses"})};
@@ -219,6 +278,7 @@ QJsonObject AudioMixer::serialize() const {
         busObj["layout"] = static_cast<int>(bus->getLayout());
         busObj["mute"] = bus->isMute();
         busObj["solo"] = bus->isSolo();
+        busObj["kind"] = static_cast<int>(busKind(bus));
 
         const auto target = getRoutingTarget(bus);
         if (target) {
@@ -251,6 +311,8 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
     }
     impl_->routing.clear();
     impl_->sends.clear();
+    impl_->busKinds.clear();
+    impl_->busKinds[masterBus_.get()] = AudioBusKind::Master;
     // Deserialization represents the complete mixer state. Remove buses that
     // are not present in the incoming document instead of merging stale buses
     // from the previously loaded composition.
@@ -273,6 +335,7 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
         }
 
         const QString serializedId = busObj["id"].toString().trimmed();
+        const AudioBusKind kind = readBusKind(busObj, name);
         if (!serializedId.isEmpty() &&
             !serializedBusIds.insert(serializedId).second) {
             continue;
@@ -290,9 +353,10 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
         }
         if (!bus) bus = findBusByName(name);
         if (!bus) {
-            bus = createBus(name);
+            bus = createBus(name, kind);
         }
         if (!bus) continue;
+        impl_->busKinds[bus.get()] = kind;
         if (!serializedId.isEmpty()) bus->restoreId(Id(serializedId));
         bus->setName(toZeroString(name));
 
@@ -341,12 +405,20 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
 }
 
 SharedPtr<AudioBus> AudioMixer::createBus(const String& name) {
+    return createBus(name, AudioBusKind::Group);
+}
+
+SharedPtr<AudioBus> AudioMixer::createBus(const String& name, AudioBusKind kind) {
     if (name.length() == 0 || findBusByName(name)) {
         return nullptr;
+    }
+    if (kind == AudioBusKind::Master || kind == AudioBusKind::Layer) {
+        kind = AudioBusKind::Group;
     }
     auto bus = makeShared<AudioBus>();
     bus->setName(name);
     impl_->buses.push_back(bus);
+    impl_->busKinds[bus.get()] = kind;
     connect(bus, masterBus_);
     return bus;
 }
@@ -359,12 +431,25 @@ SharedPtr<AudioBus> AudioMixer::createBus(const UniString& name) {
     return createBus(toZeroString(name));
 }
 
+SharedPtr<AudioBus> AudioMixer::ensureLayerBus(const Id& layerId) {
+    const auto name = layerBusName(layerId);
+    auto bus = findBusByName(name);
+    if (!bus) {
+        bus = createBus(name);
+    }
+    if (bus && bus != masterBus_) {
+        impl_->busKinds[bus.get()] = AudioBusKind::Layer;
+    }
+    return bus;
+}
+
 void AudioMixer::removeBus(SharedPtr<AudioBus> bus) {
     if (!bus || bus == masterBus_ || !impl_->resolveBus(bus.get())) {
         return;
     }
 
     impl_->routing.erase(bus.get());
+    impl_->busKinds.erase(bus.get());
     for (auto& pair : impl_->routing) {
         if (pair.second == bus.get()) {
             pair.second = masterBus_.get();
@@ -380,31 +465,37 @@ void AudioMixer::removeBus(SharedPtr<AudioBus> bus) {
     impl_->buses.erase(std::remove(impl_->buses.begin(), impl_->buses.end(), bus), impl_->buses.end());
 }
 
-void AudioMixer::connect(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) {
-    if (!source || !target || source == target ||
-        !impl_->resolveBus(source.get()) || !impl_->resolveBus(target.get())) {
-        return;
-    }
+AudioRoutingResult AudioMixer::connect(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) {
+    // Master is the terminal sink for this mixer. Allowing it to become a
+    // source silently makes finalOutput diverge from the graph's audible end.
+    if (!source || !impl_->resolveBus(source.get())) return AudioRoutingResult::InvalidSource;
+    if (!target || !impl_->resolveBus(target.get())) return AudioRoutingResult::InvalidTarget;
+    if (source == masterBus_) return AudioRoutingResult::MasterSource;
+    if (source == target) return AudioRoutingResult::SelfRoute;
     // Reject a route that would make the primary bus graph cyclic.
     const AudioBus* cursor = target.get();
     std::set<const AudioBus*> visited;
     while (cursor && visited.insert(cursor).second) {
-        if (cursor == source.get()) return;
+        if (cursor == source.get()) return AudioRoutingResult::CycleDetected;
         const auto it = impl_->routing.find(cursor);
         cursor = it == impl_->routing.end() ? nullptr : it->second;
     }
     impl_->routing[source.get()] = target.get();
+    return AudioRoutingResult::Applied;
 }
 
-void AudioMixer::disconnect(SharedPtr<AudioBus> source) {
-    impl_->routing.erase(source.get());
+AudioRoutingResult AudioMixer::disconnect(SharedPtr<AudioBus> source) {
+    if (!source || !impl_->resolveBus(source.get())) return AudioRoutingResult::InvalidSource;
+    if (source == masterBus_) return AudioRoutingResult::MasterSource;
+    return impl_->routing.erase(source.get()) > 0
+        ? AudioRoutingResult::Applied : AudioRoutingResult::NoRoute;
 }
 
-void AudioMixer::addSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target, float amount) {
-    if (!source || !target || source == target || !std::isfinite(amount) ||
-        !impl_->resolveBus(source.get()) || !impl_->resolveBus(target.get())) {
-        return;
-    }
+AudioRoutingResult AudioMixer::addSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target, float amount) {
+    if (!source || !impl_->resolveBus(source.get())) return AudioRoutingResult::InvalidSource;
+    if (!target || !impl_->resolveBus(target.get())) return AudioRoutingResult::InvalidTarget;
+    if (source == target) return AudioRoutingResult::SelfRoute;
+    if (!std::isfinite(amount)) return AudioRoutingResult::InvalidAmount;
     amount = std::clamp(amount, 0.0f, 1.0f);
     const auto existing = std::find_if(
         impl_->sends.begin(), impl_->sends.end(),
@@ -413,17 +504,23 @@ void AudioMixer::addSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus
         });
     if (existing != impl_->sends.end()) {
         existing->amount = amount;
-        return;
+        return AudioRoutingResult::Applied;
     }
     impl_->sends.push_back({source, target, amount});
+    return AudioRoutingResult::Applied;
 }
 
-void AudioMixer::removeSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) {
+AudioRoutingResult AudioMixer::removeSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) {
+    if (!source || !impl_->resolveBus(source.get())) return AudioRoutingResult::InvalidSource;
+    if (!target || !impl_->resolveBus(target.get())) return AudioRoutingResult::InvalidTarget;
+    const auto oldSize = impl_->sends.size();
     impl_->sends.erase(std::remove_if(impl_->sends.begin(), impl_->sends.end(),
         [&](const auto& send) {
             return send.source == source && send.target == target;
         }),
         impl_->sends.end());
+    return impl_->sends.size() != oldSize
+        ? AudioRoutingResult::Applied : AudioRoutingResult::NoSend;
 }
 
 void AudioMixer::process(AudioSegment& finalOutput) {
@@ -444,7 +541,65 @@ void AudioMixer::process(AudioSegment& finalOutput) {
 
     const auto sorted = impl_->getSortedBuses();
 
+    // Solo is a graph-level decision. A bus remains audible when it is
+    // soloed, carries a soloed child, or feeds an explicitly soloed group.
+    // The last case keeps a group solo useful; it deliberately follows only
+    // the downstream primary route so a sibling of a soloed child stays muted.
+    // The Master bus must always process the surviving graph. Sidechain sends
+    // remain control inputs and do not make a primary route audible alone.
+    const bool hasSolo = std::any_of(
+        impl_->buses.begin(), impl_->buses.end(),
+        [this](const SharedPtr<AudioBus>& bus) {
+            return bus && bus != masterBus_ && bus->isSolo();
+        });
+    const auto hasSoloUpstream = [this](const SharedPtr<AudioBus>& target) {
+        if (!target || target == masterBus_) {
+            return false;
+        }
+        std::set<const AudioBus*> visited;
+        std::function<bool(const AudioBus*)> visit = [&](const AudioBus* bus) {
+            if (!bus || !visited.insert(bus).second) {
+                return false;
+            }
+            if (bus->isSolo()) {
+                return true;
+            }
+            for (const auto& [source, destination] : impl_->routing) {
+                if (destination == bus && visit(source)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        return visit(target.get());
+    };
+    const auto feedsSoloGroup = [this](const SharedPtr<AudioBus>& source) {
+        if (!source || source == masterBus_) {
+            return false;
+        }
+        std::set<const AudioBus*> visited;
+        const AudioBus* cursor = source.get();
+        while (cursor && visited.insert(cursor).second) {
+            const auto it = impl_->routing.find(cursor);
+            if (it == impl_->routing.end() || !it->second ||
+                it->second == masterBus_.get()) {
+                return false;
+            }
+            cursor = it->second;
+            if (cursor->isSolo()) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     for (const auto& bus : sorted) {
+        if (hasSolo && bus != masterBus_ && !hasSoloUpstream(bus) &&
+            !feedsSoloGroup(bus)) {
+            // Preserve the explicit mute state; solo is a temporary mix
+            // decision and must not be persisted as a mute mutation.
+            bus->getOutputBuffer().zero();
+        }
         bus->process(bus->getOutputBuffer());
 
         auto it = impl_->routing.find(bus.get());
