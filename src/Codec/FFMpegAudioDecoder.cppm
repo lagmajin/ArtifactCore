@@ -395,15 +395,23 @@ namespace ArtifactCore
  {
   if (!srcFrame || !swrCtx_ || !codecCtx_) return false;
   const int channels = dstChannelLayout_.nb_channels;
-  if (channels <= 0 || channels > 64) return false;
+  if (channels <= 0 || channels > 64 || codecCtx_->sample_rate <= 0 ||
+      srcFrame->nb_samples < 0) return false;
 
-  const int dstNbSamples = static_cast<int>(av_rescale_rnd(
-   swr_get_delay(swrCtx_, codecCtx_->sample_rate) + srcFrame->nb_samples,
+  const int64_t resampleDelay = swr_get_delay(swrCtx_, codecCtx_->sample_rate);
+  if (resampleDelay < 0 ||
+      resampleDelay > std::numeric_limits<int64_t>::max() - srcFrame->nb_samples) {
+   return false;
+  }
+  const int64_t dstNbSamples64 = av_rescale_rnd(
+   resampleDelay + srcFrame->nb_samples,
    dstSampleRate_,
    codecCtx_->sample_rate,
    AV_ROUND_UP
-  ));
-  if (dstNbSamples <= 0) return false;
+  );
+  if (dstNbSamples64 <= 0 ||
+      dstNbSamples64 > std::numeric_limits<int>::max()) return false;
+  const int dstNbSamples = static_cast<int>(dstNbSamples64);
 
   AudioSegment segment;
   segment.sampleRate = dstSampleRate_;
@@ -432,6 +440,9 @@ namespace ArtifactCore
   }
 
   qint64 startFrame = resolveStartFrame(srcFrame);
+  if (startFrame > std::numeric_limits<qint64>::max() - converted) {
+   return false;
+  }
   qint64 endFrame = startFrame + converted;
 
   if (seekTargetFrame_ >= 0) {
@@ -454,6 +465,9 @@ namespace ArtifactCore
   }
 
   segment.startFrame = startFrame;
+  if (segment.startFrame > std::numeric_limits<qint64>::max() - segment.frameCount()) {
+   return false;
+  }
   queue.push(segment);
   nextExpectedFrame_ = segment.startFrame + segment.frameCount();
   return true;
@@ -463,19 +477,22 @@ namespace ArtifactCore
  {
   if (!swrCtx_ || !codecCtx_) return false;
 
-  const int pendingIn = static_cast<int>(swr_get_delay(swrCtx_, codecCtx_->sample_rate));
+  if (codecCtx_->sample_rate <= 0) return false;
+  const int64_t pendingIn = swr_get_delay(swrCtx_, codecCtx_->sample_rate);
   if (pendingIn <= 0) return false;
 
   const int channels = dstChannelLayout_.nb_channels;
   if (channels <= 0 || channels > 64) return false;
 
-  const int dstNbSamples = static_cast<int>(av_rescale_rnd(
+  const int64_t dstNbSamples64 = av_rescale_rnd(
    pendingIn,
    dstSampleRate_,
    codecCtx_->sample_rate,
    AV_ROUND_UP
-  ));
-  if (dstNbSamples <= 0) return false;
+  );
+  if (dstNbSamples64 <= 0 ||
+      dstNbSamples64 > std::numeric_limits<int>::max()) return false;
+  const int dstNbSamples = static_cast<int>(dstNbSamples64);
 
   AudioSegment segment;
   segment.sampleRate = dstSampleRate_;
@@ -496,6 +513,9 @@ namespace ArtifactCore
 
   for (int ch = 0; ch < channels; ++ch) {
    segment.channelData[ch].resize(converted);
+  }
+  if (nextExpectedFrame_ > std::numeric_limits<qint64>::max() - converted) {
+   return false;
   }
   queue.push(segment);
   nextExpectedFrame_ += converted;
