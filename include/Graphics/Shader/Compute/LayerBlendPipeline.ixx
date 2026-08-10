@@ -36,6 +36,10 @@ export namespace ArtifactCore
    unsigned int _displayPad = 0;
   };
 
+  // The HLSL BlendParams cbuffer occupies two 16-byte registers (32 bytes).
+  static_assert(sizeof(BlendParams) == 32,
+                "BlendParams must match the HLSL constant buffer layout");
+
   struct MatteTrackParams {
    unsigned int matteCount = 1;
    unsigned int matteMode0 = 0;   // 0=Alpha, 1=Luma, 2=AlphaInv, 3=LumaInv
