@@ -47,14 +47,15 @@ namespace ArtifactCore {
         }
 
     public:
-        explicit Impl(std::size_t capacity = 48000 * 8) : capacity_(capacity) {
+        explicit Impl(std::size_t capacity = 48000 * 8)
+            : capacity_(std::max<std::size_t>(capacity, 1)) {
             channels_.resize(channelCount_);
             for (auto& ch : channels_) ch.resize(capacity_);
         }
 
         // Must only be called while audio output is stopped.
         void setCapacity(std::size_t capacity) {
-            capacity_ = capacity;
+            capacity_ = std::max<std::size_t>(capacity, 1);
             for (auto& ch : channels_) ch.resize(capacity_);
             writeCount_.store(0, std::memory_order_relaxed);
             readCount_.store(0, std::memory_order_relaxed);
@@ -67,11 +68,12 @@ namespace ArtifactCore {
         std::size_t available() const {
             const std::uint64_t w = writeCount_.load(std::memory_order_acquire);
             const std::uint64_t r = logicalReadCount();
-            return static_cast<std::size_t>(w - r);
+            return std::min(static_cast<std::size_t>(w - r), capacity_);
         }
 
         std::size_t freeSpace() const {
-            return capacity_ - available();
+            const std::size_t buffered = available();
+            return capacity_ > buffered ? capacity_ - buffered : 0;
         }
 
         // PERF: PlaybackEngine スレッド (Producer) からのみ呼ばれる。
@@ -103,16 +105,32 @@ namespace ArtifactCore {
                 const std::size_t wIdx = static_cast<std::size_t>(w) % capacity_;
                 const std::size_t firstChunk = std::min(frames, capacity_ - wIdx);
 
-                if (src) {
-                    std::memcpy(&channels_[ch][wIdx], src, firstChunk * sizeof(float));
-                    if (firstChunk < frames) {
-                        std::memcpy(&channels_[ch][0], src + firstChunk, (frames - firstChunk) * sizeof(float));
+                const std::size_t sourceLength = src
+                    ? static_cast<std::size_t>(
+                          data.channelCount() > ch
+                              ? data.channelData[ch].size()
+                              : data.channelData[0].size())
+                    : 0;
+                const std::size_t sourceFrames = std::min(frames, sourceLength);
+                const auto copyOrZero = [&](std::size_t destination,
+                                             std::size_t sourceOffset,
+                                             std::size_t count) {
+                    const std::size_t availableSource = sourceOffset < sourceFrames
+                        ? std::min(count, sourceFrames - sourceOffset) : 0;
+                    if (availableSource > 0) {
+                        std::memcpy(&channels_[ch][destination],
+                                    src + sourceOffset,
+                                    availableSource * sizeof(float));
                     }
-                } else {
-                    std::memset(&channels_[ch][wIdx], 0, firstChunk * sizeof(float));
-                    if (firstChunk < frames) {
-                        std::memset(&channels_[ch][0], 0, (frames - firstChunk) * sizeof(float));
+                    if (availableSource < count) {
+                        std::memset(&channels_[ch][destination + availableSource],
+                                    0,
+                                    (count - availableSource) * sizeof(float));
                     }
+                };
+                copyOrZero(wIdx, 0, firstChunk);
+                if (firstChunk < frames) {
+                    copyOrZero(0, firstChunk, frames - firstChunk);
                 }
             }
 
