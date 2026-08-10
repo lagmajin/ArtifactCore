@@ -40,6 +40,12 @@ namespace ArtifactCore {
             }
         }
 
+        std::uint64_t logicalReadCount() const {
+            const auto read = readCount_.load(std::memory_order_acquire);
+            const auto clearAt = clearWriteCount_.load(std::memory_order_acquire);
+            return std::max(read, clearAt);
+        }
+
     public:
         explicit Impl(std::size_t capacity = 48000 * 8) : capacity_(capacity) {
             channels_.resize(channelCount_);
@@ -60,7 +66,7 @@ namespace ArtifactCore {
 
         std::size_t available() const {
             const std::uint64_t w = writeCount_.load(std::memory_order_acquire);
-            const std::uint64_t r = readCount_.load(std::memory_order_acquire);
+            const std::uint64_t r = logicalReadCount();
             return static_cast<std::size_t>(w - r);
         }
 
@@ -73,7 +79,7 @@ namespace ArtifactCore {
         bool write(const AudioSegment& data) {
             const std::size_t frames = data.frameCount();
             if (frames == 0) return true;
-            const std::uint64_t r = readCount_.load(std::memory_order_acquire);
+            const std::uint64_t r = logicalReadCount();
             const std::uint64_t w = writeCount_.load(std::memory_order_relaxed);
             if (static_cast<std::size_t>(w - r) + frames > capacity_) {
                 return false;
