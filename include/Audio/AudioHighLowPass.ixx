@@ -41,6 +41,11 @@ private:
     float highPassFreq_ = 0.0f;     // 0で無効
     float lowPassRes_ = 0.0f;
     float highPassRes_ = 0.0f;
+    std::vector<float> lowPassStates_;
+    std::vector<float> highPassStates_;
+    std::vector<bool> lowPassStatesInitialized_;
+    std::vector<bool> highPassStatesInitialized_;
+    int stateSampleRate_ = 0;
 };
 
 } // namespace ArtifactCore

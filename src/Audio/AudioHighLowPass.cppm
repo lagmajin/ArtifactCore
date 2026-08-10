@@ -49,32 +49,57 @@ void AudioHighLowPass::process(AudioSegment& segment, const AudioSegment* /*side
         hpCoef = std::exp(-w);
     }
 
+    if (stateSampleRate_ != segment.sampleRate) {
+        stateSampleRate_ = segment.sampleRate;
+        std::fill(lowPassStatesInitialized_.begin(),
+                  lowPassStatesInitialized_.end(), false);
+        std::fill(highPassStatesInitialized_.begin(),
+                  highPassStatesInitialized_.end(), false);
+    }
+    if (static_cast<int>(lowPassStates_.size()) < channels) {
+        lowPassStates_.resize(channels, 0.0f);
+        highPassStates_.resize(channels, 0.0f);
+        lowPassStatesInitialized_.resize(channels, false);
+        highPassStatesInitialized_.resize(channels, false);
+    }
+    const bool lowPassEnabled = lowPassFreq_ > 0.0f;
+    const bool highPassEnabled = highPassFreq_ > 0.0f;
+
     for (int ch = 0; ch < channels; ++ch) {
         if (ch >= segment.channelData.size()) break;
         const int samples = std::min(frames, segment.channelData[ch].size());
         if (samples <= 0) continue;
         float* data = segment.channelData[ch].data();
         
-        float lpState = std::isfinite(data[0]) ? data[0] : 0.0f;
-        float hpState = lpState;
+        float& lpState = lowPassStates_[ch];
+        float& hpState = highPassStates_[ch];
+        const float initialState = std::isfinite(data[0]) ? data[0] : 0.0f;
+        if (!lowPassStatesInitialized_[ch] || !lowPassEnabled) {
+            lpState = initialState;
+            lowPassStatesInitialized_[ch] = lowPassEnabled;
+        }
+        if (!highPassStatesInitialized_[ch] || !highPassEnabled) {
+            hpState = initialState;
+            highPassStatesInitialized_[ch] = highPassEnabled;
+        }
 
         for (int i = 0; i < samples; ++i) {
             const float input = std::isfinite(data[i]) ? data[i] : 0.0f;
             // ローパス
-            if (lowPassFreq_ > 0.0f) {
+            if (lowPassEnabled) {
                 lpState = sanitizeHighLowSample(
                     lpCoef * lpState + (1.0f - lpCoef) * input);
             }
             
             // ハイパス
-            if (highPassFreq_ > 0.0f) {
+            if (highPassEnabled) {
                 float hpInput = sanitizeHighLowSample(input - hpState);
                 hpState = sanitizeHighLowSample(hpCoef * hpState + hpInput);
                 data[i] = hpInput;
             }
             
             // ローパス適用
-            if (lowPassFreq_ > 0.0f) {
+            if (lowPassEnabled) {
                 data[i] = sanitizeHighLowSample(lpState);
             } else {
                 data[i] = sanitizeHighLowSample(data[i]);
