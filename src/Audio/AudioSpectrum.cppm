@@ -2,6 +2,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.Spectrum;
@@ -10,6 +11,28 @@ import Audio.Effect;
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float sanitizeSpectrumSample(float value)
+{
+    if (std::isfinite(value)) return value;
+    if (std::isnan(value)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), value);
+}
+
+qint64 saturatingFrameAdd(qint64 left, qint64 right)
+{
+    if (right > 0 && left > std::numeric_limits<qint64>::max() - right) {
+        return std::numeric_limits<qint64>::max();
+    }
+    if (right < 0 && left < std::numeric_limits<qint64>::min() - right) {
+        return std::numeric_limits<qint64>::min();
+    }
+    return left + right;
+}
+
+}
 
 AudioSpectrum::AudioSpectrum() {
     spectrum_.assign(64, 0.0f);
@@ -38,7 +61,9 @@ bool AudioSpectrum::normalizeToTargetLufs(AudioSegment& segment, float targetLuf
     for (auto& channel : segment.channelData) {
         for (float& sample : channel) {
             if (std::isfinite(sample)) {
-                sample *= gain;
+                sample = sanitizeSpectrumSample(sample * gain);
+            } else {
+                sample = 0.0f;
             }
         }
     }
@@ -59,12 +84,17 @@ void AudioSpectrum::computeFFT(const std::vector<float>& input, std::vector<floa
     const int halfN = n / 2;
     
     for (int k = 0; k < static_cast<int>(output.size()); ++k) {
-        float magnitude = 0.0f;
+        double magnitude = 0.0;
         for (int i = 0; i < n; ++i) {
             float angle = 2.0f * 3.14159265f * k * i / n;
-            magnitude += std::abs(input[i] * std::cos(angle));
+            magnitude += std::abs(static_cast<double>(
+                sanitizeSpectrumSample(input[i])) * std::cos(angle));
         }
-        output[k] = magnitude / n;
+        const double normalized = magnitude / n;
+        output[k] = std::isfinite(normalized)
+            ? static_cast<float>(std::min(
+                normalized, static_cast<double>(std::numeric_limits<float>::max())))
+            : std::numeric_limits<float>::max();
     }
 }
 
@@ -108,20 +138,27 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
         bool hasPreviousSample = false;
         for (const float sample : channel) {
             if (std::isfinite(sample)) {
-                channelSum += static_cast<double>(sample) * sample;
+                const double square = static_cast<double>(sample) * sample;
+                channelSum = std::isfinite(channelSum + square)
+                    ? channelSum + square
+                    : std::numeric_limits<double>::max();
                 peak = std::max(peak, std::abs(sample));
                 if (hasPreviousSample) {
                     for (int subSample = 1; subSample < 4; ++subSample) {
                         const float t = static_cast<float>(subSample) / 4.0f;
-                        truePeak = std::max(truePeak, std::abs(
-                            previousSample + (sample - previousSample) * t));
+                        const float interpolated = sanitizeSpectrumSample(
+                            previousSample + (sample - previousSample) * t);
+                        truePeak = std::max(truePeak, std::abs(interpolated));
                     }
                 }
                 previousSample = sample;
                 hasPreviousSample = true;
             }
         }
-        sumSquared += channelSum / static_cast<double>(channel.size());
+        sumSquared = std::isfinite(
+            sumSquared + channelSum / static_cast<double>(channel.size()))
+            ? sumSquared + channelSum / static_cast<double>(channel.size())
+            : std::numeric_limits<double>::max();
         ++contributingChannels;
     }
     if (contributingChannels > 0) {
@@ -135,9 +172,12 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
             integratedEnergySum_ = 0.0;
             integratedFrameCount_ = 0;
         }
-        integratedEnergySum_ += safeMeanSquare * static_cast<double>(frames);
-        integratedFrameCount_ += frames;
-        lastEndFrame_ = segment.startFrame + frames;
+        const double energyContribution = safeMeanSquare * static_cast<double>(frames);
+        integratedEnergySum_ = std::isfinite(integratedEnergySum_ + energyContribution)
+            ? integratedEnergySum_ + energyContribution
+            : std::numeric_limits<double>::max();
+        integratedFrameCount_ = saturatingFrameAdd(integratedFrameCount_, frames);
+        lastEndFrame_ = saturatingFrameAdd(segment.startFrame, frames);
         const double integratedMeanSquare =
             integratedEnergySum_ / static_cast<double>(std::max<qint64>(1, integratedFrameCount_));
         integratedLufs_ = static_cast<float>(
@@ -164,7 +204,9 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
             if (c < segment.channelData.size()) {
                 int idx = i * (frames / waveSamples);
                 if (idx < segment.channelData[c].size()) {
-                    sum += std::abs(segment.channelData[c][idx]);
+                    sum = sanitizeSpectrumSample(
+                        sum + std::abs(sanitizeSpectrumSample(
+                            segment.channelData[c][idx])));
                 }
             }
         }
@@ -177,11 +219,16 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
         downmixed.resize(frames);
         for (int i = 0; i < frames; ++i) {
             if (i < segment.channelData[0].size() && i < segment.channelData[1].size()) {
-                downmixed[i] = (segment.channelData[0][i] + segment.channelData[1][i]) * 0.5f;
+                downmixed[i] = sanitizeSpectrumSample(
+                    (sanitizeSpectrumSample(segment.channelData[0][i]) +
+                     sanitizeSpectrumSample(segment.channelData[1][i])) * 0.5f);
             }
         }
     } else {
-        downmixed.assign(segment.channelData[0].cbegin(), segment.channelData[0].cend());
+        downmixed.resize(segment.channelData[0].size());
+        for (int i = 0; i < downmixed.size(); ++i) {
+            downmixed[i] = sanitizeSpectrumSample(segment.channelData[0][i]);
+        }
     }
 
     spectrum_.resize(bins_);
