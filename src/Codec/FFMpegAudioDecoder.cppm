@@ -99,6 +99,7 @@ namespace ArtifactCore
   qint64 nextExpectedFrame_ = 0;
   qint64 seekTargetFrame_ = -1;
   QString openedPath_;
+  AudioBufferQueue pendingQueue_;
 
   bool receiveAndQueueFrames(AudioBufferQueue& queue);
   bool convertAndQueueFrame(AudioBufferQueue& queue, const AVFrame* srcFrame);
@@ -116,6 +117,12 @@ namespace ArtifactCore
   void flush();
   bool isSameFile(const QString& path);
   bool isSameFile(const UniString& path);
+  bool popPendingSegment(AudioSegment& out) { return pendingQueue_.pop(out); }
+  bool decodeNextSegment(AudioSegment& out) {
+   if (popPendingSegment(out)) return true;
+   if (!decodeNextFrame(pendingQueue_)) return false;
+   return popPendingSegment(out);
+  }
   bool isEndOfStream() const {
    if (!decoderDrained_) return false;
    if (!swrCtx_ || !codecCtx_ || codecCtx_->sample_rate <= 0) return true;
@@ -197,6 +204,7 @@ namespace ArtifactCore
 
  void FFmpegAudioDecoder::Impl::closeFile()
  {
+  pendingQueue_.clear();
   if (swrCtx_) {
    swr_free(&swrCtx_);
    swrCtx_ = nullptr;
@@ -341,6 +349,7 @@ namespace ArtifactCore
 
  void FFmpegAudioDecoder::Impl::flush()
  {
+  pendingQueue_.clear();
   if (codecCtx_) {
    avcodec_flush_buffers(codecCtx_);
   }
@@ -587,16 +596,7 @@ namespace ArtifactCore
  bool FFmpegAudioDecoder::decodeNextSegment(AudioSegment& out)
  {
   out = AudioSegment{};
-  AudioBufferQueue queue;
-  if (!impl_->decodeNextFrame(queue)) {
-   return false;
-  }
-  AudioSegment seg;
-  if (!queue.pop(seg)) {
-   return false;
-  }
-  out = std::move(seg);
-  return true;
+  return impl_->decodeNextSegment(out);
  }
 
  int FFmpegAudioDecoder::sampleRate() const
