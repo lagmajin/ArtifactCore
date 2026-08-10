@@ -124,7 +124,7 @@ namespace ArtifactCore
    return popPendingSegment(out);
   }
   bool isEndOfStream() const {
-   if (!decoderDrained_) return false;
+   if (!decoderDrained_ || !pendingQueue_.isEmpty()) return false;
    if (!swrCtx_ || !codecCtx_ || codecCtx_->sample_rate <= 0) return true;
    return swr_get_delay(swrCtx_, codecCtx_->sample_rate) <= 0;
   }
