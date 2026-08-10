@@ -26,6 +26,9 @@ EdgeEchoGPUComputer::EdgeEchoGPUComputer(GpuContext &context)
 EdgeEchoGPUComputer::~EdgeEchoGPUComputer() = default;
 
 void EdgeEchoGPUComputer::initialize() {
+    if (!context_.RenderDevice()) {
+        return;
+    }
     createPipelines();
     createBuffers();
 }
@@ -36,6 +39,7 @@ void EdgeEchoGPUComputer::createPipelines() {
         static ShaderResourceVariableDesc vars[] = {
             {SHADER_TYPE_COMPUTE, "g_InputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
             {SHADER_TYPE_COMPUTE, "g_OutputEdges",  SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_COMPUTE, "SobelParams",    SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         };
         ComputePipelineDesc desc;
         desc.name = "EdgeEcho/Sobel";
@@ -43,7 +47,7 @@ void EdgeEchoGPUComputer::createPipelines() {
         desc.entryPoint = Shaders::EdgeEcho::SobelEntryPoint;
         desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
         desc.variables = vars;
-        desc.variableCount = 2;
+        desc.variableCount = 3;
         desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
         executorSobel_.build(desc);
         executorSobel_.createShaderResourceBinding(true);
@@ -54,6 +58,7 @@ void EdgeEchoGPUComputer::createPipelines() {
             {SHADER_TYPE_COMPUTE, "g_CurrentEdges",  SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
             {SHADER_TYPE_COMPUTE, "g_History",       SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
             {SHADER_TYPE_COMPUTE, "g_OutputHistory", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_COMPUTE, "WarpParams",      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         };
         ComputePipelineDesc desc;
         desc.name = "EdgeEcho/Warp";
@@ -61,7 +66,7 @@ void EdgeEchoGPUComputer::createPipelines() {
         desc.entryPoint = Shaders::EdgeEcho::WarpEntryPoint;
         desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
         desc.variables = vars;
-        desc.variableCount = 3;
+        desc.variableCount = 4;
         desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
         executorWarp_.build(desc);
         executorWarp_.createShaderResourceBinding(true);
@@ -72,6 +77,7 @@ void EdgeEchoGPUComputer::createPipelines() {
             {SHADER_TYPE_COMPUTE, "g_InputTexture",  SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
             {SHADER_TYPE_COMPUTE, "g_History",       SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
             {SHADER_TYPE_COMPUTE, "g_OutputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_COMPUTE, "CompositeParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         };
         ComputePipelineDesc desc;
         desc.name = "EdgeEcho/Composite";
@@ -79,7 +85,7 @@ void EdgeEchoGPUComputer::createPipelines() {
         desc.entryPoint = Shaders::EdgeEcho::CompositeEntryPoint;
         desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
         desc.variables = vars;
-        desc.variableCount = 3;
+        desc.variableCount = 4;
         desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
         executorComposite_.build(desc);
         executorComposite_.createShaderResourceBinding(true);
@@ -88,6 +94,9 @@ void EdgeEchoGPUComputer::createPipelines() {
 
 void EdgeEchoGPUComputer::createBuffers() {
     auto *device = context_.RenderDevice();
+    if (!device) {
+        return;
+    }
 
     auto makeCB = [&](const char* name, size_t size) -> RefCntAutoPtr<IBuffer> {
         BufferDesc desc;
@@ -107,9 +116,15 @@ void EdgeEchoGPUComputer::createBuffers() {
 }
 
 void EdgeEchoGPUComputer::ensureTextures(IDeviceContext *pContext, int width, int height) {
+    if (!pContext || width <= 0 || height <= 0) {
+        return;
+    }
     if (width == lastWidth_ && height == lastHeight_ && pEdgeTexture_) return;
 
     auto *device = context_.RenderDevice();
+    if (!device) {
+        return;
+    }
     lastWidth_ = width;
     lastHeight_ = height;
     hasHistory_ = false;
@@ -125,7 +140,13 @@ void EdgeEchoGPUComputer::ensureTextures(IDeviceContext *pContext, int width, in
         desc.Usage = USAGE_DEFAULT;
         desc.BindFlags = BIND_UNORDERED_ACCESS | BIND_SHADER_RESOURCE;
         device->CreateTexture(desc, nullptr, &pEdgeTexture_);
+        if (!pEdgeTexture_) {
+            return;
+        }
         pEdgeUAV_ = pEdgeTexture_->GetDefaultView(TEXTURE_VIEW_UNORDERED_ACCESS);
+        if (!pEdgeUAV_) {
+            return;
+        }
     }
 
     // History texture (RGBA32_FLOAT)
@@ -149,8 +170,14 @@ void EdgeEchoGPUComputer::ensureTextures(IDeviceContext *pContext, int width, in
         texData.NumSubresources = 1;
         // Can't init full texture with one pixel - use separate clear
         device->CreateTexture(desc, nullptr, &pHistoryTexture_);
+        if (!pHistoryTexture_) {
+            return;
+        }
         pHistorySRV_ = pHistoryTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
         pHistoryUAV_ = pHistoryTexture_->GetDefaultView(TEXTURE_VIEW_UNORDERED_ACCESS);
+        if (!pHistorySRV_ || !pHistoryUAV_) {
+            return;
+        }
     }
 }
 
@@ -163,25 +190,35 @@ void EdgeEchoGPUComputer::apply(IDeviceContext *pContext,
                                  float waveAmp,
                                  float timeEvolution,
                                  const float* echoColor) {
-    if (!ready() || !inputTexture || !outputTexture) return;
+    if (!ready() || !pContext || !inputTexture || !inputTexture->GetTexture() ||
+        !outputTexture || !outputTexture->GetTexture() || !echoColor) {
+        return;
+    }
 
     const auto w = inputTexture->GetTexture()->GetDesc().Width;
     const auto h = inputTexture->GetTexture()->GetDesc().Height;
+    const auto outputDesc = outputTexture->GetTexture()->GetDesc();
+    if (w == 0 || h == 0 || outputDesc.Width != w || outputDesc.Height != h) {
+        return;
+    }
     ensureTextures(pContext, static_cast<int>(w), static_cast<int>(h));
-    if (!pEdgeUAV_ || !pHistoryUAV_) return;
+    if (!pEdgeUAV_ || !pHistorySRV_ || !pHistoryUAV_) return;
 
     // ---- Pass 1: Sobel ----
     {
         void *pData = nullptr;
         pContext->MapBuffer(pSobelParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-        if (pData) {
-            float params[4] = {edgeThreshold, 0, 0, 0};
-            std::memcpy(pData, params, sizeof(params));
-            pContext->UnmapBuffer(pSobelParamsCB_, MAP_WRITE);
+        if (!pData) {
+            return;
         }
-        executorSobel_.setBuffer("SobelParams", pSobelParamsCB_);
-        executorSobel_.setTextureView("g_InputTexture", inputTexture);
-        executorSobel_.setTextureView("g_OutputEdges", pEdgeUAV_);
+        float params[4] = {edgeThreshold, 0, 0, 0};
+        std::memcpy(pData, params, sizeof(params));
+        pContext->UnmapBuffer(pSobelParamsCB_, MAP_WRITE);
+        if (!executorSobel_.setBuffer("SobelParams", pSobelParamsCB_) ||
+            !executorSobel_.setTextureView("g_InputTexture", inputTexture) ||
+            !executorSobel_.setTextureView("g_OutputEdges", pEdgeUAV_)) {
+            return;
+        }
         executorSobel_.dispatch(pContext,
             ComputeExecutor::makeDispatchAttribs(w, h, 1, 16, 16, 1));
     }
@@ -190,15 +227,18 @@ void EdgeEchoGPUComputer::apply(IDeviceContext *pContext,
     {
         void *pData = nullptr;
         pContext->MapBuffer(pWarpParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-        if (pData) {
-            float params[4] = {decay, waveAmp, waveFreq, timeEvolution};
-            std::memcpy(pData, params, sizeof(params));
-            pContext->UnmapBuffer(pWarpParamsCB_, MAP_WRITE);
+        if (!pData) {
+            return;
         }
-        executorWarp_.setBuffer("WarpParams", pWarpParamsCB_);
-        executorWarp_.setTextureView("g_CurrentEdges", pEdgeUAV_);
-        executorWarp_.setTextureView("g_History", hasHistory_ ? pHistorySRV_ : pEdgeUAV_);
-        executorWarp_.setTextureView("g_OutputHistory", pHistoryUAV_);
+        float params[4] = {decay, waveAmp, waveFreq, timeEvolution};
+        std::memcpy(pData, params, sizeof(params));
+        pContext->UnmapBuffer(pWarpParamsCB_, MAP_WRITE);
+        if (!executorWarp_.setBuffer("WarpParams", pWarpParamsCB_) ||
+            !executorWarp_.setTextureView("g_CurrentEdges", pEdgeUAV_) ||
+            !executorWarp_.setTextureView("g_History", pHistorySRV_) ||
+            !executorWarp_.setTextureView("g_OutputHistory", pHistoryUAV_)) {
+            return;
+        }
         executorWarp_.dispatch(pContext,
             ComputeExecutor::makeDispatchAttribs(w, h, 1, 16, 16, 1));
     }
@@ -208,15 +248,18 @@ void EdgeEchoGPUComputer::apply(IDeviceContext *pContext,
     {
         void *pData = nullptr;
         pContext->MapBuffer(pCompositeParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-        if (pData) {
-            float params[4] = {echoColor[0], echoColor[1], echoColor[2], echoColor[3]};
-            std::memcpy(pData, params, sizeof(params));
-            pContext->UnmapBuffer(pCompositeParamsCB_, MAP_WRITE);
+        if (!pData) {
+            return;
         }
-        executorComposite_.setBuffer("CompositeParams", pCompositeParamsCB_);
-        executorComposite_.setTextureView("g_InputTexture", inputTexture);
-        executorComposite_.setTextureView("g_History", pHistorySRV_);
-        executorComposite_.setTextureView("g_OutputTexture", outputTexture);
+        float params[4] = {echoColor[0], echoColor[1], echoColor[2], echoColor[3]};
+        std::memcpy(pData, params, sizeof(params));
+        pContext->UnmapBuffer(pCompositeParamsCB_, MAP_WRITE);
+        if (!executorComposite_.setBuffer("CompositeParams", pCompositeParamsCB_) ||
+            !executorComposite_.setTextureView("g_InputTexture", inputTexture) ||
+            !executorComposite_.setTextureView("g_History", pHistorySRV_) ||
+            !executorComposite_.setTextureView("g_OutputTexture", outputTexture)) {
+            return;
+        }
         executorComposite_.dispatch(pContext,
             ComputeExecutor::makeDispatchAttribs(w, h, 1, 16, 16, 1));
     }
