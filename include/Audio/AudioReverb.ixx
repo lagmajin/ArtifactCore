@@ -4,6 +4,7 @@ module;
 #include <vector>
 #include <memory>
 #include <cmath>
+#include <algorithm>
 #include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
@@ -27,9 +28,15 @@ public:
     String getName() const override { return "Reverb"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
-    void setDecay(float d) { decay_ = std::isfinite(d) ? d : 0.5f; }
-    void setMix(float m) { mix_ = std::isfinite(m) ? m : 0.3f; }
-    void setSize(float s) { size_ = std::isfinite(s) ? s : 0.7f; }
+    void setDecay(float d) {
+        decay_ = std::isfinite(d) ? std::clamp(d, 0.0f, 1.0f) : 0.5f;
+    }
+    void setMix(float m) {
+        mix_ = std::isfinite(m) ? std::clamp(m, 0.0f, 1.0f) : 0.3f;
+    }
+    void setSize(float s) {
+        size_ = std::isfinite(s) ? std::clamp(s, 0.0f, 1.0f) : 0.7f;
+    }
 
     float getDecay() const { return decay_; }
     float getMix() const { return mix_; }
