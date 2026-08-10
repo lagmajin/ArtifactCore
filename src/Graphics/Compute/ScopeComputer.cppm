@@ -21,6 +21,25 @@ namespace ArtifactCore {
 
 using namespace Diligent;
 
+namespace {
+
+bool hasValidScopeInputs(IDeviceContext* context, ITextureView* input,
+                         IBuffer* output, int step)
+{
+  if (!context || !input || !input->GetTexture() || !output || step <= 0) {
+    return false;
+  }
+  const auto& inputDesc = input->GetTexture()->GetDesc();
+  return inputDesc.Width > 0 && inputDesc.Height > 0;
+}
+
+bool hasBufferCapacity(const IBuffer* buffer, const uint64_t elementCount)
+{
+  return buffer && buffer->GetDesc().Size >= elementCount * sizeof(uint32_t);
+}
+
+}
+
 ScopeComputer::ScopeComputer(GpuContext &context)
     : context_(context),
       executorVectorscope_(context),
@@ -121,7 +140,7 @@ void ScopeComputer::createBuffers() {
 
 void ScopeComputer::updateParams(IDeviceContext *pContext, IBuffer *cb,
                                   int a, int b, int c, int d) {
-  if (!cb) return;
+  if (!pContext || !cb) return;
   void *pData = nullptr;
   pContext->MapBuffer(cb, MAP_WRITE, MAP_FLAG_DISCARD, pData);
   if (pData) {
@@ -135,7 +154,13 @@ void ScopeComputer::computeVectorscope(IDeviceContext *pContext,
                                        ITextureView *inputTexture,
                                        IBuffer *outputVectorscope,
                                        int scopeSize, int step) {
-  if (!ready()) return;
+  if (!ready() || !hasValidScopeInputs(pContext, inputTexture,
+                                       outputVectorscope, step) ||
+      scopeSize <= 0 ||
+      !hasBufferCapacity(outputVectorscope,
+                         static_cast<uint64_t>(scopeSize) * scopeSize)) {
+    return;
+  }
 
   updateParams(pContext, pVectorscopeParamsCB_, scopeSize, step, 0, 0);
 
@@ -161,7 +186,13 @@ void ScopeComputer::computeWaveform(IDeviceContext *pContext,
                                     IBuffer *outputWaveform,
                                     int outputWidth, int outputHeight,
                                     int step) {
-  if (!ready()) return;
+  if (!ready() || !hasValidScopeInputs(pContext, inputTexture, outputWaveform,
+                                       step) ||
+      outputWidth <= 0 || outputHeight <= 0 ||
+      !hasBufferCapacity(outputWaveform,
+                         static_cast<uint64_t>(outputWidth) * outputHeight)) {
+    return;
+  }
 
   updateParams(pContext, pWaveformParamsCB_, outputWidth, outputHeight, step, 0);
 
@@ -187,7 +218,13 @@ void ScopeComputer::computeParade(IDeviceContext *pContext,
                                   IBuffer *outputParade,
                                   int outputWidth, int outputHeight,
                                   int step) {
-  if (!ready()) return;
+  if (!ready() || !hasValidScopeInputs(pContext, inputTexture, outputParade,
+                                       step) ||
+      outputWidth <= 0 || outputHeight <= 0 ||
+      !hasBufferCapacity(outputParade,
+                         static_cast<uint64_t>(outputWidth) * outputHeight * 3u)) {
+    return;
+  }
 
   updateParams(pContext, pParadeParamsCB_, outputWidth, outputHeight, step, 0);
 
@@ -213,7 +250,10 @@ bool ScopeComputer::readbackResults(IDeviceContext *pContext,
                                     IBuffer *source,
                                     std::vector<uint32_t> &dest,
                                     size_t elementCount) {
-  if (!source || elementCount == 0) return false;
+  if (!pContext || !pDevice || !source || elementCount == 0 ||
+      !hasBufferCapacity(source, static_cast<uint64_t>(elementCount))) {
+    return false;
+  }
 
   BufferDesc stagingDesc;
   stagingDesc.Name = "ScopeReadbackStaging";
