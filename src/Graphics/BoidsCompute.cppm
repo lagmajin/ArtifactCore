@@ -9,6 +9,7 @@ module;
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QString>
 #include <QDebug>
+#include <algorithm>
 #include <cstring>
 
 module Graphics.BoidsCompute;
@@ -233,12 +234,18 @@ BoidsGPUCompute::~BoidsGPUCompute() { delete pImpl_; }
 
 void BoidsGPUCompute::initialize(size_t maxAgents) {
     maxAgents_ = maxAgents;
+    if (maxAgents_ == 0 || !context_.RenderDevice()) {
+        return;
+    }
     createBuffers();
     createPSO();
 }
 
 void BoidsGPUCompute::createBuffers() {
     auto pDevice = context_.RenderDevice();
+    if (!pDevice || maxAgents_ == 0) {
+        return;
+    }
 
     // 1. RWStructuredBuffer for agents (UAV + SRV)
     BufferDesc buffDesc;
@@ -291,8 +298,11 @@ void BoidsGPUCompute::createPSO() {
 void BoidsGPUCompute::uploadAgents(const std::vector<float3>& positions,
                                     const std::vector<float3>& velocities,
                                     const std::vector<GpuAgentType>& types) {
-    if (!pImpl_->pAgentBuffer_) return;
-    size_t count = std::min(positions.size(), maxAgents_);
+    if (!pImpl_ || !pImpl_->pAgentBuffer_ || maxAgents_ == 0) return;
+    auto pContext = context_.DeviceContext();
+    if (!pContext) return;
+    size_t count = std::min(positions.size(), velocities.size());
+    count = std::min(count, maxAgents_);
     if (count == 0) return;
 
     // Pack into BoidData (4 x float4 = 16 floats per agent)
@@ -328,7 +338,6 @@ void BoidsGPUCompute::uploadAgents(const std::vector<float3>& positions,
         p.data[15] = 0;
     });
 
-    auto pContext = context_.DeviceContext();
     pContext->UpdateBuffer(pImpl_->pAgentBuffer_, 0, sizeof(PackedBoid) * count,
                            packed.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     constants_.agentCount = static_cast<uint32_t>(count);
@@ -336,9 +345,12 @@ void BoidsGPUCompute::uploadAgents(const std::vector<float3>& positions,
 
 void BoidsGPUCompute::uploadObstacles(const std::vector<float3>& centers,
                                        const std::vector<float>& radii) {
-    if (!pImpl_->pObstacleBuffer_) return;
-    size_t count = std::min(centers.size(), static_cast<size_t>(64));
+    if (!pImpl_ || !pImpl_->pObstacleBuffer_) return;
+    size_t count = std::min(centers.size(), radii.size());
+    count = std::min(count, static_cast<size_t>(64));
     if (count == 0) { obstacleCount_ = 0; constants_.obstacleCount = 0; return; }
+    auto pContext = context_.DeviceContext();
+    if (!pContext) return;
 
     struct PackedObstacle { float data[4]; };
     std::vector<PackedObstacle> packed(count);
@@ -350,7 +362,6 @@ void BoidsGPUCompute::uploadObstacles(const std::vector<float3>& centers,
         packed[i].data[3] = radii[i];
     });
 
-    auto pContext = context_.DeviceContext();
     pContext->UpdateBuffer(pImpl_->pObstacleBuffer_, 0, sizeof(PackedObstacle) * count,
                            packed.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     obstacleCount_ = static_cast<uint32_t>(count);
@@ -362,20 +373,31 @@ void BoidsGPUCompute::setConstants(const GpuBoidConstants& constants) {
 }
 
 void BoidsGPUCompute::dispatch(IDeviceContext* pContext, float dt) {
+    if (!pContext || !pImpl_ || !pImpl_->pConstantBuffer_ ||
+        !pImpl_->pAgentBuffer_ || !pImpl_->pObstacleBuffer_ ||
+        !executor_.ready() || maxAgents_ == 0 || constants_.agentCount == 0) {
+        return;
+    }
     constants_.deltaTime = dt;
-    constants_.agentCount = static_cast<uint32_t>(maxAgents_);
+    constants_.agentCount = std::min(
+        constants_.agentCount, static_cast<uint32_t>(maxAgents_));
 
     void* pData = nullptr;
     pContext->MapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        std::memcpy(pData, &constants_, sizeof(GpuBoidConstants));
-        pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
+    if (!pData) {
+        return;
     }
+    std::memcpy(pData, &constants_, sizeof(GpuBoidConstants));
+    pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
 
-    executor_.setBufferView("g_Boids",
-        pImpl_->pAgentBuffer_->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
-    executor_.setBufferView("g_Obstacles",
-        pImpl_->pObstacleBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    if (!executor_.setBufferView(
+            "g_Boids", pImpl_->pAgentBuffer_->GetDefaultView(
+                           BUFFER_VIEW_UNORDERED_ACCESS)) ||
+        !executor_.setBufferView(
+            "g_Obstacles", pImpl_->pObstacleBuffer_->GetDefaultView(
+                                BUFFER_VIEW_SHADER_RESOURCE))) {
+        return;
+    }
 
     DispatchComputeAttribs attribs;
     attribs.ThreadGroupCountX = (static_cast<uint32_t>(maxAgents_) + 63) / 64;
@@ -383,7 +405,7 @@ void BoidsGPUCompute::dispatch(IDeviceContext* pContext, float dt) {
 }
 
 IBuffer* BoidsGPUCompute::getAgentBuffer() {
-    return pImpl_->pAgentBuffer_;
+    return pImpl_ ? pImpl_->pAgentBuffer_ : nullptr;
 }
 
 } // namespace ArtifactCore
