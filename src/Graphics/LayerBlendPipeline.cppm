@@ -200,6 +200,7 @@ bool LayerBlendPipeline::createMatteTrackExecutor()
         return false;
     }
     static ShaderResourceVariableDesc vars[] = {
+        {SHADER_TYPE_COMPUTE, "MatteTrackParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_LayerTex",  SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_MatteSrc0", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_MatteSrc1", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -213,16 +214,15 @@ bool LayerBlendPipeline::createMatteTrackExecutor()
     desc.entryPoint = Shaders::MatteTrack::MatteTrackEntryPoint;
     desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     desc.variables = vars;
-    desc.variableCount = 5;
+    desc.variableCount = 6;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     if (!matteTrackExecutor_->build(desc)) {
         qWarning() << "[LayerBlendPipeline] MatteTrack PSO build failed";
         matteTrackExecutor_.reset();
         return false;
     }
-    if (!pImpl_->pMatteTrackCB_ ||
-        !matteTrackExecutor_->setBuffer("MatteTrackParams", pImpl_->pMatteTrackCB_)) {
-        qWarning() << "[LayerBlendPipeline] MatteTrackParams binding failed";
+    if (!pImpl_->pMatteTrackCB_) {
+        qWarning() << "[LayerBlendPipeline] MatteTrackParams buffer missing";
         matteTrackExecutor_.reset();
         return false;
     }
@@ -305,6 +305,7 @@ bool LayerBlendPipeline::applyTrackMatte(
     const auto* safeMatteSrc1 = matteSrc1SRV ? matteSrc1SRV : matteSrc0SRV;
     const auto* safeMatteSrc2 = matteSrc2SRV ? matteSrc2SRV : matteSrc0SRV;
     if (!matteTrackExecutor_->setTextureView("g_LayerTex", layerSRV) ||
+        !matteTrackExecutor_->setBuffer("MatteTrackParams", pImpl_->pMatteTrackCB_) ||
         !matteTrackExecutor_->setTextureView("g_MatteSrc0", matteSrc0SRV) ||
         !matteTrackExecutor_->setTextureView("g_MatteSrc1", safeMatteSrc1) ||
         !matteTrackExecutor_->setTextureView("g_MatteSrc2", safeMatteSrc2) ||

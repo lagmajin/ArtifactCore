@@ -23,6 +23,7 @@ cbuffer MatteTrackParams : register(b0)
     float g_MatteOpacity0;
     float g_MatteOpacity1;
     float g_MatteOpacity2;
+    uint  g_Padding;
 };
 
 Texture2D<float4>  g_LayerTex    : register(t0);
