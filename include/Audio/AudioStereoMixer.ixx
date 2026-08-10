@@ -3,6 +3,8 @@ module;
 #include <string>
 #include <vector>
 #include <memory>
+#include <algorithm>
+#include <cmath>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect.StereoMixer;
@@ -26,10 +28,10 @@ public:
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // パラメータ
-    void setLeftRight(float lr) { leftRight_ = lr; }     // -1.0(left) ~ 1.0(right)
-    void setCenter(float c) { center_ = c; }             // -1.0 ~ 1.0
-    void setLeftDelay(float d) { leftDelay_ = d; }       // ms
-    void setRightDelay(float d) { rightDelay_ = d; }     // ms
+    void setLeftRight(float lr) { leftRight_ = std::isfinite(lr) ? std::clamp(lr, -1.0f, 1.0f) : 0.0f; } // -1.0(left) ~ 1.0(right)
+    void setCenter(float c) { center_ = std::isfinite(c) ? c : 0.0f; }             // -1.0 ~ 1.0
+    void setLeftDelay(float d) { leftDelay_ = std::isfinite(d) ? d : 0.0f; }       // ms
+    void setRightDelay(float d) { rightDelay_ = std::isfinite(d) ? d : 0.0f; }     // ms
 
     float getLeftRight() const { return leftRight_; }
 

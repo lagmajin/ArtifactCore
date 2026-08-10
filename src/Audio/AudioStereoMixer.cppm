@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.StereoMixer;
@@ -9,6 +10,17 @@ import Audio.Effect;
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float sanitizeStereoSample(float sample)
+{
+    if (std::isfinite(sample)) return sample;
+    if (std::isnan(sample)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), sample);
+}
+
+}
 
 AudioStereoMixer::AudioStereoMixer() {}
 
@@ -33,8 +45,10 @@ void AudioStereoMixer::process(AudioSegment& segment, const AudioSegment* /*side
 
     for (int i = 0; i < samples; ++i) {
         // LRバランス適用
-        left[i] *= leftGain;
-        right[i] *= rightGain;
+        left[i] = sanitizeStereoSample(
+            (std::isfinite(left[i]) ? left[i] : 0.0f) * leftGain);
+        right[i] = sanitizeStereoSample(
+            (std::isfinite(right[i]) ? right[i] : 0.0f) * rightGain);
     }
 }
 
