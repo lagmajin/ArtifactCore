@@ -316,6 +316,32 @@ bool LayerBlendPipeline::applyTrackMatte(
         qWarning() << "[LayerBlendPipeline::applyTrackMatte] invalid input";
         return false;
     }
+    const auto* layerTexture = layerSRV->GetTexture();
+    const auto* matteTexture0 = matteSrc0SRV->GetTexture();
+    const auto* matteTexture1 = matteSrc1SRV ? matteSrc1SRV->GetTexture() : nullptr;
+    const auto* matteTexture2 = matteSrc2SRV ? matteSrc2SRV->GetTexture() : nullptr;
+    const auto* outTexture = outUAV->GetTexture();
+    if (!layerTexture || !matteTexture0 || !outTexture ||
+        layerTexture == outTexture || matteTexture0 == outTexture ||
+        (matteTexture1 && matteTexture1 == outTexture) ||
+        (matteTexture2 && matteTexture2 == outTexture)) {
+        qWarning() << "[LayerBlendPipeline::applyTrackMatte] invalid resource alias";
+        return false;
+    }
+    const auto dimensionsMatch = [width, height](const ITexture* texture) {
+        if (!texture) {
+            return true;
+        }
+        const auto& desc = texture->GetDesc();
+        return desc.Width == width && desc.Height == height;
+    };
+    if (!dimensionsMatch(layerTexture) || !dimensionsMatch(matteTexture0) ||
+        !dimensionsMatch(matteTexture1) || !dimensionsMatch(matteTexture2) ||
+        !dimensionsMatch(outTexture)) {
+        qWarning() << "[LayerBlendPipeline::applyTrackMatte] texture contract mismatch"
+                   << "requested=" << width << "x" << height;
+        return false;
+    }
     if (!matteTrackExecutor_ || !matteTrackExecutor_->ready()) {
         qWarning() << "[LayerBlendPipeline::applyTrackMatte] executor not ready";
         return false;
