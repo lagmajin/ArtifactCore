@@ -265,6 +265,13 @@ QJsonObject AudioMixer::serialize() const {
     QJsonObject obj;
     QJsonArray busesArr;
 
+    if (masterBus_) {
+        QJsonObject masterObj;
+        masterObj[QStringLiteral("volume")] = masterBus_->getVolume();
+        masterObj[QStringLiteral("mute")] = masterBus_->isMute();
+        obj[QStringLiteral("master")] = masterObj;
+    }
+
     for (const auto& bus : impl_->buses) {
         if (!bus || bus == masterBus_) {
             continue;
@@ -308,6 +315,18 @@ QJsonObject AudioMixer::serialize() const {
 bool AudioMixer::deserialize(const QJsonObject& data) {
     if (!data.value(QStringLiteral("buses")).isArray()) {
         return false;
+    }
+    if (masterBus_ && data.value(QStringLiteral("master")).isObject()) {
+        const auto masterObj = data.value(QStringLiteral("master")).toObject();
+        if (masterObj.contains(QStringLiteral("volume"))) {
+            masterBus_->setVolume(static_cast<float>(masterObj.value(
+                QStringLiteral("volume")).toDouble(
+                    static_cast<double>(masterBus_->getVolume()))));
+        }
+        if (masterObj.contains(QStringLiteral("mute"))) {
+            masterBus_->setMute(masterObj.value(QStringLiteral("mute")).toBool(
+                masterBus_->isMute()));
+        }
     }
     impl_->routing.clear();
     impl_->sends.clear();
