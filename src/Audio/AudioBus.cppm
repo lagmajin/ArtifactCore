@@ -328,6 +328,7 @@ namespace ArtifactCore {
 
 	void AudioBus::clearInput(int frameCount, int sampleRate)
 	{
+		const int safeFrameCount = std::max(0, frameCount);
 		int chCount = 2; // Default
 		switch (impl_->layout_) {
 			case AudioChannelLayout::Mono: chCount = 1; break;
@@ -347,9 +348,9 @@ namespace ArtifactCore {
 		impl_->sideChainBuffer_.layout = impl_->layout_;
 
 		for (int c = 0; c < chCount; ++c) {
-			impl_->mainBuffer_.channelData[c].resize(frameCount);
+			impl_->mainBuffer_.channelData[c].resize(safeFrameCount);
 			impl_->mainBuffer_.channelData[c].fill(0.0f);
-			impl_->sideChainBuffer_.channelData[c].resize(frameCount);
+			impl_->sideChainBuffer_.channelData[c].resize(safeFrameCount);
 			impl_->sideChainBuffer_.channelData[c].fill(0.0f);
 		}
 	}
