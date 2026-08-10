@@ -1,6 +1,8 @@
 module;
 #include <utility>
 #include <cmath>
+#include <algorithm>
+#include <limits>
 #include <QString>
 module Audio.Panner;
 
@@ -24,7 +26,9 @@ public:
   PanningGain calculateGain(float azimuth, float elevation = 0.0f) const {
     PanningGain gain;
     if (mode_ == PanningMode::StereoBalance) {
-      const float pan = azimuth / 180.0f;
+      const float pan = std::isfinite(azimuth)
+          ? std::clamp(azimuth / 180.0f, -1.0f, 1.0f)
+          : 0.0f;
       const float leftGain = (pan <= 0.0f) ? 1.0f : (1.0f - pan);
       const float rightGain = (pan >= 0.0f) ? 1.0f : (1.0f + pan);
       gain.channelGains = {leftGain, rightGain};
@@ -41,10 +45,18 @@ public:
     for (int ch = 0; ch < numChannels && ch < static_cast<int>(gain.channelGains.size()); ++ch) {
       const float channelGain = gain.channelGains[ch];
       float* data = segment.channelData[ch].data();
+      const float safeGain = std::isfinite(channelGain) ? channelGain : 0.0f;
       const int samples = std::min(
           numFrames, static_cast<int>(segment.channelData[ch].size()));
       for (int frameIndex = 0; frameIndex < samples; ++frameIndex) {
-        data[frameIndex] *= channelGain;
+        if (!std::isfinite(data[frameIndex])) {
+          data[frameIndex] = 0.0f;
+          continue;
+        }
+        const float scaled = data[frameIndex] * safeGain;
+        data[frameIndex] = std::isfinite(scaled)
+            ? scaled
+            : std::copysign(std::numeric_limits<float>::max(), scaled);
       }
     }
   }
@@ -52,7 +64,10 @@ public:
 
 PanningGain AudioPanner::calculateConstantPowerGains(float pan) {
     constexpr float kPi = 3.1415926535f;
-    const float angle = (pan + 1.0f) * (kPi / 4.0f);
+    const float safePan = std::isfinite(pan)
+        ? std::clamp(pan, -1.0f, 1.0f)
+        : 0.0f;
+    const float angle = (safePan + 1.0f) * (kPi / 4.0f);
     return {{std::cos(angle), std::sin(angle)}};
 }
 
