@@ -45,10 +45,16 @@ void AudioParametricEQ::process(AudioSegment& segment, const AudioSegment* /*sid
                 const auto& band = bands_[bandIndex];
                 if (!band.enabled) continue;
 
-                const float frequency = std::clamp(band.frequency, 1.0f,
-                                                   std::max(1.0f, sampleRate * 0.49f));
-                const float q = std::clamp(band.qFactor, 0.1f, 10.0f);
-                const float amplitude = std::pow(10.0f, band.gainDb / 40.0f);
+                const float frequency = std::clamp(
+                    std::isfinite(band.frequency) ? band.frequency : 1000.0f,
+                    1.0f, std::max(1.0f, sampleRate * 0.49f));
+                const float q = std::clamp(
+                    std::isfinite(band.qFactor) ? band.qFactor : 1.0f,
+                    0.1f, 10.0f);
+                const float gainDb = std::isfinite(band.gainDb)
+                    ? std::clamp(band.gainDb, -48.0f, 48.0f)
+                    : 0.0f;
+                const float amplitude = std::pow(10.0f, gainDb / 40.0f);
                 const float omega = 2.0f * 3.14159265358979323846f * frequency / sampleRate;
                 const float alpha = std::sin(omega) / (2.0f * q);
                 const float cosOmega = std::cos(omega);
@@ -95,6 +101,7 @@ std::vector<EffectParameter> AudioParametricEQ::getParameters() const {
 }
 
 void AudioParametricEQ::setParameterValue(const String& id, float value) {
+    if (!std::isfinite(value)) return;
     const std::string key = toStdString(id);
     const std::string prefix = "band";
     if (key.rfind(prefix, 0) != 0) return;
