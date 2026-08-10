@@ -104,66 +104,61 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
 
     int frames = source.frameCount();
     if (frames <= 0) return output;
+    const auto sampleAt = [](const auto& channel, int frame) {
+        return frame < static_cast<int>(channel.size()) ? channel[frame] : 0.0f;
+    };
 
     if (impl_->targetLayout_ == AudioChannelLayout::Stereo) {
         output.channelData.resize(2);
         output.channelData[0].resize(frames); // L
         output.channelData[1].resize(frames); // R
+        output.channelData[0].fill(0.0f);
+        output.channelData[1].fill(0.0f);
 
         if (source.layout == AudioChannelLayout::Surround51 && source.channelCount() >= 6) {
-            const float* l = source.constData(0);
-            const float* r = source.constData(1);
-            const float* c = source.constData(2);
-            const float* lfe = source.constData(3);
-            const float* ls = source.constData(4);
-            const float* rs = source.constData(5);
-
             float* outL = output.channelData[0].data();
             float* outR = output.channelData[1].data();
 
             for (int i = 0; i < frames; ++i) {
-                float center = c[i] * impl_->centerMixLevel_;
-                float lfeSample = lfe[i] * impl_->lfeMixLevel_;
-                outL[i] = l[i] + center + lfeSample + (ls[i] * impl_->surroundMixLevel_);
-                outR[i] = r[i] + center + lfeSample + (rs[i] * impl_->surroundMixLevel_);
+                float center = sampleAt(source.channelData[2], i) * impl_->centerMixLevel_;
+                float lfeSample = sampleAt(source.channelData[3], i) * impl_->lfeMixLevel_;
+                outL[i] = sampleAt(source.channelData[0], i) + center + lfeSample +
+                          (sampleAt(source.channelData[4], i) * impl_->surroundMixLevel_);
+                outR[i] = sampleAt(source.channelData[1], i) + center + lfeSample +
+                          (sampleAt(source.channelData[5], i) * impl_->surroundMixLevel_);
             }
         } 
         else if (source.layout == AudioChannelLayout::Mono && source.channelCount() >= 1) {
             // Mono to Stereo: Dual mono
-            const float* mono = source.constData(0);
-            std::copy(mono, mono + frames, output.channelData[0].begin());
-            std::copy(mono, mono + frames, output.channelData[1].begin());
+            for (int i = 0; i < frames; ++i) {
+                const float sample = sampleAt(source.channelData[0], i);
+                output.channelData[0][i] = sample;
+                output.channelData[1][i] = sample;
+            }
         }
         else if (source.layout == AudioChannelLayout::Surround71 && source.channelCount() >= 8) {
             // 7.1 -> Stereo (ITU-R BS.775)
-            const float* l   = source.constData(0);
-            const float* r   = source.constData(1);
-            const float* c   = source.constData(2);
-            const float* lfe = source.constData(3);
-            const float* ls  = source.constData(4);
-            const float* rs  = source.constData(5);
-            const float* lb  = source.constData(6);
-            const float* rb  = source.constData(7);
-
             float* outL = output.channelData[0].data();
             float* outR = output.channelData[1].data();
 
             for (int i = 0; i < frames; ++i) {
-                float center = c[i] * impl_->centerMixLevel_;
-                float lfeSample = lfe[i] * impl_->lfeMixLevel_;
-                outL[i] = l[i] + center + lfeSample
-                       + (ls[i] * impl_->surroundMixLevel_)
-                       + (lb[i] * impl_->backMixLevel_);
-                outR[i] = r[i] + center + lfeSample
-                       + (rs[i] * impl_->surroundMixLevel_)
-                       + (rb[i] * impl_->backMixLevel_);
+                float center = sampleAt(source.channelData[2], i) * impl_->centerMixLevel_;
+                float lfeSample = sampleAt(source.channelData[3], i) * impl_->lfeMixLevel_;
+                outL[i] = sampleAt(source.channelData[0], i) + center + lfeSample
+                       + (sampleAt(source.channelData[4], i) * impl_->surroundMixLevel_)
+                       + (sampleAt(source.channelData[6], i) * impl_->backMixLevel_);
+                outR[i] = sampleAt(source.channelData[1], i) + center + lfeSample
+                       + (sampleAt(source.channelData[5], i) * impl_->surroundMixLevel_)
+                       + (sampleAt(source.channelData[7], i) * impl_->backMixLevel_);
             }
         }
         else {
             // Fallback: Copy first two channels if available, or fill with zero
             for (int ch = 0; ch < 2; ++ch) {
                 if (ch < source.channelCount()) {
-                    std::copy(source.constData(ch), source.constData(ch) + frames, output.channelData[ch].begin());
+                    for (int i = 0; i < frames; ++i) {
+                        output.channelData[ch][i] = sampleAt(source.channelData[ch], i);
+                    }
                 } else {
                     std::fill(output.channelData[ch].begin(), output.channelData[ch].end(), 0.0f);
                 }
@@ -181,9 +176,8 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
         if (inChannels > 0) {
             float weight = 1.0f / inChannels;
             for (int ch = 0; ch < inChannels; ++ch) {
-                const float* in = source.constData(ch);
                 for (int i = 0; i < frames; ++i) {
-                    outMono[i] += in[i] * weight;
+                    outMono[i] += sampleAt(source.channelData[ch], i) * weight;
                 }
             }
         }
