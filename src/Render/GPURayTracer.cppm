@@ -249,6 +249,10 @@ public:
         }
 
         prepareOutputTexture(width, height);
+        if (!outputTexture || !outputUAV)
+        {
+            return;
+        }
 
         // Run DXR Dispatch
         Diligent::TraceRaysAttribs traceAttribs{sbt, static_cast<Diligent::Uint32>(width), static_cast<Diligent::Uint32>(height), 1};
