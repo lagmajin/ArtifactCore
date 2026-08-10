@@ -1,5 +1,6 @@
 module;
 #include <memory>
+#include <cstddef>
 #include <vector>
 #include <iostream>
 #include <cstring>
@@ -283,13 +284,15 @@ public:
             context->MapTextureSubresource(stagingTexture, 0, 0, Diligent::MAP_READ, Diligent::MAP_FLAG_NONE, nullptr, mappedData);
 
             const uint8_t* srcPixels = reinterpret_cast<const uint8_t*>(mappedData.pData);
-            if (srcPixels)
+            const auto requiredStride = static_cast<std::size_t>(width) * 4u;
+            if (srcPixels && mappedData.Stride >= requiredStride)
             {
                 Parallel::For(0, height, width * height, [&](int y)
                 {
                     for (int x = 0; x < width; ++x)
                     {
-                        int srcIdx = y * mappedData.Stride + x * 4;
+                        const auto srcIdx = static_cast<std::size_t>(y) * mappedData.Stride +
+                                            static_cast<std::size_t>(x) * 4u;
                         float r = srcPixels[srcIdx + 0] / 255.0f;
                         float g = srcPixels[srcIdx + 1] / 255.0f;
                         float b = srcPixels[srcIdx + 2] / 255.0f;
