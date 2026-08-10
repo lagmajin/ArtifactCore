@@ -44,6 +44,16 @@ void AudioBassTreble::process(AudioSegment& segment, const AudioSegment* /*sideC
     const float bassGain = std::pow(10.0f, bassDb / 20.0f);
     const float trebleGain = std::pow(10.0f, trebleDb / 20.0f);
 
+    if (stateSampleRate_ != segment.sampleRate) {
+        stateSampleRate_ = segment.sampleRate;
+        std::fill(statesInitialized_.begin(), statesInitialized_.end(), false);
+    }
+    if (static_cast<int>(lowStates_.size()) < channels) {
+        lowStates_.resize(channels, 0.0f);
+        highStates_.resize(channels, 0.0f);
+        statesInitialized_.resize(channels, false);
+    }
+
     // 簡易ローシェルフ/ハイシェルフ
     // Bass: 100Hz以下をブースト/カット
     // Treble: 8kHz以上をブースト/カット
@@ -63,8 +73,13 @@ void AudioBassTreble::process(AudioSegment& segment, const AudioSegment* /*sideC
         const float lowCoeff = std::exp(-2.0f * 3.14159265f * bassFreq);
         const float highCoeff = std::exp(-2.0f * 3.14159265f * trebleFreq);
         
-        float lowState = std::isfinite(data[0]) ? data[0] : 0.0f;
-        float highState = lowState;
+        float& lowState = lowStates_[ch];
+        float& highState = highStates_[ch];
+        if (!statesInitialized_[ch]) {
+            lowState = std::isfinite(data[0]) ? data[0] : 0.0f;
+            highState = lowState;
+            statesInitialized_[ch] = true;
+        }
         
         for (int i = 0; i < samples; ++i) {
             const float input = std::isfinite(data[i]) ? data[i] : 0.0f;
