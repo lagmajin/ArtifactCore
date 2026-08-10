@@ -48,6 +48,7 @@ export namespace ArtifactCore
    float matteOpacity0 = 1.0f;
    float matteOpacity1 = 1.0f;
    float matteOpacity2 = 1.0f;
+   unsigned int _pad0 = 0;
   };
 
   // The HLSL MatteTrackParams cbuffer is three 16-byte registers (48 bytes).
