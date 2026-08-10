@@ -3,6 +3,7 @@ module;
 #include <utility>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 module Audio.Decibels;
 
@@ -10,13 +11,28 @@ import Utils.String.UniString;
 
 namespace ArtifactCore
 {
+
+namespace {
+
+constexpr float kMinDecibels = -60.0f;
+constexpr float kMaxDecibels = 20.0f;
+
+float sanitizeDecibels(const float decibels)
+{
+ return std::isfinite(decibels)
+     ? std::clamp(decibels, kMinDecibels, kMaxDecibels)
+     : 0.0f;
+}
+
+}
+
 class AudioDecibels::Impl
 {
 public:
  float dB = 0.0f;
 
  explicit Impl(float decibels = 0.0f)
-     : dB(std::clamp(decibels, AudioDecibels::MIN_DB, AudioDecibels::MAX_DB))
+     : dB(sanitizeDecibels(decibels))
  {
  }
 
@@ -52,7 +68,7 @@ float AudioDecibels::decibels() const
 
 void AudioDecibels::setDecibels(float dB)
 {
- impl_->dB = std::clamp(dB, MIN_DB, MAX_DB);
+ impl_->dB = sanitizeDecibels(dB);
 }
 
 float AudioDecibels::toLinearValue() const
@@ -65,15 +81,21 @@ float AudioDecibels::toLinearValue() const
 
 AudioDecibels AudioDecibels::fromLinearValue(float linear)
 {
+ if (std::isnan(linear)) {
+  return AudioDecibels(0.0f);
+ }
  if (linear <= 0.0f) {
   return AudioDecibels(MIN_DB);
+ }
+ if (linear == std::numeric_limits<float>::infinity()) {
+  return AudioDecibels(MAX_DB);
  }
  return AudioDecibels(20.0f * std::log10(linear));
 }
 
 AudioDecibels AudioDecibels::interpolate(const AudioDecibels& target, float t) const
 {
- t = std::clamp(t, 0.0f, 1.0f);
+ t = std::isfinite(t) ? std::clamp(t, 0.0f, 1.0f) : 0.0f;
  const float interpolated = impl_->dB + (target.impl_->dB - impl_->dB) * t;
  return AudioDecibels(interpolated);
 }
@@ -87,7 +109,7 @@ bool AudioDecibels::isValid() const { return impl_->dB >= MIN_DB && impl_->dB <=
 bool AudioDecibels::isMute() const { return impl_->dB <= MIN_DB + EPSILON; }
 bool AudioDecibels::isSilent() const { return impl_->dB <= -40.0f; }
 bool AudioDecibels::isNormalized() const { return std::abs(impl_->dB) < EPSILON; }
-void AudioDecibels::clamp() { impl_->dB = std::clamp(impl_->dB, MIN_DB, MAX_DB); }
+void AudioDecibels::clamp() { impl_->dB = sanitizeDecibels(impl_->dB); }
 
 AudioDecibels AudioDecibels::createPreset(Preset preset)
 {
@@ -147,7 +169,7 @@ AudioDecibels AudioDecibels::operator*(float scalar) const { return AudioDecibel
 
 AudioDecibels AudioDecibels::operator/(float scalar) const
 {
- if (std::abs(scalar) < EPSILON) {
+ if (!std::isfinite(scalar) || std::abs(scalar) < EPSILON) {
   return AudioDecibels(0.0f);
  }
  return AudioDecibels(impl_->dB / scalar);
@@ -155,26 +177,26 @@ AudioDecibels AudioDecibels::operator/(float scalar) const
 
 AudioDecibels& AudioDecibels::operator+=(float dB)
 {
- impl_->dB = std::clamp(impl_->dB + dB, MIN_DB, MAX_DB);
+ impl_->dB = sanitizeDecibels(impl_->dB + dB);
  return *this;
 }
 
 AudioDecibels& AudioDecibels::operator-=(float dB)
 {
- impl_->dB = std::clamp(impl_->dB - dB, MIN_DB, MAX_DB);
+ impl_->dB = sanitizeDecibels(impl_->dB - dB);
  return *this;
 }
 
 AudioDecibels& AudioDecibels::operator*=(float scalar)
 {
- impl_->dB = std::clamp(impl_->dB * scalar, MIN_DB, MAX_DB);
+ impl_->dB = sanitizeDecibels(impl_->dB * scalar);
  return *this;
 }
 
 AudioDecibels& AudioDecibels::operator/=(float scalar)
 {
- if (std::abs(scalar) > EPSILON) {
-  impl_->dB = std::clamp(impl_->dB / scalar, MIN_DB, MAX_DB);
+ if (std::isfinite(scalar) && std::abs(scalar) > EPSILON) {
+  impl_->dB = sanitizeDecibels(impl_->dB / scalar);
  }
  return *this;
 }
