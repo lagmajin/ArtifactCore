@@ -19,7 +19,7 @@ void AudioChorus::process(AudioSegment& segment, const AudioSegment* /*sideChain
     const int channels = segment.channelCount();
     const int frames = segment.frameCount();
     const int sampleRate = segment.sampleRate;
-    if (channels == 0 || frames == 0) return;
+    if (channels == 0 || frames == 0 || sampleRate <= 0) return;
 
     const int maxDelay = static_cast<int>(baseDelayMs_ * sampleRate / 1000.0) + 1;
     int needed = frames + maxDelay + 64;
@@ -31,9 +31,11 @@ void AudioChorus::process(AudioSegment& segment, const AudioSegment* /*sideChain
     for (int ch = 0; ch < std::min(channels, 2); ++ch) {
         if (ch >= segment.channelData.size()) break;
 
+        const int samples = std::min(frames, segment.channelData[ch].size());
+        if (samples <= 0) continue;
         float* inData = segment.channelData[ch].data();
 
-        for (int i = 0; i < frames; ++i) {
+        for (int i = 0; i < samples; ++i) {
             delayBuffer_[writePos_] = inData[i];
 
             float lfo = std::sin(2.0f * 3.14159265f * rate_ * i / sampleRate);

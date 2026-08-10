@@ -19,6 +19,11 @@ void AudioStereoMixer::process(AudioSegment& segment, const AudioSegment* /*side
     const int frames = segment.frameCount();
     if (channels < 2 || frames == 0) return;
 
+    const int samples = std::min({frames,
+                                  segment.channelData[0].size(),
+                                  segment.channelData[1].size()});
+    if (samples <= 0) return;
+
     float* left = segment.channelData[0].data();
     float* right = segment.channelData[1].data();
 
@@ -26,7 +31,7 @@ void AudioStereoMixer::process(AudioSegment& segment, const AudioSegment* /*side
     float leftGain = (leftRight_ <= 0.0f) ? 1.0f : (1.0f - leftRight_);
     float rightGain = (leftRight_ >= 0.0f) ? 1.0f : (1.0f + leftRight_);
 
-    for (int i = 0; i < frames; ++i) {
+    for (int i = 0; i < samples; ++i) {
         // LRバランス適用
         left[i] *= leftGain;
         right[i] *= rightGain;

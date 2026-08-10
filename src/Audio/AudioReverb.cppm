@@ -34,9 +34,11 @@ void AudioReverb::process(AudioSegment& segment, const AudioSegment* /*sideChain
 
     for (int ch = 0; ch < std::min(channels, 2); ++ch) {
         if (ch >= segment.channelData.size()) break;
+        const int samples = std::min(frames, segment.channelData[ch].size());
+        if (samples <= 0) continue;
         float* data = segment.channelData[ch].data();
 
-        for (int i = 0; i < frames; ++i) {
+        for (int i = 0; i < samples; ++i) {
             float input = data[i];
             float output = 0.0f;
 

@@ -21,7 +21,7 @@ void AudioBassTreble::process(AudioSegment& segment, const AudioSegment* /*sideC
 
     const int channels = segment.channelCount();
     const int frames = segment.frameCount();
-    if (channels == 0 || frames == 0) return;
+    if (channels == 0 || frames == 0 || segment.sampleRate <= 0) return;
 
     // dBから線形ゲインに変換（共通係数計算）
     const float bassGain = std::pow(10.0f, bassDb_ / 20.0f);
@@ -37,6 +37,8 @@ void AudioBassTreble::process(AudioSegment& segment, const AudioSegment* /*sideC
 
     for (int ch = 0; ch < channels; ++ch) {
         if (ch >= segment.channelData.size()) break;
+        const int samples = std::min(frames, segment.channelData[ch].size());
+        if (samples <= 0) continue;
         float* data = segment.channelData[ch].data();
         
         // 1次IIRフィルタ係数（バタワースクローン本田デジタルフィルタ）
@@ -47,7 +49,7 @@ void AudioBassTreble::process(AudioSegment& segment, const AudioSegment* /*sideC
         float lowState = data[0];
         float highState = data[0];
         
-        for (int i = 0; i < frames; ++i) {
+        for (int i = 0; i < samples; ++i) {
             // ロー/ハイシェルフフィルタ
             lowState = lowCoeff * lowState + (1.0f - lowCoeff) * data[i];
             highState = highCoeff * highState + (1.0f - highCoeff) * data[i];
