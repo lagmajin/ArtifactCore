@@ -360,14 +360,27 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
         if (!serializedId.isEmpty()) bus->restoreId(Id(serializedId));
         bus->setName(toZeroString(name));
 
-        bus->setVolume(static_cast<float>(busObj["volume"].toDouble()));
-        bus->setPan(static_cast<float>(busObj["pan"].toDouble()));
+        // Older project files may omit fields added after the first mixer
+        // serializer. Keep AudioBus defaults for absent values instead of
+        // turning a missing field into a destructive zero.
+        if (busObj.contains(QStringLiteral("volume"))) {
+            bus->setVolume(static_cast<float>(busObj["volume"].toDouble(
+                static_cast<double>(bus->getVolume()))));
+        }
+        if (busObj.contains(QStringLiteral("pan"))) {
+            bus->setPan(static_cast<float>(busObj["pan"].toDouble(
+                static_cast<double>(bus->getPan()))));
+        }
         if (busObj.contains("layout")) {
             bus->setLayout(static_cast<AudioChannelLayout>(busObj["layout"].toInt(
                 static_cast<int>(AudioChannelLayout::Stereo))));
         }
-        bus->setMute(busObj["mute"].toBool());
-        bus->setSolo(busObj["solo"].toBool());
+        if (busObj.contains(QStringLiteral("mute"))) {
+            bus->setMute(busObj["mute"].toBool(bus->isMute()));
+        }
+        if (busObj.contains(QStringLiteral("solo"))) {
+            bus->setSolo(busObj["solo"].toBool(bus->isSolo()));
+        }
     }
 
     // Resolve graph edges only after every bus exists.
