@@ -366,27 +366,51 @@ bool LayerBlendPipeline::applyPointwise(
         return false;
     }
 
+    const auto* srcTexture = srcSRV->GetTexture();
+    const auto* outTexture = outUAV->GetTexture();
+    if (!srcTexture || !outTexture || srcTexture == outTexture) {
+        qWarning() << "[LayerBlendPipeline::applyPointwise] invalid resource alias";
+        return false;
+    }
+    const auto& srcDesc = srcTexture->GetDesc();
+    const auto& outDesc = outTexture->GetDesc();
+    if (srcDesc.Width != plan.width || srcDesc.Height != plan.height ||
+        outDesc.Width != plan.width || outDesc.Height != plan.height) {
+        qWarning() << "[LayerBlendPipeline::applyPointwise] texture contract mismatch"
+                   << "requested=" << plan.width << "x" << plan.height
+                   << "src=" << srcDesc.Width << "x" << srcDesc.Height
+                   << "out=" << outDesc.Width << "x" << outDesc.Height;
+        return false;
+    }
+
     ShaderResourceVariableDesc variables[6] = {
-        {SHADER_TYPE_COMPUTE, "PointwiseParameters", SHADER_RESOURCE_VARIABLE_TYPE_STATIC},
-        {SHADER_TYPE_COMPUTE, "SourceTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_COMPUTE, "OutputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, plan.parameterBuffer.c_str(),
+         SHADER_RESOURCE_VARIABLE_TYPE_STATIC},
+        {SHADER_TYPE_COMPUTE, plan.sourceResource.c_str(),
+         SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_COMPUTE, plan.outputResource.c_str(),
+         SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     Uint32 variableCount = 3;
     if (plan.shader.key.requiresBackground) {
         variables[variableCount++] = {
-            SHADER_TYPE_COMPUTE, "BackgroundTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+            SHADER_TYPE_COMPUTE, plan.backgroundResource.c_str(),
+            SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
     }
     if (plan.shader.key.requiresLut) {
         variables[variableCount++] = {
-            SHADER_TYPE_COMPUTE, "LutTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+            SHADER_TYPE_COMPUTE, plan.lutResource.c_str(),
+            SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
     }
     if (plan.shader.key.requiresHistory) {
         variables[variableCount++] = {
-            SHADER_TYPE_COMPUTE, "HistoryTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+            SHADER_TYPE_COMPUTE, plan.historyResource.c_str(),
+            SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
     }
 
     const std::string pipelineKey = toStdString(plan.shader.key.toString());
-    if (!pointwiseExecutor_ || pointwisePipelineKey_ != pipelineKey) {
+    if (!pointwiseExecutor_ || !pointwiseExecutor_->ready() ||
+        pointwisePipelineKey_ != pipelineKey) {
         pointwiseExecutor_ = std::make_unique<ComputeExecutor>(*context_);
         ComputePipelineDesc desc;
         desc.name = plan.shader.diagnosticName.empty()
