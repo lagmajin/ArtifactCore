@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
@@ -10,6 +11,17 @@ import Audio.Effect;
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float saturateReverbSample(const float sample)
+{
+    if (std::isfinite(sample)) return sample;
+    if (std::isnan(sample)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), sample);
+}
+
+}
 
 AudioReverb::AudioReverb() {}
 
@@ -44,18 +56,21 @@ void AudioReverb::process(AudioSegment& segment, const AudioSegment* /*sideChain
         float* data = segment.channelData[ch].data();
 
         for (int i = 0; i < samples; ++i) {
-            float input = data[i];
+            const float input = std::isfinite(data[i]) ? data[i] : 0.0f;
             float output = 0.0f;
 
             for (int c = 0; c < 4; ++c) {
                 int idx = i % needed;
-                float bufOut = combBuffers_[c * needed + (idx + combDelays[c]) % needed];
-                combBuffers_[c * needed + idx] = bufOut + input * decay;
-                output += bufOut;
+                const float bufOut = saturateReverbSample(
+                    combBuffers_[c * needed + (idx + combDelays[c]) % needed]);
+                combBuffers_[c * needed + idx] = saturateReverbSample(
+                    bufOut + input * decay);
+                output = saturateReverbSample(output + bufOut);
             }
             output *= 0.25f;
 
-            data[i] = data[i] * (1.0f - mix) + output * mix;
+            data[i] = saturateReverbSample(
+                input * (1.0f - mix) + output * mix);
         }
     }
 }
@@ -69,6 +84,7 @@ std::vector<EffectParameter> AudioReverb::getParameters() const {
 }
 
 void AudioReverb::setParameterValue(const String& id, float value) {
+    if (!std::isfinite(value)) return;
     if (id == "decay") decay_ = value;
     else if (id == "mix") mix_ = value;
     else if (id == "size") size_ = value;
@@ -91,9 +107,9 @@ QJsonObject AudioReverb::toJson() const {
 
 void AudioReverb::fromJson(const QJsonObject& obj) {
     AudioEffect::fromJson(obj);
-    decay_ = obj["decay"].toDouble(0.5);
-    mix_ = obj["mix"].toDouble(0.3);
-    size_ = obj["size"].toDouble(0.7);
+    setDecay(static_cast<float>(obj["decay"].toDouble(0.5)));
+    setMix(static_cast<float>(obj["mix"].toDouble(0.3)));
+    setSize(static_cast<float>(obj["size"].toDouble(0.7)));
 }
 
 } // namespace ArtifactCore
