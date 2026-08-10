@@ -862,6 +862,12 @@ bool ProceduralTextureComputePipeline::generate(IDeviceContext* ctx, ITextureVie
         return false;
     }
 
+    const auto* outTex = outputUAV->GetTexture();
+    if (!outTex || outTex->GetDesc().Width == 0 || outTex->GetDesc().Height == 0)
+    {
+        return false;
+    }
+
     const ProceduralTextureGpuCB gpuCB = packGpuCB(settings);
     void* pData = nullptr;
     ctx->MapBuffer(pImpl_->paramsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
@@ -872,12 +878,6 @@ bool ProceduralTextureComputePipeline::generate(IDeviceContext* ctx, ITextureVie
 
     std::memcpy(pData, &gpuCB, sizeof(gpuCB));
     ctx->UnmapBuffer(pImpl_->paramsCB_, MAP_WRITE);
-
-    const auto* outTex = outputUAV->GetTexture();
-    if (!outTex)
-    {
-        return false;
-    }
 
     if (!pImpl_->executor_->setBuffer("ProceduralTextureCB", pImpl_->paramsCB_) ||
         !pImpl_->executor_->setTextureView("OutTex", outputUAV))

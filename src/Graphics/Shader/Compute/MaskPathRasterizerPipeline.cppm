@@ -151,7 +151,14 @@ bool MaskPathRasterizerPipeline::rasterizeMask(
     int width, int height,
     float featherPixels)
 {
-    if (!ctx || !segments || numSegments == 0 || !outUAV || !ready()) {
+    if (!ctx || !segments || numSegments == 0 || !outUAV || !ready() ||
+        width <= 0 || height <= 0 || !outUAV->GetTexture()) {
+        return false;
+    }
+
+    const auto outputDesc = outUAV->GetTexture()->GetDesc();
+    if (outputDesc.Width != static_cast<Uint32>(width) ||
+        outputDesc.Height != static_cast<Uint32>(height)) {
         return false;
     }
 

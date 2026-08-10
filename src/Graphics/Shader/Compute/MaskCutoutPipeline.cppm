@@ -180,6 +180,11 @@ bool MaskCutoutPipeline::apply(IDeviceContext* ctx,
         return false;
     }
 
+    const auto* outTex = outUAV->GetTexture();
+    if (!outTex || outTex->GetDesc().Width == 0 || outTex->GetDesc().Height == 0) {
+        return false;
+    }
+
     auto* maskSRV = pImpl_->pMaskTexture_ ? pImpl_->pMaskTexture_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
     if (!maskSRV) {
         return false;
@@ -194,11 +199,6 @@ bool MaskCutoutPipeline::apply(IDeviceContext* ctx,
     params.luminanceStandard = static_cast<Uint32>(luminanceStandard);
     std::memcpy(pData, &params, sizeof(params));
     ctx->UnmapBuffer(pImpl_->pMaskParamsCB_, MAP_WRITE);
-
-    const auto* outTex = outUAV->GetTexture();
-    if (!outTex) {
-        return false;
-    }
 
     if (!executor_.setBuffer("MaskParams", pImpl_->pMaskParamsCB_) ||
         !executor_.setTextureView("SceneTex", sceneSRV) ||
