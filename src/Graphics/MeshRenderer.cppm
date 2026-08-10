@@ -82,6 +82,9 @@ void CSMain(uint3 id : SV_DispatchThreadID) {
 namespace {
 void transpose4x4(const float* src, float* dst)
 {
+    if (!src || !dst) {
+        return;
+    }
     for (int row = 0; row < 4; ++row) {
         for (int col = 0; col < 4; ++col) {
             dst[row * 4 + col] = src[col * 4 + row];
@@ -1105,6 +1108,13 @@ void MeshRenderer::updateInstanceData(const InstanceData* instances, size_t coun
 
 void MeshRenderer::prepare(IDeviceContext* pContext)
 {
+    if (!pContext) {
+        if (!pImpl_->missingPipelineWarningIssued_) {
+            qWarning("[MeshRenderer] prepare skipped because device context is unavailable");
+            pImpl_->missingPipelineWarningIssued_ = true;
+        }
+        return;
+    }
     IPipelineState* activePSO =
         pImpl_->transparentPass_ && pImpl_->pTransparentPSO_
             ? pImpl_->pTransparentPSO_.RawPtr()
