@@ -609,6 +609,7 @@ void MeshRenderer::setRenderTargetFormat(TEXTURE_FORMAT format)
         return;
     }
 
+    prepared_ = false;
     renderTargetFormat_ = format;
     if (const auto cached = pImpl_->pipelineSets_.find(format);
         cached != pImpl_->pipelineSets_.end()) {
@@ -635,6 +636,7 @@ void MeshRenderer::setPipelineStateCache(IPipelineStateCache* cache)
 
 void MeshRenderer::createBuffers()
 {
+    prepared_ = false;
     auto pDevice = context_.RenderDevice();
     if (!pDevice) {
         return;
@@ -1108,6 +1110,7 @@ void MeshRenderer::updateInstanceData(const InstanceData* instances, size_t coun
 
 void MeshRenderer::prepare(IDeviceContext* pContext)
 {
+    prepared_ = false;
     if (!pContext) {
         if (!pImpl_->missingPipelineWarningIssued_) {
             qWarning("[MeshRenderer] prepare skipped because device context is unavailable");
@@ -1123,9 +1126,11 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         pImpl_->transparentPass_ && pImpl_->pTransparentSRB_
             ? pImpl_->pTransparentSRB_.RawPtr()
             : pImpl_->pSRB_.RawPtr();
-    if (!activePSO || !activeSRB) {
+    if (!activePSO || !activeSRB || !pImpl_->pConstantBuffer_ ||
+        !pImpl_->pMaterialBuffer_ || !pImpl_->pSceneLightingBuffer_ ||
+        !pImpl_->pInstanceBuffer_) {
         if (!pImpl_->missingPipelineWarningIssued_) {
-            qWarning("[MeshRenderer] draw skipped because PSO/SRB is unavailable");
+            qWarning("[MeshRenderer] prepare skipped because pipeline or buffer resources are unavailable");
             pImpl_->missingPipelineWarningIssued_ = true;
         }
         return;
@@ -1135,25 +1140,31 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
     // Update constants
     void* pData = nullptr;
     pContext->MapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        memcpy(pData, &constants_, sizeof(ShaderConstants));
-        pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
-        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    if (!pData) {
+        qWarning("[MeshRenderer] prepare skipped because constant buffer mapping failed");
+        return;
     }
+    memcpy(pData, &constants_, sizeof(ShaderConstants));
+    pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
+    if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     pData = nullptr;
     pContext->MapBuffer(pImpl_->pMaterialBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        memcpy(pData, &pImpl_->materialConstants_, sizeof(Impl::MaterialConstants));
-        pContext->UnmapBuffer(pImpl_->pMaterialBuffer_, MAP_WRITE);
-        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    if (!pData) {
+        qWarning("[MeshRenderer] prepare skipped because material buffer mapping failed");
+        return;
     }
+    memcpy(pData, &pImpl_->materialConstants_, sizeof(Impl::MaterialConstants));
+    pContext->UnmapBuffer(pImpl_->pMaterialBuffer_, MAP_WRITE);
+    if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     pData = nullptr;
     pContext->MapBuffer(pImpl_->pSceneLightingBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        memcpy(pData, &pImpl_->sceneLighting_, sizeof(Impl::SceneLightingConstants));
-        pContext->UnmapBuffer(pImpl_->pSceneLightingBuffer_, MAP_WRITE);
-        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    if (!pData) {
+        qWarning("[MeshRenderer] prepare skipped because scene lighting buffer mapping failed");
+        return;
     }
+    memcpy(pData, &pImpl_->sceneLighting_, sizeof(Impl::SceneLightingConstants));
+    pContext->UnmapBuffer(pImpl_->pSceneLightingBuffer_, MAP_WRITE);
+    if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     
     pImpl_->gpuCullActive_ =
         pImpl_->gpuCullReady_ && pImpl_->indirectDrawSupported_ &&
@@ -1266,11 +1277,12 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
     if (pImpl_->pIndexBuffer_) {
         pContext->SetIndexBuffer(pImpl_->pIndexBuffer_, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
+    prepared_ = true;
 }
 
 void MeshRenderer::draw(IDeviceContext* pContext, size_t instanceCount)
 {
-    if (!pContext || instanceCount == 0) return;
+    if (!pContext || !prepared_ || instanceCount == 0) return;
 
     const IPipelineState* activePSO =
         pImpl_->transparentPass_ && pImpl_->pTransparentPSO_
@@ -1429,7 +1441,11 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
 
 void MeshRenderer::setTransparentPass(bool transparent)
 {
+    if (pImpl_->transparentPass_ == transparent) {
+        return;
+    }
     pImpl_->transparentPass_ = transparent;
+    prepared_ = false;
 }
 
 void MeshRenderer::setBaseColorTexture(const QString& path)

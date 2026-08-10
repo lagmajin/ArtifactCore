@@ -151,6 +151,7 @@ private:
     };
     ShaderConstants constants_;
     ArtifactCore::RenderCostStats* frameCostStats_ = nullptr;
+    bool prepared_ = false;
 
     void createPSO();
     void createBuffers();
