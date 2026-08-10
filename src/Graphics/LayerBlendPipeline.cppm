@@ -233,11 +233,12 @@ bool LayerBlendPipeline::createExecutors()
    continue;
   }
 
-  if (pImpl_->pBlendCB_) {
-   entry.executor->setBuffer("BlendParams", pImpl_->pBlendCB_);
-  } else {
+  if (!pImpl_->pBlendCB_ ||
+      !entry.executor->setBuffer("BlendParams", pImpl_->pBlendCB_)) {
    qWarning() << "[LayerBlendPipeline] pBlendCB_ is null for blend mode" << static_cast<int>(mode)
-              << "- opacity will not work";
+              << "or BlendParams binding failed";
+   ++failCount;
+   continue;
   }
 
   if (!entry.executor->createShaderResourceBinding(true)) {
@@ -282,8 +283,11 @@ bool LayerBlendPipeline::createMatteTrackExecutor()
         matteTrackExecutor_.reset();
         return false;
     }
-    if (pImpl_->pMatteTrackCB_) {
-        matteTrackExecutor_->setBuffer("MatteTrackParams", pImpl_->pMatteTrackCB_);
+    if (!pImpl_->pMatteTrackCB_ ||
+        !matteTrackExecutor_->setBuffer("MatteTrackParams", pImpl_->pMatteTrackCB_)) {
+        qWarning() << "[LayerBlendPipeline] MatteTrackParams binding failed";
+        matteTrackExecutor_.reset();
+        return false;
     }
     if (!matteTrackExecutor_->createShaderResourceBinding(true)) {
         qWarning() << "[LayerBlendPipeline] MatteTrack SRB creation failed";
