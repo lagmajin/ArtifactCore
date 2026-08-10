@@ -391,6 +391,10 @@ Color CPUVolumeRenderer::raymarch(const Ray& ray) const noexcept {
 }
 
 ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
+    if (width <= 0 || height <= 0) {
+        return ImageBuffer(0, 0);
+    }
+
     ImageBuffer buffer(width, height);
     Camera renderCamera = camera;
     renderCamera.setViewport(static_cast<float>(width), static_cast<float>(height));

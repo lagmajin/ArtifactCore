@@ -230,6 +230,11 @@ public:
 
     void renderGPU(int width, int height, ImageBuffer& buffer)
     {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
         if (!initialized || !device || !context || !sbt)
         {
             // Fail safe fallback render (CPU side)
