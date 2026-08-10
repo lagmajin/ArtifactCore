@@ -482,7 +482,9 @@ namespace ArtifactCore
   if (segment.startFrame > std::numeric_limits<qint64>::max() - segment.frameCount()) {
    return false;
   }
-  queue.push(segment);
+  if (!queue.push(segment)) {
+   return false;
+  }
   nextExpectedFrame_ = segment.startFrame + segment.frameCount();
   return true;
  }
@@ -532,7 +534,9 @@ namespace ArtifactCore
   if (nextExpectedFrame_ > std::numeric_limits<qint64>::max() - converted) {
    return false;
   }
-  queue.push(segment);
+  if (!queue.push(segment)) {
+   return false;
+  }
   nextExpectedFrame_ += converted;
   return true;
  }

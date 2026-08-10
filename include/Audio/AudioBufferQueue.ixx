@@ -21,13 +21,14 @@ export namespace ArtifactCore {
   AudioBufferQueue() = default;
   ~AudioBufferQueue() = default;
 
-  void push(const AudioSegment& segment) {
+  bool push(const AudioSegment& segment) {
    QMutexLocker locker(&mutex);
    if (queue.size() >= maxSegments) {
-    return;
+    return false;
    }
    queue.append(segment); 
    notEmpty.wakeOne();
+   return true;
   }
 
   bool pop(AudioSegment& outSegment) {
