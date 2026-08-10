@@ -2,12 +2,24 @@ module;
 #include <utility>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <vector>
 module Audio.DownMixer;
 
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float sanitizeMixedSample(const float sample)
+{
+    if (std::isfinite(sample)) return sample;
+    if (std::isnan(sample)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), sample);
+}
+
+}
 
 struct AudioDownMixer::Impl {
     AudioChannelLayout targetLayout_ = AudioChannelLayout::Stereo;
@@ -104,7 +116,13 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
     if (source.layout == impl_->targetLayout_ &&
         (expectedChannels == 0 || source.channelCount() == expectedChannels) &&
         uniformFrameShape) {
-        return source; // No conversion needed
+        AudioSegment output = source;
+        for (auto& channel : output.channelData) {
+            for (float& sample : channel) {
+                sample = sanitizeMixedSample(sample);
+            }
+        }
+        return output; // No conversion needed
     }
 
     AudioSegment output;
@@ -259,6 +277,11 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
         }
     }
 
+    for (auto& channel : output.channelData) {
+        for (float& sample : channel) {
+            sample = sanitizeMixedSample(sample);
+        }
+    }
     return output;
 }
 
