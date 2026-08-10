@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include "../Define/DllExportMacro.hpp"
 
 module Audio.Effect.HighLowPass;
@@ -9,6 +10,17 @@ import Audio.Effect;
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float sanitizeHighLowSample(float value)
+{
+    if (std::isfinite(value)) return value;
+    if (std::isnan(value)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), value);
+}
+
+}
 
 AudioHighLowPass::AudioHighLowPass() {}
 
@@ -43,25 +55,29 @@ void AudioHighLowPass::process(AudioSegment& segment, const AudioSegment* /*side
         if (samples <= 0) continue;
         float* data = segment.channelData[ch].data();
         
-        float lpState = data[0];
-        float hpState = data[0];
+        float lpState = std::isfinite(data[0]) ? data[0] : 0.0f;
+        float hpState = lpState;
 
         for (int i = 0; i < samples; ++i) {
+            const float input = std::isfinite(data[i]) ? data[i] : 0.0f;
             // ローパス
             if (lowPassFreq_ > 0.0f) {
-                lpState = lpCoef * lpState + (1.0f - lpCoef) * data[i];
+                lpState = sanitizeHighLowSample(
+                    lpCoef * lpState + (1.0f - lpCoef) * input);
             }
             
             // ハイパス
             if (highPassFreq_ > 0.0f) {
-                float hpInput = data[i] - hpState;
-                hpState = hpCoef * hpState + hpInput;
+                float hpInput = sanitizeHighLowSample(input - hpState);
+                hpState = sanitizeHighLowSample(hpCoef * hpState + hpInput);
                 data[i] = hpInput;
             }
             
             // ローパス適用
             if (lowPassFreq_ > 0.0f) {
-                data[i] = lpState;
+                data[i] = sanitizeHighLowSample(lpState);
+            } else {
+                data[i] = sanitizeHighLowSample(data[i]);
             }
         }
     }

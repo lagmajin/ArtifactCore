@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <QJsonArray>
 #include "../Define/DllExportMacro.hpp"
 
@@ -10,6 +11,17 @@ import Audio.Effect;
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float sanitizeParametricSample(float value)
+{
+    if (std::isfinite(value)) return value;
+    if (std::isnan(value)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), value);
+}
+
+}
 
 AudioParametricEQ::AudioParametricEQ() {
     bands_.resize(4);  // デフォルト4バンド
@@ -40,7 +52,7 @@ void AudioParametricEQ::process(AudioSegment& segment, const AudioSegment* /*sid
         float* data = segment.channelData[ch].data();
 
         for (int i = 0; i < samples; ++i) {
-            float sample = data[i];
+            float sample = std::isfinite(data[i]) ? data[i] : 0.0f;
             for (size_t bandIndex = 0; bandIndex < bands_.size(); ++bandIndex) {
                 const auto& band = bands_[bandIndex];
                 if (!band.enabled) continue;
@@ -70,19 +82,20 @@ void AudioParametricEQ::process(AudioSegment& segment, const AudioSegment* /*sid
                 const float normalizedA1 = a1 / a0;
                 const float normalizedA2 = a2 / a0;
                 const size_t state = (static_cast<size_t>(ch) * bands_.size() + bandIndex) * 4;
-                const float x1 = delayedState_[state];
-                const float x2 = delayedState_[state + 1];
-                const float y1 = delayedState_[state + 2];
-                const float y2 = delayedState_[state + 3];
-                const float filtered = normalizedB0 * sample + normalizedB1 * x1 + normalizedB2 * x2
-                                     - normalizedA1 * y1 - normalizedA2 * y2;
-                delayedState_[state] = sample;
+                const float x1 = sanitizeParametricSample(delayedState_[state]);
+                const float x2 = sanitizeParametricSample(delayedState_[state + 1]);
+                const float y1 = sanitizeParametricSample(delayedState_[state + 2]);
+                const float y2 = sanitizeParametricSample(delayedState_[state + 3]);
+                const float filtered = sanitizeParametricSample(
+                    normalizedB0 * sample + normalizedB1 * x1 + normalizedB2 * x2
+                    - normalizedA1 * y1 - normalizedA2 * y2);
+                delayedState_[state] = sanitizeParametricSample(sample);
                 delayedState_[state + 1] = x1;
-                delayedState_[state + 2] = filtered;
+                delayedState_[state + 2] = sanitizeParametricSample(filtered);
                 delayedState_[state + 3] = y1;
-                sample = std::isfinite(filtered) ? filtered : sample;
+                sample = filtered;
             }
-            data[i] = sample;
+            data[i] = sanitizeParametricSample(sample);
         }
     }
 }

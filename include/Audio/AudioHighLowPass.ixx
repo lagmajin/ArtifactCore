@@ -3,6 +3,8 @@ module;
 #include <string>
 #include <vector>
 #include <memory>
+#include <algorithm>
+#include <cmath>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect.HighLowPass;
@@ -26,10 +28,10 @@ public:
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
     // パラメータ
-    void setLowPassFreq(float hz) { lowPassFreq_ = hz; }    // Hz (20 ~ 20000)
-    void setHighPassFreq(float hz) { highPassFreq_ = hz; }  // Hz
-    void setLowPassResonance(float r) { lowPassRes_ = r; }
-    void setHighPassResonance(float r) { highPassRes_ = r; }
+    void setLowPassFreq(float hz) { lowPassFreq_ = std::isfinite(hz) ? std::clamp(hz, 0.0f, 24000.0f) : 0.0f; }    // Hz (20 ~ 20000)
+    void setHighPassFreq(float hz) { highPassFreq_ = std::isfinite(hz) ? std::clamp(hz, 0.0f, 24000.0f) : 0.0f; }  // Hz
+    void setLowPassResonance(float r) { lowPassRes_ = std::isfinite(r) ? r : 0.0f; }
+    void setHighPassResonance(float r) { highPassRes_ = std::isfinite(r) ? r : 0.0f; }
 
     float getLowPassFreq() const { return lowPassFreq_; }
     float getHighPassFreq() const { return highPassFreq_; }
