@@ -130,17 +130,25 @@ struct RenderJobProgress {
     }
 
     float progress() const {
-        return totalFrames > 0
-            ? static_cast<float>(completedFrames) / static_cast<float>(totalFrames)
-            : 0.0f;
+        if (totalFrames <= 0) return 0.0f;
+        const double normalized = static_cast<double>(completedFrames.load()) /
+                                  static_cast<double>(totalFrames);
+        return static_cast<float>(std::clamp(normalized, 0.0, 1.0));
     }
 
     int remainingFrames() const {
-        return std::max(0, totalFrames - completedFrames.load() - failedFrames.load());
+        const long long remaining = static_cast<long long>(totalFrames) -
+            static_cast<long long>(completedFrames.load()) -
+            static_cast<long long>(failedFrames.load());
+        return static_cast<int>(std::clamp<long long>(
+            remaining, 0, std::numeric_limits<int>::max()));
     }
 
     bool isFinished() const {
-        return completedFrames + failedFrames >= totalFrames;
+        if (totalFrames <= 0) return true;
+        const long long processed = static_cast<long long>(completedFrames.load()) +
+                                    static_cast<long long>(failedFrames.load());
+        return processed >= static_cast<long long>(totalFrames);
     }
 };
 
