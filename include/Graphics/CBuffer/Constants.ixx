@@ -56,6 +56,7 @@ export namespace ArtifactCore
   float4 color;
 
  };
+#pragma pack(pop)
 
 #pragma pack(push,1)
  struct RectVertex
@@ -63,6 +64,7 @@ export namespace ArtifactCore
   float2 position; // XY座標（スクリーン座標 or NDC）
   float4 color;    // RGBA
  };
+#pragma pack(pop)
 
 
 #pragma pack(push,1)
@@ -72,6 +74,7 @@ export namespace ArtifactCore
   float4x4 ViewMatrix;
 
  };
+#pragma pack(pop)
 
 
 };
