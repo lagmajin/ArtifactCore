@@ -76,6 +76,11 @@ LipSyncTrack::~LipSyncTrack() = default;
 
 bool LipSyncTrack::analyze(const AudioSegment& segment, double frameRate)
 {
+    if (!std::isfinite(frameRate) || frameRate <= 0.0 ||
+        segment.frameCount() <= 0 || segment.channelCount() <= 0) {
+        events_.clear();
+        return false;
+    }
     events_ = extractor_.analyzeTrack(segment, frameRate);
     return !events_.empty();
 }
