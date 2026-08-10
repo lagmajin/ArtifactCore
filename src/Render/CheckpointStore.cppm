@@ -150,7 +150,8 @@ Optional<CheckpointInfo> CheckpointStore::load(const QString& jobId) {
     QJsonDocument doc = QJsonDocument::fromJson(data);
     if (doc.isNull() || !doc.isObject()) return {};
 
-    return impl_->fromJson(doc.object());
+    CheckpointInfo info = impl_->fromJson(doc.object());
+    return info.jobId == jobId ? Optional<CheckpointInfo>(std::move(info)) : Optional<CheckpointInfo>{};
 }
 
 bool CheckpointStore::remove(const QString& jobId) {

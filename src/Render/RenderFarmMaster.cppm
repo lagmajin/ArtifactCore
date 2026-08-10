@@ -778,10 +778,15 @@ public:
         if (checkpointPolicy_.mode != CheckpointPolicy::Mode::Disabled && !currentJobId_.isEmpty()) {
             auto existing = checkpointStore_->load(currentJobId_);
             if (existing) {
-                restoreUpTo = std::min(existing->completedUpToFrame, request.range.endFrame);
-                int alreadyDone = std::max(0, restoreUpTo - request.range.startFrame);
+                restoreUpTo = std::clamp(existing->completedUpToFrame,
+                                         request.range.startFrame,
+                                         request.range.endFrame);
+                const long long restoredFrames =
+                    std::max<long long>(0, static_cast<long long>(restoreUpTo) -
+                                           request.range.startFrame);
+                const int alreadyDone = static_cast<int>(std::min<long long>(
+                    restoredFrames, total));
                 totalProgress_.completed.store(alreadyDone);
-                totalFrames_ = std::max(totalFrames_, existing->totalFrames);
                 finalResult_.failures = existing->failures;
             }
         }
