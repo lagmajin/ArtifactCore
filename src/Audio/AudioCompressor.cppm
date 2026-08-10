@@ -76,26 +76,29 @@ void AudioCompressor::process(AudioSegment& segment, const AudioSegment* sideCha
         } else {
             envelope = releaseCoef * envelope + (1.0f - releaseCoef) * detectorVal;
         }
-        envelope_ = envelope;
+        envelope_ = sanitizeCompressorSample(envelope);
 
         float gain = 1.0f;
-        if (envelope > thresholdLinear) {
-            float envDb = 20.0f * std::log10(envelope);
+        if (envelope_ > thresholdLinear) {
+            float envDb = 20.0f * std::log10(envelope_);
             float overDb = envDb - thresholdDb;
             float newDb = thresholdDb + overDb / ratio;
             gain = std::pow(10.0f, (newDb - envDb) / 20.0f);
         }
+        const float safeGain = std::isfinite(gain)
+            ? std::clamp(gain, 0.0f, 1.0f)
+            : 1.0f;
 
         for (int c = 0; c < channels; ++c) {
             if (i < segment.channelData[c].size()) {
                 const float sample = std::isfinite(segment.channelData[c][i])
                     ? segment.channelData[c][i] : 0.0f;
-                segment.channelData[c][i] = sanitizeCompressorSample(sample * gain);
+                segment.channelData[c][i] = sanitizeCompressorSample(sample * safeGain);
             }
         }
 
         currentGainReduction_.store(
-            std::min(currentGainReduction_.load(), static_cast<float>(gain)));
+            std::min(currentGainReduction_.load(), safeGain));
     }
 }
 
