@@ -1,4 +1,5 @@
 module;
+#include <algorithm>
 #include <utility>
 #include <string>
 #include <vector>
@@ -42,7 +43,9 @@ public:
     float normalizationGainDb(float targetLufs) const;
     bool normalizeToTargetLufs(AudioSegment& segment, float targetLufs);
     
-    void setBins(int bins) { bins_ = bins > 0 ? bins : 1; }
+    void setBins(int bins) {
+        bins_ = bins > 0 ? std::min(bins, 1 << 20) : 1;
+    }
     int getBins() const { return bins_; }
 
 private:
