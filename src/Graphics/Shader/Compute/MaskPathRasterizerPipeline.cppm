@@ -43,6 +43,7 @@ bool MaskPathRasterizerPipeline::initialize()
     }
 
     static const ShaderResourceVariableDesc vars[] = {
+        { SHADER_TYPE_COMPUTE, "RasterizerParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
         { SHADER_TYPE_COMPUTE, "Segments", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
         { SHADER_TYPE_COMPUTE, "OutMask",  SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
     };
@@ -62,12 +63,6 @@ bool MaskPathRasterizerPipeline::initialize()
     }
 
     if (!pImpl_->pParamsCB_) {
-        return false;
-    }
-
-    // Static resources must be assigned before the SRB snapshots them.
-    if (!executor_.setBuffer("RasterizerParams", pImpl_->pParamsCB_)) {
-        qWarning() << "[MaskPathRasterizerPipeline] failed to bind RasterizerParams";
         return false;
     }
 
@@ -166,27 +161,29 @@ bool MaskPathRasterizerPipeline::rasterizeMask(
 
     void* pData = nullptr;
     ctx->MapBuffer(pImpl_->pParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        PathRasterizerParams params;
-        params.numSegments = numSegments;
-        params.maskMode = static_cast<Uint32>(mode);
-        params.inverted = (mode == PathRasterizerMode::AlphaInverted) ? 1 : 0;
-        params.featherPixels = featherPixels;
-        params.outputWidth = width;
-        params.outputHeight = height;
-        params.pad0 = 0;
-        params.pad1 = 0;
-        std::memcpy(pData, &params, sizeof(params));
-        ctx->UnmapBuffer(pImpl_->pParamsCB_, MAP_WRITE);
-    }
+    if (!pData) return false;
+    PathRasterizerParams params;
+    params.numSegments = numSegments;
+    params.maskMode = static_cast<Uint32>(mode);
+    params.inverted = (mode == PathRasterizerMode::AlphaInverted) ? 1 : 0;
+    params.featherPixels = featherPixels;
+    params.outputWidth = width;
+    params.outputHeight = height;
+    params.pad0 = 0;
+    params.pad1 = 0;
+    std::memcpy(pData, &params, sizeof(params));
+    ctx->UnmapBuffer(pImpl_->pParamsCB_, MAP_WRITE);
 
     auto* segSRV = pImpl_->pSegmentBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE);
     if (!segSRV) {
         return false;
     }
 
-    executor_.setBufferView("Segments", segSRV);
-    executor_.setTextureView("OutMask", outUAV);
+    if (!executor_.setBuffer("RasterizerParams", pImpl_->pParamsCB_) ||
+        !executor_.setBufferView("Segments", segSRV) ||
+        !executor_.setTextureView("OutMask", outUAV)) {
+        return false;
+    }
 
     auto attribs = ComputeExecutor::makeDispatchAttribs(
         static_cast<Uint32>(width), static_cast<Uint32>(height), 1, 8, 8, 1);

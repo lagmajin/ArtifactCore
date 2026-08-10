@@ -820,6 +820,7 @@ bool ProceduralTextureComputePipeline::initialize()
     }
 
     static const ShaderResourceVariableDesc vars[] = {
+        {SHADER_TYPE_COMPUTE, "ProceduralTextureCB", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
 
@@ -872,9 +873,14 @@ bool ProceduralTextureComputePipeline::generate(IDeviceContext* ctx, ITextureVie
     std::memcpy(pData, &gpuCB, sizeof(gpuCB));
     ctx->UnmapBuffer(pImpl_->paramsCB_, MAP_WRITE);
 
-    pImpl_->executor_->setTextureView("OutTex", outputUAV);
     const auto* outTex = outputUAV->GetTexture();
     if (!outTex)
+    {
+        return false;
+    }
+
+    if (!pImpl_->executor_->setBuffer("ProceduralTextureCB", pImpl_->paramsCB_) ||
+        !pImpl_->executor_->setTextureView("OutTex", outputUAV))
     {
         return false;
     }

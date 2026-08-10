@@ -41,6 +41,7 @@ bool MaskCutoutPipeline::initialize()
     }
 
     static const ShaderResourceVariableDesc vars[] = {
+        { SHADER_TYPE_COMPUTE, "MaskParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
         { SHADER_TYPE_COMPUTE, "SceneTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
         { SHADER_TYPE_COMPUTE, "MaskTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
         { SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
@@ -61,12 +62,6 @@ bool MaskCutoutPipeline::initialize()
     }
 
     if (!pImpl_->pMaskParamsCB_) {
-        return false;
-    }
-
-    // Static resources must be assigned before the SRB snapshots them.
-    if (!executor_.setBuffer("MaskParams", pImpl_->pMaskParamsCB_)) {
-        qWarning() << "[MaskCutoutPipeline] failed to bind MaskParams";
         return false;
     }
 
@@ -192,21 +187,23 @@ bool MaskCutoutPipeline::apply(IDeviceContext* ctx,
 
     void* pData = nullptr;
     ctx->MapBuffer(pImpl_->pMaskParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        MaskCutoutParams params;
-        params.opacity = opacity;
-        params.matteMode = static_cast<Uint32>(mode);
-        params.luminanceStandard = static_cast<Uint32>(luminanceStandard);
-        std::memcpy(pData, &params, sizeof(params));
-        ctx->UnmapBuffer(pImpl_->pMaskParamsCB_, MAP_WRITE);
-    }
-
-    executor_.setTextureView("SceneTex", sceneSRV);
-    executor_.setTextureView("MaskTex", maskSRV);
-    executor_.setTextureView("OutTex", outUAV);
+    if (!pData) return false;
+    MaskCutoutParams params;
+    params.opacity = opacity;
+    params.matteMode = static_cast<Uint32>(mode);
+    params.luminanceStandard = static_cast<Uint32>(luminanceStandard);
+    std::memcpy(pData, &params, sizeof(params));
+    ctx->UnmapBuffer(pImpl_->pMaskParamsCB_, MAP_WRITE);
 
     const auto* outTex = outUAV->GetTexture();
     if (!outTex) {
+        return false;
+    }
+
+    if (!executor_.setBuffer("MaskParams", pImpl_->pMaskParamsCB_) ||
+        !executor_.setTextureView("SceneTex", sceneSRV) ||
+        !executor_.setTextureView("MaskTex", maskSRV) ||
+        !executor_.setTextureView("OutTex", outUAV)) {
         return false;
     }
 
