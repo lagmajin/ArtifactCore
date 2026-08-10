@@ -135,7 +135,18 @@ size_t AudioCache::getMemoryUsage() const
     size_t totalBytes = 0;
     for (const auto& entry : cache_) {
         // AudioSegment のメモリ使用量を概算
-        totalBytes += entry.pcm.frameCount() * entry.pcm.channelCount() * sizeof(float);
+        const size_t frames = static_cast<size_t>(entry.pcm.frameCount());
+        const size_t channels = static_cast<size_t>(entry.pcm.channelCount());
+        if (channels > 0 &&
+            frames > std::numeric_limits<size_t>::max() /
+                         (channels * sizeof(float))) {
+            return std::numeric_limits<size_t>::max();
+        }
+        const size_t entryBytes = frames * channels * sizeof(float);
+        if (entryBytes > std::numeric_limits<size_t>::max() - totalBytes) {
+            return std::numeric_limits<size_t>::max();
+        }
+        totalBytes += entryBytes;
     }
 
     return totalBytes;
