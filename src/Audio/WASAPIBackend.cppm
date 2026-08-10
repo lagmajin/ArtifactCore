@@ -16,6 +16,7 @@ module;
 #include <cstdint>
 #include <cstring>
 #include <ksmedia.h>
+#include <limits>
 #include <thread>
 
 
@@ -135,20 +136,32 @@ public:
       }
 
       const int channels = std::max(1, mixChannels);
+      const UINT32 maxCallbackFrames = static_cast<UINT32>(
+          std::numeric_limits<int>::max() / channels);
+      const UINT32 callbackFrames = std::min(
+          framesToWrite,
+          maxCallbackFrames);
       const size_t sampleCount =
-          static_cast<size_t>(framesToWrite) * static_cast<size_t>(channels);
+          static_cast<size_t>(callbackFrames) * static_cast<size_t>(channels);
 
       if (mixFormatIsFloat) {
         auto *out = reinterpret_cast<float *>(data);
-        callback(out, static_cast<int>(framesToWrite), channels);
+        callback(out, static_cast<int>(callbackFrames), channels);
       } else {
         std::vector<float> temp(sampleCount, 0.0f);
-        callback(temp.data(), static_cast<int>(framesToWrite), channels);
+        callback(temp.data(), static_cast<int>(callbackFrames), channels);
         auto *out = reinterpret_cast<std::int16_t *>(data);
         for (size_t i = 0; i < sampleCount; ++i) {
           const float sample = std::clamp(temp[i], -1.0f, 1.0f);
           out[i] = static_cast<std::int16_t>(std::lround(sample * 32768.0f));
         }
+      }
+
+      if (callbackFrames < framesToWrite) {
+        const size_t frameBytes = static_cast<size_t>(mixFormat->nBlockAlign);
+        const size_t offset = static_cast<size_t>(callbackFrames) * frameBytes;
+        const size_t remaining = static_cast<size_t>(framesToWrite - callbackFrames);
+        std::memset(data + offset, 0, remaining * frameBytes);
       }
 
       renderClient->ReleaseBuffer(framesToWrite, 0);

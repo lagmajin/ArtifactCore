@@ -12,6 +12,7 @@ class tst_QList;
 #include <QMutexLocker>
 #include <QDebug>
 #include <QVector>
+#include <limits>
 
 export module Audio.Backend.Qt;
 
@@ -154,7 +155,9 @@ public:
         if (sampleFormat == AudioBackendSampleFormat::Float32) {
             const int sampleSize = static_cast<int>(sizeof(float));
             const qint64 frameBytes = static_cast<qint64>(sampleSize) * channels;
-            const int frames = static_cast<int>(maxlen / frameBytes);
+            const int frames = static_cast<int>(std::min<qint64>(
+                maxlen / frameBytes,
+                std::numeric_limits<int>::max() / channels));
             if (frames > 0) {
                 callback(reinterpret_cast<float*>(data), frames, channels);
             }
@@ -167,7 +170,10 @@ public:
 
         if (sampleFormat == AudioBackendSampleFormat::Int16) {
             const qint64 frameBytes = static_cast<qint64>(sizeof(qint16)) * channels;
-            const int frames = static_cast<int>(maxlen / frameBytes);
+            const qint64 availableFrames = std::min<qint64>(
+                maxlen / frameBytes, std::numeric_limits<int>::max());
+            const int frames = static_cast<int>(std::min<qint64>(
+                availableFrames, std::numeric_limits<int>::max() / channels));
             if (frames <= 0) {
                 std::memset(data, 0, static_cast<size_t>(maxlen));
                 return maxlen;
