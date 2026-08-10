@@ -11,7 +11,9 @@ module;
 #include <QDebug>
 #include <QString>
 #include <atomic>
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <comdef.h>
 #include <cstdint>
 #include <cstring>
@@ -152,7 +154,9 @@ public:
         callback(temp.data(), static_cast<int>(callbackFrames), channels);
         auto *out = reinterpret_cast<std::int16_t *>(data);
         for (size_t i = 0; i < sampleCount; ++i) {
-          const float sample = std::clamp(temp[i], -1.0f, 1.0f);
+          const float sample = std::isfinite(temp[i])
+              ? std::clamp(temp[i], -1.0f, 1.0f)
+              : 0.0f;
           out[i] = static_cast<std::int16_t>(std::lround(sample * 32768.0f));
         }
       }

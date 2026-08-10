@@ -96,7 +96,7 @@ struct AudioRenderer::Impl {
 
   static float sampleToDb(float sample) {
     const float absVal = std::abs(sample);
-    if (absVal < 0.00001f) {
+    if (!std::isfinite(absVal) || absVal < 0.00001f) {
       return -60.0f;
     }
     return std::clamp(20.0f * std::log10(absVal), -60.0f, 0.0f);

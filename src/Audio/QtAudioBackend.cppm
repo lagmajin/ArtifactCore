@@ -184,7 +184,9 @@ public:
 
             auto* out = reinterpret_cast<qint16*>(data);
             for (int i = 0; i < frames * channels; ++i) {
-                const float sample = std::clamp(tempBuffer[i], -1.0f, 1.0f);
+                const float sample = std::isfinite(tempBuffer[i])
+                    ? std::clamp(tempBuffer[i], -1.0f, 1.0f)
+                    : 0.0f;
                 out[i] = static_cast<qint16>(std::lround(sample * 32768.0f));
             }
             const qint64 written = static_cast<qint64>(frames) * frameBytes;
