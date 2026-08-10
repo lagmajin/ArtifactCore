@@ -112,7 +112,10 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
     monoData.resize(static_cast<std::size_t>(frames));
     for (int c = 0; c < channels; ++c) {
         const float* data = segment.constData(c);
-        for (int i = 0; i < frames; ++i) {
+        const int availableFrames = data
+            ? std::min(frames, segment.channelData[c].size())
+            : 0;
+        for (int i = 0; i < availableFrames; ++i) {
             float s = data[i];
             *monoData.at(static_cast<std::size_t>(i)) += s;
             sumSq += s * s;

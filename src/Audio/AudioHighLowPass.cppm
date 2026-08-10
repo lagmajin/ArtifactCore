@@ -19,7 +19,7 @@ void AudioHighLowPass::process(AudioSegment& segment, const AudioSegment* /*side
     const int frames = segment.frameCount();
     const float sampleRate = static_cast<float>(segment.sampleRate);
 
-    if (channels == 0 || frames == 0) return;
+    if (channels == 0 || frames == 0 || segment.sampleRate <= 0) return;
 
     const float pi = 3.14159265f;
     
@@ -39,12 +39,14 @@ void AudioHighLowPass::process(AudioSegment& segment, const AudioSegment* /*side
 
     for (int ch = 0; ch < channels; ++ch) {
         if (ch >= segment.channelData.size()) break;
+        const int samples = std::min(frames, segment.channelData[ch].size());
+        if (samples <= 0) continue;
         float* data = segment.channelData[ch].data();
         
         float lpState = data[0];
         float hpState = data[0];
 
-        for (int i = 0; i < frames; ++i) {
+        for (int i = 0; i < samples; ++i) {
             // ローパス
             if (lowPassFreq_ > 0.0f) {
                 lpState = lpCoef * lpState + (1.0f - lpCoef) * data[i];
