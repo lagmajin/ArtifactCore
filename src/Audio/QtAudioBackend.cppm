@@ -102,6 +102,13 @@ public:
             active_ = true;
         }
         audioSink_->start(this);
+        if (audioSink_->error() != QAudio::NoError ||
+            audioSink_->state() == QAudio::StoppedState) {
+            QMutexLocker locker(&mutex_);
+            active_ = false;
+            callback_ = nullptr;
+            audioSink_->stop();
+        }
     }
 
     void stop() override {
