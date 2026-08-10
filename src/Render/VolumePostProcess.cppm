@@ -72,6 +72,12 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
     const int w = image.width;
     const int h = image.height;
     const auto& bloom = settings_.bloom;
+    const float threshold = std::isfinite(bloom.threshold)
+                                ? std::clamp(bloom.threshold, 0.0f, 1.0f)
+                                : 0.7f;
+    const float intensity = std::isfinite(bloom.intensity)
+                                ? std::max(bloom.intensity, 0.0f)
+                                : 0.0f;
 
     std::vector<float> lum(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
     for (int y = 0; y < h; ++y) {
@@ -81,14 +87,18 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
             const float l = (static_cast<float>(row[x * 3 + 0]) * 0.2126f +
                              static_cast<float>(row[x * 3 + 1]) * 0.7152f +
                              static_cast<float>(row[x * 3 + 2]) * 0.0722f) / 255.0f;
-            lumRow[x] = std::max(0.0f, l - bloom.threshold);
+            lumRow[x] = std::max(0.0f, l - threshold);
         }
     }
 
-    const int radius = std::max(1, static_cast<int>(bloom.radius * static_cast<float>(std::min(w, h))));
+    const float safeRadius = std::isfinite(bloom.radius)
+                                 ? std::clamp(bloom.radius, 0.0f, 1.0f)
+                                 : 0.0f;
+    const int radius = std::max(1, static_cast<int>(safeRadius * static_cast<float>(std::min(w, h))));
     std::vector<float> blurred(lum.size());
 
-    for (int iter = 0; iter < bloom.iterations; ++iter) {
+    const int iterations = std::clamp(bloom.iterations, 0, 64);
+    for (int iter = 0; iter < iterations; ++iter) {
         for (int y = 0; y < h; ++y) {
             float* blurredRow = blurred.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
             for (int x = 0; x < w; ++x) {
@@ -117,7 +127,7 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         const float* blurredRow = blurred.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
-            const float add = blurredRow[x] * bloom.intensity;
+            const float add = blurredRow[x] * intensity;
             row[x * 3 + 0] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 0] / 255.0f + add) * 255.999f);
             row[x * 3 + 1] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 1] / 255.0f + add) * 255.999f);
             row[x * 3 + 2] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 2] / 255.0f + add) * 255.999f);
@@ -144,9 +154,19 @@ void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
         }
     }
 
-    const float baseAngle = glare.angleOffset * 3.14159265f / 180.0f;
-    const int streakLen = std::max(1, static_cast<int>(glare.streakLength * static_cast<float>(std::max(w, h))));
-    const int streakCount = std::max(0, glare.streakCount);
+    const float safeAngleOffset = std::isfinite(glare.angleOffset)
+                                      ? glare.angleOffset
+                                      : 0.0f;
+    const float baseAngle = std::fmod(safeAngleOffset, 360.0f) *
+                            3.14159265f / 180.0f;
+    const float intensity = std::isfinite(glare.intensity)
+                                ? std::max(glare.intensity, 0.0f)
+                                : 0.0f;
+    const float safeStreakLength = std::isfinite(glare.streakLength)
+                                       ? std::clamp(glare.streakLength, 0.0f, 1.0f)
+                                       : 0.0f;
+    const int streakLen = std::max(1, static_cast<int>(safeStreakLength * static_cast<float>(std::max(w, h))));
+    const int streakCount = std::clamp(glare.streakCount, 0, 64);
     std::vector<float> streakCos(static_cast<std::size_t>(streakCount));
     std::vector<float> streakSin(static_cast<std::size_t>(streakCount));
     for (int i = 0; i < streakCount; ++i) {
@@ -174,7 +194,7 @@ void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
                     streakAccum += lumRow[sx] * streakFalloff[static_cast<std::size_t>(s)];
                 }
             }
-            const float add = streakAccum * glare.intensity;
+            const float add = streakAccum * intensity;
             row[x * 3 + 0] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 0] / 255.0f + add) * 255.999f);
             row[x * 3 + 1] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 1] / 255.0f + add * 0.9f) * 255.999f);
             row[x * 3 + 2] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 2] / 255.0f + add * 0.7f) * 255.999f);
@@ -203,11 +223,15 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
         }
     }
 
-    const float safeSpatialSigma = std::max(std::abs(dn.spatialSigma), 1.0e-6f);
-    const float safeRangeSigma = std::max(std::abs(dn.rangeSigma), 1.0e-6f);
+    const float safeSpatialSigma = std::isfinite(dn.spatialSigma)
+                                       ? std::max(std::abs(dn.spatialSigma), 1.0e-6f)
+                                       : 1.0f;
+    const float safeRangeSigma = std::isfinite(dn.rangeSigma)
+                                     ? std::max(std::abs(dn.rangeSigma), 1.0e-6f)
+                                     : 1.0f;
     const float spatialDenom = 2.0f * safeSpatialSigma * safeSpatialSigma;
     const float rangeDenom = 2.0f * safeRangeSigma * safeRangeSigma;
-    const int filterRadius = dn.filterRadius;
+    const int filterRadius = std::clamp(dn.filterRadius, 0, 32);
     const int kernelRadius = std::max(0, filterRadius);
     const int kernelSize = kernelRadius * 2 + 1;
     std::vector<float> spatialWeights(static_cast<std::size_t>(kernelSize) *
@@ -273,8 +297,13 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
 void VolumePostProcessor::applyExposureGamma(ImageBuffer& image) const noexcept {
     const int w = image.width;
     const int h = image.height;
-    const float exposure = settings_.exposure;
-    const float inverseGamma = 1.0f / settings_.gamma;
+    const float exposure = std::isfinite(settings_.exposure)
+                               ? std::max(settings_.exposure, 0.0f)
+                               : 1.0f;
+    const float gamma = std::isfinite(settings_.gamma) && settings_.gamma > 0.0f
+                            ? settings_.gamma
+                            : 2.2f;
+    const float inverseGamma = 1.0f / gamma;
 
     for (int y = 0; y < h; ++y) {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
