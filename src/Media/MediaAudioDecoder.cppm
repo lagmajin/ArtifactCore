@@ -318,6 +318,12 @@ namespace ArtifactCore {
   }
   av_dict_free(&codecOpts);
 
+  if (!impl_->setupResampler()) {
+   impl_->lastError_ = UniString(QStringLiteral("Failed to setup audio resampler"));
+   avcodec_free_context(&impl_->codecContext_);
+   return false;
+  }
+
   impl_->updateAudioInfo();
   impl_->initialized_ = true;
   return true;
