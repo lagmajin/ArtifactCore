@@ -50,6 +50,21 @@ import Memory.TrackedPtr;
 
 namespace ArtifactCore {
 
+	float sanitizeBusSample(float sample)
+	{
+		if (std::isfinite(sample)) return sample;
+		if (std::isnan(sample)) return 0.0f;
+		return std::copysign(std::numeric_limits<float>::max(), sample);
+	}
+
+	float accumulateBusSample(float current, float input, float gain)
+	{
+		const float safeCurrent = sanitizeBusSample(current);
+		const float safeInput = sanitizeBusSample(input);
+		const float contribution = sanitizeBusSample(safeInput * gain);
+		return sanitizeBusSample(safeCurrent + contribution);
+	}
+
 	struct MeterState {
 		float peak = 0.0f;
 		float rms = 0.0f;
@@ -368,7 +383,7 @@ namespace ArtifactCore {
 				std::min(static_cast<int>(source->channelData[c].size()),
 						 static_cast<int>(impl_->mainBuffer_.channelData[c].size())));
 			for (int i = 0; i < channelFrames; ++i) {
-				dst[i] += src[i] * localGain;
+				dst[i] = accumulateBusSample(dst[i], src[i], localGain);
 			}
 		}
 	}
@@ -399,7 +414,7 @@ namespace ArtifactCore {
 				std::min(static_cast<int>(source->channelData[c].size()),
 						 static_cast<int>(impl_->sideChainBuffer_.channelData[c].size())));
 			for (int i = 0; i < channelFrames; ++i) {
-				dst[i] += src[i] * localGain;
+				dst[i] = accumulateBusSample(dst[i], src[i], localGain);
 			}
 		}
 	}
