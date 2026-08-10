@@ -36,9 +36,9 @@ void AudioParametricEQ::process(AudioSegment& segment, const AudioSegment* /*sid
 
     const int channels = segment.channelCount();
     const int frames = segment.frameCount();
-    const float sampleRate = std::max(1.0f, static_cast<float>(segment.sampleRate));
 
-    if (channels == 0 || frames == 0) return;
+    if (channels == 0 || frames == 0 || segment.sampleRate <= 0) return;
+    const float sampleRate = static_cast<float>(segment.sampleRate);
 
     const size_t stateCount = static_cast<size_t>(channels) * bands_.size() * 4;
     if (delayedState_.size() != stateCount) {
