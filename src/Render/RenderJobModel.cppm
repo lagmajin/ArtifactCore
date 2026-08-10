@@ -81,7 +81,7 @@ namespace ArtifactCore {
   }
 
   int RenderJobModel::columnCount(const QModelIndex& parent) const {
-    return 4;
+    return parent.isValid() ? 0 : 4;
   }
 
   QVariant RenderJobModel::data(const QModelIndex& index, int role) const {
@@ -103,7 +103,12 @@ namespace ArtifactCore {
             default: return "Unknown";
           }
         }
-        case 2: return QString("%1%").arg((int)(job->progress * 100));
+        case 2: {
+          const float progress = std::isfinite(job->progress)
+              ? std::clamp(job->progress, 0.0f, 1.0f)
+              : 0.0f;
+          return QString("%1%").arg(static_cast<int>(progress * 100.0f));
+        }
         case 3: return job->outputPath;
         default: break;
       }
