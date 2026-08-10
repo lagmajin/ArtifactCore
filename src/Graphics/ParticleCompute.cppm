@@ -164,6 +164,7 @@ void ParticleCompute::createBuffers() {
 
 void ParticleCompute::createPSO() {
     static ShaderResourceVariableDesc Vars[] = {
+        {SHADER_TYPE_COMPUTE, "Constants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_ParticleBuffer", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_AudioSpectrum", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
@@ -173,14 +174,13 @@ void ParticleCompute::createPSO() {
     desc.shaderSource = ParticleUpdateCSSource;
     desc.entryPoint = "CSMain";
     desc.variables = Vars;
-    desc.variableCount = 2;
+    desc.variableCount = 3;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
     if (!executor_.build(desc)) {
         return;
     }
 
-    executor_.setBuffer("Constants", pImpl_->pConstantBuffer_);
     executor_.createShaderResourceBinding(true);
 }
 
@@ -205,7 +205,8 @@ void ParticleCompute::dispatch(IDeviceContext* pContext, float dt) {
     pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
 
     // 2. UAV & SRV セット
-    if (!executor_.setBufferView(
+    if (!executor_.setBuffer("Constants", pImpl_->pConstantBuffer_) ||
+        !executor_.setBufferView(
             "g_ParticleBuffer", pImpl_->pParticleBuffer_->GetDefaultView(
                                      BUFFER_VIEW_UNORDERED_ACCESS)) ||
         !executor_.setBufferView(

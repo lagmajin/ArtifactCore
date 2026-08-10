@@ -274,6 +274,7 @@ void BoidsGPUCompute::createBuffers() {
 
 void BoidsGPUCompute::createPSO() {
     static ShaderResourceVariableDesc vars[] = {
+        {SHADER_TYPE_COMPUTE, "Constants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_Boids", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_Obstacles", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
@@ -283,7 +284,7 @@ void BoidsGPUCompute::createPSO() {
     desc.shaderSource = BoidsUpdateCSSource;
     desc.entryPoint = "CSMain";
     desc.variables = vars;
-    desc.variableCount = 2;
+    desc.variableCount = 3;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
     if (!executor_.build(desc)) {
@@ -291,7 +292,6 @@ void BoidsGPUCompute::createPSO() {
         return;
     }
 
-    executor_.setBuffer("Constants", pImpl_->pConstantBuffer_);
     executor_.createShaderResourceBinding(true);
 }
 
@@ -390,7 +390,8 @@ void BoidsGPUCompute::dispatch(IDeviceContext* pContext, float dt) {
     std::memcpy(pData, &constants_, sizeof(GpuBoidConstants));
     pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
 
-    if (!executor_.setBufferView(
+    if (!executor_.setBuffer("Constants", pImpl_->pConstantBuffer_) ||
+        !executor_.setBufferView(
             "g_Boids", pImpl_->pAgentBuffer_->GetDefaultView(
                            BUFFER_VIEW_UNORDERED_ACCESS)) ||
         !executor_.setBufferView(
