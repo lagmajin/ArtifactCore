@@ -560,6 +560,7 @@ void AudioMixer::process(AudioSegment& finalOutput) {
     const int sampleRate = finalOutput.sampleRate;
 
     if (frames <= 0 || sampleRate <= 0) {
+        finalOutput.zero();
         return;
     }
 

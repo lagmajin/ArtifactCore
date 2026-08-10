@@ -22,6 +22,16 @@ export namespace ArtifactCore {
   ~AudioBufferQueue() = default;
 
   bool push(const AudioSegment& segment) {
+   const int frames = segment.frameCount();
+   const int channels = segment.channelCount();
+   if (frames <= 0 || channels <= 0 || segment.sampleRate <= 0) {
+    return false;
+   }
+   for (const auto& channel : segment.channelData) {
+    if (channel.size() < frames) {
+     return false;
+    }
+   }
    QMutexLocker locker(&mutex);
    if (queue.size() >= maxSegments) {
     return false;
