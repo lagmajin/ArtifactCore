@@ -10,6 +10,7 @@ module;
 #include <memory>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <functional>
 #include <optional>
 #include <utility>
@@ -263,7 +264,7 @@ namespace ArtifactCore {
 			float* data = segment.channelData[c].data();
 			const int samples = segment.channelData[c].size();
 			float peak = 0.0f;
-			float sumSq = 0.0f;
+			double sumSq = 0.0;
 
 			// Gain apply — auto‑vectorized by MSVC at /O2 (ivdep = no alias)
 			__pragma(loop(ivdep))
@@ -271,7 +272,10 @@ namespace ArtifactCore {
 				if (!std::isfinite(data[i])) {
 					data[i] = 0.0f;
 				} else {
-					data[i] *= channelGain;
+					const float scaled = data[i] * channelGain;
+					data[i] = std::isfinite(scaled)
+						? scaled
+						: std::copysign(std::numeric_limits<float>::max(), scaled);
 				}
 			}
 
@@ -280,11 +284,15 @@ namespace ArtifactCore {
 				float val = data[i];
 				float absVal = std::abs(val);
 				if (absVal > peak) peak = absVal;
-				sumSq += val * val;
+				sumSq += static_cast<double>(val) * val;
 			}
 
 			impl_->meters_[c].peak = peak;
-			impl_->meters_[c].rms = samples > 0 ? std::sqrt(sumSq / samples) : 0.0f;
+			const double rms = samples > 0 ? std::sqrt(sumSq / samples) : 0.0;
+			impl_->meters_[c].rms = std::isfinite(rms)
+				? static_cast<float>(std::min(
+					rms, static_cast<double>(std::numeric_limits<float>::max())))
+				: std::numeric_limits<float>::max();
 
 			// Soft-clip after metering to catch accumulation overflow
 			if (peak > 0.9f) {
@@ -292,7 +300,7 @@ namespace ArtifactCore {
 					float& s = data[i];
 					float absS = std::abs(s);
 					if (absS > 0.9f) {
-						float t = (absS - 0.9f) / 0.1f;
+						float t = std::min(10.0f, (absS - 0.9f) / 0.1f);
 						// Pade [2/2] approximation of tanh:  x*(27+x²)/(27+9x²)
 						float t2 = t * t;
 						float fastTanh = t * (27.0f + t2) / (27.0f + 9.0f * t2);
