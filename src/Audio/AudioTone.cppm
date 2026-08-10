@@ -38,6 +38,7 @@ void AudioTone::process(AudioSegment& segment, const AudioSegment* /*sideChain*/
         std::isfinite(frequency_) ? frequency_ : 0.0f, 0.0f, 96000.0f);
     const float amplitude = std::isfinite(amplitude_) ? amplitude_ : 0.0f;
     const int waveType = static_cast<int>(waveType_);
+    const float phaseIncrement = frequency / sampleRate;
 
     for (int ch = 0; ch < std::min(channels, 2); ++ch) {
         if (ch >= segment.channelData.size()) break;
@@ -68,8 +69,10 @@ void AudioTone::process(AudioSegment& segment, const AudioSegment* /*sideChain*/
             data[i] = sanitizeToneSample(
                 input + sanitizeToneSample(sample * amplitude));
 
-            phase_ += frequency / sampleRate;
-            phase_ -= std::floor(phase_);
+            if (ch == 0) {
+                phase_ += phaseIncrement;
+                phase_ -= std::floor(phase_);
+            }
         }
     }
 }
