@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
@@ -10,6 +11,17 @@ import Audio.Effect;
 import Audio.Segment;
 
 namespace ArtifactCore {
+
+namespace {
+
+float saturateChorusSample(const float sample)
+{
+    if (std::isfinite(sample)) return sample;
+    if (std::isnan(sample)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), sample);
+}
+
+}
 
 AudioChorus::AudioChorus() {}
 
@@ -46,7 +58,8 @@ void AudioChorus::process(AudioSegment& segment, const AudioSegment* /*sideChain
         float* inData = segment.channelData[ch].data();
 
         for (int i = 0; i < samples; ++i) {
-            delayBuffer_[writePos_] = inData[i];
+            const float input = std::isfinite(inData[i]) ? inData[i] : 0.0f;
+            delayBuffer_[writePos_] = input;
 
             float lfo = std::sin(2.0f * 3.14159265f * rate * i / sampleRate);
             int delaySamples = static_cast<int>(baseDelayMs * sampleRate / 1000.0f)
@@ -54,9 +67,9 @@ void AudioChorus::process(AudioSegment& segment, const AudioSegment* /*sideChain
             delaySamples = std::clamp(delaySamples, 1, needed - 1);
 
             int readPos = (writePos_ - delaySamples + needed) % needed;
-            float delayed = delayBuffer_[readPos];
+            const float delayed = saturateChorusSample(delayBuffer_[readPos]);
 
-            inData[i] = inData[i] * 0.7f + delayed * 0.3f;
+            inData[i] = saturateChorusSample(input * 0.7f + delayed * 0.3f);
 
             writePos_ = (writePos_ + 1) % needed;
         }
@@ -73,6 +86,7 @@ std::vector<EffectParameter> AudioChorus::getParameters() const {
 }
 
 void AudioChorus::setParameterValue(const String& id, float value) {
+    if (!std::isfinite(value)) return;
     if (id == "rate") rate_ = value;
     else if (id == "depth") depth_ = value;
     else if (id == "feedback") feedback_ = value;
@@ -99,10 +113,10 @@ QJsonObject AudioChorus::toJson() const {
 
 void AudioChorus::fromJson(const QJsonObject& obj) {
     AudioEffect::fromJson(obj);
-    rate_ = obj["rate"].toDouble(1.5);
-    depth_ = obj["depth"].toDouble(0.5);
-    feedback_ = obj["feedback"].toDouble(0.3);
-    baseDelayMs_ = obj["delay_ms"].toDouble(20.0);
+    setRate(static_cast<float>(obj["rate"].toDouble(1.5)));
+    setDepth(static_cast<float>(obj["depth"].toDouble(0.5)));
+    setFeedback(static_cast<float>(obj["feedback"].toDouble(0.3)));
+    setDelayMs(static_cast<float>(obj["delay_ms"].toDouble(20.0)));
     mode_ = (obj["mode"].toString() == "flanger") ? Mode::Flanger : Mode::Chorus;
 }
 
