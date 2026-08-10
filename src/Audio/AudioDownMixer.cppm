@@ -36,7 +36,18 @@ AudioDownMixer::~AudioDownMixer() {
 }
 
 void AudioDownMixer::setTargetLayout(AudioChannelLayout target) {
-    impl_->targetLayout_ = target;
+    switch (target) {
+    case AudioChannelLayout::Mono:
+    case AudioChannelLayout::Stereo:
+    case AudioChannelLayout::Surround51:
+    case AudioChannelLayout::Surround71:
+    case AudioChannelLayout::Custom10ch:
+        impl_->targetLayout_ = target;
+        break;
+    default:
+        impl_->targetLayout_ = AudioChannelLayout::Stereo;
+        break;
+    }
 }
 
 AudioChannelLayout AudioDownMixer::targetLayout() const {
