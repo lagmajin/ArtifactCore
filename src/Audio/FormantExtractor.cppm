@@ -3,6 +3,7 @@ module;
 #include <cmath>
 #include <complex>
 #include <cstddef>
+#include <limits>
 #include <vector>
 
 module Audio.FormantExtractor;
@@ -26,9 +27,18 @@ std::vector<float> FormantExtractor::findPeaks(
         return peaks;
     }
 
-    int startBin = std::max(1, static_cast<int>(minFreq / binSize));
-    int endBin = std::min(static_cast<int>(spectrum.size() - 2),
-                          static_cast<int>(maxFreq / binSize));
+    if (!std::isfinite(minFreq) || !std::isfinite(maxFreq) || minFreq > maxFreq) {
+        return peaks;
+    }
+    const int lastBin = static_cast<int>(spectrum.size() - 2);
+    const auto clampBin = [lastBin](float frequency, float width) {
+        const float rawBin = frequency / width;
+        if (rawBin <= 1.0f) return 1;
+        if (rawBin >= static_cast<float>(lastBin)) return lastBin;
+        return static_cast<int>(rawBin);
+    };
+    const int startBin = clampBin(minFreq, binSize);
+    const int endBin = clampBin(maxFreq, binSize);
 
     for (int i = startBin; i <= endBin; ++i) {
         if (spectrum[i] > spectrum[i - 1] && spectrum[i] > spectrum[i + 1]) {
@@ -149,7 +159,12 @@ std::vector<PhonemeEvent> FormantExtractor::analyzeTrack(
     }
     if (totalFrames <= 0) return events;
 
-    int framesPerAnalysis = static_cast<int>(std::round(sampleRate / frameRate));
+    const double samplesPerAnalysis = static_cast<double>(sampleRate) / frameRate;
+    if (!std::isfinite(samplesPerAnalysis) ||
+        samplesPerAnalysis > static_cast<double>(std::numeric_limits<int>::max())) {
+        return events;
+    }
+    int framesPerAnalysis = static_cast<int>(std::round(samplesPerAnalysis));
     if (framesPerAnalysis <= 0) framesPerAnalysis = sampleRate / 24;
     if (framesPerAnalysis <= 0) return events;
     int64_t frame = startFrame;
@@ -176,8 +191,14 @@ std::vector<PhonemeEvent> FormantExtractor::analyzeTrack(
 void FormantExtractor::setVowelThresholds(
     float f1min, float f1max, float f2min, float f2max)
 {
-    f1Min_ = f1min; f1Max_ = f1max;
-    f2Min_ = f2min; f2Max_ = f2max;
+    if (std::isfinite(f1min) && std::isfinite(f1max) && f1min <= f1max) {
+        f1Min_ = f1min;
+        f1Max_ = f1max;
+    }
+    if (std::isfinite(f2min) && std::isfinite(f2max) && f2min <= f2max) {
+        f2Min_ = f2min;
+        f2Max_ = f2max;
+    }
 }
 
 } // namespace ArtifactCore
