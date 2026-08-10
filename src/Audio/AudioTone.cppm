@@ -20,13 +20,15 @@ void AudioTone::process(AudioSegment& segment, const AudioSegment* /*sideChain*/
     const int channels = segment.channelCount();
     const int frames = segment.frameCount();
     const float sampleRate = static_cast<float>(segment.sampleRate);
-    if (channels == 0 || frames == 0) return;
+    if (channels == 0 || frames == 0 || sampleRate <= 0.0f) return;
 
     for (int ch = 0; ch < std::min(channels, 2); ++ch) {
         if (ch >= segment.channelData.size()) break;
+        const int samples = std::min(frames, segment.channelData[ch].size());
+        if (samples <= 0) continue;
         float* data = segment.channelData[ch].data();
 
-        for (int i = 0; i < frames; ++i) {
+        for (int i = 0; i < samples; ++i) {
             float sample = 0.0f;
             switch (waveType_) {
                 case WaveType::Sine:
