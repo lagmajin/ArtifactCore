@@ -14,9 +14,10 @@ namespace ArtifactCore {
     // Producer = PlaybackEngine thread  (write, clear, available)
     // Consumer = WASAPI render thread   (read)
     class AudioRingBuffer::Impl {
+        static constexpr int kMaxChannels = 10;
         std::vector<std::vector<float>> channels_;
         std::size_t capacity_ = 48000 * 8;
-        int channelCount_ = 2;
+        std::atomic<int> channelCount_{2};
 
         // writeCount_ is exclusively written by the producer.
         // readCount_ is exclusively written by the consumer.
@@ -30,16 +31,6 @@ namespace ArtifactCore {
         std::atomic<std::uint64_t> clearWriteCount_{0};
         std::uint32_t lastClearGen_ = 0; // consumer-side; no atomic needed
 
-        void ensureChannels(int channels) {
-            if (channels > static_cast<int>(channels_.size())) {
-                std::size_t old = channels_.size();
-                channels_.resize(channels);
-                for (std::size_t i = old; i < static_cast<std::size_t>(channels); ++i) {
-                    channels_[i].resize(capacity_);
-                }
-            }
-        }
-
         std::uint64_t logicalReadCount() const {
             const auto read = readCount_.load(std::memory_order_acquire);
             const auto clearAt = clearWriteCount_.load(std::memory_order_acquire);
@@ -49,7 +40,7 @@ namespace ArtifactCore {
     public:
         explicit Impl(std::size_t capacity = 48000 * 8)
             : capacity_(std::max<std::size_t>(capacity, 1)) {
-            channels_.resize(channelCount_);
+            channels_.resize(kMaxChannels);
             for (auto& ch : channels_) ch.resize(capacity_);
         }
 
@@ -57,6 +48,7 @@ namespace ArtifactCore {
         void setCapacity(std::size_t capacity) {
             capacity_ = std::max<std::size_t>(capacity, 1);
             for (auto& ch : channels_) ch.resize(capacity_);
+            channelCount_.store(2, std::memory_order_release);
             writeCount_.store(0, std::memory_order_relaxed);
             readCount_.store(0, std::memory_order_relaxed);
             clearWriteCount_.store(0, std::memory_order_relaxed);
@@ -89,14 +81,19 @@ namespace ArtifactCore {
                 return false;
             }
 
-            // Dynamically grow channel count to match input
-            int writeCh = std::max(data.channelCount(), 1);
-            if (writeCh > channelCount_) {
-                channelCount_ = writeCh;
-                ensureChannels(channelCount_);
+            const int inputChannels = data.channelCount();
+            if (inputChannels > kMaxChannels) return false;
+            // Keep the highest channel count seen so far. This avoids shrinking
+            // while older frames are still in flight and keeps channel storage
+            // fixed for the real-time consumer.
+            const int currentChannels = channelCount_.load(std::memory_order_relaxed);
+            const int writeCh = std::max(currentChannels, std::max(inputChannels, 1));
+            if (writeCh > currentChannels) {
+                if (buffered != 0) return false;
+                channelCount_.store(writeCh, std::memory_order_release);
             }
 
-            for (int ch = 0; ch < channelCount_; ++ch) {
+            for (int ch = 0; ch < writeCh; ++ch) {
                 const float* src = nullptr;
                 if (data.channelCount() > ch) {
                     src = data.channelData[ch].data();
@@ -177,8 +174,9 @@ namespace ArtifactCore {
             }
 
             const std::size_t readFrames = std::min(frames, avail);
-            data.channelData.resize(channelCount_);
-            for (int ch = 0; ch < channelCount_; ++ch) {
+            const int readChannels = channelCount_.load(std::memory_order_acquire);
+            data.channelData.resize(readChannels);
+            for (int ch = 0; ch < readChannels; ++ch) {
                 data.channelData[ch].resize(readFrames);
                 const std::size_t rIdx = static_cast<std::size_t>(r) % capacity_;
                 const std::size_t firstChunk = std::min(readFrames, capacity_ - rIdx);
@@ -188,7 +186,7 @@ namespace ArtifactCore {
                     std::memcpy(data.channelData[ch].data() + firstChunk, &channels_[ch][0], (readFrames - firstChunk) * sizeof(float));
                 }
             }
-            switch (channelCount_) {
+            switch (readChannels) {
             case 1:
                 data.layout = AudioChannelLayout::Mono;
                 break;
