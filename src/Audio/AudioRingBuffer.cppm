@@ -83,7 +83,9 @@ namespace ArtifactCore {
             if (frames == 0) return true;
             const std::uint64_t r = logicalReadCount();
             const std::uint64_t w = writeCount_.load(std::memory_order_relaxed);
-            if (static_cast<std::size_t>(w - r) + frames > capacity_) {
+            const std::size_t buffered = std::min(
+                static_cast<std::size_t>(w - r), capacity_);
+            if (frames > capacity_ || buffered > capacity_ - frames) {
                 return false;
             }
 
