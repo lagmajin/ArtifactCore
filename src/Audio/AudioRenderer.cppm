@@ -460,14 +460,14 @@ void AudioRenderer::setMute(bool mute) {
 
 bool AudioRenderer::isMute() const { return impl_ ? impl_->isMute.load(std::memory_order_acquire) : false; }
 
-void AudioRenderer::enqueue(const AudioSegment &segment) {
+bool AudioRenderer::enqueue(const AudioSegment &segment) {
   if (impl_ && impl_->ringBuffer && segment.frameCount() > 0 &&
       segment.channelCount() > 0 && segment.sampleRate > 0.0f &&
       std::isfinite(static_cast<double>(segment.sampleRate)) &&
       segment.channelData.size() >= segment.channelCount()) {
     for (int channel = 0; channel < segment.channelCount(); ++channel) {
       if (segment.channelData[channel].size() < segment.frameCount()) {
-        return;
+        return false;
       }
     }
     const AudioSegment* writeSeg = &segment;
@@ -495,8 +495,11 @@ void AudioRenderer::enqueue(const AudioSegment &segment) {
                    << "sampleRate=" << writeSeg->sampleRate
                    << "channels=" << writeSeg->channelCount();
       }
+      return false;
     }
+    return true;
   }
+  return false;
 }
 
 void AudioRenderer::clearBuffer() {

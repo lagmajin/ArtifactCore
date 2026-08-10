@@ -105,7 +105,7 @@ struct AudioLevelData {
   /**
    * @brief Feed audio data to the renderer buffer
    */
-  void enqueue(const AudioSegment& segment);
+  bool enqueue(const AudioSegment& segment);
   void clearBuffer();
   size_t bufferedFrames() const;
   size_t underflowCount() const;
