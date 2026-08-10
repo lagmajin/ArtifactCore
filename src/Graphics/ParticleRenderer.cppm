@@ -471,12 +471,18 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
     // Update Constants
     void* pData = nullptr;
     pContext->MapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if(pData) {
-        memcpy(pData, &constants_, sizeof(ShaderConstants));
-        pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
-        if (frameCostStats_) {
-            ++frameCostStats_->bufferUpdates;
-        }
+    if (!pData) {
+        // Do not commit resources or reuse the previous frame's cull state
+        // when the current frame's constants could not be uploaded.
+        pImpl_->gpuCullActive_ = false;
+        debugState_ = QStringLiteral("state=prepare-skipped constantBufferMap=0");
+        qWarning() << "[ParticleRenderer] prepare() skipped: constant buffer map failed";
+        return;
+    }
+    memcpy(pData, &constants_, sizeof(ShaderConstants));
+    pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
+    if (frameCostStats_) {
+        ++frameCostStats_->bufferUpdates;
     }
 
     pImpl_->gpuCullActive_ =
