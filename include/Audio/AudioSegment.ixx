@@ -1,9 +1,9 @@
 module;
 #include <utility>
 #include <algorithm>
+#include <limits>
 #include <QtGlobal>
 #include <QVector>
-class tst_QList;
 
 export module Audio.Segment;
 
@@ -36,9 +36,12 @@ export namespace ArtifactCore {
   // 便利関数：全チャンネルのサンプル数を取得
   int frameCount() const {
    if (channelData.isEmpty()) return 0;
-   int frames = channelData[0].size();
-   for (int channel = 1; channel < channelData.size(); ++channel) {
-    frames = std::min(frames, channelData[channel].size());
+   const auto maxInt = static_cast<qsizetype>(std::numeric_limits<int>::max());
+   int frames = static_cast<int>(std::min(channelData[0].size(), maxInt));
+   for (qsizetype channel = 1; channel < channelData.size(); ++channel) {
+    const int channelFrames = static_cast<int>(
+        std::min(channelData[channel].size(), maxInt));
+    frames = std::min(frames, channelFrames);
    }
    return frames;
   }
@@ -58,12 +61,13 @@ export namespace ArtifactCore {
 
   // チャンネル数を取得
   int channelCount() const {
-   return channelData.size();
+   return static_cast<int>(std::min(
+       channelData.size(), static_cast<qsizetype>(std::numeric_limits<int>::max())));
   }
 
   // 特定のサンプルのポインタを安全に取得
   const float* constData(int channelIdx) const {
-   if (channelIdx >= 0 && channelIdx < channelData.size()) {
+   if (channelIdx >= 0 && static_cast<qsizetype>(channelIdx) < channelData.size()) {
 	return channelData[channelIdx].constData();
    }
    return nullptr;
