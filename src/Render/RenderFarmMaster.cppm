@@ -555,7 +555,10 @@ public:
 
         CheckpointInfo cp;
         cp.jobId = currentJobId_;
-        cp.completedUpToFrame = baseFrame + completed;  // absolute frame (exclusive)
+        const long long completedUpTo = static_cast<long long>(baseFrame) + completed;
+        cp.completedUpToFrame = static_cast<int>(std::clamp<long long>(
+            completedUpTo, std::numeric_limits<int>::min(),
+            std::numeric_limits<int>::max()));  // absolute frame (exclusive)
         cp.totalFrames = totalFrames_;
         cp.failures = finalResult_.failures;
         cp.updatedAt = QDateTime::currentDateTime();
