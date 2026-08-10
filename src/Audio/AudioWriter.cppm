@@ -51,7 +51,7 @@ void writeWavHeader(QFile& file, quint32 dataBytes,
            << byteRate << blockAlign << bitDepth;
     stream.writeRawData("data", 4);
     stream << dataBytes;
-    file.seek(44 + dataBytes);
+    file.seek(static_cast<qint64>(44) + static_cast<qint64>(dataBytes));
 }
 }
 

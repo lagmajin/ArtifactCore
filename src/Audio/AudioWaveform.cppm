@@ -21,7 +21,10 @@ void AudioWaveform::process(AudioSegment& segment, const AudioSegment* /*sideCha
 
     const int channels = segment.channelCount();
     const int frames = segment.frameCount();
-    if (channels == 0 || frames == 0) return;
+    if (channels == 0 || frames == 0) {
+        std::fill(waveformData_.begin(), waveformData_.end(), 0.0f);
+        return;
+    }
 
     const int resolution = std::min(
         std::clamp(resolution_, 1, 1 << 20), frames);
