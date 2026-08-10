@@ -23,6 +23,9 @@ export namespace ArtifactCore {
 
   void push(const AudioSegment& segment) {
    QMutexLocker locker(&mutex);
+   if (queue.size() >= maxSegments) {
+    return;
+   }
    queue.append(segment); 
    notEmpty.wakeOne();
   }
