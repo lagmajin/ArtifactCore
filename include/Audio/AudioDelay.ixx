@@ -60,6 +60,7 @@ private:
 
     // Instance-safe buffers (was thread_local)
     std::vector<std::vector<float>> delayBuffers_{2, std::vector<float>(48000)};
+    int writePositions_[2] = {0, 0};
 };
 
 } // namespace ArtifactCore

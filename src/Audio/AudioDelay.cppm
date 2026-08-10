@@ -50,6 +50,8 @@ void AudioDelay::process(AudioSegment& segment, const AudioSegment* /*sideChain*
     int needed = std::max(1, std::min(delaySamples * 2, 48000));
     if (static_cast<int>(delayBuffers_[0].size()) < needed) {
         for (auto& buf : delayBuffers_) buf.resize(needed);
+        writePositions_[0] = 0;
+        writePositions_[1] = 0;
     }
 
     for (int ch = 0; ch < std::min(channels, 2); ++ch) {
@@ -62,9 +64,11 @@ void AudioDelay::process(AudioSegment& segment, const AudioSegment* /*sideChain*
         auto& buf = delayBuffers_[ch];
         int bufSize = static_cast<int>(buf.size());
         const float wet = mix;
+        int& writePos = writePositions_[ch];
+        writePos %= bufSize;
 
         for (int i = 0; i < samples; ++i) {
-            int idx = i % bufSize;
+            const int idx = writePos;
             const float delayed = (idx + delaySamples < bufSize)
                 ? saturateDelaySample(buf[(idx + delaySamples) % bufSize])
                 : 0.0f;
@@ -73,6 +77,7 @@ void AudioDelay::process(AudioSegment& segment, const AudioSegment* /*sideChain*
             buf[idx] = out;
             inData[i] = saturateDelaySample(
                 input * (1.0f - wet) + delayed * wet);
+            writePos = (writePos + 1) % bufSize;
         }
     }
 }
