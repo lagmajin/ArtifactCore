@@ -23,8 +23,16 @@ void AudioDelay::process(AudioSegment& segment, const AudioSegment* /*sideChain*
     const int sampleRate = segment.sampleRate;
     if (channels == 0 || frames == 0 || sampleRate <= 0) return;
 
-    const int delaySamples = std::max(
-        0, static_cast<int>(delayTimeMs_ * sampleRate / 1000.0));
+    const double requestedDelaySamples =
+        std::isfinite(delayTimeMs_)
+            ? static_cast<double>(delayTimeMs_) * sampleRate / 1000.0
+            : 0.0;
+    const int delaySamples = static_cast<int>(std::clamp(
+        requestedDelaySamples, 0.0, 47999.0));
+    const float feedback = std::clamp(
+        std::isfinite(feedback_) ? feedback_ : 0.0f, 0.0f, 0.99f);
+    const float mix = std::clamp(
+        std::isfinite(mix_) ? mix_ : 0.0f, 0.0f, 1.0f);
 
     // Ensure per-instance buffers sized correctly
     int needed = std::max(1, std::min(delaySamples * 2, 48000));
@@ -41,15 +49,14 @@ void AudioDelay::process(AudioSegment& segment, const AudioSegment* /*sideChain*
         float* inData = segment.channelData[ch].data();
         auto& buf = delayBuffers_[ch];
         int bufSize = static_cast<int>(buf.size());
-        float dry = mix_;
-        float wet = mix_;
+        const float wet = mix;
 
         for (int i = 0; i < samples; ++i) {
             int idx = i % bufSize;
             float delayed = (idx + delaySamples < bufSize)
                 ? buf[(idx + delaySamples) % bufSize]
                 : 0.0f;
-            float out = inData[i] + delayed * feedback_;
+            float out = inData[i] + delayed * feedback;
             buf[idx] = out;
             inData[i] = inData[i] * (1.0f - wet) + delayed * wet;
         }
