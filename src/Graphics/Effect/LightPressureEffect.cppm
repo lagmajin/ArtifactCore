@@ -66,6 +66,7 @@ void LightPressureEffect::process(VideoFrame& frame, const CreativeEffectContext
 
     const int width = frame.width();
     const int height = frame.height();
+    if (width <= 0 || height <= 0) return;
     const std::size_t count = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
     if (count == 0) return;
 
