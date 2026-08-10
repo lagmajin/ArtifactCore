@@ -339,8 +339,11 @@ namespace ArtifactCore {
 		const AudioSegment* source = &input;
 		AudioSegment downmixed;
 
-		// Perform downmixing if layout differs from target bus
-		if (input.layout != impl_->layout_) {
+		// Normalize both metadata and channel shape before mixing. A malformed
+		// segment can report the same layout while carrying a different number
+		// of channels, which must not bypass the downmixer.
+		if (input.layout != impl_->layout_ ||
+			input.channelCount() != impl_->mainBuffer_.channelCount()) {
 			impl_->getDownMixer().setTargetLayout(impl_->layout_);
 			downmixed = impl_->getDownMixer().process(input);
 			source = &downmixed;
@@ -366,7 +369,8 @@ namespace ArtifactCore {
 		const AudioSegment* source = &input;
 		AudioSegment downmixed;
 
-		if (input.layout != impl_->layout_) {
+		if (input.layout != impl_->layout_ ||
+			input.channelCount() != impl_->sideChainBuffer_.channelCount()) {
 			impl_->getDownMixer().setTargetLayout(impl_->layout_);
 			downmixed = impl_->getDownMixer().process(input);
 			source = &downmixed;
