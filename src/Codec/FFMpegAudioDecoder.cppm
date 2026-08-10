@@ -381,6 +381,9 @@ namespace ArtifactCore
   bool queuedAny = false;
 
   while (true) {
+   // Do not receive another codec frame while the handoff queue is full.
+   // Receiving first would consume a frame that push() can only discard.
+   if (queue.isFull()) return queuedAny;
    const int ret = avcodec_receive_frame(codecCtx_, frame_);
    if (ret == AVERROR(EAGAIN)) {
     return queuedAny;
@@ -487,6 +490,7 @@ namespace ArtifactCore
  bool FFmpegAudioDecoder::Impl::drainResampler(AudioBufferQueue& queue)
  {
   if (!swrCtx_ || !codecCtx_) return false;
+  if (queue.isFull()) return false;
 
   if (codecCtx_->sample_rate <= 0) return false;
   const int64_t pendingIn = swr_get_delay(swrCtx_, codecCtx_->sample_rate);

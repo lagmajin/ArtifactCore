@@ -37,6 +37,11 @@ export namespace ArtifactCore {
    return true;
   }
 
+  bool isFull() const {
+   QMutexLocker locker(&mutex);
+   return queue.size() >= maxSegments;
+  }
+
   void clear() {
    QMutexLocker locker(&mutex);
    queue.clear();
