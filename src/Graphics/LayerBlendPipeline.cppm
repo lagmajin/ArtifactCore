@@ -539,8 +539,11 @@ bool LayerBlendPipeline::convertLayerToFloat(
   return false;
  }
 
- layerToFloatExecutor_->setTextureView("SrcTex", srcSRV);
- layerToFloatExecutor_->setTextureView("OutTex", outUAV);
+ if (!layerToFloatExecutor_->setTextureView("SrcTex", srcSRV) ||
+     !layerToFloatExecutor_->setTextureView("OutTex", outUAV)) {
+  qCritical() << "[LayerBlendPipeline::convertLayerToFloat] failed to bind texture views";
+  return false;
+ }
 
  auto attribs = ComputeExecutor::makeDispatchAttribs(width, height, 1, 8, 8, 1);
  layerToFloatExecutor_->dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -722,9 +725,12 @@ bool LayerBlendPipeline::blend(
   return false;
  }
 
- exec.setTextureView("SrcTex", srcSRV);
- exec.setTextureView("DstTex", dstSRV);
- exec.setTextureView("OutTex", outUAV);
+ if (!exec.setTextureView("SrcTex", srcSRV) ||
+     !exec.setTextureView("DstTex", dstSRV) ||
+     !exec.setTextureView("OutTex", outUAV)) {
+  qCritical() << "[LayerBlendPipeline::blend] failed to bind texture views";
+  return false;
+ }
 
  auto attribs = ComputeExecutor::makeDispatchAttribs(64, 8, 1);
  const auto& texDesc = outUAV->GetTexture()->GetDesc();
@@ -747,7 +753,7 @@ bool LayerBlendPipeline::blendDirect(
  Uint32 height
 )
 {
- if (!ctx || !srcSRV || !dstSRV || !outUAV) {
+ if (!ctx || !srcSRV || !dstSRV || !outUAV || width == 0 || height == 0) {
   qCritical() << "[LayerBlendPipeline::blendDirect] invalid input"
               << "ctx=" << static_cast<bool>(ctx)
               << "srcSRV=" << static_cast<bool>(srcSRV)
