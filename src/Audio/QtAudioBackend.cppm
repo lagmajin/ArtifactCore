@@ -121,7 +121,10 @@ public:
         }
     }
 
-    bool isActive() const override { return active_; }
+    bool isActive() const override {
+        QMutexLocker locker(&mutex_);
+        return active_;
+    }
     AudioBackendFormat currentFormat() const override { return format_; }
     QString backendName() const override { return "QtMultimedia"; }
 
