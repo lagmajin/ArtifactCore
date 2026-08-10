@@ -54,6 +54,10 @@ void VolumePostProcessor::setPixel(ImageBuffer& image, int x, int y, const Color
 }
 
 void VolumePostProcessor::process(ImageBuffer& image) const noexcept {
+    const auto requiredBytes = imagePixelBytes(image.width, image.height);
+    if (requiredBytes == 0 || image.pixels.size() < requiredBytes) {
+        return;
+    }
     if (settings_.denoise.enabled) {
         applyBilateralFilter(image);
     }
