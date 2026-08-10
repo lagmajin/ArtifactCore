@@ -27,6 +27,7 @@ namespace ArtifactCore {
         // The producer increments clearGeneration_ to tell the consumer that
         // all previously buffered frames should be discarded.
         std::atomic<std::uint32_t> clearGeneration_{0};
+        std::atomic<std::uint64_t> clearWriteCount_{0};
         std::uint32_t lastClearGen_ = 0; // consumer-side; no atomic needed
 
         void ensureChannels(int channels) {
@@ -51,6 +52,7 @@ namespace ArtifactCore {
             for (auto& ch : channels_) ch.resize(capacity_);
             writeCount_.store(0, std::memory_order_relaxed);
             readCount_.store(0, std::memory_order_relaxed);
+            clearWriteCount_.store(0, std::memory_order_relaxed);
             clearGeneration_.fetch_add(1, std::memory_order_release);
         }
 
@@ -123,8 +125,12 @@ namespace ArtifactCore {
             // Check whether the producer has requested a buffer clear.
             const std::uint32_t gen = clearGeneration_.load(std::memory_order_acquire);
             if (gen != lastClearGen_) {
-                // Advance readCount to writeCount so the buffer appears empty.
-                readCount_.store(writeCount_.load(std::memory_order_acquire),
+                // Discard only frames that existed when clear() was requested.
+                // The producer may already have written fresh audio after that
+                // point; advancing to the live writeCount would drop it too.
+                const auto clearAt = clearWriteCount_.load(std::memory_order_acquire);
+                const auto currentWrite = writeCount_.load(std::memory_order_acquire);
+                readCount_.store(std::min(clearAt, currentWrite),
                                  std::memory_order_release);
                 lastClearGen_ = gen;
                 data.clear();
@@ -159,6 +165,8 @@ namespace ArtifactCore {
         // Called by the producer to discard all buffered audio.
         // The consumer will detect the generation change on its next read().
         void clear() {
+            clearWriteCount_.store(writeCount_.load(std::memory_order_relaxed),
+                                   std::memory_order_release);
             clearGeneration_.fetch_add(1, std::memory_order_release);
         }
 
