@@ -12,88 +12,7 @@ module;
 module Graphics.LayerBlendPipeline;
 
 import Core.ArtifactString;
-
-namespace {
-inline constexpr const char* kMatteTrackSource = R"(
-cbuffer MatteTrackParams : register(b0)
-{
-    uint  g_MatteCount;
-    uint  g_MatteMode0;
-    uint  g_MatteMode1;
-    uint  g_MatteMode2;
-    uint  g_MatteBlendMode0;
-    uint  g_MatteBlendMode1;
-    uint  g_MatteBlendMode2;
-    uint  g_LumaMode;
-    float g_MatteOpacity0;
-    float g_MatteOpacity1;
-    float g_MatteOpacity2;
-};
-
-Texture2D<float4>  g_LayerTex  : register(t0);
-Texture2D<float4>  g_MatteSrc0 : register(t1);
-Texture2D<float4>  g_MatteSrc1 : register(t2);
-Texture2D<float4>  g_MatteSrc2 : register(t3);
-RWTexture2D<float4> g_OutTex    : register(u0);
-
-static const float3 kLumaRec601 = float3(0.299f, 0.587f, 0.114f);
-static const float3 kLumaRec709 = float3(0.2126f, 0.7152f, 0.0722f);
-
-float extractMask(float4 color, uint mode, float3 lumaCoeffs)
-{
-    float mask;
-    if (mode == 0 || mode == 2) {
-        mask = color.a;
-    } else {
-        mask = dot(color.rgb, lumaCoeffs);
-    }
-    if (mode == 2 || mode == 3) {
-        mask = 1.0f - mask;
-    }
-    return saturate(mask);
-}
-
-float combineMasks(float a, float b, uint mode)
-{
-    if (mode == 0) return saturate(a + b);
-    if (mode == 1) return min(a, b);
-    if (mode == 2) return saturate(a - b);
-    return abs(a - b);
-}
-
-[numthreads(16, 16, 1)]
-void MatteTrackCS(uint3 id : SV_DispatchThreadID)
-{
-    uint2 dims;
-    g_OutTex.GetDimensions(dims.x, dims.y);
-    if (id.x >= dims.x || id.y >= dims.y) return;
-
-    float3 lumaCoeffs = (g_LumaMode == 1) ? kLumaRec709 : kLumaRec601;
-    float combinedMask = 1.0f;
-
-    [branch] if (g_MatteCount > 0) {
-        float4 matteColor = g_MatteSrc0.Load(int3(id.xy, 0));
-        combinedMask = extractMask(matteColor, g_MatteMode0, lumaCoeffs) * g_MatteOpacity0;
-    }
-
-    [branch] if (g_MatteCount > 1) {
-        float4 matteColor = g_MatteSrc1.Load(int3(id.xy, 0));
-        float mask = extractMask(matteColor, g_MatteMode1, lumaCoeffs) * g_MatteOpacity1;
-        combinedMask = combineMasks(combinedMask, mask, g_MatteBlendMode1);
-    }
-
-    [branch] if (g_MatteCount > 2) {
-        float4 matteColor = g_MatteSrc2.Load(int3(id.xy, 0));
-        float mask = extractMask(matteColor, g_MatteMode2, lumaCoeffs) * g_MatteOpacity2;
-        combinedMask = combineMasks(combinedMask, mask, g_MatteBlendMode2);
-    }
-
-    float4 layerColor = g_LayerTex.Load(int3(id.xy, 0));
-    g_OutTex[id.xy] = float4(layerColor.rgb * combinedMask, layerColor.a * combinedMask);
-}
-)";
-inline constexpr const char* kMatteTrackEntryPoint = "MatteTrackCS";
-}
+import Graphics.Shader.Compute.HLSL.MatteTrack;
 
 namespace ArtifactCore {
 
@@ -272,8 +191,8 @@ bool LayerBlendPipeline::createMatteTrackExecutor()
     matteTrackExecutor_ = std::make_unique<ComputeExecutor>(*context_);
     ComputePipelineDesc desc;
     desc.name = "MatteTrack PSO";
-    desc.shaderSource = kMatteTrackSource;
-    desc.entryPoint = kMatteTrackEntryPoint;
+    desc.shaderSource = Shaders::MatteTrack::MatteTrackSource;
+    desc.entryPoint = Shaders::MatteTrack::MatteTrackEntryPoint;
     desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     desc.variables = vars;
     desc.variableCount = 5;
