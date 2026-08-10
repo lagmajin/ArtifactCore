@@ -23,7 +23,8 @@ void AudioWaveform::process(AudioSegment& segment, const AudioSegment* /*sideCha
     const int frames = segment.frameCount();
     if (channels == 0 || frames == 0) return;
 
-    const int resolution = std::clamp(resolution_, 1, 1 << 20);
+    const int resolution = std::min(
+        std::clamp(resolution_, 1, 1 << 20), frames);
     waveformData_.resize(resolution);
     
     // RMS 波形抽出
