@@ -774,14 +774,19 @@ bool LayerBlendPipeline::blendDirect(
 
  void* pData = nullptr;
  ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
- if (pData) {
-  memcpy(pData, &currentParams_, sizeof(BlendParams));
-  ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
+ if (!pData) {
+  qCritical() << "[LayerBlendPipeline::blendDirect] MapBuffer failed";
+  return false;
  }
+ memcpy(pData, &currentParams_, sizeof(BlendParams));
+ ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
 
- exec.setTextureView("SrcTex", srcSRV);
- exec.setTextureView("DstTex", dstSRV);
- exec.setTextureView("OutTex", outUAV);
+ if (!exec.setTextureView("SrcTex", srcSRV) ||
+     !exec.setTextureView("DstTex", dstSRV) ||
+     !exec.setTextureView("OutTex", outUAV)) {
+  qCritical() << "[LayerBlendPipeline::blendDirect] failed to bind texture views";
+  return false;
+ }
 
  DispatchComputeAttribs attribs;
  attribs.ThreadGroupCountX = (width + 7) / 8;
