@@ -370,12 +370,13 @@ namespace ArtifactCore {
    return result;
   }
 
-  bool receivedFrame = false;
   while (true) {
    ret = avcodec_receive_frame(impl_->codecContext_, frame);
    if (ret < 0) {
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-     result.success = receivedFrame;
+     // A packet may be accepted successfully while the codec still has no
+     // decoded frame available (normal for delayed audio codecs).
+     result.success = true;
     } else {
      result.errorMessage = UniString(std::string("Failed to receive frame"));
      impl_->statistics_.errors++;
@@ -383,7 +384,6 @@ namespace ArtifactCore {
     break;
    }
 
-   receivedFrame = true;
    const int outSamples = swr_get_out_samples(impl_->swrCtx_, frame->nb_samples);
    if (outSamples > 0) {
     const int bytesPerSample = impl_->outBytesPerSample_;

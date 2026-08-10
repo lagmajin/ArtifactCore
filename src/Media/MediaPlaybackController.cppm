@@ -1125,12 +1125,19 @@ DecodedVideoFrame MediaPlaybackController::getVideoFrameAtFrameDirectRaw(int64_t
   // Non-blocking: try to pop one audio packet without spinning.
   // The reader must already be running (started by play()).
   // Spinning here blocks the UI thread and repeatedly pokes the packet reader.
-  AVPacket* pkt = impl_->mediaReader_->getNextPacket(StreamType::Audio);
-  if (!pkt) return QByteArray();
+  // Delayed audio codecs can consume a packet without producing PCM yet.
+  // Keep pulling packets while the decoder reports a successful no-output
+  // result, but remain bounded so this call stays non-blocking.
+  for (int attempt = 0; attempt < 32; ++attempt) {
+   AVPacket* pkt = impl_->mediaReader_->getNextPacket(StreamType::Audio);
+   if (!pkt) return QByteArray();
 
-  QByteArray audio = impl_->audioDecoder_->decodeFrame(pkt);
-  av_packet_free(&pkt);
-  return audio;
+   const AudioDecodeResult decoded = impl_->audioDecoder_->decodeFrameDetailed(pkt);
+   av_packet_free(&pkt);
+   if (!decoded.data.isEmpty()) return decoded.data;
+   if (!decoded.success) return QByteArray();
+  }
+  return QByteArray();
  }
 
  bool MediaPlaybackController::setAudioOutputSampleRate(int sampleRate) {
