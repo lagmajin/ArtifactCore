@@ -1,6 +1,7 @@
 module;
 #include <cmath>
 #include <cstring>
+#include <algorithm>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
@@ -24,12 +25,14 @@ EchoBlendGPUComputer::EchoBlendGPUComputer(GpuContext &context)
 EchoBlendGPUComputer::~EchoBlendGPUComputer() = default;
 
 void EchoBlendGPUComputer::initialize() {
+    if (!context_.RenderDevice()) return;
     createPipeline();
     createBuffers();
 }
 
 void EchoBlendGPUComputer::createPipeline() {
     static ShaderResourceVariableDesc vars[] = {
+        {SHADER_TYPE_COMPUTE, "EchoParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_InputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_OutputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_Ring0", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -47,7 +50,7 @@ void EchoBlendGPUComputer::createPipeline() {
     desc.entryPoint = Shaders::EchoBlend::EchoBlendEntryPoint;
     desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     desc.variables = vars;
-    desc.variableCount = 10;
+    desc.variableCount = 11;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     executor_.build(desc);
     executor_.createShaderResourceBinding(true);
@@ -55,6 +58,7 @@ void EchoBlendGPUComputer::createPipeline() {
 
 void EchoBlendGPUComputer::createBuffers() {
     auto *device = context_.RenderDevice();
+    if (!device) return;
     BufferDesc desc;
     desc.Name = "EchoBlendParamsCB";
     desc.Usage = USAGE_DYNAMIC;
@@ -84,36 +88,46 @@ void EchoBlendGPUComputer::apply(IDeviceContext *pContext,
                                   int frameCount,
                                   float decay,
                                   float startingIntensity) {
-    if (!ready() || !outputTexture || ringTextures.empty()) return;
+    if (!ready() || !pContext || !outputTexture || !outputTexture->GetTexture() ||
+        ringTextures.empty() || !ringTextures[0] || !ringTextures[0]->GetTexture()) return;
+
+    const int activeFrameCount = std::clamp(
+        frameCount, 1, std::min(8, static_cast<int>(ringTextures.size())));
+    for (int i = 0; i < activeFrameCount; ++i) {
+        if (!ringTextures[i] || !ringTextures[i]->GetTexture()) return;
+    }
+
+    const auto outputDesc = outputTexture->GetTexture()->GetDesc();
+    const auto ringDesc = ringTextures[0]->GetTexture()->GetDesc();
+    if (outputDesc.Width == 0 || outputDesc.Height == 0 ||
+        ringDesc.Width != outputDesc.Width || ringDesc.Height != outputDesc.Height) return;
 
     // Compute normalizer: same as CPU code
     float normSum = 1.0f;
-    if (frameCount > 1) {
-        normSum = 1.0f + startingIntensity * (1.0f - std::pow(decay, static_cast<float>(frameCount - 1)))
+    if (activeFrameCount > 1) {
+        normSum = 1.0f + startingIntensity * (1.0f - std::pow(decay, static_cast<float>(activeFrameCount - 1)))
                   / std::max(1.0f - decay, 0.001f);
     }
     float invNormalizer = 1.0f / normSum;
 
     void *pData = nullptr;
     pContext->MapBuffer(pParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        struct { int frameCount; float invNorm; float decay; float startInt; } cb;
-        cb.frameCount = frameCount;
-        cb.invNorm = invNormalizer;
-        cb.decay = decay;
-        cb.startInt = startingIntensity;
-        std::memcpy(pData, &cb, sizeof(cb));
-        pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
-    }
+    if (!pData) return;
+    struct { int frameCount; float invNorm; float decay; float startInt; } cb;
+    cb.frameCount = activeFrameCount;
+    cb.invNorm = invNormalizer;
+    cb.decay = decay;
+    cb.startInt = startingIntensity;
+    std::memcpy(pData, &cb, sizeof(cb));
+    pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
 
-    executor_.setBuffer("EchoParams", pParamsCB_);
-    executor_.setTextureView("g_InputTexture", inputTexture ? inputTexture : ringTextures[0]);
-    executor_.setTextureView("g_OutputTexture", outputTexture);
+    if (!executor_.setBuffer("EchoParams", pParamsCB_) ||
+        !executor_.setTextureView("g_InputTexture", inputTexture ? inputTexture : ringTextures[0]) ||
+        !executor_.setTextureView("g_OutputTexture", outputTexture)) return;
     bindRingEntries(pContext, ringTextures);
 
-    const auto w = outputTexture->GetTexture()->GetDesc().Width;
-    const auto h = outputTexture->GetTexture()->GetDesc().Height;
-    executor_.dispatch(pContext, ComputeExecutor::makeDispatchAttribs(w, h, 1, 16, 16, 1));
+    executor_.dispatch(pContext, ComputeExecutor::makeDispatchAttribs(
+        outputDesc.Width, outputDesc.Height, 1, 16, 16, 1));
 }
 
 bool EchoBlendGPUComputer::ready() const { return executor_.ready() && pParamsCB_; }
