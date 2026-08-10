@@ -366,6 +366,12 @@ void WASAPIBackend::start(AudioCallback callback) {
     return;
   }
 
+  // A previous requestStop may have left the render thread joinable after
+  // signalling it. Reap that thread before assigning a new std::thread.
+  if (impl_->renderThread.joinable()) {
+    impl_->stopThread();
+  }
+
   impl_->callback = std::move(callback);
   impl_->stopRequested = false;
   impl_->stopJoined = false;
@@ -387,15 +393,17 @@ void WASAPIBackend::requestStop() {
     return;
   }
   impl_->stopRequested = true;
+  if (impl_->audioClient) {
+    impl_->audioClient->Stop();
+  }
   if (impl_->stopEvent) {
     SetEvent(impl_->stopEvent);
   }
   if (impl_->audioEvent) {
     SetEvent(impl_->audioEvent);
   }
-  if (impl_->renderThread.joinable() && !impl_->stopJoined.exchange(true)) {
-    impl_->renderThread.detach();
-  }
+  // Keep the thread joinable. close()/destruction must be able to join it
+  // before releasing the COM audio client and render client.
   impl_->active = false;
 }
 
