@@ -1060,6 +1060,10 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
                                       const uint32_t* indices)
 {
     auto pContext = context_.DeviceContext();
+    if (!pContext) {
+        qWarning("[MeshRenderer] updateMeshGeometry skipped because device context is unavailable");
+        return;
+    }
     
     if (positions && pImpl_->pPositionBuffer_) {
         pContext->UpdateBuffer(pImpl_->pPositionBuffer_, 0, sizeof(float) * 3 * vertexCount_,
@@ -1100,6 +1104,10 @@ void MeshRenderer::updateInstanceData(const InstanceData* instances, size_t coun
     if (!instances || count == 0 || !pImpl_->pInstanceBuffer_) return;
     
     auto pContext = context_.DeviceContext();
+    if (!pContext) {
+        qWarning("[MeshRenderer] updateInstanceData skipped because device context is unavailable");
+        return;
+    }
     size_t uploadSize = sizeof(InstanceData) * std::min(count, maxInstances_);
     pImpl_->uploadedInstanceCount_ = std::min(count, maxInstances_);
     
