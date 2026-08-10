@@ -74,7 +74,7 @@ private:
 
   void createPipelines();
   void createBuffers();
-  void updateParams(IDeviceContext *pContext, IBuffer *cb,
+  bool updateParams(IDeviceContext *pContext, IBuffer *cb,
                     int a, int b, int c, int d);
 
   RefCntAutoPtr<IBuffer> pVectorscopeParamsCB_;

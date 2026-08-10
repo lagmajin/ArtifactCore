@@ -49,12 +49,15 @@ ScopeComputer::ScopeComputer(GpuContext &context)
 ScopeComputer::~ScopeComputer() = default;
 
 void ScopeComputer::initialize() {
+  if (!context_.RenderDevice()) return;
   createPipelines();
   createBuffers();
 }
 
 void ScopeComputer::createPipelines() {
   static ShaderResourceVariableDesc scopeVars[] = {
+      {SHADER_TYPE_COMPUTE, "VectorscopeParams",
+       SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_InputTexture",
        SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_OutputVectorscope",
@@ -62,6 +65,8 @@ void ScopeComputer::createPipelines() {
   };
 
   static ShaderResourceVariableDesc waveformVars[] = {
+      {SHADER_TYPE_COMPUTE, "WaveformParams",
+       SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_InputTexture",
        SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_OutputWaveform",
@@ -69,6 +74,8 @@ void ScopeComputer::createPipelines() {
   };
 
   static ShaderResourceVariableDesc paradeVars[] = {
+      {SHADER_TYPE_COMPUTE, "ParadeParams",
+       SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_InputTexture",
        SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {SHADER_TYPE_COMPUTE, "g_OutputParade",
@@ -83,7 +90,7 @@ void ScopeComputer::createPipelines() {
     desc.entryPoint = Shaders::ScopeVectorscope::VectorscopeEntryPoint;
     desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     desc.variables = scopeVars;
-    desc.variableCount = 2;
+    desc.variableCount = 3;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     executorVectorscope_.build(desc);
     executorVectorscope_.createShaderResourceBinding(true);
@@ -97,7 +104,7 @@ void ScopeComputer::createPipelines() {
     desc.entryPoint = Shaders::ScopeWaveform::WaveformEntryPoint;
     desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     desc.variables = waveformVars;
-    desc.variableCount = 2;
+    desc.variableCount = 3;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     executorWaveform_.build(desc);
     executorWaveform_.createShaderResourceBinding(true);
@@ -111,7 +118,7 @@ void ScopeComputer::createPipelines() {
     desc.entryPoint = Shaders::ScopeParade::ParadeEntryPoint;
     desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     desc.variables = paradeVars;
-    desc.variableCount = 2;
+    desc.variableCount = 3;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     executorParade_.build(desc);
     executorParade_.createShaderResourceBinding(true);
@@ -120,6 +127,7 @@ void ScopeComputer::createPipelines() {
 
 void ScopeComputer::createBuffers() {
   auto *device = context_.RenderDevice();
+  if (!device) return;
 
   auto makeCB = [&](const char *name) -> RefCntAutoPtr<IBuffer> {
     BufferDesc desc;
@@ -138,16 +146,16 @@ void ScopeComputer::createBuffers() {
   pParadeParamsCB_ = makeCB("ScopeParadeParams");
 }
 
-void ScopeComputer::updateParams(IDeviceContext *pContext, IBuffer *cb,
-                                  int a, int b, int c, int d) {
-  if (!pContext || !cb) return;
+bool ScopeComputer::updateParams(IDeviceContext *pContext, IBuffer *cb,
+                                 int a, int b, int c, int d) {
+  if (!pContext || !cb) return false;
   void *pData = nullptr;
   pContext->MapBuffer(cb, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-  if (pData) {
-    int params[4] = {a, b, c, d};
-    std::memcpy(pData, params, sizeof(params));
-    pContext->UnmapBuffer(cb, MAP_WRITE);
-  }
+  if (!pData) return false;
+  int params[4] = {a, b, c, d};
+  std::memcpy(pData, params, sizeof(params));
+  pContext->UnmapBuffer(cb, MAP_WRITE);
+  return true;
 }
 
 void ScopeComputer::computeVectorscope(IDeviceContext *pContext,
@@ -162,11 +170,12 @@ void ScopeComputer::computeVectorscope(IDeviceContext *pContext,
     return;
   }
 
-  updateParams(pContext, pVectorscopeParamsCB_, scopeSize, step, 0, 0);
-
-  executorVectorscope_.setBuffer("VectorscopeParams", pVectorscopeParamsCB_);
-  executorVectorscope_.setTextureView("g_InputTexture", inputTexture);
-  executorVectorscope_.setBuffer("g_OutputVectorscope", outputVectorscope);
+  if (!updateParams(pContext, pVectorscopeParamsCB_, scopeSize, step, 0, 0) ||
+      !executorVectorscope_.setBuffer("VectorscopeParams", pVectorscopeParamsCB_) ||
+      !executorVectorscope_.setTextureView("g_InputTexture", inputTexture) ||
+      !executorVectorscope_.setBuffer("g_OutputVectorscope", outputVectorscope)) {
+    return;
+  }
 
   const auto width = inputTexture->GetTexture()->GetDesc().Width;
   const auto height = inputTexture->GetTexture()->GetDesc().Height;
@@ -194,11 +203,12 @@ void ScopeComputer::computeWaveform(IDeviceContext *pContext,
     return;
   }
 
-  updateParams(pContext, pWaveformParamsCB_, outputWidth, outputHeight, step, 0);
-
-  executorWaveform_.setBuffer("WaveformParams", pWaveformParamsCB_);
-  executorWaveform_.setTextureView("g_InputTexture", inputTexture);
-  executorWaveform_.setBuffer("g_OutputWaveform", outputWaveform);
+  if (!updateParams(pContext, pWaveformParamsCB_, outputWidth, outputHeight, step, 0) ||
+      !executorWaveform_.setBuffer("WaveformParams", pWaveformParamsCB_) ||
+      !executorWaveform_.setTextureView("g_InputTexture", inputTexture) ||
+      !executorWaveform_.setBuffer("g_OutputWaveform", outputWaveform)) {
+    return;
+  }
 
   const auto width = inputTexture->GetTexture()->GetDesc().Width;
   const auto height = inputTexture->GetTexture()->GetDesc().Height;
@@ -226,11 +236,12 @@ void ScopeComputer::computeParade(IDeviceContext *pContext,
     return;
   }
 
-  updateParams(pContext, pParadeParamsCB_, outputWidth, outputHeight, step, 0);
-
-  executorParade_.setBuffer("ParadeParams", pParadeParamsCB_);
-  executorParade_.setTextureView("g_InputTexture", inputTexture);
-  executorParade_.setBuffer("g_OutputParade", outputParade);
+  if (!updateParams(pContext, pParadeParamsCB_, outputWidth, outputHeight, step, 0) ||
+      !executorParade_.setBuffer("ParadeParams", pParadeParamsCB_) ||
+      !executorParade_.setTextureView("g_InputTexture", inputTexture) ||
+      !executorParade_.setBuffer("g_OutputParade", outputParade)) {
+    return;
+  }
 
   const auto width = inputTexture->GetTexture()->GetDesc().Width;
   const auto height = inputTexture->GetTexture()->GetDesc().Height;
