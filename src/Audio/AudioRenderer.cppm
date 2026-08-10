@@ -151,13 +151,17 @@ struct AudioRenderer::Impl {
     }
     const size_t outputSamples = static_cast<size_t>(frames) *
                                  static_cast<size_t>(channelsRequested);
+    if (outputSamples > std::numeric_limits<size_t>::max() / sizeof(float)) {
+      return;
+    }
+    const size_t outputBytes = outputSamples * sizeof(float);
 
     const bool isActive = active.load(std::memory_order_acquire);
     const bool isMuted = isMute.load(std::memory_order_acquire);
     const float volume = masterVolumeLinear.load(std::memory_order_acquire);
 
     if (!isActive || isMuted) {
-      std::memset(buffer, 0, outputSamples * sizeof(float));
+      std::memset(buffer, 0, outputBytes);
       AudioEngineProfiler::instance().recordCallback(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
               std::chrono::high_resolution_clock::now() - cbStart).count(),
@@ -175,7 +179,7 @@ struct AudioRenderer::Impl {
     const bool success = ringBuffer->read(readBuffer_, frames);
     const int availableFrames = readBuffer_.frameCount();
 
-    std::memset(buffer, 0, outputSamples * sizeof(float));
+    std::memset(buffer, 0, outputBytes);
     if (success && availableFrames > 0) {
       if (availableFrames < frames) {
         ++partialUnderflowCount;
@@ -214,7 +218,10 @@ struct AudioRenderer::Impl {
             }
           }
 
-          buffer[i * channelsRequested + ch] = sample;
+          const size_t outputIndex = static_cast<size_t>(i) *
+                                     static_cast<size_t>(channelsRequested) +
+                                     static_cast<size_t>(ch);
+          buffer[outputIndex] = sample;
 
           if (ch == 0) {
             leftSumSq += static_cast<double>(sample) * sample;
