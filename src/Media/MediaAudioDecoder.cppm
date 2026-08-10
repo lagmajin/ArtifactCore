@@ -364,42 +364,47 @@ namespace ArtifactCore {
    return result;
   }
 
-  ret = avcodec_receive_frame(impl_->codecContext_, frame);
-  if (ret < 0) {
-   av_frame_free(&frame);
-   if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-    result.success = true;
-   } else {
-    result.errorMessage = UniString(std::string("Failed to receive frame"));
-    impl_->statistics_.errors++;
+  bool receivedFrame = false;
+  while (true) {
+   ret = avcodec_receive_frame(impl_->codecContext_, frame);
+   if (ret < 0) {
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+     result.success = receivedFrame;
+    } else {
+     result.errorMessage = UniString(std::string("Failed to receive frame"));
+     impl_->statistics_.errors++;
+    }
+    break;
    }
-   return result;
+
+   receivedFrame = true;
+   const int outSamples = swr_get_out_samples(impl_->swrCtx_, frame->nb_samples);
+   if (outSamples > 0) {
+    const int bytesPerSample = impl_->outBytesPerSample_;
+    uint8_t* outBuffer = new uint8_t[outSamples * bytesPerSample];
+    uint8_t* outPtr[1] = { outBuffer };
+
+    const int converted = swr_convert(impl_->swrCtx_, outPtr, outSamples,
+                                      (const uint8_t**)frame->data, frame->nb_samples);
+    if (converted > 0) {
+     const int byteCount = converted * bytesPerSample;
+     if (result.data.isEmpty()) {
+      result.timestamp = frame->pts;
+     }
+     result.data.append(reinterpret_cast<const char*>(outBuffer), byteCount);
+     result.samplesDecoded += converted;
+     result.success = true;
+
+     impl_->statistics_.framesDecoded++;
+     impl_->statistics_.samplesDecoded += converted;
+     impl_->statistics_.bytesDecoded += byteCount;
+    }
+
+    delete[] outBuffer;
+   }
+   av_frame_unref(frame);
   }
 
-  const int outSamples = swr_get_out_samples(impl_->swrCtx_, frame->nb_samples);
-  if (outSamples <= 0) {
-   av_frame_free(&frame);
-   return result;
-  }
-  int bytesPerSample = impl_->outBytesPerSample_;
-  uint8_t* outBuffer = new uint8_t[outSamples * bytesPerSample];
-  uint8_t* outPtr[1] = { outBuffer };
-
-  int converted = swr_convert(impl_->swrCtx_, outPtr, outSamples,
-                              (const uint8_t**)frame->data, frame->nb_samples);
-
-  if (converted > 0) {
-   result.data = QByteArray((char*)outBuffer, converted * bytesPerSample);
-   result.samplesDecoded = converted;
-   result.timestamp = frame->pts;
-   result.success = true;
-
-   impl_->statistics_.framesDecoded++;
-   impl_->statistics_.samplesDecoded += converted;
-   impl_->statistics_.bytesDecoded += result.data.size();
-  }
-
-  delete[] outBuffer;
   av_frame_free(&frame);
 
   auto endTime = std::chrono::high_resolution_clock::now();
