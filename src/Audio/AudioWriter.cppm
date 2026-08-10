@@ -31,8 +31,15 @@ void writeWavHeader(QFile& file, quint32 dataBytes,
     if (!file.isOpen() || channels == 0 || sampleRate == 0 ||
         (bitDepth != 16 && bitDepth != 24)) return;
     const quint16 bytesPerSample = static_cast<quint16>(bitDepth / 8u);
-    const quint32 byteRate = sampleRate * channels * bytesPerSample;
-    const quint16 blockAlign = channels * bytesPerSample;
+    const quint64 byteRateWide = static_cast<quint64>(sampleRate) * channels *
+                                 bytesPerSample;
+    const quint64 blockAlignWide = static_cast<quint64>(channels) * bytesPerSample;
+    if (byteRateWide > std::numeric_limits<quint32>::max() ||
+        blockAlignWide > std::numeric_limits<quint16>::max()) {
+        return;
+    }
+    const quint32 byteRate = static_cast<quint32>(byteRateWide);
+    const quint16 blockAlign = static_cast<quint16>(blockAlignWide);
     const quint32 riffSize = 36u + dataBytes;
     file.seek(0);
     QDataStream stream(&file);
@@ -106,8 +113,14 @@ void AudioWriter::write(const AudioSegment& segment) {
     }
     if (channels <= 0 || frames <= 0) return;
     if (impl_->channelCount == 0) {
-        impl_->channelCount = static_cast<quint16>(
-            std::min(channels, static_cast<int>(std::numeric_limits<quint16>::max())));
+        const int bytesPerSample = impl_->bitDepth / 8;
+        const int maxWavChannels = std::min(
+            static_cast<int>(std::numeric_limits<quint16>::max()) / bytesPerSample,
+            static_cast<int>(std::numeric_limits<quint32>::max() /
+                             (static_cast<quint64>(segment.sampleRate) * bytesPerSample)));
+        const int writableChannels = std::min(channels, maxWavChannels);
+        if (writableChannels <= 0) return;
+        impl_->channelCount = static_cast<quint16>(writableChannels);
         impl_->sampleRate = static_cast<quint32>(segment.sampleRate);
         writeWavHeader(impl_->file, 0, impl_->channelCount, impl_->sampleRate,
                        impl_->bitDepth);
