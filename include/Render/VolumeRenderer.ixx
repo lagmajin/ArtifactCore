@@ -70,7 +70,9 @@ struct VolumeScalarField {
     float* data = nullptr;
     VolumeResolution resolution{};
 
-    [[nodiscard]] bool empty() const noexcept { return data == nullptr || !resolution.valid(); }
+    [[nodiscard]] bool empty() const noexcept {
+        return data == nullptr || resolution.cellCount() == 0;
+    }
 
     [[nodiscard]] float& at(int x, int y, int z) noexcept {
         return data[resolution.indexOf(x, y, z)];
@@ -87,7 +89,9 @@ struct VolumeVectorField {
     Vec3* data = nullptr;
     VolumeResolution resolution{};
 
-    [[nodiscard]] bool empty() const noexcept { return data == nullptr || !resolution.valid(); }
+    [[nodiscard]] bool empty() const noexcept {
+        return data == nullptr || resolution.cellCount() == 0;
+    }
 
     [[nodiscard]] Vec3& at(int x, int y, int z) noexcept {
         return data[resolution.indexOf(x, y, z)];
