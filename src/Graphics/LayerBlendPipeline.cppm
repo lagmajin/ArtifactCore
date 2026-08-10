@@ -438,7 +438,14 @@ bool LayerBlendPipeline::applyPointwise(
             SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
     }
 
-    const std::string pipelineKey = toStdString(plan.shader.key.toString());
+    const std::string pipelineKey =
+        toStdString(plan.shader.key.toString()) +
+        "|params=" + plan.parameterBuffer +
+        "|src=" + plan.sourceResource +
+        "|out=" + plan.outputResource +
+        "|bg=" + plan.backgroundResource +
+        "|lut=" + plan.lutResource +
+        "|history=" + plan.historyResource;
     if (!pointwiseExecutor_ || !pointwiseExecutor_->ready() ||
         pointwisePipelineKey_ != pipelineKey) {
         pointwiseExecutor_ = std::make_unique<ComputeExecutor>(*context_);
