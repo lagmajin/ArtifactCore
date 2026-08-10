@@ -43,6 +43,7 @@ public:
     const int numChannels = segment.channelCount();
     const int numFrames = segment.frameCount();
     for (int ch = 0; ch < numChannels && ch < static_cast<int>(gain.channelGains.size()); ++ch) {
+      if (ch >= segment.channelData.size()) break;
       const float channelGain = gain.channelGains[ch];
       float* data = segment.channelData[ch].data();
       const float safeGain = std::isfinite(channelGain) ? channelGain : 0.0f;
