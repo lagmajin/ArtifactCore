@@ -252,6 +252,7 @@ namespace ArtifactCore
   );
 
   if (av_seek_frame(fmtCtx_, audioStreamIndex_, target_ts, AVSEEK_FLAG_BACKWARD) >= 0) {
+   avformat_flush(fmtCtx_);
    flush();
    seekTargetSeconds_ = seconds;
    seekTargetFrame_ = static_cast<qint64>(
