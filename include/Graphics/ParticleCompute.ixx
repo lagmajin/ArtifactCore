@@ -59,6 +59,7 @@ private:
     class Impl;
     Impl* pImpl_ = nullptr;
     size_t maxParticles_ = 0;
+    size_t activeParticleCount_ = 0;
 
     struct SimulationConstants {
         float deltaTime;

@@ -7,6 +7,9 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QString>
+#include <algorithm>
+#include <array>
+#include <cstring>
 
 module Graphics.ParticleCompute;
 
@@ -116,12 +119,19 @@ ParticleCompute::~ParticleCompute()
 
 void ParticleCompute::initialize(size_t maxParticles) {
     maxParticles_ = maxParticles;
+    activeParticleCount_ = 0;
+    if (maxParticles_ == 0 || !context_.RenderDevice()) {
+        return;
+    }
     createBuffers();
     createPSO();
 }
 
 void ParticleCompute::createBuffers() {
     auto pDevice = context_.RenderDevice();
+    if (!pDevice || maxParticles_ == 0) {
+        return;
+    }
 
     // 1. RWStructuredBuffer (UAV)
     BufferDesc BuffDesc;
@@ -175,49 +185,81 @@ void ParticleCompute::createPSO() {
 }
 
 void ParticleCompute::dispatch(IDeviceContext* pContext, float dt) {
+    if (!pContext || !pImpl_ || !pImpl_->pConstantBuffer_ ||
+        !pImpl_->pParticleBuffer_ || !pImpl_->pAudioSpectrumBuffer_ ||
+        !executor_.ready() || activeParticleCount_ == 0) {
+        return;
+    }
     // 1. Constants 更新
     constants_.deltaTime = dt;
     constants_.time += dt;
-    constants_.maxParticles = (uint32_t)maxParticles_;
+    constants_.maxParticles = static_cast<uint32_t>(activeParticleCount_);
     constants_.noiseStrength = 2.0f; // Default
 
     void* pData = nullptr;
     pContext->MapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if(pData) {
-        memcpy(pData, &constants_, sizeof(SimulationConstants));
-        pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
+    if (!pData) {
+        return;
     }
+    std::memcpy(pData, &constants_, sizeof(SimulationConstants));
+    pContext->UnmapBuffer(pImpl_->pConstantBuffer_, MAP_WRITE);
 
     // 2. UAV & SRV セット
-    executor_.setBufferView("g_ParticleBuffer", pImpl_->pParticleBuffer_->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
-    executor_.setBufferView("g_AudioSpectrum", pImpl_->pAudioSpectrumBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    if (!executor_.setBufferView(
+            "g_ParticleBuffer", pImpl_->pParticleBuffer_->GetDefaultView(
+                                     BUFFER_VIEW_UNORDERED_ACCESS)) ||
+        !executor_.setBufferView(
+            "g_AudioSpectrum", pImpl_->pAudioSpectrumBuffer_->GetDefaultView(
+                                    BUFFER_VIEW_SHADER_RESOURCE))) {
+        return;
+    }
     
     DispatchComputeAttribs Attribs;
-    Attribs.ThreadGroupCountX = ((uint32_t)maxParticles_ + 63) / 64;
+    Attribs.ThreadGroupCountX =
+        (static_cast<uint32_t>(activeParticleCount_) + 63) / 64;
     executor_.dispatch(pContext, Attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 IBuffer* ParticleCompute::getParticleBuffer()
 {
-    return pImpl_->pParticleBuffer_;
+    return pImpl_ ? pImpl_->pParticleBuffer_ : nullptr;
 }
 
 void ParticleCompute::uploadParticles(const std::vector<Particle>& particles, size_t count) {
+    if (!pImpl_ || !pImpl_->pParticleBuffer_ || maxParticles_ == 0 ||
+        particles.empty() || count == 0) {
+        return;
+    }
+    count = std::min(count, particles.size());
+    count = std::min(count, maxParticles_);
     if (count == 0) return;
     auto pContext = context_.DeviceContext();
-    pContext->UpdateBuffer(pImpl_->pParticleBuffer_, 0, sizeof(Particle) * std::min(count, maxParticles_), particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!pContext) return;
+    pContext->UpdateBuffer(pImpl_->pParticleBuffer_, 0,
+                           sizeof(Particle) * count, particles.data(),
+                           RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    activeParticleCount_ = count;
 }
 
 void ParticleCompute::setAudioData(const std::vector<float>& spectrum) {
-    if (spectrum.empty()) return;
+    if (!pImpl_ || !pImpl_->pAudioSpectrumBuffer_ || spectrum.empty()) return;
     auto pContext = context_.DeviceContext();
-    size_t size = std::min(spectrum.size(), (size_t)256) * sizeof(float);
-    pContext->UpdateBuffer(pImpl_->pAudioSpectrumBuffer_, 0, size, spectrum.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!pContext) return;
+    constexpr size_t kSpectrumBins = 256;
+    std::array<float, kSpectrumBins> paddedSpectrum{};
+    const size_t binCount = std::min(spectrum.size(), kSpectrumBins);
+    std::copy_n(spectrum.begin(), binCount, paddedSpectrum.begin());
+    pContext->UpdateBuffer(pImpl_->pAudioSpectrumBuffer_, 0,
+                           sizeof(paddedSpectrum), paddedSpectrum.data(),
+                           RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     
     // Intensity は全体の平均とかでとりあえず
     float avg = 0;
-    for(size_t i=0; i<std::min(spectrum.size(), (size_t)16); ++i) avg += spectrum[i];
-    constants_.audioIntensity = (avg / 16.0f) * 5.0f;
+    const size_t intensityBins = std::min(binCount, size_t{16});
+    for (size_t i = 0; i < intensityBins; ++i) avg += spectrum[i];
+    constants_.audioIntensity = intensityBins > 0
+        ? (avg / static_cast<float>(intensityBins)) * 5.0f
+        : 0.0f;
 }
 
 } // namespace ArtifactCore
