@@ -21,17 +21,29 @@ import Utils.Optional;
 
 namespace ArtifactCore {
 
+namespace {
+bool isSafeCheckpointJobId(const QString& jobId)
+{
+    return !jobId.isEmpty() && jobId != QStringLiteral(".") &&
+           jobId != QStringLiteral("..") &&
+           !jobId.contains(QChar('/')) && !jobId.contains(QChar('\\')) &&
+           !jobId.contains(QChar(':'));
+}
+}
+
 class CheckpointStore::Impl {
 public:
     mutable std::mutex mutex_;
     QString basePath_;
 
     QString jobDir(const QString& jobId) const {
+        if (!isSafeCheckpointJobId(jobId)) return {};
         return basePath_ + QDir::separator() + jobId;
     }
 
     QString filePath(const QString& jobId) const {
-        return jobDir(jobId) + QDir::separator() + "checkpoint.json";
+        const QString dir = jobDir(jobId);
+        return dir.isEmpty() ? QString() : dir + QDir::separator() + "checkpoint.json";
     }
 
     CheckpointInfo fromJson(const QJsonObject& obj) const {
@@ -109,6 +121,7 @@ QString CheckpointStore::basePath() const {
 
 bool CheckpointStore::save(const CheckpointInfo& checkpoint) {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
+    if (!isSafeCheckpointJobId(checkpoint.jobId)) return false;
     QString dir = impl_->jobDir(checkpoint.jobId);
     if (!impl_->ensureDir(dir)) return false;
 
@@ -167,6 +180,7 @@ QString CheckpointStore::defaultBasePath() {
 }
 
 QString CheckpointStore::checkpointFilePath(const QString& basePath, const QString& jobId) {
+    if (!isSafeCheckpointJobId(jobId)) return {};
     return basePath + QDir::separator() + jobId + QDir::separator() + "checkpoint.json";
 }
 
