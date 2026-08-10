@@ -116,7 +116,10 @@ void AudioWriter::write(const AudioSegment& segment) {
         // with a different rate would silently produce timing/pitch corruption.
         return;
     }
-    const int writeChannels = std::min(channels, static_cast<int>(impl_->channelCount));
+    // Keep every segment aligned to the channel count declared in the WAV
+    // header. Extra channels are ignored; missing channels are written as
+    // silence instead of shortening each interleaved frame.
+    const int writeChannels = static_cast<int>(impl_->channelCount);
     const quint64 bytesPerSegment = static_cast<quint64>(frames) *
         static_cast<quint64>(writeChannels) * (impl_->bitDepth / 8u);
     constexpr quint64 kMaxRiffDataBytes =
@@ -131,7 +134,9 @@ void AudioWriter::write(const AudioSegment& segment) {
     stream.setByteOrder(QDataStream::LittleEndian);
     for (int frame = 0; frame < frames; ++frame) {
         for (int channel = 0; channel < writeChannels; ++channel) {
-            const float sample = segment.channelData[channel][frame];
+            const float sample = channel < channels
+                ? segment.channelData[channel][frame]
+                : 0.0f;
             const float clamped = std::clamp(std::isfinite(sample) ? sample : 0.0f,
                                              -1.0f, 1.0f);
             if (impl_->bitDepth == 24) {
