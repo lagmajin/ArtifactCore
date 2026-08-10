@@ -285,6 +285,10 @@ bool AudioRenderer::openDevice(const QString &deviceName) {
 
   // 排他モード変更を反映するためバックエンドを再作成
   impl_->backend = impl_->createBackend(impl_->backendType);
+  if (!impl_->backend) {
+    impl_->deviceOpen.store(false, std::memory_order_release);
+    return false;
+  }
 
   const size_t attempt = ++impl_->openAttemptCount;
   if (attempt <= 12 || (attempt % 50) == 0) {
@@ -364,7 +368,9 @@ void AudioRenderer::closeDevice() {
                                   : QStringLiteral("<null>"))
              << "bufferedFrames=" << bufferedFrames();
     impl_->active.store(false, std::memory_order_release);
-    impl_->backend->close();
+    if (impl_->backend) {
+      impl_->backend->close();
+    }
     impl_->deviceOpen.store(false, std::memory_order_release);
     impl_->deviceName.clear();
     if (impl_->ringBuffer) {
@@ -379,7 +385,7 @@ bool AudioRenderer::isDeviceOpen() const {
 
 void AudioRenderer::start() {
   if (impl_ && !impl_->active.load(std::memory_order_acquire)) {
-    if (!impl_->deviceOpen.load(std::memory_order_acquire)) {
+    if (!impl_->deviceOpen.load(std::memory_order_acquire) || !impl_->backend) {
       qWarning() << "[AudioRenderer] start requested without open device";
       return;
     }
@@ -413,7 +419,9 @@ void AudioRenderer::requestStop() {
     const size_t count = ++impl_->stopCount;
     qDebug() << "[AudioRenderer] requestStop"
              << "count=" << count;
-    impl_->backend->requestStop();
+    if (impl_->backend) {
+      impl_->backend->requestStop();
+    }
     if (impl_->ringBuffer) {
       impl_->ringBuffer->clear();
     }
@@ -428,7 +436,9 @@ void AudioRenderer::stop() {
              << "underflows=" << impl_->underflowCount.load()
              << "partialUnderflows=" << impl_->partialUnderflowCount.load()
              << "overflows=" << impl_->overflowCount.load();
-    impl_->backend->stop();
+    if (impl_->backend) {
+      impl_->backend->stop();
+    }
     if (impl_->ringBuffer) {
       impl_->ringBuffer->clear();
     }
