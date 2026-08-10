@@ -163,6 +163,14 @@ void AudioWriter::write(const AudioSegment& segment) {
             }
         }
     }
+    if (stream.status() != QDataStream::Ok) {
+        // Do not advance the RIFF byte count after a partial/device failure.
+        // The file cannot be finalized as a trustworthy WAV once the stream
+        // reports an error, so stop accepting additional segments.
+        impl_->isWriting = false;
+        impl_->file.close();
+        return;
+    }
     impl_->dataBytes += static_cast<quint32>(bytesPerSegment);
 }
 
