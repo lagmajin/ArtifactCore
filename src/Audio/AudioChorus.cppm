@@ -47,11 +47,15 @@ void AudioChorus::process(AudioSegment& segment, const AudioSegment* /*sideChain
         return;
     }
     int needed = frames + maxDelay + 64;
-    if (delayBufSize_ < needed) {
-        delayBuffer_.resize(needed, 0.0f);
-        delayBufSize_ = needed;
+    if (needed > std::numeric_limits<int>::max() / 2) {
+        return;
     }
-    writePos_ %= needed;
+    if (delayBufSize_ < needed) {
+        delayBuffer_.assign(static_cast<std::size_t>(needed) * 2, 0.0f);
+        delayBufSize_ = needed;
+        writePositions_[0] = 0;
+        writePositions_[1] = 0;
+    }
 
     for (int ch = 0; ch < std::min(channels, 2); ++ch) {
         if (ch >= segment.channelData.size()) break;
@@ -59,22 +63,27 @@ void AudioChorus::process(AudioSegment& segment, const AudioSegment* /*sideChain
         const int samples = std::min(frames, segment.channelData[ch].size());
         if (samples <= 0) continue;
         float* inData = segment.channelData[ch].data();
+        int& writePos = writePositions_[ch];
+        writePos %= needed;
+        const std::size_t channelOffset = static_cast<std::size_t>(ch) *
+                                          static_cast<std::size_t>(needed);
 
         for (int i = 0; i < samples; ++i) {
             const float input = std::isfinite(inData[i]) ? inData[i] : 0.0f;
-            delayBuffer_[writePos_] = input;
+            delayBuffer_[channelOffset + static_cast<std::size_t>(writePos)] = input;
 
             float lfo = std::sin(2.0f * 3.14159265f * rate * i / sampleRate);
             int delaySamples = static_cast<int>(baseDelayMs * sampleRate / 1000.0f)
                              + static_cast<int>(lfo * depth * maxDelay);
             delaySamples = std::clamp(delaySamples, 1, needed - 1);
 
-            int readPos = (writePos_ - delaySamples + needed) % needed;
-            const float delayed = saturateChorusSample(delayBuffer_[readPos]);
+            int readPos = (writePos - delaySamples + needed) % needed;
+            const float delayed = saturateChorusSample(
+                delayBuffer_[channelOffset + static_cast<std::size_t>(readPos)]);
 
             inData[i] = saturateChorusSample(input * 0.7f + delayed * 0.3f);
 
-            writePos_ = (writePos_ + 1) % needed;
+            writePos = (writePos + 1) % needed;
         }
     }
 }

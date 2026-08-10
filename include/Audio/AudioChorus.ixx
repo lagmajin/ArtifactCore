@@ -63,9 +63,12 @@ private:
     float baseDelayMs_ = 20.0f;
 
     // Instance-safe buffers (was thread_local)
+    // Keep independent delay history and write positions for L/R. Sharing a
+    // single ring between channels leaks one channel's delayed signal into
+    // the other whenever a stereo segment is processed.
     std::vector<float> delayBuffer_;
     int delayBufSize_ = 0;
-    int writePos_ = 0;
+    int writePositions_[2] = {0, 0};
 };
 
 } // namespace ArtifactCore
