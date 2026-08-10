@@ -157,6 +157,18 @@ size_t AudioCache::getMemoryUsage() const
     return totalBytes;
 }
 
+void AudioCache::setMaxCacheFrames(int maxFrames)
+{
+    QWriteLocker locker(&lock_);
+    maxCacheFrames_ = std::max(1, maxFrames);
+}
+
+int AudioCache::getMaxCacheFrames() const
+{
+    QReadLocker locker(&lock_);
+    return maxCacheFrames_;
+}
+
 void AudioCache::clear()
 {
     QWriteLocker locker(&lock_);

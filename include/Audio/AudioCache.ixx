@@ -52,8 +52,8 @@ public:
     size_t getMemoryUsage() const;  // バイト単位
     
     // 設定
-    void setMaxCacheFrames(int maxFrames) { maxCacheFrames_ = std::max(1, maxFrames); }
-    int getMaxCacheFrames() const { return maxCacheFrames_; }
+    void setMaxCacheFrames(int maxFrames);
+    int getMaxCacheFrames() const;
     
     // クリア
     void clear();
