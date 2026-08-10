@@ -1,5 +1,6 @@
 module;
 #include <utility>
+#include <algorithm>
 #include <QtGlobal>
 #include <QVector>
 class tst_QList;
@@ -34,11 +35,17 @@ export namespace ArtifactCore {
 
   // 便利関数：全チャンネルのサンプル数を取得
   int frameCount() const {
-   return channelData.isEmpty() ? 0 : channelData[0].size();
+   if (channelData.isEmpty()) return 0;
+   int frames = channelData[0].size();
+   for (int channel = 1; channel < channelData.size(); ++channel) {
+    frames = std::min(frames, channelData[channel].size());
+   }
+   return frames;
   }
 
   void setFrameCount(int frames) {
-    for (auto& ch : channelData) ch.resize(frames);
+    const int safeFrames = std::max(0, frames);
+    for (auto& ch : channelData) ch.resize(safeFrames);
   }
 
   void clear() {
