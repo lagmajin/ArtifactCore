@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <vector>
 #include <memory>
+#include <cmath>
 
 #include <algorithm>
 #include <QString>
@@ -84,7 +85,8 @@ namespace ArtifactCore {
   }
 
   QVariant RenderJobModel::data(const QModelIndex& index, int role) const {
-    if (!index.isValid() || index.row() >= (int)impl_->jobs.size()) return QVariant();
+    if (!index.isValid() || index.row() < 0 ||
+        index.row() >= static_cast<int>(impl_->jobs.size())) return QVariant();
     
     if (role == Qt::DisplayRole) {
       const auto& job = impl_->jobs[index.row()];
@@ -185,7 +187,9 @@ namespace ArtifactCore {
 
   void RenderJobModel::setJobProgress(int row, float progress) {
     if (row < 0 || row >= (int)impl_->jobs.size()) return;
-    impl_->jobs[row]->progress = progress;
+    impl_->jobs[row]->progress = std::isfinite(progress)
+        ? std::clamp(progress, 0.0f, 1.0f)
+        : 0.0f;
     emit dataChanged(index(row, 2), index(row, 2), {Qt::DisplayRole});
   }
 
