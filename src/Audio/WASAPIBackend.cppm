@@ -289,7 +289,8 @@ bool WASAPIBackend::open(const AudioDeviceInfo &device,
     // 純粋な PCM フォーマットで初期化する（WAVE_FORMAT_EXTENSIBLE 不可）
     WAVEFORMATEX exclusiveFmt = {};
     exclusiveFmt.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
-    exclusiveFmt.nChannels = static_cast<WORD>(std::min(2, impl_->mixChannels));
+    exclusiveFmt.nChannels = static_cast<WORD>(
+        std::min<UINT32>(2u, impl_->mixChannels));
     exclusiveFmt.nSamplesPerSec = impl_->mixSampleRate;
     exclusiveFmt.wBitsPerSample = 32;
     exclusiveFmt.nBlockAlign = exclusiveFmt.nChannels * (exclusiveFmt.wBitsPerSample / 8);
