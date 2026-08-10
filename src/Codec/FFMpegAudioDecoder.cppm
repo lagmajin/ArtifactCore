@@ -362,6 +362,7 @@ namespace ArtifactCore
   decoderDraining_ = false;
   decoderDrained_ = false;
   nextExpectedFrame_ = 0;
+  seekTargetFrame_ = -1;
   seekTargetSeconds_ = -1.0;
  }
 
