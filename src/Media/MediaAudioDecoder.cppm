@@ -376,7 +376,11 @@ namespace ArtifactCore {
    return result;
   }
 
-  int outSamples = swr_get_delay(impl_->swrCtx_, impl_->outSampleRate_) + frame->nb_samples;
+  const int outSamples = swr_get_out_samples(impl_->swrCtx_, frame->nb_samples);
+  if (outSamples <= 0) {
+   av_frame_free(&frame);
+   return result;
+  }
   int bytesPerSample = impl_->outBytesPerSample_;
   uint8_t* outBuffer = new uint8_t[outSamples * bytesPerSample];
   uint8_t* outPtr[1] = { outBuffer };
@@ -427,10 +431,10 @@ namespace ArtifactCore {
  QByteArray MediaAudioDecoder::flushAndGetRemaining() {
   if (!impl_ || !impl_->swrCtx_) return QByteArray();
 
-  int remaining = swr_get_delay(impl_->swrCtx_, 44100);
+  const int remaining = swr_get_out_samples(impl_->swrCtx_, 0);
   if (remaining <= 0) return QByteArray();
 
-  int bytesPerSample = 2 * 2;
+  const int bytesPerSample = impl_->outBytesPerSample_;
   uint8_t* outBuffer = new uint8_t[remaining * bytesPerSample];
   uint8_t* outPtr[1] = { outBuffer };
 
