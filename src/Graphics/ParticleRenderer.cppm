@@ -625,6 +625,11 @@ void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
 }
 
 void ParticleRenderer::setProjectionMatrix(const float* matrix) {
+    if (!matrix) {
+        debugState_ = QStringLiteral("state=matrix-update-skipped projection=0");
+        qWarning() << "[ParticleRenderer] setProjectionMatrix() skipped: null matrix";
+        return;
+    }
     memcpy(constants_.projMatrix, matrix, sizeof(float) * 16);
     debugState_ = QStringLiteral("state=matrix-updated view=%1 proj=%2")
                       .arg(constants_.viewMatrix[0] != 0.0f || constants_.viewMatrix[5] != 0.0f || constants_.viewMatrix[10] != 0.0f ? 1 : 0)
@@ -632,6 +637,11 @@ void ParticleRenderer::setProjectionMatrix(const float* matrix) {
 }
 
 void ParticleRenderer::setViewMatrix(const float* matrix) {
+    if (!matrix) {
+        debugState_ = QStringLiteral("state=matrix-update-skipped view=0");
+        qWarning() << "[ParticleRenderer] setViewMatrix() skipped: null matrix";
+        return;
+    }
     memcpy(constants_.viewMatrix, matrix, sizeof(float) * 16);
     debugState_ = QStringLiteral("state=matrix-updated view=%1 proj=%2")
                       .arg(1)
