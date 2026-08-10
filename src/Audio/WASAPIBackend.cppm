@@ -126,23 +126,13 @@ public:
         return;
       }
 
-      // バッファ全体を取得してオフセット位置から書き込み
+      // GetBuffer returns the next writable region. Request only the frames
+      // available after the current padding; requesting the full buffer while
+      // padding is non-zero can fail with AUDCLNT_E_BUFFER_TOO_LARGE.
       BYTE *data = nullptr;
-      if (FAILED(renderClient->GetBuffer(bufferFrameCount, &data)) || !data) {
+      if (FAILED(renderClient->GetBuffer(framesToWrite, &data)) || !data) {
         return;
       }
-
-      const size_t frameSize = mixFormatIsFloat
-                                   ? (sizeof(float) * mixChannels)
-                                   : (sizeof(std::int16_t) * mixChannels);
-
-      // 前後の未使用領域は無音で埋める
-      memset(data, 0, padding * frameSize);
-      memset(data + (padding + framesToWrite) * frameSize, 0,
-             (bufferFrameCount - padding - framesToWrite) * frameSize);
-
-      // 書き込み開始位置をオフセット
-      data += padding * frameSize;
 
       const int channels = std::max(1, mixChannels);
       const size_t sampleCount =
