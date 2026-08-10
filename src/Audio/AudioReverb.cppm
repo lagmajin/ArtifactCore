@@ -20,6 +20,11 @@ void AudioReverb::process(AudioSegment& segment, const AudioSegment* /*sideChain
     const int frames = segment.frameCount();
     if (channels == 0 || frames == 0) return;
 
+    const float decay = std::clamp(
+        std::isfinite(decay_) ? decay_ : 0.5f, 0.0f, 1.0f);
+    const float mix = std::clamp(
+        std::isfinite(mix_) ? mix_ : 0.3f, 0.0f, 1.0f);
+
     int combDelays[4] = {151, 307, 613, 1225};
     int maxDelay = 1225;
     int needed = std::max(frames, maxDelay) + 64;
@@ -45,12 +50,12 @@ void AudioReverb::process(AudioSegment& segment, const AudioSegment* /*sideChain
             for (int c = 0; c < 4; ++c) {
                 int idx = i % needed;
                 float bufOut = combBuffers_[c * needed + (idx + combDelays[c]) % needed];
-                combBuffers_[c * needed + idx] = bufOut + input * decay_;
+                combBuffers_[c * needed + idx] = bufOut + input * decay;
                 output += bufOut;
             }
             output *= 0.25f;
 
-            data[i] = data[i] * (1.0f - mix_) + output * mix_;
+            data[i] = data[i] * (1.0f - mix) + output * mix;
         }
     }
 }

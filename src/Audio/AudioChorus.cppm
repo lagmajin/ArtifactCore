@@ -21,12 +21,22 @@ void AudioChorus::process(AudioSegment& segment, const AudioSegment* /*sideChain
     const int sampleRate = segment.sampleRate;
     if (channels == 0 || frames == 0 || sampleRate <= 0) return;
 
-    const int maxDelay = static_cast<int>(baseDelayMs_ * sampleRate / 1000.0) + 1;
+    const float baseDelayMs = std::clamp(
+        std::isfinite(baseDelayMs_) ? baseDelayMs_ : 20.0f, 0.0f, 50.0f);
+    const float rate = std::clamp(
+        std::isfinite(rate_) ? rate_ : 1.5f, 0.0f, 20.0f);
+    const float depth = std::clamp(
+        std::isfinite(depth_) ? depth_ : 0.5f, 0.0f, 1.0f);
+    const double requestedMaxDelay =
+        static_cast<double>(baseDelayMs) * sampleRate / 1000.0;
+    const int maxDelay = static_cast<int>(std::clamp(
+        requestedMaxDelay, 0.0, 47999.0)) + 1;
     int needed = frames + maxDelay + 64;
     if (delayBufSize_ < needed) {
         delayBuffer_.resize(needed, 0.0f);
         delayBufSize_ = needed;
     }
+    writePos_ %= needed;
 
     for (int ch = 0; ch < std::min(channels, 2); ++ch) {
         if (ch >= segment.channelData.size()) break;
@@ -38,9 +48,9 @@ void AudioChorus::process(AudioSegment& segment, const AudioSegment* /*sideChain
         for (int i = 0; i < samples; ++i) {
             delayBuffer_[writePos_] = inData[i];
 
-            float lfo = std::sin(2.0f * 3.14159265f * rate_ * i / sampleRate);
-            int delaySamples = static_cast<int>(baseDelayMs_ * sampleRate / 1000.0f)
-                             + static_cast<int>(lfo * depth_ * maxDelay);
+            float lfo = std::sin(2.0f * 3.14159265f * rate * i / sampleRate);
+            int delaySamples = static_cast<int>(baseDelayMs * sampleRate / 1000.0f)
+                             + static_cast<int>(lfo * depth * maxDelay);
             delaySamples = std::clamp(delaySamples, 1, needed - 1);
 
             int readPos = (writePos_ - delaySamples + needed) % needed;

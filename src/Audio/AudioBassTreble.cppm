@@ -23,9 +23,14 @@ void AudioBassTreble::process(AudioSegment& segment, const AudioSegment* /*sideC
     const int frames = segment.frameCount();
     if (channels == 0 || frames == 0 || segment.sampleRate <= 0) return;
 
+    const float bassDb = std::clamp(
+        std::isfinite(bassDb_) ? bassDb_ : 0.0f, -24.0f, 24.0f);
+    const float trebleDb = std::clamp(
+        std::isfinite(trebleDb_) ? trebleDb_ : 0.0f, -24.0f, 24.0f);
+
     // dBから線形ゲインに変換（共通係数計算）
-    const float bassGain = std::pow(10.0f, bassDb_ / 20.0f);
-    const float trebleGain = std::pow(10.0f, trebleDb_ / 20.0f);
+    const float bassGain = std::pow(10.0f, bassDb / 20.0f);
+    const float trebleGain = std::pow(10.0f, trebleDb / 20.0f);
 
     // 簡易ローシェルフ/ハイシェルフ
     // Bass: 100Hz以下をブースト/カット
