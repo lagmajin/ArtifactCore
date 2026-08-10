@@ -92,8 +92,19 @@ float AudioAnalyzer::getIntensity(const std::vector<float>& spectrum, float freq
     float binSize = static_cast<float>(sampleRate) / (2.0f * (n - 1));
     if (!std::isfinite(binSize) || binSize <= 0.0f) return 0.0f;
     
-    int startIdx = static_cast<int>(freqStart / binSize);
-    int endIdx = static_cast<int>(freqEnd / binSize);
+    const auto frequencyToIndex = [binSize, n](float frequency) {
+        const double rawIndex = static_cast<double>(frequency) /
+                                static_cast<double>(binSize);
+        if (!std::isfinite(rawIndex) || rawIndex >= n) {
+            return n - 1;
+        }
+        if (rawIndex <= 0.0) {
+            return 0;
+        }
+        return static_cast<int>(rawIndex);
+    };
+    int startIdx = frequencyToIndex(freqStart);
+    int endIdx = frequencyToIndex(freqEnd);
     
     startIdx = std::clamp(startIdx, 0, n - 1);
     endIdx = std::clamp(endIdx, startIdx, n - 1);
