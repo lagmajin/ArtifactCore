@@ -135,15 +135,22 @@ namespace ArtifactCore
   if (avformat_find_stream_info(fmtCtx_, &streamInfoOpts) < 0)
   {
    av_dict_free(&streamInfoOpts);
+   closeFile();
    return false;
   }
   av_dict_free(&streamInfoOpts);
   const AVCodec* codec = nullptr;
   audioStreamIndex_ = av_find_best_stream(fmtCtx_, AVMEDIA_TYPE_AUDIO, -1, -1, &codec, 0);
-  if (audioStreamIndex_ < 0) return false;
+  if (audioStreamIndex_ < 0) {
+   closeFile();
+   return false;
+  }
 
   codecCtx_ = avcodec_alloc_context3(codec);
-  if (!codecCtx_) return false;
+  if (!codecCtx_) {
+   closeFile();
+   return false;
+  }
   if (avcodec_parameters_to_context(codecCtx_, fmtCtx_->streams[audioStreamIndex_]->codecpar) < 0) {
    closeFile();
    return false;
@@ -214,7 +221,8 @@ namespace ArtifactCore
  }
 
  void FFmpegAudioDecoder::Impl::seek(double seconds) {
-  if (!fmtCtx_ || !codecCtx_ || audioStreamIndex_ < 0) return;
+  if (!fmtCtx_ || !codecCtx_ || audioStreamIndex_ < 0 ||
+      !std::isfinite(seconds) || seconds < 0.0) return;
 
   AVRational tb = fmtCtx_->streams[audioStreamIndex_]->time_base;
   int64_t target_ts = av_rescale_q(
