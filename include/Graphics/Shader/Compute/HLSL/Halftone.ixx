@@ -8,14 +8,9 @@ export namespace ArtifactCore::Shaders::Halftone
 inline constexpr const char* HalftoneSource = R"(
 cbuffer HalftoneParams : register(b0)
 {
-    float g_DotSize;
-    float g_AngleRad;
-    float g_Contrast;
-    int   g_ColorMode;  // 0=mono, 1=color, 2=CMYK
-    float g_EllipseAspect;
-    float g_CMYK_Angles[4];
-    int   g_DotShape;   // 0=Circle, 1=Ellipse, 2=Diamond, 3=Line, 4=Cross
-    int2  g_Padding;
+    float4 g_DotParams;       // dot size, angle radians, contrast, ellipse aspect
+    int4   g_ModeParams;      // color mode, dot shape, padding
+    float4 g_CMYK_Angles;
 };
 
 Texture2D<float4> g_InputTexture : register(t0);
@@ -77,28 +72,28 @@ void HalftoneCS(uint3 id : SV_DispatchThreadID)
     float4 color = g_InputTexture.Load(int3(id.xy, 0));
     float px = (float)id.x + 0.5f;
     float py = (float)id.y + 0.5f;
-    float cosA = cos(g_AngleRad);
-    float sinA = sin(g_AngleRad);
+    float cosA = cos(g_DotParams.y);
+    float sinA = sin(g_DotParams.y);
     float rx = px * cosA - py * sinA;
     float ry = px * sinA + py * cosA;
-    float halfDot = g_DotSize * 0.5f;
+    float halfDot = g_DotParams.x * 0.5f;
 
-    if (g_ColorMode == 0) { // Monochrome
+    if (g_ModeParams.x == 0) { // Monochrome
         float lum = dot(color.rgb, float3(0.299f, 0.587f, 0.114f));
-        float intensity = clamp(lum * g_Contrast, 0.0f, 1.0f);
-        float ink = 1.0f - channelCoverage(rx, ry, g_DotSize, halfDot,
-                                           intensity, g_DotShape, g_EllipseAspect);
+        float intensity = clamp(lum * g_DotParams.z, 0.0f, 1.0f);
+        float ink = 1.0f - channelCoverage(rx, ry, g_DotParams.x, halfDot,
+                                           intensity, g_ModeParams.y, g_DotParams.w);
         g_OutputTexture[id.xy] = float4(ink, ink, ink, color.a);
         return;
     }
 
-    if (g_ColorMode == 1) { // Color
-        float r = clamp(color.r * g_Contrast, 0.0f, 1.0f);
-        float g = clamp(color.g * g_Contrast, 0.0f, 1.0f);
-        float b = clamp(color.b * g_Contrast, 0.0f, 1.0f);
-        float cr = 1.0f - channelCoverage(rx, ry, g_DotSize, halfDot, r, g_DotShape, g_EllipseAspect);
-        float cg = 1.0f - channelCoverage(rx, ry, g_DotSize, halfDot, g, g_DotShape, g_EllipseAspect);
-        float cb = 1.0f - channelCoverage(rx, ry, g_DotSize, halfDot, b, g_DotShape, g_EllipseAspect);
+    if (g_ModeParams.x == 1) { // Color
+        float r = clamp(color.r * g_DotParams.z, 0.0f, 1.0f);
+        float g = clamp(color.g * g_DotParams.z, 0.0f, 1.0f);
+        float b = clamp(color.b * g_DotParams.z, 0.0f, 1.0f);
+        float cr = 1.0f - channelCoverage(rx, ry, g_DotParams.x, halfDot, r, g_ModeParams.y, g_DotParams.w);
+        float cg = 1.0f - channelCoverage(rx, ry, g_DotParams.x, halfDot, g, g_ModeParams.y, g_DotParams.w);
+        float cb = 1.0f - channelCoverage(rx, ry, g_DotParams.x, halfDot, b, g_ModeParams.y, g_DotParams.w);
         g_OutputTexture[id.xy] = float4(cr, cg, cb, color.a);
         return;
     }
@@ -116,9 +111,9 @@ void HalftoneCS(uint3 id : SV_DispatchThreadID)
         float cA = cos(aRad), sA = sin(aRad);
         float rrx = px * cA - py * sA;
         float rry = px * sA + py * cA;
-        float intensity = clamp(cmyk[ch] * g_Contrast, 0.0f, 1.0f);
-        float ink = channelCoverage(rrx, rry, g_DotSize, halfDot,
-                                    intensity, g_DotShape, g_EllipseAspect);
+        float intensity = clamp(cmyk[ch] * g_DotParams.z, 0.0f, 1.0f);
+        float ink = channelCoverage(rrx, rry, g_DotParams.x, halfDot,
+                                    intensity, g_ModeParams.y, g_DotParams.w);
         result *= ink;
     }
     g_OutputTexture[id.xy] = float4(result, color.a);

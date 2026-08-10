@@ -24,12 +24,14 @@ HalftoneGPUComputer::HalftoneGPUComputer(GpuContext &context)
 HalftoneGPUComputer::~HalftoneGPUComputer() = default;
 
 void HalftoneGPUComputer::initialize() {
+    if (!context_.RenderDevice()) return;
     createPipeline();
     createBuffers();
 }
 
 void HalftoneGPUComputer::createPipeline() {
     static ShaderResourceVariableDesc vars[] = {
+        {SHADER_TYPE_COMPUTE, "HalftoneParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_InputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_COMPUTE, "g_OutputTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
@@ -39,7 +41,7 @@ void HalftoneGPUComputer::createPipeline() {
     desc.entryPoint = Shaders::Halftone::HalftoneEntryPoint;
     desc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     desc.variables = vars;
-    desc.variableCount = 2;
+    desc.variableCount = 3;
     desc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     executor_.build(desc);
     executor_.createShaderResourceBinding(true);
@@ -47,11 +49,12 @@ void HalftoneGPUComputer::createPipeline() {
 
 void HalftoneGPUComputer::createBuffers() {
     auto *device = context_.RenderDevice();
+    if (!device) return;
     BufferDesc desc;
     desc.Name = "HalftoneParamsCB";
     desc.Usage = USAGE_DYNAMIC;
     desc.BindFlags = BIND_UNIFORM_BUFFER;
-    desc.Size = sizeof(float) * 12 + sizeof(int) * 4;
+    desc.Size = 48;
     desc.CPUAccessFlags = CPU_ACCESS_WRITE;
     device->CreateBuffer(desc, nullptr, &pParamsCB_);
 }
@@ -60,34 +63,41 @@ void HalftoneGPUComputer::apply(IDeviceContext *pContext,
                                  ITextureView *inputTexture,
                                  ITextureView *outputTexture,
                                  const HalftoneGPUParams &params) {
-    if (!ready() || !inputTexture || !outputTexture) return;
+    if (!ready() || !pContext || !inputTexture || !outputTexture ||
+        !inputTexture->GetTexture() || !outputTexture->GetTexture()) return;
+
+    const auto inputDesc = inputTexture->GetTexture()->GetDesc();
+    const auto outputDesc = outputTexture->GetTexture()->GetDesc();
+    if (inputDesc.Width == 0 || inputDesc.Height == 0 ||
+        outputDesc.Width == 0 || outputDesc.Height == 0 ||
+        inputDesc.Width != outputDesc.Width || inputDesc.Height != outputDesc.Height) return;
 
     void *pData = nullptr;
     pContext->MapBuffer(pParamsCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        struct {
-            float dotSize, angleRad, contrast; int colorMode;
-            float ellipseAspect, cmykAngles[4]; int dotShape; int pad;
-        } cb;
-        cb.dotSize = params.dotSize;
-        cb.angleRad = params.angleDeg * 3.14159265f / 180.0f;
-        cb.contrast = params.contrast;
-        cb.colorMode = params.colorMode;
-        cb.ellipseAspect = params.ellipseAspect;
-        std::memcpy(cb.cmykAngles, params.cmykAngles, sizeof(float) * 4);
-        cb.dotShape = params.dotShape;
-        cb.pad = 0;
-        std::memcpy(pData, &cb, sizeof(cb));
-        pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
-    }
+    if (!pData) return;
 
-    executor_.setBuffer("HalftoneParams", pParamsCB_);
-    executor_.setTextureView("g_InputTexture", inputTexture);
-    executor_.setTextureView("g_OutputTexture", outputTexture);
+    struct HalftoneConstantBuffer {
+        float dotSize, angleRad, contrast, ellipseAspect;
+        int colorMode, dotShape, pad0, pad1;
+        float cmykAngles[4];
+    } cb{};
+    static_assert(sizeof(HalftoneConstantBuffer) == 48);
+    cb.dotSize = params.dotSize;
+    cb.angleRad = params.angleDeg * 3.14159265f / 180.0f;
+    cb.contrast = params.contrast;
+    cb.ellipseAspect = params.ellipseAspect;
+    cb.colorMode = params.colorMode;
+    cb.dotShape = params.dotShape;
+    std::memcpy(cb.cmykAngles, params.cmykAngles, sizeof(float) * 4);
+    std::memcpy(pData, &cb, sizeof(cb));
+    pContext->UnmapBuffer(pParamsCB_, MAP_WRITE);
 
-    const auto w = outputTexture->GetTexture()->GetDesc().Width;
-    const auto h = outputTexture->GetTexture()->GetDesc().Height;
-    executor_.dispatch(pContext, ComputeExecutor::makeDispatchAttribs(w, h, 1, 16, 16, 1));
+    if (!executor_.setBuffer("HalftoneParams", pParamsCB_) ||
+        !executor_.setTextureView("g_InputTexture", inputTexture) ||
+        !executor_.setTextureView("g_OutputTexture", outputTexture)) return;
+
+    executor_.dispatch(pContext, ComputeExecutor::makeDispatchAttribs(
+        outputDesc.Width, outputDesc.Height, 1, 16, 16, 1));
 }
 
 bool HalftoneGPUComputer::ready() const { return executor_.ready() && pParamsCB_; }
