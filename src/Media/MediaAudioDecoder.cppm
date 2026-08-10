@@ -436,6 +436,11 @@ namespace ArtifactCore {
  void MediaAudioDecoder::flush() {
   if (impl_ && impl_->codecContext_) {
    avcodec_flush_buffers(impl_->codecContext_);
+   // avcodec_flush_buffers() does not clear the resampler's delayed samples.
+   // Recreate it so a seek/stop cannot emit PCM from the previous position.
+   if (!impl_->setupResampler()) {
+    impl_->lastError_ = UniString(QStringLiteral("Failed to reset audio resampler"));
+   }
   }
  }
 
