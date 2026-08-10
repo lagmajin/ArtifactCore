@@ -220,6 +220,13 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
                 output.channelData[5][i] =
                     rightSurround[i] + rightBack[i] * impl_->backMixLevel_;
             }
+        } else if (source.layout == AudioChannelLayout::Mono &&
+                   source.channelCount() >= 1) {
+            for (int i = 0; i < frames; ++i) {
+                const float sample = sampleAt(source.channelData[0], i);
+                output.channelData[0][i] = sample;
+                output.channelData[1][i] = sample;
+            }
         } else {
             const int copyChannels = std::min(
                 targetChannels, source.channelCount());
