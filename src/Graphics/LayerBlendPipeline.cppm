@@ -25,6 +25,13 @@ float sanitizeBlendOpacity(const float opacity)
     return std::isfinite(opacity) ? std::clamp(opacity, 0.0f, 1.0f) : 1.0f;
 }
 
+void sanitizeMatteOpacities(MatteTrackParams& params)
+{
+    params.matteOpacity0 = sanitizeBlendOpacity(params.matteOpacity0);
+    params.matteOpacity1 = sanitizeBlendOpacity(params.matteOpacity1);
+    params.matteOpacity2 = sanitizeBlendOpacity(params.matteOpacity2);
+}
+
 }
 
 struct LayerBlendPipeline::Impl
@@ -288,7 +295,9 @@ bool LayerBlendPipeline::applyTrackMatte(
         qWarning() << "[LayerBlendPipeline::applyTrackMatte] failed to map constant buffer";
         return false;
     }
-    memcpy(pData, &params, sizeof(MatteTrackParams));
+    MatteTrackParams sanitizedParams = params;
+    sanitizeMatteOpacities(sanitizedParams);
+    memcpy(pData, &sanitizedParams, sizeof(sanitizedParams));
     ctx->UnmapBuffer(pImpl_->pMatteTrackCB_, MAP_WRITE);
 
     // Keep all declared SRV slots bound. Unused slots reuse source 0, while
