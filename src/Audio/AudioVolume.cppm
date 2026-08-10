@@ -12,13 +12,24 @@ import Audio.Decibels;
 namespace ArtifactCore
 {
 
+namespace {
+
+float sanitizeVolume(const float volume)
+{
+ return std::isfinite(volume)
+     ? std::clamp(volume, 0.0f, 2.0f)
+     : 1.0f;
+}
+
+}
+
 class AudioVolume::Impl
 {
 public:
  float volume = 1.0f;
  bool muted = false;
 
-  explicit Impl(float vol = 1.0f) : volume(std::clamp(vol, 0.0f, 2.0f)), muted(false) {}
+  explicit Impl(float vol = 1.0f) : volume(sanitizeVolume(vol)), muted(false) {}
  ~Impl() = default;
 };
 
@@ -51,7 +62,7 @@ float AudioVolume::volume() const
 
 void AudioVolume::setVolume(float v)
 {
-  impl_->volume = std::clamp(v, 0.0f, 2.0f);
+  impl_->volume = sanitizeVolume(v);
 }
 
 float AudioVolume::toDecibels() const
@@ -65,8 +76,20 @@ float AudioVolume::toDecibels() const
 
 AudioVolume AudioVolume::fromDecibels(float dB)
 {
+ if (std::isnan(dB)) {
+  return AudioVolume(1.0f);
+ }
+ if (dB == -std::numeric_limits<float>::infinity()) {
+  return AudioVolume(0.0f);
+ }
+ if (dB == std::numeric_limits<float>::infinity()) {
+  return AudioVolume(2.0f);
+ }
  const float linearVolume = std::pow(10.0f, dB / 20.0f);
- return AudioVolume(linearVolume);
+ if (!std::isfinite(linearVolume)) {
+  return AudioVolume(linearVolume > 0.0f ? 2.0f : 0.0f);
+ }
+ return AudioVolume(sanitizeVolume(linearVolume));
 }
 
 AudioDecibels AudioVolume::toDecibelsObject() const
@@ -81,7 +104,7 @@ AudioVolume AudioVolume::fromDecibelsObject(const AudioDecibels& dB)
 
 AudioVolume AudioVolume::interpolate(const AudioVolume& target, float t) const
 {
- t = std::clamp(t, 0.0f, 1.0f);
+ t = std::isfinite(t) ? std::clamp(t, 0.0f, 1.0f) : 0.0f;
  const float interpolated = impl_->volume + (target.impl_->volume - impl_->volume) * t;
  return AudioVolume(interpolated);
 }
@@ -108,7 +131,9 @@ bool AudioVolume::isNormalized() const
 
 void AudioVolume::clamp()
 {
- impl_->volume = std::clamp(impl_->volume, 0.0f, 1.0f);
+ impl_->volume = std::isfinite(impl_->volume)
+     ? std::clamp(impl_->volume, 0.0f, 1.0f)
+     : 1.0f;
 }
 
 AudioVolume AudioVolume::createPreset(Preset preset)
@@ -169,7 +194,7 @@ AudioVolume AudioVolume::operator*(float scalar) const { return AudioVolume(impl
 
 AudioVolume AudioVolume::operator/(float scalar) const
 {
- if (std::abs(scalar) < EPSILON) {
+ if (!std::isfinite(scalar) || std::abs(scalar) < EPSILON) {
   return AudioVolume(0.0f);
  }
  return AudioVolume(impl_->volume / scalar);
@@ -177,26 +202,26 @@ AudioVolume AudioVolume::operator/(float scalar) const
 
 AudioVolume& AudioVolume::operator+=(const AudioVolume& other)
 {
- impl_->volume = std::clamp(impl_->volume + other.impl_->volume, 0.0f, 2.0f);
+ impl_->volume = sanitizeVolume(impl_->volume + other.impl_->volume);
  return *this;
 }
 
 AudioVolume& AudioVolume::operator-=(const AudioVolume& other)
 {
- impl_->volume = std::clamp(impl_->volume - other.impl_->volume, 0.0f, 2.0f);
+ impl_->volume = sanitizeVolume(impl_->volume - other.impl_->volume);
  return *this;
 }
 
 AudioVolume& AudioVolume::operator*=(float scalar)
 {
- impl_->volume = std::clamp(impl_->volume * scalar, 0.0f, 2.0f);
+ impl_->volume = sanitizeVolume(impl_->volume * scalar);
  return *this;
 }
 
 AudioVolume& AudioVolume::operator/=(float scalar)
 {
- if (std::abs(scalar) > EPSILON) {
-  impl_->volume = std::clamp(impl_->volume / scalar, 0.0f, 2.0f);
+ if (std::isfinite(scalar) && std::abs(scalar) > EPSILON) {
+  impl_->volume = sanitizeVolume(impl_->volume / scalar);
  }
  return *this;
 }
