@@ -80,7 +80,20 @@ AudioSegment AudioDownMixer::processChannelMap(
 }
 
 AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
-    if (source.layout == impl_->targetLayout_) {
+    const auto expectedChannelCount = [](AudioChannelLayout layout) {
+        switch (layout) {
+        case AudioChannelLayout::Mono: return 1;
+        case AudioChannelLayout::Stereo: return 2;
+        case AudioChannelLayout::Surround51: return 6;
+        case AudioChannelLayout::Surround71: return 8;
+        case AudioChannelLayout::Custom10ch: return 10;
+        case AudioChannelLayout::Ambisonics: return 0;
+        }
+        return 0;
+    };
+    const int expectedChannels = expectedChannelCount(impl_->targetLayout_);
+    if (source.layout == impl_->targetLayout_ &&
+        (expectedChannels == 0 || source.channelCount() == expectedChannels)) {
         return source; // No conversion needed
     }
 
