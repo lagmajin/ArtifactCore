@@ -324,10 +324,12 @@ bool LayerBlendPipeline::applyTrackMatte(
     // Write constant buffer
     void* pData = nullptr;
     ctx->MapBuffer(pImpl_->pMatteTrackCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
-    if (pData) {
-        memcpy(pData, &params, sizeof(MatteTrackParams));
-        ctx->UnmapBuffer(pImpl_->pMatteTrackCB_, MAP_WRITE);
+    if (!pData) {
+        qWarning() << "[LayerBlendPipeline::applyTrackMatte] failed to map constant buffer";
+        return false;
     }
+    memcpy(pData, &params, sizeof(MatteTrackParams));
+    ctx->UnmapBuffer(pImpl_->pMatteTrackCB_, MAP_WRITE);
 
     // Keep all declared SRV slots bound. Unused slots reuse source 0, while
     // the count checks above still require every actually sampled source.
