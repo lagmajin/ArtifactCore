@@ -395,6 +395,8 @@ namespace ArtifactCore
 
    if (convertAndQueueFrame(queue, frame_)) {
     queuedAny = true;
+    av_frame_unref(frame_);
+    return true;
    }
    av_frame_unref(frame_);
   }
