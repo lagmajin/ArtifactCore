@@ -154,8 +154,10 @@ void AudioParametricEQ::fromJson(const QJsonObject& object) {
     const QJsonArray bands = object.value("bands").toArray();
     if (bands.isEmpty()) return;
     bands_.clear();
-    bands_.reserve(bands.size());
-    for (const auto& value : bands) {
+    const int bandCount = std::min(static_cast<int>(bands.size()), 64);
+    bands_.reserve(static_cast<size_t>(bandCount));
+    for (int bandIndex = 0; bandIndex < bandCount; ++bandIndex) {
+        const auto& value = bands.at(bandIndex);
         const QJsonObject bandObject = value.toObject();
         Band band;
         band.frequency = std::clamp(static_cast<float>(bandObject.value("frequency").toDouble(1000.0)), 1.0f, 24000.0f);
