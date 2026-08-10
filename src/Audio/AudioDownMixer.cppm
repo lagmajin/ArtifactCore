@@ -188,6 +188,58 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
             }
         }
     }
+    else if (impl_->targetLayout_ == AudioChannelLayout::Surround51 ||
+             impl_->targetLayout_ == AudioChannelLayout::Surround71) {
+        const int targetChannels =
+            impl_->targetLayout_ == AudioChannelLayout::Surround71 ? 8 : 6;
+        output.channelData.resize(targetChannels);
+        for (auto& channel : output.channelData) {
+            channel.fill(0.0f, frames);
+        }
+
+        // Preserve the standard L/R/C/LFE/surround ordering when promoting
+        // stereo/5.1 input to a larger multichannel bus.
+        if (impl_->targetLayout_ == AudioChannelLayout::Surround51 &&
+            source.layout == AudioChannelLayout::Surround71 &&
+            source.channelCount() >= 8) {
+            for (int channel = 0; channel < 4; ++channel) {
+                const auto& input = source.channelData[channel];
+                const int copyFrames = std::min(
+                    frames, static_cast<int>(input.size()));
+                if (copyFrames > 0) {
+                    std::copy_n(input.constData(), copyFrames,
+                                output.channelData[channel].begin());
+                }
+            }
+            const auto& leftSurround = source.channelData[4];
+            const auto& rightSurround = source.channelData[5];
+            const auto& leftBack = source.channelData[6];
+            const auto& rightBack = source.channelData[7];
+            const int copyFrames = std::min({
+                frames, static_cast<int>(leftSurround.size()),
+                static_cast<int>(rightSurround.size()),
+                static_cast<int>(leftBack.size()),
+                static_cast<int>(rightBack.size())});
+            for (int i = 0; i < copyFrames; ++i) {
+                output.channelData[4][i] =
+                    leftSurround[i] + leftBack[i] * impl_->backMixLevel_;
+                output.channelData[5][i] =
+                    rightSurround[i] + rightBack[i] * impl_->backMixLevel_;
+            }
+        } else {
+            const int copyChannels = std::min(
+                targetChannels, source.channelCount());
+            for (int channel = 0; channel < copyChannels; ++channel) {
+                const auto& input = source.channelData[channel];
+                const int copyFrames = std::min(
+                    frames, static_cast<int>(input.size()));
+                if (copyFrames > 0) {
+                    std::copy_n(input.constData(), copyFrames,
+                                output.channelData[channel].begin());
+                }
+            }
+        }
+    }
 
     return output;
 }
