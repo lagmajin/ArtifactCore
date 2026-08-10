@@ -160,6 +160,13 @@ public:
                 std::numeric_limits<int>::max() / channels));
             if (frames > 0) {
                 callback(reinterpret_cast<float*>(data), frames, channels);
+                const int sampleCount = frames * channels;
+                auto* samples = reinterpret_cast<float*>(data);
+                for (int i = 0; i < sampleCount; ++i) {
+                    samples[i] = std::isfinite(samples[i])
+                        ? std::clamp(samples[i], -1.0f, 1.0f)
+                        : 0.0f;
+                }
             }
             const qint64 written = static_cast<qint64>(frames) * frameBytes;
             if (written < maxlen) {

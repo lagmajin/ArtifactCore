@@ -149,6 +149,11 @@ public:
       if (mixFormatIsFloat) {
         auto *out = reinterpret_cast<float *>(data);
         callback(out, static_cast<int>(callbackFrames), channels);
+        for (size_t i = 0; i < sampleCount; ++i) {
+          out[i] = std::isfinite(out[i])
+              ? std::clamp(out[i], -1.0f, 1.0f)
+              : 0.0f;
+        }
       } else {
         std::vector<float> temp(sampleCount, 0.0f);
         callback(temp.data(), static_cast<int>(callbackFrames), channels);
