@@ -170,7 +170,7 @@ std::vector<PhonemeEvent> FormantExtractor::analyzeTrack(
     int64_t frame = startFrame;
 
     for (int offset = 0; framesPerAnalysis <= totalFrames - offset;
-         offset += framesPerAnalysis, ++frame) {
+         offset += framesPerAnalysis) {
         AudioSegment frameSeg;
         frameSeg.sampleRate = sampleRate;
         frameSeg.channelData.resize(segment.channelCount());
@@ -184,6 +184,10 @@ std::vector<PhonemeEvent> FormantExtractor::analyzeTrack(
         frameSeg.startFrame = offset;
         auto event = analyzeFrame(frameSeg, frame);
         events.push_back(event);
+        if (frame == std::numeric_limits<int64_t>::max()) {
+            break;
+        }
+        ++frame;
     }
     return events;
 }
