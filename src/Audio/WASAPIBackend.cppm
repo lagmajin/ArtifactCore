@@ -72,6 +72,9 @@ public:
         renderThread.join();
       }
     }
+    if (!renderThread.joinable()) {
+      callback = {};
+    }
     active = false;
   }
 

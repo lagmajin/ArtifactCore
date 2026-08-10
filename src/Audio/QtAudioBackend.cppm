@@ -117,6 +117,7 @@ public:
         {
             QMutexLocker locker(&mutex_);
             active_ = false;
+            callback_ = nullptr;
         }
         if (audioSink_) {
             audioSink_->stop();
