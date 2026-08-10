@@ -4,6 +4,7 @@ module;
 #include <vector>
 #include <memory>
 #include <atomic>
+#include <cmath>
 #include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
@@ -28,9 +29,9 @@ public:
     String getName() const override { return "Delay"; }
     void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) override;
 
-    void setDelayTimeMs(float ms) { delayTimeMs_ = ms; }
-    void setFeedback(float fb) { feedback_ = fb; }
-    void setMix(float mix) { mix_ = mix; }
+    void setDelayTimeMs(float ms) { delayTimeMs_ = std::isfinite(ms) ? ms : 0.0f; }
+    void setFeedback(float fb) { feedback_ = std::isfinite(fb) ? fb : 0.0f; }
+    void setMix(float mix) { mix_ = std::isfinite(mix) ? mix : 0.0f; }
     void setBypassSideChain(bool enable) { bypassSideChain_ = enable; }
 
     float getDelayTimeMs() const { return delayTimeMs_; }

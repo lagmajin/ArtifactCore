@@ -1,6 +1,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <QJsonObject>
 #include "../Define/DllExportMacro.hpp"
 
@@ -12,6 +13,17 @@ import Audio.Segment;
 import Audio.RingBuffer;
 
 namespace ArtifactCore {
+
+namespace {
+
+float saturateDelaySample(const float sample)
+{
+    if (std::isfinite(sample)) return sample;
+    if (std::isnan(sample)) return 0.0f;
+    return std::copysign(std::numeric_limits<float>::max(), sample);
+}
+
+}
 
 AudioDelay::AudioDelay() {}
 
@@ -53,12 +65,14 @@ void AudioDelay::process(AudioSegment& segment, const AudioSegment* /*sideChain*
 
         for (int i = 0; i < samples; ++i) {
             int idx = i % bufSize;
-            float delayed = (idx + delaySamples < bufSize)
-                ? buf[(idx + delaySamples) % bufSize]
+            const float delayed = (idx + delaySamples < bufSize)
+                ? saturateDelaySample(buf[(idx + delaySamples) % bufSize])
                 : 0.0f;
-            float out = inData[i] + delayed * feedback;
+            const float input = std::isfinite(inData[i]) ? inData[i] : 0.0f;
+            const float out = saturateDelaySample(input + delayed * feedback);
             buf[idx] = out;
-            inData[i] = inData[i] * (1.0f - wet) + delayed * wet;
+            inData[i] = saturateDelaySample(
+                input * (1.0f - wet) + delayed * wet);
         }
     }
 }
@@ -72,6 +86,7 @@ std::vector<EffectParameter> AudioDelay::getParameters() const {
 }
 
 void AudioDelay::setParameterValue(const String& id, float value) {
+    if (!std::isfinite(value)) return;
     if (id == "delay_ms") delayTimeMs_ = value;
     else if (id == "feedback") feedback_ = value;
     else if (id == "mix") mix_ = value;
@@ -94,9 +109,9 @@ QJsonObject AudioDelay::toJson() const {
 
 void AudioDelay::fromJson(const QJsonObject& obj) {
     AudioEffect::fromJson(obj);
-    delayTimeMs_ = obj["delay_ms"].toDouble(300.0);
-    feedback_ = obj["feedback"].toDouble(0.3);
-    mix_ = obj["mix"].toDouble(0.4);
+    setDelayTimeMs(static_cast<float>(obj["delay_ms"].toDouble(300.0)));
+    setFeedback(static_cast<float>(obj["feedback"].toDouble(0.3)));
+    setMix(static_cast<float>(obj["mix"].toDouble(0.4)));
 }
 
 } // namespace ArtifactCore
