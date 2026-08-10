@@ -2,6 +2,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <vector>
 #include <QString>
 
@@ -24,7 +25,8 @@ AudioSegment makeAudioSegmentFromWav(const SimpleWav& wav)
     const int channels = std::max(0, wav.channelCount());
     const qint64 frames = std::max<qint64>(0, wav.frameCount());
     const QVector<float> pcm = wav.getAudioData();
-    if (channels <= 0 || frames <= 0 || pcm.isEmpty()) {
+    if (channels <= 0 || frames <= 0 ||
+        frames > std::numeric_limits<int>::max() || pcm.isEmpty()) {
         return segment;
     }
 
@@ -81,7 +83,7 @@ bool LipSyncTrack::analyze(const AudioSegment& segment, double frameRate)
 bool LipSyncTrack::analyzeFromFile(const QString& audioPath, double frameRate)
 {
     const QString trimmed = audioPath.trimmed();
-    if (trimmed.isEmpty() || frameRate <= 0.0) {
+    if (trimmed.isEmpty() || !std::isfinite(frameRate) || frameRate <= 0.0) {
         events_.clear();
         return false;
     }
