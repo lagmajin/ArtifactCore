@@ -3,6 +3,7 @@ module;
 #include <cmath>
 #include <complex>
 #include <cstddef>
+#include <limits>
 #include <vector>
 
 module Audio.Analyze;
@@ -13,13 +14,20 @@ import Container.NamedVector;
 namespace ArtifactCore {
 
 namespace {
+constexpr int kMaxFFTSize = 1 << 20;
+
 int normalizeFFTSize(int size) {
-    size = std::max(2, size);
+    size = std::clamp(size, 2, kMaxFFTSize);
     int normalized = 1;
-    while (normalized < size && normalized < (1 << 30)) {
+    while (normalized < size && normalized < kMaxFFTSize) {
         normalized <<= 1;
     }
     return normalized;
+}
+
+float finiteOrZero(const float value)
+{
+    return std::isfinite(value) ? value : 0.0f;
 }
 }
 
@@ -90,12 +98,17 @@ float AudioAnalyzer::getIntensity(const std::vector<float>& spectrum, float freq
     startIdx = std::clamp(startIdx, 0, n - 1);
     endIdx = std::clamp(endIdx, startIdx, n - 1);
     
-    float sum = 0.0f;
+    double sum = 0.0;
     for (int i = startIdx; i <= endIdx; ++i) {
-        sum += spectrum[i];
+        if (std::isfinite(spectrum[i])) {
+            sum += spectrum[i];
+        }
     }
-    
-    return (endIdx > startIdx) ? sum / (endIdx - startIdx + 1) : spectrum[startIdx];
+
+    const double average = sum / (endIdx - startIdx + 1);
+    return std::isfinite(average)
+        ? static_cast<float>(average)
+        : 0.0f;
 }
 
 AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment) {
@@ -121,7 +134,10 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
         for (int i = 0; i < availableFrames; ++i) {
             const float s = data[i];
             if (!std::isfinite(s)) continue;
-            *monoData.at(static_cast<std::size_t>(i)) += s;
+            const float mixed = *monoData.at(static_cast<std::size_t>(i)) + s;
+            *monoData.at(static_cast<std::size_t>(i)) = std::isfinite(mixed)
+                ? mixed
+                : std::copysign(std::numeric_limits<float>::max(), mixed);
             sumSq += static_cast<double>(s) * s;
             maxAbs = std::max(maxAbs, std::abs(s));
         }
@@ -129,8 +145,12 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
 
     const double sampleCount = static_cast<double>(frames) * channels;
     if (sampleCount <= 0.0 || !std::isfinite(sampleCount)) return result;
-    result.rms = static_cast<float>(std::sqrt(sumSq / sampleCount));
-    result.peak = maxAbs;
+    const double rms = std::sqrt(sumSq / sampleCount);
+    result.rms = std::isfinite(rms)
+        ? static_cast<float>(std::min(
+              rms, static_cast<double>(std::numeric_limits<float>::max())))
+        : 0.0f;
+    result.peak = finiteOrZero(maxAbs);
 
     // 2. FFT解析 (モノラルミックスで行う)
     int n = fftSize_;
@@ -148,7 +168,8 @@ AudioAnalyzer::AnalysisResult AudioAnalyzer::analyze(const AudioSegment& segment
     // スペクトル強度の算出 (マグニチュード)
     result.spectrum.resize(n / 2 + 1);
     for (int i = 0; i <= n / 2; ++i) {
-        result.spectrum[i] = std::abs(fftData[i]) / (n / 2);
+        result.spectrum[i] = finiteOrZero(
+            std::abs(fftData[i]) / (n / 2));
     }
 
     // 3. 帯域ごとの強度算出
