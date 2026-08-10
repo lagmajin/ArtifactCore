@@ -169,6 +169,11 @@ namespace ArtifactCore {
                 return false;
             }
 
+            if (frames == 0) {
+                data.clear();
+                return false;
+            }
+
             const std::size_t readFrames = std::min(frames, avail);
             data.channelData.resize(channelCount_);
             for (int ch = 0; ch < channelCount_; ++ch) {
@@ -181,7 +186,20 @@ namespace ArtifactCore {
                     std::memcpy(data.channelData[ch].data() + firstChunk, &channels_[ch][0], (readFrames - firstChunk) * sizeof(float));
                 }
             }
-            data.layout = AudioChannelLayout::Stereo; // default; caller may override
+            switch (channelCount_) {
+            case 1:
+                data.layout = AudioChannelLayout::Mono;
+                break;
+            case 6:
+                data.layout = AudioChannelLayout::Surround51;
+                break;
+            case 8:
+                data.layout = AudioChannelLayout::Surround71;
+                break;
+            default:
+                data.layout = AudioChannelLayout::Stereo;
+                break;
+            }
             readCount_.store(r + readFrames, std::memory_order_release);
             return true;
         }
