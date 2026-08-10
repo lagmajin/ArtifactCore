@@ -116,6 +116,11 @@ namespace ArtifactCore
   void flush();
   bool isSameFile(const QString& path);
   bool isSameFile(const UniString& path);
+  bool isEndOfStream() const {
+   if (!decoderDrained_) return false;
+   if (!swrCtx_ || !codecCtx_ || codecCtx_->sample_rate <= 0) return true;
+   return swr_get_delay(swrCtx_, codecCtx_->sample_rate) <= 0;
+  }
  };
 
  FFmpegAudioDecoder::Impl::Impl()
@@ -561,6 +566,7 @@ namespace ArtifactCore
 
  bool FFmpegAudioDecoder::decodeNextSegment(AudioSegment& out)
  {
+  out = AudioSegment{};
   AudioBufferQueue queue;
   if (!impl_->decodeNextFrame(queue)) {
    return false;
@@ -585,7 +591,7 @@ namespace ArtifactCore
 
  bool FFmpegAudioDecoder::isEndOfStream() const
  {
-  return false;
+  return impl_ && impl_->isEndOfStream();
  }
 
 };
