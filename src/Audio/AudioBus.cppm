@@ -355,7 +355,11 @@ namespace ArtifactCore {
 		for (int c = 0; c < channels; ++c) {
 			const float* src = source->channelData[c].constData();
 			float* dst = impl_->mainBuffer_.channelData[c].data();
-			for (int i = 0; i < frames; ++i) {
+			const int channelFrames = std::min(
+				frames,
+				std::min(static_cast<int>(source->channelData[c].size()),
+						 static_cast<int>(impl_->mainBuffer_.channelData[c].size())));
+			for (int i = 0; i < channelFrames; ++i) {
 				dst[i] += src[i] * localGain;
 			}
 		}
@@ -382,7 +386,11 @@ namespace ArtifactCore {
 		for (int c = 0; c < channels; ++c) {
 			const float* src = source->channelData[c].constData();
 			float* dst = impl_->sideChainBuffer_.channelData[c].data();
-			for (int i = 0; i < frames; ++i) {
+			const int channelFrames = std::min(
+				frames,
+				std::min(static_cast<int>(source->channelData[c].size()),
+						 static_cast<int>(impl_->sideChainBuffer_.channelData[c].size())));
+			for (int i = 0; i < channelFrames; ++i) {
 				dst[i] += src[i] * localGain;
 			}
 		}
