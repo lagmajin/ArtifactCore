@@ -78,7 +78,9 @@ void AudioCache::prefetch(int64_t startFrame, int frameCount)
     }
     const int count = std::min(frameCount, 4096);
     const int64_t available = std::numeric_limits<int64_t>::max() - startFrame;
-    const int safeCount = std::min<int64_t>(count, available + 1);
+    const int safeCount = available >= static_cast<int64_t>(count)
+        ? count
+        : static_cast<int>(available + 1);
     if (safeCount <= 0) return;
     const int64_t endFrame = startFrame + static_cast<int64_t>(safeCount - 1);
     qDebug() << "[AudioCache] Prefetch requested:" << startFrame << "to" << endFrame;
