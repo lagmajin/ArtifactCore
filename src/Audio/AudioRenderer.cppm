@@ -70,8 +70,9 @@ struct AudioRenderer::Impl {
   std::atomic<size_t> stopCount{0};
   std::atomic<size_t> closeCount{0};
 
-  // Level metering — 2 スロットの SharedPtr を切り替えて、audio callback 側はロックなしで参照する。
-  SharedPtr<std::function<void(const AudioLevelData&)>> levelCallbackSlots_[2];
+  // Level metering — 2 スロットの atomic shared_ptr を切り替え、
+  // audio callback 側はロックなしで参照する。
+  std::shared_ptr<std::function<void(const AudioLevelData&)>> levelCallbackSlots_[2];
   std::atomic<int> activeLevelCallbackSlot_{0};
   std::mutex levelCallbackMutex_;
   std::atomic<int> levelCallbackCounter{0}; // Throttle callback frequency
@@ -238,7 +239,8 @@ struct AudioRenderer::Impl {
       }
 
       const int callbackSlot = activeLevelCallbackSlot_.load(std::memory_order_acquire);
-      auto cb = levelCallbackSlots_[callbackSlot];
+      auto cb = std::atomic_load_explicit(
+          &levelCallbackSlots_[callbackSlot], std::memory_order_acquire);
       if (cb && availableFrames > 0) {
         const int counter = levelCallbackCounter.fetch_add(1, std::memory_order_relaxed) + 1;
         if (counter >= 4) {
@@ -586,10 +588,16 @@ void AudioRenderer::setLevelCallback(std::function<void(const AudioLevelData&)> 
     const int currentSlot = impl_->activeLevelCallbackSlot_.load(std::memory_order_acquire);
     const int nextSlot = 1 - currentSlot;
     if (callback) {
-      impl_->levelCallbackSlots_[nextSlot] =
-          makeShared<std::function<void(const AudioLevelData&)>>(std::move(callback));
+      std::atomic_store_explicit(
+          &impl_->levelCallbackSlots_[nextSlot],
+          std::make_shared<std::function<void(const AudioLevelData&)>>(
+              std::move(callback)),
+          std::memory_order_release);
     } else {
-      impl_->levelCallbackSlots_[nextSlot] = nullptr;
+      std::atomic_store_explicit(
+          &impl_->levelCallbackSlots_[nextSlot],
+          std::shared_ptr<std::function<void(const AudioLevelData&)>>{},
+          std::memory_order_release);
     }
     impl_->activeLevelCallbackSlot_.store(nextSlot, std::memory_order_release);
     impl_->levelCallbackCounter.store(0, std::memory_order_relaxed);
