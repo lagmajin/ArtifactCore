@@ -58,7 +58,8 @@ void AudioDelay::process(AudioSegment& segment, const AudioSegment* /*sideChain*
         if (ch >= segment.channelData.size()) break;
         if (ch >= static_cast<int>(delayBuffers_.size())) break;
 
-        const int samples = std::min(frames, segment.channelData[ch].size());
+        const int samples = std::min(
+            frames, static_cast<int>(segment.channelData[ch].size()));
         if (samples <= 0) continue;
         float* inData = segment.channelData[ch].data();
         auto& buf = delayBuffers_[ch];

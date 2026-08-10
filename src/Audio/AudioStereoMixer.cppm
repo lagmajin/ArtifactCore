@@ -32,8 +32,8 @@ void AudioStereoMixer::process(AudioSegment& segment, const AudioSegment* /*side
     if (channels < 2 || frames == 0) return;
 
     const int samples = std::min({frames,
-                                  segment.channelData[0].size(),
-                                  segment.channelData[1].size()});
+                                  static_cast<int>(segment.channelData[0].size()),
+                                  static_cast<int>(segment.channelData[1].size())});
     if (samples <= 0) return;
 
     float* left = segment.channelData[0].data();

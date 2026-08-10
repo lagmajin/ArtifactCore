@@ -60,7 +60,8 @@ void AudioReverb::process(AudioSegment& segment, const AudioSegment* /*sideChain
 
     for (int ch = 0; ch < std::min(channels, 2); ++ch) {
         if (ch >= segment.channelData.size()) break;
-        const int samples = std::min(frames, segment.channelData[ch].size());
+        const int samples = std::min(
+            frames, static_cast<int>(segment.channelData[ch].size()));
         if (samples <= 0) continue;
         float* data = segment.channelData[ch].data();
         int& writePos = writePositions_[ch];

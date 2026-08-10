@@ -47,7 +47,8 @@ void AudioParametricEQ::process(AudioSegment& segment, const AudioSegment* /*sid
 
     for (int ch = 0; ch < channels; ++ch) {
         if (ch >= segment.channelData.size()) break;
-        const int samples = std::min(frames, segment.channelData[ch].size());
+        const int samples = std::min(
+            frames, static_cast<int>(segment.channelData[ch].size()));
         if (samples <= 0) continue;
         float* data = segment.channelData[ch].data();
 
