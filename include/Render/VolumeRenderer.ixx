@@ -27,7 +27,13 @@ struct VolumeResolution {
 
     [[nodiscard]] constexpr std::size_t cellCount() const noexcept {
         if (!valid()) return 0;
-        return static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * static_cast<std::size_t>(depth);
+        const auto w = static_cast<std::size_t>(width);
+        const auto h = static_cast<std::size_t>(height);
+        const auto d = static_cast<std::size_t>(depth);
+        if (h > std::numeric_limits<std::size_t>::max() / w) return 0;
+        const auto wh = w * h;
+        if (d > std::numeric_limits<std::size_t>::max() / wh) return 0;
+        return wh * d;
     }
 
     [[nodiscard]] constexpr std::size_t indexOf(int x, int y, int z) const noexcept {
