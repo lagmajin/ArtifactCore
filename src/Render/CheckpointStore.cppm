@@ -129,9 +129,13 @@ bool CheckpointStore::save(const CheckpointInfo& checkpoint) {
     QFile file(impl_->filePath(checkpoint.jobId));
     if (!file.open(QIODevice::WriteOnly)) return false;
 
-    file.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
+    const QByteArray payload = QJsonDocument(obj).toJson(QJsonDocument::Indented);
+    if (file.write(payload) != payload.size() || !file.flush()) {
+        file.close();
+        return false;
+    }
     file.close();
-    return true;
+    return file.error() == QFile::NoError;
 }
 
 Optional<CheckpointInfo> CheckpointStore::load(const QString& jobId) {
