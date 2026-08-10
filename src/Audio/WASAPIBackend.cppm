@@ -299,6 +299,12 @@ bool WASAPIBackend::open(const AudioDeviceInfo &device,
       impl_->releaseCom();
       return false;
     }
+    // The exclusive stream uses the format passed to Initialize, not the
+    // device's shared-mode mix format queried above. Keep the render loop and
+    // currentFormat aligned with the actual 2-channel Float32 stream.
+    impl_->mixChannels = exclusiveFmt.nChannels;
+    impl_->mixSampleRate = static_cast<int>(exclusiveFmt.nSamplesPerSec);
+    impl_->mixFormatIsFloat = true;
   } else {
     // Shared (共有) モード — 50ms バッファ、他アプリと共存
     impl_->bufferDuration = static_cast<REFERENCE_TIME>(
