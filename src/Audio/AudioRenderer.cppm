@@ -140,12 +140,18 @@ struct AudioRenderer::Impl {
   void audioCallback(float *buffer, int frames, int channelsRequested) {
     const auto cbStart = std::chrono::high_resolution_clock::now();
 
+    if (!buffer || frames <= 0 || channelsRequested <= 0) {
+      return;
+    }
+    const size_t outputSamples = static_cast<size_t>(frames) *
+                                 static_cast<size_t>(channelsRequested);
+
     const bool isActive = active.load(std::memory_order_acquire);
     const bool isMuted = isMute.load(std::memory_order_acquire);
     const float volume = masterVolumeLinear.load(std::memory_order_acquire);
 
     if (!isActive || isMuted) {
-      std::memset(buffer, 0, frames * channelsRequested * sizeof(float));
+      std::memset(buffer, 0, outputSamples * sizeof(float));
       AudioEngineProfiler::instance().recordCallback(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
               std::chrono::high_resolution_clock::now() - cbStart).count(),
@@ -163,7 +169,7 @@ struct AudioRenderer::Impl {
     const bool success = ringBuffer->read(readBuffer_, frames);
     const int availableFrames = readBuffer_.frameCount();
 
-    std::memset(buffer, 0, frames * channelsRequested * sizeof(float));
+    std::memset(buffer, 0, outputSamples * sizeof(float));
     if (success && availableFrames > 0) {
       if (availableFrames < frames) {
         ++partialUnderflowCount;
@@ -187,7 +193,10 @@ struct AudioRenderer::Impl {
             sample = readBuffer_.channelData[0][i];
           }
 
-          sample *= volume;
+          if (!std::isfinite(sample)) {
+            sample = 0.0f;
+          }
+          sample *= std::isfinite(volume) ? volume : 0.0f;
           sample = std::clamp(sample, -1.0f, 1.0f);
 
           if (availableFrames < frames) {
