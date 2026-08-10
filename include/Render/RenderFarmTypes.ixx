@@ -1,5 +1,8 @@
 module;
 #include <utility>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <QString>
 #include <QStringList>
 #include <QDateTime>
@@ -193,16 +196,26 @@ struct RetryPolicy {
 
     int backoffMs(int attempt) const {
         if (attempt <= 1) return 0;
-        int n = attempt - 1;
+        const int safeMax = std::max(0, maxBackoffMs);
+        const int safeInitial = std::clamp(initialBackoffMs, 0, safeMax);
+        if (safeInitial == 0 || safeMax == 0) return 0;
+        const int n = attempt - 1;
         switch (strategy) {
         case RetryBackoffStrategy::Fixed:
-            return std::min(initialBackoffMs, maxBackoffMs);
-        case RetryBackoffStrategy::Linear:
-            return std::min(initialBackoffMs * n, maxBackoffMs);
+            return safeInitial;
+        case RetryBackoffStrategy::Linear: {
+            const long long candidate = static_cast<long long>(safeInitial) * n;
+            return static_cast<int>(std::min<long long>(candidate, safeMax));
+        }
         case RetryBackoffStrategy::Exponential:
         default: {
-            int ms = static_cast<int>(initialBackoffMs * std::pow(backoffFactor, n - 1));
-            return std::min(ms, maxBackoffMs);
+            const long double factor =
+                std::isfinite(backoffFactor) && backoffFactor > 1.0
+                    ? static_cast<long double>(backoffFactor) : 1.0L;
+            const long double candidate = static_cast<long double>(safeInitial) *
+                std::pow(factor, static_cast<long double>(n - 1));
+            if (!std::isfinite(candidate) || candidate >= safeMax) return safeMax;
+            return candidate <= 0.0L ? 0 : static_cast<int>(candidate);
         }
         }
     }
