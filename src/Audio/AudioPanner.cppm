@@ -41,7 +41,9 @@ public:
     for (int ch = 0; ch < numChannels && ch < static_cast<int>(gain.channelGains.size()); ++ch) {
       const float channelGain = gain.channelGains[ch];
       float* data = segment.channelData[ch].data();
-      for (int frameIndex = 0; frameIndex < numFrames; ++frameIndex) {
+      const int samples = std::min(
+          numFrames, static_cast<int>(segment.channelData[ch].size()));
+      for (int frameIndex = 0; frameIndex < samples; ++frameIndex) {
         data[frameIndex] *= channelGain;
       }
     }

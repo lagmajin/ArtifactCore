@@ -22,10 +22,12 @@ std::vector<float> FormantExtractor::findPeaks(
     float binSize, float minFreq, float maxFreq)
 {
     std::vector<float> peaks;
-    if (spectrum.empty() || binSize <= 0.0f) return peaks;
+    if (spectrum.size() < 3 || !std::isfinite(binSize) || binSize <= 0.0f) {
+        return peaks;
+    }
 
     int startBin = std::max(1, static_cast<int>(minFreq / binSize));
-    int endBin = std::min(static_cast<int>(spectrum.size() - 1),
+    int endBin = std::min(static_cast<int>(spectrum.size() - 2),
                           static_cast<int>(maxFreq / binSize));
 
     for (int i = startBin; i <= endBin; ++i) {
@@ -134,13 +136,22 @@ std::vector<PhonemeEvent> FormantExtractor::analyzeTrack(
     const AudioSegment& segment, double frameRate, int64_t startFrame)
 {
     std::vector<PhonemeEvent> events;
-    if (segment.frameCount() <= 0 || frameRate <= 0.0) return events;
+    if (segment.frameCount() <= 0 || !std::isfinite(frameRate) || frameRate <= 0.0) {
+        return events;
+    }
 
     int sampleRate = segment.sampleRate;
-    int framesPerAnalysis = static_cast<int>(std::round(sampleRate / frameRate));
-    if (framesPerAnalysis <= 0) framesPerAnalysis = sampleRate / 24;
+    if (sampleRate <= 0) return events;
 
     int totalFrames = segment.frameCount();
+    for (const auto& channel : segment.channelData) {
+        totalFrames = std::min(totalFrames, static_cast<int>(channel.size()));
+    }
+    if (totalFrames <= 0) return events;
+
+    int framesPerAnalysis = static_cast<int>(std::round(sampleRate / frameRate));
+    if (framesPerAnalysis <= 0) framesPerAnalysis = sampleRate / 24;
+    if (framesPerAnalysis <= 0) return events;
     int64_t frame = startFrame;
 
     for (int offset = 0; offset + framesPerAnalysis <= totalFrames;
