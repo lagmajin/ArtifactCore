@@ -133,7 +133,8 @@ enum class ShortcutId {
     WorkCursorPlace = 119,
     WorkCursorCenter = 120,
     WorkCursorClear = 121,
-    Count = 122
+    ViewToggleCameraFrustum = 122,
+    Count = 123
 };
 
 QString shortcutDisplayName(ShortcutId id);

@@ -101,14 +101,14 @@ public:
     if (previousY == yFrames.end() || nextY == yFrames.end()) {
       return std::nullopt;
     }
+    if (previousX->interpolation == InterpolationType::Constant ||
+        previousY->interpolation == InterpolationType::Constant) {
+      return std::nullopt;
+    }
     const auto previousTangent =
         positionSpatialTangents_.find(previousX->frame.framePosition());
     const auto nextTangent =
         positionSpatialTangents_.find(nextX->frame.framePosition());
-    if (previousTangent == positionSpatialTangents_.end() &&
-        nextTangent == positionSpatialTangents_.end()) {
-      return std::nullopt;
-    }
     const float duration = static_cast<float>(
         nextX->frame.framePosition() - previousX->frame.framePosition());
     if (duration <= 0.0f) {
@@ -121,11 +121,49 @@ public:
     const float u = 1.0f - t;
     const float2 p0{previousX->value, previousY->value};
     const float2 p3{nextX->value, nextY->value};
+    const auto clampAutoTangent = [](float2 tangent, float maxLength) {
+      const float lengthSquared = tangent.x * tangent.x + tangent.y * tangent.y;
+      const float maxLengthSquared = maxLength * maxLength;
+      if (lengthSquared > maxLengthSquared && lengthSquared > 1.0e-8f) {
+        const float scale = maxLength / std::sqrt(lengthSquared);
+        tangent.x *= scale;
+        tangent.y *= scale;
+      }
+      return tangent;
+    };
+    const float segmentLength = std::hypot(p3.x - p0.x, p3.y - p0.y);
+    const float maxAutoTangentLength = segmentLength * 0.5f;
+
+    // Match an Auto Bezier spatial path when no manual handle is stored.
+    // Interior handles follow the neighbouring keys (Catmull-Rom converted
+    // to cubic Bezier); endpoints follow the first/last segment direction.
+    float2 autoOut{(p3.x - p0.x) / 3.0f, (p3.y - p0.y) / 3.0f};
+    if (previousX != xFrames.begin()) {
+      const auto beforeX = std::prev(previousX);
+      const auto beforeY = findY(beforeX->frame);
+      if (beforeY != yFrames.end()) {
+        autoOut = {(p3.x - beforeX->value) / 6.0f,
+                   (p3.y - beforeY->value) / 6.0f};
+      }
+    }
+    autoOut = clampAutoTangent(autoOut, maxAutoTangentLength);
+
+    float2 autoIn{(p0.x - p3.x) / 3.0f, (p0.y - p3.y) / 3.0f};
+    const auto afterX = std::next(nextX);
+    if (afterX != xFrames.end()) {
+      const auto afterY = findY(afterX->frame);
+      if (afterY != yFrames.end()) {
+        autoIn = {(p0.x - afterX->value) / 6.0f,
+                  (p0.y - afterY->value) / 6.0f};
+      }
+    }
+    autoIn = clampAutoTangent(autoIn, maxAutoTangentLength);
+
     const float2 out = previousTangent == positionSpatialTangents_.end()
-                           ? float2{0.0f, 0.0f}
+                           ? autoOut
                            : previousTangent->second.outTangent;
     const float2 in = nextTangent == positionSpatialTangents_.end()
-                          ? float2{0.0f, 0.0f}
+                          ? autoIn
                           : nextTangent->second.inTangent;
     const float2 p1{p0.x + out.x, p0.y + out.y};
     const float2 p2{p3.x + in.x, p3.y + in.y};

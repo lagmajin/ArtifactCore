@@ -38,7 +38,7 @@ module Analyze.Histgram;
 
 namespace ArtifactCore {
 
-void Histgram::Impl::calculate(const cv::Mat& image) {
+void Histogram::Impl::calculate(const cv::Mat& image) {
     bins_.clear();
     if (image.empty()) return;
 
@@ -88,14 +88,14 @@ void Histgram::Impl::calculate(const cv::Mat& image) {
     }
 }
 
-std::vector<int> Histgram::Impl::getBins(int channel) const {
+std::vector<int> Histogram::Impl::getBins(int channel) const {
     if (channel >= 0 && channel < static_cast<int>(bins_.size())) {
         return bins_[channel];
     }
     return {};
 }
 
-int Histgram::Impl::getMaxValue(int channel) const {
+int Histogram::Impl::getMaxValue(int channel) const {
     if (channel >= 0 && channel < static_cast<int>(bins_.size())) {
         const auto& hist = bins_[channel];
         return *std::max_element(hist.begin(), hist.end());
@@ -103,11 +103,11 @@ int Histgram::Impl::getMaxValue(int channel) const {
     return 0;
 }
 
-int Histgram::Impl::getChannelCount() const {
+int Histogram::Impl::getChannelCount() const {
     return bins_.size();
 }
 
-void Histgram::Impl::normalize() {
+void Histogram::Impl::normalize() {
     for (auto& hist : bins_) {
         int maxVal = *std::max_element(hist.begin(), hist.end());
         if (maxVal > 0) {
@@ -118,37 +118,37 @@ void Histgram::Impl::normalize() {
     }
 }
 
-void Histgram::Impl::clear() {
+void Histogram::Impl::clear() {
     bins_.clear();
 }
 
-Histgram::Histgram() : impl_(new Impl()) {}
+Histogram::Histogram() : impl_(new Impl()) {}
 
-Histgram::~Histgram() {
+Histogram::~Histogram() {
     delete impl_;
 }
 
-void Histgram::calculate(const cv::Mat& image) {
+void Histogram::calculate(const cv::Mat& image) {
     impl_->calculate(image);
 }
 
-std::vector<int> Histgram::getBins(int channel) const {
+std::vector<int> Histogram::getBins(int channel) const {
     return impl_->getBins(channel);
 }
 
-int Histgram::getMaxValue(int channel) const {
+int Histogram::getMaxValue(int channel) const {
     return impl_->getMaxValue(channel);
 }
 
-int Histgram::getChannelCount() const {
+int Histogram::getChannelCount() const {
     return impl_->getChannelCount();
 }
 
-void Histgram::normalize() {
+void Histogram::normalize() {
     impl_->normalize();
 }
 
-void Histgram::clear() {
+void Histogram::clear() {
     impl_->clear();
 }
 

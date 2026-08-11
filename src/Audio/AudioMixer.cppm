@@ -372,7 +372,7 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
         }
         if (!bus) bus = findBusByName(name);
         if (!bus) {
-            bus = createBus(name, kind);
+            bus = createBus(toZeroString(name), kind);
         }
         if (!bus) continue;
         impl_->busKinds[bus.get()] = kind;

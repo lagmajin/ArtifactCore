@@ -50,6 +50,10 @@ public:
     /// SMPTE カラーバー (100%レベル)
     static void colorBars100(float* pixels, int width, int height);
 
+    /// SMPTE HD カラーバー。上部75% + 中段識別帯 + 下部PLUGEを含む。
+    /// @param pixels RGBA float interleaved buffer (width * height * 4)
+    static void smpteHdBars(float* pixels, int width, int height);
+
     /// 水平グラデーション (黒→白)
     static void horizontalGradient(float* pixels, int width, int height);
 

@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <cmath>
 #include <algorithm>
+#include <string>
 
 export module Core.Light;
 
@@ -76,6 +77,18 @@ export namespace ArtifactCore
   // Convenience: set uniform cutoff
   void setSpotAngle(float degrees);
 
+  // Optional Spot-light projection (GOBO/cookie). The path is deliberately
+  // kept in the renderer-neutral light contract; GPU texture ownership stays
+  // in MeshRenderer.
+  const std::string& goboTexturePath() const { return goboTexturePath_; }
+  void setGoboTexturePath(std::string path);
+  float goboIntensity() const { return goboIntensity_; }
+  void setGoboIntensity(float value);
+  float goboRotation() const { return goboRotation_; }
+  void setGoboRotation(float degrees);
+  bool goboInvert() const { return goboInvert_; }
+  void setGoboInvert(bool enabled);
+
   // --- Enabled ---
 
   bool enabled() const { return enabled_; }
@@ -113,6 +126,10 @@ export namespace ArtifactCore
   float attenQuadratic_ = 0.0f;
   float spotInnerDeg_ = 30.0f;
   float spotOuterDeg_ = 45.0f;
+  std::string goboTexturePath_;
+  float goboIntensity_ = 1.0f;
+  float goboRotation_ = 0.0f;
+  bool goboInvert_ = false;
   bool enabled_ = true;
   float areaWidth_ = 100.0f;
   float areaHeight_ = 100.0f;

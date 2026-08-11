@@ -101,6 +101,47 @@ void TestImageGenerator::colorBars100(float* pixels, int width, int height) {
     }
 }
 
+void TestImageGenerator::smpteHdBars(float* pixels, int width, int height) {
+    if (!pixels || width <= 0 || height <= 0) return;
+
+    // SMPTE/EBU-style HD layout: seven 75% bars, blue identification band,
+    // then a PLUGE-like black level strip. Values are normalized RGB levels.
+    const float bars[][3] = {
+        {0.75f, 0.75f, 0.75f}, {0.75f, 0.75f, 0.0f}, {0.0f, 0.75f, 0.75f},
+        {0.0f, 0.75f, 0.0f}, {0.75f, 0.0f, 0.75f}, {0.75f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.75f}
+    };
+    const float middle[][3] = {
+        {0.0f, 0.0f, 0.75f}, {0.0f, 0.0f, 0.0f}, {0.75f, 0.0f, 0.75f},
+        {0.0f, 0.0f, 0.0f}, {0.0f, 0.75f, 0.75f}, {0.0f, 0.0f, 0.0f},
+        {0.75f, 0.75f, 0.75f}
+    };
+    const int topHeight = (height * 3) / 4;
+    const int middleHeight = std::max(1, height / 12);
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const int bar = std::clamp(x * 7 / width, 0, 6);
+            const float* color = nullptr;
+            if (y < topHeight) {
+                color = bars[bar];
+            } else if (y < topHeight + middleHeight) {
+                color = middle[bar];
+            } else {
+                // -I, black, +I, black, black, white, black PLUGE regions.
+                static const float pluge[][3] = {
+                    {0.0f, 0.0f, 0.035f}, {0.0f, 0.0f, 0.0f},
+                    {0.035f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f},
+                    {0.0f, 0.0f, 0.0f}, {0.75f, 0.75f, 0.75f},
+                    {0.0f, 0.0f, 0.0f}
+                };
+                color = pluge[bar];
+            }
+            setPixel(pixels, width, x, y, color[0], color[1], color[2]);
+        }
+    }
+}
+
 void TestImageGenerator::horizontalGradient(float* pixels, int width, int height) {
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {

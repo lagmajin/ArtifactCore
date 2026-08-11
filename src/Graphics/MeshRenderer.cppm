@@ -214,6 +214,7 @@ struct PSInput {
     float2 UV    : TEXCOORD0;
     float Mode   : TEXCOORD1;
     float4 Color : COLOR;
+    float4 ShadowPosition : TEXCOORD6;
 };
 
 struct InstanceData {
@@ -234,6 +235,11 @@ cbuffer Constants : register(b0) {
     float4x4 PrevProjMatrix;
 };
 
+cbuffer ShadowParams : register(b3) {
+    float4x4 LightViewProjection;
+    float4 ShadowSettings;
+};
+
 PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
     PSInput Out;
     InstanceData inst = g_Instances[InstanceID];
@@ -244,6 +250,7 @@ PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
     float4 viewPos = mul(worldPos, ViewMatrix);
     Out.ViewPosition = viewPos.xyz;
     Out.Pos = mul(viewPos, ProjMatrix);
+    Out.ShadowPosition = mul(worldPos, LightViewProjection);
     float4 prevWorldPos = mul(float4(In.pos, 1.0), inst.previousTransform);
     float4 prevViewPos = mul(prevWorldPos, PrevViewMatrix);
     Out.PrevPos = mul(prevViewPos, PrevProjMatrix);
@@ -260,6 +267,34 @@ PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
 }
 )";
 
+// Keep the shadow pass deliberately independent from the material shader.  A
+// shadow map records only the closest opaque surface in light clip space.
+const char* MeshShadowVSSource = R"(
+struct VSInput {
+    float3 pos : ATTRIB0;
+};
+
+struct InstanceData {
+    float4x4 transform;
+    float4x4 previousTransform;
+    float4 color;
+    float weight;
+    float timeOffset;
+    float2 padding;
+};
+
+StructuredBuffer<InstanceData> g_Instances : register(t0);
+
+cbuffer ShadowConstants : register(b0) {
+    float4x4 LightViewProjection;
+};
+
+float4 VSMain(VSInput In, uint InstanceID : SV_InstanceID) : SV_Position {
+    return mul(mul(float4(In.pos, 1.0), g_Instances[InstanceID].transform),
+               LightViewProjection);
+}
+)";
+
 const char* MeshPSSource = R"(
 struct PSInput {
     float4 Pos   : SV_Position;
@@ -271,6 +306,7 @@ struct PSInput {
     float2 UV    : TEXCOORD0;
     float Mode   : TEXCOORD1;
     float4 Color : COLOR;
+    float4 ShadowPosition : TEXCOORD6;
 };
 
 Texture2D g_BaseColorTexture : register(t0);
@@ -279,7 +315,31 @@ Texture2D g_EmissionTexture : register(t2);
 Texture2D g_MetallicRoughnessTexture : register(t3);
 Texture2D g_NormalTexture : register(t4);
 Texture2D g_OcclusionTexture : register(t5);
+Texture2D<float> g_ShadowMap : register(t6);
+Texture2D g_GoboTexture0 : register(t7);
+Texture2D g_GoboTexture1 : register(t8);
+Texture2D g_GoboTexture2 : register(t9);
+Texture2D g_GoboTexture3 : register(t10);
+Texture2D g_GoboTexture4 : register(t11);
+Texture2D g_GoboTexture5 : register(t12);
+Texture2D g_GoboTexture6 : register(t13);
+Texture2D g_GoboTexture7 : register(t14);
 SamplerState g_BaseColorSampler : register(s0);
+SamplerComparisonState g_ShadowSampler : register(s1);
+SamplerState g_GoboSampler : register(s2);
+
+float4 sampleGobo(uint lightIndex, float2 uv) {
+    switch (lightIndex) {
+        case 0u: return g_GoboTexture0.Sample(g_GoboSampler, uv);
+        case 1u: return g_GoboTexture1.Sample(g_GoboSampler, uv);
+        case 2u: return g_GoboTexture2.Sample(g_GoboSampler, uv);
+        case 3u: return g_GoboTexture3.Sample(g_GoboSampler, uv);
+        case 4u: return g_GoboTexture4.Sample(g_GoboSampler, uv);
+        case 5u: return g_GoboTexture5.Sample(g_GoboSampler, uv);
+        case 6u: return g_GoboTexture6.Sample(g_GoboSampler, uv);
+        default: return g_GoboTexture7.Sample(g_GoboSampler, uv);
+    }
+}
 
 cbuffer MaterialParams : register(b1) {
     float4 EmissionColorStrength;
@@ -293,12 +353,18 @@ struct SceneLight {
     float4 ColorAttenuationConstant;
     float4 AttenuationSpot;
     float4 AreaSize;
+    float4 GoboInfo;
 };
 
 cbuffer SceneLighting : register(b2) {
     SceneLight SceneLights[8];
     uint4 SceneLightingMeta;
     float4 SceneCameraPosition;
+};
+
+cbuffer ShadowParams : register(b3) {
+    float4x4 LightViewProjection;
+    float4 ShadowSettings;
 };
 
 // Keep this helper name distinct from the shader compiler's internal normal-map
@@ -375,12 +441,27 @@ float4 PSMain(PSInput In) : SV_Target {
     }
 
     float4 solidBase = (In.Mode > 7.5 && In.Mode < 8.5) ? In.Color : baseColor;
+    float shadowVisibility = 1.0;
+    if (ShadowSettings.x > 0.5) {
+        float3 shadowNdc = In.ShadowPosition.xyz /
+            max(In.ShadowPosition.w, 1e-5);
+        float2 shadowUV = shadowNdc.xy * float2(0.5, -0.5) + 0.5;
+        if (all(shadowUV >= 0.0) && all(shadowUV <= 1.0) &&
+            shadowNdc.z >= 0.0 && shadowNdc.z <= 1.0) {
+            shadowVisibility = g_ShadowMap.SampleCmpLevelZero(
+                g_ShadowSampler, shadowUV, shadowNdc.z - ShadowSettings.y);
+        }
+    }
     if (SceneLightingMeta.x > 0) {
         float3 cameraDelta = SceneCameraPosition.xyz - In.WorldPosition;
         float3 viewDirection = cameraDelta *
             rsqrt(max(dot(cameraDelta, cameraDelta), 1e-8));
         float3 directColor = float3(0.0, 0.0, 0.0);
-        float3 ambientColor = float3(0.0, 0.0, 0.0);
+        // Retain the no-light studio rig's base fill when scene lights are
+        // present. A light augments the viewport shading; it must not replace
+        // the baseline illumination and leave every unlit-facing surface
+        // nearly black.
+        float3 ambientColor = solidBase.rgb * (0.24 * ao);
         float3 F0 = lerp(float3(0.04, 0.04, 0.04), solidBase.rgb, metallic);
         [loop]
         for (uint lightIndex = 0; lightIndex < min(SceneLightingMeta.x, 8u); ++lightIndex) {
@@ -414,6 +495,38 @@ float4 PSMain(PSInput In) : SV_Target {
                     float outerCos = light.AttenuationSpot.w;
                     attenuation *= saturate((spotCos - outerCos) /
                                             max(innerCos - outerCos, 1e-4));
+                    if (light.GoboInfo.w > 0.5) {
+                        float3 goboAxis = normalize(light.DirectionIntensity.xyz);
+                        float3 goboUp = abs(goboAxis.y) > 0.98
+                            ? float3(0.0, 0.0, 1.0)
+                            : float3(0.0, 1.0, 0.0);
+                        float3 goboRight = normalize(cross(goboUp, goboAxis));
+                        goboUp = normalize(cross(goboAxis, goboRight));
+                        float3 fromLight = In.WorldPosition - light.PositionType.xyz;
+                        float goboDepth = dot(fromLight, goboAxis);
+                        float goboRadius = max(goboDepth *
+                            tan(acos(clamp(outerCos, -0.999, 0.999))), 1e-5);
+                        float2 goboUV = float2(dot(fromLight, goboRight),
+                                               dot(fromLight, goboUp)) /
+                                        (2.0 * goboRadius) + 0.5;
+                        float goboSin = sin(light.GoboInfo.y);
+                        float goboCos = cos(light.GoboInfo.y);
+                        float2 centeredUV = goboUV - 0.5;
+                        goboUV = float2(centeredUV.x * goboCos - centeredUV.y * goboSin,
+                                        centeredUV.x * goboSin + centeredUV.y * goboCos) + 0.5;
+                        if (goboDepth > 0.0 && all(goboUV >= 0.0) &&
+                            all(goboUV <= 1.0)) {
+                            float4 gobo = sampleGobo(lightIndex, goboUV);
+                            float3 goboColor = gobo.rgb * gobo.a;
+                            if (light.GoboInfo.z > 0.5) {
+                                goboColor = 1.0 - goboColor;
+                            }
+                            radiance *= lerp(float3(1.0, 1.0, 1.0), goboColor,
+                                             saturate(light.GoboInfo.x));
+                        } else {
+                            attenuation = 0.0;
+                        }
+                    }
                 }
                 if (lightType == 4u) {
                     float areaScale = light.AreaSize.z > 0.5
@@ -448,8 +561,12 @@ float4 PSMain(PSInput In) : SV_Target {
                               max(4.0 * NdotV * NdotL, 1e-4);
             float3 diffuse = (1.0 - fresnel) * (1.0 - metallic) *
                              solidBase.rgb / 3.14159265;
+            float lightShadow = (ShadowSettings.x > 0.5 &&
+                                 lightIndex == (uint)ShadowSettings.z)
+                                    ? shadowVisibility
+                                    : 1.0;
             directColor += (diffuse + specular) * radiance *
-                           NdotL * attenuation;
+                           NdotL * attenuation * lightShadow;
         }
         float3 emissionColor = emissionSample.rgb * EmissionColorStrength.rgb *
                                emissionStrength;
@@ -488,6 +605,7 @@ struct MeshRenderer::Impl {
         float colorAttenuationConstant[4] = {};
         float attenuationSpot[4] = {};
         float areaSize[4] = {};
+        float goboInfo[4] = {};
     };
 
     struct SceneLightingConstants {
@@ -502,7 +620,12 @@ struct MeshRenderer::Impl {
         float pbrTextureFlags[4] = {};
     };
 
-    static_assert(sizeof(SceneLightGpu) == sizeof(float) * 20);
+    struct ShadowParamsConstants {
+        float lightViewProjection[16] = {};
+        float shadowSettings[4] = {};
+    };
+
+    static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
     static_assert(sizeof(MaterialConstants) == sizeof(float) * 12);
@@ -542,6 +665,16 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pOcclusionTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pOcclusionTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ISampler>               pBaseColorSampler_;
+    Diligent::RefCntAutoPtr<Diligent::ISampler>               pShadowSampler_;
+    Diligent::RefCntAutoPtr<Diligent::ISampler>               pGoboSampler_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pShadowMapSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>               pShadowFallbackTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pShadowFallbackSRV_;
+    std::array<Diligent::RefCntAutoPtr<Diligent::ITexture>, MaxSceneLights>
+        pGoboTextures_;
+    std::array<Diligent::RefCntAutoPtr<Diligent::ITextureView>, MaxSceneLights>
+        pGoboTextureSRVs_;
+    std::array<QString, MaxSceneLights> goboTexturePaths_;
     
     // Instance data buffer
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pInstanceBuffer_;
@@ -559,6 +692,11 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pConstantBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMaterialBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pSceneLightingBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pShadowParamsBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pShadowConstantsBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pShadowPSO_;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pShadowSRB_;
+    bool shadowPrepared_ = false;
     
     size_t vertexCount_ = 0;
     size_t indexCount_ = 0;
@@ -571,6 +709,7 @@ struct MeshRenderer::Impl {
     QString occlusionTexturePath_;
     MaterialConstants materialConstants_;
     SceneLightingConstants sceneLighting_;
+    ShadowParamsConstants shadowParams_;
 };
 
 MeshRenderer::MeshRenderer(GpuContext& context)
@@ -656,6 +795,10 @@ void MeshRenderer::createBuffers()
     pImpl_->pConstantBuffer_.Release();
     pImpl_->pMaterialBuffer_.Release();
     pImpl_->pSceneLightingBuffer_.Release();
+    pImpl_->pShadowParamsBuffer_.Release();
+    pImpl_->pShadowConstantsBuffer_.Release();
+    pImpl_->pShadowPSO_.Release();
+    pImpl_->pShadowSRB_.Release();
     // Cached SRBs contain static bindings to the constant buffers above.
     // They must not survive a buffer rebuild.
     pImpl_->pipelineSets_.clear();
@@ -781,6 +924,24 @@ void MeshRenderer::createBuffers()
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pSceneLightingBuffer_);
     }
+    {
+        BufferDesc BuffDesc;
+        BuffDesc.Name = "Mesh Shadow Constants CB";
+        BuffDesc.Usage = USAGE_DYNAMIC;
+        BuffDesc.Size = sizeof(float) * 16;
+        BuffDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pShadowConstantsBuffer_);
+    }
+    {
+        BufferDesc BuffDesc;
+        BuffDesc.Name = "Mesh Shadow Parameters CB";
+        BuffDesc.Usage = USAGE_DYNAMIC;
+        BuffDesc.Size = sizeof(Impl::ShadowParamsConstants);
+        BuffDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pShadowParamsBuffer_);
+    }
 
     if (!pImpl_->pBaseColorSampler_) {
         SamplerDesc samplerDesc;
@@ -793,6 +954,28 @@ void MeshRenderer::createBuffers()
         samplerDesc.ComparisonFunc = COMPARISON_FUNC_ALWAYS;
         samplerDesc.MaxAnisotropy = 1;
         pDevice->CreateSampler(samplerDesc, &pImpl_->pBaseColorSampler_);
+    }
+    if (!pImpl_->pShadowSampler_) {
+        SamplerDesc samplerDesc;
+        samplerDesc.MinFilter = FILTER_TYPE_COMPARISON_LINEAR;
+        samplerDesc.MagFilter = FILTER_TYPE_COMPARISON_LINEAR;
+        samplerDesc.MipFilter = FILTER_TYPE_COMPARISON_LINEAR;
+        samplerDesc.AddressU = TEXTURE_ADDRESS_CLAMP;
+        samplerDesc.AddressV = TEXTURE_ADDRESS_CLAMP;
+        samplerDesc.AddressW = TEXTURE_ADDRESS_CLAMP;
+        samplerDesc.ComparisonFunc = COMPARISON_FUNC_LESS_EQUAL;
+        pDevice->CreateSampler(samplerDesc, &pImpl_->pShadowSampler_);
+    }
+    if (!pImpl_->pGoboSampler_) {
+        SamplerDesc samplerDesc;
+        samplerDesc.MinFilter = FILTER_TYPE_LINEAR;
+        samplerDesc.MagFilter = FILTER_TYPE_LINEAR;
+        samplerDesc.MipFilter = FILTER_TYPE_LINEAR;
+        samplerDesc.AddressU = TEXTURE_ADDRESS_CLAMP;
+        samplerDesc.AddressV = TEXTURE_ADDRESS_CLAMP;
+        samplerDesc.AddressW = TEXTURE_ADDRESS_CLAMP;
+        samplerDesc.ComparisonFunc = COMPARISON_FUNC_ALWAYS;
+        pDevice->CreateSampler(samplerDesc, &pImpl_->pGoboSampler_);
     }
 
     if (!pImpl_->pBaseColorTexture_) {
@@ -905,6 +1088,32 @@ void MeshRenderer::createPSO()
     if (!pDevice) {
         return;
     }
+    if (!pImpl_->pShadowFallbackTexture_) {
+        const float litDepth = 1.0f;
+        TextureDesc texDesc;
+        texDesc.Name = "MeshRenderer_LitShadowFallback";
+        texDesc.Type = RESOURCE_DIM_TEX_2D;
+        texDesc.Width = 1;
+        texDesc.Height = 1;
+        texDesc.MipLevels = 1;
+        texDesc.Format = TEX_FORMAT_R32_FLOAT;
+        texDesc.Usage = USAGE_IMMUTABLE;
+        texDesc.BindFlags = BIND_SHADER_RESOURCE;
+        TextureSubResData subRes;
+        subRes.pData = &litDepth;
+        subRes.Stride = sizeof(litDepth);
+        TextureData initData;
+        initData.pSubResources = &subRes;
+        initData.NumSubresources = 1;
+        pDevice->CreateTexture(texDesc, &initData, &pImpl_->pShadowFallbackTexture_);
+        if (pImpl_->pShadowFallbackTexture_) {
+            pImpl_->pShadowFallbackSRV_ = pImpl_->pShadowFallbackTexture_
+                ->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        }
+    }
+    if (!pImpl_->pShadowMapSRV_) {
+        pImpl_->pShadowMapSRV_ = pImpl_->pShadowFallbackSRV_;
+    }
 
     // Diligent output parameters must be empty. createPSO() is also called
     // when the active render-target format changes, so release the currently
@@ -982,7 +1191,7 @@ void MeshRenderer::createPSO()
     // Resource layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     
-    static std::array<ShaderResourceVariableDesc, 8> Vars = {{
+    static std::array<ShaderResourceVariableDesc, 17> Vars = {{
         {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_OpacityTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -990,6 +1199,15 @@ void MeshRenderer::createPSO()
         {SHADER_TYPE_PIXEL, "g_MetallicRoughnessTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_NormalTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_OcclusionTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_ShadowMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_GoboTexture0", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_GoboTexture1", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_GoboTexture2", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_GoboTexture3", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_GoboTexture4", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_GoboTexture5", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_GoboTexture6", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_GoboTexture7", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorSampler", SHADER_RESOURCE_VARIABLE_TYPE_STATIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -1024,13 +1242,74 @@ void MeshRenderer::createPSO()
         if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "SceneLighting")) {
             var->Set(pImpl_->pSceneLightingBuffer_);
         }
+        if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_VERTEX, "ShadowParams")) {
+            var->Set(pImpl_->pShadowParamsBuffer_);
+        }
+        if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "ShadowParams")) {
+            var->Set(pImpl_->pShadowParamsBuffer_);
+        }
         if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorSampler")) {
             var->Set(pImpl_->pBaseColorSampler_);
+        }
+        if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_ShadowSampler")) {
+            var->Set(pImpl_->pShadowSampler_);
+        }
+        if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_GoboSampler")) {
+            var->Set(pImpl_->pGoboSampler_);
         }
         pso->CreateShaderResourceBinding(&srb, true);
     };
     initializeBindings(pImpl_->pPSO_, pImpl_->pSRB_);
     initializeBindings(pImpl_->pTransparentPSO_, pImpl_->pTransparentSRB_);
+
+    // Depth-only pipeline used by the composition renderer's shadow-map
+    // prepass.  It intentionally has no colour attachment or pixel shader.
+    pImpl_->pShadowPSO_.Release();
+    pImpl_->pShadowSRB_.Release();
+    GraphicsPipelineStateCreateInfo shadowPSOInfo;
+    shadowPSOInfo.PSODesc.Name = "Mesh Shadow Depth PSO";
+    shadowPSOInfo.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
+    shadowPSOInfo.pPSOCache = pImpl_->pPSOCache_.RawPtr();
+    shadowPSOInfo.GraphicsPipeline.PrimitiveTopology =
+        PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    shadowPSOInfo.GraphicsPipeline.NumRenderTargets = 0;
+    shadowPSOInfo.GraphicsPipeline.RTVFormats[0] = TEX_FORMAT_UNKNOWN;
+    shadowPSOInfo.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
+    shadowPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+    shadowPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
+    shadowPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc =
+        COMPARISON_FUNC_LESS;
+    std::array<LayoutElement, 1> shadowLayout;
+    shadowLayout[0].HLSLSemantic = "ATTRIB";
+    shadowLayout[0].InputIndex = 0;
+    shadowLayout[0].BufferSlot = 0;
+    shadowLayout[0].NumComponents = 3;
+    shadowLayout[0].ValueType = VT_FLOAT32;
+    shadowPSOInfo.GraphicsPipeline.InputLayout.NumElements = 1;
+    shadowPSOInfo.GraphicsPipeline.InputLayout.LayoutElements = shadowLayout.data();
+    RefCntAutoPtr<IShader> shadowVS;
+    context_.CompileShader(MeshShadowVSSource, SHADER_TYPE_VERTEX, "VSMain",
+                           &shadowVS);
+    shadowPSOInfo.pVS = shadowVS;
+    shadowPSOInfo.PSODesc.ResourceLayout.DefaultVariableType =
+        SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+    static std::array<ShaderResourceVariableDesc, 1> shadowVars = {{
+        {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+    }};
+    shadowPSOInfo.PSODesc.ResourceLayout.Variables = shadowVars.data();
+    shadowPSOInfo.PSODesc.ResourceLayout.NumVariables =
+        static_cast<Uint32>(shadowVars.size());
+    pDevice->CreateGraphicsPipelineState(shadowPSOInfo, &pImpl_->pShadowPSO_);
+    if (pImpl_->pShadowPSO_) {
+        if (auto* var = pImpl_->pShadowPSO_->GetStaticVariableByName(
+                SHADER_TYPE_VERTEX, "ShadowConstants")) {
+            var->Set(pImpl_->pShadowConstantsBuffer_);
+        }
+        pImpl_->pShadowPSO_->CreateShaderResourceBinding(&pImpl_->pShadowSRB_,
+                                                          true);
+    } else {
+        qWarning("[MeshRenderer] shadow depth PSO creation failed");
+    }
     if (!pImpl_->gpuCullReady_) {
         static std::array<ShaderResourceVariableDesc, 3> CullVars = {{
             {SHADER_TYPE_COMPUTE, "g_Input", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -1136,6 +1415,7 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
             : pImpl_->pSRB_.RawPtr();
     if (!activePSO || !activeSRB || !pImpl_->pConstantBuffer_ ||
         !pImpl_->pMaterialBuffer_ || !pImpl_->pSceneLightingBuffer_ ||
+        !pImpl_->pShadowParamsBuffer_ ||
         !pImpl_->pInstanceBuffer_) {
         if (!pImpl_->missingPipelineWarningIssued_) {
             qWarning("[MeshRenderer] prepare skipped because pipeline or buffer resources are unavailable");
@@ -1172,6 +1452,16 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
     }
     memcpy(pData, &pImpl_->sceneLighting_, sizeof(Impl::SceneLightingConstants));
     pContext->UnmapBuffer(pImpl_->pSceneLightingBuffer_, MAP_WRITE);
+    if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    pData = nullptr;
+    pContext->MapBuffer(pImpl_->pShadowParamsBuffer_, MAP_WRITE,
+                        MAP_FLAG_DISCARD, pData);
+    if (!pData) {
+        qWarning("[MeshRenderer] prepare skipped because shadow parameter mapping failed");
+        return;
+    }
+    memcpy(pData, &pImpl_->shadowParams_, sizeof(Impl::ShadowParamsConstants));
+    pContext->UnmapBuffer(pImpl_->pShadowParamsBuffer_, MAP_WRITE);
     if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     
     pImpl_->gpuCullActive_ =
@@ -1261,6 +1551,21 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         }
         if (auto* occlusionVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_OcclusionTexture")) {
             occlusionVar->Set(pImpl_->pOcclusionTextureSRV_);
+        }
+        if (auto* shadowVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_ShadowMap")) {
+            shadowVar->Set(pImpl_->pShadowMapSRV_ ? pImpl_->pShadowMapSRV_
+                                                   : pImpl_->pShadowFallbackSRV_);
+        }
+        static constexpr std::array<const char*, Impl::MaxSceneLights> goboNames = {
+            "g_GoboTexture0", "g_GoboTexture1", "g_GoboTexture2", "g_GoboTexture3",
+            "g_GoboTexture4", "g_GoboTexture5", "g_GoboTexture6", "g_GoboTexture7"};
+        for (size_t lightIndex = 0; lightIndex < goboNames.size(); ++lightIndex) {
+            if (auto* goboVar = activeSRB->GetVariableByName(
+                    SHADER_TYPE_PIXEL, goboNames[lightIndex])) {
+                goboVar->Set(pImpl_->pGoboTextureSRVs_[lightIndex]
+                                 ? pImpl_->pGoboTextureSRVs_[lightIndex]
+                                 : pImpl_->pBaseColorTextureSRV_);
+            }
         }
         if (auto* sampVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorSampler")) {
             sampVar->Set(pImpl_->pBaseColorSampler_);
@@ -1373,6 +1678,71 @@ void MeshRenderer::draw(IDeviceContext* pContext, size_t instanceCount)
     }
 }
 
+void MeshRenderer::prepareShadow(IDeviceContext* pContext,
+                                 const float* lightViewProjection)
+{
+    pImpl_->shadowPrepared_ = false;
+    if (!pContext || !lightViewProjection || !pImpl_->pShadowPSO_ ||
+        !pImpl_->pShadowSRB_ || !pImpl_->pShadowConstantsBuffer_ ||
+        !pImpl_->pInstanceBuffer_ || !pImpl_->pPositionBuffer_) {
+        return;
+    }
+
+    float transposedLightViewProjection[16] = {};
+    transpose4x4(lightViewProjection, transposedLightViewProjection);
+    void* pData = nullptr;
+    pContext->MapBuffer(pImpl_->pShadowConstantsBuffer_, MAP_WRITE,
+                        MAP_FLAG_DISCARD, pData);
+    if (!pData) {
+        qWarning("[MeshRenderer] shadow prepass skipped because constant buffer mapping failed");
+        return;
+    }
+    std::memcpy(pData, transposedLightViewProjection,
+                sizeof(transposedLightViewProjection));
+    pContext->UnmapBuffer(pImpl_->pShadowConstantsBuffer_, MAP_WRITE);
+
+    if (auto* instances = pImpl_->pShadowSRB_->GetVariableByName(
+            SHADER_TYPE_VERTEX, "g_Instances")) {
+        instances->Set(pImpl_->pInstanceBuffer_->GetDefaultView(
+            BUFFER_VIEW_SHADER_RESOURCE));
+    }
+    pContext->SetPipelineState(pImpl_->pShadowPSO_);
+    pContext->CommitShaderResources(pImpl_->pShadowSRB_,
+                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    IBuffer* positionBuffer[] = {pImpl_->pPositionBuffer_};
+    pContext->SetVertexBuffers(0, 1, positionBuffer, nullptr,
+                               RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                               SET_VERTEX_BUFFERS_FLAG_RESET);
+    if (pImpl_->pIndexBuffer_) {
+        pContext->SetIndexBuffer(pImpl_->pIndexBuffer_, 0,
+                                 RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+    pImpl_->shadowPrepared_ = true;
+}
+
+void MeshRenderer::drawShadow(IDeviceContext* pContext, size_t instanceCount)
+{
+    if (!pContext || !pImpl_->shadowPrepared_ || instanceCount == 0) {
+        return;
+    }
+    instanceCount = std::min(instanceCount, maxInstances_);
+    if (pImpl_->pIndexBuffer_ && indexCount_ > 0) {
+        DrawIndexedAttribs drawAttrs;
+        drawAttrs.NumIndices = static_cast<Uint32>(indexCount_);
+        drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
+        drawAttrs.IndexType = VT_UINT32;
+        drawAttrs.Flags = DRAW_FLAG_NONE;
+        pContext->DrawIndexed(drawAttrs);
+    } else if (vertexCount_ > 0) {
+        DrawAttribs drawAttrs;
+        drawAttrs.NumVertices = static_cast<Uint32>(vertexCount_);
+        drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
+        drawAttrs.Flags = DRAW_FLAG_NONE;
+        pContext->Draw(drawAttrs);
+    }
+    pImpl_->shadowPrepared_ = false;
+}
+
 void MeshRenderer::setViewMatrix(const float* matrix)
 {
     prepared_ = false;
@@ -1421,8 +1791,8 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
             continue;
         }
 
-        auto& gpuLight =
-            pImpl_->sceneLighting_.lights[pImpl_->sceneLighting_.lightingMeta[0]++];
+        const size_t packedLightIndex = pImpl_->sceneLighting_.lightingMeta[0]++;
+        auto& gpuLight = pImpl_->sceneLighting_.lights[packedLightIndex];
         const auto position = light.position();
         const auto direction = light.direction();
         const auto color = light.color();
@@ -1449,7 +1819,44 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
         gpuLight.areaSize[0] = light.areaWidth();
         gpuLight.areaSize[1] = light.areaHeight();
         gpuLight.areaSize[2] = static_cast<float>(light.areaShape());
+        const QString goboPath = QString::fromStdString(light.goboTexturePath());
+        if (pImpl_->goboTexturePaths_[packedLightIndex] != goboPath) {
+            pImpl_->goboTexturePaths_[packedLightIndex] = goboPath;
+            pImpl_->pGoboTextures_[packedLightIndex].Release();
+            pImpl_->pGoboTextureSRVs_[packedLightIndex].Release();
+            if (!goboPath.isEmpty()) {
+                loadLinearTexture(context_, goboPath,
+                                  "MeshRenderer GOBO Texture",
+                                  pImpl_->pGoboTextures_[packedLightIndex],
+                                  pImpl_->pGoboTextureSRVs_[packedLightIndex]);
+            }
+        }
+        gpuLight.goboInfo[0] = light.goboIntensity();
+        gpuLight.goboInfo[1] = light.goboRotation() *
+            std::numbers::pi_v<float> / 180.0f;
+        gpuLight.goboInfo[2] = light.goboInvert() ? 1.0f : 0.0f;
+        gpuLight.goboInfo[3] =
+            light.type() == LightType::Spot &&
+            !goboPath.isEmpty() && pImpl_->pGoboTextureSRVs_[packedLightIndex]
+                ? 1.0f : 0.0f;
     }
+}
+
+void MeshRenderer::setShadowMap(ITextureView* shadowMap,
+                                const float* lightViewProjection,
+                                bool enabled, int sceneLightIndex,
+                                float depthBias)
+{
+    prepared_ = false;
+    pImpl_->pShadowMapSRV_ = shadowMap ? shadowMap : pImpl_->pShadowFallbackSRV_;
+    if (lightViewProjection) {
+        transpose4x4(lightViewProjection,
+                     pImpl_->shadowParams_.lightViewProjection);
+    }
+    pImpl_->shadowParams_.shadowSettings[0] = enabled && shadowMap ? 1.0f : 0.0f;
+    pImpl_->shadowParams_.shadowSettings[1] = std::max(depthBias, 0.0f);
+    pImpl_->shadowParams_.shadowSettings[2] =
+        static_cast<float>(std::max(sceneLightIndex, 0));
 }
 
 void MeshRenderer::setTransparentPass(bool transparent)

@@ -37,7 +37,7 @@ export module Analyze.Histgram;
 
 export namespace ArtifactCore {
 
-class Histgram {
+class Histogram {
 private:
     struct Impl {
         std::vector<std::vector<int>> bins_; // bins_[channel][bin]
@@ -52,8 +52,8 @@ private:
     };
     Impl* impl_;
 public:
-    Histgram();
-    ~Histgram();
+    Histogram();
+    ~Histogram();
 
     // Calculate histogram from image
     void calculate(const cv::Mat& image);
@@ -73,5 +73,8 @@ public:
     // Clear histogram
     void clear();
 };
+
+// Compatibility alias for the former misspelled public type.
+using Histgram = Histogram;
 
 };

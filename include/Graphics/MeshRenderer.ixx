@@ -5,6 +5,7 @@ module;
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/PipelineStateCache.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QColor>
 #include "../Define/DllExportMacro.hpp"
@@ -99,6 +100,16 @@ public:
     void setNormalTexture(const QString& path);
     void setOcclusionTexture(const QString& path);
     void setSceneLights(const std::vector<Light>& lights);
+    // Set the depth texture and light transform consumed by the material pass.
+    // Passing nullptr disables shadow comparison without changing the lights.
+    void setShadowMap(ITextureView* shadowMap, const float* lightViewProjection,
+                      bool enabled, int sceneLightIndex,
+                      float depthBias = 0.0015f);
+    // Shadow-map depth prepass. The caller owns the DSV/viewport binding and
+    // supplies a light view-projection matrix in the same Qt column-major
+    // layout accepted by the regular matrix setters.
+    void prepareShadow(IDeviceContext* pContext, const float* lightViewProjection);
+    void drawShadow(IDeviceContext* pContext, size_t instanceCount);
     void setTransparentPass(bool transparent);
 
     /**

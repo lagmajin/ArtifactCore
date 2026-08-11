@@ -2,6 +2,7 @@ module;
 #include <utility>
 #include <cmath>
 #include <algorithm>
+#include <string>
 
 module Core.Light;
 
@@ -104,6 +105,26 @@ void Light::setSpotAngle(float degrees)
 {
  float d = std::clamp(degrees, 1.0f, 90.0f);
  setCutoff(d * 0.8f, d);
+}
+
+void Light::setGoboTexturePath(std::string path)
+{
+ goboTexturePath_ = std::move(path);
+}
+
+void Light::setGoboIntensity(float value)
+{
+ goboIntensity_ = std::clamp(value, 0.0f, 1.0f);
+}
+
+void Light::setGoboRotation(float degrees)
+{
+ goboRotation_ = std::fmod(degrees, 360.0f);
+}
+
+void Light::setGoboInvert(bool enabled)
+{
+ goboInvert_ = enabled;
 }
 
 // --- Enabled ---

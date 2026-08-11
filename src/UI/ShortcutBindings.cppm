@@ -271,6 +271,8 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("WorkCursorCenter");
     case ShortcutId::WorkCursorClear:
         return QStringLiteral("WorkCursorClear");
+    case ShortcutId::ViewToggleCameraFrustum:
+        return QStringLiteral("ViewToggleCameraFrustum");
     case ShortcutId::Count:
         break;
     }
@@ -537,6 +539,8 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Center Work Cursor");
     case ShortcutId::WorkCursorClear:
         return QStringLiteral("Clear Work Cursor");
+    case ShortcutId::ViewToggleCameraFrustum:
+        return QStringLiteral("View Toggle Camera Frustum");
     case ShortcutId::Count:
         break;
     }
@@ -668,6 +672,7 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::WorkCursorPlace,
         ShortcutId::WorkCursorCenter,
         ShortcutId::WorkCursorClear,
+        ShortcutId::ViewToggleCameraFrustum,
     };
 }
 
@@ -756,6 +761,7 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::ViewSecondaryPreview)] = QKeySequence(Qt::Key_F12);
     defaults_[index(ShortcutId::ViewToggleXRay)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X);
     defaults_[index(ShortcutId::ViewToggleIsolation)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_I);
+    defaults_[index(ShortcutId::ViewToggleCameraFrustum)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O);
     defaults_[index(ShortcutId::RenderAddCurrentToQueue)] = QKeySequence(Qt::CTRL | Qt::Key_M);
     defaults_[index(ShortcutId::RenderShowQueue)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_R);
     defaults_[index(ShortcutId::RenderShowManager)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R);
