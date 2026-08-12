@@ -27,7 +27,7 @@ const bool kMatteSerializationRegistered = [] {
 }
 
 namespace {
-constexpr float clamp01(float value) {
+inline float clamp01(float value) {
     if (!std::isfinite(value)) return 0.0f;
     return value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
 }

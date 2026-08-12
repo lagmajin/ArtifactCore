@@ -4,173 +4,15 @@ project(ArtifactCore)
 set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
 
 # ---------------------------------------------------------------------------
-# ソース収集とモジュール分類
+# Explicit source manifest
 # ---------------------------------------------------------------------------
-
-# 拡張子ベースの分類:
-#   .ixx → 常にモジュールインターフェース（内容スキャン不要）
-#   .cpp → 常に実装ファイル（内容スキャン不要）
-#   .cppm → export module の有無をスキャンして振り分け
-file(GLOB_RECURSE IXX_FILES
-    "include/*.ixx" "include/**/*.ixx"
-    "src/*.ixx" "src/**/*.ixx"
-    "NetworkRPCServer.ixx"
-    "NetworkRPCClient.ixx"
-)
-file(GLOB_RECURSE CPP_FILES
-    "src/*.cpp" "src/**/*.cpp"
-)
-file(GLOB_RECURSE CPPM_FILES
-    "include/*.cppm" "include/**/*.cppm"
-    "src/*.cppm" "src/**/*.cppm"
-)
-
-set(CORE_MODULES "")
-set(CORE_IMPL "")
-set(_PROVIDED_MODULES "")
-
-# アーカイブ除外フィルター
-function(_artifact_exclude_check file_path result_var)
-    if("${file_path}" MATCHES "stashed_broken_modules" OR
-       "${file_path}" MATCHES "disabled_modules" OR
-       "${file_path}" MATCHES "[/\\\\]Halide[/\\\\]" OR
-       "${file_path}" MATCHES "hostfxr" OR
-       "${file_path}" MATCHES "\\.bak$" OR
-       "${file_path}" MATCHES "src/ImageProcessing/OpenCV/VignetCV\\.ixx" OR
-       "${file_path}" MATCHES "src/ImageProcessing/OpenCV/HalfTone\\.ixx" OR
-       "${file_path}" MATCHES "src/ImageProcessing/OpenCV/FilmGrain\\.cppm" OR
-       "${file_path}" MATCHES "include/ImageProcessing/OpenCV/G-API/" OR
-       "${file_path}" MATCHES "include/Image/Blur/BlurGAPI\\.cpp" OR
-       "${file_path}" MATCHES "include/XR/OpenXR\\.ixx" OR
-       "${file_path}" MATCHES "src/Diagnostics/ValidationRules\\.cppm" OR
-       "${file_path}" MATCHES "src/Animation/EasingCurveUtil\\.cppm" OR
-       "${file_path}" MATCHES "src/Graphics/Compute/CurveComputer\\.cppm" OR
-       "${file_path}" MATCHES "src/Graphics/Compute/DuotoneComputer\\.cppm" OR
-       "${file_path}" MATCHES "src/Graphics/Compute/EchoBlendComputer\\.cppm" OR
-       "${file_path}" MATCHES "src/Graphics/Compute/EdgeEchoComputer\\.cppm" OR
-       "${file_path}" MATCHES "src/Graphics/Compute/HalftoneComputer\\.cppm" OR
-       "${file_path}" MATCHES "src/Graphics/Compute/Histogram\\.cppm" OR
-       "${file_path}" MATCHES "src/Graphics/Compute/ScopeComputer\\.cppm" OR
-       "${file_path}" MATCHES "SpinTransition\\.cppm$" OR
-       "${file_path}" MATCHES "src/ImageProcessing/AnamorphicFlare\\.cppm" OR
-       "${file_path}" MATCHES "include/Diagnostics/ValidationRules\\.ixx" OR
-       "${file_path}" MATCHES "include[/\\\\]Asset[/\\\\]AsseetImporter\\.ixx" OR
-       "${file_path}" MATCHES "src/Image/FFmpegEncoder\\.Test\\.cppm" OR
-       "${file_path}" MATCHES "src/Render/SoftwareRayTracer\\.Test\\.cppm" OR
-       "${file_path}" MATCHES "DiligentEngine/DiligentCore/ThirdParty/Vulkan-Headers")
-        set(${result_var} TRUE PARENT_SCOPE)
-    else()
-        set(${result_var} FALSE PARENT_SCOPE)
-    endif()
-endfunction()
-
-# .ixx → モジュールインターフェース（内容スキャン不要）
-foreach(file_path ${IXX_FILES})
-    _artifact_exclude_check("${file_path}" _excluded)
-    if(_excluded)
-        continue()
-    endif()
-    list(APPEND CORE_MODULES "${file_path}")
-
-    # Keep the public module names available while classifying .cppm files.
-    # A .cppm that repeats an interface module name is an implementation
-    # unit, even when it uses the legacy `export module M;` spelling.
-    file(READ "${file_path}" ixx_content LIMIT 32768)
-    string(REGEX REPLACE "//[^\n]*" "" ixx_content "${ixx_content}")
-    if(ixx_content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
-        list(APPEND _PROVIDED_MODULES "${CMAKE_MATCH_1}")
-    endif()
-endforeach()
-
-# .cpp → 実装ファイル（内容スキャン不要）
-foreach(file_path ${CPP_FILES})
-    _artifact_exclude_check("${file_path}" _excluded)
-    if(_excluded)
-        continue()
-    endif()
-    list(APPEND CORE_IMPL "${file_path}")
-endforeach()
-
-# .cppm → export module スキャンで振り分け
-foreach(file_path ${CPPM_FILES})
-    _artifact_exclude_check("${file_path}" _excluded)
-    if(_excluded)
-        continue()
-    endif()
-
-    file(READ "${file_path}" raw_content LIMIT 32768)
-    string(REGEX REPLACE "//[^\n]*" "" content "${raw_content}")
-    string(REGEX REPLACE "/\\*.*\\*/" "" content "${content}")
-
-    set(_mod_name "")
-    if(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+([a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
-        set(_mod_name "${CMAKE_MATCH_1}")
-    elseif(content MATCHES "module[ \t\r\n]+([a-zA-Z0-9\\._]+:[a-zA-Z0-9\\._:]+)[ \t\r\n]*;")
-        set(_mod_name "${CMAKE_MATCH_1}")
-    endif()
-
-    if(_mod_name STREQUAL "")
-        list(APPEND CORE_IMPL "${file_path}")
-    elseif(content MATCHES "export[ \t\r\n]+module[ \t\r\n]+[a-zA-Z0-9\\._:]+[ \t\r\n]*;")
-        list(FIND _PROVIDED_MODULES "${_mod_name}" _mod_idx)
-        if(_mod_idx EQUAL -1)
-            list(APPEND CORE_MODULES "${file_path}")
-            list(APPEND _PROVIDED_MODULES "${_mod_name}")
-        else()
-            list(APPEND CORE_IMPL "${file_path}")
-        endif()
-    else()
-        list(APPEND CORE_IMPL "${file_path}")
-    endif()
-endforeach()
-
-# CMake's module scan can miss implementation partitions in this tree when the
-# module unit is only provided as `module M:Impl;`, so register the known shape
-# partitions explicitly to keep FILE_SET CXX_MODULES complete.
-foreach(_artifact_force_module IN ITEMS
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Geometry/Procedural3DGenerators.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeOperator.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/TrimPaths.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/Repeater.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeGroup.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/UniquePtr.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/TrackedPtr.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeGroup.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeLayer.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationProtocol.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateSlot.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateLock.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/ParametricComposition.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Simulation/PyroSimulation.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/ImageBuffer.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Memory/SharedPtr.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactAtomic.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactHashMap.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Core/ArtifactOptional.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostics/CoreDiagnostic.Test.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/SmallVector.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/NameMap.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/IdMap.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Physics/SandSim2D.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Graphics/SandGPUCompute.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Graphics/SurfaceColorContract.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/SurfacePixelConversion.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/ImageSurfaceView.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/ImageUploadConversion.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactSpan.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactFunction.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactVariant.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/ArtifactUtility.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Color/LUTWriter.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/ImageProcessing/Keying/IBKKeyer.ixx"
-)
-    list(FIND CORE_MODULES "${_artifact_force_module}" _artifact_force_module_index)
-    if(_artifact_force_module_index EQUAL -1)
-        list(APPEND CORE_MODULES "${_artifact_force_module}")
-    endif()
-endforeach()
+# Do not discover or classify source files during configure.  In particular,
+# reading every .cppm to find `export module` made an unrelated new file force
+# a full source-tree scan.  Add new sources to cmake/ArtifactCoreSources.cmake
+# and place public .cppm units in ARTIFACTCORE_MODULE_SOURCES explicitly.
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreSources.cmake")
+set(CORE_MODULES ${ARTIFACTCORE_MODULE_SOURCES})
+set(CORE_IMPL ${ARTIFACTCORE_IMPL_SOURCES})
 
 # These are implementation units for interface partitions already present in
 # the CXX_MODULES file set.  CMake's scanner treats the repeated partition
@@ -182,19 +24,71 @@ set_source_files_properties(
     PROPERTIES CXX_SCAN_FOR_MODULES OFF
 )
 if(MSVC)
+    # Keep the top-level Image module's IFC beside the other include modules.
+    # MSVC otherwise emits both `Image.ixx.ifc` and
+    # `include/Image/Image.ixx.ifc`, making `import Image;` ambiguous.
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/Image.ixx"
+        PROPERTIES
+            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/Image/Image.ixx.ifc"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/Image.ixx.ifc"
+    )
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/Utils/MultipleTag.ixx"
+        PROPERTIES
+            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/Utils/MultipleTag.ixx.ifc"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Utils/MultipleTag.ixx.ifc"
+    )
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/VST3/VST3Interfaces.ixx"
+        PROPERTIES
+            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/VST3/VST3Interfaces.ixx.ifc"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/VST3/VST3Interfaces.ixx.ifc"
+    )
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
         PROPERTIES
-            COMPILE_OPTIONS "/reference;File:Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/File-Info.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/File/FileInfo.ixx.obj"
+            COMPILE_OPTIONS "/reference;File:Info=$(IntDir)/include/File/FileInfo.ixx.ifc"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/File/FileInfo.ixx.obj"
     )
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
         PROPERTIES
-            COMPILE_OPTIONS "/reference;Image:OpenEXR=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image-OpenEXR.ifc;/reference;Image.DeepImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.DeepImageBuffer.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/OpenEXR.ixx.obj;${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/DeepImageBuffer.ixx.obj"
+            COMPILE_OPTIONS "/reference;Image:OpenEXR=$(IntDir)/include/Image/OpenEXR.ixx.ifc;/reference;Image.DeepImageBuffer=$(IntDir)/include/Image/DeepImageBuffer.ixx.ifc"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/OpenEXR.ixx.obj;${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/DeepImageBuffer.ixx.obj"
     )
 endif()
+
+# Private .cppm implementation units use `module Name;` to attach to the
+# public interface.  MSVC needs an explicit BMI reference for those units;
+# CMake emits per-source Visual Studio metadata only when the source property
+# is set before the source is attached to its target.  Keep the precomputed
+# mapping explicit rather than reading every source during CMake configure.
+set(_artifact_scanned_impl ${CORE_IMPL})
+list(REMOVE_ITEM _artifact_scanned_impl
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
+)
+set_source_files_properties(${_artifact_scanned_impl} PROPERTIES CXX_SCAN_FOR_MODULES ON)
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreModuleReferences.cmake")
+foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
+    string(REPLACE "|" ";" _artifact_module_fields "${_artifact_module_reference}")
+    list(GET _artifact_module_fields 0 _artifact_impl_relative)
+    list(GET _artifact_module_fields 1 _artifact_module_name)
+    list(GET _artifact_module_fields 2 _artifact_interface_relative)
+    set(_artifact_impl_file "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_impl_relative}")
+    # The dependency scanner does not model a primary-interface attachment
+    # (`module Name;`) reliably.  Let the explicit reference below be the
+    # single source of truth for these implementation units.
+    set_source_files_properties("${_artifact_impl_file}" PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+    set_property(SOURCE "${_artifact_impl_file}" APPEND_STRING PROPERTY
+        COMPILE_FLAGS " /TP")
+    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+        COMPILE_OPTIONS "/reference;${_artifact_module_name}=$(IntDir)/${_artifact_interface_relative}.ifc")
+    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+        OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/${_artifact_interface_relative}.obj")
+endforeach()
 
 # Procedural3DGenerators.cppm is the implementation unit for the explicitly
 # registered public generator module above.
@@ -226,6 +120,809 @@ if(_sand_gpu_impl_idx EQUAL -1)
     list(APPEND CORE_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics/SandGPUCompute.cppm")
 endif()
 
+# Audio is a large, mostly self-contained domain.  Keep the two non-Audio
+# modules that directly import Audio in the same pack so the base Core target
+# does not retain an edge back into the extracted module set.
+set(ARTIFACTCORE_AUDIO_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/ASIOBackendStub.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioAnalyzer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioBackend.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioBassTreble.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioBufferQueue.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioBus.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioCache.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioChorus.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioCompressor.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioDecibels.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioDelay.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioDownMixer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioEffect.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioFormat.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioFrame.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioFrameToQAudioFormatConverter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioHighLowPass.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioMixer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioModule.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioPanner.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioParametricEQ.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioProvider.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioRasterizer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioRenderer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioReverb.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioRingBuffer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioSegment.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioSpectrum.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioStereoMixer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioTone.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioVolume.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioWaveform.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioWriter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/AllPassFilter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/DelayLine.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/LFO.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/FormantExtractor.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/LipSyncTrack.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/SimpleWav.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/WASAPIBackend.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/QtAudioBackend.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFMpegAudioDecoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx"
+)
+set(ARTIFACTCORE_AUDIO_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/ASIOBackendStub.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioAnalyzer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBassTreble.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBus.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioCache.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioChorus.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioCompressor.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDecibels.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDelay.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioDownMixer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioHighLowPass.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioMixer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioPanner.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioParametricEQ.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioRasterizer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioRenderer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioReverb.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioRingBuffer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioSpectrum.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioStereoMixer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioTone.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioVolume.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioWaveform.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioWriter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/FormantExtractor.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/LipSyncTrack.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/SimpleWav.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/WASAPIBackend.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegAudioDecoder.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AUDIO_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AUDIO_IMPL})
+
+# AI modules form a leaf domain in Core: the static import audit found no
+# non-AI Core module importing an AI module.  Keep their public descriptions
+# and optional local/cloud agent implementations in a separate target.
+set(ARTIFACTCORE_AI_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/AIActionContext.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/AIContext.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/AIPromptGenerator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/AIToolExecutor.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/APIKeyManager.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/CommandIR.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/CommandSandbox.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ICloudAIAgent.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/IDescribable.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/LlamaLocalAgent.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/LocalAIAgent.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/McpBridge.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/McpTransport.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ObjectDetector.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/OnnxDmlLocalAgent.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/TieredAIManager.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ToolBridge.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/3DLightingDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/AIAnalysisDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/AnimationUIDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/CoreDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/DataAssetDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/DescriptionExamples.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/EffectsUtilityDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ExportImportDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/FinalUtilitiesDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/FluidMaskingDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ImageMathDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/LayerDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/MoreDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/RenderAudioColorDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TransitionsGeneratorDescriptions.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/UIWidgetsDescriptions.cppm"
+)
+set(ARTIFACTCORE_AI_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/APIKeyManager.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/CloudAgent.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/LlamaLocalAgent.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ObjectDetector.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxDmlLocalAgent.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AI_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AI_IMPL})
+
+# Video is another mostly leaf domain.  Media playback/editor modules and the
+# FFmpeg video decoder are included here because they directly import
+# Video.VideoFrame; this keeps the base Core target free of reverse Video
+# module edges.
+set(ARTIFACTCORE_VIDEO_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractDecoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractEncoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/CpuFrameView.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/EncoderSetting.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/FFMpegEncoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/FFMpegVideoDecoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/FFmpegAudioEncoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/GStreamerDecoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/GStreamerEncoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/PlaybackManager.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Stabilizer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/TransitionFactory.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/BlockDissolveTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/CrossfadeTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/CubeTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/DissolveTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/DoorsTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/FlipTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/GlitchDisplaceTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/GradientWipeTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/IrisWipeTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/LightLeakTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/LinearWipeTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/RadialWipeTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/SlideTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/SpinTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/WipeTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/ZoomTransition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Video.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/VideoFrame.ixx"
+)
+set(ARTIFACTCORE_VIDEO_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/PlaybackManager.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/TransitionFactory.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/BlockDissolveTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CrossfadeTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CubeTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/DissolveTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/DoorsTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/FlipTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/GlitchDisplaceTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/GradientWipeTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/IrisWipeTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/LightLeakTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/LinearWipeTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/RadialWipeTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/SlideTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/WipeTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/ZoomTransition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegVideoDecoder.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VIDEO_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VIDEO_IMPL})
+
+set(ARTIFACTCORE_MEDIA_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/ISource.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/ImageSequenceSource.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/Media.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaAudioDecoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaEditorController.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaFrame.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaImageFrameDecoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaInfo.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaMetaData.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaPlaybackController.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaProbe.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaReader.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaSource.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/MediaTimeStamp.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/SourceInterpret.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFmpegThumbnailExtractor.ixx"
+)
+set(ARTIFACTCORE_MEDIA_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/ImageSequenceSource.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaAudioDecoder.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaEditorController.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaFrame.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaImageFrameDecoder.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaInfo.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaPlaybackController.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaProbe.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaReader.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaSource.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/MediaTimeStamp.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_MEDIA_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MEDIA_IMPL})
+
+# Composition is a leaf Core domain: no remaining Core interface imports a
+# Composition module.  Keep the buffer, pre-compose, template, and final
+# effect contracts together so project/composition changes do not rebuild the
+# entire base target.
+set(ARTIFACTCORE_COMPOSITION_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/AbstractCompositionBuffer2D.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/CompositionBuffer2D.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/CompositionContext.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/CompositionFinalEffect.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/ExportMatrix.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/ParametricComposition.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/PreCompose.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateLock.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Composition/TemplateSlot.ixx"
+)
+set(ARTIFACTCORE_COMPOSITION_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/CompositionBuffer2D.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/CompositionFinalEffect.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/ExportMatrix.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/OpenCVCompositionBuffer2D.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/ParametricComposition.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/PreCompose.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/TemplateLock.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Composition/TemplateSlot.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COMPOSITION_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COMPOSITION_IMPL})
+
+set(ARTIFACTCORE_UI_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/Context.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/DragOperator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/GizmoMode.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InputEvent.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InputOperator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InputOperatorManager.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/KeyMap.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/LayoutState.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/RotateOperator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/RotoMaskEditor.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/ScaleOperator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/SelectOperator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/SelectionManager.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/ShortcutBindings.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/StandardActions.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/TransformControls.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/ViewOrientationNavigator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/ViewportOperator.ixx"
+)
+set(ARTIFACTCORE_UI_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/InputOperator.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/InputOperatorManager.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/RotoMaskEditor.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/SelectionManager.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ShortcutBindings.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ViewOrientationNavigator.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/ViewportOperator.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_UI_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_UI_IMPL})
+
+set(ARTIFACTCORE_DATA_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/ColumnType.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/CsvDataSource.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/CsvParser.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/Data.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/DataCache.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/DataPropertyBridge.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/DataSource.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/DataTable.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/ExpressionDataFunctions.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/FileWatcher.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/TypedColumn.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Data/TypeInference.ixx"
+)
+set(ARTIFACTCORE_DATA_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_DATA_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_DATA_IMPL})
+
+set(ARTIFACTCORE_ASSET_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/AbstractAssetFile.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/AssetConverter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/AssetDatabase.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/AssetImportSetting.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/AssetImporter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/AssetMetaFile.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/AssetSequence.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/AssetType.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/DataAssetFile.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/ImageAsset.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Asset/VectorImport.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Utils/AssetManager.ixx"
+)
+set(ARTIFACTCORE_ASSET_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AbstractAssetFile.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetConverter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetDatabase.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetImporter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetManager.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/AssetMetaFile.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Asset/ImageAsset.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ASSET_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_ASSET_IMPL})
+
+set(ARTIFACTCORE_COMMAND_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/CommandModule.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/CommonCommands.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/EditSession.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/EditSessionManager.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/LambdaCommand.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/LayerLockManager.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/SerializableCommand.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InteractiveActions.ixx"
+)
+set(ARTIFACTCORE_COMMAND_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Command/LambdaCommand.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Command/LayerLockManager.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COMMAND_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COMMAND_IMPL})
+
+set(ARTIFACTCORE_ACOUSTIC_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/Acoustic.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/AcousticSystem.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/FrictionModel.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/ModalResonator.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/RainModel.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/SpatialSystem.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Acoustic/WindModel.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostic/DiagnosticRegistry.cppm"
+)
+set(ARTIFACTCORE_ACOUSTIC_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ACOUSTIC_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_ACOUSTIC_IMPL})
+
+set(ARTIFACTCORE_SHAPE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/AeOperators.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/Repeater.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeGroup.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeLayer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeOperator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapePath.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeTypes.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/TrimPaths.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/IO/VectorExport.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/IO/IO.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeGroup.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapeLayer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shape/ShapePath.cppm"
+)
+set(ARTIFACTCORE_SHAPE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/IO/VectorExport.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SHAPE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SHAPE_IMPL})
+
+set(ARTIFACTCORE_PLATFORM_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Platform/Platform.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Platform/PlatformHint.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Platform/Power.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Platform/ProcessHelperWin.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Platform/ShellUtils.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Platform/SystemUsage.ixx"
+)
+set(ARTIFACTCORE_PLATFORM_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/Platform.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/Power.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/ProcessHelperWin.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Platform/ShellUtils.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PLATFORM_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_PLATFORM_IMPL})
+
+set(ARTIFACTCORE_THREAD_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/BackgroundTaskRuntime.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/BackgroundTaskSamples.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/BackgroundTaskWorkerPool.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/PreciseTicker.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/ThreadHelper.ixx"
+)
+set(ARTIFACTCORE_THREAD_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/PreciseTicker.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/ThreadHelper.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_THREAD_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_THREAD_IMPL})
+
+set(ARTIFACTCORE_ANALYZE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Analyze/Analyze.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Analyze/Histgram.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Analyze/ImageAnalyzer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Analyze/OpenCV/OptifalFlowResult.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Analyze/SmartPaletteAnalyzer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Time/TimeRemap.ixx"
+)
+set(ARTIFACTCORE_ANALYZE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/Histgram.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/ImageAnalyzer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/OpenCV/OptifalFlowResult.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Analyze/SmartPaletteAnalyzer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Time/TimeRemap.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ANALYZE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_ANALYZE_IMPL})
+
+set(ARTIFACTCORE_TRACKING_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Tracking/MotionTracker.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Tracking/PlanarTracker.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Tracking/CameraTracker.cppm"
+)
+set(ARTIFACTCORE_TRACKING_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Tracking/MotionTracker.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Tracking/PlanarTracker.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_TRACKING_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_TRACKING_IMPL})
+
+set(ARTIFACTCORE_IPC_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/IPC/IPCChannel.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/IPC/RenderFarmSharedBuffer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/IPC/SharedMemoryRingBuffer.ixx"
+)
+set(ARTIFACTCORE_IPC_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/IPC/IPCChannel.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/IPC/RenderFarmSharedBuffer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/IPC/SharedMemoryRingBuffer.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_IPC_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_IPC_IMPL})
+
+set(ARTIFACTCORE_NLE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/NLE/Core.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/NLE/OTIO.ixx"
+)
+set(ARTIFACTCORE_NLE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/Core.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_NLE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_NLE_IMPL})
+
+set(ARTIFACTCORE_PLAYBACK_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Playback/PlaybackClock.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Playback/PlaybackState.ixx"
+)
+set(ARTIFACTCORE_PLAYBACK_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Playback/PlaybackClock.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PLAYBACK_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_PLAYBACK_IMPL})
+
+set(ARTIFACTCORE_PREVIEW_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Preview/PreviewQuality.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Preview/PreviewSettings.ixx"
+)
+set(ARTIFACTCORE_PREVIEW_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Preview/PreviewQuality.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Preview/PreviewSettings.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PREVIEW_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_PREVIEW_IMPL})
+
+set(ARTIFACTCORE_EXPORT_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Export/Lottie/LottieExporter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Export/Lottie/LottieRigExporter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Export/Lottie/LottieTypes.ixx"
+)
+set(ARTIFACTCORE_EXPORT_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExporter.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_EXPORT_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_EXPORT_IMPL})
+
+set(ARTIFACTCORE_VST3_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/VST3/VST3Interfaces.ixx"
+)
+set(ARTIFACTCORE_VST3_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/VST3/VST3Loader.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VST3_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VST3_IMPL})
+
+set(ARTIFACTCORE_LOCALIZATION_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Localization/LocaleFormatting.ixx"
+)
+set(ARTIFACTCORE_LOCALIZATION_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Localization/Localization.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_LOCALIZATION_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_LOCALIZATION_IMPL})
+
+set(ARTIFACTCORE_COORDINATE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Coordinate/CoordinateProfile.ixx"
+)
+set(ARTIFACTCORE_COORDINATE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Coordinate/CoordinateProfile.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COORDINATE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COORDINATE_IMPL})
+
+set(ARTIFACTCORE_EVENT_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Event/Event.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Event/EventBus.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Event/EventBusDebugger.ixx"
+)
+set(ARTIFACTCORE_EVENT_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBus.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBusDebugger.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_EVENT_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_EVENT_IMPL})
+
+set(ARTIFACTCORE_FILE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/File/FileInfo.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/File/FileTypeDetector.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/File/PreviewDescriptor.ixx"
+)
+set(ARTIFACTCORE_FILE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileTypeDetector.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_FILE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_FILE_IMPL})
+
+set(ARTIFACTCORE_PLUGIN_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Plugin/ILayerPlugin.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Plugin/PluginCommon.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Plugin/PluginRegistry.ixx"
+)
+set(ARTIFACTCORE_PLUGIN_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginCommon.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Plugin/PluginRegistry.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PLUGIN_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_PLUGIN_IMPL})
+
+set(ARTIFACTCORE_CONTROL_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Control/MidiInput.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Control/OscInput.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/ArtifactExternalControlManager.cppm"
+)
+set(ARTIFACTCORE_CONTROL_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/MidiInput.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Control/OscInput.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_CONTROL_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_CONTROL_IMPL})
+
+set(ARTIFACTCORE_DATABASE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Database/Database.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Database/DatabaseTypes.ixx"
+)
+set(ARTIFACTCORE_DATABASE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Database/Database.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_DATABASE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_DATABASE_IMPL})
+
+set(ARTIFACTCORE_MASK_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Mask/DepthMask.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Mask/PathMorph.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Mask/RotoMask.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Mask/VolumeMask.ixx"
+)
+set(ARTIFACTCORE_MASK_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/DepthMask.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/PathMorph.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/RotoMask.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/VolumeMask.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_MASK_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MASK_IMPL})
+
+set(ARTIFACTCORE_CONFIGURATION_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Configuration/ConfigLayer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Configuration/ConfigSchema.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Configuration/LayeredConfigStore.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Application/ArtifactAppSettings.ixx"
+)
+set(ARTIFACTCORE_CONFIGURATION_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Configuration/ConfigSchema.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Configuration/LayeredConfigStore.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Application/ArtifactAppSettings.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_CONFIGURATION_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_CONFIGURATION_IMPL})
+
+set(ARTIFACTCORE_TEXT_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Font/FontDescriptor.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Font/FontLicenseRegistry.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Font/FreeFont.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/GlyphAtlas.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/GlyphLayout.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextAnimator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextLayoutContract.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextShapingBackend.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextStyle.ixx"
+)
+set(ARTIFACTCORE_TEXT_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/GlyphAtlas.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/GlyphLayout.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextAnimator.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextShapingBackend.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextStyle.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_TEXT_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_TEXT_IMPL})
+
+set(ARTIFACTCORE_GENERATE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Generate/GenerateTestImage.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Generate/StarfieldGenerator.ixx"
+)
+set(ARTIFACTCORE_GENERATE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/GenerateTestImage.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Generate/StarfieldGenerator.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_GENERATE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_GENERATE_IMPL})
+
+set(ARTIFACTCORE_SIMULATION_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Simulation/OpenVDBVolumeReference.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Simulation/PyroSimulation.ixx"
+)
+set(ARTIFACTCORE_SIMULATION_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/OpenVDBVolumeReference.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Simulation/PyroSimulation.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SIMULATION_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SIMULATION_IMPL})
+
+set(ARTIFACTCORE_TRACK_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Track/LayerTrack.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Track/NccTracker.ixx"
+)
+set(ARTIFACTCORE_TRACK_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Track/NccTracker.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_TRACK_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_TRACK_IMPL})
+
+set(ARTIFACTCORE_SOURCE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Source/ISource.ixx"
+)
+set(ARTIFACTCORE_SOURCE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Source/ISource.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SOURCE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SOURCE_IMPL})
+
+set(ARTIFACTCORE_PROJECT_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Project/MetadataCollector.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Project/ProjectVisitor.ixx"
+)
+set(ARTIFACTCORE_PROJECT_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PROJECT_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_PROJECT_IMPL})
+
+set(ARTIFACTCORE_SCENE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Scene/SceneNode.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Scene/SimulationSettings.ixx"
+)
+set(ARTIFACTCORE_SCENE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Scene/SceneNode.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SCENE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SCENE_IMPL})
+
+set(ARTIFACTCORE_RIG_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Rig/Rig2D.ixx"
+)
+set(ARTIFACTCORE_RIG_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Rig/Rig2D.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_RIG_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_RIG_IMPL})
+
+set(ARTIFACTCORE_GRID_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Grid/ArtifactGridSystem.ixx"
+)
+set(ARTIFACTCORE_GRID_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_GRID_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_GRID_IMPL})
+
+set(ARTIFACTCORE_COLORCOLLECTION_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/ColorCollection/ColorGrading.ixx"
+)
+set(ARTIFACTCORE_COLORCOLLECTION_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ColorCollection/ColorGrading.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COLORCOLLECTION_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COLORCOLLECTION_IMPL})
+
+set(ARTIFACTCORE_SOUND_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Sound/SoundTrack.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Sound/SoundType.ixx"
+)
+set(ARTIFACTCORE_SOUND_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SOUND_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SOUND_IMPL})
+
+set(ARTIFACTCORE_SEQUENCE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Sequence/SequenceGroup.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Sequence/StepSequencer.ixx"
+)
+set(ARTIFACTCORE_SEQUENCE_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SEQUENCE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SEQUENCE_IMPL})
+
+set(ARTIFACTCORE_MATERIAL_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Material/Material.ixx")
+set(ARTIFACTCORE_MATERIAL_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Material/Material.cppm")
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_MATERIAL_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MATERIAL_IMPL})
+
+set(ARTIFACTCORE_ENVIRONMENT_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/EnvironmentVariable/EnvironmentVariable.ixx")
+set(ARTIFACTCORE_ENVIRONMENT_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cppm")
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ENVIRONMENT_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_ENVIRONMENT_IMPL})
+
+set(ARTIFACTCORE_LIGHT_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Light/IESProfile.ixx")
+set(ARTIFACTCORE_LIGHT_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Light/IESProfile.cppm")
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_LIGHT_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_LIGHT_IMPL})
+
+set(ARTIFACTCORE_CROWD_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Crowd/BoidsSwarmSystem.ixx")
+set(ARTIFACTCORE_CROWD_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_CROWD_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_CROWD_IMPL})
+
+set(ARTIFACTCORE_DOMAIN_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Domain/LayerTypes.ixx")
+set(ARTIFACTCORE_DOMAIN_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_DOMAIN_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_DOMAIN_IMPL})
+
+set(ARTIFACTCORE_FILESYSTEM_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/FileSystem/DirectoryBuilder.ixx")
+set(ARTIFACTCORE_FILESYSTEM_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_FILESYSTEM_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_FILESYSTEM_IMPL})
+
+set(ARTIFACTCORE_ICON_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Icon/SvgToIcon.ixx")
+set(ARTIFACTCORE_ICON_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_ICON_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_ICON_IMPL})
+
+set(ARTIFACTCORE_VST_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/VST/VSTEffect.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/VST/VSTHost.ixx"
+)
+set(ARTIFACTCORE_VST_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VST_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VST_IMPL})
+
+set(ARTIFACTCORE_NETWORK_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/NetworkRPCClient.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/NetworkRPCServer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Network/CollaborationWebSocket.ixx"
+)
+set(ARTIFACTCORE_NETWORK_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/CollaborationWebSocket.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCClient.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_NETWORK_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_NETWORK_IMPL})
+
+set(ARTIFACTCORE_COLLABORATE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationProtocol.cppm"
+)
+set(ARTIFACTCORE_COLLABORATE_IMPL)
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COLLABORATE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COLLABORATE_IMPL})
+
+
 # ---------------------------------------------------------------------------
 # ターゲット定義
 # ---------------------------------------------------------------------------
@@ -252,6 +949,8 @@ if(ARTIFACT_FRONTEND_MSVC)
     target_compile_options(ArtifactCore PRIVATE /experimental:module)
     # Enable full C++23 library support
     target_compile_options(ArtifactCore PRIVATE /Zc:__cplusplus /permissive-)
+    target_compile_options(ArtifactCore PRIVATE
+        "/FI${CMAKE_CURRENT_SOURCE_DIR}/include/Compat/QtListForward.h")
 endif()
 
 target_sources(ArtifactCore
@@ -701,4 +1400,1254 @@ if(DOTNET_EXECUTABLE)
     endif()
 else()
     message(STATUS "C# scripting disabled: dotnet executable not found")
+endif()
+
+# Keep the large Audio domain in its own static library.  It links the base
+# Core target because Audio uses foundational Core modules; the two direct
+# Audio consumers moved above prevent a reverse module edge from Core back into
+# this target.
+add_library(ArtifactCoreAudio STATIC)
+set_target_properties(ArtifactCoreAudio PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreAudio PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreAudio PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreAudio
+    PRIVATE ${ARTIFACTCORE_AUDIO_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_AUDIO_MODULES}
+)
+target_link_libraries(ArtifactCoreAudio PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreAudio PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreAudio PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreAudio PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreAI STATIC)
+set_target_properties(ArtifactCoreAI PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreAI PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreAI PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreAI
+    PRIVATE ${ARTIFACTCORE_AI_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_AI_MODULES}
+)
+target_link_libraries(ArtifactCoreAI PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreAI PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreAI PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreAI PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreVideo STATIC)
+set_target_properties(ArtifactCoreVideo PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreVideo PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreVideo PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreVideo
+    PRIVATE ${ARTIFACTCORE_VIDEO_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_VIDEO_MODULES}
+)
+target_link_libraries(ArtifactCoreVideo PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreVideo PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreVideo PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreVideo PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreMedia STATIC)
+set_target_properties(ArtifactCoreMedia PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreMedia PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreMedia PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreMedia
+    PRIVATE ${ARTIFACTCORE_MEDIA_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_MEDIA_MODULES}
+)
+target_link_libraries(ArtifactCoreMedia PUBLIC ArtifactCore ArtifactCoreVideo ArtifactCoreThread)
+target_include_directories(ArtifactCoreMedia PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreMedia PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreMedia PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreComposition STATIC)
+set_target_properties(ArtifactCoreComposition PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreComposition PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreComposition PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreComposition
+    PRIVATE ${ARTIFACTCORE_COMPOSITION_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_COMPOSITION_MODULES}
+)
+target_link_libraries(ArtifactCoreComposition PUBLIC ArtifactCore ArtifactCoreMedia)
+target_include_directories(ArtifactCoreComposition PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreComposition PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreComposition PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreUI STATIC)
+set_target_properties(ArtifactCoreUI PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreUI PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreUI PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreUI
+    PRIVATE ${ARTIFACTCORE_UI_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_UI_MODULES}
+)
+target_link_libraries(ArtifactCoreUI PUBLIC ArtifactCore ArtifactCoreCommand)
+target_include_directories(ArtifactCoreUI PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreUI PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreUI PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreData STATIC)
+set_target_properties(ArtifactCoreData PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreData PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreData PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreData
+    PRIVATE ${ARTIFACTCORE_DATA_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_DATA_MODULES}
+)
+target_link_libraries(ArtifactCoreData PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreData PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreData PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreData PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreCommand STATIC)
+set_target_properties(ArtifactCoreCommand PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreCommand PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreCommand PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreCommand
+    PRIVATE ${ARTIFACTCORE_COMMAND_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_COMMAND_MODULES}
+)
+target_link_libraries(ArtifactCoreCommand PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreCommand PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreCommand PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreCommand PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreAsset STATIC)
+set_target_properties(ArtifactCoreAsset PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreAsset PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreAsset PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreAsset
+    PRIVATE ${ARTIFACTCORE_ASSET_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_ASSET_MODULES}
+)
+target_link_libraries(ArtifactCoreAsset PUBLIC ArtifactCore ArtifactCoreData)
+target_include_directories(ArtifactCoreAsset PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreAsset PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreAsset PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreAcoustic STATIC)
+set_target_properties(ArtifactCoreAcoustic PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreAcoustic PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreAcoustic PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreAcoustic
+    PRIVATE ${ARTIFACTCORE_ACOUSTIC_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_ACOUSTIC_MODULES}
+)
+target_link_libraries(ArtifactCoreAcoustic PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreAcoustic PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreAcoustic PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreAcoustic PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreShape STATIC)
+set_target_properties(ArtifactCoreShape PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreShape PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreShape PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreShape
+    PRIVATE ${ARTIFACTCORE_SHAPE_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_SHAPE_MODULES}
+)
+target_link_libraries(ArtifactCoreShape PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreShape PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreShape PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreShape PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCorePlatform STATIC)
+set_target_properties(ArtifactCorePlatform PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCorePlatform PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCorePlatform PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCorePlatform
+    PRIVATE ${ARTIFACTCORE_PLATFORM_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_PLATFORM_MODULES}
+)
+target_link_libraries(ArtifactCorePlatform PUBLIC ArtifactCore)
+target_include_directories(ArtifactCorePlatform PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCorePlatform PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCorePlatform PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreThread STATIC)
+set_target_properties(ArtifactCoreThread PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreThread PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreThread PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreThread
+    PRIVATE ${ARTIFACTCORE_THREAD_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_THREAD_MODULES}
+)
+target_link_libraries(ArtifactCoreThread PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreThread PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreThread PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreThread PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreAnalyze STATIC)
+set_target_properties(ArtifactCoreAnalyze PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreAnalyze PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreAnalyze PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreAnalyze
+    PRIVATE ${ARTIFACTCORE_ANALYZE_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_ANALYZE_MODULES}
+)
+target_link_libraries(ArtifactCoreAnalyze PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreAnalyze PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreAnalyze PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreAnalyze PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreTracking STATIC)
+set_target_properties(ArtifactCoreTracking PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreTracking PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreTracking PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreTracking
+    PRIVATE ${ARTIFACTCORE_TRACKING_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_TRACKING_MODULES}
+)
+target_link_libraries(ArtifactCoreTracking PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreTracking PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreTracking PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreTracking PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreIPC STATIC)
+set_target_properties(ArtifactCoreIPC PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreIPC PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreIPC PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreIPC
+    PRIVATE ${ARTIFACTCORE_IPC_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_IPC_MODULES}
+)
+target_link_libraries(ArtifactCoreIPC PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreIPC PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreIPC PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreIPC PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreNLE STATIC)
+set_target_properties(ArtifactCoreNLE PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreNLE PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreNLE PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreNLE
+    PRIVATE ${ARTIFACTCORE_NLE_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_NLE_MODULES}
+)
+target_link_libraries(ArtifactCoreNLE PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreNLE PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreNLE PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreNLE PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCorePlayback STATIC)
+set_target_properties(ArtifactCorePlayback PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCorePlayback PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCorePlayback PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCorePlayback
+    PRIVATE ${ARTIFACTCORE_PLAYBACK_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_PLAYBACK_MODULES}
+)
+target_link_libraries(ArtifactCorePlayback PUBLIC ArtifactCore)
+target_include_directories(ArtifactCorePlayback PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCorePlayback PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCorePlayback PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCorePreview STATIC)
+set_target_properties(ArtifactCorePreview PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCorePreview PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCorePreview PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCorePreview
+    PRIVATE ${ARTIFACTCORE_PREVIEW_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_PREVIEW_MODULES}
+)
+target_link_libraries(ArtifactCorePreview PUBLIC ArtifactCore)
+target_include_directories(ArtifactCorePreview PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCorePreview PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCorePreview PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+target_link_libraries(ArtifactCoreVideo PUBLIC ArtifactCoreNLE)
+target_link_libraries(ArtifactCoreMedia PUBLIC ArtifactCorePlayback)
+add_library(ArtifactCoreExport STATIC)
+set_target_properties(ArtifactCoreExport PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreExport PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreExport PROPERTY CXX_MODULE_STD OFF)
+endif()
+
+add_library(ArtifactCoreEvent STATIC)
+set_target_properties(ArtifactCoreEvent PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreEvent PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreEvent PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreEvent
+    PRIVATE ${ARTIFACTCORE_EVENT_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_EVENT_MODULES}
+)
+target_link_libraries(ArtifactCoreEvent PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreEvent PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreEvent PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreEvent PRIVATE PLATFORM_WIN32 _GUARDOVERFLOW_CRT_ALLOCATORS=1 _WIN32_WINNT=0x0A00 WINVER=0x0A00 _UNICODE UNICODE GLOG_USE_GLOG_EXPORT)
+endif()
+
+add_library(ArtifactCoreFile STATIC)
+set_target_properties(ArtifactCoreFile PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreFile PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreFile PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreFile
+    PRIVATE ${ARTIFACTCORE_FILE_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_FILE_MODULES}
+)
+target_link_libraries(ArtifactCoreFile PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreFile PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreFile PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreFile PRIVATE PLATFORM_WIN32 _GUARDOVERFLOW_CRT_ALLOCATORS=1 _WIN32_WINNT=0x0A00 WINVER=0x0A00 _UNICODE UNICODE GLOG_USE_GLOG_EXPORT)
+endif()
+
+add_library(ArtifactCorePlugin STATIC)
+set_target_properties(ArtifactCorePlugin PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCorePlugin PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCorePlugin PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCorePlugin
+    PRIVATE ${ARTIFACTCORE_PLUGIN_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_PLUGIN_MODULES}
+)
+target_link_libraries(ArtifactCorePlugin PUBLIC ArtifactCore)
+target_include_directories(ArtifactCorePlugin PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCorePlugin PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCorePlugin PRIVATE PLATFORM_WIN32 _GUARDOVERFLOW_CRT_ALLOCATORS=1 _WIN32_WINNT=0x0A00 WINVER=0x0A00 _UNICODE UNICODE GLOG_USE_GLOG_EXPORT)
+endif()
+
+add_library(ArtifactCoreControl STATIC)
+set_target_properties(ArtifactCoreControl PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreControl PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreControl PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreControl
+    PRIVATE ${ARTIFACTCORE_CONTROL_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_CONTROL_MODULES}
+)
+target_link_libraries(ArtifactCoreControl PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreControl PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreControl PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreControl PRIVATE PLATFORM_WIN32 _GUARDOVERFLOW_CRT_ALLOCATORS=1 _WIN32_WINNT=0x0A00 WINVER=0x0A00 _UNICODE UNICODE GLOG_USE_GLOG_EXPORT)
+endif()
+
+add_library(ArtifactCoreDatabase STATIC)
+set_target_properties(ArtifactCoreDatabase PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreDatabase PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreDatabase PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreDatabase
+    PRIVATE ${ARTIFACTCORE_DATABASE_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_DATABASE_MODULES}
+)
+target_link_libraries(ArtifactCoreDatabase PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreDatabase PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreDatabase PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreDatabase PRIVATE PLATFORM_WIN32 _GUARDOVERFLOW_CRT_ALLOCATORS=1 _WIN32_WINNT=0x0A00 WINVER=0x0A00 _UNICODE UNICODE GLOG_USE_GLOG_EXPORT)
+endif()
+
+target_link_libraries(ArtifactCoreUI PUBLIC ArtifactCoreEvent)
+target_link_libraries(ArtifactCorePlayback PUBLIC ArtifactCoreEvent)
+target_link_libraries(ArtifactCoreAsset PUBLIC ArtifactCoreFile)
+
+add_library(ArtifactCoreMask STATIC)
+set_target_properties(ArtifactCoreMask PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreMask PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreMask PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreMask
+    PRIVATE ${ARTIFACTCORE_MASK_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_MASK_MODULES}
+)
+target_link_libraries(ArtifactCoreMask PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreMask PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreMask PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreMask PRIVATE PLATFORM_WIN32 _GUARDOVERFLOW_CRT_ALLOCATORS=1 _WIN32_WINNT=0x0A00 WINVER=0x0A00 _UNICODE UNICODE GLOG_USE_GLOG_EXPORT)
+endif()
+
+add_library(ArtifactCoreConfiguration STATIC)
+set_target_properties(ArtifactCoreConfiguration PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreConfiguration PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreConfiguration PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreConfiguration
+    PRIVATE ${ARTIFACTCORE_CONFIGURATION_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_CONFIGURATION_MODULES}
+)
+target_link_libraries(ArtifactCoreConfiguration PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreConfiguration PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreConfiguration PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreConfiguration PRIVATE PLATFORM_WIN32 _GUARDOVERFLOW_CRT_ALLOCATORS=1 _WIN32_WINNT=0x0A00 WINVER=0x0A00 _UNICODE UNICODE GLOG_USE_GLOG_EXPORT)
+endif()
+target_sources(ArtifactCoreExport
+    PRIVATE ${ARTIFACTCORE_EXPORT_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_EXPORT_MODULES}
+)
+target_link_libraries(ArtifactCoreExport PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreExport PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreExport PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreExport PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+target_link_libraries(ArtifactCoreUI PUBLIC ArtifactCoreMask)
+target_link_libraries(ArtifactCoreAI PUBLIC ArtifactCoreConfiguration)
+target_link_libraries(ArtifactCoreAsset PUBLIC ArtifactCoreConfiguration)
+
+add_library(ArtifactCoreText STATIC)
+set_target_properties(ArtifactCoreText PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreText PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreText PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreText
+    PRIVATE ${ARTIFACTCORE_TEXT_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_TEXT_MODULES}
+)
+target_link_libraries(ArtifactCoreText PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreText PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreText PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreText PRIVATE PLATFORM_WIN32 _GUARDOVERFLOW_CRT_ALLOCATORS=1 _WIN32_WINNT=0x0A00 WINVER=0x0A00 _UNICODE UNICODE GLOG_USE_GLOG_EXPORT)
+endif()
+
+target_link_libraries(ArtifactCoreShape PUBLIC ArtifactCoreText)
+
+add_library(ArtifactCoreScene STATIC)
+set_target_properties(ArtifactCoreScene PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreScene PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreScene PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreScene PRIVATE ${ARTIFACTCORE_SCENE_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_SCENE_MODULES})
+target_link_libraries(ArtifactCoreScene PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreScene PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreScene PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
+
+add_library(ArtifactCoreRig STATIC)
+set_target_properties(ArtifactCoreRig PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreRig PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreRig PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreRig PRIVATE ${ARTIFACTCORE_RIG_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_RIG_MODULES})
+target_link_libraries(ArtifactCoreRig PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreRig PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreRig PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
+
+add_library(ArtifactCoreGrid STATIC)
+set_target_properties(ArtifactCoreGrid PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreGrid PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreGrid PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreGrid PRIVATE ${ARTIFACTCORE_GRID_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_GRID_MODULES})
+target_link_libraries(ArtifactCoreGrid PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreGrid PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreGrid PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
+
+add_library(ArtifactCoreColorCollection STATIC)
+set_target_properties(ArtifactCoreColorCollection PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreColorCollection PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreColorCollection PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreColorCollection PRIVATE ${ARTIFACTCORE_COLORCOLLECTION_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_COLORCOLLECTION_MODULES})
+target_link_libraries(ArtifactCoreColorCollection PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreColorCollection PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreColorCollection PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
+
+add_library(ArtifactCoreSound STATIC)
+set_target_properties(ArtifactCoreSound PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreSound PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreSound PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreSound PRIVATE ${ARTIFACTCORE_SOUND_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_SOUND_MODULES})
+target_link_libraries(ArtifactCoreSound PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreSound PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreSequence STATIC)
+set_target_properties(ArtifactCoreSequence PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreSequence PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreSequence PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreSequence PRIVATE ${ARTIFACTCORE_SEQUENCE_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_SEQUENCE_MODULES})
+target_link_libraries(ArtifactCoreSequence PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreSequence PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+target_link_libraries(ArtifactCoreComposition PUBLIC ArtifactCoreScene)
+target_link_libraries(ArtifactCoreExport PUBLIC ArtifactCoreRig)
+target_link_libraries(ArtifactCoreConfiguration PUBLIC ArtifactCoreGrid)
+
+add_library(ArtifactCoreMaterial STATIC)
+set_target_properties(ArtifactCoreMaterial PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreMaterial PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreMaterial PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreMaterial PRIVATE ${ARTIFACTCORE_MATERIAL_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_MATERIAL_MODULES})
+target_link_libraries(ArtifactCoreMaterial PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreMaterial PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreEnvironment STATIC)
+set_target_properties(ArtifactCoreEnvironment PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreEnvironment PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreEnvironment PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreEnvironment PRIVATE ${ARTIFACTCORE_ENVIRONMENT_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_ENVIRONMENT_MODULES})
+target_link_libraries(ArtifactCoreEnvironment PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreEnvironment PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreLight STATIC)
+set_target_properties(ArtifactCoreLight PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreLight PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreLight PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreLight PRIVATE ${ARTIFACTCORE_LIGHT_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_LIGHT_MODULES})
+target_link_libraries(ArtifactCoreLight PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreLight PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreCrowd STATIC)
+set_target_properties(ArtifactCoreCrowd PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreCrowd PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreCrowd PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreCrowd PRIVATE ${ARTIFACTCORE_CROWD_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_CROWD_MODULES})
+target_link_libraries(ArtifactCoreCrowd PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreCrowd PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreDomain STATIC)
+set_target_properties(ArtifactCoreDomain PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+target_sources(ArtifactCoreDomain PRIVATE ${ARTIFACTCORE_DOMAIN_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_DOMAIN_MODULES})
+target_link_libraries(ArtifactCoreDomain PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreDomain PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreFileSystem STATIC)
+set_target_properties(ArtifactCoreFileSystem PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+target_sources(ArtifactCoreFileSystem PRIVATE ${ARTIFACTCORE_FILESYSTEM_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_FILESYSTEM_MODULES})
+target_link_libraries(ArtifactCoreFileSystem PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreFileSystem PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreIcon STATIC)
+set_target_properties(ArtifactCoreIcon PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+target_sources(ArtifactCoreIcon PRIVATE ${ARTIFACTCORE_ICON_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_ICON_MODULES})
+target_link_libraries(ArtifactCoreIcon PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreIcon PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreVST STATIC)
+set_target_properties(ArtifactCoreVST PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+target_sources(ArtifactCoreVST PRIVATE ${ARTIFACTCORE_VST_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_VST_MODULES})
+target_link_libraries(ArtifactCoreVST PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreVST PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+target_link_libraries(ArtifactCoreScene PUBLIC ArtifactCoreMaterial)
+
+add_library(ArtifactCoreNetwork STATIC)
+set_target_properties(ArtifactCoreNetwork PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreNetwork PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreNetwork PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreNetwork PRIVATE ${ARTIFACTCORE_NETWORK_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_NETWORK_MODULES})
+target_link_libraries(ArtifactCoreNetwork PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreNetwork PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreCollaborate STATIC)
+set_target_properties(ArtifactCoreCollaborate PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreCollaborate PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreCollaborate PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreCollaborate PRIVATE ${ARTIFACTCORE_COLLABORATE_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_COLLABORATE_MODULES})
+target_link_libraries(ArtifactCoreCollaborate PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreCollaborate PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+
+add_library(ArtifactCoreGenerate STATIC)
+set_target_properties(ArtifactCoreGenerate PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreGenerate PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreGenerate PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreGenerate PRIVATE ${ARTIFACTCORE_GENERATE_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_GENERATE_MODULES})
+target_link_libraries(ArtifactCoreGenerate PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreGenerate PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreGenerate PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
+
+add_library(ArtifactCoreSimulation STATIC)
+set_target_properties(ArtifactCoreSimulation PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreSimulation PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreSimulation PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreSimulation PRIVATE ${ARTIFACTCORE_SIMULATION_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_SIMULATION_MODULES})
+target_link_libraries(ArtifactCoreSimulation PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreSimulation PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreSimulation PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
+
+add_library(ArtifactCoreTrack STATIC)
+set_target_properties(ArtifactCoreTrack PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreTrack PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreTrack PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreTrack PRIVATE ${ARTIFACTCORE_TRACK_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_TRACK_MODULES})
+target_link_libraries(ArtifactCoreTrack PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreTrack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreTrack PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
+
+add_library(ArtifactCoreSource STATIC)
+set_target_properties(ArtifactCoreSource PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreSource PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreSource PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreSource PRIVATE ${ARTIFACTCORE_SOURCE_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_SOURCE_MODULES})
+target_link_libraries(ArtifactCoreSource PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreSource PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreSource PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
+
+add_library(ArtifactCoreProject STATIC)
+set_target_properties(ArtifactCoreProject PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreProject PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreProject PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreProject PRIVATE ${ARTIFACTCORE_PROJECT_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_PROJECT_MODULES})
+target_link_libraries(ArtifactCoreProject PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreProject PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreProject PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
+
+add_library(ArtifactCoreVST3 STATIC)
+set_target_properties(ArtifactCoreVST3 PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreVST3 PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreVST3 PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreVST3
+    PRIVATE ${ARTIFACTCORE_VST3_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_VST3_MODULES}
+)
+target_link_libraries(ArtifactCoreVST3 PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreVST3 PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreVST3 PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreVST3 PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreLocalization STATIC)
+set_target_properties(ArtifactCoreLocalization PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreLocalization PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreLocalization PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreLocalization
+    PRIVATE ${ARTIFACTCORE_LOCALIZATION_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_LOCALIZATION_MODULES}
+)
+target_link_libraries(ArtifactCoreLocalization PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreLocalization PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreLocalization PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreLocalization PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
+endif()
+
+add_library(ArtifactCoreCoordinate STATIC)
+set_target_properties(ArtifactCoreCoordinate PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries"
+)
+if(TARGET __CMAKE::CXX23)
+    set_property(TARGET ArtifactCoreCoordinate PROPERTY CXX_MODULE_STD ON)
+else()
+    set_property(TARGET ArtifactCoreCoordinate PROPERTY CXX_MODULE_STD OFF)
+endif()
+target_sources(ArtifactCoreCoordinate
+    PRIVATE ${ARTIFACTCORE_COORDINATE_IMPL}
+    PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_COORDINATE_MODULES}
+)
+target_link_libraries(ArtifactCoreCoordinate PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreCoordinate PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreCoordinate PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreCoordinate PRIVATE
+        PLATFORM_WIN32
+        _GUARDOVERFLOW_CRT_ALLOCATORS=1
+        _WIN32_WINNT=0x0A00
+        WINVER=0x0A00
+        _UNICODE
+        UNICODE
+        GLOG_USE_GLOG_EXPORT
+    )
 endif()

@@ -8,6 +8,7 @@ module;
 #include <QSizeF>
 #include <cmath>
 #include <algorithm>
+#include <cstdint>
 #include <numeric>
 #include <random>
 #include <numbers>
@@ -49,6 +50,114 @@ std::vector<int> buildLogicalOrderRanks(
             rank;
     }
     return ranks;
+}
+
+struct SelectorDomainPosition {
+    int index = 0;
+    int count = 0;
+};
+
+SelectorDomainPosition selectorDomainPosition(
+    const GlyphItem& glyph, const int glyphIndex, const int glyphCount,
+    const int clusterCount, const int lineCount, const int tagIndex,
+    const int tagCount, const SelectorUnits units) {
+    switch (units) {
+        case SelectorUnits::Cluster:
+            return {glyph.clusterIndex >= 0 ? glyph.clusterIndex : glyphIndex,
+                    clusterCount > 0 ? clusterCount : glyphCount};
+        case SelectorUnits::Line:
+            return {glyph.lineIndex >= 0 ? glyph.lineIndex : glyphIndex,
+                    lineCount > 0 ? lineCount : glyphCount};
+        case SelectorUnits::Tag:
+            return {tagIndex >= 0 ? tagIndex : glyphIndex,
+                    tagCount > 0 ? tagCount : glyphCount};
+        case SelectorUnits::Index:
+            return {glyphIndex, glyphCount};
+        case SelectorUnits::Percentage:
+        default:
+            // Percentage is the default authoring mode and must not split a
+            // grapheme (combining marks, emoji ZWJ, variation selectors).
+            return {glyph.clusterIndex >= 0 ? glyph.clusterIndex : glyphIndex,
+                    clusterCount > 0 ? clusterCount : glyphCount};
+    }
+}
+
+std::vector<int> buildDomainOrderRanks(const int totalCount,
+                                       const SelectorOrder order) {
+    const std::vector<int> orderMap =
+        TextAnimatorEngine::createOrderMap(totalCount, order);
+    std::vector<int> ranks(orderMap.size());
+    for (int rank = 0; rank < static_cast<int>(orderMap.size()); ++rank) {
+        const int domainIndex = orderMap[static_cast<size_t>(rank)];
+        if (domainIndex >= 0 && domainIndex < totalCount) {
+            ranks[static_cast<size_t>(domainIndex)] = rank;
+        }
+    }
+    return ranks;
+}
+
+float calculateWeightForGlyphWithOrderRanks(
+    const GlyphItem& glyph, const int glyphIndex, const int glyphCount,
+    const int clusterCount, const int lineCount, const int tagIndex,
+    const int tagCount, const RangeSelector& selector,
+    const std::vector<int>& orderRanks) {
+    if (selector.regexEnabled && !selector.selectorPattern.isEmpty()) {
+        const QRegularExpression regex(selector.selectorPattern);
+        const QString haystack = glyph.clusterId + QStringLiteral(" ") +
+                                 glyph.selectorTag + QStringLiteral(" ") +
+                                 glyph.stableTokenId + QStringLiteral(" ") +
+                                 QString::number(glyph.index);
+        if (!regex.isValid() || !regex.match(haystack).hasMatch()) {
+            return 0.0f;
+        }
+    }
+
+    SelectorDomainPosition position = selectorDomainPosition(
+        glyph, glyphIndex, glyphCount, clusterCount, lineCount, tagIndex,
+        tagCount, selector.units);
+    if (position.index >= 0 &&
+        position.index < static_cast<int>(orderRanks.size())) {
+        position.index = orderRanks[static_cast<size_t>(position.index)];
+    }
+
+    RangeSelector rangeOnly = selector;
+    rangeOnly.order = SelectorOrder::Natural;
+    return TextAnimatorEngine::calculateWeight(position.index, position.count,
+                                                rangeOnly);
+}
+
+FloatRGBA lerpColor(const FloatRGBA& from, const FloatRGBA& to,
+                    const float amount) {
+    const float t = std::clamp(amount, 0.0f, 1.0f);
+    return FloatRGBA(std::lerp(from.r(), to.r(), t),
+                     std::lerp(from.g(), to.g(), t),
+                     std::lerp(from.b(), to.b(), t),
+                     std::lerp(from.a(), to.a(), t));
+}
+
+void accumulateColorOverride(bool& enabled, FloatRGBA& color,
+                             float& accumulatedWeight,
+                             const FloatRGBA& nextColor,
+                             const float nextWeight) {
+    const float weight = std::clamp(nextWeight, 0.0f, 1.0f);
+    if (weight <= 0.0f) {
+        return;
+    }
+    if (!enabled) {
+        enabled = true;
+        color = nextColor;
+        accumulatedWeight = weight;
+        return;
+    }
+
+    const float previousWeight = std::clamp(accumulatedWeight, 0.0f, 1.0f);
+    const float combinedWeight =
+        previousWeight + (1.0f - previousWeight) * weight;
+    if (combinedWeight <= 0.0f) {
+        return;
+    }
+    color = lerpColor(color, nextColor, weight / combinedWeight);
+    accumulatedWeight = combinedWeight;
 }
 
 bool isTextGroupSeparator(const char32_t code) {
@@ -255,13 +364,11 @@ SelectorResult TextAnimatorEngine::evaluateSelector(
 
     const int glyphCount = static_cast<int>(context.glyphs.size());
     const int tagCount = tagOrder.size();
-    const std::vector<int> selectorOrder =
-        createOrderMap(glyphCount, selector.order);
-    std::vector<int> selectorOrderRanks(static_cast<size_t>(glyphCount));
-    for (int rank = 0; rank < glyphCount; ++rank) {
-        selectorOrderRanks[static_cast<size_t>(
-            selectorOrder[static_cast<size_t>(rank)])] = rank;
-    }
+    const SelectorDomainPosition orderDomain = selectorDomainPosition(
+        context.glyphs.front(), 0, glyphCount, clusterCount, lineCount,
+        tagIndices.front(), tagCount, selector.units);
+    const std::vector<int> orderRanks =
+        buildDomainOrderRanks(orderDomain.count, selector.order);
     for (int i = 0; i < glyphCount; ++i) {
         if (!regexMatches[static_cast<qsizetype>(i)]) {
             continue;
@@ -273,14 +380,12 @@ SelectorResult TextAnimatorEngine::evaluateSelector(
             context.order == TextSelectorOrder::Logical
                 ? logicalOrderRanks[static_cast<size_t>(i)]
                 : i;
-        const int selectorOrderedGlyphIndex =
-            selectorOrderRanks[static_cast<size_t>(orderedGlyphIndex)];
         result.weights[static_cast<qsizetype>(i)] =
-            calculateWeightForGlyph(
-                context.glyphs[static_cast<size_t>(i)], selectorOrderedGlyphIndex,
+            calculateWeightForGlyphWithOrderRanks(
+                context.glyphs[static_cast<size_t>(i)], orderedGlyphIndex,
                 glyphCount,
                 clusterCount, lineCount, tagIndices[static_cast<size_t>(i)],
-                tagCount, rangeOnly);
+                tagCount, rangeOnly, orderRanks);
     }
     result.diagnostic =
         selector.regexEnabled
@@ -350,47 +455,14 @@ float TextAnimatorEngine::calculateWeightForGlyph(const GlyphItem& glyph,
                                                   int tagIndex,
                                                   int tagCount,
                                                   const RangeSelector& selector) {
-    if (selector.regexEnabled && !selector.selectorPattern.isEmpty()) {
-        const QRegularExpression regex(selector.selectorPattern);
-        const QString haystack = glyph.clusterId + QStringLiteral(" ") + glyph.selectorTag +
-                                 QStringLiteral(" ") + glyph.stableTokenId +
-                                 QStringLiteral(" ") + QString::number(glyph.index);
-        if (!regex.isValid() || !regex.match(haystack).hasMatch()) {
-            return 0.0f;
-        }
-    }
-    int positionIndex = glyphIndex;
-    int totalCount = glyphCount;
-
-    switch (selector.units) {
-        case SelectorUnits::Cluster:
-            positionIndex = glyph.clusterIndex >= 0 ? glyph.clusterIndex : glyphIndex;
-            totalCount = clusterCount > 0 ? clusterCount : glyphCount;
-            break;
-        case SelectorUnits::Line:
-            positionIndex = glyph.lineIndex >= 0 ? glyph.lineIndex : glyphIndex;
-            totalCount = lineCount > 0 ? lineCount : glyphCount;
-            break;
-        case SelectorUnits::Tag:
-            positionIndex = tagIndex >= 0 ? tagIndex : glyphIndex;
-            totalCount = tagCount > 0 ? tagCount : glyphCount;
-            break;
-        case SelectorUnits::Index:
-            positionIndex = glyphIndex;
-            totalCount = glyphCount;
-            break;
-        case SelectorUnits::Percentage:
-        default:
-            // Percentage is the default authoring mode and must not split a
-            // grapheme (combining marks, emoji ZWJ, variation selectors).
-            positionIndex = glyph.clusterIndex >= 0
-                                ? glyph.clusterIndex
-                                : glyphIndex;
-            totalCount = clusterCount > 0 ? clusterCount : glyphCount;
-            break;
-    }
-
-    return calculateWeight(positionIndex, totalCount, selector);
+    const SelectorDomainPosition orderDomain = selectorDomainPosition(
+        glyph, glyphIndex, glyphCount, clusterCount, lineCount, tagIndex,
+        tagCount, selector.units);
+    const std::vector<int> orderRanks =
+        buildDomainOrderRanks(orderDomain.count, selector.order);
+    return calculateWeightForGlyphWithOrderRanks(
+        glyph, glyphIndex, glyphCount, clusterCount, lineCount, tagIndex,
+        tagCount, selector, orderRanks);
 }
 
 float TextAnimatorEngine::calculateWigglyWeight(int index, float time, const WigglySelector& selector) {
@@ -404,16 +476,31 @@ float TextAnimatorEngine::calculateWigglyWeight(int index, float time, const Wig
         ? std::max(0.0f, selector.wigglesPerSecond) : 0.0f;
     const float safeTime = std::isfinite(time) ? time : 0.0f;
     const float safePhase = std::isfinite(selector.phase) ? selector.phase : 0.0f;
-    const float phaseOffset = static_cast<float>(index) *
-                              (100.0f - safeCorrelation) / 100.0f;
-    const float t = safeTime * safeRate + phaseOffset + safePhase;
+    const double phaseOffset = static_cast<double>(index) *
+                               (100.0 - static_cast<double>(safeCorrelation)) /
+                               100.0;
+    const double rawT = static_cast<double>(safeTime) *
+                            static_cast<double>(safeRate) +
+                        phaseOffset + static_cast<double>(safePhase);
+    const double t = std::isfinite(rawT) ? rawT : 0.0;
     
-    std::mt19937 gen(selector.seed + (int)std::floor(t));
     std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
-    
-    float v1 = dis(gen);
-    float v2 = dis(gen);
-    float fract = t - std::floor(t);
+    constexpr double kGeneratorPeriod = 4294967296.0;
+    const double floorTick = std::floor(t);
+    double wrappedTick = std::fmod(floorTick, kGeneratorPeriod);
+    if (wrappedTick < 0.0) {
+        wrappedTick += kGeneratorPeriod;
+    }
+    const auto tick = static_cast<std::uint32_t>(wrappedTick);
+    const auto sampleAt = [&](const std::uint32_t sampleTick) {
+        std::mt19937 gen(static_cast<std::mt19937::result_type>(
+            static_cast<std::uint32_t>(selector.seed) + sampleTick));
+        return dis(gen);
+    };
+
+    const float v1 = sampleAt(tick);
+    const float v2 = sampleAt(tick + 1);
+    const float fract = static_cast<float>(t - floorTick);
     
     const float value = v1 + (v2 - v1) *
         (0.5f - 0.5f * std::cos(fract * std::numbers::pi_v<float>));
@@ -479,12 +566,8 @@ void TextAnimatorEngine::applyAnimator(
     std::span<const float> extraWeights) {
     
     int n = (int)glyphs.size();
-    const std::vector<int> selectorOrder =
-        createOrderMap(n, selector.order);
-    std::vector<int> selectorOrderRanks(static_cast<size_t>(n));
-    for (int rank = 0; rank < n; ++rank) {
-        selectorOrderRanks[static_cast<size_t>(
-            selectorOrder[static_cast<size_t>(rank)])] = rank;
+    if (n == 0) {
+        return;
     }
     int clusterCount = 0;
     int lineCount = 0;
@@ -516,15 +599,18 @@ void TextAnimatorEngine::applyAnimator(
     const int tagCount = tagOrder.size();
     const std::vector<QPointF> anchorPoints =
         buildAnchorPoints(glyphs, selector.anchorGrouping);
+    const SelectorDomainPosition orderDomain = selectorDomainPosition(
+        glyphs.front(), 0, n, clusterCount, lineCount, tagIndices.front(),
+        tagCount, selector.units);
+    const std::vector<int> orderRanks =
+        buildDomainOrderRanks(orderDomain.count, selector.order);
 
     for (int i = 0; i < n; ++i) {
         // セレクターの重み
-        float selectorWeight = calculateWeightForGlyph(
-                                                       glyphs[i],
-                                                       selectorOrderRanks[static_cast<size_t>(i)], n,
-                                                       clusterCount, lineCount,
-                                                       tagIndices[static_cast<size_t>(i)],
-                                                       tagCount, selector);
+        float selectorWeight = calculateWeightForGlyphWithOrderRanks(
+            glyphs[i], i, n, clusterCount, lineCount,
+            tagIndices[static_cast<size_t>(i)], tagCount, selector,
+            orderRanks);
         
         // ウィグリーの重み
         const int animationIndex = glyphs[i].clusterIndex >= 0
@@ -590,16 +676,16 @@ void TextAnimatorEngine::applyAnimator(
 
         // カラーとストローク
         if (props.colorEnabled) {
-            glyphs[i].hasColorOverride = true;
-            glyphs[i].fillColorOverride = props.fillColor;
-            glyphs[i].fillColorOverrideWeight =
-                std::clamp(std::abs(totalWeight), 0.0f, 1.0f);
+            accumulateColorOverride(
+                glyphs[i].hasColorOverride, glyphs[i].fillColorOverride,
+                glyphs[i].fillColorOverrideWeight, props.fillColor,
+                std::abs(totalWeight));
         }
         if (props.strokeEnabled) {
-            glyphs[i].hasStrokeOverride = true;
-            glyphs[i].strokeColorOverride = props.strokeColor;
-            glyphs[i].strokeColorOverrideWeight =
-                std::clamp(std::abs(totalWeight), 0.0f, 1.0f);
+            accumulateColorOverride(
+                glyphs[i].hasStrokeOverride, glyphs[i].strokeColorOverride,
+                glyphs[i].strokeColorOverrideWeight, props.strokeColor,
+                std::abs(totalWeight));
             glyphs[i].offsetStrokeWidth += props.strokeWidth * totalWeight;
         }
 
@@ -664,6 +750,7 @@ void TextAnimatorEngine::applyAnimatorStack(
         fullRange.offset = 0.0f;
         fullRange.units = SelectorUnits::Percentage;
         fullRange.shape = SelectorShape::Square;
+        fullRange.order = SelectorOrder::Natural;
         fullRange.regexEnabled = false;
         fullRange.selectorPattern.clear();
         applyAnimator(glyphs, fullRange, std::get<1>(entry),

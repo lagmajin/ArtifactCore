@@ -2,6 +2,7 @@ module;
 
 #include <QString>
 #include <QVector>
+#include <QVariant>
 #include <utility>
 
 export module Project.ProjectVisitor;

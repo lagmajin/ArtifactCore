@@ -245,7 +245,17 @@ public:
             const auto colorLabel = static_cast<KeyFrame::ColorLabel>(
                 kfObj.value(QStringLiteral("colorLabel")).toInt(static_cast<int>(KeyFrame::ColorLabel::None)));
             const QJsonValue val = kfObj.value(QStringLiteral("value"));
-            property->addKeyFrame(time, val.toVariant(), interpolation, cp1_x, cp1_y, cp2_x, cp2_y, roving);
+            QVariant keyframeValue = val.toVariant();
+            if (property->getType() == PropertyType::Color && val.isObject()) {
+                const QJsonObject colorObject = val.toObject();
+                QColor color;
+                color.setRedF(static_cast<float>(colorObject.value(QStringLiteral("r")).toDouble(0.0)));
+                color.setGreenF(static_cast<float>(colorObject.value(QStringLiteral("g")).toDouble(0.0)));
+                color.setBlueF(static_cast<float>(colorObject.value(QStringLiteral("b")).toDouble(0.0)));
+                color.setAlphaF(static_cast<float>(colorObject.value(QStringLiteral("a")).toDouble(1.0)));
+                keyframeValue = color;
+            }
+            property->addKeyFrame(time, keyframeValue, interpolation, cp1_x, cp1_y, cp2_x, cp2_y, roving);
             property->setKeyFrameAnchorAt(time, anchor);
             property->setKeyFrameColorLabelAt(time, colorLabel);
         }

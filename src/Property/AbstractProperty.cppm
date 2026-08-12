@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <QVariant>
 #include <QColor>
+#include <QPointF>
 
 #include <iostream>
 #include <vector>

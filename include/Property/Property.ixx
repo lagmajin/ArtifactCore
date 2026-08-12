@@ -2,6 +2,7 @@ module;
 class tst_QList;
 #include <utility>
 #include <QString>
+#include <QPointF>
 #include <QVariant>
 #include <QHash>
 #include <QVector>
@@ -91,8 +92,8 @@ public:
     {
         property_->setName(name);
         property_->setType(PropertyType::Point2D);
-        property_->setValue(value);
-        property_->setDefaultValue(value);
+        property_->setValue(QVariant::fromValue(value));
+        property_->setDefaultValue(QVariant::fromValue(value));
     }
 
     AbstractProperty* get() const noexcept

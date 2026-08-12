@@ -7,6 +7,7 @@ module;
 #include <unordered_map>
 #include <vector>
 #include <mutex>
+#include <QString>
 
 export module Data.DataPropertyBridge;
 

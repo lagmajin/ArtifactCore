@@ -1,4 +1,6 @@
 module;
+#include <cstdint>
+#include <QString>
 #include <utility>
 //#include <QObject>
 //#include <QString>
