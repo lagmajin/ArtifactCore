@@ -83,7 +83,7 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
       suffix == "glb" || suffix == "stl" || suffix == "blend" ||
       suffix == "dae" || suffix == "abc" || suffix == "usd" ||
       suffix == "usda" || suffix == "usdc" || suffix == "usdz" ||
-      suffix == "pmd" || suffix == "pmx") {
+      suffix == "pmd" || suffix == "pmx" || suffix == "ply") {
     return FileType::Model3D;
   }
 

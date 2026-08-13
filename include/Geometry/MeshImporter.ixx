@@ -50,7 +50,8 @@ public:
         UfbxGltf,
         PMD,
         Usda,
-        Stl
+        Stl,
+        Ply
     };
 private:
     class Impl;
