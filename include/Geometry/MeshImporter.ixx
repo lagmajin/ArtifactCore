@@ -49,7 +49,8 @@ public:
         TinyObj,
         UfbxGltf,
         PMD,
-        Usda
+        Usda,
+        Stl
     };
 private:
     class Impl;

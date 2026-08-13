@@ -1,6 +1,7 @@
 module;
 #include <memory>
 #include <utility>
+#include <cstring>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "ufbx.h"
@@ -437,6 +438,70 @@ public:
 
     mesh->updateBounds();
     detectTexturesFromTinyObj(path, reader);
+    return mesh;
+  }
+
+  SharedPtr<Mesh> loadStl(const QString &path) {
+    lastBackend_ = MeshImporter::Backend::Stl;
+    lastError_.clear();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+      lastError_ = QStringLiteral("STL: cannot open file");
+      return nullptr;
+    }
+    const QByteArray bytes = file.readAll();
+    QVector<QVector3D> vertices;
+    if (bytes.size() >= 84) {
+      quint32 triangleCount = 0;
+      std::memcpy(&triangleCount, bytes.constData() + 80, sizeof(triangleCount));
+      const qsizetype expected = 84 + static_cast<qsizetype>(triangleCount) * 50;
+      if (expected == bytes.size() && triangleCount > 0) {
+        vertices.reserve(static_cast<int>(triangleCount) * 3);
+        for (quint32 i = 0; i < triangleCount; ++i) {
+          const char* triangle = bytes.constData() + 84 + static_cast<qsizetype>(i) * 50;
+          for (int vertex = 0; vertex < 3; ++vertex) {
+            float values[3]{};
+            std::memcpy(values, triangle + 12 + vertex * 12, sizeof(values));
+            vertices.push_back(QVector3D(values[0], values[1], values[2]));
+          }
+        }
+      }
+    }
+    if (vertices.isEmpty()) {
+      const QString text = QString::fromUtf8(bytes);
+      const QStringList lines = text.split(QRegularExpression(QStringLiteral("[\\r\\n]+")), Qt::SkipEmptyParts);
+      for (const QString& line : lines) {
+        const QStringList fields = line.trimmed().split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+        if (fields.size() == 4 && fields.front().compare(QStringLiteral("vertex"), Qt::CaseInsensitive) == 0) {
+          bool okX = false, okY = false, okZ = false;
+          const float x = fields[1].toFloat(&okX);
+          const float y = fields[2].toFloat(&okY);
+          const float z = fields[3].toFloat(&okZ);
+          if (okX && okY && okZ) vertices.push_back(QVector3D(x, y, z));
+        }
+      }
+    }
+    if (vertices.isEmpty() || vertices.size() % 3 != 0) {
+      lastError_ = QStringLiteral("STL: no complete triangle data");
+      return nullptr;
+    }
+    auto mesh = makeShared<Mesh>();
+    mesh->setVertexCount(vertices.size());
+    auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
+    auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
+    auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
+    for (int i = 0; i < vertices.size(); i += 3) {
+      const QVector3D normal = QVector3D::crossProduct(vertices[i + 1] - vertices[i], vertices[i + 2] - vertices[i]).normalized();
+      for (int j = 0; j < 3; ++j) {
+        (*posAttr)[i + j] = vertices[i + j];
+        (*normAttr)[i + j] = normal;
+        (*uvAttr)[i + j] = QVector2D(0.0f, 0.0f);
+        (*colorAttr)[i + j] = QVector4D(1.0f, 1.0f, 1.0f, 1.0f);
+      }
+      mesh->addPolygon({i, i + 1, i + 2});
+    }
+    mesh->updateBounds();
     return mesh;
   }
 
@@ -943,6 +1008,10 @@ SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
 
   if (ext == QStringLiteral("pmd") || ext == QStringLiteral("pmx")) {
     return impl_->loadPMD(qpath);
+  }
+
+  if (ext == QStringLiteral("stl")) {
+    return impl_->loadStl(qpath);
   }
 
   if (ext == QStringLiteral("usda")) {
