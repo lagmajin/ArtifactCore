@@ -74,7 +74,7 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
     return FileType::Document;
   }
   // Archive
-  if (suffix == "zip" || suffix == "rar" || suffix == "7z" || suffix == "tar" ||
+  if (suffix == "zip" || suffix == "lottie" || suffix == "rar" || suffix == "7z" || suffix == "tar" ||
       suffix == "gz" || suffix == "bz2" || suffix == "xz") {
     return FileType::Archive;
   }
