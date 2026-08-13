@@ -46,13 +46,14 @@ void NeuromorphicDisplace::process(ImageF32x4_RGBA& image, const NeuromorphicDis
     cv::Mat dstMat = cv::Mat::zeros(h, w, CV_32FC4);
 
     // 3. Loop over all pixels to perform displacement and lighting
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
         const float* pGradX = gradX.ptr<float>(y);
         const float* pGradY = gradY.ptr<float>(y);
         const cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
         cv::Vec4f* dstRow = dstMat.ptr<cv::Vec4f>(y);
 
-        for (int x = 0; x < w; ++x) {
+        for (int x = x0; x < x1; ++x) {
             // Get gradient derivatives (scaled by depth)
             float dx = pGradX[x] * settings.depth;
             float dy = pGradY[x] * settings.depth;
@@ -137,6 +138,7 @@ void NeuromorphicDisplace::process(ImageF32x4_RGBA& image, const NeuromorphicDis
             // Blend with original input
             const cv::Vec4f& original = srcRow[x];
             dstRow[x] = original * (1.0f - settings.blend) + shadedColor * settings.blend;
+        }
         }
     });
 

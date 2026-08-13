@@ -38,6 +38,7 @@ module;
 #include <QVector>
 
 module ImageProcessing.ColorTransform.LevelsCurves;
+import Core.Parallel;
 
 
 namespace ArtifactCore {
@@ -169,9 +170,11 @@ QImage LevelsEffect::apply(const QImage& source) const {
     
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
     
-    for (int y = 0; y < result.height(); ++y) {
+    ArtifactCore::Parallel::ForTiles(result.width(), result.height(), 32, 32,
+        [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
-        for (int x = 0; x < result.width(); ++x) {
+        for (int x = x0; x < x1; ++x) {
             int r = qRed(line[x]);
             int g = qGreen(line[x]);
             int b = qBlue(line[x]);
@@ -180,6 +183,7 @@ QImage LevelsEffect::apply(const QImage& source) const {
             line[x] = qRgba(impl_->lutR[r], impl_->lutG[g], impl_->lutB[b], a);
         }
     }
+    });
     
     return result;
 }
@@ -526,9 +530,11 @@ QImage CurvesEffect::apply(const QImage& source) const {
     
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
     
-    for (int y = 0; y < result.height(); ++y) {
+    ArtifactCore::Parallel::ForTiles(result.width(), result.height(), 32, 32,
+        [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
-        for (int x = 0; x < result.width(); ++x) {
+        for (int x = x0; x < x1; ++x) {
             int r = qRed(line[x]);
             int g = qGreen(line[x]);
             int b = qBlue(line[x]);
@@ -537,6 +543,7 @@ QImage CurvesEffect::apply(const QImage& source) const {
             line[x] = qRgba(impl_->lutR[r], impl_->lutG[g], impl_->lutB[b], a);
         }
     }
+    });
     
     return result;
 }

@@ -26,8 +26,9 @@ void sort3(float v[9]) {
 }
 
 void median3x3(const float4* src, float4* dst, int w, int h) {
-    Parallel::For(0, h, w * h, [&](int y) {
-        for (int x = 0; x < w; ++x) {
+    Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
             float r[9], g[9], b[9], a[9];
             int idx = 0;
             for (int dy = -1; dy <= 1; ++dy) {
@@ -41,6 +42,7 @@ void median3x3(const float4* src, float4* dst, int w, int h) {
             }
             sort3(r); sort3(g); sort3(b); sort3(a);
             dst[static_cast<size_t>(y) * w + static_cast<size_t>(x)] = { r[4], g[4], b[4], a[4] };
+        }
         }
     });
 }

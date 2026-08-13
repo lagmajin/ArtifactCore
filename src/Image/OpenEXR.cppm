@@ -10,8 +10,11 @@ module;
 #include <limits>
 #include <string>
 #include <vector>
+#include <atomic>
 
 module Image:OpenEXR;
+
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -95,7 +98,8 @@ bool OpenExr::readRGBA32F(const QString& path, std::vector<float>& rgba,
         if (channelIndices[channel] < 0 && channel < spec.nchannels)
             channelIndices[channel] = channel;
     }
-    for (std::size_t pixel = 0; pixel < pixels; ++pixel) {
+    Parallel::For(0, static_cast<int>(pixels), static_cast<int>(pixels), [&](int pixelIndex) {
+        const std::size_t pixel = static_cast<std::size_t>(pixelIndex);
         for (int channel = 0; channel < 3; ++channel) {
             const int sourceChannel = channelIndices[channel];
             if (sourceChannel >= 0)
@@ -108,7 +112,7 @@ bool OpenExr::readRGBA32F(const QString& path, std::vector<float>& rgba,
             ? source[pixel * static_cast<std::size_t>(spec.nchannels) +
                      static_cast<std::size_t>(alphaChannel)]
             : 1.0f;
-    }
+    });
     input->close();
     return true;
 }
@@ -380,15 +384,18 @@ bool OpenExr::flattenDeepRGBA32F(
         pixelCount > std::numeric_limits<std::size_t>::max() / 4u)
         return false;
     rgba.assign(pixelCount * 4u, 0.0f);
-    for (std::size_t pixel = 0; pixel < pixelCount; ++pixel) {
+    std::atomic<bool> valid{true};
+    Parallel::For(0, static_cast<int>(pixelCount), static_cast<int>(pixelCount),
+                  [&](int pixelIndex) {
+        const std::size_t pixel = static_cast<std::size_t>(pixelIndex);
         float* output = rgba.data() + pixel * 4u;
         float previousDepth = -std::numeric_limits<float>::infinity();
         for (const auto& sample : samples[pixel]) {
             if (!std::isfinite(sample.depth) || !std::isfinite(sample.red) ||
                 !std::isfinite(sample.green) || !std::isfinite(sample.blue) ||
                 !std::isfinite(sample.alpha) || sample.depth < previousDepth) {
-                rgba.clear();
-                return false;
+                valid.store(false, std::memory_order_relaxed);
+                return;
             }
             previousDepth = sample.depth;
             const float alpha = std::clamp(sample.alpha, 0.0f, 1.0f);
@@ -402,6 +409,10 @@ bool OpenExr::flattenDeepRGBA32F(
                 break;
             }
         }
+    });
+    if (!valid.load(std::memory_order_relaxed)) {
+        rgba.clear();
+        return false;
     }
     return true;
 }

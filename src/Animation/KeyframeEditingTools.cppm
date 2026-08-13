@@ -17,6 +17,8 @@ module;
 
 module Animation.KeyframeEditingTools;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 namespace {
@@ -128,9 +130,10 @@ bool KeyframeEditingTools::applyEasing(
     const BatchEasingRequest& request)
 {
     if (keyframes.empty()) return false;
-    for (auto& kf : keyframes) {
-        kf.interpolation = request.type;
-    }
+    Parallel::For(0, static_cast<int>(keyframes.size()),
+                  static_cast<int>(keyframes.size()), [&](int index) {
+        keyframes[static_cast<std::size_t>(index)].interpolation = request.type;
+    });
     return true;
 }
 
@@ -151,10 +154,12 @@ bool KeyframeEditingTools::scaleOffset(
     const double valueScale = finiteOr(request.valueScale, 1.0);
     const double valueOffset = finiteOr(request.valueOffset, 0.0);
 
-    for (auto& kf : keyframes) {
+    Parallel::For(0, static_cast<int>(keyframes.size()),
+                  static_cast<int>(keyframes.size()), [&](int index) {
+        auto& kf = keyframes[static_cast<std::size_t>(index)];
         kf.frame = kf.frame * timeScale + timeOffset;
         kf.value = kf.value * valueScale + valueOffset;
-    }
+    });
 
     // Re-sort after time transform (may change order)
     std::sort(keyframes.begin(), keyframes.end(),
@@ -203,7 +208,9 @@ bool KeyframeEditingTools::smooth(
     for (int iter = 0; iter < request.iterations; ++iter) {
         std::vector<double> smoothed(keyframes.size());
 
-        for (size_t i = 0; i < keyframes.size(); ++i) {
+        Parallel::For(0, static_cast<int>(keyframes.size()),
+                      static_cast<int>(keyframes.size()), [&](int index) {
+            const size_t i = static_cast<size_t>(index);
             const int start = std::max(0, static_cast<int>(i) - half);
             const int end = std::min(static_cast<int>(keyframes.size()) - 1,
                                      static_cast<int>(i) + half);
@@ -219,11 +226,12 @@ bool KeyframeEditingTools::smooth(
             smoothed[i] = (weightSum > 0.0)
                 ? weightedSum / weightSum
                 : keyframes[i].value;
-        }
+        });
 
-        for (size_t i = 0; i < keyframes.size(); ++i) {
-            keyframes[i].value = smoothed[i];
-        }
+        Parallel::For(0, static_cast<int>(keyframes.size()),
+                      static_cast<int>(keyframes.size()), [&](int index) {
+            keyframes[static_cast<size_t>(index)].value = smoothed[static_cast<size_t>(index)];
+        });
     }
     return true;
 }
@@ -261,7 +269,9 @@ std::vector<KeyframePoint> KeyframeEditingTools::audioToKeyframes(
     const double amplitudeScale = std::isfinite(request.amplitudeScale)
         ? request.amplitudeScale : 1.0;
     const double valueOffset = std::isfinite(request.offset) ? request.offset : 0.0;
-    for (double frame = startFrame; frame <= endFrame; frame += 1.0) {
+    result.resize(count);
+    Parallel::For(0, static_cast<int>(count), static_cast<int>(count), [&](int frameIndex) {
+        const double frame = startFrame + static_cast<double>(frameIndex);
         const double startTime = frame * invFps;
         const double endTime = (frame + 1.0) * invFps;
 
@@ -297,8 +307,8 @@ std::vector<KeyframePoint> KeyframeEditingTools::audioToKeyframes(
         kf.frame = frame;
         kf.value = valueOffset + amplitude * amplitudeScale;
         kf.interpolation = InterpolationType::Linear;
-        result.push_back(kf);
-    }
+        result[static_cast<std::size_t>(frameIndex)] = kf;
+    });
 
     return result;
 }
@@ -391,9 +401,11 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
     const double tgtDuration = std::max(1.0, targetEndFrame - targetStartFrame);
 
     std::vector<KeyframePoint> result;
-    result.reserve(orderedSource.size());
+    result.resize(orderedSource.size());
 
-    for (const auto& kf : orderedSource) {
+    Parallel::For(0, static_cast<int>(orderedSource.size()),
+                  static_cast<int>(orderedSource.size()), [&](int index) {
+        const auto& kf = orderedSource[static_cast<std::size_t>(index)];
         KeyframePoint p;
         const double normTime = (kf.frame - srcStart) / srcDuration;
         p.frame = targetStartFrame + normTime * tgtDuration;
@@ -406,8 +418,8 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
         p.cp1_y = kf.cp1_y;
         p.cp2_x = kf.cp2_x;
         p.cp2_y = kf.cp2_y;
-        result.push_back(p);
-    }
+        result[static_cast<std::size_t>(index)] = p;
+    });
     return result;
 }
 
@@ -429,13 +441,15 @@ bool KeyframeEditingTools::quantizeToBeat(
         : 1.0;
     const double offset = std::isfinite(request.offset) ? request.offset : 0.0;
 
-    for (auto& kf : keyframes) {
+    Parallel::For(0, static_cast<int>(keyframes.size()),
+                  static_cast<int>(keyframes.size()), [&](int index) {
+        auto& kf = keyframes[static_cast<std::size_t>(index)];
         if (request.snapAll) {
             const double beat = std::round((kf.frame - offset) / framesPerBeat);
             kf.frame = offset + beat * framesPerBeat;
         }
         kf.interpolation = request.interpolation;
-    }
+    });
 
     // Re-sort in case snap changed ordering
     std::sort(keyframes.begin(), keyframes.end(),
@@ -695,16 +709,20 @@ bool KeyframeEditingTools::mirrorFlip(
             ? request.mirrorCenter
             : (start + end) * 0.5;
 
-        for (auto& kf : keyframes) {
+        Parallel::For(0, static_cast<int>(keyframes.size()),
+                      static_cast<int>(keyframes.size()), [&](int index) {
+            auto& kf = keyframes[static_cast<std::size_t>(index)];
             kf.frame = 2.0 * center - kf.frame;
-        }
+        });
         std::sort(keyframes.begin(), keyframes.end(),
                   [](const KeyframePoint& a, const KeyframePoint& b) {
                       return a.frame < b.frame;
                   });
 
         // Swap In/Out easing types so the curve shape stays correct
-        for (auto& kf : keyframes) {
+        Parallel::For(0, static_cast<int>(keyframes.size()),
+                      static_cast<int>(keyframes.size()), [&](int index) {
+            auto& kf = keyframes[static_cast<std::size_t>(index)];
             switch (kf.interpolation) {
             case InterpolationType::EaseIn:
                 kf.interpolation = InterpolationType::EaseOut; break;
@@ -726,7 +744,7 @@ bool KeyframeEditingTools::mirrorFlip(
                 kf.interpolation = InterpolationType::ElasticIn; break;
             default: break;
             }
-        }
+        });
     }
 
     if (request.flipValue) {
@@ -740,9 +758,11 @@ bool KeyframeEditingTools::mirrorFlip(
             ? request.flipCenter
             : (minV + maxV) * 0.5;
 
-        for (auto& kf : keyframes) {
+        Parallel::For(0, static_cast<int>(keyframes.size()),
+                      static_cast<int>(keyframes.size()), [&](int index) {
+            auto& kf = keyframes[static_cast<std::size_t>(index)];
             kf.value = 2.0 * center - kf.value;
-        }
+        });
     }
 
     return true;

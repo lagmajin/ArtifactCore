@@ -106,9 +106,10 @@ void Halftone::process(float4* buffer, int width, int height, const HalftoneSett
         const float cosA = std::cos(angleRad);
         const float sinA = std::sin(angleRad);
 
-        for (int y = 0; y < height; ++y) {
+        Parallel::ForTiles(width, height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
             const float py = static_cast<float>(y) + 0.5f;
-            for (int x = 0; x < width; ++x) {
+            for (int x = x0; x < x1; ++x) {
                 const float px = static_cast<float>(x) + 0.5f;
                 const float rx = px * cosA - py * sinA;
                 const float ry = px * sinA + py * cosA;
@@ -138,13 +139,15 @@ void Halftone::process(float4* buffer, int width, int height, const HalftoneSett
                 }
             }
         }
+        });
     } else {
         // CMYK: 4 separations, each with its own angle
         // Convert RGB → CMYK (naive inverse)
         // Assume src is sRGB 0-1
         std::vector<std::array<float, 4>> cmyk(width * height);
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
+        Parallel::ForTiles(width, height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
+            for (int x = x0; x < x1; ++x) {
                 const int i = y * width + x;
                 const auto& s = original[i];
                 const float k = 1.0f - std::max({s.x, s.y, s.z});
@@ -154,6 +157,7 @@ void Halftone::process(float4* buffer, int width, int height, const HalftoneSett
                 cmyk[i] = {c, m, y_, k};
             }
         }
+        });
 
         std::fill(buffer, buffer + width * height, float4{1.0f, 1.0f, 1.0f, 1.0f});
 
@@ -163,9 +167,10 @@ void Halftone::process(float4* buffer, int width, int height, const HalftoneSett
             const float cosA = std::cos(angleRad);
             const float sinA = std::sin(angleRad);
 
-            for (int y = 0; y < height; ++y) {
+            Parallel::ForTiles(width, height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+            for (int y = y0; y < y1; ++y) {
                 const float py = static_cast<float>(y) + 0.5f;
-                for (int x = 0; x < width; ++x) {
+                for (int x = x0; x < x1; ++x) {
                     const float px = static_cast<float>(x) + 0.5f;
                     const float rx = px * cosA - py * sinA;
                     const float ry = px * sinA + py * cosA;
@@ -178,6 +183,7 @@ void Halftone::process(float4* buffer, int width, int height, const HalftoneSett
                     buffer[idx].z *= ink;
                 }
             }
+            });
         }
     }
 }

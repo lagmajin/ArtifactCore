@@ -39,8 +39,9 @@ void morphImages(const ImageF32x4_RGBA& source,
                         : sampleNearest(image, x, y);
     };
 
-    Parallel::For(0, height, width * height, [&](int y) {
-        for (int x = 0; x < width; ++x) {
+    Parallel::ForTiles(width, height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
             float sourceX = static_cast<float>(x);
             float sourceY = static_cast<float>(y);
             float targetX = static_cast<float>(x);
@@ -84,6 +85,7 @@ void morphImages(const ImageF32x4_RGBA& source,
             pixel[1] = a.g() * (1.0f - t) + b.g() * t;
             pixel[2] = a.b() * (1.0f - t) + b.b() * t;
             pixel[3] = a.a() * (1.0f - t) + b.a() * t;
+        }
         }
     });
 }
@@ -210,9 +212,10 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
     return FloatRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
  };
 
- Parallel::For(0, h, w * h, [&](int y) {
+ Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+  for (int y = y0; y < y1; ++y) {
     float sy = static_cast<float>(y);
-    for (int x = 0; x < w; ++x) {
+    for (int x = x0; x < x1; ++x) {
      float sx = static_cast<float>(x);
      float outSX = sx, outSY = sy;
      func(sx, sy, static_cast<float>(w), static_cast<float>(h), outSX, outSY);
@@ -224,6 +227,7 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
      destination[2] = pixel.b();
      destination[3] = pixel.a();
     }
+  }
  });
 }
 

@@ -28,6 +28,7 @@ extern "C" {
 module Encoder.FFmpegEncoder;
 import Image;
 import :Impl;
+import Core.Parallel;
 import Time.Code;
 
 namespace {
@@ -570,20 +571,20 @@ public:
         if (codecCtx_->pix_fmt == AV_PIX_FMT_YUV420P10LE) {
             // 10bit YUV: float → 10bit スケーリング（HDR: [0, peak] → [0, 1023]）
             uint16_t* dst16 = reinterpret_cast<uint16_t*>(dst);
-            for (int i = 0; i < w * h; ++i) {
+            ArtifactCore::Parallel::For(0, w * h, w * h, [&](int i) {
                 dst16[i * 4 + 0] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 0] / peak) * 1023.0f, 0.0f, 1023.0f));
                 dst16[i * 4 + 1] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 1] / peak) * 1023.0f, 0.0f, 1023.0f));
                 dst16[i * 4 + 2] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 2] / peak) * 1023.0f, 0.0f, 1023.0f));
                 dst16[i * 4 + 3] = static_cast<uint16_t>(std::clamp((srcData[i * 4 + 3]) * 1023.0f, 0.0f, 1023.0f));
-            }
+            });
         } else {
             // 8bit: float → uint8（HDR は peak で正規化）
-            for (int i = 0; i < w * h; ++i) {
+            ArtifactCore::Parallel::For(0, w * h, w * h, [&](int i) {
                 dst[i * 4 + 0] = static_cast<uint8_t>(std::clamp((srcData[i * 4 + 0] / peak) * 255.0f, 0.0f, 255.0f));
                 dst[i * 4 + 1] = static_cast<uint8_t>(std::clamp((srcData[i * 4 + 1] / peak) * 255.0f, 0.0f, 255.0f));
                 dst[i * 4 + 2] = static_cast<uint8_t>(std::clamp((srcData[i * 4 + 2] / peak) * 255.0f, 0.0f, 255.0f));
                 dst[i * 4 + 3] = static_cast<uint8_t>(std::clamp(srcData[i * 4 + 3] * 255.0f, 0.0f, 255.0f));
-            }
+            });
         }
 
         if (av_frame_make_writable(frame_) < 0) {
@@ -790,19 +791,19 @@ public:
 
         if (dstPixFmt_ == AV_PIX_FMT_RGB48LE) {
             uint16_t* dst = reinterpret_cast<uint16_t*>(rgbaFrame->data[0]);
-            for (int i = 0; i < w * h * 4; ++i) {
+            ArtifactCore::Parallel::For(0, w * h * 4, w * h * 4, [&](int i) {
                 dst[i] = static_cast<uint16_t>(std::clamp(srcData[i] * 65535.0f, 0.0f, 65535.0f));
-            }
+            });
         } else if (dstPixFmt_ == AV_PIX_FMT_RGBF32LE) {
             float* dst = reinterpret_cast<float*>(rgbaFrame->data[0]);
-            for (int i = 0; i < w * h * 4; ++i) {
+            ArtifactCore::Parallel::For(0, w * h * 4, w * h * 4, [&](int i) {
                 dst[i] = srcData[i];
-            }
+            });
         } else {
             uint8_t* dst = rgbaFrame->data[0];
-            for (int i = 0; i < w * h * 4; ++i) {
+            ArtifactCore::Parallel::For(0, w * h * 4, w * h * 4, [&](int i) {
                 dst[i] = static_cast<uint8_t>(std::clamp(srcData[i] * 255.0f, 0.0f, 255.0f));
-            }
+            });
         }
 
         if (av_frame_make_writable(frame_) < 0) {

@@ -7,6 +7,7 @@ module;
 #include <QColor>
 
 module ImageProcessing.ColorTransform.HueVsCurves;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -34,9 +35,11 @@ auto HueVsCurveProcessor::apply(const QImage& source) const -> QImage {
     const int width = result.width();
     const int height = result.height();
 
-    for (int y = 0; y < height; ++y) {
+    ArtifactCore::Parallel::ForTiles(width, height, 32, 32,
+        [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         auto* scanLine = reinterpret_cast<QRgb*>(result.scanLine(y));
-        for (int x = 0; x < width; ++x) {
+        for (int x = x0; x < x1; ++x) {
             float r = qRed(scanLine[x]) / 255.0f;
             float g = qGreen(scanLine[x]) / 255.0f;
             float b = qBlue(scanLine[x]) / 255.0f;
@@ -52,6 +55,7 @@ auto HueVsCurveProcessor::apply(const QImage& source) const -> QImage {
             );
         }
     }
+    });
 
     return result;
 }

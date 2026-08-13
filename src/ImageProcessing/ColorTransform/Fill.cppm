@@ -5,6 +5,8 @@ module;
 
 module ImageProcessing.ColorTransform.Fill;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 namespace {
@@ -97,9 +99,11 @@ void SolidFillProcessor::apply(float* pixels, int width, int height) const {
         return;
     }
 
-    for (int y = 0; y < height; ++y) {
-        applyRow(pixels, width, height, y);
-    }
+    Parallel::ForTiles(width, height, 64, 64, [&](int, int y0, int, int y1) {
+        for (int y = y0; y < y1; ++y) {
+            applyRow(pixels, width, height, y);
+        }
+    });
 }
 
 void SolidFillProcessor::applyRow(float* pixels, int width, int height, int y) const {

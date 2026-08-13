@@ -4,6 +4,7 @@ module;
 #include <algorithm>
 #include <limits>
 module Physics.Mpm2D;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -82,11 +83,12 @@ void MpmSolver2D::resizeGrid() {
 }
 
 void MpmSolver2D::resetGrid() {
-    for (auto& node : grid_) {
+    Parallel::For(0, static_cast<int>(grid_.size()), static_cast<int>(grid_.size()), [&](int index) {
+        auto& node = grid_[static_cast<std::size_t>(index)];
         node.mass  = 0.0f;
         node.vel   = MpmVec2{};
         node.force = MpmVec2{};
-    }
+    });
 }
 
 void MpmSolver2D::setGrid(float cellSize, int nx, int ny) {
@@ -369,11 +371,10 @@ void MpmSolver2D::computeGridForces() {
 // ---- MPM step: update grid velocities (explicit) ----
 
 void MpmSolver2D::updateGridVelocities(float dt) {
-    for (int j = 0; j < ny_; ++j) {
-        for (int i = 0; i < nx_; ++i) {
-            int idx = i + j * nx_;
+    const int nodeCount = nx_ * ny_;
+    Parallel::For(0, nodeCount, [&](int idx) {
             auto& node = grid_[idx];
-            if (node.mass <= 0.0f) continue;
+            if (node.mass <= 0.0f) return;
 
             // v = (mv + dt * f_gravity + dt * f_internal) / m
             float invMass = 1.0f / node.mass;
@@ -391,8 +392,7 @@ void MpmSolver2D::updateGridVelocities(float dt) {
             }
 
             node.vel = vNew * node.mass; // store as momentum for G2P
-        }
-    }
+    });
 }
 
 // ---- MPM step: G2P with APIC ----
@@ -402,8 +402,9 @@ void MpmSolver2D::gridToParticle(float dt) {
     float inv = 1.0f / dx;
     float dScale = 4.0f / (dx * dx); // scaling for APIC C update
 
-    for (auto& p : particles_) {
-        if (!p.active) continue;
+    Parallel::For(0, static_cast<int>(particles_.size()), [&](int particleIndex) {
+        auto& p = particles_[particleIndex];
+        if (!p.active) return;
 
         float fx = (p.pos.x - gridOrigin_.x) * inv;
         float fy = (p.pos.y - gridOrigin_.y) * inv;
@@ -447,7 +448,7 @@ void MpmSolver2D::gridToParticle(float dt) {
         p.C   = newC;
         p.pos.x += newVel.x * dt;
         p.pos.y += newVel.y * dt;
-    }
+    });
 }
 
 // ---- MPM step: update deformation gradient ----
@@ -456,8 +457,9 @@ void MpmSolver2D::updateDeformationGradient(float dt) {
     float dx  = cellSize_;
     float inv = 1.0f / dx;
 
-    for (auto& p : particles_) {
-        if (!p.active) continue;
+    Parallel::For(0, static_cast<int>(particles_.size()), [&](int particleIndex) {
+        auto& p = particles_[particleIndex];
+        if (!p.active) return;
 
         float fx = (p.pos.x - gridOrigin_.x) * inv;
         float fy = (p.pos.y - gridOrigin_.y) * inv;
@@ -496,15 +498,16 @@ void MpmSolver2D::updateDeformationGradient(float dt) {
         MpmMat2 dF{ 1.0f + dt * gradV.m00, dt * gradV.m01,
                     dt * gradV.m10, 1.0f + dt * gradV.m11 };
         p.F = dF * p.F;
-    }
+    });
 }
 
 // ---- von Mises plasticity with hardening ----
 // Project the singular values of Fe = F * Fp^{-1}
 
 void MpmSolver2D::applyPlasticity() {
-    for (auto& p : particles_) {
-        if (!p.active) continue;
+    Parallel::For(0, static_cast<int>(particles_.size()), [&](int particleIndex) {
+        auto& p = particles_[particleIndex];
+        if (!p.active) return;
 
         // Fe = F * Fp^{-1}
         MpmMat2 FpInv = p.Fp.inverse();
@@ -603,7 +606,7 @@ void MpmSolver2D::applyPlasticity() {
             p.Fp = FpInvNew.inverse();
             p.F  = FeNew * p.Fp; // ensure F = Fe * Fp
         }
-    }
+    });
 }
 
 // ---- fracture ----
@@ -643,11 +646,12 @@ void MpmSolver2D::checkFracture() {
 void MpmSolver2D::applyBoundaryConditions() {
     if (!hasBoundary_) return;
 
-    for (int j = 0; j < ny_; ++j) {
-        for (int i = 0; i < nx_; ++i) {
-            int idx = i + j * nx_;
+    const int nodeCount = nx_ * ny_;
+    Parallel::For(0, nodeCount, [&](int idx) {
             auto& node = grid_[idx];
-            if (node.mass <= 0.0f) continue;
+            if (node.mass <= 0.0f) return;
+            int i = idx % nx_;
+            int j = idx / nx_;
 
             MpmVec2 pos{ gridOrigin_.x + (static_cast<float>(i) + 0.5f) * cellSize_,
                          gridOrigin_.y + (static_cast<float>(j) + 0.5f) * cellSize_ };
@@ -676,8 +680,7 @@ void MpmSolver2D::applyBoundaryConditions() {
             }
 
             node.vel = v * node.mass;
-        }
-    }
+    });
 }
 
 void MpmSolver2D::resolveColliders() {

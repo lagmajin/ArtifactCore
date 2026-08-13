@@ -598,10 +598,10 @@ void PyroSimulation::applyVorticityConfinement(float deltaSeconds) {
 
     const auto resolution = fields_.resolution();
     auto velocity = fields_.velocityView();
-    const auto curl = fields_.velocityView();
+    const std::vector<PyroVec3> sourceVelocity(velocity.values.begin(), velocity.values.end());
     const float dt = static_cast<float>(deltaSeconds);
 
-    for (int z = 0; z < resolution.depth; ++z) {
+    Parallel::For(0, resolution.depth, resolution.width * resolution.height, [&](int z) {
         for (int y = 0; y < resolution.height; ++y) {
             for (int x = 0; x < resolution.width; ++x) {
                 const auto idx = cellIndex(x, y, z);
@@ -611,9 +611,9 @@ void PyroSimulation::applyVorticityConfinement(float deltaSeconds) {
                 const int yp = std::min(resolution.height - 1, y + 1);
                 const int zm = std::max(0, z - 1);
                 const int zp = std::min(resolution.depth - 1, z + 1);
-                const float wx = (curl.values[cellIndex(xp, y, z)].y - curl.values[cellIndex(xm, y, z)].y) * 0.5f;
-                const float wy = (curl.values[cellIndex(x, yp, z)].z - curl.values[cellIndex(x, ym, z)].z) * 0.5f;
-                const float wz = (curl.values[cellIndex(x, y, zp)].x - curl.values[cellIndex(x, y, zm)].x) * 0.5f;
+                const float wx = (sourceVelocity[cellIndex(xp, y, z)].y - sourceVelocity[cellIndex(xm, y, z)].y) * 0.5f;
+                const float wy = (sourceVelocity[cellIndex(x, yp, z)].z - sourceVelocity[cellIndex(x, ym, z)].z) * 0.5f;
+                const float wz = (sourceVelocity[cellIndex(x, y, zp)].x - sourceVelocity[cellIndex(x, y, zm)].x) * 0.5f;
                 const float len = std::sqrt(wx * wx + wy * wy + wz * wz) + 1e-5f;
                 const float nx = wx / len;
                 const float ny = wy / len;
@@ -624,7 +624,7 @@ void PyroSimulation::applyVorticityConfinement(float deltaSeconds) {
                 velocity.values[idx].z += (nx - ny) * strength;
             }
         }
-    }
+    });
 }
 
 void PyroSimulation::integrateStep(float deltaSeconds) {
@@ -795,9 +795,11 @@ void PyroSimulation::solvePressure(int iterations) {
     const auto resolution = fields_.resolution();
     auto pressure = fields_.pressureView();
     const auto divergence = fields_.divergenceView();
+    std::vector<float> nextPressure(pressure.values.size(), 0.0f);
 
     for (int i = 0; i < iterations; ++i) {
-        for (int z = 0; z < resolution.depth; ++z) {
+        Parallel::For(0, resolution.depth,
+                      resolution.width * resolution.height, [&](int z) {
             for (int y = 0; y < resolution.height; ++y) {
                 for (int x = 0; x < resolution.width; ++x) {
                     const auto idx = cellIndex(x, y, z);
@@ -814,10 +816,15 @@ void PyroSimulation::solvePressure(int iterations) {
                         pressure.values[cellIndex(x, yp, z)] +
                         pressure.values[cellIndex(x, y, zm)] +
                         pressure.values[cellIndex(x, y, zp)];
-                    pressure.values[idx] = (divergence.values[idx] + neighborSum) / 6.0f;
+                    nextPressure[idx] = (divergence.values[idx] + neighborSum) / 6.0f;
                 }
             }
-        }
+        });
+        Parallel::For(0, static_cast<int>(pressure.values.size()),
+                      static_cast<int>(pressure.values.size()), [&](int index) {
+            pressure.values[static_cast<std::size_t>(index)] =
+                nextPressure[static_cast<std::size_t>(index)];
+        });
     }
 }
 

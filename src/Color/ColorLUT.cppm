@@ -17,6 +17,7 @@ module;
 #include <QMap>
 
 module Color.LUT;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -586,9 +587,11 @@ QImage ColorLUT::applyToImage(const QImage& source) const {
     
     auto* resultBits = result.bits();
     const int resultStride = result.bytesPerLine();
-    for (int y = 0; y < result.height(); ++y) {
+    Parallel::ForTiles(result.width(), result.height(), 32, 32,
+        [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         QRgb* line = reinterpret_cast<QRgb*>(resultBits + y * resultStride);
-        for (int x = 0; x < result.width(); ++x) {
+        for (int x = x0; x < x1; ++x) {
             float r = qRed(line[x]) / 255.0f;
             float g = qGreen(line[x]) / 255.0f;
             float b = qBlue(line[x]) / 255.0f;
@@ -602,6 +605,7 @@ QImage ColorLUT::applyToImage(const QImage& source) const {
                 qAlpha(line[x]));
         }
     }
+    });
     
     return result;
 }

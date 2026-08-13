@@ -28,13 +28,14 @@ void VectorFlowGlitch::process(ImageF32x4_RGBA& image, const VectorFlowGlitchSet
     cv::Mat dstMat = cv::Mat::zeros(h, w, CV_32FC4);
 
     // 2. Process each pixel and displace along structural direction
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
         cv::Vec4f* dstRow = dstMat.ptr<cv::Vec4f>(y);
         const cv::Vec4f* srcRow = srcMat.ptr<cv::Vec4f>(y);
         const float noiseFactor = std::sin(y * settings.frequency + settings.seed) *
                                   std::cos(y * (settings.frequency * 0.43f) - settings.seed * 3.14f);
 
-        for (int x = 0; x < w; ++x) {
+        for (int x = x0; x < x1; ++x) {
             size_t idx = static_cast<size_t>(y * w + x);
             float angle = field.angles[idx];
             float coherence = field.coherence[idx];
@@ -106,6 +107,7 @@ void VectorFlowGlitch::process(ImageF32x4_RGBA& image, const VectorFlowGlitchSet
             float a = sampleChannel(3, 0.0f); // preserve original alpha coordinate displacement
 
             dstRow[x] = cv::Vec4f(b, g, r, a);
+        }
         }
     });
 

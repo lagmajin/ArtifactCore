@@ -7,6 +7,7 @@ module;
 
 module ImageProcessing;
 import :IBKKeyer;
+import Core.Parallel;
 
 namespace ArtifactCore::Keying {
 namespace {
@@ -26,8 +27,9 @@ void morphology(std::vector<float>& matte, int width, int height,
 {
     if (radius <= 0) return;
     std::vector<float> result(matte.size(), erode ? 1.0f : 0.0f);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    Parallel::ForTiles(width, height, 16, 16, [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
             float value = erode ? 1.0f : 0.0f;
             const int minY = std::max(0, y - radius);
             const int maxY = std::min(height - 1, y + radius);
@@ -42,6 +44,7 @@ void morphology(std::vector<float>& matte, int width, int height,
             result[static_cast<std::size_t>(y) * width + x] = value;
         }
     }
+    });
     matte.swap(result);
 }
 
@@ -67,7 +70,10 @@ bool processIBK(const IBKBuffers& buffers, const IBKParams& inputParams) {
     const float detail = std::clamp(finiteOr(inputParams.detailRecovery, 0.3f), 0.0f, 1.0f);
     std::vector<float> matte(pixelCount, 0.0f);
 
-    for (std::size_t i = 0; i < pixelCount; ++i) {
+    Parallel::ForTiles(buffers.width, buffers.height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+        const std::size_t i = static_cast<std::size_t>(y) * width + static_cast<std::size_t>(x);
         const float* fg = buffers.foreground + i * 4;
         const float* plate = buffers.cleanPlate + i * 4;
         const float r = std::max(0.0f, fg[0] * screenCorrection);
@@ -81,14 +87,19 @@ bool processIBK(const IBKBuffers& buffers, const IBKParams& inputParams) {
         const float core = std::clamp(raw - coreClip, 0.0f, 1.0f);
         const float edge = smoothstep(0.0f, edgeSoftness, raw * (1.0f - core));
         matte[i] = std::pow(std::clamp(core + edge * detail, 0.0f, 1.0f), gamma);
+        }
     }
+    });
 
     morphology(matte, buffers.width, buffers.height,
                std::clamp(inputParams.erodePixels, 0, 64), true);
     morphology(matte, buffers.width, buffers.height,
                std::clamp(inputParams.dilatePixels, 0, 64), false);
 
-    for (std::size_t i = 0; i < pixelCount; ++i) {
+    Parallel::ForTiles(buffers.width, buffers.height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+        const std::size_t i = static_cast<std::size_t>(y) * width + static_cast<std::size_t>(x);
         const float* fg = buffers.foreground + i * 4;
         const float* plate = buffers.cleanPlate + i * 4;
         float* out = buffers.outputRGBA + i * 4;
@@ -99,7 +110,9 @@ bool processIBK(const IBKBuffers& buffers, const IBKParams& inputParams) {
             out[channel] = value * alpha;
         }
         out[3] = alpha;
+        }
     }
+    });
     return true;
 }
 
@@ -117,10 +130,13 @@ bool autoGenerateCleanPlate(const std::vector<ImageF32x4_RGBA>& frames,
             !frame.rgba32fData()) return false;
     }
 
+    std::vector<float> result(pixelCount * 4, 0.0f);
+    Parallel::ForTiles(width, height, 16, 16, [&](int x0, int y0, int x1, int y1) {
     std::vector<float> values;
     values.reserve(frames.size());
-    std::vector<float> result(pixelCount * 4, 0.0f);
-    for (std::size_t pixel = 0; pixel < pixelCount; ++pixel) {
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+        const std::size_t pixel = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
         for (int channel = 0; channel < 4; ++channel) {
             values.clear();
             for (const auto& frame : frames) {
@@ -138,6 +154,8 @@ bool autoGenerateCleanPlate(const std::vector<ImageF32x4_RGBA>& frames,
             }
         }
     }
+    }
+    });
     outCleanPlate.setFromRGBA32F(result.data(), width, height);
     return true;
 }

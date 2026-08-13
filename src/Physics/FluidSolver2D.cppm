@@ -5,6 +5,7 @@ module;
 #include <cmath>
 
 module Physics.Fluid;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -150,22 +151,26 @@ void FluidSolver2D::diffuse(int b, std::vector<float>& x, const std::vector<floa
 
 void FluidSolver2D::project(std::vector<float>& vx, std::vector<float>& vy, std::vector<float>& p, std::vector<float>& div) {
     const float invScale = 1.0f / std::sqrt(static_cast<float>(width_ * height_));
-    for (int j = 1; j < height_ - 1; ++j) {
-        for (int i = 1; i < width_ - 1; ++i) {
+    Parallel::ForTiles(width_ - 2, height_ - 2, 16, 16, [&](int x0, int y0, int x1, int y1) {
+    for (int j = y0 + 1; j < y1 + 1; ++j) {
+        for (int i = x0 + 1; i < x1 + 1; ++i) {
             div[IX(i, j)] = -0.5f * (vx[IX(i + 1, j)] - vx[IX(i - 1, j)] + vy[IX(i, j + 1)] - vy[IX(i, j - 1)]) * invScale;
             p[IX(i, j)] = 0.0f;
         }
     }
+    });
     setBoundary(0, div);
     setBoundary(0, p);
     linSolve(0, p, div, 1, 4);
 
-    for (int j = 1; j < height_ - 1; ++j) {
-        for (int i = 1; i < width_ - 1; ++i) {
+    Parallel::ForTiles(width_ - 2, height_ - 2, 16, 16, [&](int x0, int y0, int x1, int y1) {
+    for (int j = y0 + 1; j < y1 + 1; ++j) {
+        for (int i = x0 + 1; i < x1 + 1; ++i) {
             vx[IX(i, j)] -= 0.5f * (p[IX(i + 1, j)] - p[IX(i - 1, j)]) * width_;
             vy[IX(i, j)] -= 0.5f * (p[IX(i, j + 1)] - p[IX(i, j - 1)]) * height_;
         }
     }
+    });
     setBoundary(1, vx);
     setBoundary(2, vy);
 }
@@ -183,8 +188,9 @@ void FluidSolver2D::vorticityConfinement(std::vector<float>& vx, std::vector<flo
     }
 
     // 2. Apply confinement force
-    for (int j = 2; j < height_ - 2; ++j) {
-        for (int i = 2; i < width_ - 2; ++i) {
+    Parallel::ForTiles(width_ - 4, height_ - 4, 16, 16, [&](int x0, int y0, int x1, int y1) {
+    for (int j = y0 + 2; j < y1 + 2; ++j) {
+        for (int i = x0 + 2; i < x1 + 2; ++i) {
             float dx = (curl_[IX(i + 1, j)] - curl_[IX(i - 1, j)]) * 0.5f;
             float dy = (curl_[IX(i, j + 1)] - curl_[IX(i, j - 1)]) * 0.5f;
             float len = std::sqrt(dx * dx + dy * dy) + 1e-5f;
@@ -195,6 +201,7 @@ void FluidSolver2D::vorticityConfinement(std::vector<float>& vx, std::vector<flo
             vy[IX(i, j)] -= dx * v * vorticityStrength_ * dt;
         }
     }
+    });
 }
 
 void FluidSolver2D::advect(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& vx, const std::vector<float>& vy, float dt) {
@@ -205,8 +212,10 @@ void FluidSolver2D::advect(int b, std::vector<float>& d, const std::vector<float
     float NfloatH = height_ - 2;
 
     const auto advectRows = [&](int rowBegin, int rowEnd) {
-        for (int j = rowBegin; j < rowEnd; ++j) {
-            for (int i = 1; i < width_ - 1; ++i) {
+        Parallel::ForTiles(width_ - 2, rowEnd - rowBegin, 16, 16,
+            [&](int x0, int y0, int x1, int y1) {
+        for (int j = rowBegin + y0; j < rowBegin + y1; ++j) {
+            for (int i = x0 + 1; i < x1 + 1; ++i) {
                 float tmp1 = dtx * vx[IX(i, j)];
                 float tmp2 = dty * vy[IX(i, j)];
                 float x = i - tmp1;
@@ -235,6 +244,7 @@ void FluidSolver2D::advect(int b, std::vector<float>& d, const std::vector<float
                               s1 * (t0 * d0[IX(i1i, j0i)] + t1 * d0[IX(i1i, j1i)]);
             }
         }
+        });
     };
 
     advectRows(1, height_ - 1);
@@ -244,10 +254,10 @@ void FluidSolver2D::advect(int b, std::vector<float>& d, const std::vector<float
 void FluidSolver2D::update(float dt) {
     // Apply Buoyancy (Thermal Convection)
     if (buoyancyFactor_ != 0.0f) {
-        for (int i = 0; i < size_; ++i) {
+        Parallel::For(0, size_, size_, [&](int i) {
             // Density acts as heat, creating upward velocity
             vy_[i] -= density_[i] * buoyancyFactor_ * dt;
-        }
+        });
     }
 
     // Velocity Step

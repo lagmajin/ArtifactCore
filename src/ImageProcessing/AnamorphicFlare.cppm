@@ -23,8 +23,10 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
     float4 tint = settings.tint;
 
     // 1. Extract highlights exceeding threshold
-    Parallel::For(0, static_cast<int>(total_pixels), static_cast<int>(total_pixels), [&](int index) {
-            const size_t i = static_cast<size_t>(index);
+    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+            const size_t i = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
                 float4 pixel = original[i];
                 float luminance = pixel.x * 0.299f + pixel.y * 0.587f + pixel.z * 0.114f;
                 if (luminance > threshold) {
@@ -32,6 +34,8 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
                     float scale = (luminance - threshold) / (1.0f - threshold + 0.001f);
                     highlights[i] = float4{pixel.x * scale, pixel.y * scale, pixel.z * scale, pixel.w};
                 }
+        }
+        }
     });
 
     std::vector<float4> streaks(total_pixels, float4{0.0f, 0.0f, 0.0f, 0.0f});
@@ -73,8 +77,10 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
     });
 
     // 3. Composite the anamorphic flares onto the original image (Additive Blend)
-    Parallel::For(0, static_cast<int>(total_pixels), static_cast<int>(total_pixels), [&](int index) {
-            const size_t i = static_cast<size_t>(index);
+    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+            const size_t i = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
                 float4 orig_pixel = original[i];
                 float4 streak_pixel = streaks[i];
 
@@ -88,6 +94,8 @@ void AnamorphicFlare::process(float4* buffer, int width, int height, const Anamo
                 buffer[i].y = std::clamp(orig_pixel.y + g_flare, 0.0f, 1.0f);
                 buffer[i].z = std::clamp(orig_pixel.z + b_flare, 0.0f, 1.0f);
                 buffer[i].w = orig_pixel.w; // Preserve original alpha
+        }
+        }
     });
 }
 

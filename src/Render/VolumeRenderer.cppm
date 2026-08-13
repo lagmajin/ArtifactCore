@@ -5,6 +5,7 @@ module;
 #include <limits>
 
 module Render.VolumeRenderer;
+import Core.Parallel;
 
 namespace ArtifactCore::RayTrace {
 
@@ -401,9 +402,10 @@ ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
 
     const int dofSamples = renderCamera.aperture > 0.0f ? 4 : 1;
 
-    for (int y = 0; y < height; ++y) {
+    Parallel::ForTiles(width, height, 16, 16, [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         std::uint8_t* row = buffer.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 3u;
-        for (int x = 0; x < width; ++x) {
+        for (int x = x0; x < x1; ++x) {
             Color pixelColor{0.0f, 0.0f, 0.0f};
 
             for (int s = 0; s < dofSamples; ++s) {
@@ -438,6 +440,7 @@ ImageBuffer CPUVolumeRenderer::render(int width, int height) const {
             pixel[2] = static_cast<std::uint8_t>(std::clamp(pixelColor.z * 255.999f, 0.0f, 255.0f));
         }
     }
+    });
 
     return buffer;
 }

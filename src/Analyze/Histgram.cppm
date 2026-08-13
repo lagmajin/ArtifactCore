@@ -36,6 +36,8 @@ module;
 #include <random>
 module Analyze.Histgram;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 void Histogram::Impl::calculate(const cv::Mat& image) {
@@ -53,7 +55,7 @@ void Histogram::Impl::calculate(const cv::Mat& image) {
 
     // Calculate histogram for each channel. Values are normalized to the
     // public 256-bin range for all supported scalar image depths.
-    for (int ch = 0; ch < channels; ++ch) {
+    Parallel::For(0, channels, channels * image.rows * image.cols, [&](int ch) {
         std::vector<int> hist(histSize_, 0);
         for (int y = 0; y < image.rows; ++y) {
             for (int x = 0; x < image.cols; ++x) {
@@ -85,7 +87,7 @@ void Histogram::Impl::calculate(const cv::Mat& image) {
             }
         }
         bins_[ch] = hist;
-    }
+    });
 }
 
 std::vector<int> Histogram::Impl::getBins(int channel) const {
@@ -108,14 +110,16 @@ int Histogram::Impl::getChannelCount() const {
 }
 
 void Histogram::Impl::normalize() {
-    for (auto& hist : bins_) {
+    Parallel::For(0, static_cast<int>(bins_.size()), static_cast<int>(bins_.size()),
+                  [&](int channel) {
+        auto& hist = bins_[static_cast<std::size_t>(channel)];
         int maxVal = *std::max_element(hist.begin(), hist.end());
         if (maxVal > 0) {
             for (int& val : hist) {
                 val = (val * 255) / maxVal; // Scale to 0-255
             }
         }
-    }
+    });
 }
 
 void Histogram::Impl::clear() {
