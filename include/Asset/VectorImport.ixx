@@ -5,6 +5,10 @@ module;
 #include <QVector>
 #include <QFileInfo>
 #include <QtCore/QRectF>
+#include <QFile>
+#include <QRegularExpression>
+#include <QXmlStreamReader>
+#include <cmath>
 
 export module Asset.VectorImport;
 
@@ -143,6 +147,52 @@ inline VectorImportResult makeVectorImportResult(const QString& sourcePath)
         result.editableReady = result.previewReady && result.sourceKind != VectorSourceKind::Unknown;
         result.importMode = result.editableReady ? VectorImportMode::EditableAttempted
                                                  : VectorImportMode::PreviewOnly;
+
+        if (result.sourceKind == VectorSourceKind::Svg && result.readable) {
+            QFile svgFile(info.absoluteFilePath());
+            if (svgFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                QXmlStreamReader xml(&svgFile);
+                while (!xml.atEnd()) {
+                    xml.readNext();
+                    if (!xml.isStartElement()) continue;
+                    const QString name = xml.name().toString().toLower();
+                    if (name == QStringLiteral("svg")) {
+                        const auto attrs = xml.attributes();
+                        const QString viewBox = attrs.value(QStringLiteral("viewBox")).toString();
+                        const QStringList parts = viewBox.split(QRegularExpression(QStringLiteral("\\s+|,")), Qt::SkipEmptyParts);
+                        if (parts.size() == 4) {
+                            bool okW = false, okH = false;
+                            const double width = parts[2].toDouble(&okW);
+                            const double height = parts[3].toDouble(&okH);
+                            if (okW && okH && width > 0.0 && height > 0.0) {
+                                result.sourceSize = QSize(static_cast<int>(std::ceil(width)), static_cast<int>(std::ceil(height)));
+                                result.pages.push_back({result.displayName, QRectF(0.0, 0.0, width, height), true});
+                            }
+                        }
+                    } else if (name == QStringLiteral("g")) {
+                        ++result.nodeSummary.groupNodes;
+                    } else if (name == QStringLiteral("path")) {
+                        ++result.nodeSummary.pathNodes;
+                    } else if (name == QStringLiteral("text")) {
+                        ++result.nodeSummary.textNodes;
+                    } else if (name == QStringLiteral("image")) {
+                        ++result.nodeSummary.imageNodes;
+                    } else if (name == QStringLiteral("filter") || name == QStringLiteral("mask") ||
+                               name == QStringLiteral("pattern") || name == QStringLiteral("foreignobject")) {
+                        result.unsupportedFeatures.push_back(name);
+                    }
+                }
+                if (xml.hasError()) {
+                    result.issues.push_back({QStringLiteral("svg.parse"), xml.errorString()});
+                    result.previewReady = false;
+                }
+                result.nodeSummary.totalNodes = result.nodeSummary.groupNodes +
+                    result.nodeSummary.pathNodes + result.nodeSummary.textNodes + result.nodeSummary.imageNodes;
+                result.editableReady = result.previewReady && result.nodeSummary.pathNodes > 0;
+                result.importMode = result.editableReady && !result.hasUnsupportedFeatures()
+                    ? VectorImportMode::EditableSuccess : VectorImportMode::EditablePartial;
+            }
+        }
     }
 
     return result;
