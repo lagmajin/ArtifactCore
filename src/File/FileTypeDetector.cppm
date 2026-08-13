@@ -33,7 +33,11 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
       suffix == "tif" || suffix == "tga" || suffix == "exr" ||
       suffix == "hdr" || suffix == "psd" || suffix == "psb" ||
       suffix == "webp" || suffix == "svg" || suffix == "ico" ||
-      suffix == "dds" || suffix == "ktx") {
+      suffix == "dds" || suffix == "ktx" || suffix == "ktx2" ||
+      suffix == "avif" || suffix == "heic" || suffix == "heif" ||
+      suffix == "jxl" || suffix == "jp2" || suffix == "j2k" ||
+      suffix == "ppm" || suffix == "pgm" || suffix == "pbm" ||
+      suffix == "pam" || suffix == "pfm") {
     return FileType::Image;
   }
   // Video
