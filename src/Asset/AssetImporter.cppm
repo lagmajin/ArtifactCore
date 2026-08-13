@@ -124,7 +124,7 @@ bool AssetImporter::isSupported(const QString& extension) {
         "mp4", "mov", "avi", "mkv",
         "wav", "mp3", "flac", "aac",
         "obj", "fbx", "abc", "glb", "gltf", "stl", "ply",
-        "json"
+        "json", "lottie"
     };
     
     return supported.contains(ext);
@@ -134,6 +134,9 @@ AssetType AssetImporter::detectType(const QString& filePath) {
     FileTypeDetector detector;
     FileType ft = detector.detect(filePath);
     const VectorSourceKind vectorKind = vectorSourceKindForExtension(QFileInfo(filePath).suffix());
+    if (QFileInfo(filePath).suffix().compare(QStringLiteral("lottie"), Qt::CaseInsensitive) == 0) {
+        return AssetType::Data;
+    }
     
     if (vectorKind != VectorSourceKind::Unknown || ft == FileType::Document ||
         ft == FileType::Font) {
