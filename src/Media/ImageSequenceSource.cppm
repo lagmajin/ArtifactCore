@@ -29,6 +29,7 @@ namespace ArtifactCore {
 
 struct ImageSequenceSource::FrameEntry {
     qint64 frameIndex = 0;
+    int subframeIndex = 0;
     QString path;
     QSize size;
 };
@@ -112,6 +113,15 @@ struct ImageSequenceSource::Impl {
 };
 
 namespace {
+
+QImage readSequenceFrame(const QString& path, int subframeIndex)
+{
+    QImageReader reader(path);
+    if (subframeIndex > 0 && !reader.jumpToImage(subframeIndex)) {
+        return {};
+    }
+    return reader.read();
+}
 
 bool isSupportedImageFile(const QFileInfo& info)
 {
@@ -243,7 +253,19 @@ bool ImageSequenceSource::open(const QString& uri)
             FrameEntry entry;
             entry.frameIndex = 0;
             entry.path = info.absoluteFilePath();
-            frames.push_back(entry);
+            QImageReader animatedReader(entry.path);
+            const int imageCount = animatedReader.imageCount();
+            if (info.suffix().compare(QStringLiteral("gif"), Qt::CaseInsensitive) == 0 && imageCount > 1) {
+                frames.reserve(imageCount);
+                for (int i = 0; i < imageCount; ++i) {
+                    FrameEntry animatedEntry = entry;
+                    animatedEntry.frameIndex = i;
+                    animatedEntry.subframeIndex = i;
+                    frames.push_back(std::move(animatedEntry));
+                }
+            } else {
+                frames.push_back(entry);
+            }
         }
     } else {
         return false;
@@ -512,8 +534,7 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
         ++impl_->frameCacheMisses;
     }
 
-    QImageReader reader(entry.path);
-    QImage image = reader.read();
+    QImage image = readSequenceFrame(entry.path, entry.subframeIndex);
     if (image.isNull()) {
         // Keep a negative result in the same bounded cache.  Broken or
         // temporarily unreadable frames should not be decoded again on every
@@ -662,7 +683,9 @@ void ImageSequenceSource::prefetchFrame(qint64 frameIndex) const
     const auto state = impl_->prefetchState;
     const std::uint64_t generation =
         state->generation.load(std::memory_order_acquire);
-    const QString path = impl_->frames.at(frameIndex).path;
+    const FrameEntry entry = impl_->frames.at(frameIndex);
+    const QString path = entry.path;
+    const int subframeIndex = entry.subframeIndex;
     {
         const std::scoped_lock lock(state->mutex);
         if (state->inFlight.contains(frameIndex) ||
@@ -676,14 +699,13 @@ void ImageSequenceSource::prefetchFrame(qint64 frameIndex) const
     }
 
     sharedBackgroundThreadPool().start(
-        [state, generation, frameIndex, path]() {
+        [state, generation, frameIndex, path, subframeIndex]() {
             ScopedThreadName threadName(
                 QStringLiteral("ImageSequence/prefetch:%1")
                     .arg(QFileInfo(path).fileName()));
             const QFileInfo sourceInfo(path);
-            QImageReader reader(path);
             Impl::PrefetchedFrame result;
-            result.image = reader.read();
+            result.image = readSequenceFrame(path, subframeIndex);
             result.fileSize = sourceInfo.size();
             result.lastModifiedMs =
                 sourceInfo.lastModified().toMSecsSinceEpoch();
