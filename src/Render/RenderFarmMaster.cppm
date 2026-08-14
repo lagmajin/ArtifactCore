@@ -858,8 +858,13 @@ public:
 
         // Checkpoint restore: pick up from last completed frame
         int restoreUpTo = -1;
-        if (checkpointPolicy_.mode != CheckpointPolicy::Mode::Disabled && !currentJobId_.isEmpty()) {
-            auto existing = checkpointStore_->load(currentJobId_);
+        QString jobId;
+        {
+            std::lock_guard<std::mutex> lock(jobStateMutex_);
+            jobId = currentJobId_;
+        }
+        if (checkpointPolicy_.mode != CheckpointPolicy::Mode::Disabled && !jobId.isEmpty()) {
+            auto existing = checkpointStore_->load(jobId);
             if (existing) {
                 restoreUpTo = std::clamp(existing->completedUpToFrame,
                                          request.range.startFrame,
@@ -1365,7 +1370,12 @@ void RenderFarmMaster::cancelAll() {
 bool RenderFarmMaster::cancelJob(const QString& jobId) {
     const QString requestedId = jobId.trimmed();
     if (requestedId.isEmpty()) return false;
-    if (impl_->currentJobId_ == requestedId && impl_->busy_) {
+    QString currentJobId;
+    {
+        std::lock_guard<std::mutex> lock(impl_->jobStateMutex_);
+        currentJobId = impl_->currentJobId_;
+    }
+    if (currentJobId == requestedId && impl_->busy_) {
         impl_->cancelled_ = true;
         impl_->pauseCv_.notify_all();
         return true;
