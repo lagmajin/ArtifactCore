@@ -200,6 +200,20 @@ public:
         callback(progress);
     }
 
+    RenderFarmAlertCallback alertCallback() const {
+        std::lock_guard<std::mutex> lock(callbackMutex_);
+        return onAlert_;
+    }
+
+    void notifyAlert(const QString& type, const RenderJobResult& result) {
+        RenderFarmAlertCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex_);
+            callback = onAlert_;
+        }
+        if (callback) callback(type, result);
+    }
+
     void notifyCompleted(const RenderJobResult& result) {
         RenderJobResult trackedResult = result;
         trackedResult.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -216,7 +230,7 @@ public:
         if (completedCallback) completedCallback(trackedResult);
         postAlertWebhook(trackedResult.success ? QStringLiteral("job_completed")
                                                 : QStringLiteral("job_failed"), trackedResult);
-        if (onAlert_ && failureAlertThreshold_ > 0.0 && totalFrames_ > 0) {
+        if (alertCallback() && failureAlertThreshold_ > 0.0 && totalFrames_ > 0) {
             const double failureFraction = static_cast<double>(trackedResult.failedFrames)
                 / static_cast<double>(totalFrames_);
             if (failureFraction >= failureAlertThreshold_)
@@ -224,7 +238,7 @@ public:
                 lastAlertType_ = QStringLiteral("failure_rate");
                 lastAlertAt_ = QDateTime::currentDateTimeUtc();
                 lastAlertFailedFrames_ = trackedResult.failedFrames;
-                onAlert_(QStringLiteral("failure_rate"), trackedResult);
+                notifyAlert(QStringLiteral("failure_rate"), trackedResult);
                 postAlertWebhook(QStringLiteral("failure_rate"), trackedResult);
             }
         }
@@ -1026,14 +1040,14 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
             impl_->cancelled_ = true;
             impl_->pauseCv_.notify_all();
         }
-        if (impl_->onAlert_ && impl_->queuedJobAlertThreshold_ > 0
+        if (impl_->alertCallback() && impl_->queuedJobAlertThreshold_ > 0
             && queuedCount >= impl_->queuedJobAlertThreshold_) {
             impl_->lastAlertType_ = QStringLiteral("queue_depth");
             impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
             impl_->lastAlertQueuedJobs_ = queuedCount;
             RenderJobResult alertResult;
             alertResult.errorMessage = QStringLiteral("Queued jobs exceeded the configured threshold.");
-            impl_->onAlert_(QStringLiteral("queue_depth"), alertResult);
+            impl_->notifyAlert(QStringLiteral("queue_depth"), alertResult);
             impl_->postAlertWebhook(QStringLiteral("queue_depth"), alertResult);
         }
         return;
@@ -1431,6 +1445,7 @@ void RenderFarmMaster::setOnCompleted(std::function<void(const RenderJobResult&)
 }
 
 void RenderFarmMaster::setOnAlert(RenderFarmAlertCallback callback) {
+    std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
     impl_->onAlert_ = std::move(callback);
 }
 
@@ -1497,15 +1512,14 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
         }
         impl_->remoteCv_.notify_all();
         if (unreportedFrames > 0
-            && (impl_->onAlert_ || !impl_->alertWebhookUrl_.trimmed().isEmpty())) {
+            && (impl_->alertCallback() || !impl_->alertWebhookUrl_.trimmed().isEmpty())) {
             RenderJobResult alertResult;
             alertResult.success = false;
             alertResult.failedFrames = unreportedFrames;
             alertResult.errorMessage = QStringLiteral("Remote worker disconnected: %1").arg(workerId);
             impl_->lastAlertType_ = QStringLiteral("worker_disconnected");
             impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
-            if (impl_->onAlert_)
-                impl_->onAlert_(QStringLiteral("worker_disconnected"), alertResult);
+            impl_->notifyAlert(QStringLiteral("worker_disconnected"), alertResult);
             impl_->postAlertWebhook(QStringLiteral("worker_disconnected"), alertResult);
         }
     });
