@@ -53,8 +53,9 @@ public:
 
         if (!running_.load()) {
             running_.store(true);
-            pollThread_ = std::thread([this, pollIntervalMs]() {
-                pollLoop(pollIntervalMs);
+            const std::uint64_t generation = generation_.fetch_add(1) + 1;
+            pollThread_ = std::thread([this, pollIntervalMs, generation]() {
+                pollLoop(pollIntervalMs, generation);
             });
             pollThread_.detach();
         }
@@ -68,6 +69,7 @@ public:
     void unwatchAll() {
         std::lock_guard<std::mutex> lock(mutex_);
         watched_.clear();
+        generation_.fetch_add(1);
         running_.store(false);
     }
 
@@ -79,9 +81,10 @@ public:
 private:
     FileWatcher() = default;
 
-    void pollLoop(int intervalMs) {
-        while (running_.load()) {
+    void pollLoop(int intervalMs, std::uint64_t generation) {
+        while (running_.load() && generation_.load() == generation) {
             std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
+            if (!running_.load() || generation_.load() != generation) break;
 
             std::vector<std::pair<String, FileChangeCallback>> triggered;
 
@@ -106,6 +109,7 @@ private:
 
     std::unordered_map<std::string, WatchedFile> watched_;
     std::atomic<bool> running_{false};
+    std::atomic<std::uint64_t> generation_{0};
     std::thread pollThread_;
     mutable std::mutex mutex_;
 };
