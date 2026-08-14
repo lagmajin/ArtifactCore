@@ -117,7 +117,11 @@ public:
     QString alertWebhookUrl_;
 
     void postAlertWebhook(const QString& type, const RenderJobResult& result) {
-        const QString url = alertWebhookUrl_.trimmed();
+        QString url;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex_);
+            url = alertWebhookUrl_.trimmed();
+        }
         QCoreApplication* app = QCoreApplication::instance();
         if (url.isEmpty() || !app || !QUrl(url).isValid()) return;
         const QJsonObject payload{
@@ -214,6 +218,11 @@ public:
         if (callback) callback(type, result);
     }
 
+    bool webhookConfigured() const {
+        std::lock_guard<std::mutex> lock(callbackMutex_);
+        return !alertWebhookUrl_.trimmed().isEmpty();
+    }
+
     void notifyCompleted(const RenderJobResult& result) {
         RenderJobResult trackedResult = result;
         trackedResult.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -230,10 +239,15 @@ public:
         if (completedCallback) completedCallback(trackedResult);
         postAlertWebhook(trackedResult.success ? QStringLiteral("job_completed")
                                                 : QStringLiteral("job_failed"), trackedResult);
-        if (alertCallback() && failureAlertThreshold_ > 0.0 && totalFrames_ > 0) {
+        double failureThreshold = 0.0;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex_);
+            failureThreshold = failureAlertThreshold_;
+        }
+        if (alertCallback() && failureThreshold > 0.0 && totalFrames_ > 0) {
             const double failureFraction = static_cast<double>(trackedResult.failedFrames)
                 / static_cast<double>(totalFrames_);
-            if (failureFraction >= failureAlertThreshold_)
+            if (failureFraction >= failureThreshold)
             {
                 lastAlertType_ = QStringLiteral("failure_rate");
                 lastAlertAt_ = QDateTime::currentDateTimeUtc();
@@ -1040,8 +1054,13 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
             impl_->cancelled_ = true;
             impl_->pauseCv_.notify_all();
         }
-        if (impl_->alertCallback() && impl_->queuedJobAlertThreshold_ > 0
-            && queuedCount >= impl_->queuedJobAlertThreshold_) {
+        int queuedAlertThreshold = 0;
+        {
+            std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
+            queuedAlertThreshold = impl_->queuedJobAlertThreshold_;
+        }
+        if (impl_->alertCallback() && queuedAlertThreshold > 0
+            && queuedCount >= queuedAlertThreshold) {
             impl_->lastAlertType_ = QStringLiteral("queue_depth");
             impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
             impl_->lastAlertQueuedJobs_ = queuedCount;
@@ -1450,14 +1469,17 @@ void RenderFarmMaster::setOnAlert(RenderFarmAlertCallback callback) {
 }
 
 void RenderFarmMaster::setFailureAlertThreshold(double fraction) {
+    std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
     impl_->failureAlertThreshold_ = std::clamp(fraction, 0.0, 1.0);
 }
 
 void RenderFarmMaster::setQueuedJobAlertThreshold(int count) {
+    std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
     impl_->queuedJobAlertThreshold_ = std::max(0, count);
 }
 
 void RenderFarmMaster::setAlertWebhookUrl(const QString& url) {
+    std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
     impl_->alertWebhookUrl_ = url.trimmed();
 }
 
@@ -1512,7 +1534,7 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
         }
         impl_->remoteCv_.notify_all();
         if (unreportedFrames > 0
-            && (impl_->alertCallback() || !impl_->alertWebhookUrl_.trimmed().isEmpty())) {
+            && (impl_->alertCallback() || impl_->webhookConfigured())) {
             RenderJobResult alertResult;
             alertResult.success = false;
             alertResult.failedFrames = unreportedFrames;
