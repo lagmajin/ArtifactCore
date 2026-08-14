@@ -100,6 +100,16 @@ namespace ArtifactCore {
       ~RenderingStateGuard() { state = false; }
     } stateGuard{isRendering};
     auto& manager = RendererQueueManager::instance();
+    auto* model = jobModel.get();
+    const auto postJobStatus = [model](const int row,
+                                       const RenderJobStatus status) {
+      QMetaObject::invokeMethod(
+          model,
+          [model, row, status]() {
+            model->setJobStatus(row, status);
+          },
+          Qt::QueuedConnection);
+    };
     int jobCount = jobModel->rowCount();
     
     for (int i = 0; i < jobCount; ++i) {
@@ -109,11 +119,11 @@ namespace ArtifactCore {
         if (job->status != RenderJobStatus::Queued) continue;
 
         if (!renderFrameFunc) {
-            jobModel->setJobStatus(i, RenderJobStatus::Error);
+            postJobStatus(i, RenderJobStatus::Error);
             continue;
         }
 
-        jobModel->setJobStatus(i, RenderJobStatus::Rendering);
+        postJobStatus(i, RenderJobStatus::Rendering);
         
         ArtifactCore::Render::MFR::MFRJobConfig config;
         config.startFrame = job->startFrame;
@@ -144,12 +154,12 @@ namespace ArtifactCore {
                     Qt::QueuedConnection);
             });
         if (!isRendering) {
-            jobModel->setJobStatus(i, RenderJobStatus::Canceled);
+            postJobStatus(i, RenderJobStatus::Canceled);
         } else if (mfrResult.failedCount > 0) {
-            jobModel->setJobStatus(i, RenderJobStatus::Error);
+            postJobStatus(i, RenderJobStatus::Error);
         } else if (isRendering && mfrResult.completedCount ==
                    static_cast<int>(mfrResult.frames.size())) {
-            jobModel->setJobStatus(i, RenderJobStatus::Done);
+            postJobStatus(i, RenderJobStatus::Done);
         }
     }
   }
