@@ -133,7 +133,11 @@ void PreciseTicker::stop() {
   impl_->cv_.notify_all();
 
   if (worker.joinable()) {
-    worker.join();
+    if (worker.get_id() == std::this_thread::get_id()) {
+      worker.detach();
+    } else {
+      worker.join();
+    }
   }
 
   {
