@@ -98,33 +98,42 @@ void PreciseTicker::setCallback(Callback callback) {
 }
 
 void PreciseTicker::start() {
-  if (!impl_ || impl_->running_.exchange(true)) {
+  if (!impl_) {
     return;
   }
 
   {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
+    if (impl_->running_.load(std::memory_order_acquire)) {
+      return;
+    }
+    impl_->running_.store(true, std::memory_order_release);
     impl_->stopRequested_ = false;
     impl_->rescheduleRequested_ = false;
+    impl_->worker_ = std::thread([impl = impl_]() { impl->run(); });
   }
-
-  impl_->worker_ = std::thread([impl = impl_]() { impl->run(); });
 }
 
 void PreciseTicker::stop() {
-  if (!impl_ || !impl_->running_.exchange(false)) {
+  if (!impl_) {
     return;
   }
 
+  std::thread worker;
   {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
+    if (!impl_->running_.load(std::memory_order_acquire)) {
+      return;
+    }
+    impl_->running_.store(false, std::memory_order_release);
     impl_->stopRequested_ = true;
     impl_->rescheduleRequested_ = false;
+    worker = std::move(impl_->worker_);
   }
   impl_->cv_.notify_all();
 
-  if (impl_->worker_.joinable()) {
-    impl_->worker_.join();
+  if (worker.joinable()) {
+    worker.join();
   }
 
   {
