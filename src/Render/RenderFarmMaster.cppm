@@ -122,6 +122,11 @@ public:
             std::lock_guard<std::mutex> lock(callbackMutex_);
             url = alertWebhookUrl_.trimmed();
         }
+        QString jobId;
+        {
+            std::lock_guard<std::mutex> lock(jobStateMutex_);
+            jobId = currentJobId_;
+        }
         QCoreApplication* app = QCoreApplication::instance();
         if (url.isEmpty() || !app || !QUrl(url).isValid()) return;
         const QJsonObject payload{
@@ -129,7 +134,7 @@ public:
                 .arg(type).arg(result.renderedFrames).arg(result.elapsedMs)
                 .arg(result.errorMessage.isEmpty() ? QString() : QStringLiteral(" - ") + result.errorMessage)},
             {QStringLiteral("type"), type},
-            {QStringLiteral("jobId"), currentJobId_},
+            {QStringLiteral("jobId"), jobId},
             {QStringLiteral("success"), result.success},
             {QStringLiteral("renderedFrames"), result.renderedFrames},
             {QStringLiteral("failedFrames"), result.failedFrames},
