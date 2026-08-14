@@ -170,7 +170,7 @@ public:
     // Phase 4: Remote worker support
     bool allowRemote_ = false;
     unsigned short rpcPort_ = 0;
-    bool rpcRunning_ = false;
+    std::atomic<bool> rpcRunning_{ false };
     std::vector<RemoteJobSlice> remoteSlices_;
     std::mutex remoteMutex_;
     std::atomic<int> remoteCompleted_{0};
