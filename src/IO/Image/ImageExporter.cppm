@@ -151,14 +151,20 @@ ImageExportResult encodeImageToPath(const QImage& imageRGBA8,
 
         const auto* src = imageRGBA8.constBits();
         const std::size_t pixelCount = static_cast<std::size_t>(imageRGBA8.width()) * static_cast<std::size_t>(imageRGBA8.height());
-        for (std::size_t i = 0; i < pixelCount; ++i) {
-            const std::size_t si = i * 4;
-            const std::size_t di = i * 4;
-            pixelsF32[di + 0] = static_cast<float>(src[si + 0]) / 255.0f;
-            pixelsF32[di + 1] = static_cast<float>(src[si + 1]) / 255.0f;
-            pixelsF32[di + 2] = static_cast<float>(src[si + 2]) / 255.0f;
-            pixelsF32[di + 3] = static_cast<float>(src[si + 3]) / 255.0f;
-        }
+        const int width = imageRGBA8.width();
+        const int height = imageRGBA8.height();
+        Parallel::For(0, height, pixelCount, [&](int y) {
+            const std::size_t rowStart = static_cast<std::size_t>(y) * width;
+            for (int x = 0; x < width; ++x) {
+                const std::size_t i = rowStart + x;
+                const std::size_t si = i * 4;
+                const std::size_t di = i * 4;
+                pixelsF32[di + 0] = static_cast<float>(src[si + 0]) / 255.0f;
+                pixelsF32[di + 1] = static_cast<float>(src[si + 1]) / 255.0f;
+                pixelsF32[di + 2] = static_cast<float>(src[si + 2]) / 255.0f;
+                pixelsF32[di + 3] = static_cast<float>(src[si + 3]) / 255.0f;
+            }
+        });
         writeData = pixelsF32.data();
     } else {
         writeData = imageRGBA8.constBits();
