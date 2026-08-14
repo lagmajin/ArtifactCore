@@ -87,6 +87,7 @@ public:
   /// Worker poolを開始する
   /// </summary>
   void Start() {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     if (running_.load()) {
       return;
     }
@@ -107,6 +108,7 @@ public:
   /// Worker poolをシャットダウンする
   /// </summary>
   void Shutdown() {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     if (!running_.load()) {
       return;
     }
@@ -116,12 +118,20 @@ public:
 
     for (auto &worker : workers_) {
       if (worker.joinable()) {
-        worker.join();
+        if (worker.get_id() == std::this_thread::get_id()) {
+          worker.detach();
+        } else {
+          worker.join();
+        }
       }
     }
 
     if (schedulerThread_.joinable()) {
-      schedulerThread_.join();
+      if (schedulerThread_.get_id() == std::this_thread::get_id()) {
+        schedulerThread_.detach();
+      } else {
+        schedulerThread_.join();
+      }
     }
 
     workers_.clear();
@@ -483,6 +493,7 @@ private:
 
   Config config_;
   std::atomic<bool> running_;
+  std::mutex lifecycleMutex_;
 
   std::vector<std::thread> workers_;
   std::thread schedulerThread_;
