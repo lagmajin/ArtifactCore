@@ -81,12 +81,10 @@ MediaReader::~MediaReader() {
 }
 
 void MediaReader::start() {
-    {
-        QMutexLocker locker(&mutex_);
-        if (isRunning_) return;
-        isRunning_ = true;
-        isPaused_ = false;
-    }
+    QMutexLocker locker(&mutex_);
+    if (isRunning_) return;
+    isRunning_ = true;
+    isPaused_ = false;
     workerThread_ = std::thread([this]() { readLoop(); });
 }
 
