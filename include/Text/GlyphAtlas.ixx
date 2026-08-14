@@ -11,6 +11,7 @@ module;
 export module Text.GlyphAtlas;
 
 import Text.Style;
+import Text.LayoutContract;
 
 export namespace ArtifactCore {
 
@@ -20,12 +21,20 @@ struct GlyphKey {
     float       fontSize    = 0.0f;
     uint32_t    styleFlags  = 0; // bit0=bold, bit1=italic
     std::string fontFamily;      // UTF-8
+    std::string sequenceUtf8;    // non-empty for a grapheme/emoji sequence
+    uint32_t shapedGlyphIndex = 0;
+    std::vector<uint32_t> shapedGlyphIndices;
+    GlyphRenderMode renderMode = GlyphRenderMode::MonochromeCoverage;
 
     bool operator==(const GlyphKey& o) const noexcept {
         return codePoint == o.codePoint
             && fontSize  == o.fontSize
             && styleFlags == o.styleFlags
-            && fontFamily == o.fontFamily;
+            && fontFamily == o.fontFamily
+            && sequenceUtf8 == o.sequenceUtf8
+            && shapedGlyphIndex == o.shapedGlyphIndex
+            && shapedGlyphIndices == o.shapedGlyphIndices
+            && renderMode == o.renderMode;
     }
 };
 
@@ -39,6 +48,12 @@ struct std::hash<ArtifactCore::GlyphKey> {
         h ^= std::hash<float>{}(k.fontSize)      + 0x9e3779b9 + (h << 6) + (h >> 2);
         h ^= std::hash<uint32_t>{}(k.styleFlags) + 0x9e3779b9 + (h << 6) + (h >> 2);
         h ^= std::hash<std::string>{}(k.fontFamily) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        h ^= std::hash<std::string>{}(k.sequenceUtf8) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        h ^= std::hash<uint32_t>{}(k.shapedGlyphIndex) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        for (const auto glyph : k.shapedGlyphIndices) {
+            h ^= std::hash<uint32_t>{}(glyph) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        }
+        h ^= std::hash<int>{}(static_cast<int>(k.renderMode)) + 0x9e3779b9 + (h << 6) + (h >> 2);
         return h;
     }
 };
@@ -55,6 +70,8 @@ struct GlyphRect {
     float       bearingY    = 0.0f; ///< ペンから上端までのオフセット（上が正）
     float       advance     = 0.0f; ///< 次の文字へのペン送り量
     bool        valid       = false;
+    GlyphRenderMode renderMode = GlyphRenderMode::MonochromeCoverage;
+    bool        colorPreserved = false;
 
     // UV 計算ヘルパ（atlas サイズ必要）
     float u0(int atlasW) const { return atlasW > 0 ? float(atlasX)         / float(atlasW) : 0.0f; }

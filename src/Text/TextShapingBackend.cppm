@@ -13,6 +13,7 @@ module;
 #include <limits>
 #include <string>
 #include <utility>
+#include <unordered_map>
 #include <vector>
 
 module Text.ShapingBackend;
@@ -479,7 +480,7 @@ TextLayoutContract buildContract(const QString& text,
       bool emojiSequence = false;
       for (const uint code : graphemeText.toUcs4()) {
         emojiSequence = emojiSequence ||
-                        (code >= 0x1F300 && code <= 0x1FAFF) ||
+                        (code >= 0x1F000 && code <= 0x1FAFF) ||
                         code == 0x200D || code == 0xFE0F;
       }
       const char32_t firstCode =
@@ -785,6 +786,10 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
                               : std::numeric_limits<qreal>::max();
 
   std::vector<ShapedLine> lines;
+  std::unordered_map<int, uint32_t> shapedGlyphByUtf16;
+  const auto glyphRunFlags = QTextLayout::RetrieveGlyphIndexes |
+                             QTextLayout::RetrieveGlyphPositions |
+                             QTextLayout::RetrieveStringIndexes;
   layout.beginLayout();
   while (true) {
     QTextLine line = layout.createLine();
@@ -802,6 +807,52 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
     for (int cursor = 0; cursor <= shapedLine.lengthUtf16; ++cursor) {
       shapedLine.cursorX[static_cast<size_t>(cursor)] =
           static_cast<float>(line.cursorToX(cursor));
+    }
+    for (const auto& run : line.glyphRuns(-1, -1, glyphRunFlags)) {
+      const auto indexes = run.glyphIndexes();
+      const auto stringIndexes = run.stringIndexes();
+      int mappedGlyphCount = 0;
+      int previousSourceIndex = -1;
+      bool stringMappingValid = true;
+      for (int glyphIndex = 0;
+           glyphIndex < indexes.size() && glyphIndex < stringIndexes.size();
+           ++glyphIndex) {
+        const qsizetype sourceIndex = stringIndexes.at(glyphIndex);
+        if (sourceIndex >= 0 && indexes.at(glyphIndex) != 0) {
+          shapedGlyphByUtf16[static_cast<int>(sourceIndex)] = indexes.at(glyphIndex);
+          ++mappedGlyphCount;
+          if (static_cast<int>(sourceIndex) <= previousSourceIndex) {
+            stringMappingValid = false;
+          }
+          previousSourceIndex = static_cast<int>(sourceIndex);
+        }
+      }
+      if ((mappedGlyphCount < indexes.size() || !stringMappingValid) &&
+          !indexes.isEmpty()) {
+        // Some Qt/DirectWrite combinations expose glyph indexes and positions
+        // but omit stringIndexes. Preserve the shaped run instead of falling
+        // back to code-point rasterization: assign its glyphs to the logical
+        // code-point starts in the run, with a single-glyph run representing
+        // the complete grapheme cluster.
+        int cursor = line.textStart();
+        for (const auto sourceIndex : stringIndexes) {
+          if (sourceIndex >= line.textStart() &&
+              sourceIndex < line.textStart() + line.textLength()) {
+            cursor = static_cast<int>(sourceIndex);
+            break;
+          }
+        }
+        for (int glyphIndex = 0; glyphIndex < indexes.size(); ++glyphIndex) {
+          if (cursor >= text.size()) break;
+          if (indexes.at(glyphIndex) != 0) {
+            shapedGlyphByUtf16[cursor] = indexes.at(glyphIndex);
+          }
+          const bool high = text.at(cursor).isHighSurrogate() &&
+                            cursor + 1 < text.size() &&
+                            text.at(cursor + 1).isLowSurrogate();
+          cursor += high ? 2 : 1;
+        }
+      }
     }
     lines.push_back(shapedLine);
   }
@@ -910,6 +961,10 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
       item.clusterId = QStringLiteral("cluster_%1").arg(codepointIndex);
       item.selectorTag = scriptTagForCodepoint(code);
       item.stableTokenId = stableTokenIdForCodepoint(code, item.index);
+      if (const auto shaped = shapedGlyphByUtf16.find(utf16Index);
+          shaped != shapedGlyphByUtf16.end()) {
+        item.shapedGlyphIndex = shaped->second;
+      }
       item.clusterIndex = static_cast<int>(codepointIndex);
       item.lineIndex = static_cast<int>(lineIndex);
       item.basePosition = QPointF(xOffset + localX + extraAdvance, y + line.ascent);
@@ -1167,6 +1222,34 @@ TextShapingResult makeIdentityResult(std::vector<GlyphItem> glyphs,
       glyph.clusterId = cluster.clusterId;
       glyph.selectorTag = cluster.selectorTag;
       glyph.stableTokenId = cluster.stableTokenId;
+      const auto clusterUtf16Offsets = buildUtf16Offsets(toU32String(request.text));
+      if (cluster.logicalStart >= 0 &&
+          cluster.logicalStart < static_cast<int>(clusterUtf16Offsets.size())) {
+        const int start = clusterUtf16Offsets[static_cast<size_t>(cluster.logicalStart)];
+        const int endIndex = std::min(
+            cluster.logicalStart + cluster.logicalLength,
+            static_cast<int>(clusterUtf16Offsets.size()) - 1);
+        const int end = clusterUtf16Offsets[static_cast<size_t>(std::max(0, endIndex))];
+        glyph.clusterText = request.text.mid(start, std::max(0, end - start));
+      }
+      glyph.isEmojiSequence = cluster.isEmojiSequence;
+      glyph.renderMode = cluster.isEmojiSequence
+                             ? GlyphRenderMode::ColorBitmap
+                             : GlyphRenderMode::MonochromeCoverage;
+    }
+  }
+  std::unordered_map<int, std::vector<uint32_t>> shapedRunsByCluster;
+  for (const auto& glyph : glyphs) {
+    if (glyph.clusterIndex < 0 || glyph.shapedGlyphIndex == 0) continue;
+    auto& run = shapedRunsByCluster[glyph.clusterIndex];
+    if (std::find(run.begin(), run.end(), glyph.shapedGlyphIndex) == run.end()) {
+      run.push_back(glyph.shapedGlyphIndex);
+    }
+  }
+  for (auto& glyph : glyphs) {
+    if (const auto run = shapedRunsByCluster.find(glyph.clusterIndex);
+        run != shapedRunsByCluster.end()) {
+      glyph.shapedGlyphIndices = run->second;
     }
   }
   result.glyphs = std::move(glyphs);

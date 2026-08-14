@@ -3,6 +3,8 @@ module;
 #include <QPointF>
 #include <QRectF>
 #include <QString>
+#include <cstdint>
+#include <vector>
 
 export module Text.LayoutContract;
 
@@ -10,14 +12,34 @@ import FloatRGBA;
 
 namespace ArtifactCore {
 
+export enum class GlyphRenderMode {
+  MonochromeCoverage,
+  ColorBitmap,
+  UnsupportedSequence,
+};
+
 export struct GlyphItem {
   char32_t charCode;
   int index;
   QString clusterId;
   QString selectorTag;
   QString stableTokenId;
+  // Original grapheme/emoji sequence text.  This is retained so a renderer
+  // can rasterize one sequence rather than reconstructing it from glyphs.
+  QString clusterText;
+  // Glyph index produced by the shaping backend. Zero means that this item
+  // has no independent shaped glyph (for example a ZWJ continuation).
+  uint32_t shapedGlyphIndex = 0;
+  // Full shaped run for a cluster. The scalar field above remains the fast
+  // path; this array is populated when one cluster maps to multiple glyphs.
+  std::vector<uint32_t> shapedGlyphIndices;
   int clusterIndex = -1;
   int lineIndex = -1;
+  // True when this glyph belongs to an emoji grapheme/ZWJ sequence.  Render
+  // backends must not assume that the code point is an independent drawable
+  // unit in this case.
+  bool isEmojiSequence = false;
+  GlyphRenderMode renderMode = GlyphRenderMode::MonochromeCoverage;
 
   QPointF basePosition;
   float baseRotation = 0.0f;
