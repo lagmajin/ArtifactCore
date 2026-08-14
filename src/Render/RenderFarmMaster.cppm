@@ -157,6 +157,7 @@ public:
     std::chrono::steady_clock::time_point jobStartedAt_{};
     std::atomic<qint64> lastElapsedMs_{ 0 };
     bool hasJobDeadline_ = false;
+    mutable std::mutex jobStateMutex_;
 
     QString currentJobId_;
     ArtifactCore::Id currentCompositionId_;
@@ -186,19 +187,26 @@ public:
             callback = onProgress_;
         }
         if (!callback) return;
+        int totalFrames = 0;
+        std::chrono::steady_clock::time_point jobStartedAt;
+        {
+            std::lock_guard<std::mutex> lock(jobStateMutex_);
+            totalFrames = totalFrames_;
+            jobStartedAt = jobStartedAt_;
+        }
         RenderJobProgress progress;
         progress.completedFrames.store(totalProgress_.completed.load());
         progress.failedFrames.store(totalProgress_.failed.load());
-        progress.totalFrames = totalFrames_;
+        progress.totalFrames = totalFrames;
         progress.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - jobStartedAt_).count();
+            std::chrono::steady_clock::now() - jobStartedAt).count();
         const int processed = progress.completedFrames.load() +
             progress.failedFrames.load();
-        if (processed > 0 && totalFrames_ > processed) {
+        if (processed > 0 && totalFrames > processed) {
             progress.estimatedRemainingMs = static_cast<qint64>(
                 (static_cast<double>(progress.elapsedMs) / processed) *
-                (totalFrames_ - processed));
-        } else if (totalFrames_ <= processed) {
+                (totalFrames - processed));
+        } else if (totalFrames <= processed) {
             progress.estimatedRemainingMs = 0;
         }
         callback(progress);
@@ -225,11 +233,20 @@ public:
 
     void notifyCompleted(const RenderJobResult& result) {
         RenderJobResult trackedResult = result;
+        QString jobId;
+        std::chrono::steady_clock::time_point jobStartedAt;
+        int totalFrames = 0;
+        {
+            std::lock_guard<std::mutex> lock(jobStateMutex_);
+            jobId = currentJobId_;
+            jobStartedAt = jobStartedAt_;
+            totalFrames = totalFrames_;
+        }
         trackedResult.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - jobStartedAt_).count();
+            std::chrono::steady_clock::now() - jobStartedAt).count();
         {
             std::lock_guard<std::mutex> lock(jobHistoryMutex_);
-            if (!currentJobId_.isEmpty()) jobHistoryResults_[currentJobId_] = trackedResult;
+            if (!jobId.isEmpty()) jobHistoryResults_[jobId] = trackedResult;
         }
         std::function<void(const RenderJobResult&)> completedCallback;
         {
@@ -244,9 +261,9 @@ public:
             std::lock_guard<std::mutex> lock(callbackMutex_);
             failureThreshold = failureAlertThreshold_;
         }
-        if (alertCallback() && failureThreshold > 0.0 && totalFrames_ > 0) {
+        if (alertCallback() && failureThreshold > 0.0 && totalFrames > 0) {
             const double failureFraction = static_cast<double>(trackedResult.failedFrames)
-                / static_cast<double>(totalFrames_);
+                / static_cast<double>(totalFrames);
             if (failureFraction >= failureThreshold)
             {
                 lastAlertType_ = QStringLiteral("failure_rate");
@@ -587,18 +604,25 @@ public:
 
     void saveCheckpoint(int baseFrame = 0) {
         if (checkpointPolicy_.mode == CheckpointPolicy::Mode::Disabled) return;
-        if (currentJobId_.isEmpty()) return;
+        QString jobId;
+        int totalFrames = 0;
+        {
+            std::lock_guard<std::mutex> lock(jobStateMutex_);
+            jobId = currentJobId_;
+            totalFrames = totalFrames_;
+        }
+        if (jobId.isEmpty()) return;
 
         int completed = totalProgress_.completed.load();
         if (completed <= 0) return;
 
         CheckpointInfo cp;
-        cp.jobId = currentJobId_;
+        cp.jobId = jobId;
         const long long completedUpTo = static_cast<long long>(baseFrame) + completed;
         cp.completedUpToFrame = static_cast<int>(std::clamp<long long>(
             completedUpTo, std::numeric_limits<int>::min(),
             std::numeric_limits<int>::max()));  // absolute frame (exclusive)
-        cp.totalFrames = totalFrames_;
+        cp.totalFrames = totalFrames;
         {
             std::lock_guard<std::mutex> lock(resultMutex_);
             cp.failures = finalResult_.failures;
@@ -773,7 +797,10 @@ public:
         cancelled_ = false;
         paused_ = false;
         timedOut_ = false;
-        jobStartedAt_ = std::chrono::steady_clock::now();
+        {
+            std::lock_guard<std::mutex> lock(jobStateMutex_);
+            jobStartedAt_ = std::chrono::steady_clock::now();
+        }
 
         const QString outputError = validateOutputPath(request.outputPath);
         if (!outputError.isEmpty()) {
@@ -804,13 +831,16 @@ public:
         remoteCompleted_ = 0;
         totalRemoteFrames_ = 0;
 
-        currentJobId_ = request.jobId.isEmpty()
-            ? QString::number(QDateTime::currentMSecsSinceEpoch())
-            : request.jobId;
+        {
+            std::lock_guard<std::mutex> lock(jobStateMutex_);
+            currentJobId_ = request.jobId.isEmpty()
+                ? QString::number(QDateTime::currentMSecsSinceEpoch())
+                : request.jobId;
+            totalFrames_ = request.range.count();
+        }
         currentCompositionId_ = request.compositionId;
 
         totalProgress_ = WorkerProgress{};
-        totalFrames_ = request.range.count();
         finalResult_ = RenderJobResult{};
         finalResult_.failures = FailureManifest{};
 
@@ -1428,10 +1458,17 @@ RenderJobProgress RenderFarmMaster::overallProgress() const {
     RenderJobProgress p;
     p.completedFrames.store(impl_->totalProgress_.completed.load());
     p.failedFrames.store(impl_->totalProgress_.failed.load());
-    p.totalFrames = impl_->totalFrames_;
+    int totalFrames = 0;
+    std::chrono::steady_clock::time_point jobStartedAt;
+    {
+        std::lock_guard<std::mutex> lock(impl_->jobStateMutex_);
+        totalFrames = impl_->totalFrames_;
+        jobStartedAt = impl_->jobStartedAt_;
+    }
+    p.totalFrames = totalFrames;
     if (impl_->busy_) {
         p.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - impl_->jobStartedAt_).count();
+            std::chrono::steady_clock::now() - jobStartedAt).count();
     } else {
         p.elapsedMs = impl_->lastElapsedMs_.load();
     }
@@ -1442,7 +1479,7 @@ RenderJobProgress RenderFarmMaster::overallProgress() const {
         const double perFrameMs = static_cast<double>(p.elapsedMs) / processed;
         p.estimatedRemainingMs = static_cast<qint64>(
             perFrameMs * (p.totalFrames - processed));
-    } else if (p.totalFrames <= processed) {
+    } else if (totalFrames <= processed) {
         p.estimatedRemainingMs = 0;
     }
     return p;
