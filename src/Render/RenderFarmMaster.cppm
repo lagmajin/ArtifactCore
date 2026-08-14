@@ -236,6 +236,11 @@ public:
         return !alertWebhookUrl_.trimmed().isEmpty();
     }
 
+    QString currentJobIdSnapshot() const {
+        std::lock_guard<std::mutex> lock(jobStateMutex_);
+        return currentJobId_;
+    }
+
     void notifyCompleted(const RenderJobResult& result) {
         RenderJobResult trackedResult = result;
         QString jobId;
@@ -1879,13 +1884,13 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             if (!isBusy()) return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
             pause();
             return {{QStringLiteral("status"), QStringLiteral("pause_requested")},
-                    {QStringLiteral("jobId"), impl_->currentJobId_}};
+                    {QStringLiteral("jobId"), impl_->currentJobIdSnapshot()}};
         }
         if (method == QStringLiteral("resumeJob")) {
             if (!isBusy()) return {{QStringLiteral("status"), QStringLiteral("job_not_found")}};
             resume();
             return {{QStringLiteral("status"), QStringLiteral("resume_requested")},
-                    {QStringLiteral("jobId"), impl_->currentJobId_}};
+                    {QStringLiteral("jobId"), impl_->currentJobIdSnapshot()}};
         }
         if (method == QStringLiteral("frameCompleted")) {
             QString workerId = params["workerId"].toString();
@@ -2085,7 +2090,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("failedFrames"), progress.failedFrames.load()},
             {QStringLiteral("totalFrames"), progress.totalFrames},
             {QStringLiteral("remoteWorkers"), remoteWorkerCount()},
-            {QStringLiteral("jobId"), impl_->currentJobId_},
+            {QStringLiteral("jobId"), impl_->currentJobIdSnapshot()},
             {QStringLiteral("compositionId"), impl_->currentCompositionId_.toString()},
             {QStringLiteral("updatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
             {QStringLiteral("status"), status},
