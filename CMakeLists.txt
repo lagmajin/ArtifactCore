@@ -14,6 +14,19 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreSources.cmake")
 set(CORE_MODULES ${ARTIFACTCORE_MODULE_SOURCES})
 set(CORE_IMPL ${ARTIFACTCORE_IMPL_SOURCES})
 
+# Source manifests are authored relative to this CMake file, while the split
+# target manifests use paths containing `cmake/../`. Normalize the aggregate
+# lists before REMOVE_ITEM is used below; otherwise the monolithic target keeps
+# compiling sources that already belong to a split domain target.
+foreach(_artifact_core_source_list_name IN ITEMS CORE_MODULES CORE_IMPL)
+    set(_artifact_core_normalized_list "")
+    foreach(_artifact_core_source IN LISTS ${_artifact_core_source_list_name})
+        get_filename_component(_artifact_core_source_abs "${_artifact_core_source}" REALPATH)
+        list(APPEND _artifact_core_normalized_list "${_artifact_core_source_abs}")
+    endforeach()
+    set(${_artifact_core_source_list_name} "${_artifact_core_normalized_list}")
+endforeach()
+
 # These are implementation units for interface partitions already present in
 # the CXX_MODULES file set.  CMake's scanner treats the repeated partition
 # name as a second provider and emits duplicate IFC rules, so keep the source
@@ -23,42 +36,6 @@ set_source_files_properties(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
     PROPERTIES CXX_SCAN_FOR_MODULES OFF
 )
-if(MSVC)
-    # Keep the top-level Image module's IFC beside the other include modules.
-    # MSVC otherwise emits both `Image.ixx.ifc` and
-    # `include/Image/Image.ixx.ifc`, making `import Image;` ambiguous.
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/Image.ixx"
-        PROPERTIES
-            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/Image/Image.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/Image.ixx.ifc"
-    )
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/Utils/MultipleTag.ixx"
-        PROPERTIES
-            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/Utils/MultipleTag.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Utils/MultipleTag.ixx.ifc"
-    )
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/VST3/VST3Interfaces.ixx"
-        PROPERTIES
-            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/VST3/VST3Interfaces.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/VST3/VST3Interfaces.ixx.ifc"
-    )
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
-        PROPERTIES
-            COMPILE_OPTIONS "/reference;File:Info=$(IntDir)/include/File/FileInfo.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/File/FileInfo.ixx.obj"
-    )
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
-        PROPERTIES
-            COMPILE_OPTIONS "/reference;Image:OpenEXR=$(IntDir)/include/Image/OpenEXR.ixx.ifc;/reference;Image.DeepImageBuffer=$(IntDir)/include/Image/DeepImageBuffer.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/OpenEXR.ixx.obj;${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/DeepImageBuffer.ixx.obj"
-    )
-endif()
-
 # Private .cppm implementation units use `module Name;` to attach to the
 # public interface.  MSVC needs an explicit BMI reference for those units;
 # CMake emits per-source Visual Studio metadata only when the source property
@@ -81,13 +58,37 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     # The dependency scanner does not model a primary-interface attachment
     # (`module Name;`) reliably.  Let the explicit reference below be the
     # single source of truth for these implementation units.
-    set_source_files_properties("${_artifact_impl_file}" PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+    if(_artifact_impl_relative MATCHES "^src/(File/FileInfo|Image/OpenEXR)\\.cppm$")
+        set_source_files_properties("${_artifact_impl_file}" PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+        set(_artifact_impl_scanned OFF)
+    else()
+        set_source_files_properties("${_artifact_impl_file}" PROPERTIES CXX_SCAN_FOR_MODULES ON)
+        set(_artifact_impl_scanned ON)
+    endif()
     set_property(SOURCE "${_artifact_impl_file}" APPEND_STRING PROPERTY
         COMPILE_FLAGS " /TP")
-    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        COMPILE_OPTIONS "/reference;${_artifact_module_name}=$(IntDir)/${_artifact_interface_relative}.ifc")
-    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/${_artifact_interface_relative}.obj")
+    if(NOT _artifact_impl_scanned)
+        if(CMAKE_GENERATOR MATCHES "Ninja")
+            if(_artifact_impl_relative MATCHES "^src/(File/FileInfo|Image/OpenEXR)\\.cppm$")
+                string(REPLACE ":" "-" _artifact_module_file_name "${_artifact_module_name}")
+                set(_artifact_interface_ifc "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_module_file_name}.ifc")
+            else()
+                set(_artifact_interface_ifc "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_module_name}.ifc")
+            endif()
+        else()
+            set(_artifact_interface_ifc "$(IntDir)/${_artifact_interface_relative}.ifc")
+        endif()
+        if(CMAKE_GENERATOR MATCHES "Ninja")
+            set(_artifact_reference_options "/reference;${_artifact_module_name}=${_artifact_interface_ifc}")
+            if(_artifact_impl_relative MATCHES "^src/Image/OpenEXR\\.cppm$")
+                set(_artifact_deep_image_ifc "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.DeepImageBuffer.ifc")
+                set(_artifact_parallel_ifc "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+                string(APPEND _artifact_reference_options ";/reference;Image.DeepImageBuffer=${_artifact_deep_image_ifc};/reference;Core.Parallel=${_artifact_parallel_ifc}")
+            endif()
+            set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+                COMPILE_OPTIONS "${_artifact_reference_options}")
+        endif()
+    endif()
 endforeach()
 
 # Procedural3DGenerators.cppm is the implementation unit for the explicitly
@@ -164,9 +165,15 @@ set(ARTIFACTCORE_AUDIO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/LipSyncTrack.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/SimpleWav.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/WASAPIBackend.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/DecoderPoolManager.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/QtAudioBackend.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFMpegAudioDecoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Animation/KeyframeEditingTools.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/Drug.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/Gravity.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/Wind.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/FluidForce.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/CLAP/CLAPHost.ixx"
 )
 set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/ASIOBackendStub.cppm"
@@ -197,11 +204,20 @@ set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/LipSyncTrack.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/SimpleWav.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/WASAPIBackend.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFMpegAudioDecoder.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegAudioDecoder.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Animation/KeyframeEditingTools.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/CLAP/CLAPHost.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AUDIO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AUDIO_IMPL})
+# Keep the audio decoder out of the aggregate target even when the source
+# manifest was authored through a path containing `..`.
+list(REMOVE_ITEM CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFMpegAudioDecoder.ixx")
+list(REMOVE_ITEM CORE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegAudioDecoder.cppm")
 
 # AI modules form a leaf domain in Core: the static import audit found no
 # non-AI Core module importing an AI module.  Keep their public descriptions
@@ -258,7 +274,6 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AI_IMPL})
 # module edges.
 set(ARTIFACTCORE_VIDEO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractDecoder.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractEncoder.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractTransition.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/CpuFrameView.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/EncoderSetting.ixx"
@@ -288,9 +303,9 @@ set(ARTIFACTCORE_VIDEO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Transitions/ZoomTransition.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/Video.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/VideoFrame.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
 )
 set(ARTIFACTCORE_VIDEO_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/PlaybackManager.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/TransitionFactory.cppm"
@@ -310,6 +325,9 @@ set(ARTIFACTCORE_VIDEO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/WipeTransition.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/ZoomTransition.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegVideoDecoder.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/EncoderSetting.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/GStreamerDecoder.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VIDEO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VIDEO_IMPL})
@@ -345,6 +363,7 @@ set(ARTIFACTCORE_MEDIA_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaSource.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/MediaTimeStamp.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegAudioEncoder.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_MEDIA_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MEDIA_IMPL})
@@ -503,6 +522,13 @@ set(ARTIFACTCORE_SHAPE_MODULES
 set(ARTIFACTCORE_SHAPE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/IO/VectorExport.cppm"
 )
+# Shape.Types is a value-type contract consumed by Text.GlyphLayout. Keep
+# this small acyclic contract in the base Core target; the remaining shape
+# implementation stays in ArtifactCoreShape.
+list(REMOVE_ITEM ARTIFACTCORE_SHAPE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeTypes.ixx")
+list(APPEND CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeTypes.ixx")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SHAPE_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SHAPE_IMPL})
 
@@ -739,22 +765,22 @@ list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_CONFIGURATION_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_CONFIGURATION_IMPL})
 
 set(ARTIFACTCORE_TEXT_MODULES
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Font/FontDescriptor.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Font/FontLicenseRegistry.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Font/FreeFont.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/GlyphAtlas.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/GlyphLayout.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextAnimator.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextLayoutContract.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextShapingBackend.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextStyle.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Font/FontDescriptor.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Font/FontLicenseRegistry.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Font/FreeFont.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Text/GlyphAtlas.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Text/GlyphLayout.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Text/TextAnimator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Text/TextLayoutContract.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Text/TextShapingBackend.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Text/TextStyle.ixx"
 )
 set(ARTIFACTCORE_TEXT_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/GlyphAtlas.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/GlyphLayout.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextAnimator.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextShapingBackend.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/TextStyle.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/GlyphAtlas.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/GlyphLayout.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/TextAnimator.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/TextShapingBackend.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/TextStyle.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_TEXT_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_TEXT_IMPL})
@@ -906,11 +932,13 @@ set(ARTIFACTCORE_NETWORK_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/NetworkRPCClient.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/NetworkRPCServer.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Network/CollaborationWebSocket.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Render/RenderFarmMaster.ixx"
 )
 set(ARTIFACTCORE_NETWORK_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/CollaborationWebSocket.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCClient.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/RenderFarmMaster.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_NETWORK_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_NETWORK_IMPL})
@@ -953,6 +981,25 @@ if(ARTIFACT_FRONTEND_MSVC)
         "/FI${CMAKE_CURRENT_SOURCE_DIR}/include/Compat/QtListForward.h")
 endif()
 
+# The aggregate manifest can still receive a path spelling from the generated
+# source manifest after domain removals. Enforce the split boundary immediately
+# before the target is declared.
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])FFMpegAudioDecoder\\.ixx$")
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])FFMpegAudioDecoder\\.cppm$")
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])DecoderPoolManager\\.ixx$")
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])ParticleSystem\\.ixx$")
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])RenderFarmMaster\\.ixx$")
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])RenderFarmMaster\\.cppm$")
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])FFmpegEncoder\\.Helpers\\.cppm$")
+list(REMOVE_ITEM CORE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
+)
+list(REMOVE_ITEM CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
+)
+list(APPEND CORE_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/Particle.ixx")
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
@@ -2305,6 +2352,65 @@ if(ARTIFACT_FRONTEND_MSVC)
 endif()
 
 target_link_libraries(ArtifactCoreShape PUBLIC ArtifactCoreText)
+
+# Text-only runtime slice for fast API/render smoke tests.  Keep this target
+# independent from the umbrella ArtifactCore library so selecting the smoke
+# test does not schedule every Core module.
+add_library(ArtifactCoreTextRuntime STATIC)
+set_target_properties(ArtifactCoreTextRuntime PROPERTIES
+    CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF
+    FOLDER "ArtifactCore/Libraries")
+target_sources(ArtifactCoreTextRuntime
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Color/FloatColor.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Color/FloatRGBA.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Utils/UniString.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Diagnostics/FallbackPolicy.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/GlyphAtlas.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/GlyphLayout.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/TextAnimator.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/TextShapingBackend.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../src/Text/TextStyle.cppm"
+    PUBLIC FILE_SET CXX_MODULES FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Color/FloatRGBA.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Color/FloatColor.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Utils/Optional.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Utils/Result.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Utils/StringConvertor.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Core/ArtifactString.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Property/PropertyTypes.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Core/Point2D.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Diagnostics/FallbackPolicy.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Utils/UniString.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Shape/ShapeTypes.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Font/FontDescriptor.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Font/FontLicenseRegistry.ixx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/../include/Font/FreeFont.ixx"
+        ${ARTIFACTCORE_TEXT_MODULES}
+)
+target_link_libraries(ArtifactCoreTextRuntime PUBLIC Qt6::Core Qt6::Gui glm::glm opencv_core)
+target_include_directories(ArtifactCoreTextRuntime PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreTextRuntime PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_definitions(ArtifactCoreTextRuntime PRIVATE PLATFORM_WIN32 _UNICODE UNICODE)
+endif()
+
+# Minimal runtime smoke test for the TextLayout -> TextAnimator glyph path.
+# It emits a JSON glyph-state snapshot and intentionally has no renderer/UI
+# dependency, so text behavior can be verified before GPU integration.
+add_executable(ArtifactCoreTextSmoke
+    "${CMAKE_CURRENT_SOURCE_DIR}/../experiments/TextAnimatorLab/artifactcore_text_smoke.cpp"
+)
+target_link_libraries(ArtifactCoreTextSmoke PRIVATE ArtifactCoreTextRuntime Qt6::Core Qt6::Gui)
+target_include_directories(ArtifactCoreTextSmoke PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
+)
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreTextSmoke PRIVATE /std:c++latest /permissive-)
+endif()
 
 add_library(ArtifactCoreScene STATIC)
 set_target_properties(ArtifactCoreScene PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
