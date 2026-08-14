@@ -99,7 +99,6 @@ namespace ArtifactCore {
       std::atomic_bool& state;
       ~RenderingStateGuard() { state = false; }
     } stateGuard{isRendering};
-    auto& manager = RendererQueueManager::instance();
     auto* model = jobModel.get();
     const auto postJobStatus = [model](const int row,
                                        const RenderJobStatus status) {
@@ -110,13 +109,47 @@ namespace ArtifactCore {
           },
           Qt::QueuedConnection);
     };
-    int jobCount = jobModel->rowCount();
-    
-    for (int i = 0; i < jobCount; ++i) {
-        if (!isRendering) break;
+    struct JobSnapshot {
+      int row = -1;
+      ArtifactCore::Id compositionId;
+      QString outputPath;
+      int startFrame = 0;
+      int endFrame = 0;
+      int frameStep = 1;
+      bool multiFrameEnabled = false;
+      int mfrConcurrentFrames = 0;
+      std::size_t mfrMemoryLimitMB = 0;
+      int mfrRetryBackoffMs = 0;
+    };
+    std::vector<JobSnapshot> jobs;
+    QMetaObject::invokeMethod(
+        model,
+        [model, &jobs]() {
+          const int jobCount = model->rowCount();
+          jobs.reserve(static_cast<std::size_t>(std::max(0, jobCount)));
+          for (int row = 0; row < jobCount; ++row) {
+            auto* job = model->jobAt(row);
+            if (!job || job->status != RenderJobStatus::Queued) {
+              continue;
+            }
+            jobs.push_back(JobSnapshot{
+                row,
+                job->compositionId,
+                job->outputPath,
+                job->startFrame,
+                job->endFrame,
+                job->frameStep,
+                job->multiFrameEnabled,
+                job->mfrConcurrentFrames,
+                job->mfrMemoryLimitMB,
+                job->mfrRetryBackoffMs});
+          }
+        },
+        Qt::BlockingQueuedConnection);
 
-        auto* job = jobModel->jobAt(i);
-        if (job->status != RenderJobStatus::Queued) continue;
+    for (const auto& job : jobs) {
+        const int i = job.row;
+        if (!isRendering) break;
 
         if (!renderFrameFunc) {
             postJobStatus(i, RenderJobStatus::Error);
@@ -126,13 +159,13 @@ namespace ArtifactCore {
         postJobStatus(i, RenderJobStatus::Rendering);
         
         ArtifactCore::Render::MFR::MFRJobConfig config;
-        config.startFrame = job->startFrame;
-        config.endFrame = job->endFrame;
-        config.frameStep = job->frameStep;
-        config.maxConcurrentFrames = job->multiFrameEnabled
-            ? job->mfrConcurrentFrames : 1;
-        config.maxMemoryMB = job->mfrMemoryLimitMB;
-        config.retryBackoffMs = job->mfrRetryBackoffMs;
+        config.startFrame = job.startFrame;
+        config.endFrame = job.endFrame;
+        config.frameStep = job.frameStep;
+        config.maxConcurrentFrames = job.multiFrameEnabled
+            ? job.mfrConcurrentFrames : 1;
+        config.maxMemoryMB = job.mfrMemoryLimitMB;
+        config.retryBackoffMs = job.mfrRetryBackoffMs;
         config.maxRetryCount = 0;
         config.continueOnError = false;
         ArtifactCore::Render::MFR::MFRDispatcher dispatcher;
@@ -140,7 +173,7 @@ namespace ArtifactCore {
             config,
             [this, job](int frame) {
                 if (!isRendering || !renderFrameFunc) return false;
-                renderFrameFunc(job->compositionId, frame, job->outputPath);
+                renderFrameFunc(job.compositionId, frame, job.outputPath);
                 return true;
             },
             [this, i](const ArtifactCore::Render::MFR::MFRProgress& progress) {
