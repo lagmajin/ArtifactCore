@@ -6,6 +6,8 @@ module;
 
 module Render.VolumePostProcess;
 
+import Core.Parallel;
+
 namespace ArtifactCore::RayTrace {
 
 namespace {
@@ -80,7 +82,7 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
                                 : 0.0f;
 
     std::vector<float> lum(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         const auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         float* lumRow = lum.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
@@ -89,7 +91,7 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
                              static_cast<float>(row[x * 3 + 2]) * 0.0722f) / 255.0f;
             lumRow[x] = std::max(0.0f, l - threshold);
         }
-    }
+    });
 
     const float safeRadius = std::isfinite(bloom.radius)
                                  ? std::clamp(bloom.radius, 0.0f, 1.0f)
@@ -99,7 +101,7 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
 
     const int iterations = std::clamp(bloom.iterations, 0, 64);
     for (int iter = 0; iter < iterations; ++iter) {
-        for (int y = 0; y < h; ++y) {
+        Parallel::For(0, h, w * h, [&](int y) {
             float* blurredRow = blurred.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
             for (int x = 0; x < w; ++x) {
                 float sum = 0.0f;
@@ -117,13 +119,15 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
                 }
                 blurredRow[x] = sum / static_cast<float>(count);
             }
-        }
-        for (std::size_t i = 0; i < lum.size(); ++i) {
-            lum[i] = blurred[i];
-        }
+        });
+        Parallel::For(0, h, w * h, [&](int y) {
+            const auto offset = static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+            std::copy_n(blurred.data() + offset, static_cast<std::size_t>(w),
+                        lum.data() + offset);
+        });
     }
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         const float* blurredRow = blurred.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         for (int x = 0; x < w; ++x) {
@@ -132,7 +136,7 @@ void VolumePostProcessor::applyBloom(ImageBuffer& image) const noexcept {
             row[x * 3 + 1] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 1] / 255.0f + add) * 255.999f);
             row[x * 3 + 2] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 2] / 255.0f + add) * 255.999f);
         }
-    }
+    });
 }
 
 void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
@@ -144,7 +148,7 @@ void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
 
     const float brightnessThreshold = 0.8f;
     std::vector<float> lum(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         const auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         for (int x = 0; x < w; ++x) {
             const float l = (static_cast<float>(row[x * 3 + 0]) * 0.2126f +
@@ -152,7 +156,7 @@ void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
                              static_cast<float>(row[x * 3 + 2]) * 0.0722f) / 255.0f;
             lum[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) + static_cast<std::size_t>(x)] = std::max(0.0f, l - brightnessThreshold);
         }
-    }
+    });
 
     const float safeAngleOffset = std::isfinite(glare.angleOffset)
                                       ? glare.angleOffset
@@ -181,7 +185,7 @@ void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
             1.0f - static_cast<float>(s) / static_cast<float>(streakLen + 1);
     }
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         for (int x = 0; x < w; ++x) {
             float streakAccum = 0.0f;
@@ -199,7 +203,7 @@ void VolumePostProcessor::applyGlare(ImageBuffer& image) const noexcept {
             row[x * 3 + 1] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 1] / 255.0f + add * 0.9f) * 255.999f);
             row[x * 3 + 2] = static_cast<std::uint8_t>(clamp01(row[x * 3 + 2] / 255.0f + add * 0.7f) * 255.999f);
         }
-    }
+    });
 }
 
 void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcept {
@@ -211,7 +215,7 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
     std::vector<float> origG(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
     std::vector<float> origB(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         const auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         float* origRRow = origR.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         float* origGRow = origG.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
@@ -221,7 +225,7 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
             origGRow[x] = static_cast<float>(row[x * 3 + 1]) / 255.0f;
             origBRow[x] = static_cast<float>(row[x * 3 + 2]) / 255.0f;
         }
-    }
+    });
 
     const float safeSpatialSigma = std::isfinite(dn.spatialSigma)
                                        ? std::max(std::abs(dn.spatialSigma), 1.0e-6f)
@@ -245,7 +249,7 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
         }
     }
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         const float* origRRow = origR.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
         const float* origGRow = origG.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
@@ -291,7 +295,7 @@ void VolumePostProcessor::applyBilateralFilter(ImageBuffer& image) const noexcep
             row[x * 3 + 1] = static_cast<std::uint8_t>(std::clamp(sumG * invWeight * 255.999f, 0.0f, 255.0f));
             row[x * 3 + 2] = static_cast<std::uint8_t>(std::clamp(sumB * invWeight * 255.999f, 0.0f, 255.0f));
         }
-    }
+    });
 }
 
 void VolumePostProcessor::applyExposureGamma(ImageBuffer& image) const noexcept {
@@ -305,14 +309,14 @@ void VolumePostProcessor::applyExposureGamma(ImageBuffer& image) const noexcept 
                             : 2.2f;
     const float inverseGamma = 1.0f / gamma;
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::For(0, h, w * h, [&](int y) {
         auto* row = image.pixels.data() + static_cast<std::size_t>(y) * w * 3u;
         for (int x = 0; x < w; ++x) {
             row[x * 3 + 0] = static_cast<std::uint8_t>(std::pow(clamp01(row[x * 3 + 0] / 255.0f * exposure), inverseGamma) * 255.999f);
             row[x * 3 + 1] = static_cast<std::uint8_t>(std::pow(clamp01(row[x * 3 + 1] / 255.0f * exposure), inverseGamma) * 255.999f);
             row[x * 3 + 2] = static_cast<std::uint8_t>(std::pow(clamp01(row[x * 3 + 2] / 255.0f * exposure), inverseGamma) * 255.999f);
         }
-    }
+    });
 }
 
 } // namespace ArtifactCore::RayTrace
