@@ -56,6 +56,8 @@ module;
 #include <opencv2/opencv.hpp>
 module Tracking.MotionTracker;
 
+import Core.Parallel;
+
 namespace ArtifactCore {
 
 // ============================================================================
@@ -636,8 +638,10 @@ CameraPoseStream solveCameraPoseStream(
     stream.solveSettings = settings;
     stream.normalize();
     const CameraSolveSettings safeSettings = stream.solveSettings;
-    stream.frames.reserve(samples.size());
-    for (const auto& sample : samples) {
+    std::vector<CameraPoseFrame> solvedFrames(samples.size());
+    Parallel::For(0, static_cast<int>(samples.size()),
+                  static_cast<int>(samples.size()), [&](int index) {
+        const auto& sample = samples[static_cast<std::size_t>(index)];
         const CameraSolveResult solved = solveCameraPose(sample.second, safeSettings);
         CameraPoseFrame frame;
         frame.time = sample.first;
@@ -646,8 +650,9 @@ CameraPoseStream solveCameraPoseStream(
         frame.maxReprojectionError = solved.maxReprojectionError;
         frame.valid = solved.valid;
         frame.diagnostic = solved.diagnostic;
-        stream.frames.push_back(std::move(frame));
-    }
+        solvedFrames[static_cast<std::size_t>(index)] = std::move(frame);
+    });
+    stream.frames = std::move(solvedFrames);
     stream.normalize();
     return stream;
 }
