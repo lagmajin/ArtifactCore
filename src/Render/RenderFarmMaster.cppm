@@ -241,6 +241,11 @@ public:
         return currentJobId_;
     }
 
+    ArtifactCore::Id currentCompositionIdSnapshot() const {
+        std::lock_guard<std::mutex> lock(jobStateMutex_);
+        return currentCompositionId_;
+    }
+
     void notifyCompleted(const RenderJobResult& result) {
         RenderJobResult trackedResult = result;
         QString jobId;
@@ -848,7 +853,10 @@ public:
                 : request.jobId;
             totalFrames_ = request.range.count();
         }
-        currentCompositionId_ = request.compositionId;
+        {
+            std::lock_guard<std::mutex> lock(jobStateMutex_);
+            currentCompositionId_ = request.compositionId;
+        }
 
         totalProgress_ = WorkerProgress{};
         finalResult_ = RenderJobResult{};
@@ -2091,7 +2099,7 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("totalFrames"), progress.totalFrames},
             {QStringLiteral("remoteWorkers"), remoteWorkerCount()},
             {QStringLiteral("jobId"), impl_->currentJobIdSnapshot()},
-            {QStringLiteral("compositionId"), impl_->currentCompositionId_.toString()},
+            {QStringLiteral("compositionId"), impl_->currentCompositionIdSnapshot().toString()},
             {QStringLiteral("updatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
             {QStringLiteral("status"), status},
             {QStringLiteral("busy"), busy},
