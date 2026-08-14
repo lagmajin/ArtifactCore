@@ -174,7 +174,7 @@ public:
     std::vector<RemoteJobSlice> remoteSlices_;
     std::mutex remoteMutex_;
     std::atomic<int> remoteCompleted_{0};
-    int totalRemoteFrames_ = 0;
+    std::atomic<int> totalRemoteFrames_{ 0 };
     std::mutex remoteWaitMutex_;
     std::condition_variable remoteCv_;
     std::function<void(const QString&, int, bool)> onRemoteFrameResult_;
