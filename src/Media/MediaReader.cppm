@@ -81,6 +81,16 @@ MediaReader::~MediaReader() {
 }
 
 void MediaReader::start() {
+    std::thread finishedThread;
+    {
+        QMutexLocker locker(&mutex_);
+        if (isRunning_) return;
+        finishedThread = std::move(workerThread_);
+    }
+    if (finishedThread.joinable()) {
+        finishedThread.join();
+    }
+
     QMutexLocker locker(&mutex_);
     if (isRunning_) return;
     isRunning_ = true;
