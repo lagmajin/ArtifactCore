@@ -81,9 +81,12 @@ MediaReader::~MediaReader() {
 }
 
 void MediaReader::start() {
-    if (isRunning_) return;
-    isRunning_ = true;
-    isPaused_ = false;
+    {
+        QMutexLocker locker(&mutex_);
+        if (isRunning_) return;
+        isRunning_ = true;
+        isPaused_ = false;
+    }
     workerThread_ = std::thread([this]() { readLoop(); });
 }
 
@@ -96,9 +99,12 @@ void MediaReader::pause() {
 }
 
 void MediaReader::stop() {
-    isRunning_ = false;
-    isPaused_ = false;
-    condition_.wakeAll();
+    {
+        QMutexLocker locker(&mutex_);
+        isRunning_ = false;
+        isPaused_ = false;
+        condition_.wakeAll();
+    }
     if (workerThread_.joinable()) {
         workerThread_.join();
     }
@@ -127,11 +133,13 @@ void MediaReader::readLoop() {
     AVPacket* packet = av_packet_alloc();
     if (!packet) return;
 
-    while (isRunning_) {
+    while (true) {
         {
             QMutexLocker locker(&mutex_);
+            if (!isRunning_) break;
             if (isPaused_) {
                 condition_.wait(&mutex_);
+                if (!isRunning_) break;
                 continue;
             }
         }
@@ -155,7 +163,11 @@ void MediaReader::readLoop() {
     }
 
     av_packet_free(&packet);
-    isRunning_ = false;
+    {
+        QMutexLocker locker(&mutex_);
+        isRunning_ = false;
+        condition_.wakeAll();
+    }
 }
 
 } // namespace ArtifactCore
