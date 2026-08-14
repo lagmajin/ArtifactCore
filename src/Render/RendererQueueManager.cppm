@@ -39,6 +39,7 @@ module;
 // Qt headers must stay in the global fragment for module ABI stability.
 #include <QObject>
 #include <QCoreApplication>
+#include <QMetaObject>
 #include <QString>
 module Render.Queue.Manager;
 
@@ -133,7 +134,14 @@ namespace ArtifactCore {
                 return true;
             },
             [this, i](const ArtifactCore::Render::MFR::MFRProgress& progress) {
-                jobModel->setJobProgress(i, progress.percentComplete() / 100.0f);
+                auto* model = jobModel.get();
+                const float normalizedProgress = progress.percentComplete() / 100.0f;
+                QMetaObject::invokeMethod(
+                    model,
+                    [model, i, normalizedProgress]() {
+                        model->setJobProgress(i, normalizedProgress);
+                    },
+                    Qt::QueuedConnection);
             });
         if (!isRendering) {
             jobModel->setJobStatus(i, RenderJobStatus::Canceled);
