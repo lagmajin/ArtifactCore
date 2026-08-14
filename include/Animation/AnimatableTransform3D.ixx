@@ -24,6 +24,9 @@ export namespace ArtifactCore
     float positionY = 0.0f;
     float positionZ = 0.0f;
     float rotation = 0.0f;
+    float rotationX = 0.0f;
+    float rotationY = 0.0f;
+    float rotationZ = 0.0f;
     float scaleX = 1.0f;
     float scaleY = 1.0f;
     float scaleZ = 1.0f;
@@ -66,11 +69,17 @@ export namespace ArtifactCore
   void setPositionZ(const RationalTime& time, float z);
   void setAnchor(const RationalTime& time, float x, float y, float z = 0.0f);
   void setRotation(const RationalTime& time, float degrees);
+  void setRotationX(const RationalTime& time, float degrees);
+  void setRotationY(const RationalTime& time, float degrees);
+  void setRotationZ(const RationalTime& time, float degrees);
   void setScale(const RationalTime& time, float xs, float ys);
   void setScale(const RationalTime& time, float xs, float ys, float zs);
   void setCurrentPosition(float x, float y);
   void setCurrentPositionZ(float z);
   void setCurrentRotation(float degrees);
+  void setCurrentRotationX(float degrees);
+  void setCurrentRotationY(float degrees);
+  void setCurrentRotationZ(float degrees);
   void setCurrentScale(float xs, float ys);
   void setCurrentAnchor(float x, float y, float z = 0.0f);
 
@@ -85,6 +94,9 @@ export namespace ArtifactCore
   float positionY() const;
   float positionZ() const;
   float rotation() const;
+  float rotationX() const;
+  float rotationY() const;
+  float rotationZ() const;
   float initialRotation() const;
   float scaleX() const;
   float scaleY() const;
@@ -97,6 +109,9 @@ export namespace ArtifactCore
   float positionYAt(const RationalTime& time) const;
   float positionZAt(const RationalTime& time) const;
   float rotationAt(const RationalTime& time) const;
+  float rotationXAt(const RationalTime& time) const;
+  float rotationYAt(const RationalTime& time) const;
+  float rotationZAt(const RationalTime& time) const;
   float scaleXAt(const RationalTime& time) const;
   float scaleYAt(const RationalTime& time) const;
   float anchorXAt(const RationalTime& time) const;

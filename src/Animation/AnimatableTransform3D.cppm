@@ -43,6 +43,42 @@ std::vector<RationalTime> collectUniqueKeyFrameTimes(
 
 } // namespace
 
+static float4x4 makeEulerRotation(float rotationX, float rotationY,
+                                   float rotationZ)
+{
+  constexpr float degreesToRadians =
+      3.14159265358979323846f / 180.0f;
+  const float x = rotationX * degreesToRadians;
+  const float y = rotationY * degreesToRadians;
+  const float z = rotationZ * degreesToRadians;
+  const float cx = std::cos(x);
+  const float sx = std::sin(x);
+  const float cy = std::cos(y);
+  const float sy = std::sin(y);
+  const float cz = std::cos(z);
+  const float sz = std::sin(z);
+
+  float4x4 rotationXMatrix = float4x4::Identity();
+  rotationXMatrix.m11 = cx;
+  rotationXMatrix.m12 = -sx;
+  rotationXMatrix.m21 = sx;
+  rotationXMatrix.m22 = cx;
+
+  float4x4 rotationYMatrix = float4x4::Identity();
+  rotationYMatrix.m00 = cy;
+  rotationYMatrix.m02 = sy;
+  rotationYMatrix.m20 = -sy;
+  rotationYMatrix.m22 = cy;
+
+  float4x4 rotationZMatrix = float4x4::Identity();
+  rotationZMatrix.m00 = cz;
+  rotationZMatrix.m01 = -sz;
+  rotationZMatrix.m10 = sz;
+  rotationZMatrix.m11 = cz;
+
+  return rotationZMatrix * rotationYMatrix * rotationXMatrix;
+}
+
 class AnimatableTransform3D::Impl
 {
 public:
@@ -58,6 +94,8 @@ public:
   AnimatableValueT<float> y_;
   AnimatableValueT<float> z_;
   AnimatableValueT<float> rotation_;
+  AnimatableValueT<float> rotationX_;
+  AnimatableValueT<float> rotationY_;
   AnimatableValueT<float> scaleX_;
   AnimatableValueT<float> scaleY_;
   AnimatableValueT<float> scaleZ_;
@@ -70,6 +108,8 @@ public:
   float currentY_ = 0.0f;
   float currentZ_ = 0.0f;
   float currentRotation_ = 0.0f;
+  float currentRotationX_ = 0.0f;
+  float currentRotationY_ = 0.0f;
   float currentScaleX_ = 1.0f;
   float currentScaleY_ = 1.0f;
   float currentScaleZ_ = 1.0f;
@@ -282,6 +322,21 @@ void AnimatableTransform3D::setCurrentRotation(float degrees)
   impl_->currentRotation_ = degrees;
 }
 
+void AnimatableTransform3D::setCurrentRotationX(float degrees)
+{
+  impl_->currentRotationX_ = degrees;
+}
+
+void AnimatableTransform3D::setCurrentRotationY(float degrees)
+{
+  impl_->currentRotationY_ = degrees;
+}
+
+void AnimatableTransform3D::setCurrentRotationZ(float degrees)
+{
+  setCurrentRotation(degrees);
+}
+
 void AnimatableTransform3D::setCurrentScale(float xs, float ys)
 {
   impl_->currentScaleX_ = xs;
@@ -326,6 +381,25 @@ void AnimatableTransform3D::setRotation(const RationalTime& time, float degrees)
   impl_->currentRotation_ = degrees;
 }
 
+void AnimatableTransform3D::setRotationX(const RationalTime& time, float degrees)
+{
+  FramePosition frame(time.toFrameCount(24));
+  impl_->rotationX_.addKeyFrame(frame, degrees);
+  impl_->currentRotationX_ = degrees;
+}
+
+void AnimatableTransform3D::setRotationY(const RationalTime& time, float degrees)
+{
+  FramePosition frame(time.toFrameCount(24));
+  impl_->rotationY_.addKeyFrame(frame, degrees);
+  impl_->currentRotationY_ = degrees;
+}
+
+void AnimatableTransform3D::setRotationZ(const RationalTime& time, float degrees)
+{
+  setRotation(time, degrees);
+}
+
 float AnimatableTransform3D::positionX() const
 {
   return impl_->currentX_;
@@ -344,6 +418,21 @@ float AnimatableTransform3D::positionZ() const
 float AnimatableTransform3D::rotation() const
 {
   return impl_->currentRotation_;
+}
+
+float AnimatableTransform3D::rotationX() const
+{
+  return impl_->currentRotationX_;
+}
+
+float AnimatableTransform3D::rotationY() const
+{
+  return impl_->currentRotationY_;
+}
+
+float AnimatableTransform3D::rotationZ() const
+{
+  return rotation();
 }
 
 float AnimatableTransform3D::initialRotation() const
@@ -473,6 +562,29 @@ float AnimatableTransform3D::rotationAt(const RationalTime& time) const
   return impl_->rotation_.at(frame);
 }
 
+float AnimatableTransform3D::rotationXAt(const RationalTime& time) const
+{
+  if (impl_->rotationX_.getKeyFrameCount() == 0) {
+    return impl_->currentRotationX_;
+  }
+  FramePosition frame(time.toFrameCount(24));
+  return impl_->rotationX_.at(frame);
+}
+
+float AnimatableTransform3D::rotationYAt(const RationalTime& time) const
+{
+  if (impl_->rotationY_.getKeyFrameCount() == 0) {
+    return impl_->currentRotationY_;
+  }
+  FramePosition frame(time.toFrameCount(24));
+  return impl_->rotationY_.at(frame);
+}
+
+float AnimatableTransform3D::rotationZAt(const RationalTime& time) const
+{
+  return rotationAt(time);
+}
+
 float AnimatableTransform3D::scaleXAt(const RationalTime& time) const
 {
   FramePosition frame(time.toFrameCount(24));
@@ -514,19 +626,14 @@ float4x4 AnimatableTransform3D::getMatrix() const
   // 1. �X�P�[���s��
   float4x4 scaleMatrix = float4x4::Scale(impl_->currentScaleX_, impl_->currentScaleY_, impl_->currentScaleZ_);
   
-  // 2. ��]�s��iZ����]�A�x�����烉�W�A���֕ϊ��j
-  float radians = impl_->currentRotation_ * 3.14159265358979323846f / 180.0f;
-  float cosR = std::cos(radians);
-  float sinR = std::sin(radians);
-  
-  float4x4 rotationMatrix = float4x4::Identity();
-  rotationMatrix.m00 = cosR;
-  rotationMatrix.m01 = -sinR;
-  rotationMatrix.m10 = sinR;
-  rotationMatrix.m11 = cosR;
+  // 2. Euler rotation in Z * Y * X order. Z remains the legacy rotation.
+  float4x4 rotationMatrix = makeEulerRotation(
+      impl_->currentRotationX_, impl_->currentRotationY_,
+      impl_->currentRotation_);
   
   // 3. sړs
-  float4x4 translationMatrix = float4x4::Translation(impl_->currentX_, impl_->currentY_, 0.0f);
+  float4x4 translationMatrix = float4x4::Translation(
+      impl_->currentX_, impl_->currentY_, impl_->currentZ_);
   
   // 4. sFTranslation * Rotation * Scale
   matrix = translationMatrix * rotationMatrix * scaleMatrix;
@@ -536,17 +643,12 @@ float4x4 AnimatableTransform3D::getMatrix() const
 
 float4x4 AnimatableTransform3D::getAllMatrix() const
 {
-  float4x4 scaleMatrix = float4x4::Scale(impl_->currentScaleX_, impl_->currentScaleY_, 1.0f);
+  float4x4 scaleMatrix = float4x4::Scale(
+      impl_->currentScaleX_, impl_->currentScaleY_, impl_->currentScaleZ_);
 
-  float radians = impl_->currentRotation_ * 3.14159265358979323846f / 180.0f;
-  float cosR = std::cos(radians);
-  float sinR = std::sin(radians);
-
-  float4x4 rotationMatrix = float4x4::Identity();
-  rotationMatrix.m00 = cosR;
-  rotationMatrix.m01 = -sinR;
-  rotationMatrix.m10 = sinR;
-  rotationMatrix.m11 = cosR;
+  float4x4 rotationMatrix = makeEulerRotation(
+      impl_->currentRotationX_, impl_->currentRotationY_,
+      impl_->currentRotation_);
 
   float ax = impl_->anchorX_.current();
   float ay = impl_->anchorY_.current();
@@ -569,6 +671,8 @@ float4x4 AnimatableTransform3D::getMatrixAt(const RationalTime& time) const
   float px = impl_->x_.at(frame);
   float py = impl_->y_.at(frame);
   float rot = impl_->rotation_.at(frame);
+  float rotX = rotationXAt(time);
+  float rotY = rotationYAt(time);
   float sx = impl_->scaleX_.at(frame);
   float sy = impl_->scaleY_.at(frame);
   
@@ -578,19 +682,12 @@ float4x4 AnimatableTransform3D::getMatrixAt(const RationalTime& time) const
   // 1. �X�P�[���s��
   float4x4 scaleMatrix = float4x4::Scale(sx, sy, impl_->scaleZ_.at(frame));
   
-  // 2. ��]�s��iZ����]�A�x�����烉�W�A���֕ϊ��j
-  float radians = rot * 3.14159265358979323846f / 180.0f;
-  float cosR = std::cos(radians);
-  float sinR = std::sin(radians);
-  
-  float4x4 rotationMatrix = float4x4::Identity();
-  rotationMatrix.m00 = cosR;
-  rotationMatrix.m01 = -sinR;
-  rotationMatrix.m10 = sinR;
-  rotationMatrix.m11 = cosR;
+  // 2. Euler rotation in Z * Y * X order.
+  float4x4 rotationMatrix = makeEulerRotation(rotX, rotY, rot);
   
   // 3. s�r�s��
-  float4x4 translationMatrix = float4x4::Translation(px, py, 0.0f);
+  float4x4 translationMatrix =
+      float4x4::Translation(px, py, impl_->z_.at(frame));
   
   // 4. s����Translation * Rotation * Scale
   matrix = translationMatrix * rotationMatrix * scaleMatrix;
@@ -607,6 +704,8 @@ float4x4 AnimatableTransform3D::getAllMatrixAt(const RationalTime& time) const
   float oy = impl_->y_.at(frame);
   float oz = impl_->z_.at(frame);
   float orot = impl_->rotation_.at(frame);
+  float orotX = rotationXAt(time);
+  float orotY = rotationYAt(time);
   float osx = impl_->scaleX_.at(frame);
   float osy = impl_->scaleY_.at(frame);
   float osz = impl_->scaleZ_.at(frame);
@@ -626,15 +725,7 @@ float4x4 AnimatableTransform3D::getAllMatrixAt(const RationalTime& time) const
   // 3. Construct Final Matrix (T * R * S * A)
   float4x4 scaleMatrix = float4x4::Scale(finalScaleX, finalScaleY, finalScaleZ);
 
-  float radians = finalRot * 3.14159265358979323846f / 180.0f;
-  float cosR = std::cos(radians);
-  float sinR = std::sin(radians);
-
-  float4x4 rotationMatrix = float4x4::Identity();
-  rotationMatrix.m00 = cosR;
-  rotationMatrix.m01 = -sinR;
-  rotationMatrix.m10 = sinR;
-  rotationMatrix.m11 = cosR;
+  float4x4 rotationMatrix = makeEulerRotation(orotX, orotY, finalRot);
 
   float4x4 anchorMatrix = float4x4::Translation(-ax, -ay, -az);
   float4x4 translationMatrix = float4x4::Translation(finalX, finalY, finalZ);
@@ -649,6 +740,9 @@ Transform3DSnapshot AnimatableTransform3D::snapshot() const
   snapshot.positionY = impl_->currentY_;
   snapshot.positionZ = impl_->currentZ_;
   snapshot.rotation = impl_->currentRotation_;
+  snapshot.rotationX = impl_->currentRotationX_;
+  snapshot.rotationY = impl_->currentRotationY_;
+  snapshot.rotationZ = impl_->currentRotation_;
   snapshot.scaleX = impl_->currentScaleX_;
   snapshot.scaleY = impl_->currentScaleY_;
   snapshot.scaleZ = impl_->currentScaleZ_;
@@ -670,6 +764,9 @@ Transform3DSnapshot AnimatableTransform3D::snapshotAt(const RationalTime& time) 
   snapshot.positionY = impl_->initialY_ + impl_->y_.at(frame);
   snapshot.positionZ = impl_->initialZ_ + impl_->z_.at(frame);
   snapshot.rotation = impl_->initialRotation_ + impl_->rotation_.at(frame);
+  snapshot.rotationX = rotationXAt(time);
+  snapshot.rotationY = rotationYAt(time);
+  snapshot.rotationZ = snapshot.rotation;
   snapshot.scaleX = impl_->initialScaleX_ * impl_->scaleX_.at(frame);
   snapshot.scaleY = impl_->initialScaleY_ * impl_->scaleY_.at(frame);
   snapshot.scaleZ = impl_->initialScaleZ_ * impl_->scaleZ_.at(frame);
@@ -814,28 +911,37 @@ std::vector<RationalTime> AnimatableTransform3D::getPositionKeyFrameTimes() cons
 bool AnimatableTransform3D::hasRotationKeyFrameAt(const RationalTime& time) const
 {
   FramePosition frame(time.toFrameCount(24));
-  return impl_->rotation_.hasKeyFrameAt(frame);
+  return impl_->rotation_.hasKeyFrameAt(frame) ||
+         impl_->rotationX_.hasKeyFrameAt(frame) ||
+         impl_->rotationY_.hasKeyFrameAt(frame);
 }
 
 void AnimatableTransform3D::removeRotationKeyFrameAt(const RationalTime& time)
 {
   FramePosition frame(time.toFrameCount(24));
   impl_->rotation_.removeKeyFrameAt(frame);
+  impl_->rotationX_.removeKeyFrameAt(frame);
+  impl_->rotationY_.removeKeyFrameAt(frame);
 }
 
 void AnimatableTransform3D::clearRotationKeyFrames()
 {
   impl_->rotation_.clearKeyFrames();
+  impl_->rotationX_.clearKeyFrames();
+  impl_->rotationY_.clearKeyFrames();
 }
 
 size_t AnimatableTransform3D::getRotationKeyFrameCount() const
 {
-  return impl_->rotation_.getKeyFrameCount();
+  return std::max({impl_->rotation_.getKeyFrameCount(),
+                   impl_->rotationX_.getKeyFrameCount(),
+                   impl_->rotationY_.getKeyFrameCount()});
 }
 
 std::vector<RationalTime> AnimatableTransform3D::getRotationKeyFrameTimes() const
 {
-  return collectUniqueKeyFrameTimes(impl_->rotation_);
+  return collectUniqueKeyFrameTimes(impl_->rotation_, impl_->rotationX_,
+                                    impl_->rotationY_);
 }
 
 // Scale �L�[�t���[���Ǘ�
@@ -871,7 +977,8 @@ std::vector<RationalTime> AnimatableTransform3D::getScaleKeyFrameTimes() const
 std::vector<RationalTime> AnimatableTransform3D::getAllKeyFrameTimes() const
 {
   return collectUniqueKeyFrameTimes(impl_->x_, impl_->y_, impl_->z_,
-                                    impl_->rotation_, impl_->scaleX_,
+                                    impl_->rotation_, impl_->rotationX_,
+                                    impl_->rotationY_, impl_->scaleX_,
                                     impl_->scaleY_, impl_->anchorX_,
                                     impl_->anchorY_, impl_->anchorZ_);
 }

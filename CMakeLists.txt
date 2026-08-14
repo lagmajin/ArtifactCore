@@ -953,6 +953,26 @@ if(ARTIFACT_FRONTEND_MSVC)
         "/FI${CMAKE_CURRENT_SOURCE_DIR}/include/Compat/QtListForward.h")
 endif()
 
+# The aggregate manifest can still receive a path spelling from the generated
+# source manifest after domain removals. Enforce the split boundary immediately
+# before the target is declared.
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])FFMpegAudioDecoder\\.ixx$")
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])FFMpegAudioDecoder\\.cppm$")
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])DecoderPoolManager\\.ixx$")
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])ParticleSystem\\.ixx$")
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])RenderFarmMaster\\.ixx$")
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])RenderFarmMaster\\.cppm$")
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])FFmpegEncoder\\.Helpers\\.cppm$")
+list(REMOVE_ITEM CORE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
+)
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])OpenEXR\\.cppm$")
+list(REMOVE_ITEM CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
+)
+list(APPEND CORE_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/Particle.ixx")
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}

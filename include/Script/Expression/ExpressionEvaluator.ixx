@@ -36,7 +36,6 @@ import Memory.SharedPtr;
 
 import Script.Expression.Value;
 import Script.Expression.Parser;
-import Audio.Segment;
 import Core.ArtifactString;
 
 
