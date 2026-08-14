@@ -168,7 +168,7 @@ public:
     ArtifactCore::Id currentCompositionId_;
 
     // Phase 4: Remote worker support
-    bool allowRemote_ = false;
+    std::atomic<bool> allowRemote_{ false };
     unsigned short rpcPort_ = 0;
     std::atomic<bool> rpcRunning_{ false };
     std::vector<RemoteJobSlice> remoteSlices_;
