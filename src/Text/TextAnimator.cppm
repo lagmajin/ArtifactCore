@@ -401,7 +401,9 @@ SelectorResult TextAnimatorEngine::evaluateSelector(
 }
 
 float TextAnimatorEngine::calculateWeight(int index, int totalCount, const RangeSelector& selector) {
-    if (totalCount == 0) return 0.0f;
+    if (totalCount <= 0 || index < 0 || index >= totalCount) {
+        return 0.0f;
+    }
     float position = 0.0f;
     switch (selector.units) {
         case SelectorUnits::Percentage:
@@ -421,8 +423,18 @@ float TextAnimatorEngine::calculateWeight(int index, int totalCount, const Range
             break;
     }
 
-    float start = selector.start + selector.offset;
-    float end = selector.end + selector.offset;
+    // Start and End are independent user-editable properties and can cross
+    // while being edited or animated. Treat the interval as an unordered
+    // range so a transient/inverted value does not make the selector select
+    // nothing. The selector shape still determines the weight within the
+    // normalized interval.
+    const float rawStart = selector.start + selector.offset;
+    const float rawEnd = selector.end + selector.offset;
+    if (!std::isfinite(rawStart) || !std::isfinite(rawEnd)) {
+        return 0.0f;
+    }
+    const float start = std::min(rawStart, rawEnd);
+    const float end = std::max(rawStart, rawEnd);
     if (position < start || position > end) return 0.0f;
     
     float t = (std::abs(end - start) > 0.001f) ? (position - start) / (end - start) : 1.0f;
@@ -625,6 +637,9 @@ void TextAnimatorEngine::applyAnimator(
         float totalWeight = selectorWeight * wigglyWeight;
         if (i < static_cast<int>(extraWeights.size())) {
             totalWeight *= std::clamp(extraWeights[static_cast<size_t>(i)], 0.0f, 1.0f);
+        }
+        if (!std::isfinite(totalWeight)) {
+            totalWeight = 0.0f;
         }
         
         // トラッキング（累積シフト）

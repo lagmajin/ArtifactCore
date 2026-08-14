@@ -119,6 +119,30 @@ public:
   };
  }
 
+ static QStringList emojiFallbackCandidates()
+ {
+  return {
+      QStringLiteral("Segoe UI Emoji"),
+      QStringLiteral("Noto Color Emoji"),
+      QStringLiteral("Apple Color Emoji"),
+      QStringLiteral("Segoe UI Symbol"),
+  };
+ }
+
+ static bool containsEmojiCharacters(const QString& text)
+ {
+  const auto codePoints = text.toUcs4();
+  for (const char32_t code : codePoints) {
+   // Keep ordinary BMP symbols (for example ★) on the normal monochrome
+   // font path.  The color-font fallback is reserved for supplementary-plane
+   // emoji, where a dedicated emoji family is actually needed.
+   if (code >= 0x1F000 && code <= 0x1FAFF) {
+    return true;
+   }
+  }
+  return false;
+ }
+
  static QString firstAvailableFamily(const QStringList& candidates)
  {
   const QStringList families = availableFamilies();
@@ -187,15 +211,26 @@ public:
    if (!preferred.isEmpty() && isFamilyAvailable(preferred)) {
    QFont preferredFont(preferred);
    const QRawFont rawFont = QRawFont::fromFont(preferredFont, QFontDatabase::Any);
-   bool needsCjkFallback = false;
-   for (const QChar ch : sampleText) {
-    if (containsCjkCharacters(QString(ch)) && (!rawFont.isValid() || !rawFont.supportsCharacter(ch))) {
-     needsCjkFallback = true;
+   bool needsFallback = false;
+   for (const char32_t code : sampleText.toUcs4()) {
+    const QString character = QString::fromUcs4(&code, 1);
+    const auto glyphIndexes = rawFont.glyphIndexesForString(character);
+    const bool missingInPreferred = glyphIndexes.isEmpty() || glyphIndexes.front() == 0;
+    if ((containsCjkCharacters(character) || containsEmojiCharacters(character)) &&
+        (!rawFont.isValid() || missingInPreferred)) {
+     needsFallback = true;
      break;
     }
    }
-   if (!needsCjkFallback) {
+   if (!needsFallback) {
     return preferred;
+   }
+  }
+
+  if (containsEmojiCharacters(sampleText)) {
+   const QString emojiFallback = firstAvailableFamily(emojiFallbackCandidates());
+   if (!emojiFallback.isEmpty()) {
+    return emojiFallback;
    }
   }
 
