@@ -26,6 +26,7 @@ import Image.ExportOptions;
 import Image.Utils;
 import Image.MultiChannelImage;
 import Memory.SharedPtr;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -453,18 +454,24 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
                 const int syntheticIndex =
                     static_cast<int>(syntheticStorage.size()) - 1;
                 auto& dst = syntheticStorage.back();
-                for (std::size_t i = 0; i < pixelCount; ++i) {
-                    if (component == 0) {
-                        dst[i] = sourceChannel->data()[i];
-                    } else if (component == 1) {
-                        const float coverage =
-                            (alphaChannel && alphaChannel->data() &&
-                             alphaChannel->size() > i)
-                                ? std::clamp(alphaChannel->data()[i], 0.0f, 1.0f)
-                                : (sourceChannel->data()[i] > 0.0f ? 1.0f : 0.0f);
-                        dst[i] = sourceChannel->data()[i] > 0.0f ? coverage : 0.0f;
-                    }
-                }
+                Parallel::For(0, height, static_cast<std::size_t>(width) * height,
+                              [&](int y) {
+                                  const std::size_t rowStart =
+                                      static_cast<std::size_t>(y) * width;
+                                  for (int x = 0; x < width; ++x) {
+                                      const std::size_t i = rowStart + x;
+                                      if (component == 0) {
+                                          dst[i] = sourceChannel->data()[i];
+                                      } else if (component == 1) {
+                                          const float coverage =
+                                              (alphaChannel && alphaChannel->data() &&
+                                               alphaChannel->size() > i)
+                                                  ? std::clamp(alphaChannel->data()[i], 0.0f, 1.0f)
+                                                  : (sourceChannel->data()[i] > 0.0f ? 1.0f : 0.0f);
+                                          dst[i] = sourceChannel->data()[i] > 0.0f ? coverage : 0.0f;
+                                      }
+                                  }
+                              });
                 channelNames.push_back(
                     QStringLiteral("%1.%2")
                         .arg(layerName, QString::fromLatin1(kSuffixes[component])));
@@ -507,22 +514,28 @@ ImageExportResult ImageExporter::writeMultiChannel(const MultiChannelImage& mult
 
     // Build interleaved pixel buffer
     std::vector<float> interleaved(pixelCount * nch, 0.0f);
-    for (std::size_t p = 0; p < pixelCount; ++p) {
-        for (int c = 0; c < nch; ++c) {
-            if (channelData[c]) {
-                const float value = channelData[c]->data()[p];
-                interleaved[p * nch + c] = std::isfinite(value) ? value : 0.0f;
-                continue;
-            }
+    Parallel::For(0, height, static_cast<std::size_t>(width) * height,
+                  [&](int y) {
+                      const std::size_t rowStart =
+                          static_cast<std::size_t>(y) * width;
+                      for (int x = 0; x < width; ++x) {
+                          const std::size_t p = rowStart + x;
+                          for (int c = 0; c < nch; ++c) {
+                              if (channelData[c]) {
+                                  const float value = channelData[c]->data()[p];
+                                  interleaved[p * nch + c] = std::isfinite(value) ? value : 0.0f;
+                                  continue;
+                              }
 
-            const int syntheticIndex = syntheticChannelIndices[c];
-            if (syntheticIndex >= 0 &&
-                syntheticIndex < static_cast<int>(syntheticStorage.size())) {
-                const float value = syntheticStorage[syntheticIndex][p];
-                interleaved[p * nch + c] = std::isfinite(value) ? value : 0.0f;
-            }
-        }
-    }
+                              const int syntheticIndex = syntheticChannelIndices[c];
+                              if (syntheticIndex >= 0 &&
+                                  syntheticIndex < static_cast<int>(syntheticStorage.size())) {
+                                  const float value = syntheticStorage[syntheticIndex][p];
+                                  interleaved[p * nch + c] = std::isfinite(value) ? value : 0.0f;
+                              }
+                          }
+                      }
+                  });
 
     // Do not route multi-channel data through encodeImageBufToPath(). That
     // helper intentionally writes display images (3/4 channels), whereas an
