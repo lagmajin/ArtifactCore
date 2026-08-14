@@ -79,12 +79,20 @@ public:
             prompt += "3. ソースコードや JSON 形式での出力が必要な場合は、Markdown 形式で記述してください。\n";
             prompt += "4. 不具合調査や曖昧な相談では、最初に最有力仮説、根拠、確認すべきファイルや値、最小の次アクションを提示してください。\n";
             prompt += "5. 情報が不足していても、ただ質問で止まらず、現時点の文脈から最も可能性が高い説明を先に返してください。\n";
+            prompt += "6. 操作前に workspaceSnapshot、workspaceDiagnostics、selectionSnapshot などで現在状態と対象IDを確認してください。\n";
+            prompt += "   WorkspaceAutomation が利用可能なら、まず agentPreflight() で契約・現在状態・診断を一括取得してください。\n";
+            prompt += "7. 変更操作は validateCommand を通し、破壊的または高リスクな操作は preview/dry-run と明示確認を経てください。\n";
+            prompt += "8. 実行後は snapshot または diagnostics で結果を再確認し、確認できない場合は完了と報告しないでください。失敗時は error、diagnostics、details と入力Intentを保持してください。\n";
         } else {
             prompt += "1. For technical questions, answer accurately using the component and property names defined above.\n";
             prompt += "2. For complex tasks, propose a step-by-step execution plan.\n";
             prompt += "3. If source code or JSON output is required, use Markdown blocks.\n";
             prompt += "4. For bugs or ambiguous reports, start with the most likely hypothesis, the evidence, the files or values to inspect, and the smallest next action.\n";
             prompt += "5. If context is incomplete, do not stop at a clarification question; first provide the best explanation available from the current context.\n";
+            prompt += "6. Before editing, inspect the current state and resolve stable target IDs using workspaceSnapshot, workspaceDiagnostics, or selectionSnapshot.\n";
+            prompt += "   When WorkspaceAutomation is available, prefer agentPreflight() as the first read-only handshake for contract, state, and diagnostics.\n";
+            prompt += "7. Route commands through validateCommand; use preview/dry-run and explicit confirmation for destructive or high-risk writes.\n";
+            prompt += "8. After execution, verify the result with a snapshot or diagnostics. Do not report completion when the result cannot be observed. On failure, preserve the input intent together with error, diagnostics, and details.\n";
         }
         
         return prompt;
