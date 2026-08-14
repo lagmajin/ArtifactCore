@@ -281,9 +281,12 @@ public:
                 / static_cast<double>(totalFrames);
             if (failureFraction >= failureThreshold)
             {
-                lastAlertType_ = QStringLiteral("failure_rate");
-                lastAlertAt_ = QDateTime::currentDateTimeUtc();
-                lastAlertFailedFrames_ = trackedResult.failedFrames;
+                {
+                    std::lock_guard<std::mutex> lock(callbackMutex_);
+                    lastAlertType_ = QStringLiteral("failure_rate");
+                    lastAlertAt_ = QDateTime::currentDateTimeUtc();
+                    lastAlertFailedFrames_ = trackedResult.failedFrames;
+                }
                 notifyAlert(QStringLiteral("failure_rate"), trackedResult);
                 postAlertWebhook(QStringLiteral("failure_rate"), trackedResult);
             }
@@ -1114,9 +1117,12 @@ void RenderFarmMaster::submitJob(const RenderJobRequest& request) {
         }
         if (impl_->alertCallback() && queuedAlertThreshold > 0
             && queuedCount >= queuedAlertThreshold) {
-            impl_->lastAlertType_ = QStringLiteral("queue_depth");
-            impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
-            impl_->lastAlertQueuedJobs_ = queuedCount;
+            {
+                std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
+                impl_->lastAlertType_ = QStringLiteral("queue_depth");
+                impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
+                impl_->lastAlertQueuedJobs_ = queuedCount;
+            }
             RenderJobResult alertResult;
             alertResult.errorMessage = QStringLiteral("Queued jobs exceeded the configured threshold.");
             impl_->notifyAlert(QStringLiteral("queue_depth"), alertResult);
@@ -1549,10 +1555,13 @@ void RenderFarmMaster::setAlertWebhookUrl(const QString& url) {
 }
 
 void RenderFarmMaster::clearLastAlert() {
-    impl_->lastAlertType_.clear();
-    impl_->lastAlertAt_ = QDateTime();
-    impl_->lastAlertFailedFrames_ = 0;
-    impl_->lastAlertQueuedJobs_ = 0;
+    {
+        std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
+        impl_->lastAlertType_.clear();
+        impl_->lastAlertAt_ = QDateTime();
+        impl_->lastAlertFailedFrames_ = 0;
+        impl_->lastAlertQueuedJobs_ = 0;
+    }
 }
 
 void RenderFarmMaster::setRetryPolicy(const RetryPolicy& policy) {
@@ -1604,8 +1613,11 @@ bool RenderFarmMaster::startRpcServer(unsigned short port) {
             alertResult.success = false;
             alertResult.failedFrames = unreportedFrames;
             alertResult.errorMessage = QStringLiteral("Remote worker disconnected: %1").arg(workerId);
-            impl_->lastAlertType_ = QStringLiteral("worker_disconnected");
-            impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
+            {
+                std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
+                impl_->lastAlertType_ = QStringLiteral("worker_disconnected");
+                impl_->lastAlertAt_ = QDateTime::currentDateTimeUtc();
+            }
             impl_->notifyAlert(QStringLiteral("worker_disconnected"), alertResult);
             impl_->postAlertWebhook(QStringLiteral("worker_disconnected"), alertResult);
         }
@@ -2093,6 +2105,23 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             : busy ? QStringLiteral("running")
             : (!result.errorMessage.isEmpty() ? QStringLiteral("failed")
                : (result.success ? QStringLiteral("completed") : QStringLiteral("idle")));
+        double failureAlertThreshold = 0.0;
+        int queuedJobAlertThreshold = 0;
+        bool alertWebhookConfigured = false;
+        QString lastAlertType;
+        QDateTime lastAlertAt;
+        int lastAlertFailedFrames = 0;
+        int lastAlertQueuedJobs = 0;
+        {
+            std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
+            failureAlertThreshold = impl_->failureAlertThreshold_;
+            queuedJobAlertThreshold = impl_->queuedJobAlertThreshold_;
+            alertWebhookConfigured = !impl_->alertWebhookUrl_.trimmed().isEmpty();
+            lastAlertType = impl_->lastAlertType_;
+            lastAlertAt = impl_->lastAlertAt_;
+            lastAlertFailedFrames = impl_->lastAlertFailedFrames_;
+            lastAlertQueuedJobs = impl_->lastAlertQueuedJobs_;
+        }
         return QJsonObject{
             {QStringLiteral("completedFrames"), progress.completedFrames.load()},
             {QStringLiteral("failedFrames"), progress.failedFrames.load()},
@@ -2108,13 +2137,13 @@ bool RenderFarmMaster::startHttpApi(unsigned short port) {
             {QStringLiteral("queuedJobIds"), queuedJobIds},
             {QStringLiteral("queuedPriorities"), queuedPriorities},
             {QStringLiteral("waitingDependencyJobs"), waitingDependencyJobs},
-            {QStringLiteral("failureAlertThreshold"), impl_->failureAlertThreshold_},
-            {QStringLiteral("queuedJobAlertThreshold"), impl_->queuedJobAlertThreshold_},
-            {QStringLiteral("alertWebhookConfigured"), !impl_->alertWebhookUrl_.trimmed().isEmpty()},
-            {QStringLiteral("lastAlertType"), impl_->lastAlertType_},
-            {QStringLiteral("lastAlertAt"), impl_->lastAlertAt_.toString(Qt::ISODateWithMs)},
-            {QStringLiteral("lastAlertFailedFrames"), impl_->lastAlertFailedFrames_},
-            {QStringLiteral("lastAlertQueuedJobs"), impl_->lastAlertQueuedJobs_},
+            {QStringLiteral("failureAlertThreshold"), failureAlertThreshold},
+            {QStringLiteral("queuedJobAlertThreshold"), queuedJobAlertThreshold},
+            {QStringLiteral("alertWebhookConfigured"), alertWebhookConfigured},
+            {QStringLiteral("lastAlertType"), lastAlertType},
+            {QStringLiteral("lastAlertAt"), lastAlertAt.toString(Qt::ISODateWithMs)},
+            {QStringLiteral("lastAlertFailedFrames"), lastAlertFailedFrames},
+            {QStringLiteral("lastAlertQueuedJobs"), lastAlertQueuedJobs},
             {QStringLiteral("paused"), paused},
             {QStringLiteral("templates"), QJsonArray::fromStringList(jobTemplateNames())},
             {QStringLiteral("templateDetails"), templateDetails},
