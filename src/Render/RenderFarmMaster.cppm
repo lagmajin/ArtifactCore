@@ -107,6 +107,7 @@ public:
     RenderFarmProgressCallback onProgress_;
     std::function<void(const RenderJobResult&)> onCompleted_;
     RenderFarmAlertCallback onAlert_;
+    mutable std::mutex callbackMutex_;
     double failureAlertThreshold_ = 0.0;
     int queuedJobAlertThreshold_ = 0;
     QString lastAlertType_;
@@ -175,7 +176,12 @@ public:
     mutable std::mutex jobHistoryMutex_;
 
     void emitProgress() {
-        if (!onProgress_) return;
+        RenderFarmProgressCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex_);
+            callback = onProgress_;
+        }
+        if (!callback) return;
         RenderJobProgress progress;
         progress.completedFrames.store(totalProgress_.completed.load());
         progress.failedFrames.store(totalProgress_.failed.load());
@@ -191,7 +197,7 @@ public:
         } else if (totalFrames_ <= processed) {
             progress.estimatedRemainingMs = 0;
         }
-        onProgress_(progress);
+        callback(progress);
     }
 
     void notifyCompleted(const RenderJobResult& result) {
@@ -202,7 +208,12 @@ public:
             std::lock_guard<std::mutex> lock(jobHistoryMutex_);
             if (!currentJobId_.isEmpty()) jobHistoryResults_[currentJobId_] = trackedResult;
         }
-        if (onCompleted_) onCompleted_(trackedResult);
+        std::function<void(const RenderJobResult&)> completedCallback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex_);
+            completedCallback = onCompleted_;
+        }
+        if (completedCallback) completedCallback(trackedResult);
         postAlertWebhook(trackedResult.success ? QStringLiteral("job_completed")
                                                 : QStringLiteral("job_failed"), trackedResult);
         if (onAlert_ && failureAlertThreshold_ > 0.0 && totalFrames_ > 0) {
@@ -1410,10 +1421,12 @@ RenderJobResult RenderFarmMaster::result() const {
 }
 
 void RenderFarmMaster::setOnProgress(RenderFarmProgressCallback callback) {
+    std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
     impl_->onProgress_ = std::move(callback);
 }
 
 void RenderFarmMaster::setOnCompleted(std::function<void(const RenderJobResult&)> callback) {
+    std::lock_guard<std::mutex> lock(impl_->callbackMutex_);
     impl_->onCompleted_ = std::move(callback);
 }
 
