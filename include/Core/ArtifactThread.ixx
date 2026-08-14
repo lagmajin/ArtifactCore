@@ -2,6 +2,7 @@ module;
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <mutex>
 #include <thread>
 #include <condition_variable>
 
@@ -111,21 +112,53 @@ public:
 
     template <typename F>
     void start(F&& fn) {
-        if (running_) return;
-        running_ = true;
+        std::thread finished;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (running_.load(std::memory_order_acquire)) return;
+            finished = std::move(thread_);
+        }
+        if (finished.joinable()) {
+            if (finished.get_id() == std::this_thread::get_id()) finished.detach();
+            else finished.join();
+        }
+
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (running_.load(std::memory_order_acquire)) return;
+        running_.store(true, std::memory_order_release);
         thread_ = std::thread([this, fn = std::move(std::forward<F>(fn))]() {
             fn();
-            running_ = false;
+            running_.store(false, std::memory_order_release);
         });
     }
 
-    void join() { if (thread_.joinable()) thread_.join(); running_ = false; }
-    void detach() { if (thread_.joinable()) thread_.detach(); running_ = false; }
+    void join() {
+        std::thread worker;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            worker = std::move(thread_);
+            running_.store(false, std::memory_order_release);
+        }
+        if (!worker.joinable()) return;
+        if (worker.get_id() == std::this_thread::get_id()) worker.detach();
+        else worker.join();
+    }
+
+    void detach() {
+        std::thread worker;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            worker = std::move(thread_);
+            running_.store(false, std::memory_order_release);
+        }
+        if (worker.joinable()) worker.detach();
+    }
     bool isRunning() const { return running_.load(); }
 
 private:
     std::thread thread_;
     std::atomic<bool> running_{false};
+    mutable std::mutex mutex_;
 };
 
 } // namespace ArtifactCore
