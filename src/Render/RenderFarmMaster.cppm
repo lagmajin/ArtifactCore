@@ -560,7 +560,10 @@ public:
             completedUpTo, std::numeric_limits<int>::min(),
             std::numeric_limits<int>::max()));  // absolute frame (exclusive)
         cp.totalFrames = totalFrames_;
-        cp.failures = finalResult_.failures;
+        {
+            std::lock_guard<std::mutex> lock(resultMutex_);
+            cp.failures = finalResult_.failures;
+        }
         cp.updatedAt = QDateTime::currentDateTime();
         if (cp.createdAt.isNull()) cp.createdAt = cp.updatedAt;
         checkpointStore_->save(cp);
@@ -638,7 +641,10 @@ public:
 
                 if (!shouldRetry(frame, attempt)) {
                     totalProgress_.failed.fetch_add(1);
-                    finalResult_.failures.setHeld(frame, true);
+                    {
+                        std::lock_guard<std::mutex> lock(resultMutex_);
+                        finalResult_.failures.setHeld(frame, true);
+                    }
                     emitProgress();
                     break;
                 }
