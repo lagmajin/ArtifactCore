@@ -17,6 +17,12 @@ export enum class MaterialType {
  MaterialX
 };
 
+export enum class MaterialAlphaMode {
+ Opaque,
+ Masked,
+ Blended
+};
+
  /// PBR マテリアル。DCC 標準 (glTF / Standard Surface 互換)。
  class Material {
  private:
@@ -44,6 +50,16 @@ export enum class MaterialType {
   float metallic() const;
   void setRoughness(float value);
   float roughness() const;
+  void setSpecular(float value);
+  float specular() const;
+  void setIOR(float value);
+  float ior() const;
+  void setTransmission(float value);
+  float transmission() const;
+  void setClearcoat(float value);
+  float clearcoat() const;
+  void setClearcoatRoughness(float value);
+  float clearcoatRoughness() const;
 
   // --- Emission ---
   void setEmissionColor(const QColor& color);
@@ -54,6 +70,8 @@ export enum class MaterialType {
   // --- Opacity ---
   void setOpacity(float value);
   float opacity() const;
+  void setAlphaMode(MaterialAlphaMode mode);
+  MaterialAlphaMode alphaMode() const;
 
   // --- Normal ---
   void setNormalStrength(float value);

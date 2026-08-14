@@ -22,6 +22,11 @@ public:
  QColor baseColor_ = QColor(255, 255, 255);
  float metallic_ = 0.0f;
  float roughness_ = 0.5f;
+ float specular_ = 0.5f;
+ float ior_ = 1.5f;
+ float transmission_ = 0.0f;
+ float clearcoat_ = 0.0f;
+ float clearcoatRoughness_ = 0.03f;
 
  // Emission
  QColor emissionColor_ = QColor(0, 0, 0);
@@ -29,6 +34,7 @@ public:
 
  // Opacity
  float opacity_ = 1.0f;
+ MaterialAlphaMode alphaMode_ = MaterialAlphaMode::Opaque;
 
  // Normal
  float normalStrength_ = 1.0f;
@@ -81,6 +87,26 @@ void Material::setRoughness(float v) {
  impl_->roughness_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.5f;
 }
 float Material::roughness() const { return impl_->roughness_; }
+void Material::setSpecular(float v) {
+ impl_->specular_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.5f;
+}
+float Material::specular() const { return impl_->specular_; }
+void Material::setIOR(float v) {
+ impl_->ior_ = std::isfinite(v) ? std::clamp(v, 1.0f, 3.0f) : 1.5f;
+}
+float Material::ior() const { return impl_->ior_; }
+void Material::setTransmission(float v) {
+ impl_->transmission_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f;
+}
+float Material::transmission() const { return impl_->transmission_; }
+void Material::setClearcoat(float v) {
+ impl_->clearcoat_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f;
+}
+float Material::clearcoat() const { return impl_->clearcoat_; }
+void Material::setClearcoatRoughness(float v) {
+ impl_->clearcoatRoughness_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.03f;
+}
+float Material::clearcoatRoughness() const { return impl_->clearcoatRoughness_; }
 
 // Emission
 void Material::setEmissionColor(const QColor& color) {
@@ -97,6 +123,8 @@ void Material::setOpacity(float v) {
  impl_->opacity_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 1.0f;
 }
 float Material::opacity() const { return impl_->opacity_; }
+void Material::setAlphaMode(MaterialAlphaMode mode) { impl_->alphaMode_ = mode; }
+MaterialAlphaMode Material::alphaMode() const { return impl_->alphaMode_; }
 
 // Normal
 void Material::setNormalStrength(float v) {
