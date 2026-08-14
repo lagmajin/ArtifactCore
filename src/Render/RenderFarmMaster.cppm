@@ -893,7 +893,10 @@ public:
     }
 
     void collectRemoteResults() {
-        if (remoteSlices_.empty()) return;
+        {
+            std::lock_guard<std::mutex> lock(remoteMutex_);
+            if (remoteSlices_.empty()) return;
+        }
 
         int totalRemote = 0;
         {
