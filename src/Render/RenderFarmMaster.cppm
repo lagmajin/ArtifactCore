@@ -246,6 +246,19 @@ public:
         return currentCompositionId_;
     }
 
+    bool deadlineReached() const {
+        std::lock_guard<std::mutex> lock(jobStateMutex_);
+        return hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_;
+    }
+
+    std::chrono::milliseconds remainingJobTime() const {
+        std::lock_guard<std::mutex> lock(jobStateMutex_);
+        if (!hasJobDeadline_) return std::chrono::minutes(10);
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::max(std::chrono::steady_clock::duration::zero(),
+                     jobDeadline_ - std::chrono::steady_clock::now()));
+    }
+
     void notifyCompleted(const RenderJobResult& result) {
         RenderJobResult trackedResult = result;
         QString jobId;
@@ -660,8 +673,8 @@ public:
                 std::unique_lock<std::mutex> lock(pauseMutex_);
                 pauseCv_.wait(lock, [this]() { return !paused_.load() || cancelled_.load(); });
             }
-            if (cancelled_ || (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)) {
-                if (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)
+            if (cancelled_ || deadlineReached()) {
+                if (deadlineReached())
                     timedOut_ = true;
                 cancelled_ = true;
                 break;
@@ -690,8 +703,8 @@ public:
                     std::unique_lock<std::mutex> lock(pauseMutex_);
                     pauseCv_.wait(lock, [this]() { return !paused_.load() || cancelled_.load(); });
                 }
-                if (cancelled_ || (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)) {
-                    if (hasJobDeadline_ && std::chrono::steady_clock::now() >= jobDeadline_)
+                if (cancelled_ || deadlineReached()) {
+                    if (deadlineReached())
                         timedOut_ = true;
                     cancelled_ = true;
                     break;
@@ -835,10 +848,13 @@ public:
             return;
         }
 
-        hasJobDeadline_ = request.jobTimeoutMs > 0;
-        if (hasJobDeadline_) {
-            jobDeadline_ = std::chrono::steady_clock::now()
-                + std::chrono::milliseconds(request.jobTimeoutMs);
+        {
+            std::lock_guard<std::mutex> lock(jobStateMutex_);
+            hasJobDeadline_ = request.jobTimeoutMs > 0;
+            if (hasJobDeadline_) {
+                jobDeadline_ = std::chrono::steady_clock::now()
+                    + std::chrono::milliseconds(request.jobTimeoutMs);
+            }
         }
 
         // Clear remote state from previous job
@@ -1002,11 +1018,7 @@ public:
         totalRemoteFrames_ = totalRemote;
         remoteCompleted_ = 0;
 
-        const auto waitDuration = hasJobDeadline_
-            ? std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::max(std::chrono::steady_clock::duration::zero(), jobDeadline_
-                    - std::chrono::steady_clock::now()))
-            : std::chrono::minutes(10);
+        const auto waitDuration = remainingJobTime();
         const auto markUnreportedFrames = [this](const RemoteJobSlice& slice) {
             for (int frame = slice.range.startFrame; frame < slice.range.endFrame;
                  frame += slice.range.step) {
