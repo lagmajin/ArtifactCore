@@ -134,7 +134,26 @@ enum class ShortcutId {
     WorkCursorCenter = 120,
     WorkCursorClear = 121,
     ViewToggleCameraFrustum = 122,
-    Count = 123
+    PrCopyClip = 123,
+    PrCutClip = 124,
+    PrPasteClip = 125,
+    PrSlipClip = 126,
+    PrSlideClip = 127,
+    PrShuttleReverse = 128,
+    PrShuttleForward = 129,
+    PrSetInPoint = 130,
+    PrSetOutPoint = 131,
+    PrPause = 132,
+    PrSeekToStart = 133,
+    PrSeekToEnd = 134,
+    PrRippleDelete = 135,
+    PrAddCrossfade = 136,
+    PrAddDipToBlack = 137,
+    PrAddWipeLeft = 138,
+    PrAddWipeRight = 139,
+    PrShowHelp = 140,
+    PrZoomInAlt = 141,
+    Count = 142
 };
 
 QString shortcutDisplayName(ShortcutId id);
@@ -163,6 +182,7 @@ private:
 
     std::array<QKeySequence, static_cast<std::size_t>(ShortcutId::Count)> defaults_{};
     std::array<QKeySequence, static_cast<std::size_t>(ShortcutId::Count)> overrides_{};
+    std::array<bool, static_cast<std::size_t>(ShortcutId::Count)> overrideSet_{};
 };
 
 } // namespace ArtifactCore

@@ -14,6 +14,25 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreSources.cmake")
 set(CORE_MODULES ${ARTIFACTCORE_MODULE_SOURCES})
 set(CORE_IMPL ${ARTIFACTCORE_IMPL_SOURCES})
 
+# The generated manifest is rooted at this file's `cmake/` directory and
+# therefore contains path spellings such as `cmake/../include/...`.  The
+# extracted domain lists below are rooted at ArtifactCore itself.  Normalize
+# both manifest lists before the domain split so list(REMOVE_ITEM) compares
+# the same paths and a module is owned by exactly one target.
+set(_artifact_normalized_core_modules)
+foreach(_artifact_source IN LISTS CORE_MODULES)
+    file(REAL_PATH "${_artifact_source}" _artifact_normalized_source)
+    list(APPEND _artifact_normalized_core_modules "${_artifact_normalized_source}")
+endforeach()
+set(CORE_MODULES ${_artifact_normalized_core_modules})
+
+set(_artifact_normalized_core_impl)
+foreach(_artifact_source IN LISTS CORE_IMPL)
+    file(REAL_PATH "${_artifact_source}" _artifact_normalized_source)
+    list(APPEND _artifact_normalized_core_impl "${_artifact_normalized_source}")
+endforeach()
+set(CORE_IMPL ${_artifact_normalized_core_impl})
+
 # These are implementation units for interface partitions already present in
 # the CXX_MODULES file set.  CMake's scanner treats the repeated partition
 # name as a second provider and emits duplicate IFC rules, so keep the source
@@ -24,38 +43,22 @@ set_source_files_properties(
     PROPERTIES CXX_SCAN_FOR_MODULES OFF
 )
 if(MSVC)
-    # Keep the top-level Image module's IFC beside the other include modules.
-    # MSVC otherwise emits both `Image.ixx.ifc` and
-    # `include/Image/Image.ixx.ifc`, making `import Image;` ambiguous.
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/Image.ixx"
-        PROPERTIES
-            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/Image/Image.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/Image.ixx.ifc"
-    )
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/Utils/MultipleTag.ixx"
-        PROPERTIES
-            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/Utils/MultipleTag.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Utils/MultipleTag.ixx.ifc"
-    )
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/VST3/VST3Interfaces.ixx"
-        PROPERTIES
-            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/VST3/VST3Interfaces.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/VST3/VST3Interfaces.ixx.ifc"
-    )
+    if(CMAKE_GENERATOR MATCHES "Ninja")
+        set(_artifact_object_dir "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir")
+    else()
+        set(_artifact_object_dir "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>")
+    endif()
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
         PROPERTIES
             COMPILE_OPTIONS "/reference;File:Info=$(IntDir)/include/File/FileInfo.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/File/FileInfo.ixx.obj"
+            OBJECT_DEPENDS "${_artifact_object_dir}/include/File/FileInfo.ixx.obj"
     )
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
         PROPERTIES
             COMPILE_OPTIONS "/reference;Image:OpenEXR=$(IntDir)/include/Image/OpenEXR.ixx.ifc;/reference;Image.DeepImageBuffer=$(IntDir)/include/Image/DeepImageBuffer.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/OpenEXR.ixx.obj;${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/DeepImageBuffer.ixx.obj"
+            OBJECT_DEPENDS "${_artifact_object_dir}/include/Image/OpenEXR.ixx.obj;${_artifact_object_dir}/include/Image/DeepImageBuffer.ixx.obj"
     )
 endif()
 
@@ -84,10 +87,289 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     set_source_files_properties("${_artifact_impl_file}" PROPERTIES CXX_SCAN_FOR_MODULES OFF)
     set_property(SOURCE "${_artifact_impl_file}" APPEND_STRING PROPERTY
         COMPILE_FLAGS " /TP")
-    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        COMPILE_OPTIONS "/reference;${_artifact_module_name}=$(IntDir)/${_artifact_interface_relative}.ifc")
-    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/${_artifact_interface_relative}.obj")
+    # APIKeyManager.cppm is compiled with scanner support disabled.  Its
+    # primary interface BMI uses the module name as its output, rather than
+    # the source path spelling used by the generic mapping below.
+    if(_artifact_impl_relative STREQUAL "src/AI/CloudAgent.cppm")
+        # This implementation is currently emitted in the base ArtifactCore
+        # target.  Use concrete IFC paths so the rule remains valid under
+        # Ninja/MSVC, where $(IntDir) is not expanded by CMake-generated
+        # compile rules.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AI.CloudAgent=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.CloudAgent.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc"
+                "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+                "/reference;Core.AI.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.Context.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/AI/LlamaLocalAgent.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AI.LlamaAgent=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.LlamaAgent.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc"
+                "/reference;Core.AI.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.Context.ifc"
+                "/reference;Core.AI.LocalAgent=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.LocalAgent.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform2D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Animation.Transform2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Transform2D.ifc"
+                "/reference;Animation.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Value.ifc"
+                "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+                "/reference;Math.Interpolate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Interpolate.ifc"
+                "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform3D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Animation.Transform3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Transform3D.ifc"
+                "/reference;Animation.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Value.ifc"
+                "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+                "/reference;Math.Interpolate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Interpolate.ifc"
+                "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/EncoderSetting.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Codec.Encoder.Setting=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Codec.Encoder.Setting.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/GStreamerDecoder.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Video.GStreamerDecoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Video.GStreamerDecoder.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/MFEncoder.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Codec.MFEncoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Codec.MFEncoder.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimationDynamics.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Animation.Dynamics=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Dynamics.ifc"
+                "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Channel/Channel.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
+                "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+                "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/MFFrameExtractor.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Codec.MFFrameExtractor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Codec.MFFrameExtractor.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc"
+                "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorBlendMode.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.BlendMode=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.BlendMode.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Color.Conversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Conversion.ifc"
+                "/reference;Color.Luminance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Luminance.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorConversion.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Conversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Conversion.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorHarmonizer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Harmonizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Harmonizer.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Color.Conversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Conversion.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorLuminance.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Luminance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Luminance.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorLUT.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.LUT=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.LUT.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSpace.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.ColorSpace=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.ColorSpace.ifc"
+                "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/FloatColor.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/FloatRGBA.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/LabColor.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Lab=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Lab.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/LUTWriter.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.LUTWriter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.LUTWriter.ifc"
+                "/reference;Color.LUT=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.LUT.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/OCIOConfig.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.OCIOConfig=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.OCIOConfig.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/Sarturation.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Saturation=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Saturation.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/XYZColor.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.XYZ=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.XYZ.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Common/Point2D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.Point2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Point2D.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Core/AspectRatio.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AspectRatio=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AspectRatio.ifc"
+                "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc")
+    elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS "/reference;${_artifact_module_name}=$(IntDir)/${_artifact_interface_relative}.ifc")
+    else()
+        # Scanner-disabled primary units still need explicit references for
+        # every imported BMI.  These modules are produced by their owning
+        # targets before the AI implementation is compiled.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AI.APIKeyManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.APIKeyManager.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc"
+                "/reference;Core.AI.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.Context.ifc"
+                "/reference;Core.AI.CloudAgent=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.CloudAgent.ifc"
+                "/reference;Configuration.ConfigLayer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Configuration.ConfigLayer.ifc"
+                "/reference;Configuration.LayeredConfigStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Configuration.LayeredConfigStore.ifc")
+    endif()
+    set(_artifact_dependency_target_dir "ArtifactCore.dir")
+    file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_interface_relative}" _artifact_expected_interface)
+    set(_artifact_interface_owner_found OFF)
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_MODULES$")
+            foreach(_artifact_domain_interface IN LISTS ${_artifact_domain_var})
+                file(REAL_PATH "${_artifact_domain_interface}" _artifact_actual_interface)
+                if(_artifact_actual_interface STREQUAL _artifact_expected_interface)
+                    set(_artifact_interface_owner_found ON)
+                    string(REGEX REPLACE "^ARTIFACTCORE_(.+)_MODULES$" "\\1" _artifact_domain "${_artifact_domain_var}")
+                    set(_artifact_dependency_target_dir "ArtifactCore${_artifact_domain}.dir")
+                    break()
+                endif()
+            endforeach()
+            if(NOT _artifact_dependency_target_dir STREQUAL "ArtifactCore.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    string(REGEX REPLACE "^src/([^/]+)/.*$" "\\1" _artifact_source_domain "${_artifact_impl_relative}")
+    string(TOUPPER "${_artifact_source_domain}" _artifact_source_domain_upper)
+    if(DEFINED ARTIFACTCORE_${_artifact_source_domain_upper}_IMPL)
+        set(_artifact_dependency_target_dir "ArtifactCore${_artifact_source_domain}.dir")
+    endif()
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_IMPL$")
+            string(REGEX REPLACE "^ARTIFACTCORE_(.+)_IMPL$" "\\1" _artifact_domain "${_artifact_domain_var}")
+            string(TOUPPER "${_artifact_domain}" _artifact_domain_upper)
+            if(_artifact_domain_upper STREQUAL _artifact_source_domain_upper)
+                set(_artifact_dependency_target_dir "ArtifactCore${_artifact_domain}.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    if(_artifact_impl_relative MATCHES "^src/AI/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAI.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Analyze/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAnalyze.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Configuration/" OR
+           _artifact_impl_relative MATCHES "^src/Application/")
+        set(_artifact_dependency_target_dir "ArtifactCoreConfiguration.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Asset/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAsset.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Audio/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAudio.dir")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm")
+        set(_artifact_dependency_target_dir "ArtifactCoreAudio.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Particle/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAudio.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Composition/")
+        set(_artifact_dependency_target_dir "ArtifactCoreComposition.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Event/")
+        set(_artifact_dependency_target_dir "ArtifactCoreEvent.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Media/")
+        set(_artifact_dependency_target_dir "ArtifactCoreMedia.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/NLE/")
+        set(_artifact_dependency_target_dir "ArtifactCoreNLE.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Playback/")
+        set(_artifact_dependency_target_dir "ArtifactCorePlayback.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Video/")
+        set(_artifact_dependency_target_dir "ArtifactCoreVideo.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Scene/")
+        set(_artifact_dependency_target_dir "ArtifactCoreScene.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Control/")
+        set(_artifact_dependency_target_dir "ArtifactCoreControl.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Database/")
+        set(_artifact_dependency_target_dir "ArtifactCoreDatabase.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Export/")
+        set(_artifact_dependency_target_dir "ArtifactCoreExport.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Rig/")
+        set(_artifact_dependency_target_dir "ArtifactCoreRig.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/IPC/")
+        set(_artifact_dependency_target_dir "ArtifactCoreIPC.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Light/")
+        set(_artifact_dependency_target_dir "ArtifactCoreLight.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Plugin/")
+        set(_artifact_dependency_target_dir "ArtifactCorePlugin.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/IO/")
+        set(_artifact_dependency_target_dir "ArtifactCoreShape.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Text/")
+        set(_artifact_dependency_target_dir "ArtifactCoreText.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Simulation/")
+        set(_artifact_dependency_target_dir "ArtifactCoreSimulation.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Source/")
+        set(_artifact_dependency_target_dir "ArtifactCoreSource.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Track/")
+        set(_artifact_dependency_target_dir "ArtifactCoreTrack.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/UI/")
+        set(_artifact_dependency_target_dir "ArtifactCoreUI.dir")
+    endif()
+    # Resolve the owning split target from its explicit implementation list.
+    # This keeps the BMI/object dependency aligned when a domain is moved out
+    # of the aggregate target, without maintaining a second path-based map.
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_IMPL$")
+            foreach(_artifact_domain_source IN LISTS ${_artifact_domain_var})
+                file(RELATIVE_PATH _artifact_domain_relative
+                    "${CMAKE_CURRENT_SOURCE_DIR}" "${_artifact_domain_source}")
+                if(_artifact_domain_relative STREQUAL _artifact_impl_relative)
+                    string(REGEX REPLACE "^ARTIFACTCORE_(.+)_IMPL$" "\\1" _artifact_domain "${_artifact_domain_var}")
+                    set(_artifact_dependency_target_dir "ArtifactCore${_artifact_domain}.dir")
+                    break()
+                endif()
+            endforeach()
+            if(NOT _artifact_dependency_target_dir STREQUAL "ArtifactCore.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    # The aggregate target still needs its interface object as an explicit
+    # order-only dependency.  Split targets receive ordering from their own
+    # CXX_MODULES file set and must not reference ArtifactCore.dir objects.
+    if(_artifact_dependency_target_dir STREQUAL "ArtifactCore.dir")
+        set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_interface_relative}.obj")
+    else()
+        set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS "")
+    endif()
 endforeach()
 
 # Procedural3DGenerators.cppm is the implementation unit for the explicitly
@@ -167,6 +449,8 @@ set(ARTIFACTCORE_AUDIO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/QtAudioBackend.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFMpegAudioDecoder.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/CLAP/CLAPHost.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Animation/KeyframeEditingTools.ixx"
 )
 set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/ASIOBackendStub.cppm"
@@ -199,6 +483,8 @@ set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/WASAPIBackend.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegAudioDecoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/CLAP/CLAPHost.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Animation/KeyframeEditingTools.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AUDIO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AUDIO_IMPL})
@@ -926,6 +1212,89 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COLLABORATE_IMPL})
 # ---------------------------------------------------------------------------
 # ターゲット定義
 # ---------------------------------------------------------------------------
+
+# Finalize implementation-unit BMI ordering after all domain lists exist.
+foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
+    string(REPLACE "|" ";" _artifact_module_fields "${_artifact_module_reference}")
+    list(GET _artifact_module_fields 0 _artifact_impl_relative)
+    list(GET _artifact_module_fields 2 _artifact_interface_relative)
+    set(_artifact_impl_file "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_impl_relative}")
+    file(REAL_PATH "${_artifact_impl_file}" _artifact_impl_real)
+    set(_artifact_owner_target_dir "ArtifactCore.dir")
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_IMPL$")
+            foreach(_artifact_domain_source IN LISTS ${_artifact_domain_var})
+                file(REAL_PATH "${_artifact_domain_source}" _artifact_domain_source_real)
+                if(_artifact_domain_source_real STREQUAL _artifact_impl_real)
+                    string(REGEX REPLACE "^ARTIFACTCORE_(.+)_IMPL$" "\\1" _artifact_domain "${_artifact_domain_var}")
+                    if(_artifact_domain STREQUAL "AI" OR _artifact_domain STREQUAL "UI" OR
+                       _artifact_domain STREQUAL "IPC" OR _artifact_domain STREQUAL "NLE" OR
+                       _artifact_domain STREQUAL "VST3")
+                        set(_artifact_domain_target "${_artifact_domain}")
+                    elseif(_artifact_domain STREQUAL "COLORCOLLECTION")
+                        set(_artifact_domain_target "ColorCollection")
+                    elseif(_artifact_domain STREQUAL "FILESYSTEM")
+                        set(_artifact_domain_target "FileSystem")
+                    else()
+                        string(SUBSTRING "${_artifact_domain}" 0 1 _artifact_domain_initial)
+                        string(SUBSTRING "${_artifact_domain}" 1 -1 _artifact_domain_tail)
+                        string(TOLOWER "${_artifact_domain_tail}" _artifact_domain_tail_lower)
+                        set(_artifact_domain_target "${_artifact_domain_initial}${_artifact_domain_tail_lower}")
+                    endif()
+                    set(_artifact_owner_target_dir "ArtifactCore${_artifact_domain_target}.dir")
+                    break()
+                endif()
+            endforeach()
+            if(NOT _artifact_owner_target_dir STREQUAL "ArtifactCore.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_interface_relative}" _artifact_expected_interface)
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_MODULES$")
+            foreach(_artifact_domain_interface IN LISTS ${_artifact_domain_var})
+                file(REAL_PATH "${_artifact_domain_interface}" _artifact_actual_interface)
+                if(_artifact_actual_interface STREQUAL _artifact_expected_interface)
+                    string(REGEX REPLACE "^ARTIFACTCORE_(.+)_MODULES$" "\\1" _artifact_domain "${_artifact_domain_var}")
+                    if(_artifact_domain STREQUAL "AI" OR _artifact_domain STREQUAL "UI" OR
+                       _artifact_domain STREQUAL "IPC" OR _artifact_domain STREQUAL "NLE" OR
+                       _artifact_domain STREQUAL "VST3")
+                        set(_artifact_domain_target "${_artifact_domain}")
+                    elseif(_artifact_domain STREQUAL "COLORCOLLECTION")
+                        set(_artifact_domain_target "ColorCollection")
+                    elseif(_artifact_domain STREQUAL "FILESYSTEM")
+                        set(_artifact_domain_target "FileSystem")
+                    else()
+                        string(SUBSTRING "${_artifact_domain}" 0 1 _artifact_domain_initial)
+                        string(SUBSTRING "${_artifact_domain}" 1 -1 _artifact_domain_tail)
+                        string(TOLOWER "${_artifact_domain_tail}" _artifact_domain_tail_lower)
+                        set(_artifact_domain_target "${_artifact_domain_initial}${_artifact_domain_tail_lower}")
+                    endif()
+                    set(_artifact_owner_target_dir "ArtifactCore${_artifact_domain_target}.dir")
+                    break()
+                endif()
+            endforeach()
+            if(NOT _artifact_owner_target_dir STREQUAL "ArtifactCore.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    if(NOT _artifact_interface_owner_found AND
+       _artifact_interface_relative MATCHES "^include/Utils/Localization\\.ixx$")
+        set(_artifact_owner_target_dir "ArtifactCore.dir")
+    endif()
+    if(_artifact_interface_relative MATCHES "^include/AI/")
+        set(_artifact_owner_target_dir "ArtifactCoreAI.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Configuration/")
+        set(_artifact_owner_target_dir "ArtifactCoreConfiguration.dir")
+    endif()
+    set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${_artifact_owner_target_dir}/${_artifact_interface_relative}.obj")
+endforeach()
+
 add_library(ArtifactCore STATIC)
 
 set_target_properties(ArtifactCore PROPERTIES
@@ -1141,6 +1510,11 @@ endif()
 
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC glm::glm)
+
+# meshoptimizer provides vertex remapping, vertex-cache optimization, and
+# meshlet generation for the Mesh LOD preparation path.
+find_package(meshoptimizer CONFIG REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC meshoptimizer::meshoptimizer)
 
 find_package(Stb REQUIRED)
 target_include_directories(ArtifactCore PUBLIC ${Stb_INCLUDE_DIR})

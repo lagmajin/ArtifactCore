@@ -665,6 +665,21 @@ inline QJsonObject renderGraphDiagnosticToJson(
     json.insert(QStringLiteral("error"), QString::fromStdString(snapshot.error));
     json.insert(QStringLiteral("estimatedResourceBytes"),
                 QString::number(snapshot.estimatedResourceBytes));
+    json.insert(QStringLiteral("estimatedAliasedResourceBytes"),
+                QString::number(snapshot.estimatedAliasedResourceBytes));
+    QJsonArray slotsJson;
+    for (const auto& slot : snapshot.allocationSlots) {
+        QJsonObject slotJson;
+        slotJson.insert(QStringLiteral("index"), static_cast<qint64>(slot.index));
+        slotJson.insert(QStringLiteral("kind"), toString(slot.kind));
+        slotJson.insert(QStringLiteral("width"), static_cast<int>(slot.width));
+        slotJson.insert(QStringLiteral("height"), static_cast<int>(slot.height));
+        slotJson.insert(QStringLiteral("depth"), static_cast<int>(slot.depth));
+        slotJson.insert(QStringLiteral("format"), static_cast<int>(slot.format));
+        slotJson.insert(QStringLiteral("byteSize"), QString::number(slot.byteSize));
+        slotsJson.append(slotJson);
+    }
+    json.insert(QStringLiteral("allocationSlots"), slotsJson);
 
     QJsonArray passesJson;
     for (const auto& pass : snapshot.passes) {
@@ -673,6 +688,8 @@ inline QJsonObject renderGraphDiagnosticToJson(
         passJson.insert(QStringLiteral("name"), QString::fromStdString(pass.descriptor.name));
         passJson.insert(QStringLiteral("queue"), toString(pass.descriptor.queue));
         passJson.insert(QStringLiteral("state"), toString(pass.state));
+        passJson.insert(QStringLiteral("stateReason"),
+                        QString::fromStdString(pass.stateReason));
         passJson.insert(QStringLiteral("executionOrder"),
                         static_cast<qint64>(pass.executionOrder));
         passJson.insert(QStringLiteral("gpuDurationUs"), QString::number(pass.gpuDurationUs));
@@ -720,6 +737,8 @@ inline QJsonObject renderGraphDiagnosticToJson(
                                 static_cast<qint64>(resource.firstPass));
             resourceJson.insert(QStringLiteral("lastPass"),
                                 static_cast<qint64>(resource.lastPass));
+            resourceJson.insert(QStringLiteral("allocationSlot"),
+                                static_cast<qint64>(resource.allocationSlot));
         }
         resourcesJson.append(resourceJson);
     }
@@ -736,6 +755,21 @@ inline RenderGraphDiagnosticSnapshot renderGraphDiagnosticFromJson(
     snapshot.error = json.value(QStringLiteral("error")).toString().toStdString();
     snapshot.estimatedResourceBytes = json.value(
         QStringLiteral("estimatedResourceBytes")).toString().toULongLong();
+    snapshot.estimatedAliasedResourceBytes = json.value(
+        QStringLiteral("estimatedAliasedResourceBytes")).toString().toULongLong();
+    for (const auto& value : json.value(QStringLiteral("allocationSlots")).toArray()) {
+        const auto slotJson = value.toObject();
+        RenderAllocationSlotDescriptor slot;
+        slot.index = static_cast<std::size_t>(slotJson.value(QStringLiteral("index")).toDouble());
+        slot.kind = slotJson.value(QStringLiteral("kind")).toString() == QStringLiteral("Buffer")
+                        ? RenderResourceKind::Buffer : RenderResourceKind::Texture;
+        slot.width = static_cast<std::uint32_t>(slotJson.value(QStringLiteral("width")).toInt());
+        slot.height = static_cast<std::uint32_t>(slotJson.value(QStringLiteral("height")).toInt());
+        slot.depth = static_cast<std::uint32_t>(slotJson.value(QStringLiteral("depth")).toInt(1));
+        slot.format = static_cast<std::uint32_t>(slotJson.value(QStringLiteral("format")).toInt());
+        slot.byteSize = slotJson.value(QStringLiteral("byteSize")).toString().toULongLong();
+        snapshot.allocationSlots.push_back(slot);
+    }
 
     for (const auto& value : json.value(QStringLiteral("passes")).toArray()) {
         const auto passJson = value.toObject();
@@ -755,6 +789,8 @@ inline RenderGraphDiagnosticSnapshot renderGraphDiagnosticFromJson(
         } else {
             pass.state = RenderDiagnosticPassState::Blocked;
         }
+        pass.stateReason = passJson.value(QStringLiteral("stateReason"))
+                               .toString().toStdString();
         pass.executionOrder = static_cast<std::size_t>(passJson.value(
             QStringLiteral("executionOrder")).toDouble());
         pass.gpuDurationUs = passJson.value(QStringLiteral("gpuDurationUs")).toString().toULongLong();
@@ -804,6 +840,8 @@ inline RenderGraphDiagnosticSnapshot renderGraphDiagnosticFromJson(
             QStringLiteral("firstPass")).toDouble());
         resource.lastPass = static_cast<std::size_t>(resourceJson.value(
             QStringLiteral("lastPass")).toDouble());
+        resource.allocationSlot = static_cast<std::size_t>(resourceJson.value(
+            QStringLiteral("allocationSlot")).toDouble());
         snapshot.resources.push_back(std::move(resource));
     }
     return snapshot;

@@ -45,6 +45,7 @@ class tst_QList;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <meshoptimizer.h>
 module Mesh;
 
 import Memory.SharedPtr;
@@ -367,34 +368,119 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
     {
         MeshletLODData data;
         data.renderData = generateRenderData();
-        const int triangleCount = data.renderData.indices.size() / kTriangleIndexCount;
-        if (triangleCount <= 0 || data.renderData.positions.isEmpty()) {
+        const size_t sourceIndexCount = static_cast<size_t>(data.renderData.indices.size());
+        const size_t sourceVertexCount = static_cast<size_t>(data.renderData.positions.size());
+        if (sourceIndexCount < kTriangleIndexCount || sourceVertexCount == 0) {
             return data;
         }
 
         const int maxTrianglesPerMeshlet = std::max(1, config.maxTrianglesPerMeshlet);
         const int maxLODLevels = std::max(1, config.maxLODLevels);
+
+        struct PackedVertex {
+            QVector3D position;
+            QVector3D normal;
+            QVector2D uv;
+        };
+
+        std::vector<PackedVertex> vertices(sourceVertexCount);
+        const bool hasNormals = data.renderData.normals.size() == data.renderData.positions.size();
+        const bool hasUVs = data.renderData.uvs.size() == data.renderData.positions.size();
+        for (size_t i = 0; i < sourceVertexCount; ++i) {
+            vertices[i].position = data.renderData.positions[static_cast<qsizetype>(i)];
+            if (hasNormals) {
+                vertices[i].normal = data.renderData.normals[static_cast<qsizetype>(i)];
+            }
+            if (hasUVs) {
+                vertices[i].uv = data.renderData.uvs[static_cast<qsizetype>(i)];
+            }
+        }
+
+        std::vector<unsigned int> sourceIndices;
+        sourceIndices.reserve(sourceIndexCount);
+        for (const unsigned int index : data.renderData.indices) {
+            sourceIndices.push_back(index);
+        }
+
+        std::vector<unsigned int> remap(sourceVertexCount);
+        const size_t remappedVertexCount = meshopt_generateVertexRemap(
+            remap.data(), sourceIndices.data(), sourceIndices.size(),
+            vertices.data(), vertices.size(), sizeof(PackedVertex));
+
+        std::vector<PackedVertex> remappedVertices(remappedVertexCount);
+        meshopt_remapVertexBuffer(remappedVertices.data(), vertices.data(), vertices.size(),
+                                   sizeof(PackedVertex), remap.data());
+        std::vector<unsigned int> optimizedIndices(sourceIndices.size());
+        meshopt_remapIndexBuffer(optimizedIndices.data(), sourceIndices.data(), sourceIndices.size(), remap.data());
+        meshopt_optimizeVertexCache(optimizedIndices.data(), optimizedIndices.data(),
+                                    optimizedIndices.size(), remappedVertexCount);
+
+        data.renderData.positions.resize(static_cast<qsizetype>(remappedVertexCount));
+        if (hasNormals) data.renderData.normals.resize(static_cast<qsizetype>(remappedVertexCount));
+        if (hasUVs) data.renderData.uvs.resize(static_cast<qsizetype>(remappedVertexCount));
+        for (size_t i = 0; i < remappedVertexCount; ++i) {
+            data.renderData.positions[static_cast<qsizetype>(i)] = remappedVertices[i].position;
+            if (hasNormals) data.renderData.normals[static_cast<qsizetype>(i)] = remappedVertices[i].normal;
+            if (hasUVs) data.renderData.uvs[static_cast<qsizetype>(i)] = remappedVertices[i].uv;
+        }
+
+        const int triangleCount = static_cast<int>(optimizedIndices.size() / kTriangleIndexCount);
         int triangleStride = 1;
 
         for (int level = 0; level < maxLODLevels; ++level) {
             const int levelOffset = data.meshlets.size();
             const int levelFirstIndex = data.lodIndices.size();
-            const int trianglesPerMeshlet = maxTrianglesPerMeshlet;
-
-            for (int triangle = 0; triangle < triangleCount; triangle += triangleStride) {
-                const int sourceIndex = triangle * kTriangleIndexCount;
-                data.lodIndices.push_back(data.renderData.indices[sourceIndex + 0]);
-                data.lodIndices.push_back(data.renderData.indices[sourceIndex + 1]);
-                data.lodIndices.push_back(data.renderData.indices[sourceIndex + 2]);
+            std::vector<unsigned int> levelIndices;
+            if (level == 0) {
+                levelIndices = optimizedIndices;
+            } else {
+                const int targetTriangleCount = std::max(
+                    1, triangleCount / triangleStride);
+                const size_t targetIndexCount = static_cast<size_t>(targetTriangleCount) *
+                                                kTriangleIndexCount;
+                levelIndices.resize(targetIndexCount);
+                const float targetError = std::min(
+                    1.0f, static_cast<float>(triangleStride - 1) /
+                              static_cast<float>(std::max(1, triangleCount)));
+                const size_t simplifiedIndexCount = meshopt_simplify(
+                    levelIndices.data(), optimizedIndices.data(), optimizedIndices.size(),
+                    reinterpret_cast<const float*>(&remappedVertices[0].position),
+                    remappedVertices.size(), sizeof(PackedVertex), targetIndexCount,
+                    targetError);
+                levelIndices.resize(simplifiedIndexCount - (simplifiedIndexCount % kTriangleIndexCount));
+                if (levelIndices.empty()) {
+                    levelIndices = optimizedIndices;
+                }
             }
 
-            const int levelIndexCount = data.lodIndices.size() - levelFirstIndex;
-            const int meshletIndexCount = trianglesPerMeshlet * kTriangleIndexCount;
-            for (int firstIndex = levelFirstIndex; firstIndex < levelFirstIndex + levelIndexCount; firstIndex += meshletIndexCount) {
-                const int remainingIndices = (levelFirstIndex + levelIndexCount) - firstIndex;
-                const int indexCount = std::min(meshletIndexCount, remainingIndices);
-                data.meshlets.push_back(
-                    buildMeshletFromIndexRange(data.renderData, data.lodIndices, firstIndex, indexCount, triangleStride));
+            const int levelIndexCount = static_cast<int>(levelIndices.size());
+            if (levelIndexCount > 0) {
+                const size_t maxMeshletVertices = 64;
+                const size_t maxMeshletTriangles = static_cast<size_t>(maxTrianglesPerMeshlet);
+                const size_t maxMeshlets = meshopt_buildMeshletsBound(
+                    static_cast<size_t>(levelIndexCount), maxMeshletVertices, maxMeshletTriangles);
+                std::vector<meshopt_Meshlet> meshlets(maxMeshlets);
+                std::vector<unsigned int> meshletVertices(maxMeshlets * maxMeshletVertices);
+                std::vector<unsigned char> meshletTriangles(maxMeshlets * maxMeshletTriangles * 3);
+                const size_t meshletCount = meshopt_buildMeshlets(
+                    meshlets.data(), meshletVertices.data(), meshletTriangles.data(),
+                    levelIndices.data(), static_cast<size_t>(levelIndexCount),
+                    reinterpret_cast<const float*>(&remappedVertices[0].position), remappedVertices.size(),
+                    sizeof(PackedVertex), maxMeshletVertices, maxMeshletTriangles, 0.0f);
+                for (size_t i = 0; i < meshletCount; ++i) {
+                    const meshopt_Meshlet& source = meshlets[i];
+                    const int firstIndex = data.lodIndices.size();
+                    const int indexCount = static_cast<int>(source.triangle_count * 3);
+                    for (size_t triangle = 0; triangle < source.triangle_count; ++triangle) {
+                        const size_t triangleOffset = source.triangle_offset + triangle * 3;
+                        for (size_t corner = 0; corner < 3; ++corner) {
+                            const unsigned int localVertex = meshletTriangles[triangleOffset + corner];
+                            data.lodIndices.push_back(meshletVertices[source.vertex_offset + localVertex]);
+                        }
+                    }
+                    data.meshlets.push_back(buildMeshletFromIndexRange(
+                        data.renderData, data.lodIndices, firstIndex, indexCount, triangleStride));
+                }
             }
 
             MeshletLODLevel lodLevel;
@@ -402,7 +488,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
             lodLevel.meshletOffset = levelOffset;
             lodLevel.meshletCount = data.meshlets.size() - levelOffset;
             lodLevel.firstIndex = static_cast<unsigned int>(levelFirstIndex);
-            lodLevel.indexCount = static_cast<unsigned int>(levelIndexCount);
+            lodLevel.indexCount = static_cast<unsigned int>(data.lodIndices.size() - levelFirstIndex);
             lodLevel.triangleStride = triangleStride;
             lodLevel.switchDistancePixels = config.lodSwitchPixels / static_cast<float>(triangleStride);
             data.levels.push_back(lodLevel);

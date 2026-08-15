@@ -209,7 +209,7 @@ namespace ArtifactCore {
     return nullptr;
    }
    
-   auto startTime = std::chrono::high_resolution_clock::now();
+   const ULONGLONG startTimeMs = GetTickCount64();
    
    // V[N
    PROPVARIANT var;
@@ -343,13 +343,12 @@ namespace ArtifactCore {
        ((outputFormat_ == OutputFormat::RGB || outputFormat_ == OutputFormat::BGR) ? 3 : 4);
    
    // vXV
-   auto endTime = std::chrono::high_resolution_clock::now();
-   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+   const ULONGLONG durationMs = GetTickCount64() - startTimeMs;
    
    stats_.totalFramesExtracted++;
    stats_.totalBytesProcessed += frame->data.size();
    stats_.averageExtractionTimeMs = 
-    (stats_.averageExtractionTimeMs * (stats_.totalFramesExtracted - 1) + duration.count()) 
+    (stats_.averageExtractionTimeMs * (stats_.totalFramesExtracted - 1) + durationMs) 
     / stats_.totalFramesExtracted;
    
    return frame;

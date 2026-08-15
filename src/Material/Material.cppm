@@ -1,5 +1,6 @@
 module;
 #include <QString>
+#include <QFile>
 #include <QColor>
 #include <QVector3D>
 #include <algorithm>
@@ -161,6 +162,21 @@ bool Material::hasOpacityTexture() const { return impl_->hasOpacityTexture_; }
 // MaterialX
 void Material::setMaterialXDocument(const UniString& xml) { impl_->materialXDocument_ = xml; }
 UniString Material::materialXDocument() const { return impl_->materialXDocument_; }
+bool Material::saveMaterialXDocument(const QString& filePath) const {
+ if (filePath.trimmed().isEmpty()) return false;
+ QFile file(filePath);
+ if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
+ const QByteArray data = materialXDocument().toQString().toUtf8();
+ return file.write(data) == data.size();
+}
+bool Material::loadMaterialXDocument(const QString& filePath) {
+ if (filePath.trimmed().isEmpty()) return false;
+ QFile file(filePath);
+ if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
+ setMaterialXDocument(UniString::fromQString(QString::fromUtf8(file.readAll())));
+ setType(MaterialType::MaterialX);
+ return true;
+}
 
 // Presets
 Material Material::makeDefault()

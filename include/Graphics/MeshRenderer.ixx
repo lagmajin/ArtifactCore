@@ -55,6 +55,27 @@ using namespace Diligent;
  */
 class LIBRARY_DLL_API MeshRenderer {
 public:
+    // GPU ABI for the mesh-shader path. Keep these types free of Qt/Diligent
+    // containers so the same layout can be mirrored in HLSL.
+    struct MeshletGpu {
+        uint32_t indexOffset = 0;
+        uint32_t indexCount = 0;
+        uint32_t vertexOffset = 0;
+        uint32_t vertexCount = 0;
+        float boundsCenter[3] = {};
+        float boundsRadius = 0.0f;
+    };
+
+    struct MeshletLodGpu {
+        uint32_t meshletOffset = 0;
+        uint32_t meshletCount = 0;
+        float switchPixels = 0.0f;
+        uint32_t reserved = 0;
+    };
+
+    static_assert(sizeof(MeshletGpu) == 32);
+    static_assert(sizeof(MeshletLodGpu) == 16);
+
     MeshRenderer(GpuContext& context);
     ~MeshRenderer();
 
@@ -85,6 +106,17 @@ public:
     void updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
                             const uint32_t* indices);
 
+    // Upload the packed resources consumed by the future mesh-shader path.
+    // The indexed renderer remains the fallback until a mesh-shader PSO is active.
+    void updateMeshletGeometry(const MeshletGpu* meshlets, size_t meshletCount,
+                               const uint32_t* indices, size_t indexCount,
+                               const MeshletLodGpu* lods, size_t lodCount);
+
+    IBuffer* positionBuffer() const noexcept;
+    IBuffer* indexBuffer() const noexcept;
+    size_t vertexCount() const noexcept;
+    size_t indexCount() const noexcept;
+
     /**
      * @brief Set a base-color texture to be sampled by the mesh shader.
      *        Empty path clears the texture and falls back to a white texture.
@@ -96,6 +128,8 @@ public:
     void setEmissionColor(const QColor& color, float strength);
     void setPbrFactors(float metallic, float roughness,
                        float normalStrength, float occlusionStrength);
+    void setPrincipledFactors(float specular, float ior, float transmission,
+                              float clearcoat, float clearcoatRoughness);
     void setMetallicRoughnessTexture(const QString& path);
     void setNormalTexture(const QString& path);
     void setOcclusionTexture(const QString& path);
@@ -130,6 +164,16 @@ public:
      * @brief Prepare for rendering (set PSO, bind resources)
      */
     void prepare(IDeviceContext* pContext);
+
+    // Mesh-shader path. Returns to the caller without drawing when the
+    // device does not expose mesh shaders or meshlet resources are absent.
+    void prepareMeshShader(IDeviceContext* pContext, size_t lodIndex = 0);
+    void drawMeshlets(IDeviceContext* pContext, size_t lodIndex = 0);
+    bool meshShaderReady() const noexcept;
+    size_t chooseMeshletLOD(float projectedRadiusPixels) const noexcept;
+    void setMeshletMatrices(const float* viewMatrix,
+                            const float* projectionMatrix,
+                            const float* modelMatrix);
 
     /**
      * @brief Issue draw commands

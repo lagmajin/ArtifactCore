@@ -103,6 +103,10 @@ void PropertyLinkManager::updateTargets(AbstractProperty* source) {
     }
 }
 
+const std::vector<PropertyLink>& PropertyLinkManager::links() const {
+    return links_;
+}
+
 void PropertyLinkManager::clear() {
     links_.clear();
 }

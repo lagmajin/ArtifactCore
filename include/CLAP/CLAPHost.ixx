@@ -10,6 +10,9 @@ module;
 
 export module CLAP.Host;
 
+import Audio.Segment;
+import Audio.Effect;
+
 // ─────────────────────────────────────────────────────────
 // Minimal CLAP C API structs — clap.h 非依存
 // ─────────────────────────────────────────────────────────
@@ -120,9 +123,6 @@ export struct clap_plugin_entry {
     const clap_plugin* (*create_plugin)(const struct clap_host* host, uint32_t index);
     void (*destroy_plugin)(const struct clap_plugin* plugin);
 };
-
-import Audio.Segment;
-import Audio.Effect;
 
 /// CLAP (CLever Audio Plugin) ホスト実装
 /// MIT License - clap.h 非依存のホスト側定義

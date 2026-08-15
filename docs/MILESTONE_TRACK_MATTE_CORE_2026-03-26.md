@@ -1,5 +1,14 @@
 # Matte Stack / Child Matte Core Milestone
 
+**最終更新:** 2026-08-15
+
+## Update 2026-08-15
+
+- `MatteStack` / `MatteNode`、Add/Common/Subtract、JSON、`MatteEvaluator` と `Layer2D::matteStack()` を現行 Core で確認。
+- Artifact 側では legacy `LayerMatteReference` が複数 matte、cycle 防止、missing diagnostics、render 適用、Timeline 操作の主経路として接続されている。
+- Core `Layer2D::MatteStack` を全 render 経路の canonical source へ統合する作業は未完了。vector-based `evaluateMatteStack()` は alpha factor 入力を前提とし、luminance source の評価は `MatteEvaluator` / image 経路へ分散している。
+- Core/Artifact のモデル統合、hidden source policy、実素材での Add/Common/Subtract・inverted luma parity は未検証。
+
 `Layer2D` の matte を、AE 風に「隣接レイヤー」ではなく「レイヤーにぶら下がる子要素」として扱うための Core milestone.
 
 ## Goal
@@ -85,7 +94,7 @@ Core には `MatteMode` と `Layer2D::matteMode()` は既にあるが、まだ�
 
 ## Current Status
 
-- `MatteMode` と `Layer2D::matteMode()` は既に存在する
-- ただし Core の evaluation path はまだ未実装
-- まずは matte stack の data model を固定してから、render 側の適用に進むのが安全
-- `MaskCutout` と `TimeRemap` は別ルートで扱う前提にして、ここでは matte の依存モデルだけを追う
+- `MatteStack`／`MatteNode`、Add／Common／Subtract、JSON、`MatteEvaluator`、`Layer2D::matteStack()` は Core に実装済み。
+- Artifact 側の `LayerMatteReference` は複数 matte、cycle 防止、missing diagnostics、render 適用、Timeline／Inspector 操作へ接続済み。
+- Core stack を全 render 経路の canonical source へ統合する作業、luminance source parity、hidden source policy、実素材での受入れは未完了または未検証。
+- `MaskCutout` と `TimeRemap` は引き続き別ルートとして扱う。

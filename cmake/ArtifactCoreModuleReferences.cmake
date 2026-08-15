@@ -2,7 +2,7 @@
 # Keep this file in sync with ArtifactCoreSources.cmake when adding module implementations.
 
 set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
-    "src/AI/CloudAgent.cppm|Core.AI.CloudAgent|ICloudAIAgent.ixx"
+    "src/AI/CloudAgent.cppm|Core.AI.CloudAgent|include/AI/ICloudAIAgent.ixx"
     "src/AI/APIKeyManager.cppm|Core.AI.APIKeyManager|include/AI/APIKeyManager.ixx"
     "src/AI/LlamaLocalAgent.cppm|Core.AI.LlamaAgent|include/AI/LlamaLocalAgent.ixx"
     "src/AI/ObjectDetector.cppm|Core.AI.ObjectDetector|include/AI/ObjectDetector.ixx"
@@ -257,7 +257,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/ImageProcessing/MotionTrail.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
     "src/ImageProcessing/NegativeCV.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
     "src/ImageProcessing/NeuromorphicDisplace.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
-    "src/ImageProcessing/NoiseImageGenerator.cppm|Generator|Generator.ixx"
+    "src/ImageProcessing/NoiseImageGenerator.cppm|Generator|include/Channel/Generator.ixx"
     "src/ImageProcessing/OpenCV/AddBlockNoise.cppm|AddBlockNoise|include/ImageProcessing/OpenCV/AddBlockNoise.ixx"
     "src/ImageProcessing/OpenCV/AffineCV.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"
     "src/ImageProcessing/OpenCV/AutoGammaCV.cppm|ImageProcessing.AutoGamma.CV|include/ImageProcessing/OpenCV/AutoGammaCV.ixx"

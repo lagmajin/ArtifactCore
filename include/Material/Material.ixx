@@ -3,6 +3,7 @@ module;
 #include <memory>
 #include <QColor>
 #include <QString>
+#include <QFile>
 #include <QVector3D>
 export module Material.Material;
 
@@ -104,6 +105,8 @@ export enum class MaterialAlphaMode {
   // --- MaterialX ---
   void setMaterialXDocument(const UniString& xml);
   UniString materialXDocument() const;
+  bool saveMaterialXDocument(const QString& filePath) const;
+  bool loadMaterialXDocument(const QString& filePath);
 
   // --- Presets ---
   static Material makeDefault();
