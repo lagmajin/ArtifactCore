@@ -31,6 +31,7 @@ public:
         float loudnessRangeLufs = 0.0f;
         float peakDb = -std::numeric_limits<float>::infinity();
         float truePeakDb = -std::numeric_limits<float>::infinity();
+        bool isApproximate = true;
 
         bool hasLoudness() const { return std::isfinite(integratedLufs); }
         bool hasTruePeak() const { return std::isfinite(truePeakDb); }
@@ -60,7 +61,7 @@ public:
     float getTruePeakDb() const { return truePeakDb_; }
     LoudnessMeasurement measurement() const {
         return {momentaryLufs_, shortTermLufs_, integratedLufs_,
-                loudnessRangeLufs_, peakDb_, truePeakDb_};
+                loudnessRangeLufs_, peakDb_, truePeakDb_, true};
     }
     // Clears the time-based loudness state without changing FFT settings.
     void resetLoudnessMeasurement();
