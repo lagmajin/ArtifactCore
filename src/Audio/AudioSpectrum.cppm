@@ -159,7 +159,12 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
                 channelSum = std::isfinite(channelSum + square)
                     ? channelSum + square
                     : std::numeric_limits<double>::max();
-                peak = std::max(peak, std::abs(sample));
+                const float absoluteSample = std::abs(sample);
+                peak = std::max(peak, absoluteSample);
+                // True-peak interpolation must retain the original sample
+                // peak too; a one-sample impulse has no adjacent transition
+                // from which the oversampling loop can recover it.
+                truePeak = std::max(truePeak, absoluteSample);
                 if (hasPreviousSample) {
                     for (int subSample = 1; subSample < 4; ++subSample) {
                         const float t = static_cast<float>(subSample) / 4.0f;
