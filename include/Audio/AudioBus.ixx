@@ -84,6 +84,9 @@ export namespace ArtifactCore {
 		void removeEffect(int index);
 		int getEffectCount() const;
 		SharedPtr<AudioEffect> getEffect(int index) const;
+		qint64 latencySamples() const;
+		qint64 tailSamples() const;
+		void applyLatencyCompensation(qint64 samples);
 
 		// Process audio buffer in-place
 		void process(AudioSegment& segment);

@@ -84,6 +84,9 @@ namespace ArtifactCore {
 		std::vector<SharedPtr<AudioEffect>> effects_;
 
 		std::vector<MeterState> meters_;
+		qint64 compensationDelaySamples_ = 0;
+		int compensationSampleRate_ = 0;
+		std::vector<std::deque<float>> compensationHistory_;
 
 		float getLinearGain() const {
 			if (volumeDb_ <= -144.0f) return 0.0f;
@@ -228,6 +231,69 @@ namespace ArtifactCore {
 			return impl_->effects_[index];
 		}
 		return nullptr;
+	}
+
+	qint64 AudioBus::latencySamples() const
+	{
+		qint64 total = 0;
+		for (const auto& effect : impl_->effects_) {
+			if (!effect || effect->isBypassed()) continue;
+			const qint64 value = effect->latencySamples();
+			if (value > 0 && total <= std::numeric_limits<qint64>::max() - value) {
+				total += value;
+			}
+		}
+		return total;
+	}
+
+	qint64 AudioBus::tailSamples() const
+	{
+		qint64 maximum = 0;
+		for (const auto& effect : impl_->effects_) {
+			if (!effect || effect->isBypassed()) continue;
+			maximum = std::max(maximum, std::max<qint64>(0, effect->tailSamples()));
+		}
+		return maximum;
+	}
+
+	void AudioBus::applyLatencyCompensation(qint64 samples)
+	{
+		const int channels = impl_->mainBuffer_.channelCount();
+		const int frames = impl_->mainBuffer_.frameCount();
+		const qint64 delay = std::max<qint64>(0, samples);
+		if (channels <= 0 || frames <= 0 || delay == 0) {
+			if (delay == 0 && impl_->compensationDelaySamples_ != 0) {
+				impl_->compensationHistory_.clear();
+				impl_->compensationDelaySamples_ = 0;
+				impl_->compensationSampleRate_ = 0;
+			}
+			return;
+		}
+		if (delay != impl_->compensationDelaySamples_ ||
+		    impl_->compensationSampleRate_ != impl_->mainBuffer_.sampleRate ||
+		    static_cast<int>(impl_->compensationHistory_.size()) != channels) {
+			impl_->compensationHistory_.clear();
+			impl_->compensationHistory_.resize(channels);
+			impl_->compensationDelaySamples_ = delay;
+			impl_->compensationSampleRate_ = impl_->mainBuffer_.sampleRate;
+			for (auto& history : impl_->compensationHistory_) {
+				if (delay <= static_cast<qint64>(std::numeric_limits<int>::max())) {
+					history.resize(static_cast<size_t>(delay), 0.0f);
+				}
+			}
+		}
+		for (int channel = 0; channel < channels; ++channel) {
+			auto& history = impl_->compensationHistory_[channel];
+			if (history.empty()) continue;
+			for (int frame = 0; frame < frames; ++frame) {
+				const float current = sanitizeBusSample(
+					impl_->mainBuffer_.channelData[channel][frame]);
+				const float delayed = sanitizeBusSample(history.front());
+				history.pop_front();
+				history.push_back(current);
+				impl_->mainBuffer_.channelData[channel][frame] = delayed;
+			}
+		}
 	}
 
 	// PERF: この関数は AudioMixer の topological sort で複数バス分呼ばれる。

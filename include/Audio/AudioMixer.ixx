@@ -78,6 +78,8 @@ public:
     AudioBusKind busKind(SharedPtr<AudioBus> bus) const;
 
     std::vector<SharedPtr<AudioBus>> getAllBuses() const;
+    qint64 graphLatencySamples() const;
+    qint64 graphTailSamples() const;
     SharedPtr<AudioBus> getRoutingTarget(SharedPtr<AudioBus> bus) const;
     std::vector<std::pair<SharedPtr<AudioBus>, float>> getSideChainSends(SharedPtr<AudioBus> bus) const;
 

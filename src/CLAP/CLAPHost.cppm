@@ -397,6 +397,30 @@ ClapEffect::~ClapEffect() {
     }
 }
 
+uint32 PluginInstance::latencySamples() const
+{
+    const auto* extension = static_cast<const clap_plugin_latency*>(
+        plugin_ && plugin_->get_extension ? plugin_->get_extension(plugin_, "clap.latency") : nullptr);
+    return extension && extension->get ? extension->get(plugin_) : 0;
+}
+
+uint32 PluginInstance::tailSamples() const
+{
+    const auto* extension = static_cast<const clap_plugin_tail*>(
+        plugin_ && plugin_->get_extension ? plugin_->get_extension(plugin_, "clap.tail") : nullptr);
+    return extension && extension->get ? extension->get(plugin_) : 0;
+}
+
+qint64 ClapEffect::latencySamples() const
+{
+    return plugin_ ? static_cast<qint64>(plugin_->latencySamples()) : 0;
+}
+
+qint64 ClapEffect::tailSamples() const
+{
+    return plugin_ ? static_cast<qint64>(plugin_->tailSamples()) : 0;
+}
+
 void ClapEffect::process(ArtifactCore::AudioSegment& segment,
                          const ArtifactCore::AudioSegment* /*sideChain*/) {
     if (isBypassed() || !plugin_ || segment.frameCount() <= 0) return;

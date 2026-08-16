@@ -36,10 +36,14 @@ public:
     // Loudness metering (linear PCM, LUFS approximation).
     // The values are updated by process() and are expressed in LUFS.
     float getMomentaryLufs() const { return momentaryLufs_; }
+    float getShortTermLufs() const { return shortTermLufs_; }
     float getIntegratedLufs() const { return integratedLufs_; }
+    float getLoudnessRangeLufs() const { return loudnessRangeLufs_; }
     float getPeakDb() const { return peakDb_; }
     // 4x linear-interpolated true-peak approximation; not ITU-R BS.1770 oversampling.
     float getTruePeakDb() const { return truePeakDb_; }
+    // Clears the time-based loudness state without changing FFT settings.
+    void resetLoudnessMeasurement();
     float normalizationGainDb(float targetLufs) const;
     bool normalizeToTargetLufs(AudioSegment& segment, float targetLufs);
     
@@ -56,12 +60,22 @@ private:
     std::vector<float> spectrum_;
     std::vector<float> waveform_;
     float momentaryLufs_ = -std::numeric_limits<float>::infinity();
+    float shortTermLufs_ = -std::numeric_limits<float>::infinity();
     float integratedLufs_ = -std::numeric_limits<float>::infinity();
+    float loudnessRangeLufs_ = 0.0f;
     float peakDb_ = -std::numeric_limits<float>::infinity();
     float truePeakDb_ = -std::numeric_limits<float>::infinity();
     double integratedEnergySum_ = 0.0;
     qint64 integratedFrameCount_ = 0;
     qint64 lastEndFrame_ = -1;
+
+    struct LoudnessWindow {
+        qint64 startFrame = 0;
+        qint64 frameCount = 0;
+        double meanSquare = 0.0;
+        float lufs = -std::numeric_limits<float>::infinity();
+    };
+    std::vector<LoudnessWindow> loudnessWindows_;
     
     // FFT（簡易実装）
     void computeFFT(const std::vector<float>& input, std::vector<float>& output);
