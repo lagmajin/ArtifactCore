@@ -1441,9 +1441,6 @@ else()
     message(STATUS "PkgConfig not detected; libvips backend disabled")
 endif()
 
-find_package(SDL2 REQUIRED)
-target_link_libraries(ArtifactCore PUBLIC SDL2::SDL2)
-
 # Boost (Asio, UUID, Iostreams)
 find_package(Boost REQUIRED COMPONENTS system iostreams)
 target_link_libraries(ArtifactCore PUBLIC Boost::boost Boost::system Boost::iostreams)
