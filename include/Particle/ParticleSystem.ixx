@@ -46,7 +46,6 @@ import Mesh;
 import Memory.SharedPtr;
 import Physics.Fluid;
 import Physics2D;
-import Audio.Analyze;
 
 
 export namespace ArtifactCore {
@@ -415,7 +414,8 @@ public:
     void setStrength(float s) { strength_ = s; }
 
     // Audio Injection
-    void injectAudioFrequency(const AudioAnalyzer::AnalysisResult& audio, float dt) {
+    template <typename AudioAnalysis>
+    void injectAudioFrequency(const AudioAnalysis& audio, float dt) {
         // Sample: Use Low/Mid/High intensities to inject fluid bursts
         // Low: Center bottom burst
         if (audio.lowIntensity > 0.5f) {
@@ -644,10 +644,14 @@ public:
     const std::string& getId() const { return id_; }
     void setId(const std::string& id) { id_ = id; }
 
-    void setRestitution(float r) { restitution_ = r; }
+    void setRestitution(float r) {
+        restitution_ = std::isfinite(r) ? std::clamp(r, 0.0f, 1.0f) : 0.0f;
+    }
     float getRestitution() const { return restitution_; }
 
-    void setFriction(float f) { friction_ = f; }
+    void setFriction(float f) {
+        friction_ = std::isfinite(f) ? std::clamp(f, 0.0f, 1.0f) : 0.0f;
+    }
     float getFriction() const { return friction_; }
 
 protected:
@@ -665,9 +669,9 @@ public:
     PlaneCollider() : ParticleCollider(Type::Plane) {}
 
     bool collide(Particle& p, double dt) override {
-        // y=0の平面との衝突
-        if (p.position.y < 0.0f && p.velocity.y < 0.0f) {
-            p.position.y = 0.0f;
+        // Horizontal plane at the configured height.
+        if (p.position.y < height_ && p.velocity.y < 0.0f) {
+            p.position.y = height_;
             p.velocity.y = -p.velocity.y * restitution_;
             p.velocity.x *= (1.0f - friction_);
             p.velocity.z *= (1.0f - friction_);
@@ -676,7 +680,9 @@ public:
         return false;
     }
 
-    void setHeight(float h) { height_ = h; }
+    void setHeight(float h) {
+        if (std::isfinite(h)) height_ = h;
+    }
 
 private:
     float height_ = 0.0f;

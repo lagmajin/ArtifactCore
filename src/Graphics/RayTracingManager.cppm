@@ -11,6 +11,7 @@ module;
 #include <Texture.h>
 #include <RefCntAutoPtr.hpp>
 #include <DiligentCore/Common/interface/BasicMath.hpp>
+#include <QString>
 #include <cstring>
 #include <map>
 #include <string>
@@ -146,7 +147,8 @@ public:
             (data.pIndexBuffer->GetDesc().BindFlags & BIND_RAY_TRACING) == 0) {
             return false;
         }
-        const auto key = id.toStdWString();
+        const auto key = id.toQString().toStdWString();
+        const auto keyUtf8 = id.toQString().toStdString();
         auto& node = blasMap_[key];
         const bool geometryLayoutChanged =
             node.data.pVertexBuffer != data.pVertexBuffer ||
@@ -159,14 +161,14 @@ public:
         node.active = true;
         if (!node.pBLAS) {
             BLASTriangleDesc triangles;
-            triangles.GeometryName = key.c_str();
+            triangles.GeometryName = keyUtf8.c_str();
             triangles.VertexValueType = VT_FLOAT32;
             triangles.VertexComponentCount = 3;
             triangles.MaxVertexCount = data.vertexCount;
             triangles.IndexType = data.pIndexBuffer ? VT_UINT32 : VT_UNDEFINED;
             triangles.MaxPrimitiveCount = data.pIndexBuffer ? data.indexCount / 3 : data.vertexCount / 3;
             BottomLevelASDesc desc;
-            desc.Name = key.c_str();
+            desc.Name = keyUtf8.c_str();
             desc.Flags = RAYTRACING_BUILD_AS_PREFER_FAST_TRACE;
             desc.pTriangles = &triangles;
             desc.TriangleCount = 1;
@@ -185,9 +187,10 @@ public:
         for (auto& [name, node] : blasMap_) {
             if (!node.dirty) continue;
             if (!node.pBLAS || !node.data.pVertexBuffer) return false;
+            const auto nameUtf8 = QString::fromStdWString(name).toUtf8().toStdString();
             const auto& vertexDesc = node.data.pVertexBuffer->GetDesc();
             BLASBuildTriangleData triangle;
-            triangle.GeometryName = name.c_str();
+            triangle.GeometryName = nameUtf8.c_str();
             triangle.pVertexBuffer = node.data.pVertexBuffer;
             triangle.VertexStride = vertexDesc.ElementByteStride;
             triangle.VertexCount = node.data.vertexCount;
@@ -224,7 +227,7 @@ public:
 
     bool updateInstanceTransform(const UniString& id,
                                  const Diligent::float4x4& transform) override {
-        const auto it = blasMap_.find(id.toStdWString());
+    const auto it = blasMap_.find(id.toQString().toStdWString());
         if (it == blasMap_.end()) return false;
         auto& current = it->second.transform;
         const bool transformChanged =
@@ -239,12 +242,12 @@ public:
     }
 
     bool hasBLAS(const UniString& id) const override {
-        const auto it = blasMap_.find(id.toStdWString());
+    const auto it = blasMap_.find(id.toQString().toStdWString());
         return it != blasMap_.end() && it->second.pBLAS != nullptr;
     }
 
     bool setInstanceActive(const UniString& id, bool active) override {
-        const auto it = blasMap_.find(id.toStdWString());
+        const auto it = blasMap_.find(id.toQString().toStdWString());
         if (it == blasMap_.end()) return false;
         if (it->second.active == active) return false;
         it->second.active = active;

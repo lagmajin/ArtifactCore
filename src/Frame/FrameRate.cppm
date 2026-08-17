@@ -1,5 +1,4 @@
 module;
-class tst_QList;
 #include <QList>
 #include <QJsonObject>
 #include <QRegularExpression>
@@ -11,6 +10,8 @@ module Frame.Rate;
 
 import Serialization.JsonAdapter;
 import Serialization.SchemaMigration;
+
+class tst_QList;
 
 namespace {
 const bool kFrameRateSerializationRegistered = [] {

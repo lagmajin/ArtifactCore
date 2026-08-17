@@ -1,13 +1,10 @@
 module;
-//#include <utility>
-//#include <string>
-//#include <unordered_map>
+#include <utility>
 #include <QElapsedTimer>
 
 module Render.Statics;
 
 import std;
-
 
 namespace ArtifactCore
 {
