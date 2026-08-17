@@ -16,7 +16,6 @@ module;
 
 module Geometry.Fracture;
 
-import std;
 import Memory.TrackedPtr;
 import Physics.Fracture;
 

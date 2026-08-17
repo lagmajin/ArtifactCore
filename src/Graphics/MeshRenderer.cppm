@@ -712,7 +712,7 @@ struct MeshRenderer::Impl {
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
-    static_assert(sizeof(MaterialConstants) == sizeof(float) * 12);
+    static_assert(sizeof(MaterialConstants) == sizeof(float) * 20);
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;

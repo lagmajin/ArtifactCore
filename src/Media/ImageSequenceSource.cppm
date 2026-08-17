@@ -443,6 +443,29 @@ qint64 ImageSequenceSource::sequenceIndexForSourceFrame(qint64 frameNumber) cons
     return -1;
 }
 
+qint64 ImageSequenceSource::frameIndexAtTime(qint64 timelineFrame,
+                                              double timelineFrameRate) const
+{
+    if (!isOpen() || frameCount() <= 0) {
+        return -1;
+    }
+    if (timelineFrame <= 0 || !std::isfinite(timelineFrameRate) ||
+        timelineFrameRate <= 0.0 || !std::isfinite(impl_->frameRate) ||
+        impl_->frameRate <= 0.0) {
+        return std::clamp<qint64>(timelineFrame, 0, frameCount() - 1);
+    }
+
+    const double sourceFrame =
+        std::floor((static_cast<double>(timelineFrame) / timelineFrameRate) *
+                   impl_->frameRate);
+    if (!std::isfinite(sourceFrame) ||
+        sourceFrame >= static_cast<double>(std::numeric_limits<qint64>::max())) {
+        return frameCount() - 1;
+    }
+    return std::clamp<qint64>(static_cast<qint64>(sourceFrame), 0,
+                              frameCount() - 1);
+}
+
 QSize ImageSequenceSource::frameSize() const
 {
     return impl_ ? impl_->frameSize : QSize();
