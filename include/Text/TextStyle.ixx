@@ -38,6 +38,9 @@ export struct TextStyle {
   float fontStretch = 100.0f;
   float leading = -1.0f;
   FontWeight fontWeight = FontWeight::Normal;
+  // 0 keeps legacy Normal/Bold semantics; otherwise uses a QFont-compatible
+  // numeric weight in the inclusive range 100..900.
+  int fontWeightValue = 0;
   FontStyle fontStyle = FontStyle::Normal;
   bool allCaps = false;
   bool underline = false;

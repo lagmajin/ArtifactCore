@@ -223,7 +223,12 @@ public:
  static QFont makeFont(const TextStyle& style, const QString& sampleText = QString())
  {  QFont font(resolvedFamilyForText(style.fontFamily.toQString(), sampleText));
   font.setPointSizeF(std::max(1.0f, style.fontSize));
-  font.setBold(style.fontWeight == FontWeight::Bold);
+  const int numericWeight = std::clamp(style.fontWeightValue, 0, 900);
+  if (numericWeight >= 100) {
+   font.setWeight(numericWeight);
+  } else {
+   font.setWeight(style.fontWeight == FontWeight::Bold ? QFont::Bold : QFont::Normal);
+  }
   font.setItalic(style.fontStyle == FontStyle::Italic);
   font.setUnderline(style.underline);
   font.setStrikeOut(style.strikethrough);
