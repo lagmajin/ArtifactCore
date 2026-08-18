@@ -195,6 +195,318 @@ bool loadLinearTexture(ArtifactCore::GpuContext& context, const QString& path,
     textureSRV = texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
     return textureSRV.RawPtr() != nullptr;
 }
+
+float rawEnvironmentChannel(const ArtifactCore::RawImage& image,
+                            int pixelIndex, int channel)
+{
+    const int size = image.getPixelTypeSizeInBytes();
+    if (size <= 0 || pixelIndex < 0 || channel < 0 || channel >= image.channels)
+        return 0.0f;
+    const int offset = (pixelIndex * image.channels + channel) * size;
+    if (offset < 0 || offset + size > image.data.size()) return 0.0f;
+    const auto* bytes = image.data.constData() + offset;
+    if (image.pixelType == QStringLiteral("float")) {
+        float value = 0.0f;
+        std::memcpy(&value, bytes, sizeof(value));
+        return std::isfinite(value) ? std::max(value, 0.0f) : 0.0f;
+    }
+    if (image.pixelType == QStringLiteral("uint16")) {
+        std::uint16_t value = 0;
+        std::memcpy(&value, bytes, sizeof(value));
+        return static_cast<float>(value) / 65535.0f;
+    }
+    return static_cast<float>(*bytes) / 255.0f;
+}
+
+bool createEnvironmentCube(ArtifactCore::GpuContext& context,
+                           const QString& path,
+                           Diligent::RefCntAutoPtr<Diligent::ITexture>& texture,
+                           Diligent::RefCntAutoPtr<Diligent::ITextureView>& view,
+                           Diligent::RefCntAutoPtr<Diligent::ITexture>& irradianceTexture,
+                           Diligent::RefCntAutoPtr<Diligent::ITextureView>& irradianceView)
+{
+    auto* device = context.RenderDevice();
+    ArtifactCore::ImageImporter importer;
+    if (!device || !importer.open(path)) return false;
+    const auto image = importer.readImage();
+    if (!image.isValid() || image.width < 2 || image.height < 2 || image.channels < 3)
+        return false;
+
+    constexpr int faceSize = 64;
+    std::vector<float> cube(static_cast<std::size_t>(faceSize) * faceSize * 6 * 4,
+                            0.0f);
+    auto directionForFace = [](int face, float u, float v) {
+        switch (face) {
+        case 0: return Diligent::float3{1.0f, -v, -u};
+        case 1: return Diligent::float3{-1.0f, -v, u};
+        case 2: return Diligent::float3{u, 1.0f, v};
+        case 3: return Diligent::float3{u, -1.0f, -v};
+        case 4: return Diligent::float3{u, -v, 1.0f};
+        default: return Diligent::float3{-u, -v, -1.0f};
+        }
+    };
+    for (int face = 0; face < 6; ++face) {
+        for (int y = 0; y < faceSize; ++y) {
+            for (int x = 0; x < faceSize; ++x) {
+                const float u = 2.0f * (static_cast<float>(x) + 0.5f) / faceSize - 1.0f;
+                const float v = 2.0f * (static_cast<float>(y) + 0.5f) / faceSize - 1.0f;
+                auto direction = directionForFace(face, u, v);
+                const float length = std::sqrt(direction.x * direction.x +
+                                               direction.y * direction.y +
+                                               direction.z * direction.z);
+                direction.x /= length; direction.y /= length; direction.z /= length;
+                const float longitude = std::atan2(direction.z, direction.x);
+                const float latitude = std::asin(std::clamp(direction.y, -1.0f, 1.0f));
+                const float imageU = (longitude / (2.0f * std::numbers::pi_v<float>) + 0.5f) * image.width;
+                const float imageV = (0.5f - latitude / std::numbers::pi_v<float>) * image.height;
+                const int sampleX = std::clamp(static_cast<int>(imageU), 0, image.width - 1);
+                const int sampleY = std::clamp(static_cast<int>(imageV), 0, image.height - 1);
+                const int sourcePixel = sampleY * image.width + sampleX;
+                const std::size_t destination =
+                    (static_cast<std::size_t>(face) * faceSize * faceSize +
+                     static_cast<std::size_t>(y) * faceSize + x) * 4;
+                cube[destination + 0] = rawEnvironmentChannel(image, sourcePixel, 0);
+                cube[destination + 1] = rawEnvironmentChannel(image, sourcePixel, 1);
+                cube[destination + 2] = rawEnvironmentChannel(image, sourcePixel, 2);
+                cube[destination + 3] = image.channels > 3
+                    ? rawEnvironmentChannel(image, sourcePixel, 3) : 1.0f;
+            }
+        }
+    }
+
+    constexpr int mipCount = 7;
+    std::vector<std::vector<float>> mipData;
+    mipData.push_back(std::move(cube));
+    int mipSize = faceSize;
+    for (int mip = 1; mip < mipCount; ++mip) {
+        const int nextSize = std::max(1, mipSize / 2);
+        std::vector<float> next(static_cast<std::size_t>(nextSize) * nextSize * 6 * 4,
+                                0.0f);
+        const auto& previous = mipData.back();
+        for (int face = 0; face < 6; ++face) {
+            for (int y = 0; y < nextSize; ++y) {
+                for (int x = 0; x < nextSize; ++x) {
+                    const int sourceX = x * 2;
+                    const int sourceY = y * 2;
+                    const std::size_t dst =
+                        (static_cast<std::size_t>(face) * nextSize * nextSize +
+                         static_cast<std::size_t>(y) * nextSize + x) * 4;
+                    for (int sy = 0; sy < 2; ++sy) {
+                        for (int sx = 0; sx < 2; ++sx) {
+                            const int px = std::min(sourceX + sx, mipSize - 1);
+                            const int py = std::min(sourceY + sy, mipSize - 1);
+                            const std::size_t src =
+                                (static_cast<std::size_t>(face) * mipSize * mipSize +
+                                 static_cast<std::size_t>(py) * mipSize + px) * 4;
+                            for (int channel = 0; channel < 4; ++channel)
+                                next[dst + channel] += previous[src + channel] * 0.25f;
+                        }
+                    }
+                }
+            }
+        }
+        mipData.push_back(std::move(next));
+        mipSize = nextSize;
+    }
+
+    Diligent::TextureDesc desc;
+    desc.Name = "MeshRenderer/EnvironmentCubemap";
+    desc.Type = Diligent::RESOURCE_DIM_TEX_CUBE;
+    desc.Width = faceSize;
+    desc.Height = faceSize;
+    desc.ArraySize = 6;
+    desc.MipLevels = mipCount;
+    desc.Format = Diligent::TEX_FORMAT_RGBA32_FLOAT;
+    desc.Usage = Diligent::USAGE_IMMUTABLE;
+    desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    std::array<Diligent::TextureSubResData, 42> faces{};
+    int currentSize = faceSize;
+    std::size_t subresourceIndex = 0;
+    for (int mip = 0; mip < mipCount; ++mip) {
+        const auto& pixels = mipData[static_cast<std::size_t>(mip)];
+        for (int face = 0; face < 6; ++face) {
+            faces[subresourceIndex].pData = pixels.data() +
+                static_cast<std::size_t>(face) * currentSize * currentSize * 4;
+            faces[subresourceIndex].Stride =
+                static_cast<Diligent::Uint64>(currentSize * 4 * sizeof(float));
+            ++subresourceIndex;
+        }
+        currentSize = std::max(1, currentSize / 2);
+    }
+    Diligent::TextureData initialData;
+    initialData.pSubResources = faces.data();
+    initialData.NumSubresources = static_cast<Diligent::Uint32>(subresourceIndex);
+    device->CreateTexture(desc, &initialData, &texture);
+    if (!texture) return false;
+    view = texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+
+    // Build a low-resolution diffuse irradiance cube from the original HDR
+    // image.  This is intentionally kept separate from the specular cube:
+    // diffuse IBL needs a cosine convolution, not merely a low mip average.
+    constexpr int irradianceSize = 16;
+    constexpr int thetaSamples = 4;
+    constexpr int phiSamples = 8;
+    std::vector<float> irradiance(
+        static_cast<std::size_t>(irradianceSize) * irradianceSize * 6 * 4, 0.0f);
+    auto sampleEquirectangular = [&](const Diligent::float3& direction) {
+        const float longitude = std::atan2(direction.z, direction.x);
+        const float latitude = std::asin(std::clamp(direction.y, -1.0f, 1.0f));
+        const float imageU = (longitude / (2.0f * std::numbers::pi_v<float>) + 0.5f) * image.width;
+        const float imageV = (0.5f - latitude / std::numbers::pi_v<float>) * image.height;
+        const int sx = std::clamp(static_cast<int>(imageU), 0, image.width - 1);
+        const int sy = std::clamp(static_cast<int>(imageV), 0, image.height - 1);
+        const int pixel = sy * image.width + sx;
+        return Diligent::float3{rawEnvironmentChannel(image, pixel, 0),
+                                rawEnvironmentChannel(image, pixel, 1),
+                                rawEnvironmentChannel(image, pixel, 2)};
+    };
+    for (int face = 0; face < 6; ++face) {
+        for (int y = 0; y < irradianceSize; ++y) {
+            for (int x = 0; x < irradianceSize; ++x) {
+                const float u = 2.0f * (static_cast<float>(x) + 0.5f) / irradianceSize - 1.0f;
+                const float v = 2.0f * (static_cast<float>(y) + 0.5f) / irradianceSize - 1.0f;
+                auto normal = directionForFace(face, u, v);
+                const float normalLength = std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+                normal.x /= normalLength; normal.y /= normalLength; normal.z /= normalLength;
+                const Diligent::float3 up = std::abs(normal.y) < 0.99f
+                    ? Diligent::float3{0.0f, 1.0f, 0.0f}
+                    : Diligent::float3{1.0f, 0.0f, 0.0f};
+                auto tangent = Diligent::float3{up.y * normal.z - up.z * normal.y,
+                                                up.z * normal.x - up.x * normal.z,
+                                                up.x * normal.y - up.y * normal.x};
+                const float tangentLength = std::sqrt(tangent.x * tangent.x + tangent.y * tangent.y + tangent.z * tangent.z);
+                tangent.x /= tangentLength; tangent.y /= tangentLength; tangent.z /= tangentLength;
+                const auto bitangent = Diligent::float3{normal.y * tangent.z - normal.z * tangent.y,
+                                                        normal.z * tangent.x - normal.x * tangent.z,
+                                                        normal.x * tangent.y - normal.y * tangent.x};
+                Diligent::float3 sum{0.0f, 0.0f, 0.0f};
+                for (int thetaIndex = 0; thetaIndex < thetaSamples; ++thetaIndex) {
+                    const float theta = (static_cast<float>(thetaIndex) + 0.5f) *
+                        (0.5f * std::numbers::pi_v<float>) / thetaSamples;
+                    const float sinTheta = std::sin(theta);
+                    const float cosTheta = std::cos(theta);
+                    for (int phiIndex = 0; phiIndex < phiSamples; ++phiIndex) {
+                        const float phi = (static_cast<float>(phiIndex) + 0.5f) *
+                            (2.0f * std::numbers::pi_v<float>) / phiSamples;
+                        const Diligent::float3 sampleDirection{
+                            tangent.x * (std::cos(phi) * sinTheta) + bitangent.x * (std::sin(phi) * sinTheta) + normal.x * cosTheta,
+                            tangent.y * (std::cos(phi) * sinTheta) + bitangent.y * (std::sin(phi) * sinTheta) + normal.y * cosTheta,
+                            tangent.z * (std::cos(phi) * sinTheta) + bitangent.z * (std::sin(phi) * sinTheta) + normal.z * cosTheta};
+                        const auto sample = sampleEquirectangular(sampleDirection);
+                        const float weight = cosTheta * sinTheta;
+                        sum.x += sample.x * weight; sum.y += sample.y * weight; sum.z += sample.z * weight;
+                    }
+                }
+                const float normalization = std::numbers::pi_v<float> / (thetaSamples * phiSamples);
+                const std::size_t dst = (static_cast<std::size_t>(face) * irradianceSize * irradianceSize +
+                                         static_cast<std::size_t>(y) * irradianceSize + x) * 4;
+                irradiance[dst + 0] = sum.x * normalization;
+                irradiance[dst + 1] = sum.y * normalization;
+                irradiance[dst + 2] = sum.z * normalization;
+                irradiance[dst + 3] = 1.0f;
+            }
+        }
+    }
+    TextureDesc irradianceDesc;
+    irradianceDesc.Name = "MeshRenderer/IrradianceCubemap";
+    irradianceDesc.Type = RESOURCE_DIM_TEX_CUBE;
+    irradianceDesc.Width = irradianceSize;
+    irradianceDesc.Height = irradianceSize;
+    irradianceDesc.ArraySize = 6;
+    irradianceDesc.MipLevels = 1;
+    irradianceDesc.Format = TEX_FORMAT_RGBA32_FLOAT;
+    irradianceDesc.Usage = USAGE_IMMUTABLE;
+    irradianceDesc.BindFlags = BIND_SHADER_RESOURCE;
+    TextureSubResData irradianceFaces[6] = {};
+    for (auto& faceData : irradianceFaces) {
+        faceData.pData = irradiance.data() +
+            static_cast<std::size_t>(&faceData - irradianceFaces) * irradianceSize * irradianceSize * 4;
+        faceData.Stride = static_cast<Diligent::Uint64>(irradianceSize * 4 * sizeof(float));
+    }
+    TextureData irradianceData;
+    irradianceData.pSubResources = irradianceFaces;
+    irradianceData.NumSubresources = 6;
+    device->CreateTexture(irradianceDesc, &irradianceData, &irradianceTexture);
+    if (irradianceTexture) {
+        irradianceView = irradianceTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+    return view.RawPtr() != nullptr && irradianceView.RawPtr() != nullptr;
+}
+
+bool createBrdfLut(ArtifactCore::GpuContext& context,
+                   Diligent::RefCntAutoPtr<Diligent::ITexture>& texture,
+                   Diligent::RefCntAutoPtr<Diligent::ITextureView>& view)
+{
+    auto* device = context.RenderDevice();
+    if (!device) return false;
+    constexpr int size = 64;
+    constexpr int samples = 64;
+    std::vector<float> lut(static_cast<std::size_t>(size) * size * 2, 0.0f);
+    auto radicalInverse = [](std::uint32_t bits) {
+        bits = (bits << 16u) | (bits >> 16u);
+        bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+        bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+        bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+        bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+        return static_cast<float>(bits) * 2.3283064365386963e-10f;
+    };
+    for (int y = 0; y < size; ++y) {
+        const float roughness = (static_cast<float>(y) + 0.5f) / size;
+        const float alpha = roughness * roughness;
+        for (int x = 0; x < size; ++x) {
+            const float nDotV = (static_cast<float>(x) + 0.5f) / size;
+            const float viewX = std::sqrt(std::max(0.0f, 1.0f - nDotV * nDotV));
+            float scale = 0.0f;
+            float bias = 0.0f;
+            for (std::uint32_t sample = 0; sample < samples; ++sample) {
+                const float xi1 = (static_cast<float>(sample) + 0.5f) / samples;
+                const float xi2 = radicalInverse(sample);
+                const float phi = 2.0f * std::numbers::pi_v<float> * xi1;
+                const float cosTheta = std::sqrt(
+                    (1.0f - xi2) / (1.0f + (alpha * alpha - 1.0f) * xi2));
+                const float sinTheta = std::sqrt(std::max(0.0f, 1.0f - cosTheta * cosTheta));
+                const Diligent::float3 halfVector{sinTheta * std::cos(phi),
+                                                  sinTheta * std::sin(phi), cosTheta};
+                const float viewDotHalf = std::max(0.0f,
+                    viewX * halfVector.x + nDotV * halfVector.z);
+                const float lightZ = 2.0f * viewDotHalf * halfVector.z - nDotV;
+                const float lightX = 2.0f * viewDotHalf * halfVector.x - viewX;
+                const float nDotL = std::max(0.0f, lightZ);
+                if (nDotL <= 0.0f) continue;
+                const float geometryV = nDotV / std::max(
+                    nDotV * (1.0f - roughness * 0.5f) + roughness * 0.5f, 1e-4f);
+                const float geometryL = nDotL / std::max(
+                    nDotL * (1.0f - roughness * 0.5f) + roughness * 0.5f, 1e-4f);
+                const float visibility = geometryV * geometryL;
+                const float fresnel = std::pow(1.0f - viewDotHalf, 5.0f);
+                scale += visibility * (1.0f - fresnel);
+                bias += visibility * fresnel;
+            }
+            const std::size_t index = (static_cast<std::size_t>(y) * size + x) * 2;
+            lut[index + 0] = scale / samples;
+            lut[index + 1] = bias / samples;
+        }
+    }
+    Diligent::TextureDesc desc;
+    desc.Name = "MeshRenderer/BRDFLUT";
+    desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+    desc.Width = size;
+    desc.Height = size;
+    desc.MipLevels = 1;
+    desc.Format = Diligent::TEX_FORMAT_RG32_FLOAT;
+    desc.Usage = Diligent::USAGE_IMMUTABLE;
+    desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    Diligent::TextureSubResData sub;
+    sub.pData = lut.data();
+    sub.Stride = static_cast<Diligent::Uint64>(size * 2 * sizeof(float));
+    Diligent::TextureData data;
+    data.pSubResources = &sub;
+    data.NumSubresources = 1;
+    device->CreateTexture(desc, &data, &texture);
+    if (!texture) return false;
+    view = texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    return view.RawPtr() != nullptr;
+}
 }
 
 const char* MeshVSSource = R"(
@@ -324,6 +636,9 @@ Texture2D g_GoboTexture4 : register(t11);
 Texture2D g_GoboTexture5 : register(t12);
 Texture2D g_GoboTexture6 : register(t13);
 Texture2D g_GoboTexture7 : register(t14);
+TextureCube g_IrradianceMap : register(t15);
+TextureCube g_PrefilteredEnvironment : register(t16);
+Texture2D g_BrdfLut : register(t17);
 SamplerState g_BaseColorSampler : register(s0);
 SamplerComparisonState g_ShadowSampler : register(s1);
 SamplerState g_GoboSampler : register(s2);
@@ -366,6 +681,72 @@ cbuffer ShadowParams : register(b3) {
     float4x4 LightViewProjection;
     float4 ShadowSettings;
 };
+
+float sampleShadowVisibility(float2 shadowUV, float depth) {
+    if (ShadowSettings.w <= 0.001) {
+        return g_ShadowMap.SampleCmpLevelZero(g_ShadowSampler, shadowUV, depth);
+    }
+    uint shadowWidth = 1;
+    uint shadowHeight = 1;
+    g_ShadowMap.GetDimensions(shadowWidth, shadowHeight);
+    float2 texel = 1.0 / float2(shadowWidth, shadowHeight);
+    float radius = min(2.0, ShadowSettings.w);
+    float visibility = 0.0;
+    [unroll]
+    for (int y = -1; y <= 1; ++y) {
+        [unroll]
+        for (int x = -1; x <= 1; ++x) {
+            visibility += g_ShadowMap.SampleCmpLevelZero(
+                g_ShadowSampler, shadowUV + float2(x, y) * texel * radius, depth);
+        }
+    }
+    return visibility / 9.0;
+}
+
+cbuffer EnvironmentLighting : register(b4) {
+    float4 EnvironmentSettings;
+};
+
+float3 sampleEnvironmentDiffuse(float3 normal) {
+    float angle = EnvironmentSettings.z;
+    float2 rotation = float2(cos(angle), sin(angle));
+    normal = float3(normal.x * rotation.x - normal.z * rotation.y,
+                    normal.y,
+                    normal.x * rotation.y + normal.z * rotation.x);
+    uint width = 1;
+    uint height = 1;
+    uint mipCount = 1;
+    g_IrradianceMap.GetDimensions(0, width, height, mipCount);
+    // The coarsest generated mip approximates a low-frequency irradiance
+    // field until the dedicated cosine-convolution pass is installed.
+    return g_IrradianceMap.SampleLevel(
+        g_BaseColorSampler, normalize(normal), max(0, mipCount - 1)).rgb;
+}
+
+float3 sampleEnvironmentSpecular(float3 normal, float3 viewDirection,
+                                 float roughness, float3 F0) {
+    float3 reflectionDirection = reflect(-normalize(viewDirection), normalize(normal));
+    float angle = EnvironmentSettings.z;
+    float2 rotation = float2(cos(angle), sin(angle));
+    reflectionDirection = float3(
+        reflectionDirection.x * rotation.x - reflectionDirection.z * rotation.y,
+        reflectionDirection.y,
+        reflectionDirection.x * rotation.y + reflectionDirection.z * rotation.x);
+    uint width = 1;
+    uint height = 1;
+    uint mipCount = 1;
+    g_PrefilteredEnvironment.GetDimensions(0, width, height, mipCount);
+    float lod = saturate(roughness) * max(0.0, float(mipCount) - 1.0);
+    float3 prefiltered = g_PrefilteredEnvironment.SampleLevel(
+        g_BaseColorSampler, reflectionDirection, lod).rgb;
+    float2 brdf = g_BrdfLut.SampleLevel(
+        g_BaseColorSampler,
+        float2(saturate(dot(normalize(normal), normalize(viewDirection))),
+               saturate(roughness)), 0).rg;
+    float3 fresnel = F0 + (1.0 - F0) *
+        pow(1.0 - saturate(dot(normalize(normal), normalize(viewDirection))), 5.0);
+    return prefiltered * (fresnel * brdf.x + brdf.y);
+}
 
 // Keep this helper name distinct from the shader compiler's internal normal-map
 // lowering symbol.  The D3D12 compiler otherwise reports a spurious
@@ -448,8 +829,8 @@ float4 PSMain(PSInput In) : SV_Target {
         float2 shadowUV = shadowNdc.xy * float2(0.5, -0.5) + 0.5;
         if (all(shadowUV >= 0.0) && all(shadowUV <= 1.0) &&
             shadowNdc.z >= 0.0 && shadowNdc.z <= 1.0) {
-            shadowVisibility = g_ShadowMap.SampleCmpLevelZero(
-                g_ShadowSampler, shadowUV, shadowNdc.z - ShadowSettings.y);
+            shadowVisibility = sampleShadowVisibility(
+                shadowUV, shadowNdc.z - ShadowSettings.y);
         }
     }
     if (SceneLightingMeta.x > 0) {
@@ -463,6 +844,14 @@ float4 PSMain(PSInput In) : SV_Target {
         // nearly black.
         float3 ambientColor = solidBase.rgb * (0.24 * ao);
         float3 F0 = lerp(float3(0.04, 0.04, 0.04), solidBase.rgb, metallic);
+        if (EnvironmentSettings.x > 0.5) {
+            float3 indirectDiffuse = sampleEnvironmentDiffuse(worldNormal) *
+                solidBase.rgb * (1.0 - metallic) * ao;
+            float3 indirectSpecular = sampleEnvironmentSpecular(
+                worldNormal, viewDirection, roughness, F0);
+            ambientColor += (indirectDiffuse + indirectSpecular) *
+                max(EnvironmentSettings.y, 0.0);
+        }
         [loop]
         for (uint lightIndex = 0; lightIndex < min(SceneLightingMeta.x, 8u); ++lightIndex) {
             SceneLight light = SceneLights[lightIndex];
@@ -625,6 +1014,10 @@ struct MeshRenderer::Impl {
         float shadowSettings[4] = {};
     };
 
+    struct EnvironmentConstants {
+        float settings[4] = {};
+    };
+
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
@@ -670,6 +1063,13 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pShadowMapSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pShadowFallbackTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pShadowFallbackSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pIrradianceMapSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pPrefilteredEnvironmentSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pBrdfLutSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>                pEnvironmentFallbackTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>                pEnvironmentTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>                pIrradianceTexture_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture>                pBrdfLutTexture_;
     std::array<Diligent::RefCntAutoPtr<Diligent::ITexture>, MaxSceneLights>
         pGoboTextures_;
     std::array<Diligent::RefCntAutoPtr<Diligent::ITextureView>, MaxSceneLights>
@@ -693,6 +1093,7 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMaterialBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pSceneLightingBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pShadowParamsBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pEnvironmentBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pShadowConstantsBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pShadowPSO_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pShadowSRB_;
@@ -707,9 +1108,11 @@ struct MeshRenderer::Impl {
     QString metallicRoughnessTexturePath_;
     QString normalTexturePath_;
     QString occlusionTexturePath_;
+    QString environmentMapPath_;
     MaterialConstants materialConstants_;
     SceneLightingConstants sceneLighting_;
     ShadowParamsConstants shadowParams_;
+    EnvironmentConstants environmentConstants_;
 };
 
 MeshRenderer::MeshRenderer(GpuContext& context)
@@ -796,6 +1199,11 @@ void MeshRenderer::createBuffers()
     pImpl_->pMaterialBuffer_.Release();
     pImpl_->pSceneLightingBuffer_.Release();
     pImpl_->pShadowParamsBuffer_.Release();
+    pImpl_->pEnvironmentBuffer_.Release();
+    pImpl_->pEnvironmentFallbackTexture_.Release();
+    pImpl_->pEnvironmentTexture_.Release();
+    pImpl_->pIrradianceTexture_.Release();
+    pImpl_->pBrdfLutTexture_.Release();
     pImpl_->pShadowConstantsBuffer_.Release();
     pImpl_->pShadowPSO_.Release();
     pImpl_->pShadowSRB_.Release();
@@ -941,6 +1349,15 @@ void MeshRenderer::createBuffers()
         BuffDesc.BindFlags = BIND_UNIFORM_BUFFER;
         BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pShadowParamsBuffer_);
+    }
+    {
+        BufferDesc BuffDesc;
+        BuffDesc.Name = "Mesh Environment Lighting CB";
+        BuffDesc.Usage = USAGE_DYNAMIC;
+        BuffDesc.Size = sizeof(Impl::EnvironmentConstants);
+        BuffDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pEnvironmentBuffer_);
     }
 
     if (!pImpl_->pBaseColorSampler_) {
@@ -1114,6 +1531,36 @@ void MeshRenderer::createPSO()
     if (!pImpl_->pShadowMapSRV_) {
         pImpl_->pShadowMapSRV_ = pImpl_->pShadowFallbackSRV_;
     }
+    if (!pImpl_->pEnvironmentFallbackTexture_) {
+        const float neutralFace[4] = {0.18f, 0.20f, 0.24f, 1.0f};
+        TextureDesc envDesc;
+        envDesc.Name = "MeshRenderer_NeutralEnvironmentFallback";
+        envDesc.Type = RESOURCE_DIM_TEX_CUBE;
+        envDesc.Width = 1;
+        envDesc.Height = 1;
+        envDesc.ArraySize = 6;
+        envDesc.MipLevels = 1;
+        envDesc.Format = TEX_FORMAT_RGBA32_FLOAT;
+        envDesc.Usage = USAGE_IMMUTABLE;
+        envDesc.BindFlags = BIND_SHADER_RESOURCE;
+        TextureSubResData faces[6] = {};
+        for (auto& face : faces) {
+            face.pData = neutralFace;
+            face.Stride = sizeof(neutralFace);
+        }
+        TextureData envData;
+        envData.pSubResources = faces;
+        envData.NumSubresources = 6;
+        pDevice->CreateTexture(envDesc, &envData,
+                               &pImpl_->pEnvironmentFallbackTexture_);
+        if (pImpl_->pEnvironmentFallbackTexture_) {
+            auto view = pImpl_->pEnvironmentFallbackTexture_->GetDefaultView(
+                TEXTURE_VIEW_SHADER_RESOURCE);
+            pImpl_->pIrradianceMapSRV_ = view;
+            pImpl_->pPrefilteredEnvironmentSRV_ = view;
+            pImpl_->pBrdfLutSRV_ = pImpl_->pLinearWhiteTextureSRV_;
+        }
+    }
 
     // Diligent output parameters must be empty. createPSO() is also called
     // when the active render-target format changes, so release the currently
@@ -1191,7 +1638,7 @@ void MeshRenderer::createPSO()
     // Resource layout
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     
-    static std::array<ShaderResourceVariableDesc, 17> Vars = {{
+    static std::array<ShaderResourceVariableDesc, 20> Vars = {{
         {SHADER_TYPE_VERTEX, "g_Instances", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_OpacityTexture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -1208,6 +1655,9 @@ void MeshRenderer::createPSO()
         {SHADER_TYPE_PIXEL, "g_GoboTexture5", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_GoboTexture6", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_GoboTexture7", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_IrradianceMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_PrefilteredEnvironment", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_BrdfLut", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_BaseColorSampler", SHADER_RESOURCE_VARIABLE_TYPE_STATIC}
     }};
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -1247,6 +1697,9 @@ void MeshRenderer::createPSO()
         }
         if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "ShadowParams")) {
             var->Set(pImpl_->pShadowParamsBuffer_);
+        }
+        if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "EnvironmentLighting")) {
+            var->Set(pImpl_->pEnvironmentBuffer_);
         }
         if (auto* var = pso->GetStaticVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorSampler")) {
             var->Set(pImpl_->pBaseColorSampler_);
@@ -1415,7 +1868,7 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
             : pImpl_->pSRB_.RawPtr();
     if (!activePSO || !activeSRB || !pImpl_->pConstantBuffer_ ||
         !pImpl_->pMaterialBuffer_ || !pImpl_->pSceneLightingBuffer_ ||
-        !pImpl_->pShadowParamsBuffer_ ||
+        !pImpl_->pShadowParamsBuffer_ || !pImpl_->pEnvironmentBuffer_ ||
         !pImpl_->pInstanceBuffer_) {
         if (!pImpl_->missingPipelineWarningIssued_) {
             qWarning("[MeshRenderer] prepare skipped because pipeline or buffer resources are unavailable");
@@ -1462,6 +1915,17 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
     }
     memcpy(pData, &pImpl_->shadowParams_, sizeof(Impl::ShadowParamsConstants));
     pContext->UnmapBuffer(pImpl_->pShadowParamsBuffer_, MAP_WRITE);
+    if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    pData = nullptr;
+    pContext->MapBuffer(pImpl_->pEnvironmentBuffer_, MAP_WRITE,
+                        MAP_FLAG_DISCARD, pData);
+    if (!pData) {
+        qWarning("[MeshRenderer] prepare skipped because environment mapping failed");
+        return;
+    }
+    memcpy(pData, &pImpl_->environmentConstants_,
+           sizeof(Impl::EnvironmentConstants));
+    pContext->UnmapBuffer(pImpl_->pEnvironmentBuffer_, MAP_WRITE);
     if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     
     pImpl_->gpuCullActive_ =
@@ -1551,6 +2015,15 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         }
         if (auto* occlusionVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_OcclusionTexture")) {
             occlusionVar->Set(pImpl_->pOcclusionTextureSRV_);
+        }
+        if (auto* envVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_IrradianceMap")) {
+            envVar->Set(pImpl_->pIrradianceMapSRV_);
+        }
+        if (auto* envVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_PrefilteredEnvironment")) {
+            envVar->Set(pImpl_->pPrefilteredEnvironmentSRV_);
+        }
+        if (auto* envVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_BrdfLut")) {
+            envVar->Set(pImpl_->pBrdfLutSRV_);
         }
         if (auto* shadowVar = activeSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_ShadowMap")) {
             shadowVar->Set(pImpl_->pShadowMapSRV_ ? pImpl_->pShadowMapSRV_
@@ -1845,7 +2318,7 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
 void MeshRenderer::setShadowMap(ITextureView* shadowMap,
                                 const float* lightViewProjection,
                                 bool enabled, int sceneLightIndex,
-                                float depthBias)
+                                float depthBias, float softness)
 {
     prepared_ = false;
     pImpl_->pShadowMapSRV_ = shadowMap ? shadowMap : pImpl_->pShadowFallbackSRV_;
@@ -1857,6 +2330,77 @@ void MeshRenderer::setShadowMap(ITextureView* shadowMap,
     pImpl_->shadowParams_.shadowSettings[1] = std::max(depthBias, 0.0f);
     pImpl_->shadowParams_.shadowSettings[2] =
         static_cast<float>(std::max(sceneLightIndex, 0));
+    pImpl_->shadowParams_.shadowSettings[3] =
+        std::isfinite(softness) ? std::clamp(softness, 0.0f, 2.0f) : 0.0f;
+}
+
+void MeshRenderer::setEnvironmentMaps(ITextureView* irradianceMap,
+                                      ITextureView* prefilteredEnvironment,
+                                      ITextureView* brdfLut,
+                                      float intensity)
+{
+    prepared_ = false;
+    pImpl_->pIrradianceMapSRV_ = irradianceMap
+        ? irradianceMap : pImpl_->pIrradianceMapSRV_;
+    pImpl_->pPrefilteredEnvironmentSRV_ = prefilteredEnvironment
+        ? prefilteredEnvironment : pImpl_->pPrefilteredEnvironmentSRV_;
+    pImpl_->pBrdfLutSRV_ = brdfLut
+        ? brdfLut : pImpl_->pBrdfLutSRV_;
+    const bool enabled = irradianceMap && prefilteredEnvironment && brdfLut;
+    pImpl_->environmentConstants_.settings[0] = enabled ? 1.0f : 0.0f;
+    pImpl_->environmentConstants_.settings[1] =
+        std::isfinite(intensity) ? std::max(0.0f, intensity) : 0.0f;
+}
+
+bool MeshRenderer::setEnvironmentMap(const QString& path, float intensity)
+{
+    prepared_ = false;
+    const QString normalizedPath = path.trimmed();
+    if (normalizedPath == pImpl_->environmentMapPath_ &&
+        pImpl_->environmentConstants_.settings[0] > 0.5f) {
+        pImpl_->environmentConstants_.settings[1] =
+            std::isfinite(intensity) ? std::max(0.0f, intensity) : 0.0f;
+        return true;
+    }
+    pImpl_->environmentMapPath_ = normalizedPath;
+    pImpl_->pEnvironmentTexture_.Release();
+    pImpl_->pIrradianceTexture_.Release();
+    pImpl_->pBrdfLutTexture_.Release();
+    if (normalizedPath.isEmpty()) {
+        setEnvironmentMaps(nullptr, nullptr, nullptr, 0.0f);
+        return false;
+    }
+    RefCntAutoPtr<ITextureView> environmentView;
+    RefCntAutoPtr<ITextureView> irradianceView;
+    if (!createEnvironmentCube(context_, normalizedPath,
+                               pImpl_->pEnvironmentTexture_, environmentView,
+                               pImpl_->pIrradianceTexture_, irradianceView)) {
+        setEnvironmentMaps(nullptr, nullptr, nullptr, 0.0f);
+        return false;
+    }
+    // Until convolution passes are supplied, use the source cubemap for both
+    // diffuse and specular lookups. This is a real environment reflection path
+    // and remains compatible with later derived-map replacement.
+    setEnvironmentMaps(irradianceView.RawPtr(), environmentView.RawPtr(),
+                       pImpl_->pBrdfLutSRV_.RawPtr(), intensity);
+    RefCntAutoPtr<ITextureView> brdfView;
+    if (createBrdfLut(context_, pImpl_->pBrdfLutTexture_, brdfView)) {
+        setEnvironmentMaps(irradianceView.RawPtr(), environmentView.RawPtr(),
+                           brdfView.RawPtr(), intensity);
+    }
+    return true;
+}
+
+void MeshRenderer::setEnvironmentRotation(float degrees)
+{
+    pImpl_->environmentConstants_.settings[2] = std::isfinite(degrees)
+        ? degrees * (std::numbers::pi_v<float> / 180.0f) : 0.0f;
+    prepared_ = false;
+}
+
+Diligent::ITextureView* MeshRenderer::environmentMapView() const
+{
+    return pImpl_->pPrefilteredEnvironmentSRV_.RawPtr();
 }
 
 void MeshRenderer::setTransparentPass(bool transparent)

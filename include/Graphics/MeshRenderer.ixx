@@ -99,12 +99,28 @@ public:
     void setMetallicRoughnessTexture(const QString& path);
     void setNormalTexture(const QString& path);
     void setOcclusionTexture(const QString& path);
+    // Optional split-sum environment lighting inputs. Passing nullptr for all
+    // views disables IBL while preserving the existing studio fallback.
+    void setEnvironmentMaps(ITextureView* irradianceMap,
+                            ITextureView* prefilteredEnvironment,
+                            ITextureView* brdfLut,
+                            float intensity = 1.0f);
+    // Load an equirectangular HDR/EXR image and create a runtime cubemap.
+    // The generated cubemap is used as the initial environment input; callers
+    // may replace the derived irradiance/prefilter maps through setEnvironmentMaps.
+    bool setEnvironmentMap(const QString& path, float intensity = 1.0f);
+    void setEnvironmentRotation(float degrees);
+    /// Returns the currently loaded specular environment cubemap SRV.
+    /// The returned view is owned by MeshRenderer and remains valid until the
+    /// next environment-map replacement or renderer destruction.
+    Diligent::ITextureView* environmentMapView() const;
     void setSceneLights(const std::vector<Light>& lights);
     // Set the depth texture and light transform consumed by the material pass.
     // Passing nullptr disables shadow comparison without changing the lights.
     void setShadowMap(ITextureView* shadowMap, const float* lightViewProjection,
                       bool enabled, int sceneLightIndex,
-                      float depthBias = 0.0015f);
+                      float depthBias = 0.0015f,
+                      float softness = 0.0f);
     // Shadow-map depth prepass. The caller owns the DSV/viewport binding and
     // supplies a light view-projection matrix in the same Qt column-major
     // layout accepted by the regular matrix setters.
