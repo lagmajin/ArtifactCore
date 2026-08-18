@@ -1878,10 +1878,13 @@ endforeach()
 # scanner-disabled implementation units and retain imported BMI references.
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/Core.cppm" PROPERTY COMPILE_OPTIONS
     "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
+    "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
+    "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
     "/reference;Core.Defaults=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Defaults.ifc"
     "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
     "/reference;Frame.Range=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Range.ifc"
     "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
+    "/reference;Frame.Offset=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Offset.ifc"
     "/reference;Serialization.JsonAdapter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.JsonAdapter.ifc"
     "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBus.cppm" PROPERTY COMPILE_OPTIONS
@@ -1890,10 +1893,25 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBus.cppm" PROPER
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBusDebugger.cppm" PROPERTY COMPILE_OPTIONS
     "/reference;ArtifactCore.Event.EventBusDebugger=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/ArtifactCore.Event.EventBusDebugger.ifc"
     "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+    "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
     "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
     "/reference;Utils.Text.String=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Text.String.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cppm" PROPERTY COMPILE_OPTIONS
     "/reference;Codec.AbstractEncoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Codec.AbstractEncoder.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/PlaybackManager.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;Video.PlaybackManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.PlaybackManager.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CubeTransition.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;Video.Transitions.CubeTransition=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.Transitions.CubeTransition.ifc"
+    "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
+    "/reference;Video.TransitionFactory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.TransitionFactory.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;NLE.OTIO=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.OTIO.ifc"
+    "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
+    "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+    "/reference;Frame.Offset=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Offset.ifc"
+    "/reference;Frame.Range=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Range.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/PreciseTicker.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;Thread.PreciseTicker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/Thread.PreciseTicker.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm" PROPERTY COMPILE_OPTIONS
     "/reference;Video.Stabilizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.Stabilizer.ifc"
     "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
@@ -2888,9 +2906,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/NLE/Core.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/Defaults.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Time/RationalTime.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/UniString.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FramePosition.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRange.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRate.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameOffset.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/JsonSerializableAdapter.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/SchemaMigration.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Event/EventBus.cppm")
@@ -2899,8 +2920,21 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Event/EventBusDebugger.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/include/Event/EventBus.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/SharedPtr.cppm.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/ArtifactString.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/Text/String.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Video/Transitions/CubeTransition.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/include/NLE/Core.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/include/Video/TransitionFactory.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/NLE/OTIO.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/include/NLE/Core.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRange.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameOffset.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Thread/PreciseTicker.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/include/Thread/PreciseTicker.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameRange.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
