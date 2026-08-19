@@ -25,7 +25,7 @@ export enum class MaterialAlphaMode {
 };
 
  /// PBR マテリアル。DCC 標準 (glTF / Standard Surface 互換)。
- class Material {
+ export class Material {
  private:
   class Impl;
   Impl* impl_;
