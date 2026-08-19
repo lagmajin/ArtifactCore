@@ -2160,6 +2160,12 @@ set(ARTIFACTCORE_VIDEO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/ZoomTransition.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegVideoDecoder.cppm"
 )
+# Split Video transition implementations need explicit references to the
+# shared transition contract and frame view under MSVC.
+set_property(SOURCE ${ARTIFACTCORE_VIDEO_IMPL} APPEND PROPERTY COMPILE_OPTIONS
+    "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
+    "/reference;Video.AbstractTransition=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.AbstractTransition.ifc"
+    "/reference;Video.CpuFrameView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.CpuFrameView.ifc")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VIDEO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VIDEO_IMPL})
 
