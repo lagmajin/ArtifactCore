@@ -2222,6 +2222,15 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaEditorController
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaImageFrameDecoder.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Video.VideoFrame=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.VideoFrame.ifc"
     "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaPlaybackController.cppm" APPEND PROPERTY COMPILE_OPTIONS
+    "/reference;Codec.MFFrameExtractor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Codec.MFFrameExtractor.ifc"
+    "/reference;Media.MetaData=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/Media.MetaData.ifc"
+    "/reference;MediaAudioDecoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaAudioDecoder.ifc"
+    "/reference;MediaImageFrameDecoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaImageFrameDecoder.ifc"
+    "/reference;MediaReader=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaReader.ifc"
+    "/reference;MediaSource=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaSource.ifc"
+    "/reference;Playback.State=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/Playback.State.ifc"
+    "/reference;Video.VideoFrame=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.VideoFrame.ifc")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_MEDIA_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MEDIA_IMPL})
 
