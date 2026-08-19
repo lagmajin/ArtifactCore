@@ -25,18 +25,18 @@ export enum class MaterialAlphaMode {
 };
 
  /// PBR マテリアル。DCC 標準 (glTF / Standard Surface 互換)。
- export class SceneMaterial {
+ export class Material {
  private:
   class Impl;
   Impl* impl_;
  public:
-  SceneMaterial();
-  SceneMaterial(MaterialType type);
-  SceneMaterial(const SceneMaterial& other);
-  SceneMaterial(SceneMaterial&& other) noexcept;
-  ~SceneMaterial();
-  SceneMaterial& operator=(const SceneMaterial& other);
-  SceneMaterial& operator=(SceneMaterial&& other) noexcept;
+  Material();
+  Material(MaterialType type);
+  Material(const Material& other);
+  Material(Material&& other) noexcept;
+  ~Material();
+  Material& operator=(const Material& other);
+  Material& operator=(Material&& other) noexcept;
 
   // --- Identity ---
   void setName(const UniString& name);
@@ -109,14 +109,12 @@ export enum class MaterialAlphaMode {
   bool loadMaterialXDocument(const QString& filePath);
 
   // --- Presets ---
-  static SceneMaterial makeDefault();
-  static SceneMaterial makeMetal(const QColor& color = QColor(200, 200, 200));
-  static SceneMaterial makePlastic(const QColor& color = QColor(255, 255, 255));
-  static SceneMaterial makeGlass(const QColor& color = QColor(240, 248, 255));
-  static SceneMaterial makeEmissive(const QColor& color = QColor(255, 255, 255),
+  static Material makeDefault();
+  static Material makeMetal(const QColor& color = QColor(200, 200, 200));
+  static Material makePlastic(const QColor& color = QColor(255, 255, 255));
+  static Material makeGlass(const QColor& color = QColor(240, 248, 255));
+  static Material makeEmissive(const QColor& color = QColor(255, 255, 255),
                                 float strength = 5.0f);
  };
-
- export using Material = SceneMaterial;
 
 }

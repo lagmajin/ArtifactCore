@@ -12,8 +12,6 @@ import std;
 
 import Utils.String.UniString;
 
-#define Material SceneMaterial
-
 namespace ArtifactCore {
 
 class Material::Impl {
@@ -229,5 +227,3 @@ Material Material::makeEmissive(const QColor& color, float strength)
 }
 
 }
-
-#undef Material
