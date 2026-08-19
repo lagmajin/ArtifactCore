@@ -1781,6 +1781,27 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Utils.String.Like=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.Like.ifc"
                 "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
                 "/reference;ArtifactCore.Utils.PerformanceProfiler=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.Utils.PerformanceProfiler.ifc")
+    elseif(_artifact_impl_relative MATCHES "^src/Composition/")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreComposition.dir/${_artifact_module_name}.ifc"
+                "/reference;Composition.TemplateLock=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreComposition.dir/Composition.TemplateLock.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+                "/reference;Serialization.JsonAdapter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.JsonAdapter.ifc"
+                "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc"
+                "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+                "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc")
+    elseif(_artifact_impl_relative MATCHES "^src/Text/")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/${_artifact_module_name}.ifc"
+                "/reference;Text.Style=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/Text.Style.ifc"
+                "/reference;Text.LayoutContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/Text.LayoutContract.ifc"
+                "/reference;Text.ShapingBackend=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/Text.ShapingBackend.ifc"
+                "/reference;Font.FreeFont=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/Font.FreeFont.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
+                "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc")
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -3023,6 +3044,38 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # compile option alone does not order its IFC producer in MSVC.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/DirectCompute/SimpleChokerCS.ixx.obj")
+    elseif(_artifact_impl_relative MATCHES "^src/Composition/")
+        set(_artifact_composition_interface_objects)
+        foreach(_artifact_composition_interface IN LISTS ARTIFACTCORE_COMPOSITION_MODULES)
+            if(_artifact_composition_interface MATCHES "\\.ixx$")
+                file(RELATIVE_PATH _artifact_composition_interface_relative
+                    "${CMAKE_CURRENT_SOURCE_DIR}" "${_artifact_composition_interface}")
+                list(APPEND _artifact_composition_interface_objects
+                    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreComposition.dir/${_artifact_composition_interface_relative}.obj")
+            endif()
+        endforeach()
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            ${_artifact_composition_interface_objects}
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/FloatColor.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/FloatRGBA.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/JsonSerializableAdapter.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/SchemaMigration.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FramePosition.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/Id.ixx.obj")
+    elseif(_artifact_impl_relative MATCHES "^src/Text/")
+        set(_artifact_text_interface_objects)
+        foreach(_artifact_text_interface IN LISTS ARTIFACTCORE_TEXT_MODULES)
+            if(_artifact_text_interface MATCHES "\\.ixx$")
+                file(RELATIVE_PATH _artifact_text_interface_relative
+                    "${CMAKE_CURRENT_SOURCE_DIR}" "${_artifact_text_interface}")
+                list(APPEND _artifact_text_interface_objects
+                    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/${_artifact_text_interface_relative}.obj")
+            endif()
+        endforeach()
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            ${_artifact_text_interface_objects}
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/UniString.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/FloatRGBA.ixx.obj")
     elseif(_artifact_impl_relative MATCHES "^src/Audio/" OR
            _artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm" OR
            _artifact_impl_relative STREQUAL "src/CLAP/CLAPHost.cppm" OR
