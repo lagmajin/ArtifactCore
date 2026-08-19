@@ -1880,6 +1880,7 @@ endforeach()
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/Core.cppm" PROPERTY COMPILE_OPTIONS
     "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
     "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
+    "/reference;Time.Code=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Code.ifc"
     "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
     "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
     "/reference;Core.Defaults=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Defaults.ifc"
