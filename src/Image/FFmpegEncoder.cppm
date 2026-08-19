@@ -27,7 +27,6 @@ extern "C" {
 
 module Encoder.FFmpegEncoder;
 import Image;
-import :Impl;
 import Time.Code;
 
 namespace {

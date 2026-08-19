@@ -809,7 +809,6 @@ set(ARTIFACTCORE_MODULE_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Core/ArtifactOptional.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostic/DiagnosticRegistry.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Diagnostics/CoreDiagnostic.Test.cppm"
-    "${CMAKE_CURRENT_LIST_DIR}/../src/Image/FFmpegEncoder.Helpers.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/ImageProcessing/ImageF32x1.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Knob/Knob.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Memory/SharedPtr.cppm"
