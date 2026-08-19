@@ -1821,7 +1821,14 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # must not resolve to the aggregate Core output directory.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
-                "/reference;File:Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreFile.dir/File:Info.ifc")
+                "/reference;File:Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreFile.dir/File-Info.ifc")
+    elseif(_artifact_impl_relative MATCHES "^src/Configuration/" OR
+           _artifact_impl_relative STREQUAL "src/Application/ArtifactAppSettings.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/${_artifact_module_name}.ifc"
+                "/reference;Configuration.ConfigLayer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/Configuration.ConfigLayer.ifc"
+                "/reference;Configuration.LayeredConfigStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/Configuration.LayeredConfigStore.ifc")
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -3110,6 +3117,19 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/FloatRGBA.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Shape/ShapeTypes.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Property/PropertyTypes.ixx.obj")
+    elseif(_artifact_impl_relative MATCHES "^src/Configuration/" OR
+           _artifact_impl_relative STREQUAL "src/Application/ArtifactAppSettings.cppm")
+        set(_artifact_configuration_interface_objects)
+        foreach(_artifact_configuration_interface IN LISTS ARTIFACTCORE_CONFIGURATION_MODULES)
+            if(_artifact_configuration_interface MATCHES "\\.ixx$")
+                file(RELATIVE_PATH _artifact_configuration_interface_relative
+                    "${CMAKE_CURRENT_SOURCE_DIR}" "${_artifact_configuration_interface}")
+                list(APPEND _artifact_configuration_interface_objects
+                    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/${_artifact_configuration_interface_relative}.obj")
+            endif()
+        endforeach()
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            ${_artifact_configuration_interface_objects})
     elseif(_artifact_impl_relative MATCHES "^src/Audio/" OR
            _artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm" OR
            _artifact_impl_relative STREQUAL "src/CLAP/CLAPHost.cppm" OR
