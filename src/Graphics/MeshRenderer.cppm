@@ -667,6 +667,8 @@ cbuffer MaterialParams : register(b1) {
     float4 EmissionColorStrength;
     float4 PbrFactors;
     float4 PbrTextureFlags;
+    float4 PrincipledFactors;
+    float4 ClearcoatFactors;
 };
 
 struct SceneLight {
@@ -850,7 +852,11 @@ float4 PSMain(PSInput In) : SV_Target {
         // the baseline illumination and leave every unlit-facing surface
         // nearly black.
         float3 ambientColor = solidBase.rgb * (0.24 * ao);
-        float3 F0 = lerp(float3(0.04, 0.04, 0.04), solidBase.rgb, metallic);
+        float dielectricF0 = pow((max(PrincipledFactors.y, 1.0) - 1.0) /
+                                 (max(PrincipledFactors.y, 1.0) + 1.0), 2.0);
+        float3 F0 = lerp(float3(dielectricF0, dielectricF0, dielectricF0),
+                         solidBase.rgb, metallic);
+        F0 *= lerp(1.0, saturate(PrincipledFactors.x), 1.0 - metallic);
         if (EnvironmentSettings.x > 0.5) {
             float3 indirectDiffuse = sampleEnvironmentDiffuse(worldNormal) *
                 solidBase.rgb * (1.0 - metallic) * ao;
@@ -956,7 +962,18 @@ float4 PSMain(PSInput In) : SV_Target {
             float3 specular = distribution * geometryV * geometryL * fresnel /
                               max(4.0 * NdotV * NdotL, 1e-4);
             float3 diffuse = (1.0 - fresnel) * (1.0 - metallic) *
+                             (1.0 - saturate(PrincipledFactors.z)) *
                              solidBase.rgb / 3.14159265;
+            float coatRoughness = clamp(ClearcoatFactors.y, 0.04, 1.0);
+            float coatAlpha = coatRoughness * coatRoughness;
+            float coatAlpha2 = coatAlpha * coatAlpha;
+            float coatDenom = NdotH * NdotH * (coatAlpha2 - 1.0) + 1.0;
+            float coatDistribution = coatAlpha2 /
+                max(3.14159265 * coatDenom * coatDenom, 1e-4);
+            float coatSpecular = coatDistribution * geometryV * geometryL /
+                max(4.0 * NdotV * NdotL, 1e-4);
+            specular += coatSpecular * saturate(PrincipledFactors.w) *
+                        pow(1.0 - VdotH, 5.0);
             float lightShadow = (ShadowSettings.x > 0.5 &&
                                  lightIndex == (uint)ShadowSettings.z)
                                     ? shadowVisibility
@@ -992,6 +1009,63 @@ float4 PSMain(PSInput In) : SV_Target {
 }
 )";
 
+// Minimal mesh-shader path for the packed meshlet buffers.  One dispatched
+// group renders one meshlet; the index stream is expanded into local output
+// vertices so this path does not depend on a second local-vertex remap buffer.
+const char* MeshletMSSource = R"(
+struct MeshletGpu {
+    uint indexOffset;
+    uint indexCount;
+    uint vertexOffset;
+    uint vertexCount;
+    float3 boundsCenter;
+    float boundsRadius;
+};
+
+StructuredBuffer<MeshletGpu> g_Meshlets : register(t0);
+StructuredBuffer<uint> g_MeshletIndices : register(t1);
+StructuredBuffer<float3> g_Positions : register(t2);
+
+cbuffer MeshletConstants : register(b0) {
+    float4x4 g_View;
+    float4x4 g_Projection;
+    float4x4 g_Model;
+    uint g_MeshletBase;
+    uint3 g_MeshletPadding;
+};
+
+struct MSVertex {
+    float4 position : SV_Position;
+};
+
+[outputtopology("triangle")]
+[numthreads(32, 1, 1)]
+void MSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex,
+            out vertices MSVertex vertices[192],
+            out indices uint3 triangles[64]) {
+    MeshletGpu meshlet = g_Meshlets[g_MeshletBase + groupId.x];
+    uint triangleCount = min(meshlet.indexCount / 3u, 64u);
+    SetMeshOutputCounts(min(meshlet.indexCount, 192u), triangleCount);
+
+    for (uint i = groupIndex; i < meshlet.indexCount && i < 192u; i += 32u) {
+        uint sourceIndex = g_MeshletIndices[meshlet.indexOffset + i];
+        float4 worldPosition = mul(float4(g_Positions[sourceIndex], 1.0), g_Model);
+        vertices[i].position = mul(mul(worldPosition, g_View), g_Projection);
+    }
+
+    for (uint i = groupIndex; i < triangleCount; i += 32u) {
+        uint baseIndex = i * 3u;
+        triangles[i] = uint3(baseIndex, baseIndex + 1u, baseIndex + 2u);
+    }
+}
+)";
+
+const char* MeshletPSSource = R"(
+float4 PSMain() : SV_Target {
+    return float4(1.0, 1.0, 1.0, 1.0);
+}
+)";
+
 struct MeshRenderer::Impl {
     static constexpr size_t MaxSceneLights = 8;
 
@@ -1014,6 +1088,8 @@ struct MeshRenderer::Impl {
         float emissionColorStrength[4] = {};
         float pbrFactors[4] = {0.0f, 0.5f, 1.0f, 1.0f};
         float pbrTextureFlags[4] = {};
+        float principledFactors[4] = {0.5f, 1.5f, 0.0f, 0.0f};
+        float clearcoatFactors[4] = {0.0f, 0.2f, 0.0f, 0.0f};
     };
 
     struct ShadowParamsConstants {
@@ -1025,16 +1101,30 @@ struct MeshRenderer::Impl {
         float settings[4] = {};
     };
 
+    struct MeshletConstants {
+        float view[16] = {};
+        float projection[16] = {};
+        float model[16] = {};
+        std::uint32_t meshletBase = 0;
+        std::uint32_t padding[3] = {};
+    };
+
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
-    static_assert(sizeof(MaterialConstants) == sizeof(float) * 12);
+    static_assert(sizeof(MaterialConstants) == sizeof(float) * 20);
+    static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pPSO_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pSRB_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pTransparentPSO_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentSRB_;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pMeshletPSO_;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pMeshletSRB_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pMeshletBufferSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pMeshletIndexBufferSRV_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView>           pMeshletLodBufferSRV_;
     struct PipelineSet {
         Diligent::RefCntAutoPtr<Diligent::IPipelineState> opaquePSO;
         Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> opaqueSRB;
@@ -1050,6 +1140,15 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pNormalBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pUVBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pIndexBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletIndexBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletLodBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletConstantsBuffer_;
+    std::vector<MeshRenderer::MeshletLodGpu>                  meshletLods_;
+    size_t                                                     meshletCount_ = 0;
+    float meshletView_[16] = {};
+    float meshletProjection_[16] = {};
+    float meshletModel_[16] = {};
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pBaseColorTexture_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView>           pBaseColorTextureSRV_;
     Diligent::RefCntAutoPtr<Diligent::ITexture>               pOpacityTexture_;
@@ -1136,6 +1235,9 @@ MeshRenderer::MeshRenderer(GpuContext& context)
     transpose4x4(identity, constants_.projMatrix);
     transpose4x4(identity, constants_.prevViewMatrix);
     transpose4x4(identity, constants_.prevProjMatrix);
+    std::copy(std::begin(identity), std::end(identity), pImpl_->meshletView_);
+    std::copy(std::begin(identity), std::end(identity), pImpl_->meshletProjection_);
+    std::copy(std::begin(identity), std::end(identity), pImpl_->meshletModel_);
 }
 
 MeshRenderer::~MeshRenderer()
@@ -1198,6 +1300,12 @@ void MeshRenderer::createBuffers()
     pImpl_->pNormalBuffer_.Release();
     pImpl_->pUVBuffer_.Release();
     pImpl_->pIndexBuffer_.Release();
+    pImpl_->pMeshletBuffer_.Release();
+    pImpl_->pMeshletIndexBuffer_.Release();
+    pImpl_->pMeshletLodBuffer_.Release();
+    pImpl_->pMeshletConstantsBuffer_.Release();
+    pImpl_->meshletLods_.clear();
+    pImpl_->meshletCount_ = 0;
     pImpl_->pInstanceBuffer_.Release();
     pImpl_->pCompactedInstanceBuffer_.Release();
     pImpl_->pIndirectArgsBuffer_.Release();
@@ -1220,6 +1328,16 @@ void MeshRenderer::createBuffers()
 
     pImpl_->gpuCullReady_ = false;
     pImpl_->gpuCullActive_ = false;
+    const auto& deviceInfo = pDevice->GetDeviceInfo();
+    const auto& adapterInfo = pDevice->GetAdapterInfo();
+    const bool rayTracingSupported =
+        deviceInfo.Features.RayTracing != DEVICE_FEATURE_STATE_DISABLED &&
+        (adapterInfo.RayTracing.CapFlags &
+         RAY_TRACING_CAP_FLAG_STANDALONE_SHADERS) != 0;
+    const auto vertexBindFlags = BIND_VERTEX_BUFFER | BIND_SHADER_RESOURCE |
+        (rayTracingSupported ? BIND_RAY_TRACING : BIND_NONE);
+    const auto indexBindFlags = BIND_INDEX_BUFFER | BIND_SHADER_RESOURCE |
+        (rayTracingSupported ? BIND_RAY_TRACING : BIND_NONE);
     
     // 1. Position buffer (always needed)
     if (vertexCount_ > 0) {
@@ -1227,7 +1345,7 @@ void MeshRenderer::createBuffers()
         BuffDesc.Name              = "Mesh Position Buffer";
         BuffDesc.Usage             = USAGE_DEFAULT;
         BuffDesc.Size              = sizeof(float) * 3 * vertexCount_;
-        BuffDesc.BindFlags         = BIND_VERTEX_BUFFER;
+        BuffDesc.BindFlags         = vertexBindFlags;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pPositionBuffer_);
     }
@@ -1238,7 +1356,7 @@ void MeshRenderer::createBuffers()
         BuffDesc.Name              = "Mesh Normal Buffer";
         BuffDesc.Usage             = USAGE_DEFAULT;
         BuffDesc.Size              = sizeof(float) * 3 * vertexCount_;
-        BuffDesc.BindFlags         = BIND_VERTEX_BUFFER;
+        BuffDesc.BindFlags         = vertexBindFlags;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pNormalBuffer_);
     }
@@ -1248,7 +1366,7 @@ void MeshRenderer::createBuffers()
         BuffDesc.Name              = "Mesh UV Buffer";
         BuffDesc.Usage             = USAGE_DEFAULT;
         BuffDesc.Size              = sizeof(float) * 2 * vertexCount_;
-        BuffDesc.BindFlags         = BIND_VERTEX_BUFFER;
+        BuffDesc.BindFlags         = vertexBindFlags;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pUVBuffer_);
     }
@@ -1259,7 +1377,7 @@ void MeshRenderer::createBuffers()
         BuffDesc.Name              = "Mesh Index Buffer";
         BuffDesc.Usage             = USAGE_DEFAULT;
         BuffDesc.Size              = sizeof(uint32_t) * indexCount_;
-        BuffDesc.BindFlags         = BIND_INDEX_BUFFER;
+        BuffDesc.BindFlags         = indexBindFlags;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pIndexBuffer_);
     }
@@ -1306,6 +1424,15 @@ void MeshRenderer::createBuffers()
         BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
         pDevice->CreateBuffer(
             BuffDesc, nullptr, &pImpl_->pCullConstantsBuffer_);
+    }
+    {
+        BufferDesc BuffDesc;
+        BuffDesc.Name = "Meshlet Constants";
+        BuffDesc.Usage = USAGE_DYNAMIC;
+        BuffDesc.Size = sizeof(Impl::MeshletConstants);
+        BuffDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        BuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pMeshletConstantsBuffer_);
     }
     
     // 6. Constant buffer
@@ -1574,8 +1701,10 @@ void MeshRenderer::createPSO()
     // selected set before writing the new references.
     pImpl_->pSRB_.Release();
     pImpl_->pTransparentSRB_.Release();
+    pImpl_->pMeshletSRB_.Release();
     pImpl_->pPSO_.Release();
     pImpl_->pTransparentPSO_.Release();
+    pImpl_->pMeshletPSO_.Release();
 
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
     
@@ -1682,6 +1811,52 @@ void MeshRenderer::createPSO()
     }
     if (!pImpl_->pTransparentPSO_) {
         qWarning("[MeshRenderer] transparent PSO creation failed; using opaque fallback");
+    }
+
+    // Mesh-shader PSO. This is deliberately a separate pipeline: mesh
+    // pipelines cannot have a vertex input layout or a vertex shader.
+    GraphicsPipelineStateCreateInfo meshPSOInfo;
+    meshPSOInfo.PSODesc.Name = "Meshlet LOD Mesh Shader PSO";
+    meshPSOInfo.PSODesc.PipelineType = PIPELINE_TYPE_MESH;
+    meshPSOInfo.pPSOCache = pImpl_->pPSOCache_.RawPtr();
+    meshPSOInfo.GraphicsPipeline.NumRenderTargets = 1;
+    meshPSOInfo.GraphicsPipeline.RTVFormats[0] = renderTargetFormat_;
+    meshPSOInfo.GraphicsPipeline.DSVFormat = TEX_FORMAT_D32_FLOAT;
+    meshPSOInfo.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    meshPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+    meshPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
+    meshPSOInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = COMPARISON_FUNC_LESS;
+    auto& meshRT = meshPSOInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
+    meshRT.BlendEnable = true;
+    meshRT.SrcBlend = BLEND_FACTOR_SRC_ALPHA;
+    meshRT.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
+    meshRT.BlendOp = BLEND_OPERATION_ADD;
+
+    RefCntAutoPtr<IShader> meshShader;
+    RefCntAutoPtr<IShader> meshPixelShader;
+    if (context_.CompileShader(MeshletMSSource, SHADER_TYPE_MESH,
+                               "MSMain", &meshShader) &&
+        context_.CompileShader(MeshletPSSource, SHADER_TYPE_PIXEL,
+                               "PSMain", &meshPixelShader)) {
+        meshPSOInfo.pMS = meshShader;
+        meshPSOInfo.pPS = meshPixelShader;
+        std::array<ShaderResourceVariableDesc, 4> meshVars = {{
+            {SHADER_TYPE_MESH, "g_Meshlets", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_MESH, "g_MeshletIndices", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_MESH, "g_Positions", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_MESH, "MeshletConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+        }};
+        meshPSOInfo.PSODesc.ResourceLayout.DefaultVariableType =
+            SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+        meshPSOInfo.PSODesc.ResourceLayout.Variables = meshVars.data();
+        meshPSOInfo.PSODesc.ResourceLayout.NumVariables =
+            static_cast<Uint32>(meshVars.size());
+        pDevice->CreateGraphicsPipelineState(meshPSOInfo,
+                                              &pImpl_->pMeshletPSO_);
+        if (pImpl_->pMeshletPSO_) {
+            pImpl_->pMeshletPSO_->CreateShaderResourceBinding(
+                &pImpl_->pMeshletSRB_, true);
+        }
     }
     qDebug() << "[MeshRenderer] PSO created successfully";
     
@@ -1837,6 +2012,173 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
         if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     }
 }
+
+void MeshRenderer::updateMeshletGeometry(
+    const MeshletGpu* meshlets, size_t meshletCount,
+    const uint32_t* indices, size_t indexCount,
+    const MeshletLodGpu* lods, size_t lodCount)
+{
+    auto* device = context_.RenderDevice();
+    if (!device) {
+        qWarning("[MeshRenderer] updateMeshletGeometry skipped because device is unavailable");
+        return;
+    }
+
+    pImpl_->pMeshletBuffer_.Release();
+    pImpl_->pMeshletIndexBuffer_.Release();
+    pImpl_->pMeshletLodBuffer_.Release();
+
+    const auto createStructured = [device](const char* name, const void* data,
+                                            size_t size, size_t stride,
+                                            RefCntAutoPtr<IBuffer>& out) {
+        if (!data || size == 0 || stride == 0) {
+            return;
+        }
+        BufferDesc desc;
+        desc.Name = name;
+        desc.Usage = USAGE_DEFAULT;
+        desc.Size = static_cast<Uint32>(size);
+        desc.BindFlags = BIND_SHADER_RESOURCE;
+        desc.Mode = BUFFER_MODE_STRUCTURED;
+        desc.ElementByteStride = static_cast<Uint32>(stride);
+        BufferData initData;
+        initData.pData = data;
+        initData.DataSize = size;
+        device->CreateBuffer(desc, &initData, &out);
+    };
+
+    createStructured("Meshlet Metadata Buffer", meshlets,
+                     sizeof(MeshletGpu) * meshletCount, sizeof(MeshletGpu),
+                     pImpl_->pMeshletBuffer_);
+    createStructured("Meshlet Index Buffer", indices,
+                     sizeof(uint32_t) * indexCount, sizeof(uint32_t),
+                     pImpl_->pMeshletIndexBuffer_);
+    createStructured("Meshlet LOD Buffer", lods,
+                     sizeof(MeshletLodGpu) * lodCount, sizeof(MeshletLodGpu),
+                     pImpl_->pMeshletLodBuffer_);
+    pImpl_->meshletCount_ = meshletCount;
+    if (lods && lodCount > 0) {
+        pImpl_->meshletLods_.assign(lods, lods + lodCount);
+    }
+}
+
+void MeshRenderer::prepareMeshShader(IDeviceContext* pContext, size_t lodIndex)
+{
+    if (!pContext || !pImpl_->pMeshletPSO_ || !pImpl_->pMeshletSRB_ ||
+        !pImpl_->pMeshletBuffer_ || !pImpl_->pMeshletIndexBuffer_ ||
+        !pImpl_->pPositionBuffer_ || pImpl_->meshletCount_ == 0) {
+        return;
+    }
+    if (lodIndex >= pImpl_->meshletLods_.size()) {
+        lodIndex = 0;
+    }
+    const auto& lod = pImpl_->meshletLods_.empty()
+        ? MeshletLodGpu{}
+        : pImpl_->meshletLods_[lodIndex];
+    auto* meshVar = pImpl_->pMeshletSRB_->GetVariableByName(
+        SHADER_TYPE_MESH, "g_Meshlets");
+    auto* indexVar = pImpl_->pMeshletSRB_->GetVariableByName(
+        SHADER_TYPE_MESH, "g_MeshletIndices");
+    auto* positionVar = pImpl_->pMeshletSRB_->GetVariableByName(
+        SHADER_TYPE_MESH, "g_Positions");
+    auto* constantsVar = pImpl_->pMeshletSRB_->GetVariableByName(
+        SHADER_TYPE_MESH, "MeshletConstants");
+    if (!meshVar || !indexVar || !positionVar || !constantsVar ||
+        !pImpl_->pMeshletConstantsBuffer_) {
+        return;
+    }
+    meshVar->Set(pImpl_->pMeshletBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    indexVar->Set(pImpl_->pMeshletIndexBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    positionVar->Set(pImpl_->pPositionBuffer_->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    MeshRenderer::Impl::MeshletConstants constants;
+    std::memcpy(constants.view, pImpl_->meshletView_, sizeof(constants.view));
+    std::memcpy(constants.projection, pImpl_->meshletProjection_, sizeof(constants.projection));
+    std::memcpy(constants.model, pImpl_->meshletModel_, sizeof(constants.model));
+    constants.meshletBase = lod.meshletOffset;
+    pContext->UpdateBuffer(pImpl_->pMeshletConstantsBuffer_, 0,
+                           sizeof(constants), &constants,
+                           RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    constantsVar->Set(pImpl_->pMeshletConstantsBuffer_);
+    pContext->SetPipelineState(pImpl_->pMeshletPSO_);
+    pContext->CommitShaderResources(pImpl_->pMeshletSRB_,
+                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    (void)lod;
+}
+
+void MeshRenderer::setMeshletMatrices(const float* viewMatrix,
+                                      const float* projectionMatrix,
+                                      const float* modelMatrix)
+{
+    if (viewMatrix) {
+        std::memcpy(pImpl_->meshletView_, viewMatrix, sizeof(pImpl_->meshletView_));
+    }
+    if (projectionMatrix) {
+        std::memcpy(pImpl_->meshletProjection_, projectionMatrix,
+                    sizeof(pImpl_->meshletProjection_));
+    }
+    if (modelMatrix) {
+        std::memcpy(pImpl_->meshletModel_, modelMatrix, sizeof(pImpl_->meshletModel_));
+    }
+}
+
+void MeshRenderer::drawMeshlets(IDeviceContext* pContext, size_t lodIndex)
+{
+    if (!pContext || !pImpl_->pMeshletPSO_ || pImpl_->meshletCount_ == 0) {
+        return;
+    }
+    size_t offset = 0;
+    size_t count = pImpl_->meshletCount_;
+    if (lodIndex < pImpl_->meshletLods_.size()) {
+        offset = pImpl_->meshletLods_[lodIndex].meshletOffset;
+        count = pImpl_->meshletLods_[lodIndex].meshletCount;
+    }
+    if (count == 0) {
+        return;
+    }
+    DrawMeshAttribs drawAttrs;
+    drawAttrs.ThreadGroupCountX = static_cast<Uint32>(count);
+    pContext->DrawMesh(drawAttrs);
+}
+
+bool MeshRenderer::meshShaderReady() const noexcept
+{
+    const auto* device = context_.RenderDevice();
+    const bool meshShadersSupported =
+        device && device->GetDeviceInfo().Features.MeshShaders !=
+                      DEVICE_FEATURE_STATE_DISABLED;
+    return meshShadersSupported && pImpl_ && pImpl_->pMeshletPSO_ &&
+           pImpl_->pMeshletSRB_ &&
+           pImpl_->pMeshletBuffer_ && pImpl_->pMeshletIndexBuffer_ &&
+           pImpl_->pPositionBuffer_ && pImpl_->pMeshletConstantsBuffer_ &&
+           pImpl_->meshletCount_ > 0 && !pImpl_->meshletLods_.empty();
+}
+
+size_t MeshRenderer::chooseMeshletLOD(float projectedRadiusPixels) const noexcept
+{
+    if (pImpl_ == nullptr || pImpl_->meshletLods_.empty()) {
+        return 0;
+    }
+    size_t selected = 0;
+    for (size_t i = 0; i < pImpl_->meshletLods_.size(); ++i) {
+        if (projectedRadiusPixels <= pImpl_->meshletLods_[i].switchPixels) {
+            selected = i;
+        }
+    }
+    return selected;
+}
+
+IBuffer* MeshRenderer::positionBuffer() const noexcept
+{
+    return pImpl_ ? pImpl_->pPositionBuffer_ : nullptr;
+}
+
+IBuffer* MeshRenderer::indexBuffer() const noexcept
+{
+    return pImpl_ ? pImpl_->pIndexBuffer_ : nullptr;
+}
+
+size_t MeshRenderer::vertexCount() const noexcept { return vertexCount_; }
+size_t MeshRenderer::indexCount() const noexcept { return indexCount_; }
 
 void MeshRenderer::updateInstanceData(const InstanceData* instances, size_t count)
 {
@@ -2650,6 +2992,25 @@ void MeshRenderer::setPbrFactors(float metallic, float roughness,
     pImpl_->materialConstants_.pbrFactors[2] = std::max(normalStrength, 0.0f);
     pImpl_->materialConstants_.pbrFactors[3] =
         std::clamp(occlusionStrength, 0.0f, 1.0f);
+}
+
+void MeshRenderer::setPrincipledFactors(float specular, float ior,
+                                        float transmission, float clearcoat,
+                                        float clearcoatRoughness)
+{
+    prepared_ = false;
+    pImpl_->materialConstants_.principledFactors[0] =
+        std::clamp(specular, 0.0f, 1.0f);
+    pImpl_->materialConstants_.principledFactors[1] =
+        std::clamp(ior, 1.0f, 3.0f);
+    pImpl_->materialConstants_.principledFactors[2] =
+        std::clamp(transmission, 0.0f, 1.0f);
+    pImpl_->materialConstants_.principledFactors[3] =
+        std::clamp(clearcoat, 0.0f, 1.0f);
+    pImpl_->materialConstants_.clearcoatFactors[0] =
+        std::clamp(clearcoat, 0.0f, 1.0f);
+    pImpl_->materialConstants_.clearcoatFactors[1] =
+        std::clamp(clearcoatRoughness, 0.0f, 1.0f);
 }
 
 void MeshRenderer::setMetallicRoughnessTexture(const QString& path)

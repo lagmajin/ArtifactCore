@@ -39,6 +39,20 @@ AudioSpectrum::AudioSpectrum() {
     waveform_.assign(1024, 0.0f);
 }
 
+void AudioSpectrum::resetLoudnessMeasurement()
+{
+    momentaryLufs_ = -std::numeric_limits<float>::infinity();
+    shortTermLufs_ = -std::numeric_limits<float>::infinity();
+    integratedLufs_ = -std::numeric_limits<float>::infinity();
+    loudnessRangeLufs_ = 0.0f;
+    peakDb_ = -std::numeric_limits<float>::infinity();
+    truePeakDb_ = -std::numeric_limits<float>::infinity();
+    integratedEnergySum_ = 0.0;
+    integratedFrameCount_ = 0;
+    lastEndFrame_ = -1;
+    loudnessWindows_.clear();
+}
+
 float AudioSpectrum::normalizationGainDb(float targetLufs) const
 {
     if (!std::isfinite(targetLufs) || !std::isfinite(integratedLufs_)) {
@@ -107,12 +121,15 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
         spectrum_.assign(std::max(1, bins_), 0.0f);
         waveform_.assign(1024, 0.0f);
         momentaryLufs_ = -std::numeric_limits<float>::infinity();
+        shortTermLufs_ = momentaryLufs_;
         integratedLufs_ = momentaryLufs_;
+        loudnessRangeLufs_ = 0.0f;
         peakDb_ = momentaryLufs_;
         truePeakDb_ = momentaryLufs_;
         integratedEnergySum_ = 0.0;
         integratedFrameCount_ = 0;
         lastEndFrame_ = -1;
+        loudnessWindows_.clear();
         spectrumReady_.store(false, std::memory_order_release);
         return;
     }
@@ -142,7 +159,12 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
                 channelSum = std::isfinite(channelSum + square)
                     ? channelSum + square
                     : std::numeric_limits<double>::max();
-                peak = std::max(peak, std::abs(sample));
+                const float absoluteSample = std::abs(sample);
+                peak = std::max(peak, absoluteSample);
+                // True-peak interpolation must retain the original sample
+                // peak too; a one-sample impulse has no adjacent transition
+                // from which the oversampling loop can recover it.
+                truePeak = std::max(truePeak, absoluteSample);
                 if (hasPreviousSample) {
                     for (int subSample = 1; subSample < 4; ++subSample) {
                         const float t = static_cast<float>(subSample) / 4.0f;
@@ -171,6 +193,7 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
         if (lastEndFrame_ >= 0 && segment.startFrame != lastEndFrame_) {
             integratedEnergySum_ = 0.0;
             integratedFrameCount_ = 0;
+            loudnessWindows_.clear();
         }
         const double energyContribution = safeMeanSquare * static_cast<double>(frames);
         integratedEnergySum_ = std::isfinite(integratedEnergySum_ + energyContribution)
@@ -182,6 +205,52 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
             integratedEnergySum_ / static_cast<double>(std::max<qint64>(1, integratedFrameCount_));
         integratedLufs_ = static_cast<float>(
             -0.691 + 10.0 * std::log10(std::max(integratedMeanSquare, 1.0e-12)));
+
+        // Keep a bounded, sample-weighted 3-second window for short-term
+        // loudness. This is intentionally explicit about its approximation:
+        // BS.1770 K-weighting and gating are future filter stages, while the
+        // time-domain contract is already useful to the mixer and preflight.
+        loudnessWindows_.push_back(LoudnessWindow{
+            segment.startFrame, frames, safeMeanSquare, lufs});
+        const qint64 windowFrames = static_cast<qint64>(std::max(1, segment.sampleRate)) * 3;
+        const qint64 windowEnd = saturatingFrameAdd(segment.startFrame, frames);
+        while (!loudnessWindows_.empty() &&
+               saturatingFrameAdd(loudnessWindows_.front().startFrame,
+                                  loudnessWindows_.front().frameCount) <
+                   windowEnd - windowFrames) {
+            loudnessWindows_.erase(loudnessWindows_.begin());
+        }
+        double shortTermEnergy = 0.0;
+        qint64 shortTermFrames = 0;
+        std::vector<float> windowLufs;
+        windowLufs.reserve(loudnessWindows_.size());
+        for (const auto& window : loudnessWindows_) {
+            const qint64 windowStart = std::max(window.startFrame, windowEnd - windowFrames);
+            const qint64 windowStop = std::min(
+                saturatingFrameAdd(window.startFrame, window.frameCount), windowEnd);
+            const qint64 overlap = std::max<qint64>(0, windowStop - windowStart);
+            if (overlap <= 0) continue;
+            shortTermEnergy += window.meanSquare * static_cast<double>(overlap);
+            shortTermFrames = saturatingFrameAdd(shortTermFrames, overlap);
+            if (std::isfinite(window.lufs)) windowLufs.push_back(window.lufs);
+        }
+        if (shortTermFrames > 0) {
+            const double energy = std::max(
+                shortTermEnergy / static_cast<double>(shortTermFrames), 1.0e-12);
+            shortTermLufs_ = static_cast<float>(-0.691 + 10.0 * std::log10(energy));
+        }
+        if (windowLufs.size() >= 2) {
+            std::sort(windowLufs.begin(), windowLufs.end());
+            const auto percentile = [&windowLufs](double p) {
+                const double index = p * static_cast<double>(windowLufs.size() - 1);
+                const auto lower = static_cast<size_t>(std::floor(index));
+                const auto upper = std::min(lower + 1, windowLufs.size() - 1);
+                const float fraction = static_cast<float>(index - static_cast<double>(lower));
+                return windowLufs[lower] +
+                    (windowLufs[upper] - windowLufs[lower]) * fraction;
+            };
+            loudnessRangeLufs_ = std::max(0.0f, percentile(0.95) - percentile(0.10));
+        }
         peakDb_ = peak > 1.0e-12f
             ? static_cast<float>(20.0 * std::log10(peak))
             : -std::numeric_limits<float>::infinity();
@@ -190,7 +259,9 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
             : -std::numeric_limits<float>::infinity();
     } else {
         momentaryLufs_ = -std::numeric_limits<float>::infinity();
+        shortTermLufs_ = momentaryLufs_;
         integratedLufs_ = momentaryLufs_;
+        loudnessRangeLufs_ = 0.0f;
         peakDb_ = momentaryLufs_;
         truePeakDb_ = momentaryLufs_;
     }

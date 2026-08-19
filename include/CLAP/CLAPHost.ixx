@@ -10,6 +10,9 @@ module;
 
 export module CLAP.Host;
 
+import Audio.Segment;
+import Audio.Effect;
+
 // ─────────────────────────────────────────────────────────
 // Minimal CLAP C API structs — clap.h 非依存
 // ─────────────────────────────────────────────────────────
@@ -86,6 +89,14 @@ export struct clap_plugin {
     void (*on_main_thread)(const struct clap_plugin*);
 };
 
+export struct clap_plugin_latency {
+    uint32_t (*get)(const clap_plugin* plugin);
+};
+
+export struct clap_plugin_tail {
+    uint32_t (*get)(const clap_plugin* plugin);
+};
+
 export struct clap_param_info {
     uint32_t id;
     uint32_t flags;
@@ -120,9 +131,6 @@ export struct clap_plugin_entry {
     const clap_plugin* (*create_plugin)(const struct clap_host* host, uint32_t index);
     void (*destroy_plugin)(const struct clap_plugin* plugin);
 };
-
-import Audio.Segment;
-import Audio.Effect;
 
 /// CLAP (CLever Audio Plugin) ホスト実装
 /// MIT License - clap.h 非依存のホスト側定義
@@ -282,6 +290,9 @@ public:
     virtual const void* getExtension(const char* id) = 0;
     virtual const PluginDescriptor& descriptor() const = 0;
 
+    virtual uint32 latencySamples() const { return 0; }
+    virtual uint32 tailSamples() const { return 0; }
+
     // パラメータ
     virtual uint32 paramsCount() const = 0;
     virtual bool paramInfo(uint32 index, void* info) const = 0;
@@ -318,6 +329,8 @@ public:
     ArtifactCore::String effectType() const override { return ArtifactCore::String("clap"); }
     void process(ArtifactCore::AudioSegment& segment,
                  const ArtifactCore::AudioSegment* sideChain = nullptr) override;
+    qint64 latencySamples() const override;
+    qint64 tailSamples() const override;
     std::vector<ArtifactCore::EffectParameter> getParameters() const override;
     void setParameterValue(const ArtifactCore::String& id, float value) override;
 
@@ -348,6 +361,8 @@ public:
     bool process(const Process& process) override;
     const void* getExtension(const char* id) override;
     const PluginDescriptor& descriptor() const override { return desc_; }
+    uint32 latencySamples() const override;
+    uint32 tailSamples() const override;
 
     // パラメータ
     uint32 paramsCount() const override;

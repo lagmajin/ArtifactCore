@@ -1,9 +1,13 @@
+module;
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+
 module Graphics.Effect.Creative.ChromaticAberration;
 
 import Graphics.Effect.Creative;
 import Channel;
 import Core.Parallel;
-import std;
 
 namespace ArtifactCore {
 

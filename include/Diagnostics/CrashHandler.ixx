@@ -14,8 +14,6 @@ module;
 
 export module Diagnostics.CrashHandler;
 
-import std;
-
 export namespace ArtifactCore {
 
  class CrashHandler {

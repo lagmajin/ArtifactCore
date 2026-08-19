@@ -3,6 +3,7 @@ module;
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <functional>
 #include <limits>
 #include <queue>
 #include <string>
@@ -14,6 +15,8 @@ module;
 export module Graphics.RenderGraph;
 
 export namespace ArtifactCore {
+
+class RenderGraph;
 
 struct RenderResourceHandle {
     std::uint32_t id = 0;
@@ -55,6 +58,17 @@ struct RenderResourceLifetimeRange {
     RenderResourceHandle resource;
     std::size_t firstPass = 0;
     std::size_t lastPass = 0;
+    std::size_t allocationSlot = 0;
+};
+
+struct RenderAllocationSlotDescriptor {
+    std::size_t index = 0;
+    RenderResourceKind kind = RenderResourceKind::Texture;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::uint32_t depth = 1;
+    std::uint32_t format = 0;
+    std::uint64_t byteSize = 0;
 };
 
 struct CompiledRenderGraph {
@@ -62,13 +76,43 @@ struct CompiledRenderGraph {
     std::string error;
     std::vector<RenderPassHandle> passOrder;
     std::vector<RenderResourceLifetimeRange> lifetimes;
+    std::size_t allocationSlotCount = 0;
+    std::vector<RenderAllocationSlotDescriptor> allocationSlots;
+
+    const RenderResourceLifetimeRange* lifetime(
+        const RenderResourceHandle handle) const noexcept
+    {
+        for (const auto& range : lifetimes) {
+            if (range.resource == handle) return &range;
+        }
+        return nullptr;
+    }
+
+    const RenderAllocationSlotDescriptor* allocationSlot(
+        const std::size_t index) const noexcept
+    {
+        for (const auto& slot : allocationSlots) {
+            if (slot.index == index) return &slot;
+        }
+        return nullptr;
+    }
 };
+
+struct RenderGraphExecutionContext {
+    RenderPassHandle pass;
+    const RenderPassDescriptor& descriptor;
+    const RenderGraph& graph;
+    const CompiledRenderGraph& compiled;
+};
+
+using RenderPassExecutor = std::function<bool(const RenderGraphExecutionContext&)>;
 
 struct RenderDiagnosticResourceRecord {
     RenderResourceHandle handle;
     RenderResourceDescriptor descriptor;
     std::size_t firstPass = 0;
     std::size_t lastPass = 0;
+    std::size_t allocationSlot = 0;
     bool used = false;
 };
 
@@ -76,6 +120,8 @@ struct RenderDiagnosticPassRecord {
     RenderPassHandle handle;
     RenderPassDescriptor descriptor;
     RenderDiagnosticPassState state = RenderDiagnosticPassState::Blocked;
+    // Stable, backend-neutral explanation for the current scheduling state.
+    std::string stateReason;
     std::size_t executionOrder = 0;
     std::uint64_t gpuDurationUs = 0;
     std::uint64_t gpuSampleExecutionId = 0;
@@ -87,6 +133,8 @@ struct RenderGraphDiagnosticSnapshot {
     bool valid = false;
     std::string error;
     std::uint64_t estimatedResourceBytes = 0;
+    std::uint64_t estimatedAliasedResourceBytes = 0;
+    std::vector<RenderAllocationSlotDescriptor> allocationSlots;
     std::vector<RenderDiagnosticPassRecord> passes;
     std::vector<RenderDiagnosticResourceRecord> resources;
 };
@@ -193,6 +241,83 @@ public:
                 result.lifetimes.push_back({resourceItem.handle, first, last});
             }
         }
+        // Assign reusable physical slots to non-overlapping transient
+        // resources. External and persistent resources retain dedicated slots.
+        std::sort(result.lifetimes.begin(), result.lifetimes.end(),
+                  [this](const auto& lhs, const auto& rhs) {
+                      return lhs.firstPass < rhs.firstPass;
+                  });
+        struct Slot {
+            std::size_t lastPass = 0;
+            bool occupied = false;
+            bool reusable = false;
+            RenderResourceKind kind = RenderResourceKind::Texture;
+            std::uint32_t width = 0;
+            std::uint32_t height = 0;
+            std::uint32_t depth = 1;
+            std::uint32_t format = 0;
+        };
+        std::vector<Slot> slots;
+        for (auto& lifetime : result.lifetimes) {
+            const auto* descriptor = resource(lifetime.resource);
+            const bool reusable = descriptor &&
+                descriptor->lifetime == RenderResourceLifetime::Transient;
+            if (!reusable) {
+                lifetime.allocationSlot = slots.size();
+                slots.push_back({
+                    lifetime.lastPass,
+                    true,
+                    false,
+                    descriptor ? descriptor->kind : RenderResourceKind::Texture,
+                    descriptor ? descriptor->width : 0,
+                    descriptor ? descriptor->height : 0,
+                    descriptor ? descriptor->depth : 1,
+                    descriptor ? descriptor->format : 0});
+                continue;
+            }
+            auto slot = std::find_if(slots.begin(), slots.end(),
+                [&lifetime, descriptor](const Slot& candidate) {
+                    return candidate.occupied && candidate.reusable &&
+                           candidate.lastPass < lifetime.firstPass &&
+                           candidate.kind == descriptor->kind &&
+                           candidate.width == descriptor->width &&
+                           candidate.height == descriptor->height &&
+                           candidate.depth == descriptor->depth &&
+                           candidate.format == descriptor->format;
+                });
+            if (slot == slots.end()) {
+                lifetime.allocationSlot = slots.size();
+                slots.push_back({lifetime.lastPass, true, true,
+                                 descriptor->kind, descriptor->width,
+                                 descriptor->height, descriptor->depth,
+                                 descriptor->format});
+            } else {
+                lifetime.allocationSlot =
+                    static_cast<std::size_t>(std::distance(slots.begin(), slot));
+                slot->lastPass = lifetime.lastPass;
+            }
+        }
+        result.allocationSlotCount = slots.size();
+        result.allocationSlots.reserve(slots.size());
+        for (std::size_t index = 0; index < slots.size(); ++index) {
+            const auto& slot = slots[index];
+            RenderAllocationSlotDescriptor descriptor;
+            descriptor.index = index;
+            descriptor.kind = slot.kind;
+            descriptor.width = slot.width;
+            descriptor.height = slot.height;
+            descriptor.depth = slot.depth;
+            descriptor.format = slot.format;
+            for (const auto& lifetime : result.lifetimes) {
+                if (lifetime.allocationSlot != index) continue;
+                const auto* resourceDescriptor = resource(lifetime.resource);
+                if (resourceDescriptor) {
+                    descriptor.byteSize = std::max(
+                        descriptor.byteSize, resourceDescriptor->byteSize);
+                }
+            }
+            result.allocationSlots.push_back(descriptor);
+        }
         result.valid = true;
         return result;
     }
@@ -205,6 +330,7 @@ public:
         snapshot.executionId = executionId;
         snapshot.valid = compiled.valid;
         snapshot.error = compiled.error;
+        snapshot.allocationSlots = compiled.allocationSlots;
         snapshot.passes.reserve(passes_.size());
         snapshot.resources.reserve(resources_.size());
 
@@ -214,14 +340,20 @@ public:
             record.descriptor = item.descriptor;
             if (!item.descriptor.enabled) {
                 record.state = RenderDiagnosticPassState::Disabled;
+                record.stateReason = "disabled-by-descriptor";
             } else {
                 const auto position = std::find(compiled.passOrder.begin(),
                                                 compiled.passOrder.end(),
                                                 item.handle);
                 if (position != compiled.passOrder.end()) {
                     record.state = RenderDiagnosticPassState::Scheduled;
+                    record.stateReason = "scheduled-by-compiled-order";
                     record.executionOrder = static_cast<std::size_t>(
                         std::distance(compiled.passOrder.begin(), position));
+                } else {
+                    record.stateReason = compiled.valid
+                        ? "not-present-in-compiled-order"
+                        : "compile-invalid";
                 }
             }
             snapshot.passes.push_back(std::move(record));
@@ -240,6 +372,7 @@ public:
             if (lifetime != compiled.lifetimes.end()) {
                 record.firstPass = lifetime->firstPass;
                 record.lastPass = lifetime->lastPass;
+                record.allocationSlot = lifetime->allocationSlot;
                 record.used = true;
                 const auto remaining = std::numeric_limits<std::uint64_t>::max()
                     - snapshot.estimatedResourceBytes;
@@ -248,6 +381,18 @@ public:
             }
             snapshot.resources.push_back(std::move(record));
         }
+        std::unordered_map<std::size_t, std::uint64_t> slotBytes;
+        for (const auto& record : snapshot.resources) {
+            if (!record.used) continue;
+            auto& slotSize = slotBytes[record.allocationSlot];
+            slotSize = std::max(slotSize, record.descriptor.byteSize);
+        }
+        for (const auto& [slot, bytes] : slotBytes) {
+            (void)slot;
+            const auto remaining = std::numeric_limits<std::uint64_t>::max() -
+                                   snapshot.estimatedAliasedResourceBytes;
+            snapshot.estimatedAliasedResourceBytes += std::min(bytes, remaining);
+        }
         return snapshot;
     }
 
@@ -255,6 +400,35 @@ public:
         const std::uint64_t executionId = 0) const
     {
         return diagnosticSnapshot(compile(), executionId);
+    }
+
+    // Execute only the compiled order. Resource allocation and GPU state
+    // transitions remain the responsibility of the renderer backend.
+    bool execute(const CompiledRenderGraph& compiled,
+                 const RenderPassExecutor& executor,
+                 std::string* error = nullptr) const
+    {
+        if (!compiled.valid) {
+            if (error) *error = compiled.error;
+            return false;
+        }
+        if (!executor) {
+            if (error) *error = "render graph executor is empty";
+            return false;
+        }
+        for (const auto handle : compiled.passOrder) {
+            const auto* descriptor = pass(handle);
+            if (!descriptor || !descriptor->enabled) {
+                if (error) *error = "compiled render graph references an invalid pass";
+                return false;
+            }
+            if (!executor(RenderGraphExecutionContext{handle, *descriptor, *this,
+                                                      compiled})) {
+                if (error) *error = "render pass executor failed";
+                return false;
+            }
+        }
+        return true;
     }
 
     void clear()

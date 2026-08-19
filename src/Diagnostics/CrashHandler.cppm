@@ -162,9 +162,27 @@ void CrashHandler::writeCrashReport(const QString& report, const QString& dumpPa
   stream << report;
 }
 
-QString CrashHandler::captureStackTrace(CONTEXT* /*context*/, int /*maxFrames*/)
+QString CrashHandler::captureStackTrace(CONTEXT* /*context*/, int maxFrames)
 {
-  return QStringLiteral("Stack trace capture unavailable in this build.");
+  const int frameLimit = std::clamp(maxFrames, 1, 128);
+  void* frames[128] = {};
+  const USHORT captured = CaptureStackBackTrace(
+      0, static_cast<DWORD>(frameLimit), frames, nullptr);
+
+  if (captured == 0) {
+    return QStringLiteral("Stack trace capture returned no frames.");
+  }
+
+  QString trace;
+  QTextStream stream(&trace);
+  for (USHORT index = 0; index < captured; ++index) {
+    stream << "#" << index << " 0x"
+           << QString::number(
+                  reinterpret_cast<qulonglong>(frames[index]), 16)
+                  .toUpper()
+           << "\n";
+  }
+  return trace;
 }
 
 QString CrashHandler::getSystemInfo()

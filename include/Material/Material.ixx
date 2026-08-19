@@ -3,6 +3,7 @@ module;
 #include <memory>
 #include <QColor>
 #include <QString>
+#include <QFile>
 #include <QVector3D>
 export module Material.Material;
 
@@ -15,6 +16,12 @@ export enum class MaterialType {
  PBR,
  Unlit,
  MaterialX
+};
+
+export enum class MaterialAlphaMode {
+ Opaque,
+ Masked,
+ Blended
 };
 
  /// PBR マテリアル。DCC 標準 (glTF / Standard Surface 互換)。
@@ -44,6 +51,16 @@ export enum class MaterialType {
   float metallic() const;
   void setRoughness(float value);
   float roughness() const;
+  void setSpecular(float value);
+  float specular() const;
+  void setIOR(float value);
+  float ior() const;
+  void setTransmission(float value);
+  float transmission() const;
+  void setClearcoat(float value);
+  float clearcoat() const;
+  void setClearcoatRoughness(float value);
+  float clearcoatRoughness() const;
 
   // --- Emission ---
   void setEmissionColor(const QColor& color);
@@ -54,6 +71,8 @@ export enum class MaterialType {
   // --- Opacity ---
   void setOpacity(float value);
   float opacity() const;
+  void setAlphaMode(MaterialAlphaMode mode);
+  MaterialAlphaMode alphaMode() const;
 
   // --- Normal ---
   void setNormalStrength(float value);
@@ -86,6 +105,8 @@ export enum class MaterialType {
   // --- MaterialX ---
   void setMaterialXDocument(const UniString& xml);
   UniString materialXDocument() const;
+  bool saveMaterialXDocument(const QString& filePath) const;
+  bool loadMaterialXDocument(const QString& filePath);
 
   // --- Presets ---
   static Material makeDefault();

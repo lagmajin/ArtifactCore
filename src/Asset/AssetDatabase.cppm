@@ -91,6 +91,30 @@ QUuid AssetDatabase::findAssetByPath(const QString& path) const {
     return pathToId_.value(normalizedAssetPath(path));
 }
 
+bool AssetDatabase::relinkAssetPath(const QString& oldPath,
+                                    const QString& newPath) {
+    const QString oldIdentity = normalizedAssetPath(oldPath);
+    const QString newIdentity = normalizedAssetPath(newPath);
+    if (oldIdentity.isEmpty() || newIdentity.isEmpty() ||
+        oldIdentity == newIdentity) {
+        return false;
+    }
+    const auto oldIt = pathToId_.constFind(oldIdentity);
+    if (oldIt == pathToId_.cend() || pathToId_.contains(newIdentity)) {
+        return false;
+    }
+    const QUuid assetId = oldIt.value();
+    auto assetIt = assets_.find(assetId);
+    if (assetIt == assets_.end()) {
+        return false;
+    }
+    pathToId_.remove(oldIdentity);
+    assetIt->absolutePath = newIdentity;
+    assetIt->name = QFileInfo(newIdentity).fileName();
+    pathToId_.insert(newIdentity, assetId);
+    return true;
+}
+
 QList<AssetInfo> AssetDatabase::findAssetsByType(AssetType type) const {
     QList<AssetInfo> result;
     for (const auto& info : assets_) {

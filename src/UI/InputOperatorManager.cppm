@@ -31,9 +31,11 @@ void normalizeModeFlags(InputSurfaceState& state)
  switch (state.mode) {
  case InputSurfaceMode::Off:
   state.armed = false;
-  state.livePreviewEnabled = false;
-  state.stepEntryEnabled = false;
-  state.capturePending = false;
+ state.livePreviewEnabled = false;
+ state.stepEntryEnabled = false;
+ state.capturePending = false;
+  state.targetId.clear();
+  state.context.clear();
   break;
  case InputSurfaceMode::RealTimeCapture:
   state.armed = true;
@@ -269,7 +271,7 @@ void InputSurfaceManager::setTransportFrame(int64_t frame)
  {
   std::lock_guard<std::mutex> lock(impl_->mutex);
   previous = impl_->state;
-  impl_->state.transportFrame = frame;
+  impl_->state.transportFrame = frame < 0 ? 0 : frame;
   current = impl_->state;
  }
  if (!sameState(previous, current)) {
@@ -284,7 +286,7 @@ void InputSurfaceManager::setStepFrame(int64_t frame)
  {
   std::lock_guard<std::mutex> lock(impl_->mutex);
   previous = impl_->state;
-  impl_->state.stepFrame = frame;
+  impl_->state.stepFrame = frame < 0 ? 0 : frame;
   current = impl_->state;
  }
  if (!sameState(previous, current)) {
@@ -334,7 +336,7 @@ void InputSurfaceManager::beginRealTimeCapture(const QString& targetId, const QS
   impl_->state.livePreviewEnabled = true;
   impl_->state.stepEntryEnabled = false;
   impl_->state.capturePending = true;
-  impl_->state.transportFrame = transportFrame;
+  impl_->state.transportFrame = transportFrame < 0 ? 0 : transportFrame;
   impl_->state.targetId = targetId;
   impl_->state.context = context;
   normalizeModeFlags(impl_->state);
@@ -358,7 +360,7 @@ void InputSurfaceManager::beginStepEntry(const QString& targetId, const QString&
   impl_->state.livePreviewEnabled = false;
   impl_->state.stepEntryEnabled = true;
   impl_->state.capturePending = true;
-  impl_->state.stepFrame = stepFrame;
+  impl_->state.stepFrame = stepFrame < 0 ? 0 : stepFrame;
   impl_->state.targetId = targetId;
   impl_->state.context = context;
   normalizeModeFlags(impl_->state);
@@ -382,6 +384,7 @@ void InputSurfaceManager::commitCapture()
   impl_->state.armed = false;
   impl_->state.livePreviewEnabled = false;
   impl_->state.stepEntryEnabled = false;
+  normalizeModeFlags(impl_->state);
   current = impl_->state;
  }
  if (!sameState(previous, current)) {
@@ -401,6 +404,7 @@ void InputSurfaceManager::cancelCapture()
   impl_->state.armed = false;
   impl_->state.livePreviewEnabled = false;
   impl_->state.stepEntryEnabled = false;
+  normalizeModeFlags(impl_->state);
   current = impl_->state;
  }
  if (!sameState(previous, current)) {

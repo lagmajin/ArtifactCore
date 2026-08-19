@@ -10,9 +10,10 @@ namespace ArtifactCore {
 
 namespace {
 
-bool hasOverride(const QKeySequence& sequence)
+bool hasOverride(const std::array<bool, static_cast<std::size_t>(ShortcutId::Count)>& overrideSet,
+                 ShortcutId id)
 {
-    return !sequence.isEmpty();
+    return overrideSet[static_cast<std::size_t>(id)];
 }
 
 QKeySequence eventSequence(const QKeyEvent* event)
@@ -273,6 +274,34 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("WorkCursorClear");
     case ShortcutId::ViewToggleCameraFrustum:
         return QStringLiteral("ViewToggleCameraFrustum");
+    case ShortcutId::PrCopyClip:
+        return QStringLiteral("PrCopyClip");
+    case ShortcutId::PrCutClip:
+        return QStringLiteral("PrCutClip");
+    case ShortcutId::PrPasteClip:
+        return QStringLiteral("PrPasteClip");
+    case ShortcutId::PrSlipClip:
+        return QStringLiteral("PrSlipClip");
+    case ShortcutId::PrSlideClip:
+        return QStringLiteral("PrSlideClip");
+    case ShortcutId::PrShuttleReverse:
+        return QStringLiteral("PrShuttleReverse");
+    case ShortcutId::PrShuttleForward:
+        return QStringLiteral("PrShuttleForward");
+    case ShortcutId::PrSetInPoint:
+        return QStringLiteral("PrSetInPoint");
+    case ShortcutId::PrSetOutPoint:
+        return QStringLiteral("PrSetOutPoint");
+    case ShortcutId::PrPause: return QStringLiteral("PrPause");
+    case ShortcutId::PrSeekToStart: return QStringLiteral("PrSeekToStart");
+    case ShortcutId::PrSeekToEnd: return QStringLiteral("PrSeekToEnd");
+    case ShortcutId::PrRippleDelete: return QStringLiteral("PrRippleDelete");
+    case ShortcutId::PrAddCrossfade: return QStringLiteral("PrAddCrossfade");
+    case ShortcutId::PrAddDipToBlack: return QStringLiteral("PrAddDipToBlack");
+    case ShortcutId::PrAddWipeLeft: return QStringLiteral("PrAddWipeLeft");
+    case ShortcutId::PrAddWipeRight: return QStringLiteral("PrAddWipeRight");
+    case ShortcutId::PrShowHelp: return QStringLiteral("PrShowHelp");
+    case ShortcutId::PrZoomInAlt: return QStringLiteral("PrZoomInAlt");
     case ShortcutId::Count:
         break;
     }
@@ -541,6 +570,34 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Clear Work Cursor");
     case ShortcutId::ViewToggleCameraFrustum:
         return QStringLiteral("View Toggle Camera Frustum");
+    case ShortcutId::PrCopyClip:
+        return QStringLiteral("Premiere Copy Clip");
+    case ShortcutId::PrCutClip:
+        return QStringLiteral("Premiere Cut Clip");
+    case ShortcutId::PrPasteClip:
+        return QStringLiteral("Premiere Paste Clip");
+    case ShortcutId::PrSlipClip:
+        return QStringLiteral("Premiere Slip Clip");
+    case ShortcutId::PrSlideClip:
+        return QStringLiteral("Premiere Slide Clip");
+    case ShortcutId::PrShuttleReverse:
+        return QStringLiteral("Premiere Shuttle Reverse");
+    case ShortcutId::PrShuttleForward:
+        return QStringLiteral("Premiere Shuttle Forward");
+    case ShortcutId::PrSetInPoint:
+        return QStringLiteral("Premiere Set In Point");
+    case ShortcutId::PrSetOutPoint:
+        return QStringLiteral("Premiere Set Out Point");
+    case ShortcutId::PrPause: return QStringLiteral("Premiere Pause");
+    case ShortcutId::PrSeekToStart: return QStringLiteral("Premiere Seek To Start");
+    case ShortcutId::PrSeekToEnd: return QStringLiteral("Premiere Seek To End");
+    case ShortcutId::PrRippleDelete: return QStringLiteral("Premiere Ripple Delete");
+    case ShortcutId::PrAddCrossfade: return QStringLiteral("Premiere Add Crossfade");
+    case ShortcutId::PrAddDipToBlack: return QStringLiteral("Premiere Add Dip To Black");
+    case ShortcutId::PrAddWipeLeft: return QStringLiteral("Premiere Add Wipe Left");
+    case ShortcutId::PrAddWipeRight: return QStringLiteral("Premiere Add Wipe Right");
+    case ShortcutId::PrShowHelp: return QStringLiteral("Premiere Show Keyboard Shortcuts");
+    case ShortcutId::PrZoomInAlt: return QStringLiteral("Premiere Timeline Zoom In (Alternate)");
     case ShortcutId::Count:
         break;
     }
@@ -673,11 +730,32 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::WorkCursorCenter,
         ShortcutId::WorkCursorClear,
         ShortcutId::ViewToggleCameraFrustum,
+        ShortcutId::PrCopyClip,
+        ShortcutId::PrCutClip,
+        ShortcutId::PrPasteClip,
+        ShortcutId::PrSlipClip,
+        ShortcutId::PrSlideClip,
+        ShortcutId::PrShuttleReverse,
+        ShortcutId::PrShuttleForward,
+        ShortcutId::PrSetInPoint,
+        ShortcutId::PrSetOutPoint,
+        ShortcutId::PrPause,
+        ShortcutId::PrSeekToStart,
+        ShortcutId::PrSeekToEnd,
+        ShortcutId::PrRippleDelete,
+        ShortcutId::PrAddCrossfade,
+        ShortcutId::PrAddDipToBlack,
+        ShortcutId::PrAddWipeLeft,
+        ShortcutId::PrAddWipeRight,
+        ShortcutId::PrShowHelp,
+        ShortcutId::PrZoomInAlt,
     };
 }
 
 void ShortcutBindings::resetToDefaults()
 {
+    overrideSet_.fill(false);
+    overrides_.fill(QKeySequence());
     defaults_[index(ShortcutId::Undo)] = QKeySequence::Undo;
     defaults_[index(ShortcutId::Redo)] = QKeySequence::Redo;
     defaults_[index(ShortcutId::SelectionTool)] = QKeySequence(Qt::Key_V);
@@ -762,6 +840,25 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::ViewToggleXRay)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X);
     defaults_[index(ShortcutId::ViewToggleIsolation)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_I);
     defaults_[index(ShortcutId::ViewToggleCameraFrustum)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O);
+    defaults_[index(ShortcutId::PrCopyClip)] = QKeySequence::Copy;
+    defaults_[index(ShortcutId::PrCutClip)] = QKeySequence::Cut;
+    defaults_[index(ShortcutId::PrPasteClip)] = QKeySequence::Paste;
+    defaults_[index(ShortcutId::PrSlipClip)] = QKeySequence(Qt::Key_S);
+    defaults_[index(ShortcutId::PrSlideClip)] = QKeySequence(Qt::Key_D);
+    defaults_[index(ShortcutId::PrShuttleReverse)] = QKeySequence(Qt::Key_J);
+    defaults_[index(ShortcutId::PrShuttleForward)] = QKeySequence(Qt::Key_L);
+    defaults_[index(ShortcutId::PrSetInPoint)] = QKeySequence(Qt::Key_I);
+    defaults_[index(ShortcutId::PrSetOutPoint)] = QKeySequence(Qt::Key_O);
+    defaults_[index(ShortcutId::PrPause)] = QKeySequence(Qt::Key_K);
+    defaults_[index(ShortcutId::PrSeekToStart)] = QKeySequence(Qt::Key_Home);
+    defaults_[index(ShortcutId::PrSeekToEnd)] = QKeySequence(Qt::Key_End);
+    defaults_[index(ShortcutId::PrRippleDelete)] = QKeySequence(Qt::SHIFT | Qt::Key_Delete);
+    defaults_[index(ShortcutId::PrAddCrossfade)] = QKeySequence(Qt::Key_T);
+    defaults_[index(ShortcutId::PrAddDipToBlack)] = QKeySequence(Qt::SHIFT | Qt::Key_T);
+    defaults_[index(ShortcutId::PrAddWipeLeft)] = QKeySequence(Qt::Key_W);
+    defaults_[index(ShortcutId::PrAddWipeRight)] = QKeySequence(Qt::SHIFT | Qt::Key_W);
+    defaults_[index(ShortcutId::PrShowHelp)] = QKeySequence(Qt::SHIFT | Qt::Key_Slash);
+    defaults_[index(ShortcutId::PrZoomInAlt)] = QKeySequence(Qt::Key_Equal);
     defaults_[index(ShortcutId::RenderAddCurrentToQueue)] = QKeySequence(Qt::CTRL | Qt::Key_M);
     defaults_[index(ShortcutId::RenderShowQueue)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_R);
     defaults_[index(ShortcutId::RenderShowManager)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R);
@@ -814,7 +911,7 @@ QKeySequence ShortcutBindings::shortcut(ShortcutId id) const
 {
     const auto idx = index(id);
     const QKeySequence& overrideSeq = overrides_[idx];
-    if (hasOverride(overrideSeq)) {
+    if (hasOverride(overrideSet_, id)) {
         return overrideSeq;
     }
     return defaults_[idx];
@@ -822,7 +919,9 @@ QKeySequence ShortcutBindings::shortcut(ShortcutId id) const
 
 void ShortcutBindings::setShortcut(ShortcutId id, const QKeySequence& sequence)
 {
-    overrides_[index(id)] = sequence;
+    const auto idx = index(id);
+    overrides_[idx] = sequence;
+    overrideSet_[idx] = true;
 }
 
 QJsonObject ShortcutBindings::toJson() const
@@ -877,7 +976,7 @@ bool ShortcutBindings::matches(const QKeyEvent* event, ShortcutId id) const
 
     const auto idx = index(id);
     const QKeySequence& overrideSeq = overrides_[idx];
-    if (hasOverride(overrideSeq)) {
+    if (hasOverride(overrideSet_, id)) {
         return eventSequence(event) == overrideSeq;
     }
 

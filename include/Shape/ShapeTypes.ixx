@@ -39,6 +39,7 @@ module;
 export module Shape.Types;
 
 import Property.Types;
+import Core.Point2D;
 
 export namespace ArtifactCore {
 

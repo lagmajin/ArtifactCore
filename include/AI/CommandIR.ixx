@@ -35,6 +35,8 @@ struct CommandResult {
     bool executed = false;
     QString type;
     QString error;
+    QString errorCode;
+    bool retryable = false;
     QString undoLabel;
     QVariantMap diagnostics;
     QVariantList details;
@@ -47,6 +49,8 @@ struct CommandResult {
         result.insert(QStringLiteral("executed"), executed);
         result.insert(QStringLiteral("type"), type);
         result.insert(QStringLiteral("error"), error);
+        result.insert(QStringLiteral("errorCode"), errorCode);
+        result.insert(QStringLiteral("retryable"), retryable);
         result.insert(QStringLiteral("undoLabel"), undoLabel);
         result.insert(QStringLiteral("diagnostics"), diagnostics);
         result.insert(QStringLiteral("details"), details);
@@ -335,6 +339,8 @@ inline CommandResult commandResultFromVariantMap(const QVariantMap& map)
     result.executed = map.value(QStringLiteral("executed")).toBool();
     result.type = map.value(QStringLiteral("type")).toString();
     result.error = map.value(QStringLiteral("error")).toString();
+    result.errorCode = map.value(QStringLiteral("errorCode")).toString();
+    result.retryable = map.value(QStringLiteral("retryable")).toBool();
     result.undoLabel = map.value(QStringLiteral("undoLabel")).toString();
     result.diagnostics = map.value(QStringLiteral("diagnostics")).toMap();
     result.details = map.value(QStringLiteral("details")).toList();
@@ -700,10 +706,14 @@ public:
         result.undoLabel = undoLabelForType(request.type);
         if (request.type.isEmpty()) {
             result.error = QStringLiteral("Missing command.type");
+            result.errorCode = QStringLiteral("COMMAND_INVALID");
+            result.retryable = true;
             return result;
         }
         if (!isSupportedType(request.type)) {
             result.error = QStringLiteral("Unsupported command type");
+            result.errorCode = QStringLiteral("UNSUPPORTED_COMMAND");
+            result.retryable = false;
             return result;
         }
 
@@ -753,6 +763,10 @@ public:
         result.success = ok;
         if (!ok && result.error.isEmpty()) {
             result.error = QStringLiteral("Command validation failed");
+        }
+        if (!ok) {
+            result.errorCode = QStringLiteral("COMMAND_INVALID");
+            result.retryable = true;
         }
         return result;
     }

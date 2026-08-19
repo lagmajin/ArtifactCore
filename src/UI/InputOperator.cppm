@@ -380,6 +380,29 @@ InputBinding* KeyMap::addBinding(int key,
                                  InputEvent::Modifiers modifiers,
                                  Action* action,
                                  const QString& description) {
+    if (!action) {
+        return nullptr;
+    }
+
+    const auto keyBindingIt = impl_->keyBindings_.find(
+        {key, static_cast<int>(modifiers)});
+    if (keyBindingIt != impl_->keyBindings_.end() &&
+        keyBindingIt->second->actionId() != action->id()) {
+        qWarning() << "Shortcut conflict in key map" << name()
+                   << "for key" << key << "modifiers"
+                   << static_cast<int>(modifiers) << ": keeping"
+                   << keyBindingIt->second->actionId() << "and rejecting"
+                   << action->id();
+        return nullptr;
+    }
+
+    // Rebinding an action must remove its old key index as well. Otherwise
+    // findBinding() can continue to resolve the stale shortcut.
+    const auto existingActionIt = impl_->bindings_.find(action->id());
+    if (existingActionIt != impl_->bindings_.end()) {
+        removeBinding(existingActionIt->second);
+    }
+
     // Create binding
     auto* binding = new InputBinding(action->id(), this);
     binding->setKeyCode(key);

@@ -37,6 +37,9 @@ public:
     qint64 frameCount() const override;
     qint64 sourceFrameNumberAt(qint64 sequenceIndex) const;
     qint64 sequenceIndexForSourceFrame(qint64 frameNumber) const;
+    // Resolve a composition/timeline frame into the sequence's zero-based
+    // frame index using the timeline and source frame rates.
+    qint64 frameIndexAtTime(qint64 timelineFrame, double timelineFrameRate) const;
     QSize frameSize() const override;
     double frameRate() const override;
 

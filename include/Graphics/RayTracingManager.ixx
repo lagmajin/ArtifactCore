@@ -25,7 +25,10 @@ struct RayTracingCapabilities {
     bool tlasCreated = false;
     bool tlasBuilt = false;
     Uint32 blasBuildCount = 0;
+    Uint32 registeredBLASCount = 0;
+    Uint32 activeInstanceCount = 0;
     Uint32 tlasBuildCount = 0;
+    bool lastBuildSucceeded = false;
     bool pipelineCreated = false;
     bool sbtCreated = false;
     bool sbtBound = false;
@@ -61,6 +64,11 @@ public:
 
     // Acceleration Structure Management
     virtual bool createOrUpdateBLAS(const UniString& id, const RTGeometryData& data) = 0;
+    virtual bool updateInstanceTransform(const UniString& id,
+                                         const Diligent::float4x4& transform) = 0;
+    virtual bool hasBLAS(const UniString& id) const = 0;
+    virtual bool setInstanceActive(const UniString& id, bool active) = 0;
+    virtual bool buildBLAS(IDeviceContext* pContext) = 0;
     virtual bool buildTLAS(IDeviceContext* pContext) = 0;
     virtual bool ensurePipelineAndSBT(IDeviceContext* pContext) = 0;
     virtual bool traceUnitQuad(IDeviceContext* pContext, Uint32 width, Uint32 height) = 0;

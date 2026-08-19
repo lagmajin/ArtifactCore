@@ -5,6 +5,10 @@ module;
 #include <QString>
 #include <QDateTime>
 #include <QRandomGenerator>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 export module Core.Diagnostics.SessionLedger;
 
@@ -148,12 +152,109 @@ public:
         return result;
     }
 
+    QJsonObject toJson() const {
+        QJsonObject root;
+        root.insert(QStringLiteral("schemaVersion"), 1);
+        root.insert(QStringLiteral("sessionId"), sessionId_);
+        root.insert(QStringLiteral("startTimeMs"), startTimeMs_);
+        QJsonArray entries;
+        for (const auto& entry : entries_) {
+            QJsonObject value;
+            value.insert(QStringLiteral("kind"), sessionEntryKindToString(entry.kind));
+            value.insert(QStringLiteral("timestampMs"), entry.timestampMs);
+            value.insert(QStringLiteral("detail"), entry.detail);
+            value.insert(QStringLiteral("projectId"), entry.projectId);
+            value.insert(QStringLiteral("projectName"), entry.projectName);
+            value.insert(QStringLiteral("jobIndex"), entry.jobIndex);
+            value.insert(QStringLiteral("isRecoverable"), entry.isRecoverable);
+            entries.append(value);
+        }
+        root.insert(QStringLiteral("entries"), entries);
+        QJsonArray recoveryPoints;
+        for (const auto& point : recoveryPoints_) {
+            QJsonObject value;
+            value.insert(QStringLiteral("id"), point.id);
+            value.insert(QStringLiteral("timestampMs"), point.timestampMs);
+            value.insert(QStringLiteral("projectId"), point.projectId);
+            value.insert(QStringLiteral("projectName"), point.projectName);
+            value.insert(QStringLiteral("snapshotPath"), point.snapshotPath);
+            value.insert(QStringLiteral("isAutosave"), point.isAutosave);
+            recoveryPoints.append(value);
+        }
+        root.insert(QStringLiteral("recoveryPoints"), recoveryPoints);
+        return root;
+    }
+
+    bool saveToFile(const QString& path) const {
+        if (path.isEmpty()) return false;
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+        const QByteArray data = QJsonDocument(toJson()).toJson(QJsonDocument::Compact);
+        return file.write(data) == data.size() && file.flush();
+    }
+
+    bool loadFromFile(const QString& path) {
+        if (path.isEmpty()) return false;
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) return false;
+        QJsonParseError parseError;
+        const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
+        if (parseError.error != QJsonParseError::NoError || !document.isObject()) return false;
+        const QJsonObject root = document.object();
+        if (root.value(QStringLiteral("schemaVersion")).toInt() != 1) return false;
+        const QString loadedSessionId = root.value(QStringLiteral("sessionId")).toString();
+        if (loadedSessionId.isEmpty()) return false;
+
+        std::vector<SessionLedgerEntry> loadedEntries;
+        for (const auto& item : root.value(QStringLiteral("entries")).toArray()) {
+            const QJsonObject value = item.toObject();
+            SessionLedgerEntry entry;
+            entry.kind = sessionEntryKindFromString(value.value(QStringLiteral("kind")).toString());
+            entry.timestampMs = value.value(QStringLiteral("timestampMs")).toVariant().toLongLong();
+            entry.detail = value.value(QStringLiteral("detail")).toString();
+            entry.projectId = value.value(QStringLiteral("projectId")).toString();
+            entry.projectName = value.value(QStringLiteral("projectName")).toString();
+            entry.jobIndex = value.value(QStringLiteral("jobIndex")).toInt(-1);
+            entry.isRecoverable = value.value(QStringLiteral("isRecoverable")).toBool(false);
+            loadedEntries.push_back(std::move(entry));
+        }
+        std::vector<RecoveryPoint> loadedRecoveryPoints;
+        for (const auto& item : root.value(QStringLiteral("recoveryPoints")).toArray()) {
+            const QJsonObject value = item.toObject();
+            RecoveryPoint point;
+            point.id = value.value(QStringLiteral("id")).toString();
+            point.timestampMs = value.value(QStringLiteral("timestampMs")).toVariant().toLongLong();
+            point.projectId = value.value(QStringLiteral("projectId")).toString();
+            point.projectName = value.value(QStringLiteral("projectName")).toString();
+            point.snapshotPath = value.value(QStringLiteral("snapshotPath")).toString();
+            point.isAutosave = value.value(QStringLiteral("isAutosave")).toBool(false);
+            loadedRecoveryPoints.push_back(std::move(point));
+        }
+        sessionId_ = loadedSessionId;
+        startTimeMs_ = root.value(QStringLiteral("startTimeMs")).toVariant().toLongLong();
+        entries_ = std::move(loadedEntries);
+        recoveryPoints_ = std::move(loadedRecoveryPoints);
+        return true;
+    }
+
     void clear() {
         entries_.clear();
         recoveryPoints_.clear();
     }
 
 private:
+    static SessionEntryKind sessionEntryKindFromString(const QString& value) {
+        if (value == QStringLiteral("project.closed")) return SessionEntryKind::ProjectClosed;
+        if (value == QStringLiteral("project.saved")) return SessionEntryKind::ProjectSaved;
+        if (value == QStringLiteral("render.started")) return SessionEntryKind::RenderStarted;
+        if (value == QStringLiteral("render.completed")) return SessionEntryKind::RenderCompleted;
+        if (value == QStringLiteral("render.failed")) return SessionEntryKind::RenderFailed;
+        if (value == QStringLiteral("crash")) return SessionEntryKind::Crash;
+        if (value == QStringLiteral("recovery.point")) return SessionEntryKind::RecoveryPoint;
+        if (value == QStringLiteral("settings.changed")) return SessionEntryKind::SettingsChanged;
+        return SessionEntryKind::ProjectOpened;
+    }
+
     static QString createSessionId() {
         const auto now = currentTimestampMs();
         const auto random = QRandomGenerator::global()->generate64();

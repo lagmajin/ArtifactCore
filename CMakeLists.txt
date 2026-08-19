@@ -11,26 +11,29 @@ set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
 # a full source-tree scan.  Add new sources to cmake/ArtifactCoreSources.cmake
 # and place public .cppm units in ARTIFACTCORE_MODULE_SOURCES explicitly.
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreSources.cmake")
+if(MSVC)
+    add_compile_options(
+        "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc")
+endif()
 set(CORE_MODULES ${ARTIFACTCORE_MODULE_SOURCES})
 set(CORE_IMPL ${ARTIFACTCORE_IMPL_SOURCES})
 
-# The generated manifest is included from cmake/ and therefore expresses
-# paths through `${CMAKE_CURRENT_LIST_DIR}/..`, while the extracted pack lists
-# below use `${CMAKE_CURRENT_SOURCE_DIR}`.  CMake's list(REMOVE_ITEM) compares
-# those spellings literally, so normalize both lists before removing sources
-# from the base target.  Without this, every extracted module is also added to
-# ArtifactCore and MSVC reports conflicting IFC locations during dyndep.
+# The generated manifest is rooted at this file's `cmake/` directory and
+# therefore contains path spellings such as `cmake/../include/...`.  The
+# extracted domain lists below are rooted at ArtifactCore itself.  Normalize
+# both manifest lists before the domain split so list(REMOVE_ITEM) compares
+# the same paths and a module is owned by exactly one target.
 set(_artifact_normalized_core_modules)
-foreach(_artifact_core_source IN LISTS CORE_MODULES)
-    file(REAL_PATH "${_artifact_core_source}" _artifact_core_source_real)
-    list(APPEND _artifact_normalized_core_modules "${_artifact_core_source_real}")
+foreach(_artifact_source IN LISTS CORE_MODULES)
+    file(REAL_PATH "${_artifact_source}" _artifact_normalized_source)
+    list(APPEND _artifact_normalized_core_modules "${_artifact_normalized_source}")
 endforeach()
 set(CORE_MODULES ${_artifact_normalized_core_modules})
 
 set(_artifact_normalized_core_impl)
-foreach(_artifact_core_source IN LISTS CORE_IMPL)
-    file(REAL_PATH "${_artifact_core_source}" _artifact_core_source_real)
-    list(APPEND _artifact_normalized_core_impl "${_artifact_core_source_real}")
+foreach(_artifact_source IN LISTS CORE_IMPL)
+    file(REAL_PATH "${_artifact_source}" _artifact_normalized_source)
+    list(APPEND _artifact_normalized_core_impl "${_artifact_normalized_source}")
 endforeach()
 set(CORE_IMPL ${_artifact_normalized_core_impl})
 
@@ -44,17 +47,66 @@ set_source_files_properties(
     PROPERTIES CXX_SCAN_FOR_MODULES OFF
 )
 if(MSVC)
+    if(CMAKE_GENERATOR MATCHES "Ninja")
+        set(_artifact_object_dir "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir")
+    else()
+        set(_artifact_object_dir "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>")
+    endif()
+    set_property(SOURCE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/BroadcastColors.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/ChromaKey.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/ChromaSpread.cppm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ImageProcessing/ChromaSpreadGlow.cppm"
+        APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;ImageProcessing:Duotone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Duotone.ifc"
+            "/reference;ImageProcessing:Echo=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Echo.ifc"
+            "/reference;ImageProcessing:EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-EdgeEcho.ifc"
+            "/reference;ImageProcessing:Emboss=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Emboss.ifc"
+            "/reference;ImageProcessing:BroadcastColors=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-BroadcastColors.ifc"
+            "/reference;ImageProcessing:ChromaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaKey.ifc"
+            "/reference;ImageProcessing:ChromaSpread=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpread.ifc"
+            "/reference;ImageProcessing:ChromaSpreadGlow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpreadGlow.ifc"
+            "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
+            "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
+            "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
+            "/reference;ImageProcessing.ColorTransform.ColorBalance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ColorBalance.ifc"
+            "/reference;ImageProcessing.ColorTransform.Colorama=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Colorama.ifc"
+            "/reference;ImageProcessing.ColorTransform.Fill=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Fill.ifc"
+            "/reference;ImageProcessing.ColorTransform.GradientRamp=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.GradientRamp.ifc"
+            "/reference;ImageProcessing.ColorTransform.LevelsCurves=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.LevelsCurves.ifc"
+            "/reference;ImageProcessing.ColorTransform.PhotoFilter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.PhotoFilter.ifc"
+            "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
+            "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
+            "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
+            "/reference;ImageProcessing.LeaveColorCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LeaveColorCS.ifc"
+            "/reference;ImageProcessing.NegateCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.NegateCS.ifc"
+            "/reference;ImageProcessing.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ProceduralTexture.ifc"
+            "/reference;ImageProcessing.ScatterCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ScatterCS.ifc"
+            "/reference;ImageProcessing.SimpleChokerCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.SimpleChokerCS.ifc"
+            "/reference;ImageProcessing:AffineTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AffineTransform.ifc"
+            "/reference;ImageProcessing:AnamorphicFlare=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnamorphicFlare.ifc"
+            "/reference;ImageProcessing:AnisotropicFlowBlur=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnisotropicFlowBlur.ifc"
+            "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
         PROPERTIES
-            COMPILE_OPTIONS "/reference;File:Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/File-Info.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/File/FileInfo.ixx.obj"
+            COMPILE_OPTIONS "/reference;File:Info=$(IntDir)/include/File/FileInfo.ixx.ifc"
+            OBJECT_DEPENDS "${_artifact_object_dir}/include/File/FileInfo.ixx.obj"
     )
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
         PROPERTIES
-            COMPILE_OPTIONS "/reference;Image:OpenEXR=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image-OpenEXR.ifc;/reference;Image.DeepImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.DeepImageBuffer.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/OpenEXR.ixx.obj;${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/DeepImageBuffer.ixx.obj"
+            COMPILE_OPTIONS "/reference;Image:OpenEXR=$(IntDir)/include/Image/OpenEXR.ixx.ifc;/reference;Image.DeepImageBuffer=$(IntDir)/include/Image/DeepImageBuffer.ixx.ifc"
+            OBJECT_DEPENDS "${_artifact_object_dir}/include/Image/OpenEXR.ixx.obj;${_artifact_object_dir}/include/Image/DeepImageBuffer.ixx.obj"
     )
 endif()
 
@@ -71,185 +123,1799 @@ list(REMOVE_ITEM _artifact_scanned_impl
 set_source_files_properties(${_artifact_scanned_impl} PROPERTIES CXX_SCAN_FOR_MODULES ON)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreModuleReferences.cmake")
-
-# CMake's dyndep scanner cannot reliably model a private implementation unit
-# attaching to an interface with `module Name;`.  Discover the imports owned by
-# those implementation/interface pairs and add the same explicit BMI edges we
-# use below.  This keeps the manual list as an override for exceptional paths,
-# while avoiding a growing series of one-module-at-a-time build failures.
-file(GLOB_RECURSE _artifact_module_provider_files CONFIGURE_DEPENDS
-    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cppm")
-set(_artifact_module_providers)
-foreach(_artifact_provider_relative IN LISTS _artifact_module_provider_files)
-    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_provider_relative}"
-        _artifact_provider_declarations
-        REGEX "^[ \t]*export[ \t]+module[ \t]+[A-Za-z0-9_.:]+[ \t]*;")
-    foreach(_artifact_provider_declaration IN LISTS _artifact_provider_declarations)
-        string(REGEX REPLACE
-            "^[ \t]*export[ \t]+module[ \t]+([A-Za-z0-9_.:]+)[ \t]*;.*$"
-            "\\1" _artifact_provider_name "${_artifact_provider_declaration}")
-        list(APPEND _artifact_module_providers
-            "${_artifact_provider_name}|${_artifact_provider_relative}")
-    endforeach()
-endforeach()
-
-foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
-    string(REPLACE "|" ";" _artifact_module_fields "${_artifact_module_reference}")
-    list(GET _artifact_module_fields 0 _artifact_impl_relative)
-    list(GET _artifact_module_fields 1 _artifact_impl_module_name)
-    list(GET _artifact_module_fields 2 _artifact_interface_relative)
-
-    set(_artifact_import_scan_files
-        "${_artifact_impl_relative}"
-        "${_artifact_interface_relative}")
-    foreach(_artifact_import_scan_relative IN LISTS _artifact_import_scan_files)
-        set(_artifact_import_scan_file
-            "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_import_scan_relative}")
-        if(NOT EXISTS "${_artifact_import_scan_file}")
-            continue()
-        endif()
-        file(STRINGS "${_artifact_import_scan_file}" _artifact_import_declarations
-            REGEX "^[ \t]*(export[ \t]+)?import[ \t]+[A-Za-z0-9_.:]+[ \t]*;")
-        foreach(_artifact_import_declaration IN LISTS _artifact_import_declarations)
-            string(REGEX REPLACE
-                "^[ \t]*(export[ \t]+)?import[ \t]+([A-Za-z0-9_.:]+)[ \t]*;.*$"
-                "\\2" _artifact_import_name "${_artifact_import_declaration}")
-            if(_artifact_import_name MATCHES "^:")
-                string(FIND "${_artifact_impl_module_name}" ":" _artifact_impl_partition_index)
-                if(_artifact_impl_partition_index GREATER -1)
-                    string(SUBSTRING "${_artifact_impl_module_name}" 0
-                        ${_artifact_impl_partition_index} _artifact_impl_module_base)
-                else()
-                    set(_artifact_impl_module_base "${_artifact_impl_module_name}")
-                endif()
-                set(_artifact_import_name
-                    "${_artifact_impl_module_base}${_artifact_import_name}")
-            endif()
-            if(_artifact_import_name STREQUAL _artifact_impl_module_name)
-                continue()
-            endif()
-            foreach(_artifact_provider IN LISTS _artifact_module_providers)
-                string(REPLACE "|" ";" _artifact_provider_fields "${_artifact_provider}")
-                list(GET _artifact_provider_fields 0 _artifact_provider_name)
-                if(NOT _artifact_import_name STREQUAL _artifact_provider_name)
-                    continue()
-                endif()
-                list(GET _artifact_provider_fields 1 _artifact_provider_relative)
-                list(APPEND ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES
-                    "${_artifact_impl_relative}|${_artifact_import_name}|${_artifact_provider_relative}")
-                break()
-            endforeach()
-        endforeach()
-    endforeach()
-endforeach()
-list(REMOVE_DUPLICATES ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES)
-
-# MSVC may request imports that are owned by an imported BMI (for example,
-# `Channel` requires `Core.ArtifactString`) while compiling a private module
-# attachment.  Expand those provider imports transitively so every BMI named
-# by that attachment has both a /reference option and a producing-object edge.
-set(_artifact_pending_import_references
-    ${ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES})
-while(_artifact_pending_import_references)
-    list(POP_FRONT _artifact_pending_import_references _artifact_parent_reference)
-    string(REPLACE "|" ";" _artifact_parent_fields "${_artifact_parent_reference}")
-    list(GET _artifact_parent_fields 0 _artifact_impl_relative)
-    list(GET _artifact_parent_fields 2 _artifact_provider_relative)
-    set(_artifact_provider_file
-        "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_provider_relative}")
-    if(NOT EXISTS "${_artifact_provider_file}")
-        continue()
-    endif()
-    file(STRINGS "${_artifact_provider_file}" _artifact_provider_import_declarations
-        REGEX "^[ \t]*(export[ \t]+)?import[ \t]+[A-Za-z0-9_.:]+[ \t]*;")
-    foreach(_artifact_provider_import_declaration IN LISTS _artifact_provider_import_declarations)
-        string(REGEX REPLACE
-            "^[ \t]*(export[ \t]+)?import[ \t]+([A-Za-z0-9_.:]+)[ \t]*;.*$"
-            "\\2" _artifact_provider_import_name
-            "${_artifact_provider_import_declaration}")
-        if(_artifact_provider_import_name MATCHES "^:")
-            set(_artifact_provider_module_name "")
-            foreach(_artifact_provider_candidate IN LISTS _artifact_module_providers)
-                string(REPLACE "|" ";" _artifact_provider_candidate_fields
-                    "${_artifact_provider_candidate}")
-                list(GET _artifact_provider_candidate_fields 1
-                    _artifact_provider_candidate_relative)
-                if(_artifact_provider_relative STREQUAL
-                   _artifact_provider_candidate_relative)
-                    list(GET _artifact_provider_candidate_fields 0
-                        _artifact_provider_module_name)
-                    break()
-                endif()
-            endforeach()
-            string(FIND "${_artifact_provider_module_name}" ":"
-                _artifact_provider_partition_index)
-            if(_artifact_provider_partition_index GREATER -1)
-                string(SUBSTRING "${_artifact_provider_module_name}" 0
-                    ${_artifact_provider_partition_index} _artifact_provider_module_base)
-            else()
-                set(_artifact_provider_module_base
-                    "${_artifact_provider_module_name}")
-            endif()
-            set(_artifact_provider_import_name
-                "${_artifact_provider_module_base}${_artifact_provider_import_name}")
-        endif()
-        foreach(_artifact_provider IN LISTS _artifact_module_providers)
-            string(REPLACE "|" ";" _artifact_provider_fields "${_artifact_provider}")
-            list(GET _artifact_provider_fields 0 _artifact_provider_name)
-            if(NOT _artifact_provider_import_name STREQUAL _artifact_provider_name)
-                continue()
-            endif()
-            list(GET _artifact_provider_fields 1 _artifact_child_provider_relative)
-            set(_artifact_child_reference
-                "${_artifact_impl_relative}|${_artifact_provider_import_name}|${_artifact_child_provider_relative}")
-            list(FIND ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES
-                "${_artifact_child_reference}" _artifact_child_reference_index)
-            if(_artifact_child_reference_index EQUAL -1)
-                list(APPEND ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES
-                    "${_artifact_child_reference}")
-                list(APPEND _artifact_pending_import_references
-                    "${_artifact_child_reference}")
-            endif()
-            break()
-        endforeach()
-    endforeach()
-endwhile()
-
 foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
     string(REPLACE "|" ";" _artifact_module_fields "${_artifact_module_reference}")
     list(GET _artifact_module_fields 0 _artifact_impl_relative)
     list(GET _artifact_module_fields 1 _artifact_module_name)
     list(GET _artifact_module_fields 2 _artifact_interface_relative)
     set(_artifact_impl_file "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_impl_relative}")
-    string(REPLACE ":" "-" _artifact_ifc_basename "${_artifact_module_name}")
     # The dependency scanner does not model a primary-interface attachment
     # (`module Name;`) reliably.  Let the explicit reference below be the
     # single source of truth for these implementation units.
     set_source_files_properties("${_artifact_impl_file}" PROPERTIES CXX_SCAN_FOR_MODULES OFF)
     set_property(SOURCE "${_artifact_impl_file}" APPEND_STRING PROPERTY
         COMPILE_FLAGS " /TP")
-    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        COMPILE_OPTIONS "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_ifc_basename}.ifc")
-    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_interface_relative}.obj")
+    # APIKeyManager.cppm is compiled with scanner support disabled.  Its
+    # primary interface BMI uses the module name as its output, rather than
+    # the source path spelling used by the generic mapping below.
+    if(_artifact_impl_relative STREQUAL "src/AI/CloudAgent.cppm")
+        # This implementation is currently emitted in the base ArtifactCore
+        # target.  Use concrete IFC paths so the rule remains valid under
+        # Ninja/MSVC, where $(IntDir) is not expanded by CMake-generated
+        # compile rules.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AI.CloudAgent=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.CloudAgent.ifc"
+                "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+                "/reference;Core.AI.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.Context.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/AI/LlamaLocalAgent.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AI.LlamaAgent=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.LlamaAgent.ifc"
+                "/reference;Core.AI.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.Context.ifc"
+                "/reference;Core.AI.LocalAgent=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AI.LocalAgent.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform2D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Animation.Transform2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Transform2D.ifc"
+                "/reference;Animation.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Value.ifc"
+                "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+                "/reference;Math.Interpolate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Interpolate.ifc"
+                "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform3D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Animation.Transform3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Transform3D.ifc"
+                "/reference;Animation.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Value.ifc"
+                "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+                "/reference;Math.Interpolate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Interpolate.ifc"
+                "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/EncoderSetting.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Codec.Encoder.Setting=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Codec.Encoder.Setting.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/GStreamerDecoder.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Video.GStreamerDecoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.GStreamerDecoder.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/MFEncoder.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Codec.MFEncoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Codec.MFEncoder.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimationDynamics.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Animation.Dynamics=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Dynamics.ifc"
+                "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Channel/Channel.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
+                "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+                "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/MFFrameExtractor.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Codec.MFFrameExtractor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Codec.MFFrameExtractor.ifc"
+                "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorBlendMode.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.BlendMode=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.BlendMode.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Color.Conversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Conversion.ifc"
+                "/reference;Color.Luminance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Luminance.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorConversion.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Conversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Conversion.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorHarmonizer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Harmonizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Harmonizer.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Color.Conversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Conversion.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorLuminance.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Luminance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Luminance.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorLUT.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.LUT=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.LUT.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSpace.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.ColorSpace=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.ColorSpace.ifc"
+                "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/FloatColor.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/FloatRGBA.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/LabColor.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Lab=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Lab.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/LUTWriter.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.LUTWriter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.LUTWriter.ifc"
+                "/reference;Color.LUT=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.LUT.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/OCIOConfig.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.OCIOConfig=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.OCIOConfig.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/Sarturation.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Saturation=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Saturation.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/XYZColor.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.XYZ=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.XYZ.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Common/Point2D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.Point2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Point2D.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Core/AspectRatio.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AspectRatio=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.AspectRatio.ifc"
+                "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Core/FastSettingsStore.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.FastSettingsStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.FastSettingsStore.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSwatch.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.Swatch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Swatch.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+                "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/AutoColorMatch.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Color.AutoMatch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.AutoMatch.ifc"
+                "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+                "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+                "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+                "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+                "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+                "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+                "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/CrashHandler.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Diagnostics.CrashHandler=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Diagnostics.CrashHandler.ifc"
+                "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Core/Position2D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.Position2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Position2D.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Core/KeyFrame.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.KeyFrame=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.KeyFrame.ifc"
+                "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+                "/reference;Math.Interpolate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Interpolate.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Core/UniformScale.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.UniformScale=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.UniformScale.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Core/Opacity.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.Opacity=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Opacity.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Core/Parallel.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameSkipTracker.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Frame.SkipTracker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.SkipTracker.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FramePosition.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameTime.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Frame.Time=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Time.ifc"
+                "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/GPU/GPUInfo.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/LayerBoundsCalculator.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Geometry.LayerBounds=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.LayerBounds.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/LayerAlignment.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Geometry.LayerAlignment=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.LayerAlignment.ifc"
+                "/reference;Geometry.LayerBounds=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.LayerBounds.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/ResolutionRemap.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Geometry.ResolutionRemap=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.ResolutionRemap.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/BezierPathSampler.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Math.Bezier.Sampler=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Bezier.Sampler.ifc"
+                "/reference;Math.Bezier=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Bezier.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/BezierCalculator.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Math.Bezier=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Bezier.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/MeshImporter.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;MeshImporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/MeshImporter.ifc"
+                "/reference;Mesh=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Mesh.ifc"
+                "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Compute.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+                "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/GPUComputeContext.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/GPUTexture.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.Texture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Texture.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameRate.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
+                "/reference;Serialization.JsonAdapter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.JsonAdapter.ifc"
+                "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc"
+                "/reference;Serialization.ISerializable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.ISerializable.ifc"
+                "/reference;Serialization.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.Registry.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/ProjectDiagnostic.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.Diagnostics.ProjectDiagnostic=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.ProjectDiagnostic.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/DiagnosticEngine.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.Diagnostics.DiagnosticEngine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.DiagnosticEngine.ifc"
+                "/reference;Core.Diagnostics.ProjectDiagnostic=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.ProjectDiagnostic.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/Logger.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Diagnostics.Logger=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Diagnostics.Logger.ifc"
+                "/reference;Core.Diagnostics.Recorder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Recorder.ifc"
+                "/reference;Core.Diagnostics.Snapshot=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Snapshot.ifc"
+                "/reference;Utils.Result=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Result.ifc"
+                "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameOffset.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Frame.Offset=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Offset.ifc"
+                "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
+                "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
+                "/reference;Time.Code=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Code.ifc"
+                "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameRange.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Frame.Range=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Range.ifc"
+            "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
+            "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+            "/reference;Frame.Offset=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Offset.ifc"
+            "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
+            "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
+            "/reference;Serialization.JsonAdapter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.JsonAdapter.ifc"
+            "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc"
+            "/reference;Serialization.ISerializable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.ISerializable.ifc"
+            "/reference;Serialization.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.Registry.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Time.Code=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Code.ifc"
+            "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
+            "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/Procedural3DGenerators.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Procedural3DGenerators=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Procedural3DGenerators.ifc"
+                "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+                "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/Fracture.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Geometry.Fracture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.Fracture.ifc"
+            "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc"
+            "/reference;Physics.Fracture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.Fracture.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Mesh=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Mesh.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
+            "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Compute/LUT3DComputer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.Compute.LUT3DComputer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.LUT3DComputer.ifc"
+                "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+                "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+                "/reference;Graphics.Shader.Compute.HLSL.LUT3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.LUT3D.ifc"
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+                "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            OBJECT_DEPENDS
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/Shader/Compute/HLSL/LUT3D.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/BoidsCompute.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.BoidsCompute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.BoidsCompute.ifc"
+                "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+                "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+                "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+                "/reference;Graphics.ParticleData=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ParticleData.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/RayTracingManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.RayTracingManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.RayTracingManager.ifc"
+                "/reference;Graphics=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ifc"
+                "/reference;Graphics:GraphicsHelper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics-GraphicsHelper.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
+                "/reference;Graphics.CBuffer.Constants.Helper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.CBuffer.Constants.Helper.ifc"
+                "/reference;Graphics.CBuffer.Constants.PixelShader=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.CBuffer.Constants.PixelShader.ifc"
+                "/reference;Graphics.CBuffer.Constants.VertexShader=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.CBuffer.Constants.VertexShader.ifc"
+                "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+                "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+                "/reference;Graphics.Effect.Creative=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ifc"
+                "/reference;Graphics.ImageCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ImageCache.ifc"
+                "/reference;Graphics.Helper.PSO=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Helper.PSO.ifc"
+                "/reference;Graphics.Helpler.GLM=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Helpler.GLM.ifc"
+                "/reference;Graphics.Resource.PSOAndSRB=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Resource.PSOAndSRB.ifc"
+                "/reference;Graphics.Shader.Compute.MaskCutout=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.MaskCutout.ifc"
+                "/reference;Graphics.Shader.HLSL.Basics.Pixel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Basics.Pixel.ifc"
+                "/reference;Graphics.Shader.HLSL.Basics.Vertex=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Basics.Vertex.ifc"
+                "/reference;Graphics.Shader.Set=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Set.ifc"
+                "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc"
+                "/reference;Layer.Matte=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer.Matte.ifc"
+                "/reference;Graphics.Effect.Creative.ColorVibrance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ColorVibrance.ifc"
+                "/reference;Graphics.Effect.Creative.DepthMelt=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.DepthMelt.ifc"
+                "/reference;Graphics.Effect.Creative.EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.EdgeEcho.ifc"
+                "/reference;Graphics.Effect.Creative.Factory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Factory.ifc"
+                "/reference;Graphics.Effect.Creative.Fisheye=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Fisheye.ifc"
+                "/reference;Graphics.Effect.Creative.Glitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Glitch.ifc"
+                "/reference;Graphics.Effect.Creative.Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Halftone.ifc"
+                "/reference;Graphics.Effect.Creative.Kaleidoscope=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Kaleidoscope.ifc"
+                "/reference;Graphics.Effect.Creative.LightPressure=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.LightPressure.ifc"
+                "/reference;Graphics.Effect.Creative.Manager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Manager.ifc"
+                "/reference;Graphics.Effect.Creative.Mirror=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Mirror.ifc"
+                "/reference;Graphics.Effect.Creative.OldTV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.OldTV.ifc"
+                "/reference;Graphics.Effect.Creative.PigmentSeparation=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.PigmentSeparation.ifc"
+                "/reference;Graphics.Effect.Creative.Pixelate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Pixelate.ifc"
+                "/reference;Graphics.Effect.Creative.Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Posterize.ifc"
+                "/reference;Graphics.Effect.Creative.SurfaceMemory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.SurfaceMemory.ifc"
+                "/reference;Graphics.Effect.Creative.TemporalFossil=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.TemporalFossil.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/GPUTextureCacheManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.ImageCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ImageCache.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/PSOCache.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.PSO.Cache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.PSO.Cache.ifc"
+                "/reference;Utils.Path=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Path.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/BasicGeometryShader.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.Shader.HLSL.Geometry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Geometry.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/FallbackPolicy.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Core.Diagnostics.FallbackPolicy=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.FallbackPolicy.ifc"
+            "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Effect/ChromaticAberrationEffect.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.Effect.Creative.ChromaticAberration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ChromaticAberration.ifc"
+            "/reference;Graphics.Effect.Creative=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ifc"
+            "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/SandGPUCompute.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.SandGPUCompute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SandGPUCompute.ifc"
+                "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+                "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+                "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/Compute/GPUCompressionPipeline.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.GPUCompressionPipeline=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUCompressionPipeline.ifc"
+                "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+                "/reference;Graphics.Shader.Compute.HLSL.Compression=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.Compression.ifc"
+                "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Texture/TextureManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.Texture.Manager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Texture.Manager.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/SinglePassShader.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing.Shader=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.Shader.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/BroadcastColorsCS.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/ChromaKeyCS.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/EmbossCS.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/LeaveColorCS.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/LumaKeyCS.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/MedianCS.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/NegateCS.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/ScatterCS.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/SimpleChokerCS.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/ThresholdCS.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
+            "/reference;Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ifc"
+            "/reference;Image.ImageF32x4RGBAWithCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4RGBAWithCache.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Image.ImageYUV420=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageYUV420.ifc"
+            "/reference;Image.MultiChannelImage=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.MultiChannelImage.ifc"
+            "/reference;Image.PSDDocument=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.PSDDocument.ifc"
+            "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
+            "/reference;Image.GpuImageUpload=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.GpuImageUpload.ifc"
+            "/reference;Image.ImageF16x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF16x4.ifc"
+            "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
+           "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
+            "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
+            "/reference;ImageProcessing.LeaveColorCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LeaveColorCS.ifc"
+            "/reference;ImageProcessing.LumaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LumaKeyCS.ifc"
+            "/reference;ImageProcessing.MedianCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.MedianCS.ifc"
+            "/reference;ImageProcessing.NegateCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.NegateCS.ifc"
+            "/reference;ImageProcessing.ScatterCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ScatterCS.ifc"
+            "/reference;ImageProcessing.SimpleChokerCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.SimpleChokerCS.ifc"
+            "/reference;ImageProcessing.ThresholdCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ThresholdCS.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/GlowCS.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+            "/reference;GraphicsHelper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/GraphicsHelper.ifc"
+            "/reference;Graphics.Resource.PSOAndSRB=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Resource.PSOAndSRB.ifc"
+            "/reference;Graphics.ImageCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ImageCache.ifc"
+            "/reference;Graphics.Helper.PSO=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Helper.PSO.ifc"
+            "/reference;Graphics.Helpler.GLM=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Helpler.GLM.ifc"
+            "/reference;Graphics.Shader.Set=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Set.ifc"
+            "/reference;Graphics.Shader.Compute.MaskCutout=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.MaskCutout.ifc"
+            "/reference;Graphics.Shader.HLSL.Basics.Vertex=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Basics.Vertex.ifc"
+            "/reference;Graphics.Shader.HLSL.Basics.Pixel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Basics.Pixel.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+            "/reference;Graphics:GraphicsHelper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics-GraphicsHelper.ifc"
+            "/reference;Graphics.Effect.Creative=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ifc"
+            "/reference;Graphics.Effect.Creative.Manager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Manager.ifc"
+            "/reference;Graphics.Effect.Creative.Mirror=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Mirror.ifc"
+            "/reference;Graphics.Effect.Creative.LightPressure=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.LightPressure.ifc"
+            "/reference;Graphics.Effect.Creative.OldTV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.OldTV.ifc"
+            "/reference;Graphics.Effect.Creative.PigmentSeparation=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.PigmentSeparation.ifc"
+            "/reference;Graphics.CBuffer.Constants.Helper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.CBuffer.Constants.Helper.ifc"
+            "/reference;Graphics.CBuffer.Constants.PixelShader=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.CBuffer.Constants.PixelShader.ifc"
+            "/reference;Graphics.CBuffer.Constants.VertexShader=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.CBuffer.Constants.VertexShader.ifc"
+            "/reference;Graphics.Effect.Creative.ColorVibrance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ColorVibrance.ifc"
+            "/reference;Graphics.Effect.Creative.DepthMelt=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.DepthMelt.ifc"
+            "/reference;Graphics.Effect.Creative.EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.EdgeEcho.ifc"
+            "/reference;Graphics.Effect.Creative.Factory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Factory.ifc"
+            "/reference;Graphics.Effect.Creative.Fisheye=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Fisheye.ifc"
+            "/reference;Graphics.Effect.Creative.Glitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Glitch.ifc"
+            "/reference;Graphics.Effect.Creative.Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Halftone.ifc"
+            "/reference;Graphics.Effect.Creative.Kaleidoscope=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Kaleidoscope.ifc"
+            "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc"
+            "/reference;Layer.Matte=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer.Matte.ifc"
+            "/reference;ImageProcessing.GlowCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.GlowCS.ifc"
+            "/reference;Graphics.Effect.Creative.Pixelate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Pixelate.ifc"
+            "/reference;Graphics.Effect.Creative.Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Posterize.ifc"
+            "/reference;Graphics.Effect.Creative.SurfaceMemory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.SurfaceMemory.ifc"
+            "/reference;Graphics.Effect.Creative.TemporalFossil=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.TemporalFossil.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Draw.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Draw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Draw.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceDetectionEngine.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ArtifactCore.ImageProcessing.FaceDetection=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.FaceDetection.ifc"
+            "/reference;CvUtils=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CvUtils.ifc"
+            "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/OpenCV/CvUtils.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceTracker.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ArtifactCore.ImageProcessing.FaceTracker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.FaceTracker.ifc"
+            "/reference;ArtifactCore.ImageProcessing.FaceDetection=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.FaceDetection.ifc"
+            "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/GlitchCV.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing.GlitchCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.GlitchCV.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Glow.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Glow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Glow.ifc"
+            "/reference;Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ifc"
+            "/reference;Image.GpuImageUpload=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.GpuImageUpload.ifc"
+            "/reference;Image.ImageF16x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF16x4.ifc"
+            "/reference;Image.ImageF32x4RGBAWithCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4RGBAWithCache.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Image.ImageYUV420=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageYUV420.ifc"
+            "/reference;Image.MultiChannelImage=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.MultiChannelImage.ifc"
+            "/reference;Image.PSDDocument=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.PSDDocument.ifc"
+            "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
+            "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Noise.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Noise.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/OpenCVPuppetEngine.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ArtifactCore.ImageProcessing.OpenCV.PuppetEngine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.OpenCV.PuppetEngine.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/LiftCV.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;LiftCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/LiftCV.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/SepiaCV.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/VHS_CV.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/SpectralGlowCV.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/SharpenDirectionalBlur.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_module_name}.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/BasicShaders.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.Shader.HLSL.Basics.Pixel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Basics.Pixel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/BasicVertexShader.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.Shader.HLSL.Basics.Vertex=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Basics.Vertex.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/BitmapImage.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.Bitmap=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Bitmap.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/ImageF32x4.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageF32x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageF32x4.ifc"
+            "/reference;CvUtils=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CvUtils.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/OpenCV/CvUtils.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/DeepImageBuffer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.DeepImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.DeepImageBuffer.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/PNGImage.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.Png=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Png.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoPixel.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.Cryptomatte.Pixel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.Pixel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoImage.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.Cryptomatte.Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.Image.ifc"
+            "/reference;Image.Cryptomatte.Pixel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.Pixel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/FFmpegAudioEncoder.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Media.Encoder.FFmpegAudioEncoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Media.Encoder.FFmpegAudioEncoder.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/ImageYUV420.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.ImageYUV420=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageYUV420.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/CompressQuality.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;CompressQuality=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CompressQuality.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/Cryptomatte/CryptoExrWriter.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.Cryptomatte.ExrWriter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.ExrWriter.ifc"
+            "/reference;Image.Cryptomatte.Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.Image.ifc"
+            "/reference;Image.Cryptomatte.Pixel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Cryptomatte.Pixel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/RayTracingManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.RayTracingManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.RayTracingManager.ifc"
+            "/reference;Graphics=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ifc"
+            "/reference;GraphicsHelper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics-GraphicsHelper.ifc"
+            "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
+            "/reference;Graphics.CBuffer.Constants.Helper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.CBuffer.Constants.Helper.ifc"
+            "/reference;Graphics.CBuffer.Constants.PixelShader=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.CBuffer.Constants.PixelShader.ifc"
+            "/reference;Graphics.CBuffer.Constants.VertexShader=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.CBuffer.Constants.VertexShader.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.Effect.Creative=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ifc"
+            "/reference;Graphics.ImageCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ImageCache.ifc"
+            "/reference;Graphics.Helper.PSO=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Helper.PSO.ifc"
+            "/reference;Graphics.Helpler.GLM=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Helpler.GLM.ifc"
+            "/reference;Graphics.Resource.PSOAndSRB=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Resource.PSOAndSRB.ifc"
+            "/reference;Graphics.Shader.Compute.MaskCutout=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.MaskCutout.ifc"
+            "/reference;Graphics.Shader.HLSL.Basics.Pixel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Basics.Pixel.ifc"
+            "/reference;Graphics.Shader.HLSL.Basics.Vertex=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.HLSL.Basics.Vertex.ifc"
+            "/reference;Graphics.Shader.Set=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Set.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/RenderStatics.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.Statics=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Statics.ifc"
+            "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/RenderJobModel.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.JobModel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.JobModel.ifc"
+            "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/AngelScript/AngelScriptBehaviour.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.AngelScript.Behaviour=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.AngelScript.Behaviour.ifc"
+            "/reference;Script.AngelScript.Engine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.AngelScript.Engine.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Python/PythonEngine.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.Python.Engine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Python.Engine.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Python/CorePythonAPI.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.Python.CoreAPI=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Python.CoreAPI.ifc"
+            "/reference;Script.Python.Engine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Python.Engine.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Engine/Enviroment/EnvironmentManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.Enviroment=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Enviroment.ifc"
+            "/reference;Script.Engine.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Engine.Value.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Script/Engine/Value/Value.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/ShaderNode/ArtifactShaderNode.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Artifact.ShaderNode.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Artifact.ShaderNode.Core.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Expression/ExpressionValue.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.Expression.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Value.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Transform/ZoomScale.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Core.Scale.Zoom=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Scale.Zoom.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Transform/Light.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Core.Light=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Light.ifc"
+            "/reference;Float3=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Float3.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Transform/ViewportTransformer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Core.Transform.Viewport=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Transform.Viewport.ifc"
+            "/reference;Core.Scale.Zoom=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Scale.Zoom.ifc"
+            "/reference;Diagnostics.Logger=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Diagnostics.Logger.ifc"
+            "/reference;Core.Diagnostics.Recorder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Recorder.ifc"
+            "/reference;Core.Diagnostics.Snapshot=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Snapshot.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Transform/Camera.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Core.Camera=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Camera.ifc"
+            "/reference;Float3=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Float3.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/ParticleCompute.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.ParticleCompute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ParticleCompute.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/LayerBlendPipeline.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.LayerBlendPipeline=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.LayerBlendPipeline.ifc"
+            "/reference;Artifact.Render.PointwiseEffectFusion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Artifact.Render.PointwiseEffectFusion.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+            "/reference;Graphics.Shader.Compute.HLSL.Blend=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.Blend.ifc"
+            "/reference;Graphics.Shader.Compute.HLSL.MatteTrack=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.MatteTrack.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Layer.Blend=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer.Blend.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/ParticleRenderer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.ParticleRenderer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ParticleRenderer.ifc"
+            "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc"
+            "/reference;Frame.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Debug.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+            "/reference;Graphics.ParticleData=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ParticleData.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/MeshRenderer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.MeshRenderer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.MeshRenderer.ifc"
+            "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc"
+            "/reference;Core.Light=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Light.ifc"
+            "/reference;Frame.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Debug.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+            "/reference;Graphics.ParticleData=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ParticleData.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+            "/reference;Float3=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Float3.ifc"
+            "/reference;IO.ImageImporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/IO.ImageImporter.ifc"
+            "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/NoiseImageGenerator.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Generator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Generator.ifc"
+            "/reference;Generator:Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Generator-Image.ifc"
+            "/reference;Generator:Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Generator-Noise.ifc"
+            "/reference;Generator:SolidColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Generator-SolidColor.ifc"
+            "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Size=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Size.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/AnisotropicFlowBlur.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
+            "/reference;ImageProcessing:AffineTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AffineTransform.ifc"
+            "/reference;ImageProcessing:AnamorphicFlare=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnamorphicFlare.ifc"
+            "/reference;ImageProcessing:AnisotropicFlowBlur=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnisotropicFlowBlur.ifc"
+            "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
+            "/reference;ImageProcessing:BroadcastColors=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-BroadcastColors.ifc"
+            "/reference;ImageProcessing:AffineTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AffineTransform.ifc"
+            "/reference;ImageProcessing:AnamorphicFlare=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnamorphicFlare.ifc"
+            "/reference;ImageProcessing:AnisotropicFlowBlur=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnisotropicFlowBlur.ifc"
+            "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
+            "/reference;ImageProcessing:ChromaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaKey.ifc"
+            "/reference;ImageProcessing:ChromaSpread=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpread.ifc"
+            "/reference;ImageProcessing:ChromaSpreadGlow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpreadGlow.ifc"
+            "/reference;ImageProcessing:Duotone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Duotone.ifc"
+            "/reference;ImageProcessing:Echo=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Echo.ifc"
+            "/reference;ImageProcessing:EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-EdgeEcho.ifc"
+            "/reference;ImageProcessing:Emboss=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Emboss.ifc"
+            "/reference;ImageProcessing:Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Halftone.ifc"
+            "/reference;ImageProcessing:IBKKeyer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-IBKKeyer.ifc"
+            "/reference;ImageProcessing:LeaveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LeaveColor.ifc"
+            "/reference;ImageProcessing:LumaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LumaKey.ifc"
+            "/reference;ImageF32x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageF32x4.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;ImageProcessing:Median=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Median.ifc"
+            "/reference;ImageProcessing:Monochrome=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Monochrome.ifc"
+            "/reference;ImageProcessing:MotionTrail=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-MotionTrail.ifc"
+            "/reference;ImageProcessing:NegativeCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NegativeCV.ifc"
+            "/reference;ImageProcessing:NeuromorphicDisplace=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NeuromorphicDisplace.ifc"
+            "/reference;ImageProcessing:Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Posterize.ifc"
+            "/reference;ImageProcessing:PosterizeTime=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-PosterizeTime.ifc"
+            "/reference;ImageProcessing:Scatter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Scatter.ifc"
+            "/reference;ImageProcessing:SimpleChoker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-SimpleChoker.ifc"
+            "/reference;ImageProcessing:StrobeLight=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StrobeLight.ifc"
+            "/reference;ImageProcessing:StructureTensor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StructureTensor.ifc"
+            "/reference;ImageProcessing:Threshold=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Threshold.ifc"
+            "/reference;ImageProcessing:TiltShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-TiltShift.ifc"
+            "/reference;ImageProcessing:VectorFlowGlitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-VectorFlowGlitch.ifc"
+            "/reference;ImageProcessing.AutoContrast.CS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.AutoContrast.CS.ifc"
+            "/reference;ImageProcessing.AutoContrast.CV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.AutoContrast.CV.ifc"
+            "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
+            "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
+            "/reference;ImageProcessing.ScatterCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ScatterCS.ifc"
+            "/reference;ImageProcessing.SimpleChokerCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.SimpleChokerCS.ifc"
+            "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
+            "/reference;ImageProcessing.ColorTransform.ColorBalance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ColorBalance.ifc"
+            "/reference;ImageProcessing.ColorTransform.Colorama=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Colorama.ifc"
+            "/reference;ImageProcessing.ColorTransform.Fill=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Fill.ifc"
+            "/reference;ImageProcessing.ColorTransform.GradientRamp=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.GradientRamp.ifc"
+            "/reference;ImageProcessing.ColorTransform.LevelsCurves=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.LevelsCurves.ifc"
+            "/reference;ImageProcessing.ColorTransform.PhotoFilter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.PhotoFilter.ifc"
+            "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
+            "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
+            "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
+            "/reference;ImageProcessing.LeaveColorCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LeaveColorCS.ifc"
+            "/reference;ImageProcessing.NegateCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.NegateCS.ifc"
+            "/reference;ImageProcessing.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ProceduralTexture.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
+            "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/RawImage.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/PSDDocument.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.PSDDocument=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.PSDDocument.ifc"
+            "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
+            "/reference;Layer.Blend=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer.Blend.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/ImageF32x4_With_Cache.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.ImageF32x4RGBAWithCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4RGBAWithCache.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Physics/Physics2D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Physics2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics2D.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/IO/Image/ImageImporter.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;IO.ImageImporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/IO.ImageImporter.ifc"
+            "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
+            "/reference;Image.PSDDocument=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.PSDDocument.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Layer/Layer2D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Layer2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer2D.ifc"
+            "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
+            "/reference;Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Image.GpuImageUpload=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.GpuImageUpload.ifc"
+            "/reference;Image.ImageF16x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF16x4.ifc"
+            "/reference;Image.ImageF32x4RGBAWithCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4RGBAWithCache.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Image.ImageYUV420=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageYUV420.ifc"
+            "/reference;Image.MultiChannelImage=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.MultiChannelImage.ifc"
+            "/reference;Image.PSDDocument=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.PSDDocument.ifc"
+            "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
+            "/reference;ImageF32x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageF32x4.ifc"
+            "/reference;Layer.Blend=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer.Blend.ifc"
+            "/reference;Layer.Matte=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer.Matte.ifc"
+            "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc"
+            "/reference;Transform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Transform.ifc"
+            "/reference;Transform.Scale2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Transform.Scale2D.ifc"
+            "/reference;Transform._2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Transform._2D.ifc"
+            "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/IO/Image/AsyncImageWriterManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;IO.Async.ImageWriterManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/IO.Async.ImageWriterManager.ifc"
+            "/reference;IO.ImageExporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/IO.ImageExporter.ifc"
+            "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
+            "/reference;Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ifc"
+            "/reference;Image.ExportOptions=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ExportOptions.ifc"
+            "/reference;Image.GpuImageUpload=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.GpuImageUpload.ifc"
+            "/reference;Image.ImageF16x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF16x4.ifc"
+            "/reference;Image.ImageF32x4RGBAWithCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4RGBAWithCache.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Image.ImageYUV420=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageYUV420.ifc"
+            "/reference;Image.MultiChannelImage=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.MultiChannelImage.ifc"
+            "/reference;Image.PSDDocument=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.PSDDocument.ifc"
+            "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/IO/Image/ImageExporter.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;IO.ImageExporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/IO.ImageExporter.ifc"
+            "/reference;Image.ExportOptions=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ExportOptions.ifc"
+            "/reference;Image.Utils=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Utils.ifc"
+            "/reference;Image.MultiChannelImage=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.MultiChannelImage.ifc"
+            "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Mesh/Mesh.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Mesh=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Mesh.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/OpenCV/ImageTransformCV.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ifc"
+            "/reference;Image:ImageTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image-ImageTransform.ifc"
+            "/reference;Image.GpuImageUpload=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.GpuImageUpload.ifc"
+            "/reference;Image.ImageF16x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF16x4.ifc"
+            "/reference;Image.ImageF32x4RGBAWithCache=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4RGBAWithCache.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Image.ImageYUV420=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageYUV420.ifc"
+            "/reference;Image.MultiChannelImage=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.MultiChannelImage.ifc"
+            "/reference;Image.PSDDocument=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.PSDDocument.ifc"
+            "/reference;Image.Raw=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.Raw.ifc"
+            "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Utils/ExplorerUtils.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Utils.ExplorerUtils=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.ExplorerUtils.ifc"
+            "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Utils/UniString.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
+            "/reference;Utils.Convertor.String=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Convertor.String.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Utils/NameGenerator.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Utils.NameGenerator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.NameGenerator.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/GpuImageUpload.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.GpuImageUpload=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.GpuImageUpload.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/Distortion.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing.Distortion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.Distortion.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ProceduralTexture.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ProceduralTexture.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+            "/reference;Graphics.Shader.Compute.HLSL.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.ProceduralTexture.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/ImageF16x4.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.ImageF16x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF16x4.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/ImageF32x4_RGBA.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;CvUtils=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/CvUtils.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;Size=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Size.ifc"
+            "/reference;Image.SurfacePixelConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.SurfacePixelConversion.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Layer/LayerMatte.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Layer.Matte=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer.Matte.ifc"
+            "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc"
+            "/reference;Color.Luminance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Luminance.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc"
+            "/reference;Serialization.JsonAdapter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.JsonAdapter.ifc"
+            "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc"
+            "/reference;Serialization.ISerializable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.ISerializable.ifc"
+            "/reference;Serialization.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.Registry.ifc"
+            "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/Compute/MaskCutoutPipeline.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.Shader.Compute.MaskCutout=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.MaskCutout.ifc"
+            "/reference;Color.Luminance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Luminance.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+            "/reference;Graphics.Shader.Compute.HLSL.MaskCutout=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.MaskCutout.ifc"
+            "/reference;Layer.Matte=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Layer.Matte.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/Compute/MaskPathRasterizerPipeline.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Graphics.Shader.Compute.MaskPathRasterizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.MaskPathRasterizer.ifc"
+            "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Graphics.Shader.Compute.HLSL.MaskPathRasterizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.MaskPathRasterizer.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/ChannelMixer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
+            "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ColorTransform/TriChromaticShift.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing.ColorTransform.TriChromaticShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.TriChromaticShift.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/FluidVisualizer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing.FluidVisualizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.FluidVisualizer.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
+            "/reference;Physics.Fluid=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.Fluid.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/VolumePostProcess.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.VolumePostProcess=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.VolumePostProcess.ifc"
+            "/reference;Render.ImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.ImageBuffer.ifc"
+            "/reference;Render.Vector3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Vector3D.ifc"
+            "/reference;Render.Ray=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Ray.ifc"
+            "/reference;Render.Material=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Material.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/ProgressAggregator.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.Farm.Progress=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Progress.ifc"
+            "/reference;Render.Farm.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Types.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/LogCollector.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.Farm.Log=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Log.ifc"
+            "/reference;Render.Farm.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Types.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/AtmosphereFog.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.AtmosphereFog=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.AtmosphereFog.ifc"
+            "/reference;Render.Camera=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Camera.ifc"
+            "/reference;Render.ImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.ImageBuffer.ifc"
+            "/reference;Render.Ray=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Ray.ifc"
+            "/reference;Render.Vector3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Vector3D.ifc"
+            "/reference;Render.VolumeRenderer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.VolumeRenderer.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/MeshToVolume.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.MeshToVolume=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.MeshToVolume.ifc"
+            "/reference;Render.Triangle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Triangle.ifc"
+            "/reference;Render.Vector3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Vector3D.ifc"
+            "/reference;Render.Ray=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Ray.ifc"
+            "/reference;Render.VolumeRenderer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.VolumeRenderer.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/NoiseField.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.NoiseField=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.NoiseField.ifc"
+            "/reference;Render.Vector3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Vector3D.ifc"
+            "/reference;Render.VolumeRenderer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.VolumeRenderer.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/VolumeRenderer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.VolumeRenderer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.VolumeRenderer.ifc"
+            "/reference;Render.Camera=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Camera.ifc"
+            "/reference;Render.ImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.ImageBuffer.ifc"
+            "/reference;Render.Ray=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Ray.ifc"
+            "/reference;Render.Vector3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Vector3D.ifc"
+            "/reference;Render.Ray=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Ray.ifc"
+            "/reference;Render.Material=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Material.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/VolumeModifier.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.VolumeModifier=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.VolumeModifier.ifc"
+            "/reference;Render.NoiseField=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.NoiseField.ifc"
+            "/reference;Render.Vector3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Vector3D.ifc"
+            "/reference;Render.VolumeRenderer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.VolumeRenderer.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/CheckpointStore.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.Farm.Checkpoint=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Checkpoint.ifc"
+            "/reference;Render.Farm.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Types.ifc"
+            "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Utils/Tag.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Utils.Tag=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Tag.ifc"
+            "/reference;Utils.String.Like=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.Like.ifc"
+            "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Utils/Path.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Utils.Path=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Path.ifc"
+            "/reference;Utils.String.Like=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.Like.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/RendererQueueSetting.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;RendererQueueSetting=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/RendererQueueSetting.ifc"
+            "/reference;Utils=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.ifc"
+            "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
+            "/reference;Utils.String.Like=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.Like.ifc"
+            "/reference;Utils.Buffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Buffer.ifc"
+            "/reference;Utils.Handle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Handle.ifc"
+            "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc"
+            "/reference;Utils.Numeric=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Numeric.ifc"
+            "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc"
+            "/reference;Utils.Path=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Path.ifc"
+            "/reference;Utils.Result=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Result.ifc"
+            "/reference;Utils.Size.Like=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Size.Like.ifc"
+            "/reference;Utils.String.View=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.View.ifc"
+            "/reference;Utils.Timer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Timer.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/RendererQueueManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.Queue.Manager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Queue.Manager.ifc"
+            "/reference;Render.Settings=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Settings.ifc"
+            "/reference;Render.JobModel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.JobModel.ifc"
+            "/reference;RendererQueueSetting=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/RendererQueueSetting.ifc"
+            "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc"
+            "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc"
+            "/reference;Core.ThreadPool=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ThreadPool.ifc"
+            "/reference;Core.Render.MFR.Dispatcher=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Render.MFR.Dispatcher.ifc"
+            "/reference;Core.Render.MFR.Job=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Render.MFR.Job.ifc"
+            "/reference;Utils.Path=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Path.ifc"
+            "/reference;Utils.Timer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Timer.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/ArtifactScript/ArtifactScript.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.ArtifactScript=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.ArtifactScript.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Engine/BultinScriptVM/BuiltinScriptVM.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.Engine.BuiltinVM=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Engine.BuiltinVM.ifc"
+            "/reference;Script.Expression.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Value.ifc"
+            "/reference;Script.Expression.Evaluator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Evaluator.ifc"
+            "/reference;Script.Engine.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Engine.Context.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Script.Expression.Parser=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Parser.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Engine/Context/ScriptContext.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.Engine.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Engine.Context.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Script.Expression.Parser=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Parser.ifc"
+            "/reference;Script.Expression.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Value.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Engine/Syntax/ASTNode.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ASTNode=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ASTNode.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Expression/ExpressionEvaluator.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Script.Expression.Parser=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Parser.ifc"
+            "/reference;Script.Expression.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Value.ifc"
+            "/reference;Script.Expression.Evaluator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Evaluator.ifc"
+            "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/AbstractImageEffect.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;ImageF32x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageF32x4.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;ImageProcessing:AffineTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AffineTransform.ifc"
+            "/reference;ImageProcessing:AnamorphicFlare=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnamorphicFlare.ifc"
+            "/reference;ImageProcessing:AnisotropicFlowBlur=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnisotropicFlowBlur.ifc"
+            "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
+            "/reference;ImageProcessing:BroadcastColors=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-BroadcastColors.ifc"
+            "/reference;ImageProcessing:ChromaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaKey.ifc"
+            "/reference;ImageProcessing:ChromaSpread=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpread.ifc"
+            "/reference;ImageProcessing:ChromaSpreadGlow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpreadGlow.ifc"
+            "/reference;ImageProcessing:Duotone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Duotone.ifc"
+            "/reference;ImageProcessing:Echo=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Echo.ifc"
+            "/reference;ImageProcessing:EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-EdgeEcho.ifc"
+            "/reference;ImageProcessing:Emboss=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Emboss.ifc"
+            "/reference;ImageProcessing:Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Halftone.ifc"
+            "/reference;ImageProcessing:IBKKeyer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-IBKKeyer.ifc"
+            "/reference;ImageProcessing:LeaveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LeaveColor.ifc"
+            "/reference;ImageProcessing:LumaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LumaKey.ifc"
+            "/reference;ImageProcessing:Median=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Median.ifc"
+            "/reference;ImageProcessing:Monochrome=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Monochrome.ifc"
+            "/reference;ImageProcessing:MotionTrail=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-MotionTrail.ifc"
+            "/reference;ImageProcessing:NegativeCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NegativeCV.ifc"
+            "/reference;ImageProcessing:NeuromorphicDisplace=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NeuromorphicDisplace.ifc"
+            "/reference;ImageProcessing:Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Posterize.ifc"
+            "/reference;ImageProcessing:PosterizeTime=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-PosterizeTime.ifc"
+            "/reference;ImageProcessing:Scatter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Scatter.ifc"
+            "/reference;ImageProcessing:SimpleChoker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-SimpleChoker.ifc"
+            "/reference;ImageProcessing:StrobeLight=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StrobeLight.ifc"
+            "/reference;ImageProcessing:StructureTensor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StructureTensor.ifc"
+            "/reference;ImageProcessing:Threshold=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Threshold.ifc"
+            "/reference;ImageProcessing:TiltShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-TiltShift.ifc"
+            "/reference;ImageProcessing:VectorFlowGlitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-VectorFlowGlitch.ifc"
+            "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
+            "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
+            "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
+            "/reference;ImageProcessing.LeaveColorCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LeaveColorCS.ifc"
+            "/reference;ImageProcessing.NegateCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.NegateCS.ifc"
+            "/reference;ImageProcessing.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ProceduralTexture.ifc"
+            "/reference;ImageProcessing.ScatterCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ScatterCS.ifc"
+            "/reference;ImageProcessing.SimpleChokerCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.SimpleChokerCS.ifc"
+            "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
+            "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
+            "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
+            "/reference;ImageProcessing.ColorTransform.ColorBalance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ColorBalance.ifc"
+            "/reference;ImageProcessing.ColorTransform.Colorama=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Colorama.ifc"
+            "/reference;ImageProcessing.ColorTransform.Fill=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Fill.ifc"
+            "/reference;ImageProcessing.ColorTransform.GradientRamp=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.GradientRamp.ifc"
+            "/reference;ImageProcessing.ColorTransform.LevelsCurves=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.LevelsCurves.ifc"
+            "/reference;ImageProcessing.ColorTransform.PhotoFilter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.PhotoFilter.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaKey.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
+            "/reference;ImageProcessing:ChromaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaKey.ifc"
+            "/reference;ImageF32x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageF32x4.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;ImageProcessing:AffineTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AffineTransform.ifc"
+            "/reference;ImageProcessing:AnamorphicFlare=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnamorphicFlare.ifc"
+            "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
+            "/reference;ImageProcessing:Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Halftone.ifc"
+            "/reference;ImageProcessing:IBKKeyer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-IBKKeyer.ifc"
+            "/reference;ImageProcessing:LeaveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LeaveColor.ifc"
+            "/reference;ImageProcessing:LumaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LumaKey.ifc"
+            "/reference;ImageProcessing:Median=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Median.ifc"
+            "/reference;ImageProcessing:Monochrome=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Monochrome.ifc"
+            "/reference;ImageProcessing:MotionTrail=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-MotionTrail.ifc"
+            "/reference;ImageProcessing:NegativeCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NegativeCV.ifc"
+            "/reference;ImageProcessing:Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Posterize.ifc"
+            "/reference;ImageProcessing:PosterizeTime=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-PosterizeTime.ifc"
+            "/reference;ImageProcessing:Scatter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Scatter.ifc"
+            "/reference;ImageProcessing:SimpleChoker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-SimpleChoker.ifc"
+            "/reference;ImageProcessing:StrobeLight=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StrobeLight.ifc"
+            "/reference;ImageProcessing:StructureTensor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StructureTensor.ifc"
+            "/reference;ImageProcessing:Threshold=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Threshold.ifc"
+            "/reference;ImageProcessing:TiltShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-TiltShift.ifc"
+            "/reference;ImageProcessing:VectorFlowGlitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-VectorFlowGlitch.ifc"
+            "/reference;ImageProcessing:AffineTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AffineTransform.ifc"
+            "/reference;ImageProcessing:AnamorphicFlare=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnamorphicFlare.ifc"
+            "/reference;ImageProcessing:AnisotropicFlowBlur=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnisotropicFlowBlur.ifc"
+            "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
+            "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
+            "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
+            "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
+            "/reference;ImageProcessing.LeaveColorCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LeaveColorCS.ifc"
+            "/reference;ImageProcessing.NegateCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.NegateCS.ifc"
+            "/reference;ImageProcessing.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ProceduralTexture.ifc"
+            "/reference;ImageProcessing.ScatterCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ScatterCS.ifc"
+            "/reference;ImageProcessing.SimpleChokerCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.SimpleChokerCS.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
+            "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
+            "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
+            "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
+            "/reference;ImageProcessing.LeaveColorCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LeaveColorCS.ifc"
+            "/reference;ImageProcessing.NegateCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.NegateCS.ifc"
+            "/reference;ImageProcessing.ScatterCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ScatterCS.ifc"
+            "/reference;ImageProcessing.SimpleChokerCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.SimpleChokerCS.ifc"
+            "/reference;ImageProcessing.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ProceduralTexture.ifc"
+            "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
+            "/reference;ImageProcessing.ColorTransform.ColorBalance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ColorBalance.ifc"
+            "/reference;ImageProcessing.ColorTransform.Colorama=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Colorama.ifc"
+            "/reference;ImageProcessing.ColorTransform.Fill=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Fill.ifc"
+            "/reference;ImageProcessing.ColorTransform.GradientRamp=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.GradientRamp.ifc"
+            "/reference;ImageProcessing.ColorTransform.LevelsCurves=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.LevelsCurves.ifc"
+            "/reference;ImageProcessing.ColorTransform.PhotoFilter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.PhotoFilter.ifc"
+            "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
+            "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/BroadcastColors.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
+            "/reference;ImageProcessing:BroadcastColors=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-BroadcastColors.ifc"
+            "/reference;ImageF32x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageF32x4.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;ImageProcessing:EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-EdgeEcho.ifc"
+            "/reference;ImageProcessing:Emboss=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Emboss.ifc"
+            "/reference;ImageProcessing:Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Halftone.ifc"
+            "/reference;ImageProcessing:IBKKeyer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-IBKKeyer.ifc"
+            "/reference;ImageProcessing:LeaveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LeaveColor.ifc"
+            "/reference;ImageProcessing:LumaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LumaKey.ifc"
+            "/reference;ImageProcessing:Median=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Median.ifc"
+            "/reference;ImageProcessing:Monochrome=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Monochrome.ifc"
+            "/reference;ImageProcessing:MotionTrail=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-MotionTrail.ifc"
+            "/reference;ImageProcessing:NegativeCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NegativeCV.ifc"
+            "/reference;ImageProcessing:Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Posterize.ifc"
+            "/reference;ImageProcessing:PosterizeTime=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-PosterizeTime.ifc"
+            "/reference;ImageProcessing:Scatter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Scatter.ifc"
+            "/reference;ImageProcessing:SimpleChoker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-SimpleChoker.ifc"
+            "/reference;ImageProcessing:StrobeLight=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StrobeLight.ifc"
+            "/reference;ImageProcessing:StructureTensor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StructureTensor.ifc"
+            "/reference;ImageProcessing:Threshold=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Threshold.ifc"
+            "/reference;ImageProcessing:TiltShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-TiltShift.ifc"
+            "/reference;ImageProcessing:VectorFlowGlitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-VectorFlowGlitch.ifc"
+            "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
+            "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
+            "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
+            "/reference;ImageProcessing.ColorTransform.ColorBalance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ColorBalance.ifc"
+            "/reference;ImageProcessing.ColorTransform.Colorama=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Colorama.ifc"
+            "/reference;ImageProcessing.ColorTransform.Fill=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Fill.ifc"
+            "/reference;ImageProcessing.ColorTransform.GradientRamp=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.GradientRamp.ifc"
+            "/reference;ImageProcessing.ColorTransform.LevelsCurves=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.LevelsCurves.ifc"
+            "/reference;ImageProcessing.ColorTransform.PhotoFilter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.PhotoFilter.ifc"
+            "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
+            "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
+            "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
+            "/reference;ImageProcessing.LeaveColorCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LeaveColorCS.ifc"
+            "/reference;ImageProcessing.NegateCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.NegateCS.ifc"
+            "/reference;ImageProcessing.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ProceduralTexture.ifc"
+            "/reference;ImageProcessing.ScatterCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ScatterCS.ifc"
+            "/reference;ImageProcessing.SimpleChokerCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.SimpleChokerCS.ifc"
+            "/reference;ImageProcessing:AffineTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AffineTransform.ifc"
+            "/reference;ImageProcessing:AnamorphicFlare=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnamorphicFlare.ifc"
+            "/reference;ImageProcessing:AnisotropicFlowBlur=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnisotropicFlowBlur.ifc"
+            "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaSpread.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
+            "/reference;ImageProcessing:ChromaSpread=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpread.ifc"
+            "/reference;ImageF32x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageF32x4.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;ImageProcessing:Duotone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Duotone.ifc"
+            "/reference;ImageProcessing:Echo=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Echo.ifc"
+            "/reference;ImageProcessing:EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-EdgeEcho.ifc"
+            "/reference;ImageProcessing:Emboss=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Emboss.ifc"
+            "/reference;ImageProcessing:Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Halftone.ifc"
+            "/reference;ImageProcessing:IBKKeyer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-IBKKeyer.ifc"
+            "/reference;ImageProcessing:LeaveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LeaveColor.ifc"
+            "/reference;ImageProcessing:LumaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LumaKey.ifc"
+            "/reference;ImageProcessing:Median=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Median.ifc"
+            "/reference;ImageProcessing:Monochrome=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Monochrome.ifc"
+            "/reference;ImageProcessing:MotionTrail=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-MotionTrail.ifc"
+            "/reference;ImageProcessing:NegativeCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NegativeCV.ifc"
+            "/reference;ImageProcessing:Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Posterize.ifc"
+            "/reference;ImageProcessing:PosterizeTime=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-PosterizeTime.ifc"
+            "/reference;ImageProcessing:Scatter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Scatter.ifc"
+            "/reference;ImageProcessing:SimpleChoker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-SimpleChoker.ifc"
+            "/reference;ImageProcessing:StrobeLight=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StrobeLight.ifc"
+            "/reference;ImageProcessing:StructureTensor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StructureTensor.ifc"
+            "/reference;ImageProcessing:Threshold=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Threshold.ifc"
+            "/reference;ImageProcessing:TiltShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-TiltShift.ifc"
+            "/reference;ImageProcessing:VectorFlowGlitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-VectorFlowGlitch.ifc"
+            "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
+            "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
+            "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
+            "/reference;ImageProcessing.LeaveColorCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LeaveColorCS.ifc"
+            "/reference;ImageProcessing.NegateCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.NegateCS.ifc"
+            "/reference;ImageProcessing.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ProceduralTexture.ifc"
+            "/reference;ImageProcessing.ScatterCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ScatterCS.ifc"
+            "/reference;ImageProcessing.SimpleChokerCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.SimpleChokerCS.ifc"
+            "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
+            "/reference;ImageProcessing.ColorTransform.ColorBalance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ColorBalance.ifc"
+            "/reference;ImageProcessing.ColorTransform.Colorama=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Colorama.ifc"
+            "/reference;ImageProcessing.ColorTransform.Fill=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Fill.ifc"
+            "/reference;ImageProcessing.ColorTransform.GradientRamp=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.GradientRamp.ifc"
+            "/reference;ImageProcessing.ColorTransform.LevelsCurves=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.LevelsCurves.ifc"
+            "/reference;ImageProcessing.ColorTransform.PhotoFilter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.PhotoFilter.ifc"
+            "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
+            "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
+            "/reference;ImageProcessing:AffineTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AffineTransform.ifc"
+            "/reference;ImageProcessing:AnamorphicFlare=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnamorphicFlare.ifc"
+            "/reference;ImageProcessing:AnisotropicFlowBlur=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnisotropicFlowBlur.ifc"
+            "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
+            "/reference;ImageProcessing:BroadcastColors=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-BroadcastColors.ifc"
+            "/reference;ImageProcessing:ChromaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaKey.ifc"
+            "/reference;ImageProcessing:ChromaSpreadGlow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpreadGlow.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/ChromaSpreadGlow.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/AffineCV.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Duotone.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Echo.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/EdgeEcho.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Emboss.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Keying/IBKKeyer.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Halftone.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/LumaKey.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/LeaveColor.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/MotionTrail.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Median.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/NegativeCV.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/NeuromorphicDisplace.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Monochrome.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Posterize.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/PosterizeTime.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Scatter.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/SimpleChoker.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/StructureTensor.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/StrobeLight.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/Threshold.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/TiltShift.cppm" OR
+           _artifact_impl_relative STREQUAL "src/ImageProcessing/VectorFlowGlitch.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing:NeuromorphicDisplace=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NeuromorphicDisplace.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Transform._2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Transform._2D.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
+            "/reference;ImageProcessing:ChromaSpreadGlow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpreadGlow.ifc"
+            "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
+            "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
+            "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
+            "/reference;ImageProcessing.ColorTransform.ColorBalance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ColorBalance.ifc"
+            "/reference;ImageProcessing.ColorTransform.Colorama=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Colorama.ifc"
+            "/reference;ImageProcessing.ColorTransform.Fill=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Fill.ifc"
+            "/reference;ImageProcessing.ColorTransform.GradientRamp=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.GradientRamp.ifc"
+            "/reference;ImageProcessing.ColorTransform.LevelsCurves=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.LevelsCurves.ifc"
+            "/reference;ImageProcessing.ColorTransform.PhotoFilter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.PhotoFilter.ifc"
+            "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
+            "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
+            "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
+            "/reference;ImageProcessing.LeaveColorCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.LeaveColorCS.ifc"
+            "/reference;ImageProcessing.NegateCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.NegateCS.ifc"
+            "/reference;ImageProcessing.ProceduralTexture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ProceduralTexture.ifc"
+            "/reference;ImageProcessing.ScatterCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ScatterCS.ifc"
+            "/reference;ImageProcessing.SimpleChokerCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.SimpleChokerCS.ifc"
+            "/reference;ImageProcessing:AffineTransform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AffineTransform.ifc"
+            "/reference;ImageProcessing:AnamorphicFlare=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnamorphicFlare.ifc"
+            "/reference;ImageProcessing:AnisotropicFlowBlur=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AnisotropicFlowBlur.ifc"
+            "/reference;ImageProcessing:AntiAliasing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-AntiAliasing.ifc"
+            "/reference;ImageF32x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageF32x4.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Image.ImageF32x4_RGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageF32x4_RGBA.ifc"
+            "/reference;ImageProcessing:Duotone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Duotone.ifc"
+            "/reference;ImageProcessing:Echo=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Echo.ifc"
+            "/reference;ImageProcessing:EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-EdgeEcho.ifc"
+            "/reference;ImageProcessing:Emboss=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Emboss.ifc"
+            "/reference;ImageProcessing:Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Halftone.ifc"
+            "/reference;ImageProcessing:IBKKeyer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-IBKKeyer.ifc"
+            "/reference;ImageProcessing:LeaveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LeaveColor.ifc"
+            "/reference;ImageProcessing:LumaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LumaKey.ifc"
+            "/reference;ImageProcessing:Median=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Median.ifc"
+            "/reference;ImageProcessing:Monochrome=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Monochrome.ifc"
+            "/reference;ImageProcessing:MotionTrail=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-MotionTrail.ifc"
+            "/reference;ImageProcessing:NegativeCV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NegativeCV.ifc"
+            "/reference;ImageProcessing:Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Posterize.ifc"
+            "/reference;ImageProcessing:PosterizeTime=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-PosterizeTime.ifc"
+            "/reference;ImageProcessing:Scatter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Scatter.ifc"
+            "/reference;ImageProcessing:SimpleChoker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-SimpleChoker.ifc"
+            "/reference;ImageProcessing:StrobeLight=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StrobeLight.ifc"
+            "/reference;ImageProcessing:StructureTensor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-StructureTensor.ifc"
+            "/reference;ImageProcessing:Threshold=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Threshold.ifc"
+            "/reference;ImageProcessing:TiltShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-TiltShift.ifc"
+            "/reference;ImageProcessing:VectorFlowGlitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-VectorFlowGlitch.ifc"
+            "/reference;ImageProcessing:BroadcastColors=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-BroadcastColors.ifc"
+            "/reference;ImageProcessing:ChromaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaKey.ifc"
+            "/reference;ImageProcessing:ChromaSpread=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpread.ifc"
+            "/reference;ImageInterface=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageInterface.ifc"
+            "/reference;Image.ImageSurfaceView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.ImageSurfaceView.ifc"
+            "/reference;Graphics.SurfaceColorContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.SurfaceColorContract.ifc"
+            "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc"
+            "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+            "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;Color.GamutConversion=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.GamutConversion.ifc"
+            "/reference;Color.TransferFunction=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.TransferFunction.ifc"
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Expression/ExpressionParser.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.Expression.Parser=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Parser.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Script.Expression.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Value.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Property/PropertyGroup.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Property.Group=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Group.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Property.Abstract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Abstract.ifc"
+            "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc"
+            "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
+            "/reference;Math.Interpolate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Interpolate.ifc"
+            "/reference;Script.Expression.Evaluator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Evaluator.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/ScriptRuntime.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Script.Runtime=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Runtime.ifc"
+            "/reference;Script.Expression.Evaluator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Evaluator.ifc"
+            "/reference;Script.Expression.Parser=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Parser.ifc"
+            "/reference;Script.Expression.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Value.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Transform/TransformHelper.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Transform.Hlper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Transform.Hlper.ifc"
+            "/reference;Transform=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Transform.ifc"
+            "/reference;Transform._2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Transform._2D.ifc"
+            "/reference;Transform.Scale2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Transform.Scale2D.ifc"
+            "/reference;Math.Matrix4x4=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Matrix4x4.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Particle/ParticleSystem.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Particle=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Mesh=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Mesh.ifc"
+            "/reference;Physics.Fluid=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.Fluid.ifc"
+            "/reference;Physics2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics2D.ifc"
+            "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc"
+            "/reference;Shape=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Shape.ifc"
+            "/reference;Particle.System=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Particle.System.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Property/PropertyLinkManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Property.LinkManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.LinkManager.ifc"
+            "/reference;Property.Abstract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Abstract.ifc"
+            "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
+            "/reference;Math.Interpolate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Interpolate.ifc"
+            "/reference;Script.Expression.Evaluator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Evaluator.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/GPURayTracer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.GPURayTracer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.GPURayTracer.ifc"
+            "/reference;Render.Camera=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Camera.ifc"
+            "/reference;Render.Hittable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Hittable.ifc"
+            "/reference;Render.IRayTracer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.IRayTracer.ifc"
+            "/reference;Render.SoftwareRayTracer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.SoftwareRayTracer.ifc"
+            "/reference;Render.ImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.ImageBuffer.ifc"
+            "/reference;Render.Vector3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Vector3D.ifc"
+            "/reference;Render.Ray=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Ray.ifc"
+            "/reference;Render.Material=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Material.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Render/RenderFarmWorker.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Render.Farm.Worker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Worker.ifc"
+            "/reference;Render.Farm.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Types.ifc"
+            "/reference;Core.ThreadPool=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ThreadPool.ifc"
+            "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Property/AbstractProperty.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Property.Abstract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Abstract.ifc"
+            "/reference;Animation.Transform3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Transform3D.ifc"
+            "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+            "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+            "/reference;Math.Interpolate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Interpolate.ifc"
+            "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Script.Engine.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Engine.Context.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Script.Expression.Evaluator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Evaluator.ifc"
+            "/reference;Script.Expression.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Value.ifc"
+            "/reference;Script.Expression.Parser=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Parser.ifc"
+            "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
+            "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Time/TimeCode.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;Time.Code=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Code.ifc"
+            "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
+            "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Time/TimeCodeRange.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;TimeCodeRange=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/TimeCodeRange.ifc"
+            "/reference;Time.Code=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Code.ifc"
+            "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc")
+    elseif(_artifact_impl_relative MATCHES "^src/Graphics/Effect/" )
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
+            "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_module_name}.ifc"
+            "/reference;Channel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Channel.ifc"
+            "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+            "/reference;Core.Diagnostics.FallbackPolicy=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.FallbackPolicy.ifc"
+            "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+            "/reference;std=${CMAKE_BINARY_DIR}/CMakeFiles/__cmake_cxx23.dir/std.ifc"
+            "/reference;Graphics.Effect.Creative=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ifc"
+            "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc"
+            "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+            "/reference;Graphics.Effect.Creative.ChromaticAberration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ChromaticAberration.ifc"
+            "/reference;Graphics.Effect.Creative.ColorVibrance=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.ColorVibrance.ifc"
+            "/reference;Graphics.Effect.Creative.DepthMelt=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.DepthMelt.ifc"
+            "/reference;Graphics.Effect.Creative.EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.EdgeEcho.ifc"
+            "/reference;Graphics.Effect.Creative.Emboss=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Emboss.ifc"
+            "/reference;Graphics.Effect.Creative.Fisheye=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Fisheye.ifc"
+            "/reference;Graphics.Effect.Creative.Glitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Glitch.ifc"
+            "/reference;Graphics.Effect.Creative.Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Halftone.ifc"
+            "/reference;Graphics.Effect.Creative.Kaleidoscope=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Kaleidoscope.ifc"
+            "/reference;Graphics.Effect.Creative.LightPressure=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.LightPressure.ifc"
+            "/reference;Graphics.Effect.Creative.Mirror=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Mirror.ifc"
+            "/reference;Graphics.Effect.Creative.OldTV=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.OldTV.ifc"
+            "/reference;Graphics.Effect.Creative.PigmentSeparation=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.PigmentSeparation.ifc"
+            "/reference;Graphics.Effect.Creative.Pixelate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Pixelate.ifc"
+            "/reference;Graphics.Effect.Creative.Posterize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Posterize.ifc"
+            "/reference;Graphics.Effect.Creative.Solarize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Solarize.ifc"
+            "/reference;Graphics.Effect.Creative.SurfaceMemory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.SurfaceMemory.ifc"
+            "/reference;Graphics.Effect.Creative.TemporalFossil=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.TemporalFossil.ifc")
+    elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_module_name}.ifc")
+    else()
+        # Scanner-disabled primary units still need explicit references for
+        # every imported BMI.  These modules are produced by their owning
+        # targets before the AI implementation is compiled.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AI.APIKeyManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.APIKeyManager.ifc"
+                "/reference;Core.AI.Context=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.Context.ifc"
+                "/reference;Core.AI.CloudAgent=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.CloudAgent.ifc"
+                "/reference;Configuration.ConfigLayer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Configuration.ConfigLayer.ifc"
+                "/reference;Configuration.LayeredConfigStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Configuration.LayeredConfigStore.ifc")
+    endif()
+    set(_artifact_dependency_target_dir "ArtifactCore.dir")
+    file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_interface_relative}" _artifact_expected_interface)
+    set(_artifact_interface_owner_found OFF)
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_MODULES$")
+            foreach(_artifact_domain_interface IN LISTS ${_artifact_domain_var})
+                file(REAL_PATH "${_artifact_domain_interface}" _artifact_actual_interface)
+                if(_artifact_actual_interface STREQUAL _artifact_expected_interface)
+                    set(_artifact_interface_owner_found ON)
+                    string(REGEX REPLACE "^ARTIFACTCORE_(.+)_MODULES$" "\\1" _artifact_domain "${_artifact_domain_var}")
+                    set(_artifact_dependency_target_dir "ArtifactCore${_artifact_domain}.dir")
+                    break()
+                endif()
+            endforeach()
+            if(NOT _artifact_dependency_target_dir STREQUAL "ArtifactCore.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    string(REGEX REPLACE "^src/([^/]+)/.*$" "\\1" _artifact_source_domain "${_artifact_impl_relative}")
+    string(TOUPPER "${_artifact_source_domain}" _artifact_source_domain_upper)
+    if(DEFINED ARTIFACTCORE_${_artifact_source_domain_upper}_IMPL)
+        set(_artifact_dependency_target_dir "ArtifactCore${_artifact_source_domain}.dir")
+    endif()
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_IMPL$")
+            string(REGEX REPLACE "^ARTIFACTCORE_(.+)_IMPL$" "\\1" _artifact_domain "${_artifact_domain_var}")
+            string(TOUPPER "${_artifact_domain}" _artifact_domain_upper)
+            if(_artifact_domain_upper STREQUAL _artifact_source_domain_upper)
+                set(_artifact_dependency_target_dir "ArtifactCore${_artifact_domain}.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    if(_artifact_impl_relative MATCHES "^src/AI/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAI.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Analyze/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAnalyze.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Configuration/" OR
+           _artifact_impl_relative MATCHES "^src/Application/")
+        set(_artifact_dependency_target_dir "ArtifactCoreConfiguration.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Asset/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAsset.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Audio/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAudio.dir")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm")
+        set(_artifact_dependency_target_dir "ArtifactCoreAudio.dir")
+    elseif(_artifact_impl_relative MATCHES "^src/Particle/")
+        set(_artifact_dependency_target_dir "ArtifactCoreAudio.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Composition/")
+        set(_artifact_dependency_target_dir "ArtifactCoreComposition.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Event/")
+        set(_artifact_dependency_target_dir "ArtifactCoreEvent.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Media/")
+        set(_artifact_dependency_target_dir "ArtifactCoreMedia.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/NLE/")
+        set(_artifact_dependency_target_dir "ArtifactCoreNLE.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Playback/")
+        set(_artifact_dependency_target_dir "ArtifactCorePlayback.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Video/")
+        set(_artifact_dependency_target_dir "ArtifactCoreVideo.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Scene/")
+        set(_artifact_dependency_target_dir "ArtifactCoreScene.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Control/")
+        set(_artifact_dependency_target_dir "ArtifactCoreControl.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Database/")
+        set(_artifact_dependency_target_dir "ArtifactCoreDatabase.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Export/")
+        set(_artifact_dependency_target_dir "ArtifactCoreExport.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Rig/")
+        set(_artifact_dependency_target_dir "ArtifactCoreRig.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/IPC/")
+        set(_artifact_dependency_target_dir "ArtifactCoreIPC.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Light/")
+        set(_artifact_dependency_target_dir "ArtifactCoreLight.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Plugin/")
+        set(_artifact_dependency_target_dir "ArtifactCorePlugin.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/IO/")
+        set(_artifact_dependency_target_dir "ArtifactCoreShape.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Text/")
+        set(_artifact_dependency_target_dir "ArtifactCoreText.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Simulation/")
+        set(_artifact_dependency_target_dir "ArtifactCoreSimulation.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Source/")
+        set(_artifact_dependency_target_dir "ArtifactCoreSource.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Track/")
+        set(_artifact_dependency_target_dir "ArtifactCoreTrack.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/UI/")
+        set(_artifact_dependency_target_dir "ArtifactCoreUI.dir")
+    endif()
+    # Resolve the owning split target from its explicit implementation list.
+    # This keeps the BMI/object dependency aligned when a domain is moved out
+    # of the aggregate target, without maintaining a second path-based map.
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_IMPL$")
+            foreach(_artifact_domain_source IN LISTS ${_artifact_domain_var})
+                file(RELATIVE_PATH _artifact_domain_relative
+                    "${CMAKE_CURRENT_SOURCE_DIR}" "${_artifact_domain_source}")
+                if(_artifact_domain_relative STREQUAL _artifact_impl_relative)
+                    string(REGEX REPLACE "^ARTIFACTCORE_(.+)_IMPL$" "\\1" _artifact_domain "${_artifact_domain_var}")
+                    set(_artifact_dependency_target_dir "ArtifactCore${_artifact_domain}.dir")
+                    break()
+                endif()
+            endforeach()
+            if(NOT _artifact_dependency_target_dir STREQUAL "ArtifactCore.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    # The aggregate target still needs its interface object as an explicit
+    # order-only dependency.  Split targets receive ordering from their own
+    # CXX_MODULES file set and must not reference ArtifactCore.dir objects.
+    if(_artifact_dependency_target_dir STREQUAL "ArtifactCore.dir")
+        set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_interface_relative}.obj")
+    else()
+        set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS "")
+    endif()
 endforeach()
 
-foreach(_artifact_import_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES)
-    string(REPLACE "|" ";" _artifact_import_fields "${_artifact_import_reference}")
-    list(GET _artifact_import_fields 0 _artifact_impl_relative)
-    list(GET _artifact_import_fields 1 _artifact_import_name)
-    list(GET _artifact_import_fields 2 _artifact_import_interface_relative)
-    set(_artifact_impl_file "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_impl_relative}")
-    string(REPLACE ":" "-" _artifact_import_ifc_basename "${_artifact_import_name}")
-    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        COMPILE_OPTIONS "/reference;${_artifact_import_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_import_ifc_basename}.ifc")
-    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_import_interface_relative}.obj")
-endforeach()
+# Split-domain targets emit their primary-interface BMIs under their own
+# target directory.  Override the aggregate-target fallback for these
+# scanner-disabled implementation units and retain imported BMI references.
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/Core.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
+    "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
+    "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
+    "/reference;Core.Defaults=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Defaults.ifc"
+    "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+    "/reference;Frame.Range=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Range.ifc"
+    "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
+    "/reference;Frame.Offset=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Offset.ifc"
+    "/reference;Serialization.JsonAdapter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.JsonAdapter.ifc"
+    "/reference;Serialization.SchemaMigration=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Serialization.SchemaMigration.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBus.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+    "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Event/EventBusDebugger.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;ArtifactCore.Event.EventBusDebugger=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/ArtifactCore.Event.EventBusDebugger.ifc"
+    "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+    "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+    "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+    "/reference;Utils.Text.String=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Text.String.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;Codec.AbstractEncoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Codec.AbstractEncoder.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/PlaybackManager.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;Video.PlaybackManager=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.PlaybackManager.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Transitions/CubeTransition.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;Video.Transitions.CubeTransition=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.Transitions.CubeTransition.ifc"
+    "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
+    "/reference;Video.TransitionFactory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.TransitionFactory.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;NLE.OTIO=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.OTIO.ifc"
+    "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
+    "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+    "/reference;Frame.Offset=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Offset.ifc"
+    "/reference;Frame.Range=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Range.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/PreciseTicker.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;Thread.PreciseTicker=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/Thread.PreciseTicker.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm" PROPERTY COMPILE_OPTIONS
+    "/reference;Video.Stabilizer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.Stabilizer.ifc"
+    "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+    "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
 
 # Procedural3DGenerators.cppm is the implementation unit for the explicitly
 # registered public generator module above.
@@ -285,7 +1951,6 @@ endif()
 # modules that directly import Audio in the same pack so the base Core target
 # does not retain an edge back into the extracted module set.
 set(ARTIFACTCORE_AUDIO_MODULES
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Animation/KeyframeEditingTools.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/ASIOBackendStub.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioAnalyzer.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioBackend.ixx"
@@ -328,11 +1993,11 @@ set(ARTIFACTCORE_AUDIO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/WASAPIBackend.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/QtAudioBackend.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFMpegAudioDecoder.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/CLAP/CLAPHost.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/CLAP/CLAPHost.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Animation/KeyframeEditingTools.ixx"
 )
 set(ARTIFACTCORE_AUDIO_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Animation/KeyframeEditingTools.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/ASIOBackendStub.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioAnalyzer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBassTreble.cppm"
@@ -362,11 +2027,16 @@ set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/SimpleWav.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/WASAPIBackend.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegAudioDecoder.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/CLAP/CLAPHost.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/CLAP/CLAPHost.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Animation/KeyframeEditingTools.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AUDIO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AUDIO_IMPL})
+list(REMOVE_ITEM ARTIFACTCORE_AUDIO_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx")
+list(REMOVE_ITEM ARTIFACTCORE_AUDIO_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm")
 
 # AI modules form a leaf domain in Core: the static import audit found no
 # non-AI Core module importing an AI module.  Keep their public descriptions
@@ -422,7 +2092,6 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AI_IMPL})
 # Video.VideoFrame; this keeps the base Core target free of reverse Video
 # module edges.
 set(ARTIFACTCORE_VIDEO_MODULES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractDecoder.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractEncoder.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractTransition.ixx"
@@ -456,7 +2125,6 @@ set(ARTIFACTCORE_VIDEO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/VideoFrame.ixx"
 )
 set(ARTIFACTCORE_VIDEO_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/PlaybackManager.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm"
@@ -480,9 +2148,6 @@ set(ARTIFACTCORE_VIDEO_IMPL
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VIDEO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VIDEO_IMPL})
-list(FILTER CORE_IMPL EXCLUDE REGEX "FFmpegEncoder")
-list(FILTER CORE_MODULES EXCLUDE REGEX "FFmpegEncoder")
-list(FILTER CORE_MODULES EXCLUDE REGEX "FFMpegEncoder\\.ixx$")
 
 set(ARTIFACTCORE_MEDIA_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/ISource.ixx"
@@ -553,7 +2218,6 @@ set(ARTIFACTCORE_UI_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/GizmoMode.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InputEvent.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InputOperator.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InteractiveActions.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InputOperatorManager.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/KeyMap.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/LayoutState.ixx"
@@ -633,6 +2297,7 @@ set(ARTIFACTCORE_COMMAND_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/LambdaCommand.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/LayerLockManager.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/SerializableCommand.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InteractiveActions.ixx"
 )
 set(ARTIFACTCORE_COMMAND_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Command/LambdaCommand.cppm"
@@ -662,6 +2327,7 @@ set(ARTIFACTCORE_SHAPE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeLayer.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeOperator.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapePath.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeTypes.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/TrimPaths.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/IO/VectorExport.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/IO/IO.ixx"
@@ -917,7 +2583,6 @@ set(ARTIFACTCORE_TEXT_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextLayoutContract.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextShapingBackend.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextStyle.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeTypes.ixx"
 )
 set(ARTIFACTCORE_TEXT_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/GlyphAtlas.cppm"
@@ -1096,6 +2761,203 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_COLLABORATE_IMPL})
 # ---------------------------------------------------------------------------
 # ターゲット定義
 # ---------------------------------------------------------------------------
+
+# Finalize implementation-unit BMI ordering after all domain lists exist.
+foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
+    string(REPLACE "|" ";" _artifact_module_fields "${_artifact_module_reference}")
+    list(GET _artifact_module_fields 0 _artifact_impl_relative)
+    list(GET _artifact_module_fields 2 _artifact_interface_relative)
+    set(_artifact_impl_file "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_impl_relative}")
+    file(REAL_PATH "${_artifact_impl_file}" _artifact_impl_real)
+    set(_artifact_owner_target_dir "ArtifactCore.dir")
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_IMPL$")
+            foreach(_artifact_domain_source IN LISTS ${_artifact_domain_var})
+                file(REAL_PATH "${_artifact_domain_source}" _artifact_domain_source_real)
+                if(_artifact_domain_source_real STREQUAL _artifact_impl_real)
+                    string(REGEX REPLACE "^ARTIFACTCORE_(.+)_IMPL$" "\\1" _artifact_domain "${_artifact_domain_var}")
+                    if(_artifact_domain STREQUAL "AI" OR _artifact_domain STREQUAL "UI" OR
+                       _artifact_domain STREQUAL "IPC" OR _artifact_domain STREQUAL "NLE" OR
+                       _artifact_domain STREQUAL "VST3")
+                        set(_artifact_domain_target "${_artifact_domain}")
+                    elseif(_artifact_domain STREQUAL "COLORCOLLECTION")
+                        set(_artifact_domain_target "ColorCollection")
+                    elseif(_artifact_domain STREQUAL "FILESYSTEM")
+                        set(_artifact_domain_target "FileSystem")
+                    else()
+                        string(SUBSTRING "${_artifact_domain}" 0 1 _artifact_domain_initial)
+                        string(SUBSTRING "${_artifact_domain}" 1 -1 _artifact_domain_tail)
+                        string(TOLOWER "${_artifact_domain_tail}" _artifact_domain_tail_lower)
+                        set(_artifact_domain_target "${_artifact_domain_initial}${_artifact_domain_tail_lower}")
+                    endif()
+                    set(_artifact_owner_target_dir "ArtifactCore${_artifact_domain_target}.dir")
+                    break()
+                endif()
+            endforeach()
+            if(NOT _artifact_owner_target_dir STREQUAL "ArtifactCore.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_interface_relative}" _artifact_expected_interface)
+    get_cmake_property(_artifact_core_variables VARIABLES)
+    foreach(_artifact_domain_var IN LISTS _artifact_core_variables)
+        if(_artifact_domain_var MATCHES "^ARTIFACTCORE_(.+)_MODULES$")
+            foreach(_artifact_domain_interface IN LISTS ${_artifact_domain_var})
+                file(REAL_PATH "${_artifact_domain_interface}" _artifact_actual_interface)
+                if(_artifact_actual_interface STREQUAL _artifact_expected_interface)
+                    string(REGEX REPLACE "^ARTIFACTCORE_(.+)_MODULES$" "\\1" _artifact_domain "${_artifact_domain_var}")
+                    if(_artifact_domain STREQUAL "AI" OR _artifact_domain STREQUAL "UI" OR
+                       _artifact_domain STREQUAL "IPC" OR _artifact_domain STREQUAL "NLE" OR
+                       _artifact_domain STREQUAL "VST3")
+                        set(_artifact_domain_target "${_artifact_domain}")
+                    elseif(_artifact_domain STREQUAL "COLORCOLLECTION")
+                        set(_artifact_domain_target "ColorCollection")
+                    elseif(_artifact_domain STREQUAL "FILESYSTEM")
+                        set(_artifact_domain_target "FileSystem")
+                    else()
+                        string(SUBSTRING "${_artifact_domain}" 0 1 _artifact_domain_initial)
+                        string(SUBSTRING "${_artifact_domain}" 1 -1 _artifact_domain_tail)
+                        string(TOLOWER "${_artifact_domain_tail}" _artifact_domain_tail_lower)
+                        set(_artifact_domain_target "${_artifact_domain_initial}${_artifact_domain_tail_lower}")
+                    endif()
+                    set(_artifact_owner_target_dir "ArtifactCore${_artifact_domain_target}.dir")
+                    break()
+                endif()
+            endforeach()
+            if(NOT _artifact_owner_target_dir STREQUAL "ArtifactCore.dir")
+                break()
+            endif()
+        endif()
+    endforeach()
+    if(NOT _artifact_interface_owner_found AND
+       _artifact_interface_relative MATCHES "^include/Utils/Localization\\.ixx$")
+        set(_artifact_owner_target_dir "ArtifactCore.dir")
+    endif()
+    if(_artifact_interface_relative MATCHES "^include/AI/")
+        set(_artifact_owner_target_dir "ArtifactCoreAI.dir")
+    elseif(_artifact_interface_relative MATCHES "^include/Configuration/")
+        set(_artifact_owner_target_dir "ArtifactCoreConfiguration.dir")
+    endif()
+    set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${_artifact_owner_target_dir}/${_artifact_interface_relative}.obj")
+    if(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform2D.cppm")
+        # Keep this attachment unscanned (MSVC/CMake otherwise forms a dyndep
+        # cycle through Animation.Transform2D), but also order its imported
+        # Animation.Value BMI before compilation.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Animation/AnimatableValue.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSpace.cppm")
+        # Non-scanned implementation units need explicit build ordering for
+        # imported interface BMIs in addition to their /reference options.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/ColorGamutConversion.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Codec/MFFrameExtractor.cppm")
+        # Memory.TrackedPtr is an interface-bearing .cppm, so make its object
+        # (and therefore its BMI) available before this attachment compiles.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/TrackedPtr.cppm.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Compute/LUT3DComputer.cppm")
+        # Preserve the HLSL source module ordering after the generic
+        # implementation-interface dependency assignment above.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/Shader/Compute/HLSL/LUT3D.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameRate.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/JsonSerializableAdapter.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/SchemaMigration.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/Compute/GPUCompressionPipeline.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/Shader/Compute/HLSL/Compression.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/PSOCache.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/Path.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/RayTracingManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/Graphics.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/DirectCompute/SinglePassShader.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/ArtifactString.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/ImageYUV420.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/ImageF32x4_RGBA.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceDetectionEngine.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/OpenCV/CvUtils.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/Glow.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/Image.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Script/Engine/Enviroment/EnvironmentManager.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Script/Engine/Value/Value.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Transform/ViewportTransformer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Diagnostics/Logger.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Utils/UniString.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/StringConvertor.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/OpenCV/ImageTransformCV.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/Transform/ImageTransformCV.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/LayerBlendPipeline.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/Shader/Compute/HLSL/MatteTrack.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/NLE/Core.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/Defaults.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Time/RationalTime.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/UniString.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FramePosition.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRange.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRate.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameOffset.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/JsonSerializableAdapter.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/SchemaMigration.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Event/EventBus.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/SharedPtr.cppm.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Event/EventBusDebugger.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/include/Event/EventBus.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/SharedPtr.cppm.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/ArtifactString.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/Text/String.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Video/Transitions/CubeTransition.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/include/NLE/Core.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/include/Video/TransitionFactory.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/NLE/OTIO.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/include/NLE/Core.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRange.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameOffset.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Thread/PreciseTicker.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/include/Thread/PreciseTicker.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Frame/FrameRange.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FramePosition.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameOffset.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRate.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Time/RationalTime.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/JsonSerializableAdapter.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/SchemaMigration.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Layer/LayerMatte.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/ColorLuminance.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/FloatRGBA.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/ImageF32x4_RGBA.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/JsonSerializableAdapter.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Serialization/SchemaMigration.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Video/Stabilizer.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FramePosition.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Common/Parallel.ixx.obj")
+    endif()
+endforeach()
+
 add_library(ArtifactCore STATIC)
 
 set_target_properties(ArtifactCore PROPERTIES
@@ -1104,10 +2966,11 @@ set_target_properties(ArtifactCore PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
-if(TARGET __cmake_cxx23 OR TARGET __CMAKE::CXX23)
-    set_property(TARGET ArtifactCore PROPERTY CXX_MODULE_STD ON)
-else()
-    set_property(TARGET ArtifactCore PROPERTY CXX_MODULE_STD OFF)
+# import std is provided by the explicit MSVC std.ifc producer declared at the
+# top level; do not trigger CMake's incomplete 4.3 standard-module target.
+set_property(TARGET ArtifactCore PROPERTY CXX_MODULE_STD OFF)
+if(TARGET ArtifactStdModule)
+    add_dependencies(ArtifactCore ArtifactStdModule)
 endif()
 
 # MSVC specific C++23 modules settings
@@ -1123,6 +2986,32 @@ if(ARTIFACT_FRONTEND_MSVC)
         "/FI${CMAKE_CURRENT_SOURCE_DIR}/include/Compat/QtListForward.h")
 endif()
 
+# The aggregate manifest can still receive a path spelling from the generated
+# source manifest after domain removals. Enforce the split boundary immediately
+# before the target is declared.
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])FFMpegAudioDecoder\\.ixx$")
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])FFMpegAudioDecoder\\.cppm$")
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])DecoderPoolManager\\.ixx$")
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])ParticleSystem\\.ixx$")
+list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])RenderFarmMaster\\.ixx$")
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])RenderFarmMaster\\.cppm$")
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])FFmpegEncoder\\.Helpers\\.cppm$")
+list(REMOVE_ITEM CORE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
+)
+list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])OpenEXR\\.cppm$")
+list(REMOVE_ITEM CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
+)
+list(APPEND CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx"
+)
+list(APPEND CORE_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm"
+)
+list(APPEND CORE_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/Particle.ixx")
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
@@ -1292,6 +3181,11 @@ endif()
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC glm::glm)
 
+# meshoptimizer provides vertex remapping, vertex-cache optimization, and
+# meshlet generation for the Mesh LOD preparation path.
+find_package(meshoptimizer CONFIG REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC meshoptimizer::meshoptimizer)
+
 find_package(Stb REQUIRED)
 target_include_directories(ArtifactCore PUBLIC ${Stb_INCLUDE_DIR})
 
@@ -1426,7 +3320,7 @@ if(_artifact_using_bundled_llama_cpp AND TARGET llama)
             set_target_properties(${_artifact_llama_target} PROPERTIES
                 VS_GLOBAL_VcpkgApplocalDeps false)
         endif()
-endforeach()
+    endforeach()
 endif()
 
 if(NOT TARGET llama)
@@ -2820,36 +4714,4 @@ if(ARTIFACT_FRONTEND_MSVC)
         UNICODE
         GLOG_USE_GLOG_EXPORT
     )
-endif()
-
-# Attach every local C++ target to the explicit MSVC std.ifc producer created
-# by the parent project. `__cmake_cxx23` is an output directory, not a CMake
-# target, so both the build dependency and compiler reference must be explicit.
-if(TARGET ArtifactStdModule OR TARGET __CMAKE::CXX23)
-    get_property(_artifactcore_local_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
-    foreach(_artifactcore_target IN LISTS _artifactcore_local_targets)
-        if(_artifactcore_target MATCHES "^ArtifactCore")
-            get_target_property(_artifactcore_target_type
-                ${_artifactcore_target} TYPE)
-            if(_artifactcore_target_type MATCHES
-               "^(EXECUTABLE|STATIC_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY|OBJECT_LIBRARY)$")
-                if(TARGET ArtifactStdModule)
-                    add_dependencies(${_artifactcore_target} ArtifactStdModule)
-                    if(MSVC AND _artifact_std_ifc)
-                        target_compile_options(${_artifactcore_target} PRIVATE
-                            "/reference;std=${_artifact_std_ifc}")
-                    endif()
-                else()
-                    set_property(TARGET ${_artifactcore_target} PROPERTY CXX_MODULE_STD ON)
-                endif()
-            endif()
-        endif()
-    endforeach()
-endif()
-
-if(DEFINED ARTIFACT_USE_EXPLICIT_STD_IFC)
-    get_property(_artifact_core_final_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
-    foreach(_artifact_target IN LISTS _artifact_core_final_targets)
-        set_property(TARGET "${_artifact_target}" PROPERTY CXX_MODULE_STD OFF)
-    endforeach()
 endif()

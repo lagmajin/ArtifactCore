@@ -45,6 +45,9 @@ public:
     // Recovery
     AssetInfo getAssetInfo(const QUuid& id) const;
     QUuid findAssetByPath(const QString& path) const;
+    // Move an existing asset identity to a new normalized path. The asset ID
+    // is preserved; collisions and missing old paths leave the database unchanged.
+    bool relinkAssetPath(const QString& oldPath, const QString& newPath);
     QList<AssetInfo> findAssetsByType(AssetType type) const;
     QList<AssetInfo> allAssets() const;
 

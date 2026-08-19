@@ -1,6 +1,7 @@
 module;
 
 #include <cmath>
+#include <limits>
 #include <random>
 #include <cstdint>
 
@@ -358,6 +359,50 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
     std::vector<ExpressionValue> args;
     for (size_t i = 1; i < node->childCount(); ++i) {
       args.push_back(evaluateNode(node->child(i)));
+    }
+
+    // AE-style marker access over the immutable preview snapshot:
+    // marker.key(n) and marker.nearestKey(time).
+    if (base.isObject() && (method == "key" || method == "nearestKey")) {
+      const auto keysValue = base.property("keys");
+      if (!keysValue.isArray()) {
+        error_ = ZeroString("marker method requires a keys catalog");
+        return ExpressionValue();
+      }
+      if (args.empty() || !args.front().isNumber()) {
+        error_ = ZeroString("marker method requires a numeric argument");
+        return ExpressionValue();
+      }
+
+      const auto keys = keysValue.asArray();
+      if (keys.empty()) {
+        error_ = ZeroString("marker catalog is empty");
+        return ExpressionValue();
+      }
+
+      if (method == "key") {
+        const auto index = static_cast<long long>(std::llround(args.front().asNumber()));
+        if (index < 1 || index > static_cast<long long>(keys.size())) {
+          error_ = ZeroString("marker key index out of range");
+          return ExpressionValue();
+        }
+        return keys[static_cast<std::size_t>(index - 1)];
+      }
+
+      const double targetTime = args.front().asNumber();
+      const ExpressionValue* nearest = &keys.front();
+      double nearestDistance = std::numeric_limits<double>::infinity();
+      for (const auto& key : keys) {
+        if (!key.isObject() || !key.hasProperty("time")) {
+          continue;
+        }
+        const double distance = std::abs(key.property("time").asNumber() - targetTime);
+        if (distance < nearestDistance) {
+          nearest = &key;
+          nearestDistance = distance;
+        }
+      }
+      return *nearest;
     }
 
     if (base.isObject() && method == "layer") {

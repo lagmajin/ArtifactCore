@@ -2,6 +2,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <set>
@@ -239,6 +240,56 @@ std::vector<SharedPtr<AudioBus>> AudioMixer::getAllBuses() const
         if (bus) result.add(bus);
     }
     return result.toStdVector();
+}
+
+qint64 AudioMixer::graphLatencySamples() const
+{
+    qint64 maximum = 0;
+    for (const auto& bus : impl_->buses) {
+        if (!bus) continue;
+        qint64 path = 0;
+        std::set<const AudioBus*> visited;
+        const AudioBus* cursor = bus.get();
+        while (cursor && visited.insert(cursor).second) {
+            auto resolved = impl_->resolveBus(cursor);
+            if (!resolved) break;
+            const qint64 busLatency = resolved->latencySamples();
+            if (busLatency > 0 && path > std::numeric_limits<qint64>::max() - busLatency) {
+                path = std::numeric_limits<qint64>::max();
+                break;
+            }
+            path += std::max<qint64>(0, busLatency);
+            const auto it = impl_->routing.find(cursor);
+            cursor = it == impl_->routing.end() ? nullptr : it->second;
+        }
+        maximum = std::max(maximum, path);
+    }
+    return maximum;
+}
+
+qint64 AudioMixer::graphTailSamples() const
+{
+    qint64 maximum = 0;
+    for (const auto& bus : impl_->buses) {
+        if (!bus) continue;
+        qint64 path = 0;
+        std::set<const AudioBus*> visited;
+        const AudioBus* cursor = bus.get();
+        while (cursor && visited.insert(cursor).second) {
+            auto resolved = impl_->resolveBus(cursor);
+            if (!resolved) break;
+            const qint64 busTail = std::max<qint64>(0, resolved->tailSamples());
+            if (busTail > 0 && path > std::numeric_limits<qint64>::max() - busTail) {
+                path = std::numeric_limits<qint64>::max();
+                break;
+            }
+            path += busTail;
+            const auto it = impl_->routing.find(cursor);
+            cursor = it == impl_->routing.end() ? nullptr : it->second;
+        }
+        maximum = std::max(maximum, path);
+    }
+    return maximum;
 }
 
 SharedPtr<AudioBus> AudioMixer::getRoutingTarget(SharedPtr<AudioBus> bus) const
@@ -574,6 +625,29 @@ void AudioMixer::process(AudioSegment& finalOutput) {
 
     const auto sorted = impl_->getSortedBuses();
 
+    const auto primaryPathLatency = [this](const SharedPtr<AudioBus>& source) {
+        qint64 total = 0;
+        std::set<const AudioBus*> visited;
+        const AudioBus* cursor = source.get();
+        while (cursor && visited.insert(cursor).second) {
+            const auto resolved = impl_->resolveBus(cursor);
+            if (!resolved) break;
+            const qint64 value = std::max<qint64>(0, resolved->latencySamples());
+            if (value > 0 && total > std::numeric_limits<qint64>::max() - value) {
+                return std::numeric_limits<qint64>::max();
+            }
+            total += value;
+            const auto route = impl_->routing.find(cursor);
+            cursor = route == impl_->routing.end() ? nullptr : route->second;
+        }
+        return total;
+    };
+    qint64 maximumPathLatency = 0;
+    for (const auto& bus : sorted) {
+        if (bus) maximumPathLatency = std::max(
+            maximumPathLatency, primaryPathLatency(bus));
+    }
+
     // Solo is a graph-level decision. A bus remains audible when it is
     // soloed, carries a soloed child, or feeds an explicitly soloed group.
     // The last case keeps a group solo useful; it deliberately follows only
@@ -634,6 +708,27 @@ void AudioMixer::process(AudioSegment& finalOutput) {
             bus->getOutputBuffer().zero();
         }
         bus->process(bus->getOutputBuffer());
+
+        // Compensate only primary source buses. A group/master already
+        // contains aligned upstream material; delaying it again would double
+        // compensate the path. Sidechain sends remain control paths.
+        if (bus != masterBus_) {
+            const bool hasPrimaryInput = std::any_of(
+                impl_->routing.begin(), impl_->routing.end(),
+                [&bus](const auto& route) {
+                    return route.second == bus.get();
+                });
+            if (!hasPrimaryInput) {
+                const qint64 pathLatency = primaryPathLatency(bus);
+                const qint64 compensation = pathLatency >= maximumPathLatency
+                    ? 0 : maximumPathLatency - pathLatency;
+                bus->applyLatencyCompensation(compensation);
+            } else {
+                // A bus can change from source to group after a routing edit;
+                // discard any old source delay history at that boundary.
+                bus->applyLatencyCompensation(0);
+            }
+        }
 
         auto it = impl_->routing.find(bus.get());
         if (it != impl_->routing.end() && it->second) {

@@ -1,5 +1,4 @@
 module;
-class tst_QList;
 #include <utility>
 #include <algorithm>
 #include <chrono>
@@ -15,7 +14,6 @@ module Particle.System;
 import Particle;
 import Mesh;
 import Math.Noise;
-import Audio.Segment;
 
 
 namespace ArtifactCore {

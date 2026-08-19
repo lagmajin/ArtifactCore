@@ -39,8 +39,6 @@ class tst_QList;
 
 import std;
 
-
-
 export namespace ArtifactCore {
 
 

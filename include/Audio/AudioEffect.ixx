@@ -5,6 +5,7 @@ module;
 #include <vector>
 #include <QString>
 #include <QJsonObject>
+#include <QtGlobal>
 #include "../Define/DllExportMacro.hpp"
 
 export module Audio.Effect;
@@ -30,6 +31,11 @@ public:
     virtual ArtifactCore::String getName() const = 0;
 
     virtual void process(AudioSegment& segment, const AudioSegment* sideChain = nullptr) = 0;
+
+    // Runtime scheduling metadata used by a future graph-level PDC pass.
+    // Effects that do not add delay or a tail keep the zero defaults.
+    virtual qint64 latencySamples() const { return 0; }
+    virtual qint64 tailSamples() const { return 0; }
 
     virtual void setBypass(bool bypass) { bypass_ = bypass; }
     virtual bool isBypassed() const { return bypass_; }

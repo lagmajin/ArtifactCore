@@ -72,6 +72,10 @@ public:
     // 指定したソースプロパティが変更されたときにターゲットを更新
     void updateTargets(AbstractProperty* source);
 
+    // UI / serialization 層が現在のリンクを read-only で列挙するための参照。
+    // 所有権は manager にあり、呼び出し側は要素を変更・保持してはならない。
+    const std::vector<PropertyLink>& links() const;
+
     // すべてのリンクを解除
     void clear();
 
