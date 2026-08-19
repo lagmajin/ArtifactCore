@@ -4600,7 +4600,7 @@ target_sources(ArtifactCoreVST PRIVATE ${ARTIFACTCORE_VST_IMPL} PUBLIC FILE_SET 
 target_link_libraries(ArtifactCoreVST PUBLIC ArtifactCore)
 target_include_directories(ArtifactCoreVST PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
 
-target_link_libraries(ArtifactCoreScene PUBLIC ArtifactCoreMaterial)
+target_link_libraries(ArtifactCoreScene INTERFACE ArtifactCoreMaterial)
 
 add_library(ArtifactCoreNetwork STATIC)
 set_target_properties(ArtifactCoreNetwork PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
