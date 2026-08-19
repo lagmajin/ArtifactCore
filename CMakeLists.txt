@@ -2626,7 +2626,8 @@ set(ARTIFACTCORE_TEXT_IMPL
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_TEXT_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_TEXT_IMPL})
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/GlyphLayout.ixx" APPEND PROPERTY COMPILE_OPTIONS
-    "/reference;Shape.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Types.ifc")
+    "/reference;Shape.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Types.ifc"
+    "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc")
 
 set(ARTIFACTCORE_GENERATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Generate/GenerateTestImage.ixx"
