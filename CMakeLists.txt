@@ -2967,6 +2967,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Image/ImageYUV420.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/ImageF32x4_RGBA.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Image/ImageF32x4_RGBA.cppm")
+        # The implementation imports SurfacePixelConversion.  Keep its
+        # interface object ahead of this compile after the generic dependency
+        # assignment above, which otherwise overwrites earlier attachments.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/SurfacePixelConversion.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceDetectionEngine.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/OpenCV/CvUtils.ixx.obj")
