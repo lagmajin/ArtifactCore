@@ -15,6 +15,7 @@ module Scene.SceneNode;
 
 import Container.NamedVector;
 import Mesh;
+import Material.Material;
 import Memory.SharedPtr;
 import Utils.String.UniString;
 
@@ -32,7 +33,7 @@ public:
  QVector3D scale_ = { 1, 1, 1 };
 
  SharedPtr<Mesh> mesh_;
- SharedPtr<Material> material_;
+ SharedPtr<SceneMaterial> material_;
  bool visible_ = true;
 
  mutable QMatrix4x4 cachedWorld_;
@@ -211,8 +212,8 @@ QVector3D SceneNode::worldPosition() const
 // Content
 void SceneNode::setMesh(SharedPtr<Mesh> mesh) { impl_->mesh_ = mesh; }
 SharedPtr<Mesh> SceneNode::mesh() const { return impl_->mesh_; }
-void SceneNode::setMaterial(SharedPtr<Material> material) { impl_->material_ = material; }
-SharedPtr<Material> SceneNode::material() const { return impl_->material_; }
+void SceneNode::setMaterial(SharedPtr<SceneMaterial> material) { impl_->material_ = material; }
+SharedPtr<SceneMaterial> SceneNode::material() const { return impl_->material_; }
 
 // Visibility
 void SceneNode::setVisible(bool visible) { impl_->visible_ = visible; }

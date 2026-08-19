@@ -8,11 +8,10 @@ module;
 #include <QQuaternion>
 #include <vector>
 
-namespace ArtifactCore { class Material; }
-
 export module Scene.SceneNode;
 
 import Mesh;
+import Material.Material;
 import Utils.String.UniString;
 import Memory.SharedPtr;
 
@@ -76,8 +75,8 @@ export namespace ArtifactCore
 
   void setMesh(SharedPtr<Mesh> mesh);
   SharedPtr<Mesh> mesh() const;
-  void setMaterial(SharedPtr<Material> material);
-  SharedPtr<Material> material() const;
+  void setMaterial(SharedPtr<SceneMaterial> material);
+  SharedPtr<SceneMaterial> material() const;
 
   // --- Visibility ---
 
