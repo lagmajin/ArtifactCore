@@ -99,7 +99,6 @@ if(MSVC)
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
         PROPERTIES
-            COMPILE_OPTIONS "/reference;File:Info=$(IntDir)/include/File/FileInfo.ixx.ifc"
             OBJECT_DEPENDS "${_artifact_object_dir}/include/File/FileInfo.ixx.obj"
     )
     set_source_files_properties(
@@ -3999,11 +3998,9 @@ set_target_properties(ArtifactCoreAsset PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
-    set_property(TARGET ArtifactCoreAsset PROPERTY CXX_MODULE_STD ON)
-else()
-    set_property(TARGET ArtifactCoreAsset PROPERTY CXX_MODULE_STD OFF)
-endif()
+# import std is provided by the explicit MSVC std.ifc producer configured at
+# the top level; avoid CMake's second standard-module reference on this target.
+set_property(TARGET ArtifactCoreAsset PROPERTY CXX_MODULE_STD OFF)
 target_sources(ArtifactCoreAsset
     PRIVATE ${ARTIFACTCORE_ASSET_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_ASSET_MODULES}
