@@ -9,8 +9,6 @@ module;
 
 export module IPC.SharedMemoryRingBuffer;
 
-class QSystemSemaphore;
-
 export namespace ArtifactCore::IPC {
 
 inline constexpr std::uint32_t kRingBufferMagic = 0x41524246; // ARBF

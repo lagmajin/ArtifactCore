@@ -14,6 +14,26 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreSources.cmake")
 set(CORE_MODULES ${ARTIFACTCORE_MODULE_SOURCES})
 set(CORE_IMPL ${ARTIFACTCORE_IMPL_SOURCES})
 
+# The generated manifest is included from cmake/ and therefore expresses
+# paths through `${CMAKE_CURRENT_LIST_DIR}/..`, while the extracted pack lists
+# below use `${CMAKE_CURRENT_SOURCE_DIR}`.  CMake's list(REMOVE_ITEM) compares
+# those spellings literally, so normalize both lists before removing sources
+# from the base target.  Without this, every extracted module is also added to
+# ArtifactCore and MSVC reports conflicting IFC locations during dyndep.
+set(_artifact_normalized_core_modules)
+foreach(_artifact_core_source IN LISTS CORE_MODULES)
+    file(REAL_PATH "${_artifact_core_source}" _artifact_core_source_real)
+    list(APPEND _artifact_normalized_core_modules "${_artifact_core_source_real}")
+endforeach()
+set(CORE_MODULES ${_artifact_normalized_core_modules})
+
+set(_artifact_normalized_core_impl)
+foreach(_artifact_core_source IN LISTS CORE_IMPL)
+    file(REAL_PATH "${_artifact_core_source}" _artifact_core_source_real)
+    list(APPEND _artifact_normalized_core_impl "${_artifact_core_source_real}")
+endforeach()
+set(CORE_IMPL ${_artifact_normalized_core_impl})
+
 # These are implementation units for interface partitions already present in
 # the CXX_MODULES file set.  CMake's scanner treats the repeated partition
 # name as a second provider and emits duplicate IFC rules, so keep the source
@@ -24,38 +44,17 @@ set_source_files_properties(
     PROPERTIES CXX_SCAN_FOR_MODULES OFF
 )
 if(MSVC)
-    # Keep the top-level Image module's IFC beside the other include modules.
-    # MSVC otherwise emits both `Image.ixx.ifc` and
-    # `include/Image/Image.ixx.ifc`, making `import Image;` ambiguous.
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/Image/Image.ixx"
-        PROPERTIES
-            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/Image/Image.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/Image.ixx.ifc"
-    )
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/Utils/MultipleTag.ixx"
-        PROPERTIES
-            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/Utils/MultipleTag.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Utils/MultipleTag.ixx.ifc"
-    )
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/VST3/VST3Interfaces.ixx"
-        PROPERTIES
-            COMPILE_OPTIONS "/ifcOutput;$(IntDir)/include/VST3/VST3Interfaces.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/VST3/VST3Interfaces.ixx.ifc"
-    )
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
         PROPERTIES
-            COMPILE_OPTIONS "/reference;File:Info=$(IntDir)/include/File/FileInfo.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/File/FileInfo.ixx.obj"
+            COMPILE_OPTIONS "/reference;File:Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/File-Info.ifc"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/File/FileInfo.ixx.obj"
     )
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
         PROPERTIES
-            COMPILE_OPTIONS "/reference;Image:OpenEXR=$(IntDir)/include/Image/OpenEXR.ixx.ifc;/reference;Image.DeepImageBuffer=$(IntDir)/include/Image/DeepImageBuffer.ixx.ifc"
-            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/OpenEXR.ixx.obj;${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/include/Image/DeepImageBuffer.ixx.obj"
+            COMPILE_OPTIONS "/reference;Image:OpenEXR=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image-OpenEXR.ifc;/reference;Image.DeepImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.DeepImageBuffer.ifc"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/OpenEXR.ixx.obj;${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/DeepImageBuffer.ixx.obj"
     )
 endif()
 
@@ -72,12 +71,161 @@ list(REMOVE_ITEM _artifact_scanned_impl
 set_source_files_properties(${_artifact_scanned_impl} PROPERTIES CXX_SCAN_FOR_MODULES ON)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreModuleReferences.cmake")
+
+# CMake's dyndep scanner cannot reliably model a private implementation unit
+# attaching to an interface with `module Name;`.  Discover the imports owned by
+# those implementation/interface pairs and add the same explicit BMI edges we
+# use below.  This keeps the manual list as an override for exceptional paths,
+# while avoiding a growing series of one-module-at-a-time build failures.
+file(GLOB_RECURSE _artifact_module_provider_files CONFIGURE_DEPENDS
+    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cppm")
+set(_artifact_module_providers)
+foreach(_artifact_provider_relative IN LISTS _artifact_module_provider_files)
+    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_provider_relative}"
+        _artifact_provider_declarations
+        REGEX "^[ \t]*export[ \t]+module[ \t]+[A-Za-z0-9_.:]+[ \t]*;")
+    foreach(_artifact_provider_declaration IN LISTS _artifact_provider_declarations)
+        string(REGEX REPLACE
+            "^[ \t]*export[ \t]+module[ \t]+([A-Za-z0-9_.:]+)[ \t]*;.*$"
+            "\\1" _artifact_provider_name "${_artifact_provider_declaration}")
+        list(APPEND _artifact_module_providers
+            "${_artifact_provider_name}|${_artifact_provider_relative}")
+    endforeach()
+endforeach()
+
+foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
+    string(REPLACE "|" ";" _artifact_module_fields "${_artifact_module_reference}")
+    list(GET _artifact_module_fields 0 _artifact_impl_relative)
+    list(GET _artifact_module_fields 1 _artifact_impl_module_name)
+    list(GET _artifact_module_fields 2 _artifact_interface_relative)
+
+    set(_artifact_import_scan_files
+        "${_artifact_impl_relative}"
+        "${_artifact_interface_relative}")
+    foreach(_artifact_import_scan_relative IN LISTS _artifact_import_scan_files)
+        set(_artifact_import_scan_file
+            "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_import_scan_relative}")
+        if(NOT EXISTS "${_artifact_import_scan_file}")
+            continue()
+        endif()
+        file(STRINGS "${_artifact_import_scan_file}" _artifact_import_declarations
+            REGEX "^[ \t]*(export[ \t]+)?import[ \t]+[A-Za-z0-9_.:]+[ \t]*;")
+        foreach(_artifact_import_declaration IN LISTS _artifact_import_declarations)
+            string(REGEX REPLACE
+                "^[ \t]*(export[ \t]+)?import[ \t]+([A-Za-z0-9_.:]+)[ \t]*;.*$"
+                "\\2" _artifact_import_name "${_artifact_import_declaration}")
+            if(_artifact_import_name MATCHES "^:")
+                string(FIND "${_artifact_impl_module_name}" ":" _artifact_impl_partition_index)
+                if(_artifact_impl_partition_index GREATER -1)
+                    string(SUBSTRING "${_artifact_impl_module_name}" 0
+                        ${_artifact_impl_partition_index} _artifact_impl_module_base)
+                else()
+                    set(_artifact_impl_module_base "${_artifact_impl_module_name}")
+                endif()
+                set(_artifact_import_name
+                    "${_artifact_impl_module_base}${_artifact_import_name}")
+            endif()
+            if(_artifact_import_name STREQUAL _artifact_impl_module_name)
+                continue()
+            endif()
+            foreach(_artifact_provider IN LISTS _artifact_module_providers)
+                string(REPLACE "|" ";" _artifact_provider_fields "${_artifact_provider}")
+                list(GET _artifact_provider_fields 0 _artifact_provider_name)
+                if(NOT _artifact_import_name STREQUAL _artifact_provider_name)
+                    continue()
+                endif()
+                list(GET _artifact_provider_fields 1 _artifact_provider_relative)
+                list(APPEND ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES
+                    "${_artifact_impl_relative}|${_artifact_import_name}|${_artifact_provider_relative}")
+                break()
+            endforeach()
+        endforeach()
+    endforeach()
+endforeach()
+list(REMOVE_DUPLICATES ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES)
+
+# MSVC may request imports that are owned by an imported BMI (for example,
+# `Channel` requires `Core.ArtifactString`) while compiling a private module
+# attachment.  Expand those provider imports transitively so every BMI named
+# by that attachment has both a /reference option and a producing-object edge.
+set(_artifact_pending_import_references
+    ${ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES})
+while(_artifact_pending_import_references)
+    list(POP_FRONT _artifact_pending_import_references _artifact_parent_reference)
+    string(REPLACE "|" ";" _artifact_parent_fields "${_artifact_parent_reference}")
+    list(GET _artifact_parent_fields 0 _artifact_impl_relative)
+    list(GET _artifact_parent_fields 2 _artifact_provider_relative)
+    set(_artifact_provider_file
+        "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_provider_relative}")
+    if(NOT EXISTS "${_artifact_provider_file}")
+        continue()
+    endif()
+    file(STRINGS "${_artifact_provider_file}" _artifact_provider_import_declarations
+        REGEX "^[ \t]*(export[ \t]+)?import[ \t]+[A-Za-z0-9_.:]+[ \t]*;")
+    foreach(_artifact_provider_import_declaration IN LISTS _artifact_provider_import_declarations)
+        string(REGEX REPLACE
+            "^[ \t]*(export[ \t]+)?import[ \t]+([A-Za-z0-9_.:]+)[ \t]*;.*$"
+            "\\2" _artifact_provider_import_name
+            "${_artifact_provider_import_declaration}")
+        if(_artifact_provider_import_name MATCHES "^:")
+            set(_artifact_provider_module_name "")
+            foreach(_artifact_provider_candidate IN LISTS _artifact_module_providers)
+                string(REPLACE "|" ";" _artifact_provider_candidate_fields
+                    "${_artifact_provider_candidate}")
+                list(GET _artifact_provider_candidate_fields 1
+                    _artifact_provider_candidate_relative)
+                if(_artifact_provider_relative STREQUAL
+                   _artifact_provider_candidate_relative)
+                    list(GET _artifact_provider_candidate_fields 0
+                        _artifact_provider_module_name)
+                    break()
+                endif()
+            endforeach()
+            string(FIND "${_artifact_provider_module_name}" ":"
+                _artifact_provider_partition_index)
+            if(_artifact_provider_partition_index GREATER -1)
+                string(SUBSTRING "${_artifact_provider_module_name}" 0
+                    ${_artifact_provider_partition_index} _artifact_provider_module_base)
+            else()
+                set(_artifact_provider_module_base
+                    "${_artifact_provider_module_name}")
+            endif()
+            set(_artifact_provider_import_name
+                "${_artifact_provider_module_base}${_artifact_provider_import_name}")
+        endif()
+        foreach(_artifact_provider IN LISTS _artifact_module_providers)
+            string(REPLACE "|" ";" _artifact_provider_fields "${_artifact_provider}")
+            list(GET _artifact_provider_fields 0 _artifact_provider_name)
+            if(NOT _artifact_provider_import_name STREQUAL _artifact_provider_name)
+                continue()
+            endif()
+            list(GET _artifact_provider_fields 1 _artifact_child_provider_relative)
+            set(_artifact_child_reference
+                "${_artifact_impl_relative}|${_artifact_provider_import_name}|${_artifact_child_provider_relative}")
+            list(FIND ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES
+                "${_artifact_child_reference}" _artifact_child_reference_index)
+            if(_artifact_child_reference_index EQUAL -1)
+                list(APPEND ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES
+                    "${_artifact_child_reference}")
+                list(APPEND _artifact_pending_import_references
+                    "${_artifact_child_reference}")
+            endif()
+            break()
+        endforeach()
+    endforeach()
+endwhile()
+
 foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES)
     string(REPLACE "|" ";" _artifact_module_fields "${_artifact_module_reference}")
     list(GET _artifact_module_fields 0 _artifact_impl_relative)
     list(GET _artifact_module_fields 1 _artifact_module_name)
     list(GET _artifact_module_fields 2 _artifact_interface_relative)
     set(_artifact_impl_file "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_impl_relative}")
+    string(REPLACE ":" "-" _artifact_ifc_basename "${_artifact_module_name}")
     # The dependency scanner does not model a primary-interface attachment
     # (`module Name;`) reliably.  Let the explicit reference below be the
     # single source of truth for these implementation units.
@@ -85,9 +233,22 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     set_property(SOURCE "${_artifact_impl_file}" APPEND_STRING PROPERTY
         COMPILE_FLAGS " /TP")
     set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        COMPILE_OPTIONS "/reference;${_artifact_module_name}=$(IntDir)/${_artifact_interface_relative}.ifc")
+        COMPILE_OPTIONS "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_ifc_basename}.ifc")
     set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-        OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/ArtifactCore.dir/$<CONFIG>/${_artifact_interface_relative}.obj")
+        OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_interface_relative}.obj")
+endforeach()
+
+foreach(_artifact_import_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_IMPORTED_MODULE_REFERENCES)
+    string(REPLACE "|" ";" _artifact_import_fields "${_artifact_import_reference}")
+    list(GET _artifact_import_fields 0 _artifact_impl_relative)
+    list(GET _artifact_import_fields 1 _artifact_import_name)
+    list(GET _artifact_import_fields 2 _artifact_import_interface_relative)
+    set(_artifact_impl_file "${CMAKE_CURRENT_SOURCE_DIR}/${_artifact_impl_relative}")
+    string(REPLACE ":" "-" _artifact_import_ifc_basename "${_artifact_import_name}")
+    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+        COMPILE_OPTIONS "/reference;${_artifact_import_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_import_ifc_basename}.ifc")
+    set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+        OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_import_interface_relative}.obj")
 endforeach()
 
 # Procedural3DGenerators.cppm is the implementation unit for the explicitly
@@ -124,6 +285,7 @@ endif()
 # modules that directly import Audio in the same pack so the base Core target
 # does not retain an edge back into the extracted module set.
 set(ARTIFACTCORE_AUDIO_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Animation/KeyframeEditingTools.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/ASIOBackendStub.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioAnalyzer.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/AudioBackend.ixx"
@@ -166,9 +328,11 @@ set(ARTIFACTCORE_AUDIO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/WASAPIBackend.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/QtAudioBackend.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFMpegAudioDecoder.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/CLAP/CLAPHost.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx"
 )
 set(ARTIFACTCORE_AUDIO_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Animation/KeyframeEditingTools.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/ASIOBackendStub.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioAnalyzer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioBassTreble.cppm"
@@ -198,6 +362,7 @@ set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/SimpleWav.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/WASAPIBackend.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFMpegAudioDecoder.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/CLAP/CLAPHost.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AUDIO_MODULES})
@@ -257,6 +422,7 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_AI_IMPL})
 # Video.VideoFrame; this keeps the base Core target free of reverse Video
 # module edges.
 set(ARTIFACTCORE_VIDEO_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.Helpers.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractDecoder.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractEncoder.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/AbstractTransition.ixx"
@@ -290,6 +456,7 @@ set(ARTIFACTCORE_VIDEO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Video/VideoFrame.ixx"
 )
 set(ARTIFACTCORE_VIDEO_IMPL
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/FFmpegEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/AbstractEncoder.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/PlaybackManager.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Video/Stabilizer.cppm"
@@ -313,6 +480,9 @@ set(ARTIFACTCORE_VIDEO_IMPL
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VIDEO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VIDEO_IMPL})
+list(FILTER CORE_IMPL EXCLUDE REGEX "FFmpegEncoder")
+list(FILTER CORE_MODULES EXCLUDE REGEX "FFmpegEncoder")
+list(FILTER CORE_MODULES EXCLUDE REGEX "FFMpegEncoder\\.ixx$")
 
 set(ARTIFACTCORE_MEDIA_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Media/ISource.ixx"
@@ -383,6 +553,7 @@ set(ARTIFACTCORE_UI_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/GizmoMode.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InputEvent.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InputOperator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InteractiveActions.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InputOperatorManager.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/KeyMap.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/LayoutState.ixx"
@@ -462,7 +633,6 @@ set(ARTIFACTCORE_COMMAND_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/LambdaCommand.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/LayerLockManager.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Command/SerializableCommand.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/UI/InteractiveActions.ixx"
 )
 set(ARTIFACTCORE_COMMAND_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Command/LambdaCommand.cppm"
@@ -492,7 +662,6 @@ set(ARTIFACTCORE_SHAPE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeLayer.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeOperator.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapePath.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeTypes.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/TrimPaths.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/IO/VectorExport.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/IO/IO.ixx"
@@ -748,6 +917,7 @@ set(ARTIFACTCORE_TEXT_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextLayoutContract.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextShapingBackend.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/TextStyle.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Shape/ShapeTypes.ixx"
 )
 set(ARTIFACTCORE_TEXT_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Text/GlyphAtlas.cppm"
@@ -934,7 +1104,7 @@ set_target_properties(ArtifactCore PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
-if(TARGET __CMAKE::CXX23)
+if(TARGET __cmake_cxx23 OR TARGET __CMAKE::CXX23)
     set_property(TARGET ArtifactCore PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCore PROPERTY CXX_MODULE_STD OFF)
@@ -1256,7 +1426,7 @@ if(_artifact_using_bundled_llama_cpp AND TARGET llama)
             set_target_properties(${_artifact_llama_target} PROPERTIES
                 VS_GLOBAL_VcpkgApplocalDeps false)
         endif()
-    endforeach()
+endforeach()
 endif()
 
 if(NOT TARGET llama)
@@ -2650,4 +2820,36 @@ if(ARTIFACT_FRONTEND_MSVC)
         UNICODE
         GLOG_USE_GLOG_EXPORT
     )
+endif()
+
+# Attach every local C++ target to the explicit MSVC std.ifc producer created
+# by the parent project. `__cmake_cxx23` is an output directory, not a CMake
+# target, so both the build dependency and compiler reference must be explicit.
+if(TARGET ArtifactStdModule OR TARGET __CMAKE::CXX23)
+    get_property(_artifactcore_local_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(_artifactcore_target IN LISTS _artifactcore_local_targets)
+        if(_artifactcore_target MATCHES "^ArtifactCore")
+            get_target_property(_artifactcore_target_type
+                ${_artifactcore_target} TYPE)
+            if(_artifactcore_target_type MATCHES
+               "^(EXECUTABLE|STATIC_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY|OBJECT_LIBRARY)$")
+                if(TARGET ArtifactStdModule)
+                    add_dependencies(${_artifactcore_target} ArtifactStdModule)
+                    if(MSVC AND _artifact_std_ifc)
+                        target_compile_options(${_artifactcore_target} PRIVATE
+                            "/reference;std=${_artifact_std_ifc}")
+                    endif()
+                else()
+                    set_property(TARGET ${_artifactcore_target} PROPERTY CXX_MODULE_STD ON)
+                endif()
+            endif()
+        endif()
+    endforeach()
+endif()
+
+if(DEFINED ARTIFACT_USE_EXPLICIT_STD_IFC)
+    get_property(_artifact_core_final_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(_artifact_target IN LISTS _artifact_core_final_targets)
+        set_property(TARGET "${_artifact_target}" PROPERTY CXX_MODULE_STD OFF)
+    endforeach()
 endif()

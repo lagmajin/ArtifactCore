@@ -80,6 +80,13 @@ void CSMain(uint3 id : SV_DispatchThreadID) {
 )";
 
 namespace {
+
+struct EnvironmentFloat3 {
+    float x;
+    float y;
+    float z;
+};
+
 void transpose4x4(const float* src, float* dst)
 {
     if (!src || !dst) {
@@ -237,12 +244,12 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
                             0.0f);
     auto directionForFace = [](int face, float u, float v) {
         switch (face) {
-        case 0: return Diligent::float3{1.0f, -v, -u};
-        case 1: return Diligent::float3{-1.0f, -v, u};
-        case 2: return Diligent::float3{u, 1.0f, v};
-        case 3: return Diligent::float3{u, -1.0f, -v};
-        case 4: return Diligent::float3{u, -v, 1.0f};
-        default: return Diligent::float3{-u, -v, -1.0f};
+        case 0: return EnvironmentFloat3{1.0f, -v, -u};
+        case 1: return EnvironmentFloat3{-1.0f, -v, u};
+        case 2: return EnvironmentFloat3{u, 1.0f, v};
+        case 3: return EnvironmentFloat3{u, -1.0f, -v};
+        case 4: return EnvironmentFloat3{u, -v, 1.0f};
+        default: return EnvironmentFloat3{-u, -v, -1.0f};
         }
     };
     for (int face = 0; face < 6; ++face) {
@@ -348,7 +355,7 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
     constexpr int phiSamples = 8;
     std::vector<float> irradiance(
         static_cast<std::size_t>(irradianceSize) * irradianceSize * 6 * 4, 0.0f);
-    auto sampleEquirectangular = [&](const Diligent::float3& direction) {
+    auto sampleEquirectangular = [&](const EnvironmentFloat3& direction) {
         const float longitude = std::atan2(direction.z, direction.x);
         const float latitude = std::asin(std::clamp(direction.y, -1.0f, 1.0f));
         const float imageU = (longitude / (2.0f * std::numbers::pi_v<float>) + 0.5f) * image.width;
@@ -356,9 +363,9 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
         const int sx = std::clamp(static_cast<int>(imageU), 0, image.width - 1);
         const int sy = std::clamp(static_cast<int>(imageV), 0, image.height - 1);
         const int pixel = sy * image.width + sx;
-        return Diligent::float3{rawEnvironmentChannel(image, pixel, 0),
-                                rawEnvironmentChannel(image, pixel, 1),
-                                rawEnvironmentChannel(image, pixel, 2)};
+        return EnvironmentFloat3{rawEnvironmentChannel(image, pixel, 0),
+                                 rawEnvironmentChannel(image, pixel, 1),
+                                 rawEnvironmentChannel(image, pixel, 2)};
     };
     for (int face = 0; face < 6; ++face) {
         for (int y = 0; y < irradianceSize; ++y) {
@@ -368,18 +375,18 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
                 auto normal = directionForFace(face, u, v);
                 const float normalLength = std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
                 normal.x /= normalLength; normal.y /= normalLength; normal.z /= normalLength;
-                const Diligent::float3 up = std::abs(normal.y) < 0.99f
-                    ? Diligent::float3{0.0f, 1.0f, 0.0f}
-                    : Diligent::float3{1.0f, 0.0f, 0.0f};
-                auto tangent = Diligent::float3{up.y * normal.z - up.z * normal.y,
-                                                up.z * normal.x - up.x * normal.z,
-                                                up.x * normal.y - up.y * normal.x};
+                const EnvironmentFloat3 up = std::abs(normal.y) < 0.99f
+                    ? EnvironmentFloat3{0.0f, 1.0f, 0.0f}
+                    : EnvironmentFloat3{1.0f, 0.0f, 0.0f};
+                auto tangent = EnvironmentFloat3{up.y * normal.z - up.z * normal.y,
+                                                  up.z * normal.x - up.x * normal.z,
+                                                  up.x * normal.y - up.y * normal.x};
                 const float tangentLength = std::sqrt(tangent.x * tangent.x + tangent.y * tangent.y + tangent.z * tangent.z);
                 tangent.x /= tangentLength; tangent.y /= tangentLength; tangent.z /= tangentLength;
-                const auto bitangent = Diligent::float3{normal.y * tangent.z - normal.z * tangent.y,
-                                                        normal.z * tangent.x - normal.x * tangent.z,
-                                                        normal.x * tangent.y - normal.y * tangent.x};
-                Diligent::float3 sum{0.0f, 0.0f, 0.0f};
+                const auto bitangent = EnvironmentFloat3{normal.y * tangent.z - normal.z * tangent.y,
+                                                          normal.z * tangent.x - normal.x * tangent.z,
+                                                          normal.x * tangent.y - normal.y * tangent.x};
+                EnvironmentFloat3 sum{0.0f, 0.0f, 0.0f};
                 for (int thetaIndex = 0; thetaIndex < thetaSamples; ++thetaIndex) {
                     const float theta = (static_cast<float>(thetaIndex) + 0.5f) *
                         (0.5f * std::numbers::pi_v<float>) / thetaSamples;
@@ -388,7 +395,7 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
                     for (int phiIndex = 0; phiIndex < phiSamples; ++phiIndex) {
                         const float phi = (static_cast<float>(phiIndex) + 0.5f) *
                             (2.0f * std::numbers::pi_v<float>) / phiSamples;
-                        const Diligent::float3 sampleDirection{
+                        const EnvironmentFloat3 sampleDirection{
                             tangent.x * (std::cos(phi) * sinTheta) + bitangent.x * (std::sin(phi) * sinTheta) + normal.x * cosTheta,
                             tangent.y * (std::cos(phi) * sinTheta) + bitangent.y * (std::sin(phi) * sinTheta) + normal.y * cosTheta,
                             tangent.z * (std::cos(phi) * sinTheta) + bitangent.z * (std::sin(phi) * sinTheta) + normal.z * cosTheta};
@@ -465,8 +472,8 @@ bool createBrdfLut(ArtifactCore::GpuContext& context,
                 const float cosTheta = std::sqrt(
                     (1.0f - xi2) / (1.0f + (alpha * alpha - 1.0f) * xi2));
                 const float sinTheta = std::sqrt(std::max(0.0f, 1.0f - cosTheta * cosTheta));
-                const Diligent::float3 halfVector{sinTheta * std::cos(phi),
-                                                  sinTheta * std::sin(phi), cosTheta};
+                const EnvironmentFloat3 halfVector{sinTheta * std::cos(phi),
+                                                    sinTheta * std::sin(phi), cosTheta};
                 const float viewDotHalf = std::max(0.0f,
                     viewX * halfVector.x + nDotV * halfVector.z);
                 const float lightZ = 2.0f * viewDotHalf * halfVector.z - nDotV;
@@ -2293,11 +2300,20 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
         gpuLight.areaSize[1] = light.areaHeight();
         gpuLight.areaSize[2] = static_cast<float>(light.areaShape());
         const QString goboPath = QString::fromStdString(light.goboTexturePath());
-        if (pImpl_->goboTexturePaths_[packedLightIndex] != goboPath) {
+        const bool shouldLoadGobo = light.type() == LightType::Spot &&
+            !goboPath.isEmpty();
+        const bool goboPathChanged =
+            pImpl_->goboTexturePaths_[packedLightIndex] != goboPath;
+        const bool goboWasDisabled = !shouldLoadGobo &&
+            pImpl_->pGoboTextureSRVs_[packedLightIndex];
+        const bool goboRecovered = shouldLoadGobo &&
+            !pImpl_->pGoboTextureSRVs_[packedLightIndex] &&
+            QFileInfo::exists(goboPath);
+        if (goboPathChanged || goboWasDisabled || goboRecovered) {
             pImpl_->goboTexturePaths_[packedLightIndex] = goboPath;
             pImpl_->pGoboTextures_[packedLightIndex].Release();
             pImpl_->pGoboTextureSRVs_[packedLightIndex].Release();
-            if (!goboPath.isEmpty()) {
+            if (shouldLoadGobo) {
                 loadLinearTexture(context_, goboPath,
                                   "MeshRenderer GOBO Texture",
                                   pImpl_->pGoboTextures_[packedLightIndex],

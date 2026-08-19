@@ -1,10 +1,10 @@
 module;
 #include <QVector>
 #include <QString>
+#include <vector>
 
 export module Text.ShapingBackend;
 
-import std;
 import Text.LayoutContract;
 import Text.Style;
 

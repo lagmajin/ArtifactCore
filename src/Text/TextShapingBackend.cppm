@@ -11,12 +11,12 @@ module;
 #include <QStringLiteral>
 #include <cmath>
 #include <limits>
+#include <string>
 #include <utility>
 #include <vector>
 
 module Text.ShapingBackend;
 
-import std;
 import Font.FreeFont;
 import Text.LayoutContract;
 import Text.Style;

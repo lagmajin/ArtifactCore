@@ -225,7 +225,7 @@ public:
   font.setPointSizeF(std::max(1.0f, style.fontSize));
   const int numericWeight = std::clamp(style.fontWeightValue, 0, 900);
   if (numericWeight >= 100) {
-   font.setWeight(numericWeight);
+   font.setWeight(static_cast<QFont::Weight>(numericWeight));
   } else {
    font.setWeight(style.fontWeight == FontWeight::Bold ? QFont::Bold : QFont::Normal);
   }
