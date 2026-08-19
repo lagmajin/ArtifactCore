@@ -99,7 +99,7 @@ if(MSVC)
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/File/FileInfo.cppm"
         PROPERTIES
-            OBJECT_DEPENDS "${_artifact_object_dir}/include/File/FileInfo.ixx.obj"
+            OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreFile.dir/include/File/FileInfo.ixx.obj"
     )
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
@@ -1816,6 +1816,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Shape.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Shape.Types.ifc"
                 "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc"
                 "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/File/FileInfo.cppm")
+        # FileInfo is compiled by the split File target.  Its partition IFC
+        # must not resolve to the aggregate Core output directory.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;File:Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreFile.dir/File:Info.ifc")
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
