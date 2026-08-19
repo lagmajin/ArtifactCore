@@ -2731,9 +2731,8 @@ set_property(SOURCE ${ARTIFACTCORE_SCENE_IMPL} APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
     "/reference;Mesh=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Mesh.ifc"
     "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
-# SceneNode depends directly on the core Mesh/Material modules.  Keep it in
-# the aggregate core target so MSVC does not reinterpret Material across a
-# second static-library module interface boundary.
+list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SCENE_MODULES})
+list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SCENE_IMPL})
 
 set(ARTIFACTCORE_RIG_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Rig/Rig2D.ixx"
@@ -4460,8 +4459,15 @@ endif()
 
 target_link_libraries(ArtifactCoreShape PUBLIC ArtifactCoreText)
 
-add_library(ArtifactCoreScene INTERFACE)
-target_link_libraries(ArtifactCoreScene INTERFACE ArtifactCore ArtifactCoreMaterial)
+add_library(ArtifactCoreScene STATIC)
+set_target_properties(ArtifactCoreScene PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
+set_property(TARGET ArtifactCoreScene PROPERTY CXX_MODULE_STD OFF)
+target_sources(ArtifactCoreScene PRIVATE ${ARTIFACTCORE_SCENE_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_SCENE_MODULES})
+target_link_libraries(ArtifactCoreScene PUBLIC ArtifactCore)
+target_include_directories(ArtifactCoreScene PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
+if(ARTIFACT_FRONTEND_MSVC)
+    target_compile_options(ArtifactCoreScene PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+endif()
 
 add_library(ArtifactCoreRig STATIC)
 set_target_properties(ArtifactCoreRig PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
@@ -4600,7 +4606,7 @@ target_sources(ArtifactCoreVST PRIVATE ${ARTIFACTCORE_VST_IMPL} PUBLIC FILE_SET 
 target_link_libraries(ArtifactCoreVST PUBLIC ArtifactCore)
 target_include_directories(ArtifactCoreVST PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
 
-target_link_libraries(ArtifactCoreScene INTERFACE ArtifactCoreMaterial)
+target_link_libraries(ArtifactCoreScene PUBLIC ArtifactCoreMaterial)
 
 add_library(ArtifactCoreNetwork STATIC)
 set_target_properties(ArtifactCoreNetwork PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
