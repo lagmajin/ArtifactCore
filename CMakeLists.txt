@@ -2240,7 +2240,8 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaProbe.cppm" APPE
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaReader.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;MediaSource=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaSource.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm" APPEND PROPERTY COMPILE_OPTIONS
-    "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+    "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
+    "/reference;Media.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/Media.Info.ifc")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_MEDIA_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MEDIA_IMPL})
 
