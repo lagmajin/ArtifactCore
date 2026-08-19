@@ -2721,6 +2721,11 @@ set(ARTIFACTCORE_SCENE_MODULES
 set(ARTIFACTCORE_SCENE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Scene/SceneNode.cppm"
 )
+set_property(SOURCE ${ARTIFACTCORE_SCENE_IMPL} APPEND PROPERTY COMPILE_OPTIONS
+    "/reference;Material.Material=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMaterial.dir/Material.Material.ifc"
+    "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+    "/reference;Mesh=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Mesh.ifc"
+    "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_SCENE_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SCENE_IMPL})
 
