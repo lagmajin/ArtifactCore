@@ -1744,6 +1744,36 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Scene.SceneNode=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreScene.dir/Scene.SceneNode.ifc")
+    elseif(_artifact_impl_relative MATCHES "^src/Audio/" OR
+           _artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm" OR
+           _artifact_impl_relative STREQUAL "src/CLAP/CLAPHost.cppm" OR
+           _artifact_impl_relative STREQUAL "src/Animation/KeyframeEditingTools.cppm")
+        # Audio is a split target.  Its scanner-disabled implementation units
+        # must use the Audio target's primary IFC and imported Audio-domain
+        # interfaces, not the aggregate Core output directory.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/${_artifact_module_name}.ifc"
+                "/reference;Audio.Segment=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Segment.ifc"
+                "/reference;Audio.Effect=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Effect.ifc"
+                "/reference;Audio.Backend=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Backend.ifc"
+                "/reference;Audio.Backend.WASAPI=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Backend.WASAPI.ifc"
+                "/reference;Audio.Backend.ASIOStub=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Backend.ASIOStub.ifc"
+                "/reference;Audio.Backend.Qt=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Backend.Qt.ifc"
+                "/reference;Audio.Analyze=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Analyze.ifc"
+                "/reference;Audio.FormantExtractor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.FormantExtractor.ifc"
+                "/reference;Audio.SimpleWav=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.SimpleWav.ifc"
+                "/reference;Audio.RingBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.RingBuffer.ifc"
+                "/reference;Audio.DownMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.DownMixer.ifc"
+                "/reference;Audio.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Bus.ifc"
+                "/reference;Audio.BufferQueue=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.BufferQueue.ifc"
+                "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc"
+                "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
+                "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
+                "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+                "/reference;Utils.String.Like=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.Like.ifc"
+                "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
+                "/reference;ArtifactCore.Utils.PerformanceProfiler=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.Utils.PerformanceProfiler.ifc")
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -2986,6 +3016,24 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # compile option alone does not order its IFC producer in MSVC.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/DirectCompute/SimpleChokerCS.ixx.obj")
+    elseif(_artifact_impl_relative MATCHES "^src/Audio/" OR
+           _artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm" OR
+           _artifact_impl_relative STREQUAL "src/CLAP/CLAPHost.cppm" OR
+           _artifact_impl_relative STREQUAL "src/Animation/KeyframeEditingTools.cppm")
+        # Order every Audio-domain interface before scanner-disabled Audio
+        # implementations.  This keeps all imported Audio IFCS in the split
+        # target and avoids races against the aggregate Core target.
+        set(_artifact_audio_interface_objects)
+        foreach(_artifact_audio_interface IN LISTS ARTIFACTCORE_AUDIO_MODULES)
+            if(_artifact_audio_interface MATCHES "\\.ixx$")
+                file(RELATIVE_PATH _artifact_audio_interface_relative
+                    "${CMAKE_CURRENT_SOURCE_DIR}" "${_artifact_audio_interface}")
+                list(APPEND _artifact_audio_interface_objects
+                    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/${_artifact_audio_interface_relative}.obj")
+            endif()
+        endforeach()
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            ${_artifact_audio_interface_objects})
     elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/OpenCV/FaceDetectionEngine.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/ImageProcessing/OpenCV/CvUtils.ixx.obj")
