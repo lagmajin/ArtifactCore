@@ -3108,6 +3108,11 @@ list(APPEND CORE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm"
 )
 list(APPEND CORE_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/Particle.ixx")
+# Keep split-domain interfaces out of the aggregate target even if a later
+# manifest append reintroduces them.  Duplicate module producers can make
+# MSVC resolve a split implementation against a stale aggregate IFC.
+list(REMOVE_ITEM CORE_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Scene/SceneNode.ixx")
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
