@@ -1737,6 +1737,13 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Graphics.Effect.Creative.Solarize=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.Solarize.ifc"
             "/reference;Graphics.Effect.Creative.SurfaceMemory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.SurfaceMemory.ifc"
             "/reference;Graphics.Effect.Creative.TemporalFossil=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Effect.Creative.TemporalFossil.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Scene/SceneNode.cppm")
+        # SceneNode is emitted by ArtifactCoreScene, not the aggregate
+        # ArtifactCore target.  Do not attach the implementation to the
+        # aggregate IFC produced by the generic fallback below.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Scene.SceneNode=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreScene.dir/Scene.SceneNode.ifc")
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
