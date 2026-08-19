@@ -3893,7 +3893,10 @@ set_target_properties(ArtifactCoreThread PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+# The explicit MSVC std.ifc reference is supplied globally above.  Do not also
+# enable CMake's experimental std module target for split targets, otherwise
+# MSVC sees two IFCs for module `std`.
+if(FALSE)
     set_property(TARGET ArtifactCoreThread PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreThread PROPERTY CXX_MODULE_STD OFF)
