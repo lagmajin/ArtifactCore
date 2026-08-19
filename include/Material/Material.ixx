@@ -117,4 +117,6 @@ export enum class MaterialAlphaMode {
                                 float strength = 5.0f);
  };
 
+ using SceneMaterial = Material;
+
 }

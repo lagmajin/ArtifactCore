@@ -75,8 +75,8 @@ export namespace ArtifactCore
 
   void setMesh(SharedPtr<Mesh> mesh);
   SharedPtr<Mesh> mesh() const;
-  void setMaterial(SharedPtr<Material> material);
-  SharedPtr<Material> material() const;
+  void setMaterial(SharedPtr<SceneMaterial> material);
+  SharedPtr<SceneMaterial> material() const;
 
   // --- Visibility ---
 
