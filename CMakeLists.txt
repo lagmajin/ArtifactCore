@@ -2625,6 +2625,8 @@ set(ARTIFACTCORE_TEXT_IMPL
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_TEXT_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_TEXT_IMPL})
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/GlyphLayout.ixx" APPEND PROPERTY COMPILE_OPTIONS
+    "/reference;Shape.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/Shape.Types.ifc")
 
 set(ARTIFACTCORE_GENERATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Generate/GenerateTestImage.ixx"
@@ -4384,7 +4386,9 @@ set_target_properties(ArtifactCoreText PROPERTIES
     CXX_EXTENSIONS OFF
     FOLDER "ArtifactCore/Libraries"
 )
-if(TARGET __CMAKE::CXX23)
+# The project supplies one explicit MSVC std.ifc globally; avoid CMake's
+# experimental second std provider for the split text target.
+if(FALSE)
     set_property(TARGET ArtifactCoreText PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreText PROPERTY CXX_MODULE_STD OFF)
