@@ -1913,6 +1913,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/NLE/OTIO.cppm" PROPERTY COM
     "/reference;NLE.OTIO=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.OTIO.ifc"
     "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
     "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+    "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
     "/reference;Frame.Offset=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Offset.ifc"
     "/reference;Frame.Range=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Range.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Thread/PreciseTicker.cppm" PROPERTY COMPILE_OPTIONS
