@@ -2215,7 +2215,8 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaAudioDecoder.cpp
     "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaEditorController.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;MediaPlaybackController=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaPlaybackController.ifc"
-    "/reference;Video.VideoFrame=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.VideoFrame.ifc")
+    "/reference;Video.VideoFrame=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.VideoFrame.ifc"
+    "/reference;Playback.State=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/Playback.State.ifc")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_MEDIA_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MEDIA_IMPL})
 
