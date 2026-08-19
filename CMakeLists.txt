@@ -1763,6 +1763,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Audio.Analyze=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Analyze.ifc"
                 "/reference;Audio.Panner=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Panner.ifc"
                 "/reference;Audio.Effect.Compressor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Effect.Compressor.ifc"
+                "/reference;Audio.Decibels=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.Decibels.ifc"
                 "/reference;Audio.FormantExtractor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.FormantExtractor.ifc"
                 "/reference;Audio.SimpleWav=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.SimpleWav.ifc"
                 "/reference;Audio.RingBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/Audio.RingBuffer.ifc"
