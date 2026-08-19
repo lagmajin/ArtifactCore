@@ -1805,8 +1805,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Text.Style=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/Text.Style.ifc"
                 "/reference;Text.LayoutContract=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/Text.LayoutContract.ifc"
                 "/reference;Text.ShapingBackend=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/Text.ShapingBackend.ifc"
+                "/reference;Text.GlyphLayout=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/Text.GlyphLayout.ifc"
                 "/reference;Font.FreeFont=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreText.dir/Font.FreeFont.ifc"
                 "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
+                "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc"
+                "/reference;Color.Float=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Color.Float.ifc"
+                "/reference;Shape.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Shape.Types.ifc"
                 "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc")
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
@@ -3087,7 +3091,10 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             ${_artifact_text_interface_objects}
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/UniString.ixx.obj"
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/FloatRGBA.ixx.obj")
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/Optional.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/FloatColor.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Color/FloatRGBA.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Shape/ShapeTypes.ixx.obj")
     elseif(_artifact_impl_relative MATCHES "^src/Audio/" OR
            _artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm" OR
            _artifact_impl_relative STREQUAL "src/CLAP/CLAPHost.cppm" OR
