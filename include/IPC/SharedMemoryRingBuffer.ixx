@@ -1,5 +1,6 @@
 module;
 #include <QByteArray>
+#include <QSystemSemaphore>
 #include <QString>
 #include <cstdint>
 #include <atomic>

@@ -522,11 +522,13 @@ private:
         return QDateTime::currentMSecsSinceEpoch();
     }
 
+public:
     static std::uint64_t currentThreadId()
     {
         return static_cast<std::uint64_t>(reinterpret_cast<quintptr>(QThread::currentThreadId()));
     }
 
+private:
     static QString currentThreadName()
     {
         if (auto* thread = QThread::currentThread()) {
