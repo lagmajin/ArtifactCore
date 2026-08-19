@@ -2166,6 +2166,7 @@ set_property(SOURCE ${ARTIFACTCORE_VIDEO_IMPL} APPEND PROPERTY COMPILE_OPTIONS
     "/reference;NLE.Core=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNLE.dir/NLE.Core.ifc"
     "/reference;Video.AbstractTransition=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.AbstractTransition.ifc"
     "/reference;Video.CpuFrameView=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.CpuFrameView.ifc"
+    "/reference;Video.TransitionFactory=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.TransitionFactory.ifc"
     "/reference;Video.VideoFrame=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.VideoFrame.ifc")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_VIDEO_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_VIDEO_IMPL})
