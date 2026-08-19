@@ -2731,6 +2731,8 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_SEQUENCE_IMPL})
 
 set(ARTIFACTCORE_MATERIAL_MODULES "${CMAKE_CURRENT_SOURCE_DIR}/include/Material/Material.ixx")
 set(ARTIFACTCORE_MATERIAL_IMPL "${CMAKE_CURRENT_SOURCE_DIR}/src/Material/Material.cppm")
+set_property(SOURCE ${ARTIFACTCORE_MATERIAL_IMPL} APPEND PROPERTY COMPILE_OPTIONS
+    "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_MATERIAL_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MATERIAL_IMPL})
 
@@ -4494,7 +4496,8 @@ target_link_libraries(ArtifactCoreConfiguration PUBLIC ArtifactCoreGrid)
 
 add_library(ArtifactCoreMaterial STATIC)
 set_target_properties(ArtifactCoreMaterial PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+# Use the project's explicit std.ifc provider for the material target.
+if(FALSE)
     set_property(TARGET ArtifactCoreMaterial PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreMaterial PROPERTY CXX_MODULE_STD OFF)
