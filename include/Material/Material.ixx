@@ -9,7 +9,7 @@ export module Material.Material;
 
 import Utils.String.UniString;
 
-export namespace ArtifactCore {
+namespace ArtifactCore {
 
 export enum class MaterialType {
  Standard,
@@ -117,6 +117,6 @@ export enum class MaterialAlphaMode {
                                 float strength = 5.0f);
  };
 
- using SceneMaterial = Material;
+ export using SceneMaterial = Material;
 
 }
