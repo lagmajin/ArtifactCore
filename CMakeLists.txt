@@ -1828,7 +1828,9 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             COMPILE_OPTIONS
                 "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/${_artifact_module_name}.ifc"
                 "/reference;Configuration.ConfigLayer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/Configuration.ConfigLayer.ifc"
-                "/reference;Configuration.LayeredConfigStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/Configuration.LayeredConfigStore.ifc")
+                "/reference;Configuration.LayeredConfigStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/Configuration.LayeredConfigStore.ifc"
+                "/reference;Core.FastSettingsStore=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.FastSettingsStore.ifc"
+                "/reference;Artifact.Grid.System=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreGrid.dir/Artifact.Grid.System.ifc")
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -3129,7 +3131,9 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             endif()
         endforeach()
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
-            ${_artifact_configuration_interface_objects})
+            ${_artifact_configuration_interface_objects}
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/FastSettingsStore.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreGrid.dir/include/Grid/ArtifactGridSystem.ixx.obj")
     elseif(_artifact_impl_relative MATCHES "^src/Audio/" OR
            _artifact_impl_relative STREQUAL "src/Codec/FFMpegAudioDecoder.cppm" OR
            _artifact_impl_relative STREQUAL "src/CLAP/CLAPHost.cppm" OR
