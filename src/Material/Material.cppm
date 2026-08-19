@@ -12,6 +12,8 @@ import std;
 
 import Utils.String.UniString;
 
+#define Material SceneMaterial
+
 namespace ArtifactCore {
 
 class Material::Impl {
@@ -79,10 +81,12 @@ MaterialType Material::type() const { return impl_->type_; }
 void Material::setBaseColor(const QColor& color) {
  impl_->baseColor_ = color.isValid() ? color : QColor(255, 255, 255);
 }
+
 QColor Material::baseColor() const { return impl_->baseColor_; }
 void Material::setMetallic(float v) {
  impl_->metallic_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f;
 }
+
 float Material::metallic() const { return impl_->metallic_; }
 void Material::setRoughness(float v) {
  impl_->roughness_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.5f;
@@ -225,3 +229,5 @@ Material Material::makeEmissive(const QColor& color, float strength)
 }
 
 }
+
+#undef Material
