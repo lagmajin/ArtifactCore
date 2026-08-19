@@ -4461,7 +4461,7 @@ target_link_libraries(ArtifactCoreShape PUBLIC ArtifactCoreText)
 
 add_library(ArtifactCoreScene STATIC)
 set_target_properties(ArtifactCoreScene PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF FOLDER "ArtifactCore/Libraries")
-if(TARGET __CMAKE::CXX23)
+if(FALSE)
     set_property(TARGET ArtifactCoreScene PROPERTY CXX_MODULE_STD ON)
 else()
     set_property(TARGET ArtifactCoreScene PROPERTY CXX_MODULE_STD OFF)
