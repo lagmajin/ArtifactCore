@@ -115,10 +115,6 @@ namespace {
 
 bool isSupportedImageFile(const QFileInfo& info)
 {
-    if (!info.isFile()) {
-        return false;
-    }
-
     const auto suffix = info.suffix().toLower().toLatin1();
     if (suffix.isEmpty()) {
         return false;
@@ -291,7 +287,11 @@ bool ImageSequenceSource::openFramePaths(const QStringList& framePaths)
     frames.reserve(framePaths.size());
     for (const QString& rawPath : framePaths) {
         const QFileInfo info(rawPath.trimmed());
-        if (!info.exists() || !info.isFile() || !isSupportedImageFile(info)) {
+        // Keep missing files in the logical sequence.  Dropping them here
+        // compresses frame indices and makes a saved gap indistinguishable
+        // from a shorter sequence; decode will report the missing frame at
+        // the point where it is actually requested.
+        if ((info.exists() && !info.isFile()) || !isSupportedImageFile(info)) {
             continue;
         }
         FrameEntry entry;
@@ -379,6 +379,15 @@ SourceMetadata ImageSequenceSource::metadata() const
         const qint64 span = metadata.frameEnd - metadata.frameStart + 1;
         metadata.missingFrameCount =
             std::max<qint64>(0, span - metadata.frameCount);
+    }
+    // Explicit frame-path sequences retain missing entries so their logical
+    // positions stay stable. Count those entries as well; unlike numeric
+    // filename gaps, they do not widen the frame-number span above.
+    for (const auto& frame : impl_->frames) {
+        const QFileInfo info(frame.path);
+        if (!info.exists() || !info.isFile()) {
+            ++metadata.missingFrameCount;
+        }
     }
     metadata.hasVideo = !impl_->frames.isEmpty();
     metadata.isSequence = impl_->frames.size() > 1;

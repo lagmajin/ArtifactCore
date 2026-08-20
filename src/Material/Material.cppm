@@ -28,6 +28,7 @@ public:
  float transmission_ = 0.0f;
  float clearcoat_ = 0.0f;
  float clearcoatRoughness_ = 0.03f;
+ float sheen_ = 0.0f;
 
  // Emission
  QColor emissionColor_ = QColor(0, 0, 0);
@@ -36,6 +37,7 @@ public:
  // Opacity
  float opacity_ = 1.0f;
  MaterialAlphaMode alphaMode_ = MaterialAlphaMode::Opaque;
+ float alphaCutoff_ = 0.5f;
 
  // Normal
  float normalStrength_ = 1.0f;
@@ -110,6 +112,10 @@ void Material::setClearcoatRoughness(float v) {
  impl_->clearcoatRoughness_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.03f;
 }
 float Material::clearcoatRoughness() const { return impl_->clearcoatRoughness_; }
+void Material::setSheen(float v) {
+ impl_->sheen_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f;
+}
+float Material::sheen() const { return impl_->sheen_; }
 
 // Emission
 void Material::setEmissionColor(const QColor& color) {
@@ -128,6 +134,10 @@ void Material::setOpacity(float v) {
 float Material::opacity() const { return impl_->opacity_; }
 void Material::setAlphaMode(MaterialAlphaMode mode) { impl_->alphaMode_ = mode; }
 MaterialAlphaMode Material::alphaMode() const { return impl_->alphaMode_; }
+void Material::setAlphaCutoff(float v) {
+ impl_->alphaCutoff_ = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.5f;
+}
+float Material::alphaCutoff() const { return impl_->alphaCutoff_; }
 
 // Normal
 void Material::setNormalStrength(float v) {

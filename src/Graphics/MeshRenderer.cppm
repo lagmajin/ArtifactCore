@@ -154,10 +154,78 @@ QVector<quint8> expandTextureToRgba8(const ArtifactCore::RawImage& rawImage,
     return rgba8;
 }
 
+QVector<QVector<quint8>> buildRgba8MipChain(const QVector<quint8>& base,
+                                            int width,
+                                            int height,
+                                            bool srgb,
+                                            bool renormalizeNormal = false)
+{
+    QVector<QVector<quint8>> mipData;
+    mipData.push_back(base);
+    int mipWidth = width;
+    int mipHeight = height;
+    const auto decodeSrgb = [](float value) {
+        return value <= 0.04045f ? value / 12.92f
+                                 : std::pow((value + 0.055f) / 1.055f, 2.4f);
+    };
+    const auto encodeSrgb = [](float value) {
+        return value <= 0.0031308f ? value * 12.92f
+                                   : 1.055f * std::pow(value, 1.0f / 2.4f) - 0.055f;
+    };
+
+    while (mipWidth > 1 || mipHeight > 1) {
+        const int nextWidth = std::max(1, mipWidth / 2);
+        const int nextHeight = std::max(1, mipHeight / 2);
+        const auto& previous = mipData.back();
+        QVector<quint8> next(nextWidth * nextHeight * 4, 0);
+        for (int y = 0; y < nextHeight; ++y) {
+            for (int x = 0; x < nextWidth; ++x) {
+                float sum[4] = {};
+                int samples = 0;
+                for (int sy = 0; sy < 2; ++sy) {
+                    for (int sx = 0; sx < 2; ++sx) {
+                        const int px = std::min(x * 2 + sx, mipWidth - 1);
+                        const int py = std::min(y * 2 + sy, mipHeight - 1);
+                        const int source = (py * mipWidth + px) * 4;
+                        for (int channel = 0; channel < 3; ++channel) {
+                            const float value = previous[source + channel] / 255.0f;
+                            sum[channel] += srgb ? decodeSrgb(value) : value;
+                        }
+                        sum[3] += previous[source + 3] / 255.0f;
+                        ++samples;
+                    }
+                }
+                const int destination = (y * nextWidth + x) * 4;
+                if (renormalizeNormal) {
+                    float nx = sum[0] / samples * 2.0f - 1.0f;
+                    float ny = sum[1] / samples * 2.0f - 1.0f;
+                    float nz = sum[2] / samples * 2.0f - 1.0f;
+                    const float length = std::sqrt(std::max(nx * nx + ny * ny + nz * nz, 1e-8f));
+                    next[destination + 0] = static_cast<quint8>(std::clamp((nx / length + 1.0f) * 127.5f, 0.0f, 255.0f));
+                    next[destination + 1] = static_cast<quint8>(std::clamp((ny / length + 1.0f) * 127.5f, 0.0f, 255.0f));
+                    next[destination + 2] = static_cast<quint8>(std::clamp((nz / length + 1.0f) * 127.5f, 0.0f, 255.0f));
+                } else {
+                    for (int channel = 0; channel < 3; ++channel) {
+                        const float value = sum[channel] / samples;
+                        const float encoded = srgb ? encodeSrgb(value) : value;
+                        next[destination + channel] = static_cast<quint8>(std::clamp(encoded * 255.0f, 0.0f, 255.0f));
+                    }
+                }
+                next[destination + 3] = static_cast<quint8>(std::clamp(sum[3] / samples * 255.0f, 0.0f, 255.0f));
+            }
+        }
+        mipData.push_back(std::move(next));
+        mipWidth = nextWidth;
+        mipHeight = nextHeight;
+    }
+    return mipData;
+}
+
 bool loadLinearTexture(ArtifactCore::GpuContext& context, const QString& path,
                        const char* debugName,
                        Diligent::RefCntAutoPtr<Diligent::ITexture>& texture,
-                       Diligent::RefCntAutoPtr<Diligent::ITextureView>& textureSRV)
+                       Diligent::RefCntAutoPtr<Diligent::ITextureView>& textureSRV,
+                       bool renormalizeNormal = false)
 {
     auto* device = context.RenderDevice();
     if (!device) {
@@ -180,21 +248,29 @@ bool loadLinearTexture(ArtifactCore::GpuContext& context, const QString& path,
         return false;
     }
 
+    QVector<QVector<quint8>> mipData = buildRgba8MipChain(
+        rgba8, rawImage.width, rawImage.height, false, renormalizeNormal);
+
     Diligent::TextureDesc texDesc;
     texDesc.Name = debugName;
     texDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
     texDesc.Width = static_cast<Diligent::Uint32>(rawImage.width);
     texDesc.Height = static_cast<Diligent::Uint32>(rawImage.height);
-    texDesc.MipLevels = 1;
+    texDesc.MipLevels = static_cast<Diligent::Uint32>(mipData.size());
     texDesc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM;
     texDesc.Usage = Diligent::USAGE_IMMUTABLE;
     texDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
-    Diligent::TextureSubResData subRes;
-    subRes.pData = rgba8.constData();
-    subRes.Stride = static_cast<Diligent::Uint64>(rawImage.width * 4);
+    QVector<Diligent::TextureSubResData> subResources;
+    subResources.resize(mipData.size());
+    int levelWidth = rawImage.width;
+    for (int level = 0; level < mipData.size(); ++level) {
+        subResources[level].pData = mipData[level].constData();
+        subResources[level].Stride = static_cast<Diligent::Uint64>(levelWidth * 4);
+        levelWidth = std::max(1, levelWidth / 2);
+    }
     Diligent::TextureData initData;
-    initData.pSubResources = &subRes;
-    initData.NumSubresources = 1;
+    initData.pSubResources = subResources.constData();
+    initData.NumSubresources = static_cast<Diligent::Uint32>(subResources.size());
     device->CreateTexture(texDesc, &initData, &texture);
     if (!texture) {
         return false;
@@ -222,7 +298,13 @@ float rawEnvironmentChannel(const ArtifactCore::RawImage& image,
         std::memcpy(&value, bytes, sizeof(value));
         return static_cast<float>(value) / 65535.0f;
     }
-    return static_cast<float>(*bytes) / 255.0f;
+    const float value = static_cast<float>(*bytes) / 255.0f;
+    if (channel >= 3) {
+        return value;
+    }
+    return value <= 0.04045f
+        ? value / 12.92f
+        : std::pow((value + 0.055f) / 1.055f, 2.4f);
 }
 
 bool createEnvironmentCube(ArtifactCore::GpuContext& context,
@@ -264,19 +346,37 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
                 direction.x /= length; direction.y /= length; direction.z /= length;
                 const float longitude = std::atan2(direction.z, direction.x);
                 const float latitude = std::asin(std::clamp(direction.y, -1.0f, 1.0f));
-                const float imageU = (longitude / (2.0f * std::numbers::pi_v<float>) + 0.5f) * image.width;
-                const float imageV = (0.5f - latitude / std::numbers::pi_v<float>) * image.height;
-                const int sampleX = std::clamp(static_cast<int>(imageU), 0, image.width - 1);
-                const int sampleY = std::clamp(static_cast<int>(imageV), 0, image.height - 1);
-                const int sourcePixel = sampleY * image.width + sampleX;
+                const float imageU = (longitude / (2.0f * std::numbers::pi_v<float>) + 0.5f) * image.width - 0.5f;
+                const float imageV = (0.5f - latitude / std::numbers::pi_v<float>) * image.height - 0.5f;
+                const int x0 = static_cast<int>(std::floor(imageU));
+                const int y0 = static_cast<int>(std::floor(imageV));
+                const float tx = imageU - x0;
+                const float ty = imageV - y0;
+                const auto wrapX = [width = image.width](int value) {
+                    value %= width;
+                    return value < 0 ? value + width : value;
+                };
+                const auto clampY = [height = image.height](int value) {
+                    return std::clamp(value, 0, height - 1);
+                };
                 const std::size_t destination =
                     (static_cast<std::size_t>(face) * faceSize * faceSize +
                      static_cast<std::size_t>(y) * faceSize + x) * 4;
-                cube[destination + 0] = rawEnvironmentChannel(image, sourcePixel, 0);
-                cube[destination + 1] = rawEnvironmentChannel(image, sourcePixel, 1);
-                cube[destination + 2] = rawEnvironmentChannel(image, sourcePixel, 2);
-                cube[destination + 3] = image.channels > 3
-                    ? rawEnvironmentChannel(image, sourcePixel, 3) : 1.0f;
+                for (int channel = 0; channel < 4; ++channel) {
+                    float value = 0.0f;
+                    for (int dy = 0; dy < 2; ++dy) {
+                        for (int dx = 0; dx < 2; ++dx) {
+                            const int pixel = clampY(y0 + dy) * image.width + wrapX(x0 + dx);
+                            const float weight = (dx == 0 ? 1.0f - tx : tx) *
+                                                 (dy == 0 ? 1.0f - ty : ty);
+                            value += (channel < 3 || image.channels > channel)
+                                ? rawEnvironmentChannel(image, pixel, channel) * weight
+                                : weight;
+                        }
+                    }
+                    cube[destination + channel] = channel < 3 || image.channels > 3
+                        ? value : 1.0f;
+                }
             }
         }
     }
@@ -284,36 +384,124 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
     constexpr int mipCount = 7;
     std::vector<std::vector<float>> mipData;
     mipData.push_back(std::move(cube));
-    int mipSize = faceSize;
+    auto sampleEquirectangular = [&](const EnvironmentFloat3& direction) {
+        const float longitude = std::atan2(direction.z, direction.x);
+        const float latitude = std::asin(std::clamp(direction.y, -1.0f, 1.0f));
+        const float imageU = (longitude / (2.0f * std::numbers::pi_v<float>) + 0.5f) * image.width - 0.5f;
+        const float imageV = (0.5f - latitude / std::numbers::pi_v<float>) * image.height - 0.5f;
+        const int x0 = static_cast<int>(std::floor(imageU));
+        const int y0 = static_cast<int>(std::floor(imageV));
+        const float tx = imageU - x0;
+        const float ty = imageV - y0;
+        const auto wrapX = [width = image.width](int x) {
+            x %= width;
+            return x < 0 ? x + width : x;
+        };
+        const auto clampY = [height = image.height](int y) {
+            return std::clamp(y, 0, height - 1);
+        };
+        EnvironmentFloat3 result{0.0f, 0.0f, 0.0f};
+        for (int dy = 0; dy < 2; ++dy) {
+            for (int dx = 0; dx < 2; ++dx) {
+                const int pixel = clampY(y0 + dy) * image.width + wrapX(x0 + dx);
+                const float weight = (dx == 0 ? 1.0f - tx : tx) *
+                                     (dy == 0 ? 1.0f - ty : ty);
+                result.x += rawEnvironmentChannel(image, pixel, 0) * weight;
+                result.y += rawEnvironmentChannel(image, pixel, 1) * weight;
+                result.z += rawEnvironmentChannel(image, pixel, 2) * weight;
+            }
+        }
+        return result;
+    };
+    auto radicalInverse = [](std::uint32_t bits) {
+        bits = (bits << 16u) | (bits >> 16u);
+        bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+        bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+        bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+        bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+        return static_cast<float>(bits) * 2.3283064365386963e-10f;
+    };
+    constexpr int prefilterSamples = 32;
     for (int mip = 1; mip < mipCount; ++mip) {
-        const int nextSize = std::max(1, mipSize / 2);
+        const int nextSize = std::max(1, faceSize >> mip);
+        const float roughness = static_cast<float>(mip) / (mipCount - 1);
+        const float alpha = std::max(roughness * roughness, 0.001f);
         std::vector<float> next(static_cast<std::size_t>(nextSize) * nextSize * 6 * 4,
                                 0.0f);
-        const auto& previous = mipData.back();
         for (int face = 0; face < 6; ++face) {
             for (int y = 0; y < nextSize; ++y) {
                 for (int x = 0; x < nextSize; ++x) {
-                    const int sourceX = x * 2;
-                    const int sourceY = y * 2;
-                    const std::size_t dst =
+                    const float u = 2.0f * (static_cast<float>(x) + 0.5f) / nextSize - 1.0f;
+                    const float v = 2.0f * (static_cast<float>(y) + 0.5f) / nextSize - 1.0f;
+                    auto normal = directionForFace(face, u, v);
+                    const float normalLength = std::sqrt(normal.x * normal.x +
+                                                         normal.y * normal.y +
+                                                         normal.z * normal.z);
+                    normal.x /= normalLength; normal.y /= normalLength; normal.z /= normalLength;
+                    const EnvironmentFloat3 up = std::abs(normal.y) < 0.99f
+                        ? EnvironmentFloat3{0.0f, 1.0f, 0.0f}
+                        : EnvironmentFloat3{1.0f, 0.0f, 0.0f};
+                    auto tangent = EnvironmentFloat3{
+                        up.y * normal.z - up.z * normal.y,
+                        up.z * normal.x - up.x * normal.z,
+                        up.x * normal.y - up.y * normal.x};
+                    const float tangentLength = std::sqrt(tangent.x * tangent.x +
+                                                           tangent.y * tangent.y +
+                                                           tangent.z * tangent.z);
+                    tangent.x /= tangentLength; tangent.y /= tangentLength; tangent.z /= tangentLength;
+                    const auto bitangent = EnvironmentFloat3{
+                        normal.y * tangent.z - normal.z * tangent.y,
+                        normal.z * tangent.x - normal.x * tangent.z,
+                        normal.x * tangent.y - normal.y * tangent.x};
+                    EnvironmentFloat3 sum{0.0f, 0.0f, 0.0f};
+                    float weightSum = 0.0f;
+                    for (int sample = 0; sample < prefilterSamples; ++sample) {
+                        const float xi1 = (static_cast<float>(sample) + 0.5f) /
+                                          prefilterSamples;
+                        const float xi2 = radicalInverse(static_cast<std::uint32_t>(sample));
+                        const float phi = 2.0f * std::numbers::pi_v<float> * xi1;
+                        const float cosTheta = std::sqrt(
+                            (1.0f - xi2) /
+                            (1.0f + (alpha * alpha - 1.0f) * xi2));
+                        const float sinTheta = std::sqrt(std::max(
+                            0.0f, 1.0f - cosTheta * cosTheta));
+                        const EnvironmentFloat3 halfVector{
+                            tangent.x * (std::cos(phi) * sinTheta) +
+                                bitangent.x * (std::sin(phi) * sinTheta) + normal.x * cosTheta,
+                            tangent.y * (std::cos(phi) * sinTheta) +
+                                bitangent.y * (std::sin(phi) * sinTheta) + normal.y * cosTheta,
+                            tangent.z * (std::cos(phi) * sinTheta) +
+                                bitangent.z * (std::sin(phi) * sinTheta) + normal.z * cosTheta};
+                        const float normalHalf = std::max(
+                            normal.x * halfVector.x + normal.y * halfVector.y +
+                            normal.z * halfVector.z, 0.0f);
+                        const EnvironmentFloat3 light{
+                            2.0f * normalHalf * halfVector.x - normal.x,
+                            2.0f * normalHalf * halfVector.y - normal.y,
+                            2.0f * normalHalf * halfVector.z - normal.z};
+                        const float normalLight = std::max(
+                            normal.x * light.x + normal.y * light.y + normal.z * light.z,
+                            0.0f);
+                        if (normalLight <= 0.0f) continue;
+                        const auto radiance = sampleEquirectangular(light);
+                        sum.x += radiance.x * normalLight;
+                        sum.y += radiance.y * normalLight;
+                        sum.z += radiance.z * normalLight;
+                        weightSum += normalLight;
+                    }
+                    const std::size_t destination =
                         (static_cast<std::size_t>(face) * nextSize * nextSize +
                          static_cast<std::size_t>(y) * nextSize + x) * 4;
-                    for (int sy = 0; sy < 2; ++sy) {
-                        for (int sx = 0; sx < 2; ++sx) {
-                            const int px = std::min(sourceX + sx, mipSize - 1);
-                            const int py = std::min(sourceY + sy, mipSize - 1);
-                            const std::size_t src =
-                                (static_cast<std::size_t>(face) * mipSize * mipSize +
-                                 static_cast<std::size_t>(py) * mipSize + px) * 4;
-                            for (int channel = 0; channel < 4; ++channel)
-                                next[dst + channel] += previous[src + channel] * 0.25f;
-                        }
-                    }
+                    const float inverseWeight = weightSum > 1e-5f
+                        ? 1.0f / weightSum : 0.0f;
+                    next[destination + 0] = sum.x * inverseWeight;
+                    next[destination + 1] = sum.y * inverseWeight;
+                    next[destination + 2] = sum.z * inverseWeight;
+                    next[destination + 3] = 1.0f;
                 }
             }
         }
         mipData.push_back(std::move(next));
-        mipSize = nextSize;
     }
 
     Diligent::TextureDesc desc;
@@ -355,18 +543,6 @@ bool createEnvironmentCube(ArtifactCore::GpuContext& context,
     constexpr int phiSamples = 8;
     std::vector<float> irradiance(
         static_cast<std::size_t>(irradianceSize) * irradianceSize * 6 * 4, 0.0f);
-    auto sampleEquirectangular = [&](const EnvironmentFloat3& direction) {
-        const float longitude = std::atan2(direction.z, direction.x);
-        const float latitude = std::asin(std::clamp(direction.y, -1.0f, 1.0f));
-        const float imageU = (longitude / (2.0f * std::numbers::pi_v<float>) + 0.5f) * image.width;
-        const float imageV = (0.5f - latitude / std::numbers::pi_v<float>) * image.height;
-        const int sx = std::clamp(static_cast<int>(imageU), 0, image.width - 1);
-        const int sy = std::clamp(static_cast<int>(imageV), 0, image.height - 1);
-        const int pixel = sy * image.width + sx;
-        return EnvironmentFloat3{rawEnvironmentChannel(image, pixel, 0),
-                                 rawEnvironmentChannel(image, pixel, 1),
-                                 rawEnvironmentChannel(image, pixel, 2)};
-    };
     for (int face = 0; face < 6; ++face) {
         for (int y = 0; y < irradianceSize; ++y) {
             for (int x = 0; x < irradianceSize; ++x) {
@@ -669,6 +845,7 @@ cbuffer MaterialParams : register(b1) {
     float4 PbrTextureFlags;
     float4 PrincipledFactors;
     float4 ClearcoatFactors;
+    float4 AlphaSettings;
 };
 
 struct SceneLight {
@@ -726,8 +903,8 @@ float3 sampleEnvironmentDiffuse(float3 normal) {
     uint height = 1;
     uint mipCount = 1;
     g_IrradianceMap.GetDimensions(0, width, height, mipCount);
-    // The coarsest generated mip approximates a low-frequency irradiance
-    // field until the dedicated cosine-convolution pass is installed.
+    // Diffuse irradiance is generated as a dedicated cosine-convolved cube;
+    // do not substitute the specular prefilter mip chain here.
     return g_IrradianceMap.SampleLevel(
         g_BaseColorSampler, normalize(normal), max(0, mipCount - 1)).rgb;
 }
@@ -755,6 +932,31 @@ float3 sampleEnvironmentSpecular(float3 normal, float3 viewDirection,
     float3 fresnel = F0 + (1.0 - F0) *
         pow(1.0 - saturate(dot(normalize(normal), normalize(viewDirection))), 5.0);
     return prefiltered * (fresnel * brdf.x + brdf.y);
+}
+
+float3 sampleEnvironmentTransmission(float3 normal, float3 viewDirection,
+                                     float roughness, float ior,
+                                     float3 tint) {
+    float3 N = normalize(normal);
+    float3 V = normalize(viewDirection);
+    float eta = 1.0 / max(ior, 1.001);
+    float3 refractionDirection = refract(-V, N, eta);
+    if (dot(refractionDirection, refractionDirection) <= 1e-5) {
+        refractionDirection = reflect(-V, N);
+    }
+    float angle = EnvironmentSettings.z;
+    float2 rotation = float2(cos(angle), sin(angle));
+    refractionDirection = float3(
+        refractionDirection.x * rotation.x - refractionDirection.z * rotation.y,
+        refractionDirection.y,
+        refractionDirection.x * rotation.y + refractionDirection.z * rotation.x);
+    uint width = 1;
+    uint height = 1;
+    uint mipCount = 1;
+    g_PrefilteredEnvironment.GetDimensions(0, width, height, mipCount);
+    float lod = saturate(roughness) * max(0.0, float(mipCount) - 1.0);
+    return g_PrefilteredEnvironment.SampleLevel(
+        g_BaseColorSampler, normalize(refractionDirection), lod).rgb * tint;
 }
 
 // Keep this helper name distinct from the shader compiler's internal normal-map
@@ -785,6 +987,16 @@ float3 computeNormalMapped(float3 position, float3 geometricNormal, float2 uv,
                      tangentNormal.z * N);
 }
 
+float3 srgbToLinear(float3 value) {
+    return float3(
+        value.r <= 0.04045 ? value.r / 12.92
+                           : pow((value.r + 0.055) / 1.055, 2.4),
+        value.g <= 0.04045 ? value.g / 12.92
+                           : pow((value.g + 0.055) / 1.055, 2.4),
+        value.b <= 0.04045 ? value.b / 12.92
+                           : pow((value.b + 0.055) / 1.055, 2.4));
+}
+
 float4 PSMain(PSInput In) : SV_Target {
     float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, In.UV);
     float4 opacitySample = g_OpacityTexture.Sample(g_BaseColorSampler, In.UV);
@@ -793,8 +1005,17 @@ float4 PSMain(PSInput In) : SV_Target {
         g_MetallicRoughnessTexture.Sample(g_BaseColorSampler, In.UV);
     float3 normalSample = g_NormalTexture.Sample(g_BaseColorSampler, In.UV).xyz;
     float occlusionSample = g_OcclusionTexture.Sample(g_BaseColorSampler, In.UV).r;
-    float4 baseColor = baseSample * In.Color;
+    float3 instanceColor = srgbToLinear(saturate(In.Color.rgb));
+    float4 baseColor = float4(baseSample.rgb * instanceColor,
+                              baseSample.a * In.Color.a);
     float emissionStrength = max(EmissionColorStrength.a, 0.0);
+    float3 emissionTint = srgbToLinear(saturate(EmissionColorStrength.rgb));
+    float materialAlpha = baseColor.a * opacitySample.a;
+    // Masked materials use the serialized material cutoff; 0.5 remains the
+    // default for materials created without an explicit value.
+    if (PbrTextureFlags.w > 0.5) {
+        clip(materialAlpha - AlphaSettings.x);
+    }
     float metallic = saturate(PbrFactors.x *
         lerp(1.0, metallicRoughnessSample.b, PbrTextureFlags.x));
     float roughness = clamp(PbrFactors.y *
@@ -817,7 +1038,7 @@ float4 PSMain(PSInput In) : SV_Target {
     }
     if (In.Mode > 3.5 && In.Mode < 4.5) {
         float3 emissionColor =
-            emissionSample.rgb * EmissionColorStrength.rgb * emissionStrength;
+            emissionSample.rgb * emissionTint * emissionStrength;
         return float4(emissionColor, baseColor.a * opacitySample.a);
     }
     if (In.Mode > 4.5 && In.Mode < 6.5) {
@@ -830,7 +1051,8 @@ float4 PSMain(PSInput In) : SV_Target {
         return float4(velocity * 0.5 + 0.5, 0.5, 1.0);
     }
 
-    float4 solidBase = (In.Mode > 7.5 && In.Mode < 8.5) ? In.Color : baseColor;
+    float4 solidBase = (In.Mode > 7.5 && In.Mode < 8.5)
+        ? float4(instanceColor, In.Color.a) : baseColor;
     float shadowVisibility = 1.0;
     if (ShadowSettings.x > 0.5) {
         float3 shadowNdc = In.ShadowPosition.xyz /
@@ -842,7 +1064,7 @@ float4 PSMain(PSInput In) : SV_Target {
                 shadowUV, shadowNdc.z - ShadowSettings.y);
         }
     }
-    if (SceneLightingMeta.x > 0) {
+    if (SceneLightingMeta.x > 0 || EnvironmentSettings.x > 0.5) {
         float3 cameraDelta = SceneCameraPosition.xyz - In.WorldPosition;
         float3 viewDirection = cameraDelta *
             rsqrt(max(dot(cameraDelta, cameraDelta), 1e-8));
@@ -857,12 +1079,54 @@ float4 PSMain(PSInput In) : SV_Target {
         float3 F0 = lerp(float3(dielectricF0, dielectricF0, dielectricF0),
                          solidBase.rgb, metallic);
         F0 *= lerp(1.0, saturate(PrincipledFactors.x), 1.0 - metallic);
+        float transmissionWeight = saturate(PrincipledFactors.z) *
+            (1.0 - metallic);
+        float transmissionIor = max(PrincipledFactors.y, 1.0);
+        float transmissionF0 = pow((transmissionIor - 1.0) /
+                                   (transmissionIor + 1.0), 2.0);
+        float transmissionFresnel = transmissionF0 +
+            (1.0 - transmissionF0) * pow(
+                1.0 - saturate(dot(worldNormal, viewDirection)), 5.0);
+        float3 transmissionDirection = refract(
+            -viewDirection, worldNormal, 1.0 / transmissionIor);
+        if (dot(transmissionDirection, transmissionDirection) <= 1e-5) {
+            transmissionFresnel = 1.0;
+        }
         if (EnvironmentSettings.x > 0.5) {
             float3 indirectDiffuse = sampleEnvironmentDiffuse(worldNormal) *
                 solidBase.rgb * (1.0 - metallic) * ao;
+            float sheenWeight = saturate(PrincipledFactors.w) *
+                (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z));
+            indirectDiffuse += sheenWeight * pow(
+                1.0 - saturate(dot(worldNormal, viewDirection)), 5.0) *
+                sampleEnvironmentDiffuse(worldNormal) * ao;
             float3 indirectSpecular = sampleEnvironmentSpecular(
                 worldNormal, viewDirection, roughness, F0);
-            ambientColor += (indirectDiffuse + indirectSpecular) *
+            float coatWeight = saturate(ClearcoatFactors.x);
+            if (coatWeight > 0.0) {
+                float coatRoughness = clamp(ClearcoatFactors.y, 0.04, 1.0);
+                float3 coatF0 = float3(0.04, 0.04, 0.04);
+                float3 coatReflection = sampleEnvironmentSpecular(
+                    worldNormal, viewDirection, coatRoughness, coatF0);
+                float coatNdotV = saturate(dot(worldNormal, viewDirection));
+                float coatFresnel = 0.04 + (1.0 - 0.04) *
+                    pow(1.0 - coatNdotV, 5.0);
+                indirectDiffuse *= 1.0 - coatWeight * coatFresnel;
+                indirectSpecular = indirectSpecular *
+                    (1.0 - coatWeight * coatFresnel) +
+                    coatReflection * coatWeight;
+            }
+            float3 transmittedEnvironment = sampleEnvironmentTransmission(
+                worldNormal, viewDirection, roughness,
+                max(PrincipledFactors.y, 1.0), solidBase.rgb) * transmissionWeight;
+            transmittedEnvironment *= 1.0 - transmissionFresnel;
+            float specularOcclusion = saturate(
+                pow(saturate(dot(worldNormal, viewDirection)) + ao, 2.0) -
+                1.0 + ao);
+            indirectSpecular *= specularOcclusion;
+            transmittedEnvironment *= ao;
+            ambientColor += (indirectDiffuse + indirectSpecular +
+                             transmittedEnvironment) *
                 max(EnvironmentSettings.y, 0.0);
         }
         [loop]
@@ -961,9 +1225,17 @@ float4 PSMain(PSInput In) : SV_Target {
             float3 fresnel = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
             float3 specular = distribution * geometryV * geometryL * fresnel /
                               max(4.0 * NdotV * NdotL, 1e-4);
+            float coatWeight = saturate(ClearcoatFactors.x);
+            float coatFresnel = 0.04 + (1.0 - 0.04) * pow(1.0 - VdotH, 5.0);
+            float coatEnergy = 1.0 - coatWeight * coatFresnel;
             float3 diffuse = (1.0 - fresnel) * (1.0 - metallic) *
                              (1.0 - saturate(PrincipledFactors.z)) *
-                             solidBase.rgb / 3.14159265;
+                             solidBase.rgb / 3.14159265 * coatEnergy;
+            float sheenWeight = saturate(PrincipledFactors.w) *
+                (1.0 - metallic) * (1.0 - saturate(PrincipledFactors.z));
+            float sheen = sheenWeight * pow(1.0 - NdotV, 5.0) /
+                          3.14159265;
+            specular *= coatEnergy;
             float coatRoughness = clamp(ClearcoatFactors.y, 0.04, 1.0);
             float coatAlpha = coatRoughness * coatRoughness;
             float coatAlpha2 = coatAlpha * coatAlpha;
@@ -972,18 +1244,21 @@ float4 PSMain(PSInput In) : SV_Target {
                 max(3.14159265 * coatDenom * coatDenom, 1e-4);
             float coatSpecular = coatDistribution * geometryV * geometryL /
                 max(4.0 * NdotV * NdotL, 1e-4);
-            specular += coatSpecular * saturate(PrincipledFactors.w) *
-                        pow(1.0 - VdotH, 5.0);
+            specular += coatSpecular * coatWeight * coatFresnel;
             float lightShadow = (ShadowSettings.x > 0.5 &&
                                  lightIndex == (uint)ShadowSettings.z)
                                     ? shadowVisibility
                                     : 1.0;
-            directColor += (diffuse + specular) * radiance *
+            directColor += (diffuse + specular + sheen) * radiance *
                            NdotL * attenuation * lightShadow;
+            float backLight = saturate(dot(-worldNormal, lightDirection));
+            directColor += solidBase.rgb * transmissionWeight * radiance *
+                           backLight * (1.0 - transmissionFresnel) *
+                           attenuation * lightShadow;
         }
-        float3 emissionColor = emissionSample.rgb * EmissionColorStrength.rgb *
+        float3 emissionColor = emissionSample.rgb * emissionTint *
                                emissionStrength;
-        return float4(saturate(directColor + ambientColor + emissionColor),
+        return float4(directColor + ambientColor + emissionColor,
                       solidBase.a * opacitySample.a);
     }
 
@@ -1001,10 +1276,15 @@ float4 PSMain(PSInput In) : SV_Target {
     float specularPower = lerp(96.0, 4.0, roughness);
     float studioSpecular = pow(saturate(key), specularPower) *
                            lerp(0.08, 0.55, metallic);
-    float3 litColor = saturate((solidBase.rgb * studioLight * cavity +
-                                rimColor * rim * 0.10 +
-                                lerp(float3(1.0, 1.0, 1.0), solidBase.rgb,
-                                     metallic) * studioSpecular) * ao);
+    float3 studioEmission = emissionSample.rgb * emissionTint *
+                            emissionStrength;
+    float3 studioHdr = (solidBase.rgb * studioLight * cavity +
+                        rimColor * rim * 0.10 +
+                        lerp(float3(1.0, 1.0, 1.0), solidBase.rgb,
+                             metallic) * studioSpecular) * ao +
+                       studioEmission;
+    float3 studioToneMapped = studioHdr / (studioHdr + 1.0);
+    float3 litColor = pow(max(studioToneMapped, 0.0), 1.0 / 2.2);
     return float4(litColor, solidBase.a * opacitySample.a);
 }
 )";
@@ -1090,6 +1370,7 @@ struct MeshRenderer::Impl {
         float pbrTextureFlags[4] = {};
         float principledFactors[4] = {0.5f, 1.5f, 0.0f, 0.0f};
         float clearcoatFactors[4] = {0.0f, 0.2f, 0.0f, 0.0f};
+        float alphaSettings[4] = {0.5f, 0.0f, 0.0f, 0.0f};
     };
 
     struct ShadowParamsConstants {
@@ -1112,7 +1393,7 @@ struct MeshRenderer::Impl {
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
-    static_assert(sizeof(MaterialConstants) == sizeof(float) * 20);
+    static_assert(sizeof(MaterialConstants) == sizeof(float) * 24);
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
@@ -2736,9 +3017,9 @@ bool MeshRenderer::setEnvironmentMap(const QString& path, float intensity)
         setEnvironmentMaps(nullptr, nullptr, nullptr, 0.0f);
         return false;
     }
-    // Until convolution passes are supplied, use the source cubemap for both
-    // diffuse and specular lookups. This is a real environment reflection path
-    // and remains compatible with later derived-map replacement.
+    // Bind the generated diffuse irradiance cube and GGX-prefiltered specular
+    // cube separately. The BRDF LUT is generated below and replaces the
+    // fallback binding when creation succeeds.
     setEnvironmentMaps(irradianceView.RawPtr(), environmentView.RawPtr(),
                        pImpl_->pBrdfLutSRV_.RawPtr(), intensity);
     RefCntAutoPtr<ITextureView> brdfView;
@@ -2747,6 +3028,27 @@ bool MeshRenderer::setEnvironmentMap(const QString& path, float intensity)
                            brdfView.RawPtr(), intensity);
     }
     return true;
+}
+
+void MeshRenderer::shareEnvironmentMapsFrom(const MeshRenderer& source)
+{
+    if (this == &source) {
+        return;
+    }
+    prepared_ = false;
+    pImpl_->environmentMapPath_ = source.pImpl_->environmentMapPath_;
+    pImpl_->pEnvironmentTexture_ = source.pImpl_->pEnvironmentTexture_;
+    pImpl_->pIrradianceTexture_ = source.pImpl_->pIrradianceTexture_;
+    pImpl_->pBrdfLutTexture_ = source.pImpl_->pBrdfLutTexture_;
+    pImpl_->pPrefilteredEnvironmentSRV_ = source.pImpl_->pPrefilteredEnvironmentSRV_;
+    pImpl_->pIrradianceMapSRV_ = source.pImpl_->pIrradianceMapSRV_;
+    pImpl_->pBrdfLutSRV_ = source.pImpl_->pBrdfLutSRV_;
+    pImpl_->environmentConstants_ = source.pImpl_->environmentConstants_;
+}
+
+bool MeshRenderer::hasEnvironmentMap() const
+{
+    return pImpl_->environmentConstants_.settings[0] > 0.5f;
 }
 
 void MeshRenderer::setEnvironmentRotation(float degrees)
@@ -2768,6 +3070,19 @@ void MeshRenderer::setTransparentPass(bool transparent)
     }
     pImpl_->transparentPass_ = transparent;
     prepared_ = false;
+}
+
+void MeshRenderer::setAlphaMasked(bool masked)
+{
+    prepared_ = false;
+    pImpl_->materialConstants_.pbrTextureFlags[3] = masked ? 1.0f : 0.0f;
+}
+
+void MeshRenderer::setAlphaCutoff(float cutoff)
+{
+    prepared_ = false;
+    pImpl_->materialConstants_.alphaSettings[0] =
+        std::clamp(std::isfinite(cutoff) ? cutoff : 0.5f, 0.0f, 1.0f);
 }
 
 void MeshRenderer::setBaseColorTexture(const QString& path)
@@ -2819,13 +3134,21 @@ void MeshRenderer::setBaseColorTexture(const QString& path)
         return;
     }
 
-    TextureSubResData subRes;
-    subRes.pData = rgba8.constData();
-    subRes.Stride = static_cast<Uint64>(rawImage.width * 4);
+    QVector<QVector<quint8>> mipData = buildRgba8MipChain(
+        rgba8, rawImage.width, rawImage.height, true);
+    texDesc.MipLevels = static_cast<Uint32>(mipData.size());
+    QVector<TextureSubResData> subResources;
+    subResources.resize(mipData.size());
+    int levelWidth = rawImage.width;
+    for (int level = 0; level < mipData.size(); ++level) {
+        subResources[level].pData = mipData[level].constData();
+        subResources[level].Stride = static_cast<Uint64>(levelWidth * 4);
+        levelWidth = std::max(1, levelWidth / 2);
+    }
 
     TextureData initData;
-    initData.pSubResources = &subRes;
-    initData.NumSubresources = 1;
+    initData.pSubResources = subResources.constData();
+    initData.NumSubresources = static_cast<Uint32>(subResources.size());
 
     pDevice->CreateTexture(texDesc, &initData, &pImpl_->pBaseColorTexture_);
     if (pImpl_->pBaseColorTexture_) {
@@ -2920,13 +3243,21 @@ void MeshRenderer::setEmissionTexture(const QString& path)
         return;
     }
 
-    TextureSubResData subRes;
-    subRes.pData = rgba8.constData();
-    subRes.Stride = static_cast<Uint64>(rawImage.width * 4);
+    QVector<QVector<quint8>> mipData = buildRgba8MipChain(
+        rgba8, rawImage.width, rawImage.height, true);
+    texDesc.MipLevels = static_cast<Uint32>(mipData.size());
+    QVector<TextureSubResData> subResources;
+    subResources.resize(mipData.size());
+    int levelWidth = rawImage.width;
+    for (int level = 0; level < mipData.size(); ++level) {
+        subResources[level].pData = mipData[level].constData();
+        subResources[level].Stride = static_cast<Uint64>(levelWidth * 4);
+        levelWidth = std::max(1, levelWidth / 2);
+    }
 
     TextureData initData;
-    initData.pSubResources = &subRes;
-    initData.NumSubresources = 1;
+    initData.pSubResources = subResources.constData();
+    initData.NumSubresources = static_cast<Uint32>(subResources.size());
 
     pDevice->CreateTexture(texDesc, &initData, &pImpl_->pEmissionTexture_);
     if (pImpl_->pEmissionTexture_) {
@@ -2996,7 +3327,7 @@ void MeshRenderer::setPbrFactors(float metallic, float roughness,
 
 void MeshRenderer::setPrincipledFactors(float specular, float ior,
                                         float transmission, float clearcoat,
-                                        float clearcoatRoughness)
+                                        float clearcoatRoughness, float sheen)
 {
     prepared_ = false;
     pImpl_->materialConstants_.principledFactors[0] =
@@ -3006,7 +3337,7 @@ void MeshRenderer::setPrincipledFactors(float specular, float ior,
     pImpl_->materialConstants_.principledFactors[2] =
         std::clamp(transmission, 0.0f, 1.0f);
     pImpl_->materialConstants_.principledFactors[3] =
-        std::clamp(clearcoat, 0.0f, 1.0f);
+        std::clamp(sheen, 0.0f, 1.0f);
     pImpl_->materialConstants_.clearcoatFactors[0] =
         std::clamp(clearcoat, 0.0f, 1.0f);
     pImpl_->materialConstants_.clearcoatFactors[1] =
@@ -3062,7 +3393,8 @@ void MeshRenderer::setNormalTexture(const QString& path)
         return;
     }
     if (loadLinearTexture(context_, newPath, "MeshRenderer_NormalTexture",
-                          pImpl_->pNormalTexture_, pImpl_->pNormalTextureSRV_)) {
+                          pImpl_->pNormalTexture_, pImpl_->pNormalTextureSRV_,
+                          true)) {
         pImpl_->normalTexturePath_ = newPath;
         pImpl_->materialConstants_.pbrTextureFlags[1] = 1.0f;
     } else {
@@ -3135,7 +3467,7 @@ void MeshRenderer::setOpacityTexture(const QString& path)
     texDesc.Width = static_cast<Uint32>(rawImage.width);
     texDesc.Height = static_cast<Uint32>(rawImage.height);
     texDesc.MipLevels = 1;
-    texDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+    texDesc.Format = TEX_FORMAT_RGBA8_UNORM;
     texDesc.Usage = USAGE_IMMUTABLE;
     texDesc.BindFlags = BIND_SHADER_RESOURCE;
 
@@ -3148,13 +3480,21 @@ void MeshRenderer::setOpacityTexture(const QString& path)
         return;
     }
 
-    TextureSubResData subRes;
-    subRes.pData = rgba8.constData();
-    subRes.Stride = static_cast<Uint64>(rawImage.width * 4);
+    QVector<QVector<quint8>> mipData = buildRgba8MipChain(
+        rgba8, rawImage.width, rawImage.height, false);
+    texDesc.MipLevels = static_cast<Uint32>(mipData.size());
+    QVector<TextureSubResData> subResources;
+    subResources.resize(mipData.size());
+    int levelWidth = rawImage.width;
+    for (int level = 0; level < mipData.size(); ++level) {
+        subResources[level].pData = mipData[level].constData();
+        subResources[level].Stride = static_cast<Uint64>(levelWidth * 4);
+        levelWidth = std::max(1, levelWidth / 2);
+    }
 
     TextureData initData;
-    initData.pSubResources = &subRes;
-    initData.NumSubresources = 1;
+    initData.pSubResources = subResources.constData();
+    initData.NumSubresources = static_cast<Uint32>(subResources.size());
 
     pDevice->CreateTexture(texDesc, &initData, &pImpl_->pOpacityTexture_);
     if (pImpl_->pOpacityTexture_) {

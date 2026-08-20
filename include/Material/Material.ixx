@@ -61,6 +61,8 @@ export enum class MaterialAlphaMode {
   float clearcoat() const;
   void setClearcoatRoughness(float value);
   float clearcoatRoughness() const;
+  void setSheen(float value);
+  float sheen() const;
 
   // --- Emission ---
   void setEmissionColor(const QColor& color);
@@ -73,6 +75,8 @@ export enum class MaterialAlphaMode {
   float opacity() const;
   void setAlphaMode(MaterialAlphaMode mode);
   MaterialAlphaMode alphaMode() const;
+  void setAlphaCutoff(float value);
+  float alphaCutoff() const;
 
   // --- Normal ---
   void setNormalStrength(float value);

@@ -129,7 +129,8 @@ public:
     void setPbrFactors(float metallic, float roughness,
                        float normalStrength, float occlusionStrength);
     void setPrincipledFactors(float specular, float ior, float transmission,
-                              float clearcoat, float clearcoatRoughness);
+                              float clearcoat, float clearcoatRoughness,
+                              float sheen = 0.0f);
     void setMetallicRoughnessTexture(const QString& path);
     void setNormalTexture(const QString& path);
     void setOcclusionTexture(const QString& path);
@@ -143,6 +144,10 @@ public:
     // The generated cubemap is used as the initial environment input; callers
     // may replace the derived irradiance/prefilter maps through setEnvironmentMaps.
     bool setEnvironmentMap(const QString& path, float intensity = 1.0f);
+    /// Shares the current environment resources with another renderer owned
+    /// by the same render device.
+    void shareEnvironmentMapsFrom(const MeshRenderer& source);
+    bool hasEnvironmentMap() const;
     void setEnvironmentRotation(float degrees);
     /// Returns the currently loaded specular environment cubemap SRV.
     /// The returned view is owned by MeshRenderer and remains valid until the
@@ -161,6 +166,9 @@ public:
     void prepareShadow(IDeviceContext* pContext, const float* lightViewProjection);
     void drawShadow(IDeviceContext* pContext, size_t instanceCount);
     void setTransparentPass(bool transparent);
+    /// Enables alpha-test masking while keeping the opaque depth-write path.
+    void setAlphaMasked(bool masked);
+    void setAlphaCutoff(float cutoff);
 
     /**
      * @brief Set an opacity texture to modulate mesh alpha.
