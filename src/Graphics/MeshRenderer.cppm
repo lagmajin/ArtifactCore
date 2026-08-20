@@ -2834,6 +2834,14 @@ void MeshRenderer::setBaseColorTexture(const QString& path)
     }
 }
 
+void MeshRenderer::setBaseColorTextureView(ITextureView* view)
+{
+    prepared_ = false;
+    pImpl_->baseColorTexturePath_.clear();
+    pImpl_->pBaseColorTexture_.Release();
+    pImpl_->pBaseColorTextureSRV_ = view;
+}
+
 void MeshRenderer::clearBaseColorTexture()
 {
     prepared_ = false;

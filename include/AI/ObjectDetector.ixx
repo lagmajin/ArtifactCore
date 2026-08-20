@@ -44,6 +44,12 @@ public:
      */
     QList<Detection> detect(const ImageF32x4_RGBA& image);
 
+    bool initialize(const QString& modelPath);
+    bool isInitialized() const noexcept;
+    QString lastError() const;
+    bool setLabelsPath(const QString& path);
+    QStringList classLabels() const;
+
     /**
      * @brief Detect and draw bounding boxes on the image
      */

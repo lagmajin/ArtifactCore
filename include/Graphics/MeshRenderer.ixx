@@ -122,6 +122,7 @@ public:
      *        Empty path clears the texture and falls back to a white texture.
      */
     void setBaseColorTexture(const QString& path);
+    void setBaseColorTextureView(ITextureView* view);
     void clearBaseColorTexture();
     void setEmissionTexture(const QString& path);
     void clearEmissionTexture();

@@ -2225,6 +2225,10 @@ set(ARTIFACTCORE_AI_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/CommandIR.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/CommandSandbox.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ICloudAIAgent.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ImageDepthEstimator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ImageSegmenter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/OnnxImageSegmenter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/OnnxImageDepthEstimator.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/IDescribable.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/LlamaLocalAgent.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/LocalAIAgent.ixx"
@@ -2253,6 +2257,10 @@ set(ARTIFACTCORE_AI_MODULES
 )
 set(ARTIFACTCORE_AI_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/APIKeyManager.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ImageDepthEstimator.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxImageDepthEstimator.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxImageSegmenter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ImageSegmenter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/CloudAgent.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/LlamaLocalAgent.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ObjectDetector.cppm"
@@ -3881,6 +3889,10 @@ target_sources(ArtifactCoreAI
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_AI_MODULES}
 )
 target_link_libraries(ArtifactCoreAI PUBLIC ArtifactCore)
+if((TARGET onnxruntime::onnxruntime OR TARGET onnxruntime) AND
+   TARGET sentencepiece::sentencepiece)
+    target_compile_definitions(ArtifactCoreAI PRIVATE ARTIFACT_HAS_ONNX_DML_BACKEND=1)
+endif()
 target_include_directories(ArtifactCoreAI PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
