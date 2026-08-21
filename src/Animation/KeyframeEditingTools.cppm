@@ -70,7 +70,7 @@ bool KeyframeEditingTools::thinKeyframes(
     bool removed;
     do {
         removed = false;
-        std::vector<size_t> toRemove;
+        NamedVector<size_t> toRemove;
 
         // Compute the value range for relative tolerance
         double minVal = keyframes.front().value;
