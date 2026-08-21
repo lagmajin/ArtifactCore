@@ -7,6 +7,8 @@ module;
 #include <QDebug>
 module Core.Mask.PathMorph;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // -----------------------------------------------------------------------
@@ -118,7 +120,7 @@ std::vector<QPointF> resampleEquidistant(
         return std::vector<QPointF>(targetCount, src.front());
     }
 
-    std::vector<QPointF> result;
+    NamedVector<QPointF> result;
     for (int i = 0; i < targetCount; ++i) {
         const float target = static_cast<float>(i) / (targetCount - 1) * totalLen;
 
@@ -140,7 +142,7 @@ std::vector<QPointF> resampleEquidistant(
         result.push_back(src[lo] + (src[hi] - src[lo]) * t);
     }
 
-    return result;
+    return result.toStdVector();
 }
 
 } // anonymous namespace
