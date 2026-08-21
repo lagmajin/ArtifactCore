@@ -98,10 +98,10 @@ bool appendRigAnimation(Rig2D& rig,
         framesPerSecond <= 0 || framesPerSecond > 1000 || rig.bones().isEmpty()) {
         return false;
     }
-    std::vector<LottieLayer> converted;
+    NamedVector<LottieLayer> converted;
     converted.reserve(static_cast<std::size_t>(rig.bones().size()));
     int index = 1;
-    std::vector<Bone2D*> convertedBones;
+    NamedVector<Bone2D*> convertedBones;
     convertedBones.reserve(static_cast<std::size_t>(rig.bones().size()));
     for (Bone2D* bone : rig.bones()) {
         if (!bone) continue;
