@@ -23,6 +23,7 @@ module;
 module ArtifactCore.Rig2D;
 
 import Utils.Id;
+import Container.NamedVector;
 import Memory.SharedPtr;
 import Time.Rational;
 import Animation.Value;
@@ -587,7 +588,7 @@ QVariant RigController2D::evaluateProperty(const Id& propertyId) const
 
 std::vector<ControllerPropertySnapshot2D> RigController2D::evaluate() const
 {
-    std::vector<ControllerPropertySnapshot2D> result;
+    NamedVector<ControllerPropertySnapshot2D> result;
     for (const auto& frame : keyFrames_) {
         for (const auto& property : frame.properties) {
             const auto existing = std::find_if(result.begin(), result.end(),
@@ -597,7 +598,7 @@ std::vector<ControllerPropertySnapshot2D> RigController2D::evaluate() const
             }
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 QJsonObject RigController2D::toJson() const
