@@ -213,11 +213,11 @@ public:
     
     // パスからポリゴン生成
     std::vector<QPointF> toPolygon(const std::vector<RotoVertex>& verts, int subdivisions = 16) const {
-        std::vector<QPointF> poly;
+        NamedVector<QPointF> poly;
         const int n = static_cast<int>(verts.size());
         if (n < 2) {
             for (const auto& v : verts) poly.push_back(v.position);
-            return poly;
+            return poly.toStdVector();
         }
         
         int segments = closed ? n : n - 1;
@@ -234,7 +234,7 @@ public:
         if (!closed && n > 0) {
             poly.push_back(verts.back().position);
         }
-        return poly;
+        return poly.toStdVector();
     }
 };
 
