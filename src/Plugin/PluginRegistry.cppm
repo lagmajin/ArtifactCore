@@ -10,6 +10,7 @@ module ArtifactCore.Plugin.Registry;
 
 import ArtifactCore.Plugin.Common;
 import Core.ArtifactString;
+import Container.NamedVector;
 import Utils.Optional;
 
 namespace ArtifactCore {
@@ -86,13 +87,13 @@ PluginState ArtifactPluginRegistry::pluginState(const std::string& id) const {
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::pluginsOfCategory(PluginCategory category) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<PluginDescriptor> result;
+    NamedVector<PluginDescriptor> result;
     for (const auto& [id, entry] : entries_) {
         if (entry.descriptor.category == category) {
             result.push_back(entry.descriptor);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 Optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::string& id) const {
@@ -106,17 +107,17 @@ Optional<PluginDescriptor> ArtifactPluginRegistry::pluginById(const std::string&
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::allPlugins() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<PluginDescriptor> result;
+    NamedVector<PluginDescriptor> result;
     result.reserve(entries_.size());
     for (const auto& [id, entry] : entries_) {
         result.push_back(entry.descriptor);
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::vector<PluginDescriptor> ArtifactPluginRegistry::activePlugins() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<PluginDescriptor> result;
+    NamedVector<PluginDescriptor> result;
     result.reserve(active_.size());
     for (const auto& id : active_) {
         auto it = entries_.find(id);
@@ -124,7 +125,7 @@ std::vector<PluginDescriptor> ArtifactPluginRegistry::activePlugins() const {
             result.push_back(it->second.descriptor);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 } // namespace ArtifactCore
