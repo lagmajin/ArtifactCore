@@ -25,6 +25,8 @@ module;
 
 module Script.Python.Engine;
 
+import Container.NamedVector;
+
 import Core.ArtifactString;
 
 #ifdef ARTIFACT_HAS_PYTHON
@@ -170,11 +172,11 @@ sys.stderr = _ArtifactOut(True)
         // Inject any pre-registered C++ functions
         for (const auto& [name, func] : impl_->registeredFunctions_) {
             auto wrappedFunc = [func](py::args args) -> std::string {
-                std::vector<std::string> strArgs;
+                NamedVector<std::string> strArgs;
                 for (auto& a : args) {
                     strArgs.push_back(py::str(a).cast<std::string>());
                 }
-                return func(strArgs);
+                return func(strArgs.toStdVector());
             };
             impl_->artifactModule_.attr(name.c_str()) = py::cpp_function(wrappedFunc);
         }
@@ -361,11 +363,11 @@ void PythonEngine::registerFunction(const std::string& name, PyCppFunction func)
 #ifdef ARTIFACT_HAS_PYTHON
     if (impl_->initialized_) {
         auto wrappedFunc = [func](py::args args) -> std::string {
-            std::vector<std::string> strArgs;
+            NamedVector<std::string> strArgs;
             for (auto& a : args) {
                 strArgs.push_back(py::str(a).cast<std::string>());
             }
-            return func(strArgs);
+            return func(strArgs.toStdVector());
         };
         impl_->artifactModule_.attr(name.c_str()) = py::cpp_function(wrappedFunc);
     }
