@@ -1205,7 +1205,7 @@ public:
     
     // 特徴点検出 (Shi-Tomasi / goodFeaturesToTrack)
     std::vector<QPointF> detectFeatures(const cv::Mat& frame, int maxFeatures, double minDist) {
-        std::vector<QPointF> features;
+        NamedVector<QPointF> features;
         cv::Mat gray = normalizeFrame(frame);
         std::vector<cv::Point2f> corners;
         cv::goodFeaturesToTrack(gray, corners, maxFeatures, 0.01, minDist, cv::Mat(), 3, false, 0.04);
@@ -1219,7 +1219,7 @@ public:
                 }
             }
         }
-        return features;
+        return features.toStdVector();
     }
 };
 
