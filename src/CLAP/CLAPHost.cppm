@@ -496,7 +496,8 @@ void ClapEffect::setParameterValue(const ArtifactCore::String& id, float value) 
 class Host::Impl {
 public:
     clap_host host{};
-    std::vector<std::string> searchPaths;
+    NamedVector<std::string> searchPaths{
+        makeNamedVector<std::string>(ContainerName{"ClapHostSearchPaths"})};
     // ライブラリを生きたまま保持（プラグイン生存中のアンロード防止）
     std::vector<std::shared_ptr<PluginLibrary>> libraries;
 };
@@ -508,21 +509,21 @@ Host::Host() : impl_(new Impl()) {
     impl_->host.request_process = hostRequestProcess;
     impl_->host.request_callback = hostRequestCallback;
 #ifdef _WIN32
-    impl_->searchPaths = {
+    impl_->searchPaths.assign({
         "C:/Program Files/Common Files/CLAP",
         "C:/Program Files/Common Files/VST3",
-    };
+    });
 #elif __APPLE__
-    impl_->searchPaths = {
+    impl_->searchPaths.assign({
         "/Library/Audio/Plug-Ins/CLAP",
         "~/Library/Audio/Plug-Ins/CLAP",
-    };
+    });
 #else
-    impl_->searchPaths = {
+    impl_->searchPaths.assign({
         "/usr/lib/clap",
         "/usr/local/lib/clap",
         "~/.clap",
-    };
+    });
 #endif
 }
 
@@ -537,7 +538,8 @@ void Host::addSearchPath(const std::string& path) {
 }
 
 void Host::setSearchPaths(const std::vector<std::string>& paths) {
-    impl_->searchPaths = paths;
+    impl_->searchPaths.clear();
+    impl_->searchPaths.insert(impl_->searchPaths.end(), paths.begin(), paths.end());
 }
 
 Plugin* Host::loadPlugin(const std::string& path) {
