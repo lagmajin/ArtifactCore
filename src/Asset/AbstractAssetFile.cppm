@@ -70,11 +70,12 @@ namespace ArtifactCore {
  }
 
  std::vector<UniString> AssetMeta::keys() const {
-  std::vector<UniString> result;
+  NamedVector<UniString> result{
+      makeNamedVector<UniString>(ContainerName{"AssetMetaKeys"})};
   for (const auto& pair : data) {
-    result.push_back(pair.first);
+    result.append(pair.first);
   }
-  return result;
+  return result.toStdVector();
  }
 
   class  AbstractAssetFile::Impl {
