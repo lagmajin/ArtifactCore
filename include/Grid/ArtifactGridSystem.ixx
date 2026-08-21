@@ -19,6 +19,7 @@ export module Artifact.Grid.System;
 
 import Particle;
 import Color.Float;
+import Container.NamedVector;
 // PrimitiveRenderer2D is declared in Artifact; forward-declare to avoid
 // requiring the Artifact.Render.PrimitiveRenderer2D module at this header
 // level. The full module is used in implementation files where needed.
@@ -1058,16 +1059,16 @@ inline const GridDescriptor* GridManager::layerDescriptor(int id) const {
 }
 
 inline std::vector<int> GridManager::layerIds() const {
-    std::vector<int> ids;
+    NamedVector<int> ids;
     ids.reserve(layers_.size());
     for (const auto& entry : layers_)
         ids.push_back(entry.id);
-    return ids;
+    return ids.toStdVector();
 }
 
 inline std::vector<GridLine> GridManager::computeAllLines(
     const GridViewTransform& view, float zoom) const {
-    std::vector<const Entry*> visible;
+    NamedVector<const Entry*> visible;
     for (const auto& entry : layers_)
         if (entry.layer.descriptor().visible) visible.push_back(&entry);
     std::sort(visible.begin(), visible.end(), [](const Entry* a, const Entry* b) {
