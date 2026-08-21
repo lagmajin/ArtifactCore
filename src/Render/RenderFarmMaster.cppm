@@ -919,11 +919,12 @@ public:
         // Determine local ranges by subtracting every remote slice. Do not
         // assume that remote slices are adjacent or that one contiguous local
         // range remains after remote assignment.
-        std::vector<RenderFrameRange> localRanges{ request.range };
+        NamedVector<RenderFrameRange> localRanges;
+        localRanges.append(request.range);
         {
             std::lock_guard<std::mutex> lock(remoteMutex_);
             for (const auto& slice : remoteSlices_) {
-                std::vector<RenderFrameRange> remaining;
+                NamedVector<RenderFrameRange> remaining;
                 for (const auto& candidate : localRanges) {
                     const int overlapStart = std::max(candidate.startFrame, slice.range.startFrame);
                     const int overlapEnd = std::min(candidate.endFrame, slice.range.endFrame);
