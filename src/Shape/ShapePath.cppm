@@ -838,12 +838,12 @@ std::vector<BezierSegment> ShapePath::flatten(double tolerance) const {
 }
 
 std::vector<std::vector<BezierSegment>> ShapePath::flattenSubpaths(double tolerance) const {
-    std::vector<std::vector<BezierSegment>> result;
+    NamedVector<std::vector<BezierSegment>> result;
     for (const auto& subpath : subpaths()) {
         auto flattened = subpath.flatten(tolerance);
         if (!flattened.empty()) result.push_back(std::move(flattened));
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::vector<PathTriangle> ShapePath::triangulateSimple(double tolerance) const {
