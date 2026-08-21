@@ -683,7 +683,7 @@ struct ShapedLine {
   float width = 0.0f;
   float height = 0.0f;
   float ascent = 0.0f;
-  std::vector<float> cursorX;
+  NamedVector<float> cursorX;
 };
 
 bool isLineBreak(char32_t code)
