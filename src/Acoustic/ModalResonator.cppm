@@ -76,6 +76,7 @@ export namespace Artifact::Acoustic {
         }
 
         MaterialProfile m_profile;
-        std::vector<Mode> m_modes;
+        NamedVector<Mode> m_modes{
+            makeNamedVector<Mode>(ContainerName{"ModalResonatorModes"})};
     };
 }
