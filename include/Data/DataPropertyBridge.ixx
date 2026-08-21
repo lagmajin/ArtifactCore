@@ -11,6 +11,8 @@ module;
 
 export module Data.DataPropertyBridge;
 
+import Container.NamedVector;
+
 import Core.ArtifactString;
 import Data.DataTable;
 import Data.DataSource;
@@ -95,12 +97,12 @@ public:
 
     static std::vector<String> registeredUris() {
         std::lock_guard<std::mutex> lock(mutex_);
-        std::vector<String> uris;
+        NamedVector<String> uris;
         uris.reserve(registeredSources_.size());
         for (const auto& [uri, _] : registeredSources_) {
             uris.emplace_back(uri);
         }
-        return uris;
+        return uris.toStdVector();
     }
 
     static String getValue(const String& uri, int row, const String& column) {
