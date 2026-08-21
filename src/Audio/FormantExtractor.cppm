@@ -8,6 +8,8 @@ module;
 
 module Audio.FormantExtractor;
 
+import Container.NamedVector;
+
 import Audio.Analyze;
 
 namespace ArtifactCore {
@@ -145,28 +147,28 @@ PhonemeEvent FormantExtractor::analyzeFrame(
 std::vector<PhonemeEvent> FormantExtractor::analyzeTrack(
     const AudioSegment& segment, double frameRate, int64_t startFrame)
 {
-    std::vector<PhonemeEvent> events;
+    NamedVector<PhonemeEvent> events;
     if (segment.frameCount() <= 0 || !std::isfinite(frameRate) || frameRate <= 0.0) {
-        return events;
+        return {};
     }
 
     int sampleRate = segment.sampleRate;
-    if (sampleRate <= 0) return events;
+    if (sampleRate <= 0) return {};
 
     int totalFrames = segment.frameCount();
     for (const auto& channel : segment.channelData) {
         totalFrames = std::min(totalFrames, static_cast<int>(channel.size()));
     }
-    if (totalFrames <= 0) return events;
+    if (totalFrames <= 0) return {};
 
     const double samplesPerAnalysis = static_cast<double>(sampleRate) / frameRate;
     if (!std::isfinite(samplesPerAnalysis) ||
         samplesPerAnalysis > static_cast<double>(std::numeric_limits<int>::max())) {
-        return events;
+        return {};
     }
     int framesPerAnalysis = static_cast<int>(std::round(samplesPerAnalysis));
     if (framesPerAnalysis <= 0) framesPerAnalysis = sampleRate / 24;
-    if (framesPerAnalysis <= 0) return events;
+    if (framesPerAnalysis <= 0) return {};
     int64_t frame = startFrame;
 
     for (int offset = 0; framesPerAnalysis <= totalFrames - offset;
@@ -189,7 +191,7 @@ std::vector<PhonemeEvent> FormantExtractor::analyzeTrack(
         }
         ++frame;
     }
-    return events;
+    return events.toStdVector();
 }
 
 void FormantExtractor::setVowelThresholds(
