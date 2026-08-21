@@ -720,9 +720,9 @@ QPointF ShapePath::pointAtLength(double length) const {
 }
 
 std::vector<BezierSegment> ShapePath::toSegments() const {
-    std::vector<BezierSegment> segments;
+    NamedVector<BezierSegment> segments;
     const auto& cmds = impl_->commands_;
-    if (cmds.empty()) return segments;
+    if (cmds.empty()) return {};
 
     QPointF currentPos;  // 現在のパス位置
     QPointF subpathStart; // 現在のサブパス始点
@@ -780,7 +780,7 @@ std::vector<BezierSegment> ShapePath::toSegments() const {
                 break;
         }
     }
-    return segments;
+    return segments.toStdVector();
 }
 
 std::vector<BezierSegment> ShapePath::flatten(double tolerance) const {
