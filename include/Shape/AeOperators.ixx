@@ -597,7 +597,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
@@ -635,7 +635,7 @@ public:
             result.push_back(warped);
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
