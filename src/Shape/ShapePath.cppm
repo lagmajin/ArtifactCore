@@ -784,7 +784,7 @@ std::vector<BezierSegment> ShapePath::toSegments() const {
 }
 
 std::vector<BezierSegment> ShapePath::flatten(double tolerance) const {
-    std::vector<BezierSegment> flattened;
+    NamedVector<BezierSegment> flattened;
     if (!std::isfinite(tolerance) || tolerance <= 0.0) tolerance = 0.25;
     tolerance = std::clamp(tolerance, 1e-6, 1e6);
 
@@ -834,7 +834,7 @@ std::vector<BezierSegment> ShapePath::flatten(double tolerance) const {
     };
 
     for (const auto& segment : toSegments()) flattenSegment(segment);
-    return flattened;
+    return flattened.toStdVector();
 }
 
 std::vector<std::vector<BezierSegment>> ShapePath::flattenSubpaths(double tolerance) const {
