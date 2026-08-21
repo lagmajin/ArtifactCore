@@ -18,6 +18,7 @@ module Geometry.Fracture;
 
 import Memory.TrackedPtr;
 import Physics.Fracture;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
