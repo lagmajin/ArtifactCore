@@ -511,7 +511,7 @@ void ShapePath::setPolygon(const std::vector<QPointF>& points, bool closed) {
     clear();
     if (points.size() < 2) return;
 
-    std::vector<QPointF> finitePoints;
+    NamedVector<QPointF> finitePoints;
     finitePoints.reserve(points.size());
     for (const auto& point : points) {
         if (std::isfinite(point.x()) && std::isfinite(point.y())) {
@@ -540,7 +540,7 @@ void ShapePath::setStar(const QPointF& center, int points, double outerRadius, d
     const double angleStep = std::numbers::pi / points;
     const double startAngle = -std::numbers::pi / 2;
 
-    std::vector<QPointF> starPoints;
+    NamedVector<QPointF> starPoints;
     starPoints.reserve(points * 2);
 
     for (int i = 0; i < points; ++i) {
@@ -557,7 +557,7 @@ void ShapePath::setStar(const QPointF& center, int points, double outerRadius, d
         ));
     }
 
-    setPolygon(starPoints, true);
+    setPolygon(starPoints.toStdVector(), true);
 }
 
 // ========================================
