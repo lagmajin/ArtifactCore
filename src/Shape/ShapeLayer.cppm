@@ -1080,22 +1080,21 @@ ShapeLayer ShapeLayer::createCross(const QRectF& bounds, double armRatio,
     const double halfH = rect.height() * 0.5;
     const double armX = std::clamp(rect.width() * armRatio, 0.0, halfW);
     const double armY = std::clamp(rect.height() * armRatio, 0.0, halfH);
-    std::vector<QPointF> points = {
-        QPointF(center.x() - armX, rect.top()),
-        QPointF(center.x() + armX, rect.top()),
-        QPointF(center.x() + armX, center.y() - armY),
-        QPointF(rect.right(), center.y() - armY),
-        QPointF(rect.right(), center.y() + armY),
-        QPointF(center.x() + armX, center.y() + armY),
-        QPointF(center.x() + armX, rect.bottom()),
-        QPointF(center.x() - armX, rect.bottom()),
-        QPointF(center.x() - armX, center.y() + armY),
-        QPointF(rect.left(), center.y() + armY),
-        QPointF(rect.left(), center.y() - armY),
-        QPointF(center.x() - armX, center.y() - armY)
-    };
+    NamedVector<QPointF> points;
+    points.append(QPointF(center.x() - armX, rect.top()));
+    points.append(QPointF(center.x() + armX, rect.top()));
+    points.append(QPointF(center.x() + armX, center.y() - armY));
+    points.append(QPointF(rect.right(), center.y() - armY));
+    points.append(QPointF(rect.right(), center.y() + armY));
+    points.append(QPointF(center.x() + armX, center.y() + armY));
+    points.append(QPointF(center.x() + armX, rect.bottom()));
+    points.append(QPointF(center.x() - armX, rect.bottom()));
+    points.append(QPointF(center.x() - armX, center.y() + armY));
+    points.append(QPointF(rect.left(), center.y() + armY));
+    points.append(QPointF(rect.left(), center.y() - armY));
+    points.append(QPointF(center.x() - armX, center.y() - armY));
     ShapeLayer layer;
-    auto shape = std::make_unique<PathShape>(makePolygonPath(points));
+    auto shape = std::make_unique<PathShape>(makePolygonPath(points.toStdVector()));
     shape->setFill(fill);
     shape->setStroke(stroke);
     layer.addShape(std::move(shape));
