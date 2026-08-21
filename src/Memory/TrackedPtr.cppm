@@ -12,6 +12,8 @@ module;
 
 export module Memory.TrackedPtr;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 namespace Memory {
@@ -114,17 +116,18 @@ public:
     
     std::vector<uint64_t> detectCycles() const {
         std::lock_guard<std::mutex> lock(mutex_);
-        std::vector<uint64_t> cycleParticipants;
+        NamedVector<uint64_t> cycleParticipants{
+            makeNamedVector<uint64_t>(ContainerName{"TrackedPtrCycleParticipants"})};
         
         for (uint64_t id = 1; id < blocks_.size(); ++id) {
             const auto* block = blocks_[static_cast<size_t>(id)];
             if (block && block->strongRefCount.load() > 0) {
                 if (isPartOfCycle(block, id)) {
-                    cycleParticipants.push_back(id);
+                    cycleParticipants.append(id);
                 }
             }
         }
-        return cycleParticipants;
+        return cycleParticipants.toStdVector();
     }
     
 private:
