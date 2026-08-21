@@ -80,7 +80,7 @@ std::string stripTrailingComment(const std::string& text)
 
 std::vector<StatementSlice> splitStatements(const std::string& source)
 {
-    std::vector<StatementSlice> statements;
+    NamedVector<StatementSlice> statements;
     std::string current;
     std::size_t currentStart = std::string::npos;
     bool inSingleQuote = false;
@@ -144,7 +144,7 @@ std::vector<StatementSlice> splitStatements(const std::string& source)
     }
 
     flush(source.size());
-    return statements;
+    return statements.toStdVector();
 }
 
 std::pair<std::size_t, std::size_t> lineColumnForOffset(const std::string& source, std::size_t offset)
