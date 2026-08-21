@@ -74,6 +74,8 @@ constexpr int32_t hdt_load_assembly = 7;
 
 module Script.CSharp.Engine;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 namespace fs = std::filesystem;
@@ -419,7 +421,7 @@ private:
     bool loaded_ = false;
     std::string lastError_;
     std::string dotnetRoot_;
-    std::vector<fs::path> generatedRuntimeConfigs_;
+    NamedVector<fs::path> generatedRuntimeConfigs_;
 };
 
 #endif // ARTIFACT_HAS_DOTNET
