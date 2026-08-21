@@ -811,7 +811,7 @@ public:
         ArtifactScriptDefinition definition;
         ArtifactScriptSerializedFields fields;
     };
-    std::vector<WatchEntry> watches_;
+    NamedVector<WatchEntry> watches_;
     std::unordered_map<std::string, FileEntry> files_;
 };
 
@@ -862,8 +862,8 @@ bool ArtifactScriptHotReload::watchFile(const std::string& path) {
 }
 
 void ArtifactScriptHotReload::unwatchFile(const std::string& path) {
-    impl_->watches_.erase(std::remove_if(impl_->watches_.begin(), impl_->watches_.end(),
-        [&](const Impl::WatchEntry& w) { return w.path == path; }), impl_->watches_.end());
+    impl_->watches_.removeIf(
+        [&](const Impl::WatchEntry& w) { return w.path == path; });
 }
 
 std::vector<std::string> ArtifactScriptHotReload::pollChanges() {
