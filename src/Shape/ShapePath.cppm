@@ -16,6 +16,7 @@ module;
 
 module Shape.Path:Impl;
 
+import Container.NamedVector;
 import Shape.Path;
 import Shape.Types;
 import Math;
@@ -1480,8 +1481,8 @@ QPointF ShapePath::quadPointAtLength(const QPointF& p0, const QPointF& p1, const
 
 std::vector<ShapePath> ShapePath::subpaths() const
 {
-    std::vector<ShapePath> result;
-    if (impl_->commands_.empty()) return result;
+    NamedVector<ShapePath> result;
+    if (impl_->commands_.empty()) return {};
 
     ShapePath current;
     for (const auto& cmd : impl_->commands_) {
@@ -1497,7 +1498,7 @@ std::vector<ShapePath> ShapePath::subpaths() const
     }
     if (!current.impl_->commands_.empty())
         result.push_back(std::move(current));
-    return result;
+    return result.toStdVector();
 }
 
 // ========================================
@@ -1506,8 +1507,8 @@ std::vector<ShapePath> ShapePath::subpaths() const
 
 std::vector<QPointF> ShapePath::sampleEquidistant(int count) const
 {
-    std::vector<QPointF> result;
-    if (impl_->commands_.empty() || count < 2) return result;
+    NamedVector<QPointF> result;
+    if (impl_->commands_.empty() || count < 2) return {};
 
     const double totalLen = length();
     if (totalLen < 1e-9) {
@@ -1522,7 +1523,7 @@ std::vector<QPointF> ShapePath::sampleEquidistant(int count) const
         result.push_back(pointAtLength(
             static_cast<double>(i) / (count - 1) * totalLen));
     }
-    return result;
+    return result.toStdVector();
 }
 
 // ========================================
