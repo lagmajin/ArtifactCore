@@ -481,7 +481,7 @@ private:
 
     std::string expr_;
     size_t pos_;
-    std::vector<Token> tokens_;
+    NamedVector<Token> tokens_;
     size_t idx_ = 0;
 
     void tokenize() {
