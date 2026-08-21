@@ -968,7 +968,7 @@ ShapeLayer ShapeLayer::createArrow(const QRectF& bounds, ArrowDirection directio
     const double shaftHalf = std::max(1.0, rect.height() * 0.14);
     const double headHalf = std::max(shaftHalf, rect.height() * 0.5 * headWidthRatio);
 
-    std::vector<QPointF> points;
+    NamedVector<QPointF> points;
     points.reserve(7);
     points.emplace_back(rect.left(), center.y() - shaftHalf);
     points.emplace_back(rect.right() - headLen, center.y() - shaftHalf);
@@ -982,7 +982,7 @@ ShapeLayer ShapeLayer::createArrow(const QRectF& bounds, ArrowDirection directio
         if (radians == 0.0) {
             return points;
         }
-        std::vector<QPointF> rotated;
+        NamedVector<QPointF> rotated;
         rotated.reserve(points.size());
         for (const auto& p : points) {
             rotated.push_back(rotatePoint(p, center, radians));
@@ -1003,7 +1003,7 @@ ShapeLayer ShapeLayer::createArrow(const QRectF& bounds, ArrowDirection directio
     }
 
     ShapeLayer layer;
-    ShapePath path = makePolygonPath(rotateDirection(radians));
+    ShapePath path = makePolygonPath(rotateDirection(radians).toStdVector());
     auto shape = std::make_unique<PathShape>(path);
     shape->setFill(fill);
     shape->setStroke(stroke);
