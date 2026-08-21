@@ -298,7 +298,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         if (inputPaths.empty() || std::abs(offset_) <= 1e-6f) {
             return inputPaths;
         }
@@ -325,7 +325,7 @@ public:
             }
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
