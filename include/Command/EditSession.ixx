@@ -14,6 +14,7 @@ module;
 export module Command.Session;
 
 import Command.Serializable;
+import Container.NamedVector;
 
 export namespace ArtifactCore
 {
@@ -37,7 +38,7 @@ export namespace ArtifactCore
             QJsonObject logEntry;
             logEntry.insert(QStringLiteral("type"), QJsonValue(command->commandType()));
             logEntry.insert(QStringLiteral("data"), QJsonValue(command->serialize()));
-            historyLog_.push_back(logEntry);
+            historyLog_.append(logEntry);
 
             if (broadcastCallback_) broadcastCallback_(logEntry);
             undoStack_.push(static_cast<QUndoCommand*>(command.release())); // 所有権の委譲
@@ -61,7 +62,8 @@ export namespace ArtifactCore
 
     private:
         QUndoStack undoStack_;
-        std::vector<QJsonObject> historyLog_;
+        NamedVector<QJsonObject> historyLog_{
+            makeNamedVector<QJsonObject>(ContainerName{"EditSessionHistoryLog"})};
         BroadcastCallback broadcastCallback_;
     };
 }
