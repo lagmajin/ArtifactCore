@@ -253,7 +253,7 @@ inline SequenceDetectionResult detectSequencesInDirectory(
     const std::filesystem::path& dir,
     int minFrames = 2)
 {
-    std::vector<std::string> names;
+    NamedVector<std::string> names;
     std::error_code ec;
     for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
         if (ec) break;
@@ -261,12 +261,12 @@ inline SequenceDetectionResult detectSequencesInDirectory(
         names.push_back(entry.path().filename().string());
     }
     std::sort(names.begin(), names.end());
-    std::vector<String> coreNames;
+    NamedVector<String> coreNames;
     coreNames.reserve(names.size());
     for (const auto& name : names) {
         coreNames.emplace_back(name);
     }
-    return detectSequences(coreNames, minFrames);
+    return detectSequences(coreNames.toStdVector(), minFrames);
 }
 
 } // namespace ArtifactCore
