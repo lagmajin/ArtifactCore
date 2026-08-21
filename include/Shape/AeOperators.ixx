@@ -17,6 +17,7 @@ module;
 export module Shape.AeOperators;
 
 import Shape.Operator;
+import Container.NamedVector;
 import Shape.Path;
 import Shape.Types;
 
@@ -186,9 +187,9 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         if (inputPaths.empty()) {
-            return result;
+            return {};
         }
 
         QPainterPath combined = inputPaths.front().toPainterPath();
@@ -220,7 +221,7 @@ public:
         if (!combined.isEmpty()) {
             result.push_back(ShapePath::fromPainterPath(combined));
         }
-        return result;
+        return result.toStdVector();
     }
 
     void modeChanged() W_SIGNAL(modeChanged);
