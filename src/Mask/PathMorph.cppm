@@ -99,12 +99,12 @@ std::vector<QPointF> resampleEquidistant(
     const std::vector<QPointF>& src, int targetCount)
 {
     if (src.size() < 2 || targetCount < 2) {
-        std::vector<QPointF> r;
+        NamedVector<QPointF> r;
         if (!src.empty())
             r.push_back(src.front());
         if (targetCount > 1 && src.size() > 1)
             r.push_back(src.back());
-        return r;
+        return r.toStdVector();
     }
 
     // 全弧長を計算
