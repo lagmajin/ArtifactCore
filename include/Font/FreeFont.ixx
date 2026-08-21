@@ -18,6 +18,7 @@ export module Font.FreeFont;
 import Text.Style;
 import Font.Descriptor;
 import Core.Diagnostics.FallbackPolicy;
+import Container.NamedVector;
 
 export namespace ArtifactCore
 {
@@ -49,7 +50,8 @@ public:
 
  static std::vector<FontDescriptor> availableFonts()
  {
-   std::vector<FontDescriptor> fonts;
+   NamedVector<FontDescriptor> fonts{
+       makeNamedVector<FontDescriptor>(ContainerName{"FontManagerAvailableFonts"})};
    const QStringList families = QFontDatabase::families();
    for (const QString& family : families) {
     const QStringList styles = QFontDatabase::styles(family);
@@ -60,7 +62,7 @@ public:
      descriptor.isFixedPitch = QFontDatabase::isFixedPitch(family, QString());
      descriptor.weight = QFontDatabase::weight(family, QString());
      descriptor.italic = QFontDatabase::italic(family, QString());
-     fonts.push_back(std::move(descriptor));
+     fonts.append(std::move(descriptor));
      continue;
     }
     for (const QString& style : styles) {
@@ -70,7 +72,7 @@ public:
      descriptor.isFixedPitch = QFontDatabase::isFixedPitch(family, style);
      descriptor.weight = QFontDatabase::weight(family, style);
      descriptor.italic = QFontDatabase::italic(family, style);
-     fonts.push_back(std::move(descriptor));
+     fonts.append(std::move(descriptor));
     }
    }
    std::sort(fonts.begin(), fonts.end(), [](const FontDescriptor& left,
@@ -81,7 +83,7 @@ public:
                             : QString::compare(left.style, right.style,
                                                Qt::CaseInsensitive) < 0;
    });
-   return fonts;
+   return fonts.toStdVector();
  }
 
  static bool isFamilyAvailable(const QString& family)
