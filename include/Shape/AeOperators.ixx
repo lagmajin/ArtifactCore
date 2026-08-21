@@ -806,7 +806,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         // 簡易ハッシュベースの疑似乱数（シード固定で再現性確保）
@@ -902,7 +902,7 @@ public:
             result.push_back(warped);
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
