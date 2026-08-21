@@ -52,12 +52,12 @@ public:
         }
     }
 
-    const std::vector<uint64_t>& values() const noexcept {
+    const NamedVector<uint64_t>& values() const noexcept {
         return values_;
     }
 
 private:
-    std::vector<uint64_t> values_;
+    NamedVector<uint64_t> values_;
 };
 
 struct TrackedPtrControlBlock {
