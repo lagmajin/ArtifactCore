@@ -847,15 +847,15 @@ std::vector<std::vector<BezierSegment>> ShapePath::flattenSubpaths(double tolera
 }
 
 std::vector<PathTriangle> ShapePath::triangulateSimple(double tolerance) const {
-    std::vector<PathTriangle> triangles;
+    NamedVector<PathTriangle> triangles;
     const auto subpaths = flattenSubpaths(tolerance);
-    if (subpaths.size() != 1 || subpaths.front().size() < 3 || !isClosed()) return triangles;
+    if (subpaths.size() != 1 || subpaths.front().size() < 3 || !isClosed()) return {};
 
     std::vector<QPointF> polygon;
     polygon.reserve(subpaths.front().size());
     for (const auto& segment : subpaths.front()) polygon.push_back(segment.p0);
     if (polygon.size() >= 2 && polygon.front() == polygon.back()) polygon.pop_back();
-    if (polygon.size() < 3) return triangles;
+    if (polygon.size() < 3) return {};
 
     const auto cross = [](const QPointF& a, const QPointF& b, const QPointF& c) {
         return (b.x() - a.x()) * (c.y() - a.y()) -
@@ -867,7 +867,7 @@ std::vector<PathTriangle> ShapePath::triangulateSimple(double tolerance) const {
         const auto& b = polygon[(i + 1) % polygon.size()];
         signedArea += a.x() * b.y() - b.x() * a.y();
     }
-    if (std::abs(signedArea) <= 1e-9) return triangles;
+    if (std::abs(signedArea) <= 1e-9) return {};
 
     std::vector<size_t> indices(polygon.size());
     std::iota(indices.begin(), indices.end(), 0);
@@ -906,7 +906,7 @@ std::vector<PathTriangle> ShapePath::triangulateSimple(double tolerance) const {
         }
         if (!clipped) return {};
     }
-    return triangles;
+    return triangles.toStdVector();
 }
 
 namespace {
