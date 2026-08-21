@@ -14,6 +14,7 @@ module;
 export module Data.FileWatcher;
 
 import Core.ArtifactString;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -86,7 +87,7 @@ private:
             std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
             if (!running_.load() || generation_.load() != generation) break;
 
-            std::vector<std::pair<String, FileChangeCallback>> triggered;
+            NamedVector<std::pair<String, FileChangeCallback>> triggered;
 
             {
                 std::lock_guard<std::mutex> lock(mutex_);
