@@ -1054,7 +1054,7 @@ ShapeLayer ShapeLayer::createGear(const QRectF& bounds, int teeth, double innerR
     const double outerRadius = std::min(rect.width(), rect.height()) * 0.5;
     const double innerRadius = outerRadius * std::clamp(innerRadiusRatio, 0.1, 0.95);
     const int toothCount = std::max(3, teeth);
-    std::vector<QPointF> points;
+    NamedVector<QPointF> points;
     points.reserve(toothCount * 2);
     for (int i = 0; i < toothCount * 2; ++i) {
         const bool outer = (i % 2) == 0;
@@ -1064,7 +1064,7 @@ ShapeLayer ShapeLayer::createGear(const QRectF& bounds, int teeth, double innerR
                             center.y() + std::sin(angle) * radius);
     }
     ShapeLayer layer;
-    auto shape = std::make_unique<PathShape>(makePolygonPath(points));
+    auto shape = std::make_unique<PathShape>(makePolygonPath(points.toStdVector()));
     shape->setFill(fill);
     shape->setStroke(stroke);
     layer.addShape(std::move(shape));
