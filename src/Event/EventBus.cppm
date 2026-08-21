@@ -24,7 +24,7 @@ namespace ArtifactCore {
 struct EventBus::Impl {
     struct Entry {
         mutable std::mutex mutex;
-        std::vector<SharedPtr<SubscriberRecord>> subscribers;
+        NamedVector<SharedPtr<SubscriberRecord>> subscribers;
     };
 
     mutable std::mutex registryMutex;
@@ -42,12 +42,12 @@ struct EventBus::Impl {
     std::unordered_map<std::type_index, std::string> typeNames;
 };
 
-static void pruneInactive(std::vector<SharedPtr<EventBus::SubscriberRecord>>& subscribers)
+static void pruneInactive(NamedVector<SharedPtr<EventBus::SubscriberRecord>>& subscribers)
 {
-    subscribers.erase(std::remove_if(subscribers.begin(), subscribers.end(),
+    subscribers.removeIf(
         [](const SharedPtr<EventBus::SubscriberRecord>& record) {
             return !record || !record->active.load(std::memory_order_acquire);
-        }), subscribers.end());
+        });
 }
 
 static void disconnectRecordFromImpl(EventBus::Impl& impl, std::type_index type, std::size_t id)
@@ -70,10 +70,10 @@ static void disconnectRecordFromImpl(EventBus::Impl& impl, std::type_index type,
     {
         std::lock_guard<std::mutex> lock(entry->mutex);
         auto& subscribers = entry->subscribers;
-        subscribers.erase(std::remove_if(subscribers.begin(), subscribers.end(),
+        subscribers.removeIf(
             [id](const SharedPtr<EventBus::SubscriberRecord>& candidate) {
                 return !candidate || candidate->id == id || !candidate->active.load(std::memory_order_acquire);
-            }), subscribers.end());
+            });
         entryEmpty = subscribers.empty();
     }
 
