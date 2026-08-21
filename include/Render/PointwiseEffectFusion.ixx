@@ -263,7 +263,7 @@ public:
     static std::vector<PointwiseFusionSegment> segment(
         const std::vector<PointwiseEffectNode>& nodes,
         PointwiseAlphaMode initialAlpha = PointwiseAlphaMode::Premultiplied) {
-        std::vector<PointwiseFusionSegment> segments;
+        NamedVector<PointwiseFusionSegment> segments;
         PointwiseAlphaMode alpha = initialAlpha;
         std::size_t index = 0;
         while (index < nodes.size()) {
@@ -301,7 +301,7 @@ public:
                 ++index;
             }
         }
-        return segments;
+        return segments.toStdVector();
     }
 
     static PointwiseCompileKey makeCompileKey(
