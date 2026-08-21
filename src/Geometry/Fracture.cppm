@@ -144,7 +144,7 @@ static std::vector<QPolygonF> generateGridPolygons(const QRectF& bounds,
  const double cellW = bounds.width() / cols;
  const double cellH = bounds.height() / rows;
 
- std::vector<QPolygonF> polygons;
+ NamedVector<QPolygonF> polygons;
  polygons.reserve(static_cast<size_t>(rows * cols));
 
  int produced = 0;
@@ -159,7 +159,7 @@ static std::vector<QPolygonF> generateGridPolygons(const QRectF& bounds,
   }
  }
 
- return polygons;
+ return polygons.toStdVector();
 }
 
 static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
@@ -177,7 +177,7 @@ static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
 
  std::sort(angles.begin(), angles.end());
 
- std::vector<QPolygonF> polygons;
+ NamedVector<QPolygonF> polygons;
  polygons.reserve(static_cast<size_t>(shardCount));
 
  for (int i = 0; i < shardCount; ++i) {
@@ -197,7 +197,7 @@ static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
   polygons.push_back(poly);
  }
 
- return polygons;
+ return polygons.toStdVector();
 }
 
 static std::vector<QPolygonF> generateHybridPolygons(const QRectF& bounds,
@@ -205,15 +205,19 @@ static std::vector<QPolygonF> generateHybridPolygons(const QRectF& bounds,
                                                      int shardCount,
                                                      std::mt19937& rng,
                                                      float jitterFactor) {
- std::vector<QPolygonF> polygons;
+ NamedVector<QPolygonF> polygons;
  const int radialCount = std::max(3, shardCount / 2);
  auto radial = generateRadialPolygons(bounds, pivot, radialCount, rng, jitterFactor);
- polygons.insert(polygons.end(), radial.begin(), radial.end());
+ for (const auto& polygon : radial) {
+  polygons.append(polygon);
+ }
 
  const int gridCount = std::max(1, shardCount - static_cast<int>(polygons.size()));
  auto grid = generateGridPolygons(bounds, gridCount, rng, jitterFactor * 0.8f);
- polygons.insert(polygons.end(), grid.begin(), grid.end());
- return polygons;
+ for (const auto& polygon : grid) {
+  polygons.append(polygon);
+ }
+ return polygons.toStdVector();
 }
 
 static QVector3D normalizeOrFallback(const QVector3D& v, const QVector3D& fallback) {
