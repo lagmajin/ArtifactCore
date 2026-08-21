@@ -37,6 +37,7 @@ module;
 module Script.Expression.Value;
 
 import Core.ArtifactString;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -45,7 +46,8 @@ public:
     ExprValueType type_ = ExprValueType::Null;
     double number_ = 0.0;
     std::vector<double> vector_;
-    std::vector<ExpressionValue> array_;
+    NamedVector<ExpressionValue> array_{
+        makeNamedVector<ExpressionValue>(ContainerName{"ExpressionValueArray"})};
     ZeroString string_;
     std::map<std::string, ExpressionValue> object_;
 };
@@ -74,7 +76,10 @@ ExpressionValue::ExpressionValue(double x, double y, double z, double w) : impl_
 
 ExpressionValue::ExpressionValue(const std::vector<ExpressionValue>& array) : impl_(new Impl()) {
     impl_->type_ = ExprValueType::Array;
-    impl_->array_ = array;
+    impl_->array_.reserve(array.size());
+    for (const auto& value : array) {
+        impl_->array_.push_back(value);
+    }
 }
 
 ExpressionValue::ExpressionValue(const std::string& str) : impl_(new Impl()) {
@@ -164,7 +169,7 @@ std::vector<double> ExpressionValue::asVector() const {
 }
 
 std::vector<ExpressionValue> ExpressionValue::asArray() const {
-    if (impl_->type_ == ExprValueType::Array) return impl_->array_;
+    if (impl_->type_ == ExprValueType::Array) return impl_->array_.toStdVector();
     return {};
 }
 
