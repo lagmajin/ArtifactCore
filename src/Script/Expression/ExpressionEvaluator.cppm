@@ -782,7 +782,7 @@ ExpressionEvaluator::evaluateOverRange(
     double endTimeSec,
     EvaluationMode mode) {
 
-    std::vector<std::pair<double, ExpressionValue>> results;
+    NamedVector<std::pair<double, ExpressionValue>> results;
 
     if (mode == EvaluationMode::FrameLocked) {
         // Evaluate at each frame time (current behavior)
@@ -820,7 +820,7 @@ ExpressionEvaluator::evaluateOverRange(
         auto ast = impl_->parser_.parse(expression);
         if (impl_->parser_.hasError()) {
             impl_->error_ = ZeroString(impl_->parser_.getError());
-            return results;
+            return results.toStdVector();
         }
 
         const double tol = impl_->adaptiveTolerance_;
@@ -893,7 +893,7 @@ ExpressionEvaluator::evaluateOverRange(
         walk(startTimeSec, endTimeSec);
     }
 
-    return results;
+    return results.toStdVector();
 }
 
 namespace BuiltinFunctions {
@@ -1296,7 +1296,7 @@ ExpressionValue loopValue(const ExpressionEvaluator* ctx, bool loopIn,
 
   NamedVector<double> times;
   NamedVector<ExpressionValue> values;
-  std::vector<std::pair<double, ExpressionValue>> keyed;
+  NamedVector<std::pair<double, ExpressionValue>> keyed;
   keyed.reserve(entries.size());
   for (const auto& entry : entries) {
     if (!entry.isObject() || !entry.hasProperty("time") || !entry.hasProperty("value"))
@@ -1397,7 +1397,7 @@ ExpressionValue Smooth(const std::vector<ExpressionValue>& args,
       ? args[2].asNumber() : ctx->getVariable("time").asNumber();
   if (!std::isfinite(center)) return ctx->getVariable("value");
 
-  std::vector<std::pair<double, ExpressionValue>> keyed;
+  NamedVector<std::pair<double, ExpressionValue>> keyed;
   for (const auto& entry : keyframes.asArray()) {
     if (!entry.isObject() || !entry.hasProperty("time") ||
         !entry.hasProperty("value")) continue;
