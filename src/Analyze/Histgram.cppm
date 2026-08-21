@@ -36,6 +36,8 @@ module;
 #include <random>
 module Analyze.Histgram;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 void Histogram::Impl::calculate(const cv::Mat& image) {
@@ -54,7 +56,8 @@ void Histogram::Impl::calculate(const cv::Mat& image) {
     // Calculate histogram for each channel. Values are normalized to the
     // public 256-bin range for all supported scalar image depths.
     for (int ch = 0; ch < channels; ++ch) {
-        std::vector<int> hist(histSize_, 0);
+        NamedVector<int> hist;
+        hist.resize(histSize_);
         for (int y = 0; y < image.rows; ++y) {
             for (int x = 0; x < image.cols; ++x) {
                 const int index = x * channels + ch;
@@ -84,7 +87,7 @@ void Histogram::Impl::calculate(const cv::Mat& image) {
                 ++hist[value];
             }
         }
-        bins_[ch] = hist;
+        bins_[ch] = hist.toStdVector();
     }
 }
 
