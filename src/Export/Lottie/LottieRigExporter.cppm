@@ -9,6 +9,7 @@ module;
 module Export.Lottie.RigExporter;
 
 import Export.Lottie.Exporter;
+import Container.NamedVector;
 
 namespace ArtifactCore::Export::Lottie {
 namespace {
@@ -18,7 +19,7 @@ std::vector<LottieKeyframe> sampleKeyframes(
     const std::vector<std::vector<double>>& samples,
     int startFrame,
     const ValueBuilder& builder) {
-    std::vector<LottieKeyframe> result;
+    NamedVector<LottieKeyframe> result;
     result.reserve(samples.size());
     for (std::size_t index = 0; index < samples.size(); ++index) {
         LottieKeyframe key;
@@ -28,7 +29,7 @@ std::vector<LottieKeyframe> sampleKeyframes(
         builder(key);
         result.push_back(std::move(key));
     }
-    return result;
+    return result.toStdVector();
 }
 
 } // namespace
