@@ -467,7 +467,7 @@ public:
         }
 
         // 2. 拘束解決（反復計算）+ 破断検出
-        std::vector<int> constraintsToRemove;
+        NamedVector<int> constraintsToRemove;
         for (int iter = 0; iter < constraintIterations_; ++iter) {
             for (size_t ci = 0; ci < constraints_.size(); ++ci) {
                 auto& c = constraints_[ci];
@@ -549,8 +549,8 @@ public:
         // 2c. 動的リメッシュ（subdivision / collapse）
         if (remeshingEnabled_) {
             // Collection phase: gather splits and collapses
-            std::vector<std::pair<int, int>> splits; // constraint index, new point index
-            std::vector<int> collapses; // constraint index to collapse
+            NamedVector<std::pair<int, int>> splits; // constraint index, new point index
+            NamedVector<int> collapses; // constraint index to collapse
             for (size_t ci = 0; ci < constraints_.size(); ++ci) {
                 auto& c = constraints_[ci];
                 auto& p1 = points_[c.p1Idx];
