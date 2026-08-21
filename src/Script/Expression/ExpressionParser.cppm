@@ -53,7 +53,7 @@ public:
     // Node data (union-like storage)
     double numberValue_ = 0.0;
     std::string stringValue_;
-    std::vector<SharedPtr<ExprNode>> children_;
+    NamedVector<SharedPtr<ExprNode>> children_;
     std::string operatorSymbol_;
 };
 
