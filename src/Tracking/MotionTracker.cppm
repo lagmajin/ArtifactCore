@@ -216,14 +216,14 @@ QPointF TrackResult::averagePosition(double time) const {
 }
 
 std::vector<QPointF> TrackResult::motionPath(int pointId) const {
-    std::vector<QPointF> path;
+    NamedVector<QPointF> path;
     for (const auto& frame : frames) {
         const TrackPoint* p = frame.findPoint(pointId);
         if (p) {
             path.push_back(p->position);
         }
     }
-    return path;
+    return path.toStdVector();
 }
 
 void TrackResult::normalize() {
