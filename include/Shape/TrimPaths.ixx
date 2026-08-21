@@ -12,6 +12,7 @@ module;
 export module Shape.TrimPaths;
 
 import Shape.Operator;
+import Container.NamedVector;
 import Shape.Path;
 import Shape.Types;
 
@@ -316,8 +317,8 @@ private:
     }
 
     static std::vector<BezierSegment> trimSegments(const std::vector<BezierSegment>& segments, double targetStart, double targetEnd) {
-        std::vector<BezierSegment> result;
-        if (targetStart >= targetEnd) return result;
+        NamedVector<BezierSegment> result;
+        if (targetStart >= targetEnd) return {};
 
         double currentLen = 0.0;
         for (const auto& seg : segments) {
@@ -344,7 +345,7 @@ private:
             }
             currentLen = segEnd;
         }
-        return result;
+        return result.toStdVector();
     }
 
     static ShapePath segmentsToPath(const std::vector<BezierSegment>& segments) {
