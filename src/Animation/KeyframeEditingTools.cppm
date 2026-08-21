@@ -17,6 +17,8 @@ module;
 
 module Animation.KeyframeEditingTools;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 namespace {
@@ -235,7 +237,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::audioToKeyframes(
     const AudioSegment& audio,
     const AudioToKeyframeRequest& request)
 {
-    std::vector<KeyframePoint> result;
+    NamedVector<KeyframePoint> result;
 
     if (audio.channelData.isEmpty() || audio.channelData[0].isEmpty()) {
         return result;
@@ -300,7 +302,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::audioToKeyframes(
         result.push_back(kf);
     }
 
-    return result;
+    return result.toStdVector();
 }
 
 // ---------------------------------------------------------------------------
@@ -390,7 +392,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
     const double srcRange = std::max(1e-10, srcMax - srcMin);
     const double tgtDuration = std::max(1.0, targetEndFrame - targetStartFrame);
 
-    std::vector<KeyframePoint> result;
+    NamedVector<KeyframePoint> result;
     result.reserve(orderedSource.size());
 
     for (const auto& kf : orderedSource) {
@@ -408,7 +410,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
         p.cp2_y = kf.cp2_y;
         result.push_back(p);
     }
-    return result;
+    return result.toStdVector();
 }
 
 // ---------------------------------------------------------------------------
@@ -638,7 +640,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::expressionToKeyframes(
     double endFrame,
     std::uint32_t seed)
 {
-    std::vector<KeyframePoint> result;
+    NamedVector<KeyframePoint> result;
     if (expression.isEmpty() || !std::isfinite(frameRate) || frameRate <= 0.0 ||
         !std::isfinite(startFrame) || !std::isfinite(endFrame) || endFrame < startFrame) {
         return result;
@@ -671,7 +673,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::expressionToKeyframes(
         result.push_back(kf);
     }
 
-    return result;
+    return result.toStdVector();
 }
 
 // ---------------------------------------------------------------------------
