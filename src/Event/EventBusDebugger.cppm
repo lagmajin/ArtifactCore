@@ -12,6 +12,8 @@ module;
 #include <vector>
 module ArtifactCore.Event.EventBusDebugger;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 static double nowMs()
@@ -175,18 +177,20 @@ std::vector<FireEntry> EventBusDebugger::fireLog(bool dupesOnly) const
 {
     std::lock_guard lock(mutex_);
     if (!dupesOnly) return log_;
-    std::vector<FireEntry> out;
+    NamedVector<FireEntry> out{
+        makeNamedVector<FireEntry>(ContainerName{"EventBusFireLog"})};
     out.reserve(log_.size());
     for (const auto& e : log_) {
-        if (e.isDuplicate) out.push_back(e);
+        if (e.isDuplicate) out.append(e);
     }
-    return out;
+    return out.toStdVector();
 }
 
 // ------------------------------------------------------------------ subscriberSnapshot
 std::vector<SubscriberInfo> EventBusDebugger::subscriberSnapshot() const
 {
-    std::vector<SubscriberInfo> out;
+    NamedVector<SubscriberInfo> out{
+        makeNamedVector<SubscriberInfo>(ContainerName{"EventBusSubscriberSnapshot"})};
 
     EventBus* bus = nullptr;
     {
@@ -225,12 +229,12 @@ std::vector<SubscriberInfo> EventBusDebugger::subscriberSnapshot() const
 
     out.reserve(byType.size());
     for (auto& [t, info] : byType) {
-        out.push_back(std::move(info));
+        out.append(std::move(info));
     }
     std::sort(out.begin(), out.end(), [](const SubscriberInfo& a, const SubscriberInfo& b) {
         return a.eventName < b.eventName;
     });
-    return out;
+    return out.toStdVector();
 }
 
 // ------------------------------------------------------------------ frequencySnapshot
@@ -241,7 +245,8 @@ std::vector<FrequencyEntry> EventBusDebugger::frequencySnapshot() const
     const double cutoff = nowMs_ - (kFreqWindowSec * 1000.0);
     const double thresh = highFreqThresh_;
 
-    std::vector<FrequencyEntry> out;
+    NamedVector<FrequencyEntry> out{
+        makeNamedVector<FrequencyEntry>(ContainerName{"EventBusFrequencySnapshot"})};
     out.reserve(perEvent_.size());
 
     for (const auto& [type, state] : perEvent_) {
@@ -259,12 +264,12 @@ std::vector<FrequencyEntry> EventBusDebugger::frequencySnapshot() const
         fe.firesPerSec = fps;
         fe.totalFires  = state.totalFires;
         fe.isHighFreq  = fps >= thresh;
-        out.push_back(std::move(fe));
+        out.append(std::move(fe));
     }
     std::sort(out.begin(), out.end(), [](const FrequencyEntry& a, const FrequencyEntry& b) {
         return a.firesPerSec > b.firesPerSec;
     });
-    return out;
+    return out.toStdVector();
 }
 
 // ------------------------------------------------------------------ perEventStats
@@ -274,7 +279,8 @@ std::vector<PerEventStats> EventBusDebugger::perEventStats() const
     const double now = nowMs();
     const double cutoff = now - (kFreqWindowSec * 1000.0);
 
-    std::vector<PerEventStats> out;
+    NamedVector<PerEventStats> out{
+        makeNamedVector<PerEventStats>(ContainerName{"EventBusPerEventStats"})};
     out.reserve(perEvent_.size());
 
     for (const auto& [type, state] : perEvent_) {
@@ -297,12 +303,12 @@ std::vector<PerEventStats> EventBusDebugger::perEventStats() const
             ? (state.durationUsTotal / static_cast<std::int64_t>(state.durationCount))
             : 0;
         s.isSlowAvg = (slowThreshUs_ > 0) && (s.avgDurationUs >= slowThreshUs_);
-        out.push_back(std::move(s));
+        out.append(std::move(s));
     }
     std::sort(out.begin(), out.end(), [](const PerEventStats& a, const PerEventStats& b) {
         return a.totalFires > b.totalFires;
     });
-    return out;
+    return out.toStdVector();
 }
 
 // ------------------------------------------------------------------ globalStats
