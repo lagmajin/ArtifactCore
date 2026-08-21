@@ -181,7 +181,7 @@ std::vector<String> AudioMixer::busNames() const
 
 std::vector<ZeroString> AudioMixer::busNamesZero() const
 {
-    std::vector<ZeroString> result;
+    NamedVector<ZeroString> result;
     result.reserve(impl_->buses.size());
     for (const auto& bus : impl_->buses) {
         if (!bus) {
@@ -189,7 +189,7 @@ std::vector<ZeroString> AudioMixer::busNamesZero() const
         }
         result.push_back(bus->getName());
     }
-    return result;
+    return result.toStdVector();
 }
 
 SharedPtr<AudioBus> AudioMixer::findBusByName(const String& name) const
