@@ -8,6 +8,7 @@ module Analyze.SmartPalette;
 
 import Color.Float;
 import Image.Raw;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -33,7 +34,8 @@ namespace ArtifactCore {
             3, cv::KMEANS_PP_CENTERS, centers);
 
         // 4. クラスタ中心をFloatColorに変換
-        std::vector<FloatColor> palette;
+        NamedVector<FloatColor> palette{
+            makeNamedVector<FloatColor>(ContainerName{"SmartPaletteColors"})};
         palette.reserve(centers.rows);
 
         for (int i = 0; i < centers.rows; ++i) {
@@ -51,10 +53,10 @@ namespace ArtifactCore {
                 r = g = b = std::clamp(centers.at<float>(i, 0) / 255.0f, 0.0f, 1.0f);
             }
 
-            palette.emplace_back(r, g, b, a);
+            palette.make(r, g, b, a);
         }
 
-        return palette;
+        return palette.toStdVector();
     }
 
     std::vector<FloatColor> SmartPaletteAnalyzer::extractPalette(const RawImage& image, int colorCount) {
