@@ -431,7 +431,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
@@ -440,7 +440,7 @@ public:
             result.push_back(detail::warpPath(path, center, maxRadius, 0.0, static_cast<double>(angle_)));
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -486,7 +486,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
@@ -538,7 +538,7 @@ public:
             result.push_back(ShapePath::fromPainterPath(rounded.simplified()));
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
