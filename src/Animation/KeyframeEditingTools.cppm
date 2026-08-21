@@ -203,7 +203,8 @@ bool KeyframeEditingTools::smooth(
     const int half = std::max(1, request.windowSize / 2);
 
     for (int iter = 0; iter < request.iterations; ++iter) {
-        std::vector<double> smoothed(keyframes.size());
+        NamedVector<double> smoothed;
+        smoothed.resize(keyframes.size());
 
         for (size_t i = 0; i < keyframes.size(); ++i) {
             const int start = std::max(0, static_cast<int>(i) - half);
