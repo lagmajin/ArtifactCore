@@ -59,7 +59,9 @@ public:
     std::vector<double> getHistory(const String& name) {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto& history = history_[toStdString(name)];
-        return std::vector<double>(history.begin(), history.end());
+        NamedVector<double> result;
+        result.insert(result.end(), history.begin(), history.end());
+        return result.toStdVector();
     }
 
 private:
