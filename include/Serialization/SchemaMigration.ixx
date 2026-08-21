@@ -14,6 +14,8 @@ module;
 
 export module Serialization.SchemaMigration;
 
+import Container.NamedVector;
+
 export namespace ArtifactCore::Serialization {
 
 class SchemaMigrationRegistry {
@@ -123,7 +125,7 @@ private:
             return false;
         }
 
-        std::vector<Migration> path;
+        NamedVector<Migration> path;
         for (int version = toVersion; version != fromVersion;) {
             const auto parent = parents.find(version);
             if (parent == parents.end()) {
