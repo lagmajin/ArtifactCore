@@ -50,6 +50,7 @@ class tst_QList;
 export module Mesh;
 
 import Memory.SharedPtr;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -114,9 +115,9 @@ export namespace ArtifactCore {
 
         bool has(const std::string& name) const { return attributes_.count(name) > 0; }
         std::vector<std::string> attributeNames() const {
-            std::vector<std::string> names;
+            NamedVector<std::string> names;
             for (const auto& pair : attributes_) names.push_back(pair.first);
-            return names;
+            return names.toStdVector();
         }
     };
 
