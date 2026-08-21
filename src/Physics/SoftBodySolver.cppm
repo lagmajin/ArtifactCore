@@ -7,6 +7,8 @@ module;
 
 export module Physics.SoftBody;
 
+import Container.NamedVector;
+
 import Utils.Id;
 
 namespace ArtifactCore {
@@ -140,7 +142,7 @@ public:
         const int oldRows = gridRows_;
         const int newColumns = std::max(2, static_cast<int>(std::lround((oldColumns - 1) * scale)) + 1);
         const int newRows = std::max(2, static_cast<int>(std::lround((oldRows - 1) * scale)) + 1);
-        std::vector<SoftBodyPoint> newPoints;
+        NamedVector<SoftBodyPoint> newPoints;
         newPoints.reserve(static_cast<std::size_t>(newColumns * newRows));
         for (int y = 0; y < newRows; ++y) {
             const int sourceY = std::clamp(static_cast<int>(std::lround(
@@ -153,7 +155,11 @@ public:
                 newPoints.push_back(oldPoints[static_cast<std::size_t>(sourceY * oldColumns + sourceX)]);
             }
         }
-        points_ = std::move(newPoints);
+        points_.clear();
+        points_.reserve(newPoints.size());
+        for (const auto& point : newPoints) {
+            points_.push_back(point);
+        }
         constraints_.clear();
         volumeTriangles_.clear();
         gridColumns_ = newColumns;
