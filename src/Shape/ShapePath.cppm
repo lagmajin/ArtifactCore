@@ -989,7 +989,7 @@ bool contourInteriorPoint(const std::vector<QPointF>& contour,
 
 // CCW 前提の ear clipping。ブリッジ由来の重複頂点・共線頂点を許容する。
 bool earClipContour(const std::vector<QPointF>& polygon,
-                    std::vector<PathTriangle>* triangles) {
+                    NamedVector<PathTriangle>* triangles) {
     if (polygon.size() < 3) return false;
     std::vector<size_t> indices(polygon.size());
     std::iota(indices.begin(), indices.end(), 0);
@@ -1114,9 +1114,9 @@ std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
         double maxX = 0.0;
     };
 
-    std::vector<PathTriangle> triangles;
+    NamedVector<PathTriangle> triangles;
     const auto flattenedSubpaths = flattenSubpaths(tolerance);
-    if (flattenedSubpaths.empty()) return triangles;
+    if (flattenedSubpaths.empty()) return {};
 
     // fill は contains() と同じく、閉じていないサブパスも暗黙に閉じて扱う。
     std::vector<FillContour> contours;
@@ -1142,7 +1142,7 @@ std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
         }
         contours.push_back(std::move(contour));
     }
-    if (contours.empty()) return triangles;
+    if (contours.empty()) return {};
 
     // fill rule に基づいて外輪郭／穴／冗長輪郭を分類する。
     const PathFillRule rule = fillRule();
@@ -1169,7 +1169,7 @@ std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
         }
         // 両側 filled（冗長輪郭）と両側 unfilled は描画へ寄与しない。
     }
-    if (outers.empty()) return triangles;
+    if (outers.empty()) return {};
 
     // 穴を最も内側（最小面積）の外輪郭へ割り当てる。
     std::vector<std::vector<size_t>> holesByOuter(outers.size());
@@ -1213,7 +1213,7 @@ std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
 
         if (!earClipContour(polygon, &triangles)) return {};
     }
-    return triangles;
+    return triangles.toStdVector();
 }
 
 // ========================================
