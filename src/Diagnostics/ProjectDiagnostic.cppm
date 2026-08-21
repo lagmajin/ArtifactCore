@@ -6,6 +6,8 @@ module;
 
 module Core.Diagnostics.ProjectDiagnostic;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // ============================================================================
@@ -145,43 +147,43 @@ auto DiagnosticResult::getInfoCount() const -> int {
 }
 
 auto DiagnosticResult::getErrors() const -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> result;
+    NamedVector<ProjectDiagnostic> result;
     for (const auto& d : diagnostics_) {
         if (d.getSeverity() == DiagnosticSeverity::Error) {
             result.push_back(d);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 auto DiagnosticResult::getWarnings() const -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> result;
+    NamedVector<ProjectDiagnostic> result;
     for (const auto& d : diagnostics_) {
         if (d.getSeverity() == DiagnosticSeverity::Warning) {
             result.push_back(d);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 auto DiagnosticResult::getByCategory(DiagnosticCategory category) const -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> result;
+    NamedVector<ProjectDiagnostic> result;
     for (const auto& d : diagnostics_) {
         if (d.getCategory() == category) {
             result.push_back(d);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 auto DiagnosticResult::getBySource(const QString& layerId, const QString& compId) const -> std::vector<ProjectDiagnostic> {
-    std::vector<ProjectDiagnostic> result;
+    NamedVector<ProjectDiagnostic> result;
     for (const auto& d : diagnostics_) {
         if (d.getSourceLayerId() == layerId || d.getSourceCompId() == compId) {
             result.push_back(d);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 void DiagnosticResult::merge(const DiagnosticResult& other) {
