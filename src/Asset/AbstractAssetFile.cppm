@@ -42,6 +42,7 @@ module Asset.File;
 
 import Utils.Id;
 import Utils.String.UniString;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -89,7 +90,8 @@ namespace ArtifactCore {
    bool loaded = false;
    bool dirty = false;
    AssetMeta meta;
-   std::vector<AssetID> dependencies;
+   NamedVector<AssetID> dependencies{
+       makeNamedVector<AssetID>(ContainerName{"AbstractAssetFileDependencies"})};
  };
 
  AbstractAssetFile::Impl::Impl()
@@ -171,13 +173,13 @@ namespace ArtifactCore {
 
  void AbstractAssetFile::addDependency(const AssetID& dependency)
  {
-  impl_->dependencies.push_back(dependency);
+  impl_->dependencies.append(dependency);
   impl_->dirty = true;
  }
 
  std::vector<AssetID> AbstractAssetFile::getDependencies() const
  {
-  return impl_->dependencies;
+  return impl_->dependencies.toStdVector();
  }
 
  void AbstractAssetFile::markDirty()
