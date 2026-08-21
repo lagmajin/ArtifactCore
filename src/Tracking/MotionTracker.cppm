@@ -56,6 +56,8 @@ module;
 #include <opencv2/opencv.hpp>
 module Tracking.MotionTracker;
 
+import Container.NamedVector;
+
 import Core.Parallel;
 
 namespace ArtifactCore {
@@ -2352,12 +2354,12 @@ void TrackerManager::clearTrackers() {
 
 std::vector<MotionTracker*> TrackerManager::allTrackers() {
     auto qlist = impl_->trackers.values();
-    std::vector<MotionTracker*> result;
+    NamedVector<MotionTracker*> result;
     result.reserve(static_cast<std::size_t>(qlist.size()));
     for (auto* tracker : qlist) {
         result.push_back(tracker);
     }
-    return result;
+    return result.toStdVector();
 }
 
 
