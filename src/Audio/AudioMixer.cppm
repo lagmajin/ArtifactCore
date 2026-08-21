@@ -507,6 +507,17 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
             if (sBus) addSideChainSend(bus, sBus, sAmount, sPreFader);
         }
 
+        // Legacy project files stored the sidechain source only as a name on
+        // the receiving bus. Migrate that one-to-one relationship into the
+        // active send graph when no explicit sends are present.
+        if (sendsArr.isEmpty()) {
+            const auto legacySource = bus->getSidechainSource();
+            const auto source = findBusByName(legacySource);
+            if (source && source != bus) {
+                addSideChainSend(source, bus, 1.0f, false);
+            }
+        }
+
         if (busKind(bus) == AudioBusKind::Vca) {
             for (const auto& memberValue : busObj["vcaMembers"].toArray()) {
                 const auto member = findBusBySerializedId(memberValue.toString());
