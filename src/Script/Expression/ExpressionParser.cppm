@@ -679,7 +679,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePostfix(SharedPtr<ExprNode> bas
 }
 
 SharedPtr<ExprNode> ExpressionParser::Impl::parseArrayLiteral() {
-    std::vector<SharedPtr<ExprNode>> elements;
+    NamedVector<SharedPtr<ExprNode>> elements;
     
     if (!match(TokenType::RBracket)) {
         elements.push_back(parseExpression());
@@ -693,12 +693,12 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseArrayLiteral() {
     }
     
     auto node = makeShared<ExprNode>(ExprNodeType::ArrayLiteral);
-    node->setChildren(elements);
+    node->setChildren(elements.toStdVector());
     return node;
 }
 
 SharedPtr<ExprNode> ExpressionParser::Impl::parseFunctionCall(const std::string& funcName) {
-    std::vector<SharedPtr<ExprNode>> args;
+    NamedVector<SharedPtr<ExprNode>> args;
     
     if (!match(TokenType::RParen)) {
         args.push_back(parseExpression());
@@ -713,12 +713,12 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseFunctionCall(const std::string&
     
     auto node = makeShared<ExprNode>(ExprNodeType::FunctionCall);
     node->setStringValue(funcName);
-    node->setChildren(args);
+    node->setChildren(args.toStdVector());
     return node;
 }
 
 SharedPtr<ExprNode> ExpressionParser::Impl::parseCallExpression(SharedPtr<ExprNode> callee, bool methodCall) {
-    std::vector<SharedPtr<ExprNode>> args;
+    NamedVector<SharedPtr<ExprNode>> args;
 
     if (!match(TokenType::RParen)) {
         auto firstArg = parseExpression();
@@ -742,16 +742,18 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseCallExpression(SharedPtr<ExprNo
     if (methodCall) {
         auto node = makeShared<ExprNode>(ExprNodeType::MethodCall);
         node->setStringValue(callee ? callee->stringValue() : std::string());
-        std::vector<SharedPtr<ExprNode>> children;
-        children.push_back(callee);
-        children.insert(children.end(), args.begin(), args.end());
-        node->setChildren(children);
+        NamedVector<SharedPtr<ExprNode>> children;
+        children.append(callee);
+        for (const auto& arg : args) {
+            children.append(arg);
+        }
+        node->setChildren(children.toStdVector());
         return node;
     }
 
     auto node = makeShared<ExprNode>(ExprNodeType::FunctionCall);
     node->setStringValue(callee ? callee->stringValue() : std::string());
-    node->setChildren(args);
+    node->setChildren(args.toStdVector());
     return node;
 }
 
