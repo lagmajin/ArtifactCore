@@ -9,6 +9,7 @@ module Audio.Effect.Spectrum;
 
 import Audio.Effect;
 import Audio.Segment;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -222,7 +223,7 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
         }
         double shortTermEnergy = 0.0;
         qint64 shortTermFrames = 0;
-        std::vector<float> windowLufs;
+        NamedVector<float> windowLufs;
         windowLufs.reserve(loudnessWindows_.size());
         for (const auto& window : loudnessWindows_) {
             const qint64 windowStart = std::max(window.startFrame, windowEnd - windowFrames);
