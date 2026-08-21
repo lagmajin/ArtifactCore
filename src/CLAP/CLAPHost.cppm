@@ -23,6 +23,7 @@ module;
 module CLAP.Host;
 
 import Memory.SharedPtr;
+import Container.NamedVector;
 
 namespace clap {
 
@@ -447,21 +448,22 @@ void ClapEffect::process(ArtifactCore::AudioSegment& segment,
 }
 
 std::vector<ArtifactCore::EffectParameter> ClapEffect::getParameters() const {
-    std::vector<ArtifactCore::EffectParameter> parameters;
-    if (!plugin_) return parameters;
+    NamedVector<ArtifactCore::EffectParameter> parameters{
+        makeNamedVector<ArtifactCore::EffectParameter>(ContainerName{"ClapEffectParameters"})};
+    if (!plugin_) return parameters.toStdVector();
     const uint32 count = plugin_->paramsCount();
     parameters.reserve(count);
     for (uint32 index = 0; index < count; ++index) {
         Plugin::ParamInfo info;
         if (!plugin_->paramGetInfo(index, info)) continue;
         const auto id = ArtifactCore::String(std::string("clap.param.") + std::to_string(info.id));
-        parameters.push_back({id, ArtifactCore::String(info.name),
+        parameters.append({id, ArtifactCore::String(info.name),
                               static_cast<float>(info.minValue),
                               static_cast<float>(info.maxValue),
                               static_cast<float>(info.defaultValue),
                               static_cast<float>(plugin_->paramValue(info.id))});
     }
-    return parameters;
+    return parameters.toStdVector();
 }
 
 void ClapEffect::setParameterValue(const ArtifactCore::String& id, float value) {
