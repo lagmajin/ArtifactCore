@@ -218,7 +218,8 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
 static void buildCDF(const float* channel, int count, float cdf[256]) {
     constexpr int kChunkSize = 4096;
     const int chunkCount = (count + kChunkSize - 1) / kChunkSize;
-    std::vector<std::array<int, 256>> partialHist(static_cast<size_t>(chunkCount));
+    NamedVector<std::array<int, 256>> partialHist;
+    partialHist.resize(static_cast<size_t>(chunkCount));
     Parallel::For(0, chunkCount, count, [&](int chunk) {
         auto& hist = partialHist[static_cast<size_t>(chunk)];
         hist.fill(0);
