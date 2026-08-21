@@ -1,4 +1,6 @@
 module;
+#include <QDir>
+#include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QMutex>
@@ -185,6 +187,56 @@ namespace ArtifactCore {
          QString::number(version) + QStringLiteral(":") +
          representation.trimmed();
  }
+ }
+
+ QString projectRelativeSourceCandidate(
+     const QString& projectDirectory, const QString& path)
+ {
+  const QString trimmedPath = path.trimmed();
+  if (trimmedPath.isEmpty()) {
+   return {};
+  }
+  const QFileInfo info(trimmedPath);
+  const QString absolutePath = info.isAbsolute()
+      ? info.absoluteFilePath()
+      : QFileInfo(QDir::current().absoluteFilePath(trimmedPath)).absoluteFilePath();
+  return QDir(projectDirectory).relativeFilePath(absolutePath);
+ }
+
+ SourceCandidateResolution resolveProjectRelativeSource(
+     const QString& projectDirectory,
+     const SourceResolutionCandidateKind kind,
+     const QString& originalPath,
+     const QString& relativeCandidate,
+     const bool adoptWhenOriginalEmpty)
+ {
+  SourceCandidateResolution resolution;
+  resolution.kind = kind;
+  resolution.originalPath = originalPath;
+  const QString trimmedRelative = relativeCandidate.trimmed();
+  if (trimmedRelative.isEmpty()) {
+   resolution.outcome = SourceCandidateOutcome::KeptOriginalEmptyCandidate;
+   resolution.resolvedPath = originalPath;
+   return resolution;
+  }
+  const QString candidate =
+      QDir(projectDirectory).absoluteFilePath(trimmedRelative);
+  resolution.candidatePath = candidate;
+  if (QFileInfo::exists(candidate)) {
+   resolution.adopted = true;
+   resolution.outcome = SourceCandidateOutcome::AdoptedExistingCandidate;
+   resolution.resolvedPath = QDir::cleanPath(candidate);
+   return resolution;
+  }
+  if (adoptWhenOriginalEmpty && originalPath.trimmed().isEmpty()) {
+   resolution.adopted = true;
+   resolution.outcome = SourceCandidateOutcome::AdoptedCandidateForEmptyOriginal;
+   resolution.resolvedPath = QDir::cleanPath(candidate);
+   return resolution;
+  }
+  resolution.outcome = SourceCandidateOutcome::KeptOriginalMissingCandidate;
+  resolution.resolvedPath = originalPath;
+  return resolution;
  }
 
  SharedPtr<void> AssetManager::decodedPayload(

@@ -13,6 +13,40 @@ import Memory.SharedPtr;
 
 export namespace ArtifactCore {
 
+ enum class SourceResolutionCandidateKind {
+  None = 0,
+  SavedAssetId,
+  ProjectRelativePath,
+  RegistryRelativePath,
+  AbsolutePathFallback,
+ };
+
+ enum class SourceCandidateOutcome {
+  KeptOriginalEmptyCandidate = 0,
+  AdoptedExistingCandidate,
+  AdoptedCandidateForEmptyOriginal,
+  KeptOriginalMissingCandidate,
+ };
+
+ struct SourceCandidateResolution {
+  SourceResolutionCandidateKind kind = SourceResolutionCandidateKind::None;
+  bool adopted = false;
+  QString originalPath;
+  QString candidatePath;
+  QString resolvedPath;
+  SourceCandidateOutcome outcome = SourceCandidateOutcome::KeptOriginalEmptyCandidate;
+ };
+
+ QString projectRelativeSourceCandidate(
+     const QString& projectDirectory, const QString& path);
+
+ SourceCandidateResolution resolveProjectRelativeSource(
+     const QString& projectDirectory,
+     SourceResolutionCandidateKind kind,
+     const QString& originalPath,
+     const QString& relativeCandidate,
+     bool adoptWhenOriginalEmpty);
+
  class AssetManager {
   private:
    class Impl;
