@@ -12,6 +12,7 @@ module;
 export module Artifact.Render.PointwiseEffectFusion;
 
 import Core.ArtifactString;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -666,7 +667,7 @@ inline std::vector<PointwiseFusionSegment> PointwiseEffectStack::segments(
 }
 
 inline std::vector<EffectDomainSegment> PointwiseEffectStack::domainSegments() const {
-    std::vector<EffectDomainSegment> result;
+    NamedVector<EffectDomainSegment> result;
     std::size_t index = 0;
     while (index < nodes_.size()) {
         const EffectExecutionDomain domain =
@@ -678,7 +679,7 @@ inline std::vector<EffectDomainSegment> PointwiseEffectStack::domainSegments() c
         }
         result.push_back({start, index - start, domain});
     }
-    return result;
+    return result.toStdVector();
 }
 
 inline PointwiseStackValidation PointwiseEffectStack::validate() const {
