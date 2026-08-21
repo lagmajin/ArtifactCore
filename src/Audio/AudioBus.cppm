@@ -89,7 +89,7 @@ namespace ArtifactCore {
 			makeNamedVector<MeterState>(ContainerName{"AudioBusMeters"})};
 		qint64 compensationDelaySamples_ = 0;
 		int compensationSampleRate_ = 0;
-		std::vector<std::deque<float>> compensationHistory_;
+		NamedVector<std::deque<float>> compensationHistory_;
 
 		float getLinearGain() const {
 			if (volumeDb_ <= -144.0f) return 0.0f;
