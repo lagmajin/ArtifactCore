@@ -640,7 +640,7 @@ bool ShapePath::contains(const QPointF& point) const {
 
     int winding = 0;
     constexpr double boundaryEpsilon = 1e-9;
-    std::vector<BezierSegment> fillSegments;
+    NamedVector<BezierSegment> fillSegments;
     for (auto segments : flattenSubpaths()) {
         if (segments.empty()) continue;
         const QPointF first = segments.front().p0;
@@ -648,7 +648,9 @@ bool ShapePath::contains(const QPointF& point) const {
         if (first != last) {
             segments.push_back(BezierSegment{last, last, first, first});
         }
-        fillSegments.insert(fillSegments.end(), segments.begin(), segments.end());
+        for (const auto& segment : segments) {
+            fillSegments.append(segment);
+        }
     }
 
     for (const auto& segment : fillSegments) {
