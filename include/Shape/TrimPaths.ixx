@@ -110,8 +110,8 @@ public:
      * @brief パスをトリムする
      */
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override {
-        std::vector<ShapePath> result;
-        if (inputPaths.empty()) return result;
+        NamedVector<ShapePath> result;
+        if (inputPaths.empty()) return {};
 
         double s = static_cast<double>(start_) / 100.0;
         double e = static_cast<double>(end_) / 100.0;
@@ -166,7 +166,7 @@ public:
                 processSimultaneousRange(inputPaths, pathLengths, 0.0, targetEnd, result);
             }
         }
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -195,7 +195,7 @@ private:
         return totalLen;
     }
 
-    void processSinglePath(const ShapePath& path, double t_start, double t_end, std::vector<ShapePath>& result) const {
+    void processSinglePath(const ShapePath& path, double t_start, double t_end, NamedVector<ShapePath>& result) const {
         std::vector<BezierSegment> segments = path.toSegments();
         if (segments.empty()) return;
 
@@ -235,7 +235,7 @@ private:
     void processSimultaneousRange(const std::vector<ShapePath>& inputPaths,
                                   const std::vector<double>& pathLengths,
                                   double targetStart, double targetEnd,
-                                  std::vector<ShapePath>& result) const {
+                                  NamedVector<ShapePath>& result) const {
         double currentLen = 0.0;
         for (size_t i = 0; i < inputPaths.size(); ++i) {
             double pathLen = pathLengths[i];
