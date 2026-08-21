@@ -38,13 +38,15 @@ module;
 #include <random>
 module Physics2D;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
     class Physics2D::Impl {
     public:
         b2Vec2 gravity;
         b2WorldId worldId;
-        std::vector<SharedPtr<RigidBody2D>> bodies;
+        NamedVector<SharedPtr<RigidBody2D>> bodies;
 
         Impl() : gravity{0.0f, -9.8f} {
             b2WorldDef worldDef = b2DefaultWorldDef();
@@ -156,14 +158,10 @@ namespace ArtifactCore {
 
         const b2BodyId bodyId = body->getId();
         b2DestroyBody(bodyId);
-        impl_->bodies.erase(
-            std::remove_if(
-                impl_->bodies.begin(),
-                impl_->bodies.end(),
-                [&](const SharedPtr<RigidBody2D>& candidate) {
-                    return !candidate || candidate.get() == body.get();
-                }),
-            impl_->bodies.end());
+        impl_->bodies.removeIf(
+            [&](const SharedPtr<RigidBody2D>& candidate) {
+                return !candidate || candidate.get() == body.get();
+            });
     }
 
     SharedPtr<RigidBody2D> Physics2D::addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic, float density) {
@@ -227,7 +225,7 @@ namespace ArtifactCore {
     }
 
     std::vector<SharedPtr<RigidBody2D>> Physics2D::getBodies() const {
-        return impl_->bodies;
+        return impl_->bodies.toStdVector();
     }
 
 }
