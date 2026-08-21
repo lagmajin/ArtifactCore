@@ -1907,7 +1907,7 @@ double MotionTracker::qualityScore() const {
 }
 
 std::vector<double> MotionTracker::problemFrames() const {
-    std::vector<double> problems;
+    NamedVector<double> problems;
     problems.reserve(impl_->result.failureFrames.size() + impl_->result.frames.size());
     for (const double time : impl_->result.failureFrames) {
         if (std::isfinite(time)) problems.push_back(time);
@@ -1919,11 +1919,16 @@ std::vector<double> MotionTracker::problemFrames() const {
         }
     }
     std::sort(problems.begin(), problems.end());
-    problems.erase(std::unique(problems.begin(), problems.end(),
-                               [](double lhs, double rhs) {
-                                   return std::abs(lhs - rhs) < 1e-9;
-                               }), problems.end());
-    return problems;
+    if (problems.size() > 1) {
+        size_t write = 1;
+        for (size_t read = 1; read < problems.size(); ++read) {
+            if (std::abs(problems[write - 1] - problems[read]) >= 1e-9) {
+                problems[write++] = problems[read];
+            }
+        }
+        problems.resize(write);
+    }
+    return problems.toStdVector();
 }
 
 QPointF MotionTracker::averageVelocity() const {
