@@ -24,13 +24,13 @@ std::vector<float> FormantExtractor::findPeaks(
     const std::vector<float>& spectrum,
     float binSize, float minFreq, float maxFreq)
 {
-    std::vector<float> peaks;
+    NamedVector<float> peaks;
     if (spectrum.size() < 3 || !std::isfinite(binSize) || binSize <= 0.0f) {
-        return peaks;
+        return {};
     }
 
     if (!std::isfinite(minFreq) || !std::isfinite(maxFreq) || minFreq > maxFreq) {
-        return peaks;
+        return {};
     }
     const int lastBin = static_cast<int>(spectrum.size() - 2);
     const auto clampBin = [lastBin](float frequency, float width) {
@@ -63,7 +63,7 @@ std::vector<float> FormantExtractor::findPeaks(
     if (peaks.size() > 3) peaks.resize(3);
     std::sort(peaks.begin(), peaks.end());
 
-    return peaks;
+    return peaks.toStdVector();
 }
 // ─────────────────────────────────────────────────────────
 // フォルマント抽出
