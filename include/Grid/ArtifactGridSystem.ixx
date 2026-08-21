@@ -1074,12 +1074,12 @@ inline std::vector<GridLine> GridManager::computeAllLines(
     std::sort(visible.begin(), visible.end(), [](const Entry* a, const Entry* b) {
         return a->layer.descriptor().zOrder < b->layer.descriptor().zOrder;
     });
-    std::vector<GridLine> result;
+    NamedVector<GridLine> result;
     for (const Entry* entry : visible) {
         auto lines = entry->layer.computeLines(view, zoom);
         result.insert(result.end(), lines.begin(), lines.end());
     }
-    return result;
+    return result.toStdVector();
 }
 
 inline float GridManager::snapAll(float canvasPos, bool isVertical) const {
