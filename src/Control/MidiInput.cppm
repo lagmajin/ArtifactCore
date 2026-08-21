@@ -35,7 +35,7 @@ public:
     uint32_t deviceId_ = 0;
     bool open_ = false;
     std::mutex queueMutex_;
-    std::vector<std::function<void()>> pending_;
+    NamedVector<std::function<void()>> pending_;
 
     void enqueue(std::function<void()> fn) {
         {
@@ -45,10 +45,14 @@ public:
     }
 
     void flushPending() {
-        std::vector<std::function<void()>> copy;
+        NamedVector<std::function<void()>> copy;
         {
             std::lock_guard<std::mutex> lock(queueMutex_);
-            copy.swap(pending_);
+            copy.reserve(pending_.size());
+            for (auto& callback : pending_) {
+                copy.append(std::move(callback));
+            }
+            pending_.clear();
         }
         for (auto& fn : copy) fn();
     }
