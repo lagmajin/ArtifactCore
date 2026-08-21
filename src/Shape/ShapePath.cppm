@@ -1267,7 +1267,7 @@ ShapePath ShapePath::clone() const {
 }
 
 void ShapePath::reverse() {
-    std::vector<PathCommand> reversed;
+    NamedVector<PathCommand> reversed;
     reversed.reserve(impl_->commands_.size());
 
     struct Segment {
@@ -1345,7 +1345,7 @@ void ShapePath::reverse() {
         subpath.push_back(command);
     }
     reverseSubpath(subpath);
-    impl_->commands_ = std::move(reversed);
+    impl_->commands_ = reversed.toStdVector();
     impl_->invalidate();
 }
 
