@@ -612,9 +612,9 @@ void PythonEngine::addSearchPath(const std::string& path) {
 }
 
 std::vector<std::string> PythonEngine::getSearchPaths() const {
-    std::vector<std::string> paths;
+    NamedVector<std::string> paths;
 #ifdef ARTIFACT_HAS_PYTHON
-    if (!impl_->initialized_) return paths;
+    if (!impl_->initialized_) return {};
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     try {
         auto sys = py::module_::import("sys");
@@ -624,10 +624,11 @@ std::vector<std::string> PythonEngine::getSearchPaths() const {
         }
     } catch (...) {}
 #else
-    paths.insert(paths.end(), impl_->externalSearchPaths_.begin(),
-                 impl_->externalSearchPaths_.end());
+    for (const auto& path : impl_->externalSearchPaths_) {
+        paths.append(path);
+    }
 #endif
-    return paths;
+    return paths.toStdVector();
 }
 
 } // namespace ArtifactCore
