@@ -13,6 +13,7 @@ module;
 export module Data.CsvParser;
 
 import Core.ArtifactString;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -218,8 +219,8 @@ private:
     static std::vector<std::vector<std::string>> parseRows(
         std::string_view input, char delimiter, const CsvParseOptions& options)
     {
-        std::vector<std::vector<std::string>> rows;
-        std::vector<std::string> currentRow;
+        NamedVector<std::vector<std::string>> rows;
+        NamedVector<std::string> currentRow;
         std::string currentField;
         bool inQuotes = false;
         bool fieldStarted = false;
@@ -246,8 +247,8 @@ private:
         auto finishRow = [&]() {
             if (!currentRow.empty() || fieldStarted) {
                 finishField();
-                rows.push_back(std::move(currentRow));
-                currentRow = {};
+                rows.push_back(currentRow.toStdVector());
+                currentRow.clear();
             }
         };
 
@@ -296,7 +297,7 @@ private:
 
         finishRow();
 
-        return rows;
+        return rows.toStdVector();
     }
 };
 
