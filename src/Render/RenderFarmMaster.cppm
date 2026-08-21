@@ -941,7 +941,7 @@ public:
         }
 
         std::atomic<int> checkpointCounter{ 0 };
-        std::vector<std::thread> workers;
+        NamedVector<std::thread> workers;
         for (auto localRange : localRanges) {
             if (restoreUpTo > 0 && restoreUpTo > localRange.startFrame)
                 localRange.startFrame = std::min(restoreUpTo, localRange.endFrame);
