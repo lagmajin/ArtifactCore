@@ -7,6 +7,8 @@ module;
 
 module Core.Composition.FinalEffect;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // ============================================================
@@ -170,13 +172,14 @@ auto CompositionFinalEffectStack::findEffect(const QString& name) const -> const
 }
 
 auto CompositionFinalEffectStack::getEnabledEffects() const -> std::vector<const CompositionFinalEffect*> {
-    std::vector<const CompositionFinalEffect*> result;
+    NamedVector<const CompositionFinalEffect*> result{
+        makeNamedVector<const CompositionFinalEffect*>(ContainerName{"EnabledFinalEffects"})};
     for (const auto& effect : effects_) {
         if (effect && effect->isEnabled()) {
-            result.push_back(effect.get());
+            result.append(effect.get());
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 auto CompositionFinalEffectStack::toJson() const -> QJsonObject {
