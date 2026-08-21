@@ -27,6 +27,8 @@ module;
 
 module NetworkRPCServer;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 class FarmTcpServer final : public QTcpServer {
@@ -1568,9 +1570,10 @@ bool NetworkPCServer::tlsEnabled() const { return impl_->tlsEnabled_; }
 
 std::vector<RemoteWorkerInfo> NetworkPCServer::connectedWorkers() const {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
-    std::vector<RemoteWorkerInfo> r;
-    for (const auto& [_, info] : impl_->workers_) r.push_back(info);
-    return r;
+    NamedVector<RemoteWorkerInfo> r{
+        makeNamedVector<RemoteWorkerInfo>(ContainerName{"ConnectedRemoteWorkers"})};
+    for (const auto& [_, info] : impl_->workers_) r.append(info);
+    return r.toStdVector();
 }
 
 RemoteWorkerInfo NetworkPCServer::workerInfo(const QString& wid) const {
