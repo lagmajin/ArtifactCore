@@ -200,7 +200,7 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
   }
 
   case ExprNodeType::Vector: {
-    std::vector<double> components;
+    NamedVector<double> components;
     for (size_t i = 0; i < node->childCount(); ++i) {
       auto child = node->child(i);
       auto val = evaluateNode(child);
