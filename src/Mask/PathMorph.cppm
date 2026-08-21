@@ -108,7 +108,8 @@ std::vector<QPointF> resampleEquidistant(
     }
 
     // 全弧長を計算
-    std::vector<float> arcLen(src.size(), 0.0f);
+    NamedVector<float> arcLen;
+    arcLen.resize(src.size());
     float totalLen = 0.0f;
     for (size_t i = 1; i < src.size(); ++i) {
         const QPointF d = src[i] - src[i - 1];
