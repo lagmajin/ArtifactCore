@@ -1146,8 +1146,8 @@ std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
 
     // fill rule に基づいて外輪郭／穴／冗長輪郭を分類する。
     const PathFillRule rule = fillRule();
-    std::vector<size_t> outers;
-    std::vector<size_t> holes;
+    NamedVector<size_t> outers;
+    NamedVector<size_t> holes;
     for (size_t i = 0; i < contours.size(); ++i) {
         RayCrossings total;
         RayCrossings own;
