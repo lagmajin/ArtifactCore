@@ -19,6 +19,7 @@ module;
 module Text.ShapingBackend;
 
 import Font.FreeFont;
+import Container.NamedVector;
 import Text.LayoutContract;
 import Text.Style;
 import Utils.String.UniString;
@@ -740,14 +741,14 @@ LayoutLine makeLine(std::vector<LayoutGlyph> glyphs)
 
 std::vector<int> buildUtf16Offsets(const std::u32string& text)
 {
-  std::vector<int> offsets;
+  NamedVector<int> offsets;
   offsets.reserve(text.size());
   int utf16Index = 0;
   for (char32_t code : text) {
     offsets.push_back(utf16Index);
     utf16Index += code > 0xFFFF ? 2 : 1;
   }
-  return offsets;
+  return offsets.toStdVector();
 }
 
 QTextOption::WrapMode wrapModeForParagraph(const ParagraphStyle& paragraph)
