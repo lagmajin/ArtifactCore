@@ -12,6 +12,7 @@ export module Audio.Effect.ParametricEQ;
 
 import Audio.Effect;
 import Audio.Segment;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -65,7 +66,8 @@ public:
     int getBandCount() const { return static_cast<int>(bands_.size()); }
 
 private:
-    std::vector<Band> bands_;
+    NamedVector<Band> bands_{
+        makeNamedVector<Band>(ContainerName{"AudioParametricEQBands"})};
     std::vector<float> delayedState_; // フィルタ状態保持
 };
 

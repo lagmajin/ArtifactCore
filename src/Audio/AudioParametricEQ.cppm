@@ -168,7 +168,7 @@ void AudioParametricEQ::fromJson(const QJsonObject& object) {
         if (!std::isfinite(band.frequency)) band.frequency = 1000.0f;
         if (!std::isfinite(band.gainDb)) band.gainDb = 0.0f;
         if (!std::isfinite(band.qFactor)) band.qFactor = 1.0f;
-        bands_.push_back(band);
+        bands_.append(band);
     }
     delayedState_.clear();
 }
