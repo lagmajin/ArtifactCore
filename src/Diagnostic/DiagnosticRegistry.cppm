@@ -9,6 +9,7 @@ export module Artifact.Diagnostic.Registry;
 
 import Artifact.Acoustic;
 import Artifact.ShaderNode.Core;
+import Container.NamedVector;
 
 export namespace Artifact::Diagnostic {
 
@@ -35,12 +36,16 @@ export namespace Artifact::Diagnostic {
 
         void UpdateGraphSnapshot(const std::vector<ShaderNode::NodeDebugInfo>& nodes) {
             std::lock_guard<std::mutex> lock(m_graphMutex);
-            m_latestGraph = nodes;
+            m_latestGraph.clear();
+            m_latestGraph.reserve(nodes.size());
+            for (const auto& node : nodes) {
+                m_latestGraph.append(node);
+            }
         }
 
         std::vector<ShaderNode::NodeDebugInfo> GetLatestGraph() {
             std::lock_guard<std::mutex> lock(m_graphMutex);
-            return m_latestGraph;
+            return m_latestGraph.toStdVector();
         }
 
     private:
@@ -50,6 +55,6 @@ export namespace Artifact::Diagnostic {
         std::optional<Acoustic::AcousticSnapshot> m_latestAcoustic;
 
         std::mutex m_graphMutex;
-        std::vector<ShaderNode::NodeDebugInfo> m_latestGraph;
+        NamedVector<ShaderNode::NodeDebugInfo> m_latestGraph;
     };
 }
