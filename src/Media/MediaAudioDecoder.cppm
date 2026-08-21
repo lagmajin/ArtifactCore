@@ -57,6 +57,8 @@ extern "C" {
 #include <random>
 module MediaAudioDecoder;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
  namespace {
@@ -425,12 +427,12 @@ namespace ArtifactCore {
  }
 
  std::vector<QByteArray> MediaAudioDecoder::decodeFrames(const std::vector<AVPacket*>& packets) {
-  std::vector<QByteArray> results;
+  NamedVector<QByteArray> results;
   results.reserve(packets.size());
   for (auto* packet : packets) {
    results.push_back(decodeFrame(packet));
   }
-  return results;
+  return results.toStdVector();
  }
 
  void MediaAudioDecoder::flush() {
