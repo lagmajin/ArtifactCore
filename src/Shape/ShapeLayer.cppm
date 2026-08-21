@@ -25,6 +25,7 @@ class tst_QList;
 module Shape.Layer:Impl;
 
 import Shape.Layer;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -908,12 +909,12 @@ ShapeLayer ShapeLayer::createTriangle(const QRectF& bounds, bool pointUp, const 
     const QPointF top(bounds.center().x(), pointUp ? bounds.top() : bounds.bottom());
     const QPointF left(bounds.left(), pointUp ? bounds.bottom() : bounds.top());
     const QPointF right(bounds.right(), pointUp ? bounds.bottom() : bounds.top());
-    std::vector<QPointF> points;
+    NamedVector<QPointF> points;
     points.reserve(3);
     points.push_back(top);
     points.push_back(right);
     points.push_back(left);
-    path.setPolygon(points, true);
+    path.setPolygon(points.toStdVector(), true);
     auto shape = std::make_unique<PathShape>(path);
     shape->setFill(fill);
     shape->setStroke(stroke);
