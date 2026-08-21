@@ -19,6 +19,7 @@ import Artifact.Layer.Composition;
 import Artifact.Project;
 import Artifact.Project.Items;
 import Layer.Matte;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -73,10 +74,11 @@ QString layerDisplayName(const Artifact::ArtifactAbstractLayerPtr& layer)
 
 auto MissingFileValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    NamedVector<ProjectDiagnostic> diagnostics{
+        makeNamedVector<ProjectDiagnostic>(ContainerName{"ValidationDiagnostics"})};
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
     if (!projectPtr) {
-        return diagnostics;
+        return diagnostics.toStdVector();
     }
 
     const auto items = projectPtr->projectItems();
@@ -104,7 +106,7 @@ auto MissingFileValidationRule::validate(const void* project) -> std::vector<Pro
 
             for (const auto& sourcePath : sourcePaths) {
                 if (!QFileInfo::exists(sourcePath)) {
-                    diagnostics.push_back(ProjectDiagnostic::createMissingFile(
+                    diagnostics.append(ProjectDiagnostic::createMissingFile(
                         sourcePath,
                         layer->id().toString()));
                 }
@@ -128,18 +130,19 @@ auto MissingFileValidationRule::validate(const void* project) -> std::vector<Pro
         walk(root);
     }
 
-    return diagnostics;
+    return diagnostics.toStdVector();
 }
 
 auto CircularDependencyValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    NamedVector<ProjectDiagnostic> diagnostics{
+        makeNamedVector<ProjectDiagnostic>(ContainerName{"ValidationDiagnostics"})};
 
     for (const auto& cycle : detectCycles(project)) {
-        diagnostics.push_back(ProjectDiagnostic::createCircularDependency(cycle));
+        diagnostics.append(ProjectDiagnostic::createCircularDependency(cycle));
     }
 
-    return diagnostics;
+    return diagnostics.toStdVector();
 }
 
 auto CircularDependencyValidationRule::detectCycles(const void* project) -> std::vector<QString>
@@ -239,10 +242,11 @@ auto CircularDependencyValidationRule::detectCycles(const void* project) -> std:
 
 auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    NamedVector<ProjectDiagnostic> diagnostics{
+        makeNamedVector<ProjectDiagnostic>(ContainerName{"ValidationDiagnostics"})};
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
     if (!projectPtr) {
-        return diagnostics;
+        return diagnostics.toStdVector();
     }
 
     const auto items = projectPtr->projectItems();
@@ -299,7 +303,7 @@ auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<
                 }
 
                 if (!layerMap.contains(sourceId)) {
-                    diagnostics.push_back(ProjectDiagnostic::createMissingMatte(
+                    diagnostics.append(ProjectDiagnostic::createMissingMatte(
                         QStringLiteral("Matte source '%1' not found").arg(sourceId),
                         layerId));
                     continue;
@@ -313,7 +317,7 @@ auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<
                     diag.setSourceLayerId(layerId);
                     diag.setSourceCompId(compId);
                     diag.setFixAction(QStringLiteral("Select a different matte source"));
-                    diagnostics.push_back(diag);
+                    diagnostics.append(diag);
                     continue;
                 }
 
@@ -327,7 +331,7 @@ auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<
                     diag.setSourceLayerId(sourceId);
                     diag.setSourceCompId(compId);
                     diag.setFixAction(QStringLiteral("Show the matte source layer"));
-                    diagnostics.push_back(diag);
+                    diagnostics.append(diag);
                 }
             }
 
@@ -362,7 +366,7 @@ auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<
                 const auto closingLayer = layerMap.value(cycleId);
                 cycleNames.push_back(closingLayer ? closingLayer->layerName()
                                                   : cycleId);
-                diagnostics.push_back(ProjectDiagnostic::createCircularDependency(
+                diagnostics.append(ProjectDiagnostic::createCircularDependency(
                     cycleNames.join(QStringLiteral(" -> ")), compId));
             };
 
@@ -406,14 +410,15 @@ auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<
         walk(root);
     }
 
-    return diagnostics;
+    return diagnostics.toStdVector();
 }
 
 auto ExpressionValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    NamedVector<ProjectDiagnostic> diagnostics{
+        makeNamedVector<ProjectDiagnostic>(ContainerName{"ValidationDiagnostics"})};
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
-    if (!projectPtr) return diagnostics;
+    if (!projectPtr) return diagnostics.toStdVector();
 
     const auto items = projectPtr->projectItems();
     std::function<void(Artifact::ProjectItem*)> walk = [&](Artifact::ProjectItem* item) {
@@ -443,7 +448,7 @@ auto ExpressionValidationRule::validate(const void* project) -> std::vector<Proj
                                     val.contains(QStringLiteral("valueAtTime")) ||
                                     val.contains(QStringLiteral("Math."))) {
                                     if (val.count(QStringLiteral("(")) != val.count(QStringLiteral(")"))) {
-                                        diagnostics.push_back(ProjectDiagnostic::createExpressionError(
+                                        diagnostics.append(ProjectDiagnostic::createExpressionError(
                                             val, layerObj.value(QStringLiteral("id")).toString()));
                                     }
                                 }
@@ -456,15 +461,16 @@ auto ExpressionValidationRule::validate(const void* project) -> std::vector<Proj
         for (auto* child : item->children) walk(child);
     };
     for (auto* root : items) walk(root);
-    return diagnostics;
+    return diagnostics.toStdVector();
 }
 
 auto PerformanceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
 {
-    std::vector<ProjectDiagnostic> diagnostics;
+    NamedVector<ProjectDiagnostic> diagnostics{
+        makeNamedVector<ProjectDiagnostic>(ContainerName{"ValidationDiagnostics"})};
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
     if (!projectPtr) {
-        return diagnostics;
+        return diagnostics.toStdVector();
     }
 
     const auto items = projectPtr->projectItems();
@@ -484,13 +490,13 @@ auto PerformanceValidationRule::validate(const void* project) -> std::vector<Pro
                     const int height = json.value(QStringLiteral("height")).toInt(0);
 
                     if (width > 3840 || height > 2160) {
-                        diagnostics.push_back(ProjectDiagnostic::createPerformanceWarning(
+                        diagnostics.append(ProjectDiagnostic::createPerformanceWarning(
                             QStringLiteral("High-resolution composition: %1x%2").arg(width).arg(height),
                             comp->id().toString()));
                     }
 
                     if (comp->allLayer().size() > 500) {
-                        diagnostics.push_back(ProjectDiagnostic::createPerformanceWarning(
+                        diagnostics.append(ProjectDiagnostic::createPerformanceWarning(
                             QStringLiteral("Large layer stack: %1 layers").arg(comp->allLayer().size()),
                             comp->id().toString()));
                     }
@@ -507,7 +513,7 @@ auto PerformanceValidationRule::validate(const void* project) -> std::vector<Pro
         walk(root);
     }
 
-    return diagnostics;
+    return diagnostics.toStdVector();
 }
 
 } // namespace ArtifactCore
