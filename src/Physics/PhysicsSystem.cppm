@@ -318,7 +318,7 @@ public:
     std::vector<SoftBodyCollider> getSoftBodyColliders(LayerID layerId) const {
         auto it = softBodyColliders_.find(layerId);
         if (it != softBodyColliders_.end()) {
-            return it->second;
+            return it->second.toStdVector();
         }
         return {};
     }
@@ -508,7 +508,7 @@ private:
     int fluidBaseHeight_ = 0;
     float appliedFluidResolutionScale_ = 1.0f;
     std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
-    std::map<LayerID, std::vector<SoftBodyCollider>> softBodyColliders_;
+    std::map<LayerID, NamedVector<SoftBodyCollider>> softBodyColliders_;
     std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
     std::map<LayerID, SharedPtr<MpmSolver2D>> materialSolvers_;
     std::map<LayerID, std::map<int64_t, MpmSnapshot2D>> materialSnapshots_;
