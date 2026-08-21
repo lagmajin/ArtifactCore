@@ -355,7 +355,7 @@ public:
 
     void checkHeartbeats() {
         qint64 now = QDateTime::currentMSecsSinceEpoch();
-        std::vector<QTcpSocket*> dead;
+        NamedVector<QTcpSocket*> dead;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             for (auto& [sock, info] : workers_) {
