@@ -236,12 +236,12 @@ void TrackResult::normalize() {
               [](const TrackFrame& lhs, const TrackFrame& rhs) {
                   return lhs.time < rhs.time;
               });
-    std::vector<TrackFrame> normalized;
+    NamedVector<TrackFrame> normalized;
     normalized.reserve(frames.size());
     for (auto& frame : frames) {
         frame.sortPointsById();
         if (!frame.points.empty()) {
-            std::vector<TrackPoint> uniquePoints;
+            NamedVector<TrackPoint> uniquePoints;
             uniquePoints.reserve(frame.points.size());
             for (auto& point : frame.points) {
                 if (!uniquePoints.empty() && uniquePoints.back().id == point.id)
@@ -249,7 +249,7 @@ void TrackResult::normalize() {
                 else
                     uniquePoints.push_back(std::move(point));
             }
-            frame.points = std::move(uniquePoints);
+            frame.points = uniquePoints.toStdVector();
         }
         bool finiteHomography = frame.hasHomography;
         if (finiteHomography) {
@@ -282,7 +282,7 @@ void TrackResult::normalize() {
             normalized.push_back(std::move(frame));
         }
     }
-    frames = std::move(normalized);
+    frames = normalized.toStdVector();
     if (!frames.empty()) {
         startTime = frames.front().time;
         endTime = frames.back().time;
@@ -608,7 +608,7 @@ void CameraPoseStream::normalize() {
               [](const CameraPoseFrame& lhs, const CameraPoseFrame& rhs) {
                   return lhs.time < rhs.time;
               });
-    std::vector<CameraPoseFrame> normalized;
+    NamedVector<CameraPoseFrame> normalized;
     normalized.reserve(frames.size());
     for (auto& frame : frames) {
         if (!std::isfinite(frame.meanReprojectionError) || frame.meanReprojectionError < 0.0)
@@ -630,7 +630,7 @@ void CameraPoseStream::normalize() {
             normalized.push_back(std::move(frame));
         }
     }
-    frames = std::move(normalized);
+    frames = normalized.toStdVector();
 }
 
 CameraPoseStream solveCameraPoseStream(
