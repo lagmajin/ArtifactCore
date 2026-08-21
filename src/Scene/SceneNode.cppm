@@ -25,7 +25,7 @@ class SceneNode::Impl {
 public:
  UniString name_ = "Node";
  SceneNode* parent_ = nullptr;
- std::vector<SharedPtr<SceneNode>> children_;
+ NamedVector<SharedPtr<SceneNode>> children_;
 
  QVector3D position_ = { 0, 0, 0 };
  QQuaternion rotation_;
@@ -79,9 +79,9 @@ void SceneNode::removeChild(const SceneNode* child)
 {
   if (!child) return;
   auto& ch = impl_->children_;
-  for (auto it = ch.begin(); it != ch.end(); ++it) {
-   if (it->get() == child) {
-    ch.erase(it);
+  for (std::size_t index = 0; index < ch.size(); ++index) {
+   if (ch[index].get() == child) {
+    ch.removeAt(index);
     break;
    }
   }
