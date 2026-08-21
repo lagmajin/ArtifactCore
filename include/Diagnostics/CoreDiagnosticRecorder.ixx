@@ -15,6 +15,7 @@ export module Core.Diagnostics.Recorder;
 import Core.Diagnostics.Snapshot;
 import Utils.Result;
 import Utils.Optional;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -115,23 +116,25 @@ public:
       const std::string& objectId = {}) const
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<DiagnosticEvent> result;
+    NamedVector<DiagnosticEvent> result{
+        makeNamedVector<DiagnosticEvent>(ContainerName{"DiagnosticEventsForComponent"})};
     for (const auto& event : events_) {
       if (event.component != component) continue;
       if (!objectId.empty() && event.objectId != objectId) continue;
-      result.push_back(event);
+      result.append(event);
     }
-    return result;
+    return result.toStdVector();
   }
 
   std::vector<DiagnosticEvent> since(std::uint64_t sequence) const
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<DiagnosticEvent> result;
+    NamedVector<DiagnosticEvent> result{
+        makeNamedVector<DiagnosticEvent>(ContainerName{"DiagnosticEventsSince"})};
     for (const auto& event : events_) {
-      if (event.sequence > sequence) result.push_back(event);
+      if (event.sequence > sequence) result.append(event);
     }
-    return result;
+    return result.toStdVector();
   }
 
   DiagnosticSnapshot snapshotSince(std::uint64_t sequence,
@@ -174,16 +177,17 @@ public:
       const std::string& objectId = {}) const
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<DiagnosticEvent> result;
+    NamedVector<DiagnosticEvent> result{
+        makeNamedVector<DiagnosticEvent>(ContainerName{"DiagnosticErrorEvents"})};
     for (const auto& event : events_) {
       const bool isError = event.severity == CoreDiagnosticSeverity::Error ||
                            event.severity == CoreDiagnosticSeverity::Fatal;
       if (!isError) continue;
       if (!component.empty() && event.component != component) continue;
       if (!objectId.empty() && event.objectId != objectId) continue;
-      result.push_back(event);
+      result.append(event);
     }
-    return result;
+    return result.toStdVector();
   }
 
   Optional<DiagnosticEvent> latest() const
