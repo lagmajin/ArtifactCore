@@ -580,7 +580,7 @@ private:
             if (peek().type == TokenType::LParen) {
                 // Function call
                 advance(); // consume (
-                std::vector<double> args;
+                NamedVector<double> args;
                 if (peek().type != TokenType::RParen) {
                     args.push_back(parseExpr());
                     while (match(TokenType::Comma))
@@ -602,7 +602,7 @@ private:
         return 0.0;
     }
 
-    static double callFunc(const std::string& name, const std::vector<double>& args) {
+    static double callFunc(const std::string& name, const NamedVector<double>& args) {
         auto safe = [&](size_t i) { return i < args.size() ? args[i] : 0.0; };
         if (name == "sin")  return std::sin(safe(0));
         if (name == "cos")  return std::cos(safe(0));
