@@ -413,7 +413,8 @@ void ParticleSystem::update(double deltaTime) {
     }
     
     // Get free indices for active particle iteration
-    std::vector<bool> isFree(impl_->pool_.size(), false);
+    NamedVector<bool> isFree;
+    isFree.resize(impl_->pool_.size());
     for (size_t idx : impl_->pool_.getFreeIndices()) {
         isFree[idx] = true;
     }
