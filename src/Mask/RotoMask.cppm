@@ -683,7 +683,8 @@ void RotoMask::copyKeyframesFrom(const RotoMask& other, double timeOffset) {
 
 void RotoMask::reverse() {
     // 頂点順序を反転
-    std::vector<std::pair<int, VertexData>> sorted(impl_->vertices.begin(), impl_->vertices.end());
+    NamedVector<std::pair<int, VertexData>> sorted;
+    sorted.insert(sorted.end(), impl_->vertices.begin(), impl_->vertices.end());
     std::reverse(sorted.begin(), sorted.end());
     
     // タンジェントも反転
