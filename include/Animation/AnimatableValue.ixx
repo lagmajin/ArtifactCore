@@ -17,6 +17,7 @@ export module Animation.Value;
 
 import Frame.Position;
 import Math.Interpolate;
+import Container.NamedVector;
 
 
 export namespace ArtifactCore {
@@ -119,7 +120,8 @@ export struct SpringState {
  template<typename T>
  class AnimatableValueT {
  private:
-  std::vector<KeyFrameT<T>> keyframes_;
+  NamedVector<KeyFrameT<T>> keyframes_{
+    makeNamedVector<KeyFrameT<T>>(ContainerName{"AnimatableValueKeyframes"})};
   T currentValue_{};
   mutable std::shared_mutex mutex_;
  public:
@@ -210,9 +212,12 @@ export struct SpringState {
   void normalizeKeyFrames() {
    std::sort(keyframes_.begin(), keyframes_.end(),
     [](const auto& a, const auto& b) { return a.frame < b.frame; });
-   keyframes_.erase(std::unique(keyframes_.begin(), keyframes_.end(),
-    [](const auto& a, const auto& b) { return a.frame == b.frame; }),
-    keyframes_.end());
+   for (std::size_t index = keyframes_.size(); index > 1;) {
+    --index;
+    if (keyframes_[index].frame == keyframes_[index - 1].frame) {
+     keyframes_.takeAt(index);
+    }
+   }
   }
 
   void addKeyFrame(const FramePosition& frame, const T& value) {
@@ -225,7 +230,7 @@ export struct SpringState {
     existing->value = value;
     return;
    }
-   keyframes_.push_back({ frame, value });
+   keyframes_.append({ frame, value });
    normalizeKeyFrames();
   }
 
@@ -244,9 +249,8 @@ export struct SpringState {
   // �w��t���[���̃L�[�t���[�����폜
   void removeKeyFrameAt(const FramePosition& frame) {
    std::unique_lock lock(mutex_);
-   auto it = std::remove_if(keyframes_.begin(), keyframes_.end(),
+   keyframes_.removeIf(
     [&frame](const auto& kf) { return kf.frame == frame; });
-   keyframes_.erase(it, keyframes_.end());
   }
 
   bool moveKeyFrame(const FramePosition& from, const FramePosition& to) {
@@ -263,11 +267,12 @@ export struct SpringState {
    // Removing the destination can invalidate `it` (especially when the
    // destination is after the source), so copy the source before erasing.
    KeyFrameT<T> moved = *it;
-   keyframes_.erase(it);
-   keyframes_.erase(std::remove_if(keyframes_.begin(), keyframes_.end(),
-    [&to](const auto& kf) { return kf.frame == to; }), keyframes_.end());
+   const auto sourceIndex = static_cast<std::size_t>(std::distance(keyframes_.begin(), it));
+   keyframes_.takeAt(sourceIndex);
+   keyframes_.removeIf(
+    [&to](const auto& kf) { return kf.frame == to; });
    moved.frame = to;
-   keyframes_.push_back(std::move(moved));
+   keyframes_.append(std::move(moved));
    normalizeKeyFrames();
    return true;
   }
@@ -313,7 +318,7 @@ export struct SpringState {
   // ���ׂẴL�[�t���[�����擾�i�ǂݎ���p�j
   std::vector<KeyFrameT<T>> getKeyFrames() const {
    std::shared_lock lock(mutex_);
-   return keyframes_;
+   return keyframes_.toStdVector();
   }
 
   std::vector<FramePosition> getKeyFrameFrames() const {

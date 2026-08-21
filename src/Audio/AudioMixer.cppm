@@ -66,9 +66,11 @@ struct SideChainSend {
 };
 
 struct AudioMixer::Impl {
-    std::vector<SharedPtr<AudioBus>> buses;
+    NamedVector<SharedPtr<AudioBus>> buses{
+        makeNamedVector<SharedPtr<AudioBus>>(ContainerName{"AudioMixerBuses"})};
     std::map<const AudioBus*, const AudioBus*> routing;
-    std::vector<SideChainSend> sends;
+    NamedVector<SideChainSend> sends{
+        makeNamedVector<SideChainSend>(ContainerName{"AudioMixerSideChainSendsState"})};
     std::map<const AudioBus*, AudioBusKind> busKinds;
 
     SharedPtr<AudioBus> resolveBus(const AudioBus* bus) const {
@@ -127,7 +129,7 @@ struct AudioMixer::Impl {
 AudioMixer::AudioMixer() : impl_(std::make_unique<Impl>()) {
     masterBus_ = makeShared<AudioBus>();
     masterBus_->setName(ZeroString("Master"));
-    impl_->buses.push_back(masterBus_);
+    impl_->buses.append(masterBus_);
     impl_->busKinds[masterBus_.get()] = AudioBusKind::Master;
 }
 
@@ -386,10 +388,8 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
     // Deserialization represents the complete mixer state. Remove buses that
     // are not present in the incoming document instead of merging stale buses
     // from the previously loaded composition.
-    impl_->buses.erase(
-        std::remove_if(impl_->buses.begin(), impl_->buses.end(),
-            [this](const auto& bus) { return bus && bus != masterBus_; }),
-        impl_->buses.end());
+    impl_->buses.removeIf(
+        [this](const auto& bus) { return bus && bus != masterBus_; });
 
     const auto busesArr = data["buses"].toArray();
     std::set<QString> serializedBusIds;
@@ -500,7 +500,7 @@ SharedPtr<AudioBus> AudioMixer::createBus(const String& name, AudioBusKind kind)
     }
     auto bus = makeShared<AudioBus>();
     bus->setName(name);
-    impl_->buses.push_back(bus);
+    impl_->buses.append(bus);
     impl_->busKinds[bus.get()] = kind;
     connect(bus, masterBus_);
     return bus;
@@ -539,13 +539,12 @@ void AudioMixer::removeBus(SharedPtr<AudioBus> bus) {
         }
     }
 
-    impl_->sends.erase(std::remove_if(impl_->sends.begin(), impl_->sends.end(),
+    impl_->sends.removeIf(
         [&](const auto& send) {
             return send.source == bus || send.target == bus;
-        }),
-        impl_->sends.end());
+        });
 
-    impl_->buses.erase(std::remove(impl_->buses.begin(), impl_->buses.end(), bus), impl_->buses.end());
+    impl_->buses.removeIf([&](const auto& candidate) { return candidate == bus; });
 }
 
 AudioRoutingResult AudioMixer::connect(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) {
@@ -589,20 +588,18 @@ AudioRoutingResult AudioMixer::addSideChainSend(SharedPtr<AudioBus> source, Shar
         existing->amount = amount;
         return AudioRoutingResult::Applied;
     }
-    impl_->sends.push_back({source, target, amount});
+    impl_->sends.append({source, target, amount});
     return AudioRoutingResult::Applied;
 }
 
 AudioRoutingResult AudioMixer::removeSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) {
     if (!source || !impl_->resolveBus(source.get())) return AudioRoutingResult::InvalidSource;
     if (!target || !impl_->resolveBus(target.get())) return AudioRoutingResult::InvalidTarget;
-    const auto oldSize = impl_->sends.size();
-    impl_->sends.erase(std::remove_if(impl_->sends.begin(), impl_->sends.end(),
+    const auto removed = impl_->sends.removeIf(
         [&](const auto& send) {
             return send.source == source && send.target == target;
-        }),
-        impl_->sends.end());
-    return impl_->sends.size() != oldSize
+        });
+    return removed != 0
         ? AudioRoutingResult::Applied : AudioRoutingResult::NoSend;
 }
 

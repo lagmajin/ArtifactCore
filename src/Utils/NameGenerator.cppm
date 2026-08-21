@@ -4,9 +4,7 @@ module;
 #include <vector>
 #include <string>
 #include <map>
-#include <unordered_map>
 #include <set>
-#include <unordered_set>
 #include <memory>
 #include <algorithm>
 #include <cmath>
@@ -36,6 +34,7 @@ module;
 module Utils.NameGenerator;
 
 import Core.ArtifactString;
+import Container.NameMap;
 
 namespace ArtifactCore
 {
@@ -55,8 +54,10 @@ namespace ArtifactCore
  class PatternNameGenerator::Impl
  {
  public:
-  std::unordered_map<std::string, int> counters;
-  std::unordered_set<std::string> usedNames;
+  NameMap<std::string, int> counters{
+      makeNameMap<std::string, int>(ContainerName{"PatternNameCounters"})};
+  NameMap<std::string, bool> usedNames{
+      makeNameMap<std::string, bool>(ContainerName{"PatternNameUsedNames"})};
   ZeroString pattern_;
   int width_ = 0;
  };
@@ -104,9 +105,9 @@ namespace ArtifactCore
    candidate = makeCandidateZero(baseName, n);
    candidateStd = std::string(candidate.data(), candidate.length());
    n++;
-  } while (impl_->usedNames.count(candidateStd) > 0);
+  } while (impl_->usedNames.contains(candidateStd));
   impl_->counters[baseStd] = n - 1;
-  impl_->usedNames.insert(candidateStd);
+  impl_->usedNames.insert(candidateStd, true);
   return String(candidateStd);
  }
 

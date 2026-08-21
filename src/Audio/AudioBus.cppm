@@ -46,6 +46,7 @@ import Audio.DownMixer;
 import Audio.Effect;
 import Audio.Effect.Compressor;
 import Memory.TrackedPtr;
+import Container.NamedVector;
 
 
 namespace ArtifactCore {
@@ -81,7 +82,8 @@ namespace ArtifactCore {
 		bool mute_ = false;
 		bool solo_ = false;
 		
-		std::vector<SharedPtr<AudioEffect>> effects_;
+		NamedVector<SharedPtr<AudioEffect>> effects_{
+			makeNamedVector<SharedPtr<AudioEffect>>(ContainerName{"AudioBusEffects"})};
 
 		std::vector<MeterState> meters_;
 		qint64 compensationDelaySamples_ = 0;
@@ -209,14 +211,14 @@ namespace ArtifactCore {
 	void AudioBus::addEffect(SharedPtr<AudioEffect> effect)
 	{
 		if (effect) {
-			impl_->effects_.push_back(effect);
+			impl_->effects_.append(effect);
 		}
 	}
 
 	void AudioBus::removeEffect(int index)
 	{
 		if (index >= 0 && index < impl_->effects_.size()) {
-			impl_->effects_.erase(impl_->effects_.begin() + index);
+			impl_->effects_.takeAt(static_cast<std::size_t>(index));
 		}
 	}
 

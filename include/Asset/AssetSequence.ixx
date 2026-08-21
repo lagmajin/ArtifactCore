@@ -14,6 +14,7 @@ export module Asset.Sequence;
 
 import Core.ArtifactString;
 import Utils.Optional;
+import Container.NamedVector;
 
 
 // ================================================================
@@ -163,12 +164,13 @@ inline SequenceDetectionResult detectSequences(
 
     // Map from GroupKey → [(frame, filename)]
     std::map<GroupKey, std::vector<std::pair<int64_t, std::string>>> buckets;
-    std::vector<std::string> unparsed;
+    NamedVector<std::string> unparsed{
+        makeNamedVector<std::string>(ContainerName{"AssetSequenceUnparsedNames"})};
 
     for (const auto& fn : filenames) {
         auto tok = parseFrameToken(fn);
         if (!tok) {
-            unparsed.push_back(toStdString(fn));
+            unparsed.append(toStdString(fn));
             continue;
         }
         GroupKey key{toStdString(tok->prefix), toStdString(tok->suffix), tok->padding};
@@ -193,7 +195,8 @@ inline SequenceDetectionResult detectSequences(
         // Split on gaps so each reported group is a truly consecutive run.
         // This keeps the sequence contract deterministic for importers and
         // avoids presenting missing frames as available media.
-        std::vector<std::pair<int64_t, std::string>> run;
+        NamedVector<std::pair<int64_t, std::string>> run{
+            makeNamedVector<std::pair<int64_t, std::string>>(ContainerName{"AssetSequenceFrameRun"})};
         run.reserve(frames.size());
 
         const auto flushRun = [&]() {
@@ -201,7 +204,7 @@ inline SequenceDetectionResult detectSequences(
                 for (const auto& [frame, fn] : run) {
                     result.singles.emplace_back(fn);
                 }
-                run.clear();
+                    run.clear();
                 return;
             }
 
@@ -223,7 +226,7 @@ inline SequenceDetectionResult detectSequences(
             if (!run.empty() && frame.first != run.back().first + 1) {
                 flushRun();
             }
-            run.push_back(frame);
+            run.append(frame);
         }
         flushRun();
     }
