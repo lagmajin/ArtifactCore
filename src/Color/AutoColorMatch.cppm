@@ -8,6 +8,7 @@ module Color.AutoMatch;
 
 import Image.ImageF32x4_RGBA;
 import Core.Parallel;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -84,7 +85,8 @@ static ChannelStats computeChannelStats(const float* data, int count) {
     ChannelStats s;
     constexpr int kChunkSize = 4096;
     const int chunkCount = (count + kChunkSize - 1) / kChunkSize;
-    std::vector<double> partialSums(static_cast<size_t>(chunkCount), 0.0);
+    NamedVector<double> partialSums;
+    partialSums.resize(static_cast<size_t>(chunkCount));
     Parallel::For(0, chunkCount, count, [&](int chunk) {
         const int begin = chunk * kChunkSize;
         const int end = std::min(count, begin + kChunkSize);
@@ -97,7 +99,8 @@ static ChannelStats computeChannelStats(const float* data, int count) {
     for (double partial : partialSums) sum += partial;
     s.mean = sum / std::max(1, count);
 
-    std::vector<double> partialSquaredSums(static_cast<size_t>(chunkCount), 0.0);
+    NamedVector<double> partialSquaredSums;
+    partialSquaredSums.resize(static_cast<size_t>(chunkCount));
     Parallel::For(0, chunkCount, count, [&](int chunk) {
         const int begin = chunk * kChunkSize;
         const int end = std::min(count, begin + kChunkSize);
