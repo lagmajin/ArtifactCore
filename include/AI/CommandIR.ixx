@@ -300,7 +300,8 @@ public:
             entry.failure.recoverable = failure.value(QStringLiteral("recoverable")).toBool();
             if (entry.isValid()) loaded.append(std::move(entry));
         }
-        entries_.assign(loaded.begin(), loaded.end());
+        entries_.clear();
+        entries_.insert(entries_.end(), loaded.begin(), loaded.end());
         return true;
     }
 
