@@ -19,6 +19,7 @@ import Physics.Mpm2D;
 import Memory.TrackedPtr;
 import Memory.SharedPtr;
 import Utils.Id;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -249,7 +250,9 @@ public:
     }
 
     std::vector<MaterialFractureEvent> takeMaterialFractureEvents() {
-        return std::exchange(pendingMaterialFractureEvents_, {});
+        auto events = pendingMaterialFractureEvents_.toStdVector();
+        pendingMaterialFractureEvents_.clear();
+        return events;
     }
 
     /**
@@ -509,7 +512,7 @@ private:
     std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
     std::map<LayerID, SharedPtr<MpmSolver2D>> materialSolvers_;
     std::map<LayerID, std::map<int64_t, MpmSnapshot2D>> materialSnapshots_;
-    std::vector<MaterialFractureEvent> pendingMaterialFractureEvents_;
+    NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
     PhysicsLODSettings lodSettings_;
     float lodAccumulator_ = 0.0f;
