@@ -89,7 +89,7 @@ export namespace ArtifactCore {
 		void applyLatencyCompensation(qint64 samples);
 
 		// Process audio buffer in-place
-		void process(AudioSegment& segment);
+		void process(AudioSegment& segment, float additionalGain = 1.0f);
 
 		// Routing integration
 		void clearInput(int frameCount, int sampleRate);
@@ -97,6 +97,8 @@ export namespace ArtifactCore {
 		void addSideChain(const AudioSegment& input, float localGain = 1.0f);
 		
 		AudioSegment& getOutputBuffer();
+		// FX-processed signal before volume/pan/mute (for pre-fader sends).
+		const AudioSegment& getPreFaderBuffer() const;
 		const AudioSegment& getSideChainBuffer() const;
 
 		// Sidechain source (bus name whose output feeds this bus's sidechain)

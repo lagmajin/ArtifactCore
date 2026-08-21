@@ -51,7 +51,7 @@ AudioBusKind readBusKind(const QJsonObject& busObj, const QString& name)
     const int value = busObj.value(QStringLiteral("kind")).toInt(
         static_cast<int>(legacyBusKind(name)));
     if (value < static_cast<int>(AudioBusKind::Layer) ||
-        value > static_cast<int>(AudioBusKind::Return)) {
+        value > static_cast<int>(AudioBusKind::Vca)) {
         return legacyBusKind(name);
     }
     return static_cast<AudioBusKind>(value);
@@ -63,6 +63,7 @@ struct SideChainSend {
     SharedPtr<AudioBus> source;
     SharedPtr<AudioBus> target;
     float amount;
+    bool preFader = false;
 };
 
 struct AudioMixer::Impl {
@@ -70,6 +71,7 @@ struct AudioMixer::Impl {
     std::map<const AudioBus*, const AudioBus*> routing;
     std::vector<SideChainSend> sends;
     std::map<const AudioBus*, AudioBusKind> busKinds;
+    std::map<const AudioBus*, std::vector<const AudioBus*>> vcaMembers;
 
     SharedPtr<AudioBus> resolveBus(const AudioBus* bus) const {
         if (!bus) {
@@ -312,6 +314,14 @@ std::vector<std::pair<SharedPtr<AudioBus>, float>> AudioMixer::getSideChainSends
     return result.toStdVector();
 }
 
+bool AudioMixer::isSideChainSendPreFader(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target) const
+{
+    const auto it = std::find_if(
+        impl_->sends.begin(), impl_->sends.end(),
+        [&](const auto& send) { return send.source == source && send.target == target; });
+    return it != impl_->sends.end() && it->preFader;
+}
+
 QJsonObject AudioMixer::serialize() const {
     QJsonObject obj;
     QJsonArray busesArr;
@@ -351,10 +361,22 @@ QJsonObject AudioMixer::serialize() const {
                 sendObj["targetId"] = send.target->id().toQString();
                 sendObj["target"] = toQString(send.target->getName());
                 sendObj["amount"] = send.amount;
+                sendObj["preFader"] = send.preFader;
                 sendsArr.push_back(sendObj);
             }
         }
         busObj["sends"] = sendsArr;
+
+        if (busKind(bus) == AudioBusKind::Vca) {
+            QJsonArray membersArr;
+            const auto membersIt = impl_->vcaMembers.find(bus.get());
+            if (membersIt != impl_->vcaMembers.end()) {
+                for (const auto* member : membersIt->second) {
+                    if (member) membersArr.push_back(member->id().toQString());
+                }
+            }
+            busObj["vcaMembers"] = membersArr;
+        }
 
         busesArr.push_back(busObj);
     }
@@ -381,6 +403,7 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
     }
     impl_->routing.clear();
     impl_->sends.clear();
+    impl_->vcaMembers.clear();
     impl_->busKinds.clear();
     impl_->busKinds[masterBus_.get()] = AudioBusKind::Master;
     // Deserialization represents the complete mixer state. Remove buses that
@@ -478,9 +501,17 @@ bool AudioMixer::deserialize(const QJsonObject& data) {
             const auto sendObj = sVal.toObject();
             const QString sTarget = sendObj["target"].toString();
             const float sAmount = static_cast<float>(sendObj["amount"].toDouble(1.0));
+            const bool sPreFader = sendObj["preFader"].toBool(false);
             auto sBus = findBusBySerializedId(sendObj["targetId"].toString());
             if (!sBus) sBus = findBusByName(sTarget);
-            if (sBus) addSideChainSend(bus, sBus, sAmount);
+            if (sBus) addSideChainSend(bus, sBus, sAmount, sPreFader);
+        }
+
+        if (busKind(bus) == AudioBusKind::Vca) {
+            for (const auto& memberValue : busObj["vcaMembers"].toArray()) {
+                const auto member = findBusBySerializedId(memberValue.toString());
+                if (member) assignVcaMember(bus, member);
+            }
         }
     }
 
@@ -545,6 +576,14 @@ void AudioMixer::removeBus(SharedPtr<AudioBus> bus) {
         }),
         impl_->sends.end());
 
+    impl_->vcaMembers.erase(bus.get());
+    for (auto it = impl_->vcaMembers.begin(); it != impl_->vcaMembers.end();) {
+        auto& members = it->second;
+        members.erase(std::remove(members.begin(), members.end(), bus.get()), members.end());
+        if (members.empty()) it = impl_->vcaMembers.erase(it);
+        else ++it;
+    }
+
     impl_->buses.erase(std::remove(impl_->buses.begin(), impl_->buses.end(), bus), impl_->buses.end());
 }
 
@@ -574,7 +613,7 @@ AudioRoutingResult AudioMixer::disconnect(SharedPtr<AudioBus> source) {
         ? AudioRoutingResult::Applied : AudioRoutingResult::NoRoute;
 }
 
-AudioRoutingResult AudioMixer::addSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target, float amount) {
+AudioRoutingResult AudioMixer::addSideChainSend(SharedPtr<AudioBus> source, SharedPtr<AudioBus> target, float amount, bool preFader) {
     if (!source || !impl_->resolveBus(source.get())) return AudioRoutingResult::InvalidSource;
     if (!target || !impl_->resolveBus(target.get())) return AudioRoutingResult::InvalidTarget;
     if (source == target) return AudioRoutingResult::SelfRoute;
@@ -587,9 +626,10 @@ AudioRoutingResult AudioMixer::addSideChainSend(SharedPtr<AudioBus> source, Shar
         });
     if (existing != impl_->sends.end()) {
         existing->amount = amount;
+        existing->preFader = preFader;
         return AudioRoutingResult::Applied;
     }
-    impl_->sends.push_back({source, target, amount});
+    impl_->sends.push_back({source, target, amount, preFader});
     return AudioRoutingResult::Applied;
 }
 
@@ -606,6 +646,47 @@ AudioRoutingResult AudioMixer::removeSideChainSend(SharedPtr<AudioBus> source, S
         ? AudioRoutingResult::Applied : AudioRoutingResult::NoSend;
 }
 
+AudioRoutingResult AudioMixer::assignVcaMember(SharedPtr<AudioBus> vca, SharedPtr<AudioBus> member)
+{
+    if (!vca || !impl_->resolveBus(vca.get())) return AudioRoutingResult::InvalidSource;
+    if (busKind(vca) != AudioBusKind::Vca) return AudioRoutingResult::InvalidSource;
+    if (!member || !impl_->resolveBus(member.get())) return AudioRoutingResult::InvalidTarget;
+    if (member == masterBus_ || member == vca || busKind(member) == AudioBusKind::Vca) {
+        return AudioRoutingResult::InvalidTarget;
+    }
+    auto& members = impl_->vcaMembers[vca.get()];
+    if (std::find(members.begin(), members.end(), member.get()) == members.end()) {
+        members.push_back(member.get());
+    }
+    return AudioRoutingResult::Applied;
+}
+
+AudioRoutingResult AudioMixer::removeVcaMember(SharedPtr<AudioBus> vca, SharedPtr<AudioBus> member)
+{
+    if (!vca || !impl_->resolveBus(vca.get())) return AudioRoutingResult::InvalidSource;
+    if (!member || !impl_->resolveBus(member.get())) return AudioRoutingResult::InvalidTarget;
+    const auto it = impl_->vcaMembers.find(vca.get());
+    if (it == impl_->vcaMembers.end()) return AudioRoutingResult::NoRoute;
+    auto& members = it->second;
+    const auto oldSize = members.size();
+    members.erase(std::remove(members.begin(), members.end(), member.get()), members.end());
+    const bool removed = members.size() != oldSize;
+    if (members.empty()) impl_->vcaMembers.erase(it);
+    return removed ? AudioRoutingResult::Applied : AudioRoutingResult::NoRoute;
+}
+
+std::vector<SharedPtr<AudioBus>> AudioMixer::getVcaMembers(SharedPtr<AudioBus> vca) const
+{
+    NamedVector<SharedPtr<AudioBus>> result{makeNamedVector<SharedPtr<AudioBus>>(ContainerName{"AudioMixerVcaMembers"})};
+    if (!vca) return result.toStdVector();
+    const auto it = impl_->vcaMembers.find(vca.get());
+    if (it == impl_->vcaMembers.end()) return result.toStdVector();
+    for (const auto* member : it->second) {
+        if (auto resolved = impl_->resolveBus(member)) result.add(resolved);
+    }
+    return result.toStdVector();
+}
+
 void AudioMixer::process(AudioSegment& finalOutput) {
     const int frames = finalOutput.frameCount();
     const int sampleRate = finalOutput.sampleRate;
@@ -615,12 +696,16 @@ void AudioMixer::process(AudioSegment& finalOutput) {
         return;
     }
 
-    // AudioBus accumulates inputs, therefore every bus must start each block
-    // empty or the previous block will be mixed into the current one.
+    // Input buses are staged by the composition before process() is called.
+    // Clearing here would erase those samples before routing can consume them.
+    // Callers own block preparation; derived buses are cleared by the
+    // composition before each evaluation block.
     for (const auto& bus : impl_->buses) {
-        if (bus) {
-            bus->clearInput(frames, sampleRate);
-        }
+        if (!bus) continue;
+        const bool isDerived = bus == masterBus_ || std::any_of(
+            impl_->routing.begin(), impl_->routing.end(),
+            [&bus](const auto& route) { return route.second == bus.get(); });
+        if (isDerived) bus->clearInput(frames, sampleRate);
     }
 
     const auto sorted = impl_->getSortedBuses();
@@ -701,13 +786,29 @@ void AudioMixer::process(AudioSegment& finalOutput) {
     };
 
     for (const auto& bus : sorted) {
+        if (busKind(bus) == AudioBusKind::Vca) {
+            bus->getOutputBuffer().zero();
+            continue;
+        }
         if (hasSolo && bus != masterBus_ && !hasSoloUpstream(bus) &&
             !feedsSoloGroup(bus)) {
             // Preserve the explicit mute state; solo is a temporary mix
             // decision and must not be persisted as a mute mutation.
             bus->getOutputBuffer().zero();
         }
-        bus->process(bus->getOutputBuffer());
+        float vcaGain = 1.0f;
+        for (const auto& [vca, members] : impl_->vcaMembers) {
+            if (std::find(members.begin(), members.end(), bus.get()) == members.end()) {
+                continue;
+            }
+            if (const auto vcaBus = impl_->resolveBus(vca)) {
+                const float db = vcaBus->getVolume();
+                if (std::isfinite(db)) {
+                    vcaGain *= std::pow(10.0f, db / 20.0f);
+                }
+            }
+        }
+        bus->process(bus->getOutputBuffer(), vcaGain);
 
         // Compensate only primary source buses. A group/master already
         // contains aligned upstream material; delaying it again would double
@@ -739,7 +840,10 @@ void AudioMixer::process(AudioSegment& finalOutput) {
 
         for (const auto& send : impl_->sends) {
             if (send.source == bus) {
-                send.target->addSideChain(bus->getOutputBuffer(), send.amount);
+                const auto& sendBuffer = send.preFader
+                    ? bus->getPreFaderBuffer()
+                    : bus->getOutputBuffer();
+                send.target->addSideChain(sendBuffer, send.amount);
             }
         }
     }

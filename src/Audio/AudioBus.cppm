@@ -94,6 +94,7 @@ namespace ArtifactCore {
 		}
 
 		AudioSegment mainBuffer_;
+		AudioSegment preFaderBuffer_;
 		AudioSegment sideChainBuffer_;
 		mutable std::unique_ptr<AudioDownMixer> downMixer_;
 		ZeroString sidechainSource_;
@@ -300,7 +301,7 @@ namespace ArtifactCore {
 	// volume/metering ループは scalar で、バス数 × サンプル数 のコスト。
 	// SIMD (SSE/AVX) 化で 4-8 倍の高速化が見込める。
 	// 参照: docs/AUDIO_PERFORMANCE_ARCHITECTURE_2026-06-05.md
-	void AudioBus::process(AudioSegment& segment)
+	void AudioBus::process(AudioSegment& segment, float additionalGain)
 	{
 		// 1. Apply FX Rack FIRST (Pre-fader)
 		for (auto& effect : impl_->effects_) {
@@ -308,6 +309,7 @@ namespace ArtifactCore {
 				effect->process(segment, &impl_->sideChainBuffer_);
 			}
 		}
+		impl_->preFaderBuffer_ = segment;
 
 		// 2. Apply Volume and Pan (Post-fader)
 		int channels = segment.channelCount();
@@ -324,7 +326,9 @@ namespace ArtifactCore {
 			return;
 		}
 
-		float linearGain = impl_->getLinearGain();
+		const float safeAdditionalGain = std::isfinite(additionalGain)
+			? std::max(0.0f, additionalGain) : 1.0f;
+		float linearGain = impl_->getLinearGain() * safeAdditionalGain;
 		
 		// チャンネルゲインの算出
 		std::vector<float> channelGains(channels, 1.0f);
@@ -407,16 +411,21 @@ namespace ArtifactCore {
 		}
 
 		if (impl_->mainBuffer_.channelCount() != chCount) impl_->mainBuffer_.channelData.resize(chCount);
+		if (impl_->preFaderBuffer_.channelCount() != chCount) impl_->preFaderBuffer_.channelData.resize(chCount);
 		if (impl_->sideChainBuffer_.channelCount() != chCount) impl_->sideChainBuffer_.channelData.resize(chCount);
 
 		impl_->mainBuffer_.sampleRate = safeSampleRate;
 		impl_->mainBuffer_.layout = impl_->layout_;
+		impl_->preFaderBuffer_.sampleRate = safeSampleRate;
+		impl_->preFaderBuffer_.layout = impl_->layout_;
 		impl_->sideChainBuffer_.sampleRate = safeSampleRate;
 		impl_->sideChainBuffer_.layout = impl_->layout_;
 
 		for (int c = 0; c < chCount; ++c) {
 			impl_->mainBuffer_.channelData[c].resize(safeFrameCount);
 			impl_->mainBuffer_.channelData[c].fill(0.0f);
+			impl_->preFaderBuffer_.channelData[c].resize(safeFrameCount);
+			impl_->preFaderBuffer_.channelData[c].fill(0.0f);
 			impl_->sideChainBuffer_.channelData[c].resize(safeFrameCount);
 			impl_->sideChainBuffer_.channelData[c].fill(0.0f);
 		}
@@ -490,6 +499,11 @@ namespace ArtifactCore {
 	AudioSegment& AudioBus::getOutputBuffer()
 	{
 		return impl_->mainBuffer_;
+	}
+
+	const AudioSegment& AudioBus::getPreFaderBuffer() const
+	{
+		return impl_->preFaderBuffer_;
 	}
 
 	const AudioSegment& AudioBus::getSideChainBuffer() const
