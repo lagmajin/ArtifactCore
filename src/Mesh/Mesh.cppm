@@ -51,6 +51,7 @@ class tst_QList;
 module Mesh;
 
 import Memory.SharedPtr;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
