@@ -14,6 +14,7 @@ module Animation.Transform3D;
 
 import Animation.Value;
 import Math.Interpolate;
+import Container.NamedVector;
 //import Graphics.CBuffer.Constants;
 
 namespace ArtifactCore
@@ -33,12 +34,13 @@ std::vector<RationalTime> collectUniqueKeyFrameTimes(
   };
   (collect(values), ...);
 
-  std::vector<RationalTime> times;
+  NamedVector<RationalTime> times{
+      makeNamedVector<RationalTime>(ContainerName{"Transform3DKeyframeTimes"})};
   times.reserve(frameSet.size());
   for (const int64_t framePos : frameSet) {
-    times.emplace_back(framePos, 24);
+    times.make(framePos, 24);
   }
-  return times;
+  return times.toStdVector();
 }
 
 } // namespace
