@@ -553,7 +553,7 @@ public:
     QString activeContext_ = "Global";
     bool enabled_ = true;
     bool inChord_ = false;
-    std::vector<int> chordKeys_;
+    NamedVector<int> chordKeys_;
     int chordTimeout_ = 1000;  // ms
     InteractiveAction* activeAction_ = nullptr;
 
