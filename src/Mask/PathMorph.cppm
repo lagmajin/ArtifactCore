@@ -44,7 +44,7 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
             continue;
         }
 
-            std::vector<QPointF> points;
+            NamedVector<QPointF> points;
             const QPointF startPt(path.elementAt(i).x, path.elementAt(i).y);
             points.push_back(startPt);
         ++i;
@@ -88,7 +88,7 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
         }
 
         if (points.size() >= 2)
-            subpaths.push_back(points);
+            subpaths.push_back(points.toStdVector());
     }
 
     return subpaths.toStdVector();
