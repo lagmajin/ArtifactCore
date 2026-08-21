@@ -8,6 +8,8 @@ module;
 
 module Audio.LipSyncTrack;
 
+import Container.NamedVector;
+
 import Audio.Segment;
 import Audio.Analyze;
 import Audio.FormantExtractor;
@@ -111,13 +113,13 @@ bool LipSyncTrack::analyzeFromFile(const QString& audioPath, double frameRate)
 std::vector<PhonemeEvent> LipSyncTrack::eventsInRange(
     int64_t startFrame, int64_t endFrame) const
 {
-    std::vector<PhonemeEvent> result;
+    NamedVector<PhonemeEvent> result;
     for (const auto& e : events_) {
         if (e.frame >= startFrame && e.frame <= endFrame) {
             result.push_back(e);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 PhonemeEvent LipSyncTrack::eventAtFrame(int64_t frame) const
@@ -136,12 +138,12 @@ PhonemeEvent LipSyncTrack::eventAtFrame(int64_t frame) const
 
 std::vector<int> LipSyncTrack::mouthShapeSequence() const
 {
-    std::vector<int> shapes;
+    NamedVector<int> shapes;
     shapes.reserve(events_.size());
     for (const auto& e : events_) {
         shapes.push_back(e.mouthShapeIndex());
     }
-    return shapes;
+    return shapes.toStdVector();
 }
 
 QJsonObject LipSyncTrack::toJson() const
