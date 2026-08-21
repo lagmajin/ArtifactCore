@@ -678,7 +678,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
             }
         }
 
-        std::vector<unsigned int> sourceIndices;
+        NamedVector<unsigned int> sourceIndices;
         sourceIndices.reserve(sourceIndexCount);
         for (const unsigned int index : data.renderData.indices) {
             sourceIndices.push_back(index);
@@ -712,9 +712,12 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         for (int level = 0; level < maxLODLevels; ++level) {
             const int levelOffset = data.meshlets.size();
             const int levelFirstIndex = data.lodIndices.size();
-            std::vector<unsigned int> levelIndices;
+            NamedVector<unsigned int> levelIndices;
             if (level == 0) {
-                levelIndices = optimizedIndices;
+                levelIndices.reserve(optimizedIndices.size());
+                for (const auto index : optimizedIndices) {
+                    levelIndices.append(index);
+                }
             } else {
                 const int targetTriangleCount = std::max(
                     1, triangleCount / triangleStride);
