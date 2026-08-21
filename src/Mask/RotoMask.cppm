@@ -302,11 +302,11 @@ int RotoMask::vertexCount() const {
 }
 
 std::vector<RotoMask::VertexID> RotoMask::vertexIDs() const {
-    std::vector<VertexID> ids;
+    NamedVector<VertexID> ids;
     for (const auto& pair : impl_->vertices) {
         ids.push_back(pair.first);
     }
-    return ids;
+    return ids.toStdVector();
 }
 
 // ========================================
