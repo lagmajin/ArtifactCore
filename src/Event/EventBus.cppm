@@ -17,6 +17,7 @@ module;
 module Event.Bus;
 
 import Memory.SharedPtr;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -183,10 +184,12 @@ std::size_t EventBus::publishRaw(std::type_index type, const void* payload,
         entry = it->second;
     }
 
-    std::vector<SharedPtr<SubscriberRecord>> snapshot;
+    NamedVector<SharedPtr<SubscriberRecord>> snapshot{
+        makeNamedVector<SharedPtr<SubscriberRecord>>(ContainerName{"EventBusSubscriberSnapshot"})};
     {
         std::lock_guard<std::mutex> lock(entry->mutex);
-        snapshot = entry->subscribers;
+        snapshot.reserve(entry->subscribers.size());
+        for (const auto& subscriber : entry->subscribers) snapshot.append(subscriber);
     }
 
     const auto dispatchStart = std::chrono::high_resolution_clock::now();
@@ -300,12 +303,14 @@ void EventBus::forEachRegisteredType(
     if (!impl) return;
 
     // Snapshot registry to avoid holding locks while calling fn
-    std::vector<std::pair<std::type_index, SharedPtr<Impl::Entry>>> snapshot;
+    NamedVector<std::pair<std::type_index, SharedPtr<Impl::Entry>>> snapshot{
+        makeNamedVector<std::pair<std::type_index, SharedPtr<Impl::Entry>>>(
+            ContainerName{"EventBusRegisteredTypeSnapshot"})};
     {
         std::lock_guard<std::mutex> lock(impl->registryMutex);
         snapshot.reserve(impl->registry.size());
         for (const auto& [t, entry] : impl->registry) {
-            snapshot.emplace_back(t, entry);
+            snapshot.make(t, entry);
         }
     }
 
