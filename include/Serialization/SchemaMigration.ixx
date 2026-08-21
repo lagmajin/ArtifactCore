@@ -47,11 +47,11 @@ public:
 
     std::vector<int> availableVersions(const QString& typeName) const
     {
-        std::vector<int> versions;
+        NamedVector<int> versions;
         std::lock_guard lock(mutex_);
         const auto typeIt = migrations_.find(typeName.trimmed().toStdString());
         if (typeIt == migrations_.end()) {
-            return versions;
+            return versions.toStdVector();
         }
         for (const auto& [fromVersion, targets] : typeIt->second) {
             versions.push_back(fromVersion);
@@ -62,7 +62,7 @@ public:
         }
         std::sort(versions.begin(), versions.end());
         versions.erase(std::unique(versions.begin(), versions.end()), versions.end());
-        return versions;
+        return versions.toStdVector();
     }
 
     bool migrate(const QString& typeName, int fromVersion, int toVersion,
@@ -102,7 +102,7 @@ private:
             return false;
         }
 
-        std::vector<int> pending{fromVersion};
+        NamedVector<int> pending{fromVersion};
         std::set<int> visited{fromVersion};
         std::map<int, std::pair<int, Migration>> parents;
         for (std::size_t index = 0; index < pending.size(); ++index) {
