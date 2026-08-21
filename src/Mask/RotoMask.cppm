@@ -118,11 +118,11 @@ public:
     bool isAnimated() const { return keyframes_.size() > 1; }
     
     std::vector<double> keyframeTimes() const {
-        std::vector<double> times;
+        NamedVector<double> times;
         for (const auto& kf : keyframes_) {
             times.push_back(kf.time);
         }
-        return times;
+        return times.toStdVector();
     }
     
     void setDefaultValue(const T& val) { defaultValue_ = val; }
@@ -459,7 +459,9 @@ std::vector<double> RotoMask::keyframeTimes() const {
         for (const auto& t : pair.second.outTangent.keyframeTimes()) times.insert(t);
     }
     
-    return std::vector<double>(times.begin(), times.end());
+    NamedVector<double> result;
+    result.insert(result.end(), times.begin(), times.end());
+    return result.toStdVector();
 }
 
 double RotoMask::startTime() const {
