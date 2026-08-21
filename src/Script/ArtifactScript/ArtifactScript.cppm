@@ -18,6 +18,8 @@ module;
 #include <sstream>
 module Script.ArtifactScript;
 
+import Container.NamedVector;
+
 import Core.ArtifactString;
 import Memory.SharedPtr;
 
@@ -865,7 +867,7 @@ void ArtifactScriptHotReload::unwatchFile(const std::string& path) {
 }
 
 std::vector<std::string> ArtifactScriptHotReload::pollChanges() {
-    std::vector<std::string> changed;
+    NamedVector<std::string> changed;
     for (auto& w : impl_->watches_) {
         std::error_code ec;
         auto t = std::filesystem::last_write_time(w.path, ec);
@@ -873,7 +875,7 @@ std::vector<std::string> ArtifactScriptHotReload::pollChanges() {
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()).count();
         if (ms > w.lastModified) { w.lastModified = ms; changed.push_back(w.path); }
     }
-    return changed;
+    return changed.toStdVector();
 }
 
 bool ArtifactScriptHotReload::addFile(
@@ -901,7 +903,7 @@ void ArtifactScriptHotReload::removeFile(const std::string& path) {
 }
 
 std::vector<ArtifactScriptFileReload> ArtifactScriptHotReload::reloadChanged() {
-    std::vector<ArtifactScriptFileReload> reloaded;
+    NamedVector<ArtifactScriptFileReload> reloaded;
     for (const auto& path : pollChanges()) {
         auto it = impl_->files_.find(path);
         if (it == impl_->files_.end()) continue;
@@ -915,7 +917,7 @@ std::vector<ArtifactScriptFileReload> ArtifactScriptHotReload::reloadChanged() {
             it->second.fields = reloaded.back().result.migratedFields;
         }
     }
-    return reloaded;
+    return reloaded.toStdVector();
 }
 
 const ArtifactScriptDefinition* ArtifactScriptHotReload::definitionFor(const std::string& path) const {
