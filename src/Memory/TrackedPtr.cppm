@@ -74,7 +74,7 @@ struct TrackedPtrControlBlock {
     // Debug metadata
     std::string typeName;
     std::string allocationSite;
-    std::vector<std::string> allocationStack;
+    NamedVector<std::string> allocationStack;
     
     TrackedPtrControlBlock() = default;
     TrackedPtrControlBlock(void* p, TrackedDeleter d, uint64_t id)
