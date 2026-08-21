@@ -374,7 +374,11 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
 
     // Callers may provide keyframes from an unordered editor selection.
     // Normalize the working order before deriving the source range.
-    std::vector<KeyframePoint> orderedSource = source;
+    NamedVector<KeyframePoint> orderedSource;
+    orderedSource.reserve(source.size());
+    for (const auto& keyframe : source) {
+        orderedSource.push_back(keyframe);
+    }
     std::stable_sort(orderedSource.begin(), orderedSource.end(),
         [](const KeyframePoint& a, const KeyframePoint& b) {
             return a.frame < b.frame;
