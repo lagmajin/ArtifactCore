@@ -17,6 +17,8 @@ module;
 
 module Export.Lottie.Exporter;
 
+import Container.NamedVector;
+
 namespace ArtifactCore::Export::Lottie {
 namespace {
 
@@ -510,7 +512,7 @@ void LottieExporter::compressKeyframes(std::vector<LottieKeyframe>& keyframes,
                                         double tolerance) {
     if (keyframes.size() < 3 || !std::isfinite(tolerance) || tolerance < 0.0) return;
     tolerance = std::max(tolerance, 0.0);
-    std::vector<LottieKeyframe> compressed;
+    NamedVector<LottieKeyframe> compressed;
     compressed.reserve(keyframes.size());
     compressed.push_back(keyframes.front());
     for (std::size_t i = 1; i + 1 < keyframes.size(); ++i) {
@@ -540,7 +542,7 @@ void LottieExporter::compressKeyframes(std::vector<LottieKeyframe>& keyframes,
         if (!removable) compressed.push_back(current);
     }
     compressed.push_back(keyframes.back());
-    keyframes.swap(compressed);
+    keyframes = compressed.toStdVector();
 }
 
 bool LottieExporter::validate(const LottieDocument& document, QString* errorMessage) {
