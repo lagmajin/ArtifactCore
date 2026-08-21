@@ -133,7 +133,7 @@ public:
 private:
     mutable std::mutex mutex_;
     uint64_t nextId_{0};
-    std::vector<TrackedPtrControlBlock*> blocks_;
+    NamedVector<TrackedPtrControlBlock*> blocks_;
     
     bool isPartOfCycle(const TrackedPtrControlBlock* block, uint64_t id) const {
         if (!block) return false;
