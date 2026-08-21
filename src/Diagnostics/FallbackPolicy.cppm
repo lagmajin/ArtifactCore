@@ -16,7 +16,7 @@ FallbackTracker* FallbackTracker::instance() {
 
 void FallbackTracker::record(const FallbackEvent& event) {
     std::lock_guard<std::mutex> lock(mutex_);
-    events_.push_back(event);
+    events_.append(event);
     if (event.isWarning && warningsEnabled_) {
         qWarning() << "[FallbackTracker]" << event.message
                    << "original=" << event.originalId
@@ -40,7 +40,7 @@ void FallbackTracker::record(FallbackCategory category, FallbackAction action,
 
 std::vector<FallbackEvent> FallbackTracker::getEvents() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    return events_;
+    return events_.toStdVector();
 }
 
 std::vector<FallbackEvent> FallbackTracker::getEventsByCategory(FallbackCategory category) const {
