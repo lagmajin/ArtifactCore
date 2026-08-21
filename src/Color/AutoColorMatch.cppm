@@ -129,14 +129,20 @@ void AutoColorMatcher::reinhardTransfer(float* srcPixels, int srcWidth, int srcH
     const int srcTotal = srcWidth * srcHeight;
     const int refTotal = refWidth * refHeight;
 
-    std::vector<float> srcL(srcTotal), srcA(srcTotal), srcB(srcTotal);
+    NamedVector<float> srcL, srcA, srcB;
+    srcL.resize(srcTotal);
+    srcA.resize(srcTotal);
+    srcB.resize(srcTotal);
     Parallel::For(0, srcTotal, srcTotal, [&](int i) {
         int idx = i * 4;
         rgbToLab(srcPixels[idx], srcPixels[idx + 1], srcPixels[idx + 2],
                  srcL[i], srcA[i], srcB[i]);
     });
 
-    std::vector<float> refL(refTotal), refA(refTotal), refB(refTotal);
+    NamedVector<float> refL, refA, refB;
+    refL.resize(refTotal);
+    refA.resize(refTotal);
+    refB.resize(refTotal);
     Parallel::For(0, refTotal, refTotal, [&](int i) {
         int idx = i * 4;
         rgbToLab(refPixels[idx], refPixels[idx + 1], refPixels[idx + 2],
@@ -179,13 +185,19 @@ void AutoColorMatcher::meanStddevMatch(float* srcPixels, int srcWidth, int srcHe
     const int srcTotal = srcWidth * srcHeight;
     const int refTotal = refWidth * refHeight;
 
-    std::vector<float> srcR(srcTotal), srcG(srcTotal), srcBch(srcTotal);
+    NamedVector<float> srcR, srcG, srcBch;
+    srcR.resize(srcTotal);
+    srcG.resize(srcTotal);
+    srcBch.resize(srcTotal);
     Parallel::For(0, srcTotal, srcTotal, [&](int i) {
         int idx = i * 4;
         srcR[i] = srcPixels[idx]; srcG[i] = srcPixels[idx + 1]; srcBch[i] = srcPixels[idx + 2];
     });
 
-    std::vector<float> refR(refTotal), refG(refTotal), refBch(refTotal);
+    NamedVector<float> refR, refG, refBch;
+    refR.resize(refTotal);
+    refG.resize(refTotal);
+    refBch.resize(refTotal);
     Parallel::For(0, refTotal, refTotal, [&](int i) {
         int idx = i * 4;
         refR[i] = refPixels[idx]; refG[i] = refPixels[idx + 1]; refBch[i] = refPixels[idx + 2];
