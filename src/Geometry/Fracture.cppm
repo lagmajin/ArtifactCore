@@ -166,7 +166,7 @@ static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
                                                      int shardCount,
                                                      std::mt19937& rng,
                                                      float jitterFactor) {
- std::vector<float> angles;
+ NamedVector<float> angles;
  angles.reserve(static_cast<size_t>(shardCount));
  for (int i = 0; i < shardCount; ++i) {
   const float base = (kTwoPi * static_cast<float>(i)) / static_cast<float>(shardCount);
