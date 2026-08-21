@@ -276,7 +276,9 @@ void AutoColorMatcher::histogramMatch(float* srcPixels, int srcWidth, int srcHei
     const int refTotal = refWidth * refHeight;
 
     for (int ch = 0; ch < 3; ++ch) {
-        std::vector<float> srcCh(srcTotal), refCh(refTotal);
+        NamedVector<float> srcCh, refCh;
+        srcCh.resize(srcTotal);
+        refCh.resize(refTotal);
         Parallel::For(0, srcTotal, srcTotal, [&](int i) { srcCh[i] = srcPixels[i * 4 + ch]; });
         Parallel::For(0, refTotal, refTotal, [&](int i) { refCh[i] = refPixels[i * 4 + ch]; });
 
@@ -322,7 +324,9 @@ AutoColorMatcher::MatchResult AutoColorMatcher::computeMatch(
     MatchResult result;
 
     for (int ch = 0; ch < 3; ++ch) {
-        std::vector<float> srcCh(srcTotal), refCh(refTotal);
+        NamedVector<float> srcCh, refCh;
+        srcCh.resize(srcTotal);
+        refCh.resize(refTotal);
         Parallel::For(0, srcTotal, srcTotal, [&](int i) { srcCh[i] = srcPixels[i * 4 + ch]; });
         Parallel::For(0, refTotal, refTotal, [&](int i) { refCh[i] = refPixels[i * 4 + ch]; });
 
