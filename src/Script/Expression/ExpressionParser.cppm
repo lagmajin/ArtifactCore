@@ -41,6 +41,7 @@ module;
 module Script.Expression.Parser;
 
 import Memory.SharedPtr;
+import Container.NamedVector;
 import Script.Expression.Value;
 
 namespace ArtifactCore {
@@ -140,7 +141,7 @@ struct Token {
 class ExpressionParser::Impl {
 public:
     std::string expression_;
-    std::vector<Token> tokens_;
+    NamedVector<Token> tokens_;
     size_t currentToken_ = 0;
     std::string error_;
     size_t errorPosition_ = std::string::npos;
