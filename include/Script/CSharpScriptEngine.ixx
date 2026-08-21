@@ -10,6 +10,16 @@ export module Script.CSharp.Engine;
 
 export namespace ArtifactCore {
 
+struct ScriptSessionSnapshot {
+    bool active = false;
+    bool stopRequested = false;
+    std::string sourcePath;
+    double timeSeconds = 0.0;
+    double deltaSeconds = 0.0;
+    std::uint64_t frame = 0;
+    std::string lastError;
+};
+
 /**
  * @brief Embedded .NET/C# scripting engine for Artifact.
  *
@@ -38,6 +48,7 @@ public:
 
     // === Lifecycle ===
     bool initialize(const std::string& dotnetRoot = "");
+    void setScriptHostAssemblyPath(const std::string& path);
     void finalize();
     bool isInitialized() const;
 
@@ -57,6 +68,37 @@ public:
     bool executeScriptFile(const std::string& path);
     bool executeScriptWithImports(const std::string& code,
                                    const std::vector<std::string>& imports);
+
+    // === Iterative script session ===
+    // Keeps Roslyn ScriptState between evaluations, similar to an editor
+    // play session. A failed step does not replace the last successful state.
+    bool beginScriptSession(const std::string& code = "");
+    bool beginScriptSessionFile(const std::string& path);
+    bool stepScriptSession(const std::string& code);
+    bool updateScriptSession(const std::string& code,
+                             double timeSeconds,
+                             double deltaSeconds,
+                             std::uint64_t frame);
+    /// File-driven tick; a changed source is reloaded once and is itself the
+    /// evaluation for that tick, avoiding duplicate side effects.
+    bool updateScriptSessionFile(const std::string& path,
+                                 double timeSeconds,
+                                 double deltaSeconds,
+                                 std::uint64_t frame);
+    /// Update session globals and evaluate the conventional C# Update() body.
+    bool tickScriptSession(double timeSeconds,
+                           double deltaSeconds,
+                           std::uint64_t frame);
+    bool invokeScriptSessionCallback(const std::string& functionName);
+    bool reloadScriptSession(const std::string& code);
+    bool reloadScriptSessionFile(const std::string& path);
+    bool isScriptSessionSourceChanged() const;
+    void endScriptSession();
+    bool isScriptSessionActive() const;
+    void requestScriptSessionStop();
+    void clearScriptSessionStopRequest();
+    bool isScriptSessionStopRequested() const;
+    ScriptSessionSnapshot scriptSessionSnapshot() const;
 
     // === Output Capture ===
 

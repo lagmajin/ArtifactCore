@@ -16,6 +16,8 @@ module;
 
 module Text.Animator;
 
+import Script.Expression.Evaluator;
+
 namespace ArtifactCore {
 
 namespace {
@@ -400,6 +402,43 @@ SelectorResult TextAnimatorEngine::evaluateSelector(
     return result;
 }
 
+SelectorResult TextAnimatorEngine::evaluateExpressionSelector(
+    const SelectorEvaluationContext& context,
+    const ExpressionSelector& selector,
+    std::span<const float> baseWeights) {
+    SelectorResult result;
+    result.units = SelectorUnits::Percentage;
+    result.order = context.order;
+    result.weights.fill(0.0f, static_cast<qsizetype>(context.glyphs.size()));
+    if (!selector.enabled || selector.expression.trimmed().isEmpty()) {
+        result.diagnostic = QStringLiteral("expression selector is disabled or empty");
+        return result;
+    }
+
+    ExpressionEvaluator evaluator;
+    evaluator.registerStandardFunctions();
+    const int total = context.textTotal > 0
+        ? context.textTotal
+        : static_cast<int>(context.glyphs.size());
+    evaluator.setVariable("textTotal", ExpressionValue(static_cast<double>(total)));
+    evaluator.setVariable("text", ExpressionValue(context.sourceText.toStdString()));
+    evaluator.setVariable("seed", ExpressionValue(static_cast<double>(selector.seed)));
+    for (qsizetype index = 0; index < static_cast<qsizetype>(context.glyphs.size()); ++index) {
+        evaluator.setVariable("textIndex", ExpressionValue(static_cast<double>(index + 1)));
+        const double baseValue = index < baseWeights.size()
+            ? static_cast<double>(baseWeights[index]) : 0.0;
+        evaluator.setVariable("selectorValue", ExpressionValue(baseValue));
+        const ExpressionValue value = evaluator.evaluate(selector.expression.toStdString());
+        if (!value.isNumber() || evaluator.hasError() || !std::isfinite(value.asNumber())) {
+            result.diagnostic = QStringLiteral("expression selector must return a finite number");
+            result.weights.fill(0.0f);
+            return result;
+        }
+        result.weights[index] = std::clamp(static_cast<float>(value.asNumber()), 0.0f, 1.0f);
+    }
+    return result;
+}
+
 float TextAnimatorEngine::calculateWeight(int index, int totalCount, const RangeSelector& selector) {
     if (totalCount <= 0 || index < 0 || index >= totalCount) {
         return 0.0f;
@@ -770,6 +809,56 @@ void TextAnimatorEngine::applyAnimatorStack(
         fullRange.selectorPattern.clear();
         applyAnimator(glyphs, fullRange, std::get<1>(entry),
                       std::get<2>(entry), time, combinedWeights);
+    }
+}
+
+void TextAnimatorEngine::applyAnimatorStack(
+    std::vector<GlyphItem>& glyphs,
+    std::span<const std::tuple<RangeSelector, WigglySelector,
+                               ExpressionSelector, AnimatorProperties>> stack,
+    float time,
+    const QString& sourceText,
+    std::span<const float> extraWeights)
+{
+    if (stack.empty() || glyphs.empty()) {
+        return;
+    }
+
+    for (const auto& entry : stack) {
+        const auto& range = std::get<0>(entry);
+        const SelectorEvaluationContext context{
+            sourceText,
+            std::span<const GlyphItem>(glyphs.data(), glyphs.size()),
+            TextSelectorOrder::Logical,
+            0,
+            static_cast<int>(glyphs.size())};
+        const SelectorResult rangeResult = evaluateSelector(context, range);
+        const SelectorResult expressionResult = evaluateExpressionSelector(
+            context, std::get<2>(entry), rangeResult.weights);
+        std::vector<float> combinedWeights(glyphs.size(), 1.0f);
+        for (size_t i = 0; i < combinedWeights.size(); ++i) {
+            const float rangeWeight = i < static_cast<size_t>(rangeResult.weights.size())
+                ? rangeResult.weights[static_cast<qsizetype>(i)] : 0.0f;
+            const float expressionWeight = std::get<2>(entry).enabled &&
+                    i < static_cast<size_t>(expressionResult.weights.size())
+                ? expressionResult.weights[static_cast<qsizetype>(i)] : 1.0f;
+            const float extraWeight = i < extraWeights.size()
+                ? extraWeights[i] : 1.0f;
+            combinedWeights[i] = std::clamp(
+                rangeWeight * expressionWeight * extraWeight, 0.0f, 1.0f);
+        }
+
+        RangeSelector fullRange = range;
+        fullRange.start = 0.0f;
+        fullRange.end = 100.0f;
+        fullRange.offset = 0.0f;
+        fullRange.units = SelectorUnits::Percentage;
+        fullRange.shape = SelectorShape::Square;
+        fullRange.order = SelectorOrder::Natural;
+        fullRange.regexEnabled = false;
+        fullRange.selectorPattern.clear();
+        applyAnimator(glyphs, fullRange, std::get<1>(entry),
+                      std::get<3>(entry), time, combinedWeights);
     }
 }
 

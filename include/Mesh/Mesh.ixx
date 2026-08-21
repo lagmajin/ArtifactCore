@@ -129,6 +129,33 @@ export namespace ArtifactCore {
         Impl* impl_;
 
     public:
+        enum class SkinningMethod {
+            LinearBlend,             // skinMethod = 0
+            Rigid,                   // skinMethod = 1
+            DualQuaternion,          // skinMethod = 2
+            BlendedDualQuaternion    // skinMethod = 3
+        };
+
+        struct SkinBone {
+            QString name;
+            int parentIndex = -1;
+            QMatrix4x4 bindMatrix;
+            QMatrix4x4 poseMatrix;
+        };
+
+        struct SkinAnimationClip {
+            QString name;
+            double timeBegin = 0.0;
+            double timeEnd = 0.0;
+        };
+
+        struct BlendShape {
+            QString name;
+            float weight = 0.0f;
+            QVector<QVector3D> positionOffsets;
+            QVector<QVector3D> normalOffsets;
+        };
+
         Mesh();
         Mesh(const Mesh& other);
         Mesh(Mesh&& other) noexcept;
@@ -160,6 +187,25 @@ export namespace ArtifactCore {
         // Face-Vertex (面を構成する頂点ごと) のアトリビュート。Mayaの「UV」などはここに入る
         AttributeContainer& faceVertexAttributes();
         const AttributeContainer& faceVertexAttributes() const;
+
+        const QVector<SkinBone>& skinBones() const;
+        void setSkinBones(const QVector<SkinBone>& bones);
+        SkinningMethod skinningMethod() const;
+        void setSkinningMethod(SkinningMethod method);
+        // True when CPU-only packed influences beyond the shader's first four exist.
+        bool hasExtendedSkinningWeights() const;
+        QVector<QMatrix4x4> skinPoseMatrices() const;
+        void invalidateSkinningBase();
+        // Restore the cached bind-space attributes after CPU skinning.
+        void restoreSkinningBase();
+        const QVector<SkinAnimationClip>& skinAnimationClips() const;
+        const SkinAnimationClip* skinAnimationClip(int index) const;
+        void setSkinAnimationClips(const QVector<SkinAnimationClip>& clips);
+        const QVector<BlendShape>& blendShapes() const;
+        void setBlendShapes(const QVector<BlendShape>& shapes);
+        float blendShapeWeight(int index) const;
+        void setBlendShapeWeight(int index, float weight);
+        void applyBlendShapes();
 
         // 3. 高度なトポロジー参照 (Half-Edge相当のクエリ)
         // ある頂点に接続しているすべての面を取得する
@@ -218,8 +264,11 @@ export namespace ArtifactCore {
         static int chooseMeshletLODLevel(const MeshletLODData& data, float projectedRadiusPixels);
 
         // 5. ボーン/モーフ (Deformer)
-        // デフォーマは動的アトリビュート "boneWeights", "blendShape_X" などとして表現可能
+        // デフォーマは動的アトリビュート "boneWeights",
+        // "boneWeightsExtra", "skinDQWeight", "skinMethod",
+        // "blendShape_X" などとして表現可能
         void applySkinning(const QVector<QMatrix4x4>& boneMatrices);
+        void applyDeformers(const QVector<QMatrix4x4>& boneMatrices);
 
         // バウンディング
         void updateBounds();

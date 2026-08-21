@@ -63,6 +63,9 @@ public:
 
     // t@CMesh𐶐
     SharedPtr<Mesh> importMeshFromFile(const UniString& path);
+    SharedPtr<Mesh> importMeshFromFileAtTime(const UniString& path,
+                                             double time,
+                                             int clipIndex = 0);
     [[nodiscard]] Backend lastBackend() const;
     [[nodiscard]] QString lastError() const;
     [[nodiscard]] QString lastBaseColorTexture() const;
