@@ -42,6 +42,8 @@ module;
 
 module Script.Expression.Evaluator;
 
+import Container.NamedVector;
+
 import Memory.SharedPtr;
 import Script.Expression.Value;
 import Script.Expression.Parser;
@@ -1292,8 +1294,8 @@ ExpressionValue loopValue(const ExpressionEvaluator* ctx, bool loopIn,
   if (entries.empty()) return ctx->getVariable("value");
   if (entries.size() == 1) return entries.front().property("value");
 
-  std::vector<double> times;
-  std::vector<ExpressionValue> values;
+  NamedVector<double> times;
+  NamedVector<ExpressionValue> values;
   std::vector<std::pair<double, ExpressionValue>> keyed;
   keyed.reserve(entries.size());
   for (const auto& entry : entries) {
