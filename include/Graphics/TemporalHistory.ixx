@@ -10,6 +10,8 @@ module;
 
 export module Graphics.TemporalHistory;
 
+import Container.NamedVector;
+
 export namespace ArtifactCore {
 
 struct TemporalHistoryKey {
@@ -120,10 +122,10 @@ public:
 
     std::vector<TemporalHistoryKey> validKeys() const
     {
-        std::vector<TemporalHistoryKey> result;
+        NamedVector<TemporalHistoryKey> result;
         result.reserve(entries_.size());
         for (const auto& [key, entry] : entries_) if (entry.valid) result.push_back(key);
-        return result;
+        return result.toStdVector();
     }
 
     void eraseInvalid()
