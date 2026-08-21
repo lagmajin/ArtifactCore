@@ -668,10 +668,10 @@ public:
     int gridRows() const { return gridRows_; }
 
     std::vector<SoftBodyUVVertex> getUVVertices() const {
-        std::vector<SoftBodyUVVertex> vertices;
+        NamedVector<SoftBodyUVVertex> vertices;
         if (gridColumns_ < 2 || gridRows_ < 2 ||
             points_.size() != static_cast<std::size_t>(gridColumns_ * gridRows_)) {
-            return vertices;
+            return {};
         }
         vertices.reserve(points_.size());
         const float invColumns = 1.0f / static_cast<float>(gridColumns_ - 1);
@@ -684,14 +684,14 @@ public:
                                     static_cast<float>(y) * invRows});
             }
         }
-        return vertices;
+        return vertices.toStdVector();
     }
 
     std::vector<std::uint32_t> getGridTriangleIndices() const {
-        std::vector<std::uint32_t> indices;
+        NamedVector<std::uint32_t> indices;
         if (gridColumns_ < 2 || gridRows_ < 2 ||
             points_.size() != static_cast<std::size_t>(gridColumns_ * gridRows_)) {
-            return indices;
+            return {};
         }
         indices.reserve(static_cast<std::size_t>((gridColumns_ - 1) *
                                                  (gridRows_ - 1) * 6));
@@ -704,10 +704,15 @@ public:
                 const std::uint32_t p1 = index(x + 1, y);
                 const std::uint32_t p2 = index(x + 1, y + 1);
                 const std::uint32_t p3 = index(x, y + 1);
-                indices.insert(indices.end(), {p0, p1, p2, p0, p2, p3});
+                indices.append(p0);
+                indices.append(p1);
+                indices.append(p2);
+                indices.append(p0);
+                indices.append(p2);
+                indices.append(p3);
             }
         }
-        return indices;
+        return indices.toStdVector();
     }
 
 private:
