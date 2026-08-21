@@ -606,7 +606,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
     const std::unordered_map<std::string, ArtifactScriptValue>& locals) {
-    std::vector<ArtifactScriptValue> args;
+    NamedVector<ArtifactScriptValue> args;
     for (auto& a : e->callArgs) args.push_back(evalExpr(a.get(), fields, locals));
     if (!error_.empty()) return {};
     auto num = [](const ArtifactScriptValue& v) -> double {
