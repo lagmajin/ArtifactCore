@@ -147,10 +147,11 @@ auto CircularDependencyValidationRule::validate(const void* project) -> std::vec
 
 auto CircularDependencyValidationRule::detectCycles(const void* project) -> std::vector<QString>
 {
-    std::vector<QString> cycles;
+    NamedVector<QString> cycles{
+        makeNamedVector<QString>(ContainerName{"CircularDependencyCycles"})};
     auto* projectPtr = static_cast<Artifact::ArtifactProject*>(const_cast<void*>(project));
     if (!projectPtr) {
-        return cycles;
+        return cycles.toStdVector();
     }
 
     QHash<QString, QStringList> adjacency;
@@ -220,7 +221,7 @@ auto CircularDependencyValidationRule::detectCycles(const void* project) -> std:
                     const QString cycle = cycleNames.join(QStringLiteral(" -> "));
                     if (!reported.contains(cycle)) {
                         reported.insert(cycle);
-                        cycles.push_back(cycle);
+                        cycles.append(cycle);
                     }
                 }
             }
@@ -237,7 +238,7 @@ auto CircularDependencyValidationRule::detectCycles(const void* project) -> std:
         }
     }
 
-    return cycles;
+    return cycles.toStdVector();
 }
 
 auto MatteReferenceValidationRule::validate(const void* project) -> std::vector<ProjectDiagnostic>
