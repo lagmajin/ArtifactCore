@@ -7,6 +7,7 @@ module;
 export module Artifact.Acoustic.FrictionModel;
 
 import Artifact.Acoustic;
+import Container.NamedVector;
 
 export namespace Artifact::Acoustic {
 
@@ -22,14 +23,15 @@ export namespace Artifact::Acoustic {
         }
 
         std::vector<AudioTask> GenerateTasks() override {
-            std::vector<AudioTask> tasks;
+            NamedVector<AudioTask> tasks{
+                makeNamedVector<AudioTask>(ContainerName{"FrictionModelAudioTasks"})};
             
             if (m_intensity > 0.01f) {
                 // 摩擦音は「高域ノイズの帯域制限」としてモデル化
                 // 速度が上がるほどピッチ（中心周波数）と鋭さ（Q）が上がる
                 float centerFreq = 1000.0f + (m_velocity * 500.0f) + (m_roughness * 2000.0f);
                 
-                tasks.push_back({
+                tasks.append({
                     SynthesisType::Friction,
                     std::min(1.0f, m_intensity * 0.2f),
                     centerFreq,
@@ -41,7 +43,7 @@ export namespace Artifact::Acoustic {
                     static_cast<std::uint32_t>(m_velocity * 1000.0f)
                 });
             }
-            return tasks;
+            return tasks.toStdVector();
         }
 
     private:
