@@ -53,7 +53,8 @@ public:
     ZeroString consoleBuffer_;
     bool externalRuntime_ = false;
     std::string externalExecutable_ = "python";
-    std::vector<std::string> externalSearchPaths_;
+    NamedVector<std::string> externalSearchPaths_{
+        makeNamedVector<std::string>(ContainerName{"PythonExternalSearchPaths"})};
     std::string externalPrelude_;
     std::unordered_map<std::string, std::string> externalStringGlobals_;
     std::unordered_map<std::string, int64_t> externalIntGlobals_;
@@ -623,7 +624,8 @@ std::vector<std::string> PythonEngine::getSearchPaths() const {
         }
     } catch (...) {}
 #else
-    paths = impl_->externalSearchPaths_;
+    paths.insert(paths.end(), impl_->externalSearchPaths_.begin(),
+                 impl_->externalSearchPaths_.end());
 #endif
     return paths;
 }
