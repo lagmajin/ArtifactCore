@@ -31,9 +31,9 @@ QPointF cubicPoint(const QPointF& p0, const QPointF& p1,
 // QPainterPath を個別サブパスに分解（各サブパスは連続する点列として返す）
 std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
 {
-    std::vector<std::vector<QPointF>> subpaths;
+    NamedVector<std::vector<QPointF>> subpaths;
     if (path.isEmpty())
-        return subpaths;
+        return {};
 
     const int n = path.elementCount();
     int i = 0;
@@ -91,7 +91,7 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
             subpaths.push_back(points);
     }
 
-    return subpaths;
+    return subpaths.toStdVector();
 }
 
 // 点列を targetCount 点に等距離リサンプリング
