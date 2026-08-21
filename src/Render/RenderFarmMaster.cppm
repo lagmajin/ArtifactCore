@@ -37,6 +37,8 @@ module;
 
 module Render.Farm.Master;
 
+import Container.NamedVector;
+
 import Render.Farm.Types;
 import Render.Farm.Checkpoint;
 import Core.ThreadPool;
@@ -368,8 +370,8 @@ public:
         }
     }
 
-    std::vector<RenderFrameRange> splitRange(const RenderFrameRange& range, int parts) const {
-        std::vector<RenderFrameRange> subRanges;
+    NamedVector<RenderFrameRange> splitRange(const RenderFrameRange& range, int parts) const {
+        NamedVector<RenderFrameRange> subRanges;
         if (parts <= 0 || range.count() <= 0) return subRanges;
 
         int totalFrames = range.count();
@@ -766,7 +768,7 @@ public:
         if (workers.empty()) return;
 
         // Filter connected workers with valid IDs
-        std::vector<RemoteWorkerInfo> activeWorkers;
+        NamedVector<RemoteWorkerInfo> activeWorkers;
         for (const auto& w : workers) {
             if (!w.workerId.isEmpty() && w.connected && w.assignedFrames == 0
                 && w.state == QStringLiteral("Idle")
