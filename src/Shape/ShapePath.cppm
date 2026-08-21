@@ -1090,7 +1090,7 @@ bool mergeHoleIntoOuter(std::vector<QPointF>* outer,
         }
     }
 
-    std::vector<QPointF> merged;
+    NamedVector<QPointF> merged;
     merged.reserve(outer->size() + hole.size() + 2);
     for (size_t i = 0; i <= bridgeIndex; ++i) merged.push_back((*outer)[i]);
     for (size_t i = 0; i <= hole.size(); ++i) {
@@ -1100,7 +1100,7 @@ bool mergeHoleIntoOuter(std::vector<QPointF>* outer,
     for (size_t i = bridgeIndex + 1; i < count; ++i) {
         merged.push_back((*outer)[i]);
     }
-    *outer = std::move(merged);
+    *outer = merged.toStdVector();
     return true;
 }
 
