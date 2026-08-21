@@ -580,7 +580,7 @@ inline std::vector<GroundGridLine> GridSystem::computeGroundGridLines(
     const int minorCount = static_cast<int>(
         std::floor(settings.extent / minorInterval));
     const int lineCount = std::min(2 * (majorCount + minorCount), 16384);
-    std::vector<GroundGridLine> lines;
+    NamedVector<GroundGridLine> lines;
     lines.reserve(std::max(0, lineCount));
 
     const auto fadeColor = [&](const ArtifactCore::FloatColor& source,
@@ -620,7 +620,7 @@ inline std::vector<GroundGridLine> GridSystem::computeGroundGridLines(
         addLine(coordinate, false, true);
         addLine(coordinate, false, false);
     }
-    return lines;
+    return lines.toStdVector();
 }
 
 inline float GridSystem::unitToPixel(float unitValue) const {
