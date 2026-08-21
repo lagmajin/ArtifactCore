@@ -617,7 +617,8 @@ void Host::unloadAll() {
 }
 
 std::vector<std::string> Host::scanPlugins() {
-    std::vector<std::string> found;
+    NamedVector<std::string> found{
+        makeNamedVector<std::string>(ContainerName{"ClapPluginScanResults"})};
     std::unordered_set<std::string> seen;
     for (const auto& searchPath : impl_->searchPaths) {
         try {
@@ -640,11 +641,11 @@ std::vector<std::string> Host::scanPlugins() {
                                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
                 if (extension != ".clap" && extension != ".dll" && extension != ".so") continue;
                 const std::string identity = fs::weakly_canonical(entry.path()).string();
-                if (seen.insert(identity).second) found.push_back(entry.path().string());
+                if (seen.insert(identity).second) found.append(entry.path().string());
             }
         } catch (...) {}
     }
-    return found;
+    return found.toStdVector();
 }
 
 } // namespace clap
