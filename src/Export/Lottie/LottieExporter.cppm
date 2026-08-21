@@ -1004,8 +1004,8 @@ std::optional<LottieDocument> LottieExporter::importFromFile(
                     item.closed = shape.value(QStringLiteral("closed")).toBool(item.closed);
                     item.direction = shape.value(QStringLiteral("d")).toInt(item.direction);
                     const auto readNumberArray = [](const QJsonValue& value) {
-                        std::vector<double> numbers;
-                        if (!value.isArray()) return numbers;
+                        NamedVector<double> numbers;
+                        if (!value.isArray()) return numbers.toStdVector();
                         for (const auto& component : value.toArray()) {
                             if (component.isDouble()) {
                                 numbers.push_back(component.toDouble());
@@ -1015,7 +1015,7 @@ std::optional<LottieDocument> LottieExporter::importFromFile(
                                 }
                             }
                         }
-                        return numbers;
+                        return numbers.toStdVector();
                     };
                     const QJsonObject path = shape.value(QStringLiteral("ks")).toObject();
                     const QJsonObject pathValue = path.value(QStringLiteral("k")).toObject();
