@@ -145,13 +145,13 @@ public:
     const std::vector<RecoveryPoint>& recoveryPoints() const { return recoveryPoints_; }
 
     std::vector<SessionLedgerEntry> recoverableEntries() const {
-        std::vector<SessionLedgerEntry> result;
+        NamedVector<SessionLedgerEntry> result;
         for (const auto& e : entries_) {
             if (e.isRecoverable) {
                 result.push_back(e);
             }
         }
-        return result;
+        return result.toStdVector();
     }
 
     QJsonObject toJson() const {
