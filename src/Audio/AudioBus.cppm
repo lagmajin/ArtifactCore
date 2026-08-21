@@ -85,7 +85,8 @@ namespace ArtifactCore {
 		NamedVector<SharedPtr<AudioEffect>> effects_{
 			makeNamedVector<SharedPtr<AudioEffect>>(ContainerName{"AudioBusEffects"})};
 
-		std::vector<MeterState> meters_;
+		NamedVector<MeterState> meters{
+			makeNamedVector<MeterState>(ContainerName{"AudioBusMeters"})};
 		qint64 compensationDelaySamples_ = 0;
 		int compensationSampleRate_ = 0;
 		std::vector<std::deque<float>> compensationHistory_;
@@ -313,15 +314,15 @@ namespace ArtifactCore {
 
 		// 2. Apply Volume and Pan (Post-fader)
 		int channels = segment.channelCount();
-		if (impl_->meters_.size() != channels) {
-			impl_->meters_.resize(channels);
+		if (impl_->meters.size() != channels) {
+			impl_->meters.resize(channels);
 		}
 
 		if (impl_->mute_) {
 			for (int c = 0; c < channels; ++c) {
 				segment.channelData[c].fill(0.0f);
-				impl_->meters_[c].peak = 0.0f;
-				impl_->meters_[c].rms = 0.0f;
+				impl_->meters[c].peak = 0.0f;
+				impl_->meters[c].rms = 0.0f;
 			}
 			return;
 		}
@@ -370,9 +371,9 @@ namespace ArtifactCore {
 				sumSq += static_cast<double>(val) * val;
 			}
 
-			impl_->meters_[c].peak = peak;
+			impl_->meters[c].peak = peak;
 			const double rms = samples > 0 ? std::sqrt(sumSq / samples) : 0.0;
-			impl_->meters_[c].rms = std::isfinite(rms)
+			impl_->meters[c].rms = std::isfinite(rms)
 				? static_cast<float>(std::min(
 					rms, static_cast<double>(std::numeric_limits<float>::max())))
 				: std::numeric_limits<float>::max();
@@ -501,14 +502,14 @@ namespace ArtifactCore {
 
 	float AudioBus::getPeakLevel(int channelIndex) const
 	{
-		if (channelIndex < 0 || channelIndex >= impl_->meters_.size()) return 0.0f;
-		return impl_->meters_[channelIndex].peak;
+		if (channelIndex < 0 || channelIndex >= impl_->meters.size()) return 0.0f;
+		return impl_->meters[channelIndex].peak;
 	}
 
 	float AudioBus::getRMSLevel(int channelIndex) const
 	{
-		if (channelIndex < 0 || channelIndex >= impl_->meters_.size()) return 0.0f;
-		return impl_->meters_[channelIndex].rms;
+		if (channelIndex < 0 || channelIndex >= impl_->meters.size()) return 0.0f;
+		return impl_->meters[channelIndex].rms;
 	}
 
 	float AudioBus::getGainReduction() const
