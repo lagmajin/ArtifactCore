@@ -288,7 +288,7 @@ QPainterPath PathMorphEngine::interpolateByFeature(
     };
 
     auto computeFeatures = [&](const std::vector<std::vector<QPointF>>& subs) {
-        std::vector<Feature> feats;
+        NamedVector<Feature> feats;
         for (size_t i = 0; i < subs.size(); ++i) {
             const auto& pts = subs[i];
             if (pts.size() < 3) continue;
