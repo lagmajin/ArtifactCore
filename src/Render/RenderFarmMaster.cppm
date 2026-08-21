@@ -152,7 +152,7 @@ public:
         }, Qt::QueuedConnection);
     }
 
-    std::vector<int> frameAttempts_;
+    NamedVector<int> frameAttempts_;
     std::mutex frameAttemptsMutex_;
 
     std::thread farmThread_;
@@ -173,7 +173,7 @@ public:
     std::atomic<bool> allowRemote_{ false };
     std::atomic<unsigned short> rpcPort_{ 0 };
     std::atomic<bool> rpcRunning_{ false };
-    std::vector<RemoteJobSlice> remoteSlices_;
+    NamedVector<RemoteJobSlice> remoteSlices_;
     std::mutex remoteMutex_;
     std::atomic<int> remoteCompleted_{0};
     std::atomic<int> totalRemoteFrames_{ 0 };
