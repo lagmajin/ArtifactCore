@@ -19,6 +19,7 @@ module;
 module Graphics.RayTracingManager;
 
 import Graphics;
+import Container.NamedVector;
 import Utils.String.UniString;
 
 namespace ArtifactCore {
@@ -263,7 +264,7 @@ public:
             return false;
         }
         std::vector<TLASBuildInstanceData> instances;
-        std::vector<std::string> names;
+        NamedVector<std::string> names;
         instances.reserve(blasMap_.size());
         names.reserve(blasMap_.size());
         for (const auto& [name, node] : blasMap_) {
