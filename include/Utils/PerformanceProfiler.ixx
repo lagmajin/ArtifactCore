@@ -16,6 +16,7 @@ module;
 export module ArtifactCore.Utils.PerformanceProfiler;
 
 import Core.ArtifactString;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -274,13 +275,13 @@ public:
 
     std::vector<String> knownTimerNames() const {
         const auto latest = PerformanceRegistry::instance().getLatestSamples();
-        std::vector<String> names;
+        NamedVector<String> names;
         names.reserve(latest.size());
         for (const auto& [name, sample] : latest) {
             (void)sample;
             names.emplace_back(name);
         }
-        return names;
+        return names.toStdVector();
     }
 
     ScopeStats timerStats(const String& name, int /*histN*/) const {
