@@ -369,7 +369,8 @@ RotoVertex RotoMask::getVertex(VertexID id, double time) const {
 std::vector<RotoVertex> RotoMask::sampleVertices(double time) const {
     NamedVector<RotoVertex> result{makeNamedVector<RotoVertex>(ContainerName{"RotoMaskSampleVertices"})};
     // ID順にソート（追加順を維持）
-    std::vector<std::pair<int, VertexData>> sorted(impl_->vertices.begin(), impl_->vertices.end());
+    NamedVector<std::pair<int, VertexData>> sorted;
+    sorted.insert(sorted.end(), impl_->vertices.begin(), impl_->vertices.end());
     std::sort(sorted.begin(), sorted.end(), 
               [](const auto& a, const auto& b) { return a.first < b.first; });
     
