@@ -9,6 +9,7 @@ module;
 module Artifact.ShaderNode.Core;
 
 import Core.ArtifactString;
+import Container.NamedVector;
 
 namespace Artifact {
 namespace ShaderNode {
@@ -97,9 +98,9 @@ namespace ShaderNode {
     std::vector<ShaderNodeBase*> NodeGraph::getTopologicalOrder() const {
         // Simplified for prototype: just return nodes in added order (assuming user adds them correctly)
         // In real impl, we walk from OutputNode up the tree
-        std::vector<ShaderNodeBase*> sorted;
+        NamedVector<ShaderNodeBase*> sorted;
         for (const auto& n : nodes) sorted.push_back(n.get());
-        return sorted;
+        return sorted.toStdVector();
     }
 
     std::string NodeGraph::compileHLSL() const {
