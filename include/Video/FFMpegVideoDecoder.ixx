@@ -60,6 +60,14 @@ export namespace ArtifactCore {
   bool openFile(const QString& path);
   void closeFile();
   DecodedVideoFrame decodeNextVideoFrameRaw();
+  // Frame-number seek (uses the video stream r_frame_rate). Returns false
+  // when no stream is open or the stream has no frame rate information.
+  bool seekToFrame(int64_t frameNumber);
   void flush();
+
+  // Stream metadata. Valid after a successful openFile(); 0 otherwise.
+  int width() const;
+  int height() const;
+  double fps() const;
  };
 }

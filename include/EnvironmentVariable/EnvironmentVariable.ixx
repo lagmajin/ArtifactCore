@@ -6,6 +6,7 @@ module;
 #include <QString>
 #include <QStringList>
 #include <QVariant>
+#include <QReadWriteLock>
 #include <wobjectdefs.h>
 
 export module EnvironmentVariable;
@@ -15,23 +16,27 @@ export namespace ArtifactCore {
  class LIBRARY_DLL_API EnvironmentVariableManager :public QObject{
 	W_OBJECT(EnvironmentVariableManager)
  private:
-  class Impl;
-  Impl* impl_;
+   class Impl;
+   Impl* impl_;
  public:
-  EnvironmentVariableManager();
-  ~EnvironmentVariableManager();
+   EnvironmentVariableManager();
+   ~EnvironmentVariableManager();
 
-  EnvironmentVariableManager(const EnvironmentVariableManager&) = delete;
-  EnvironmentVariableManager& operator=(const EnvironmentVariableManager&) = delete;
+   EnvironmentVariableManager(const EnvironmentVariableManager&) = delete;
+   EnvironmentVariableManager& operator=(const EnvironmentVariableManager&) = delete;
 
-  static EnvironmentVariableManager* instance();
+   static EnvironmentVariableManager* instance();
 
-  void setVariable(const QString& name, const QVariant& value);
-  QVariant getVariable(const QString& name) const;
-  bool hasVariable(const QString& name) const;
-  QStringList variableNames() const;
-  void loadFromSystemEnvironment();
-  void clear();
+   void setVariable(const QString& name, const QVariant& value);
+   QVariant getVariable(const QString& name) const;
+   bool hasVariable(const QString& name) const;
+   QStringList variableNames() const;
+   void loadFromSystemEnvironment();
+   void clear();
+
+   /// setVariable/clear/loadFromSystemEnvironment で増加する世代カウンタ。
+   /// 展開結果キャッシュの無効化契機として使用できる。
+   quint64 revision() const;
  };
 
 

@@ -2162,6 +2162,8 @@ set(ARTIFACTCORE_AUDIO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/AllPassFilter.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/DelayLine.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/LFO.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Modulator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Router.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/FormantExtractor.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/LipSyncTrack.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/SimpleWav.ixx"

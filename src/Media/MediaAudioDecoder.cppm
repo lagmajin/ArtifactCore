@@ -58,6 +58,7 @@ extern "C" {
 module MediaAudioDecoder;
 
 import Container.NamedVector;
+import Core.Diagnostics.Recorder;
 
 namespace ArtifactCore {
 
@@ -212,6 +213,9 @@ namespace ArtifactCore {
  }
 
  bool MediaAudioDecoder::initialize(AVCodecParameters* codecParams) {
+  DiagnosticScope diagnosticScope(
+      "MediaAudioDecoder", "initialize", {},
+      {__FILE__, __func__, __LINE__});
   if (!impl_) return false;
   if (!codecParams) {
    qWarning() << "[MediaAudioDecoder] initialize failed: null codecParams";
@@ -267,6 +271,7 @@ namespace ArtifactCore {
 
   impl_->updateAudioInfo();
   impl_->initialized_ = true;
+  diagnosticScope.finish(true);
   qDebug() << "[MediaAudioDecoder] initialized successfully"
            << "codec=" << codec->name
            << "sample_rate=" << impl_->audioInfo_.sampleRate
@@ -275,6 +280,9 @@ namespace ArtifactCore {
  }
 
  bool MediaAudioDecoder::initialize(AVCodecContext* codecContext) {
+  DiagnosticScope diagnosticScope(
+      "MediaAudioDecoder", "initializeContext", {},
+      {__FILE__, __func__, __LINE__});
   if (!impl_ || !codecContext) return false;
 
   impl_->cleanup();
@@ -287,10 +295,14 @@ namespace ArtifactCore {
 
   impl_->updateAudioInfo();
   impl_->initialized_ = true;
+  diagnosticScope.finish(true);
   return true;
  }
 
  bool MediaAudioDecoder::initializeByCodecName(const UniString& codecName) {
+  DiagnosticScope diagnosticScope(
+      "MediaAudioDecoder", "initializeByCodecName", {},
+      {__FILE__, __func__, __LINE__});
   if (!impl_) return false;
 
   impl_->cleanup();
@@ -328,6 +340,7 @@ namespace ArtifactCore {
 
   impl_->updateAudioInfo();
   impl_->initialized_ = true;
+  diagnosticScope.finish(true);
   return true;
  }
 

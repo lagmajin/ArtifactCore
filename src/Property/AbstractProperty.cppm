@@ -47,6 +47,7 @@ import Script.Expression.Evaluator;
 import Script.Expression.Value;
 import Script.Engine.Context;
 import Math.Interpolate;
+import EnvironmentVariable.Expansion;
 
 
 
@@ -514,7 +515,16 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
                 ? evaluator->evaluateAST(ast)
                 : evaluator->evaluate(ZeroString(expression.toUtf8().constData()));
             if (!evaluator->hasError()) {
-                return expressionValueToQVariant(result, propertyType);
+                QVariant expressionResult = expressionValueToQVariant(result, propertyType);
+                if (propertyType == PropertyType::String
+                    && containsExpansionMarker(expressionResult.toString())) {
+                    ExpansionContext expansionContext;
+                    expansionContext.frame = time.toDouble() * frameRate;
+                    expansionContext.fps = frameRate;
+                    expressionResult = QString(
+                        expandTokens(expressionResult.toString(), expansionContext));
+                }
+                return expressionResult;
             } else {
                 // If error, return baseValue as fallback
                 std::cerr << "Expression error in property " << propertyName.toUtf8().constData()
@@ -524,6 +534,15 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
             std::cerr << "Expression exception in property " << propertyName.toUtf8().constData()
                       << ": " << e.what() << std::endl;
         }
+    }
+    // String プロパティのトークン展開 ($VAR / ${VAR} / $F4)。
+    // 式が無い静的文字列でも評価時に展開される (Houdini 方式)。
+    // ガードは $ の包含チェックのみで、マーカーなし文字列のコストはゼロ。
+    if (propertyType == PropertyType::String && containsExpansionMarker(baseValue.toString())) {
+        ExpansionContext expansionContext;
+        expansionContext.frame = time.toDouble() * static_cast<double>(time.scale());
+        expansionContext.fps = static_cast<double>(time.scale());
+        return QString(expandTokens(baseValue.toString(), expansionContext));
     }
     return baseValue;
 }

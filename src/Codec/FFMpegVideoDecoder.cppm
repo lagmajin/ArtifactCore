@@ -86,12 +86,23 @@ class FFmpegVideoDecoder::Impl {
  SwsContext* swsCtx_ = nullptr;
  public:
   ~Impl() { closeFile(); }
-  bool openFile(const QString& path);
-  DecodedVideoFrame decodeNextVideoFrameRaw();
-  void closeFile();
-  void seekByFrameNumber(int64_t frameNumber);
-  void seekByTimestamp(int64_t timestampMs);
-  void flush();
+ bool openFile(const QString& path);
+ DecodedVideoFrame decodeNextVideoFrameRaw();
+ void closeFile();
+ bool seekToFrame(int64_t frameNumber);
+ void seekByTimestamp(int64_t timestampMs);
+ void flush();
+ int width() const { return codecContext ? codecContext->width : 0; }
+ int height() const { return codecContext ? codecContext->height : 0; }
+ double fps() const {
+   if (!formatContext || videoStreamIndex < 0) {
+     return 0.0;
+   }
+   const AVRational rate = formatContext->streams[videoStreamIndex]->r_frame_rate;
+   return rate.num > 0 && rate.den > 0
+       ? static_cast<double>(rate.num) / static_cast<double>(rate.den)
+       : 0.0;
+ }
 };
 
 bool FFmpegVideoDecoder::Impl::openFile(const QString& path) {
@@ -264,8 +275,11 @@ DecodedVideoFrame FFmpegVideoDecoder::Impl::decodeNextVideoFrameRaw() {
       qDebug() << "FFmpegDecoder::Impl::decodeNextVideoFrameRaw: decoder eof";
       break;
     } else {
-      qWarning() << "FFmpegDecoder::Impl::decodeNextVideoFrameRaw: receive_frame failed:" << av_error_qstring(ret);
-      break;
+      const QString error = QStringLiteral("receive_frame failed: ") + av_error_qstring(ret);
+      qWarning() << "FFmpegDecoder::Impl::decodeNextVideoFrameRaw:" << error;
+      diagnosticScope.finish(false, error.toStdString());
+      av_frame_unref(frame);
+      return std::monostate{};
     }
 
     if (av_read_frame(formatContext, packet) < 0) {
@@ -280,9 +294,12 @@ DecodedVideoFrame FFmpegVideoDecoder::Impl::decodeNextVideoFrameRaw() {
     if (packet->stream_index == videoStreamIndex) {
       const int sendRet = avcodec_send_packet(codecContext, packet);
       if (sendRet < 0) {
-        qWarning() << "FFmpegDecoder::Impl::decodeNextVideoFrameRaw: send_packet failed:" << av_error_qstring(sendRet);
+        const QString error = QStringLiteral("send_packet failed: ") + av_error_qstring(sendRet);
+        qWarning() << "FFmpegDecoder::Impl::decodeNextVideoFrameRaw:" << error;
         av_packet_unref(packet);
-        break;
+        diagnosticScope.finish(false, error.toStdString());
+        av_frame_unref(frame);
+        return std::monostate{};
       }
     }
 
@@ -294,19 +311,21 @@ DecodedVideoFrame FFmpegVideoDecoder::Impl::decodeNextVideoFrameRaw() {
   return std::monostate{};
 }
 
-void FFmpegVideoDecoder::Impl::seekByFrameNumber(int64_t frameNumber) {
+bool FFmpegVideoDecoder::Impl::seekToFrame(int64_t frameNumber) {
   DiagnosticScope diagnosticScope(
       "FFmpegDecoder",
-      "seekByFrameNumber",
+      "seekToFrame",
       std::to_string(frameNumber),
       {__FILE__, __func__, __LINE__});
   if (!formatContext || videoStreamIndex < 0) {
-    return;
+    diagnosticScope.finish(false, "no stream");
+    return false;
   }
 
   const AVStream* stream = formatContext->streams[videoStreamIndex];
   if (stream->r_frame_rate.num == 0) {
-    return;
+    diagnosticScope.finish(false, "no frame rate");
+    return false;
   }
 
   const int64_t timestamp = av_rescale_q(
@@ -316,13 +335,15 @@ void FFmpegVideoDecoder::Impl::seekByFrameNumber(int64_t frameNumber) {
 
   const int ret = av_seek_frame(formatContext, videoStreamIndex, timestamp, AVSEEK_FLAG_BACKWARD);
   if (ret < 0) {
-    qWarning() << "seekByFrameNumber: av_seek_frame failed.";
-    return;
+    qWarning() << "seekToFrame: av_seek_frame failed.";
+    diagnosticScope.finish(false, "seek failed");
+    return false;
   }
 
   avformat_flush(formatContext);
   avcodec_flush_buffers(codecContext);
   diagnosticScope.finish(true);
+  return true;
 }
 
 void FFmpegVideoDecoder::Impl::seekByTimestamp(int64_t timestampMs) {
@@ -388,6 +409,22 @@ void FFmpegVideoDecoder::flush() {
   if (impl_) {
     impl_->flush();
   }
+}
+
+bool FFmpegVideoDecoder::seekToFrame(int64_t frameNumber) {
+  return impl_ && impl_->seekToFrame(frameNumber);
+}
+
+int FFmpegVideoDecoder::width() const {
+  return impl_ ? impl_->width() : 0;
+}
+
+int FFmpegVideoDecoder::height() const {
+  return impl_ ? impl_->height() : 0;
+}
+
+double FFmpegVideoDecoder::fps() const {
+  return impl_ ? impl_->fps() : 0.0;
 }
 
 } // namespace ArtifactCore

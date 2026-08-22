@@ -325,6 +325,7 @@ public:
                           const QString& name = QString(),
                           const QString& note = QString(),
                           const QColor& color = QColor(Qt::yellow));
+    bool removeMarker(const MarkerId& markerId);
     TransitionId createTransition(const TrackId& trackId,
                                   const ClipId& leftClipId,
                                   const ClipId& rightClipId,

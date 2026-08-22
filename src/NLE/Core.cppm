@@ -949,6 +949,21 @@ MarkerId NLEProjectStore::createMarker(const SequenceId& sequenceId,
     return marker.id;
 }
 
+bool NLEProjectStore::removeMarker(const MarkerId& markerId)
+{
+    const auto markerIt = impl_->markers.find(markerId);
+    if (markerIt == impl_->markers.end()) {
+        return false;
+    }
+
+    const Marker marker = markerIt.value();
+    if (auto seq = findSequence(impl_->sequences, marker.sequenceId)) {
+        seq->markers.removeAll(markerId);
+    }
+    impl_->markers.remove(markerId);
+    return true;
+}
+
 TransitionId NLEProjectStore::createTransition(const TrackId& trackId,
                                                const ClipId& leftClipId,
                                                const ClipId& rightClipId,

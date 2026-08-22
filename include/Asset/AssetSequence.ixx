@@ -50,6 +50,10 @@ struct SequenceGroup {
     int64_t     lastFrame  = 0;
     std::vector<String> filenames;       // sorted, all members
 
+    /// Frame numbers absent between firstFrame and lastFrame.
+    /// Populated only when detection ran with MissingFramePolicy::Preserve.
+    std::vector<int64_t> missingFrames;
+
     /// Display name: e.g.  "image_[0001-0100].png  (100 frames)"
     String displayName() const
     {
@@ -85,6 +89,22 @@ struct SequenceGroup {
 struct SequenceDetectionResult {
     std::vector<SequenceGroup>  sequences;   // found groups (≥2 frames)
     std::vector<String>         singles;     // files that aren't in any group
+};
+
+// ----------------------------------------------------------------
+// MissingFramePolicy — how gaps between detected frame numbers are
+// reported.
+//
+//   Split    (default) : a gap ends the current run; each consecutive
+//                        run becomes its own SequenceGroup.  Groups
+//                        never contain missing frames.
+//   Preserve           : the whole bucket stays one SequenceGroup and
+//                        absent frame numbers are reported through
+//                        SequenceGroup::missingFrames.
+// ----------------------------------------------------------------
+enum class MissingFramePolicy : std::uint8_t {
+    Split,
+    Preserve
 };
 
 // ----------------------------------------------------------------
@@ -150,6 +170,7 @@ struct GroupKey {
 // @param filenames    Flat list of filenames (basenames only,
 //                     NOT full paths — the caller prepends the dir).
 // @param minFrames    Minimum number of frames to form a sequence (default 2).
+// @param policy       Gap handling; see MissingFramePolicy.
 //
 // Filenames that look like "image_0001.png" are grouped by
 // (prefix, suffix, padding).  Groups with fewer than minFrames
@@ -157,7 +178,8 @@ struct GroupKey {
 // ----------------------------------------------------------------
 inline SequenceDetectionResult detectSequences(
     const std::vector<String>& filenames,
-    int minFrames = 2)
+    int minFrames = 2,
+    MissingFramePolicy policy = MissingFramePolicy::Split)
 {
     using namespace detail;
     minFrames = std::max(2, minFrames);
@@ -189,6 +211,28 @@ inline SequenceDetectionResult detectSequences(
             for (const auto& [frame, fn] : frames) {
                 result.singles.emplace_back(fn);
             }
+            continue;
+        }
+
+        // Preserve keeps the whole bucket as one group and reports the
+        // absent frame numbers instead of splitting the run.
+        if (policy == MissingFramePolicy::Preserve) {
+            SequenceGroup grp;
+            grp.prefix     = String(key.prefix);
+            grp.suffix     = String(key.suffix);
+            grp.padding    = key.padding;
+            grp.firstFrame = frames.front().first;
+            grp.lastFrame  = frames.back().first;
+            grp.filenames.reserve(frames.size());
+            int64_t expectedFrame = grp.firstFrame;
+            for (const auto& [frame, fn] : frames) {
+                while (expectedFrame < frame) {
+                    grp.missingFrames.emplace_back(expectedFrame++);
+                }
+                expectedFrame = frame + 1;
+                grp.filenames.emplace_back(fn);
+            }
+            result.sequences.push_back(std::move(grp));
             continue;
         }
 
