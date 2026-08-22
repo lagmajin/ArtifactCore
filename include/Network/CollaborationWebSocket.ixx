@@ -100,18 +100,21 @@ public:
     // --- Incoming signals ---
     void remoteOperation(const OperationMessage& op)
         W_SIGNAL(remoteOperation, op);
-    void remoteLockGranted(const QString& layerId, const QString& byUserId)
-        W_SIGNAL(remoteLockGranted, layerId, byUserId);
+    void remoteLockGranted(const QString& layerId, const QString& clientId,
+                           const QString& byUserId)
+        W_SIGNAL(remoteLockGranted, layerId, clientId, byUserId);
     void remoteLockDenied(const QString& layerId, const QString& reason)
         W_SIGNAL(remoteLockDenied, layerId, reason);
-    void remoteLockReleased(const QString& layerId, const QString& byUserId)
-        W_SIGNAL(remoteLockReleased, layerId, byUserId);
+    void remoteLockReleased(const QString& layerId, const QString& byClientId)
+        W_SIGNAL(remoteLockReleased, layerId, byClientId);
     void remotePresence(const PresenceMessage& pres)
         W_SIGNAL(remotePresence, pres);
-    void userJoined(const QString& userId, const QString& userName)
-        W_SIGNAL(userJoined, userId, userName);
-    void userLeft(const QString& userId, const QString& userName)
-        W_SIGNAL(userLeft, userId, userName);
+    void userJoined(const QString& clientId, const QString& userId,
+                    const QString& userName)
+        W_SIGNAL(userJoined, clientId, userId, userName);
+    void userLeft(const QString& clientId, const QString& userId,
+                  const QString& userName)
+        W_SIGNAL(userLeft, clientId, userId, userName);
     void connectionStateChanged(CollabConnectionState state)
         W_SIGNAL(connectionStateChanged, state);
     void protocolError(const QString& message)

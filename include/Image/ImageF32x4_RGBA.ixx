@@ -120,8 +120,11 @@ export namespace ArtifactCore {
 
   // 演算子
   ImageF32x4_RGBA& operator=(const ImageF32x4_RGBA& other);
-  ImageF32x4_RGBA(ImageF32x4_RGBA&&) noexcept = default;
-  ImageF32x4_RGBA& operator=(ImageF32x4_RGBA&&) noexcept = default;
+  // Move transfers impl_ ownership; the moved-from image keeps a fresh
+  // empty Impl so it stays usable (a defaulted move would shallow-copy
+  // impl_ and double-delete).
+  ImageF32x4_RGBA(ImageF32x4_RGBA&& other) noexcept;
+  ImageF32x4_RGBA& operator=(ImageF32x4_RGBA&& other) noexcept;
 
  private:
   class Impl;

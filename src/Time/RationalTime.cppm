@@ -2,6 +2,8 @@ module;
 #include <utility>
 #include <cmath>
 #include <cstdint>
+#include <limits>
+#include <optional>
 
 module Time.Rational;
 
@@ -12,6 +14,25 @@ std::uint64_t unsignedMagnitude(std::int64_t value) {
  return value < 0
   ? static_cast<std::uint64_t>(-(value + 1)) + 1u
   : static_cast<std::uint64_t>(value);
+}
+
+// Exact signed arithmetic with portable overflow detection.
+constexpr std::optional<std::int64_t> checkedAdd(std::int64_t a, std::int64_t b) {
+ if ((b > 0 && a > std::numeric_limits<std::int64_t>::max() - b) ||
+     (b < 0 && a < std::numeric_limits<std::int64_t>::min() - b)) {
+  return std::nullopt;
+ }
+ return a + b;
+}
+
+constexpr std::optional<std::int64_t> checkedMul(std::int64_t a, std::int64_t b) {
+ if (a == 0 || b == 0) return std::int64_t{0};
+ constexpr std::int64_t minValue = std::numeric_limits<std::int64_t>::min();
+ if (a == -1 && b == minValue) return std::nullopt;
+ if (b == -1 && a == minValue) return std::nullopt;
+ const std::int64_t product = a * b;
+ if (product / b != a) return std::nullopt;
+ return product;
 }
 
 struct ReducedTime {
@@ -82,6 +103,18 @@ static int64_t lcm(int64_t a, int64_t b) {
  return std::abs(a) / gcd(a, b) * std::abs(b);
 }
 
+static constexpr std::optional<int64_t> checkedNegate(int64_t value) {
+ if (value == std::numeric_limits<int64_t>::min()) return std::nullopt;
+ return -value;
+}
+
+// Smallest same-value fraction; keeps later scale products small.
+static std::pair<int64_t, int64_t> reducedFraction(int64_t value, int64_t scale) {
+ const int64_t divisor = gcd(value, scale);
+ if (divisor <= 1) return {value, scale};
+ return {value / divisor, scale / divisor};
+}
+
 class RationalTime::Impl {
 private:
 public:
@@ -147,7 +180,19 @@ double RationalTime::toDouble() const
 int64_t RationalTime::rescaledTo(int64_t newScale) const
 {
  if (impl_->scale_ == 0 || newScale == 0) return 0;
- return (impl_->value_ * newScale) / impl_->scale_;
+ const std::optional<int64_t> scaled = checkedMul(impl_->value_, newScale);
+ if (!scaled.has_value()) {
+  // Extreme magnitudes degrade to double rounding instead of wrapping.
+  return static_cast<int64_t>(std::llround(
+      static_cast<double>(impl_->value_) * static_cast<double>(newScale) /
+      static_cast<double>(impl_->scale_)));
+ }
+ const int64_t numerator = *scaled;
+ const int64_t denominator = impl_->scale_;
+ // Round half away from zero so cross-rate conversions stay symmetric.
+ return numerator >= 0
+            ? (numerator + denominator / 2) / denominator
+            : -((-numerator + denominator / 2) / denominator);
 }
 
 int64_t RationalTime::toFrameCount(int64_t fps) const
@@ -160,24 +205,58 @@ int64_t RationalTime::toFrameCount(int64_t fps) const
 
 RationalTime RationalTime::operator+(const RationalTime& other) const
 {
- if (impl_->scale_ == other.impl_->scale_) {
-  return RationalTime(impl_->value_ + other.impl_->value_, impl_->scale_);
+ const auto [v1, s1] = reducedFraction(impl_->value_, impl_->scale_);
+ const auto [v2, s2] = reducedFraction(other.impl_->value_, other.impl_->scale_);
+ if (s1 == s2) {
+  const std::optional<int64_t> sum = checkedAdd(v1, v2);
+  if (sum.has_value()) {
+   return RationalTime(*sum, s1);
+  }
+  return fromSeconds(toSeconds() + other.toSeconds());
  }
- const int64_t commonScale = lcm(impl_->scale_, other.impl_->scale_);
- const int64_t thisValue = impl_->value_ * (commonScale / impl_->scale_);
- const int64_t otherValue = other.impl_->value_ * (commonScale / other.impl_->scale_);
- return RationalTime(thisValue + otherValue, commonScale);
+ const int64_t commonScale = lcm(s1, s2);
+ if (commonScale == 0) {
+  return fromSeconds(toSeconds() + other.toSeconds());
+ }
+ const std::optional<int64_t> scaledThis = checkedMul(v1, commonScale / s1);
+ const std::optional<int64_t> scaledOther = checkedMul(v2, commonScale / s2);
+ const std::optional<int64_t> sum =
+     scaledThis && scaledOther ? checkedAdd(*scaledThis, *scaledOther) : std::nullopt;
+ if (sum.has_value()) {
+  return RationalTime(*sum, commonScale);
+ }
+ // Extreme magnitudes degrade to double precision instead of wrapping.
+ return fromSeconds(toSeconds() + other.toSeconds());
 }
 
 RationalTime RationalTime::operator-(const RationalTime& other) const
 {
- if (impl_->scale_ == other.impl_->scale_) {
-  return RationalTime(impl_->value_ - other.impl_->value_, impl_->scale_);
+ const auto [v1, s1] = reducedFraction(impl_->value_, impl_->scale_);
+ const auto [v2, s2] = reducedFraction(other.impl_->value_, other.impl_->scale_);
+ if (s1 == s2) {
+  const std::optional<int64_t> negated = checkedNegate(v2);
+  const std::optional<int64_t> difference =
+      negated ? checkedAdd(v1, *negated) : std::nullopt;
+  if (difference.has_value()) {
+   return RationalTime(*difference, s1);
+  }
+  return fromSeconds(toSeconds() - other.toSeconds());
  }
- const int64_t commonScale = lcm(impl_->scale_, other.impl_->scale_);
- const int64_t thisValue = impl_->value_ * (commonScale / impl_->scale_);
- const int64_t otherValue = other.impl_->value_ * (commonScale / other.impl_->scale_);
- return RationalTime(thisValue - otherValue, commonScale);
+ const int64_t commonScale = lcm(s1, s2);
+ if (commonScale == 0) {
+  return fromSeconds(toSeconds() - other.toSeconds());
+ }
+ const std::optional<int64_t> scaledThis = checkedMul(v1, commonScale / s1);
+ const std::optional<int64_t> scaledOther = checkedMul(v2, commonScale / s2);
+ std::optional<int64_t> difference;
+ if (scaledThis && scaledOther) {
+  const std::optional<int64_t> negatedOther = checkedNegate(*scaledOther);
+  difference = negatedOther ? checkedAdd(*scaledThis, *negatedOther) : std::nullopt;
+ }
+ if (difference.has_value()) {
+  return RationalTime(*difference, commonScale);
+ }
+ return fromSeconds(toSeconds() - other.toSeconds());
 }
 
 bool RationalTime::operator<(const RationalTime& other) const

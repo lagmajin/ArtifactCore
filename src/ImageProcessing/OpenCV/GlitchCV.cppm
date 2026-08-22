@@ -1,12 +1,12 @@
 module;
 #include <utility>
-#include <random>
 #include <cmath>
 #include <algorithm>
 #include <opencv2/opencv.hpp>
 module ImageProcessing.GlitchCV;
 
 import Core.Parallel;
+import Math.Random;
 
 namespace ArtifactCore {
 
@@ -14,18 +14,17 @@ cv::Mat glitchEffect(const cv::Mat& input, const GlitchParams& params) {
     if (input.empty()) return input;
 
     cv::Mat result = input.clone();
-    std::mt19937 rng(params.seed);
-    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
-    std::uniform_int_distribution<int> distRow(0, input.rows - 1);
+    auto rng = ArtifactCore::makeRandomStream(
+        static_cast<std::uint64_t>(params.seed));
 
     int blockH = std::max(1, static_cast<int>(params.blockSize));
 
     // 1. Block displacement: randomly shift horizontal strips
     int numBlocks = static_cast<int>(params.intensity * 20.0f);
     for (int b = 0; b < numBlocks; ++b) {
-        int startRow = distRow(rng);
+        int startRow = rng.rangeInclusive(0, input.rows - 1);
         int height = std::min(blockH, input.rows - startRow);
-        int shift = static_cast<int>((dist01(rng) - 0.5f) * params.intensity * input.cols * 0.1f);
+        int shift = static_cast<int>((rng.unitFloat() - 0.5f) * params.intensity * input.cols * 0.1f);
 
         if (shift == 0 || height <= 0) continue;
 

@@ -7,6 +7,7 @@ module;
 #include <cmath>
 #include <limits>
 #include <random>
+#include <mutex>
 
 export module Math.Random;
 
@@ -192,76 +193,93 @@ public:
         return rng;
     }
 
+    // All methods are mutex-guarded: the global stream is shared across
+    // threads by design. Use forked RandomStream instances for lock-free
+    // per-thread determinism.
     void seed(uint64_t seedValue)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         stream_.seed(seedValue);
     }
 
     uint64_t nextU64()
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.nextU64();
     }
 
     float float01()
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.unitFloat();
     }
 
     float floatRange(float minValue, float maxValue)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.range(minValue, maxValue);
     }
 
     int intRange(int minValue, int maxValue)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.rangeInclusive(minValue, maxValue);
     }
 
     bool coin(float probability = 0.5f)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.chance(probability);
     }
 
     float gaussian()
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.gaussian();
     }
 
     float gaussian(float mean, float stddev)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.gaussian(mean, stddev);
     }
 
     float2 jitter2D(float magnitude)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.jitter2D(magnitude);
     }
 
     float3 jitter3D(float magnitude)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.jitter3D(magnitude);
     }
 
     template <typename T>
     const T& pick(const std::vector<T>& values)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.pick(values);
     }
 
     template <typename T, size_t N>
     const T& pick(const std::array<T, N>& values)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_.pick(values);
     }
 
     template <typename T>
     void shuffle(std::vector<T>& values)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         stream_.shuffle(values);
     }
 
     RandomStream stream() const
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return stream_;
     }
 
@@ -272,6 +290,7 @@ private:
     }
 
     RandomStream stream_;
+    mutable std::mutex mutex_;
 
     static uint64_t entropySeed()
     {

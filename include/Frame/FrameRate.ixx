@@ -49,12 +49,14 @@ export namespace ArtifactCore {
  enum class eFamousFrameRate {
   fps15_0,
   fps_24_0,
-  fps29_7,
+  fps23_976,
+  fps29_97,
   fps30_0,
+  fps59_94,
   fps60_0,
  };
 
-	
+
  class LIBRARY_DLL_API FrameRate final {
  private:
   class Impl;
@@ -68,6 +70,16 @@ export namespace ArtifactCore {
   virtual ~FrameRate();
   float framerate() const;
   void setFrameRate(float frame = 30.0f);
+
+  // Exact rational rate (e.g. 30000/1001). When set, framerate() reports the
+  // converted value and timecode/rate math can avoid float drift.
+  static FrameRate fromRational(std::int64_t numerator, std::int64_t denominator);
+  void setRationalRate(std::int64_t numerator, std::int64_t denominator);
+  std::int64_t numerator() const;
+  std::int64_t denominator() const;
+  bool hasExactRational() const;
+  double exactFps() const;
+
   UniString toString() const;
   void setFromString(const QString& framerate);
   bool hasDropframe() const;

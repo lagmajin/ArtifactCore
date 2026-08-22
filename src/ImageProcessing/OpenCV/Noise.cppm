@@ -1,12 +1,13 @@
 module;
 #include <utility>
-#include <random>
+#include <chrono>
 #include <cmath>
 #include <vector>
 #include <opencv2/opencv.hpp>
 module Noise;
 
 import Core.Parallel;
+import Math.Random;
 
 namespace ArtifactCore {
 
@@ -24,9 +25,13 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
     cv::Mat result = src.clone();
     int ch = src.channels();
 
-    std::mt19937 rng(seed >= 0 ? seed : std::random_device{}());
-    std::normal_distribution<float> gaussian(0.0f, amount);
-    std::uniform_real_distribution<float> uniform(-amount, amount);
+    const std::uint64_t effectiveSeed =
+        seed >= 0 ? static_cast<std::uint64_t>(seed)
+                  : ArtifactCore::RandomStream::mix(static_cast<std::uint64_t>(
+                        std::chrono::steady_clock::now()
+                            .time_since_epoch()
+                            .count()));
+    auto rng = ArtifactCore::makeRandomStream(effectiveSeed);
 
     switch (type) {
         case NoiseType::Gaussian: {
@@ -35,7 +40,7 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
                 for (int y = 0; y < src.rows; ++y) {
                     float* noiseRow = noiseMono.ptr<float>(y);
                     for (int x = 0; x < src.cols; ++x) {
-                        noiseRow[x] = gaussian(rng);
+                        noiseRow[x] = rng.gaussian(0.0f, amount);
                     }
                 }
                 Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
@@ -65,7 +70,7 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
             float prob = amount * 0.05f;
             std::vector<float> randomValues(static_cast<size_t>(src.rows) * static_cast<size_t>(src.cols));
             for (float& value : randomValues) {
-                value = uniform(rng) + amount;
+                value = rng.range(-amount, amount) + amount;
             }
             Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
                 float* resultRow = result.ptr<float>(y);
@@ -100,7 +105,7 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
                                     static_cast<size_t>(src.cols) *
                                     static_cast<size_t>(ch));
                 for (float& value : randomValues) {
-                    value = uniform(rng);
+                    value = rng.range(-amount, amount);
                 }
             }
             Parallel::For(0, src.rows, src.rows * src.cols, [&](int y) {
@@ -136,10 +141,10 @@ cv::Mat addNoise(const cv::Mat& input, NoiseType type, float amount, bool monoch
             const size_t randomStride = monochrome ? 1ull : 1ull + channelCount;
             std::vector<float> randomValues(pixelCount * randomStride);
             for (size_t pixel = 0; pixel < pixelCount; ++pixel) {
-                randomValues[pixel * randomStride] = gaussian(rng);
+                randomValues[pixel * randomStride] = rng.gaussian(0.0f, amount);
                 if (!monochrome) {
                     for (size_t c = 0; c < channelCount; ++c) {
-                        randomValues[pixel * randomStride + 1ull + c] = gaussian(rng);
+                        randomValues[pixel * randomStride + 1ull + c] = rng.gaussian(0.0f, amount);
                     }
                 }
             }

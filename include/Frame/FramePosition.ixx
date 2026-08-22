@@ -32,59 +32,72 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
+#include <QHashFunctions>
 #include <QString>
 #include <wobjectdefs.h>
 export module Frame.Position;
 
+import Frame.Rate;
+import Time.Rational;
+
 export namespace ArtifactCore {
 
- 
-
  class LIBRARY_DLL_API FramePosition final {
- private:
-  class Impl;
-  Impl* impl_;
- public:
-  FramePosition();
-  explicit FramePosition(int framePosition=0);
-  FramePosition(const FramePosition& other);
-  FramePosition(FramePosition&& other) noexcept;
-  ~FramePosition();
+  private:
+   class Impl;
+   Impl* impl_;
+  public:
+   FramePosition();
+   explicit FramePosition(int framePosition=0);
+   FramePosition(const FramePosition& other);
+   FramePosition(FramePosition&& other) noexcept;
+   ~FramePosition();
 
-  int64_t framePosition() const;
+   int64_t framePosition() const;
 
-  bool isValid() const;
-  bool isNegative() const;
+   bool isValid() const;
+   bool isNegative() const;
 
-  double toSeconds(double fps) const;
-  static FramePosition fromSeconds(double seconds, double fps);
+   double toSeconds(double fps) const;
+   static FramePosition fromSeconds(double seconds, double fps);
 
-  static FramePosition min();
-  static FramePosition max();
+   // Rational-time conversions honoring an exact rational frame rate when
+   // available. Falls back to the rounded nominal fps otherwise.
+   RationalTime toRationalTime(const FrameRate& rate) const;
+   static FramePosition fromRationalTime(const RationalTime& rationalTime,
+                                         const FrameRate& rate);
 
-  FramePosition& operator=(int64_t frame) noexcept;
-  FramePosition& operator=(const FramePosition& other);
-  FramePosition& operator=(FramePosition&& other) noexcept;
+   static FramePosition min();
+   static FramePosition max();
 
-  FramePosition operator+(int64_t frames) const;
-  FramePosition operator-(int64_t frames) const;
-  FramePosition& operator+=(int64_t frames);
-  FramePosition& operator-=(int64_t frames);
+   FramePosition& operator=(int64_t frame) noexcept;
+   FramePosition& operator=(const FramePosition& other);
+   FramePosition& operator=(FramePosition&& other) noexcept;
 
-  int64_t operator-(const FramePosition& other) const;
+   FramePosition operator+(int64_t frames) const;
+   FramePosition operator-(int64_t frames) const;
+   FramePosition& operator+=(int64_t frames);
+   FramePosition& operator-=(int64_t frames);
 
- public: // Verdigris registration for usage in signals/slots
-  // Register this type name so W_REGISTER_ARGTYPE can be applied where needed
-  // (no-op here, kept to satisfy header parsing)
+   int64_t operator-(const FramePosition& other) const;
 
-  // 比較
-  bool operator==(const FramePosition&) const;
-  bool operator!=(const FramePosition&) const;
-  bool operator<(const FramePosition&) const;
-  bool operator<=(const FramePosition&) const;
-  bool operator>(const FramePosition&) const;
-  bool operator>=(const FramePosition&) const;
- };
+  public: // Verdigris registration for usage in signals/slots
+   // Register this type name so W_REGISTER_ARGTYPE can be applied where needed
+   // (no-op here, kept to satisfy header parsing)
 
+   // 比較
+   bool operator==(const FramePosition&) const;
+   bool operator!=(const FramePosition&) const;
+   bool operator<(const FramePosition&) const;
+   bool operator<=(const FramePosition&) const;
+   bool operator>(const FramePosition&) const;
+   bool operator>=(const FramePosition&) const;
+  };
+
+ inline std::size_t qHash(const FramePosition& position,
+                          std::size_t seed = 0) noexcept
+ {
+  return qHashMulti(seed, position.framePosition());
+ }
 
 };

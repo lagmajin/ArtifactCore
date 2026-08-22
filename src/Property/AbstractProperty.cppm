@@ -396,7 +396,8 @@ bool AbstractProperty::hasExpression() const {
     return !pImpl->m_expression.isEmpty();
 }
 
-QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator) const {
+QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator,
+                                         std::optional<int> layerIndex) const {
     {
         std::shared_lock lock(pImpl->m_mutex);
         if (pImpl->m_hasExternalOverride) {
@@ -490,6 +491,9 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
             evaluator->setVariable("value", qvariantToExpressionValue(baseValue, propertyType));
             evaluator->setVariable("time", ExpressionValue(time.toDouble()));
             evaluator->setVariable("frameRate", ExpressionValue(frameRate));
+            if (layerIndex.has_value()) {
+                evaluator->setVariable("index", ExpressionValue(static_cast<double>(*layerIndex)));
+            }
 
             // Provide the keyframe context consumed by AE-style loop functions.
             // Keep this as evaluator variables so the expression API remains

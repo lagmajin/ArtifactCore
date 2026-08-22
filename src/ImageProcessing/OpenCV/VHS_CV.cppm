@@ -1,11 +1,11 @@
 module;
 #include <utility>
-#include <random>
 #include <cmath>
 #include <opencv2/opencv.hpp>
 module VHS_CV;
 
 import Core.Parallel;
+import Math.Random;
 
 namespace ArtifactCore {
 
@@ -20,8 +20,8 @@ cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
     }
 
     cv::Mat result = src.clone();
-    std::mt19937 rng(params.seed);
-    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+    auto rng = ArtifactCore::makeRandomStream(
+        static_cast<std::uint64_t>(params.seed));
 
     // 1. Color bleed: blur chroma channels (YCrCb space)
     if (params.colorBleed > 0.0f) {
@@ -93,12 +93,12 @@ cv::Mat vhsEffect(const cv::Mat& input, const VHSParams& params) {
         cv::Mat wobbled = result.clone();
         std::vector<int> shifts(result.rows, 0);
         for (int y = 0; y < result.rows; ++y) {
-            float wobbleOffset = std::sin(y * 0.03f + dist01(rng) * 6.28f) * params.wobble * 3.0f;
+            float wobbleOffset = std::sin(y * 0.03f + rng.unitFloat() * 6.28f) * params.wobble * 3.0f;
             float trackingOffset = 0.0f;
 
             // Random tracking error bands
-            if (dist01(rng) < params.trackingError * 0.05f) {
-                trackingOffset = (dist01(rng) - 0.5f) * params.trackingError * 30.0f;
+            if (rng.unitFloat() < params.trackingError * 0.05f) {
+                trackingOffset = (rng.unitFloat() - 0.5f) * params.trackingError * 30.0f;
             }
 
             shifts[y] = static_cast<int>(wobbleOffset + trackingOffset);

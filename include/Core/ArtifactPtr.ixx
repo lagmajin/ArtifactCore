@@ -6,6 +6,7 @@ module;
 export module Core.ArtifactPtr;
 
 import Core.ArtifactOptional;
+import Core.ArtifactUtility;
 
 export namespace ArtifactCore {
 
@@ -163,5 +164,49 @@ private:
     detail::RefCount* refs_ = nullptr;
     void release() { if (refs_) { --refs_->weak; if (refs_->weak == 0 && refs_->strong <= 0) delete refs_; } }
 };
+
+/// Exclusive owning pointer (std::unique_ptr replacement). Movable, not
+/// copyable; array support is intentionally omitted.
+template <typename T>
+class UniquePtr {
+public:
+    UniquePtr() noexcept = default;
+    explicit UniquePtr(T* raw) noexcept : ptr_(raw) {}
+    UniquePtr(UniquePtr&& other) noexcept : ptr_(other.ptr_) { other.ptr_ = nullptr; }
+    UniquePtr& operator=(UniquePtr&& other) noexcept {
+        if (this == &other) return *this;
+        reset(other.take());
+        return *this;
+    }
+    ~UniquePtr() { reset(); }
+
+    UniquePtr(const UniquePtr&) = delete;
+    UniquePtr& operator=(const UniquePtr&) = delete;
+
+    T* get() const noexcept { return ptr_; }
+    T& operator*() const noexcept { return *ptr_; }
+    T* operator->() const noexcept { return ptr_; }
+    explicit operator bool() const noexcept { return ptr_ != nullptr; }
+
+    T* take() noexcept { T* p = ptr_; ptr_ = nullptr; return p; }
+    void reset(T* raw = nullptr) noexcept {
+        T* old = ptr_;
+        ptr_ = raw;
+        delete old;
+    }
+    void swap(UniquePtr& other) noexcept {
+        T* tmp = ptr_;
+        ptr_ = other.ptr_;
+        other.ptr_ = tmp;
+    }
+
+private:
+    T* ptr_ = nullptr;
+};
+
+template <typename T, typename... Args>
+UniquePtr<T> makeUnique(Args&&... args) {
+    return UniquePtr<T>(new T(ArtifactCore::artifactForward<Args>(args)...));
+}
 
 } // namespace ArtifactCore

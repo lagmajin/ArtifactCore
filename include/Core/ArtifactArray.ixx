@@ -66,6 +66,10 @@ public:
     // --- Safe access ---
     Optional<T&> at(size_t i) { return (i < size_) ? Optional<T&>(data_[i]) : Nullopt; }
     Optional<const T&> at(size_t i) const { return (i < size_) ? Optional<const T&>(data_[i]) : Nullopt; }
+
+    // Unchecked element access for hot loops; bounds-checked access is `at`.
+    T& operator[](size_t index) noexcept { return data_[index]; }
+    const T& operator[](size_t index) const noexcept { return data_[index]; }
     T value(size_t i, const T& fallback) const { return (i < size_) ? data_[i] : fallback; }
     Optional<T&> first() { return at(0); }
     Optional<T&> last() { return size_ > 0 ? Optional<T&>(data_[size_ - 1]) : Nullopt; }
@@ -208,5 +212,28 @@ private:
 
 template <typename T>
 using ArtifactArray = Array<T>;
+
+// std::array replacement — fixed capacity, aggregate, constexpr-friendly.
+template <typename T, std::size_t N>
+struct StaticArray {
+    T elements[N]{};
+
+    constexpr T* begin() noexcept { return elements; }
+    constexpr T* end() noexcept { return elements + N; }
+    constexpr const T* begin() const noexcept { return elements; }
+    constexpr const T* end() const noexcept { return elements + N; }
+    static constexpr std::size_t size() noexcept { return N; }
+    static constexpr bool isEmpty() noexcept { return N == 0; }
+
+    constexpr T& operator[](std::size_t index) noexcept { return elements[index]; }
+    constexpr const T& operator[](std::size_t index) const noexcept { return elements[index]; }
+
+    constexpr void fill(const T& value) {
+        for (auto& element : elements) element = value;
+    }
+};
+
+template <typename T, std::size_t N>
+using ArtifactStaticArray = StaticArray<T, N>;
 
 } // namespace ArtifactCore

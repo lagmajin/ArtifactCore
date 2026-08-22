@@ -160,6 +160,22 @@ namespace ArtifactCore {
 
  }
 
+ ImageF32x4_RGBA::ImageF32x4_RGBA(ImageF32x4_RGBA&& other) noexcept
+  : impl_(other.impl_)
+ {
+  other.impl_ = new Impl();
+ }
+
+ ImageF32x4_RGBA& ImageF32x4_RGBA::operator=(ImageF32x4_RGBA&& other) noexcept
+ {
+  if (this != &other) {
+   delete impl_;
+   impl_ = other.impl_;
+   other.impl_ = new Impl();
+  }
+  return *this;
+ }
+
   void ImageF32x4_RGBA::fill(const FloatRGBA& rgba)
   {
    cv::Vec4f color(rgba.r(), rgba.g(), rgba.b(), rgba.a());

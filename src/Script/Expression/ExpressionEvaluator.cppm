@@ -582,11 +582,15 @@ void ExpressionEvaluator::registerStandardFunctions() {
   registerFunction("framesToTime", FramesToTime);
   registerFunction("random", Random);
   registerFunction("randomSeeded", RandomSeeded);
+  // AE alias: seedRandom(seed, ...) seeds the deterministic generator; the
+  // shared implementation already mixes the seed with evaluation time.
+  registerFunction("seedRandom", RandomSeeded);
   registerFunction("noise", Noise);
   registerFunction("sum", Sum);
   registerFunction("average", Average);
   registerFunction("wiggle", Wiggle);
   registerFunction("smooth", Smooth);
+  registerFunction("posterizeTime", PosterizeTime);
 
   // Audio
   registerFunction("audio_rms", AudioRMS);
@@ -1155,6 +1159,20 @@ ExpressionValue Noise(const std::vector<ExpressionValue> &args, const Expression
   double z = args.size() > 2 ? args[2].asNumber() : 0.0;
   float val = NoiseGenerator::perlin(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
   return ExpressionValue(static_cast<double>(val));
+}
+
+// AE posterizeTime(fps): quantizes the evaluation time so downstream
+// time-driven functions (wiggle, random, valueAtTime...) step at the given
+// rate instead of moving smoothly. Returns the quantized time in seconds.
+ExpressionValue PosterizeTime(const std::vector<ExpressionValue>& args,
+                              const ExpressionEvaluator* ctx) {
+  if (args.empty()) return ExpressionValue(0.0);
+  const double fps = args[0].asNumber();
+  const double now = ctx ? ctx->getVariable("time").asNumber() : 0.0;
+  if (!std::isfinite(fps) || fps <= 0.0 || !std::isfinite(now)) {
+    return ExpressionValue(now);
+  }
+  return ExpressionValue(std::floor(now * fps) / fps);
 }
 
 ExpressionValue RandomSeeded(const std::vector<ExpressionValue>& args,

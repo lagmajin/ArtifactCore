@@ -15,3 +15,9 @@ export import Core.ArtifactSpan;
 export import Core.ArtifactVariant;
 export import Core.ArtifactThread;  // Mutex, Lock, Cond, Thread
 export import Core.ArtifactCallback; // Callback<Signature>, Action
+export import Core.ArtifactUtility; // artifactMove/Forward/Exchange/BitCast/Cmp*
+export import Core.ArtifactMath;    // artifactMax/Min/Clamp/Abs/IsFinite/...
+export import Core.ArtifactAlgorithms; // artifactSort/Find/Fill/LowerBound/...
+export import Core.ArtifactTuple;   // Tuple<Ts...>, artifactGet<I>, artifactMakeTuple
+export import Core.ArtifactChrono;  // Duration, SteadyClock, Stopwatch
+export import Core.ArtifactRegex;   // ArtifactRegex, RegexMatch

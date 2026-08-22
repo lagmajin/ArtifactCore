@@ -169,7 +169,7 @@ struct ArtifactScriptExpr {
 };
 
 struct ArtifactScriptStmt {
-    enum class Kind { Expr, Assign, If, Return, Block, Decl, While, For };
+    enum class Kind { Expr, Assign, If, Return, Block, Decl, While, For, Break, Continue };
     Kind kind = Kind::Expr;
 
     // Expr
@@ -179,6 +179,8 @@ struct ArtifactScriptStmt {
     std::string assignTarget;
     ArtifactScriptExprPtr assignValue;
     ArtifactScriptExprPtr assignIndex;
+    // Compound assignment operator (e.g. "+="); empty for plain "=".
+    std::string assignOp;
 
     // If
     ArtifactScriptExprPtr ifCond;
@@ -272,13 +274,20 @@ public:
     const ArtifactScriptComponent* boundComponent() const;
     bool hasMethod(std::string_view name) const;
     bool hasHook(ArtifactScriptHook hook) const;
+    // Runs the hook body through the evaluator. Returns false when the hook
+    // is missing or the script raised an error (see lastError()).
     bool invokeHook(ArtifactScriptHook hook);
     bool wasHookInvoked(ArtifactScriptHook hook) const;
+    ArtifactScriptSerializedFields& fields();
+    const ArtifactScriptSerializedFields& fields() const;
+    std::string lastError() const;
 
 private:
     ArtifactScriptDefinition definition_;
     const ArtifactScriptComponent* component_ = nullptr;
     Optional<ArtifactScriptHook> lastInvokedHook_;
+    ArtifactScriptSerializedFields fields_;
+    std::string lastHookError_;
 };
 
 // ─── Evaluator ───

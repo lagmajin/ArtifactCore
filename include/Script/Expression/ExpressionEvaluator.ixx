@@ -203,6 +203,11 @@ export namespace BuiltinFunctions {
     ExpressionValue Noise(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Wiggle(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue Smooth(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+
+    // AE time helpers
+    // posterizeTime(fps): quantizes the evaluation time to whole frames of
+    // `fps`, producing the stepped look of low-framerate sources.
+    ExpressionValue PosterizeTime(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     
     // Array functions
     ExpressionValue Sum(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);

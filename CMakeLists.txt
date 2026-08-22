@@ -2997,6 +2997,10 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_NETWORK_IMPL})
 
 set(ARTIFACTCORE_COLLABORATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationProtocol.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationSession.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollabReview.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollabOperations.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationSessionAdapter.cppm"
 )
 set(ARTIFACTCORE_COLLABORATE_IMPL)
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COLLABORATE_MODULES})
@@ -5084,7 +5088,7 @@ else()
     set_property(TARGET ArtifactCoreCollaborate PROPERTY CXX_MODULE_STD OFF)
 endif()
 target_sources(ArtifactCoreCollaborate PRIVATE ${ARTIFACTCORE_COLLABORATE_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_COLLABORATE_MODULES})
-target_link_libraries(ArtifactCoreCollaborate PUBLIC ArtifactCore)
+target_link_libraries(ArtifactCoreCollaborate PUBLIC ArtifactCore ArtifactCoreNetwork)
 target_include_directories(ArtifactCoreCollaborate PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
 
 add_library(ArtifactCoreGenerate STATIC)

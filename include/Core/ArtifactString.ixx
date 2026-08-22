@@ -10,6 +10,8 @@ module;
 
 export module Core.ArtifactString;
 
+import Core.ArtifactArray;
+
 export namespace ArtifactCore {
 
 class StringView {
@@ -364,6 +366,88 @@ inline std::string toStdString(std::string_view s) {
 
 inline std::string toStdString(const char* s) {
     return s ? std::string(s) : std::string();
+}
+
+// ---- ASCII text helpers (self-contained; no locale dependency) ----
+
+inline bool asciiIsSpace(const char c) noexcept {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
+}
+
+inline char asciiLowerChar(const char c) noexcept {
+    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ('a' - 'A')) : c;
+}
+
+inline char asciiUpperChar(const char c) noexcept {
+    return (c >= 'a' && c <= 'z') ? static_cast<char>(c - ('a' - 'A')) : c;
+}
+
+[[nodiscard]] inline String asciiLower(StringView s) {
+    String out;
+    out.reserve(s.length());
+    for (const char c : s) out += asciiLowerChar(c);
+    return out;
+}
+
+[[nodiscard]] inline String asciiUpper(StringView s) {
+    String out;
+    out.reserve(s.length());
+    for (const char c : s) out += asciiUpperChar(c);
+    return out;
+}
+
+[[nodiscard]] inline String asciiTrimmed(StringView s) {
+    size_t begin = 0;
+    size_t end = s.length();
+    while (begin < end && asciiIsSpace(s.at(begin))) ++begin;
+    while (end > begin && asciiIsSpace(s.at(end - 1))) --end;
+    return String(s.data() + begin, end - begin);
+}
+
+[[nodiscard]] inline bool asciiStartsWith(StringView s, StringView prefix) noexcept {
+    if (prefix.length() > s.length()) return false;
+    for (size_t i = 0; i < prefix.length(); ++i) {
+        if (s.at(i) != prefix.at(i)) return false;
+    }
+    return true;
+}
+
+[[nodiscard]] inline bool asciiEndsWith(StringView s, StringView suffix) noexcept {
+    if (suffix.length() > s.length()) return false;
+    const size_t offset = s.length() - suffix.length();
+    for (size_t i = 0; i < suffix.length(); ++i) {
+        if (s.at(offset + i) != suffix.at(i)) return false;
+    }
+    return true;
+}
+
+// Splits on a single-character delimiter. Empty segments between adjacent
+// delimiters are preserved; the output is never empty for any input.
+[[nodiscard]] inline Array<String> asciiSplit(StringView s, const char delimiter) {
+    Array<String> parts;
+    size_t start = 0;
+    for (size_t i = 0; i <= s.length(); ++i) {
+        if (i == s.length() || s.at(i) == delimiter) {
+            parts.append(String(s.data() + start, i - start));
+            start = i + 1;
+        }
+    }
+    return parts;
+}
+
+[[nodiscard]] inline String asciiJoin(const Array<String>& parts, StringView separator) {
+    String out;
+    size_t total = 0;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        total += parts[i].length();
+        if (i + 1 < parts.size()) total += separator.length();
+    }
+    out.reserve(total);
+    for (size_t i = 0; i < parts.size(); ++i) {
+        out += parts[i];
+        if (i + 1 < parts.size()) out += separator;
+    }
+    return out;
 }
 
 using ZeroString = String;

@@ -2,6 +2,7 @@ module;
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -18,6 +19,7 @@ module;
 module Animation.KeyframeEditingTools;
 
 import Container.NamedVector;
+import Math.Random;
 
 namespace ArtifactCore {
 
@@ -177,13 +179,14 @@ bool KeyframeEditingTools::randomize(
     if (keyframes.empty() || !std::isfinite(request.amplitude) ||
         request.amplitude == 0.0) return false;
 
-    std::mt19937 rng(request.seed != 0
-        ? static_cast<std::mt19937::result_type>(request.seed)
-        : std::mt19937::result_type{std::random_device{}()});
-    std::normal_distribution<double> dist(0.0, std::abs(request.amplitude));
+    auto rng = ArtifactCore::makeRandomStream(
+        request.seed != 0
+            ? static_cast<std::uint64_t>(request.seed)
+            : static_cast<std::uint64_t>(
+                  std::chrono::steady_clock::now().time_since_epoch().count()));
 
     for (auto& kf : keyframes) {
-        kf.value += dist(rng);
+        kf.value += rng.gaussian(0.0, std::abs(request.amplitude));
     }
     return true;
 }
@@ -626,11 +629,12 @@ private:
         if (name == "log")   return std::log(std::max(1e-10, safe(0)));
         if (name == "exp")   return std::exp(safe(0));
         if (name == "random") {
-            static std::mt19937 rng(static_cast<unsigned>(std::random_device{}()));
+            static ArtifactCore::RandomStream rng(
+                static_cast<std::uint64_t>(
+                    std::chrono::steady_clock::now().time_since_epoch().count()));
             double lo = safe(0), hi = safe(1);
             if (hi <= lo) hi = lo + 1.0;
-            std::uniform_real_distribution<double> d(lo, hi);
-            return d(rng);
+            return rng.range(static_cast<float>(lo), static_cast<float>(hi));
         }
         return 0.0;
     }
