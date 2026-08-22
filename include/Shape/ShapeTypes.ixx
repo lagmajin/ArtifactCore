@@ -140,6 +140,13 @@ struct PathCommand {
     }
 };
 
+/// ストローク配置（パスに対するストロークの描画位置）
+enum class StrokePlacement {
+    Center = 0,   ///< パス中心
+    Inside = 1,   ///< パス内側
+    Outside = 2   ///< パス外側
+};
+
 /// ストローク設定
 struct StrokeSettings {
     bool enabled = true;
@@ -150,31 +157,46 @@ struct StrokeSettings {
     double miterLimit = 4.0;
     double dashOffset = 0.0;
     std::vector<double> dashPattern;  ///< 破線パターン
-    
+    StrokePlacement placement = StrokePlacement::Center;
+    double taperStartScale = 1.0;     ///< 始点側の幅スケール
+    double taperEndScale = 1.0;       ///< 終点側の幅スケール
+
     StrokeSettings() = default;
-    StrokeSettings(const QColor& c, double w) 
+    StrokeSettings(const QColor& c, double w)
         : enabled(true), color(c), width(w) {}
-    
+
     bool isDashed() const { return !dashPattern.empty(); }
+    bool isTapered() const {
+        return taperStartScale != 1.0 || taperEndScale != 1.0;
+    }
 };
 
 /// フィル設定
 struct FillSettings {
     bool enabled = true;
     QColor color = Qt::white;
-    
-    /// グラデーション対応（将来拡張）
+
     enum class FillType {
         Solid,          ///< 単色
         Linear,         ///< 線形グラデーション
         Radial,         ///< 円形グラデーション
-        Conic           ///< 扇形グラデーション
+        Conic,          ///< 扇形グラデーション（SVG出力は線形近似）
+        Repeating,      ///< 繰り返し線形
+        Mirrored        ///< 反復線形
     };
     FillType type = FillType::Solid;
-    
+    QColor gradientStart = QColor(255, 255, 255);
+    QColor gradientEnd = QColor(0, 0, 0);
+    double gradientAngleDegrees = 90.0;
+    double gradientCenterX = 0.5;   ///< objectBoundingBox 相対 (0-1)
+    double gradientCenterY = 0.5;
+    double gradientRadiusRatio = 0.5;
+
     FillSettings() = default;
     explicit FillSettings(const QColor& c) : enabled(true), color(c) {}
+    bool isGradient() const { return type != FillType::Solid; }
 };
+
 
 /// トランスフォーム設定
 struct ShapeTransform {

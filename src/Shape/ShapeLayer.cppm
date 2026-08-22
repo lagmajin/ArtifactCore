@@ -18,6 +18,7 @@ class tst_QList;
 #include <QRegularExpression>
 #include <algorithm>
 #include <atomic>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -95,12 +96,13 @@ QPen makeStrokePen(const StrokeSettings& stroke)
     return pen;
 }
 
-QString svgStyleString(const FillSettings& fill, const StrokeSettings& stroke)
+void appendStrokeStyleParts(QStringList& parts,
+                            const StrokeSettings& stroke,
+                            const double widthOverride)
 {
-    QStringList parts;
-    parts << QStringLiteral("fill:%1").arg(fill.enabled ? fill.color.name(QColor::HexArgb) : QStringLiteral("none"));
+    const double w = widthOverride > 0.0 ? widthOverride : stroke.width;
     parts << QStringLiteral("stroke:%1").arg(stroke.enabled ? stroke.color.name(QColor::HexArgb) : QStringLiteral("none"));
-    parts << QStringLiteral("stroke-width:%1").arg(stroke.width, 0, 'f', 3);
+    parts << QStringLiteral("stroke-width:%1").arg(w, 0, 'f', 3);
     switch (stroke.cap) {
     case LineCap::Round:
         parts << QStringLiteral("stroke-linecap:round");
@@ -134,7 +136,85 @@ QString svgStyleString(const FillSettings& fill, const StrokeSettings& stroke)
         }
         parts << QStringLiteral("stroke-dasharray:%1").arg(dashParts.join(QStringLiteral(",")));
     }
+}
+
+QString svgStyleString(const FillSettings& fill, const StrokeSettings& stroke)
+{
+    QStringList parts;
+    parts << QStringLiteral("fill:%1").arg(fill.enabled ? fill.color.name(QColor::HexArgb) : QStringLiteral("none"));
+    appendStrokeStyleParts(parts, stroke, -1.0);
     return parts.join(QStringLiteral(";"));
+}
+
+/// SVG gradient defs 収集コンテキスト。
+struct SvgExportContext {
+    QStringList defs;
+    std::map<QString, QString> gradientIds;
+    int nextGradientId = 1;
+};
+
+QString gradientCacheKey(const FillSettings& fill)
+{
+    return QStringLiteral("%1|%2|%3|%4|%5|%6|%7")
+        .arg(static_cast<int>(fill.type))
+        .arg(fill.gradientStart.name(QColor::HexArgb),
+             fill.gradientEnd.name(QColor::HexArgb))
+        .arg(fill.gradientAngleDegrees, 0, 'f', 3)
+        .arg(fill.gradientCenterX, 0, 'f', 4)
+        .arg(fill.gradientCenterY, 0, 'f', 4)
+        .arg(fill.gradientRadiusRatio, 0, 'f', 4);
+}
+
+/// グラデーション fill の <defs> 定義を登録し url(#id) を返す。
+QString gradientFillReference(const FillSettings& fill, SvgExportContext& ctx)
+{
+    const QString key = gradientCacheKey(fill);
+    const auto it = ctx.gradientIds.find(key);
+    if (it != ctx.gradientIds.end()) {
+        return QStringLiteral("url(#%1)").arg(it->second);
+    }
+    const QString id = QStringLiteral("grad%1").arg(ctx.nextGradientId++);
+
+    if (fill.type == FillSettings::FillType::Radial) {
+        ctx.defs << QStringLiteral(
+            "<radialGradient id=\"%1\" cx=\"%2\" cy=\"%3\" r=\"%4\">"
+            "<stop offset=\"0\" stop-color=\"%5\"/>"
+            "<stop offset=\"1\" stop-color=\"%6\"/>"
+            "</radialGradient>\n")
+                     .arg(id,
+                          QString::number(fill.gradientCenterX, 'f', 4),
+                          QString::number(fill.gradientCenterY, 'f', 4),
+                          QString::number(std::max(0.001, fill.gradientRadiusRatio), 'f', 4),
+                          fill.gradientStart.name(QColor::HexArgb),
+                          fill.gradientEnd.name(QColor::HexArgb));
+    } else {
+        // Linear 系。Conic は SVG 標準に無いため線形で近似する。
+        const double rad = fill.gradientAngleDegrees * M_PI / 180.0;
+        const double dx = std::cos(rad) * 0.5;
+        const double dy = std::sin(rad) * 0.5;
+        QString markup = QStringLiteral(
+            "<linearGradient id=\"%1\" x1=\"%2\" y1=\"%3\" x2=\"%4\" y2=\"%5\"")
+                             .arg(id,
+                                  QString::number(0.5 - dx, 'f', 4),
+                                  QString::number(0.5 - dy, 'f', 4),
+                                  QString::number(0.5 + dx, 'f', 4),
+                                  QString::number(0.5 + dy, 'f', 4));
+        if (fill.type == FillSettings::FillType::Repeating) {
+            markup += QStringLiteral(" spreadMethod=\"repeat\"");
+        } else if (fill.type == FillSettings::FillType::Mirrored) {
+            markup += QStringLiteral(" spreadMethod=\"reflect\"");
+        }
+        markup += QStringLiteral(
+            "><stop offset=\"0\" stop-color=\"%1\"/>"
+            "<stop offset=\"1\" stop-color=\"%2\"/>"
+            "</linearGradient>\n")
+                      .arg(fill.gradientStart.name(QColor::HexArgb),
+                           fill.gradientEnd.name(QColor::HexArgb));
+        ctx.defs << markup;
+    }
+
+    ctx.gradientIds.emplace(key, id);
+    return QStringLiteral("url(#%1)").arg(id);
 }
 
 QString shapePathToSvgData(const ShapePath& path)
@@ -441,7 +521,8 @@ void renderElement(QPainter& painter, const ShapeElement& element, const QTransf
     }
 }
 
-QString elementToSvg(const ShapeElement& element, const QTransform& parentMatrix)
+QString elementToSvg(const ShapeElement& element, const QTransform& parentMatrix,
+                     SvgExportContext& ctx)
 {
     const QTransform localMatrix = parentMatrix * shapeTransformMatrix(element.transform());
     if (!element.isVisible()) {
@@ -453,14 +534,65 @@ QString elementToSvg(const ShapeElement& element, const QTransform& parentMatrix
         QPainterPath path = pathShape->toPainterPath();
         path = localMatrix.map(path);
         ShapePath exportPath = ShapePath::fromPainterPath(path);
+        const FillSettings& fill = pathShape->fill();
+        const StrokeSettings& stroke = pathShape->stroke();
+
+        QStringList parts;
+        if (fill.enabled) {
+            if (fill.isGradient()) {
+                parts << QStringLiteral("fill:%1").arg(gradientFillReference(fill, ctx));
+            } else {
+                parts << QStringLiteral("fill:%1").arg(fill.color.name(QColor::HexArgb));
+            }
+        } else {
+            parts << QStringLiteral("fill:none");
+        }
+
+        // Inside/Outside placement and taper cannot be expressed as stroke
+        // attributes; emit the stroked outline as filled geometry instead.
+        const bool needsOutlineStroke =
+            stroke.enabled && stroke.width > 0.0 &&
+            (stroke.placement != StrokePlacement::Center || stroke.isTapered());
+        if (needsOutlineStroke) {
+            QPainterPathStroker stroker;
+            stroker.setWidth(stroke.width * 2.0);
+            switch (stroke.cap) {
+            case LineCap::Round:  stroker.setCapStyle(Qt::RoundCap);  break;
+            case LineCap::Square: stroker.setCapStyle(Qt::SquareCap); break;
+            case LineCap::Butt:
+            default:              stroker.setCapStyle(Qt::FlatCap);   break;
+            }
+            switch (stroke.join) {
+            case LineJoin::Round: stroker.setJoinStyle(Qt::RoundJoin); break;
+            case LineJoin::Bevel: stroker.setJoinStyle(Qt::BevelJoin); break;
+            case LineJoin::Miter:
+            default:
+                stroker.setJoinStyle(Qt::MiterJoin);
+                stroker.setMiterLimit(stroke.miterLimit);
+                break;
+            }
+            QPainterPath outline = stroker.createStroke(path);
+            if (stroke.placement == StrokePlacement::Inside) {
+                outline = outline.intersected(path);
+            } else if (stroke.placement == StrokePlacement::Outside) {
+                outline = outline.subtracted(path);
+            }
+            const ShapePath outlineExport = ShapePath::fromPainterPath(outline);
+            output += QStringLiteral("<!-- stroke placement/taper approximated as outline fill -->\n");
+            output += QStringLiteral("<path d=\"%1\" style=\"fill:%2;stroke:none\" />\n")
+                          .arg(shapePathToSvgData(outlineExport),
+                               stroke.color.name(QColor::HexArgb));
+        } else {
+            appendStrokeStyleParts(parts, stroke, -1.0);
+        }
+
         output += QStringLiteral("<path d=\"%1\" style=\"%2\" />\n")
-                      .arg(shapePathToSvgData(exportPath),
-                           svgStyleString(pathShape->fill(), pathShape->stroke()));
+                      .arg(shapePathToSvgData(exportPath), parts.join(QStringLiteral(";")));
     } else if (const auto* group = dynamic_cast<const ShapeGroup*>(&element)) {
         output += QStringLiteral("<g>\n");
         for (const ShapeElement* child : group->children()) {
             if (child) {
-                output += elementToSvg(*child, localMatrix);
+                output += elementToSvg(*child, localMatrix, ctx);
             }
         }
         output += QStringLiteral("</g>\n");
@@ -687,15 +819,25 @@ ShapeLayer ShapeLayer::clone() const
 
 QString ShapeLayer::toSvg() const
 {
-    QString svg;
-    svg += QStringLiteral("<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">\n");
+    SvgExportContext ctx;
+    QString body;
     if (impl_->root_) {
         for (const ShapeElement* child : impl_->root_->children()) {
             if (child) {
-                svg += elementToSvg(*child, shapeTransformMatrix(impl_->transform_));
+                body += elementToSvg(*child, shapeTransformMatrix(impl_->transform_), ctx);
             }
         }
     }
+    QString svg;
+    svg += QStringLiteral("<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">\n");
+    if (!ctx.defs.isEmpty()) {
+        svg += QStringLiteral("<defs>\n");
+        for (const QString& def : ctx.defs) {
+            svg += def;
+        }
+        svg += QStringLiteral("</defs>\n");
+    }
+    svg += body;
     svg += QStringLiteral("</svg>\n");
     return svg;
 }
