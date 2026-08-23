@@ -92,6 +92,9 @@ namespace ArtifactCore {
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.material.friction = friction;
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
+        auto rb = makeShared<RigidBody2D>();
+        rb->bodyId = bodyId;
+        impl_->bodies.push_back(rb);
     }
 
     void Physics2D::addStaticCircle(float x, float y, float radius, float friction) {
@@ -106,6 +109,9 @@ namespace ArtifactCore {
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.material.friction = friction;
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
+        auto rb = makeShared<RigidBody2D>();
+        rb->bodyId = bodyId;
+        impl_->bodies.push_back(rb);
     }
 
     SharedPtr<RigidBody2D> Physics2D::addDynamicBox(float x, float y, float width, float height, float density, float friction, float restitution) {
