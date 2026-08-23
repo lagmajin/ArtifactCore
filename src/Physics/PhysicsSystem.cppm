@@ -17,6 +17,7 @@ import Physics.Fluid;
 import Physics2D;
 import Physics.SoftBody;
 import Physics.Mpm2D;
+import Core.Simulation.Pyro;
 import Memory.TrackedPtr;
 import Memory.SharedPtr;
 import Utils.Id;
@@ -322,6 +323,21 @@ public:
         }
     }
 
+    SharedPtr<PyroSimulation> createPyroSimulation(LayerID layerId) {
+        auto sim = makeShared<PyroSimulation>();
+        pyroSimulations_[layerId] = sim;
+        return sim;
+    }
+
+    SharedPtr<PyroSimulation> getPyroSimulation(LayerID layerId) {
+        auto it = pyroSimulations_.find(layerId);
+        return it != pyroSimulations_.end() ? it->second : nullptr;
+    }
+
+    void unregisterPyroSimulation(LayerID layerId) {
+        pyroSimulations_.erase(layerId);
+    }
+
     /**
      * @brief レイヤー用ソフトボディソルバーを解除する
      */
@@ -519,6 +535,10 @@ public:
                     ? lodSettings_.rigidBodySubSteps : 4);
             }
         }
+
+        for (auto& [id, pyro] : pyroSimulations_) {
+            if (pyro) pyro->step(simulationDt);
+        }
     }
 
     /**
@@ -536,6 +556,7 @@ public:
         materialSnapshots_.clear();
         pendingMaterialFractureEvents_.clear();
         rigidWorlds_.clear();
+        pyroSimulations_.clear();
     }
 
 private:
@@ -556,6 +577,7 @@ private:
     std::map<LayerID, std::map<int64_t, MpmSnapshot2D>> materialSnapshots_;
     NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
+    std::map<LayerID, SharedPtr<PyroSimulation>> pyroSimulations_;
     PhysicsLODSettings lodSettings_;
     float lodAccumulator_ = 0.0f;
     static constexpr std::size_t maxSoftBodySnapshotsPerLayer_ = 480;
