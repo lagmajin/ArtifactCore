@@ -145,19 +145,22 @@ public:
         }
         const int oldColumns = gridColumns_;
         const int oldRows = gridRows_;
-        const int newColumns = std::max(2, static_cast<int>(std::lround((oldColumns - 1) * scale)) + 1);
-        const int newRows = std::max(2, static_cast<int>(std::lround((oldRows - 1) * scale)) + 1);
+        const int baseColumns = hasGridLodBackup_ ? gridLodBackupColumns_ : oldColumns;
+        const int baseRows = hasGridLodBackup_ ? gridLodBackupRows_ : oldRows;
+        const int newColumns = std::max(2, static_cast<int>(std::lround((baseColumns - 1) * scale)) + 1);
+        const int newRows = std::max(2, static_cast<int>(std::lround((baseRows - 1) * scale)) + 1);
+        const auto& srcPoints = hasGridLodBackup_ ? gridLodBackupPoints_ : oldPoints;
         NamedVector<SoftBodyPoint> newPoints;
         newPoints.reserve(static_cast<std::size_t>(newColumns * newRows));
         for (int y = 0; y < newRows; ++y) {
             const int sourceY = std::clamp(static_cast<int>(std::lround(
-                static_cast<float>(y) * static_cast<float>(oldRows - 1) /
-                static_cast<float>(newRows - 1))), 0, oldRows - 1);
+                static_cast<float>(y) * static_cast<float>(baseRows - 1) /
+                static_cast<float>(newRows - 1))), 0, baseRows - 1);
             for (int x = 0; x < newColumns; ++x) {
                 const int sourceX = std::clamp(static_cast<int>(std::lround(
-                    static_cast<float>(x) * static_cast<float>(oldColumns - 1) /
-                    static_cast<float>(newColumns - 1))), 0, oldColumns - 1);
-                newPoints.push_back(oldPoints[static_cast<std::size_t>(sourceY * oldColumns + sourceX)]);
+                    static_cast<float>(x) * static_cast<float>(baseColumns - 1) /
+                    static_cast<float>(newColumns - 1))), 0, baseColumns - 1);
+                newPoints.push_back(srcPoints[static_cast<std::size_t>(sourceY * baseColumns + sourceX)]);
             }
         }
         points_.clear();
