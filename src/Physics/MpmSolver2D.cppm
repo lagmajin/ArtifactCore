@@ -914,6 +914,12 @@ void MpmSolver2D::detachGPUSimulation() {
     backend_ = MpmBackend::CPU;
 }
 
+bool MpmSolver2D::isGPUReady() const noexcept {
+    auto* session = static_cast<const MpmGpuSession*>(gpuSimulation_);
+    if (!session || session->failed || !session->device || !session->context) return false;
+    return session->initialized && session->compute && session->compute->ready();
+}
+
 // GPU lane: fixed-substep loop runs entirely in compute shaders
 // (elastic only), then plasticity/fracture/colliders run once on the CPU
 // with the readback state. Diverges from the CPU cadence by design until

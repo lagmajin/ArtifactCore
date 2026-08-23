@@ -192,6 +192,9 @@ public:
     // ---- access ----
     int particleCount() const noexcept { return static_cast<int>(particles_.size()); }
     const MpmParticle2D& particle(int i) const noexcept { return particles_[i]; }
+    const std::vector<MpmParticle2D>& particles() const noexcept { return particles_; }
+    bool isGPUAttached() const noexcept { return gpuSimulation_ != nullptr; }
+    bool isGPUReady() const noexcept;
     int activeCount() const noexcept;
 
     // ---- fracture events ----
