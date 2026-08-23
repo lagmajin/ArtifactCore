@@ -16,12 +16,14 @@ SandSim2D::SandSim2D(int width, int height)
     // Fixed default seed keeps playback/bake reproducible across runs;
     // call setRandomSeed() explicitly when variation is desired.
     , rng_(0x9E3779B9u)
+    , seed_(0x9E3779B9u)
 {
 }
 
 SandSim2D::~SandSim2D() = default;
 
 void SandSim2D::setRandomSeed(unsigned seed) {
+    seed_ = seed;
     rng_.seed(seed);
 }
 

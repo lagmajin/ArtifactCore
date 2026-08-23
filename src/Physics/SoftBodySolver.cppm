@@ -650,6 +650,9 @@ public:
     const std::vector<SoftBodyConstraint>& getConstraints() const { return constraints_; }
     const std::vector<SoftBodyCollider>& getColliders() const { return colliders_; }
     const std::vector<SoftBodyVolumeTriangle>& getVolumeTriangles() const { return volumeTriangles_; }
+    size_t pointCount() const noexcept { return points_.size(); }
+    const SoftBodyPoint& point(size_t i) const { return points_[i]; }
+    size_t constraintCount() const noexcept { return constraints_.size(); }
     int gridColumns() const { return gridColumns_; }
     int gridRows() const { return gridRows_; }
 

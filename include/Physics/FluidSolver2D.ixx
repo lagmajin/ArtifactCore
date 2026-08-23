@@ -56,13 +56,21 @@ public:
     void setResolution(int width, int height);
 
     void setViscosity(float v) { viscosity_ = v; }
+    float viscosity() const noexcept { return viscosity_; }
     void setDiffusion(float d) { diffusion_ = d; }
+    float diffusion() const noexcept { return diffusion_; }
     void setBuoyancy(float b) { buoyancyFactor_ = b; }
+    float buoyancy() const noexcept { return buoyancyFactor_; }
     void setVorticity(float v) { vorticityStrength_ = v; }
+    float vorticity() const noexcept { return vorticityStrength_; }
     void setSolverIterations(int iterations) { solverIterations_ = std::max(1, iterations); }
+    int solverIterations() const noexcept { return solverIterations_; }
     void setAdaptiveIterations(bool enabled) { adaptiveIterations_ = enabled; }
+    bool adaptiveIterations() const noexcept { return adaptiveIterations_; }
     void setHighResThresholdCells(int cells) { highResThresholdCells_ = std::max(1, cells); }
+    int highResThresholdCells() const noexcept { return highResThresholdCells_; }
     void setMaxAdaptiveIterations(int iterations) { maxAdaptiveIterations_ = std::max(1, iterations); }
+    int maxAdaptiveIterations() const noexcept { return maxAdaptiveIterations_; }
 
     void reset();
 
