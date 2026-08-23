@@ -90,7 +90,7 @@ namespace ArtifactCore {
 
         b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
         b2ShapeDef shapeDef = b2DefaultShapeDef();
-        // shapeDef.friction = friction; // Note: API changed in box2d v3
+        shapeDef.material.friction = friction;
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
     }
 
@@ -104,6 +104,7 @@ namespace ArtifactCore {
 
         b2Circle circle = { {0.0f, 0.0f}, radius };
         b2ShapeDef shapeDef = b2DefaultShapeDef();
+        shapeDef.material.friction = friction;
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
     }
 
@@ -118,8 +119,8 @@ namespace ArtifactCore {
         b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
-        // shapeDef.friction = friction; // Note: API changed in box2d v3
-        // shapeDef.restitution = restitution; // Note: API changed in box2d v3
+        shapeDef.material.friction = friction;
+        shapeDef.material.restitution = restitution;
 
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
@@ -141,8 +142,8 @@ namespace ArtifactCore {
         b2Circle circle = { {0.0f, 0.0f}, radius };
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
-        // shapeDef.friction = friction; // Note: API changed in box2d v3
-        // shapeDef.restitution = restitution; // Note: API changed in box2d v3
+        shapeDef.material.friction = friction;
+        shapeDef.material.restitution = restitution;
 
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
 
