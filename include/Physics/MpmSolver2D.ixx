@@ -103,7 +103,7 @@ export struct MpmSnapshot2D {
 };
 
 export struct MpmCollider2D {
-    enum class Type : std::uint8_t { Plane, Box, Circle };
+    enum class Type : std::uint8_t { Plane, Box, Circle, Polygon };
     Type type = Type::Plane;
     float x = 0.0f;
     float y = 0.0f;
@@ -113,6 +113,8 @@ export struct MpmCollider2D {
     float restitution = 0.1f;
     float friction = 0.2f;
     bool enabled = true;
+    // Interleaved outline vertices (x0, y0, x1, y1, ...) used by Type::Polygon.
+    std::vector<float> polygonPoints;
 };
 
 // ---------- grid node ----------
@@ -132,10 +134,22 @@ export enum class MpmMaterialPreset : std::uint8_t {
 
 // ---------- solver ----------
 
+export enum class MpmBackend : std::uint8_t { CPU, GPU };
+
 export class MpmSolver2D {
 public:
     MpmSolver2D() = default;
-    ~MpmSolver2D() = default;
+    ~MpmSolver2D();
+
+    // ---- backend ----
+    // GPU lane is opt-in: attach shared Diligent device/context pointers
+    // first, then switch. Raw void* keeps Diligent types out of this
+    // interface module; the implementation wraps them into GpuContext.
+    // Any GPU failure falls back to the CPU lane transparently.
+    MpmBackend backend() const noexcept { return backend_; }
+    bool setBackend(MpmBackend backend) noexcept;
+    bool attachGPUSimulation(void* sharedRenderDevice, void* immediateContext);
+    void detachGPUSimulation();
 
     // ---- configuration ----
     void setGrid(float cellSize, int nx, int ny);
@@ -256,11 +270,16 @@ private:
     void applyBoundaryConditions();
     void resolveColliders();
     void stepOnce(float dt);
+    bool updateGPUSubsteps(float elapsedSeconds);
 
     static float weight(float x, float dx);
     static float dweight(float x, float dx);
     static MpmMat2 polarDecomposition(const MpmMat2& F);
     MpmMat2 firstPiolaKirchhoff(const MpmMat2& Fe);
+
+    // Opaque GPU session (Graphics.MpmCompute); owned when non-null.
+    void* gpuSimulation_ = nullptr;
+    MpmBackend backend_ = MpmBackend::CPU;
 };
 
 } // namespace ArtifactCore

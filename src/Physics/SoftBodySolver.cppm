@@ -4,6 +4,8 @@ module;
 #include <cstdint>
 #include <cmath>
 #include <algorithm>
+#include <limits>
+#include <unordered_map>
 
 export module Physics.SoftBody;
 
@@ -73,7 +75,8 @@ export struct SoftBodyCollider {
     enum class Type {
         Plane,
         Box,
-        Circle
+        Circle,
+        Polygon
     };
 
     Type type = Type::Plane;
@@ -85,6 +88,8 @@ export struct SoftBodyCollider {
     float restitution = 0.25f;
     float friction = 0.15f;
     bool enabled = true;
+    // Interleaved outline vertices (x0, y0, x1, y1, ...) used by Type::Polygon.
+    std::vector<float> polygonPoints;
 };
 
 /**
@@ -404,7 +409,7 @@ public:
     /**
      * @brief シミュレーションを 1 ステップ進める
      */
-    void update(float elapsedSeconds, float gravityX, float gravityY, int iterations = 5) {
+    void update(float elapsedSeconds, float gravityX, float gravityY, int iterations = -1) {
         if (points_.empty() || elapsedSeconds <= 0.0f) return;
 
         // Keep simulation results stable across 24/30/60 fps playback and
@@ -423,13 +428,16 @@ public:
         }
     }
 
-    void simulateStep(float dt, float gravityX, float gravityY, int iterations = 5) {
+    // iterations <= 0 keeps the current constraintIterations_ setting.
+    void simulateStep(float dt, float gravityX, float gravityY, int iterations = -1) {
         if (points_.empty()) return;
         if (dt <= 0.0f) return;
 
         gravityX_ = gravityX;
         gravityY_ = gravityY;
-        constraintIterations_ = std::max(1, iterations);
+        if (iterations > 0) {
+            constraintIterations_ = std::max(1, iterations);
+        }
         dt = std::min(dt, 0.05f); // clamp to avoid explosion
 
         // Wind phase accumulation
@@ -506,45 +514,8 @@ public:
             }
         }
 
-        // 2b. 自己衝突解決 (点-線分)
-        if (selfCollisionEnabled_ && selfCollisionRadius_ > 0.0f) {
-            float sr = selfCollisionRadius_;
-            float srSq = sr * sr;
-            for (size_t ci = 0; ci < constraints_.size(); ++ci) {
-                auto& c = constraints_[ci];
-                for (auto& p : points_) {
-                    // Skip: point is part of this edge
-                    int ptIdx = static_cast<int>(&p - points_.data());
-                    if (ptIdx == c.p1Idx || ptIdx == c.p2Idx) continue;
-                    if (p.isPinned) continue;
-
-                    auto& p1 = points_[c.p1Idx];
-                    auto& p2 = points_[c.p2Idx];
-                    float ex = p2.x - p1.x;
-                    float ey = p2.y - p1.y;
-                    float edgeLenSq = ex * ex + ey * ey;
-                    if (edgeLenSq < 1e-8f) continue;
-
-                    float t = ((p.x - p1.x) * ex + (p.y - p1.y) * ey) / edgeLenSq;
-                    t = std::clamp(t, 0.0f, 1.0f);
-                    float cx = p1.x + t * ex;
-                    float cy = p1.y + t * ey;
-                    float dx = p.x - cx;
-                    float dy = p.y - cy;
-                    float distSq = dx * dx + dy * dy;
-                    if (distSq < srSq && distSq > 1e-8f) {
-                        float dist = std::sqrt(distSq);
-                        float push = (sr - dist) * 0.5f;
-                        float invDist = 1.0f / dist;
-                        p.x += dx * invDist * push;
-                        p.y += dy * invDist * push;
-                        // Also push the edge slightly
-                        if (!p1.isPinned) { p1.x -= dx * invDist * push * 0.3f; p1.y -= dy * invDist * push * 0.3f; }
-                        if (!p2.isPinned) { p2.x -= dx * invDist * push * 0.3f; p2.y -= dy * invDist * push * 0.3f; }
-                    }
-                }
-            }
-        }
+        // 2b. 自己衝突解決 (点-線分、空間ハッシュ broadphase)
+        resolveSelfCollision();
 
         // 2c. 動的リメッシュ（subdivision / collapse）
         if (remeshingEnabled_) {
@@ -640,6 +611,21 @@ public:
                 resolveColliders(p);
             }
         }
+
+        // 5. 発散ガード: 非有限化した質点を最後の有限位置へ戻し、
+        // 1 点の爆発がソルバー全体に伝播しないようにする。
+        for (auto& p : points_) {
+            const bool posBad = !std::isfinite(p.x) || !std::isfinite(p.y);
+            const bool prevBad =
+                !std::isfinite(p.prevX) || !std::isfinite(p.prevY);
+            if (!posBad && !prevBad) continue;
+            if (posBad) {
+                p.x = prevBad ? 0.0f : p.prevX;
+                p.y = prevBad ? 0.0f : p.prevY;
+            }
+            p.prevX = p.x;
+            p.prevY = p.y;
+        }
     }
 
     void clear() {
@@ -716,6 +702,93 @@ public:
     }
 
 private:
+    // Point-vs-edge self collision with a spatial hash broadphase.
+    // Candidate order is normalized (edge index, then ascending point
+    // index) so results stay deterministic and match the previous
+    // brute-force visit order. The hash is rebuilt from positions at the
+    // start of the phase; pushes applied during resolution are smaller
+    // than one cell, so candidates remain a superset of true hits.
+    void resolveSelfCollision() {
+        if (!selfCollisionEnabled_ || selfCollisionRadius_ <= 0.0f) return;
+        const float sr = selfCollisionRadius_;
+        const float srSq = sr * sr;
+        const float invCell = 1.0f / std::max(sr, 1e-4f);
+
+        selfCollisionGrid_.clear();
+        for (int i = 0; i < static_cast<int>(points_.size()); ++i) {
+            const auto& p = points_[static_cast<std::size_t>(i)];
+            const long long cx = static_cast<long long>(std::floor(p.x * invCell));
+            const long long cy = static_cast<long long>(std::floor(p.y * invCell));
+            const std::uint64_t key =
+                (static_cast<std::uint64_t>(static_cast<std::uint32_t>(cx)) << 32) ^
+                static_cast<std::uint64_t>(static_cast<std::uint32_t>(cy));
+            selfCollisionGrid_[key].push_back(i);
+        }
+
+        for (const auto& c : constraints_) {
+            if (c.p1Idx < 0 || c.p2Idx < 0 ||
+                c.p1Idx >= static_cast<int>(points_.size()) ||
+                c.p2Idx >= static_cast<int>(points_.size())) continue;
+            const auto& ep1 = points_[static_cast<std::size_t>(c.p1Idx)];
+            const auto& ep2 = points_[static_cast<std::size_t>(c.p2Idx)];
+
+            const long long minCx = static_cast<long long>(
+                std::floor((std::min(ep1.x, ep2.x) - sr) * invCell));
+            const long long maxCx = static_cast<long long>(
+                std::floor((std::max(ep1.x, ep2.x) + sr) * invCell));
+            const long long minCy = static_cast<long long>(
+                std::floor((std::min(ep1.y, ep2.y) - sr) * invCell));
+            const long long maxCy = static_cast<long long>(
+                std::floor((std::max(ep1.y, ep2.y) + sr) * invCell));
+
+            selfCollisionCandidates_.clear();
+            for (long long gy = minCy; gy <= maxCy; ++gy) {
+                for (long long gx = minCx; gx <= maxCx; ++gx) {
+                    const std::uint64_t key =
+                        (static_cast<std::uint64_t>(static_cast<std::uint32_t>(gx)) << 32) ^
+                        static_cast<std::uint64_t>(static_cast<std::uint32_t>(gy));
+                    const auto it = selfCollisionGrid_.find(key);
+                    if (it == selfCollisionGrid_.end()) continue;
+                    for (int idx : it->second) {
+                        selfCollisionCandidates_.push_back(idx);
+                    }
+                }
+            }
+            std::sort(selfCollisionCandidates_.begin(), selfCollisionCandidates_.end());
+
+            for (int ptIdx : selfCollisionCandidates_) {
+                if (ptIdx == c.p1Idx || ptIdx == c.p2Idx) continue;
+                auto& p = points_[static_cast<std::size_t>(ptIdx)];
+                if (p.isPinned) continue;
+
+                auto& p1 = points_[static_cast<std::size_t>(c.p1Idx)];
+                auto& p2 = points_[static_cast<std::size_t>(c.p2Idx)];
+                float ex = p2.x - p1.x;
+                float ey = p2.y - p1.y;
+                float edgeLenSq = ex * ex + ey * ey;
+                if (edgeLenSq < 1e-8f) continue;
+
+                float t = ((p.x - p1.x) * ex + (p.y - p1.y) * ey) / edgeLenSq;
+                t = std::clamp(t, 0.0f, 1.0f);
+                float cx = p1.x + t * ex;
+                float cy = p1.y + t * ey;
+                float dx = p.x - cx;
+                float dy = p.y - cy;
+                float distSq = dx * dx + dy * dy;
+                if (distSq < srSq && distSq > 1e-8f) {
+                    float dist = std::sqrt(distSq);
+                    float push = (sr - dist) * 0.5f;
+                    float invDist = 1.0f / dist;
+                    p.x += dx * invDist * push;
+                    p.y += dy * invDist * push;
+                    // Also push the edge slightly
+                    if (!p1.isPinned) { p1.x -= dx * invDist * push * 0.3f; p1.y -= dy * invDist * push * 0.3f; }
+                    if (!p2.isPinned) { p2.x -= dx * invDist * push * 0.3f; p2.y -= dy * invDist * push * 0.3f; }
+                }
+            }
+        }
+    }
+
     void resolveColliders(SoftBodyPoint& p) {
         for (const auto& collider : colliders_) {
             if (!collider.enabled) {
@@ -730,6 +803,9 @@ private:
                 break;
             case SoftBodyCollider::Type::Circle:
                 resolveCircle(p, collider);
+                break;
+            case SoftBodyCollider::Type::Polygon:
+                resolvePolygon(p, collider);
                 break;
             }
         }
@@ -785,6 +861,59 @@ private:
         p.prevY = p.y + (p.prevY - p.y) * collider.restitution;
     }
 
+    void resolvePolygon(SoftBodyPoint& p, const SoftBodyCollider& collider) {
+        const int vertexCount = static_cast<int>(collider.polygonPoints.size()) / 2;
+        if (vertexCount < 3) return;
+        const auto vx = [&collider](int i) {
+            return collider.polygonPoints[static_cast<std::size_t>(i * 2)];
+        };
+        const auto vy = [&collider](int i) {
+            return collider.polygonPoints[static_cast<std::size_t>(i * 2 + 1)];
+        };
+
+        // Even-odd containment test; outside points never interact.
+        bool inside = false;
+        for (int i = 0, j = vertexCount - 1; i < vertexCount; j = i++) {
+            if ((vy(i) > p.y) != (vy(j) > p.y)) {
+                const float t = (p.y - vy(i)) / (vy(j) - vy(i));
+                if (p.x < vx(i) + t * (vx(j) - vx(i))) inside = !inside;
+            }
+        }
+        if (!inside) return;
+
+        // Project onto the nearest boundary edge.
+        float bestDistSq = std::numeric_limits<float>::max();
+        float bestX = p.x;
+        float bestY = p.y;
+        for (int i = 0, j = vertexCount - 1; i < vertexCount; j = i++) {
+            const float ax = vx(i);
+            const float ay = vy(i);
+            const float ex = vx(j) - ax;
+            const float ey = vy(j) - ay;
+            const float lenSq = ex * ex + ey * ey;
+            float t = 0.0f;
+            if (lenSq > 1e-12f) {
+                t = std::clamp(((p.x - ax) * ex + (p.y - ay) * ey) / lenSq, 0.0f, 1.0f);
+            }
+            const float cx = ax + t * ex;
+            const float cy = ay + t * ey;
+            const float dx = p.x - cx;
+            const float dy = p.y - cy;
+            const float distSq = dx * dx + dy * dy;
+            if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                bestX = cx;
+                bestY = cy;
+            }
+        }
+        if (bestDistSq >= std::numeric_limits<float>::max()) return;
+
+        p.x = bestX;
+        p.y = bestY;
+        p.prevX = p.x + (p.prevX - p.x) * (1.0f - collider.friction * collisionDamping_);
+        p.prevY = p.y + (p.prevY - p.y) * collider.restitution;
+    }
+
     std::vector<SoftBodyPoint> points_;
     std::vector<SoftBodyConstraint> constraints_;
     std::vector<SoftBodyCollider> colliders_;
@@ -817,6 +946,8 @@ private:
     int gridLodBackupColumns_ = 0;
     int gridLodBackupRows_ = 0;
     bool hasGridLodBackup_ = false;
+    std::unordered_map<std::uint64_t, std::vector<int>> selfCollisionGrid_;
+    std::vector<int> selfCollisionCandidates_;
 };
 
 } // namespace ArtifactCore

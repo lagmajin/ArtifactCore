@@ -61,8 +61,6 @@ public:
     void setVorticity(float v) { vorticityStrength_ = v; }
     void setSolverIterations(int iterations) { solverIterations_ = std::max(1, iterations); }
     void setAdaptiveIterations(bool enabled) { adaptiveIterations_ = enabled; }
-    void setParallelEnabled(bool enabled) { parallelEnabled_ = enabled; }
-    void setParallelThresholdCells(int cells) { parallelThresholdCells_ = std::max(1, cells); }
     void setHighResThresholdCells(int cells) { highResThresholdCells_ = std::max(1, cells); }
     void setMaxAdaptiveIterations(int iterations) { maxAdaptiveIterations_ = std::max(1, iterations); }
 
@@ -79,8 +77,6 @@ private:
     float vorticityStrength_ = 0.1f;
     int solverIterations_ = 20;
     bool adaptiveIterations_ = true;
-    bool parallelEnabled_ = true;
-    int parallelThresholdCells_ = 256 * 256;
     int highResThresholdCells_ = 512 * 512;
     int maxAdaptiveIterations_ = 40;
 
@@ -105,7 +101,6 @@ private:
     void setBoundary(int b, std::vector<float>& x);
     void linSolve(int b, std::vector<float>& x, const std::vector<float>& x0, float a, float c);
     int computeSolverIterations() const;
-    bool useParallelPath() const;
 
     inline int IX(int x, int y) const {
         return x + y * width_;
