@@ -18,6 +18,7 @@ import Physics2D;
 import Physics.SoftBody;
 import Physics.Mpm2D;
 import Core.Simulation.Pyro;
+import Graphics.ParticleData;
 import Memory.TrackedPtr;
 import Memory.SharedPtr;
 import Utils.Id;
@@ -336,6 +337,27 @@ public:
 
     void unregisterPyroSimulation(LayerID layerId) {
         pyroSimulations_.erase(layerId);
+    }
+
+    // ---- Mpm -> ParticleRenderer bridge (manual upload, no auto Composition hook) ----
+    ParticleRenderData buildMpmParticleRenderData(
+        LayerID layerId, float particleSize = 3.0f, float alpha = 1.0f) const {
+        ParticleRenderData out;
+        auto it = materialSolvers_.find(layerId);
+        if (it == materialSolvers_.end() || !it->second) return out;
+        const auto& particles = it->second->particles();
+        out.particles.reserve(particles.size());
+        for (const auto& p : particles) {
+            if (!p.active) continue;
+            ParticleVertex v;
+            v.px = p.pos.x; v.py = p.pos.y; v.pz = 0.0f;
+            v.vx = p.vel.x; v.vy = p.vel.y; v.vz = 0.0f;
+            v.r = p.r; v.g = p.g; v.b = p.b; v.a = alpha;
+            v.size = particleSize;
+            v.age = 0.0f; v.lifetime = 1.0f;
+            out.particles.push_back(v);
+        }
+        return out;
     }
 
     /**
