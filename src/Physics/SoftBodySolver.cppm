@@ -735,14 +735,17 @@ private:
             const auto& ep1 = points_[static_cast<std::size_t>(c.p1Idx)];
             const auto& ep2 = points_[static_cast<std::size_t>(c.p2Idx)];
 
+            // Expand by one extra cell (sr) so points that move <0.65*sr
+            // during earlier edge pushes are not missed for later edges.
+            const float expand = sr * 2.0f;
             const long long minCx = static_cast<long long>(
-                std::floor((std::min(ep1.x, ep2.x) - sr) * invCell));
+                std::floor((std::min(ep1.x, ep2.x) - expand) * invCell));
             const long long maxCx = static_cast<long long>(
-                std::floor((std::max(ep1.x, ep2.x) + sr) * invCell));
+                std::floor((std::max(ep1.x, ep2.x) + expand) * invCell));
             const long long minCy = static_cast<long long>(
-                std::floor((std::min(ep1.y, ep2.y) - sr) * invCell));
+                std::floor((std::min(ep1.y, ep2.y) - expand) * invCell));
             const long long maxCy = static_cast<long long>(
-                std::floor((std::max(ep1.y, ep2.y) + sr) * invCell));
+                std::floor((std::max(ep1.y, ep2.y) + expand) * invCell));
 
             selfCollisionCandidates_.clear();
             for (long long gy = minCy; gy <= maxCy; ++gy) {
