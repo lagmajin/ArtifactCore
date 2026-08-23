@@ -120,7 +120,11 @@ int FluidSolver2D::computeSolverIterations() const {
         return solverIterations_;
     }
 
-    const int extra = std::max(1, size_ / highResThresholdCells_);
+    // Smooth step at threshold: no jump at size == threshold,
+    // +4 per additional threshold block. Previously max(1, size/threshold)
+    // caused an immediate +4 at the threshold boundary.
+    const int blocks = size_ / highResThresholdCells_;
+    const int extra = std::max(0, blocks - 1);
     return std::min(maxAdaptiveIterations_, solverIterations_ + extra * 4);
 }
 
