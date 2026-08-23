@@ -161,15 +161,20 @@ public:
     bool fractureEnabled() const noexcept { return fractureEnabled_; }
     void applyMaterialPreset(MpmMaterialPreset preset);
     void setDamping(float damping) { damping_ = std::clamp(damping, 0.0f, 1.0f); }
+    float damping() const noexcept { return damping_; }
     void setGravity(float gx, float gy) {
         gravityX_ = std::isfinite(gx) ? gx : 0.0f;
         gravityY_ = std::isfinite(gy) ? gy : 980.0f;
     }
+    float gravityX() const noexcept { return gravityX_; }
+    float gravityY() const noexcept { return gravityY_; }
     void setTimeStep(float dt) {
         if (std::isfinite(dt) && dt > 0.0f)
             fixedDt_ = std::clamp(dt, 1.0e-6f, 0.1f);
     }
+    float timeStep() const noexcept { return fixedDt_; }
     void setMaxSubsteps(int count) { maxSubsteps_ = std::clamp(count, 1, 1024); }
+    int maxSubsteps() const noexcept { return maxSubsteps_; }
 
     // ---- particle population ----
     void addParticlesGrid(float cx, float cy, float w, float h, int cols, int rows, float density = 1000.0f);
@@ -185,8 +190,11 @@ public:
 
     // ---- collision ----
     void setBoundary(float xmin, float ymin, float xmax, float ymax);
+    bool hasBoundary() const noexcept { return hasBoundary_; }
     void setBoundaryFriction(float friction) { boundaryFriction_ = std::clamp(friction, 0.0f, 1.0f); }
+    float boundaryFriction() const noexcept { return boundaryFriction_; }
     void addCollider(const MpmCollider2D& collider) { colliders_.push_back(collider); }
+    const std::vector<MpmCollider2D>& colliders() const noexcept { return colliders_; }
     void clearColliders() { colliders_.clear(); }
 
     // ---- access ----
@@ -213,6 +221,15 @@ public:
 
     // ---- tuning ----
     void setParticlesPerCell(int ppc) { ppc_ = std::max(2, ppc); }
+    int particlesPerCell() const noexcept { return ppc_; }
+    float youngModulus() const noexcept { return E_; }
+    float poissonRatio() const noexcept { return nu_; }
+    float shearModulus() const noexcept { return mu_; }
+    float lameLambda() const noexcept { return lambda_; }
+    float yieldStress() const noexcept { return yieldStress_; }
+    float hardening() const noexcept { return hardening_; }
+    float maxPlasticStrain() const noexcept { return maxPlasticStrain_; }
+    MpmVec2 gridOrigin() const noexcept { return gridOrigin_; }
 
 private:
     // grid
