@@ -8,6 +8,7 @@ module;
 #include <map>
 #include <vector>
 #include <QString>
+#include <QVector2D>
 #include <optional>
 
 export module Physics.System;
@@ -278,6 +279,47 @@ public:
      */
     void unregisterRigidWorld(LayerID layerId) {
         rigidWorlds_.erase(layerId);
+    }
+
+    // ---- Cloner/Rigid helpers (thin wrappers, no new simulation state) ----
+    std::vector<SharedPtr<RigidBody2D>> createRigidBoxes(
+        LayerID layerId, const std::vector<QVector2D>& positions,
+        float width, float height,
+        float density = 1.0f, float friction = 0.3f, float restitution = 0.2f) {
+        auto world = getRigidWorld(layerId);
+        if (!world) world = createRigidWorld(layerId);
+        std::vector<SharedPtr<RigidBody2D>> out;
+        out.reserve(positions.size());
+        for (const auto& p : positions) {
+            out.push_back(world->addDynamicBox(p.x(), p.y(), width, height, density, friction, restitution));
+        }
+        return out;
+    }
+
+    std::vector<SharedPtr<RigidBody2D>> createRigidCircles(
+        LayerID layerId, const std::vector<QVector2D>& positions,
+        float radius, float density = 1.0f,
+        float friction = 0.3f, float restitution = 0.2f) {
+        auto world = getRigidWorld(layerId);
+        if (!world) world = createRigidWorld(layerId);
+        std::vector<SharedPtr<RigidBody2D>> out;
+        out.reserve(positions.size());
+        for (const auto& p : positions) {
+            out.push_back(world->addDynamicCircle(p.x(), p.y(), radius, density, friction, restitution));
+        }
+        return out;
+    }
+
+    void setSoftBodyWind(LayerID layerId, float dirX, float dirY, float strength) {
+        if (auto it = softBodies_.find(layerId); it != softBodies_.end() && it->second) {
+            it->second->setWind(dirX, dirY, strength);
+        }
+    }
+
+    void setSoftBodyTurbulence(LayerID layerId, float strength, float frequency = 1.0f) {
+        if (auto it = softBodies_.find(layerId); it != softBodies_.end() && it->second) {
+            it->second->setTurbulence(strength, frequency);
+        }
     }
 
     /**
