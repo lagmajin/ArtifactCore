@@ -19,6 +19,7 @@ import Physics.SoftBody;
 import Physics.Mpm2D;
 import Core.Simulation.Pyro;
 import Graphics.ParticleData;
+import Graphics.BoidsCompute;
 import Memory.TrackedPtr;
 import Memory.SharedPtr;
 import Utils.Id;
@@ -339,6 +340,20 @@ public:
         pyroSimulations_.erase(layerId);
     }
 
+    void setBoidsConstants(LayerID layerId, const GpuBoidConstants& c) {
+        boidsConstants_[layerId] = c;
+    }
+
+    std::optional<GpuBoidConstants> getBoidsConstants(LayerID layerId) const {
+        auto it = boidsConstants_.find(layerId);
+        if (it != boidsConstants_.end()) return it->second;
+        return std::nullopt;
+    }
+
+    void unregisterBoids(LayerID layerId) {
+        boidsConstants_.erase(layerId);
+    }
+
     // ---- Mpm -> ParticleRenderer bridge (manual upload, no auto Composition hook) ----
     ParticleRenderData buildMpmParticleRenderData(
         LayerID layerId, float particleSize = 3.0f, float alpha = 1.0f) const {
@@ -579,6 +594,7 @@ public:
         pendingMaterialFractureEvents_.clear();
         rigidWorlds_.clear();
         pyroSimulations_.clear();
+        boidsConstants_.clear();
     }
 
 private:
@@ -600,6 +616,7 @@ private:
     NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
     std::map<LayerID, SharedPtr<PyroSimulation>> pyroSimulations_;
+    std::map<LayerID, GpuBoidConstants> boidsConstants_;
     PhysicsLODSettings lodSettings_;
     float lodAccumulator_ = 0.0f;
     static constexpr std::size_t maxSoftBodySnapshotsPerLayer_ = 480;
