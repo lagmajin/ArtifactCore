@@ -1,12 +1,14 @@
 module;
 #include <cstdint>
 #include <cstddef>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 #include <unordered_map>
 #include <variant>
 #include <utility>
+#include <functional>
 #include <memory>
 
 export module Script.ArtifactScript;
@@ -140,7 +142,7 @@ struct ArtifactScriptExpr;
 using ArtifactScriptExprPtr = std::unique_ptr<ArtifactScriptExpr>;
 
 struct ArtifactScriptExpr {
-    enum class Kind { Literal, Variable, Binary, Unary, Call, FieldAccess, Index, ArrayLiteral };
+    enum class Kind { Literal, Variable, Binary, Unary, Call, FieldAccess, Index, ArrayLiteral, Ternary };
     Kind kind = Kind::Literal;
 
     // Literal
@@ -166,10 +168,15 @@ struct ArtifactScriptExpr {
     ArtifactScriptExprPtr indexTarget;
     ArtifactScriptExprPtr indexExpr;
     std::vector<ArtifactScriptExprPtr> arrayElements;
+
+    // Ternary: condition ? then : else
+    ArtifactScriptExprPtr ternaryCondition;
+    ArtifactScriptExprPtr ternaryThen;
+    ArtifactScriptExprPtr ternaryElse;
 };
 
 struct ArtifactScriptStmt {
-    enum class Kind { Expr, Assign, If, Return, Block, Decl, While, For, Break, Continue };
+    enum class Kind { Expr, Assign, If, Return, Block, Decl, While, For, Break, Continue, Foreach };
     Kind kind = Kind::Expr;
 
     // Expr
@@ -203,6 +210,11 @@ struct ArtifactScriptStmt {
     ArtifactScriptExprPtr forCond;
     ArtifactScriptStmtPtr forIncrement;
     ArtifactScriptStmtPtr forBody;
+
+    // Foreach: foreach (item in collection) { ... }
+    std::string foreachItemName;
+    std::string foreachCollectionName;
+    ArtifactScriptStmtPtr foreachBody;
 };
 
 // Extend ArtifactScriptMethod with compiled body
@@ -288,6 +300,46 @@ private:
     Optional<ArtifactScriptHook> lastInvokedHook_;
     ArtifactScriptSerializedFields fields_;
     std::string lastHookError_;
+};
+
+// ─── Host Binding API ───
+
+// Registry of C++ host functions callable from scripts with normal call
+// syntax: setLayerOpacity(this.layerId, 0.5). Functions receive evaluated
+// arguments and return an ArtifactScriptValue. Errors are surfaced through
+// the evaluator's diagnostic path (see ArtifactScriptHost::registerError).
+using ArtifactScriptNativeFn = std::function<ArtifactScriptValue(std::span<const ArtifactScriptValue>)>;
+
+class ArtifactScriptHost {
+public:
+    ArtifactScriptHost();
+    ~ArtifactScriptHost() noexcept;
+    ArtifactScriptHost(const ArtifactScriptHost&) = delete;
+    ArtifactScriptHost& operator=(const ArtifactScriptHost&) = delete;
+
+    void registerFunction(const std::string& name, ArtifactScriptNativeFn function);
+    bool hasFunction(const std::string& name) const;
+    // Calls a registered host function. Returns false when the name is
+    // unknown. Callback errors are reported via setLastError.
+    bool callFunction(const std::string& name,
+                      const std::vector<ArtifactScriptValue>& args,
+                      ArtifactScriptValue& result) const;
+    std::vector<std::string> registeredNames() const;
+
+    // Script print()/log() output collector (bounded ring).
+    void appendLog(std::string line);
+    std::vector<std::string> drainLog();
+    // Last error message written by a host callback, surfaced by the
+    // evaluator as a diagnostic.
+    void setLastError(std::string message);
+    std::string lastError() const;
+
+    // Process-wide default registry used by every evaluator instance.
+    static ArtifactScriptHost& global();
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 // ─── Evaluator ───

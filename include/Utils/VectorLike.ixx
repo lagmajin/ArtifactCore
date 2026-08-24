@@ -1,13 +1,8 @@
 module;
 #include <utility>
-#include <QVector2D>
-#include <QVector3D>
-
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
 #include <concepts>
 
-#include <opencv2/core.hpp>
+#include "../Define/DllExportMacro.hpp"
 export module Vector.Like;
 
 export namespace ArtifactCore {
@@ -17,7 +12,6 @@ export namespace ArtifactCore {
   { v.x } -> std::convertible_to<float>;
   { v.y } -> std::convertible_to<float>;
  };
-
 
 
 

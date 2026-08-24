@@ -90,6 +90,7 @@ class FFmpegVideoDecoder::Impl {
  DecodedVideoFrame decodeNextVideoFrameRaw();
  void closeFile();
  bool seekToFrame(int64_t frameNumber);
+ DecodedVideoFrame decodeFrameAtRaw(int64_t frameNumber);
  void seekByTimestamp(int64_t timestampMs);
  void flush();
  int width() const { return codecContext ? codecContext->width : 0; }
@@ -317,21 +318,25 @@ bool FFmpegVideoDecoder::Impl::seekToFrame(int64_t frameNumber) {
       "seekToFrame",
       std::to_string(frameNumber),
       {__FILE__, __func__, __LINE__});
-  if (!formatContext || videoStreamIndex < 0) {
+  if (!formatContext || videoStreamIndex < 0 || !codecContext) {
     diagnosticScope.finish(false, "no stream");
     return false;
   }
 
   const AVStream* stream = formatContext->streams[videoStreamIndex];
-  if (stream->r_frame_rate.num == 0) {
+  AVRational rate = stream->r_frame_rate;
+  if (rate.num <= 0 || rate.den <= 0) {
+    rate = stream->avg_frame_rate;
+  }
+  if (rate.num <= 0 || rate.den <= 0) {
     diagnosticScope.finish(false, "no frame rate");
     return false;
   }
 
+  // One frame lasts rate.den/rate.num seconds; rescale the frame index
+  // directly from that interval into the stream time base.
   const int64_t timestamp = av_rescale_q(
-    frameNumber,
-    AVRational{ 1, stream->r_frame_rate.num },
-    stream->time_base);
+      frameNumber, av_inv_q(rate), stream->time_base);
 
   const int ret = av_seek_frame(formatContext, videoStreamIndex, timestamp, AVSEEK_FLAG_BACKWARD);
   if (ret < 0) {
@@ -344,6 +349,41 @@ bool FFmpegVideoDecoder::Impl::seekToFrame(int64_t frameNumber) {
   avcodec_flush_buffers(codecContext);
   diagnosticScope.finish(true);
   return true;
+}
+
+DecodedVideoFrame FFmpegVideoDecoder::Impl::decodeFrameAtRaw(int64_t frameNumber) {
+  if (frameNumber < 0 || !seekToFrame(frameNumber)) {
+    return std::monostate{};
+  }
+
+  const AVStream* stream = formatContext->streams[videoStreamIndex];
+  AVRational rate = stream->r_frame_rate;
+  if (rate.num <= 0 || rate.den <= 0) {
+    rate = stream->avg_frame_rate;
+  }
+
+  // Target PTS of the requested frame in the stream time base, including the
+  // stream start offset. When the rate is unknown we cannot compute a PTS and
+  // accept whatever frame the seek landed on.
+  int64_t targetPts = AV_NOPTS_VALUE;
+  if (rate.num > 0 && rate.den > 0) {
+    targetPts = av_rescale_q(frameNumber, av_inv_q(rate), stream->time_base);
+    if (stream->start_time != AV_NOPTS_VALUE) {
+      targetPts += stream->start_time;
+    }
+  }
+
+  while (true) {
+    DecodedVideoFrame decoded = decodeNextVideoFrameRaw();
+    if (!std::holds_alternative<CpuVideoFrame>(decoded)) {
+      return decoded;
+    }
+    const CpuVideoFrame& cpu = std::get<CpuVideoFrame>(decoded);
+    if (targetPts == AV_NOPTS_VALUE || cpu.meta.pts == AV_NOPTS_VALUE ||
+        cpu.meta.pts >= targetPts) {
+      return decoded;
+    }
+  }
 }
 
 void FFmpegVideoDecoder::Impl::seekByTimestamp(int64_t timestampMs) {
@@ -388,6 +428,20 @@ FFmpegVideoDecoder::~FFmpegVideoDecoder() {
   delete impl_;
 }
 
+FFmpegVideoDecoder::FFmpegVideoDecoder(FFmpegVideoDecoder&& other) noexcept
+    : impl_(other.impl_) {
+  other.impl_ = nullptr;
+}
+
+FFmpegVideoDecoder& FFmpegVideoDecoder::operator=(FFmpegVideoDecoder&& other) noexcept {
+  if (this != &other) {
+    delete impl_;
+    impl_ = other.impl_;
+    other.impl_ = nullptr;
+  }
+  return *this;
+}
+
 bool FFmpegVideoDecoder::openFile(const QString& path) {
   return impl_ && impl_->openFile(path);
 }
@@ -413,6 +467,11 @@ void FFmpegVideoDecoder::flush() {
 
 bool FFmpegVideoDecoder::seekToFrame(int64_t frameNumber) {
   return impl_ && impl_->seekToFrame(frameNumber);
+}
+
+DecodedVideoFrame FFmpegVideoDecoder::decodeFrameAtRaw(int64_t frameNumber) {
+  return impl_ ? impl_->decodeFrameAtRaw(frameNumber)
+               : DecodedVideoFrame{std::monostate{}};
 }
 
 int FFmpegVideoDecoder::width() const {

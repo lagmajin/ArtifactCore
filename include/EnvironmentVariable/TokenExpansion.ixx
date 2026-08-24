@@ -135,11 +135,14 @@ inline QString expandTokens(const QString& input, const ExpansionContext& ctx)
             const bool atEnd = (i + 2 >= n);
             const bool nameFollows = !atEnd && detail::isNameStartChar(input.at(i + 2));
             if (!nameFollows) {
-                int width = 1;
+                int width = 0;
                 int j = i + 2;
                 while (j < n && input.at(j).isDigit()) {
                     width = std::clamp(width * 10 + input.at(j).digitValue(), 1, 10);
                     ++j;
+                }
+                if (width == 0) {
+                    width = 1;
                 }
                 const int frameNumber = static_cast<int>(ctx.frame);
                 out.append(QString::number(frameNumber).rightJustified(width, QChar(u'0')));

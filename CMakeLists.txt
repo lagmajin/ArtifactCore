@@ -2186,6 +2186,10 @@ set(ARTIFACTCORE_AUDIO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/LFO.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Modulator.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Router.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Spatial/SpatialParams.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Spatial/SpatialMath.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Spatial/SpatialRenderer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Spatial/HrtfData.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/FormantExtractor.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/LipSyncTrack.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/SimpleWav.ixx"
@@ -2221,6 +2225,7 @@ set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioVolume.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioWaveform.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioWriter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/Spatial/SpatialRenderer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/FormantExtractor.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/LipSyncTrack.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/SimpleWav.cppm"
@@ -3025,6 +3030,7 @@ set(ARTIFACTCORE_COLLABORATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollabReview.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollabOperations.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationSessionAdapter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollabSchema.cppm"
 )
 set(ARTIFACTCORE_COLLABORATE_IMPL)
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COLLABORATE_MODULES})
