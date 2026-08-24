@@ -1053,6 +1053,15 @@ bool MpmSolver2D::updateGPUSubsteps(float elapsedSeconds) {
         }
     }
 
+    for (auto& p : particles_) {
+        if (!std::isfinite(p.pos.x) || !std::isfinite(p.pos.y) ||
+            !std::isfinite(p.vel.x) || !std::isfinite(p.vel.y)) {
+            p.pos.x = std::isfinite(p.pos.x) ? p.pos.x : 0.0f;
+            p.pos.y = std::isfinite(p.pos.y) ? p.pos.y : 0.0f;
+            p.vel.x = 0.0f; p.vel.y = 0.0f;
+        }
+    }
+
     accumulatedTime_ -= fixedDt_ * static_cast<float>(steps);
     return true;
 }
@@ -1099,6 +1108,20 @@ void MpmSolver2D::stepOnce(float h) {
             if (p.pos.x > bxmax_ - margin) { p.pos.x = bxmax_ - margin; p.vel.x = 0; }
             if (p.pos.y < bymin_ + margin) { p.pos.y = bymin_ + margin; p.vel.y = 0; }
             if (p.pos.y > bymax_ - margin) { p.pos.y = bymax_ - margin; p.vel.y = 0; }
+        }
+    }
+
+    // NaN guard: zero non-finite states to prevent propagation
+    for (auto& p : particles_) {
+        if (!std::isfinite(p.pos.x) || !std::isfinite(p.pos.y) ||
+            !std::isfinite(p.vel.x) || !std::isfinite(p.vel.y)) {
+            p.pos.x = std::isfinite(p.pos.x) ? p.pos.x : 0.0f;
+            p.pos.y = std::isfinite(p.pos.y) ? p.pos.y : 0.0f;
+            p.vel.x = 0.0f; p.vel.y = 0.0f;
+        }
+        if (!std::isfinite(p.F.m00) || !std::isfinite(p.F.m01) ||
+            !std::isfinite(p.F.m10) || !std::isfinite(p.F.m11)) {
+            p.F = MpmMat2::identity();
         }
     }
 }
