@@ -2013,6 +2013,10 @@ void MeshRenderer::createPSO()
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = COMPARISON_FUNC_LESS;
+
+    // Rasterizer: disable backface cull which hid meshes with mismatched winding (gizmo lines unaffected)
+    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
+    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
     
     // Vertex layout
     PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = 3;
