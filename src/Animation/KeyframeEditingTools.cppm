@@ -2,6 +2,7 @@ module;
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -16,6 +17,9 @@ module;
 #include <QVector>
 
 module Animation.KeyframeEditingTools;
+
+import Container.NamedVector;
+import Math.Random;
 
 namespace ArtifactCore {
 
@@ -68,7 +72,7 @@ bool KeyframeEditingTools::thinKeyframes(
     bool removed;
     do {
         removed = false;
-        std::vector<size_t> toRemove;
+        NamedVector<size_t> toRemove;
 
         // Compute the value range for relative tolerance
         double minVal = keyframes.front().value;
@@ -175,13 +179,14 @@ bool KeyframeEditingTools::randomize(
     if (keyframes.empty() || !std::isfinite(request.amplitude) ||
         request.amplitude == 0.0) return false;
 
-    std::mt19937 rng(request.seed != 0
-        ? static_cast<std::mt19937::result_type>(request.seed)
-        : std::mt19937::result_type{std::random_device{}()});
-    std::normal_distribution<double> dist(0.0, std::abs(request.amplitude));
+    auto rng = ArtifactCore::makeRandomStream(
+        request.seed != 0
+            ? static_cast<std::uint64_t>(request.seed)
+            : static_cast<std::uint64_t>(
+                  std::chrono::steady_clock::now().time_since_epoch().count()));
 
     for (auto& kf : keyframes) {
-        kf.value += dist(rng);
+        kf.value += rng.gaussian(0.0, std::abs(request.amplitude));
     }
     return true;
 }
@@ -201,7 +206,8 @@ bool KeyframeEditingTools::smooth(
     const int half = std::max(1, request.windowSize / 2);
 
     for (int iter = 0; iter < request.iterations; ++iter) {
-        std::vector<double> smoothed(keyframes.size());
+        NamedVector<double> smoothed;
+        smoothed.resize(keyframes.size());
 
         for (size_t i = 0; i < keyframes.size(); ++i) {
             const int start = std::max(0, static_cast<int>(i) - half);
@@ -235,7 +241,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::audioToKeyframes(
     const AudioSegment& audio,
     const AudioToKeyframeRequest& request)
 {
-    std::vector<KeyframePoint> result;
+    NamedVector<KeyframePoint> result;
 
     if (audio.channelData.isEmpty() || audio.channelData[0].isEmpty()) {
         return result;
@@ -300,7 +306,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::audioToKeyframes(
         result.push_back(kf);
     }
 
-    return result;
+    return result.toStdVector();
 }
 
 // ---------------------------------------------------------------------------
@@ -371,7 +377,11 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
 
     // Callers may provide keyframes from an unordered editor selection.
     // Normalize the working order before deriving the source range.
-    std::vector<KeyframePoint> orderedSource = source;
+    NamedVector<KeyframePoint> orderedSource;
+    orderedSource.reserve(source.size());
+    for (const auto& keyframe : source) {
+        orderedSource.push_back(keyframe);
+    }
     std::stable_sort(orderedSource.begin(), orderedSource.end(),
         [](const KeyframePoint& a, const KeyframePoint& b) {
             return a.frame < b.frame;
@@ -390,7 +400,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
     const double srcRange = std::max(1e-10, srcMax - srcMin);
     const double tgtDuration = std::max(1.0, targetEndFrame - targetStartFrame);
 
-    std::vector<KeyframePoint> result;
+    NamedVector<KeyframePoint> result;
     result.reserve(orderedSource.size());
 
     for (const auto& kf : orderedSource) {
@@ -408,7 +418,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
         p.cp2_y = kf.cp2_y;
         result.push_back(p);
     }
-    return result;
+    return result.toStdVector();
 }
 
 // ---------------------------------------------------------------------------
@@ -479,7 +489,7 @@ private:
 
     std::string expr_;
     size_t pos_;
-    std::vector<Token> tokens_;
+    NamedVector<Token> tokens_;
     size_t idx_ = 0;
 
     void tokenize() {
@@ -578,7 +588,7 @@ private:
             if (peek().type == TokenType::LParen) {
                 // Function call
                 advance(); // consume (
-                std::vector<double> args;
+                NamedVector<double> args;
                 if (peek().type != TokenType::RParen) {
                     args.push_back(parseExpr());
                     while (match(TokenType::Comma))
@@ -600,7 +610,7 @@ private:
         return 0.0;
     }
 
-    static double callFunc(const std::string& name, const std::vector<double>& args) {
+    static double callFunc(const std::string& name, const NamedVector<double>& args) {
         auto safe = [&](size_t i) { return i < args.size() ? args[i] : 0.0; };
         if (name == "sin")  return std::sin(safe(0));
         if (name == "cos")  return std::cos(safe(0));
@@ -619,11 +629,12 @@ private:
         if (name == "log")   return std::log(std::max(1e-10, safe(0)));
         if (name == "exp")   return std::exp(safe(0));
         if (name == "random") {
-            static std::mt19937 rng(static_cast<unsigned>(std::random_device{}()));
+            static ArtifactCore::RandomStream rng(
+                static_cast<std::uint64_t>(
+                    std::chrono::steady_clock::now().time_since_epoch().count()));
             double lo = safe(0), hi = safe(1);
             if (hi <= lo) hi = lo + 1.0;
-            std::uniform_real_distribution<double> d(lo, hi);
-            return d(rng);
+            return rng.range(static_cast<float>(lo), static_cast<float>(hi));
         }
         return 0.0;
     }
@@ -638,7 +649,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::expressionToKeyframes(
     double endFrame,
     std::uint32_t seed)
 {
-    std::vector<KeyframePoint> result;
+    NamedVector<KeyframePoint> result;
     if (expression.isEmpty() || !std::isfinite(frameRate) || frameRate <= 0.0 ||
         !std::isfinite(startFrame) || !std::isfinite(endFrame) || endFrame < startFrame) {
         return result;
@@ -671,7 +682,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::expressionToKeyframes(
         result.push_back(kf);
     }
 
-    return result;
+    return result.toStdVector();
 }
 
 // ---------------------------------------------------------------------------

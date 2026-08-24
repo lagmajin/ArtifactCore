@@ -120,12 +120,12 @@ int FluidSolver2D::computeSolverIterations() const {
         return solverIterations_;
     }
 
-    const int extra = std::max(1, size_ / highResThresholdCells_);
+    // Smooth step at threshold: no jump at size == threshold,
+    // +4 per additional threshold block. Previously max(1, size/threshold)
+    // caused an immediate +4 at the threshold boundary.
+    const int blocks = size_ / highResThresholdCells_;
+    const int extra = std::max(0, blocks - 1);
     return std::min(maxAdaptiveIterations_, solverIterations_ + extra * 4);
-}
-
-bool FluidSolver2D::useParallelPath() const {
-    return parallelEnabled_ && size_ >= parallelThresholdCells_;
 }
 
 void FluidSolver2D::linSolve(int b, std::vector<float>& x, const std::vector<float>& x0, float a, float c) {
@@ -204,44 +204,46 @@ void FluidSolver2D::advect(int b, std::vector<float>& d, const std::vector<float
     float NfloatW = width_ - 2;
     float NfloatH = height_ - 2;
 
-    const auto advectRows = [&](int rowBegin, int rowEnd) {
-        for (int j = rowBegin; j < rowEnd; ++j) {
-            for (int i = 1; i < width_ - 1; ++i) {
-                float tmp1 = dtx * vx[IX(i, j)];
-                float tmp2 = dty * vy[IX(i, j)];
-                float x = i - tmp1;
-                float y = j - tmp2;
+    for (int j = 1; j < height_ - 1; ++j) {
+        for (int i = 1; i < width_ - 1; ++i) {
+            float tmp1 = dtx * vx[IX(i, j)];
+            float tmp2 = dty * vy[IX(i, j)];
+            float x = i - tmp1;
+            float y = j - tmp2;
 
-                if (x < 0.5f) x = 0.5f;
-                if (x > NfloatW + 0.5f) x = NfloatW + 0.5f;
-                float i0 = std::floor(x);
-                float i1 = i0 + 1.0f;
-                if (y < 0.5f) y = 0.5f;
-                if (y > NfloatH + 0.5f) y = NfloatH + 0.5f;
-                float j0 = std::floor(y);
-                float j1 = j0 + 1.0f;
+            if (x < 0.5f) x = 0.5f;
+            if (x > NfloatW + 0.5f) x = NfloatW + 0.5f;
+            float i0 = std::floor(x);
+            float i1 = i0 + 1.0f;
+            if (y < 0.5f) y = 0.5f;
+            if (y > NfloatH + 0.5f) y = NfloatH + 0.5f;
+            float j0 = std::floor(y);
+            float j1 = j0 + 1.0f;
 
-                float s1 = x - i0;
-                float s0 = 1.0f - s1;
-                float t1 = y - j0;
-                float t0 = 1.0f - t1;
+            float s1 = x - i0;
+            float s0 = 1.0f - s1;
+            float t1 = y - j0;
+            float t0 = 1.0f - t1;
 
-                int i0i = static_cast<int>(i0);
-                int i1i = static_cast<int>(i1);
-                int j0i = static_cast<int>(j0);
-                int j1i = static_cast<int>(j1);
+            int i0i = static_cast<int>(i0);
+            int i1i = static_cast<int>(i1);
+            int j0i = static_cast<int>(j0);
+            int j1i = static_cast<int>(j1);
 
-                d[IX(i, j)] = s0 * (t0 * d0[IX(i0i, j0i)] + t1 * d0[IX(i0i, j1i)]) +
-                              s1 * (t0 * d0[IX(i1i, j0i)] + t1 * d0[IX(i1i, j1i)]);
-            }
+            d[IX(i, j)] = s0 * (t0 * d0[IX(i0i, j0i)] + t1 * d0[IX(i0i, j1i)]) +
+                          s1 * (t0 * d0[IX(i1i, j0i)] + t1 * d0[IX(i1i, j1i)]);
         }
-    };
+    }
 
-    advectRows(1, height_ - 1);
     setBoundary(b, d);
 }
 
 void FluidSolver2D::update(float dt) {
+    // Guard against zero/negative or exploding frame deltas so the
+    // semi-Lagrangian advection and pressure solve stay stable.
+    if (dt <= 0.0f) return;
+    dt = std::min(dt, 0.05f);
+
     // Apply Buoyancy (Thermal Convection)
     if (buoyancyFactor_ != 0.0f) {
         for (int i = 0; i < size_; ++i) {
@@ -266,6 +268,14 @@ void FluidSolver2D::update(float dt) {
     // Density Step
     diffuse(0, densityPrev_, density_, diffusion_, dt);
     advect(0, density_, densityPrev_, vx_, vy_, dt);
+
+    // Divergence guard: replace non-finite samples with neutral values so
+    // one bad advection step cannot poison subsequent solves.
+    for (int i = 0; i < size_; ++i) {
+        if (!std::isfinite(density_[i])) density_[i] = 0.0f;
+        if (!std::isfinite(vx_[i])) vx_[i] = 0.0f;
+        if (!std::isfinite(vy_[i])) vy_[i] = 0.0f;
+    }
 }
 
 } // namespace ArtifactCore

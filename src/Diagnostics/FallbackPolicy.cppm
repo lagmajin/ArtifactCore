@@ -7,6 +7,8 @@ module;
 
 module Core.Diagnostics.FallbackPolicy;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 FallbackTracker* FallbackTracker::instance() {
@@ -16,7 +18,7 @@ FallbackTracker* FallbackTracker::instance() {
 
 void FallbackTracker::record(const FallbackEvent& event) {
     std::lock_guard<std::mutex> lock(mutex_);
-    events_.push_back(event);
+    events_.append(event);
     if (event.isWarning && warningsEnabled_) {
         qWarning() << "[FallbackTracker]" << event.message
                    << "original=" << event.originalId
@@ -40,29 +42,29 @@ void FallbackTracker::record(FallbackCategory category, FallbackAction action,
 
 std::vector<FallbackEvent> FallbackTracker::getEvents() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    return events_;
+    return events_.toStdVector();
 }
 
 std::vector<FallbackEvent> FallbackTracker::getEventsByCategory(FallbackCategory category) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<FallbackEvent> result;
+    NamedVector<FallbackEvent> result;
     for (const auto& e : events_) {
         if (e.category == category) {
             result.push_back(e);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::vector<FallbackEvent> FallbackTracker::getEventsSince(const QDateTime& since) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<FallbackEvent> result;
+    NamedVector<FallbackEvent> result;
     for (const auto& e : events_) {
         if (e.timestamp >= since) {
             result.push_back(e);
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 void FallbackTracker::clear() {

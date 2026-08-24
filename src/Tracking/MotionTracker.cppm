@@ -56,6 +56,8 @@ module;
 #include <opencv2/opencv.hpp>
 module Tracking.MotionTracker;
 
+import Container.NamedVector;
+
 import Core.Parallel;
 
 namespace ArtifactCore {
@@ -214,14 +216,14 @@ QPointF TrackResult::averagePosition(double time) const {
 }
 
 std::vector<QPointF> TrackResult::motionPath(int pointId) const {
-    std::vector<QPointF> path;
+    NamedVector<QPointF> path;
     for (const auto& frame : frames) {
         const TrackPoint* p = frame.findPoint(pointId);
         if (p) {
             path.push_back(p->position);
         }
     }
-    return path;
+    return path.toStdVector();
 }
 
 void TrackResult::normalize() {
@@ -234,12 +236,12 @@ void TrackResult::normalize() {
               [](const TrackFrame& lhs, const TrackFrame& rhs) {
                   return lhs.time < rhs.time;
               });
-    std::vector<TrackFrame> normalized;
+    NamedVector<TrackFrame> normalized;
     normalized.reserve(frames.size());
     for (auto& frame : frames) {
         frame.sortPointsById();
         if (!frame.points.empty()) {
-            std::vector<TrackPoint> uniquePoints;
+            NamedVector<TrackPoint> uniquePoints;
             uniquePoints.reserve(frame.points.size());
             for (auto& point : frame.points) {
                 if (!uniquePoints.empty() && uniquePoints.back().id == point.id)
@@ -247,7 +249,7 @@ void TrackResult::normalize() {
                 else
                     uniquePoints.push_back(std::move(point));
             }
-            frame.points = std::move(uniquePoints);
+            frame.points = uniquePoints.toStdVector();
         }
         bool finiteHomography = frame.hasHomography;
         if (finiteHomography) {
@@ -280,7 +282,7 @@ void TrackResult::normalize() {
             normalized.push_back(std::move(frame));
         }
     }
-    frames = std::move(normalized);
+    frames = normalized.toStdVector();
     if (!frames.empty()) {
         startTime = frames.front().time;
         endTime = frames.back().time;
@@ -606,7 +608,7 @@ void CameraPoseStream::normalize() {
               [](const CameraPoseFrame& lhs, const CameraPoseFrame& rhs) {
                   return lhs.time < rhs.time;
               });
-    std::vector<CameraPoseFrame> normalized;
+    NamedVector<CameraPoseFrame> normalized;
     normalized.reserve(frames.size());
     for (auto& frame : frames) {
         if (!std::isfinite(frame.meanReprojectionError) || frame.meanReprojectionError < 0.0)
@@ -628,7 +630,7 @@ void CameraPoseStream::normalize() {
             normalized.push_back(std::move(frame));
         }
     }
-    frames = std::move(normalized);
+    frames = normalized.toStdVector();
 }
 
 CameraPoseStream solveCameraPoseStream(
@@ -1203,7 +1205,7 @@ public:
     
     // 特徴点検出 (Shi-Tomasi / goodFeaturesToTrack)
     std::vector<QPointF> detectFeatures(const cv::Mat& frame, int maxFeatures, double minDist) {
-        std::vector<QPointF> features;
+        NamedVector<QPointF> features;
         cv::Mat gray = normalizeFrame(frame);
         std::vector<cv::Point2f> corners;
         cv::goodFeaturesToTrack(gray, corners, maxFeatures, 0.01, minDist, cv::Mat(), 3, false, 0.04);
@@ -1217,7 +1219,7 @@ public:
                 }
             }
         }
-        return features;
+        return features.toStdVector();
     }
 };
 
@@ -1905,7 +1907,7 @@ double MotionTracker::qualityScore() const {
 }
 
 std::vector<double> MotionTracker::problemFrames() const {
-    std::vector<double> problems;
+    NamedVector<double> problems;
     problems.reserve(impl_->result.failureFrames.size() + impl_->result.frames.size());
     for (const double time : impl_->result.failureFrames) {
         if (std::isfinite(time)) problems.push_back(time);
@@ -1917,11 +1919,16 @@ std::vector<double> MotionTracker::problemFrames() const {
         }
     }
     std::sort(problems.begin(), problems.end());
-    problems.erase(std::unique(problems.begin(), problems.end(),
-                               [](double lhs, double rhs) {
-                                   return std::abs(lhs - rhs) < 1e-9;
-                               }), problems.end());
-    return problems;
+    if (problems.size() > 1) {
+        size_t write = 1;
+        for (size_t read = 1; read < problems.size(); ++read) {
+            if (std::abs(problems[write - 1] - problems[read]) >= 1e-9) {
+                problems[write++] = problems[read];
+            }
+        }
+        problems.resize(write);
+    }
+    return problems.toStdVector();
 }
 
 QPointF MotionTracker::averageVelocity() const {
@@ -2352,12 +2359,12 @@ void TrackerManager::clearTrackers() {
 
 std::vector<MotionTracker*> TrackerManager::allTrackers() {
     auto qlist = impl_->trackers.values();
-    std::vector<MotionTracker*> result;
+    NamedVector<MotionTracker*> result;
     result.reserve(static_cast<std::size_t>(qlist.size()));
     for (auto* tracker : qlist) {
         result.push_back(tracker);
     }
-    return result;
+    return result.toStdVector();
 }
 
 

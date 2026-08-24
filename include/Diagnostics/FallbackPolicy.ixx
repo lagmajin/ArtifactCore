@@ -12,6 +12,7 @@ module;
 export module Core.Diagnostics.FallbackPolicy;
 
 import Utils.Optional;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -100,7 +101,8 @@ private:
     FallbackTracker() = default;
 
     mutable std::mutex mutex_;
-    std::vector<FallbackEvent> events_;
+    NamedVector<FallbackEvent> events_{
+        makeNamedVector<FallbackEvent>(ContainerName{"FallbackTrackerEvents"})};
     bool warningsEnabled_ = true;
     FallbackPolicy fontPolicy_{FallbackPolicy::defaultFont()};
     FallbackPolicy imagePolicy_{FallbackPolicy::defaultImage()};

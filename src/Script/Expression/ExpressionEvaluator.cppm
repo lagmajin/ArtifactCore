@@ -42,6 +42,8 @@ module;
 
 module Script.Expression.Evaluator;
 
+import Container.NamedVector;
+
 import Memory.SharedPtr;
 import Script.Expression.Value;
 import Script.Expression.Parser;
@@ -198,7 +200,7 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
   }
 
   case ExprNodeType::Vector: {
-    std::vector<double> components;
+    NamedVector<double> components;
     for (size_t i = 0; i < node->childCount(); ++i) {
       auto child = node->child(i);
       auto val = evaluateNode(child);
@@ -580,11 +582,15 @@ void ExpressionEvaluator::registerStandardFunctions() {
   registerFunction("framesToTime", FramesToTime);
   registerFunction("random", Random);
   registerFunction("randomSeeded", RandomSeeded);
+  // AE alias: seedRandom(seed, ...) seeds the deterministic generator; the
+  // shared implementation already mixes the seed with evaluation time.
+  registerFunction("seedRandom", RandomSeeded);
   registerFunction("noise", Noise);
   registerFunction("sum", Sum);
   registerFunction("average", Average);
   registerFunction("wiggle", Wiggle);
   registerFunction("smooth", Smooth);
+  registerFunction("posterizeTime", PosterizeTime);
 
   // Audio
   registerFunction("audio_rms", AudioRMS);
@@ -780,7 +786,7 @@ ExpressionEvaluator::evaluateOverRange(
     double endTimeSec,
     EvaluationMode mode) {
 
-    std::vector<std::pair<double, ExpressionValue>> results;
+    NamedVector<std::pair<double, ExpressionValue>> results;
 
     if (mode == EvaluationMode::FrameLocked) {
         // Evaluate at each frame time (current behavior)
@@ -818,7 +824,7 @@ ExpressionEvaluator::evaluateOverRange(
         auto ast = impl_->parser_.parse(expression);
         if (impl_->parser_.hasError()) {
             impl_->error_ = ZeroString(impl_->parser_.getError());
-            return results;
+            return results.toStdVector();
         }
 
         const double tol = impl_->adaptiveTolerance_;
@@ -891,7 +897,7 @@ ExpressionEvaluator::evaluateOverRange(
         walk(startTimeSec, endTimeSec);
     }
 
-    return results;
+    return results.toStdVector();
 }
 
 namespace BuiltinFunctions {
@@ -1155,6 +1161,20 @@ ExpressionValue Noise(const std::vector<ExpressionValue> &args, const Expression
   return ExpressionValue(static_cast<double>(val));
 }
 
+// AE posterizeTime(fps): quantizes the evaluation time so downstream
+// time-driven functions (wiggle, random, valueAtTime...) step at the given
+// rate instead of moving smoothly. Returns the quantized time in seconds.
+ExpressionValue PosterizeTime(const std::vector<ExpressionValue>& args,
+                              const ExpressionEvaluator* ctx) {
+  if (args.empty()) return ExpressionValue(0.0);
+  const double fps = args[0].asNumber();
+  const double now = ctx ? ctx->getVariable("time").asNumber() : 0.0;
+  if (!std::isfinite(fps) || fps <= 0.0 || !std::isfinite(now)) {
+    return ExpressionValue(now);
+  }
+  return ExpressionValue(std::floor(now * fps) / fps);
+}
+
 ExpressionValue RandomSeeded(const std::vector<ExpressionValue>& args,
                              const ExpressionEvaluator* ctx) {
   if (args.empty() || !std::isfinite(args[0].asNumber()))
@@ -1292,9 +1312,9 @@ ExpressionValue loopValue(const ExpressionEvaluator* ctx, bool loopIn,
   if (entries.empty()) return ctx->getVariable("value");
   if (entries.size() == 1) return entries.front().property("value");
 
-  std::vector<double> times;
-  std::vector<ExpressionValue> values;
-  std::vector<std::pair<double, ExpressionValue>> keyed;
+  NamedVector<double> times;
+  NamedVector<ExpressionValue> values;
+  NamedVector<std::pair<double, ExpressionValue>> keyed;
   keyed.reserve(entries.size());
   for (const auto& entry : entries) {
     if (!entry.isObject() || !entry.hasProperty("time") || !entry.hasProperty("value"))
@@ -1395,7 +1415,7 @@ ExpressionValue Smooth(const std::vector<ExpressionValue>& args,
       ? args[2].asNumber() : ctx->getVariable("time").asNumber();
   if (!std::isfinite(center)) return ctx->getVariable("value");
 
-  std::vector<std::pair<double, ExpressionValue>> keyed;
+  NamedVector<std::pair<double, ExpressionValue>> keyed;
   for (const auto& entry : keyframes.asArray()) {
     if (!entry.isObject() || !entry.hasProperty("time") ||
         !entry.hasProperty("value")) continue;

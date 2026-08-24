@@ -9,6 +9,8 @@ module;
 
 export module Data.DataSource;
 
+import Container.NamedVector;
+
 import Data.DataTable;
 import Data.ColumnType;
 import Memory.SharedPtr;
@@ -83,12 +85,12 @@ public:
     }
 
     std::vector<String> registeredExtensions() const {
-        std::vector<String> exts;
+        NamedVector<String> exts;
         exts.reserve(factories_.size());
         for (const auto& [ext, _] : factories_) {
             exts.push_back(String(ext));
         }
-        return exts;
+        return exts.toStdVector();
     }
 
 private:

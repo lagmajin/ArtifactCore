@@ -292,7 +292,9 @@ public:
     void setExpression(const QString& expression);
     QString getExpression() const;
     bool hasExpression() const;
-    QVariant evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator = nullptr) const;
+    // Optional layerIndex feeds the AE-style `index` expression variable.
+    QVariant evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator = nullptr,
+                           std::optional<int> layerIndex = std::nullopt) const;
 
     // Envelope support
     void addEnvelope(const EnvelopeTrack& envelope);

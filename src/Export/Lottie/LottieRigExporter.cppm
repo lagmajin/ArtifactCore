@@ -9,6 +9,7 @@ module;
 module Export.Lottie.RigExporter;
 
 import Export.Lottie.Exporter;
+import Container.NamedVector;
 
 namespace ArtifactCore::Export::Lottie {
 namespace {
@@ -18,7 +19,7 @@ std::vector<LottieKeyframe> sampleKeyframes(
     const std::vector<std::vector<double>>& samples,
     int startFrame,
     const ValueBuilder& builder) {
-    std::vector<LottieKeyframe> result;
+    NamedVector<LottieKeyframe> result;
     result.reserve(samples.size());
     for (std::size_t index = 0; index < samples.size(); ++index) {
         LottieKeyframe key;
@@ -28,7 +29,7 @@ std::vector<LottieKeyframe> sampleKeyframes(
         builder(key);
         result.push_back(std::move(key));
     }
-    return result;
+    return result.toStdVector();
 }
 
 } // namespace
@@ -97,10 +98,10 @@ bool appendRigAnimation(Rig2D& rig,
         framesPerSecond <= 0 || framesPerSecond > 1000 || rig.bones().isEmpty()) {
         return false;
     }
-    std::vector<LottieLayer> converted;
+    NamedVector<LottieLayer> converted;
     converted.reserve(static_cast<std::size_t>(rig.bones().size()));
     int index = 1;
-    std::vector<Bone2D*> convertedBones;
+    NamedVector<Bone2D*> convertedBones;
     convertedBones.reserve(static_cast<std::size_t>(rig.bones().size()));
     for (Bone2D* bone : rig.bones()) {
         if (!bone) continue;

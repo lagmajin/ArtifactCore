@@ -19,6 +19,7 @@ module;
 export module Core.AI.CommandIR;
 
 import std;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -279,7 +280,8 @@ public:
             }
             return false;
         }
-        std::vector<SafeWriteAuditEntry> loaded;
+        NamedVector<SafeWriteAuditEntry> loaded{
+            makeNamedVector<SafeWriteAuditEntry>(ContainerName{"SafeWriteAuditLoadedEntries"})};
         for (const auto& value : document.array()) {
             if (!value.isObject()) continue;
             const QVariantMap map = value.toObject().toVariantMap();
@@ -296,9 +298,10 @@ public:
             entry.failure.message = failure.value(QStringLiteral("message")).toString();
             entry.failure.retrySuggestion = failure.value(QStringLiteral("retrySuggestion")).toString();
             entry.failure.recoverable = failure.value(QStringLiteral("recoverable")).toBool();
-            if (entry.isValid()) loaded.push_back(std::move(entry));
+            if (entry.isValid()) loaded.append(std::move(entry));
         }
-        entries_ = std::move(loaded);
+        entries_.clear();
+        entries_.insert(entries_.end(), loaded.begin(), loaded.end());
         return true;
     }
 

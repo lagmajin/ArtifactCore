@@ -8,6 +8,7 @@ module Configuration.ConfigSchema;
 
 import Configuration.LayeredConfigStore;
 import std;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -75,10 +76,11 @@ const ConfigProperty* ConfigSchema::find(std::string_view key) const {
 
 std::vector<const ConfigProperty*> ConfigSchema::allProperties() const {
     std::shared_lock lock(impl_->mutex);
-    std::vector<const ConfigProperty*> result;
+    NamedVector<const ConfigProperty*> result{
+        makeNamedVector<const ConfigProperty*>(ContainerName{"ConfigSchemaProperties"})};
     result.reserve(impl_->properties.size());
-    for (const auto& [key, property] : impl_->properties) result.push_back(&property);
-    return result;
+    for (const auto& [key, property] : impl_->properties) result.append(&property);
+    return result.toStdVector();
 }
 
 bool ConfigSchema::applyDefaultsToLayer(ConfigLayer layer) {

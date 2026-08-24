@@ -12,6 +12,7 @@ module;
 export module Artifact.Render.PointwiseEffectFusion;
 
 import Core.ArtifactString;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -262,7 +263,7 @@ public:
     static std::vector<PointwiseFusionSegment> segment(
         const std::vector<PointwiseEffectNode>& nodes,
         PointwiseAlphaMode initialAlpha = PointwiseAlphaMode::Premultiplied) {
-        std::vector<PointwiseFusionSegment> segments;
+        NamedVector<PointwiseFusionSegment> segments;
         PointwiseAlphaMode alpha = initialAlpha;
         std::size_t index = 0;
         while (index < nodes.size()) {
@@ -300,7 +301,7 @@ public:
                 ++index;
             }
         }
-        return segments;
+        return segments.toStdVector();
     }
 
     static PointwiseCompileKey makeCompileKey(
@@ -666,7 +667,7 @@ inline std::vector<PointwiseFusionSegment> PointwiseEffectStack::segments(
 }
 
 inline std::vector<EffectDomainSegment> PointwiseEffectStack::domainSegments() const {
-    std::vector<EffectDomainSegment> result;
+    NamedVector<EffectDomainSegment> result;
     std::size_t index = 0;
     while (index < nodes_.size()) {
         const EffectExecutionDomain domain =
@@ -678,7 +679,7 @@ inline std::vector<EffectDomainSegment> PointwiseEffectStack::domainSegments() c
         }
         result.push_back({start, index - start, domain});
     }
-    return result;
+    return result.toStdVector();
 }
 
 inline PointwiseStackValidation PointwiseEffectStack::validate() const {

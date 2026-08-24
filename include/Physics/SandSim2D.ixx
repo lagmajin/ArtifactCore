@@ -41,6 +41,7 @@ public:
     const std::vector<uint8_t>& lifetime() const { return lifetime_; }
 
     void setRandomSeed(unsigned seed);
+    unsigned randomSeed() const noexcept { return seed_; }
 
 private:
     int width_;
@@ -53,6 +54,7 @@ private:
     std::vector<bool> updated_;
 
     std::mt19937 rng_;
+    unsigned seed_ = 0x9E3779B9u;
 
     inline int IX(int x, int y) const {
         return x + y * width_;

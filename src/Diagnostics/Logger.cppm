@@ -25,6 +25,8 @@ module;
 
 module Diagnostics.Logger;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 W_OBJECT_IMPL(Logger)
@@ -144,7 +146,9 @@ void Logger::uninstall() {
 std::vector<LogMessage> Logger::getLogs() const {
     // Return a copy so callers never observe the live vector after the lock is released.
     std::lock_guard<std::mutex> lock(mutex_);
-    return logs_;
+    NamedVector<LogMessage> result;
+    result.insert(result.end(), logs_.begin(), logs_.end());
+    return result.toStdVector();
 }
 
 void Logger::clearLogs() {

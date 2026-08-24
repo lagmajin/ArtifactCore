@@ -8,6 +8,7 @@ module;
 export module Utils.Text.String;
 
 import Core.ArtifactString;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -40,7 +41,7 @@ inline bool endsWith(std::string_view value, std::string_view suffix) noexcept
 
 inline std::vector<std::string_view> splitView(std::string_view value, char separator)
 {
-  std::vector<std::string_view> result;
+  NamedVector<std::string_view> result;
   std::size_t start = 0;
   while (start <= value.size()) {
     const std::size_t end = value.find(separator, start);
@@ -49,7 +50,7 @@ inline std::vector<std::string_view> splitView(std::string_view value, char sepa
     if (end == std::string_view::npos) break;
     start = end + 1;
   }
-  return result;
+  return result.toStdVector();
 }
 
 inline String join(std::span<const std::string_view> parts, char separator)

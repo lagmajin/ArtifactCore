@@ -172,6 +172,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Graphics/ParticleRenderer.cppm|Graphics.ParticleRenderer|include/Graphics/ParticleRenderer.ixx"
     "src/Graphics/RayTracingManager.cppm|Graphics.RayTracingManager|include/Graphics/RayTracingManager.ixx"
     "src/Graphics/SandGPUCompute.cppm|Graphics.SandGPUCompute|include/Graphics/SandGPUCompute.ixx"
+    "src/Graphics/MpmCompute.cppm|Graphics.MpmCompute|include/Graphics/MpmCompute.ixx"
     "src/Graphics/Shader/BasicGeometryShader.cppm|Graphics.Shader.HLSL.Geometry|include/Graphics/Shader/BasicGeometryShader.ixx"
     "src/Graphics/Shader/BasicShaders.cppm|Graphics.Shader.HLSL.Basics.Pixel|include/Graphics/Shader/HLSL/BasicShaders.ixx"
     "src/Graphics/Shader/BasicVertexShader.cppm|Graphics.Shader.HLSL.Basics.Vertex|include/Graphics/Shader/Vertex/BasicVertexShader.ixx"

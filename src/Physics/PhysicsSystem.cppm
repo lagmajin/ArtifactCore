@@ -8,6 +8,7 @@ module;
 #include <map>
 #include <vector>
 #include <QString>
+#include <QVector2D>
 #include <optional>
 
 export module Physics.System;
@@ -16,9 +17,13 @@ import Physics.Fluid;
 import Physics2D;
 import Physics.SoftBody;
 import Physics.Mpm2D;
+import Core.Simulation.Pyro;
+import Graphics.ParticleData;
+import Graphics.BoidsCompute;
 import Memory.TrackedPtr;
 import Memory.SharedPtr;
 import Utils.Id;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -123,7 +128,9 @@ public:
     // --- Phase 2: Fluid Dynamics ---
     /**
      * @brief グローバルな流体シミュレーション（煙・炎等）を初期化する
+     * @deprecated 単一グローバル流体は layer ごとの createFluidSolver へ移行。互換維持のため残置。
      */
+    [[deprecated("use createFluidSolver(layerId,w,h)")]]
     void initFluid(int w, int h) {
         fluidSolver_ = std::make_unique<FluidSolver2D>(w, h);
         fluidBaseWidth_ = std::max(4, w);
@@ -131,10 +138,23 @@ public:
         appliedFluidResolutionScale_ = 1.0f;
     }
     
-    /**
-     * @brief 流体ソルバーを取得する
-     */
+    [[deprecated("use getFluidSolver(layerId)")]]
     FluidSolver2D* getFluidSolver() { return fluidSolver_.get(); }
+
+    SharedPtr<FluidSolver2D> createFluidSolver(LayerID layerId, int w, int h) {
+        auto solver = makeShared<FluidSolver2D>(w, h);
+        fluidSolvers_[layerId] = solver;
+        return solver;
+    }
+
+    SharedPtr<FluidSolver2D> getFluidSolver(LayerID layerId) {
+        auto it = fluidSolvers_.find(layerId);
+        return it != fluidSolvers_.end() ? it->second : nullptr;
+    }
+
+    void unregisterFluidSolver(LayerID layerId) {
+        fluidSolvers_.erase(layerId);
+    }
     
     // --- Phase 3: Soft Body Dynamics ---
     /**
@@ -249,7 +269,9 @@ public:
     }
 
     std::vector<MaterialFractureEvent> takeMaterialFractureEvents() {
-        return std::exchange(pendingMaterialFractureEvents_, {});
+        auto events = pendingMaterialFractureEvents_.toStdVector();
+        pendingMaterialFractureEvents_.clear();
+        return events;
     }
 
     /**
@@ -275,6 +297,97 @@ public:
      */
     void unregisterRigidWorld(LayerID layerId) {
         rigidWorlds_.erase(layerId);
+    }
+
+    // ---- Cloner/Rigid helpers (thin wrappers, no new simulation state) ----
+    std::vector<SharedPtr<RigidBody2D>> createRigidBoxes(
+        LayerID layerId, const std::vector<QVector2D>& positions,
+        float width, float height,
+        float density = 1.0f, float friction = 0.3f, float restitution = 0.2f) {
+        auto world = getRigidWorld(layerId);
+        if (!world) world = createRigidWorld(layerId);
+        std::vector<SharedPtr<RigidBody2D>> out;
+        out.reserve(positions.size());
+        for (const auto& p : positions) {
+            out.push_back(world->addDynamicBox(p.x(), p.y(), width, height, density, friction, restitution));
+        }
+        return out;
+    }
+
+    std::vector<SharedPtr<RigidBody2D>> createRigidCircles(
+        LayerID layerId, const std::vector<QVector2D>& positions,
+        float radius, float density = 1.0f,
+        float friction = 0.3f, float restitution = 0.2f) {
+        auto world = getRigidWorld(layerId);
+        if (!world) world = createRigidWorld(layerId);
+        std::vector<SharedPtr<RigidBody2D>> out;
+        out.reserve(positions.size());
+        for (const auto& p : positions) {
+            out.push_back(world->addDynamicCircle(p.x(), p.y(), radius, density, friction, restitution));
+        }
+        return out;
+    }
+
+    void setSoftBodyWind(LayerID layerId, float dirX, float dirY, float strength) {
+        if (auto it = softBodies_.find(layerId); it != softBodies_.end() && it->second) {
+            it->second->setWind(dirX, dirY, strength);
+        }
+    }
+
+    void setSoftBodyTurbulence(LayerID layerId, float strength, float frequency = 1.0f) {
+        if (auto it = softBodies_.find(layerId); it != softBodies_.end() && it->second) {
+            it->second->setTurbulence(strength, frequency);
+        }
+    }
+
+    SharedPtr<PyroSimulation> createPyroSimulation(LayerID layerId) {
+        auto sim = makeShared<PyroSimulation>();
+        pyroSimulations_[layerId] = sim;
+        return sim;
+    }
+
+    SharedPtr<PyroSimulation> getPyroSimulation(LayerID layerId) {
+        auto it = pyroSimulations_.find(layerId);
+        return it != pyroSimulations_.end() ? it->second : nullptr;
+    }
+
+    void unregisterPyroSimulation(LayerID layerId) {
+        pyroSimulations_.erase(layerId);
+    }
+
+    void setBoidsConstants(LayerID layerId, const GpuBoidConstants& c) {
+        boidsConstants_[layerId] = c;
+    }
+
+    std::optional<GpuBoidConstants> getBoidsConstants(LayerID layerId) const {
+        auto it = boidsConstants_.find(layerId);
+        if (it != boidsConstants_.end()) return it->second;
+        return std::nullopt;
+    }
+
+    void unregisterBoids(LayerID layerId) {
+        boidsConstants_.erase(layerId);
+    }
+
+    // ---- Mpm -> ParticleRenderer bridge (manual upload, no auto Composition hook) ----
+    ParticleRenderData buildMpmParticleRenderData(
+        LayerID layerId, float particleSize = 3.0f, float alpha = 1.0f) const {
+        ParticleRenderData out;
+        auto it = materialSolvers_.find(layerId);
+        if (it == materialSolvers_.end() || !it->second) return out;
+        const auto& particles = it->second->particles();
+        out.particles.reserve(particles.size());
+        for (const auto& p : particles) {
+            if (!p.active) continue;
+            ParticleVertex v;
+            v.px = p.pos.x; v.py = p.pos.y; v.pz = 0.0f;
+            v.vx = p.vel.x; v.vy = p.vel.y; v.vz = 0.0f;
+            v.r = p.r; v.g = p.g; v.b = p.b; v.a = alpha;
+            v.size = particleSize;
+            v.age = 0.0f; v.lifetime = 1.0f;
+            out.particles.push_back(v);
+        }
+        return out;
     }
 
     /**
@@ -315,7 +428,7 @@ public:
     std::vector<SoftBodyCollider> getSoftBodyColliders(LayerID layerId) const {
         auto it = softBodyColliders_.find(layerId);
         if (it != softBodyColliders_.end()) {
-            return it->second;
+            return it->second.toStdVector();
         }
         return {};
     }
@@ -405,6 +518,12 @@ public:
             }
             fluidSolver_->update(simulationDt);
         }
+        for (auto& [id, fs] : fluidSolvers_) {
+            if (fs) {
+                if (lodSettings_.fluidSolverIterations > 0) fs->setSolverIterations(lodSettings_.fluidSolverIterations);
+                fs->update(simulationDt);
+            }
+        }
         
         for (auto& [id, sb] : softBodies_) {
             // ソフトボディは Verlet 積分と拘束解決で更新
@@ -474,6 +593,10 @@ public:
                     ? lodSettings_.rigidBodySubSteps : 4);
             }
         }
+
+        for (auto& [id, pyro] : pyroSimulations_) {
+            if (pyro) pyro->step(simulationDt);
+        }
     }
 
     /**
@@ -484,6 +607,7 @@ public:
         fluidBaseWidth_ = 0;
         fluidBaseHeight_ = 0;
         appliedFluidResolutionScale_ = 1.0f;
+        fluidSolvers_.clear();
         softBodies_.clear();
         softBodyColliders_.clear();
         softBodySnapshots_.clear();
@@ -491,6 +615,8 @@ public:
         materialSnapshots_.clear();
         pendingMaterialFractureEvents_.clear();
         rigidWorlds_.clear();
+        pyroSimulations_.clear();
+        boidsConstants_.clear();
     }
 
 private:
@@ -504,13 +630,16 @@ private:
     int fluidBaseWidth_ = 0;
     int fluidBaseHeight_ = 0;
     float appliedFluidResolutionScale_ = 1.0f;
+    std::map<LayerID, SharedPtr<FluidSolver2D>> fluidSolvers_;
     std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
-    std::map<LayerID, std::vector<SoftBodyCollider>> softBodyColliders_;
+    std::map<LayerID, NamedVector<SoftBodyCollider>> softBodyColliders_;
     std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
     std::map<LayerID, SharedPtr<MpmSolver2D>> materialSolvers_;
     std::map<LayerID, std::map<int64_t, MpmSnapshot2D>> materialSnapshots_;
-    std::vector<MaterialFractureEvent> pendingMaterialFractureEvents_;
+    NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
+    std::map<LayerID, SharedPtr<PyroSimulation>> pyroSimulations_;
+    std::map<LayerID, GpuBoidConstants> boidsConstants_;
     PhysicsLODSettings lodSettings_;
     float lodAccumulator_ = 0.0f;
     static constexpr std::size_t maxSoftBodySnapshotsPerLayer_ = 480;

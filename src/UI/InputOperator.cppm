@@ -18,6 +18,7 @@ module;
 module Input.Operator;
 
 import InputEvent;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -279,7 +280,7 @@ Action* ActionManager::getAction(const QString& id) const {
 }
 
 std::vector<Action*> ActionManager::getActionsByCategory(const QString& category) const {
-    std::vector<Action*> result;
+    NamedVector<Action*> result;
     for (auto& [id, cat] : impl_->categories_) {
         if (cat == category) {
             auto it = impl_->actions_.find(id);
@@ -288,15 +289,15 @@ std::vector<Action*> ActionManager::getActionsByCategory(const QString& category
             }
         }
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::vector<Action*> ActionManager::allActions() const {
-    std::vector<Action*> result;
+    NamedVector<Action*> result;
     for (auto& [id, action] : impl_->actions_) {
         result.push_back(action);
     }
-    return result;
+    return result.toStdVector();
 }
 
 void ActionManager::executeAction(const QString& id, const QVariantMap& params) {
@@ -458,11 +459,11 @@ void KeyMap::removeBinding(const QString& actionId) {
 }
 
 std::vector<InputBinding*> KeyMap::allBindings() const {
-    std::vector<InputBinding*> result;
+    NamedVector<InputBinding*> result;
     for (auto& [id, binding] : impl_->bindings_) {
         result.push_back(binding);
     }
-    return result;
+    return result.toStdVector();
 }
 
 InputBinding* KeyMap::findBinding(int key, InputEvent::Modifiers mods) const {
@@ -474,12 +475,12 @@ InputBinding* KeyMap::findBinding(int key, InputEvent::Modifiers mods) const {
 }
 
 std::vector<InputBinding*> KeyMap::findBindingsForAction(const QString& actionId) const {
-    std::vector<InputBinding*> result;
+    NamedVector<InputBinding*> result;
     auto it = impl_->bindings_.find(actionId);
     if (it != impl_->bindings_.end()) {
         result.push_back(it->second);
     }
-    return result;
+    return result.toStdVector();
 }
 
 QString KeyMap::toJSON() const {
@@ -552,7 +553,7 @@ public:
     QString activeContext_ = "Global";
     bool enabled_ = true;
     bool inChord_ = false;
-    std::vector<int> chordKeys_;
+    NamedVector<int> chordKeys_;
     int chordTimeout_ = 1000;  // ms
     InteractiveAction* activeAction_ = nullptr;
 
@@ -607,11 +608,11 @@ KeyMap* InputOperator::getKeyMap(const QString& name) const {
 }
 
 std::vector<KeyMap*> InputOperator::allKeyMaps() const {
-    std::vector<KeyMap*> result;
+    NamedVector<KeyMap*> result;
     for (auto& [name, keyMap] : impl_->keyMaps_) {
         result.push_back(keyMap);
     }
-    return result;
+    return result.toStdVector();
 }
 
 QString InputOperator::activeContext() const {

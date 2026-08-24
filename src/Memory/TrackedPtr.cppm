@@ -12,6 +12,8 @@ module;
 
 export module Memory.TrackedPtr;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 namespace Memory {
@@ -50,12 +52,12 @@ public:
         }
     }
 
-    const std::vector<uint64_t>& values() const noexcept {
+    const NamedVector<uint64_t>& values() const noexcept {
         return values_;
     }
 
 private:
-    std::vector<uint64_t> values_;
+    NamedVector<uint64_t> values_;
 };
 
 struct TrackedPtrControlBlock {
@@ -72,7 +74,7 @@ struct TrackedPtrControlBlock {
     // Debug metadata
     std::string typeName;
     std::string allocationSite;
-    std::vector<std::string> allocationStack;
+    NamedVector<std::string> allocationStack;
     
     TrackedPtrControlBlock() = default;
     TrackedPtrControlBlock(void* p, TrackedDeleter d, uint64_t id)
@@ -114,23 +116,24 @@ public:
     
     std::vector<uint64_t> detectCycles() const {
         std::lock_guard<std::mutex> lock(mutex_);
-        std::vector<uint64_t> cycleParticipants;
+        NamedVector<uint64_t> cycleParticipants{
+            makeNamedVector<uint64_t>(ContainerName{"TrackedPtrCycleParticipants"})};
         
         for (uint64_t id = 1; id < blocks_.size(); ++id) {
             const auto* block = blocks_[static_cast<size_t>(id)];
             if (block && block->strongRefCount.load() > 0) {
                 if (isPartOfCycle(block, id)) {
-                    cycleParticipants.push_back(id);
+                    cycleParticipants.append(id);
                 }
             }
         }
-        return cycleParticipants;
+        return cycleParticipants.toStdVector();
     }
     
 private:
     mutable std::mutex mutex_;
     uint64_t nextId_{0};
-    std::vector<TrackedPtrControlBlock*> blocks_;
+    NamedVector<TrackedPtrControlBlock*> blocks_;
     
     bool isPartOfCycle(const TrackedPtrControlBlock* block, uint64_t id) const {
         if (!block) return false;

@@ -99,6 +99,12 @@ struct ParticleData {
     float  rotation;
     float  age;
     float  lifetime;
+    // Sprite fields are unused by the vertex stage, but the StructuredBuffer
+    // stride must match the C++ ParticleVertex (72 bytes) and the cull CS
+    // layout, otherwise every particle after the first reads shifted data.
+    int    spriteFrame;
+    int    spriteRows;
+    int    spriteCols;
 };
 
 StructuredBuffer<ParticleData> g_Particles : register(t0);
@@ -153,7 +159,10 @@ PS_Input VSMain(VS_Input In) {
     float cosR = cos(rad);
     float sinR = sin(rad);
     
-    float halfWidth = max(0.75, p.size * 5.0);
+    // Particle size is a radius in world units, matching the software path
+    // (drawEllipse radius = scale * 10). halfWidth = size keeps the GPU quad
+    // diameter equal to the software diameter instead of 2x.
+    float halfWidth = max(0.375, p.size * 2.5);
     float halfHeight = halfWidth * max(1.0, p.stretch);
     float2 localOffset = c_Offsets[In.VertexID] * float2(halfWidth * 2.0, halfHeight * 2.0);
     float2 rotatedOffset;

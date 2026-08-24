@@ -12,6 +12,8 @@ module;
 
 export module Core.Diagnostics.SessionLedger;
 
+import Container.NamedVector;
+
 export namespace ArtifactCore {
 
 enum class SessionEntryKind {
@@ -143,13 +145,13 @@ public:
     const std::vector<RecoveryPoint>& recoveryPoints() const { return recoveryPoints_; }
 
     std::vector<SessionLedgerEntry> recoverableEntries() const {
-        std::vector<SessionLedgerEntry> result;
+        NamedVector<SessionLedgerEntry> result;
         for (const auto& e : entries_) {
             if (e.isRecoverable) {
                 result.push_back(e);
             }
         }
-        return result;
+        return result.toStdVector();
     }
 
     QJsonObject toJson() const {
@@ -205,7 +207,8 @@ public:
         const QString loadedSessionId = root.value(QStringLiteral("sessionId")).toString();
         if (loadedSessionId.isEmpty()) return false;
 
-        std::vector<SessionLedgerEntry> loadedEntries;
+        NamedVector<SessionLedgerEntry> loadedEntries{
+            makeNamedVector<SessionLedgerEntry>(ContainerName{"SessionLedgerLoadedEntries"})};
         for (const auto& item : root.value(QStringLiteral("entries")).toArray()) {
             const QJsonObject value = item.toObject();
             SessionLedgerEntry entry;
@@ -216,9 +219,10 @@ public:
             entry.projectName = value.value(QStringLiteral("projectName")).toString();
             entry.jobIndex = value.value(QStringLiteral("jobIndex")).toInt(-1);
             entry.isRecoverable = value.value(QStringLiteral("isRecoverable")).toBool(false);
-            loadedEntries.push_back(std::move(entry));
+            loadedEntries.append(std::move(entry));
         }
-        std::vector<RecoveryPoint> loadedRecoveryPoints;
+        NamedVector<RecoveryPoint> loadedRecoveryPoints{
+            makeNamedVector<RecoveryPoint>(ContainerName{"SessionLedgerLoadedRecoveryPoints"})};
         for (const auto& item : root.value(QStringLiteral("recoveryPoints")).toArray()) {
             const QJsonObject value = item.toObject();
             RecoveryPoint point;
@@ -228,12 +232,15 @@ public:
             point.projectName = value.value(QStringLiteral("projectName")).toString();
             point.snapshotPath = value.value(QStringLiteral("snapshotPath")).toString();
             point.isAutosave = value.value(QStringLiteral("isAutosave")).toBool(false);
-            loadedRecoveryPoints.push_back(std::move(point));
+            loadedRecoveryPoints.append(std::move(point));
         }
         sessionId_ = loadedSessionId;
         startTimeMs_ = root.value(QStringLiteral("startTimeMs")).toVariant().toLongLong();
-        entries_ = std::move(loadedEntries);
-        recoveryPoints_ = std::move(loadedRecoveryPoints);
+        entries_.clear();
+        entries_.insert(entries_.end(), loadedEntries.begin(), loadedEntries.end());
+        recoveryPoints_.clear();
+        recoveryPoints_.insert(
+            recoveryPoints_.end(), loadedRecoveryPoints.begin(), loadedRecoveryPoints.end());
         return true;
     }
 

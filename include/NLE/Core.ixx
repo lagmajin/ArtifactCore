@@ -2,6 +2,7 @@ module;
 class tst_QList;
 
 #include <cstdint>
+#include <vector>
 
 #include <QColor>
 #include <QHash>
@@ -33,6 +34,12 @@ struct LIBRARY_DLL_API TimeBase {
     double fps() const noexcept;
     double frameDurationSeconds() const noexcept;
     bool isValid() const noexcept;
+
+    // HH:MM:SS;FF when dropFrame is set, HH:MM:SS:FF otherwise.
+    QString timecodeString(std::int64_t frame) const;
+    // Accepts both ';' and ':' separators; validates field ranges.
+    std::int64_t frameFromTimecode(const QString& timecode, bool* ok = nullptr) const;
+
     QJsonObject toJson() const;
     static TimeBase fromJson(const QJsonObject& json);
 };
@@ -124,6 +131,7 @@ struct LIBRARY_DLL_API ClipDraft {
     bool locked = false;
     bool reversed = false;
     quint64 linkedGroupId = 0;
+    SequenceId nestedSequenceId;
 };
 
 struct LIBRARY_DLL_API Marker {
@@ -189,6 +197,7 @@ struct LIBRARY_DLL_API Clip {
     QVector<TransitionId> attachedTransitions;
     QVector<MarkerId> markers;
     QString name;
+    SequenceId nestedSequenceId;
 };
 
 struct LIBRARY_DLL_API Track {
@@ -243,7 +252,16 @@ struct LIBRARY_DLL_API ClipResolution {
     bool useProxy = false;
     bool online = false;
     QString diagnostic;
+    double speed = 1.0;
+    bool reversed = false;
 };
+
+// Timeline <-> source frame mapping honoring clip speed and reversal.
+// Out-of-range inputs clamp to the clip's own ranges.
+LIBRARY_DLL_API std::int64_t timelineFrameToSourceFrame(const Clip& clip,
+                                                        std::int64_t timelineFrame);
+LIBRARY_DLL_API std::int64_t sourceFrameToTimelineFrame(const Clip& clip,
+                                                        std::int64_t sourceFrame);
 
 struct LIBRARY_DLL_API ConformReport {
     bool success = false;
@@ -307,6 +325,7 @@ public:
                           const QString& name = QString(),
                           const QString& note = QString(),
                           const QColor& color = QColor(Qt::yellow));
+    bool removeMarker(const MarkerId& markerId);
     TransitionId createTransition(const TrackId& trackId,
                                   const ClipId& leftClipId,
                                   const ClipId& rightClipId,
@@ -453,18 +472,56 @@ private:
     const NLEProjectStore* store_ = nullptr;
 };
 
-class LIBRARY_DLL_API ConformService {
+class LIBRARY_DLL_API NLEEditHistory {
 public:
-    explicit ConformService(const NLEProjectStore* store = nullptr);
+    explicit NLEEditHistory(NLEProjectStore* store = nullptr);
 
-    void setStore(const NLEProjectStore* store);
+    void setStore(NLEProjectStore* store);
+    NLEProjectStore* store();
     const NLEProjectStore* store() const;
 
-    ConformReport conformSequence(const SequenceId& sequenceId) const;
-    ConformReport conformAll() const;
+    // Capture the current project state as an undo entry. Call before a
+    // mutation; label describes the edit that follows.
+    void capture(const QString& label);
+    bool undo();
+    bool redo();
+    bool canUndo() const;
+    bool canRedo() const;
+    QString undoLabel() const;
+    QString redoLabel() const;
+    void clear();
+    size_t depth() const;
+    size_t maxDepth() const;
+    void setMaxDepth(size_t maxDepth);
 
 private:
-    const NLEProjectStore* store_ = nullptr;
+    struct Entry {
+        QString label;
+        QJsonObject state;
+    };
+
+    NLEProjectStore* store_ = nullptr;
+    std::vector<Entry> undoStack_;
+    std::vector<Entry> redoStack_;
+    size_t maxDepth_ = 100;
+};
+
+class LIBRARY_DLL_API ConformService {
+public:
+    explicit ConformService(NLEProjectStore* store = nullptr);
+
+    void setStore(NLEProjectStore* store);
+    NLEProjectStore* store();
+    const NLEProjectStore* store() const;
+
+    // Re-aligns clip source ranges to the currently available media and
+    // reports clips whose media is offline. `success` is false when any clip
+    // stays unresolved.
+    ConformReport conformSequence(const SequenceId& sequenceId);
+    ConformReport conformAll();
+
+private:
+    NLEProjectStore* store_ = nullptr;
 };
 
 class LIBRARY_DLL_API LinkingService {

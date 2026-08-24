@@ -148,8 +148,10 @@ std::string TimeCode::toStdString() const
 {
  int h, m, s, f;
  toHMSF(h, m, s, f);
+ const char frameSeparator = impl_->dropFrame ? ';' : ':';
  char buf[16];
- std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d:%02d", h, m, s, f);
+ std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d%c%02d", h, m, s,
+               frameSeparator, f);
  return std::string(buf);
 }
 
@@ -167,10 +169,13 @@ QString TimeCode::toString() const
 {
  int h, m, s, f;
  toHMSF(h, m, s, f);
- return QString("%1:%2:%3:%4")
+ // SMPTE drop-frame notation marks the seconds/frames boundary with ';'.
+ const char frameSeparator = impl_->dropFrame ? ';' : ':';
+ return QString("%1:%2:%3%c%4")
   .arg(h, 2, 10, QChar('0'))
   .arg(m, 2, 10, QChar('0'))
   .arg(s, 2, 10, QChar('0'))
+  .arg(frameSeparator)
   .arg(f, 2, 10, QChar('0'));
 }
 
@@ -181,6 +186,8 @@ void TimeCode::setFromQString(const QString& str)
   cleanStr += "00";
  }
  cleanStr.replace('.', ':');
+ // Accept SMPTE drop-frame strings ("HH:MM:SS;FF") as well.
+ cleanStr.replace(';', ':');
 
  const QStringList parts = cleanStr.split(':');
  int h = 0, m = 0, s = 0, f = 0;

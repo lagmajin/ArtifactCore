@@ -79,6 +79,10 @@ export struct SelectorEvaluationContext {
   QString sourceText;
   std::span<const GlyphItem> glyphs;
   TextSelectorOrder order = TextSelectorOrder::Logical;
+  // 1-based expression-selector index and total glyph count when available.
+  // RangeSelector callers may leave these at zero without changing behavior.
+  int textIndex = 0;
+  int textTotal = 0;
 };
 
 export struct SelectorResult {
@@ -95,6 +99,15 @@ export struct WigglySelector {
   float correlation = 50.0f; // 0-100 (文字間の動きの連動性)
   float phase = 0.0f;
   int seed = 12345;
+};
+
+// Expression selector state. Evaluation is intentionally separate from the
+// existing range/wiggly selector path until the expression contract is wired.
+export struct ExpressionSelector {
+  bool enabled = false;
+  QString expression;
+  int seed = 12345;
+  QString diagnostic;
 };
 
 // アニメーターが各グリフに適用する拡張プロパティ
@@ -123,6 +136,11 @@ public:
   static SelectorResult evaluateSelector(
       const SelectorEvaluationContext &context,
       const RangeSelector &selector);
+
+  static SelectorResult evaluateExpressionSelector(
+      const SelectorEvaluationContext &context,
+      const ExpressionSelector &selector,
+      std::span<const float> baseWeights = {});
 
   static float calculateWeight(int index, int totalCount,
                                const RangeSelector &selector);
@@ -165,6 +183,14 @@ public:
       std::span<
           const std::tuple<RangeSelector, WigglySelector, AnimatorProperties>>
           stack,
+      float time,
+      const QString &sourceText,
+      std::span<const float> extraWeights = {});
+
+  static void applyAnimatorStack(
+      std::vector<GlyphItem> &glyphs,
+      std::span<const std::tuple<RangeSelector, WigglySelector,
+                                  ExpressionSelector, AnimatorProperties>> stack,
       float time,
       const QString &sourceText,
       std::span<const float> extraWeights = {});

@@ -18,6 +18,8 @@ module;
 
 module Color.LUT;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // ============================================================================
@@ -191,7 +193,7 @@ bool ColorLUT::loadFromCube(const QString& filePath) {
     impl_->name = QFileInfo(filePath).baseName();
     
     QTextStream in(&file);
-    std::vector<float> values;
+    NamedVector<float> values;
     
     int dimX = 0, dimY = 0, dimZ = 0;
     
@@ -260,7 +262,7 @@ bool ColorLUT::loadFromCube(const QString& filePath) {
     }
     
     // データコピー
-    impl_->data = std::move(values);
+    impl_->data = values.toStdVector();
     impl_->valid = !impl_->data.empty();
     
     return impl_->valid;
@@ -277,7 +279,7 @@ bool ColorLUT::loadFromCsp(const QString& filePath) {
     impl_->name = QFileInfo(filePath).baseName();
     
     QTextStream in(&file);
-    std::vector<float> values;
+    NamedVector<float> values;
     int declaredSize = 0;
     bool inData = false;
     bool sawDataBlock = false;
@@ -345,7 +347,7 @@ bool ColorLUT::loadFromCsp(const QString& filePath) {
     }
 
     impl_->size = {declaredSize, declaredSize, declaredSize};
-    impl_->data = std::move(values);
+    impl_->data = values.toStdVector();
     impl_->valid = true;
     impl_->errorMessage.clear();
     return true;
@@ -363,7 +365,7 @@ bool ColorLUT::loadFrom3dl(const QString& filePath) {
     impl_->name = QFileInfo(filePath).baseName();
     
     QTextStream in(&file);
-    std::vector<float> values;
+    NamedVector<float> values;
     int dim = 0;
     
     while (!in.atEnd()) {
@@ -426,7 +428,7 @@ bool ColorLUT::loadFrom3dl(const QString& filePath) {
         }
     }
 
-    impl_->data = std::move(values);
+    impl_->data = values.toStdVector();
     impl_->valid = !impl_->data.empty();
     
     return impl_->valid;

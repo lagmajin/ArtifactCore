@@ -1,11 +1,12 @@
 module;
 #include <cmath>
 #include <algorithm>
-#include <random>
 #include <vector>
 #include <array>
 #include <tuple>
 module StarfieldGenerator;
+
+import Math.Random;
 
 namespace ArtifactCore {
 
@@ -103,7 +104,7 @@ float fbm(float x, float y, int octaves, unsigned int seed) {
 // ============================================================
 
 struct StarfieldGenerator::Impl {
-    std::mt19937 rng;
+    ArtifactCore::RandomStream rng;
     float spectralCumul[7];
     int starCount = 2000;
     float shootingStarX = 0.0f, shootingStarY = 0.0f;
@@ -160,22 +161,22 @@ void StarfieldGenerator::generateStarDistribution(unsigned int seed) {
 
     for (int i = 0; i < impl_->starCount; ++i) {
         StarData star;
-        float rx = std::uniform_real_distribution<float>(0.0f, 1.0f)(impl_->rng);
-        float ry = std::uniform_real_distribution<float>(0.0f, 1.0f)(impl_->rng);
+        float rx = impl_->rng.unitFloat();
+        float ry = impl_->rng.unitFloat();
 
         if (milkyWayIntensity_ > 0.0f) {
-            float gr = std::uniform_real_distribution<float>(0.0f, 1.0f)(impl_->rng);
+            float gr = impl_->rng.unitFloat();
             if (gr < milkyWayIntensity_) {
                 float bw = 0.2f + 0.1f * milkyWayIntensity_;
-                ry = std::clamp(std::normal_distribution<float>(0.5f, bw)(impl_->rng), 0.0f, 1.0f);
+                ry = std::clamp(impl_->rng.gaussian(0.5f, bw), 0.0f, 1.0f);
             }
         }
         star.x = rx; star.y = ry;
 
-        float sr = std::uniform_real_distribution<float>(0.0f, 1.0f)(impl_->rng);
+        float sr = impl_->rng.unitFloat();
         SpectralType st = static_cast<SpectralType>(sampleFromCumulative(cumul, 7, sr));
 
-        float lcr = std::uniform_real_distribution<float>(0.0f, 1.0f)(impl_->rng);
+        float lcr = impl_->rng.unitFloat();
         LuminosityClass lc;
         if (lcr < 0.001f) lc = LuminosityClass::Ia;
         else if (lcr < 0.003f) lc = LuminosityClass::Ib;
@@ -189,13 +190,13 @@ void StarfieldGenerator::generateStarDistribution(unsigned int seed) {
         spectralToRgb(st, lc, star.r, star.g, star.b);
 
         float absMag = absoluteMagnitude(st, lc);
-        float dist = std::pow(10.0f, std::uniform_real_distribution<float>(1.0f, 5.0f)(impl_->rng));
+        float dist = std::pow(10.0f, impl_->rng.range(1.0f, 5.0f));
         float apparentMag = absMag + 5.0f * std::log10(dist / 10.0f);
         star.brightness = std::clamp(1.0f - (apparentMag + 1.0f) / 7.0f, 0.0f, 1.0f);
         star.size = 0.5f + star.brightness * 1.5f;
         star.hasGlare = glareEnabled_ && (star.brightness > glareThreshold_);
-        star.twinkleSpeed = std::uniform_real_distribution<float>(0.2f, 3.0f)(impl_->rng);
-        star.twinklePhase = std::uniform_real_distribution<float>(0.0f, 6.283185f)(impl_->rng);
+        star.twinkleSpeed = impl_->rng.range(0.2f, 3.0f);
+        star.twinklePhase = impl_->rng.range(0.0f, 6.283185f);
 
         stars_.push_back(star);
     }
@@ -264,12 +265,12 @@ void StarfieldGenerator::renderShootingStars(float* pixels, float time) {
     if (impl_->shootingStarLife > 0.0f) impl_->shootingStarLife -= 0.016f;
 
     if (impl_->shootingStarLife <= 0.0f && shootingStarChance_ > 0.0f) {
-        if (std::uniform_real_distribution<float>(0.0f, 1.0f)(rng) < shootingStarChance_) {
-            impl_->shootingStarX = std::uniform_real_distribution<float>(0.1f, 0.9f)(rng);
-            impl_->shootingStarY = std::uniform_real_distribution<float>(0.1f, 0.5f)(rng);
-            impl_->shootingStarAngle = std::uniform_real_distribution<float>(-0.5f, 0.5f)(rng);
-            impl_->shootingStarLen = std::uniform_real_distribution<float>(0.05f, 0.15f)(rng);
-            impl_->shootingStarSpeed = std::uniform_real_distribution<float>(0.3f, 0.8f)(rng);
+        if (rng.range(0.0f, 1.0f) < shootingStarChance_) {
+            impl_->shootingStarX = rng.range(0.1f, 0.9f);
+            impl_->shootingStarY = rng.range(0.1f, 0.5f);
+            impl_->shootingStarAngle = rng.range(-0.5f, 0.5f);
+            impl_->shootingStarLen = rng.range(0.05f, 0.15f);
+            impl_->shootingStarSpeed = rng.range(0.3f, 0.8f);
             impl_->shootingStarLife = 1.0f;
         }
     }
@@ -469,20 +470,20 @@ void StarfieldGenerator::renderStarSystems(float* pixels, float time) {
 void StarfieldGenerator::renderGlobularClusters(float* pixels, float time) {
     auto& rng = impl_->rng;
     for (int c = 0; c < globularClusterCount_; ++c) {
-        float gcCx = std::uniform_real_distribution<float>(0.2f, 0.8f)(rng) * (width_-1);
-        float gcCy = std::uniform_real_distribution<float>(0.2f, 0.8f)(rng) * (height_-1);
-        float gcR = std::uniform_real_distribution<float>(0.03f, 0.08f)(rng) * std::max(width_, height_);
-        int n = std::uniform_int_distribution<int>(50, 200)(rng);
+        float gcCx = rng.range(0.2f, 0.8f) * (width_-1);
+        float gcCy = rng.range(0.2f, 0.8f) * (height_-1);
+        float gcR = rng.range(0.03f, 0.08f) * std::max(width_, height_);
+        int n = rng.rangeInclusive(50, 200);
         for (int s = 0; s < n; ++s) {
-            float d = std::abs(std::normal_distribution<float>(0.0f, gcR*0.3f)(rng));
+            float d = std::abs(rng.gaussian(0.0f, gcR*0.3f));
             if (d > gcR) continue;
-            float a = std::uniform_real_distribution<float>(0.0f, 6.283185f)(rng);
+            float a = rng.range(0.0f, 6.283185f);
             int sx = static_cast<int>(gcCx + std::cos(a)*d);
             int sy = static_cast<int>(gcCy + std::sin(a)*d);
             if (sx<0||sx>=width_||sy<0||sy>=height_) continue;
-            float cr,cg,cb,tr=std::uniform_real_distribution<float>(0.0f,1.0f)(rng);
+            float cr,cg,cb,tr=rng.range(0.0f,1.0f);
             if(tr<0.7f){cr=1.0f;cg=0.8f;cb=0.5f;}else if(tr<0.9f){cr=1.0f;cg=0.9f;cb=0.7f;}else{cr=0.7f;cg=0.8f;cb=1.0f;}
-            float br2 = std::uniform_real_distribution<float>(0.3f, 0.8f)(rng);
+            float br2 = rng.range(0.3f, 0.8f);
             int idx = (sy*width_+sx)*4;
             pixels[idx+0]=std::min(1.0f,pixels[idx+0]+cr*br2);
             pixels[idx+1]=std::min(1.0f,pixels[idx+1]+cg*br2);
@@ -519,7 +520,7 @@ void StarfieldGenerator::applyGlare(float* pixels, int cx, int cy, float brightn
     switch(glarePattern_){case GlarePattern::Cross4:numSpikes=4;break;case GlarePattern::Cross6:numSpikes=6;break;
     case GlarePattern::Cross8:numSpikes=8;break;case GlarePattern::Starburst:numSpikes=8;spikeBoost=0.6f;break;default:break;}
     for(int s=0;s<numSpikes;++s){float angle=s*6.283185f/numSpikes;
-        if(glarePattern_==GlarePattern::Starburst)angle+=std::uniform_real_distribution<float>(-0.3f,0.3f)(impl_->rng);
+        if(glarePattern_==GlarePattern::Starburst)angle+=impl_->rng.range(-0.3f,0.3f);
         float sl=baseLen*spikeBoost;int ilen=static_cast<int>(sl);float ca=std::cos(angle),sa=std::sin(angle);
         for(int t=-ilen;t<=ilen;++t){int px=cx+static_cast<int>(t*ca),py=cy+static_cast<int>(t*sa);
             if(px<0||px>=width_||py<0||py>=height_)continue;

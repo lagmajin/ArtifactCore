@@ -38,13 +38,15 @@ module;
 #include <random>
 module Physics2D;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
     class Physics2D::Impl {
     public:
         b2Vec2 gravity;
         b2WorldId worldId;
-        std::vector<SharedPtr<RigidBody2D>> bodies;
+        NamedVector<SharedPtr<RigidBody2D>> bodies;
 
         Impl() : gravity{0.0f, -9.8f} {
             b2WorldDef worldDef = b2DefaultWorldDef();
@@ -88,8 +90,11 @@ namespace ArtifactCore {
 
         b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
         b2ShapeDef shapeDef = b2DefaultShapeDef();
-        // shapeDef.friction = friction; // Note: API changed in box2d v3
+        shapeDef.material.friction = friction;
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
+        auto rb = makeShared<RigidBody2D>();
+        rb->bodyId = bodyId;
+        impl_->bodies.push_back(rb);
     }
 
     void Physics2D::addStaticCircle(float x, float y, float radius, float friction) {
@@ -102,7 +107,11 @@ namespace ArtifactCore {
 
         b2Circle circle = { {0.0f, 0.0f}, radius };
         b2ShapeDef shapeDef = b2DefaultShapeDef();
+        shapeDef.material.friction = friction;
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
+        auto rb = makeShared<RigidBody2D>();
+        rb->bodyId = bodyId;
+        impl_->bodies.push_back(rb);
     }
 
     SharedPtr<RigidBody2D> Physics2D::addDynamicBox(float x, float y, float width, float height, float density, float friction, float restitution) {
@@ -116,8 +125,8 @@ namespace ArtifactCore {
         b2Polygon box = b2MakeBox(width / 2.0f, height / 2.0f);
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
-        // shapeDef.friction = friction; // Note: API changed in box2d v3
-        // shapeDef.restitution = restitution; // Note: API changed in box2d v3
+        shapeDef.material.friction = friction;
+        shapeDef.material.restitution = restitution;
 
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
 
@@ -139,8 +148,8 @@ namespace ArtifactCore {
         b2Circle circle = { {0.0f, 0.0f}, radius };
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
-        // shapeDef.friction = friction; // Note: API changed in box2d v3
-        // shapeDef.restitution = restitution; // Note: API changed in box2d v3
+        shapeDef.material.friction = friction;
+        shapeDef.material.restitution = restitution;
 
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
 
@@ -156,14 +165,10 @@ namespace ArtifactCore {
 
         const b2BodyId bodyId = body->getId();
         b2DestroyBody(bodyId);
-        impl_->bodies.erase(
-            std::remove_if(
-                impl_->bodies.begin(),
-                impl_->bodies.end(),
-                [&](const SharedPtr<RigidBody2D>& candidate) {
-                    return !candidate || candidate.get() == body.get();
-                }),
-            impl_->bodies.end());
+        impl_->bodies.removeIf(
+            [&](const SharedPtr<RigidBody2D>& candidate) {
+                return !candidate || candidate.get() == body.get();
+            });
     }
 
     SharedPtr<RigidBody2D> Physics2D::addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic, float density) {
@@ -227,7 +232,7 @@ namespace ArtifactCore {
     }
 
     std::vector<SharedPtr<RigidBody2D>> Physics2D::getBodies() const {
-        return impl_->bodies;
+        return impl_->bodies.toStdVector();
     }
 
 }

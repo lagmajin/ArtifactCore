@@ -1,11 +1,11 @@
 module;
 #include <algorithm>
-#include <random>
 #include <vector>
 
 module ImageProcessing;
 import :Scatter;
 import Core.Parallel;
+import Math.Random;
 
 namespace ArtifactCore {
 
@@ -14,12 +14,13 @@ void Scatter::process(float4* buffer, int width, int height, const ScatterSettin
     std::vector<float4> tmp(pixelCount);
     std::copy_n(buffer, pixelCount, tmp.data());
     std::vector<size_t> sourceIndices(pixelCount);
-    std::mt19937 rng(static_cast<unsigned>(s.seed));
+    auto rng = ArtifactCore::makeRandomStream(
+        static_cast<std::uint64_t>(s.seed));
     float inv = 1.0f / 65535.0f;
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            float ox = (static_cast<float>(rng() & 0xFFFF) * inv * 2.0f - 1.0f) * s.amount;
-            float oy = (static_cast<float>(rng() & 0xFFFF) * inv * 2.0f - 1.0f) * s.amount;
+            float ox = (static_cast<float>(rng.nextU32() & 0xFFFF) * inv * 2.0f - 1.0f) * s.amount;
+            float oy = (static_cast<float>(rng.nextU32() & 0xFFFF) * inv * 2.0f - 1.0f) * s.amount;
             int sx = std::clamp(static_cast<int>(x + ox), 0, width - 1);
             int sy = std::clamp(static_cast<int>(y + oy), 0, height - 1);
             sourceIndices[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)] =

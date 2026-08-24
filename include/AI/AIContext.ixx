@@ -11,6 +11,7 @@ export module Core.AI.Context;
 
 import Serialization.JsonAdapter;
 import Serialization.SchemaMigration;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -42,7 +43,7 @@ public:
     void setProjectSummary(const QString& summary) { projectSummary_ = summary; }
     void setActiveCompositionId(const QString& compId) { activeCompositionId_ = compId; }
     void setActiveCompositionName(const QString& name) { activeCompositionName_ = name; }
-    void addSelectedLayer(const QString& layerData) { selectedLayers_.push_back(layerData); }
+    void addSelectedLayer(const QString& layerData) { selectedLayers_.append(layerData); }
     void clearCompositionNames() { compositionNames_.clear(); }
     void addCompositionName(const QString& name) { compositionNames_.push_back(name); }
     void setCompositionCount(int count) { compositionCount_ = count; }
@@ -58,22 +59,22 @@ public:
     QString projectSummary() const { return projectSummary_; }
     QString activeCompositionId() const { return activeCompositionId_; }
     QString activeCompositionName() const { return activeCompositionName_; }
-    std::vector<QString> selectedLayers() const { return selectedLayers_; }
+    std::vector<QString> selectedLayers() const { return selectedLayers_.toStdVector(); }
     QStringList compositionNames() const { return compositionNames_; }
     int compositionCount() const { return compositionCount_; }
     int totalLayerCount() const { return totalLayerCount_; }
     int totalEffectCount() const { return totalEffectCount_; }
     int heavyCompositionCount() const { return heavyCompositionCount_; }
     QStringList heavyCompositionNames() const { return heavyCompositionNames_; }
-    std::vector<UserAction> recentActions() const { return recentActions_; }
+    std::vector<UserAction> recentActions() const { return recentActions_.toStdVector(); }
     QString userPrompt() const { return userPrompt_; }
     QString systemPrompt() const { return systemPrompt_; }
 
     // 直近のユーザーアクションを記録（最大保持数を決めてリングバッファ的に扱うと良い）
     void logUserAction(ActionType type, const QString& targetId, const QString& details) {
-        recentActions_.push_back({type, targetId, details, QDateTime::currentMSecsSinceEpoch()});
+        recentActions_.append({type, targetId, details, QDateTime::currentMSecsSinceEpoch()});
         if (recentActions_.size() > 50) {
-            recentActions_.erase(recentActions_.begin());
+            recentActions_.takeAt(0);
         }
     }
 
@@ -144,7 +145,7 @@ public:
 
         const QJsonArray selectedLayerArray = root.value(QStringLiteral("selectedLayers")).toArray();
         for (const auto& value : selectedLayerArray) {
-            context.selectedLayers_.push_back(value.toString());
+            context.selectedLayers_.append(value.toString());
         }
 
         const QJsonArray heavyNamesArray = root.value(QStringLiteral("heavyCompositionNames")).toArray();
@@ -163,7 +164,7 @@ public:
             if (action.timestampMs == 0) {
                 action.timestampMs = QDateTime::currentMSecsSinceEpoch();
             }
-            context.recentActions_.push_back(action);
+            context.recentActions_.append(action);
         }
 
         return context;
@@ -173,14 +174,16 @@ private:
     QString projectSummary_;
     QString activeCompositionId_;
     QString activeCompositionName_;
-    std::vector<QString> selectedLayers_;
+    NamedVector<QString> selectedLayers_{
+        makeNamedVector<QString>(ContainerName{"AIContextSelectedLayers"})};
     QStringList compositionNames_;
     int compositionCount_ = 0;
     int totalLayerCount_ = 0;
     int totalEffectCount_ = 0;
     int heavyCompositionCount_ = 0;
     QStringList heavyCompositionNames_;
-    std::vector<UserAction> recentActions_;
+    NamedVector<UserAction> recentActions_{
+        makeNamedVector<UserAction>(ContainerName{"AIContextRecentActions"})};
     QString userPrompt_;
     QString systemPrompt_;
 };

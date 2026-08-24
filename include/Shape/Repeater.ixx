@@ -12,6 +12,7 @@ module;
 export module Shape.Repeater;
 
 import Shape.Operator;
+import Container.NamedVector;
 import Shape.Path;
 
 export namespace ArtifactCore {
@@ -150,7 +151,7 @@ public:
      * @brief パスを複製して累積変形を適用する
      */
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         if (copies_ <= 0 || inputPaths.empty()) return inputPaths;
 
         result.reserve(inputPaths.size() * copies_);
@@ -179,7 +180,7 @@ public:
                 result.push_back(copyPath);
             }
         }
-        return result;
+        return result.toStdVector();
     }
 
     void copiesChanged() {}

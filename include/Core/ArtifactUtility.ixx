@@ -8,10 +8,27 @@ export module Core.ArtifactUtility;
 
 export namespace ArtifactCore {
 
+template<typename T>
+constexpr std::remove_reference_t<T>&& artifactMove(T&& value) noexcept {
+    return static_cast<std::remove_reference_t<T>&&>(value);
+}
+
+template<typename T>
+constexpr T&& artifactForward(std::remove_reference_t<T>& value) noexcept {
+    return static_cast<T&&>(value);
+}
+
+template<typename T>
+constexpr T&& artifactForward(std::remove_reference_t<T>&& value) noexcept {
+    static_assert(!std::is_lvalue_reference_v<T>,
+                  "artifactForward must not turn an rvalue into an lvalue");
+    return static_cast<T&&>(value);
+}
+
 template<typename T, typename U = T>
 constexpr T artifactExchange(T& obj, U&& newValue) noexcept {
-    T old = std::move(obj);
-    obj = std::forward<U>(newValue);
+    T old = artifactMove(obj);
+    obj = artifactForward<U>(newValue);
     return old;
 }
 
@@ -52,6 +69,45 @@ constexpr To artifactBitCast(const From& from) noexcept {
     To to;
     std::memcpy(&to, &from, sizeof(To));
     return to;
+}
+
+// std::pair replacement.
+template <typename First, typename Second>
+struct Pair {
+    First first{};
+    Second second{};
+
+    constexpr Pair() = default;
+    constexpr Pair(const First& f, const Second& s) : first(f), second(s) {}
+
+    [[nodiscard]] friend constexpr bool operator==(const Pair& a, const Pair& b)
+        noexcept(noexcept(a.first == b.first) && noexcept(a.second == b.second))
+    {
+        return a.first == b.first && a.second == b.second;
+    }
+
+    [[nodiscard]] friend constexpr bool operator!=(const Pair& a, const Pair& b)
+        noexcept(noexcept(a == b))
+    {
+        return !(a == b);
+    }
+};
+
+template <typename First, typename Second>
+[[nodiscard]] constexpr Pair<std::decay_t<First>, std::decay_t<Second>>
+artifactMakePair(First&& first, Second&& second) noexcept(
+    std::is_nothrow_constructible_v<Pair<std::decay_t<First>, std::decay_t<Second>>, First, Second>)
+{
+    return Pair<std::decay_t<First>, std::decay_t<Second>>(
+        artifactForward<First>(first), artifactForward<Second>(second));
+}
+
+// boost::hash_combine style seed mixer for custom ArtifactHashMap keys.
+inline std::size_t artifactHashCombine(std::size_t seed,
+                                       std::size_t value) noexcept {
+    constexpr std::size_t kGoldenRatio = 0x9e3779b97f4a7c15ULL;
+    seed ^= value + kGoldenRatio + (seed << 6) + (seed >> 2);
+    return seed;
 }
 
 } // namespace ArtifactCore

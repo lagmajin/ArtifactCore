@@ -11,6 +11,8 @@ module;
 
 module Light.IESProfile;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // ─── Parser Helpers ───
@@ -45,9 +47,11 @@ float IESParser::readFloat(std::string_view& s) const {
 }
 
 std::vector<float> IESParser::readFloatArray(std::string_view& s, int count) const {
-    std::vector<float> arr; arr.reserve(count);
-    for (int i = 0; i < count; ++i) arr.push_back(readFloat(s));
-    return arr;
+    NamedVector<float> arr{
+        makeNamedVector<float>(ContainerName{"IESFloatArray"})};
+    arr.reserve(static_cast<std::size_t>(std::max(0, count)));
+    for (int i = 0; i < count; ++i) arr.append(readFloat(s));
+    return arr.toStdVector();
 }
 
 // ─── Parse ───

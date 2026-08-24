@@ -17,6 +17,7 @@ import Artifact.Acoustic.FrictionModel;
 import Artifact.Acoustic.Spatial;
 import Memory.TrackedPtr;
 import Memory.SharedPtr;
+import Container.NamedVector;
 
 export namespace Artifact::Acoustic {
 
@@ -82,25 +83,27 @@ export namespace Artifact::Acoustic {
 
         std::vector<AudioTask> FetchTasks() {
             auto snapshot = FetchDebugSnapshot();
-            std::vector<AudioTask> tasks;
+            NamedVector<AudioTask> tasks{
+                makeNamedVector<AudioTask>(ContainerName{"AcousticSystemAudioTasks"})};
             for (const auto& t : snapshot.activeTasks) {
-                tasks.push_back({ t.type, t.amp, t.freq, 10.0f, t.duration, 0.0f, 1.0f, t.attenuation, 0 });
+                tasks.append({ t.type, t.amp, t.freq, 10.0f, t.duration, 0.0f, 1.0f, t.attenuation, 0 });
             }
-            return tasks;
+            return tasks.toStdVector();
         }
 
         AcousticSnapshot FetchDebugSnapshot() {
             AcousticSnapshot snapshot;
             snapshot.frameNumber = m_frameCount++;
             
-            std::vector<InternalTask> allInternalTasks;
+            NamedVector<InternalTask> allInternalTasks{
+                makeNamedVector<InternalTask>(ContainerName{"AcousticSystemInternalTasks"})};
 
             auto collect = [&](auto& models) {
                 for (auto& [id, model] : models) {
                     auto tasks = model->GenerateTasks();
                     for (auto& t : tasks) {
                         if (m_layerSpatial.contains(id)) m_spatial->Calculate(m_layerSpatial[id], t);
-                        allInternalTasks.push_back({ id, t });
+                        allInternalTasks.append({ id, t });
                     }
                 }
             };
@@ -109,8 +112,8 @@ export namespace Artifact::Acoustic {
             collect(m_frictionModels);
 
             // 環境音
-            for (auto& t : m_rain->GenerateTasks()) allInternalTasks.push_back({ 0, t });
-            for (auto& t : m_wind->GenerateTasks()) allInternalTasks.push_back({ 0, t });
+            for (auto& t : m_rain->GenerateTasks()) allInternalTasks.append({ 0, t });
+            for (auto& t : m_wind->GenerateTasks()) allInternalTasks.append({ 0, t });
 
             // ソート
             std::sort(allInternalTasks.begin(), allInternalTasks.end(), [](const InternalTask& a, const InternalTask& b) {

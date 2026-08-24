@@ -7,6 +7,8 @@ module;
 #include <QDebug>
 module Core.Mask.PathMorph;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // -----------------------------------------------------------------------
@@ -29,9 +31,9 @@ QPointF cubicPoint(const QPointF& p0, const QPointF& p1,
 // QPainterPath を個別サブパスに分解（各サブパスは連続する点列として返す）
 std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
 {
-    std::vector<std::vector<QPointF>> subpaths;
+    NamedVector<std::vector<QPointF>> subpaths;
     if (path.isEmpty())
-        return subpaths;
+        return {};
 
     const int n = path.elementCount();
     int i = 0;
@@ -42,7 +44,7 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
             continue;
         }
 
-            std::vector<QPointF> points;
+            NamedVector<QPointF> points;
             const QPointF startPt(path.elementAt(i).x, path.elementAt(i).y);
             points.push_back(startPt);
         ++i;
@@ -86,10 +88,10 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
         }
 
         if (points.size() >= 2)
-            subpaths.push_back(points);
+            subpaths.push_back(points.toStdVector());
     }
 
-    return subpaths;
+    return subpaths.toStdVector();
 }
 
 // 点列を targetCount 点に等距離リサンプリング
@@ -97,16 +99,17 @@ std::vector<QPointF> resampleEquidistant(
     const std::vector<QPointF>& src, int targetCount)
 {
     if (src.size() < 2 || targetCount < 2) {
-        std::vector<QPointF> r;
+        NamedVector<QPointF> r;
         if (!src.empty())
             r.push_back(src.front());
         if (targetCount > 1 && src.size() > 1)
             r.push_back(src.back());
-        return r;
+        return r.toStdVector();
     }
 
     // 全弧長を計算
-    std::vector<float> arcLen(src.size(), 0.0f);
+    NamedVector<float> arcLen;
+    arcLen.resize(src.size());
     float totalLen = 0.0f;
     for (size_t i = 1; i < src.size(); ++i) {
         const QPointF d = src[i] - src[i - 1];
@@ -118,7 +121,7 @@ std::vector<QPointF> resampleEquidistant(
         return std::vector<QPointF>(targetCount, src.front());
     }
 
-    std::vector<QPointF> result;
+    NamedVector<QPointF> result;
     for (int i = 0; i < targetCount; ++i) {
         const float target = static_cast<float>(i) / (targetCount - 1) * totalLen;
 
@@ -140,7 +143,7 @@ std::vector<QPointF> resampleEquidistant(
         result.push_back(src[lo] + (src[hi] - src[lo]) * t);
     }
 
-    return result;
+    return result.toStdVector();
 }
 
 } // anonymous namespace
@@ -285,7 +288,7 @@ QPainterPath PathMorphEngine::interpolateByFeature(
     };
 
     auto computeFeatures = [&](const std::vector<std::vector<QPointF>>& subs) {
-        std::vector<Feature> feats;
+        NamedVector<Feature> feats;
         for (size_t i = 0; i < subs.size(); ++i) {
             const auto& pts = subs[i];
             if (pts.size() < 3) continue;

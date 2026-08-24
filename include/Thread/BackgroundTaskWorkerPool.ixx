@@ -1,6 +1,7 @@
 export module Core.Thread.BackgroundTaskWorkerPool;
 
 import std;
+import Container.NamedVector;
 import Core.Thread.BackgroundTaskRuntime;
 import Memory.SharedPtr;
 // import Core.Event.EventBus; // Module not found
@@ -209,12 +210,12 @@ public:
   /// </summary>
   auto GetAllSnapshots() const -> std::vector<TaskSnapshot> {
     std::lock_guard<std::mutex> lock(snapshotsMutex_);
-    std::vector<TaskSnapshot> result;
+    NamedVector<TaskSnapshot> result;
     result.reserve(snapshots_.size());
     for (const auto &[id, snapshot] : snapshots_) {
       result.push_back(snapshot);
     }
-    return result;
+    return result.toStdVector();
   }
 
   /// <summary>

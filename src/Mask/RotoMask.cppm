@@ -118,11 +118,11 @@ public:
     bool isAnimated() const { return keyframes_.size() > 1; }
     
     std::vector<double> keyframeTimes() const {
-        std::vector<double> times;
+        NamedVector<double> times;
         for (const auto& kf : keyframes_) {
             times.push_back(kf.time);
         }
-        return times;
+        return times.toStdVector();
     }
     
     void setDefaultValue(const T& val) { defaultValue_ = val; }
@@ -213,11 +213,11 @@ public:
     
     // パスからポリゴン生成
     std::vector<QPointF> toPolygon(const std::vector<RotoVertex>& verts, int subdivisions = 16) const {
-        std::vector<QPointF> poly;
+        NamedVector<QPointF> poly;
         const int n = static_cast<int>(verts.size());
         if (n < 2) {
             for (const auto& v : verts) poly.push_back(v.position);
-            return poly;
+            return poly.toStdVector();
         }
         
         int segments = closed ? n : n - 1;
@@ -234,7 +234,7 @@ public:
         if (!closed && n > 0) {
             poly.push_back(verts.back().position);
         }
-        return poly;
+        return poly.toStdVector();
     }
 };
 
@@ -302,11 +302,11 @@ int RotoMask::vertexCount() const {
 }
 
 std::vector<RotoMask::VertexID> RotoMask::vertexIDs() const {
-    std::vector<VertexID> ids;
+    NamedVector<VertexID> ids;
     for (const auto& pair : impl_->vertices) {
         ids.push_back(pair.first);
     }
-    return ids;
+    return ids.toStdVector();
 }
 
 // ========================================
@@ -369,7 +369,8 @@ RotoVertex RotoMask::getVertex(VertexID id, double time) const {
 std::vector<RotoVertex> RotoMask::sampleVertices(double time) const {
     NamedVector<RotoVertex> result{makeNamedVector<RotoVertex>(ContainerName{"RotoMaskSampleVertices"})};
     // ID順にソート（追加順を維持）
-    std::vector<std::pair<int, VertexData>> sorted(impl_->vertices.begin(), impl_->vertices.end());
+    NamedVector<std::pair<int, VertexData>> sorted;
+    sorted.insert(sorted.end(), impl_->vertices.begin(), impl_->vertices.end());
     std::sort(sorted.begin(), sorted.end(), 
               [](const auto& a, const auto& b) { return a.first < b.first; });
     
@@ -459,7 +460,9 @@ std::vector<double> RotoMask::keyframeTimes() const {
         for (const auto& t : pair.second.outTangent.keyframeTimes()) times.insert(t);
     }
     
-    return std::vector<double>(times.begin(), times.end());
+    NamedVector<double> result;
+    result.insert(result.end(), times.begin(), times.end());
+    return result.toStdVector();
 }
 
 double RotoMask::startTime() const {
@@ -680,7 +683,8 @@ void RotoMask::copyKeyframesFrom(const RotoMask& other, double timeOffset) {
 
 void RotoMask::reverse() {
     // 頂点順序を反転
-    std::vector<std::pair<int, VertexData>> sorted(impl_->vertices.begin(), impl_->vertices.end());
+    NamedVector<std::pair<int, VertexData>> sorted;
+    sorted.insert(sorted.end(), impl_->vertices.begin(), impl_->vertices.end());
     std::reverse(sorted.begin(), sorted.end());
     
     // タンジェントも反転

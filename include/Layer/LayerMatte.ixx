@@ -11,6 +11,7 @@ module;
 export module Layer.Matte;
 
 import Utils.Id;
+import Container.NamedVector;
 import FloatRGBA;
 import Image.ImageF32x4_RGBA;
 import Color.Luminance;
@@ -188,13 +189,13 @@ public:
     }
 
     std::vector<Id> sourceLayerIds() const {
-        std::vector<Id> ids;
+        NamedVector<Id> ids;
         for (const auto& n : nodes_) {
             if (n.isEnabled() && !n.sourceLayerId().isNil()) {
                 ids.push_back(n.sourceLayerId());
             }
         }
-        return ids;
+        return ids.toStdVector();
     }
 
     bool hasCycleWithLayer(const Id& layerId) const {

@@ -53,6 +53,7 @@ TrackKind parseTrackKind(const QString& value)
     if (value.compare(QStringLiteral("Audio"), Qt::CaseInsensitive) == 0) return TrackKind::Audio;
     if (value.compare(QStringLiteral("Subtitle"), Qt::CaseInsensitive) == 0) return TrackKind::Subtitle;
     if (value.compare(QStringLiteral("Data"), Qt::CaseInsensitive) == 0) return TrackKind::Data;
+    if (value.compare(QStringLiteral("Video"), Qt::CaseInsensitive) == 0) return TrackKind::Video;
     return TrackKind::Video;
 }
 
@@ -61,30 +62,335 @@ QString transitionName(const TransitionKind kind)
     switch (kind) {
     case TransitionKind::Cut: return QStringLiteral("Cut");
     case TransitionKind::Dissolve: return QStringLiteral("Dissolve");
-    default: return QStringLiteral("Crossfade");
+    case TransitionKind::Crossfade: return QStringLiteral("Crossfade");
+    case TransitionKind::Wipe: return QStringLiteral("Wipe");
+    case TransitionKind::Slide: return QStringLiteral("Slide");
+    case TransitionKind::Zoom: return QStringLiteral("Zoom");
+    case TransitionKind::GlitchDisplace: return QStringLiteral("GlitchDisplace");
+    case TransitionKind::Spin: return QStringLiteral("Spin");
+    case TransitionKind::LinearWipe: return QStringLiteral("LinearWipe");
+    case TransitionKind::RadialWipe: return QStringLiteral("RadialWipe");
+    case TransitionKind::Flip: return QStringLiteral("Flip");
+    case TransitionKind::Cube: return QStringLiteral("Cube");
+    case TransitionKind::Doors: return QStringLiteral("Doors");
+    case TransitionKind::LightLeak: return QStringLiteral("LightLeak");
+    case TransitionKind::GradientWipe: return QStringLiteral("GradientWipe");
+    case TransitionKind::IrisWipe: return QStringLiteral("IrisWipe");
+    case TransitionKind::BlockDissolve: return QStringLiteral("BlockDissolve");
     }
+    return QStringLiteral("Crossfade");
 }
 
-TransitionKind parseTransitionKind(const QString& value)
+TransitionKind parseTransitionKind(const QString& value, const QJsonObject& metadata = {})
 {
+    const QVariant artifactKind =
+        metadata.value(QStringLiteral("artifactKind")).toVariant();
+    bool kindOk = false;
+    const int kindInt = artifactKind.toInt(&kindOk);
+    if (kindOk && kindInt >= 0 &&
+        kindInt <= static_cast<int>(TransitionKind::BlockDissolve)) {
+        return static_cast<TransitionKind>(kindInt);
+    }
     if (value.compare(QStringLiteral("Cut"), Qt::CaseInsensitive) == 0) return TransitionKind::Cut;
     if (value.compare(QStringLiteral("Dissolve"), Qt::CaseInsensitive) == 0) return TransitionKind::Dissolve;
+    if (value.compare(QStringLiteral("SMPTE_Dissolve"), Qt::CaseInsensitive) == 0) {
+        return TransitionKind::Dissolve;
+    }
+    if (value.compare(QStringLiteral("Crossfade"), Qt::CaseInsensitive) == 0 ||
+        value.compare(QStringLiteral("CrossDissolve"), Qt::CaseInsensitive) == 0) {
+        return TransitionKind::Crossfade;
+    }
+    for (int kind = 0; kind <= static_cast<int>(TransitionKind::BlockDissolve); ++kind) {
+        if (transitionName(static_cast<TransitionKind>(kind))
+                .compare(value, Qt::CaseInsensitive) == 0) {
+            return static_cast<TransitionKind>(kind);
+        }
+    }
     return TransitionKind::Crossfade;
 }
 
-} // namespace
+constexpr int kMarkerPaletteSize = 9;
 
-QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
-                                        const SequenceId& sequenceId)
+struct MarkerColorEntry {
+    const char* name;
+    QColor color;
+};
+
+const MarkerColorEntry& markerPalette(int index)
 {
-    const Sequence* sequence = store.sequence(sequenceId);
-    if (!sequence) {
-        return {};
-    }
+    static const MarkerColorEntry palette[kMarkerPaletteSize] = {
+        {"RED", QColor(255, 0, 0)},
+        {"GREEN", QColor(0, 255, 0)},
+        {"BLUE", QColor(0, 0, 255)},
+        {"YELLOW", QColor(255, 255, 0)},
+        {"PINK", QColor(255, 192, 203)},
+        {"PURPLE", QColor(128, 0, 128)},
+        {"ORANGE", QColor(255, 165, 0)},
+        {"WHITE", QColor(255, 255, 255)},
+        {"BLACK", QColor(0, 0, 0)},
+    };
+    return palette[index];
+}
 
-    const double rate = sequence->timeBase.fps();
+QString markerColorName(const QColor& color)
+{
+    if (!color.isValid()) {
+        return QStringLiteral("YELLOW");
+    }
+    const QColor rgb = color.toRgb();
+    const qreal saturation = rgb.saturationF();
+    const qreal lightness = rgb.lightnessF();
+    if (lightness <= 0.08) {
+        return QStringLiteral("BLACK");
+    }
+    if (lightness >= 0.92 && saturation <= 0.05) {
+        return QStringLiteral("WHITE");
+    }
+    const qreal hue = rgb.hueF();
+    const MarkerColorEntry* best = &markerPalette(3);
+    qreal bestDistance = -1.0;
+    for (int i = 0; i < kMarkerPaletteSize; ++i) {
+        const MarkerColorEntry& candidate = markerPalette(i);
+        if (candidate.name == QStringLiteral("BLACK") ||
+            candidate.name == QStringLiteral("WHITE")) {
+            continue;
+        }
+        const qreal candidateHue = candidate.color.hueF();
+        qreal distance = qAbs(hue - candidateHue);
+        if (distance > 0.5) {
+            distance = 1.0 - distance;
+        }
+        if (bestDistance < 0.0 || distance < bestDistance) {
+            bestDistance = distance;
+            best = &candidate;
+        }
+    }
+    return QString::fromLatin1(best->name);
+}
+
+QColor parseMarkerColor(const QJsonObject& markerObject)
+{
+    const QString exact = markerObject.value(QStringLiteral("metadata"))
+                              .toObject()
+                              .value(QStringLiteral("artifactColor"))
+                              .toString();
+    if (!exact.isEmpty()) {
+        const QColor exactColor(exact);
+        if (exactColor.isValid()) {
+            return exactColor;
+        }
+    }
+    const QString name = markerObject.value(QStringLiteral("color")).toString();
+    QColor color(name);
+    if (!color.isValid()) {
+        color = QColor(name.toLower());
+    }
+    return color.isValid() ? color : QColor(Qt::yellow);
+}
+
+bool hasLinearTimeWarp(const QJsonObject& clipObject, double& timeScalar)
+{
+    const QJsonArray effects = clipObject.value(QStringLiteral("effects")).toArray();
+    for (const QJsonValue& effectValue : effects) {
+        const QJsonObject effect = effectValue.toObject();
+        if (effect.value(QStringLiteral("OTIO_SCHEMA")).toString()
+                .startsWith(QStringLiteral("LinearTimeWarp"))) {
+            timeScalar = effect.value(QStringLiteral("time_scalar")).toDouble(1.0);
+            return true;
+        }
+    }
+    return false;
+}
+
+QJsonArray exportSequenceTracks(const NLEProjectStore& store,
+                                const Sequence& sequence);
+
+enum class ImportChildResult {
+    Imported,
+    Skipped,
+};
+
+// Imports one track's children (clips/gaps/transitions/nested stacks) into an
+// existing track. `cursor` advances past each child's timeline footprint.
+ImportChildResult importTrackChildren(NLEProjectStore& store,
+                                      const TrackId& trackId,
+                                      const TimeBase& timeBase,
+                                      const QJsonArray& children,
+                                      qint64& cursor,
+                                      QVector<QString>* warnings);
+
+SequenceId importSequenceTracks(NLEProjectStore& store,
+                                const QString& sequenceName,
+                                const TimeBase& timeBase,
+                                const QJsonArray& tracks,
+                                QVector<QString>* warnings)
+{
+    const SequenceId sequenceId =
+        store.createSequence(sequenceName, timeBase);
+    for (const QJsonValue& trackValue : tracks) {
+        const QJsonObject trackObject = trackValue.toObject();
+        const TrackId trackId = store.createTrack(
+            sequenceId,
+            parseTrackKind(trackObject.value(QStringLiteral("kind")).toString()),
+            trackObject.value(QStringLiteral("name")).toString());
+        qint64 cursor = 0;
+        importTrackChildren(store, trackId, timeBase,
+                            trackObject.value(QStringLiteral("children")).toArray(),
+                            cursor, warnings);
+    }
+    return sequenceId;
+}
+
+ImportChildResult importTrackChildren(NLEProjectStore& store,
+                                      const TrackId& trackId,
+                                      const TimeBase& timeBase,
+                                      const QJsonArray& children,
+                                      qint64& cursor,
+                                      QVector<QString>* warnings)
+{
+    bool importedAny = false;
+    ClipId previousClipId;
+    QJsonObject pendingTransition;
+    for (const QJsonValue& clipValue : children) {
+        const QJsonObject clipObject = clipValue.toObject();
+        const QString schema = clipObject.value(QStringLiteral("OTIO_SCHEMA")).toString();
+        if (schema.startsWith(QStringLiteral("Gap."))) {
+            const qint64 gapDuration = static_cast<qint64>(
+                clipObject.value(QStringLiteral("duration")).toObject()
+                    .value(QStringLiteral("value")).toDouble());
+            cursor += qMax<qint64>(0, gapDuration);
+            continue;
+        }
+        if (schema.startsWith(QStringLiteral("Transition."))) {
+            pendingTransition = clipObject;
+            continue;
+        }
+
+        const QJsonObject clipMetadata =
+            clipObject.value(QStringLiteral("metadata")).toObject();
+
+        if (schema.startsWith(QStringLiteral("Stack."))) {
+            const SequenceId nestedSequenceId = importSequenceTracks(
+                store,
+                clipObject.value(QStringLiteral("name")).toString(),
+                timeBase,
+                clipObject.value(QStringLiteral("children")).toArray(),
+                warnings);
+            if (!nestedSequenceId.isValid()) {
+                continue;
+            }
+            const QJsonObject artifactRange =
+                clipMetadata.value(QStringLiteral("artifactTimelineRange")).toObject();
+            const qint64 nestedStart =
+                artifactRange.contains(QStringLiteral("start"))
+                    ? artifactRange.value(QStringLiteral("start")).toVariant().toLongLong()
+                    : cursor;
+            const qint64 nestedDuration =
+                artifactRange.contains(QStringLiteral("duration"))
+                    ? artifactRange.value(QStringLiteral("duration")).toVariant().toLongLong()
+                    : 1;
+            ClipDraft draft;
+            draft.nestedSequenceId = nestedSequenceId;
+            draft.timelineRange = FrameRange::fromDuration(nestedStart, nestedDuration);
+            draft.sourceRange = draft.timelineRange;
+            draft.trimRange = draft.timelineRange;
+            draft.name = clipObject.value(QStringLiteral("name")).toString();
+            const ClipId nestedClipId = store.addClip(
+                store.track(trackId) ? store.track(trackId)->ownerSequenceId
+                                     : SequenceId{},
+                trackId, draft);
+            if (!nestedClipId.isValid()) {
+                if (warnings) {
+                    warnings->push_back(
+                        QStringLiteral("Failed to import nested sequence clip"));
+                }
+            } else {
+                importedAny = true;
+            }
+            cursor = qMax(cursor, nestedStart + nestedDuration);
+            continue;
+        }
+
+        if (!schema.startsWith(QStringLiteral("Clip."))) {
+            if (warnings) {
+                warnings->push_back(
+                    QStringLiteral("Skipped unsupported OTIO child in track"));
+            }
+            continue;
+        }
+
+        const QJsonObject sourceRangeObject =
+            clipObject.value(QStringLiteral("source_range")).toObject();
+        const QJsonObject sourceStart =
+            sourceRangeObject.value(QStringLiteral("start_time")).toObject();
+        const QJsonObject sourceDuration =
+            sourceRangeObject.value(QStringLiteral("duration")).toObject();
+        const qint64 sourceStartValue = static_cast<qint64>(
+            sourceStart.value(QStringLiteral("value")).toDouble());
+        const qint64 durationValue = static_cast<qint64>(
+            sourceDuration.value(QStringLiteral("value")).toDouble());
+        const QJsonObject media =
+            clipObject.value(QStringLiteral("media_reference")).toObject();
+        SourceRef source;
+        source.uri = media.value(QStringLiteral("target_url")).toString();
+        source.displayName = media.value(QStringLiteral("name")).toString();
+        source.timeBase = timeBase;
+        const SourceId sourceId = store.registerSource(source);
+        ClipDraft draft;
+        draft.sourceId = sourceId;
+        draft.sourceRange = FrameRange::fromDuration(sourceStartValue, durationValue);
+        draft.timelineRange = FrameRange::fromDuration(cursor, durationValue);
+        draft.trimRange = draft.sourceRange;
+        draft.name = clipObject.value(QStringLiteral("name")).toString();
+        double speedScalar = 1.0;
+        if (hasLinearTimeWarp(clipObject, speedScalar)) {
+            draft.speed = speedScalar > 0.0 ? speedScalar : 1.0;
+        }
+        draft.reversed = clipMetadata.value(QStringLiteral("artifactReversed")).toBool(false);
+        const ClipId importedClipId = store.addClip(
+            store.track(trackId) ? store.track(trackId)->ownerSequenceId : SequenceId{},
+            trackId, draft);
+        if (!importedClipId.isValid()) {
+            if (warnings) {
+                warnings->push_back(
+                    QStringLiteral("Failed to import clip: %1").arg(draft.name));
+            }
+        } else {
+            importedAny = true;
+        }
+        if (importedClipId.isValid() && previousClipId.isValid() &&
+            !pendingTransition.isEmpty()) {
+            const qint64 inOffset = static_cast<qint64>(
+                pendingTransition.value(QStringLiteral("in_offset")).toObject()
+                    .value(QStringLiteral("value")).toDouble());
+            const qint64 outOffset = static_cast<qint64>(
+                pendingTransition.value(QStringLiteral("out_offset")).toObject()
+                    .value(QStringLiteral("value")).toDouble());
+            const double duration = static_cast<double>(inOffset + outOffset);
+            const TransitionKind kind = parseTransitionKind(
+                pendingTransition.value(QStringLiteral("transition_type")).toString(),
+                pendingTransition.value(QStringLiteral("metadata")).toObject());
+            store.createTransition(trackId, previousClipId, importedClipId,
+                                   FrameRange::fromDuration(
+                                       qMax<qint64>(0, cursor - inOffset),
+                                       qMax<qint64>(1, static_cast<qint64>(duration))),
+                                   kind, duration);
+            pendingTransition = {};
+        }
+        if (importedClipId.isValid()) {
+            previousClipId = importedClipId;
+        }
+        cursor += qMax<qint64>(0, durationValue);
+    }
+    return importedAny ? ImportChildResult::Imported : ImportChildResult::Skipped;
+}
+
+QJsonArray exportSequenceTracks(const NLEProjectStore& store,
+                                const Sequence& sequence)
+{
+    const double rate = sequence.timeBase.fps();
     QJsonArray trackChildren;
-    for (const TrackId& trackId : sequence->trackOrder) {
+    for (const TrackId& trackId : sequence.trackOrder) {
         const Track* track = store.track(trackId);
         if (!track) continue;
 
@@ -101,26 +407,57 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
                     {QStringLiteral("duration"), rationalTime(clipStart - cursor, rate)}
                 });
             }
+
             const SourceRef* source = store.source(clip->sourceId);
             QJsonObject metadata{
                 {QStringLiteral("artifactClipId"), QString::number(clip->id.value)},
                 {QStringLiteral("artifactTrackId"), QString::number(track->id.value)},
                 {QStringLiteral("artifactTimelineRange"), QJsonObject{
                     {QStringLiteral("start"), clip->timelineRange.start()},
-                    {QStringLiteral("duration"), clip->timelineRange.duration()}}}
+                    {QStringLiteral("duration"), clip->timelineRange.duration()}}},
+                {QStringLiteral("artifactReversed"), clip->reversed}
             };
-            QJsonObject mediaReference{
-                {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("ExternalReference.1")},
-                {QStringLiteral("target_url"), source ? source->uri : QString()},
-                {QStringLiteral("name"), source ? source->displayName : QString()}
-            };
-            children.append(QJsonObject{
+
+            QJsonObject clipObject{
                 {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Clip.2")},
                 {QStringLiteral("name"), clip->name},
                 {QStringLiteral("source_range"), timeRange(clip->sourceRange, rate)},
-                {QStringLiteral("media_reference"), mediaReference},
                 {QStringLiteral("metadata"), metadata}
-            });
+            };
+            if (clip->nestedSequenceId.isValid()) {
+                const Sequence* nested = store.sequence(clip->nestedSequenceId);
+                if (nested) {
+                    metadata.insert(QStringLiteral("artifactNestedSequenceId"),
+                                    QString::number(nested->id.value));
+                    clipObject.insert(QStringLiteral("OTIO_SCHEMA"),
+                                      QStringLiteral("Stack.1"));
+                    clipObject.insert(QStringLiteral("name"), nested->name);
+                    clipObject.insert(QStringLiteral("children"),
+                                      exportSequenceTracks(store, *nested));
+                    clipObject.remove(QStringLiteral("source_range"));
+                } else {
+                    QJsonObject mediaReference{
+                        {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("ExternalReference.1")},
+                        {QStringLiteral("target_url"), source ? source->uri : QString()},
+                        {QStringLiteral("name"), source ? source->displayName : QString()}};
+                    clipObject.insert(QStringLiteral("media_reference"), mediaReference);
+                }
+            } else {
+                QJsonObject mediaReference{
+                    {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("ExternalReference.1")},
+                    {QStringLiteral("target_url"), source ? source->uri : QString()},
+                    {QStringLiteral("name"), source ? source->displayName : QString()}};
+                clipObject.insert(QStringLiteral("media_reference"), mediaReference);
+                if (qAbs(clip->speed - 1.0) > 1e-9) {
+                    clipObject.insert(QStringLiteral("effects"),
+                                      QJsonArray{QJsonObject{
+                                          {QStringLiteral("OTIO_SCHEMA"),
+                                           QStringLiteral("LinearTimeWarp.1")},
+                                          {QStringLiteral("name"), QStringLiteral("speed")},
+                                          {QStringLiteral("time_scalar"), clip->speed}}});
+                }
+            }
+            children.append(clipObject);
             for (const TransitionId& transitionId : track->transitions) {
                 const Transition* transition = store.transition(transitionId);
                 if (!transition || transition->leftClipId != clip->id) continue;
@@ -149,6 +486,20 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
                 {QStringLiteral("locked"), track->locked}}}
         });
     }
+    return trackChildren;
+}
+
+} // namespace
+
+QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
+                                        const SequenceId& sequenceId)
+{
+    const Sequence* sequence = store.sequence(sequenceId);
+    if (!sequence) {
+        return {};
+    }
+
+    const double rate = sequence->timeBase.fps();
 
     QJsonArray markers;
     for (const MarkerId& markerId : sequence->markers) {
@@ -158,15 +509,17 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
             {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Marker.2")},
             {QStringLiteral("name"), marker->name},
             {QStringLiteral("marked_range"), timeRange(FrameRange::fromDuration(marker->position.framePosition(), 1), rate)},
-            {QStringLiteral("color"), marker->color.name(QColor::HexArgb)},
+            {QStringLiteral("color"), markerColorName(marker->color)},
             {QStringLiteral("comment"), marker->note},
             {QStringLiteral("metadata"), QJsonObject{
-                {QStringLiteral("artifactMarkerId"), QString::number(marker->id.value)}}}
+                {QStringLiteral("artifactMarkerId"), QString::number(marker->id.value)},
+                {QStringLiteral("artifactColor"), marker->color.name(QColor::HexArgb)}}}
         });
     }
-    QJsonArray subtitles;
+
+    QJsonArray subtitleArray;
     for (const SubtitleCue& cue : sequence->subtitles) {
-        subtitles.append(QJsonObject{
+        subtitleArray.append(QJsonObject{
             {QStringLiteral("start"), cue.range.start()},
             {QStringLiteral("duration"), cue.range.duration()},
             {QStringLiteral("text"), cue.text},
@@ -184,14 +537,14 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
         {QStringLiteral("duration"), timeRange(sequence->duration, rate)},
         {QStringLiteral("tracks"), QJsonObject{
             {QStringLiteral("OTIO_SCHEMA"), QStringLiteral("Stack.1")},
-            {QStringLiteral("children"), trackChildren}}},
+            {QStringLiteral("children"), exportSequenceTracks(store, *sequence)}}},
         {QStringLiteral("markers"), markers},
-        {QStringLiteral("subtitles"), subtitles},
         {QStringLiteral("metadata"), QJsonObject{
             {QStringLiteral("artifactSequenceId"), QString::number(sequence->id.value)},
             {QStringLiteral("artifactRateNumerator"), sequence->timeBase.numerator},
             {QStringLiteral("artifactRateDenominator"), sequence->timeBase.denominator},
-            {QStringLiteral("artifactDropFrame"), sequence->timeBase.dropFrame}}}
+            {QStringLiteral("artifactDropFrame"), sequence->timeBase.dropFrame},
+            {QStringLiteral("artifactSubtitles"), subtitleArray}}}
     };
 }
 
@@ -210,24 +563,44 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
     timeBase.numerator = metadata.value(QStringLiteral("artifactRateNumerator")).toInt(1);
     timeBase.denominator = metadata.value(QStringLiteral("artifactRateDenominator")).toInt(30);
     timeBase.dropFrame = metadata.value(QStringLiteral("artifactDropFrame")).toBool(false);
-    const SequenceId sequenceId = store.createSequence(timeline.value(QStringLiteral("name")).toString(), timeBase);
-    if (importedSequenceId) *importedSequenceId = sequenceId;
-    if (Sequence* importedSequence = store.sequence(sequenceId)) {
-        for (const QJsonValue& subtitleValue : timeline.value(QStringLiteral("subtitles")).toArray()) {
-            const QJsonObject subtitleObject = subtitleValue.toObject();
-            SubtitleCue cue;
-            cue.range = FrameRange::fromDuration(
-                subtitleObject.value(QStringLiteral("start")).toVariant().toLongLong(),
-                subtitleObject.value(QStringLiteral("duration")).toVariant().toLongLong());
-            cue.text = subtitleObject.value(QStringLiteral("text")).toString();
-            cue.name = subtitleObject.value(QStringLiteral("name")).toString();
-            cue.language = subtitleObject.value(QStringLiteral("language")).toString();
-            cue.speaker = subtitleObject.value(QStringLiteral("speaker")).toString();
-            cue.forced = subtitleObject.value(QStringLiteral("forced")).toBool(false);
-            cue.closedCaption = subtitleObject.value(QStringLiteral("closedCaption")).toBool(false);
-            if (cue.range.duration() > 0 && !cue.text.trimmed().isEmpty()) {
-                importedSequence->subtitles.push_back(std::move(cue));
-            }
+
+    const SequenceId sequenceId = importSequenceTracks(
+        store, timeline.value(QStringLiteral("name")).toString(), timeBase,
+        timeline.value(QStringLiteral("tracks")).toObject()
+            .value(QStringLiteral("children")).toArray(),
+        warnings);
+    if (importedSequenceId) {
+        *importedSequenceId = sequenceId;
+    }
+    if (!sequenceId.isValid()) {
+        if (warnings) warnings->push_back(QStringLiteral("Failed to import OTIO timeline"));
+        return false;
+    }
+    Sequence* importedSequence = store.sequence(sequenceId);
+    if (!importedSequence) {
+        return false;
+    }
+
+    // Subtitles live under metadata for standards-safe interchange; the
+    // legacy top-level key is still accepted for older exports.
+    QJsonValue subtitleValue = metadata.value(QStringLiteral("artifactSubtitles"));
+    if (!subtitleValue.isArray()) {
+        subtitleValue = timeline.value(QStringLiteral("subtitles"));
+    }
+    for (const QJsonValue& entry : subtitleValue.toArray()) {
+        const QJsonObject subtitleObject = entry.toObject();
+        SubtitleCue cue;
+        cue.range = FrameRange::fromDuration(
+            subtitleObject.value(QStringLiteral("start")).toVariant().toLongLong(),
+            subtitleObject.value(QStringLiteral("duration")).toVariant().toLongLong());
+        cue.text = subtitleObject.value(QStringLiteral("text")).toString();
+        cue.name = subtitleObject.value(QStringLiteral("name")).toString();
+        cue.language = subtitleObject.value(QStringLiteral("language")).toString();
+        cue.speaker = subtitleObject.value(QStringLiteral("speaker")).toString();
+        cue.forced = subtitleObject.value(QStringLiteral("forced")).toBool(false);
+        cue.closedCaption = subtitleObject.value(QStringLiteral("closedCaption")).toBool(false);
+        if (cue.range.duration() > 0 && !cue.text.trimmed().isEmpty()) {
+            importedSequence->subtitles.push_back(std::move(cue));
         }
     }
 
@@ -236,81 +609,13 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
         const QJsonObject markedRange = markerObject.value(QStringLiteral("marked_range")).toObject();
         const qint64 position = static_cast<qint64>(markedRange.value(QStringLiteral("start_time")).toObject()
             .value(QStringLiteral("value")).toDouble());
-        QColor color(markerObject.value(QStringLiteral("color")).toString());
-        if (!color.isValid()) color = QColor(Qt::yellow);
         store.createMarker(sequenceId,
                            FramePosition(position),
                            markerObject.value(QStringLiteral("name")).toString(),
                            markerObject.value(QStringLiteral("comment")).toString(),
-                           color);
+                           parseMarkerColor(markerObject));
     }
 
-    const QJsonArray tracks = timeline.value(QStringLiteral("tracks")).toObject().value(QStringLiteral("children")).toArray();
-    for (const QJsonValue& trackValue : tracks) {
-        const QJsonObject trackObject = trackValue.toObject();
-        const TrackId trackId = store.createTrack(sequenceId,
-                                                  parseTrackKind(trackObject.value(QStringLiteral("kind")).toString()),
-                                                  trackObject.value(QStringLiteral("name")).toString());
-        const QJsonArray clips = trackObject.value(QStringLiteral("children")).toArray();
-        qint64 cursor = 0;
-        ClipId previousClipId;
-        QJsonObject pendingTransition;
-        for (const QJsonValue& clipValue : clips) {
-            const QJsonObject clipObject = clipValue.toObject();
-            const QString schema = clipObject.value(QStringLiteral("OTIO_SCHEMA")).toString();
-            if (schema.startsWith(QStringLiteral("Gap."))) {
-                const qint64 gapDuration = static_cast<qint64>(clipObject.value(QStringLiteral("duration")).toObject()
-                    .value(QStringLiteral("value")).toDouble());
-                cursor += qMax<qint64>(0, gapDuration);
-                continue;
-            }
-            if (schema.startsWith(QStringLiteral("Transition."))) {
-                pendingTransition = clipObject;
-                continue;
-            }
-            if (!schema.startsWith(QStringLiteral("Clip."))) {
-                if (warnings) warnings->push_back(QStringLiteral("Skipped unsupported OTIO child in track"));
-                continue;
-            }
-            const QJsonObject sourceRangeObject = clipObject.value(QStringLiteral("source_range")).toObject();
-            const QJsonObject sourceStart = sourceRangeObject.value(QStringLiteral("start_time")).toObject();
-            const QJsonObject sourceDuration = sourceRangeObject.value(QStringLiteral("duration")).toObject();
-            const qint64 sourceStartValue = static_cast<qint64>(sourceStart.value(QStringLiteral("value")).toDouble());
-            const qint64 durationValue = static_cast<qint64>(sourceDuration.value(QStringLiteral("value")).toDouble());
-            const QJsonObject media = clipObject.value(QStringLiteral("media_reference")).toObject();
-            SourceRef source;
-            source.uri = media.value(QStringLiteral("target_url")).toString();
-            source.displayName = media.value(QStringLiteral("name")).toString();
-            source.timeBase = timeBase;
-            const SourceId sourceId = store.registerSource(source);
-            ClipDraft draft;
-            draft.sourceId = sourceId;
-            draft.sourceRange = FrameRange::fromDuration(sourceStartValue, durationValue);
-            draft.timelineRange = FrameRange::fromDuration(cursor, durationValue);
-            draft.trimRange = draft.sourceRange;
-            draft.name = clipObject.value(QStringLiteral("name")).toString();
-            const ClipId importedClipId = store.addClip(sequenceId, trackId, draft);
-            if (!importedClipId.isValid() && warnings) {
-                warnings->push_back(QStringLiteral("Failed to import clip: %1").arg(draft.name));
-            }
-            if (importedClipId.isValid() && previousClipId.isValid() && !pendingTransition.isEmpty()) {
-                const qint64 inOffset = static_cast<qint64>(pendingTransition.value(QStringLiteral("in_offset"))
-                    .toObject().value(QStringLiteral("value")).toDouble());
-                const qint64 outOffset = static_cast<qint64>(pendingTransition.value(QStringLiteral("out_offset"))
-                    .toObject().value(QStringLiteral("value")).toDouble());
-                const double duration = static_cast<double>(inOffset + outOffset);
-                const TransitionKind kind = parseTransitionKind(
-                    pendingTransition.value(QStringLiteral("transition_type")).toString());
-                store.createTransition(trackId, previousClipId, importedClipId,
-                                       FrameRange::fromDuration(qMax<qint64>(0, cursor - inOffset),
-                                                                qMax<qint64>(1, static_cast<qint64>(duration))),
-                                       kind, duration);
-                pendingTransition = {};
-            }
-            if (importedClipId.isValid()) previousClipId = importedClipId;
-            cursor += qMax<qint64>(0, durationValue);
-        }
-    }
     return true;
 }
 

@@ -16,6 +16,7 @@ module;
 
 module Shape.Path:Impl;
 
+import Container.NamedVector;
 import Shape.Path;
 import Shape.Types;
 import Math;
@@ -510,7 +511,7 @@ void ShapePath::setPolygon(const std::vector<QPointF>& points, bool closed) {
     clear();
     if (points.size() < 2) return;
 
-    std::vector<QPointF> finitePoints;
+    NamedVector<QPointF> finitePoints;
     finitePoints.reserve(points.size());
     for (const auto& point : points) {
         if (std::isfinite(point.x()) && std::isfinite(point.y())) {
@@ -539,7 +540,7 @@ void ShapePath::setStar(const QPointF& center, int points, double outerRadius, d
     const double angleStep = std::numbers::pi / points;
     const double startAngle = -std::numbers::pi / 2;
 
-    std::vector<QPointF> starPoints;
+    NamedVector<QPointF> starPoints;
     starPoints.reserve(points * 2);
 
     for (int i = 0; i < points; ++i) {
@@ -556,7 +557,7 @@ void ShapePath::setStar(const QPointF& center, int points, double outerRadius, d
         ));
     }
 
-    setPolygon(starPoints, true);
+    setPolygon(starPoints.toStdVector(), true);
 }
 
 // ========================================
@@ -639,7 +640,7 @@ bool ShapePath::contains(const QPointF& point) const {
 
     int winding = 0;
     constexpr double boundaryEpsilon = 1e-9;
-    std::vector<BezierSegment> fillSegments;
+    NamedVector<BezierSegment> fillSegments;
     for (auto segments : flattenSubpaths()) {
         if (segments.empty()) continue;
         const QPointF first = segments.front().p0;
@@ -647,7 +648,9 @@ bool ShapePath::contains(const QPointF& point) const {
         if (first != last) {
             segments.push_back(BezierSegment{last, last, first, first});
         }
-        fillSegments.insert(fillSegments.end(), segments.begin(), segments.end());
+        for (const auto& segment : segments) {
+            fillSegments.append(segment);
+        }
     }
 
     for (const auto& segment : fillSegments) {
@@ -719,9 +722,9 @@ QPointF ShapePath::pointAtLength(double length) const {
 }
 
 std::vector<BezierSegment> ShapePath::toSegments() const {
-    std::vector<BezierSegment> segments;
+    NamedVector<BezierSegment> segments;
     const auto& cmds = impl_->commands_;
-    if (cmds.empty()) return segments;
+    if (cmds.empty()) return {};
 
     QPointF currentPos;  // 現在のパス位置
     QPointF subpathStart; // 現在のサブパス始点
@@ -779,11 +782,11 @@ std::vector<BezierSegment> ShapePath::toSegments() const {
                 break;
         }
     }
-    return segments;
+    return segments.toStdVector();
 }
 
 std::vector<BezierSegment> ShapePath::flatten(double tolerance) const {
-    std::vector<BezierSegment> flattened;
+    NamedVector<BezierSegment> flattened;
     if (!std::isfinite(tolerance) || tolerance <= 0.0) tolerance = 0.25;
     tolerance = std::clamp(tolerance, 1e-6, 1e6);
 
@@ -833,28 +836,28 @@ std::vector<BezierSegment> ShapePath::flatten(double tolerance) const {
     };
 
     for (const auto& segment : toSegments()) flattenSegment(segment);
-    return flattened;
+    return flattened.toStdVector();
 }
 
 std::vector<std::vector<BezierSegment>> ShapePath::flattenSubpaths(double tolerance) const {
-    std::vector<std::vector<BezierSegment>> result;
+    NamedVector<std::vector<BezierSegment>> result;
     for (const auto& subpath : subpaths()) {
         auto flattened = subpath.flatten(tolerance);
         if (!flattened.empty()) result.push_back(std::move(flattened));
     }
-    return result;
+    return result.toStdVector();
 }
 
 std::vector<PathTriangle> ShapePath::triangulateSimple(double tolerance) const {
-    std::vector<PathTriangle> triangles;
+    NamedVector<PathTriangle> triangles;
     const auto subpaths = flattenSubpaths(tolerance);
-    if (subpaths.size() != 1 || subpaths.front().size() < 3 || !isClosed()) return triangles;
+    if (subpaths.size() != 1 || subpaths.front().size() < 3 || !isClosed()) return {};
 
     std::vector<QPointF> polygon;
     polygon.reserve(subpaths.front().size());
     for (const auto& segment : subpaths.front()) polygon.push_back(segment.p0);
     if (polygon.size() >= 2 && polygon.front() == polygon.back()) polygon.pop_back();
-    if (polygon.size() < 3) return triangles;
+    if (polygon.size() < 3) return {};
 
     const auto cross = [](const QPointF& a, const QPointF& b, const QPointF& c) {
         return (b.x() - a.x()) * (c.y() - a.y()) -
@@ -866,7 +869,7 @@ std::vector<PathTriangle> ShapePath::triangulateSimple(double tolerance) const {
         const auto& b = polygon[(i + 1) % polygon.size()];
         signedArea += a.x() * b.y() - b.x() * a.y();
     }
-    if (std::abs(signedArea) <= 1e-9) return triangles;
+    if (std::abs(signedArea) <= 1e-9) return {};
 
     std::vector<size_t> indices(polygon.size());
     std::iota(indices.begin(), indices.end(), 0);
@@ -905,7 +908,7 @@ std::vector<PathTriangle> ShapePath::triangulateSimple(double tolerance) const {
         }
         if (!clipped) return {};
     }
-    return triangles;
+    return triangles.toStdVector();
 }
 
 namespace {
@@ -988,7 +991,7 @@ bool contourInteriorPoint(const std::vector<QPointF>& contour,
 
 // CCW 前提の ear clipping。ブリッジ由来の重複頂点・共線頂点を許容する。
 bool earClipContour(const std::vector<QPointF>& polygon,
-                    std::vector<PathTriangle>* triangles) {
+                    NamedVector<PathTriangle>* triangles) {
     if (polygon.size() < 3) return false;
     std::vector<size_t> indices(polygon.size());
     std::iota(indices.begin(), indices.end(), 0);
@@ -1089,7 +1092,7 @@ bool mergeHoleIntoOuter(std::vector<QPointF>* outer,
         }
     }
 
-    std::vector<QPointF> merged;
+    NamedVector<QPointF> merged;
     merged.reserve(outer->size() + hole.size() + 2);
     for (size_t i = 0; i <= bridgeIndex; ++i) merged.push_back((*outer)[i]);
     for (size_t i = 0; i <= hole.size(); ++i) {
@@ -1099,7 +1102,7 @@ bool mergeHoleIntoOuter(std::vector<QPointF>* outer,
     for (size_t i = bridgeIndex + 1; i < count; ++i) {
         merged.push_back((*outer)[i]);
     }
-    *outer = std::move(merged);
+    *outer = merged.toStdVector();
     return true;
 }
 
@@ -1113,9 +1116,9 @@ std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
         double maxX = 0.0;
     };
 
-    std::vector<PathTriangle> triangles;
+    NamedVector<PathTriangle> triangles;
     const auto flattenedSubpaths = flattenSubpaths(tolerance);
-    if (flattenedSubpaths.empty()) return triangles;
+    if (flattenedSubpaths.empty()) return {};
 
     // fill は contains() と同じく、閉じていないサブパスも暗黙に閉じて扱う。
     std::vector<FillContour> contours;
@@ -1141,12 +1144,12 @@ std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
         }
         contours.push_back(std::move(contour));
     }
-    if (contours.empty()) return triangles;
+    if (contours.empty()) return {};
 
     // fill rule に基づいて外輪郭／穴／冗長輪郭を分類する。
     const PathFillRule rule = fillRule();
-    std::vector<size_t> outers;
-    std::vector<size_t> holes;
+    NamedVector<size_t> outers;
+    NamedVector<size_t> holes;
     for (size_t i = 0; i < contours.size(); ++i) {
         RayCrossings total;
         RayCrossings own;
@@ -1168,7 +1171,7 @@ std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
         }
         // 両側 filled（冗長輪郭）と両側 unfilled は描画へ寄与しない。
     }
-    if (outers.empty()) return triangles;
+    if (outers.empty()) return {};
 
     // 穴を最も内側（最小面積）の外輪郭へ割り当てる。
     std::vector<std::vector<size_t>> holesByOuter(outers.size());
@@ -1212,7 +1215,7 @@ std::vector<PathTriangle> ShapePath::triangulate(double tolerance) const {
 
         if (!earClipContour(polygon, &triangles)) return {};
     }
-    return triangles;
+    return triangles.toStdVector();
 }
 
 // ========================================
@@ -1264,7 +1267,7 @@ ShapePath ShapePath::clone() const {
 }
 
 void ShapePath::reverse() {
-    std::vector<PathCommand> reversed;
+    NamedVector<PathCommand> reversed;
     reversed.reserve(impl_->commands_.size());
 
     struct Segment {
@@ -1342,7 +1345,7 @@ void ShapePath::reverse() {
         subpath.push_back(command);
     }
     reverseSubpath(subpath);
-    impl_->commands_ = std::move(reversed);
+    impl_->commands_ = reversed.toStdVector();
     impl_->invalidate();
 }
 
@@ -1480,8 +1483,8 @@ QPointF ShapePath::quadPointAtLength(const QPointF& p0, const QPointF& p1, const
 
 std::vector<ShapePath> ShapePath::subpaths() const
 {
-    std::vector<ShapePath> result;
-    if (impl_->commands_.empty()) return result;
+    NamedVector<ShapePath> result;
+    if (impl_->commands_.empty()) return {};
 
     ShapePath current;
     for (const auto& cmd : impl_->commands_) {
@@ -1497,7 +1500,7 @@ std::vector<ShapePath> ShapePath::subpaths() const
     }
     if (!current.impl_->commands_.empty())
         result.push_back(std::move(current));
-    return result;
+    return result.toStdVector();
 }
 
 // ========================================
@@ -1506,8 +1509,8 @@ std::vector<ShapePath> ShapePath::subpaths() const
 
 std::vector<QPointF> ShapePath::sampleEquidistant(int count) const
 {
-    std::vector<QPointF> result;
-    if (impl_->commands_.empty() || count < 2) return result;
+    NamedVector<QPointF> result;
+    if (impl_->commands_.empty() || count < 2) return {};
 
     const double totalLen = length();
     if (totalLen < 1e-9) {
@@ -1522,7 +1525,7 @@ std::vector<QPointF> ShapePath::sampleEquidistant(int count) const
         result.push_back(pointAtLength(
             static_cast<double>(i) / (count - 1) * totalLen));
     }
-    return result;
+    return result.toStdVector();
 }
 
 // ========================================

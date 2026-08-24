@@ -19,6 +19,7 @@ export module Artifact.Grid.System;
 
 import Particle;
 import Color.Float;
+import Container.NamedVector;
 // PrimitiveRenderer2D is declared in Artifact; forward-declare to avoid
 // requiring the Artifact.Render.PrimitiveRenderer2D module at this header
 // level. The full module is used in implementation files where needed.
@@ -579,7 +580,7 @@ inline std::vector<GroundGridLine> GridSystem::computeGroundGridLines(
     const int minorCount = static_cast<int>(
         std::floor(settings.extent / minorInterval));
     const int lineCount = std::min(2 * (majorCount + minorCount), 16384);
-    std::vector<GroundGridLine> lines;
+    NamedVector<GroundGridLine> lines;
     lines.reserve(std::max(0, lineCount));
 
     const auto fadeColor = [&](const ArtifactCore::FloatColor& source,
@@ -619,7 +620,7 @@ inline std::vector<GroundGridLine> GridSystem::computeGroundGridLines(
         addLine(coordinate, false, true);
         addLine(coordinate, false, false);
     }
-    return lines;
+    return lines.toStdVector();
 }
 
 inline float GridSystem::unitToPixel(float unitValue) const {
@@ -1058,27 +1059,27 @@ inline const GridDescriptor* GridManager::layerDescriptor(int id) const {
 }
 
 inline std::vector<int> GridManager::layerIds() const {
-    std::vector<int> ids;
+    NamedVector<int> ids;
     ids.reserve(layers_.size());
     for (const auto& entry : layers_)
         ids.push_back(entry.id);
-    return ids;
+    return ids.toStdVector();
 }
 
 inline std::vector<GridLine> GridManager::computeAllLines(
     const GridViewTransform& view, float zoom) const {
-    std::vector<const Entry*> visible;
+    NamedVector<const Entry*> visible;
     for (const auto& entry : layers_)
         if (entry.layer.descriptor().visible) visible.push_back(&entry);
     std::sort(visible.begin(), visible.end(), [](const Entry* a, const Entry* b) {
         return a->layer.descriptor().zOrder < b->layer.descriptor().zOrder;
     });
-    std::vector<GridLine> result;
+    NamedVector<GridLine> result;
     for (const Entry* entry : visible) {
         auto lines = entry->layer.computeLines(view, zoom);
         result.insert(result.end(), lines.begin(), lines.end());
     }
-    return result;
+    return result.toStdVector();
 }
 
 inline float GridManager::snapAll(float canvasPos, bool isVertical) const {

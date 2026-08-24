@@ -3,16 +3,16 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <random>
 #include "../../../include/Define/DllExportMacro.hpp"
 #include <opencv2/opencv.hpp>
+
 
 
 module Glow;
 
 import Image;
 import Core.Parallel;
-
+import Math.Random;
 namespace ArtifactCore {
 
  namespace
@@ -316,21 +316,21 @@ namespace ArtifactCore {
 
 
   // 2. 再現性のある乱数ジェネレータの初期化
-  std::mt19937 gen(seed);
-  std::uniform_real_distribution<> dis(0.0, 1.0);
+  auto rng = ArtifactCore::makeRandomStream(
+      static_cast<std::uint64_t>(seed));
 
   // 3. 点生成と描画
   long points_drawn = 0;
   for (long i = 0; i < num_points_to_try; ++i) {
    // ランダムな座標を選択
-   int x = static_cast<int>(dis(gen) * width);
-   int y = static_cast<int>(dis(gen) * height);
+   int x = static_cast<int>(rng.unitFloat() * width);
+   int y = static_cast<int>(rng.unitFloat() * height);
 
    if (x < 0 || x >= width || y < 0 || y >= height) continue;
 
    const float probability = prob_map.ptr<float>(y)[x];
 
-   if (dis(gen) < probability) {
+   if (rng.unitFloat() < probability) {
 	cv::circle(image, cv::Point(x, y), point_size, point_color, -1, cv::LINE_AA);
 	points_drawn++;
    }

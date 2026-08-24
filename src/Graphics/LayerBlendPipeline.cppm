@@ -796,6 +796,9 @@ bool LayerBlendPipeline::blendDirect(
 
  auto it = executors_.find(mode);
  if (it == executors_.end()) {
+  qWarning() << "[LayerBlendPipeline::blendDirect] unsupported GPU blend mode;"
+             << "requested=" << static_cast<unsigned int>(mode)
+             << "fallback=Normal";
   it = executors_.find(BlendMode::Normal);
   if (it == executors_.end()) {
    return false;

@@ -5,6 +5,8 @@ module;
 
 export module Color.Float;
 
+import Color.TransferFunction;
+
 export namespace ArtifactCore {
 
 class HSV;
@@ -61,8 +63,12 @@ public:
   void clamp();
 
   /// Convert the RGB channels from sRGB encoding to scene-linear values.
+  /// sRGB-only by definition; for other transfer functions use
+  /// TaggedColor::toTransfer (module Color.Tagged).
+  [[deprecated("sRGB-only; prefer TaggedColor::toTransfer for tagged values")]]
   FloatColor toLinear() const;
   /// Convert the RGB channels from scene-linear values to sRGB encoding.
+  [[deprecated("sRGB-only; prefer TaggedColor::toTransfer for tagged values")]]
   FloatColor fromLinear() const;
 
   FloatColor &operator=(const FloatColor &other);

@@ -4,6 +4,8 @@ module;
 #include <cmath>
 module Color.Float;
 
+import Color.TransferFunction;
+
 namespace ArtifactCore {
 
 FloatColor::FloatColor() = default;
@@ -19,26 +21,16 @@ void FloatColor::setAlpha(float alpha) { a_ = alpha; }
 void FloatColor::setColor(float red, float green, float blue) { r_ = red; g_ = green; b_ = blue; }
 void FloatColor::setColor(float red, float green, float blue, float alpha) { r_ = red; g_ = green; b_ = blue; a_ = alpha; }
 
-namespace {
-float srgbToLinear(const float value) {
-  const float v = std::max(0.0f, value);
-  return v <= 0.04045f ? v / 12.92f
-                       : std::pow((v + 0.055f) / 1.055f, 2.4f);
-}
-
-float linearToSrgb(const float value) {
-  const float v = std::max(0.0f, value);
-  return v <= 0.0031308f ? v * 12.92f
-                         : 1.055f * std::pow(v, 1.0f / 2.4f) - 0.055f;
-}
-}
-
 FloatColor FloatColor::toLinear() const {
-  return FloatColor(srgbToLinear(r_), srgbToLinear(g_), srgbToLinear(b_), a_);
+  return FloatColor(ColorTransferFunction::srgbToLinear(r_),
+                    ColorTransferFunction::srgbToLinear(g_),
+                    ColorTransferFunction::srgbToLinear(b_), a_);
 }
 
 FloatColor FloatColor::fromLinear() const {
-  return FloatColor(linearToSrgb(r_), linearToSrgb(g_), linearToSrgb(b_), a_);
+  return FloatColor(ColorTransferFunction::linearToSRGB(r_),
+                    ColorTransferFunction::linearToSRGB(g_),
+                    ColorTransferFunction::linearToSRGB(b_), a_);
 }
 
 float FloatColor::red() const   { return r_; }

@@ -11,6 +11,8 @@ module;
 
 export module Core.Diagnostics.DebugIdentity;
 
+import Container.NamedVector;
+
 namespace Artifact::Diagnostics {
 
 export struct DebugIdentitySnapshot
@@ -55,15 +57,16 @@ public:
     static std::vector<DebugIdentitySnapshot> snapshotAll()
     {
         std::lock_guard lock(registryMutex());
-        std::vector<DebugIdentitySnapshot> result;
+        NamedVector<DebugIdentitySnapshot> result{
+            makeNamedVector<DebugIdentitySnapshot>(ContainerName{"DebugIdentitySnapshots"})};
         result.reserve(registry().size());
         for (const auto* identity : registry()) {
-            result.push_back(DebugIdentitySnapshot{
+            result.append(DebugIdentitySnapshot{
                 identity->debugId(), identity->debugOwnerId(), identity->debugTypeName(),
                 identity->debugName(), identity->debugOwnerName(), identity->creationFile(),
                 identity->creationFunction(), identity->creationLine()});
         }
-        return result;
+        return result.toStdVector();
     }
 
     uint64_t debugId() const noexcept { return id_; }

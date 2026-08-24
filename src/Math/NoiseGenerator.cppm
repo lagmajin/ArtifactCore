@@ -43,6 +43,8 @@ module;
 #include <random>
 module Math.Noise;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 // 順列テーブルの初期化
@@ -50,7 +52,8 @@ static int p[512];
 static bool isInitialized = false;
 
 void NoiseGenerator::setSeed(unsigned int seed) {
-    std::vector<int> permutation(256);
+    NamedVector<int> permutation;
+    permutation.resize(256);
     std::iota(permutation.begin(), permutation.end(), 0);
     std::default_random_engine engine(seed);
     std::shuffle(permutation.begin(), permutation.end(), engine);

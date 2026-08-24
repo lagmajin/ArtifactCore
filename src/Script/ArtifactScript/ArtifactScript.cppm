@@ -18,6 +18,8 @@ module;
 #include <sstream>
 module Script.ArtifactScript;
 
+import Container.NamedVector;
+
 import Core.ArtifactString;
 import Memory.SharedPtr;
 
@@ -179,7 +181,24 @@ BIN_PARSE(parseAndOr, parseCmp,
     else if (matchKw(c, "||")) { op = ArtifactScriptBinaryOp::Or; matched = 1; })
 #undef BIN_PARSE
 
-ArtifactScriptExprPtr parseExpr(ParseCtx& c) { return parseAndOr(c); }
+// Ternary: cond ? a : b — lowest precedence, right-associative.
+ArtifactScriptExprPtr parseTernary(ParseCtx& c) {
+    auto condition = parseAndOr(c);
+    if (!condition) return nullptr;
+    skipWS(c);
+    if (c.pos >= c.len || c.src[c.pos] != '?') return condition;
+    ++c.pos;
+    auto e = std::make_unique<ArtifactScriptExpr>();
+    e->kind = ArtifactScriptExpr::Kind::Ternary;
+    e->ternaryCondition = std::move(condition);
+    e->ternaryThen = parseExpr(c);
+    if (!matchCh(c, ':')) return nullptr;
+    e->ternaryElse = parseExpr(c);
+    if (!e->ternaryThen || !e->ternaryElse) return nullptr;
+    return e;
+}
+
+ArtifactScriptExprPtr parseExpr(ParseCtx& c) { return parseTernary(c); }
 
 double parseNum(ParseCtx& c) { skipWS(c); size_t s = c.pos; while (c.pos < c.len && (std::isdigit(static_cast<unsigned char>(c.src[c.pos])) || c.src[c.pos] == '.')) ++c.pos; return std::strtod(std::string(c.src.substr(s, c.pos - s)).c_str(), nullptr); }
 
@@ -201,12 +220,14 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         if (!matchCh(c, ')')) { s->forIncrement = parseStmt(c); matchCh(c, ')'); }
         s->forBody = parseStmt(c); return s;
     }
+    if (matchKw(c, "break")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Break; matchCh(c, ';'); return s; }
+    if (matchKw(c, "continue")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Continue; matchCh(c, ';'); return s; }
     if (matchKw(c, "return")) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Return;
         auto e = parseExpr(c); if (e) s->expr = std::move(e); matchCh(c, ';'); return s; }
     if (matchCh(c, '{')) { auto b = std::make_unique<ArtifactScriptStmt>(); b->kind = ArtifactScriptStmt::Kind::Block;
         while (c.pos < c.len && c.src[c.pos] != '}') { auto s = parseStmt(c); if (s) b->blockStmts.push_back(std::move(s)); else break; }
         matchCh(c, '}'); return b; }
-    // Variable declaration: "float x" or "float x = expr"
+    // Variable declaration: "float x" or "float x = expr", or type-inferred "var x = expr"
     std::string id = parseId(c);
     if (id.empty()) { matchCh(c, ';'); return std::make_unique<ArtifactScriptStmt>(); }
     if (id == "float" || id == "int" || id == "bool" || id == "string" || id == "Array" || id == "array") {
@@ -215,13 +236,66 @@ ArtifactScriptStmtPtr parseStmt(ParseCtx& c) {
         if (matchCh(c, '=')) s->declInit = parseExpr(c);
         matchCh(c, ';'); return s;
     }
+    if (id == "var") {
+        auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Decl;
+        s->declType = ArtifactScriptValueType::Null;  // Null type marks type inference
+        s->declName = parseId(c);
+        if (matchCh(c, '=')) s->declInit = parseExpr(c);
+        matchCh(c, ';'); return s;
+    }
+    if (id == "foreach") {
+        auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Foreach;
+        matchCh(c, '(');
+        s->foreachItemName = parseId(c);
+        if (!matchKw(c, "in")) { return nullptr; }
+        s->foreachCollectionName = parseId(c);
+        matchCh(c, ')');
+        s->foreachBody = parseStmt(c);
+        return s;
+    }
+    // Increment / decrement: "x++;" or "--x;"
+    const bool isPostInc = matchKw(c, "++");
+    const bool isPostDec = !isPostInc && matchKw(c, "--");
+    if ((isPostInc || isPostDec) && !id.empty()) {
+        auto inc = std::make_unique<ArtifactScriptStmt>();
+        inc->kind = ArtifactScriptStmt::Kind::Assign;
+        inc->assignTarget = id;
+        inc->assignOp = isPostInc ? "+=" : "-=";
+        inc->assignValue = std::make_unique<ArtifactScriptExpr>();
+        inc->assignValue->kind = ArtifactScriptExpr::Kind::Literal;
+        inc->assignValue->literalValue = 1.0;
+        matchCh(c, ';');
+        return inc;
+    }
     if (matchCh(c, '[')) {
         auto index = parseExpr(c); matchCh(c, ']');
-        if (matchCh(c, '=')) {
+        std::string op;
+        if (matchCh(c, '=')) op = "=";
+        else if (c.pos + 1 < c.len && c.src[c.pos] == '+' && c.src[c.pos+1] == '=') { op = "+="; c.pos += 2; }
+        else if (c.pos + 1 < c.len && c.src[c.pos] == '-' && c.src[c.pos+1] == '=') { op = "-="; c.pos += 2; }
+        else if (c.pos + 1 < c.len && c.src[c.pos] == '*' && c.src[c.pos+1] == '=') { op = "*="; c.pos += 2; }
+        else if (c.pos + 1 < c.len && c.src[c.pos] == '/' && c.src[c.pos+1] == '=') { op = "/="; c.pos += 2; }
+        if (!op.empty()) {
             auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
-            s->assignTarget = id; s->assignIndex = std::move(index); s->assignValue = parseExpr(c); matchCh(c, ';'); return s;
+            s->assignTarget = id; s->assignIndex = std::move(index); s->assignOp = op; s->assignValue = parseExpr(c); matchCh(c, ';'); return s;
         }
         c.pos -= id.size();
+    }
+    // Compound assignment: "x += expr;"
+    std::string compoundOp;
+    {
+        skipWS(c);
+        if (c.pos + 1 < c.len && c.src[c.pos+1] == '=' ) {
+            if (c.src[c.pos] == '+') { compoundOp = "+="; c.pos += 2; }
+            else if (c.src[c.pos] == '-') { compoundOp = "-="; c.pos += 2; }
+            else if (c.src[c.pos] == '*') { compoundOp = "*="; c.pos += 2; }
+            else if (c.src[c.pos] == '/') { compoundOp = "/="; c.pos += 2; }
+            else if (c.src[c.pos] == '%') { compoundOp = "%="; c.pos += 2; }
+        }
+    }
+    if (!compoundOp.empty()) {
+        auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
+        s->assignTarget = id; s->assignOp = compoundOp; s->assignValue = parseExpr(c); matchCh(c, ';'); return s;
     }
     if (matchCh(c, '=')) { auto s = std::make_unique<ArtifactScriptStmt>(); s->kind = ArtifactScriptStmt::Kind::Assign;
         s->assignTarget = id; s->assignValue = parseExpr(c); matchCh(c, ';'); return s; }
@@ -466,12 +540,51 @@ bool ArtifactScriptInstance::hasHook(ArtifactScriptHook hook) const {
     });
 }
 
+ArtifactScriptSerializedFields& ArtifactScriptInstance::fields() {
+    return fields_;
+}
+
+const ArtifactScriptSerializedFields& ArtifactScriptInstance::fields() const {
+    return fields_;
+}
+
+std::string ArtifactScriptInstance::lastError() const {
+    return lastHookError_;
+}
+
 bool ArtifactScriptInstance::invokeHook(ArtifactScriptHook hook) {
     if (!hasHook(hook)) {
         return false;
     }
+    const auto hookName = [hook]() -> std::string {
+        switch (hook) {
+        case ArtifactScriptHook::OnCreate: return "OnCreate";
+        case ArtifactScriptHook::OnStart: return "OnStart";
+        case ArtifactScriptHook::OnEnable: return "OnEnable";
+        case ArtifactScriptHook::OnDisable: return "OnDisable";
+        case ArtifactScriptHook::OnUpdate: return "OnUpdate";
+        case ArtifactScriptHook::OnDestroy: return "OnDestroy";
+        }
+        return "OnUpdate";
+    }();
+    ArtifactScriptEvaluator evaluator;
+    if (component_) {
+        fields_ = component_->publicFields();
+    } else if (fields_.empty()) {
+        ArtifactScriptComponent defaults;
+        defaults.setScriptClass(definition_.rootClass.name);
+        defaults.applyDefaults(definition_);
+        fields_ = defaults.publicFields();
+    }
+    // Lifecycle hooks receive no arguments; dt is provided as a field when
+    // the host sets it (fields()["dt"]).
+    const bool ok = evaluator.executeMethod(definition_, hookName, {}, fields_);
+    lastHookError_ = ok ? std::string() : evaluator.getLastError();
+    if (ok && component_) {
+        component_->publicFields() = fields_;
+    }
     lastInvokedHook_ = hook;
-    return true;
+    return ok;
 }
 
 bool ArtifactScriptInstance::wasHookInvoked(ArtifactScriptHook hook) const {
@@ -486,6 +599,8 @@ public:
     std::string error_;
     ArtifactScriptValue returnValue_{};
     bool returned_ = false;
+    bool breakRequested_ = false;
+    bool continueRequested_ = false;
     const ArtifactScriptDefinition* activeDefinition_ = nullptr;
     int callDepth_ = 0;
     ArtifactScriptValue evalExpr(const ArtifactScriptExpr*, ArtifactScriptSerializedFields&, const std::unordered_map<std::string, ArtifactScriptValue>&);
@@ -507,6 +622,8 @@ bool ArtifactScriptEvaluator::execute(
     impl_->error_.clear();
     impl_->returnValue_ = {};
     impl_->returned_ = false;
+    impl_->breakRequested_ = false;
+    impl_->continueRequested_ = false;
     for (std::size_t i = 0; i < args.size() && i < body.parameters.size(); ++i) {
         fields[body.parameters[i]] = args[i];
     }
@@ -514,6 +631,12 @@ bool ArtifactScriptEvaluator::execute(
     for (auto& st : body.statements) {
         if (!impl_->execStmt(st.get(), fields, locals)) return false;
         if (impl_->returned_) break;
+        // break/continue at method top level ends the body gracefully.
+        if (impl_->breakRequested_ || impl_->continueRequested_) {
+            impl_->breakRequested_ = false;
+            impl_->continueRequested_ = false;
+            break;
+        }
     }
     return impl_->error_.empty();
 }
@@ -537,8 +660,38 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalExpr(
         if (it != fields.end()) return it->second;
         error_ = "undefined: " + e->variableName; return {};
     }
-    case ArtifactScriptExpr::Kind::Binary:
+    case ArtifactScriptExpr::Kind::Binary: {
+        // Short-circuit evaluation for && and ||: the right operand must not
+        // be evaluated when the left already decides the result.
+        if (e->binaryOp == ArtifactScriptBinaryOp::And || e->binaryOp == ArtifactScriptBinaryOp::Or) {
+            const auto left = evalExpr(e->left.get(), fields, locals);
+            if (!error_.empty()) return {};
+            auto truthy = [](const ArtifactScriptValue& v) {
+                if (std::holds_alternative<bool>(v)) return std::get<bool>(v);
+                if (std::holds_alternative<double>(v)) return std::get<double>(v) != 0.0;
+                if (std::holds_alternative<std::int64_t>(v)) return std::get<std::int64_t>(v) != 0;
+                return false;
+            };
+            if (e->binaryOp == ArtifactScriptBinaryOp::And && !truthy(left)) return left;
+            if (e->binaryOp == ArtifactScriptBinaryOp::Or && truthy(left)) return left;
+            const auto right = evalExpr(e->right.get(), fields, locals);
+            return right;
+        }
         return evalBinary(e->binaryOp, evalExpr(e->left.get(), fields, locals), evalExpr(e->right.get(), fields, locals));
+    }
+    case ArtifactScriptExpr::Kind::Ternary: {
+        const auto condition = evalExpr(e->ternaryCondition.get(), fields, locals);
+        if (!error_.empty()) return {};
+        auto truthy = [](const ArtifactScriptValue& v) {
+            if (std::holds_alternative<bool>(v)) return std::get<bool>(v);
+            if (std::holds_alternative<double>(v)) return std::get<double>(v) != 0.0;
+            if (std::holds_alternative<std::int64_t>(v)) return std::get<std::int64_t>(v) != 0;
+            return false;
+        };
+        return truthy(condition)
+            ? evalExpr(e->ternaryThen.get(), fields, locals)
+            : evalExpr(e->ternaryElse.get(), fields, locals);
+    }
     case ArtifactScriptExpr::Kind::Unary:
         return evalUnary(e->unaryOp, evalExpr(e->operand.get(), fields, locals));
     case ArtifactScriptExpr::Kind::Call:
@@ -568,6 +721,35 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalBinary(
         return 0.0;
     };
     auto b = [&](const ArtifactScriptValue& v) { return std::holds_alternative<bool>(v) ? std::get<bool>(v) : d(v) != 0.0; };
+    if (op == ArtifactScriptBinaryOp::Add &&
+        (std::holds_alternative<std::string>(l) || std::holds_alternative<std::string>(r))) {
+        auto toString = [](const ArtifactScriptValue& v) -> std::string {
+            if (std::holds_alternative<std::string>(v)) return std::get<std::string>(v);
+            if (std::holds_alternative<bool>(v)) return std::get<bool>(v) ? "true" : "false";
+            if (std::holds_alternative<std::int64_t>(v)) return std::to_string(std::get<std::int64_t>(v));
+            if (std::holds_alternative<double>(v)) {
+                const double value = std::get<double>(v);
+                std::ostringstream stream;
+                stream << value;
+                return stream.str();
+            }
+            return {};
+        };
+        return toString(l) + toString(r);
+    }
+    if (std::holds_alternative<std::string>(l) && std::holds_alternative<std::string>(r)) {
+        const auto& ls = std::get<std::string>(l);
+        const auto& rs = std::get<std::string>(r);
+        switch (op) {
+        case ArtifactScriptBinaryOp::Eq:  return ls == rs;
+        case ArtifactScriptBinaryOp::Neq: return ls != rs;
+        case ArtifactScriptBinaryOp::Lt:  return ls < rs;
+        case ArtifactScriptBinaryOp::Gt:  return ls > rs;
+        case ArtifactScriptBinaryOp::Le:  return ls <= rs;
+        case ArtifactScriptBinaryOp::Ge:  return ls >= rs;
+        default: break;
+        }
+    }
     double ld = d(l), rd = d(r);
     switch (op) {
     case ArtifactScriptBinaryOp::Add: return ld + rd;
@@ -604,7 +786,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
     const std::unordered_map<std::string, ArtifactScriptValue>& locals) {
-    std::vector<ArtifactScriptValue> args;
+    NamedVector<ArtifactScriptValue> args;
     for (auto& a : e->callArgs) args.push_back(evalExpr(a.get(), fields, locals));
     if (!error_.empty()) return {};
     auto num = [](const ArtifactScriptValue& v) -> double {
@@ -614,7 +796,27 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     };
     if (e->callName == "array" && args.empty())
         return makeShared<ArtifactScriptArray>();
-    if (e->callName == "print" || e->callName == "log") return {};
+    if (e->callName == "print" || e->callName == "log") {
+        auto toString = [](const ArtifactScriptValue& v) -> std::string {
+            if (std::holds_alternative<std::string>(v)) return std::get<std::string>(v);
+            if (std::holds_alternative<bool>(v)) return std::get<bool>(v) ? "true" : "false";
+            if (std::holds_alternative<std::int64_t>(v)) return std::to_string(std::get<std::int64_t>(v));
+            if (std::holds_alternative<double>(v)) {
+                const double value = std::get<double>(v);
+                std::ostringstream stream;
+                stream << value;
+                return stream.str();
+            }
+            return {};
+        };
+        std::string line;
+        for (std::size_t i = 0; i < args.size(); ++i) {
+            if (i > 0) line += " ";
+            line += toString(args[i]);
+        }
+        ArtifactScriptHost::global().appendLog(std::move(line));
+        return {};
+    }
     if (e->callName == "size" && args.size() == 1 &&
         std::holds_alternative<ArtifactScriptArrayPtr>(args[0])) {
         const auto& array = std::get<ArtifactScriptArrayPtr>(args[0]);
@@ -679,6 +881,18 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
         if (method != activeDefinition_->rootClass.methods.end())
             return callUserMethod(e->callName, args, fields);
     }
+    ArtifactScriptValue hostResult;
+    ArtifactScriptHost& host = ArtifactScriptHost::global();
+    if (host.hasFunction(e->callName)) {
+        host.setLastError(std::string());
+        if (host.callFunction(e->callName, args.toStdVector(), hostResult)) {
+            // Host callbacks may report failures via setLastError; surface
+            // them through the evaluator's diagnostic path.
+            const std::string hostError = host.lastError();
+            if (!hostError.empty()) error_ = "host: " + hostError;
+            return hostResult;
+        }
+    }
     error_ = "unknown function: " + e->callName; return {};
 }
 
@@ -721,6 +935,18 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
     case ArtifactScriptStmt::Kind::Assign: {
         auto v = evalExpr(s->assignValue.get(), fields, locals);
         if (!error_.empty()) return false;
+        // Compound assignment folds the current value with the right side.
+        const std::string& op = s->assignOp;
+        auto applyCompound = [&](const ArtifactScriptValue& current) -> ArtifactScriptValue {
+            if (op.empty() || op == "=") return v;
+            if (op == "+=") return evalBinary(ArtifactScriptBinaryOp::Add, current, v);
+            if (op == "-=") return evalBinary(ArtifactScriptBinaryOp::Sub, current, v);
+            if (op == "*=") return evalBinary(ArtifactScriptBinaryOp::Mul, current, v);
+            if (op == "/=") return evalBinary(ArtifactScriptBinaryOp::Div, current, v);
+            if (op == "%=") return evalBinary(ArtifactScriptBinaryOp::Mod, current, v);
+            error_ = "unsupported assign op: " + op;
+            return {};
+        };
         if (s->assignIndex) {
             auto target = locals.find(s->assignTarget);
             if (target == locals.end()) {
@@ -737,11 +963,18 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
             const auto index = static_cast<std::size_t>(std::holds_alternative<double>(indexValue)
                 ? std::get<double>(indexValue) : std::get<std::int64_t>(indexValue));
             if (!array || index >= array->values.size()) { error_ = "array index out of range"; return false; }
-            array->values[index] = v;
-            return true;
+            array->values[index] = applyCompound(array->values[index]);
+            return error_.empty();
         }
-        auto lit = locals.find(s->assignTarget); if (lit != locals.end()) { lit->second = v; return true; }
-        fields[s->assignTarget] = v; return true;
+        auto lit = locals.find(s->assignTarget);
+        if (lit != locals.end()) { lit->second = applyCompound(lit->second); return error_.empty(); }
+        auto fieldIt = fields.find(s->assignTarget);
+        if (fieldIt != fields.end()) {
+            fieldIt->second = applyCompound(fieldIt->second);
+        } else {
+            fields[s->assignTarget] = applyCompound({});
+        }
+        return error_.empty();
     }
     case ArtifactScriptStmt::Kind::Decl: {
         ArtifactScriptValue init;
@@ -759,7 +992,10 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                 : (std::holds_alternative<double>(cond) ? std::get<double>(cond) != 0.0
                    : std::holds_alternative<std::int64_t>(cond) ? std::get<std::int64_t>(cond) != 0 : false);
             if (!t) break;
-            if (!execStmt(s->whileBody.get(), fields, locals)) return false; ++iter; }
+            if (!execStmt(s->whileBody.get(), fields, locals)) return false;
+            if (breakRequested_) { breakRequested_ = false; break; }
+            if (continueRequested_) { continueRequested_ = false; }
+            ++iter; }
         if (iter >= 10000) { error_ = "loop limit"; return false; } return true; }
     case ArtifactScriptStmt::Kind::For: {
         if (s->forInit && !execStmt(s->forInit.get(), fields, locals)) return false;
@@ -771,11 +1007,42 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                    : std::holds_alternative<std::int64_t>(cond) ? std::get<std::int64_t>(cond) != 0 : false);
             if (!truthy) break;
             if (s->forBody && !execStmt(s->forBody.get(), fields, locals)) return false;
+            if (breakRequested_) { breakRequested_ = false; break; }
+            if (continueRequested_) { continueRequested_ = false; }
             if (s->forIncrement && !execStmt(s->forIncrement.get(), fields, locals)) return false;
             ++iter;
         }
         if (iter >= 10000) { error_ = "loop limit"; return false; }
         return true; }
+    case ArtifactScriptStmt::Kind::Foreach: {
+        const ArtifactScriptValue* collection = nullptr;
+        if (const auto it = fields.find(s->foreachCollectionName); it != fields.end()) {
+            collection = &it->second;
+        } else if (const auto lit = locals.find(s->foreachCollectionName); lit != locals.end()) {
+            collection = &lit->second;
+        }
+        if (!collection) { error_ = "undefined: " + s->foreachCollectionName; return false; }
+        if (!std::holds_alternative<ArtifactScriptArrayPtr>(*collection)) {
+            error_ = "foreach requires an array"; return false;
+        }
+        const auto& array = std::get<ArtifactScriptArrayPtr>(*collection);
+        // Copy the element list: the loop body may mutate (push/clear) the
+        // same array, which would invalidate iterators over ->values.
+        const std::vector<ArtifactScriptValue> elements =
+            array ? array->values : std::vector<ArtifactScriptValue>{};
+        ArtifactScriptSerializedFields scope = fields;
+        for (const auto& element : elements) {
+            scope[s->foreachItemName] = element;
+            if (!execStmt(s->foreachBody.get(), scope, locals)) return false;
+            if (breakRequested_) { breakRequested_ = false; break; }
+            if (continueRequested_) { continueRequested_ = false; }
+        }
+        // Persist field mutations made inside the loop body.
+        for (const auto& [name, value] : scope) {
+            if (name != s->foreachItemName) fields[name] = value;
+        }
+        return true;
+    }
     case ArtifactScriptStmt::Kind::If: {
         auto cond = evalExpr(s->ifCond.get(), fields, locals);
         bool t = std::holds_alternative<bool>(cond) ? std::get<bool>(cond)
@@ -790,17 +1057,86 @@ bool ArtifactScriptEvaluator::Impl::execStmt(
                                : ArtifactScriptValue{};
         returned_ = true;
         return error_.empty();
+    case ArtifactScriptStmt::Kind::Break:
+        breakRequested_ = true;
+        return true;
+    case ArtifactScriptStmt::Kind::Continue:
+        continueRequested_ = true;
+        return true;
     case ArtifactScriptStmt::Kind::Block:
         for (auto& st : s->blockStmts) {
             if (!execStmt(st.get(), fields, locals)) return false;
-            if (returned_) break;
+            if (returned_ || breakRequested_ || continueRequested_) break;
         }
         return true;
     }
     return true;
 }
 
-// ─── Hot Reload ───
+// ─── Host Binding API ───
+
+class ArtifactScriptHost::Impl {
+public:
+    std::unordered_map<std::string, ArtifactScriptNativeFn> functions;
+    NamedVector<std::string> logRing;
+    std::string lastError;
+    static constexpr std::size_t kMaxLogLines = 256;
+};
+
+ArtifactScriptHost::ArtifactScriptHost() : impl_(std::make_unique<Impl>()) {}
+ArtifactScriptHost::~ArtifactScriptHost() noexcept = default;
+
+void ArtifactScriptHost::registerFunction(const std::string& name, ArtifactScriptNativeFn function) {
+    impl_->functions.insert_or_assign(name, std::move(function));
+}
+
+bool ArtifactScriptHost::hasFunction(const std::string& name) const {
+    return impl_->functions.find(name) != impl_->functions.end();
+}
+
+bool ArtifactScriptHost::callFunction(
+    const std::string& name,
+    const std::vector<ArtifactScriptValue>& args,
+    ArtifactScriptValue& result) const {
+    const auto it = impl_->functions.find(name);
+    if (it == impl_->functions.end()) return false;
+    result = it->second(std::span<const ArtifactScriptValue>(args.data(), args.size()));
+    return true;
+}
+
+std::vector<std::string> ArtifactScriptHost::registeredNames() const {
+    std::vector<std::string> names;
+    names.reserve(impl_->functions.size());
+    for (const auto& [name, fn] : impl_->functions) names.push_back(name);
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
+void ArtifactScriptHost::appendLog(std::string line) {
+    if (impl_->logRing.size() >= Impl::kMaxLogLines) {
+        impl_->logRing.removeAt(0);
+    }
+    impl_->logRing.add(std::move(line));
+}
+
+std::vector<std::string> ArtifactScriptHost::drainLog() {
+    std::vector<std::string> lines(impl_->logRing.begin(), impl_->logRing.end());
+    impl_->logRing.clear();
+    return lines;
+}
+
+void ArtifactScriptHost::setLastError(std::string message) {
+    impl_->lastError = std::move(message);
+}
+
+std::string ArtifactScriptHost::lastError() const {
+    return impl_->lastError;
+}
+
+ArtifactScriptHost& ArtifactScriptHost::global() {
+    static ArtifactScriptHost instance;
+    return instance;
+}
 
 class ArtifactScriptHotReload::Impl {
 public:
@@ -809,7 +1145,7 @@ public:
         ArtifactScriptDefinition definition;
         ArtifactScriptSerializedFields fields;
     };
-    std::vector<WatchEntry> watches_;
+    NamedVector<WatchEntry> watches_;
     std::unordered_map<std::string, FileEntry> files_;
 };
 
@@ -860,12 +1196,12 @@ bool ArtifactScriptHotReload::watchFile(const std::string& path) {
 }
 
 void ArtifactScriptHotReload::unwatchFile(const std::string& path) {
-    impl_->watches_.erase(std::remove_if(impl_->watches_.begin(), impl_->watches_.end(),
-        [&](const Impl::WatchEntry& w) { return w.path == path; }), impl_->watches_.end());
+    impl_->watches_.removeIf(
+        [&](const Impl::WatchEntry& w) { return w.path == path; });
 }
 
 std::vector<std::string> ArtifactScriptHotReload::pollChanges() {
-    std::vector<std::string> changed;
+    NamedVector<std::string> changed;
     for (auto& w : impl_->watches_) {
         std::error_code ec;
         auto t = std::filesystem::last_write_time(w.path, ec);
@@ -873,7 +1209,7 @@ std::vector<std::string> ArtifactScriptHotReload::pollChanges() {
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()).count();
         if (ms > w.lastModified) { w.lastModified = ms; changed.push_back(w.path); }
     }
-    return changed;
+    return changed.toStdVector();
 }
 
 bool ArtifactScriptHotReload::addFile(
@@ -901,7 +1237,7 @@ void ArtifactScriptHotReload::removeFile(const std::string& path) {
 }
 
 std::vector<ArtifactScriptFileReload> ArtifactScriptHotReload::reloadChanged() {
-    std::vector<ArtifactScriptFileReload> reloaded;
+    NamedVector<ArtifactScriptFileReload> reloaded;
     for (const auto& path : pollChanges()) {
         auto it = impl_->files_.find(path);
         if (it == impl_->files_.end()) continue;
@@ -915,7 +1251,7 @@ std::vector<ArtifactScriptFileReload> ArtifactScriptHotReload::reloadChanged() {
             it->second.fields = reloaded.back().result.migratedFields;
         }
     }
-    return reloaded;
+    return reloaded.toStdVector();
 }
 
 const ArtifactScriptDefinition* ArtifactScriptHotReload::definitionFor(const std::string& path) const {

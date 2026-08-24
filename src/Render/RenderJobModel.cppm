@@ -11,13 +11,15 @@ module;
 
 module Render.JobModel;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
   RenderJob::RenderJob() = default;
   RenderJob::~RenderJob() = default;
 
   class RenderJobModel::Impl {
   public:
-    std::vector<std::unique_ptr<RenderJob>> jobs;
+    NamedVector<std::unique_ptr<RenderJob>> jobs;
   };
  class RenderJobHeaderView::Impl
  {
@@ -175,7 +177,7 @@ namespace ArtifactCore {
   void RenderJobModel::removeJob(int row) {
     if (row < 0 || row >= (int)impl_->jobs.size()) return;
     beginRemoveRows(QModelIndex(), row, row);
-    impl_->jobs.erase(impl_->jobs.begin() + row);
+    impl_->jobs.removeAt(static_cast<std::size_t>(row));
     endRemoveRows();
   }
 

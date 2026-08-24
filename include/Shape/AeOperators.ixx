@@ -17,6 +17,7 @@ module;
 export module Shape.AeOperators;
 
 import Shape.Operator;
+import Container.NamedVector;
 import Shape.Path;
 import Shape.Types;
 
@@ -186,9 +187,9 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         if (inputPaths.empty()) {
-            return result;
+            return {};
         }
 
         QPainterPath combined = inputPaths.front().toPainterPath();
@@ -220,7 +221,7 @@ public:
         if (!combined.isEmpty()) {
             result.push_back(ShapePath::fromPainterPath(combined));
         }
-        return result;
+        return result.toStdVector();
     }
 
     void modeChanged() W_SIGNAL(modeChanged);
@@ -297,7 +298,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         if (inputPaths.empty() || std::abs(offset_) <= 1e-6f) {
             return inputPaths;
         }
@@ -324,7 +325,7 @@ public:
             }
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -374,7 +375,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
@@ -384,7 +385,7 @@ public:
             result.push_back(detail::warpPath(path, center, maxRadius, strength, 0.0));
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -430,7 +431,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
@@ -439,7 +440,7 @@ public:
             result.push_back(detail::warpPath(path, center, maxRadius, 0.0, static_cast<double>(angle_)));
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -485,7 +486,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
@@ -537,7 +538,7 @@ public:
             result.push_back(ShapePath::fromPainterPath(rounded.simplified()));
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -596,7 +597,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
@@ -634,7 +635,7 @@ public:
             result.push_back(warped);
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -695,7 +696,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         for (const auto& path : inputPaths) {
@@ -730,7 +731,7 @@ public:
             result.push_back(warped);
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:
@@ -805,7 +806,7 @@ public:
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
     {
-        std::vector<ShapePath> result;
+        NamedVector<ShapePath> result;
         result.reserve(inputPaths.size());
 
         // 簡易ハッシュベースの疑似乱数（シード固定で再現性確保）
@@ -901,7 +902,7 @@ public:
             result.push_back(warped);
         }
 
-        return result;
+        return result.toStdVector();
     }
 
 signals:

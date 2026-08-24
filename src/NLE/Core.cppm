@@ -2,6 +2,7 @@ module;
 class tst_QList;
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <utility>
 
@@ -15,6 +16,7 @@ class tst_QList;
 #include <QFileInfo>
 #include <QSize>
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 #include <QVariantMap>
 #include <QUrl>
@@ -237,7 +239,8 @@ QJsonObject clipDraftToJson(const ClipDraft& draft)
         {QStringLiteral("enabled"), draft.enabled},
         {QStringLiteral("locked"), draft.locked},
         {QStringLiteral("reversed"), draft.reversed},
-        {QStringLiteral("linkedGroupId"), QString::number(draft.linkedGroupId)}
+        {QStringLiteral("linkedGroupId"), QString::number(draft.linkedGroupId)},
+        {QStringLiteral("nestedSequenceId"), QString::number(draft.nestedSequenceId.value)}
     };
 }
 
@@ -255,6 +258,8 @@ ClipDraft clipDraftFromJson(const QJsonObject& obj)
     draft.locked = obj.value(QStringLiteral("locked")).toBool(false);
     draft.reversed = obj.value(QStringLiteral("reversed")).toBool(false);
     draft.linkedGroupId = jsonValueToUInt64(obj.value(QStringLiteral("linkedGroupId")));
+    draft.nestedSequenceId = SequenceId::fromString(
+        obj.value(QStringLiteral("nestedSequenceId")).toString());
     return draft;
 }
 
@@ -283,7 +288,8 @@ QJsonObject clipToJson(const Clip& clip)
         {QStringLiteral("linkedGroupId"), QString::number(clip.linkedGroupId)},
         {QStringLiteral("attachedTransitions"), transitions},
         {QStringLiteral("markers"), markers},
-        {QStringLiteral("name"), clip.name}
+        {QStringLiteral("name"), clip.name},
+        {QStringLiteral("nestedSequenceId"), QString::number(clip.nestedSequenceId.value)}
     };
 }
 
@@ -303,6 +309,8 @@ Clip clipFromJson(const QJsonObject& obj)
     clip.reversed = obj.value(QStringLiteral("reversed")).toBool(false);
     clip.linkedGroupId = jsonValueToUInt64(obj.value(QStringLiteral("linkedGroupId")));
     clip.name = obj.value(QStringLiteral("name")).toString();
+    clip.nestedSequenceId = SequenceId::fromString(
+        obj.value(QStringLiteral("nestedSequenceId")).toString());
     for (const QJsonValue& value : obj.value(QStringLiteral("attachedTransitions")).toArray()) {
         clip.attachedTransitions.push_back(TransitionId::fromString(value.toString()));
     }
@@ -531,6 +539,101 @@ double TimeBase::fps() const noexcept
     return static_cast<double>(denominator) / static_cast<double>(numerator);
 }
 
+namespace {
+
+int nominalFpsForTimecode(const TimeBase& timeBase)
+{
+    return std::max(1, static_cast<int>(std::llround(timeBase.fps())));
+}
+
+int droppedFramesPerMinute(int nominal)
+{
+    return static_cast<int>(std::llround(nominal / 15.0));
+}
+
+} // namespace
+
+QString TimeBase::timecodeString(const std::int64_t frame) const
+{
+    if (!isValid()) {
+        return {};
+    }
+    const int nominal = nominalFpsForTimecode(*this);
+    const int dropCount = dropFrame ? droppedFramesPerMinute(nominal) : 0;
+
+    std::int64_t adjusted = frame;
+    if (adjusted < 0) {
+        adjusted = 0;
+    }
+    if (dropCount > 0) {
+        const std::int64_t totalMinutes =
+            adjusted / (static_cast<std::int64_t>(nominal) * 60);
+        adjusted += static_cast<std::int64_t>(dropCount) *
+                    (totalMinutes - totalMinutes / 10);
+    }
+
+    const int frames = static_cast<int>(adjusted % nominal);
+    const std::int64_t totalSeconds = adjusted / nominal;
+    const int seconds = static_cast<int>(totalSeconds % 60);
+    const int minutes = static_cast<int>((totalSeconds / 60) % 60);
+    const std::int64_t hours = totalSeconds / 3600;
+    const QString separator = dropFrame ? QStringLiteral(";") : QStringLiteral(":");
+    return QStringLiteral("%1:%2:%3%4%5")
+        .arg(hours, 2, 10, QLatin1Char('0'))
+        .arg(minutes, 2, 10, QLatin1Char('0'))
+        .arg(seconds, 2, 10, QLatin1Char('0'))
+        .arg(separator)
+        .arg(frames, 2, 10, QLatin1Char('0'));
+}
+
+std::int64_t TimeBase::frameFromTimecode(const QString& timecodeText,
+                                         bool* ok) const
+{
+    if (ok) {
+        *ok = false;
+    }
+    if (!isValid()) {
+        return 0;
+    }
+    const int nominal = nominalFpsForTimecode(*this);
+    const int dropCount = dropFrame ? droppedFramesPerMinute(nominal) : 0;
+
+    QString normalized = timecodeText.trimmed();
+    normalized.replace(QLatin1Char(';'), QLatin1Char(':'));
+    const QStringList parts = normalized.split(QLatin1Char(':'));
+    if (parts.size() != 4) {
+        return 0;
+    }
+    bool okH = false;
+    bool okM = false;
+    bool okS = false;
+    bool okF = false;
+    const std::int64_t hours = parts.at(0).toLongLong(&okH);
+    const std::int64_t minutes = parts.at(1).toLongLong(&okM);
+    const std::int64_t seconds = parts.at(2).toLongLong(&okS);
+    const std::int64_t frames = parts.at(3).toLongLong(&okF);
+    if (!okH || !okM || !okS || !okF) {
+        return 0;
+    }
+    if (hours < 0 || minutes < 0 || minutes >= 60 ||
+        seconds < 0 || seconds >= 60 ||
+        frames < 0 || frames >= nominal) {
+        return 0;
+    }
+
+    std::int64_t frame =
+        ((hours * 60 + minutes) * 60 + seconds) * nominal + frames;
+    if (dropCount > 0) {
+        const std::int64_t totalMinutes = hours * 60 + minutes;
+        frame -= static_cast<std::int64_t>(dropCount) *
+                 (totalMinutes - totalMinutes / 10);
+    }
+    if (ok) {
+        *ok = true;
+    }
+    return frame;
+}
+
 double TimeBase::frameDurationSeconds() const noexcept
 {
     const double currentFps = fps();
@@ -625,6 +728,21 @@ public:
         return result;
     }
 
+    // True when the candidate source range fits the media's advertised
+    // availability. Unknown sources and unbounded ranges never block edits.
+    bool sourceRangeAllowed(const SourceId& sourceId, const FrameRange& range) const
+    {
+        if (!range.isValid()) {
+            return false;
+        }
+        const auto srcIt = sources.find(sourceId);
+        if (srcIt == sources.end() || !srcIt->availableRange.isValid()) {
+            return true;
+        }
+        return range.start() >= srcIt->availableRange.start() &&
+               range.end() <= srcIt->availableRange.end();
+    }
+
     void sortTrack(const TrackId& trackId)
     {
         auto trackIt = tracks.find(trackId);
@@ -685,8 +803,7 @@ public:
                          int64_t fromFrame,
                          int64_t delta,
                          const ClipId& skipClip = ClipId{})
-    {
-        if (delta == 0) {
+    {        if (delta == 0) {
             return;
         }
         auto trackIt = tracks.find(trackId);
@@ -832,6 +949,21 @@ MarkerId NLEProjectStore::createMarker(const SequenceId& sequenceId,
     return marker.id;
 }
 
+bool NLEProjectStore::removeMarker(const MarkerId& markerId)
+{
+    const auto markerIt = impl_->markers.find(markerId);
+    if (markerIt == impl_->markers.end()) {
+        return false;
+    }
+
+    const Marker marker = markerIt.value();
+    if (auto seq = findSequence(impl_->sequences, marker.sequenceId)) {
+        seq->markers.removeAll(markerId);
+    }
+    impl_->markers.remove(markerId);
+    return true;
+}
+
 TransitionId NLEProjectStore::createTransition(const TrackId& trackId,
                                                const ClipId& leftClipId,
                                                const ClipId& rightClipId,
@@ -841,9 +973,22 @@ TransitionId NLEProjectStore::createTransition(const TrackId& trackId,
                                                Transition::Direction direction,
                                                const QVariantMap& parameters)
 {
-    if (!impl_->tracks.contains(trackId) ||
-        !impl_->clips.contains(leftClipId) ||
-        !impl_->clips.contains(rightClipId)) {
+    auto trackIt = impl_->tracks.find(trackId);
+    const auto leftIt = impl_->clips.find(leftClipId);
+    const auto rightIt = impl_->clips.find(rightClipId);
+    if (trackIt == impl_->tracks.end() ||
+        leftIt == impl_->clips.end() ||
+        rightIt == impl_->clips.end()) {
+        return {};
+    }
+    // Both clips must sit on the transition's own track.
+    if (leftIt->trackId != trackId || rightIt->trackId != trackId) {
+        return {};
+    }
+    if (!std::isfinite(duration) || duration <= 0.0) {
+        return {};
+    }
+    if (range.isValid() && range.duration() <= 0) {
         return {};
     }
 
@@ -859,15 +1004,9 @@ TransitionId NLEProjectStore::createTransition(const TrackId& trackId,
     transition.direction = direction;
     transition.parameters = parameters;
 
-    if (impl_->clips.contains(leftClipId)) {
-        impl_->clips[leftClipId].attachedTransitions.push_back(transition.id);
-    }
-    if (impl_->clips.contains(rightClipId)) {
-        impl_->clips[rightClipId].attachedTransitions.push_back(transition.id);
-    }
-    if (auto track = findTrack(impl_->tracks, trackId)) {
-        track->transitions.push_back(transition.id);
-    }
+    leftIt->attachedTransitions.push_back(transition.id);
+    rightIt->attachedTransitions.push_back(transition.id);
+    trackIt->transitions.push_back(transition.id);
     impl_->transitions.insert(transition.id, transition);
     return transition.id;
 }
@@ -1031,6 +1170,7 @@ ClipId NLEProjectStore::addClip(const SequenceId& sequenceId,
     clip.reversed = draft.reversed;
     clip.linkedGroupId = draft.linkedGroupId;
     clip.name = draft.name;
+    clip.nestedSequenceId = draft.nestedSequenceId;
 
     impl_->clips.insert(clip.id, clip);
     track->clipOrder.push_back(clip.id);
@@ -1089,6 +1229,7 @@ ClipId NLEProjectStore::overwriteClip(const SequenceId& sequenceId,
     clip.reversed = draft.reversed;
     clip.linkedGroupId = draft.linkedGroupId;
     clip.name = draft.name;
+    clip.nestedSequenceId = draft.nestedSequenceId;
 
     impl_->clips.insert(clip.id, clip);
     track->clipOrder.push_back(clip.id);
@@ -1108,6 +1249,33 @@ bool NLEProjectStore::removeClip(const ClipId& clipId)
     const SequenceId sequenceId = impl_->tracks.contains(trackId)
         ? impl_->tracks[trackId].ownerSequenceId
         : SequenceId{};
+
+    // Detach transitions first so neither side keeps a dangling reference.
+    const QVector<TransitionId> attachedTransitions = clip->attachedTransitions;
+    for (const TransitionId& transitionId : attachedTransitions) {
+        removeTransition(transitionId);
+    }
+
+    // Drop clip-level markers together with their owner, including the
+    // sequence's marker list entry.
+    if (sequenceId.isValid()) {
+        if (auto sequence = findSequence(impl_->sequences, sequenceId)) {
+            for (const MarkerId& markerId : clip->markers) {
+                sequence->markers.removeAll(markerId);
+            }
+        }
+    }
+    for (const MarkerId& markerId : clip->markers) {
+        impl_->markers.remove(markerId);
+    }
+
+    // Leave the group itself alive; only this clip's membership goes away.
+    if (clip->linkedGroupId != 0) {
+        if (auto groupIt = impl_->linkGroups.find(clip->linkedGroupId);
+            groupIt != impl_->linkGroups.end()) {
+            groupIt->members.removeAll(clipId);
+        }
+    }
 
     if (auto track = findTrack(impl_->tracks, trackId)) {
         track->clipOrder.removeAll(clipId);
@@ -1155,25 +1323,59 @@ bool NLEProjectStore::trimClip(const ClipId& clipId,
 
     switch (mode) {
     case TrimMode::Source:
+        if (!impl_->sourceRangeAllowed(clip->sourceId, newSourceRange)) {
+            return false;
+        }
         clip->sourceRange = newSourceRange;
         clip->trimRange = newSourceRange;
         clip->timelineRange.setDuration(newDuration);
         break;
     case TrimMode::Ripple:
+        if (!impl_->sourceRangeAllowed(clip->sourceId, newSourceRange)) {
+            return false;
+        }
         clip->sourceRange = newSourceRange;
         clip->trimRange = newSourceRange;
         clip->timelineRange.setDuration(newDuration);
         impl_->shiftClipsAfter(clip->trackId, clip->timelineRange.end(), delta, clipId);
         break;
-    case TrimMode::Slip:
-        clip->sourceRange = FrameRange::fromDuration(newSourceRange.start(), oldDuration);
+    case TrimMode::Slip: {
+        const FrameRange slipped =
+            FrameRange::fromDuration(newSourceRange.start(), oldDuration);
+        if (!impl_->sourceRangeAllowed(clip->sourceId, slipped)) {
+            return false;
+        }
+        clip->sourceRange = slipped;
         clip->trimRange = clip->sourceRange;
         break;
+    }
     case TrimMode::Slide:
-        clip->timelineRange.setDuration(newDuration);
-        break;
-    case TrimMode::Roll:
-        return false;
+        return slideClip(clipId, FramePosition(newSourceRange.start()));
+    case TrimMode::Roll: {
+        const auto ordered = impl_->clipsOnTrack(clip->trackId);
+        ClipId nextClipId;
+        for (const ClipId& candidateId : ordered) {
+            if (candidateId == clipId) {
+                continue;
+            }
+            const auto candidateIt = impl_->clips.find(candidateId);
+            if (candidateIt == impl_->clips.end() ||
+                !candidateIt->timelineRange.isValid()) {
+                continue;
+            }
+            // Roll requires a butt joint with the next clip on the track.
+            if (candidateIt->timelineRange.start() != clip->timelineRange.end()) {
+                continue;
+            }
+            nextClipId = candidateId;
+            break;
+        }
+        if (!nextClipId.isValid()) {
+            return false;
+        }
+        const FramePosition boundary(clip->timelineRange.start() + newDuration);
+        return rollTrim(clipId, nextClipId, boundary);
+    }
     }
 
     if (auto track = findTrack(impl_->tracks, clip->trackId)) {
@@ -1223,10 +1425,8 @@ bool NLEProjectStore::rollTrim(const ClipId& leftClipId,
     }
 
     const int64_t oldLeftEnd = left->timelineRange.end();
-    const int64_t oldRightStart = right->timelineRange.start();
     const int64_t newBoundary = boundary.framePosition();
     const int64_t leftDelta = newBoundary - oldLeftEnd;
-    const int64_t rightDelta = oldRightStart - newBoundary;
     const int64_t leftNewDuration = left->timelineRange.duration() + leftDelta;
     const int64_t rightNewDuration = right->timelineRange.duration() - leftDelta;
 
@@ -1234,11 +1434,21 @@ bool NLEProjectStore::rollTrim(const ClipId& leftClipId,
         return false;
     }
 
+    const FrameRange leftSource(
+        left->sourceRange.start(), left->sourceRange.start() + leftNewDuration);
+    const FrameRange rightSource(
+        right->sourceRange.start() + leftDelta, right->sourceRange.end());
+    if (!impl_->sourceRangeAllowed(leftClipId, leftSource) ||
+        !impl_->sourceRangeAllowed(rightClipId, rightSource)) {
+        return false;
+    }
+
     left->timelineRange.setEnd(newBoundary);
     right->timelineRange.setStart(newBoundary);
-    left->sourceRange.setEnd(left->sourceRange.start() + leftNewDuration);
-    right->sourceRange.setStart(right->sourceRange.start() + rightDelta);
-    right->sourceRange.setEnd(right->sourceRange.start() + rightNewDuration);
+    left->sourceRange = leftSource;
+    // The right clip loses frames at its head: its source in-point follows
+    // the boundary forward while the out point stays put.
+    right->sourceRange = rightSource;
     left->trimRange = left->sourceRange;
     right->trimRange = right->sourceRange;
 
@@ -1256,14 +1466,99 @@ bool NLEProjectStore::slipClip(const ClipId& clipId, const FramePosition& newSou
         return false;
     }
     const int64_t duration = clip->timelineRange.duration();
-    clip->sourceRange = FrameRange::fromDuration(newSourceStart.framePosition(), duration);
+    const FrameRange slipped =
+        FrameRange::fromDuration(newSourceStart.framePosition(), duration);
+    if (!impl_->sourceRangeAllowed(clip->sourceId, slipped)) {
+        return false;
+    }
+    clip->sourceRange = slipped;
     clip->trimRange = clip->sourceRange;
     return true;
 }
 
 bool NLEProjectStore::slideClip(const ClipId& clipId, const FramePosition& newTimelineStart)
 {
-    return moveClip(clipId, newTimelineStart);
+    auto clip = findClip(impl_->clips, clipId);
+    if (!clip || !clip->timelineRange.isValid()) {
+        return false;
+    }
+    const int64_t duration = clip->timelineRange.duration();
+    if (duration <= 0) {
+        return false;
+    }
+    const int64_t oldStart = clip->timelineRange.start();
+    const int64_t newStart = newTimelineStart.framePosition();
+    const int64_t oldEnd = oldStart + duration;
+    const int64_t newEnd = newStart + duration;
+    if (newStart == oldStart) {
+        return true;
+    }
+
+    const auto ordered = impl_->clipsOnTrack(clip->trackId);
+    ClipId previousClipId;
+    ClipId nextClipId;
+    for (const ClipId& candidateId : ordered) {
+        if (candidateId == clipId) {
+            continue;
+        }
+        const auto candidateIt = impl_->clips.find(candidateId);
+        if (candidateIt == impl_->clips.end() ||
+            !candidateIt->timelineRange.isValid()) {
+            continue;
+        }
+        if (candidateIt->timelineRange.end() <= oldStart &&
+            (!previousClipId.isValid() ||
+             candidateIt->timelineRange.end() >
+                 impl_->clips[previousClipId].timelineRange.end())) {
+            previousClipId = candidateId;
+        }
+        if (candidateIt->timelineRange.start() >= oldEnd &&
+            (!nextClipId.isValid() ||
+             candidateIt->timelineRange.start() <
+                 impl_->clips[nextClipId].timelineRange.start())) {
+            nextClipId = candidateId;
+        }
+    }
+
+    // Slide keeps this clip's source range and duration while the neighbours
+    // absorb the shift on both sides. Neighbour source windows must stay
+    // inside their media's advertised availability.
+    if (previousClipId.isValid()) {
+        auto previous = findClip(impl_->clips, previousClipId);
+        const int64_t extension = newStart - previous->timelineRange.end();
+        const FrameRange previousSource(
+            previous->sourceRange.start(),
+            previous->sourceRange.end() + extension);
+        if (!impl_->sourceRangeAllowed(previousClipId, previousSource)) {
+            return false;
+        }
+        previous->timelineRange.setEnd(newStart);
+        if (extension != 0 && previous->sourceRange.isValid()) {
+            previous->sourceRange = previousSource;
+            previous->trimRange = previous->sourceRange;
+        }
+    }
+    if (nextClipId.isValid()) {
+        auto next = findClip(impl_->clips, nextClipId);
+        const int64_t shift = newEnd - next->timelineRange.start();
+        const FrameRange nextSource(
+            next->sourceRange.start() + shift, next->sourceRange.end());
+        if (!impl_->sourceRangeAllowed(nextClipId, nextSource)) {
+            return false;
+        }
+        next->timelineRange.setStart(newEnd);
+        if (shift != 0 && next->sourceRange.isValid()) {
+            next->sourceRange = nextSource;
+            next->trimRange = next->sourceRange;
+        }
+    }
+    clip->timelineRange = FrameRange::fromDuration(newStart, duration);
+
+    if (auto track = findTrack(impl_->tracks, clip->trackId)) {
+        impl_->sortTrack(track->id);
+        impl_->recomputeSequenceDuration(track->ownerSequenceId);
+    }
+    return true;
 }
 
 bool NLEProjectStore::removeTrack(const TrackId& trackId)
@@ -1276,6 +1571,12 @@ bool NLEProjectStore::removeTrack(const TrackId& trackId)
     const QVector<ClipId> clipOrder = track->clipOrder;
     for (const ClipId& clipId : clipOrder) {
         removeClip(clipId);
+    }
+    // Clips carry their transitions away via removeClip; clear any stragglers
+    // from legacy data so the hash does not keep orphaned entries.
+    const QVector<TransitionId> transitionIds = track->transitions;
+    for (const TransitionId& transitionId : transitionIds) {
+        removeTransition(transitionId);
     }
     if (auto sequence = findSequence(impl_->sequences, sequenceId)) {
         sequence->trackOrder.removeAll(trackId);
@@ -1617,6 +1918,13 @@ NLEValidationReport NLEProjectStore::validate() const
             ++report.brokenLinkGroupCount;
             addIssue(report, QStringLiteral("broken_link_group"), clipSubject,
                      QStringLiteral("Clip references a missing link group"));
+        }
+        if (clip->nestedSequenceId.isValid() &&
+            !hasSequence(clip->nestedSequenceId)) {
+            report.success = false;
+            ++report.invalidClipCount;
+            addIssue(report, QStringLiteral("missing_nested_sequence"), clipSubject,
+                     QStringLiteral("Clip references a missing nested sequence"));
         }
     }
 
@@ -2412,6 +2720,21 @@ ClipResolution ClipResolver::resolveClip(const ClipId& clipId) const
 
     resolution.sourceRange = clip->sourceRange;
     resolution.effectiveRange = clip->sourceRange;
+    resolution.speed = clip->speed > 0.0 ? clip->speed : 1.0;
+    resolution.reversed = clip->reversed;
+
+    if (clip->nestedSequenceId.isValid()) {
+        const Sequence* nested = store_->sequence(clip->nestedSequenceId);
+        if (!nested) {
+            resolution.diagnostic = QStringLiteral("Nested sequence not found");
+            return resolution;
+        }
+        resolution.online = true;
+        resolution.useProxy = false;
+        resolution.diagnostic = QStringLiteral("Nested sequence: %1")
+                                    .arg(nested->name);
+        return resolution;
+    }
 
     const SourceRef* source = store_->source(clip->sourceId);
     if (!source) {
@@ -2438,12 +2761,163 @@ ClipResolution ClipResolver::resolveClip(const ClipId& clipId) const
     return resolution;
 }
 
-ConformService::ConformService(const NLEProjectStore* store)
+std::int64_t timelineFrameToSourceFrame(const Clip& clip,
+                                        const std::int64_t timelineFrame)
+{
+    if (!clip.timelineRange.isValid() || !clip.sourceRange.isValid() ||
+        clip.timelineRange.duration() <= 0 || clip.sourceRange.duration() <= 0) {
+        return 0;
+    }
+    const double speed = clip.speed > 0.0 ? clip.speed : 1.0;
+    const std::int64_t timelineDuration = clip.timelineRange.duration();
+    const std::int64_t sourceDuration = clip.sourceRange.duration();
+    std::int64_t offset = timelineFrame - clip.timelineRange.start();
+    offset = std::clamp(offset, std::int64_t{0}, timelineDuration - 1);
+    std::int64_t sourceOffset = static_cast<std::int64_t>(
+        std::llround(static_cast<double>(offset) * speed));
+    sourceOffset = std::clamp(sourceOffset, std::int64_t{0}, sourceDuration - 1);
+    if (clip.reversed) {
+        return clip.sourceRange.end() - 1 - sourceOffset;
+    }
+    return clip.sourceRange.start() + sourceOffset;
+}
+
+std::int64_t sourceFrameToTimelineFrame(const Clip& clip,
+                                        const std::int64_t sourceFrame)
+{
+    if (!clip.timelineRange.isValid() || !clip.sourceRange.isValid() ||
+        clip.timelineRange.duration() <= 0 || clip.sourceRange.duration() <= 0) {
+        return 0;
+    }
+    const double speed = clip.speed > 0.0 ? clip.speed : 1.0;
+    const std::int64_t timelineDuration = clip.timelineRange.duration();
+    const std::int64_t sourceDuration = clip.sourceRange.duration();
+    std::int64_t sourceOffset = clip.reversed
+        ? (clip.sourceRange.end() - 1) - sourceFrame
+        : sourceFrame - clip.sourceRange.start();
+    sourceOffset = std::clamp(sourceOffset, std::int64_t{0}, sourceDuration - 1);
+    std::int64_t offset = static_cast<std::int64_t>(
+        std::llround(static_cast<double>(sourceOffset) / speed));
+    offset = std::clamp(offset, std::int64_t{0}, timelineDuration - 1);
+    return clip.timelineRange.start() + offset;
+}
+
+NLEEditHistory::NLEEditHistory(NLEProjectStore* store)
     : store_(store)
 {
 }
 
-void ConformService::setStore(const NLEProjectStore* store)
+void NLEEditHistory::setStore(NLEProjectStore* store)
+{
+    if (store_ != store) {
+        clear();
+    }
+    store_ = store;
+}
+
+NLEProjectStore* NLEEditHistory::store()
+{
+    return store_;
+}
+
+const NLEProjectStore* NLEEditHistory::store() const
+{
+    return store_;
+}
+
+void NLEEditHistory::capture(const QString& label)
+{
+    if (!store_) {
+        return;
+    }
+    Entry entry;
+    entry.label = label;
+    entry.state = store_->toJson();
+    undoStack_.push_back(std::move(entry));
+    redoStack_.clear();
+    while (undoStack_.size() > maxDepth_) {
+        undoStack_.erase(undoStack_.begin());
+    }
+}
+
+bool NLEEditHistory::undo()
+{
+    if (!store_ || undoStack_.empty()) {
+        return false;
+    }
+    Entry entry = std::move(undoStack_.back());
+    undoStack_.pop_back();
+    Entry current;
+    current.label = entry.label;
+    current.state = store_->toJson();
+    redoStack_.push_back(std::move(current));
+    return store_->loadFromJson(entry.state);
+}
+
+bool NLEEditHistory::redo()
+{
+    if (!store_ || redoStack_.empty()) {
+        return false;
+    }
+    Entry entry = std::move(redoStack_.back());
+    redoStack_.pop_back();
+    Entry current;
+    current.label = entry.label;
+    current.state = store_->toJson();
+    undoStack_.push_back(std::move(current));
+    return store_->loadFromJson(entry.state);
+}
+
+bool NLEEditHistory::canUndo() const
+{
+    return store_ && !undoStack_.empty();
+}
+
+bool NLEEditHistory::canRedo() const
+{
+    return store_ && !redoStack_.empty();
+}
+
+QString NLEEditHistory::undoLabel() const
+{
+    return undoStack_.empty() ? QString() : undoStack_.back().label;
+}
+
+QString NLEEditHistory::redoLabel() const
+{
+    return redoStack_.empty() ? QString() : redoStack_.back().label;
+}
+
+void NLEEditHistory::clear()
+{
+    undoStack_.clear();
+    redoStack_.clear();
+}
+
+size_t NLEEditHistory::depth() const
+{
+    return undoStack_.size();
+}
+
+size_t NLEEditHistory::maxDepth() const
+{
+    return maxDepth_;
+}
+
+void NLEEditHistory::setMaxDepth(size_t maxDepth)
+{
+    maxDepth_ = maxDepth == 0 ? 1 : maxDepth;
+    while (undoStack_.size() > maxDepth_) {
+        undoStack_.erase(undoStack_.begin());
+    }
+}
+
+ConformService::ConformService(NLEProjectStore* store)
+    : store_(store)
+{
+}
+
+void ConformService::setStore(NLEProjectStore* store)
 {
     store_ = store;
 }
@@ -2453,7 +2927,7 @@ const NLEProjectStore* ConformService::store() const
     return store_;
 }
 
-ConformReport ConformService::conformSequence(const SequenceId& sequenceId) const
+ConformReport ConformService::conformSequence(const SequenceId& sequenceId)
 {
     ConformReport report;
     if (!store_) {
@@ -2467,10 +2941,10 @@ ConformReport ConformService::conformSequence(const SequenceId& sequenceId) cons
         return report;
     }
 
-    report.success = true;
     const ClipResolver resolver(store_);
+    bool anyUpdated = false;
     for (const ClipId& clipId : store_->clipIdsInSequence(sequenceId)) {
-        const Clip* clip = store_->clip(clipId);
+        Clip* clip = store_->clip(clipId);
         if (!clip) {
             continue;
         }
@@ -2481,17 +2955,28 @@ ConformReport ConformService::conformSequence(const SequenceId& sequenceId) cons
                 QStringLiteral("Clip %1 is unresolved: %2").arg(clipId.toString(), resolution.diagnostic));
             continue;
         }
-        if (resolution.effectiveRange != clip->sourceRange) {
+        if (resolution.effectiveRange.isValid() &&
+            resolution.effectiveRange != clip->sourceRange) {
+            // Conform: adopt the available-media window as the new source
+            // range so downstream consumers read only online media.
+            clip->sourceRange = resolution.effectiveRange;
+            clip->trimRange = resolution.effectiveRange;
             report.updatedClips.push_back(clipId);
             report.warnings.push_back(
-                QStringLiteral("Clip %1 source range needs conform").arg(clipId.toString()));
+                QStringLiteral("Clip %1 source range conformed to available media")
+                    .arg(clipId.toString()));
+            anyUpdated = true;
         }
     }
+    if (anyUpdated) {
+        impl_->recomputeSequenceDuration(sequenceId);
+    }
     report.updatedSequences.push_back(sequence->id);
+    report.success = report.unresolvedClips.isEmpty();
     return report;
 }
 
-ConformReport ConformService::conformAll() const
+ConformReport ConformService::conformAll()
 {
     ConformReport aggregate;
     if (!store_) {
@@ -2506,6 +2991,9 @@ ConformReport ConformService::conformAll() const
         aggregate.updatedClips += report.updatedClips;
         aggregate.unresolvedClips += report.unresolvedClips;
         aggregate.warnings += report.warnings;
+        if (!report.success) {
+            aggregate.success = false;
+        }
     }
     return aggregate;
 }
@@ -2669,7 +3157,7 @@ LinkingService::LinkPropagationResult LinkingService::propagateMoveLink(const Cl
     }
 
     const Clip sourceBefore = *sourceClip;
-    if (!store_->slideClip(sourceClipId, newTimelineStart)) {
+    if (!store_->moveClip(sourceClipId, newTimelineStart)) {
         result.warnings.push_back(QStringLiteral("Failed to move source clip"));
         return result;
     }
@@ -2698,7 +3186,7 @@ LinkingService::LinkPropagationResult LinkingService::propagateMoveLink(const Cl
             continue;
         }
         const FramePosition peerNewStart(peer->timelineRange.start() + delta);
-        if (store_->slideClip(peerId, peerNewStart)) {
+        if (store_->moveClip(peerId, peerNewStart)) {
             result.touchedClips.push_back(peerId);
         }
         else {

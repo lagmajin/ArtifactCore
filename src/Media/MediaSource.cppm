@@ -43,12 +43,28 @@ extern "C" {
 #include <random>
 module MediaSource;
 
+import Core.Diagnostics.Recorder;
+
 namespace ArtifactCore {
 
 static QString av_strerror_string(int errnum) {
     char errbuf[AV_ERROR_MAX_STRING_SIZE];
     av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, errnum);
     return QString::fromUtf8(errbuf);
+}
+
+static void recordMediaSourceFailure(const char* code,
+                                     const QString& message,
+                                     const QString& url,
+                                     const char* operation) {
+    auto diagnostic = makeDiagnosticEvent(
+        CoreDiagnosticSeverity::Error,
+        code,
+        message.toStdString(),
+        "MediaSource",
+        operation,
+        url.toStdString());
+    DiagnosticRecorder::instance().record(std::move(diagnostic));
 }
 
 MediaSource::MediaSource() {
@@ -71,6 +87,7 @@ bool MediaSource::open(const QString& url) {
     // [Fix 2] FFmpeg に渡す前にファイル存在を確認（エラー理由を明確化）
     if (!QFileInfo::exists(url)) {
         lastError_ = QStringLiteral("File does not exist: %1").arg(url);
+        recordMediaSourceFailure("decode.open_failed", lastError_, url, "open");
         qCritical() << "[MediaSource] File does not exist:" << url;
         return false;
     }
@@ -78,6 +95,7 @@ bool MediaSource::open(const QString& url) {
     formatContext_ = avformat_alloc_context();
     if (!formatContext_) {
         lastError_ = QStringLiteral("Failed to allocate AVFormatContext");
+        recordMediaSourceFailure("decode.open_failed", lastError_, url, "open");
         qCritical() << "[MediaSource] Failed to allocate AVFormatContext.";
         return false;
     }
@@ -88,6 +106,7 @@ bool MediaSource::open(const QString& url) {
         lastError_ = QStringLiteral("avformat_open_input failed: %1 (%2)")
                          .arg(av_strerror_string(ret))
                          .arg(ret);
+        recordMediaSourceFailure("decode.open_failed", lastError_, url, "open");
         qCritical() << "[MediaSource] avformat_open_input failed:"
                     << "path=" << url
                     << "errcode=" << ret
@@ -105,6 +124,7 @@ bool MediaSource::open(const QString& url) {
         lastError_ = QStringLiteral("avformat_find_stream_info failed: %1 (%2)")
                          .arg(av_strerror_string(ret))
                          .arg(ret);
+        recordMediaSourceFailure("decode.open_failed", lastError_, url, "open");
         qCritical() << "[MediaSource] avformat_find_stream_info failed:"
                     << "path=" << url
                     << "msg=" << av_strerror_string(ret);
@@ -123,6 +143,7 @@ bool MediaSource::open(const QString& url) {
 bool MediaSource::seek(int64_t timestampMs) {
     if (!formatContext_) {
         lastError_ = QStringLiteral("seek failed: media is not open");
+        recordMediaSourceFailure("decode.seek_failed", lastError_, url_, "seek");
         return false;
     }
 
@@ -136,6 +157,7 @@ bool MediaSource::seek(int64_t timestampMs) {
     }
     if (streamIndex == -1) {
         lastError_ = QStringLiteral("seek failed: no video stream available");
+        recordMediaSourceFailure("decode.seek_failed", lastError_, url_, "seek");
         qWarning() << "[MediaSource] seek failed: no video stream available";
         return false;
     }
@@ -161,6 +183,7 @@ bool MediaSource::seek(int64_t timestampMs) {
         lastError_ = QStringLiteral("seek failed at %1 ms: %2")
                          .arg(timestampMs)
                          .arg(av_strerror_string(ret));
+        recordMediaSourceFailure("decode.seek_failed", lastError_, url_, "seek");
         qWarning() << "[MediaSource] seek failed:"
                    << "timestampMs=" << timestampMs
                    << "err=" << av_strerror_string(ret);
@@ -245,12 +268,14 @@ VideoProbeResult probeVideoFile(const QString& filePath) {
     AVFormatContext* fmtCtx = avformat_alloc_context();
     if (!fmtCtx) {
         result.probeError = QStringLiteral("Failed to allocate AVFormatContext");
+        recordMediaSourceFailure("decode.open_failed", result.probeError, filePath, "probeVideoFile");
         return result;
     }
 
     int ret = avformat_open_input(&fmtCtx, pathUtf8.constData(), nullptr, nullptr);
     if (ret < 0) {
         result.probeError = QStringLiteral("avformat_open_input failed: %1").arg(av_strerror_string(ret));
+        recordMediaSourceFailure("decode.open_failed", result.probeError, filePath, "probeVideoFile");
         avformat_free_context(fmtCtx);
         return result;
     }
@@ -261,6 +286,7 @@ VideoProbeResult probeVideoFile(const QString& filePath) {
     ret = avformat_find_stream_info(fmtCtx, nullptr);
     if (ret < 0) {
         result.probeError = QStringLiteral("avformat_find_stream_info failed");
+        recordMediaSourceFailure("decode.open_failed", result.probeError, filePath, "probeVideoFile");
         avformat_close_input(&fmtCtx);
         return result;
     }

@@ -18,6 +18,8 @@ module Geometry.Fracture;
 
 import Memory.TrackedPtr;
 import Physics.Fracture;
+import Container.NamedVector;
+import Math.Random;
 
 namespace ArtifactCore {
 
@@ -26,12 +28,11 @@ namespace {
 constexpr float kPi = 3.14159265358979323846f;
 constexpr float kTwoPi = 6.28318530717958647692f;
 
-static float randomRange(std::mt19937& rng, float minValue, float maxValue) {
+static float randomRange(ArtifactCore::RandomStream& rng, float minValue, float maxValue) {
  if (maxValue <= minValue) {
   return minValue;
  }
- std::uniform_real_distribution<float> dist(minValue, maxValue);
- return dist(rng);
+ return rng.range(minValue, maxValue);
 }
 
 static QPointF clampPointToRect(const QPointF& point, const QRectF& rect) {
@@ -116,7 +117,7 @@ static float polygonArea(const QPolygonF& polygon) {
  return static_cast<float>(std::abs(area) * 0.5);
 }
 
-static QPolygonF makeJitteredCell(const QRectF& cell, std::mt19937& rng, float jitterFactor) {
+static QPolygonF makeJitteredCell(const QRectF& cell, ArtifactCore::RandomStream& rng, float jitterFactor) {
  const QPointF center = cell.center();
  const float jx = static_cast<float>(cell.width()) * jitterFactor;
  const float jy = static_cast<float>(cell.height()) * jitterFactor;
@@ -136,14 +137,14 @@ static QPolygonF makeJitteredCell(const QRectF& cell, std::mt19937& rng, float j
 
 static std::vector<QPolygonF> generateGridPolygons(const QRectF& bounds,
                                                    int shardCount,
-                                                   std::mt19937& rng,
+                                                   ArtifactCore::RandomStream& rng,
                                                    float jitterFactor) {
  const int cols = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(shardCount)))));
  const int rows = std::max(1, static_cast<int>(std::ceil(static_cast<double>(shardCount) / cols)));
  const double cellW = bounds.width() / cols;
  const double cellH = bounds.height() / rows;
 
- std::vector<QPolygonF> polygons;
+ NamedVector<QPolygonF> polygons;
  polygons.reserve(static_cast<size_t>(rows * cols));
 
  int produced = 0;
@@ -158,15 +159,15 @@ static std::vector<QPolygonF> generateGridPolygons(const QRectF& bounds,
   }
  }
 
- return polygons;
+ return polygons.toStdVector();
 }
 
 static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
                                                      const QPointF& pivot,
                                                      int shardCount,
-                                                     std::mt19937& rng,
+                                                     ArtifactCore::RandomStream& rng,
                                                      float jitterFactor) {
- std::vector<float> angles;
+ NamedVector<float> angles;
  angles.reserve(static_cast<size_t>(shardCount));
  for (int i = 0; i < shardCount; ++i) {
   const float base = (kTwoPi * static_cast<float>(i)) / static_cast<float>(shardCount);
@@ -176,7 +177,7 @@ static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
 
  std::sort(angles.begin(), angles.end());
 
- std::vector<QPolygonF> polygons;
+ NamedVector<QPolygonF> polygons;
  polygons.reserve(static_cast<size_t>(shardCount));
 
  for (int i = 0; i < shardCount; ++i) {
@@ -196,23 +197,27 @@ static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
   polygons.push_back(poly);
  }
 
- return polygons;
+ return polygons.toStdVector();
 }
 
 static std::vector<QPolygonF> generateHybridPolygons(const QRectF& bounds,
                                                      const QPointF& pivot,
                                                      int shardCount,
-                                                     std::mt19937& rng,
+                                                     ArtifactCore::RandomStream& rng,
                                                      float jitterFactor) {
- std::vector<QPolygonF> polygons;
+ NamedVector<QPolygonF> polygons;
  const int radialCount = std::max(3, shardCount / 2);
  auto radial = generateRadialPolygons(bounds, pivot, radialCount, rng, jitterFactor);
- polygons.insert(polygons.end(), radial.begin(), radial.end());
+ for (const auto& polygon : radial) {
+  polygons.append(polygon);
+ }
 
  const int gridCount = std::max(1, shardCount - static_cast<int>(polygons.size()));
  auto grid = generateGridPolygons(bounds, gridCount, rng, jitterFactor * 0.8f);
- polygons.insert(polygons.end(), grid.begin(), grid.end());
- return polygons;
+ for (const auto& polygon : grid) {
+  polygons.append(polygon);
+ }
+ return polygons.toStdVector();
 }
 
 static QVector3D normalizeOrFallback(const QVector3D& v, const QVector3D& fallback) {
@@ -284,7 +289,7 @@ static std::vector<QPolygonF> extractMeshFacePolygons(const Mesh& mesh) {
 
 static Particle makeDebrisParticle(const QPointF& origin,
                                    const FractureSettings& settings,
-                                   std::mt19937& rng,
+                                   ArtifactCore::RandomStream& rng,
                                    float scaleHint) {
  Particle particle;
  particle.position = {static_cast<float>(origin.x()), static_cast<float>(origin.y()), 0.0f};
@@ -402,7 +407,7 @@ bool FractureEffect::generate() {
  }
 
  const int shardCount = std::max(1, impl_->settings.shardCount);
- std::mt19937 rng(impl_->settings.seed);
+ auto rng = ArtifactCore::makeRandomStream(static_cast<std::uint64_t>(impl_->settings.seed));
  const QPointF pivot = clampPointToRect(
   impl_->hasImpactPoint ? impl_->impactPoint : bounds.center(),
   bounds);
@@ -801,7 +806,8 @@ void primeFractureShardMotion(FractureState& state,
  const float extent = std::max(1.0f, static_cast<float>(std::max(sourceBounds.width(), sourceBounds.height())));
  const float impulseScale = std::max(0.0f, impact.impulse) * std::max(0.0f, settings.impulseStrength);
  const float baseSpeed = std::max(15.0f, impulseScale * 0.18f);
- std::mt19937 rng(settings.seed ? settings.seed : 0x6d2b79f5u);
+ auto rng = ArtifactCore::makeRandomStream(
+     static_cast<std::uint64_t>(settings.seed ? settings.seed : 0x6d2b79f5u));
 
  for (int i = 0; i < shardCount; ++i) {
   const float t = static_cast<float>(i) / static_cast<float>(shardCount);

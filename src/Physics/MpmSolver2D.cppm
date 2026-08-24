@@ -3,9 +3,30 @@ module;
 #include <vector>
 #include <algorithm>
 #include <limits>
+#include <memory>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
+#include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
+#include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 module Physics.Mpm2D;
 
+import Graphics.MpmCompute;
+import Graphics.GPUcomputeContext;
+
 namespace ArtifactCore {
+
+// ---- GPU session (opaque behind void* in the interface) ----
+
+struct MpmGpuSession {
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
+    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context;
+    std::unique_ptr<GpuContext> gpuContext;
+    std::unique_ptr<MpmGPUCompute> compute;
+    std::uint32_t capacity = 0;
+    std::uint32_t gridNx = 0;
+    std::uint32_t gridNy = 0;
+    bool initialized = false;
+    bool failed = false;
+};
 
 // ---- static helpers ----
 
@@ -680,6 +701,84 @@ void MpmSolver2D::applyBoundaryConditions() {
     }
 }
 
+namespace {
+
+bool mpmPointInPolygon(const std::vector<float>& poly, float px, float py) {
+    const int vertexCount = static_cast<int>(poly.size()) / 2;
+    if (vertexCount < 3) return false;
+    bool inside = false;
+    for (int i = 0, j = vertexCount - 1; i < vertexCount; j = i++) {
+        const float xi = poly[static_cast<std::size_t>(i * 2)];
+        const float yi = poly[static_cast<std::size_t>(i * 2 + 1)];
+        const float xj = poly[static_cast<std::size_t>(j * 2)];
+        const float yj = poly[static_cast<std::size_t>(j * 2 + 1)];
+        if ((yi > py) != (yj > py)) {
+            const float t = (py - yi) / (yj - yi);
+            if (px < xi + t * (xj - xi)) inside = !inside;
+        }
+    }
+    return inside;
+}
+
+void mpmClosestPolygonPoint(const std::vector<float>& poly, float px, float py,
+                            float& outX, float& outY) {
+    const int vertexCount = static_cast<int>(poly.size()) / 2;
+    float bestDistSq = std::numeric_limits<float>::max();
+    outX = px;
+    outY = py;
+    for (int i = 0, j = vertexCount - 1; i < vertexCount; j = i++) {
+        const float ax = poly[static_cast<std::size_t>(i * 2)];
+        const float ay = poly[static_cast<std::size_t>(i * 2 + 1)];
+        const float ex = poly[static_cast<std::size_t>(j * 2)] - ax;
+        const float ey = poly[static_cast<std::size_t>(j * 2 + 1)] - ay;
+        const float lenSq = ex * ex + ey * ey;
+        float t = 0.0f;
+        if (lenSq > 1e-12f) {
+            t = std::clamp(((px - ax) * ex + (py - ay) * ey) / lenSq, 0.0f, 1.0f);
+        }
+        const float cx = ax + t * ex;
+        const float cy = ay + t * ey;
+        const float dx = px - cx;
+        const float dy = py - cy;
+        const float distSq = dx * dx + dy * dy;
+        if (distSq < bestDistSq) {
+            bestDistSq = distSq;
+            outX = cx;
+            outY = cy;
+        }
+    }
+}
+
+void resolvePolygonCollider(MpmParticle2D& particle, const MpmCollider2D& collider,
+                            float friction, float restitution) {
+    if (!mpmPointInPolygon(collider.polygonPoints, particle.pos.x, particle.pos.y)) {
+        return;
+    }
+    float closestX = 0.0f;
+    float closestY = 0.0f;
+    mpmClosestPolygonPoint(collider.polygonPoints, particle.pos.x, particle.pos.y,
+                           closestX, closestY);
+    const float nx = particle.pos.x - closestX;
+    const float ny = particle.pos.y - closestY;
+    particle.pos.x = closestX;
+    particle.pos.y = closestY;
+    const float normalLengthSq = nx * nx + ny * ny;
+    if (normalLengthSq > 1e-12f) {
+        const float invNormalLength = 1.0f / std::sqrt(normalLengthSq);
+        const float ux = nx * invNormalLength;
+        const float uy = ny * invNormalLength;
+        const float normalVelocity = particle.vel.x * ux + particle.vel.y * uy;
+        if (normalVelocity < 0.0f) {
+            particle.vel.x -= (1.0f + restitution) * normalVelocity * ux;
+            particle.vel.y -= (1.0f + restitution) * normalVelocity * uy;
+        }
+        particle.vel.x *= 1.0f - friction;
+        particle.vel.y *= 1.0f - friction;
+    }
+}
+
+} // namespace
+
 void MpmSolver2D::resolveColliders() {
     for (auto& particle : particles_) {
         if (!particle.active) continue;
@@ -715,6 +814,10 @@ void MpmSolver2D::resolveColliders() {
                 particle.vel.y *= 1.0f - friction;
                 continue;
             }
+            if (collider.type == MpmCollider2D::Type::Polygon) {
+                resolvePolygonCollider(particle, collider, friction, restitution);
+                continue;
+            }
             const float halfWidth = std::max(0.0f, collider.width * 0.5f);
             const float halfHeight = std::max(0.0f, collider.height * 0.5f);
             const float minX = collider.x - halfWidth;
@@ -746,16 +849,21 @@ void MpmSolver2D::resolveColliders() {
 // ---- impulse / body force ----
 
 void MpmSolver2D::addImpulse(float x, float y, float force, float radius) {
-    float rSq = radius * radius;
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(force)) return;
+    const float safeRadius = std::max(radius, 1e-4f);
+    const float rSq = safeRadius * safeRadius;
     for (auto& p : particles_) {
         if (!p.active) continue;
         float dx = p.pos.x - x;
         float dy = p.pos.y - y;
-        float dSq = dx * dx + dy * dy;
-        if (dSq > rSq) continue;
-        float falloff = 1.0f - dSq / rSq;
-        p.vel.x += force * falloff * (dx > 0 ? 1.0f : -1.0f) * 0.01f;
-        p.vel.y += force * falloff * (dy > 0 ? 1.0f : -1.0f) * 0.01f;
+        const float dSq = dx * dx + dy * dy;
+        // Radial push away from the impulse center: direction follows the
+        // actual particle offset and strength fades to zero at the rim.
+        if (dSq > rSq || dSq <= 1e-12f) continue;
+        const float falloff = 1.0f - dSq / rSq;
+        const float invDist = 1.0f / std::sqrt(dSq);
+        p.vel.x += force * falloff * dx * invDist;
+        p.vel.y += force * falloff * dy * invDist;
     }
 }
 
@@ -769,8 +877,201 @@ void MpmSolver2D::addBodyForce(float fx, float fy) {
 
 // ---- main update ----
 
+MpmSolver2D::~MpmSolver2D() {
+    detachGPUSimulation();
+}
+
+bool MpmSolver2D::setBackend(MpmBackend backend) noexcept {
+    if (backend == MpmBackend::CPU) {
+        backend_ = MpmBackend::CPU;
+        return true;
+    }
+    // GPU requires an attached session; otherwise stay on the CPU lane.
+    if (backend_ == MpmBackend::GPU && gpuSimulation_) return true;
+    if (!gpuSimulation_) return false;
+    backend_ = MpmBackend::GPU;
+    return true;
+}
+
+bool MpmSolver2D::attachGPUSimulation(void* sharedRenderDevice,
+                                      void* immediateContext) {
+    auto* device = static_cast<Diligent::IRenderDevice*>(sharedRenderDevice);
+    auto* context = static_cast<Diligent::IDeviceContext*>(immediateContext);
+    if (!device || !context) return false;
+    detachGPUSimulation();
+    auto session = std::make_unique<MpmGpuSession>();
+    session->device = device;
+    session->context = context;
+    gpuSimulation_ = session.release();
+    return true;
+}
+
+void MpmSolver2D::detachGPUSimulation() {
+    if (gpuSimulation_) {
+        delete static_cast<MpmGpuSession*>(gpuSimulation_);
+        gpuSimulation_ = nullptr;
+    }
+    backend_ = MpmBackend::CPU;
+}
+
+bool MpmSolver2D::isGPUReady() const noexcept {
+    auto* session = static_cast<const MpmGpuSession*>(gpuSimulation_);
+    if (!session || session->failed || !session->device || !session->context) return false;
+    return session->initialized && session->compute && session->compute->ready();
+}
+
+// GPU lane: fixed-substep loop runs entirely in compute shaders
+// (elastic only), then plasticity/fracture/colliders run once on the CPU
+// with the readback state. Diverges from the CPU cadence by design until
+// parity is demonstrated; every failure falls back to the CPU lane.
+bool MpmSolver2D::updateGPUSubsteps(float elapsedSeconds) {
+    auto* session = static_cast<MpmGpuSession*>(gpuSimulation_);
+    if (!session || session->failed || !session->device || !session->context) {
+        return false;
+    }
+    if (nx_ < 2 || ny_ < 2) return false;
+
+    const float maxAccumulated = fixedDt_ * static_cast<float>(maxSubsteps_);
+    accumulatedTime_ = std::min(accumulatedTime_ +
+                                    std::min(elapsedSeconds, maxAccumulated),
+                                maxAccumulated);
+    int steps = static_cast<int>((accumulatedTime_ + 1e-8f) / fixedDt_);
+    if (steps <= 0) return true;
+    steps = std::min(steps, maxSubsteps_);
+
+    const std::uint32_t needed =
+        static_cast<std::uint32_t>(particles_.size());
+
+    if (!session->initialized || session->capacity < needed ||
+        session->gridNx != static_cast<std::uint32_t>(nx_) ||
+        session->gridNy != static_cast<std::uint32_t>(ny_)) {
+        session->compute.reset();
+        session->gpuContext.reset();
+        session->capacity = std::max<std::uint32_t>(needed, 4096u);
+        session->gpuContext =
+            std::make_unique<GpuContext>(session->device, session->context);
+        session->compute =
+            std::make_unique<MpmGPUCompute>(*session->gpuContext);
+        if (!session->compute->initialize(static_cast<std::uint32_t>(nx_),
+                                          static_cast<std::uint32_t>(ny_),
+                                          session->capacity)) {
+            session->failed = true;
+            session->compute.reset();
+            session->gpuContext.reset();
+            return false;
+        }
+        session->initialized = true;
+        session->gridNx = static_cast<std::uint32_t>(nx_);
+        session->gridNy = static_cast<std::uint32_t>(ny_);
+    }
+
+    if (needed == 0) {
+        accumulatedTime_ -= fixedDt_ * static_cast<float>(steps);
+        return true;
+    }
+
+    std::vector<MpmGpuParticle> packed(needed);
+    for (std::size_t i = 0; i < particles_.size(); ++i) {
+        const auto& p = particles_[i];
+        auto& g = packed[i];
+        g.posX = p.pos.x;
+        g.posY = p.pos.y;
+        g.velX = p.vel.x;
+        g.velY = p.vel.y;
+        g.mass = p.mass;
+        g.volume0 = p.volume0;
+        g.F00 = p.F.m00;
+        g.F01 = p.F.m01;
+        g.F10 = p.F.m10;
+        g.F11 = p.F.m11;
+        g.Fp00 = p.Fp.m00;
+        g.Fp01 = p.Fp.m01;
+        g.Fp10 = p.Fp.m10;
+        g.Fp11 = p.Fp.m11;
+        g.C00 = p.C.m00;
+        g.C01 = p.C.m01;
+        g.C10 = p.C.m10;
+        g.C11 = p.C.m11;
+        g.plasticStrain = p.plasticStrain;
+        g.active = p.active ? 1.0f : 0.0f;
+    }
+
+    auto* deviceContext = session->context.RawPtr();
+    session->compute->uploadParticles(deviceContext, packed.data(), needed);
+
+    MpmGpuParams params;
+    params.particleCount = needed;
+    params.nodeCount = static_cast<std::uint32_t>(nx_) *
+                       static_cast<std::uint32_t>(ny_);
+    params.gridNx = static_cast<std::uint32_t>(nx_);
+    params.gridNy = static_cast<std::uint32_t>(ny_);
+    params.cellSize = cellSize_;
+    params.originX = gridOrigin_.x;
+    params.originY = gridOrigin_.y;
+    params.invCellSize = 1.0f / cellSize_;
+    params.dt = fixedDt_;
+    params.gravityX = gravityX_;
+    params.gravityY = gravityY_;
+    params.mu = mu_;
+    params.lambda = lambda_;
+    params.damping = damping_;
+    params.boundaryFriction = boundaryFriction_;
+    params.bxmin = bxmin_;
+    params.bxmax = bxmax_;
+    params.bymin = bymin_;
+    params.bymax = bymax_;
+    params.hasBoundary = hasBoundary_ ? 1.0f : 0.0f;
+
+    session->compute->simulateSubsteps(deviceContext, steps, params);
+    session->compute->readbackParticles(deviceContext, packed.data(), needed);
+
+    for (std::size_t i = 0; i < particles_.size(); ++i) {
+        auto& p = particles_[i];
+        const auto& g = packed[i];
+        p.pos.x = g.posX;
+        p.pos.y = g.posY;
+        p.vel.x = g.velX;
+        p.vel.y = g.velY;
+        p.F = MpmMat2(g.F00, g.F01, g.F10, g.F11);
+        p.C = MpmMat2(g.C00, g.C01, g.C10, g.C11);
+    }
+
+    // CPU tail once per frame: mirrors stepOnce order after the F update.
+    applyPlasticity();
+    resolveColliders();
+    checkFracture();
+
+    // particle-level boundary
+    if (hasBoundary_) {
+        float margin = cellSize_ * 0.5f;
+        for (auto& p : particles_) {
+            if (!p.active) continue;
+            if (p.pos.x < bxmin_ + margin) { p.pos.x = bxmin_ + margin; p.vel.x = 0; }
+            if (p.pos.x > bxmax_ - margin) { p.pos.x = bxmax_ - margin; p.vel.x = 0; }
+            if (p.pos.y < bymin_ + margin) { p.pos.y = bymin_ + margin; p.vel.y = 0; }
+            if (p.pos.y > bymax_ - margin) { p.pos.y = bymax_ - margin; p.vel.y = 0; }
+        }
+    }
+
+    for (auto& p : particles_) {
+        if (!std::isfinite(p.pos.x) || !std::isfinite(p.pos.y) ||
+            !std::isfinite(p.vel.x) || !std::isfinite(p.vel.y)) {
+            p.pos.x = std::isfinite(p.pos.x) ? p.pos.x : 0.0f;
+            p.pos.y = std::isfinite(p.pos.y) ? p.pos.y : 0.0f;
+            p.vel.x = 0.0f; p.vel.y = 0.0f;
+        }
+    }
+
+    accumulatedTime_ -= fixedDt_ * static_cast<float>(steps);
+    return true;
+}
+
 void MpmSolver2D::update(float elapsedSeconds) {
     if (elapsedSeconds <= 0.0f) return;
+    if (backend_ == MpmBackend::GPU && gpuSimulation_ &&
+        updateGPUSubsteps(elapsedSeconds)) {
+        return;
+    }
     const float maxAccumulated = fixedDt_ * static_cast<float>(maxSubsteps_);
     accumulatedTime_ = std::min(accumulatedTime_ +
                                     std::min(elapsedSeconds, maxAccumulated),
@@ -807,6 +1108,20 @@ void MpmSolver2D::stepOnce(float h) {
             if (p.pos.x > bxmax_ - margin) { p.pos.x = bxmax_ - margin; p.vel.x = 0; }
             if (p.pos.y < bymin_ + margin) { p.pos.y = bymin_ + margin; p.vel.y = 0; }
             if (p.pos.y > bymax_ - margin) { p.pos.y = bymax_ - margin; p.vel.y = 0; }
+        }
+    }
+
+    // NaN guard: zero non-finite states to prevent propagation
+    for (auto& p : particles_) {
+        if (!std::isfinite(p.pos.x) || !std::isfinite(p.pos.y) ||
+            !std::isfinite(p.vel.x) || !std::isfinite(p.vel.y)) {
+            p.pos.x = std::isfinite(p.pos.x) ? p.pos.x : 0.0f;
+            p.pos.y = std::isfinite(p.pos.y) ? p.pos.y : 0.0f;
+            p.vel.x = 0.0f; p.vel.y = 0.0f;
+        }
+        if (!std::isfinite(p.F.m00) || !std::isfinite(p.F.m01) ||
+            !std::isfinite(p.F.m10) || !std::isfinite(p.F.m11)) {
+            p.F = MpmMat2::identity();
         }
     }
 }

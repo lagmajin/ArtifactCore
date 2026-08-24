@@ -25,6 +25,8 @@ module;
 
 module Script.Python.Engine;
 
+import Container.NamedVector;
+
 import Core.ArtifactString;
 
 #ifdef ARTIFACT_HAS_PYTHON
@@ -51,7 +53,8 @@ public:
     ZeroString consoleBuffer_;
     bool externalRuntime_ = false;
     std::string externalExecutable_ = "python";
-    std::vector<std::string> externalSearchPaths_;
+    NamedVector<std::string> externalSearchPaths_{
+        makeNamedVector<std::string>(ContainerName{"PythonExternalSearchPaths"})};
     std::string externalPrelude_;
     std::unordered_map<std::string, std::string> externalStringGlobals_;
     std::unordered_map<std::string, int64_t> externalIntGlobals_;
@@ -170,11 +173,11 @@ sys.stderr = _ArtifactOut(True)
         // Inject any pre-registered C++ functions
         for (const auto& [name, func] : impl_->registeredFunctions_) {
             auto wrappedFunc = [func](py::args args) -> std::string {
-                std::vector<std::string> strArgs;
+                NamedVector<std::string> strArgs;
                 for (auto& a : args) {
                     strArgs.push_back(py::str(a).cast<std::string>());
                 }
-                return func(strArgs);
+                return func(strArgs.toStdVector());
             };
             impl_->artifactModule_.attr(name.c_str()) = py::cpp_function(wrappedFunc);
         }
@@ -361,11 +364,11 @@ void PythonEngine::registerFunction(const std::string& name, PyCppFunction func)
 #ifdef ARTIFACT_HAS_PYTHON
     if (impl_->initialized_) {
         auto wrappedFunc = [func](py::args args) -> std::string {
-            std::vector<std::string> strArgs;
+            NamedVector<std::string> strArgs;
             for (auto& a : args) {
                 strArgs.push_back(py::str(a).cast<std::string>());
             }
-            return func(strArgs);
+            return func(strArgs.toStdVector());
         };
         impl_->artifactModule_.attr(name.c_str()) = py::cpp_function(wrappedFunc);
     }
@@ -609,9 +612,9 @@ void PythonEngine::addSearchPath(const std::string& path) {
 }
 
 std::vector<std::string> PythonEngine::getSearchPaths() const {
-    std::vector<std::string> paths;
+    NamedVector<std::string> paths;
 #ifdef ARTIFACT_HAS_PYTHON
-    if (!impl_->initialized_) return paths;
+    if (!impl_->initialized_) return {};
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     try {
         auto sys = py::module_::import("sys");
@@ -621,9 +624,11 @@ std::vector<std::string> PythonEngine::getSearchPaths() const {
         }
     } catch (...) {}
 #else
-    paths = impl_->externalSearchPaths_;
+    for (const auto& path : impl_->externalSearchPaths_) {
+        paths.append(path);
+    }
 #endif
-    return paths;
+    return paths.toStdVector();
 }
 
 } // namespace ArtifactCore

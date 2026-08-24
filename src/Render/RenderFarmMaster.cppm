@@ -37,6 +37,8 @@ module;
 
 module Render.Farm.Master;
 
+import Container.NamedVector;
+
 import Render.Farm.Types;
 import Render.Farm.Checkpoint;
 import Core.ThreadPool;
@@ -150,7 +152,7 @@ public:
         }, Qt::QueuedConnection);
     }
 
-    std::vector<int> frameAttempts_;
+    NamedVector<int> frameAttempts_;
     std::mutex frameAttemptsMutex_;
 
     std::thread farmThread_;
@@ -171,7 +173,7 @@ public:
     std::atomic<bool> allowRemote_{ false };
     std::atomic<unsigned short> rpcPort_{ 0 };
     std::atomic<bool> rpcRunning_{ false };
-    std::vector<RemoteJobSlice> remoteSlices_;
+    NamedVector<RemoteJobSlice> remoteSlices_;
     std::mutex remoteMutex_;
     std::atomic<int> remoteCompleted_{0};
     std::atomic<int> totalRemoteFrames_{ 0 };
@@ -368,8 +370,8 @@ public:
         }
     }
 
-    std::vector<RenderFrameRange> splitRange(const RenderFrameRange& range, int parts) const {
-        std::vector<RenderFrameRange> subRanges;
+    NamedVector<RenderFrameRange> splitRange(const RenderFrameRange& range, int parts) const {
+        NamedVector<RenderFrameRange> subRanges;
         if (parts <= 0 || range.count() <= 0) return subRanges;
 
         int totalFrames = range.count();
@@ -766,7 +768,7 @@ public:
         if (workers.empty()) return;
 
         // Filter connected workers with valid IDs
-        std::vector<RemoteWorkerInfo> activeWorkers;
+        NamedVector<RemoteWorkerInfo> activeWorkers;
         for (const auto& w : workers) {
             if (!w.workerId.isEmpty() && w.connected && w.assignedFrames == 0
                 && w.state == QStringLiteral("Idle")
@@ -917,11 +919,12 @@ public:
         // Determine local ranges by subtracting every remote slice. Do not
         // assume that remote slices are adjacent or that one contiguous local
         // range remains after remote assignment.
-        std::vector<RenderFrameRange> localRanges{ request.range };
+        NamedVector<RenderFrameRange> localRanges;
+        localRanges.append(request.range);
         {
             std::lock_guard<std::mutex> lock(remoteMutex_);
             for (const auto& slice : remoteSlices_) {
-                std::vector<RenderFrameRange> remaining;
+                NamedVector<RenderFrameRange> remaining;
                 for (const auto& candidate : localRanges) {
                     const int overlapStart = std::max(candidate.startFrame, slice.range.startFrame);
                     const int overlapEnd = std::min(candidate.endFrame, slice.range.endFrame);
@@ -939,7 +942,7 @@ public:
         }
 
         std::atomic<int> checkpointCounter{ 0 };
-        std::vector<std::thread> workers;
+        NamedVector<std::thread> workers;
         for (auto localRange : localRanges) {
             if (restoreUpTo > 0 && restoreUpTo > localRange.startFrame)
                 localRange.startFrame = std::min(restoreUpTo, localRange.endFrame);

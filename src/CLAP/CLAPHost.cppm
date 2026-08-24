@@ -23,6 +23,7 @@ module;
 module CLAP.Host;
 
 import Memory.SharedPtr;
+import Container.NamedVector;
 
 namespace clap {
 
@@ -447,21 +448,22 @@ void ClapEffect::process(ArtifactCore::AudioSegment& segment,
 }
 
 std::vector<ArtifactCore::EffectParameter> ClapEffect::getParameters() const {
-    std::vector<ArtifactCore::EffectParameter> parameters;
-    if (!plugin_) return parameters;
+    NamedVector<ArtifactCore::EffectParameter> parameters{
+        makeNamedVector<ArtifactCore::EffectParameter>(ContainerName{"ClapEffectParameters"})};
+    if (!plugin_) return parameters.toStdVector();
     const uint32 count = plugin_->paramsCount();
     parameters.reserve(count);
     for (uint32 index = 0; index < count; ++index) {
         Plugin::ParamInfo info;
         if (!plugin_->paramGetInfo(index, info)) continue;
         const auto id = ArtifactCore::String(std::string("clap.param.") + std::to_string(info.id));
-        parameters.push_back({id, ArtifactCore::String(info.name),
+        parameters.append({id, ArtifactCore::String(info.name),
                               static_cast<float>(info.minValue),
                               static_cast<float>(info.maxValue),
                               static_cast<float>(info.defaultValue),
                               static_cast<float>(plugin_->paramValue(info.id))});
     }
-    return parameters;
+    return parameters.toStdVector();
 }
 
 void ClapEffect::setParameterValue(const ArtifactCore::String& id, float value) {
@@ -494,7 +496,8 @@ void ClapEffect::setParameterValue(const ArtifactCore::String& id, float value) 
 class Host::Impl {
 public:
     clap_host host{};
-    std::vector<std::string> searchPaths;
+    NamedVector<std::string> searchPaths{
+        makeNamedVector<std::string>(ContainerName{"ClapHostSearchPaths"})};
     // ライブラリを生きたまま保持（プラグイン生存中のアンロード防止）
     std::vector<std::shared_ptr<PluginLibrary>> libraries;
 };
@@ -506,21 +509,21 @@ Host::Host() : impl_(new Impl()) {
     impl_->host.request_process = hostRequestProcess;
     impl_->host.request_callback = hostRequestCallback;
 #ifdef _WIN32
-    impl_->searchPaths = {
+    impl_->searchPaths.assign({
         "C:/Program Files/Common Files/CLAP",
         "C:/Program Files/Common Files/VST3",
-    };
+    });
 #elif __APPLE__
-    impl_->searchPaths = {
+    impl_->searchPaths.assign({
         "/Library/Audio/Plug-Ins/CLAP",
         "~/Library/Audio/Plug-Ins/CLAP",
-    };
+    });
 #else
-    impl_->searchPaths = {
+    impl_->searchPaths.assign({
         "/usr/lib/clap",
         "/usr/local/lib/clap",
         "~/.clap",
-    };
+    });
 #endif
 }
 
@@ -535,7 +538,8 @@ void Host::addSearchPath(const std::string& path) {
 }
 
 void Host::setSearchPaths(const std::vector<std::string>& paths) {
-    impl_->searchPaths = paths;
+    impl_->searchPaths.clear();
+    impl_->searchPaths.insert(impl_->searchPaths.end(), paths.begin(), paths.end());
 }
 
 Plugin* Host::loadPlugin(const std::string& path) {
@@ -615,7 +619,8 @@ void Host::unloadAll() {
 }
 
 std::vector<std::string> Host::scanPlugins() {
-    std::vector<std::string> found;
+    NamedVector<std::string> found{
+        makeNamedVector<std::string>(ContainerName{"ClapPluginScanResults"})};
     std::unordered_set<std::string> seen;
     for (const auto& searchPath : impl_->searchPaths) {
         try {
@@ -638,11 +643,11 @@ std::vector<std::string> Host::scanPlugins() {
                                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
                 if (extension != ".clap" && extension != ".dll" && extension != ".so") continue;
                 const std::string identity = fs::weakly_canonical(entry.path()).string();
-                if (seen.insert(identity).second) found.push_back(entry.path().string());
+                if (seen.insert(identity).second) found.append(entry.path().string());
             }
         } catch (...) {}
     }
-    return found;
+    return found.toStdVector();
 }
 
 } // namespace clap

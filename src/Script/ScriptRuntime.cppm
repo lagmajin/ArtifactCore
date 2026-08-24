@@ -11,6 +11,7 @@ module;
 module Script.Runtime;
 
 import Core.ArtifactString;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -79,7 +80,7 @@ std::string stripTrailingComment(const std::string& text)
 
 std::vector<StatementSlice> splitStatements(const std::string& source)
 {
-    std::vector<StatementSlice> statements;
+    NamedVector<StatementSlice> statements;
     std::string current;
     std::size_t currentStart = std::string::npos;
     bool inSingleQuote = false;
@@ -143,7 +144,7 @@ std::vector<StatementSlice> splitStatements(const std::string& source)
     }
 
     flush(source.size());
-    return statements;
+    return statements.toStdVector();
 }
 
 std::pair<std::size_t, std::size_t> lineColumnForOffset(const std::string& source, std::size_t offset)
@@ -231,9 +232,9 @@ public:
         vars["time"] = ExpressionValue(0.0);
         vars["frame"] = ExpressionValue(0.0);
         vars["duration"] = ExpressionValue(0.0);
-        std::vector<ExpressionValue> selectionValues;
+        NamedVector<ExpressionValue> selectionValues;
         selectionValues.reserve(hostSnapshot_.selection.size());
-        std::vector<ExpressionValue> layerCatalog;
+        NamedVector<ExpressionValue> layerCatalog;
         for (const auto& item : hostSnapshot_.selection) {
             selectionValues.emplace_back(item);
             std::map<std::string, ExpressionValue> layer;
@@ -241,8 +242,8 @@ public:
             layer["index"] = ExpressionValue(static_cast<double>(layerCatalog.size() + 1));
             layerCatalog.emplace_back(layer);
         }
-        vars["selection"] = ExpressionValue(selectionValues);
-        vars["selection_names"] = ExpressionValue(selectionValues);
+        vars["selection"] = ExpressionValue(selectionValues.toStdVector());
+        vars["selection_names"] = ExpressionValue(selectionValues.toStdVector());
 
         std::map<std::string, ExpressionValue> thisComp;
         thisComp["name"] = ExpressionValue(hostSnapshot_.activeCompositionName);
@@ -253,7 +254,7 @@ public:
         thisComp["has_project"] = ExpressionValue(hostSnapshot_.hasProject ? 1.0 : 0.0);
         thisComp["has_composition"] = ExpressionValue(hostSnapshot_.hasComposition ? 1.0 : 0.0);
         thisComp["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
-        thisComp["layers"] = ExpressionValue(layerCatalog);
+        thisComp["layers"] = ExpressionValue(layerCatalog.toStdVector());
         thisComp["numLayers"] = ExpressionValue(static_cast<double>(layerCatalog.size()));
         thisComp["width"] = ExpressionValue(1920.0);
         thisComp["height"] = ExpressionValue(1080.0);

@@ -11,6 +11,8 @@ module;
 
 module Particle.System;
 
+import Container.NamedVector;
+
 import Particle;
 import Mesh;
 import Math.Noise;
@@ -411,7 +413,8 @@ void ParticleSystem::update(double deltaTime) {
     }
     
     // Get free indices for active particle iteration
-    std::vector<bool> isFree(impl_->pool_.size(), false);
+    NamedVector<bool> isFree;
+    isFree.resize(impl_->pool_.size());
     for (size_t idx : impl_->pool_.getFreeIndices()) {
         isFree[idx] = true;
     }
@@ -524,7 +527,7 @@ void ParticleSystem::update(double deltaTime) {
     if (!impl_->constraints_.empty()) {
         // 現在のアクティブなパーティクルを取得して解決
         std::vector<Particle> activeParticles;
-        std::vector<size_t> indices;
+        NamedVector<size_t> indices;
         for (size_t i = 0; i < impl_->pool_.size(); ++i) {
             if (!isFree[i]) {
                 activeParticles.push_back(impl_->pool_[i]);

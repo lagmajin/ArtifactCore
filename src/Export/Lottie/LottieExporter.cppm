@@ -17,6 +17,8 @@ module;
 
 module Export.Lottie.Exporter;
 
+import Container.NamedVector;
+
 namespace ArtifactCore::Export::Lottie {
 namespace {
 
@@ -510,7 +512,7 @@ void LottieExporter::compressKeyframes(std::vector<LottieKeyframe>& keyframes,
                                         double tolerance) {
     if (keyframes.size() < 3 || !std::isfinite(tolerance) || tolerance < 0.0) return;
     tolerance = std::max(tolerance, 0.0);
-    std::vector<LottieKeyframe> compressed;
+    NamedVector<LottieKeyframe> compressed;
     compressed.reserve(keyframes.size());
     compressed.push_back(keyframes.front());
     for (std::size_t i = 1; i + 1 < keyframes.size(); ++i) {
@@ -540,7 +542,7 @@ void LottieExporter::compressKeyframes(std::vector<LottieKeyframe>& keyframes,
         if (!removable) compressed.push_back(current);
     }
     compressed.push_back(keyframes.back());
-    keyframes.swap(compressed);
+    keyframes = compressed.toStdVector();
 }
 
 bool LottieExporter::validate(const LottieDocument& document, QString* errorMessage) {
@@ -1002,8 +1004,8 @@ std::optional<LottieDocument> LottieExporter::importFromFile(
                     item.closed = shape.value(QStringLiteral("closed")).toBool(item.closed);
                     item.direction = shape.value(QStringLiteral("d")).toInt(item.direction);
                     const auto readNumberArray = [](const QJsonValue& value) {
-                        std::vector<double> numbers;
-                        if (!value.isArray()) return numbers;
+                        NamedVector<double> numbers;
+                        if (!value.isArray()) return numbers.toStdVector();
                         for (const auto& component : value.toArray()) {
                             if (component.isDouble()) {
                                 numbers.push_back(component.toDouble());
@@ -1013,7 +1015,7 @@ std::optional<LottieDocument> LottieExporter::importFromFile(
                                 }
                             }
                         }
-                        return numbers;
+                        return numbers.toStdVector();
                     };
                     const QJsonObject path = shape.value(QStringLiteral("ks")).toObject();
                     const QJsonObject pathValue = path.value(QStringLiteral("k")).toObject();

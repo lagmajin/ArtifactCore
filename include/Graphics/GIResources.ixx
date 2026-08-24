@@ -5,6 +5,8 @@ module;
 
 export module Graphics.GIResources;
 
+import Container.NamedVector;
+
 export namespace ArtifactCore {
 
 enum class GIResourceKind : std::uint8_t {
@@ -162,9 +164,9 @@ public:
 
     std::vector<GIResourceKind> requiredResources() const
     {
-        std::vector<GIResourceKind> result;
-        std::vector<GIResourceKind> produced;
-        const auto contains = [](const std::vector<GIResourceKind>& values,
+        NamedVector<GIResourceKind> result;
+        NamedVector<GIResourceKind> produced;
+        const auto contains = [](const NamedVector<GIResourceKind>& values,
                                  const GIResourceKind kind) {
             for (const auto value : values) {
                 if (value == kind) return true;
@@ -181,7 +183,7 @@ public:
             if (!contains(produced, pass.input)) appendUnique(pass.input);
             if (!contains(produced, pass.output)) produced.push_back(pass.output);
         }
-        return result;
+        return result.toStdVector();
     }
 
 private:

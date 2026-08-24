@@ -17,13 +17,14 @@ module;
 module Event.Bus;
 
 import Memory.SharedPtr;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
 struct EventBus::Impl {
     struct Entry {
         mutable std::mutex mutex;
-        std::vector<SharedPtr<SubscriberRecord>> subscribers;
+        NamedVector<SharedPtr<SubscriberRecord>> subscribers;
     };
 
     mutable std::mutex registryMutex;
@@ -41,12 +42,12 @@ struct EventBus::Impl {
     std::unordered_map<std::type_index, std::string> typeNames;
 };
 
-static void pruneInactive(std::vector<SharedPtr<EventBus::SubscriberRecord>>& subscribers)
+static void pruneInactive(NamedVector<SharedPtr<EventBus::SubscriberRecord>>& subscribers)
 {
-    subscribers.erase(std::remove_if(subscribers.begin(), subscribers.end(),
+    subscribers.removeIf(
         [](const SharedPtr<EventBus::SubscriberRecord>& record) {
             return !record || !record->active.load(std::memory_order_acquire);
-        }), subscribers.end());
+        });
 }
 
 static void disconnectRecordFromImpl(EventBus::Impl& impl, std::type_index type, std::size_t id)
@@ -69,10 +70,10 @@ static void disconnectRecordFromImpl(EventBus::Impl& impl, std::type_index type,
     {
         std::lock_guard<std::mutex> lock(entry->mutex);
         auto& subscribers = entry->subscribers;
-        subscribers.erase(std::remove_if(subscribers.begin(), subscribers.end(),
+        subscribers.removeIf(
             [id](const SharedPtr<EventBus::SubscriberRecord>& candidate) {
                 return !candidate || candidate->id == id || !candidate->active.load(std::memory_order_acquire);
-            }), subscribers.end());
+            });
         entryEmpty = subscribers.empty();
     }
 
@@ -183,10 +184,12 @@ std::size_t EventBus::publishRaw(std::type_index type, const void* payload,
         entry = it->second;
     }
 
-    std::vector<SharedPtr<SubscriberRecord>> snapshot;
+    NamedVector<SharedPtr<SubscriberRecord>> snapshot{
+        makeNamedVector<SharedPtr<SubscriberRecord>>(ContainerName{"EventBusSubscriberSnapshot"})};
     {
         std::lock_guard<std::mutex> lock(entry->mutex);
-        snapshot = entry->subscribers;
+        snapshot.reserve(entry->subscribers.size());
+        for (const auto& subscriber : entry->subscribers) snapshot.append(subscriber);
     }
 
     const auto dispatchStart = std::chrono::high_resolution_clock::now();
@@ -300,12 +303,14 @@ void EventBus::forEachRegisteredType(
     if (!impl) return;
 
     // Snapshot registry to avoid holding locks while calling fn
-    std::vector<std::pair<std::type_index, SharedPtr<Impl::Entry>>> snapshot;
+    NamedVector<std::pair<std::type_index, SharedPtr<Impl::Entry>>> snapshot{
+        makeNamedVector<std::pair<std::type_index, SharedPtr<Impl::Entry>>>(
+            ContainerName{"EventBusRegisteredTypeSnapshot"})};
     {
         std::lock_guard<std::mutex> lock(impl->registryMutex);
         snapshot.reserve(impl->registry.size());
         for (const auto& [t, entry] : impl->registry) {
-            snapshot.emplace_back(t, entry);
+            snapshot.make(t, entry);
         }
     }
 

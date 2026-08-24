@@ -551,6 +551,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
                 "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
                 "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Graphics/MpmCompute.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.MpmCompute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.MpmCompute.ifc"
+                "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
+                "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Graphics/Shader/Compute/GPUCompressionPipeline.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -965,6 +971,23 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Physics2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics2D.ifc"
             "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Physics/MpmSolver2D.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Physics.Mpm2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.Mpm2D.ifc"
+                "/reference;Graphics.MpmCompute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.MpmCompute.ifc"
+                "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/Physics/PhysicsSystem.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Physics.System=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.System.ifc"
+                "/reference;Physics.Fluid=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.Fluid.ifc"
+                "/reference;Physics2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics2D.ifc"
+                "/reference;Physics.SoftBody=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.SoftBody.ifc"
+                "/reference;Physics.Mpm2D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Physics.Mpm2D.ifc"
+                "/reference;Core.Simulation.Pyro=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Simulation.Pyro.ifc"
+                "/reference;Graphics.ParticleData=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.ParticleData.ifc"
+                "/reference;Graphics.BoidsCompute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.BoidsCompute.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/IO/Image/ImageImporter.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;IO.ImageImporter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/IO.ImageImporter.ifc"
@@ -2162,6 +2185,12 @@ set(ARTIFACTCORE_AUDIO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/AllPassFilter.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/DelayLine.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/DSP/LFO.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Modulator.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Modulation/Router.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Spatial/SpatialParams.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Spatial/SpatialMath.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Spatial/SpatialRenderer.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/Spatial/HrtfData.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/FormantExtractor.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/LipSyncTrack.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Audio/SimpleWav.ixx"
@@ -2197,6 +2226,7 @@ set(ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioVolume.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioWaveform.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioWriter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/Spatial/SpatialRenderer.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/FormantExtractor.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/LipSyncTrack.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/SimpleWav.cppm"
@@ -2997,6 +3027,11 @@ list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_NETWORK_IMPL})
 
 set(ARTIFACTCORE_COLLABORATE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationProtocol.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationSession.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollabReview.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollabOperations.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollaborationSessionAdapter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Collaborate/CollabSchema.cppm"
 )
 set(ARTIFACTCORE_COLLABORATE_IMPL)
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_COLLABORATE_MODULES})
@@ -5084,7 +5119,7 @@ else()
     set_property(TARGET ArtifactCoreCollaborate PROPERTY CXX_MODULE_STD OFF)
 endif()
 target_sources(ArtifactCoreCollaborate PRIVATE ${ARTIFACTCORE_COLLABORATE_IMPL} PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_COLLABORATE_MODULES})
-target_link_libraries(ArtifactCoreCollaborate PUBLIC ArtifactCore)
+target_link_libraries(ArtifactCoreCollaborate PUBLIC ArtifactCore ArtifactCoreNetwork)
 target_include_directories(ArtifactCoreCollaborate PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/../third_party")
 
 add_library(ArtifactCoreGenerate STATIC)

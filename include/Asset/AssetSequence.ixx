@@ -14,6 +14,7 @@ export module Asset.Sequence;
 
 import Core.ArtifactString;
 import Utils.Optional;
+import Container.NamedVector;
 
 
 // ================================================================
@@ -48,6 +49,10 @@ struct SequenceGroup {
     int64_t     firstFrame = 0;
     int64_t     lastFrame  = 0;
     std::vector<String> filenames;       // sorted, all members
+
+    /// Frame numbers absent between firstFrame and lastFrame.
+    /// Populated only when detection ran with MissingFramePolicy::Preserve.
+    std::vector<int64_t> missingFrames;
 
     /// Display name: e.g.  "image_[0001-0100].png  (100 frames)"
     String displayName() const
@@ -84,6 +89,22 @@ struct SequenceGroup {
 struct SequenceDetectionResult {
     std::vector<SequenceGroup>  sequences;   // found groups (≥2 frames)
     std::vector<String>         singles;     // files that aren't in any group
+};
+
+// ----------------------------------------------------------------
+// MissingFramePolicy — how gaps between detected frame numbers are
+// reported.
+//
+//   Split    (default) : a gap ends the current run; each consecutive
+//                        run becomes its own SequenceGroup.  Groups
+//                        never contain missing frames.
+//   Preserve           : the whole bucket stays one SequenceGroup and
+//                        absent frame numbers are reported through
+//                        SequenceGroup::missingFrames.
+// ----------------------------------------------------------------
+enum class MissingFramePolicy : std::uint8_t {
+    Split,
+    Preserve
 };
 
 // ----------------------------------------------------------------
@@ -149,6 +170,7 @@ struct GroupKey {
 // @param filenames    Flat list of filenames (basenames only,
 //                     NOT full paths — the caller prepends the dir).
 // @param minFrames    Minimum number of frames to form a sequence (default 2).
+// @param policy       Gap handling; see MissingFramePolicy.
 //
 // Filenames that look like "image_0001.png" are grouped by
 // (prefix, suffix, padding).  Groups with fewer than minFrames
@@ -156,19 +178,21 @@ struct GroupKey {
 // ----------------------------------------------------------------
 inline SequenceDetectionResult detectSequences(
     const std::vector<String>& filenames,
-    int minFrames = 2)
+    int minFrames = 2,
+    MissingFramePolicy policy = MissingFramePolicy::Split)
 {
     using namespace detail;
     minFrames = std::max(2, minFrames);
 
     // Map from GroupKey → [(frame, filename)]
     std::map<GroupKey, std::vector<std::pair<int64_t, std::string>>> buckets;
-    std::vector<std::string> unparsed;
+    NamedVector<std::string> unparsed{
+        makeNamedVector<std::string>(ContainerName{"AssetSequenceUnparsedNames"})};
 
     for (const auto& fn : filenames) {
         auto tok = parseFrameToken(fn);
         if (!tok) {
-            unparsed.push_back(toStdString(fn));
+            unparsed.append(toStdString(fn));
             continue;
         }
         GroupKey key{toStdString(tok->prefix), toStdString(tok->suffix), tok->padding};
@@ -190,10 +214,33 @@ inline SequenceDetectionResult detectSequences(
             continue;
         }
 
+        // Preserve keeps the whole bucket as one group and reports the
+        // absent frame numbers instead of splitting the run.
+        if (policy == MissingFramePolicy::Preserve) {
+            SequenceGroup grp;
+            grp.prefix     = String(key.prefix);
+            grp.suffix     = String(key.suffix);
+            grp.padding    = key.padding;
+            grp.firstFrame = frames.front().first;
+            grp.lastFrame  = frames.back().first;
+            grp.filenames.reserve(frames.size());
+            int64_t expectedFrame = grp.firstFrame;
+            for (const auto& [frame, fn] : frames) {
+                while (expectedFrame < frame) {
+                    grp.missingFrames.emplace_back(expectedFrame++);
+                }
+                expectedFrame = frame + 1;
+                grp.filenames.emplace_back(fn);
+            }
+            result.sequences.push_back(std::move(grp));
+            continue;
+        }
+
         // Split on gaps so each reported group is a truly consecutive run.
         // This keeps the sequence contract deterministic for importers and
         // avoids presenting missing frames as available media.
-        std::vector<std::pair<int64_t, std::string>> run;
+        NamedVector<std::pair<int64_t, std::string>> run{
+            makeNamedVector<std::pair<int64_t, std::string>>(ContainerName{"AssetSequenceFrameRun"})};
         run.reserve(frames.size());
 
         const auto flushRun = [&]() {
@@ -201,7 +248,7 @@ inline SequenceDetectionResult detectSequences(
                 for (const auto& [frame, fn] : run) {
                     result.singles.emplace_back(fn);
                 }
-                run.clear();
+                    run.clear();
                 return;
             }
 
@@ -223,7 +270,7 @@ inline SequenceDetectionResult detectSequences(
             if (!run.empty() && frame.first != run.back().first + 1) {
                 flushRun();
             }
-            run.push_back(frame);
+            run.append(frame);
         }
         flushRun();
     }
@@ -250,7 +297,7 @@ inline SequenceDetectionResult detectSequencesInDirectory(
     const std::filesystem::path& dir,
     int minFrames = 2)
 {
-    std::vector<std::string> names;
+    NamedVector<std::string> names;
     std::error_code ec;
     for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
         if (ec) break;
@@ -258,12 +305,12 @@ inline SequenceDetectionResult detectSequencesInDirectory(
         names.push_back(entry.path().filename().string());
     }
     std::sort(names.begin(), names.end());
-    std::vector<String> coreNames;
+    NamedVector<String> coreNames;
     coreNames.reserve(names.size());
     for (const auto& name : names) {
         coreNames.emplace_back(name);
     }
-    return detectSequences(coreNames, minFrames);
+    return detectSequences(coreNames.toStdVector(), minFrames);
 }
 
 } // namespace ArtifactCore

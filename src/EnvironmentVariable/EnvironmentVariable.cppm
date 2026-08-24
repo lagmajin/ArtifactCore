@@ -2,8 +2,7 @@ module;
 #include <utility>
 #include <QCoreApplication>
 #include <QProcessEnvironment>
-#include <QRegularExpressionMatch>
-#include <QSet> 
+#include <QReadWriteLock>
 #include <QDebug>
 #include <QObject>
 #include <QString>
@@ -19,7 +18,9 @@ namespace ArtifactCore
 
  class EnvironmentVariableManager::Impl {
  private:
+  mutable QReadWriteLock lock;
   QMap<QString, QVariant> vars;
+  quint64 revisionCounter = 0;
 
  public:
   void loadFromOS();
@@ -28,39 +29,49 @@ namespace ArtifactCore
   bool hasVariable(const QString& name) const;
   QStringList variableNames() const;
   void clear();
+  quint64 revision() const { return revisionCounter; }
  };
 
  void EnvironmentVariableManager::Impl::loadFromOS()
  {
+  QWriteLocker locker(&lock);
   QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
   for (const QString& key : env.keys()) {
    vars[key] = env.value(key);
   }
+  ++revisionCounter;
  }
 
  void EnvironmentVariableManager::Impl::setVariable(const QString& name, const QVariant& value)
  {
+  QWriteLocker locker(&lock);
   vars[name] = value;
+  ++revisionCounter;
  }
 
  QVariant EnvironmentVariableManager::Impl::getVariable(const QString& name) const
  {
+  QReadLocker locker(&lock);
   return vars.value(name);
  }
 
  bool EnvironmentVariableManager::Impl::hasVariable(const QString& name) const
  {
+  QReadLocker locker(&lock);
   return vars.contains(name);
  }
 
  QStringList EnvironmentVariableManager::Impl::variableNames() const
  {
+  QReadLocker locker(&lock);
   return vars.keys();
  }
 
  void EnvironmentVariableManager::Impl::clear()
  {
+  QWriteLocker locker(&lock);
   vars.clear();
+  ++revisionCounter;
  }
 
  EnvironmentVariableManager::~EnvironmentVariableManager()
@@ -107,6 +118,11 @@ namespace ArtifactCore
  void EnvironmentVariableManager::clear()
  {
   impl_->clear();
+ }
+
+ quint64 EnvironmentVariableManager::revision() const
+ {
+  return impl_->revision();
  }
 
 };

@@ -36,6 +36,7 @@ export module ArtifactCore.Core.Simulation;
 
 import Memory.SharedPtr;
 import Core.ArtifactString;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -65,7 +66,7 @@ export namespace ArtifactCore {
         }
 
         void addSystem(SharedPtr<ISimulationSystem> system) {
-            systems_.push_back(system);
+            systems_.append(system);
         }
 
         void update(double deltaTime) {
@@ -83,7 +84,8 @@ export namespace ArtifactCore {
         }
 
     private:
-        std::vector<SharedPtr<ISimulationSystem>> systems_;
+        NamedVector<SharedPtr<ISimulationSystem>> systems_{
+            makeNamedVector<SharedPtr<ISimulationSystem>>(ContainerName{"SimulationSystems"})};
     };
 
 }

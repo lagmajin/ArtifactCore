@@ -13,6 +13,7 @@ module;
 module Render.Farm.Log;
 
 import std;
+import Container.NamedVector;
 
 namespace ArtifactCore {
 
@@ -133,7 +134,7 @@ void LogCollector::flush() {
 std::vector<LogEntry> LogCollector::query(const LogQuery& query) const {
     std::lock_guard lock(impl_->mutex);
 
-    std::vector<LogEntry> result;
+    NamedVector<LogEntry> result;
     for (const auto& entry : impl_->entries) {
         // Filter worker IDs
         if (!query.workerIds.empty()) {
@@ -173,7 +174,7 @@ std::vector<LogEntry> LogCollector::query(const LogQuery& query) const {
         if (static_cast<int>(result.size()) >= query.maxResults) break;
     }
 
-    return result;
+    return result.toStdVector();
 }
 
 void LogCollector::clear() {
@@ -191,4 +192,3 @@ void LogCollector::setLogCallback(LogCallback callback) {
 }
 
 }
-

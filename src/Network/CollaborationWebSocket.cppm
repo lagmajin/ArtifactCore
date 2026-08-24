@@ -147,6 +147,7 @@ CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
                 Q_EMIT s->remoteOperation(op);
             } else if (t == QStringLiteral("lock_granted")) {
                 Q_EMIT s->remoteLockGranted(o.value(QStringLiteral("layerId")).toString(),
+                    o.value(QStringLiteral("clientId")).toString(),
                     o.value(QStringLiteral("userId")).toString());
             } else if (t == QStringLiteral("lock_denied")) {
                 Q_EMIT s->remoteLockDenied(o.value(QStringLiteral("layerId")).toString(),
@@ -163,10 +164,12 @@ CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
                 p.presence = o.value(QStringLiteral("presence")).toObject();
                 Q_EMIT s->remotePresence(p);
             } else if (t == QStringLiteral("user_joined")) {
-                Q_EMIT s->userJoined(o.value(QStringLiteral("userId")).toString(),
+                Q_EMIT s->userJoined(o.value(QStringLiteral("clientId")).toString(),
+                    o.value(QStringLiteral("userId")).toString(),
                     o.value(QStringLiteral("userName")).toString());
             } else if (t == QStringLiteral("user_left")) {
-                Q_EMIT s->userLeft(o.value(QStringLiteral("userId")).toString(),
+                Q_EMIT s->userLeft(o.value(QStringLiteral("clientId")).toString(),
+                    o.value(QStringLiteral("userId")).toString(),
                     o.value(QStringLiteral("userName")).toString());
             } else if (t == QStringLiteral("history")) {
                 QJsonArray ops = o.value(QStringLiteral("operations")).toArray();

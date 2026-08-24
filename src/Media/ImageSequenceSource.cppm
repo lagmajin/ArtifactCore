@@ -31,6 +31,7 @@ struct ImageSequenceSource::FrameEntry {
     qint64 frameIndex = 0;
     QString path;
     QSize size;
+    bool fileExists = true;
 };
 
 constexpr int kFrameCacheCapacity = 8;
@@ -64,6 +65,7 @@ struct ImageSequenceSource::Impl {
     QSize frameSize;
     double frameRate = 24.0;
     qint64 currentFrameIndex = 0;
+    qint64 missingFrameCount = 0;
     QHash<qint64, CachedFrame> frameCache;
     QList<qint64> frameCacheOrder;
     mutable std::mutex frameCacheMutex;
@@ -109,6 +111,32 @@ struct ImageSequenceSource::Impl {
             frameCache.remove(oldest);
         }
     }
+
+    void noteFrameExistence(qint64 frameIndex, bool existsNow)
+    {
+        if (frameIndex < 0 || frameIndex >= frames.size()) {
+            return;
+        }
+        auto& entry = frames[frameIndex];
+        if (entry.fileExists == existsNow) {
+            return;
+        }
+        entry.fileExists = existsNow;
+        missingFrameCount += existsNow ? -1 : 1;
+        if (missingFrameCount < 0) {
+            missingFrameCount = 0;
+        }
+    }
+
+    void recountMissingFrames()
+    {
+        missingFrameCount = 0;
+        for (const auto& frame : frames) {
+            if (!frame.fileExists) {
+                ++missingFrameCount;
+            }
+        }
+    }
 };
 
 namespace {
@@ -135,7 +163,7 @@ bool isSupportedImageFile(const QFileInfo& info)
 bool parseSequencePattern(const QString& fileName, QString* prefix, QString* suffix,
                           int* padding)
 {
-    static const QRegularExpression rx(QStringLiteral("^(.*?)(\\d+)(\\.[^.]+)$"));
+    static const QRegularExpression rx(QStringLiteral("^(.*?)(\\d+)(\\.[a-zA-Z0-9]+)$"));
     const auto match = rx.match(fileName);
     if (!match.hasMatch()) {
         return false;
@@ -297,6 +325,7 @@ bool ImageSequenceSource::openFramePaths(const QStringList& framePaths)
         FrameEntry entry;
         entry.frameIndex = frames.size();
         entry.path = info.absoluteFilePath();
+        entry.fileExists = info.exists() && info.isFile();
         frames.push_back(std::move(entry));
     }
     if (frames.isEmpty()) {
@@ -306,6 +335,7 @@ bool ImageSequenceSource::openFramePaths(const QStringList& framePaths)
     impl_->uri = frames.front().path;
     impl_->displayName = QFileInfo(impl_->uri).completeBaseName();
     impl_->frames = std::move(frames);
+    impl_->recountMissingFrames();
     impl_->resetDecodedCache();
     resetPrefetchState(impl_->prefetchState);
     impl_->frameRate = 24.0;
@@ -331,6 +361,7 @@ void ImageSequenceSource::close()
     impl_->uri.clear();
     impl_->displayName.clear();
     impl_->frames.clear();
+    impl_->missingFrameCount = 0;
     impl_->resetDecodedCache();
     resetPrefetchState(impl_->prefetchState);
     impl_->frameSize = QSize();
@@ -381,14 +412,10 @@ SourceMetadata ImageSequenceSource::metadata() const
             std::max<qint64>(0, span - metadata.frameCount);
     }
     // Explicit frame-path sequences retain missing entries so their logical
-    // positions stay stable. Count those entries as well; unlike numeric
-    // filename gaps, they do not widen the frame-number span above.
-    for (const auto& frame : impl_->frames) {
-        const QFileInfo info(frame.path);
-        if (!info.exists() || !info.isFile()) {
-            ++metadata.missingFrameCount;
-        }
-    }
+    // positions stay stable.  Those entries are counted through the tracked
+    // missingFrameCount (seeded at open, refreshed on frame access); unlike
+    // numeric filename gaps, they do not widen the frame-number span above.
+    metadata.missingFrameCount += impl_->missingFrameCount;
     metadata.hasVideo = !impl_->frames.isEmpty();
     metadata.isSequence = impl_->frames.size() > 1;
     return metadata;
@@ -499,6 +526,7 @@ QImage ImageSequenceSource::frameAt(qint64 frameIndex) const
     const QFileInfo sourceInfo(entry.path);
     const qint64 sourceSize = sourceInfo.size();
     const qint64 lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
+    impl_->noteFrameExistence(frameIndex, sourceInfo.isFile());
 
     Impl::PrefetchedFrame prefetched;
     bool hasPrefetched = false;
@@ -581,6 +609,7 @@ bool ImageSequenceSource::tryFrameAt(qint64 frameIndex, QImage& frame) const
     const QFileInfo sourceInfo(impl_->frames.at(frameIndex).path);
     const qint64 sourceSize = sourceInfo.size();
     const qint64 lastModifiedMs = sourceInfo.lastModified().toMSecsSinceEpoch();
+    impl_->noteFrameExistence(frameIndex, sourceInfo.isFile());
     Impl::PrefetchedFrame prefetched;
     bool hasPrefetched = false;
     {

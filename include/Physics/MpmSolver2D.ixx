@@ -103,7 +103,7 @@ export struct MpmSnapshot2D {
 };
 
 export struct MpmCollider2D {
-    enum class Type : std::uint8_t { Plane, Box, Circle };
+    enum class Type : std::uint8_t { Plane, Box, Circle, Polygon };
     Type type = Type::Plane;
     float x = 0.0f;
     float y = 0.0f;
@@ -113,6 +113,8 @@ export struct MpmCollider2D {
     float restitution = 0.1f;
     float friction = 0.2f;
     bool enabled = true;
+    // Interleaved outline vertices (x0, y0, x1, y1, ...) used by Type::Polygon.
+    std::vector<float> polygonPoints;
 };
 
 // ---------- grid node ----------
@@ -132,10 +134,22 @@ export enum class MpmMaterialPreset : std::uint8_t {
 
 // ---------- solver ----------
 
+export enum class MpmBackend : std::uint8_t { CPU, GPU };
+
 export class MpmSolver2D {
 public:
     MpmSolver2D() = default;
-    ~MpmSolver2D() = default;
+    ~MpmSolver2D();
+
+    // ---- backend ----
+    // GPU lane is opt-in: attach shared Diligent device/context pointers
+    // first, then switch. Raw void* keeps Diligent types out of this
+    // interface module; the implementation wraps them into GpuContext.
+    // Any GPU failure falls back to the CPU lane transparently.
+    MpmBackend backend() const noexcept { return backend_; }
+    bool setBackend(MpmBackend backend) noexcept;
+    bool attachGPUSimulation(void* sharedRenderDevice, void* immediateContext);
+    void detachGPUSimulation();
 
     // ---- configuration ----
     void setGrid(float cellSize, int nx, int ny);
@@ -147,15 +161,20 @@ public:
     bool fractureEnabled() const noexcept { return fractureEnabled_; }
     void applyMaterialPreset(MpmMaterialPreset preset);
     void setDamping(float damping) { damping_ = std::clamp(damping, 0.0f, 1.0f); }
+    float damping() const noexcept { return damping_; }
     void setGravity(float gx, float gy) {
         gravityX_ = std::isfinite(gx) ? gx : 0.0f;
         gravityY_ = std::isfinite(gy) ? gy : 980.0f;
     }
+    float gravityX() const noexcept { return gravityX_; }
+    float gravityY() const noexcept { return gravityY_; }
     void setTimeStep(float dt) {
         if (std::isfinite(dt) && dt > 0.0f)
             fixedDt_ = std::clamp(dt, 1.0e-6f, 0.1f);
     }
+    float timeStep() const noexcept { return fixedDt_; }
     void setMaxSubsteps(int count) { maxSubsteps_ = std::clamp(count, 1, 1024); }
+    int maxSubsteps() const noexcept { return maxSubsteps_; }
 
     // ---- particle population ----
     void addParticlesGrid(float cx, float cy, float w, float h, int cols, int rows, float density = 1000.0f);
@@ -171,18 +190,29 @@ public:
 
     // ---- collision ----
     void setBoundary(float xmin, float ymin, float xmax, float ymax);
+    bool hasBoundary() const noexcept { return hasBoundary_; }
     void setBoundaryFriction(float friction) { boundaryFriction_ = std::clamp(friction, 0.0f, 1.0f); }
+    float boundaryFriction() const noexcept { return boundaryFriction_; }
     void addCollider(const MpmCollider2D& collider) { colliders_.push_back(collider); }
+    const std::vector<MpmCollider2D>& colliders() const noexcept { return colliders_; }
     void clearColliders() { colliders_.clear(); }
 
     // ---- access ----
     int particleCount() const noexcept { return static_cast<int>(particles_.size()); }
     const MpmParticle2D& particle(int i) const noexcept { return particles_[i]; }
+    const std::vector<MpmParticle2D>& particles() const noexcept { return particles_; }
+    bool isGPUAttached() const noexcept { return gpuSimulation_ != nullptr; }
+    bool isGPUReady() const noexcept;
     int activeCount() const noexcept;
 
     // ---- fracture events ----
     int fractureEventCount() const noexcept { return static_cast<int>(fracturedIndices_.size()); }
     int fractureEventIndex(int i) const noexcept { return fracturedIndices_[i]; }
+    MpmVec2 fractureEventPosition(int i) const noexcept {
+        int idx = fracturedIndices_[static_cast<std::size_t>(i)];
+        if (idx < 0 || idx >= static_cast<int>(particles_.size())) return {0,0};
+        return particles_[static_cast<std::size_t>(idx)].pos;
+    }
     void clearFractureEvents();
 
     float cellSize() const noexcept { return cellSize_; }
@@ -196,6 +226,15 @@ public:
 
     // ---- tuning ----
     void setParticlesPerCell(int ppc) { ppc_ = std::max(2, ppc); }
+    int particlesPerCell() const noexcept { return ppc_; }
+    float youngModulus() const noexcept { return E_; }
+    float poissonRatio() const noexcept { return nu_; }
+    float shearModulus() const noexcept { return mu_; }
+    float lameLambda() const noexcept { return lambda_; }
+    float yieldStress() const noexcept { return yieldStress_; }
+    float hardening() const noexcept { return hardening_; }
+    float maxPlasticStrain() const noexcept { return maxPlasticStrain_; }
+    MpmVec2 gridOrigin() const noexcept { return gridOrigin_; }
 
 private:
     // grid
@@ -256,11 +295,16 @@ private:
     void applyBoundaryConditions();
     void resolveColliders();
     void stepOnce(float dt);
+    bool updateGPUSubsteps(float elapsedSeconds);
 
     static float weight(float x, float dx);
     static float dweight(float x, float dx);
     static MpmMat2 polarDecomposition(const MpmMat2& F);
     MpmMat2 firstPiolaKirchhoff(const MpmMat2& Fe);
+
+    // Opaque GPU session (Graphics.MpmCompute); owned when non-null.
+    void* gpuSimulation_ = nullptr;
+    MpmBackend backend_ = MpmBackend::CPU;
 };
 
 } // namespace ArtifactCore

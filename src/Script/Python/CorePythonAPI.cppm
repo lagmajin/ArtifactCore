@@ -5,6 +5,8 @@ module;
 #include <cmath>
 module Script.Python.CoreAPI;
 
+import Container.NamedVector;
+
 import Script.Python.Engine;
 
 namespace ArtifactCore {
@@ -55,11 +57,11 @@ void CorePythonAPI::setCompositionBridge(CompositionBridge bridge) {
             if (args.empty() || !g_compositionBridge) {
                 return "{\"success\":false,\"message\":\"Composition bridge unavailable\"}";
             }
-            std::vector<std::string> parameters;
+            NamedVector<std::string> parameters;
             if (args.size() > 1) {
                 parameters.assign(args.begin() + 1, args.end());
             }
-            return g_compositionBridge(args.front(), parameters);
+            return g_compositionBridge(args.front(), parameters.toStdVector());
         });
 }
 

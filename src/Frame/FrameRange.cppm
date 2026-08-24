@@ -14,6 +14,7 @@ import Frame.Position;
 import Frame.Offset;
 import Frame.Rate;
 import Time.Rational;
+import Time.Code;
 import Serialization.JsonAdapter;
 import Serialization.SchemaMigration;
 
@@ -363,34 +364,36 @@ namespace ArtifactCore {
  QString FrameRange::toTimecode(double fps) const {
   if (!std::isfinite(fps) || fps <= 0.0) return QString();
 
-  const int nominalFps = std::max(1, static_cast<int>(std::llround(fps)));
-  auto formatTime = [nominalFps](int64_t frame) {
+  auto formatTime = [fps](int64_t frame) {
    const bool negative = frame < 0;
-   uint64_t absolute = negative
-       ? static_cast<uint64_t>(-(frame + 1)) + 1u
-       : static_cast<uint64_t>(frame);
-   const uint64_t framesPerHour = static_cast<uint64_t>(nominalFps) * 3600u;
-   const uint64_t framesPerMinute = static_cast<uint64_t>(nominalFps) * 60u;
-   const int hours = static_cast<int>(absolute / framesPerHour);
-   absolute %= framesPerHour;
-   const int minutes = static_cast<int>(absolute / framesPerMinute);
-   absolute %= framesPerMinute;
-   const int secs = static_cast<int>(absolute / static_cast<uint64_t>(nominalFps));
-   const int frames = static_cast<int>(absolute % static_cast<uint64_t>(nominalFps));
-
-   const QString code = QString("%1:%2:%3:%4")
-    .arg(hours, 2, 10, QChar('0'))
-    .arg(minutes, 2, 10, QChar('0'))
-    .arg(secs, 2, 10, QChar('0'))
-    .arg(frames, 2, 10, QChar('0'));
-   return negative ? QStringLiteral("-") + code : code;
+   const int64_t magnitude = negative ? -frame : frame;
+   TimeCode code(static_cast<int>(std::clamp<int64_t>(
+       magnitude, std::numeric_limits<int>::min(),
+       std::numeric_limits<int>::max())), fps);
+   const QString text = code.toString();
+   return negative ? QStringLiteral("-") + text : text;
   };
 
   return formatTime(impl_->start_) + QStringLiteral(" - ") + formatTime(impl_->end_);
  }
 
  QString FrameRange::toTimecode(const FrameRate& rate) const {
-  return toTimecode(rate.framerate());
+  if (rate.framerate() <= 0.0f) return QString();
+
+  const bool drop = rate.hasDropframe();
+  auto formatTime = [rate, drop](int64_t frame) {
+   const bool negative = frame < 0;
+   const int64_t magnitude = negative ? -frame : frame;
+   TimeCode code(static_cast<int>(std::clamp<int64_t>(
+       magnitude, std::numeric_limits<int>::min(),
+       std::numeric_limits<int>::max())),
+       static_cast<double>(rate.exactFps()));
+   code.setDropFrame(drop);
+   const QString text = code.toString();
+   return negative ? QStringLiteral("-") + text : text;
+  };
+
+  return formatTime(impl_->start_) + QStringLiteral(" - ") + formatTime(impl_->end_);
  }
 
  // �V���A���C�Y

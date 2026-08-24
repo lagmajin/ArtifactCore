@@ -102,16 +102,17 @@ void AudioParametricEQ::process(AudioSegment& segment, const AudioSegment* /*sid
 }
 
 std::vector<EffectParameter> AudioParametricEQ::getParameters() const {
-    std::vector<EffectParameter> parameters;
+    NamedVector<EffectParameter> parameters{
+        makeNamedVector<EffectParameter>(ContainerName{"AudioParametricEQParameters"})};
     parameters.reserve(bands_.size() * 3);
     for (size_t index = 0; index < bands_.size(); ++index) {
         const auto& band = bands_[index];
         const std::string prefix = "band" + std::to_string(index) + ".";
-        parameters.push_back({String(prefix + "frequency"), String(prefix + "Frequency"), 1.0f, 24000.0f, band.frequency, band.frequency});
-        parameters.push_back({String(prefix + "gainDb"), String(prefix + "Gain (dB)"), -48.0f, 48.0f, band.gainDb, band.gainDb});
-        parameters.push_back({String(prefix + "qFactor"), String(prefix + "Q"), 0.1f, 10.0f, band.qFactor, band.qFactor});
+        parameters.append({String(prefix + "frequency"), String(prefix + "Frequency"), 1.0f, 24000.0f, band.frequency, band.frequency});
+        parameters.append({String(prefix + "gainDb"), String(prefix + "Gain (dB)"), -48.0f, 48.0f, band.gainDb, band.gainDb});
+        parameters.append({String(prefix + "qFactor"), String(prefix + "Q"), 0.1f, 10.0f, band.qFactor, band.qFactor});
     }
-    return parameters;
+    return parameters.toStdVector();
 }
 
 void AudioParametricEQ::setParameterValue(const String& id, float value) {
@@ -168,7 +169,7 @@ void AudioParametricEQ::fromJson(const QJsonObject& object) {
         if (!std::isfinite(band.frequency)) band.frequency = 1000.0f;
         if (!std::isfinite(band.gainDb)) band.gainDb = 0.0f;
         if (!std::isfinite(band.qFactor)) band.qFactor = 1.0f;
-        bands_.push_back(band);
+        bands_.append(band);
     }
     delayedState_.clear();
 }

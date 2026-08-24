@@ -43,6 +43,8 @@ module;
 #include <QString>
 module Render.Queue.Manager;
 
+import Container.NamedVector;
+
 import Render.Settings;
 import Render.JobModel;
 import Memory.TrackedPtr;
@@ -121,7 +123,7 @@ namespace ArtifactCore {
       std::size_t mfrMemoryLimitMB = 0;
       int mfrRetryBackoffMs = 0;
     };
-    std::vector<JobSnapshot> jobs;
+    NamedVector<JobSnapshot> jobs;
     QMetaObject::invokeMethod(
         model,
         [model, &jobs]() {

@@ -6,6 +6,9 @@ module;
 #include <limits>
 module Frame.Position;
 
+import Frame.Rate;
+import Time.Rational;
+
 namespace ArtifactCore {
 
 class FramePosition::Impl {
@@ -156,6 +159,36 @@ FramePosition FramePosition::fromSeconds(double seconds, double fps)
   return FramePosition(0);
  }
  return FramePosition(static_cast<int64_t>(std::llround(seconds * fps)));
+}
+
+RationalTime FramePosition::toRationalTime(const FrameRate& rate) const
+{
+ const std::int64_t frame = impl_ ? impl_->frame : 0;
+ if (rate.hasExactRational()) {
+  // frame / (num/den) == frame * den / num.
+  return RationalTime(frame * rate.denominator(), rate.numerator());
+ }
+ const std::int64_t nominal =
+     std::max<std::int64_t>(1, static_cast<std::int64_t>(std::llround(rate.framerate())));
+ return RationalTime(frame, nominal);
+}
+
+FramePosition FramePosition::fromRationalTime(const RationalTime& rationalTime,
+                                              const FrameRate& rate)
+{
+ if (rate.framerate() <= 0.0f) {
+  return FramePosition(0);
+ }
+ if (rate.hasExactRational()) {
+  // value/scale frames at num/den fps: seconds = value/scale, frame = seconds*num/den.
+  const double exact = static_cast<double>(rationalTime.value()) *
+                       static_cast<double>(rate.numerator()) /
+                       static_cast<double>(rationalTime.scale() * rate.denominator());
+  return FramePosition(static_cast<int64_t>(std::llround(exact)));
+ }
+ const std::int64_t nominal =
+     std::max<std::int64_t>(1, static_cast<std::int64_t>(std::llround(rate.framerate())));
+ return FramePosition(rationalTime.rescaledTo(nominal));
 }
 
 FramePosition FramePosition::min()

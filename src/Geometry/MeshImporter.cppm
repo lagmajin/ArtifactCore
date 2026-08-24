@@ -1,5 +1,8 @@
 module;
 #include <memory>
+#include <algorithm>
+#include <cmath>
+#include <numeric>
 #include <utility>
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -10,6 +13,7 @@ module;
 #include <QFile>
 #include <QFileInfo>
 #include <QIODevice>
+#include <QHash>
 #include <QByteArray>
 #include <QRegularExpression>
 #include <QString>
@@ -221,7 +225,9 @@ public:
     }
   }
 
-  SharedPtr<Mesh> loadWithUfbx(const QString &path) {
+  SharedPtr<Mesh> loadWithUfbx(const QString &path,
+                              const double evaluationTime = -1.0,
+                              const int clipIndex = 0) {
     lastBackend_ = MeshImporter::Backend::Ufbx;
     lastError_.clear();
     lastBaseColorTexture_.clear();
@@ -261,14 +267,62 @@ public:
       return nullptr;
     }
 
+    // Evaluate an animation stack before extracting skin clusters. The
+    // default import path keeps the source scene untouched; timed imports
+    // receive the evaluated node transforms used by geometry_to_world.
+    ufbx_scene* sourceScene = scene;
+    if (scene->anim_stacks.count > 0 &&
+        (evaluationTime >= 0.0 || !std::isfinite(evaluationTime))) {
+      const int requestedClip = std::max(0, clipIndex);
+      const ufbx_anim_stack* stack = nullptr;
+      const ufbx_anim_stack* lastValidStack = nullptr;
+      int validClipIndex = 0;
+      for (size_t stackIndex = 0; stackIndex < scene->anim_stacks.count;
+           ++stackIndex) {
+        const ufbx_anim_stack* candidate = scene->anim_stacks[stackIndex];
+        if (!candidate) continue;
+        lastValidStack = candidate;
+        if (validClipIndex == requestedClip) {
+          stack = candidate;
+          break;
+        }
+        ++validClipIndex;
+      }
+      if (!stack) stack = lastValidStack;
+      if (stack && stack->anim) {
+        const double clipBegin = std::min(stack->time_begin,
+                                          stack->time_end);
+        const double clipEnd = std::max(stack->time_begin,
+                                        stack->time_end);
+        const double requestedTime = std::isfinite(evaluationTime)
+            ? evaluationTime
+            : clipBegin;
+        const double sampleTime = std::clamp(
+            requestedTime, clipBegin, clipEnd);
+        ufbx_evaluate_opts evaluateOpts = {};
+        ufbx_error evaluateError;
+        if (ufbx_scene* evaluated = ufbx_evaluate_scene(
+                scene, stack->anim, sampleTime, &evaluateOpts, &evaluateError)) {
+          scene = evaluated;
+        } else {
+          qWarning() << backendLabel << "animation evaluation failed at"
+                     << sampleTime << ":" << evaluateError.description.data;
+        }
+      }
+    }
+
     auto mesh = makeShared<Mesh>();
+    Mesh::SkinningMethod importedSkinningMethod =
+        Mesh::SkinningMethod::LinearBlend;
     int totalVertices = 0;
     for (size_t i = 0; i < scene->meshes.count; ++i) {
-      totalVertices += (int)scene->meshes[i]->num_indices;
+      const ufbx_mesh* srcMesh = scene->meshes[i];
+      if (srcMesh) totalVertices += static_cast<int>(srcMesh->num_indices);
     }
 
     if (totalVertices == 0) {
       ufbx_free_scene(scene);
+      if (sourceScene != scene) ufbx_free_scene(sourceScene);
       lastError_ = QStringLiteral("%1: no mesh data").arg(backendLabel);
       qWarning() << backendLabel << "loaded empty mesh:" << path;
       return nullptr;
@@ -280,9 +334,399 @@ public:
     auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
     auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
 
+    // ufbx exposes skinning weights per logical source vertex. Keep the
+    // existing Mesh attribute contract used by PMD and retain up to eight
+    // strongest influences per vertex across the primary and extra packed
+    // attributes. Indices are mapped to the global Mesh::SkinBone palette.
+    auto boneIndicesAttr = mesh->vertexAttributes().add<QVector4D>("boneIndices");
+    auto boneWeightsAttr = mesh->vertexAttributes().add<QVector4D>("boneWeights");
+    auto boneIndicesExtraAttr =
+        mesh->vertexAttributes().add<QVector4D>("boneIndicesExtra");
+    auto boneWeightsExtraAttr =
+        mesh->vertexAttributes().add<QVector4D>("boneWeightsExtra");
+    // Flattened ufbx meshes retain the source deformer method per vertex so
+    // one DQ mesh cannot change the evaluation mode of a neighboring mesh.
+    auto skinDQWeightAttr = mesh->vertexAttributes().add<float>("skinDQWeight");
+    auto skinMethodAttr = mesh->vertexAttributes().add<float>("skinMethod");
+    for (int i = 0; i < totalVertices; ++i) {
+      (*boneIndicesAttr)[i] = QVector4D(-1.0f, -1.0f, -1.0f, -1.0f);
+      (*boneWeightsAttr)[i] = QVector4D(0.0f, 0.0f, 0.0f, 0.0f);
+      (*boneIndicesExtraAttr)[i] = QVector4D(-1.0f, -1.0f, -1.0f, -1.0f);
+      (*boneWeightsExtraAttr)[i] = QVector4D(0.0f, 0.0f, 0.0f, 0.0f);
+      (*skinDQWeightAttr)[i] = 0.0f;
+      (*skinMethodAttr)[i] = 0.0f;
+    }
+    QVector<Mesh::BlendShape> blendShapes;
+    QHash<QString, int> blendShapeIndices;
+    const auto ensureBlendShape = [&](const QString& name,
+                                      const float weight) {
+      const QString normalizedName = name.isEmpty()
+          ? QStringLiteral("BlendShape %1").arg(blendShapes.size() + 1)
+          : name;
+      const auto existing = blendShapeIndices.constFind(normalizedName);
+      if (existing != blendShapeIndices.cend()) {
+        blendShapes[existing.value()].weight = std::max(
+            blendShapes[existing.value()].weight, weight);
+        return existing.value();
+      }
+      Mesh::BlendShape shape;
+      shape.name = normalizedName;
+      shape.weight = weight;
+      shape.positionOffsets.resize(totalVertices);
+      shape.normalOffsets.resize(totalVertices);
+      const int index = blendShapes.size();
+      blendShapeIndices.insert(normalizedName, index);
+      blendShapes.push_back(std::move(shape));
+      return index;
+    };
+
+    auto toQMatrix = [](const ufbx_matrix& source) {
+      QMatrix4x4 result;
+      result.setColumn(0, QVector4D(source.m00, source.m10, source.m20, 0.0f));
+      result.setColumn(1, QVector4D(source.m01, source.m11, source.m21, 0.0f));
+      result.setColumn(2, QVector4D(source.m02, source.m12, source.m22, 0.0f));
+      result.setColumn(3, QVector4D(source.m03, source.m13, source.m23, 1.0f));
+      return result;
+    };
+
+    QVector<Mesh::SkinBone> skinBones;
+    QHash<const ufbx_skin_cluster*, int> boneClusterIndices;
+    QHash<uint32_t, int> boneClusterElementIndices;
+    QHash<const ufbx_node*, int> firstBoneNodeIndices;
+    for (size_t i = 0; i < scene->skin_clusters.count; ++i) {
+      const ufbx_skin_cluster* cluster = scene->skin_clusters[i];
+      if (!cluster || !cluster->bone_node ||
+          boneClusterIndices.contains(cluster)) continue;
+      Mesh::SkinBone bone;
+      bone.name = ufbxStringToQString(cluster->bone_node->name);
+      bone.bindMatrix = toQMatrix(cluster->geometry_to_bone);
+      bone.poseMatrix = toQMatrix(cluster->geometry_to_world);
+      const int boneIndex = static_cast<int>(skinBones.size());
+      boneClusterIndices.insert(cluster, boneIndex);
+      boneClusterElementIndices.insert(cluster->element_id, boneIndex);
+      if (!firstBoneNodeIndices.contains(cluster->bone_node)) {
+        firstBoneNodeIndices.insert(cluster->bone_node, boneIndex);
+      }
+      skinBones.push_back(bone);
+    }
+    for (auto it = firstBoneNodeIndices.cbegin();
+         it != firstBoneNodeIndices.cend(); ++it) {
+      const ufbx_node* parent = it.key()->parent;
+      while (parent) {
+        auto parentIt = firstBoneNodeIndices.constFind(parent);
+        if (parentIt != firstBoneNodeIndices.cend()) {
+          skinBones[it.value()].parentIndex = parentIt.value();
+          break;
+        }
+        parent = parent->parent;
+      }
+    }
+    mesh->setSkinBones(skinBones);
+
+    QVector<Mesh::SkinAnimationClip> animationClips;
+    animationClips.reserve(static_cast<qsizetype>(scene->anim_stacks.count));
+    for (size_t i = 0; i < scene->anim_stacks.count; ++i) {
+      const ufbx_anim_stack* stack = scene->anim_stacks[i];
+      if (!stack) continue;
+      Mesh::SkinAnimationClip clip;
+      clip.name = ufbxStringToQString(stack->name);
+      clip.timeBegin = std::min(stack->time_begin, stack->time_end);
+      clip.timeEnd = std::max(stack->time_begin, stack->time_end);
+      animationClips.push_back(std::move(clip));
+    }
+    mesh->setSkinAnimationClips(animationClips);
+
     int vertexOffset = 0;
+    bool warnedNonLinearSkinning = false;
+    bool warnedInfluenceTruncation = false;
     for (size_t i = 0; i < scene->meshes.count; ++i) {
       ufbx_mesh *srcMesh = scene->meshes[i];
+      if (!srcMesh || srcMesh->num_indices == 0) continue;
+
+      // The importer flattens all source meshes into one Mesh. Keep skin
+      // weights in logical-vertex space until each face corner is expanded;
+      // ufbx's vertex_indices maps the latter back to the former.
+      QVector<QVector4D> sourceBoneIndices;
+      QVector<QVector4D> sourceBoneWeights;
+      QVector<QVector4D> sourceBoneIndicesExtra;
+      QVector<QVector4D> sourceBoneWeightsExtra;
+      QVector<float> sourceDQWeights;
+      QVector<float> sourceSkinMethods;
+      QVector<QVector<QVector3D>> sourceBlendPositionOffsets;
+      QVector<QVector<QVector3D>> sourceBlendNormalOffsets;
+      sourceBlendPositionOffsets.resize(blendShapes.size());
+      sourceBlendNormalOffsets.resize(blendShapes.size());
+      for (auto& offsets : sourceBlendPositionOffsets) {
+        offsets.resize(static_cast<qsizetype>(srcMesh->vertices.count));
+      }
+      for (auto& offsets : sourceBlendNormalOffsets) {
+        offsets.resize(static_cast<qsizetype>(srcMesh->vertices.count));
+      }
+      QVector<const ufbx_blend_shape*> collectedBlendShapes;
+      for (size_t deformerIndex = 0;
+           deformerIndex < srcMesh->blend_deformers.count;
+           ++deformerIndex) {
+        const ufbx_blend_deformer* deformer =
+            srcMesh->blend_deformers[deformerIndex];
+        if (!deformer) continue;
+        for (size_t channelIndex = 0;
+             channelIndex < deformer->channels.count; ++channelIndex) {
+          const ufbx_blend_channel* channel = deformer->channels[channelIndex];
+          if (!channel) continue;
+          struct BlendShapeRef {
+            const ufbx_blend_shape* shape = nullptr;
+            float weight = 0.0f;
+          };
+          QVector<BlendShapeRef> shapes;
+          if (channel->target_shape) {
+            shapes.push_back({channel->target_shape,
+                              static_cast<float>(channel->weight)});
+          }
+          for (size_t keyframeIndex = 0;
+               keyframeIndex < channel->keyframes.count; ++keyframeIndex) {
+            const ufbx_blend_keyframe& keyframe =
+                channel->keyframes[keyframeIndex];
+            if (keyframe.shape) {
+              bool alreadyReferenced = false;
+              for (const BlendShapeRef& existing : shapes) {
+                if (existing.shape == keyframe.shape) {
+                  alreadyReferenced = true;
+                  break;
+                }
+              }
+              if (alreadyReferenced) continue;
+              shapes.push_back({keyframe.shape,
+                                static_cast<float>(keyframe.effective_weight)});
+            }
+          }
+          for (const BlendShapeRef& shapeRef : shapes) {
+            const ufbx_blend_shape* shape = shapeRef.shape;
+            if (!shape || !std::isfinite(shapeRef.weight) ||
+                shapeRef.weight == 0.0f) continue;
+            const int shapeIndex = ensureBlendShape(
+                ufbxStringToQString(shape->name),
+                shapeRef.weight);
+            if (std::find(collectedBlendShapes.cbegin(),
+                          collectedBlendShapes.cend(), shape) !=
+                collectedBlendShapes.cend()) {
+              continue;
+            }
+            collectedBlendShapes.push_back(shape);
+            while (sourceBlendPositionOffsets.size() <= shapeIndex) {
+              sourceBlendPositionOffsets.push_back(QVector<QVector3D>(
+                  static_cast<qsizetype>(srcMesh->vertices.count)));
+              sourceBlendNormalOffsets.push_back(QVector<QVector3D>(
+                  static_cast<qsizetype>(srcMesh->vertices.count)));
+            }
+            for (size_t offsetIndex = 0;
+                 offsetIndex < shape->num_offsets; ++offsetIndex) {
+              if (offsetIndex >= shape->offset_vertices.count ||
+                  offsetIndex >= shape->position_offsets.count) break;
+              const size_t sourceVertex = shape->offset_vertices[offsetIndex];
+              if (sourceVertex >= srcMesh->vertices.count) continue;
+              const ufbx_vec3 offset = shape->position_offsets[offsetIndex];
+              sourceBlendPositionOffsets[shapeIndex][
+                  static_cast<qsizetype>(sourceVertex)] +=
+                  QVector3D(offset.x, offset.y, offset.z);
+              if (offsetIndex < shape->normal_offsets.count) {
+                const ufbx_vec3 normalOffset = shape->normal_offsets[offsetIndex];
+                sourceBlendNormalOffsets[shapeIndex][
+                    static_cast<qsizetype>(sourceVertex)] +=
+                    QVector3D(normalOffset.x, normalOffset.y, normalOffset.z);
+              }
+            }
+          }
+        }
+      }
+      while (sourceBlendPositionOffsets.size() < blendShapes.size()) {
+        sourceBlendPositionOffsets.push_back(QVector<QVector3D>(
+            static_cast<qsizetype>(srcMesh->vertices.count)));
+        sourceBlendNormalOffsets.push_back(QVector<QVector3D>(
+            static_cast<qsizetype>(srcMesh->vertices.count)));
+      }
+      if (srcMesh->skin_deformers.count > 0) {
+        const size_t sourceVertexCount = srcMesh->vertices.count;
+        sourceBoneIndices.resize(static_cast<qsizetype>(sourceVertexCount),
+                                 QVector4D(-1.0f, -1.0f, -1.0f, -1.0f));
+        sourceBoneWeights.resize(static_cast<qsizetype>(sourceVertexCount),
+                                 QVector4D(0.0f, 0.0f, 0.0f, 0.0f));
+        sourceBoneIndicesExtra.resize(static_cast<qsizetype>(sourceVertexCount),
+                                      QVector4D(-1.0f, -1.0f, -1.0f, -1.0f));
+        sourceBoneWeightsExtra.resize(static_cast<qsizetype>(sourceVertexCount),
+                                      QVector4D(0.0f, 0.0f, 0.0f, 0.0f));
+        sourceDQWeights.resize(static_cast<qsizetype>(sourceVertexCount), 0.0f);
+        sourceSkinMethods.resize(static_cast<qsizetype>(sourceVertexCount), 0.0f);
+        for (size_t deformerIndex = 0;
+             deformerIndex < srcMesh->skin_deformers.count;
+             ++deformerIndex) {
+          const ufbx_skin_deformer* skin =
+              srcMesh->skin_deformers[deformerIndex];
+          if (skin &&
+              (skin->skinning_method ==
+                   UFBX_SKINNING_METHOD_DUAL_QUATERNION ||
+               skin->skinning_method ==
+                   UFBX_SKINNING_METHOD_BLENDED_DQ_LINEAR)) {
+            if (!warnedNonLinearSkinning) {
+              qWarning() << "[MeshImporter]" << backendLabel
+                         << "uses non-linear skinning; preserving CPU deformer method";
+              warnedNonLinearSkinning = true;
+            }
+            const auto detectedMethod =
+                skin->skinning_method ==
+                        UFBX_SKINNING_METHOD_BLENDED_DQ_LINEAR
+                    ? Mesh::SkinningMethod::BlendedDualQuaternion
+                    : Mesh::SkinningMethod::DualQuaternion;
+            if (detectedMethod ==
+                    Mesh::SkinningMethod::BlendedDualQuaternion ||
+                importedSkinningMethod ==
+                    Mesh::SkinningMethod::LinearBlend ||
+                importedSkinningMethod == Mesh::SkinningMethod::Rigid) {
+              importedSkinningMethod = detectedMethod;
+            }
+          } else if (skin && skin->skinning_method ==
+                         UFBX_SKINNING_METHOD_RIGID &&
+                     importedSkinningMethod ==
+                         Mesh::SkinningMethod::LinearBlend) {
+            importedSkinningMethod = Mesh::SkinningMethod::Rigid;
+          }
+          if (skin && skin->skinning_method ==
+                         UFBX_SKINNING_METHOD_BLENDED_DQ_LINEAR) {
+            for (size_t sourceVertex = 0;
+                 sourceVertex < sourceVertexCount &&
+                 sourceVertex < skin->vertices.count; ++sourceVertex) {
+              const double dqWeight = static_cast<double>(
+                  skin->vertices[sourceVertex].dq_weight);
+              if (std::isfinite(dqWeight)) {
+                const float clampedWeight = static_cast<float>(
+                    std::clamp(dqWeight, 0.0, 1.0));
+                sourceDQWeights[static_cast<qsizetype>(sourceVertex)] =
+                    std::max(sourceDQWeights[static_cast<qsizetype>(sourceVertex)],
+                             clampedWeight);
+              }
+            }
+            for (size_t dqIndex = 0;
+                 dqIndex < skin->num_dq_weights &&
+                 dqIndex < skin->dq_vertices.count &&
+                 dqIndex < skin->dq_weights.count; ++dqIndex) {
+              const size_t sourceVertex = skin->dq_vertices[dqIndex];
+              const double dqWeight =
+                  static_cast<double>(skin->dq_weights[dqIndex]);
+              if (sourceVertex < sourceVertexCount &&
+                  std::isfinite(dqWeight)) {
+                const float clampedWeight = static_cast<float>(
+                    std::clamp(dqWeight, 0.0, 1.0));
+                sourceDQWeights[static_cast<qsizetype>(sourceVertex)] =
+                    std::max(sourceDQWeights[static_cast<qsizetype>(sourceVertex)],
+                             clampedWeight);
+              }
+            }
+          }
+        }
+        float meshSkinMethod = 0.0f;
+        for (size_t deformerIndex = 0;
+             deformerIndex < srcMesh->skin_deformers.count;
+             ++deformerIndex) {
+          const ufbx_skin_deformer* skin =
+              srcMesh->skin_deformers[deformerIndex];
+          if (!skin) continue;
+          const float method =
+              skin->skinning_method == UFBX_SKINNING_METHOD_BLENDED_DQ_LINEAR
+                  ? 3.0f
+                  : skin->skinning_method == UFBX_SKINNING_METHOD_DUAL_QUATERNION
+                      ? 2.0f
+                      : skin->skinning_method == UFBX_SKINNING_METHOD_RIGID
+                          ? 1.0f : 0.0f;
+          meshSkinMethod = std::max(meshSkinMethod, method);
+        }
+        std::fill(sourceSkinMethods.begin(), sourceSkinMethods.end(),
+                  meshSkinMethod);
+        for (size_t sourceVertex = 0;
+             sourceVertex < sourceVertexCount;
+             ++sourceVertex) {
+          QVector<int> indices;
+          QVector<float> weights;
+          for (size_t deformerIndex = 0;
+               deformerIndex < srcMesh->skin_deformers.count;
+               ++deformerIndex) {
+            const ufbx_skin_deformer* skin =
+                srcMesh->skin_deformers[deformerIndex];
+            if (!skin || sourceVertex >= skin->vertices.count) continue;
+            const ufbx_skin_vertex vertex = skin->vertices[sourceVertex];
+            for (size_t wi = 0; wi < vertex.num_weights; ++wi) {
+              const size_t weightIndex = vertex.weight_begin + wi;
+              if (weightIndex >= skin->weights.count) break;
+              const ufbx_skin_weight influence = skin->weights[weightIndex];
+              if (influence.cluster_index >= skin->clusters.count ||
+                  !std::isfinite(static_cast<double>(influence.weight)) ||
+                  influence.weight <= 0.0) continue;
+              const ufbx_skin_cluster* cluster =
+                  skin->clusters[influence.cluster_index];
+              int boneIndex = -1;
+              if (cluster) {
+                const auto boneIt = boneClusterIndices.constFind(cluster);
+                if (boneIt != boneClusterIndices.cend()) {
+                  boneIndex = boneIt.value();
+                } else {
+                  const auto elementIt =
+                      boneClusterElementIndices.constFind(cluster->element_id);
+                  if (elementIt != boneClusterElementIndices.cend()) {
+                    boneIndex = elementIt.value();
+                  }
+                }
+              }
+              if (boneIndex < 0) continue;
+              const int existing = indices.indexOf(boneIndex);
+              if (existing >= 0) {
+                weights[existing] += static_cast<float>(influence.weight);
+              } else {
+                indices.push_back(boneIndex);
+                weights.push_back(static_cast<float>(influence.weight));
+              }
+            }
+          }
+          // ufbx returns each deformer sorted by local influence strength;
+          // preserve a compact deterministic eight-influence palette here.
+          if (indices.size() > 8 && !warnedInfluenceTruncation) {
+            qWarning() << "[MeshImporter]" << backendLabel
+                       << "has vertices with more than eight skin influences;"
+                       << "weakest influences will be truncated";
+            warnedInfluenceTruncation = true;
+          }
+          while (indices.size() > 8) {
+            int weakest = 0;
+            for (int influence = 1; influence < weights.size(); ++influence) {
+              if (weights[influence] < weights[weakest]) weakest = influence;
+            }
+            indices.removeAt(weakest);
+            weights.removeAt(weakest);
+          }
+          const float totalWeight = std::accumulate(weights.cbegin(), weights.cend(), 0.0f);
+          if (std::isfinite(totalWeight) && totalWeight > 0.0f) {
+            QVector4D packedIndices(-1.0f, -1.0f, -1.0f, -1.0f);
+            QVector4D packedWeights(0.0f, 0.0f, 0.0f, 0.0f);
+            QVector4D packedIndicesExtra(-1.0f, -1.0f, -1.0f, -1.0f);
+            QVector4D packedWeightsExtra(0.0f, 0.0f, 0.0f, 0.0f);
+            for (int influence = 0; influence < indices.size(); ++influence) {
+              if (influence < 4) {
+                packedIndices[influence] = static_cast<float>(indices[influence]);
+                packedWeights[influence] = weights[influence] / totalWeight;
+              } else {
+                packedIndicesExtra[influence - 4] =
+                    static_cast<float>(indices[influence]);
+                packedWeightsExtra[influence - 4] =
+                    weights[influence] / totalWeight;
+              }
+            }
+            sourceBoneIndices[static_cast<qsizetype>(sourceVertex)] = packedIndices;
+            sourceBoneWeights[static_cast<qsizetype>(sourceVertex)] = packedWeights;
+            sourceBoneIndicesExtra[static_cast<qsizetype>(sourceVertex)] =
+                packedIndicesExtra;
+            sourceBoneWeightsExtra[static_cast<qsizetype>(sourceVertex)] =
+                packedWeightsExtra;
+          }
+        }
+      }
+
       for (size_t f = 0; f < srcMesh->num_faces; ++f) {
         ufbx_face face = srcMesh->faces[f];
         QVector<int> polyIndices;
@@ -292,11 +736,61 @@ public:
           size_t idx = face.index_begin + vi;
           int outIdx = vertexOffset + (int)idx;
 
+          if (idx < srcMesh->vertex_indices.count) {
+            const size_t sourceIndex = srcMesh->vertex_indices[idx];
+            if (!sourceBoneIndices.isEmpty() &&
+                sourceIndex < static_cast<size_t>(sourceBoneIndices.size())) {
+              (*boneIndicesAttr)[outIdx] =
+                  sourceBoneIndices[static_cast<qsizetype>(sourceIndex)];
+              (*boneWeightsAttr)[outIdx] =
+                  sourceBoneWeights[static_cast<qsizetype>(sourceIndex)];
+              (*boneIndicesExtraAttr)[outIdx] =
+                  sourceBoneIndicesExtra[static_cast<qsizetype>(sourceIndex)];
+              (*boneWeightsExtraAttr)[outIdx] =
+                  sourceBoneWeightsExtra[static_cast<qsizetype>(sourceIndex)];
+              if (sourceIndex < static_cast<size_t>(sourceDQWeights.size())) {
+                (*skinDQWeightAttr)[outIdx] =
+                    sourceDQWeights[static_cast<qsizetype>(sourceIndex)];
+              }
+              if (sourceIndex < static_cast<size_t>(sourceSkinMethods.size())) {
+                (*skinMethodAttr)[outIdx] =
+                    sourceSkinMethods[static_cast<qsizetype>(sourceIndex)];
+              }
+            }
+            if (sourceIndex < srcMesh->vertices.count) {
+              for (int shapeIndex = 0;
+                   shapeIndex < blendShapes.size(); ++shapeIndex) {
+                if (shapeIndex < sourceBlendPositionOffsets.size() &&
+                    sourceIndex < static_cast<size_t>(
+                        sourceBlendPositionOffsets[shapeIndex].size())) {
+                  blendShapes[shapeIndex].positionOffsets[outIdx] =
+                      sourceBlendPositionOffsets[shapeIndex][
+                          static_cast<qsizetype>(sourceIndex)];
+                  blendShapes[shapeIndex].normalOffsets[outIdx] =
+                      sourceBlendNormalOffsets[shapeIndex][
+                          static_cast<qsizetype>(sourceIndex)];
+                }
+              }
+            }
+          }
+
           ufbx_vec3 pos = ufbx_get_vertex_vec3(&srcMesh->vertex_position, idx);
-          (*posAttr)[outIdx] = QVector3D(pos.x, pos.y, pos.z);
+          QVector3D position(pos.x, pos.y, pos.z);
+          if (!std::isfinite(position.x()) ||
+              !std::isfinite(position.y()) ||
+              !std::isfinite(position.z())) {
+            position = QVector3D(0, 0, 0);
+          }
+          (*posAttr)[outIdx] = position;
 
           ufbx_vec3 norm = ufbx_get_vertex_vec3(&srcMesh->vertex_normal, idx);
-          (*normAttr)[outIdx] = QVector3D(norm.x, norm.y, norm.z);
+          QVector3D normal(norm.x, norm.y, norm.z);
+          if (!std::isfinite(normal.x()) || !std::isfinite(normal.y()) ||
+              !std::isfinite(normal.z()) ||
+              normal.lengthSquared() <= 1.0e-12f) {
+            normal = QVector3D(0, 1, 0);
+          }
+          (*normAttr)[outIdx] = normal;
 
           if (srcMesh->vertex_uv.exists) {
             ufbx_vec2 uv = ufbx_get_vertex_vec2(&srcMesh->vertex_uv, idx);
@@ -318,8 +812,12 @@ public:
       vertexOffset += (int)srcMesh->num_indices;
     }
 
+    mesh->setSkinningMethod(importedSkinningMethod);
+    mesh->setBlendShapes(blendShapes);
+    mesh->applyBlendShapes();
     detectTexturesFromUfbx(path, scene);
     ufbx_free_scene(scene);
+    if (sourceScene != scene) ufbx_free_scene(sourceScene);
     mesh->updateBounds();
     return mesh;
   }
@@ -941,7 +1439,7 @@ SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
     return impl_->loadWithUfbx(qpath);
   }
 
-  if (ext == QStringLiteral("pmd") || ext == QStringLiteral("pmx")) {
+  if (ext == QStringLiteral("pmd")) {
     return impl_->loadPMD(qpath);
   }
 
@@ -977,6 +1475,17 @@ SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
   impl_->lastError_ =
       QStringLiteral("unsupported format: %1").arg(QStringView{ext});
   return nullptr;
+}
+
+SharedPtr<Mesh> MeshImporter::importMeshFromFileAtTime(
+    const UniString& path, const double time, const int clipIndex) {
+  const QString qpath = path.toQString();
+  const QString ext = QFileInfo(qpath).suffix().toLower();
+  if (ext == QStringLiteral("fbx") || ext == QStringLiteral("gltf") ||
+      ext == QStringLiteral("glb")) {
+    return impl_->loadWithUfbx(qpath, time, clipIndex);
+  }
+  return importMeshFromFile(path);
 }
 
 MeshImporter::Backend MeshImporter::lastBackend() const {
