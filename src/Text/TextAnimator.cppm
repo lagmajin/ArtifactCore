@@ -812,6 +812,93 @@ void TextAnimatorEngine::applyAnimatorStack(
     }
 }
 
+std::vector<float> TextAnimatorEngine::evaluateAnimatorWeights(
+    const SelectorEvaluationContext &context,
+    const AnimatorSelectorSet &set,
+    std::span<const float> extraWeights)
+{
+    const SelectorResult rangeResult = evaluateSelector(context, set.range);
+    const SelectorResult expressionResult =
+        evaluateExpressionSelector(context, set.expression,
+                                   rangeResult.weights);
+
+    const size_t glyphCount = context.glyphs.size();
+    std::vector<float> combined(glyphCount, 0.0f);
+    for (size_t i = 0; i < glyphCount; ++i) {
+        const float rangeWeight =
+            i < static_cast<size_t>(rangeResult.weights.size())
+                ? rangeResult.weights[static_cast<qsizetype>(i)]
+                : 0.0f;
+        float weight = rangeWeight;
+        if (set.expression.enabled) {
+            const float expressionWeight =
+                i < static_cast<size_t>(expressionResult.weights.size())
+                    ? expressionResult.weights[static_cast<qsizetype>(i)]
+                    : 1.0f;
+            switch (set.combine) {
+                case SelectorCombineMode::Add:
+                    weight = rangeWeight + expressionWeight;
+                    break;
+                case SelectorCombineMode::Subtract:
+                    weight = rangeWeight - expressionWeight;
+                    break;
+                case SelectorCombineMode::Min:
+                    weight = std::min(rangeWeight, expressionWeight);
+                    break;
+                case SelectorCombineMode::Max:
+                    weight = std::max(rangeWeight, expressionWeight);
+                    break;
+                case SelectorCombineMode::Multiply:
+                default:
+                    weight = rangeWeight * expressionWeight;
+                    break;
+            }
+        }
+        const float extraWeight =
+            i < extraWeights.size() ? extraWeights[i] : 1.0f;
+        combined[i] =
+            std::clamp(weight * extraWeight, 0.0f, 1.0f);
+    }
+    return combined;
+}
+
+void TextAnimatorEngine::applyAnimatorSets(
+    std::vector<GlyphItem>& glyphs,
+    std::span<const AnimatorSelectorSet> sets,
+    float time,
+    const QString& sourceText,
+    std::span<const float> extraWeights)
+{
+    if (sets.empty() || glyphs.empty()) {
+        return;
+    }
+
+    for (const auto& set : sets) {
+        const SelectorEvaluationContext context{
+            sourceText,
+            std::span<const GlyphItem>(glyphs.data(), glyphs.size()),
+            TextSelectorOrder::Logical,
+            0,
+            static_cast<int>(glyphs.size())};
+        const std::vector<float> combinedWeights =
+            evaluateAnimatorWeights(context, set, extraWeights);
+
+        // The selector weights already encode the range/shape/order; apply the
+        // properties over a full-range square selector.
+        RangeSelector fullRange = set.range;
+        fullRange.start = 0.0f;
+        fullRange.end = 100.0f;
+        fullRange.offset = 0.0f;
+        fullRange.units = SelectorUnits::Percentage;
+        fullRange.shape = SelectorShape::Square;
+        fullRange.order = SelectorOrder::Natural;
+        fullRange.regexEnabled = false;
+        fullRange.selectorPattern.clear();
+        applyAnimator(glyphs, fullRange, set.wiggly, set.properties, time,
+                      combinedWeights);
+    }
+}
+
 void TextAnimatorEngine::applyAnimatorStack(
     std::vector<GlyphItem>& glyphs,
     std::span<const std::tuple<RangeSelector, WigglySelector,
@@ -824,42 +911,18 @@ void TextAnimatorEngine::applyAnimatorStack(
         return;
     }
 
+    std::vector<AnimatorSelectorSet> sets;
+    sets.reserve(stack.size());
     for (const auto& entry : stack) {
-        const auto& range = std::get<0>(entry);
-        const SelectorEvaluationContext context{
-            sourceText,
-            std::span<const GlyphItem>(glyphs.data(), glyphs.size()),
-            TextSelectorOrder::Logical,
-            0,
-            static_cast<int>(glyphs.size())};
-        const SelectorResult rangeResult = evaluateSelector(context, range);
-        const SelectorResult expressionResult = evaluateExpressionSelector(
-            context, std::get<2>(entry), rangeResult.weights);
-        std::vector<float> combinedWeights(glyphs.size(), 1.0f);
-        for (size_t i = 0; i < combinedWeights.size(); ++i) {
-            const float rangeWeight = i < static_cast<size_t>(rangeResult.weights.size())
-                ? rangeResult.weights[static_cast<qsizetype>(i)] : 0.0f;
-            const float expressionWeight = std::get<2>(entry).enabled &&
-                    i < static_cast<size_t>(expressionResult.weights.size())
-                ? expressionResult.weights[static_cast<qsizetype>(i)] : 1.0f;
-            const float extraWeight = i < extraWeights.size()
-                ? extraWeights[i] : 1.0f;
-            combinedWeights[i] = std::clamp(
-                rangeWeight * expressionWeight * extraWeight, 0.0f, 1.0f);
-        }
-
-        RangeSelector fullRange = range;
-        fullRange.start = 0.0f;
-        fullRange.end = 100.0f;
-        fullRange.offset = 0.0f;
-        fullRange.units = SelectorUnits::Percentage;
-        fullRange.shape = SelectorShape::Square;
-        fullRange.order = SelectorOrder::Natural;
-        fullRange.regexEnabled = false;
-        fullRange.selectorPattern.clear();
-        applyAnimator(glyphs, fullRange, std::get<1>(entry),
-                      std::get<3>(entry), time, combinedWeights);
+        AnimatorSelectorSet set;
+        set.combine = SelectorCombineMode::Multiply; // legacy behavior
+        set.range = std::get<0>(entry);
+        set.wiggly = std::get<1>(entry);
+        set.expression = std::get<2>(entry);
+        set.properties = std::get<3>(entry);
+        sets.push_back(std::move(set));
     }
+    applyAnimatorSets(glyphs, sets, time, sourceText, extraWeights);
 }
 
 } // namespace ArtifactCore

@@ -101,6 +101,15 @@ export struct WigglySelector {
   int seed = 12345;
 };
 
+// 複数セレクターの weight 合成モード（AE の selector stack combine 相当）
+export enum class SelectorCombineMode {
+  Multiply, // 積 (既定: 従来の range * expression 挙動)
+  Add,      // 加算
+  Subtract, // 減算
+  Min,      // 最小
+  Max       // 最大
+};
+
 // Expression selector state. Evaluation is intentionally separate from the
 // existing range/wiggly selector path until the expression contract is wired.
 export struct ExpressionSelector {
@@ -129,6 +138,17 @@ export struct AnimatorProperties {
 
   // 特殊効果
   float blur = 0.0f;
+};
+
+// タプルの代わりに名前付きでセレクター群を保持する構造。
+// 1 animator = 1 AnimatorSelectorSet として扱い、combine モードで
+// range / expression の重み合成方法を明示する。
+export struct AnimatorSelectorSet {
+  SelectorCombineMode combine = SelectorCombineMode::Multiply;
+  RangeSelector range;
+  WigglySelector wiggly;
+  ExpressionSelector expression;
+  AnimatorProperties properties;
 };
 
 export class TextAnimatorEngine {
@@ -191,6 +211,21 @@ public:
       std::vector<GlyphItem> &glyphs,
       std::span<const std::tuple<RangeSelector, WigglySelector,
                                   ExpressionSelector, AnimatorProperties>> stack,
+      float time,
+      const QString &sourceText,
+      std::span<const float> extraWeights = {});
+
+  // Pure evaluation: compose range/expression weights with the set's combine
+  // mode (extra field weights always multiply). No glyph mutation.
+  static std::vector<float> evaluateAnimatorWeights(
+      const SelectorEvaluationContext &context,
+      const AnimatorSelectorSet &set,
+      std::span<const float> extraWeights = {});
+
+  // Named-struct replacement for the tuple-based applyAnimatorStack.
+  static void applyAnimatorSets(
+      std::vector<GlyphItem> &glyphs,
+      std::span<const AnimatorSelectorSet> sets,
       float time,
       const QString &sourceText,
       std::span<const float> extraWeights = {});
