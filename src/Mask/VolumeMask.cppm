@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <opencv2/opencv.hpp>
 module Core.Mask.VolumeMask;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -58,10 +59,11 @@ cv::Mat VolumeMaskGenerator::computeAlphaMask(
         return t;
     };
 
-    for (int y = 0; y < h; ++y) {
+    Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         const float* rowDist = distanceField.ptr<float>(y);
         float* rowAlpha = alpha.ptr<float>(y);
-        for (int x = 0; x < w; ++x) {
+        for (int x = x0; x < x1; ++x) {
             const float dist = rowDist[x];
             float a;
             if (dist < 0.0f) {
@@ -73,6 +75,7 @@ cv::Mat VolumeMaskGenerator::computeAlphaMask(
             rowAlpha[x] = a;
         }
     }
+    });
 
     if (settings.invert) {
         cv::subtract(cv::Scalar(1.0f), alpha, alpha);

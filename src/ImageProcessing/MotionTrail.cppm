@@ -57,9 +57,10 @@ void MotionTrail::process(float4* buffer, int width, int height, const MotionTra
     float intensity = std::clamp(settings.intensity, 0.0f, 1.0f);
 
     // 2. Perform temporal blending
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
         const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
-        for (int x = 0; x < width; ++x) {
+        for (int x = x0; x < x1; ++x) {
             const size_t i = rowStart + static_cast<size_t>(x);
             size_t offset = i * 4;
         
@@ -122,6 +123,7 @@ void MotionTrail::process(float4* buffer, int width, int height, const MotionTra
         history_raw[offset + 1] = g_out;
         history_raw[offset + 2] = b_out;
         history_raw[offset + 3] = a_out;
+        }
         }
     });
 }

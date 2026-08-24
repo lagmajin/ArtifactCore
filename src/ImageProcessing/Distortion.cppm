@@ -4,6 +4,7 @@ module;
 #include <algorithm>
 #include <functional>
 #include <cstdint>
+#include <vector>
 
 module ImageProcessing.Distortion;
 
@@ -14,6 +15,80 @@ import Core.Parallel;
 
 namespace ArtifactCore
 {
+
+void morphImages(const ImageF32x4_RGBA& source,
+                 const ImageF32x4_RGBA& target,
+                 ImageF32x4_RGBA& output,
+                 const std::vector<MorphControlPoint>& controlPoints,
+                 float amount,
+                 bool bilinear)
+{
+    const int width = std::min(source.width(), target.width());
+    const int height = std::min(source.height(), target.height());
+    if (width <= 0 || height <= 0) {
+        output = ImageF32x4_RGBA();
+        return;
+    }
+
+    const float t = std::clamp(amount, 0.0f, 1.0f);
+    output.resize(width, height);
+    float* dst = output.rgba32fData();
+
+    auto sample = [bilinear](const ImageF32x4_RGBA& image, float x, float y) {
+        return bilinear ? sampleBilinear(image, x, y)
+                        : sampleNearest(image, x, y);
+    };
+
+    Parallel::ForTiles(width, height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+            float sourceX = static_cast<float>(x);
+            float sourceY = static_cast<float>(y);
+            float targetX = static_cast<float>(x);
+            float targetY = static_cast<float>(y);
+            float sourceWeight = 0.0f;
+            float targetWeight = 0.0f;
+
+            for (const MorphControlPoint& point : controlPoints) {
+                const float dx = static_cast<float>(x) -
+                                 (point.sourceX * (1.0f - t) + point.targetX * t);
+                const float dy = static_cast<float>(y) -
+                                 (point.sourceY * (1.0f - t) + point.targetY * t);
+                const float radius2 = dx * dx + dy * dy;
+                const float weight = std::max(0.0f, point.weight) /
+                                     std::max(1.0f, radius2);
+                sourceX += weight * (point.sourceX - point.targetX) * t;
+                sourceY += weight * (point.sourceY - point.targetY) * t;
+                targetX += weight * (point.targetX - point.sourceX) * (1.0f - t);
+                targetY += weight * (point.targetY - point.sourceY) * (1.0f - t);
+                sourceWeight += weight;
+                targetWeight += weight;
+            }
+
+            if (sourceWeight > 0.0f) {
+                sourceX = static_cast<float>(x) +
+                          (sourceX - static_cast<float>(x)) / sourceWeight;
+                sourceY = static_cast<float>(y) +
+                          (sourceY - static_cast<float>(y)) / sourceWeight;
+            }
+            if (targetWeight > 0.0f) {
+                targetX = static_cast<float>(x) +
+                          (targetX - static_cast<float>(x)) / targetWeight;
+                targetY = static_cast<float>(y) +
+                          (targetY - static_cast<float>(y)) / targetWeight;
+            }
+
+            const FloatRGBA a = sample(source, sourceX, sourceY);
+            const FloatRGBA b = sample(target, targetX, targetY);
+            float* pixel = dst + (static_cast<size_t>(y) * width + x) * 4u;
+            pixel[0] = a.r() * (1.0f - t) + b.r() * t;
+            pixel[1] = a.g() * (1.0f - t) + b.g() * t;
+            pixel[2] = a.b() * (1.0f - t) + b.b() * t;
+            pixel[3] = a.a() * (1.0f - t) + b.a() * t;
+        }
+        }
+    });
+}
 
 namespace {
 
@@ -137,9 +212,10 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
     return FloatRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
  };
 
- Parallel::For(0, h, w * h, [&](int y) {
+ Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+  for (int y = y0; y < y1; ++y) {
     float sy = static_cast<float>(y);
-    for (int x = 0; x < w; ++x) {
+    for (int x = x0; x < x1; ++x) {
      float sx = static_cast<float>(x);
      float outSX = sx, outSY = sy;
      func(sx, sy, static_cast<float>(w), static_cast<float>(h), outSX, outSY);
@@ -151,6 +227,7 @@ void applyDisplacement(const ImageF32x4_RGBA& src,
      destination[2] = pixel.b();
      destination[3] = pixel.a();
     }
+  }
  });
 }
 

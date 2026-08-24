@@ -7,6 +7,7 @@ module;
 module ImageProcessing.ColorTransform.ChannelMixer;
 
 import Color.GamutConversion;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -70,9 +71,11 @@ QImage ChannelMixerProcessor::apply(const QImage& source) const {
     }
 
     QImage result = source.convertToFormat(QImage::Format_ARGB32);
-    for (int y = 0; y < result.height(); ++y) {
+    ArtifactCore::Parallel::ForTiles(result.width(), result.height(), 32, 32,
+        [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         auto* scanLine = reinterpret_cast<QRgb*>(result.scanLine(y));
-        for (int x = 0; x < result.width(); ++x) {
+        for (int x = x0; x < x1; ++x) {
             float r = qRed(scanLine[x]) / 255.0f;
             float g = qGreen(scanLine[x]) / 255.0f;
             float b = qBlue(scanLine[x]) / 255.0f;
@@ -86,6 +89,7 @@ QImage ChannelMixerProcessor::apply(const QImage& source) const {
             );
         }
     }
+    });
 
     return result;
 }

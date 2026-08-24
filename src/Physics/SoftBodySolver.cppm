@@ -12,6 +12,7 @@ export module Physics.SoftBody;
 import Container.NamedVector;
 
 import Utils.Id;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -447,8 +448,9 @@ public:
         turbulenceTime_ += dt * wind_.turbulenceFrequency;
 
         // 1. 積分（移動）+ 外力（風/乱流）
-        for (auto& p : points_) {
-            if (p.isPinned) continue;
+        Parallel::For(0, static_cast<int>(points_.size()), static_cast<int>(points_.size()), [&](int pointIndex) {
+            auto& p = points_[static_cast<std::size_t>(pointIndex)];
+            if (p.isPinned) return;
 
             float vx = (p.x - p.prevX);
             float vy = (p.y - p.prevY);
@@ -475,7 +477,7 @@ public:
 
             p.x += vx;
             p.y += vy;
-        }
+        });
 
         // 2. 拘束解決（反復計算）+ 破断検出
         NamedVector<int> constraintsToRemove;

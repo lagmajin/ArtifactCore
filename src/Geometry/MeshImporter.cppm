@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <numeric>
 #include <utility>
+#include <cstring>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "ufbx.h"
@@ -938,6 +939,139 @@ public:
     return mesh;
   }
 
+  SharedPtr<Mesh> loadPly(const QString &path) {
+    lastBackend_ = MeshImporter::Backend::Ply;
+    lastError_.clear();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      lastError_ = QStringLiteral("PLY: cannot open file");
+      return nullptr;
+    }
+    const QStringList lines = QString::fromUtf8(file.readAll()).split(QRegularExpression(QStringLiteral("[\\r\\n]+")), Qt::KeepEmptyParts);
+    int headerEnd = -1;
+    int vertexCount = 0;
+    int faceCount = 0;
+    bool ascii = false;
+    for (int i = 0; i < lines.size(); ++i) {
+      const QString line = lines[i].trimmed();
+      if (i == 0 && line == QStringLiteral("ply")) continue;
+      if (line.startsWith(QStringLiteral("format ascii"))) ascii = true;
+      if (line.startsWith(QStringLiteral("element vertex"))) vertexCount = line.section(QChar(' '), 2, 2).toInt();
+      if (line.startsWith(QStringLiteral("element face"))) faceCount = line.section(QChar(' '), 2, 2).toInt();
+      if (line == QStringLiteral("end_header")) { headerEnd = i; break; }
+    }
+    if (!ascii || headerEnd < 0 || vertexCount <= 0 || faceCount <= 0) {
+      lastError_ = QStringLiteral("PLY: only ASCII polygon meshes are supported");
+      return nullptr;
+    }
+    QVector<QVector3D> vertices;
+    vertices.reserve(vertexCount);
+    int lineIndex = headerEnd + 1;
+    for (int i = 0; i < vertexCount && lineIndex < lines.size(); ++i, ++lineIndex) {
+      const QStringList fields = lines[lineIndex].trimmed().split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+      if (fields.size() < 3) { lastError_ = QStringLiteral("PLY: invalid vertex row"); return nullptr; }
+      bool okX = false, okY = false, okZ = false;
+      const float x = fields[0].toFloat(&okX), y = fields[1].toFloat(&okY), z = fields[2].toFloat(&okZ);
+      if (!okX || !okY || !okZ) { lastError_ = QStringLiteral("PLY: invalid vertex value"); return nullptr; }
+      vertices.push_back(QVector3D(x, y, z));
+    }
+    QVector<QVector<int>> faces;
+    for (int i = 0; i < faceCount && lineIndex < lines.size(); ++i, ++lineIndex) {
+      const QStringList fields = lines[lineIndex].trimmed().split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+      if (fields.isEmpty()) continue;
+      const int count = fields[0].toInt();
+      if (count < 3 || fields.size() < count + 1) { lastError_ = QStringLiteral("PLY: invalid face row"); return nullptr; }
+      QVector<int> face;
+      for (int j = 0; j < count; ++j) {
+        bool ok = false;
+        const int index = fields[j + 1].toInt(&ok);
+        if (!ok || index < 0 || index >= vertices.size()) { lastError_ = QStringLiteral("PLY: face index out of range"); return nullptr; }
+        face.push_back(index);
+      }
+      faces.push_back(face);
+    }
+    if (vertices.isEmpty() || faces.isEmpty()) { lastError_ = QStringLiteral("PLY: no mesh data"); return nullptr; }
+    auto mesh = makeShared<Mesh>();
+    mesh->setVertexCount(vertices.size());
+    auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
+    auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
+    auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
+    for (int i = 0; i < vertices.size(); ++i) {
+      (*posAttr)[i] = vertices[i];
+      (*normAttr)[i] = QVector3D(0.0f, 0.0f, 0.0f);
+      (*uvAttr)[i] = QVector2D(0.0f, 0.0f);
+      (*colorAttr)[i] = QVector4D(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+    for (const QVector<int>& face : faces) mesh->addPolygon(face);
+    mesh->updateBounds();
+    return mesh;
+  }
+
+  SharedPtr<Mesh> loadStl(const QString &path) {
+    lastBackend_ = MeshImporter::Backend::Stl;
+    lastError_.clear();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+      lastError_ = QStringLiteral("STL: cannot open file");
+      return nullptr;
+    }
+    const QByteArray bytes = file.readAll();
+    QVector<QVector3D> vertices;
+    if (bytes.size() >= 84) {
+      quint32 triangleCount = 0;
+      std::memcpy(&triangleCount, bytes.constData() + 80, sizeof(triangleCount));
+      const qsizetype expected = 84 + static_cast<qsizetype>(triangleCount) * 50;
+      if (expected == bytes.size() && triangleCount > 0) {
+        vertices.reserve(static_cast<int>(triangleCount) * 3);
+        for (quint32 i = 0; i < triangleCount; ++i) {
+          const char* triangle = bytes.constData() + 84 + static_cast<qsizetype>(i) * 50;
+          for (int vertex = 0; vertex < 3; ++vertex) {
+            float values[3]{};
+            std::memcpy(values, triangle + 12 + vertex * 12, sizeof(values));
+            vertices.push_back(QVector3D(values[0], values[1], values[2]));
+          }
+        }
+      }
+    }
+    if (vertices.isEmpty()) {
+      const QString text = QString::fromUtf8(bytes);
+      const QStringList lines = text.split(QRegularExpression(QStringLiteral("[\\r\\n]+")), Qt::SkipEmptyParts);
+      for (const QString& line : lines) {
+        const QStringList fields = line.trimmed().split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+        if (fields.size() == 4 && fields.front().compare(QStringLiteral("vertex"), Qt::CaseInsensitive) == 0) {
+          bool okX = false, okY = false, okZ = false;
+          const float x = fields[1].toFloat(&okX);
+          const float y = fields[2].toFloat(&okY);
+          const float z = fields[3].toFloat(&okZ);
+          if (okX && okY && okZ) vertices.push_back(QVector3D(x, y, z));
+        }
+      }
+    }
+    if (vertices.isEmpty() || vertices.size() % 3 != 0) {
+      lastError_ = QStringLiteral("STL: no complete triangle data");
+      return nullptr;
+    }
+    auto mesh = makeShared<Mesh>();
+    mesh->setVertexCount(vertices.size());
+    auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
+    auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
+    auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
+    for (int i = 0; i < vertices.size(); i += 3) {
+      const QVector3D normal = QVector3D::crossProduct(vertices[i + 1] - vertices[i], vertices[i + 2] - vertices[i]).normalized();
+      for (int j = 0; j < 3; ++j) {
+        (*posAttr)[i + j] = vertices[i + j];
+        (*normAttr)[i + j] = normal;
+        (*uvAttr)[i + j] = QVector2D(0.0f, 0.0f);
+        (*colorAttr)[i + j] = QVector4D(1.0f, 1.0f, 1.0f, 1.0f);
+      }
+      mesh->addPolygon({i, i + 1, i + 2});
+    }
+    mesh->updateBounds();
+    return mesh;
+  }
+
   static QVector3D parseUsdVec3fTuple(QStringView tupleText, bool* okOut = nullptr)
   {
     const QStringList parts =
@@ -1441,6 +1575,14 @@ SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
 
   if (ext == QStringLiteral("pmd")) {
     return impl_->loadPMD(qpath);
+  }
+
+  if (ext == QStringLiteral("stl")) {
+    return impl_->loadStl(qpath);
+  }
+
+  if (ext == QStringLiteral("ply")) {
+    return impl_->loadPly(qpath);
   }
 
   if (ext == QStringLiteral("usda")) {

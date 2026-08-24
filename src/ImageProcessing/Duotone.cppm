@@ -7,6 +7,7 @@ module ImageProcessing;
 import :Duotone;
 
 import Particle;
+import Core.Parallel;
 import Image.ImageF32x4_RGBA;
 
 namespace ArtifactCore {
@@ -18,27 +19,29 @@ void Duotone::process(float4* buffer, int width, int height, const DuotoneSettin
     float4 shadow = settings.shadowColor;
     float4 highlight = settings.highlightColor;
 
-    for (int y = 0; y < height; ++y) {
-        const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
-        for (int x = 0; x < width; ++x) {
-            const size_t i = rowStart + static_cast<size_t>(x);
-            float4 orig = buffer[i];
+    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
+            const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
+            for (int x = x0; x < x1; ++x) {
+                const size_t i = rowStart + static_cast<size_t>(x);
+                float4 orig = buffer[i];
 
-            // Perceptual luminance calculation
-            float luminance = std::clamp(orig.x * 0.299f + orig.y * 0.587f + orig.z * 0.114f, 0.0f, 1.0f);
+                // Perceptual luminance calculation
+                float luminance = std::clamp(orig.x * 0.299f + orig.y * 0.587f + orig.z * 0.114f, 0.0f, 1.0f);
 
-            // Linear interpolation shadow -> highlight
-            float r_map = shadow.x * (1.0f - luminance) + highlight.x * luminance;
-            float g_map = shadow.y * (1.0f - luminance) + highlight.y * luminance;
-            float b_map = shadow.z * (1.0f - luminance) + highlight.z * luminance;
+                // Linear interpolation shadow -> highlight
+                float r_map = shadow.x * (1.0f - luminance) + highlight.x * luminance;
+                float g_map = shadow.y * (1.0f - luminance) + highlight.y * luminance;
+                float b_map = shadow.z * (1.0f - luminance) + highlight.z * luminance;
 
-            // Blend with original pixel
-            buffer[i].x = orig.x * (1.0f - blend) + r_map * blend;
-            buffer[i].y = orig.y * (1.0f - blend) + g_map * blend;
-            buffer[i].z = orig.z * (1.0f - blend) + b_map * blend;
-            // Keep original alpha
+                // Blend with original pixel
+                buffer[i].x = orig.x * (1.0f - blend) + r_map * blend;
+                buffer[i].y = orig.y * (1.0f - blend) + g_map * blend;
+                buffer[i].z = orig.z * (1.0f - blend) + b_map * blend;
+                // Keep original alpha
+            }
         }
-    }
+    });
 }
 
 void Duotone::process(ImageF32x4_RGBA& image, const DuotoneSettings& settings) {

@@ -6,6 +6,7 @@ module;
 #include <QString>
 
 module Layer.Matte;
+import Core.Parallel;
 
 import std;
 import Serialization.JsonAdapter;
@@ -140,14 +141,15 @@ ImageF32x4_RGBA MatteEvaluator::apply(const ImageF32x4_RGBA& source,
     const float* mattePixels = matteSample.rgba32fData();
     float* outputPixels = out.rgba32fData();
     if (sourcePixels && mattePixels && outputPixels) {
-        for (int y = 0; y < height; ++y) {
+        Parallel::ForTiles(width, height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
             const float* sourceRow = sourcePixels +
                 static_cast<std::size_t>(y) * width * 4u;
             const float* matteRow = mattePixels +
                 static_cast<std::size_t>(y) * width * 4u;
             float* outputRow = outputPixels +
                 static_cast<std::size_t>(y) * width * 4u;
-            for (int x = 0; x < width; ++x) {
+            for (int x = x0; x < x1; ++x) {
                 const FloatRGBA mattePixel(
                     matteRow[x * 4 + 0], matteRow[x * 4 + 1],
                     matteRow[x * 4 + 2], matteRow[x * 4 + 3]);
@@ -162,17 +164,20 @@ ImageF32x4_RGBA MatteEvaluator::apply(const ImageF32x4_RGBA& source,
                 outputRow[x * 4 + 3] = sourceRow[x * 4 + 3] * combined;
             }
         }
+        });
         return out;
     }
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    Parallel::ForTiles(width, height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
             const float matteFactor = sample(matteSample, x, y, settings.mode,
                                              settings.luminanceStandard);
             const float combined = clamp01(matteFactor * settings.opacity);
             out.setPixel(x, y, apply(source.getPixel(x, y), combined));
         }
     }
+    });
 
     return out;
 }

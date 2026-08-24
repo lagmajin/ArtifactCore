@@ -570,7 +570,7 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
         const int radius = std::clamp(static_cast<int>(std::ceil(f)), 1, 64);
         const int diameter = radius * 2 + 1;
         std::vector<float> horizontal(static_cast<size_t>(width) * height, 0.0f);
-        for (int y = 0; y < height; ++y) {
+        Parallel::For(0, height, width * height, [&](int y) {
             for (int x = 0; x < width; ++x) {
                 float sum = 0.0f;
                 for (int dx = -radius; dx <= radius; ++dx) {
@@ -578,8 +578,8 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
                 }
                 horizontal[y * width + x] = sum / static_cast<float>(diameter);
             }
-        }
-        for (int y = 0; y < height; ++y) {
+        });
+        Parallel::For(0, height, width * height, [&](int y) {
             for (int x = 0; x < width; ++x) {
                 float sum = 0.0f;
                 for (int dy = -radius; dy <= radius; ++dy) {
@@ -587,7 +587,7 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
                 }
                 outData[y * width + x] = sum / static_cast<float>(diameter);
             }
-        }
+        });
     }
 
     // 拡張/収縮
@@ -597,7 +597,7 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
         const int diameter = radius * 2 + 1;
         std::vector<float> morphed(static_cast<size_t>(width) * height, 0.0f);
         const bool dilate = exp > 0.0f;
-        for (int y = 0; y < height; ++y) {
+        Parallel::For(0, height, width * height, [&](int y) {
             for (int x = 0; x < width; ++x) {
                 float value = dilate ? 0.0f : 1.0f;
                 for (int dy = -radius; dy <= radius; ++dy) {
@@ -610,7 +610,7 @@ void RotoMask::rasterize(double time, int width, int height, float* outData) con
                 }
                 morphed[y * width + x] = value;
             }
-        }
+        });
         std::copy(morphed.begin(), morphed.end(), outData);
     }
 

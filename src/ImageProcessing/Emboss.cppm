@@ -4,6 +4,7 @@ module;
 
 module ImageProcessing;
 import :Emboss;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -13,8 +14,9 @@ void Emboss::process(float4* buffer, int width, int height, const EmbossSettings
     static constexpr float k[3][3] = {{-1,0,1},{-2,0,2},{-1,0,1}};
     static constexpr float t[3][3] = {{1,2,1},{0,0,0},{-1,-2,-1}};
     float ca = std::cos(s.angle), sa = std::sin(s.angle);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    Parallel::ForTiles(width, height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
             float gx = 0, gy = 0;
             for (int dy = -1; dy <= 1; ++dy) {
                 for (int dx = -1; dx <= 1; ++dx) {
@@ -36,6 +38,7 @@ void Emboss::process(float4* buffer, int width, int height, const EmbossSettings
             dst.w = src.w;
         }
     }
+    });
     delete[] tmp;
 }
 

@@ -8,6 +8,7 @@ module ImageProcessing.ColorTransform.TriChromaticShift;
 import Particle;
 import FloatRGBA;
 import Image.ImageF32x4_RGBA;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -186,9 +187,10 @@ void TriChromaticProcessor::apply(float4* buffer, int width, int height) const {
     if (!buffer || width <= 0 || height <= 0 || settings_.masterStrength <= 0.0)
         return;
 
-    for (int y = 0; y < height; ++y) {
+    Parallel::ForTiles(width, height, 32, 32, [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         const int rowBase = y * width;
-        for (int x = 0; x < width; ++x) {
+        for (int x = x0; x < x1; ++x) {
             auto& pixel = buffer[rowBase + x];
             double r = pixel.x;
             double g = pixel.y;
@@ -199,6 +201,7 @@ void TriChromaticProcessor::apply(float4* buffer, int width, int height) const {
             pixel.z = static_cast<float>(b);
         }
     }
+    });
 }
 
 void TriChromaticProcessor::apply(ImageF32x4_RGBA& image) const {

@@ -10,6 +10,7 @@ module;
 
 module Codec.MFFrameExtractor;
 
+import Core.Parallel;
 import std;
 import Memory.TrackedPtr;
 
@@ -316,7 +317,7 @@ namespace ArtifactCore {
     const size_t sourceRowBytes = static_cast<size_t>(std::max(0, width_)) * 4u;
     const size_t sourceBytes = sourceRowBytes * static_cast<size_t>(std::max(0, height_));
     if (data && sourceRowBytes > 0 && sourceBytes <= currentLength) {
-      for (int y = 0; y < outputHeight; ++y) {
+      Parallel::For(0, outputHeight, outputWidth * outputHeight, [&](int y) {
         const int sourceY = std::min(height_ - 1,
             static_cast<int>((static_cast<int64_t>(y) * height_) / outputHeight));
         const BYTE* sourceRow = data + static_cast<size_t>(sourceY) * sourceRowBytes;
@@ -327,7 +328,7 @@ namespace ArtifactCore {
           std::memcpy(destinationRow + static_cast<size_t>(x) * 4u,
                       sourceRow + static_cast<size_t>(sourceX) * 4u, 4u);
         }
-      }
+      });
     } else {
       frame->data.clear();
       lastError_ = "Invalid decoded frame dimensions";
@@ -363,13 +364,14 @@ namespace ArtifactCore {
    case OutputFormat::BGR:
     // RGBA  BGRiAt@`l폜 & R/Bւj
     {
-     std::vector<uint8_t> temp;
-     temp.reserve(width * height * 3);
-     for (size_t i = 0; i < data.size(); i += 4) {
-      temp.push_back(data[i + 2]);  // B
-      temp.push_back(data[i + 1]);  // G
-      temp.push_back(data[i + 0]);  // R
-     }
+     std::vector<uint8_t> temp(static_cast<size_t>(width) * height * 3);
+     Parallel::For(0, width * height, width * height, [&](int pixel) {
+      const size_t source = static_cast<size_t>(pixel) * 4;
+      const size_t destination = static_cast<size_t>(pixel) * 3;
+      temp[destination + 0] = data[source + 2];  // B
+      temp[destination + 1] = data[source + 1];  // G
+      temp[destination + 2] = data[source + 0];  // R
+     });
      data = std::move(temp);
     }
     break;
@@ -377,22 +379,24 @@ namespace ArtifactCore {
    case OutputFormat::RGB:
     // RGBA  RGBiAt@`l폜j
     {
-     std::vector<uint8_t> temp;
-     temp.reserve(width * height * 3);
-     for (size_t i = 0; i < data.size(); i += 4) {
-      temp.push_back(data[i + 0]);  // R
-      temp.push_back(data[i + 1]);  // G
-      temp.push_back(data[i + 2]);  // B
-     }
+     std::vector<uint8_t> temp(static_cast<size_t>(width) * height * 3);
+     Parallel::For(0, width * height, width * height, [&](int pixel) {
+      const size_t source = static_cast<size_t>(pixel) * 4;
+      const size_t destination = static_cast<size_t>(pixel) * 3;
+      temp[destination + 0] = data[source + 0];  // R
+      temp[destination + 1] = data[source + 1];  // G
+      temp[destination + 2] = data[source + 2];  // B
+     });
      data = std::move(temp);
     }
     break;
     
    case OutputFormat::BGRA:
     // RGBA  BGRAiR/Bւj
-    for (size_t i = 0; i < data.size(); i += 4) {
+    Parallel::For(0, width * height, width * height, [&](int pixel) {
+     const size_t i = static_cast<size_t>(pixel) * 4;
      std::swap(data[i], data[i + 2]);
-    }
+    });
     break;
     
    default:

@@ -27,10 +27,12 @@ void Scatter::process(float4* buffer, int width, int height, const ScatterSettin
                 static_cast<size_t>(sy) * static_cast<size_t>(width) + static_cast<size_t>(sx);
         }
     }
-    Parallel::For(0, height, width * height, [&](int y) {
-        for (int x = 0; x < width; ++x) {
+    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
             const size_t index = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
             buffer[index] = tmp[sourceIndices[index]];
+        }
         }
     });
 }

@@ -56,8 +56,9 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
     float edge_thresh = std::max(settings.edgeThreshold, 0.001f);
 
     // 2. Sobel edge detection pass (on luminance of current frame)
-    Parallel::For(1, height - 1, width * (height - 2), [&](int y) {
-        for (int x = 1; x < width - 1; ++x) {
+    Parallel::ForTiles(width - 2, height - 2, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0 + 1; y < y1 + 1; ++y) {
+        for (int x = x0 + 1; x < x1 + 1; ++x) {
             float g_x = 0.0f;
             float g_y = 0.0f;
 
@@ -82,6 +83,7 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
                 current_edges[y * width + x] = std::clamp((magnitude - edge_thresh) / (1.0f - edge_thresh), 0.0f, 1.0f);
             }
         }
+        }
     });
 
     // Temporary buffer to calculate the warped new history
@@ -99,8 +101,9 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
     }
 
     // 3. Temporal wave warping pass (warp previous history outline)
-    Parallel::For(0, height, width * height, [&](int y) {
-        for (int x = 0; x < width; ++x) {
+    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
             // Apply sinusoidal offset to vertical sampling coordinate
             float ny = static_cast<float>(y) + waveOffsets[static_cast<std::size_t>(x)];
 
@@ -117,12 +120,14 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
             float next_val = std::max(current_edges[y * width + x], prev_his_decayed);
             next_history[y * width + x] = next_val;
         }
+        }
     });
 
     // 4. Update the history buffer for the next frame
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
         const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
-        for (int x = 0; x < width; ++x) {
+        for (int x = x0; x < x1; ++x) {
             const size_t i = rowStart + static_cast<size_t>(x);
             const float val = next_history[i];
             history_raw[i * 4 + 0] = val;
@@ -130,13 +135,15 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
             history_raw[i * 4 + 2] = val;
             history_raw[i * 4 + 3] = 1.0f;
         }
+        }
     });
 
     // 5. Composite EdgeEcho onto original image
     float4 echo_color = settings.echoColor;
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
         const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
-        for (int x = 0; x < width; ++x) {
+        for (int x = x0; x < x1; ++x) {
             const size_t i = rowStart + static_cast<size_t>(x);
             const float outline_strength = next_history[i];
             if (outline_strength > 0.001f) {
@@ -147,6 +154,7 @@ void EdgeEcho::process(float4* buffer, int width, int height, const EdgeEchoSett
                 buffer[i].y = std::clamp(orig_pixel.y + echo_color.y * outline_strength, 0.0f, 1.0f);
                 buffer[i].z = std::clamp(orig_pixel.z + echo_color.z * outline_strength, 0.0f, 1.0f);
             }
+        }
         }
     });
 }

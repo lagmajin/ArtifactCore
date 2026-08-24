@@ -5,6 +5,7 @@ module;
 #include <array>
 #include <tuple>
 module StarfieldGenerator;
+import Core.Parallel;
 
 import Math.Random;
 
@@ -240,9 +241,11 @@ void StarfieldGenerator::renderNebulae(float* pixels) {
         const float safeRadiusX = std::max(std::abs(neb.radiusX), 1.0e-6f);
         const float safeRadiusY = std::max(std::abs(neb.radiusY), 1.0e-6f);
         float nrx = 1.0f / safeRadiusX, nry = 1.0f / safeRadiusY;
-        for (int y = 0; y < height_; ++y) {
+        Parallel::ForTiles(width_, height_, 32, 32,
+            [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
             float* row = pixels + static_cast<std::size_t>(y) * static_cast<std::size_t>(width_) * 4u;
-            for (int x = 0; x < width_; ++x) {
+            for (int x = x0; x < x1; ++x) {
                 float nx = (x * invW - neb.centerX) * nrx;
                 float ny = (y * invH - neb.centerY) * nry;
                 float dn = nx * nx + ny * ny;
@@ -257,6 +260,7 @@ void StarfieldGenerator::renderNebulae(float* pixels) {
                 }
             }
         }
+        });
     }
 }
 
@@ -301,9 +305,11 @@ void StarfieldGenerator::renderShootingStars(float* pixels, float time) {
 
 void StarfieldGenerator::generate(float* pixels, float time) {
     if (stars_.empty()) generateStarDistribution(impl_->rng());
-    for (int y = 0; y < height_; ++y) {
+    Parallel::ForTiles(width_, height_, 32, 32,
+        [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         float* row = pixels + static_cast<std::size_t>(y) * width_ * 4u;
-        for (int x = 0; x < width_; ++x) {
+        for (int x = x0; x < x1; ++x) {
             float* pixel = row + static_cast<std::size_t>(x) * 4u;
             pixel[0] = backgroundLevel_;
             pixel[1] = backgroundLevel_;
@@ -311,6 +317,7 @@ void StarfieldGenerator::generate(float* pixels, float time) {
             pixel[3] = backgroundLevel_;
         }
     }
+    });
 
     if (galaxyEnabled_) renderGalaxy(pixels);
     renderNebulae(pixels);
@@ -345,9 +352,11 @@ void StarfieldGenerator::renderGalaxy(float* pixels) {
     float rMax = galaxyRadius_ * std::max(width_, height_);
     int armCount = galaxyArmCount_;
 
-    for (int y = 0; y < height_; ++y) {
+    Parallel::ForTiles(width_, height_, 32, 32,
+        [&](int x0, int y0, int x1, int y1) {
+    for (int y = y0; y < y1; ++y) {
         float* row = pixels + static_cast<std::size_t>(y) * static_cast<std::size_t>(width_) * 4u;
-        for (int x = 0; x < width_; ++x) {
+        for (int x = x0; x < x1; ++x) {
             float dx = x - cx, dy = y - cy;
             float rx = dx * std::cos(galaxyTilt_) - dy * std::sin(galaxyTilt_);
             float ry = dx * std::sin(galaxyTilt_) + dy * std::cos(galaxyTilt_);
@@ -376,6 +385,7 @@ void StarfieldGenerator::renderGalaxy(float* pixels) {
             }
         }
     }
+    });
 }
 
 void StarfieldGenerator::drawDisc(float* pixels, float cx, float cy, float radius,

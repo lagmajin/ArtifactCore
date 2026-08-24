@@ -117,12 +117,14 @@ bool AssetImporter::isSupported(const QString& extension) {
     // Simple list of supported extensions
     static const QStringList supported = {
         "jpg", "jpeg", "png", "bmp", "gif", "tga", "exr", "hdr", "tif", "tiff",
-        "webp", "ico", "dds", "ktx", "psd", "psb",
+        "webp", "ico", "dds", "ktx", "ktx2", "avif", "heic", "heif",
+        "jxl", "jp2", "j2k", "ppm", "pgm", "pbm", "pam", "pfm",
+        "psd", "psb",
         "ai", "pdf", "eps", "svg", "afdesign", "afphoto", "afpub",
         "mp4", "mov", "avi", "mkv",
         "wav", "mp3", "flac", "aac",
-        "obj", "fbx", "abc", "glb", "gltf",
-        "json"
+        "obj", "fbx", "abc", "glb", "gltf", "stl", "ply",
+        "json", "lottie"
     };
     
     return supported.contains(ext);
@@ -132,6 +134,9 @@ AssetType AssetImporter::detectType(const QString& filePath) {
     FileTypeDetector detector;
     FileType ft = detector.detect(filePath);
     const VectorSourceKind vectorKind = vectorSourceKindForExtension(QFileInfo(filePath).suffix());
+    if (QFileInfo(filePath).suffix().compare(QStringLiteral("lottie"), Qt::CaseInsensitive) == 0) {
+        return AssetType::Data;
+    }
     
     if (vectorKind != VectorSourceKind::Unknown || ft == FileType::Document ||
         ft == FileType::Font) {

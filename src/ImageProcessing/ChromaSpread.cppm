@@ -8,6 +8,7 @@ module;
 module ImageProcessing;
 
 import :ChromaSpread;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -61,10 +62,11 @@ void ChromaSpread::processMat(void* cvMatPtr, const ChromaSpreadSettings& settin
         cv::Mat mapX(h, w, CV_32FC1);
         cv::Mat mapY(h, w, CV_32FC1);
 
-        for (int y = 0; y < h; ++y) {
+        Parallel::ForTiles(w, h, 64, 64, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
             float* ptrX = mapX.ptr<float>(y);
             float* ptrY = mapY.ptr<float>(y);
-            for (int x = 0; x < w; ++x) {
+            for (int x = x0; x < x1; ++x) {
                 // Radial scaling centered around (cx, cy)
                 float rx = (x - cx) * scale + cx;
                 float ry = (y - cy) * scale + cy;
@@ -74,6 +76,7 @@ void ChromaSpread::processMat(void* cvMatPtr, const ChromaSpreadSettings& settin
                 ptrY[x] = ry + sy;
             }
         }
+        });
         cv::remap(src, dst, mapX, mapY, cv::INTER_LINEAR, cv::BORDER_REPLICATE);
     };
 

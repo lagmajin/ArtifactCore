@@ -2,8 +2,11 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <atomic>
 
 module Image.DeepImageBuffer;
+
+import Core.Parallel;
 
 namespace ArtifactCore {
 namespace {
@@ -83,31 +86,42 @@ bool DeepImageBuffer::addSample(int x, int y, const DeepSample& sample) {
 
 bool DeepImageBuffer::normalizeSamples() {
     if (isEmpty()) return false;
-    for (auto& pixelValue : pixels_) {
+    std::atomic<bool> valid{true};
+    Parallel::For(0, static_cast<int>(pixels_.size()), static_cast<int>(pixels_.size()),
+                  [&](int pixelIndex) {
+        auto& pixelValue = pixels_[static_cast<std::size_t>(pixelIndex)];
         for (auto& sample : pixelValue.samples) {
-            if (!finiteSample(sample)) return false;
+            if (!finiteSample(sample)) {
+                valid.store(false, std::memory_order_relaxed);
+                continue;
+            }
             sample.depthBack = std::max(sample.depth, sample.depthBack);
             sample.alpha = std::clamp(sample.alpha, 0.0f, 1.0f);
             sample.coverage = std::clamp(sample.coverage, 0.0f, 1.0f);
         }
-    }
+    });
+    if (!valid.load(std::memory_order_relaxed)) return false;
     sortSamplesByDepth();
     return true;
 }
 
 void DeepImageBuffer::sortSamplesByDepth() {
-    for (auto& pixelValue : pixels_) {
+    Parallel::For(0, static_cast<int>(pixels_.size()), static_cast<int>(pixels_.size()),
+                  [&](int pixelIndex) {
+        auto& pixelValue = pixels_[static_cast<std::size_t>(pixelIndex)];
         std::stable_sort(pixelValue.samples.begin(), pixelValue.samples.end(),
                          [](const DeepSample& lhs, const DeepSample& rhs) {
                              return lhs.depth < rhs.depth;
                          });
-    }
+    });
 }
 
 bool DeepImageBuffer::clipDepthRange(float nearDepth, float farDepth) {
     if (!std::isfinite(nearDepth) || !std::isfinite(farDepth) || nearDepth > farDepth)
         return false;
-    for (auto& pixelValue : pixels_) {
+    Parallel::For(0, static_cast<int>(pixels_.size()), static_cast<int>(pixels_.size()),
+                  [&](int pixelIndex) {
+        auto& pixelValue = pixels_[static_cast<std::size_t>(pixelIndex)];
         pixelValue.samples.erase(
             std::remove_if(pixelValue.samples.begin(), pixelValue.samples.end(),
                            [nearDepth, farDepth](const DeepSample& sample) {
@@ -116,7 +130,7 @@ bool DeepImageBuffer::clipDepthRange(float nearDepth, float farDepth) {
                                return back < nearDepth || sample.depth > farDepth;
                            }),
             pixelValue.samples.end());
-    }
+    });
     return true;
 }
 
@@ -124,7 +138,9 @@ void DeepImageBuffer::prune(float minimumAlpha, std::size_t maxSamplesPerPixel) 
     if (!std::isfinite(minimumAlpha)) minimumAlpha = 1.0e-5f;
     minimumAlpha = std::clamp(minimumAlpha, 0.0f, 1.0f);
     if (maxSamplesPerPixel > 0) sortSamplesByDepth();
-    for (auto& pixelValue : pixels_) {
+    Parallel::For(0, static_cast<int>(pixels_.size()), static_cast<int>(pixels_.size()),
+                  [&](int pixelIndex) {
+        auto& pixelValue = pixels_[static_cast<std::size_t>(pixelIndex)];
         pixelValue.samples.erase(
             std::remove_if(pixelValue.samples.begin(), pixelValue.samples.end(),
                            [minimumAlpha](const DeepSample& sample) {
@@ -135,7 +151,7 @@ void DeepImageBuffer::prune(float minimumAlpha, std::size_t maxSamplesPerPixel) 
         if (maxSamplesPerPixel > 0 && pixelValue.samples.size() > maxSamplesPerPixel) {
             pixelValue.samples.resize(maxSamplesPerPixel);
         }
-    }
+    });
 }
 
 DeepImageBuffer DeepImageBuffer::fromFlatRGBA(const float* rgba, int width, int height) {
@@ -198,8 +214,9 @@ bool DeepImageBuffer::addFlatRGBAAtDepth(const float* rgba, int width, int heigh
 
 bool DeepImageBuffer::toFlatRGBA(float* rgba, std::size_t floatCount) const {
     if (!rgba || isEmpty() || floatCount < static_cast<std::size_t>(width_) * height_ * 4) return false;
-    for (int y = 0; y < height_; ++y) {
-        for (int x = 0; x < width_; ++x) {
+    Parallel::For(0, width_ * height_, width_ * height_, [&](int pixelIndex) {
+            const int x = pixelIndex % width_;
+            const int y = pixelIndex / width_;
             const auto* source = pixel(x, y);
             const std::size_t offset = (static_cast<std::size_t>(y) * width_ + x) * 4;
             std::array<float, 4> accumulated{0.0f, 0.0f, 0.0f, 0.0f};
@@ -218,8 +235,7 @@ bool DeepImageBuffer::toFlatRGBA(float* rgba, std::size_t floatCount) const {
             }
             accumulated[3] = 1.0f - transmittance;
             for (int channel = 0; channel < 4; ++channel) rgba[offset + channel] = accumulated[channel];
-        }
-    }
+    });
     return true;
 }
 
@@ -228,8 +244,9 @@ bool DeepImageBuffer::toDepthMatteRGBA(float* rgba, std::size_t floatCount,
     if (!rgba || isEmpty() || !std::isfinite(nearDepth) || !std::isfinite(farDepth) ||
         nearDepth > farDepth ||
         floatCount < static_cast<std::size_t>(width_) * height_ * 4) return false;
-    for (int y = 0; y < height_; ++y) {
-        for (int x = 0; x < width_; ++x) {
+    Parallel::For(0, width_ * height_, width_ * height_, [&](int pixelIndex) {
+            const int x = pixelIndex % width_;
+            const int y = pixelIndex / width_;
             const auto* source = pixel(x, y);
             const std::size_t offset = (static_cast<std::size_t>(y) * width_ + x) * 4;
             float transmittance = 1.0f;
@@ -247,8 +264,7 @@ bool DeepImageBuffer::toDepthMatteRGBA(float* rgba, std::size_t floatCount,
             rgba[offset + 1] = 1.0f;
             rgba[offset + 2] = 1.0f;
             rgba[offset + 3] = alpha;
-        }
-    }
+    });
     return true;
 }
 
@@ -282,8 +298,9 @@ bool DeepImageBuffer::toDepthOfFieldRGBA(float* rgba, std::size_t floatCount,
         return value;
     };
 
-    for (int y = 0; y < height_; ++y) {
-        for (int x = 0; x < width_; ++x) {
+    Parallel::For(0, width_ * height_, width_ * height_, [&](int pixelIndex) {
+            const int x = pixelIndex % width_;
+            const int y = pixelIndex / width_;
             const auto* source = pixel(x, y);
             float representativeDepth = focalDepth;
             if (source) {
@@ -319,8 +336,7 @@ bool DeepImageBuffer::toDepthOfFieldRGBA(float* rgba, std::size_t floatCount,
             for (int channel = 0; channel < 4; ++channel)
                 rgba[offset + channel] = weightSum > 0.0f
                     ? accumulated[channel] / weightSum : 0.0f;
-        }
-    }
+    });
     return true;
 }
 
@@ -328,8 +344,9 @@ bool DeepImageBuffer::toRankedRGBA(float* rgba, std::size_t floatCount,
                                    std::size_t rank) const {
     if (!rgba || isEmpty() ||
         floatCount < static_cast<std::size_t>(width_) * height_ * 4) return false;
-    for (int y = 0; y < height_; ++y) {
-        for (int x = 0; x < width_; ++x) {
+    Parallel::For(0, width_ * height_, width_ * height_, [&](int pixelIndex) {
+            const int x = pixelIndex % width_;
+            const int y = pixelIndex / width_;
             const std::size_t offset = (static_cast<std::size_t>(y) * width_ + x) * 4;
             std::array<float, 4> output{0.0f, 0.0f, 0.0f, 0.0f};
             const auto* source = pixel(x, y);
@@ -344,8 +361,7 @@ bool DeepImageBuffer::toRankedRGBA(float* rgba, std::size_t floatCount,
                 }
             }
             for (int channel = 0; channel < 4; ++channel) rgba[offset + channel] = output[channel];
-        }
-    }
+    });
     return true;
 }
 
@@ -362,21 +378,28 @@ bool mergeDeepOver(const DeepImageBuffer& front,
         for (int x = 0; x < front.width(); ++x) {
             const auto* frontPixel = front.pixel(x, y);
             const auto* backPixel = back.pixel(x, y);
-            auto* outputPixel = result.pixel(x, y);
-            if (!frontPixel || !backPixel || !outputPixel) return false;
+            if (!frontPixel || !backPixel) return false;
             if (!std::all_of(frontPixel->samples.begin(), frontPixel->samples.end(),
                              finiteSample) ||
                 !std::all_of(backPixel->samples.begin(), backPixel->samples.end(),
                              finiteSample)) {
                 return false;
             }
+        }
+    }
+    Parallel::For(0, front.width() * front.height(), front.width() * front.height(),
+                  [&](int pixelIndex) {
+            const int x = pixelIndex % front.width();
+            const int y = pixelIndex / front.width();
+            const auto* frontPixel = front.pixel(x, y);
+            const auto* backPixel = back.pixel(x, y);
+            auto* outputPixel = result.pixel(x, y);
             outputPixel->samples.reserve(frontPixel->samples.size() + backPixel->samples.size());
             outputPixel->samples.insert(outputPixel->samples.end(),
                                         frontPixel->samples.begin(), frontPixel->samples.end());
             outputPixel->samples.insert(outputPixel->samples.end(),
                                         backPixel->samples.begin(), backPixel->samples.end());
-        }
-    }
+    });
     result.sortSamplesByDepth();
     if (maxSamplesPerPixel > 0) result.prune(1.0e-5f, maxSamplesPerPixel);
     return true;
@@ -386,11 +409,12 @@ bool applyDeepHoldout(const DeepImageBuffer& holdout,
                       DeepImageBuffer& target) {
     if (holdout.isEmpty() || target.isEmpty() || holdout.width() != target.width() ||
         holdout.height() != target.height()) return false;
-    for (int y = 0; y < target.height(); ++y) {
-        for (int x = 0; x < target.width(); ++x) {
+    Parallel::For(0, target.width() * target.height(),
+                  target.width() * target.height(), [&](int pixelIndex) {
+            const int x = pixelIndex % target.width();
+            const int y = pixelIndex / target.width();
             const auto* mattePixel = holdout.pixel(x, y);
             auto* targetPixel = target.pixel(x, y);
-            if (!mattePixel || !targetPixel) return false;
             for (auto& sample : targetPixel->samples) {
                 if (!finiteSample(sample) || sample.holdout) continue;
                 float remaining = 1.0f;
@@ -407,8 +431,7 @@ bool applyDeepHoldout(const DeepImageBuffer& holdout,
                 sample.alpha = std::clamp(sample.alpha * remaining, 0.0f, 1.0f);
                 sample.coverage = std::clamp(sample.coverage * remaining, 0.0f, 1.0f);
             }
-        }
-    }
+    });
     return true;
 }
 
@@ -433,37 +456,51 @@ bool packDeepImage(const DeepImageBuffer& image, DeepImagePacked& packed) {
             const auto* sourcePixel = image.pixel(x, y);
             if (!sourcePixel || sourcePixel->samples.size() >
                 std::numeric_limits<std::uint16_t>::max() ||
-                packed.flatSamples.size() > std::numeric_limits<std::uint32_t>::max() ||
-                sourcePixel->samples.size() >
-                    std::numeric_limits<std::uint32_t>::max() - packed.flatSamples.size()) {
-                packed = {};
-                return false;
-            }
-            if (!std::all_of(sourcePixel->samples.begin(), sourcePixel->samples.end(),
+                !std::all_of(sourcePixel->samples.begin(), sourcePixel->samples.end(),
                              finiteSample)) {
                 packed = {};
                 return false;
             }
             const std::size_t index = static_cast<std::size_t>(y) * image.width() + x;
-            packed.sampleOffsets[index] = static_cast<std::uint32_t>(packed.flatSamples.size());
             packed.sampleCounts[index] = static_cast<std::uint16_t>(sourcePixel->samples.size());
             packed.gpuSampleCounts[index] = static_cast<std::uint32_t>(sourcePixel->samples.size());
-            packed.flatSamples.insert(packed.flatSamples.end(),
-                                      sourcePixel->samples.begin(),
-                                      sourcePixel->samples.end());
-            for (const auto& sample : sourcePixel->samples) {
-                DeepSampleGpu gpu;
-                gpu.depth = sample.depth;
-                gpu.depthBack = sample.depthBack;
-                gpu.color = sample.color;
-                gpu.alpha = sample.alpha;
-                gpu.coverage = sample.coverage;
-                gpu.holdout = sample.holdout ? 1u : 0u;
-                packed.gpuSamples.push_back(gpu);
-            }
         }
     }
-    packed.totalSamples = packed.flatSamples.size();
+    std::size_t totalSamples = 0;
+    for (std::size_t index = 0; index < pixelCount; ++index) {
+        const std::size_t count = packed.sampleCounts[index];
+        if (totalSamples > std::numeric_limits<std::uint32_t>::max() ||
+            count > std::numeric_limits<std::uint32_t>::max() - totalSamples) {
+            packed = {};
+            return false;
+        }
+        packed.sampleOffsets[index] = static_cast<std::uint32_t>(totalSamples);
+        totalSamples += count;
+    }
+    packed.flatSamples.resize(totalSamples);
+    packed.gpuSamples.resize(totalSamples);
+    Parallel::For(0, static_cast<int>(pixelCount), static_cast<int>(pixelCount),
+                  [&](int pixelIndex) {
+        const std::size_t index = static_cast<std::size_t>(pixelIndex);
+        const int x = static_cast<int>(index % static_cast<std::size_t>(image.width()));
+        const int y = static_cast<int>(index / static_cast<std::size_t>(image.width()));
+        const auto* sourcePixel = image.pixel(x, y);
+        const std::size_t offset = packed.sampleOffsets[index];
+        for (std::size_t sampleIndex = 0; sampleIndex < sourcePixel->samples.size();
+             ++sampleIndex) {
+            const auto& sample = sourcePixel->samples[sampleIndex];
+            packed.flatSamples[offset + sampleIndex] = sample;
+            DeepSampleGpu gpu;
+            gpu.depth = sample.depth;
+            gpu.depthBack = sample.depthBack;
+            gpu.color = sample.color;
+            gpu.alpha = sample.alpha;
+            gpu.coverage = sample.coverage;
+            gpu.holdout = sample.holdout ? 1u : 0u;
+            packed.gpuSamples[offset + sampleIndex] = gpu;
+        }
+    });
+    packed.totalSamples = totalSamples;
     return packed.buffersAreConsistent();
 }
 
@@ -474,24 +511,27 @@ bool unpackDeepImage(const DeepImagePacked& packed, DeepImageBuffer& image) {
         return false;
     }
     if (!image.resize(packed.width, packed.height)) return false;
-    for (int y = 0; y < packed.height; ++y) {
-        for (int x = 0; x < packed.width; ++x) {
-            const std::size_t index = static_cast<std::size_t>(y) * packed.width + x;
-            const std::uint64_t offset = packed.sampleOffsets[index];
-            const std::uint64_t count = packed.gpuSampleCounts[index];
-            if (offset > packed.flatSamples.size() ||
-                count > packed.flatSamples.size() - offset) {
-                image.resize(0, 0);
-                return false;
-            }
-            for (std::uint64_t i = 0; i < count; ++i) {
-                if (!image.addSample(x, y,
-                                     packed.flatSamples[static_cast<std::size_t>(offset + i)])) {
-                    image.resize(0, 0);
-                    return false;
-                }
+    std::atomic<bool> success{true};
+    const std::size_t pixelCount = static_cast<std::size_t>(packed.width) *
+                                   static_cast<std::size_t>(packed.height);
+    Parallel::For(0, static_cast<int>(pixelCount), static_cast<int>(pixelCount),
+                  [&](int pixelIndex) {
+        const std::size_t index = static_cast<std::size_t>(pixelIndex);
+        const int x = static_cast<int>(index % static_cast<std::size_t>(packed.width));
+        const int y = static_cast<int>(index / static_cast<std::size_t>(packed.width));
+        const std::uint64_t offset = packed.sampleOffsets[index];
+        const std::uint64_t count = packed.gpuSampleCounts[index];
+        for (std::uint64_t i = 0; i < count; ++i) {
+            if (!image.addSample(x, y,
+                                 packed.flatSamples[static_cast<std::size_t>(offset + i)])) {
+                success.store(false, std::memory_order_relaxed);
+                return;
             }
         }
+    });
+    if (!success.load(std::memory_order_relaxed)) {
+        image.resize(0, 0);
+        return false;
     }
     return image.normalizeSamples();
 }
@@ -502,16 +542,15 @@ bool compositeFlatOverDeep(const float* rgba, int width, int height, float depth
     if (!rgba || width <= 0 || height <= 0 || !std::isfinite(depth)) return false;
     DeepImageBuffer flat = DeepImageBuffer::fromFlatRGBA(rgba, width, height);
     if (flat.isEmpty()) return false;
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    Parallel::For(0, width * height, width * height, [&](int pixelIndex) {
+            const int x = pixelIndex % width;
+            const int y = pixelIndex / width;
             auto* pixelValue = flat.pixel(x, y);
-            if (!pixelValue) return false;
             for (auto& sample : pixelValue->samples) {
                 sample.depth = depth;
                 sample.depthBack = depth;
             }
-        }
-    }
+    });
     if (target.isEmpty()) {
         target = std::move(flat);
         return true;
@@ -534,16 +573,16 @@ bool compositeDeepOverFlat(const DeepImageBuffer& source, const float* rgba,
     DeepImageBuffer foreground = DeepImageBuffer::fromFlatRGBA(
         rgba, source.width(), source.height());
     if (foreground.isEmpty()) return false;
-    for (int y = 0; y < source.height(); ++y) {
-        for (int x = 0; x < source.width(); ++x) {
+    Parallel::For(0, source.width() * source.height(),
+                  source.width() * source.height(), [&](int pixelIndex) {
+            const int x = pixelIndex % source.width();
+            const int y = pixelIndex / source.width();
             auto* pixelValue = foreground.pixel(x, y);
-            if (!pixelValue) return false;
             for (auto& sample : pixelValue->samples) {
                 sample.depth = depth;
                 sample.depthBack = depth;
             }
-        }
-    }
+    });
     DeepImageBuffer merged;
     if (!mergeDeepOver(foreground, source, merged)) return false;
     return merged.toFlatRGBA(output, floatCount);

@@ -4,6 +4,7 @@ module;
 #include <cmath>
 #include <algorithm>
 #include <functional>
+#include <vector>
 #include "../Define/DllExportMacro.hpp"
 
 export module ImageProcessing.Distortion;
@@ -13,6 +14,27 @@ import Image.ImageF32x4_RGBA;
 
 export namespace ArtifactCore
 {
+
+ /// One corresponding feature pair for image morphing.
+ /// Coordinates are expressed in pixel space in the respective images.
+ struct MorphControlPoint {
+     float sourceX = 0.0f;
+     float sourceY = 0.0f;
+     float targetX = 0.0f;
+     float targetY = 0.0f;
+     float weight = 1.0f;
+ };
+
+ /// CPU reference image morph. The control points describe corresponding
+ /// features in source and target images; amount is clamped to [0, 1].
+ /// The result is a cross-dissolve of inverse-warped source and target.
+ LIBRARY_DLL_API void morphImages(
+     const ImageF32x4_RGBA& source,
+     const ImageF32x4_RGBA& target,
+     ImageF32x4_RGBA& output,
+     const std::vector<MorphControlPoint>& controlPoints,
+     float amount,
+     bool bilinear = true);
 
  /// Distortion coordinate mapper.
  /// Maps destination (x,y) to source (sx,sy) sampling position.

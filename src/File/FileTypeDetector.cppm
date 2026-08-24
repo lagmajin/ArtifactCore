@@ -33,7 +33,11 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
       suffix == "tif" || suffix == "tga" || suffix == "exr" ||
       suffix == "hdr" || suffix == "psd" || suffix == "psb" ||
       suffix == "webp" || suffix == "svg" || suffix == "ico" ||
-      suffix == "dds" || suffix == "ktx") {
+      suffix == "dds" || suffix == "ktx" || suffix == "ktx2" ||
+      suffix == "avif" || suffix == "heic" || suffix == "heif" ||
+      suffix == "jxl" || suffix == "jp2" || suffix == "j2k" ||
+      suffix == "ppm" || suffix == "pgm" || suffix == "pbm" ||
+      suffix == "pam" || suffix == "pfm") {
     return FileType::Image;
   }
   // Video
@@ -70,7 +74,7 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
     return FileType::Document;
   }
   // Archive
-  if (suffix == "zip" || suffix == "rar" || suffix == "7z" || suffix == "tar" ||
+  if (suffix == "zip" || suffix == "lottie" || suffix == "rar" || suffix == "7z" || suffix == "tar" ||
       suffix == "gz" || suffix == "bz2" || suffix == "xz") {
     return FileType::Archive;
   }
@@ -79,7 +83,7 @@ FileTypeDetector::Impl::detectByExtension(const QString &filePath) const {
       suffix == "glb" || suffix == "stl" || suffix == "blend" ||
       suffix == "dae" || suffix == "abc" || suffix == "usd" ||
       suffix == "usda" || suffix == "usdc" || suffix == "usdz" ||
-      suffix == "pmd" || suffix == "pmx") {
+      suffix == "pmd" || suffix == "pmx" || suffix == "ply") {
     return FileType::Model3D;
   }
 

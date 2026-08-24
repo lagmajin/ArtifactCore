@@ -5,6 +5,7 @@ module;
 #include <opencv2/opencv.hpp>
 
 module ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine;
+import Core.Parallel;
 
 namespace ArtifactCore {
 
@@ -178,15 +179,18 @@ void OpenCVRotoBrushEngine::propagateToNextFrame(
 
         cv::Mat mapX(flow.size(), CV_32FC1);
         cv::Mat mapY(flow.size(), CV_32FC1);
-        for (int y = 0; y < flow.rows; ++y) {
+        Parallel::ForTiles(flow.cols, flow.rows, 32, 32,
+            [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
             const auto* flowRow = flow.ptr<cv::Point2f>(y);
             auto* xRow = mapX.ptr<float>(y);
             auto* yRow = mapY.ptr<float>(y);
-            for (int x = 0; x < flow.cols; ++x) {
+            for (int x = x0; x < x1; ++x) {
                 xRow[x] = static_cast<float>(x) - flowRow[x].x;
                 yRow[x] = static_cast<float>(y) - flowRow[x].y;
             }
         }
+        });
         cv::Mat warped;
         cv::remap(impl_->currentMask, warped, mapX, mapY,
                   cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0));

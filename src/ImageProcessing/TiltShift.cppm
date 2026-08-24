@@ -23,8 +23,9 @@ namespace {
         std::vector<float4> temp(w * h);
 
         // Horizontal pass — each row is independent
-        Parallel::For(0, h, w * h, [&](int y) {
-                    for (int x = 0; x < w; ++x) {
+        Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+                    for (int y = y0; y < y1; ++y) {
+                    for (int x = x0; x < x1; ++x) {
                         float4 sum{0.0f, 0.0f, 0.0f, 0.0f};
                         int count = 0;
                         for (int dx = -radius; dx <= radius; ++dx) {
@@ -38,11 +39,13 @@ namespace {
                         }
                         temp[y * w + x] = float4{sum.x / count, sum.y / count, sum.z / count, sum.w / count};
                     }
+                    }
         });
 
         // Vertical pass — each column is independent
-        Parallel::For(0, h, w * h, [&](int y) {
-                    for (int x = 0; x < w; ++x) {
+        Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+                    for (int y = y0; y < y1; ++y) {
+                    for (int x = x0; x < x1; ++x) {
                         float4 sum{0.0f, 0.0f, 0.0f, 0.0f};
                         int count = 0;
                         for (int dy = -radius; dy <= radius; ++dy) {
@@ -55,6 +58,7 @@ namespace {
                             count++;
                         }
                         dst[y * w + x] = float4{sum.x / count, sum.y / count, sum.z / count, sum.w / count};
+                    }
                     }
         });
     }
@@ -77,7 +81,8 @@ void TiltShift::process(float4* buffer, int width, int height, const TiltShiftSe
     float max_blur = std::clamp(settings.maxBlur, 0.0f, 1.0f);
 
     // 2. Linear-interpolate based on distance to horizontal focus line — each row is independent
-    Parallel::For(0, height, width * height, [&](int y) {
+    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
+                for (int y = y0; y < y1; ++y) {
                 float normalized_y = static_cast<float>(y) / height;
                 float distance = std::abs(normalized_y - focus_pos);
 
@@ -87,7 +92,7 @@ void TiltShift::process(float4* buffer, int width, int height, const TiltShiftSe
                     w_factor = std::clamp((distance - focus_width * 0.5f) / falloff, 0.0f, 1.0f) * max_blur;
                 }
 
-                for (int x = 0; x < width; ++x) {
+                for (int x = x0; x < x1; ++x) {
                     int idx = y * width + x;
                     float4 orig_pixel = original[idx];
                     float4 blur_pixel = blurred[idx];
@@ -96,6 +101,7 @@ void TiltShift::process(float4* buffer, int width, int height, const TiltShiftSe
                     buffer[idx].y = orig_pixel.y * (1.0f - w_factor) + blur_pixel.y * w_factor;
                     buffer[idx].z = orig_pixel.z * (1.0f - w_factor) + blur_pixel.z * w_factor;
                     buffer[idx].w = orig_pixel.w; // Preserve alpha
+                }
                 }
     });
 }

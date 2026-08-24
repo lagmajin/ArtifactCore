@@ -68,12 +68,13 @@ TensorField StructureTensor::analyzeMat(const void* cvMatPtr, float rGaussianWid
     field.magnitude.resize(static_cast<size_t>(w) * h, 0.0f);
 
     // 6. Eigenvalue analysis per pixel
-    Parallel::For(0, h, w * h, [&](int y) {
+    Parallel::ForTiles(w, h, 32, 32, [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y) {
         const float* pJxx = Jxx.ptr<float>(y);
         const float* pJyy = Jyy.ptr<float>(y);
         const float* pJxy = Jxy.ptr<float>(y);
 
-        for (int x = 0; x < w; ++x) {
+        for (int x = x0; x < x1; ++x) {
             float jxx = pJxx[x];
             float jyy = pJyy[x];
             float jxy = pJxy[x];
@@ -109,6 +110,7 @@ TensorField StructureTensor::analyzeMat(const void* cvMatPtr, float rGaussianWid
             field.angles[idx] = theta;
             field.coherence[idx] = coh;
             field.magnitude[idx] = std::sqrt(l1);
+        }
         }
     });
 
