@@ -208,6 +208,11 @@ public:
     // ---- fracture events ----
     int fractureEventCount() const noexcept { return static_cast<int>(fracturedIndices_.size()); }
     int fractureEventIndex(int i) const noexcept { return fracturedIndices_[i]; }
+    MpmVec2 fractureEventPosition(int i) const noexcept {
+        int idx = fracturedIndices_[static_cast<std::size_t>(i)];
+        if (idx < 0 || idx >= static_cast<int>(particles_.size())) return {0,0};
+        return particles_[static_cast<std::size_t>(idx)].pos;
+    }
     void clearFractureEvents();
 
     float cellSize() const noexcept { return cellSize_; }
