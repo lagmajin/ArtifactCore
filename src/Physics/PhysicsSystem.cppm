@@ -128,7 +128,9 @@ public:
     // --- Phase 2: Fluid Dynamics ---
     /**
      * @brief グローバルな流体シミュレーション（煙・炎等）を初期化する
+     * @deprecated 単一グローバル流体は layer ごとの createFluidSolver へ移行。互換維持のため残置。
      */
+    [[deprecated("use createFluidSolver(layerId,w,h)")]]
     void initFluid(int w, int h) {
         fluidSolver_ = std::make_unique<FluidSolver2D>(w, h);
         fluidBaseWidth_ = std::max(4, w);
@@ -136,10 +138,23 @@ public:
         appliedFluidResolutionScale_ = 1.0f;
     }
     
-    /**
-     * @brief 流体ソルバーを取得する
-     */
+    [[deprecated("use getFluidSolver(layerId)")]]
     FluidSolver2D* getFluidSolver() { return fluidSolver_.get(); }
+
+    SharedPtr<FluidSolver2D> createFluidSolver(LayerID layerId, int w, int h) {
+        auto solver = makeShared<FluidSolver2D>(w, h);
+        fluidSolvers_[layerId] = solver;
+        return solver;
+    }
+
+    SharedPtr<FluidSolver2D> getFluidSolver(LayerID layerId) {
+        auto it = fluidSolvers_.find(layerId);
+        return it != fluidSolvers_.end() ? it->second : nullptr;
+    }
+
+    void unregisterFluidSolver(LayerID layerId) {
+        fluidSolvers_.erase(layerId);
+    }
     
     // --- Phase 3: Soft Body Dynamics ---
     /**
@@ -503,6 +518,12 @@ public:
             }
             fluidSolver_->update(simulationDt);
         }
+        for (auto& [id, fs] : fluidSolvers_) {
+            if (fs) {
+                if (lodSettings_.fluidSolverIterations > 0) fs->setSolverIterations(lodSettings_.fluidSolverIterations);
+                fs->update(simulationDt);
+            }
+        }
         
         for (auto& [id, sb] : softBodies_) {
             // ソフトボディは Verlet 積分と拘束解決で更新
@@ -586,6 +607,7 @@ public:
         fluidBaseWidth_ = 0;
         fluidBaseHeight_ = 0;
         appliedFluidResolutionScale_ = 1.0f;
+        fluidSolvers_.clear();
         softBodies_.clear();
         softBodyColliders_.clear();
         softBodySnapshots_.clear();
@@ -608,6 +630,7 @@ private:
     int fluidBaseWidth_ = 0;
     int fluidBaseHeight_ = 0;
     float appliedFluidResolutionScale_ = 1.0f;
+    std::map<LayerID, SharedPtr<FluidSolver2D>> fluidSolvers_;
     std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
     std::map<LayerID, NamedVector<SoftBodyCollider>> softBodyColliders_;
     std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
