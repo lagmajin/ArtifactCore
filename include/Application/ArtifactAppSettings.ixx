@@ -104,6 +104,10 @@ public:
     void setTimelineMotionBlurShutterAngle(double degrees);
     int timelineMotionBlurSampleCount() const;
     void setTimelineMotionBlurSampleCount(int count);
+    double timelineMotionBlurShutterPhase() const;
+    void setTimelineMotionBlurShutterPhase(double degrees);
+    int compositionAntiAliasingMode() const;
+    void setCompositionAntiAliasingMode(int mode);
     bool timelineFrameBlendingActive() const;
     void setTimelineFrameBlendingActive(bool enable);
 

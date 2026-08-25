@@ -113,6 +113,8 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"UI/Timeline/MotionBlurActive", "Enable timeline motion blur", QVariant::Bool, false});
     schema.registerProperty({"UI/Timeline/MotionBlurShutterAngle", "Motion blur shutter angle", QVariant::Double, 180.0, 0.0, 720.0});
     schema.registerProperty({"UI/Timeline/MotionBlurSampleCount", "Motion blur sample count", QVariant::Int, 8, 1, 32});
+    schema.registerProperty({"UI/Timeline/MotionBlurShutterPhase", "Motion blur shutter phase", QVariant::Double, 0.0, -360.0, 360.0});
+    schema.registerProperty({"UI/Composition/AntiAliasingMode", "Composition anti-aliasing mode (0=Off, 1=FXAA, 2=MSAA 4x)", QVariant::Int, 1, 0, 2});
     schema.registerProperty({"UI/Timeline/AllowOverscroll", "Allow timeline overscroll", QVariant::Bool, false});
     schema.registerProperty({"UI/Timeline/ShyActive", "Enable timeline shy mode", QVariant::Bool, false});
     schema.registerProperty({"UI/Timeline/FrameBlendingActive", "Enable timeline frame blending", QVariant::Bool, false});
@@ -650,6 +652,30 @@ int ArtifactAppSettings::timelineMotionBlurSampleCount() const {
 void ArtifactAppSettings::setTimelineMotionBlurSampleCount(int count) {
     impl_->store.setValue(QStringLiteral("UI/Timeline/MotionBlurSampleCount"),
                           std::clamp(count, 1, 32));
+    Q_EMIT settingsChanged();
+}
+
+double ArtifactAppSettings::timelineMotionBlurShutterPhase() const {
+    return std::clamp(impl_->store.value(
+        QStringLiteral("UI/Timeline/MotionBlurShutterPhase"), 0.0).toDouble(),
+        -360.0, 360.0);
+}
+
+void ArtifactAppSettings::setTimelineMotionBlurShutterPhase(double degrees) {
+    impl_->store.setValue(QStringLiteral("UI/Timeline/MotionBlurShutterPhase"),
+                          std::clamp(std::isfinite(degrees) ? degrees : 0.0,
+                                     -360.0, 360.0));
+    Q_EMIT settingsChanged();
+}
+
+int ArtifactAppSettings::compositionAntiAliasingMode() const {
+    return std::clamp(static_cast<int>(impl_->store.valueInt64(
+        QStringLiteral("UI/Composition/AntiAliasingMode"), 1)), 0, 2);
+}
+
+void ArtifactAppSettings::setCompositionAntiAliasingMode(int mode) {
+    impl_->store.setValue(QStringLiteral("UI/Composition/AntiAliasingMode"),
+                          std::clamp(mode, 0, 2));
     Q_EMIT settingsChanged();
 }
 
