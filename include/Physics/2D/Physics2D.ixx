@@ -298,6 +298,9 @@ export namespace ArtifactCore {
         // スタティックな円の追加
         void addStaticCircle(float x, float y, float radius, float friction = 0.3f);
 
+        // ジョイント用の静的アンカー(プロキシ)追加
+        SharedPtr<RigidBody2D> addStaticAnchor(float x, float y, float radius = 8.0f);
+
         // 動的な四角形(クローン等)の追加
         SharedPtr<RigidBody2D> addDynamicBox(float x, float y, float width, float height, float density = 1.0f, float friction = 0.3f, float restitution = 0.5f);
         
@@ -305,7 +308,7 @@ export namespace ArtifactCore {
         SharedPtr<RigidBody2D> addDynamicCircle(float x, float y, float radius, float density = 1.0f, float friction = 0.3f, float restitution = 0.5f);
 
         // 複雑な形状(ポリゴン)の追加
-        SharedPtr<RigidBody2D> addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic = true, float density = 1.0f);
+        SharedPtr<RigidBody2D> addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic = true, float density = 1.0f, float friction = 0.3f, float restitution = 0.5f);
 
         // 生成済みのボディを取り除く
         void removeBody(const SharedPtr<RigidBody2D>& body);
@@ -313,6 +316,13 @@ export namespace ArtifactCore {
         // ジョイントの追加
         b2JointId addDistanceJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, float length, float damping = 0.5f, float stiffness = 1.0f);
         b2JointId addRevoluteJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, QVector2D anchor);
+
+        // 生成済みのジョイントを取り除く / 全破棄
+        void removeJoint(b2JointId jointId);
+        void clearJoints();
+
+        // 登録されている全ジョイントを取得
+        const std::vector<b2JointId>& getJoints() const;
 
         // 状態のリセット
         void clear();

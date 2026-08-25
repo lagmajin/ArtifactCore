@@ -47,8 +47,10 @@ namespace ArtifactCore {
         b2Vec2 gravity;
         b2WorldId worldId;
         NamedVector<SharedPtr<RigidBody2D>> bodies;
+        std::vector<b2JointId> joints;
 
-        Impl() : gravity{0.0f, -9.8f} {
+        // Screen-space convention (+Y down), matching MPM/SoftBody gravity.
+        Impl() : gravity{0.0f, 9.8f} {
             b2WorldDef worldDef = b2DefaultWorldDef();
             worldDef.gravity = gravity;
             worldId = b2CreateWorld(&worldDef);
@@ -114,6 +116,24 @@ namespace ArtifactCore {
         impl_->bodies.push_back(rb);
     }
 
+    SharedPtr<RigidBody2D> Physics2D::addStaticAnchor(float x, float y, float radius) {
+        if (!b2World_IsValid(impl_->worldId)) return nullptr;
+
+        b2BodyDef bodyDef = b2DefaultBodyDef();
+        bodyDef.position = {x, y};
+        bodyDef.type = b2_staticBody;
+        b2BodyId bodyId = b2CreateBody(impl_->worldId, &bodyDef);
+
+        b2Circle circle = { {0.0f, 0.0f}, std::max(0.5f, radius) };
+        b2ShapeDef shapeDef = b2DefaultShapeDef();
+        shapeDef.material.friction = 0.6f;
+        b2CreateCircleShape(bodyId, &shapeDef, &circle);
+        auto rb = makeShared<RigidBody2D>();
+        rb->bodyId = bodyId;
+        impl_->bodies.push_back(rb);
+        return rb;
+    }
+
     SharedPtr<RigidBody2D> Physics2D::addDynamicBox(float x, float y, float width, float height, float density, float friction, float restitution) {
         if (!b2World_IsValid(impl_->worldId)) return nullptr;
 
@@ -171,7 +191,7 @@ namespace ArtifactCore {
             });
     }
 
-    SharedPtr<RigidBody2D> Physics2D::addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic, float density) {
+    SharedPtr<RigidBody2D> Physics2D::addPolygonBody(float x, float y, const std::vector<QVector2D>& vertices, bool isDynamic, float density, float friction, float restitution) {
         if (!b2World_IsValid(impl_->worldId) || vertices.size() < 3) return nullptr;
 
         b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -185,9 +205,15 @@ namespace ArtifactCore {
         }
 
         b2Hull hull = b2ComputeHull(b2verts.data(), (int)b2verts.size());
+        if (hull.count < 3) {
+            b2DestroyBody(bodyId);
+            return nullptr;
+        }
         b2Polygon poly = b2MakePolygon(&hull, 0.01f); // Note: API changed - requires Hull
         b2ShapeDef shapeDef = b2DefaultShapeDef();
         shapeDef.density = density;
+        shapeDef.material.friction = friction;
+        shapeDef.material.restitution = restitution;
         b2CreatePolygonShape(bodyId, &shapeDef, &poly);
 
         auto rb = makeShared<RigidBody2D>();
@@ -206,7 +232,39 @@ namespace ArtifactCore {
         jointDef.dampingRatio = damping;
         jointDef.hertz = stiffness;
 
-        return b2CreateDistanceJoint(impl_->worldId, &jointDef);
+        const b2JointId jointId = b2CreateDistanceJoint(impl_->worldId, &jointDef);
+        if (!B2_IS_NULL(jointId)) {
+            impl_->joints.push_back(jointId);
+        }
+        return jointId;
+    }
+
+    void Physics2D::removeJoint(b2JointId jointId) {
+        if (!b2World_IsValid(impl_->worldId) || B2_IS_NULL(jointId) ||
+            !b2Joint_IsValid(jointId)) {
+            return;
+        }
+        b2DestroyJoint(jointId);
+        impl_->joints.erase(
+            std::remove(impl_->joints.begin(), impl_->joints.end(), jointId),
+            impl_->joints.end());
+    }
+
+    void Physics2D::clearJoints() {
+        if (!b2World_IsValid(impl_->worldId)) {
+            impl_->joints.clear();
+            return;
+        }
+        for (const b2JointId jointId : impl_->joints) {
+            if (b2Joint_IsValid(jointId)) {
+                b2DestroyJoint(jointId);
+            }
+        }
+        impl_->joints.clear();
+    }
+
+    const std::vector<b2JointId>& Physics2D::getJoints() const {
+        return impl_->joints;
     }
 
     b2JointId Physics2D::addRevoluteJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, QVector2D anchor) {
@@ -218,10 +276,15 @@ namespace ArtifactCore {
         jointDef.localAnchorA = b2Body_GetLocalPoint(bodyA->getId(), b2Vec2{anchor.x(), anchor.y()});
         jointDef.localAnchorB = b2Body_GetLocalPoint(bodyB->getId(), b2Vec2{anchor.x(), anchor.y()});
 
-        return b2CreateRevoluteJoint(impl_->worldId, &jointDef);
+        const b2JointId jointId = b2CreateRevoluteJoint(impl_->worldId, &jointDef);
+        if (!B2_IS_NULL(jointId)) {
+            impl_->joints.push_back(jointId);
+        }
+        return jointId;
     }
 
     void Physics2D::clear() {
+        clearJoints();
         impl_->bodies.clear();
         if (b2World_IsValid(impl_->worldId)) {
             b2DestroyWorld(impl_->worldId);

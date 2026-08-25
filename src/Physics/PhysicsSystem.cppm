@@ -126,21 +126,6 @@ public:
     const PhysicsLODSettings& physicsLODSettings() const { return lodSettings_; }
 
     // --- Phase 2: Fluid Dynamics ---
-    /**
-     * @brief グローバルな流体シミュレーション（煙・炎等）を初期化する
-     * @deprecated 単一グローバル流体は layer ごとの createFluidSolver へ移行。互換維持のため残置。
-     */
-    [[deprecated("use createFluidSolver(layerId,w,h)")]]
-    void initFluid(int w, int h) {
-        fluidSolver_ = std::make_unique<FluidSolver2D>(w, h);
-        fluidBaseWidth_ = std::max(4, w);
-        fluidBaseHeight_ = std::max(4, h);
-        appliedFluidResolutionScale_ = 1.0f;
-    }
-    
-    [[deprecated("use getFluidSolver(layerId)")]]
-    FluidSolver2D* getFluidSolver() { return fluidSolver_.get(); }
-
     SharedPtr<FluidSolver2D> createFluidSolver(LayerID layerId, int w, int h) {
         auto solver = makeShared<FluidSolver2D>(w, h);
         fluidSolvers_[layerId] = solver;
@@ -504,20 +489,6 @@ public:
             lodAccumulator_ = 0.0f;
         }
 
-        if (fluidSolver_) {
-            // 流体は密度（熱）による浮力や粘性を考慮して更新
-            if (fluidBaseWidth_ > 0 && fluidBaseHeight_ > 0 &&
-                std::abs(appliedFluidResolutionScale_ - lodSettings_.fluidResolutionScale) > 1.0e-4f) {
-                fluidSolver_->setResolution(
-                    static_cast<int>(std::lround(static_cast<float>(fluidBaseWidth_) * lodSettings_.fluidResolutionScale)),
-                    static_cast<int>(std::lround(static_cast<float>(fluidBaseHeight_) * lodSettings_.fluidResolutionScale)));
-                appliedFluidResolutionScale_ = lodSettings_.fluidResolutionScale;
-            }
-            if (lodSettings_.fluidSolverIterations > 0) {
-                fluidSolver_->setSolverIterations(lodSettings_.fluidSolverIterations);
-            }
-            fluidSolver_->update(simulationDt);
-        }
         for (auto& [id, fs] : fluidSolvers_) {
             if (fs) {
                 if (lodSettings_.fluidSolverIterations > 0) fs->setSolverIterations(lodSettings_.fluidSolverIterations);
@@ -603,10 +574,6 @@ public:
      * @brief シミュレーションを全て破棄する
      */
     void clear() {
-        fluidSolver_.reset();
-        fluidBaseWidth_ = 0;
-        fluidBaseHeight_ = 0;
-        appliedFluidResolutionScale_ = 1.0f;
         fluidSolvers_.clear();
         softBodies_.clear();
         softBodyColliders_.clear();
@@ -626,10 +593,6 @@ private:
     PhysicsSystem(const PhysicsSystem&) = delete;
     PhysicsSystem& operator=(const PhysicsSystem&) = delete;
     
-    std::unique_ptr<FluidSolver2D> fluidSolver_;
-    int fluidBaseWidth_ = 0;
-    int fluidBaseHeight_ = 0;
-    float appliedFluidResolutionScale_ = 1.0f;
     std::map<LayerID, SharedPtr<FluidSolver2D>> fluidSolvers_;
     std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
     std::map<LayerID, NamedVector<SoftBodyCollider>> softBodyColliders_;

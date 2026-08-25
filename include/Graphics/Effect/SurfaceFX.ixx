@@ -1,10 +1,12 @@
 module;
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QString>
+#include <QUuid>
 #include "../../Define/DllExportMacro.hpp"
 
 export module Graphics.Effect.SurfaceFX;
@@ -26,7 +28,8 @@ enum class SurfaceFXElementType {
     Droplet,
     Streak,
     Condensation,
-    Dirt
+    Dirt,
+    TextureDecal
 };
 
 struct LIBRARY_DLL_API SurfaceFXElement {
@@ -43,6 +46,18 @@ struct LIBRARY_DLL_API SurfaceFXElement {
     int seedOffset = 0;
     float inTime = 0.0f;
     float outTime = -1.0f;
+    QString texturePath;
+    QUuid assetId;
+    QString blendMode = QStringLiteral("normal");
+    float tintR = 1.0f;
+    float tintG = 1.0f;
+    float tintB = 1.0f;
+    float tintA = 1.0f;
+    float pivotX = 0.5f;
+    float pivotY = 0.5f;
+    float fadeIn = 0.0f;
+    float fadeOut = 0.0f;
+    float growth = 0.0f;
 
     QJsonObject toJson() const {
         QJsonObject json;
@@ -59,6 +74,18 @@ struct LIBRARY_DLL_API SurfaceFXElement {
         json.insert(QStringLiteral("seedOffset"), seedOffset);
         json.insert(QStringLiteral("inTime"), inTime);
         json.insert(QStringLiteral("outTime"), outTime);
+        json.insert(QStringLiteral("texturePath"), texturePath);
+        json.insert(QStringLiteral("assetId"), assetId.toString(QUuid::WithoutBraces));
+        json.insert(QStringLiteral("blendMode"), blendMode);
+        json.insert(QStringLiteral("tintR"), tintR);
+        json.insert(QStringLiteral("tintG"), tintG);
+        json.insert(QStringLiteral("tintB"), tintB);
+        json.insert(QStringLiteral("tintA"), tintA);
+        json.insert(QStringLiteral("pivotX"), pivotX);
+        json.insert(QStringLiteral("pivotY"), pivotY);
+        json.insert(QStringLiteral("fadeIn"), fadeIn);
+        json.insert(QStringLiteral("fadeOut"), fadeOut);
+        json.insert(QStringLiteral("growth"), growth);
         return json;
     }
 
@@ -77,12 +104,29 @@ struct LIBRARY_DLL_API SurfaceFXElement {
         result.seedOffset = json.value(QStringLiteral("seedOffset")).toInt(result.seedOffset);
         result.inTime = std::max(0.0f, static_cast<float>(json.value(QStringLiteral("inTime")).toDouble(result.inTime)));
         result.outTime = static_cast<float>(json.value(QStringLiteral("outTime")).toDouble(result.outTime));
+        result.texturePath = json.value(QStringLiteral("texturePath")).toString().trimmed().left(32768);
+        result.assetId = QUuid::fromString(json.value(QStringLiteral("assetId")).toString());
+        result.blendMode = normalizedBlendMode(json.value(QStringLiteral("blendMode")).toString(result.blendMode));
+        result.tintR = unitValue(json, QStringLiteral("tintR"), result.tintR);
+        result.tintG = unitValue(json, QStringLiteral("tintG"), result.tintG);
+        result.tintB = unitValue(json, QStringLiteral("tintB"), result.tintB);
+        result.tintA = unitValue(json, QStringLiteral("tintA"), result.tintA);
+        result.pivotX = unitValue(json, QStringLiteral("pivotX"), result.pivotX);
+        result.pivotY = unitValue(json, QStringLiteral("pivotY"), result.pivotY);
+        result.fadeIn = nonNegativeValue(json, QStringLiteral("fadeIn"), result.fadeIn);
+        result.fadeOut = nonNegativeValue(json, QStringLiteral("fadeOut"), result.fadeOut);
+        const float growthValue = static_cast<float>(
+            json.value(QStringLiteral("growth")).toDouble(result.growth));
+        result.growth = std::isfinite(growthValue)
+            ? std::clamp(growthValue, -1.0f, 4.0f)
+            : 0.0f;
         return result;
     }
 
 private:
     static QString typeName(SurfaceFXElementType type) {
         switch (type) {
+        case SurfaceFXElementType::TextureDecal: return QStringLiteral("textureDecal");
         case SurfaceFXElementType::Droplet: return QStringLiteral("droplet");
         case SurfaceFXElementType::Streak: return QStringLiteral("streak");
         case SurfaceFXElementType::Condensation: return QStringLiteral("condensation");
@@ -92,11 +136,32 @@ private:
     }
 
     static SurfaceFXElementType typeFromName(const QString& name) {
+        if (name == QStringLiteral("textureDecal")) return SurfaceFXElementType::TextureDecal;
         if (name == QStringLiteral("droplet")) return SurfaceFXElementType::Droplet;
         if (name == QStringLiteral("streak")) return SurfaceFXElementType::Streak;
         if (name == QStringLiteral("condensation")) return SurfaceFXElementType::Condensation;
         if (name == QStringLiteral("dirt")) return SurfaceFXElementType::Dirt;
         return SurfaceFXElementType::Scratch;
+    }
+
+    static float unitValue(const QJsonObject& json, const QString& key, float fallback) {
+        const float value = static_cast<float>(json.value(key).toDouble(fallback));
+        return std::isfinite(value) ? std::clamp(value, 0.0f, 1.0f) : fallback;
+    }
+
+    static float nonNegativeValue(const QJsonObject& json, const QString& key, float fallback) {
+        const float value = static_cast<float>(json.value(key).toDouble(fallback));
+        return std::isfinite(value) ? std::clamp(value, 0.0f, 3600.0f) : fallback;
+    }
+
+    static QString normalizedBlendMode(const QString& value) {
+        const QString normalized = value.trimmed().toLower();
+        if (normalized == QStringLiteral("multiply") ||
+            normalized == QStringLiteral("screen") ||
+            normalized == QStringLiteral("add") ||
+            normalized == QStringLiteral("darken"))
+            return normalized;
+        return QStringLiteral("normal");
     }
 };
 
@@ -112,7 +177,7 @@ struct LIBRARY_DLL_API SurfaceFXData {
 
     QJsonObject toJson() const {
         QJsonObject json;
-        json.insert(QStringLiteral("version"), 1);
+        json.insert(QStringLiteral("version"), 3);
         json.insert(QStringLiteral("anchorType"), anchorName(anchorType));
         json.insert(QStringLiteral("anchorX"), anchorX);
         json.insert(QStringLiteral("anchorY"), anchorY);
@@ -174,13 +239,21 @@ private:
 
 inline const bool kSurfaceFXSerializationRegistered = [] {
     Serialization::registerJsonSerializableType<SurfaceFXElement>(
-        QStringLiteral("SurfaceFXElement"), 1);
+        QStringLiteral("SurfaceFXElement"), 3);
     Serialization::registerJsonSerializableType<SurfaceFXData>(
-        QStringLiteral("SurfaceFXData"), 1);
+        QStringLiteral("SurfaceFXData"), 3);
     auto& migrations = Serialization::SchemaMigrationRegistry::instance();
     migrations.registerMigration(QStringLiteral("SurfaceFXElement"), 0, 1,
                                   [](const QJsonObject& object) { return object; });
     migrations.registerMigration(QStringLiteral("SurfaceFXData"), 0, 1,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("SurfaceFXElement"), 1, 2,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("SurfaceFXData"), 1, 2,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("SurfaceFXElement"), 2, 3,
+                                  [](const QJsonObject& object) { return object; });
+    migrations.registerMigration(QStringLiteral("SurfaceFXData"), 2, 3,
                                   [](const QJsonObject& object) { return object; });
     return true;
 }();
