@@ -1136,6 +1136,10 @@ void ArtifactAppSettings::setPreviewGpuDeviceText(const QString& value) {
 
 void ArtifactAppSettings::sync() {
     impl_->store.sync();
+    // ApplicationSettingDialog saves several independent fields before it
+    // calls sync(). Notify existing listeners once persistence is complete so
+    // runtime consumers re-apply the final, coherent settings snapshot.
+    Q_EMIT settingsChanged();
 }
 
 } // namespace ArtifactCore
