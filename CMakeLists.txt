@@ -30,6 +30,12 @@ foreach(_artifact_source IN LISTS CORE_MODULES)
 endforeach()
 set(CORE_MODULES ${_artifact_normalized_core_modules})
 
+# A CXX_MODULES file set must consist of sources that CMake schedules for C++
+# compilation.  Keep the language explicit for both .ixx and exported .cppm
+# units so Visual Studio generators do not classify module-only sources as
+# non-compilable project items before the file set is generated.
+set_source_files_properties(${CORE_MODULES} PROPERTIES LANGUAGE CXX)
+
 set(_artifact_normalized_core_impl)
 foreach(_artifact_source IN LISTS CORE_IMPL)
     file(REAL_PATH "${_artifact_source}" _artifact_normalized_source)
@@ -164,6 +170,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform3D.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
+                "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
                 "/reference;Animation.Transform3D=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Transform3D.ifc"
                 "/reference;Animation.Value=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Animation.Value.ifc"
                 "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
@@ -400,6 +407,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/ProjectDiagnostic.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
+                "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
                 "/reference;Core.Diagnostics.ProjectDiagnostic=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.ProjectDiagnostic.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Diagnostics/DiagnosticEngine.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY

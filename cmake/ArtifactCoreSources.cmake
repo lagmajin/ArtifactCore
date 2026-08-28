@@ -348,7 +348,6 @@ set(ARTIFACTCORE_MODULE_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../include/Graphics/TextureFactory.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Graphics/Utils/Func.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Graphics/Vector2D.ixx"
-    "${CMAKE_CURRENT_LIST_DIR}/../include/Graphics/Vector3D.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Graphics/VertexBuffer/VertexBufferixx.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Grid/ArtifactGridSystem.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Icon/SvgToIcon.ixx"
