@@ -5,8 +5,6 @@ module;
 
 export module Utils.Tag;
 
-import std;
-
 import Utils.String.UniString;
 import Utils.String.Like;
 

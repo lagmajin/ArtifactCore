@@ -2,6 +2,7 @@ module;
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <memory>
 #include <utility>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
@@ -14,7 +15,6 @@ module;
 
 module Graphics.ParticleRenderer;
 
-import std;
 import Frame.Debug;
 import Graphics.Compute;
 

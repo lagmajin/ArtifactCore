@@ -229,7 +229,7 @@ bool ColorLUT::loadFromCube(const QString& filePath) {
             bool ok;
             float v = num.toFloat(&ok);
             if (ok) {
-                values.push_back(v);
+                values.append(v);
             }
         }
     }
@@ -328,9 +328,9 @@ bool ColorLUT::loadFromCsp(const QString& filePath) {
             impl_->errorMessage = "Invalid CSP LUT sample";
             return false;
         }
-        values.push_back(r);
-        values.push_back(g);
-        values.push_back(b);
+        values.append(r);
+        values.append(g);
+        values.append(b);
     }
     file.close();
 
@@ -388,7 +388,7 @@ bool ColorLUT::loadFrom3dl(const QString& filePath) {
             bool ok;
             float v = num.toFloat(&ok);
             if (ok) {
-                values.push_back(v);
+                values.append(v);
             }
         }
     }

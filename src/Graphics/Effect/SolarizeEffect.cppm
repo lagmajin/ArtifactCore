@@ -1,10 +1,12 @@
+module;
+
+#include <algorithm>
+
 module Graphics.Effect.Creative.Solarize;
 
 import Graphics.Effect.Creative;
 import Channel;
 import Core.Parallel;
-import std;
-
 namespace ArtifactCore {
 
 SolarizeEffect::SolarizeEffect() {

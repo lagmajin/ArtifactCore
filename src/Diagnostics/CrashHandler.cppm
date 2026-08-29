@@ -10,10 +10,10 @@ module;
 #include <QTextStream>
 
 #include <algorithm>
+#include <atomic>
+#include <utility>
 
 module Diagnostics.CrashHandler;
-
-import std;
 
 namespace ArtifactCore {
 

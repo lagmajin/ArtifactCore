@@ -1,5 +1,7 @@
 module;
 #include <utility>
+#include <algorithm>
+#include <numbers>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -16,7 +18,6 @@ module;
 
 module Graphics.MeshRenderer;
 
-import std;
 import Frame.Debug;
 import Graphics.ParticleData;
 import Graphics.Compute;
@@ -269,7 +270,7 @@ bool loadLinearTexture(ArtifactCore::GpuContext& context, const QString& path,
         levelWidth = std::max(1, levelWidth / 2);
     }
     Diligent::TextureData initData;
-    initData.pSubResources = subResources.constData();
+    initData.pSubResources = subResources.data();
     initData.NumSubresources = static_cast<Diligent::Uint32>(subResources.size());
     device->CreateTexture(texDesc, &initData, &texture);
     if (!texture) {
@@ -3151,7 +3152,7 @@ void MeshRenderer::setBaseColorTexture(const QString& path)
     }
 
     TextureData initData;
-    initData.pSubResources = subResources.constData();
+    initData.pSubResources = subResources.data();
     initData.NumSubresources = static_cast<Uint32>(subResources.size());
 
     pDevice->CreateTexture(texDesc, &initData, &pImpl_->pBaseColorTexture_);
@@ -3260,7 +3261,7 @@ void MeshRenderer::setEmissionTexture(const QString& path)
     }
 
     TextureData initData;
-    initData.pSubResources = subResources.constData();
+    initData.pSubResources = subResources.data();
     initData.NumSubresources = static_cast<Uint32>(subResources.size());
 
     pDevice->CreateTexture(texDesc, &initData, &pImpl_->pEmissionTexture_);
@@ -3497,7 +3498,7 @@ void MeshRenderer::setOpacityTexture(const QString& path)
     }
 
     TextureData initData;
-    initData.pSubResources = subResources.constData();
+    initData.pSubResources = subResources.data();
     initData.NumSubresources = static_cast<Uint32>(subResources.size());
 
     pDevice->CreateTexture(texDesc, &initData, &pImpl_->pOpacityTexture_);

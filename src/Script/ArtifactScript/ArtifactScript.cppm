@@ -1090,6 +1090,42 @@ void ArtifactScriptHost::registerFunction(const std::string& name, ArtifactScrip
     impl_->functions.insert_or_assign(name, std::move(function));
 }
 
+void ArtifactScriptHost::installCompositionApi(const ArtifactScriptCompositionApi& api) {
+    if (api.getLayer) {
+        registerFunction("getLayer", [fn = api.getLayer](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 1 || !std::holds_alternative<std::string>(args[0])) return ArtifactScriptValue{};
+            return fn(std::get<std::string>(args[0]));
+        });
+    }
+    if (api.getLayerCount) {
+        registerFunction("getLayerCount", [fn = api.getLayerCount](std::span<const ArtifactScriptValue> args) {
+            return args.empty() ? ArtifactScriptValue(fn()) : ArtifactScriptValue{};
+        });
+    }
+    if (api.getTime) {
+        registerFunction("getTime", [fn = api.getTime](std::span<const ArtifactScriptValue> args) {
+            return args.empty() ? ArtifactScriptValue(fn()) : ArtifactScriptValue{};
+        });
+    }
+    if (api.getProperty) {
+        registerFunction("getProperty", [fn = api.getProperty](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 2 || !std::holds_alternative<std::string>(args[1])) return ArtifactScriptValue{};
+            return fn(args[0], std::get<std::string>(args[1]));
+        });
+    }
+    if (api.setProperty) {
+        registerFunction("setProperty", [this, fn = api.setProperty](std::span<const ArtifactScriptValue> args) {
+            if (args.size() != 3 || !std::holds_alternative<std::string>(args[1])) {
+                setLastError("setProperty expects target, path, value");
+                return ArtifactScriptValue(false);
+            }
+            const bool accepted = fn(args[0], std::get<std::string>(args[1]), args[2]);
+            if (!accepted) setLastError("setProperty rejected target or path");
+            return ArtifactScriptValue(accepted);
+        });
+    }
+}
+
 bool ArtifactScriptHost::hasFunction(const std::string& name) const {
     return impl_->functions.find(name) != impl_->functions.end();
 }

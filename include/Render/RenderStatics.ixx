@@ -1,8 +1,7 @@
 module;
 #include <utility>
+#include <string>
 export module Render.Statics;
-
-import std;
 
 export namespace ArtifactCore
 {

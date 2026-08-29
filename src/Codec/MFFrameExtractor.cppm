@@ -7,11 +7,16 @@ module;
 #include <wrl/client.h>
 #include "../Define/DllExportMacro.hpp"
 #include <QString>
+#include <algorithm>
+#include <cstring>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 module Codec.MFFrameExtractor;
 
 import Core.Parallel;
-import std;
 import Memory.TrackedPtr;
 
 

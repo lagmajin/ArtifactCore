@@ -150,7 +150,7 @@ auto DiagnosticResult::getErrors() const -> std::vector<ProjectDiagnostic> {
     NamedVector<ProjectDiagnostic> result;
     for (const auto& d : diagnostics_) {
         if (d.getSeverity() == DiagnosticSeverity::Error) {
-            result.push_back(d);
+            result.append(d);
         }
     }
     return result.toStdVector();
@@ -160,7 +160,7 @@ auto DiagnosticResult::getWarnings() const -> std::vector<ProjectDiagnostic> {
     NamedVector<ProjectDiagnostic> result;
     for (const auto& d : diagnostics_) {
         if (d.getSeverity() == DiagnosticSeverity::Warning) {
-            result.push_back(d);
+            result.append(d);
         }
     }
     return result.toStdVector();
@@ -170,7 +170,7 @@ auto DiagnosticResult::getByCategory(DiagnosticCategory category) const -> std::
     NamedVector<ProjectDiagnostic> result;
     for (const auto& d : diagnostics_) {
         if (d.getCategory() == category) {
-            result.push_back(d);
+            result.append(d);
         }
     }
     return result.toStdVector();
@@ -180,7 +180,7 @@ auto DiagnosticResult::getBySource(const QString& layerId, const QString& compId
     NamedVector<ProjectDiagnostic> result;
     for (const auto& d : diagnostics_) {
         if (d.getSourceLayerId() == layerId || d.getSourceCompId() == compId) {
-            result.push_back(d);
+            result.append(d);
         }
     }
     return result.toStdVector();

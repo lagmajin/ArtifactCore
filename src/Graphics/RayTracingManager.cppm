@@ -269,9 +269,9 @@ public:
         names.reserve(blasMap_.size());
         for (const auto& [name, node] : blasMap_) {
             if (!node.pBLAS) continue;
-            names.push_back(std::string(name.begin(), name.end()));
+            names.append(std::string(name.begin(), name.end()));
             TLASBuildInstanceData instance;
-            instance.InstanceName = names.back().c_str();
+            instance.InstanceName = names.at(names.size() - 1)->c_str();
             instance.pBLAS = node.pBLAS;
             instance.Mask = node.active ? 0xFF : 0;
             instance.Transform.SetRotation(node.transform.Data(), 4);

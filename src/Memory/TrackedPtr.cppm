@@ -52,12 +52,12 @@ public:
         }
     }
 
-    const NamedVector<uint64_t>& values() const noexcept {
+    const std::vector<uint64_t>& values() const noexcept {
         return values_;
     }
 
 private:
-    NamedVector<uint64_t> values_;
+    std::vector<uint64_t> values_;
 };
 
 struct TrackedPtrControlBlock {
@@ -116,24 +116,23 @@ public:
     
     std::vector<uint64_t> detectCycles() const {
         std::lock_guard<std::mutex> lock(mutex_);
-        NamedVector<uint64_t> cycleParticipants{
-            makeNamedVector<uint64_t>(ContainerName{"TrackedPtrCycleParticipants"})};
+        std::vector<uint64_t> cycleParticipants;
         
         for (uint64_t id = 1; id < blocks_.size(); ++id) {
             const auto* block = blocks_[static_cast<size_t>(id)];
             if (block && block->strongRefCount.load() > 0) {
                 if (isPartOfCycle(block, id)) {
-                    cycleParticipants.append(id);
+                    cycleParticipants.push_back(id);
                 }
             }
         }
-        return cycleParticipants.toStdVector();
+        return cycleParticipants;
     }
     
 private:
     mutable std::mutex mutex_;
     uint64_t nextId_{0};
-    NamedVector<TrackedPtrControlBlock*> blocks_;
+    std::vector<TrackedPtrControlBlock*> blocks_;
     
     bool isPartOfCycle(const TrackedPtrControlBlock* block, uint64_t id) const {
         if (!block) return false;

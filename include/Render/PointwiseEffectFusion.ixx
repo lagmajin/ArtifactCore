@@ -288,7 +288,7 @@ public:
                 segment.nodeCount = index - start;
                 segment.outputAlpha = alpha;
                 segment.isFused = segment.nodeCount > 1;
-                segments.push_back(segment);
+                segments.append(segment);
             }
             if (index < nodes.size()) {
                 PointwiseFusionSegment boundary;
@@ -297,7 +297,7 @@ public:
                 boundary.inputAlpha = alpha;
                 boundary.outputAlpha = alpha;
                 boundary.fallbackReason = boundaryReason(nodes[index].kind);
-                segments.push_back(boundary);
+                segments.append(boundary);
                 ++index;
             }
         }
@@ -677,7 +677,7 @@ inline std::vector<EffectDomainSegment> PointwiseEffectStack::domainSegments() c
                PointwiseEffectFusion::executionDomain(nodes_[index].kind) == domain) {
             ++index;
         }
-        result.push_back({start, index - start, domain});
+        result.append({start, index - start, domain});
     }
     return result.toStdVector();
 }

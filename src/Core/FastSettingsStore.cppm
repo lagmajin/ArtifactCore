@@ -11,10 +11,10 @@ module;
 #include <QByteArray>
 #include <QHash>
 #include <QStringList>
+#include <mutex>
+#include <shared_mutex>
 
 module Core.FastSettingsStore;
-
-import std;
 
 namespace ArtifactCore
 {

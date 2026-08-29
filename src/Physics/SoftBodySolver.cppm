@@ -161,7 +161,7 @@ public:
                 const int sourceX = std::clamp(static_cast<int>(std::lround(
                     static_cast<float>(x) * static_cast<float>(baseColumns - 1) /
                     static_cast<float>(newColumns - 1))), 0, baseColumns - 1);
-                newPoints.push_back(srcPoints[static_cast<std::size_t>(sourceY * baseColumns + sourceX)]);
+                newPoints.append(srcPoints[static_cast<std::size_t>(sourceY * baseColumns + sourceX)]);
             }
         }
         points_.clear();
@@ -480,7 +480,7 @@ public:
         });
 
         // 2. 拘束解決（反復計算）+ 破断検出
-        NamedVector<int> constraintsToRemove;
+        std::vector<int> constraintsToRemove;
         for (int iter = 0; iter < constraintIterations_; ++iter) {
             for (size_t ci = 0; ci < constraints_.size(); ++ci) {
                 auto& c = constraints_[ci];
@@ -525,8 +525,8 @@ public:
         // 2c. 動的リメッシュ（subdivision / collapse）
         if (remeshingEnabled_) {
             // Collection phase: gather splits and collapses
-            NamedVector<std::pair<int, int>> splits; // constraint index, new point index
-            NamedVector<int> collapses; // constraint index to collapse
+            std::vector<std::pair<int, int>> splits; // constraint index, new point index
+            std::vector<int> collapses; // constraint index to collapse
             for (size_t ci = 0; ci < constraints_.size(); ++ci) {
                 auto& c = constraints_[ci];
                 auto& p1 = points_[c.p1Idx];
@@ -662,7 +662,7 @@ public:
     int gridRows() const { return gridRows_; }
 
     std::vector<SoftBodyUVVertex> getUVVertices() const {
-        NamedVector<SoftBodyUVVertex> vertices;
+        std::vector<SoftBodyUVVertex> vertices;
         if (gridColumns_ < 2 || gridRows_ < 2 ||
             points_.size() != static_cast<std::size_t>(gridColumns_ * gridRows_)) {
             return {};
@@ -678,7 +678,7 @@ public:
                                     static_cast<float>(y) * invRows});
             }
         }
-        return vertices.toStdVector();
+        return vertices;
     }
 
     std::vector<std::uint32_t> getGridTriangleIndices() const {

@@ -1,10 +1,13 @@
+module;
+
+#include <algorithm>
+#include <cmath>
+
 module Graphics.Effect.Creative.Emboss;
 
 import Graphics.Effect.Creative;
 import Channel;
 import Core.Parallel;
-import std;
-
 namespace ArtifactCore {
 
 EmbossEffect::EmbossEffect() {

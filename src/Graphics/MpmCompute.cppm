@@ -612,19 +612,21 @@ void MpmGPUCompute::readbackParticles(IDeviceContext* pContext,
     device->CreateBuffer(stagingDesc, nullptr, &staging);
     if (!staging) return;
 
-    CopyBufferAttribs copy(pParticleBuffer_,
-                           RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                           staging, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    pContext->CopyBuffer(copy);
+    pContext->CopyBuffer(pParticleBuffer_,
+                         0,
+                         RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                         staging,
+                         0,
+                         stagingDesc.Size,
+                         RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     pContext->Flush();
     pContext->WaitForIdle();
 
     void* mapped = nullptr;
-    if (pContext->MapBuffer(staging, MAP_READ, MAP_FLAG_NONE, mapped)) {
-        std::memcpy(outParticles, mapped,
-                    static_cast<std::size_t>(clamped) * sizeof(MpmGpuParticle));
-        pContext->UnmapBuffer(staging, MAP_READ);
-    }
+    pContext->MapBuffer(staging, MAP_READ, MAP_FLAG_NONE, mapped);
+    std::memcpy(outParticles, mapped,
+                static_cast<std::size_t>(clamped) * sizeof(MpmGpuParticle));
+    pContext->UnmapBuffer(staging, MAP_READ);
 }
 
 } // namespace ArtifactCore

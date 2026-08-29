@@ -3,6 +3,7 @@ module;
 #include <QString>
 #include <QVariant>
 #include <QColor>
+#include <string_view>
 #include <vector>
 #include "../Define/DllExportMacro.hpp"
 #include <iostream>
@@ -47,6 +48,10 @@ import Animation.Transform3D;
 import Script.Expression.Evaluator;
 import Script.Expression.Value;
 import Time.Rational;
+
+namespace ArtifactCore::Audio::Modulation {
+class ModulationRouter;
+}
 
 export namespace ArtifactCore {
 
@@ -293,8 +298,12 @@ public:
     QString getExpression() const;
     bool hasExpression() const;
     // Optional layerIndex feeds the AE-style `index` expression variable.
+    // Modulation is explicit: callers provide both the router they own and
+    // the stable property path that identifies this evaluated value.
     QVariant evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator = nullptr,
-                           std::optional<int> layerIndex = std::nullopt) const;
+                           std::optional<int> layerIndex = std::nullopt,
+                           const Audio::Modulation::ModulationRouter* modulationRouter = nullptr,
+                           std::string_view modulationTargetPath = {}) const;
 
     // Envelope support
     void addEnvelope(const EnvelopeTrack& envelope);

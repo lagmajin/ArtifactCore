@@ -124,7 +124,7 @@ public:
     {
         NamedVector<TemporalHistoryKey> result;
         result.reserve(entries_.size());
-        for (const auto& [key, entry] : entries_) if (entry.valid) result.push_back(key);
+        for (const auto& [key, entry] : entries_) if (entry.valid) result.append(key);
         return result.toStdVector();
     }
 

@@ -50,7 +50,7 @@ std::vector<FallbackEvent> FallbackTracker::getEventsByCategory(FallbackCategory
     NamedVector<FallbackEvent> result;
     for (const auto& e : events_) {
         if (e.category == category) {
-            result.push_back(e);
+            result.append(e);
         }
     }
     return result.toStdVector();
@@ -61,7 +61,7 @@ std::vector<FallbackEvent> FallbackTracker::getEventsSince(const QDateTime& sinc
     NamedVector<FallbackEvent> result;
     for (const auto& e : events_) {
         if (e.timestamp >= since) {
-            result.push_back(e);
+            result.append(e);
         }
     }
     return result.toStdVector();

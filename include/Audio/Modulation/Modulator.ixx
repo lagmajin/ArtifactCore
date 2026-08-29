@@ -91,6 +91,7 @@ namespace Modulation {
             phase_ = phaseOffset_;
         }
         float phase() const { return phase_; }
+        float phaseOffset() const { return phaseOffset_; }
 
         void setPulseWidth(float width01) {
             pulseWidth_ = std::isfinite(width01)
@@ -271,6 +272,9 @@ namespace Modulation {
 
     class RandomSource final : public IModulatorSource {
     public:
+        RandomSource()
+            : seed_(Detail::nextAutoSeed()), random_(seed_) {}
+
         void setRate(float hertz) {
             rate_ = std::isfinite(hertz) && hertz > 0.0f
                 ? std::min(hertz, 1000.0f) : 0.0f;
@@ -283,7 +287,11 @@ namespace Modulation {
         }
         float smoothing() const { return smoothingTime_; }
 
-        void setSeed(std::uint32_t seed) { random_.seed(seed); }
+        void setSeed(std::uint32_t seed) {
+            seed_ = seed != 0u ? seed : 2463534242u;
+            random_.seed(seed_);
+        }
+        std::uint32_t seed() const { return seed_; }
 
         void setUnipolar(bool unipolar) { unipolar_ = unipolar; }
         bool unipolar() const { return unipolar_; }
@@ -293,6 +301,7 @@ namespace Modulation {
         }
 
         void reset() override {
+            random_.seed(seed_);
             heldValue_ = random_.nextSigned();
             value_ = heldValue_;
             framesUntilDraw_ = 0.0;
@@ -329,7 +338,27 @@ namespace Modulation {
         float value_{0.0f};
         double framesUntilDraw_{0.0};
         bool unipolar_{false};
-        Detail::XorShift32 random_{Detail::nextAutoSeed()};
+        std::uint32_t seed_{2463534242u};
+        Detail::XorShift32 random_;
+    };
+
+    // A user- or automation-driven normalized control. It intentionally has
+    // no time progression, so the same project state evaluates identically
+    // in preview and offline render.
+    class MacroSource final : public IModulatorSource {
+    public:
+        void setValue(float value01) {
+            value_ = std::isfinite(value01) ? std::clamp(value01, 0.0f, 1.0f) : 0.0f;
+        }
+        float value() const { return value_; }
+
+        void setSampleRate(float) override {}
+        void reset() override {}
+        float process(std::uint32_t) override { return value_; }
+        bool bipolar() const override { return false; }
+
+    private:
+        float value_{0.0f};
     };
 
 } // namespace Modulation

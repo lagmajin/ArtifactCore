@@ -165,12 +165,14 @@ export struct SpringState {
 
   T at(const FramePosition& frame) const {
    std::shared_lock lock(mutex_);
-   if (keyframes_.empty()) return currentValue_;
-   if (keyframes_.size() == 1) return keyframes_[0].value;
+   if (keyframes_.isEmpty()) return currentValue_; // NamedVector API
+   if (keyframes_.size() == 1) return keyframes_.at(0)->value;
 
    // 1. wt[SL[t[Oォ`FbN
-   if (frame <= keyframes_.front().frame) return keyframes_.front().value;
-   if (frame >= keyframes_.back().frame) return keyframes_.back().value;
+   if (frame <= keyframes_.at(0)->frame) return keyframes_.at(0)->value;
+   if (frame >= keyframes_.at(keyframes_.size() - 1)->frame) {
+    return keyframes_.at(keyframes_.size() - 1)->value;
+   }
 
    // 2. Binary search. Evaluation is const and deliberately has no mutable
    // cache: these values are evaluated concurrently by UI and render paths.
@@ -214,7 +216,7 @@ export struct SpringState {
     [](const auto& a, const auto& b) { return a.frame < b.frame; });
    for (std::size_t index = keyframes_.size(); index > 1;) {
     --index;
-    if (keyframes_[index].frame == keyframes_[index - 1].frame) {
+    if (keyframes_.at(index)->frame == keyframes_.at(index - 1)->frame) {
      keyframes_.takeAt(index);
     }
    }

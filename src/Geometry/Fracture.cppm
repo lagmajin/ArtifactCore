@@ -144,7 +144,7 @@ static std::vector<QPolygonF> generateGridPolygons(const QRectF& bounds,
  const double cellW = bounds.width() / cols;
  const double cellH = bounds.height() / rows;
 
- NamedVector<QPolygonF> polygons;
+ std::vector<QPolygonF> polygons;
  polygons.reserve(static_cast<size_t>(rows * cols));
 
  int produced = 0;
@@ -159,7 +159,7 @@ static std::vector<QPolygonF> generateGridPolygons(const QRectF& bounds,
   }
  }
 
- return polygons.toStdVector();
+ return polygons;
 }
 
 static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
@@ -167,7 +167,7 @@ static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
                                                      int shardCount,
                                                      ArtifactCore::RandomStream& rng,
                                                      float jitterFactor) {
- NamedVector<float> angles;
+ std::vector<float> angles;
  angles.reserve(static_cast<size_t>(shardCount));
  for (int i = 0; i < shardCount; ++i) {
   const float base = (kTwoPi * static_cast<float>(i)) / static_cast<float>(shardCount);
@@ -177,7 +177,7 @@ static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
 
  std::sort(angles.begin(), angles.end());
 
- NamedVector<QPolygonF> polygons;
+ std::vector<QPolygonF> polygons;
  polygons.reserve(static_cast<size_t>(shardCount));
 
  for (int i = 0; i < shardCount; ++i) {
@@ -197,7 +197,7 @@ static std::vector<QPolygonF> generateRadialPolygons(const QRectF& bounds,
   polygons.push_back(poly);
  }
 
- return polygons.toStdVector();
+ return polygons;
 }
 
 static std::vector<QPolygonF> generateHybridPolygons(const QRectF& bounds,

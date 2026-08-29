@@ -177,11 +177,11 @@ public:
             for (const auto existing : result) {
                 if (existing == kind) return;
             }
-            result.push_back(kind);
+            result.append(kind);
         };
         for (const auto& pass : passes_) {
             if (!contains(produced, pass.input)) appendUnique(pass.input);
-            if (!contains(produced, pass.output)) produced.push_back(pass.output);
+            if (!contains(produced, pass.output)) produced.append(pass.output);
         }
         return result.toStdVector();
     }

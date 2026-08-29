@@ -192,7 +192,7 @@ public:
         NamedVector<Id> ids;
         for (const auto& n : nodes_) {
             if (n.isEnabled() && !n.sourceLayerId().isNil()) {
-                ids.push_back(n.sourceLayerId());
+                ids.append(n.sourceLayerId());
             }
         }
         return ids.toStdVector();

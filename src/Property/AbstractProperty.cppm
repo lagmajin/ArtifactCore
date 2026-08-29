@@ -10,6 +10,7 @@ module;
 #include <vector>
 #include <string>
 #include <map>
+#include <limits>
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
@@ -48,6 +49,7 @@ import Script.Expression.Value;
 import Script.Engine.Context;
 import Math.Interpolate;
 import EnvironmentVariable.Expansion;
+import Audio.Modulation.Router;
 
 
 
@@ -398,7 +400,9 @@ bool AbstractProperty::hasExpression() const {
 }
 
 QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator,
-                                         std::optional<int> layerIndex) const {
+                                         std::optional<int> layerIndex,
+                                         const Audio::Modulation::ModulationRouter* modulationRouter,
+                                         std::string_view modulationTargetPath) const {
     {
         std::shared_lock lock(pImpl->m_mutex);
         if (pImpl->m_hasExternalOverride) {
@@ -410,6 +414,8 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
     std::vector<EnvelopeTrack> envelopes;
     PropertyType propertyType;
     QVariant defaultValue;
+    QVariant minValue;
+    QVariant maxValue;
     QString propertyName;
     QString expression;
     std::vector<KeyFrame> keyframes;
@@ -419,6 +425,8 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
         keyframes = pImpl->m_keyFrames;
         propertyType = pImpl->m_type;
         defaultValue = pImpl->m_defaultValue;
+        minValue = pImpl->m_minValue;
+        maxValue = pImpl->m_maxValue;
         propertyName = pImpl->m_name;
         expression = pImpl->m_expression;
     }
@@ -484,6 +492,7 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
             break;
         }
     }
+    QVariant evaluatedValue = baseValue;
     if (evaluator && !expression.isEmpty()) {
         try {
             // AE-like context injection
@@ -524,7 +533,7 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
                     expressionResult = QString(
                         expandTokens(expressionResult.toString(), expansionContext));
                 }
-                return expressionResult;
+                evaluatedValue = expressionResult;
             } else {
                 // If error, return baseValue as fallback
                 std::cerr << "Expression error in property " << propertyName.toUtf8().constData()
@@ -538,13 +547,35 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
     // String プロパティのトークン展開 ($VAR / ${VAR} / $F4)。
     // 式が無い静的文字列でも評価時に展開される (Houdini 方式)。
     // ガードは $ の包含チェックのみで、マーカーなし文字列のコストはゼロ。
-    if (propertyType == PropertyType::String && containsExpansionMarker(baseValue.toString())) {
+    if (propertyType == PropertyType::String && containsExpansionMarker(evaluatedValue.toString())) {
         ExpansionContext expansionContext;
         expansionContext.frame = time.toDouble() * static_cast<double>(time.scale());
         expansionContext.fps = static_cast<double>(time.scale());
-        return QString(expandTokens(baseValue.toString(), expansionContext));
+        return QString(expandTokens(evaluatedValue.toString(), expansionContext));
     }
-    return baseValue;
+    if (!modulationRouter || modulationTargetPath.empty() ||
+        (propertyType != PropertyType::Float && propertyType != PropertyType::Integer)) {
+        return evaluatedValue;
+    }
+
+    const auto targetId = Audio::Modulation::modulationTargetId(modulationTargetPath);
+    const double modulated = static_cast<double>(modulationRouter->targetValue(
+        targetId, static_cast<float>(evaluatedValue.toDouble())));
+    if (!std::isfinite(modulated)) {
+        return evaluatedValue;
+    }
+    if (propertyType == PropertyType::Float) {
+        double clamped = modulated;
+        if (minValue.isValid()) clamped = std::max(clamped, minValue.toDouble());
+        if (maxValue.isValid()) clamped = std::min(clamped, maxValue.toDouble());
+        return QVariant(clamped);
+    }
+    double clamped = std::clamp(modulated,
+        static_cast<double>(std::numeric_limits<int>::lowest()),
+        static_cast<double>(std::numeric_limits<int>::max()));
+    if (minValue.isValid()) clamped = std::max(clamped, static_cast<double>(minValue.toInt()));
+    if (maxValue.isValid()) clamped = std::min(clamped, static_cast<double>(maxValue.toInt()));
+    return QVariant(static_cast<int>(std::round(clamped)));
 }
 
 void AbstractProperty::addEnvelope(const EnvelopeTrack& envelope) {

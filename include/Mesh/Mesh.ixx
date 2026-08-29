@@ -116,7 +116,7 @@ export namespace ArtifactCore {
         bool has(const std::string& name) const { return attributes_.count(name) > 0; }
         std::vector<std::string> attributeNames() const {
             NamedVector<std::string> names;
-            for (const auto& pair : attributes_) names.push_back(pair.first);
+            for (const auto& pair : attributes_) names.append(pair.first);
             return names.toStdVector();
         }
     };

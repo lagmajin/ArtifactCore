@@ -13,7 +13,6 @@ module;
 module Color.Swatch;
 
 import Color.Float;
-import Container.NamedVector;
 import Core.ArtifactString;
 import Memory.TrackedPtr;
 
@@ -22,8 +21,7 @@ namespace ArtifactCore {
 class ColorSwatch::Impl {
 public:
     String name;
-    NamedVector<SwatchEntry> entries{
-        makeNamedVector<SwatchEntry>(ContainerName{"ColorSwatchEntries"})};
+    std::vector<SwatchEntry> entries;
 
     Impl(const String& n = "New Palette") : name(n) {}
 };

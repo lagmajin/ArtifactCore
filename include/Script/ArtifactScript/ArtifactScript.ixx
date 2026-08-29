@@ -310,6 +310,14 @@ private:
 // the evaluator's diagnostic path (see ArtifactScriptHost::registerError).
 using ArtifactScriptNativeFn = std::function<ArtifactScriptValue(std::span<const ArtifactScriptValue>)>;
 
+struct ArtifactScriptCompositionApi {
+    std::function<ArtifactScriptValue(std::string_view)> getLayer;
+    std::function<std::int64_t()> getLayerCount;
+    std::function<double()> getTime;
+    std::function<ArtifactScriptValue(const ArtifactScriptValue&, std::string_view)> getProperty;
+    std::function<bool(const ArtifactScriptValue&, std::string_view, const ArtifactScriptValue&)> setProperty;
+};
+
 class ArtifactScriptHost {
 public:
     ArtifactScriptHost();
@@ -318,6 +326,10 @@ public:
     ArtifactScriptHost& operator=(const ArtifactScriptHost&) = delete;
 
     void registerFunction(const std::string& name, ArtifactScriptNativeFn function);
+    // Installs the stable, composition-facing standard library callbacks.
+    // Reinstalling replaces the previous callbacks and keeps the registry
+    // ownership in the host.
+    void installCompositionApi(const ArtifactScriptCompositionApi& api);
     bool hasFunction(const std::string& name) const;
     // Calls a registered host function. Returns false when the name is
     // unknown. Callback errors are reported via setLastError.

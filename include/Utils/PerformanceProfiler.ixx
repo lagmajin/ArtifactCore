@@ -59,9 +59,9 @@ public:
     std::vector<double> getHistory(const String& name) {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto& history = history_[toStdString(name)];
-        NamedVector<double> result;
+        std::vector<double> result;
         result.insert(result.end(), history.begin(), history.end());
-        return result.toStdVector();
+        return result;
     }
 
 private:
@@ -277,13 +277,13 @@ public:
 
     std::vector<String> knownTimerNames() const {
         const auto latest = PerformanceRegistry::instance().getLatestSamples();
-        NamedVector<String> names;
+        std::vector<String> names;
         names.reserve(latest.size());
         for (const auto& [name, sample] : latest) {
             (void)sample;
-            names.emplace_back(name);
+            names.push_back(String{name});
         }
-        return names.toStdVector();
+        return names;
     }
 
     ScopeStats timerStats(const String& name, int /*histN*/) const {
