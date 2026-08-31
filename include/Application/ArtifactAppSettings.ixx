@@ -12,6 +12,8 @@ import Artifact.Grid.System;
 
 namespace ArtifactCore {
 
+export struct AppSettingsChangedEvent {};
+
 export class LIBRARY_DLL_API ArtifactAppSettings : public QObject {
     W_OBJECT(ArtifactAppSettings)
 public:
@@ -224,9 +226,6 @@ public:
     void sync();
 
     ~ArtifactAppSettings();
-
-signals:
-    void settingsChanged() W_SIGNAL(settingsChanged);
 
 private:
     ArtifactAppSettings();

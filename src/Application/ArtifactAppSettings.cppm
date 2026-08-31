@@ -11,12 +11,17 @@ import Color.Float;
 import Configuration.ConfigLayer;
 import Configuration.ConfigSchema;
 import Configuration.LayeredConfigStore;
+import Event.Bus;
 
 namespace ArtifactCore {
 
 W_OBJECT_IMPL(ArtifactAppSettings)
 
 namespace {
+void notifySettingsChanged() {
+    globalEventBus().publish(AppSettingsChangedEvent{});
+}
+
 void registerBuiltInConfigSchema() {
     auto& schema = ConfigSchema::instance();
     schema.registerProperty({"General/AutoSaveInterval", "Automatic save interval in minutes", QVariant::Int, 5, 1, 120});
@@ -225,7 +230,7 @@ QString ArtifactAppSettings::defaultFontFamily() const {
 
 void ArtifactAppSettings::setDefaultFontFamily(const QString& family) {
     impl_->store.setValue("General/DefaultFontFamily", family);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::autoSaveIntervalMinutes() const {
@@ -234,7 +239,7 @@ int ArtifactAppSettings::autoSaveIntervalMinutes() const {
 
 void ArtifactAppSettings::setAutoSaveIntervalMinutes(int minutes) {
     impl_->store.setValue("General/AutoSaveInterval", minutes);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::loadLastProjectOnStartup() const {
@@ -243,7 +248,7 @@ bool ArtifactAppSettings::loadLastProjectOnStartup() const {
 
 void ArtifactAppSettings::setLoadLastProjectOnStartup(bool enable) {
     impl_->store.setValue("General/LoadLastProject", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QStringList ArtifactAppSettings::recentProjectPaths() const {
@@ -252,7 +257,7 @@ QStringList ArtifactAppSettings::recentProjectPaths() const {
 
 void ArtifactAppSettings::setRecentProjectPaths(const QStringList& paths) {
     impl_->store.setValue(QStringLiteral("File/RecentProjectPaths"), paths);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QStringList ArtifactAppSettings::recentContentsViewerSourcePaths() const {
@@ -261,7 +266,7 @@ QStringList ArtifactAppSettings::recentContentsViewerSourcePaths() const {
 
 void ArtifactAppSettings::setRecentContentsViewerSourcePaths(const QStringList& paths) {
     impl_->store.setValue(QStringLiteral("ContentsViewer/RecentSourcePaths"), paths);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::lastContentsViewerSourcePath() const {
@@ -270,7 +275,7 @@ QString ArtifactAppSettings::lastContentsViewerSourcePath() const {
 
 void ArtifactAppSettings::setLastContentsViewerSourcePath(const QString& path) {
     impl_->store.setValue(QStringLiteral("ContentsViewer/LastSourcePath"), path);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::contentsViewerCompareWipePercent() const {
@@ -279,7 +284,7 @@ int ArtifactAppSettings::contentsViewerCompareWipePercent() const {
 
 void ArtifactAppSettings::setContentsViewerCompareWipePercent(int percent) {
     impl_->store.setValue(QStringLiteral("ContentsViewer/CompareWipePercent"), std::clamp(percent, 0, 100));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::contentsViewerCompareSidesSwapped() const {
@@ -288,7 +293,7 @@ bool ArtifactAppSettings::contentsViewerCompareSidesSwapped() const {
 
 void ArtifactAppSettings::setContentsViewerCompareSidesSwapped(bool swapped) {
     impl_->store.setValue(QStringLiteral("ContentsViewer/CompareSidesSwapped"), swapped);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::contentsViewerCompareSourceAPath() const {
@@ -297,7 +302,7 @@ QString ArtifactAppSettings::contentsViewerCompareSourceAPath() const {
 
 void ArtifactAppSettings::setContentsViewerCompareSourceAPath(const QString& path) {
     impl_->store.setValue(QStringLiteral("ContentsViewer/CompareSourceAPath"), path);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::contentsViewerCompareSourceBPath() const {
@@ -306,7 +311,7 @@ QString ArtifactAppSettings::contentsViewerCompareSourceBPath() const {
 
 void ArtifactAppSettings::setContentsViewerCompareSourceBPath(const QString& path) {
     impl_->store.setValue(QStringLiteral("ContentsViewer/CompareSourceBPath"), path);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::contentsViewerAssignment() const {
@@ -315,7 +320,7 @@ int ArtifactAppSettings::contentsViewerAssignment() const {
 
 void ArtifactAppSettings::setContentsViewerAssignment(int assignment) {
     impl_->store.setValue(QStringLiteral("ContentsViewer/ViewerAssignment"), std::clamp(assignment, 1, 4));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::menuBarFontScalePercent() const {
@@ -324,7 +329,7 @@ int ArtifactAppSettings::menuBarFontScalePercent() const {
 
 void ArtifactAppSettings::setMenuBarFontScalePercent(int percent) {
     impl_->store.setValue("UI/MenuBarFontScalePercent", std::clamp(percent, 50, 200));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::dockTabFontPointSize() const {
@@ -333,7 +338,7 @@ int ArtifactAppSettings::dockTabFontPointSize() const {
 
 void ArtifactAppSettings::setDockTabFontPointSize(int pointSize) {
     impl_->store.setValue("UI/DockTabFontPointSize", std::clamp(pointSize, 8, 30));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::layerCacheEnabled() const {
@@ -342,7 +347,7 @@ bool ArtifactAppSettings::layerCacheEnabled() const {
 
 void ArtifactAppSettings::setLayerCacheEnabled(bool enable) {
     impl_->store.setValue(QStringLiteral("Render/LayerCacheEnabled"), enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 float ArtifactAppSettings::compositionCheckerboardSize() const {
@@ -352,7 +357,7 @@ float ArtifactAppSettings::compositionCheckerboardSize() const {
 void ArtifactAppSettings::setCompositionCheckerboardSize(float size) {
     impl_->store.setValue("UI/CompositionCheckerboardSize",
                           std::clamp(size, 2.0f, 128.0f));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 Artifact::Grid::GridSettings ArtifactAppSettings::compositionGridSettings() const {
@@ -400,7 +405,7 @@ void ArtifactAppSettings::setCompositionGridSettings(
     impl_->store.setValue("UI/CompositionGrid/AxisColorG", settings.axisColor.g());
     impl_->store.setValue("UI/CompositionGrid/AxisColorB", settings.axisColor.b());
     impl_->store.setValue("UI/CompositionGrid/AxisColorA", settings.axisColor.a());
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::compositionBackgroundMode() const {
@@ -409,7 +414,7 @@ int ArtifactAppSettings::compositionBackgroundMode() const {
 
 void ArtifactAppSettings::setCompositionBackgroundMode(int mode) {
     impl_->store.setValue("UI/Composition/BackgroundMode", mode);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::compositionShowGrid() const {
@@ -418,7 +423,7 @@ bool ArtifactAppSettings::compositionShowGrid() const {
 
 void ArtifactAppSettings::setCompositionShowGrid(bool enable) {
     impl_->store.setValue("UI/Composition/ShowGrid", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::compositionShowGuides() const {
@@ -427,7 +432,7 @@ bool ArtifactAppSettings::compositionShowGuides() const {
 
 void ArtifactAppSettings::setCompositionShowGuides(bool enable) {
     impl_->store.setValue("UI/Composition/ShowGuides", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::compositionShowSafeMargins() const {
@@ -436,7 +441,7 @@ bool ArtifactAppSettings::compositionShowSafeMargins() const {
 
 void ArtifactAppSettings::setCompositionShowSafeMargins(bool enable) {
     impl_->store.setValue("UI/Composition/ShowSafeMargins", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::compositionShowAnchorCenterOverlay() const {
@@ -445,7 +450,7 @@ bool ArtifactAppSettings::compositionShowAnchorCenterOverlay() const {
 
 void ArtifactAppSettings::setCompositionShowAnchorCenterOverlay(bool enable) {
     impl_->store.setValue("UI/Composition/ShowAnchorCenterOverlay", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::compositionShowCameraFrustumOverlay() const {
@@ -454,7 +459,7 @@ bool ArtifactAppSettings::compositionShowCameraFrustumOverlay() const {
 
 void ArtifactAppSettings::setCompositionShowCameraFrustumOverlay(bool enable) {
     impl_->store.setValue("UI/Composition/ShowCameraFrustumOverlay", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::compositionShowMotionPathOverlay() const {
@@ -463,7 +468,7 @@ bool ArtifactAppSettings::compositionShowMotionPathOverlay() const {
 
 void ArtifactAppSettings::setCompositionShowMotionPathOverlay(bool enable) {
     impl_->store.setValue("UI/Composition/ShowMotionPathOverlay", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::compositionShowDensityHeatmapOverlay() const {
@@ -472,7 +477,7 @@ bool ArtifactAppSettings::compositionShowDensityHeatmapOverlay() const {
 
 void ArtifactAppSettings::setCompositionShowDensityHeatmapOverlay(bool enable) {
     impl_->store.setValue("UI/Composition/ShowDensityHeatmapOverlay", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::compositionShowGizmoDuringDrag() const {
@@ -481,7 +486,7 @@ bool ArtifactAppSettings::compositionShowGizmoDuringDrag() const {
 
 void ArtifactAppSettings::setCompositionShowGizmoDuringDrag(bool enable) {
     impl_->store.setValue("UI/Composition/ShowGizmoDuringDrag", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::timelineAllowOverscroll() const {
@@ -490,7 +495,7 @@ bool ArtifactAppSettings::timelineAllowOverscroll() const {
 
 void ArtifactAppSettings::setTimelineAllowOverscroll(bool enable) {
     impl_->store.setValue("UI/Timeline/AllowOverscroll", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::timelineAutoKeyEnabled() const {
@@ -499,7 +504,7 @@ bool ArtifactAppSettings::timelineAutoKeyEnabled() const {
 
 void ArtifactAppSettings::setTimelineAutoKeyEnabled(bool enable) {
     impl_->store.setValue("UI/Timeline/AutoKeyEnabled", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::timelineAutoKeyScopeText() const {
@@ -525,7 +530,7 @@ void ArtifactAppSettings::setTimelineAutoKeyScopeText(const QString& value) {
                   ? QStringLiteral("Current Layer")
                   : QStringLiteral("Global");
     impl_->store.setValue(QStringLiteral("UI/Timeline/AutoKeyScope"), scope);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::timelineGhostingEnabled() const {
@@ -534,7 +539,7 @@ bool ArtifactAppSettings::timelineGhostingEnabled() const {
 
 void ArtifactAppSettings::setTimelineGhostingEnabled(bool enable) {
     impl_->store.setValue("UI/Timeline/GhostingEnabled", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::timelineGhostingFrameCount() const {
@@ -543,7 +548,7 @@ int ArtifactAppSettings::timelineGhostingFrameCount() const {
 
 void ArtifactAppSettings::setTimelineGhostingFrameCount(int count) {
     impl_->store.setValue("UI/Timeline/GhostingFrameCount", std::clamp(count, 1, 5));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::timelineGhostingOpacity() const {
@@ -552,7 +557,7 @@ int ArtifactAppSettings::timelineGhostingOpacity() const {
 
 void ArtifactAppSettings::setTimelineGhostingOpacity(int percent) {
     impl_->store.setValue("UI/Timeline/GhostingOpacity", std::clamp(percent, 4, 40));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::timelineKeyingSetModeText() const {
@@ -578,7 +583,7 @@ void ArtifactAppSettings::setTimelineKeyingSetModeText(const QString& value) {
                   ? QStringLiteral("Custom")
                   : QStringLiteral("All Keyable");
     impl_->store.setValue(QStringLiteral("UI/Timeline/KeyingSetMode"), mode);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QStringList ArtifactAppSettings::timelineCustomKeyingSetPropertyPaths() const {
@@ -588,7 +593,7 @@ QStringList ArtifactAppSettings::timelineCustomKeyingSetPropertyPaths() const {
 
 void ArtifactAppSettings::setTimelineCustomKeyingSetPropertyPaths(const QStringList& paths) {
     impl_->store.setValue(QStringLiteral("UI/Timeline/CustomKeyingSetPropertyPaths"), paths);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::timelineShyActive() const {
@@ -597,7 +602,7 @@ bool ArtifactAppSettings::timelineShyActive() const {
 
 void ArtifactAppSettings::setTimelineShyActive(bool enable) {
     impl_->store.setValue("UI/Timeline/ShyActive", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::timelineGraphEditorActive() const {
@@ -606,7 +611,7 @@ bool ArtifactAppSettings::timelineGraphEditorActive() const {
 
 void ArtifactAppSettings::setTimelineGraphEditorActive(bool enable) {
     impl_->store.setValue("UI/Timeline/GraphEditorActive", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::timelineGraphEditorModeText() const {
@@ -619,7 +624,7 @@ void ArtifactAppSettings::setTimelineGraphEditorModeText(const QString& value) {
         "UI/Timeline/GraphEditorMode",
         normalized == QStringLiteral("speed") ? QStringLiteral("Speed")
                                                : QStringLiteral("Value"));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::timelineMotionBlurActive() const {
@@ -628,7 +633,7 @@ bool ArtifactAppSettings::timelineMotionBlurActive() const {
 
 void ArtifactAppSettings::setTimelineMotionBlurActive(bool enable) {
     impl_->store.setValue("UI/Timeline/MotionBlurActive", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 double ArtifactAppSettings::timelineMotionBlurShutterAngle() const {
@@ -641,7 +646,7 @@ void ArtifactAppSettings::setTimelineMotionBlurShutterAngle(double degrees) {
     impl_->store.setValue(QStringLiteral("UI/Timeline/MotionBlurShutterAngle"),
                           std::clamp(std::isfinite(degrees) ? degrees : 180.0,
                                      0.0, 720.0));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::timelineMotionBlurSampleCount() const {
@@ -652,7 +657,7 @@ int ArtifactAppSettings::timelineMotionBlurSampleCount() const {
 void ArtifactAppSettings::setTimelineMotionBlurSampleCount(int count) {
     impl_->store.setValue(QStringLiteral("UI/Timeline/MotionBlurSampleCount"),
                           std::clamp(count, 1, 32));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 double ArtifactAppSettings::timelineMotionBlurShutterPhase() const {
@@ -665,7 +670,7 @@ void ArtifactAppSettings::setTimelineMotionBlurShutterPhase(double degrees) {
     impl_->store.setValue(QStringLiteral("UI/Timeline/MotionBlurShutterPhase"),
                           std::clamp(std::isfinite(degrees) ? degrees : 0.0,
                                      -360.0, 360.0));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::compositionAntiAliasingMode() const {
@@ -676,7 +681,7 @@ int ArtifactAppSettings::compositionAntiAliasingMode() const {
 void ArtifactAppSettings::setCompositionAntiAliasingMode(int mode) {
     impl_->store.setValue(QStringLiteral("UI/Composition/AntiAliasingMode"),
                           std::clamp(mode, 0, 2));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::timelineFrameBlendingActive() const {
@@ -685,7 +690,7 @@ bool ArtifactAppSettings::timelineFrameBlendingActive() const {
 
 void ArtifactAppSettings::setTimelineFrameBlendingActive(bool enable) {
     impl_->store.setValue("UI/Timeline/FrameBlendingActive", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::accessibilityHandedness() const {
@@ -703,7 +708,7 @@ void ArtifactAppSettings::setAccessibilityHandedness(const QString& value) {
         normalized = QStringLiteral("right");
     }
     impl_->store.setValue(QStringLiteral("Accessibility/Handedness"), normalized);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::accessibilityPreferLargeTargets() const {
@@ -712,7 +717,7 @@ bool ArtifactAppSettings::accessibilityPreferLargeTargets() const {
 
 void ArtifactAppSettings::setAccessibilityPreferLargeTargets(bool enable) {
     impl_->store.setValue(QStringLiteral("Accessibility/PreferLargeTargets"), enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::accessibilityPreferHighContrastHints() const {
@@ -721,7 +726,7 @@ bool ArtifactAppSettings::accessibilityPreferHighContrastHints() const {
 
 void ArtifactAppSettings::setAccessibilityPreferHighContrastHints(bool enable) {
     impl_->store.setValue(QStringLiteral("Accessibility/PreferHighContrastHints"), enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::accessibilityFontScalePercent() const {
@@ -731,7 +736,7 @@ int ArtifactAppSettings::accessibilityFontScalePercent() const {
 
 void ArtifactAppSettings::setAccessibilityFontScalePercent(int percent) {
     impl_->store.setValue(QStringLiteral("Accessibility/FontScalePercent"), std::clamp(percent, 100, 200));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::accessibilityColorDeficiencyMode() const {
@@ -748,7 +753,7 @@ void ArtifactAppSettings::setAccessibilityColorDeficiencyMode(const QString& mod
         normalized = QStringLiteral("none");
     }
     impl_->store.setValue(QStringLiteral("Accessibility/ColorDeficiencyMode"), normalized);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::accessibilityReduceHoverDependency() const {
@@ -757,7 +762,7 @@ bool ArtifactAppSettings::accessibilityReduceHoverDependency() const {
 
 void ArtifactAppSettings::setAccessibilityReduceHoverDependency(bool enable) {
     impl_->store.setValue(QStringLiteral("Accessibility/ReduceHoverDependency"), enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::accessibilityStickyKeysEnabled() const {
@@ -766,7 +771,7 @@ bool ArtifactAppSettings::accessibilityStickyKeysEnabled() const {
 
 void ArtifactAppSettings::setAccessibilityStickyKeysEnabled(bool enable) {
     impl_->store.setValue(QStringLiteral("Accessibility/StickyKeysEnabled"), enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::accessibilityStickyKeysMode() const {
@@ -780,7 +785,7 @@ void ArtifactAppSettings::setAccessibilityStickyKeysMode(const QString& mode) {
     const QString normalized = mode == QStringLiteral("lock") || mode == QStringLiteral("both")
         ? mode : QStringLiteral("latch");
     impl_->store.setValue(QStringLiteral("Accessibility/StickyKeysMode"), normalized);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::accessibilitySingleHandModeEnabled() const {
@@ -789,7 +794,7 @@ bool ArtifactAppSettings::accessibilitySingleHandModeEnabled() const {
 
 void ArtifactAppSettings::setAccessibilitySingleHandModeEnabled(bool enable) {
     impl_->store.setValue(QStringLiteral("Accessibility/SingleHandModeEnabled"), enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::accessibilityViewportMagnifierEnabled() const {
@@ -798,7 +803,7 @@ bool ArtifactAppSettings::accessibilityViewportMagnifierEnabled() const {
 
 void ArtifactAppSettings::setAccessibilityViewportMagnifierEnabled(bool enable) {
     impl_->store.setValue(QStringLiteral("Accessibility/ViewportMagnifierEnabled"), enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::accessibilityViewportMagnifierScale() const {
@@ -809,7 +814,7 @@ int ArtifactAppSettings::accessibilityViewportMagnifierScale() const {
 void ArtifactAppSettings::setAccessibilityViewportMagnifierScale(int scale) {
     impl_->store.setValue(QStringLiteral("Accessibility/ViewportMagnifierScale"),
                           std::clamp(scale, 2, 8));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::themeName() const {
@@ -818,7 +823,7 @@ QString ArtifactAppSettings::themeName() const {
 
 void ArtifactAppSettings::setThemeName(const QString& theme) {
     impl_->store.setValue("UI/ThemeName", theme);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::themePresetPath() const {
@@ -827,7 +832,7 @@ QString ArtifactAppSettings::themePresetPath() const {
 
 void ArtifactAppSettings::setThemePresetPath(const QString& path) {
     impl_->store.setValue("UI/ThemePresetPath", path);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::renderThreadCount() const {
@@ -836,7 +841,7 @@ int ArtifactAppSettings::renderThreadCount() const {
 
 void ArtifactAppSettings::setRenderThreadCount(int count) {
     impl_->store.setValue("Render/ThreadCount", count);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 // -- Render Farm Settings --
@@ -847,7 +852,7 @@ bool ArtifactAppSettings::farmEnabled() const {
 
 void ArtifactAppSettings::setFarmEnabled(bool enable) {
     impl_->store.setValue("Render/FarmEnabled", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::farmWorkerCount() const {
@@ -856,7 +861,7 @@ int ArtifactAppSettings::farmWorkerCount() const {
 
 void ArtifactAppSettings::setFarmWorkerCount(int count) {
     impl_->store.setValue("Render/FarmWorkerCount", std::max(0, count));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::farmRetryMaxAttempts() const {
@@ -865,7 +870,7 @@ int ArtifactAppSettings::farmRetryMaxAttempts() const {
 
 void ArtifactAppSettings::setFarmRetryMaxAttempts(int attempts) {
     impl_->store.setValue("Render/FarmRetryMaxAttempts", std::max(1, attempts));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::farmRetryInitialBackoffMs() const {
@@ -874,7 +879,7 @@ int ArtifactAppSettings::farmRetryInitialBackoffMs() const {
 
 void ArtifactAppSettings::setFarmRetryInitialBackoffMs(int ms) {
     impl_->store.setValue("Render/FarmRetryInitialBackoffMs", std::max(100, ms));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::farmRetryMaxBackoffMs() const {
@@ -883,7 +888,7 @@ int ArtifactAppSettings::farmRetryMaxBackoffMs() const {
 
 void ArtifactAppSettings::setFarmRetryMaxBackoffMs(int ms) {
     impl_->store.setValue("Render/FarmRetryMaxBackoffMs", std::max(static_cast<qlonglong>(ms), impl_->store.valueInt64("Render/FarmRetryInitialBackoffMs", 2000)));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 unsigned short ArtifactAppSettings::farmRpcPort() const {
@@ -892,7 +897,7 @@ unsigned short ArtifactAppSettings::farmRpcPort() const {
 
 void ArtifactAppSettings::setFarmRpcPort(unsigned short port) {
     impl_->store.setValue("Render/FarmRpcPort", (int)port);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::farmAllowRemote() const {
@@ -901,7 +906,7 @@ bool ArtifactAppSettings::farmAllowRemote() const {
 
 void ArtifactAppSettings::setFarmAllowRemote(bool allow) {
     impl_->store.setValue("Render/FarmAllowRemote", allow);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::toolbarShowGrid() const {
@@ -910,7 +915,7 @@ bool ArtifactAppSettings::toolbarShowGrid() const {
 
 void ArtifactAppSettings::setToolbarShowGrid(bool enable) {
     impl_->store.setValue("UI/Toolbar/ShowGrid", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::toolbarShowGuide() const {
@@ -919,7 +924,7 @@ bool ArtifactAppSettings::toolbarShowGuide() const {
 
 void ArtifactAppSettings::setToolbarShowGuide(bool enable) {
     impl_->store.setValue("UI/Toolbar/ShowGuide", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::importDefaultFrameRateText() const {
@@ -928,7 +933,7 @@ QString ArtifactAppSettings::importDefaultFrameRateText() const {
 
 void ArtifactAppSettings::setImportDefaultFrameRateText(const QString& value) {
     impl_->store.setValue("Import/DefaultFrameRateText", value);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::importColorSpaceText() const {
@@ -937,7 +942,7 @@ QString ArtifactAppSettings::importColorSpaceText() const {
 
 void ArtifactAppSettings::setImportColorSpaceText(const QString& value) {
     impl_->store.setValue("Import/ColorSpaceText", value);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::importAudioSampleRateText() const {
@@ -946,7 +951,7 @@ QString ArtifactAppSettings::importAudioSampleRateText() const {
 
 void ArtifactAppSettings::setImportAudioSampleRateText(const QString& value) {
     impl_->store.setValue("Import/AudioSampleRateText", value);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::importAutoDetectAlpha() const {
@@ -955,7 +960,7 @@ bool ArtifactAppSettings::importAutoDetectAlpha() const {
 
 void ArtifactAppSettings::setImportAutoDetectAlpha(bool enable) {
     impl_->store.setValue("Import/AutoDetectAlpha", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::importInterpretFootage() const {
@@ -964,7 +969,7 @@ bool ArtifactAppSettings::importInterpretFootage() const {
 
 void ArtifactAppSettings::setImportInterpretFootage(bool enable) {
     impl_->store.setValue("Import/InterpretFootage", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::importFieldOrderText() const {
@@ -973,7 +978,7 @@ QString ArtifactAppSettings::importFieldOrderText() const {
 
 void ArtifactAppSettings::setImportFieldOrderText(const QString& value) {
     impl_->store.setValue("Import/FieldOrderText", value);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::importStillImageDurationSeconds() const {
@@ -982,7 +987,7 @@ int ArtifactAppSettings::importStillImageDurationSeconds() const {
 
 void ArtifactAppSettings::setImportStillImageDurationSeconds(int seconds) {
     impl_->store.setValue("Import/StillImageDurationSeconds", std::clamp(seconds, 1, 3600));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::importCreateCompositionOnImport() const {
@@ -991,7 +996,7 @@ bool ArtifactAppSettings::importCreateCompositionOnImport() const {
 
 void ArtifactAppSettings::setImportCreateCompositionOnImport(bool enable) {
     impl_->store.setValue("Import/CreateCompositionOnImport", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::projectDefaultCompositionWidth() const {
@@ -1000,7 +1005,7 @@ int ArtifactAppSettings::projectDefaultCompositionWidth() const {
 
 void ArtifactAppSettings::setProjectDefaultCompositionWidth(int width) {
     impl_->store.setValue("ProjectDefaults/CompositionWidth", std::max(1, width));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::projectDefaultCompositionHeight() const {
@@ -1009,7 +1014,7 @@ int ArtifactAppSettings::projectDefaultCompositionHeight() const {
 
 void ArtifactAppSettings::setProjectDefaultCompositionHeight(int height) {
     impl_->store.setValue("ProjectDefaults/CompositionHeight", std::max(1, height));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 double ArtifactAppSettings::projectDefaultCompositionFrameRate() const {
@@ -1018,7 +1023,7 @@ double ArtifactAppSettings::projectDefaultCompositionFrameRate() const {
 
 void ArtifactAppSettings::setProjectDefaultCompositionFrameRate(double fps) {
     impl_->store.setValue("ProjectDefaults/CompositionFrameRate", std::max(1.0, fps));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::projectDefaultCompositionBackgroundColor() const {
@@ -1030,7 +1035,7 @@ void ArtifactAppSettings::setProjectDefaultCompositionBackgroundColor(const QStr
     impl_->store.setValue("ProjectDefaults/CompositionBackgroundColor",
                           color.isValid() ? color.name(QColor::HexArgb)
                                           : QStringLiteral("#ff000000"));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::projectDefaultWorkspaceModeText() const {
@@ -1041,7 +1046,7 @@ void ArtifactAppSettings::setProjectDefaultWorkspaceModeText(const QString& valu
     const QString normalized = value.trimmed();
     impl_->store.setValue("ProjectDefaults/WorkspaceMode",
                           normalized.isEmpty() ? QStringLiteral("Default") : normalized);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::creationDefaultsJson() const {
@@ -1050,7 +1055,7 @@ QString ArtifactAppSettings::creationDefaultsJson() const {
 
 void ArtifactAppSettings::setCreationDefaultsJson(const QString& json) {
     impl_->store.setValue(QStringLiteral("CreationDefaults/Json"), json);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::previewQualityText() const {
@@ -1059,7 +1064,7 @@ QString ArtifactAppSettings::previewQualityText() const {
 
 void ArtifactAppSettings::setPreviewQualityText(const QString& value) {
     impl_->store.setValue("Preview/QualityText", value);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::previewResolutionPercent() const {
@@ -1068,7 +1073,7 @@ int ArtifactAppSettings::previewResolutionPercent() const {
 
 void ArtifactAppSettings::setPreviewResolutionPercent(int percent) {
     impl_->store.setValue("Preview/ResolutionPercent", std::clamp(percent, 25, 100));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::previewEnableRamCache() const {
@@ -1077,7 +1082,7 @@ bool ArtifactAppSettings::previewEnableRamCache() const {
 
 void ArtifactAppSettings::setPreviewEnableRamCache(bool enable) {
     impl_->store.setValue("Preview/EnableRamCache", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 int ArtifactAppSettings::previewCacheSizeMB() const {
@@ -1086,7 +1091,7 @@ int ArtifactAppSettings::previewCacheSizeMB() const {
 
 void ArtifactAppSettings::setPreviewCacheSizeMB(int value) {
     impl_->store.setValue("Preview/CacheSizeMB", std::clamp(value, 512, 32768));
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::previewEnableDiskCache() const {
@@ -1095,7 +1100,7 @@ bool ArtifactAppSettings::previewEnableDiskCache() const {
 
 void ArtifactAppSettings::setPreviewEnableDiskCache(bool enable) {
     impl_->store.setValue("Preview/EnableDiskCache", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::previewGenerateThumbnails() const {
@@ -1104,7 +1109,7 @@ bool ArtifactAppSettings::previewGenerateThumbnails() const {
 
 void ArtifactAppSettings::setPreviewGenerateThumbnails(bool enable) {
     impl_->store.setValue("Preview/GenerateThumbnails", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::previewThumbnailQualityText() const {
@@ -1113,7 +1118,7 @@ QString ArtifactAppSettings::previewThumbnailQualityText() const {
 
 void ArtifactAppSettings::setPreviewThumbnailQualityText(const QString& value) {
     impl_->store.setValue("Preview/ThumbnailQualityText", value);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 bool ArtifactAppSettings::previewEnableGpuAcceleration() const {
@@ -1122,7 +1127,7 @@ bool ArtifactAppSettings::previewEnableGpuAcceleration() const {
 
 void ArtifactAppSettings::setPreviewEnableGpuAcceleration(bool enable) {
     impl_->store.setValue("Preview/EnableGpuAcceleration", enable);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 QString ArtifactAppSettings::previewGpuDeviceText() const {
@@ -1131,7 +1136,7 @@ QString ArtifactAppSettings::previewGpuDeviceText() const {
 
 void ArtifactAppSettings::setPreviewGpuDeviceText(const QString& value) {
     impl_->store.setValue("Preview/GpuDeviceText", value);
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 void ArtifactAppSettings::sync() {
@@ -1139,7 +1144,7 @@ void ArtifactAppSettings::sync() {
     // ApplicationSettingDialog saves several independent fields before it
     // calls sync(). Notify existing listeners once persistence is complete so
     // runtime consumers re-apply the final, coherent settings snapshot.
-    Q_EMIT settingsChanged();
+    notifySettingsChanged();
 }
 
 } // namespace ArtifactCore

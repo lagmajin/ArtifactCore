@@ -158,7 +158,6 @@ namespace ArtifactCore {
  void AbstractAssetFile::setStatus(AssetStatus status) {
      if (impl_->status != status) {
          impl_->status = status;
-         Q_EMIT statusChanged(status);
      }
  }
 

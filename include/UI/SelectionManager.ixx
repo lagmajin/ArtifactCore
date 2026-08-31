@@ -39,8 +39,21 @@ module;
 export module UI.SelectionManager;
 
 import Utils.Id;
+import Event.Bus;
 
 export namespace ArtifactCore {
+
+struct SelectionManagerActiveCompositionChangedEvent {
+    Id id;
+};
+
+struct SelectionManagerLayerSelectionChangedEvent {
+    std::vector<Id> ids;
+};
+
+struct SelectionManagerAssetSelectionChangedEvent {
+    std::vector<Id> ids;
+};
 
 /**
  * @brief Singleton to manage global selection state.
@@ -63,7 +76,8 @@ public:
     void setActiveComposition(const Id& id) {
         if (activeCompositionId_ != id) {
             activeCompositionId_ = id;
-            emit activeCompositionChanged(id);
+            globalEventBus().publish<
+                SelectionManagerActiveCompositionChangedEvent>({id});
         }
     }
     Id activeComposition() const { return activeCompositionId_; }
@@ -71,11 +85,13 @@ public:
     // Layers
     void selectLayers(const std::vector<Id>& ids) {
         selectedLayerIds_ = ids;
-        emit layerSelectionChanged(ids);
+        globalEventBus().publish<SelectionManagerLayerSelectionChangedEvent>(
+            {ids});
     }
     void clearLayerSelection() {
         selectedLayerIds_.clear();
-        emit layerSelectionChanged({});
+        globalEventBus().publish<SelectionManagerLayerSelectionChangedEvent>(
+            {std::vector<Id>{}});
     }
     const std::vector<Id>& selectedLayers() const { return selectedLayerIds_; }
     bool isLayerSelected(const Id& id) const {
@@ -85,13 +101,11 @@ public:
     // Assets
     void selectAssets(const std::vector<Id>& ids) {
         selectedAssetIds_ = ids;
-        emit assetSelectionChanged(ids);
+        globalEventBus().publish<SelectionManagerAssetSelectionChangedEvent>(
+            {ids});
     }
     const std::vector<Id>& selectedAssets() const { return selectedAssetIds_; }
 
-    void activeCompositionChanged(const Id& id) W_SIGNAL(activeCompositionChanged, id);
-    void layerSelectionChanged(const std::vector<Id>& ids) W_SIGNAL(layerSelectionChanged, ids);
-    void assetSelectionChanged(const std::vector<Id>& ids) W_SIGNAL(assetSelectionChanged, ids);
 };
 
 W_OBJECT_IMPL(SelectionManager)

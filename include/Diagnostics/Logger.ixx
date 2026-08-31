@@ -63,6 +63,15 @@ struct LogMessage {
     QString context;
 };
 
+struct LogAddedEvent {
+    LogLevel level = LogLevel::Debug;
+    QString message;
+    QString context;
+    QDateTime timestamp;
+};
+
+struct LogsClearedEvent {};
+
 class Logger : public QObject {
     W_OBJECT(Logger)
 public:
@@ -97,12 +106,6 @@ public:
     void recordDiagnostic(LogLevel level,
                           const QString& message,
                           const QString& context = "");
-
-    void logAdded(int level, const QString& message, const QString& context, const QDateTime& timestamp)
-    W_SIGNAL(logAdded, level, message, context, timestamp)
-
-    void logsCleared()
-    W_SIGNAL(logsCleared)
 
 private:
     bool ensureLogFileReady();

@@ -398,6 +398,12 @@ ArtifactScriptDefinition ArtifactScriptParser::parse(std::string_view source) co
             const auto space = before.lastIndexOf(' ');
             const ZeroString methodName = space < 0 ? before : trim(before.substr(static_cast<std::size_t>(space + 1)));
             method.name = std::string(methodName.data(), methodName.length());
+            method.line = lineNo;
+            const auto methodColumn = line.find(std::string_view(
+                method.name.data(), method.name.size()));
+            method.column = methodColumn == std::string_view::npos
+                                ? 1
+                                : methodColumn + 1;
             method.parameters.clear();
             if (const auto hook = hookFromName(method.name)) {
                 method.isLifecycleHook = true;
@@ -918,6 +924,11 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::callUserMethod(
     for (const auto& statement : method->body->statements) {
         if (!execStmt(statement.get(), fields, locals) || returned_) break;
     }
+    if (!error_.empty() && method->line != 0) {
+        error_ = "line " + std::to_string(method->line) + ":" +
+                 std::to_string(method->column == 0 ? 1 : method->column) +
+                 ": " + error_;
+    }
     const auto result = returnValue_;
     --callDepth_;
     returnValue_ = previousReturn;
@@ -1313,8 +1324,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::executeMethod(
     impl_->callDepth_ = 0;
     impl_->returnValue_ = {};
     impl_->returned_ = false;
-    if (!execute(*it->body, args, fields)) return {};
-    return impl_->returnValue_;
+    return impl_->callUserMethod(methodName, args, fields);
 }
 
 std::string ArtifactScriptEvaluator::getLastError() const { return impl_->error_; }

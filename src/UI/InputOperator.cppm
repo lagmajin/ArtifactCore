@@ -19,8 +19,17 @@ module Input.Operator;
 
 import InputEvent;
 import Container.NamedVector;
+import Event.Bus;
 
 namespace ArtifactCore {
+
+static void publishActionManagerChanged(ActionManagerChangeKind kind,
+                                        const QString& actionId,
+                                        const QVariantMap& params = {})
+{
+    globalEventBus().publish<ActionManagerChangedEvent>(
+        {kind, actionId, params});
+}
 
 W_OBJECT_IMPL(InputBinding)
 W_OBJECT_IMPL(Action)
@@ -257,14 +266,15 @@ Action* ActionManager::registerAction(const QString& id,
         impl_->categories_[id] = category;
     }
     
-    emit actionRegistered(action);
+    publishActionManagerChanged(ActionManagerChangeKind::ActionRegistered, id);
     return action;
 }
 
 void ActionManager::unregisterAction(const QString& id) {
     auto it = impl_->actions_.find(id);
     if (it != impl_->actions_.end()) {
-        emit actionUnregistered(id);
+        publishActionManagerChanged(ActionManagerChangeKind::ActionUnregistered,
+                                    id);
         delete it->second;
         impl_->actions_.erase(it);
         impl_->categories_.erase(id);
@@ -304,7 +314,8 @@ void ActionManager::executeAction(const QString& id, const QVariantMap& params) 
     auto* action = getAction(id);
     if (action) {
         action->execute(params);
-        emit actionExecuted(id, params);
+        publishActionManagerChanged(ActionManagerChangeKind::ActionExecuted, id,
+                                    params);
     } else {
         qWarning() << "Action not found:" << id;
     }

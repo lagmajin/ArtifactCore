@@ -22,6 +22,20 @@ struct LayerLockInfo {
     }
 };
 
+enum class LayerLockChangeKind {
+    Acquired,
+    Released,
+    Denied,
+    Expired
+};
+
+struct LayerLockChangedEvent {
+    LayerLockChangeKind kind = LayerLockChangeKind::Acquired;
+    QString layerId;
+    QString clientId;
+    QString reason;
+};
+
 /**
  * @brief Manages collaborative layer locks.
  *
@@ -67,15 +81,6 @@ public:
 
     /// Set lock timeout in ms (default 5 minutes).
     void setLockTimeout(qint64 timeoutMs) { lockTimeoutMs_ = timeoutMs; }
-
-public:
-    void lockAcquired(const QString& layerId, const QString& clientId)
-        W_SIGNAL(lockAcquired, layerId, clientId);
-    void lockReleased(const QString& layerId, const QString& clientId)
-        W_SIGNAL(lockReleased, layerId, clientId);
-    void lockDenied(const QString& layerId, const QString& reason)
-        W_SIGNAL(lockDenied, layerId, reason);
-    void lockChanged() W_SIGNAL(lockChanged);
 
 private:
     QHash<QString, LayerLockInfo> locks_;

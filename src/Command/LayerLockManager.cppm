@@ -6,7 +6,18 @@ module;
 
 module Command.LayerLockManager;
 
+import Event.Bus;
+
 namespace ArtifactCore {
+
+namespace {
+void publishLayerLockChanged(LayerLockChangeKind kind,
+                             const QString& layerId = {},
+                             const QString& clientId = {},
+                             const QString& reason = {}) {
+    globalEventBus().publish(LayerLockChangedEvent{kind, layerId, clientId, reason});
+}
+}
 
 W_OBJECT_IMPL(LayerLockManager)
 
@@ -35,8 +46,7 @@ bool LayerLockManager::acquireLock(const QString& layerId, const QString& client
     info.acquiredAt = QDateTime::currentMSecsSinceEpoch();
 
     locks_[layerId] = info;
-    Q_EMIT lockAcquired(layerId, clientId);
-    Q_EMIT lockChanged();
+    publishLayerLockChanged(LayerLockChangeKind::Acquired, layerId, clientId);
     return true;
 }
 
@@ -48,8 +58,7 @@ bool LayerLockManager::releaseLock(const QString& layerId, const QString& client
     if (existing.clientId != clientId) return false;
 
     locks_.remove(layerId);
-    Q_EMIT lockReleased(layerId, clientId);
-    Q_EMIT lockChanged();
+    publishLayerLockChanged(LayerLockChangeKind::Released, layerId, clientId);
     return true;
 }
 
@@ -65,8 +74,7 @@ void LayerLockManager::onRemoteLockDenied(const QString& layerId, const QString&
     if (locks_.contains(layerId)) {
         QString clientId = locks_[layerId].clientId;
         locks_.remove(layerId);
-        Q_EMIT lockDenied(layerId, reason);
-        Q_EMIT lockChanged();
+        publishLayerLockChanged(LayerLockChangeKind::Denied, layerId, clientId, reason);
         qDebug() << "[LayerLock] Remote lock denied:" << layerId << reason;
     }
 }
@@ -75,8 +83,7 @@ void LayerLockManager::onRemoteLockReleased(const QString& layerId, const QStrin
 {
     if (locks_.contains(layerId) && locks_[layerId].clientId == clientId) {
         locks_.remove(layerId);
-        Q_EMIT lockReleased(layerId, clientId);
-        Q_EMIT lockChanged();
+        publishLayerLockChanged(LayerLockChangeKind::Released, layerId, clientId);
     }
 }
 
@@ -115,11 +122,8 @@ void LayerLockManager::purgeExpired(qint64 timeoutMs)
         }
     }
     for (const QString& id : expired) {
-        Q_EMIT lockReleased(id, locks_[id].clientId);
+        publishLayerLockChanged(LayerLockChangeKind::Expired, id, locks_[id].clientId);
         locks_.remove(id);
-    }
-    if (!expired.isEmpty()) {
-        Q_EMIT lockChanged();
     }
 }
 

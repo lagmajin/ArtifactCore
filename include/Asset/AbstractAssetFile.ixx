@@ -99,8 +99,6 @@ export namespace ArtifactCore {
   void unload(); // Public, calls _unload
   UniString filePath() const;
 
-  void statusChanged(AssetStatus status) W_SIGNAL(statusChanged, status);
-
   //public slots:
 
  };

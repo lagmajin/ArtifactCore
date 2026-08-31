@@ -114,6 +114,8 @@ struct ArtifactScriptField {
 struct ArtifactScriptMethod {
     std::string name;
     std::vector<std::string> parameters;
+    std::size_t line = 0;
+    std::size_t column = 0;
     bool isLifecycleHook = false;
     ArtifactScriptHook hook = ArtifactScriptHook::OnUpdate;
     ArtifactScriptMethodBodyPtr body;  // compiled method body

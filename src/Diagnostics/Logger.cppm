@@ -26,6 +26,7 @@ module;
 module Diagnostics.Logger;
 
 import Container.NamedVector;
+import Event.Bus;
 
 namespace ArtifactCore {
 
@@ -156,7 +157,7 @@ void Logger::clearLogs() {
         std::lock_guard<std::mutex> lock(mutex_);
         logs_.clear();
     }
-    Q_EMIT logsCleared();
+    globalEventBus().publish(LogsClearedEvent{});
 }
 
 void Logger::appendLog(LogLevel level, const QString& message, const QString& context) {
@@ -189,7 +190,8 @@ void Logger::appendLog(LogLevel level, const QString& message, const QString& co
         }
     }
 
-    Q_EMIT logAdded(static_cast<int>(level), message, context, logMsg.timestamp);
+    globalEventBus().publish(
+        LogAddedEvent{level, message, context, logMsg.timestamp});
 }
 
 void Logger::setFileLoggingEnabled(bool enabled)
