@@ -102,6 +102,11 @@ struct ParametricCompositionInputBinding {
     ParametricCompositionSlotKind kind = ParametricCompositionSlotKind::SourceLayer;
     bool connected = false;
     QString slotId;
+    // Optional destination inside the referenced composition.  When present,
+    // the host applies the resolved value to this layer/property before the
+    // normal composition renderer samples the instance.
+    QString targetLayerId;
+    QString targetPropertyPath;
     LayerID sourceLayerId;
     QString sourceDefinitionId;
     QStringList upstreamDefinitionIds;

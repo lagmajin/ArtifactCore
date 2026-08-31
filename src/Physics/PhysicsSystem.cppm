@@ -284,6 +284,21 @@ public:
         rigidWorlds_.erase(layerId);
     }
 
+    SharedPtr<Physics2D> createCompositionRigidWorld(CompositionID compositionId) {
+        auto world = makeShared<Physics2D>();
+        compositionRigidWorlds_[compositionId] = world;
+        return world;
+    }
+
+    SharedPtr<Physics2D> getCompositionRigidWorld(CompositionID compositionId) {
+        auto it = compositionRigidWorlds_.find(compositionId);
+        return it != compositionRigidWorlds_.end() ? it->second : nullptr;
+    }
+
+    void unregisterCompositionRigidWorld(CompositionID compositionId) {
+        compositionRigidWorlds_.erase(compositionId);
+    }
+
     // ---- Cloner/Rigid helpers (thin wrappers, no new simulation state) ----
     std::vector<SharedPtr<RigidBody2D>> createRigidBoxes(
         LayerID layerId, const std::vector<QVector2D>& positions,
@@ -565,6 +580,13 @@ public:
             }
         }
 
+        for (auto& [id, world] : compositionRigidWorlds_) {
+            if (world) {
+                world->step(simulationDt, lodSettings_.rigidBodySubSteps > 0
+                    ? lodSettings_.rigidBodySubSteps : 4);
+            }
+        }
+
         for (auto& [id, pyro] : pyroSimulations_) {
             if (pyro) pyro->step(simulationDt);
         }
@@ -582,6 +604,7 @@ public:
         materialSnapshots_.clear();
         pendingMaterialFractureEvents_.clear();
         rigidWorlds_.clear();
+        compositionRigidWorlds_.clear();
         pyroSimulations_.clear();
         boidsConstants_.clear();
     }
@@ -601,6 +624,7 @@ private:
     std::map<LayerID, std::map<int64_t, MpmSnapshot2D>> materialSnapshots_;
     NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
+    std::map<CompositionID, SharedPtr<Physics2D>> compositionRigidWorlds_;
     std::map<LayerID, SharedPtr<PyroSimulation>> pyroSimulations_;
     std::map<LayerID, GpuBoidConstants> boidsConstants_;
     PhysicsLODSettings lodSettings_;

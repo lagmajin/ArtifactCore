@@ -40,6 +40,7 @@ module;
 export module Physics2D;
 
 import Memory.SharedPtr;
+import Utils.Id;
 
 export namespace ArtifactCore {
 
@@ -57,6 +58,7 @@ export namespace ArtifactCore {
 
         b2BodyId bodyId{};
         int cloneIndex = -1; // Clonerの何番目のクローンとリンクしているか
+        LayerID ownerLayerId; // composition world 内での所有レイヤー
         
         QVector2D position() const {
             if (!b2Body_IsValid(bodyId)) return {0,0};
@@ -126,6 +128,12 @@ export namespace ArtifactCore {
         void setAngularDamping(float damping) {
             if (b2Body_IsValid(bodyId)) {
                 b2Body_SetAngularDamping(bodyId, damping);
+            }
+        }
+
+        void setGravityScale(float scale) {
+            if (b2Body_IsValid(bodyId)) {
+                b2Body_SetGravityScale(bodyId, scale);
             }
         }
 
@@ -294,6 +302,10 @@ export namespace ArtifactCore {
 
         // 床(スタティックな壁)の追加
         void addStaticBox(float x, float y, float width, float height, float friction = 0.3f);
+
+        // レイヤー物理用の再利用可能な床 collider。既存の床を置き換える。
+        void setStaticFloor(float topY, float width, float thickness = 20.0f,
+                            float friction = 0.3f);
 
         // スタティックな円の追加
         void addStaticCircle(float x, float y, float radius, float friction = 0.3f);

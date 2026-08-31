@@ -48,6 +48,7 @@ namespace ArtifactCore {
         b2WorldId worldId;
         NamedVector<SharedPtr<RigidBody2D>> bodies;
         std::vector<b2JointId> joints;
+        SharedPtr<RigidBody2D> floorBody;
 
         // Screen-space convention (+Y down), matching MPM/SoftBody gravity.
         Impl() : gravity{0.0f, 9.8f} {
@@ -97,6 +98,31 @@ namespace ArtifactCore {
         auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
         impl_->bodies.push_back(rb);
+    }
+
+    void Physics2D::setStaticFloor(float topY, float width, float thickness, float friction) {
+        if (!b2World_IsValid(impl_->worldId)) return;
+        if (impl_->floorBody) {
+            removeBody(impl_->floorBody);
+            impl_->floorBody.reset();
+        }
+
+        const float safeWidth = std::max(1.0f, width);
+        const float safeThickness = std::max(0.1f, thickness);
+        b2BodyDef bodyDef = b2DefaultBodyDef();
+        bodyDef.type = b2_staticBody;
+        bodyDef.position = {0.0f, topY + safeThickness * 0.5f};
+        const b2BodyId bodyId = b2CreateBody(impl_->worldId, &bodyDef);
+        const b2Polygon box = b2MakeBox(safeWidth * 0.5f, safeThickness * 0.5f);
+        b2ShapeDef shapeDef = b2DefaultShapeDef();
+        shapeDef.material.friction = friction;
+        b2CreatePolygonShape(bodyId, &shapeDef, &box);
+
+        auto rb = makeShared<RigidBody2D>();
+        rb->bodyId = bodyId;
+        rb->cloneIndex = -3;
+        impl_->bodies.push_back(rb);
+        impl_->floorBody = rb;
     }
 
     void Physics2D::addStaticCircle(float x, float y, float radius, float friction) {
@@ -285,6 +311,7 @@ namespace ArtifactCore {
 
     void Physics2D::clear() {
         clearJoints();
+        impl_->floorBody.reset();
         impl_->bodies.clear();
         if (b2World_IsValid(impl_->worldId)) {
             b2DestroyWorld(impl_->worldId);

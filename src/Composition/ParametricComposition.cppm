@@ -317,6 +317,8 @@ QJsonObject ParametricCompositionInputBinding::toJson() const
     obj.insert(QStringLiteral("kind"), static_cast<int>(kind));
     obj.insert(QStringLiteral("connected"), connected);
     obj.insert(QStringLiteral("slotId"), slotId);
+    obj.insert(QStringLiteral("targetLayerId"), targetLayerId);
+    obj.insert(QStringLiteral("targetPropertyPath"), targetPropertyPath);
     obj.insert(QStringLiteral("sourceLayerId"), sourceLayerId.toString());
     obj.insert(QStringLiteral("sourceDefinitionId"), sourceDefinitionId);
     obj.insert(QStringLiteral("upstreamDefinitionIds"), QJsonArray::fromStringList(upstreamDefinitionIds));
@@ -333,6 +335,8 @@ ParametricCompositionInputBinding ParametricCompositionInputBinding::fromJson(co
         obj.value(QStringLiteral("kind")).toInt(static_cast<int>(ParametricCompositionSlotKind::SourceLayer)));
     binding.connected = obj.value(QStringLiteral("connected")).toBool(false);
     binding.slotId = obj.value(QStringLiteral("slotId")).toString();
+    binding.targetLayerId = obj.value(QStringLiteral("targetLayerId")).toString();
+    binding.targetPropertyPath = obj.value(QStringLiteral("targetPropertyPath")).toString();
     binding.sourceLayerId = LayerID(obj.value(QStringLiteral("sourceLayerId")).toString());
     binding.sourceDefinitionId = obj.value(QStringLiteral("sourceDefinitionId")).toString();
     const QJsonArray upstream = obj.value(QStringLiteral("upstreamDefinitionIds")).toArray();
@@ -953,6 +957,14 @@ const QVector<ParametricCompositionInputBinding>& ParametricCompositionInstance:
 
 void ParametricCompositionInstance::addInputBinding(const ParametricCompositionInputBinding& binding)
 {
+    if (!binding.slotId.trimmed().isEmpty()) {
+        for (auto& existing : inputBindings_) {
+            if (existing.slotId == binding.slotId) {
+                existing = binding;
+                return;
+            }
+        }
+    }
     inputBindings_.append(binding);
 }
 
