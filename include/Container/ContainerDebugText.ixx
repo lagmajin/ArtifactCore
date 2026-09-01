@@ -80,8 +80,7 @@ inline ZeroString toDebugTextZero(const ContainerElementSample& sample) {
   ZeroString text;
   text += "sample[";
   text += std::to_string(sample.index);
-  text += "]@";
-  text += std::to_string(reinterpret_cast<std::uintptr_t>(sample.address));
+  text += "]";
   if (sample.note && sample.note[0] != '\0') {
     text += " ";
     text += sample.note;
