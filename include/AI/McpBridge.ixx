@@ -670,12 +670,26 @@ public:
                 const bool annotated = ContainerDebugRegistry::instance().annotate(
                   id.toUtf8().toStdString(), textBytes.toStdString(), severity,
                   ContainerDebugNoteAuthor::AI);
+                QJsonObject annotationResult{
+                    {QStringLiteral("id"), id},
+                    {QStringLiteral("annotated"), annotated}
+                };
+                if (annotated) {
+                    ContainerDebugSnapshot snapshot;
+                    if (ContainerDebugRegistry::instance().inspect(
+                            id.toUtf8().toStdString(), snapshot) && !snapshot.notes.empty()) {
+                        const auto& note = snapshot.notes.back();
+                        annotationResult.insert(QStringLiteral("timestampMilliseconds"),
+                                                static_cast<double>(note.timestampMilliseconds));
+                        annotationResult.insert(QStringLiteral("observedVersion"),
+                                                static_cast<double>(note.observedVersion));
+                        annotationResult.insert(QStringLiteral("severity"),
+                                                QString::fromUtf8(toString(note.severity)));
+                    }
+                }
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.containers.annotate")},
-                    {QStringLiteral("structuredContent"), QJsonObject{
-                        {QStringLiteral("id"), id},
-                        {QStringLiteral("annotated"), annotated}
-                    }}
+                    {QStringLiteral("structuredContent"), annotationResult}
                 });
             }
             if (debugToolName == QStringLiteral("debug.state") ||

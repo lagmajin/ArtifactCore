@@ -46,6 +46,8 @@ clear a container, change capacity, or perform rollback. A domain owner must
 provide a dedicated, validated operation before an AI can change application
 state. It requires a non-empty ID and text; allowed severities are `info`,
 `warning`, `error`, and `hypothesis`.
+When the write succeeds, the response also includes the stored note's
+timestamp and observed version when the snapshot is still available.
 
 Snapshot readers are isolated at the registry boundary. If a reader raises an
 exception, the entry is reported as unavailable and the other registered
