@@ -8,6 +8,11 @@ Custom containers can expose a bounded diagnostic snapshot to AI and debugging
 clients without exposing their elements, pointers, or mutation APIs. The first
 supported container is `NamedVector<T>`.
 
+Other custom containers that provide `debugSnapshot()` can use the shared
+`registerContainerDebugSnapshot(registry, id, container)` helper. They receive
+the same read-only snapshot surface; note writing requires an explicit writer
+registration such as the `NamedVector` convenience API.
+
 ## Owner contract
 
 An owner must explicitly register a container. Registration is opt-in and is

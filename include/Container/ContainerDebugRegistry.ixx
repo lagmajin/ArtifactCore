@@ -239,4 +239,20 @@ private:
   std::shared_ptr<void> lifetime_ = std::make_shared<int>(0);
 };
 
+/**
+ * @brief debugSnapshot()を持つ任意のコンテナをregistryへ登録する共通ヘルパー
+ *
+ * Registrationはcontainerより先に破棄すること。
+ */
+template <typename Container>
+ContainerDebugRegistry::Registration registerContainerDebugSnapshot(
+  ContainerDebugRegistry& registry,
+  std::string id,
+  const Container& container)
+{
+  return registry.registerScopedReader(
+    std::move(id),
+    [&container]() { return container.debugSnapshot(); });
+}
+
 }
