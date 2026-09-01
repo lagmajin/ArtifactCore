@@ -70,8 +70,8 @@ addresses; this is also true of the JSON formatter.
 
 ## Property Live Patch boundary
 
-Property Live Patch sessions are serialized and identified by a short-lived
-token returned from `debug.patch.begin`. The token is required for
+Property Live Patch sessions are serialized and identified by a session token
+returned from `debug.patch.begin`. The token is required for
 `debug.patch.apply`, `debug.patch.rollback`, and `debug.patch.commit`; a second
 begin is rejected while a session is active. This prevents another MCP client
 from silently replacing or completing an in-progress patch session.
