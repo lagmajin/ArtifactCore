@@ -245,6 +245,19 @@ inline constexpr const char* toString(ContainerDebugNoteSeverity severity) noexc
   return "info";
 }
 
+inline constexpr bool isValidContainerDebugNoteSeverity(
+    ContainerDebugNoteSeverity severity) noexcept
+{
+  switch (severity) {
+  case ContainerDebugNoteSeverity::Info:
+  case ContainerDebugNoteSeverity::Warning:
+  case ContainerDebugNoteSeverity::Error:
+  case ContainerDebugNoteSeverity::Hypothesis:
+    return true;
+  }
+  return false;
+}
+
 inline constexpr const char* toString(ContainerDebugNoteAuthor author) noexcept
 {
   switch (author) {
@@ -253,6 +266,18 @@ inline constexpr const char* toString(ContainerDebugNoteAuthor author) noexcept
   case ContainerDebugNoteAuthor::AI: return "ai";
   }
   return "runtime";
+}
+
+inline constexpr bool isValidContainerDebugNoteAuthor(
+    ContainerDebugNoteAuthor author) noexcept
+{
+  switch (author) {
+  case ContainerDebugNoteAuthor::Runtime:
+  case ContainerDebugNoteAuthor::Developer:
+  case ContainerDebugNoteAuthor::AI:
+    return true;
+  }
+  return false;
 }
 
 inline constexpr const char* toString(const ContainerWatchRule& rule) noexcept

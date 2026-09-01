@@ -521,7 +521,11 @@ public:
                     ContainerSourceLocation location = {})
   {
     constexpr std::size_t maxNoteBytes = 1024;
-    if (text.empty() || text.size() > maxNoteBytes) return false;
+    if (text.empty() || text.size() > maxNoteBytes ||
+        !isValidContainerDebugNoteSeverity(severity) ||
+        !isValidContainerDebugNoteAuthor(author)) {
+      return false;
+    }
     constexpr std::size_t noteCapacity = 32;
     if (debugNotes_.size() == noteCapacity) debugNotes_.erase(debugNotes_.begin());
     debugNotes_.push_back(ContainerDebugNote{
