@@ -489,6 +489,10 @@ public:
         result.ownerPath = handle.ownerPath;
         result.propertyName = handle.propertyName;
         result.property = handle.property;
+        PropertyOwnerDescriptor descriptor;
+        if (registry.tryGetOwner(handle.ownerPath, &descriptor)) {
+            result.isReadOnly = descriptor.readOnly;
+        }
         if (result.property) {
             result.propertyType = propertyTypeToString(result.property->getType());
             result.currentValue = result.property->getValue();

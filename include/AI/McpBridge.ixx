@@ -1176,11 +1176,11 @@ public:
                         path != requestedPath) {
                         continue;
                     }
-            if (debugToolName == QStringLiteral("debug.setProperty")) {
-                        PropertyOwnerDescriptor descriptor;
-                        const bool ownerWritable =
-                            globalPropertyRegistry().tryGetOwner(property.ownerPath, &descriptor) &&
-                            !descriptor.readOnly;
+                    PropertyOwnerDescriptor descriptor;
+                    const bool ownerWritable =
+                        globalPropertyRegistry().tryGetOwner(property.ownerPath, &descriptor) &&
+                        !descriptor.readOnly;
+                    if (debugToolName == QStringLiteral("debug.setProperty")) {
                         if (property.property && ownerWritable && requestedValue.isValid()) {
                             property.property->setValue(requestedValue);
                             changed = true;
@@ -1196,7 +1196,7 @@ public:
                             ? propertyTypeToString(property.property->getType())
                             : QString{}},
                         {QStringLiteral("value"), QJsonValue::fromVariant(currentValue)},
-                        {QStringLiteral("readOnly"), false}
+                        {QStringLiteral("readOnly"), !ownerWritable}
                     };
                     if (debugToolName == QStringLiteral("debug.getProperty") ||
                         debugToolName == QStringLiteral("debug.setProperty")) {
@@ -1228,9 +1228,9 @@ public:
                 static bool patchActive = false;
                 const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
                 const QString path = arguments.value(QStringLiteral("path")).toString().trimmed();
-                auto findProperty = [&path]() -> AbstractPropertyPtr {
+                auto findProperty = [&path]() -> PropertyHandle {
                     for (const auto& handle : globalPropertyRegistry().enumerate()) {
-                        if (handle.path() == path) return handle.property;
+                        if (handle.path() == path) return handle;
                     }
                     return {};
                 };
@@ -1248,19 +1248,30 @@ public:
                     return makeError(-32602, QStringLiteral("No active Live Patch session"));
                 }
                 if (debugToolName.endsWith(QStringLiteral("apply"))) {
-                    const auto property = findProperty();
-                    if (!property || arguments.value(QStringLiteral("value")).isUndefined()) {
+                    const auto handle = findProperty();
+                    PropertyOwnerDescriptor descriptor;
+                    const bool ownerWritable =
+                        handle.isValid() &&
+                        globalPropertyRegistry().tryGetOwner(handle.ownerPath, &descriptor) &&
+                        !descriptor.readOnly;
+                    if (!ownerWritable || arguments.value(QStringLiteral("value")).isUndefined()) {
+                        if (!handle.isValid()) {
+                            return makeError(-32602, QStringLiteral("Invalid patch path or value"));
+                        }
+                        return makeError(-32602, QStringLiteral("Patch target is read-only or value is missing"));
+                    }
+                    if (!handle.property) {
                         return makeError(-32602, QStringLiteral("Invalid patch path or value"));
                     }
                     if (!patchOriginalValues.contains(path)) {
-                        patchOriginalValues.insert(path, property->getValue());
+                        patchOriginalValues.insert(path, handle.property->getValue());
                     }
-                    property->setValue(arguments.value(QStringLiteral("value")).toVariant());
+                    handle.property->setValue(arguments.value(QStringLiteral("value")).toVariant());
                     return makeResponse(QJsonObject{
                         {QStringLiteral("content"), QStringLiteral("debug.patch.apply")},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("path"), path},
-                            {QStringLiteral("value"), QJsonValue::fromVariant(property->getValue())}
+                            {QStringLiteral("value"), QJsonValue::fromVariant(handle.property->getValue())}
                         }}
                     });
                 }
