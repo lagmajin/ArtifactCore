@@ -40,6 +40,11 @@ provide a dedicated, validated operation before an AI can change application
 state. It requires a non-empty ID and text; allowed severities are `info`,
 `warning`, `error`, and `hypothesis`.
 
+Snapshot readers are isolated at the registry boundary. If a reader raises an
+exception, the entry is reported as unavailable and the other registered
+containers can still be returned. The exception text is not forwarded to the
+AI response.
+
 ## Debug notes
 
 `NamedVector::addDebugNote()` records an event with timestamp, severity,
@@ -51,6 +56,10 @@ author, source location, and observed version.
 - Note severities: `Info`, `Warning`, `Error`, `Hypothesis`
 
 The method returns `false` for empty or oversized text.
+
+Severity and author values outside the enums are rejected as well. The text
+diagnostic formatter exposes sample indices and notes, but never element
+addresses; this is also true of the JSON formatter.
 
 ## Checkpoints
 
