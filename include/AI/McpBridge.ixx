@@ -16,6 +16,8 @@ module;
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QSet>
+#include <QUuid>
+#include <mutex>
 
 export module Core.AI.McpBridge;
 
@@ -375,6 +377,23 @@ public:
                                     QStringLiteral("debug.patch.apply"),
                                     QStringLiteral("debug.patch.rollback"),
                                     QStringLiteral("debug.patch.commit")}) {
+            QJsonArray parameters;
+            if (!name.endsWith(QStringLiteral("begin"))) {
+                parameters.append(QJsonObject{
+                    {QStringLiteral("name"), QStringLiteral("token")},
+                    {QStringLiteral("type"), QStringLiteral("string")}
+                });
+            }
+            if (name.endsWith(QStringLiteral("apply"))) {
+                parameters.append(QJsonObject{
+                    {QStringLiteral("name"), QStringLiteral("path")},
+                    {QStringLiteral("type"), QStringLiteral("string")}
+                });
+                parameters.append(QJsonObject{
+                    {QStringLiteral("name"), QStringLiteral("value")},
+                    {QStringLiteral("type"), QStringLiteral("variant")}
+                });
+            }
             tools.append(QJsonObject{
                 {QStringLiteral("name"), name},
                 {QStringLiteral("description"), name.endsWith(QStringLiteral("begin"))
@@ -384,12 +403,7 @@ public:
                         : name.endsWith(QStringLiteral("rollback"))
                             ? QStringLiteral("Live Patchをロールバック")
                             : QStringLiteral("Live Patchを確定")},
-                {QStringLiteral("parameters"), QJsonArray{
-                    QJsonObject{{QStringLiteral("name"), QStringLiteral("path")},
-                                 {QStringLiteral("type"), QStringLiteral("string")}},
-                    QJsonObject{{QStringLiteral("name"), QStringLiteral("value")},
-                                 {QStringLiteral("type"), QStringLiteral("variant")}}
-                }}
+                {QStringLiteral("parameters"), parameters}
             });
         }
         for (const QString& name : {QStringLiteral("debug.performance"),
@@ -1236,10 +1250,15 @@ public:
                 debugToolName == QStringLiteral("debug.patch.apply") ||
                 debugToolName == QStringLiteral("debug.patch.rollback") ||
                 debugToolName == QStringLiteral("debug.patch.commit")) {
+                static std::mutex patchMutex;
                 static QHash<QString, QVariant> patchOriginalValues;
                 static bool patchActive = false;
+                static QString patchToken;
+                const std::lock_guard patchLock(patchMutex);
                 const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
                 const QString path = arguments.value(QStringLiteral("path")).toString().trimmed();
+                const QString requestedToken = arguments.value(QStringLiteral("token"))
+                    .toString().trimmed();
                 auto findProperty = [&path]() -> PropertyHandle {
                     for (const auto& handle : globalPropertyRegistry().enumerate()) {
                         if (handle.path() == path) return handle;
@@ -1247,17 +1266,22 @@ public:
                     return {};
                 };
                 if (debugToolName.endsWith(QStringLiteral("begin"))) {
+                    if (patchActive) {
+                        return makeError(-32602, QStringLiteral("A Live Patch session is already active"));
+                    }
                     patchOriginalValues.clear();
                     patchActive = true;
+                    patchToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
                     return makeResponse(QJsonObject{
                         {QStringLiteral("content"), QStringLiteral("debug.patch.begin")},
                         {QStringLiteral("structuredContent"), QJsonObject{
-                            {QStringLiteral("active"), true}
+                            {QStringLiteral("active"), true},
+                            {QStringLiteral("token"), patchToken}
                         }}
                     });
                 }
-                if (!patchActive) {
-                    return makeError(-32602, QStringLiteral("No active Live Patch session"));
+                if (!patchActive || requestedToken.isEmpty() || requestedToken != patchToken) {
+                    return makeError(-32602, QStringLiteral("Invalid or missing Live Patch token"));
                 }
                 if (debugToolName.endsWith(QStringLiteral("apply"))) {
                     const auto handle = findProperty();
@@ -1299,6 +1323,7 @@ public:
                     }
                     patchOriginalValues.clear();
                     patchActive = false;
+                    patchToken.clear();
                     return makeResponse(QJsonObject{
                         {QStringLiteral("content"), QStringLiteral("debug.patch.rollback")},
                         {QStringLiteral("structuredContent"), QJsonObject{{QStringLiteral("active"), false}}}
@@ -1306,6 +1331,7 @@ public:
                 }
                 patchOriginalValues.clear();
                 patchActive = false;
+                patchToken.clear();
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.patch.commit")},
                     {QStringLiteral("structuredContent"), QJsonObject{{QStringLiteral("active"), false}}}
