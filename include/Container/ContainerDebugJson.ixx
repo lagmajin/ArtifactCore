@@ -2,6 +2,7 @@ module;
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QString>
+#include <string>
 
 export module Container.Debug.Json;
 
@@ -108,10 +109,12 @@ inline QJsonObject toJson(const ContainerDebugSnapshot& snapshot)
   return json;
 }
 
-inline QJsonArray toJson(const ContainerDebugRegistry& registry)
+inline QJsonArray toJson(const ContainerDebugRegistry& registry,
+                         const std::string& requestedId = {})
 {
   QJsonArray entries;
   for (const auto& id : registry.registeredIds()) {
+    if (!requestedId.empty() && id != requestedId) continue;
     ContainerDebugSnapshot snapshot;
     QJsonObject entry;
     entry.insert(QStringLiteral("id"), QString::fromStdString(id));

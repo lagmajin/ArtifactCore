@@ -32,6 +32,8 @@ The MCP tool `debug.containers` returns only containers registered in
 `ContainerDebugRegistry::instance()`. Each entry has an ID, an availability
 flag, and a structured snapshot containing container metadata, counters,
 element samples, and debug notes.
+It accepts an optional `id` argument to return only one registered instance;
+when omitted, all registered instances are returned.
 
 `debug.containers.annotate` can append a bounded debug note to a registered
 `NamedVector`. The tool fixes the note author to `AI`; it cannot edit elements,

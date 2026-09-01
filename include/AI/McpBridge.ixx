@@ -179,7 +179,10 @@ public:
         tools.append(QJsonObject{
             {QStringLiteral("name"), QStringLiteral("debug.containers")},
             {QStringLiteral("description"), QStringLiteral("登録済みコンテナの診断snapshotとメモ履歴を取得")},
-            {QStringLiteral("parameters"), QJsonArray{}}
+            {QStringLiteral("parameters"), QJsonArray{
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("id")},
+                             {QStringLiteral("type"), QStringLiteral("string")}}
+            }}
         });
         tools.append(QJsonObject{
             {QStringLiteral("name"), QStringLiteral("debug.containers.annotate")},
@@ -609,10 +612,14 @@ public:
                 });
             }
             if (debugToolName == QStringLiteral("debug.containers")) {
-                const QJsonArray containers = toJson(ContainerDebugRegistry::instance());
+                const QString requestedId = params.value(QStringLiteral("arguments"))
+                    .toObject().value(QStringLiteral("id")).toString().trimmed();
+                const QJsonArray containers = toJson(
+                    ContainerDebugRegistry::instance(), requestedId.toUtf8().toStdString());
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.containers")},
                     {QStringLiteral("structuredContent"), QJsonObject{
+                        {QStringLiteral("requestedId"), requestedId},
                         {QStringLiteral("containers"), containers},
                         {QStringLiteral("count"), containers.size()}
                     }}
