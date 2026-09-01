@@ -1545,6 +1545,7 @@ public:
             }
             if (debugToolName == QStringLiteral("debug.stress.run") ||
                 debugToolName == QStringLiteral("debug.stress.result")) {
+                static std::mutex stressMutex;
                 static QJsonObject stressResult{
                     {QStringLiteral("passed"), false},
                     {QStringLiteral("totalIterations"), 0},
@@ -1552,6 +1553,7 @@ public:
                     {QStringLiteral("failureReason"), QStringLiteral("No stress run has been started")},
                     {QStringLiteral("crashCount"), 0},
                     {QStringLiteral("peakMemoryBytes"), 0}};
+                const std::lock_guard stressLock(stressMutex);
                 if (debugToolName == QStringLiteral("debug.stress.run")) {
                     const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
                     const int repeatCount = std::clamp(arguments.value(QStringLiteral("repeatCount")).toInt(1), 1, 100000);
@@ -1687,7 +1689,9 @@ public:
             if (debugToolName == QStringLiteral("debug.regression.capture") ||
                 debugToolName == QStringLiteral("debug.regression.compare") ||
                 debugToolName == QStringLiteral("debug.regression.detect")) {
+                static std::mutex regressionMutex;
                 static QHash<QString, TraceSnapshot> baselines;
+                const std::lock_guard regressionLock(regressionMutex);
                 const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
                 const QString baselineName = arguments.value(QStringLiteral("name")).toString().trimmed();
                 if (baselineName.isEmpty()) {
