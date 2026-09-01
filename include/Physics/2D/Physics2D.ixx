@@ -315,7 +315,10 @@ export namespace ArtifactCore {
 
         // ジョイントの追加
         b2JointId addDistanceJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, float length, float damping = 0.5f, float stiffness = 1.0f);
-        b2JointId addRevoluteJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, QVector2D anchor);
+        b2JointId addRevoluteJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB,
+                                   QVector2D anchor, bool enableAngleLimit = false,
+                                   float lowerAngleDegrees = 0.0f,
+                                   float upperAngleDegrees = 0.0f);
 
         // 生成済みのジョイントを取り除く / 全破棄
         void removeJoint(b2JointId jointId);

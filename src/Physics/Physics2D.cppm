@@ -267,7 +267,9 @@ namespace ArtifactCore {
         return impl_->joints;
     }
 
-    b2JointId Physics2D::addRevoluteJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, QVector2D anchor) {
+    b2JointId Physics2D::addRevoluteJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB,
+                                          QVector2D anchor, bool enableAngleLimit,
+                                          float lowerAngleDegrees, float upperAngleDegrees) {
         if (!b2Body_IsValid(bodyA->getId()) || !b2Body_IsValid(bodyB->getId())) return b2_nullJointId;
 
         b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
@@ -275,6 +277,14 @@ namespace ArtifactCore {
         jointDef.bodyIdB = bodyB->getId();
         jointDef.localAnchorA = b2Body_GetLocalPoint(bodyA->getId(), b2Vec2{anchor.x(), anchor.y()});
         jointDef.localAnchorB = b2Body_GetLocalPoint(bodyB->getId(), b2Vec2{anchor.x(), anchor.y()});
+        jointDef.enableLimit = enableAngleLimit;
+        if (enableAngleLimit) {
+            constexpr float kDegreesToRadians = 0.01745329251994329577f;
+            jointDef.lowerAngle = std::min(lowerAngleDegrees, upperAngleDegrees) *
+                                  kDegreesToRadians;
+            jointDef.upperAngle = std::max(lowerAngleDegrees, upperAngleDegrees) *
+                                  kDegreesToRadians;
+        }
 
         const b2JointId jointId = b2CreateRevoluteJoint(impl_->worldId, &jointDef);
         if (!B2_IS_NULL(jointId)) {
