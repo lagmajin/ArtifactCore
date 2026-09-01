@@ -71,7 +71,6 @@ inline QJsonObject toJson(const ContainerElementSample& sample)
 {
   QJsonObject json;
   json.insert(QStringLiteral("index"), static_cast<double>(sample.index));
-  json.insert(QStringLiteral("address"), QString::number(reinterpret_cast<quintptr>(sample.address)));
   json.insert(QStringLiteral("note"), QString::fromUtf8(sample.note ? sample.note : ""));
   return json;
 }
