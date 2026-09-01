@@ -6,6 +6,7 @@ module;
 export module Container.Debug.Json;
 
 import Container.Debug;
+import Container.Debug.Registry;
 
 export namespace ArtifactCore {
 
@@ -54,6 +55,18 @@ inline QJsonObject toJson(const ContainerMutationRecord& mutation)
   return json;
 }
 
+inline QJsonObject toJson(const ContainerDebugNote& note)
+{
+  QJsonObject json;
+  json.insert(QStringLiteral("timestampMilliseconds"), static_cast<double>(note.timestampMilliseconds));
+  json.insert(QStringLiteral("severity"), QString::fromUtf8(toString(note.severity)));
+  json.insert(QStringLiteral("author"), QString::fromUtf8(toString(note.author)));
+  json.insert(QStringLiteral("text"), QString::fromStdString(note.text));
+  json.insert(QStringLiteral("location"), toJson(note.location));
+  json.insert(QStringLiteral("observedVersion"), static_cast<double>(note.observedVersion));
+  return json;
+}
+
 inline QJsonObject toJson(const ContainerElementSample& sample)
 {
   QJsonObject json;
@@ -90,7 +103,25 @@ inline QJsonObject toJson(const ContainerDebugSnapshot& snapshot)
     samples.append(toJson(sample));
   }
   json.insert(QStringLiteral("samples"), samples);
+  QJsonArray notes;
+  for (const auto& note : snapshot.notes) notes.append(toJson(note));
+  json.insert(QStringLiteral("notes"), notes);
   return json;
+}
+
+inline QJsonArray toJson(const ContainerDebugRegistry& registry)
+{
+  QJsonArray entries;
+  for (const auto& id : registry.registeredIds()) {
+    ContainerDebugSnapshot snapshot;
+    QJsonObject entry;
+    entry.insert(QStringLiteral("id"), QString::fromStdString(id));
+    const bool available = registry.inspect(id, snapshot);
+    entry.insert(QStringLiteral("available"), available);
+    if (available) entry.insert(QStringLiteral("snapshot"), toJson(snapshot));
+    entries.append(entry);
+  }
+  return entries;
 }
 
 }

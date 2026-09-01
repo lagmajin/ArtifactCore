@@ -25,6 +25,7 @@ import Core.AI.ToolBridge;
 import Diagnostics.Logger;
 import Core.Diagnostics.Trace;
 import Core.Diagnostics.DebugIdentity;
+import Container.Debug.Json;
 import Property;
 import Script.Expression.Evaluator;
 
@@ -174,6 +175,23 @@ public:
             {QStringLiteral("name"), QStringLiteral("debug.getTools")},
             {QStringLiteral("description"), QStringLiteral("利用可能なMCPツール一覧を取得")},
             {QStringLiteral("parameters"), QJsonArray{}}
+        });
+        tools.append(QJsonObject{
+            {QStringLiteral("name"), QStringLiteral("debug.containers")},
+            {QStringLiteral("description"), QStringLiteral("登録済みコンテナの診断snapshotとメモ履歴を取得")},
+            {QStringLiteral("parameters"), QJsonArray{}}
+        });
+        tools.append(QJsonObject{
+            {QStringLiteral("name"), QStringLiteral("debug.containers.annotate")},
+            {QStringLiteral("description"), QStringLiteral("登録済みコンテナへAIデバッグメモを追記")},
+            {QStringLiteral("parameters"), QJsonArray{
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("id")},
+                             {QStringLiteral("type"), QStringLiteral("string")}},
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("text")},
+                             {QStringLiteral("type"), QStringLiteral("string")}},
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("severity")},
+                             {QStringLiteral("type"), QStringLiteral("string")}}
+            }}
         });
         for (const QString& name : {QStringLiteral("debug.state"),
                                     QStringLiteral("debug.pause"),
@@ -588,6 +606,50 @@ public:
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.getTools")},
                     {QStringLiteral("structuredContent"), capabilityList()}
+                });
+            }
+            if (debugToolName == QStringLiteral("debug.containers")) {
+                const QJsonArray containers = toJson(ContainerDebugRegistry::instance());
+                return makeResponse(QJsonObject{
+                    {QStringLiteral("content"), QStringLiteral("debug.containers")},
+                    {QStringLiteral("structuredContent"), QJsonObject{
+                        {QStringLiteral("containers"), containers},
+                        {QStringLiteral("count"), containers.size()}
+                    }}
+                });
+            }
+            if (debugToolName == QStringLiteral("debug.containers.annotate")) {
+                const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
+                const QString id = arguments.value(QStringLiteral("id")).toString().trimmed();
+                const QString text = arguments.value(QStringLiteral("text")).toString();
+                const QString severityText = arguments.value(QStringLiteral("severity"))
+                  .toString().trimmed().toLower();
+                if (id.isEmpty()) {
+                    return makeError(-32602, QStringLiteral("debug.containers.annotate requires a non-empty id"));
+                }
+                if (text.isEmpty()) {
+                    return makeError(-32602, QStringLiteral("debug.containers.annotate requires non-empty text"));
+                }
+                ContainerDebugNoteSeverity severity = ContainerDebugNoteSeverity::Info;
+                if (severityText == QStringLiteral("warning")) {
+                    severity = ContainerDebugNoteSeverity::Warning;
+                } else if (severityText == QStringLiteral("error")) {
+                    severity = ContainerDebugNoteSeverity::Error;
+                } else if (severityText == QStringLiteral("hypothesis")) {
+                    severity = ContainerDebugNoteSeverity::Hypothesis;
+                } else if (!severityText.isEmpty() && severityText != QStringLiteral("info")) {
+                    return makeError(-32602,
+                      QStringLiteral("debug.containers.annotate severity must be info, warning, error, or hypothesis"));
+                }
+                const bool annotated = ContainerDebugRegistry::instance().annotate(
+                  id.toUtf8().toStdString(), text.toUtf8().toStdString(), severity,
+                  ContainerDebugNoteAuthor::AI);
+                return makeResponse(QJsonObject{
+                    {QStringLiteral("content"), QStringLiteral("debug.containers.annotate")},
+                    {QStringLiteral("structuredContent"), QJsonObject{
+                        {QStringLiteral("id"), id},
+                        {QStringLiteral("annotated"), annotated}
+                    }}
                 });
             }
             if (debugToolName == QStringLiteral("debug.state") ||

@@ -6,11 +6,13 @@ module;
 #include <algorithm>
 #include <typeinfo>
 #include <utility>
+#include <string>
 #include <vector>
 
 export module Container.NamedVector;
 
 import Container.Debug;
+import Container.Debug.Registry;
 
 export namespace ArtifactCore {
 
@@ -500,7 +502,7 @@ public:
   ContainerDebugSnapshot debugSnapshot() const noexcept
   {
     const auto samples = debugSample(4);
-    return ContainerDebugSnapshot{
+    auto snapshot = ContainerDebugSnapshot{
       debugInfo(),
       counters_,
       createdAt_,
@@ -509,6 +511,77 @@ public:
       lastMutation_,
       samples
     };
+    snapshot.notes = debugNotes_;
+    return snapshot;
+  }
+
+  bool addDebugNote(std::string text,
+                    ContainerDebugNoteSeverity severity = ContainerDebugNoteSeverity::Info,
+                    ContainerDebugNoteAuthor author = ContainerDebugNoteAuthor::Runtime,
+                    ContainerSourceLocation location = {})
+  {
+    constexpr std::size_t maxNoteBytes = 1024;
+    if (text.empty() || text.size() > maxNoteBytes) return false;
+    constexpr std::size_t noteCapacity = 32;
+    if (debugNotes_.size() == noteCapacity) debugNotes_.erase(debugNotes_.begin());
+    debugNotes_.push_back(ContainerDebugNote{
+      containerDebugNowMilliseconds(), severity, author, std::move(text), location, counters_.version});
+    return true;
+  }
+
+  const std::vector<ContainerDebugNote>& debugNotes() const noexcept { return debugNotes_; }
+
+  ContainerDebugRegistry::Registration registerDebugSnapshot(
+    ContainerDebugRegistry& registry, std::string id) const
+  {
+    return registry.registerScoped(
+      std::move(id),
+      [this]() { return debugSnapshot(); },
+      [this](std::string text, ContainerDebugNoteSeverity severity, ContainerDebugNoteAuthor author) {
+        return addDebugNote(std::move(text), severity, author);
+      });
+  }
+
+  ContainerDebugRegistry::Registration registerDebugSnapshot(std::string id) const
+  {
+    return registerDebugSnapshot(ContainerDebugRegistry::instance(), std::move(id));
+  }
+
+  ContainerDebugValueCheckpoint<T> createDebugCheckpoint() const
+  {
+    return ContainerDebugValueCheckpoint<T>{
+      this, containerDebugNowMilliseconds(), counters_.version, counters_.failedAccessCount, values_};
+  }
+
+  ContainerDebugVerification verifyDebugCheckpoint(
+    const ContainerDebugValueCheckpoint<T>& checkpoint) const noexcept
+  {
+    const bool sourceMatches = checkpoint.source == this;
+    return ContainerDebugVerification{
+      sourceMatches,
+      sourceMatches && checkpoint.version == counters_.version
+        && checkpoint.failedAccessCount == counters_.failedAccessCount,
+      checkpoint.version,
+      counters_.version,
+      checkpoint.values.size(),
+      values_.size(),
+      checkpoint.failedAccessCount,
+      counters_.failedAccessCount};
+  }
+
+  bool rollbackToDebugCheckpoint(const ContainerDebugValueCheckpoint<T>& checkpoint,
+                                 std::size_t expectedCurrentVersion,
+                                 ContainerSourceLocation location = {})
+  {
+    if (checkpoint.source != this || counters_.version != expectedCurrentVersion) return false;
+    const auto before = values_.size();
+    values_ = checkpoint.values;
+    recordMutation("debugRollback", before, values_.size());
+    addDebugNote("restored values from debug checkpoint",
+                 ContainerDebugNoteSeverity::Info,
+                 ContainerDebugNoteAuthor::Runtime,
+                 location);
+    return true;
   }
 
   template <typename Callback>
@@ -684,6 +757,7 @@ private:
   mutable ContainerSourceLocation lastFailedAccessAt_{};
   ContainerMutationRecord lastMutation_{};
   std::vector<ContainerMutationRecord> mutationHistory_;
+  std::vector<ContainerDebugNote> debugNotes_;
   std::size_t observedCapacity_ = 0;
 };
 
