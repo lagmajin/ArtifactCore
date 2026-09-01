@@ -1313,6 +1313,21 @@ public:
                 }
                 if (debugToolName.endsWith(QStringLiteral("rollback"))) {
                     for (auto it = patchOriginalValues.cbegin(); it != patchOriginalValues.cend(); ++it) {
+                        const auto handle = [&it]() -> PropertyHandle {
+                            for (const auto& candidate : globalPropertyRegistry().enumerate()) {
+                                if (candidate.path() == it.key()) return candidate;
+                            }
+                            return {};
+                        }();
+                        PropertyOwnerDescriptor descriptor;
+                        if (!handle.isValid() ||
+                            !globalPropertyRegistry().tryGetOwner(handle.ownerPath, &descriptor) ||
+                            descriptor.readOnly) {
+                            return makeError(-32602,
+                                QStringLiteral("Live Patch rollback target is missing or read-only"));
+                        }
+                    }
+                    for (auto it = patchOriginalValues.cbegin(); it != patchOriginalValues.cend(); ++it) {
                         const auto property = [&it]() -> AbstractPropertyPtr {
                             for (const auto& handle : globalPropertyRegistry().enumerate()) {
                                 if (handle.path() == it.key()) return handle.property;
