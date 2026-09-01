@@ -148,7 +148,7 @@ public:
       out = entry->reader();
     } catch (...) {
       finishInspection(entry);
-      throw;
+      return false;
     }
     finishInspection(entry);
     return true;
