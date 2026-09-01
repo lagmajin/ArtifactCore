@@ -637,6 +637,11 @@ public:
                 if (text.isEmpty()) {
                     return makeError(-32602, QStringLiteral("debug.containers.annotate requires non-empty text"));
                 }
+                const QByteArray textBytes = text.toUtf8();
+                if (textBytes.size() > 1024) {
+                    return makeError(-32602,
+                      QStringLiteral("debug.containers.annotate text must be at most 1024 UTF-8 bytes"));
+                }
                 ContainerDebugNoteSeverity severity = ContainerDebugNoteSeverity::Info;
                 if (severityText == QStringLiteral("warning")) {
                     severity = ContainerDebugNoteSeverity::Warning;
@@ -649,7 +654,7 @@ public:
                       QStringLiteral("debug.containers.annotate severity must be info, warning, error, or hypothesis"));
                 }
                 const bool annotated = ContainerDebugRegistry::instance().annotate(
-                  id.toUtf8().toStdString(), text.toUtf8().toStdString(), severity,
+                  id.toUtf8().toStdString(), textBytes.toStdString(), severity,
                   ContainerDebugNoteAuthor::AI);
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.containers.annotate")},
