@@ -536,7 +536,7 @@ public:
   const std::vector<ContainerDebugNote>& debugNotes() const noexcept { return debugNotes_; }
 
   ContainerDebugRegistry::Registration registerDebugSnapshot(
-    ContainerDebugRegistry& registry, std::string id) const
+    ContainerDebugRegistry& registry, std::string id)
   {
     return registry.registerScoped(
       std::move(id),
@@ -546,7 +546,7 @@ public:
       });
   }
 
-  ContainerDebugRegistry::Registration registerDebugSnapshot(std::string id) const
+  ContainerDebugRegistry::Registration registerDebugSnapshot(std::string id)
   {
     return registerDebugSnapshot(ContainerDebugRegistry::instance(), std::move(id));
   }

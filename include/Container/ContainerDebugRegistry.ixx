@@ -100,14 +100,16 @@ public:
 
   Registration registerScopedReader(std::string id, SnapshotReader reader)
   {
+    const std::string registrationId = id;
     if (!registerReader(id, std::move(reader))) return {};
-    return Registration(this, lifetime_, std::move(id));
+    return Registration(this, lifetime_, registrationId);
   }
 
   Registration registerScoped(std::string id, SnapshotReader reader, DebugNoteWriter noteWriter)
   {
+    const std::string registrationId = id;
     if (!registerReader(id, std::move(reader), std::move(noteWriter))) return {};
-    return Registration(this, lifetime_, std::move(id));
+    return Registration(this, lifetime_, registrationId);
   }
 
   bool unregisterReader(const std::string& id)
