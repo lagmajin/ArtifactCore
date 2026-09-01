@@ -159,6 +159,12 @@ public:
                 ContainerDebugNoteSeverity severity,
                 ContainerDebugNoteAuthor author)
   {
+    constexpr std::size_t maxNoteBytes = 1024;
+    if (text.empty() || text.size() > maxNoteBytes ||
+        !isValidContainerDebugNoteSeverity(severity) ||
+        !isValidContainerDebugNoteAuthor(author)) {
+      return false;
+    }
     std::shared_ptr<Entry> entry;
     {
       std::lock_guard lock(mutex_);
