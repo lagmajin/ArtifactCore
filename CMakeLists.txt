@@ -253,6 +253,8 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Codec.MFFrameExtractor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Codec.MFFrameExtractor.ifc"
                 "/reference;Memory.TrackedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.TrackedPtr.ifc"
                 "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
+                "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
+                "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
                 "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Color/ColorBlendMode.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
@@ -3538,7 +3540,8 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # Memory.TrackedPtr is an interface-bearing .cppm, so make its object
         # (and therefore its BMI) available before this attachment compiles.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/TrackedPtr.cppm.obj")
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/src/Memory/TrackedPtr.cppm.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Graphics/Compute/LUT3DComputer.cppm")
         # Preserve the HLSL source module ordering after the generic
         # implementation-interface dependency assignment above.
