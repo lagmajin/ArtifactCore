@@ -145,6 +145,7 @@ set(ARTIFACTCORE_MODULE_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../include/Container/ContainerAlgorithms.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Container/ContainerDebug.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Container/ContainerDebugJson.ixx"
+    "${CMAKE_CURRENT_LIST_DIR}/../include/Container/ContainerDebugRegistry.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Container/ContainerDebugText.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Container/ContainerModule.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Container/IdMap.ixx"
