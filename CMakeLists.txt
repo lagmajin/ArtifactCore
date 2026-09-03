@@ -1543,9 +1543,10 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Render.Farm.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Types.ifc"
             "/reference;Render.Farm.Checkpoint=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Render.Farm.Checkpoint.ifc"
             "/reference;Core.ThreadPool=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ThreadPool.ifc"
-            "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
-            "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
-            "/reference;NetworkRPCServer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNetwork.dir/NetworkRPCServer.ifc"
+             "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
+             "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
+             "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
+             "/reference;NetworkRPCServer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNetwork.dir/NetworkRPCServer.ifc"
             "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc"
             "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Utils/Tag.cppm")
@@ -4718,7 +4719,8 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/Environ
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/include/EnvironmentVariable/EnvironmentVariable.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/RenderFarmMaster.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
-        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNetwork.dir/NetworkRPCServer.ixx.obj")
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreNetwork.dir/NetworkRPCServer.ixx.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Render/RendererQueueManager.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Render/MFR/MFRJob.ixx.obj"
