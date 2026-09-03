@@ -46,7 +46,8 @@ namespace ArtifactCore {
     public:
         b2Vec2 gravity;
         b2WorldId worldId;
-        NamedVector<SharedPtr<RigidBody2D>> bodies;
+        NamedVector<SharedPtr<RigidBody2D>> bodies{
+            makeNamedVector<SharedPtr<RigidBody2D>>(ContainerName{"Physics2DBodies"})};
         std::vector<b2JointId> joints;
         SharedPtr<RigidBody2D> floorBody;
 
