@@ -58,7 +58,6 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Codec/EncoderSetting.cppm|Codec.Encoder.Setting|include/Video/EncoderSetting.ixx"
     "src/Codec/FFMpegAudioDecoder.cppm|Media.Encoder.FFmpegAudioDecoder|include/Codec/FFMpegAudioDecoder.ixx"
     "src/Codec/FFMpegVideoDecoder.cppm|Codec.FFmpegVideoDecoder|include/Video/FFMpegVideoDecoder.ixx"
-    "src/Codec/FFmpegThumbnailExtractor.cppm|Codec.Thumbnail.FFmpeg|include/Codec/FFmpegThumbnailExtractor.ixx"
     "src/Codec/GStreamerDecoder.cppm|Video.GStreamerDecoder|include/Video/GStreamerDecoder.ixx"
     "src/Codec/MFEncoder.cppm|Codec.MFEncoder|include/Codec/MFEncoder.ixx"
     "src/Codec/MFFrameExtractor.cppm|Codec.MFFrameExtractor|include/Codec/MFFrameExtractor.ixx"
