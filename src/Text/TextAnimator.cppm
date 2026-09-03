@@ -17,6 +17,7 @@ module;
 module Text.Animator;
 
 import Script.Expression.Evaluator;
+import Script.Expression.Value;
 
 namespace ArtifactCore {
 

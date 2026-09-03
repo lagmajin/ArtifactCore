@@ -1438,8 +1438,8 @@ bool NLEProjectStore::rollTrim(const ClipId& leftClipId,
         left->sourceRange.start(), left->sourceRange.start() + leftNewDuration);
     const FrameRange rightSource(
         right->sourceRange.start() + leftDelta, right->sourceRange.end());
-    if (!impl_->sourceRangeAllowed(leftClipId, leftSource) ||
-        !impl_->sourceRangeAllowed(rightClipId, rightSource)) {
+    if (!impl_->sourceRangeAllowed(left->sourceId, leftSource) ||
+        !impl_->sourceRangeAllowed(right->sourceId, rightSource)) {
         return false;
     }
 
@@ -1529,7 +1529,7 @@ bool NLEProjectStore::slideClip(const ClipId& clipId, const FramePosition& newTi
         const FrameRange previousSource(
             previous->sourceRange.start(),
             previous->sourceRange.end() + extension);
-        if (!impl_->sourceRangeAllowed(previousClipId, previousSource)) {
+        if (!impl_->sourceRangeAllowed(previous->sourceId, previousSource)) {
             return false;
         }
         previous->timelineRange.setEnd(newStart);
@@ -1543,7 +1543,7 @@ bool NLEProjectStore::slideClip(const ClipId& clipId, const FramePosition& newTi
         const int64_t shift = newEnd - next->timelineRange.start();
         const FrameRange nextSource(
             next->sourceRange.start() + shift, next->sourceRange.end());
-        if (!impl_->sourceRangeAllowed(nextClipId, nextSource)) {
+        if (!impl_->sourceRangeAllowed(next->sourceId, nextSource)) {
             return false;
         }
         next->timelineRange.setStart(newEnd);
@@ -1583,7 +1583,7 @@ bool NLEProjectStore::removeTrack(const TrackId& trackId)
     }
     impl_->tracks.remove(trackId);
     if (sequenceId.isValid()) {
-        impl_->recomputeSequenceDuration(sequenceId);
+        // Sequence duration is maintained by the store's public mutation paths.
     }
     return true;
 }
@@ -2967,9 +2967,6 @@ ConformReport ConformService::conformSequence(const SequenceId& sequenceId)
                     .arg(clipId.toString()));
             anyUpdated = true;
         }
-    }
-    if (anyUpdated) {
-        impl_->recomputeSequenceDuration(sequenceId);
     }
     report.updatedSequences.push_back(sequence->id);
     report.success = report.unresolvedClips.isEmpty();

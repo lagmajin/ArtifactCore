@@ -302,7 +302,7 @@ public:
     // the stable property path that identifies this evaluated value.
     QVariant evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator = nullptr,
                            std::optional<int> layerIndex = std::nullopt,
-                           const Audio::Modulation::ModulationRouter* modulationRouter = nullptr,
+                           const void* modulationRouter = nullptr,
                            std::string_view modulationTargetPath = {}) const;
 
     // Envelope support

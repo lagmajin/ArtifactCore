@@ -10,9 +10,6 @@ module;
 #include <QDir>
 #include <QImage>
 #include <OpenImageIO/imageio.h>
-#ifdef __cplusplus
-extern "C" {
-#endif
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
@@ -21,10 +18,6 @@ extern "C" {
 #include <libavutil/dict.h>
 #include <libavutil/mastering_display_metadata.h>
 #include <libswscale/swscale.h>
-#ifdef __cplusplus
-}
-#endif
-
 module Encoder.FFmpegEncoder;
 import Image;
 import Time.Code;

@@ -104,6 +104,12 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"Asset/ProxyWidth", "Image proxy width", QVariant::Int, 1920, 1, 16384});
     schema.registerProperty({"Asset/ProxyHeight", "Image proxy height", QVariant::Int, 1080, 1, 16384});
     schema.registerProperty({"Asset/ProxyJpegQuality", "Image proxy JPEG quality", QVariant::Int, 85, 1, 100});
+    schema.registerProperty({"Proxy/WorkerBackend", "Proxy worker backend", QVariant::String, QStringLiteral("ffmpeg"), {}, {},
+                             {QStringLiteral("ffmpeg"), QStringLiteral("native"),
+                              QStringLiteral("mediaFoundation"), QStringLiteral("auto")}});
+    schema.registerProperty({"Proxy/WorkerPath", "Proxy worker executable path", QVariant::String, QString()});
+    schema.registerProperty({"Proxy/HardwareAccel", "Prefer hardware proxy encoder", QVariant::Bool, false});
+    schema.registerProperty({"Proxy/AudioReencode", "Re-encode proxy audio as AAC", QVariant::Bool, false});
     schema.registerProperty({"UI/Composition/ShowDensityHeatmapOverlay", "Show density heatmap overlay", QVariant::Bool, false});
     schema.registerProperty({"UI/Composition/ShowGizmoDuringDrag", "Show gizmo while dragging", QVariant::Bool, false});
     schema.registerProperty({"UI/Timeline/AutoKeyEnabled", "Enable timeline auto-key", QVariant::Bool, false});

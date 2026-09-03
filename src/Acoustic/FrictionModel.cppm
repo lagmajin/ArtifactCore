@@ -7,7 +7,6 @@ module;
 export module Artifact.Acoustic.FrictionModel;
 
 import Artifact.Acoustic;
-import Container.NamedVector;
 
 export namespace Artifact::Acoustic {
 
@@ -23,8 +22,8 @@ export namespace Artifact::Acoustic {
         }
 
         std::vector<AudioTask> GenerateTasks() override {
-            NamedVector<AudioTask> tasks{
-                makeNamedVector<AudioTask>(ContainerName{"FrictionModelAudioTasks"})};
+            ArtifactCore::NamedVector<AudioTask> tasks{
+                ArtifactCore::makeNamedVector<AudioTask>(ArtifactCore::ContainerName{"FrictionModelAudioTasks"})};
             
             if (m_intensity > 0.01f) {
                 // 摩擦音は「高域ノイズの帯域制限」としてモデル化

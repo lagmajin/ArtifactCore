@@ -83,8 +83,8 @@ export namespace Artifact::Acoustic {
 
         std::vector<AudioTask> FetchTasks() {
             auto snapshot = FetchDebugSnapshot();
-            NamedVector<AudioTask> tasks{
-                makeNamedVector<AudioTask>(ContainerName{"AcousticSystemAudioTasks"})};
+            ArtifactCore::NamedVector<AudioTask> tasks{
+                ArtifactCore::makeNamedVector<AudioTask>(ArtifactCore::ContainerName{"AcousticSystemAudioTasks"})};
             for (const auto& t : snapshot.activeTasks) {
                 tasks.append({ t.type, t.amp, t.freq, 10.0f, t.duration, 0.0f, 1.0f, t.attenuation, 0 });
             }
@@ -95,8 +95,8 @@ export namespace Artifact::Acoustic {
             AcousticSnapshot snapshot;
             snapshot.frameNumber = m_frameCount++;
             
-            NamedVector<InternalTask> allInternalTasks{
-                makeNamedVector<InternalTask>(ContainerName{"AcousticSystemInternalTasks"})};
+            ArtifactCore::NamedVector<InternalTask> allInternalTasks{
+                ArtifactCore::makeNamedVector<InternalTask>(ArtifactCore::ContainerName{"AcousticSystemInternalTasks"})};
 
             auto collect = [&](auto& models) {
                 for (auto& [id, model] : models) {

@@ -170,7 +170,7 @@ std::vector<LogEntry> LogCollector::query(const LogQuery& query) const {
             if (!match) continue;
         }
 
-        result.push_back(entry);
+        result.add(entry);
         if (static_cast<int>(result.size()) >= query.maxResults) break;
     }
 

@@ -256,8 +256,8 @@ inline SequenceDetectionResult detectSequences(
             grp.prefix     = String(key.prefix);
             grp.suffix     = String(key.suffix);
             grp.padding    = key.padding;
-            grp.firstFrame = run.front().first;
-            grp.lastFrame  = run.back().first;
+            grp.firstFrame = run.first()->first;
+            grp.lastFrame  = run.last()->first;
             grp.filenames.reserve(run.size());
             for (const auto& [frame, fn] : run) {
                 grp.filenames.emplace_back(fn);
@@ -267,7 +267,7 @@ inline SequenceDetectionResult detectSequences(
         };
 
         for (const auto& frame : frames) {
-            if (!run.empty() && frame.first != run.back().first + 1) {
+            if (!run.empty() && frame.first != run.last()->first + 1) {
                 flushRun();
             }
             run.append(frame);

@@ -18,6 +18,8 @@ module;
 module Input.Operator;
 
 import InputEvent;
+// The implementation unit shares the public module name with Input.Operator;
+// its interface is supplied by CMake rather than imported here.
 import Container.NamedVector;
 import Event.Bus;
 
@@ -266,6 +268,7 @@ Action* ActionManager::registerAction(const QString& id,
         impl_->categories_[id] = category;
     }
     
+    emit actionRegistered(action);
     publishActionManagerChanged(ActionManagerChangeKind::ActionRegistered, id);
     return action;
 }
@@ -273,6 +276,7 @@ Action* ActionManager::registerAction(const QString& id,
 void ActionManager::unregisterAction(const QString& id) {
     auto it = impl_->actions_.find(id);
     if (it != impl_->actions_.end()) {
+        emit actionUnregistered(id);
         publishActionManagerChanged(ActionManagerChangeKind::ActionUnregistered,
                                     id);
         delete it->second;
@@ -314,6 +318,7 @@ void ActionManager::executeAction(const QString& id, const QVariantMap& params) 
     auto* action = getAction(id);
     if (action) {
         action->execute(params);
+        emit actionExecuted(id, params);
         publishActionManagerChanged(ActionManagerChangeKind::ActionExecuted, id,
                                     params);
     } else {

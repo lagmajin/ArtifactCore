@@ -271,7 +271,7 @@ public:
                     return false;
                 }
                 generatedConfig.close();
-                generatedRuntimeConfigs_.push_back(configPath);
+                generatedRuntimeConfigs_.add(configPath);
             }
         }
 

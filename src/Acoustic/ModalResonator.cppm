@@ -7,7 +7,6 @@ module;
 export module Artifact.Acoustic.ModalResonator;
 
 import Artifact.Acoustic;
-import Container.NamedVector;
 
 export namespace Artifact::Acoustic {
 
@@ -43,8 +42,8 @@ export namespace Artifact::Acoustic {
         }
 
         std::vector<AudioTask> GenerateTasks() override {
-            NamedVector<AudioTask> tasks{
-                makeNamedVector<AudioTask>(ContainerName{"ModalResonatorAudioTasks"})};
+            ArtifactCore::NamedVector<AudioTask> tasks{
+                ArtifactCore::makeNamedVector<AudioTask>(ArtifactCore::ContainerName{"ModalResonatorAudioTasks"})};
             for (const auto& mode : m_modes) {
                 if (mode.currentAmp > 0.0001f) {
                     tasks.append({
@@ -76,7 +75,7 @@ export namespace Artifact::Acoustic {
         }
 
         MaterialProfile m_profile;
-        NamedVector<Mode> m_modes{
-            makeNamedVector<Mode>(ContainerName{"ModalResonatorModes"})};
+        ArtifactCore::NamedVector<Mode> m_modes{
+            ArtifactCore::makeNamedVector<Mode>(ArtifactCore::ContainerName{"ModalResonatorModes"})};
     };
 }

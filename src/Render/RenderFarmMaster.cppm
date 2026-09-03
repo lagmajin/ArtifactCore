@@ -384,7 +384,7 @@ public:
             const long long candidateEnd = static_cast<long long>(current) +
                                            static_cast<long long>(chunkSize) * range.step;
             int chunkEnd = static_cast<int>(std::min<long long>(candidateEnd, range.endFrame));
-            subRanges.push_back({ current, chunkEnd, range.step });
+            subRanges.add({ current, chunkEnd, range.step });
             current = chunkEnd;
         }
         return subRanges;
@@ -774,9 +774,9 @@ public:
                 && w.state == QStringLiteral("Idle")
                 && (request.allowedWorkerIds.isEmpty() || request.allowedWorkerIds.contains(w.workerId))
                 && workerMatches(w, request.requiredCapabilities))
-                activeWorkers.push_back(w);
+                activeWorkers.add(w);
         }
-        if (activeWorkers.empty()) return;
+        if (activeWorkers.isEmpty()) return;
 
         // Split remaining range across remote workers
         int localWorkers = workerCount_;
@@ -794,9 +794,9 @@ public:
                     QJsonObject jobJson;
                     jobJson["compositionId"] = request.compositionId.toString();
                     jobJson["compositionName"] = request.compositionName;
-                    jobJson["startFrame"] = allRanges[idx].startFrame;
-                    jobJson["endFrame"] = allRanges[idx].endFrame;
-                    jobJson["step"] = allRanges[idx].step;
+                    jobJson["startFrame"] = allRanges.at(idx)->startFrame;
+                    jobJson["endFrame"] = allRanges.at(idx)->endFrame;
+                    jobJson["step"] = allRanges.at(idx)->step;
                     jobJson["outputPath"] = request.outputPath;
                     jobJson["autoVersionOutput"] = request.autoVersionOutput;
                     jobJson["enableAudio"] = request.enableAudio;
@@ -812,13 +812,13 @@ public:
                     if (!request.rendererExecutable.isEmpty())
                         jobJson["rendererExecutable"] = request.rendererExecutable;
 
-                    rpc.sendJobAssignment(activeWorkers[i].workerId, jobJson);
+                    rpc.sendJobAssignment(activeWorkers.at(i)->workerId, jobJson);
 
                     RemoteJobSlice slice;
-                    slice.workerId = activeWorkers[i].workerId;
-                    slice.range = allRanges[idx];
+                    slice.workerId = activeWorkers.at(i)->workerId;
+                    slice.range = *allRanges.at(idx);
                     slice.assigned = true;
-                    remoteSlices_.push_back(slice);
+                    remoteSlices_.add(slice);
                 }
             }
         }
@@ -929,13 +929,13 @@ public:
                     const int overlapStart = std::max(candidate.startFrame, slice.range.startFrame);
                     const int overlapEnd = std::min(candidate.endFrame, slice.range.endFrame);
                     if (overlapStart >= overlapEnd) {
-                        remaining.push_back(candidate);
+                        remaining.add(candidate);
                         continue;
                     }
                     if (candidate.startFrame < overlapStart)
-                        remaining.push_back({ candidate.startFrame, overlapStart, candidate.step });
+                        remaining.add({ candidate.startFrame, overlapStart, candidate.step });
                     if (overlapEnd < candidate.endFrame)
-                        remaining.push_back({ overlapEnd, candidate.endFrame, candidate.step });
+                        remaining.add({ overlapEnd, candidate.endFrame, candidate.step });
                 }
                 localRanges = std::move(remaining);
             }
@@ -950,7 +950,7 @@ public:
             auto subRanges = splitRange(localRange, workerCount_);
             workers.reserve(workers.size() + subRanges.size());
             for (const auto& subRange : subRanges) {
-                workers.emplace_back([this, request, subRange, &checkpointCounter]() {
+                workers.make([this, request, subRange, &checkpointCounter]() {
                     executeLocalRange(request, subRange, checkpointCounter);
                 });
             }
@@ -1009,7 +1009,7 @@ public:
     void collectRemoteResults() {
         {
             std::lock_guard<std::mutex> lock(remoteMutex_);
-            if (remoteSlices_.empty()) return;
+            if (remoteSlices_.isEmpty()) return;
         }
 
         int totalRemote = 0;

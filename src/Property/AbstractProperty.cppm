@@ -401,7 +401,7 @@ bool AbstractProperty::hasExpression() const {
 
 QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEvaluator* evaluator,
                                          std::optional<int> layerIndex,
-                                         const Audio::Modulation::ModulationRouter* modulationRouter,
+                                         const void* modulationRouter,
                                          std::string_view modulationTargetPath) const {
     {
         std::shared_lock lock(pImpl->m_mutex);
@@ -553,13 +553,15 @@ QVariant AbstractProperty::evaluateValue(const RationalTime& time, ExpressionEva
         expansionContext.fps = static_cast<double>(time.scale());
         return QString(expandTokens(evaluatedValue.toString(), expansionContext));
     }
-    if (!modulationRouter || modulationTargetPath.empty() ||
+    const auto* router = static_cast<const Audio::Modulation::ModulationRouter*>(
+        modulationRouter);
+    if (!router || modulationTargetPath.empty() ||
         (propertyType != PropertyType::Float && propertyType != PropertyType::Integer)) {
         return evaluatedValue;
     }
 
     const auto targetId = Audio::Modulation::modulationTargetId(modulationTargetPath);
-    const double modulated = static_cast<double>(modulationRouter->targetValue(
+    const double modulated = static_cast<double>(router->targetValue(
         targetId, static_cast<float>(evaluatedValue.toDouble())));
     if (!std::isfinite(modulated)) {
         return evaluatedValue;

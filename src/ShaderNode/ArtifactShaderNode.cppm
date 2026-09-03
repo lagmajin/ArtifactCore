@@ -98,9 +98,9 @@ namespace ShaderNode {
     std::vector<ShaderNodeBase*> NodeGraph::getTopologicalOrder() const {
         // Simplified for prototype: just return nodes in added order (assuming user adds them correctly)
         // In real impl, we walk from OutputNode up the tree
-        NamedVector<ShaderNodeBase*> sorted;
+        std::vector<ShaderNodeBase*> sorted;
         for (const auto& n : nodes) sorted.push_back(n.get());
-        return sorted.toStdVector();
+        return sorted;
     }
 
     std::string NodeGraph::compileHLSL() const {

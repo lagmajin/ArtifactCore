@@ -244,8 +244,8 @@ void TrackResult::normalize() {
             NamedVector<TrackPoint> uniquePoints;
             uniquePoints.reserve(frame.points.size());
             for (auto& point : frame.points) {
-                if (!uniquePoints.empty() && uniquePoints.back().id == point.id)
-                    uniquePoints.back() = std::move(point);
+                if (!uniquePoints.empty() && uniquePoints.back()->id == point.id)
+                    *uniquePoints.back() = std::move(point);
                 else
                     uniquePoints.push_back(std::move(point));
             }
@@ -276,8 +276,8 @@ void TrackResult::normalize() {
             }
         }
         if (!normalized.empty() &&
-            std::abs(normalized.back().time - frame.time) < 1e-9) {
-            normalized.back() = std::move(frame);
+            std::abs(normalized.back()->time - frame.time) < 1e-9) {
+            *normalized.back() = std::move(frame);
         } else {
             normalized.push_back(std::move(frame));
         }
@@ -624,8 +624,8 @@ void CameraPoseStream::normalize() {
         }
         if (!finitePose) frame.valid = false;
         if (!normalized.empty() &&
-            std::abs(normalized.back().time - frame.time) < 1e-9) {
-            normalized.back() = std::move(frame);
+            std::abs(normalized.back()->time - frame.time) < 1e-9) {
+            *normalized.back() = std::move(frame);
         } else {
             normalized.push_back(std::move(frame));
         }

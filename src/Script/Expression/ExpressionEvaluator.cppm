@@ -200,7 +200,7 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
   }
 
   case ExprNodeType::Vector: {
-    NamedVector<double> components;
+    std::vector<double> components;
     for (size_t i = 0; i < node->childCount(); ++i) {
       auto child = node->child(i);
       auto val = evaluateNode(child);
@@ -786,7 +786,7 @@ ExpressionEvaluator::evaluateOverRange(
     double endTimeSec,
     EvaluationMode mode) {
 
-    NamedVector<std::pair<double, ExpressionValue>> results;
+    std::vector<std::pair<double, ExpressionValue>> results;
 
     if (mode == EvaluationMode::FrameLocked) {
         // Evaluate at each frame time (current behavior)
@@ -824,7 +824,7 @@ ExpressionEvaluator::evaluateOverRange(
         auto ast = impl_->parser_.parse(expression);
         if (impl_->parser_.hasError()) {
             impl_->error_ = ZeroString(impl_->parser_.getError());
-            return results.toStdVector();
+            return results;
         }
 
         const double tol = impl_->adaptiveTolerance_;
@@ -897,7 +897,7 @@ ExpressionEvaluator::evaluateOverRange(
         walk(startTimeSec, endTimeSec);
     }
 
-    return results.toStdVector();
+    return results;
 }
 
 namespace BuiltinFunctions {
@@ -1312,9 +1312,9 @@ ExpressionValue loopValue(const ExpressionEvaluator* ctx, bool loopIn,
   if (entries.empty()) return ctx->getVariable("value");
   if (entries.size() == 1) return entries.front().property("value");
 
-  NamedVector<double> times;
-  NamedVector<ExpressionValue> values;
-  NamedVector<std::pair<double, ExpressionValue>> keyed;
+  std::vector<double> times;
+  std::vector<ExpressionValue> values;
+  std::vector<std::pair<double, ExpressionValue>> keyed;
   keyed.reserve(entries.size());
   for (const auto& entry : entries) {
     if (!entry.isObject() || !entry.hasProperty("time") || !entry.hasProperty("value"))
@@ -1415,7 +1415,7 @@ ExpressionValue Smooth(const std::vector<ExpressionValue>& args,
       ? args[2].asNumber() : ctx->getVariable("time").asNumber();
   if (!std::isfinite(center)) return ctx->getVariable("value");
 
-  NamedVector<std::pair<double, ExpressionValue>> keyed;
+  std::vector<std::pair<double, ExpressionValue>> keyed;
   for (const auto& entry : keyframes.asArray()) {
     if (!entry.isObject() || !entry.hasProperty("time") ||
         !entry.hasProperty("value")) continue;

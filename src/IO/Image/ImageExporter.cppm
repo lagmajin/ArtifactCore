@@ -60,9 +60,19 @@ bool applyICCProfile(OIIO::ImageSpec& spec, const ImageExportOptions& options,
         return true;
     }
 
-    // OIIO 3.x no longer accepts a raw byte count in ImageSpec::attribute;
-    // keep the profile validated here and let the codec-specific path handle
-    // metadata serialization.
+    if (profile.size() > std::numeric_limits<int>::max()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("ICC profile is too large.");
+        }
+        return false;
+    }
+
+    // ICCProfile is a uint8 array attribute. The array length belongs in the
+    // TypeDesc; passing the byte count as an attribute argument is ambiguous
+    // on current OIIO versions and only retains validation without embedding.
+    const OIIO::TypeDesc profileType(
+        OIIO::TypeDesc::UINT8, static_cast<int>(profile.size()));
+    spec.attribute("ICCProfile", profileType, profile.constData());
     return true;
 }
 

@@ -120,6 +120,16 @@ public:
     insert(key, value);
   }
 
+  std::size_t erase(const K& key)
+  {
+    const auto before = values_.size();
+    const auto removed = values_.erase(key);
+    if (removed != 0) {
+      recordMutation("erase", before, values_.size());
+    }
+    return removed;
+  }
+
   V value(const K& key, V defaultValue = V{}) const
   {
     ++counters_.readCount;

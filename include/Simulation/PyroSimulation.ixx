@@ -14,6 +14,7 @@ import Float3;
 import Core.ArtifactString;
 
 export module Core.Simulation.Pyro;
+// Keep the simulation module IFC synchronized with the active compiler toolchain.
 
 export namespace ArtifactCore {
 

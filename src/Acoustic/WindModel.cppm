@@ -6,7 +6,6 @@ module;
 export module Artifact.Acoustic.WindModel;
 
 import Artifact.Acoustic;
-import Container.NamedVector;
 
 export namespace Artifact::Acoustic {
 
@@ -25,8 +24,8 @@ export namespace Artifact::Acoustic {
         }
 
         std::vector<AudioTask> GenerateTasks() override {
-            NamedVector<AudioTask> tasks{
-                makeNamedVector<AudioTask>(ContainerName{"WindModelAudioTasks"})};
+            ArtifactCore::NamedVector<AudioTask> tasks{
+                ArtifactCore::makeNamedVector<AudioTask>(ArtifactCore::ContainerName{"WindModelAudioTasks"})};
             
             // ストローハル数 (St ~ 0.2) を用いた中心周波数の計算
             // f = St * V / D

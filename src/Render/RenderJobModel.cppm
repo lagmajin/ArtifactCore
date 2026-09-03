@@ -91,7 +91,7 @@ namespace ArtifactCore {
         index.row() >= static_cast<int>(impl_->jobs.size())) return QVariant();
     
     if (role == Qt::DisplayRole) {
-      const auto& job = impl_->jobs[index.row()];
+      const auto& job = *impl_->jobs.at(index.row());
       switch (index.column()) {
         case 0: return job->compositionName;
         case 1: {
@@ -130,7 +130,7 @@ namespace ArtifactCore {
     auto job = std::make_unique<RenderJob>();
     job->compositionId = compositionId;
     job->compositionName = name;
-    impl_->jobs.push_back(std::move(job));
+    impl_->jobs.add(std::move(job));
     endInsertRows();
   }
 
@@ -145,7 +145,7 @@ namespace ArtifactCore {
     job->startFrame = startFrame;
     job->endFrame = endFrame;
     job->frameStep = frameStep;
-    impl_->jobs.push_back(std::move(job));
+    impl_->jobs.add(std::move(job));
     endInsertRows();
   }
 
@@ -170,7 +170,7 @@ namespace ArtifactCore {
     job->status = parseRenderJobStatus(status);
     job->progress = std::clamp(progress, 0, 100) / 100.0f;
     job->outputPath = outputPath;
-    impl_->jobs.push_back(std::move(job));
+    impl_->jobs.add(std::move(job));
     endInsertRows();
   }
 
@@ -189,12 +189,12 @@ namespace ArtifactCore {
 
   RenderJob* RenderJobModel::jobAt(int row) {
     if (row < 0 || row >= (int)impl_->jobs.size()) return nullptr;
-    return impl_->jobs[row].get();
+    return impl_->jobs.at(row)->get();
   }
 
   void RenderJobModel::setJobProgress(int row, float progress) {
     if (row < 0 || row >= (int)impl_->jobs.size()) return;
-    impl_->jobs[row]->progress = std::isfinite(progress)
+    impl_->jobs.at(row)->get()->progress = std::isfinite(progress)
         ? std::clamp(progress, 0.0f, 1.0f)
         : 0.0f;
     emit dataChanged(index(row, 2), index(row, 2), {Qt::DisplayRole});
@@ -202,7 +202,7 @@ namespace ArtifactCore {
 
   void RenderJobModel::setJobStatus(int row, RenderJobStatus status) {
     if (row < 0 || row >= (int)impl_->jobs.size()) return;
-    impl_->jobs[row]->status = status;
+    impl_->jobs.at(row)->get()->status = status;
     emit dataChanged(index(row, 1), index(row, 1), {Qt::DisplayRole});
   }
 
@@ -212,7 +212,7 @@ namespace ArtifactCore {
         endFrame < startFrame || frameStep <= 0) {
       return false;
     }
-    auto& job = *impl_->jobs[static_cast<std::size_t>(row)];
+    auto& job = *impl_->jobs.at(static_cast<std::size_t>(row))->get();
     job.startFrame = startFrame;
     job.endFrame = endFrame;
     job.frameStep = frameStep;
@@ -227,7 +227,7 @@ namespace ArtifactCore {
         maxConcurrentFrames < 0 || retryBackoffMs < 0) {
       return false;
     }
-    auto& job = *impl_->jobs[static_cast<std::size_t>(row)];
+    auto& job = *impl_->jobs.at(static_cast<std::size_t>(row))->get();
     job.multiFrameEnabled = enabled;
     job.mfrConcurrentFrames = maxConcurrentFrames;
     job.mfrMemoryLimitMB = memoryLimitMB;

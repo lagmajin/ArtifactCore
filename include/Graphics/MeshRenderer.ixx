@@ -9,6 +9,7 @@ module;
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <QColor>
 #include "../Define/DllExportMacro.hpp"
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <map>
@@ -55,6 +56,17 @@ using namespace Diligent;
  */
 class LIBRARY_DLL_API MeshRenderer {
 public:
+    // Runtime-only texture input for a spotlight GOBO. This deliberately has
+    // no layer reference or project serialization: the caller owns source
+    // selection and must rebind after device/resource recreation.
+    struct GoboProjectionTextureInput {
+        std::string sourceKey;
+        Diligent::ITextureView* srv = nullptr;
+        std::uint64_t revision = 0;
+
+        bool isValid() const noexcept { return !sourceKey.empty() && srv != nullptr; }
+    };
+
     // GPU ABI for the mesh-shader path. Keep these types free of Qt/Diligent
     // containers so the same layout can be mirrored in HLSL.
     struct MeshletGpu {
@@ -154,6 +166,12 @@ public:
     /// next environment-map replacement or renderer destruction.
     Diligent::ITextureView* environmentMapView() const;
     void setSceneLights(const std::vector<Light>& lights);
+    // Overrides the file-backed GOBO texture for a packed scene-light slot.
+    // This is an internal render input only; it neither creates nor persists a
+    // connection between a layer and a light.
+    void setGoboProjectionTexture(std::size_t sceneLightIndex,
+                                  const GoboProjectionTextureInput& input);
+    void clearGoboProjectionTexture(std::size_t sceneLightIndex);
     // Set the depth texture and light transform consumed by the material pass.
     // Passing nullptr disables shadow comparison without changing the lights.
     void setShadowMap(ITextureView* shadowMap, const float* lightViewProjection,

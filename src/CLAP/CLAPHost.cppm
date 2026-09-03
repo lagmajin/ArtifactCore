@@ -448,8 +448,8 @@ void ClapEffect::process(ArtifactCore::AudioSegment& segment,
 }
 
 std::vector<ArtifactCore::EffectParameter> ClapEffect::getParameters() const {
-    NamedVector<ArtifactCore::EffectParameter> parameters{
-        makeNamedVector<ArtifactCore::EffectParameter>(ContainerName{"ClapEffectParameters"})};
+    ArtifactCore::NamedVector<ArtifactCore::EffectParameter> parameters{
+        ArtifactCore::makeNamedVector<ArtifactCore::EffectParameter>(ArtifactCore::ContainerName{"ClapEffectParameters"})};
     if (!plugin_) return parameters.toStdVector();
     const uint32 count = plugin_->paramsCount();
     parameters.reserve(count);
@@ -496,8 +496,8 @@ void ClapEffect::setParameterValue(const ArtifactCore::String& id, float value) 
 class Host::Impl {
 public:
     clap_host host{};
-    NamedVector<std::string> searchPaths{
-        makeNamedVector<std::string>(ContainerName{"ClapHostSearchPaths"})};
+    ArtifactCore::NamedVector<std::string> searchPaths{
+        ArtifactCore::makeNamedVector<std::string>(ArtifactCore::ContainerName{"ClapHostSearchPaths"})};
     // ライブラリを生きたまま保持（プラグイン生存中のアンロード防止）
     std::vector<std::shared_ptr<PluginLibrary>> libraries;
 };
@@ -539,7 +539,9 @@ void Host::addSearchPath(const std::string& path) {
 
 void Host::setSearchPaths(const std::vector<std::string>& paths) {
     impl_->searchPaths.clear();
-    impl_->searchPaths.insert(impl_->searchPaths.end(), paths.begin(), paths.end());
+    for (const auto& path : paths) {
+        impl_->searchPaths.push_back(path);
+    }
 }
 
 Plugin* Host::loadPlugin(const std::string& path) {
@@ -619,8 +621,8 @@ void Host::unloadAll() {
 }
 
 std::vector<std::string> Host::scanPlugins() {
-    NamedVector<std::string> found{
-        makeNamedVector<std::string>(ContainerName{"ClapPluginScanResults"})};
+    ArtifactCore::NamedVector<std::string> found{
+        ArtifactCore::makeNamedVector<std::string>(ArtifactCore::ContainerName{"ClapPluginScanResults"})};
     std::unordered_set<std::string> seen;
     for (const auto& searchPath : impl_->searchPaths) {
         try {

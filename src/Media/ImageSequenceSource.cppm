@@ -1,5 +1,5 @@
 module;
-class tst_QList;
+
 #include <utility>
 #include <algorithm>
 #include <memory>
@@ -22,7 +22,6 @@ class tst_QList;
 
 module Media.ImageSequenceSource;
 
-import Memory.TrackedPtr;
 import Thread.Helper;
 
 namespace ArtifactCore {
@@ -415,7 +414,7 @@ QString ImageSequenceSource::displayName() const
 SourceMetadata ImageSequenceSource::metadata() const
 {
     SourceMetadata metadata;
-    if (!impl_) {
+    if (!impl_ || impl_->frames.isEmpty()) {
         return metadata;
     }
 

@@ -134,7 +134,7 @@ namespace ArtifactCore {
             if (!job || job->status != RenderJobStatus::Queued) {
               continue;
             }
-            jobs.push_back(JobSnapshot{
+            jobs.add(JobSnapshot{
                 row,
                 job->compositionId,
                 job->outputPath,

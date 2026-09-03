@@ -682,7 +682,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         NamedVector<unsigned int> sourceIndices;
         sourceIndices.reserve(sourceIndexCount);
         for (const unsigned int index : data.renderData.indices) {
-            sourceIndices.push_back(index);
+            sourceIndices.add(index);
         }
 
         std::vector<unsigned int> remap(sourceVertexCount);
@@ -734,8 +734,11 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
                     remappedVertices.size(), sizeof(PackedVertex), targetIndexCount,
                     targetError);
                 levelIndices.resize(simplifiedIndexCount - (simplifiedIndexCount % kTriangleIndexCount));
-                if (levelIndices.empty()) {
-                    levelIndices = optimizedIndices;
+                if (levelIndices.isEmpty()) {
+                    levelIndices.clear();
+                    for (const auto index : optimizedIndices) {
+                        levelIndices.add(index);
+                    }
                 }
             }
 

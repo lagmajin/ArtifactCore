@@ -6,7 +6,6 @@ module;
 export module Artifact.Acoustic.RainModel;
 
 import Artifact.Acoustic;
-import Container.NamedVector;
 
 export namespace Artifact::Acoustic {
 
@@ -25,8 +24,8 @@ export namespace Artifact::Acoustic {
         }
 
         std::vector<AudioTask> GenerateTasks() override {
-            NamedVector<AudioTask> tasks{
-                makeNamedVector<AudioTask>(ContainerName{"RainModelAudioTasks"})};
+            ArtifactCore::NamedVector<AudioTask> tasks{
+                ArtifactCore::makeNamedVector<AudioTask>(ArtifactCore::ContainerName{"RainModelAudioTasks"})};
             
             // 雨の強さに応じて、統計的なタスクを発行
             // 実際にはGPU側で1粒単位の合成を行うが、

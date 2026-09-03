@@ -59,7 +59,7 @@ void NoiseGenerator::setSeed(unsigned int seed) {
     std::shuffle(permutation.begin(), permutation.end(), engine);
 
     for (int i = 0; i < 256; i++) {
-        p[i] = p[i + 256] = permutation[i];
+        p[i] = p[i + 256] = *(permutation.begin() + i);
     }
     isInitialized = true;
 }

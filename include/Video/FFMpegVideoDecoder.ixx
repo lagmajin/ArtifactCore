@@ -36,6 +36,8 @@ module;
 #include <QByteArray>
 export module Codec.FFmpegVideoDecoder;
 
+// Keep the interface IFC synchronized with its implementation unit.
+
 import Video.VideoFrame;
 
 export namespace ArtifactCore {

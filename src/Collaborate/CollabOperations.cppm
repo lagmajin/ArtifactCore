@@ -88,7 +88,7 @@ namespace detail {
 [[nodiscard]] inline QString validateCollabOperation(
     const CollabOperationData& op) {
     const QJsonObject payload = op.payload;
-    if (op.type == detail::kOpPropertySet) {
+    if (op.type == kOpPropertySet) {
         const QString path =
             payload.value(QStringLiteral("propertyPath")).toString();
         if (path.trimmed().isEmpty()) {
@@ -99,7 +99,7 @@ namespace detail {
         }
         return {};
     }
-    if (op.type == detail::kOpLayerTransform) {
+    if (op.type == kOpLayerTransform) {
         for (const auto key : {QStringLiteral("positionX"),
                                QStringLiteral("positionY"),
                                QStringLiteral("rotationDegrees"),
@@ -112,7 +112,7 @@ namespace detail {
         }
         return {};
     }
-    if (op.type == detail::kOpLayerAdd) {
+    if (op.type == kOpLayerAdd) {
         const QString layerType =
             payload.value(QStringLiteral("layerType")).toString().trimmed();
         if (layerType.isEmpty()) {
@@ -123,7 +123,7 @@ namespace detail {
         }
         return {};
     }
-    if (op.type == detail::kOpLayerRemove) {
+    if (op.type == kOpLayerRemove) {
         return {};
     }
     // Unknown types pass through unchanged: forward compatibility for newer

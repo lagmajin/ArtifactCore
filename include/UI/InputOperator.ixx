@@ -40,7 +40,7 @@ module;
 #include <random>
 export module Input.Operator;
 
-import InputEvent;
+export import InputEvent;
 class QKeyEvent;
 
 export namespace ArtifactCore
@@ -233,18 +233,6 @@ public:
 
 // W_REGISTER_ARGTYPE for Action* moved outside namespace
 
-enum class ActionManagerChangeKind {
-    ActionRegistered,
-    ActionUnregistered,
-    ActionExecuted
-};
-
-struct ActionManagerChangedEvent {
-    ActionManagerChangeKind kind = ActionManagerChangeKind::ActionExecuted;
-    QString actionId;
-    QVariantMap params;
-};
-
 /**
  * @brief Manager for all actions - similar to Blender's operator system
  */
@@ -279,6 +267,11 @@ public:
                         const QString& name,
                         const QString& description,
                         std::function<void()> callback);
+
+    void actionRegistered(Action* action) W_SIGNAL(actionRegistered, action);
+    void actionUnregistered(const QString& id) W_SIGNAL(actionUnregistered, id);
+    void actionExecuted(const QString& id, const QVariantMap& params)
+        W_SIGNAL(actionExecuted, id, params);
 
 };
 

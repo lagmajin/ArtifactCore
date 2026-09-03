@@ -74,6 +74,14 @@ public:
     return !isEmpty();
   }
 
+  // STL-compatible aliases retained for existing module clients.  The
+  // named-container operations above remain the preferred API, while these
+  // aliases keep older algorithm-heavy code source-compatible.
+  bool empty() const noexcept
+  {
+    return isEmpty();
+  }
+
   std::size_t capacity() const noexcept
   {
     ++counters_.readCount;
@@ -127,6 +135,16 @@ public:
     recordMutation("add", before, values_.size());
   }
 
+  void push_back(const T& value)
+  {
+    add(value);
+  }
+
+  void push_back(T&& value)
+  {
+    add(std::move(value));
+  }
+
   void append(T&& value)
   {
     add(std::move(value));
@@ -170,6 +188,12 @@ public:
     return value;
   }
 
+  template <typename... Args>
+  T& emplace_back(Args&&... args)
+  {
+    return make(std::forward<Args>(args)...);
+  }
+
   bool hasIndex(std::size_t index) const noexcept
   {
     ++counters_.readCount;
@@ -183,6 +207,16 @@ public:
       return nullptr;
     }
     return &values_[index];
+  }
+
+  T& operator[](std::size_t index) noexcept
+  {
+    return *at(index);
+  }
+
+  const T& operator[](std::size_t index) const noexcept
+  {
+    return *at(index);
   }
 
   const T* at(std::size_t index) const noexcept

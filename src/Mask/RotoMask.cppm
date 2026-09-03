@@ -369,7 +369,7 @@ RotoVertex RotoMask::getVertex(VertexID id, double time) const {
 std::vector<RotoVertex> RotoMask::sampleVertices(double time) const {
     NamedVector<RotoVertex> result{makeNamedVector<RotoVertex>(ContainerName{"RotoMaskSampleVertices"})};
     // ID順にソート（追加順を維持）
-    NamedVector<std::pair<int, VertexData>> sorted;
+    std::vector<std::pair<int, VertexData>> sorted;
     sorted.insert(sorted.end(), impl_->vertices.begin(), impl_->vertices.end());
     std::sort(sorted.begin(), sorted.end(), 
               [](const auto& a, const auto& b) { return a.first < b.first; });
@@ -461,7 +461,9 @@ std::vector<double> RotoMask::keyframeTimes() const {
     }
     
     NamedVector<double> result;
-    result.insert(result.end(), times.begin(), times.end());
+    for (const auto time : times) {
+        result.push_back(time);
+    }
     return result.toStdVector();
 }
 
@@ -683,7 +685,7 @@ void RotoMask::copyKeyframesFrom(const RotoMask& other, double timeOffset) {
 
 void RotoMask::reverse() {
     // 頂点順序を反転
-    NamedVector<std::pair<int, VertexData>> sorted;
+    std::vector<std::pair<int, VertexData>> sorted;
     sorted.insert(sorted.end(), impl_->vertices.begin(), impl_->vertices.end());
     std::reverse(sorted.begin(), sorted.end());
     

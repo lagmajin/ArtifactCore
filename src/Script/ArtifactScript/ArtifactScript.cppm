@@ -584,11 +584,9 @@ bool ArtifactScriptInstance::invokeHook(ArtifactScriptHook hook) {
     }
     // Lifecycle hooks receive no arguments; dt is provided as a field when
     // the host sets it (fields()["dt"]).
-    const bool ok = evaluator.executeMethod(definition_, hookName, {}, fields_);
+    evaluator.executeMethod(definition_, hookName, {}, fields_);
+    const bool ok = !evaluator.hasError();
     lastHookError_ = ok ? std::string() : evaluator.getLastError();
-    if (ok && component_) {
-        component_->publicFields() = fields_;
-    }
     lastInvokedHook_ = hook;
     return ok;
 }
@@ -792,7 +790,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalUnary(
 ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     const ArtifactScriptExpr* e, ArtifactScriptSerializedFields& fields,
     const std::unordered_map<std::string, ArtifactScriptValue>& locals) {
-    NamedVector<ArtifactScriptValue> args;
+    std::vector<ArtifactScriptValue> args;
     for (auto& a : e->callArgs) args.push_back(evalExpr(a.get(), fields, locals));
     if (!error_.empty()) return {};
     auto num = [](const ArtifactScriptValue& v) -> double {
@@ -891,7 +889,7 @@ ArtifactScriptValue ArtifactScriptEvaluator::Impl::evalCall(
     ArtifactScriptHost& host = ArtifactScriptHost::global();
     if (host.hasFunction(e->callName)) {
         host.setLastError(std::string());
-        if (host.callFunction(e->callName, args.toStdVector(), hostResult)) {
+        if (host.callFunction(e->callName, args, hostResult)) {
             // Host callbacks may report failures via setLastError; surface
             // them through the evaluator's diagnostic path.
             const std::string hostError = host.lastError();
@@ -1239,7 +1237,7 @@ bool ArtifactScriptHotReload::watchFile(const std::string& path) {
     Impl::WatchEntry e; e.path = path;
     if (auto t = std::filesystem::last_write_time(path, ec); !ec && t.time_since_epoch().count() > 0)
         e.lastModified = std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()).count();
-    impl_->watches_.push_back(e); return true;
+    impl_->watches_.add(e); return true;
 }
 
 void ArtifactScriptHotReload::unwatchFile(const std::string& path) {
@@ -1254,7 +1252,7 @@ std::vector<std::string> ArtifactScriptHotReload::pollChanges() {
         auto t = std::filesystem::last_write_time(w.path, ec);
         if (ec) continue;
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()).count();
-        if (ms > w.lastModified) { w.lastModified = ms; changed.push_back(w.path); }
+        if (ms > w.lastModified) { w.lastModified = ms; changed.add(w.path); }
     }
     return changed.toStdVector();
 }
@@ -1284,7 +1282,7 @@ void ArtifactScriptHotReload::removeFile(const std::string& path) {
 }
 
 std::vector<ArtifactScriptFileReload> ArtifactScriptHotReload::reloadChanged() {
-    NamedVector<ArtifactScriptFileReload> reloaded;
+    std::vector<ArtifactScriptFileReload> reloaded;
     for (const auto& path : pollChanges()) {
         auto it = impl_->files_.find(path);
         if (it == impl_->files_.end()) continue;
@@ -1298,7 +1296,7 @@ std::vector<ArtifactScriptFileReload> ArtifactScriptHotReload::reloadChanged() {
             it->second.fields = reloaded.back().result.migratedFields;
         }
     }
-    return reloaded.toStdVector();
+    return reloaded;
 }
 
 const ArtifactScriptDefinition* ArtifactScriptHotReload::definitionFor(const std::string& path) const {

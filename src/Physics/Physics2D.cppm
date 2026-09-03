@@ -97,7 +97,7 @@ namespace ArtifactCore {
         b2CreatePolygonShape(bodyId, &shapeDef, &box);
         auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
-        impl_->bodies.push_back(rb);
+        impl_->bodies.add(rb);
     }
 
     void Physics2D::setStaticFloor(float topY, float width, float thickness, float friction) {
@@ -121,7 +121,7 @@ namespace ArtifactCore {
         auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
         rb->cloneIndex = -3;
-        impl_->bodies.push_back(rb);
+        impl_->bodies.add(rb);
         impl_->floorBody = rb;
     }
 
@@ -139,7 +139,7 @@ namespace ArtifactCore {
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
         auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
-        impl_->bodies.push_back(rb);
+        impl_->bodies.add(rb);
     }
 
     SharedPtr<RigidBody2D> Physics2D::addStaticAnchor(float x, float y, float radius) {
@@ -156,7 +156,7 @@ namespace ArtifactCore {
         b2CreateCircleShape(bodyId, &shapeDef, &circle);
         auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
-        impl_->bodies.push_back(rb);
+        impl_->bodies.add(rb);
         return rb;
     }
 
@@ -178,7 +178,7 @@ namespace ArtifactCore {
 
         auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
-        impl_->bodies.push_back(rb);
+        impl_->bodies.add(rb);
         
         return rb;
     }
@@ -201,7 +201,7 @@ namespace ArtifactCore {
 
         auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
-        impl_->bodies.push_back(rb);
+        impl_->bodies.add(rb);
         
         return rb;
     }
@@ -244,7 +244,7 @@ namespace ArtifactCore {
 
         auto rb = makeShared<RigidBody2D>();
         rb->bodyId = bodyId;
-        impl_->bodies.push_back(rb);
+        impl_->bodies.add(rb);
         return rb;
     }
 
@@ -272,7 +272,10 @@ namespace ArtifactCore {
         }
         b2DestroyJoint(jointId);
         impl_->joints.erase(
-            std::remove(impl_->joints.begin(), impl_->joints.end(), jointId),
+            std::remove_if(impl_->joints.begin(), impl_->joints.end(),
+                           [jointId](const b2JointId candidate) {
+                               return b2StoreJointId(candidate) == b2StoreJointId(jointId);
+                           }),
             impl_->joints.end());
     }
 

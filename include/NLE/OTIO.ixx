@@ -16,11 +16,19 @@ class LIBRARY_DLL_API OtioAdapter final {
 public:
     static QJsonObject exportTimeline(const NLEProjectStore& store,
                                       const SequenceId& sequenceId);
+    static bool exportTimelineFile(const NLEProjectStore& store,
+                                   const SequenceId& sequenceId,
+                                   const QString& filePath,
+                                   QVector<QString>* warnings = nullptr);
 
     static bool importTimeline(NLEProjectStore& store,
                                const QJsonObject& timeline,
                                SequenceId* importedSequenceId = nullptr,
                                QVector<QString>* warnings = nullptr);
+    static bool importTimelineFile(NLEProjectStore& store,
+                                   const QString& filePath,
+                                   SequenceId* importedSequenceId = nullptr,
+                                   QVector<QString>* warnings = nullptr);
 
     static QVector<SubtitleCue> importSrt(const QString& text,
                                           const TimeBase& timeBase = TimeBase{},

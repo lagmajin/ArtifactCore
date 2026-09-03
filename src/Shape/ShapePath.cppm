@@ -1516,8 +1516,10 @@ std::vector<QPointF> ShapePath::sampleEquidistant(int count) const
     if (totalLen < 1e-9) {
         const auto segments = flatten();
         const QPointF point = segments.empty() ? QPointF() : segments.front().p0;
-        result.resize(count, point);
-        return result;
+        for (int i = 0; i < count; ++i) {
+            result.push_back(point);
+        }
+        return result.toStdVector();
     }
 
     result.reserve(count);

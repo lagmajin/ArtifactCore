@@ -44,6 +44,7 @@ extern "C" {
 module MediaSource;
 
 import Core.Diagnostics.Recorder;
+import Core.Diagnostics.Snapshot;
 
 namespace ArtifactCore {
 

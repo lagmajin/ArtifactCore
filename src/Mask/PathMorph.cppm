@@ -65,7 +65,7 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
                 i += 3;
 
                 // 直前の点から end までを8分割してベジェサンプリング
-                const QPointF p0 = points.empty() ? startPt : points.back();
+                const QPointF p0 = points.empty() ? startPt : *points.back();
                 for (int s = 1; s <= 8; ++s) {
                     const float t = static_cast<float>(s) / 8.0f;
                     points.push_back(cubicPoint(p0, c1, c2, end, t));
@@ -78,12 +78,12 @@ std::vector<std::vector<QPointF>> decomposePainterPath(const QPainterPath& path)
 
         // 閉じているかチェック（最終点≈始点）
         if (points.size() >= 2) {
-            double dx = points.back().x() - startPt.x();
-            double dy = points.back().y() - startPt.y();
+            double dx = points.back()->x() - startPt.x();
+            double dy = points.back()->y() - startPt.y();
             const bool closed = (dx * dx + dy * dy) < 0.0001;
 
             if (closed && points.size() >= 2) {
-                points.back() = startPt;  // 正確に揃える
+                points[points.size() - 1] = startPt;  // 正確に揃える
             }
         }
 

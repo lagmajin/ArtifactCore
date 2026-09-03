@@ -1462,7 +1462,11 @@ struct MeshRenderer::Impl {
         pGoboTextures_;
     std::array<Diligent::RefCntAutoPtr<Diligent::ITextureView>, MaxSceneLights>
         pGoboTextureSRVs_;
+    std::array<Diligent::RefCntAutoPtr<Diligent::ITextureView>, MaxSceneLights>
+        pGoboProjectionTextureSRVs_;
     std::array<QString, MaxSceneLights> goboTexturePaths_;
+    std::array<std::string, MaxSceneLights> goboProjectionSourceKeys_;
+    std::array<std::uint64_t, MaxSceneLights> goboProjectionRevisions_{};
     
     // Instance data buffer
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pInstanceBuffer_;
@@ -2670,7 +2674,9 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         for (size_t lightIndex = 0; lightIndex < goboNames.size(); ++lightIndex) {
             if (auto* goboVar = activeSRB->GetVariableByName(
                     SHADER_TYPE_PIXEL, goboNames[lightIndex])) {
-                goboVar->Set(pImpl_->pGoboTextureSRVs_[lightIndex]
+                goboVar->Set(pImpl_->pGoboProjectionTextureSRVs_[lightIndex]
+                                 ? pImpl_->pGoboProjectionTextureSRVs_[lightIndex]
+                                 : pImpl_->pGoboTextureSRVs_[lightIndex]
                                  ? pImpl_->pGoboTextureSRVs_[lightIndex]
                                  : pImpl_->pBaseColorTextureSRV_);
             }
@@ -2952,10 +2958,51 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
         gpuLight.goboInfo[1] = light.goboRotation() *
             std::numbers::pi_v<float> / 180.0f;
         gpuLight.goboInfo[2] = light.goboInvert() ? 1.0f : 0.0f;
-        gpuLight.goboInfo[3] =
-            light.type() == LightType::Spot &&
-            !goboPath.isEmpty() && pImpl_->pGoboTextureSRVs_[packedLightIndex]
+        gpuLight.goboInfo[3] = light.type() == LightType::Spot &&
+            (pImpl_->pGoboProjectionTextureSRVs_[packedLightIndex] ||
+             (!goboPath.isEmpty() && pImpl_->pGoboTextureSRVs_[packedLightIndex]))
                 ? 1.0f : 0.0f;
+    }
+}
+
+void MeshRenderer::setGoboProjectionTexture(
+    std::size_t sceneLightIndex, const GoboProjectionTextureInput& input)
+{
+    if (sceneLightIndex >= Impl::MaxSceneLights) {
+        return;
+    }
+    if (!input.isValid()) {
+        clearGoboProjectionTexture(sceneLightIndex);
+        return;
+    }
+    prepared_ = false;
+    pImpl_->pGoboProjectionTextureSRVs_[sceneLightIndex] = input.srv;
+    pImpl_->goboProjectionSourceKeys_[sceneLightIndex] = input.sourceKey;
+    pImpl_->goboProjectionRevisions_[sceneLightIndex] = input.revision;
+    if (sceneLightIndex < pImpl_->sceneLighting_.lightingMeta[0]) {
+        const bool isSpot = static_cast<LightType>(
+            static_cast<int>(pImpl_->sceneLighting_.lights[sceneLightIndex].positionType[3])) ==
+            LightType::Spot;
+        pImpl_->sceneLighting_.lights[sceneLightIndex].goboInfo[3] =
+            isSpot ? 1.0f : 0.0f;
+    }
+}
+
+void MeshRenderer::clearGoboProjectionTexture(std::size_t sceneLightIndex)
+{
+    if (sceneLightIndex >= Impl::MaxSceneLights) {
+        return;
+    }
+    prepared_ = false;
+    pImpl_->pGoboProjectionTextureSRVs_[sceneLightIndex].Release();
+    pImpl_->goboProjectionSourceKeys_[sceneLightIndex].clear();
+    pImpl_->goboProjectionRevisions_[sceneLightIndex] = 0;
+    if (sceneLightIndex < pImpl_->sceneLighting_.lightingMeta[0]) {
+        const auto& light = pImpl_->sceneLighting_.lights[sceneLightIndex];
+        const bool isSpot = static_cast<LightType>(
+            static_cast<int>(light.positionType[3])) == LightType::Spot;
+        pImpl_->sceneLighting_.lights[sceneLightIndex].goboInfo[3] =
+            isSpot && pImpl_->pGoboTextureSRVs_[sceneLightIndex] ? 1.0f : 0.0f;
     }
 }
 

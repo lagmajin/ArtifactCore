@@ -4,6 +4,7 @@ module;
 #include <vector>
 #include <array>
 #include <tuple>
+#include <memory>
 module StarfieldGenerator;
 import Core.Parallel;
 
@@ -304,7 +305,7 @@ void StarfieldGenerator::renderShootingStars(float* pixels, float time) {
 // ----- メイン生成 -----
 
 void StarfieldGenerator::generate(float* pixels, float time) {
-    if (stars_.empty()) generateStarDistribution(impl_->rng());
+    if (stars_.empty()) generateStarDistribution(impl_->rng.nextU32());
     Parallel::ForTiles(width_, height_, 32, 32,
         [&](int x0, int y0, int x1, int y1) {
     for (int y = y0; y < y1; ++y) {

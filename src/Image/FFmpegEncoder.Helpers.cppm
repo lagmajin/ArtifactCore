@@ -5,14 +5,11 @@ module;
 #include <QFile>
 #include <QDir>
 #include <QMap>
-extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
-}
-
 module Encoder.FFmpegEncoder:Impl;
 
 import Image;

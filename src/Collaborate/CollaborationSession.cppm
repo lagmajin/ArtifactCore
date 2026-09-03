@@ -220,8 +220,8 @@ public:
 
     void processPresence(const QString& clientId, const QJsonObject& presence,
                          const qint64 atMs) {
-        const auto it = participants_.constFind(clientId);
-        if (it == participants_.constEnd()) return;
+        auto it = participants_.find(clientId);
+        if (it == participants_.end()) return;
         it->presence = presence;
         it->lastPresenceMs = atMs;
     }

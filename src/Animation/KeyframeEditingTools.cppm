@@ -244,7 +244,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::audioToKeyframes(
     NamedVector<KeyframePoint> result;
 
     if (audio.channelData.isEmpty() || audio.channelData[0].isEmpty()) {
-        return result;
+        return result.toStdVector();
     }
 
     const int ch = std::clamp(request.channelIndex, 0,
@@ -387,12 +387,12 @@ std::vector<KeyframePoint> KeyframeEditingTools::copyAnimationRelative(
             return a.frame < b.frame;
         });
 
-    const double srcStart = orderedSource.front().frame;
-    const double srcEnd   = orderedSource.back().frame;
+    const double srcStart = orderedSource.front()->frame;
+    const double srcEnd   = orderedSource.back()->frame;
     const double srcDuration = std::max(1.0, srcEnd - srcStart);
 
-    double srcMin = orderedSource.front().value;
-    double srcMax = orderedSource.front().value;
+    double srcMin = orderedSource.front()->value;
+    double srcMax = orderedSource.front()->value;
     for (const auto& kf : orderedSource) {
         srcMin = std::min(srcMin, kf.value);
         srcMax = std::max(srcMax, kf.value);
@@ -652,7 +652,7 @@ std::vector<KeyframePoint> KeyframeEditingTools::expressionToKeyframes(
     NamedVector<KeyframePoint> result;
     if (expression.isEmpty() || !std::isfinite(frameRate) || frameRate <= 0.0 ||
         !std::isfinite(startFrame) || !std::isfinite(endFrame) || endFrame < startFrame) {
-        return result;
+        return result.toStdVector();
     }
     frameRate = std::clamp(frameRate, 1.0, 1000.0);
 

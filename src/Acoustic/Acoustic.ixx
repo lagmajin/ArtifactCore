@@ -6,6 +6,8 @@ module;
 
 export module Artifact.Acoustic;
 
+export import Container.NamedVector;
+
 export namespace Artifact::Acoustic {
 
     // 物理定数

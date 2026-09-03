@@ -55,6 +55,6 @@ export namespace Artifact::Diagnostic {
         std::optional<Acoustic::AcousticSnapshot> m_latestAcoustic;
 
         std::mutex m_graphMutex;
-        NamedVector<ShaderNode::NodeDebugInfo> m_latestGraph;
+        ArtifactCore::NamedVector<ShaderNode::NodeDebugInfo> m_latestGraph;
     };
 }

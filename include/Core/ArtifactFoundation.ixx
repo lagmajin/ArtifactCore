@@ -23,4 +23,3 @@ export import Core.ArtifactAlgorithms; // artifactSort/Find/Fill/LowerBound/...
 export import Core.ArtifactSaturation;
 export import Core.ArtifactTuple;   // Tuple<Ts...>, artifactGet<I>, artifactMakeTuple
 export import Core.ArtifactChrono;  // Duration, SteadyClock, Stopwatch
-export import Core.ArtifactRegex;   // ArtifactRegex, RegexMatch

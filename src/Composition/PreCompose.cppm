@@ -42,9 +42,6 @@ module;
 
 module Composition.PreCompose;
 
-import Frame.Position;
-import Utils.Id;
-
 namespace ArtifactCore {
 
 // ============================================================================

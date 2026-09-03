@@ -57,16 +57,15 @@ public:
     static std::vector<DebugIdentitySnapshot> snapshotAll()
     {
         std::lock_guard lock(registryMutex());
-        NamedVector<DebugIdentitySnapshot> result{
-            makeNamedVector<DebugIdentitySnapshot>(ContainerName{"DebugIdentitySnapshots"})};
+        std::vector<DebugIdentitySnapshot> result;
         result.reserve(registry().size());
         for (const auto* identity : registry()) {
-            result.append(DebugIdentitySnapshot{
+            result.push_back(DebugIdentitySnapshot{
                 identity->debugId(), identity->debugOwnerId(), identity->debugTypeName(),
                 identity->debugName(), identity->debugOwnerName(), identity->creationFile(),
                 identity->creationFunction(), identity->creationLine()});
         }
-        return result.toStdVector();
+        return result;
     }
 
     uint64_t debugId() const noexcept { return id_; }

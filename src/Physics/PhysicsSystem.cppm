@@ -17,7 +17,9 @@ import Physics.Fluid;
 import Physics2D;
 import Physics.SoftBody;
 import Physics.Mpm2D;
+#ifdef ARTIFACT_ENABLE_PYRO
 import Core.Simulation.Pyro;
+#endif
 import Graphics.ParticleData;
 import Graphics.BoidsCompute;
 import Memory.TrackedPtr;
@@ -340,6 +342,7 @@ public:
         }
     }
 
+#ifdef ARTIFACT_ENABLE_PYRO
     SharedPtr<PyroSimulation> createPyroSimulation(LayerID layerId) {
         auto sim = makeShared<PyroSimulation>();
         pyroSimulations_[layerId] = sim;
@@ -354,6 +357,7 @@ public:
     void unregisterPyroSimulation(LayerID layerId) {
         pyroSimulations_.erase(layerId);
     }
+#endif
 
     void setBoidsConstants(LayerID layerId, const GpuBoidConstants& c) {
         boidsConstants_[layerId] = c;
@@ -587,9 +591,11 @@ public:
             }
         }
 
+#ifdef ARTIFACT_ENABLE_PYRO
         for (auto& [id, pyro] : pyroSimulations_) {
             if (pyro) pyro->step(simulationDt);
         }
+#endif
     }
 
     /**
@@ -605,7 +611,9 @@ public:
         pendingMaterialFractureEvents_.clear();
         rigidWorlds_.clear();
         compositionRigidWorlds_.clear();
+#ifdef ARTIFACT_ENABLE_PYRO
         pyroSimulations_.clear();
+#endif
         boidsConstants_.clear();
     }
 
@@ -625,7 +633,9 @@ private:
     NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
     std::map<CompositionID, SharedPtr<Physics2D>> compositionRigidWorlds_;
+#ifdef ARTIFACT_ENABLE_PYRO
     std::map<LayerID, SharedPtr<PyroSimulation>> pyroSimulations_;
+#endif
     std::map<LayerID, GpuBoidConstants> boidsConstants_;
     PhysicsLODSettings lodSettings_;
     float lodAccumulator_ = 0.0f;

@@ -57,11 +57,11 @@ void CorePythonAPI::setCompositionBridge(CompositionBridge bridge) {
             if (args.empty() || !g_compositionBridge) {
                 return "{\"success\":false,\"message\":\"Composition bridge unavailable\"}";
             }
-            NamedVector<std::string> parameters;
+            std::vector<std::string> parameters;
             if (args.size() > 1) {
                 parameters.assign(args.begin() + 1, args.end());
             }
-            return g_compositionBridge(args.front(), parameters.toStdVector());
+            return g_compositionBridge(args.front(), parameters);
         });
 }
 

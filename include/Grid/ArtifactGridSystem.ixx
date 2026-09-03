@@ -1077,7 +1077,9 @@ inline std::vector<GridLine> GridManager::computeAllLines(
     NamedVector<GridLine> result;
     for (const Entry* entry : visible) {
         auto lines = entry->layer.computeLines(view, zoom);
-        result.insert(result.end(), lines.begin(), lines.end());
+        for (const auto& line : lines) {
+            result.push_back(line);
+        }
     }
     return result.toStdVector();
 }

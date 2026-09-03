@@ -20,6 +20,7 @@ module Text.ShapingBackend;
 
 import Font.FreeFont;
 import Container.NamedVector;
+import Container.Debug;
 import Text.LayoutContract;
 import Text.Style;
 import Utils.String.UniString;
@@ -804,7 +805,9 @@ std::vector<GlyphItem> layoutWithQtTextLayout(const QString& text,
     shapedLine.width = static_cast<float>(std::max<qreal>(0.0, line.naturalTextWidth()));
     shapedLine.height = static_cast<float>(std::max<qreal>(line.height(), lineHeightFallback));
     shapedLine.ascent = static_cast<float>(line.ascent());
-    shapedLine.cursorX.resize(static_cast<size_t>(shapedLine.lengthUtf16 + 1), 0.0f);
+    for (int cursor = 0; cursor <= shapedLine.lengthUtf16; ++cursor) {
+      shapedLine.cursorX.push_back(0.0f);
+    }
     for (int cursor = 0; cursor <= shapedLine.lengthUtf16; ++cursor) {
       shapedLine.cursorX[static_cast<size_t>(cursor)] =
           static_cast<float>(line.cursorToX(cursor));

@@ -121,6 +121,8 @@ public:
         return result;
     }
 
+    struct Node;
+
     class Iterator {
     public:
         explicit Iterator(Node* node) noexcept : node_(node) {}

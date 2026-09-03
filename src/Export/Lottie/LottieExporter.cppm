@@ -516,7 +516,7 @@ void LottieExporter::compressKeyframes(std::vector<LottieKeyframe>& keyframes,
     compressed.reserve(keyframes.size());
     compressed.push_back(keyframes.front());
     for (std::size_t i = 1; i + 1 < keyframes.size(); ++i) {
-        const auto& previous = compressed.back();
+        const auto& previous = *compressed.back();
         const auto& current = keyframes[i];
         const auto& next = keyframes[i + 1];
         const double span = next.t - previous.t;

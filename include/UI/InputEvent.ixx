@@ -2,6 +2,8 @@ module;
 #include <utility>
 #include <QFlags>
 #include <QKeyEvent>
+#include <QPointF>
+#include <QVariantMap>
 export module InputEvent;
 
 export namespace ArtifactCore {
@@ -50,5 +52,20 @@ export namespace ArtifactCore {
   float wheelDelta = 0.f;
  };
  Q_DECLARE_OPERATORS_FOR_FLAGS(InputEvent::Modifiers)
+
+ // Change notifications emitted by the action manager.  These are part of
+ // the input/event contract so implementation units do not need to import
+ // their own Input.Operator interface module.
+ enum class ActionManagerChangeKind {
+  ActionRegistered,
+  ActionUnregistered,
+  ActionExecuted
+ };
+
+ struct ActionManagerChangedEvent {
+  ActionManagerChangeKind kind = ActionManagerChangeKind::ActionExecuted;
+  QString actionId;
+  QVariantMap params;
+ };
 
 };

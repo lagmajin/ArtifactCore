@@ -1,6 +1,7 @@
 module;
 #include <cstdint>
 #include <cmath>
+#include <algorithm>
 
 export module Audio.Spatial.Params;
 

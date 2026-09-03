@@ -1,6 +1,7 @@
 module;
 
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QColor>
 #include <QString>
@@ -548,6 +549,35 @@ QJsonObject OtioAdapter::exportTimeline(const NLEProjectStore& store,
     };
 }
 
+bool OtioAdapter::exportTimelineFile(const NLEProjectStore& store,
+                                     const SequenceId& sequenceId,
+                                     const QString& filePath,
+                                     QVector<QString>* warnings)
+{
+    const QJsonObject timeline = exportTimeline(store, sequenceId);
+    if (timeline.isEmpty()) {
+        if (warnings) warnings->push_back(QStringLiteral("Could not export OTIO: sequence was not found"));
+        return false;
+    }
+
+    QSaveFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (warnings) warnings->push_back(QStringLiteral("Could not open OTIO file for writing: %1").arg(filePath));
+        return false;
+    }
+    const QByteArray encoded = QJsonDocument(timeline).toJson(QJsonDocument::Indented);
+    if (file.write(encoded) != encoded.size()) {
+        file.cancelWriting();
+        if (warnings) warnings->push_back(QStringLiteral("Could not write OTIO file: %1").arg(filePath));
+        return false;
+    }
+    if (!file.commit()) {
+        if (warnings) warnings->push_back(QStringLiteral("Could not finalize OTIO file: %1").arg(filePath));
+        return false;
+    }
+    return true;
+}
+
 bool OtioAdapter::importTimeline(NLEProjectStore& store,
                                  const QJsonObject& timeline,
                                  SequenceId* importedSequenceId,
@@ -617,6 +647,29 @@ bool OtioAdapter::importTimeline(NLEProjectStore& store,
     }
 
     return true;
+}
+
+bool OtioAdapter::importTimelineFile(NLEProjectStore& store,
+                                     const QString& filePath,
+                                     SequenceId* importedSequenceId,
+                                     QVector<QString>* warnings)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (warnings) warnings->push_back(QStringLiteral("Could not open OTIO file: %1").arg(filePath));
+        return false;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        if (warnings) {
+            warnings->push_back(QStringLiteral("Invalid OTIO JSON in %1: %2")
+                                    .arg(filePath, parseError.errorString()));
+        }
+        return false;
+    }
+    return importTimeline(store, document.object(), importedSequenceId, warnings);
 }
 
 QVector<SubtitleCue> OtioAdapter::importSrt(const QString& text,
