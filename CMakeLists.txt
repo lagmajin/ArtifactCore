@@ -2176,12 +2176,6 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Property.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Property.Types.ifc"
                 "/reference;FloatRGBA=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/FloatRGBA.ifc"
                 "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
-    elseif(_artifact_impl_relative STREQUAL "src/File/FileTypeDetector.cppm")
-        # FileTypeDetector is compiled by the split File target.  Its primary
-        # interface must resolve to the split target's IFC.
-        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
-            COMPILE_OPTIONS
-                "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreFile.dir/${_artifact_module_name}.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/File/FileInfo.cppm")
         # FileInfo is compiled by the split File target.  Its partition IFC
         # must not resolve to the aggregate Core output directory.

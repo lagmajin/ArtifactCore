@@ -112,7 +112,6 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Export/Lottie/LottieExporter.cppm|Export.Lottie.Exporter|include/Export/Lottie/LottieExporter.ixx"
     "src/Export/Lottie/LottieRigExporter.cppm|Export.Lottie.RigExporter|include/Export/Lottie/LottieRigExporter.ixx"
     "src/File/FileInfo.cppm|File:Info|include/File/FileInfo.ixx"
-    "src/File/FileTypeDetector.cppm|File.TypeDetector|include/File/FileTypeDetector.ixx"
     "src/Frame/FrameOffset.cppm|Frame.Offset|include/Frame/FrameOffset.ixx"
     "src/Frame/FramePosition.cppm|Frame.Position|include/Frame/FramePosition.ixx"
     "src/Frame/FrameRange.cppm|Frame.Range|include/Frame/FrameRange.ixx"
