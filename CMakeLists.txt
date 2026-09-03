@@ -3804,9 +3804,12 @@ list(APPEND CORE_IMPL
 list(REMOVE_ITEM CORE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Scene/SceneNode.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/EnvironmentVariable/EnvironmentVariable.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/EnvironmentVariable/TokenExpansion.ixx")
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/EnvironmentVariable/TokenExpansion.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Playback/PlaybackClock.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Playback/PlaybackState.ixx")
 list(REMOVE_ITEM CORE_IMPL
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cppm")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Playback/PlaybackClock.cppm")
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
