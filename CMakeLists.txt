@@ -3493,6 +3493,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         # Animation.Value BMI before compilation.
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Animation/AnimatableValue.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform3D.cppm")
+        # Keep imported interface BMIs available before this unscanned
+        # implementation is compiled without adding a dyndep cycle.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Animation/AnimatableValue.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSpace.cppm")
         # Non-scanned implementation units need explicit build ordering for
         # imported interface BMIs in addition to their /reference options.
