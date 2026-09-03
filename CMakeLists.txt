@@ -3806,10 +3806,12 @@ list(REMOVE_ITEM CORE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/EnvironmentVariable/EnvironmentVariable.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/EnvironmentVariable/TokenExpansion.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Playback/PlaybackClock.ixx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/Playback/PlaybackState.ixx")
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Playback/PlaybackState.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Codec/FFmpegThumbnailExtractor.ixx")
 list(REMOVE_ITEM CORE_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/EnvironmentVariable/EnvironmentVariable.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Playback/PlaybackClock.cppm")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Playback/PlaybackClock.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm")
 target_sources(ArtifactCore
     PRIVATE ${CORE_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${CORE_MODULES}
