@@ -2755,8 +2755,12 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/PathMorph.cppm" APPEND
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm" APPEND PROPERTY COMPILE_OPTIONS
+    "/reference;Codec.Thumbnail.FFmpeg=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/Codec.Thumbnail.FFmpeg.ifc"
     "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc"
     "/reference;Media.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/Media.Info.ifc")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Codec/FFmpegThumbnailExtractor.cppm"
+    APPEND PROPERTY OBJECT_DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/include/Codec/FFmpegThumbnailExtractor.ixx.obj")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_MEDIA_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_MEDIA_IMPL})
 
@@ -3044,6 +3048,7 @@ set(ARTIFACTCORE_PLAYBACK_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Playback/PlaybackClock.cppm"
 )
 set_property(SOURCE ${ARTIFACTCORE_PLAYBACK_IMPL} APPEND PROPERTY COMPILE_OPTIONS
+    "/reference;Playback.Clock=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/Playback.Clock.ifc"
     "/reference;Playback.State=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/Playback.State.ifc"
     "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
     "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
@@ -3051,6 +3056,8 @@ set_property(SOURCE ${ARTIFACTCORE_PLAYBACK_IMPL} APPEND PROPERTY COMPILE_OPTION
     "/reference;Time.Rational=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Time.Rational.ifc"
     "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
     "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
+set_property(SOURCE ${ARTIFACTCORE_PLAYBACK_IMPL} APPEND PROPERTY OBJECT_DEPENDS
+    "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/include/Playback/PlaybackClock.ixx.obj")
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_PLAYBACK_MODULES})
 list(REMOVE_ITEM CORE_IMPL ${ARTIFACTCORE_PLAYBACK_IMPL})
 
