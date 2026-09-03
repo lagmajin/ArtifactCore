@@ -195,6 +195,8 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             COMPILE_OPTIONS
                 "/reference;Diagnostics.Logger=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Diagnostics.Logger.ifc"
                 "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+                "/reference;Core.Diagnostics.Recorder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Recorder.ifc"
+                "/reference;Core.Diagnostics.Snapshot=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Diagnostics.Snapshot.ifc"
                 "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
                 "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
                 "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc")
@@ -3536,6 +3538,8 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Diagnostics/Logger.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/include/Event/EventBus.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Diagnostics/CoreDiagnosticRecorder.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Diagnostics/CoreDiagnosticSnapshot.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Color/ColorSpace.cppm")
