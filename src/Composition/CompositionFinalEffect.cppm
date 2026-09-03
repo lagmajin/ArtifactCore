@@ -172,8 +172,8 @@ auto CompositionFinalEffectStack::findEffect(const QString& name) const -> const
 }
 
 auto CompositionFinalEffectStack::getEnabledEffects() const -> std::vector<const CompositionFinalEffect*> {
-    NamedVector<const CompositionFinalEffect*> result{
-        makeNamedVector<const CompositionFinalEffect*>(ContainerName{"EnabledFinalEffects"})};
+    auto result = makeNamedVector<const CompositionFinalEffect*>(
+        ContainerName{"EnabledFinalEffects"});
     for (const auto& effect : effects_) {
         if (effect && effect->isEnabled()) {
             result.append(effect.get());
