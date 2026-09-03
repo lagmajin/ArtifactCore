@@ -16,6 +16,8 @@ module;
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QSet>
+#include <QUuid>
+#include <mutex>
 
 export module Core.AI.McpBridge;
 
@@ -25,6 +27,7 @@ import Core.AI.ToolBridge;
 import Diagnostics.Logger;
 import Core.Diagnostics.Trace;
 import Core.Diagnostics.DebugIdentity;
+import Container.Debug.Json;
 import Property;
 import Script.Expression.Evaluator;
 
@@ -174,6 +177,26 @@ public:
             {QStringLiteral("name"), QStringLiteral("debug.getTools")},
             {QStringLiteral("description"), QStringLiteral("利用可能なMCPツール一覧を取得")},
             {QStringLiteral("parameters"), QJsonArray{}}
+        });
+        tools.append(QJsonObject{
+            {QStringLiteral("name"), QStringLiteral("debug.containers")},
+            {QStringLiteral("description"), QStringLiteral("登録済みコンテナの診断snapshotとメモ履歴を取得")},
+            {QStringLiteral("parameters"), QJsonArray{
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("id")},
+                             {QStringLiteral("type"), QStringLiteral("string")}}
+            }}
+        });
+        tools.append(QJsonObject{
+            {QStringLiteral("name"), QStringLiteral("debug.containers.annotate")},
+            {QStringLiteral("description"), QStringLiteral("登録済みコンテナへAIデバッグメモを追記")},
+            {QStringLiteral("parameters"), QJsonArray{
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("id")},
+                             {QStringLiteral("type"), QStringLiteral("string")}},
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("text")},
+                             {QStringLiteral("type"), QStringLiteral("string")}},
+                QJsonObject{{QStringLiteral("name"), QStringLiteral("severity")},
+                             {QStringLiteral("type"), QStringLiteral("string")}}
+            }}
         });
         for (const QString& name : {QStringLiteral("debug.state"),
                                     QStringLiteral("debug.pause"),
@@ -354,6 +377,23 @@ public:
                                     QStringLiteral("debug.patch.apply"),
                                     QStringLiteral("debug.patch.rollback"),
                                     QStringLiteral("debug.patch.commit")}) {
+            QJsonArray parameters;
+            if (!name.endsWith(QStringLiteral("begin"))) {
+                parameters.append(QJsonObject{
+                    {QStringLiteral("name"), QStringLiteral("token")},
+                    {QStringLiteral("type"), QStringLiteral("string")}
+                });
+            }
+            if (name.endsWith(QStringLiteral("apply"))) {
+                parameters.append(QJsonObject{
+                    {QStringLiteral("name"), QStringLiteral("path")},
+                    {QStringLiteral("type"), QStringLiteral("string")}
+                });
+                parameters.append(QJsonObject{
+                    {QStringLiteral("name"), QStringLiteral("value")},
+                    {QStringLiteral("type"), QStringLiteral("variant")}
+                });
+            }
             tools.append(QJsonObject{
                 {QStringLiteral("name"), name},
                 {QStringLiteral("description"), name.endsWith(QStringLiteral("begin"))
@@ -363,12 +403,7 @@ public:
                         : name.endsWith(QStringLiteral("rollback"))
                             ? QStringLiteral("Live Patchをロールバック")
                             : QStringLiteral("Live Patchを確定")},
-                {QStringLiteral("parameters"), QJsonArray{
-                    QJsonObject{{QStringLiteral("name"), QStringLiteral("path")},
-                                 {QStringLiteral("type"), QStringLiteral("string")}},
-                    QJsonObject{{QStringLiteral("name"), QStringLiteral("value")},
-                                 {QStringLiteral("type"), QStringLiteral("variant")}}
-                }}
+                {QStringLiteral("parameters"), parameters}
             });
         }
         for (const QString& name : {QStringLiteral("debug.performance"),
@@ -588,6 +623,73 @@ public:
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.getTools")},
                     {QStringLiteral("structuredContent"), capabilityList()}
+                });
+            }
+            if (debugToolName == QStringLiteral("debug.containers")) {
+                const QString requestedId = params.value(QStringLiteral("arguments"))
+                    .toObject().value(QStringLiteral("id")).toString().trimmed();
+                const QJsonArray containers = toJson(
+                    ContainerDebugRegistry::instance(), requestedId.toUtf8().toStdString());
+                return makeResponse(QJsonObject{
+                    {QStringLiteral("content"), QStringLiteral("debug.containers")},
+                    {QStringLiteral("structuredContent"), QJsonObject{
+                        {QStringLiteral("requestedId"), requestedId},
+                        {QStringLiteral("containers"), containers},
+                        {QStringLiteral("count"), containers.size()}
+                    }}
+                });
+            }
+            if (debugToolName == QStringLiteral("debug.containers.annotate")) {
+                const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
+                const QString id = arguments.value(QStringLiteral("id")).toString().trimmed();
+                const QString text = arguments.value(QStringLiteral("text")).toString();
+                const QString severityText = arguments.value(QStringLiteral("severity"))
+                  .toString().trimmed().toLower();
+                if (id.isEmpty()) {
+                    return makeError(-32602, QStringLiteral("debug.containers.annotate requires a non-empty id"));
+                }
+                if (text.isEmpty()) {
+                    return makeError(-32602, QStringLiteral("debug.containers.annotate requires non-empty text"));
+                }
+                const QByteArray textBytes = text.toUtf8();
+                if (textBytes.size() > 1024) {
+                    return makeError(-32602,
+                      QStringLiteral("debug.containers.annotate text must be at most 1024 UTF-8 bytes"));
+                }
+                ContainerDebugNoteSeverity severity = ContainerDebugNoteSeverity::Info;
+                if (severityText == QStringLiteral("warning")) {
+                    severity = ContainerDebugNoteSeverity::Warning;
+                } else if (severityText == QStringLiteral("error")) {
+                    severity = ContainerDebugNoteSeverity::Error;
+                } else if (severityText == QStringLiteral("hypothesis")) {
+                    severity = ContainerDebugNoteSeverity::Hypothesis;
+                } else if (!severityText.isEmpty() && severityText != QStringLiteral("info")) {
+                    return makeError(-32602,
+                      QStringLiteral("debug.containers.annotate severity must be info, warning, error, or hypothesis"));
+                }
+                const bool annotated = ContainerDebugRegistry::instance().annotate(
+                  id.toUtf8().toStdString(), textBytes.toStdString(), severity,
+                  ContainerDebugNoteAuthor::AI);
+                QJsonObject annotationResult{
+                    {QStringLiteral("id"), id},
+                    {QStringLiteral("annotated"), annotated}
+                };
+                if (annotated) {
+                    ContainerDebugSnapshot snapshot;
+                    if (ContainerDebugRegistry::instance().inspect(
+                            id.toUtf8().toStdString(), snapshot) && !snapshot.notes.empty()) {
+                        const auto& note = snapshot.notes.back();
+                        annotationResult.insert(QStringLiteral("timestampMilliseconds"),
+                                                static_cast<double>(note.timestampMilliseconds));
+                        annotationResult.insert(QStringLiteral("observedVersion"),
+                                                static_cast<double>(note.observedVersion));
+                        annotationResult.insert(QStringLiteral("severity"),
+                                                QString::fromUtf8(toString(note.severity)));
+                    }
+                }
+                return makeResponse(QJsonObject{
+                    {QStringLiteral("content"), QStringLiteral("debug.containers.annotate")},
+                    {QStringLiteral("structuredContent"), annotationResult}
                 });
             }
             if (debugToolName == QStringLiteral("debug.state") ||
@@ -1114,11 +1216,11 @@ public:
                         path != requestedPath) {
                         continue;
                     }
-            if (debugToolName == QStringLiteral("debug.setProperty")) {
-                        PropertyOwnerDescriptor descriptor;
-                        const bool ownerWritable =
-                            globalPropertyRegistry().tryGetOwner(property.ownerPath, &descriptor) &&
-                            !descriptor.readOnly;
+                    PropertyOwnerDescriptor descriptor;
+                    const bool ownerWritable =
+                        globalPropertyRegistry().tryGetOwner(property.ownerPath, &descriptor) &&
+                        !descriptor.readOnly;
+                    if (debugToolName == QStringLiteral("debug.setProperty")) {
                         if (property.property && ownerWritable && requestedValue.isValid()) {
                             property.property->setValue(requestedValue);
                             changed = true;
@@ -1134,7 +1236,7 @@ public:
                             ? propertyTypeToString(property.property->getType())
                             : QString{}},
                         {QStringLiteral("value"), QJsonValue::fromVariant(currentValue)},
-                        {QStringLiteral("readOnly"), false}
+                        {QStringLiteral("readOnly"), !ownerWritable}
                     };
                     if (debugToolName == QStringLiteral("debug.getProperty") ||
                         debugToolName == QStringLiteral("debug.setProperty")) {
@@ -1162,47 +1264,83 @@ public:
                 debugToolName == QStringLiteral("debug.patch.apply") ||
                 debugToolName == QStringLiteral("debug.patch.rollback") ||
                 debugToolName == QStringLiteral("debug.patch.commit")) {
+                static std::mutex patchMutex;
                 static QHash<QString, QVariant> patchOriginalValues;
                 static bool patchActive = false;
+                static QString patchToken;
+                const std::lock_guard patchLock(patchMutex);
                 const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
                 const QString path = arguments.value(QStringLiteral("path")).toString().trimmed();
-                auto findProperty = [&path]() -> AbstractPropertyPtr {
+                const QString requestedToken = arguments.value(QStringLiteral("token"))
+                    .toString().trimmed();
+                auto findProperty = [&path]() -> PropertyHandle {
                     for (const auto& handle : globalPropertyRegistry().enumerate()) {
-                        if (handle.path() == path) return handle.property;
+                        if (handle.path() == path) return handle;
                     }
                     return {};
                 };
                 if (debugToolName.endsWith(QStringLiteral("begin"))) {
+                    if (patchActive) {
+                        return makeError(-32602, QStringLiteral("A Live Patch session is already active"));
+                    }
                     patchOriginalValues.clear();
                     patchActive = true;
+                    patchToken = QUuid::createUuid().toString(QUuid::WithoutBraces);
                     return makeResponse(QJsonObject{
                         {QStringLiteral("content"), QStringLiteral("debug.patch.begin")},
                         {QStringLiteral("structuredContent"), QJsonObject{
-                            {QStringLiteral("active"), true}
+                            {QStringLiteral("active"), true},
+                            {QStringLiteral("token"), patchToken}
                         }}
                     });
                 }
-                if (!patchActive) {
-                    return makeError(-32602, QStringLiteral("No active Live Patch session"));
+                if (!patchActive || requestedToken.isEmpty() || requestedToken != patchToken) {
+                    return makeError(-32602, QStringLiteral("Invalid or missing Live Patch token"));
                 }
                 if (debugToolName.endsWith(QStringLiteral("apply"))) {
-                    const auto property = findProperty();
-                    if (!property || arguments.value(QStringLiteral("value")).isUndefined()) {
+                    const auto handle = findProperty();
+                    PropertyOwnerDescriptor descriptor;
+                    const bool ownerWritable =
+                        handle.isValid() &&
+                        globalPropertyRegistry().tryGetOwner(handle.ownerPath, &descriptor) &&
+                        !descriptor.readOnly;
+                    if (!ownerWritable || arguments.value(QStringLiteral("value")).isUndefined()) {
+                        if (!handle.isValid()) {
+                            return makeError(-32602, QStringLiteral("Invalid patch path or value"));
+                        }
+                        return makeError(-32602, QStringLiteral("Patch target is read-only or value is missing"));
+                    }
+                    if (!handle.property) {
                         return makeError(-32602, QStringLiteral("Invalid patch path or value"));
                     }
                     if (!patchOriginalValues.contains(path)) {
-                        patchOriginalValues.insert(path, property->getValue());
+                        patchOriginalValues.insert(path, handle.property->getValue());
                     }
-                    property->setValue(arguments.value(QStringLiteral("value")).toVariant());
+                    handle.property->setValue(arguments.value(QStringLiteral("value")).toVariant());
                     return makeResponse(QJsonObject{
                         {QStringLiteral("content"), QStringLiteral("debug.patch.apply")},
                         {QStringLiteral("structuredContent"), QJsonObject{
                             {QStringLiteral("path"), path},
-                            {QStringLiteral("value"), QJsonValue::fromVariant(property->getValue())}
+                            {QStringLiteral("value"), QJsonValue::fromVariant(handle.property->getValue())}
                         }}
                     });
                 }
                 if (debugToolName.endsWith(QStringLiteral("rollback"))) {
+                    for (auto it = patchOriginalValues.cbegin(); it != patchOriginalValues.cend(); ++it) {
+                        const auto handle = [&it]() -> PropertyHandle {
+                            for (const auto& candidate : globalPropertyRegistry().enumerate()) {
+                                if (candidate.path() == it.key()) return candidate;
+                            }
+                            return {};
+                        }();
+                        PropertyOwnerDescriptor descriptor;
+                        if (!handle.isValid() ||
+                            !globalPropertyRegistry().tryGetOwner(handle.ownerPath, &descriptor) ||
+                            descriptor.readOnly) {
+                            return makeError(-32602,
+                                QStringLiteral("Live Patch rollback target is missing or read-only"));
+                        }
+                    }
                     for (auto it = patchOriginalValues.cbegin(); it != patchOriginalValues.cend(); ++it) {
                         const auto property = [&it]() -> AbstractPropertyPtr {
                             for (const auto& handle : globalPropertyRegistry().enumerate()) {
@@ -1214,6 +1352,7 @@ public:
                     }
                     patchOriginalValues.clear();
                     patchActive = false;
+                    patchToken.clear();
                     return makeResponse(QJsonObject{
                         {QStringLiteral("content"), QStringLiteral("debug.patch.rollback")},
                         {QStringLiteral("structuredContent"), QJsonObject{{QStringLiteral("active"), false}}}
@@ -1221,6 +1360,7 @@ public:
                 }
                 patchOriginalValues.clear();
                 patchActive = false;
+                patchToken.clear();
                 return makeResponse(QJsonObject{
                     {QStringLiteral("content"), QStringLiteral("debug.patch.commit")},
                     {QStringLiteral("structuredContent"), QJsonObject{{QStringLiteral("active"), false}}}
@@ -1405,6 +1545,7 @@ public:
             }
             if (debugToolName == QStringLiteral("debug.stress.run") ||
                 debugToolName == QStringLiteral("debug.stress.result")) {
+                static std::mutex stressMutex;
                 static QJsonObject stressResult{
                     {QStringLiteral("passed"), false},
                     {QStringLiteral("totalIterations"), 0},
@@ -1412,6 +1553,7 @@ public:
                     {QStringLiteral("failureReason"), QStringLiteral("No stress run has been started")},
                     {QStringLiteral("crashCount"), 0},
                     {QStringLiteral("peakMemoryBytes"), 0}};
+                const std::lock_guard stressLock(stressMutex);
                 if (debugToolName == QStringLiteral("debug.stress.run")) {
                     const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
                     const int repeatCount = std::clamp(arguments.value(QStringLiteral("repeatCount")).toInt(1), 1, 100000);
@@ -1547,7 +1689,9 @@ public:
             if (debugToolName == QStringLiteral("debug.regression.capture") ||
                 debugToolName == QStringLiteral("debug.regression.compare") ||
                 debugToolName == QStringLiteral("debug.regression.detect")) {
+                static std::mutex regressionMutex;
                 static QHash<QString, TraceSnapshot> baselines;
+                const std::lock_guard regressionLock(regressionMutex);
                 const QJsonObject arguments = params.value(QStringLiteral("arguments")).toObject();
                 const QString baselineName = arguments.value(QStringLiteral("name")).toString().trimmed();
                 if (baselineName.isEmpty()) {

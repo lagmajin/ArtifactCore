@@ -1,5 +1,7 @@
 module;
 #include <cstddef>
+#include <chrono>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -71,6 +73,48 @@ struct ContainerMutationRecord {
   const char* note = "";
 };
 
+enum class ContainerDebugNoteSeverity : unsigned char {
+  Info,
+  Warning,
+  Error,
+  Hypothesis
+};
+
+enum class ContainerDebugNoteAuthor : unsigned char {
+  Runtime,
+  Developer,
+  AI
+};
+
+struct ContainerDebugNote {
+  std::uint64_t timestampMilliseconds = 0;
+  ContainerDebugNoteSeverity severity = ContainerDebugNoteSeverity::Info;
+  ContainerDebugNoteAuthor author = ContainerDebugNoteAuthor::Runtime;
+  std::string text;
+  ContainerSourceLocation location;
+  std::size_t observedVersion = 0;
+};
+
+template <typename T>
+struct ContainerDebugValueCheckpoint {
+  const void* source = nullptr;
+  std::uint64_t capturedAtMilliseconds = 0;
+  std::size_t version = 0;
+  std::size_t failedAccessCount = 0;
+  std::vector<T> values;
+};
+
+struct ContainerDebugVerification {
+  bool sourceMatches = false;
+  bool unchangedSinceCheckpoint = false;
+  std::size_t expectedVersion = 0;
+  std::size_t actualVersion = 0;
+  std::size_t expectedCount = 0;
+  std::size_t actualCount = 0;
+  std::size_t expectedFailedAccessCount = 0;
+  std::size_t actualFailedAccessCount = 0;
+};
+
 struct ContainerElementSample {
   std::size_t index = 0;
   const void* address = nullptr;
@@ -117,6 +161,7 @@ struct ContainerDebugSnapshot {
   ContainerSourceLocation lastFailedAccessAt;
   ContainerMutationRecord lastMutation;
   std::vector<ContainerElementSample> samples;
+  std::vector<ContainerDebugNote> notes;
 
   constexpr bool isEmpty() const noexcept
   {
@@ -128,6 +173,12 @@ struct ContainerDebugSnapshot {
     return !samples.empty();
   }
 };
+
+inline std::uint64_t containerDebugNowMilliseconds() noexcept
+{
+  return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+    std::chrono::system_clock::now().time_since_epoch()).count());
+}
 
 struct ContainerWatchHit {
   const char* reason = "";
@@ -181,6 +232,52 @@ inline constexpr const char* toString(ContainerDomain domain) noexcept
   case ContainerDomain::Diagnostics: return "Diagnostics";
   }
   return "Unknown";
+}
+
+inline constexpr const char* toString(ContainerDebugNoteSeverity severity) noexcept
+{
+  switch (severity) {
+  case ContainerDebugNoteSeverity::Info: return "info";
+  case ContainerDebugNoteSeverity::Warning: return "warning";
+  case ContainerDebugNoteSeverity::Error: return "error";
+  case ContainerDebugNoteSeverity::Hypothesis: return "hypothesis";
+  }
+  return "info";
+}
+
+inline constexpr bool isValidContainerDebugNoteSeverity(
+    ContainerDebugNoteSeverity severity) noexcept
+{
+  switch (severity) {
+  case ContainerDebugNoteSeverity::Info:
+  case ContainerDebugNoteSeverity::Warning:
+  case ContainerDebugNoteSeverity::Error:
+  case ContainerDebugNoteSeverity::Hypothesis:
+    return true;
+  }
+  return false;
+}
+
+inline constexpr const char* toString(ContainerDebugNoteAuthor author) noexcept
+{
+  switch (author) {
+  case ContainerDebugNoteAuthor::Runtime: return "runtime";
+  case ContainerDebugNoteAuthor::Developer: return "developer";
+  case ContainerDebugNoteAuthor::AI: return "ai";
+  }
+  return "runtime";
+}
+
+inline constexpr bool isValidContainerDebugNoteAuthor(
+    ContainerDebugNoteAuthor author) noexcept
+{
+  switch (author) {
+  case ContainerDebugNoteAuthor::Runtime:
+  case ContainerDebugNoteAuthor::Developer:
+  case ContainerDebugNoteAuthor::AI:
+    return true;
+  }
+  return false;
 }
 
 inline constexpr const char* toString(const ContainerWatchRule& rule) noexcept

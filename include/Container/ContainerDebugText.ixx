@@ -16,6 +16,7 @@ import Container.IdMap;
 export namespace ArtifactCore {
 
 inline ZeroString toDebugTextZero(const ContainerElementSample& sample);
+inline ZeroString toDebugTextZero(const ContainerDebugNote& note);
 inline ZeroString toDebugTextZero(const ContainerDebugInfo& info);
 inline ZeroString toDebugTextZero(const ContainerDebugSnapshot& snapshot);
 inline ZeroString toDebugTextZero(const ContainerWatchHit& hit);
@@ -32,6 +33,10 @@ inline ZeroString toDebugTextZero(const std::vector<T>& values);
 
 inline String toDebugText(const ContainerElementSample& sample) {
   return String(toDebugTextZero(sample));
+}
+
+inline String toDebugText(const ContainerDebugNote& note) {
+  return String(toDebugTextZero(note));
 }
 
 inline String toDebugText(const ContainerDebugInfo& info) {
@@ -75,12 +80,25 @@ inline ZeroString toDebugTextZero(const ContainerElementSample& sample) {
   ZeroString text;
   text += "sample[";
   text += std::to_string(sample.index);
-  text += "]@";
-  text += std::to_string(reinterpret_cast<std::uintptr_t>(sample.address));
+  text += "]";
   if (sample.note && sample.note[0] != '\0') {
     text += " ";
     text += sample.note;
   }
+  return text;
+}
+
+inline ZeroString toDebugTextZero(const ContainerDebugNote& note) {
+  ZeroString text = "note[";
+  text += toString(note.severity);
+  text += "/";
+  text += toString(note.author);
+  text += "] version=";
+  text += std::to_string(note.observedVersion);
+  text += " timestampMs=";
+  text += std::to_string(note.timestampMilliseconds);
+  text += " ";
+  text += note.text;
   return text;
 }
 
@@ -126,6 +144,8 @@ inline ZeroString toDebugTextZero(const ContainerDebugSnapshot& snapshot) {
   text += std::to_string(snapshot.counters.maxApproximateBytesSeen);
   text += " samples=";
   text += std::to_string(snapshot.samples.size());
+  text += " notes=";
+  text += std::to_string(snapshot.notes.size());
   if (snapshot.createdAt.file && snapshot.createdAt.file[0] != '\0') {
     text += " createdAt=";
     text += snapshot.createdAt.file;
@@ -151,6 +171,10 @@ inline ZeroString toDebugTextZero(const ContainerDebugSnapshot& snapshot) {
   if (snapshot.hasSamples() && !snapshot.samples.empty()) {
     text += " sample0=";
     text += toDebugTextZero(snapshot.samples.front());
+  }
+  if (!snapshot.notes.empty()) {
+    text += " latestNote=";
+    text += toDebugTextZero(snapshot.notes.back());
   }
   return text;
 }
