@@ -2157,6 +2157,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
                 "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
                 "/reference;Utils.Optional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Optional.ifc"
                 "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
+                "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
                 "/reference;Utils.Id=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.Id.ifc")
     elseif(_artifact_impl_relative MATCHES "^src/Text/")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
@@ -2597,9 +2598,6 @@ list(REMOVE_ITEM ARTIFACTCORE_AUDIO_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx")
 list(REMOVE_ITEM ARTIFACTCORE_AUDIO_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Particle/ParticleSystem.cppm")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioRenderer.cppm"
-    APPEND PROPERTY OBJECT_DEPENDS
-        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/src/Audio/QtAudioBackend.cppm.obj")
 
 # AI modules form a leaf domain in Core: the static import audit found no
 # non-AI Core module importing an AI module.  Keep their public descriptions
@@ -4398,6 +4396,9 @@ target_sources(ArtifactCoreAudio
     PRIVATE ${ARTIFACTCORE_AUDIO_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_AUDIO_MODULES}
 )
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Audio/AudioRenderer.cppm"
+    APPEND PROPERTY OBJECT_DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAudio.dir/src/Audio/QtAudioBackend.cppm.obj")
 target_link_libraries(ArtifactCoreAudio PUBLIC ArtifactCore)
 target_include_directories(ArtifactCoreAudio PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
