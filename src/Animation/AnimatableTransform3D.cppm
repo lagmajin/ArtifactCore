@@ -38,7 +38,7 @@ std::vector<RationalTime> collectUniqueKeyFrameTimes(
       makeNamedVector<RationalTime>(ContainerName{"Transform3DKeyframeTimes"})};
   times.reserve(frameSet.size());
   for (const int64_t framePos : frameSet) {
-    times.make(framePos, 24);
+    times.add(RationalTime{framePos, 24});
   }
   return times.toStdVector();
 }
