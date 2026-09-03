@@ -3109,7 +3109,6 @@ set(ARTIFACTCORE_PLAYBACK_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Playback/PlaybackClock.cppm"
 )
 set_property(SOURCE ${ARTIFACTCORE_PLAYBACK_IMPL} APPEND PROPERTY COMPILE_OPTIONS
-    "/reference;Playback.Clock=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/Playback.Clock.ifc"
     "/reference;Playback.State=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/Playback.State.ifc"
     "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
     "/reference;Frame.Position=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Position.ifc"
