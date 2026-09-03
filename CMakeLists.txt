@@ -5751,6 +5751,8 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/include/Text/GlyphLayout.ixx" A
 foreach(_artifact_namedvector_consumer IN ITEMS
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Diagnostics/ProjectDiagnostic.cppm"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Color/ColorLUT.cppm")
+    set_property(SOURCE "${_artifact_namedvector_consumer}" APPEND PROPERTY COMPILE_OPTIONS
+        "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
     set_property(SOURCE "${_artifact_namedvector_consumer}" APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj")
 endforeach()
