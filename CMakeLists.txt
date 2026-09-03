@@ -5756,15 +5756,12 @@ foreach(_artifact_namedvector_consumer IN ITEMS
 endforeach()
 
 # NamedVector exposes the scoped debug-registration API directly from its
-# interface.  Keep the registry IFC and object ordering explicit for MSVC;
-# the module scanner does not reliably materialize this same-target import
-# when the aggregate CXX dyndep file is reused.
+# interface.  Keep the registry IFC reference explicit for MSVC.  Do not add
+# an OBJECT_DEPENDS edge here: the registry is part of the same aggregate
+# module target, so that edge would cycle through CXX.dd.
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/NamedVector.ixx"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/include/Container/NamedVector.ixx"
-    APPEND PROPERTY OBJECT_DEPENDS
-        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
 
 # Fracture imports Math.Random from the aggregate core target.  Make the
 # producing interface object explicit for MSVC's module build ordering.
