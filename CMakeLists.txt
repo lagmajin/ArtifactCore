@@ -2806,7 +2806,8 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaReader.cppm" APP
     "/reference;MediaSource=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaSource.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Network/NetworkRPCServer.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
-    "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc")
+    "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
+    "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Command/LayerLockManager.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
     "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc")
