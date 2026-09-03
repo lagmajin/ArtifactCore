@@ -5440,6 +5440,9 @@ target_sources(ArtifactCoreMask
     PRIVATE ${ARTIFACTCORE_MASK_IMPL}
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_MASK_MODULES}
 )
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Mask/RotoMask.cppm"
+    APPEND PROPERTY COMPILE_OPTIONS
+        "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
 target_link_libraries(ArtifactCoreMask PUBLIC ArtifactCore)
 target_include_directories(ArtifactCoreMask PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
