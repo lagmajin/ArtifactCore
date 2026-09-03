@@ -327,7 +327,6 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Platform/Power.cppm|Platform.Power|include/Platform/Power.ixx"
     "src/Platform/ProcessHelperWin.cppm|Platform.Windows.Process|include/Platform/ProcessHelperWin.ixx"
     "src/Platform/ShellUtils.cppm|Platform.ShellUtils|include/Platform/ShellUtils.ixx"
-    "src/Playback/PlaybackClock.cppm|Playback.Clock|include/Playback/PlaybackClock.ixx"
     "src/Plugin/PluginCommon.cppm|ArtifactCore.Plugin.Common|include/Plugin/PluginCommon.ixx"
     "src/Plugin/PluginRegistry.cppm|ArtifactCore.Plugin.Registry|include/Plugin/PluginRegistry.ixx"
     "src/Preview/PreviewQuality.cppm|Preview.Quality|include/Preview/PreviewQuality.ixx"
