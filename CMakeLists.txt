@@ -2344,6 +2344,17 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;${_artifact_module_name}=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreShape.dir/${_artifact_module_name}.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/AI/OnnxImageSegmenter.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AI.OnnxImageSegmenter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.OnnxImageSegmenter.ifc"
+                "/reference;Core.AI.ImageSegmenter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.ImageSegmenter.ifc")
+    elseif(_artifact_impl_relative STREQUAL "src/AI/RotoBrushImageSegmenter.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Core.AI.RotoBrushImageSegmenter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.RotoBrushImageSegmenter.ifc"
+                "/reference;Core.AI.ImageSegmenter=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/Core.AI.ImageSegmenter.ifc"
+                "/reference;ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.ImageProcessing.OpenCV.RotoBrushEngine.ifc")
     elseif(NOT _artifact_impl_relative STREQUAL "src/AI/APIKeyManager.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
