@@ -111,18 +111,18 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
     float azimuth, elevation;
     toSpherical(local, azimuth, elevation);
 
-    int outChannels = out.channelData.size();
-    if (outChannels == 0) {
-        out = in;
-        return;
-    }
-
+    // Phase 1 always provides a stereo preview for mono sources.  Preserve
+    // wider layouts when the caller has already allocated them.
+    int outChannels = std::max(2, static_cast<int>(out.channelData.size()));
     float gains[8] = {1,1,0,0,0,0,0,0};
     calcAzimuthGain(azimuth, gains, outChannels);
 
     out = in;
     if ((int)out.channelData.size() != outChannels) {
         out.channelData.resize(outChannels);
+    }
+    if (outChannels == 2 && in.channelData.size() < 2) {
+        out.layout = AudioChannelLayout::Stereo;
     }
     for (int c = 0; c < outChannels; ++c) {
         if (out.channelData[c].size() < frames) out.channelData[c].resize(frames);
