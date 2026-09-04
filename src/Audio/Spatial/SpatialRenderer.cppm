@@ -172,17 +172,19 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
     for (int i = 0; i < frames; ++i) {
         float ramp = gainPrev_ + step * static_cast<float>(i);
         if (monoIn) {
-            float s = srcL[i];
+            float s = std::isfinite(srcL[i]) ? srcL[i] : 0.0f;
             dstL[i] = s * ramp * gL;
             if (dstR) dstR[i] = s * ramp * gR;
         } else {
-            dstL[i] = srcL[i] * ramp * gL;
-            if (dstR) dstR[i] = srcR[i] * ramp * gR;
+            const float left = std::isfinite(srcL[i]) ? srcL[i] : 0.0f;
+            const float right = std::isfinite(srcR[i]) ? srcR[i] : 0.0f;
+            dstL[i] = left * ramp * gL;
+            if (dstR) dstR[i] = right * ramp * gR;
         }
         for (int c = 2; c < outChannels; ++c) {
             float* dst = out.channelData[c].data();
             const float* src = (c < (int)in.channelData.size()) ? in.channelData[c].constData() : srcL;
-            dst[i] = src[i] * ramp * gains[c];
+            dst[i] = (std::isfinite(src[i]) ? src[i] : 0.0f) * ramp * gains[c];
         }
     }
 
