@@ -239,7 +239,12 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
 
         // Preserve the standard L/R/C/LFE/surround ordering when promoting
         // stereo/5.1 input to a larger multichannel bus.
-        if (impl_->targetLayout_ == AudioChannelLayout::Surround51 &&
+        if (impl_->targetLayout_ == AudioChannelLayout::Surround714 &&
+            source.channelCount() >= 12) {
+            for (int channel = 0; channel < 12; ++channel) {
+                output.channelData[channel] = source.channelData[channel];
+            }
+        } else if (impl_->targetLayout_ == AudioChannelLayout::Surround51 &&
             source.layout == AudioChannelLayout::Surround71 &&
             source.channelCount() >= 8) {
             for (int channel = 0; channel < 4; ++channel) {
@@ -288,12 +293,6 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
                             std::isfinite(input[frame]) ? input[frame] : 0.0f;
                     }
                 }
-            }
-        }
-        else if (impl_->targetLayout_ == AudioChannelLayout::Surround714 &&
-                 source.channelCount() >= 12) {
-            for (int channel = 0; channel < 12; ++channel) {
-                output.channelData[channel] = source.channelData[channel];
             }
         }
     } else if (impl_->targetLayout_ == AudioChannelLayout::Custom10ch) {
