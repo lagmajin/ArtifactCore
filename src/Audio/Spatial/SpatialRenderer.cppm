@@ -83,6 +83,16 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
         return;
     }
 
+    int availableFrames = in.channelData[0].size();
+    for (const auto& channel : in.channelData) {
+        availableFrames = std::min(availableFrames, channel.size());
+    }
+    frames = std::min(frames, availableFrames);
+    if (frames <= 0) {
+        out = in;
+        return;
+    }
+
     SpatialParams params = snapshotParams();
 
     auto finiteVec = [](Vec3 v) {
