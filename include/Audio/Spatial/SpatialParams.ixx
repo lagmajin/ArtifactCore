@@ -19,6 +19,7 @@ struct alignas(64) SpatialParams {
     float minDistance = 1.0f;
     float maxDistance = 100.0f;
     float rolloff = 1.0f;
+    float spread = 0.0f;
     DistanceModel model = DistanceModel::Inverse;
     float coneInnerAngle = 360.0f;
     float coneOuterAngle = 360.0f;
@@ -35,6 +36,8 @@ inline SpatialParams sanitizedSpatialParams(SpatialParams p) {
     if (!std::isfinite(p.maxDistance) || p.maxDistance < p.minDistance) p.maxDistance = p.minDistance + 0.001f;
     if (!std::isfinite(p.rolloff) || p.rolloff < 0.0f) p.rolloff = 0.0f;
     if (p.rolloff > 10.0f) p.rolloff = 10.0f;
+    if (!std::isfinite(p.spread) || p.spread < 0.0f) p.spread = 0.0f;
+    p.spread = std::clamp(p.spread, 0.0f, 1.0f);
     if (!std::isfinite(p.coneInnerAngle)) p.coneInnerAngle = 360.0f;
     if (!std::isfinite(p.coneOuterAngle)) p.coneOuterAngle = 360.0f;
     p.coneInnerAngle = std::clamp(p.coneInnerAngle, 0.0f, 360.0f);

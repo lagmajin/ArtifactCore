@@ -131,6 +131,12 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
     float step = (gainCurr - gainPrev_) / static_cast<float>(std::max(frames, 1));
     float gL = gains[0];
     float gR = outChannels > 1 ? gains[1] : gains[0];
+    const float spread = params.spread;
+    if (outChannels > 1 && spread > 0.0f) {
+        const float mid = 0.70710678f;
+        gL = gL * (1.0f - spread) + mid * spread;
+        gR = gR * (1.0f - spread) + mid * spread;
+    }
 
     float* dstL = out.channelData[0].data();
     const float* srcL = in.channelData[0].constData();
