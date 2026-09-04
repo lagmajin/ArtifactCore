@@ -3986,7 +3986,7 @@ endif()
 
 # MSVC specific C++23 modules settings
 if(ARTIFACT_FRONTEND_MSVC)
-    target_compile_options(ArtifactCore PRIVATE /WX- /wd5050)
+    target_compile_options(ArtifactCore PRIVATE /WX- /wd5050 /EHsc)
     # Enable C++23 standard (latest)
     target_compile_options(ArtifactCore PRIVATE /std:c++latest)
     # Enable modules support
@@ -4403,7 +4403,7 @@ message(STATUS "FFmpeg debug lib dir: ${_vcpkg_debug_lib_dir}")
 # Do not emit references to non-existent debug libraries: Ninja/MSVC will
 # otherwise compile ArtifactCore successfully and fail at the final link.
 set(_artifact_ffmpeg_lib_names avcodec avformat avutil swscale swresample)
-set(_artifact_ffmpeg_debug_libs_available TRUE)
+set(_artifact_ffmpeg_debug_libs_available FALSE)
 foreach(_artifact_ffmpeg_lib_name IN LISTS _artifact_ffmpeg_lib_names)
     if(NOT EXISTS "${_vcpkg_debug_lib_dir}/${_artifact_ffmpeg_lib_name}.lib")
         set(_artifact_ffmpeg_debug_libs_available FALSE)
@@ -4572,7 +4572,7 @@ target_include_directories(ArtifactCoreAI PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
 )
 if(ARTIFACT_FRONTEND_MSVC)
-    target_compile_options(ArtifactCoreAI PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_options(ArtifactCoreAI PRIVATE /EHsc /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
     target_compile_definitions(ArtifactCoreAI PRIVATE
         PLATFORM_WIN32
         _GUARDOVERFLOW_CRT_ALLOCATORS=1
@@ -4606,7 +4606,7 @@ target_include_directories(ArtifactCoreVideo PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
 )
 if(ARTIFACT_FRONTEND_MSVC)
-    target_compile_options(ArtifactCoreVideo PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_options(ArtifactCoreVideo PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive- /EHsc)
     target_compile_definitions(ArtifactCoreVideo PRIVATE
         PLATFORM_WIN32
         _GUARDOVERFLOW_CRT_ALLOCATORS=1
@@ -4640,7 +4640,7 @@ target_include_directories(ArtifactCoreMedia PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
 )
 if(ARTIFACT_FRONTEND_MSVC)
-    target_compile_options(ArtifactCoreMedia PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_options(ArtifactCoreMedia PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive- /EHsc)
     target_compile_definitions(ArtifactCoreMedia PRIVATE
         PLATFORM_WIN32
         _GUARDOVERFLOW_CRT_ALLOCATORS=1
@@ -5107,7 +5107,7 @@ target_include_directories(ArtifactCoreData PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
 )
 if(ARTIFACT_FRONTEND_MSVC)
-    target_compile_options(ArtifactCoreData PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_options(ArtifactCoreData PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive- /EHsc)
     target_compile_definitions(ArtifactCoreData PRIVATE
         PLATFORM_WIN32
         _GUARDOVERFLOW_CRT_ALLOCATORS=1
@@ -5312,7 +5312,7 @@ target_include_directories(ArtifactCoreThread PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
 )
 if(ARTIFACT_FRONTEND_MSVC)
-    target_compile_options(ArtifactCoreThread PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive-)
+    target_compile_options(ArtifactCoreThread PRIVATE /WX- /wd5050 /std:c++latest /experimental:module /Zc:__cplusplus /permissive- /EHsc)
     target_compile_definitions(ArtifactCoreThread PRIVATE
         PLATFORM_WIN32
         _GUARDOVERFLOW_CRT_ALLOCATORS=1
@@ -5529,6 +5529,26 @@ if(ARTIFACT_FRONTEND_MSVC)
 endif()
 
 target_link_libraries(ArtifactCoreVideo PUBLIC ArtifactCoreNLE)
+if(_artifact_ffmpeg_debug_libs_available)
+    target_link_libraries(ArtifactCoreVideo PUBLIC
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avcodec.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avcodec.lib>
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avformat.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avformat.lib>
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/avutil.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/avutil.lib>
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/swscale.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/swscale.lib>
+        $<$<CONFIG:Debug>:${_vcpkg_debug_lib_dir}/swresample.lib>
+        $<$<CONFIG:Release>:${_vcpkg_lib_dir}/swresample.lib>)
+else()
+    target_link_libraries(ArtifactCoreVideo PUBLIC
+        "${_vcpkg_lib_dir}/avcodec.lib"
+        "${_vcpkg_lib_dir}/avformat.lib"
+        "${_vcpkg_lib_dir}/avutil.lib"
+        "${_vcpkg_lib_dir}/swscale.lib"
+        "${_vcpkg_lib_dir}/swresample.lib")
+endif()
 target_link_libraries(ArtifactCoreMedia PUBLIC ArtifactCorePlayback)
 if(_artifact_ffmpeg_debug_libs_available)
     target_link_libraries(ArtifactCoreMedia PUBLIC

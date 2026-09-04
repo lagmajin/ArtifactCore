@@ -10,6 +10,7 @@ module;
 #include <QDir>
 #include <QImage>
 #include <OpenImageIO/imageio.h>
+extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
@@ -18,6 +19,7 @@ module;
 #include <libavutil/dict.h>
 #include <libavutil/mastering_display_metadata.h>
 #include <libswscale/swscale.h>
+}
 module Encoder.FFmpegEncoder;
 import Image;
 import Time.Code;
