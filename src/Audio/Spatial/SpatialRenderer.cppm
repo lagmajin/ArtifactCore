@@ -25,7 +25,11 @@ SpatialRenderer::SpatialRenderer() {
 SpatialRenderer::~SpatialRenderer() = default;
 
 void SpatialRenderer::setSampleRate(float sampleRate) {
-    sampleRate_ = (std::isfinite(sampleRate) && sampleRate > 0.0f) ? sampleRate : 48000.0f;
+    const float nextRate = (std::isfinite(sampleRate) && sampleRate > 0.0f) ? sampleRate : 48000.0f;
+    if (std::abs(nextRate - sampleRate_) > 0.001f) {
+        gainPrev_ = 1.0f;
+    }
+    sampleRate_ = nextRate;
 }
 
 void SpatialRenderer::publishParams(const SpatialParams& params) {
