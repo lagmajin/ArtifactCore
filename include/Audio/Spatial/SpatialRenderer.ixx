@@ -34,7 +34,7 @@ private:
     };
     alignas(64) Snapshot snapshots_[2];
     std::atomic<std::uint64_t> seq_{0};
-    int activeIndex_ = 0;
+    std::atomic<int> activeIndex_{0};
     float sampleRate_ = 48000.0f;
     float gainPrev_ = 1.0f;
     alignas(16) float gainBuf_[8] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};

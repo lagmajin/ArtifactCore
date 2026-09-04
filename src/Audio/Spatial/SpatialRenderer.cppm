@@ -30,12 +30,13 @@ void SpatialRenderer::setSampleRate(float sampleRate) {
 
 void SpatialRenderer::publishParams(const SpatialParams& params) {
     auto sanitized = sanitizedSpatialParams(params);
-    int inactive = activeIndex_ ^ 1;
+    int active = activeIndex_.load(std::memory_order_acquire);
+    int inactive = active ^ 1;
     snapshots_[inactive].params = sanitized;
     seq_.store(seq_.load(std::memory_order_relaxed) + 1, std::memory_order_release);
     std::atomic_thread_fence(std::memory_order_release);
     snapshots_[inactive].params = sanitized;
-    activeIndex_ = inactive;
+    activeIndex_.store(inactive, std::memory_order_release);
     seq_.store(seq_.load(std::memory_order_relaxed) + 1, std::memory_order_release);
 }
 
@@ -45,7 +46,8 @@ SpatialParams SpatialRenderer::snapshotParams() const {
     do {
         s1 = seq_.load(std::memory_order_acquire);
         if (s1 & 1) continue;
-        out = snapshots_[activeIndex_].params;
+        int active = activeIndex_.load(std::memory_order_acquire);
+        out = snapshots_[active].params;
         std::atomic_thread_fence(std::memory_order_acquire);
         s2 = seq_.load(std::memory_order_acquire);
     } while (s1 != s2 || (s1 & 1));
