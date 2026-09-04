@@ -2696,12 +2696,16 @@ set(ARTIFACTCORE_AI_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ICloudAIAgent.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/IDescribable.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ImageSegmenter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ImageAIProcessing.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/LlamaLocalAgent.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/LocalAIAgent.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/McpBridge.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/McpTransport.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ObjectDetector.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/OnnxDmlLocalAgent.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/OnnxImageSegmenter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/RotoBrushImageSegmenter.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/TextRecognizer.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/TieredAIManager.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/AI/ToolBridge.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/3DLightingDescriptions.cppm"
@@ -2727,6 +2731,8 @@ set(ARTIFACTCORE_AI_IMPL
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/LlamaLocalAgent.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/ObjectDetector.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxDmlLocalAgent.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxImageSegmenter.cppm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/RotoBrushImageSegmenter.cppm"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cppm"
 )
 list(REMOVE_ITEM CORE_MODULES ${ARTIFACTCORE_AI_MODULES})
@@ -4520,6 +4526,15 @@ target_sources(ArtifactCoreAI
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_AI_MODULES}
 )
 target_link_libraries(ArtifactCoreAI PUBLIC ArtifactCore)
+if(TARGET onnxruntime::onnxruntime)
+    target_link_libraries(ArtifactCoreAI PRIVATE onnxruntime::onnxruntime)
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxImageSegmenter.cppm"
+        APPEND PROPERTY COMPILE_DEFINITIONS ARTIFACT_HAS_ONNX_DML_BACKEND=1)
+elseif(TARGET onnxruntime)
+    target_link_libraries(ArtifactCoreAI PRIVATE onnxruntime)
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxImageSegmenter.cppm"
+        APPEND PROPERTY COMPILE_DEFINITIONS ARTIFACT_HAS_ONNX_DML_BACKEND=1)
+endif()
 target_include_directories(ArtifactCoreAI PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"

@@ -1,16 +1,17 @@
 module;
 class tst_QList;
+#include <algorithm>
 #include <utility>
 #include <QString>
 #include <QStringView>
 #include <QVariant>
 #include <QList>
 #include <QRect>
-#include <QImage>
 
 export module Core.AI.ObjectDetector;
 
 import Image.ImageF32x4_RGBA;
+import Image.DepthMap;
 import Core.AI.Describable;
 
 export namespace ArtifactCore {
@@ -24,10 +25,41 @@ struct Detection {
     QRect rect;
 };
 
+class IObjectDetector {
+public:
+    virtual ~IObjectDetector() = default;
+    virtual bool isReady() const noexcept = 0;
+    virtual QList<Detection> detect(const ImageF32x4_RGBA& image) = 0;
+    virtual QString lastError() const = 0;
+};
+
+// Converts selected detection rectangles into a normalized foreground mask so
+// detection, AI segmentation, and manual mask tools share one matte format.
+bool rasterizeDetectionMask(const QList<Detection>& detections,
+                            int width, int height,
+                            DepthMap& mask,
+                            float minimumConfidence = 0.0f,
+                            int featherPixels = 0);
+
+inline QList<Detection> filterDetections(
+    const QList<Detection>& detections, QStringView label = {},
+    float minimumConfidence = 0.0f) {
+    QList<Detection> filtered;
+    const float threshold = std::clamp(minimumConfidence, 0.0f, 1.0f);
+    for (const auto& detection : detections) {
+        if (detection.confidence < threshold ||
+            (!label.isEmpty() && detection.label != label)) {
+            continue;
+        }
+        filtered.append(detection);
+    }
+    return filtered;
+}
+
 /**
  * @brief Implementation of Object Detection AI
  */
-class ObjectDetector : public IDescribable {
+class ObjectDetector : public IDescribable, public IObjectDetector {
 public:
     ObjectDetector();
     ~ObjectDetector();
@@ -42,7 +74,9 @@ public:
     /**
      * @brief Detect objects in an image
      */
-    QList<Detection> detect(const ImageF32x4_RGBA& image);
+    bool isReady() const noexcept override;
+    QList<Detection> detect(const ImageF32x4_RGBA& image) override;
+    QString lastError() const override;
 
     /**
      * @brief Detect and draw bounding boxes on the image

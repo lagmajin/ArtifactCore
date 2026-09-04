@@ -2,26 +2,24 @@ module;
 class tst_QList;
 #include <utility>
 #include <iostream>
-#include <QImage>
-#include <QColor>
+#include <algorithm>
 #include <QList>
 #include <QRect>
-#include <QPainter>
 #include <QString>
 #include <QStringView>
 #include <QVariant>
-#include <vector>
 
 module Core.AI.ObjectDetector;
 
 import Image.ImageF32x4_RGBA;
-import Container.NamedVector;
+import FloatRGBA;
 
 namespace ArtifactCore {
 
 class ObjectDetector::Impl {
 public:
     float confidence_ = 0.5f;
+    QString lastErrorMessage;
     
     // In a real implementation, we'd load a model here (YOLO, Haar Cascade etc.)
     // For now, satisfy the API with OpenCV vision basics.
@@ -71,74 +69,104 @@ QVariant ObjectDetector::invokeMethod(QStringView name, const QVariantList& args
 static AutoRegisterDescribable<ObjectDetector> _reg_ObjectDetector("ObjectDetector");
 
 QList<Detection> ObjectDetector::detect(const ImageF32x4_RGBA& image) {
-    if (image.isEmpty()) return {};
-
-    QImage qimage = image.toQImage();
-    if (qimage.isNull()) return {};
-    QImage gray = qimage.convertToFormat(QImage::Format_Grayscale8);
+    if (image.isEmpty()) {
+        impl_->lastErrorMessage = QStringLiteral("Object detection source image is empty.");
+        return {};
+    }
 
     QList<Detection> results;
-
-    struct BrightestPixel {
-        int x = 0;
-        int value = -1;
-    };
-    NamedVector<BrightestPixel> rowBest;
-    rowBest.resize(static_cast<size_t>(gray.height()));
-    for (int y = 0; y < gray.height(); ++y) {
-        const uchar *row = gray.constScanLine(y);
-        auto& brightest = rowBest[static_cast<size_t>(y)];
-        for (int x = 0; x < gray.width(); ++x) {
-            const int value = row[x];
-            if (value > brightest.value) {
-                brightest.value = value;
-                brightest.x = x;
+    int bestX = 0;
+    int bestY = 0;
+    float bestLuminance = -1.0f;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            const auto pixel = image.getPixel(x, y);
+            const float luminance = std::clamp(
+                pixel.r() * 0.2126f + pixel.g() * 0.7152f + pixel.b() * 0.0722f,
+                0.0f, 1.0f);
+            if (luminance > bestLuminance) {
+                bestLuminance = luminance;
+                bestX = x;
+                bestY = y;
             }
         }
     }
 
-    int bestX = 0;
-    int bestY = 0;
-    int bestValue = -1;
-    for (int y = 0; y < gray.height(); ++y) {
-        const auto& brightest = rowBest[static_cast<size_t>(y)];
-        if (brightest.value > bestValue) {
-            bestValue = brightest.value;
-            bestX = brightest.x;
-            bestY = y;
-        }
-    }
-
-    if (bestValue > static_cast<int>(0.8f * 255.0f)) {
+    if (bestLuminance >= impl_->confidence_) {
         Detection d;
         d.label = "Subject";
-        d.confidence = static_cast<float>(bestValue) / 255.0f;
-        d.rect = QRect(bestX - 25, bestY - 25, 50, 50);
+        d.confidence = bestLuminance;
+        d.rect = QRect(bestX - 25, bestY - 25, 50, 50)
+            .intersected(QRect(0, 0, image.width(), image.height()));
         results.append(d);
     }
+    impl_->lastErrorMessage.clear();
     
     return results;
+}
+
+bool ObjectDetector::isReady() const noexcept { return impl_ != nullptr; }
+
+QString ObjectDetector::lastError() const {
+    return impl_ ? impl_->lastErrorMessage : QString();
 }
 
 void ObjectDetector::detectAndDraw(ImageF32x4_RGBA& image) {
     auto detections = detect(image);
     if (detections.isEmpty()) return;
-
-    QImage qimage = image.toQImage().convertToFormat(QImage::Format_RGBA8888);
-    if (qimage.isNull()) return;
-    QPainter painter(&qimage);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-
     for (const auto& d : detections) {
-        painter.setPen(QPen(QColor(0, 255, 0), 2));
-        painter.drawRect(d.rect);
+        const QRect rect = d.rect.intersected(QRect(0, 0, image.width(), image.height()));
+        for (int thickness = 0; thickness < 2; ++thickness) {
+            const int left = rect.left() + thickness;
+            const int right = rect.right() - thickness;
+            const int top = rect.top() + thickness;
+            const int bottom = rect.bottom() - thickness;
+            for (int x = left; x <= right; ++x) {
+                image.setPixel(x, top, FloatRGBA(0.0f, 1.0f, 0.0f, 1.0f));
+                image.setPixel(x, bottom, FloatRGBA(0.0f, 1.0f, 0.0f, 1.0f));
+            }
+            for (int y = top; y <= bottom; ++y) {
+                image.setPixel(left, y, FloatRGBA(0.0f, 1.0f, 0.0f, 1.0f));
+                image.setPixel(right, y, FloatRGBA(0.0f, 1.0f, 0.0f, 1.0f));
+            }
+        }
     }
+}
 
-    image.setFromRGBA8(qimage.bits(), qimage.width(), qimage.height());
+bool rasterizeDetectionMask(const QList<Detection>& detections,
+                            int width, int height,
+                            DepthMap& mask,
+                            float minimumConfidence,
+                            int featherPixels) {
+    if (width <= 0 || height <= 0) { mask.clear(); return false; }
+    mask.resize(width, height);
+    const float threshold = std::clamp(minimumConfidence, 0.0f, 1.0f);
+    const int feather = std::max(featherPixels, 0);
+    const QRect canvas(0, 0, width, height);
+    for (const auto& detection : detections) {
+        if (detection.confidence < threshold) { continue; }
+        const QRect rect = detection.rect.intersected(canvas);
+        if (rect.isEmpty()) { continue; }
+        for (int y = rect.top(); y <= rect.bottom(); ++y) {
+            for (int x = rect.left(); x <= rect.right(); ++x) {
+                float coverage = 1.0f;
+                if (feather > 0) {
+                    const int edgeDistance = std::min(
+                        std::min(x - rect.left(), rect.right() - x),
+                        std::min(y - rect.top(), rect.bottom() - y));
+                    coverage = std::clamp(
+                        static_cast<float>(edgeDistance + 1) / static_cast<float>(feather + 1),
+                        0.0f, 1.0f);
+                }
+                mask.setValue(x, y, std::max(mask.value(x, y), coverage));
+            }
+        }
+    }
+    return true;
 }
 
 void ObjectDetector::setConfidenceThreshold(float threshold) {
-    impl_->confidence_ = threshold;
+    impl_->confidence_ = std::clamp(threshold, 0.0f, 1.0f);
 }
 
 float ObjectDetector::confidenceThreshold() const {
