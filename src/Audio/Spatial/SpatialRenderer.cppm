@@ -104,7 +104,11 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
         }
     }
 
-    float gainCurr = atten * cone;
+    // Phase 1 models air absorption as a deterministic distance-dependent
+    // energy loss. Frequency-selective filtering remains a later phase.
+    const float airDistance = std::clamp(dist / std::max(params.maxDistance, 0.001f), 0.0f, 1.0f);
+    const float airGain = std::exp(-std::max(params.airAbsorption, 0.0f) * airDistance);
+    float gainCurr = atten * cone * airGain;
     if (!std::isfinite(gainCurr)) gainCurr = 0.0f;
 
     Vec3 local = quatRotate(quatConjugate(listenerRot), delta);
