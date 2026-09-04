@@ -91,7 +91,7 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
 
     int availableFrames = in.channelData[0].size();
     for (const auto& channel : in.channelData) {
-        availableFrames = std::min(availableFrames, channel.size());
+        availableFrames = std::min(availableFrames, static_cast<int>(channel.size()));
     }
     frames = std::min(frames, availableFrames);
     if (frames <= 0) {
