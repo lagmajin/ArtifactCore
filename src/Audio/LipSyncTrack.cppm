@@ -45,6 +45,9 @@ AudioSegment makeAudioSegmentFromWav(const SimpleWav& wav)
     case 8:
         segment.layout = AudioChannelLayout::Surround71;
         break;
+    case 12:
+        segment.layout = AudioChannelLayout::Surround714;
+        break;
     case 10:
         segment.layout = AudioChannelLayout::Custom10ch;
         break;

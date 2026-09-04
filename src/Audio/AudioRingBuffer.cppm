@@ -196,6 +196,9 @@ namespace ArtifactCore {
             case 8:
                 data.layout = AudioChannelLayout::Surround71;
                 break;
+            case 12:
+                data.layout = AudioChannelLayout::Surround714;
+                break;
             case 10:
                 data.layout = AudioChannelLayout::Custom10ch;
                 break;

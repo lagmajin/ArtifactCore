@@ -146,6 +146,7 @@ namespace ArtifactCore {
 			case AudioChannelLayout::Stereo:
 			case AudioChannelLayout::Surround51:
 			case AudioChannelLayout::Surround71:
+			case AudioChannelLayout::Surround714:
 			case AudioChannelLayout::Custom10ch:
 				impl_->layout_ = layout;
 				break;
@@ -409,6 +410,7 @@ namespace ArtifactCore {
 			case AudioChannelLayout::Stereo: chCount = 2; break;
 			case AudioChannelLayout::Surround51: chCount = 6; break;
 			case AudioChannelLayout::Surround71: chCount = 8; break;
+			case AudioChannelLayout::Surround714: chCount = 12; break;
 			case AudioChannelLayout::Custom10ch: chCount = 10; break;
 			default: chCount = 2; break;
 		}

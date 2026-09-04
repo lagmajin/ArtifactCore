@@ -41,6 +41,7 @@ void AudioDownMixer::setTargetLayout(AudioChannelLayout target) {
     case AudioChannelLayout::Stereo:
     case AudioChannelLayout::Surround51:
     case AudioChannelLayout::Surround71:
+    case AudioChannelLayout::Surround714:
     case AudioChannelLayout::Custom10ch:
         impl_->targetLayout_ = target;
         break;
@@ -112,6 +113,7 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
         case AudioChannelLayout::Stereo: return 2;
         case AudioChannelLayout::Surround51: return 6;
         case AudioChannelLayout::Surround71: return 8;
+        case AudioChannelLayout::Surround714: return 12;
         case AudioChannelLayout::Custom10ch: return 10;
         case AudioChannelLayout::Ambisonics: return 0;
         }
@@ -225,8 +227,10 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
         }
     }
     else if (impl_->targetLayout_ == AudioChannelLayout::Surround51 ||
-             impl_->targetLayout_ == AudioChannelLayout::Surround71) {
+             impl_->targetLayout_ == AudioChannelLayout::Surround71 ||
+             impl_->targetLayout_ == AudioChannelLayout::Surround714) {
         const int targetChannels =
+            impl_->targetLayout_ == AudioChannelLayout::Surround714 ? 12 :
             impl_->targetLayout_ == AudioChannelLayout::Surround71 ? 8 : 6;
         output.channelData.resize(targetChannels);
         for (auto& channel : output.channelData) {
@@ -284,6 +288,12 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
                             std::isfinite(input[frame]) ? input[frame] : 0.0f;
                     }
                 }
+            }
+        }
+        else if (impl_->targetLayout_ == AudioChannelLayout::Surround714 &&
+                 source.channelCount() >= 12) {
+            for (int channel = 0; channel < 12; ++channel) {
+                output.channelData[channel] = source.channelData[channel];
             }
         }
     } else if (impl_->targetLayout_ == AudioChannelLayout::Custom10ch) {

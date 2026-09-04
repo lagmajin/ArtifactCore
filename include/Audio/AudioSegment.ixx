@@ -13,6 +13,7 @@ export namespace ArtifactCore {
   Stereo,     // 2ch
   Surround51, // 6ch (L, R, C, LFE, Ls, Rs)
   Surround71, // 8ch
+  Surround714, // 12ch (7.1 bed + four overhead channels)
   Custom10ch, // 10ch
   Ambisonics  // 球面調和関数（VRなどで利用）
  };

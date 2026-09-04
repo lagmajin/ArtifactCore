@@ -75,6 +75,7 @@ namespace ArtifactCore
     case 2: return AudioChannelLayout::Stereo;
     case 6: return AudioChannelLayout::Surround51;
     case 8: return AudioChannelLayout::Surround71;
+    case 12: return AudioChannelLayout::Surround714;
     case 10: return AudioChannelLayout::Custom10ch;
     default: return AudioChannelLayout::Stereo;
    }

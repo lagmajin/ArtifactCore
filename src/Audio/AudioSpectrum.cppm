@@ -145,7 +145,8 @@ void AudioSpectrum::process(AudioSegment& segment, const AudioSegment* /*sideCha
     float truePeak = 0.0f;
     int contributingChannels = 0;
     const bool hasLfe = segment.layout == AudioChannelLayout::Surround51 ||
-                        segment.layout == AudioChannelLayout::Surround71;
+                        segment.layout == AudioChannelLayout::Surround71 ||
+                        segment.layout == AudioChannelLayout::Surround714;
     for (int c = 0; c < channels; ++c) {
         if (hasLfe && c == 3) continue;
         if (c >= segment.channelData.size()) continue;
