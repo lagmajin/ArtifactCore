@@ -167,6 +167,12 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
         gL = gL * (1.0f - spread) + mid * spread;
         gR = gR * (1.0f - spread) + mid * spread;
     }
+    if (outChannels > 1) {
+        const float verticalBlend = std::clamp(std::abs(elevation) / 90.0f * 0.35f, 0.0f, 0.35f);
+        const float mid = (gL + gR) * 0.5f;
+        gL = gL * (1.0f - verticalBlend) + mid * verticalBlend;
+        gR = gR * (1.0f - verticalBlend) + mid * verticalBlend;
+    }
 
     float* dstL = out.channelData[0].data();
     const float* srcL = in.channelData[0].constData();
