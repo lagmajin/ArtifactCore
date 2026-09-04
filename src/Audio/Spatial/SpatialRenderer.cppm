@@ -85,6 +85,16 @@ void SpatialRenderer::processBlock(const AudioSegment& in, AudioSegment& out, in
 
     SpatialParams params = snapshotParams();
 
+    auto finiteVec = [](Vec3 v) {
+        return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+    };
+    if (!finiteVec(sourcePos)) sourcePos = {};
+    if (!finiteVec(listenerPos)) listenerPos = {};
+    if (!std::isfinite(listenerRot.x) || !std::isfinite(listenerRot.y) ||
+        !std::isfinite(listenerRot.z) || !std::isfinite(listenerRot.w)) {
+        listenerRot = {};
+    }
+
     Vec3 delta = vecSub(sourcePos, listenerPos);
     float dist2 = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
     float dist = std::sqrt(std::max(dist2, 0.0f));
