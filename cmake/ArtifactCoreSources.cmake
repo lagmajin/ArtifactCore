@@ -677,6 +677,7 @@ set(ARTIFACTCORE_MODULE_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../include/Thread/BackgroundTaskRuntime.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Thread/BackgroundTaskSamples.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Thread/BackgroundTaskWorkerPool.ixx"
+    "${CMAKE_CURRENT_LIST_DIR}/../include/Thread/LightweightTask.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Thread/PreciseTicker.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Thread/ThreadHelper.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Time/Duration.ixx"
