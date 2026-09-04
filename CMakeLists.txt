@@ -3120,6 +3120,7 @@ set(ARTIFACTCORE_THREAD_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/BackgroundTaskRuntime.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/BackgroundTaskSamples.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/BackgroundTaskWorkerPool.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/LightweightTask.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/PreciseTicker.ixx"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Thread/ThreadHelper.ixx"
 )
