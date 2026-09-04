@@ -141,8 +141,20 @@ public:
     void setPbrFactors(float metallic, float roughness,
                        float normalStrength, float occlusionStrength);
     void setPrincipledFactors(float specular, float ior, float transmission,
-                              float clearcoat, float clearcoatRoughness,
-                              float sheen = 0.0f);
+                               float clearcoat, float clearcoatRoughness,
+                               float sheen = 0.0f);
+    // Blender-style material graph splices (Artifact.ShaderNode.Core
+    // NodeGraph::compileMaterialGraph output: helpers for global scope,
+    // block for the PSMain body). Rebuilds the PSOs; empty block restores
+    // the fixed PBR path.
+    void setMaterialGraph(const std::string& helperHlsl,
+                          const std::string& blockHlsl);
+    void setMaterialGraphBlock(const std::string& blockHlsl);
+    void clearMaterialGraph();
+    bool hasMaterialGraph() const;
+    // Parses ShaderNode JSON and applies it when it differs from the
+    // current payload. Returns false on invalid JSON (keeps old material).
+    bool setMaterialGraphJson(const std::string& json);
     void setMetallicRoughnessTexture(const QString& path);
     void setNormalTexture(const QString& path);
     void setOcclusionTexture(const QString& path);

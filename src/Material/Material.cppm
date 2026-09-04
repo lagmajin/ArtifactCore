@@ -59,8 +59,11 @@ public:
  UniString opacityTexture_;
  bool hasOpacityTexture_ = false;
 
- // MaterialX
- UniString materialXDocument_;
+  // MaterialX
+  UniString materialXDocument_;
+
+  // Material graph (ShaderNode JSON round-trip, carried to the renderer)
+  UniString materialGraphJson_;
 };
 
 Material::Material() : impl_(new Impl()) {}
@@ -182,13 +185,18 @@ bool Material::saveMaterialXDocument(const QString& filePath) const {
  return file.write(data) == data.size();
 }
 bool Material::loadMaterialXDocument(const QString& filePath) {
- if (filePath.trimmed().isEmpty()) return false;
- QFile file(filePath);
- if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
- setMaterialXDocument(UniString::fromQString(QString::fromUtf8(file.readAll())));
- setType(MaterialType::MaterialX);
- return true;
+  if (filePath.trimmed().isEmpty()) return false;
+  QFile file(filePath);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
+  setMaterialXDocument(UniString::fromQString(QString::fromUtf8(file.readAll())));
+  setType(MaterialType::MaterialX);
+  return true;
 }
+
+// Material graph JSON
+void Material::setMaterialGraphJson(const UniString& json) { impl_->materialGraphJson_ = json; }
+UniString Material::materialGraphJson() const { return impl_->materialGraphJson_; }
+bool Material::hasMaterialGraphJson() const { return !impl_->materialGraphJson_.toQString().trimmed().isEmpty(); }
 
 // Presets
 Material Material::makeDefault()

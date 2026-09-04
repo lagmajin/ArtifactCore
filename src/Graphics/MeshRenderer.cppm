@@ -2,6 +2,8 @@ module;
 #include <utility>
 #include <algorithm>
 #include <numbers>
+#include <string>
+#include <string_view>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -23,6 +25,7 @@ import Graphics.ParticleData;
 import Graphics.Compute;
 import IO.ImageImporter;
 import Image.Raw;
+import Artifact.ShaderNode.Core;
 
 namespace ArtifactCore {
 
@@ -991,12 +994,14 @@ float3 computeNormalMapped(float3 position, float3 geometricNormal, float2 uv,
 float3 srgbToLinear(float3 value) {
     return float3(
         value.r <= 0.04045 ? value.r / 12.92
-                           : pow((value.r + 0.055) / 1.055, 2.4),
+                            : pow((value.r + 0.055) / 1.055, 2.4),
         value.g <= 0.04045 ? value.g / 12.92
-                           : pow((value.g + 0.055) / 1.055, 2.4),
+                            : pow((value.g + 0.055) / 1.055, 2.4),
         value.b <= 0.04045 ? value.b / 12.92
-                           : pow((value.b + 0.055) / 1.055, 2.4));
+                            : pow((value.b + 0.055) / 1.055, 2.4));
 }
+
+// __ARTIFACT_MATERIAL_GRAPH_HELPERS__
 
 float4 PSMain(PSInput In) : SV_Target {
     float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, In.UV);
@@ -1006,6 +1011,7 @@ float4 PSMain(PSInput In) : SV_Target {
         g_MetallicRoughnessTexture.Sample(g_BaseColorSampler, In.UV);
     float3 normalSample = g_NormalTexture.Sample(g_BaseColorSampler, In.UV).xyz;
     float occlusionSample = g_OcclusionTexture.Sample(g_BaseColorSampler, In.UV).r;
+    // __ARTIFACT_MATERIAL_GRAPH_SAMPLES__
     float3 instanceColor = srgbToLinear(saturate(In.Color.rgb));
     float4 baseColor = float4(baseSample.rgb * instanceColor,
                               baseSample.a * In.Color.a);
@@ -1030,6 +1036,7 @@ float4 PSMain(PSInput In) : SV_Target {
     float3 viewNormal = computeNormalMapped(
         In.ViewPosition, In.Normal, In.UV, normalSample,
         PbrFactors.z, PbrTextureFlags.y);
+    // __ARTIFACT_MATERIAL_GRAPH_OVERRIDE__
     if (In.Mode > 1.5 && In.Mode < 2.5) {
         float3 normalColor = viewNormal * 0.5 + 0.5;
         return float4(normalColor, baseColor.a * opacitySample.a);
@@ -1398,6 +1405,12 @@ struct MeshRenderer::Impl {
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
+    // Blender-style material graph splices (compileMaterialGraph output).
+    // Empty block = fixed PBR path. Applied on next createPSO().
+    std::string materialGraphHelpers_;
+    std::string materialGraphBlock_;
+    // Last graph JSON handed in (layer-owned). Recompiles only on change.
+    std::string materialGraphJson_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pPSO_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pSRB_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>         pTransparentPSO_;
@@ -2056,7 +2069,58 @@ void MeshRenderer::createPSO()
     // Compile Shaders
     RefCntAutoPtr<IShader> vs, ps;
     context_.CompileShader(MeshVSSource, SHADER_TYPE_VERTEX, "VSMain", &vs);
-    context_.CompileShader(MeshPSSource, SHADER_TYPE_PIXEL,  "PSMain", &ps);
+    // Material graph splice: the template carries three markers. Helpers go
+    // to global scope (HLSL forbids nested function definitions); the block
+    // goes right after the texture samples so graphNormalSample/
+    // graphOcclusion can override the sample vars before normal/AO
+    // evaluation; the epilogue maps the rest onto PSMain locals.
+    std::string meshPSFinal(MeshPSSource);
+    {
+        constexpr std::string_view kHelpersMarker =
+            "// __ARTIFACT_MATERIAL_GRAPH_HELPERS__";
+        const size_t pos = meshPSFinal.find(kHelpersMarker);
+        if (pos != std::string::npos) {
+            meshPSFinal.replace(pos, kHelpersMarker.size(),
+                                pImpl_->materialGraphHelpers_);
+        }
+        constexpr std::string_view kSamplesMarker =
+            "// __ARTIFACT_MATERIAL_GRAPH_SAMPLES__";
+        std::string samplesReplacement;
+        if (!pImpl_->materialGraphBlock_.empty()) {
+            samplesReplacement = pImpl_->materialGraphBlock_ +
+                "    normalSample = graphNormalSample;\n"
+                "    occlusionSample = graphOcclusion;\n";
+        }
+        const size_t samplesPos = meshPSFinal.find(kSamplesMarker);
+        if (samplesPos != std::string::npos) {
+            meshPSFinal.replace(samplesPos, kSamplesMarker.size(),
+                                samplesReplacement);
+        }
+        constexpr std::string_view kMarker =
+            "// __ARTIFACT_MATERIAL_GRAPH_OVERRIDE__";
+        // Epilogue only: the block itself was emitted at the samples
+        // marker above (emitting it twice would redefine every variable).
+        std::string replacement;
+        if (!pImpl_->materialGraphBlock_.empty()) {
+            replacement =
+                "    baseColor = graphBaseColor;\n"
+                "    metallic = saturate(graphMetallic);\n"
+                "    roughness = clamp(graphRoughness, 0.04f, 1.0f);\n"
+                "    materialAlpha = graphBaseColor.a * graphAlpha;\n"
+                "    emissionSample = float4(graphEmission, 1.0f);\n"
+                "    emissionTint = float3(1.0f, 1.0f, 1.0f);\n"
+                "    emissionStrength = 1.0f;\n"
+                "    if (graphUseWorldNormal > 0.5f) {\n"
+                "        worldNormal = normalize(graphWorldNormal);\n"
+                "        viewNormal = normalize(mul(graphWorldNormal, (float3x3)ViewMatrix));\n"
+                "    }\n";
+        }
+        const size_t bodyPos = meshPSFinal.find(kMarker);
+        if (bodyPos != std::string::npos) {
+            meshPSFinal.replace(bodyPos, kMarker.size(), replacement);
+        }
+    }
+    context_.CompileShader(meshPSFinal.c_str(), SHADER_TYPE_PIXEL, "PSMain", &ps);
     
     PSOCreateInfo.pVS = vs;
     PSOCreateInfo.pPS = ps;
@@ -3394,6 +3458,72 @@ void MeshRenderer::setPrincipledFactors(float specular, float ior,
         std::clamp(clearcoat, 0.0f, 1.0f);
     pImpl_->materialConstants_.clearcoatFactors[1] =
         std::clamp(clearcoatRoughness, 0.0f, 1.0f);
+}
+
+// Blender-style material graph: stores compileMaterialGraph() splices and
+// rebuilds the PSOs so PSMain evaluates them. Empty block = fixed PBR path.
+void MeshRenderer::setMaterialGraph(const std::string& helperHlsl,
+                                    const std::string& blockHlsl)
+{
+    if (pImpl_->materialGraphHelpers_ == helperHlsl &&
+        pImpl_->materialGraphBlock_ == blockHlsl) {
+        return;
+    }
+    pImpl_->materialGraphHelpers_ = helperHlsl;
+    pImpl_->materialGraphBlock_ = blockHlsl;
+    prepared_ = false;
+    // Per-format PSO sets below would otherwise restore a stale variant.
+    pImpl_->pipelineSets_.clear();
+    createPSO();
+}
+
+void MeshRenderer::setMaterialGraphBlock(const std::string& blockHlsl)
+{
+    setMaterialGraph({}, blockHlsl);
+}
+
+void MeshRenderer::clearMaterialGraph()
+{
+    if (pImpl_->materialGraphHelpers_.empty() &&
+        pImpl_->materialGraphBlock_.empty()) {
+        return;
+    }
+    pImpl_->materialGraphHelpers_.clear();
+    pImpl_->materialGraphBlock_.clear();
+    prepared_ = false;
+    pImpl_->pipelineSets_.clear();
+    createPSO();
+}
+
+bool MeshRenderer::hasMaterialGraph() const
+{
+    return !pImpl_->materialGraphBlock_.empty();
+}
+
+// Layer-owned graph JSON. Parses + compiles only when the payload changes;
+// per-frame calls with identical JSON are a string compare. Invalid JSON
+// keeps the previous material. Magenta fallback compiles like Apply does.
+bool MeshRenderer::setMaterialGraphJson(const std::string& json)
+{
+    if (pImpl_->materialGraphJson_ == json) {
+        return !pImpl_->materialGraphBlock_.empty() || json.empty();
+    }
+    if (json.empty()) {
+        pImpl_->materialGraphJson_.clear();
+        clearMaterialGraph();
+        return true;
+    }
+    ::Artifact::ShaderNode::NodeGraph graph;
+    const ::Artifact::ShaderNode::MaterialGraphLoadResult loaded =
+        graph.fromJson(json);
+    if (!loaded.ok) {
+        return false;
+    }
+    const ::Artifact::ShaderNode::MaterialGraphResult compiled =
+        graph.compileMaterialGraph();
+    pImpl_->materialGraphJson_ = json;
+    setMaterialGraph(compiled.helperHlsl, compiled.blockHlsl);
+    return true;
 }
 
 void MeshRenderer::setMetallicRoughnessTexture(const QString& path)

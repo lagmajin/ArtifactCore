@@ -14,10 +14,12 @@ module;
 #include <any>
 #include <cmath>
 #include <unordered_map>
+#include <vector>
 
 module Export.Lottie.Exporter;
 
 import Container.NamedVector;
+import Export.Lottie.Types;
 
 namespace ArtifactCore::Export::Lottie {
 namespace {

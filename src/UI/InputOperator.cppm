@@ -18,8 +18,6 @@ module;
 module Input.Operator;
 
 import InputEvent;
-// The implementation unit shares the public module name with Input.Operator;
-// its interface is supplied by CMake rather than imported here.
 import Container.NamedVector;
 import Event.Bus;
 

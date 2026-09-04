@@ -112,6 +112,12 @@ export enum class MaterialAlphaMode {
   bool saveMaterialXDocument(const QString& filePath) const;
   bool loadMaterialXDocument(const QString& filePath);
 
+  // --- Material graph (Blender-style node JSON, ShaderNode round-trip) ---
+  // Carried through drawMesh so the renderer applies it on change.
+  void setMaterialGraphJson(const UniString& json);
+  UniString materialGraphJson() const;
+  bool hasMaterialGraphJson() const;
+
   // --- Presets ---
   static Material makeDefault();
   static Material makeMetal(const QColor& color = QColor(200, 200, 200));
