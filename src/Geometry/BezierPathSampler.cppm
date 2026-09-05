@@ -100,31 +100,128 @@ float BezierPathSampler::calculatePathLength(const QVector<BezierPoint>& points,
 QVector<QPointF> BezierPathSampler::sampleEquidistant(const QVector<BezierPoint>& points, float segmentLength, bool closed) {
     QVector<QPointF> sampledPoints;
     if (!std::isfinite(segmentLength) || segmentLength <= 0.0f) return sampledPoints;
+    if (points.size() < 2) {
+        if (!points.isEmpty()) sampledPoints.push_back(points[0].pos);
+        return sampledPoints;
+    }
     float totalLen = calculatePathLength(points, closed);
-    if (totalLen <= 0.0f) return sampledPoints;
+    if (totalLen <= 0.0f) return {points[0].pos, points.last().pos};
 
-    int pointCount = static_cast<int>(totalLen / segmentLength);
+    int pointCount = static_cast<int>(totalLen / segmentLength) + 1;
     if (pointCount < 2) return {points[0].pos, points.last().pos};
 
-    for (int i = 0; i <= pointCount; i++) {
-        float normalizedT = static_cast<float>(i) / pointCount;
-        sampledPoints.push_back(BezierCalculator::evaluatePath(points, normalizedT, closed));
-    }
-
-    return sampledPoints;
+    return sampleArcLength(points, pointCount, closed);
 }
 
 QVector<QPointF> BezierPathSampler::sampleByCount(const QVector<BezierPoint>& points, int count, bool closed) {
+    return sampleArcLength(points, count, closed);
+}
+
+namespace {
+
+// Cumulative arc-length table over fine polyline samples. Maps normalized
+// arc length s in [0,1] back to the segment-parameter t used by evaluatePath.
+struct ArcLengthTable {
+    QVector<float> sampleT;
+    QVector<float> cumulative;
+    float total = 0.0f;
+
+    bool build(const QVector<BezierPoint>& points, bool closed, int subdivPerSegment = 32) {
+        sampleT.clear();
+        cumulative.clear();
+        total = 0.0f;
+        if (points.size() < 2) return false;
+        const int segmentCount = closed ? points.size() : points.size() - 1;
+        sampleT.reserve(segmentCount * (subdivPerSegment + 1));
+        cumulative.reserve(segmentCount * (subdivPerSegment + 1));
+        QPointF prev;
+        bool first = true;
+        for (int i = 0; i < segmentCount; ++i) {
+            const auto& p0 = points[i];
+            const auto& p1 = points[(i + 1) % points.size()];
+            for (int j = (i == 0 ? 0 : 1); j <= subdivPerSegment; ++j) {
+                const float localT = static_cast<float>(j) / subdivPerSegment;
+                const float globalT = (static_cast<float>(i) + localT) / segmentCount;
+                const QPointF current = BezierCalculator::evaluateCubic(
+                    p0.pos, p0.pos + p0.handleOut, p1.pos + p1.handleIn, p1.pos, localT);
+                if (!first) {
+                    const float dx = current.x() - prev.x();
+                    const float dy = current.y() - prev.y();
+                    const float step = std::sqrt(dx * dx + dy * dy);
+                    if (std::isfinite(step)) total += step;
+                }
+                first = false;
+                prev = current;
+                sampleT.push_back(globalT);
+                cumulative.push_back(total);
+            }
+        }
+        return total > 0.0f && !sampleT.isEmpty();
+    }
+
+    float mapToT(float s) const {
+        if (sampleT.isEmpty() || total <= 0.0f) return 0.0f;
+        const float target = std::clamp(s, 0.0f, 1.0f) * total;
+        int lo = 0;
+        int hi = cumulative.size() - 1;
+        while (lo < hi) {
+            const int mid = (lo + hi) / 2;
+            if (cumulative[mid] < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        if (lo <= 0) return sampleT.front();
+        if (lo >= cumulative.size()) return sampleT.back();
+        const float d0 = cumulative[lo - 1];
+        const float d1 = cumulative[lo];
+        const float span = d1 - d0;
+        const float f = span > 1.0e-9f ? (target - d0) / span : 0.0f;
+        return sampleT[lo - 1] + (sampleT[lo] - sampleT[lo - 1]) * std::clamp(f, 0.0f, 1.0f);
+    }
+};
+
+void locateSegment(const QVector<BezierPoint>& points, float t, bool closed,
+                   int& segmentIndex, float& localT) {
+    const int count = points.size();
+    if (count < 2) {
+        segmentIndex = 0;
+        localT = 0.0f;
+        return;
+    }
+    const int segmentCount = closed ? count : count - 1;
+    const float scaledT = std::clamp(t, 0.0f, 1.0f) * segmentCount;
+    segmentIndex = std::min(static_cast<int>(std::floor(scaledT)), segmentCount - 1);
+    localT = scaledT - segmentIndex;
+}
+
+QPointF analyticTangentAt(const QVector<BezierPoint>& points, float t, bool closed) {
+    if (points.size() < 2) return QPointF(1.0f, 0.0f);
+    int segmentIndex = 0;
+    float localT = 0.0f;
+    locateSegment(points, t, closed, segmentIndex, localT);
+    const auto& p0 = points[segmentIndex];
+    const auto& p1 = points[(segmentIndex + 1) % points.size()];
+    return BezierCalculator::evaluateTangent(
+        p0.pos, p0.pos + p0.handleOut, p1.pos + p1.handleIn, p1.pos, localT);
+}
+
+} // anonymous namespace
+
+QVector<QPointF> BezierPathSampler::sampleArcLength(const QVector<BezierPoint>& points, int count, bool closed) {
     QVector<QPointF> result;
     if (points.size() < 2 || count < 2) return result;
-
-    const float totalLen = calculatePathLength(points, closed);
-    if (totalLen <= 0.0f) return result;
-
+    ArcLengthTable table;
+    if (!table.build(points, closed)) {
+        // Degenerate path: repeat the first point.
+        result.fill(points[0].pos, count);
+        return result;
+    }
     result.reserve(count);
     for (int i = 0; i < count; ++i) {
-        const float t = static_cast<float>(i) / (count - 1);
-        result.push_back(BezierCalculator::evaluatePath(points, t, closed));
+        const float s = static_cast<float>(i) / (count - 1);
+        result.push_back(BezierCalculator::evaluatePath(points, table.mapToT(s), closed));
     }
     return result;
 }
@@ -199,16 +296,17 @@ BezierPathSampler::SampledPoint sampleTangentAt(
 {
     BezierPathSampler::SampledPoint sp;
     sp.position = BezierCalculator::evaluatePath(points, t, closed);
+    sp.tangent = analyticTangentAt(points, t, closed);
+    return sp;
+}
 
-    const float eps = 0.001f;
-    const float t0 = std::max(0.0f, t - eps);
-    const float t1 = std::min(1.0f, t + eps);
-    const QPointF p0 = BezierCalculator::evaluatePath(points, t0, closed);
-    const QPointF p1 = BezierCalculator::evaluatePath(points, t1, closed);
-    QPointF dir = p1 - p0;
-    const float len = std::sqrt(dir.x() * dir.x() + dir.y() * dir.y());
-    if (len > 1e-8f) dir /= len;
-    sp.tangent = dir;
+BezierPathSampler::SampledPoint sampleTangentAtArcLength(
+    const QVector<BezierPoint>& points, float s, bool closed, const ArcLengthTable& table)
+{
+    BezierPathSampler::SampledPoint sp;
+    const float t = table.mapToT(s);
+    sp.position = BezierCalculator::evaluatePath(points, t, closed);
+    sp.tangent = analyticTangentAt(points, t, closed);
     return sp;
 }
 
@@ -219,11 +317,22 @@ QVector<BezierPathSampler::SampledPoint> BezierPathSampler::sampleWithTangents(
 {
     QVector<SampledPoint> result;
     if (count < 2) return result;
+    ArcLengthTable table;
+    const bool useArc = table.build(points, closed);
     result.reserve(count);
 
     for (int i = 0; i < count; ++i) {
-        const float t = static_cast<float>(i) / (count - 1);
-        result.push_back(sampleTangentAt(points, t, closed));
+        const float s = static_cast<float>(i) / (count - 1);
+        if (useArc) {
+            result.push_back(sampleTangentAtArcLength(points, s, closed, table));
+        } else if (points.size() >= 2) {
+            result.push_back(sampleTangentAt(points, s, closed));
+        } else if (!points.isEmpty()) {
+            SampledPoint sp;
+            sp.position = points[0].pos;
+            sp.tangent = QPointF(1.0f, 0.0f);
+            result.push_back(sp);
+        }
     }
     return result;
 }
@@ -232,8 +341,30 @@ QPointF BezierPathSampler::pointAt(const QVector<BezierPoint>& points, float t, 
     return BezierCalculator::evaluatePath(points, std::clamp(t, 0.0f, 1.0f), closed);
 }
 
+QPointF BezierPathSampler::pointAtArcLength(const QVector<BezierPoint>& points, float s, bool closed) {
+    if (points.size() < 2) {
+        return points.isEmpty() ? QPointF() : points[0].pos;
+    }
+    ArcLengthTable table;
+    if (!table.build(points, closed)) {
+        return points[0].pos;
+    }
+    return BezierCalculator::evaluatePath(points, table.mapToT(s), closed);
+}
+
 QPointF BezierPathSampler::tangentAt(const QVector<BezierPoint>& points, float t, bool closed) {
-    return sampleTangentAt(points, std::clamp(t, 0.0f, 1.0f), closed).tangent;
+    return analyticTangentAt(points, std::clamp(t, 0.0f, 1.0f), closed);
+}
+
+QPointF BezierPathSampler::tangentAtArcLength(const QVector<BezierPoint>& points, float s, bool closed) {
+    if (points.size() < 2) {
+        return QPointF(1.0f, 0.0f);
+    }
+    ArcLengthTable table;
+    if (!table.build(points, closed)) {
+        return QPointF(1.0f, 0.0f);
+    }
+    return analyticTangentAt(points, table.mapToT(s), closed);
 }
 
 } // namespace ArtifactCore

@@ -83,6 +83,7 @@ public:
     // 設定
     void setProjectionMatrix(const float* matrix); // float[16]
     void setViewMatrix(const float* matrix);       // float[16]
+    void setModelMatrix(const float* matrix);      // float[16], row-major
     QString debugState() const;
 
 private:
@@ -94,6 +95,7 @@ private:
     ParticleRenderOptions renderOptions_;
 
     struct ShaderConstants {
+        float modelMatrix[16];
         float viewMatrix[16];
         float projMatrix[16];
         float deltaTime;

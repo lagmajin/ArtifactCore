@@ -1,5 +1,6 @@
 module;
 #include <atomic>
+#include <array>
 #include <cstdint>
 #include <algorithm>
 #include <cmath>
@@ -24,7 +25,8 @@ public:
     SpatialParams snapshotParams() const;
 
     void processBlock(const AudioSegment& in, AudioSegment& out, int frames,
-                      Vec3 sourcePos, Vec3 listenerPos, Quat listenerRot);
+                      Vec3 sourcePos, Quat sourceRot,
+                      Vec3 listenerPos, Quat listenerRot);
 
     void reset();
 
@@ -38,8 +40,23 @@ private:
     float sampleRate_ = 48000.0f;
     float gainPrev_ = 1.0f;
     alignas(16) float gainBuf_[8] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    // The analytic headphone path uses a fixed history to keep the callback
+    // allocation-free. 128 samples covers the maximum physically plausible
+    // interaural delay at all supported sample rates up to 96 kHz.
+    std::array<float, 128> binauralHistory_{};
+    int binauralWriteIndex_ = 0;
+    float binauralLeftFilter_ = 0.0f;
+    float binauralRightFilter_ = 0.0f;
+    float binauralLeftDelayPrev_ = 0.0f;
+    float binauralRightDelayPrev_ = 0.0f;
+    float airFilterLeft_ = 0.0f;
+    float airFilterRight_ = 0.0f;
+    float lfeFilter_ = 0.0f;
 
     static float calcAzimuthGain(float azimuth, float* gains, int channels);
+    void processAnalyticBinaural(const AudioSegment& in, AudioSegment& out, int frames,
+                                 Vec3 localDirection, float gainCurr,
+                                 float airLowPassAlpha);
 };
 
 } // namespace Spatial

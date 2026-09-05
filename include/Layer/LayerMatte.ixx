@@ -29,7 +29,8 @@ enum class MatteMode {
 enum class MatteStackMode {
     Add,
     Common,
-    Subtract
+    Subtract,
+    Difference
 };
 
 struct MatteEvaluationSettings {
@@ -44,9 +45,10 @@ inline MatteStackMode matteStackModeFromString(const QString& str);
 
 inline QString matteStackModeToString(MatteStackMode mode) {
     switch (mode) {
-    case MatteStackMode::Add:      return QStringLiteral("Add");
-    case MatteStackMode::Common:   return QStringLiteral("Common");
-    case MatteStackMode::Subtract: return QStringLiteral("Subtract");
+    case MatteStackMode::Add:       return QStringLiteral("Add");
+    case MatteStackMode::Common:    return QStringLiteral("Common");
+    case MatteStackMode::Subtract:  return QStringLiteral("Subtract");
+    case MatteStackMode::Difference: return QStringLiteral("Difference");
     }
     return QStringLiteral("Unknown");
 }
@@ -55,6 +57,7 @@ inline MatteStackMode matteStackModeFromString(const QString& str) {
     QString s = str.toLower().trimmed();
     if (s == "common") return MatteStackMode::Common;
     if (s == "subtract") return MatteStackMode::Subtract;
+    if (s == "difference") return MatteStackMode::Difference;
     return MatteStackMode::Add;
 }
 
@@ -326,6 +329,10 @@ inline MatteEvaluationResult evaluateMatteStack(
                 case MatteStackMode::Subtract:
                     result.alphaMask[i] =
                         std::max(0.0f, result.alphaMask[i] - matteMask[i]);
+                    break;
+                case MatteStackMode::Difference:
+                    result.alphaMask[i] =
+                        std::abs(result.alphaMask[i] - matteMask[i]);
                     break;
                 }
         };

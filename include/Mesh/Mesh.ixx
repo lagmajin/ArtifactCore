@@ -275,6 +275,16 @@ export namespace ArtifactCore {
         void updateBounds();
         QVector3D boundingBoxMin() const;
         QVector3D boundingBoxMax() const;
+        // Bounding sphere derived from the AABB: center is the box midpoint,
+        // radius is the max distance from the center. Cheap and adequate for
+        // culling/LOD decisions; not a minimal Ritter sphere.
+        QVector3D boundingSphereCenter() const;
+        float boundingSphereRadius() const;
+
+        // Area-weighted smooth vertex normals from polygon topology.
+        // Creates the "normal" attribute when missing. Degenerate faces are
+        // skipped; vertices left without area fall back to (0,0,1).
+        void computeVertexNormals();
 
         // ファイルI/O (Assimp等との連携)
         bool loadFromFile(const QString& filePath);

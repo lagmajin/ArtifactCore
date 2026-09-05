@@ -101,6 +101,8 @@ struct PathTubeSettings {
     float twist = 0.0f;
     float pathOffset = 0.0f;
     float repeatCount = 1.0f;
+    float trimStart = 0.0f;
+    float trimEnd = 1.0f;
     float pathScale = 1.0f;
     float noiseScale = 1.0f;
     float noiseAmplitude = 0.0f;

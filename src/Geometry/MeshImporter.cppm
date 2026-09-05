@@ -2,7 +2,9 @@ module;
 #include <memory>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <numeric>
+#include <unordered_map>
 #include <utility>
 #include <cstring>
 
@@ -45,6 +47,82 @@ public:
   QString lastEmissionTexture_;
   QString lastOcclusionTexture_;
   QString lastOpacityTexture_;
+
+  static constexpr int kPointCloudBudget = 262144;
+
+  // Spatially uniform voxel decimation for vertex-only point clouds.
+  // Keeps the first point per cell; the cell starts sized for the budget
+  // and is refined while the budget is under-utilized. Deterministic for a
+  // given input order. Colors are reordered only when they match the
+  // positions one-to-one.
+  static void decimatePointCloud(QVector<QVector3D>& positions,
+                                 QVector<QVector4D>& colors, int budget) {
+    const int count = positions.size();
+    if (count <= budget || budget <= 0) return;
+    QVector3D minB(std::numeric_limits<float>::max(),
+                   std::numeric_limits<float>::max(),
+                   std::numeric_limits<float>::max());
+    QVector3D maxB(std::numeric_limits<float>::lowest(),
+                   std::numeric_limits<float>::lowest(),
+                   std::numeric_limits<float>::lowest());
+    for (const QVector3D& p : positions) {
+      minB.setX(std::min(minB.x(), p.x()));
+      minB.setY(std::min(minB.y(), p.y()));
+      minB.setZ(std::min(minB.z(), p.z()));
+      maxB.setX(std::max(maxB.x(), p.x()));
+      maxB.setY(std::max(maxB.y(), p.y()));
+      maxB.setZ(std::max(maxB.z(), p.z()));
+    }
+    const double ex = std::max(0.0, static_cast<double>(maxB.x() - minB.x()));
+    const double ey = std::max(0.0, static_cast<double>(maxB.y() - minB.y()));
+    const double ez = std::max(0.0, static_cast<double>(maxB.z() - minB.z()));
+    const double maxExtent = std::max(ex, std::max(ey, ez));
+    double cell = 1.0;
+    const double volume = ex * ey * ez;
+    if (volume > 0.0) {
+      cell = std::cbrt(volume / static_cast<double>(budget));
+    } else if (maxExtent > 0.0) {
+      cell = maxExtent / std::cbrt(static_cast<double>(budget));
+    }
+    if (!(cell > 0.0)) cell = 1.0;
+    const bool reorderColors = colors.size() == count;
+    QVector<int> kept;
+    kept.reserve(budget);
+    for (int iter = 0; iter < 8; ++iter) {
+      std::unordered_map<std::int64_t, std::uint32_t> seen;
+      seen.reserve(static_cast<size_t>(budget) * 2);
+      kept.clear();
+      const double invCell = 1.0 / cell;
+      for (int i = 0; i < count; ++i) {
+        const QVector3D& p = positions[i];
+        const int ix = static_cast<int>(std::clamp(std::floor((p.x() - minB.x()) * invCell), -2.0e9, 2.0e9));
+        const int iy = static_cast<int>(std::clamp(std::floor((p.y() - minB.y()) * invCell), -2.0e9, 2.0e9));
+        const int iz = static_cast<int>(std::clamp(std::floor((p.z() - minB.z()) * invCell), -2.0e9, 2.0e9));
+        std::uint64_t key = 1469598103934665603ull;
+        key ^= static_cast<std::uint64_t>(static_cast<std::uint32_t>(ix)) + 0x9e3779b9ull + (key << 6) + (key >> 2);
+        key ^= static_cast<std::uint64_t>(static_cast<std::uint32_t>(iy)) + 0x9e3779b9ull + (key << 6) + (key >> 2);
+        key ^= static_cast<std::uint64_t>(static_cast<std::uint32_t>(iz)) + 0x9e3779b9ull + (key << 6) + (key >> 2);
+        if (seen.emplace(static_cast<std::int64_t>(key), static_cast<std::uint32_t>(i)).second) {
+          kept.push_back(i);
+          if (kept.size() >= budget) break;
+        }
+      }
+      if (kept.size() >= budget || kept.size() >= count || cell <= 1.0e-9) break;
+      // Under-utilized budget (clustered input): refine and retry.
+      cell *= 0.5;
+    }
+    if (kept.size() >= count) return;
+    QVector<QVector3D> decimatedPositions;
+    decimatedPositions.reserve(kept.size());
+    QVector<QVector4D> decimatedColors;
+    if (reorderColors) decimatedColors.reserve(kept.size());
+    for (const int index : kept) {
+      decimatedPositions.push_back(positions[index]);
+      if (reorderColors) decimatedColors.push_back(colors[index]);
+    }
+    positions = decimatedPositions;
+    if (reorderColors) colors = decimatedColors;
+  }
 
   static QString ufbxStringToQString(const ufbx_string& s)
   {
@@ -943,54 +1021,365 @@ public:
     lastBackend_ = MeshImporter::Backend::Ply;
     lastError_.clear();
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    if (!file.open(QIODevice::ReadOnly)) {
       lastError_ = QStringLiteral("PLY: cannot open file");
       return nullptr;
     }
-    const QStringList lines = QString::fromUtf8(file.readAll()).split(QRegularExpression(QStringLiteral("[\\r\\n]+")), Qt::KeepEmptyParts);
-    int headerEnd = -1;
-    int vertexCount = 0;
-    int faceCount = 0;
-    bool ascii = false;
-    for (int i = 0; i < lines.size(); ++i) {
-      const QString line = lines[i].trimmed();
-      if (i == 0 && line == QStringLiteral("ply")) continue;
-      if (line.startsWith(QStringLiteral("format ascii"))) ascii = true;
-      if (line.startsWith(QStringLiteral("element vertex"))) vertexCount = line.section(QChar(' '), 2, 2).toInt();
-      if (line.startsWith(QStringLiteral("element face"))) faceCount = line.section(QChar(' '), 2, 2).toInt();
-      if (line == QStringLiteral("end_header")) { headerEnd = i; break; }
-    }
-    if (!ascii || headerEnd < 0 || vertexCount <= 0 || faceCount <= 0) {
-      lastError_ = QStringLiteral("PLY: only ASCII polygon meshes are supported");
+    const QByteArray bytes = file.readAll();
+    const qsizetype headerEndPos = bytes.indexOf("end_header");
+    if (headerEndPos < 0) {
+      lastError_ = QStringLiteral("PLY: unsupported format or missing header");
       return nullptr;
     }
+    qsizetype bodyStart = headerEndPos + 10;
+    while (bodyStart < bytes.size() && (bytes[bodyStart] == '\r' || bytes[bodyStart] == '\n')) ++bodyStart;
+
+    enum class PlyFormat { Unknown, Ascii, BinaryLittle, BinaryBig };
+    struct PlyProperty {
+      QString type;
+      QString name;
+      bool isList = false;
+      QString countType;
+      QString itemType;
+    };
+    struct PlyElement {
+      QString name;
+      int count = 0;
+      QVector<PlyProperty> properties;
+    };
+    PlyFormat format = PlyFormat::Unknown;
+    QVector<PlyElement> elements;
+    const QStringList headerLines =
+        QString::fromUtf8(bytes.left(headerEndPos)).split(QChar('\n'));
+    for (const QString& rawLine : headerLines) {
+      const QString line = rawLine.trimmed();
+      if (line == QStringLiteral("ply") || line.isEmpty() || line.startsWith(QStringLiteral("comment"))) continue;
+      if (line.startsWith(QStringLiteral("format ascii"))) { format = PlyFormat::Ascii; continue; }
+      if (line.startsWith(QStringLiteral("format binary_little_endian"))) { format = PlyFormat::BinaryLittle; continue; }
+      if (line.startsWith(QStringLiteral("format binary_big_endian"))) { format = PlyFormat::BinaryBig; continue; }
+      if (line.startsWith(QStringLiteral("element "))) {
+        PlyElement element;
+        element.name = line.section(QChar(' '), 1, 1).toLower();
+        element.count = line.section(QChar(' '), 2, 2).toInt();
+        elements.push_back(element);
+        continue;
+      }
+      if (line.startsWith(QStringLiteral("property ")) && !elements.isEmpty()) {
+        const QStringList parts = line.split(QChar(' '), Qt::SkipEmptyParts);
+        PlyProperty prop;
+        if (parts.size() >= 5 && parts[1] == QStringLiteral("list")) {
+          prop.isList = true;
+          prop.countType = parts[2].toLower();
+          prop.itemType = parts[3].toLower();
+          prop.name = parts.mid(4).join(QChar(' ')).toLower();
+        } else if (parts.size() >= 3) {
+          prop.type = parts[1].toLower();
+          prop.name = parts.mid(2).join(QChar(' ')).toLower();
+        } else {
+          continue;
+        }
+        elements.back().properties.push_back(prop);
+      }
+    }
+    if (format == PlyFormat::Unknown) {
+      lastError_ = QStringLiteral("PLY: unsupported format or missing header");
+      return nullptr;
+    }
+    const PlyElement* vertexElement = nullptr;
+    const PlyElement* faceElement = nullptr;
+    for (const PlyElement& element : elements) {
+      if (element.name == QStringLiteral("vertex")) vertexElement = &element;
+      if (element.name == QStringLiteral("face")) faceElement = &element;
+    }
+    const int vertexCount = vertexElement ? vertexElement->count : 0;
+    const int faceCount = faceElement ? faceElement->count : 0;
+    if (vertexCount <= 0 || faceCount < 0) {
+      lastError_ = QStringLiteral("PLY: no vertex data");
+      return nullptr;
+    }
+    if (vertexCount > 2000000) {
+      lastError_ = QStringLiteral("PLY: vertex count too large for minimal point-cloud import");
+      return nullptr;
+    }
+
+    auto isColorName = [](const QString& name, QChar channel) {
+      if (channel == QChar('r')) return name == QStringLiteral("red") || name == QStringLiteral("r") || name == QStringLiteral("diffuse_red");
+      if (channel == QChar('g')) return name == QStringLiteral("green") || name == QStringLiteral("g") || name == QStringLiteral("diffuse_green");
+      if (channel == QChar('b')) return name == QStringLiteral("blue") || name == QStringLiteral("b") || name == QStringLiteral("diffuse_blue");
+      return name == QStringLiteral("alpha") || name == QStringLiteral("a") || name == QStringLiteral("diffuse_alpha");
+    };
+    if (!vertexElement) {
+      lastError_ = QStringLiteral("PLY: no vertex data");
+      return nullptr;
+    }
+    const QVector<PlyProperty>& vertexProps = vertexElement->properties;
+    int colorRIndex = -1, colorGIndex = -1, colorBIndex = -1, colorAIndex = -1;
+    int coordXIndex = -1, coordYIndex = -1, coordZIndex = -1;
+    for (int i = 0; i < vertexProps.size(); ++i) {
+      const QString& propName = vertexProps[i].name;
+      if (vertexProps[i].isList) continue;
+      if (coordXIndex < 0 && propName == QStringLiteral("x")) coordXIndex = i;
+      else if (coordYIndex < 0 && propName == QStringLiteral("y")) coordYIndex = i;
+      else if (coordZIndex < 0 && propName == QStringLiteral("z")) coordZIndex = i;
+      if (isColorName(propName, QChar('r'))) colorRIndex = i;
+      else if (isColorName(propName, QChar('g'))) colorGIndex = i;
+      else if (isColorName(propName, QChar('b'))) colorBIndex = i;
+      else if (isColorName(propName, QChar('a'))) colorAIndex = i;
+    }
+    if (coordXIndex < 0 || coordYIndex < 0 || coordZIndex < 0) {
+      // Unnamed-but-ordered coordinates (x y z first) remain common.
+      if (vertexProps.size() >= 3 && !vertexProps[0].isList &&
+          !vertexProps[1].isList && !vertexProps[2].isList) {
+        coordXIndex = 0; coordYIndex = 1; coordZIndex = 2;
+      } else {
+        lastError_ = QStringLiteral("PLY: no vertex coordinates");
+        return nullptr;
+      }
+    }
+    const bool hasVertexColor = colorRIndex >= 0 && colorGIndex >= 0 && colorBIndex >= 0;
+
     QVector<QVector3D> vertices;
     vertices.reserve(vertexCount);
-    int lineIndex = headerEnd + 1;
-    for (int i = 0; i < vertexCount && lineIndex < lines.size(); ++i, ++lineIndex) {
-      const QStringList fields = lines[lineIndex].trimmed().split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
-      if (fields.size() < 3) { lastError_ = QStringLiteral("PLY: invalid vertex row"); return nullptr; }
-      bool okX = false, okY = false, okZ = false;
-      const float x = fields[0].toFloat(&okX), y = fields[1].toFloat(&okY), z = fields[2].toFloat(&okZ);
-      if (!okX || !okY || !okZ) { lastError_ = QStringLiteral("PLY: invalid vertex value"); return nullptr; }
-      vertices.push_back(QVector3D(x, y, z));
-    }
+    QVector<QVector4D> vertexColors;
+    if (hasVertexColor) vertexColors.reserve(vertexCount);
     QVector<QVector<int>> faces;
-    for (int i = 0; i < faceCount && lineIndex < lines.size(); ++i, ++lineIndex) {
-      const QStringList fields = lines[lineIndex].trimmed().split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
-      if (fields.isEmpty()) continue;
-      const int count = fields[0].toInt();
-      if (count < 3 || fields.size() < count + 1) { lastError_ = QStringLiteral("PLY: invalid face row"); return nullptr; }
-      QVector<int> face;
-      for (int j = 0; j < count; ++j) {
-        bool ok = false;
-        const int index = fields[j + 1].toInt(&ok);
-        if (!ok || index < 0 || index >= vertices.size()) { lastError_ = QStringLiteral("PLY: face index out of range"); return nullptr; }
-        face.push_back(index);
+
+    auto scalarByteSize = [](const QString& type) {
+      if (type == QStringLiteral("char") || type == QStringLiteral("int8") ||
+          type == QStringLiteral("uchar") || type == QStringLiteral("uint8")) return 1;
+      if (type == QStringLiteral("short") || type == QStringLiteral("int16") ||
+          type == QStringLiteral("ushort") || type == QStringLiteral("uint16")) return 2;
+      if (type == QStringLiteral("int") || type == QStringLiteral("int32") ||
+          type == QStringLiteral("uint") || type == QStringLiteral("uint32") ||
+          type == QStringLiteral("float") || type == QStringLiteral("float32")) return 4;
+      if (type == QStringLiteral("double") || type == QStringLiteral("float64") ||
+          type == QStringLiteral("int64") || type == QStringLiteral("uint64")) return 8;
+      return 0;
+    };
+    auto readScalar = [&](const char* data, const QString& type, bool bigEndian, double* outValue) {
+      const int size = scalarByteSize(type);
+      if (size <= 0 || !outValue) return false;
+      std::uint64_t raw = 0;
+      if (bigEndian) {
+        for (int i = 0; i < size; ++i) raw = (raw << 8) | static_cast<unsigned char>(data[i]);
+      } else {
+        std::memcpy(&raw, data, static_cast<size_t>(size));
       }
-      faces.push_back(face);
+      if (type == QStringLiteral("float") || type == QStringLiteral("float32")) {
+        float v = 0.0f;
+        std::uint32_t bits = static_cast<std::uint32_t>(raw);
+        std::memcpy(&v, &bits, sizeof(v));
+        *outValue = v;
+      } else if (type == QStringLiteral("double") || type == QStringLiteral("float64")) {
+        double v = 0.0;
+        std::memcpy(&v, &raw, sizeof(v));
+        *outValue = v;
+      } else if (type == QStringLiteral("char") || type == QStringLiteral("int8")) {
+        *outValue = static_cast<double>(static_cast<std::int8_t>(raw & 0xFF));
+      } else if (type == QStringLiteral("uchar") || type == QStringLiteral("uint8")) {
+        *outValue = static_cast<double>(raw & 0xFF);
+      } else if (type == QStringLiteral("short") || type == QStringLiteral("int16")) {
+        *outValue = static_cast<double>(static_cast<std::int16_t>(raw & 0xFFFF));
+      } else if (type == QStringLiteral("ushort") || type == QStringLiteral("uint16")) {
+        *outValue = static_cast<double>(raw & 0xFFFF);
+      } else if (type == QStringLiteral("int") || type == QStringLiteral("int32")) {
+        *outValue = static_cast<double>(static_cast<std::int32_t>(raw & 0xFFFFFFFF));
+      } else if (type == QStringLiteral("uint") || type == QStringLiteral("uint32")) {
+        *outValue = static_cast<double>(raw & 0xFFFFFFFF);
+      } else if (type == QStringLiteral("int64")) {
+        *outValue = static_cast<double>(static_cast<std::int64_t>(raw));
+      } else if (type == QStringLiteral("uint64")) {
+        *outValue = static_cast<double>(raw);
+      } else {
+        return false;
+      }
+      return true;
+    };
+    auto normalizeColor = [&](double raw, const QString& type) {
+      if (type == QStringLiteral("uchar") || type == QStringLiteral("uint8")) {
+        return static_cast<float>(std::clamp(raw / 255.0, 0.0, 1.0));
+      }
+      if (type == QStringLiteral("ushort") || type == QStringLiteral("uint16")) {
+        return static_cast<float>(std::clamp(raw / 65535.0, 0.0, 1.0));
+      }
+      if (type == QStringLiteral("uint") || type == QStringLiteral("uint32") ||
+          type == QStringLiteral("uint64")) {
+        if (raw > 1.0) return static_cast<float>(std::clamp(raw / 4294967295.0, 0.0, 1.0));
+        return static_cast<float>(std::clamp(raw, 0.0, 1.0));
+      }
+      if (type == QStringLiteral("char") || type == QStringLiteral("int8")) {
+        return static_cast<float>(std::clamp((raw + 128.0) / 255.0, 0.0, 1.0));
+      }
+      if (type == QStringLiteral("short") || type == QStringLiteral("int16")) {
+        return static_cast<float>(std::clamp((raw + 32768.0) / 65535.0, 0.0, 1.0));
+      }
+      if (type == QStringLiteral("int") || type == QStringLiteral("int32") ||
+          type == QStringLiteral("int64")) {
+        if (raw > 1.0) return static_cast<float>(std::clamp(raw / 2147483647.0, 0.0, 1.0));
+        return static_cast<float>(std::clamp(raw, 0.0, 1.0));
+      }
+      return static_cast<float>(std::clamp(raw, 0.0, 1.0));
+    };
+
+    if (format == PlyFormat::Ascii) {
+      const QStringList lines = QString::fromUtf8(bytes.mid(bodyStart)).split(
+          QRegularExpression(QStringLiteral("[\\r\\n]+")), Qt::KeepEmptyParts);
+      int lineIndex = 0;
+      auto nextDataLine = [&](QString* outLine) {
+        while (lineIndex < lines.size()) {
+          const QString line = lines[lineIndex++].trimmed();
+          if (line.isEmpty()) continue;
+          *outLine = line;
+          return true;
+        }
+        return false;
+      };
+      const auto asciiScalar = [](const QString& token, double* outValue) {
+        bool ok = false;
+        const double v = token.toDouble(&ok);
+        if (ok && outValue) *outValue = v;
+        return ok;
+      };
+      for (int i = 0; i < vertexCount; ++i) {
+        QString row;
+        if (!nextDataLine(&row)) { lastError_ = QStringLiteral("PLY: truncated vertex data"); return nullptr; }
+        const QStringList fields = row.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+        if (fields.size() < vertexProps.size()) { lastError_ = QStringLiteral("PLY: invalid vertex row"); return nullptr; }
+        double x = 0.0, y = 0.0, z = 0.0;
+        if (!asciiScalar(fields[coordXIndex], &x) || !asciiScalar(fields[coordYIndex], &y) ||
+            !asciiScalar(fields[coordZIndex], &z) ||
+            !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+          lastError_ = QStringLiteral("PLY: invalid vertex value");
+          return nullptr;
+        }
+        vertices.push_back(QVector3D(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)));
+        if (hasVertexColor) {
+          auto colorComponent = [&](int propIndex, float fallback) {
+            if (propIndex < 0 || propIndex >= fields.size()) return fallback;
+            double raw = 0.0;
+            if (!asciiScalar(fields[propIndex], &raw)) return fallback;
+            // uchar (0-255) and float (0-1) encodings both exist in the wild.
+            if (raw > 1.0) return std::clamp(static_cast<float>(raw / 255.0), 0.0f, 1.0f);
+            return std::clamp(static_cast<float>(raw), 0.0f, 1.0f);
+          };
+          vertexColors.push_back(QVector4D(colorComponent(colorRIndex, 1.0f),
+                                           colorComponent(colorGIndex, 1.0f),
+                                           colorComponent(colorBIndex, 1.0f),
+                                           colorComponent(colorAIndex, 1.0f)));
+        }
+      }
+      if (faceCount > 0) {
+        if (!faceElement || faceElement->properties.isEmpty() || !faceElement->properties[0].isList) {
+          lastError_ = QStringLiteral("PLY: invalid face row");
+          return nullptr;
+        }
+        for (int i = 0; i < faceCount; ++i) {
+          QString row;
+          if (!nextDataLine(&row)) { lastError_ = QStringLiteral("PLY: truncated face data"); return nullptr; }
+          const QStringList fields = row.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+          if (fields.isEmpty()) { lastError_ = QStringLiteral("PLY: invalid face row"); return nullptr; }
+          const int count = fields[0].toInt();
+          if (count < 3 || fields.size() < count + 1) { lastError_ = QStringLiteral("PLY: invalid face row"); return nullptr; }
+          QVector<int> face;
+          for (int j = 0; j < count; ++j) {
+            bool ok = false;
+            const int index = fields[j + 1].toInt(&ok);
+            if (!ok || index < 0 || index >= vertices.size()) { lastError_ = QStringLiteral("PLY: face index out of range"); return nullptr; }
+            face.push_back(index);
+          }
+          faces.push_back(face);
+        }
+      }
+    } else {
+      const bool bigEndian = format == PlyFormat::BinaryBig;
+      for (const PlyProperty& prop : vertexProps) {
+        if (prop.isList) { lastError_ = QStringLiteral("PLY: list vertex properties are not supported"); return nullptr; }
+        if (scalarByteSize(prop.type) <= 0) { lastError_ = QStringLiteral("PLY: unsupported vertex property type"); return nullptr; }
+      }
+      int vertexStride = 0;
+      for (const PlyProperty& prop : vertexProps) vertexStride += scalarByteSize(prop.type);
+      const char* body = bytes.constData() + bodyStart;
+      qsizetype bodySize = bytes.size() - bodyStart;
+      if (bodySize < static_cast<qsizetype>(vertexCount) * vertexStride) {
+        lastError_ = QStringLiteral("PLY: truncated vertex data");
+        return nullptr;
+      }
+      QVector<int> propOffsets(vertexProps.size(), 0);
+      int offset = 0;
+      for (int i = 0; i < vertexProps.size(); ++i) {
+        propOffsets[i] = offset;
+        offset += scalarByteSize(vertexProps[i].type);
+      }
+      for (int i = 0; i < vertexCount; ++i) {
+        const char* row = body + static_cast<qsizetype>(i) * vertexStride;
+        double x = 0.0, y = 0.0, z = 0.0;
+        if (!readScalar(row + propOffsets[coordXIndex], vertexProps[coordXIndex].type, bigEndian, &x) ||
+            !readScalar(row + propOffsets[coordYIndex], vertexProps[coordYIndex].type, bigEndian, &y) ||
+            !readScalar(row + propOffsets[coordZIndex], vertexProps[coordZIndex].type, bigEndian, &z) ||
+            !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+          lastError_ = QStringLiteral("PLY: invalid vertex value");
+          return nullptr;
+        }
+        vertices.push_back(QVector3D(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)));
+        if (hasVertexColor) {
+          auto colorComponent = [&](int propIndex, float fallback) {
+            if (propIndex < 0 || propIndex >= vertexProps.size()) return fallback;
+            double raw = 0.0;
+            if (!readScalar(row + propOffsets[propIndex], vertexProps[propIndex].type, bigEndian, &raw)) return fallback;
+            return normalizeColor(raw, vertexProps[propIndex].type);
+          };
+          vertexColors.push_back(QVector4D(colorComponent(colorRIndex, 1.0f),
+                                           colorComponent(colorGIndex, 1.0f),
+                                           colorComponent(colorBIndex, 1.0f),
+                                           colorComponent(colorAIndex, 1.0f)));
+        }
+      }
+      qsizetype cursor = static_cast<qsizetype>(vertexCount) * vertexStride;
+      if (faceCount > 0) {
+        if (!faceElement || faceElement->properties.isEmpty() || !faceElement->properties[0].isList) {
+          lastError_ = QStringLiteral("PLY: invalid face row");
+          return nullptr;
+        }
+        const QString& countType = faceElement->properties[0].countType;
+        const QString& itemType = faceElement->properties[0].itemType;
+        const int countSize = scalarByteSize(countType);
+        const int itemSize = scalarByteSize(itemType);
+        if (countSize <= 0 || itemSize <= 0) { lastError_ = QStringLiteral("PLY: unsupported face list type"); return nullptr; }
+        for (int i = 0; i < faceCount; ++i) {
+          if (cursor + countSize > bodySize) { lastError_ = QStringLiteral("PLY: truncated face data"); return nullptr; }
+          double countValue = 0.0;
+          if (!readScalar(body + cursor, countType, bigEndian, &countValue)) {
+            lastError_ = QStringLiteral("PLY: invalid face row");
+            return nullptr;
+          }
+          cursor += countSize;
+          const int count = static_cast<int>(countValue);
+          if (count < 3 || cursor + static_cast<qsizetype>(count) * itemSize > bodySize) {
+            lastError_ = QStringLiteral("PLY: invalid face row");
+            return nullptr;
+          }
+          QVector<int> face;
+          for (int j = 0; j < count; ++j) {
+            double indexValue = 0.0;
+            if (!readScalar(body + cursor, itemType, bigEndian, &indexValue)) {
+              lastError_ = QStringLiteral("PLY: invalid face row");
+              return nullptr;
+            }
+            cursor += itemSize;
+            const int index = static_cast<int>(indexValue);
+            if (indexValue < 0 || index >= vertices.size()) { lastError_ = QStringLiteral("PLY: face index out of range"); return nullptr; }
+            face.push_back(index);
+          }
+          faces.push_back(face);
+        }
+      }
     }
-    if (vertices.isEmpty() || faces.isEmpty()) { lastError_ = QStringLiteral("PLY: no mesh data"); return nullptr; }
+    if (vertices.isEmpty()) { lastError_ = QStringLiteral("PLY: no mesh data"); return nullptr; }
+    if (faces.isEmpty() && vertices.size() > kPointCloudBudget) {
+      const int before = vertices.size();
+      decimatePointCloud(vertices, vertexColors, kPointCloudBudget);
+      qInfo() << "PLY point cloud decimated:" << before << "->" << vertices.size();
+    }
     auto mesh = makeShared<Mesh>();
     mesh->setVertexCount(vertices.size());
     auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
@@ -1001,9 +1390,172 @@ public:
       (*posAttr)[i] = vertices[i];
       (*normAttr)[i] = QVector3D(0.0f, 0.0f, 0.0f);
       (*uvAttr)[i] = QVector2D(0.0f, 0.0f);
-      (*colorAttr)[i] = QVector4D(1.0f, 1.0f, 1.0f, 1.0f);
+      (*colorAttr)[i] = hasVertexColor ? vertexColors[i] : QVector4D(1.0f, 1.0f, 1.0f, 1.0f);
     }
     for (const QVector<int>& face : faces) mesh->addPolygon(face);
+    if (!faces.isEmpty()) {
+      // PLY carries no normals of its own here; derive smooth normals so the
+      // mesh lights correctly instead of rendering with zero normals.
+      mesh->computeVertexNormals();
+    }
+    mesh->updateBounds();
+    return mesh;
+  }
+
+  // Minimal uncompressed LAS reader (LAS 1.0-1.4 point formats 0-8).
+  // Only XYZ, intensity, and RGB are consumed; VLRs, waveform, and extra
+  // bytes are skipped. Compressed LAZ requires an external decoder and is
+  // rejected with a clear message.
+  SharedPtr<Mesh> loadLas(const QString &path) {
+    lastBackend_ = MeshImporter::Backend::Las;
+    lastError_.clear();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+      lastError_ = QStringLiteral("LAS: cannot open file");
+      return nullptr;
+    }
+    const QByteArray bytes = file.readAll();
+    if (bytes.size() < 227 || memcmp(bytes.constData(), "LASF", 4) != 0) {
+      if (bytes.size() >= 4 && memcmp(bytes.constData(), "LASF", 4) == 0) {
+        lastError_ = QStringLiteral("LAS: truncated header");
+      } else {
+        lastError_ = QStringLiteral("LAS: not a LAS file (LAZ compression is not supported)");
+      }
+      return nullptr;
+    }
+    auto readU8 = [&](qsizetype offset) {
+      return static_cast<unsigned char>(bytes[offset]);
+    };
+    auto readU16 = [&](qsizetype offset) {
+      std::uint16_t v = 0;
+      std::memcpy(&v, bytes.constData() + offset, sizeof(v));
+      return v;
+    };
+    auto readU32 = [&](qsizetype offset) {
+      std::uint32_t v = 0;
+      std::memcpy(&v, bytes.constData() + offset, sizeof(v));
+      return v;
+    };
+    auto readU64 = [&](qsizetype offset) {
+      std::uint64_t v = 0;
+      std::memcpy(&v, bytes.constData() + offset, sizeof(v));
+      return v;
+    };
+    auto readI32 = [&](qsizetype offset) {
+      std::int32_t v = 0;
+      std::memcpy(&v, bytes.constData() + offset, sizeof(v));
+      return v;
+    };
+    auto readF64 = [&](qsizetype offset) {
+      double v = 0.0;
+      std::memcpy(&v, bytes.constData() + offset, sizeof(v));
+      return v;
+    };
+    const unsigned versionMajor = readU8(24);
+    const unsigned versionMinor = readU8(25);
+    if (versionMajor != 1 || versionMinor > 4) {
+      lastError_ = QStringLiteral("LAS: unsupported version");
+      return nullptr;
+    }
+    const qsizetype headerSize = readU16(94);
+    const qsizetype pointOffset = readU32(96);
+    const unsigned pointFormat = readU8(104);
+    const qsizetype recordLength = readU16(105);
+    std::uint64_t pointCount = readU32(107);
+    if (pointCount == 0 && headerSize >= 375) {
+      pointCount = readU64(247);
+    }
+    if (pointCount == 0 || pointCount > 2000000) {
+      lastError_ = pointCount == 0
+          ? QStringLiteral("LAS: no point data")
+          : QStringLiteral("LAS: point count too large for minimal import");
+      return nullptr;
+    }
+    // RGB offset within the record, or -1 when the format carries no color.
+    qsizetype rgbOffset = -1;
+    qsizetype minRecordLength = 0;
+    switch (pointFormat) {
+      case 0: minRecordLength = 20; break;
+      case 1: minRecordLength = 28; break;
+      case 2: minRecordLength = 26; rgbOffset = 20; break;
+      case 3: minRecordLength = 34; rgbOffset = 20; break;
+      case 4: minRecordLength = 57; break;
+      case 5: minRecordLength = 63; rgbOffset = 20; break;
+      case 6: minRecordLength = 30; break;
+      case 7: minRecordLength = 36; rgbOffset = 30; break;
+      case 8: minRecordLength = 38; rgbOffset = 30; break;
+      default:
+        lastError_ = QStringLiteral("LAS: unsupported point format (waveform formats are not supported)");
+        return nullptr;
+    }
+    if (recordLength < minRecordLength) {
+      lastError_ = QStringLiteral("LAS: invalid point record length");
+      return nullptr;
+    }
+    const double scaleX = readF64(131);
+    const double scaleY = readF64(139);
+    const double scaleZ = readF64(147);
+    const double offsetX = readF64(155);
+    const double offsetY = readF64(163);
+    const double offsetZ = readF64(171);
+    if (!(scaleX > 0.0) || !(scaleY > 0.0) || !(scaleZ > 0.0) ||
+        !std::isfinite(offsetX) || !std::isfinite(offsetY) || !std::isfinite(offsetZ)) {
+      lastError_ = QStringLiteral("LAS: invalid scale or offset");
+      return nullptr;
+    }
+    if (pointOffset < 0 || pointOffset + static_cast<qsizetype>(pointCount) * recordLength > bytes.size()) {
+      lastError_ = QStringLiteral("LAS: truncated point data");
+      return nullptr;
+    }
+    QVector<QVector3D> vertices;
+    vertices.reserve(static_cast<int>(pointCount));
+    QVector<QVector4D> vertexColors;
+    vertexColors.reserve(static_cast<int>(pointCount));
+    const bool hasRgb = rgbOffset >= 0;
+    for (std::uint64_t i = 0; i < pointCount; ++i) {
+      const char* record = bytes.constData() + pointOffset + static_cast<qsizetype>(i) * recordLength;
+      std::int32_t rawX = 0, rawY = 0, rawZ = 0;
+      std::memcpy(&rawX, record, sizeof(rawX));
+      std::memcpy(&rawY, record + 4, sizeof(rawY));
+      std::memcpy(&rawZ, record + 8, sizeof(rawZ));
+      const double x = rawX * scaleX + offsetX;
+      const double y = rawY * scaleY + offsetY;
+      const double z = rawZ * scaleZ + offsetZ;
+      if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+        lastError_ = QStringLiteral("LAS: invalid point value");
+        return nullptr;
+      }
+      vertices.push_back(QVector3D(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)));
+      if (hasRgb) {
+        std::uint16_t r = 0, g = 0, b = 0;
+        std::memcpy(&r, record + rgbOffset, sizeof(r));
+        std::memcpy(&g, record + rgbOffset + 2, sizeof(g));
+        std::memcpy(&b, record + rgbOffset + 4, sizeof(b));
+        vertexColors.push_back(QVector4D(r / 65535.0f, g / 65535.0f, b / 65535.0f, 1.0f));
+      } else {
+        std::uint16_t intensity = 0;
+        std::memcpy(&intensity, record + 12, sizeof(intensity));
+        const float gray = intensity / 65535.0f;
+        vertexColors.push_back(QVector4D(gray, gray, gray, 1.0f));
+      }
+    }
+    if (vertices.size() > kPointCloudBudget) {
+      const int before = vertices.size();
+      decimatePointCloud(vertices, vertexColors, kPointCloudBudget);
+      qInfo() << "LAS point cloud decimated:" << before << "->" << vertices.size();
+    }
+    auto mesh = makeShared<Mesh>();
+    mesh->setVertexCount(vertices.size());
+    auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
+    auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
+    auto uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    auto colorAttr = mesh->vertexAttributes().add<QVector4D>("color");
+    for (int i = 0; i < vertices.size(); ++i) {
+      (*posAttr)[i] = vertices[i];
+      (*normAttr)[i] = QVector3D(0.0f, 0.0f, 0.0f);
+      (*uvAttr)[i] = QVector2D(0.0f, 0.0f);
+      (*colorAttr)[i] = vertexColors[i];
+    }
     mesh->updateBounds();
     return mesh;
   }
@@ -1583,6 +2135,10 @@ SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
 
   if (ext == QStringLiteral("ply")) {
     return impl_->loadPly(qpath);
+  }
+
+  if (ext == QStringLiteral("las")) {
+    return impl_->loadLas(qpath);
   }
 
   if (ext == QStringLiteral("usda")) {

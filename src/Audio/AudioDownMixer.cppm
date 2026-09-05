@@ -180,6 +180,26 @@ AudioSegment AudioDownMixer::process(const AudioSegment& source) const {
                 output.channelData[1][i] = sample;
             }
         }
+        else if (source.layout == AudioChannelLayout::Surround714 && source.channelCount() >= 12) {
+            // 7.1.4 -> Stereo. Preserve the 7.1 bed mapping and fold the four
+            // height channels in at -9 dB. This remains a device fallback;
+            // it does not replace the spatial object's headphone renderer.
+            float* outL = output.channelData[0].data();
+            float* outR = output.channelData[1].data();
+            constexpr float heightMixLevel = 0.35355339f;
+            for (int i = 0; i < frames; ++i) {
+                const float center = sampleAt(source.channelData[2], i) * impl_->centerMixLevel_;
+                const float lfeSample = sampleAt(source.channelData[3], i) * impl_->lfeMixLevel_;
+                outL[i] = sampleAt(source.channelData[0], i) + center + lfeSample
+                    + sampleAt(source.channelData[4], i) * impl_->surroundMixLevel_
+                    + sampleAt(source.channelData[6], i) * impl_->backMixLevel_
+                    + (sampleAt(source.channelData[8], i) + sampleAt(source.channelData[10], i)) * heightMixLevel;
+                outR[i] = sampleAt(source.channelData[1], i) + center + lfeSample
+                    + sampleAt(source.channelData[5], i) * impl_->surroundMixLevel_
+                    + sampleAt(source.channelData[7], i) * impl_->backMixLevel_
+                    + (sampleAt(source.channelData[9], i) + sampleAt(source.channelData[11], i)) * heightMixLevel;
+            }
+        }
         else if (source.layout == AudioChannelLayout::Surround71 && source.channelCount() >= 8) {
             // 7.1 -> Stereo (ITU-R BS.775)
             float* outL = output.channelData[0].data();

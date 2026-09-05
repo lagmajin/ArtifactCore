@@ -36,6 +36,7 @@ struct ParticleRenderer::Impl
 };
 
 struct ParticleCullConstants {
+    float modelMatrix[16] = {};
     float viewMatrix[16] = {};
     float projMatrix[16] = {};
     Uint32 inputCount = 0;
@@ -61,6 +62,7 @@ StructuredBuffer<ParticleData> g_Input : register(t0);
 RWStructuredBuffer<ParticleData> g_Output : register(u0);
 RWStructuredBuffer<uint> g_Args : register(u1);
 cbuffer CullConstants : register(b0) {
+    float4 ModelRow0; float4 ModelRow1; float4 ModelRow2; float4 ModelRow3;
     float4 ViewRow0; float4 ViewRow1; float4 ViewRow2; float4 ViewRow3;
     float4 ProjRow0; float4 ProjRow1; float4 ProjRow2; float4 ProjRow3;
     uint InputCount;
@@ -73,8 +75,10 @@ void CSMain(uint3 id : SV_DispatchThreadID) {
     ParticleData p = g_Input[id.x];
     if (p.age >= p.lifetime || p.color.a <= 0.0 || p.size <= 0.0) return;
     float4 localPos = float4(p.position, 1.0);
-    float4 viewPos = float4(dot(localPos, ViewRow0), dot(localPos, ViewRow1),
-                           dot(localPos, ViewRow2), dot(localPos, ViewRow3));
+    float4 worldPos = float4(dot(localPos, ModelRow0), dot(localPos, ModelRow1),
+                             dot(localPos, ModelRow2), dot(localPos, ModelRow3));
+    float4 viewPos = float4(dot(worldPos, ViewRow0), dot(worldPos, ViewRow1),
+                           dot(worldPos, ViewRow2), dot(worldPos, ViewRow3));
     float4 clip = float4(dot(viewPos, ProjRow0), dot(viewPos, ProjRow1),
                          dot(viewPos, ProjRow2), dot(viewPos, ProjRow3));
     float margin = max(2.0, p.size * max(1.0, p.stretch) * 6.0);
@@ -110,6 +114,10 @@ struct ParticleData {
 StructuredBuffer<ParticleData> g_Particles : register(t0);
 
 cbuffer Constants : register(b0) {
+    float4 ModelRow0;
+    float4 ModelRow1;
+    float4 ModelRow2;
+    float4 ModelRow3;
     float4 ViewRow0;
     float4 ViewRow1;
     float4 ViewRow2;
@@ -144,11 +152,16 @@ PS_Input VSMain(VS_Input In) {
     ParticleData p = g_Particles[In.InstanceID];
     
     float4 localPos = float4(p.position, 1.0);
+    float4 worldPos = float4(
+        dot(localPos, ModelRow0),
+        dot(localPos, ModelRow1),
+        dot(localPos, ModelRow2),
+        dot(localPos, ModelRow3));
     float4 viewPos = float4(
-        dot(localPos, ViewRow0),
-        dot(localPos, ViewRow1),
-        dot(localPos, ViewRow2),
-        dot(localPos, ViewRow3));
+        dot(worldPos, ViewRow0),
+        dot(worldPos, ViewRow1),
+        dot(worldPos, ViewRow2),
+        dot(worldPos, ViewRow3));
     
     // Rotation (degrees to radians)
     float rotationDegrees = p.rotation;
@@ -171,11 +184,16 @@ PS_Input VSMain(VS_Input In) {
     
     if (BillboardMode == 0) {
         localPos.xy += rotatedOffset;
+        worldPos = float4(
+            dot(localPos, ModelRow0),
+            dot(localPos, ModelRow1),
+            dot(localPos, ModelRow2),
+            dot(localPos, ModelRow3));
         viewPos = float4(
-            dot(localPos, ViewRow0),
-            dot(localPos, ViewRow1),
-            dot(localPos, ViewRow2),
-            dot(localPos, ViewRow3));
+            dot(worldPos, ViewRow0),
+            dot(worldPos, ViewRow1),
+            dot(worldPos, ViewRow2),
+            dot(worldPos, ViewRow3));
     } else {
         viewPos.xy += rotatedOffset;
     }
@@ -526,6 +544,8 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
             pImpl_->pIndirectArgsBuffer_, 0, sizeof(args), args,
             RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         ParticleCullConstants cullConstants;
+        std::memcpy(cullConstants.modelMatrix, constants_.modelMatrix,
+                    sizeof(cullConstants.modelMatrix));
         std::memcpy(cullConstants.viewMatrix, constants_.viewMatrix,
                     sizeof(cullConstants.viewMatrix));
         std::memcpy(cullConstants.projMatrix, constants_.projMatrix,
@@ -678,6 +698,15 @@ void ParticleRenderer::setViewMatrix(const float* matrix) {
     debugState_ = QStringLiteral("state=matrix-updated view=%1 proj=%2")
                       .arg(1)
                       .arg(constants_.projMatrix[0] != 0.0f || constants_.projMatrix[5] != 0.0f || constants_.projMatrix[10] != 0.0f ? 1 : 0);
+}
+
+void ParticleRenderer::setModelMatrix(const float* matrix) {
+    if (!matrix) {
+        debugState_ = QStringLiteral("state=matrix-update-skipped model=0");
+        qWarning() << "[ParticleRenderer] setModelMatrix() skipped: null matrix";
+        return;
+    }
+    memcpy(constants_.modelMatrix, matrix, sizeof(float) * 16);
 }
 
 QString ParticleRenderer::debugState() const {

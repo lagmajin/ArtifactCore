@@ -65,6 +65,19 @@ float BezierCalculator::getTangentAngle(const QPointF& p0, const QPointF& p1, co
     return std::atan2(tangent.y(), tangent.x()) * 180.0f / 3.14159265f;
 }
 
+QPointF BezierCalculator::evaluateTangent(const QPointF& p0, const QPointF& p1, const QPointF& p2, const QPointF& p3, float t) {
+    const float clampedT = std::clamp(t, 0.0f, 1.0f);
+    const float invT = 1.0f - clampedT;
+    QPointF tangent = 3.0f * invT * invT * (p1 - p0) +
+                      6.0f * invT * clampedT * (p2 - p1) +
+                      3.0f * clampedT * clampedT * (p3 - p2);
+    const float len = std::sqrt(tangent.x() * tangent.x() + tangent.y() * tangent.y());
+    if (!(len > 1.0e-8f) || !std::isfinite(len)) {
+        return QPointF(1.0f, 0.0f);
+    }
+    return tangent / len;
+}
+
 QPointF BezierCalculator::evaluatePath(const QVector<BezierPoint>& points, float t, bool closed) {
     if (points.isEmpty()) return {};
     if (points.size() == 1) return points[0].pos;

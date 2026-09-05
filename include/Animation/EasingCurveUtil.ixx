@@ -18,6 +18,8 @@ export enum class EasingType {
     EaseIn,
     EaseOut,
     EaseInOut,
+    EaseOutIn,
+    Smooth,
     BackIn,
     BackOut,
     BackInOut,
@@ -28,6 +30,10 @@ export enum class EasingType {
     ElasticOut,
     ElasticInOut,
     Expo,
+    Quartic,
+    Quintic,
+    Sine,
+    Circular,
     Bezier,
 };
 
@@ -48,7 +54,12 @@ export inline QString easingTypeToString(EasingType type)
     case EasingType::Linear: return QStringLiteral("Linear");
     case EasingType::EaseIn: return QStringLiteral("Ease In");
     case EasingType::EaseOut: return QStringLiteral("Ease Out");
-    case EasingType::EaseInOut: return QStringLiteral("Ease In-Out");
+    case EasingType::EaseInOut:
+        return QStringLiteral("Ease In-Out");
+    case EasingType::EaseOutIn:
+        return QStringLiteral("Ease Out-In");
+    case EasingType::Smooth:
+        return QStringLiteral("Smooth");
     case EasingType::BackIn: return QStringLiteral("Back In");
     case EasingType::BackOut: return QStringLiteral("Back Out");
     case EasingType::BackInOut: return QStringLiteral("Back In-Out");
@@ -59,6 +70,10 @@ export inline QString easingTypeToString(EasingType type)
     case EasingType::ElasticOut: return QStringLiteral("Elastic Out");
     case EasingType::ElasticInOut: return QStringLiteral("Elastic In-Out");
     case EasingType::Expo: return QStringLiteral("Expo");
+    case EasingType::Quartic: return QStringLiteral("Quartic");
+    case EasingType::Quintic: return QStringLiteral("Quintic");
+    case EasingType::Sine: return QStringLiteral("Sine");
+    case EasingType::Circular: return QStringLiteral("Circular");
     case EasingType::Bezier: return QStringLiteral("Bezier");
     }
     return QStringLiteral("Linear");
@@ -84,6 +99,16 @@ export inline float evaluateEasing(EasingType type, float t) noexcept
             return 2.0f * t * t;
         }
         return 1.0f - std::pow(-2.0f * t + 2.0f, 2.0f) * 0.5f;
+    case EasingType::EaseOutIn:
+        if (t < 0.5f) {
+            const float u = t * 2.0f;
+            return (1.0f - (1.0f - u) * (1.0f - u)) * 0.5f;
+        } {
+            const float u = (t - 0.5f) * 2.0f;
+            return 0.5f + (u * u) * 0.5f;
+        }
+    case EasingType::Smooth:
+        return t * t * (3.0f - 2.0f * t);
     case EasingType::BackIn: {
         const float s = 1.70158f;
         return t * t * ((s + 1.0f) * t - s);
@@ -175,6 +200,16 @@ export inline float evaluateEasing(EasingType type, float t) noexcept
             return 1.0f;
         }
         return std::pow(2.0f, 10.0f * (t - 1.0f));
+    case EasingType::Quartic:
+        return 1.0f - std::pow(1.0f - t, 4.0f);
+    case EasingType::Quintic:
+        return 1.0f - std::pow(1.0f - t, 5.0f);
+    case EasingType::Sine:
+        return std::sin((t * 3.14159265f) / 2.0f);
+    case EasingType::Circular: {
+        const float u = t - 1.0f;
+        return std::sqrt(std::max(0.0f, 1.0f - u * u));
+    }
     case EasingType::Bezier:
         {
             float x = t;
@@ -187,7 +222,8 @@ export inline float evaluateEasing(EasingType type, float t) noexcept
                 if (std::abs(dx) < 1e-6f) {
                     break;
                 }
-                const float cx = mt2 * mt + 3.0f * mt2 * x * 0.42f +
+                // P0=(0,0), P3=(1,1): no mt3 term.
+                const float cx = 3.0f * mt2 * x * 0.42f +
                                  3.0f * mt * x2 * 0.58f + x2 * x;
                 x -= (cx - t) / dx;
             }
@@ -212,6 +248,10 @@ export inline InterpolationType easingTypeToInterpolation(EasingType type) noexc
         return static_cast<InterpolationType>(4);
     case EasingType::EaseInOut:
         return static_cast<InterpolationType>(5);
+    case EasingType::EaseOutIn:
+        return static_cast<InterpolationType>(6);
+    case EasingType::Smooth:
+        return static_cast<InterpolationType>(2);
     case EasingType::BounceIn:
         return static_cast<InterpolationType>(16);
     case EasingType::BounceOut:
@@ -232,6 +272,14 @@ export inline InterpolationType easingTypeToInterpolation(EasingType type) noexc
         return static_cast<InterpolationType>(24);
     case EasingType::Expo:
         return static_cast<InterpolationType>(11);
+    case EasingType::Quartic:
+        return static_cast<InterpolationType>(9);
+    case EasingType::Quintic:
+        return static_cast<InterpolationType>(10);
+    case EasingType::Sine:
+        return static_cast<InterpolationType>(13);
+    case EasingType::Circular:
+        return static_cast<InterpolationType>(14);
     case EasingType::Bezier:
         return static_cast<InterpolationType>(25);
     }
@@ -246,6 +294,8 @@ export inline std::vector<EasingCandidate> defaultEasingCandidates()
         {QStringLiteral("Ease In"), EasingType::EaseIn},
         {QStringLiteral("Ease Out"), EasingType::EaseOut},
         {QStringLiteral("Easy Ease"), EasingType::EaseInOut},
+        {QStringLiteral("Ease Out-In"), EasingType::EaseOutIn},
+        {QStringLiteral("Smooth"), EasingType::Smooth},
         {QStringLiteral("Back In"), EasingType::BackIn},
         {QStringLiteral("Back Out"), EasingType::BackOut},
         {QStringLiteral("Back In-Out"), EasingType::BackInOut},
@@ -256,6 +306,10 @@ export inline std::vector<EasingCandidate> defaultEasingCandidates()
         {QStringLiteral("Elastic Out"), EasingType::ElasticOut},
         {QStringLiteral("Elastic In-Out"), EasingType::ElasticInOut},
         {QStringLiteral("Expo"), EasingType::Expo},
+        {QStringLiteral("Quartic"), EasingType::Quartic},
+        {QStringLiteral("Quintic"), EasingType::Quintic},
+        {QStringLiteral("Sine"), EasingType::Sine},
+        {QStringLiteral("Circular"), EasingType::Circular},
         {QStringLiteral("Bezier"), EasingType::Bezier},
     };
 }

@@ -82,6 +82,8 @@ float MatteEvaluator::combine(float current, float next, MatteStackMode mode)
             return std::min(current, next);
         case MatteStackMode::Subtract:
             return std::max(0.0f, current - next);
+        case MatteStackMode::Difference:
+            return std::abs(current - next);
         default:
             return current;
     }

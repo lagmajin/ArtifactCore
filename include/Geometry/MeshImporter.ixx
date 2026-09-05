@@ -51,7 +51,8 @@ public:
         PMD,
         Usda,
         Stl,
-        Ply
+        Ply,
+        Las
     };
 private:
     class Impl;

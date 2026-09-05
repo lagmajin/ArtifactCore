@@ -72,8 +72,12 @@ export struct PhysicsLODSettings {
 export class PhysicsSystem {
 public:
     static PhysicsSystem& instance() {
-        static PhysicsSystem inst;
-        return inst;
+        // Compositions may outlive other function-local service singletons
+        // during CRT teardown and unregister their worlds from here.  Keep this
+        // process-lifetime service valid until process termination instead of
+        // relying on cross-singleton static destruction order.
+        static PhysicsSystem* const inst = new PhysicsSystem();
+        return *inst;
     }
 
     void setPhysicsLODSettings(const PhysicsLODSettings& settings) {
@@ -205,7 +209,7 @@ public:
         LayerID layerId, MpmMaterialPreset preset = MpmMaterialPreset::Flesh) {
         auto solver = makeShared<MpmSolver2D>();
         solver->applyMaterialPreset(preset);
-        materialSolvers_[layerId] = solver;
+        setMaterialSolver(layerId, solver);
         materialSnapshots_.erase(layerId);
         return solver;
     }
@@ -234,12 +238,14 @@ public:
     }
 
     SharedPtr<MpmSolver2D> getMaterialSolver(LayerID layerId) {
-        auto it = materialSolvers_.find(layerId);
-        return it != materialSolvers_.end() ? it->second : nullptr;
+        if (const auto* solver = findMaterialSolver(layerId)) {
+            return *solver;
+        }
+        return nullptr;
     }
 
     void unregisterMaterialSolver(LayerID layerId) {
-        materialSolvers_.erase(layerId);
+        removeMaterialSolver(layerId);
         materialSnapshots_.erase(layerId);
     }
 
@@ -377,9 +383,9 @@ public:
     ParticleRenderData buildMpmParticleRenderData(
         LayerID layerId, float particleSize = 3.0f, float alpha = 1.0f) const {
         ParticleRenderData out;
-        auto it = materialSolvers_.find(layerId);
-        if (it == materialSolvers_.end() || !it->second) return out;
-        const auto& particles = it->second->particles();
+        const auto* solver = findMaterialSolver(layerId);
+        if (!solver || !*solver) return out;
+        const auto& particles = (*solver)->particles();
         out.particles.reserve(particles.size());
         for (const auto& p : particles) {
             if (!p.active) continue;
@@ -446,7 +452,9 @@ public:
                 snapshots.erase(snapshots.begin());
             }
         }
-        for (const auto& [layerId, solver] : materialSolvers_) {
+        for (const auto& entry : materialSolvers_) {
+            const auto& layerId = entry.layerId;
+            const auto& solver = entry.solver;
             if (!solver) continue;
             auto& snapshots = materialSnapshots_[layerId];
             snapshots[frame] = solver->snapshot();
@@ -469,7 +477,9 @@ public:
                 return false;
             }
         }
-        for (const auto& [layerId, solver] : materialSolvers_) {
+        for (const auto& entry : materialSolvers_) {
+            const auto& layerId = entry.layerId;
+            const auto& solver = entry.solver;
             if (!solver) continue;
             const auto cacheIt = materialSnapshots_.find(layerId);
             if (cacheIt == materialSnapshots_.end()) return false;
@@ -483,7 +493,9 @@ public:
             if (!solver) continue;
             solver->restoreSnapshot(softBodySnapshots_.at(layerId).at(frame));
         }
-        for (const auto& [layerId, solver] : materialSolvers_) {
+        for (const auto& entry : materialSolvers_) {
+            const auto& layerId = entry.layerId;
+            const auto& solver = entry.solver;
             if (!solver) continue;
             solver->restoreSnapshot(materialSnapshots_.at(layerId).at(frame));
         }
@@ -495,7 +507,18 @@ public:
      * @param dt 経過時間（秒）
      * @param gravity 重力加速度（デフォルト 9.8 [m/s^2]）
      */
-    void update(float dt, float gravityX = 0.0f, float gravityY = 9.8f) {
+    // Composition playback owns its shared world's fixed clock. Never step
+    // other compositions as a side effect of advancing this one.
+    void updateCompositionRigidWorld(CompositionID id, float dt) {
+        if (dt <= 0.0f || lodSettings_.level == PhysicsLODLevel::Frozen) return;
+        if (auto world = getCompositionRigidWorld(id)) {
+            world->step(dt, lodSettings_.rigidBodySubSteps > 0
+                ? lodSettings_.rigidBodySubSteps : 4);
+        }
+    }
+
+    void update(float dt, float gravityX = 0.0f, float gravityY = 9.8f,
+                bool includeCompositionRigidWorlds = true) {
         if (dt <= 0.0f) return;
 
         float simulationDt = dt;
@@ -544,7 +567,9 @@ public:
             sb->update(simulationDt, gravityX, gravityY);
         }
 
-        for (auto& [id, solver] : materialSolvers_) {
+        for (auto& entry : materialSolvers_) {
+            const auto& id = entry.layerId;
+            auto& solver = entry.solver;
             if (solver) {
                 solver->setFractureEnabled(!lodSettings_.disableFracture);
                 if (lodSettings_.materialMaxSubSteps > 0) {
@@ -585,7 +610,7 @@ public:
         }
 
         for (auto& [id, world] : compositionRigidWorlds_) {
-            if (world) {
+            if (includeCompositionRigidWorlds && world) {
                 world->step(simulationDt, lodSettings_.rigidBodySubSteps > 0
                     ? lodSettings_.rigidBodySubSteps : 4);
             }
@@ -618,8 +643,42 @@ public:
     }
 
 private:
+    struct MaterialSolverEntry {
+        LayerID layerId;
+        SharedPtr<MpmSolver2D> solver;
+    };
+
+    SharedPtr<MpmSolver2D>* findMaterialSolver(LayerID layerId) {
+        for (auto& entry : materialSolvers_) {
+            if (entry.layerId == layerId) return &entry.solver;
+        }
+        return nullptr;
+    }
+
+    const SharedPtr<MpmSolver2D>* findMaterialSolver(LayerID layerId) const {
+        for (const auto& entry : materialSolvers_) {
+            if (entry.layerId == layerId) return &entry.solver;
+        }
+        return nullptr;
+    }
+
+    void setMaterialSolver(LayerID layerId, SharedPtr<MpmSolver2D> solver) {
+        if (auto* existing = findMaterialSolver(layerId)) {
+            *existing = std::move(solver);
+            return;
+        }
+        materialSolvers_.add(MaterialSolverEntry{layerId, std::move(solver)});
+    }
+
+    bool removeMaterialSolver(LayerID layerId) {
+        return materialSolvers_.removeIf(
+            [layerId](const MaterialSolverEntry& entry) {
+                return entry.layerId == layerId;
+            }) != 0;
+    }
+
     PhysicsSystem() = default;
-    ~PhysicsSystem() = default;
+    ~PhysicsSystem();
 
     PhysicsSystem(const PhysicsSystem&) = delete;
     PhysicsSystem& operator=(const PhysicsSystem&) = delete;
@@ -628,7 +687,7 @@ private:
     std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
     std::map<LayerID, NamedVector<SoftBodyCollider>> softBodyColliders_;
     std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
-    std::map<LayerID, SharedPtr<MpmSolver2D>> materialSolvers_;
+    NamedVector<MaterialSolverEntry> materialSolvers_;
     std::map<LayerID, std::map<int64_t, MpmSnapshot2D>> materialSnapshots_;
     NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
@@ -642,5 +701,9 @@ private:
     static constexpr std::size_t maxSoftBodySnapshotsPerLayer_ = 480;
     static constexpr std::size_t maxMaterialSnapshotsPerLayer_ = 480;
 };
+
+// Keep destruction of container-held solver ownership out of the exported
+// class definition so the module interface does not eagerly instantiate it.
+PhysicsSystem::~PhysicsSystem() = default;
 
 } // namespace ArtifactCore

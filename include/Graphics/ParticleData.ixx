@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <vector>
+#include <array>
 #include <cstdint>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h>
 
@@ -61,6 +62,13 @@ struct ParticleRenderData {
     std::vector<ParticleVertex> particles;
     int64_t frameNumber = 0;
     ParticleRenderOptions options;
+    // Row-major transform consumed by the particle shader.  2D callers leave
+    // this as identity because their coordinates are already canvas-space.
+    std::array<float, 16> modelMatrix = {
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 } // namespace ArtifactCore

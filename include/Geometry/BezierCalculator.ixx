@@ -57,6 +57,9 @@ public:
 
     // 接線角度 (Degrees)
     static float getTangentAngle(const QPointF& p0, const QPointF& p1, const QPointF& p2, const QPointF& p3, float t);
+
+    // 3次ベジェの解析的接線ベクトル (正規化済み)。縮退時は (1,0) フォールバック。
+    static QPointF evaluateTangent(const QPointF& p0, const QPointF& p1, const QPointF& p2, const QPointF& p3, float t);
 };
 
 } // namespace ArtifactCore

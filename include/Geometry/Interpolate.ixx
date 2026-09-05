@@ -284,7 +284,6 @@ export inline float bezierEvaluate(float t, float cp1x, float cp1y,
 
     const float mt = 1.0f - x;
     const float mt2 = mt * mt;
-    const float mt3 = mt2 * mt;
 
     const float dx = 3.0f * mt2 * cp1x + 6.0f * mt * x * (cp2x - cp1x) +
                      3.0f * t2 * (1.0f - cp2x);
@@ -293,7 +292,7 @@ export inline float bezierEvaluate(float t, float cp1x, float cp1y,
       break;
     }
 
-    const float cx = mt3 + 3.0f * mt2 * x * cp1x + 3.0f * mt * t2 * cp2x;
+    const float cx = 3.0f * mt2 * x * cp1x + 3.0f * mt * t2 * cp2x + t3;
     x -= (cx - t) / dx;
   }
 
@@ -301,15 +300,216 @@ export inline float bezierEvaluate(float t, float cp1x, float cp1y,
   const float t3 = t2 * x;
   const float mt = 1.0f - x;
   const float mt2 = mt * mt;
-  const float mt3 = mt2 * mt;
 
-  return mt3 + 3.0f * mt2 * x * cp1y + 3.0f * mt * t2 * cp2y + t3;
+  return 3.0f * mt2 * x * cp1y + 3.0f * mt * t2 * cp2y + t3;
 }
 
 struct CubicOut {
   template <typename T>
   T operator()(const T &start, const T &end, float alpha) const {
     alpha = 1.0f - std::pow(1.0f - alpha, 3.0f);
+    return start + (end - start) * alpha;
+  }
+};
+
+struct CubicIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    alpha = alpha * alpha * alpha;
+    return start + (end - start) * alpha;
+  }
+};
+
+struct CubicInOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (alpha < 0.5f) {
+      alpha = 4.0f * alpha * alpha * alpha;
+    } else {
+      alpha = 1.0f - std::pow(-2.0f * alpha + 2.0f, 3.0f) / 2.0f;
+    }
+    return start + (end - start) * alpha;
+  }
+};
+
+struct QuarticIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    const float a2 = alpha * alpha;
+    alpha = a2 * a2;
+    return start + (end - start) * alpha;
+  }
+};
+
+struct QuarticOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    alpha = 1.0f - std::pow(1.0f - alpha, 4.0f);
+    return start + (end - start) * alpha;
+  }
+};
+
+struct QuarticInOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (alpha < 0.5f) {
+      const float a2 = alpha * alpha;
+      alpha = 8.0f * a2 * a2;
+    } else {
+      alpha = 1.0f - std::pow(-2.0f * alpha + 2.0f, 4.0f) / 2.0f;
+    }
+    return start + (end - start) * alpha;
+  }
+};
+
+struct QuinticIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    alpha = alpha * alpha * alpha * alpha * alpha;
+    return start + (end - start) * alpha;
+  }
+};
+
+struct QuinticOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    alpha = 1.0f - std::pow(1.0f - alpha, 5.0f);
+    return start + (end - start) * alpha;
+  }
+};
+
+struct QuinticInOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (alpha < 0.5f) {
+      alpha = 16.0f * alpha * alpha * alpha * alpha * alpha;
+    } else {
+      alpha = 1.0f - std::pow(-2.0f * alpha + 2.0f, 5.0f) / 2.0f;
+    }
+    return start + (end - start) * alpha;
+  }
+};
+
+struct SineIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    alpha = 1.0f - std::cos(alpha * 3.14159265f / 2.0f);
+    return start + (end - start) * alpha;
+  }
+};
+
+struct SineInOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    alpha = -(std::cos(3.14159265f * alpha) - 1.0f) / 2.0f;
+    return start + (end - start) * alpha;
+  }
+};
+
+struct CosineEase {
+  // Identical curve to SineInOut; named alias for the Cosine enum entry.
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    return SineInOut()(start, end, alpha);
+  }
+};
+
+struct CircularIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    alpha = 1.0f - std::sqrt(std::max(0.0f, 1.0f - alpha * alpha));
+    return start + (end - start) * alpha;
+  }
+};
+
+struct CircularOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    alpha = std::sqrt(std::max(0.0f, 1.0f - (alpha - 1.0f) * (alpha - 1.0f)));
+    return start + (end - start) * alpha;
+  }
+};
+
+struct CircularInOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (alpha < 0.5f) {
+      alpha = (1.0f - std::sqrt(std::max(0.0f, 1.0f - 4.0f * alpha * alpha))) / 2.0f;
+    } else {
+      alpha = (std::sqrt(std::max(0.0f, 1.0f - (-2.0f * alpha + 2.0f) * (-2.0f * alpha + 2.0f))) + 1.0f) / 2.0f;
+    }
+    return start + (end - start) * alpha;
+  }
+};
+
+struct ExponentialIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (alpha <= 0.0f) return start;
+    alpha = std::pow(2.0f, 10.0f * alpha - 10.0f);
+    return start + (end - start) * alpha;
+  }
+};
+
+struct ExponentialOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (alpha >= 1.0f) return end;
+    alpha = 1.0f - std::pow(2.0f, -10.0f * alpha);
+    return start + (end - start) * alpha;
+  }
+};
+
+struct ExponentialInOut {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (alpha <= 0.0f) return start;
+    if (alpha >= 1.0f) return end;
+    if (alpha < 0.5f) {
+      alpha = std::pow(2.0f, 20.0f * alpha - 10.0f) / 2.0f;
+    } else {
+      alpha = (2.0f - std::pow(2.0f, -20.0f * alpha + 10.0f)) / 2.0f;
+    }
+    return start + (end - start) * alpha;
+  }
+};
+
+struct LogarithmicEase {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    alpha = std::log(1.0f + 1.71828183f * alpha);
+    return start + (end - start) * alpha;
+  }
+};
+
+struct EaseOutIn {
+  template <typename T>
+  T operator()(const T &start, const T &end, float alpha) const {
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (alpha < 0.5f) {
+      const float u = alpha * 2.0f;
+      alpha = (1.0f - (1.0f - u) * (1.0f - u)) * 0.5f;
+    } else {
+      const float u = (alpha - 0.5f) * 2.0f;
+      alpha = 0.5f + (u * u) * 0.5f;
+    }
     return start + (end - start) * alpha;
   }
 };
@@ -328,6 +528,15 @@ T interpolate(const T &start, const T &end, float alpha,
     return EaseOut()(start, end, alpha);
   case InterpolationType::EaseInOut:
     return EaseInOut()(start, end, alpha);
+  case InterpolationType::EaseOutIn:
+    return EaseOutIn()(start, end, alpha);
+  case InterpolationType::Smooth:
+  case InterpolationType::Cosine:
+    return CosineEase()(start, end, alpha);
+  case InterpolationType::Quadratic:
+    return EaseIn()(start, end, alpha);
+  case InterpolationType::Cubic:
+    return CubicOut()(start, end, alpha);
   case InterpolationType::BounceIn:
     return BounceIn()(start, end, alpha);
   case InterpolationType::BounceOut:
@@ -348,10 +557,19 @@ T interpolate(const T &start, const T &end, float alpha,
     return BackInOut()(start, end, alpha);
   case InterpolationType::Sine:
     return SineOut()(start, end, alpha);
-  case InterpolationType::Cubic:
-    return CubicOut()(start, end, alpha);
+  case InterpolationType::Quartic:
+    return QuarticOut()(start, end, alpha);
+  case InterpolationType::Quintic:
+    return QuinticOut()(start, end, alpha);
+  case InterpolationType::Exponential:
+    return ExponentialOut()(start, end, alpha);
+  case InterpolationType::Logarithmic:
+    return LogarithmicEase()(start, end, alpha);
+  case InterpolationType::Circular:
+    return CircularOut()(start, end, alpha);
   case InterpolationType::Bezier:
-    return start; // bezier requires control points — use bezierInterpolate()
+    // Bezier needs control points — KeyframeInterpolator and the color path
+    // route it to bezierInterpolate(); direct calls fall back to Linear.
   default:
     return Linear()(start, end, alpha);
   }
@@ -370,6 +588,38 @@ T bezierInterpolate(const T &start, const T &end, float alpha,
                     float cp1_x, float cp1_y, float cp2_x, float cp2_y) {
   const float easedT = bezierEvaluate(alpha, cp1_x, cp1_y, cp2_x, cp2_y);
   return start + (end - start) * easedT;
+}
+
+/**
+ * @brief Hermite補間 (接線指定)
+ *
+ * Tangents m0/m1 are in value units per unit alpha. Zero tangents give the
+ * smoothstep curve. Out-of-range alpha extrapolates the polynomial as-is.
+ */
+export template <typename T>
+T hermiteInterpolate(const T &p0, const T &m0, const T &p1, const T &m1,
+                     float alpha) {
+  const float t = alpha;
+  const float t2 = t * t;
+  const float t3 = t2 * t;
+  const float h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
+  const float h10 = t3 - 2.0f * t2 + t;
+  const float h01 = -2.0f * t3 + 3.0f * t2;
+  const float h11 = t3 - t2;
+  return p0 * h00 + m0 * h10 + p1 * h01 + m1 * h11;
+}
+
+/**
+ * @brief 均一 Catmull-Romスプライン (p1→p2区間、両端は隣接点)
+ *
+ * Endpoints duplicate when neighbors are missing (evaluate() clamps).
+ */
+export template <typename T>
+T catmullRomInterpolate(const T &p0, const T &p1, const T &p2, const T &p3,
+                        float alpha) {
+  const T m0 = (p2 - p0) * 0.5f;
+  const T m1 = (p3 - p1) * 0.5f;
+  return hermiteInterpolate(p1, m0, p2, m1, alpha);
 }
 
 /**
@@ -423,8 +673,9 @@ public:
 
     if (it == keyframes_.begin()) return keyframes_.front().value;
 
-    const auto& prev = *(it - 1);
-    const auto& curr = *it;
+    const std::size_t i = static_cast<std::size_t>(it - keyframes_.begin());
+    const auto& prev = keyframes_[i - 1];
+    const auto& curr = keyframes_[i];
 
     if (prev.type == InterpolationType::Constant) return prev.value;
 
@@ -436,6 +687,36 @@ public:
     if (prev.type == InterpolationType::Bezier) {
       return bezierInterpolate(prev.value, curr.value, alpha,
                                prev.cp1_x, prev.cp1_y, prev.cp2_x, prev.cp2_y);
+    }
+
+    if (prev.type == InterpolationType::CatmullRom ||
+        prev.type == InterpolationType::Hermite) {
+      const auto& before = keyframes_[i >= 2 ? i - 2 : 0];
+      const auto& after = keyframes_[std::min(i + 1, keyframes_.size() - 1)];
+      if (prev.type == InterpolationType::CatmullRom) {
+        // Uniform Catmull-Rom over values; edge keys duplicate.
+        return catmullRomInterpolate(before.value, prev.value, curr.value,
+                                     after.value, alpha);
+      }
+      // Hermite with finite-difference tangents scaled by this segment's
+      // duration (matches Catmull-Rom for uniformly spaced keys).
+      const double beforeSpan = curr.time - before.time;
+      const double afterSpan = after.time - prev.time;
+      T m0 = prev.value;
+      T m1 = curr.value;
+      if (beforeSpan > 0.0) {
+        m0 = (curr.value - before.value) *
+             static_cast<float>(duration / beforeSpan);
+      } else {
+        m0 = curr.value - prev.value;
+      }
+      if (afterSpan > 0.0) {
+        m1 = (after.value - prev.value) *
+             static_cast<float>(duration / afterSpan);
+      } else {
+        m1 = curr.value - prev.value;
+      }
+      return hermiteInterpolate(prev.value, m0, curr.value, m1, alpha);
     }
 
     return interpolate(prev.value, curr.value, alpha, prev.type);

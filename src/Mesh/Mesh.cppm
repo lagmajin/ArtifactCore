@@ -226,6 +226,8 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
 
         QVector3D minBounds;
         QVector3D maxBounds;
+        QVector3D sphereCenter;
+        float sphereRadius = 0.0f;
         std::uint64_t revision = 1;
 
         Impl() {}
@@ -1199,10 +1201,75 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         if (!foundFinitePosition) return;
         impl_->minBounds = minB;
         impl_->maxBounds = maxB;
+        const QVector3D center = (minB + maxB) * 0.5f;
+        float radius = 0.0f;
+        for (int i = 0; i < posAttr->size(); ++i) {
+            const auto& p = (*posAttr)[i];
+            if (!std::isfinite(p.x()) || !std::isfinite(p.y()) ||
+                !std::isfinite(p.z())) {
+                continue;
+            }
+            radius = std::max(radius, (p - center).length());
+        }
+        impl_->sphereCenter = center;
+        impl_->sphereRadius = radius;
     }
 
     QVector3D Mesh::boundingBoxMin() const { return impl_->minBounds; }
     QVector3D Mesh::boundingBoxMax() const { return impl_->maxBounds; }
+    QVector3D Mesh::boundingSphereCenter() const { return impl_->sphereCenter; }
+    float Mesh::boundingSphereRadius() const { return impl_->sphereRadius; }
+
+    void Mesh::computeVertexNormals() {
+        auto posAttr = impl_->vertexAttrs.get<QVector3D>("position");
+        if (!posAttr || posAttr->size() == 0 || impl_->polygons.isEmpty()) return;
+        auto normAttr = impl_->vertexAttrs.get<QVector3D>("normal");
+        if (!normAttr) {
+            normAttr = impl_->vertexAttrs.add<QVector3D>("normal");
+        }
+        const int count = posAttr->size();
+        if (normAttr->size() != count) normAttr->resize(count);
+        QVector<QVector3D> accumulated(count, QVector3D(0.0f, 0.0f, 0.0f));
+        const auto& positions = posAttr->data();
+        for (const QVector<int>& polygon : impl_->polygons) {
+            if (polygon.size() < 3) continue;
+            // Fan-triangulate the n-gon; each triangle contributes its
+            // (unnormalized) cross product, i.e. area-weighted normals.
+            const int v0 = polygon[0];
+            if (v0 < 0 || v0 >= count) continue;
+            for (int j = 1; j < polygon.size() - 1; ++j) {
+                const int v1 = polygon[j];
+                const int v2 = polygon[j + 1];
+                if (v1 < 0 || v1 >= count || v2 < 0 || v2 >= count) continue;
+                const QVector3D& a = positions[v0];
+                const QVector3D& b = positions[v1];
+                const QVector3D& c = positions[v2];
+                if (!std::isfinite(a.x()) || !std::isfinite(a.y()) || !std::isfinite(a.z()) ||
+                    !std::isfinite(b.x()) || !std::isfinite(b.y()) || !std::isfinite(b.z()) ||
+                    !std::isfinite(c.x()) || !std::isfinite(c.y()) || !std::isfinite(c.z())) {
+                    continue;
+                }
+                const QVector3D faceNormal = QVector3D::crossProduct(b - a, c - a);
+                if (!(faceNormal.lengthSquared() > 1.0e-12f) ||
+                    !std::isfinite(faceNormal.lengthSquared())) {
+                    continue;
+                }
+                accumulated[v0] += faceNormal;
+                accumulated[v1] += faceNormal;
+                accumulated[v2] += faceNormal;
+            }
+        }
+        auto& normals = normAttr->data();
+        for (int i = 0; i < count; ++i) {
+            const float lengthSquared = accumulated[i].lengthSquared();
+            if (lengthSquared > 1.0e-12f && std::isfinite(lengthSquared)) {
+                normals[i] = accumulated[i] / std::sqrt(lengthSquared);
+            } else {
+                normals[i] = QVector3D(0.0f, 0.0f, 1.0f);
+            }
+        }
+        ++impl_->revision;
+    }
 
     bool Mesh::loadFromFile(const QString& filePath)
     {

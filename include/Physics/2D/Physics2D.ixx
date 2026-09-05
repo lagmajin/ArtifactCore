@@ -22,6 +22,7 @@ module;
 #include <utility>
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -44,6 +45,23 @@ import Utils.Id;
 
 export namespace ArtifactCore {
 
+    enum class PhysicsContactPhase : std::uint8_t {
+        Begin,
+        End,
+        Hit
+    };
+
+    // A copied, layer-addressable view of Box2D's transient contact buffers.
+    // A nil layer ID denotes a static world shape such as the composition floor.
+    struct PhysicsContactEvent {
+        PhysicsContactPhase phase = PhysicsContactPhase::Begin;
+        LayerID firstLayerId;
+        LayerID secondLayerId;
+        QVector2D point;
+        QVector2D normal;
+        float approachSpeed = 0.0f;
+    };
+
     // ─────────────────────────────────────────────────────────
     // RigidBody2D
     // Box2D v3のb2BodyIdをラップし、状態同期と制御をまとめる薄い本体
@@ -59,6 +77,11 @@ export namespace ArtifactCore {
         b2BodyId bodyId{};
         int cloneIndex = -1; // Clonerの何番目のクローンとリンクしているか
         LayerID ownerLayerId; // composition world 内での所有レイヤー
+        QVector2D worldToLocalPoint(QVector2D point) const {
+            if (!b2Body_IsValid(bodyId)) return {};
+            const auto local = b2Body_GetLocalPoint(bodyId, {point.x(), point.y()});
+            return {local.x, local.y};
+        }
         
         QVector2D position() const {
             if (!b2Body_IsValid(bodyId)) return {0,0};
@@ -93,6 +116,17 @@ export namespace ArtifactCore {
             case b2_dynamicBody: return Type::Dynamic;
             default: return Type::Static;
             }
+        }
+
+        float mass() const {
+            return b2Body_IsValid(bodyId) ? b2Body_GetMass(bodyId) : 0.0f;
+        }
+
+        void setType(Type type) {
+            if (!b2Body_IsValid(bodyId)) return;
+            const b2BodyType nativeType = type == Type::Static ? b2_staticBody :
+                (type == Type::Kinematic ? b2_kinematicBody : b2_dynamicBody);
+            b2Body_SetType(bodyId, nativeType);
         }
 
         void applyForce(const QVector2D& force, const QVector2D& point) {
@@ -236,17 +270,6 @@ export namespace ArtifactCore {
             b2Body_ApplyMassFromShapes(bodyId);
         }
 
-        void setType(Type newType) {
-            if (!b2Body_IsValid(bodyId)) return;
-            b2BodyType box2dType = b2_staticBody;
-            switch (newType) {
-            case Type::Static: box2dType = b2_staticBody; break;
-            case Type::Kinematic: box2dType = b2_kinematicBody; break;
-            case Type::Dynamic: box2dType = b2_dynamicBody; break;
-            }
-            b2Body_SetType(bodyId, box2dType);
-        }
-
         void setFixedRotation(bool fixed) {
             if (b2Body_IsValid(bodyId)) {
                 b2Body_SetFixedRotation(bodyId, fixed);
@@ -299,6 +322,7 @@ export namespace ArtifactCore {
         
         // シミュレーションを1ステップ進める (deltaTime = 1.0f/60.0f など)
         void step(float deltaTime, int subStepCount = 4);
+        std::vector<PhysicsContactEvent> takeContactEvents();
 
         // 床(スタティックな壁)の追加
         void addStaticBox(float x, float y, float width, float height, float friction = 0.3f);
@@ -326,15 +350,36 @@ export namespace ArtifactCore {
         void removeBody(const SharedPtr<RigidBody2D>& body);
 
         // ジョイントの追加
-        b2JointId addDistanceJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, float length, float damping = 0.5f, float stiffness = 1.0f);
+        b2JointId addDistanceJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB, float length, float damping = 0.5f, float stiffness = 1.0f,
+            bool spring = false, bool rope = false, QVector2D localAnchorA = {}, QVector2D localAnchorB = {});
         b2JointId addRevoluteJoint(SharedPtr<RigidBody2D> bodyA, SharedPtr<RigidBody2D> bodyB,
                                    QVector2D anchor, bool enableAngleLimit = false,
                                    float lowerAngleDegrees = 0.0f,
                                    float upperAngleDegrees = 0.0f);
+        b2JointId addPrismaticJoint(SharedPtr<RigidBody2D> bodyA,
+                                    SharedPtr<RigidBody2D> bodyB,
+                                    QVector2D anchor, QVector2D axis,
+                                    bool enableLimit, float lowerLimit,
+                                    float upperLimit, bool enableMotor,
+                                    float motorSpeed, float maxMotorForce);
 
         // 生成済みのジョイントを取り除く / 全破棄
         void removeJoint(b2JointId jointId);
         void clearJoints();
+        // One component-owned joint per layer; unrelated joints stay alive.
+        void setLayerJoint(LayerID owner, b2JointId jointId);
+        bool hasLayerJoint(LayerID owner) const;
+        void removeLayerJoint(LayerID owner);
+        float layerJointForce(LayerID owner) const;
+
+        // Runtime-only cursor constraint. This is deliberately separate from
+        // component-owned joints so it cannot replace or break a saved joint.
+        bool startMouseDrag(LayerID owner, SharedPtr<RigidBody2D> body,
+                            QVector2D target, float hertz, float dampingRatio,
+                            float maxForce);
+        bool updateMouseDrag(LayerID owner, QVector2D target);
+        void endMouseDrag(LayerID owner);
+        bool hasMouseDrag(LayerID owner) const;
 
         // 登録されている全ジョイントを取得
         const std::vector<b2JointId>& getJoints() const;

@@ -275,8 +275,14 @@ Procedural3DMeshData Procedural3DGenerators::generatePathTube(const PathTubeSett
     const float noiseAmp = std::max(0.0f, settings.noiseAmplitude);
     const float twist = settings.twist + timeSeconds * 0.15f;
     const float repeatCount = std::max(0.001f, settings.repeatCount);
+    // 3D-Stroke style trim: emit only the sub-range [trimStart, trimEnd].
+    const float trimStart = std::clamp(settings.trimStart, 0.0f, 1.0f);
+    const float trimEnd = std::clamp(settings.trimEnd, 0.0f, 1.0f);
 
     if (radius <= 0.0f || pathScale <= 0.0f) {
+        return mesh;
+    }
+    if (trimEnd <= trimStart + 1.0e-6f) {
         return mesh;
     }
 
@@ -342,8 +348,9 @@ Procedural3DMeshData Procedural3DGenerators::generatePathTube(const PathTubeSett
 
     for (int i = 0; i < pathSamples; ++i) {
         const float t = static_cast<float>(i) / static_cast<float>(pathSamples - 1);
-        const auto p = pathPoint(t);
-        const auto tan = tangentAt(t);
+        const float te = trimStart + t * (trimEnd - trimStart);
+        const auto p = pathPoint(te);
+        const auto tan = tangentAt(te);
         const auto T = normalized(tan, previousTangent);
         const float tangentAlignment = dot(previousTangent, T);
         std::array<float, 3> N = previousNormal;
@@ -366,8 +373,8 @@ Procedural3DMeshData Procedural3DGenerators::generatePathTube(const PathTubeSett
         previousTangent = T;
         previousNormal = N;
 
-        const float profileRadius = radius * (taperStart + (taperEnd - taperStart) * t);
-        const float twistAngle = twist * t;
+        const float profileRadius = radius * (taperStart + (taperEnd - taperStart) * te);
+        const float twistAngle = twist * te;
         const float ct = std::cos(twistAngle);
         const float st = std::sin(twistAngle);
 
@@ -404,7 +411,7 @@ Procedural3DMeshData Procedural3DGenerators::generatePathTube(const PathTubeSett
                 normalY,
                 normalZ,
                 sideT,
-                t
+                te
             });
         }
     }
