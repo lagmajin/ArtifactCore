@@ -472,12 +472,14 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             COMPILE_OPTIONS
                 "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
                 "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
-                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+                "/reference;Graphics.GPUCapabilities=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUCapabilities.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Graphics/GPUComputeContext.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
-                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc")
+                "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+                "/reference;Graphics.GPUCapabilities=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUCapabilities.ifc")
     elseif(_artifact_impl_relative STREQUAL "src/Graphics/GPUTexture.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
@@ -1006,6 +1008,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Graphics.Compute=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Compute.ifc"
             "/reference;Graphics.GPUcomputeContext=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUcomputeContext.ifc"
             "/reference;Graphics.GPU.Info=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPU.Info.ifc"
+            "/reference;Graphics.GPUCapabilities=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUCapabilities.ifc"
             "/reference;Graphics.Shader.Compute.HLSL.Blend=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.Blend.ifc"
             "/reference;Graphics.Shader.Compute.HLSL.MatteTrack=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.Shader.Compute.HLSL.MatteTrack.ifc"
             "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
@@ -1335,8 +1338,10 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Common/Parallel.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/Compute.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/MpmCompute.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUInfo.ixx.obj"
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUComputeContext.ixx.obj")
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUComputeContext.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUCapabilities.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Physics/Physics2D.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/Id.ixx.obj"
@@ -1654,7 +1659,10 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;Script.Expression.Evaluator=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Script.Expression.Evaluator.ifc"
             "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc"
             "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
-            "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc")
+            "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
+            "/reference;EnvironmentVariable=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/EnvironmentVariable.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEnvironment.dir/include/EnvironmentVariable/EnvironmentVariable.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/ImageProcessing/AbstractImageEffect.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
@@ -2514,6 +2522,37 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     endif()
 endforeach()
 
+# GPUComputeContext's public interface imports GPUCapabilities.  MSVC needs
+# the transitive IFC reference on each implementation unit explicitly; the
+# per-source table above is intentionally kept for direct dependencies, while
+# this content-based pass prevents omissions as new GPU consumers are added.
+foreach(_artifact_gpu_impl IN LISTS CORE_IMPL)
+    unset(_artifact_gpu_context_imports)
+    file(STRINGS "${_artifact_gpu_impl}" _artifact_gpu_context_imports
+         REGEX "^[ \t]*import[ \t]+Graphics\\.GPUcomputeContext[ \t]*;")
+    string(REPLACE "/src/" "/include/" _artifact_gpu_interface "${_artifact_gpu_impl}")
+    string(REGEX REPLACE "\\.cppm$" ".ixx" _artifact_gpu_interface "${_artifact_gpu_interface}")
+    if(EXISTS "${_artifact_gpu_interface}")
+        file(STRINGS "${_artifact_gpu_interface}" _artifact_gpu_interface_imports
+             REGEX "^[ \t]*import[ \t]+Graphics\\.GPUcomputeContext[ \t]*;")
+        list(APPEND _artifact_gpu_context_imports ${_artifact_gpu_interface_imports})
+    endif()
+    if(_artifact_gpu_context_imports)
+        set_property(SOURCE "${_artifact_gpu_impl}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Graphics.GPUCapabilities=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Graphics.GPUCapabilities.ifc")
+        set_property(SOURCE "${_artifact_gpu_impl}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUComputeContext.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUCapabilities.ixx.obj")
+    endif()
+    file(STRINGS "${_artifact_gpu_impl}" _artifact_mpm_compute_imports
+         REGEX "^[ \t]*import[ \t]+Graphics\\.MpmCompute[ \t]*;")
+    if(_artifact_mpm_compute_imports)
+        set_property(SOURCE "${_artifact_gpu_impl}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/MpmCompute.ixx.obj")
+    endif()
+endforeach()
+
 # Split-domain targets emit their primary-interface BMIs under their own
 # target directory.  Override the aggregate-target fallback for these
 # scanner-disabled implementation units and retain imported BMI references.
@@ -2882,11 +2921,13 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/ImageSequenceSource.c
     PROPERTY COMPILE_OPTIONS
         "/reference;Media.ImageSequenceSource=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/Media.ImageSequenceSource.ifc"
         "/reference;Media.ISource=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/Media.ISource.ifc"
-        "/reference;Thread.Helper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/Thread.Helper.ifc")
+        "/reference;Thread.Helper=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/Thread.Helper.ifc"
+        "/reference;Core.TaskSystem=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.TaskSystem.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/ImageSequenceSource.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/include/Media/ISource.ixx.obj"
-        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/include/Thread/ThreadHelper.ixx.obj")
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreThread.dir/include/Thread/ThreadHelper.ixx.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Common/TaskSystem.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaAudioDecoder.cppm" APPEND PROPERTY COMPILE_OPTIONS
     "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
     "/reference;Container.Debug=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.ifc"
@@ -3903,7 +3944,9 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Image/Transform/ImageTransformCV.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Graphics/LayerBlendPipeline.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
-            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/Shader/Compute/HLSL/MatteTrack.ixx.obj")
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/Shader/Compute/HLSL/MatteTrack.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUComputeContext.ixx.obj"
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Graphics/GPUCapabilities.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/NLE/Core.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Core/Defaults.ixx.obj"
@@ -4191,6 +4234,10 @@ endif()
 # TBB
 find_package(TBB REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC TBB::tbb)
+
+# Taskflow (header-only, work-stealing DAG executor)
+find_package(Taskflow CONFIG REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC Taskflow::Taskflow)
 
 # OpenImageIO
 find_package(OpenImageIO REQUIRED)

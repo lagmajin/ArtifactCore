@@ -304,6 +304,25 @@ export namespace ArtifactCore {
         std::vector<CollisionPolygonBackup> collisionPolygonBackups_;
     };
 
+    // Box2D ids are runtime handles and must not be used as cache identity.
+    // These records capture only state that can be restored while the world
+    // topology remains unchanged.
+    struct RigidBodySnapshot2D {
+        std::size_t bodyIndex = 0;
+        LayerID ownerLayerId;
+        int cloneIndex = -1;
+        QVector2D position;
+        float angle = 0.0f;
+        QVector2D linearVelocity;
+        float angularVelocity = 0.0f;
+        RigidBody2D::Type type = RigidBody2D::Type::Static;
+    };
+
+    struct Physics2DSnapshot {
+        QVector2D gravity{0.0f, 9.8f};
+        std::vector<RigidBodySnapshot2D> bodies;
+    };
+
     // ─────────────────────────────────────────────────────────
     // Physics2DWorld
     // Box2D v3のb2WorldIdを管理し、シミュレーションを進める
@@ -323,6 +342,10 @@ export namespace ArtifactCore {
         // シミュレーションを1ステップ進める (deltaTime = 1.0f/60.0f など)
         void step(float deltaTime, int subStepCount = 4);
         std::vector<PhysicsContactEvent> takeContactEvents();
+
+        Physics2DSnapshot snapshot() const;
+        bool canRestoreSnapshot(const Physics2DSnapshot& snapshot) const;
+        bool restoreSnapshot(const Physics2DSnapshot& snapshot);
 
         // 床(スタティックな壁)の追加
         void addStaticBox(float x, float y, float width, float height, float friction = 0.3f);

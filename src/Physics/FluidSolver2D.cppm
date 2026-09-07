@@ -24,6 +24,64 @@ FluidSolver2D::FluidSolver2D(int width, int height)
 
 FluidSolver2D::~FluidSolver2D() = default;
 
+FluidSnapshot2D FluidSolver2D::snapshot() const {
+    FluidSnapshot2D state;
+    state.width = width_;
+    state.height = height_;
+    state.viscosity = viscosity_;
+    state.diffusion = diffusion_;
+    state.buoyancy = buoyancyFactor_;
+    state.vorticity = vorticityStrength_;
+    state.solverIterations = solverIterations_;
+    state.adaptiveIterations = adaptiveIterations_;
+    state.highResThresholdCells = highResThresholdCells_;
+    state.maxAdaptiveIterations = maxAdaptiveIterations_;
+    state.density = density_;
+    state.densityPrev = densityPrev_;
+    state.velocityX = vx_;
+    state.velocityY = vy_;
+    state.velocityXPrev = vxPrev_;
+    state.velocityYPrev = vyPrev_;
+    state.curl = curl_;
+    return state;
+}
+
+bool FluidSolver2D::restoreSnapshot(const FluidSnapshot2D& state) {
+    if (!canRestoreSnapshot(state)) {
+        return false;
+    }
+
+    viscosity_ = state.viscosity;
+    diffusion_ = state.diffusion;
+    buoyancyFactor_ = state.buoyancy;
+    vorticityStrength_ = state.vorticity;
+    solverIterations_ = std::max(1, state.solverIterations);
+    adaptiveIterations_ = state.adaptiveIterations;
+    highResThresholdCells_ = std::max(1, state.highResThresholdCells);
+    maxAdaptiveIterations_ = std::max(1, state.maxAdaptiveIterations);
+    density_ = state.density;
+    densityPrev_ = state.densityPrev;
+    vx_ = state.velocityX;
+    vy_ = state.velocityY;
+    vxPrev_ = state.velocityXPrev;
+    vyPrev_ = state.velocityYPrev;
+    curl_ = state.curl;
+    return true;
+}
+
+bool FluidSolver2D::canRestoreSnapshot(const FluidSnapshot2D& state) const {
+    const std::size_t expectedSize = static_cast<std::size_t>(width_) *
+                                     static_cast<std::size_t>(height_);
+    return state.width == width_ && state.height == height_ &&
+        state.density.size() == expectedSize &&
+        state.densityPrev.size() == expectedSize &&
+        state.velocityX.size() == expectedSize &&
+        state.velocityY.size() == expectedSize &&
+        state.velocityXPrev.size() == expectedSize &&
+        state.velocityYPrev.size() == expectedSize &&
+        state.curl.size() == expectedSize;
+}
+
 void FluidSolver2D::setResolution(int width, int height) {
     const int newWidth = std::max(4, width);
     const int newHeight = std::max(4, height);

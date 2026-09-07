@@ -37,12 +37,35 @@ export module Physics.Fluid;
 
 export namespace ArtifactCore {
 
+struct LIBRARY_DLL_API FluidSnapshot2D {
+    int width = 0;
+    int height = 0;
+    float viscosity = 0.00001f;
+    float diffusion = 0.00001f;
+    float buoyancy = 0.05f;
+    float vorticity = 0.1f;
+    int solverIterations = 20;
+    bool adaptiveIterations = true;
+    int highResThresholdCells = 512 * 512;
+    int maxAdaptiveIterations = 40;
+    std::vector<float> density;
+    std::vector<float> densityPrev;
+    std::vector<float> velocityX;
+    std::vector<float> velocityY;
+    std::vector<float> velocityXPrev;
+    std::vector<float> velocityYPrev;
+    std::vector<float> curl;
+};
+
 class LIBRARY_DLL_API FluidSolver2D {
 public:
     FluidSolver2D(int width, int height);
     ~FluidSolver2D();
 
     void update(float dt);
+    FluidSnapshot2D snapshot() const;
+    bool canRestoreSnapshot(const FluidSnapshot2D& snapshot) const;
+    bool restoreSnapshot(const FluidSnapshot2D& snapshot);
     
     // 外部からの入力
     void addDensity(int x, int y, float amount);

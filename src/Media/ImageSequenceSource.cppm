@@ -23,6 +23,7 @@ module;
 module Media.ImageSequenceSource;
 
 import Thread.Helper;
+import Core.TaskSystem;
 
 namespace ArtifactCore {
 
@@ -758,7 +759,7 @@ void ImageSequenceSource::prefetchFrame(qint64 frameIndex) const
         state->inFlight.insert(frameIndex);
     }
 
-    sharedBackgroundThreadPool().start(
+    TaskSystem::globalInstance().silent_async(
         [state, generation, frameIndex, path, subframeIndex]() {
             ScopedThreadName threadName(
                 QStringLiteral("ImageSequence/prefetch:%1")

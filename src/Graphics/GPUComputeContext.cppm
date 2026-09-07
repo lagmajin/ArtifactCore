@@ -144,6 +144,25 @@ namespace ArtifactCore
   return pImpl_->pContext;
  }
 
+ GPUCapabilitySnapshot GpuContext::capabilities() const
+ {
+  GPUCapabilitySnapshot result;
+  if (!pImpl_ || !pImpl_->pDevice) {
+   return result;
+  }
+
+  const auto& adapter = pImpl_->pDevice->GetAdapterInfo();
+  result.indirectCount =
+      (adapter.DrawCommand.CapFlags & DRAW_COMMAND_CAP_FLAG_DRAW_INDIRECT) != 0;
+  result.descriptorIndexing =
+      pImpl_->pDevice->GetDeviceInfo().Features.BindlessResources !=
+      DEVICE_FEATURE_STATE_DISABLED;
+  result.memory.budgetBytes = adapter.Memory.LocalMemory + adapter.Memory.UnifiedMemory;
+  result.memory.valid = result.memory.budgetBytes > 0;
+  result.memoryBudget = result.memory.valid;
+  return result;
+ }
+
  IRenderDevice* GpuContext::D3D12RenderDevice()
  {
   return RenderDevice();  // retained for compatibility

@@ -575,11 +575,29 @@ public:
         }
     }
 
+    float temporalPhase() const { return temporalPhase_; }
+    void setTemporalPhase(float phase) { temporalPhase_ = phase; }
+
+    int detail() const { return detail_; }
+    void setDetail(int detail) { detail_ = std::clamp(detail, 1, 64); }
+
+    float correlation() const { return correlation_; }
+    void setCorrelation(float correlation) {
+        correlation_ = std::clamp(correlation, 0.0f, 1.0f);
+    }
+
+    bool smooth() const { return smooth_; }
+    void setSmooth(bool smooth) { smooth_ = smooth; }
+
     std::unique_ptr<ShapeOperator> clone() const override
     {
         auto copy = std::make_unique<WigglePaths>();
         copy->setAmount(amount_);
         copy->setFrequency(frequency_);
+        copy->setTemporalPhase(temporalPhase_);
+        copy->setDetail(detail_);
+        copy->setCorrelation(correlation_);
+        copy->setSmooth(smooth_);
         return copy;
     }
 
@@ -587,12 +605,20 @@ public:
         QJsonObject obj;
         obj["amount"] = (double)amount_;
         obj["frequency"] = (double)frequency_;
+        obj["temporalPhase"] = (double)temporalPhase_;
+        obj["detail"] = detail_;
+        obj["correlation"] = (double)correlation_;
+        obj["smooth"] = smooth_;
         return obj;
     }
 
     void fromJson(const QJsonObject& obj) override {
         if (obj.contains("amount")) setAmount(obj["amount"].toDouble());
         if (obj.contains("frequency")) setFrequency(obj["frequency"].toDouble());
+        if (obj.contains("temporalPhase")) setTemporalPhase(obj["temporalPhase"].toDouble());
+        if (obj.contains("detail")) setDetail(obj["detail"].toInt());
+        if (obj.contains("correlation")) setCorrelation(obj["correlation"].toDouble());
+        if (obj.contains("smooth")) setSmooth(obj["smooth"].toBool());
     }
 
     std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
@@ -623,7 +649,7 @@ public:
                     }
                     tangent = tangent / len;
                     const double influence = maxRadius > 1e-6 ? std::clamp(detail::distance(p, center) / maxRadius, 0.0, 1.0) : 1.0;
-                    const double offset = std::sin(phase + p.x() * 0.013 + p.y() * 0.017) * amplitude * influence;
+                    const double offset = std::sin(phase + temporalPhase_ + p.x() * 0.013 + p.y() * 0.017) * amplitude * influence;
                     return p + tangent * offset;
                 };
 
@@ -645,6 +671,10 @@ signals:
 private:
     float amount_ = 8.0f;
     float frequency_ = 1.0f;
+    float temporalPhase_ = 0.0f;
+    int detail_ = 8;
+    float correlation_ = 0.0f;
+    bool smooth_ = true;
 };
 
 class ZigZag : public ShapeOperator {

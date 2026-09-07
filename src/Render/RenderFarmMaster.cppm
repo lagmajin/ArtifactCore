@@ -1073,7 +1073,10 @@ RenderFarmMaster::RenderFarmMaster(int workerCount)
 {}
 
 RenderFarmMaster::~RenderFarmMaster() {
-    if (isHttpApiRunning()) stopHttpApi();
+    // Static destruction runs after QApplication has been destroyed. Calling
+    // isHttpApiRunning() here would instantiate NetworkPCServer on demand,
+    // which initializes Qt's TLS backend without a live application object.
+    // NetworkPCServer owns cleanup for instances that were actually started.
 }
 
 void RenderFarmMaster::setWorkerCount(int count) {

@@ -133,6 +133,65 @@ namespace ArtifactCore {
         return events;
     }
 
+    Physics2DSnapshot Physics2D::snapshot() const {
+        Physics2DSnapshot state;
+        state.gravity = {impl_->gravity.x, impl_->gravity.y};
+        state.bodies.reserve(impl_->bodies.size());
+
+        std::size_t bodyIndex = 0;
+        for (const auto& body : impl_->bodies) {
+            if (!body) {
+                ++bodyIndex;
+                continue;
+            }
+            RigidBodySnapshot2D saved;
+            saved.bodyIndex = bodyIndex++;
+            saved.ownerLayerId = body->ownerLayerId;
+            saved.cloneIndex = body->cloneIndex;
+            saved.position = body->position();
+            saved.angle = body->angle();
+            saved.linearVelocity = body->linearVelocity();
+            saved.angularVelocity = body->angularVelocity();
+            saved.type = body->type();
+            state.bodies.push_back(std::move(saved));
+        }
+        return state;
+    }
+
+    bool Physics2D::canRestoreSnapshot(const Physics2DSnapshot& state) const {
+        if (state.bodies.size() != impl_->bodies.size()) return false;
+
+        std::size_t bodyIndex = 0;
+        for (const auto& body : impl_->bodies) {
+            if (!body || bodyIndex >= state.bodies.size()) return false;
+            const auto& saved = state.bodies[bodyIndex];
+            if (saved.bodyIndex != bodyIndex ||
+                saved.cloneIndex != body->cloneIndex ||
+                saved.ownerLayerId != body->ownerLayerId) {
+                return false;
+            }
+            ++bodyIndex;
+        }
+        return true;
+    }
+
+    bool Physics2D::restoreSnapshot(const Physics2DSnapshot& state) {
+        if (!canRestoreSnapshot(state)) return false;
+
+        setGravity(state.gravity.x(), state.gravity.y());
+        std::size_t bodyIndex = 0;
+        for (const auto& body : impl_->bodies) {
+            const auto& saved = state.bodies[bodyIndex++];
+            body->setType(saved.type);
+            body->setTransform(saved.position, saved.angle);
+            body->setLinearVelocity(saved.linearVelocity);
+            body->setAngularVelocity(saved.angularVelocity);
+            body->setAwake(true);
+        }
+        impl_->contactEvents.clear();
+        return true;
+    }
+
     void Physics2D::addStaticBox(float x, float y, float width, float height, float friction) {
         if (!b2World_IsValid(impl_->worldId)) return;
 

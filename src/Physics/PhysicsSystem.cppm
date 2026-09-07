@@ -65,6 +65,12 @@ export struct PhysicsLODSettings {
     bool disableContinuousCollision = false;
 };
 
+export struct PhysicsTimelineSettings {
+    float fixedTimeStep = 1.0f / 60.0f;
+    int maxSubsteps = 8;
+    std::size_t maxCachedFrames = 480;
+};
+
 /**
  * @brief 物理演算システム。コンポジション内のシミュレーションを統合管理する。
  * UIを持たない「Core」レイヤーでのシミュレーション実行を担う。
@@ -131,10 +137,63 @@ public:
 
     const PhysicsLODSettings& physicsLODSettings() const { return lodSettings_; }
 
+    void setPhysicsTimelineSettings(const PhysicsTimelineSettings& settings) {
+        timelineSettings_.fixedTimeStep = std::clamp(
+            settings.fixedTimeStep, 1.0f / 1000.0f, 1.0f / 15.0f);
+        timelineSettings_.maxSubsteps = std::clamp(settings.maxSubsteps, 1, 64);
+        timelineSettings_.maxCachedFrames = std::max<std::size_t>(
+            1, settings.maxCachedFrames);
+        timelineAccumulator_ = 0.0f;
+        invalidatePhysicsSnapshots();
+        trimPhysicsSnapshots();
+    }
+
+    const PhysicsTimelineSettings& physicsTimelineSettings() const {
+        return timelineSettings_;
+    }
+
+    void invalidatePhysicsSnapshots() {
+        fluidSnapshots_.clear();
+        softBodySnapshots_.clear();
+        materialSnapshots_.clear();
+        rigidSnapshots_.clear();
+        compositionRigidSnapshots_.clear();
+    }
+
+    // Advance every registered solver through the same fixed simulation clock.
+    // Solver-specific internal substeps remain owned by the solver; this
+    // method only owns frame-time accumulation and the outer step boundary.
+    void advancePhysicsFrame(float frameDeltaSeconds,
+                             float gravityX = 0.0f,
+                             float gravityY = 9.8f,
+                             bool includeCompositionRigidWorlds = true) {
+        if (frameDeltaSeconds <= 0.0f ||
+            lodSettings_.level == PhysicsLODLevel::Frozen) {
+            return;
+        }
+
+        const float fixedDt = timelineSettings_.fixedTimeStep;
+        const float maxAccumulated = fixedDt *
+            static_cast<float>(timelineSettings_.maxSubsteps);
+        timelineAccumulator_ = std::min(
+            timelineAccumulator_ + frameDeltaSeconds, maxAccumulated);
+
+        fixedTimelineMode_ = true;
+        int steps = 0;
+        while (timelineAccumulator_ + 1.0e-7f >= fixedDt &&
+               steps < timelineSettings_.maxSubsteps) {
+            update(fixedDt, gravityX, gravityY, includeCompositionRigidWorlds);
+            timelineAccumulator_ -= fixedDt;
+            ++steps;
+        }
+        fixedTimelineMode_ = false;
+    }
+
     // --- Phase 2: Fluid Dynamics ---
     SharedPtr<FluidSolver2D> createFluidSolver(LayerID layerId, int w, int h) {
         auto solver = makeShared<FluidSolver2D>(w, h);
         fluidSolvers_[layerId] = solver;
+        invalidatePhysicsSnapshots();
         return solver;
     }
 
@@ -145,6 +204,7 @@ public:
 
     void unregisterFluidSolver(LayerID layerId) {
         fluidSolvers_.erase(layerId);
+        invalidatePhysicsSnapshots();
     }
     
     // --- Phase 3: Soft Body Dynamics ---
@@ -153,7 +213,7 @@ public:
      */
     void registerSoftBody(LayerID layerId, SharedPtr<SoftBodySolver> solver) {
         softBodies_[layerId] = solver;
-        softBodySnapshots_.erase(layerId);
+        invalidatePhysicsSnapshots();
     }
 
     /**
@@ -162,7 +222,7 @@ public:
     SharedPtr<SoftBodySolver> createSoftBody(LayerID layerId) {
         auto solver = makeShared<SoftBodySolver>();
         softBodies_[layerId] = solver;
-        softBodySnapshots_.erase(layerId);
+        invalidatePhysicsSnapshots();
         return solver;
     }
 
@@ -210,7 +270,7 @@ public:
         auto solver = makeShared<MpmSolver2D>();
         solver->applyMaterialPreset(preset);
         setMaterialSolver(layerId, solver);
-        materialSnapshots_.erase(layerId);
+        invalidatePhysicsSnapshots();
         return solver;
     }
 
@@ -246,7 +306,7 @@ public:
 
     void unregisterMaterialSolver(LayerID layerId) {
         removeMaterialSolver(layerId);
-        materialSnapshots_.erase(layerId);
+        invalidatePhysicsSnapshots();
     }
 
     void registerMaterialCollider(LayerID layerId, const MpmCollider2D& collider) {
@@ -273,6 +333,7 @@ public:
     SharedPtr<Physics2D> createRigidWorld(LayerID layerId) {
         auto world = makeShared<Physics2D>();
         rigidWorlds_[layerId] = world;
+        invalidatePhysicsSnapshots();
         return world;
     }
 
@@ -290,11 +351,13 @@ public:
      */
     void unregisterRigidWorld(LayerID layerId) {
         rigidWorlds_.erase(layerId);
+        invalidatePhysicsSnapshots();
     }
 
     SharedPtr<Physics2D> createCompositionRigidWorld(CompositionID compositionId) {
         auto world = makeShared<Physics2D>();
         compositionRigidWorlds_[compositionId] = world;
+        invalidatePhysicsSnapshots();
         return world;
     }
 
@@ -305,6 +368,7 @@ public:
 
     void unregisterCompositionRigidWorld(CompositionID compositionId) {
         compositionRigidWorlds_.erase(compositionId);
+        invalidatePhysicsSnapshots();
     }
 
     // ---- Cloner/Rigid helpers (thin wrappers, no new simulation state) ----
@@ -406,7 +470,7 @@ public:
     void unregisterSoftBody(LayerID layerId) {
         softBodies_.erase(layerId);
         softBodyColliders_.erase(layerId);
-        softBodySnapshots_.erase(layerId);
+        invalidatePhysicsSnapshots();
     }
 
     /**
@@ -443,30 +507,56 @@ public:
         return {};
     }
 
-    void captureSoftBodySnapshots(int64_t frame) {
+    // Capture all registered solver states at one logical frame. Keeping the
+    // frame key common is what lets seek/loop restore a mixed rigid + soft +
+    // fluid composition without partially rewinding it.
+    void capturePhysicsSnapshots(int64_t frame) {
+        for (const auto& [layerId, solver] : fluidSolvers_) {
+            if (!solver) continue;
+            fluidSnapshots_[layerId][frame] = solver->snapshot();
+        }
         for (const auto& [layerId, solver] : softBodies_) {
             if (!solver) continue;
             auto& snapshots = softBodySnapshots_[layerId];
             snapshots[frame] = solver->snapshot();
-            while (snapshots.size() > maxSoftBodySnapshotsPerLayer_) {
-                snapshots.erase(snapshots.begin());
-            }
         }
         for (const auto& entry : materialSolvers_) {
             const auto& layerId = entry.layerId;
             const auto& solver = entry.solver;
             if (!solver) continue;
             auto& snapshots = materialSnapshots_[layerId];
-            snapshots[frame] = solver->snapshot();
-            while (snapshots.size() > maxMaterialSnapshotsPerLayer_) {
-                snapshots.erase(snapshots.begin());
-            }
+            snapshots[frame] = makeShared<MpmSnapshot2D>(solver->snapshot());
         }
+        for (const auto& [layerId, world] : rigidWorlds_) {
+            if (!world) continue;
+            rigidSnapshots_[layerId][frame] = world->snapshot();
+        }
+        for (const auto& [compositionId, world] : compositionRigidWorlds_) {
+            if (!world) continue;
+            compositionRigidSnapshots_[compositionId][frame] = world->snapshot();
+        }
+        trimPhysicsSnapshots();
     }
 
-    bool restoreSoftBodySnapshots(int64_t frame) {
+    // Backward-compatible entry point. Existing callers that only know the
+    // old name now participate in the same mixed-solver cache.
+    void captureSoftBodySnapshots(int64_t frame) {
+        capturePhysicsSnapshots(frame);
+    }
+
+    bool restorePhysicsSnapshots(int64_t frame) {
         // Validate every target first so a cache miss never restores only a
         // subset of layers in a composition.
+        for (const auto& [layerId, solver] : fluidSolvers_) {
+            if (!solver) continue;
+            const auto cacheIt = fluidSnapshots_.find(layerId);
+            if (cacheIt == fluidSnapshots_.end()) return false;
+            const auto snapshotIt = cacheIt->second.find(frame);
+            if (snapshotIt == cacheIt->second.end() ||
+                !solver->canRestoreSnapshot(snapshotIt->second)) {
+                return false;
+            }
+        }
         for (const auto& [layerId, solver] : softBodies_) {
             if (!solver) continue;
             const auto cacheIt = softBodySnapshots_.find(layerId);
@@ -485,7 +575,82 @@ public:
             if (cacheIt == materialSnapshots_.end()) return false;
             const auto snapshotIt = cacheIt->second.find(frame);
             if (snapshotIt == cacheIt->second.end() ||
+                !snapshotIt->second ||
+                !solver->canRestoreSnapshot(*snapshotIt->second)) {
+                return false;
+            }
+        }
+        for (const auto& [layerId, world] : rigidWorlds_) {
+            if (!world) continue;
+            const auto cacheIt = rigidSnapshots_.find(layerId);
+            if (cacheIt == rigidSnapshots_.end()) return false;
+            const auto snapshotIt = cacheIt->second.find(frame);
+            if (snapshotIt == cacheIt->second.end() ||
+                !world->canRestoreSnapshot(snapshotIt->second)) return false;
+        }
+        for (const auto& [compositionId, world] : compositionRigidWorlds_) {
+            if (!world) continue;
+            const auto cacheIt = compositionRigidSnapshots_.find(compositionId);
+            if (cacheIt == compositionRigidSnapshots_.end()) return false;
+            const auto snapshotIt = cacheIt->second.find(frame);
+            if (snapshotIt == cacheIt->second.end() ||
+                !world->canRestoreSnapshot(snapshotIt->second)) return false;
+        }
+        for (const auto& [layerId, world] : rigidWorlds_) {
+            if (!world) continue;
+            if (!world->restoreSnapshot(rigidSnapshots_.at(layerId).at(frame))) {
+                return false;
+            }
+        }
+        for (const auto& [compositionId, world] : compositionRigidWorlds_) {
+            if (!world) continue;
+            if (!world->restoreSnapshot(
+                    compositionRigidSnapshots_.at(compositionId).at(frame))) {
+                return false;
+            }
+        }
+        for (const auto& [layerId, solver] : softBodies_) {
+            if (!solver) continue;
+            solver->restoreSnapshot(softBodySnapshots_.at(layerId).at(frame));
+        }
+        for (const auto& [layerId, solver] : fluidSolvers_) {
+            if (!solver) continue;
+            solver->restoreSnapshot(fluidSnapshots_.at(layerId).at(frame));
+        }
+        for (const auto& entry : materialSolvers_) {
+            const auto& layerId = entry.layerId;
+            const auto& solver = entry.solver;
+            if (!solver) continue;
+            solver->restoreSnapshot(*materialSnapshots_.at(layerId).at(frame));
+        }
+        return true;
+    }
+
+    bool restoreSoftBodySnapshots(int64_t frame) {
+        // Preserve the legacy partial-restore contract for existing layer
+        // callers. Mixed-solver all-or-nothing restoration is exposed through
+        // restorePhysicsSnapshots() and can be adopted by composition seek
+        // once the rigid/fluid timeline owner is wired there.
+        for (const auto& [layerId, solver] : softBodies_) {
+            if (!solver) continue;
+            const auto cacheIt = softBodySnapshots_.find(layerId);
+            if (cacheIt == softBodySnapshots_.end()) return false;
+            const auto snapshotIt = cacheIt->second.find(frame);
+            if (snapshotIt == cacheIt->second.end() ||
                 !solver->canRestoreSnapshot(snapshotIt->second)) {
+                return false;
+            }
+        }
+        for (const auto& entry : materialSolvers_) {
+            const auto& layerId = entry.layerId;
+            const auto& solver = entry.solver;
+            if (!solver) continue;
+            const auto cacheIt = materialSnapshots_.find(layerId);
+            if (cacheIt == materialSnapshots_.end()) return false;
+            const auto snapshotIt = cacheIt->second.find(frame);
+            if (snapshotIt == cacheIt->second.end() ||
+                !snapshotIt->second ||
+                !solver->canRestoreSnapshot(*snapshotIt->second)) {
                 return false;
             }
         }
@@ -497,7 +662,7 @@ public:
             const auto& layerId = entry.layerId;
             const auto& solver = entry.solver;
             if (!solver) continue;
-            solver->restoreSnapshot(materialSnapshots_.at(layerId).at(frame));
+            solver->restoreSnapshot(*materialSnapshots_.at(layerId).at(frame));
         }
         return true;
     }
@@ -523,7 +688,7 @@ public:
 
         float simulationDt = dt;
         if (lodSettings_.level == PhysicsLODLevel::Frozen) return;
-        if (lodSettings_.targetHz > 0.0f) {
+        if (lodSettings_.targetHz > 0.0f && !fixedTimelineMode_) {
             lodAccumulator_ += dt;
             const float interval = 1.0f / lodSettings_.targetHz;
             if (lodAccumulator_ < interval) return;
@@ -630,12 +795,12 @@ public:
         fluidSolvers_.clear();
         softBodies_.clear();
         softBodyColliders_.clear();
-        softBodySnapshots_.clear();
         materialSolvers_.clear();
-        materialSnapshots_.clear();
         pendingMaterialFractureEvents_.clear();
         rigidWorlds_.clear();
         compositionRigidWorlds_.clear();
+        invalidatePhysicsSnapshots();
+        timelineAccumulator_ = 0.0f;
 #ifdef ARTIFACT_ENABLE_PYRO
         pyroSimulations_.clear();
 #endif
@@ -643,6 +808,22 @@ public:
     }
 
 private:
+    void trimPhysicsSnapshots() {
+        const auto trim = [limit = timelineSettings_.maxCachedFrames](auto& cache) {
+            for (auto& entry : cache) {
+                auto& snapshots = entry.second;
+                while (snapshots.size() > limit) {
+                    snapshots.erase(snapshots.begin());
+                }
+            }
+        };
+        trim(fluidSnapshots_);
+        trim(softBodySnapshots_);
+        trim(materialSnapshots_);
+        trim(rigidSnapshots_);
+        trim(compositionRigidSnapshots_);
+    }
+
     struct MaterialSolverEntry {
         LayerID layerId;
         SharedPtr<MpmSolver2D> solver;
@@ -684,22 +865,26 @@ private:
     PhysicsSystem& operator=(const PhysicsSystem&) = delete;
     
     std::map<LayerID, SharedPtr<FluidSolver2D>> fluidSolvers_;
+    std::map<LayerID, std::map<int64_t, FluidSnapshot2D>> fluidSnapshots_;
     std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
     std::map<LayerID, NamedVector<SoftBodyCollider>> softBodyColliders_;
     std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
     NamedVector<MaterialSolverEntry> materialSolvers_;
-    std::map<LayerID, std::map<int64_t, MpmSnapshot2D>> materialSnapshots_;
+    std::map<LayerID, std::map<int64_t, SharedPtr<MpmSnapshot2D>>> materialSnapshots_;
     NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
     std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
+    std::map<LayerID, std::map<int64_t, Physics2DSnapshot>> rigidSnapshots_;
     std::map<CompositionID, SharedPtr<Physics2D>> compositionRigidWorlds_;
+    std::map<CompositionID, std::map<int64_t, Physics2DSnapshot>> compositionRigidSnapshots_;
 #ifdef ARTIFACT_ENABLE_PYRO
     std::map<LayerID, SharedPtr<PyroSimulation>> pyroSimulations_;
 #endif
     std::map<LayerID, GpuBoidConstants> boidsConstants_;
     PhysicsLODSettings lodSettings_;
+    PhysicsTimelineSettings timelineSettings_;
     float lodAccumulator_ = 0.0f;
-    static constexpr std::size_t maxSoftBodySnapshotsPerLayer_ = 480;
-    static constexpr std::size_t maxMaterialSnapshotsPerLayer_ = 480;
+    float timelineAccumulator_ = 0.0f;
+    bool fixedTimelineMode_ = false;
 };
 
 // Keep destruction of container-held solver ownership out of the exported

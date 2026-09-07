@@ -11,6 +11,7 @@ module;
 export module Graphics.GPUcomputeContext;
 
 import Graphics.GPU.Info;
+import Graphics.GPUCapabilities;
 
 // #pragma comment(lib,"d3d12.lib")
 // #pragma comment(lib,"d3dcompiler.lib")
@@ -59,6 +60,7 @@ export namespace ArtifactCore
   DeviceResources D3D12DeviceResources();
   DeviceResources VKDeviceResources();
   GPUInfo info() const;
+  GPUCapabilitySnapshot capabilities() const;
   
   // Output-parameter style: *ppShader has ref-count == 1 (caller must Release or wrap in RefCntAutoPtr)
   bool CompileShader(const char* shaderSource, SHADER_TYPE type, const char* entryPoint, IShader** ppShader);

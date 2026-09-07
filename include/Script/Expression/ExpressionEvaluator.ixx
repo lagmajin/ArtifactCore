@@ -226,6 +226,11 @@ export namespace BuiltinFunctions {
     ExpressionValue LoopOut(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue LoopInDuration(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
     ExpressionValue LoopOutDuration(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+
+    // --- Environment variables (via EnvironmentVariableManager) ---
+    ExpressionValue GetEnv(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue SetEnv(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
+    ExpressionValue HasEnv(const std::vector<ExpressionValue>& args, const ExpressionEvaluator* ctx);
 }
 
 }

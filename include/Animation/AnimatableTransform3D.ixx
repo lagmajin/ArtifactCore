@@ -1,5 +1,6 @@
 module;
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 #include <DiligentCore/Common/interface/BasicMath.hpp>
 #include "../Define/DllExportMacro.hpp"
@@ -87,6 +88,10 @@ export namespace ArtifactCore
   bool isAutoOrient() const;
   void setAutoOrientMode(AutoOrientMode mode);
   AutoOrientMode autoOrientMode() const;
+
+  // キー格納・評価の時刻スケール(例: コンポfps)。未設定時は24(従来互換)。
+  void setKeyframeTimeScale(int64_t scale);
+  int64_t keyframeTimeScale() const;
 
   size_t size() const;
 

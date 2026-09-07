@@ -22,13 +22,14 @@ namespace ArtifactCore
   QMap<QString, QVariant> vars;
   quint64 revisionCounter = 0;
 
- public:
-  void loadFromOS();
-  void setVariable(const QString& name, const QVariant& value);
-  QVariant getVariable(const QString& name) const;
-  bool hasVariable(const QString& name) const;
-  QStringList variableNames() const;
-  void clear();
+  public:
+   void loadFromOS();
+   void setVariable(const QString& name, const QVariant& value);
+   QVariant getVariable(const QString& name) const;
+   bool hasVariable(const QString& name) const;
+   int unsetVariable(const QString& name);
+   QStringList variableNames() const;
+   void clear();
   quint64 revision() const { return revisionCounter; }
  };
 
@@ -59,6 +60,16 @@ namespace ArtifactCore
  {
   QReadLocker locker(&lock);
   return vars.contains(name);
+ }
+
+ int EnvironmentVariableManager::Impl::unsetVariable(const QString& name)
+ {
+  QWriteLocker locker(&lock);
+  const int removed = vars.remove(name);
+  if (removed > 0) {
+   ++revisionCounter;
+  }
+  return removed;
  }
 
  QStringList EnvironmentVariableManager::Impl::variableNames() const
@@ -103,6 +114,11 @@ namespace ArtifactCore
  bool EnvironmentVariableManager::hasVariable(const QString& name) const
  {
   return impl_->hasVariable(name);
+ }
+
+ bool EnvironmentVariableManager::unsetVariable(const QString& name)
+ {
+  return impl_->unsetVariable(name) > 0;
  }
 
  QStringList EnvironmentVariableManager::variableNames() const

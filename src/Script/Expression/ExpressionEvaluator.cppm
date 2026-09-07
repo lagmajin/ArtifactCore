@@ -5,6 +5,8 @@ module;
 #include <random>
 #include <cstdint>
 
+#include <QString>
+
 #include <algorithm>
 #include <any>
 #include <array>
@@ -49,6 +51,7 @@ import Script.Expression.Value;
 import Script.Expression.Parser;
 import Core.ArtifactString;
 import Math.Noise;
+import EnvironmentVariable;
 
 namespace ArtifactCore {
 
@@ -605,6 +608,11 @@ void ExpressionEvaluator::registerStandardFunctions() {
   registerFunction("loopOut", LoopOut);
   registerFunction("loopInDuration", LoopInDuration);
   registerFunction("loopOutDuration", LoopOutDuration);
+
+  // Environment variables (OS snapshot + in-process overlay)
+  registerFunction("getEnv", GetEnv);
+  registerFunction("setEnv", SetEnv);
+  registerFunction("hasEnv", HasEnv);
 }
 
 void ExpressionEvaluator::setRecursionDepthLimit(int depth) {
@@ -1451,6 +1459,55 @@ ExpressionValue Smooth(const std::vector<ExpressionValue>& args,
     total = total + sampleAt(center + (alpha - 0.5) * width);
   }
   return total / ExpressionValue(static_cast<double>(sampleCount));
+}
+
+namespace {
+
+// Script-facing environment variables are resolved through
+// EnvironmentVariableManager (OS snapshot + in-process overlay).
+// setEnv only affects the overlay; the OS process environment is untouched.
+std::string envKeyOf(const ExpressionValue& value) {
+  const ZeroString text = value.asZeroString();
+  return std::string(text.data(), text.length());
+}
+
+std::string envStringOf(const ExpressionValue& value) {
+  const ZeroString text = value.asZeroString();
+  return std::string(text.data(), text.length());
+}
+
+} // namespace
+
+// getEnv(name[, defaultValue]): manager value as string, default (or null)
+// when the variable does not exist.
+ExpressionValue GetEnv(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
+  if (args.empty()) return ExpressionValue();
+  auto* manager = EnvironmentVariableManager::instance();
+  const QString name = QString::fromStdString(envKeyOf(args[0]));
+  if (name.isEmpty() || !manager->hasVariable(name)) {
+    if (args.size() > 1) return args[1];
+    return ExpressionValue();
+  }
+  return ExpressionValue(manager->getVariable(name).toString().toStdString());
+}
+
+// setEnv(name, value): writes the in-process overlay, returns the stored string.
+ExpressionValue SetEnv(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
+  if (args.size() < 2) return ExpressionValue();
+  auto* manager = EnvironmentVariableManager::instance();
+  const QString name = QString::fromStdString(envKeyOf(args[0]));
+  if (name.isEmpty()) return ExpressionValue();
+  const QString value = QString::fromStdString(envStringOf(args[1]));
+  manager->setVariable(name, value);
+  return ExpressionValue(value.toStdString());
+}
+
+// hasEnv(name): 1.0 when the variable exists, 0.0 otherwise.
+ExpressionValue HasEnv(const std::vector<ExpressionValue> &args, const ExpressionEvaluator *) {
+  if (args.empty()) return ExpressionValue(0.0);
+  auto* manager = EnvironmentVariableManager::instance();
+  const QString name = QString::fromStdString(envKeyOf(args[0]));
+  return ExpressionValue(manager->hasVariable(name) ? 1.0 : 0.0);
 }
 
 } // namespace BuiltinFunctions

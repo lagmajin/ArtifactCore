@@ -1,7 +1,5 @@
 module;
 
-#include <QThreadPool>
-
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -11,7 +9,7 @@ module;
 
 export module Core.Thread.LightweightTask;
 
-import Thread.Helper;
+import Core.TaskSystem;
 
 namespace ArtifactCore {
 
@@ -99,7 +97,7 @@ private:
   mutable std::condition_variable waitCondition_;
 };
 
-/// Submit one short task to the shared background pool.
+/// Submit one short task to the shared background pool (now TBB-backed).
 export inline void executeLightweightTask(LightweightTaskContext &context,
                                            LightweightTask task) {
   if (!task || context.isCancelled()) {
@@ -108,7 +106,7 @@ export inline void executeLightweightTask(LightweightTaskContext &context,
 
   context.beginTask();
   try {
-    sharedBackgroundThreadPool().start(
+    TaskSystem::globalInstance().silent_async(
         [&context, task = std::move(task)]() mutable {
           bool failed = false;
           try {
