@@ -447,12 +447,12 @@ public:
 #endif
 
     void setBoidsConstants(LayerID layerId, const GpuBoidConstants& c) {
-        boidsConstants_[layerId] = c;
+        boidsConstants_[layerId] = makeShared<GpuBoidConstants>(c);
     }
 
     std::optional<GpuBoidConstants> getBoidsConstants(LayerID layerId) const {
         auto it = boidsConstants_.find(layerId);
-        if (it != boidsConstants_.end()) return it->second;
+        if (it != boidsConstants_.end() && it->second) return *it->second;
         return std::nullopt;
     }
 
@@ -1036,7 +1036,9 @@ private:
 #ifdef ARTIFACT_ENABLE_PYRO
     std::map<LayerID, SharedPtr<PyroSimulation>> pyroSimulations_;
 #endif
-    std::map<LayerID, GpuBoidConstants> boidsConstants_;
+    // Keep the Graphics.BoidsCompute value out of std::map's node type.
+    // MSVC 14.51 ICEs while instantiating that imported-module combination.
+    std::map<LayerID, SharedPtr<GpuBoidConstants>> boidsConstants_;
     PhysicsLODSettings lodSettings_;
     PhysicsTimelineSettings timelineSettings_;
     float lodAccumulator_ = 0.0f;
