@@ -164,9 +164,18 @@ PS_Input VSMain(VS_Input In) {
         dot(worldPos, ViewRow3));
     
     // Rotation (degrees to radians)
+    // VelocityAligned (BillboardMode 3) must use view-space velocity so the
+    // sprite tilts along the on-screen motion direction. World-space
+    // atan2(velocity.y, velocity.x) is only correct while the camera looks
+    // straight down -Z; after an orbit it points elsewhere. The direction
+    // rows match the position transform convention above (w = 0).
+    float3 viewVelocity = float3(
+        dot(p.velocity, ViewRow0.xyz),
+        dot(p.velocity, ViewRow1.xyz),
+        dot(p.velocity, ViewRow2.xyz));
     float rotationDegrees = p.rotation;
-    if (BillboardMode == 3 && dot(p.velocity.xy, p.velocity.xy) > 0.000001) {
-        rotationDegrees += atan2(p.velocity.y, p.velocity.x) * 180.0 / 3.14159265;
+    if (BillboardMode == 3 && dot(viewVelocity.xy, viewVelocity.xy) > 0.000001) {
+        rotationDegrees += atan2(viewVelocity.y, viewVelocity.x) * 180.0 / 3.14159265;
     }
     float rad = rotationDegrees * 3.14159265 / 180.0;
     float cosR = cos(rad);
