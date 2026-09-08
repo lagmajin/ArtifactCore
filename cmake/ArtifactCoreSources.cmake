@@ -838,6 +838,7 @@ set(ARTIFACTCORE_MODULE_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../src/Memory/UniquePtr.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Physics/PhysicsSystem.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Physics/SoftBodySolver.cppm"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/Physics/ClothSolver3D.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Render/ImageBuffer.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Shape/ShapeGroup.cppm"
     "${CMAKE_CURRENT_LIST_DIR}/../src/Shape/ShapeLayer.cppm"

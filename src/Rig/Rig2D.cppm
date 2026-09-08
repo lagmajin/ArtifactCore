@@ -304,8 +304,9 @@ void Bone2D::removeChild(Bone2D* child) {
 
 BoneTransform Bone2D::evaluate(const RationalTime& time) const {
     if (keyframes_.getKeyFrameCount() > 0) {
-        // FramePosition に変換（fps=30 は現状の Layer 側と合わせる。将来は fps を Rig2D が持つ）
-        const FramePosition pos(time.toFrameCount(30));
+        // Preserve the time scale supplied by the composition instead of
+        // converting every rig evaluation through a hardcoded 30 fps.
+        const FramePosition pos(time.toFrameCount(std::max<int64_t>(1, time.scale())));
         return keyframes_.at(pos);
     }
     return localTransform_;

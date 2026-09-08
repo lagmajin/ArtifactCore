@@ -2,6 +2,13 @@ module;
 #include <utility>
 
 #include <QWidget>
+#include <QApplication>
+#include <QAbstractButton>
+#include <QAbstractSpinBox>
+#include <QComboBox>
+#include <QLineEdit>
+#include <QPlainTextEdit>
+#include <QTextEdit>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -76,6 +83,42 @@ InputBinding* findMatchingBinding(KeyMap* keyMap, int key, InputEvent::Modifiers
         return nullptr;
     }
     return binding;
+}
+
+bool widgetContextAcceptsKey(QWidget* owner, Qt::KeyboardModifiers)
+{
+    QWidget* modal = QApplication::activeModalWidget();
+    if (modal && owner && modal != owner && !modal->isAncestorOf(owner)) {
+        return false;
+    }
+
+    QWidget* focus = QApplication::focusWidget();
+    if (!focus) {
+        return true;
+    }
+    if (owner && focus != owner && !owner->isAncestorOf(focus)) {
+        return false;
+    }
+    if (focus->property("artifactAllowContextShortcuts").toBool()) {
+        return true;
+    }
+
+    for (QWidget* current = focus; current; current = current->parentWidget()) {
+        if (qobject_cast<QLineEdit*>(current) ||
+            qobject_cast<QTextEdit*>(current) ||
+            qobject_cast<QPlainTextEdit*>(current) ||
+            qobject_cast<QAbstractSpinBox*>(current) ||
+            qobject_cast<QComboBox*>(current)) {
+            return false;
+        }
+        if (qobject_cast<QAbstractButton*>(current)) {
+            return false;
+        }
+        if (current == owner) {
+            break;
+        }
+    }
+    return true;
 }
 
 } // namespace
@@ -690,6 +733,9 @@ bool InputOperator::processKeyEvent(const InputEvent& event) {
 
 bool InputOperator::processKeyPress(QWidget* widget, int key, Qt::KeyboardModifiers modifiers) {
     if (!impl_->enabled_) {
+        return false;
+    }
+    if (!widgetContextAcceptsKey(widget, modifiers)) {
         return false;
     }
 

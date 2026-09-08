@@ -1633,9 +1633,15 @@ void MeshRenderer::createBuffers()
         deviceInfo.Features.RayTracing != DEVICE_FEATURE_STATE_DISABLED &&
         (adapterInfo.RayTracing.CapFlags &
          RAY_TRACING_CAP_FLAG_STANDALONE_SHADERS) != 0;
-    const auto vertexBindFlags = BIND_VERTEX_BUFFER | BIND_SHADER_RESOURCE |
+    // Only positions are read through an SRV by the mesh-shader path.
+    // Diligent rejects BUFFER_MODE_UNDEFINED for an SRV-capable buffer, so
+    // keep that buffer structured and do not advertise unused SRVs for the
+    // fixed-function normal, UV, and index inputs.
+    const auto positionBindFlags = BIND_VERTEX_BUFFER | BIND_SHADER_RESOURCE |
         (rayTracingSupported ? BIND_RAY_TRACING : BIND_NONE);
-    const auto indexBindFlags = BIND_INDEX_BUFFER | BIND_SHADER_RESOURCE |
+    const auto vertexBindFlags = BIND_VERTEX_BUFFER |
+        (rayTracingSupported ? BIND_RAY_TRACING : BIND_NONE);
+    const auto indexBindFlags = BIND_INDEX_BUFFER |
         (rayTracingSupported ? BIND_RAY_TRACING : BIND_NONE);
     
     // 1. Position buffer (always needed)
@@ -1644,8 +1650,9 @@ void MeshRenderer::createBuffers()
         BuffDesc.Name              = "Mesh Position Buffer";
         BuffDesc.Usage             = USAGE_DEFAULT;
         BuffDesc.Size              = sizeof(float) * 3 * vertexCount_;
-        BuffDesc.BindFlags         = vertexBindFlags;
-        BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
+        BuffDesc.BindFlags         = positionBindFlags;
+        BuffDesc.Mode              = BUFFER_MODE_STRUCTURED;
+        BuffDesc.ElementByteStride = sizeof(float) * 3;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pPositionBuffer_);
     }
     
@@ -2186,30 +2193,35 @@ void MeshRenderer::createPSO()
     meshRT.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
     meshRT.BlendOp = BLEND_OPERATION_ADD;
 
-    RefCntAutoPtr<IShader> meshShader;
-    RefCntAutoPtr<IShader> meshPixelShader;
-    if (context_.CompileShader(MeshletMSSource, SHADER_TYPE_MESH,
-                               "MSMain", &meshShader) &&
-        context_.CompileShader(MeshletPSSource, SHADER_TYPE_PIXEL,
-                               "PSMain", &meshPixelShader)) {
-        meshPSOInfo.pMS = meshShader;
-        meshPSOInfo.pPS = meshPixelShader;
-        std::array<ShaderResourceVariableDesc, 4> meshVars = {{
-            {SHADER_TYPE_MESH, "g_Meshlets", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-            {SHADER_TYPE_MESH, "g_MeshletIndices", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-            {SHADER_TYPE_MESH, "g_Positions", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-            {SHADER_TYPE_MESH, "MeshletConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
-        }};
-        meshPSOInfo.PSODesc.ResourceLayout.DefaultVariableType =
-            SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
-        meshPSOInfo.PSODesc.ResourceLayout.Variables = meshVars.data();
-        meshPSOInfo.PSODesc.ResourceLayout.NumVariables =
-            static_cast<Uint32>(meshVars.size());
-        pDevice->CreateGraphicsPipelineState(meshPSOInfo,
-                                              &pImpl_->pMeshletPSO_);
-        if (pImpl_->pMeshletPSO_) {
-            pImpl_->pMeshletPSO_->CreateShaderResourceBinding(
-                &pImpl_->pMeshletSRB_, true);
+    const auto& deviceInfo = pDevice->GetDeviceInfo();
+    const bool meshShadersSupported =
+        deviceInfo.Features.MeshShaders != DEVICE_FEATURE_STATE_DISABLED;
+    if (meshShadersSupported) {
+        RefCntAutoPtr<IShader> meshShader;
+        RefCntAutoPtr<IShader> meshPixelShader;
+        if (context_.CompileShader(MeshletMSSource, SHADER_TYPE_MESH,
+                                   "MSMain", &meshShader) &&
+            context_.CompileShader(MeshletPSSource, SHADER_TYPE_PIXEL,
+                                   "PSMain", &meshPixelShader)) {
+            meshPSOInfo.pMS = meshShader;
+            meshPSOInfo.pPS = meshPixelShader;
+            std::array<ShaderResourceVariableDesc, 4> meshVars = {{
+                {SHADER_TYPE_MESH, "g_Meshlets", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+                {SHADER_TYPE_MESH, "g_MeshletIndices", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+                {SHADER_TYPE_MESH, "g_Positions", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+                {SHADER_TYPE_MESH, "MeshletConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+            }};
+            meshPSOInfo.PSODesc.ResourceLayout.DefaultVariableType =
+                SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+            meshPSOInfo.PSODesc.ResourceLayout.Variables = meshVars.data();
+            meshPSOInfo.PSODesc.ResourceLayout.NumVariables =
+                static_cast<Uint32>(meshVars.size());
+            pDevice->CreateGraphicsPipelineState(meshPSOInfo,
+                                                 &pImpl_->pMeshletPSO_);
+            if (pImpl_->pMeshletPSO_) {
+                pImpl_->pMeshletPSO_->CreateShaderResourceBinding(
+                    &pImpl_->pMeshletSRB_, true);
+            }
         }
     }
     qDebug() << "[MeshRenderer] PSO created successfully";

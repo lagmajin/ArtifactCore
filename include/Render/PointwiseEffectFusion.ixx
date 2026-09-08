@@ -26,6 +26,7 @@ enum class PointwiseNodeKind : std::uint8_t {
     Tint,
     HueRotate,
     ColorTemperature,
+    ColorMatrix,
     Clamp,
     Lut3D,
     Blend,
@@ -224,6 +225,8 @@ public:
         case PointwiseNodeKind::Posterize:
         case PointwiseNodeKind::Threshold:
             return {{1, "node-specific scalar/vector parameters"}, EffectExecutionDomain::Pointwise, true, true, false, false};
+        case PointwiseNodeKind::ColorMatrix:
+            return {{3, "three RGB matrix rows"}, EffectExecutionDomain::Pointwise, true, true, false, false};
         case PointwiseNodeKind::Levels:
             return {{2, "x=min, y=max"}, EffectExecutionDomain::Pointwise, true, true, false, false};
         case PointwiseNodeKind::Clamp:
@@ -601,6 +604,11 @@ private:
         case PointwiseNodeKind::ColorTemperature:
             hlsl << "  { float temperature = " << p << ".x; float tint = " << p << ".y;\n";
             hlsl << "    color.rgb *= float3(1.0 + temperature * 0.10, 1.0 + tint * 0.04, 1.0 - temperature * 0.10); }\n";
+            break;
+        case PointwiseNodeKind::ColorMatrix:
+            hlsl << "  color.rgb = mul(float3x3(" << p << ".rgb, Parameters["
+                 << node.parameterIndex + 1 << "].rgb, Parameters["
+                 << node.parameterIndex + 2 << "].rgb), color.rgb);\n";
             break;
         case PointwiseNodeKind::Clamp:
             hlsl << "  color.rgb = clamp(color.rgb, " << p << ".xxx, Parameters["

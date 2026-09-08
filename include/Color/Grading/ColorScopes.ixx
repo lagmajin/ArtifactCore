@@ -4,6 +4,7 @@ module;
 #include <array>
 #include <QImage>
 #include <QPainter>
+#include <QFontDatabase>
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -337,7 +338,9 @@ public:
             {"Yl", -0.500f, 0.081f, QColor(180, 180, 60)},
         };
         const float r90 = radius * 0.9f;
-        painter.setFont(QFont("Consolas", 7));
+        auto scopeFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+        scopeFont.setPointSize(7);
+        painter.setFont(scopeFont);
         for (const auto& t : targets) {
             int tx = cx + static_cast<int>(t.cb * r90 * 2.0f);
             int ty = cy - static_cast<int>(t.cr * r90 * 2.0f);

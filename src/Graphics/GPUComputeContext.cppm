@@ -81,6 +81,14 @@ namespace ArtifactCore
   shaderCI.EntryPoint = entryPoint;
   shaderCI.Source = shaderSource;
   shaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
+  // Mesh/amplification shaders have no Shader Model 5.x profile.  Leaving
+  // these types on Diligent's legacy default makes it request ms_5_1, which
+  // the HLSL compiler correctly rejects before a mesh PSO can be created.
+  if (type == Diligent::SHADER_TYPE_MESH ||
+      type == Diligent::SHADER_TYPE_AMPLIFICATION) {
+   shaderCI.ShaderCompiler = Diligent::SHADER_COMPILER_DXC;
+   shaderCI.HLSLVersion = {6, 5};
+  }
   //shaderCI.UseCombinedTextureSamplers = true;
 
   Diligent::RefCntAutoPtr<Diligent::IShader> shader;

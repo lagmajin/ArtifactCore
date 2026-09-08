@@ -624,4 +624,11 @@ namespace ArtifactCore {
         return impl_->bodies.toStdVector();
     }
 
+    bool Physics2D::hasBodies() const {
+        for (const auto& body : impl_->bodies) {
+            if (body) return true;
+        }
+        return false;
+    }
+
 }

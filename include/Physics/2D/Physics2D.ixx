@@ -412,6 +412,10 @@ export namespace ArtifactCore {
 
         // 登録されている全ボディを取得
         std::vector<SharedPtr<RigidBody2D>> getBodies() const;
+
+        // PERF: getBodies() は全コピー (alloc + refcount) のため、空判定専用の
+        // 軽量クエリ。tick 毎の step/評価スキップ判定に使う。
+        bool hasBodies() const;
     };
 
 }

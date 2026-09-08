@@ -34,6 +34,7 @@
 #include <numeric>
 #include <regex>
 #include <random>
+#include <limits>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -65,7 +66,12 @@ static CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsC
   out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
   out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
   out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
-  out.strideBytes = width * 3;
+  const auto strideBytes = static_cast<std::int64_t>(width) * 3;
+  if (width <= 0 || height <= 0 || strideBytes <= 0 ||
+      strideBytes > std::numeric_limits<int>::max()) {
+    return out;
+  }
+  out.strideBytes = static_cast<int>(strideBytes);
   out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(height));
 
   std::uint8_t* dstData[4] = { out.bytes.data(), nullptr, nullptr, nullptr };

@@ -16,6 +16,7 @@ export module Physics.System;
 import Physics.Fluid;
 import Physics2D;
 import Physics.SoftBody;
+import Physics.Cloth3D;
 import Physics.Mpm2D;
 #ifdef ARTIFACT_ENABLE_PYRO
 import Core.Simulation.Pyro;
@@ -69,6 +70,21 @@ export struct PhysicsTimelineSettings {
     float fixedTimeStep = 1.0f / 60.0f;
     int maxSubsteps = 8;
     std::size_t maxCachedFrames = 480;
+};
+
+// Renderer-facing snapshot of a Cloth3D grid.  Keep the solver type and its
+// implementation-only module behind PhysicsSystem so high-level consumers do
+// not import Physics.Cloth3D merely to read current deformation.
+export struct ClothDeformationMesh3D {
+    std::vector<float> positions;
+    std::vector<float> uvs;
+    std::vector<std::uint32_t> indices;
+
+    bool isValid() const noexcept {
+        return !positions.empty() && !indices.empty() &&
+               positions.size() % 3 == 0 &&
+               uvs.size() * 3 == positions.size() * 2;
+    }
 };
 
 /**
@@ -155,6 +171,7 @@ public:
     void invalidatePhysicsSnapshots() {
         fluidSnapshots_.clear();
         softBodySnapshots_.clear();
+        cloth3DSnapshots_.clear();
         materialSnapshots_.clear();
         rigidSnapshots_.clear();
         compositionRigidSnapshots_.clear();
@@ -507,6 +524,89 @@ public:
         return {};
     }
 
+    // --- Cloth3D: SoftBody2Dと状態を共有しない独立レジストリ ---
+    SharedPtr<ClothSolver3D> createCloth3D(LayerID layerId) {
+        auto solver = makeShared<ClothSolver3D>();
+        cloth3DBodies_[layerId] = solver;
+        invalidatePhysicsSnapshots();
+        return solver;
+    }
+
+    SharedPtr<ClothSolver3D> createCloth3DGrid(
+        LayerID layerId,
+        float left,
+        float top,
+        float width,
+        float height,
+        float depth = 0.0f,
+        int columns = 8,
+        int rows = 8,
+        float pointMass = 1.0f,
+        float stiffness = 1.0f,
+        bool pinTopRow = true,
+        float shearStiffness = 0.5f) {
+        auto solver = createCloth3D(layerId);
+        solver->buildGrid(left, top, width, height, depth, columns, rows,
+                          pointMass, stiffness, pinTopRow, shearStiffness);
+        return solver;
+    }
+
+    SharedPtr<ClothSolver3D> getCloth3D(LayerID layerId) {
+        auto it = cloth3DBodies_.find(layerId);
+        if (it != cloth3DBodies_.end()) return it->second;
+        return nullptr;
+    }
+
+    bool hasCloth3D(LayerID layerId) const {
+        const auto it = cloth3DBodies_.find(layerId);
+        return it != cloth3DBodies_.end() && static_cast<bool>(it->second);
+    }
+
+    ClothDeformationMesh3D cloth3DDeformationMesh(LayerID layerId) const {
+        ClothDeformationMesh3D mesh;
+        const auto it = cloth3DBodies_.find(layerId);
+        if (it == cloth3DBodies_.end() || !it->second) {
+            return mesh;
+        }
+
+        const auto& solver = *it->second;
+        const int columns = solver.gridColumns();
+        const int rows = solver.gridRows();
+        if (columns < 2 || rows < 2 ||
+            solver.pointCount() != static_cast<std::size_t>(columns * rows)) {
+            return mesh;
+        }
+
+        mesh.positions.reserve(solver.pointCount() * 3);
+        mesh.uvs.reserve(solver.pointCount() * 2);
+        const float invColumns = 1.0f / static_cast<float>(columns - 1);
+        const float invRows = 1.0f / static_cast<float>(rows - 1);
+        for (int y = 0; y < rows; ++y) {
+            for (int x = 0; x < columns; ++x) {
+                const auto& point = solver.point(
+                    static_cast<std::size_t>(y * columns + x));
+                mesh.positions.push_back(point.x);
+                mesh.positions.push_back(point.y);
+                mesh.positions.push_back(point.z);
+                mesh.uvs.push_back(static_cast<float>(x) * invColumns);
+                mesh.uvs.push_back(static_cast<float>(y) * invRows);
+            }
+        }
+        mesh.indices = solver.getGridTriangleIndices();
+        return mesh;
+    }
+
+    void unregisterCloth3D(LayerID layerId) {
+        cloth3DBodies_.erase(layerId);
+        invalidatePhysicsSnapshots();
+    }
+
+    void setCloth3DWind(LayerID layerId, float dirX, float dirY, float dirZ, float strength) {
+        if (auto it = cloth3DBodies_.find(layerId); it != cloth3DBodies_.end() && it->second) {
+            it->second->setWind(dirX, dirY, dirZ, strength);
+        }
+    }
+
     // Capture all registered solver states at one logical frame. Keeping the
     // frame key common is what lets seek/loop restore a mixed rigid + soft +
     // fluid composition without partially rewinding it.
@@ -518,6 +618,11 @@ public:
         for (const auto& [layerId, solver] : softBodies_) {
             if (!solver) continue;
             auto& snapshots = softBodySnapshots_[layerId];
+            snapshots[frame] = solver->snapshot();
+        }
+        for (const auto& [layerId, solver] : cloth3DBodies_) {
+            if (!solver) continue;
+            auto& snapshots = cloth3DSnapshots_[layerId];
             snapshots[frame] = solver->snapshot();
         }
         for (const auto& entry : materialSolvers_) {
@@ -561,6 +666,16 @@ public:
             if (!solver) continue;
             const auto cacheIt = softBodySnapshots_.find(layerId);
             if (cacheIt == softBodySnapshots_.end()) return false;
+            const auto snapshotIt = cacheIt->second.find(frame);
+            if (snapshotIt == cacheIt->second.end() ||
+                !solver->canRestoreSnapshot(snapshotIt->second)) {
+                return false;
+            }
+        }
+        for (const auto& [layerId, solver] : cloth3DBodies_) {
+            if (!solver) continue;
+            const auto cacheIt = cloth3DSnapshots_.find(layerId);
+            if (cacheIt == cloth3DSnapshots_.end()) return false;
             const auto snapshotIt = cacheIt->second.find(frame);
             if (snapshotIt == cacheIt->second.end() ||
                 !solver->canRestoreSnapshot(snapshotIt->second)) {
@@ -613,6 +728,10 @@ public:
             if (!solver) continue;
             solver->restoreSnapshot(softBodySnapshots_.at(layerId).at(frame));
         }
+        for (const auto& [layerId, solver] : cloth3DBodies_) {
+            if (!solver) continue;
+            solver->restoreSnapshot(cloth3DSnapshots_.at(layerId).at(frame));
+        }
         for (const auto& [layerId, solver] : fluidSolvers_) {
             if (!solver) continue;
             solver->restoreSnapshot(fluidSnapshots_.at(layerId).at(frame));
@@ -631,10 +750,22 @@ public:
         // callers. Mixed-solver all-or-nothing restoration is exposed through
         // restorePhysicsSnapshots() and can be adopted by composition seek
         // once the rigid/fluid timeline owner is wired there.
+        // Cloth3D shares this legacy entry so existing composition seek
+        // keeps working without migrating every caller immediately.
         for (const auto& [layerId, solver] : softBodies_) {
             if (!solver) continue;
             const auto cacheIt = softBodySnapshots_.find(layerId);
             if (cacheIt == softBodySnapshots_.end()) return false;
+            const auto snapshotIt = cacheIt->second.find(frame);
+            if (snapshotIt == cacheIt->second.end() ||
+                !solver->canRestoreSnapshot(snapshotIt->second)) {
+                return false;
+            }
+        }
+        for (const auto& [layerId, solver] : cloth3DBodies_) {
+            if (!solver) continue;
+            const auto cacheIt = cloth3DSnapshots_.find(layerId);
+            if (cacheIt == cloth3DSnapshots_.end()) return false;
             const auto snapshotIt = cacheIt->second.find(frame);
             if (snapshotIt == cacheIt->second.end() ||
                 !solver->canRestoreSnapshot(snapshotIt->second)) {
@@ -658,6 +789,10 @@ public:
             if (!solver) continue;
             solver->restoreSnapshot(softBodySnapshots_.at(layerId).at(frame));
         }
+        for (const auto& [layerId, solver] : cloth3DBodies_) {
+            if (!solver) continue;
+            solver->restoreSnapshot(cloth3DSnapshots_.at(layerId).at(frame));
+        }
         for (const auto& entry : materialSolvers_) {
             const auto& layerId = entry.layerId;
             const auto& solver = entry.solver;
@@ -677,6 +812,10 @@ public:
     void updateCompositionRigidWorld(CompositionID id, float dt) {
         if (dt <= 0.0f || lodSettings_.level == PhysicsLODLevel::Frozen) return;
         if (auto world = getCompositionRigidWorld(id)) {
+            // PERF: 空 world の step は何も変えない (body 無し → contact 不可 →
+            // contactEvents は空のまま)。plain 構成で最大 8 catch-up × 4 substep
+            // の b2World_Step を省略する。
+            if (!world->hasBodies()) return;
             world->step(dt, lodSettings_.rigidBodySubSteps > 0
                 ? lodSettings_.rigidBodySubSteps : 4);
         }
@@ -730,6 +869,20 @@ public:
                 sb->setSelfCollisionEnabled(false);
             }
             sb->update(simulationDt, gravityX, gravityY);
+        }
+
+        for (auto& [id, cloth] : cloth3DBodies_) {
+            if (!cloth) continue;
+            if (lodSettings_.softBodyMaxSubSteps > 0) {
+                cloth->setMaxSubsteps(lodSettings_.softBodyMaxSubSteps);
+            }
+            if (lodSettings_.softBodyConstraintIterations > 0) {
+                cloth->setConstraintIterations(lodSettings_.softBodyConstraintIterations);
+            }
+            if (lodSettings_.softBodyCollisionIterations > 0) {
+                cloth->setCollisionIterations(lodSettings_.softBodyCollisionIterations);
+            }
+            cloth->update(simulationDt, gravityX, gravityY, 0.0f);
         }
 
         for (auto& entry : materialSolvers_) {
@@ -795,6 +948,7 @@ public:
         fluidSolvers_.clear();
         softBodies_.clear();
         softBodyColliders_.clear();
+        cloth3DBodies_.clear();
         materialSolvers_.clear();
         pendingMaterialFractureEvents_.clear();
         rigidWorlds_.clear();
@@ -819,6 +973,7 @@ private:
         };
         trim(fluidSnapshots_);
         trim(softBodySnapshots_);
+        trim(cloth3DSnapshots_);
         trim(materialSnapshots_);
         trim(rigidSnapshots_);
         trim(compositionRigidSnapshots_);
@@ -869,6 +1024,8 @@ private:
     std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
     std::map<LayerID, NamedVector<SoftBodyCollider>> softBodyColliders_;
     std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
+    std::map<LayerID, SharedPtr<ClothSolver3D>> cloth3DBodies_;
+    std::map<LayerID, std::map<int64_t, ClothSnapshot3D>> cloth3DSnapshots_;
     NamedVector<MaterialSolverEntry> materialSolvers_;
     std::map<LayerID, std::map<int64_t, SharedPtr<MpmSnapshot2D>>> materialSnapshots_;
     NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
