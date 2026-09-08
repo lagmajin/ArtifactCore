@@ -37,6 +37,7 @@ enum class PointwiseNodeKind : std::uint8_t {
     Neighborhood,
     Temporal,
     CpuBoundary,
+    SrgbToLinear,
 };
 
 enum class EffectExecutionDomain : std::uint8_t {
@@ -227,6 +228,8 @@ public:
             return {{1, "node-specific scalar/vector parameters"}, EffectExecutionDomain::Pointwise, true, true, false, false};
         case PointwiseNodeKind::ColorMatrix:
             return {{3, "three RGB matrix rows"}, EffectExecutionDomain::Pointwise, true, true, false, false};
+        case PointwiseNodeKind::SrgbToLinear:
+            return {{0, "explicit sRGB input to linear output"}, EffectExecutionDomain::Pointwise, true, true, false, false};
         case PointwiseNodeKind::Levels:
             return {{2, "x=min, y=max"}, EffectExecutionDomain::Pointwise, true, true, false, false};
         case PointwiseNodeKind::Clamp:
@@ -574,6 +577,13 @@ private:
         switch (node.kind) {
         case PointwiseNodeKind::Exposure:
             hlsl << "  color.rgb *= exp2(" << p << ".x);\n";
+            break;
+        case PointwiseNodeKind::SrgbToLinear:
+            hlsl << "  color.rgb = max(color.rgb, 0.0);\n"
+                 << "  color.rgb = float3(\n"
+                 << "    color.r <= 0.04045 ? color.r / 12.92 : pow((color.r + 0.055) / 1.055, 2.4),\n"
+                 << "    color.g <= 0.04045 ? color.g / 12.92 : pow((color.g + 0.055) / 1.055, 2.4),\n"
+                 << "    color.b <= 0.04045 ? color.b / 12.92 : pow((color.b + 0.055) / 1.055, 2.4));\n";
             break;
         case PointwiseNodeKind::Offset:
             hlsl << "  color.rgb += " << p << ".xxx;\n";
