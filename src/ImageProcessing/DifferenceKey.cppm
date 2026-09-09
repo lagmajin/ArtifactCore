@@ -6,22 +6,20 @@ module;
 #include <vector>
 
 module ImageProcessing;
-import :LumaKey;
+import :DifferenceKey;
 import Core.Parallel;
-
-import Particle;
-import Image.ImageF32x4_RGBA;
 
 namespace ArtifactCore::Keying {
 namespace {
 
-float lumaFinite(float value, float fallback) {
+float diffFinite(float value, float fallback) {
     return std::isfinite(value) ? value : fallback;
 }
 
 } // namespace
 
-bool processLumaKey(const LumaKeyBuffers& buffers, const LumaKeyParams& inputParams) {
+bool processDifferenceKey(const DifferenceKeyBuffers& buffers,
+                          const DifferenceKeyParams& inputParams) {
     if (!buffers.src || !buffers.dst || buffers.src == buffers.dst ||
         buffers.width <= 0 || buffers.height <= 0)
         return false;
@@ -35,13 +33,14 @@ bool processLumaKey(const LumaKeyBuffers& buffers, const LumaKeyParams& inputPar
     const int w = buffers.width;
     const int h = buffers.height;
 
-    LumaKeyParams p = inputParams;
-    p.low = std::clamp(lumaFinite(p.low, 0.15f), 0.0f, 1.0f);
-    p.high = std::clamp(lumaFinite(p.high, 0.85f), 0.0f, 1.0f);
-    if (p.high < p.low) std::swap(p.low, p.high);
-    p.softness = std::max(0.001f, lumaFinite(p.softness, 0.08f));
-    p.choke = std::clamp(lumaFinite(p.choke, 0.0f), -1.0f, 1.0f);
-    p.matteBlur = std::clamp(lumaFinite(p.matteBlur, 0.0f), 0.0f, 2.0f);
+    DifferenceKeyParams p = inputParams;
+    p.refR = std::clamp(diffFinite(p.refR, 0.0f), 0.0f, 1.0f);
+    p.refG = std::clamp(diffFinite(p.refG, 0.0f), 0.0f, 1.0f);
+    p.refB = std::clamp(diffFinite(p.refB, 0.0f), 0.0f, 1.0f);
+    p.threshold = std::clamp(diffFinite(p.threshold, 0.1f), 0.0f, 1.732f);
+    p.softness = std::max(0.001f, diffFinite(p.softness, 0.08f));
+    p.choke = std::clamp(diffFinite(p.choke, 0.0f), -1.0f, 1.0f);
+    p.matteBlur = std::clamp(diffFinite(p.matteBlur, 0.0f), 0.0f, 2.0f);
     p.viewMode = std::clamp(p.viewMode, 0, 1);
 
     std::vector<float> matte(pixelCount);
@@ -51,14 +50,16 @@ bool processLumaKey(const LumaKeyBuffers& buffers, const LumaKeyParams& inputPar
                 const std::size_t i = static_cast<std::size_t>(y) * width +
                     static_cast<std::size_t>(x);
                 const float* s = buffers.src + i * 4;
-                const float luma = s[0] * 0.2126f + s[1] * 0.7152f + s[2] * 0.0722f;
-                if (!std::isfinite(luma) || !std::isfinite(s[3])) {
+                const float dr = s[0] - p.refR;
+                const float dg = s[1] - p.refG;
+                const float db = s[2] - p.refB;
+                const float distance = std::sqrt(dr * dr + dg * dg + db * db);
+                if (!std::isfinite(distance) || !std::isfinite(s[3])) {
                     matte[i] = 0.0f;
                     continue;
                 }
-                const float lower = std::clamp((luma - p.low) / p.softness, 0.0f, 1.0f);
-                const float upper = std::clamp((p.high - luma) / p.softness, 0.0f, 1.0f);
-                matte[i] = std::min(lower, upper);
+                matte[i] = std::clamp((distance - p.threshold) / p.softness,
+                                      0.0f, 1.0f);
             }
         }
     });
@@ -137,38 +138,3 @@ bool processLumaKey(const LumaKeyBuffers& buffers, const LumaKeyParams& inputPar
 }
 
 } // namespace ArtifactCore::Keying
-
-namespace ArtifactCore {
-
-void LumaKey::process(float4* buffer, int width, int height, const LumaKeySettings& settings) {
-    if (!buffer || width <= 0 || height <= 0) return;
-
-    const float lo = settings.lowThreshold;
-    const float hi = std::max(lo, settings.highThreshold);
-    const float soft = std::max(0.001f, settings.softness);
-    const float softInv = 1.0f / soft;
-    Parallel::ForTiles(width, height, 64, 64, [&](int x0, int y0, int x1, int y1) {
-        for (int y = y0; y < y1; ++y) {
-            const size_t rowStart = static_cast<size_t>(y) * static_cast<size_t>(width);
-            for (int x = x0; x < x1; ++x) {
-                const size_t i = rowStart + static_cast<size_t>(x);
-                float4 c = buffer[i];
-            const float luma = c.x * 0.299f + c.y * 0.587f + c.z * 0.114f;
-
-            float alpha = 1.0f;
-            if (luma < lo)
-                alpha = std::clamp((luma - (lo - soft)) * softInv, 0.0f, 1.0f);
-            else if (luma > hi)
-                alpha = std::clamp(((hi + soft) - luma) * softInv, 0.0f, 1.0f);
-
-                buffer[i] = { c.x, c.y, c.z, c.w * alpha };
-            }
-        }
-    });
-}
-
-void LumaKey::process(ImageF32x4_RGBA& image, const LumaKeySettings& settings) {
-    process(reinterpret_cast<float4*>(image.rgba32fData()), image.width(), image.height(), settings);
-}
-
-}

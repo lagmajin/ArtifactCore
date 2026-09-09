@@ -153,6 +153,8 @@ public:
     /// 実プリコンポーズレイヤーを登録（parentCompositionId も正しい値で更新）。
     /// ArtifactProjectService の precompose 経路で、実レイヤー作成直後に呼ぶ。
     void registerPrecompLayer(CompositionID parentCompId, LayerID precompLayerId, CompositionID childCompId);
+    bool unregisterPrecompLayer(CompositionID parentCompId, LayerID precompLayerId,
+                                CompositionID childCompId);
     
     /// 子コンポジションを参照する全プリコンポーズレイヤーを逆引きする。
     QVector<PrecompLayerRef> getPrecompLayersForChild(CompositionID childCompId) const;
@@ -209,6 +211,15 @@ namespace NestedTimeUtils {
         double sourceTime,
         CompositionID sourceComposition,
         CompositionID targetComposition
+    );
+
+    /// Explicitly convert time through the actual instance path. The first
+    /// list walks upward from the source through child->parent instances;
+    /// the second walks downward from the common ancestor to the target.
+    double convertTimeThroughLayerPath(
+        double sourceTime,
+        const QVector<LayerID>& sourceToAncestorLayers,
+        const QVector<LayerID>& ancestorToTargetLayers
     );
     
     /// 子コンポジションのタイムリマップを考慮した時間取得

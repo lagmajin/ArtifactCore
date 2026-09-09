@@ -72,6 +72,10 @@ struct ParametricCompositionParameter {
     QString key;
     QString displayName;
     QVariant defaultValue;
+    // Optional destination in the source composition.  When both fields are
+    // set, the instance value is injected only for the duration of rendering.
+    QString targetLayerId;
+    QString targetPropertyPath;
     bool overridableByInstance = true;
     bool visible = true;
 
@@ -230,6 +234,7 @@ public:
     QVector<ParametricCompositionSlot> slotsByRole(ParametricCompositionSlotRole role) const;
 
     bool addParameter(const ParametricCompositionParameter& parameter);
+    bool setParameter(const ParametricCompositionParameter& parameter);
     bool removeParameter(const QString& key);
     bool hasParameter(const QString& key) const;
     const ParametricCompositionParameter* parameter(const QString& key) const;

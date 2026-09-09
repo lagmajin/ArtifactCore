@@ -19,6 +19,7 @@ module;
 #include <numbers>
 #include <algorithm>
 #include <functional>
+#include <limits>
 
 #include <iostream>
 #include <vector>
@@ -1092,8 +1093,21 @@ public:
 
     // 設定に応じた LK / NCC ベースのポイント測定
     FlowMeasurement computeOpticalFlow(const cv::Mat& prev, const cv::Mat& curr, const QPointF& point) {
-        const int templateSize = 21;
-        const int searchRadius = 31;
+        const int templateSize = std::clamp(settings.windowSize | 1, 5, 101);
+        int searchRadius = 31;
+        if (!settings.searchRegion.isEmpty()) {
+            const QRectF region = settings.searchRegion.normalized();
+            const double horizontalDistance = std::max(
+                std::abs(point.x() - region.left()),
+                std::abs(region.right() - point.x()));
+            const double verticalDistance = std::max(
+                std::abs(point.y() - region.top()),
+                std::abs(region.bottom() - point.y()));
+            searchRadius = std::max(
+                searchRadius,
+                static_cast<int>(std::ceil(
+                    std::max(horizontalDistance, verticalDistance))));
+        }
         const int halfTmpl = templateSize / 2;
         const int halfSearch = searchRadius;
 
@@ -1127,6 +1141,12 @@ public:
             if (!nextPoints.empty() && !status.empty() && status.front() &&
                 std::isfinite(nextPoints.front().x) &&
                 std::isfinite(nextPoints.front().y)) {
+                const QPointF nextPosition(nextPoints.front().x,
+                                           nextPoints.front().y);
+                if (!settings.searchRegion.isEmpty() &&
+                    !settings.searchRegion.contains(nextPosition)) {
+                    return {QPointF(), 0.0, false};
+                }
                 const double trackingError = errors.empty() ? 0.0 : errors.front();
                 const double confidence = 1.0 /
                     (1.0 + std::max(0.0, trackingError));
@@ -1161,6 +1181,23 @@ public:
         sy = std::max(0, sy);
         int sw = std::min(halfSearch * 2, currGray.cols - sx);
         int sh = std::min(halfSearch * 2, currGray.rows - sy);
+        if (!settings.searchRegion.isEmpty()) {
+            const QRectF region = settings.searchRegion.normalized();
+            const int regionLeft = std::clamp(
+                static_cast<int>(std::floor(region.left())), 0, currGray.cols);
+            const int regionTop = std::clamp(
+                static_cast<int>(std::floor(region.top())), 0, currGray.rows);
+            const int regionRight = std::clamp(
+                static_cast<int>(std::ceil(region.right())), regionLeft,
+                currGray.cols);
+            const int regionBottom = std::clamp(
+                static_cast<int>(std::ceil(region.bottom())), regionTop,
+                currGray.rows);
+            sx = std::max(sx, regionLeft);
+            sy = std::max(sy, regionTop);
+            sw = std::min(sw, regionRight - sx);
+            sh = std::min(sh, regionBottom - sy);
+        }
         if (sw < templateSize || sh < templateSize) {
             return {};
         }
@@ -1285,6 +1322,10 @@ void MotionTracker::setSettings(const TrackerSettings& settings) {
         ? std::clamp(impl_->settings.errorThreshold, 0.0, 1.0e6) : 10.0;
     impl_->settings.subpixelIterations =
         std::max(1, impl_->settings.subpixelIterations);
+    // Keep the public tracker type and the serialized settings type in sync.
+    // Both fields are persisted for compatibility with older project files,
+    // so allowing them to diverge makes a mode switch disappear on reload.
+    impl_->type = impl_->settings.type;
 }
 
 TrackerSettings MotionTracker::settings() const {
@@ -1294,6 +1335,7 @@ TrackerSettings MotionTracker::settings() const {
 void MotionTracker::setTrackerType(TrackerType type) {
     impl_->type = static_cast<TrackerType>(
         std::clamp(static_cast<int>(type), 0, 3));
+    impl_->settings.type = impl_->type;
 }
 
 TrackerType MotionTracker::trackerType() const {
@@ -1391,6 +1433,18 @@ std::vector<TrackPoint> MotionTracker::trackPoints() const {
     return impl_->currentPoints;
 }
 
+int MotionTracker::firstTrackPointId() const {
+    if (!impl_->currentPoints.empty()) {
+        return impl_->currentPoints.front().id;
+    }
+    for (const auto& frame : impl_->result.frames) {
+        if (!frame.points.empty()) {
+            return frame.points.front().id;
+        }
+    }
+    return -1;
+}
+
 // ========================================
 // トラッキング実行
 // ========================================
@@ -1410,6 +1464,15 @@ void MotionTracker::setFrame(double time, const cv::Mat& frame) {
     }
     impl_->frameBuffer[time] = std::move(normalized);
     impl_->currentTime = time;
+}
+
+void MotionTracker::setSearchRegion(const QRectF& region) {
+    impl_->settings.searchRegion = region.isValid() ? region.normalized()
+                                                     : QRectF();
+}
+
+QRectF MotionTracker::searchRegion() const {
+    return impl_->settings.searchRegion;
 }
 
 bool MotionTracker::trackForward(double fromTime, double toTime) {
@@ -1516,7 +1579,7 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
         for (std::size_t regionIndex = 1; regionIndex < impl_->regions.size(); ++regionIndex) {
             trackingBounds = trackingBounds.united(impl_->regions[regionIndex].bounds);
         }
-        if (impl_->computePlanarHomography(it2.value(), it1.value(), trackingBounds, h, planarConfidence)) {
+        if (impl_->computePlanarHomography(it1.value(), it2.value(), trackingBounds, h, planarConfidence)) {
             for (auto& point : impl_->currentPoints) {
                 const QPointF previousPosition = point.position;
                 point.position = impl_->applyHomography(h, previousPosition);
@@ -1547,13 +1610,14 @@ bool MotionTracker::trackBackward(double fromTime, double toTime) {
         return false;
     }
 
-    // 逆方向トラッキング: 入力フレーム自体を逆順にして測定する。
+    // Descending time is already expressed by fromTime > toTime. Track the
+    // current point state from the later source frame into the earlier target.
     double confidenceSum = 0.0;
     int measuredPoints = 0;
     const double deltaTime = std::max(std::abs(toTime - fromTime), 1e-9);
     for (auto& point : impl_->currentPoints) {
         const FlowMeasurement measurement =
-            impl_->computeOpticalFlow(it2.value(), it1.value(), point.position);
+            impl_->computeOpticalFlow(it1.value(), it2.value(), point.position);
         point.confidence = measurement.confidence;
         point.active = measurement.valid;
         if (measurement.valid) {
@@ -1628,6 +1692,7 @@ bool MotionTracker::trackRange(double startTime, double endTime,
     }
 
     bool seededStartFrame = false;
+    bool hadSuccessfulStep = false;
     double previousTrackedTime = 0.0;
     for (double t : times) {
         if (impl_->shouldStop) break;
@@ -1652,6 +1717,10 @@ bool MotionTracker::trackRange(double startTime, double endTime,
                 impl_->shouldStop = true;
                 break;
             }
+            const TrackFrame measuredFrame = impl_->result.interpolateAt(t);
+            hadSuccessfulStep = hadSuccessfulStep ||
+                (measuredFrame.overallConfidence >=
+                 impl_->settings.confidenceThreshold);
             previousTrackedTime = t;
         }
         
@@ -1676,7 +1745,88 @@ bool MotionTracker::trackRange(double startTime, double endTime,
     
     // A user cancellation or a progress callback abort is not a successful solve,
     // even when the partial result already contains valid frames.
-    return !impl_->shouldStop && impl_->result.isValid;
+    // A one-frame source has no pair from which to measure motion, but the
+    // seeded feature is still a valid tracking result for position/anchor
+    // application.  Require a successful measured step for longer ranges.
+    return !impl_->shouldStop && impl_->result.isValid &&
+           (hadSuccessfulStep || totalSteps == 1);
+}
+
+bool MotionTracker::trackBackwardRange(
+    double startTime, double endTime,
+    std::function<bool(double progress)> progressCallback) {
+    if (!std::isfinite(startTime) || !std::isfinite(endTime) ||
+        startTime < endTime) {
+        return false;
+    }
+    impl_->isTracking = true;
+    impl_->shouldStop = false;
+    impl_->result = TrackResult();
+    impl_->result.trackerId = impl_->id;
+    impl_->result.name = impl_->name;
+
+    QList<double> times = impl_->frameBuffer.keys();
+    std::sort(times.begin(), times.end(), std::greater<double>());
+
+    int totalSteps = 0;
+    for (double time : times) {
+        if (time <= startTime && time >= endTime) ++totalSteps;
+    }
+    if (totalSteps == 0) {
+        impl_->isTracking = false;
+        return false;
+    }
+
+    bool seededStartFrame = false;
+    bool hadSuccessfulStep = false;
+    double previousTrackedTime = 0.0;
+    int currentStep = 0;
+    for (double time : times) {
+        if (impl_->shouldStop) break;
+        if (time > startTime || time < endTime) continue;
+
+        const bool isFirstSample = !seededStartFrame;
+        if (isFirstSample) {
+            TrackFrame startFrame;
+            startFrame.time = time;
+            startFrame.points = impl_->currentPoints;
+            startFrame.overallConfidence = 1.0;
+            impl_->result.setFrame(std::move(startFrame));
+            seededStartFrame = true;
+            previousTrackedTime = time;
+        } else {
+            if (!trackBackward(previousTrackedTime, time)) {
+                impl_->shouldStop = true;
+                break;
+            }
+            const TrackFrame measuredFrame = impl_->result.interpolateAt(time);
+            hadSuccessfulStep = hadSuccessfulStep ||
+                (measuredFrame.overallConfidence >=
+                 impl_->settings.confidenceThreshold);
+            previousTrackedTime = time;
+        }
+
+        ++currentStep;
+        if (progressCallback) {
+            try {
+                if (!progressCallback(
+                        static_cast<double>(currentStep) / totalSteps)) {
+                    impl_->shouldStop = true;
+                    break;
+                }
+            } catch (...) {
+                impl_->shouldStop = true;
+                break;
+            }
+        }
+    }
+
+    impl_->result.startTime = endTime;
+    impl_->result.endTime = startTime;
+    impl_->result.normalize();
+    impl_->isTracking = false;
+    return !impl_->shouldStop && impl_->result.isValid &&
+           (hadSuccessfulStep || totalSteps == 1);
 }
 
 bool MotionTracker::trackAll(std::function<bool(double progress)> progressCallback) {
@@ -2215,7 +2365,7 @@ bool MotionTracker::fromJson(const QString& json) {
         const QJsonObject settingsObj = root["settings"].toObject();
         impl_->settings.method = static_cast<TrackingMethod>(settingsObj["method"].toInt(static_cast<int>(TrackingMethod::OpticalFlow)));
         impl_->settings.quality = static_cast<TrackingQuality>(settingsObj["quality"].toInt(static_cast<int>(TrackingQuality::Normal)));
-        impl_->settings.type = static_cast<TrackerType>(settingsObj["type"].toInt(static_cast<int>(TrackerType::Point)));
+        impl_->settings.type = static_cast<TrackerType>(settingsObj["type"].toInt(static_cast<int>(impl_->type)));
         impl_->settings.maxFeatures = settingsObj["maxFeatures"].toInt(impl_->settings.maxFeatures);
         impl_->settings.minDistance = settingsObj["minDistance"].toDouble(impl_->settings.minDistance);
         impl_->settings.windowSize = settingsObj["windowSize"].toInt(impl_->settings.windowSize);
@@ -2237,6 +2387,8 @@ bool MotionTracker::fromJson(const QString& json) {
 
     impl_->currentPoints.clear();
     impl_->regions.clear();
+    impl_->nextPointId = 1;
+    impl_->nextRegionId = 1;
     if (root.contains("trackPoints") && root["trackPoints"].isArray()) {
         for (const auto& pointVal : root["trackPoints"].toArray()) {
             const QJsonObject pointObj = pointVal.toObject();
@@ -2247,6 +2399,10 @@ bool MotionTracker::fromJson(const QString& json) {
             point.confidence = pointObj["confidence"].toDouble(1.0);
             point.active = pointObj["active"].toBool(true);
             impl_->currentPoints.push_back(point);
+            if (point.id >= impl_->nextPointId &&
+                point.id < std::numeric_limits<int>::max()) {
+                impl_->nextPointId = point.id + 1;
+            }
         }
     }
     if (root.contains("trackRegions") && root["trackRegions"].isArray()) {
@@ -2265,6 +2421,10 @@ bool MotionTracker::fromJson(const QString& json) {
                 }
             }
             impl_->regions.push_back(region);
+            if (region.id >= impl_->nextRegionId &&
+                region.id < std::numeric_limits<int>::max()) {
+                impl_->nextRegionId = region.id + 1;
+            }
         }
     }
     impl_->result.trackerId = impl_->id;

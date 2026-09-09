@@ -1681,10 +1681,12 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;ImageProcessing:ChromaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaKey.ifc"
             "/reference;ImageProcessing:ChromaSpread=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpread.ifc"
             "/reference;ImageProcessing:ChromaSpreadGlow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpreadGlow.ifc"
+            "/reference;ImageProcessing:DifferenceKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-DifferenceKey.ifc"
             "/reference;ImageProcessing:Duotone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Duotone.ifc"
             "/reference;ImageProcessing:Echo=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Echo.ifc"
             "/reference;ImageProcessing:EdgeEcho=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-EdgeEcho.ifc"
             "/reference;ImageProcessing:Emboss=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Emboss.ifc"
+            "/reference;ImageProcessing:FilmRepair=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-FilmRepair.ifc"
             "/reference;ImageProcessing:Halftone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Halftone.ifc"
             "/reference;ImageProcessing:IBKKeyer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-IBKKeyer.ifc"
             "/reference;ImageProcessing:LeaveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-LeaveColor.ifc"
@@ -1703,6 +1705,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;ImageProcessing:Threshold=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Threshold.ifc"
             "/reference;ImageProcessing:TiltShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-TiltShift.ifc"
             "/reference;ImageProcessing:VectorFlowGlitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-VectorFlowGlitch.ifc"
+            "/reference;ImageProcessing:WireRemove=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-WireRemove.ifc"
             "/reference;ImageProcessing.ColorTransform.SelectiveColor=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.SelectiveColor.ifc"
             "/reference;ImageProcessing.ColorTransform.Tritone=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.Tritone.ifc"
             "/reference;ImageProcessing.EmbossCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.EmbossCS.ifc"
@@ -1917,8 +1920,11 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
            _artifact_impl_relative STREQUAL "src/ImageProcessing/StructureTensor.cppm" OR
            _artifact_impl_relative STREQUAL "src/ImageProcessing/StrobeLight.cppm" OR
            _artifact_impl_relative STREQUAL "src/ImageProcessing/Threshold.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/TiltShift.cppm" OR
-           _artifact_impl_relative STREQUAL "src/ImageProcessing/VectorFlowGlitch.cppm")
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/TiltShift.cppm" OR
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/VectorFlowGlitch.cppm" OR
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/FilmRepair.cppm" OR
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/DifferenceKey.cppm" OR
+            _artifact_impl_relative STREQUAL "src/ImageProcessing/WireRemove.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing:NeuromorphicDisplace=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-NeuromorphicDisplace.ifc")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
@@ -1926,6 +1932,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;ImageProcessing=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ifc"
             "/reference;ImageProcessing:ChromaSpreadGlow=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpreadGlow.ifc"
+            "/reference;ImageProcessing:DifferenceKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-DifferenceKey.ifc"
             "/reference;ImageProcessing.BroadcastColorsCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.BroadcastColorsCS.ifc"
             "/reference;ImageProcessing.ChromaKeyCS=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ChromaKeyCS.ifc"
             "/reference;ImageProcessing.ColorTransform.ChannelMixer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing.ColorTransform.ChannelMixer.ifc"
@@ -1971,6 +1978,8 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "/reference;ImageProcessing:Threshold=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-Threshold.ifc"
             "/reference;ImageProcessing:TiltShift=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-TiltShift.ifc"
             "/reference;ImageProcessing:VectorFlowGlitch=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-VectorFlowGlitch.ifc"
+            "/reference;ImageProcessing:FilmRepair=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-FilmRepair.ifc"
+            "/reference;ImageProcessing:WireRemove=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-WireRemove.ifc"
             "/reference;ImageProcessing:BroadcastColors=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-BroadcastColors.ifc"
             "/reference;ImageProcessing:ChromaKey=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaKey.ifc"
             "/reference;ImageProcessing:ChromaSpread=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ImageProcessing-ChromaSpread.ifc"

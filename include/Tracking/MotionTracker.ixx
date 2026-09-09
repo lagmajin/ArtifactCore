@@ -275,14 +275,21 @@ public:
     int trackRegionCount() const;
     TrackPoint trackPoint(int index) const;
     std::vector<TrackPoint> trackPoints() const;
+    /// 最初のトラッキング点の実ID。復元済み結果も参照し、未登録時は -1。
+    int firstTrackPointId() const;
     
     // トラッキング実行
     void setFrame(double time, const QImage& frame);
     void setFrame(double time, const cv::Mat& frame);
+    void setSearchRegion(const QRectF& region);
+    QRectF searchRegion() const;
     bool trackForward(double fromTime, double toTime);
     bool trackBackward(double fromTime, double toTime);
     bool trackRange(double startTime, double endTime, 
                     std::function<bool(double progress)> progressCallback = nullptr);
+    bool trackBackwardRange(
+        double startTime, double endTime,
+        std::function<bool(double progress)> progressCallback = nullptr);
     bool trackAll(std::function<bool(double progress)> progressCallback = nullptr);
     void stopTracking();
     bool isTracking() const;

@@ -72,6 +72,39 @@ QJsonValue jsonValueFromVariant(const QVariant& value)
     return QJsonValue::fromVariant(value);
 }
 
+QJsonObject imageToJson(const ImageF32x4_RGBA& image)
+{
+    QJsonObject object;
+    if (image.isEmpty() || image.rgba32fData() == nullptr) {
+        return object;
+    }
+
+    const qsizetype byteCount = static_cast<qsizetype>(image.width()) *
+        static_cast<qsizetype>(image.height()) * 4 * static_cast<qsizetype>(sizeof(float));
+    object.insert(QStringLiteral("width"), image.width());
+    object.insert(QStringLiteral("height"), image.height());
+    object.insert(QStringLiteral("rgba32f"), QString::fromLatin1(
+        QByteArray(reinterpret_cast<const char*>(image.rgba32fData()),
+                   static_cast<int>(byteCount)).toBase64()));
+    return object;
+}
+
+ImageF32x4_RGBA imageFromJson(const QJsonObject& object)
+{
+    const int width = object.value(QStringLiteral("width")).toInt();
+    const int height = object.value(QStringLiteral("height")).toInt();
+    const QByteArray bytes = QByteArray::fromBase64(
+        object.value(QStringLiteral("rgba32f")).toString().toLatin1());
+    const qsizetype expectedSize = static_cast<qsizetype>(width) *
+        static_cast<qsizetype>(height) * 4 * static_cast<qsizetype>(sizeof(float));
+    ImageF32x4_RGBA image;
+    if (width <= 0 || height <= 0 || bytes.size() != expectedSize) {
+        return image;
+    }
+    image.setFromRGBA32F(reinterpret_cast<const float*>(bytes.constData()), width, height);
+    return image;
+}
+
 void addLengthPrefixedInputHash(QCryptographicHash& hash,
                                 const QString& inputId,
                                 const QByteArray& frameHash)
@@ -164,6 +197,8 @@ QJsonObject ParametricCompositionParameter::toJson() const
     obj.insert(QStringLiteral("key"), key);
     obj.insert(QStringLiteral("displayName"), displayName);
     obj.insert(QStringLiteral("defaultValue"), jsonValueFromVariant(defaultValue));
+    obj.insert(QStringLiteral("targetLayerId"), targetLayerId);
+    obj.insert(QStringLiteral("targetPropertyPath"), targetPropertyPath);
     obj.insert(QStringLiteral("overridableByInstance"), overridableByInstance);
     obj.insert(QStringLiteral("visible"), visible);
     return obj;
@@ -175,6 +210,8 @@ ParametricCompositionParameter ParametricCompositionParameter::fromJson(const QJ
     parameter.key = obj.value(QStringLiteral("key")).toString();
     parameter.displayName = obj.value(QStringLiteral("displayName")).toString();
     parameter.defaultValue = variantFromJsonValue(obj.value(QStringLiteral("defaultValue")));
+    parameter.targetLayerId = obj.value(QStringLiteral("targetLayerId")).toString();
+    parameter.targetPropertyPath = obj.value(QStringLiteral("targetPropertyPath")).toString();
     parameter.overridableByInstance = obj.value(QStringLiteral("overridableByInstance")).toBool(true);
     parameter.visible = obj.value(QStringLiteral("visible")).toBool(true);
     return parameter;
@@ -323,7 +360,9 @@ QJsonObject ParametricCompositionInputBinding::toJson() const
     obj.insert(QStringLiteral("sourceDefinitionId"), sourceDefinitionId);
     obj.insert(QStringLiteral("upstreamDefinitionIds"), QJsonArray::fromStringList(upstreamDefinitionIds));
     obj.insert(QStringLiteral("hasImage"), !image.isEmpty());
+    obj.insert(QStringLiteral("image"), imageToJson(image));
     obj.insert(QStringLiteral("hasMatte"), !matte.isEmpty());
+    obj.insert(QStringLiteral("matte"), imageToJson(matte));
     obj.insert(QStringLiteral("text"), text);
     return obj;
 }
@@ -345,10 +384,18 @@ ParametricCompositionInputBinding ParametricCompositionInputBinding::fromJson(co
     }
     const bool hasImage = obj.value(QStringLiteral("hasImage")).toBool(false);
     const bool hasMatte = obj.value(QStringLiteral("hasMatte")).toBool(false);
-    if (binding.kind == ParametricCompositionSlotKind::Image && !hasImage) {
+    if (hasImage) {
+        binding.image = imageFromJson(obj.value(QStringLiteral("image")).toObject());
+    }
+    if (hasMatte) {
+        binding.matte = imageFromJson(obj.value(QStringLiteral("matte")).toObject());
+    }
+    if (binding.kind == ParametricCompositionSlotKind::Image &&
+        (!hasImage || binding.image.isEmpty())) {
         binding.connected = false;
     }
-    if (binding.kind == ParametricCompositionSlotKind::Matte && !hasMatte) {
+    if (binding.kind == ParametricCompositionSlotKind::Matte &&
+        (!hasMatte || binding.matte.isEmpty())) {
         binding.connected = false;
     }
     binding.text = obj.value(QStringLiteral("text")).toString();
@@ -626,6 +673,20 @@ bool ParametricCompositionDefinition::addParameter(const ParametricCompositionPa
     return true;
 }
 
+bool ParametricCompositionDefinition::setParameter(const ParametricCompositionParameter& parameter)
+{
+    if (parameter.key.isEmpty()) {
+        return false;
+    }
+    for (auto& existing : parameters_) {
+        if (existing.key == parameter.key) {
+            existing = parameter;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ParametricCompositionDefinition::removeParameter(const QString& key)
 {
     for (auto it = parameters_.begin(); it != parameters_.end(); ++it) {
@@ -757,9 +818,9 @@ bool ParametricCompositionDefinition::validate(QString* errorMessage) const
     }
     const auto inputOnlySlots = slotsByRole(ParametricCompositionSlotRole::Input);
     const auto outputOnlySlots = slotsByRole(ParametricCompositionSlotRole::Output);
-    if (inputOnlySlots.isEmpty()) {
+    if (inputOnlySlots.size() != 1) {
         if (errorMessage) {
-            *errorMessage = QStringLiteral("ParametricComposition requires at least one input slot.");
+            *errorMessage = QStringLiteral("ParametricComposition requires exactly one input slot.");
         }
         return false;
     }
@@ -795,6 +856,16 @@ bool ParametricCompositionDefinition::validate(QString* errorMessage) const
             return false;
         }
     }
+    QMap<QString, bool> seenSlots;
+    for (const auto& slot : slots_) {
+        if (seenSlots.contains(slot.slotId)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Duplicate ParametricComposition slotId: %1").arg(slot.slotId);
+            }
+            return false;
+        }
+        seenSlots.insert(slot.slotId, true);
+    }
     QMap<QString, bool> seenParameters;
     for (const auto& parameterItem : parameters_) {
         if (parameterItem.key.isEmpty()) {
@@ -806,6 +877,12 @@ bool ParametricCompositionDefinition::validate(QString* errorMessage) const
         if (seenParameters.contains(parameterItem.key)) {
             if (errorMessage) {
                 *errorMessage = QStringLiteral("Duplicate ParametricComposition parameter key: %1").arg(parameterItem.key);
+            }
+            return false;
+        }
+        if (parameterItem.targetLayerId.isEmpty() != parameterItem.targetPropertyPath.isEmpty()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("ParametricComposition parameter target requires both layerId and propertyPath.");
             }
             return false;
         }
@@ -839,6 +916,7 @@ bool ParametricCompositionDefinition::validate(QString* errorMessage) const
         }
         seenControls.insert(controlItem.controlId, true);
     }
+    QMap<QString, bool> seenDataColumns;
     for (const auto& binding : dataBindings_) {
         if (binding.columnKey.isEmpty()) {
             if (errorMessage) {
@@ -846,9 +924,30 @@ bool ParametricCompositionDefinition::validate(QString* errorMessage) const
             }
             return false;
         }
-        if (binding.targetParameterKey.isEmpty() && binding.targetPublishedControlId.isEmpty()) {
+        if (seenDataColumns.contains(binding.columnKey)) {
             if (errorMessage) {
-                *errorMessage = QStringLiteral("ParametricComposition data binding needs a target.");
+                *errorMessage = QStringLiteral("Duplicate ParametricComposition data binding columnKey: %1").arg(binding.columnKey);
+            }
+            return false;
+        }
+        seenDataColumns.insert(binding.columnKey, true);
+        const bool hasParameterTarget = !binding.targetParameterKey.isEmpty();
+        const bool hasControlTarget = !binding.targetPublishedControlId.isEmpty();
+        if (hasParameterTarget == hasControlTarget) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("ParametricComposition data binding requires exactly one target.");
+            }
+            return false;
+        }
+        if (hasParameterTarget && !seenParameters.contains(binding.targetParameterKey)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Data binding target parameter not found: %1").arg(binding.targetParameterKey);
+            }
+            return false;
+        }
+        if (hasControlTarget && !seenControls.contains(binding.targetPublishedControlId)) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Data binding target published control not found: %1").arg(binding.targetPublishedControlId);
             }
             return false;
         }
@@ -1014,7 +1113,10 @@ QVariant ParametricCompositionInstance::parameterValue(const QString& key, const
     if (overrideIt != parameterOverrides_.end()) {
         if (definition_) {
             const auto* parameter = definition_->parameter(key);
-            if (parameter && !parameter->overridableByInstance) {
+            if (!parameter) {
+                return fallback;
+            }
+            if (!parameter->overridableByInstance) {
                 return parameter->defaultValue.isValid() ? parameter->defaultValue : fallback;
             }
         }
@@ -1036,7 +1138,7 @@ void ParametricCompositionInstance::setParameterOverride(const QString& key, con
     }
     if (definition_) {
         const auto* parameter = definition_->parameter(key);
-        if (parameter && !parameter->overridableByInstance) {
+        if (!parameter || !parameter->overridableByInstance) {
             return;
         }
     }
@@ -1133,7 +1235,7 @@ QMap<QString, QVariant> ParametricCompositionInstance::resolvedParameters() cons
             continue;
         }
         const auto* parameter = definition_->parameter(it.key());
-        if (parameter == nullptr || parameter->overridableByInstance) {
+        if (parameter && parameter->overridableByInstance) {
             resolved.insert(it.key(), it.value());
         }
     }
@@ -1214,6 +1316,12 @@ ParametricCompositionEvaluation ParametricCompositionInstance::evaluate(
     for (const auto& inputBinding : inputBindings_) {
         if (!inputBinding.isConnected()) {
             continue;
+        }
+        if (definition_) {
+            const auto* slot = definition_->slot(inputBinding.slotId);
+            if (!slot || slot->role != ParametricCompositionSlotRole::Input) {
+                continue;
+            }
         }
         if (inputBinding.kind == ParametricCompositionSlotKind::Bool) {
             continue;

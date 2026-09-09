@@ -59,6 +59,7 @@ public:
     
     // レイヤー -> 元コンポジションのマッピング
     QMap<LayerID, CompositionID> layerSourceMap;
+    QMap<LayerID, CompositionID> layerParentMap;
     QMap<LayerID, double> layerStartFrameMap;
     
     // コンポジション -> ネスト情報
@@ -151,6 +152,7 @@ PreComposeResult PreComposeManager::precompose(
     // プリコンポーズレイヤーとしてマーク
     // impl_->precomposeLayers.insert(newLayerId);
     impl_->layerSourceMap[newLayerId] = newCompId;
+    impl_->layerParentMap[newLayerId] = parentCompositionId;
     impl_->childSourceMap.insert(newCompId, newLayerId);
     impl_->layerStartFrameMap[newLayerId] = 0.0;
     
@@ -180,18 +182,7 @@ bool PreComposeManager::unprecompose(
     }
 
     const CompositionID childCompId = *sourceIt;
-    impl_->layerSourceMap.erase(sourceIt);
-    impl_->layerStartFrameMap.remove(precompLayerId);
-    impl_->childSourceMap.remove(childCompId);
-    impl_->nestingInfo.remove(childCompId);
-
-    auto parentIt = impl_->nestingMap.find(compositionId);
-    if (parentIt != impl_->nestingMap.end()) {
-        parentIt->removeOne(childCompId);
-        if (parentIt->isEmpty()) {
-            impl_->nestingMap.erase(parentIt);
-        }
-    }
+    if (!unregisterPrecompLayer(compositionId, precompLayerId, childCompId)) return false;
 
     if (!options.keepComposition) {
         for (auto it = impl_->nestingMap.begin(); it != impl_->nestingMap.end(); ++it) {
@@ -214,6 +205,7 @@ bool PreComposeManager::restorePrecompose(
     }
 
     impl_->layerSourceMap[precompLayerId] = childCompositionId;
+    impl_->layerParentMap[precompLayerId] = parentCompositionId;
     impl_->childSourceMap.insert(childCompositionId, precompLayerId);
 
     CompositionNesting nesting;
@@ -268,6 +260,7 @@ void PreComposeManager::registerPrecompLayer(CompositionID parentCompId,
     }
     // 実レイヤー作成後に呼ばれる。スタレな bookkeeping を正しい値で上書きする。
     impl_->layerSourceMap[precompLayerId] = childCompId;
+    impl_->layerParentMap[precompLayerId] = parentCompId;
     impl_->childSourceMap.insert(childCompId, precompLayerId);
     CompositionNesting nesting;
     nesting.compositionId = childCompId;
@@ -286,18 +279,44 @@ void PreComposeManager::registerPrecompLayer(CompositionID parentCompId,
     }
 }
 
+bool PreComposeManager::unregisterPrecompLayer(CompositionID parentCompId,
+                                               LayerID precompLayerId,
+                                               CompositionID childCompId) {
+    if (!impl_ || parentCompId.isNil() || precompLayerId.isNil() || childCompId.isNil() ||
+        impl_->layerSourceMap.value(precompLayerId) != childCompId) {
+        return false;
+    }
+    impl_->layerSourceMap.remove(precompLayerId);
+    impl_->layerParentMap.remove(precompLayerId);
+    impl_->layerStartFrameMap.remove(precompLayerId);
+    impl_->childSourceMap.remove(childCompId, precompLayerId);
+    auto parentIt = impl_->nestingMap.find(parentCompId);
+    if (parentIt != impl_->nestingMap.end()) {
+        bool stillReferenced = false;
+        for (const auto& id : impl_->childSourceMap.values(childCompId)) {
+            if (impl_->layerParentMap.value(id) == parentCompId) {
+                stillReferenced = true;
+                break;
+            }
+        }
+        if (!stillReferenced) parentIt->removeOne(childCompId);
+        if (parentIt->isEmpty()) impl_->nestingMap.erase(parentIt);
+    }
+    if (impl_->childSourceMap.values(childCompId).isEmpty()) {
+        impl_->nestingInfo.remove(childCompId);
+    }
+    return true;
+}
+
 QVector<PrecompLayerRef> PreComposeManager::getPrecompLayersForChild(
     CompositionID childCompId) const {
     QVector<PrecompLayerRef> refs;
     if (!impl_) {
         return refs;
     }
-    const auto parentCompId = impl_->nestingInfo.contains(childCompId)
-                                  ? impl_->nestingInfo[childCompId].parentCompositionId
-                                  : CompositionID();
     const auto layerIds = impl_->childSourceMap.values(childCompId);
     for (const auto& layerId : layerIds) {
-        refs.append(PrecompLayerRef{parentCompId, layerId});
+        refs.append(PrecompLayerRef{impl_->layerParentMap.value(layerId), layerId});
     }
     return refs;
 }
@@ -455,6 +474,23 @@ double convertTime(double sourceTime, CompositionID sourceComposition, Compositi
     for (const auto& child : downwardChildren) {
         const auto nesting = mgr.getCompositionNesting(child);
         t = parentToChildTime(t, nesting.parentLayerId);
+    }
+    return t;
+}
+
+double convertTimeThroughLayerPath(
+    double sourceTime,
+    const QVector<LayerID>& sourceToAncestorLayers,
+    const QVector<LayerID>& ancestorToTargetLayers) {
+    if (!std::isfinite(sourceTime)) return 0.0;
+    double t = sourceTime;
+    for (const auto& layerId : sourceToAncestorLayers) {
+        if (layerId.isNil()) return sourceTime;
+        t = childToParentTime(t, layerId);
+    }
+    for (const auto& layerId : ancestorToTargetLayers) {
+        if (layerId.isNil()) return sourceTime;
+        t = parentToChildTime(t, layerId);
     }
     return t;
 }
