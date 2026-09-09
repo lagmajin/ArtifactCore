@@ -43,7 +43,6 @@ import Utils.String.UniString;
 import Frame.Position;
 import Property.Types;
 import Math.Interpolate;
-import Animation.Transform3D;
 
 import Script.Expression.Evaluator;
 import Script.Expression.Value;

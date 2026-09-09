@@ -9,10 +9,17 @@ export module Animation.Transform3D;
 
 import Time.Rational;
 import Math.Interpolate;
+import Property.Abstract;
+import Memory.SharedPtr;
 
 export namespace ArtifactCore
 {
  using namespace Diligent;
+
+ enum class TransformChannel {
+   PositionX, PositionY, PositionZ, Rotation, RotationX, RotationY,
+   ScaleX, ScaleY, ScaleZ, AnchorX, AnchorY, AnchorZ
+ };
 
  enum class AutoOrientMode : int {
    Off = 0,
@@ -92,6 +99,8 @@ export namespace ArtifactCore
   // キー格納・評価の時刻スケール(例: コンポfps)。未設定時は24(従来互換)。
   void setKeyframeTimeScale(int64_t scale);
   int64_t keyframeTimeScale() const;
+  // The editor and native transform APIs share this property, including keys.
+  SharedPtr<AbstractProperty> channelProperty(TransformChannel channel) const;
 
   size_t size() const;
 
