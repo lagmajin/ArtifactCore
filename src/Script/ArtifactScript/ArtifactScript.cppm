@@ -757,6 +757,13 @@ void appendJsonString(std::string& out, std::string_view text) {
         case '\r': out += "\\r"; break;
         case '\t': out += "\\t"; break;
         case '\b': out += "\\b"; break;
+        case '\f': out += "\\f"; break;
+        default: out.push_back(c); break;
+        }
+    }
+    out.push_back('"');
+}
+
 struct ScriptJsonValue;
 using ScriptJsonPtr = std::unique_ptr<ScriptJsonValue>;
 
@@ -947,6 +954,9 @@ bool jsonToScriptValue(const ScriptJsonValue& json, ArtifactScriptValueType type
 
 } // namespace
 
+bool serializeScriptValue(std::string_view name, const ArtifactScriptValue& value,
+                          std::string& out, std::string& error);
+
 std::string serializeScriptComponent(const ArtifactScriptSerializedComponent& component) {
     std::string out;
     out.reserve(128);
@@ -958,6 +968,36 @@ std::string serializeScriptComponent(const ArtifactScriptSerializedComponent& co
         if (!first) out += ',';
         first = false;
         appendJsonString(out, name);
+        out += ':';
+        std::string error;
+        std::string valueText;
+        if (serializeScriptValue(name, value, valueText, error)) {
+            out += valueText;
+        } else {
+            out += "null";
+        }
+    }
+    out += '}';
+    // Unknown keys are re-emitted so downgrades do not lose data.
+    out += ",\"unknown\":{";
+    first = true;
+    for (const auto& [name, value] : component.unknown) {
+        if (!first) out += ',';
+        first = false;
+        appendJsonString(out, name);
+        out += ':';
+        std::string error;
+        std::string valueText;
+        if (serializeScriptValue(name, value, valueText, error)) {
+            out += valueText;
+        } else {
+            out += "null";
+        }
+    }
+    out += "}}";
+    return out;
+}
+
 bool serializeScriptValue(std::string_view name, const ArtifactScriptValue& value,
                           std::string& out, std::string& error) {
     (void)name;
@@ -1093,56 +1133,6 @@ bool deserializeScriptValue(std::string_view text, ArtifactScriptValueType type,
     error.clear();
     return jsonToScriptValue(*root, type, out, error);
 }
-
-
-        out += ':';
-        std::string error;
-        std::string valueText;
-        if (serializeScriptValue(name, value, valueText, error)) {
-            out += valueText;
-        } else {
-            out += "null";
-        }
-    }
-    out += '}';
-    // Unknown keys are re-emitted so downgrades do not lose data.
-    out += ",\"unknown\":{";
-    first = true;
-    for (const auto& [name, value] : component.unknown) {
-        if (!first) out += ',';
-        first = false;
-        appendJsonString(out, name);
-        out += ':';
-        std::string error;
-        std::string valueText;
-        if (serializeScriptValue(name, value, valueText, error)) {
-            out += valueText;
-        } else {
-            out += "null";
-        }
-    }
-    out += "}}";
-    return out;
-}
-
-
-
-
-        case '\f': out += "\\f"; break;
-        default:
-            if (static_cast<unsigned char>(c) < 0x20) {
-                char buffer[8];
-                std::snprintf(buffer, sizeof(buffer), "\\u%04x", static_cast<unsigned char>(c));
-                out += buffer;
-            } else {
-                out.push_back(c);
-            }
-        }
-    }
-    out.push_back('"');
-}
-
-
 ArtifactScriptSerializedFields ArtifactScriptComponent::serializedFields(
     const ArtifactScriptDefinition& definition) const {
     ArtifactScriptSerializedFields out;
@@ -1962,7 +1952,8 @@ void ArtifactScriptHost::installCompositionApi(const ArtifactScriptCompositionAp
             const bool accepted = fn(args[0], std::get<std::string>(args[1]), args[2]);
             if (!accepted) setLastError("setProperty rejected target or path");
             return ArtifactScriptValue(accepted);
-    r.success = true; return r;
+        });
+    }
 }
 
 ArtifactScriptReloadResult ArtifactScriptHotReload::reloadWithSaved(
@@ -1971,7 +1962,10 @@ ArtifactScriptReloadResult ArtifactScriptHotReload::reloadWithSaved(
     const ArtifactScriptSerializedFields* liveFields,
     const ArtifactScriptSerializedComponent* saved) {
     ArtifactScriptReloadResult r;
-    r.definition = newDefinition;
+    // ArtifactScriptDefinition is move-only because its class tree owns
+    // parsed statement nodes. Reparse the source to create an independent
+    // definition for the reload result.
+    r.definition = ArtifactScriptParser{}.parse(newDefinition.source);
     if (!r.definition.diagnostics.empty()) {
         r.errorMessage = r.definition.diagnostics[0].message;
         return r;
@@ -2032,12 +2026,6 @@ ArtifactScriptReloadResult ArtifactScriptHotReload::reloadWithSaved(
     r.success = true;
     return r;
 }
-
-
-        });
-    }
-}
-
 bool ArtifactScriptHost::hasFunction(const std::string& name) const {
     return impl_->functions.find(name) != impl_->functions.end();
 }

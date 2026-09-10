@@ -27,7 +27,7 @@ namespace ArtifactCore {
 using namespace Diligent;
 
 namespace {
-constexpr const char* kWarmupRayTracingShaderSource = R"(
+constexpr const char* kWarmupRayGenShaderSource = R"(
 RaytracingAccelerationStructure g_TLAS : register(t0);
 RWTexture2D<float4> g_OutputTex : register(u0);
 struct Payload { float4 color; };
@@ -47,13 +47,19 @@ void RTWarmup_RayGen()
     TraceRay(g_TLAS, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
     g_OutputTex[pixel] = payload.color;
 }
+)";
 
+constexpr const char* kWarmupMissShaderSource = R"(
+struct Payload { float4 color; };
 [shader("miss")]
 void RTWarmup_Miss(inout Payload payload)
 {
     payload.color = float4(0.2f, 0.45f, 0.9f, 1.0f);
 }
+)";
 
+constexpr const char* kWarmupClosestHitShaderSource = R"(
+struct Payload { float4 color; };
 [shader("closesthit")]
 void RTWarmup_ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAttributes attributes)
 {
@@ -134,6 +140,7 @@ public:
         pTLASInstanceBuffer_.Release();
         blasMap_.clear();
         tlasInstanceCount_ = 0;
+        sbtHitGroupBound_ = false;
         pDevice_.Release();
         caps_ = {};
     }
@@ -284,6 +291,8 @@ public:
         attribs.pTLAS = pTLAS_;
         attribs.pInstances = instances.data();
         attribs.InstanceCount = static_cast<Uint32>(instances.size());
+        attribs.BindingMode = HIT_GROUP_BINDING_MODE_PER_TLAS;
+        attribs.HitGroupStride = 1;
         const auto requiredScratchSize = std::max(
             pTLAS_->GetScratchBufferSizes().Build,
             pTLAS_->GetScratchBufferSizes().Update);
@@ -316,6 +325,7 @@ public:
         attribs.TLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
         attribs.BLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
         pContext->BuildTLAS(attribs);
+        sbtHitGroupBound_ = false;
         ++caps_.tlasBuildCount;
         caps_.tlasBuilt = true;
         tlasInstanceCount_ = instanceCount;
@@ -354,8 +364,8 @@ public:
 
         if (!pRayTracingPSO_) {
             ShaderCreateInfo shaderCI;
-            shaderCI.Source = kWarmupRayTracingShaderSource;
-            shaderCI.SourceLength = std::strlen(kWarmupRayTracingShaderSource);
+            shaderCI.Source = kWarmupRayGenShaderSource;
+            shaderCI.SourceLength = std::strlen(kWarmupRayGenShaderSource);
             shaderCI.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
             shaderCI.ShaderCompiler = SHADER_COMPILER_DXC;
             shaderCI.HLSLVersion = {6, 3};
@@ -369,11 +379,15 @@ public:
             shaderCI.Desc.ShaderType = SHADER_TYPE_RAY_MISS;
             shaderCI.Desc.Name = "RT Warmup Miss";
             shaderCI.EntryPoint = kWarmupMissName;
+            shaderCI.Source = kWarmupMissShaderSource;
+            shaderCI.SourceLength = std::strlen(kWarmupMissShaderSource);
             pDevice_->CreateShader(shaderCI, &pWarmupMiss_);
 
             shaderCI.Desc.ShaderType = SHADER_TYPE_RAY_CLOSEST_HIT;
             shaderCI.Desc.Name = "RT Warmup Closest Hit";
             shaderCI.EntryPoint = kWarmupHitName;
+            shaderCI.Source = kWarmupClosestHitShaderSource;
+            shaderCI.SourceLength = std::strlen(kWarmupClosestHitShaderSource);
             pDevice_->CreateShader(shaderCI, &pWarmupClosestHit_);
 
             if (!pWarmupRayGen_ || !pWarmupMiss_ || !pWarmupClosestHit_) {
@@ -413,13 +427,20 @@ public:
             if (pSBT_) {
                 pSBT_->BindRayGenShader(kWarmupRayGenName);
                 pSBT_->BindMissShader(kWarmupMissName, 0);
-                pSBT_->BindHitGroupForTLAS(pTLAS_, 0, kWarmupHitName);
-                if (pContext) {
-                    pContext->UpdateSBT(pSBT_);
-                }
                 caps_.sbtCreated = true;
-                caps_.sbtBound = true;
             }
+        }
+
+        if (pSBT_ && caps_.tlasBuilt && !sbtHitGroupBound_) {
+            const TLASBuildInfo buildInfo = pTLAS_->GetBuildInfo();
+            if (buildInfo.HitGroupStride > 0) {
+                pSBT_->BindHitGroupForTLAS(pTLAS_, 0, kWarmupHitName);
+                sbtHitGroupBound_ = true;
+            }
+        }
+        if (pSBT_ && pContext) {
+            pContext->UpdateSBT(pSBT_);
+            caps_.sbtBound = true;
         }
 
         return caps_.pipelineCreated && caps_.sbtCreated && caps_.outputResourcesBound;
@@ -463,7 +484,7 @@ public:
             bindWarmupOutput(pRayTracingPSO_, pTraceOutputUAV_);
         }
 
-        if (!pRayTracingPSO_ || !pSBT_ || !pContext) {
+        if (!pRayTracingPSO_ || !pSBT_ || !sbtHitGroupBound_ || !pContext) {
             return false;
         }
 
@@ -532,6 +553,7 @@ private:
     };
     std::map<std::wstring, BLASNode> blasMap_;
     Uint32 tlasInstanceCount_ = 0;
+    bool sbtHitGroupBound_ = false;
     RayTracingCapabilities caps_;
     bool rtSupported_ = false;
 };
