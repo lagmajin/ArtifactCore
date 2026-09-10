@@ -76,6 +76,9 @@ struct ArtifactScriptRef {
 struct ArtifactScriptArray;
 using ArtifactScriptArrayPtr = SharedPtr<ArtifactScriptArray>;
 
+struct ArtifactScriptObjectInstance;
+using ArtifactScriptObjectInstancePtr = SharedPtr<ArtifactScriptObjectInstance>;
+
 using ArtifactScriptValue = std::variant<
     std::monostate,
     bool,
@@ -87,11 +90,19 @@ using ArtifactScriptValue = std::variant<
     ArtifactScriptVec4,
     ArtifactScriptColor,
     ArtifactScriptRef,
-    ArtifactScriptArrayPtr
+    ArtifactScriptArrayPtr,
+    ArtifactScriptObjectInstancePtr
 >;
 
 struct ArtifactScriptArray {
     std::vector<ArtifactScriptValue> values;
+};
+
+// User class instance value. Each instance carries its own field storage;
+// method bodies are resolved from the class registry (see Definition below).
+struct ArtifactScriptObjectInstance {
+    std::string className;
+    std::unordered_map<std::string, ArtifactScriptValue> fields;
 };
 
 struct ArtifactScriptStmt;
@@ -109,6 +120,13 @@ struct ArtifactScriptField {
     bool isPublic = true;
     ArtifactScriptValueType type = ArtifactScriptValueType::Null;
     ArtifactScriptValue defaultValue{};
+    // Phase 4a: Unity-style serialization metadata.
+    bool serialized = true;  // public => true; private => [SerializeField] only
+    bool hasRange = false;
+    double rangeMin = 0.0;
+    double rangeMax = 1.0;
+    std::string header;
+    std::string tooltip;
 };
 
 struct ArtifactScriptMethod {
@@ -144,14 +162,18 @@ struct ArtifactScriptExpr;
 using ArtifactScriptExprPtr = std::unique_ptr<ArtifactScriptExpr>;
 
 struct ArtifactScriptExpr {
-    enum class Kind { Literal, Variable, Binary, Unary, Call, FieldAccess, Index, ArrayLiteral, Ternary };
+    enum class Kind { Literal, Variable, Binary, Unary, Call, FieldAccess, Index, ArrayLiteral, Ternary, New, Is };
     Kind kind = Kind::Literal;
 
     // Literal
     ArtifactScriptValue literalValue;
 
-    // Variable / FieldAccess
+    // Variable / FieldAccess base name
     std::string variableName;
+
+    // FieldAccess: object.field  (object == null means bare variable)
+    ArtifactScriptExprPtr fieldObject;
+    std::string fieldName;
 
     // Binary
     ArtifactScriptBinaryOp binaryOp;
@@ -162,9 +184,18 @@ struct ArtifactScriptExpr {
     ArtifactScriptUnaryOp unaryOp;
     ArtifactScriptExprPtr operand;
 
-    // Call
+    // Call: global call when callTarget == null, otherwise target.method(args)
     std::string callName;
+    ArtifactScriptExprPtr callTarget;
     std::vector<ArtifactScriptExprPtr> callArgs;
+
+    // New: new ClassName(args)
+    std::string newClassName;
+    std::vector<ArtifactScriptExprPtr> newArgs;
+
+    // Is: target is ClassName (inheritance-aware)
+    ArtifactScriptExprPtr isTarget;
+    std::string isClassName;
 
     // Index access: array[index]
     ArtifactScriptExprPtr indexTarget;
@@ -203,6 +234,11 @@ struct ArtifactScriptStmt {
     std::string declName;
     ArtifactScriptValueType declType = ArtifactScriptValueType::Float;
     ArtifactScriptExprPtr declInit;
+    // Decl may target an object field: "p.x = expr" parses into declName="p"
+    // with fieldAssign=true and assignField naming the member.
+    bool fieldAssign = false;
+    std::string assignField;
+    std::string assignClassName;
 
     // While: while loop
     ArtifactScriptExprPtr whileCond;
@@ -222,6 +258,7 @@ struct ArtifactScriptStmt {
 // Extend ArtifactScriptMethod with compiled body
 struct ArtifactScriptClass {
     std::string name;
+    std::string parentName;
     bool derivesFromBehaviour = false;
     std::vector<ArtifactScriptField> fields;
     std::vector<ArtifactScriptMethod> methods;
@@ -242,6 +279,9 @@ struct ArtifactScriptDiagnostic {
 struct ArtifactScriptDefinition {
     std::string source;
     ArtifactScriptClass rootClass;
+    // Phase G: multi-class registry. rootClass mirrors classes.front() for
+    // backwards compatibility; new code should consult classes.
+    std::vector<ArtifactScriptClass> classes;
     std::vector<ArtifactScriptDiagnostic> diagnostics;
 
     ArtifactScriptDefinition() = default;
@@ -258,6 +298,23 @@ public:
 
 using ArtifactScriptSerializedFields = std::unordered_map<std::string, ArtifactScriptValue>;
 
+// Phase 4: script field serialization contract (toJson/fromJson boundary).
+// Keys: "class" (string), "values" (field name -> value). Unknown fields are
+// preserved on load and re-emitted on save so downgrades do not lose data.
+struct ArtifactScriptSerializedComponent {
+    std::string className;
+    ArtifactScriptSerializedFields values;
+    ArtifactScriptSerializedFields unknown;
+};
+
+std::string serializeScriptComponent(const ArtifactScriptSerializedComponent& component);
+bool deserializeScriptComponent(std::string_view json, ArtifactScriptSerializedComponent& out,
+                                std::string& error);
+bool serializeScriptValue(std::string_view name, const ArtifactScriptValue& value,
+                          std::string& out, std::string& error);
+bool deserializeScriptValue(std::string_view text, ArtifactScriptValueType type,
+                            ArtifactScriptValue& out, std::string& error);
+
 class ArtifactScriptComponent {
 public:
     void setScriptClass(const ZeroString& className);
@@ -270,6 +327,11 @@ public:
     ArtifactScriptSerializedFields& publicFields();
     const ArtifactScriptSerializedFields& publicFields() const;
     void applyDefaults(const ArtifactScriptDefinition& definition);
+    // Phase 4: serialized-field view. Public fields are always included;
+    // private fields only when marked [SerializeField].
+    ArtifactScriptSerializedFields serializedFields(const ArtifactScriptDefinition& definition) const;
+    void applySerializedComponent(const ArtifactScriptDefinition& definition,
+                                  const ArtifactScriptSerializedComponent& component);
 
 private:
     ZeroString scriptClass_;
@@ -311,6 +373,10 @@ private:
 // arguments and return an ArtifactScriptValue. Errors are surfaced through
 // the evaluator's diagnostic path (see ArtifactScriptHost::registerError).
 using ArtifactScriptNativeFn = std::function<ArtifactScriptValue(std::span<const ArtifactScriptValue>)>;
+// Method form: (self, args) -> result. className labels diagnostics only.
+using ArtifactScriptNativeMethodFn =
+    std::function<ArtifactScriptValue(const ArtifactScriptValue&,
+                                      std::span<const ArtifactScriptValue>)>;
 
 struct ArtifactScriptCompositionApi {
     std::function<ArtifactScriptValue(std::string_view)> getLayer;
@@ -328,6 +394,14 @@ public:
     ArtifactScriptHost& operator=(const ArtifactScriptHost&) = delete;
 
     void registerFunction(const std::string& name, ArtifactScriptNativeFn function);
+    // Phase B: host object method dispatch. key = "ClassName.method".
+    void registerMethod(const std::string& className, const std::string& methodName,
+                        ArtifactScriptNativeMethodFn function);
+    bool hasMethod(const std::string& className, const std::string& methodName) const;
+    bool callMethod(const std::string& className, const std::string& methodName,
+                    const ArtifactScriptValue& self,
+                    const std::vector<ArtifactScriptValue>& args,
+                    ArtifactScriptValue& result) const;
     // Installs the stable, composition-facing standard library callbacks.
     // Reinstalling replaces the previous callbacks and keeps the registry
     // ownership in the host.
@@ -397,6 +471,12 @@ public:
     ArtifactScriptReloadResult reload(std::string_view newSource,
                                        const ArtifactScriptDefinition* previousDef,
                                        const ArtifactScriptSerializedFields* previousFields);
+    // Phase 4: project-save aware reload. Saved values migrate through the
+    // same type-match rule as live fields; unknown keys are preserved.
+    ArtifactScriptReloadResult reloadWithSaved(const ArtifactScriptDefinition& newDefinition,
+                                               const ArtifactScriptDefinition* previousDef,
+                                               const ArtifactScriptSerializedFields* liveFields,
+                                               const ArtifactScriptSerializedComponent* saved);
     bool watchFile(const std::string& path);
     void unwatchFile(const std::string& path);
     std::vector<std::string> pollChanges();

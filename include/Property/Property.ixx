@@ -152,6 +152,16 @@ public:
         return *this;
     }
 
+    Property& setInlineHelp(const QString& help) {
+        property_->setInlineHelp(help);
+        return *this;
+    }
+
+    Property& setWhatsThis(const QString& text) {
+        property_->setWhatsThis(text);
+        return *this;
+    }
+
     Property& setDisplayPriority(int priority) {
         property_->setDisplayPriority(priority);
         return *this;

@@ -89,6 +89,15 @@ export namespace ArtifactCore
   bool goboInvert() const { return goboInvert_; }
   void setGoboInvert(bool enabled);
 
+  // --- Shadows (renderer-neutral contract) ---
+  // castsShadows selects this light as a shadow-map caster in the app layer.
+  // shadowSoftness 0 = hard single tap, >0 = 3x3 PCF blend in the PBR shader
+  // (MeshRenderer clamps to 0..2). Kept as plain values: no allocation.
+  bool castsShadows() const { return castsShadows_; }
+  void setCastsShadows(bool enabled);
+  float shadowSoftness() const { return shadowSoftness_; }
+  void setShadowSoftness(float value);
+
   // --- Enabled ---
 
   bool enabled() const { return enabled_; }
@@ -130,6 +139,8 @@ export namespace ArtifactCore
   float goboIntensity_ = 1.0f;
   float goboRotation_ = 0.0f;
   bool goboInvert_ = false;
+  bool castsShadows_ = true;
+  float shadowSoftness_ = 0.0f;
   bool enabled_ = true;
   float areaWidth_ = 100.0f;
   float areaHeight_ = 100.0f;

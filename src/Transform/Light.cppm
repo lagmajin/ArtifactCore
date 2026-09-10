@@ -127,6 +127,22 @@ void Light::setGoboInvert(bool enabled)
  goboInvert_ = enabled;
 }
 
+// --- Shadows ---
+
+void Light::setCastsShadows(bool enabled)
+{
+ castsShadows_ = enabled;
+}
+
+void Light::setShadowSoftness(float value)
+{
+ if (!std::isfinite(value)) {
+  shadowSoftness_ = 0.0f;
+  return;
+ }
+ shadowSoftness_ = std::clamp(value, 0.0f, 2.0f);
+}
+
 // --- Enabled ---
 
 void Light::setEnabled(bool on)

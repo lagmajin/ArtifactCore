@@ -353,6 +353,16 @@ void AbstractProperty::setTooltip(const QString& tooltip) {
     pImpl->m_metadata.tooltip = tooltip;
 }
 
+void AbstractProperty::setInlineHelp(const QString& help) {
+    std::unique_lock lock(pImpl->m_mutex);
+    pImpl->m_metadata.inlineHelp = help;
+}
+
+void AbstractProperty::setWhatsThis(const QString& text) {
+    std::unique_lock lock(pImpl->m_mutex);
+    pImpl->m_metadata.whatsThis = text;
+}
+
 void AbstractProperty::setStep(const QVariant& step) {
     std::unique_lock lock(pImpl->m_mutex);
     pImpl->m_metadata.step = step;

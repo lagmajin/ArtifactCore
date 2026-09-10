@@ -227,6 +227,11 @@ struct PropertyMetadata {
     QString displayLabel;
     QString unit;
     QString tooltip;
+    // One-line static help shown inside the property row (does not replace
+    // dynamic state text such as "Mixed", which always wins).
+    QString inlineHelp;
+    // Rich help shown in QWhatsThis mode (Shift+F1): purpose, example, caveats.
+    QString whatsThis;
     QVariant hardMin;
     QVariant hardMax;
     QVariant softMin;
@@ -279,6 +284,8 @@ public:
     void setDisplayLabel(const QString& label);
     void setUnit(const QString& unit);
     void setTooltip(const QString& tooltip);
+    void setInlineHelp(const QString& help);
+    void setWhatsThis(const QString& text);
     void setStep(const QVariant& step);
     void setHardRange(const QVariant& minValue, const QVariant& maxValue);
     void setSoftRange(const QVariant& minValue, const QVariant& maxValue);
