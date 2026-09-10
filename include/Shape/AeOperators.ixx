@@ -948,6 +948,162 @@ private:
     float gapProbability_ = 0.0f;
 };
 
+class WavePaths : public ShapeOperator {
+    W_OBJECT(WavePaths)
+    Q_PROPERTY(float amount READ amount WRITE setAmount NOTIFY amountChanged)
+    Q_PROPERTY(float frequency READ frequency WRITE setFrequency NOTIFY frequencyChanged)
+    Q_PROPERTY(float phase READ phase WRITE setPhase NOTIFY phaseChanged)
+
+public:
+    explicit WavePaths(QObject* parent = nullptr)
+        : ShapeOperator(ShapeOperatorType::WavePaths, parent) {}
+
+    float amount() const { return amount_; }
+    void setAmount(float amount)
+    {
+        if (amount_ != amount) {
+            amount_ = amount;
+            emit amountChanged();
+        }
+    }
+
+    float frequency() const { return frequency_; }
+    void setFrequency(float frequency)
+    {
+        if (frequency_ != frequency) {
+            frequency_ = frequency;
+            emit frequencyChanged();
+        }
+    }
+
+    float phase() const { return phase_; }
+    void setPhase(float phase)
+    {
+        if (phase_ != phase) {
+            phase_ = phase;
+            emit phaseChanged();
+        }
+    }
+
+    std::unique_ptr<ShapeOperator> clone() const override
+    {
+        auto copy = std::make_unique<WavePaths>();
+        copy->setAmount(amount_);
+        copy->setFrequency(frequency_);
+        copy->setPhase(phase_);
+        return copy;
+    }
+
+    QJsonObject toJson() const override {
+        QJsonObject obj;
+        obj["amount"] = (double)amount_;
+        obj["frequency"] = (double)frequency_;
+        obj["phase"] = (double)phase_;
+        return obj;
+    }
+
+    void fromJson(const QJsonObject& obj) override {
+        if (obj.contains("amount")) setAmount(obj["amount"].toDouble());
+        if (obj.contains("frequency")) setFrequency(obj["frequency"].toDouble());
+        if (obj.contains("phase")) setPhase(obj["phase"].toDouble());
+    }
+
+    std::vector<ShapePath> process(const std::vector<ShapePath>& inputPaths) const override
+    {
+        NamedVector<ShapePath> result;
+        result.reserve(inputPaths.size());
+
+        const double amplitude = std::max(0.0, static_cast<double>(amount_));
+        const double frequency = std::max(0.0, static_cast<double>(frequency_));
+        const double phase = static_cast<double>(phase_);
+        if (!(amplitude > 0.0) || !(frequency > 0.0)) {
+            return inputPaths;
+        }
+
+        for (const auto& path : inputPaths) {
+            const auto segments = path.toSegments();
+            if (segments.empty()) {
+                result.push_back(path);
+                continue;
+            }
+            // Arclength table so the sine phase is uniform along the path.
+            std::vector<double> lengths;
+            lengths.reserve(segments.size());
+            double total = 0.0;
+            for (const auto& seg : segments) {
+                double segLen = 0.0;
+                if (seg.cp1 == seg.p0 && seg.cp2 == seg.p1) {
+                    segLen = detail::distance(seg.p0, seg.p1);
+                } else {
+                    QPointF prev = seg.p0;
+                    for (int i = 1; i <= 10; ++i) {
+                        const QPointF curr = seg.pointAt(static_cast<double>(i) / 10.0);
+                        segLen += detail::distance(prev, curr);
+                        prev = curr;
+                    }
+                }
+                lengths.push_back(segLen);
+                total += segLen;
+            }
+            if (!(total > 1e-6)) {
+                result.push_back(path);
+                continue;
+            }
+
+            const auto waveOffset = [&](double s) {
+                return amplitude * std::sin(2.0 * std::numbers::pi * (frequency * s + phase));
+            };
+            ShapePath warped;
+            bool started = false;
+            double run = 0.0;
+            for (size_t i = 0; i < segments.size(); ++i) {
+                const auto& seg = segments[i];
+                const bool isLine = (seg.cp1 == seg.p0 && seg.cp2 == seg.p1);
+                const double segLen = lengths[i];
+                // Chord normal per segment; ~4px subdivision keeps the sine smooth.
+                QPointF chord = seg.p1 - seg.p0;
+                const double chordLen = detail::length(chord);
+                QPointF normal(0.0, -1.0);
+                if (chordLen > 1e-9) {
+                    normal = QPointF(-chord.y() / chordLen, chord.x() / chordLen);
+                }
+                const int steps = segLen <= 1e-9 ? 1
+                    : static_cast<int>(std::min(128.0, std::ceil(segLen / 4.0) + 1.0));
+                for (int k = (i == 0 ? 0 : 1); k <= steps; ++k) {
+                    const double t = static_cast<double>(k) / steps;
+                    QPointF pt = isLine ? (seg.p0 + (seg.p1 - seg.p0) * t)
+                                        : seg.pointAt(t);
+                    const double s = (run + segLen * t) / total;
+                    pt += normal * waveOffset(s);
+                    if (!started) {
+                        warped.moveTo(pt);
+                        started = true;
+                    } else {
+                        warped.lineTo(pt);
+                    }
+                }
+                run += segLen;
+            }
+            if (path.isClosed()) {
+                warped.close();
+            }
+            result.push_back(warped);
+        }
+
+        return result.toStdVector();
+    }
+
+signals:
+    void amountChanged() W_SIGNAL(amountChanged);
+    void frequencyChanged() W_SIGNAL(frequencyChanged);
+    void phaseChanged() W_SIGNAL(phaseChanged);
+
+private:
+    float amount_ = 8.0f;
+    float frequency_ = 1.0f;
+    float phase_ = 0.0f;
+};
+
 W_OBJECT_IMPL(MergePaths)
 W_OBJECT_IMPL(OffsetPaths)
 W_OBJECT_IMPL(PuckerBloat)
@@ -956,5 +1112,6 @@ W_OBJECT_IMPL(RoundedCorners)
 W_OBJECT_IMPL(WigglePaths)
 W_OBJECT_IMPL(ZigZag)
 W_OBJECT_IMPL(HandDrawnWobble)
+W_OBJECT_IMPL(WavePaths)
 
 } // namespace ArtifactCore

@@ -25,7 +25,8 @@ enum class ShapeOperatorType {
     PuckerBloat,    // 膨張・収縮
     RoundedCorners, // 角丸
     Twist,          // ねじれ
-    HandDrawnWobble // 手書き風ゆらぎ（筆圧・かすれ・ブレ）
+    HandDrawnWobble,// 手書き風ゆらぎ（筆圧・かすれ・ブレ）
+    WavePaths       // 正弦波うねり（振幅・周波数・位相）
 };
 
 /**

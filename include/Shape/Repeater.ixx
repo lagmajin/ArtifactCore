@@ -93,6 +93,16 @@ public:
         }
     }
 
+    // Copies composite above the source by default; Below paints the
+    // source copy last so it stays on top of its own repetitions.
+    bool compositeBelow() const { return compositeBelow_; }
+    void setCompositeBelow(bool below) {
+        if (compositeBelow_ != below) {
+            compositeBelow_ = below;
+            emit compositeBelowChanged();
+        }
+    }
+
     std::unique_ptr<ShapeOperator> clone() const override {
         auto copy = std::make_unique<Repeater>();
         copy->setCopies(copies_);
@@ -103,6 +113,7 @@ public:
         copy->setRotation(rotation_);
         copy->setStartOpacity(startOpacity_);
         copy->setEndOpacity(endOpacity_);
+        copy->setCompositeBelow(compositeBelow_);
         return copy;
     }
 
@@ -119,6 +130,7 @@ public:
         obj["rotation"] = (double)rotation_;
         obj["startOpacity"] = (double)startOpacity_;
         obj["endOpacity"] = (double)endOpacity_;
+        obj["compositeBelow"] = compositeBelow_;
         return obj;
     }
 
@@ -145,6 +157,7 @@ public:
         if (obj.contains("rotation")) setRotation(static_cast<float>(number("rotation", rotation_)));
         if (obj.contains("startOpacity")) setStartOpacity(static_cast<float>(std::clamp(number("startOpacity", startOpacity_), 0.0, 1.0)));
         if (obj.contains("endOpacity")) setEndOpacity(static_cast<float>(std::clamp(number("endOpacity", endOpacity_), 0.0, 1.0)));
+        if (obj.contains("compositeBelow")) setCompositeBelow(obj["compositeBelow"].toBool(compositeBelow_));
     }
 
     /**
@@ -180,7 +193,11 @@ public:
                 result.push_back(copyPath);
             }
         }
-        return result.toStdVector();
+        auto out = result.toStdVector();
+        if (compositeBelow_) {
+            std::reverse(out.begin(), out.end());
+        }
+        return out;
     }
 
     void copiesChanged() {}
@@ -191,6 +208,7 @@ public:
     void rotationChanged() {}
     void startOpacityChanged() {}
     void endOpacityChanged() {}
+    void compositeBelowChanged() {}
 
 private:
     int copies_ = 3;
@@ -201,6 +219,7 @@ private:
     float rotation_ = 0.0f;
     float startOpacity_ = 1.0f;
     float endOpacity_ = 1.0f;
+    bool compositeBelow_ = false;
 };
 
 W_OBJECT_IMPL(Repeater)

@@ -231,6 +231,9 @@ ShapeOperator* ShapeGroup::addOperator(ShapeOperatorType type) {
     case ShapeOperatorType::HandDrawnWobble:
         op = std::make_unique<HandDrawnWobble>();
         break;
+    case ShapeOperatorType::WavePaths:
+        op = std::make_unique<WavePaths>();
+        break;
     case ShapeOperatorType::None:
     default:
         return nullptr;
