@@ -187,6 +187,12 @@ struct FillSettings {
     FillType type = FillType::Solid;
     QColor gradientStart = QColor(255, 255, 255);
     QColor gradientEnd = QColor(0, 0, 0);
+    // Multi-stop gradient. Empty = legacy 2-stop (start/end) behaviour.
+    struct GradientStop {
+        double offset = 0.0;  ///< 0-1
+        QColor color = Qt::white;
+    };
+    std::vector<GradientStop> gradientStops;
     double gradientAngleDegrees = 90.0;
     double gradientCenterX = 0.5;   ///< objectBoundingBox 相対 (0-1)
     double gradientCenterY = 0.5;

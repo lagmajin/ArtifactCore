@@ -153,9 +153,30 @@ struct SvgExportContext {
     int nextGradientId = 1;
 };
 
+QString gradientStopsMarkup(const FillSettings& fill)
+{
+    // Multi-stop <stop> list; empty stops fall back to the legacy endpoints.
+    if (fill.gradientStops.empty()) {
+        return QStringLiteral(
+            "<stop offset=\"0\" stop-color=\"%1\"/>"
+            "<stop offset=\"1\" stop-color=\"%2\"/>")
+            .arg(fill.gradientStart.name(QColor::HexArgb),
+                 fill.gradientEnd.name(QColor::HexArgb));
+    }
+    QStringList stops;
+    stops.reserve(static_cast<int>(fill.gradientStops.size()));
+    for (const auto& stop : fill.gradientStops) {
+        const double offset = std::clamp(stop.offset, 0.0, 1.0);
+        stops << QStringLiteral("<stop offset=\"%1\" stop-color=\"%2\"/>")
+                     .arg(QString::number(offset, 'f', 4),
+                          stop.color.name(QColor::HexArgb));
+    }
+    return stops.join(QString{});
+}
+
 QString gradientCacheKey(const FillSettings& fill)
 {
-    return QStringLiteral("%1|%2|%3|%4|%5|%6|%7")
+    QString key = QStringLiteral("%1|%2|%3|%4|%5|%6|%7")
         .arg(static_cast<int>(fill.type))
         .arg(fill.gradientStart.name(QColor::HexArgb),
              fill.gradientEnd.name(QColor::HexArgb))
@@ -163,6 +184,17 @@ QString gradientCacheKey(const FillSettings& fill)
         .arg(fill.gradientCenterX, 0, 'f', 4)
         .arg(fill.gradientCenterY, 0, 'f', 4)
         .arg(fill.gradientRadiusRatio, 0, 'f', 4);
+    if (!fill.gradientStops.empty()) {
+        QStringList stopKeys;
+        stopKeys.reserve(static_cast<int>(fill.gradientStops.size()));
+        for (const auto& stop : fill.gradientStops) {
+            stopKeys << QStringLiteral("%1:%2")
+                            .arg(stop.offset, 0, 'f', 4)
+                            .arg(stop.color.name(QColor::HexArgb));
+        }
+        key += QStringLiteral("|") + stopKeys.join(QStringLiteral(";"));
+    }
+    return key;
 }
 
 /// グラデーション fill の <defs> 定義を登録し url(#id) を返す。
@@ -178,15 +210,13 @@ QString gradientFillReference(const FillSettings& fill, SvgExportContext& ctx)
     if (fill.type == FillSettings::FillType::Radial) {
         ctx.defs << QStringLiteral(
             "<radialGradient id=\"%1\" cx=\"%2\" cy=\"%3\" r=\"%4\">"
-            "<stop offset=\"0\" stop-color=\"%5\"/>"
-            "<stop offset=\"1\" stop-color=\"%6\"/>"
+            "%5"
             "</radialGradient>\n")
-                     .arg(id,
-                          QString::number(fill.gradientCenterX, 'f', 4),
-                          QString::number(fill.gradientCenterY, 'f', 4),
-                          QString::number(std::max(0.001, fill.gradientRadiusRatio), 'f', 4),
-                          fill.gradientStart.name(QColor::HexArgb),
-                          fill.gradientEnd.name(QColor::HexArgb));
+                      .arg(id,
+                           QString::number(fill.gradientCenterX, 'f', 4),
+                           QString::number(fill.gradientCenterY, 'f', 4),
+                           QString::number(std::max(0.001, fill.gradientRadiusRatio), 'f', 4),
+                           gradientStopsMarkup(fill));
     } else {
         // Linear 系。Conic は SVG 標準に無いため線形で近似する。
         const double rad = fill.gradientAngleDegrees * M_PI / 180.0;
@@ -204,12 +234,8 @@ QString gradientFillReference(const FillSettings& fill, SvgExportContext& ctx)
         } else if (fill.type == FillSettings::FillType::Mirrored) {
             markup += QStringLiteral(" spreadMethod=\"reflect\"");
         }
-        markup += QStringLiteral(
-            "><stop offset=\"0\" stop-color=\"%1\"/>"
-            "<stop offset=\"1\" stop-color=\"%2\"/>"
-            "</linearGradient>\n")
-                      .arg(fill.gradientStart.name(QColor::HexArgb),
-                           fill.gradientEnd.name(QColor::HexArgb));
+        markup += QStringLiteral(">%1</linearGradient>\n")
+                      .arg(gradientStopsMarkup(fill));
         ctx.defs << markup;
     }
 
