@@ -47,6 +47,11 @@ public:
   QString lastEmissionTexture_;
   QString lastOcclusionTexture_;
   QString lastOpacityTexture_;
+  // PBR scalar factors (first ufbx material that specifies them).
+  bool hasLastMetallicFactor_ = false;
+  float lastMetallicFactor_ = 0.0f;
+  bool hasLastRoughnessFactor_ = false;
+  float lastRoughnessFactor_ = 0.5f;
 
   static constexpr int kPointCloudBudget = 262144;
 
@@ -215,6 +220,22 @@ public:
       if (lastMetallicRoughnessTexture_.isEmpty()) {
         assignTexture(material->pbr.base_factor.texture, [&](const QString& p) { setLastMetallicRoughnessTexture(p); }, "metallic-roughness texture");
       }
+      // PBR scalar factors: first material wins. has_value guards files that
+      // leave the factor unspecified (ufbx fills defaults otherwise).
+      if (!hasLastMetallicFactor_ && material->pbr.metalness.has_value) {
+        const double v = material->pbr.metalness.value_real;
+        if (std::isfinite(v)) {
+          lastMetallicFactor_ = std::clamp(static_cast<float>(v), 0.0f, 1.0f);
+          hasLastMetallicFactor_ = true;
+        }
+      }
+      if (!hasLastRoughnessFactor_ && material->pbr.roughness.has_value) {
+        const double v = material->pbr.roughness.value_real;
+        if (std::isfinite(v)) {
+          lastRoughnessFactor_ = std::clamp(static_cast<float>(v), 0.0f, 1.0f);
+          hasLastRoughnessFactor_ = true;
+        }
+      }
       if (lastNormalTexture_.isEmpty()) {
         assignTexture(material->pbr.normal_map.texture, [&](const QString& p) { setLastNormalTexture(p); }, "normal texture");
       }
@@ -315,6 +336,10 @@ public:
     lastEmissionTexture_.clear();
     lastOcclusionTexture_.clear();
     lastOpacityTexture_.clear();
+    hasLastMetallicFactor_ = false;
+    lastMetallicFactor_ = 0.0f;
+    hasLastRoughnessFactor_ = false;
+    lastRoughnessFactor_ = 0.5f;
 
     // Detect glTF/glb from extension
     const QString lowerPath = path.toLower();
@@ -2216,6 +2241,22 @@ QString MeshImporter::lastOcclusionTexture() const {
 
 QString MeshImporter::lastOpacityTexture() const {
   return impl_ ? impl_->lastOpacityTexture_ : QString();
+}
+
+bool MeshImporter::hasLastMetallicFactor() const {
+  return impl_ ? impl_->hasLastMetallicFactor_ : false;
+}
+
+float MeshImporter::lastMetallicFactor() const {
+  return impl_ ? impl_->lastMetallicFactor_ : 0.0f;
+}
+
+bool MeshImporter::hasLastRoughnessFactor() const {
+  return impl_ ? impl_->hasLastRoughnessFactor_ : false;
+}
+
+float MeshImporter::lastRoughnessFactor() const {
+  return impl_ ? impl_->lastRoughnessFactor_ : 0.5f;
 }
 
 }; // namespace ArtifactCore

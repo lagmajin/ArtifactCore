@@ -59,7 +59,17 @@ public:
  UniString opacityTexture_;
  bool hasOpacityTexture_ = false;
 
-  // MaterialX
+  // Texture transform (shared UV offset/scale/rotation)
+  float uvOffsetU_ = 0.0f;
+  float uvOffsetV_ = 0.0f;
+  float uvScaleU_ = 1.0f;
+  float uvScaleV_ = 1.0f;
+  float uvRotationDegrees_ = 0.0f;
+
+  // Environment
+  float environmentIntensity_ = 1.0f;
+
+// MaterialX
   UniString materialXDocument_;
 
   // Material graph (ShaderNode JSON round-trip, carried to the renderer)
@@ -73,6 +83,34 @@ Material::Material(Material&& other) noexcept : impl_(other.impl_) { other.impl_
 Material::~Material() { delete impl_; }
 Material& Material::operator=(const Material& other) { if(this!=&other){ *impl_ = *other.impl_; } return *this; }
 Material& Material::operator=(Material&& other) noexcept { if(this!=&other){ delete impl_; impl_ = other.impl_; other.impl_ = nullptr; } return *this; }
+
+// Texture transform
+void Material::setUvOffsetU(float v) {
+  impl_->uvOffsetU_ = std::isfinite(v) ? std::clamp(v, -10.0f, 10.0f) : 0.0f;
+}
+float Material::uvOffsetU() const { return impl_->uvOffsetU_; }
+void Material::setUvOffsetV(float v) {
+  impl_->uvOffsetV_ = std::isfinite(v) ? std::clamp(v, -10.0f, 10.0f) : 0.0f;
+}
+float Material::uvOffsetV() const { return impl_->uvOffsetV_; }
+void Material::setUvScaleU(float v) {
+  impl_->uvScaleU_ = std::isfinite(v) ? std::clamp(v, 0.01f, 10.0f) : 1.0f;
+}
+float Material::uvScaleU() const { return impl_->uvScaleU_; }
+void Material::setUvScaleV(float v) {
+  impl_->uvScaleV_ = std::isfinite(v) ? std::clamp(v, 0.01f, 10.0f) : 1.0f;
+}
+float Material::uvScaleV() const { return impl_->uvScaleV_; }
+void Material::setUvRotationDegrees(float v) {
+  impl_->uvRotationDegrees_ = std::isfinite(v) ? std::clamp(v, -360.0f, 360.0f) : 0.0f;
+}
+float Material::uvRotationDegrees() const { return impl_->uvRotationDegrees_; }
+
+// Environment
+void Material::setEnvironmentIntensity(float v) {
+  impl_->environmentIntensity_ = std::isfinite(v) ? std::clamp(v, 0.0f, 4.0f) : 1.0f;
+}
+float Material::environmentIntensity() const { return impl_->environmentIntensity_; }
 
 // Identity
 void Material::setName(const UniString& name) { impl_->name_ = name; }

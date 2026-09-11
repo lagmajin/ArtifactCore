@@ -4,6 +4,7 @@ module;
 #include <numbers>
 #include <string>
 #include <string_view>
+#include <vector>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -701,6 +702,7 @@ struct VSInput {
     float3 pos    : ATTRIB0;
     float3 normal : ATTRIB1;
     float2 uv     : ATTRIB2;
+    float4 color  : ATTRIB3;
 };
 
 struct PSInput {
@@ -713,6 +715,7 @@ struct PSInput {
     float2 UV    : TEXCOORD0;
     float Mode   : TEXCOORD1;
     float4 Color : COLOR;
+    float4 VertexColor : TEXCOORD7;
     float4 ShadowPosition : TEXCOORD6;
 };
 
@@ -762,6 +765,7 @@ PSInput VSMain(VSInput In, uint InstanceID : SV_InstanceID) {
     Out.UV = In.uv;
     Out.Mode = inst.timeOffset;
     Out.Color = inst.color * inst.weight; // weight acts as alpha multiplier
+    Out.VertexColor = In.color;
     return Out;
 }
 )";
@@ -805,6 +809,7 @@ struct PSInput {
     float2 UV    : TEXCOORD0;
     float Mode   : TEXCOORD1;
     float4 Color : COLOR;
+    float4 VertexColor : TEXCOORD7;
     float4 ShadowPosition : TEXCOORD6;
 };
 
@@ -850,7 +855,23 @@ cbuffer MaterialParams : register(b1) {
     float4 PrincipledFactors;
     float4 ClearcoatFactors;
     float4 AlphaSettings;
+    float4 UvTransformA;
+    float4 UvTransformB;
+    float4 EnvFactors;
 };
+
+float2 transformMeshUv(float2 uv) {
+    float2 scaled = uv * UvTransformA.zw;
+    float angle = UvTransformB.x;
+    float2 rotated = scaled;
+    if (abs(angle) > 1e-5) {
+        float2 s = float2(cos(angle), sin(angle));
+        float2 centered = scaled - 0.5;
+        rotated = float2(centered.x * s.x - centered.y * s.y,
+                         centered.x * s.y + centered.y * s.x) + 0.5;
+    }
+    return rotated + UvTransformA.xy;
+}
 
 struct SceneLight {
     float4 PositionType;
@@ -1004,17 +1025,20 @@ float3 srgbToLinear(float3 value) {
 // __ARTIFACT_MATERIAL_GRAPH_HELPERS__
 
 float4 PSMain(PSInput In) : SV_Target {
-    float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, In.UV);
-    float4 opacitySample = g_OpacityTexture.Sample(g_BaseColorSampler, In.UV);
-    float4 emissionSample = g_EmissionTexture.Sample(g_BaseColorSampler, In.UV);
+    float2 meshUv = transformMeshUv(In.UV);
+    float4 baseSample = g_BaseColorTexture.Sample(g_BaseColorSampler, meshUv);
+    float4 opacitySample = g_OpacityTexture.Sample(g_BaseColorSampler, meshUv);
+    float4 emissionSample = g_EmissionTexture.Sample(g_BaseColorSampler, meshUv);
     float4 metallicRoughnessSample =
-        g_MetallicRoughnessTexture.Sample(g_BaseColorSampler, In.UV);
-    float3 normalSample = g_NormalTexture.Sample(g_BaseColorSampler, In.UV).xyz;
-    float occlusionSample = g_OcclusionTexture.Sample(g_BaseColorSampler, In.UV).r;
+        g_MetallicRoughnessTexture.Sample(g_BaseColorSampler, meshUv);
+    float3 normalSample = g_NormalTexture.Sample(g_BaseColorSampler, meshUv).xyz;
+    float occlusionSample = g_OcclusionTexture.Sample(g_BaseColorSampler, meshUv).r;
     // __ARTIFACT_MATERIAL_GRAPH_SAMPLES__
     float3 instanceColor = srgbToLinear(saturate(In.Color.rgb));
-    float4 baseColor = float4(baseSample.rgb * instanceColor,
-                              baseSample.a * In.Color.a);
+    float3 vertexColor = srgbToLinear(saturate(In.VertexColor.rgb));
+    float vertexAlpha = saturate(In.VertexColor.a);
+    float4 baseColor = float4(baseSample.rgb * instanceColor * vertexColor,
+                              baseSample.a * In.Color.a * vertexAlpha);
     float emissionStrength = max(EmissionColorStrength.a, 0.0);
     float3 emissionTint = srgbToLinear(saturate(EmissionColorStrength.rgb));
     float materialAlpha = baseColor.a * opacitySample.a;
@@ -1031,10 +1055,10 @@ float4 PSMain(PSInput In) : SV_Target {
                     lerp(1.0, occlusionSample, saturate(PbrFactors.w)),
                     PbrTextureFlags.z);
     float3 worldNormal = computeNormalMapped(
-        In.WorldPosition, In.WorldNormal, In.UV, normalSample,
+        In.WorldPosition, In.WorldNormal, meshUv, normalSample,
         PbrFactors.z, PbrTextureFlags.y);
     float3 viewNormal = computeNormalMapped(
-        In.ViewPosition, In.Normal, In.UV, normalSample,
+        In.ViewPosition, In.Normal, meshUv, normalSample,
         PbrFactors.z, PbrTextureFlags.y);
     // __ARTIFACT_MATERIAL_GRAPH_OVERRIDE__
     if (In.Mode > 1.5 && In.Mode < 2.5) {
@@ -1135,7 +1159,7 @@ float4 PSMain(PSInput In) : SV_Target {
             transmittedEnvironment *= ao;
             ambientColor += (indirectDiffuse + indirectSpecular +
                              transmittedEnvironment) *
-                max(EnvironmentSettings.y, 0.0);
+                max(EnvironmentSettings.y, 0.0) * max(EnvFactors.x, 0.0);
         }
         [loop]
         for (uint lightIndex = 0; lightIndex < min(SceneLightingMeta.x, 8u); ++lightIndex) {
@@ -1379,6 +1403,9 @@ struct MeshRenderer::Impl {
         float principledFactors[4] = {0.5f, 1.5f, 0.0f, 0.0f};
         float clearcoatFactors[4] = {0.0f, 0.2f, 0.0f, 0.0f};
         float alphaSettings[4] = {0.5f, 0.0f, 0.0f, 0.0f};
+        float uvTransformA[4] = {0.0f, 0.0f, 1.0f, 1.0f};
+        float uvTransformB[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float envFactors[4] = {1.0f, 0.0f, 0.0f, 0.0f};
     };
 
     struct ShadowParamsConstants {
@@ -1401,7 +1428,7 @@ struct MeshRenderer::Impl {
     static_assert(sizeof(SceneLightGpu) == sizeof(float) * 24);
     static_assert(sizeof(SceneLightingConstants) ==
                   sizeof(SceneLightGpu) * MaxSceneLights + sizeof(float) * 8);
-    static_assert(sizeof(MaterialConstants) == sizeof(float) * 24);
+    static_assert(sizeof(MaterialConstants) == sizeof(float) * 36);
     static_assert(sizeof(MeshletConstants) == sizeof(float) * 52);
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache>    pPSOCache_;
@@ -1434,6 +1461,7 @@ struct MeshRenderer::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pPositionBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pNormalBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pUVBuffer_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer>                pColorBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pIndexBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletBuffer_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer>                pMeshletIndexBuffer_;
@@ -1598,6 +1626,7 @@ void MeshRenderer::createBuffers()
     pImpl_->pPositionBuffer_.Release();
     pImpl_->pNormalBuffer_.Release();
     pImpl_->pUVBuffer_.Release();
+    pImpl_->pColorBuffer_.Release();
     pImpl_->pIndexBuffer_.Release();
     pImpl_->pMeshletBuffer_.Release();
     pImpl_->pMeshletIndexBuffer_.Release();
@@ -1675,6 +1704,16 @@ void MeshRenderer::createBuffers()
         BuffDesc.BindFlags         = vertexBindFlags;
         BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
         pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pUVBuffer_);
+    }
+    // 3b. Vertex color buffer (float4; white = identity when no source colors)
+    if (vertexCount_ > 0) {
+        BufferDesc BuffDesc;
+        BuffDesc.Name              = "Mesh Vertex Color Buffer";
+        BuffDesc.Usage             = USAGE_DEFAULT;
+        BuffDesc.Size              = sizeof(float) * 4 * vertexCount_;
+        BuffDesc.BindFlags         = vertexBindFlags;
+        BuffDesc.Mode              = BUFFER_MODE_UNDEFINED;
+        pDevice->CreateBuffer(BuffDesc, nullptr, &pImpl_->pColorBuffer_);
     }
     
     // 4. Index buffer (if indexed rendering)
@@ -2044,8 +2083,8 @@ void MeshRenderer::createPSO()
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
     
     // Vertex layout
-    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = 3;
-    std::array<LayoutElement, 3> layoutElements;
+    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = 4;
+    std::array<LayoutElement, 4> layoutElements;
     // Position
     // D3D input layouts keep the semantic name and semantic index separate.
     // The shader's ATTRIB0/1/2 declarations compile to name "ATTRIB" with
@@ -2071,6 +2110,13 @@ void MeshRenderer::createPSO()
     layoutElements[2].NumComponents = 2;
     layoutElements[2].ValueType = VT_FLOAT32;
     layoutElements[2].IsNormalized = false;
+    // Vertex color (float4; white = identity)
+    layoutElements[3].HLSLSemantic = "ATTRIB";
+    layoutElements[3].InputIndex = 3;
+    layoutElements[3].BufferSlot = 3;
+    layoutElements[3].NumComponents = 4;
+    layoutElements[3].ValueType = VT_FLOAT32;
+    layoutElements[3].IsNormalized = false;
     PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = layoutElements.data();
     
     // Compile Shaders
@@ -2337,7 +2383,7 @@ void MeshRenderer::createPSO()
 }
 
 void MeshRenderer::updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
-                                      const uint32_t* indices)
+                                      const uint32_t* indices, const float* colors)
 {
     auto pContext = context_.DeviceContext();
     if (!pContext) {
@@ -2369,6 +2415,20 @@ void MeshRenderer::updateMeshGeometry(const float* positions, const float* norma
     if (uvs && pImpl_->pUVBuffer_) {
         pContext->UpdateBuffer(pImpl_->pUVBuffer_, 0, sizeof(float) * 2 * vertexCount_,
                               uvs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (frameCostStats_) ++frameCostStats_->bufferUpdates;
+    }
+
+    if (pImpl_->pColorBuffer_) {
+        if (colors) {
+            pContext->UpdateBuffer(pImpl_->pColorBuffer_, 0, sizeof(float) * 4 * vertexCount_,
+                                  colors, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        } else {
+            // Keep the vertex-color channel identity (white) when the caller
+            // has no source colors so existing assets render unchanged.
+            std::vector<float> whiteColors(vertexCount_ * 4u, 1.0f);
+            pContext->UpdateBuffer(pImpl_->pColorBuffer_, 0, sizeof(float) * 4 * vertexCount_,
+                                  whiteColors.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
         if (frameCostStats_) ++frameCostStats_->bufferUpdates;
     }
     
@@ -2545,6 +2605,7 @@ IBuffer* MeshRenderer::indexBuffer() const noexcept
 
 size_t MeshRenderer::vertexCount() const noexcept { return vertexCount_; }
 size_t MeshRenderer::indexCount() const noexcept { return indexCount_; }
+size_t MeshRenderer::maxInstances() const noexcept { return maxInstances_; }
 
 void MeshRenderer::updateInstanceData(const InstanceData* instances, size_t count)
 {
@@ -2771,8 +2832,8 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
     
     // Set vertex buffers
     if (pImpl_->pPositionBuffer_) {
-        IBuffer* pVBs[] = {pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_, pImpl_->pUVBuffer_};
-        pContext->SetVertexBuffers(0, 3, pVBs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        IBuffer* pVBs[] = {pImpl_->pPositionBuffer_, pImpl_->pNormalBuffer_, pImpl_->pUVBuffer_, pImpl_->pColorBuffer_};
+        pContext->SetVertexBuffers(0, 4, pVBs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                   SET_VERTEX_BUFFERS_FLAG_RESET);
     }
     
@@ -3470,6 +3531,37 @@ void MeshRenderer::setPrincipledFactors(float specular, float ior,
         std::clamp(clearcoat, 0.0f, 1.0f);
     pImpl_->materialConstants_.clearcoatFactors[1] =
         std::clamp(clearcoatRoughness, 0.0f, 1.0f);
+}
+
+void MeshRenderer::setUvTransform(float offsetU, float offsetV, float scaleU,
+                                  float scaleV, float rotationDegrees)
+{
+    prepared_ = false;
+    pImpl_->materialConstants_.uvTransformA[0] =
+        std::isfinite(offsetU) ? std::clamp(offsetU, -10.0f, 10.0f) : 0.0f;
+    pImpl_->materialConstants_.uvTransformA[1] =
+        std::isfinite(offsetV) ? std::clamp(offsetV, -10.0f, 10.0f) : 0.0f;
+    pImpl_->materialConstants_.uvTransformA[2] =
+        std::isfinite(scaleU) ? std::clamp(scaleU, 0.01f, 10.0f) : 1.0f;
+    pImpl_->materialConstants_.uvTransformA[3] =
+        std::isfinite(scaleV) ? std::clamp(scaleV, 0.01f, 10.0f) : 1.0f;
+    const float rotation = std::isfinite(rotationDegrees)
+        ? std::clamp(rotationDegrees, -360.0f, 360.0f) : 0.0f;
+    pImpl_->materialConstants_.uvTransformB[0] =
+        rotation * std::numbers::pi_v<float> / 180.0f;
+    pImpl_->materialConstants_.uvTransformB[1] = 0.0f;
+    pImpl_->materialConstants_.uvTransformB[2] = 0.0f;
+    pImpl_->materialConstants_.uvTransformB[3] = 0.0f;
+}
+
+void MeshRenderer::setEnvironmentIntensity(float intensity)
+{
+    prepared_ = false;
+    pImpl_->materialConstants_.envFactors[0] =
+        std::isfinite(intensity) ? std::clamp(intensity, 0.0f, 4.0f) : 1.0f;
+    pImpl_->materialConstants_.envFactors[1] = 0.0f;
+    pImpl_->materialConstants_.envFactors[2] = 0.0f;
+    pImpl_->materialConstants_.envFactors[3] = 0.0f;
 }
 
 // Blender-style material graph: stores compileMaterialGraph() splices and

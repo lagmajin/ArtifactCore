@@ -4,6 +4,7 @@ class tst_QList;
 #include <QVector>
 #include <QVector2D>
 #include <QVector3D>
+#include <QVector4D>
 #include <QMatrix4x4>
 #include <QMatrix3x3>
 #include <QQuaternion>
@@ -615,6 +616,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         auto posAttr = impl_->vertexAttrs.get<QVector3D>("position");
         auto normAttr = impl_->vertexAttrs.get<QVector3D>("normal");
         auto uvAttr = impl_->vertexAttrs.get<QVector2D>("uv");
+        auto colorAttr = impl_->vertexAttrs.get<QVector4D>("color");
 
         if (!posAttr) return data;
 
@@ -633,16 +635,19 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
                 data.positions.push_back((*posAttr)[v0]);
                 if (normAttr) data.normals.push_back((*normAttr)[v0]);
                 if (uvAttr) data.uvs.push_back((*uvAttr)[v0]);
+                data.colors.push_back(colorAttr ? (*colorAttr)[v0] : QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
 
                 data.indices.push_back(data.positions.size());
                 data.positions.push_back((*posAttr)[v1]);
                 if (normAttr) data.normals.push_back((*normAttr)[v1]);
                 if (uvAttr) data.uvs.push_back((*uvAttr)[v1]);
+                data.colors.push_back(colorAttr ? (*colorAttr)[v1] : QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
 
                 data.indices.push_back(data.positions.size());
                 data.positions.push_back((*posAttr)[v2]);
                 if (normAttr) data.normals.push_back((*normAttr)[v2]);
                 if (uvAttr) data.uvs.push_back((*uvAttr)[v2]);
+                data.colors.push_back(colorAttr ? (*colorAttr)[v2] : QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
             }
         }
 
@@ -666,11 +671,13 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
             QVector3D position;
             QVector3D normal;
             QVector2D uv;
+            QVector4D color;
         };
 
         std::vector<PackedVertex> vertices(sourceVertexCount);
         const bool hasNormals = data.renderData.normals.size() == data.renderData.positions.size();
         const bool hasUVs = data.renderData.uvs.size() == data.renderData.positions.size();
+        const bool hasColors = data.renderData.colors.size() == data.renderData.positions.size();
         for (size_t i = 0; i < sourceVertexCount; ++i) {
             vertices[i].position = data.renderData.positions[static_cast<qsizetype>(i)];
             if (hasNormals) {
@@ -678,6 +685,11 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
             }
             if (hasUVs) {
                 vertices[i].uv = data.renderData.uvs[static_cast<qsizetype>(i)];
+            }
+            if (hasColors) {
+                vertices[i].color = data.renderData.colors[static_cast<qsizetype>(i)];
+            } else {
+                vertices[i].color = QVector4D(1.0f, 1.0f, 1.0f, 1.0f);
             }
         }
 
@@ -703,10 +715,12 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         data.renderData.positions.resize(static_cast<qsizetype>(remappedVertexCount));
         if (hasNormals) data.renderData.normals.resize(static_cast<qsizetype>(remappedVertexCount));
         if (hasUVs) data.renderData.uvs.resize(static_cast<qsizetype>(remappedVertexCount));
+        data.renderData.colors.resize(static_cast<qsizetype>(remappedVertexCount));
         for (size_t i = 0; i < remappedVertexCount; ++i) {
             data.renderData.positions[static_cast<qsizetype>(i)] = remappedVertices[i].position;
             if (hasNormals) data.renderData.normals[static_cast<qsizetype>(i)] = remappedVertices[i].normal;
             if (hasUVs) data.renderData.uvs[static_cast<qsizetype>(i)] = remappedVertices[i].uv;
+            data.renderData.colors[static_cast<qsizetype>(i)] = remappedVertices[i].color;
         }
 
         const int triangleCount = static_cast<int>(optimizedIndices.size() / kTriangleIndexCount);
