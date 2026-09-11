@@ -116,6 +116,8 @@ public:
     // --- Accessibility Settings ---
     QString accessibilityHandedness() const;
     void setAccessibilityHandedness(const QString& value);
+    QString accessibilityDialogButtonAlignment() const;
+    void setAccessibilityDialogButtonAlignment(const QString& value);
     bool accessibilityPreferLargeTargets() const;
     void setAccessibilityPreferLargeTargets(bool enable);
     bool accessibilityPreferHighContrastHints() const;

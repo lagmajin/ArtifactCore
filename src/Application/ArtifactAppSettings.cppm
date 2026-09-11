@@ -46,11 +46,12 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"UI/Toolbar/ShowGuide", "Show viewport guides", QVariant::Bool, true});
     schema.registerProperty({"UI/CompositionGrid/MajorInterval", "Composition grid major interval", QVariant::Double, 100.0, 1.0, 10000.0});
     schema.registerProperty({"UI/CompositionGrid/Subdivisions", "Composition grid subdivisions", QVariant::Int, 4, 1, 32});
+    schema.registerProperty({"UI/CompositionGrid/SnapToGrid", "Snap composition edits to grid", QVariant::Bool, true});
     schema.registerProperty({"UI/CompositionGrid/ShowMajor", "Show major grid lines", QVariant::Bool, true});
     schema.registerProperty({"UI/CompositionGrid/ShowMinor", "Show minor grid lines", QVariant::Bool, true});
     schema.registerProperty({"UI/CompositionGrid/ShowAxis", "Show composition axes", QVariant::Bool, true});
     schema.registerProperty({"UI/Composition/BackgroundMode", "Composition background mode", QVariant::Int, 1, 0, 3});
-    schema.registerProperty({"UI/Composition/ShowGrid", "Show composition grid", QVariant::Bool, false});
+    schema.registerProperty({"UI/Composition/ShowGrid", "Show composition grid", QVariant::Bool, true});
     schema.registerProperty({"UI/Composition/ShowGuides", "Show composition guides", QVariant::Bool, false});
     schema.registerProperty({"UI/Composition/ShowSafeMargins", "Show safe margins", QVariant::Bool, false});
     schema.registerProperty({"UI/Composition/ShowAnchorCenterOverlay", "Show anchor center overlay", QVariant::Bool, false});
@@ -131,6 +132,8 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"UI/Timeline/FrameBlendingActive", "Enable timeline frame blending", QVariant::Bool, false});
     schema.registerProperty({"Accessibility/Handedness", "Interface handedness", QVariant::String, QStringLiteral("right"), {}, {},
                              {QStringLiteral("left"), QStringLiteral("right")}});
+    schema.registerProperty({"Accessibility/DialogButtonAlignment", "Dialog button row alignment", QVariant::String, QStringLiteral("platform"), {}, {},
+                             {QStringLiteral("platform"), QStringLiteral("left"), QStringLiteral("right")}});
     schema.registerProperty({"Accessibility/FontScalePercent", "Accessibility font scale", QVariant::Int, 100, 100, 200});
     schema.registerProperty({"Accessibility/ColorDeficiencyMode", "Color deficiency simulation mode", QVariant::String, QStringLiteral("none"), {}, {},
                              {QStringLiteral("none"), QStringLiteral("protanopia"), QStringLiteral("deuteranopia"), QStringLiteral("tritanopia")}});
@@ -371,6 +374,7 @@ Artifact::Grid::GridSettings ArtifactAppSettings::compositionGridSettings() cons
     settings.majorInterval =
         impl_->store.value("UI/CompositionGrid/MajorInterval", 100.0).toFloat();
     settings.subdivisions = (int)impl_->store.valueInt64("UI/CompositionGrid/Subdivisions", 4);
+    settings.snapToGrid = impl_->store.valueBool("UI/CompositionGrid/SnapToGrid", true);
     settings.showMajor = impl_->store.valueBool("UI/CompositionGrid/ShowMajor", true);
     settings.showMinor = impl_->store.valueBool("UI/CompositionGrid/ShowMinor", true);
     settings.showAxis = impl_->store.valueBool("UI/CompositionGrid/ShowAxis", true);
@@ -396,6 +400,7 @@ void ArtifactAppSettings::setCompositionGridSettings(
     const Artifact::Grid::GridSettings& settings) {
     impl_->store.setValue("UI/CompositionGrid/MajorInterval", settings.majorInterval);
     impl_->store.setValue("UI/CompositionGrid/Subdivisions", settings.subdivisions);
+    impl_->store.setValue("UI/CompositionGrid/SnapToGrid", settings.snapToGrid);
     impl_->store.setValue("UI/CompositionGrid/ShowMajor", settings.showMajor);
     impl_->store.setValue("UI/CompositionGrid/ShowMinor", settings.showMinor);
     impl_->store.setValue("UI/CompositionGrid/ShowAxis", settings.showAxis);
@@ -424,7 +429,7 @@ void ArtifactAppSettings::setCompositionBackgroundMode(int mode) {
 }
 
 bool ArtifactAppSettings::compositionShowGrid() const {
-    return impl_->store.valueBool("UI/Composition/ShowGrid", false);
+    return impl_->store.valueBool("UI/Composition/ShowGrid", true);
 }
 
 void ArtifactAppSettings::setCompositionShowGrid(bool enable) {
@@ -714,6 +719,27 @@ void ArtifactAppSettings::setAccessibilityHandedness(const QString& value) {
         normalized = QStringLiteral("right");
     }
     impl_->store.setValue(QStringLiteral("Accessibility/Handedness"), normalized);
+    notifySettingsChanged();
+}
+
+QString ArtifactAppSettings::accessibilityDialogButtonAlignment() const {
+    const QString value = impl_->store.valueString(
+        QStringLiteral("Accessibility/DialogButtonAlignment"), QStringLiteral("platform"));
+    const QString normalized = value.trimmed().toLower();
+    if (normalized == QStringLiteral("left") || normalized == QStringLiteral("right") ||
+        normalized == QStringLiteral("platform")) {
+        return normalized;
+    }
+    return QStringLiteral("platform");
+}
+
+void ArtifactAppSettings::setAccessibilityDialogButtonAlignment(const QString& value) {
+    const QString normalized = value.trimmed().toLower();
+    const bool isValid = normalized == QStringLiteral("left") ||
+                         normalized == QStringLiteral("right") ||
+                         normalized == QStringLiteral("platform");
+    impl_->store.setValue(QStringLiteral("Accessibility/DialogButtonAlignment"),
+                          isValid ? normalized : QStringLiteral("platform"));
     notifySettingsChanged();
 }
 
