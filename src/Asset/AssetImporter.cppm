@@ -123,7 +123,8 @@ bool AssetImporter::isSupported(const QString& extension) {
         "ai", "pdf", "eps", "svg", "afdesign", "afphoto", "afpub",
         "mp4", "mov", "avi", "mkv",
         "wav", "mp3", "flac", "aac",
-        "obj", "fbx", "abc", "glb", "gltf", "stl", "ply",
+        "obj", "fbx", "abc", "glb", "gltf", "stl", "ply", "blend",
+        "dae", "usd", "usda", "usdc", "usdz", "pmd", "pmx", "las",
         "json", "lottie"
     };
     
