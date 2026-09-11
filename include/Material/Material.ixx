@@ -106,6 +106,26 @@ export enum class MaterialAlphaMode {
   UniString opacityTexture() const;
   bool hasOpacityTexture() const;
 
+  // --- Texture Transform (shared UV offset/scale/rotation) ---
+  // glTF KHR_texture_transform相当を全テクスチャ共通で適用する。
+  // offsetはUV加算、scaleはUV乗算、rotationは度数法(反時計回り)。
+  void setUvOffsetU(float value);
+  float uvOffsetU() const;
+  void setUvOffsetV(float value);
+  float uvOffsetV() const;
+  void setUvScaleU(float value);
+  float uvScaleU() const;
+  void setUvScaleV(float value);
+  float uvScaleV() const;
+  void setUvRotationDegrees(float value);
+  float uvRotationDegrees() const;
+
+  // --- Environment ---
+  // Per-material IBL intensity scale (multiplies the global environment
+  // intensity for indirect diffuse/specular/transmission on this material).
+  void setEnvironmentIntensity(float value);
+  float environmentIntensity() const;
+
   // --- MaterialX ---
   void setMaterialXDocument(const UniString& xml);
   UniString materialXDocument() const;

@@ -77,6 +77,13 @@ public:
     [[nodiscard]] QString lastEmissionTexture() const;
     [[nodiscard]] QString lastOcclusionTexture() const;
     [[nodiscard]] QString lastOpacityTexture() const;
+    // PBR scalar factors from the first ufbx material that specifies them
+    // (glTF metallic/roughness factors, FBX equivalents). Colorspace-free
+    // scalars only; base-color factors stay out (sRGB/linear ambiguity).
+    [[nodiscard]] bool hasLastMetallicFactor() const;
+    [[nodiscard]] float lastMetallicFactor() const;
+    [[nodiscard]] bool hasLastRoughnessFactor() const;
+    [[nodiscard]] float lastRoughnessFactor() const;
 };
 
 }

@@ -114,9 +114,10 @@ public:
      * @param normals Pointer to float3 normals (optional, can be nullptr)
      * @param uvs Pointer to float2 uvs (optional, can be nullptr)
      * @param indices Pointer to uint32 indices (optional for non-indexed)
+     * @param colors Pointer to float4 vertex colors (optional, can be nullptr; white = identity)
      */
     void updateMeshGeometry(const float* positions, const float* normals, const float* uvs,
-                            const uint32_t* indices);
+                            const uint32_t* indices, const float* colors = nullptr);
 
     // Upload the packed resources consumed by the future mesh-shader path.
     // The indexed renderer remains the fallback until a mesh-shader PSO is active.
@@ -128,6 +129,7 @@ public:
     IBuffer* indexBuffer() const noexcept;
     size_t vertexCount() const noexcept;
     size_t indexCount() const noexcept;
+    size_t maxInstances() const noexcept;
 
     /**
      * @brief Set a base-color texture to be sampled by the mesh shader.
@@ -143,6 +145,11 @@ public:
     void setPrincipledFactors(float specular, float ior, float transmission,
                                float clearcoat, float clearcoatRoughness,
                                float sheen = 0.0f);
+    // Shared UV texture transform (offset/scale/rotation in degrees).
+    void setUvTransform(float offsetU, float offsetV, float scaleU, float scaleV,
+                        float rotationDegrees);
+    // Per-material IBL intensity scale for indirect lighting.
+    void setEnvironmentIntensity(float intensity);
     // Blender-style material graph splices (Artifact.ShaderNode.Core
     // NodeGraph::compileMaterialGraph output: helpers for global scope,
     // block for the PSMain body). Rebuilds the PSOs; empty block restores
