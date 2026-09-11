@@ -224,20 +224,61 @@ bool rasterizeColorGlyphWithDirectWrite(const GlyphKey& key,
 GlyphAtlas::GlyphAtlas()
     : atlasImage_(kAtlasSize, kAtlasSize, QImage::Format_RGBA8888) {
   atlasImage_.fill(Qt::transparent);
-  dirty_ = true;
+  markDirty(0, 0, kAtlasSize, kAtlasSize, true);
 }
 
 GlyphAtlas::~GlyphAtlas() = default;
 
 QString GlyphAtlas::debugState() const {
-  return QStringLiteral("entries=%1 dirty=%2 shelf=%3,%4 shelfH=%5 size=%6x%7")
+  return QStringLiteral("entries=%1 dirty=%2 region=%3,%4 %5x%6 full=%7 shelf=%8,%9 shelfH=%10 size=%11x%12")
       .arg(static_cast<qulonglong>(cache_.size()))
       .arg(dirty_ ? QStringLiteral("true") : QStringLiteral("false"))
+      .arg(dirtyRegion_.x)
+      .arg(dirtyRegion_.y)
+      .arg(dirtyRegion_.width)
+      .arg(dirtyRegion_.height)
+      .arg(dirtyRegion_.fullUpload ? QStringLiteral("true") : QStringLiteral("false"))
       .arg(currentShelfX_)
       .arg(currentShelfY_)
       .arg(currentShelfH_)
       .arg(kAtlasSize)
       .arg(kAtlasSize);
+}
+
+GlyphAtlasDirtyRegion GlyphAtlas::dirtyRegion() const {
+  return dirtyRegion_;
+}
+
+void GlyphAtlas::clearDirty() {
+  dirty_ = false;
+  dirtyRegion_ = {};
+}
+
+void GlyphAtlas::markDirty(int x, int y, int width, int height,
+                           bool fullUpload) {
+  if (fullUpload) {
+    dirtyRegion_ = {0, 0, kAtlasSize, kAtlasSize, true};
+    dirty_ = true;
+    return;
+  }
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+  if (!dirty_ || !dirtyRegion_.isValid()) {
+    dirtyRegion_ = {x, y, width, height, false};
+    dirty_ = true;
+    return;
+  }
+  if (!dirtyRegion_.fullUpload) {
+    const int left = std::min(dirtyRegion_.x, x);
+    const int top = std::min(dirtyRegion_.y, y);
+    const int right = std::max(dirtyRegion_.x + dirtyRegion_.width,
+                               x + width);
+    const int bottom = std::max(dirtyRegion_.y + dirtyRegion_.height,
+                                y + height);
+    dirtyRegion_ = {left, top, right - left, bottom - top, false};
+  }
+  dirty_ = true;
 }
 
 void GlyphAtlas::clear() {
@@ -246,7 +287,7 @@ void GlyphAtlas::clear() {
   currentShelfX_ = 0;
   currentShelfY_ = 0;
   currentShelfH_ = 0;
-  dirty_ = true;
+  markDirty(0, 0, kAtlasSize, kAtlasSize, true);
 }
 
 bool GlyphAtlas::packGlyph(int w, int h, int &outX, int &outY) {
@@ -415,7 +456,7 @@ GlyphRect GlyphAtlas::acquire(const GlyphKey &key, const QFont &font) {
   rect.renderMode = key.renderMode;
   rect.colorPreserved = colorPreserved;
 
-  dirty_ = true;
+  markDirty(px, py, gw, gh);
   cache_[key] = rect;
   return rect;
 }

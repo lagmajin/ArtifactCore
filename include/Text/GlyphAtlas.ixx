@@ -80,6 +80,18 @@ struct GlyphRect {
     float v1(int atlasH) const { return atlasH > 0 ? float(atlasY + height)/ float(atlasH) : 0.0f; }
 };
 
+/// GPU atlas upload に必要な、CPU image 内の更新領域。
+/// `fullUpload` は atlas clear または GPU texture 再作成時に全量転送を要求する。
+struct GlyphAtlasDirtyRegion {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    bool fullUpload = false;
+
+    bool isValid() const { return width > 0 && height > 0; }
+};
+
 /// CPU 側 glyph atlas 管理クラス
 ///
 /// QRawFont でラスタライズし、RGBA8 QImage に pack する。
@@ -97,7 +109,7 @@ public:
     GlyphAtlas& operator=(const GlyphAtlas&) = delete;
 
     /// グリフを登録し GlyphRect を返す。既にキャッシュされていればそれを返す。
-    /// 満杯の場合は atlas を clear して再登録する（この場合 isDirtyFull() == true）。
+    /// 満杯の場合は atlas を clear して再登録する（この場合は全量 upload が必要）。
     GlyphRect acquire(const GlyphKey& key, const QFont& font);
 
     /// atlas テクスチャ画像（RGBA8, kAtlasSize × kAtlasSize）
@@ -105,7 +117,8 @@ public:
 
     /// GPU への再アップロードが必要かどうか
     bool isDirty() const { return dirty_; }
-    void clearDirty()    { dirty_ = false; }
+    GlyphAtlasDirtyRegion dirtyRegion() const;
+    void clearDirty();
 
     /// デバッグ用の簡易状態文字列
     QString debugState() const;
@@ -118,6 +131,8 @@ public:
 
 private:
     bool packGlyph(int w, int h, int& outX, int& outY);
+    void markDirty(int x, int y, int width, int height,
+                   bool fullUpload = false);
 
     QImage atlasImage_;
     std::unordered_map<GlyphKey, GlyphRect> cache_;
@@ -127,6 +142,7 @@ private:
     int currentShelfY_   = 0;
     int currentShelfH_   = 0;
     bool dirty_          = false;
+    GlyphAtlasDirtyRegion dirtyRegion_;
 };
 
 } // namespace ArtifactCore
