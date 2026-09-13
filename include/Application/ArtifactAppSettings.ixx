@@ -193,6 +193,10 @@ public:
     // --- UI Settings ---
     QString themeName() const;
     void setThemeName(const QString& theme);
+    QString uiAccentColor() const;
+    void setUiAccentColor(const QString& color);
+    int uiFontPointSize() const;
+    void setUiFontPointSize(int pointSize);
     QString themePresetPath() const;
     void setThemePresetPath(const QString& path);
 

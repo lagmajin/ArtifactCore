@@ -31,6 +31,8 @@ void registerBuiltInConfigSchema() {
                              {QStringLiteral("Default"), QStringLiteral("Maya"), QStringLiteral("Modo"), QStringLiteral("Studio"),
                               QStringLiteral("Blender"), QStringLiteral("DaVinci"), QStringLiteral("3ds Max"),
                               QStringLiteral("Nuke"), QStringLiteral("After Effects"), QStringLiteral("High Contrast")}, true, false});
+    schema.registerProperty({"UI/AccentColor", "Application accent color", QVariant::String, QString()});
+    schema.registerProperty({"UI/FontPointSize", "Application UI font size", QVariant::Int, 10, 8, 24});
     schema.registerProperty({"UI/MenuBarFontScalePercent", "Menu bar font scale", QVariant::Int, 132, 50, 200});
     schema.registerProperty({"UI/DockTabFontPointSize", "Dock tab font size", QVariant::Int, 16, 8, 30});
     schema.registerProperty({"Render/LayerCacheEnabled", "Enable layer cache", QVariant::Bool, true});
@@ -855,6 +857,24 @@ QString ArtifactAppSettings::themeName() const {
 
 void ArtifactAppSettings::setThemeName(const QString& theme) {
     impl_->store.setValue("UI/ThemeName", theme);
+    notifySettingsChanged();
+}
+
+QString ArtifactAppSettings::uiAccentColor() const {
+    return impl_->store.valueString("UI/AccentColor", "");
+}
+
+void ArtifactAppSettings::setUiAccentColor(const QString& color) {
+    impl_->store.setValue("UI/AccentColor", color);
+    notifySettingsChanged();
+}
+
+int ArtifactAppSettings::uiFontPointSize() const {
+    return std::clamp(static_cast<int>(impl_->store.valueInt64("UI/FontPointSize", 10)), 8, 24);
+}
+
+void ArtifactAppSettings::setUiFontPointSize(int pointSize) {
+    impl_->store.setValue("UI/FontPointSize", std::clamp(pointSize, 8, 24));
     notifySettingsChanged();
 }
 

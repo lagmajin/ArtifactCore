@@ -3,6 +3,7 @@ module;
 #include <QKeyEvent>
 #include <QJsonObject>
 #include <QString>
+#include <utility>
 
 module UI.ShortcutBindings;
 
@@ -308,6 +309,10 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("CompositionViewportRotateGizmo");
     case ShortcutId::CompositionViewportScaleGizmo:
         return QStringLiteral("CompositionViewportScaleGizmo");
+    case ShortcutId::TimelineFocusSearch:
+        return QStringLiteral("TimelineFocusSearch");
+    case ShortcutId::TimelineClearSearch:
+        return QStringLiteral("TimelineClearSearch");
     case ShortcutId::Count:
         break;
     }
@@ -610,6 +615,10 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Composition Viewport Rotate Gizmo");
     case ShortcutId::CompositionViewportScaleGizmo:
         return QStringLiteral("Composition Viewport Scale Gizmo");
+    case ShortcutId::TimelineFocusSearch:
+        return QStringLiteral("Timeline Focus Search");
+    case ShortcutId::TimelineClearSearch:
+        return QStringLiteral("Timeline Clear Search");
     case ShortcutId::Count:
         break;
     }
@@ -764,6 +773,8 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::CompositionViewportMoveGizmo,
         ShortcutId::CompositionViewportRotateGizmo,
         ShortcutId::CompositionViewportScaleGizmo,
+        ShortcutId::TimelineFocusSearch,
+        ShortcutId::TimelineClearSearch,
     };
 }
 
@@ -858,6 +869,8 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::CompositionViewportMoveGizmo)] = QKeySequence(Qt::Key_G);
     defaults_[index(ShortcutId::CompositionViewportRotateGizmo)] = QKeySequence(Qt::Key_R);
     defaults_[index(ShortcutId::CompositionViewportScaleGizmo)] = QKeySequence(Qt::Key_S);
+    defaults_[index(ShortcutId::TimelineFocusSearch)] = QKeySequence(Qt::CTRL | Qt::Key_F);
+    defaults_[index(ShortcutId::TimelineClearSearch)] = QKeySequence(Qt::CTRL | Qt::Key_K);
     defaults_[index(ShortcutId::PrCopyClip)] = QKeySequence::Copy;
     defaults_[index(ShortcutId::PrCutClip)] = QKeySequence::Cut;
     defaults_[index(ShortcutId::PrPasteClip)] = QKeySequence::Paste;
@@ -940,6 +953,23 @@ void ShortcutBindings::setShortcut(ShortcutId id, const QKeySequence& sequence)
     const auto idx = index(id);
     overrides_[idx] = sequence;
     overrideSet_[idx] = true;
+    for (const auto& listener : changeListeners_) {
+        if (listener) {
+            listener(id);
+        }
+    }
+}
+
+std::size_t ShortcutBindings::addChangeListener(std::function<void(ShortcutId)> listener)
+{
+    const auto token = nextChangeListenerToken_++;
+    changeListeners_.insert(token, std::move(listener));
+    return token;
+}
+
+void ShortcutBindings::removeChangeListener(const std::size_t token)
+{
+    changeListeners_.remove(token);
 }
 
 QJsonObject ShortcutBindings::toJson() const

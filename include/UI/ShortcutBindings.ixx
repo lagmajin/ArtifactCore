@@ -2,9 +2,11 @@ module;
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QJsonObject>
+#include <QHash>
 #include <QString>
 #include <cstddef>
 #include <array>
+#include <functional>
 
 export module UI.ShortcutBindings;
 
@@ -156,7 +158,9 @@ enum class ShortcutId {
     CompositionViewportMoveGizmo = 142,
     CompositionViewportRotateGizmo = 143,
     CompositionViewportScaleGizmo = 144,
-    Count = 145
+    TimelineFocusSearch = 145,
+    TimelineClearSearch = 146,
+    Count = 147
 };
 
 QString shortcutDisplayName(ShortcutId id);
@@ -169,6 +173,8 @@ public:
     QKeySequence defaultShortcut(ShortcutId id) const;
     QKeySequence shortcut(ShortcutId id) const;
     void setShortcut(ShortcutId id, const QKeySequence& sequence);
+    std::size_t addChangeListener(std::function<void(ShortcutId)> listener);
+    void removeChangeListener(std::size_t token);
     void resetToDefaults();
     QJsonObject toJson() const;
     bool loadFromJson(const QJsonObject& json);
@@ -186,6 +192,8 @@ private:
     std::array<QKeySequence, static_cast<std::size_t>(ShortcutId::Count)> defaults_{};
     std::array<QKeySequence, static_cast<std::size_t>(ShortcutId::Count)> overrides_{};
     std::array<bool, static_cast<std::size_t>(ShortcutId::Count)> overrideSet_{};
+    QHash<std::size_t, std::function<void(ShortcutId)>> changeListeners_;
+    std::size_t nextChangeListenerToken_ = 1;
 };
 
 } // namespace ArtifactCore
