@@ -4978,7 +4978,8 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExpo
         "/reference;Export.Lottie.Types=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreExport.dir/Export.Lottie.Types.ifc"
         "/reference;Container.NamedVector=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.NamedVector.ifc"
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc"
-        "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc")
+        "/reference;Frame.Rate=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Frame.Rate.ifc"
+        "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieExporter.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Container.Debug.Registry=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Container.Debug.Registry.ifc")
@@ -4996,7 +4997,8 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Export/Lottie/LottieRigExpo
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreExport.dir/src/Export/Lottie/LottieExporter.cppm.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreExport.dir/include/Export/Lottie/LottieTypes.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreRig.dir/include/Rig/Rig2D.ixx.obj"
-        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRate.ixx.obj")
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Frame/FrameRate.ixx.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Utils/UniString.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/LayoutState.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;UI.Layout.State=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreUI.dir/UI.Layout.State.ifc"
