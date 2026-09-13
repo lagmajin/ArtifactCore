@@ -10,6 +10,7 @@ module Export.Lottie.RigExporter;
 
 import Export.Lottie.Exporter;
 import Container.NamedVector;
+import Frame.Rate;
 
 namespace ArtifactCore::Export::Lottie {
 namespace {

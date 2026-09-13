@@ -28,6 +28,7 @@ import Memory.SharedPtr;
 import Time.Rational;
 import Animation.Value;
 import Frame.Position;
+import Frame.Rate;
 import Serialization.JsonAdapter;
 import Serialization.SchemaMigration;
 
@@ -304,9 +305,13 @@ void Bone2D::removeChild(Bone2D* child) {
 
 BoneTransform Bone2D::evaluate(const RationalTime& time) const {
     if (keyframes_.getKeyFrameCount() > 0) {
-        // Preserve the time scale supplied by the composition instead of
-        // converting every rig evaluation through a hardcoded 30 fps.
-        const FramePosition pos(time.toFrameCount(std::max<int64_t>(1, time.scale())));
+        // Explicit timeline rate wins so non-fps scales (fromSeconds ticks,
+        // rescaled keys, drop-frame bases) cannot silently shift frames.
+        // Unset rigs keep the legacy scale-as-fps reading.
+        const FramePosition pos = hasFrameRate_
+            ? FramePosition::fromRationalTime(time, frameRate_)
+            : FramePosition(static_cast<int>(
+                  time.toFrameCount(std::max<int64_t>(1, time.scale()))));
         return keyframes_.at(pos);
     }
     return localTransform_;
@@ -1206,6 +1211,8 @@ Rig2D::Rig2D(Rig2D&& other) noexcept
       controlSet_(std::move(other.controlSet_)),
       constraints_(std::move(other.constraints_)),
       propertyBindings_(std::move(other.propertyBindings_)),
+      frameRate_(other.frameRate_),
+      hasFrameRate_(other.hasFrameRate_),
       rootBone_(other.rootBone_) {
     other.rootBone_ = nullptr;
     other.bones_.clear();
@@ -1220,6 +1227,8 @@ Rig2D& Rig2D::operator=(Rig2D&& other) noexcept {
         controlSet_ = std::move(other.controlSet_);
         constraints_ = std::move(other.constraints_);
         propertyBindings_ = std::move(other.propertyBindings_);
+        frameRate_ = other.frameRate_;
+        hasFrameRate_ = other.hasFrameRate_;
         rootBone_ = other.rootBone_;
         other.rootBone_ = nullptr;
         other.bones_.clear();
@@ -1314,6 +1323,13 @@ void Rig2D::update() {
 }
 
 void Rig2D::evaluate(const RationalTime& time) {
+    if (hasFrameRate_) {
+        for (Bone2D* bone : bones_) {
+            if (bone) {
+                bone->setFrameRate(frameRate_);
+            }
+        }
+    }
     for (Bone2D* bone : bones_) {
         if (bone) {
             bone->setResolvedTransform(bone->evaluate(time));
