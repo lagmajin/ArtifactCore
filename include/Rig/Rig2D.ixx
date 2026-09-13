@@ -23,6 +23,7 @@ import Memory.SharedPtr;
 import Time.Rational;
 import Animation.Value;
 import Frame.Position;
+import Frame.Rate;
 
 export namespace ArtifactCore {
 
@@ -114,6 +115,10 @@ public:
 
     // 評価。キーフレームがあれば時間補間、なければ静的ローカル変換を返す。
     BoneTransform evaluate(const RationalTime& time) const;
+    void setFrameRate(const FrameRate& frameRate) {
+        frameRate_ = frameRate;
+        hasFrameRate_ = true;
+    }
 
     // キーフレーム管理
     void addKeyFrame(const FramePosition& frame, const BoneTransform& transform);
@@ -141,6 +146,8 @@ private:
     float rotationLimitMin_ = -180.0f;
     float rotationLimitMax_ = 180.0f;
     AnimatableValueT<BoneTransform> keyframes_;
+    FrameRate frameRate_;
+    bool hasFrameRate_ = false;
 };
 
 class RigControl2D {
@@ -807,6 +814,10 @@ public:
     QString poseName() const { return poseName_; }
 
     // 更新
+    void setFrameRate(const FrameRate& frameRate) {
+        frameRate_ = frameRate;
+        hasFrameRate_ = true;
+    }
     void update();
     void evaluate(const RationalTime& time);
     bool setBoneLocalTransform(const Id& id, const BoneTransform& transform);
@@ -833,6 +844,8 @@ private:
     std::vector<SmartBoneController> smartBones_;
     std::unique_ptr<SkinMesh> skinMesh_;
     QString poseName_;
+    FrameRate frameRate_;
+    bool hasFrameRate_ = false;
     Bone2D* rootBone_ = nullptr;
 };
 
