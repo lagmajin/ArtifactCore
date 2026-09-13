@@ -46,62 +46,23 @@ struct KeyFrameT {
  FramePosition frame;
  T value;
  InterpolationType interpolation = static_cast<InterpolationType>(0);
+ // AE-compatible Bezier handles (x in time, y in value). Ignored unless
+ // interpolation == Bezier. Out-of-range x is allowed (AE parity).
+ float cp1_x = 0.42f, cp1_y = 0.0f;
+ float cp2_x = 0.58f, cp2_y = 1.0f;
 };
 
+// 正規の easing 表は Math.Interpolate 側が所有する。ここでは int 直打ちの
+// 二重テーブルを持たず、eased alpha が必要な互換用途向けに 0→1 補間で求める。
+// (CatmullRom/Hermite 等の隣接点を要する型は Linear 落ち。Spline の厳密評価は
+//  KeyframeInterpolator 側を使うこと。Bezier は at() が保持ハンドルで評価する。)
 inline float interpolationAlpha(float alpha, InterpolationType type) {
- switch (static_cast<int>(type)) {
- case 1:
-  return alpha < 1.0f ? 0.0f : 1.0f;
- case 3:
-  return alpha * alpha;
- case 4: {
-  const float u = 1.0f - alpha;
-  return 1.0f - (u * u);
- }
- case 5:
-  if (alpha < 0.5f) {
-   return 2.0f * alpha * alpha;
-  }
-  return 1.0f - std::pow(-2.0f * alpha + 2.0f, 2.0f) * 0.5f;
- case 12:
-  return std::sin((alpha * 3.14159265f) * 0.5f);
- case 8:
-  return 1.0f - std::pow(1.0f - alpha, 3.0f);
- case 16:
-  if (alpha < (1.0f / 2.75f)) {
-   return 7.5625f * alpha * alpha;
-  } else if (alpha < (2.0f / 2.75f)) {
-   alpha -= (1.5f / 2.75f);
-   return 7.5625f * alpha * alpha + 0.75f;
-  } else if (alpha < (2.5f / 2.75f)) {
-   alpha -= (2.25f / 2.75f);
-   return 7.5625f * alpha * alpha + 0.9375f;
-  }
-  alpha -= (2.625f / 2.75f);
-  return 7.5625f * alpha * alpha + 0.984375f;
- case 19:
-  if (alpha <= 0.0f) return 0.0f;
-  if (alpha >= 1.0f) return 1.0f;
-  return std::pow(2.0f, -10.0f * alpha) *
-             std::sin((alpha - 0.075f) * (2.0f * 3.14159265f) / 0.3f) +
-         1.0f;
- case 22: {
-  const float s = 1.70158f;
-  alpha -= 1.0f;
-  return alpha * alpha * ((s + 1.0f) * alpha + s) + 1.0f;
- }
- default:
-  return alpha;
- }
+  return interpolate(0.0f, 1.0f, alpha, type);
 }
 
 template<typename T>
 inline T interpolateValue(const T& start, const T& end, float alpha, InterpolationType type) {
- if (static_cast<int>(type) == 1) {
-  return alpha < 1.0f ? start : end;
- }
- const float eased = interpolationAlpha(alpha, type);
- return start + (end - start) * eased;
+  return interpolate(start, end, alpha, type);
 }
 
 // 物理演算用のランタイム状態
@@ -183,11 +144,23 @@ export struct SpringState {
    auto next = it;
    auto prev = std::prev(it);
    float t = calculateT(prev->frame, next->frame, frame);
+   if (prev->interpolation == InterpolationType::Bezier) {
+    const float cp1x = std::isfinite(prev->cp1_x) ? prev->cp1_x : 0.42f;
+    const float cp1y = std::isfinite(prev->cp1_y) ? prev->cp1_y : 0.0f;
+    const float cp2x = std::isfinite(prev->cp2_x) ? prev->cp2_x : 0.58f;
+    const float cp2y = std::isfinite(prev->cp2_y) ? prev->cp2_y : 1.0f;
+    return bezierInterpolate(prev->value, next->value, t, cp1x, cp1y, cp2x, cp2y);
+   }
    return interpolateValue(prev->value, next->value, t, prev->interpolation);
   }
 
   // 物理ベースの評価 (Spring-Damper)
+  // NOTE: float channels only. SpringState carries scalar state, so this
+  // cannot represent T=Color/Transform/etc. Instantiating it for non-float
+  // T is a compile error by design (use per-channel float values instead).
   float atSpring(const FramePosition& frame, float dt, SpringState& state) const {
+      static_assert(std::is_same_v<T, float>,
+          "AnimatableValueT::atSpring supports float channels only");
       float target = static_cast<float>(at(frame));
       if (!std::isfinite(target)) return state.currentValue;
       if (!state.initialized) {
@@ -225,7 +198,8 @@ export struct SpringState {
   void addKeyFrame(const FramePosition& frame, const T& value) {
    std::unique_lock lock(mutex_);
    // Keep the same invariant as AbstractProperty: one keyframe per time.
-   // Replacing in place also preserves the existing interpolation mode.
+   // Replacing in place also preserves the existing interpolation mode
+   // and Bezier handles (same as AbstractProperty's value-only update).
    auto existing = std::find_if(keyframes_.begin(), keyframes_.end(),
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (existing != keyframes_.end()) {
@@ -233,6 +207,31 @@ export struct SpringState {
     return;
    }
    keyframes_.append({ frame, value });
+   normalizeKeyFrames();
+  }
+
+  void addKeyFrame(const FramePosition& frame, const T& value,
+                   InterpolationType interpolation,
+                   float cp1_x, float cp1_y, float cp2_x, float cp2_y) {
+   std::unique_lock lock(mutex_);
+   auto existing = std::find_if(keyframes_.begin(), keyframes_.end(),
+    [&frame](const auto& kf) { return kf.frame == frame; });
+   if (existing != keyframes_.end()) {
+    existing->value = value;
+    existing->interpolation = interpolation;
+    existing->cp1_x = cp1_x;
+    existing->cp1_y = cp1_y;
+    existing->cp2_x = cp2_x;
+    existing->cp2_y = cp2_y;
+    return;
+   }
+   KeyFrameT<T> keyframe{frame, value};
+   keyframe.interpolation = interpolation;
+   keyframe.cp1_x = cp1_x;
+   keyframe.cp1_y = cp1_y;
+   keyframe.cp2_x = cp2_x;
+   keyframe.cp2_y = cp2_y;
+   keyframes_.append(std::move(keyframe));
    normalizeKeyFrames();
   }
 
@@ -294,6 +293,19 @@ export struct SpringState {
     [&frame](const auto& kf) { return kf.frame == frame; });
    if (it == keyframes_.end()) return false;
    it->value = value;
+   return true;
+  }
+
+  bool setKeyFrameBezierAt(const FramePosition& frame,
+                           float cp1_x, float cp1_y, float cp2_x, float cp2_y) {
+   std::unique_lock lock(mutex_);
+   auto it = std::find_if(keyframes_.begin(), keyframes_.end(),
+    [&frame](const auto& kf) { return kf.frame == frame; });
+   if (it == keyframes_.end()) return false;
+   it->cp1_x = cp1_x;
+   it->cp1_y = cp1_y;
+   it->cp2_x = cp2_x;
+   it->cp2_y = cp2_y;
    return true;
   }
 
@@ -398,6 +410,9 @@ public:
     return result;
   }
 
+  // NOTE: layer persistence is float-only by design (all production stacks
+  // are AnimationLayerStackT<float>). Non-float T round-trips as an empty
+  // object; generalizing needs per-T QVariant conversion traits.
   QJsonObject toJson() const {
     QJsonObject object;
     if constexpr (std::is_same_v<T, float>) {
@@ -419,6 +434,10 @@ public:
           keyframeObject[QStringLiteral("value")] = static_cast<double>(keyframe.value);
           keyframeObject[QStringLiteral("interpolation")] =
               static_cast<int>(keyframe.interpolation);
+          keyframeObject[QStringLiteral("cp1_x")] = static_cast<double>(keyframe.cp1_x);
+          keyframeObject[QStringLiteral("cp1_y")] = static_cast<double>(keyframe.cp1_y);
+          keyframeObject[QStringLiteral("cp2_x")] = static_cast<double>(keyframe.cp2_x);
+          keyframeObject[QStringLiteral("cp2_y")] = static_cast<double>(keyframe.cp2_y);
           keyframes.append(keyframeObject);
         }
         layerObject[QStringLiteral("keyframes")] = keyframes;
@@ -449,10 +468,13 @@ public:
           const FramePosition frame(
               keyframe.value(QStringLiteral("frame")).toInteger());
           layers_[index].values.addKeyFrame(
-              frame, static_cast<float>(keyframe.value(QStringLiteral("value")).toDouble()));
-          layers_[index].values.setKeyFrameInterpolationAt(
-              frame, static_cast<InterpolationType>(
-                         keyframe.value(QStringLiteral("interpolation")).toInt(0)));
+              frame, static_cast<float>(keyframe.value(QStringLiteral("value")).toDouble()),
+              static_cast<InterpolationType>(
+                  keyframe.value(QStringLiteral("interpolation")).toInt(0)),
+              static_cast<float>(keyframe.value(QStringLiteral("cp1_x")).toDouble(0.42)),
+              static_cast<float>(keyframe.value(QStringLiteral("cp1_y")).toDouble(0.0)),
+              static_cast<float>(keyframe.value(QStringLiteral("cp2_x")).toDouble(0.58)),
+              static_cast<float>(keyframe.value(QStringLiteral("cp2_y")).toDouble(1.0)));
         }
       }
     }
