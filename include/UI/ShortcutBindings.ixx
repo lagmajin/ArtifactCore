@@ -153,7 +153,10 @@ enum class ShortcutId {
     PrAddWipeRight = 139,
     PrShowHelp = 140,
     PrZoomInAlt = 141,
-    Count = 142
+    CompositionViewportMoveGizmo = 142,
+    CompositionViewportRotateGizmo = 143,
+    CompositionViewportScaleGizmo = 144,
+    Count = 145
 };
 
 QString shortcutDisplayName(ShortcutId id);

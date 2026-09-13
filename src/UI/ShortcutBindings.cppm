@@ -302,6 +302,12 @@ QString shortcutIdKey(ShortcutId id)
     case ShortcutId::PrAddWipeRight: return QStringLiteral("PrAddWipeRight");
     case ShortcutId::PrShowHelp: return QStringLiteral("PrShowHelp");
     case ShortcutId::PrZoomInAlt: return QStringLiteral("PrZoomInAlt");
+    case ShortcutId::CompositionViewportMoveGizmo:
+        return QStringLiteral("CompositionViewportMoveGizmo");
+    case ShortcutId::CompositionViewportRotateGizmo:
+        return QStringLiteral("CompositionViewportRotateGizmo");
+    case ShortcutId::CompositionViewportScaleGizmo:
+        return QStringLiteral("CompositionViewportScaleGizmo");
     case ShortcutId::Count:
         break;
     }
@@ -598,6 +604,12 @@ QString shortcutDisplayName(ShortcutId id)
     case ShortcutId::PrAddWipeRight: return QStringLiteral("Premiere Add Wipe Right");
     case ShortcutId::PrShowHelp: return QStringLiteral("Premiere Show Keyboard Shortcuts");
     case ShortcutId::PrZoomInAlt: return QStringLiteral("Premiere Timeline Zoom In (Alternate)");
+    case ShortcutId::CompositionViewportMoveGizmo:
+        return QStringLiteral("Composition Viewport Move Gizmo");
+    case ShortcutId::CompositionViewportRotateGizmo:
+        return QStringLiteral("Composition Viewport Rotate Gizmo");
+    case ShortcutId::CompositionViewportScaleGizmo:
+        return QStringLiteral("Composition Viewport Scale Gizmo");
     case ShortcutId::Count:
         break;
     }
@@ -749,6 +761,9 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::PrAddWipeRight,
         ShortcutId::PrShowHelp,
         ShortcutId::PrZoomInAlt,
+        ShortcutId::CompositionViewportMoveGizmo,
+        ShortcutId::CompositionViewportRotateGizmo,
+        ShortcutId::CompositionViewportScaleGizmo,
     };
 }
 
@@ -840,6 +855,9 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::ViewToggleXRay)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X);
     defaults_[index(ShortcutId::ViewToggleIsolation)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_I);
     defaults_[index(ShortcutId::ViewToggleCameraFrustum)] = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O);
+    defaults_[index(ShortcutId::CompositionViewportMoveGizmo)] = QKeySequence(Qt::Key_G);
+    defaults_[index(ShortcutId::CompositionViewportRotateGizmo)] = QKeySequence(Qt::Key_R);
+    defaults_[index(ShortcutId::CompositionViewportScaleGizmo)] = QKeySequence(Qt::Key_S);
     defaults_[index(ShortcutId::PrCopyClip)] = QKeySequence::Copy;
     defaults_[index(ShortcutId::PrCutClip)] = QKeySequence::Cut;
     defaults_[index(ShortcutId::PrPasteClip)] = QKeySequence::Paste;
