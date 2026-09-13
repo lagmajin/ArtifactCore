@@ -93,6 +93,16 @@ export enum class InterpolationType {
   GammaCorrected, // ガンマ補正付き線形
   Perceptual,     // 人間知覚ベース補間（HDR / 色補間）
   ExponentialInOut, // 指数的な加速・減速
+  CubicIn,
+  CubicInOut,
+  QuarticIn,
+  QuarticInOut,
+  QuinticIn,
+  QuinticInOut,
+  SineIn,
+  SineInOut,
+  CircularIn,
+  CircularInOut,
 };
 
 struct Linear {
