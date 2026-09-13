@@ -71,6 +71,17 @@ export namespace ArtifactCore {
   float framerate() const;
   void setFrameRate(float frame = 30.0f);
 
+  // Converts an FPS value to the integral RationalTime scale used by legacy
+  // frame-domain animation storage. Invalid input preserves the caller's
+  // explicit fallback instead of producing a zero scale.
+  static std::int64_t storageScaleForFps(
+      double fps, std::int64_t fallback = 30) noexcept {
+   const std::int64_t safeFallback = std::max<std::int64_t>(1, fallback);
+   if (!std::isfinite(fps) || fps <= 0.0) return safeFallback;
+   return std::max<std::int64_t>(
+       1, static_cast<std::int64_t>(std::llround(fps)));
+  }
+
   // Exact rational rate (e.g. 30000/1001). When set, framerate() reports the
   // converted value and timecode/rate math can avoid float drift.
   static FrameRate fromRational(std::int64_t numerator, std::int64_t denominator);
