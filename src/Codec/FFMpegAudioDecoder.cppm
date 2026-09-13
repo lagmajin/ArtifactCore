@@ -118,6 +118,9 @@ namespace ArtifactCore
   void flush();
   bool isSameFile(const QString& path);
   bool isSameFile(const UniString& path);
+  int outputSampleRate() const;
+  int outputChannelCount() const;
+  void fillCache(double startSeconds, double endSeconds);
   bool popPendingSegment(AudioSegment& out) { return pendingQueue_.pop(out); }
   bool decodeNextSegment(AudioSegment& out) {
    if (popPendingSegment(out)) return true;
@@ -564,6 +567,49 @@ namespace ArtifactCore
   return framePos;
  }
 
+  int FFmpegAudioDecoder::Impl::outputSampleRate() const
+  {
+   return dstSampleRate_ > 0 ? dstSampleRate_ : 0;
+  }
+
+  int FFmpegAudioDecoder::Impl::outputChannelCount() const
+  {
+   const int channels = dstChannelLayout_.nb_channels;
+   if (channels > 0 && channels <= 64) return channels;
+   if (codecCtx_ && codecCtx_->ch_layout.nb_channels > 0 &&
+       codecCtx_->ch_layout.nb_channels <= 64) {
+    return static_cast<int>(codecCtx_->ch_layout.nb_channels);
+   }
+   return 0;
+  }
+
+  void FFmpegAudioDecoder::Impl::fillCache(double startSeconds, double endSeconds)
+  {
+   if (!fmtCtx_ || !codecCtx_ || audioStreamIndex_ < 0 || !swrCtx_) return;
+   if (dstSampleRate_ <= 0) return;
+   if (!std::isfinite(startSeconds) || !std::isfinite(endSeconds)) return;
+   if (endSeconds < 0.0) return;
+   double clampedStart = startSeconds < 0.0 ? 0.0 : startSeconds;
+   if (clampedStart > endSeconds) return;
+   // 同期pre-roll: startへseekし、end相当フレームまでpendingQueueへ詰める。
+   // AudioBufferQueue(maxSegments=100)が満杯・EOS・異常で打切り。無限loop防止に上限付き。
+   seek(clampedStart);
+   const double spanSeconds = endSeconds - clampedStart;
+   const double maxSpanSeconds = 30.0;
+   const double boundedSpan = spanSeconds > maxSpanSeconds ? maxSpanSeconds : spanSeconds;
+   const int64_t targetFrames = static_cast<int64_t>(boundedSpan * static_cast<double>(dstSampleRate_));
+   const qint64 startFrame = nextExpectedFrame_;
+   int iterations = 0;
+   constexpr int kMaxIterations = 400;
+   while (iterations < kMaxIterations) {
+    if (pendingQueue_.isFull()) break;
+    if (isEndOfStream()) break;
+    if (targetFrames >= 0 && (nextExpectedFrame_ - startFrame) >= targetFrames) break;
+    if (!decodeNextFrame(pendingQueue_)) break;
+    ++iterations;
+   }
+  }
+
  FFmpegAudioDecoder::FFmpegAudioDecoder() :impl_(new Impl())
  {
 
@@ -591,8 +637,7 @@ namespace ArtifactCore
 
  void FFmpegAudioDecoder::fillCacheAsync(double start, double end)
  {
-  (void)start;
-  (void)end;
+  if (impl_) impl_->fillCache(start, end);
  }
 
  void FFmpegAudioDecoder::flush()
@@ -614,12 +659,16 @@ namespace ArtifactCore
 
  int FFmpegAudioDecoder::sampleRate() const
  {
-  return impl_ ? 48000 : 44100;
+  if (!impl_) return 0;
+  const int rate = impl_->outputSampleRate();
+  return rate > 0 ? rate : 0;
  }
 
  int FFmpegAudioDecoder::channelCount() const
  {
-  return 2;
+  if (!impl_) return 0;
+  const int channels = impl_->outputChannelCount();
+  return channels > 0 ? channels : 0;
  }
 
  bool FFmpegAudioDecoder::isEndOfStream() const
