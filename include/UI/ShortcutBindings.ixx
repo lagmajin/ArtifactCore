@@ -161,7 +161,8 @@ enum class ShortcutId {
     TimelineFocusSearch = 145,
     TimelineClearSearch = 146,
     ProjectClearSearch = 147,
-    Count = 148
+    CompositionImmersiveExit = 148,
+    Count = 149
 };
 
 QString shortcutDisplayName(ShortcutId id);
