@@ -74,6 +74,8 @@ public:
     void setCompositionShowCameraFrustumOverlay(bool enable);
     bool compositionShowMotionPathOverlay() const;
     void setCompositionShowMotionPathOverlay(bool enable);
+    int compositionViewNavigatorPresentation() const;
+    void setCompositionViewNavigatorPresentation(int presentation);
     bool compositionShowDensityHeatmapOverlay() const;
     void setCompositionShowDensityHeatmapOverlay(bool enable);
     bool compositionShowGizmoDuringDrag() const;

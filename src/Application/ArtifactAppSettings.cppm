@@ -59,6 +59,7 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"UI/Composition/ShowAnchorCenterOverlay", "Show anchor center overlay", QVariant::Bool, false});
     schema.registerProperty({"UI/Composition/ShowCameraFrustumOverlay", "Show camera frustum overlay", QVariant::Bool, false});
     schema.registerProperty({"UI/Composition/ShowMotionPathOverlay", "Show motion path overlay", QVariant::Bool, true});
+    schema.registerProperty({"UI/Composition/ViewNavigatorPresentation", "Composition view navigator presentation", QVariant::Int, 0, 0, 1});
     schema.registerProperty({"Viewport/RotationSnapDegrees", "Viewport rotation snap step", QVariant::Double, 45.0, 15.0, 90.0,
                              {15.0, 30.0, 45.0, 90.0}});
     schema.registerProperty({"AssetBrowser/StatusFilter", "Asset browser status filter", QVariant::String, QStringLiteral("all")});
@@ -481,6 +482,17 @@ bool ArtifactAppSettings::compositionShowMotionPathOverlay() const {
 
 void ArtifactAppSettings::setCompositionShowMotionPathOverlay(bool enable) {
     impl_->store.setValue("UI/Composition/ShowMotionPathOverlay", enable);
+    notifySettingsChanged();
+}
+
+int ArtifactAppSettings::compositionViewNavigatorPresentation() const {
+    return std::clamp(static_cast<int>(impl_->store.valueInt64(
+        "UI/Composition/ViewNavigatorPresentation", 0)), 0, 1);
+}
+
+void ArtifactAppSettings::setCompositionViewNavigatorPresentation(int presentation) {
+    impl_->store.setValue("UI/Composition/ViewNavigatorPresentation",
+                          std::clamp(presentation, 0, 1));
     notifySettingsChanged();
 }
 
