@@ -160,7 +160,8 @@ enum class ShortcutId {
     CompositionViewportScaleGizmo = 144,
     TimelineFocusSearch = 145,
     TimelineClearSearch = 146,
-    Count = 147
+    ProjectClearSearch = 147,
+    Count = 148
 };
 
 QString shortcutDisplayName(ShortcutId id);
