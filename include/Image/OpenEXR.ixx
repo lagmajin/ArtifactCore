@@ -8,7 +8,7 @@ export module Image.OpenEXR;
 
 import Image.DeepImageBuffer;
 
-namespace ArtifactCore {
+export namespace ArtifactCore {
 
  struct OpenExrDeepSample {
   float depth = 0.0f;
