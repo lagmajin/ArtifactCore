@@ -11,6 +11,7 @@ export struct CryptoSample {
     float id = 0.0f;
     float coverage = 0.0f;
     static std::uint32_t nameToId(const QString& objectName);
+    static float nameToFloat(const QString& objectName);
     static std::uint32_t floatToId(float encodedId);
 };
 

@@ -54,6 +54,10 @@ std::uint32_t CryptoSample::nameToId(const QString& objectName) {
     return hashName(objectName.toUtf8());
 }
 
+float CryptoSample::nameToFloat(const QString& objectName) {
+    return static_cast<float>(nameToId(objectName));
+}
+
 std::uint32_t CryptoSample::floatToId(float encodedId) {
     if (!std::isfinite(encodedId) || encodedId <= 0.0f) {
         return 0u;
