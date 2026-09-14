@@ -11,9 +11,329 @@ export module Graphics.RenderPipelineFoundation;
 import Graphics.GIResources;
 import Graphics.PointwiseFusion;
 import Graphics.RenderGraph;
+import Graphics.SurfaceColorContract;
 import Graphics.TemporalHistory;
 
 export namespace ArtifactCore {
+
+enum class RenderBackendKind : std::uint8_t {
+    Auto,
+    DiligentGPU,
+    Software,
+};
+
+enum class RenderQuality : std::uint8_t {
+    Draft,
+    Preview,
+    Final,
+};
+
+enum class RenderCapability : std::uint32_t {
+    None = 0,
+    Raster = 1u << 0u,
+    Compute = 1u << 1u,
+    Float16Targets = 1u << 2u,
+    Float32Targets = 1u << 3u,
+    HDR = 1u << 4u,
+    TemporalHistory = 1u << 5u,
+};
+
+using RenderCapabilityMask = std::uint32_t;
+
+constexpr RenderCapabilityMask capabilityMask(
+    const RenderCapability capability) noexcept
+{
+    return static_cast<RenderCapabilityMask>(capability);
+}
+
+constexpr RenderCapabilityMask operator|(
+    const RenderCapability lhs, const RenderCapability rhs) noexcept
+{
+    return capabilityMask(lhs) | capabilityMask(rhs);
+}
+
+constexpr RenderCapabilityMask operator|(
+    const RenderCapabilityMask lhs, const RenderCapability rhs) noexcept
+{
+    return lhs | capabilityMask(rhs);
+}
+
+enum class RenderFallbackReason : std::uint8_t {
+    None,
+    InvalidSnapshot,
+    ColorContractIncomplete,
+    ResolutionExceeded,
+    MissingRaster,
+    MissingCompute,
+    MissingFloat16Targets,
+    MissingFloat32Targets,
+    MissingHDR,
+    MissingTemporalHistory,
+};
+
+struct RenderCacheKey {
+    static constexpr std::uint32_t SchemaVersion = 1;
+
+    std::uint32_t schemaVersion = SchemaVersion;
+    std::uint64_t compositionId = 0;
+    std::uint64_t viewId = 0;
+    std::uint64_t sceneRevision = 0;
+    std::uint64_t renderIndexGeneration = 0;
+    std::uint64_t settingsRevision = 0;
+    std::int64_t frameIndex = 0;
+    std::int64_t frameRateNumerator = 30;
+    std::int64_t frameRateDenominator = 1;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    RenderQuality quality = RenderQuality::Preview;
+    RenderBackendKind backend = RenderBackendKind::Auto;
+    SurfacePixelStorage storage = SurfacePixelStorage::Unknown;
+    SurfaceChannelOrder channelOrder = SurfaceChannelOrder::Unknown;
+    SurfaceColorPrimaries primaries = SurfaceColorPrimaries::Unknown;
+    TransferFunction transfer = TransferFunction::Linear;
+    SurfaceAlphaMode alphaMode = SurfaceAlphaMode::Unknown;
+    SurfaceColorRange range = SurfaceColorRange::Unknown;
+    bool transferKnown = false;
+    bool requiresCompute = false;
+    bool requiresHDR = false;
+    bool usesTemporalHistory = false;
+
+    friend constexpr bool operator==(const RenderCacheKey&, const RenderCacheKey&)
+        noexcept = default;
+
+    std::uint64_t stableHash() const noexcept
+    {
+        std::uint64_t hash = 1469598103934665603ull;
+        const auto combine = [&hash](const std::uint64_t value) noexcept {
+            hash ^= value + 0x9e3779b97f4a7c15ull + (hash << 6u) + (hash >> 2u);
+        };
+        combine(schemaVersion);
+        combine(compositionId);
+        combine(viewId);
+        combine(sceneRevision);
+        combine(renderIndexGeneration);
+        combine(settingsRevision);
+        combine(static_cast<std::uint64_t>(frameIndex));
+        combine(static_cast<std::uint64_t>(frameRateNumerator));
+        combine(static_cast<std::uint64_t>(frameRateDenominator));
+        combine(width);
+        combine(height);
+        combine(static_cast<std::uint8_t>(quality));
+        combine(static_cast<std::uint8_t>(backend));
+        combine(static_cast<std::uint8_t>(storage));
+        combine(static_cast<std::uint8_t>(channelOrder));
+        combine(static_cast<std::uint8_t>(primaries));
+        combine(static_cast<std::uint8_t>(transfer));
+        combine(static_cast<std::uint8_t>(alphaMode));
+        combine(static_cast<std::uint8_t>(range));
+        combine(transferKnown ? 1u : 0u);
+        combine(requiresCompute ? 1u : 0u);
+        combine(requiresHDR ? 1u : 0u);
+        combine(usesTemporalHistory ? 1u : 0u);
+        return hash;
+    }
+};
+
+struct RenderCacheKeyHash {
+    std::size_t operator()(const RenderCacheKey& key) const noexcept
+    {
+        return static_cast<std::size_t>(key.stableHash());
+    }
+};
+
+struct RenderInputSnapshot {
+    static constexpr std::uint32_t SchemaVersion = RenderCacheKey::SchemaVersion;
+
+    std::uint32_t schemaVersion = SchemaVersion;
+    std::uint64_t compositionId = 0;
+    std::uint64_t viewId = 0;
+    std::uint64_t sceneRevision = 0;
+    std::uint64_t renderIndexGeneration = 0;
+    std::uint64_t settingsRevision = 0;
+    std::int64_t frameIndex = 0;
+    std::int64_t frameRateNumerator = 30;
+    std::int64_t frameRateDenominator = 1;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    RenderQuality quality = RenderQuality::Preview;
+    RenderBackendKind requestedBackend = RenderBackendKind::Auto;
+    SurfaceColorDescriptor color =
+        SurfaceColorDescriptor::canonicalLinearPremultiplied();
+    bool requiresCompute = false;
+    bool requiresHDR = false;
+    bool usesTemporalHistory = false;
+
+    bool hasValidFrameContract() const noexcept
+    {
+        return schemaVersion == SchemaVersion && compositionId != 0 &&
+               viewId != 0 && width != 0 && height != 0 &&
+               frameRateNumerator > 0 && frameRateDenominator > 0;
+    }
+
+    bool isValid() const noexcept
+    {
+        return hasValidFrameContract() && color.isFullySpecified();
+    }
+
+    RenderCapabilityMask requiredCapabilities() const noexcept
+    {
+        RenderCapabilityMask result = capabilityMask(RenderCapability::Raster);
+        if (requiresCompute) result |= capabilityMask(RenderCapability::Compute);
+        if (color.storage == SurfacePixelStorage::RGBA16Float) {
+            result |= capabilityMask(RenderCapability::Float16Targets);
+        }
+        if (color.storage == SurfacePixelStorage::RGBA32Float) {
+            result |= capabilityMask(RenderCapability::Float32Targets);
+        }
+        if (requiresHDR) result |= capabilityMask(RenderCapability::HDR);
+        if (usesTemporalHistory) {
+            result |= capabilityMask(RenderCapability::TemporalHistory);
+        }
+        return result;
+    }
+
+    RenderCacheKey cacheKey(
+        const RenderBackendKind resolvedBackend = RenderBackendKind::Auto) const
+        noexcept
+    {
+        RenderCacheKey result;
+        result.schemaVersion = schemaVersion;
+        result.compositionId = compositionId;
+        result.viewId = viewId;
+        result.sceneRevision = sceneRevision;
+        result.renderIndexGeneration = renderIndexGeneration;
+        result.settingsRevision = settingsRevision;
+        result.frameIndex = frameIndex;
+        result.frameRateNumerator = frameRateNumerator;
+        result.frameRateDenominator = frameRateDenominator;
+        result.width = width;
+        result.height = height;
+        result.quality = quality;
+        result.backend = resolvedBackend == RenderBackendKind::Auto
+            ? requestedBackend : resolvedBackend;
+        result.storage = color.storage;
+        result.channelOrder = color.channelOrder;
+        result.primaries = color.primaries;
+        result.transfer = color.transfer;
+        result.alphaMode = color.alphaMode;
+        result.range = color.range;
+        result.transferKnown = color.transferKnown;
+        result.requiresCompute = requiresCompute;
+        result.requiresHDR = requiresHDR;
+        result.usesTemporalHistory = usesTemporalHistory;
+        return result;
+    }
+};
+
+struct RenderBackendCapabilities {
+    RenderBackendKind backend = RenderBackendKind::Auto;
+    RenderCapabilityMask supported = 0;
+    std::uint32_t maxTextureDimension = 0;
+
+    bool supports(const RenderCapability capability) const noexcept
+    {
+        return (supported & capabilityMask(capability)) != 0;
+    }
+
+    RenderFallbackReason failureReason(
+        const RenderInputSnapshot& snapshot) const noexcept
+    {
+        if (!snapshot.hasValidFrameContract()) {
+            return RenderFallbackReason::InvalidSnapshot;
+        }
+        if (!snapshot.color.isFullySpecified()) {
+            return RenderFallbackReason::ColorContractIncomplete;
+        }
+        if (maxTextureDimension != 0 &&
+            (snapshot.width > maxTextureDimension ||
+             snapshot.height > maxTextureDimension)) {
+            return RenderFallbackReason::ResolutionExceeded;
+        }
+        if (!supports(RenderCapability::Raster)) {
+            return RenderFallbackReason::MissingRaster;
+        }
+        if (snapshot.requiresCompute && !supports(RenderCapability::Compute)) {
+            return RenderFallbackReason::MissingCompute;
+        }
+        if (snapshot.color.storage == SurfacePixelStorage::RGBA16Float &&
+            !supports(RenderCapability::Float16Targets)) {
+            return RenderFallbackReason::MissingFloat16Targets;
+        }
+        if (snapshot.color.storage == SurfacePixelStorage::RGBA32Float &&
+            !supports(RenderCapability::Float32Targets)) {
+            return RenderFallbackReason::MissingFloat32Targets;
+        }
+        if (snapshot.requiresHDR && !supports(RenderCapability::HDR)) {
+            return RenderFallbackReason::MissingHDR;
+        }
+        if (snapshot.usesTemporalHistory &&
+            !supports(RenderCapability::TemporalHistory)) {
+            return RenderFallbackReason::MissingTemporalHistory;
+        }
+        return RenderFallbackReason::None;
+    }
+
+    bool canRender(const RenderInputSnapshot& snapshot) const noexcept
+    {
+        return failureReason(snapshot) == RenderFallbackReason::None;
+    }
+};
+
+struct RenderBackendSelection {
+    RenderBackendKind requested = RenderBackendKind::Auto;
+    RenderBackendKind selected = RenderBackendKind::Auto;
+    RenderFallbackReason fallbackReason = RenderFallbackReason::None;
+
+    bool resolved() const noexcept { return selected != RenderBackendKind::Auto; }
+    bool usedFallback() const noexcept {
+        return resolved() && requested != RenderBackendKind::Auto &&
+               requested != selected;
+    }
+
+    RenderCacheKey cacheKey(const RenderInputSnapshot& snapshot) const noexcept
+    {
+        return snapshot.cacheKey(selected);
+    }
+};
+
+class LIBRARY_DLL_API RenderPipelineContract {
+public:
+    static RenderBackendSelection selectBackend(
+        const RenderInputSnapshot& snapshot,
+        const RenderBackendCapabilities& gpu,
+        const RenderBackendCapabilities& software) noexcept
+    {
+        RenderBackendSelection result;
+        result.requested = snapshot.requestedBackend;
+        if (!snapshot.isValid()) {
+            result.fallbackReason = RenderFallbackReason::InvalidSnapshot;
+            return result;
+        }
+
+        const auto gpuFailure = gpu.failureReason(snapshot);
+        const auto softwareFailure = software.failureReason(snapshot);
+        if (snapshot.requestedBackend == RenderBackendKind::Software) {
+            if (softwareFailure == RenderFallbackReason::None) {
+                result.selected = RenderBackendKind::Software;
+            } else {
+                result.fallbackReason = softwareFailure;
+            }
+            return result;
+        }
+
+        if (gpuFailure == RenderFallbackReason::None) {
+            result.selected = RenderBackendKind::DiligentGPU;
+            return result;
+        }
+        if (softwareFailure == RenderFallbackReason::None) {
+            result.selected = RenderBackendKind::Software;
+            result.fallbackReason = gpuFailure;
+            return result;
+        }
+        result.fallbackReason = gpuFailure;
+        return result;
+    }
+};
 
 struct GIRenderGraphBuildResult {
     static constexpr std::size_t ResourceCount = 6;

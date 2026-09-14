@@ -1,5 +1,7 @@
 # マイルストーン: Deterministic Snapshot & Capability Contract
 
+**最終更新:** 2026-09-14
+
 > 2026-04-09 作成
 
 ## 目的
@@ -113,5 +115,12 @@ backend の可能 / 不可 / 条件付き可を typed に扱う。
 
 ## Current Status
 
-2026-04-09 時点では未着手。  
-Core の snapshot / capability 境界を定義する基盤 milestone として扱う。
+2026-09-14 時点で基盤の first slice を実装済み。
+
+- `Graphics.RenderPipelineFoundation` に `RenderInputSnapshot`、typed backend capability、fallback reason、backend selection を追加
+- snapshot の frame/time、resolution、color descriptor、quality、scene/render-index/settings revision を cache key へ反映
+- resolved backend を cache key に含め、GPU と software の結果を混同しない契約を追加
+- `RenderIndex::snapshot()` の proxy 順序を安定 ID 順に固定
+- Core diagnostic contract test に snapshot、cache key、fallback、RenderIndex 順序の検証を追加
+
+Composition evaluator からの snapshot 生成、Diligent resource ownership との接続、実 runtime での deterministic parity は未完了。

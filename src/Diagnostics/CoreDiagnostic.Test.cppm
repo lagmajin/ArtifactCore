@@ -21,6 +21,8 @@ import Utils.Text.Encoding;
 import Utils.Text.Number;
 import Utils.Text.Path;
 import Utils.Text.String;
+import Graphics.RenderIndex;
+import Graphics.RenderPipelineFoundation;
 import Graphics.SurfaceColorContract;
 import Image.SurfacePixelConversion;
 
@@ -394,6 +396,82 @@ bool loggerReverseAdapterContractTest()
          events.front().message == "disk write failed";
 }
 
+bool renderPipelineContractTest()
+{
+  RenderInputSnapshot snapshot;
+  snapshot.compositionId = 101;
+  snapshot.viewId = 7;
+  snapshot.sceneRevision = 4;
+  snapshot.renderIndexGeneration = 12;
+  snapshot.settingsRevision = 3;
+  snapshot.frameIndex = 48;
+  snapshot.frameRateNumerator = 30000;
+  snapshot.frameRateDenominator = 1001;
+  snapshot.width = 1920;
+  snapshot.height = 1080;
+  snapshot.requestedBackend = RenderBackendKind::DiligentGPU;
+  snapshot.requiresCompute = true;
+  snapshot.requiresHDR = true;
+  snapshot.usesTemporalHistory = true;
+  snapshot.color = SurfaceColorDescriptor::canonicalLinearPremultiplied(
+      SurfaceColorPrimaries::Rec2020_D65);
+
+  const auto gpuCapabilities = RenderCapability::Raster |
+                               RenderCapability::Compute |
+                               RenderCapability::Float32Targets |
+                               RenderCapability::TemporalHistory;
+  const auto softwareCapabilities = RenderCapability::Raster |
+                                    RenderCapability::Compute |
+                                    RenderCapability::Float32Targets |
+                                    RenderCapability::HDR |
+                                    RenderCapability::TemporalHistory;
+  const RenderBackendCapabilities gpu{
+      RenderBackendKind::DiligentGPU, gpuCapabilities, 8192};
+  const RenderBackendCapabilities software{
+      RenderBackendKind::Software, softwareCapabilities, 4096};
+  const auto selection = RenderPipelineContract::selectBackend(
+      snapshot, gpu, software);
+  const auto gpuKey = snapshot.cacheKey(RenderBackendKind::DiligentGPU);
+  const auto softwareKey = selection.cacheKey(snapshot);
+  auto incompleteColorSnapshot = snapshot;
+  incompleteColorSnapshot.color = SurfaceColorDescriptor::unknown();
+  auto invalidFrameSnapshot = snapshot;
+  invalidFrameSnapshot.width = 0;
+
+  RenderIndex index;
+  index.upsert(RenderProxyDescriptor{20});
+  index.upsert(RenderProxyDescriptor{3});
+  index.upsert(RenderProxyDescriptor{11});
+  const auto indexSnapshot = index.snapshot();
+
+  const bool deterministicIndex = indexSnapshot.proxies.size() == 3 &&
+                                  indexSnapshot.proxies[0].descriptor.id == 3 &&
+                                  indexSnapshot.proxies[1].descriptor.id == 11 &&
+                                  indexSnapshot.proxies[2].descriptor.id == 20;
+  const bool validSelection = snapshot.isValid() &&
+                              gpu.failureReason(snapshot) == RenderFallbackReason::MissingHDR &&
+                              software.canRender(snapshot) &&
+                              !gpu.canRender(snapshot) &&
+                              selection.requested == RenderBackendKind::DiligentGPU &&
+                              selection.selected == RenderBackendKind::Software &&
+                              selection.usedFallback() &&
+                              selection.fallbackReason == RenderFallbackReason::MissingHDR &&
+                              gpu.failureReason(incompleteColorSnapshot) ==
+                                  RenderFallbackReason::ColorContractIncomplete &&
+                              gpu.failureReason(invalidFrameSnapshot) ==
+                                  RenderFallbackReason::InvalidSnapshot;
+  const bool stableCache = gpuKey == snapshot.cacheKey(RenderBackendKind::DiligentGPU) &&
+                           gpuKey.stableHash() ==
+                               snapshot.cacheKey(RenderBackendKind::DiligentGPU).stableHash() &&
+                           gpuKey != softwareKey;
+
+  snapshot.frameIndex += 1;
+  const bool frameInvalidatesCache =
+      gpuKey != snapshot.cacheKey(RenderBackendKind::DiligentGPU);
+  return validSelection && stableCache && deterministicIndex &&
+         frameInvalidatesCache;
+}
+
 bool runAllCoreDiagnosticTests()
 {
   return snapshotJsonContractTest() &&
@@ -413,7 +491,8 @@ bool runAllCoreDiagnosticTests()
          surfacePixelConversionContractTest() &&
          pathContractTest() &&
          loggerReverseAdapterContractTest() &&
-         crashHandlerIngestContractTest();
+         crashHandlerIngestContractTest() &&
+         renderPipelineContractTest();
 }
 
 } // namespace ArtifactCore::DiagnosticsTest
