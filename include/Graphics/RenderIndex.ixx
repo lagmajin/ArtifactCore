@@ -1,5 +1,6 @@
 module;
 #include <array>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -141,6 +142,14 @@ public:
             (void)id;
             if (!dirtyOnly || any(record.dirty)) result.proxies.push_back(record);
         }
+        // unordered_map iteration order is intentionally unspecified. Keep
+        // snapshots stable so downstream cache keys, diagnostics, and
+        // backend comparisons do not depend on hash-table layout.
+        std::sort(result.proxies.begin(), result.proxies.end(),
+                  [](const RenderProxyRecord& lhs,
+                     const RenderProxyRecord& rhs) noexcept {
+                      return lhs.descriptor.id < rhs.descriptor.id;
+                  });
         return result;
     }
 
