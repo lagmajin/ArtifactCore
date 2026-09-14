@@ -4097,7 +4097,6 @@ list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])FFMpegAudioDecoder\\.ixx$")
 list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])FFMpegAudioDecoder\\.cppm$")
 list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])DecoderPoolManager\\.ixx$")
 list(FILTER CORE_MODULES EXCLUDE REGEX "(^|[/\\\\])ParticleSystem\\.ixx$")
-list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])OpenEXR\\.cppm$")
 list(FILTER CORE_IMPL EXCLUDE REGEX "(^|[/\\\\])FFmpegEncoder\\.Helpers\\.cppm$")
 list(APPEND CORE_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/Particle/ParticleSystem.ixx"
