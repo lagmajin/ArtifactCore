@@ -54,6 +54,13 @@ std::uint32_t CryptoSample::nameToId(const QString& objectName) {
     return hashName(objectName.toUtf8());
 }
 
+std::uint32_t CryptoSample::floatToId(float encodedId) {
+    if (!std::isfinite(encodedId) || encodedId <= 0.0f) {
+        return 0u;
+    }
+    return static_cast<std::uint32_t>(encodedId);
+}
+
 void CryptoPixel::addSample(float id, float coverage) {
     if (!std::isfinite(id) || !std::isfinite(coverage) || coverage <= 0.0f) return;
     coverage = std::clamp(coverage, 0.0f, 1.0f);
