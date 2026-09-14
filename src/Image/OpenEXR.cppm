@@ -12,7 +12,7 @@ module;
 #include <vector>
 #include <atomic>
 
-module Image:OpenEXR;
+module Image.OpenEXR;
 
 import Core.Parallel;
 

@@ -197,7 +197,7 @@ set(ARTIFACTCORE_IMPLEMENTATION_MODULE_REFERENCES
     "src/Image/ImageYUV420.cppm|Image.ImageYUV420|include/Image/ImageYUV420.ixx"
     "src/Image/OpenCV/ImageTransformCV.cppm|Image|include/Image/Image.ixx"
     "src/Image/PNGImage.cppm|Image.Png|include/Image/PNGImage.ixx"
-    "src/Image/OpenEXR.cppm|Image:OpenEXR|include/Image/OpenEXR.ixx"
+    "src/Image/OpenEXR.cppm|Image.OpenEXR|include/Image/OpenEXR.ixx"
     "src/Image/PSDDocument.cppm|Image.PSDDocument|include/Image/PSDDocument.ixx"
     "src/Image/RawImage.cppm|Image.Raw|include/Image/RawImage.ixx"
     "src/ImageProcessing/AbstractImageEffect.cppm|ImageProcessing|include/ImageProcessing/AbstractImageEffect.ixx"

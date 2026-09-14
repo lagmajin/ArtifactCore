@@ -4,7 +4,7 @@ module;
 #include <vector>
 
 
-export module Image:OpenEXR;
+export module Image.OpenEXR;
 
 import Image.DeepImageBuffer;
 
