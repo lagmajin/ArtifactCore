@@ -141,7 +141,7 @@ if(MSVC)
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Image/OpenEXR.cppm"
         PROPERTIES
-            COMPILE_OPTIONS "/reference;Image:OpenEXR=$(IntDir)/include/Image/OpenEXR.ixx.ifc;/reference;Image.DeepImageBuffer=$(IntDir)/include/Image/DeepImageBuffer.ixx.ifc"
+            COMPILE_OPTIONS "/reference;Image.DeepImageBuffer=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Image.DeepImageBuffer.ifc;/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
             OBJECT_DEPENDS "${_artifact_object_dir}/include/Image/OpenEXR.ixx.obj;${_artifact_object_dir}/include/Image/DeepImageBuffer.ixx.obj"
     )
 endif()
