@@ -142,7 +142,11 @@ void main(uint3 id : SV_DispatchThreadID)
         return;
     }
     const float value = saturate(source[min(blendMode, 3u)]);
-    OutTex[id.xy] = float4(value, value, value, 1.0);
+    // Keep the source coverage for R/G/B inspection so transparent portions
+    // of the composition do not replace the viewport background with black.
+    // Alpha inspection remains an opaque grayscale diagnostic surface.
+    const float outputAlpha = blendMode <= 2u ? saturate(source.a) : 1.0;
+    OutTex[id.xy] = float4(value, value, value, outputAlpha);
 }
 )";
 
