@@ -684,6 +684,8 @@ public:
       [](const KeyframeEntry& a, double t) { return a.time < t; });
 
     if (it == keyframes_.begin()) return keyframes_.front().value;
+    // An exact key belongs to the new segment even when the preceding one holds.
+    if (it != keyframes_.end() && it->time == time) return it->value;
 
     const std::size_t i = static_cast<std::size_t>(it - keyframes_.begin());
     const auto& prev = keyframes_[i - 1];

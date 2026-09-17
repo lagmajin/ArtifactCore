@@ -648,7 +648,26 @@ void normalizeKeyFrames(std::vector<KeyFrame>& keyFrames) {
 }
 
 void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value) {
-    addKeyFrame(time, value, InterpolationType::Linear);
+    std::unique_lock lock(pImpl->m_mutex);
+    pImpl->m_lastError.clear();
+    if (!isCompatiblePropertyValue(pImpl->m_type, value)) {
+        pImpl->m_lastError = QStringLiteral("Invalid or non-finite keyframe value");
+        return;
+    }
+
+    // A value edit must not reset the existing key's interpolation or metadata.
+    // Keep lookup and update under the same lock as insertion.
+    auto it = std::lower_bound(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(), time,
+        [](const KeyFrame& kf, const RationalTime& t) { return keyFrameTimeLess(kf.time, t); });
+    if (it != pImpl->m_keyFrames.end() && sameKeyFrameTime(it->time, time)) {
+        it->value = value;
+        return;
+    }
+
+    KeyFrame kf;
+    kf.time = time;
+    kf.value = value;
+    pImpl->m_keyFrames.insert(it, std::move(kf));
 }
 
 void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& value, InterpolationType interpolation) {
@@ -745,36 +764,57 @@ void AbstractProperty::retimeKeyFramesForLayerPointChange(const RationalTime& ol
     const double oldSpan = oldOut - oldIn;
     const double newSpan = newOut - newIn;
 
-    for (auto& kf : pImpl->m_keyFrames) {
+    pImpl->m_lastError.clear();
+    if (oldInPoint == newInPoint && oldOutPoint == newOutPoint) return;
+    if (std::none_of(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+            [](const KeyFrame& kf) { return kf.anchor != KeyFrame::Anchor::Absolute; })) return;
+
+    // Cold editing path only: stage changes so collisions never delete keys and
+    // failure leaves every original key (including metadata) untouched.
+    auto retimed = pImpl->m_keyFrames;
+    for (auto& kf : retimed) {
+        if (kf.anchor == KeyFrame::Anchor::Absolute) continue;
         const double t = kf.time.toDouble();
         double newTime = t;
         switch (kf.anchor) {
         case KeyFrame::Anchor::Absolute:
-            break;
+            continue;
         case KeyFrame::Anchor::LockToIn:
+            if (oldInPoint == newInPoint) continue;
             newTime = newIn + (t - oldIn);
             break;
         case KeyFrame::Anchor::LockToOut:
+            if (oldOutPoint == newOutPoint) continue;
             newTime = newOut + (t - oldOut);
             break;
         case KeyFrame::Anchor::StretchWithLayer:
-            if (std::abs(oldSpan) > 1e-12) {
-                const double normalized = (t - oldIn) / oldSpan;
-                newTime = newIn + normalized * newSpan;
-            }
+            if (std::abs(oldSpan) <= 1e-12) continue;
+            newTime = newIn + ((t - oldIn) / oldSpan) * newSpan;
             break;
+        default:
+            pImpl->m_lastError = QStringLiteral("Invalid keyframe anchor during retime");
+            return;
         }
-        // Keep retimed values on the destination timeline's rational scale.
-        // Reconstructing through RationalTime::fromSeconds() uses its fixed
-        // default scale and introduces avoidable frame drift on non-default
-        // timelines.
         const int64_t targetScale = std::max<int64_t>(1, newInPoint.scale());
-        const int64_t targetValue = static_cast<int64_t>(std::llround(
-            newTime * static_cast<double>(targetScale)));
-        kf.time = RationalTime(targetValue, targetScale);
+        const double rounded = std::round(newTime * static_cast<double>(targetScale));
+        // The upper bound is exclusive: double(INT64_MAX) rounds up to 2^63.
+        const double upperBound = -static_cast<double>(std::numeric_limits<int64_t>::lowest());
+        if (!std::isfinite(rounded) || rounded < -upperBound || rounded >= upperBound) {
+            pImpl->m_lastError = QStringLiteral("Keyframe retime exceeds the supported time range");
+            return;
+        }
+        kf.time = RationalTime(static_cast<int64_t>(rounded), targetScale);
     }
 
-    normalizeKeyFrames(pImpl->m_keyFrames);
+    std::sort(retimed.begin(), retimed.end(),
+        [](const KeyFrame& a, const KeyFrame& b) { return keyFrameTimeLess(a.time, b.time); });
+    if (std::adjacent_find(retimed.begin(), retimed.end(),
+            [](const KeyFrame& a, const KeyFrame& b) { return sameKeyFrameTime(a.time, b.time); })
+        != retimed.end()) {
+        pImpl->m_lastError = QStringLiteral("Keyframe retime would merge distinct keys");
+        return;
+    }
+    pImpl->m_keyFrames.swap(retimed);
 }
 
 void AbstractProperty::removeKeyFrame(const RationalTime& time) {
@@ -838,6 +878,14 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
     }
     if (time >= pImpl->m_keyFrames.back().time) {
         return pImpl->m_keyFrames.back().value;
+    }
+
+    // Resolve exact keys using rational comparison before converting to double.
+    // In particular, Hold owns [key.time, next.time), not the next key itself.
+    const auto exact = std::lower_bound(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(), time,
+        [](const KeyFrame& kf, const RationalTime& t) { return keyFrameTimeLess(kf.time, t); });
+    if (exact != pImpl->m_keyFrames.end() && sameKeyFrameTime(exact->time, time)) {
+        return exact->value;
     }
 
     const double targetTime = time.toDouble();
