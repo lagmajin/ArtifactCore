@@ -8,9 +8,9 @@ module;
 
 export module Animation.EasingCurveUtil;
 
-export namespace ArtifactCore {
+import Math.Interpolate;
 
-enum class InterpolationType : int;
+export namespace ArtifactCore {
 
 export enum class EasingType {
     Hold,
@@ -285,6 +285,32 @@ export inline InterpolationType easingTypeToInterpolation(EasingType type) noexc
     }
     return static_cast<InterpolationType>(0);
 }
+
+// easingTypeToInterpolation() pins InterpolationType ordinals by number.
+// Break loudly here if Math.Interpolate is reordered instead of silently
+// mistranslating easing choices and persisted interpolation ints.
+static_assert(static_cast<int>(InterpolationType::Linear) == 0);
+static_assert(static_cast<int>(InterpolationType::Constant) == 1);
+static_assert(static_cast<int>(InterpolationType::Smooth) == 2);
+static_assert(static_cast<int>(InterpolationType::EaseIn) == 3);
+static_assert(static_cast<int>(InterpolationType::EaseOut) == 4);
+static_assert(static_cast<int>(InterpolationType::EaseInOut) == 5);
+static_assert(static_cast<int>(InterpolationType::EaseOutIn) == 6);
+static_assert(static_cast<int>(InterpolationType::Quartic) == 9);
+static_assert(static_cast<int>(InterpolationType::Quintic) == 10);
+static_assert(static_cast<int>(InterpolationType::Exponential) == 11);
+static_assert(static_cast<int>(InterpolationType::Sine) == 13);
+static_assert(static_cast<int>(InterpolationType::Circular) == 14);
+static_assert(static_cast<int>(InterpolationType::BounceIn) == 16);
+static_assert(static_cast<int>(InterpolationType::BounceOut) == 17);
+static_assert(static_cast<int>(InterpolationType::BounceInOut) == 18);
+static_assert(static_cast<int>(InterpolationType::ElasticIn) == 19);
+static_assert(static_cast<int>(InterpolationType::ElasticOut) == 20);
+static_assert(static_cast<int>(InterpolationType::ElasticInOut) == 21);
+static_assert(static_cast<int>(InterpolationType::BackIn) == 22);
+static_assert(static_cast<int>(InterpolationType::BackOut) == 23);
+static_assert(static_cast<int>(InterpolationType::BackInOut) == 24);
+static_assert(static_cast<int>(InterpolationType::Bezier) == 25);
 
 export inline std::vector<EasingCandidate> defaultEasingCandidates()
 {
