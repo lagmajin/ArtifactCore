@@ -633,6 +633,49 @@ bool keyFrameTimeLess(const RationalTime& lhs, const RationalTime& rhs) {
     return lhs < rhs;
 }
 
+// AE-style roving for evaluation: spread each maximal run of roving keys
+// evenly between its fixed neighbours. Runs touching either end keep
+// authored times (nothing to distribute against). Returns per-key effective
+// times in key order; the result stays non-decreasing so binary search and
+// sorting invariants hold.
+std::vector<RationalTime> effectiveRovingTimes(const std::vector<KeyFrame>& keys) {
+    std::vector<RationalTime> times;
+    times.reserve(keys.size());
+    for (const auto& kf : keys) times.push_back(kf.time);
+    for (size_t i = 0; i < keys.size();) {
+        if (!keys[i].roving) { ++i; continue; }
+        const size_t runBegin = i;
+        while (i < keys.size() && keys[i].roving) ++i;
+        const size_t runEnd = i;
+        const bool hasLeft = runBegin > 0 && !keys[runBegin - 1].roving;
+        const bool hasRight = runEnd < keys.size() && !keys[runEnd].roving;
+        if (!hasLeft || !hasRight) continue;
+        const int64_t scale = std::max<int64_t>(1, times[runBegin - 1].scale());
+        const int64_t v0 = times[runBegin - 1].rescaledTo(scale);
+        const int64_t v1 = times[runEnd].rescaledTo(scale);
+        if (v1 <= v0) continue;
+        const size_t n = runEnd - runBegin;
+        for (size_t k = 0; k < n; ++k) {
+            const double placed = static_cast<double>(v0) +
+                (static_cast<double>(v1 - v0) * static_cast<double>(k + 1)) /
+                static_cast<double>(n + 1);
+            times[runBegin + k] =
+                RationalTime(static_cast<int64_t>(std::llround(placed)), scale);
+        }
+    }
+    return times;
+}
+
+std::vector<KeyFrame> keyFramesWithEffectiveRovingTimes(
+    const std::vector<KeyFrame>& keys) {
+    std::vector<KeyFrame> adjusted = keys;
+    const std::vector<RationalTime> times = effectiveRovingTimes(keys);
+    for (size_t i = 0; i < adjusted.size() && i < times.size(); ++i) {
+        adjusted[i].time = times[i];
+    }
+    return adjusted;
+}
+
 void normalizeKeyFrames(std::vector<KeyFrame>& keyFrames) {
     std::sort(keyFrames.begin(), keyFrames.end(),
         [](const KeyFrame& a, const KeyFrame& b) {
@@ -873,18 +916,23 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
         return pImpl->m_keyFrames.front().value;
     }
 
-    if (time <= pImpl->m_keyFrames.front().time) {
-        return pImpl->m_keyFrames.front().value;
+    // Evaluate on roving-adjusted times. Markers, selection, and persistence
+    // keep authored times; only the curve moves.
+    const std::vector<KeyFrame> keys =
+        keyFramesWithEffectiveRovingTimes(pImpl->m_keyFrames);
+
+    if (time <= keys.front().time) {
+        return keys.front().value;
     }
-    if (time >= pImpl->m_keyFrames.back().time) {
-        return pImpl->m_keyFrames.back().value;
+    if (time >= keys.back().time) {
+        return keys.back().value;
     }
 
     // Resolve exact keys using rational comparison before converting to double.
     // In particular, Hold owns [key.time, next.time), not the next key itself.
-    const auto exact = std::lower_bound(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(), time,
+    const auto exact = std::lower_bound(keys.begin(), keys.end(), time,
         [](const KeyFrame& kf, const RationalTime& t) { return keyFrameTimeLess(kf.time, t); });
-    if (exact != pImpl->m_keyFrames.end() && sameKeyFrameTime(exact->time, time)) {
+    if (exact != keys.end() && sameKeyFrameTime(exact->time, time)) {
         return exact->value;
     }
 
@@ -892,7 +940,7 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
 
     if (pImpl->m_type == PropertyType::Float) {
         KeyframeInterpolator<float> interp;
-        for (const auto& kf : pImpl->m_keyFrames) {
+        for (const auto& kf : keys) {
             typename KeyframeInterpolator<float>::KeyframeEntry entry;
             entry.time = kf.time.toDouble();
             entry.value = kf.value.toFloat();
@@ -908,7 +956,7 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
 
     if (pImpl->m_type == PropertyType::Integer) {
         KeyframeInterpolator<float> interp;
-        for (const auto& kf : pImpl->m_keyFrames) {
+        for (const auto& kf : keys) {
             typename KeyframeInterpolator<float>::KeyframeEntry entry;
             entry.time = kf.time.toDouble();
             entry.value = static_cast<float>(kf.value.toInt());
@@ -923,27 +971,33 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
     }
 
     if (pImpl->m_type == PropertyType::Color) {
-        auto interpolateColor = [](const QColor& start, const QColor& end,
-                                   float alpha, InterpolationType type,
-                                   float cp1_x, float cp1_y, float cp2_x,
-                                   float cp2_y) {
-            auto blendChannel = [&](float a, float b) {
-                if (type == InterpolationType::Bezier) {
-                    return bezierInterpolate(a, b, alpha, cp1_x, cp1_y, cp2_x, cp2_y);
-                }
-                return interpolate(a, b, alpha, type);
-            };
+        // Route every channel through KeyframeInterpolator so CatmullRom /
+        // Hermite use neighbours exactly like Float does. Invalid colours
+        // contribute 0 to neighbour math; a segment whose own endpoint is
+        // invalid keeps the kf1.value fallback below.
+        KeyframeInterpolator<float> channel[4];
+        for (const auto& kf : keys) {
+            const QColor c = kf.value.value<QColor>();
+            const float v[4] = {c.isValid() ? c.redF() : 0.0f,
+                                c.isValid() ? c.greenF() : 0.0f,
+                                c.isValid() ? c.blueF() : 0.0f,
+                                c.isValid() ? c.alphaF() : 0.0f};
+            for (int ch = 0; ch < 4; ++ch) {
+                typename KeyframeInterpolator<float>::KeyframeEntry entry;
+                entry.time = kf.time.toDouble();
+                entry.value = v[ch];
+                entry.type = kf.interpolation;
+                entry.cp1_x = kf.cp1_x;
+                entry.cp1_y = kf.cp1_y;
+                entry.cp2_x = kf.cp2_x;
+                entry.cp2_y = kf.cp2_y;
+                channel[ch].addKeyframe(entry);
+            }
+        }
 
-            return QColor::fromRgbF(
-                blendChannel(start.redF(), end.redF()),
-                blendChannel(start.greenF(), end.greenF()),
-                blendChannel(start.blueF(), end.blueF()),
-                blendChannel(start.alphaF(), end.alphaF()));
-        };
-
-        for (size_t i = 0; i + 1 < pImpl->m_keyFrames.size(); ++i) {
-            const auto& kf1 = pImpl->m_keyFrames[i];
-            const auto& kf2 = pImpl->m_keyFrames[i + 1];
+        for (size_t i = 0; i + 1 < keys.size(); ++i) {
+            const auto& kf1 = keys[i];
+            const auto& kf2 = keys[i + 1];
             if (time >= kf1.time && time <= kf2.time) {
                 if (kf1.interpolation == InterpolationType::Constant) {
                     return kf1.value;
@@ -957,19 +1011,19 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
                 if (duration <= 0.0) {
                     return kf1.value;
                 }
-                const float alpha =
-                    static_cast<float>((targetTime - kf1.time.toDouble()) / duration);
-                return QVariant::fromValue(interpolateColor(
-                    start, end, alpha, kf1.interpolation, kf1.cp1_x, kf1.cp1_y,
-                    kf1.cp2_x, kf1.cp2_y));
+                return QVariant::fromValue(QColor::fromRgbF(
+                    channel[0].evaluate(targetTime),
+                    channel[1].evaluate(targetTime),
+                    channel[2].evaluate(targetTime),
+                    channel[3].evaluate(targetTime)));
             }
         }
         return pImpl->m_value;
     }
 
-    for (size_t i = 0; i + 1 < pImpl->m_keyFrames.size(); ++i) {
-        const auto& kf1 = pImpl->m_keyFrames[i];
-        const auto& kf2 = pImpl->m_keyFrames[i + 1];
+    for (size_t i = 0; i + 1 < keys.size(); ++i) {
+        const auto& kf1 = keys[i];
+        const auto& kf2 = keys[i + 1];
         if (time >= kf1.time && time <= kf2.time) {
             if (kf1.interpolation == InterpolationType::Constant) {
                 return kf1.value;

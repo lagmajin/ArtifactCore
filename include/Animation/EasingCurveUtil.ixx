@@ -108,7 +108,9 @@ export inline float evaluateEasing(EasingType type, float t) noexcept
             return 0.5f + (u * u) * 0.5f;
         }
     case EasingType::Smooth:
-        return t * t * (3.0f - 2.0f * t);
+        // Match Math.Interpolate Smooth/Cosine (SineInOut cosine): the Lab
+        // previews the engine curve, so smoothstep would lie here.
+        return -(std::cos(3.14159265f * t) - 1.0f) * 0.5f;
     case EasingType::BackIn: {
         const float s = 1.70158f;
         return t * t * ((s + 1.0f) * t - s);
@@ -211,6 +213,9 @@ export inline float evaluateEasing(EasingType type, float t) noexcept
         return std::sqrt(std::max(0.0f, 1.0f - u * u));
     }
     case EasingType::Bezier:
+        // Default-handle preview (0.42/0.58, same defaults as KeyFrame).
+        // Keys with custom handles evaluate through bezierInterpolate with
+        // their own cp; the Lab cannot know them, so it shows the default.
         {
             float x = t;
             for (int i = 0; i < 4; ++i) {

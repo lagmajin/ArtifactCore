@@ -94,6 +94,14 @@ bool KeyframeEditingTools::thinKeyframes(
             const auto& next = keyframes[i + 1];
 
             // Evaluate interpolated value at curr.frame using neighbors
+            // CatmullRom/Hermite need neighbours that removal would change,
+            // so a segment-local estimate cannot judge them: keep the key.
+            if (prev.interpolation == InterpolationType::CatmullRom ||
+                prev.interpolation == InterpolationType::Hermite ||
+                next.interpolation == InterpolationType::CatmullRom ||
+                next.interpolation == InterpolationType::Hermite) {
+                continue;
+            }
             const double interpolated = evaluateSegment(prev, next, curr.frame);
             const double error = std::abs(curr.value - interpolated);
 
