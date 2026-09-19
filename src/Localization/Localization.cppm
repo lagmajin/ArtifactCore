@@ -1,6 +1,8 @@
 module;
 #include <utility>
 #include <string>
+#include <cmath>
+#include <vector>
 #include <unordered_map>
 #include <memory>
 #include <QString>
@@ -16,6 +18,78 @@ module;
 module Core.Localization;
 
 namespace ArtifactCore {
+
+namespace {
+
+// 現在の言語から英語までのフォールバック連鎖。
+// 繁体字中国語は簡体字中国語を経由してから英語へ落とす。
+std::vector<LocaleLanguage> fallbackChainFor(LocaleLanguage lang) {
+    switch (lang) {
+        case LocaleLanguage::ChineseTraditional:
+            return {LocaleLanguage::ChineseTraditional,
+                    LocaleLanguage::ChineseSimplified,
+                    LocaleLanguage::English};
+        case LocaleLanguage::English:
+            return {LocaleLanguage::English};
+        case LocaleLanguage::Auto:
+            return {LocaleLanguage::English};
+        default:
+            break;
+    }
+    return {lang, LocaleLanguage::English};
+}
+
+QString pluralSuffix(PluralCategory category) {
+    switch (category) {
+        case PluralCategory::Zero: return QStringLiteral("zero");
+        case PluralCategory::One: return QStringLiteral("one");
+        case PluralCategory::Two: return QStringLiteral("two");
+        case PluralCategory::Few: return QStringLiteral("few");
+        case PluralCategory::Many: return QStringLiteral("many");
+        case PluralCategory::Other: break;
+    }
+    return QStringLiteral("other");
+}
+
+} // namespace
+
+PluralCategory pluralCategoryFor(LocaleLanguage lang, double count) {
+    const double n = std::fabs(count);
+    const int i = static_cast<int>(n);
+    const bool isInteger = (n == static_cast<double>(i));
+    const int mod10 = i % 10;
+    const int mod100 = i % 100;
+
+    switch (lang) {
+        case LocaleLanguage::English:
+            return (isInteger && i == 1) ? PluralCategory::One : PluralCategory::Other;
+
+        case LocaleLanguage::Russian:
+            if (isInteger && mod10 == 1 && mod100 != 11) return PluralCategory::One;
+            if (isInteger && mod10 >= 2 && mod10 <= 4 &&
+                (mod100 < 12 || mod100 > 14)) {
+                return PluralCategory::Few;
+            }
+            if (isInteger && (mod10 == 0 || (mod10 >= 5 && mod10 <= 9) ||
+                              (mod100 >= 11 && mod100 <= 14))) {
+                return PluralCategory::Many;
+            }
+            return PluralCategory::Other;
+
+        case LocaleLanguage::Arabic:
+            if (isInteger && i == 0) return PluralCategory::Zero;
+            if (isInteger && i == 1) return PluralCategory::One;
+            if (isInteger && i == 2) return PluralCategory::Two;
+            if (isInteger && mod100 >= 3 && mod100 <= 10) return PluralCategory::Few;
+            if (isInteger && mod100 >= 11 && mod100 <= 99) return PluralCategory::Many;
+            return PluralCategory::Other;
+
+        default:
+            break;
+    }
+
+    return (isInteger && i == 1) ? PluralCategory::One : PluralCategory::Other;
+}
 
 class LocalizationManager::Impl {
 public:
@@ -154,10 +228,13 @@ QStringList LocalizationManager::availableLocales() const {
 }
 
 QString LocalizationManager::translate(const QString& key) const {
-    // 現在の言語を検索
-    auto langIt = impl_->translations_.find(impl_->currentLang_);
-    if (langIt != impl_->translations_.end()) {
-        auto valIt = langIt->second.find(key);
+    // 現在の言語から英語までの連鎖で解決する
+    for (const LocaleLanguage lang : fallbackChainFor(impl_->currentLang_)) {
+        const auto langIt = impl_->translations_.find(lang);
+        if (langIt == impl_->translations_.end()) {
+            continue;
+        }
+        const auto valIt = langIt->second.find(key);
         if (valIt != langIt->second.end()) {
             return valIt->second;
         }
@@ -171,6 +248,26 @@ QString LocalizationManager::translate(const QString& key) const {
 
     // 見つからなければキーを返す
     return key;
+}
+
+PluralCategory LocalizationManager::pluralCategory(double count) const {
+    return pluralCategoryFor(impl_->currentLang_, count);
+}
+
+QString LocalizationManager::translatePlural(const QString& baseKey, double count,
+                                             const QString& fallbackSingular,
+                                             const QString& fallbackPlural) const {
+    const QString formatted = QString::number(count);
+    const QString categoryKey = baseKey + QLatin1Char('.') + pluralSuffix(pluralCategory(count));
+    QString value = translate(categoryKey);
+    if (value == categoryKey) {
+        const QString otherKey = baseKey + QStringLiteral(".other");
+        value = translate(otherKey);
+        if (value == otherKey) {
+            value = (count == 1.0) ? fallbackSingular : fallbackPlural;
+        }
+    }
+    return value.replace(QStringLiteral("%1"), formatted);
 }
 
 void LocalizationManager::addTranslation(LocaleLanguage lang, const QString& key, const QString& value) {

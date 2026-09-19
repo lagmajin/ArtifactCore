@@ -31,6 +31,25 @@ enum class LocaleLanguage {
 };
 
 /**
+ * @brief 複数形のカテゴリ（CLDR Plural Rules の部分集合）
+ */
+enum class PluralCategory {
+    Zero,
+    One,
+    Two,
+    Few,
+    Many,
+    Other
+};
+
+/**
+ * @brief 指定ロケール・数量に対する CLDR 複数形カテゴリを返す
+ *
+ * 現時点で明示対応するのは en / ru / ar。それ以外は One / Other の二値。
+ */
+PluralCategory pluralCategoryFor(LocaleLanguage lang, double count);
+
+/**
  * @brief アプリケーション全体の翻訳を管理するクラス
  */
 class LocalizationManager {
@@ -56,6 +75,15 @@ public:
     // 翻訳の実行
     // キーが見つからない場合はキー自身を返す
     QString translate(const QString& key) const;
+
+    // 現在の言語で複数形カテゴリを解決する
+    PluralCategory pluralCategory(double count) const;
+
+    // baseKey.<category> を引き、無ければ baseKey.other、最後に呼出側フォールバックを使う。
+    // 値の中の %1 は count に置換される。
+    QString translatePlural(const QString& baseKey, double count,
+                            const QString& fallbackSingular,
+                            const QString& fallbackPlural) const;
     
     // データ登録
     void addTranslation(LocaleLanguage lang, const QString& key, const QString& value);

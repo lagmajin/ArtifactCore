@@ -55,6 +55,11 @@ public:
     bool layerCacheEnabled() const;
     void setLayerCacheEnabled(bool enable);
 
+    // --- Language ---
+    // Empty string means "follow the system locale".
+    QString appLanguageCode() const;
+    void setAppLanguageCode(const QString& code);
+
     // --- Composition View Defaults ---
     float compositionCheckerboardSize() const;
     void setCompositionCheckerboardSize(float size);

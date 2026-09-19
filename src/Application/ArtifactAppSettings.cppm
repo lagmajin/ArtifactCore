@@ -27,6 +27,7 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"General/AutoSaveInterval", "Automatic save interval in minutes", QVariant::Int, 5, 1, 120});
     schema.registerProperty({"General/DefaultFontFamily", "Default application font family", QVariant::String, QStringLiteral("Segoe UI")});
     schema.registerProperty({"General/LoadLastProject", "Load the last project on startup", QVariant::Bool, true});
+    schema.registerProperty({"General/LanguageCode", "UI language code (empty follows the system locale)", QVariant::String, QString()});
     schema.registerProperty({"UI/ThemeName", "Application theme preset", QVariant::String, QStringLiteral("Maya"), {}, {},
                              {QStringLiteral("Default"), QStringLiteral("Maya"), QStringLiteral("Modo"), QStringLiteral("Studio"),
                               QStringLiteral("Blender"), QStringLiteral("DaVinci"), QStringLiteral("3ds Max"),
@@ -359,6 +360,15 @@ bool ArtifactAppSettings::layerCacheEnabled() const {
 
 void ArtifactAppSettings::setLayerCacheEnabled(bool enable) {
     impl_->store.setValue(QStringLiteral("Render/LayerCacheEnabled"), enable);
+    notifySettingsChanged();
+}
+
+QString ArtifactAppSettings::appLanguageCode() const {
+    return impl_->store.valueString(QStringLiteral("General/LanguageCode"), QString());
+}
+
+void ArtifactAppSettings::setAppLanguageCode(const QString& code) {
+    impl_->store.setValue(QStringLiteral("General/LanguageCode"), code.trimmed());
     notifySettingsChanged();
 }
 
