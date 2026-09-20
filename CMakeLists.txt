@@ -12,8 +12,10 @@ set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
 # and place public .cppm units in ARTIFACTCORE_MODULE_SOURCES explicitly.
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreSources.cmake")
 if(MSVC)
-    add_compile_options(
-        [=[/reference;std=CMakeFiles\\__cmake_cxx23.dir\\artifact_std.ifc]=])
+    # The explicit std.ifc is attached per source from the top-level project
+    # after the complete module source list is known.  Applying it here to
+    # every Core translation unit makes header-based modules (for example
+    # Animation.Transform3D) mix textual STL headers with the named std BMI.
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/include/Render/RenderStatics.ixx"
         PROPERTIES COMPILE_OPTIONS
@@ -5108,6 +5110,8 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Source/ISource.cppm"
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Localization/Localization.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
         "/reference;Core.ArtifactString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactString.ifc"
+        "/reference;Event.Bus=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreEvent.dir/Event.Bus.ifc"
+        "/reference;Memory.SharedPtr=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Memory.SharedPtr.ifc"
         "/reference;Utils.String.UniString=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Utils.String.UniString.ifc")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/UI/RotoMaskEditor.cppm"
     APPEND PROPERTY COMPILE_OPTIONS
@@ -6201,6 +6205,7 @@ target_sources(ArtifactCoreLocalization
     PUBLIC FILE_SET CXX_MODULES FILES ${ARTIFACTCORE_LOCALIZATION_MODULES}
 )
 target_link_libraries(ArtifactCoreLocalization PUBLIC ArtifactCore)
+target_link_libraries(ArtifactCoreLocalization PUBLIC ArtifactCoreEvent)
 target_include_directories(ArtifactCoreLocalization PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../third_party"
