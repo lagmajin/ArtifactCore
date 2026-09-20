@@ -1,6 +1,7 @@
 module;
 #include <utility>
 #include <algorithm>
+#include <exception>
 #include <numbers>
 #include <string>
 #include <string_view>
@@ -2241,7 +2242,7 @@ void MeshRenderer::createPSO()
 
     const auto& deviceInfo = pDevice->GetDeviceInfo();
     const bool meshShadersSupported =
-        deviceInfo.Features.MeshShaders != DEVICE_FEATURE_STATE_DISABLED;
+        deviceInfo.Features.MeshShaders == DEVICE_FEATURE_STATE_ENABLED;
     if (meshShadersSupported) {
         RefCntAutoPtr<IShader> meshShader;
         RefCntAutoPtr<IShader> meshPixelShader;
@@ -2262,15 +2263,26 @@ void MeshRenderer::createPSO()
             meshPSOInfo.PSODesc.ResourceLayout.Variables = meshVars.data();
             meshPSOInfo.PSODesc.ResourceLayout.NumVariables =
                 static_cast<Uint32>(meshVars.size());
-            pDevice->CreateGraphicsPipelineState(meshPSOInfo,
-                                                 &pImpl_->pMeshletPSO_);
-            if (pImpl_->pMeshletPSO_) {
-                pImpl_->pMeshletPSO_->CreateShaderResourceBinding(
-                    &pImpl_->pMeshletSRB_, true);
+            // Mesh shaders are an optional acceleration path. Some D3D12
+            // drivers report mesh-shader support but reject this PSO, so do
+            // not let that optional failure abort creation of a 3D layer.
+            try {
+                pDevice->CreateGraphicsPipelineState(meshPSOInfo,
+                                                     &pImpl_->pMeshletPSO_);
+                if (pImpl_->pMeshletPSO_) {
+                    pImpl_->pMeshletPSO_->CreateShaderResourceBinding(
+                        &pImpl_->pMeshletSRB_, true);
+                }
+            } catch (const std::exception& error) {
+                pImpl_->pMeshletSRB_.Release();
+                pImpl_->pMeshletPSO_.Release();
+                qWarning() << "[MeshRenderer] meshlet PSO creation failed;"
+                              "using indexed mesh fallback:"
+                           << error.what();
             }
         }
     }
-    qDebug() << "[MeshRenderer] PSO created successfully";
+    qDebug() << "[MeshRenderer] indexed mesh PSO created successfully";
     
     const auto initializeBindings = [&](IPipelineState* pso,
                                         RefCntAutoPtr<IShaderResourceBinding>& srb) {
