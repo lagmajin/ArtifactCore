@@ -7,6 +7,8 @@ module;
 #include <QRegularExpression>
 #include <algorithm>
 #include <map>
+#include <string>
+#include <thread>
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -15,8 +17,6 @@ module;
 #include <tlhelp32.h>
 #endif
 module Thread.Helper;
-
-import std;
 
 
 namespace ArtifactCore

@@ -1,17 +1,20 @@
 module;
 #include <QString>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstddef>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 export module Core.Thread.BackgroundTaskRuntime;
-
-import std;
 
 // import Core.Define; // Module not found
 // import Core.Time.Rational; // Module not found

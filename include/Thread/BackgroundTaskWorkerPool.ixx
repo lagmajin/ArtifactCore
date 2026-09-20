@@ -1,6 +1,20 @@
+module;
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <deque>
+#include <exception>
+#include <functional>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 export module Core.Thread.BackgroundTaskWorkerPool;
 
-import std;
 import Container.NamedVector;
 import Core.Thread.BackgroundTaskRuntime;
 import Memory.SharedPtr;
@@ -142,30 +156,28 @@ public:
   /// Taskをキューに追加する
   /// </summary>
   auto SubmitTask(SharedPtr<IBackgroundTask> task) -> TaskId {
-    std::lock_guard<std::mutex> lock(queueMutex_);
-
-    if (pendingTasks_.size() >= config_.maxPendingTasks) {
-      throw std::runtime_error("Task queue is full");
-    }
-
-    TaskId id = task->GetTaskId();
-    task->InitializeSnapshot();
+    TaskId id;
     {
-      std::lock_guard<std::mutex> snapshotLock(snapshotsMutex_);
-      snapshots_[id] = task->GetSnapshot();
+      std::lock_guard<std::mutex> lock(queueMutex_);
+
+      if (pendingTasks_.size() >= config_.maxPendingTasks) {
+        throw std::runtime_error("Task queue is full");
+      }
+
+      id = task->GetTaskId();
+      task->InitializeSnapshot();
+      {
+        std::lock_guard<std::mutex> snapshotLock(snapshotsMutex_);
+        snapshots_[id] = task->GetSnapshot();
+      }
+      pendingTasks_.push_back(std::move(task));
+
+      queueCV_.notify_one();
     }
-    pendingTasks_.push_back(std::move(task));
 
-    // EventBusに通知
-    TaskStateChangedEvent event{.taskId = id,
-                                .oldState = TaskState::Pending,
-                                .newState = TaskState::Pending,
-                                .snapshot = {}};
-    // if (eventBus_) {
-    //     eventBus_->Publish(event);
-    // } // EventBus module missing
-
-    queueCV_.notify_one();
+    // ロックを外してから通知する。購読側が GetTaskSnapshot 等を呼び戻しても
+    // デッドロックしないようにするため。
+    emitSnapshot(GetTaskSnapshot(id));
     return id;
   }
 
@@ -219,10 +231,15 @@ public:
   }
 
   /// <summary>
-  /// EventBusを設定する（UI通知用）
+  /// 状態変化のシンクを設定する（UI通知用）
+  ///
+  /// EventBus は Core 側の .ixx へ import しない方針のため、購読側がシンクを
+  /// 差し込み、App 層で EventBus 等へ変換する。シンクは worker thread から
+  /// 呼ばれることがある。
   /// </summary>
-  void SetEventBus(SharedPtr<int> eventBus) {
-    // eventBus_ = std::move(eventBus); // EventBus module missing
+  void SetSnapshotSink(std::function<void(const TaskSnapshot &)> sink) {
+    std::lock_guard<std::mutex> lock(sinkMutex_);
+    snapshotSink_ = std::move(sink);
   }
 
   /// <summary>
@@ -346,8 +363,6 @@ private:
   /// </summary>
   void ExecuteTask(SharedPtr<IBackgroundTask> task, int workerId) {
     TaskId taskId = task->GetTaskId();
-    TaskState oldState = TaskState::Scheduled;
-    TaskState newState = TaskState::Running;
 
     // CancelTokenを登録
     CancelToken cancelToken;
@@ -372,27 +387,18 @@ private:
       snapshots_[taskId] = snapshot;
     }
 
-    // EventBusに通知
-    TaskStateChangedEvent stateEvent{.taskId = taskId,
-                                     .oldState = oldState,
-                                     .newState = newState,
-                                     .snapshot = snapshot};
-    // if (eventBus_) {
-    //     eventBus_->Publish(stateEvent);
-    // }
+    emitSnapshot(snapshot);
 
     // Task実行
     try {
       auto reportProgress = [this, taskId](TaskProgress progress) {
-        TaskProgressEvent event{.taskId = taskId, .progress = progress};
-        // if (eventBus_) {
-        //     eventBus_->Publish(event);
-        // }
-
-        std::lock_guard<std::mutex> lock(snapshotsMutex_);
-        if (auto it = snapshots_.find(taskId); it != snapshots_.end()) {
-          it->second.progress = progress;
+        {
+          std::lock_guard<std::mutex> lock(snapshotsMutex_);
+          if (auto it = snapshots_.find(taskId); it != snapshots_.end()) {
+            it->second.progress = progress;
+          }
         }
+        emitSnapshot(GetTaskSnapshot(taskId));
       };
 
       if (cancelToken.IsCancelled()) {
@@ -401,7 +407,6 @@ private:
       task->Execute(cancelToken, reportProgress);
 
       // 完了
-      newState = TaskState::Completed;
       snapshot.state = TaskState::Completed;
       snapshot.endTime = std::chrono::steady_clock::now();
 
@@ -410,19 +415,12 @@ private:
         snapshots_[taskId] = snapshot;
       }
 
-      TaskCompletedEvent completedEvent{.taskId = taskId, .snapshot = snapshot};
-      // if (eventBus_) {
-      //     eventBus_->Publish(completedEvent);
-      // }
-
     } catch (const std::exception &e) {
       // キャンセルによる例外
       if (cancelToken.IsCancelled()) {
-        newState = TaskState::Cancelled;
         snapshot.state = TaskState::Cancelled;
-        } else {
+      } else {
         // その他のエラー
-        newState = TaskState::Failed;
         snapshot.state = TaskState::Failed;
         snapshot.error = TaskError::FromException(
             QString::fromUtf8(e.what()), "runtime");
@@ -434,24 +432,10 @@ private:
         std::lock_guard<std::mutex> lock(snapshotsMutex_);
         snapshots_[taskId] = snapshot;
       }
-
-      if (snapshot.state == TaskState::Failed) {
-        TaskFailedEvent failedEvent{
-            .taskId = taskId, .error = snapshot.error, .snapshot = snapshot};
-        // if (eventBus_) {
-        //     eventBus_->Publish(failedEvent);
-        // }
-      }
     }
 
-    // 状態変更イベント
-    TaskStateChangedEvent finalStateEvent{.taskId = taskId,
-                                          .oldState = oldState,
-                                          .newState = newState,
-                                          .snapshot = snapshot};
-    // if (eventBus_) {
-    //     eventBus_->Publish(finalStateEvent);
-    // }
+    // 終端状態を通知
+    emitSnapshot(snapshot);
 
     // CancelTokenを削除
     {
@@ -492,6 +476,23 @@ private:
     }
   }
 
+  /// <summary>
+  /// 登録済みシンクへスナップショットを流す。
+  ///
+  /// queueMutex_ / snapshotsMutex_ を保持したまま呼ばないこと。購読側が
+  /// GetTaskSnapshot() 等を呼び戻すとデッドロックする。
+  /// </summary>
+  void emitSnapshot(const TaskSnapshot &snapshot) const {
+    std::function<void(const TaskSnapshot &)> sink;
+    {
+      std::lock_guard<std::mutex> lock(sinkMutex_);
+      sink = snapshotSink_;
+    }
+    if (sink) {
+      sink(snapshot);
+    }
+  }
+
   Config config_;
   std::atomic<bool> running_;
   std::mutex lifecycleMutex_;
@@ -509,7 +510,8 @@ private:
   std::unordered_map<TaskId, TaskSnapshot> snapshots_;
   mutable std::mutex snapshotsMutex_;
 
-  // SharedPtr<EventBus> eventBus_; // EventBus module missing
+  std::function<void(const TaskSnapshot &)> snapshotSink_;
+  mutable std::mutex sinkMutex_;
 };
 
 } // namespace ArtifactCore

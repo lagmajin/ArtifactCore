@@ -1,6 +1,11 @@
+module;
+#include <chrono>
+#include <functional>
+#include <thread>
+#include <utility>
+
 export module Core.Thread.BackgroundTaskSamples;
 
-import std;
 import Core.Thread.BackgroundTaskRuntime;
 import Core.Thread.BackgroundTaskWorkerPool;
 
