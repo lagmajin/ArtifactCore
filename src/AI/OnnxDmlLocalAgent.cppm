@@ -12,6 +12,7 @@ module;
 #include <mutex>
 #include <thread>
 #include <algorithm>
+#include <exception>
 #include <numeric>
 #include <QString>
 #include <QStringView>
@@ -23,8 +24,6 @@ module;
 #include <QRegularExpression>
 
 module Core.AI.OnnxDmlAgent;
-
-import std;
 import Core.AI.Context;
 import Memory.TrackedPtr;
 

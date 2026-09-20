@@ -1,4 +1,6 @@
 module;
+#include <algorithm>
+#include <functional>
 #include <gguf.h>
 #include <llama.h>
 #include <QString>
@@ -11,10 +13,14 @@ module;
 #include <QStringList>
 #include <QStringView>
 #include <QFileInfo>
+#include <memory>
+#include <mutex>
+#include <string>
 #include <string_view>
+#include <thread>
+#include <vector>
 
 module Core.AI.LlamaAgent;
-import std;
 import Core.AI.Context;
 
 namespace ArtifactCore {

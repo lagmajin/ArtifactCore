@@ -1,4 +1,5 @@
 module;
+#include <functional>
 #include <memory>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
@@ -13,8 +14,6 @@ module;
 #include <QTimer>
 
 module Core.AI.CloudAgent;
-
-import std;
 import Memory.SharedPtr;
 import Core.AI.Context;
 

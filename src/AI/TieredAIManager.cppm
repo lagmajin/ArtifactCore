@@ -1,10 +1,10 @@
 module;
 #include <QString>
 #include <QDebug>
+#include <functional>
+#include <memory>
 
 module Core.AI.TieredAIManager;
-
-import std;
 import Core.AI.Context;
 import Core.AI.LocalAgent;
 import Core.AI.CloudAgent;

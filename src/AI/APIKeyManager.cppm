@@ -5,8 +5,6 @@ module;
 #include <QStandardPaths>
 
 module Core.AI.APIKeyManager;
-
-import std;
 import Core.AI.CloudAgent;
 import Configuration.ConfigLayer;
 import Configuration.LayeredConfigStore;
