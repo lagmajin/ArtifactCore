@@ -8,8 +8,6 @@ module;
 
 module Material.Material;
 
-import std;
-
 import Utils.String.UniString;
 
 namespace ArtifactCore {

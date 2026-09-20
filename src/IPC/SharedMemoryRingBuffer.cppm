@@ -6,13 +6,16 @@ module;
 #include <QDateTime>
 #include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <mutex>
+#include <utility>
 
 module IPC.SharedMemoryRingBuffer;
-
-import std;
 
 namespace ArtifactCore::IPC {
 
