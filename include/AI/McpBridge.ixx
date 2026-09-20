@@ -17,11 +17,10 @@ module;
 #include <QStandardPaths>
 #include <QSet>
 #include <QUuid>
+#include <cstddef>
 #include <mutex>
 
 export module Core.AI.McpBridge;
-
-import std;
 import Core.AI.Context;
 import Core.AI.ToolBridge;
 import Diagnostics.Logger;

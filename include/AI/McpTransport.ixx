@@ -10,10 +10,9 @@ module;
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QDeadlineTimer>
+#include <memory>
 
 export module Core.AI.McpTransport;
-
-import std;
 import Core.AI.Context;
 import Core.AI.McpBridge;
 
