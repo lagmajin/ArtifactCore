@@ -1,10 +1,11 @@
 module;
 #include <QDebug>
 #include <algorithm>
+#include <chrono>
+#include <mutex>
+#include <utility>
 
 module Render.Farm.Progress;
-
-import std;
 
 namespace ArtifactCore {
 

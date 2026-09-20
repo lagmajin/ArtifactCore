@@ -4,8 +4,6 @@ module;
 
 module Render.Statics;
 
-import std;
-
 namespace ArtifactCore
 {
 
