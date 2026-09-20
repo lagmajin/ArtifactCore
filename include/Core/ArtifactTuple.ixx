@@ -14,7 +14,16 @@ template <typename... Ts>
 class Tuple;
 
 template <>
-class Tuple<> {};
+class Tuple<> {
+public:
+    [[nodiscard]] friend constexpr bool operator==(const Tuple&, const Tuple&) noexcept {
+        return true;
+    }
+
+    [[nodiscard]] friend constexpr bool operator!=(const Tuple& a, const Tuple& b) noexcept {
+        return !(a == b);
+    }
+};
 
 template <typename First, typename... Rest>
 class Tuple<First, Rest...> : public Tuple<Rest...> {
