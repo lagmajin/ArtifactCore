@@ -70,6 +70,20 @@ inline bool artifactIsNaN(const double value) noexcept { return std::isnan(value
 inline float artifactSqrt(const float value) noexcept { return std::sqrt(value); }
 inline double artifactSqrt(const double value) noexcept { return std::sqrt(value); }
 
+inline float artifactHypot(const float x, const float y) noexcept {
+    return std::hypot(x, y);
+}
+inline double artifactHypot(const double x, const double y) noexcept {
+    return std::hypot(x, y);
+}
+
+template <typename T>
+constexpr void artifactSwap(T& a, T& b) noexcept {
+    T temporary = static_cast<T&&>(a);
+    a = static_cast<T&&>(b);
+    b = static_cast<T&&>(temporary);
+}
+
 inline float artifactPow(const float base, const float exponent) noexcept {
     return std::pow(base, exponent);
 }
@@ -95,6 +109,58 @@ inline float artifactFloor(const float value) noexcept { return std::floor(value
 inline double artifactFloor(const double value) noexcept { return std::floor(value); }
 inline float artifactCeil(const float value) noexcept { return std::ceil(value); }
 inline double artifactCeil(const double value) noexcept { return std::ceil(value); }
+
+inline float artifactRound(const float value) noexcept { return std::round(value); }
+inline double artifactRound(const double value) noexcept { return std::round(value); }
+
+inline float artifactAtan(const float value) noexcept { return std::atan(value); }
+inline double artifactAtan(const double value) noexcept { return std::atan(value); }
+
+inline float artifactAcos(const float value) noexcept { return std::acos(value); }
+inline double artifactAcos(const double value) noexcept { return std::acos(value); }
+
+inline float artifactFmod(const float x, const float y) noexcept { return std::fmod(x, y); }
+inline double artifactFmod(const double x, const double y) noexcept { return std::fmod(x, y); }
+
+// Arithmetic fallbacks mirroring std's arithmetic overloads (integral args
+// promote to double). Exact float/double overloads above stay preferred.
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+inline double artifactSin(const T value) noexcept { return std::sin(static_cast<double>(value)); }
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+inline double artifactCos(const T value) noexcept { return std::cos(static_cast<double>(value)); }
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+inline double artifactTan(const T value) noexcept { return std::tan(static_cast<double>(value)); }
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+inline double artifactAtan(const T value) noexcept { return std::atan(static_cast<double>(value)); }
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+inline double artifactAcos(const T value) noexcept { return std::acos(static_cast<double>(value)); }
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+inline double artifactSqrt(const T value) noexcept { return std::sqrt(static_cast<double>(value)); }
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+inline double artifactFloor(const T value) noexcept { return std::floor(static_cast<double>(value)); }
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+inline double artifactCeil(const T value) noexcept { return std::ceil(static_cast<double>(value)); }
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+inline double artifactRound(const T value) noexcept { return std::round(static_cast<double>(value)); }
+template <typename X, typename Y,
+          std::enable_if_t<std::is_arithmetic_v<X> && std::is_arithmetic_v<Y>, int> = 0>
+inline double artifactPow(const X base, const Y exponent) noexcept {
+    return std::pow(static_cast<double>(base), static_cast<double>(exponent));
+}
+template <typename X, typename Y,
+          std::enable_if_t<std::is_arithmetic_v<X> && std::is_arithmetic_v<Y>, int> = 0>
+inline double artifactAtan2(const X y, const Y x) noexcept {
+    return std::atan2(static_cast<double>(y), static_cast<double>(x));
+}
+template <typename X, typename Y,
+          std::enable_if_t<std::is_arithmetic_v<X> && std::is_arithmetic_v<Y>, int> = 0>
+inline double artifactFmod(const X x, const Y y) noexcept {
+    return std::fmod(static_cast<double>(x), static_cast<double>(y));
+}
+template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+inline bool artifactIsFinite(const T) noexcept { return true; }
+template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+inline bool artifactIsNaN(const T) noexcept { return false; }
 
 inline long artifactLround(const float value) noexcept { return std::lround(value); }
 inline long artifactLround(const double value) noexcept { return std::lround(value); }
