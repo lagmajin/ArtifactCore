@@ -5,6 +5,7 @@ module;
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <QReadWriteLock>
 #include <QString>
 #include <QFile>
 #include <QJsonDocument>
@@ -16,6 +17,8 @@ module;
 #include <QLocale>
 
 module Core.Localization;
+
+import Event.Bus;
 
 namespace ArtifactCore {
 
@@ -101,8 +104,16 @@ public:
     // フォールバック（英語）
     std::unordered_map<QString, QString> fallback_;
 
+    // ホットリロード用（ロックは読み取り経路 translate() と書き取り経路 reload()/load*() で取る）
+    QString dirPath_;
+    mutable QReadWriteLock lock_;
+
     void flattenJson(const QJsonObject& obj, const QString& prefix, std::unordered_map<QString, QString>& out) {
         for (auto it = obj.begin(); it != obj.end(); ++it) {
+            // `_` 始まりのキーはメタ情報（_meta 等）として翻訳対象から除外する。
+            if (it.key().startsWith(QLatin1Char('_'))) {
+                continue;
+            }
             QString key = prefix.isEmpty() ? it.key() : prefix + "." + it.key();
             if (it->isObject()) {
                 flattenJson(it->toObject(), key, out);
@@ -149,6 +160,8 @@ void LocalizationManager::setLanguage(LocaleLanguage lang) {
     }
     impl_->currentLang_ = lang;
     qDebug() << "[Localization] Language set to:" << static_cast<int>(lang);
+    // 言語切替を購読者へ通知（AppMain 等の on-demand 再翻訳ハンドラが反応する）。
+    globalEventBus().publish(LocaleChangedEvent{languageCode()});
 }
 
 void LocalizationManager::setLanguageCode(const QString& code) {
@@ -227,7 +240,37 @@ QStringList LocalizationManager::availableLocales() const {
     return result;
 }
 
+int LocalizationManager::translationCount(const QString& localeCode) const {
+    const QString normalized = localeCode.trimmed().toLower().replace(QLatin1Char('_'), QLatin1Char('-'));
+    LocaleLanguage lang = LocaleLanguage::English;
+    if (normalized.startsWith(QStringLiteral("ja"))) {
+        lang = LocaleLanguage::Japanese;
+    } else if (normalized.startsWith(QStringLiteral("zh-tw")) ||
+               normalized.startsWith(QStringLiteral("zh-hant"))) {
+        lang = LocaleLanguage::ChineseTraditional;
+    } else if (normalized.startsWith(QStringLiteral("zh"))) {
+        lang = LocaleLanguage::ChineseSimplified;
+    } else if (normalized.startsWith(QStringLiteral("ko"))) {
+        lang = LocaleLanguage::Korean;
+    } else if (normalized.startsWith(QStringLiteral("fr"))) {
+        lang = LocaleLanguage::French;
+    } else if (normalized.startsWith(QStringLiteral("de"))) {
+        lang = LocaleLanguage::German;
+    } else if (normalized.startsWith(QStringLiteral("es"))) {
+        lang = LocaleLanguage::Spanish;
+    } else if (normalized.startsWith(QStringLiteral("pt"))) {
+        lang = LocaleLanguage::Portuguese;
+    } else if (normalized.startsWith(QStringLiteral("ru"))) {
+        lang = LocaleLanguage::Russian;
+    } else if (normalized.startsWith(QStringLiteral("ar"))) {
+        lang = LocaleLanguage::Arabic;
+    }
+    const auto it = impl_->translations_.find(lang);
+    return it == impl_->translations_.end() ? 0 : static_cast<int>(it->second.size());
+}
+
 QString LocalizationManager::translate(const QString& key) const {
+    QReadLocker locker(&impl_->lock_);
     // 現在の言語から英語までの連鎖で解決する
     for (const LocaleLanguage lang : fallbackChainFor(impl_->currentLang_)) {
         const auto langIt = impl_->translations_.find(lang);
@@ -251,6 +294,7 @@ QString LocalizationManager::translate(const QString& key) const {
 }
 
 PluralCategory LocalizationManager::pluralCategory(double count) const {
+    QReadLocker locker(&impl_->lock_);
     return pluralCategoryFor(impl_->currentLang_, count);
 }
 
@@ -271,6 +315,7 @@ QString LocalizationManager::translatePlural(const QString& baseKey, double coun
 }
 
 void LocalizationManager::addTranslation(LocaleLanguage lang, const QString& key, const QString& value) {
+    QWriteLocker locker(&impl_->lock_);
     impl_->translations_[lang][key] = value;
 }
 
@@ -278,6 +323,7 @@ bool LocalizationManager::loadFromFile(const String& path, LocaleLanguage lang) 
     return loadFromFile(QString::fromUtf8(path.data(), static_cast<int>(path.length())), lang);
 }
 
+// 注: loadFromFile は呼出し側が QWriteLocker を取得済みである前提（loadFromDirectory/reload から呼ばれる）。
 bool LocalizationManager::loadFromFile(const QString& qPath, LocaleLanguage lang) {
     QFile file(qPath);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -307,6 +353,8 @@ bool LocalizationManager::loadFromFile(const QString& qPath, LocaleLanguage lang
 
 // ディレクトリからの一括ロード
 bool LocalizationManager::loadFromDirectory(const QString& dirPath) {
+    QWriteLocker locker(&impl_->lock_);
+    impl_->dirPath_ = dirPath;
     QDir dir(dirPath);
     if (!dir.exists()) return false;
 
@@ -392,8 +440,24 @@ QStringList LocalizationManager::loadedKeys() const {
 }
 
 void LocalizationManager::clearTranslations() {
+    QWriteLocker locker(&impl_->lock_);
     impl_->translations_.clear();
     impl_->fallback_.clear();
+}
+
+void LocalizationManager::setLocaleDirectory(const QString& dirPath) {
+    QWriteLocker locker(&impl_->lock_);
+    impl_->dirPath_ = dirPath;
+}
+
+void LocalizationManager::reload() {
+    if (impl_->dirPath_.isEmpty()) {
+        return;
+    }
+    // loadFromDirectory は内部で QWriteLocker を取得して再読み込み・クリアを行う。
+    loadFromDirectory(impl_->dirPath_);
+    // 変更を Event.Bus に通知（購読者は on-demand で再取得して再翻訳する）。
+    globalEventBus().publish(TranslationsReloadedEvent{availableLocales()});
 }
 
 } // namespace ArtifactCore

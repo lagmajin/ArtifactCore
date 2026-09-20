@@ -50,6 +50,27 @@ enum class PluralCategory {
 PluralCategory pluralCategoryFor(LocaleLanguage lang, double count);
 
 /**
+ * @brief 翻訳カタログがホットリロードされたことを通知するイベント
+ *
+ * `reloadedLocales` は再読み込み後に利用可能なロケールコードのリスト。
+ * 購読者は変更後のカタログから再取得する（UIの再翻訳は購読者の責務）。
+ */
+struct TranslationsReloadedEvent {
+    QStringList reloadedLocales;
+};
+
+/**
+ * @brief アプリケーションの言語が切り替えられたことを通知するイベント
+ *
+ * `locale` は新しくアクティブになった言語コード（"ja" / "en" 等）
+ * App側設定ダイアログの確認時やコマンドライン `--lang` による即時切替時に発火。
+ * 購読者は on-demand で各ウィジェットを再翻訳する。
+ */
+struct LocaleChangedEvent {
+    QString locale;
+};
+
+/**
  * @brief アプリケーション全体の翻訳を管理するクラス
  */
 class LocalizationManager {
@@ -71,6 +92,8 @@ public:
     LocaleLanguage language() const;
     QString languageCode() const;
     QStringList availableLocales() const;
+    // 指定ロケールコードで読み込まれている翻訳キー数（未ロードなら 0）
+    int translationCount(const QString& localeCode) const;
 
     // 翻訳の実行
     // キーが見つからない場合はキー自身を返す
@@ -101,6 +124,10 @@ public:
     QStringList untranslatedKeys() const;
     QStringList loadedKeys() const;
     void clearTranslations();
+
+    // ホットリロード：ロケールディレクトリの再読み込みと変更通知
+    void setLocaleDirectory(const QString& dirPath);
+    void reload();
 };
 
 } // namespace ArtifactCore
