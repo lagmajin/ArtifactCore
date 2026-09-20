@@ -4,11 +4,12 @@ class tst_QList;
 #include <QDebug>
 #include <QReadWriteLock>
 #include <QVector>
+#include <algorithm>
+#include <cstdint>
 #include <limits>
+#include <utility>
 
 module Audio.Cache;
-
-import std;
 
 namespace ArtifactCore
 {

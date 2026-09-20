@@ -19,12 +19,12 @@ module;
 #include <cstring>
 #include <ksmedia.h>
 #include <limits>
+#include <memory>
 #include <thread>
+#include <vector>
 
 
 module Audio.Backend.WASAPI;
-
-import std;
 
 namespace ArtifactCore {
 
