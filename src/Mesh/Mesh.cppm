@@ -740,7 +740,10 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
                     1, triangleCount / triangleStride);
                 const size_t targetIndexCount = static_cast<size_t>(targetTriangleCount) *
                                                 kTriangleIndexCount;
-                levelIndices.resize(targetIndexCount);
+                // meshopt_simplify may return more than the target when topology
+                // or the error limit prevents further reduction. Its output
+                // buffer must hold the full input index count.
+                levelIndices.resize(optimizedIndices.size());
                 const float targetError = std::min(
                     1.0f, static_cast<float>(triangleStride - 1) /
                               static_cast<float>(std::max(1, triangleCount)));
