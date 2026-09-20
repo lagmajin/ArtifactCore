@@ -564,6 +564,7 @@ set(ARTIFACTCORE_MODULE_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/../include/Particle/Particle.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Particle/ParticleSystem.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Physics/2D/Physics2D.ixx"
+    "${CMAKE_CURRENT_LIST_DIR}/../include/Physics/Collider2DEdit.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Physics/FluidSolver2D.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Physics/FractureEngine.ixx"
     "${CMAKE_CURRENT_LIST_DIR}/../include/Physics/MpmSolver2D.ixx"
