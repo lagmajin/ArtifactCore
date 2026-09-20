@@ -14,11 +14,10 @@ module;
 #include <QVariantList>
 #include <QVariantMap>
 #include <QMetaType>
+#include <utility>
 #include <vector>
 
 export module Core.AI.CommandIR;
-
-import std;
 import Container.NamedVector;
 
 export namespace ArtifactCore {
@@ -568,6 +567,26 @@ public:
             }
         }
         return false;
+    }
+
+    /// Returns true when the command only reads project state.
+    ///
+    /// Detached execution uses this to run read-only commands without the
+    /// interaction gate or an approval round trip.  The list is matched by
+    /// exact command type (never by name prefix) and must be kept in sync with
+    /// supportedCommands().
+    static bool isReadOnlyType(const QString& type)
+    {
+        static const QStringList kReadOnlyTypes = {
+            QStringLiteral("get_scene_info"),
+            QStringLiteral("get_layer_info"),
+            QStringLiteral("get_keyframes"),
+            QStringLiteral("get_render_status"),
+            QStringLiteral("list_available_effects"),
+            QStringLiteral("list_compositions"),
+            QStringLiteral("list_project_items"),
+        };
+        return kReadOnlyTypes.contains(type.trimmed());
     }
 
     static QVariantList requiredFieldsFor(const QString& type)

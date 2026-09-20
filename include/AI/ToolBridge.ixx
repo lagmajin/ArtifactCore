@@ -10,8 +10,6 @@ module;
 #include <QJsonParseError>
 
 export module Core.AI.ToolBridge;
-
-import std;
 import Core.AI.Describable;
 import Core.AI.PromptGenerator;
 import Core.AI.ToolExecutor;

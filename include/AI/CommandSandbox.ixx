@@ -15,8 +15,6 @@ module;
 #include <QVariant>
 
 export module Core.AI.CommandSandbox;
-
-import std;
 import Core.AI.Describable;
 
 export namespace ArtifactCore {
