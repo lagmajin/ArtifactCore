@@ -7,8 +7,6 @@ module;
 
 module Layer.Matte;
 import Core.Parallel;
-
-import std;
 import Serialization.JsonAdapter;
 import Serialization.SchemaMigration;
 
