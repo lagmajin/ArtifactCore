@@ -1,13 +1,17 @@
 module;
+#include <algorithm>
 #include <cmath>
 #include <map>
 #include <mutex>
+#include <shared_mutex>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
 
 module Configuration.ConfigSchema;
 
 import Configuration.LayeredConfigStore;
-import std;
 import Container.NamedVector;
 
 namespace ArtifactCore {

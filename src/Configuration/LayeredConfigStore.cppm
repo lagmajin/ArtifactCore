@@ -8,11 +8,15 @@ module;
 #include <QCborMap>
 #include <QCborValue>
 #include <QStandardPaths>
+#include <array>
+#include <functional>
+#include <memory>
+#include <string_view>
+#include <utility>
 
 module Configuration.LayeredConfigStore;
 
 import Core.FastSettingsStore;
-import std;
 
 namespace ArtifactCore {
 
