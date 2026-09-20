@@ -35,13 +35,24 @@ enum class DccStylePreset {
 struct DccStyleTheme {
   QString accentColor;
   QString textColor;
+  QString textMutedColor;             // Pr labelMuted (#888) 昇格
+  QString textSecondaryColor;         // Pr labelSecondary (#aaa) 昇格
   QString backgroundColor;
   QString secondaryBackgroundColor;
+  QString trackBackgroundColor;       // Pr trackContent (#1e1e1e) 昇格
+  QString placeholderBackgroundColor; // Pr mediaPlaceholder (#1a1a1a) 昇格
+  QString inputBackgroundColor;       // Pr inputBackground (#333) 昇格
   QString selectionColor;
   QString borderColor;
+  QString borderSubtleColor;          // Pr borderSubtle (#555) 昇格
   QString buttonColor;
   QString buttonHoverColor;
   QString buttonPressedColor;
+  QString buttonInfoColor;            // Pr buttonProxyCreate (#4a6a8a) 昇格
+  QString buttonSuccessColor;         // Pr buttonProxyUse (#4a8a4a) 昇格
+  QString sliderHandleColor;          // Pr sliderHandle (#4a9eff) 昇格
+  QString focusRingColor;             // keyboard-focus 外周リング (#8FBAFF)
+  QString disabledTextColor;          // :disabled 文字 (#808080)
 };
 
 DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset);
@@ -207,13 +218,24 @@ bool LIBRARY_DLL_API loadDCCThemePresetFromFile(const QString& filePath, DccStyl
 
   applyColor("accentColor", &DccStyleTheme::accentColor);
   applyColor("textColor", &DccStyleTheme::textColor);
+  applyColor("textMutedColor", &DccStyleTheme::textMutedColor);
+  applyColor("textSecondaryColor", &DccStyleTheme::textSecondaryColor);
   applyColor("backgroundColor", &DccStyleTheme::backgroundColor);
   applyColor("secondaryBackgroundColor", &DccStyleTheme::secondaryBackgroundColor);
+  applyColor("trackBackgroundColor", &DccStyleTheme::trackBackgroundColor);
+  applyColor("placeholderBackgroundColor", &DccStyleTheme::placeholderBackgroundColor);
+  applyColor("inputBackgroundColor", &DccStyleTheme::inputBackgroundColor);
   applyColor("selectionColor", &DccStyleTheme::selectionColor);
   applyColor("borderColor", &DccStyleTheme::borderColor);
+  applyColor("borderSubtleColor", &DccStyleTheme::borderSubtleColor);
   applyColor("buttonColor", &DccStyleTheme::buttonColor);
   applyColor("buttonHoverColor", &DccStyleTheme::buttonHoverColor);
   applyColor("buttonPressedColor", &DccStyleTheme::buttonPressedColor);
+  applyColor("buttonInfoColor", &DccStyleTheme::buttonInfoColor);
+  applyColor("buttonSuccessColor", &DccStyleTheme::buttonSuccessColor);
+  applyColor("sliderHandleColor", &DccStyleTheme::sliderHandleColor);
+  applyColor("focusRingColor", &DccStyleTheme::focusRingColor);
+  applyColor("disabledTextColor", &DccStyleTheme::disabledTextColor);
 
   *theme = loaded;
   return true;
@@ -346,6 +368,46 @@ DccStyleTheme LIBRARY_DLL_API getDCCTheme(DccStylePreset preset) {
     theme.buttonPressedColor = "#D0D0D0";
     break;
   }
+  // ---- 昇格トークンの派生既定値 (PrLegacyColors 由来) ----
+  // 外部JSON / 旧プリセットが新キーを欠く場合の fallback。前提: dark系は
+  // 白文字 (#EEF1F5系) / light系(HighContrast/DefaultQt)は黒文字。
+  {
+    const bool isLight = (preset == DccStylePreset::HighContrast ||
+                          preset == DccStylePreset::DefaultQt);
+    const auto pick = [&](const QString& v, const QString& fallback) -> QString {
+      if (!v.isEmpty() && QColor(v).isValid()) return v;
+      return fallback;
+    };
+    const QColor bg(theme.backgroundColor);
+    const QColor panel(theme.secondaryBackgroundColor);
+    const QColor baseBg = bg.isValid() ? bg : QColor(isLight ? "#FFFFFF" : "#24272D");
+    const QColor basePanel = panel.isValid() ? panel : QColor(isLight ? "#FFFFFF" : "#30343B");
+    const QString darkTrack = (preset == DccStylePreset::StudioStyle)
+        ? QStringLiteral("#1E1E1E") : baseBg.darker(135).name();
+    const QString darkPlaceholder = (preset == DccStylePreset::StudioStyle)
+        ? QStringLiteral("#1A1A1A") : baseBg.darker(150).name();
+    theme.textMutedColor = pick(theme.textMutedColor,
+        isLight ? QStringLiteral("#666666") : QStringLiteral("#888888"));
+    theme.textSecondaryColor = pick(theme.textSecondaryColor,
+        isLight ? QStringLiteral("#555555") : QStringLiteral("#AAAAAA"));
+    theme.trackBackgroundColor = pick(theme.trackBackgroundColor,
+        isLight ? QStringLiteral("#E8E8E8") : darkTrack);
+    theme.placeholderBackgroundColor = pick(theme.placeholderBackgroundColor,
+        isLight ? QStringLiteral("#E0E0E0") : darkPlaceholder);
+    theme.inputBackgroundColor = pick(theme.inputBackgroundColor,
+        isLight ? QStringLiteral("#FFFFFF") : basePanel.darker(115).name());
+    theme.borderSubtleColor = pick(theme.borderSubtleColor,
+        isLight ? QStringLiteral("#AAAAAA") : QStringLiteral("#555555"));
+    theme.buttonInfoColor = pick(theme.buttonInfoColor,
+        isLight ? QStringLiteral("#3A6A8A") : QStringLiteral("#4A6A8A"));
+    theme.buttonSuccessColor = pick(theme.buttonSuccessColor,
+        isLight ? QStringLiteral("#3A7A3A") : QStringLiteral("#4A8A4A"));
+    theme.sliderHandleColor = pick(theme.sliderHandleColor,
+        isLight ? QStringLiteral("#0078D7") : QStringLiteral("#4A9EFF"));
+    theme.focusRingColor = pick(theme.focusRingColor,
+        isLight ? QStringLiteral("#0078D7") : QStringLiteral("#8FBAFF"));
+    theme.disabledTextColor = pick(theme.disabledTextColor, QStringLiteral("#808080"));
+  }
   return theme;
 }
 
@@ -353,14 +415,19 @@ QPalette LIBRARY_DLL_API buildDCCPalette(const DccStyleTheme& theme) {
   QPalette pal;
   const QColor accent(theme.accentColor);
   const QColor text(theme.textColor);
+  const QColor textMuted(theme.textMutedColor.isEmpty() ? theme.textColor : theme.textMutedColor);
   const QColor bg(theme.backgroundColor);
   const QColor panel(theme.secondaryBackgroundColor);
+  const QColor inputBg(theme.inputBackgroundColor.isEmpty()
+      ? theme.secondaryBackgroundColor : theme.inputBackgroundColor);
   const QColor selection(theme.selectionColor);
   const QColor border(theme.borderColor);
+  const QColor disabledText(theme.disabledTextColor.isEmpty()
+      ? QStringLiteral("#808080") : theme.disabledTextColor);
 
   pal.setColor(QPalette::Window, bg);
   pal.setColor(QPalette::WindowText, text);
-  pal.setColor(QPalette::Base, panel);
+  pal.setColor(QPalette::Base, inputBg.isValid() ? inputBg : panel);
   pal.setColor(QPalette::AlternateBase, bg);
   pal.setColor(QPalette::ToolTipBase, panel);
   pal.setColor(QPalette::ToolTipText, text);
@@ -372,7 +439,12 @@ QPalette LIBRARY_DLL_API buildDCCPalette(const DccStyleTheme& theme) {
   pal.setColor(QPalette::HighlightedText, QColor("#FFFFFF"));
   pal.setColor(QPalette::Link, accent);
   pal.setColor(QPalette::LinkVisited, accent.darker(120));
-  pal.setColor(QPalette::PlaceholderText, border.lighter(140));
+  pal.setColor(QPalette::PlaceholderText,
+      textMuted.isValid() ? textMuted : border.lighter(140));
+  // Disabled 系は新 token から派生。QtCSS の :disabled 直書きの代替。
+  pal.setColor(QPalette::Disabled, QPalette::WindowText, disabledText);
+  pal.setColor(QPalette::Disabled, QPalette::Text, disabledText);
+  pal.setColor(QPalette::Disabled, QPalette::ButtonText, disabledText);
   return pal;
 }
 
