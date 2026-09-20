@@ -317,6 +317,10 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ProjectClearSearch");
     case ShortcutId::CompositionImmersiveExit:
         return QStringLiteral("CompositionImmersiveExit");
+    case ShortcutId::ProjectRefresh:
+        return QStringLiteral("ProjectRefresh");
+    case ShortcutId::ViewDetachedTasks:
+        return QStringLiteral("ViewDetachedTasks");
     case ShortcutId::Count:
         break;
     }
@@ -627,6 +631,10 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Project Clear Search");
     case ShortcutId::CompositionImmersiveExit:
         return QStringLiteral("Composition Immersive Exit");
+    case ShortcutId::ProjectRefresh:
+        return QStringLiteral("Project Refresh");
+    case ShortcutId::ViewDetachedTasks:
+        return QStringLiteral("View Detached Tasks");
     case ShortcutId::Count:
         break;
     }
@@ -785,6 +793,8 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::TimelineClearSearch,
         ShortcutId::ProjectClearSearch,
         ShortcutId::CompositionImmersiveExit,
+        ShortcutId::ProjectRefresh,
+        ShortcutId::ViewDetachedTasks,
     };
 }
 
@@ -883,6 +893,7 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::TimelineClearSearch)] = QKeySequence(Qt::CTRL | Qt::Key_K);
     defaults_[index(ShortcutId::ProjectClearSearch)] = QKeySequence(Qt::CTRL | Qt::Key_K);
     defaults_[index(ShortcutId::CompositionImmersiveExit)] = QKeySequence(Qt::Key_Escape);
+    defaults_[index(ShortcutId::ProjectRefresh)] = QKeySequence(Qt::Key_F5);
     defaults_[index(ShortcutId::PrCopyClip)] = QKeySequence::Copy;
     defaults_[index(ShortcutId::PrCutClip)] = QKeySequence::Cut;
     defaults_[index(ShortcutId::PrPasteClip)] = QKeySequence::Paste;
