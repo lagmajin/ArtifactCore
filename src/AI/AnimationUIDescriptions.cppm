@@ -7,9 +7,6 @@ module;
 #include <QEasingCurve>
 export module Core.AI.AnimationUIDescriptions;
 
-
-import std;
-
 import Core.AI.Describable;
 
 namespace ArtifactCore {

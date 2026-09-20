@@ -6,9 +6,6 @@ module;
 #include <QColor>
 export module Core.AI.Lighting3DDescriptions;
 
-
-import std;
-
 import Core.AI.Describable;
 
 namespace ArtifactCore {

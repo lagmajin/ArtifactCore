@@ -1,4 +1,5 @@
 module;
+#include <memory>
 #include <utility>
 #include <QString>
 #include <QStringList>
@@ -6,8 +7,6 @@ module;
 #include <QColor>
 
 export module Core.AI.Descriptions;
-
-import std;
 
 import Core.AI.Describable;
 

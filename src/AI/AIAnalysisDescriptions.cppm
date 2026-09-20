@@ -7,8 +7,6 @@ module;
 
 export module Core.AI.AIAnalysisDescriptions;
 
-import std;
-
 import Core.AI.Describable;
 
 namespace ArtifactCore {
