@@ -12,8 +12,6 @@ module;
 
 export module Text.GlyphLayout;
 
-import std;
-
 export import Text.LayoutContract;
 import Text.Style;
 import Text.ShapingBackend;
