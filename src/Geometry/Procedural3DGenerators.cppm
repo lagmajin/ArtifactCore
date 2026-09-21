@@ -5,10 +5,19 @@ module;
 #include <cmath>
 #include <cstdint>
 #include <vector>
+#include <QFont>
+#include <QFontMetrics>
+#include <QPainterPath>
+#include <QPolygonF>
+#include <QRectF>
+#include <QString>
+#include <QStringList>
 
 module Procedural3DGenerators;
 
 import Core.Parallel;
+import Mesh;
+import Geometry.ShapeExtrude;
 
 namespace ArtifactCore {
 
@@ -507,6 +516,117 @@ Procedural3DPreviewInfo Procedural3DGenerators::previewInfo(const Procedural3DRe
     info.bounds = computeBounds(result.mesh);
     info.quality = result.quality;
     return info;
+}
+
+Procedural3DMeshData Procedural3DGenerators::generateTextExtrude(const TextExtrudeSettings& settings, float /*timeSeconds*/)
+{
+    Procedural3DMeshData meshData;
+    if (settings.text.trimmed().isEmpty()) {
+        return meshData;
+    }
+    QFont font(settings.fontFamily);
+    font.setPointSize(std::clamp(settings.fontSize, 1, 1000));
+    font.setBold(settings.bold);
+    font.setItalic(settings.italic);
+    const QFontMetricsF metrics(font);
+    const qreal lineSpacing = metrics.lineSpacing();
+    const QStringList lines = settings.text.split(QChar(u'\n'));
+    QPainterPath full;
+    for (int line = 0; line < lines.size(); ++line) {
+        if (lines[line].isEmpty()) {
+            continue;
+        }
+        QPainterPath linePath;
+        linePath.addText(QPointF(0.0, static_cast<qreal>(line) * lineSpacing), font, lines[line]);
+        full.addPath(linePath);
+    }
+    if (full.isEmpty()) {
+        return meshData;
+    }
+    const QRectF bounds = full.boundingRect();
+    if (!bounds.isValid() || bounds.isEmpty()) {
+        return meshData;
+    }
+    // Block center to origin, Y flipped (Qt y-down -> 3D y-up).
+    const qreal centerX = bounds.center().x();
+    const qreal centerY = bounds.center().y();
+    std::vector<std::vector<QPointF>> contours;
+    const QList<QPolygonF> subpaths = full.toSubpathPolygons();
+    contours.reserve(static_cast<std::size_t>(subpaths.size()));
+    for (const QPolygonF& polygon : subpaths) {
+        if (polygon.size() < 3) {
+            continue;
+        }
+        std::vector<QPointF> contour;
+        contour.reserve(static_cast<std::size_t>(polygon.size()));
+        for (const QPointF& point : polygon) {
+            contour.emplace_back(point.x() - centerX, -(point.y() - centerY));
+        }
+        contours.push_back(std::move(contour));
+    }
+    if (contours.empty()) {
+        return meshData;
+    }
+    ShapeExtrudeParams extrudeParams;
+    extrudeParams.depth = std::clamp(settings.depth, 0.0f, 100000.0f);
+    extrudeParams.bevelWidth = std::clamp(settings.bevelWidth, 0.0f, 100000.0f);
+    extrudeParams.bevelSegments = std::clamp(settings.bevelSegments, 1, 8);
+    Mesh mesh;
+    if (!extrudeContourMesh(contours, extrudeParams, mesh)) {
+        return meshData;
+    }
+    const Mesh::RenderData renderData = mesh.generateRenderData();
+    if (renderData.positions.isEmpty() || renderData.indices.size() < 3u) {
+        return meshData;
+    }
+    const int vertexCount = renderData.positions.size();
+    meshData.vertices.reserve(static_cast<std::size_t>(vertexCount));
+    for (int index = 0; index < vertexCount; ++index) {
+        Procedural3DVertex vertex;
+        vertex.px = renderData.positions[index].x();
+        vertex.py = renderData.positions[index].y();
+        vertex.pz = renderData.positions[index].z();
+        if (index < renderData.normals.size()) {
+            vertex.nx = renderData.normals[index].x();
+            vertex.ny = renderData.normals[index].y();
+            vertex.nz = renderData.normals[index].z();
+        }
+        if (index < renderData.uvs.size()) {
+            vertex.u = renderData.uvs[index].x();
+            vertex.v = renderData.uvs[index].y();
+        }
+        meshData.vertices.push_back(vertex);
+    }
+    meshData.indices.reserve(renderData.indices.size());
+    for (const unsigned int corner : renderData.indices) {
+        meshData.indices.push_back(static_cast<std::uint32_t>(corner));
+    }
+    return meshData;
+}
+
+Procedural3DResult Procedural3DGenerators::generateTextExtrudeResult(const TextExtrudeSettings& settings,
+                                                                    float timeSeconds,
+                                                                    Procedural3DShading shading)
+{
+    Procedural3DResult result;
+    result.kind = Procedural3DKind::TextExtrude;
+    result.shading = shading;
+    result.quality = settings.quality;
+    result.mesh = generateTextExtrude(settings, timeSeconds);
+    result.valid = !result.mesh.vertices.empty();
+    return result;
+}
+
+TextExtrudeSettings Procedural3DGenerators::makeTextExtrudePreset(Procedural3DQuality quality)
+{
+    TextExtrudeSettings settings;
+    settings.text = QStringLiteral("TEXT");
+    settings.fontSize = 160;
+    settings.depth = 40.0f;
+    settings.bevelWidth = 4.0f;
+    settings.bevelSegments = 2;
+    settings.quality = quality;
+    return settings;
 }
 
 } // namespace ArtifactCore

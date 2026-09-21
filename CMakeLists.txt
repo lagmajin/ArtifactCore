@@ -558,12 +558,26 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Math/Noise.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/NamedVector.ixx.obj"
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Container/ContainerDebugRegistry.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Geometry/ShapeExtrude.cppm")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            COMPILE_OPTIONS
+                "/reference;Geometry.ShapeExtrude=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.ShapeExtrude.ifc"
+                "/reference;Mesh=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Mesh.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            OBJECT_DEPENDS
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Mesh/Mesh.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Geometry/Procedural3DGenerators.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
             COMPILE_OPTIONS
                 "/reference;Procedural3DGenerators=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Procedural3DGenerators.ifc"
                 "/reference;Core.Parallel=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.Parallel.ifc"
-                "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc")
+                "/reference;Math.Noise=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Math.Noise.ifc"
+                "/reference;Mesh=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Mesh.ifc"
+                "/reference;Geometry.ShapeExtrude=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.ShapeExtrude.ifc")
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY
+            OBJECT_DEPENDS
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Mesh/Mesh.ixx.obj"
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Geometry/ShapeExtrude.ixx.obj")
     elseif(_artifact_impl_relative STREQUAL "src/Geometry/Fracture.cppm")
         set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY COMPILE_OPTIONS
             "/reference;Geometry.Fracture=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Geometry.Fracture.ifc"

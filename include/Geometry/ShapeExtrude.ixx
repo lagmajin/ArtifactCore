@@ -1,7 +1,7 @@
 module;
 
 #include <vector>
-#include <QPoint>
+#include <QPointF>
 
 export module Geometry.ShapeExtrude;
 

@@ -164,7 +164,8 @@ enum class ShortcutId {
     CompositionImmersiveExit = 148,
     ProjectRefresh = 149,
     ViewDetachedTasks = 150,
-    Count = 151
+    ViewToggleMagnifier = 151,
+    Count = 152
 };
 
 QString shortcutDisplayName(ShortcutId id);

@@ -321,6 +321,8 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ProjectRefresh");
     case ShortcutId::ViewDetachedTasks:
         return QStringLiteral("ViewDetachedTasks");
+    case ShortcutId::ViewToggleMagnifier:
+        return QStringLiteral("ViewToggleMagnifier");
     case ShortcutId::Count:
         break;
     }
@@ -635,6 +637,8 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Project Refresh");
     case ShortcutId::ViewDetachedTasks:
         return QStringLiteral("View Detached Tasks");
+    case ShortcutId::ViewToggleMagnifier:
+        return QStringLiteral("View Toggle Magnifier");
     case ShortcutId::Count:
         break;
     }
@@ -795,6 +799,7 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::CompositionImmersiveExit,
         ShortcutId::ProjectRefresh,
         ShortcutId::ViewDetachedTasks,
+        ShortcutId::ViewToggleMagnifier,
     };
 }
 
@@ -952,6 +957,7 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::WorkCursorPlace)] = QKeySequence(Qt::ALT | Qt::Key_C);
     defaults_[index(ShortcutId::WorkCursorCenter)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_C);
     defaults_[index(ShortcutId::WorkCursorClear)] = QKeySequence(Qt::ALT | Qt::SHIFT | Qt::Key_C);
+    defaults_[index(ShortcutId::ViewToggleMagnifier)] = QKeySequence(Qt::ALT | Qt::Key_Z);
 
     overrides_.fill(QKeySequence());
 }

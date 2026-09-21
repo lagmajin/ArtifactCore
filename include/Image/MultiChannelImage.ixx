@@ -253,6 +253,11 @@ inline void MultiChannelImage::copyFrom(const VideoFrame& frame)
   copyIfPresent(ChannelType::AlbedoG);
   copyIfPresent(ChannelType::AlbedoB);
   copyIfPresent(ChannelType::Emission);
+  copyIfPresent(ChannelType::PositionX);
+  copyIfPresent(ChannelType::PositionY);
+  copyIfPresent(ChannelType::PositionZ);
+  copyIfPresent(ChannelType::U);
+  copyIfPresent(ChannelType::V);
   copyIfPresent(ChannelType::Custom);
 }
 

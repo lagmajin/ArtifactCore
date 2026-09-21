@@ -1083,6 +1083,14 @@ float4 PSMain(PSInput In) : SV_Target {
         float2 velocity = (currNdc - prevNdc) * float2(0.5, -0.5);
         return float4(velocity * 0.5 + 0.5, 0.5, 1.0);
     }
+    // Position AOV (mode 9): raw world-space position, no encoding.
+    // UV AOV (mode 10): raw vertex UV (material uv transform not applied).
+    if (In.Mode > 8.5 && In.Mode < 9.5) {
+        return float4(In.WorldPosition, 1.0);
+    }
+    if (In.Mode > 9.5 && In.Mode < 10.5) {
+        return float4(In.UV, 0.0, 1.0);
+    }
 
     float4 solidBase = (In.Mode > 7.5 && In.Mode < 8.5)
         ? float4(instanceColor, In.Color.a) : baseColor;

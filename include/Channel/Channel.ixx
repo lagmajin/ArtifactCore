@@ -33,6 +33,11 @@ enum class ChannelType {
     AlbedoG,        //アルベド / ベースカラー G
     AlbedoB,        //アルベド / ベースカラー B
     Emission,       //発光チャンネル
+    PositionX,      //ワールド位置 X (P AOV)
+    PositionY,      //ワールド位置 Y
+    PositionZ,      //ワールド位置 Z
+    U,              //頂点UV U (UV AOV)
+    V,              //頂点UV V
     Custom          //ユーザー定義チャンネル
 };
 

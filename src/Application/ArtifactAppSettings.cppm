@@ -170,6 +170,7 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"Accessibility/SingleHandModeEnabled", "Enable single-hand modifier bindings", QVariant::Bool, false});
     schema.registerProperty({"Accessibility/ViewportMagnifierEnabled", "Enable viewport magnifier", QVariant::Bool, false});
     schema.registerProperty({"Accessibility/ViewportMagnifierScale", "Viewport magnifier scale", QVariant::Int, 2, 2, 8});
+    schema.registerProperty({"Accessibility/ViewportMagnifierFollowCursor", "Viewport magnifier follows cursor", QVariant::Bool, false});
     schema.registerProperty({"File/RecentProjectPaths", "Recent project paths", QVariant::StringList, QStringList()});
     schema.registerProperty({"ContentsViewer/RecentSourcePaths", "Recent contents viewer sources", QVariant::StringList, QStringList()});
     schema.registerProperty({"ContentsViewer/LastSourcePath", "Last contents viewer source", QVariant::String, QString()});
@@ -870,6 +871,15 @@ int ArtifactAppSettings::accessibilityViewportMagnifierScale() const {
 void ArtifactAppSettings::setAccessibilityViewportMagnifierScale(int scale) {
     impl_->store.setValue(QStringLiteral("Accessibility/ViewportMagnifierScale"),
                           std::clamp(scale, 2, 8));
+    notifySettingsChanged();
+}
+
+bool ArtifactAppSettings::accessibilityViewportMagnifierFollowCursor() const {
+    return impl_->store.valueBool(QStringLiteral("Accessibility/ViewportMagnifierFollowCursor"), false);
+}
+
+void ArtifactAppSettings::setAccessibilityViewportMagnifierFollowCursor(bool follow) {
+    impl_->store.setValue(QStringLiteral("Accessibility/ViewportMagnifierFollowCursor"), follow);
     notifySettingsChanged();
 }
 

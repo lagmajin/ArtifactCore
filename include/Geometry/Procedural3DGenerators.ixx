@@ -3,6 +3,7 @@ module;
 #include <array>
 #include <cstdint>
 #include <vector>
+#include <QString>
 
 export module Procedural3DGenerators;
 
@@ -12,7 +13,8 @@ export namespace ArtifactCore {
 
 enum class Procedural3DKind : std::uint32_t {
     Terrain = 0,
-    PathTube = 1
+    PathTube = 1,
+    TextExtrude = 2
 };
 
 enum class Procedural3DQuality : std::uint32_t {
@@ -117,6 +119,22 @@ struct Procedural3DResult {
     bool valid = false;
 };
 
+/// Fusion Text3D 相当の押出しテキスト設定。グリフ輪郭は QFont/QPainterPath
+/// (Qt TextLayout 経路と同系) から取得し、ShapeExtrude で Mesh 化する。
+/// text は '\n' で改行できる。XY はブロック中心が原点、Y-up、Z は
+/// [-depth/2, depth/2] に対称配置される。
+struct TextExtrudeSettings {
+    QString text = QStringLiteral("TEXT");
+    QString fontFamily;
+    int fontSize = 160;
+    bool bold = false;
+    bool italic = false;
+    float depth = 40.0f;
+    float bevelWidth = 4.0f;
+    int bevelSegments = 2;
+    Procedural3DQuality quality = Procedural3DQuality::Preview;
+};
+
 struct Procedural3DBounds {
     float minX = 0.0f;
     float minY = 0.0f;
@@ -139,16 +157,21 @@ class Procedural3DGenerators {
 public:
     static Procedural3DMeshData generateTerrain(const TerrainSettings& settings, float timeSeconds = 0.0f);
     static Procedural3DMeshData generatePathTube(const PathTubeSettings& settings, float timeSeconds = 0.0f);
+    static Procedural3DMeshData generateTextExtrude(const TextExtrudeSettings& settings, float timeSeconds = 0.0f);
 
     static Procedural3DResult generateTerrainResult(const TerrainSettings& settings,
                                                     float timeSeconds = 0.0f,
                                                     Procedural3DShading shading = Procedural3DShading::Solid);
     static Procedural3DResult generatePathTubeResult(const PathTubeSettings& settings,
-                                                    float timeSeconds = 0.0f,
-                                                    Procedural3DShading shading = Procedural3DShading::Solid);
+                                                     float timeSeconds = 0.0f,
+                                                     Procedural3DShading shading = Procedural3DShading::Solid);
+    static Procedural3DResult generateTextExtrudeResult(const TextExtrudeSettings& settings,
+                                                        float timeSeconds = 0.0f,
+                                                        Procedural3DShading shading = Procedural3DShading::Solid);
 
     static TerrainSettings makeTerrainPreset(std::uint32_t seed = 1u, Procedural3DQuality quality = Procedural3DQuality::Preview);
     static PathTubeSettings makePathTubePreset(std::uint32_t seed = 1u, Procedural3DQuality quality = Procedural3DQuality::Preview);
+    static TextExtrudeSettings makeTextExtrudePreset(Procedural3DQuality quality = Procedural3DQuality::Preview);
     static Procedural3DPreviewInfo previewInfo(const Procedural3DResult& result);
 
 private:

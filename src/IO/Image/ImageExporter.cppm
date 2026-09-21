@@ -390,6 +390,11 @@ QString channelTypeToOIIOName(ChannelType type) {
     case ChannelType::AlbedoG: return QStringLiteral("Albedo.G");
     case ChannelType::AlbedoB: return QStringLiteral("Albedo.B");
     case ChannelType::Emission: return QStringLiteral("Emission");
+    case ChannelType::PositionX: return QStringLiteral("Position.X");
+    case ChannelType::PositionY: return QStringLiteral("Position.Y");
+    case ChannelType::PositionZ: return QStringLiteral("Position.Z");
+    case ChannelType::U: return QStringLiteral("UV.U");
+    case ChannelType::V: return QStringLiteral("UV.V");
     case ChannelType::Custom: return QStringLiteral("Custom");
     default: return QStringLiteral("Unknown");
     }

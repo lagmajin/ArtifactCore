@@ -145,6 +145,8 @@ public:
     void setAccessibilityViewportMagnifierEnabled(bool enable);
     int accessibilityViewportMagnifierScale() const;
     void setAccessibilityViewportMagnifierScale(int scale);
+    bool accessibilityViewportMagnifierFollowCursor() const;
+    void setAccessibilityViewportMagnifierFollowCursor(bool follow);
 
     // --- Import / Preview Defaults ---
     QString importDefaultFrameRateText() const;
