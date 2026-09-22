@@ -2615,7 +2615,7 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     # order-only dependency.  Split targets receive ordering from their own
     # CXX_MODULES file set and must not reference ArtifactCore.dir objects.
     if(_artifact_dependency_target_dir STREQUAL "ArtifactCore.dir")
-        set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
             "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/${_artifact_interface_relative}.obj")
     else()
         set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS "")

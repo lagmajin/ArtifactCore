@@ -169,7 +169,8 @@ enum class ShortcutId {
     ViewBoxZoom = 153,
     ViewTumblePivotUnderCursor = 154,
     ViewInteractiveRenderRegion = 155,
-    Count = 156
+    ViewToggleLayerTypeFilter = 156,
+    Count = 157
 };
 
 QString shortcutDisplayName(ShortcutId id);

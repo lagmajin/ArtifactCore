@@ -331,6 +331,8 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ViewTumblePivotUnderCursor");
     case ShortcutId::ViewInteractiveRenderRegion:
         return QStringLiteral("ViewInteractiveRenderRegion");
+    case ShortcutId::ViewToggleLayerTypeFilter:
+        return QStringLiteral("ViewToggleLayerTypeFilter");
     case ShortcutId::Count:
         break;
     }
@@ -655,6 +657,8 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("View Tumble Pivot Under Cursor");
     case ShortcutId::ViewInteractiveRenderRegion:
         return QStringLiteral("View Interactive Render Region");
+    case ShortcutId::ViewToggleLayerTypeFilter:
+        return QStringLiteral("View Toggle Layer Type Filter");
     case ShortcutId::Count:
         break;
     }
@@ -846,6 +850,11 @@ void ShortcutBindings::resetToDefaults()
     // on the next mouse press; a release without movement clears.
     defaults_[index(ShortcutId::ViewInteractiveRenderRegion)] =
         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R);
+    // P0-4 Toggle Layer Type Filter palette entry. The default is empty
+    // (no shortcut) because the menu is the primary surface for per-
+    // category selection; users can bind this to a key if they want it.
+    defaults_[index(ShortcutId::ViewToggleLayerTypeFilter)] =
+        QKeySequence();
     defaults_[index(ShortcutId::TimelineCopySelectedKeyframes)] = QKeySequence(Qt::CTRL | Qt::Key_C);
     defaults_[index(ShortcutId::TimelinePasteKeyframesAtPlayhead)] = QKeySequence(Qt::CTRL | Qt::Key_V);
     defaults_[index(ShortcutId::TimelineSelectAllKeyframes)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_A);
