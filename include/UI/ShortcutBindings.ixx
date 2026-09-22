@@ -166,7 +166,10 @@ enum class ShortcutId {
     ViewDetachedTasks = 150,
     ViewToggleMagnifier = 151,
     CompositionViewportPieMenu = 152,
-    Count = 153
+    ViewBoxZoom = 153,
+    ViewTumblePivotUnderCursor = 154,
+    ViewInteractiveRenderRegion = 155,
+    Count = 156
 };
 
 QString shortcutDisplayName(ShortcutId id);

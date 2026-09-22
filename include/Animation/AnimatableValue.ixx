@@ -4,6 +4,9 @@ module;
 #include <cmath>
 #include <cstdint>
 #include <iterator>
+#include <limits>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include <shared_mutex>
@@ -480,10 +483,333 @@ public:
     }
   }
 
-private:
+ private:
   AnimatableValueT<T> base_;
   std::vector<Layer> layers_;
 };
+
+// =========================
+// Reusable automation clips (Phase 2, Bitwig-inspired)
+// =========================
+// Ownership contract (see Phase 0 contract doc): a pattern is
+// composition-owned shared curve data; instances are layer-owned placements
+// referencing a pattern by id. All evaluation below is stateless and
+// allocation-free; sorting/sanitizing happens on the cold path. Float
+// channels only in Phase 2 (Transform/Opacity); Color remap is deferred.
+
+export enum class AutomationClipLoopMode : std::uint8_t {
+  Off,
+  Loop,
+  PingPong
+};
+
+export enum class AutomationClipTimePolicy : std::uint8_t {
+  ParentFollow,
+  FreeTime
+};
+
+export struct AutomationClipPoint {
+  double time = 0.0;  // seconds, relative to pattern start, >= 0 after sanitize
+  float value = 0.0f;
+  InterpolationType interpolation = InterpolationType::Linear;
+  // Reserved curvature bias in [-1, 1] for future hermite shaping. Persisted
+  // and round-tripped, but not yet applied by evaluation.
+  float curvature = 0.0f;
+  float cp1_x = 0.42f, cp1_y = 0.0f;
+  float cp2_x = 0.58f, cp2_y = 1.0f;
+};
+
+export constexpr std::size_t kMaxAutomationClipPoints = 4096;
+
+// Phase 2 evaluation coverage: only these layer-relative paths are read by
+// the layer evaluator. Instances on other paths persist (forward compatible)
+// but stay inert until later phases wire them.
+export inline bool isAutomationClipEvaluatedPath(std::string_view path) noexcept {
+  return path == "transform.position.x" || path == "transform.position.y" ||
+         path == "transform.rotation" || path == "transform.scale.x" ||
+         path == "transform.scale.y" || path == "layer.opacity";
+}
+
+export struct AutomationClipPattern {
+  std::uint32_t id{0};  // 0 = invalid/reserved, consistent with source ids
+  std::string name;
+  std::uint32_t seed{2463534242u};
+  std::vector<AutomationClipPoint> points;  // sorted by time, cold-path maintained
+
+  double duration() const {
+    if (points.empty()) {
+      return 0.0;
+    }
+    const double last = points.back().time;
+    return std::isfinite(last) ? std::max(0.0, last) : 0.0;
+  }
+};
+
+export struct AutomationClipInstance {
+  std::uint32_t patternId{0};
+  std::string targetPath;  // layer-relative property path, e.g. "transform.position.x"
+  double offsetSeconds = 0.0;
+  double stretch = 1.0;  // sanitized to > 0 at evaluation
+  AutomationClipLoopMode loop = AutomationClipLoopMode::Off;
+  AutomationClipTimePolicy timePolicy = AutomationClipTimePolicy::ParentFollow;
+  float weight = 1.0f;  // 0..1 mix toward the clip value
+  bool enabled = true;
+};
+
+// Maps a pattern-local time into [0, duration] per loop policy. No allocation.
+export inline double mapAutomationClipLoop(double t, double duration,
+                                           AutomationClipLoopMode loop) noexcept {
+  if (!(duration > 0.0)) {
+    return 0.0;
+  }
+  if (!std::isfinite(t)) {
+    t = 0.0;
+  }
+  switch (loop) {
+    case AutomationClipLoopMode::Loop: {
+      double wrapped = std::fmod(t, duration);
+      if (wrapped < 0.0) {
+        wrapped += duration;
+      }
+      return wrapped;
+    }
+    case AutomationClipLoopMode::PingPong: {
+      const double period = duration * 2.0;
+      double wrapped = std::fmod(t, period);
+      if (wrapped < 0.0) {
+        wrapped += period;
+      }
+      return wrapped > duration ? period - wrapped : wrapped;
+    }
+    case AutomationClipLoopMode::Off:
+    default:
+      return std::clamp(t, 0.0, duration);
+  }
+}
+
+// Evaluates pattern points at a loop-mapped local time. No allocation.
+export inline float evaluateAutomationClipPattern(
+    const AutomationClipPattern& pattern, double localSeconds) {
+  const auto& points = pattern.points;
+  if (points.empty()) {
+    return 0.0f;
+  }
+  if (points.size() == 1) {
+    const float single = points.front().value;
+    return std::isfinite(single) ? single : 0.0f;
+  }
+  double t = std::isfinite(localSeconds) ? localSeconds : 0.0;
+  if (t <= points.front().time) {
+    return points.front().value;
+  }
+  if (t >= points.back().time) {
+    return points.back().value;
+  }
+  const auto it = std::lower_bound(
+      points.begin(), points.end(), t,
+      [](const AutomationClipPoint& point, double time) { return point.time < time; });
+  const auto& next = *it;
+  const auto& prev = *std::prev(it);
+  const double span = next.time - prev.time;
+  float alpha = span > 0.0 ? static_cast<float>((t - prev.time) / span) : 0.0f;
+  alpha = std::clamp(alpha, 0.0f, 1.0f);
+  const float a = std::isfinite(prev.value) ? prev.value : 0.0f;
+  const float b = std::isfinite(next.value) ? next.value : 0.0f;
+  if (prev.interpolation == InterpolationType::Bezier) {
+    const float cp1x = std::isfinite(prev.cp1_x) ? prev.cp1_x : 0.42f;
+    const float cp1y = std::isfinite(prev.cp1_y) ? prev.cp1_y : 0.0f;
+    const float cp2x = std::isfinite(prev.cp2_x) ? prev.cp2_x : 0.58f;
+    const float cp2y = std::isfinite(prev.cp2_y) ? prev.cp2_y : 1.0f;
+    return bezierInterpolate(a, b, alpha, cp1x, cp1y, cp2x, cp2y);
+  }
+  return interpolate(a, b, alpha, prev.interpolation);
+}
+
+// Applies one instance over a base value. weight == 0 (or disabled/mismatch)
+// returns baseValue exactly. No allocation.
+export inline float applyAutomationClipInstance(
+    float baseValue, const AutomationClipPattern& pattern,
+    const AutomationClipInstance& instance, double parentSeconds) {
+  if (!instance.enabled || instance.patternId == 0 ||
+      pattern.id != instance.patternId) {
+    return baseValue;
+  }
+  if (!std::isfinite(baseValue) || !std::isfinite(parentSeconds)) {
+    return baseValue;
+  }
+  const double offset =
+      std::isfinite(instance.offsetSeconds) ? instance.offsetSeconds : 0.0;
+  const double stretch = (std::isfinite(instance.stretch) && instance.stretch > 0.0)
+      ? instance.stretch : 1.0;
+  const double mapped = mapAutomationClipLoop(
+      (parentSeconds - offset) / stretch, pattern.duration(), instance.loop);
+  const float clipValue = evaluateAutomationClipPattern(pattern, mapped);
+  const float weight = std::isfinite(instance.weight)
+      ? std::clamp(instance.weight, 0.0f, 1.0f) : 1.0f;
+  if (weight <= 0.0f) {
+    return baseValue;
+  }
+  const float result = baseValue + (clipValue - baseValue) * weight;
+  return std::isfinite(result) ? result : baseValue;
+}
+
+// Cold-path sanitizer: sorts by time, clamps ranges, caps size.
+// Returns false when no usable points remain.
+export inline bool sanitizeAutomationClipPattern(AutomationClipPattern& pattern) {
+  if (pattern.points.size() > kMaxAutomationClipPoints) {
+    pattern.points.resize(kMaxAutomationClipPoints);
+  }
+  for (auto& point : pattern.points) {
+    if (!std::isfinite(point.time) || point.time < 0.0) {
+      point.time = 0.0;
+    }
+    if (!std::isfinite(point.value)) {
+      point.value = 0.0f;
+    }
+    if (!std::isfinite(point.curvature)) {
+      point.curvature = 0.0f;
+    }
+    point.curvature = std::clamp(point.curvature, -1.0f, 1.0f);
+    if (!std::isfinite(point.cp1_x)) point.cp1_x = 0.42f;
+    if (!std::isfinite(point.cp1_y)) point.cp1_y = 0.0f;
+    if (!std::isfinite(point.cp2_x)) point.cp2_x = 0.58f;
+    if (!std::isfinite(point.cp2_y)) point.cp2_y = 1.0f;
+  }
+  std::stable_sort(pattern.points.begin(), pattern.points.end(),
+      [](const AutomationClipPoint& a, const AutomationClipPoint& b) {
+        return a.time < b.time;
+      });
+  return !pattern.points.empty();
+}
+
+export inline bool automationClipInstancesEqual(
+    const std::vector<AutomationClipInstance>& a,
+    const std::vector<AutomationClipInstance>& b) {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < a.size(); ++i) {
+    const auto& x = a[i];
+    const auto& y = b[i];
+    if (x.patternId != y.patternId || x.targetPath != y.targetPath ||
+        x.offsetSeconds != y.offsetSeconds || x.stretch != y.stretch ||
+        x.loop != y.loop || x.timePolicy != y.timePolicy ||
+        x.weight != y.weight || x.enabled != y.enabled) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Qt-boundary JSON converters (cold path only: project save/load, undo).
+export inline QJsonObject automationClipPatternToJson(
+    const AutomationClipPattern& pattern) {
+  QJsonObject object;
+  object[QStringLiteral("id")] = static_cast<double>(pattern.id);
+  object[QStringLiteral("name")] = QString::fromStdString(pattern.name);
+  object[QStringLiteral("seed")] = static_cast<double>(pattern.seed);
+  QJsonArray points;
+  for (const auto& point : pattern.points) {
+    QJsonObject entry;
+    entry[QStringLiteral("t")] = point.time;
+    entry[QStringLiteral("v")] = static_cast<double>(point.value);
+    entry[QStringLiteral("interp")] = static_cast<int>(point.interpolation);
+    entry[QStringLiteral("curv")] = static_cast<double>(point.curvature);
+    entry[QStringLiteral("cp1_x")] = static_cast<double>(point.cp1_x);
+    entry[QStringLiteral("cp1_y")] = static_cast<double>(point.cp1_y);
+    entry[QStringLiteral("cp2_x")] = static_cast<double>(point.cp2_x);
+    entry[QStringLiteral("cp2_y")] = static_cast<double>(point.cp2_y);
+    points.append(entry);
+  }
+  object[QStringLiteral("points")] = points;
+  return object;
+}
+
+export inline bool automationClipPatternFromJson(
+    const QJsonObject& object, AutomationClipPattern& pattern) {
+  const double rawId = object.value(QStringLiteral("id")).toDouble(0.0);
+  if (!std::isfinite(rawId) || rawId < 1.0 ||
+      rawId > static_cast<double>(std::numeric_limits<std::uint32_t>::max()) ||
+      std::floor(rawId) != rawId) {
+    return false;
+  }
+  const QJsonValue pointsValue = object.value(QStringLiteral("points"));
+  if (!pointsValue.isArray()) {
+    return false;
+  }
+  AutomationClipPattern result;
+  result.id = static_cast<std::uint32_t>(rawId);
+  result.name = object.value(QStringLiteral("name")).toString().toStdString();
+  result.seed = static_cast<std::uint32_t>(
+      object.value(QStringLiteral("seed")).toVariant().toUInt());
+  for (const auto& value : pointsValue.toArray()) {
+    if (!value.isObject()) {
+      continue;
+    }
+    const QJsonObject entry = value.toObject();
+    AutomationClipPoint point;
+    point.time = entry.value(QStringLiteral("t")).toDouble(0.0);
+    point.value = static_cast<float>(entry.value(QStringLiteral("v")).toDouble(0.0));
+    point.interpolation = static_cast<InterpolationType>(
+        std::clamp(entry.value(QStringLiteral("interp")).toInt(0), 0, 64));
+    point.curvature = static_cast<float>(entry.value(QStringLiteral("curv")).toDouble(0.0));
+    point.cp1_x = static_cast<float>(entry.value(QStringLiteral("cp1_x")).toDouble(0.42));
+    point.cp1_y = static_cast<float>(entry.value(QStringLiteral("cp1_y")).toDouble(0.0));
+    point.cp2_x = static_cast<float>(entry.value(QStringLiteral("cp2_x")).toDouble(0.58));
+    point.cp2_y = static_cast<float>(entry.value(QStringLiteral("cp2_y")).toDouble(1.0));
+    result.points.push_back(point);
+    if (result.points.size() >= kMaxAutomationClipPoints) {
+      break;
+    }
+  }
+  if (!sanitizeAutomationClipPattern(result)) {
+    return false;
+  }
+  pattern = std::move(result);
+  return true;
+}
+
+export inline QJsonObject automationClipInstanceToJson(
+    const AutomationClipInstance& instance) {
+  QJsonObject object;
+  object[QStringLiteral("patternId")] = static_cast<double>(instance.patternId);
+  object[QStringLiteral("targetPath")] = QString::fromStdString(instance.targetPath);
+  object[QStringLiteral("offset")] = instance.offsetSeconds;
+  object[QStringLiteral("stretch")] = instance.stretch;
+  object[QStringLiteral("loop")] = static_cast<int>(instance.loop);
+  object[QStringLiteral("timePolicy")] = static_cast<int>(instance.timePolicy);
+  object[QStringLiteral("weight")] = static_cast<double>(instance.weight);
+  object[QStringLiteral("enabled")] = instance.enabled;
+  return object;
+}
+
+export inline bool automationClipInstanceFromJson(
+    const QJsonObject& object, AutomationClipInstance& instance) {
+  const double rawId = object.value(QStringLiteral("patternId")).toDouble(0.0);
+  if (!std::isfinite(rawId) || rawId < 1.0 ||
+      rawId > static_cast<double>(std::numeric_limits<std::uint32_t>::max()) ||
+      std::floor(rawId) != rawId) {
+    return false;
+  }
+  const QString targetPath =
+      object.value(QStringLiteral("targetPath")).toString().trimmed();
+  if (targetPath.isEmpty()) {
+    return false;
+  }
+  AutomationClipInstance result;
+  result.patternId = static_cast<std::uint32_t>(rawId);
+  result.targetPath = targetPath.toStdString();
+  result.offsetSeconds = object.value(QStringLiteral("offset")).toDouble(0.0);
+  result.stretch = object.value(QStringLiteral("stretch")).toDouble(1.0);
+  result.loop = static_cast<AutomationClipLoopMode>(
+      std::clamp(object.value(QStringLiteral("loop")).toInt(0), 0, 2));
+  result.timePolicy = static_cast<AutomationClipTimePolicy>(
+      std::clamp(object.value(QStringLiteral("timePolicy")).toInt(0), 0, 1));
+  result.weight = static_cast<float>(object.value(QStringLiteral("weight")).toDouble(1.0));
+  result.enabled = object.value(QStringLiteral("enabled")).toBool(true);
+  instance = std::move(result);
+  return true;
+}
 
 
 };

@@ -325,6 +325,12 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ViewToggleMagnifier");
     case ShortcutId::CompositionViewportPieMenu:
         return QStringLiteral("CompositionViewportPieMenu");
+    case ShortcutId::ViewBoxZoom:
+        return QStringLiteral("ViewBoxZoom");
+    case ShortcutId::ViewTumblePivotUnderCursor:
+        return QStringLiteral("ViewTumblePivotUnderCursor");
+    case ShortcutId::ViewInteractiveRenderRegion:
+        return QStringLiteral("ViewInteractiveRenderRegion");
     case ShortcutId::Count:
         break;
     }
@@ -643,6 +649,12 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("View Toggle Magnifier");
     case ShortcutId::CompositionViewportPieMenu:
         return QStringLiteral("Composition Viewport Pie Menu");
+    case ShortcutId::ViewBoxZoom:
+        return QStringLiteral("View Box Zoom");
+    case ShortcutId::ViewTumblePivotUnderCursor:
+        return QStringLiteral("View Tumble Pivot Under Cursor");
+    case ShortcutId::ViewInteractiveRenderRegion:
+        return QStringLiteral("View Interactive Render Region");
     case ShortcutId::Count:
         break;
     }
@@ -822,6 +834,18 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::PlaybackToggle)] = QKeySequence(Qt::Key_Space);
     defaults_[index(ShortcutId::CompositionViewportPieMenu)] =
         QKeySequence(Qt::Key_Tab);
+    // P0-1 Box zoom: Houdini-style modifier + drag. UI resolves the
+    // modifier via ShortcutBindings::matches(); no fixed-key fallback.
+    defaults_[index(ShortcutId::ViewBoxZoom)] =
+        QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_B);
+    // P0-2 Tumble pivot under cursor. Space is shared with PlaybackToggle
+    // (Space alone); the Z modifier makes it a distinct binding.
+    defaults_[index(ShortcutId::ViewTumblePivotUnderCursor)] =
+        QKeySequence(Qt::Key_Z);
+    // P0-3a Interactive Render Region toggle. The default begins a marquee
+    // on the next mouse press; a release without movement clears.
+    defaults_[index(ShortcutId::ViewInteractiveRenderRegion)] =
+        QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R);
     defaults_[index(ShortcutId::TimelineCopySelectedKeyframes)] = QKeySequence(Qt::CTRL | Qt::Key_C);
     defaults_[index(ShortcutId::TimelinePasteKeyframesAtPlayhead)] = QKeySequence(Qt::CTRL | Qt::Key_V);
     defaults_[index(ShortcutId::TimelineSelectAllKeyframes)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_A);
