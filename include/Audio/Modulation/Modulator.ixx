@@ -361,6 +361,156 @@ namespace Modulation {
         float value_{0.0f};
     };
 
+    // A time-invariant offset source. Like MacroSource it has no time
+    // progression, so preview and offline render evaluate identically.
+    // Unlike MacroSource the value is not clamped to [0, 1].
+    class ConstantSource final : public IModulatorSource {
+    public:
+        ConstantSource() = default;
+        explicit ConstantSource(float value) { setValue(value); }
+
+        void setValue(float value) {
+            value_ = std::isfinite(value) ? value : 0.0f;
+        }
+        float value() const { return value_; }
+
+        void setSampleRate(float) override {}
+        void reset() override {}
+        float process(std::uint32_t) override { return value_; }
+        bool bipolar() const override { return false; }
+
+    private:
+        float value_{0.0f};
+    };
+
+    // A seeded, smoothly interpolated noise source. Deterministic: reset()
+    // reseeds the generator and backward seeks replay from frame zero via
+    // ModulationRouter::processAtFrame, so the same seed/frame/input always
+    // yields the same value. process() performs no allocation.
+    class NoiseSource final : public IModulatorSource {
+    public:
+        NoiseSource()
+            : seed_(Detail::nextAutoSeed()), random_(seed_) {}
+
+        void setRate(float hertz) {
+            rate_ = std::isfinite(hertz) && hertz > 0.0f
+                ? std::min(hertz, 1000.0f) : 0.0f;
+        }
+        float rate() const { return rate_; }
+
+        void setSeed(std::uint32_t seed) {
+            seed_ = seed != 0u ? seed : 2463534242u;
+            random_.seed(seed_);
+        }
+        std::uint32_t seed() const { return seed_; }
+
+        void setUnipolar(bool unipolar) { unipolar_ = unipolar; }
+        bool unipolar() const { return unipolar_; }
+
+        void setSampleRate(float sampleRate) override {
+            sampleRate_ = Detail::sanitizedSampleRate(sampleRate);
+        }
+
+        void reset() override {
+            random_.seed(seed_);
+            previousValue_ = random_.nextSigned();
+            nextValue_ = random_.nextSigned();
+            phase_ = 0.0;
+        }
+
+        float process(std::uint32_t numFrames) override {
+            if (rate_ > 0.0f) {
+                const double periodSamples =
+                    static_cast<double>(sampleRate_) / static_cast<double>(rate_);
+                phase_ += static_cast<double>(numFrames) / periodSamples;
+                while (phase_ >= 1.0) {
+                    previousValue_ = nextValue_;
+                    nextValue_ = random_.nextSigned();
+                    phase_ -= 1.0;
+                }
+            }
+            const float t = static_cast<float>(phase_ * phase_ * (3.0 - 2.0 * phase_));
+            const float value = previousValue_ + (nextValue_ - previousValue_) * t;
+            return unipolar_ ? value * 0.5f + 0.5f : value;
+        }
+
+        bool bipolar() const override { return !unipolar_; }
+
+    private:
+        float rate_{1.0f};
+        float sampleRate_{48000.0f};
+        float previousValue_{0.0f};
+        float nextValue_{0.0f};
+        double phase_{0.0};
+        bool unipolar_{false};
+        std::uint32_t seed_{2463534242u};
+        Detail::XorShift32 random_;
+    };
+
+    // A seeded stepped source: the cycle is divided into stepCount levels,
+    // each level deterministically derived from (seed, stepIndex) with no
+    // stored table. Forward-only phase keeps reset()+replay deterministic.
+    // process() performs no allocation.
+    class StepsSource final : public IModulatorSource {
+    public:
+        void setStepCount(std::uint32_t steps) {
+            stepCount_ = std::clamp(steps, 1u, 32u);
+        }
+        std::uint32_t stepCount() const { return stepCount_; }
+
+        void setRate(float hertz) {
+            rate_ = std::isfinite(hertz) && hertz > 0.0f
+                ? std::min(hertz, 1000.0f) : 0.0f;
+        }
+        float rate() const { return rate_; }
+
+        void setSeed(std::uint32_t seed) {
+            seed_ = seed != 0u ? seed : 2463534242u;
+        }
+        std::uint32_t seed() const { return seed_; }
+
+        void setUnipolar(bool unipolar) { unipolar_ = unipolar; }
+        bool unipolar() const { return unipolar_; }
+
+        void setSampleRate(float sampleRate) override {
+            sampleRate_ = Detail::sanitizedSampleRate(sampleRate);
+        }
+
+        void reset() override {
+            phase_ = 0.0;
+        }
+
+        float process(std::uint32_t numFrames) override {
+            if (rate_ > 0.0f) {
+                phase_ += static_cast<double>(numFrames) *
+                    static_cast<double>(rate_) / static_cast<double>(sampleRate_);
+            }
+            const std::uint32_t index = static_cast<std::uint32_t>(
+                std::floor(phase_)) % stepCount_;
+            const float value = levelAt(index);
+            return unipolar_ ? value * 0.5f + 0.5f : value;
+        }
+
+        bool bipolar() const override { return !unipolar_; }
+
+    private:
+        float levelAt(std::uint32_t index) const {
+            std::uint32_t hash = seed_ ^ (index * 2246822519u);
+            hash ^= hash >> 15;
+            hash *= 3266489917u;
+            hash ^= hash >> 13;
+            const float unit = static_cast<float>(hash) * (1.0f / 4294967296.0f);
+            return unit * 2.0f - 1.0f;
+        }
+
+        std::uint32_t stepCount_{8u};
+        float rate_{1.0f};
+        float sampleRate_{48000.0f};
+        double phase_{0.0};
+        bool unipolar_{false};
+        std::uint32_t seed_{2463534242u};
+    };
+
 } // namespace Modulation
 } // namespace Audio
 } // namespace ArtifactCore

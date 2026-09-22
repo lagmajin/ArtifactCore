@@ -49,7 +49,10 @@ namespace Modulation {
         Lfo,
         Adsr,
         Random,
-        Macro
+        Macro,
+        Constant,
+        Noise,
+        Steps
     };
 
     // Configuration only: runtime phase, held samples, and ADSR gate state
@@ -69,6 +72,8 @@ namespace Modulation {
         float smoothing{0.005f};
         std::uint32_t seed{2463534242u};
         float macroValue{0.0f};
+        float constantValue{0.0f};
+        std::uint32_t stepCount{8u};
         bool unipolar{false};
     };
 
@@ -215,6 +220,20 @@ namespace Modulation {
                 } else if (const auto* macro = dynamic_cast<const MacroSource*>(entry.source.get())) {
                     definition.type = ModulatorSourceType::Macro;
                     definition.macroValue = macro->value();
+                } else if (const auto* constant = dynamic_cast<const ConstantSource*>(entry.source.get())) {
+                    definition.type = ModulatorSourceType::Constant;
+                    definition.constantValue = constant->value();
+                } else if (const auto* noise = dynamic_cast<const NoiseSource*>(entry.source.get())) {
+                    definition.type = ModulatorSourceType::Noise;
+                    definition.rate = noise->rate();
+                    definition.seed = noise->seed();
+                    definition.unipolar = noise->unipolar();
+                } else if (const auto* steps = dynamic_cast<const StepsSource*>(entry.source.get())) {
+                    definition.type = ModulatorSourceType::Steps;
+                    definition.rate = steps->rate();
+                    definition.seed = steps->seed();
+                    definition.stepCount = steps->stepCount();
+                    definition.unipolar = steps->unipolar();
                 } else {
                     continue;
                 }
@@ -277,6 +296,29 @@ namespace Modulation {
                         auto macro = std::make_unique<MacroSource>();
                         macro->setValue(definition.macroValue);
                         source = std::move(macro);
+                        break;
+                    }
+                    case ModulatorSourceType::Constant: {
+                        auto constant = std::make_unique<ConstantSource>();
+                        constant->setValue(definition.constantValue);
+                        source = std::move(constant);
+                        break;
+                    }
+                    case ModulatorSourceType::Noise: {
+                        auto noise = std::make_unique<NoiseSource>();
+                        noise->setRate(definition.rate);
+                        noise->setSeed(definition.seed);
+                        noise->setUnipolar(definition.unipolar);
+                        source = std::move(noise);
+                        break;
+                    }
+                    case ModulatorSourceType::Steps: {
+                        auto steps = std::make_unique<StepsSource>();
+                        steps->setStepCount(definition.stepCount);
+                        steps->setRate(definition.rate);
+                        steps->setSeed(definition.seed);
+                        steps->setUnipolar(definition.unipolar);
+                        source = std::move(steps);
                         break;
                     }
                 }
@@ -343,6 +385,10 @@ namespace Modulation {
             assignments_.clear();
             markDirty();
         }
+
+        // Allocation-free check for hot-path guards: when no assignments
+        // exist, callers can skip processAtFrame/targetValue entirely.
+        bool empty() const noexcept { return assignments_.empty(); }
 
         void setSampleRate(float sampleRate) {
             sampleRate_ = Detail::sanitizedSampleRate(sampleRate);
@@ -557,6 +603,56 @@ namespace Modulation {
         std::optional<float> controlFrameRate_;
         bool dirty_{false};
     };
+
+    // A post-evaluation binding: amount/offset/range shape the modulation
+    // contribution after ModulationRouter::targetValue. Pure functions with
+    // no allocation, safe for hot-path use.
+    struct ModulationBinding {
+        float amount{1.0f};
+        float offset{0.0f};
+        float rangeMin{0.0f};
+        float rangeMax{1.0f};
+        bool clampEnabled{false};
+    };
+
+    inline float remapClamp(float value, float inMin, float inMax,
+                            float outMin, float outMax) noexcept {
+        if (!std::isfinite(value)) {
+            return outMin;
+        }
+        float t = 0.0f;
+        if (std::isfinite(inMin) && std::isfinite(inMax) && inMax != inMin) {
+            t = (value - inMin) / (inMax - inMin);
+        } else if (std::isfinite(inMin)) {
+            t = value - inMin;
+        }
+        t = std::clamp(t, 0.0f, 1.0f);
+        const float lo = std::isfinite(outMin) ? outMin : 0.0f;
+        const float hi = std::isfinite(outMax) ? outMax : 1.0f;
+        return lo + (hi - lo) * t;
+    }
+
+    // Applies a binding to a router-evaluated value. amount == 0 and
+    // offset == 0 return baseValue exactly (modulation fully removed).
+    inline float applyModulationBinding(float baseValue, float modulatedValue,
+                                       const ModulationBinding& binding) noexcept {
+        if (!std::isfinite(baseValue)) {
+            return baseValue;
+        }
+        if (!std::isfinite(modulatedValue)) {
+            return baseValue;
+        }
+        const float amount = std::isfinite(binding.amount) ? binding.amount : 0.0f;
+        const float offset = std::isfinite(binding.offset) ? binding.offset : 0.0f;
+        float contribution = (modulatedValue - baseValue) * amount + offset;
+        if (binding.clampEnabled) {
+            const float lo = std::isfinite(binding.rangeMin) ? binding.rangeMin : 0.0f;
+            const float hi = std::isfinite(binding.rangeMax) ? binding.rangeMax : 1.0f;
+            contribution = std::clamp(contribution, std::min(lo, hi), std::max(lo, hi));
+        }
+        const float result = baseValue + contribution;
+        return std::isfinite(result) ? result : baseValue;
+    }
 
 } // namespace Modulation
 } // namespace Audio

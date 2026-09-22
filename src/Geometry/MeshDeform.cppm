@@ -2,12 +2,14 @@ module;
 
 #include <algorithm>
 #include <cmath>
+#include <QVector>
 #include <QVector3D>
 
 module Geometry.MeshDeform;
 
 import Mesh;
 import Math.Noise;
+import Memory.SharedPtr;
 
 namespace ArtifactCore {
 

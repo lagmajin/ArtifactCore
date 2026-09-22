@@ -16,6 +16,7 @@ import Mesh;
 import Memory.SharedPtr;
 import Particle;
 import Utils.Id;
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -117,7 +118,8 @@ struct LIBRARY_DLL_API FractureState {
  float damage = 0.0f;
  float lastImpact = 0.0f;
  float crackProgress = 0.0f;
- std::vector<FractureShardMotion> shards;
+ NamedVector<FractureShardMotion> shards{
+     ContainerName{"Geometry.FractureStateShards"}};
 };
 
 class LIBRARY_DLL_API FractureEffect {

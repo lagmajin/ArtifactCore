@@ -9,17 +9,23 @@ module;
 
 module Physics.Fluid;
 
+import Container.NamedVector;
+
 namespace ArtifactCore {
 
 FluidSolver2D::FluidSolver2D(int width, int height) 
     : width_(width), height_(height), size_(width * height) {
-    density_.resize(size_, 0.0f);
-    densityPrev_.resize(size_, 0.0f);
-    vx_.resize(size_, 0.0f);
-    vy_.resize(size_, 0.0f);
-    vxPrev_.resize(size_, 0.0f);
-    vyPrev_.resize(size_, 0.0f);
-    curl_.resize(size_, 0.0f);
+    const auto initializeGrid = [this](NamedVector<float>& field) {
+        field.resize(size_);
+        std::fill(field.begin(), field.end(), 0.0f);
+    };
+    initializeGrid(density_);
+    initializeGrid(densityPrev_);
+    initializeGrid(vx_);
+    initializeGrid(vy_);
+    initializeGrid(vxPrev_);
+    initializeGrid(vyPrev_);
+    initializeGrid(curl_);
 }
 
 FluidSolver2D::~FluidSolver2D() = default;
@@ -94,14 +100,18 @@ void FluidSolver2D::setResolution(int width, int height) {
     width_ = newWidth;
     height_ = newHeight;
     size_ = width_ * height_;
-    density_.assign(size_, 0.0f);
-    densityPrev_.assign(size_, 0.0f);
-    vx_.assign(size_, 0.0f);
-    vy_.assign(size_, 0.0f);
-    vxPrev_.assign(size_, 0.0f);
-    vyPrev_.assign(size_, 0.0f);
-    curl_.assign(size_, 0.0f);
-    const auto sample = [oldWidth, oldHeight](const std::vector<float>& field, float x, float y) {
+    const auto resetGrid = [this](NamedVector<float>& field) {
+        field.resize(size_);
+        std::fill(field.begin(), field.end(), 0.0f);
+    };
+    resetGrid(density_);
+    resetGrid(densityPrev_);
+    resetGrid(vx_);
+    resetGrid(vy_);
+    resetGrid(vxPrev_);
+    resetGrid(vyPrev_);
+    resetGrid(curl_);
+    const auto sample = [oldWidth, oldHeight](const NamedVector<float>& field, float x, float y) {
         const int ix = std::clamp(static_cast<int>(std::lround(x)), 0, oldWidth - 1);
         const int iy = std::clamp(static_cast<int>(std::lround(y)), 0, oldHeight - 1);
         return field[ix + iy * oldWidth];
@@ -156,7 +166,7 @@ void FluidSolver2D::getVelocity(int x, int y, float& vx, float& vy) const {
     }
 }
 
-void FluidSolver2D::setBoundary(int b, std::vector<float>& x) {
+void FluidSolver2D::setBoundary(int b, NamedVector<float>& x) {
     for (int i = 1; i < width_ - 1; ++i) {
         x[IX(i, 0)] = b == 2 ? -x[IX(i, 1)] : x[IX(i, 1)];
         x[IX(i, height_ - 1)] = b == 2 ? -x[IX(i, height_ - 2)] : x[IX(i, height_ - 2)];
@@ -189,7 +199,7 @@ int FluidSolver2D::computeSolverIterations() const {
     return std::min(maxAdaptiveIterations_, solverIterations_ + extra * 4);
 }
 
-void FluidSolver2D::linSolve(int b, std::vector<float>& x, const std::vector<float>& x0, float a, float c) {
+void FluidSolver2D::linSolve(int b, NamedVector<float>& x, const NamedVector<float>& x0, float a, float c) {
     float cRecip = 1.0f / c;
     const int iterations = computeSolverIterations();
 
@@ -204,12 +214,12 @@ void FluidSolver2D::linSolve(int b, std::vector<float>& x, const std::vector<flo
     }
 }
 
-void FluidSolver2D::diffuse(int b, std::vector<float>& x, const std::vector<float>& x0, float diff, float dt) {
+void FluidSolver2D::diffuse(int b, NamedVector<float>& x, const NamedVector<float>& x0, float diff, float dt) {
     float a = dt * diff * (width_ - 2) * (height_ - 2);
     linSolve(b, x, x0, a, 1 + 4 * a);
 }
 
-void FluidSolver2D::project(std::vector<float>& vx, std::vector<float>& vy, std::vector<float>& p, std::vector<float>& div) {
+void FluidSolver2D::project(NamedVector<float>& vx, NamedVector<float>& vy, NamedVector<float>& p, NamedVector<float>& div) {
     const float invScale = 1.0f / std::sqrt(static_cast<float>(width_ * height_));
     for (int j = 1; j < height_ - 1; ++j) {
         for (int i = 1; i < width_ - 1; ++i) {
@@ -231,7 +241,7 @@ void FluidSolver2D::project(std::vector<float>& vx, std::vector<float>& vy, std:
     setBoundary(2, vy);
 }
 
-void FluidSolver2D::vorticityConfinement(std::vector<float>& vx, std::vector<float>& vy, float dt) {
+void FluidSolver2D::vorticityConfinement(NamedVector<float>& vx, NamedVector<float>& vy, float dt) {
     if (vorticityStrength_ <= 0.0f) return;
 
     // 1. Calculate Curl (Vorticity)
@@ -258,7 +268,7 @@ void FluidSolver2D::vorticityConfinement(std::vector<float>& vx, std::vector<flo
     }
 }
 
-void FluidSolver2D::advect(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& vx, const std::vector<float>& vy, float dt) {
+void FluidSolver2D::advect(int b, NamedVector<float>& d, const NamedVector<float>& d0, const NamedVector<float>& vx, const NamedVector<float>& vy, float dt) {
     float dtx = dt * (width_ - 2);
     float dty = dt * (height_ - 2);
 
@@ -345,7 +355,7 @@ LiquidSolver2D::~LiquidSolver2D() = default;
 namespace {
 bool liquidPointInsidePolygon(
     const LiquidContainerPoint2D& point,
-    const std::vector<LiquidContainerPoint2D>& polygon) {
+    const NamedVector<LiquidContainerPoint2D>& polygon) {
     bool inside = false;
     for (std::size_t i = 0, j = polygon.size() - 1; i < polygon.size();
          j = i++) {
@@ -375,7 +385,7 @@ LiquidContainerPoint2D liquidClosestPointOnSegment(
 
 template <typename PairVisitor>
 void forEachLiquidNeighborPair(
-    const std::vector<LiquidParticle2D>& particles,
+    const NamedVector<LiquidParticle2D>& particles,
     float cellSize,
     PairVisitor&& visitor) {
     if (particles.size() < 2 || !std::isfinite(cellSize) || cellSize <= 0.0f) {
@@ -436,26 +446,30 @@ void forEachLiquidNeighborPair(
 } // namespace
 
 bool LiquidSolver2D::setContainerPolygon(
-    const std::vector<LiquidContainerPoint2D>& points,
+    const NamedVector<LiquidContainerPoint2D>& points,
     std::size_t openEdgeIndex) {
     constexpr std::size_t maxContainerPoints = 512;
     if (points.size() < 3 || points.size() > maxContainerPoints) return false;
 
-    std::vector<LiquidContainerPoint2D> sanitized;
+    NamedVector<LiquidContainerPoint2D> sanitized{
+        ContainerName{"Physics.LiquidContainerPolygon"}};
     sanitized.reserve(points.size());
     for (const auto& point : points) {
         if (!std::isfinite(point.x) || !std::isfinite(point.y)) return false;
         if (!sanitized.empty()) {
-            const float dx = point.x - sanitized.back().x;
-            const float dy = point.y - sanitized.back().y;
+            const auto* previous = sanitized.last();
+            const float dx = point.x - previous->x;
+            const float dy = point.y - previous->y;
             if (dx * dx + dy * dy <= 1.0e-12f) continue;
         }
-        sanitized.push_back(point);
+        sanitized.add(point);
     }
     if (sanitized.size() >= 2) {
-        const float dx = sanitized.front().x - sanitized.back().x;
-        const float dy = sanitized.front().y - sanitized.back().y;
-        if (dx * dx + dy * dy <= 1.0e-12f) sanitized.pop_back();
+        const auto* first = sanitized.first();
+        const auto* last = sanitized.last();
+        const float dx = first->x - last->x;
+        const float dy = first->y - last->y;
+        if (dx * dx + dy * dy <= 1.0e-12f) sanitized.popBack();
     }
     if (sanitized.size() < 3) return false;
 
@@ -628,7 +642,7 @@ std::size_t LiquidSolver2D::emitFromOpening(
 }
 
 void LiquidSolver2D::applySpillInteractions(
-    std::vector<LiquidSpillParticle2D>& particles, float dt,
+    NamedVector<LiquidSpillParticle2D>& particles, float dt,
     float cohesion, float viscosity) {
     if (particles.size() < 2 || !std::isfinite(dt) || dt <= 0.0f) return;
     dt = std::min(dt, 0.05f);
@@ -729,14 +743,15 @@ void LiquidSolver2D::applySpillInteractions(
 }
 
 LiquidSurfaceSnapshot2D LiquidSolver2D::buildSurfaceSnapshot(
-    const std::vector<LiquidSurfaceSample2D>& samples,
+    const NamedVector<LiquidSurfaceSample2D>& samples,
     std::size_t maximumSurfaceCells) {
     LiquidSurfaceSnapshot2D snapshot;
     if (samples.empty()) return snapshot;
     maximumSurfaceCells = std::clamp<std::size_t>(
         maximumSurfaceCells, 1024, 200000);
 
-    std::vector<LiquidSurfaceSample2D> validSamples;
+    NamedVector<LiquidSurfaceSample2D> validSamples{
+        ContainerName{"Physics.LiquidValidSurfaceSamples"}};
     constexpr std::size_t maximumDensitySamples = 4096;
     validSamples.reserve(std::min(samples.size(), maximumDensitySamples));
     double sizeSum = 0.0;
@@ -968,13 +983,10 @@ void LiquidSolver2D::reset(float fillAmount, float particleSpacing) {
         }
     }
     if (!containerPolygon_.empty()) {
-        particles_.erase(
-            std::remove_if(particles_.begin(), particles_.end(),
-                [this](const LiquidParticle2D& particle) {
-                    return !liquidPointInsidePolygon(
-                        {particle.x, particle.y}, containerPolygon_);
-                }),
-            particles_.end());
+        particles_.removeIf([this](const LiquidParticle2D& particle) {
+            return !liquidPointInsidePolygon(
+                {particle.x, particle.y}, containerPolygon_);
+        });
         for (auto& particle : particles_) solveContainerBounds(particle);
     }
 }
@@ -1224,14 +1236,19 @@ void LiquidSolver2D::update(float dt) {
 }
 
 LiquidSnapshot2D LiquidSolver2D::snapshot() const {
-    return {particles_};
+    LiquidSnapshot2D snapshot;
+    snapshot.particles = particles_;
+    snapshot.particles.setName(
+        ContainerName{"Physics.LiquidSnapshotParticles"});
+    return snapshot;
 }
 
 bool LiquidSolver2D::restore(const LiquidSnapshot2D& snapshot) {
     constexpr std::size_t maxCheckpointParticles = 100000;
     if (snapshot.particles.size() > maxCheckpointParticles) return false;
 
-    std::vector<LiquidParticle2D> restored;
+    NamedVector<LiquidParticle2D> restored{
+        ContainerName{"Physics.LiquidParticles"}};
     restored.reserve(snapshot.particles.size());
     for (const auto& particle : snapshot.particles) {
         if (!std::isfinite(particle.x) || !std::isfinite(particle.y) ||
@@ -1246,9 +1263,11 @@ bool LiquidSolver2D::restore(const LiquidSnapshot2D& snapshot) {
     return true;
 }
 
-std::vector<LiquidParticle2D> LiquidSolver2D::takeEscapedParticles() {
-    std::vector<LiquidParticle2D> escaped;
-    std::vector<LiquidParticle2D> retained;
+NamedVector<LiquidParticle2D> LiquidSolver2D::takeEscapedParticles() {
+    NamedVector<LiquidParticle2D> escaped{
+        ContainerName{"Physics.LiquidEscapedParticles"}};
+    NamedVector<LiquidParticle2D> retained{
+        ContainerName{"Physics.LiquidParticles"}};
     escaped.reserve(particles_.size() / 8);
     retained.reserve(particles_.size());
     for (const auto& particle : particles_) {

@@ -5,8 +5,6 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <memory>
-#include <map>
-#include <vector>
 #include <QString>
 #include <QVector2D>
 #include <optional>
@@ -29,6 +27,75 @@ import Utils.Id;
 import Container.NamedVector;
 
 namespace ArtifactCore {
+
+template <typename K, typename V>
+class PhysicsOrderedRegistry {
+public:
+    struct Entry {
+        K first;
+        V second;
+    };
+
+    auto begin() noexcept { return entries_.begin(); }
+    auto end() noexcept { return entries_.end(); }
+    auto begin() const noexcept { return entries_.begin(); }
+    auto end() const noexcept { return entries_.end(); }
+
+    auto find(const K& key) noexcept {
+        for (auto it = entries_.begin(); it != entries_.end(); ++it) {
+            if (sameKey(it->first, key)) return it;
+        }
+        return entries_.end();
+    }
+
+    auto find(const K& key) const noexcept {
+        for (auto it = entries_.begin(); it != entries_.end(); ++it) {
+            if (sameKey(it->first, key)) return it;
+        }
+        return entries_.end();
+    }
+
+    V& operator[](const K& key) {
+        std::size_t insertionIndex = entries_.size();
+        for (std::size_t i = 0; i < entries_.size(); ++i) {
+            if (sameKey(entries_[i].first, key)) return entries_[i].second;
+            if (key < entries_[i].first) {
+                insertionIndex = i;
+                break;
+            }
+        }
+        entries_.insert(insertionIndex, Entry{key, V{}});
+        return entries_[insertionIndex].second;
+    }
+
+    V& at(const K& key) { return find(key)->second; }
+    const V& at(const K& key) const { return find(key)->second; }
+
+    bool empty() const noexcept { return entries_.empty(); }
+    std::size_t size() const noexcept { return entries_.size(); }
+    void reserve(std::size_t capacity) { entries_.reserve(capacity); }
+    void clear() noexcept { entries_.clear(); }
+
+    std::size_t erase(const K& key) {
+        const auto it = find(key);
+        if (it == entries_.end()) return 0;
+        entries_.removeAt(static_cast<std::size_t>(it - entries_.begin()));
+        return 1;
+    }
+
+    template <typename Iterator>
+    void erase(Iterator it) {
+        if (it == entries_.end()) return;
+        entries_.removeAt(static_cast<std::size_t>(it - entries_.begin()));
+    }
+
+private:
+    static bool sameKey(const K& left, const K& right) {
+        return !(left < right) && !(right < left);
+    }
+
+    NamedVector<Entry> entries_{ContainerName{"Physics.OrderedRegistry"}};
+};
 
 export struct MaterialFractureEvent {
     LayerID layerId;
@@ -76,9 +143,9 @@ export struct PhysicsTimelineSettings {
 // implementation-only module behind PhysicsSystem so high-level consumers do
 // not import Physics.Cloth3D merely to read current deformation.
 export struct ClothDeformationMesh3D {
-    std::vector<float> positions;
-    std::vector<float> uvs;
-    std::vector<std::uint32_t> indices;
+    NamedVector<float> positions{ContainerName{"Physics.ClothPositions"}};
+    NamedVector<float> uvs{ContainerName{"Physics.ClothUvs"}};
+    NamedVector<std::uint32_t> indices{ContainerName{"Physics.ClothIndices"}};
 
     bool isValid() const noexcept {
         return !positions.empty() && !indices.empty() &&
@@ -338,8 +405,8 @@ public:
         }
     }
 
-    std::vector<MaterialFractureEvent> takeMaterialFractureEvents() {
-        auto events = pendingMaterialFractureEvents_.toStdVector();
+    NamedVector<MaterialFractureEvent> takeMaterialFractureEvents() {
+        auto events = pendingMaterialFractureEvents_;
         pendingMaterialFractureEvents_.clear();
         return events;
     }
@@ -389,13 +456,14 @@ public:
     }
 
     // ---- Cloner/Rigid helpers (thin wrappers, no new simulation state) ----
-    std::vector<SharedPtr<RigidBody2D>> createRigidBoxes(
-        LayerID layerId, const std::vector<QVector2D>& positions,
+    NamedVector<SharedPtr<RigidBody2D>> createRigidBoxes(
+        LayerID layerId, const NamedVector<QVector2D>& positions,
         float width, float height,
         float density = 1.0f, float friction = 0.3f, float restitution = 0.2f) {
         auto world = getRigidWorld(layerId);
         if (!world) world = createRigidWorld(layerId);
-        std::vector<SharedPtr<RigidBody2D>> out;
+        NamedVector<SharedPtr<RigidBody2D>> out{
+            ContainerName{"Physics.RigidBoxes"}};
         out.reserve(positions.size());
         for (const auto& p : positions) {
             out.push_back(world->addDynamicBox(p.x(), p.y(), width, height, density, friction, restitution));
@@ -403,13 +471,14 @@ public:
         return out;
     }
 
-    std::vector<SharedPtr<RigidBody2D>> createRigidCircles(
-        LayerID layerId, const std::vector<QVector2D>& positions,
+    NamedVector<SharedPtr<RigidBody2D>> createRigidCircles(
+        LayerID layerId, const NamedVector<QVector2D>& positions,
         float radius, float density = 1.0f,
         float friction = 0.3f, float restitution = 0.2f) {
         auto world = getRigidWorld(layerId);
         if (!world) world = createRigidWorld(layerId);
-        std::vector<SharedPtr<RigidBody2D>> out;
+        NamedVector<SharedPtr<RigidBody2D>> out{
+            ContainerName{"Physics.RigidCircles"}};
         out.reserve(positions.size());
         for (const auto& p : positions) {
             out.push_back(world->addDynamicCircle(p.x(), p.y(), radius, density, friction, restitution));
@@ -447,17 +516,25 @@ public:
 #endif
 
     void setBoidsConstants(LayerID layerId, const GpuBoidConstants& c) {
-        boidsConstants_[layerId] = makeShared<GpuBoidConstants>(c);
+        if (auto* constants = findBoidsConstants(layerId)) {
+            *constants = makeShared<GpuBoidConstants>(c);
+            return;
+        }
+        boidsConstants_.add(
+            BoidsConstantsEntry{layerId, makeShared<GpuBoidConstants>(c)});
     }
 
     std::optional<GpuBoidConstants> getBoidsConstants(LayerID layerId) const {
-        auto it = boidsConstants_.find(layerId);
-        if (it != boidsConstants_.end() && it->second) return *it->second;
+        const auto* constants = findBoidsConstants(layerId);
+        if (constants && *constants) return **constants;
         return std::nullopt;
     }
 
     void unregisterBoids(LayerID layerId) {
-        boidsConstants_.erase(layerId);
+        boidsConstants_.removeIf(
+            [layerId](const BoidsConstantsEntry& entry) {
+                return entry.layerId == layerId;
+            });
     }
 
     // ---- Mpm -> ParticleRenderer bridge (manual upload, no auto Composition hook) ----
@@ -516,12 +593,13 @@ public:
     /**
      * @brief レイヤー用 collider 一覧を取得する
      */
-    std::vector<SoftBodyCollider> getSoftBodyColliders(LayerID layerId) const {
+    NamedVector<SoftBodyCollider> getSoftBodyColliders(LayerID layerId) const {
         auto it = softBodyColliders_.find(layerId);
         if (it != softBodyColliders_.end()) {
-            return it->second.toStdVector();
+            return it->second;
         }
-        return {};
+        return NamedVector<SoftBodyCollider>{
+            ContainerName{"Physics.SoftBodyColliders"}};
     }
 
     // --- Cloth3D: SoftBody2Dと状態を共有しない独立レジストリ ---
@@ -592,7 +670,11 @@ public:
                 mesh.uvs.push_back(static_cast<float>(y) * invRows);
             }
         }
-        mesh.indices = solver.getGridTriangleIndices();
+        const auto triangleIndices = solver.getGridTriangleIndices();
+        mesh.indices.reserve(triangleIndices.size());
+        for (const auto index : triangleIndices) {
+            mesh.indices.push_back(index);
+        }
         return mesh;
     }
 
@@ -613,16 +695,26 @@ public:
     void capturePhysicsSnapshots(int64_t frame) {
         for (const auto& [layerId, solver] : fluidSolvers_) {
             if (!solver) continue;
-            fluidSnapshots_[layerId][frame] = solver->snapshot();
+            auto& snapshots = fluidSnapshots_[layerId];
+            if (snapshots.empty()) {
+                snapshots.reserve(timelineSettings_.maxCachedFrames);
+            }
+            snapshots[frame] = solver->snapshot();
         }
         for (const auto& [layerId, solver] : softBodies_) {
             if (!solver) continue;
             auto& snapshots = softBodySnapshots_[layerId];
+            if (snapshots.empty()) {
+                snapshots.reserve(timelineSettings_.maxCachedFrames);
+            }
             snapshots[frame] = solver->snapshot();
         }
         for (const auto& [layerId, solver] : cloth3DBodies_) {
             if (!solver) continue;
             auto& snapshots = cloth3DSnapshots_[layerId];
+            if (snapshots.empty()) {
+                snapshots.reserve(timelineSettings_.maxCachedFrames);
+            }
             snapshots[frame] = solver->snapshot();
         }
         for (const auto& entry : materialSolvers_) {
@@ -630,15 +722,26 @@ public:
             const auto& solver = entry.solver;
             if (!solver) continue;
             auto& snapshots = materialSnapshots_[layerId];
+            if (snapshots.empty()) {
+                snapshots.reserve(timelineSettings_.maxCachedFrames);
+            }
             snapshots[frame] = makeShared<MpmSnapshot2D>(solver->snapshot());
         }
         for (const auto& [layerId, world] : rigidWorlds_) {
             if (!world) continue;
-            rigidSnapshots_[layerId][frame] = world->snapshot();
+            auto& snapshots = rigidSnapshots_[layerId];
+            if (snapshots.empty()) {
+                snapshots.reserve(timelineSettings_.maxCachedFrames);
+            }
+            snapshots[frame] = world->snapshot();
         }
         for (const auto& [compositionId, world] : compositionRigidWorlds_) {
             if (!world) continue;
-            compositionRigidSnapshots_[compositionId][frame] = world->snapshot();
+            auto& snapshots = compositionRigidSnapshots_[compositionId];
+            if (snapshots.empty()) {
+                snapshots.reserve(timelineSettings_.maxCachedFrames);
+            }
+            snapshots[frame] = world->snapshot();
         }
         trimPhysicsSnapshots();
     }
@@ -843,6 +946,7 @@ public:
         }
         
         for (auto& [id, sb] : softBodies_) {
+            if (!sb) continue;
             // ソフトボディは Verlet 積分と拘束解決で更新
             auto colliderIt = softBodyColliders_.find(id);
             if (colliderIt != softBodyColliders_.end()) {
@@ -868,7 +972,10 @@ public:
             if (lodSettings_.disableSoftBodySelfCollision) {
                 sb->setSelfCollisionEnabled(false);
             }
-            sb->update(simulationDt, gravityX, gravityY);
+            // Each soft body owns its authored gravity and air drag.  The
+            // global arguments remain for legacy callers and other solver
+            // families, but must not overwrite per-layer soft-body settings.
+            sb->update(simulationDt);
         }
 
         for (auto& [id, cloth] : cloth3DBodies_) {
@@ -984,6 +1091,11 @@ private:
         SharedPtr<MpmSolver2D> solver;
     };
 
+    struct BoidsConstantsEntry {
+        LayerID layerId;
+        SharedPtr<GpuBoidConstants> constants;
+    };
+
     SharedPtr<MpmSolver2D>* findMaterialSolver(LayerID layerId) {
         for (auto& entry : materialSolvers_) {
             if (entry.layerId == layerId) return &entry.solver;
@@ -1013,32 +1125,62 @@ private:
             }) != 0;
     }
 
+    SharedPtr<GpuBoidConstants>* findBoidsConstants(LayerID layerId) {
+        for (auto& entry : boidsConstants_) {
+            if (entry.layerId == layerId) return &entry.constants;
+        }
+        return nullptr;
+    }
+
+    const SharedPtr<GpuBoidConstants>* findBoidsConstants(
+        LayerID layerId) const {
+        for (const auto& entry : boidsConstants_) {
+            if (entry.layerId == layerId) return &entry.constants;
+        }
+        return nullptr;
+    }
+
     PhysicsSystem() = default;
     ~PhysicsSystem();
 
     PhysicsSystem(const PhysicsSystem&) = delete;
     PhysicsSystem& operator=(const PhysicsSystem&) = delete;
     
-    std::map<LayerID, SharedPtr<FluidSolver2D>> fluidSolvers_;
-    std::map<LayerID, std::map<int64_t, FluidSnapshot2D>> fluidSnapshots_;
-    std::map<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
-    std::map<LayerID, NamedVector<SoftBodyCollider>> softBodyColliders_;
-    std::map<LayerID, std::map<int64_t, SoftBodySnapshot>> softBodySnapshots_;
-    std::map<LayerID, SharedPtr<ClothSolver3D>> cloth3DBodies_;
-    std::map<LayerID, std::map<int64_t, ClothSnapshot3D>> cloth3DSnapshots_;
+    PhysicsOrderedRegistry<LayerID, SharedPtr<FluidSolver2D>> fluidSolvers_;
+    PhysicsOrderedRegistry<LayerID,
+                           PhysicsOrderedRegistry<int64_t, FluidSnapshot2D>>
+        fluidSnapshots_;
+    PhysicsOrderedRegistry<LayerID, SharedPtr<SoftBodySolver>> softBodies_;
+    PhysicsOrderedRegistry<LayerID, NamedVector<SoftBodyCollider>>
+        softBodyColliders_;
+    PhysicsOrderedRegistry<LayerID,
+                           PhysicsOrderedRegistry<int64_t, SoftBodySnapshot>>
+        softBodySnapshots_;
+    PhysicsOrderedRegistry<LayerID, SharedPtr<ClothSolver3D>> cloth3DBodies_;
+    PhysicsOrderedRegistry<LayerID,
+                           PhysicsOrderedRegistry<int64_t, ClothSnapshot3D>>
+        cloth3DSnapshots_;
     NamedVector<MaterialSolverEntry> materialSolvers_;
-    std::map<LayerID, std::map<int64_t, SharedPtr<MpmSnapshot2D>>> materialSnapshots_;
+    PhysicsOrderedRegistry<
+        LayerID, PhysicsOrderedRegistry<int64_t, SharedPtr<MpmSnapshot2D>>>
+        materialSnapshots_;
     NamedVector<MaterialFractureEvent> pendingMaterialFractureEvents_;
-    std::map<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
-    std::map<LayerID, std::map<int64_t, Physics2DSnapshot>> rigidSnapshots_;
-    std::map<CompositionID, SharedPtr<Physics2D>> compositionRigidWorlds_;
-    std::map<CompositionID, std::map<int64_t, Physics2DSnapshot>> compositionRigidSnapshots_;
+    PhysicsOrderedRegistry<LayerID, SharedPtr<Physics2D>> rigidWorlds_;
+    PhysicsOrderedRegistry<LayerID,
+                           PhysicsOrderedRegistry<int64_t, Physics2DSnapshot>>
+        rigidSnapshots_;
+    PhysicsOrderedRegistry<CompositionID, SharedPtr<Physics2D>>
+        compositionRigidWorlds_;
+    PhysicsOrderedRegistry<
+        CompositionID, PhysicsOrderedRegistry<int64_t, Physics2DSnapshot>>
+        compositionRigidSnapshots_;
 #ifdef ARTIFACT_ENABLE_PYRO
-    std::map<LayerID, SharedPtr<PyroSimulation>> pyroSimulations_;
+    PhysicsOrderedRegistry<LayerID, SharedPtr<PyroSimulation>> pyroSimulations_;
 #endif
-    // Keep the Graphics.BoidsCompute value out of std::map's node type.
-    // MSVC 14.51 ICEs while instantiating that imported-module combination.
-    std::map<LayerID, SharedPtr<GpuBoidConstants>> boidsConstants_;
+    // Keep Graphics.BoidsCompute ownership out of std associative nodes. MSVC
+    // 14.51 ICEs while importing that template instantiation through an IFC.
+    NamedVector<BoidsConstantsEntry> boidsConstants_{
+        ContainerName{"PhysicsSystem.BoidsConstants"}};
     PhysicsLODSettings lodSettings_;
     PhysicsTimelineSettings timelineSettings_;
     float lodAccumulator_ = 0.0f;

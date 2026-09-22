@@ -105,6 +105,13 @@ public:
         gravityY_ = gy;
     }
 
+    // Air drag is expressed per second so a configured material behaves the
+    // same at every fixed simulation rate.  It is intentionally separate
+    // from collision damping, which only affects contact response.
+    void setLinearDamping(float damping) {
+        linearDamping_ = std::max(0.0f, damping);
+    }
+
     void setConstraintIterations(int iterations) {
         constraintIterations_ = std::max(1, iterations);
     }
@@ -413,6 +420,10 @@ public:
     /**
      * @brief シミュレーションを 1 ステップ進める
      */
+    void update(float elapsedSeconds, int iterations = -1) {
+        update(elapsedSeconds, gravityX_, gravityY_, iterations);
+    }
+
     void update(float elapsedSeconds, float gravityX, float gravityY, int iterations = -1) {
         if (points_.empty() || elapsedSeconds <= 0.0f) return;
 
@@ -468,9 +479,13 @@ public:
             vy += (gravityY + windForceY + turbY + p.forceY) * dt * dt;
             p.forceX = 0.0f; p.forceY = 0.0f;
 
-            // Velocity damping (drag)
-            vx *= 0.999f;
-            vy *= 0.999f;
+            // Keep the legacy numerical damping, then apply the authored
+            // air drag in units of 1/s. This keeps free-fall stable while
+            // allowing per-layer drag without a frame-rate dependency.
+            const float damping = 0.999f /
+                (1.0f + linearDamping_ * dt);
+            vx *= damping;
+            vy *= damping;
 
             p.prevX = p.x;
             p.prevY = p.y;
@@ -931,6 +946,7 @@ private:
     std::vector<SoftBodyVolumeTriangle> volumeTriangles_;
     float gravityX_ = 0.0f;
     float gravityY_ = 9.8f;
+    float linearDamping_ = 0.0f;
     float collisionDamping_ = 0.15f;
     int constraintIterations_ = 5;
     int collisionIterations_ = 2;

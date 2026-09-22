@@ -323,6 +323,8 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ViewDetachedTasks");
     case ShortcutId::ViewToggleMagnifier:
         return QStringLiteral("ViewToggleMagnifier");
+    case ShortcutId::CompositionViewportPieMenu:
+        return QStringLiteral("CompositionViewportPieMenu");
     case ShortcutId::Count:
         break;
     }
@@ -639,6 +641,8 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("View Detached Tasks");
     case ShortcutId::ViewToggleMagnifier:
         return QStringLiteral("View Toggle Magnifier");
+    case ShortcutId::CompositionViewportPieMenu:
+        return QStringLiteral("Composition Viewport Pie Menu");
     case ShortcutId::Count:
         break;
     }
@@ -800,6 +804,7 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::ProjectRefresh,
         ShortcutId::ViewDetachedTasks,
         ShortcutId::ViewToggleMagnifier,
+        ShortcutId::CompositionViewportPieMenu,
     };
 }
 
@@ -815,6 +820,8 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::RotateTool)] = QKeySequence(Qt::Key_W);
     defaults_[index(ShortcutId::AnchorPointTool)] = QKeySequence(Qt::Key_Y);
     defaults_[index(ShortcutId::PlaybackToggle)] = QKeySequence(Qt::Key_Space);
+    defaults_[index(ShortcutId::CompositionViewportPieMenu)] =
+        QKeySequence(Qt::Key_Tab);
     defaults_[index(ShortcutId::TimelineCopySelectedKeyframes)] = QKeySequence(Qt::CTRL | Qt::Key_C);
     defaults_[index(ShortcutId::TimelinePasteKeyframesAtPlayhead)] = QKeySequence(Qt::CTRL | Qt::Key_V);
     defaults_[index(ShortcutId::TimelineSelectAllKeyframes)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_A);

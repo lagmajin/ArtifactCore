@@ -1,39 +1,10 @@
 module;
 #include "../Define/DllExportMacro.hpp"
 #include <cstddef>
-#include <vector>
-
-#include <iostream>
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <unordered_set>
-#include <memory>
 #include <algorithm>
-#include <cmath>
-#include <functional>
-#include <optional>
-#include <utility>
-#include <array>
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
-#include <variant>
-#include <any>
-#include <atomic>
-#include <queue>
-#include <deque>
-#include <list>
-#include <tuple>
-#include <numeric>
-#include <regex>
-#include <random>
 export module Physics.Fluid;
+
+import Container.NamedVector;
 
 export namespace ArtifactCore {
 
@@ -48,13 +19,13 @@ struct LIBRARY_DLL_API FluidSnapshot2D {
     bool adaptiveIterations = true;
     int highResThresholdCells = 512 * 512;
     int maxAdaptiveIterations = 40;
-    std::vector<float> density;
-    std::vector<float> densityPrev;
-    std::vector<float> velocityX;
-    std::vector<float> velocityY;
-    std::vector<float> velocityXPrev;
-    std::vector<float> velocityYPrev;
-    std::vector<float> curl;
+    NamedVector<float> density{ContainerName{"Physics.FluidSnapshotDensity"}};
+    NamedVector<float> densityPrev{ContainerName{"Physics.FluidSnapshotDensityPrevious"}};
+    NamedVector<float> velocityX{ContainerName{"Physics.FluidSnapshotVelocityX"}};
+    NamedVector<float> velocityY{ContainerName{"Physics.FluidSnapshotVelocityY"}};
+    NamedVector<float> velocityXPrev{ContainerName{"Physics.FluidSnapshotVelocityXPrevious"}};
+    NamedVector<float> velocityYPrev{ContainerName{"Physics.FluidSnapshotVelocityYPrevious"}};
+    NamedVector<float> curl{ContainerName{"Physics.FluidSnapshotCurl"}};
 };
 
 class LIBRARY_DLL_API FluidSolver2D {
@@ -113,25 +84,25 @@ private:
     int maxAdaptiveIterations_ = 40;
 
     // Grid data
-    std::vector<float> density_;
-    std::vector<float> densityPrev_;
+    NamedVector<float> density_{ContainerName{"Physics.FluidDensity"}};
+    NamedVector<float> densityPrev_{ContainerName{"Physics.FluidDensityPrevious"}};
     
-    std::vector<float> vx_;
-    std::vector<float> vy_;
-    std::vector<float> vxPrev_;
-    std::vector<float> vyPrev_;
+    NamedVector<float> vx_{ContainerName{"Physics.FluidVelocityX"}};
+    NamedVector<float> vy_{ContainerName{"Physics.FluidVelocityY"}};
+    NamedVector<float> vxPrev_{ContainerName{"Physics.FluidVelocityXPrevious"}};
+    NamedVector<float> vyPrev_{ContainerName{"Physics.FluidVelocityYPrevious"}};
 
     // Temporary buffers for vorticity confinement
-    std::vector<float> curl_;
+    NamedVector<float> curl_{ContainerName{"Physics.FluidCurl"}};
 
     // Core solvers
-    void diffuse(int b, std::vector<float>& x, const std::vector<float>& x0, float diff, float dt);
-    void advect(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& vx, const std::vector<float>& vy, float dt);
-    void project(std::vector<float>& vx, std::vector<float>& vy, std::vector<float>& p, std::vector<float>& div);
-    void vorticityConfinement(std::vector<float>& vx, std::vector<float>& vy, float dt);
+    void diffuse(int b, NamedVector<float>& x, const NamedVector<float>& x0, float diff, float dt);
+    void advect(int b, NamedVector<float>& d, const NamedVector<float>& d0, const NamedVector<float>& vx, const NamedVector<float>& vy, float dt);
+    void project(NamedVector<float>& vx, NamedVector<float>& vy, NamedVector<float>& p, NamedVector<float>& div);
+    void vorticityConfinement(NamedVector<float>& vx, NamedVector<float>& vy, float dt);
     
-    void setBoundary(int b, std::vector<float>& x);
-    void linSolve(int b, std::vector<float>& x, const std::vector<float>& x0, float a, float c);
+    void setBoundary(int b, NamedVector<float>& x);
+    void linSolve(int b, NamedVector<float>& x, const NamedVector<float>& x0, float a, float c);
     int computeSolverIterations() const;
 
     inline int IX(int x, int y) const {
@@ -148,7 +119,8 @@ struct LIBRARY_DLL_API LiquidParticle2D {
 };
 
 struct LIBRARY_DLL_API LiquidSnapshot2D {
-    std::vector<LiquidParticle2D> particles;
+    NamedVector<LiquidParticle2D> particles{
+        ContainerName{"Physics.LiquidSnapshotParticles"}};
 };
 
 struct LIBRARY_DLL_API LiquidContainerPoint2D {
@@ -197,9 +169,12 @@ struct LIBRARY_DLL_API LiquidFoamPoint2D {
 };
 
 struct LIBRARY_DLL_API LiquidSurfaceSnapshot2D {
-    std::vector<LiquidSurfaceTriangle2D> triangles;
-    std::vector<LiquidSurfaceSegment2D> contourSegments;
-    std::vector<LiquidFoamPoint2D> foamPoints;
+    NamedVector<LiquidSurfaceTriangle2D> triangles{
+        ContainerName{"Physics.LiquidSurfaceTriangles"}};
+    NamedVector<LiquidSurfaceSegment2D> contourSegments{
+        ContainerName{"Physics.LiquidSurfaceContourSegments"}};
+    NamedVector<LiquidFoamPoint2D> foamPoints{
+        ContainerName{"Physics.LiquidSurfaceFoamPoints"}};
 };
 
 // Lightweight, deterministic 2D particle liquid for layer-local containers.
@@ -222,27 +197,28 @@ public:
     void setSubsteps(int value);
     void setSolverIterations(int value);
     bool setContainerPolygon(
-        const std::vector<LiquidContainerPoint2D>& points,
+        const NamedVector<LiquidContainerPoint2D>& points,
         std::size_t openEdgeIndex);
     void clearContainerPolygon();
     static void applySpillInteractions(
-        std::vector<LiquidSpillParticle2D>& particles, float dt,
+        NamedVector<LiquidSpillParticle2D>& particles, float dt,
         float cohesion, float viscosity);
     static LiquidSurfaceSnapshot2D buildSurfaceSnapshot(
-        const std::vector<LiquidSurfaceSample2D>& samples,
+        const NamedVector<LiquidSurfaceSample2D>& samples,
         std::size_t maximumSurfaceCells = 65536);
 
     float fillAmount() const noexcept { return fillAmount_; }
     float particleSpacing() const noexcept { return particleSpacing_; }
-    const std::vector<LiquidParticle2D>& particles() const noexcept {
+    const NamedVector<LiquidParticle2D>& particles() const noexcept {
         return particles_;
     }
     LiquidSnapshot2D snapshot() const;
     bool restore(const LiquidSnapshot2D& snapshot);
-    std::vector<LiquidParticle2D> takeEscapedParticles();
+    NamedVector<LiquidParticle2D> takeEscapedParticles();
 
 private:
-    std::vector<LiquidParticle2D> particles_;
+    NamedVector<LiquidParticle2D> particles_{
+        ContainerName{"Physics.LiquidParticles"}};
     float fillAmount_ = 0.5f;
     float particleSpacing_ = 0.055f;
     float gravityX_ = 0.0f;
@@ -251,7 +227,8 @@ private:
     float surfaceTension_ = 0.15f;
     int substeps_ = 3;
     int solverIterations_ = 3;
-    std::vector<LiquidContainerPoint2D> containerPolygon_;
+    NamedVector<LiquidContainerPoint2D> containerPolygon_{
+        ContainerName{"Physics.LiquidContainerPolygon"}};
     std::size_t openContainerEdge_ = 0;
 
     void solveParticleDistances();
