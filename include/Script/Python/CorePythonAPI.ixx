@@ -50,6 +50,8 @@ export namespace ArtifactCore {
  */
 class CorePythonAPI {
 public:
+    // Application bridge arguments are encoded as individual JSON values so
+    // Python bools, numbers, lists, and mappings retain their types.
     using CompositionBridge = std::function<std::string(
         const std::string&, const std::vector<std::string>&)>;
 

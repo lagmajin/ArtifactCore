@@ -29,6 +29,7 @@ class _CoreColor: pass
 class _CoreDSP: pass
 class _CoreSystem: pass
 class _CoreComposition: pass
+class _CoreAutomation: pass
 
 class _CoreModule:
     math = _CoreMath()
@@ -36,6 +37,7 @@ class _CoreModule:
     dsp = _CoreDSP()
     system = _CoreSystem()
     composition = _CoreComposition()
+    automation = _CoreAutomation()
 
 sys.modules['artifact'].core = _CoreModule()
 sys.modules['artifact.core'] = sys.modules['artifact'].core
@@ -62,7 +64,7 @@ void CorePythonAPI::setCompositionBridge(CompositionBridge bridge) {
                 parameters.assign(args.begin() + 1, args.end());
             }
             return g_compositionBridge(args.front(), parameters);
-        });
+        }, true);
 }
 
 void CorePythonAPI::registerMathAPI() {
@@ -260,6 +262,26 @@ artifact.core.composition.playback_play = _playback_play
 artifact.core.composition.playback_pause = _playback_pause
 artifact.core.composition.playback_stop = _playback_stop
 artifact.core.composition.export = _export_comp
+
+def _command_vocabulary():
+    """Return the WorkspaceAutomation Command IR type catalog."""
+    return _invoke_workspace("commandVocabulary")
+
+def _validate_command(command):
+    """Validate a Command IR mapping without executing it."""
+    if not isinstance(command, dict):
+        raise TypeError("command must be a dict")
+    return _invoke_workspace("validateCommand", command)
+
+def _execute_command(command):
+    """Execute a Command IR mapping and return its structured result."""
+    if not isinstance(command, dict):
+        raise TypeError("command must be a dict")
+    return _invoke_workspace("executeCommand", command)
+
+artifact.core.automation.command_vocabulary = _command_vocabulary
+artifact.core.automation.validate_command = _validate_command
+artifact.core.automation.execute_command = _execute_command
 )PYCODE";
     py.execute(code);
 }

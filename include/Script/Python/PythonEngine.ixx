@@ -71,6 +71,7 @@ public:
     bool initialize(const std::string& pythonHome = "");
     void finalize();
     bool isInitialized() const;
+    bool isExternalRuntime() const;
 
     // === Script Execution ===
     
@@ -89,7 +90,8 @@ public:
     using PyCppFunction = std::function<std::string(const std::vector<std::string>&)>;
 
     /// Register a C++ function callable from Python as artifact.<name>(args...)
-    void registerFunction(const std::string& name, PyCppFunction func);
+    void registerFunction(const std::string& name, PyCppFunction func,
+                          bool serializeArgumentsAsJson = false);
 
     /// Register a constant value accessible as artifact.<name>
     void registerConstant(const std::string& name, const std::string& value);

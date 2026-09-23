@@ -20,6 +20,9 @@ module;
 #include <filesystem>
 #include <string_view>
 #include <iostream>
+#include <QByteArray>
+#include <QFile>
+#include <QIODevice>
 #include <QProcess>
 #include <QString>
 
@@ -238,6 +241,10 @@ bool PythonEngine::isInitialized() const {
     return impl_->initialized_;
 }
 
+bool PythonEngine::isExternalRuntime() const {
+    return impl_->externalRuntime_;
+}
+
 // ============================================================================
 // Script Execution
 // ============================================================================
@@ -265,6 +272,14 @@ bool PythonEngine::execute(const std::string& code) {
         return true;
 
     } catch (const py::error_already_set& e) {
+        try {
+            auto sys = py::module_::import("sys");
+            const auto stdoutVal = sys.attr("stdout").attr("getvalue")().cast<std::string>();
+            if (!stdoutVal.empty()) impl_->captureOutput(stdoutVal, false);
+            const auto stderrVal = sys.attr("stderr").attr("getvalue")().cast<std::string>();
+            if (!stderrVal.empty()) impl_->captureOutput(stderrVal, true);
+        } catch (...) {
+        }
         impl_->setError(e.what());
         return false;
     }
@@ -317,39 +332,91 @@ bool PythonEngine::execute(const std::string& code) {
 }
 
 bool PythonEngine::executeFile(const std::string& filePath) {
-    std::ifstream file(filePath);
-    if (!file.is_open()) {
+    const QString path = QString::fromUtf8(filePath.data(),
+                                           static_cast<qsizetype>(filePath.size()));
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
         ZeroString error = "Cannot open file: ";
         error += filePath;
         impl_->setError(error);
         return false;
     }
-    std::string code((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    const QByteArray source = file.readAll();
+    const std::string code(source.constData(), static_cast<size_t>(source.size()));
     return execute(code);
 }
 
 std::string PythonEngine::evaluate(const std::string& expression) {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
-    if (!impl_->initialized_) return "";
+    if (!impl_->initialized_) {
+        impl_->setError("Python not initialized");
+        return "";
+    }
 
 #ifdef ARTIFACT_HAS_PYTHON
     try {
         py::object result = py::eval(expression, impl_->globals_);
-        return py::str(result).cast<std::string>();
-    } catch (const py::error_already_set&) {
+        const std::string value = py::str(result).cast<std::string>();
+        auto sys = py::module_::import("sys");
+        const auto stdoutVal = sys.attr("stdout").attr("getvalue")().cast<std::string>();
+        if (!stdoutVal.empty()) impl_->captureOutput(stdoutVal, false);
+        const auto stderrVal = sys.attr("stderr").attr("getvalue")().cast<std::string>();
+        if (!stderrVal.empty()) impl_->captureOutput(stderrVal, true);
+        impl_->lastError_.clear();
+        return value;
+    } catch (const py::error_already_set& error) {
+        impl_->setError(error.what());
         return "";
     }
 #else
-    if (!impl_->externalRuntime_) return "";
+    if (!impl_->externalRuntime_) {
+        impl_->setError("Python runtime unavailable");
+        return "";
+    }
     QProcess process;
     process.setProgram(QString::fromStdString(impl_->externalExecutable_));
+    const QByteArray resultMarker = "__ARTIFACT_PYTHON_EVAL_RESULT_9A63E1C4__";
     const std::string script = impl_->externalPrelude_ +
-        "print(repr(" + expression + "))";
+        "print(\"" + resultMarker.toStdString() + "\" + repr(" + expression + "))";
     process.setArguments({QStringLiteral("-c"), QString::fromStdString(script)});
     process.start();
-    if (!process.waitForStarted(2000) || !process.waitForFinished(30000) ||
-        process.exitCode() != 0) return "";
-    QByteArray output = process.readAllStandardOutput().trimmed();
+    if (!process.waitForStarted(2000)) {
+        impl_->setError("External Python process did not start");
+        return "";
+    }
+    if (!process.waitForFinished(30000)) {
+        process.kill();
+        process.waitForFinished();
+        impl_->setError("External Python expression evaluation timed out");
+        return "";
+    }
+    const QByteArray stderrData = process.readAllStandardError();
+    if (!stderrData.isEmpty()) {
+        impl_->captureOutput(stderrData.toStdString(), true);
+    }
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        impl_->setError(stderrData.isEmpty()
+                            ? std::string_view("External Python expression evaluation failed")
+                            : std::string_view(stderrData.constData(),
+                                               static_cast<size_t>(stderrData.size())));
+        return "";
+    }
+    QByteArray output = process.readAllStandardOutput();
+    while (output.endsWith('\n') || output.endsWith('\r')) {
+        output.chop(1);
+    }
+    const qsizetype resultSeparator = output.lastIndexOf(resultMarker);
+    if (resultSeparator >= 0) {
+        const QByteArray sideEffectOutput = output.left(resultSeparator);
+        if (!sideEffectOutput.isEmpty()) {
+            impl_->captureOutput(sideEffectOutput.toStdString(), false);
+        }
+        output = output.mid(resultSeparator + resultMarker.size());
+        if (output.endsWith('\r')) {
+            output.chop(1);
+        }
+    }
+    impl_->lastError_.clear();
     return output.toStdString();
 #endif
 }
@@ -358,15 +425,22 @@ std::string PythonEngine::evaluate(const std::string& expression) {
 // Module Registration
 // ============================================================================
 
-void PythonEngine::registerFunction(const std::string& name, PyCppFunction func) {
+void PythonEngine::registerFunction(const std::string& name, PyCppFunction func,
+                                    bool serializeArgumentsAsJson) {
     impl_->registeredFunctions_[name] = func;
 
 #ifdef ARTIFACT_HAS_PYTHON
     if (impl_->initialized_) {
-        auto wrappedFunc = [func](py::args args) -> std::string {
+        auto wrappedFunc = [func, serializeArgumentsAsJson](py::args args) -> std::string {
             NamedVector<std::string> strArgs;
-            for (auto& a : args) {
-                strArgs.push_back(py::str(a).cast<std::string>());
+            for (const auto& a : args) {
+                if (serializeArgumentsAsJson) {
+                    strArgs.push_back(py::module_::import("json")
+                        .attr("dumps")(a, py::arg("allow_nan") = false)
+                        .cast<std::string>());
+                } else {
+                    strArgs.push_back(py::str(a).cast<std::string>());
+                }
             }
             return func(strArgs.toStdVector());
         };
@@ -529,7 +603,13 @@ void PythonEngine::clearError() { impl_->lastError_.clear(); }
 // ============================================================================
 
 bool PythonEngine::pushConsoleLine(const std::string& line) {
-    if (!impl_->initialized_) return false;
+    if (!impl_->initialized_) {
+        impl_->setError("Python not initialized");
+        return false;
+    }
+    if (impl_->consoleBuffer_.length() == 0) {
+        impl_->lastError_.clear();
+    }
 
     impl_->consoleBuffer_ += line;
     impl_->consoleBuffer_ += '\n';
@@ -540,7 +620,7 @@ bool PythonEngine::pushConsoleLine(const std::string& line) {
         // Try to compile the accumulated buffer
         auto code = py::module_::import("code");
         std::string_view consoleText = impl_->consoleBuffer_;
-        auto compileResult = code.attr("compile_command")(consoleText, "<console>", "exec");
+        auto compileResult = code.attr("compile_command")(consoleText, "<console>", "single");
 
         if (compileResult.is_none()) {
             // Incomplete input - need more
@@ -554,6 +634,8 @@ bool PythonEngine::pushConsoleLine(const std::string& line) {
         auto sys = py::module_::import("sys");
         auto out = sys.attr("stdout").attr("getvalue")().cast<std::string>();
         if (!out.empty()) impl_->captureOutput(out, false);
+        auto error = sys.attr("stderr").attr("getvalue")().cast<std::string>();
+        if (!error.empty()) impl_->captureOutput(error, true);
 
         impl_->consoleBuffer_.clear();
         return false;
@@ -584,7 +666,8 @@ bool PythonEngine::pushConsoleLine(const std::string& line) {
     const bool lineContinues = !trimmed.empty() && trimmed.back() == '\\';
     if (parenDepth > 0 || inSingle || inDouble || blockContinues || lineContinues) return true;
     impl_->consoleBuffer_.clear();
-    return !execute(buffered);
+    (void)execute(buffered);
+    return false;
 #endif
 }
 
