@@ -89,9 +89,18 @@ public:
     // detailLevel: メッシュの細かさ (値が大きいほど細かい)
     void bindImage(const cv::Mat& sourceImage, int detailLevel = 10);
 
+    // Regular lattice controls deform the same alpha-aware output mesh.
+    bool configureGrid(int columns, int rows);
+    bool setGridVertices(const std::vector<cv::Point2f>& vertices);
+    bool hasGrid() const;
+    int gridColumns() const;
+    int gridRows() const;
+    const std::vector<cv::Point2f>& gridVerticesView() const;
+
     // 2. ピンの追加・削除
     // メッシュ上の座標にコントロールピンを配置/削除します。
     void addPin(const PuppetPin& pin);
+    void setPins(const std::vector<PuppetPin>& pins);
     void removePin(const std::string& pinId);
     void updatePinPosition(const std::string& pinId, const cv::Point2f& newPosition);
     
@@ -107,6 +116,7 @@ public:
     // 画像全体をCPUでワープさせるのではなく、変形後のメッシュ頂点情報のみを返し、
     // UI側のOpenGL/DirectX等でテクスチャマッピングとして描画するための高度なパイプライン用インターフェースです。
     PuppetMesh getDeformedMesh() const;
+    const PuppetMesh& deformedMeshView() const;
 
     // 状態をリセット
     void reset();

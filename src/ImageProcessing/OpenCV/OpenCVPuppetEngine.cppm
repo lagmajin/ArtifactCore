@@ -21,6 +21,14 @@ public:
     cv::Mat sourceImage;
     PuppetMesh initialMesh;
     PuppetMesh deformedMesh;
+    std::vector<cv::Point2f> sourcePins;
+    std::vector<cv::Point2f> targetPins;
+    std::vector<float> pinWeights;
+    std::vector<PuppetPin> overlapPins;
+    std::vector<cv::Point2f> initialGridVertices;
+    std::vector<cv::Point2f> deformedGridVertices;
+    int gridColumns = 0;
+    int gridRows = 0;
 
     void calculateMLSDeformation() {
         if (pins.empty() || initialMesh.vertices.empty()) {
@@ -28,11 +36,12 @@ public:
             return;
         }
 
-        std::vector<cv::Point2f> p; // オリジナルのポジション
-        std::vector<cv::Point2f> q; // 変形後のポジション
-        std::vector<float> pinWeights; // 個別のウェイト
-        
-        std::vector<PuppetPin> overlapPins;
+        sourcePins.clear();
+        targetPins.clear();
+        pinWeights.clear();
+        overlapPins.clear();
+        auto& p = sourcePins;
+        auto& q = targetPins;
 
         for (const auto& kv : pins) {
             PuppetPin pin = kv.second;
@@ -115,7 +124,6 @@ public:
             const size_t i = static_cast<size_t>(index);
             cv::Point2f v = initialMesh.vertices[i];
             
-            std::vector<float> w(npins);
             float sum_w = 0;
             cv::Point2f p_star(0, 0), q_star(0, 0);
             
@@ -127,21 +135,28 @@ public:
                     is_control_point = true;
                     break;
                 }
-                w[k] = pinWeights[k] / (dist2 + 1e-8f); 
-                sum_w += w[k];
+                const float weight = pinWeights[k] / (dist2 + 1e-8f);
+                sum_w += weight;
+                p_star += p[k] * weight;
+                q_star += q[k] * weight;
             }
             if (is_control_point) return;
-
-            for (int k = 0; k < npins; ++k) {
-                w[k] /= sum_w;
-                p_star += p[k] * w[k];
-                q_star += q[k] * w[k];
+            if (!(sum_w > 0.0f) || !std::isfinite(sum_w)) {
+                deformedMesh.vertices[i] = v;
+                return;
             }
+            const float inverseWeightSum = 1.0f / sum_w;
+            p_star = p_star * inverseWeightSum;
+            q_star = q_star * inverseWeightSum;
 
             float sum_p_hat_sq = 0;
             for (int k = 0; k < npins; ++k) {
+                const float dist2 = std::pow(v.x - p[k].x, 2) +
+                                    std::pow(v.y - p[k].y, 2);
+                const float weight =
+                    (pinWeights[k] / (dist2 + 1e-8f)) * inverseWeightSum;
                 cv::Point2f p_hat = p[k] - p_star;
-                sum_p_hat_sq += w[k] * (p_hat.x * p_hat.x + p_hat.y * p_hat.y);
+                sum_p_hat_sq += weight * (p_hat.x * p_hat.x + p_hat.y * p_hat.y);
             }
 
             cv::Point2f v_hat = v - p_star;
@@ -150,10 +165,14 @@ public:
             if (sum_p_hat_sq > 1e-6) {
                 float a = 0, b = 0;
                 for (int k = 0; k < npins; ++k) {
+                    const float dist2 = std::pow(v.x - p[k].x, 2) +
+                                        std::pow(v.y - p[k].y, 2);
+                    const float weight =
+                        (pinWeights[k] / (dist2 + 1e-8f)) * inverseWeightSum;
                     cv::Point2f p_hat = p[k] - p_star;
                     cv::Point2f q_hat = q[k] - q_star;
-                    a += w[k] * (p_hat.x * q_hat.x + p_hat.y * q_hat.y);
-                    b += w[k] * (p_hat.x * q_hat.y - p_hat.y * q_hat.x);
+                    a += weight * (p_hat.x * q_hat.x + p_hat.y * q_hat.y);
+                    b += weight * (p_hat.x * q_hat.y - p_hat.y * q_hat.x);
                 }
                 float mu = sum_p_hat_sq;
                 new_v.x += (a * v_hat.x - b * v_hat.y) / mu;
@@ -164,6 +183,41 @@ public:
             
             deformedMesh.vertices[i] = new_v;
         });
+    }
+
+    void calculateGridDeformation() {
+        deformedMesh = initialMesh;
+        if (gridColumns < 2 || gridRows < 2 ||
+            initialGridVertices.size() != deformedGridVertices.size() ||
+            deformedGridVertices.size() !=
+                static_cast<size_t>(gridColumns * gridRows)) return;
+
+        const float maxX = static_cast<float>(std::max(1, sourceImage.cols));
+        const float maxY = static_cast<float>(std::max(1, sourceImage.rows));
+        for (size_t i = 0; i < initialMesh.vertices.size(); ++i) {
+            const cv::Point2f source = initialMesh.vertices[i];
+            const float gridX = std::clamp(
+                source.x / maxX * static_cast<float>(gridColumns - 1),
+                0.0f, static_cast<float>(gridColumns - 1));
+            const float gridY = std::clamp(
+                source.y / maxY * static_cast<float>(gridRows - 1),
+                0.0f, static_cast<float>(gridRows - 1));
+            const int column = std::min(static_cast<int>(gridX), gridColumns - 2);
+            const int row = std::min(static_cast<int>(gridY), gridRows - 2);
+            const float tx = gridX - static_cast<float>(column);
+            const float ty = gridY - static_cast<float>(row);
+            const size_t topLeft = static_cast<size_t>(row * gridColumns + column);
+            const size_t topRight = topLeft + 1;
+            const size_t bottomLeft = topLeft + static_cast<size_t>(gridColumns);
+            const size_t bottomRight = bottomLeft + 1;
+            const cv::Point2f top =
+                deformedGridVertices[topLeft] * (1.0f - tx) +
+                deformedGridVertices[topRight] * tx;
+            const cv::Point2f bottom =
+                deformedGridVertices[bottomLeft] * (1.0f - tx) +
+                deformedGridVertices[bottomRight] * tx;
+            deformedMesh.vertices[i] = top * (1.0f - ty) + bottom * ty;
+        }
     }
 };
 
@@ -178,6 +232,10 @@ void OpenCVPuppetEngine::bindImage(const cv::Mat& sourceImage, int detailLevel) 
     impl_->initialMesh.texCoords.clear();
     impl_->initialMesh.zDepth.clear();
     impl_->pins.clear();
+    impl_->initialGridVertices.clear();
+    impl_->deformedGridVertices.clear();
+    impl_->gridColumns = 0;
+    impl_->gridRows = 0;
 
     // アルファチャンネルで輪郭抽出
     cv::Mat mask;
@@ -271,8 +329,83 @@ void OpenCVPuppetEngine::bindImage(const cv::Mat& sourceImage, int detailLevel) 
     impl_->deformedMesh = impl_->initialMesh;
 }
 
+bool OpenCVPuppetEngine::configureGrid(int columns, int rows) {
+    if (impl_->sourceImage.empty()) return false;
+    const int safeColumns = std::clamp(columns, 2, 64);
+    const int safeRows = std::clamp(rows, 2, 64);
+    impl_->gridColumns = safeColumns;
+    impl_->gridRows = safeRows;
+    const size_t count = static_cast<size_t>(safeColumns) *
+                         static_cast<size_t>(safeRows);
+    impl_->initialGridVertices.resize(count);
+    impl_->deformedGridVertices.resize(count);
+    for (int row = 0; row < safeRows; ++row) {
+        for (int column = 0; column < safeColumns; ++column) {
+            const size_t index = static_cast<size_t>(row * safeColumns + column);
+            const cv::Point2f point(
+                static_cast<float>(impl_->sourceImage.cols) * column /
+                    static_cast<float>(safeColumns - 1),
+                static_cast<float>(impl_->sourceImage.rows) * row /
+                    static_cast<float>(safeRows - 1));
+            impl_->initialGridVertices[index] = point;
+            impl_->deformedGridVertices[index] = point;
+        }
+    }
+    impl_->pins.clear();
+    impl_->calculateGridDeformation();
+    return true;
+}
+
+bool OpenCVPuppetEngine::setGridVertices(
+    const std::vector<cv::Point2f>& vertices) {
+    if (!hasGrid() || vertices.size() != impl_->deformedGridVertices.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        if (!std::isfinite(vertices[i].x) || !std::isfinite(vertices[i].y)) {
+            return false;
+        }
+    }
+    impl_->deformedGridVertices = vertices;
+    impl_->calculateGridDeformation();
+    return true;
+}
+
+bool OpenCVPuppetEngine::hasGrid() const {
+    return impl_->gridColumns >= 2 && impl_->gridRows >= 2 &&
+           !impl_->initialGridVertices.empty();
+}
+
+int OpenCVPuppetEngine::gridColumns() const { return impl_->gridColumns; }
+int OpenCVPuppetEngine::gridRows() const { return impl_->gridRows; }
+
+const std::vector<cv::Point2f>& OpenCVPuppetEngine::gridVerticesView() const {
+    return impl_->deformedGridVertices;
+}
+
 void OpenCVPuppetEngine::addPin(const PuppetPin& pin) {
     impl_->pins[pin.id] = pin;
+    impl_->calculateMLSDeformation();
+}
+
+void OpenCVPuppetEngine::setPins(const std::vector<PuppetPin>& pins) {
+    impl_->initialGridVertices.clear();
+    impl_->deformedGridVertices.clear();
+    impl_->gridColumns = 0;
+    impl_->gridRows = 0;
+    for (auto it = impl_->pins.begin(); it != impl_->pins.end();) {
+        const bool retained = std::any_of(
+            pins.begin(), pins.end(),
+            [&it](const PuppetPin& pin) { return pin.id == it->first; });
+        if (retained) ++it;
+        else it = impl_->pins.erase(it);
+    }
+    for (const auto& pin : pins) {
+        if (pin.id.empty()) continue;
+        const auto existing = impl_->pins.find(pin.id);
+        if (existing != impl_->pins.end()) existing->second = pin;
+        else impl_->pins.emplace(pin.id, pin);
+    }
     impl_->calculateMLSDeformation();
 }
 
@@ -361,6 +494,10 @@ cv::Mat OpenCVPuppetEngine::renderDeformedImage(PuppetDeformationMethod method) 
 }
 
 PuppetMesh OpenCVPuppetEngine::getDeformedMesh() const {
+    return impl_->deformedMesh;
+}
+
+const PuppetMesh& OpenCVPuppetEngine::deformedMeshView() const {
     return impl_->deformedMesh;
 }
 
