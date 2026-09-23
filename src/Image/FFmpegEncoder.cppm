@@ -202,6 +202,11 @@ public:
         codecCtx_->gop_size = settings.gopSize;
         codecCtx_->max_b_frames = settings.maxBFrames;
 
+        // XPU P3: エンコードスレッド数。0 以下は encoder default（現行動作を維持）。
+        if (settings.threadCount > 0) {
+            codecCtx_->thread_count = settings.threadCount;
+        }
+
         // ピクセルフォーマット設定（HDR 時は 10bit 以上を優先）
         if (codecId == AV_CODEC_ID_PRORES) {
             const QString profile = settings.profile.trimmed().toLower();

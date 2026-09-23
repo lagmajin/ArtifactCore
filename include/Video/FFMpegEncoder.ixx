@@ -48,6 +48,7 @@ export namespace ArtifactCore {
         QString profile = "high";       // コーデックプロファイル
         bool zerolatency = true;        // ゼロレイテンシモード
         int swsQuality = 2;             // sws_scale 品質 (2=SWS_BILINEAR, 4=SWS_LANCZOS, 1=SWS_SPLINE etc)
+        int threadCount = 0;            // エンコードスレッド数 (0=encoder default、現行動作)
     };
 
     // 連番画像出力設定
