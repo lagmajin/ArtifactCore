@@ -5,6 +5,8 @@ module;
 #include <QDateTime>
 #include <QString>
 #include <QJsonObject>
+#include <functional>
+#include <utility>
 
 export module Collaborate.SessionAdapter;
 
@@ -44,39 +46,76 @@ public:
     }
     [[nodiscard]] const QString& projectId() const noexcept { return projectId_; }
 
+    void setParticipantsChangedCallback(std::function<void()> callback) {
+        participantsChangedCallback_ = std::move(callback);
+    }
+
+    void setLockStateChangedCallback(
+        std::function<void(const QString&)> callback) {
+        lockStateChangedCallback_ = std::move(callback);
+    }
+
+    void setOperationAppliedCallback(
+        std::function<void(const CollabOperationData&)> callback) {
+        operationAppliedCallback_ = std::move(callback);
+    }
+
+    void setRemoteOperationValidator(
+        std::function<bool(const CollabOperationData&)> validator) {
+        remoteOperationValidator_ = std::move(validator);
+    }
+
     // ---- outbound (session intent -> transport) ----
 
-    void sendLocalOperation(const CollabOperationData& operation) {
+    [[nodiscard]] bool sendLocalOperation(const CollabOperationData& operation) {
+        if (!validateCollabOperation(operation).isEmpty() ||
+            operation.clientId.isEmpty() ||
+            operation.clientId != session_.localClientId()) {
+            (void)session_.discardPendingLocalOperation(operation);
+            return false;
+        }
+        // Durable edits are never parked in the best-effort reconnect queue,
+        // and must wait until the room's history and lock snapshot are ready.
+        // The caller must keep the draft and retry after room_ready.
+        if (!ws_.isRoomReady() || ws_.isReadOnly()) {
+            (void)session_.discardPendingLocalOperation(operation);
+            return false;
+        }
         OperationMessage message;
         message.clientId = operation.clientId;
         message.projectId = projectId_;
         message.operation = operation.toJson();
         message.version = static_cast<int>(operation.version);
-        ws_.sendOperation(message);
+        const bool sent = ws_.sendOperation(message);
+        if (!sent) (void)session_.discardPendingLocalOperation(operation);
+        return sent;
     }
 
-    void sendLocalLockRequest(const QString& layerId) {
+    [[nodiscard]] bool sendLocalLockRequest(const QString& layerId) {
+        if (!ws_.isRoomReady() || ws_.isReadOnly() || layerId.isEmpty()) return false;
         LockRequestMessage request;
         request.layerId = layerId;
         request.clientId = session_.localClientId();
-        ws_.sendLockRequest(request);
+        return ws_.sendLockRequest(request);
     }
 
-    void sendLocalLockRelease(const QString& layerId) {
+    [[nodiscard]] bool sendLocalLockRelease(const QString& layerId) {
+        if (!ws_.isRoomReady() || ws_.isReadOnly() || layerId.isEmpty()) return false;
         LockReleaseMessage release;
         release.layerId = layerId;
         release.clientId = session_.localClientId();
-        ws_.sendLockRelease(release);
+        return ws_.sendLockRelease(release);
     }
 
-    void sendLocalPresence(const CollabPresenceState& presence) {
+    [[nodiscard]] bool sendLocalPresence(const CollabPresenceState& presence) {
+        if (!ws_.isConnected()) return false;
         PresenceMessage message;
         message.clientId = session_.localClientId();
         message.userId = session_.localIdentity().userId;
         message.userName = session_.localIdentity().userName;
         message.userColor = session_.localIdentity().userColor;
         message.presence = presence.toJson();
-        ws_.sendPresence(message);
+        return ws_.sendPresence(message);
     }
 
 private:
@@ -104,56 +143,100 @@ private:
                         ? op.operation.value(QStringLiteral("clientTimestamp"))
                               .toVariant().toLongLong()
                         : 0;
-                session_.processRemoteOperation(operation);
+                if (operation.clientId.isEmpty() ||
+                    operation.clientId != op.clientId ||
+                    !validateCollabOperation(operation).isEmpty()) {
+                    return;
+                }
+                const bool wasPendingLocal =
+                    session_.isPendingLocalOperation(operation);
+                if (!session_.hasSeenOperation(operation) &&
+                    remoteOperationValidator_ &&
+                    !remoteOperationValidator_(operation)) {
+                    return;
+                }
+                const bool acceptedNew =
+                    session_.processRemoteOperation(operation);
+                if ((acceptedNew || wasPendingLocal) && operationAppliedCallback_) {
+                    operationAppliedCallback_(operation);
+                }
             }));
 
         connections_.append(QObject::connect(
             &ws_, &CollaborationWebSocket::userJoined, receiver,
             [this](const QString& clientId, const QString& userId,
-                   const QString& userName) {
-                // Color arrives through the follow-up presence broadcast.
-                session_.processUserJoined(clientId, userId, userName, {},
+                   const QString& userName, const QString& userColor) {
+                session_.processUserJoined(clientId, userId, userName, userColor,
                                            QDateTime::currentMSecsSinceEpoch());
+                notifyParticipantsChanged();
             }));
 
         connections_.append(QObject::connect(
             &ws_, &CollaborationWebSocket::userLeft, receiver,
             [this](const QString& clientId, const QString&, const QString&) {
-                session_.processUserLeft(clientId);
+                const auto releasedLocks = session_.processUserLeft(clientId);
+                for (const QString& layerId : releasedLocks) {
+                    notifyLockStateChanged(layerId);
+                }
+                notifyParticipantsChanged();
             }));
 
         connections_.append(QObject::connect(
             &ws_, &CollaborationWebSocket::remotePresence, receiver,
             [this](const PresenceMessage& pres) {
-                session_.processPresence(pres.clientId, pres.presence,
-                                         QDateTime::currentMSecsSinceEpoch());
+                session_.processPresence(
+                    pres.clientId, pres.userId, pres.userName, pres.userColor,
+                    pres.presence, QDateTime::currentMSecsSinceEpoch());
+                notifyParticipantsChanged();
             }));
 
         connections_.append(QObject::connect(
             &ws_, &CollaborationWebSocket::remoteLockGranted, receiver,
             [this](const QString& layerId, const QString& clientId,
                    const QString& byUserId) {
-                session_.processLockGranted(layerId, clientId, byUserId, {},
+                QString userName;
+                if (clientId == session_.localClientId()) {
+                    const CollabParticipant local = session_.localIdentity();
+                    userName = local.userName;
+                } else {
+                    userName = session_.participant(clientId).userName;
+                }
+                session_.processLockGranted(layerId, clientId, byUserId, userName,
                                             QDateTime::currentMSecsSinceEpoch());
+                notifyLockStateChanged(layerId);
             }));
 
         connections_.append(QObject::connect(
             &ws_, &CollaborationWebSocket::remoteLockReleased, receiver,
             [this](const QString& layerId, const QString&) {
                 session_.processLockReleased(layerId);
+                notifyLockStateChanged(layerId);
             }));
 
         connections_.append(QObject::connect(
             &ws_, &CollaborationWebSocket::remoteLockDenied, receiver,
             [this](const QString& layerId, const QString& reason) {
                 session_.processLockDenied(layerId, reason);
+                notifyLockStateChanged(layerId);
             }));
+    }
+
+    void notifyParticipantsChanged() {
+        if (participantsChangedCallback_) participantsChangedCallback_();
+    }
+
+    void notifyLockStateChanged(const QString& layerId) {
+        if (lockStateChangedCallback_) lockStateChangedCallback_(layerId);
     }
 
     CollaborationWebSocket& ws_;
     CollaborationSession& session_;
     QString projectId_;
     Array<QMetaObject::Connection> connections_;
+    std::function<void()> participantsChangedCallback_;
+    std::function<void(const QString&)> lockStateChangedCallback_;
+    std::function<void(const CollabOperationData&)> operationAppliedCallback_;
+    std::function<bool(const CollabOperationData&)> remoteOperationValidator_;
 };
 
 } // namespace ArtifactCore

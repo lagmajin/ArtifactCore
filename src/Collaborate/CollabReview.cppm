@@ -14,7 +14,16 @@ export namespace ArtifactCore {
 
 // ---- durable comments anchored to stable IDs (composition/layer/frame) ----
 
+struct CollabCommentRevision {
+    QString editorClientId;
+    QString editorName;
+    QString previousText;
+    qint64 editedAtMs = 0;
+};
+
 struct CollabComment {
+    static constexpr int kMaxStoredRevisions = 50;
+
     QString commentId;
     QString parentCommentId; // empty = top-level thread root
     QString authorClientId;
@@ -26,6 +35,9 @@ struct CollabComment {
     QString text;
     qint64 createdAtMs = 0;
     bool resolved = false;
+    bool deleted = false;
+    Array<CollabCommentRevision> revisions;
+    bool revisionHistoryTruncated = false;
 
     [[nodiscard]] bool isReply() const noexcept { return !parentCommentId.isEmpty(); }
 };
@@ -72,6 +84,11 @@ struct CollabProposal {
 
 class CollaborationReview {
 public:
+    void clear() {
+        comments_.removeAll();
+        proposals_.removeAll();
+    }
+
     // ---- comments ----
 
     [[nodiscard]] QString addComment(const QString& authorClientId,
@@ -95,13 +112,35 @@ public:
         return comment.commentId;
     }
 
+    bool importComment(const CollabComment& comment) {
+        if (comment.commentId.trimmed().isEmpty() ||
+            comment.authorClientId.trimmed().isEmpty() ||
+            comment.compositionId.trimmed().isEmpty() ||
+            comment.text.trimmed().isEmpty() || find(comment.commentId)) {
+            return false;
+        }
+        if (!comment.parentCommentId.isEmpty()) {
+            const CollabComment* parent = find(comment.parentCommentId);
+            if (!parent || parent->isReply() || parent->deleted ||
+                parent->compositionId != comment.compositionId ||
+                parent->layerId != comment.layerId ||
+                parent->frame != comment.frame) {
+                return false;
+            }
+        }
+        CollabComment imported = comment;
+        imported.text = imported.text.trimmed();
+        comments_.append(imported);
+        return true;
+    }
+
     [[nodiscard]] QString addReply(const QString& parentCommentId,
                                    const QString& authorClientId,
                                    const QString& authorUserId,
                                    const QString& authorName,
                                    const QString& text, const qint64 atMs) {
         const auto parent = find(parentCommentId);
-        if (!parent) return {};
+        if (!parent || parent->resolved || parent->deleted) return {};
         // Replies inherit the thread anchor and cannot nest.
         if (parent->isReply()) return {};
         if (text.trimmed().isEmpty()) return {};
@@ -122,25 +161,33 @@ public:
 
     bool resolveComment(const QString& commentId) {
         const auto comment = find(commentId);
-        if (!comment || comment->isReply()) return false;
+        if (!comment || comment->isReply() || comment->deleted) return false;
         comment->resolved = true;
         return true;
     }
 
     bool reopenComment(const QString& commentId) {
         const auto comment = find(commentId);
-        if (!comment) return false;
+        if (!comment || comment->isReply() || comment->deleted) return false;
         comment->resolved = false;
         return true;
     }
 
     bool editComment(const QString& commentId, const QString& newText,
-                     const QString& editorClientId) {
+                     const QString& editorClientId, const QString& editorName,
+                     const qint64 editedAtMs) {
         const auto comment = find(commentId);
-        if (!comment) return false;
+        if (!comment || comment->deleted) return false;
         if (comment->authorClientId != editorClientId) return false;
-        if (newText.trimmed().isEmpty()) return false;
-        comment->text = newText.trimmed();
+        const QString normalizedText = newText.trimmed();
+        if (normalizedText.isEmpty() || normalizedText == comment->text) return false;
+        if (comment->revisions.size() >= CollabComment::kMaxStoredRevisions) {
+            comment->revisions.removeAt(0);
+            comment->revisionHistoryTruncated = true;
+        }
+        comment->revisions.append(CollabCommentRevision{
+            editorClientId, editorName.trimmed(), comment->text, editedAtMs});
+        comment->text = normalizedText;
         return true;
     }
 
@@ -150,6 +197,14 @@ public:
             const auto& comment = comments_[i];
             const bool isOwner = comment.authorClientId == requesterClientId;
             if (comment.commentId == commentId && isOwner) {
+                if (!comment.isReply()) {
+                    for (const auto& reply : comments_) {
+                        if (reply.parentCommentId == commentId &&
+                            reply.authorClientId != requesterClientId) {
+                            return false;
+                        }
+                    }
+                }
                 // Remove the thread root together with its replies.
                 comments_.removeAt(i);
                 for (int j = comments_.size() - 1; j >= 0; --j) {
@@ -161,6 +216,26 @@ public:
             }
         }
         return false;
+    }
+
+    [[nodiscard]] bool canDeleteComment(
+        const QString& commentId, const QString& requesterClientId) const {
+        const CollabComment* comment = find(commentId);
+        return comment && !comment->deleted &&
+               comment->authorClientId == requesterClientId;
+    }
+
+    bool deleteComment(const QString& commentId,
+                       const QString& requesterClientId) {
+        CollabComment* comment = find(commentId);
+        if (!comment || comment->deleted ||
+            comment->authorClientId != requesterClientId) {
+            return false;
+        }
+        // Retain a tombstone so replies remain visible and all peers replay
+        // later operations in the same order.
+        comment->deleted = true;
+        return true;
     }
 
     [[nodiscard]] Array<CollabComment> commentsFor(
@@ -184,10 +259,18 @@ public:
         return result;
     }
 
+    [[nodiscard]] CollabComment commentForId(
+        const QString& commentId) const {
+        const CollabComment* comment = find(commentId);
+        return comment ? *comment : CollabComment{};
+    }
+
     [[nodiscard]] int unresolvedCount() const {
         int total = 0;
         for (const auto& comment : comments_) {
-            if (!comment.resolved && !comment.isReply()) ++total;
+            if (!comment.deleted && !comment.resolved && !comment.isReply()) {
+                ++total;
+            }
         }
         return total;
     }

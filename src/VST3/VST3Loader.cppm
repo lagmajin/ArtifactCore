@@ -25,6 +25,108 @@ import Core.ArtifactString;
 // ---------------------------------------------------------------------------
 namespace Steinberg {
 
+struct ViewRect {
+    int32 left = 0;
+    int32 top = 0;
+    int32 right = 0;
+    int32 bottom = 0;
+    int32 getWidth() const { return right - left; }
+    int32 getHeight() const { return bottom - top; }
+};
+
+namespace Vst {
+
+class IPlugFrame;
+
+// VSTGUI's editor ABI is kept implementation-private: the exported host API
+// exposes only an opaque native parent and resize callback.
+class IPlugView : public FUnknown {
+public:
+    virtual tresult isPlatformTypeSupported(FIDString type) = 0;
+    virtual tresult attached(void* parent, FIDString type) = 0;
+    virtual tresult removed() = 0;
+    virtual tresult onWheel(float distance) = 0;
+    virtual tresult onKeyDown(char16 key, int16 keyCode, int16 modifiers) = 0;
+    virtual tresult onKeyUp(char16 key, int16 keyCode, int16 modifiers) = 0;
+    virtual tresult getSize(ViewRect* size) = 0;
+    virtual tresult onSize(ViewRect* size) = 0;
+    virtual tresult onFocus(TBool state) = 0;
+    virtual tresult setFrame(IPlugFrame* frame) = 0;
+    virtual tresult canResize() = 0;
+    virtual tresult checkSizeConstraint(ViewRect* rect) = 0;
+};
+
+class IPlugFrame : public FUnknown {
+public:
+    virtual tresult resizeView(IPlugView* view, ViewRect* newSize) = 0;
+};
+
+} // namespace Vst
+
+namespace {
+
+class HostPlugFrame final : public Vst::IPlugFrame {
+public:
+    HostPlugFrame(Vst::IPlugView* view, void* context,
+                  Vst::VST3EffectHost::EditorResizeCallback resizeCallback)
+        : view_(view), context_(context), resizeCallback_(resizeCallback) {}
+
+    tresult queryInterface(const TUID iid, void** object) override {
+        if (!object) return kInvalidArgument;
+        *object = nullptr;
+        TUID frameIid{};
+        makeTUID(0x367FAF01u, 0xAFA94693u, 0x8D4DA2A0u, 0xED0882A3u,
+                 frameIid);
+        TUID unknownIid{};
+        makeTUID(0x00000000u, 0x00000000u, 0xC0000000u, 0x00000046u,
+                 unknownIid);
+        if (tuidEquals(iid, frameIid) || tuidEquals(iid, unknownIid)) {
+            *object = static_cast<Vst::IPlugFrame*>(this);
+            addRef();
+            return kResultOk;
+        }
+        return kNoInterface;
+    }
+
+    uint32 addRef() override {
+        return ++references_;
+    }
+
+    uint32 release() override {
+        const uint32 remaining = --references_;
+        if (remaining == 0) delete this;
+        return remaining;
+    }
+
+    tresult resizeView(Vst::IPlugView* view, ViewRect* newSize) override {
+        if (view != view_ || !newSize || newSize->getWidth() <= 0 ||
+            newSize->getHeight() <= 0 || !resizeCallback_ ||
+            !resizeCallback_(context_, newSize->getWidth(),
+                             newSize->getHeight())) {
+            return kResultFalse;
+        }
+        return view_->onSize(newSize);
+    }
+
+private:
+    std::atomic<uint32> references_{1};
+    Vst::IPlugView* view_ = nullptr;
+    void* context_ = nullptr;
+    Vst::VST3EffectHost::EditorResizeCallback resizeCallback_ = nullptr;
+};
+
+const char8* editorPlatformType() {
+#ifdef _WIN32
+    return "HWND";
+#elif __APPLE__
+    return "NSView";
+#else
+    return "X11EmbedWindowID";
+#endif
+}
+
+} // namespace
+
 namespace {
 
 bool hexValue(char8 c, uint32& out) {
@@ -644,6 +746,11 @@ public:
     Vst::IComponent* component = nullptr;
     Vst::IAudioProcessor* processor = nullptr;
     Vst::IEditController* controller = nullptr;
+    Vst::IPlugView* editorView = nullptr;
+    HostPlugFrame* editorFrame = nullptr;
+    void* editorResizeContext = nullptr;
+    VST3EffectHost::EditorResizeCallback editorResizeCallback = nullptr;
+    bool editorResizable = false;
     HostApplication* host = nullptr;
 
     Steinberg::PFactoryInfo factoryInfo{};
@@ -683,7 +790,24 @@ public:
 
     ~Impl() { shutdown(); }
 
+    void closeEditor() {
+        if (editorView) {
+            (void)editorView->removed();
+            (void)editorView->setFrame(nullptr);
+            editorView->release();
+            editorView = nullptr;
+        }
+        if (editorFrame) {
+            editorFrame->release();
+            editorFrame = nullptr;
+        }
+        editorResizeContext = nullptr;
+        editorResizeCallback = nullptr;
+        editorResizable = false;
+    }
+
     void shutdown() {
+        closeEditor();
         if (processor && processing) {
             processor->setProcessing(0);
             processing = false;
@@ -749,6 +873,93 @@ bool VST3EffectHost::isLoaded() const {
 
 const char8* VST3EffectHost::lastError() const {
     return impl_ ? impl_->lastError_.c_str() : "";
+}
+
+bool VST3EffectHost::hasEditor() const {
+    return impl_ && impl_->controller;
+}
+
+bool VST3EffectHost::openEditor(
+    void* nativeParent, void* resizeContext,
+    EditorResizeCallback resizeCallback, int32& width, int32& height,
+    bool& resizable) {
+    width = 0;
+    height = 0;
+    resizable = false;
+    if (!impl_ || !impl_->controller || !nativeParent || impl_->editorView) {
+        return false;
+    }
+
+    auto* view = impl_->controller->createView("editor");
+    if (!view) return false;
+    const char8* platform = editorPlatformType();
+    if (view->isPlatformTypeSupported(platform) != kResultOk) {
+        view->release();
+        return false;
+    }
+
+    ViewRect size{};
+    if (view->getSize(&size) != kResultOk || size.getWidth() <= 0 ||
+        size.getHeight() <= 0) {
+        view->release();
+        return false;
+    }
+    if (resizeCallback &&
+        !resizeCallback(resizeContext, size.getWidth(), size.getHeight())) {
+        view->release();
+        return false;
+    }
+
+    auto* frame = new (std::nothrow) HostPlugFrame(
+        view, resizeContext, resizeCallback);
+    if (!frame) {
+        view->release();
+        return false;
+    }
+    if (view->setFrame(frame) != kResultOk) {
+        frame->release();
+        view->release();
+        return false;
+    }
+    if (view->attached(nativeParent, platform) != kResultOk) {
+        (void)view->setFrame(nullptr);
+        frame->release();
+        view->release();
+        return false;
+    }
+
+    impl_->editorView = view;
+    impl_->editorFrame = frame;
+    impl_->editorResizeContext = resizeContext;
+    impl_->editorResizeCallback = resizeCallback;
+    impl_->editorResizable = view->canResize() == kResultTrue;
+    width = size.getWidth();
+    height = size.getHeight();
+    resizable = impl_->editorResizable;
+    return true;
+}
+
+bool VST3EffectHost::resizeEditor(int32 width, int32 height) {
+    if (!impl_ || !impl_->editorView || !impl_->editorResizable ||
+        width <= 0 || height <= 0) {
+        return false;
+    }
+    ViewRect size{0, 0, width, height};
+    if (impl_->editorView->checkSizeConstraint(&size) != kResultOk ||
+        size.getWidth() <= 0 || size.getHeight() <= 0) {
+        return false;
+    }
+    if ((size.getWidth() != width || size.getHeight() != height) &&
+        (!impl_->editorResizeCallback ||
+         !impl_->editorResizeCallback(impl_->editorResizeContext,
+                                      size.getWidth(), size.getHeight()))) {
+        return false;
+    }
+    return impl_->editorView->onSize(&size) == kResultOk;
+}
+
+void VST3EffectHost::closeEditor() {
+    if (impl_) impl_->closeEditor();
 }
 
 bool VST3EffectHost::load(const ArtifactCore::String& pluginPath, int32 classIndex) {

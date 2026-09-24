@@ -209,13 +209,19 @@ public:
         participant.lastPresenceMs = atMs;
     }
 
-    void processUserLeft(const QString& clientId) {
+    [[nodiscard]] Array<QString> processUserLeft(const QString& clientId) {
         participants_.remove(clientId);
         // Server releases the departed peer's locks; mirror that locally.
+        Array<QString> releasedLocks;
         for (auto it = locks_.begin(); it != locks_.end();) {
-            if (it->clientId == clientId) it = locks_.erase(it);
-            else ++it;
+            if (it->clientId == clientId) {
+                releasedLocks.append(it.key());
+                it = locks_.erase(it);
+            } else {
+                ++it;
+            }
         }
+        return releasedLocks;
     }
 
     void processPresence(const QString& clientId, const QJsonObject& presence,
@@ -224,6 +230,23 @@ public:
         if (it == participants_.end()) return;
         it->presence = presence;
         it->lastPresenceMs = atMs;
+    }
+
+    // Presence messages also carry the server-provided identity snapshot.
+    // Refresh it here so participants who were already in a room when this
+    // client joined still acquire their display name and color on first update.
+    void processPresence(const QString& clientId, const QString& userId,
+                         const QString& userName, const QString& userColor,
+                         const QJsonObject& presence, const qint64 atMs) {
+        auto it = participants_.find(clientId);
+        if (it == participants_.end()) {
+            processUserJoined(clientId, userId, userName, userColor, atMs);
+        } else {
+            if (!userId.isEmpty()) it->userId = userId;
+            if (!userName.isEmpty()) it->userName = userName;
+            if (!userColor.isEmpty()) it->userColor = userColor;
+        }
+        processPresence(clientId, presence, atMs);
     }
 
     // Typed variant: parses the standard presence keys and keeps unknown
@@ -304,7 +327,8 @@ public:
         return op;
     }
 
-    void processRemoteOperation(const CollabOperationData& operation) {
+    [[nodiscard]] bool processRemoteOperation(
+        const CollabOperationData& operation) {
         const QString key = operation.dedupeKey();
         if (seenKeys_.contains(key)) {
             // Echo of a local operation: record only the server-assigned
@@ -318,7 +342,7 @@ public:
                     }
                 }
             }
-            return;
+            return false;
         }
         seenKeys_.insert(key);
         CollabOperationData op = operation;
@@ -327,11 +351,60 @@ public:
         }
         lastRemoteVersion_ = op.version > lastRemoteVersion_ ? op.version : lastRemoteVersion_;
         operationLog_.append(op);
+        return true;
+    }
+
+    [[nodiscard]] bool hasSeenOperation(
+        const CollabOperationData& operation) const {
+        return seenKeys_.contains(operation.dedupeKey());
+    }
+
+    [[nodiscard]] bool isPendingLocalOperation(
+        const CollabOperationData& operation) const {
+        if (operation.clientId != local_.clientId || operation.sequence < 0) {
+            return false;
+        }
+        const QString key = operation.dedupeKey();
+        for (const auto& logged : operationLog_) {
+            if (logged.dedupeKey() == key && logged.version < 0) return true;
+        }
+        return false;
+    }
+
+    [[nodiscard]] bool discardPendingLocalOperation(
+        const CollabOperationData& operation) {
+        if (!isPendingLocalOperation(operation)) return false;
+        const QString key = operation.dedupeKey();
+        for (int i = 0; i < operationLog_.size(); ++i) {
+            if (operationLog_[i].dedupeKey() == key &&
+                operationLog_[i].version < 0) {
+                operationLog_.removeAt(i);
+                seenKeys_.remove(key);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    [[nodiscard]] bool discardPendingLocalOperation(
+        const QString& clientId, const qint64 sequence) {
+        if (clientId != local_.clientId || sequence < 0) return false;
+        const QString key = QStringLiteral("seq:%1|%2")
+                                .arg(clientId, QString::number(sequence));
+        for (int i = 0; i < operationLog_.size(); ++i) {
+            if (operationLog_[i].dedupeKey() == key &&
+                operationLog_[i].version < 0) {
+                operationLog_.removeAt(i);
+                seenKeys_.remove(key);
+                return true;
+            }
+        }
+        return false;
     }
 
     void processHistory(const Array<CollabOperationData>& operations) {
         for (const auto& operation : operations) {
-            processRemoteOperation(operation);
+            (void)processRemoteOperation(operation);
         }
     }
 
@@ -409,6 +482,12 @@ public:
             result.append(it.value());
         }
         return result;
+    }
+
+    void clearLocks() {
+        locks_.clear();
+        pendingLockRequests_.clear();
+        lockDenialReasons_.clear();
     }
 
     [[nodiscard]] bool hasPendingLockRequest(const QString& layerId) const {

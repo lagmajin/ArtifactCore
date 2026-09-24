@@ -12,18 +12,10 @@ set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "")
 # and place public .cppm units in ARTIFACTCORE_MODULE_SOURCES explicitly.
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ArtifactCoreSources.cmake")
 if(MSVC)
-    # The explicit std.ifc is attached per source from the top-level project
-    # after the complete module source list is known.  Applying it here to
-    # every Core translation unit makes header-based modules (for example
-    # Animation.Transform3D) mix textual STL headers with the named std BMI.
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/Render/RenderStatics.ixx"
-        PROPERTIES COMPILE_OPTIONS
-        [=[/reference;std=CMakeFiles\\__cmake_cxx23.dir\\artifact_std.ifc]=])
-    set_source_files_properties(
-          "${CMAKE_CURRENT_SOURCE_DIR}/include/Common/ThreadPool.ixx"
-          PROPERTIES COMPILE_OPTIONS
-          [=[/reference;std=CMakeFiles\\__cmake_cxx23.dir\\artifact_std.ifc]=])
+    # The generated module compile rules already provide the canonical
+    # absolute std.ifc reference. Do not attach a second source-local path:
+    # the relative spelling conflicts with the absolute IFC path under
+    # synthesized module targets (MSVC C7684).
 endif()
 
 
@@ -3808,7 +3800,13 @@ foreach(_artifact_module_reference IN LISTS ARTIFACTCORE_IMPLEMENTATION_MODULE_R
     endif()
     set_property(SOURCE "${_artifact_impl_file}" PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${_artifact_owner_target_dir}/${_artifact_interface_relative}.obj")
-    if(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform2D.cppm")
+    if(_artifact_impl_relative STREQUAL "src/Geometry/Procedural3DGenerators.cppm")
+        # The earlier source-specific dependency is replaced by the generic
+        # interface attachment above.  Restore the imported ShapeExtrude BMI
+        # producer ordering for this unscanned implementation unit.
+        set_property(SOURCE "${_artifact_impl_file}" APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/include/Geometry/ShapeExtrude.ixx.obj")
+    elseif(_artifact_impl_relative STREQUAL "src/Animation/AnimatableTransform2D.cppm")
         # Keep this attachment unscanned (MSVC/CMake otherwise forms a dyndep
         # cycle through Animation.Transform2D), but also order its imported
         # Animation.Value BMI before compilation.
@@ -4944,6 +4942,11 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/TieredAIManager.cppm"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/AIContext.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/LocalAIAgent.ixx.obj"
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/ICloudAIAgent.ixx.obj")
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/APIKeyManager.cppm"
+    APPEND PROPERTY OBJECT_DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/ICloudAIAgent.ixx.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/include/Configuration/ConfigLayer.ixx.obj"
+        "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreConfiguration.dir/include/Configuration/LayeredConfigStore.ixx.obj")
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/AI/OnnxDmlLocalAgent.cppm"
     APPEND PROPERTY OBJECT_DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreAI.dir/include/AI/OnnxDmlLocalAgent.ixx.obj"

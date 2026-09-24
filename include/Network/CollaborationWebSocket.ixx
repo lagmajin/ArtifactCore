@@ -3,6 +3,7 @@ module;
 #include <QObject>
 #include <QString>
 #include <QJsonObject>
+#include <functional>
 #include <wobjectdefs.h>
 
 export module Network.CollaborationWebSocket;
@@ -22,6 +23,8 @@ enum class CollabConnectionState {
 
 struct JoinMessage {
     QString projectId;
+    QString projectFingerprint;
+    QString accessToken;
     QString clientId;
     QString userId;
     QString userName;
@@ -82,13 +85,24 @@ public:
     void disconnect();
 
     bool isConnected() const;
+    // True after the server has replayed room history and sent its initial
+    // participant/lock snapshots for the current connection.
+    bool isRoomReady() const;
+    bool isReadOnly() const;
     CollabConnectionState connectionState() const;
+    void setConnectionStateCallback(
+        std::function<void(CollabConnectionState)> callback);
+    void setRoomReadyCallback(std::function<void()> callback);
+    void setProtocolErrorCallback(
+        std::function<void(const QString&)> callback);
+    void setOperationRejectedCallback(
+        std::function<void(const QString&, qint64, const QString&)> callback);
 
     // --- Outgoing ---
-    void sendOperation(const OperationMessage& op);
-    void sendLockRequest(const LockRequestMessage& req);
-    void sendLockRelease(const LockReleaseMessage& rel);
-    void sendPresence(const PresenceMessage& pres);
+    [[nodiscard]] bool sendOperation(const OperationMessage& op);
+    [[nodiscard]] bool sendLockRequest(const LockRequestMessage& req);
+    [[nodiscard]] bool sendLockRelease(const LockReleaseMessage& rel);
+    [[nodiscard]] bool sendPresence(const PresenceMessage& pres);
 
     // --- Rule sync (CollaborationProtocol) ---
     void sendRuleSync(const QString& type, const QString& ruleId, const QString& payload);
@@ -110,8 +124,8 @@ public:
     void remotePresence(const PresenceMessage& pres)
         W_SIGNAL(remotePresence, pres);
     void userJoined(const QString& clientId, const QString& userId,
-                    const QString& userName)
-        W_SIGNAL(userJoined, clientId, userId, userName);
+                    const QString& userName, const QString& userColor)
+        W_SIGNAL(userJoined, clientId, userId, userName, userColor);
     void userLeft(const QString& clientId, const QString& userId,
                   const QString& userName)
         W_SIGNAL(userLeft, clientId, userId, userName);

@@ -1,5 +1,6 @@
 module;
 #include <QWebSocket>
+#include <QWebSocketProtocol>
 #include <QTimer>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -23,6 +24,10 @@ QJsonObject JoinMessage::toJson() const {
     QJsonObject obj;
     obj[QStringLiteral("type")] = QStringLiteral("join");
     obj[QStringLiteral("projectId")] = projectId;
+    obj[QStringLiteral("projectFingerprint")] = projectFingerprint;
+    if (!accessToken.isEmpty()) {
+        obj[QStringLiteral("accessToken")] = accessToken;
+    }
     obj[QStringLiteral("clientId")] = clientId;
     obj[QStringLiteral("userId")] = userId;
     obj[QStringLiteral("userName")] = userName;
@@ -75,27 +80,64 @@ public:
     QWebSocket ws;
     QTimer heartbeatTimer, reconnectTimer;
     CollabConnectionState state = CollabConnectionState::Disconnected;
+    bool roomReady = false;
+    bool readOnly = false;
     JoinMessage joinInfo;
     QString serverUrl;
     QString sessionId;
     std::deque<std::function<void()>> pendingQueue;
+    std::function<void(CollabConnectionState)> connectionStateCallback;
+    std::function<void()> roomReadyCallback;
+    std::function<void(const QString&)> protocolErrorCallback;
+    std::function<void(const QString&, qint64, const QString&)>
+        operationRejectedCallback;
     int reconnectAttempt = 0;
     static constexpr int kMaxQueue = 256, kMaxReconnect = 6;
     static constexpr int kReconnectBaseMs = 1000, kReconnectCapMs = 30000, kHeartbeatMs = 25000;
 
     void setState(CollabConnectionState s, CollaborationWebSocket* self) {
-        if (state != s) { state = s; Q_EMIT self->connectionStateChanged(s); }
+        if (state != s) {
+            state = s;
+            if (connectionStateCallback) connectionStateCallback(s);
+            Q_EMIT self->connectionStateChanged(s);
+        }
     }
     void flushQueue() {
-        while (!pendingQueue.empty()) { pendingQueue.front()(); pendingQueue.pop_front(); }
+        while (!pendingQueue.empty()) {
+            pendingQueue.front()();
+            pendingQueue.pop_front();
+        }
     }
-    void enqueue(std::function<void()> fn) {
-        if ((int)pendingQueue.size() >= kMaxQueue) pendingQueue.pop_front();
-        pendingQueue.push_back(std::move(fn));
+    void reportProtocolError(const QString& reason,
+                             CollaborationWebSocket* self) {
+        if (protocolErrorCallback) protocolErrorCallback(reason);
+        Q_EMIT self->protocolError(reason);
     }
-    void sendOrQueue(CollaborationWebSocket* self, std::function<void()> fn) {
-        if (state == CollabConnectionState::Connected) fn();
-        else enqueue(std::move(fn));
+    bool enqueue(std::function<qint64()> send) {
+        if (static_cast<int>(pendingQueue.size()) >= kMaxQueue) {
+            return false;
+        }
+        pendingQueue.push_back([send = std::move(send)]() {
+            if (send() < 0) {
+                qWarning() << "[CollaborationWebSocket] Queued message send failed";
+            }
+        });
+        return true;
+    }
+    bool sendOrQueue(CollaborationWebSocket* self,
+                     std::function<qint64()> send) {
+        if (state != CollabConnectionState::Connected) {
+            if (enqueue(std::move(send))) return true;
+            const QString reason = QStringLiteral("Outbound collaboration queue is full");
+            qWarning() << "[CollaborationWebSocket]" << reason;
+            reportProtocolError(reason, self);
+            return false;
+        }
+        if (send() >= 0) return true;
+        const QString reason = QStringLiteral("Could not send collaboration message");
+        qWarning() << "[CollaborationWebSocket]" << reason;
+        reportProtocolError(reason, self);
+        return false;
     }
     void scheduleReconnect(CollaborationWebSocket* self) {
         if (reconnectAttempt >= kMaxReconnect) {
@@ -115,6 +157,8 @@ CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
     impl_->sessionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     auto* s = this;
     QObject::connect(&impl_->ws, &QWebSocket::connected, s, [s, this]() {
+        impl_->roomReady = false;
+        impl_->readOnly = false;
         impl_->reconnectAttempt = 0; impl_->reconnectTimer.stop();
         impl_->setState(CollabConnectionState::Connected, s);
         QJsonDocument doc(impl_->joinInfo.toJson());
@@ -123,7 +167,14 @@ CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
         impl_->heartbeatTimer.start(Impl::kHeartbeatMs);
     });
     QObject::connect(&impl_->ws, &QWebSocket::disconnected, s, [s, this]() {
+        impl_->roomReady = false;
         impl_->heartbeatTimer.stop();
+        if (impl_->ws.closeCode() ==
+            QWebSocketProtocol::CloseCodePolicyViolated) {
+            impl_->reconnectTimer.stop();
+            impl_->setState(CollabConnectionState::Error, s);
+            return;
+        }
         if (impl_->state == CollabConnectionState::Connected ||
             impl_->state == CollabConnectionState::Reconnecting)
             impl_->scheduleReconnect(s);
@@ -133,19 +184,34 @@ CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
             QJsonParseError err;
             QJsonDocument doc = QJsonDocument::fromJson(msg.toUtf8(), &err);
             if (err.error != QJsonParseError::NoError) {
-                Q_EMIT s->protocolError(QStringLiteral("Invalid JSON: %1").arg(err.errorString()));
+                impl_->reportProtocolError(
+                    QStringLiteral("Invalid JSON: %1").arg(err.errorString()), s);
                 return;
             }
             if (!doc.isObject()) return;
             QJsonObject o = doc.object();
             QString t = o.value(QStringLiteral("type")).toString();
-            if (t == QStringLiteral("operation")) {
+            if (t == QStringLiteral("room_ready")) {
+                if (!impl_->roomReady) {
+                    impl_->readOnly =
+                        o.value(QStringLiteral("role")).toString() ==
+                        QStringLiteral("viewer");
+                    impl_->roomReady = true;
+                    if (impl_->roomReadyCallback) {
+                        impl_->roomReadyCallback();
+                    }
+                }
+            } else if (t == QStringLiteral("operation")) {
                 OperationMessage op;
                 op.clientId = o.value(QStringLiteral("clientId")).toString();
                 op.operation = o.value(QStringLiteral("operation")).toObject();
                 op.version = o.value(QStringLiteral("version")).toInt();
                 Q_EMIT s->remoteOperation(op);
             } else if (t == QStringLiteral("lock_granted")) {
+                Q_EMIT s->remoteLockGranted(o.value(QStringLiteral("layerId")).toString(),
+                    o.value(QStringLiteral("clientId")).toString(),
+                    o.value(QStringLiteral("userId")).toString());
+            } else if (t == QStringLiteral("lock_updated")) {
                 Q_EMIT s->remoteLockGranted(o.value(QStringLiteral("layerId")).toString(),
                     o.value(QStringLiteral("clientId")).toString(),
                     o.value(QStringLiteral("userId")).toString());
@@ -166,7 +232,8 @@ CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
             } else if (t == QStringLiteral("user_joined")) {
                 Q_EMIT s->userJoined(o.value(QStringLiteral("clientId")).toString(),
                     o.value(QStringLiteral("userId")).toString(),
-                    o.value(QStringLiteral("userName")).toString());
+                    o.value(QStringLiteral("userName")).toString(),
+                    o.value(QStringLiteral("userColor")).toString());
             } else if (t == QStringLiteral("user_left")) {
                 Q_EMIT s->userLeft(o.value(QStringLiteral("clientId")).toString(),
                     o.value(QStringLiteral("userId")).toString(),
@@ -183,7 +250,23 @@ CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
                     Q_EMIT s->remoteOperation(op);
                 }
             } else if (t == QStringLiteral("error")) {
-                Q_EMIT s->protocolError(o.value(QStringLiteral("message")).toString());
+                const QString message =
+                    o.value(QStringLiteral("message")).toString();
+                const QJsonValue rejectedSequence =
+                    o.value(QStringLiteral("opSeq"));
+                impl_->reportProtocolError(message, s);
+                if (rejectedSequence.isDouble() &&
+                    std::isfinite(rejectedSequence.toDouble()) &&
+                    std::floor(rejectedSequence.toDouble()) ==
+                        rejectedSequence.toDouble() &&
+                    rejectedSequence.toDouble() >= 0.0 &&
+                    rejectedSequence.toDouble() <= 9007199254740991.0 &&
+                    impl_->operationRejectedCallback) {
+                    impl_->operationRejectedCallback(
+                        o.value(QStringLiteral("clientId")).toString(),
+                        static_cast<qint64>(rejectedSequence.toDouble()),
+                        message);
+                }
             // --- Rule sync (Collaborate.Protocol) ---
             } else if (t == QStringLiteral("rule_added")) {
                 Q_EMIT s->ruleAdded(o.value(QStringLiteral("ruleId")).toString(),
@@ -219,12 +302,14 @@ CollaborationWebSocket::CollaborationWebSocket(QObject* parent)
 CollaborationWebSocket::~CollaborationWebSocket() { delete impl_; }
 
 void CollaborationWebSocket::connectToServer(const QString& url, const JoinMessage& join) {
+    impl_->roomReady = false;
     impl_->serverUrl = url; impl_->joinInfo = join; impl_->reconnectAttempt = 0;
     impl_->setState(CollabConnectionState::Connecting, this);
     impl_->ws.open(QUrl(url));
 }
 
 void CollaborationWebSocket::disconnect() {
+    impl_->roomReady = false;
     impl_->reconnectTimer.stop(); impl_->heartbeatTimer.stop();
     impl_->ws.close(); impl_->setState(CollabConnectionState::Disconnected, this);
 }
@@ -233,34 +318,62 @@ bool CollaborationWebSocket::isConnected() const {
     return impl_->state == CollabConnectionState::Connected;
 }
 
+bool CollaborationWebSocket::isRoomReady() const {
+    return impl_->state == CollabConnectionState::Connected && impl_->roomReady;
+}
+
+bool CollaborationWebSocket::isReadOnly() const {
+    return impl_->readOnly;
+}
+
 CollabConnectionState CollaborationWebSocket::connectionState() const {
     return impl_->state;
 }
 
-void CollaborationWebSocket::sendOperation(const OperationMessage& op) {
-    impl_->sendOrQueue(this, [this, op]() {
-        impl_->ws.sendTextMessage(
+void CollaborationWebSocket::setConnectionStateCallback(
+    std::function<void(CollabConnectionState)> callback) {
+    impl_->connectionStateCallback = std::move(callback);
+}
+
+void CollaborationWebSocket::setRoomReadyCallback(
+    std::function<void()> callback) {
+    impl_->roomReadyCallback = std::move(callback);
+}
+
+void CollaborationWebSocket::setProtocolErrorCallback(
+    std::function<void(const QString&)> callback) {
+    impl_->protocolErrorCallback = std::move(callback);
+}
+
+void CollaborationWebSocket::setOperationRejectedCallback(
+    std::function<void(const QString&, qint64, const QString&)> callback) {
+    impl_->operationRejectedCallback = std::move(callback);
+}
+
+bool CollaborationWebSocket::sendOperation(const OperationMessage& op) {
+    return impl_->sendOrQueue(this, [this, op]() {
+        return impl_->ws.sendTextMessage(
             QString::fromUtf8(QJsonDocument(op.toJson()).toJson(QJsonDocument::Compact)));
     });
 }
 
-void CollaborationWebSocket::sendLockRequest(const LockRequestMessage& req) {
-    impl_->sendOrQueue(this, [this, req]() {
-        impl_->ws.sendTextMessage(
+bool CollaborationWebSocket::sendLockRequest(const LockRequestMessage& req) {
+    return impl_->sendOrQueue(this, [this, req]() {
+        return impl_->ws.sendTextMessage(
             QString::fromUtf8(QJsonDocument(req.toJson()).toJson(QJsonDocument::Compact)));
     });
 }
 
-void CollaborationWebSocket::sendLockRelease(const LockReleaseMessage& rel) {
-    impl_->sendOrQueue(this, [this, rel]() {
-        impl_->ws.sendTextMessage(
+bool CollaborationWebSocket::sendLockRelease(const LockReleaseMessage& rel) {
+    return impl_->sendOrQueue(this, [this, rel]() {
+        return impl_->ws.sendTextMessage(
             QString::fromUtf8(QJsonDocument(rel.toJson()).toJson(QJsonDocument::Compact)));
     });
 }
 
-void CollaborationWebSocket::sendPresence(const PresenceMessage& pres) {
-    impl_->sendOrQueue(this, [this, pres]() {
-        impl_->ws.sendTextMessage(
+bool CollaborationWebSocket::sendPresence(const PresenceMessage& pres) {
+    return impl_->sendOrQueue(this, [this, pres]() {
+        return impl_->ws.sendTextMessage(
             QString::fromUtf8(QJsonDocument(pres.toJson()).toJson(QJsonDocument::Compact)));
     });
 }
@@ -274,7 +387,7 @@ void CollaborationWebSocket::sendRuleSync(const QString& type, const QString& ru
         if (!payload.isEmpty()) {
             obj[QStringLiteral("payload")] = QJsonDocument::fromJson(payload.toUtf8()).object();
         }
-        impl_->ws.sendTextMessage(
+        return impl_->ws.sendTextMessage(
             QString::fromUtf8(QJsonDocument(obj).toJson(QJsonDocument::Compact)));
     });
 }

@@ -428,6 +428,17 @@ public:
     ParamValue parameterNormalized(ParamID id) const;
     bool flushPendingParameters();
 
+    // The caller owns the native parent window and invokes these on the UI
+    // thread. The optional callback lets the application resize its container
+    // before the plug-in view receives onSize() for plug-in initiated changes.
+    using EditorResizeCallback = bool (*)(void* context, int32 width, int32 height);
+    bool openEditor(void* nativeParent, void* resizeContext,
+                    EditorResizeCallback resizeCallback,
+                    int32& width, int32& height, bool& resizable);
+    bool resizeEditor(int32 width, int32 height);
+    void closeEditor();
+    bool hasEditor() const;
+
     // inputs/outputs must provide inputChannelCount()/outputChannelCount()
     // channel pointers each; buses without requested channels may be nullptr.
     bool processFloat(Sample32* const* inputs, int32 numInputChannels,
