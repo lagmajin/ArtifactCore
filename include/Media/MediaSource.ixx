@@ -33,6 +33,7 @@ public:
 
     bool open(const QString& url);
     bool seek(int64_t timestampMs);
+    bool seekPts(int streamIndex, int64_t pts);
     void close();
     bool isOpen() const { return formatContext_ != nullptr; }
 

@@ -56,6 +56,8 @@ cbuffer BlendParams : register(b0)
     uint displayComponentY;
     uint displayComponentZ;
     uint _displayPad;
+    uint2 dispatchOrigin;
+    uint2 dispatchExtent;
 };
 
 #define CHECK_BOUNDS \
@@ -74,6 +76,19 @@ cbuffer BlendParams : register(b0)
     if (srcA <= 0.0001) { OutTex[id.xy] = dst; return; } \
     if (dst.a <= 0.0001) { OutTex[id.xy] = float4(srcRGB, srcA); return; }
 
+#define LOAD_NORMAL_BLEND_PIXELS \
+    uint outWidth, outHeight; \
+    OutTex.GetDimensions(outWidth, outHeight); \
+    uint2 pixelCoord = id.xy + dispatchOrigin; \
+    if (id.x >= dispatchExtent.x || id.y >= dispatchExtent.y || \
+        pixelCoord.x >= outWidth || pixelCoord.y >= outHeight) return; \
+    float4 src = SrcTex[pixelCoord]; \
+    float4 dst = DstTex[pixelCoord]; \
+    float srcA = saturate(src.a * opacity); \
+    float3 srcRGB = src.rgb * srcA; \
+    if (srcA <= 0.0001) { OutTex[pixelCoord] = dst; return; } \
+    if (dst.a <= 0.0001) { OutTex[pixelCoord] = float4(srcRGB, srcA); return; }
+
 float OutAlpha(float srcAlpha, float dstAlpha)
 {
     return srcAlpha + dstAlpha * (1.0 - srcAlpha);
@@ -90,17 +105,56 @@ LIBRARY_DLL_API const QByteArray layerToFloatShaderText = R"(
 Texture2D<float4> SrcTex : register(t0);
 RWTexture2D<float4> OutTex : register(u0);
 
+cbuffer BlendParams : register(b0)
+{
+    float opacity;
+    uint blendMode;
+    float2 _pad;
+    uint displayMode;
+    uint displayComponentY;
+    uint displayComponentZ;
+    uint _displayPad;
+    uint2 dispatchOrigin;
+    uint2 dispatchExtent;
+};
+
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
     uint outWidth, outHeight;
     OutTex.GetDimensions(outWidth, outHeight);
-    if (id.x >= outWidth || id.y >= outHeight) return;
+    uint2 pixelCoord = id.xy + dispatchOrigin;
+    if (id.x >= dispatchExtent.x || id.y >= dispatchExtent.y ||
+        pixelCoord.x >= outWidth || pixelCoord.y >= outHeight) return;
 
-    float4 src = SrcTex[id.xy];
+    float4 src = SrcTex[pixelCoord];
     float alpha = saturate(src.a);
     float3 straight = (alpha > 1e-6) ? (src.rgb / alpha) : float3(0.0, 0.0, 0.0);
-    OutTex[id.xy] = float4(saturate(straight), alpha);
+    OutTex[pixelCoord] = float4(saturate(straight), alpha);
+}
+)";
+
+LIBRARY_DLL_API const QByteArray clearRegionShaderText = R"(
+RWTexture2D<float4> OutTex : register(u0);
+
+cbuffer BlendParams : register(b0)
+{
+    float opacity;
+    uint blendMode;
+    float2 _pad;
+    uint displayMode;
+    uint displayComponentY;
+    uint displayComponentZ;
+    uint _displayPad;
+    uint2 dispatchOrigin;
+    uint2 dispatchExtent;
+};
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= dispatchExtent.x || id.y >= dispatchExtent.y) return;
+    OutTex[id.xy + dispatchOrigin] = float4(0.0, 0.0, 0.0, 0.0);
 }
 )";
 
@@ -158,10 +212,10 @@ LIBRARY_DLL_API const QByteArray normalBlendShaderText = QByteArray(blendShaderH
 [numthreads(8,8,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    LOAD_BLEND_PIXELS
+    LOAD_NORMAL_BLEND_PIXELS
     float3 blended = srcRGB + dst.rgb * (1.0 - srcA);
     float outA = srcA + dst.a * (1.0 - srcA);
-    OutTex[id.xy] = float4(blended, outA);
+    OutTex[pixelCoord] = float4(blended, outA);
 }
 )";
 

@@ -101,6 +101,7 @@ bool LayerBlendPipeline::createConstantBuffer()
 bool LayerBlendPipeline::createExecutors()
 {
  static ShaderResourceVariableDesc layerToFloatVars[] = {
+  {SHADER_TYPE_COMPUTE, "BlendParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   {SHADER_TYPE_COMPUTE, "SrcTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
  };
@@ -111,12 +112,31 @@ bool LayerBlendPipeline::createExecutors()
  layerToFloatDesc.entryPoint = "main";
  layerToFloatDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
  layerToFloatDesc.variables = layerToFloatVars;
- layerToFloatDesc.variableCount = 2;
+ layerToFloatDesc.variableCount = 3;
  layerToFloatDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
  if (!layerToFloatExecutor_->build(layerToFloatDesc) ||
      !layerToFloatExecutor_->createShaderResourceBinding(true)) {
   qWarning() << "[LayerBlendPipeline] layer-to-float conversion PSO build failed";
   layerToFloatExecutor_.reset();
+ }
+
+ static ShaderResourceVariableDesc clearRegionVars[] = {
+  {SHADER_TYPE_COMPUTE, "BlendParams", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  {SHADER_TYPE_COMPUTE, "OutTex", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+ };
+ clearRegionExecutor_ = std::make_unique<ComputeExecutor>(*context_);
+ ComputePipelineDesc clearRegionDesc;
+ clearRegionDesc.name = "Clear Compute Region PSO";
+ clearRegionDesc.shaderSource = clearRegionShaderText.constData();
+ clearRegionDesc.entryPoint = "main";
+ clearRegionDesc.sourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+ clearRegionDesc.variables = clearRegionVars;
+ clearRegionDesc.variableCount = 2;
+ clearRegionDesc.defaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+ if (!clearRegionExecutor_->build(clearRegionDesc) ||
+     !clearRegionExecutor_->createShaderResourceBinding(true)) {
+  qWarning() << "[LayerBlendPipeline] clear-region PSO build failed";
+  clearRegionExecutor_.reset();
  }
 
  static ShaderResourceVariableDesc channelComponentDisplayVars[] = {
@@ -505,8 +525,22 @@ bool LayerBlendPipeline::convertLayerToFloat(
  Uint32 height
 )
 {
+ const ComputeRegion fullRegion{0, 0, width, height};
+ return convertLayerToFloat(ctx, srcSRV, outUAV, width, height, fullRegion);
+}
+
+bool LayerBlendPipeline::convertLayerToFloat(
+ IDeviceContext* ctx,
+ ITextureView* srcSRV,
+ ITextureView* outUAV,
+ Uint32 width,
+ Uint32 height,
+ const ComputeRegion& region
+)
+{
  if (!ctx || !srcSRV || !outUAV || !layerToFloatExecutor_ ||
-     !layerToFloatExecutor_->ready() || width == 0 || height == 0) {
+     !layerToFloatExecutor_->ready() || !pImpl_->pBlendCB_ ||
+     width == 0 || height == 0) {
   qCritical() << "[LayerBlendPipeline::convertLayerToFloat] invalid input"
               << "ctx=" << static_cast<bool>(ctx)
               << "srcSRV=" << static_cast<bool>(srcSRV)
@@ -539,14 +573,90 @@ bool LayerBlendPipeline::convertLayerToFloat(
   return false;
  }
 
- if (!layerToFloatExecutor_->setTextureView("SrcTex", srcSRV) ||
+ if (!region.validFor(width, height)) {
+  qWarning() << "[LayerBlendPipeline::convertLayerToFloat] invalid region"
+             << "region=" << region.x << region.y
+             << region.width << region.height
+             << "target=" << width << height;
+  return false;
+ }
+
+ currentParams_.dispatchOriginX = region.x;
+ currentParams_.dispatchOriginY = region.y;
+ currentParams_.dispatchExtentX = region.width;
+ currentParams_.dispatchExtentY = region.height;
+ void* parameterData = nullptr;
+ ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD,
+                parameterData);
+ if (!parameterData) {
+  qCritical() << "[LayerBlendPipeline::convertLayerToFloat] BlendParams map failed";
+  return false;
+ }
+ memcpy(parameterData, &currentParams_, sizeof(BlendParams));
+ ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
+
+ if (!layerToFloatExecutor_->setBuffer("BlendParams", pImpl_->pBlendCB_) ||
+     !layerToFloatExecutor_->setTextureView("SrcTex", srcSRV) ||
      !layerToFloatExecutor_->setTextureView("OutTex", outUAV)) {
   qCritical() << "[LayerBlendPipeline::convertLayerToFloat] failed to bind texture views";
   return false;
  }
 
- auto attribs = ComputeExecutor::makeDispatchAttribs(width, height, 1, 8, 8, 1);
+ DispatchComputeAttribs attribs;
+ attribs.ThreadGroupCountX = (region.width - 1) / 8 + 1;
+ attribs.ThreadGroupCountY = (region.height - 1) / 8 + 1;
+ attribs.ThreadGroupCountZ = 1;
  layerToFloatExecutor_->dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+ return true;
+}
+
+bool LayerBlendPipeline::clearRegion(
+ IDeviceContext* ctx,
+ ITextureView* outUAV,
+ const ComputeRegion& region
+)
+{
+ if (!ctx || !outUAV || !clearRegionExecutor_ ||
+     !clearRegionExecutor_->ready() || !pImpl_->pBlendCB_) {
+  return false;
+ }
+
+ const auto* outTexture = outUAV->GetTexture();
+ if (!outTexture || outUAV->GetDesc().ViewType != TEXTURE_VIEW_UNORDERED_ACCESS) {
+  return false;
+ }
+ const auto& outDesc = outTexture->GetDesc();
+ if (outDesc.Type != RESOURCE_DIM_TEX_2D || outDesc.SampleCount != 1 ||
+     (outDesc.Format != TEX_FORMAT_RGBA16_FLOAT &&
+      outDesc.Format != TEX_FORMAT_RGBA32_FLOAT) ||
+     !region.validFor(outDesc.Width, outDesc.Height)) {
+  return false;
+ }
+
+ currentParams_.dispatchOriginX = region.x;
+ currentParams_.dispatchOriginY = region.y;
+ currentParams_.dispatchExtentX = region.width;
+ currentParams_.dispatchExtentY = region.height;
+ void* parameterData = nullptr;
+ ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD,
+                parameterData);
+ if (!parameterData) {
+  return false;
+ }
+ memcpy(parameterData, &currentParams_, sizeof(BlendParams));
+ ctx->UnmapBuffer(pImpl_->pBlendCB_, MAP_WRITE);
+
+ if (!clearRegionExecutor_->setBuffer("BlendParams", pImpl_->pBlendCB_) ||
+     !clearRegionExecutor_->setTextureView("OutTex", outUAV)) {
+  return false;
+ }
+
+ DispatchComputeAttribs attribs;
+ attribs.ThreadGroupCountX = (region.width - 1) / 8 + 1;
+ attribs.ThreadGroupCountY = (region.height - 1) / 8 + 1;
+ attribs.ThreadGroupCountZ = 1;
+ clearRegionExecutor_->dispatch(
+     ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
  return true;
 }
 
@@ -651,6 +761,24 @@ bool LayerBlendPipeline::blend(
  float opacity
 )
 {
+ if (!outUAV || !outUAV->GetTexture()) {
+  return false;
+ }
+ const auto& outDesc = outUAV->GetTexture()->GetDesc();
+ const ComputeRegion fullRegion{0, 0, outDesc.Width, outDesc.Height};
+ return blend(ctx, srcSRV, dstSRV, outUAV, mode, opacity, fullRegion);
+}
+
+bool LayerBlendPipeline::blend(
+ IDeviceContext* ctx,
+ ITextureView* srcSRV,
+ ITextureView* dstSRV,
+ ITextureView* outUAV,
+ BlendMode mode,
+ float opacity,
+ const ComputeRegion& region
+)
+{
  // [Fix: 詳細チェック]
  if (!ctx) {
   qCritical() << "[LayerBlendPipeline::blend] ctx is null";
@@ -701,6 +829,19 @@ bool LayerBlendPipeline::blend(
   return false;
  }
 
+ const bool fullRegion = region.x == 0 && region.y == 0 &&
+                         region.width == outDesc.Width &&
+                         region.height == outDesc.Height;
+ if (!region.validFor(outDesc.Width, outDesc.Height) ||
+     (!fullRegion && mode != BlendMode::Normal)) {
+  qWarning() << "[LayerBlendPipeline::blend] unsupported compute region"
+             << "mode=" << static_cast<unsigned int>(mode)
+             << "region=" << region.x << region.y
+             << region.width << region.height
+             << "target=" << outDesc.Width << outDesc.Height;
+  return false;
+ }
+
  auto it = executors_.find(mode);
  if (it == executors_.end()) {
   qCritical() << "[LayerBlendPipeline::blend] No executor for requested mode"
@@ -716,6 +857,10 @@ bool LayerBlendPipeline::blend(
 
  currentParams_.opacity   = sanitizeBlendOpacity(opacity);
  currentParams_.blendMode = static_cast<unsigned int>(mode);
+ currentParams_.dispatchOriginX = region.x;
+ currentParams_.dispatchOriginY = region.y;
+ currentParams_.dispatchExtentX = region.width;
+ currentParams_.dispatchExtentY = region.height;
 
  void* pData = nullptr;
  ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);
@@ -736,9 +881,8 @@ bool LayerBlendPipeline::blend(
  }
 
  auto attribs = ComputeExecutor::makeDispatchAttribs(64, 8, 1);
- const auto& texDesc = outUAV->GetTexture()->GetDesc();
- attribs.ThreadGroupCountX = (texDesc.Width  + 7) / 8;
- attribs.ThreadGroupCountY = (texDesc.Height + 7) / 8;
+ attribs.ThreadGroupCountX = (region.width - 1) / 8 + 1;
+ attribs.ThreadGroupCountY = (region.height - 1) / 8 + 1;
  attribs.ThreadGroupCountZ = 1;
 
  exec.dispatch(ctx, attribs, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -812,6 +956,10 @@ bool LayerBlendPipeline::blendDirect(
 
  currentParams_.opacity = sanitizeBlendOpacity(opacity);
  currentParams_.blendMode = static_cast<unsigned int>(mode);
+ currentParams_.dispatchOriginX = 0;
+ currentParams_.dispatchOriginY = 0;
+ currentParams_.dispatchExtentX = width;
+ currentParams_.dispatchExtentY = height;
 
  void* pData = nullptr;
  ctx->MapBuffer(pImpl_->pBlendCB_, MAP_WRITE, MAP_FLAG_DISCARD, pData);

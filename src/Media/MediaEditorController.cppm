@@ -72,21 +72,7 @@ void MediaEditorController::seek(int64_t timeMs) {
 }
 
 QImage MediaEditorController::getCurrentFrame() {
-    const DecodedVideoFrame decoded = playbackController_->getNextVideoFrameRaw();
-    if (const auto* cpu = std::get_if<CpuVideoFrame>(&decoded)) {
-        QImage image(cpu->meta.width, cpu->meta.height, QImage::Format_RGB888);
-        if (image.isNull()) {
-            return QImage();
-        }
-        const int rowBytes = std::min<int>(cpu->strideBytes, image.bytesPerLine());
-        for (int y = 0; y < cpu->meta.height; ++y) {
-            std::memcpy(image.scanLine(y),
-                        cpu->bytes.data() + static_cast<size_t>(y) * static_cast<size_t>(cpu->strideBytes),
-                        static_cast<size_t>(rowBytes));
-        }
-        return image;
-    }
-    return QImage();
+    return playbackController_->getNextVideoFrame();
 }
 
 QByteArray MediaEditorController::getCurrentAudio() {

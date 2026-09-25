@@ -141,6 +141,41 @@ bool MediaSource::open(const QString& url) {
     return true;
 }
 
+bool MediaSource::seekPts(int streamIndex, int64_t pts) {
+    if (!formatContext_ || streamIndex < 0 ||
+        streamIndex >= static_cast<int>(formatContext_->nb_streams) ||
+        pts == AV_NOPTS_VALUE) {
+        lastError_ = QStringLiteral("seekPts failed: invalid media, stream, or timestamp");
+        recordMediaSourceFailure("decode.seek_failed", lastError_, url_, "seekPts");
+        return false;
+    }
+
+    AVStream* stream = formatContext_->streams[streamIndex];
+    int ret = av_seek_frame(formatContext_, streamIndex, pts, AVSEEK_FLAG_BACKWARD);
+    if (ret < 0) {
+        const int64_t origin = stream->start_time != AV_NOPTS_VALUE
+            ? stream->start_time
+            : 0;
+        const int64_t offset = av_rescale_q(2, AVRational{1, 1}, stream->time_base);
+        const int64_t minTs = std::max<int64_t>(origin, pts - offset);
+        const int64_t maxTs = pts + offset;
+        ret = avformat_seek_file(formatContext_, streamIndex, minTs, pts, maxTs,
+                                 AVSEEK_FLAG_BACKWARD);
+    }
+
+    if (ret < 0) {
+        lastError_ = QStringLiteral("seekPts failed at %1: %2")
+                         .arg(pts)
+                         .arg(av_strerror_string(ret));
+        recordMediaSourceFailure("decode.seek_failed", lastError_, url_, "seekPts");
+        return false;
+    }
+
+    avformat_flush(formatContext_);
+    lastError_.clear();
+    return true;
+}
+
 bool MediaSource::seek(int64_t timestampMs) {
     if (!formatContext_) {
         lastError_ = QStringLiteral("seek failed: media is not open");
@@ -169,34 +204,7 @@ bool MediaSource::seek(int64_t timestampMs) {
         stream->start_time != AV_NOPTS_VALUE ? stream->start_time : 0;
     ts += streamOrigin;
 
-    int ret = av_seek_frame(formatContext_, streamIndex, ts, AVSEEK_FLAG_BACKWARD);
-    if (ret < 0) {
-        qWarning() << "[MediaSource] av_seek_frame failed, retrying with avformat_seek_file"
-                   << "timestampMs=" << timestampMs
-                   << "err=" << av_strerror_string(ret);
-        const int64_t offset = av_rescale_q(2, AVRational{1, 1}, stream->time_base);
-        const int64_t minTs = std::max<int64_t>(streamOrigin, ts - offset);
-        const int64_t maxTs = ts + offset;
-        ret = avformat_seek_file(formatContext_, streamIndex, minTs, ts, maxTs, AVSEEK_FLAG_BACKWARD);
-    }
-
-    if (ret < 0) {
-        lastError_ = QStringLiteral("seek failed at %1 ms: %2")
-                         .arg(timestampMs)
-                         .arg(av_strerror_string(ret));
-        recordMediaSourceFailure("decode.seek_failed", lastError_, url_, "seek");
-        qWarning() << "[MediaSource] seek failed:"
-                   << "timestampMs=" << timestampMs
-                   << "err=" << av_strerror_string(ret);
-        return false;
-    }
-
-    // Discard demuxer-side buffered packets before the decoder is flushed by
-    // the caller.  Otherwise a seek can feed packets from the previous cursor
-    // into the new decode sequence.
-    avformat_flush(formatContext_);
-    lastError_.clear();
-    return true;
+    return seekPts(streamIndex, ts);
 }
 
 void MediaSource::close() {

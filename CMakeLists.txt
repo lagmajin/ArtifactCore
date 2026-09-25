@@ -3043,6 +3043,8 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/Media/MediaPlaybackControll
     "/reference;MediaImageFrameDecoder=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaImageFrameDecoder.ifc"
     "/reference;MediaReader=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaReader.ifc"
     "/reference;MediaSource=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreMedia.dir/MediaSource.ifc"
+    "/reference;Core.ArtifactArray=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactArray.ifc"
+    "/reference;Core.ArtifactOptional=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/Core.ArtifactOptional.ifc"
     "/reference;Playback.State=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCorePlayback.dir/Playback.State.ifc"
     "/reference;Video.VideoFrame=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCoreVideo.dir/Video.VideoFrame.ifc"
     "/reference;ArtifactCore.Utils.PerformanceProfiler=${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/ArtifactCore.dir/ArtifactCore.Utils.PerformanceProfiler.ifc"
@@ -4516,6 +4518,16 @@ target_link_libraries(ArtifactCore PUBLIC llama)
 # ufbx (vendored)
 if(TARGET ufbx)
     target_link_libraries(ArtifactCore PUBLIC ufbx)
+endif()
+
+# OpenUSD (libs/openusd submodule). Only the stage/shade/geom reader subset is
+# linked; tools, tests, python and docs are disabled in the root CMakeLists.
+if(TARGET usd AND TARGET usdGeom AND TARGET usdShade)
+    target_link_libraries(ArtifactCore PUBLIC usd usdGeom usdShade)
+    target_compile_definitions(ArtifactCore PRIVATE ARTIFACT_WITH_OPENUSD)
+    message(STATUS "ArtifactCore: OpenUSD stage import enabled")
+else()
+    message(STATUS "ArtifactCore: OpenUSD not available, USDC/USDZ import disabled")
 endif()
 
 # FFmpeg - Direct linking with explicit library paths

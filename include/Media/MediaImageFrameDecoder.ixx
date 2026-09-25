@@ -27,12 +27,13 @@ private:
     AVBufferRef* hwDeviceCtx_ = nullptr;
     AVBufferRef* frameCtx_ = nullptr;
     int64_t lastPts_ = 0;
+    int displayRotationDegrees_ = 0;
 
 public:
     MediaImageFrameDecoder();
     ~MediaImageFrameDecoder();
 
-    bool initialize(AVCodecParameters* codecParams);
+    bool initialize(AVCodecParameters* codecParams, int displayRotationDegrees = 0);
     void setVulkanDevice(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, uint32_t queueFamilyIndex);
     QImage decodeFrame(AVPacket* packet);
     DecodedVideoFrame decodeFrameRaw(AVPacket* packet);

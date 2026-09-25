@@ -50,6 +50,8 @@ public:
         UfbxGltf,
         PMD,
         Usda,
+        Usdc,
+        Usdz,
         Stl,
         Ply,
         Las
@@ -69,6 +71,10 @@ public:
     SharedPtr<Mesh> importMeshFromFileAtTime(const UniString& path,
                                              double time,
                                              int clipIndex = 0);
+    // Re-evaluate only the imported skin pose using the source scene retained
+    // by this importer. The mesh topology and bind-space buffers stay intact.
+    bool updateSkinPose(const UniString& path, double time, int clipIndex,
+                        Mesh& mesh);
     [[nodiscard]] Backend lastBackend() const;
     [[nodiscard]] QString lastError() const;
     [[nodiscard]] QString lastBaseColorTexture() const;

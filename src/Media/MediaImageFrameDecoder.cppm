@@ -35,6 +35,23 @@ QString ffmpegErrorString(int err) {
     return QString::fromLatin1(buffer);
 }
 
+QImage makeQImageFromCpuVideoFrame(const CpuVideoFrame& frame) {
+    if (!frame.isValid() || frame.meta.pixelFormat != VideoFramePixelFormat::RGB24) {
+        return {};
+    }
+    QImage image(frame.meta.width, frame.meta.height, QImage::Format_RGB888);
+    if (image.isNull()) {
+        return {};
+    }
+    const int rowBytes = std::min<int>(frame.strideBytes, image.bytesPerLine());
+    for (int y = 0; y < frame.meta.height; ++y) {
+        std::memcpy(image.scanLine(y),
+                    frame.bytes.data() + static_cast<size_t>(y) * frame.strideBytes,
+                    static_cast<size_t>(rowBytes));
+    }
+    return image;
+}
+
 CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& source) {
     if (source.isNull()) {
         return {};
@@ -59,62 +76,102 @@ CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& source) {
     return out;
 }
 
-CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext*& swsCtx, int64_t pts) {
+void configureSwsColorRange(SwsContext* context, const AVFrame* frame) {
+    if (!context || !frame) {
+        return;
+    }
+    const int* coefficients = sws_getCoefficients(SWS_CS_DEFAULT);
+    if (!coefficients) {
+        return;
+    }
+    const int sourceRange = frame->color_range == AVCOL_RANGE_MPEG ? 1 : 0;
+    sws_setColorspaceDetails(context, coefficients, sourceRange,
+                             coefficients, 1, 0, 1 << 16, 1 << 16);
+}
+
+int normalizedVideoRotation(int rotationDegrees) {
+    const int normalized = ((rotationDegrees % 360) + 360) % 360;
+    if (normalized == 90 || normalized == 180 || normalized == 270) {
+        return normalized;
+    }
+    return 0;
+}
+
+int videoSwsFlags(int rotationDegrees) {
+    switch (normalizedVideoRotation(rotationDegrees)) {
+    case 90: return SWS_BILINEAR | SWS_ROTATE_90;
+    case 180: return SWS_BILINEAR | SWS_ROTATE_180;
+    case 270: return SWS_BILINEAR | SWS_ROTATE_270;
+    default: return SWS_BILINEAR;
+    }
+}
+
+SwsContext* cpuVideoSwsContext(AVFrame* frame, SwsContext*& cachedContext,
+                               int rotationDegrees) {
+    if (!frame || frame->width <= 0 || frame->height <= 0) {
+        return nullptr;
+    }
+    const int rotation = normalizedVideoRotation(rotationDegrees);
+    const bool swapDimensions = rotation == 90 || rotation == 270;
+    const int outputWidth = swapDimensions ? frame->height : frame->width;
+    const int outputHeight = swapDimensions ? frame->width : frame->height;
+    cachedContext = sws_getCachedContext(
+        cachedContext,
+        frame->width, frame->height, static_cast<AVPixelFormat>(frame->format),
+        outputWidth, outputHeight, AV_PIX_FMT_RGB24,
+        videoSwsFlags(rotation), nullptr, nullptr, nullptr);
+    return cachedContext;
+}
+
+CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext*& swsCtx, int64_t pts, int rotationDegrees = 0) {
     CpuVideoFrame out;
     if (!frame || frame->width <= 0 || frame->height <= 0) {
         return out;
     }
 
-    swsCtx = sws_getCachedContext(swsCtx,
-                                  frame->width, frame->height,
-                                  static_cast<AVPixelFormat>(frame->format),
-                                  frame->width, frame->height, AV_PIX_FMT_RGB24,
-                                  SWS_BILINEAR, nullptr, nullptr, nullptr);
+    swsCtx = cpuVideoSwsContext(frame, swsCtx, rotationDegrees);
     if (!swsCtx) {
         return out;
     }
+    configureSwsColorRange(swsCtx, frame);
 
-    out.meta.width = frame->width;
-    out.meta.height = frame->height;
+    const int rotation = normalizedVideoRotation(rotationDegrees);
+    const bool swapDimensions = rotation == 90 || rotation == 270;
+    out.meta.width = swapDimensions ? frame->height : frame->width;
+    out.meta.height = swapDimensions ? frame->width : frame->height;
     out.meta.pts = pts;
     out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
     out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
     out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
     out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
     out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
-    out.strideBytes = frame->width * 3;
-    out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(frame->height));
+    out.strideBytes = out.meta.width * 3;
+    out.bytes.resize(static_cast<size_t>(out.strideBytes) *
+                     static_cast<size_t>(out.meta.height));
 
     uint8_t* dst[4] = {};
     int dstLinesize[4] = {};
     dst[0] = out.bytes.data();
     dstLinesize[0] = out.strideBytes;
-    sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize);
+    sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height,
+              dst, dstLinesize);
     return out;
 }
 
-CpuVideoFrame makeCpuVideoFrameFromDownloadedFrame(AVFrame* frame, int64_t pts)
+CpuVideoFrame makeCpuVideoFrameFromDownloadedFrame(AVFrame* frame, int64_t pts, int rotationDegrees = 0)
 {
     CpuVideoFrame out;
     if (!frame || frame->width <= 0 || frame->height <= 0) {
         return out;
     }
 
-    SwsContext* swsCtx = sws_getContext(frame->width, frame->height,
-                                        static_cast<AVPixelFormat>(frame->format),
-                                        frame->width, frame->height,
-                                        AV_PIX_FMT_RGB24,
-                                        SWS_BILINEAR, nullptr, nullptr, nullptr);
-    if (!swsCtx) {
-        return out;
-    }
-
-    out = makeCpuVideoFrameFromFrame(frame, swsCtx, pts);
-    sws_freeContext(swsCtx);
+    SwsContext* cached = nullptr;
+    out = makeCpuVideoFrameFromFrame(frame, cached, pts, rotationDegrees);
+    sws_freeContext(cached);
     return out;
 }
 
-CpuVideoFrame downloadHwFrameToCpuVideoFrame(AVFrame* hwFrame, int64_t pts)
+CpuVideoFrame downloadHwFrameToCpuVideoFrame(AVFrame* hwFrame, int64_t pts, int rotationDegrees = 0)
 {
     CpuVideoFrame out;
     if (!hwFrame) {
@@ -134,7 +191,7 @@ CpuVideoFrame downloadHwFrameToCpuVideoFrame(AVFrame* hwFrame, int64_t pts)
         return out;
     }
 
-    out = makeCpuVideoFrameFromDownloadedFrame(cpuFrame, pts);
+    out = makeCpuVideoFrameFromDownloadedFrame(cpuFrame, pts, rotationDegrees);
     av_frame_free(&cpuFrame);
     return out;
 }
@@ -338,11 +395,12 @@ void MediaImageFrameDecoder::setVulkanDevice(VkInstance instance, VkPhysicalDevi
     hwDeviceCtx_ = deviceRef;
 }
 
-bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
+bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams, int displayRotationDegrees) {
     if (!codecParams) {
         qWarning() << "[MediaImageFrameDecoder] initialize failed: null codecParams";
         return false;
     }
+    displayRotationDegrees_ = normalizedVideoRotation(-displayRotationDegrees);
 
     if (swsCtx_) {
         sws_freeContext(swsCtx_);
@@ -385,9 +443,14 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams) {
         return false;
     }
 
-    swsCtx_ = sws_getContext(codecContext_->width, codecContext_->height, codecContext_->pix_fmt,
-                             codecContext_->width, codecContext_->height, AV_PIX_FMT_RGB24,
-                             SWS_BILINEAR, nullptr, nullptr, nullptr);
+    const bool swapDimensions = displayRotationDegrees_ == 90 ||
+                               displayRotationDegrees_ == 270;
+    swsCtx_ = sws_getContext(
+        codecContext_->width, codecContext_->height, codecContext_->pix_fmt,
+        swapDimensions ? codecContext_->height : codecContext_->width,
+        swapDimensions ? codecContext_->width : codecContext_->height,
+        AV_PIX_FMT_RGB24, videoSwsFlags(displayRotationDegrees_),
+        nullptr, nullptr, nullptr);
     if (swsCtx_) {
     } else {
         qWarning() << "[MediaImageFrameDecoder] initialize: sws context unavailable,"
@@ -437,21 +500,9 @@ QImage MediaImageFrameDecoder::decodeFrame(AVPacket* packet) {
             continue;
         }
 
-        swsCtx_ = sws_getCachedContext(swsCtx_,
-                                       frame->width, frame->height,
-                                       static_cast<AVPixelFormat>(frame->format),
-                                       frame->width, frame->height, AV_PIX_FMT_RGB24,
-                                       SWS_BILINEAR, nullptr, nullptr, nullptr);
-        if (!swsCtx_) {
-            av_frame_unref(frame);
-            continue;
-        }
-        QImage img(frame->width, frame->height, QImage::Format_RGB888);
-        uint8_t* dst[4];
-        int dstLinesize[4];
-        av_image_fill_arrays(dst, dstLinesize, img.bits(), AV_PIX_FMT_RGB24, img.width(), img.height(), 1);
-        sws_scale(swsCtx_, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize);
-        result = img;
+        CpuVideoFrame decoded = makeCpuVideoFrameFromFrame(
+            frame, swsCtx_, lastPts_, displayRotationDegrees_);
+        result = makeQImageFromCpuVideoFrame(decoded);
         av_frame_unref(frame);
     }
 
@@ -492,7 +543,8 @@ DecodedVideoFrame MediaImageFrameDecoder::decodeFrameRaw(AVPacket* packet) {
         if (frame->format == AV_PIX_FMT_VULKAN) {
             GpuVideoFrame out = makeGpuVideoFrameFromFrame(frame);
             if (!directVulkanVideoFramesEnabled() || !canPresentGpuFrameDirectly(out)) {
-                CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(frame, pts);
+                CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(
+                    frame, pts, displayRotationDegrees_);
                 av_frame_unref(frame);
                 av_frame_free(&frame);
                 return cpu.isValid() ? DecodedVideoFrame{std::move(cpu)}
@@ -502,7 +554,8 @@ DecodedVideoFrame MediaImageFrameDecoder::decodeFrameRaw(AVPacket* packet) {
             av_frame_free(&frame);
             return out;
         }
-        CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, pts);
+        CpuVideoFrame out = makeCpuVideoFrameFromFrame(
+        frame, swsCtx_, pts, displayRotationDegrees_);
         av_frame_unref(frame);
         av_frame_free(&frame);
         return out;
@@ -543,23 +596,10 @@ QImage MediaImageFrameDecoder::receiveFrame() {
         return QImage();
     }
 
-    swsCtx_ = sws_getCachedContext(swsCtx_,
-                                   frame->width, frame->height,
-                                   static_cast<AVPixelFormat>(frame->format),
-                                   frame->width, frame->height, AV_PIX_FMT_RGB24,
-                                   SWS_BILINEAR, nullptr, nullptr, nullptr);
-    if (!swsCtx_) {
-        av_frame_free(&frame);
-        return QImage();
-    }
-    QImage img(frame->width, frame->height, QImage::Format_RGB888);
-    uint8_t* dst[4];
-    int dstLinesize[4];
-    av_image_fill_arrays(dst, dstLinesize, img.bits(), AV_PIX_FMT_RGB24, img.width(), img.height(), 1);
-    sws_scale(swsCtx_, frame->data, frame->linesize, 0, frame->height, dst, dstLinesize);
-
+    CpuVideoFrame decoded = makeCpuVideoFrameFromFrame(
+        frame, swsCtx_, lastPts_, displayRotationDegrees_);
     av_frame_free(&frame);
-    return img;
+    return makeQImageFromCpuVideoFrame(decoded);
 }
 
 DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
@@ -589,7 +629,8 @@ DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
     if (frame->format == AV_PIX_FMT_VULKAN) {
         GpuVideoFrame out = makeGpuVideoFrameFromFrame(frame);
         if (!directVulkanVideoFramesEnabled() || !canPresentGpuFrameDirectly(out)) {
-            CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(frame, pts);
+            CpuVideoFrame cpu = downloadHwFrameToCpuVideoFrame(
+                frame, pts, displayRotationDegrees_);
             av_frame_unref(frame);
             av_frame_free(&frame);
             return cpu.isValid() ? DecodedVideoFrame{std::move(cpu)}
@@ -599,7 +640,8 @@ DecodedVideoFrame MediaImageFrameDecoder::receiveFrameRaw() {
         av_frame_free(&frame);
         return out;
     }
-    CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, pts);
+    CpuVideoFrame out = makeCpuVideoFrameFromFrame(
+        frame, swsCtx_, pts, displayRotationDegrees_);
     av_frame_unref(frame);
     av_frame_free(&frame);
     return out;

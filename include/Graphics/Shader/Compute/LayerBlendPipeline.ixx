@@ -34,11 +34,27 @@ export namespace ArtifactCore
    unsigned int displayComponentY = 1;
    unsigned int displayComponentZ = 2;
    unsigned int _displayPad = 0;
+   Uint32 dispatchOriginX = 0;
+   Uint32 dispatchOriginY = 0;
+   Uint32 dispatchExtentX = 0;
+   Uint32 dispatchExtentY = 0;
   };
 
-  // The HLSL BlendParams cbuffer occupies two 16-byte registers (32 bytes).
-  static_assert(sizeof(BlendParams) == 32,
+  // The HLSL BlendParams cbuffer occupies three 16-byte registers (48 bytes).
+  static_assert(sizeof(BlendParams) == 48,
                 "BlendParams must match the HLSL constant buffer layout");
+
+  struct ComputeRegion {
+   Uint32 x = 0;
+   Uint32 y = 0;
+   Uint32 width = 0;
+   Uint32 height = 0;
+
+   bool validFor(Uint32 targetWidth, Uint32 targetHeight) const noexcept {
+    return width > 0 && height > 0 && x < targetWidth && y < targetHeight &&
+           width <= targetWidth - x && height <= targetHeight - y;
+   }
+  };
 
   struct MatteTrackParams {
    unsigned int matteCount = 1;
@@ -76,6 +92,16 @@ export namespace ArtifactCore
    float opacity
   );
 
+  bool blend(
+   IDeviceContext* ctx,
+   ITextureView* srcSRV,
+   ITextureView* dstSRV,
+   ITextureView* outUAV,
+   BlendMode mode,
+   float opacity,
+   const ComputeRegion& region
+  );
+
   bool convertLayerToFloat(
    IDeviceContext* ctx,
    ITextureView* srcSRV,
@@ -102,6 +128,21 @@ export namespace ArtifactCore
    Uint32 componentZ,
    Uint32 width,
    Uint32 height
+  );
+
+  bool convertLayerToFloat(
+   IDeviceContext* ctx,
+   ITextureView* srcSRV,
+   ITextureView* outUAV,
+   Uint32 width,
+   Uint32 height,
+   const ComputeRegion& region
+  );
+
+  bool clearRegion(
+   IDeviceContext* ctx,
+   ITextureView* outUAV,
+   const ComputeRegion& region
   );
 
   bool blendDirect(
@@ -170,6 +211,7 @@ export namespace ArtifactCore
   class Impl;
   Impl* pImpl_ = nullptr;
   std::unique_ptr<ComputeExecutor> layerToFloatExecutor_;
+  std::unique_ptr<ComputeExecutor> clearRegionExecutor_;
   std::unique_ptr<ComputeExecutor> channelComponentDisplayExecutor_;
   std::map<BlendMode, BlendExecutor> executors_;
   BlendParams currentParams_{};

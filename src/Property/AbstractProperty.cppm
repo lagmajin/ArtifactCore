@@ -1,6 +1,7 @@
 module;
 
 #include <algorithm>
+#include <cstddef>
 #include <cmath>
 #include <QVariant>
 #include <QColor>
@@ -880,6 +881,83 @@ std::vector<KeyFrame> AbstractProperty::getKeyFrames() const {
     return pImpl->m_keyFrames;
 }
 
+bool AbstractProperty::hasKeyFrames() const {
+    std::shared_lock lock(pImpl->m_mutex);
+    return !pImpl->m_keyFrames.empty();
+}
+
+std::size_t AbstractProperty::keyFrameCount() const {
+    std::shared_lock lock(pImpl->m_mutex);
+    return pImpl->m_keyFrames.size();
+}
+
+bool AbstractProperty::keyFrameInterpolationSegment(
+    const RationalTime& time, KeyFrameInterpolationSegment& segment) const {
+    std::shared_lock lock(pImpl->m_mutex);
+    const auto& keys = pImpl->m_keyFrames;
+    if (keys.size() < 2 ||
+        std::any_of(keys.begin(), keys.end(),
+                    [](const KeyFrame& key) { return key.roving; })) {
+        return false;
+    }
+    auto right = std::lower_bound(
+        keys.begin(), keys.end(), time,
+        [](const KeyFrame& key, const RationalTime& target) {
+            return keyFrameTimeLess(key.time, target);
+        });
+    if (right == keys.end()) {
+        return false;
+    }
+
+    auto left = right;
+    if (sameKeyFrameTime(right->time, time)) {
+        if (right + 1 == keys.end()) {
+            return false;
+        }
+        ++right;
+    } else {
+        if (right == keys.begin()) {
+            return false;
+        }
+        --left;
+    }
+
+    const double startTime = left->time.toDouble();
+    const double endTime = right->time.toDouble();
+    const double duration = endTime - startTime;
+    if (!(duration > 0.0) || !std::isfinite(duration)) {
+        return false;
+    }
+
+    segment = {};
+    segment.startValue = left->value;
+    segment.endValue = right->value;
+    segment.interpolation = left->interpolation;
+    segment.duration = duration;
+    segment.cp1_x = left->cp1_x;
+    segment.cp1_y = left->cp1_y;
+    segment.cp2_x = left->cp2_x;
+    segment.cp2_y = left->cp2_y;
+    segment.alpha = static_cast<float>(std::clamp(
+        (time.toDouble() - startTime) / duration, 0.0, 1.0));
+
+    if (left != keys.begin()) {
+        segment.previousValue = (left - 1)->value;
+        const double beforeTime = (left - 1)->time.toDouble();
+        segment.beforeSpan = endTime - beforeTime;
+    } else {
+        segment.previousValue = left->value;
+    }
+    if (right + 1 != keys.end()) {
+        segment.nextValue = (right + 1)->value;
+        const double afterTime = (right + 1)->time.toDouble();
+        segment.afterSpan = afterTime - startTime;
+    } else {
+        segment.nextValue = right->value;
+    }
+    return true;
+}
+
 bool AbstractProperty::hasKeyFrameAt(const RationalTime& time) const {
     std::shared_lock lock(pImpl->m_mutex);
     return std::any_of(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
@@ -914,6 +992,30 @@ QVariant AbstractProperty::interpolateValue(const RationalTime& time) const {
     }
     if (pImpl->m_keyFrames.size() == 1) {
         return pImpl->m_keyFrames.front().value;
+    }
+
+    // String channels use held values between keys. Preserve that behavior
+    // without copying the complete key array on every evaluation. Roving keys
+    // keep the general adjusted-time path below.
+    if (pImpl->m_type == PropertyType::String &&
+        std::none_of(pImpl->m_keyFrames.begin(), pImpl->m_keyFrames.end(),
+                     [](const KeyFrame& key) { return key.roving; })) {
+        const auto& keys = pImpl->m_keyFrames;
+        if (time <= keys.front().time) {
+            return keys.front().value;
+        }
+        if (time >= keys.back().time) {
+            return keys.back().value;
+        }
+        const auto next = std::lower_bound(
+            keys.begin(), keys.end(), time,
+            [](const KeyFrame& key, const RationalTime& target) {
+                return keyFrameTimeLess(key.time, target);
+            });
+        if (next != keys.end() && sameKeyFrameTime(next->time, time)) {
+            return next->value;
+        }
+        return next == keys.begin() ? keys.front().value : (next - 1)->value;
     }
 
     // Evaluate on roving-adjusted times. Markers, selection, and persistence

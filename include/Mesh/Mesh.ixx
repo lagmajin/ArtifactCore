@@ -191,6 +191,8 @@ export namespace ArtifactCore {
 
         const QVector<SkinBone>& skinBones() const;
         void setSkinBones(const QVector<SkinBone>& bones);
+        // Update the evaluated pose without replacing bind data or skin weights.
+        bool setSkinPoseMatrices(const QVector<QMatrix4x4>& poseMatrices);
         SkinningMethod skinningMethod() const;
         void setSkinningMethod(SkinningMethod method);
         // True when CPU-only packed influences beyond the shader's first four exist.

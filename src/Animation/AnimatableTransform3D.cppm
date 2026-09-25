@@ -96,7 +96,7 @@ public:
   }
   void removeKeyFrameAt(const FramePosition& frame) { property_->removeKeyFrame(time(frame)); }
   void clearKeyFrames() { property_->clearKeyFrames(); }
-  size_t getKeyFrameCount() const { return property_->getKeyFrames().size(); }
+  size_t getKeyFrameCount() const { return property_->keyFrameCount(); }
   auto getKeyFrames() const {
     auto result = makeNamedVector<KeyFrameT<float>>(
         ContainerName{"TransformPropertyKeyframeView"});

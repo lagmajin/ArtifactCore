@@ -3,6 +3,7 @@ module;
 #include <QString>
 #include <QVariant>
 #include <QColor>
+#include <cstddef>
 #include <string_view>
 #include <vector>
 #include "../Define/DllExportMacro.hpp"
@@ -223,6 +224,25 @@ struct KeyFrame {
     ColorLabel colorLabel = ColorLabel::None;
 };
 
+// Small, allocation-free snapshot of the active keyframe segment. QVariant
+// copies are implicitly shared; RationalTime objects are reduced to scalar
+// seconds so callers can evaluate animation without copying the full track.
+struct KeyFrameInterpolationSegment {
+    QVariant previousValue;
+    QVariant startValue;
+    QVariant endValue;
+    QVariant nextValue;
+    InterpolationType interpolation = InterpolationType::Linear;
+    float alpha = 0.0f;
+    double duration = 0.0;
+    float cp1_x = 0.42f;
+    float cp1_y = 0.0f;
+    float cp2_x = 0.58f;
+    float cp2_y = 1.0f;
+    double beforeSpan = 0.0;
+    double afterSpan = 0.0;
+};
+
 struct PropertyMetadata {
     QString displayLabel;
     QString unit;
@@ -350,11 +370,15 @@ public:
                                             const RationalTime& newOutPoint);
     void removeKeyFrame(const RationalTime& time);
     void clearKeyFrames();
+    bool hasKeyFrames() const;
+    std::size_t keyFrameCount() const;
     std::vector<KeyFrame> getKeyFrames() const;
     bool hasKeyFrameAt(const RationalTime& time) const;
     bool setKeyFrameRovingAt(const RationalTime& time, bool roving);
     bool getKeyFrameRovingAt(const RationalTime& time) const;
     QVariant interpolateValue(const RationalTime& time) const;
+    bool keyFrameInterpolationSegment(
+        const RationalTime& time, KeyFrameInterpolationSegment& segment) const;
 
     // Validation
     void clampValue();

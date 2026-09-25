@@ -41,6 +41,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/display.h>
 }
 
 import Codec.FFmpegVideoDecoder;
@@ -56,27 +57,63 @@ static QString av_error_qstring(int errnum) {
   return QString::fromUtf8(errbuf);
 }
 
-static CpuVideoFrame makeCpuVideoFrameFromFrame(AVFrame* frame, SwsContext* swsCtx, int width, int height, int64_t pts) {
+static int normalizedVideoRotation(int rotationDegrees) {
+  const int normalized = ((rotationDegrees % 360) + 360) % 360;
+  return normalized == 90 || normalized == 180 || normalized == 270
+             ? normalized
+             : 0;
+}
+
+static int videoSwsFlags(int rotationDegrees) {
+  switch (normalizedVideoRotation(rotationDegrees)) {
+  case 90: return SWS_BILINEAR | SWS_ROTATE_90;
+  case 180: return SWS_BILINEAR | SWS_ROTATE_180;
+  case 270: return SWS_BILINEAR | SWS_ROTATE_270;
+  default: return SWS_BILINEAR;
+  }
+}
+
+static CpuVideoFrame makeCpuVideoFrameFromFrame(
+    AVFrame* frame, SwsContext*& swsCtx, int width, int height,
+    int64_t pts, int rotationDegrees = 0) {
   CpuVideoFrame out;
-  out.meta.width = width;
-  out.meta.height = height;
+  const int rotation = normalizedVideoRotation(rotationDegrees);
+  const bool swapDimensions = rotation == 90 || rotation == 270;
+  const int outputWidth = swapDimensions ? height : width;
+  const int outputHeight = swapDimensions ? width : height;
+  out.meta.width = outputWidth;
+  out.meta.height = outputHeight;
   out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
   out.meta.pts = pts;
   out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
   out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
   out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
   out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
-  const auto strideBytes = static_cast<std::int64_t>(width) * 3;
-  if (width <= 0 || height <= 0 || strideBytes <= 0 ||
+  const auto strideBytes = static_cast<std::int64_t>(outputWidth) * 3;
+  if (outputWidth <= 0 || outputHeight <= 0 || strideBytes <= 0 ||
       strideBytes > std::numeric_limits<int>::max()) {
     return out;
   }
+  swsCtx = sws_getCachedContext(
+      swsCtx, width, height, static_cast<AVPixelFormat>(frame->format),
+      outputWidth, outputHeight, AV_PIX_FMT_RGB24,
+      videoSwsFlags(rotation), nullptr, nullptr, nullptr);
+  if (!swsCtx) {
+    return out;
+  }
+  const int* coefficients = sws_getCoefficients(SWS_CS_DEFAULT);
+  if (coefficients) {
+    const int sourceRange = frame->color_range == AVCOL_RANGE_MPEG ? 1 : 0;
+    sws_setColorspaceDetails(swsCtx, coefficients, sourceRange,
+                             coefficients, 1, 0, 1 << 16, 1 << 16);
+  }
   out.strideBytes = static_cast<int>(strideBytes);
-  out.bytes.resize(static_cast<size_t>(out.strideBytes) * static_cast<size_t>(height));
-
+  out.bytes.resize(static_cast<size_t>(out.strideBytes) *
+                   static_cast<size_t>(outputHeight));
   std::uint8_t* dstData[4] = { out.bytes.data(), nullptr, nullptr, nullptr };
   int dstLinesize[4] = { out.strideBytes, 0, 0, 0 };
-  sws_scale(swsCtx, frame->data, frame->linesize, 0, height, dstData, dstLinesize);
+  sws_scale(swsCtx, frame->data, frame->linesize, 0, height,
+            dstData, dstLinesize);
   return out;
 }
 
@@ -85,9 +122,10 @@ class FFmpegVideoDecoder::Impl {
   AVFormatContext* formatContext = nullptr;
   AVCodecContext* codecContext = nullptr;
   int videoStreamIndex = -1;
-  AVPacket* packet = nullptr;
+ AVPacket* packet = nullptr;
  AVFrame* frame = nullptr;
  SwsContext* swsCtx_ = nullptr;
+ int displayRotationDegrees_ = 0;
  public:
   ~Impl() { closeFile(); }
  bool openFile(const QString& path);
@@ -97,13 +135,27 @@ class FFmpegVideoDecoder::Impl {
  DecodedVideoFrame decodeFrameAtRaw(int64_t frameNumber);
  void seekByTimestamp(int64_t timestampMs);
  void flush();
- int width() const { return codecContext ? codecContext->width : 0; }
- int height() const { return codecContext ? codecContext->height : 0; }
+ int width() const {
+   if (!codecContext) return 0;
+   return displayRotationDegrees_ == 90 || displayRotationDegrees_ == 270
+              ? codecContext->height
+              : codecContext->width;
+ }
+ int height() const {
+   if (!codecContext) return 0;
+   return displayRotationDegrees_ == 90 || displayRotationDegrees_ == 270
+              ? codecContext->width
+              : codecContext->height;
+ }
  double fps() const {
    if (!formatContext || videoStreamIndex < 0) {
      return 0.0;
    }
-   const AVRational rate = formatContext->streams[videoStreamIndex]->r_frame_rate;
+   const auto *stream = formatContext->streams[videoStreamIndex];
+   AVRational rate = stream->r_frame_rate;
+   if (rate.num <= 0 || rate.den <= 0) {
+     rate = stream->avg_frame_rate;
+   }
    return rate.num > 0 && rate.den > 0
        ? static_cast<double>(rate.num) / static_cast<double>(rate.den)
        : 0.0;
@@ -153,6 +205,8 @@ bool FFmpegVideoDecoder::Impl::openFile(const QString& path) {
     formatContext = nullptr;
     return false;
   }
+  displayRotationDegrees_ = normalizedVideoRotation(-static_cast<int>(std::lround(
+      av_display_rotation_get(formatContext->streams[videoStreamIndex]))));
 
   const AVCodec* codec = avcodec_find_decoder(codecParameters->codec_id);
   if (!codec) {
@@ -253,6 +307,7 @@ void FFmpegVideoDecoder::Impl::closeFile() {
     formatContext = nullptr;
   }
   videoStreamIndex = -1;
+  displayRotationDegrees_ = 0;
   qDebug() << "FFmpegDecoder::Impl::closeFile: Resources released.";
 }
 
@@ -268,7 +323,9 @@ DecodedVideoFrame FFmpegVideoDecoder::Impl::decodeNextVideoFrameRaw() {
     int ret = avcodec_receive_frame(codecContext, frame);
     if (ret == 0) {
       const int64_t pts = frame->best_effort_timestamp != AV_NOPTS_VALUE ? frame->best_effort_timestamp : frame->pts;
-      CpuVideoFrame out = makeCpuVideoFrameFromFrame(frame, swsCtx_, codecContext->width, codecContext->height, pts);
+      CpuVideoFrame out = makeCpuVideoFrameFromFrame(
+          frame, swsCtx_, codecContext->width, codecContext->height, pts,
+          displayRotationDegrees_);
       av_frame_unref(frame);
       diagnosticScope.finish(true);
       return out;
@@ -339,8 +396,11 @@ bool FFmpegVideoDecoder::Impl::seekToFrame(int64_t frameNumber) {
 
   // One frame lasts rate.den/rate.num seconds; rescale the frame index
   // directly from that interval into the stream time base.
-  const int64_t timestamp = av_rescale_q(
+  int64_t timestamp = av_rescale_q(
       frameNumber, av_inv_q(rate), stream->time_base);
+  if (stream->start_time != AV_NOPTS_VALUE) {
+    timestamp += stream->start_time;
+  }
 
   const int ret = av_seek_frame(formatContext, videoStreamIndex, timestamp, AVSEEK_FLAG_BACKWARD);
   if (ret < 0) {
@@ -402,7 +462,10 @@ void FFmpegVideoDecoder::Impl::seekByTimestamp(int64_t timestampMs) {
 
   AVStream* stream = formatContext->streams[videoStreamIndex];
   AVRational tb = stream->time_base;
-  const int64_t ts = av_rescale_q(timestampMs, AVRational{ 1, 1000 }, tb);
+  int64_t ts = av_rescale_q(timestampMs, AVRational{ 1, 1000 }, tb);
+  if (stream->start_time != AV_NOPTS_VALUE) {
+    ts += stream->start_time;
+  }
 
   if (av_seek_frame(formatContext, videoStreamIndex, ts, AVSEEK_FLAG_BACKWARD) < 0) {
     qWarning() << "av_seek_frame failed";

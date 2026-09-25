@@ -18,6 +18,7 @@ module;
 #include <QIODevice>
 #include <QHash>
 #include <QByteArray>
+#include <QMatrix4x4>
 #include <QRegularExpression>
 #include <QString>
 #include <QStringView>
@@ -26,6 +27,20 @@ module;
 #include <QVector4D>
 #include <QVector>
 #include <tinyobjloader/tiny_obj_loader.h>
+#ifdef ARTIFACT_WITH_OPENUSD
+#include <pxr/usd/sdf/assetPath.h>
+#include <pxr/usd/sdf/layer.h>
+#include <pxr/usd/tf/token.h>
+#include <pxr/usd/usd/prim.h>
+#include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/primvarsAPI.h>
+#include <pxr/usd/usdShade/connectableAPI.h>
+#include <pxr/usd/usdShade/material.h>
+#include <pxr/usd/usdShade/materialBindingApi.h>
+#include <pxr/usd/usdShade/output.h>
+#include <pxr/usd/usdShade/shader.h>
+#endif
 
 module MeshImporter;
 
@@ -38,7 +53,12 @@ namespace ArtifactCore {
 class MeshImporter::Impl {
 public:
   Impl() {}
-  ~Impl() {}
+  ~Impl() {
+    if (cachedUfbxScene_) {
+      ufbx_free_scene(cachedUfbxScene_);
+      cachedUfbxScene_ = nullptr;
+    }
+  }
   MeshImporter::Backend lastBackend_ = MeshImporter::Backend::None;
   QString lastError_;
   QString lastBaseColorTexture_;
@@ -52,6 +72,9 @@ public:
   float lastMetallicFactor_ = 0.0f;
   bool hasLastRoughnessFactor_ = false;
   float lastRoughnessFactor_ = 0.5f;
+  ufbx_scene* cachedUfbxScene_ = nullptr;
+  QString cachedUfbxPath_;
+  QVector<QMatrix4x4> skinPoseScratch_;
 
   static constexpr int kPointCloudBudget = 262144;
 
@@ -356,20 +379,33 @@ public:
     opts.target_axes = ufbx_axes_right_handed_y_up;
     opts.space_conversion = UFBX_SPACE_CONVERSION_MODIFY_GEOMETRY;
 
-    ufbx_error error;
-    const QByteArray pathUtf8 = path.toUtf8();
-    ufbx_scene *scene =
-        ufbx_load_file(pathUtf8.constData(), &opts, &error);
-
-    if (!scene) {
-      lastError_ =
-          QStringLiteral("%1: %2")
-              .arg(backendLabel)
-              .arg(QStringView{QString::fromUtf8(error.description.data)});
-      qWarning() << backendLabel << "failed to load:" << path << "-"
-                 << error.description.data;
-      return nullptr;
+    QString normalizedPath = QFileInfo(path).canonicalFilePath();
+    if (normalizedPath.isEmpty()) {
+      normalizedPath = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
     }
+    const bool reuseSourceScene = evaluationTime >= 0.0 &&
+        cachedUfbxScene_ && cachedUfbxPath_ == normalizedPath;
+    if (!reuseSourceScene) {
+      ufbx_error error;
+      const QByteArray pathUtf8 = path.toUtf8();
+      ufbx_scene* loadedScene =
+          ufbx_load_file(pathUtf8.constData(), &opts, &error);
+      if (!loadedScene) {
+        lastError_ =
+            QStringLiteral("%1: %2")
+                .arg(backendLabel)
+                .arg(QStringView{QString::fromUtf8(error.description.data)});
+        qWarning() << backendLabel << "failed to load:" << path << "-"
+                   << error.description.data;
+        return nullptr;
+      }
+      if (cachedUfbxScene_) {
+        ufbx_free_scene(cachedUfbxScene_);
+      }
+      cachedUfbxScene_ = loadedScene;
+      cachedUfbxPath_ = normalizedPath;
+    }
+    ufbx_scene* scene = cachedUfbxScene_;
 
     // Evaluate an animation stack before extracting skin clusters. The
     // default import path keeps the source scene untouched; timed imports
@@ -425,8 +461,10 @@ public:
     }
 
     if (totalVertices == 0) {
-      ufbx_free_scene(scene);
-      if (sourceScene != scene) ufbx_free_scene(sourceScene);
+      if (scene != sourceScene) ufbx_free_scene(scene);
+      ufbx_free_scene(sourceScene);
+      cachedUfbxScene_ = nullptr;
+      cachedUfbxPath_.clear();
       lastError_ = QStringLiteral("%1: no mesh data").arg(backendLabel);
       qWarning() << backendLabel << "loaded empty mesh:" << path;
       return nullptr;
@@ -920,10 +958,110 @@ public:
     mesh->setBlendShapes(blendShapes);
     mesh->applyBlendShapes();
     detectTexturesFromUfbx(path, scene);
-    ufbx_free_scene(scene);
-    if (sourceScene != scene) ufbx_free_scene(sourceScene);
+    if (scene != sourceScene) ufbx_free_scene(scene);
+    if (sourceScene->anim_stacks.count == 0) {
+      ufbx_free_scene(sourceScene);
+      cachedUfbxScene_ = nullptr;
+      cachedUfbxPath_.clear();
+    }
     mesh->updateBounds();
     return mesh;
+  }
+
+  bool updateSkinPose(const QString& path, const double time,
+                      const int clipIndex, Mesh& mesh) {
+    lastError_.clear();
+    const QString normalizedPath =
+        QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+    if (!cachedUfbxScene_ || cachedUfbxPath_ != normalizedPath ||
+        mesh.skinBones().isEmpty()) {
+      lastError_ = QStringLiteral(
+          "animated source scene is unavailable or does not match this mesh; reload the model");
+      return false;
+    }
+    for (size_t meshIndex = 0;
+         meshIndex < cachedUfbxScene_->meshes.count; ++meshIndex) {
+      const ufbx_mesh* sourceMesh = cachedUfbxScene_->meshes[meshIndex];
+      if (sourceMesh && sourceMesh->blend_deformers.count > 0) {
+        lastError_ = QStringLiteral(
+            "source uses blend shapes; full timed mesh evaluation is required");
+        return false;
+      }
+    }
+
+    const int requestedClip = std::max(0, clipIndex);
+    const ufbx_anim_stack* stack = nullptr;
+    const ufbx_anim_stack* lastValidStack = nullptr;
+    int validClipIndex = 0;
+    for (size_t stackIndex = 0;
+         stackIndex < cachedUfbxScene_->anim_stacks.count; ++stackIndex) {
+      const ufbx_anim_stack* candidate =
+          cachedUfbxScene_->anim_stacks[stackIndex];
+      if (!candidate) continue;
+      lastValidStack = candidate;
+      if (validClipIndex == requestedClip) {
+        stack = candidate;
+        break;
+      }
+      ++validClipIndex;
+    }
+    if (!stack) stack = lastValidStack;
+    if (!stack || !stack->anim || !std::isfinite(time)) {
+      lastError_ = QStringLiteral("animation clip or sample time is invalid");
+      return false;
+    }
+
+    const double clipBegin = std::min(stack->time_begin, stack->time_end);
+    const double clipEnd = std::max(stack->time_begin, stack->time_end);
+    const double sampleTime = std::clamp(time, clipBegin, clipEnd);
+    ufbx_evaluate_opts evaluateOpts = {};
+    ufbx_error evaluateError;
+    ufbx_scene* evaluatedScene = ufbx_evaluate_scene(
+        cachedUfbxScene_, stack->anim, sampleTime, &evaluateOpts,
+        &evaluateError);
+    if (!evaluatedScene) {
+      lastError_ = QStringLiteral("ufbx animation evaluation failed: %1")
+          .arg(QString::fromUtf8(evaluateError.description.data));
+      return false;
+    }
+
+    const auto toQMatrix = [](const ufbx_matrix& source) {
+      QMatrix4x4 result;
+      result.setColumn(0, QVector4D(source.m00, source.m10, source.m20, 0.0f));
+      result.setColumn(1, QVector4D(source.m01, source.m11, source.m21, 0.0f));
+      result.setColumn(2, QVector4D(source.m02, source.m12, source.m22, 0.0f));
+      result.setColumn(3, QVector4D(source.m03, source.m13, source.m23, 1.0f));
+      return result;
+    };
+    skinPoseScratch_.resize(mesh.skinBones().size());
+    int poseIndex = 0;
+    bool compatible = true;
+    for (size_t clusterIndex = 0;
+         clusterIndex < evaluatedScene->skin_clusters.count;
+         ++clusterIndex) {
+      const ufbx_skin_cluster* cluster =
+          evaluatedScene->skin_clusters[clusterIndex];
+      if (!cluster || !cluster->bone_node) continue;
+      if (poseIndex >= mesh.skinBones().size() ||
+          mesh.skinBones()[poseIndex].name !=
+              ufbxStringToQString(cluster->bone_node->name)) {
+        compatible = false;
+        break;
+      }
+      skinPoseScratch_[poseIndex++] = toQMatrix(cluster->geometry_to_world);
+    }
+    compatible = compatible && poseIndex == mesh.skinBones().size();
+    if (compatible && mesh.setSkinPoseMatrices(skinPoseScratch_)) {
+      mesh.applyDeformers(skinPoseScratch_);
+    } else {
+      compatible = false;
+    }
+    ufbx_free_scene(evaluatedScene);
+    if (!compatible) {
+      lastError_ = QStringLiteral(
+          "evaluated skin palette does not match the imported mesh");
+    }
+    return compatible;
   }
 
   SharedPtr<Mesh> loadWithTinyObj(const QString &path) {
@@ -2012,6 +2150,306 @@ public:
     mesh->updateBounds();
     return mesh;
   }
+#ifdef ARTIFACT_WITH_OPENUSD
+  SharedPtr<Mesh> loadWithUsdStage(const QString& path,
+                                   MeshImporter::Backend backend) {
+    lastBackend_ = backend;
+    lastError_.clear();
+    lastBaseColorTexture_.clear();
+    lastMetallicRoughnessTexture_.clear();
+    lastNormalTexture_.clear();
+    lastEmissionTexture_.clear();
+    lastOcclusionTexture_.clear();
+    lastOpacityTexture_.clear();
+    hasLastMetallicFactor_ = false;
+    lastMetallicFactor_ = 0.0f;
+    hasLastRoughnessFactor_ = false;
+    lastRoughnessFactor_ = 0.0f;
+
+    pxr::UsdStageRefPtr stage =
+        pxr::UsdStage::Open(path.toStdString());
+    if (!stage) {
+      lastError_ = QStringLiteral("usd: failed to open stage");
+      return nullptr;
+    }
+
+    pxr::UsdPrim meshPrim;
+    int meshPrimCount = 0;
+    for (const pxr::UsdPrim& prim : stage->Traverse()) {
+      if (!prim.IsA<pxr::UsdGeomMesh>()) {
+        continue;
+      }
+      ++meshPrimCount;
+      if (!meshPrim) {
+        meshPrim = prim;
+      }
+    }
+    if (!meshPrim) {
+      lastError_ = QStringLiteral("usd: no Mesh prim found");
+      return nullptr;
+    }
+    if (meshPrimCount > 1) {
+      lastError_ = QStringLiteral(
+          "usd: %1 Mesh prims found; only the first is imported").arg(meshPrimCount);
+    }
+
+    pxr::UsdGeomMesh usdMesh(meshPrim);
+    VtVec3fArray points;
+    if (!usdMesh.GetPointsAttr().Get(&points) || points.empty()) {
+      lastError_ = QStringLiteral("usd: Mesh prim is missing a usable points array");
+      return nullptr;
+    }
+    VtIntArray faceVertexIndices;
+    VtIntArray faceVertexCounts;
+    if (!usdMesh.GetFaceVertexIndicesAttr().Get(&faceVertexIndices) ||
+        !usdMesh.GetFaceVertexCountsAttr().Get(&faceVertexCounts) ||
+        faceVertexIndices.empty() || faceVertexCounts.empty()) {
+      lastError_ = QStringLiteral("usd: Mesh prim is missing face topology arrays");
+      return nullptr;
+    }
+
+    VtVec3fArray normals;
+    const bool hasNormals = usdMesh.GetNormalsAttr().Get(&normals);
+    VtVec2fArray uvs;
+    bool uvsAreFaceVarying = false;
+    if (const pxr::UsdGeomPrimvar uvPrimvar =
+            pxr::UsdGeomPrimvarsAPI(usdMesh).GetPrimvar(
+                pxr::TfToken(TEXT("st")))) {
+      VtValue uvValue;
+      if (uvPrimvar.Get(&uvValue) && uvValue.IsHolding<VtVec2fArray>()) {
+        uvValue.Get<VtVec2fArray>().Swap(&uvs);
+        uvsAreFaceVarying =
+            uvPrimvar.GetInterpolation() == pxr::UsdGeomTokens->faceVarying;
+      }
+    }
+
+    const QVector<QVector3D> positions = [&] {
+      QVector<QVector3D> result;
+      result.reserve(static_cast<int>(points.size()));
+      for (const GfVec3f& point : points) {
+        result.push_back(QVector3D(point[0], point[1], point[2]));
+      }
+      return result;
+    }();
+    const QVector<int> faceCounts = [&] {
+      QVector<int> result;
+      result.reserve(static_cast<int>(faceVertexCounts.size()));
+      for (int count : faceVertexCounts) {
+        result.push_back(count);
+      }
+      return result;
+    }();
+    const QVector<int> faceIndices = [&] {
+      QVector<int> result;
+      result.reserve(static_cast<int>(faceVertexIndices.size()));
+      for (int index : faceVertexIndices) {
+        result.push_back(index);
+      }
+      return result;
+    }();
+
+    const QVector<QVector3D> importedNormals = [&] {
+      QVector<QVector3D> result;
+      if (!hasNormals) {
+        return result;
+      }
+      result.reserve(static_cast<int>(normals.size()));
+      for (const GfVec3f& normal : normals) {
+        result.push_back(QVector3D(normal[0], normal[1], normal[2]));
+      }
+      return result;
+    }();
+    const QVector<QVector2D> importedUvs = [&] {
+      QVector<QVector2D> result;
+      result.reserve(static_cast<int>(uvs.size()));
+      for (const GfVec2f& uv : uvs) {
+        result.push_back(QVector2D(uv[0], uv[1]));
+      }
+      return result;
+    }();
+
+    int expectedIndexCount = 0;
+    for (int count : faceCounts) {
+      if (count < 3) {
+        lastError_ = QStringLiteral(
+            "usd: faceVertexCounts contains a face with fewer than 3 vertices");
+        return nullptr;
+      }
+      expectedIndexCount += count;
+    }
+    if (expectedIndexCount != faceIndices.size()) {
+      lastError_ = QStringLiteral("usd: face topology array lengths do not match");
+      return nullptr;
+    }
+
+    const bool normalsArePerVertex =
+        !importedNormals.isEmpty() &&
+        importedNormals.size() == positions.size();
+    const bool normalsAreFaceVarying =
+        !importedNormals.isEmpty() &&
+        importedNormals.size() == faceIndices.size() &&
+        !normalsArePerVertex;
+    const bool uvsArePerVertex =
+        !importedUvs.isEmpty() && importedUvs.size() == positions.size() &&
+        !uvsAreFaceVarying;
+    const bool uvsAreFaceVaryingResolved =
+        !importedUvs.isEmpty() && importedUvs.size() == faceIndices.size() &&
+        uvsAreFaceVarying;
+    const bool needsFaceVaryingExpansion =
+        normalsAreFaceVarying || uvsAreFaceVaryingResolved;
+
+    auto mesh = makeShared<Mesh>();
+    const int meshVertexCount =
+        needsFaceVaryingExpansion ? faceIndices.size() : positions.size();
+    mesh->setVertexCount(meshVertexCount);
+    auto posAttr = mesh->vertexAttributes().add<QVector3D>("position");
+    auto normAttr = mesh->vertexAttributes().add<QVector3D>("normal");
+    SharedPtr<MeshAttribute<QVector2D>> uvAttr;
+    if (uvsArePerVertex || uvsAreFaceVaryingResolved) {
+      uvAttr = mesh->vertexAttributes().add<QVector2D>("uv");
+    }
+
+    const bool shouldGenerateNormals =
+        (!normalsArePerVertex && !normalsAreFaceVarying);
+    int indexOffset = 0;
+    for (int faceVertexCount : faceCounts) {
+      QVector<int> polygon;
+      QVector<QVector3D> polygonPositions;
+      polygon.reserve(faceVertexCount);
+      polygonPositions.reserve(faceVertexCount);
+
+      for (int i = 0; i < faceVertexCount; ++i) {
+        const int sourceVertexIndex = faceIndices[indexOffset];
+        if (sourceVertexIndex < 0 || sourceVertexIndex >= positions.size()) {
+          lastError_ = QStringLiteral(
+              "usd: faceVertexIndices contains an out-of-range vertex index");
+          return nullptr;
+        }
+
+        const int meshVertexIndex =
+            needsFaceVaryingExpansion ? indexOffset : sourceVertexIndex;
+        polygon.push_back(meshVertexIndex);
+        polygonPositions.push_back(positions[sourceVertexIndex]);
+        (*posAttr)[meshVertexIndex] = positions[sourceVertexIndex];
+
+        if (normalsArePerVertex) {
+          (*normAttr)[meshVertexIndex] = importedNormals[sourceVertexIndex];
+        } else if (normalsAreFaceVarying) {
+          (*normAttr)[meshVertexIndex] = importedNormals[indexOffset];
+        } else {
+          (*normAttr)[meshVertexIndex] = QVector3D(0.0f, 0.0f, 0.0f);
+        }
+
+        if (uvAttr) {
+          if (uvsArePerVertex) {
+            (*uvAttr)[meshVertexIndex] = importedUvs[sourceVertexIndex];
+          } else if (uvsAreFaceVaryingResolved) {
+            (*uvAttr)[meshVertexIndex] = importedUvs[indexOffset];
+          } else {
+            (*uvAttr)[meshVertexIndex] = QVector2D(0.0f, 0.0f);
+          }
+        }
+
+        ++indexOffset;
+      }
+
+      if (shouldGenerateNormals) {
+        const QVector3D polygonNormal = computePolygonNormal(polygonPositions);
+        for (int vertexIndex : polygon) {
+          (*normAttr)[vertexIndex] += polygonNormal;
+        }
+      }
+
+      mesh->addPolygon(polygon);
+    }
+
+    if (shouldGenerateNormals) {
+      for (int i = 0; i < normAttr->size(); ++i) {
+        QVector3D normal = (*normAttr)[i];
+        if (normal.lengthSquared() <= 1e-12f) {
+          normal = QVector3D(0.0f, 0.0f, 1.0f);
+        } else {
+          normal.normalize();
+        }
+        (*normAttr)[i] = normal;
+      }
+    }
+
+    readUsdPreviewSurfaceMaterial(usdMesh);
+    mesh->updateBounds();
+    return mesh;
+  }
+
+  void readUsdPreviewSurfaceMaterial(const pxr::UsdGeomMesh& usdMesh) {
+    const pxr::UsdShadeMaterialBindingAPI::DirectBinding directBinding =
+        pxr::UsdShadeMaterialBindingAPI(usdMesh.GetPrim()).GetDirectBinding();
+    if (!directBinding.GetMaterial()) {
+      return;
+    }
+    const pxr::UsdShadeMaterial material(directBinding.GetMaterial());
+
+    for (const pxr::UsdShadeOutput& output : material.GetSurfaceOutputs()) {
+      pxr::UsdShadeConnectableAPI shaderSource;
+      if (!pxr::UsdShadeConnectableAPI::GetConnectedSource(
+              output.GetAttr(), &shaderSource, nullptr, nullptr)) {
+        continue;
+      }
+      if (shaderSource.GetPrim().GetTypeName() !=
+          pxr::TfToken(TEXT("UsdPreviewSurface"))) {
+        continue;
+      }
+      const pxr::UsdShadeShader shader(shaderSource);
+
+      readUsdShaderTextureInput(shader, TEXT("diffuseColor"),
+                                &lastBaseColorTexture_);
+      readUsdShaderTextureInput(shader, TEXT("metallicRoughness"),
+                                &lastMetallicRoughnessTexture_);
+      readUsdShaderTextureInput(shader, TEXT("normal"), &lastNormalTexture_);
+      readUsdShaderTextureInput(shader, TEXT("emissiveColor"),
+                                &lastEmissionTexture_);
+      readUsdShaderTextureInput(shader, TEXT("occlusion"),
+                                &lastOcclusionTexture_);
+      readUsdShaderTextureInput(shader, TEXT("opacity"),
+                                &lastOpacityTexture_);
+
+      if (const pxr::UsdShadeInput scalarInput =
+              shader.GetInput(pxr::TfToken(TEXT("metallic")))) {
+        float value = 0.0f;
+        if (scalarInput.Get(&value)) {
+          lastMetallicFactor_ = std::clamp(value, 0.0f, 1.0f);
+          hasLastMetallicFactor_ = true;
+        }
+      }
+      if (const pxr::UsdShadeInput scalarInput =
+              shader.GetInput(pxr::TfToken(TEXT("roughness")))) {
+        float value = 0.0f;
+        if (scalarInput.Get(&value)) {
+          lastRoughnessFactor_ = std::clamp(value, 0.0f, 1.0f);
+          hasLastRoughnessFactor_ = true;
+        }
+      }
+      return;
+    }
+  }
+
+  void readUsdShaderTextureInput(const pxr::UsdShadeShader& shader,
+                                 const char* inputName,
+                                 QString* outPath) {
+    if (!outPath) {
+      return;
+    }
+    const pxr::UsdShadeInput input =
+        shader.GetInput(pxr::TfToken(inputName));
+    if (!input) {
+      return;
+    }
+    pxr::SdfAssetPath assetPath;
+    if (input.Get(&assetPath) && assetPath.GetAssetPath().size() > 0) {
+      *outPath = QDir::cleanPath(QString::fromStdString(assetPath.GetAssetPath()));
+    }
+  }
+#endif
+
   SharedPtr<Mesh> loadPMD(const QString &path) {
     lastBackend_ = MeshImporter::Backend::PMD;
     lastError_.clear();
@@ -2133,6 +2571,12 @@ SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
   impl_->lastBackend_ = MeshImporter::Backend::None;
   impl_->lastError_.clear();
   impl_->lastBaseColorTexture_.clear();
+  if (ext != QStringLiteral("fbx") && ext != QStringLiteral("gltf") &&
+      ext != QStringLiteral("glb") && impl_->cachedUfbxScene_) {
+    ufbx_free_scene(impl_->cachedUfbxScene_);
+    impl_->cachedUfbxScene_ = nullptr;
+    impl_->cachedUfbxPath_.clear();
+  }
 
   if (ext == QStringLiteral("fbx")) {
     return impl_->loadWithUfbx(qpath);
@@ -2178,20 +2622,30 @@ SharedPtr<Mesh> MeshImporter::importMeshFromFile(const UniString &path) {
         return impl_->loadWithUsda(qpath);
       }
     }
+#ifdef ARTIFACT_WITH_OPENUSD
+    return impl_->loadWithUsdStage(qpath, MeshImporter::Backend::Usdc);
+#else
     qWarning() << "USD import requested but no binary/OpenUSD runtime is wired into MeshImporter:" << qpath;
     impl_->lastError_ = QStringLiteral(
         "USD import for .usd requires either ASCII USDA content or an OpenUSD runtime. "
         "This build only supports the ASCII USDA subset.");
     return nullptr;
+#endif
   }
 
   if (ext == QStringLiteral("usdc") || ext == QStringLiteral("usdz")) {
+#ifdef ARTIFACT_WITH_OPENUSD
+    return impl_->loadWithUsdStage(
+        qpath, ext == QStringLiteral("usdc") ? MeshImporter::Backend::Usdc
+                                             : MeshImporter::Backend::Usdz);
+#else
     qWarning() << "USD import requested but no USD runtime is wired into MeshImporter:" << qpath;
     impl_->lastError_ = QStringLiteral(
         "USD import is not wired into this build yet (%1). "
         "This build currently supports ASCII USDA only; USDC/USDZ still require OpenUSD integration.")
                             .arg(QStringView{ext});
     return nullptr;
+#endif
   }
 
   qWarning() << "Unsupported mesh format:" << ext;

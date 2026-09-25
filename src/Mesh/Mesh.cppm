@@ -316,6 +316,19 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         ++impl_->revision;
     }
 
+    bool Mesh::setSkinPoseMatrices(
+        const QVector<QMatrix4x4>& poseMatrices) {
+        if (!impl_ || poseMatrices.size() != impl_->skinBones.size() ||
+            poseMatrices.isEmpty()) {
+            return false;
+        }
+        for (int index = 0; index < poseMatrices.size(); ++index) {
+            impl_->skinBones[index].poseMatrix = poseMatrices[index];
+        }
+        ++impl_->revision;
+        return true;
+    }
+
     QVector<QMatrix4x4> Mesh::skinPoseMatrices() const {
         QVector<QMatrix4x4> result;
         if (!impl_) return result;
@@ -845,7 +858,13 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
 
         if (!posAttr || boneMatrices.isEmpty() ||
             (!weightAttr && (!packedIndexAttr || !packedWeightAttr))) return;
-        impl_->activeSkinMatrices = boneMatrices;
+        if (impl_->activeSkinMatrices.size() != boneMatrices.size()) {
+            impl_->activeSkinMatrices.resize(boneMatrices.size());
+        }
+        for (int matrixIndex = 0; matrixIndex < boneMatrices.size();
+             ++matrixIndex) {
+            impl_->activeSkinMatrices[matrixIndex] = boneMatrices[matrixIndex];
+        }
 
         // Preserve bind-space data so repeated pose updates never compound
         // the previous deformation. The first call captures the imported
@@ -1168,6 +1187,15 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
     }
 
     void Mesh::applyDeformers(const QVector<QMatrix4x4>& boneMatrices) {
+        if (impl_ && impl_->blendShapes.isEmpty() &&
+            !boneMatrices.isEmpty()) {
+            // Skinning reads from its retained bind-space buffers and writes
+            // directly to the existing vertex arrays. Restoring by QVector
+            // assignment here would make each animated frame detach and copy
+            // the full position/normal arrays.
+            applySkinning(boneMatrices);
+            return;
+        }
         restoreSkinningBase();
         applyBlendShapes();
 
