@@ -503,6 +503,10 @@ const PuppetMesh& OpenCVPuppetEngine::deformedMeshView() const {
 
 void OpenCVPuppetEngine::reset() {
     impl_->pins.clear();
+    impl_->initialGridVertices.clear();
+    impl_->deformedGridVertices.clear();
+    impl_->gridColumns = 0;
+    impl_->gridRows = 0;
     impl_->deformedMesh = impl_->initialMesh;
 }
 
