@@ -63,6 +63,12 @@ public:
   TemporalValueResolver temporalValueResolver_;
   ExpressionParser parser_;
   ZeroString error_;
+  // Source range of the node that produced error_. Kept separate from error_
+  // because the memoization hash reads error_ and must not see these.
+  std::size_t errorPosition_ = std::string::npos;
+  std::size_t errorLength_ = 0;
+  // Signature metadata, purely descriptive for editor tooling.
+  std::map<std::string, ExpressionFunctionInfo> functionInfos_;
   std::atomic<bool> cancelRequested_ = false;
 
   // Recursion safety
@@ -96,6 +102,25 @@ public:
   mutable int lastAdaptiveSplitCount_ = 0;   // Phase 5 診断用
 
   ExpressionValue evaluateNode(const SharedPtr<ExprNode> &node);
+
+  // Records an error together with the source span of the node that produced
+  // it, so the editor can place a squiggle on the exact expression text. A
+  // node without a recorded range (built outside the parser) leaves the
+  // position as std::string::npos, which callers must treat as "unknown".
+  void setErrorAt(ZeroString message, const SharedPtr<ExprNode> &node) {
+    error_ = std::move(message);
+    if (node) {
+      const std::size_t start = node->startOffset();
+      const std::size_t end = node->endOffset();
+      if (end > start) {
+        errorPosition_ = start;
+        errorLength_ = end - start;
+        return;
+      }
+    }
+    errorPosition_ = std::string::npos;
+    errorLength_ = 0;
+  }
 };
 
 // Helper to merge variables
@@ -152,15 +177,17 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
   }
 
   if (currentDepth_ >= recursionDepthLimit_) {
-    error_ = ZeroString("Recursion depth limit exceeded (");
-    error_ += ZeroString(std::to_string(recursionDepthLimit_));
-    error_ += ZeroString(")");
+    setErrorAt(ZeroString("Recursion depth limit exceeded (") +
+                   ZeroString(std::to_string(recursionDepthLimit_)) +
+                   ZeroString(")"),
+               node);
     return ExpressionValue();
   }
   if (evaluationCount_ >= evaluationBudget_) {
-    error_ = ZeroString("Evaluation budget exceeded (");
-    error_ += ZeroString(std::to_string(evaluationBudget_));
-    error_ += ZeroString(")");
+    setErrorAt(ZeroString("Evaluation budget exceeded (") +
+                   ZeroString(std::to_string(evaluationBudget_)) +
+                   ZeroString(")"),
+               node);
     return ExpressionValue();
   }
 
@@ -198,7 +225,8 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
     auto it = variables_.find(name);
     if (it != variables_.end())
       return it->second;
-    error_ = ZeroString("Undefined variable: ") + std::string_view(name);
+    setErrorAt(ZeroString("Undefined variable: ") + std::string_view(name),
+               node);
     return ExpressionValue();
   }
 
@@ -229,7 +257,7 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
 
   case ExprNodeType::ArrayAccess: {
     if (node->childCount() < 2) {
-      error_ = ZeroString("Invalid array access");
+      setErrorAt(ZeroString("Invalid array access"), node);
       return ExpressionValue();
     }
     auto array = evaluateNode(node->child(0));
@@ -240,7 +268,7 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
 
   case ExprNodeType::PropertyAccess: {
     if (node->childCount() < 1) {
-      error_ = ZeroString("Invalid property access");
+      setErrorAt(ZeroString("Invalid property access"), node);
       return ExpressionValue();
     }
 
@@ -251,7 +279,8 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
       if (base.hasProperty(prop)) {
         return base.property(prop);
       }
-      error_ = ZeroString("Undefined property: ") + std::string_view(prop);
+      setErrorAt(ZeroString("Undefined property: ") + std::string_view(prop),
+                 node);
       return ExpressionValue();
     }
 
@@ -270,13 +299,14 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
       return ExpressionValue(static_cast<double>(base.asZeroString().length()));
     }
 
-    error_ = ZeroString("Unsupported property access: ") + std::string_view(prop);
+    setErrorAt(ZeroString("Unsupported property access: ") + std::string_view(prop),
+               node);
     return ExpressionValue();
   }
 
   case ExprNodeType::BinaryOp: {
     if (node->childCount() < 2) {
-      error_ = ZeroString("Binary operator requires two operands");
+      setErrorAt(ZeroString("Binary operator requires two operands"), node);
       return ExpressionValue();
     }
     auto left = evaluateNode(node->child(0));
@@ -317,13 +347,14 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
       return ExpressionValue(
           (left.asNumber() != 0.0 || right.asNumber() != 0.0) ? 1.0 : 0.0);
 
-    error_ = ZeroString("Unknown binary operator: ") + std::string_view(op);
+    setErrorAt(ZeroString("Unknown binary operator: ") + std::string_view(op),
+               node);
     return ExpressionValue();
   }
 
   case ExprNodeType::UnaryOp: {
     if (node->childCount() == 0) {
-      error_ = ZeroString("Unary operator requires one operand");
+      setErrorAt(ZeroString("Unary operator requires one operand"), node);
       return ExpressionValue();
     }
     auto operand = evaluateNode(node->child(0));
@@ -333,7 +364,8 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
     if (opu == "!" || opu == "not")
       return ExpressionValue(operand.asNumber() == 0.0 ? 1.0 : 0.0);
 
-    error_ = ZeroString("Unknown unary operator: ") + std::string_view(opu);
+    setErrorAt(ZeroString("Unknown unary operator: ") + std::string_view(opu),
+               node);
     return ExpressionValue();
   }
 
@@ -341,7 +373,8 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
     auto fname = node->stringValue();
     auto it = functions_.find(fname);
     if (it == functions_.end()) {
-      error_ = ZeroString("Undefined function: ") + std::string_view(fname);
+      setErrorAt(ZeroString("Undefined function: ") + std::string_view(fname),
+                 node);
       return ExpressionValue();
     }
     std::vector<ExpressionValue> args;
@@ -355,7 +388,7 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
 
   case ExprNodeType::MethodCall: {
     if (node->childCount() < 1) {
-      error_ = ZeroString("Invalid method call");
+      setErrorAt(ZeroString("Invalid method call"), node);
       return ExpressionValue();
     }
 
@@ -366,29 +399,39 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
       args.push_back(evaluateNode(node->child(i)));
     }
 
+    // Argument-level failures point at the argument text when it is available,
+    // so the squiggle lands on the offending value rather than the whole call.
+    // children are [callee, arg0, arg1, ...] for a MethodCall.
+    const auto firstArgNode = [&node]() -> SharedPtr<ExprNode> {
+      return node->childCount() > 1 ? node->child(1) : nullptr;
+    };
+
     // AE-style marker access over the immutable preview snapshot:
     // marker.key(n) and marker.nearestKey(time).
     if (base.isObject() && (method == "key" || method == "nearestKey")) {
       const auto keysValue = base.property("keys");
       if (!keysValue.isArray()) {
-        error_ = ZeroString("marker method requires a keys catalog");
+        setErrorAt(ZeroString("marker method requires a keys catalog"),
+                   firstArgNode() ? firstArgNode() : node);
         return ExpressionValue();
       }
       if (args.empty() || !args.front().isNumber()) {
-        error_ = ZeroString("marker method requires a numeric argument");
+        setErrorAt(ZeroString("marker method requires a numeric argument"),
+                   firstArgNode() ? firstArgNode() : node);
         return ExpressionValue();
       }
 
       const auto keys = keysValue.asArray();
       if (keys.empty()) {
-        error_ = ZeroString("marker catalog is empty");
+        setErrorAt(ZeroString("marker catalog is empty"), node);
         return ExpressionValue();
       }
 
       if (method == "key") {
         const auto index = static_cast<long long>(std::llround(args.front().asNumber()));
         if (index < 1 || index > static_cast<long long>(keys.size())) {
-          error_ = ZeroString("marker key index out of range");
+          setErrorAt(ZeroString("marker key index out of range"),
+                     firstArgNode() ? firstArgNode() : node);
           return ExpressionValue();
         }
         return keys[static_cast<std::size_t>(index - 1)];
@@ -413,12 +456,13 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
     if (base.isObject() && method == "layer") {
       auto layersValue = base.property("layers");
       if (!layersValue.isArray()) {
-        error_ = ZeroString("thisComp.layer() requires a layers catalog");
+        setErrorAt(ZeroString("thisComp.layer() requires a layers catalog"),
+                   node);
         return ExpressionValue();
       }
 
       if (args.empty()) {
-        error_ = ZeroString("thisComp.layer() requires an argument");
+        setErrorAt(ZeroString("thisComp.layer() requires an argument"), node);
         return ExpressionValue();
       }
 
@@ -437,17 +481,19 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
         }
       }
 
-      error_ = ZeroString("Layer not found: ") + std::string_view(wantedName);
+      setErrorAt(ZeroString("Layer not found: ") + std::string_view(wantedName),
+                 firstArgNode() ? firstArgNode() : node);
       return ExpressionValue();
     }
 
-    error_ = ZeroString("Unsupported method call: ") + std::string_view(method);
+    setErrorAt(ZeroString("Unsupported method call: ") + std::string_view(method),
+               node);
     return ExpressionValue();
   }
 
   case ExprNodeType::Conditional: {
     if (node->childCount() < 3) {
-      error_ = ZeroString("Ternary operator requires three operands");
+      setErrorAt(ZeroString("Ternary operator requires three operands"), node);
       return ExpressionValue();
     }
     auto condition = evaluateNode(node->child(0));
@@ -457,7 +503,7 @@ ExpressionEvaluator::Impl::evaluateNode(const SharedPtr<ExprNode> &node) {
   }
 
   default:
-    error_ = ZeroString("Unknown node type");
+    setErrorAt(ZeroString("Unknown node type"), node);
     return ExpressionValue();
   }
 }
@@ -487,9 +533,15 @@ ExpressionEvaluator::~ExpressionEvaluator() { delete impl_; }
 
 ExpressionValue ExpressionEvaluator::evaluate(const std::string &expression) {
   impl_->error_.clear();
+  impl_->errorPosition_ = std::string::npos;
+  impl_->errorLength_ = 0;
   auto ast = impl_->parser_.parse(expression);
   if (impl_->parser_.hasError()) {
     impl_->error_ = ZeroString(impl_->parser_.getError());
+    // Carry the parser's own position through so a caller that only holds an
+    // evaluator still learns where the syntax error was.
+    impl_->errorPosition_ = impl_->parser_.getErrorPosition();
+    impl_->errorLength_ = impl_->parser_.getErrorLength();
     return ExpressionValue();
   }
   return evaluateAST(ast);
@@ -502,6 +554,8 @@ ExpressionValue ExpressionEvaluator::evaluate(const ZeroString& expression) {
 ExpressionValue
 ExpressionEvaluator::evaluateAST(const SharedPtr<ExprNode> &node) {
   impl_->error_.clear();
+  impl_->errorPosition_ = std::string::npos;
+  impl_->errorLength_ = 0;
   impl_->cancelRequested_ = false;
   return impl_->evaluateNode(node);
 }
@@ -554,6 +608,26 @@ ExpressionValue ExpressionEvaluator::resolveValueAtTime(
 void ExpressionEvaluator::registerFunction(const std::string &name,
                                            BuiltinFunction func) {
   impl_->functions_[name] = func;
+}
+
+void ExpressionEvaluator::registerFunctionInfo(
+    const ExpressionFunctionInfo &info) {
+  impl_->functionInfos_[info.name] = info;
+}
+
+const ExpressionFunctionInfo *ExpressionEvaluator::functionInfo(
+    const std::string &name) const {
+  const auto it = impl_->functionInfos_.find(name);
+  return it == impl_->functionInfos_.end() ? nullptr : &it->second;
+}
+
+std::vector<ExpressionFunctionInfo> ExpressionEvaluator::allFunctionInfos() const {
+  std::vector<ExpressionFunctionInfo> out;
+  out.reserve(impl_->functionInfos_.size());
+  for (const auto &entry : impl_->functionInfos_) {
+    out.push_back(entry.second);
+  }
+  return out;
 }
 
 void ExpressionEvaluator::registerStandardFunctions() {
@@ -613,6 +687,149 @@ void ExpressionEvaluator::registerStandardFunctions() {
   registerFunction("getEnv", GetEnv);
   registerFunction("setEnv", SetEnv);
   registerFunction("hasEnv", HasEnv);
+
+  registerStandardFunctionInfos();
+}
+
+// Signature metadata for the built-ins registered above. Every entry was
+// written from the corresponding implementation in this file, not guessed:
+// parameter counts reflect the arity each function actually checks, and a
+// parameter typed as Null accepts any value rather than asserting a type the
+// evaluator does not enforce.
+void ExpressionEvaluator::registerStandardFunctionInfos() {
+  using ExprValueType::Null;
+  using ExprValueType::Number;
+  using ExprValueType::String;
+  using ExprValueType::Vec3;
+
+  // A parameter the caller may omit.
+  const auto opt = [](const char* name, ExprValueType type) {
+    ExpressionParamInfo info;
+    info.name = name;
+    info.type = type;
+    info.optional = true;
+    return info;
+  };
+  const auto req = [](const char* name, ExprValueType type) {
+    ExpressionParamInfo info;
+    info.name = name;
+    info.type = type;
+    return info;
+  };
+  const auto variadic = [](const char* name, ExprValueType type) {
+    ExpressionParamInfo info;
+    info.name = name;
+    info.type = type;
+    info.variadic = true;
+    info.optional = true;
+    return info;
+  };
+  const auto add = [this](const char* name, ExprValueType returnType,
+                          const char* doc, std::vector<ExpressionParamInfo> params) {
+    ExpressionFunctionInfo info;
+    info.name = name;
+    info.returnType = returnType;
+    info.docText = doc;
+    info.params = std::move(params);
+    registerFunctionInfo(info);
+  };
+
+  // --- Math. Each of these returns ExpressionValue() when args is empty. ---
+  add("sin", Number, "Sine of an angle in radians.", {req("angle", Number)});
+  add("cos", Number, "Cosine of an angle in radians.", {req("angle", Number)});
+  add("tan", Number, "Tangent of an angle in radians.", {req("angle", Number)});
+  add("degToRad", Number, "Converts degrees to radians.", {req("degrees", Number)});
+  add("radToDeg", Number, "Converts radians to degrees.", {req("radians", Number)});
+  add("sqrt", Number, "Square root.", {req("value", Number)});
+  add("pow", Number, "Raises base to the power exponent.", {req("base", Number), req("exponent", Number)});
+  add("abs", Number, "Absolute value.", {req("value", Number)});
+  add("floor", Number, "Largest integer not greater than the value.", {req("value", Number)});
+  add("ceil", Number, "Smallest integer not less than the value.", {req("value", Number)});
+  add("round", Number, "Rounds to the nearest integer.", {req("value", Number)});
+  // Min/Max fold over every argument, so the trailing parameter is variadic.
+  add("min", Number, "Smallest of the given values.", {variadic("values", Number)});
+  add("max", Number, "Largest of the given values.", {variadic("values", Number)});
+  // Clamp requires exactly three arguments (ExpressionEvaluator.cppm:982).
+  add("clamp", Number, "Constrains value to the range [min, max].",
+      {req("value", Number), req("min", Number), req("max", Number)});
+
+  // --- Vectors ---
+  add("length", Number, "Magnitude of a vector, or element count of an array.",
+      {req("value", Null)});
+  add("distance", Number, "Distance between two points.", {req("a", Null), req("b", Null)});
+  add("normalize", Null, "Returns a unit-length version of the vector.",
+      {req("vector", Null)});
+  add("dot", Number, "Dot product of two vectors.", {req("a", Null), req("b", Null)});
+  // Cross requires 3-component vectors (ExpressionEvaluator.cppm:1046).
+  add("cross", Vec3, "Cross product of two 3-component vectors.",
+      {req("a", Vec3), req("b", Vec3)});
+
+  // --- Interpolation. Each accepts either (t, from, to) or
+  // (t, tMin, tMax, from, to); only the 3-arg form is documented because the
+  // 5-arg form is a rarely used extension.
+  add("linear", Null, "Linear interpolation between two values.",
+      {req("t", Number), req("from", Null), req("to", Null)});
+  add("ease", Null, "Ease interpolation between two values.",
+      {req("t", Number), req("from", Null), req("to", Null)});
+  add("easeIn", Null, "Ease-in interpolation between two values.",
+      {req("t", Number), req("from", Null), req("to", Null)});
+  add("easeOut", Null, "Ease-out interpolation between two values.",
+      {req("t", Number), req("from", Null), req("to", Null)});
+  add("timeToFrames", Number, "Converts seconds to frames.",
+      {opt("time", Number), opt("frameRate", Number)});
+  add("framesToTime", Number, "Converts frames to seconds.",
+      {req("frames", Number), opt("frameRate", Number)});
+
+  // --- Random / noise. Arity follows Random (ExpressionEvaluator.cppm:1136):
+  // () -> [0,1], (max) -> [0,max], (min, max).
+  add("random", Number, "Deterministic random value that varies with time.",
+      {variadic("range", Number)});
+  // RandomSeeded (ExpressionEvaluator.cppm:1186): (seed), (seed, max),
+  // (seed, min, max).
+  add("randomSeeded", Number, "Random value from an explicit seed.",
+      {req("seed", Number), variadic("range", Number)});
+  add("seedRandom", Number, "AE alias of randomSeeded.",
+      {req("seed", Number), variadic("range", Number)});
+  add("noise", Number, "Perlin noise sample in 3D.",
+      {req("x", Number), opt("y", Number), opt("z", Number)});
+  add("sum", Number, "Sum of the given values.", {variadic("values", Number)});
+  add("average", Number, "Mean of the given values.", {variadic("values", Number)});
+  // Wiggle (ExpressionEvaluator.cppm:1216) requires freq and amp; the rest are
+  // optional fractal-noise controls.
+  add("wiggle", Number, "Procedural noise that varies with time.",
+      {req("frequency", Number), req("amplitude", Number),
+       opt("octaves", Number), opt("persistence", Number), opt("lacunarity", Number)});
+  add("smooth", Null, "Smooths keyframe values over a time window.",
+      {opt("width", Number), opt("sampleCount", Number), opt("center", Number)});
+  add("posterizeTime", Number, "Quantizes the evaluation time to whole frames of fps.",
+      {req("frameRate", Number)});
+
+  // --- Audio. These read the injected analysis frame and ignore all arguments.
+  add("audio_rms", Number, "Root-mean-square level of the current audio window.", {});
+  add("audio_peak", Number, "Peak level of the current audio window.", {});
+  add("audio_low", Number, "Low-band level of the current audio window.", {});
+  add("audio_mid", Number, "Mid-band level of the current audio window.", {});
+  add("audio_high", Number, "High-band level of the current audio window.", {});
+
+  // --- AE loop / value at time ---
+  add("valueAtTime", Null, "Value of an expression evaluated at a past time.",
+      {req("time", Number), req("expression", Null)});
+  add("loopIn", Null, "Loops the keyframes before the current time.",
+      {opt("mode", String), opt("numKeyframes", Number)});
+  add("loopOut", Null, "Loops the keyframes after the current time.",
+      {opt("mode", String), opt("numKeyframes", Number)});
+  add("loopInDuration", Null, "Loops the keyframes before the current time over a duration.",
+      {opt("mode", String), opt("duration", Number)});
+  add("loopOutDuration", Null, "Loops the keyframes after the current time over a duration.",
+      {opt("mode", String), opt("duration", Number)});
+
+  // --- Environment variables ---
+  add("getEnv", String, "Reads an environment variable, falling back to a default.",
+      {req("name", String), opt("default", Null)});
+  add("setEnv", Null, "Sets an environment variable for this session.",
+      {req("name", String), req("value", Null)});
+  add("hasEnv", Number, "Returns 1 when the environment variable exists.",
+      {req("name", String)});
 }
 
 void ExpressionEvaluator::setRecursionDepthLimit(int depth) {
@@ -656,6 +873,14 @@ std::string ExpressionEvaluator::getError() const {
 }
 
 bool ExpressionEvaluator::hasError() const { return impl_->error_.length() != 0; }
+
+std::size_t ExpressionEvaluator::getErrorPosition() const {
+  return impl_->errorPosition_;
+}
+
+std::size_t ExpressionEvaluator::getErrorLength() const {
+  return impl_->errorLength_;
+}
 
 // --- Time Evaluation Contract ---
 
@@ -746,9 +971,13 @@ double ExpressionEvaluator::estimateSpeedAtTime(const SharedPtr<ExprNode>& node,
 
 double ExpressionEvaluator::estimateSpeedAtTime(const std::string& expression, double timeSec) {
   impl_->error_.clear();
+  impl_->errorPosition_ = std::string::npos;
+  impl_->errorLength_ = 0;
   auto ast = impl_->parser_.parse(expression);
   if (impl_->parser_.hasError()) {
     impl_->error_ = ZeroString(impl_->parser_.getError());
+    impl_->errorPosition_ = impl_->parser_.getErrorPosition();
+    impl_->errorLength_ = impl_->parser_.getErrorLength();
     return 0.0;
   }
   return estimateSpeedAtTime(ast, timeSec);
@@ -756,9 +985,13 @@ double ExpressionEvaluator::estimateSpeedAtTime(const std::string& expression, d
 
 ExpressionValue ExpressionEvaluator::evaluateAtTime(const std::string& expression, double timeSec) {
     impl_->error_.clear();
+    impl_->errorPosition_ = std::string::npos;
+    impl_->errorLength_ = 0;
     auto ast = impl_->parser_.parse(expression);
     if (impl_->parser_.hasError()) {
         impl_->error_ = ZeroString(impl_->parser_.getError());
+        impl_->errorPosition_ = impl_->parser_.getErrorPosition();
+        impl_->errorLength_ = impl_->parser_.getErrorLength();
         return ExpressionValue();
     }
     return evaluateASTAtTime(ast, timeSec);
@@ -766,6 +999,8 @@ ExpressionValue ExpressionEvaluator::evaluateAtTime(const std::string& expressio
 
 ExpressionValue ExpressionEvaluator::evaluateASTAtTime(const SharedPtr<ExprNode>& node, double timeSec) {
     impl_->error_.clear();
+    impl_->errorPosition_ = std::string::npos;
+    impl_->errorLength_ = 0;
     impl_->cancelRequested_ = false;
 
     // Save and override time variable
@@ -832,6 +1067,8 @@ ExpressionEvaluator::evaluateOverRange(
         auto ast = impl_->parser_.parse(expression);
         if (impl_->parser_.hasError()) {
             impl_->error_ = ZeroString(impl_->parser_.getError());
+            impl_->errorPosition_ = impl_->parser_.getErrorPosition();
+            impl_->errorLength_ = impl_->parser_.getErrorLength();
             return results;
         }
 

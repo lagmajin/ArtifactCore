@@ -81,13 +81,20 @@ public:
     void setOperatorSymbol(const std::string& op);
     void setNumberValue(double v);
     void setStringValue(const std::string& s);
-    
+    // Half-open source range [start, end) this node was parsed from. Byte
+    // offsets into the string handed to ExpressionParser::parse().
+    void setSourceRange(std::size_t start, std::size_t end);
+
     // Accessors for AST inspection (usable by other modules)
     std::size_t childCount() const;
     SharedPtr<ExprNode> child(std::size_t index) const;
     std::string operatorSymbol() const;
     double numberValue() const;
     std::string stringValue() const;
+    // startOffset()/endOffset() return 0 when the parser did not record a
+    // range, which is the case for nodes built outside the parser.
+    std::size_t startOffset() const;
+    std::size_t endOffset() const;
 };
 
 // Parser for expression syntax

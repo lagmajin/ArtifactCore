@@ -49,12 +49,17 @@ namespace ArtifactCore {
 class ExprNode::Impl {
 public:
     ExprNodeType type_;
-    
+
     // Node data (union-like storage)
     double numberValue_ = 0.0;
     std::string stringValue_;
     NamedVector<SharedPtr<ExprNode>> children_;
     std::string operatorSymbol_;
+
+    // Half-open source range [startOffset_, endOffset_) in the parsed
+    // expression. Both stay 0 for nodes the parser did not build.
+    std::size_t startOffset_ = 0;
+    std::size_t endOffset_ = 0;
 };
 
 ExprNode::ExprNode(ExprNodeType type) : impl_(new Impl()) {
@@ -114,6 +119,19 @@ void ExprNode::setStringValue(const std::string& s) {
     impl_->stringValue_ = s;
 }
 
+void ExprNode::setSourceRange(std::size_t start, std::size_t end) {
+    impl_->startOffset_ = start;
+    impl_->endOffset_ = end;
+}
+
+std::size_t ExprNode::startOffset() const {
+    return impl_->startOffset_;
+}
+
+std::size_t ExprNode::endOffset() const {
+    return impl_->endOffset_;
+}
+
 // Token types for lexer
 enum class TokenType {
     Number,
@@ -135,7 +153,8 @@ enum class TokenType {
 struct Token {
     TokenType type;
     std::string value;
-    size_t position;
+    size_t position;  // inclusive start offset
+    size_t end;       // exclusive end offset
 };
 
 class ExpressionParser::Impl {
@@ -151,6 +170,9 @@ public:
     void tokenize();
     Token currentToken();
     Token advance();
+    // End offset of the most recently consumed token, used to span new nodes.
+    size_t lastConsumedTokenEnd() const;
+    void finishNode(const SharedPtr<ExprNode>& node, size_t start) const;
     bool match(TokenType type);
     bool isKeyword(const std::string& str, TokenType& outType);
     void setError(const std::string& message, size_t position, size_t length = 1);
@@ -166,7 +188,7 @@ public:
     SharedPtr<ExprNode> parsePower();  // Python: **
     SharedPtr<ExprNode> parseUnary();
     SharedPtr<ExprNode> parsePrimary();
-    SharedPtr<ExprNode> parseArrayLiteral();
+    SharedPtr<ExprNode> parseArrayLiteral(size_t openBracketOffset);
     SharedPtr<ExprNode> parseFunctionCall(const std::string& funcName);
     SharedPtr<ExprNode> parseCallExpression(SharedPtr<ExprNode> callee, bool methodCall);
     SharedPtr<ExprNode> parsePostfix(SharedPtr<ExprNode> base);
@@ -182,26 +204,33 @@ void ExpressionParser::Impl::setError(const std::string& message,
 void ExpressionParser::Impl::tokenize() {
     tokens_.clear();
     size_t pos = 0;
-    
+
+    // Records a token together with its half-open source range. `end` is the
+    // exclusive offset so a node can be spanned without re-scanning the source.
+    const auto emit = [this](TokenType type, std::string value,
+                             size_t start, size_t end) {
+        tokens_.push_back({type, std::move(value), start, end});
+    };
+
     while (pos < expression_.size()) {
         char c = expression_[pos];
-        
+
         // Skip whitespace
         if (std::isspace(c)) {
             ++pos;
             continue;
         }
-        
+
         // Numbers
         if (std::isdigit(c) || c == '.') {
             size_t start = pos;
             while (pos < expression_.size() && (std::isdigit(expression_[pos]) || expression_[pos] == '.')) {
                 ++pos;
             }
-            tokens_.push_back({TokenType::Number, expression_.substr(start, pos - start), start});
+            emit(TokenType::Number, expression_.substr(start, pos - start), start, pos);
             continue;
         }
-        
+
         // Identifiers and keywords
         if (std::isalpha(c) || c == '_') {
             size_t start = pos;
@@ -211,93 +240,97 @@ void ExpressionParser::Impl::tokenize() {
             std::string word = expression_.substr(start, pos - start);
             TokenType keywordType;
             if (isKeyword(word, keywordType)) {
-                tokens_.push_back({keywordType, word, start});
+                emit(keywordType, word, start, pos);
             } else {
-                tokens_.push_back({TokenType::Identifier, word, start});
+                emit(TokenType::Identifier, word, start, pos);
             }
             continue;
         }
-        
-        // String literals
+
+        // String literals. The token range covers both quotes while `value`
+        // stays unquoted, so diagnostics can underline the whole literal.
         if (c == '"' || c == '\'') {
             char quote = c;
+            size_t openQuote = pos;
             ++pos;
             size_t start = pos;
             while (pos < expression_.size() && expression_[pos] != quote) {
                 ++pos;
             }
-            tokens_.push_back({TokenType::String, expression_.substr(start, pos - start), start});
+            const std::string content = expression_.substr(start, pos - start);
             if (pos < expression_.size()) ++pos;  // Skip closing quote
+            // Range covers both quotes so a diagnostic underlines the literal.
+            emit(TokenType::String, content, openQuote, pos);
             continue;
         }
-        
+
         // Operators and punctuation
         switch (c) {
-        case '+': tokens_.push_back({TokenType::Plus, "+", pos}); break;
-        case '-': tokens_.push_back({TokenType::Minus, "-", pos}); break;
+        case '+': emit(TokenType::Plus, "+", pos, pos + 1); break;
+        case '-': emit(TokenType::Minus, "-", pos, pos + 1); break;
         case '*':
             if (pos + 1 < expression_.size() && expression_[pos + 1] == '*') {
-                tokens_.push_back({TokenType::DoubleStar, "**", pos});
+                emit(TokenType::DoubleStar, "**", pos, pos + 2);
                 ++pos;
             } else {
-                tokens_.push_back({TokenType::Star, "*", pos});
+                emit(TokenType::Star, "*", pos, pos + 1);
             }
             break;
         case '/':
             if (pos + 1 < expression_.size() && expression_[pos + 1] == '/') {
-                tokens_.push_back({TokenType::DoubleSlash, "//", pos});
+                emit(TokenType::DoubleSlash, "//", pos, pos + 2);
                 ++pos;
             } else {
-                tokens_.push_back({TokenType::Slash, "/", pos});
+                emit(TokenType::Slash, "/", pos, pos + 1);
             }
             break;
-        case '(': tokens_.push_back({TokenType::LParen, "(", pos}); break;
-        case ')': tokens_.push_back({TokenType::RParen, ")", pos}); break;
-        case '[': tokens_.push_back({TokenType::LBracket, "[", pos}); break;
-        case ']': tokens_.push_back({TokenType::RBracket, "]", pos}); break;
-        case '.': tokens_.push_back({TokenType::Unknown, ".", pos}); break;
-        case ',': tokens_.push_back({TokenType::Comma, ",", pos}); break;
-        case '?': tokens_.push_back({TokenType::Question, "?", pos}); break;
-        case ':': tokens_.push_back({TokenType::Colon, ":", pos}); break;
+        case '(': emit(TokenType::LParen, "(", pos, pos + 1); break;
+        case ')': emit(TokenType::RParen, ")", pos, pos + 1); break;
+        case '[': emit(TokenType::LBracket, "[", pos, pos + 1); break;
+        case ']': emit(TokenType::RBracket, "]", pos, pos + 1); break;
+        case '.': emit(TokenType::Unknown, ".", pos, pos + 1); break;
+        case ',': emit(TokenType::Comma, ",", pos, pos + 1); break;
+        case '?': emit(TokenType::Question, "?", pos, pos + 1); break;
+        case ':': emit(TokenType::Colon, ":", pos, pos + 1); break;
         case '=':
             if (pos + 1 < expression_.size() && expression_[pos + 1] == '=') {
-                tokens_.push_back({TokenType::EqualEqual, "==", pos});
+                emit(TokenType::EqualEqual, "==", pos, pos + 2);
                 ++pos;
             } else {
-                tokens_.push_back({TokenType::Equal, "=", pos});
+                emit(TokenType::Equal, "=", pos, pos + 1);
             }
             break;
         case '<':
             if (pos + 1 < expression_.size() && expression_[pos + 1] == '=') {
-                tokens_.push_back({TokenType::LessEqual, "<=", pos});
+                emit(TokenType::LessEqual, "<=", pos, pos + 2);
                 ++pos;
             } else {
-                tokens_.push_back({TokenType::Less, "<", pos});
+                emit(TokenType::Less, "<", pos, pos + 1);
             }
             break;
         case '>':
             if (pos + 1 < expression_.size() && expression_[pos + 1] == '=') {
-                tokens_.push_back({TokenType::GreaterEqual, ">=", pos});
+                emit(TokenType::GreaterEqual, ">=", pos, pos + 2);
                 ++pos;
             } else {
-                tokens_.push_back({TokenType::Greater, ">", pos});
+                emit(TokenType::Greater, ">", pos, pos + 1);
             }
             break;
         case '!':
             if (pos + 1 < expression_.size() && expression_[pos + 1] == '=') {
-                tokens_.push_back({TokenType::NotEqual, "!=", pos});
+                emit(TokenType::NotEqual, "!=", pos, pos + 2);
                 ++pos;
             } else {
-                tokens_.push_back({TokenType::Not, "!", pos});
+                emit(TokenType::Not, "!", pos, pos + 1);
             }
             break;
         default:
-            tokens_.push_back({TokenType::Unknown, std::string(1, c), pos});
+            emit(TokenType::Unknown, std::string(1, c), pos, pos + 1);
         }
         ++pos;
     }
-    
-    tokens_.push_back({TokenType::EndOfFile, "", pos});
+
+    emit(TokenType::EndOfFile, "", pos, pos);
 }
 
 bool ExpressionParser::Impl::isKeyword(const std::string& str, TokenType& outType) {
@@ -343,14 +376,29 @@ Token ExpressionParser::Impl::currentToken() {
     if (currentToken_ < tokens_.size()) {
         return tokens_[currentToken_];
     }
-    return {TokenType::EndOfFile, "", 0};
+    return {TokenType::EndOfFile, "", 0, 0};
 }
 
 Token ExpressionParser::Impl::advance() {
     if (currentToken_ < tokens_.size()) {
         return tokens_[currentToken_++];
     }
-    return {TokenType::EndOfFile, "", 0};
+    return {TokenType::EndOfFile, "", 0, 0};
+}
+
+size_t ExpressionParser::Impl::lastConsumedTokenEnd() const {
+    return currentToken_ > 0 ? tokens_[currentToken_ - 1].end : 0;
+}
+
+// Spans a freshly built node across the tokens it consumed. `start` is
+// supplied by the caller (usually the left operand's own start offset) and
+// `end` is taken from the token stream, so a node never depends on mutable
+// state that a backtrack could have invalidated.
+void ExpressionParser::Impl::finishNode(const SharedPtr<ExprNode>& node,
+                                        size_t start) const {
+    if (!node) return;
+    const size_t end = lastConsumedTokenEnd();
+    node->setSourceRange(start, end > start ? end : start);
 }
 
 bool ExpressionParser::Impl::match(TokenType type) {
@@ -396,6 +444,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePythonIfElse() {
         // Build conditional node: condition, trueExpr, falseExpr
         auto node = makeShared<ExprNode>(ExprNodeType::Conditional);
         node->setChildren({conditionExpr, valueExpr, elseExpr});
+        finishNode(node, valueExpr ? valueExpr->startOffset() : 0);
         return node;
     }
     
@@ -417,25 +466,27 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseTernary() {
         auto falseExpr = parseExpression();
         auto node = makeShared<ExprNode>(ExprNodeType::Conditional);
         node->setChildren({expr, trueExpr, falseExpr});
+        finishNode(node, expr ? expr->startOffset() : 0);
         return node;
     }
-    
+
     return expr;
 }
 
 SharedPtr<ExprNode> ExpressionParser::Impl::parseLogicalOr() {
     auto left = parseLogicalAnd();
-    
+
     // Support both || and "or"
-    while (match(TokenType::Or) || 
+    while (match(TokenType::Or) ||
            (currentToken().type == TokenType::Identifier && currentToken().value == "or" && (advance(), true))) {
         auto right = parseLogicalAnd();
         auto node = makeShared<ExprNode>(ExprNodeType::BinaryOp);
         node->setOperatorSymbol("||");
         node->setChildren({left, right});
+        finishNode(node, left ? left->startOffset() : 0);
         left = node;
     }
-    
+
     return left;
 }
 
@@ -449,6 +500,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseLogicalAnd() {
         auto node = makeShared<ExprNode>(ExprNodeType::BinaryOp);
         node->setOperatorSymbol("&&");
         node->setChildren({left, right});
+        finishNode(node, left ? left->startOffset() : 0);
         left = node;
     }
     
@@ -468,6 +520,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseComparison() {
             auto node = makeShared<ExprNode>(ExprNodeType::BinaryOp);
             node->setOperatorSymbol(op.value);
             node->setChildren({left, right});
+            finishNode(node, left ? left->startOffset() : 0);
             left = node;
         } else {
             break;
@@ -486,6 +539,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseAddSub() {
             auto node = makeShared<ExprNode>(ExprNodeType::BinaryOp);
             node->setOperatorSymbol(op.value);
             node->setChildren({left, right});
+            finishNode(node, left ? left->startOffset() : 0);
         left = node;
     }
     
@@ -501,6 +555,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseMulDiv() {
             auto node = makeShared<ExprNode>(ExprNodeType::BinaryOp);
             node->setOperatorSymbol(op.value);
             node->setChildren({left, right});
+            finishNode(node, left ? left->startOffset() : 0);
         left = node;
     }
     
@@ -516,6 +571,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePower() {
         auto node = makeShared<ExprNode>(ExprNodeType::BinaryOp);
         node->setOperatorSymbol("**");
         node->setChildren({left, right});
+        finishNode(node, left ? left->startOffset() : 0);
         return node;
     }
     
@@ -529,9 +585,10 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseUnary() {
             auto node = makeShared<ExprNode>(ExprNodeType::UnaryOp);
         node->setOperatorSymbol(op.value);
         node->setChildren({expr});
+        finishNode(node, op.position);
         return node;
     }
-    
+
     return parsePrimary();
 }
 
@@ -540,26 +597,32 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePrimary() {
 
     // Number
     if (match(TokenType::Number)) {
+        const Token& token = tokens_[currentToken_ - 1];
         base = makeShared<ExprNode>(ExprNodeType::Number);
-        base->setNumberValue(std::stod(tokens_[currentToken_ - 1].value));
+        base->setNumberValue(std::stod(token.value));
+        base->setSourceRange(token.position, token.end);
         return parsePostfix(base);
     }
-    
+
     // String
     if (match(TokenType::String)) {
+        const Token& token = tokens_[currentToken_ - 1];
         base = makeShared<ExprNode>(ExprNodeType::String);
-        base->setStringValue(tokens_[currentToken_ - 1].value);
+        base->setStringValue(token.value);
+        base->setSourceRange(token.position, token.end);
         return parsePostfix(base);
     }
-    
+
     // Array literal [1, 2, 3]
     if (match(TokenType::LBracket)) {
-        base = parseArrayLiteral();
+        const size_t openBracket = tokens_[currentToken_ - 1].position;
+        base = parseArrayLiteral(openBracket);
         return parsePostfix(base);
     }
-    
+
     // Parenthesized expression or vector literal
     if (match(TokenType::LParen)) {
+        const size_t openParen = tokens_[currentToken_ - 1].position;
         auto expr = parseExpression();
         if (!expr) {
             return nullptr;
@@ -583,9 +646,10 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePrimary() {
 
             auto node = makeShared<ExprNode>(ExprNodeType::Vector);
             node->setChildren(elements);
+            finishNode(node, openParen);
             return parsePostfix(node);
         }
-        
+
         if (!match(TokenType::RParen)) {
             setError("Expected ')' after expression", currentToken().position);
             return nullptr;
@@ -593,17 +657,21 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePrimary() {
 
         return parsePostfix(expr);
     }
-    
+
     // Identifier (variable or function call)
     if (match(TokenType::Identifier)) {
-        std::string name = tokens_[currentToken_ - 1].value;
-        
+        const Token nameToken = tokens_[currentToken_ - 1];
+        std::string name = nameToken.value;
+
         // Function call
         if (match(TokenType::LParen)) {
             base = parseFunctionCall(name);
+            if (base) {
+                base->setSourceRange(nameToken.position, lastConsumedTokenEnd());
+            }
             return parsePostfix(base);
         }
-        
+
         // Array/vector access: variable[index]
         if (match(TokenType::LBracket)) {
             auto index = parseExpression();
@@ -613,14 +681,17 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePrimary() {
             }
             auto varNode = makeShared<ExprNode>(ExprNodeType::Variable);
             varNode->setStringValue(name);
+            varNode->setSourceRange(nameToken.position, nameToken.end);
             auto node = makeShared<ExprNode>(ExprNodeType::ArrayAccess);
             node->setChildren({varNode, index});
+            finishNode(node, nameToken.position);
             return parsePostfix(node);
         }
-        
+
         // Variable
         base = makeShared<ExprNode>(ExprNodeType::Variable);
         base->setStringValue(name);
+        base->setSourceRange(nameToken.position, nameToken.end);
         return parsePostfix(base);
     }
     
@@ -636,9 +707,12 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePostfix(SharedPtr<ExprNode> bas
                 setError("Expected property name after '.'", currentToken().position);
                 return nullptr;
             }
+            const Token& propertyToken = tokens_[currentToken_ - 1];
             auto node = makeShared<ExprNode>(ExprNodeType::PropertyAccess);
-            node->setStringValue(tokens_[currentToken_ - 1].value);
+            node->setStringValue(propertyToken.value);
             node->setChildren({base});
+            node->setSourceRange(base ? base->startOffset() : propertyToken.position,
+                                 propertyToken.end);
             base = node;
             continue;
         }
@@ -668,6 +742,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePostfix(SharedPtr<ExprNode> bas
             }
             auto node = makeShared<ExprNode>(ExprNodeType::ArrayAccess);
             node->setChildren({base, index});
+            finishNode(node, base ? base->startOffset() : 0);
             base = node;
             continue;
         }
@@ -678,7 +753,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parsePostfix(SharedPtr<ExprNode> bas
     return base;
 }
 
-SharedPtr<ExprNode> ExpressionParser::Impl::parseArrayLiteral() {
+SharedPtr<ExprNode> ExpressionParser::Impl::parseArrayLiteral(size_t openBracketOffset) {
     NamedVector<SharedPtr<ExprNode>> elements;
     
     if (!match(TokenType::RBracket)) {
@@ -694,6 +769,7 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseArrayLiteral() {
     
     auto node = makeShared<ExprNode>(ExprNodeType::ArrayLiteral);
     node->setChildren(elements.toStdVector());
+    finishNode(node, openBracketOffset);
     return node;
 }
 
@@ -714,6 +790,9 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseFunctionCall(const std::string&
     auto node = makeShared<ExprNode>(ExprNodeType::FunctionCall);
     node->setStringValue(funcName);
     node->setChildren(args.toStdVector());
+    // The name token was consumed by the caller; span from here to the closing
+    // paren. The caller refines the start offset to cover the name as well.
+    finishNode(node, currentToken_ > 0 ? tokens_[currentToken_ - 1].end : 0);
     return node;
 }
 
@@ -748,12 +827,14 @@ SharedPtr<ExprNode> ExpressionParser::Impl::parseCallExpression(SharedPtr<ExprNo
             children.append(arg);
         }
         node->setChildren(children.toStdVector());
+        finishNode(node, callee ? callee->startOffset() : 0);
         return node;
     }
 
     auto node = makeShared<ExprNode>(ExprNodeType::FunctionCall);
     node->setStringValue(callee ? callee->stringValue() : std::string());
     node->setChildren(args.toStdVector());
+    finishNode(node, callee ? callee->startOffset() : 0);
     return node;
 }
 

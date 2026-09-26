@@ -57,11 +57,36 @@ export using TemporalValueResolver =
 // Built-in function signature
 export using BuiltinFunction = std::function<ExpressionValue(const std::vector<ExpressionValue>&, const ExpressionEvaluator*)>;
 
+// --- Signature metadata for editor tooling (completion, signature help) ---
+// The evaluator itself is dynamically typed, so these descriptors exist purely
+// so the expression editor can offer typed completion and a signature hint.
+// Types are recorded conservatively: ExprValueType::Null means "any / unknown"
+// and is deliberately not narrowed, rather than guessed.
+
+export struct ExpressionParamInfo {
+    std::string name;
+    ExprValueType type = ExprValueType::Number;
+    bool optional = false;  // fewer args than this are still valid
+    bool variadic = false;  // accepts additional args beyond the listed ones
+};
+
+export struct ExpressionFunctionInfo {
+    std::string name;
+    std::vector<ExpressionParamInfo> params;
+    ExprValueType returnType = ExprValueType::Number;
+    std::string docText;
+};
+
 // Expression evaluator with context
 export class ExpressionEvaluator {
 private:
     class Impl;
     Impl* impl_;
+
+    // Populates the signature table for the standard built-ins. Invoked from
+    // registerStandardFunctions so the descriptors cannot drift out of sync
+    // with the actual registrations.
+    void registerStandardFunctionInfos();
 
 public:
     ExpressionEvaluator();
@@ -85,7 +110,14 @@ public:
 
     // Register built-in functions
     void registerFunction(const std::string& name, BuiltinFunction func);
-    
+
+    // Signature metadata companion to registerFunction. Purely descriptive:
+    // the evaluator never consults these while evaluating, so registering (or
+    // omitting) one can never change runtime behavior.
+    void registerFunctionInfo(const ExpressionFunctionInfo& info);
+    const ExpressionFunctionInfo* functionInfo(const std::string& name) const;
+    std::vector<ExpressionFunctionInfo> allFunctionInfos() const;
+
     // Register standard AE-like built-in functions
     void registerStandardFunctions();
 
@@ -93,6 +125,10 @@ public:
     ZeroString getErrorZero() const;
     std::string getError() const;
     bool hasError() const;
+    // Source range of the most recent evaluation error, when the failing node
+    // carried one. std::string::npos means "no range recorded".
+    std::size_t getErrorPosition() const;
+    std::size_t getErrorLength() const;
 
     // Cancellation support
     void requestCancel();
