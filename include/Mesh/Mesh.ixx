@@ -157,6 +157,16 @@ export namespace ArtifactCore {
             QVector<QVector3D> normalOffsets;
         };
 
+        // Contiguous index range sharing one material.  Importers that produce
+        // several source primitives (for example a USD stage with multiple
+        // UsdGeomMesh prims) record the range they appended so the renderer
+        // can issue one draw per material without re-splitting the mesh.
+        struct MaterialSlot {
+            int firstIndex = 0;
+            int indexCount = 0;
+            int materialIndex = 0;
+        };
+
         Mesh();
         Mesh(const Mesh& other);
         Mesh(Mesh&& other) noexcept;
@@ -175,6 +185,13 @@ export namespace ArtifactCore {
         // 戻り値は追加されたFaceのインデックス
         int addPolygon(const QVector<int>& vertexIndices);
         int polygonCount() const;
+
+        // Material slot ranges (see MaterialSlot).  Empty means the whole mesh
+        // uses a single material and the renderer may issue one draw.
+        int addMaterialSlot(int firstIndex, int indexCount, int materialIndex);
+        int materialSlotCount() const;
+        const QVector<MaterialSlot>& materialSlots() const;
+        void clearMaterialSlots();
 
         // 2. 動的アトリビュートへのアクセス
         // 固定の Vertex 構造体ではなく、名前でデータにアクセスする

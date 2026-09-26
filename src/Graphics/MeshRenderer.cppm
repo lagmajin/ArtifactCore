@@ -19,6 +19,7 @@ module;
 #include <QColor>
 #include <QDebug>
 #include <QFileInfo>
+#include <QVector>
 
 module Graphics.MeshRenderer;
 
@@ -1544,6 +1545,10 @@ struct MeshRenderer::Impl {
     size_t vertexCount_ = 0;
     size_t indexCount_ = 0;
     size_t maxInstances_ = 0;
+    // Multi-material index spans, uploaded outside the frame loop and reused
+    // by drawMaterialSlots / drawShadowMaterialSlots.  Empty means the whole
+    // mesh is drawn once with the material set through the public setters.
+    QVector<MeshRenderer::MaterialRange> materialRanges;
     QString baseColorTexturePath_;
     QString opacityTexturePath_;
     QString emissionTexturePath_;
@@ -2862,6 +2867,91 @@ void MeshRenderer::prepare(IDeviceContext* pContext)
         pContext->SetIndexBuffer(pImpl_->pIndexBuffer_, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     prepared_ = true;
+}
+
+void MeshRenderer::setMaterialRanges(const MaterialRange* ranges, size_t count) {
+    if (pImpl_->materialRanges.empty()) {
+        pImpl_->materialRanges.reserve(count);
+    } else {
+        pImpl_->materialRanges.clear();
+    }
+    for (size_t i = 0; i < count; ++i) {
+        pImpl_->materialRanges.push_back(ranges[i]);
+    }
+}
+
+void MeshRenderer::clearMaterialRanges() {
+    pImpl_->materialRanges.clear();
+}
+
+void MeshRenderer::drawMaterialSlots(IDeviceContext* pContext, size_t instanceCount) {
+    if (pImpl_->materialRanges.empty()) {
+        draw(pContext, instanceCount);
+        return;
+    }
+    if (!pContext || !prepared_ || instanceCount == 0) return;
+
+    const IPipelineState* activePSO =
+        pImpl_->transparentPass_ && pImpl_->pTransparentPSO_
+            ? pImpl_->pTransparentPSO_.RawPtr()
+            : pImpl_->pPSO_.RawPtr();
+    const IShaderResourceBinding* activeSRB =
+        pImpl_->transparentPass_ && pImpl_->pTransparentSRB_
+            ? pImpl_->pTransparentSRB_.RawPtr()
+            : pImpl_->pSRB_.RawPtr();
+    if (!activePSO || !activeSRB) {
+        if (!pImpl_->missingPipelineWarningIssued_) {
+            qWarning("[MeshRenderer] drawMaterialSlots skipped because PSO/SRB is unavailable");
+            pImpl_->missingPipelineWarningIssued_ = true;
+        }
+        return;
+    }
+    if (!pImpl_->pIndexBuffer_) {
+        draw(pContext, instanceCount);
+        return;
+    }
+
+    instanceCount = std::min(instanceCount, maxInstances_);
+    for (const MaterialRange& range : pImpl_->materialRanges) {
+        if (range.indexCount == 0) continue;
+        if (frameCostStats_) ++frameCostStats_->drawCalls;
+        DrawIndexedAttribs drawAttrs;
+        drawAttrs.NumIndices = range.indexCount;
+        drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
+        drawAttrs.IndexType = VT_UINT32;
+        drawAttrs.Flags = DRAW_FLAG_NONE;
+        drawAttrs.StartIndex = range.firstIndex;
+        drawAttrs.BaseVertexLocation = 0;
+        pContext->DrawIndexed(drawAttrs);
+    }
+}
+
+void MeshRenderer::drawShadowMaterialSlots(IDeviceContext* pContext, size_t instanceCount) {
+    if (pImpl_->materialRanges.empty()) {
+        drawShadow(pContext, instanceCount);
+        return;
+    }
+    if (!pContext || !pImpl_->shadowPrepared_ || instanceCount == 0) {
+        return;
+    }
+    if (!pImpl_->pIndexBuffer_) {
+        drawShadow(pContext, instanceCount);
+        return;
+    }
+
+    instanceCount = std::min(instanceCount, maxInstances_);
+    for (const MaterialRange& range : pImpl_->materialRanges) {
+        if (range.indexCount == 0) continue;
+        DrawIndexedAttribs drawAttrs;
+        drawAttrs.NumIndices = range.indexCount;
+        drawAttrs.NumInstances = static_cast<Uint32>(instanceCount);
+        drawAttrs.IndexType = VT_UINT32;
+        drawAttrs.Flags = DRAW_FLAG_NONE;
+        drawAttrs.StartIndex = range.firstIndex;
+        drawAttrs.BaseVertexLocation = 0;
+        pContext->DrawIndexed(drawAttrs);
+    }
+    pImpl_->shadowPrepared_ = false;
 }
 
 void MeshRenderer::draw(IDeviceContext* pContext, size_t instanceCount)

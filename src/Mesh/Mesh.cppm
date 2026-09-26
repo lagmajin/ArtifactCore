@@ -215,6 +215,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         AttributeContainer faceVertexAttrs;
 
         QVector<QVector<int>> polygons; // Face -> list of vertex indices
+        QVector<Mesh::MaterialSlot> materialSlots;
         QVector<Mesh::SkinBone> skinBones;
         Mesh::SkinningMethod skinningMethod = Mesh::SkinningMethod::LinearBlend;
         QVector<Mesh::SkinAnimationClip> skinAnimationClips;
@@ -291,6 +292,26 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
 
     int Mesh::polygonCount() const {
         return impl_->polygons.size();
+    }
+
+    int Mesh::addMaterialSlot(int firstIndex, int indexCount, int materialIndex) {
+        ++impl_->revision;
+        impl_->materialSlots.push_back(
+            MaterialSlot{firstIndex, indexCount, materialIndex});
+        return impl_->materialSlots.size() - 1;
+    }
+
+    int Mesh::materialSlotCount() const {
+        return impl_->materialSlots.size();
+    }
+
+    const QVector<Mesh::MaterialSlot>& Mesh::materialSlots() const {
+        return impl_->materialSlots;
+    }
+
+    void Mesh::clearMaterialSlots() {
+        ++impl_->revision;
+        impl_->materialSlots.clear();
     }
 
     AttributeContainer& Mesh::vertexAttributes() { ++impl_->revision; return impl_->vertexAttrs; }
@@ -1482,6 +1503,7 @@ Mesh::Meshlet buildMeshletFromIndexRange(const Mesh::RenderData& renderData,
         impl_->faceAttrs.setElementCount(0);
         impl_->faceVertexAttrs.setElementCount(0);
         impl_->polygons.clear();
+        impl_->materialSlots.clear();
     }
 
     bool Mesh::isValid() const {

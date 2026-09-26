@@ -90,6 +90,40 @@ public:
     [[nodiscard]] float lastMetallicFactor() const;
     [[nodiscard]] bool hasLastRoughnessFactor() const;
     [[nodiscard]] float lastRoughnessFactor() const;
+
+    // Per-source-mesh data for importers that concatenate several primitives
+    // into one mesh (a USD stage with multiple UsdGeomMesh prims).  Each entry
+    // lines up with one Mesh::MaterialSlot range, in the same order.  Both
+    // containers are empty for the ordinary single-mesh import path, and
+    // lastXxx()/lastXxxFactor() keep describing the first entry in that case.
+    struct SourceMeshTransform {
+        float transform[16] = {};  // row-major, ready for InstanceData
+    };
+    [[nodiscard]] int sourceMeshCount() const;
+    [[nodiscard]] const std::vector<SourceMeshTransform>& sourceMeshTransforms() const;
+    [[nodiscard]] const std::vector<UniString>& sourceMeshBaseColorTextures() const;
+    [[nodiscard]] const std::vector<UniString>& sourceMeshMetallicRoughnessTextures() const;
+    [[nodiscard]] const std::vector<UniString>& sourceMeshNormalTextures() const;
+    [[nodiscard]] const std::vector<UniString>& sourceMeshEmissionTextures() const;
+    [[nodiscard]] const std::vector<UniString>& sourceMeshOcclusionTextures() const;
+    [[nodiscard]] const std::vector<UniString>& sourceMeshOpacityTextures() const;
+    [[nodiscard]] const std::vector<float>& sourceMeshMetallicFactors() const;
+    [[nodiscard]] const std::vector<float>& sourceMeshRoughnessFactors() const;
+    [[nodiscard]] bool hasSourceMeshMetallicFactor(int index) const;
+    [[nodiscard]] bool hasSourceMeshRoughnessFactor(int index) const;
+
+    // Identity export.  After a USD file is imported, the opened stage stays
+    // with this importer so the source composition can be written back out as
+    // is - hierarchy, material bindings, skeletons and blend shapes included -
+    // instead of being rebuilt from the flattened Mesh.  The retained stage is
+    // dropped as soon as a non-USD file is imported.
+    [[nodiscard]] bool hasLoadedUsdStage() const;
+    [[nodiscard]] QString loadedUsdPath() const;
+    // Writes the retained stage to `outputPath`.  The destination extension
+    // selects the file format (.usda / .usdc / .usdz).  Returns false and
+    // records the reason in lastError() when no stage is held or the write
+    // fails.
+    bool exportLoadedUsdStage(const UniString& outputPath);
 };
 
 }

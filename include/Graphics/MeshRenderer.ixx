@@ -243,6 +243,23 @@ public:
      */
     void draw(IDeviceContext* pContext, size_t instanceCount);
 
+    // Multi-material draw.  Each range names a contiguous index span and the
+    // index of the material that should be bound while that span is drawn.
+    // The ranges are uploaded once (outside the frame loop) and reused by
+    // drawMaterialSlots, so issuing several draws costs no per-frame upload.
+    // With no ranges configured the call falls back to a single whole-mesh
+    // draw using the material set through the existing setters.
+    struct MaterialRange {
+        std::uint32_t firstIndex = 0;
+        std::uint32_t indexCount = 0;
+        std::uint32_t materialIndex = 0;
+    };
+    void setMaterialRanges(const MaterialRange* ranges, std::size_t count);
+    void clearMaterialRanges();
+    void drawMaterialSlots(IDeviceContext* pContext, size_t instanceCount);
+    // Shadow counterpart of drawMaterialSlots.  prepareShadow must run first.
+    void drawShadowMaterialSlots(IDeviceContext* pContext, size_t instanceCount);
+
     // Matrix setters
     void setViewMatrix(const float* matrix);   // float[16]
     void setProjectionMatrix(const float* matrix); // float[16]
