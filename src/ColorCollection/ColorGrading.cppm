@@ -121,19 +121,25 @@ void ColorWheelsProcessor::applyOffset(float& r, float& g, float& b) {
 void ColorWheelsProcessor::applyLevels(float& r, float& g, float& b) {
     const auto& lvl = levels_;
     
-    if (lvl.linkRGB) {
-        if (r < lvl.inputBlack) r = lvl.inputBlack;
-        else if (r > lvl.inputWhite) r = lvl.inputWhite;
-        r = (r - lvl.inputBlack) / (lvl.inputWhite - lvl.inputBlack);
-        g = r; b = r;
-        
-        if (lvl.gamma != 1.0f) {
-            r = std::pow(std::clamp(r, 0.0f, 1.0f), 1.0f / lvl.gamma);
-            g = r; b = r;
+    const auto applyChannel = [](float& v, float inBlack, float inWhite, float gamma, float outBlack, float outWhite) {
+        v = std::clamp(v, inBlack, inWhite);
+        const float span = std::max(inWhite - inBlack, 1e-6f);
+        v = (v - inBlack) / span;
+        if (gamma != 1.0f) {
+            v = std::pow(std::clamp(v, 0.0f, 1.0f), 1.0f / std::max(gamma, 1e-6f));
         }
-        
-        r = lvl.outputBlack + r * (lvl.outputWhite - lvl.outputBlack);
+        v = outBlack + v * (outWhite - outBlack);
+    };
+    
+    if (lvl.linkRGB) {
+        // linkRGB: R/G/B を単一の輝度基準レンジにそろえる。
+        applyChannel(r, lvl.inputBlack, lvl.inputWhite, lvl.gamma, lvl.outputBlack, lvl.outputWhite);
         g = r; b = r;
+    } else {
+        // linkRGB == false: R/G/B それぞれの input black/white を尊重する。
+        applyChannel(r, lvl.inputBlackR, lvl.inputWhiteR, lvl.gamma, lvl.outputBlack, lvl.outputWhite);
+        applyChannel(g, lvl.inputBlackG, lvl.inputWhiteG, lvl.gamma, lvl.outputBlack, lvl.outputWhite);
+        applyChannel(b, lvl.inputBlackB, lvl.inputWhiteB, lvl.gamma, lvl.outputBlack, lvl.outputWhite);
     }
 }
 
@@ -337,12 +343,11 @@ ColorGrader::~ColorGrader() = default;
 void ColorGrader::processPixel(float& r, float& g, float& b) {
     if (!enabled_) return;
     float origR = r, origG = g, origB = b;
+    // process() から wheelsProcessor_.levels() に levels_ を注入した上で
+    // 呼ばれます。ここで再度 processPixel を呼ぶと wheels と levels が
+    // 二重適用になるため、curves だけを続けて適用する。
     wheelsProcessor_.processPixel(r, g, b);
     curvesProcessor_.processPixel(r, g, b);
-    if (!levels_.isDefault()) {
-        wheelsProcessor_.levels() = levels_;
-        wheelsProcessor_.processPixel(r, g, b);
-    }
     if (intensity_ < 1.0f) {
         r = origR + (r - origR) * intensity_;
         g = origG + (g - origG) * intensity_;
@@ -352,16 +357,12 @@ void ColorGrader::processPixel(float& r, float& g, float& b) {
 
 void ColorGrader::process(float* pixels, int width, int height) {
     if (!enabled_) return;
-    // Keep the legacy per-pixel level synchronization path serial: processPixel is public,
-    // and the assignment must not race with the parallel default-level path.
+    // processPixel は public であり、levels の同期は processPixel 内で完了する。
+    // そのためここで levels を先に注入してから単一パスで回す。
     if (!levels_.isDefault()) {
-        for (int i = 0; i < width * height; i++) {
-            float* pixel = pixels + i * 4;
-            processPixel(pixel[0], pixel[1], pixel[2]);
-        }
-        return;
+        wheelsProcessor_.levels() = levels_;
     }
-    // Ensure the LUT is initialized before processPixel is called concurrently.
+    // Ensure the LUT is initialized before processPixel is called.
     curvesProcessor_.buildLUT();
     for (int i = 0; i < width * height; ++i) {
         float* pixel = pixels + i * 4;

@@ -142,7 +142,10 @@ struct ColorLevelsParams {
     bool isDefault() const {
         return inputBlack == 0 && inputWhite == 1 &&
                outputBlack == 0 && outputWhite == 1 &&
-               gamma == 1 && linkRGB;
+               gamma == 1 && linkRGB &&
+               inputBlackR == 0 && inputWhiteR == 1 &&
+               inputBlackG == 0 && inputWhiteG == 1 &&
+               inputBlackB == 0 && inputWhiteB == 1;
     }
 };
 
