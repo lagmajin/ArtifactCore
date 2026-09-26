@@ -333,6 +333,30 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ViewInteractiveRenderRegion");
     case ShortcutId::ViewToggleLayerTypeFilter:
         return QStringLiteral("ViewToggleLayerTypeFilter");
+    case ShortcutId::ViewToggleClippingWarnings:
+        return QStringLiteral("ViewToggleClippingWarnings");
+    case ShortcutId::ExpressionComplete:
+        return QStringLiteral("ExpressionComplete");
+    case ShortcutId::ExpressionFind:
+        return QStringLiteral("ExpressionFind");
+    case ShortcutId::ExpressionReplace:
+        return QStringLiteral("ExpressionReplace");
+    case ShortcutId::ExpressionFindNext:
+        return QStringLiteral("ExpressionFindNext");
+    case ShortcutId::ExpressionFindPrevious:
+        return QStringLiteral("ExpressionFindPrevious");
+    case ShortcutId::ExpressionFindClose:
+        return QStringLiteral("ExpressionFindClose");
+    case ShortcutId::ExpressionFontSizeIncrease:
+        return QStringLiteral("ExpressionFontSizeIncrease");
+    case ShortcutId::ExpressionFontSizeDecrease:
+        return QStringLiteral("ExpressionFontSizeDecrease");
+    case ShortcutId::ExpressionFontSizeReset:
+        return QStringLiteral("ExpressionFontSizeReset");
+    case ShortcutId::ExpressionToggleLineNumbers:
+        return QStringLiteral("ExpressionToggleLineNumbers");
+    case ShortcutId::ExpressionToggleWordWrap:
+        return QStringLiteral("ExpressionToggleWordWrap");
     case ShortcutId::Count:
         break;
     }
@@ -659,6 +683,30 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("View Interactive Render Region");
     case ShortcutId::ViewToggleLayerTypeFilter:
         return QStringLiteral("View Toggle Layer Type Filter");
+    case ShortcutId::ViewToggleClippingWarnings:
+        return QStringLiteral("View Toggle Clipping Warnings");
+    case ShortcutId::ExpressionComplete:
+        return QStringLiteral("Expression Complete Suggestion");
+    case ShortcutId::ExpressionFind:
+        return QStringLiteral("Expression Find");
+    case ShortcutId::ExpressionReplace:
+        return QStringLiteral("Expression Replace");
+    case ShortcutId::ExpressionFindNext:
+        return QStringLiteral("Expression Find Next Match");
+    case ShortcutId::ExpressionFindPrevious:
+        return QStringLiteral("Expression Find Previous Match");
+    case ShortcutId::ExpressionFindClose:
+        return QStringLiteral("Expression Close Find Bar");
+    case ShortcutId::ExpressionFontSizeIncrease:
+        return QStringLiteral("Expression Increase Font Size");
+    case ShortcutId::ExpressionFontSizeDecrease:
+        return QStringLiteral("Expression Decrease Font Size");
+    case ShortcutId::ExpressionFontSizeReset:
+        return QStringLiteral("Expression Reset Font Size");
+    case ShortcutId::ExpressionToggleLineNumbers:
+        return QStringLiteral("Expression Toggle Line Numbers");
+    case ShortcutId::ExpressionToggleWordWrap:
+        return QStringLiteral("Expression Toggle Word Wrap");
     case ShortcutId::Count:
         break;
     }
@@ -821,6 +869,26 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::ViewDetachedTasks,
         ShortcutId::ViewToggleMagnifier,
         ShortcutId::CompositionViewportPieMenu,
+        // These viewport IDs were appended after the original list. Keep them
+        // in the persisted/settings enumeration as well as the runtime table.
+        ShortcutId::ViewBoxZoom,
+        ShortcutId::ViewTumblePivotUnderCursor,
+        ShortcutId::ViewInteractiveRenderRegion,
+        ShortcutId::ViewToggleLayerTypeFilter,
+        ShortcutId::ViewToggleClippingWarnings,
+        // Expression editor IDs, appended in the same order as the enum so the
+        // ordinal-based row lookup in the settings table stays aligned.
+        ShortcutId::ExpressionComplete,
+        ShortcutId::ExpressionFind,
+        ShortcutId::ExpressionReplace,
+        ShortcutId::ExpressionFindNext,
+        ShortcutId::ExpressionFindPrevious,
+        ShortcutId::ExpressionFindClose,
+        ShortcutId::ExpressionFontSizeIncrease,
+        ShortcutId::ExpressionFontSizeDecrease,
+        ShortcutId::ExpressionFontSizeReset,
+        ShortcutId::ExpressionToggleLineNumbers,
+        ShortcutId::ExpressionToggleWordWrap,
     };
 }
 
@@ -855,6 +923,9 @@ void ShortcutBindings::resetToDefaults()
     // category selection; users can bind this to a key if they want it.
     defaults_[index(ShortcutId::ViewToggleLayerTypeFilter)] =
         QKeySequence();
+    // P1-10 toggle false-color clipping warnings in the focused viewport.
+    defaults_[index(ShortcutId::ViewToggleClippingWarnings)] =
+        QKeySequence(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_E);
     defaults_[index(ShortcutId::TimelineCopySelectedKeyframes)] = QKeySequence(Qt::CTRL | Qt::Key_C);
     defaults_[index(ShortcutId::TimelinePasteKeyframesAtPlayhead)] = QKeySequence(Qt::CTRL | Qt::Key_V);
     defaults_[index(ShortcutId::TimelineSelectAllKeyframes)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_A);
@@ -998,6 +1069,28 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::WorkCursorCenter)] = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_C);
     defaults_[index(ShortcutId::WorkCursorClear)] = QKeySequence(Qt::ALT | Qt::SHIFT | Qt::Key_C);
     defaults_[index(ShortcutId::ViewToggleMagnifier)] = QKeySequence(Qt::ALT | Qt::Key_Z);
+
+    // Panel.ExpressionEditor. These default to the conventional editor keys.
+    // Ctrl+F/Ctrl+H/F3/Shift+F3/Alt+L/Alt+Z are unused app-wide, and
+    // Ctrl+= / Ctrl+- / Ctrl+0 are shared with Workspace.Timeline zoom — legal
+    // because bindings only conflict inside the same context and the
+    // expression editor consumes them on its own focused text control.
+    defaults_[index(ShortcutId::ExpressionComplete)] = QKeySequence(Qt::Key_Tab);
+    defaults_[index(ShortcutId::ExpressionFind)] = QKeySequence(Qt::CTRL | Qt::Key_F);
+    defaults_[index(ShortcutId::ExpressionReplace)] = QKeySequence(Qt::CTRL | Qt::Key_H);
+    defaults_[index(ShortcutId::ExpressionFindNext)] = QKeySequence(Qt::Key_F3);
+    defaults_[index(ShortcutId::ExpressionFindPrevious)] =
+        QKeySequence(Qt::SHIFT | Qt::Key_F3);
+    // Escape closes the find bar. It is only consumed while the find bar is
+    // open, so it never shadows the cancel path of any other surface.
+    defaults_[index(ShortcutId::ExpressionFindClose)] = QKeySequence(Qt::Key_Escape);
+    defaults_[index(ShortcutId::ExpressionFontSizeIncrease)] =
+        QKeySequence(Qt::CTRL | Qt::Key_Equal);
+    defaults_[index(ShortcutId::ExpressionFontSizeDecrease)] =
+        QKeySequence(Qt::CTRL | Qt::Key_Minus);
+    defaults_[index(ShortcutId::ExpressionFontSizeReset)] = QKeySequence(Qt::CTRL | Qt::Key_0);
+    defaults_[index(ShortcutId::ExpressionToggleLineNumbers)] = QKeySequence(Qt::ALT | Qt::Key_L);
+    defaults_[index(ShortcutId::ExpressionToggleWordWrap)] = QKeySequence(Qt::ALT | Qt::Key_Z);
 
     overrides_.fill(QKeySequence());
 }

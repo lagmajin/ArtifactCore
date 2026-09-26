@@ -170,7 +170,21 @@ enum class ShortcutId {
     ViewTumblePivotUnderCursor = 154,
     ViewInteractiveRenderRegion = 155,
     ViewToggleLayerTypeFilter = 156,
-    Count = 157
+    ViewToggleClippingWarnings = 157,
+    // Expression editor (Panel.ExpressionEditor). Appended after the original
+    // list so the persisted ordinals above stay stable.
+    ExpressionComplete = 158,
+    ExpressionFind = 159,
+    ExpressionReplace = 160,
+    ExpressionFindNext = 161,
+    ExpressionFindPrevious = 162,
+    ExpressionFindClose = 163,
+    ExpressionFontSizeIncrease = 164,
+    ExpressionFontSizeDecrease = 165,
+    ExpressionFontSizeReset = 166,
+    ExpressionToggleLineNumbers = 167,
+    ExpressionToggleWordWrap = 168,
+    Count = 169
 };
 
 QString shortcutDisplayName(ShortcutId id);
