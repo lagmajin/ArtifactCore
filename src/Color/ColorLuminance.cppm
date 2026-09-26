@@ -19,6 +19,10 @@ float ColorLuminance::calculate(float r, float g, float b, LuminanceStandard sta
         return 0.2126f * r + 0.7152f * g + 0.0722f * b;
     case LuminanceStandard::Rec2020:
         return 0.2627f * r + 0.6780f * g + 0.0593f * b;
+    case LuminanceStandard::DisplayP3:
+        return 0.2289746f * r + 0.6917385f * g + 0.0792869f * b;
+    case LuminanceStandard::ACESAP1:
+        return 0.2722287f * r + 0.6740818f * g + 0.0536895f * b;
     }
 }
 

@@ -40,6 +40,8 @@ enum class LuminanceStandard {
     Rec601,    // SDTV (0.299R + 0.587G + 0.114B)
     Rec709,    // HDTV (0.2126R + 0.7152G + 0.0722B) - Physically correct for sRGB
     Rec2020,   // UHDTV (0.2627R + 0.6780G + 0.0593B)
+    DisplayP3, // Display P3 D65
+    ACESAP1,   // ACEScg AP1 D60
 };
 
 struct BroadcastSafeResult {
