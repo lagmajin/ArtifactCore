@@ -25,6 +25,15 @@ groupshared uint gs_HighClipped;
 groupshared uint gs_LowClipped;
 groupshared uint gs_ChannelClipped;
 
+void atomicAddUint64(uint lowIndex, uint highIndex, uint value)
+{
+    uint previousLow;
+    InterlockedAdd(g_OutputStatistics[lowIndex], value, previousLow);
+    if (previousLow > 0xffffffffu - value) {
+        InterlockedAdd(g_OutputStatistics[highIndex], 1u);
+    }
+}
+
 float luminance(float3 rgb)
 {
     return dot(rgb, float3(0.2126f, 0.7152f, 0.0722f));
@@ -112,14 +121,13 @@ void StatisticsCS(uint3 id : SV_DispatchThreadID, uint3 groupThreadId : SV_Group
 
     uint2 textureSize;
     g_InputTexture.GetDimensions(textureSize.x, textureSize.y);
-    bool validPixel = id.x < textureSize.x && id.y < textureSize.y;
-
-    if (validPixel && g_RegionSize.x != 0u && g_RegionSize.y != 0u && !inRegion(id.xy)) {
-        validPixel = false;
-    }
+    const bool regionEnabled = g_RegionSize.x != 0u && g_RegionSize.y != 0u;
+    uint2 pixelPos = regionEnabled ? id.xy + g_RegionOffset : id.xy;
+    bool validPixel = pixelPos.x < textureSize.x && pixelPos.y < textureSize.y;
+    if (validPixel && regionEnabled && any(id.xy >= g_RegionSize)) validPixel = false;
 
     if (validPixel) {
-        float4 c = g_InputTexture.Load(int3(id.xy, 0));
+        float4 c = g_InputTexture.Load(int3(pixelPos, 0));
         float l = luminance(c.rgb);
 
         // Detect range loss before the histogram bin clamps the source value.
@@ -132,8 +140,8 @@ void StatisticsCS(uint3 id : SV_DispatchThreadID, uint3 groupThreadId : SV_Group
         InterlockedMin(g_OutputStatistics[0], bin);
         InterlockedMax(g_OutputStatistics[1], bin);
         InterlockedAdd(g_OutputStatistics[2], 1u);
-        InterlockedAdd(g_OutputStatistics[3], bin);
-        InterlockedAdd(g_OutputStatistics[4], bin * bin);
+        atomicAddUint64(3u, 4u, bin);
+        atomicAddUint64(5u, 6u, bin * bin);
         if (highClipped) InterlockedAdd(gs_HighClipped, 1u);
         if (lowClipped) InterlockedAdd(gs_LowClipped, 1u);
         if (channelClipped) InterlockedAdd(gs_ChannelClipped, 1u);
@@ -141,9 +149,9 @@ void StatisticsCS(uint3 id : SV_DispatchThreadID, uint3 groupThreadId : SV_Group
 
     GroupMemoryBarrierWithGroupSync();
     if (all(groupThreadId == uint3(0, 0, 0))) {
-        InterlockedAdd(g_OutputStatistics[5], gs_HighClipped);
-        InterlockedAdd(g_OutputStatistics[6], gs_LowClipped);
-        InterlockedAdd(g_OutputStatistics[7], gs_ChannelClipped);
+        InterlockedAdd(g_OutputStatistics[7], gs_HighClipped);
+        InterlockedAdd(g_OutputStatistics[8], gs_LowClipped);
+        InterlockedAdd(g_OutputStatistics[9], gs_ChannelClipped);
     }
 }
 )";

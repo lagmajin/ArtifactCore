@@ -25,7 +25,6 @@ void VectorscopeCS(uint3 groupId : SV_GroupID, uint3 threadId : SV_GroupThreadID
     const float cx = (float)g_ScopeSize * 0.5f;
     const float cy = (float)g_ScopeSize * 0.5f;
     const float radius = cx * 0.9f;
-    const float inv127 = 1.0f / 127.5f;
 
     uint samplesX = (textureSize.x + g_Step - 1) / g_Step;
     uint samplesY = (textureSize.y + g_Step - 1) / g_Step;
@@ -46,8 +45,10 @@ void VectorscopeCS(uint3 groupId : SV_GroupID, uint3 threadId : SV_GroupThreadID
         float cb = -0.1146f * color.r - 0.3854f * color.g + 0.5f * color.b;
         float cr =  0.5f * color.r - 0.4542f * color.g - 0.0458f * color.b;
 
-        int sx2 = (int)(cx + cb * radius * inv127);
-        int sy2 = (int)(cy - cr * radius * inv127);
+        // Texture samples are normalized floats, so Cb/Cr are approximately
+        // -0.5..0.5. Scale by two to use the full target radius.
+        int sx2 = (int)(cx + cb * radius * 2.0f);
+        int sy2 = (int)(cy - cr * radius * 2.0f);
 
         sx2 = clamp(sx2, 0, g_ScopeSize - 1);
         sy2 = clamp(sy2, 0, g_ScopeSize - 1);

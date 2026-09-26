@@ -3,8 +3,9 @@ module;
 #include <DiligentCore/Common/interface/RefCntAutoPtr.hpp>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
-#include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Texture.h>
+#include <cstddef>
+#include <cstdint>
 
 
 export module Graphics.Compute.Histogram;
@@ -20,7 +21,7 @@ struct ImageHistogramStatistics {
   uint32_t minBin = 0;
   uint32_t maxBin = 0;
   uint32_t sampleCount = 0;
-  uint32_t sumBins = 0;
+  uint64_t sumBins = 0;
   uint64_t sumSquaredBins = 0;
   uint32_t highClippedPixels = 0;
   uint32_t lowClippedPixels = 0;
@@ -29,6 +30,9 @@ struct ImageHistogramStatistics {
 
 class LIBRARY_DLL_API HistogramComputer {
 public:
+  static constexpr uint32_t BinCount = 256;
+  static constexpr uint32_t StatisticsWordCount = 10;
+
   explicit HistogramComputer(GpuContext &context);
   ~HistogramComputer();
 
@@ -59,11 +63,17 @@ public:
 
   /**
    * @brief 指定領域または全体の代表統計を計算
-   * @param outputStatistics 出力バッファ: uint32_t[8]
+   * @param outputStatistics 出力バッファ: uint32_t[10]
+   * Layout: min, max, count, sumLo, sumHi, sumSquaredLo, sumSquaredHi,
+   * high-clipped, low-clipped, channel-clipped.
    */
   void computeStatistics(IDeviceContext *pContext, ITextureView *inputTexture,
                          uint32_t x, uint32_t y, uint32_t width,
                          uint32_t height, IBuffer *outputStatistics);
+
+  /// Decodes the ten uint32 words produced by computeStatistics().
+  static ImageHistogramStatistics decodeStatistics(
+      const uint32_t *words, std::size_t wordCount);
 
   bool ready() const;
 
@@ -72,15 +82,17 @@ private:
   ComputeExecutor executorLuminance_;
   ComputeExecutor executorRGB_;
   ComputeExecutor executorStatistics_;
+  ComputeExecutor executorClear_;
 
-  RefCntAutoPtr<IBuffer> pHistogramTempBuffer_;
   RefCntAutoPtr<IBuffer> pStatisticsParamsBuffer_;
+  RefCntAutoPtr<IBuffer> pClearParamsBuffer_;
 
   void createPipelines();
   void createBuffers();
+  bool clearOutput(IDeviceContext *pContext, IBuffer *output,
+                   uint32_t elementCount, bool statisticsLayout = false);
 
   static constexpr uint32_t THREAD_GROUP_SIZE = 256;
-  static constexpr uint32_t BIN_COUNT = 256;
 };
 
 } // namespace ArtifactCore
