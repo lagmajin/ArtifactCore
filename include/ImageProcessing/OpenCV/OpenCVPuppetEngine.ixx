@@ -33,6 +33,7 @@ module;
 #include <regex>
 #include <random>
 #include <opencv2/opencv.hpp>
+#include "../../Define/DllExportMacro.hpp"
 export module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
 
 namespace ArtifactCore {
@@ -42,7 +43,9 @@ export enum class PuppetPinType {
     Position,   // 位置ピン: 移動させるための通常のピン
     Starch,     // スターチ(剛性)ピン: その周辺を硬くし、変形を防ぐ
     Bend,       // ベンド(曲げ)ピン: 回転パラメータを持ち、曲げを制御
-    Overlap     // オーバーラップ(深さ)ピン: 重なった際の前面/背面を制御するZ値のソース
+    Overlap,    // オーバーラップ(深さ)ピン: 重なった際の前面/背面を制御するZ値のソース
+    Grid,       // 格子モード専用の制御点。UI からは設定できず、
+                // calculateMLSDeformation には渡さず双線形補間のみで使う
 };
 
 // パペットピンのデータ構造
@@ -121,5 +124,28 @@ public:
     // 状態をリセット
     void reset();
 };
+
+// 1 つの MLS 拘束点。元のピンが Starch / Bend / Overlap のどれでも、この
+// 単位へ展開してから MLS へ渡す。画像メッシュ経路とシェイプ点写像経路が同じ
+// 生成規則を使うことで、両者の絵が常に一致する。
+export struct PuppetConstraint {
+    cv::Point2f source;   // 元の座標
+    cv::Point2f target;   // 変形後の対応座標
+    float weight = 1.0f;  // 相対的な影響の強さ
+};
+
+// ピン列から MLS 拘束点列を生成する。Starch は現在位置を元座標に固定して
+// 重みを強くし、Bend は回転を強制するための仮想拘束点を半径 20*weight の位置に
+// 4 個追加し、Overlap は MLS には参加させない（深さ計算専用）。
+// weight は 0..1、rotation はラジアンに正規化してから渡すこと。
+LIBRARY_DLL_API std::vector<PuppetConstraint> buildPuppetConstraints(
+    const std::vector<PuppetPin>& pins);
+
+// 1 点 samplePoint に対応する MLS(similitude) 写像。samplePoint が制御点
+// 自身の場合はその target を返す。拘束点が空の場合や重み合計が 0 / 非有限の
+// 場合は samplePoint をそのまま返す。
+LIBRARY_DLL_API cv::Point2f evaluatePuppetMLS(
+    const std::vector<PuppetConstraint>& constraints,
+    const cv::Point2f& samplePoint);
 
 } // namespace ArtifactCore

@@ -8,6 +8,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <opencv2/opencv.hpp>
+#include "../../../include/Define/DllExportMacro.hpp"
 
 module ArtifactCore.ImageProcessing.OpenCV.PuppetEngine;
 
@@ -15,15 +16,113 @@ import Core.Parallel;
 
 namespace ArtifactCore {
 
+LIBRARY_DLL_API std::vector<PuppetConstraint> buildPuppetConstraints(
+    const std::vector<PuppetPin>& pins)
+{
+    std::vector<PuppetConstraint> constraints;
+    for (const PuppetPin& pin : pins) {
+        if (pin.type == PuppetPinType::Overlap) {
+            continue; // 深さ計算専用なので MLS には参加させない
+        }
+        if (pin.type == PuppetPinType::Starch) {
+            // Starch は現在位置を元座標へ留めて 주변の剛性を上げる。
+            constraints.push_back({pin.originalPosition, pin.originalPosition,
+                                    pin.weight * 50.0f});
+            continue;
+        }
+        constraints.push_back({pin.originalPosition, pin.currentPosition,
+                                pin.weight});
+        if (pin.type != PuppetPinType::Bend) {
+            continue;
+        }
+        // Bend は回転を強制するため、周辺 4 点へ仮想拘束点を立てる。
+        const float radius = 20.0f * pin.weight;
+        const float cosine = std::cos(pin.rotation);
+        const float sine = std::sin(pin.rotation);
+        const cv::Point2f offsets[4] = {{radius, 0.0f}, {-radius, 0.0f},
+                                        {0.0f, radius}, {0.0f, -radius}};
+        for (const cv::Point2f& offset : offsets) {
+            const cv::Point2f rotated(offset.x * cosine - offset.y * sine,
+                                       offset.x * sine + offset.y * cosine);
+            constraints.push_back(
+                {pin.originalPosition + offset, pin.currentPosition + rotated,
+                 pin.weight * 0.5f});
+        }
+    }
+    return constraints;
+}
+
+LIBRARY_DLL_API cv::Point2f evaluatePuppetMLS(
+    const std::vector<PuppetConstraint>& constraints,
+                              const cv::Point2f& samplePoint)
+{
+    if (constraints.empty()) {
+        return samplePoint;
+    }
+    float sumWeight = 0.0f;
+    cv::Point2f pStar(0.0f, 0.0f);
+    cv::Point2f qStar(0.0f, 0.0f);
+    for (const PuppetConstraint& c : constraints) {
+        const float dx = samplePoint.x - c.source.x;
+        const float dy = samplePoint.y - c.source.y;
+        const float distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared < 1e-4f) {
+            return c.target; // 制御点そのもの
+        }
+        const float w = c.weight / (distanceSquared + 1e-8f);
+        sumWeight += w;
+        pStar += c.source * w;
+        qStar += c.target * w;
+    }
+    if (!(sumWeight > 0.0f) || !std::isfinite(sumWeight)) {
+        return samplePoint;
+    }
+    const float inverseWeightSum = 1.0f / sumWeight;
+    pStar *= inverseWeightSum;
+    qStar *= inverseWeightSum;
+
+    float mu = 0.0f;
+    for (const PuppetConstraint& c : constraints) {
+        const float dx = samplePoint.x - c.source.x;
+        const float dy = samplePoint.y - c.source.y;
+        const float w =
+            (c.weight / (dx * dx + dy * dy + 1e-8f)) * inverseWeightSum;
+        const cv::Point2f pHat = c.source - pStar;
+        mu += w * (pHat.x * pHat.x + pHat.y * pHat.y);
+    }
+
+    const cv::Point2f vHat = samplePoint - pStar;
+    cv::Point2f mapped = qStar;
+    if (mu > 1e-6f && std::isfinite(mu)) {
+        float a = 0.0f;
+        float b = 0.0f;
+        for (const PuppetConstraint& c : constraints) {
+            const float dx = samplePoint.x - c.source.x;
+            const float dy = samplePoint.y - c.source.y;
+            const float w =
+                (c.weight / (dx * dx + dy * dy + 1e-8f)) * inverseWeightSum;
+            const cv::Point2f pHat = c.source - pStar;
+            const cv::Point2f qHat = c.target - qStar;
+            a += w * (pHat.x * qHat.x + pHat.y * qHat.y);
+            b += w * (pHat.x * qHat.y - pHat.y * qHat.x);
+        }
+        mapped.x += (a * vHat.x - b * vHat.y) / mu;
+        mapped.y += (b * vHat.x + a * vHat.y) / mu;
+    } else {
+        mapped += vHat;
+    }
+    if (!std::isfinite(mapped.x) || !std::isfinite(mapped.y)) {
+        return samplePoint;
+    }
+    return mapped;
+}
+
 class OpenCVPuppetEngine::Impl {
 public:
     std::map<std::string, PuppetPin> pins;
     cv::Mat sourceImage;
     PuppetMesh initialMesh;
     PuppetMesh deformedMesh;
-    std::vector<cv::Point2f> sourcePins;
-    std::vector<cv::Point2f> targetPins;
-    std::vector<float> pinWeights;
     std::vector<PuppetPin> overlapPins;
     std::vector<cv::Point2f> initialGridVertices;
     std::vector<cv::Point2f> deformedGridVertices;
@@ -36,63 +135,21 @@ public:
             return;
         }
 
-        sourcePins.clear();
-        targetPins.clear();
-        pinWeights.clear();
         overlapPins.clear();
-        auto& p = sourcePins;
-        auto& q = targetPins;
 
+        std::vector<PuppetPin> mlsPins;
+        mlsPins.reserve(pins.size());
         for (const auto& kv : pins) {
-            PuppetPin pin = kv.second;
-            if (pin.type == PuppetPinType::Overlap) {
-                overlapPins.push_back(pin);
+            if (kv.second.type == PuppetPinType::Overlap) {
+                overlapPins.push_back(kv.second);
                 continue; // ジオメトリ変形(MLS)には直接参加せず、後で深度計算に使う
             }
-
-            if (pin.type == PuppetPinType::Starch) {
-                // Starchは強制的に元の位置を維持し、影響力を高くする(剛性)
-                pin.currentPosition = pin.originalPosition;
-                p.push_back(pin.originalPosition);
-                q.push_back(pin.currentPosition);
-                pinWeights.push_back(pin.weight * 50.0f); // 強い剛性
-            } 
-            else if (pin.type == PuppetPinType::Bend) {
-                // Bendは仮想コントロールポイントを周辺に生成して回転を強制する
-                p.push_back(pin.originalPosition);
-                q.push_back(pin.currentPosition);
-                pinWeights.push_back(pin.weight);
-
-                float radius = 20.0f * pin.weight; // 回転の影響範囲
-                float angle = pin.rotation;
-                
-                // 上下左右に4つの仮想ピンを置き、回転後の位置を指定
-                cv::Point2f offsets[4] = { {radius, 0}, {-radius, 0}, {0, radius}, {0, -radius} };
-                for (int i=0; i<4; i++) {
-                    cv::Point2f orig = pin.originalPosition + offsets[i];
-                    
-                    float c = std::cos(angle);
-                    float s = std::sin(angle);
-                    cv::Point2f rotatedOffset(
-                        offsets[i].x * c - offsets[i].y * s,
-                        offsets[i].x * s + offsets[i].y * c
-                    );
-                    cv::Point2f cur = pin.currentPosition + rotatedOffset;
-                    
-                    p.push_back(orig);
-                    q.push_back(cur);
-                    pinWeights.push_back(pin.weight * 0.5f);
-                }
-            } 
-            else {
-                // 通常の Position ピン
-                p.push_back(pin.originalPosition);
-                q.push_back(pin.currentPosition);
-                pinWeights.push_back(pin.weight);
-            }
+            mlsPins.push_back(kv.second);
         }
+        // 拘束点生成規則はシェイプ経路と共有し、両者の絵を一致させる。
+        const std::vector<PuppetConstraint> constraints =
+            buildPuppetConstraints(mlsPins);
 
-        int npins = p.size();
         deformedMesh = initialMesh;
 
         // 深度(Z-Depth)の計算: IDW (Inverse Distance Weighting)
@@ -117,71 +174,12 @@ public:
             });
         }
 
-        if (npins == 0) return;
-
         // Moving Least Squares (剛体を保つSimilitude変形)
+        // 写像式は evaluatePuppetMLS に集約し、シェイプ経路と同じ式を使う。
         Parallel::For(0, static_cast<int>(initialMesh.vertices.size()), static_cast<int>(initialMesh.vertices.size()), [&](int index) {
             const size_t i = static_cast<size_t>(index);
-            cv::Point2f v = initialMesh.vertices[i];
-            
-            float sum_w = 0;
-            cv::Point2f p_star(0, 0), q_star(0, 0);
-            
-            bool is_control_point = false;
-            for (int k = 0; k < npins; ++k) {
-                float dist2 = std::pow(v.x - p[k].x, 2) + std::pow(v.y - p[k].y, 2);
-                if (dist2 < 1e-4) { // ピンの直上
-                    deformedMesh.vertices[i] = q[k];
-                    is_control_point = true;
-                    break;
-                }
-                const float weight = pinWeights[k] / (dist2 + 1e-8f);
-                sum_w += weight;
-                p_star += p[k] * weight;
-                q_star += q[k] * weight;
-            }
-            if (is_control_point) return;
-            if (!(sum_w > 0.0f) || !std::isfinite(sum_w)) {
-                deformedMesh.vertices[i] = v;
-                return;
-            }
-            const float inverseWeightSum = 1.0f / sum_w;
-            p_star = p_star * inverseWeightSum;
-            q_star = q_star * inverseWeightSum;
-
-            float sum_p_hat_sq = 0;
-            for (int k = 0; k < npins; ++k) {
-                const float dist2 = std::pow(v.x - p[k].x, 2) +
-                                    std::pow(v.y - p[k].y, 2);
-                const float weight =
-                    (pinWeights[k] / (dist2 + 1e-8f)) * inverseWeightSum;
-                cv::Point2f p_hat = p[k] - p_star;
-                sum_p_hat_sq += weight * (p_hat.x * p_hat.x + p_hat.y * p_hat.y);
-            }
-
-            cv::Point2f v_hat = v - p_star;
-            cv::Point2f new_v = q_star;
-
-            if (sum_p_hat_sq > 1e-6) {
-                float a = 0, b = 0;
-                for (int k = 0; k < npins; ++k) {
-                    const float dist2 = std::pow(v.x - p[k].x, 2) +
-                                        std::pow(v.y - p[k].y, 2);
-                    const float weight =
-                        (pinWeights[k] / (dist2 + 1e-8f)) * inverseWeightSum;
-                    cv::Point2f p_hat = p[k] - p_star;
-                    cv::Point2f q_hat = q[k] - q_star;
-                    a += weight * (p_hat.x * q_hat.x + p_hat.y * q_hat.y);
-                    b += weight * (p_hat.x * q_hat.y - p_hat.y * q_hat.x);
-                }
-                float mu = sum_p_hat_sq;
-                new_v.x += (a * v_hat.x - b * v_hat.y) / mu;
-                new_v.y += (b * v_hat.x + a * v_hat.y) / mu;
-            } else {
-                new_v += v_hat;
-            }
-            
-            deformedMesh.vertices[i] = new_v;
+            deformedMesh.vertices[i] =
+                evaluatePuppetMLS(constraints, initialMesh.vertices[i]);
         });
     }
 
