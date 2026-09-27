@@ -448,8 +448,68 @@ DisplacementFunc makeKaleidoscope(float cx, float cy, int segments, float angleD
   }
 
   // Convert back to Cartesian
-  ox = cx + dist * std::cos(theta_local + angleRad);
-  oy = cy + dist * std::sin(theta_local + angleRad);
+   ox = cx + dist * std::cos(theta_local + angleRad);
+   oy = cy + dist * std::sin(theta_local + angleRad);
+  };
+}
+
+DisplacementFunc makeRipple(float cx, float cy, float amplitude,
+                            float frequency, float decay, float phase)
+{
+  return [cx, cy, amplitude, frequency, decay, phase]
+         (float sx, float sy, float, float, float& ox, float& oy) {
+   const float dx = sx - cx;
+   const float dy = sy - cy;
+   const float dist = std::sqrt(dx * dx + dy * dy);
+   if (dist < 0.001f) { ox = sx; oy = sy; return; }
+   // The wave attenuates with distance so the ripple fades toward the edge.
+   const float falloff = std::exp(-decay * dist);
+   const float offset = std::sin(kTwoPi * frequency * dist + phase) * amplitude * falloff;
+   // Push along the radial direction so concentric rings stay concentric.
+   const float scale = (dist + offset) / dist;
+   ox = cx + dx * scale;
+   oy = cy + dy * scale;
+  };
+}
+
+DisplacementFunc makeMagnify(float cx, float cy, float radius, float amount)
+{
+  return [cx, cy, radius, amount](float sx, float sy, float, float, float& ox, float& oy) {
+   const float dx = sx - cx;
+   const float dy = sy - cy;
+   const float dist = std::sqrt(dx * dx + dy * dy);
+   if (dist < 0.001f || dist > radius) { ox = sx; oy = sy; return; }
+   const float t = dist / radius;
+   // amount > 0 magnifies (pushes samples inward, stretching the center).
+   const float r = std::pow(t, 1.0f - amount * 0.01f) * radius;
+   const float scale = r / dist;
+   ox = cx + dx * scale;
+   oy = cy + dy * scale;
+  };
+}
+
+// Remaps a rectangular image onto a polar disc. For each destination pixel we
+// convert to polar, then reinterpret (angle, radius) as the source's
+// (radius, angle) pair so the sampling is the inverse of the forward map.
+DisplacementFunc makePolarCoordinates(float cx, float cy, float radius, float amount)
+{
+ return [cx, cy, radius, amount](float sx, float sy, float, float, float& ox, float& oy) {
+  const float dx = sx - cx;
+  const float dy = sy - cy;
+  const float dist = std::sqrt(dx * dx + dy * dy);
+  if (dist < 0.001f) { ox = sx; oy = sy; return; }
+  const float t = std::clamp(amount, 0.0f, 1.0f);
+  if (t <= 0.0f) { ox = sx; oy = sy; return; }
+  const float angle = std::atan2(dy, dx);                 // [-pi, pi]
+  const float normAngle = (angle + kPi) / kTwoPi;         // [0, 1]
+  // Polar radius folds the disc back into a rectangle: the angle around the
+  // center becomes the horizontal axis, the radial distance the vertical one.
+  const float sourceRadius = radius * normAngle;
+  // Fully polar at t=1, untouched at t=0, interpolated in between.
+  const float sourceDistance = dist * (1.0f - t) + sourceRadius * t;
+  const float scale = sourceDistance / dist;
+  ox = cx + dx * scale;
+  oy = cy + dy * scale;
  };
 }
 

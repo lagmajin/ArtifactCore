@@ -120,7 +120,26 @@ export namespace ArtifactCore
 
  /// Kaleidoscope effect (mirrored angular segments).
  LIBRARY_DLL_API DisplacementFunc makeKaleidoscope(float centerX, float centerY,
-                                                    int segments, float angleDegrees);
+                                                  int segments, float angleDegrees);
+
+ /// Concentric ripple: a decaying radial sine wave around (centerX, centerY).
+ /// amplitude is in pixels, frequency is cycles per pixel, decay attenuates
+ /// the wave as it travels outward.
+ LIBRARY_DLL_API DisplacementFunc makeRipple(float centerX, float centerY,
+                                             float amplitude, float frequency,
+                                             float decay, float phase);
+
+ /// Spherical magnify: pushes pixels outward from the center as if viewed
+ /// through a convex lens, falling back to identity past radius.
+ /// amount is in [-100, 100].
+ LIBRARY_DLL_API DisplacementFunc makeMagnify(float centerX, float centerY,
+                                              float radius, float amount);
+
+ /// Remap between rectangular and polar coordinates around (centerX, centerY).
+ /// amount in [0, 1]: 0 keeps the image rectangular, 1 fully converts it to a
+ /// polar disc. radius sets the outer extent of the polar domain.
+ LIBRARY_DLL_API DisplacementFunc makePolarCoordinates(float centerX, float centerY,
+                                                      float radius, float amount);
 
  // === Value noise (exposed for custom use) ===
 
