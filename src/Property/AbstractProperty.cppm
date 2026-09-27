@@ -166,6 +166,8 @@ public:
         m_externalOverride = other.m_externalOverride;
         m_hasExternalOverride = other.m_hasExternalOverride;
         m_lastError = other.m_lastError;
+        m_lastRejectedSignature = other.m_lastRejectedSignature;
+        m_consecutiveRejects = other.m_consecutiveRejects;
     }
 
     QString       m_name;
@@ -185,6 +187,28 @@ public:
     QVariant m_externalOverride;
     bool     m_hasExternalOverride = false;
     QString  m_lastError;
+
+    // Rejection spam guard.  Invalid values are re-submitted every frame from
+    // render paths (e.g. a solid colour that never satisfies the property
+    // type), and the old unconditional std::clog turned that into a
+    // synchronous-I/O stall per frame.  Log the first occurrence of a run and
+    // then only every kRejectionLogStride-th one, so the signal survives
+    // without the flood.
+    QString  m_lastRejectedSignature;
+    int      m_consecutiveRejects = 0;
+
+    static constexpr int kRejectionLogStride = 100;
+
+    void noteRejectedValue(const QString &signature) {
+        if (m_lastRejectedSignature != signature) {
+            m_lastRejectedSignature = signature;
+            m_consecutiveRejects = 1;
+            return true;
+        }
+        ++m_consecutiveRejects;
+        return m_consecutiveRejects % kRejectionLogStride == 0;
+    }
+
     mutable std::shared_mutex m_mutex;
 };
 
@@ -302,8 +326,19 @@ void AbstractProperty::setValue(const QVariant& value) {
     pImpl->m_lastError.clear();
     if (!isCompatiblePropertyValue(pImpl->m_type, value)) {
         pImpl->m_lastError = QStringLiteral("Incompatible or non-finite property value");
-        std::clog << "[AbstractProperty] rejected incompatible or non-finite value for '"
-                  << pImpl->m_name.toStdString() << "'\n";
+        // The same bad value can be re-submitted every frame from a render
+        // path.  Only the first of a run (and then every hundredth) reaches
+        // std::clog so the diagnostic survives without a synchronous-I/O
+        // stall per frame.
+        if (pImpl->noteRejectedValue(
+                QStringLiteral("%1|%2|%3")
+                    .arg(pImpl->m_name)
+                    .arg(static_cast<int>(pImpl->m_type))
+                    .arg(value.typeId()))) {
+            std::clog << "[AbstractProperty] rejected incompatible or non-finite value for '"
+                      << pImpl->m_name.toStdString() << "' (repeat "
+                      << pImpl->m_consecutiveRejects << ")\n";
+        }
         return;
     }
     pImpl->m_value = value;
@@ -731,8 +766,15 @@ void AbstractProperty::addKeyFrame(const RationalTime& time, const QVariant& val
         !std::isfinite(cp1_x) || !std::isfinite(cp1_y) ||
         !std::isfinite(cp2_x) || !std::isfinite(cp2_y)) {
         pImpl->m_lastError = QStringLiteral("Invalid or non-finite keyframe value");
-        std::clog << "[AbstractProperty] rejected invalid keyframe for '"
-                  << pImpl->m_name.toStdString() << "'\n";
+        if (pImpl->noteRejectedValue(
+                QStringLiteral("keyframe|%1|%2|%3")
+                    .arg(pImpl->m_name)
+                    .arg(static_cast<int>(pImpl->m_type))
+                    .arg(value.typeId()))) {
+            std::clog << "[AbstractProperty] rejected invalid keyframe for '"
+                      << pImpl->m_name.toStdString() << "' (repeat "
+                      << pImpl->m_consecutiveRejects << ")\n";
+        }
         return;
     }
     for (auto& kf : pImpl->m_keyFrames) {

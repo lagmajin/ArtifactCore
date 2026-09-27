@@ -2,6 +2,7 @@ module;
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <fstream>
 #include <iterator>
 #include <map>
@@ -229,21 +230,38 @@ public:
         vars["has_project"] = ExpressionValue(hostSnapshot_.hasProject ? 1.0 : 0.0);
         vars["has_composition"] = ExpressionValue(hostSnapshot_.hasComposition ? 1.0 : 0.0);
         vars["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
-        vars["time"] = ExpressionValue(0.0);
-        vars["frame"] = ExpressionValue(0.0);
-        vars["duration"] = ExpressionValue(0.0);
+
+        // Timing comes from the host. `frame` is derived so an expression that
+        // asks for a frame index agrees with one that asks for a time.
+        const double timeSeconds = hostSnapshot_.timeSeconds;
+        const double frameRate = hostSnapshot_.frameRate > 0.0 ? hostSnapshot_.frameRate : 0.0;
+        vars["time"] = ExpressionValue(timeSeconds);
+        vars["duration"] = ExpressionValue(hostSnapshot_.durationSeconds);
+        vars["frame"] = ExpressionValue(frameRate > 0.0
+                                             ? std::floor(timeSeconds * frameRate)
+                                             : 0.0);
+        vars["frameRate"] = ExpressionValue(frameRate);
+
         NamedVector<ExpressionValue> selectionValues;
         selectionValues.reserve(hostSnapshot_.selection.size());
-        NamedVector<ExpressionValue> layerCatalog;
         for (const auto& item : hostSnapshot_.selection) {
             selectionValues.emplace_back(item);
-            std::map<std::string, ExpressionValue> layer;
-            layer["name"] = ExpressionValue(item);
-            layer["index"] = ExpressionValue(static_cast<double>(layerCatalog.size() + 1));
-            layerCatalog.emplace_back(layer);
         }
         vars["selection"] = ExpressionValue(selectionValues.toStdVector());
         vars["selection_names"] = ExpressionValue(selectionValues.toStdVector());
+
+        // The layer catalog is built from the composition's own layer list.
+        // It used to be built from `selection`, which made thisComp.layer()
+        // able to see only the selected layers and fail for every other name.
+        NamedVector<ExpressionValue> layerCatalog;
+        layerCatalog.reserve(hostSnapshot_.layerNames.size());
+        for (std::size_t i = 0; i < hostSnapshot_.layerNames.size(); ++i) {
+            std::map<std::string, ExpressionValue> layer;
+            layer["name"] = ExpressionValue(hostSnapshot_.layerNames[i]);
+            // 1-based to match thisLayer.index and the AE convention.
+            layer["index"] = ExpressionValue(static_cast<double>(i + 1));
+            layerCatalog.emplace_back(layer);
+        }
 
         std::map<std::string, ExpressionValue> thisComp;
         thisComp["name"] = ExpressionValue(hostSnapshot_.activeCompositionName);
@@ -256,22 +274,34 @@ public:
         thisComp["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
         thisComp["layers"] = ExpressionValue(layerCatalog.toStdVector());
         thisComp["numLayers"] = ExpressionValue(static_cast<double>(layerCatalog.size()));
-        thisComp["width"] = ExpressionValue(1920.0);
-        thisComp["height"] = ExpressionValue(1080.0);
-        thisComp["duration"] = ExpressionValue(0.0);
+        // Published as 0 when unknown rather than a placeholder HD size, so an
+        // expression can detect the absence instead of silently reading 1920.
+        thisComp["width"] = ExpressionValue(static_cast<double>(hostSnapshot_.compositionWidth));
+        thisComp["height"] = ExpressionValue(static_cast<double>(hostSnapshot_.compositionHeight));
+        thisComp["duration"] = ExpressionValue(hostSnapshot_.durationSeconds);
+        thisComp["frameRate"] = ExpressionValue(frameRate);
         vars["thisComp"] = ExpressionValue(thisComp);
 
         std::map<std::string, ExpressionValue> thisLayer;
         if (!hostSnapshot_.selection.empty()) {
             thisLayer["name"] = ExpressionValue(hostSnapshot_.selection.front());
-            thisLayer["index"] = ExpressionValue(1.0);
+            // 1-based position within the composition catalog, so thisLayer.index
+            // agrees with the index thisComp.layer(name).index reports.
+            std::size_t index = 1;
+            for (std::size_t i = 0; i < hostSnapshot_.layerNames.size(); ++i) {
+                if (hostSnapshot_.layerNames[i] == hostSnapshot_.selection.front()) {
+                    index = i + 1;
+                    break;
+                }
+            }
+            thisLayer["index"] = ExpressionValue(static_cast<double>(index));
         } else {
             thisLayer["name"] = ExpressionValue(hostSnapshot_.activeCompositionName);
             thisLayer["index"] = ExpressionValue(0.0);
         }
         thisLayer["selection_count"] = ExpressionValue(static_cast<double>(hostSnapshot_.selection.size()));
         thisLayer["comp"] = ExpressionValue(thisComp);
-        thisLayer["time"] = ExpressionValue(0.0);
+        thisLayer["time"] = ExpressionValue(timeSeconds);
         vars["thisLayer"] = ExpressionValue(thisLayer);
         vars["index"] = thisLayer["index"];
 
@@ -393,6 +423,28 @@ void ScriptRuntime::setHasComposition(bool hasComposition)
 {
     std::lock_guard<std::mutex> lock(impl_->mutex_);
     impl_->hostSnapshot_.hasComposition = hasComposition;
+}
+
+void ScriptRuntime::setCompositionGeometry(int width, int height)
+{
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
+    impl_->hostSnapshot_.compositionWidth = std::max(0, width);
+    impl_->hostSnapshot_.compositionHeight = std::max(0, height);
+}
+
+void ScriptRuntime::setLayerNames(const std::vector<std::string>& layerNames)
+{
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
+    impl_->hostSnapshot_.layerNames = layerNames;
+}
+
+void ScriptRuntime::setTiming(double timeSeconds, double durationSeconds, double frameRate)
+{
+    std::lock_guard<std::mutex> lock(impl_->mutex_);
+    impl_->hostSnapshot_.timeSeconds = timeSeconds;
+    impl_->hostSnapshot_.durationSeconds = durationSeconds;
+    impl_->hostSnapshot_.frameRate = frameRate > 0.0 ? frameRate : 0.0;
+    impl_->hostSnapshot_.hasTiming = true;
 }
 
 void ScriptRuntime::setLanguageStyle(ExpressionLanguageStyle style)
