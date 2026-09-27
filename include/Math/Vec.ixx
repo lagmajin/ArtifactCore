@@ -50,6 +50,156 @@ using ivec2 = glm::ivec2;
 using ivec3 = glm::ivec3;
 
 // =====================================================================
+// 空間タグ付き座標 (既存 vec2/vec3 と段階的に共存する新規 API)
+// ---------------------------------------------------------------------
+// 異なる Space 間の暗黙変換・演算は定義しない。座標変換は呼び出し側が
+// 意味を持つ名前付き関数で実装し、Qt / glm / GPU 境界でだけ値を取り出す。
+// 点と方向を分け、Point + Point も定義しない。
+// =====================================================================
+
+namespace Coordinates {
+
+struct ScreenLogicalSpace {};
+struct ScreenPhysicalSpace {};
+struct CompositionSpace {};
+struct LayerLocalSpace {};
+struct WorldSpace {};
+struct ViewSpace {};
+struct ClipSpace {};
+struct TextureUVSpace {};
+
+template<class Space>
+struct Point2 {
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
+template<class Space>
+struct Vector2 {
+    float x = 0.0f;
+    float y = 0.0f;
+
+    [[nodiscard]] constexpr Vector2 operator+(Vector2 rhs) const noexcept
+    {
+        return {x + rhs.x, y + rhs.y};
+    }
+    [[nodiscard]] constexpr Vector2 operator-(Vector2 rhs) const noexcept
+    {
+        return {x - rhs.x, y - rhs.y};
+    }
+    [[nodiscard]] constexpr Vector2 operator*(float scale) const noexcept
+    {
+        return {x * scale, y * scale};
+    }
+    [[nodiscard]] constexpr Vector2 operator/(float scale) const noexcept
+    {
+        return {x / scale, y / scale};
+    }
+};
+
+template<class Space>
+[[nodiscard]] constexpr Point2<Space> operator+(
+    Point2<Space> point, Vector2<Space> offset) noexcept
+{
+    return {point.x + offset.x, point.y + offset.y};
+}
+
+template<class Space>
+[[nodiscard]] constexpr Point2<Space> operator-(
+    Point2<Space> point, Vector2<Space> offset) noexcept
+{
+    return {point.x - offset.x, point.y - offset.y};
+}
+
+template<class Space>
+[[nodiscard]] constexpr Vector2<Space> operator-(
+    Point2<Space> lhs, Point2<Space> rhs) noexcept
+{
+    return {lhs.x - rhs.x, lhs.y - rhs.y};
+}
+
+template<class Space>
+struct Point3 {
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+};
+
+template<class Space>
+struct Vector3 {
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+
+    [[nodiscard]] constexpr Vector3 operator+(Vector3 rhs) const noexcept
+    {
+        return {x + rhs.x, y + rhs.y, z + rhs.z};
+    }
+    [[nodiscard]] constexpr Vector3 operator-(Vector3 rhs) const noexcept
+    {
+        return {x - rhs.x, y - rhs.y, z - rhs.z};
+    }
+    [[nodiscard]] constexpr Vector3 operator*(float scale) const noexcept
+    {
+        return {x * scale, y * scale, z * scale};
+    }
+    [[nodiscard]] constexpr Vector3 operator/(float scale) const noexcept
+    {
+        return {x / scale, y / scale, z / scale};
+    }
+};
+
+template<class Space>
+[[nodiscard]] constexpr Point3<Space> operator+(
+    Point3<Space> point, Vector3<Space> offset) noexcept
+{
+    return {point.x + offset.x, point.y + offset.y, point.z + offset.z};
+}
+
+template<class Space>
+[[nodiscard]] constexpr Point3<Space> operator-(
+    Point3<Space> point, Vector3<Space> offset) noexcept
+{
+    return {point.x - offset.x, point.y - offset.y, point.z - offset.z};
+}
+
+template<class Space>
+[[nodiscard]] constexpr Vector3<Space> operator-(
+    Point3<Space> lhs, Point3<Space> rhs) noexcept
+{
+    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
+}
+
+template<class Space>
+[[nodiscard]] constexpr Vector3<Space> cross(
+    Vector3<Space> lhs, Vector3<Space> rhs) noexcept
+{
+    return {lhs.y * rhs.z - lhs.z * rhs.y,
+            lhs.z * rhs.x - lhs.x * rhs.z,
+            lhs.x * rhs.y - lhs.y * rhs.x};
+}
+
+using ScreenLogicalPoint2 = Point2<ScreenLogicalSpace>;
+using ScreenPhysicalPoint2 = Point2<ScreenPhysicalSpace>;
+using CompositionPoint2 = Point2<CompositionSpace>;
+using LayerLocalPoint2 = Point2<LayerLocalSpace>;
+using WorldPoint3 = Point3<WorldSpace>;
+using ViewPoint3 = Point3<ViewSpace>;
+using ClipPoint3 = Point3<ClipSpace>;
+using TextureUVPoint2 = Point2<TextureUVSpace>;
+
+using ScreenLogicalVector2 = Vector2<ScreenLogicalSpace>;
+using ScreenPhysicalVector2 = Vector2<ScreenPhysicalSpace>;
+using CompositionVector2 = Vector2<CompositionSpace>;
+using LayerLocalVector2 = Vector2<LayerLocalSpace>;
+using WorldVector3 = Vector3<WorldSpace>;
+using ViewVector3 = Vector3<ViewSpace>;
+using ClipVector3 = Vector3<ClipSpace>;
+using TextureUVVector2 = Vector2<TextureUVSpace>;
+
+} // namespace Coordinates
+
+// =====================================================================
 // ギャップ補完 (監査で判明した不足操作)。純粋数学部。Qt 非依存。
 // =====================================================================
 
