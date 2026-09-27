@@ -4364,6 +4364,13 @@ elseif(TARGET openvdb::openvdb)
     target_compile_definitions(ArtifactCore PUBLIC ARTIFACTCORE_HAS_OPENVDB=1)
 endif()
 
+# Pyro is the domain-owned combustion / smoke simulation that PhysicsSystem
+# registers per layer. Enabling this compiles the per-layer pyro registry and
+# the per-frame step() loop in PhysicsSystem.cppm. It selects the CPUReference
+# backend only; PyroBackendKind::GPUCompute is an enum value with no dispatch
+# path yet, so this flag must not be read as a promise of GPU acceleration.
+target_compile_definitions(ArtifactCore PUBLIC ARTIFACT_ENABLE_PYRO=1)
+
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC glm::glm)
 
