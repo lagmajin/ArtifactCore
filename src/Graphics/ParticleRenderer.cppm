@@ -181,10 +181,11 @@ PS_Input VSMain(VS_Input In) {
     float cosR = cos(rad);
     float sinR = sin(rad);
     
-    // Particle size is a radius in world units, matching the software path
-    // (drawEllipse radius = scale * 10). halfWidth = size keeps the GPU quad
-    // diameter equal to the software diameter instead of 2x.
-    float halfWidth = max(0.375, p.size * 2.5);
+    // c_Offsets is +-0.5 and localOffset is scaled by halfWidth*2, so the quad
+    // spans +-halfWidth: the full width is 2*halfWidth. The software path draws
+    // drawEllipse with radius scale*10 (diameter 20*scale), so halfWidth must be
+    // size*10 for the GPU quad width to match that diameter.
+    float halfWidth = max(0.375, p.size * 10.0);
     float halfHeight = halfWidth * max(1.0, p.stretch);
     float2 localOffset = c_Offsets[In.VertexID] * float2(halfWidth * 2.0, halfHeight * 2.0);
     float2 rotatedOffset;
