@@ -1,5 +1,6 @@
 module;
 #include <QString>
+#include <cstdint>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h>
 #include <DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h>
@@ -84,7 +85,46 @@ public:
     void setProjectionMatrix(const float* matrix); // float[16]
     void setViewMatrix(const float* matrix);       // float[16]
     void setModelMatrix(const float* matrix);      // float[16], row-major
-    QString debugState() const;
+
+    /// Lifecycle state of the renderer.  This is the authoritative value: the
+    /// human readable form is derived from it on demand, so a frame that never
+    /// reports a problem never pays for formatting a debug string.
+    enum class DebugState : std::uint8_t {
+        Unknown = 0,
+        Constructed,
+        Initialized,
+        BuffersSkipped,
+        BuffersReady,
+        PsoSkipped,
+        PsoFailed,
+        PsoMissingConstants,
+        PsoReady,
+        UpdateEmpty,
+        UpdateSkipped,
+        BufferUpdated,
+        PrepareSkippedContext,
+        PrepareSkippedConstantMap,
+        PrepareSkippedBinding,
+        Prepared,
+        DrawSkipped,
+        Drawn,
+        MatrixUpdateSkippedProjection,
+        MatrixUpdateSkippedView,
+        MatrixUpdateSkippedModel,
+        MatrixUpdatedView,
+        MatrixUpdatedProjection,
+        MatrixUpdatedModel,
+    };
+
+    /// Cheap, allocation-free state query.  Prefer this over debugStateText()
+    /// for control flow; it never builds a string.
+    DebugState debugState() const { return debugState_; }
+    bool isPrepared() const { return debugState_ == DebugState::Prepared; }
+
+    /// Human readable state, including the numeric details the old debugState_
+    /// string carried.  Formats on every call, so call it only when the value
+    /// is actually going to be reported.
+    QString debugStateText() const;
 
 private:
     GpuContext& context_;
@@ -104,7 +144,20 @@ private:
     };
     ShaderConstants constants_{};
     ArtifactCore::RenderCostStats* frameCostStats_ = nullptr;
-    QString debugState_;
+    // Hot-path state as a value.  The numeric fields feed debugStateText() only,
+    // so a frame that reports nothing never formats a string.
+    DebugState debugState_ = DebugState::Unknown;
+    quint64 debugCount_ = 0;
+    quint64 debugUploaded_ = 0;
+    quint64 debugMax_ = 0;
+    quint64 debugA_ = 0;
+    quint64 debugB_ = 0;
+    bool debugFlagA_ = false;
+    bool debugFlagB_ = false;
+    bool debugFlagC_ = false;
+
+    /// True once prepare() has committed this frame's constants.  Kept separate
+    /// from debugState_ so callers can ask without inspecting the enum.
     bool prepared_ = false;
 
     void createPSO();

@@ -240,7 +240,7 @@ ParticleRenderer::ParticleRenderer(GpuContext& context)
     : context_(context), pImpl_(new Impl())
 {
     pImpl_->pCullExecutor_ = std::make_unique<ComputeExecutor>(context_);
-    debugState_ = QStringLiteral("state=constructed");
+    debugState_ = DebugState::Constructed;
 }
 ParticleRenderer::~ParticleRenderer()
 {
@@ -250,7 +250,8 @@ ParticleRenderer::~ParticleRenderer()
 void ParticleRenderer::initialize(size_t maxParticles) {
     maxParticles_ = maxParticles;
     constants_.billboardMode = static_cast<int>(renderOptions_.billboard);
-    debugState_ = QStringLiteral("state=initialize max=%1").arg(static_cast<qulonglong>(maxParticles_));
+    debugState_ = DebugState::Initialized;
+    debugMax_ = static_cast<qulonglong>(maxParticles_);
     createBuffers();
     createPSO();
 }
@@ -265,9 +266,9 @@ void ParticleRenderer::createBuffers() {
     pImpl_->gpuCullReady_ = false;
     pImpl_->gpuCullActive_ = false;
     if (!pDevice || maxParticles_ == 0) {
-        debugState_ = QStringLiteral("state=buffers-skipped device=%1 max=%2")
-                          .arg(pDevice ? 1 : 0)
-                          .arg(static_cast<qulonglong>(maxParticles_));
+        debugState_ = DebugState::BuffersSkipped;
+        debugMax_ = static_cast<qulonglong>(maxParticles_);
+        debugFlagA_ = pDevice != nullptr;
         qWarning() << "[ParticleRenderer] createBuffers() skipped"
                    << "device=" << (pDevice != nullptr)
                    << "maxParticles=" << maxParticles_;
@@ -323,10 +324,10 @@ void ParticleRenderer::createBuffers() {
     cullConstantsDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
     pDevice->CreateBuffer(
         cullConstantsDesc, nullptr, &pImpl_->pCullConstantsBuffer_);
-    debugState_ = QStringLiteral("state=buffers-ready max=%1 particleBuffer=%2 constantBuffer=%3")
-                      .arg(static_cast<qulonglong>(maxParticles_))
-                      .arg(pImpl_->pParticleBuffer_ ? 1 : 0)
-                      .arg(pImpl_->pConstantBuffer_ ? 1 : 0);
+    debugState_ = DebugState::BuffersReady;
+    debugMax_ = static_cast<qulonglong>(maxParticles_);
+    debugFlagA_ = pImpl_->pParticleBuffer_ != nullptr;
+    debugFlagB_ = pImpl_->pConstantBuffer_ != nullptr;
 }
 
 void ParticleRenderer::createPSO() {
@@ -334,10 +335,10 @@ void ParticleRenderer::createPSO() {
     pImpl_->pSRB_.Release();
     pImpl_->pPSO_.Release();
     if (!pDevice || maxParticles_ == 0 || !pImpl_->pConstantBuffer_) {
-        debugState_ = QStringLiteral("state=pso-skipped device=%1 max=%2 constantBuffer=%3")
-                          .arg(pDevice ? 1 : 0)
-                          .arg(static_cast<qulonglong>(maxParticles_))
-                          .arg(pImpl_->pConstantBuffer_ ? 1 : 0);
+        debugState_ = DebugState::PsoSkipped;
+        debugMax_ = static_cast<qulonglong>(maxParticles_);
+        debugFlagA_ = pDevice != nullptr;
+        debugFlagB_ = pImpl_->pConstantBuffer_ != nullptr;
         qWarning() << "[ParticleRenderer] createPSO() skipped"
                    << "device=" << (pDevice != nullptr)
                    << "maxParticles=" << maxParticles_
@@ -407,9 +408,9 @@ void ParticleRenderer::createPSO() {
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pImpl_->pPSO_);
 
     if (!pImpl_->pPSO_) {
-        debugState_ = QStringLiteral("state=pso-failed max=%1 format=%2")
-                          .arg(static_cast<qulonglong>(maxParticles_))
-                          .arg(QStringLiteral("rgba8-srgb"));
+        debugState_ = DebugState::PsoFailed;
+        debugMax_ = static_cast<qulonglong>(maxParticles_);
+        debugFlagA_ = true;
         qWarning("[ParticleRenderer] PSO creation FAILED — "
                  "check shader compilation and RTV format");
         return;
@@ -419,8 +420,8 @@ void ParticleRenderer::createPSO() {
     // Bind Constants cbuffer (static variable — bound once at PSO level)
     auto* pConstVar = pImpl_->pPSO_->GetStaticVariableByName(SHADER_TYPE_VERTEX, "Constants");
     if (!pConstVar) {
-        debugState_ = QStringLiteral("state=pso-missing-constants max=%1 pso=ready")
-                          .arg(static_cast<qulonglong>(maxParticles_));
+        debugState_ = DebugState::PsoMissingConstants;
+        debugMax_ = static_cast<qulonglong>(maxParticles_);
         qWarning("[ParticleRenderer] 'Constants' cbuffer not found in PSO "
                  "— static variable name mismatch");
         return;
@@ -445,34 +446,36 @@ void ParticleRenderer::createPSO() {
         pImpl_->pCullExecutor_->setBuffer(
             "CullConstants", pImpl_->pCullConstantsBuffer_) &&
         pImpl_->pCullExecutor_->createShaderResourceBinding(true);
-    debugState_ = QStringLiteral("state=pso-ready max=%1 pso=%2 srb=%3 blend=%4 depthTest=%5 depthWrite=%6 format=rgba8-srgb")
-                      .arg(static_cast<qulonglong>(maxParticles_))
-                      .arg(pImpl_->pPSO_ ? 1 : 0)
-                      .arg(pImpl_->pSRB_ ? 1 : 0)
-                      .arg(static_cast<int>(renderOptions_.blend))
-                      .arg(renderOptions_.depthTest ? 1 : 0)
-                      .arg(renderOptions_.depthWrite ? 1 : 0);
+    debugState_ = DebugState::PsoReady;
+    debugMax_ = static_cast<qulonglong>(maxParticles_);
+    debugFlagA_ = pImpl_->pPSO_ != nullptr;
+    debugFlagB_ = pImpl_->pSRB_ != nullptr;
+    debugFlagC_ = renderOptions_.depthWrite;
+    debugCount_ = pImpl_->gpuCullReady_ ? 1 : 0;
+    debugA_ = static_cast<qulonglong>(renderOptions_.blend);
+    debugB_ = renderOptions_.depthTest ? 1 : 0;
 }
 
 void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
     setRenderOptions(data.options);
+    debugCount_ = static_cast<qulonglong>(data.particles.size());
+    debugUploaded_ = 0;
+    debugMax_ = static_cast<qulonglong>(maxParticles_);
     if (data.particles.empty()) {
         lastUploadedParticleCount_ = 0;
-        debugState_ = QStringLiteral("state=update-empty count=0");
+        debugState_ = DebugState::UpdateEmpty;
         return;
     }
     auto pContext = context_.DeviceContext();
     
     size_t count = std::min(data.particles.size(), maxParticles_);
     lastUploadedParticleCount_ = count;
+    debugUploaded_ = static_cast<qulonglong>(count);
     if (!pContext || !pImpl_->pParticleBuffer_ || count == 0) {
         lastUploadedParticleCount_ = 0;
-        debugState_ = QStringLiteral("state=update-skipped ctx=%1 particleBuffer=%2 count=%3 uploaded=%4 max=%5")
-                          .arg(pContext ? 1 : 0)
-                          .arg(pImpl_->pParticleBuffer_ ? 1 : 0)
-                          .arg(static_cast<qulonglong>(data.particles.size()))
-                          .arg(static_cast<qulonglong>(count))
-                          .arg(static_cast<qulonglong>(maxParticles_));
+        debugState_ = DebugState::UpdateSkipped;
+        debugFlagA_ = pContext != nullptr;
+        debugFlagB_ = pImpl_->pParticleBuffer_ != nullptr;
         qWarning() << "[ParticleRenderer] updateBuffer skipped"
                    << "ctx=" << (pContext != nullptr)
                    << "particleBuffer=" << (pImpl_->pParticleBuffer_ != nullptr)
@@ -483,10 +486,7 @@ void ParticleRenderer::updateBuffer(const ParticleRenderData& data) {
     }
     pContext->UpdateBuffer(pImpl_->pParticleBuffer_, 0, sizeof(ParticleVertex) * count, 
                           data.particles.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    debugState_ = QStringLiteral("state=buffer-updated count=%1 uploaded=%2 max=%3")
-                      .arg(static_cast<qulonglong>(data.particles.size()))
-                      .arg(static_cast<qulonglong>(count))
-                      .arg(static_cast<qulonglong>(maxParticles_));
+    debugState_ = DebugState::BufferUpdated;
     if (frameCostStats_) {
         ++frameCostStats_->bufferUpdates;
     }
@@ -512,11 +512,10 @@ size_t ParticleRenderer::lastUploadedParticleCount() const
 void ParticleRenderer::prepare(IDeviceContext* pContext) {
     prepared_ = false;
     if (!pContext || !pImpl_->pPSO_ || !pImpl_->pSRB_ || !pImpl_->pConstantBuffer_) {
-        debugState_ = QStringLiteral("state=prepare-skipped ctx=%1 pso=%2 srb=%3 constantBuffer=%4")
-                          .arg(pContext ? 1 : 0)
-                          .arg(pImpl_->pPSO_ ? 1 : 0)
-                          .arg(pImpl_->pSRB_ ? 1 : 0)
-                          .arg(pImpl_->pConstantBuffer_ ? 1 : 0);
+        debugState_ = DebugState::PrepareSkippedContext;
+        debugFlagA_ = pContext != nullptr;
+        debugFlagB_ = pImpl_->pPSO_ != nullptr;
+        debugFlagC_ = pImpl_->pSRB_ != nullptr;
         qWarning() << "[ParticleRenderer] prepare() skipped"
                    << "ctx=" << (pContext != nullptr)
                    << "pso=" << (pImpl_->pPSO_ != nullptr)
@@ -532,7 +531,7 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
         // Do not commit resources or reuse the previous frame's cull state
         // when the current frame's constants could not be uploaded.
         pImpl_->gpuCullActive_ = false;
-        debugState_ = QStringLiteral("state=prepare-skipped constantBufferMap=0");
+        debugState_ = DebugState::PrepareSkippedConstantMap;
         qWarning() << "[ParticleRenderer] prepare() skipped: constant buffer map failed";
         return;
     }
@@ -606,9 +605,9 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
         ? drawParticleBuffer->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE)
         : nullptr;
     if (!pParticleVar || !pParticleSRV) {
-        debugState_ = QStringLiteral("state=prepare-skipped particleVar=%1 particleSRV=%2")
-                          .arg(pParticleVar ? 1 : 0)
-                          .arg(pParticleSRV ? 1 : 0);
+        debugState_ = DebugState::PrepareSkippedBinding;
+        debugFlagA_ = pParticleVar != nullptr;
+        debugFlagB_ = pParticleSRV != nullptr;
         qWarning() << "[ParticleRenderer] prepare() skipped: particle SRV binding unavailable"
                    << "particleVar=" << (pParticleVar != nullptr)
                    << "particleSRV=" << (pParticleSRV != nullptr);
@@ -623,20 +622,22 @@ void ParticleRenderer::prepare(IDeviceContext* pContext) {
     }
     pContext->CommitShaderResources(pImpl_->pSRB_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     prepared_ = true;
-    debugState_ = QStringLiteral("state=prepared pso=1 srb=1 const=%1 view=%2 proj=%3")
-                      .arg(pData ? 1 : 0)
-                      .arg(constants_.viewMatrix[0] != 0.0f || constants_.viewMatrix[5] != 0.0f || constants_.viewMatrix[10] != 0.0f ? 1 : 0)
-                      .arg(constants_.projMatrix[0] != 0.0f || constants_.projMatrix[5] != 0.0f || constants_.projMatrix[10] != 0.0f ? 1 : 0);
+    debugState_ = DebugState::Prepared;
+    debugFlagA_ = pData != nullptr;
+    debugFlagB_ = constants_.viewMatrix[0] != 0.0f || constants_.viewMatrix[5] != 0.0f ||
+                  constants_.viewMatrix[10] != 0.0f;
+    debugFlagC_ = constants_.projMatrix[0] != 0.0f || constants_.projMatrix[5] != 0.0f ||
+                  constants_.projMatrix[10] != 0.0f;
 }
 
 void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
     activeCount = std::min(activeCount, lastUploadedParticleCount_);
+    debugCount_ = static_cast<qulonglong>(activeCount);
+    debugUploaded_ = static_cast<qulonglong>(lastUploadedParticleCount_);
     if (!pContext || !prepared_ || !pImpl_->pPSO_ || !pImpl_->pSRB_ ||
         !pImpl_->pParticleBuffer_ || activeCount == 0) {
-        debugState_ = QStringLiteral("state=draw-skipped ctx=%1 active=%2 uploaded=%3")
-                          .arg(pContext ? 1 : 0)
-                          .arg(static_cast<qulonglong>(activeCount))
-                          .arg(static_cast<qulonglong>(lastUploadedParticleCount_));
+        debugState_ = DebugState::DrawSkipped;
+        debugFlagA_ = pContext != nullptr;
         return;
     }
     
@@ -673,53 +674,115 @@ void ParticleRenderer::draw(IDeviceContext* pContext, size_t activeCount) {
         drawAttrs.Flags = DRAW_FLAG_NONE;
         pContext->Draw(drawAttrs);
     }
-    debugState_ = QStringLiteral("state=drawn active=%1 vertices=4 submission=%2 blend=%3 depthTest=%4 depthWrite=%5 billboard=%6")
-                      .arg(static_cast<qulonglong>(activeCount))
-                      .arg(pImpl_->gpuCullActive_
-                               ? QStringLiteral("gpu-cull-indirect")
-                               : (useIndirect ? QStringLiteral("indirect")
-                                              : QStringLiteral("direct")))
-                      .arg(static_cast<int>(renderOptions_.blend))
-                      .arg(renderOptions_.depthTest ? 1 : 0)
-                      .arg(renderOptions_.depthWrite ? 1 : 0)
-                      .arg(static_cast<int>(renderOptions_.billboard));
+    debugState_ = DebugState::Drawn;
+    debugA_ = pImpl_->gpuCullActive_ ? 0 : (useIndirect ? 1 : 2);
+    debugB_ = static_cast<qulonglong>(renderOptions_.blend);
+    debugFlagA_ = renderOptions_.depthTest;
+    debugFlagB_ = renderOptions_.depthWrite;
+    debugFlagC_ = static_cast<int>(renderOptions_.billboard) != 0;
 }
 
 void ParticleRenderer::setProjectionMatrix(const float* matrix) {
     if (!matrix) {
-        debugState_ = QStringLiteral("state=matrix-update-skipped projection=0");
+        debugState_ = DebugState::MatrixUpdateSkippedProjection;
         qWarning() << "[ParticleRenderer] setProjectionMatrix() skipped: null matrix";
         return;
     }
     memcpy(constants_.projMatrix, matrix, sizeof(float) * 16);
-    debugState_ = QStringLiteral("state=matrix-updated view=%1 proj=%2")
-                      .arg(constants_.viewMatrix[0] != 0.0f || constants_.viewMatrix[5] != 0.0f || constants_.viewMatrix[10] != 0.0f ? 1 : 0)
-                      .arg(1);
+    debugState_ = DebugState::MatrixUpdatedProjection;
 }
 
 void ParticleRenderer::setViewMatrix(const float* matrix) {
     if (!matrix) {
-        debugState_ = QStringLiteral("state=matrix-update-skipped view=0");
+        debugState_ = DebugState::MatrixUpdateSkippedView;
         qWarning() << "[ParticleRenderer] setViewMatrix() skipped: null matrix";
         return;
     }
     memcpy(constants_.viewMatrix, matrix, sizeof(float) * 16);
-    debugState_ = QStringLiteral("state=matrix-updated view=%1 proj=%2")
-                      .arg(1)
-                      .arg(constants_.projMatrix[0] != 0.0f || constants_.projMatrix[5] != 0.0f || constants_.projMatrix[10] != 0.0f ? 1 : 0);
+    debugState_ = DebugState::MatrixUpdatedView;
 }
 
 void ParticleRenderer::setModelMatrix(const float* matrix) {
     if (!matrix) {
-        debugState_ = QStringLiteral("state=matrix-update-skipped model=0");
+        debugState_ = DebugState::MatrixUpdateSkippedModel;
         qWarning() << "[ParticleRenderer] setModelMatrix() skipped: null matrix";
         return;
     }
     memcpy(constants_.modelMatrix, matrix, sizeof(float) * 16);
+    debugState_ = DebugState::MatrixUpdatedModel;
 }
 
-QString ParticleRenderer::debugState() const {
-    return debugState_.isEmpty() ? QStringLiteral("state=unknown") : debugState_;
+QString ParticleRenderer::debugStateText() const {
+    // Formats on demand only.  The old code built this string on every call and
+    // stored it, so a steady particle frame paid for text nobody read.
+    switch (debugState_) {
+    case DebugState::Unknown:            return QStringLiteral("state=unknown");
+    case DebugState::Constructed:        return QStringLiteral("state=constructed");
+    case DebugState::Initialized:
+        return QStringLiteral("state=initialize max=%1").arg(debugMax_);
+    case DebugState::BuffersSkipped:
+        return QStringLiteral("state=buffers-skipped device=%1 max=%2").arg(debugFlagA_ ? 1 : 0).arg(debugMax_);
+    case DebugState::BuffersReady:
+        return QStringLiteral("state=buffers-ready max=%1 particleBuffer=%2 constantBuffer=%3")
+            .arg(debugMax_).arg(debugFlagA_ ? 1 : 0).arg(debugFlagB_ ? 1 : 0);
+    case DebugState::PsoSkipped:
+        return QStringLiteral("state=pso-skipped device=%1 max=%2 constantBuffer=%3")
+            .arg(debugFlagA_ ? 1 : 0).arg(debugMax_).arg(debugFlagB_ ? 1 : 0);
+    case DebugState::PsoFailed:
+        return QStringLiteral("state=pso-failed max=%1 format=%2").arg(debugMax_).arg(debugFlagA_ ? 1 : 0);
+    case DebugState::PsoMissingConstants:
+        return QStringLiteral("state=pso-missing-constants max=%1 pso=ready").arg(debugMax_);
+    case DebugState::PsoReady:
+        return QStringLiteral("state=pso-ready max=%1 pso=%2 srb=%3 blend=%4 depthTest=%5 depthWrite=%6 format=rgba8-srgb")
+            .arg(debugMax_).arg(debugFlagA_ ? 1 : 0).arg(debugFlagB_ ? 1 : 0)
+            .arg(debugA_).arg(debugB_).arg(debugFlagC_ ? 1 : 0);
+    case DebugState::UpdateEmpty:        return QStringLiteral("state=update-empty count=0");
+    case DebugState::UpdateSkipped:
+        return QStringLiteral("state=update-skipped ctx=%1 particleBuffer=%2 count=%3 uploaded=%4 max=%5")
+            .arg(debugFlagA_ ? 1 : 0).arg(debugFlagB_ ? 1 : 0).arg(debugCount_).arg(debugUploaded_).arg(debugMax_);
+    case DebugState::BufferUpdated:
+        return QStringLiteral("state=buffer-updated count=%1 uploaded=%2 max=%3")
+            .arg(debugCount_).arg(debugUploaded_).arg(debugMax_);
+    case DebugState::PrepareSkippedContext:
+        return QStringLiteral("state=prepare-skipped ctx=%1 pso=%2 srb=%3 constantBuffer=%4")
+            .arg(debugFlagA_ ? 1 : 0).arg(debugFlagB_ ? 1 : 0).arg(debugFlagC_ ? 1 : 0).arg(1);
+    case DebugState::PrepareSkippedConstantMap:
+        return QStringLiteral("state=prepare-skipped constantBufferMap=0");
+    case DebugState::PrepareSkippedBinding:
+        return QStringLiteral("state=prepare-skipped particleVar=%1 particleSRV=%2")
+            .arg(debugFlagA_ ? 1 : 0).arg(debugFlagB_ ? 1 : 0);
+    case DebugState::Prepared:
+        return QStringLiteral("state=prepared pso=1 srb=1 const=%1 view=%2 proj=%3")
+            .arg(debugFlagA_ ? 1 : 0).arg(debugFlagB_ ? 1 : 0).arg(debugFlagC_ ? 1 : 0);
+    case DebugState::DrawSkipped:
+        return QStringLiteral("state=draw-skipped ctx=%1 active=%2 uploaded=%3")
+            .arg(debugFlagA_ ? 1 : 0).arg(debugCount_).arg(debugUploaded_);
+    case DebugState::Drawn:
+        return QStringLiteral("state=drawn active=%1 vertices=4 submission=%2 blend=%3 depthTest=%4 depthWrite=%5 billboard=%6")
+            .arg(debugCount_)
+            .arg(debugA_ == 0 ? QStringLiteral("gpu-cull-indirect")
+                               : (debugA_ == 1 ? QStringLiteral("indirect")
+                                                : QStringLiteral("direct")))
+            .arg(debugB_)
+            .arg(debugFlagA_ ? 1 : 0)
+            .arg(debugFlagB_ ? 1 : 0)
+            .arg(debugFlagC_ ? 1 : 0);
+    case DebugState::MatrixUpdateSkippedProjection:
+        return QStringLiteral("state=matrix-update-skipped projection=0");
+    case DebugState::MatrixUpdateSkippedView:
+        return QStringLiteral("state=matrix-update-skipped view=0");
+    case DebugState::MatrixUpdateSkippedModel:
+        return QStringLiteral("state=matrix-update-skipped model=0");
+    case DebugState::MatrixUpdatedView:
+        return QStringLiteral("state=matrix-updated view=%1 proj=%2")
+            .arg(1).arg(debugFlagA_ ? 1 : 0);
+    case DebugState::MatrixUpdatedProjection:
+        return QStringLiteral("state=matrix-updated view=%1 proj=%2")
+            .arg(debugFlagB_ ? 1 : 0).arg(1);
+    case DebugState::MatrixUpdatedModel:
+        return QStringLiteral("state=matrix-updated model=1");
+    }
+    return QStringLiteral("state=unknown");
 }
 
 } // namespace ArtifactCore
