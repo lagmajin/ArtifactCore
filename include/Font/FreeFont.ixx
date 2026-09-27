@@ -5,6 +5,9 @@ module;
 #include <algorithm>
 #include <cmath>
 
+#include <QByteArray>
+#include <QDir>
+#include <QFile>
 #include <QString>
 #include <QStringList>
 #include <QFont>
@@ -12,6 +15,9 @@ module;
 #include <QRawFont>
 #include <QDebug>
 #include <QDateTime>
+
+#include <optional>
+#include <unordered_map>
 
 export module Font.FreeFont;
 
@@ -254,7 +260,110 @@ public:
  {
   if (fontPath.isEmpty()) return false;
   int id = QFontDatabase::addApplicationFont(fontPath);
-  return id != -1;
+  if (id == -1) return false;
+  registerApplicationFontFile(id, fontPath);
+  return true;
+ }
+
+ // Resolves the on-disk font file for a family so non-Qt consumers (for
+ // example the HarfBuzz shaping backend) can obtain raw sfnt bytes.  Qt 6
+ // exposes no whole-file accessor (QRawFont::fontTable returns a single
+ // OpenType table), so the mapping is built from what Qt already reports.
+ static std::optional<QByteArray> fontFileBytes(const QString& family,
+                                                const QString& style = QString())
+ {
+  if (family.trimmed().isEmpty()) return std::nullopt;
+  if (const QString path = applicationFontPathFor(family, style)) {
+   QFile file(path);
+   if (file.open(QIODevice::ReadOnly)) return file.readAll();
+  }
+  if (const QString path = systemFontPathFor(family, style)) {
+   QFile file(path);
+   if (file.open(QIODevice::ReadOnly)) return file.readAll();
+  }
+  return std::nullopt;
+ }
+
+ private:
+ // Family (lower case) -> font file path, populated from addApplicationFont.
+ static std::unordered_map<QString, QString>& applicationFontFiles()
+ {
+  static std::unordered_map<QString, QString> files;
+  return files;
+ }
+
+ static QString systemFontDirectory()
+ {
+ #ifdef Q_OS_WIN
+  return QDir(qEnvironmentVariable("WINDIR", "C:/Windows")).filePath("Fonts");
+ #else
+  const QStringList candidates{
+      QStringLiteral("/usr/share/fonts"),
+      QStringLiteral("/usr/local/share/fonts"),
+      QStringLiteral("/Library/Fonts"),
+      QStringLiteral("/System/Library/Fonts")};
+  for (const QString& candidate : candidates) {
+   if (QDir(candidate).exists()) return candidate;
+  }
+  return {};
+ #endif
+ }
+
+ static QString fileNameForFamily(const QString& family, const QString& style)
+ {
+  QString base = family;
+  if (!style.isEmpty() && style.compare(QStringLiteral("Regular"), Qt::CaseInsensitive) != 0) {
+   base += QStringLiteral(" ") + style;
+  }
+  QString fileName = base;
+  fileName.replace(QLatin1Char(' '), QLatin1Char('-'));
+  return fileName;
+ }
+
+ static void registerApplicationFontFile(int id, const QString& path)
+ {
+  const QStringList families = QFontDatabase::applicationFontFamilies(id);
+  if (families.isEmpty()) return;
+  auto& files = applicationFontFiles();
+  for (const QString& family : families) {
+   files.emplace(family.toLower(), path);
+  }
+ }
+
+ static QString applicationFontPathFor(const QString& family, const QString& style)
+ {
+  Q_UNUSED(style);
+  auto& files = applicationFontFiles();
+  const auto exact = files.find(family.toLower());
+  if (exact != files.end()) return exact->second;
+  return {};
+ }
+
+ static QString systemFontPathFor(const QString& family, const QString& style)
+ {
+  const QString directory = systemFontDirectory();
+  if (directory.isEmpty()) return {};
+  QDir dir(directory);
+  if (!dir.exists()) return {};
+  const QStringList nameFilters{QStringLiteral("*.ttf"), QStringLiteral("*.otf"),
+                                QStringLiteral("*.ttc"), QStringLiteral("*.otc")};
+  const QString wanted = fileNameForFamily(family, style).toLower();
+  const QString familyLower = family.toLower();
+  for (const QString& filter : nameFilters) {
+   const QStringList files = dir.entryList({filter}, QDir::Files, QDir::Name);
+   for (const QString& file : files) {
+    if (file.toLower() == wanted + QStringLiteral(".ttf") ||
+        file.toLower() == wanted + QStringLiteral(".otf") ||
+        file.toLower() == wanted + QStringLiteral(".ttc") ||
+        file.toLower() == wanted + QStringLiteral(".otc")) {
+     return dir.filePath(file);
+    }
+   }
+   for (const QString& file : files) {
+    if (file.toLower().contains(familyLower)) return dir.filePath(file);
+   }
+  }
+  return {};
  }
 
  static QFont makeFont(const TextStyle& style, const QString& sampleText = QString())

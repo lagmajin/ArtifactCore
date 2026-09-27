@@ -11,10 +11,20 @@ module;
 #include <QStringLiteral>
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <unordered_map>
 #include <vector>
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include <hb.h>
+#include <hb-ft.h>
+
+#include <unicode/ubidi.h>
+#include <unicode/utypes.h>
+#include <unicode/uscript.h>
 
 module Text.ShapingBackend;
 
@@ -47,113 +57,61 @@ bool isRtlCodepoint(const char32_t code)
          (code >= 0xFE70 && code <= 0xFEFF);
 }
 
-bool isHebrewCodepoint(const char32_t code)
-{
-  return code >= 0x0590 && code <= 0x05FF;
-}
-
-bool isArabicCodepoint(const char32_t code)
-{
-  return (code >= 0x0600 && code <= 0x06FF) ||
-         (code >= 0x0750 && code <= 0x077F) ||
-         (code >= 0x08A0 && code <= 0x08FF) ||
-         (code >= 0xFB50 && code <= 0xFDFF) ||
-         (code >= 0xFE70 && code <= 0xFEFF);
-}
-
-bool isThaiCodepoint(const char32_t code)
-{
-  return code >= 0x0E00 && code <= 0x0E7F;
-}
-
-bool isIndicCodepoint(const char32_t code)
-{
-  return (code >= 0x0900 && code <= 0x097F) ||  // Devanagari
-         (code >= 0x0980 && code <= 0x09FF) ||  // Bengali
-         (code >= 0x0A00 && code <= 0x0A7F) ||  // Gurmukhi
-         (code >= 0x0A80 && code <= 0x0AFF) ||  // Gujarati
-         (code >= 0x0B00 && code <= 0x0B7F) ||  // Odia
-         (code >= 0x0B80 && code <= 0x0BFF) ||  // Tamil
-         (code >= 0x0C00 && code <= 0x0C7F) ||  // Telugu
-         (code >= 0x0C80 && code <= 0x0CFF) ||  // Kannada
-         (code >= 0x0D00 && code <= 0x0D7F) ||  // Malayalam
-         (code >= 0x0D80 && code <= 0x0DFF);    // Sinhala
-}
-
-bool isSoutheastAsianCodepoint(const char32_t code)
-{
-  return (code >= 0x0E80 && code <= 0x0EFF) ||  // Lao
-         (code >= 0x1780 && code <= 0x17FF) ||  // Khmer
-         (code >= 0x1000 && code <= 0x109F) ||  // Myanmar
-         (code >= 0x0F00 && code <= 0x0FFF);     // Tibetan
-}
-
+// ICU-backed ISO 15924 lookup.  The previous hand-written range table covered
+// roughly 12% of the scripts in use and silently reported "Latn" for anything
+// it did not recognise, which propagated into contract.scriptRuns and from
+// there into animator selectors.  Unrecognised characters now keep their real
+// Script property instead of being mislabelled as Latin.
 QString scriptTagForCodepoint(const char32_t code)
 {
-  if (code >= 0xAC00 && code <= 0xD7AF) {
-    return QStringLiteral("Hang");
+  if (code < 0 || code > 0x10FFFF) {
+    return QStringLiteral("Zyyy");
   }
-  if ((code >= 0x3040 && code <= 0x30FF) || (code >= 0x4E00 && code <= 0x9FFF)) {
-    return QStringLiteral("Hani");
+  UErrorCode status = U_ZERO_ERROR;
+  const UScriptCode script = uscript_getScript(static_cast<UChar32>(code), &status);
+  if (U_FAILURE(status)) {
+    return QStringLiteral("Zyyy");
   }
-  if (isArabicCodepoint(code)) {
-    return QStringLiteral("Arab");
+  switch (script) {
+  case USCRIPT_COMMON:
+    return QStringLiteral("Zyyy");
+  case USCRIPT_INHERITED:
+    return QStringLiteral("Zinh");
+  default:
+    break;
   }
-  if (isHebrewCodepoint(code)) {
-    return QStringLiteral("Hebr");
+  const char* shortName = uscript_getShortName(script);
+  if (shortName == nullptr) {
+    return QStringLiteral("Zyyy");
   }
-  if (isThaiCodepoint(code)) {
-    return QStringLiteral("Thai");
-  }
-  if (isIndicCodepoint(code)) {
-    if (code >= 0x0900 && code <= 0x097F) {
-      return QStringLiteral("Deva");
-    }
-    if (code >= 0x0980 && code <= 0x09FF) {
-      return QStringLiteral("Beng");
-    }
-    if (code >= 0x0A00 && code <= 0x0A7F) {
-      return QStringLiteral("Guru");
-    }
-    if (code >= 0x0A80 && code <= 0x0AFF) {
-      return QStringLiteral("Gujr");
-    }
-    if (code >= 0x0B00 && code <= 0x0B7F) {
-      return QStringLiteral("Orya");
-    }
-    if (code >= 0x0B80 && code <= 0x0BFF) {
-      return QStringLiteral("Taml");
-    }
-    if (code >= 0x0C00 && code <= 0x0C7F) {
-      return QStringLiteral("Telu");
-    }
-    if (code >= 0x0C80 && code <= 0x0CFF) {
-      return QStringLiteral("Knda");
-    }
-    if (code >= 0x0D00 && code <= 0x0D7F) {
-      return QStringLiteral("Mlym");
-    }
-    return QStringLiteral("Sinh");
-  }
-  if (isSoutheastAsianCodepoint(code)) {
-    if (code >= 0x0E80 && code <= 0x0EFF) {
-      return QStringLiteral("Laoo");
-    }
-    if (code >= 0x1780 && code <= 0x17FF) {
-      return QStringLiteral("Khmr");
-    }
-    if (code >= 0x1000 && code <= 0x109F) {
-      return QStringLiteral("Mymr");
-    }
-    return QStringLiteral("Tibt");
-  }
-  if (isRtlCodepoint(code)) {
-    return QStringLiteral("Rtl");
-  }
-  if (code >= 0x1F300 && code <= 0x1FAFF) {
-    return QStringLiteral("Emoji");
-  }
-  return QStringLiteral("Latn");
+  return QString::fromLatin1(shortName);
+}
+
+// Scripts whose OpenType shaping goes beyond a simple advance per code point.
+// Drives feature selection and the "this needs HarfBuzz" decision.
+bool isComplexScriptTag(const QString& tag)
+{
+  return tag == QStringLiteral("Arab") ||
+         tag == QStringLiteral("Hebr") ||
+         tag == QStringLiteral("Syrc") ||
+         tag == QStringLiteral("Thaa") ||
+         tag == QStringLiteral("Nkoo") ||
+         tag == QStringLiteral("Adlm") ||
+         tag == QStringLiteral("Deva") ||
+         tag == QStringLiteral("Beng") ||
+         tag == QStringLiteral("Guru") ||
+         tag == QStringLiteral("Gujr") ||
+         tag == QStringLiteral("Orya") ||
+         tag == QStringLiteral("Taml") ||
+         tag == QStringLiteral("Telu") ||
+         tag == QStringLiteral("Knda") ||
+         tag == QStringLiteral("Mlym") ||
+         tag == QStringLiteral("Sinh") ||
+         tag == QStringLiteral("Thai") ||
+         tag == QStringLiteral("Laoo") ||
+         tag == QStringLiteral("Khmr") ||
+         tag == QStringLiteral("Mymr") ||
+         tag == QStringLiteral("Tibt");
 }
 
 QString stableTokenIdForCodepoint(const char32_t code, const int index)
@@ -420,6 +378,151 @@ TextDirection inferredDirection(const QString& text, const TextDirection fallbac
   return fallback;
 }
 
+// UAX #9 result for one paragraph.  logicalToVisual / visualToLogical are
+// sized to the code point count and hold each code point's counterpart index;
+// bidiRuns are the visual runs in left-to-right display order.
+struct BidiParagraph
+{
+  QVector<int> logicalToVisual;
+  QVector<int> visualToLogical;
+  QVector<TextBidiRun> runs;
+  TextDirection resolvedBase = TextDirection::LeftToRight;
+  bool valid = false;
+};
+
+BidiParagraph computeBidiParagraph(const std::u32string& text,
+                                   const TextDirection requestedBase)
+{
+  BidiParagraph result;
+  const int length = static_cast<int>(text.size());
+  if (length <= 0) {
+    result.valid = true;
+    return result;
+  }
+
+  // ICU's UBiDi API works in UTF-16, so convert once.  Codepoints outside the
+  // BMP become surrogate pairs; run boundaries are reported in UTF-16 units and
+  // are mapped back to code point indices below.
+  QString utf16;
+  utf16.reserve(length);
+  for (const char32_t code : text) {
+    utf16.append(QString::fromUcs4(&code, 1));
+  }
+
+  UErrorCode status = U_ZERO_ERROR;
+  UBiDi* bidi = ubidi_openSized(static_cast<int32_t>(utf16.size()), 0, &status);
+  if (U_FAILURE(status) || bidi == nullptr) {
+    return result;
+  }
+
+  // UBIDI_DEFAULT_LTR / UBIDI_DEFAULT_RTL let ICU run P2/P3 to pick the
+  // paragraph level from the first strong character.
+  UBiDiLevel paraLevel = UBIDI_DEFAULT_LTR;
+  if (requestedBase == TextDirection::RightToLeft) {
+    paraLevel = UBIDI_DEFAULT_RTL;
+  }
+  ubidi_setPara(bidi, utf16.utf16(),
+                static_cast<int32_t>(utf16.size()), paraLevel, nullptr,
+                &status);
+  if (U_FAILURE(status)) {
+    ubidi_close(bidi);
+    return result;
+  }
+
+  result.resolvedBase = ubidi_getParaLevel(bidi) & 1
+                            ? TextDirection::RightToLeft
+                            : TextDirection::LeftToRight;
+
+  // Map UTF-16 index -> code point index for run boundary translation.
+  QVector<int> utf16ToCodepoint(static_cast<int>(utf16.size()) + 1, 0);
+  {
+    int codepointCursor = 0;
+    for (int utf16Cursor = 0; utf16Cursor < utf16.size();) {
+      const QChar unit = utf16.at(utf16Cursor);
+      const int unitCount = unit.isHighSurrogate() && utf16Cursor + 1 < utf16.size() &&
+                                    utf16.at(utf16Cursor + 1).isLowSurrogate()
+                                ? 2
+                                : 1;
+      for (int offset = 0; offset < unitCount; ++offset) {
+        utf16ToCodepoint[utf16Cursor + offset] = codepointCursor;
+      }
+      utf16Cursor += unitCount;
+      ++codepointCursor;
+      utf16ToCodepoint[utf16Cursor] = codepointCursor;
+    }
+  }
+
+  // ICU reports run boundaries in UTF-16 units; translate to code point
+  // indices, which is the unit the rest of the contract uses.
+  const auto codepointAtUtf16 = [&utf16ToCodepoint,
+                                 length](const int32_t utf16Index) -> int {
+    if (utf16Index <= 0) return 0;
+    if (utf16Index >= utf16ToCodepoint.size()) return length;
+    return utf16ToCodepoint.at(static_cast<int>(utf16Index));
+  };
+
+  const int32_t runCount = ubidi_countRuns(bidi, &status);
+  if (U_FAILURE(status) || runCount <= 0) {
+    ubidi_close(bidi);
+    return result;
+  }
+
+  result.runs.reserve(static_cast<int>(runCount));
+  for (int32_t runIndex = 0; runIndex < runCount; ++runIndex) {
+    int32_t logicalStart = 0;
+    int32_t runLength = 0;
+    const UBiDiDirection direction = ubidi_getVisualRun(
+        bidi, runIndex, &logicalStart, &runLength);
+    const int startCodepoint = codepointAtUtf16(logicalStart);
+    const int endCodepoint = codepointAtUtf16(logicalStart + runLength);
+    result.runs.push_back(TextBidiRun{
+        .logicalStart = startCodepoint,
+        .logicalLength = qMax(0, endCodepoint - startCodepoint),
+        .direction = direction == UBIDI_RTL ? TextDirection::RightToLeft
+                                             : TextDirection::LeftToRight,
+        .visualOrder = runIndex,
+    });
+  }
+
+  // Per-code point mapping.  Runs arrive in visual order, so a running cursor
+  // over the code points yields the visual index; RTL runs are walked backwards
+  // so the combined sequence is left-to-right on screen.
+  result.visualToLogical.fill(-1, length);
+  result.logicalToVisual.fill(-1, length);
+  int visualCursor = 0;
+  for (int32_t runIndex = 0; runIndex < runCount; ++runIndex) {
+    int32_t logicalStart = 0;
+    int32_t runLength = 0;
+    const UBiDiDirection direction = ubidi_getVisualRun(
+        bidi, runIndex, &logicalStart, &runLength);
+    const int startCodepoint = codepointAtUtf16(logicalStart);
+    const int endCodepoint = codepointAtUtf16(logicalStart + runLength);
+    const int runCodepointCount = qMax(0, endCodepoint - startCodepoint);
+    for (int offset = 0; offset < runCodepointCount; ++offset) {
+      const int logical =
+          direction == UBIDI_RTL
+              ? startCodepoint + runCodepointCount - 1 - offset
+              : startCodepoint + offset;
+      if (logical < 0 || logical >= length) continue;
+      if (visualCursor >= length) break;
+      result.visualToLogical[visualCursor] = logical;
+      result.logicalToVisual[logical] = visualCursor;
+      ++visualCursor;
+    }
+  }
+
+  ubidi_close(bidi);
+
+  // Any code point not covered by a run (should not happen, but keeps the maps
+  // total) keeps a self-mapping.
+  for (int i = 0; i < length; ++i) {
+    if (result.visualToLogical[i] < 0) result.visualToLogical[i] = i;
+    if (result.logicalToVisual[i] < 0) result.logicalToVisual[i] = i;
+  }
+  result.valid = true;
+  return result;
+}
+
 TextLayoutContract buildContract(const QString& text,
                                  const TextShapingRequest& request)
 {
@@ -431,16 +534,27 @@ TextLayoutContract buildContract(const QString& text,
   const std::u32string u32text = toU32String(text);
   contract.scriptRuns.reserve(static_cast<int>(u32text.size()));
   contract.clusters.reserve(static_cast<int>(u32text.size()));
-  contract.bidiRuns.reserve(1);
   contract.lineRuns.reserve(4);
-  contract.bidiRuns.push_back(TextBidiRun{
-      .logicalStart = 0,
-      .logicalLength = static_cast<int>(u32text.size()),
-      .direction = contract.baseDirection == TextDirection::Auto
-                       ? TextDirection::LeftToRight
-                       : contract.baseDirection,
-      .visualOrder = 0,
-  });
+
+  // Real bidi runs from UAX #9.  Previously this was a single run covering the
+  // whole string, which meant a mixed-direction line reported one direction for
+  // every character.
+  const BidiParagraph bidi =
+      computeBidiParagraph(u32text, contract.baseDirection);
+  if (bidi.valid && !bidi.runs.isEmpty()) {
+    contract.baseDirection = bidi.resolvedBase;
+    contract.bidiRuns = bidi.runs;
+  } else {
+    contract.bidiRuns.reserve(1);
+    contract.bidiRuns.push_back(TextBidiRun{
+        .logicalStart = 0,
+        .logicalLength = static_cast<int>(u32text.size()),
+        .direction = contract.baseDirection == TextDirection::Auto
+                         ? TextDirection::LeftToRight
+                         : contract.baseDirection,
+        .visualOrder = 0,
+    });
+  }
 
   const int textUtf16Length = static_cast<int>(text.size());
   std::vector<int> utf16ToCodepoint(
@@ -569,7 +683,11 @@ TextLayoutContract buildContract(const QString& text,
     const TextDirection scriptDirection = isRtlCodepoint(code)
                                               ? TextDirection::RightToLeft
                                               : TextDirection::LeftToRight;
-    const bool scriptComplex = scriptTag != QStringLiteral("Latn");
+    // "complex" means the script needs real OpenType shaping rather than a
+    // plain advance per code point.  Common (Zyyy) and inherited (Zinh) are
+    // explicitly not complex, so digits and combining marks no longer read as
+    // complex the way a plain "!= Latn" test reported them.
+    const bool scriptComplex = isComplexScriptTag(scriptTag);
     if (currentScriptTag.isEmpty()) {
       scriptStart = i;
       currentScriptTag = scriptTag;
@@ -1257,15 +1375,347 @@ TextShapingResult makeIdentityResult(std::vector<GlyphItem> glyphs,
     }
   }
   result.glyphs = std::move(glyphs);
-  result.logicalToVisual.reserve(glyphCount);
-  result.visualToLogical.reserve(glyphCount);
-  for (int i = 0; i < glyphCount; ++i) {
-    result.logicalToVisual.push_back(i);
-    result.visualToLogical.push_back(i);
+
+  // Real UAX #9 mapping.  bidiRuns were filled in by buildContract(); the
+  // per-item maps are translated from code point order into glyph order using
+  // each glyph's logical index, so a consumer walking glyphs still sees a
+  // visual-to-logical correspondence.  When ICU could not run, fall back to the
+  // identity permutation rather than leaving the vectors empty.
+  const BidiParagraph bidi = computeBidiParagraph(
+      toU32String(request.text), result.contract.baseDirection);
+  if (bidi.valid && !bidi.logicalToVisual.isEmpty()) {
+    const int codepointCount = bidi.logicalToVisual.size();
+    result.logicalToVisual.reserve(glyphCount);
+    result.visualToLogical.reserve(glyphCount);
+    std::vector<int> codepointToGlyph(static_cast<size_t>(codepointCount), -1);
+    for (int glyphIndex = 0; glyphIndex < glyphCount; ++glyphIndex) {
+      const int logical = result.glyphs[static_cast<size_t>(glyphIndex)].index;
+      if (logical >= 0 && logical < codepointCount &&
+          codepointToGlyph[static_cast<size_t>(logical)] < 0) {
+        codepointToGlyph[static_cast<size_t>(logical)] = glyphIndex;
+      }
+    }
+    for (int glyphIndex = 0; glyphIndex < glyphCount; ++glyphIndex) {
+      const int logical = result.glyphs[static_cast<size_t>(glyphIndex)].index;
+      int visual = glyphIndex;
+      if (logical >= 0 && logical < codepointCount) {
+        const int codepointVisual = bidi.logicalToVisual[logical];
+        if (codepointVisual >= 0 &&
+            codepointVisual < codepointCount) {
+          const int mapped = codepointToGlyph[static_cast<size_t>(codepointVisual)];
+          if (mapped >= 0) visual = mapped;
+        }
+      }
+      result.logicalToVisual.push_back(visual);
+      result.visualToLogical.push_back(visual);
+    }
+  } else {
+    result.logicalToVisual.reserve(glyphCount);
+    result.visualToLogical.reserve(glyphCount);
+    for (int i = 0; i < glyphCount; ++i) {
+      result.logicalToVisual.push_back(i);
+      result.visualToLogical.push_back(i);
+    }
   }
   return result;
 }
 
+// --- HarfBuzz shaping -------------------------------------------------------
+//
+// FreeType's FT_Library is not thread safe, so each thread keeps its own
+// instance.  The handle is created once per thread and reused.
+FT_Library ftLibrary()
+{
+  thread_local FT_Library library = nullptr;
+  if (library == nullptr && FT_Init_FreeType(&library) != 0) {
+    return nullptr;
+  }
+  return library;
+}
+
+// Keyed by family + style + pixel size so repeated shaping of unchanged text
+// reuses the same face.  Populated on the cold path (first use per font).
+struct HarfBuzzFaceCacheKey
+{
+  QString family;
+  QString style;
+  qreal pixelSize = 0.0;
+
+  bool operator==(const HarfBuzzFaceCacheKey& other) const
+  {
+    return family == other.family && style == other.style &&
+           qFuzzyCompare(pixelSize + 1.0, other.pixelSize + 1.0);
+  }
+};
+
+struct HarfBuzzFaceCacheHash
+{
+  size_t operator()(const HarfBuzzFaceCacheKey& key) const
+  {
+    size_t seed = qHash(key.family);
+    seed = seed * 31u + qHash(key.style);
+    seed = seed * 31u +
+           std::hash<qint64>{}(static_cast<qint64>(key.pixelSize * 64.0));
+    return seed;
+  }
+};
+
+struct HarfBuzzFaceEntry
+{
+  QByteArray bytes;
+  FT_Face face = nullptr;
+};
+
+std::unordered_map<HarfBuzzFaceCacheKey, HarfBuzzFaceEntry,
+                   HarfBuzzFaceCacheHash>& harfBuzzFaceCache()
+{
+  static std::unordered_map<HarfBuzzFaceCacheKey, HarfBuzzFaceEntry,
+                            HarfBuzzFaceCacheHash>
+      cache;
+  return cache;
+}
+
+// Feeds the ICU script tag into HarfBuzz.  "Latn" and the non-script values
+// (Zyyy Common, Zinh Inherited) are left unset so HarfBuzz's own
+// hb_buffer_guess_segment_properties() decides for them, which is what we want
+// for digits, punctuation and combining marks.
+hb_script_t harfBuzzScriptFor(const TextShapingRequest& request)
+{
+  const std::u32string text = toU32String(request.text);
+  for (const char32_t code : text) {
+    if (code == 0x20 || code == 0x09 || code == 0x0A || code == 0x0D) {
+      continue;
+    }
+    const QString tag = scriptTagForCodepoint(code);
+    if (tag.isEmpty() || tag == QStringLiteral("Latn") ||
+        tag == QStringLiteral("Zyyy") || tag == QStringLiteral("Zinh")) {
+      return HB_SCRIPT_INVALID;
+    }
+    const hb_script_t script =
+        hb_script_from_iso15924_tag(
+            HB_TAG(tag.at(0).toLatin1(), tag.at(1).toLatin1(),
+                   tag.at(2).toLatin1(), tag.at(3).toLatin1()));
+    if (script == HB_SCRIPT_INVALID) {
+      return HB_SCRIPT_INVALID;
+    }
+    return script;
+  }
+  return HB_SCRIPT_INVALID;
+}
+
+// QLocale::name() yields POSIX-style tags with an underscore ("tr_TR"), while
+// HarfBuzz expects BCP-47 with a hyphen ("tr-TR").  Passing the underscored
+// form makes hb_language_from_string() return HB_LANGUAGE_INVALID, so
+// language-sensitive features such as Turkish dotless-i never engage.
+QString toBcp47LanguageTag(const QString& localeName)
+{
+  QString tag = localeName;
+  tag.replace(QLatin1Char('_'), QLatin1Char('-'));
+  return tag;
+}
+
+hb_direction_t harfBuzzDirectionFor(const TextShapingRequest& request)
+{
+  switch (request.baseDirection) {
+  case TextDirection::RightToLeft:
+    return HB_DIRECTION_RTL;
+  case TextDirection::LeftToRight:
+    return HB_DIRECTION_LTR;
+  case TextDirection::Auto:
+  default:
+    return HB_DIRECTION_INVALID;
+  }
+}
+
+// Returns nullptr when the face could not be prepared; the caller then defers
+// to the Qt backend.  The cache is keyed on the resolved QFont so that a
+// style or size change produces a new entry instead of mutating a live face.
+FT_Face acquireHarfBuzzFace(const QFont& font)
+{
+  const FT_Library library = ftLibrary();
+  if (library == nullptr) return nullptr;
+
+  HarfBuzzFaceCacheKey key;
+  key.family = font.family();
+  key.style = font.styleName();
+  key.pixelSize = font.pixelSize() > 0.0 ? font.pixelSize() : font.pointSizeF();
+  if (key.pixelSize <= 0.0) key.pixelSize = font.pointSizeF();
+  if (key.pixelSize <= 0.0) return nullptr;
+
+  auto& cache = harfBuzzFaceCache();
+  if (const auto existing = cache.find(key); existing != cache.end()) {
+    return existing->second.face;
+  }
+
+  const std::optional<QByteArray> bytes =
+      FontManager::fontFileBytes(font.family(), font.styleName());
+  if (!bytes || bytes->isEmpty()) return nullptr;
+
+  FT_Face face = nullptr;
+  if (FT_New_Memory_Face(library, reinterpret_cast<const FT_Byte*>(bytes->constData()),
+                          static_cast<FT_Long>(bytes->size()), 0, &face) != 0) {
+    return nullptr;
+  }
+  const FT_F26Dot6 charSize = static_cast<FT_F26Dot6>(key.pixelSize * 64.0);
+  if (FT_Set_Char_Size(face, 0, charSize, 72, 72) != 0) {
+    FT_Done_Face(face);
+    return nullptr;
+  }
+  // Keep the bytes alive for the face's whole lifetime: FreeType memory faces
+  // reference the buffer rather than copying it.
+  HarfBuzzFaceEntry entry;
+  entry.bytes = *bytes;
+  entry.face = face;
+  cache.emplace(key, std::move(entry));
+  return face;
+}
+
+std::optional<TextShapingResult> shapeWithHarfBuzz(
+    const TextShapingRequest& request)
+{
+  // HarfBuzz shapes runs; it does not break lines or apply alignment.  Until
+  // line layout is ported, only unwrapped single-line text can be positioned
+  // correctly here, so anything else defers to the Qt path.
+  if (request.paragraph.boxWidth > 0.0f) return std::nullopt;
+  const QString plainText = request.text;
+  if (plainText.contains(QLatin1Char('\n')) ||
+      plainText.contains(QChar::LineSeparator) ||
+      plainText.contains(QChar::ParagraphSeparator)) {
+    return std::nullopt;
+  }
+
+  const QFont font = FontManager::makeFont(request.style, request.text);
+  FT_Face face = acquireHarfBuzzFace(font);
+  if (face == nullptr) return std::nullopt;
+
+  hb_font_t* hbFont = hb_ft_font_create_referenced(face);
+  if (hbFont == nullptr) return std::nullopt;
+
+  const std::u32string text = toU32String(request.text);
+  if (text.empty()) {
+    hb_font_destroy(hbFont);
+    return std::nullopt;
+  }
+
+  hb_buffer_t* buffer = hb_buffer_create();
+  if (buffer == nullptr) {
+    hb_font_destroy(hbFont);
+    return std::nullopt;
+  }
+
+  hb_buffer_add_utf32(buffer, reinterpret_cast<const uint32_t*>(text.data()),
+                      static_cast<int>(text.size()), 0,
+                      static_cast<int>(text.size()));
+  hb_buffer_guess_segment_properties(buffer);
+
+  const hb_direction_t explicitDirection = harfBuzzDirectionFor(request);
+  if (explicitDirection != HB_DIRECTION_INVALID) {
+    hb_buffer_set_direction(buffer, explicitDirection);
+  }
+  // The script has to be set for the language to pick the right localized
+  // forms, so both are always forwarded.
+  const hb_script_t explicitScript = harfBuzzScriptFor(request);
+  if (explicitScript != HB_SCRIPT_INVALID) {
+    hb_buffer_set_script(buffer, explicitScript);
+  }
+  if (!request.locale.isEmpty()) {
+    hb_buffer_set_language(
+        buffer, toBcp47LanguageTag(request.locale).toUtf8().constData());
+  }
+
+  // Keep every glyph of a grapheme cluster in logical order so cluster values
+  // stay monotone; this is what lets the contract map one cluster to the
+  // several glyphs an Indic syllable or an emoji ZWJ sequence expands into.
+  hb_buffer_set_cluster_level(buffer, HB_BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES);
+
+  // OpenType features applied to the whole buffer.  HarfBuzz already enables
+  // the per-script defaults (Arabic joining, Indic nukt/akhn reordering), but
+  // the general typographic features are off unless requested.
+  static const hb_feature_t kFeatures[] = {
+      {HB_TAG('k', 'e', 'r', 'n'), 1, 0, HB_FEATURE_GLOBAL_END},
+      {HB_TAG('l', 'i', 'g', 'a'), 1, 0, HB_FEATURE_GLOBAL_END},
+      {HB_TAG('c', 'a', 'l', 't'), 1, 0, HB_FEATURE_GLOBAL_END},
+      {HB_TAG('c', 'l', 'i', 'g'), 1, 0, HB_FEATURE_GLOBAL_END},
+      {HB_TAG('l', 'o', 'c', 'l'), 1, 0, HB_FEATURE_GLOBAL_END},
+  };
+  hb_shape(hbFont, buffer, kFeatures, static_cast<unsigned>(sizeof(kFeatures) /
+                                                      sizeof(kFeatures[0])));
+
+  unsigned glyphCount = 0;
+  hb_glyph_info_t* infos = hb_buffer_get_glyph_infos(buffer, &glyphCount);
+  hb_glyph_position_t* positions =
+      hb_buffer_get_glyph_positions(buffer, &glyphCount);
+  if (infos == nullptr || positions == nullptr || glyphCount == 0) {
+    hb_buffer_destroy(buffer);
+    hb_font_destroy(hbFont);
+    return std::nullopt;
+  }
+
+  // HarfBuzz reports 26.6 fixed-point advances/offsets in the font's scaled
+  // pixel space.  The Qt path stores absolute pen positions plus a bounds
+  // rect, so accumulate the pen here to keep the same convention.
+  constexpr float kFixedToFloat = 1.0f / 64.0f;
+  const QFontMetricsF metrics(font);
+  const float lineAscent = static_cast<float>(metrics.ascent());
+  const float lineHeight = static_cast<float>(std::max<qreal>(metrics.lineSpacing(),
+                                                               metrics.height()));
+
+  const std::u32string u32text = toU32String(request.text);
+  float penX = 0.0f;
+  std::vector<GlyphItem> glyphs;
+  glyphs.reserve(glyphCount);
+  for (unsigned i = 0; i < glyphCount; ++i) {
+    const hb_glyph_info_t& info = infos[i];
+    const hb_glyph_position_t& position = positions[i];
+
+    // info.cluster is a UTF-32 index into the text; HarfBuzz keeps it pointing
+    // at the first code point of the cluster, which is what GlyphItem::index
+    // and the layout contract use.
+    const int codepointIndex = static_cast<int>(info.cluster);
+    const char32_t code =
+        codepointIndex >= 0 && codepointIndex < static_cast<int>(u32text.size())
+            ? u32text[static_cast<size_t>(codepointIndex)]
+            : U'\0';
+
+    GlyphItem item;
+    item.charCode = code;
+    item.index = codepointIndex;
+    item.clusterIndex = codepointIndex;
+    item.lineIndex = 0;
+    item.selectorTag = scriptTagForCodepoint(code);
+    item.stableTokenId = stableTokenIdForCodepoint(code, item.index);
+    // A zero codepoint marks a continuation of a multi-glyph cluster (for
+    // example a ZWJ sequence); downstream renderers rely on that distinction.
+    item.shapedGlyphIndex = info.codepoint;
+
+    const float xOffset = static_cast<float>(position.x_offset) * kFixedToFloat;
+    const float yOffset = static_cast<float>(position.y_offset) * kFixedToFloat;
+    const float xAdvance = static_cast<float>(position.x_advance) * kFixedToFloat;
+    const float yAdvance = static_cast<float>(position.y_advance) * kFixedToFloat;
+
+    item.basePosition = QPointF(penX + xOffset, lineAscent - yOffset);
+    item.baseRotation = 0.0f;
+    item.baseScale = 1.0f;
+    item.offsetPosition = QPointF(0.0f, 0.0f);
+    item.offsetRotation = 0.0f;
+    item.offsetScale = 1.0f;
+    item.offsetOpacity = 1.0f;
+    item.bounds = QRectF(penX, 0.0f, xAdvance, lineHeight);
+    glyphs.push_back(item);
+
+    penX += xAdvance;
+    if (yAdvance != 0.0f) {
+      // Vertical advances only occur once vertical writing is routed through
+      // HarfBuzz; keep the pen correct until then.
+      penX = xAdvance;
+    }
+  }
+
+  hb_buffer_destroy(buffer);
+  hb_font_destroy(hbFont);
+
+  return makeIdentityResult(std::move(glyphs), request);
+}
 } // namespace
 
 TextShapingResult QtShapingBackend::shape(const TextShapingRequest& request)
@@ -1285,7 +1735,13 @@ TextShapingResult QtShapingBackend::shape(const TextShapingRequest& request)
 
 TextShapingResult HarfBuzzShapingBackend::shape(const TextShapingRequest& request)
 {
-  // Temporary fallback until the HarfBuzz adapter is wired in.
+  // Vertical writing, ruby and kinsoku still depend on the Qt layout path, so
+  // the HarfBuzz route only covers the horizontal case for now.
+  if (request.writingMode != TextWritingMode::Vertical) {
+    if (auto shaped = shapeWithHarfBuzz(request)) {
+      return std::move(*shaped);
+    }
+  }
   return QtShapingBackend{}.shape(request);
 }
 

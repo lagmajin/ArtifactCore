@@ -1,6 +1,7 @@
 module;
 #include <QFont>
 #include <QFontMetricsF>
+#include <QLocale>
 #include <QList>
 #include <QPointF>
 #include <QRectF>
@@ -362,7 +363,10 @@ TextLayoutEngine::layout(const UniString &text, const TextStyle &style,
       .paragraph = paragraph,
       .writingMode = writingMode,
       .baseDirection = baseDirection,
-      .locale = QString(),
+      // Empty here would leave the HarfBuzz buffer without a language, so
+      // locale-sensitive forms (Turkish dotless-i, Serbian variants) never
+      // engage.  Match the other production call sites.
+      .locale = QLocale::system().name(),
   };
   return backend.shape(request).glyphs;
 }
@@ -370,7 +374,7 @@ TextLayoutEngine::layout(const UniString &text, const TextStyle &style,
 std::vector<GlyphItem>
 TextLayoutEngine::layout(const UniString &text, const TextStyle &style,
                          const ParagraphStyle &paragraph) {
-  QtShapingBackend backend;
+  HarfBuzzShapingBackend backend;
   return layout(text, style, paragraph, backend);
 }
 

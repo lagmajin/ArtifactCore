@@ -4367,6 +4367,18 @@ endif()
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(ArtifactCore PUBLIC glm::glm)
 
+# HarfBuzz drives the text shaping backend (HarfBuzzShapingBackend).  It is
+# also pulled in transitively by qtbase, but declaring it directly keeps the
+# shaping dependency explicit instead of relying on Qt's feature set.
+find_package(harfbuzz CONFIG REQUIRED)
+target_link_libraries(ArtifactCore PUBLIC harfbuzz::harfbuzz)
+
+# ICU supplies the Unicode Script property (uscript) and the UAX #9 bidi
+# algorithm (ubidi) for the text layout contract.  It also arrives
+# transitively via qtbase, but the text modules reference it directly.
+find_package(ICU REQUIRED COMPONENTS uc)
+target_link_libraries(ArtifactCore PUBLIC ICU::uc)
+
 # meshoptimizer provides vertex remapping, vertex-cache optimization, and
 # meshlet generation for the Mesh LOD preparation path.
 find_package(meshoptimizer CONFIG REQUIRED)
