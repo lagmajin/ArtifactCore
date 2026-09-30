@@ -8,6 +8,7 @@ module;
 module Core.Camera;
 
 import Float3;
+import Math.Vec;
 
 namespace ArtifactCore
 {
@@ -29,99 +30,102 @@ Camera::~Camera() = default;
 
 // --- View setup ---
 
-void Camera::lookAt(const float3<float>& eye,
-                    const float3<float>& tgt,
-                    const float3<float>& up)
+void Camera::lookAt(Coordinates::WorldPoint3 eye,
+                    Coordinates::WorldPoint3 tgt,
+                    Coordinates::WorldVector3 up)
 {
  position_ = eye;
  target_ = tgt;
  up_ = up;
 
  // Derive orbit parameters from eye/target
+ const Coordinates::WorldVector3 worldDirection = target_ - position_;
  auto dir = float3<float>{
-  target_.x - position_.x,
-  target_.y - position_.y,
-  target_.z - position_.z
+  worldDirection.x,
+  worldDirection.y,
+  worldDirection.z
  };
- distance_ = dir.length();
- if (distance_ < kMinDistance) distance_ = kMinDistance;
+ distance_ = Units::WorldLength{dir.length()};
+ if (distance_.value < kMinDistance) distance_ = Units::WorldLength{kMinDistance};
 
  // yaw = atan2(x, z), pitch = asin(y / dist)
- yaw_ = std::atan2(dir.x, dir.z) * kRad2Deg;
+ yaw_ = Units::Degrees{std::atan2(dir.x, dir.z) * kRad2Deg};
  float horizDist = std::sqrt(dir.x * dir.x + dir.z * dir.z);
- pitch_ = std::atan2(dir.y, horizDist) * kRad2Deg;
- pitch_ = std::clamp(pitch_, -kMaxPitch, kMaxPitch);
+ pitch_ = Units::Degrees{std::atan2(dir.y, horizDist) * kRad2Deg};
+ pitch_ = Units::Degrees{std::clamp(pitch_.value, -kMaxPitch, kMaxPitch)};
 }
 
 // --- Orbit ---
 
-void Camera::orbit(float deltaYaw, float deltaPitch)
+void Camera::orbit(Units::Degrees deltaYaw, Units::Degrees deltaPitch)
 {
- yaw_ += deltaYaw;
- pitch_ += deltaPitch;
- pitch_ = std::clamp(pitch_, -kMaxPitch, kMaxPitch);
+ yaw_ = yaw_ + deltaYaw;
+ pitch_ = pitch_ + deltaPitch;
+ pitch_ = Units::Degrees{std::clamp(pitch_.value, -kMaxPitch, kMaxPitch)};
  updateFromOrbit();
 }
 
-float Camera::yaw() const { return yaw_; }
-float Camera::yawRadians() const { return yaw_ * kDeg2Rad; }
+Units::Degrees Camera::yaw() const { return yaw_; }
+Units::Radians Camera::yawRadians() const { return Units::toRadians(yaw_); }
 
-void Camera::setYaw(float degrees)
+void Camera::setYaw(Units::Degrees degrees)
 {
  yaw_ = degrees;
  updateFromOrbit();
 }
 
-float Camera::pitch() const { return pitch_; }
-float Camera::pitchRadians() const { return pitch_ * kDeg2Rad; }
+Units::Degrees Camera::pitch() const { return pitch_; }
+Units::Radians Camera::pitchRadians() const { return Units::toRadians(pitch_); }
 
-void Camera::setPitch(float degrees)
+void Camera::setPitch(Units::Degrees degrees)
 {
- pitch_ = std::clamp(degrees, -kMaxPitch, kMaxPitch);
+ pitch_ = Units::Degrees{std::clamp(degrees.value, -kMaxPitch, kMaxPitch)};
  updateFromOrbit();
 }
 
-float Camera::distance() const { return distance_; }
+Units::WorldLength Camera::distance() const { return distance_; }
 
-void Camera::setDistance(float dist)
+void Camera::setDistance(Units::WorldLength dist)
 {
- distance_ = std::max(dist, kMinDistance);
+ distance_ = Units::WorldLength{std::max(dist.value, kMinDistance)};
  updateFromOrbit();
 }
 
 // --- Pan ---
 
-void Camera::pan(float dx, float dy)
+void Camera::pan(Units::WorldLength dx, Units::WorldLength dy)
 {
- auto r = right();
+ const auto r = right();
  auto u = up_;
- target_.x += r.x * dx + u.x * dy;
- target_.y += r.y * dx + u.y * dy;
- target_.z += r.z * dx + u.z * dy;
+ target_ = target_ + r * dx.value + u * dy.value;
  updateFromOrbit();
 }
 
 // --- Dolly ---
 
-void Camera::dolly(float delta)
+void Camera::dolly(Units::WorldLength delta)
 {
- distance_ = std::max(distance_ - delta, kMinDistance);
+ distance_ = Units::WorldLength{
+     std::max(distance_.value - delta.value, kMinDistance)};
  updateFromOrbit();
 }
 
 // --- Projection ---
 
-void Camera::setPerspective(float fovYDegrees, float aspect, float near, float far)
+void Camera::setPerspective(Units::Degrees fovY,
+                            float aspect,
+                            Units::Pixels nearZ,
+                            Units::Pixels farZ)
 {
- fovY_ = fovYDegrees;
+ fovY_ = fovY;
  aspect_ = aspect;
- nearZ_ = near;
- farZ_ = far;
+ nearZ_ = nearZ;
+ farZ_ = farZ;
 }
 
-void Camera::setFovY(float degrees)
+void Camera::setFovY(Units::Degrees degrees)
 {
- fovY_ = std::clamp(degrees, 1.0f, 179.0f);
+ fovY_ = Units::Degrees{std::clamp(degrees.value, 1.0f, 179.0f)};
 }
 
 void Camera::setAspect(float ratio)
@@ -131,25 +135,23 @@ void Camera::setAspect(float ratio)
 
 // --- Accessors ---
 
-float3<float> Camera::forward() const
+Coordinates::WorldVector3 Camera::forward() const
 {
- auto dir = float3<float>{
-  target_.x - position_.x,
-  target_.y - position_.y,
-  target_.z - position_.z
- };
- return dir.normalized();
+ const auto dir = target_ - position_;
+ const auto normalized = float3<float>{dir.x, dir.y, dir.z}.normalized();
+ return {normalized.x, normalized.y, normalized.z};
 }
 
-float3<float> Camera::right() const
+Coordinates::WorldVector3 Camera::right() const
 {
  auto f = forward();
  // right = cross(forward, up)
- return float3<float>{
+ const auto right = float3<float>{
   f.y * up_.z - f.z * up_.y,
   f.z * up_.x - f.x * up_.z,
   f.x * up_.y - f.y * up_.x
  }.normalized();
+ return {right.x, right.y, right.z};
 }
 
 // --- Matrices ---
@@ -165,7 +167,8 @@ glm::mat4 Camera::viewMatrix() const
 
 glm::mat4 Camera::projectionMatrix() const
 {
- return glm::perspective(glm::radians(fovY_), aspect_, nearZ_, farZ_);
+ return glm::perspective(glm::radians(fovY_.value), aspect_, nearZ_.value,
+                         farZ_.value);
 }
 
 glm::mat4 Camera::viewProjectionMatrix() const
@@ -178,74 +181,77 @@ glm::mat4 Camera::viewProjectionMatrix() const
 void Camera::reset()
 {
  target_ = { 0, 0, 0 };
- yaw_ = 0.0f;
- pitch_ = 0.0f;
- distance_ = 5.0f;
- fovY_ = 45.0f;
+ yaw_ = Units::Degrees{0.0f};
+ pitch_ = Units::Degrees{0.0f};
+ distance_ = Units::WorldLength{5.0f};
+ fovY_ = Units::Degrees{45.0f};
  aspect_ = 16.0f / 9.0f;
- nearZ_ = 0.1f;
- farZ_ = 1000.0f;
+ nearZ_ = Units::Pixels{0.1f};
+ farZ_ = Units::Pixels{1000.0f};
  up_ = { 0, 1, 0 };
  updateFromOrbit();
 }
 
-void Camera::frameAll(float boundingRadius)
+void Camera::frameAll(Units::WorldLength boundingRadius)
 {
- fitToSphere({ 0, 0, 0 }, boundingRadius);
+ fitToSphere(Coordinates::WorldPoint3{0, 0, 0}, boundingRadius);
 }
 
 void Camera::setViewFront()
 {
- yaw_ = 0.0f;
- pitch_ = 0.0f;
+ yaw_ = Units::Degrees{0.0f};
+ pitch_ = Units::Degrees{0.0f};
  updateFromOrbit();
 }
 
 void Camera::setViewBack()
 {
- yaw_ = 180.0f;
- pitch_ = 0.0f;
+ yaw_ = Units::Degrees{180.0f};
+ pitch_ = Units::Degrees{0.0f};
  updateFromOrbit();
 }
 
 void Camera::setViewLeft()
 {
- yaw_ = -90.0f;
- pitch_ = 0.0f;
+ yaw_ = Units::Degrees{-90.0f};
+ pitch_ = Units::Degrees{0.0f};
  updateFromOrbit();
 }
 
 void Camera::setViewRight()
 {
- yaw_ = 90.0f;
- pitch_ = 0.0f;
+ yaw_ = Units::Degrees{90.0f};
+ pitch_ = Units::Degrees{0.0f};
  updateFromOrbit();
 }
 
 void Camera::setViewTop()
 {
- yaw_ = 0.0f;
- pitch_ = kMaxPitch;
+ yaw_ = Units::Degrees{0.0f};
+ pitch_ = Units::Degrees{kMaxPitch};
  updateFromOrbit();
 }
 
 void Camera::setViewBottom()
 {
- yaw_ = 0.0f;
- pitch_ = -kMaxPitch;
+ yaw_ = Units::Degrees{0.0f};
+ pitch_ = Units::Degrees{-kMaxPitch};
  updateFromOrbit();
 }
 
 // --- Fit ---
 
-void Camera::fitToSphere(const float3<float>& center, float radius, float margin)
+void Camera::fitToSphere(Coordinates::WorldPoint3 center,
+                         Units::WorldLength radius,
+                         float margin)
 {
  target_ = center;
- float halfFov = fovY_ * 0.5f * kDeg2Rad;
+ float halfFov = fovY_.value * 0.5f * kDeg2Rad;
  float sinHalf = std::sin(halfFov);
  if (sinHalf < 0.001f) sinHalf = 0.001f;
- distance_ = (radius * margin) / sinHalf;
- distance_ = std::max(distance_, kMinDistance);
+ distance_ = Units::WorldLength{(radius.value * margin) / sinHalf};
+ distance_ = Units::WorldLength{
+     std::max(distance_.value, kMinDistance)};
  updateFromOrbit();
 }
 
@@ -253,18 +259,18 @@ void Camera::fitToSphere(const float3<float>& center, float radius, float margin
 
 void Camera::updateFromOrbit()
 {
- float yawRad = yaw_ * kDeg2Rad;
- float pitchRad = pitch_ * kDeg2Rad;
+ float yawRad = yaw_.value * kDeg2Rad;
+ float pitchRad = pitch_.value * kDeg2Rad;
 
  float cosP = std::cos(pitchRad);
  float sinP = std::sin(pitchRad);
  float cosY = std::cos(yawRad);
  float sinY = std::sin(yawRad);
 
- position_ = {
-  target_.x + distance_ * cosP * sinY,
-  target_.y + distance_ * sinP,
-  target_.z + distance_ * cosP * cosY
+ position_ = target_ + Coordinates::WorldVector3{
+  distance_.value * cosP * sinY,
+  distance_.value * sinP,
+  distance_.value * cosP * cosY
  };
 }
 

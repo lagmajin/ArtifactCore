@@ -7,6 +7,7 @@ module;
 export module Core.Light;
 
 import Float3;
+import Math.Vec;
 
 export namespace ArtifactCore
 {
@@ -43,13 +44,13 @@ export namespace ArtifactCore
 
   // --- Position (Point / Spot) ---
 
-  float3<float> position() const { return position_; }
-  void setPosition(const float3<float>& pos);
+  Coordinates::WorldPoint3 position() const { return position_; }
+  void setPosition(Coordinates::WorldPoint3 pos);
 
   // --- Direction (Directional / Spot) ---
 
-  float3<float> direction() const { return direction_; }
-  void setDirection(const float3<float>& dir);
+  Coordinates::WorldVector3 direction() const { return direction_; }
+  void setDirection(Coordinates::WorldVector3 dir);
 
   // --- Attenuation (Point / Spot) ---
 
@@ -60,22 +61,22 @@ export namespace ArtifactCore
   void setAttenuation(float constant, float linear, float quadratic);
 
   // Preset attenuation by effective range
-  void setRange(float range);
-  float areaWidth() const { return areaWidth_; }
-  float areaHeight() const { return areaHeight_; }
+  void setRange(Units::Pixels range);
+  Units::Pixels areaWidth() const { return areaWidth_; }
+  Units::Pixels areaHeight() const { return areaHeight_; }
   int areaShape() const { return areaShape_; }
-  void setAreaSize(float width, float height);
+  void setAreaSize(Units::Pixels width, Units::Pixels height);
   void setAreaShape(int shape);
 
   // --- Spot cone (Spot only) ---
 
   // Inner/outer cutoff in degrees (full bright to falloff edge)
-  float spotInnerCutoff() const { return spotInnerDeg_; }
-  float spotOuterCutoff() const { return spotOuterDeg_; }
-  void setCutoff(float innerDegrees, float outerDegrees);
+  Units::Degrees spotInnerCutoff() const { return {spotInnerDeg_}; }
+  Units::Degrees spotOuterCutoff() const { return {spotOuterDeg_}; }
+  void setCutoff(Units::Degrees innerAngle, Units::Degrees outerAngle);
 
   // Convenience: set uniform cutoff
-  void setSpotAngle(float degrees);
+  void setSpotAngle(Units::Degrees degrees);
 
   // Optional Spot-light projection (GOBO/cookie). The path is deliberately
   // kept in the renderer-neutral light contract; GPU texture ownership stays
@@ -84,8 +85,8 @@ export namespace ArtifactCore
   void setGoboTexturePath(std::string path);
   float goboIntensity() const { return goboIntensity_; }
   void setGoboIntensity(float value);
-  float goboRotation() const { return goboRotation_; }
-  void setGoboRotation(float degrees);
+  Units::Degrees goboRotation() const { return {goboRotation_}; }
+  void setGoboRotation(Units::Degrees degrees);
   bool goboInvert() const { return goboInvert_; }
   void setGoboInvert(bool enabled);
 
@@ -105,21 +106,21 @@ export namespace ArtifactCore
 
   // --- Presets ---
 
-  static Light makeDirectional(const float3<float>& dir,
+  static Light makeDirectional(Coordinates::WorldVector3 dir,
                                 const float3<float>& color = { 1, 1, 1 },
                                 float intensity = 1.0f);
 
-  static Light makePoint(const float3<float>& pos,
+  static Light makePoint(Coordinates::WorldPoint3 pos,
                           const float3<float>& color = { 1, 1, 1 },
                           float intensity = 1.0f,
-                          float range = 10.0f);
+                          Units::Pixels range = Units::Pixels{10.0f});
 
-  static Light makeSpot(const float3<float>& pos,
-                         const float3<float>& dir,
+  static Light makeSpot(Coordinates::WorldPoint3 pos,
+                         Coordinates::WorldVector3 dir,
                          const float3<float>& color = { 1, 1, 1 },
                          float intensity = 1.0f,
-                         float angle = 45.0f,
-                         float range = 10.0f);
+                         Units::Degrees angle = Units::Degrees{45.0f},
+                         Units::Pixels range = Units::Pixels{10.0f});
 
   static Light makeAmbient(const float3<float>& color = { 1, 1, 1 },
                             float intensity = 0.1f);
@@ -128,8 +129,8 @@ export namespace ArtifactCore
   LightType type_ = LightType::Directional;
   float3<float> color_ = { 1, 1, 1 };
   float intensity_ = 1.0f;
-  float3<float> position_ = { 0, 5, 0 };
-  float3<float> direction_ = { 0, -1, 0 };
+  Coordinates::WorldPoint3 position_ = { 0, 5, 0 };
+  Coordinates::WorldVector3 direction_ = { 0, -1, 0 };
   float attenConstant_ = 1.0f;
   float attenLinear_ = 0.0f;
   float attenQuadratic_ = 0.0f;
@@ -142,8 +143,8 @@ export namespace ArtifactCore
   bool castsShadows_ = true;
   float shadowSoftness_ = 0.0f;
   bool enabled_ = true;
-  float areaWidth_ = 100.0f;
-  float areaHeight_ = 100.0f;
+  Units::Pixels areaWidth_{100.0f};
+  Units::Pixels areaHeight_{100.0f};
   int areaShape_ = 0;
  };
 

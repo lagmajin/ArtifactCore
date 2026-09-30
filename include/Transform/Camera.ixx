@@ -10,6 +10,7 @@ module;
 export module Core.Camera;
 
 import Float3;
+import Math.Vec;
 
 export namespace ArtifactCore
 {
@@ -28,47 +29,50 @@ export namespace ArtifactCore
 
   // --- View setup ---
 
-  void lookAt(const float3<float>& eye,
-              const float3<float>& target,
-              const float3<float>& up = { 0, 1, 0 });
+  void lookAt(Coordinates::WorldPoint3 eye,
+              Coordinates::WorldPoint3 target,
+              Coordinates::WorldVector3 up = { 0, 1, 0 });
 
   // --- Orbit controls (spherical coordinates around target) ---
 
-  void orbit(float deltaYaw, float deltaPitch);
-  float yaw() const;
-  float yawRadians() const;
-  void setYaw(float degrees);
-  float pitch() const;
-  float pitchRadians() const;
-  void setPitch(float degrees);
-  float distance() const;
-  void setDistance(float dist);
+  void orbit(Units::Degrees deltaYaw, Units::Degrees deltaPitch);
+  Units::Degrees yaw() const;
+  Units::Radians yawRadians() const;
+  void setYaw(Units::Degrees degrees);
+  Units::Degrees pitch() const;
+  Units::Radians pitchRadians() const;
+  void setPitch(Units::Degrees degrees);
+  Units::WorldLength distance() const;
+  void setDistance(Units::WorldLength dist);
 
   // --- Pan ---
 
-  void pan(float dx, float dy);
+  void pan(Units::WorldLength dx, Units::WorldLength dy);
 
   // --- Zoom (dolly) ---
 
-  void dolly(float delta);
+  void dolly(Units::WorldLength delta);
 
   // --- Projection ---
 
-  void setPerspective(float fovYDegrees, float aspect, float nearZ, float farZ);
-  float fovY() const { return fovY_; }
+  void setPerspective(Units::Degrees fovY,
+                      float aspect,
+                      Units::Pixels nearZ,
+                      Units::Pixels farZ);
+  Units::Degrees fovY() const { return fovY_; }
   float aspect() const { return aspect_; }
-  float nearZ() const { return nearZ_; }
-  float farZ() const { return farZ_; }
-  void setFovY(float degrees);
+  Units::Pixels nearZ() const { return nearZ_; }
+  Units::Pixels farZ() const { return farZ_; }
+  void setFovY(Units::Degrees degrees);
   void setAspect(float ratio);
 
   // --- Accessors ---
 
-  float3<float> position() const { return position_; }
-  float3<float> target() const { return target_; }
-  float3<float> up() const { return up_; }
-  float3<float> forward() const;
-  float3<float> right() const;
+  Coordinates::WorldPoint3 position() const { return position_; }
+  Coordinates::WorldPoint3 target() const { return target_; }
+  Coordinates::WorldVector3 up() const { return up_; }
+  Coordinates::WorldVector3 forward() const;
+  Coordinates::WorldVector3 right() const;
 
   // --- Matrices ---
 
@@ -79,7 +83,7 @@ export namespace ArtifactCore
   // --- Presets ---
 
   void reset();
-  void frameAll(float boundingRadius = 10.0f);
+  void frameAll(Units::WorldLength boundingRadius = Units::WorldLength{10.0f});
   void setViewFront();
   void setViewBack();
   void setViewLeft();
@@ -89,40 +93,42 @@ export namespace ArtifactCore
 
   // --- Fit ---
 
-  void fitToSphere(const float3<float>& center, float radius, float margin = 1.2f);
+  void fitToSphere(Coordinates::WorldPoint3 center,
+                   Units::WorldLength radius,
+                   float margin = 1.2f);
 
  private:
   void updateFromOrbit();
 
   // View state
-  float3<float> position_ = { 0, 0, 5 };
-  float3<float> target_   = { 0, 0, 0 };
-  float3<float> up_       = { 0, 1, 0 };
+  Coordinates::WorldPoint3 position_ = { 0, 0, 5 };
+  Coordinates::WorldPoint3 target_   = { 0, 0, 0 };
+  Coordinates::WorldVector3 up_      = { 0, 1, 0 };
 
   // Orbit angles (degrees)
-  float yaw_   = 0.0f;
-  float pitch_ = 0.0f;
-  float distance_ = 5.0f;
+  Units::Degrees yaw_{};
+  Units::Degrees pitch_{};
+  Units::WorldLength distance_{5.0f};
 
   // Projection
-  float fovY_  = 45.0f;
+  Units::Degrees fovY_{45.0f};
   float aspect_ = 16.0f / 9.0f;
-  float nearZ_ = 0.1f;
-  float farZ_  = 1000.0f;
+  Units::Pixels nearZ_{0.1f};
+  Units::Pixels farZ_{1000.0f};
  };
 
  struct StereoCamera {
   QMatrix4x4 leftEyeView;
   QMatrix4x4 rightEyeView;
   QMatrix4x4 projection;
-  float ipd = 0.064f;
-  float nearPlane = 0.1f;
-  float farPlane = 1000.0f;
+  Units::Meters ipd{0.064f};
+  Units::Pixels nearPlane{0.1f};
+  Units::Pixels farPlane{1000.0f};
 
   static StereoCamera fromHmd(const QMatrix4x4& hmdPose,
-                              float ipdValue = 0.064f,
-                              float nearValue = 0.1f,
-                              float farValue = 1000.0f)
+                              Units::Meters ipdValue = Units::Meters{0.064f},
+                              Units::Pixels nearValue = Units::Pixels{0.1f},
+                              Units::Pixels farValue = Units::Pixels{1000.0f})
   {
    StereoCamera camera;
    camera.ipd = ipdValue;
@@ -130,7 +136,7 @@ export namespace ArtifactCore
    camera.farPlane = farValue;
 
    QMatrix4x4 eyeOffset;
-   eyeOffset.translate(ipdValue * 0.5f, 0.0f, 0.0f);
+   eyeOffset.translate(ipdValue.value * 0.5f, 0.0f, 0.0f);
    camera.leftEyeView = (hmdPose * eyeOffset).inverted();
    camera.rightEyeView = (hmdPose * eyeOffset.inverted()).inverted();
    return camera;

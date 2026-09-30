@@ -199,6 +199,13 @@ void registerBuiltInConfigSchema() {
     schema.registerProperty({"UI/CompositionGrid/AxisColorG", "Axis green channel", QVariant::Double, 0.3, 0.0, 1.0});
     schema.registerProperty({"UI/CompositionGrid/AxisColorB", "Axis blue channel", QVariant::Double, 0.3, 0.0, 1.0});
     schema.registerProperty({"UI/CompositionGrid/AxisColorA", "Axis alpha channel", QVariant::Double, 0.9, 0.0, 1.0});
+    // Solid-rect batching diagnostics.  These are boot-time switches rather
+    // than user preferences: the batched path is still under investigation
+    // (an older swap-chain "clear-only" report could not be reproduced), and
+    // they are meant to be set from the exe-adjacent ArtifactStartup.json.
+    schema.registerProperty({"Render/SolidRectBatch", "Enable batched solid-rect submission", QVariant::Bool, true});
+    schema.registerProperty({"Render/SolidRectIndirect", "Use indirect draw for large solid-rect batches", QVariant::Bool, false});
+    schema.registerProperty({"Render/SolidRectVerbose", "Log solid-rect batch flushes once per submit", QVariant::Bool, false});
     schema.applyDefaultsToLayer(ConfigLayer::System);
 }
 }

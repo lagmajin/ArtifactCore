@@ -7,6 +7,7 @@ module;
 module Core.Light;
 
 import Float3;
+import Math.Vec;
 
 namespace ArtifactCore
 {
@@ -43,18 +44,18 @@ float3<float> Light::radiance() const
 
 // --- Position ---
 
-void Light::setPosition(const float3<float>& pos)
+void Light::setPosition(Coordinates::WorldPoint3 pos)
 {
  position_ = pos;
 }
 
 // --- Direction ---
 
-void Light::setDirection(const float3<float>& dir)
+void Light::setDirection(Coordinates::WorldVector3 dir)
 {
- float len = dir.length();
+ float len = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
  if (len > 0.0f) {
-  direction_ = { dir.x / len, dir.y / len, dir.z / len };
+  direction_ = dir / len;
  }
 }
 
@@ -67,9 +68,9 @@ void Light::setAttenuation(float constant, float linear, float quadratic)
  attenQuadratic_ = std::max(quadratic, 0.0f);
 }
 
-void Light::setRange(float range)
+void Light::setRange(Units::Pixels range)
 {
- if (range <= 0.0f) {
+ if (range.value <= 0.0f) {
   attenConstant_ = 1.0f;
   attenLinear_ = 0.0f;
   attenQuadratic_ = 0.0f;
@@ -78,14 +79,14 @@ void Light::setRange(float range)
  // Lighthouse/learnopengl convention:
  // constant=1, linear=4.5/range, quadratic=75/(range^2)
  attenConstant_ = 1.0f;
- attenLinear_ = 4.5f / range;
- attenQuadratic_ = 75.0f / (range * range);
+ attenLinear_ = 4.5f / range.value;
+ attenQuadratic_ = 75.0f / (range.value * range.value);
 }
 
-void Light::setAreaSize(float width, float height)
+void Light::setAreaSize(Units::Pixels width, Units::Pixels height)
 {
- areaWidth_ = std::max(width, 1.0f);
- areaHeight_ = std::max(height, 1.0f);
+ areaWidth_ = Units::Pixels{std::max(width.value, 1.0f)};
+ areaHeight_ = Units::Pixels{std::max(height.value, 1.0f)};
 }
 
 void Light::setAreaShape(int shape)
@@ -95,16 +96,16 @@ void Light::setAreaShape(int shape)
 
 // --- Spot cone ---
 
-void Light::setCutoff(float innerDegrees, float outerDegrees)
+void Light::setCutoff(Units::Degrees innerAngle, Units::Degrees outerAngle)
 {
- spotInnerDeg_ = std::clamp(innerDegrees, 0.0f, 90.0f);
- spotOuterDeg_ = std::clamp(outerDegrees, spotInnerDeg_, 90.0f);
+ spotInnerDeg_ = std::clamp(innerAngle.value, 0.0f, 90.0f);
+ spotOuterDeg_ = std::clamp(outerAngle.value, spotInnerDeg_, 90.0f);
 }
 
-void Light::setSpotAngle(float degrees)
+void Light::setSpotAngle(Units::Degrees degrees)
 {
- float d = std::clamp(degrees, 1.0f, 90.0f);
- setCutoff(d * 0.8f, d);
+ float d = std::clamp(degrees.value, 1.0f, 90.0f);
+ setCutoff(Units::Degrees{d * 0.8f}, Units::Degrees{d});
 }
 
 void Light::setGoboTexturePath(std::string path)
@@ -117,9 +118,9 @@ void Light::setGoboIntensity(float value)
  goboIntensity_ = std::clamp(value, 0.0f, 1.0f);
 }
 
-void Light::setGoboRotation(float degrees)
+void Light::setGoboRotation(Units::Degrees degrees)
 {
- goboRotation_ = std::fmod(degrees, 360.0f);
+ goboRotation_ = std::fmod(degrees.value, 360.0f);
 }
 
 void Light::setGoboInvert(bool enabled)
@@ -152,7 +153,7 @@ void Light::setEnabled(bool on)
 
 // --- Presets ---
 
-Light Light::makeDirectional(const float3<float>& dir,
+Light Light::makeDirectional(Coordinates::WorldVector3 dir,
                               const float3<float>& color,
                               float intensity)
 {
@@ -163,10 +164,10 @@ Light Light::makeDirectional(const float3<float>& dir,
  return l;
 }
 
-Light Light::makePoint(const float3<float>& pos,
+Light Light::makePoint(Coordinates::WorldPoint3 pos,
                         const float3<float>& color,
                         float intensity,
-                        float range)
+                        Units::Pixels range)
 {
  Light l(LightType::Point);
  l.setPosition(pos);
@@ -176,12 +177,12 @@ Light Light::makePoint(const float3<float>& pos,
  return l;
 }
 
-Light Light::makeSpot(const float3<float>& pos,
-                       const float3<float>& dir,
+Light Light::makeSpot(Coordinates::WorldPoint3 pos,
+                       Coordinates::WorldVector3 dir,
                        const float3<float>& color,
                        float intensity,
-                       float angle,
-                       float range)
+                       Units::Degrees angle,
+                       Units::Pixels range)
 {
  Light l(LightType::Spot);
  l.setPosition(pos);

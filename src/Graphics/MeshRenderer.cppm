@@ -23,6 +23,8 @@ module;
 
 module Graphics.MeshRenderer;
 
+import Math.Vec;
+
 import Frame.Debug;
 import Graphics.ParticleData;
 import Graphics.Compute;
@@ -3172,13 +3174,13 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
         gpuLight.attenuationSpot[0] = light.attenuationLinear();
         gpuLight.attenuationSpot[1] = light.attenuationQuadratic();
         gpuLight.attenuationSpot[2] =
-            std::cos(light.spotInnerCutoff() *
+            std::cos(light.spotInnerCutoff().value *
                      std::numbers::pi_v<float> / 180.0f);
         gpuLight.attenuationSpot[3] =
-            std::cos(light.spotOuterCutoff() *
+            std::cos(light.spotOuterCutoff().value *
                      std::numbers::pi_v<float> / 180.0f);
-        gpuLight.areaSize[0] = light.areaWidth();
-        gpuLight.areaSize[1] = light.areaHeight();
+        gpuLight.areaSize[0] = light.areaWidth().value;
+        gpuLight.areaSize[1] = light.areaHeight().value;
         gpuLight.areaSize[2] = static_cast<float>(light.areaShape());
         const QString goboPath = QString::fromStdString(light.goboTexturePath());
         const bool shouldLoadGobo = light.type() == LightType::Spot &&
@@ -3202,7 +3204,7 @@ void MeshRenderer::setSceneLights(const std::vector<Light>& lights)
             }
         }
         gpuLight.goboInfo[0] = light.goboIntensity();
-        gpuLight.goboInfo[1] = light.goboRotation() *
+        gpuLight.goboInfo[1] = light.goboRotation().value *
             std::numbers::pi_v<float> / 180.0f;
         gpuLight.goboInfo[2] = light.goboInvert() ? 1.0f : 0.0f;
         gpuLight.goboInfo[3] = light.type() == LightType::Spot &&

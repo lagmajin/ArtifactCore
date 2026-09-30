@@ -186,7 +186,9 @@ export namespace ArtifactCore
    const PointwiseComputePlan& plan,
    ITextureView* backgroundSRV = nullptr,
    ITextureView* lutSRV = nullptr,
-   ITextureView* historySRV = nullptr
+   ITextureView* historySRV = nullptr,
+   ITextureView* originalSRV = nullptr,
+   ITextureView* maskSRV = nullptr
   );
 
   IBuffer* createPointwiseParameterBuffer();

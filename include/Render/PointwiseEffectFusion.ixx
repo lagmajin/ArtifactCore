@@ -78,6 +78,12 @@ struct PointwiseFusionSegment {
     bool requiresHistory = false;
     bool isFused = false;
     std::string fallbackReason;
+    // Adjustment layers scope their effect with a mask: the source must be
+    // blended against the untouched accumulation using the mask as a lerp
+    // factor (mix(original, adjusted, mask)).  Applying the mask to the
+    // adjusted result alone would grade and darken the mask edges themselves,
+    // which is the behaviour the CPU path used to have.
+    bool requiresMaskMix = false;
 };
 
 struct PointwiseCompileKey {
@@ -89,6 +95,7 @@ struct PointwiseCompileKey {
     bool requiresBackground = false;
     bool requiresLut = false;
     bool requiresHistory = false;
+    bool requiresMaskMix = false;
 
     String toString() const {
         std::ostringstream key;
@@ -96,7 +103,8 @@ struct PointwiseCompileKey {
             << static_cast<unsigned>(alphaMode) << '|'
             << (requiresBackground ? 'B' : '-')
             << (requiresLut ? 'L' : '-')
-            << (requiresHistory ? 'H' : '-');
+            << (requiresHistory ? 'H' : '-')
+            << (requiresMaskMix ? 'M' : '-');
         for (std::size_t i = 0; i < orderedNodeKinds.size(); ++i) {
             key << '|' << static_cast<unsigned>(orderedNodeKinds[i])
                 << (i < staticSpecializations.size() && staticSpecializations[i] ? 'S' : 'D');
@@ -119,6 +127,10 @@ struct PointwiseComputePlan {
     std::string backgroundResource = "BackgroundTexture";
     std::string lutResource = "LutTexture";
     std::string historyResource = "HistoryTexture";
+    // Untouched accumulation sampled alongside the adjusted result when
+    // requiresMaskMix is set, so the shader can lerp between them.
+    std::string originalResource = "OriginalTexture";
+    std::string maskResource = "MaskTexture";
     std::string parameterBuffer = "PointwiseParameters";
     std::uint32_t width = 0;
     std::uint32_t height = 0;
@@ -153,6 +165,11 @@ struct PointwiseStackValidation {
 class PointwiseEffectStack {
 public:
     static constexpr std::size_t kParameterSlotCount = 64;
+    // Reserved for the adjustment-layer mask mix: .x carries layer opacity.
+    // Effect nodes must not claim this slot.
+    static constexpr std::uint32_t kMaskMixParameterSlot = 63;
+    // Highest slot an effect node may allocate.
+    static constexpr std::uint32_t kMaxNodeParameterSlot = kMaskMixParameterSlot - 1;
 
     std::uint32_t addNode(
         PointwiseNodeKind kind,
@@ -398,6 +415,12 @@ public:
         if (segment.requiresLut) {
             hlsl << "Texture3D<float4> LutTexture : register(t" << textureRegister++ << ");\n";
         }
+        if (segment.requiresMaskMix) {
+            // OriginalTexture holds the accumulation as it was before the
+            // adjustment; MaskTexture scopes the effect.  Both are read-only.
+            hlsl << "Texture2D<float4> OriginalTexture : register(t" << textureRegister++ << ");\n";
+            hlsl << "Texture2D<float4> MaskTexture : register(t" << textureRegister++ << ");\n";
+        }
         if (segment.requiresLut) {
             hlsl << "SamplerState LinearSampler : register(s0);\n";
         }
@@ -426,6 +449,16 @@ public:
             } else {
                 hlsl << "  color.rgb = ToStraight(color);\n";
             }
+        }
+        if (segment.requiresMaskMix) {
+            // Lerp the adjusted result against the untouched accumulation using
+            // (mask * opacity) as the blend factor.  This is the AE semantic: a
+            // mask on an adjustment layer restricts *where the effect applies*,
+            // it must never scale or grade the result.  Working in premultiplied
+            // space keeps the lerp correct for semi-transparent pixels.
+            hlsl << "  float maskValue = saturate(MaskTexture.Load(int3(pixel, 0)).a * Parameters[63].x);\n";
+            hlsl << "  float4 original = OriginalTexture.Load(int3(pixel, 0));\n";
+            hlsl << "  color = lerp(original, color, maskValue);\n";
         }
         hlsl << "  OutputTexture[pixel] = color;\n}\n";
         result.source = hlsl.str();

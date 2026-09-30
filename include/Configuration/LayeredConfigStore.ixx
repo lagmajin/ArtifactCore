@@ -56,6 +56,14 @@ public:
     bool removeValue(ConfigLayer layer, std::string_view key);
     bool clearLayer(ConfigLayer layer);
 
+    // Seeds the System layer from a plain JSON document.  Keys use the same
+    // "Group/Name" spelling as the schema; nested objects are flattened with
+    // '/' so {"Render":{"SolidRectBatch":true}} lands on "Render/SolidRectBatch".
+    // System is the lowest-priority layer, so User/Project/Session still win.
+    // Intended for an exe-adjacent startup file; returns the number of keys
+    // applied, or -1 when the file could not be read.
+    int importSystemJson(const QString& path);
+
     ConfigLayer sourceLayer(std::string_view key) const;
     QStringList allKeys() const;
     bool exportLayer(ConfigLayer layer, const QString& path) const;

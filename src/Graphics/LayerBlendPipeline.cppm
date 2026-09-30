@@ -349,9 +349,18 @@ bool LayerBlendPipeline::applyPointwise(
     const PointwiseComputePlan& plan,
     ITextureView* backgroundSRV,
     ITextureView* lutSRV,
-    ITextureView* historySRV)
+    ITextureView* historySRV,
+    ITextureView* originalSRV,
+    ITextureView* maskSRV)
 {
     if (!ctx || !context_ || !srcSRV || !outUAV || !parameterBuffer || !plan.valid()) {
+        return false;
+    }
+    // The mask mix needs both the untouched accumulation and the mask itself;
+    // a half-bound pair would silently drop the adjustment's scope.
+    if (plan.shader.key.requiresMaskMix && (!originalSRV || !maskSRV)) {
+        qWarning() << "[LayerBlendPipeline::applyPointwise] mask mix requested"
+                   << "without original/mask views";
         return false;
     }
 
@@ -372,7 +381,8 @@ bool LayerBlendPipeline::applyPointwise(
         return false;
     }
 
-    ShaderResourceVariableDesc variables[6] = {
+    // params, src, out, background, lut, history, original, mask.
+    ShaderResourceVariableDesc variables[8] = {
         {SHADER_TYPE_COMPUTE, plan.parameterBuffer.c_str(),
          SHADER_RESOURCE_VARIABLE_TYPE_STATIC},
         {SHADER_TYPE_COMPUTE, plan.sourceResource.c_str(),
@@ -396,6 +406,14 @@ bool LayerBlendPipeline::applyPointwise(
             SHADER_TYPE_COMPUTE, plan.historyResource.c_str(),
             SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
     }
+    if (plan.shader.key.requiresMaskMix) {
+        variables[variableCount++] = {
+            SHADER_TYPE_COMPUTE, plan.originalResource.c_str(),
+            SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+        variables[variableCount++] = {
+            SHADER_TYPE_COMPUTE, plan.maskResource.c_str(),
+            SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+    }
 
     const std::string pipelineKey =
         toStdString(plan.shader.key.toString()) +
@@ -404,7 +422,9 @@ bool LayerBlendPipeline::applyPointwise(
         "|out=" + plan.outputResource +
         "|bg=" + plan.backgroundResource +
         "|lut=" + plan.lutResource +
-        "|history=" + plan.historyResource;
+        "|history=" + plan.historyResource +
+        "|original=" + plan.originalResource +
+        "|mask=" + plan.maskResource;
     if (!pointwiseExecutor_ || !pointwiseExecutor_->ready() ||
         pointwisePipelineKey_ != pipelineKey) {
         pointwiseExecutor_ = std::make_unique<ComputeExecutor>(*context_);
@@ -451,6 +471,13 @@ bool LayerBlendPipeline::applyPointwise(
     if (plan.shader.key.requiresLut) {
         if (!lutSRV ||
             !pointwiseExecutor_->setTextureView(plan.lutResource.c_str(), lutSRV)) {
+            pointwiseExecutor_.reset();
+            return false;
+        }
+    }
+    if (plan.shader.key.requiresMaskMix) {
+        if (!pointwiseExecutor_->setTextureView(plan.originalResource.c_str(), originalSRV) ||
+            !pointwiseExecutor_->setTextureView(plan.maskResource.c_str(), maskSRV)) {
             pointwiseExecutor_.reset();
             return false;
         }

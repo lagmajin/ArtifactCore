@@ -7,6 +7,9 @@ module;
 #include <QSaveFile>
 #include <QCborMap>
 #include <QCborValue>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
 #include <QStandardPaths>
 #include <array>
 #include <functional>
@@ -51,7 +54,12 @@ public:
         for (int i = 0; i < layerCount; ++i) {
             layers[static_cast<size_t>(i)].layer = static_cast<ConfigLayer>(i);
         }
-        layers[static_cast<int>(ConfigLayer::System)].writable = false;
+        // System is memory-only (it has no backing file), so "writable" here
+        // means in-process only.  It must be writable so startup defaults and
+        // the exe-adjacent ArtifactStartup.json overlay can seed the layer
+        // through setValue(ConfigLayer::System, ...); saveLayer() remains a
+        // no-op for it because FastSettingsStore here has no path to sync.
+        layers[static_cast<int>(ConfigLayer::System)].writable = true;
         layers[static_cast<int>(ConfigLayer::User)].writable = true;
         layers[static_cast<int>(ConfigLayer::Project)].writable = true;
         layers[static_cast<int>(ConfigLayer::Session)].writable = true;
@@ -272,6 +280,56 @@ bool LayeredConfigStore::exportLayer(ConfigLayer layer, const QString& path) con
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(payload) != payload.size()) return false;
     return file.commit();
+}
+
+int LayeredConfigStore::importSystemJson(const QString& path) {
+    auto* data = impl_->layer(ConfigLayer::System);
+    if (!data || !data->loaded || !data->store || !data->writable) return -1;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) return -1;
+    const QByteArray payload = file.readAll();
+    file.close();
+    QJsonParseError parseError{};
+    const QJsonDocument document = QJsonDocument::fromJson(payload, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        return -1;
+    }
+    int applied = 0;
+    // Flatten nested objects into the schema's "Group/Name" spelling so a
+    // startup file can mirror the settings screen's grouping.
+    const auto applyObject = [&](const QJsonObject& object, const QString& prefix,
+                                 auto&& self) -> void {
+        for (auto it = object.constBegin(); it != object.constEnd(); ++it) {
+            // Keys beginning with '_' are documentation-only, so a startup file
+            // can carry its own inline notes without them becoming settings.
+            if (it.key().startsWith(QLatin1Char('_'))) {
+                continue;
+            }
+            const QString key = prefix.isEmpty() ? it.key()
+                                                 : prefix + QLatin1Char('/') + it.key();
+            if (it.value().isObject()) {
+                self(it.value().toObject(), key, self);
+                continue;
+            }
+            // std::string_view borrows the bytes, so the QByteArray has to
+            // outlive the call: keep one local instead of two temporaries.
+            const QByteArray utf8Key = key.toUtf8();
+            const std::string_view keyView(utf8Key.constData(),
+                                           static_cast<size_t>(utf8Key.size()));
+            if (it.value().isArray()) {
+                if (setValue(ConfigLayer::System, keyView,
+                             it.value().toArray().toVariantList())) {
+                    ++applied;
+                }
+                continue;
+            }
+            if (setValue(ConfigLayer::System, keyView, it.value().toVariant())) {
+                ++applied;
+            }
+        }
+    };
+    applyObject(document.object(), QString(), applyObject);
+    return applied;
 }
 
 bool LayeredConfigStore::importLayer(const QString& path, ConfigLayer targetLayer) {
