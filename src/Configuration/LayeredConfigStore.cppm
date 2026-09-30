@@ -7,6 +7,7 @@ module;
 #include <QSaveFile>
 #include <QCborMap>
 #include <QCborValue>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
