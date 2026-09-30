@@ -273,11 +273,13 @@ public:
                                                 const QString& style = QString())
  {
   if (family.trimmed().isEmpty()) return std::nullopt;
-  if (const QString path = applicationFontPathFor(family, style)) {
+  if (const QString path = applicationFontPathFor(family, style);
+      !path.isEmpty()) {
    QFile file(path);
    if (file.open(QIODevice::ReadOnly)) return file.readAll();
   }
-  if (const QString path = systemFontPathFor(family, style)) {
+  if (const QString path = systemFontPathFor(family, style);
+      !path.isEmpty()) {
    QFile file(path);
    if (file.open(QIODevice::ReadOnly)) return file.readAll();
   }

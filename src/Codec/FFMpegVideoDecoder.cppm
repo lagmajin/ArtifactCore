@@ -11,6 +11,7 @@
 #include <memory>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <functional>
 #include <optional>
 #include <utility>
@@ -65,38 +66,35 @@ static int normalizedVideoRotation(int rotationDegrees) {
 }
 
 static int videoSwsFlags(int rotationDegrees) {
-  switch (normalizedVideoRotation(rotationDegrees)) {
-  case 90: return SWS_BILINEAR | SWS_ROTATE_90;
-  case 180: return SWS_BILINEAR | SWS_ROTATE_180;
-  case 270: return SWS_BILINEAR | SWS_ROTATE_270;
-  default: return SWS_BILINEAR;
-  }
+  Q_UNUSED(rotationDegrees);
+  return SWS_BILINEAR;
 }
 
 static CpuVideoFrame makeCpuVideoFrameFromFrame(
     AVFrame* frame, SwsContext*& swsCtx, int width, int height,
-    int64_t pts, int rotationDegrees = 0) {
+    int64_t pts, int rotationDegrees,
+    std::vector<std::uint8_t>& rotatedScratch) {
   CpuVideoFrame out;
   const int rotation = normalizedVideoRotation(rotationDegrees);
   const bool swapDimensions = rotation == 90 || rotation == 270;
   const int outputWidth = swapDimensions ? height : width;
   const int outputHeight = swapDimensions ? width : height;
-  out.meta.width = outputWidth;
-  out.meta.height = outputHeight;
+  out.meta.width = width;
+  out.meta.height = height;
   out.meta.pixelFormat = VideoFramePixelFormat::RGB24;
   out.meta.pts = pts;
   out.meta.color.colorSpace = static_cast<int>(AVCOL_SPC_RGB);
   out.meta.color.colorRange = static_cast<int>(AVCOL_RANGE_JPEG);
   out.meta.color.colorPrimaries = static_cast<int>(frame->color_primaries);
   out.meta.color.colorTransfer = static_cast<int>(frame->color_trc);
-  const auto strideBytes = static_cast<std::int64_t>(outputWidth) * 3;
-  if (outputWidth <= 0 || outputHeight <= 0 || strideBytes <= 0 ||
+  const auto strideBytes = static_cast<std::int64_t>(width) * 3;
+  if (width <= 0 || height <= 0 || strideBytes <= 0 ||
       strideBytes > std::numeric_limits<int>::max()) {
     return out;
   }
   swsCtx = sws_getCachedContext(
       swsCtx, width, height, static_cast<AVPixelFormat>(frame->format),
-      outputWidth, outputHeight, AV_PIX_FMT_RGB24,
+      width, height, AV_PIX_FMT_RGB24,
       videoSwsFlags(rotation), nullptr, nullptr, nullptr);
   if (!swsCtx) {
     return out;
@@ -109,11 +107,38 @@ static CpuVideoFrame makeCpuVideoFrameFromFrame(
   }
   out.strideBytes = static_cast<int>(strideBytes);
   out.bytes.resize(static_cast<size_t>(out.strideBytes) *
-                   static_cast<size_t>(outputHeight));
+                   static_cast<size_t>(height));
   std::uint8_t* dstData[4] = { out.bytes.data(), nullptr, nullptr, nullptr };
   int dstLinesize[4] = { out.strideBytes, 0, 0, 0 };
   sws_scale(swsCtx, frame->data, frame->linesize, 0, height,
             dstData, dstLinesize);
+  if (rotation == 180) {
+    const size_t pixelCount = static_cast<size_t>(width) * height;
+    for (size_t pixel = 0; pixel < pixelCount / 2; ++pixel) {
+      const size_t opposite = pixelCount - pixel - 1;
+      for (size_t channel = 0; channel < 3; ++channel) {
+        std::swap(out.bytes[pixel * 3 + channel],
+                  out.bytes[opposite * 3 + channel]);
+      }
+    }
+  } else if (rotation == 90 || rotation == 270) {
+    rotatedScratch.resize(static_cast<size_t>(outputWidth) * outputHeight * 3);
+    for (int y = 0; y < height; ++y) {
+      for (int x = 0; x < width; ++x) {
+        const int rotatedX = rotation == 90 ? height - y - 1 : y;
+        const int rotatedY = rotation == 90 ? x : width - x - 1;
+        const size_t source = static_cast<size_t>(y) * width * 3 + x * 3;
+        const size_t destination =
+            static_cast<size_t>(rotatedY) * outputWidth * 3 + rotatedX * 3;
+        std::copy_n(out.bytes.data() + source, 3,
+                    rotatedScratch.data() + destination);
+      }
+    }
+    out.bytes.swap(rotatedScratch);
+    out.meta.width = outputWidth;
+    out.meta.height = outputHeight;
+    out.strideBytes = outputWidth * 3;
+  }
   return out;
 }
 
@@ -126,6 +151,7 @@ class FFmpegVideoDecoder::Impl {
  AVFrame* frame = nullptr;
  SwsContext* swsCtx_ = nullptr;
  int displayRotationDegrees_ = 0;
+ std::vector<std::uint8_t> rotatedScratch_;
  public:
   ~Impl() { closeFile(); }
  bool openFile(const QString& path);
@@ -205,8 +231,20 @@ bool FFmpegVideoDecoder::Impl::openFile(const QString& path) {
     formatContext = nullptr;
     return false;
   }
-  displayRotationDegrees_ = normalizedVideoRotation(-static_cast<int>(std::lround(
-      av_display_rotation_get(formatContext->streams[videoStreamIndex]))));
+  auto* videoStream = formatContext->streams[videoStreamIndex];
+  const AVPacketSideData* displaySideData = av_packet_side_data_get(
+      videoStream->codecpar->coded_side_data,
+      videoStream->codecpar->nb_coded_side_data,
+      AV_PKT_DATA_DISPLAYMATRIX);
+  if (displaySideData &&
+      displaySideData->size >= sizeof(int32_t) * 9) {
+    std::array<int32_t, 9> matrix{};
+    std::memcpy(matrix.data(), displaySideData->data, sizeof(matrix));
+    displayRotationDegrees_ = normalizedVideoRotation(-static_cast<int>(
+        std::lround(av_display_rotation_get(matrix.data()))));
+  } else {
+    displayRotationDegrees_ = 0;
+  }
 
   const AVCodec* codec = avcodec_find_decoder(codecParameters->codec_id);
   if (!codec) {
@@ -325,7 +363,7 @@ DecodedVideoFrame FFmpegVideoDecoder::Impl::decodeNextVideoFrameRaw() {
       const int64_t pts = frame->best_effort_timestamp != AV_NOPTS_VALUE ? frame->best_effort_timestamp : frame->pts;
       CpuVideoFrame out = makeCpuVideoFrameFromFrame(
           frame, swsCtx_, codecContext->width, codecContext->height, pts,
-          displayRotationDegrees_);
+          displayRotationDegrees_, rotatedScratch_);
       av_frame_unref(frame);
       diagnosticScope.finish(true);
       return out;
