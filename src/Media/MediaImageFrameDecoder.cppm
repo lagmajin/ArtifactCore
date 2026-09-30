@@ -443,13 +443,10 @@ bool MediaImageFrameDecoder::initialize(AVCodecParameters* codecParams, int disp
         return false;
     }
 
-    const bool swapDimensions = displayRotationDegrees_ == 90 ||
-                               displayRotationDegrees_ == 270;
     swsCtx_ = sws_getContext(
         codecContext_->width, codecContext_->height, codecContext_->pix_fmt,
-        swapDimensions ? codecContext_->height : codecContext_->width,
-        swapDimensions ? codecContext_->width : codecContext_->height,
-        AV_PIX_FMT_RGB24, videoSwsFlags(displayRotationDegrees_),
+        codecContext_->width, codecContext_->height,
+        AV_PIX_FMT_RGB24, SWS_BILINEAR,
         nullptr, nullptr, nullptr);
     if (swsCtx_) {
     } else {
