@@ -286,6 +286,24 @@ public:
   return std::nullopt;
  }
 
+ static QFont makeFont(const TextStyle& style, const QString& sampleText = QString())
+ {  QFont font(resolvedFamilyForText(style.fontFamily.toQString(), sampleText));
+  font.setPointSizeF(std::max(1.0f, style.fontSize));
+  const int numericWeight = std::clamp(style.fontWeightValue, 0, 900);
+  if (numericWeight >= 100) {
+   font.setWeight(static_cast<QFont::Weight>(numericWeight));
+  } else {
+   font.setWeight(style.fontWeight == FontWeight::Bold ? QFont::Bold : QFont::Normal);
+  }
+  font.setItalic(style.fontStyle == FontStyle::Italic);
+  font.setUnderline(style.underline);
+  font.setStrikeOut(style.strikethrough);
+  font.setCapitalization(style.allCaps ? QFont::AllUppercase : QFont::MixedCase);
+  font.setLetterSpacing(QFont::AbsoluteSpacing, style.tracking);
+  font.setStretch(std::clamp(static_cast<int>(std::lround(style.fontStretch)), 50, 200));
+  return font;
+ }
+
  private:
  // Family (lower case) -> font file path, populated from addApplicationFont.
  static std::unordered_map<QString, QString>& applicationFontFiles()
@@ -368,23 +386,6 @@ public:
   return {};
  }
 
- static QFont makeFont(const TextStyle& style, const QString& sampleText = QString())
- {  QFont font(resolvedFamilyForText(style.fontFamily.toQString(), sampleText));
-  font.setPointSizeF(std::max(1.0f, style.fontSize));
-  const int numericWeight = std::clamp(style.fontWeightValue, 0, 900);
-  if (numericWeight >= 100) {
-   font.setWeight(static_cast<QFont::Weight>(numericWeight));
-  } else {
-   font.setWeight(style.fontWeight == FontWeight::Bold ? QFont::Bold : QFont::Normal);
-  }
-  font.setItalic(style.fontStyle == FontStyle::Italic);
-  font.setUnderline(style.underline);
-  font.setStrikeOut(style.strikethrough);
-  font.setCapitalization(style.allCaps ? QFont::AllUppercase : QFont::MixedCase);
-  font.setLetterSpacing(QFont::AbsoluteSpacing, style.tracking);
-  font.setStretch(std::clamp(static_cast<int>(std::lround(style.fontStretch)), 50, 200));
-  return font;
- }
 };
 
 }

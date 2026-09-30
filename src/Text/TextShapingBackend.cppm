@@ -2,6 +2,7 @@ module;
 #include <algorithm>
 #include <QFont>
 #include <QFontMetricsF>
+#include <QByteArray>
 #include <QList>
 #include <QPointF>
 #include <QRectF>
@@ -421,7 +422,8 @@ BidiParagraph computeBidiParagraph(const std::u32string& text,
   if (requestedBase == TextDirection::RightToLeft) {
     paraLevel = UBIDI_DEFAULT_RTL;
   }
-  ubidi_setPara(bidi, utf16.utf16(),
+  const std::u16string bidiText = utf16.toStdU16String();
+  ubidi_setPara(bidi, bidiText.data(),
                 static_cast<int32_t>(utf16.size()), paraLevel, nullptr,
                 &status);
   if (U_FAILURE(status)) {
@@ -1619,8 +1621,10 @@ std::optional<TextShapingResult> shapeWithHarfBuzz(
     hb_buffer_set_script(buffer, explicitScript);
   }
   if (!request.locale.isEmpty()) {
+    const QByteArray localeTag = toBcp47LanguageTag(request.locale).toUtf8();
     hb_buffer_set_language(
-        buffer, toBcp47LanguageTag(request.locale).toUtf8().constData());
+        buffer, hb_language_from_string(localeTag.constData(),
+                                        static_cast<int>(localeTag.size())));
   }
 
   // Keep every glyph of a grapheme cluster in logical order so cluster values
