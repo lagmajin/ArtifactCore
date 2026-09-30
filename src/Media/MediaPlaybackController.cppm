@@ -46,13 +46,11 @@ module;
 #include <numeric>
 #include <regex>
 #include <random>
-extern "C" {
 #include <libavutil/error.h>
 #include <libavutil/display.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
-}
 
 module MediaPlaybackController;
 
@@ -63,6 +61,25 @@ import Video.VideoFrame;
 namespace ArtifactCore {
 
 namespace {
+
+int streamDisplayRotationDegrees(const AVStream* stream) {
+  if (!stream || !stream->codecpar) {
+    return 0;
+  }
+  const AVCodecParameters* codecParameters = stream->codecpar;
+  const AVPacketSideData* displaySideData = av_packet_side_data_get(
+      codecParameters->coded_side_data, codecParameters->nb_coded_side_data,
+      AV_PKT_DATA_DISPLAYMATRIX);
+  if (!displaySideData ||
+      displaySideData->size < sizeof(std::int32_t) * 9) {
+    return 0;
+  }
+  std::array<std::int32_t, 9> displayMatrix{};
+  std::memcpy(displayMatrix.data(), displaySideData->data,
+              sizeof(displayMatrix));
+  return static_cast<int>(
+      std::lround(av_display_rotation_get(displayMatrix.data())));
+}
 
 CpuVideoFrame makeCpuVideoFrameFromQImage(const QImage& image) {
   if (image.isNull()) {
@@ -467,8 +484,7 @@ class MediaPlaybackController::Impl {
     for (unsigned int i = 0; i < ctx->nb_streams; ++i) {
       AVCodecParameters* params = ctx->streams[i]->codecpar;
       if (params->codec_type == AVMEDIA_TYPE_VIDEO) {
-        const int rotation = static_cast<int>(std::lround(
-            av_display_rotation_get(ctx->streams[i])));
+        const int rotation = streamDisplayRotationDegrees(ctx->streams[i]);
         if (decoder->initialize(params, rotation)) {
           const int streamIndex = static_cast<int>(i);
           const auto timeBase = ctx->streams[i]->time_base;
@@ -828,8 +844,7 @@ class MediaPlaybackController::Impl {
         case AVMEDIA_TYPE_VIDEO:
           streamInfo.type = MediaType::Video;
           {
-            const int rotation = static_cast<int>(std::lround(
-                av_display_rotation_get(stream)));
+            const int rotation = streamDisplayRotationDegrees(stream);
             const bool swapDimensions = std::abs(rotation) == 90 ||
                                        std::abs(rotation) == 270;
             streamInfo.resolution = swapDimensions
@@ -1604,8 +1619,7 @@ bool FFmpegPlaybackBackend::open(MediaPlaybackController::Impl& impl, const QStr
       AVCodecParameters* params = ctx->streams[i]->codecpar;
       if (params->codec_type == AVMEDIA_TYPE_VIDEO) {
         foundVideoStream = true;
-        const int rotation = static_cast<int>(std::lround(
-            av_display_rotation_get(ctx->streams[i])));
+        const int rotation = streamDisplayRotationDegrees(ctx->streams[i]);
         if (!impl.videoDecoder_->initialize(params, rotation)) {
           qWarning() << "[FFmpegBackend] Failed to initialize video decoder";
           impl.notifyError(QStringLiteral("Video decoder initialization failed for '%1'").arg(url));
