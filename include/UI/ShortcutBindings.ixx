@@ -184,7 +184,10 @@ enum class ShortcutId {
     ExpressionFontSizeReset = 166,
     ExpressionToggleLineNumbers = 167,
     ExpressionToggleWordWrap = 168,
-    Count = 169
+    // Project View (Workspace.Project). Appended after the original list so the
+    // persisted ordinals above stay stable.
+    ProjectRevealInExplorer = 169,
+    Count = 170
 };
 
 QString shortcutDisplayName(ShortcutId id);

@@ -357,6 +357,8 @@ QString shortcutIdKey(ShortcutId id)
         return QStringLiteral("ExpressionToggleLineNumbers");
     case ShortcutId::ExpressionToggleWordWrap:
         return QStringLiteral("ExpressionToggleWordWrap");
+    case ShortcutId::ProjectRevealInExplorer:
+        return QStringLiteral("ProjectRevealInExplorer");
     case ShortcutId::Count:
         break;
     }
@@ -707,6 +709,8 @@ QString shortcutDisplayName(ShortcutId id)
         return QStringLiteral("Expression Toggle Line Numbers");
     case ShortcutId::ExpressionToggleWordWrap:
         return QStringLiteral("Expression Toggle Word Wrap");
+    case ShortcutId::ProjectRevealInExplorer:
+        return QStringLiteral("Project Reveal In Explorer");
     case ShortcutId::Count:
         break;
     }
@@ -889,6 +893,7 @@ std::array<ShortcutId, static_cast<std::size_t>(ShortcutId::Count)> allShortcutI
         ShortcutId::ExpressionFontSizeReset,
         ShortcutId::ExpressionToggleLineNumbers,
         ShortcutId::ExpressionToggleWordWrap,
+        ShortcutId::ProjectRevealInExplorer,
     };
 }
 
@@ -1091,6 +1096,9 @@ void ShortcutBindings::resetToDefaults()
     defaults_[index(ShortcutId::ExpressionFontSizeReset)] = QKeySequence(Qt::CTRL | Qt::Key_0);
     defaults_[index(ShortcutId::ExpressionToggleLineNumbers)] = QKeySequence(Qt::ALT | Qt::Key_L);
     defaults_[index(ShortcutId::ExpressionToggleWordWrap)] = QKeySequence(Qt::ALT | Qt::Key_Z);
+    // Keep this unbound by default; R is reserved for the standard rotate
+    // operation and already has other context-sensitive assignments.
+    defaults_[index(ShortcutId::ProjectRevealInExplorer)] = QKeySequence();
 
     overrides_.fill(QKeySequence());
 }
